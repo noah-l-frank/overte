@@ -502,7 +502,7 @@ jobs:
     needs: [plan, policy]
     if: needs.plan.outputs.active == 'true' && needs.plan.outputs.android == 'true'
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: ${{ needs.plan.outputs.android_native_products != '[]' && 150 || 45 }}
     steps:
       - name: Check out the immutable trusted controller
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -602,12 +602,32 @@ jobs:
         with:
           path: ${{ runner.temp }}/pr-ci-android-qt-api/QtAndroid.jar
           key: pr-ci-android-qt-api-a9f64f066766e3908d64183a49c0722aff09495c5f17768213a2989a73edf893
+      - name: Restore checksum-bound Android native asset transport
+        if: needs.plan.outputs.android_native_products != '[]'
+        id: android-native-cache
+        uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25
+        with:
+          path: ${{ runner.temp }}/pr-ci-android-native-cache
+          key: pr-ci-android-native-v1-${{ hashFiles('trusted/.github/pr-ci-android-native.json') }}
+      - name: Prepare the qualified Android native runtime only when selected
+        if: needs.plan.outputs.android_native_products != '[]'
+        run: |
+          python3 -I -S -B trusted/tools/repository-checks/pr_ci_android_native.py \
+            --destination "$RUNNER_TEMP/pr-ci-android-native" \
+            --cache "$RUNNER_TEMP/pr-ci-android-native-cache"
+      - name: Save verified Android native asset transport
+        if: needs.plan.outputs.android_native_products != '[]' && steps.android-native-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25
+        with:
+          path: ${{ runner.temp }}/pr-ci-android-native-cache
+          key: pr-ci-android-native-v1-${{ hashFiles('trusted/.github/pr-ci-android-native.json') }}
       - name: Require the selected Android product validation
         env:
           CONTEXT_JSON: ${{ needs.plan.outputs.context_json }}
           PLAN_JSON: ${{ needs.plan.outputs.plan_json }}
           FULL_HOST: 'true'
           COMPILE_PRODUCTS: ${{ needs.plan.outputs.android_compile_products }}
+          NATIVE_PRODUCTS: ${{ needs.plan.outputs.android_native_products }}
         run: |
           node_root=$(dirname "$(dirname "$(readlink -f "$(command -v node)")")")
           prepared=(--prepared-root "$node_root")
@@ -616,6 +636,9 @@ jobs:
           fi
           if test "$COMPILE_PRODUCTS" != '[]'; then
             prepared+=(--prepared-root "$RUNNER_TEMP/pr-ci-android-api" --android-runtime "$RUNNER_TEMP/pr-ci-android-api")
+          fi
+          if test "$NATIVE_PRODUCTS" != '[]'; then
+            prepared+=(--prepared-root "$RUNNER_TEMP/pr-ci-android-native" --android-native-runtime "$RUNNER_TEMP/pr-ci-android-native")
           fi
           "$RUNNER_TEMP/pr-ci-venv/bin/python" -I -S -B trusted/tools/repository-checks/pr_ci.py platform \
             --lane android --context-json "$CONTEXT_JSON" --plan-json "$PLAN_JSON" \

@@ -1506,6 +1506,82 @@
           "tools/repository-checks/pr_ci_run.py"
         ]
       }
+    },
+    "pr-ci-android-assets": {
+      "command": [
+        "python",
+        "tests/pr-ci-android-assets-test.py"
+      ],
+      "layer": "quick",
+      "scope": "content",
+      "environment": "python",
+      "closure": {
+        "kind": "patterns",
+        "inputs": [
+          "tests/pr-ci-android-assets-test.py",
+          "tools/repository-checks/pr_ci_android_assets.py",
+          "tools/repository-checks/pr_ci_android_runtime.py",
+          ".github/pr-ci-android-native.json"
+        ],
+        "required": [
+          "tests/pr-ci-android-assets-test.py",
+          "tools/repository-checks/pr_ci_android_assets.py",
+          "tools/repository-checks/pr_ci_android_runtime.py",
+          ".github/pr-ci-android-native.json"
+        ]
+      }
+    },
+    "pr-ci-android-native": {
+      "command": [
+        "python",
+        "tests/pr-ci-android-native-test.py"
+      ],
+      "layer": "quick",
+      "scope": "content",
+      "environment": "python",
+      "closure": {
+        "kind": "patterns",
+        "inputs": [
+          "tests/pr-ci-android-native-test.py",
+          "tools/repository-checks/pr_ci_android_native.py",
+          "tools/repository-checks/pr_ci_android_assets.py",
+          "tools/repository-checks/pr_ci_android_boundary.py",
+          "tools/repository-checks/pr_ci_android_runtime.py",
+          "tools/repository-checks/pr_ci_context.py",
+          "tools/repository-checks/pr_ci_run.py"
+        ],
+        "required": [
+          "tests/pr-ci-android-native-test.py",
+          "tools/repository-checks/pr_ci_android_native.py",
+          "tools/repository-checks/pr_ci_android_assets.py",
+          "tools/repository-checks/pr_ci_android_boundary.py",
+          "tools/repository-checks/pr_ci_android_runtime.py",
+          "tools/repository-checks/pr_ci_context.py",
+          "tools/repository-checks/pr_ci_run.py"
+        ]
+      }
+    },
+    "pr-ci-android-worker": {
+      "command": [
+        "python",
+        "tests/pr-ci-android-worker-test.py"
+      ],
+      "layer": "quick",
+      "scope": "content",
+      "environment": "python",
+      "closure": {
+        "kind": "patterns",
+        "inputs": [
+          "tests/pr-ci-android-worker-test.py",
+          "tools/repository-checks/pr_ci_android_worker.py",
+          "tools/repository-checks/pr_ci_android_runtime.py"
+        ],
+        "required": [
+          "tests/pr-ci-android-worker-test.py",
+          "tools/repository-checks/pr_ci_android_worker.py",
+          "tools/repository-checks/pr_ci_android_runtime.py"
+        ]
+      }
     }
   }
 }

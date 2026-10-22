@@ -180,6 +180,7 @@ class ApiRuntimeTests(unittest.TestCase):
 
     def test_unknown_mixed_or_evolved_inputs_keep_legacy_android_contracts(self):
         profile = P.policy()['android']['android-phone']
+        infrastructure = {'android-common-native-ci', 'android-native-apk-structure', 'phone-native-ci-unsigned-apk'}
         known = 'android/phone/apps/phoneInterface/src/main/java/org/overte/phone/PhoneInterfaceActivity.java'
         cases = [None, {'regular': True, 'paths': []}, {'regular': False, 'paths': [known]},
                  {'regular': True, 'paths': [known, 'android/phone/build.sh']},
@@ -188,13 +189,13 @@ class ApiRuntimeTests(unittest.TestCase):
         for plan in cases:
             with self.subTest(plan=plan), patch.object(P.subprocess, 'check_output') as git:
                 expected = profile['suites'] if not plan or not plan['paths'] or not plan['regular'] else [
-                    suite for suite in profile['suites'] if suite['name'] != 'android-common-native-ci']
+                    suite for suite in profile['suites'] if suite['name'] not in infrastructure]
                 self.assertEqual(P.android_suites(ROOT, 'android-phone', profile, plan), expected)
                 git.assert_not_called()
         with patch.object(P.subprocess, 'check_output', return_value=('0' * 40).encode()):
             self.assertEqual(P.android_suites(ROOT, 'android-phone', profile,
                 {'regular': True, 'paths': [known]}), [suite for suite in profile['suites']
-                    if suite['name'] != 'android-common-native-ci'])
+                    if suite['name'] not in infrastructure])
 
 
 if __name__ == '__main__':

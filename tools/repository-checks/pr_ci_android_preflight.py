@@ -21,7 +21,10 @@ HOST_TEST_ROOTS = ("android/phone/tests/", "android/vr/pico/tests/", "android/co
 # new production file test_*.py does not create a qualification exemption.
 HOST_TEST_FILES = frozenset({"android/common/conan/test_package_store.py",
     "android/common/conan/test_package_folder.py", "android/phone/fdroid/profiles/test_doctor.py",
-    "android/phone/fdroid/conan/test_stage_host_tools.py", "android/phone/device-tests/parity/test_packet.py"})
+    "android/phone/fdroid/conan/test_stage_host_tools.py", "android/phone/device-tests/parity/test_packet.py",
+    "android/common/native-ci/tests.py", "android/common/native-ci/apk_native_test.py",
+    "android/phone/native-ci/verify_apk_test.py", "android/vr/pico/native-ci/tests.py",
+    "android/vr/pico/native-ci/inputs_test.py", "android/vr/pico/native-ci/verify_apk_test.py"})
 BUILD_WORKFLOWS = frozenset({".github/workflows/android-phone-build.yml", ".github/workflows/pico4-build.yml"})
 JAVA_ROOTS = ("android/common/libraries/qt/src/main/",)
 PRODUCT_JAVA_ROOTS = {
