@@ -633,6 +633,36 @@ class PicoNormalScriptsTests(unittest.TestCase):
         with self.assertRaises(ValueError):self.instance._chat_normal_input(self.native.target,primary,actor)
         self.assertEqual([],self.native.inputs);self.assertIsNone(owner.store.read())
 
+    def test_pico_chat_cache_absence_factory_never_begins_or_retires_a_native_capture(self):
+        from adapters.chat_journey.samples import ChatCacheAbsence,ChatSamples
+        source,_capture=self.chat_capture();self.chat_view();peer=ChatBoundary()
+        peer.mutate=lambda value:value.update(processId=456,instance='e'*32)
+        binding=self.instance._scripts(self.native.target).binding|dict(processIdentity='456',targetFingerprint='d'*64)
+        lock=ScriptSourceLock(self.instance._chat_samples_store(self.native.target,'primary').path.with_name('script-sources.lock'))
+        peer_root=self.fixture.state_root/'passive-peer';peer_root.mkdir(mode=0o700);peer_lock=ScriptSourceLock(peer_root/'script-sources.lock')
+        for stage in ('initial','final'):
+            for role,witness in (('primary',False),('actor',False),('actor',True)):
+                reader=peer.reader();reader.pid=456
+                samples=self.instance._chat_cache_absence(self.native.target,CHAT_RUN,reader,binding,
+                    role=role,stage=stage,source_lock=lock,peer_lock=peer_lock,witness=witness)
+                self.assertIsInstance(samples,ChatCacheAbsence);self.assertNotIsInstance(samples,ChatSamples)
+                self.assertIs(samples.locks[0],lock);self.assertIs(samples.locks[1],peer_lock)
+                self.assertIsNone(samples.store.read())
+        self.assertEqual([],source.commands);self.assertEqual([],peer.commands);self.assertEqual([],self.native.inputs)
+        self.assertIsNone(self.instance._chat_capture_store(self.native.target).read())
+        self.native.digest='f'*64
+        with self.assertRaises(ValueError):self.instance._chat_cache_absence(self.native.target,CHAT_RUN,reader,binding,
+            role='primary',stage='initial',source_lock=lock,peer_lock=peer_lock)
+
+    def test_pico_chat_process_teardown_retains_initial_and_final_absence_originals(self):
+        stores=[self.instance._chat_cache_absence_store(self.native.target,role,stage=stage,witness=witness)
+            for stage in ('initial','final') for role,witness in (('primary',False),('actor',False),('actor',True))]
+        self.assertEqual(6,len({store.path for store in stores}))
+        for store in stores:store.write({'unresolved':'original-passive-cache-absence-transcript'},None)
+        with self.assertRaises(ValueError):self.cleanup_instance().cleanup(self.native.target)
+        self.assertFalse(self.native.running)
+        for store in stores:self.assertIsNotNone(store.read())
+
     def test_pico_chat_witness_samples_and_factories_keep_a_third_original_journal_and_private_roles(self):
         from adapters.feature_fixture_access import AdapterFixtureClient
         from feature_journeys.phase_fixture import PhaseFixtureReader

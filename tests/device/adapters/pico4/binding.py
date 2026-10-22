@@ -1075,6 +1075,27 @@ def create_adapter(args, base_class):
                 and actor.store.path==self._chat_samples_store(target,'actor').path)
             return ChatNoReplay(primary,actor,self._chat_no_replay_store(target),monotonic=native.monotonic,sleep=native.sleep)
 
+        def _chat_cache_absence_store(self,target,role,*,stage,witness=False):
+            _need(role in ('primary','actor') and stage in ('initial','final') and type(witness) is bool and (not witness or role=='actor'))
+            state,_ui=self._script_paths(target)
+            return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-',
+                'chat-'+stage+'-'+('witness' if witness else role)+'-cache-absence-')))
+
+        @_private
+        def _chat_cache_absence(self,target,run,peer,peer_binding,*,role,stage,source_lock,peer_lock,witness=False):
+            from adapters.chat_journey.samples import ChatCacheAbsence
+            from adapters.script_journey.lock import ScriptSourceLock
+            store=self._chat_cache_absence_store(target,role,stage=stage,witness=witness)
+            _need(isinstance(source_lock,ScriptSourceLock) and source_lock.path==store.path.with_name('script-sources.lock'))
+            with source_lock.held():
+                manager=self._scripts(target);native=self._native_feature_observer(target)
+                capture=self._chat_capture(target,run)
+                # No capture-owner begin/observe/retire or ownership write.
+                # The actual inspect source must independently prove absence.
+                native.guard();_need(peer.guard() is not False)
+                return ChatCacheAbsence(run,role,manager.binding,peer_binding,capture.reader,peer,self._chat_view(target),native,
+                    store,source_lock,peer_lock,vr=True,monotonic=native.monotonic)
+
         @_private
         def _chat_samples(self,target,run,peer,peer_binding,*,role,source_lock,peer_lock,erased=False,witness=False):
             from adapters.chat_journey.samples import ChatSamples
@@ -1281,6 +1302,8 @@ def create_adapter(args, base_class):
                     if any(self._chat_samples_store(target,role,erased=erased,witness=witness).read() is not None
                            for erased in (False,True) for role,witness in (('primary',False),('actor',False),('actor',True))):
                         chat_error=True
+                    if any(self._chat_cache_absence_store(target,role,stage=stage,witness=witness).read() is not None
+                           for stage in ('initial','final') for role,witness in (('primary',False),('actor',False),('actor',True))):chat_error=True
                     if self._chat_no_replay_store(target).read() is not None:chat_error=True
                     if self._chat_mixer_store(target).read() is not None:chat_error=True
                     if self._chat_normal_input_store(target).read() is not None:chat_error=True
@@ -1340,6 +1363,8 @@ def create_adapter(args, base_class):
                       and self._script_restart_store(target).read() is None
                       and self._script_files_store(target).read() is None and self._account_probe_store(target).read() is None
                       and self._account_origin_store(target).read() is None and self._chat_capture_store(target).read() is None
+                      and all(self._chat_cache_absence_store(target,role,stage=stage,witness=witness).read() is None
+                              for stage in ('initial','final') for role,witness in (('primary',False),('actor',False),('actor',True)))
                       and self._chat_no_replay_store(target).read() is None
                       and self._chat_mixer_store(target).read() is None
                       and self._chat_normal_input_store(target).read() is None
