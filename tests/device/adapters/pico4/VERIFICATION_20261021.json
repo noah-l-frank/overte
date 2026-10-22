@@ -2829,5 +2829,35 @@
     "reviewFix": "Final actual native clock recheck after last Lifecycle stop guard; +2000ms clock jump with frozen host clock prevents Stop.",
     "qualification": "Original source/host logic with explicit OS/native fixture seams; complete Lifecycle/Chat features and device qualification remain unavailable.",
     "journalsRetained": true
+  },
+  "emoteBackgroundEffects20261022": {
+    "status": "passed",
+    "protocol": 1,
+    "newCases": {
+      "tests": 6,
+      "seconds": 14.678
+    },
+    "pico": {
+      "groups": 3,
+      "catalog": 63,
+      "seconds": 101.84,
+      "sourceGroupTests": 92,
+      "normalEmoteTests": 14
+    },
+    "project": {
+      "suites": 4,
+      "seconds": 3.38,
+      "status": "passed"
+    },
+    "facts": "New original native effect state for primary and independently querying actor roles; each role reopens its own original early restoration and current private source",
+    "counterexamples": [
+      "Actor borrowing primary frame",
+      "Original OS recovery header mistaken for completed action",
+      "New unowned override",
+      "Native-clock jump during final guard while host monotonic stays frozen"
+    ],
+    "qualification": "Actual Pico host ownership and validation with explicit synthetic OS/Qt/OpenXR/VM/Rig boundaries; independent publisher/GPU/app/device qualification remains absent.",
+    "wholeFeatureCapability": false,
+    "journalsRetired": false
   }
 }

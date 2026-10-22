@@ -171,6 +171,25 @@ class EffectsTests(unittest.TestCase):
             self.assertTrue(effect.pending_restore(effect.reference(),played)['state']['override'])
             with self.assertRaises(NativeUIError):effect.measure(effect.reference(),played=played)
 
+    def test_final_guard_native_clock_jump_is_rechecked_with_frozen_host_clock(self):
+        m=self.model
+        with m.s.lock.held():
+            owner,effect=m.act('play',{'name':'Crying'});m.observe(owner,effect)
+            original=effect.source.guard;count=0
+            def trace():
+                nonlocal count
+                count+=1;return original()
+            effect.source.guard=trace;effect.measure(effect.reference());total=count;self.assertGreater(total,1)
+            count=0
+            def jump():
+                nonlocal count
+                count+=1
+                if count==total:m.s.epoch+=2000
+                return original()
+            effect.source.guard=jump
+            with self.assertRaises(NativeUIError):effect.measure(effect.reference())
+            self.assertEqual(total,count)
+
     def test_stale_frame_changed_phase_and_slow_final_guard_cannot_be_current(self):
         m=self.model
         with m.s.lock.held():

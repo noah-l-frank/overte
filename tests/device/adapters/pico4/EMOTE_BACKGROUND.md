@@ -41,8 +41,28 @@ activation. The owning `normal-emote` group also checks the actual private
 factory without foreground-native construction. No device or actual background
 playback qualification is established.
 
-Whole Emote integration still needs background effect projection for both
-independent roles, current original stereo avatar evidence, normal all-three-Sit
+Whole Emote integration still needs independent process publication, current
+original stereo avatar evidence, normal all-three-Sit
 coverage, actor publication and final native/Qt/file/input ownership retirement.
 An input `performed` result is only the owned lifecycle action result. Its
 historical native cycle proof must not be retimed into a current feature sample.
+
+## New independently measured native background facts
+
+`PicoEmoteEffects.background_recompute` v1 now joins each role's independently
+reopened original early-cancel proof to the completed original OS/native cycle.
+The exact preceding cancel ticket is required. New actual native sources must
+show continued original restoration, the same lifecycle and unchanged UI input
+scope after activation. Actual graph/animation readiness and inactive override
+are measured again. Old measured state and the other role's original frame
+references are not adopted as new facts. Original played/cancel barriers stay
+in the proof; an idle reset cannot replace early restoration.
+
+`completed_archive` validates the preserved complete source/input header prefix
+without OS/native reads or input authority. Current measurement separately
+requires the latest owned role source, current background fixture phase, final
+guards and new actual native/provider clock reads. The new five role/effect
+counterexamples and a late-native-clock test use explicit synthetic native/OS
+boundaries around the actual Pico host ownership. No GPU image or independent
+publisher process is qualified. [The fixed selection](PHONE_SHARED_EMOTE_BACKGROUND_EFFECTS_20261022.json)
+records the source adaptation and its limits.

@@ -155,7 +155,8 @@ class PicoEmoteBackground:
         return native
 
 
-    def active(self,call,status):
+    @staticmethod
+    def active(call,status):
         need(status['active'] and status['activations'])
         current=status['activations'][-1]
         need(current['ticket']==call['ticket'] and current['stimulus']['verb']=='background-resume'
@@ -170,8 +171,9 @@ class PicoEmoteBackground:
         return status
 
 
-    def completed(self,before,after):
-        left,right=self.idle(before),self.idle(after)
+    @classmethod
+    def completed(cls,before,after):
+        left,right=cls.idle(before),cls.idle(after)
         need(left['instance']==right['instance'] and left['processId']==right['processId']
             and right['sequence']>left['sequence'] and right['requestedEpochMs']>=left['capturedEpochMs']
             and right['lifecycle']['backgrounds']>=left['lifecycle']['backgrounds']+1
@@ -239,3 +241,42 @@ class PicoEmoteBackground:
         finally:self.started=None
 
 
+
+    @classmethod
+    def completed_archive(cls,header,source):
+        """Reopen completed original lifecycle evidence without OS/native reads.
+
+        This grants historical context only. It cannot create an input owner,
+        acquire a current source or retire any responsibility.
+        """
+        need(isinstance(source,PicoEmoteSources));source.lock.assert_held()
+        started=previous=source.monotonic();need(number(started,0,1e15))
+        def bound():
+            nonlocal previous
+            source.lock.assert_held();need(source.guard() is not False)
+            now=source.monotonic();need(number(now,previous,1e15) and now-started<5);previous=now
+        bound();exact(header,{'picoEmoteBackgroundVersion','runId','fixtureUrl','artifactRoot','payload'})
+        need(type(header['picoEmoteBackgroundVersion']) is int and header['picoEmoteBackgroundVersion']==VERSION
+            and header['runId']==source.run and header['fixtureUrl']==source.phase.fixture_url
+            and header['artifactRoot']==str(source.artifact_root))
+        rows=unpack(header['payload']);need(len(rows)==1);state=rows[0]
+        exact(state,{'binding','call','phase','beforeHeader','inputHeader','background','foreground','afterHeader','cleanup'})
+        need(same(context(state['binding']),source.binding) and state['phase']=='observed' and state['cleanup'] is None)
+        call=arguments('feature.emotes.act',state['call']);need(call['runId']==source.run
+            and call['fixtureUrl']==source.phase.fixture_url and call['verb']=='background-resume')
+        frames=[]
+        for value in (state['beforeHeader'],state['afterHeader']):
+            need(type(value) is dict and value.get('role')=='primary')
+            original,group=PicoEmoteSources.archive(value,phase=source.phase,artifact_root=source.artifact_root,
+                binding=source.binding,guard=bound,monotonic=source.monotonic)
+            need(original['phase']=='ready' and original['pending'] is None and group)
+            for key in ('phaseBefore','phaseAfter'):cls.active(call,group[-1][key])
+            frames.append(group)
+        before,after=frames;need(len(after)>len(before) and same(after[:len(before)],before))
+        cls.completed(before[-1],after[-1])
+        for key,foreground in (('background',False),('foreground',True)):
+            GraphicsBackground.status_packet(state[key],source.binding);need(state[key]['foreground'] is foreground)
+        inputs,history=PicoEmoteInputs.archive(state['inputHeader'],state['beforeHeader'],phase=source.phase,
+            artifact_root=source.artifact_root,binding=source.binding,guard=bound,monotonic=source.monotonic)
+        need(history['pendingArchive'] is None and (inputs['current'] is None or inputs['current']['phase']=='acknowledged'))
+        bound();return deepcopy(state),deepcopy(before),deepcopy(after)

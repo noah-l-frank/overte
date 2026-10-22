@@ -207,6 +207,41 @@ class PicoEmoteEffects:
         returned=deepcopy(value);source.lock.assert_held();need(source.guard() is not False)
         end=source.monotonic();need(number(end,started,1e15) and end-started<5);return returned
 
+    def background_recompute(self,reference,*,header,cancel,played):
+        """Derive new native facts from this role's original early restoration."""
+        from adapters.pico4.emote_background import PicoEmoteBackground
+        source=self.source;started=source.monotonic();need(number(started,0,1e15));source.lock.assert_held()
+        exact(cancel,{'call','frame'});prior=self.recompute(cancel['frame'],played=played,call=cancel['call'])
+        need(prior['kind']=='restoration' and prior['call']['verb']=='cancel'
+            and prior['state']['override'] is False and prior['state']['restoredBeforeNominalEnd'] is True)
+        proof=prior['proof'];need(proof['kind']=='restoration' and proof['barrier'] is not None)
+        cycle,before,after=PicoEmoteBackground.completed_archive(header,source);call=cycle['call']
+        need(same(self.inputs.previous,cycle['inputHeader']))
+        for key in ('phaseBefore','phaseAfter'):
+            rows=before[-1][key]['activations'];need(len(rows)>=2)
+            need(rows[-2]['ticket']==prior['call']['ticket']
+                and same(rows[-2]['stimulus'],dict(verb='cancel',inputs=prior['call']['inputs'])))
+        frame=self.current_original(reference)
+        for key in ('phaseBefore','phaseAfter'):
+            packet=frame[key];self.inputs.active(call,packet)
+            phase_packet(packet,run=source.run,area='emotes',request=packet['requestId'],epoch=frame['hostEpochMs'],
+                previous=after[-1]['phaseAfter'])
+        continuation(proof['group']['native'],before[-1]['group']['native'],source.pid)
+        continuation(after[-1]['group']['native'],frame['group']['native'],source.pid)
+        need(same(frame['group']['native']['lifecycle'],after[-1]['group']['native']['lifecycle']))
+        left,right=self.ui(after[-1]),self.ui(frame)
+        need(all(left['scope'][key]==right['scope'][key] for key in ('instance','generation','processId','sequence'))
+            and left['open']==right['open'])
+        current=restoration(frame['group'],proof['played'],pid=source.pid,epoch=frame['epochMs'],native_barrier=proof['barrier'])
+        animation=frame['group']['native']['animation']
+        need(animation['animationsEnabled'] is True and animation['graphLoaded'] is True
+            and current['state']['restoredBeforeNominalEnd'] is True)
+        state=deepcopy(current['state']);state['panel']=self.panel(frame)
+        result=dict(picoEmoteBackgroundEffectVersion=1,role=source.role,runId=source.run,binding=deepcopy(source.binding),
+            call=deepcopy(call),frame=deepcopy(reference),previousTicket=prior['call']['ticket'],state=state,proof=current)
+        source.lock.assert_held();need(source.guard() is not False)
+        end=source.monotonic();need(number(end,started,1e15) and end-started<5);return deepcopy(result)
+
     def phase_identity(self,packet):
         phase_packet(packet,run=self.source.run,area='emotes',request=packet.get('requestId'),epoch=packet.get('capturedEpochMs'))
         need(packet['active'] and packet['activations']);current=packet['activations'][-1]
@@ -249,7 +284,7 @@ class PicoEmoteEffects:
         value=self.phase_recompute(reference);frame=self.current_original(reference)
         status=source.phase.status(frame['phaseAfter']);need(self.phase_identity(status)==(value['phase'],value['ticket']));self.bound()
         returned=deepcopy(value);need(source.guard() is not False);self.bound()
-        now,host_now=source.clock_ms(),source.phase.epoch_ms();self.bound();end=source.monotonic()
+        self.bound();now,host_now=source.clock_ms(),source.phase.epoch_ms();end=source.monotonic()
         need(integer(now,epoch) and number(host_now,host,1e15) and number(end,started,1e15) and end-started<5)
         floor=frame['group']['rootsBefore']['requestedEpochMs'];host_floor=frame['phaseBefore']['capturedEpochMs']
         fresh(floor,now);fresh(host_floor,host_now)
@@ -258,7 +293,7 @@ class PicoEmoteEffects:
         return returned
 
 
-    def measure(self,reference,*,played=None):
+    def measure(self,reference,*,played=None,background=None):
         """Current independently measured native state; no new input/read here."""
         owner,source=self.inputs,self.source
         started=source.monotonic();need(number(started,0,1e15));self.bound()
@@ -269,10 +304,14 @@ class PicoEmoteEffects:
             and same(unpack(owner.source.previous['payload']),[owner.source.state]))
         epoch,host=source.clock_ms(),source.phase.epoch_ms()
         need(integer(epoch,1) and number(host,1,1e15))
-        value=self.recompute(reference,played=played);frame=self.after(owner.state['current'],reference)
+        if background is None:
+            value=self.recompute(reference,played=played);frame=self.after(owner.state['current'],reference)
+        else:
+            exact(background,{'header','cancel','played'});need(played is None)
+            value=self.background_recompute(reference,**background);frame=self.current_original(reference)
         self.bound();status=source.phase.status(frame['phaseAfter']);owner.active(value['call'],status);self.bound()
-        delivered,delivered_host=source.clock_ms(),source.phase.epoch_ms();self.bound()
-        result=deepcopy(value);self.bound();end=source.monotonic()
+        self.bound();result=deepcopy(value);self.bound()
+        delivered,delivered_host=source.clock_ms(),source.phase.epoch_ms();end=source.monotonic()
         need(number(end,started,started+5) and integer(delivered,epoch) and number(delivered_host,host,1e15))
         floor=frame['group']['rootsBefore']['requestedEpochMs'];provider=frame['phaseBefore']['capturedEpochMs']
         fresh(floor,delivered);fresh(provider,delivered_host)

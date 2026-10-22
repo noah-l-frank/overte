@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "abb7f6b60d97daf17752aadf94e2b5df099bb7ba",
+  "targetBase": "9fee3422a5",
+  "uncommittedPhoneWorkExcluded": true,
+  "files": [
+    {
+      "sourcePath": "tests/device/adapters/android-phone/overte_phone_emote_effects.py",
+      "targetPath": "tests/device/adapters/pico4/emote_effects.py",
+      "sourceSha256": "76ea84b57ff893714656b11b07a49eb3fe9e13de8badf495282e0d2ee3413350",
+      "targetSha256": "e052007a0a12e9208f24393d9b5717be2b1ccbe13d107c784a0dcd0ea26ed15d"
+    },
+    {
+      "sourcePath": "tests/device/adapters/android-phone/overte_phone_emote_background.py",
+      "targetPath": "tests/device/adapters/pico4/emote_background.py",
+      "sourceSha256": "3c31e18a11d158a061554b4a5a8a8edab2ea91deda8e79efe620672b32c16985",
+      "targetSha256": "9353ff356b9e68051df430148697f14eee720136f88668a3896fdbf79e18f3d0"
+    }
+  ],
+  "selection": "reviewed-independent-native-background-effect-joins",
+  "changes": [
+    "Pico-only original lifecycle/input/source headers and each roles own original early restoration replace Phone observation/image wrapper dependencies.",
+    "Prior effect is recomputed from actual immutable role originals; no primary effect frame can supply actor facts.",
+    "New actual native restoration after completed original OS/native cycle, unchanged compiled caller and original source/UI/lifecycle cursors required.",
+    "Pure completed-cycle archival context performs no OS/native query or input and provides no current authority.",
+    "Both native/provider clocks are re-read after final guards; new late-native-clock/frozen-host counterexample passes.",
+    "No image, independent process publisher or journal/resource retirement is supplied."
+  ]
+}

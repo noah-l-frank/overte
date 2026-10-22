@@ -448,7 +448,9 @@
         "tests/device/adapters/pico4/emote_background.py",
         "tests/device/adapters/pico4/EMOTE_BACKGROUND.md",
         "tests/device/self_tests/test_pico_emote_background.py",
-        "tests/device/adapters/pico4/PHONE_SHARED_EMOTE_BACKGROUND_20261022.json"
+        "tests/device/adapters/pico4/PHONE_SHARED_EMOTE_BACKGROUND_20261022.json",
+        "tests/device/self_tests/test_pico_emote_background_effects.py",
+        "tests/device/adapters/pico4/PHONE_SHARED_EMOTE_BACKGROUND_EFFECTS_20261022.json"
       ],
       "declaredCheckpoints": 28,
       "inputVerbs": [
@@ -471,7 +473,7 @@
       ],
       "missingOperationsOrEvidence": [
         "Whole-run normal chooser, all Sit variants and original offscreen Scroll effects when the actual viewport clips buttons",
-        "Whole background effect/actor composition, original callback/timer/Qt/native ownership retirement and final journal release",
+        "Whole independent observer/image/public composition, original callback/timer/Qt/native ownership retirement and final journal release",
         "Current original stereo avatar images and independent actor publication"
       ],
       "requiredOriginalEvidence": [
