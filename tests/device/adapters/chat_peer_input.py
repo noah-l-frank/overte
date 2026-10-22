@@ -11,17 +11,17 @@ from adapters.chat_actor_files import ChatActorFiles, encode, node, stamp, ident
 from adapters.native_feature_observation import decode, exact, fresh, integer, need, number
 from adapters.normal_ui import NativeUIError
 
-VERSION = 1
+VERSION = 2
 COMMAND = 'chat-peer-input.v1.json'
 RECEIPT = 'chat-peer-input-receipt.v1.json'
 
 
 def command(value):
-    need(type(value) is dict and value.get('operation') in ('hold', 'send', 'restore', 'release'))
+    need(type(value) is dict and value.get('operation') in ('hold', 'send', 'restore', 'release', 'inspect'))
     operation = value['operation']
     exact(value, {'schemaVersion', 'commandId', 'runId', 'operation'}
         | ({'position'} if operation == 'hold' else {'channel', 'textKey'} if operation == 'send' else set()))
-    need(type(value['schemaVersion']) is int and value['schemaVersion'] == VERSION
+    need(type(value['schemaVersion']) is int and value['schemaVersion'] == 1
         and all(type(value[key]) is str and re.fullmatch('[0-9a-f]{32}', value[key]) for key in ('commandId', 'runId')))
     if operation == 'hold':
         exact(value['position'], {'x', 'y', 'z'})
@@ -63,7 +63,7 @@ class ChatPeerInput:
     def issue(self, operation, **inputs):
         try:
             files = self.files; files._check_source(); need(self.store.read() == self.previous)
-            request = command(dict(schemaVersion=VERSION, commandId=uuid.uuid4().hex,
+            request = command(dict(schemaVersion=1, commandId=uuid.uuid4().hex,
                 runId=self.run, operation=operation, **inputs))
             old = self.previous['intents']
             need(not any(row['command']['operation'] == 'release' for row in old))
@@ -112,9 +112,10 @@ class ChatPeerInput:
                         and identity(envelope['resultNode']) == node(info))
                     receipt = envelope['native']
                     if receipt.get('commandId') == request['commandId']:
+                        optional = {'avatarSha256','avatarPosition'} if receipt.get('peerInputVersion') == 2 else set()
                         exact(receipt, {'peerInputVersion', 'commandId', 'runId', 'operation', 'instance',
-                            'sequence', 'processId', 'capturedEpochMs'})
-                        need(type(receipt['peerInputVersion']) is int and receipt['peerInputVersion'] == VERSION
+                            'sequence', 'processId', 'capturedEpochMs'} | optional)
+                        need(type(receipt['peerInputVersion']) is int and receipt['peerInputVersion'] in (1,VERSION)
                             and all(receipt[key] == request[key] for key in ('commandId', 'runId', 'operation'))
                             and integer(receipt['processId'], 1) and receipt['processId'] == files.pid
                             and type(receipt['instance']) is str and re.fullmatch('[0-9a-f]{32}', receipt['instance'])
@@ -123,8 +124,13 @@ class ChatPeerInput:
                             and files.released(node(info)) is False)
                         fresh(receipt['capturedEpochMs'], files.clock_ms())
                         need(receipt['capturedEpochMs'] >= files.source['configuredEpochMs'])
+                        if optional:
+                            need(type(receipt['avatarSha256']) is str and re.fullmatch('[0-9a-f]{64}',receipt['avatarSha256']))
+                            exact(receipt['avatarPosition'],{'x','y','z'})
+                            need(all(number(value,-100000,100000) for value in receipt['avatarPosition'].values()))
                         before = self.previous['receipt']
                         need(before is None or receipt['instance'] == before['native']['instance']
+                            and receipt['peerInputVersion'] >= before['native']['peerInputVersion']
                             and receipt['capturedEpochMs'] >= before['native']['capturedEpochMs'])
                         intents = deepcopy(self.previous['intents']); intents[-1]['phase'] = 'consumed'
                         self.write({**self.previous, 'intents': intents, 'receipt': dict(native=receipt,

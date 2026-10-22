@@ -1,4 +1,4 @@
-# Owned Chat peer input v1
+# Owned Chat peer input v2
 
 This is a fixture input component and an independent reception join. Chat stays
 partial; no complete operation triple is registered. Devices have not run.
@@ -14,7 +14,7 @@ The separate private `chat-peer-input.v1.json` command is exactly
 with bounded finite `position:{x,y,z}`, `send` with Local/Domain `channel` and
 `textKey:"reply"|"hidden"`, `restore` and `release`. There are no arbitrary
 message bodies, expected positions, delivery flags or observation fields.
-Commands use unique run-scoped nonces and canonical JSON. Actual native code
+Commands retain schema v1 and use unique run-scoped nonces and canonical JSON. Actual native code
 retains all admitted IDs (bounded to 128), pins one run and refuses any replay,
 including a previously consumed command reintroduced after another command.
 
@@ -23,7 +23,17 @@ MessagesClient thread. It reads the original private inode and admits input once
 before returning it to the original fixture script. A separate native-held
 `chat-peer-input-receipt.v1.json` names both original command and result nodes,
 native birth/sequence/PID/time and consumed operation. It contains no position,
-delivery or restoration result. Copying its bytes or rewriting an envelope inode
+delivery or restoration result. Version 2 additionally reads the actual original
+ScriptableAvatar position and run-scoped actual session hash before returning
+input to the script. `Agent::executeScript` installs a native `QWeakPointer`
+provider, taking a temporary strong reference only for the original locked
+transform read. A separate weak reference pins the actual original ScriptManager;
+stopped, stopping, finished or departed scripts make the read unavailable even
+if DependencyManager still retains the Avatar. Requested positions
+never enter this read. `inspect` performs that original read without a fixture
+mutation; it does not send chat or change position. Explicit v1 receipts remain
+readable for input consumption, but cannot qualify actual Avatar position, and
+v2 cannot downgrade in an owner. Copying its bytes or rewriting an envelope inode
 cannot replace the actual actor's open FD. Read-only Chat cache queries remain
 on their original separate command/result paths.
 
@@ -74,3 +84,15 @@ and settings-writer/file durability, reconstructed Script history and final
 callback/file/cache/actor resource release. A receipt or local fixture heartbeat
 cannot supply these observations. The full owner must retain journals until
 those original boundaries and cleanup counterexamples are complete.
+
+The separate `feature-chat-peer-position` native source now reads actual
+MyAvatar and remote AvatarManager transforms on the original GUI thread. The
+selector is the independently bound actor's native run hash of its actual UUID;
+display names and requested coordinates are never selectors or observations.
+The source requires the explicit E2E launch/lifecycle/results owner, valid
+original transforms, at most 1024 actual avatars and a 1.5-second acquisition.
+It retains its own native birth/query/sequence/PID/time and refuses replay with
+a bounded 4096-query lifetime. The private Pico reader separately qualifies the
+primary native self hash, exact peer hash, current candidate/process and source
+freshness. Neither this source nor the actor read alone proves actual movement,
+restoration or a complete distant-send rejection window.

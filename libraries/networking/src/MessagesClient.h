@@ -26,6 +26,7 @@
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #include "../../../tests/device/native/ChatObservation.h"
 #include <memory>
+#include <functional>
 namespace overte::e2e { class ChatActorFiles; }
 #endif
 
@@ -59,7 +60,9 @@ public:
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     // Test-only metadata read/cache retirement; never sends a message.
     Q_INVOKABLE QVariantMap featureChatObservation(const QVariantMap& command);
-    bool configureFeatureChatActor(const QString& actualScriptSha256);
+    // The provider reads its weakly bound original Avatar, never a query's
+    // or an input's requested position.
+    bool configureFeatureChatActor(const QString& actualScriptSha256,std::function<QVariantMap()> avatarPosition);
     Q_INVOKABLE QVariantMap featureChatActorInput();
 #endif
 

@@ -29,6 +29,7 @@
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #include "../../../tests/device/native/FeatureLifecycle.h"
 #include "../../../tests/device/native/ChatViewObservation.h"
+#include "../../../tests/device/native/ChatPeerPosition.h"
 #include "../../../tests/device/native/WebDOMObservationBridge.h"
 #include "../../../tests/device/native/WebRuntimeBridge.h"
 #if defined(ANDROID_APP_PICO_INTERFACE)
@@ -664,6 +665,35 @@ QVariantMap TestScriptingInterface::featureWebDOMObservation(const QVariantMap& 
     if (original.userType()!=qMetaTypeId<overte::e2e::WebDOMProvider>()) { return {}; }
     const auto provider=original.value<overte::e2e::WebDOMProvider>();
     return provider ? provider(command) : QVariantMap();
+}
+
+QVariantMap TestScriptingInterface::featureChatPeerPosition(const QVariantMap& command) {
+    if (QThread::currentThread()!=thread()) {
+        if (!thread() || !thread()->isRunning()) { return {}; }
+        QVariantMap result;
+        if (!QMetaObject::invokeMethod(this,[&] { result=featureChatPeerPosition(command); },Qt::BlockingQueuedConnection)) { return {}; }
+        return result;
+    }
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript") || !overte::e2e::ChatPeerPosition::command(command)
+            || !DependencyManager::isSet<AvatarManager>()) { return {}; }
+    const auto avatars=DependencyManager::get<AvatarManager>();const auto self=avatars->getMyAvatar();
+    if (!self || self->getSessionUUID().isNull()) { return {}; }
+    const auto run=command.value("runId").toString();AvatarSharedPointer peer;
+    const auto started=QDateTime::currentMSecsSinceEpoch();const auto identifiers=avatars->getAvatarIdentifiers();
+    if (identifiers.size()>1024) { return {}; }
+    for (const auto& id:identifiers) {
+        if (QDateTime::currentMSecsSinceEpoch()-started>1500) { return {}; }
+        if (id==self->getSessionUUID() || overte::e2e::ChatPeerPosition::identity(run,id)!=command.value("peerSha256").toString()) { continue; }
+        const auto actual=avatars->getAvatarBySessionID(id);
+        if (!actual || peer || actual->getSessionUUID()!=id) { return {}; }peer=actual;
+    }
+    if (!peer) { return {}; }bool selfValid{false},peerValid{false};
+    const auto primaryPoint=self->getWorldPosition(selfValid);const auto peerPoint=peer->getWorldPosition(peerValid);
+    if (!selfValid || !peerValid || QDateTime::currentMSecsSinceEpoch()-started>1500) { return {}; }
+    const auto point=[](const glm::vec3& value) { return QVariantMap{{"x",double(value.x)},{"y",double(value.y)},{"z",double(value.z)}}; };
+    if (!_featureChatPeerPosition) { _featureChatPeerPosition=std::make_shared<overte::e2e::ChatPeerPosition>(); }
+    return _featureChatPeerPosition->request(command,self->getSessionUUID(),point(primaryPoint),peer->getSessionUUID(),point(peerPoint));
 }
 
 QVariantMap TestScriptingInterface::featureChatViewObservation(const QVariantMap& command) {

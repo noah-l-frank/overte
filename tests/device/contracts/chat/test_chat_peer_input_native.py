@@ -17,7 +17,10 @@ using overte::e2e::ChatActorFiles;
 int main(int argc,char** argv) {
     QCoreApplication app(argc,argv);QTemporaryDir directory;assert(directory.isValid());
     assert(::chmod(QFile::encodeName(directory.path()).constData(),0700)==0);
-    ChatActorFiles files(directory.path(),QString(64,'a'),QString(32,'b'));assert(files.available());
+    ChatActorFiles files(directory.path(),QString(64,'a'),QString(32,'b'),[] {
+        return QVariantMap{{"sessionId",QUuid("11111111-1111-4111-8111-111111111111")},
+            {"position",QVariantMap{{"x",2.0},{"y",0.0},{"z",2.0}}}};
+    });assert(files.available());
     auto write=[&](QJsonObject value) {
         QFile command(directory.path()+"/chat-peer-input.v1.json");assert(command.open(QIODevice::WriteOnly|QIODevice::Truncate));
         assert(command.setPermissions(QFileDevice::ReadOwner|QFileDevice::WriteOwner));
@@ -30,6 +33,8 @@ int main(int argc,char** argv) {
     auto original=QJsonDocument::fromJson(receipt.readAll()).object();receipt.close();
     assert(original.value("native").toObject().value("operation")=="hold");
     assert(original.value("native").toObject().value("sequence")==1);
+    assert(original.value("native").toObject().value("peerInputVersion")==2);
+    assert(original.value("native").toObject().value("avatarPosition").toObject().value("x")==2.0); // Actual provider, never requested 40.
     QJsonObject send{{"schemaVersion",1},{"commandId",QString(32,'e')},{"runId",QString(32,'d')},{"operation","send"},
         {"channel","domain"},{"textKey","reply"}};
     auto bad=send;bad.insert("textKey","private body");write(bad);assert(files.takeInput().isEmpty());
@@ -43,6 +48,19 @@ int main(int argc,char** argv) {
     send.insert("commandId",QString(32,'2'));write(send);assert(files.takeInput().isEmpty());
     assert(QFile::remove(directory.path()+"/chat-peer-input-receipt.v1.json"));
     files.tick([](const QVariantMap&){return QVariantMap();});assert(files.available());
+    overte::e2e::ChatPeerPosition positions;
+    const QUuid self("11111111-1111-4111-8111-111111111111"),peer("22222222-2222-4222-8222-222222222222");
+    const QString run(32,'a');
+    QVariantMap query{{"schemaVersion",1},{"commandId",QString(32,'4')},{"runId",run},
+        {"action","feature-chat-peer-position"},{"peerSha256",overte::e2e::ChatPeerPosition::identity(run,peer)}};
+    const QVariantMap primary{{"x",0.0},{"y",0.0},{"z",0.0}},remote{{"x",40.0},{"y",0.0},{"z",2.0}};
+    const auto measured=positions.request(query,self,primary,peer,remote);
+    assert(!measured.isEmpty() && measured.value("source").toMap().value("peerPosition").toMap()==remote);
+    assert(positions.request(query,self,primary,peer,remote).isEmpty());
+    query.insert("commandId",QString(32,'5'));query.insert("peerSha256",QString(64,'f'));
+    assert(positions.request(query,self,primary,peer,remote).isEmpty());
+    query.insert("position",remote);assert(!overte::e2e::ChatPeerPosition::command(query));
+    auto badPoint=remote;badPoint.insert("x",true);assert(!overte::e2e::ChatPeerPosition::position(badPoint));
 }
 '''
 

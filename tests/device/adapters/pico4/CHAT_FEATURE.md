@@ -154,3 +154,12 @@ references for subsequent samples. Repeated copies of the retained full Chat
 history cannot exhaust the private journal during its actual three-second window.
 Version 1 persisted windows are not migrated or adopted; their unresolved
 ownership remains retained for the complete run's audited recovery.
+
+Native peer input v2 now retains the actual original actor Avatar transform and
+session hash before dispatch, using weak original Avatar/ScriptManager lifetime
+owners. Version 1 receipts remain consumption-only. The separate native
+`feature-chat-peer-position` source reads the primary and exact independently
+bound remote Avatar transforms; its private Pico reader pins process, self/peer
+run hashes, birth, advancing sequence and freshness. No display name or input
+coordinate becomes position evidence. These original position sources still
+need the complete distant-Send/rejection/return owner and cleanup composition.

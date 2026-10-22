@@ -17,6 +17,7 @@
 #include <QVariantMap>
 #include <functional>
 #include <cmath>
+#include "ChatPeerPosition.h"
 #if defined(Q_OS_UNIX)
 #include <fcntl.h>
 #include <sys/stat.h>
@@ -30,7 +31,8 @@ namespace overte::e2e {
 // never supplies observations or requested delivery/position results.
 class ChatActorFiles {
 public:
-    ChatActorFiles(const QString& directory,const QString& scriptSha,const QString& instance) : _path(directory) {
+    ChatActorFiles(const QString& directory,const QString& scriptSha,const QString& instance,
+            std::function<QVariantMap()> avatarPosition={}) : _path(directory),_avatarPosition(std::move(avatarPosition)) {
 #if defined(Q_OS_UNIX)
         if (!QCoreApplication::arguments().contains("--testScript")
                 || !QRegularExpression("\\A[0-9a-f]{64}\\z").match(scriptSha).hasMatch()
@@ -70,7 +72,7 @@ public:
         QSet<QString> required{"schemaVersion","commandId","runId","operation"};
         if (operation=="hold") { required.insert("position"); }
         else if (operation=="send") { required.insert("channel");required.insert("textKey"); }
-        else if (operation!="restore" && operation!="release") { return {}; }
+        else if (operation!="restore" && operation!="release" && operation!="inspect") { return {}; }
         const auto keys=value.keys();const auto id=value.value("commandId").toString();const auto run=value.value("runId").toString();
         if (error.error!=QJsonParseError::NoError || !document.isObject() || raw!=document.toJson(QJsonDocument::Compact)+'\n'
                 || QSet<QString>(keys.begin(),keys.end())!=required || value.value("schemaVersion")!=QJsonValue(1)
@@ -86,12 +88,17 @@ public:
             }
         } else if (operation=="send" && ((value.value("channel")!="local" && value.value("channel")!="domain")
                 || (value.value("textKey")!="reply" && value.value("textKey")!="hidden"))) { return {}; }
+        const auto originalAvatar=_avatarPosition?_avatarPosition():QVariantMap();
+        const auto session=originalAvatar.value("sessionId");const auto position=originalAvatar.value("position").toMap();
+        if (originalAvatar.size()!=2 || session.userType()!=QMetaType::QUuid || session.toUuid().isNull()
+                || !ChatPeerPosition::position(position)) { return {}; }
         // Admit once before publishing consumption or returning to script.
         _inputs.insert(id);_inputRun=run;
         if (operation=="release") { _inputReleased=true; }
-        const QVariantMap receipt{{"peerInputVersion",1},{"commandId",id},{"runId",run},{"operation",operation},
+        const QVariantMap receipt{{"peerInputVersion",2},{"commandId",id},{"runId",run},{"operation",operation},
             {"instance",_inputInstance},{"sequence",_inputs.size()},{"processId",QCoreApplication::applicationPid()},
-            {"capturedEpochMs",QDateTime::currentMSecsSinceEpoch()}};
+            {"capturedEpochMs",QDateTime::currentMSecsSinceEpoch()},
+            {"avatarSha256",ChatPeerPosition::identity(run,session.toUuid())},{"avatarPosition",position}};
         if (!writeResult(receipt,"chat-peer-input-receipt.v1.json",_inputResult,_inputResultNode,_commandNode)) { closeAll();return {}; }
         return value.toVariantMap();
 #else
@@ -144,6 +151,7 @@ private:
     QString _path,_lastCommand;
     QString _inputRun,_inputInstance{QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-')};
     QSet<QString> _inputs;
+    std::function<QVariantMap()> _avatarPosition;
     bool _inputReleased{false};
     bool _available{false},_lastRetired{false};
 #if defined(Q_OS_UNIX)
