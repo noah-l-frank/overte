@@ -50,3 +50,23 @@ responses, strict manifest bounds, process changes, an expiring final send guard
 and file-only revalidation after SDK retirement. No compiler, simulator or
 device was invoked; native implementation and physical acceptance remain
 unexecuted.
+
+## Owned pending cancellation join
+
+`snapshot_cancellation.pending` now composes the real durable input and manifest
+owners with the typed original script/timer/native capture sources. It reopens
+the exact positive ordinary capture and cancel deliveries, checks the original
+controlled title, settings, current capture state and common root, and requires
+the matching pinned script capture mode. The original native/work clocks place
+these deliveries between the actual before inventory, pending work, cancellation
+return and drained native after inventory. Actual empty manifests bracket this
+interval; their independent native clock source birth and sequence also remain
+continuous. A foreign or newly born sampler cannot replace that source.
+
+Four composed host tests exercise actual private owners and normal HTTP/AFC
+input delivery over explicit native/work models. Original file loss, native
+activity, wrong mode, missing work, a late input, a genuinely nonempty produced
+manifest and an actually different modeled sampler birth reject the fact. The
+successful derivation is repeated after SDK retirement using only retained
+original files. It returns `quietWindowRequired` and `independentWitnessRequired`;
+it does not retire resources, complete a two-role journey or enable a capability.
