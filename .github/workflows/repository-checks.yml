@@ -518,7 +518,7 @@ jobs:
           path: candidate
           fetch-depth: 2
           persist-credentials: false
-      - name: Require native runner capacity before dependency setup
+      - name: Require native bootstrap capacity before dependency setup
         if: needs.plan.outputs.android_native_products != '[]'
         run: |
           python3 -I -S -B trusted/tools/repository-checks/pr_ci_android_native.py \

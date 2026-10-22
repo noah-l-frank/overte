@@ -1,5 +1,13 @@
 # Proposed isolated Jenkins native/browser qualification
 
+This guide records an isolated software-qualification design and historical
+workstation Jenkins runs. The named October 2 job is not evidence of a current
+Proxmox job or of device acceptance. The workstation device laboratory was
+retired on October 19, 2026; inspect the
+[current private laboratory](../../../docs/portal/jenkins/index.md) before any
+maintainer lab operation. Retained namespace/fixture contracts below do not
+require reactivating that old controller.
+
 Historical exact-source qualification: commit
 `09c062bf5a371df78b01014dccfdbc4c37febcb9` executes all nineteen gates in build6.
 Eighteen pass, including194 renderer tests and the complete Firefox core journey

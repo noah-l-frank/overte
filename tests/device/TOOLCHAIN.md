@@ -1,5 +1,11 @@
 # Pinned open-source device-lab toolchain
 
+This lock describes the checked-in reference implementation, not an inventory
+of the maintainer's current private Proxmox agents. A newer live deployment or a
+retained workstation install does not change the lock's dated provenance.
+Installing these tools is separate from running local host checks. See the
+[current laboratory boundary](../../docs/portal/jenkins/index.md).
+
 [`toolchain.lock.json`](toolchain.lock.json) is the machine-readable source of
 truth for shared, directly downloadable automation artifacts used by the
 physical-device E2E lab. It is a dated snapshot, resolved on 2026-08-25, rather

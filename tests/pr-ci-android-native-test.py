@@ -6,6 +6,7 @@ not claims of actual Android build qualification.
 """
 from copy import deepcopy
 import hashlib
+import io
 import json
 from pathlib import Path
 import sys
@@ -82,20 +83,40 @@ class NativeHostTests(unittest.TestCase):
 
     def test_capacity_uses_fixed_tokenless_daemon_and_protected_phase_budget(self):
         limit = {name: 1 for name in N.CAP.KEYS}
-        policy = {'status': 'qualified', 'capacity': {'prepare': limit, 'execute': limit}}
+        policy = {'status': 'qualified', 'capacity': {phase: dict(limit, workspace_free_bytes=index)
+            for index, phase in enumerate(('bootstrap', 'prepare', 'execute'), 1)}}
         with patch.object(N.subprocess, 'run') as docker, patch.object(N.CAP, 'admit', return_value={'result': 'admitted'}) as admit:
             docker.return_value.stdout = b'"/var/lib/docker"\n'
-            self.assertEqual(N.capacity_admission(policy, self.prepared, self.root, 'prepare')['result'], 'admitted')
+            for phase in ('bootstrap', 'prepare', 'execute'):
+                self.assertEqual(N.capacity_admission(policy, self.prepared, self.root, phase)['result'], 'admitted')
+                self.assertEqual(admit.call_args.args[0], policy['capacity'][phase])
             argv = docker.call_args.args[0]
             self.assertEqual(argv[:4], ['/usr/bin/docker', '--host=unix:///var/run/docker.sock', 'info', '--format'])
             self.assertEqual(set(docker.call_args.kwargs['env']), {'PATH', 'HOME', 'DOCKER_CONFIG', 'LANG', 'LC_ALL'})
-            admit.assert_called_once_with(limit, self.prepared, self.root, '/var/lib/docker')
+            self.assertEqual(admit.call_count, 3)
+            self.assertEqual(admit.call_args.args[1:], (self.prepared, self.root, '/var/lib/docker'))
         with patch.object(N.subprocess, 'run') as docker:
             for value in ({'status': 'awaiting-local-qualification'}, {'status': 'qualified'},
-                          {'status': 'qualified', 'capacity': {'prepare': limit}}):
+                          {'status': 'qualified', 'capacity': {'prepare': limit}},
+                          {'status': 'qualified', 'capacity': {'prepare': limit, 'execute': limit}}):
                 with self.subTest(value=value), self.assertRaises(ValueError):
                     N.capacity_admission(value, self.prepared, self.root, 'prepare')
             docker.assert_not_called()
+    def test_early_cli_and_materialization_use_distinct_capacity_phases(self):
+        definition = {'status': 'qualified'}
+        with patch.object(N.A, 'policy', return_value=definition), \
+             patch.object(N, 'capacity_admission', return_value={'result': 'admitted'}) as admit, \
+             patch.object(sys, 'argv', ['native', '--capacity-only', '--destination', str(self.prepared),
+                                        '--cache', str(self.root)]), patch('sys.stdout', new_callable=io.StringIO):
+            N.main()
+            admit.assert_called_once_with(definition, self.prepared, self.root, 'bootstrap')
+        with patch.object(N.A, 'policy', return_value=definition), \
+             patch.object(N, 'capacity_admission', side_effect=ValueError('stop before downloads')) as admit, \
+             patch.object(N.A, 'prepare') as prepare, self.assertRaises(ValueError):
+            N.prepare(self.prepared, self.root)
+        admit.assert_called_once_with(definition, self.prepared, self.root, 'prepare')
+        prepare.assert_not_called()
+
     def test_protected_template_and_baseline_are_digest_bound(self):
         path = self.prepared / 'qualification' / 'proof.json'; path.write_text('{"actual":"bytes"}')
         reference = {'path': 'proof.json', 'sha256': N.R.digest(path)}

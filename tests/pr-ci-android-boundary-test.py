@@ -57,7 +57,7 @@ class AndroidBoundaryTests(unittest.TestCase):
         args = self.argv()
         for value in ("--pull=never", "--read-only", "--cap-drop=ALL", "--network=none",
                       "--security-opt=no-new-privileges:true", "--memory=8g", "--memory-swap=8g",
-                      "--cpus=2", "--pids-limit=512", B.IMAGE):
+                      "--cpus=4", "--pids-limit=512", B.IMAGE):
             self.assertIn(value, args)
         self.assertIn("--user=" + str(os.getuid()) + ":" + str(os.getgid()), args)
         self.assertNotIn("--privileged", args)
@@ -75,14 +75,21 @@ class AndroidBoundaryTests(unittest.TestCase):
     def test_ambient_secrets_and_docker_overrides_are_ignored(self):
         with patch.dict(os.environ, {"GH_TOKEN": "private-token-fixture", "DOCKER_HOST": "tcp://evil",
                                      "DOCKER_CONTEXT": "hostile", "JAVA_HOME": "/private/java",
+                                     "ANDROID_USER_HOME": "/foreign/android", "JAVA_TOOL_OPTIONS": "-javaagent:/private/agent.jar",
+                                     "CMAKE_BUILD_PARALLEL_LEVEL": "99", "MAKEFLAGS": "-j99",
                                      "OVERTE_ANDROID_KEYSTORE_PASSWORD": "secret-signing-fixture"}):
             args = self.argv()
         raw = " ".join(args)
-        for secret in ("private-token-fixture", "tcp://evil", "hostile", "/private/java", "secret-signing-fixture"):
+        for secret in ("private-token-fixture", "tcp://evil", "hostile", "/private/java", "secret-signing-fixture", "/foreign/android", "-javaagent:", "-j99"):
             self.assertNotIn(secret, raw)
         self.assertIn("-i", args)
         self.assertIn("--host=unix:///var/run/docker.sock", args)
         self.assertIn("GRADLE_USER_HOME=/scratch/gradle-home", args)
+        self.assertIn("ANDROID_USER_HOME=/scratch/home/.android", args)
+        self.assertIn("JAVA_TOOL_OPTIONS=-Duser.home=/scratch/home", args)
+        self.assertIn("MAKEFLAGS=-j4", args)
+        for name in ("CMAKE_BUILD_PARALLEL_LEVEL", "PICO_BUILD_JOBS", "OMP_NUM_THREADS", "OMP_THREAD_LIMIT"):
+            self.assertIn(name + "=4", args)
 
     def test_whole_host_root_refused(self):
         for name in ("runtime", "sdk", "scratch", "controller", "qualification"):

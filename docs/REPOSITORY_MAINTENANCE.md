@@ -92,6 +92,19 @@ order. Preserve independent deletion safeguards when checking derived views.
 
 ## Required checks
 
+The [current CI overview](portal/testing/github-actions.md#required-repository-checks)
+records the live required results read on October 22, 2026: `source-policy`
+and `required-ci`, plus applicable Android/Apple topology results. Actions was
+disabled at that inspection. The [selective PR CI guide](https://github.com/noah-l-frank/overte/blob/main/docs/PR_CI.md)
+owns the current execution and acceptance contract. Local checks and an
+installed source do not establish a hosted result.
+
+### Historical aggregate implementation
+
+The following implementation and deployment details describe the September
+aggregate. They preserve the original evidence and do not instruct maintainers
+to restore its retired required contexts or duplicate its former execution.
+
 The prepared `Repository checks` workflow starts on every PR without path filters.
 Its deployment state is recorded in the dated
 [rollout snapshot](maintenance/2026-09-repository-maintenance.md#rollout-snapshot-2026-09-25);
@@ -143,10 +156,11 @@ on `main` before relying on the aggregate workflow. Prepare a tooling-first chan
 with its offline tests, followed by orchestration and the complete desired
 ruleset. Keep existing checks active throughout.
 
-The September 2026 rollout is authorized and underway. Its
-[dated record](maintenance/2026-09-repository-maintenance.md) distinguishes local
-preparation, an open foundation PR, and the remaining deployment steps. Follow
-this sequence without treating a prepared manifest as an applied setting:
+The September 2026 rollout has its own
+[dated record](maintenance/2026-09-repository-maintenance.md), which distinguishes local
+preparation, the foundation PR, and its deployment steps. The sequence below
+records that rollout; use the current selective CI guide for subsequent work.
+Do not treat a prepared manifest as an applied setting:
 
 1. **M1 — Establish the baseline.** Inspect current fork `main`, preserve the
    current product roadmap, and reconcile local implementation with that source.

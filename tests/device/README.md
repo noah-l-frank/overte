@@ -1,5 +1,20 @@
 # Overte physical-device E2E harness
 
+## Execution environments
+
+This is a portable harness in a personal hobby fork. Its mock and host tests
+run locally without a target. The maintainer's real hardware/device runs use a
+[private Proxmox Jenkins laboratory](../../docs/portal/jenkins/index.md), which
+is not a public service or a contributor prerequisite. The workstation device
+laboratory was retired on October 19, 2026.
+
+Adapter and runner commands below describe the protocol on a prepared test
+agent, or a separately configured independent lab. They are not workstation
+run instructions for the maintainer's devices. Inspect the actual Jenkins job,
+agent, selected artifact, and private target binding before a hardware run;
+retained workstation files are historical. Local source builds, mocked host
+tests, and separately authorized manual IPA installation remain distinct.
+
 The lifecycle policy, common CI flow, evidence contracts, stability campaign,
 and portable suite frontier are documented in
 [`CROSS_PLATFORM_OPERATIONS.md`](CROSS_PLATFORM_OPERATIONS.md).

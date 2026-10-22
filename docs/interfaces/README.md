@@ -12,9 +12,9 @@ compared without guessing which document is authoritative.
 
 | Platform | Developer entry point | Build instructions |
 | --- | --- | --- |
-| Android phones | [`android-phone` guide](https://github.com/noah-be/overte/blob/android-phone/docs/interfaces/android-phone/README.md) | [Phone build](https://github.com/noah-be/overte/blob/android-phone/docs/interfaces/android-phone/BUILD.md) |
-| Pico 4 | [`android-vr-pico` guide](https://github.com/noah-be/overte/blob/android-vr-pico/docs/interfaces/pico4/README.md) | [Pico build](https://github.com/noah-be/overte/blob/android-vr-pico/docs/interfaces/pico4/BUILD.md) |
-| iPhone and iPad | [`apple-ios` guide](https://github.com/noah-be/overte/blob/apple-ios/docs/interfaces/ios/README.md) | [iOS build](https://github.com/noah-be/overte/blob/apple-ios/docs/interfaces/ios/BUILD.md) |
+| Android phones | [`android-phone` guide](https://github.com/noah-l-frank/overte/blob/android-phone/docs/interfaces/android-phone/README.md) | [Phone build](https://github.com/noah-l-frank/overte/blob/android-phone/docs/interfaces/android-phone/BUILD.md) |
+| Pico 4 | [`android-vr-pico` guide](https://github.com/noah-l-frank/overte/blob/android-vr-pico/docs/interfaces/pico4/README.md) | [Pico build](https://github.com/noah-l-frank/overte/blob/android-vr-pico/docs/interfaces/pico4/BUILD.md) |
+| iPhone and iPad | [`apple-ios` guide](https://github.com/noah-l-frank/overte/blob/apple-ios/docs/interfaces/ios/README.md) | [iOS build](https://github.com/noah-l-frank/overte/blob/apple-ios/docs/interfaces/ios/BUILD.md) |
 
 The active platform branches contain their corresponding documentation.
 Historical platform documentation may remain on a frozen archival branch, but

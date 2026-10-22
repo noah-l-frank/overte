@@ -1,5 +1,10 @@
 # OpenXR E2E input contract and device-free prototype
 
+Input transport commands describe a prepared test agent. The maintainer's
+hardware runs use the private Proxmox Jenkins laboratory, not local workstation
+ADB automation. Pure protocol/self-tests remain local and device-free. See
+[execution environments](../README.md#execution-environments).
+
 This directory defines a target-neutral command contract for the E2E operations
 `input.look`, `input.move`, `tablet.open`, and `tablet.close`. Its Pico-specific
 controller compiler also binds the shared `input.jump` and `input.fly`
