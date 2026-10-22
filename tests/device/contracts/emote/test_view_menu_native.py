@@ -2,6 +2,8 @@
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 import os
+import json
+import sys
 from pathlib import Path
 import shlex
 import subprocess
@@ -45,6 +47,10 @@ class ViewMenuNativeTests(unittest.TestCase):
         menu_header=(ROOT/'interface/src/Menu.h').read_text()
         camera_enum=camera_header[camera_header.index('enum CameraMode'):camera_header.index('};',camera_header.index('enum CameraMode'))+2]
         camera_declarations='''
+class OriginalTimerWitness:public QObject { Q_OBJECT
+public:std::function<void()> sample;
+public slots:void changed(){if(sample)sample();}
+};
 class Camera:public QObject { Q_OBJECT
 public:
 ORIGINAL_GET_MODE
@@ -78,7 +84,7 @@ MyAvatar* getMyAvatar(){return &avatar;}void cameraMenuChanged();};
             if line.startswith(('const float MyAvatar::ZOOM_MIN =','const float MyAvatar::ZOOM_DEFAULT =')))
         with tempfile.TemporaryDirectory(prefix='pico-view-menu-') as directory:
             stage=Path(directory);binary=stage/'test'
-            (stage/'ActualMenuBinding.h').write_text('#pragma once\n#include <QAction>\n#include <QMenu>\n#include <QUuid>\n'+declaration+'\n'+camera_enum+'\n'+camera_declarations)
+            (stage/'ActualMenuBinding.h').write_text('#pragma once\n#include <QAction>\n#include <QMenu>\n#include <QUuid>\n#include <functional>\n'+declaration+'\n'+camera_enum+'\n'+camera_declarations)
             (stage/'ActualMenuBinding.inc').write_text(methods)
             (stage/'ActualCameraBinding.inc').write_text(camera_methods)
             native=(ROOT/'android/vr/pico/apps/picoInterface/e2e/PicoE2eNavigationUi.cpp').read_text()
@@ -103,6 +109,13 @@ MyAvatar* getMyAvatar(){return &avatar;}void cameraMenuChanged();};
                     capture_output=True,text=True,timeout=30,
                     env={**environment,'QT_QPA_PLATFORM':'offscreen','QT_QUICK_BACKEND':'software'})
                 self.assertEqual(0,ran.returncode,ran.stdout+ran.stderr)
+                if arguments:
+                    sys.path.insert(0,str(ROOT/'tests/device'))
+                    from adapters.pico4.view_menu_lifetimes import validate,accept,retired
+                    packets=[json.loads(line) for line in ran.stdout.splitlines() if line.startswith('{')]
+                    self.assertEqual(3,len(packets));previous=None
+                    for packet in packets:validate(packet,packet['capturedEpochMs']);accept(previous,packet);previous=packet
+                    self.assertEqual(not packets[-1]['originals'][0]['alive'],retired(packets[0],packets[-1]))
 
 
 if __name__=='__main__':unittest.main()

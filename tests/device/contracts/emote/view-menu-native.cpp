@@ -3,6 +3,7 @@
 #include "ActualMenuBinding.h"
 #include "tests/device/native/NormalControlUi.h"
 #include "tests/device/native/NormalViewMenuControls.h"
+#include "tests/device/native/ViewMenuLifetimes.h"
 #include <QApplication>
 #include <QDebug>
 #include <QDynamicPropertyChangeEvent>
@@ -13,6 +14,7 @@
 #include <QSignalSpy>
 #include <QtTest/QTest>
 #include <cassert>
+#include <cstdio>
 Q_LOGGING_CATEGORY(uiLogging,"view.menu.host.fixture")
 #include "ActualMenuBinding.inc"
 #include "ActualCameraBinding.inc"
@@ -37,6 +39,24 @@ int main(int argc,char** argv) {
     QQmlComponent page(&engine,PathUtils::qmlUrl("hifi/tablet/TabletMenu.qml"));
     if (page.isError()) {qWarning()<<page.errors();return 2;}
     auto root=qobject_cast<QQuickItem*>(page.create());assert(root);root->setParentItem(window.contentItem());
+    ViewMenuLifetimes lifetimes(PathUtils::qmlUrl("hifi/tablet/TabletMenuStack.qml"));
+    auto absentLife=lifetimes.observe(nullptr);assert(absentLife.value("originals").toArray().isEmpty());
+    auto initialLife=lifetimes.observe(root);assert(!initialLife.isEmpty());
+    assert(initialLife.value("originals").toArray().size()==1);
+    auto originalLife=initialLife.value("originals").toArray().first().toObject();
+    assert(originalLife.value("pageAlive").toBool() && originalLife.value("timerAlive").toBool()
+        && originalLife.value("contextAlive").toBool() && !originalLife.value("timerRunning").toBool());
+    auto actualStack=root->findChild<QQuickItem*>("stack");assert(actualStack);
+    auto delayValue=actualStack->property("delay");auto actualTimer=delayValue.value<QObject*>();
+    if(!actualTimer)actualTimer=delayValue.value<QJSValue>().toQObject();assert(actualTimer);
+    OriginalTimerWitness timerWitness;bool sawOriginalPending{false};
+    timerWitness.sample=[&] {
+        auto original=lifetimes.observe(root).value("originals").toArray().first().toObject();
+        if(original.value("timerRunning").toBool()) {
+            assert(original.value("pendingMenuItem").toBool());sawOriginalPending=true;
+        }
+    };
+    assert(QObject::connect(actualTimer,SIGNAL(runningChanged()),&timerWitness,SLOT(changed()),Qt::DirectConnection));
     auto create=[&](const QString& url) {
         QQmlComponent component(&engine,PathUtils::qmlUrl(url));auto result=component.create();
         if (!result) {qWarning()<<component.errors();}assert(result);result->setParent(root);return result;
@@ -91,7 +111,8 @@ int main(int argc,char** argv) {
         assert(NormalControlUi::ownsPoint(item,&window,point));
         const auto id=viewMenuControlId(item,context);
         auto result=originalViewInput(item,&window,id,"activate",[&](QQuickItem* actual){
-            assert(actual==item);QTest::mouseClick(&window,Qt::LeftButton,Qt::NoModifier,point.toPoint());return true;
+            assert(actual==item);QTest::mouseClick(&window,Qt::LeftButton,Qt::NoModifier,point.toPoint());
+            return true;
         });assert(result["performed"].toBool());QTest::qWait(350);
     };
     auto viewItem=find("view-menu.view");QJsonObject observation;
@@ -102,9 +123,13 @@ int main(int argc,char** argv) {
     QSignalSpy actualThird(nativeThird,&QAction::triggered);click(thirdItem);
     if (actualThird.count()!=1) {fprintf(stderr,"third triggers=%d firstChecked=%d thirdChecked=%d qmlChecked=%d\n",actualThird.count(),nativeFirst->isChecked(),nativeThird->isChecked(),third->property("checked").toBool());}
     assert(actualThird.count()==1 && nativeThird->isChecked() && !nativeFirst->isChecked());
+    assert(sawOriginalPending);
     assert(originalCamera._myCamera.getMode()==CAMERA_MODE_LOOK_AT && originalCamera._myCamera.getModeString()=="look at");
     assert(originalCamera._myCamera.getModeString()!="third person"); // Legacy enum is not the normal menu mode.
     assert(originalCamera.avatar.getBoomLength()==MyAvatar::ZOOM_DEFAULT);
+    auto usedLife=lifetimes.observe(root).value("originals").toArray().first().toObject();
+    assert(usedLife.value("instance")==originalLife.value("instance") && !usedLife.value("timerRunning").toBool()
+        && !usedLife.value("pendingMenuItem").toBool() && usedLife.value("alive").toBool());
     appendViewMenuObservation(observation,thirdItem,"view-menu.third",context);assert(observation["checked"].toBool());
     auto firstItem=find("view-menu.first");QSignalSpy actualFirst(nativeFirst,&QAction::triggered);click(firstItem);
     assert(actualFirst.count()==1 && nativeFirst->isChecked() && !nativeThird->isChecked());
@@ -129,6 +154,19 @@ int main(int argc,char** argv) {
     third->setProperty("checked",true);appendViewMenuObservation(observation,thirdItem,"view-menu.third",context);
     assert(!observation["inputReady"].toBool());third->setProperty("checked",false);
     delete MenuUserData::forObject(nativeFirst);delete MenuUserData::forObject(nativeThird);delete menuData;
+    root->setVisible(false);root->setParentItem(nullptr);
+    auto hidden=lifetimes.observe(nullptr).value("originals").toArray().first().toObject();
+    assert(hidden.value("instance")==originalLife.value("instance") && hidden.value("alive").toBool()
+        && hidden.value("pageAlive").toBool() && hidden.value("timerAlive").toBool());
+    QObject::disconnect(actualTimer,nullptr,&timerWitness,nullptr);
     delete root;
+    QCoreApplication::processEvents();
+    auto dead=lifetimes.observe(nullptr).value("originals").toArray().first().toObject();
+    assert(!dead.value("pageAlive").toBool() && !dead.value("stackAlive").toBool());
+    assert(dead.value("alive").toBool()==(dead.value("timerAlive").toBool() || dead.value("contextAlive").toBool()
+        || dead.value("timerContextAlive").toBool()));
+    std::puts(QJsonDocument(absentLife).toJson(QJsonDocument::Compact).constData());
+    std::puts(QJsonDocument(initialLife).toJson(QJsonDocument::Compact).constData());
+    std::puts(QJsonDocument(lifetimes.observe(nullptr)).toJson(QJsonDocument::Compact).constData());
     qInfo()<<"PASS original VR menu delegates -> actual pointer -> deferred original QAction bridge and exclusive checked state; host menu/service/window seams";
 }

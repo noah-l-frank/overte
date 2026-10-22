@@ -98,7 +98,7 @@ camera result is accepted. Controlled scene/avatar identity, independent actor
 and whole Emote cleanup remain required before a complete capability.
 
 The Pico catalog keeps emote-original-sources (81 cases),
-emote-stereo-capture (68 cases) and emote-background-effects (11 cases)
+emote-stereo-capture (75 cases) and emote-background-effects (11 cases)
 separate, preserving every case under the existing default per-group timeout.
 The native menu check is emote-view-native-ui. These selector counts are test
 groups, not completed feature areas; no adapter operation budget was enlarged.
@@ -141,3 +141,30 @@ matching the product lifetime boundary. V1/v2 view owners remain retained and
 are not relabeled with missing Home originals. Restored mode/boom/Home remains
 an intermediate proof; original menu Timer/QQmlContext retirement and original
 OpenXR controller stream retirement must still be joined by the full parent.
+
+
+Original menu lifetime observation is now wired into NavigationUi as the
+optional picoViewMenuLifetimeVersion1/picoViewMenuLifetimes extension. A
+canonical actual nested TabletMenuStack source context must bind both original
+root and StackView d; the root's outer TabletMenu creation context alone is
+insufficient. Weak original page/stack/delay Timer/component and Timer contexts
+are retained, with native running/pending-menu-item state. Hidden/detached pages
+and invalid-but-alive contexts remain alive. Thirty-two original scopes and
+4096 visual nodes are hard bounds; no getters mutate or destroy a product object.
+
+The strict shared navigation reader validates the optional extension. The view
+owner preserves it in every original frame and enforces append-only original
+identities, births, clocks and irreversible actual object death. Its separate
+menu_retirement method requires an original preinput inventory and fresh known
+owned-object death after restoration. It keeps all journals, and cannot replace
+full controller/callback/native resource retirement or the common quiet window.
+Old view histories without that original inventory cannot use this method.
+
+The owning native menu harness uses the actual original deferred Timer. An
+observer of its actual runningChanged signal captures its real pending item
+before the zero-delay callback; sampling after mouse dispatch can already be
+too late. It also proves stopped/hidden/detached is not destroyed. The exact
+original C++ empty/live/after-page-death packets are passed through the Python
+reader. Any alive Timer/context remains unretired; the harness does not delete
+internal contexts. Whole application and real Home-loader destruction remain
+unqualified. The existing emote-view-native-ui selector owns this compilation.

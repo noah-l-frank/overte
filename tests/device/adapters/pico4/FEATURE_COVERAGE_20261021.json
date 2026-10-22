@@ -488,7 +488,10 @@
         "tests/device/contracts/emote/test_view_menu_native.py",
         "tests/device/adapters/pico4/EMOTE_VIEW_MENU.md",
         "tests/device/adapters/pico4/emote_view.py",
-        "tests/device/self_tests/test_pico_emote_view.py"
+        "tests/device/self_tests/test_pico_emote_view.py",
+        "tests/device/native/ViewMenuLifetimes.h",
+        "tests/device/adapters/pico4/view_menu_lifetimes.py",
+        "tests/device/self_tests/test_pico_view_menu_lifetimes.py"
       ],
       "declaredCheckpoints": 28,
       "inputVerbs": [

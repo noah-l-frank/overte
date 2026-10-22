@@ -15,6 +15,7 @@ from adapters.normal_feature_state import context
 from adapters.pico4.navigation import validate_snapshot
 from adapters.pico4.normal_view_menu import PicoViewMenu,project
 from adapters.pico4.tablet_home import PicoTabletHome,validate as home_packet,validate_input as home_input
+from adapters.pico4 import view_menu_lifetimes
 from adapters.script_journey.history import pack,unpack,same
 from adapters.script_journey.lock import ScriptSourceLock
 from feature_journeys.phase_fixture import PhaseFixtureReader,validate as phase_packet
@@ -52,6 +53,9 @@ class PicoEmoteView:
         a=value['avatar'];avatar_packet(a,dict(schemaVersion=1,commandId=a.get('requestId'),action='feature-avatar-render-observe'),self.pid,a.get('capturedEpochMs'))
         need(a['source'].get('cameraStateVersion')==1 and a['source']['cameraState']['hmd'])
         widgets=value['widgets'];validate_snapshot(widgets,self.pid,widgets.get('updatedEpochMs'));project(widgets)
+        if previous is not None and 'picoViewMenuLifetimes' in previous['widgets']:
+            need('picoViewMenuLifetimes' in widgets)
+            view_menu_lifetimes.accept(previous['widgets']['picoViewMenuLifetimes'],widgets['picoViewMenuLifetimes'])
         need(widgets['bridgeId']==self.binding['sessionId'] and a['capturedEpochMs']<=widgets['updatedEpochMs'])
         home=value['home'];home_packet(home,home.get('commandId'),self.pid,home.get('capturedEpochMs'))
         need(home['tabletShown']==widgets['open'])
@@ -281,3 +285,15 @@ class PicoEmoteView:
 
     def prepare(self):return self.operate()
     def restore(self):return self.operate(True)
+
+    def menu_retirement(self):
+        """Fresh original known-menu liveness; keeps every parent journal."""
+        self.bound();need(self.state['phase']=='restored')
+        original=self.state['original']['widgets'];need('picoViewMenuLifetimes' in original)
+        current=self.read('cleanup');need('picoViewMenuLifetimes' in current['widgets'])
+        need(not current['widgets']['open'] and current['home']['onHomeScreen']
+            and current['avatar']['source']['cameraMode']==self.state['original']['avatar']['source']['cameraMode']
+            and current['avatar']['source']['cameraState']['boomLength']==self.state['original']['avatar']['source']['cameraState']['boomLength'])
+        released=view_menu_lifetimes.retired(original['picoViewMenuLifetimes'],current['widgets']['picoViewMenuLifetimes'])
+        self.state['current']=current;self.save();self.delivery(current)
+        return dict(retired=released,original=current['widgets']['picoViewMenuLifetimes'],journalsRetained=True)

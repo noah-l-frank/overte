@@ -91,6 +91,11 @@ def validate_snapshot(value, process_id, epoch_ms):
         fields|={'picoAudioPageVersion','picoAudioPages'}
         need(type(value.get('picoAudioPageVersion')) is int and value['picoAudioPageVersion']==1)
         audio_pages(value.get('picoAudioPages'),epoch_ms)
+    if type(value) is dict and ('picoViewMenuLifetimeVersion' in value or 'picoViewMenuLifetimes' in value):
+        from adapters.pico4.view_menu_lifetimes import validate as menu_lifetimes
+        fields|={'picoViewMenuLifetimeVersion','picoViewMenuLifetimes'}
+        need(type(value.get('picoViewMenuLifetimeVersion')) is int and value['picoViewMenuLifetimeVersion']==1)
+        menu_lifetimes(value.get('picoViewMenuLifetimes'),epoch_ms)
     if type(value) is dict and 'audioControlsVersion' in value:
         fields.add('audioControlsVersion')
         need(type(value['audioControlsVersion']) is int and value['audioControlsVersion'] == 1)

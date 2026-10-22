@@ -11,7 +11,7 @@
 #include <functional>
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #include <memory>
-namespace overte::e2e { class AudioPageObservation; }
+namespace overte::e2e { class AudioPageObservation; class ViewMenuLifetimes; }
 #endif
 
 namespace overte::pico::e2e {
@@ -47,6 +47,7 @@ private:
     bool _open { false };
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     std::shared_ptr<overte::e2e::AudioPageObservation> _audioPages;
+    std::shared_ptr<overte::e2e::ViewMenuLifetimes> _viewMenuLifetimes;
 #endif
 };
 

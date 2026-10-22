@@ -143,6 +143,7 @@
     "pico-emote-view": {"current": 3, "reads": [3]},
     "pico-view-menu-controls": {"current": 1, "reads": [1]},
     "pico-view-menu-input": {"current": 1, "reads": [1]},
+    "pico-view-menu-lifetimes": {"current": 1, "reads": [1]},
     "native-animation-inventory": {"current": 1, "reads": [1]},
     "emote-animation-readiness": {"current": 1, "reads": [1]},
     "emote-originals": {"current": 1, "reads": [1]},

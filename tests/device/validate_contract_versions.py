@@ -174,6 +174,7 @@ REQUIRED = {
     "pico-emote-view": 3,
     "pico-view-menu-controls": 1,
     "pico-view-menu-input": 1,
+    "pico-view-menu-lifetimes": 1,
     "native-animation-inventory": 1,
     "emote-animation-readiness": 1,
     "emote-originals": 1,

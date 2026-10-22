@@ -567,3 +567,30 @@ cases pass1.851s, all4 final repository suites3.05s, registry/whitespace pass.
 No new native C++ or product changes in this packet. Independent original menu
 Timer/QQmlContext, controller envelope/neutral retirement, scene/avatar/actor
 and whole public coordination remain open; source-complete count is3/14.
+
+
+## Original menu Timer/context lifetime continuation
+
+The optional original ViewMenuLifetimes source is wired into actual Pico
+NavigationUi and the strict compatible reader. It retains original nested QML
+page/StackView/delay Timer/component+Timer contexts, actual running/pending item
+and real weak-object deaths. The view owner joins this original append-only
+history and exposes separate fresh known-menu retirement without discarding
+its journal or inferring complete controller/native cleanup.
+
+Initial compilation rejected QQmlContext::objectForName under actual Qt5; the
+source now uses actual visual child/id associations. Runtime inspection then
+showed the nested root's outer creation context belongs to TabletMenu.qml,
+so qualification follows the actual StackView child source context and both
+original root/d IDs. A post-mouse Timer check was too late for the actual zero-
+delay callback; the harness now observes the actual Timer's runningChanged
+signal and measures real pending state without calling a product handler.
+No product QML or timer behavior was changed. All20 focused owner/reader cases
+pass7.338s and original Qt5 menu/Timer owning native case passes7.268s before
+the final test-witness disconnect. Exact original C++ empty/live/dead-page
+packets also pass the Python reader. Alive contexts remain explicitly retained.
+
+Final Qt5 owning menu/lifetime selector7.553s and75-case stereo/owner selection
+15.108s plus coverage.065s pass3/75 groups22.73s. Qt6 original menu/lifetime
+owning case also passes10.196s. All4 repository suites pass3.07s; registry and
+whitespace pass. Native application/whole translation unit/HMD remain unqualified.

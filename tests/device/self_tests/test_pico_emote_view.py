@@ -30,6 +30,7 @@ class ViewBoundary:
         source=SimpleNamespace(capture=self.capture_home,pid=31,clock_ms=lambda:self.sources.epoch,
             monotonic=lambda:self.sources.clock,sleep=self.sleep,guard=self.sources.guard)
         self.home=PicoTabletHome(source,self.home_stage)
+        self.life=False;self.life_sequence=0;self.life_rows=[]
     def capture_home(self):
         self.home_sequence+=1
         value=deepcopy(self.home_value);value.update(commandId=uuid.uuid4().hex,sourceSequence=self.home_sequence,
@@ -53,6 +54,10 @@ class ViewBoundary:
         packet=dict(schemaVersion=1,bridgeId=BINDING['sessionId'],generation=self.generation,processId=31,
             elapsedMs=int(self.sources.clock*1000),updatedEpochMs=self.sources.epoch,lastCommandSequence=self.sequence,
             open=self.open,ready=self.open,viewMenuControlsVersion=1,featureControlsVersion=1,controls=rows)
+        if self.life:
+            self.life_sequence+=1
+            packet.update(picoViewMenuLifetimeVersion=1,picoViewMenuLifetimes=dict(instance='a'*32,sequence=self.life_sequence,
+                capturedEpochMs=self.sources.epoch,originals=deepcopy(self.life_rows)))
         if self.mutate:self.mutate(packet)
         return packet
     def before_input(self,control):
@@ -72,7 +77,12 @@ class ViewBoundary:
         unittest.TestCase().assertEqual(dict(token=row['token']),options)
         self.before_input(control);self.sequence+=1
         if control!=self.ignored:
-            if control=='scripts.menu':self.page='menu'
+            if control=='scripts.menu':
+                self.page='menu'
+                if self.life:
+                    self.life_rows.append(dict(instance=uuid.uuid4().hex,firstObservedEpochMs=self.sources.epoch,
+                        pageAlive=True,stackAlive=True,timerAlive=True,contextAlive=True,timerContextAlive=True,
+                        alive=True,timerRunning=False,pendingMenuItem=False))
             elif control=='view-menu.view':self.page='view'
             else:
                 mode='first person look at' if control=='view-menu.first' else 'look at';source=self.avatar.avatar
@@ -234,6 +244,30 @@ class PicoEmoteViewTests(unittest.TestCase):
             with self.assertRaises(NativeUIError):b.owner().prepare()
             self.assertEqual(before,b.inputs);self.assertEqual(1,b.inputs.count('tablet.home-ray'))
             self.assertTrue(b.open);self.assertEqual('view',b.page);self.assertIsNotNone(b.store.read())
+
+    def test_menu_retirement_keeps_original_alive_contexts_and_requires_all_known_object_deaths(self):
+        b=ViewBoundary(self);b.life=True
+        with b.lock.held():
+            b.owner().prepare();b.cleanup_phase();owner=b.owner();owner.restore()
+            self.assertEqual(2,len(b.life_rows));before=deepcopy(b.inputs)
+            self.assertFalse(owner.menu_retirement()['retired'])
+            for row in b.life_rows:row.update(pageAlive=False,stackAlive=False,timerAlive=False)
+            self.assertFalse(b.owner().menu_retirement()['retired'])
+            for row in b.life_rows:row.update(alive=False,contextAlive=False,timerContextAlive=False)
+            self.assertTrue(b.owner().menu_retirement()['retired']);self.assertEqual(before,b.inputs)
+            self.assertIsNotNone(b.store.read())
+
+    def test_missing_or_removed_original_menu_inventory_never_authorizes_retirement(self):
+        b=ViewBoundary(self)
+        with b.lock.held():
+            b.owner().prepare();b.cleanup_phase();owner=b.owner();owner.restore()
+            with self.assertRaises(NativeUIError):owner.menu_retirement()
+            self.assertIsNotNone(b.store.read())
+        b=ViewBoundary(self);b.life=True
+        with b.lock.held():
+            b.owner().prepare();b.cleanup_phase();owner=b.owner();owner.restore();b.life=False
+            with self.assertRaises(NativeUIError):owner.menu_retirement()
+            self.assertIsNotNone(b.store.read())
 
 
 if __name__=='__main__':unittest.main()

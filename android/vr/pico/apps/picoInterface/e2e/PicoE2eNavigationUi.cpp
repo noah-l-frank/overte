@@ -19,6 +19,7 @@
 #include "../../../../../../tests/device/native/NormalEmoteControls.h"
 #include "../../../../../../tests/device/native/NormalLifecycleControls.h"
 #include "../../../../../../tests/device/native/AudioPageObservation.h"
+#include "../../../../../../tests/device/native/ViewMenuLifetimes.h"
 #include <PathUtils.h>
 #include "../../../../../../tests/device/native/NormalAccountMenuControls.h"
 #if defined(ANDROID_APP_PICO_INTERFACE)
@@ -392,10 +393,12 @@ QJsonObject NavigationUi::observe(QQuickItem* root, QQuickWindow* window, bool o
         observed.append(row);
     }
 #if defined(OVERTE_E2E_FEATURE_TESTS)
-    QJsonObject audioPages;
+    QJsonObject audioPages,viewMenuLifetimes;
     if (QCoreApplication::arguments().contains("--testScript")) {
         if (!_audioPages) { _audioPages=std::make_shared<overte::e2e::AudioPageObservation>(PathUtils::qmlUrl("hifi/audio/Audio.qml")); }
         audioPages=_audioPages->observe(root,window,open);
+        if (!_viewMenuLifetimes) { _viewMenuLifetimes=std::make_shared<overte::e2e::ViewMenuLifetimes>(PathUtils::qmlUrl("hifi/tablet/TabletMenuStack.qml")); }
+        viewMenuLifetimes=_viewMenuLifetimes->observe(root);
     }
 #endif
     QJsonObject result { { "schemaVersion", 1 }, { "bridgeId", _bridgeId }, { "generation", _generation },
@@ -406,6 +409,7 @@ QJsonObject NavigationUi::observe(QQuickItem* root, QQuickWindow* window, bool o
         { "open", open }, { "ready", ready }, { "controls", observed } };
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     if (!audioPages.isEmpty()) { result["picoAudioPageVersion"]=1;result["picoAudioPages"]=audioPages; }
+    if (!viewMenuLifetimes.isEmpty()) { result["picoViewMenuLifetimeVersion"]=1;result["picoViewMenuLifetimes"]=viewMenuLifetimes; }
     result["featureControlsVersion"] = 1;
     result["createFileControlsVersion"]=1;
     result["createUiInventory"]=createInventory;
