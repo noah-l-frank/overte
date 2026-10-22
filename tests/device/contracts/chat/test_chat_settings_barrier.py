@@ -1,6 +1,7 @@
 """Original Qt worker methods, real queued thread and independent physical bytes.
 
-The manager's in-memory map is an explicit seam. No application/device runs.
+One check compiles the complete Manager translation unit and QObject metadata;
+the worker-only check has an explicit cache seam. No application/device runs.
 """
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
@@ -83,16 +84,22 @@ int main(int argc,char** argv) {
     entered.acquire();const auto calls=writerCalls;assert(barrier.pendingMutations()==1);
     assert(snapshot().isEmpty() && writerCalls==calls);release.release();delayed.join();assert(!snapshot().isEmpty());
 
-    QSemaphore begin;std::thread concurrent([&] {
+    QSemaphore begin,racing,finish;std::thread concurrent([&] {
         begin.acquire();overte::e2e::ChatSettingsBarrier::Mutation mutation(barrier,"ArmoredChat-Messages");
+        racing.release();finish.acquire();
         assert(QMetaObject::invokeMethod(&worker,[&]{worker.setValue("ArmoredChat-Messages",QString("racing enqueue"));},Qt::QueuedConnection));
     });
     const auto raced=barrier.read([&]{return cache;},[&] {
-        begin.release();QElapsedTimer wait;wait.start();
-        while(barrier.pendingMutations()==0 && wait.elapsed()<1000)QThread::msleep(1);
+        begin.release();assert(racing.tryAcquire(1,1000));
         assert(barrier.pendingMutations()==1);return QVariantMap{{"original",true}};
     });
-    assert(raced.isEmpty());concurrent.join();assert(!snapshot().isEmpty());
+    assert(raced.isEmpty());finish.release();concurrent.join();assert(!snapshot().isEmpty());
+    // A mutation that fully finishes during the acquisition is also rejected.
+    const auto completed=barrier.read([&]{return cache;},[&] {
+        {overte::e2e::ChatSettingsBarrier::Mutation mutation(barrier,"ArmoredChat-Messages");}
+        return QVariantMap{{"original",true}};
+    });
+    assert(completed.isEmpty());assert(!snapshot().isEmpty());
 
     QString path;assert(QMetaObject::invokeMethod(&worker,[&]{path=worker._qSettings->fileName();},Qt::BlockingQueuedConnection));
     auto physical=overte::e2e::chatSettingsFile(path);assert(!physical.isEmpty());
@@ -115,6 +122,11 @@ FULL_MANAGER=r'''
 #include <thread>
 class OwnedManager:public Setting::Manager {
 public:~OwnedManager(){terminateThread();}
+};
+class SettingsTests {
+public:
+    static Setting::WriteWorker* worker(Setting::Manager& manager){return manager._featureChatWorker.data();}
+    static std::shared_ptr<Setting::ChatSnapshotJob> job(Setting::Manager& manager){return manager._featureChatRead;}
 };
 int main(int argc,char** argv) {
     QCoreApplication app(argc,argv);QTemporaryDir scratch;assert(scratch.isValid());
@@ -139,6 +151,49 @@ int main(int argc,char** argv) {
     std::thread active([&]{manager.setValue("ArmoredChat-Messages",QString("original signal body still active"));});
     entered.acquire();assert(manager.featureChatSnapshot().isEmpty());release.release();active.join();QObject::disconnect(connection);
     assert(!manager.featureChatSnapshot().isEmpty());
+    // An actual contended Manager cache never blocks this UI-thread reader.
+    QSemaphore locked,unlock;std::thread cacheHolder([&] {
+        manager.withWriteLock([&]{locked.release();unlock.acquire();});
+    });
+    locked.acquire();QElapsedTimer elapsed;elapsed.start();const auto priorJob=SettingsTests::job(manager);
+    assert(manager.featureChatSnapshot().isEmpty() && elapsed.elapsed()<500);
+    assert(SettingsTests::job(manager)==priorJob);unlock.release();cacheHolder.join();
+
+    // A queued worker mutator must be free to finish while this query waits.
+    // Holding the barrier mutex across the worker wait would deadlock here.
+    auto* worker=SettingsTests::worker(manager);assert(worker);
+    QSemaphore workerEntered,workerBegin,workerMutated;
+    assert(QMetaObject::invokeMethod(worker,[&] {
+        workerEntered.release();workerBegin.acquire();
+        manager.setValue("ArmoredChat-Messages",QString("actual worker mutation"));workerMutated.release();
+    },Qt::QueuedConnection));
+    workerEntered.acquire();std::thread startWorker([&]{QThread::msleep(75);workerBegin.release();});
+    elapsed.restart();assert(manager.featureChatSnapshot().isEmpty());assert(elapsed.elapsed()<1400);
+    assert(workerMutated.tryAcquire(1,500));startWorker.join();
+    assert(!manager.featureChatSnapshot().isEmpty());
+
+    // Real worker->UI BlockingQueued cycle: source times out, retains exactly
+    // one original queued job, and cannot return its later result as fresh.
+    QSemaphore waitingForUi,uiFinished;
+    assert(QMetaObject::invokeMethod(worker,[&] {
+        waitingForUi.release();
+        assert(QMetaObject::invokeMethod(&manager,[&] {
+            manager.setValue("ArmoredChat-Messages",QString("after actual UI recovery"));
+        },Qt::BlockingQueuedConnection));
+        uiFinished.release();
+    },Qt::QueuedConnection));
+    waitingForUi.acquire();elapsed.restart();assert(manager.featureChatSnapshot().isEmpty());
+    assert(elapsed.elapsed()>=1400 && elapsed.elapsed()<2500);
+    const auto lateJob=SettingsTests::job(manager);assert(lateJob && !lateJob->done.load());
+    elapsed.restart();assert(manager.featureChatSnapshot().isEmpty() && elapsed.elapsed()<500);
+    assert(SettingsTests::job(manager)==lateJob);
+    QCoreApplication::processEvents();assert(uiFinished.tryAcquire(1,1000));
+    QSemaphore drained;assert(QMetaObject::invokeMethod(worker,[&]{drained.release();},Qt::QueuedConnection));
+    assert(drained.tryAcquire(1,1000));assert(lateJob->done.load());
+    const auto fresh=manager.featureChatSnapshot();assert(!fresh.isEmpty());
+    assert(SettingsTests::job(manager)!=lateJob);
+    assert(fresh.value("cache").toMap().value("ArmoredChat-Messages").toMap().value("value").toString()=="after actual UI recovery");
+    assert(fresh.value("writer").toMap().value("values").toMap().value("ArmoredChat-Messages").toMap().value("value").toString()=="after actual UI recovery");
     manager.remove("ArmoredChat-Messages");const auto removed=manager.featureChatSnapshot();assert(!removed.isEmpty());
     assert(removed.value("cache").toMap().value("ArmoredChat-Messages").toMap().value("present")==false);
     assert(removed.value("writer").toMap().value("physical").toMap().value("ArmoredChat-Messages").toMap().value("present")==false);

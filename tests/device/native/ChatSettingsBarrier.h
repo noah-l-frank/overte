@@ -46,15 +46,22 @@ public:
     };
     QVariantMap read(const std::function<QVariantMap()>& cache,const std::function<QVariantMap()>& writer) {
         if (!QCoreApplication::arguments().contains("--testScript") || !cache || !writer || !_mutex.tryLock()) { return {}; }
-        struct Unlock {QRecursiveMutex& mutex;~Unlock(){mutex.unlock();}} unlock{_mutex};
         QElapsedTimer elapsed;elapsed.start();
         const auto started=QDateTime::currentMSecsSinceEpoch();
-        if (started<=0 || started<_epoch) { _valid=false;return {}; }
-        if (!_valid || _pending || _attempts.load()!=0) { return {}; }
-        const auto actualCache=cache();const auto actualWriter=writer();const auto finished=QDateTime::currentMSecsSinceEpoch();
-        if (finished<started) { _valid=false;return {}; }
-        if (actualCache.isEmpty() || actualWriter.isEmpty() || finished<started || finished-started>1500
-                || elapsed.elapsed()>1500 || _attempts.load()!=0) { return {}; }
+        if (started<=0 || started<_epoch) { _valid=false;_mutex.unlock();return {}; }
+        if (!_valid || _pending || _attempts.load()!=0) { _mutex.unlock();return {}; }
+        const auto sequence=_sequence;
+        _mutex.unlock();
+        // No barrier mutex spans cache locking, queued work or physical I/O.
+        // Any started/completed original mutation invalidates this acquisition.
+        const auto actualCache=cache();
+        if (actualCache.isEmpty()) { return {}; }
+        const auto actualWriter=writer();const auto finished=QDateTime::currentMSecsSinceEpoch();
+        if (!_mutex.tryLock()) { return {}; }
+        struct Unlock {QRecursiveMutex& mutex;~Unlock(){mutex.unlock();}} unlock{_mutex};
+        if (finished<started || finished<_epoch) { _valid=false;return {}; }
+        if (!_valid || actualWriter.isEmpty() || finished-started>1500 || elapsed.elapsed()>1500
+                || _pending || _attempts.load()!=0 || _sequence!=sequence) { return {}; }
         _epoch=finished;
         return {{"settingsBarrierVersion",1},{"instance",_instance},{"mutationSequence",_sequence},{"pending",_pending},{"capturedEpochMs",finished},{"elapsedMs",elapsed.elapsed()},
             {"cache",actualCache},{"writer",actualWriter}};

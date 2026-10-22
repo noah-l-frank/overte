@@ -40,21 +40,28 @@ namespace Setting {
     QVariantMap Manager::featureChatSnapshot() {
         if (!QCoreApplication::arguments().contains("--testScript") || QThread::currentThread()!=thread()) { return {}; }
         return _featureChatSettings.read([this] {
-            return resultWithReadLock<QVariantMap>([this] {
-                QVariantMap values;
+            QVariantMap values;
+            if (!withTryReadLock([this,&values] {
                 for (const auto key:{"ArmoredChat-Messages","ArmoredChat-Config"}) {
                     values.insert(key,QVariantMap{{"present",_settings.contains(key)},{"value",_settings.value(key)}});
                 }
-                return values;
-            });
+            },0)) { return QVariantMap(); }
+            return values;
         },[this] {
             const QPointer<WriteWorker> original=_featureChatWorker;
             if (!original || original->thread()!=&_workerThread || !_workerThread.isRunning()) { return QVariantMap(); }
-            QVariantMap result;
-            if (!QMetaObject::invokeMethod(original.data(),[&] {
-                if (original) { result=original->featureChatSnapshot(); }
-            },Qt::BlockingQueuedConnection)) { return QVariantMap(); }
-            return result;
+            // Never queue a second snapshot behind unfinished original work, and
+            // never adopt a late result as a newly requested observation.
+            if (_featureChatRead && !_featureChatRead->done.load(std::memory_order_acquire)) { return QVariantMap(); }
+            _featureChatRead=std::make_shared<ChatSnapshotJob>();
+            const auto job=_featureChatRead;
+            if (!QMetaObject::invokeMethod(original.data(),[original,job] {
+                if (original) { job->result=original->featureChatSnapshot(); }
+                job->done.store(true,std::memory_order_release);
+                job->finished.release();
+            },Qt::QueuedConnection)) { _featureChatRead.reset();return QVariantMap(); }
+            if (!job->finished.tryAcquire(1,1500)) { return QVariantMap(); }
+            return job->result;
         });
     }
 #endif
