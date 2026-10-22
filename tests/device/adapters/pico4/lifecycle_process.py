@@ -259,7 +259,14 @@ class PicoLifecycleProcessRetirement:
         stamps.append(packets['gesture']['source']['frameEpochMs'])
         need(0<=elapsed<=1.5 and max(epoch-min(stamps),fresh['requestedEpochMs']-min(stamps)+elapsed*1000)<=1500)
         need([owner.read() for owner in self.owners]==owner_snapshots(self.state['shutdown']))
-        need(source.guard() is not False);need(self.now()-fresh['started']<=1.5)
+        final=self.now();need(source.guard() is not False)
+        # Read the original device clock AFTER the last potentially slow
+        # guard; a frozen host clock cannot conceal a native clock jump.
+        final_epoch=source.clock_ms();completed=self.monotonic()
+        need(integer(final_epoch,1) and number(completed,0,1e15) and completed>=final
+            and completed-fresh['started']<=1.5
+            and max(final_epoch-min(stamps),fresh['requestedEpochMs']-min(stamps)+(completed-fresh['started'])*1000)<=1500)
+        self.last_clock=completed
 
     def observe(self,binding,source,presence,domain_source,ui_source,axes,avatar):
         try:
