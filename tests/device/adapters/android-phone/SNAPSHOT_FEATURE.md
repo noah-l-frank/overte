@@ -993,21 +993,35 @@ catalog module budget is not a source freshness or checkpoint deadline.
 Explicit synthetic native epochs used by host replay never replace these real
 monotonic call/quiet bounds or qualify real device latency.
 
-The independent actor performs one complete original role acquisition and
-`restored()` check per `step()`. While its cleanup quiet suffix is incomplete,
-it durably saves that suffix and returns, releasing the original source lock
-before another measurement. It neither sleeps nor starts a second complete
-acquisition inside that lock. The unchanged `quiet_window` still requires at
-least three advancing samples spanning three real seconds and resets the suffix
-after any gap greater than 1.5 seconds. No witness is published before it is
-complete; actual fixture closure, a fresh closed-phase read and actual actor
-exit remain separate finalization requirements. This prevents accumulated
-complete acquisitions from starving the primary's existing five-second lock
-deadline without relaxing freshness or quietness. Source packet `7b6f40442c`
-has six parent-reported actor checks passing in 13.365 seconds, including an
-alive child with incomplete quiet, no premature witness, primary lock acquisition
-and strict later closure/retirement. The complete SDK29+ and SDK26–28 common
-replays remain pending.
+The separately credentialed actor keeps one flow for its actual process
+lifetime. Cleanup uses two source-lock stages: first restore its own immutable
+history and reader continuity, pin the verified feature/actor/role headers,
+binding and cleanup activation, then release the lock. Preparation supplies no
+current measurement or publication authority. On reacquisition, compare all
+three actual headers and the binding both before and after loading. A changed,
+otherwise valid header is refused rather than adopted.
+
+Within the bounded current batch, each sample reopens and validates every old
+original, acquires new current sources, and proves `restored()` from those
+originals. The restoration metadata proof brackets its pure joins with two
+complete input-history passes; it retains no metadata authority across calls.
+The unchanged `quiet_window` requires at least three advancing samples spanning
+three real seconds and resets after any gap greater than 1.5 seconds. An
+incomplete batch saves its history and returns without a successful witness.
+The 3.5-second decision point is checked after a completed acquisition; it is
+not a hard lock-hold guarantee. Existing five-second source/lock waits and all
+current freshness limits remain unchanged.
+
+Only its own newly acquired sample after completed quiet may be published.
+Actual fixture closure, a new closed-phase read, fresh restoration and actor
+retirement, actual process exit and repeated strict finalization remain
+separate obligations. Earlier packet `7b6f40442c` qualified the former
+one-acquisition-per-step implementation with six checks in 13.365 seconds;
+it does not qualify this batch mechanism. The current parent integration
+passed 72 source/host cases in 57.846 seconds, including owner-CAS and late
+original/header changes during restoration. A late-history primary prototype
+also proved a real quiet interval, but does not publish independent actor
+facts. Both complete SDK29+ and SDK26–28 common replays remain pending.
 
 The durable owner is written before setup can acquire settings, capture-file or
 document leases. Baseline preparation takes readonly originals before ordinary
