@@ -125,6 +125,7 @@
     "lifecycle-ui-source-state": {"current": 1, "reads": [1]},
     "pico-lifecycle-back-owner": {"current": 1, "reads": [1]},
     "native-audio-preview-lifetime": {"current": 1, "reads": [1]},
+    "pico-audio-capture-owner": {"current": 1, "reads": [1]},
     "pico-audio-page-owner": {"current": 1, "reads": [1]},
     "pico-audio-page-observation": {"current": 1, "reads": [1]},
     "pico-audio-settings-observation": {"current": 2, "reads": [1, 2]},

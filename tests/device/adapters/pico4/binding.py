@@ -834,6 +834,32 @@ def create_adapter(args, base_class):
             store=self._lifecycle_world_store(target,create=create)
             return None if store is None else PrivateFeatureState(store.path.with_name('audio-page-owner.json'))
 
+        def _audio_capture_store(self,target,cycle,*,create=True):
+            _need(type(cycle) is int and 1<=cycle<=8)
+            store=self._audio_page_store(target,create=create)
+            return None if store is None else PrivateFeatureState(store.path.with_name(f'audio-capture-cycle-{cycle:02d}.json'))
+
+        def _audio_capture_owned(self,target):
+            store=self._audio_page_store(target,create=False)
+            if store is None:return False
+            # Orphan manifests and original PCM still own their scope. A base
+            # process-stop acknowledgement cannot retire or delete them.
+            return any(store.path.parent.glob('audio-capture-cycle-*')) or any(store.path.parent.glob('audio-capture-original-*'))
+
+        @_private
+        def _audio_capture_owner(self,target,run,cycle,phase_source,*,parent=None,source_lock=None):
+            from adapters.pico4.audio_capture_owner import PicoAudioCaptureOwner
+            from adapters.pico4.audio_page_owner import PicoAudioPageOwner
+            if parent is not None:
+                _need(isinstance(parent,PicoAudioPageOwner) and parent.run==run and parent.store.path==self._audio_page_store(target).path)
+                _need(source_lock is None or source_lock is parent.lock);source_lock=parent.lock
+            source_lock=self._script_journey()._lock(target,source_lock)
+            with source_lock.held():
+                manager=self._scripts(target);self._native_feature_observer(target).guard()
+                if parent is None:parent=self._audio_page_owner(target,run,source_lock=source_lock)
+                _need(parent.binding==manager.binding and parent.lock is source_lock)
+                return PicoAudioCaptureOwner(self._audio_capture_store(target,cycle).path,parent,phase_source)
+
         @_private
         def _audio_page_owner(self,target,run,*,source_lock=None):
             from adapters.pico4.audio_page_owner import PicoAudioPageOwner
@@ -1358,8 +1384,9 @@ def create_adapter(args, base_class):
                         # still needs the missing independent restart/role join.
                         # Base force-stop cannot retire that original journal.
                         audio_error = True
-                        if cleanup_only: self._recover_cleanup_candidate()
-                        self._audio_preview(target, owned['runId']).release_native()
+                        if not self._audio_capture_owned(target):
+                            if cleanup_only: self._recover_cleanup_candidate()
+                            self._audio_preview(target, owned['runId']).release_native()
             except Exception:
                 audio_error = True
             chat_error=False
@@ -1416,6 +1443,7 @@ def create_adapter(args, base_class):
                       and (self._lifecycle_world_store(target,create=False) is None or self._lifecycle_world_store(target,create=False).read() is None)
                       and not self._lifecycle_background_owned(target)
                       and (self._audio_page_store(target,create=False) is None or self._audio_page_store(target,create=False).read() is None)
+                      and not self._audio_capture_owned(target)
                       and self._script_restart_inputs_store(target).read() is None
                       and self._script_restart_store(target).read() is None
                       and self._script_files_store(target).read() is None and self._account_probe_store(target).read() is None

@@ -76,6 +76,11 @@ after the requested due time, retained allocation capacity, and resource changes
 during the final quiet window fail while retaining journals. Native observer and unchanged full Audio.qml
 checks remain in `audio-settings-source`; neither group is device evidence.
 
+[The positive capture continuation](AUDIO_CAPTURE_OWNER.md) can take ownership
+after claim or after normal mute restoration, before tap release. Once it has a
+journal or original PCM, this muted segment cannot send a competing action or
+release its native taps.
+
 This is not complete `feature.audio.*` qualification. The remaining recipe needs
 actual unmuted physical stimulus, independent acoustic output and peer channels,
 capture/cancel/completion/interrupted/background joins, and all original
