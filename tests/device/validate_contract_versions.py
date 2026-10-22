@@ -209,6 +209,7 @@ REQUIRED = {
     "pico-lifecycle-back-owner": 1,
     "native-audio-preview-lifetime": 1,
     "pico-audio-page-owner": 1,
+    "pico-audio-capture-background": 1,
     "pico-audio-capture-owner": 2,
     "pico-audio-page-observation": 1,
     "pico-audio-settings-observation": 2,

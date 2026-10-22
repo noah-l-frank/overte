@@ -36,6 +36,9 @@ class PicoAudioPageOwner:
         self.pages,self.settings,self.ui,self.preview,self.session,self.route,self.lock=page_source,settings_source,ui_source,preview,session,route,source_lock
         self.disk=self.state=self.anchor=self.last_clock=None;self.route.intent=self.intent
         with self.lock.held():self.load()
+    def capture_owned(self):
+        return any(any(self.store.path.parent.glob(prefix)) for prefix in
+            ('audio-capture-cycle-*','audio-capture-original-*','audio-background-cycle-*'))
     def now(self):
         need(self.settings.guard() is not False);now=self.settings.monotonic()
         need(number(now,0,1e15) and (self.last_clock is None or now>=self.last_clock));self.last_clock=now;return now
@@ -193,21 +196,21 @@ class PicoAudioPageOwner:
         return normal,audio,lifecycle
     def prepare(self):
         with self.lock.held():
-            self.load();need(self.state is None and self.preview.store.read() is None);row=self.capture(empty=True)
+            self.load();need(not self.capture_owned() and self.state is None and self.preview.store.read() is None);row=self.capture(empty=True)
             normal,audio,lifecycle,_=self.packets(row);source=audio['source']
             need(not source['native']['previewActive'] and source['native']['previewCycle']==0)
             state=dict(phase='prepared',frames=[row],streams=[],route=None,originalId=None,
                 operations={key:uuid.uuid4().hex for key in ('mute','record','restore')},previewOrigin=source['native']['muted'],quiet=[],fences={key:None for key in ('mute','record','restore')})
             self.save(state);self.check(row,'closed');self.fresh()
     def intent(self,verb,observed,identifier):
-        self.lock.assert_held();need(self.state['phase']=='opening' and self.state['route'] is None and verb=='open-audio' and identifier=='audio.entry')
+        self.lock.assert_held();need(not self.capture_owned() and self.state['phase']=='opening' and self.state['route'] is None and verb=='open-audio' and identifier=='audio.entry')
         need(observed['bridgeId']==self.binding['sessionId'] and observed['processId']==self.pid and observed['ready'])
         control=self.route.row(observed,identifier,ready=True);need(control is not None)
         state=deepcopy(self.state);state['route']=dict(verb=verb,identifier=identifier,token=control['token'],
             before={key:observed[key] for key in ('bridgeId','generation','processId','lastCommandSequence')},after=None)
         self.save(state);self.fresh()
     def stream(self,phase,operation):
-        state=deepcopy(self.state);state.update(phase=phase);state['streams'].append(dict(operation=operation,envelope=None,neutral=None));self.save(state);self.fresh()
+        need(not self.capture_owned());state=deepcopy(self.state);state.update(phase=phase);state['streams'].append(dict(operation=operation,envelope=None,neutral=None));self.save(state);self.fresh()
         def intent(value):
             state=deepcopy(self.state);state['streams'][-1]['envelope']=deepcopy(value);self.save(state)
             started,requested,captured=self.anchor;now=self.settings.monotonic()
@@ -224,20 +227,19 @@ class PicoAudioPageOwner:
             self.route.activate('audio.entry','open-audio');return self.reconcile()
     def claim_preview(self):
         with self.lock.held():
-            self.load();need(self.state['phase']=='opened' and self.preview.store.read() is None)
+            self.load();need(not self.capture_owned() and self.state['phase']=='opened' and self.preview.store.read() is None)
             row=self.capture();self.check(row,'audio');state=deepcopy(self.state);state['frames'].append(row);state['phase']='claim-issued';self.save(state);self.fresh()
             self.preview.claim();return self.reconcile()
     def action(self,kind):
         with self.lock.held():
-            self.load();need(not any(self.store.path.parent.glob('audio-capture-cycle-*')) and not any(self.store.path.parent.glob('audio-capture-original-*')))
+            self.load();need(not self.capture_owned())
             before={'mute':'claimed','record':'muted','restore':'rejected'};need(kind in before and self.state['phase']==before[kind])
             row=self.capture();self.check(row,'audio');state=deepcopy(self.state);state['frames'].append(row);state['phase']=kind+'-issued';state['fences'][kind]=len(state['frames'])-1;self.save(state);self.fresh()
             enabled=True if kind=='mute' else self.state['previewOrigin'] if kind=='restore' else None
             self.preview.act(state['operations'][kind],'record-start' if kind=='record' else 'mute',enabled=enabled);return self.reconcile()
     def release(self):
         with self.lock.held():
-            self.load();need(self.state['phase']=='restored' and not any(self.store.path.parent.glob('audio-capture-cycle-*'))
-                and not any(self.store.path.parent.glob('audio-capture-original-*')));row=self.capture();self.check(row,'audio')
+            self.load();need(self.state['phase']=='restored' and not self.capture_owned());row=self.capture();self.check(row,'audio')
             state=deepcopy(self.state);state['frames'].append(row);state['phase']='release-issued';self.save(state);self.fresh()
             self.preview.release_native();return self.reconcile()
     def close_page(self):

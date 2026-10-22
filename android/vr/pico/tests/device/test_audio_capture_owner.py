@@ -12,6 +12,7 @@ from adapters.pico4.audio_page_owner import PicoAudioPageOwner
 from adapters.normal_feature_state import PrivateFeatureState
 from openxr_input.adapter_session import PicoOpenXrAdapterSession
 from self_tests.test_pico_audio_capture_owner import AudioCaptureOwnerTests
+from self_tests.test_pico_audio_background import AudioBackgroundTests
 from self_tests.test_pico_openxr_adapter_session import FakeTransport
 
 
@@ -41,6 +42,22 @@ class PicoAudioCaptureBindingTests(unittest.TestCase):
             with self.assertRaises(ValueError):cleanup.cleanup(self.native.target)
             competing.assert_not_called()
         self.assertEqual({'unresolved':'original capture'},store.read());self.assertTrue(self.adapter._audio_capture_owned(self.native.target))
+    def test_background_cold_factory_does_not_reconstruct_native_owners_for_an_unresolved_archive(self):
+        binding=self.adapter._scripts(self.native.target).binding;store=self.adapter._audio_background_store(self.native.target,1)
+        store.write({'binding':binding,'unresolved':'original owner'},None)
+        lock=self.adapter._script_journey()._lock(self.native.target)
+        with patch.object(self.adapter,'_scripts') as native:
+            with self.assertRaises(ValueError):self.adapter._audio_background_owner(self.native.target,'a'*32,1,None,source_lock=lock)
+            native.assert_not_called()
+        self.assertEqual([],self.native.inputs)
+    def test_orphan_background_alone_blocks_base_cleanup_and_competing_native_release(self):
+        store=self.adapter._audio_background_store(self.native.target,1);store.write({'originalBackground':'retained'},None)
+        self.adapter._audio_preview_store(self.native.target).write({'runId':'a'*32},None);cleanup=self.fixture.cleanup_instance()
+        with patch.object(cleanup,'_audio_preview') as competing:
+            with self.assertRaises(ValueError):cleanup.cleanup(self.native.target)
+            competing.assert_not_called()
+        self.assertEqual({'originalBackground':'retained'},store.read());self.assertTrue(self.adapter._audio_capture_owned(self.native.target))
+
     def test_orphan_pcm_alone_blocks_base_cleanup(self):
         store=self.adapter._audio_capture_store(self.native.target,1);store._parent()
         original=store.path.with_name('audio-capture-original-retained-input.pcm16le');original.write_bytes(b'original');original.chmod(0o600)

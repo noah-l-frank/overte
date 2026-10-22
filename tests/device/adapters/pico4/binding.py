@@ -1216,7 +1216,34 @@ def create_adapter(args, base_class):
             if store is None:return False
             # Orphan manifests and original PCM still own their scope. A base
             # process-stop acknowledgement cannot retire or delete them.
-            return any(store.path.parent.glob('audio-capture-cycle-*')) or any(store.path.parent.glob('audio-capture-original-*'))
+            return any(any(store.path.parent.glob(prefix)) for prefix in
+                ('audio-capture-cycle-*','audio-capture-original-*','audio-background-cycle-*'))
+
+        def _audio_background_store(self,target,cycle,*,create=True):
+            store=self._audio_capture_store(target,cycle,create=create)
+            return None if store is None else PrivateFeatureState(store.path.with_name(f'audio-background-cycle-{cycle:02d}.json'))
+
+        @_private
+        def _audio_background_owner(self,target,run,cycle,phase_source,*,capture=None,source_lock=None):
+            from adapters.pico4.audio_background_owner import PicoAudioBackground
+            from adapters.pico4.audio_capture_owner import PicoAudioCaptureOwner
+            from adapters.pico4.graphics_binding import PicoGraphicsBinding
+            from adapters.normal_feature_state import context
+            path=self._audio_background_store(target,cycle).path
+            if capture is not None:
+                _need(isinstance(capture,PicoAudioCaptureOwner) and capture.run==run and capture.store.path==self._audio_capture_store(target,cycle).path)
+                _need(source_lock is None or source_lock is capture.lock);source_lock=capture.lock
+            source_lock=self._script_journey()._lock(target,source_lock);disk=PrivateFeatureState(path).read()
+            binding=context(disk['binding']) if disk is not None else self._scripts(target).binding
+            facade=PicoGraphicsBinding(self)
+            def runtime():
+                actual=capture or self._audio_capture_owner(target,run,cycle,phase_source,source_lock=source_lock)
+                _need(actual.binding==binding and actual.lock is source_lock);return actual
+            return PicoAudioBackground(path,run,binding,source_lock,
+                lambda owned:facade._graphics_lifecycle_status(target,owned),
+                lambda operation,owned:facade._graphics_lifecycle_input(target,operation,owned),runtime,
+                monotonic=capture.parent.settings.monotonic if capture is not None else time.monotonic,
+                sleep=capture.parent.settings.sleep if capture is not None else time.sleep)
 
         @_private
         def _audio_capture_owner(self,target,run,cycle,phase_source,*,parent=None,source_lock=None):
