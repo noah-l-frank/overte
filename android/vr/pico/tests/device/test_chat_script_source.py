@@ -73,6 +73,15 @@ class PicoChatScriptSourceTests(unittest.TestCase):
         with self.assertRaises(ValueError):self.adapter._chat_script_source(target,RUN,role='primary',source_lock=lock,stage='erase',predecessor=active)
         self.assertEqual(before,len(source.roots.commands));self.assertEqual([],self.native.inputs)
 
+    def test_rootless_erase_and_final_segments_remain_original_unresolved_cleanup_evidence(self):
+        for stage in ('erase','final'):
+            if stage=='final':self.setUp()
+            store=self.adapter._chat_script_source_store(self.native.target,'primary',stage=stage)
+            child=PrivateFeatureState(store.path.with_name(store.path.name+'.frame-000.json'))
+            value=dict(original='unresolved-'+stage+'-native-source');child.write(value,None);original=child.path.read_bytes()
+            with self.subTest(stage=stage),self.assertRaises(ValueError):self.pico.cleanup_instance().cleanup(self.native.target)
+            self.assertFalse(self.native.running);self.assertEqual(original,child.path.read_bytes());self.assertIsNone(store.read())
+
     def test_changed_actual_candidate_and_rootless_source_chunks_cannot_qualify_cleanup(self):
         state,_=self.adapter._script_paths(self.native.target);lock=ScriptSourceLock(state.with_name('script-sources.lock'))
         original_digest=self.native.digest;self.native.digest='f'*64
