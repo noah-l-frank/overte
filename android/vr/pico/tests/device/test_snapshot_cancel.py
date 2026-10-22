@@ -27,6 +27,7 @@ class PicoSnapshotCancelTests(unittest.TestCase):
             with self.assertRaises(NativeUIError):reader.request(request)
         self.assertEqual([request],admitted)
         native.digest='f'*64
+        with self.assertRaises((ValueError,RuntimeError)):reader.io.guard()
         with self.assertRaises((ValueError,RuntimeError)):reader.request(request)
         self.assertEqual([request],admitted)
         self.assertFalse(any(value.startswith('feature.snapshots.') for value in adapter.capabilities(native.target)))

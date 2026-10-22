@@ -869,6 +869,18 @@ def create_adapter(args, base_class):
                 monotonic=native.monotonic, sleep=native.sleep)
 
         @_private
+        def _snapshot_capture_file_source(self,target,*,read_only=True,before_send=None,source_lock=None):
+            from adapters.pico4.snapshot_capture_source import PicoSnapshotCaptureFileSource,PicoSnapshotCaptureFileIO
+            _need(type(read_only) is bool and (read_only or callable(before_send)))
+            lock=self._script_journey()._lock(target,source_lock)
+            installed=self._installation(target);identity=self.require_controlled_debug_identity(target)
+            native=self._native_feature_observer(target)
+            io=PicoSnapshotCaptureFileIO(self,target,identity,lambda operation:None,before_send=before_send)
+            _need(installed==self._installation(target))
+            return PicoSnapshotCaptureFileSource(io,native.clock_ms,native.pid,lock,read_only=read_only,
+                monotonic=native.monotonic,sleep=native.sleep)
+
+        @_private
         def _snapshot_cancel(self,target,*,before_send,source_lock=None):
             from adapters.pico4.snapshot_cancel import PicoSnapshotCancel,PicoSnapshotCancelIO
             _need(callable(before_send));lock=self._script_journey()._lock(target,source_lock)

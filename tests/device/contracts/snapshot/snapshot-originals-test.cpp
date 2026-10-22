@@ -21,6 +21,7 @@
 #include <thread>
 #include "interface/src/ui/SnapshotCapture.h"
 #include "tests/device/native/SnapshotCaptureOriginals.h"
+#include "tests/device/native/PicoSnapshotCaptureFiles.h"
 #include "tests/device/native/SnapshotScriptHistory.h"
 
 struct SnapshotAnimated {static void cancelCapture(const SnapshotCapture&) {}};
