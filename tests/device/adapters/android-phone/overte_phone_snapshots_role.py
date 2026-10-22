@@ -6,6 +6,7 @@ closed source reducer; immutable receipts retain their original timestamps.
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
+from contextlib import nullcontext
 import hashlib
 from pathlib import Path
 import os
@@ -384,9 +385,10 @@ class PhoneSnapshotsRole(PhoneCreateRole):
         need(not self._host_publication)
         self._host_publication=True
         try:
-            try:return self.acquire(after_sequence)
-            except SnapshotPending:
-                self._host_publication=False;self.recover();raise
+            with self.handoff.expected_catalog() if self.handoff is not None else nullcontext():
+                try:return self.acquire(after_sequence)
+                except SnapshotPending:
+                    self._host_publication=False;self.recover();raise
         finally:self._host_publication=False
 
     def acquire(self,after_sequence):
@@ -499,7 +501,17 @@ class PhoneSnapshotsRole(PhoneCreateRole):
             workOriginals=deepcopy(self.state['pending']['work'].get('workOriginals',[])),documentOriginals=deepcopy(self.state['pending']['work'].get('documentOriginals',[])),consumerOriginals=deepcopy(self.state['pending']['work'].get('consumerOriginals',[])),
             readbackInspections=deepcopy(self.state['pending']['work'].get('readbackInspections',{})),
             groups=deepcopy(self.state['pending']['work'].get('groups',[])),handoffOriginals=deepcopy(self.state['pending']['work'].get('handoffOriginals',[])),readbacksPacket=batch['readbacks'],uploadPacket=batch['upload'])
-        self.bound();self.finish_archive(frame);self.bound();artifacts=[]
+        self.bound()
+        if self.handoff is None:self.finish_archive(frame)
+        else:
+            guard=self.originals.guard
+            def expected_publication():
+                self.handoff.verify_expected_catalog();return guard()
+            try:
+                self.handoff.verify_expected_catalog()
+                self.originals.guard=expected_publication;self.finish_archive(frame)
+            finally:self.originals.guard=guard
+        self.bound();artifacts=[]
         if image_ready:artifacts.append(dict(kind='image',source='world-render-target',name=image['name'],sequence=self.state['sequence'],capturedEpochMs=capture['source']['capturedEpochMs'],ticket=ticket))
         source={'capture':'snapshot-capture-original','save':'snapshot-saved-original','share-select-owned':'snapshot-receiver-original','upload':'snapshot-upload-original'}.get(phase_before['activations'][-1]['stimulus']['verb'])
         selected=[row for row in binaries if row['acquisition']['source']==source]

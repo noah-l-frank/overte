@@ -191,4 +191,95 @@ class SnapshotHandoffCatalogPassTests(unittest.TestCase):
                 self.assertTrue(path.with_suffix('.original').exists())
 
 
+class SnapshotCurrentCatalogPassTests(unittest.TestCase):
+    def test_eleven_actual_current_native_reads_keep_distinct_original_nonces_times_and_sequences(self):
+        b=handoffs.Boundary();reader=b.reader();parse=admission._catalog_text;actual=[]
+        def fresh():
+            b.epoch+=1
+            def sampled(value):
+                if type(value) is dict:
+                    for key,item in value.items():
+                        if key in ('requestedEpochMs','capturedEpochMs') and item==20000:value[key]=b.epoch
+                        else:sampled(item)
+                elif type(value) is list:
+                    for item in value:sampled(item)
+            group=deepcopy(b.group);sampled(group);original=b.group;b.group=group
+            try:value=b.frame();sampled(value)
+            finally:b.group=original
+            actual.append(deepcopy(value));return json.dumps(value)
+        reader.original=fresh
+        with patch.object(admission,'_catalog_text',wraps=parse) as parses:
+            with reader.expected_catalog():
+                escaped=reader.pins_path
+                for index in range(11):reader.read()
+                reader.verify_expected_catalog();self.assertEqual(1,parses.call_count)
+            self.assertIsNone(reader.pins_path);self.assertIsNone(reader._catalog_pass)
+            self.assertEqual(11,len(actual))
+            self.assertEqual(11,len({row['source']['sequence'] for row in actual}))
+            self.assertEqual(11,len({row['publishedEpochMs'] for row in actual}))
+            self.assertEqual(11,len({row['source']['source']['group']['snapshot']['requestId'] for row in actual}))
+            with self.assertRaises(NativeUIError):admission.script_pin(escaped,'system/snapshot.js')
+            with reader.expected_catalog():reader.read()
+            self.assertEqual(2,parses.call_count)
+    def test_current_stale_foreign_and_replayed_native_sources_are_not_cached_or_skipped(self):
+        for fault in ('stale','pid','vm','sequence'):
+            b=handoffs.Boundary();reader=b.reader()
+            with self.subTest(fault=fault):
+                with self.assertRaises(NativeUIError):
+                    with reader.expected_catalog():
+                        reader.read();b.packet=b.frame()
+                        if fault=='stale':b.epoch+=1501
+                        elif fault=='pid':b.packet['source']['source']['group']['snapshot']['processId']+=1
+                        elif fault=='vm':b.packet['source']['source']['group']['script']['source']['engines'][0]['code']['sha256']='0'*64
+                        else:b.packet['source']['sequence']=reader.last['source']['sequence']
+                        reader.read()
+                self.assertIsNone(reader._catalog_pass);self.assertIsNone(reader.pins_path)
+    def test_role_checks_actual_catalog_before_frame_and_manifest_publication(self):
+        import test_snapshots_role as roles
+        from overte_phone_snapshots_role import PhoneSnapshotsRole
+        for fault in ('none','before_commit','during_write','after_original','pending'):
+            with self.subTest(fault=fault),tempfile.TemporaryDirectory() as tmp:
+                root=Path(tmp);b=roles.SnapshotRolesBoundary(root);b.system_mode()
+                path=root/'pins.json';path.write_bytes(admission.PINS.read_bytes())
+                with b.lock.held():
+                    role=PhoneSnapshotsRole(b.feature,'primary');role.handoff.pins_path=path
+                    original=role.finish_archive;seen=[]
+                    def finish(frame):
+                        seen.append('finish')
+                        if fault=='during_write':path.write_bytes(self_changed)
+                        return original(frame)
+                    self_changed=admission.PINS.read_bytes()+b' '
+                    role.finish_archive=finish
+                    if fault=='before_commit':
+                        bound=role.bound;count=[0]
+                        def changed():
+                            result=bound();count[0]+=1
+                            if count[0]==2:path.write_bytes(self_changed)
+                            return result
+                        role.bound=changed
+                    elif fault=='after_original':
+                        write=role.originals.write
+                        def changed_original(*args):
+                            reference=write(*args);path.write_bytes(self_changed);return reference
+                        role.originals.write=changed_original
+                    elif fault=='pending':
+                        from overte_phone_snapshots_measurements import SnapshotPending
+                        role.acquire=lambda *_:(_ for _ in ()).throw(SnapshotPending())
+                        role.recover=lambda:None
+                    if fault=='none':
+                        parse=admission._catalog_text
+                        with patch.object(admission,'_catalog_text',wraps=parse) as parses:value=role.read(0)
+                        self.assertGreaterEqual(parses.call_count,1);self.assertEqual(1,value['sequence'])
+                        rows=role.frames[-1]['handoffOriginals'];self.assertGreaterEqual(len(rows),3)
+                        self.assertEqual(len(rows),len({row['source']['sequence'] for row in rows}))
+                    else:
+                        from overte_phone_snapshots_measurements import SnapshotPending
+                        with self.assertRaises(SnapshotPending if fault=='pending' else NativeUIError):role.read(0)
+                        self.assertEqual(0,role.state['sequence']);self.assertEqual([],role.state['manifests'])
+                        self.assertFalse(list(root.glob('emote-index-snapshots-*.json')))
+                        if fault=='before_commit':self.assertEqual([],seen)
+                    self.assertEqual(path,role.handoff.pins_path);self.assertIsNone(role.handoff._catalog_pass)
+                    self.assertFalse(role._host_publication)
+
+
 if __name__=='__main__':unittest.main()

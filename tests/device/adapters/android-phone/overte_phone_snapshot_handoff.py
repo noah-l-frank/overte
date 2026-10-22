@@ -7,6 +7,7 @@ file cannot become current evidence. This proves source logic, not a device.
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
+from contextlib import contextmanager
 import json
 import time
 import uuid
@@ -206,7 +207,19 @@ class PhoneSnapshotHandoff:
         self.original,self.clock_ms,self.guard,self.owner=read,clock_ms,guard,deepcopy(owner)
         self.monotonic,self.sleep,self.pins_path,self.last=monotonic,sleep,pins_path,None
         self.last_clock=None
-        self.scripts=None
+        self.scripts=None;self._catalog_pass=None
+    @contextmanager
+    def expected_catalog(self):
+        """Share static expectations only; every native read still executes."""
+        from adapters.emote_admission import PINS,verified_catalog_pass
+        need(self._catalog_pass is None);path=self.pins_path
+        with verified_catalog_pass(PINS if path is None else path) as pins:
+            self.pins_path=pins;self._catalog_pass=pins
+            try:yield self
+            finally:self.pins_path=path;self._catalog_pass=None
+    def verify_expected_catalog(self):
+        need(self._catalog_pass is not None and self.pins_path is self._catalog_pass)
+        self._catalog_pass._check()
     def restore_history(self,frames):
         """Restore bounded immutable originals only; require a fresh next read."""
         need(type(frames) is list and len(frames)<=512 and self.last is None and self.scripts is None and self.last_clock is None)
