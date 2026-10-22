@@ -16,6 +16,7 @@ from openxr_input.adapter_session import PicoOpenXrAdapterSession
 from self_tests.test_pico_lifecycle_source import Boundary,RUN,LifecycleSourceTests
 from self_tests.test_pico_lifecycle_back import LifecycleBackTests
 from self_tests.test_pico_lifecycle_x_mapping import PicoLifecycleXMappingTests
+from self_tests.test_pico_lifecycle_drive import LifecycleDriveTests,LifecycleDriveProbeTests
 from self_tests.test_pico_openxr_adapter_session import FakeTransport
 
 
@@ -41,6 +42,24 @@ class PicoLifecycleBindingTests(unittest.TestCase):
         self.native.digest='f'*64
         with self.assertRaises((ValueError,RuntimeError)):source.capture(RUN)
         self.assertEqual(1,len(self.boundary.commands));self.assertEqual([],self.native.inputs)
+    def test_actual_drive_factory_keeps_native_originals_under_installed_candidate_guard(self):
+        from self_tests.test_pico_lifecycle_drive import Boundary as DriveBoundary
+        from adapters.pico4.lifecycle_drive import ACTION,FILE
+        boundary=DriveBoundary();write_original=self.native.write_debug_app_file;read_original=self.native.read_debug_app_file
+        def write(target,package,path,raw):
+            command=json.loads(raw)
+            if command.get('action')!=ACTION:return write_original(target,package,path,raw)
+            boundary.send(command);boundary.value['capturedEpochMs']=self.native.epoch_milliseconds(target)
+        def read(target,package,path,**options):
+            if path=='files/overte-e2e/'+FILE:return boundary.read()
+            return read_original(target,package,path,**options)
+        with patch.object(self.native,'write_debug_app_file',side_effect=write),patch.object(self.native,'read_debug_app_file',side_effect=read):
+            source=self.adapter._lifecycle_drive_source(self.native.target);packet=source.capture(RUN)
+            self.assertEqual([1,2,3],packet['source']['feetPosition']);self.assertEqual(1,len(boundary.commands))
+            self.native.digest='f'*64
+            with self.assertRaises((ValueError,RuntimeError)):source.capture(RUN)
+            self.assertEqual(1,len(boundary.commands));self.assertEqual([],self.native.inputs)
+
     def test_base_cleanup_keeps_unresolved_lifecycle_ownership_after_actual_teardown(self):
         store=self.adapter._lifecycle_back_store(self.native.target)
         original=dict(explicitSyntheticBoundary='unresolved lifecycle proof')

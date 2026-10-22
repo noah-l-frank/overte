@@ -28,6 +28,7 @@
 
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #include "../../../tests/device/native/FeatureLifecycle.h"
+#include "../../../tests/device/native/LifecycleDriveObservation.h"
 #include "../../../tests/device/native/ChatViewObservation.h"
 #include "../../../tests/device/native/ChatPeerPosition.h"
 #include "../../../tests/device/native/WebDOMObservationBridge.h"
@@ -595,6 +596,26 @@ QVariantMap TestScriptingInterface::featureNavigationReplies(const QVariantMap& 
     else if (!address->thread() || !address->thread()->isRunning()
             || !QMetaObject::invokeMethod(address.data(),[&] { result=address->featureNavigationReplies(command); },Qt::BlockingQueuedConnection)) { return {}; }
     return result;
+}
+
+QVariantMap TestScriptingInterface::featureLifecycleDriveObservation(const QVariantMap& command) {
+    if (QThread::currentThread()!=thread()) {
+        if (!thread() || !thread()->isRunning()) { return {}; }
+        QVariantMap result;
+        if (!QMetaObject::invokeMethod(this,[&] { result=featureLifecycleDriveObservation(command); },Qt::BlockingQueuedConnection)) { return {}; }
+        return result;
+    }
+    const auto request=command.value("commandId"),run=command.value("runId");
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript") || !qApp->isHMDMode()
+            || !overte::e2e::previewDirectory(_testResultsLocation) || !overte::e2e::lifecycleDriveCommand(command)
+            || _featureLifecycleDriveRequests.contains(request.toString()) || _featureLifecycleDriveRequests.size()>=4096) { return {}; }
+    _featureLifecycleDriveRequests.insert(request.toString());
+    const auto avatar=DependencyManager::get<AvatarManager>()->getMyAvatar();
+    if (!avatar || avatar->thread()!=thread()) { return {}; }
+    auto original=avatar->featureLifecycleDriveObservation();
+    if (original.isEmpty()) { return {}; }
+    original.insert("commandId",request);original.insert("runId",run);return original;
 }
 
 QVariantMap TestScriptingInterface::featurePendingCommitOwner(const QVariantMap& command) {

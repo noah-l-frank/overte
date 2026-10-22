@@ -850,6 +850,14 @@ def create_adapter(args, base_class):
                 native.clock_ms, native.guard, native.pid, monotonic=native.monotonic, sleep=native.sleep)
 
         @_private
+        def _lifecycle_drive_source(self,target):
+            from adapters.pico4.lifecycle_drive import PicoLifecycleDrive,FILE
+            native=self._native_feature_observer(target)
+            return PicoLifecycleDrive(native.send,
+                lambda:self.adb.read_debug_app_file(target,'org.overte.pico','files/overte-e2e/'+FILE,attempts=1),
+                native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep)
+
+        @_private
         def _lifecycle_ui_source(self, target):
             from adapters.pico4.lifecycle_source import bind_source
             return bind_source(self, target, self._native_feature_observer(target))

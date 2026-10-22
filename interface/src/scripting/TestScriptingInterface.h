@@ -165,6 +165,7 @@ public slots:
     Q_INVOKABLE QVariantMap featureNavigationReplies(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureProcessPresence(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featurePendingCommitOwner(const QVariantMap& command);
+    Q_INVOKABLE QVariantMap featureLifecycleDriveObservation(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureAccountProbe(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureAccountOrigin(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureRecordedVoiceEvidence(const QString& requestId);
@@ -252,6 +253,7 @@ private:
     QVariantMap _featurePreviewObservation;
     QByteArray _featurePreviewInputDigest, _featurePreviewSinkDigest;
     quint64 _featurePreviewSequence {0}, _featurePreviewLease {0};
+    QSet<QString> _featureLifecycleDriveRequests;
     quint64 _featureScriptSequence {0};
     quint64 _featureAnimationInventorySequence {0};
     QSet<QString> _featureAnimationInventoryRequests;
