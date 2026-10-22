@@ -340,6 +340,13 @@
         "git"
       ]
     },
+    "pr-ci-android-artifacts": {
+      "kind": "patterns",
+      "setup": [
+        "python",
+        "git"
+      ]
+    },
     "pr-ci-android-worker": {
       "kind": "patterns",
       "setup": [
