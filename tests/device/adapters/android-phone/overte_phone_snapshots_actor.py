@@ -17,16 +17,57 @@ from overte_phone_assets_actor import PhoneAssetsActor
 from overte_phone_create_actor import quiet_window
 from overte_phone_script_history import pack,unpack,same,canonical
 from overte_phone_script_lock import PhoneScriptSourceBusy
-from overte_phone_snapshots_role import PhoneSnapshotsRole,SnapshotPhaseDeferred
+from overte_phone_snapshots_role import PhoneSnapshotsRole,SnapshotPhaseDeferred,role_state
 from overte_phone_snapshots_measurements import SnapshotPending
 from overte_phone_snapshots_evidence import SnapshotsOriginals
+from overte_phone_emote_originals import BLOCK
 
-ACTOR_VERSION=2
+ACTOR_VERSION=3
 STATE_FIELDS={'process','phase','pending','last','dropped','quiet','closure','partialClosure'}
 TRANSITION_LIMIT=64
 
 
+def actor_fields(version):
+    need(type(version) is int and version in (1,2,ACTOR_VERSION))
+    return STATE_FIELDS|({'transitions'} if version>=2 else set())|({'primaryCue'} if version>=3 else set())
+
+
 def digest(value):return hashlib.sha256(canonical(value)).hexdigest()
+
+
+def cue_state(feature,cue):
+    exact(cue,{'snapshotPrimaryCueVersion','header'})
+    need(type(cue['snapshotPrimaryCueVersion']) is int and cue['snapshotPrimaryCueVersion']==1)
+    state=role_state(cue['header'],feature.binding,feature.run,'primary')
+    need(cue['header'] is not None and state['phase']=='ready' and state['pending'] is None and state['sequence']>0)
+    return state
+
+
+def primary_manifests(host,state):
+    rows=[]
+    for block,reference in enumerate(state['manifests'],1):
+        need(reference['block']==block and (block==len(state['manifests']) or reference['count']==BLOCK))
+        rows.extend(host.manifest(reference))
+    need(len(rows)==state['sequence']);return rows
+
+
+def validate_primary_cue(feature,cue,primary_header,*,history_guard,current_guard=None):
+    """Validate only a scheduling floor against actual immutable originals.
+
+    Retirement supplies its verified archived Primary header and explicit
+    guards. No Primary measurement is ever returned as this actor's fact.
+    """
+    need(callable(history_guard) and (current_guard is None or callable(current_guard)))
+    if cue is None:return
+    feature.lock.assert_held();old=cue_state(feature,cue)
+    current=role_state(primary_header,feature.binding,feature.run,'primary')
+    need(primary_header is not None and current['sequence']>=old['sequence'])
+    target=feature.bound if current_guard is None else current_guard
+    need(target() is True and history_guard() is True)
+    host=SnapshotsOriginals(feature.root,feature.binding,feature.run,'primary',history_guard,lambda *_:need(False),kind='snapshots')
+    before=primary_manifests(host,old);after=primary_manifests(host,current)
+    need(same(after[:len(before)],before));need(target() is True and history_guard() is True)
+
 
 
 def ordinary_extension(before,phase_before,phase_after,confirmed,run):
@@ -111,7 +152,7 @@ class PhoneSnapshotsActor(PhoneAssetsActor):
         self.store=PrivateFeatureState(feature.store.path.with_name('phone-snapshots-actor-lifecycle.json'))
         self.previous=self.state=None
         self._cleanup_reader=None;self._cleanup_anchor=None;self._cleanup_failed=False;self._cleanup_started=False
-        self._ordinary_failed=False
+        self._ordinary_failed=False;self._ordinary_primary=None
 
     def load(self):
         f=self.feature;f.bound();actual=self.store.read()
@@ -120,19 +161,20 @@ class PhoneSnapshotsActor(PhoneAssetsActor):
         if self.previous is not None:need(same(actual,self.previous))
         self.previous=actual
         if self.previous is None:
-            self.state=dict(process=dict(pid=os.getpid(),start=start_identity(os.getpid())),phase='watching',pending=None,last=None,dropped=[],quiet=None,closure=None,partialClosure=None,transitions=[])
+            self.state=dict(process=dict(pid=os.getpid(),start=start_identity(os.getpid())),phase='watching',pending=None,last=None,dropped=[],quiet=None,closure=None,partialClosure=None,transitions=[],primaryCue=None)
             need(self.state['process']!=f.state['hostProcess']);self.save()
         else:
             exact(self.previous,{'snapshotsActorVersion','runId','binding','payload'})
             version=self.previous['snapshotsActorVersion']
-            need(type(version) is int and version in (1,ACTOR_VERSION)
+            need(type(version) is int and version in (1,2,ACTOR_VERSION)
                 and self.previous['runId']==f.run and same(self.previous['binding'],f.binding))
             rows=unpack(self.previous['payload']);need(len(rows)==1);self.state=rows[0]
-            exact(self.state,STATE_FIELDS if version==1 else STATE_FIELDS|{'transitions'})
-            # Exact process-bound v1 state predates transition recovery. Preserve
-            # every old pending/receipt/quiet field; the next own CAS save writes
-            # v2 with an empty transition history. Never infer a legacy event.
+            exact(self.state,actor_fields(version))
+            # Exact legacy shapes preserve every pending/receipt/quiet field.
+            # Neither an old transition nor a consumed Primary cue is inferred.
             if version==1:self.state['transitions']=[]
+            if version<3:self.state['primaryCue']=None
+            if self.state['primaryCue'] is not None:cue_state(f,self.state['primaryCue'])
             need(self.state['process']==dict(pid=os.getpid(),start=start_identity(os.getpid())) and self.state['phase'] in ('watching','retired')
                 and type(self.state['dropped']) is list and len(self.state['dropped'])<=256)
             if self.state['partialClosure'] is not None:
@@ -140,10 +182,15 @@ class PhoneSnapshotsActor(PhoneAssetsActor):
                     and self.state['closure'] is not None and self.state['closure']['active'] is False)
             validate_transition_history(f,self.state,expected_actor=self.previous)
 
+    def primary_owner(self):
+        if self._ordinary_primary is not None:
+            store=PrivateFeatureState(self.feature.store.path.with_name('phone-snapshots-primary-originals.json'))
+            need(same(store.read(),self._ordinary_primary))
+
     def save(self):
-        self.feature.bound();need(same(self.store.read(),self.previous))
+        self.feature.bound();self.primary_owner();need(same(self.store.read(),self.previous))
         value=dict(snapshotsActorVersion=ACTOR_VERSION,runId=self.feature.run,binding=self.feature.binding,payload=pack([self.state]))
-        self.store.write(value,self.previous);need(same(self.store.read(),value));self.previous=deepcopy(value)
+        self.store.write(value,self.previous);need(same(self.store.read(),value));self.primary_owner();self.previous=deepcopy(value)
 
     def receipt(self,pending):
         value=self.client.request('/runs/'+self.feature.run)
@@ -168,6 +215,7 @@ class PhoneSnapshotsActor(PhoneAssetsActor):
             if self._cleanup_started:self._cleanup_failed=True
             elif self._ordinary_entered:self._ordinary_failed=True
             raise
+        finally:self._ordinary_primary=None
 
     def poll_delay(self):
         """Yield briefly only between this flow's verified cleanup samples.
@@ -183,9 +231,61 @@ class PhoneSnapshotsActor(PhoneAssetsActor):
             return .05
         return .25
 
-    def ordinary_pin(self):
+    def primary_continuity(self):
+        """A saved publication may resume, but cannot forget its known owner."""
+        f=self.feature;cue=self.state['primaryCue']
+        if cue is None:return
+        store=PrivateFeatureState(f.store.path.with_name('phone-snapshots-primary-originals.json'))
+        header=store.read();actor_header=deepcopy(self.previous)
+        def historical():
+            f.lock.assert_held();f.header_authority()
+            need(same(self.store.read(),actor_header) and same(store.read(),header));return True
+        validate_primary_cue(f,cue,header,history_guard=historical)
+        self._ordinary_primary=deepcopy(header);self.primary_owner()
+
+    def primary_cue(self,status):
+        """Permit ordinary acquisition only after a real Primary advance."""
+        f=self.feature;f.lock.assert_held()
+        store=PrivateFeatureState(f.store.path.with_name('phone-snapshots-primary-originals.json'))
+        header=store.read();previous=self.state['primaryCue']
+        if header is None:
+            need(previous is None
+                and not any(f.root.glob('emote-frame-snapshots-'+f.run+'-primary-*.json'))
+                and not any(f.root.glob('emote-index-snapshots-'+f.run+'-primary-*.json'))
+                and not any(f.root.glob('snapshots-'+f.run+'-primary-*.png'))
+                and not any(f.root.glob('snapshots-file-'+f.run+'-primary-*.bin'))
+                and not any(f.root.glob('snapshots-primary-transfer-*'))
+                and not os.path.lexists(f.root/'phone-snapshots-primary-files-observer.json'))
+            return None
+        state=role_state(header,f.binding,f.run,'primary');need(state['phase'] in ('ready','reading'))
+        actor_header=deepcopy(self.previous)
+        def historical():
+            f.lock.assert_held();f.header_authority()
+            need(same(self.store.read(),actor_header) and same(store.read(),header));return True
+        validate_primary_cue(f,previous,header,history_guard=historical)
+        if state['phase']!='ready' or state['pending'] is not None or state['sequence']==0:return None
+        if previous is not None and state['sequence']==cue_state(f,previous)['sequence']:
+            need(same(header,previous['header']));return None
+        host=SnapshotsOriginals(f.root,f.binding,f.run,'primary',historical,lambda *_:need(False),kind='snapshots')
+        entries=primary_manifests(host,state);need(entries)
+        frame=host.read(host.expand(entries[-1]))
+        if frame.get('diagnostic') is True:return None
+        need(type(frame.get('measurement')) is dict)
+        before,after=frame['phaseBefore'],frame['phaseAfter']
+        phase_packet(before,run=f.run,area='snapshots',request=before['requestId'],epoch=before['capturedEpochMs'])
+        phase_packet(after,run=f.run,area='snapshots',request=after['requestId'],epoch=after['capturedEpochMs'],previous=before)
+        need(before['active'] and after['active'] and before['activations']
+            and same(before['activations'],after['activations']) and frame['ticket']==before['activations'][-1]['ticket'])
+        if frame['ticket']!=status['activations'][-1]['ticket']:return None
+        for key in ('fixturePhaseVersion','instance','runId','area','createdEpochMs','retiredEpochMs','activations','active'):
+            need(same(after[key],status[key]))
+        need(f.bound() is True and historical() is True)
+        return dict(snapshotPrimaryCueVersion=1,header=deepcopy(header))
+
+    def ordinary_pin(self,cue):
         f=self.feature;scope=getattr(f.adapter,'_existing_input_scope',None)
-        return dict(feature=deepcopy(f.previous),actor=deepcopy(self.previous),binding=deepcopy(f.binding),
+        self._ordinary_primary=deepcopy(cue['header']);self.primary_owner()
+        return dict(primary=deepcopy(cue['header']),feature=deepcopy(f.previous),actor=deepcopy(self.previous),binding=deepcopy(f.binding),
             process=deepcopy(self.state['process']),guard=getattr(f,'guard',None),system=getattr(f,'_system_scope',None),
             sdk=scope,sdkValue=deepcopy(scope))
 
@@ -197,7 +297,8 @@ class PhoneSnapshotsActor(PhoneAssetsActor):
             and getattr(f,'guard',None) is pin['guard'] and getattr(f,'_system_scope',None) is pin['system']
             and getattr(f.adapter,'_existing_input_scope',None) is pin['sdk']
             and same(getattr(f.adapter,'_existing_input_scope',None),pin['sdkValue']))
-        f.bound();role.bound();role.history_authority()
+        f.bound();role.bound();role.history_authority();self.primary_owner()
+        need(same(self._ordinary_primary,pin['primary']))
 
     def ordinary_admission(self,role,status,pin,phase_before):
         if same(status['activations'],phase_before['activations']) and status['active']==phase_before['active']:return
@@ -304,7 +405,8 @@ class PhoneSnapshotsActor(PhoneAssetsActor):
                     and self.state['closure'] is None and self.state['partialClosure'] is None)
                 return self.quiet_batch(retained[0],retained[1],started)
             need(self.state['phase']=='watching')
-            if self.state['pending'] is not None:self.deliver();return False
+            if self.state['pending'] is not None:
+                self.primary_continuity();self.deliver();return False
             if f.state['phase'] not in ('baseline','active','cleaned'):return False
             current=status['activations'][-1];verb=current['stimulus']['verb']
             if verb=='baseline' and f.state['phase']!='baseline':return False
@@ -313,7 +415,9 @@ class PhoneSnapshotsActor(PhoneAssetsActor):
             if verb!='cleanup' and f.state['phase']=='cleaned':return False
             if verb=='cleanup':self._cleanup_started=True
             self._ordinary_entered=verb!='cleanup'
-            ordinary=None if verb=='cleanup' else self.ordinary_pin()
+            cue=None if verb=='cleanup' else self.primary_cue(status)
+            if verb!='cleanup' and cue is None:return False
+            ordinary=None if verb=='cleanup' else self.ordinary_pin(cue)
             role=PhoneSnapshotsRole(f,'actor',**({} if anchor is None else {'expected_previous':anchor[1]['role']}))
             if anchor is not None:need(same(role.previous,anchor[1]['role']))
             if role.state['phase']=='reading':role.recover()
@@ -330,7 +434,7 @@ class PhoneSnapshotsActor(PhoneAssetsActor):
                 sample=dict(ticket=current['ticket'],actor='owned-observer',actorSequence=measured['sequence'],capturedEpochMs=measured['capturedEpochMs'],
                     facts={key:deepcopy(measured['state'][key]) for key in WITNESS_KEYS['snapshots']})
                 need(role.frames[-1]['ticket']==current['ticket'])
-                self.state['pending']=dict(sample=sample,issued=False);self.save();self.deliver();return False
+                self.state.update(primaryCue=cue,pending=dict(sample=sample,issued=False));self.save();self.deliver();return False
         # Preparation may replay a long immutable history. Release its lock
         # before the bounded current quiet interval so another role can run.
         # No measurement or publication authority survives this boundary.
@@ -347,8 +451,40 @@ class PhoneSnapshotsActor(PhoneAssetsActor):
             f.bound();role.bound();role.history_authority()
             need(f.state['phase']=='cleaned' and self.state['phase']=='watching' and self.state['pending'] is None
                 and self.state['closure'] is None and self.state['partialClosure'] is None)
-            status=f.phase.status();self.cleanup_phase(status,prepared['phase'])
+            status=f.phase.status()
+            if not status['active']:return self.defer_cleanup_close(role,status,prepared['phase'])
+            self.cleanup_phase(status,prepared['phase'])
             return self.quiet_batch(role,prepared,started)
+
+    def defer_cleanup_close(self,role,status,prepared):
+        """A completed own quiet receipt may close between fresh phase reads.
+
+        This does not establish new closure authority or publish a sample. The
+        following normal step still acquires its full closed-phase proof.
+        """
+        need(not status['active'] and prepared['active'] and integer(status['retiredEpochMs'],1)
+            and self.state['phase']=='watching' and self.state['pending'] is None
+            and self.state['closure'] is None and self.state['partialClosure'] is None
+            and self.state['quiet'] is not None and self.state['quiet']['complete'] is True)
+        for key in ('fixturePhaseVersion','instance','runId','area','createdEpochMs','activations'):
+            need(same(status[key],prepared[key]))
+        need(prepared['activations'] and prepared['activations'][-1]['stimulus']['verb']=='cleanup')
+        durable=unpack(self.previous['payload']);need(len(durable)==1
+            and same(durable[0]['quiet'],self.state['quiet']) and same(durable[0]['last'],self.state['last']))
+        last=self.state['last'];need(last is not None and last['original']['issued'] is True)
+        sample=last['original']['sample'];receipt=last['receipt']
+        need(sample['ticket']==prepared['activations'][-1]['ticket']
+            and same({key:receipt[key] for key in sample},sample)
+            and integer(receipt['sequence'],1) and integer(receipt['receivedEpochMs'],1))
+        need((role.state['phase']=='ready' and role.state['pending'] is None)
+            or (role.state['phase']=='reading' and type(role.state['pending']) is dict))
+        pin=dict(feature=deepcopy(self.feature.previous),actor=deepcopy(self.previous),role=deepcopy(role.previous),
+            binding=deepcopy(self.feature.binding),phase=deepcopy(prepared))
+        self.cleanup_owners(role,pin)
+        # A partial read remains an actual owned recovery obligation. The
+        # ordinary closed branch reconstructs and recovers it before proving
+        # fresh absence; no warmed reader or old role header is reused.
+        self._cleanup_reader=None;self._cleanup_anchor=(role.store,pin);return False
 
     def quiet_batch(self,role,prepared,started):
         f=self.feature
@@ -357,11 +493,21 @@ class PhoneSnapshotsActor(PhoneAssetsActor):
             # Reuse only normal reader continuity. Every old file still
             # passes its complete original inode/byte/hash validation.
             need(same(role.restore_originals(),role.frames))
-            status=f.phase.status();self.cleanup_phase(status,prepared['phase'])
+            status=f.phase.status()
+            if not status['active']:return self.defer_cleanup_close(role,status,prepared['phase'])
+            self.cleanup_phase(status,prepared['phase'])
             try:measured=role.read(role.state['sequence'])
             except SnapshotPending:
+                after=f.phase.status(status)
+                if not after['active']:return self.defer_cleanup_close(role,after,prepared['phase'])
                 self._cleanup_reader=None;self.cleanup_anchor(role,status);return False
+            except Exception:
+                after=f.phase.status(status)
+                if after['active']:raise
+                return self.defer_cleanup_close(role,after,prepared['phase'])
             need(measured['resources']==[] and role.frames[-1]['ticket']==status['activations'][-1]['ticket'])
+            after=role.frames[-1]['phaseAfter']
+            if not after['active']:return self.defer_cleanup_close(role,after,prepared['phase'])
             proof=f.restored(snapshot=role.frames[-1]);now=f.monotonic()
             quiet=quiet_window(self.state['quiet'],now,measured['sequence']);quiet['final']=proof;self.state['quiet']=quiet
             self.save()

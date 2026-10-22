@@ -101,7 +101,7 @@ from overte_phone_script_history import pack,unpack
 flow=adapter.actor('synthetic',RUN,client);f=flow.feature
 with f.lock.held():
     f.load();flow.load();previous=deepcopy(flow.previous)
-    state=unpack(previous['payload'])[0];state.pop('transitions')
+    state=unpack(previous['payload'])[0];state.pop('transitions');state.pop('primaryCue')
     legacy=dict(previous,snapshotsActorVersion=1,payload=pack([state]))
     if sys.argv[3]=='foreign-shape':
         state['unknownLegacyField']=True;legacy['payload']=pack([state])
@@ -114,14 +114,14 @@ with f.lock.held():
             print(json.dumps(dict(rejected=True,preserved=True)),flush=True)
         else:raise AssertionError('Unknown legacy journal shape was adopted')
     else:
-        resumed.load();assert resumed.state==dict(state,transitions=[])
+        resumed.load();assert resumed.state==dict(state,transitions=[],primaryCue=None)
         with patch.object(f,'bound',side_effect=AssertionError('Empty history queried the target')):
             source.validate_transition_history(f,resumed.state)
             try:source.validate_transition_history(f,resumed.state,current_guard=lambda:True)
             except Exception:pass
             else:raise AssertionError('Explicit current guard accepted without immutable owner authority')
-        resumed.save();assert resumed.previous['snapshotsActorVersion']==2
-        assert unpack(resumed.previous['payload'])[0]==dict(state,transitions=[])
+        resumed.save();assert resumed.previous['snapshotsActorVersion']==source.ACTOR_VERSION
+        assert unpack(resumed.previous['payload'])[0]==dict(state,transitions=[],primaryCue=None)
         print(json.dumps(dict(migrated=True,lossless=True,emptyHistoryTargetQueries=0)),flush=True)
 '''
 
@@ -140,7 +140,9 @@ class SnapshotPhaseTransitionTests(unittest.TestCase):
         self.child=None
     def start(self,*,baseline=False):
         r=self.rig
-        if not baseline:r.act('open');r.act('capture',dict(mode='still',format='png'))
+        if not baseline:
+            r.act('open');r.act('capture',dict(mode='still',format='png'))
+            self.observe_primary()
         prefix=harness.ACTOR[:harness.ACTOR.index('started=time.monotonic();flow=None')]
         config=r.root/'transition-actor-config.json'
         PrivateFeatureState(config).write(dict(targetUrl=r.proxy.url,root=str(r.root),fixtureUrl=r.base,actorToken='a'*64),None)
@@ -151,6 +153,8 @@ class SnapshotPhaseTransitionTests(unittest.TestCase):
             self.child.communicate(timeout=5)
         self.addCleanup(stop)
         ready=self.receive();self.assertTrue(ready.get('ready'),ready);return ready
+    def observe_primary(self):
+        return self.rig.invoke('feature.snapshots.observe',dict(contractVersion=harness.VERSION,runId=harness.RUN,afterSequence=0))
     def receive(self):
         self.assertTrue(select.select([self.child.stdout],[],[],25)[0],'Actual independent actor response timed out')
         raw=self.child.stdout.readline()
@@ -177,12 +181,14 @@ class SnapshotPhaseTransitionTests(unittest.TestCase):
         self.start();self.assert_transition(self.activate())
         self.rig.invoke('feature.snapshots.act',dict(contractVersion=harness.VERSION,runId=harness.RUN,
             fixtureUrl=self.rig.fixture_url,ticket=NEW,verb='share-open',inputs={}))
+        self.observe_primary()
         self.send('acknowledged');fresh=self.receive();self.assertEqual('fresh',fresh.get('stage'),fresh)
         self.assertGreater(fresh['last']['original']['sample']['actorSequence'],fresh['transitionSequence'])
         self.assertEqual(NEW,fresh['last']['receipt']['ticket']);self.assertTrue(fresh['last']['receipt']['facts']['shareSheet'])
         self.assertEqual(2,fresh['reads'])
         self.rig.client.activate('d'*32,'cleanup',{})
         self.rig.invoke('feature.snapshots.cleanup',dict(contractVersion=harness.VERSION,runId=harness.RUN))
+        self.observe_primary()
         self.send('cleanup');cleaned=self.receive();self.assertEqual('cleanup',cleaned.get('stage'),cleaned)
         self.rig.client.close();self.send('close');self.assertEqual('retired',self.receive()['stage'])
         self.child.wait(timeout=5);self.assertEqual(0,self.child.returncode)
@@ -194,6 +200,7 @@ class SnapshotPhaseTransitionTests(unittest.TestCase):
         self.assert_transition(self.activate('cleanup'))
         self.assertTrue(self.rig.model.account['loggedIn'])
         self.rig.invoke('feature.snapshots.cleanup',dict(contractVersion=harness.VERSION,runId=harness.RUN))
+        self.observe_primary()
         self.assertFalse(self.rig.model.account['loggedIn'])
         self.send('acknowledged');fresh=self.receive();self.assertEqual('fresh',fresh.get('stage'),fresh)
         self.assertEqual(NEW,fresh['last']['receipt']['ticket'])
@@ -204,6 +211,7 @@ class SnapshotPhaseTransitionTests(unittest.TestCase):
     def test_actual_baseline_to_cleanup_activation_defers_without_cleanup_authority(self):
         self.start(baseline=True);self.assert_transition(self.activate('cleanup'))
         self.rig.invoke('feature.snapshots.cleanup',dict(contractVersion=harness.VERSION,runId=harness.RUN))
+        self.observe_primary()
         self.send('acknowledged');fresh=self.receive();self.assertEqual('fresh',fresh.get('stage'),fresh)
         self.assertGreater(fresh['last']['original']['sample']['actorSequence'],fresh['transitionSequence'])
         self.assertEqual(NEW,fresh['last']['receipt']['ticket'])
