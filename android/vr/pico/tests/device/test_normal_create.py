@@ -121,13 +121,18 @@ class PicoCreateTests(unittest.TestCase):
         target = self.native.target
         self.assertFalse(set(CREATE_OPERATIONS) & set(self.instance.capabilities(target)))
         with patch.dict(os.environ, {'OVERTE_PICO_NORMAL_CREATE':'1'}):
-            capabilities = self.instance.capabilities(target)
+            # The original candidate seals its environment. A changed opt-in
+            # cannot upgrade that live admission; a new CLI admits it cold.
+            with self.assertRaises(ValueError):
+                self.instance.invoke(target,'create.reference.open',{'scriptUrl':URL})
+            instance=self.fixture.fixture.instance()
+            capabilities = instance.capabilities(target)
             self.assertTrue(set(CREATE_OPERATIONS) <= set(capabilities))
             self.assertFalse(any(value.startswith('feature.create.') for value in capabilities))
             flow = unittest.mock.Mock()
             flow.invoke.return_value = {'performed':True}
-            with patch.object(self.instance, '_create_management', return_value=flow):
-                self.assertEqual({'performed':True}, self.instance.invoke(target,
+            with patch.object(instance, '_create_management', return_value=flow):
+                self.assertEqual({'performed':True}, instance.invoke(target,
                     'create.reference.open', {'scriptUrl':URL}))
             flow.invoke.assert_called_once_with('create.reference.open', {'scriptUrl':URL})
         with self.assertRaises(ValueError):

@@ -705,3 +705,41 @@ Final Qt6 actual qrc/getter/strict-reader case passes3.678s. The integrated
 normal Emote11.456s, expanded stereo/owner48.963s and coverage.074s pass
 3/75 catalog groups60.49s. All4 final repository suites pass4.16s; registry
 and whitespace pass. Source-complete feature count remains3/14.
+
+
+## Integrated normal Create parent, Audio capture and original Chat stage joins
+
+ce54cbe311 selects480a756dca's v3 flow/witness initial-to-active original
+lifetime join. All45 witness/samples/absence cases pass15.180s and the actual
+Pico witness factory case1.171s. The first factory command referenced a wrong
+method name and failed before execution; the corrected actual case passes.
+
+32da3eee7b selects adc7dd22ee's normal Audio capture and immutable PCM owner.
+Four integrated groups pass84.31s: capture25.864s, normal page55.700s, preview
+2.681s, coverage.065s. Both real catalog conflicts preserved every current root
+selector and added only the new capture group (75 to76). No timeout changed.
+2d7895667d selects78833fc346's normal mute interruption/unmute and original
+termination source fences. Historical v1 stays v1; new authority requiresv2.
+Its expanded integrated capture/factory group passes21.265s below.
+
+4877a2af44 selects2b610f6de7's first-twelve-step normal Create parent. Existing
+root Lifecycle source binding and actual shared channel lock were preserved;
+the redundant older agent binding method was omitted. Additive catalog/version
+resolution preserves all root Audio/Emote/Lifecycle safeguards, registers the
+new owner only once, keeps native-script-workv2 once, and raises76 to77 groups.
+Actual original Model export, both existing child factories/normal input routes,
+private files and retained editor/context/resource proofs are exercised at the
+documented synthetic native/domain/renderer boundaries.
+
+The first six-group regression passes five: Create parent35.218s, Model47.774s,
+picker60.938s, Audio capture21.265s, coverage.062s. The older normal-create
+foundation case failed10.030s because it changed opt-in environment after the
+candidate's immutable admission. The existing seal correctly refuses that
+change. The fixture now explicitly tests refusal and cold-admits a new CLI
+instance after opt-in, preserving the original guard. Final normal-create
+37 cases pass8.887s. No product input or candidate policy was weakened.
+All three complete source areas and all device/app qualification boundaries
+remain unchanged; source-complete count remains3/14.
+
+All4 final repository suites pass3.16s; registry, probe JavaScript syntax and
+whitespace pass. The original candidate environment guard remains unchanged.

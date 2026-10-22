@@ -950,3 +950,27 @@ The shared helper removes the Phone-only compile gate and uses neutral names.
 Phone pinch/Touch/selfie/scene behavior is excluded. The original full getter
 compiles with actual Qt qrc registration of both original repository files;
 its actual C++ packet passes the strict Python reader and pinned-byte join.
+
+
+## Integrated Create, Audio capture and Chat source continuity
+
+The normal Create v16 parent now coordinates its first twelve real recipe
+steps over the existing picker and resource-qualified Model owners, including
+normal export of the actual owned Model and retained original export bytes.
+Original native lifecycle/editor/context observations keep cleanup open while
+known objects remain alive. Parent/child CAS inputs and base cleanup refusal
+retain unresolved ownership. PolyVox, authority, current stereo/actor/state and
+full allocation history remain partial. No complete Create capability is added.
+
+Audio capture v2 now binds normal unmuted start/cancel/completion and normal
+mute interruption/unmute to the actual original phase ticket, native start and
+termination fences and immutable separate input/sink PCM files. Old v1 records
+keep their original authority and schema. Digital PCM is never relabeled as an
+independent acoustic route. Original deferred timer/capacity and common final
+page/peak/background/peer qualification remain open. All journals stay owned.
+
+Chat FlowInputs/Witness v3 now require initial and active native/domain/view/
+keyboard/lifecycle source continuity for both input roles and the independent
+witness. Native opening IDs are distinct original mutations, not receipts or
+requested identities. Old v1/v2 flow owners remain retained. The actual complete
+Chat dispatcher and whole retirement are still under construction.
