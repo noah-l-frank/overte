@@ -502,7 +502,8 @@ jobs:
     name: Android product owner
     needs: [plan, policy]
     if: needs.plan.outputs.active == 'true' && needs.plan.outputs.android == 'true'
-    runs-on: ubuntu-24.04
+    # Only the native consumer needs the isolated, ephemeral large-disk runner.
+    runs-on: ${{ needs.plan.outputs.android_native_products != '[]' && fromJSON(format('["self-hosted","Linux","X64","overte-native-large-disk","overte-native-{0}-{1}"]', github.run_id, github.run_attempt)) || 'ubuntu-24.04' }}
     timeout-minutes: ${{ needs.plan.outputs.android_native_products != '[]' && 150 || 45 }}
     steps:
       - name: Check out the immutable trusted controller
@@ -655,6 +656,7 @@ jobs:
           COMPILE_PRODUCTS: ${{ needs.plan.outputs.android_compile_products }}
           NATIVE_PRODUCTS: ${{ needs.plan.outputs.android_native_products }}
           GROOVY_CONTRACTS: ${{ needs.plan.outputs.android_groovy_contracts }}
+          PR_CI_ANDROID_NATIVE_EXPORT: ${{ runner.temp }}/pr-ci-android-export
         run: |
           node_root=$(dirname "$(dirname "$(readlink -f "$(command -v node)")")")
           prepared=(--prepared-root "$node_root")
@@ -672,7 +674,19 @@ jobs:
           fi
           "$RUNNER_TEMP/pr-ci-venv/bin/python" -I -S -B trusted/tools/repository-checks/pr_ci.py platform \
             --lane android --context-json "$CONTEXT_JSON" --plan-json "$PLAN_JSON" \
-            --candidate candidate "${prepared[@]}"
+            --candidate candidate "${prepared[@]}" --out "$RUNNER_TEMP/pr-ci-android-result.json"
+      - name: Upload source-bound Android native outputs and diagnostics
+        if: always() && needs.plan.outputs.android_native_products != '[]'
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        with:
+          name: android-native-${{ github.run_id }}-${{ github.run_attempt }}-${{ needs.plan.outputs.target }}
+          path: |
+            ${{ runner.temp }}/pr-ci-android-export/
+            ${{ runner.temp }}/pr-ci-android-result.json
+          if-no-files-found: error
+          overwrite: false
+          retention-days: 7
+          compression-level: 0
 
   ios:
     name: iOS product owner
