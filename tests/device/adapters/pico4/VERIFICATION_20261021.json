@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "status": "local-packets-verified-scope-in-progress",
-  "qualification": "Source implementation, selected device-free host checks and focused original native component compilation; not a complete 61-group catalog or native application/device qualification.",
+  "qualification": "Source implementation, selected device-free host checks and focused original native component compilation; not a complete 63-group catalog or native application/device qualification.",
   "sourceCompleteAreas": [
     "scripts",
     "authentication",
@@ -2621,5 +2621,53 @@
       "Current original stereo and independent actor publication",
       "Native callback/timer/Qt/resource retirement and complete feature binding"
     ]
+  },
+  "createChatLifecycleJoin20261022": {
+    "status": "partial-failed-native-dialog",
+    "integratedCommits": [
+      "48d5ec54c3",
+      "e02385a855",
+      "9335680163",
+      "3ac033a018",
+      "27ec88d4d7"
+    ],
+    "picoCatalogGroups": 63,
+    "picoSelection": {
+      "groups": 6,
+      "passed": 5,
+      "failed": 1,
+      "seconds": 69.07,
+      "passedGroups": [
+        "coverage-matrix",
+        "lifecycle-input-owner",
+        "create-picker-owner",
+        "create-entities-native",
+        "normal-emote"
+      ],
+      "failedGroup": "create-dialog-native",
+      "failure": "Native Qt5 test executable SIGSEGV after foreign-thread original Window receiver extension; investigation active, no success claimed"
+    },
+    "chatLifecycleComponents": {
+      "tests": 53,
+      "seconds": 16.101,
+      "status": "passed"
+    },
+    "domainComponents": {
+      "tests": 40,
+      "seconds": 0.718,
+      "status": "passed"
+    },
+    "domainQt5": {
+      "tests": 1,
+      "seconds": 1.359,
+      "status": "passed",
+      "scope": "Full original DomainHandler setters/disconnect bodies and MessagesClient getter plus helper; network/NodeList I/O explicit seams; full networking TU uncompiled"
+    },
+    "project": {
+      "suites": 4,
+      "seconds": 3.16,
+      "status": "passed"
+    },
+    "deviceQualified": false
   }
 }

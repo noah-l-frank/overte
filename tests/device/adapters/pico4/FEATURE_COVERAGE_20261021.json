@@ -303,7 +303,10 @@
         "tests/device/adapters/pico4/create_dialogs.py",
         "tests/device/adapters/pico4/CREATE_DIALOG_SOURCE.md",
         "android/vr/pico/tests/device/test_create_dialogs.py",
-        "android/vr/pico/tests/device/test_create_dialogs_native.py"
+        "android/vr/pico/tests/device/test_create_dialogs_native.py",
+        "tests/device/adapters/pico4/create_picker_owner.py",
+        "tests/device/adapters/pico4/CREATE_PICKER_OWNER.md",
+        "tests/device/adapters/pico4/create_entities.py"
       ],
       "declaredCheckpoints": 21,
       "inputVerbs": [
@@ -350,7 +353,8 @@
       ],
       "nextExecutableStep": "Join existing original normal picker/export storage, native weak roots and original Window/V8 callback observations into whole model/texture/import/export ownership; continue actual queued ModalDialogListener delivery retirement, PolyVox, domain authority actor, stereo and final cleanup.",
       "nativeCompilation": "unverified",
-      "deviceQualification": "untested"
+      "deviceQualification": "untested",
+      "nativeDialogIntegrationStatus": "Foreign-thread original Qt5 Window receiver test SIGSEGV on primary integration; diagnosis active; no native-dialog qualification."
     },
     {
       "area": "emotes",
@@ -856,7 +860,11 @@
         "tests/device/native/CHAT_PROFILE_OWNER.md",
         "tests/device/adapters/native_chat_profile.py",
         "tests/device/self_tests/test_chat_profile_owner.py",
-        "tests/device/self_tests/test_chat_profile_native_probe.py"
+        "tests/device/self_tests/test_chat_profile_native_probe.py",
+        "tests/device/adapters/chat_journey/erase_restore.py",
+        "tests/device/adapters/chat_journey/ERASE_RESTORE.md",
+        "tests/device/native/ChatDomainSession.h",
+        "tests/device/native/CHAT_DOMAIN_SESSION.md"
       ],
       "declaredCheckpoints": 25,
       "inputVerbs": [
@@ -1126,7 +1134,9 @@
         "tests/device/self_tests/test_pico_lifecycle_gesture.py",
         "tests/device/adapters/pico4/lifecycle_world.py",
         "tests/device/adapters/pico4/LIFECYCLE_WORLD.md",
-        "tests/device/self_tests/test_pico_lifecycle_world.py"
+        "tests/device/self_tests/test_pico_lifecycle_world.py",
+        "tests/device/adapters/pico4/lifecycle_join.py",
+        "tests/device/adapters/pico4/LIFECYCLE_X_JOIN.md"
       ],
       "declaredCheckpoints": 16,
       "inputVerbs": [
