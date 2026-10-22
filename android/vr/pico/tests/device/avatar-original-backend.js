@@ -44,7 +44,9 @@ const bookmarks={getBookmarks(){if(nativeBookmarks)nativeBookmark('all');return 
     addBookmark(name){assert.match(name,/^e2e-[0-9a-f]{32}$/);assert(!bookmarkRows[name]);bookmarkCalls.push(['save',name]);
         if(nativeBookmarks)nativeBookmark('save',name);else bookmarkRows[name]={version:3,avatarUrl:avatar.skeletonModelURL,avatarScale:scale,avatarEntites:[],avatarIcon:''};this.bookmarkAdded.emit(name);},
     loadBookmark(name){assert(bookmarkRows[name]);bookmarkCalls.push(['load',name]);const row=bookmarkRows[name];
-        avatar.useFullAvatarURL(row.avatarUrl);avatar.setAvatarScale(row.avatarScale);this.bookmarkLoaded.emit(name);},
+        if(nativeBookmarks){const actual=nativeBookmark('load',name).nativeLoad;assert.equal(actual.bookmarkLoaded,true);
+            avatar.useFullAvatarURL(actual.avatarUrl);avatar.setAvatarScale(actual.scale);}
+        else{avatar.useFullAvatarURL(row.avatarUrl);avatar.setAvatarScale(row.avatarScale);}this.bookmarkLoaded.emit(name);},
     removeBookmark(name){assert(bookmarkRows[name]);bookmarkCalls.push(['delete',name]);if(nativeBookmarks)nativeBookmark('delete',name);else delete bookmarkRows[name];this.bookmarkDeleted.emit(name);}};
 for(const name of ['bookmarkLoaded','bookmarkDeleted','bookmarkAdded'])bookmarks[name]=signal();
 const entities={addingWearable:signal(),deletingWearable:signal(),mousePressOnEntity:signal()};

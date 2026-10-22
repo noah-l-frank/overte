@@ -15,6 +15,9 @@
 
 #include <DependencyManager.h>
 #include "Bookmarks.h"
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+#include "../../tests/device/native/AvatarBookmarkLoads.h"
+#endif
 
 /*@jsdoc 
  * The <code>AvatarBookmarks</code> API provides facilities for working with avatar bookmarks ("favorites" in the Avatar app). 
@@ -40,6 +43,7 @@ public:
     AvatarBookmarks();
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
     QVariantMap e2eBookmarkStorage() const;
+    QVariantMap e2eBookmarkLoads() const;
 #endif
     void setupMenus(Menu* menubar, MenuWrapper* menu) override {};
 
@@ -152,6 +156,9 @@ protected slots:
     void deleteBookmark() override;
 
 private:
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+    overte::e2e::AvatarBookmarkLoads _featureBookmarkLoads;
+#endif
     QVariantMap getBookmarkInternal(const QString &bookmarkName);
     void addBookmarkInternal(const QString& bookmarkName);
     void saveBookmarkInternal(const QString& bookmarkName);

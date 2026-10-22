@@ -128,6 +128,7 @@ void TestScriptingInterface::setTestResultsLocation(const QString path) {
         _featureEmoteSceneQueue=std::make_shared<overte::e2e::AudioSettingsQueue>();
         _featureAvatarStateQueue=std::make_shared<overte::e2e::AudioSettingsQueue>();
         _featureAvatarBookmarksQueue=std::make_shared<overte::e2e::AudioSettingsQueue>();
+        _featureAvatarBookmarkLoadsQueue=std::make_shared<overte::e2e::AudioSettingsQueue>();
         _featureAvatarPreferencesQueue=std::make_shared<overte::e2e::AudioSettingsQueue>();
         _featureAvatarPreferences=std::make_shared<overte::e2e::AvatarPreferenceSnapshot>();
         overte::e2e::ensureNavigationDirectoryProvider(this);
@@ -303,6 +304,39 @@ QVariantMap TestScriptingInterface::featurePicoAvatarBookmarks(const QVariantMap
         {"sequence",static_cast<qulonglong>(++_featureAvatarBookmarksSequence)},{"processId",QCoreApplication::applicationPid()},
         {"requestedEpochMs",requested},{"capturedEpochMs",QDateTime::currentMSecsSinceEpoch()},
         {"source",QVariantMap{{"picoAvatarBookmarksVersion",1},{"instance",_featureAvatarBookmarkBirth},{"storage",read.values}}}};
+}
+
+QVariantMap TestScriptingInterface::featurePicoAvatarBookmarkLoads(const QVariantMap& command) {
+    const auto queue=_featureAvatarBookmarkLoadsQueue;if(!queue) {return {};}
+    if(QThread::currentThread()!=thread()) {
+        return queue->read("dispatch",this,[command](QObject* original) {
+            return overte::e2e::AudioSettingsPart{static_cast<TestScriptingInterface*>(original)->featurePicoAvatarBookmarkLoads(command),{}};
+        }).values;
+    }
+    const auto json=QJsonObject::fromVariantMap(command);const auto request=command.value("commandId").toString();
+    if(_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript") || !qApp || thread()!=qApp->thread()
+            || command.keys()!=QStringList{"action","commandId","schemaVersion"} || !json.value("schemaVersion").isDouble()
+            || json.value("schemaVersion").toDouble()!=1 || !json.value("commandId").isString()
+            || !QRegularExpression("\\A[0-9a-f]{32}\\z").match(request).hasMatch()
+            || command.value("action").toString()!="feature-pico-avatar-bookmark-loads-observe"
+            || _featureAvatarBookmarkLoadsRequests.contains(request) || _featureAvatarBookmarkLoadsRequests.size()>=512
+            || !queue->settled(overte::e2e::AudioSettingsQueue::dispatching(this) ? "dispatch" : QString())
+            || !DependencyManager::isSet<AvatarBookmarks>()) {return {};}
+    const auto manager=DependencyManager::get<AvatarBookmarks>();if(!manager) {return {};}
+    if(_featureAvatarBookmarkLoadObject!=manager.data()) {
+        _featureAvatarBookmarkLoadObject=manager.data();_featureAvatarBookmarkLoadBirth=QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-');
+    }
+    const auto requested=QDateTime::currentMSecsSinceEpoch();_featureAvatarBookmarkLoadsRequests.insert(request);
+    const auto read=queue->read("client",manager.data(),[](QObject* original) {
+        return overte::e2e::AudioSettingsPart{static_cast<AvatarBookmarks*>(original)->e2eBookmarkLoads(),{}};
+    });
+    if(read.values.isEmpty() || _featureAvatarBookmarkLoadObject.isNull() || _featureAvatarBookmarkLoadObject!=manager.data()
+            || !DependencyManager::isSet<AvatarBookmarks>() || DependencyManager::get<AvatarBookmarks>()!=manager) {return {};}
+    return {{"schemaVersion",1},{"requestId",request},{"instance",_featureObservationInstance},
+        {"sequence",static_cast<qulonglong>(++_featureAvatarBookmarkLoadsSequence)},{"processId",QCoreApplication::applicationPid()},
+        {"requestedEpochMs",requested},{"capturedEpochMs",QDateTime::currentMSecsSinceEpoch()},
+        {"source",QVariantMap{{"picoAvatarBookmarkLoadsVersion",1},{"instance",_featureAvatarBookmarkLoadBirth},{"loads",read.values}}}};
 }
 
 QVariantMap TestScriptingInterface::featurePicoAvatarState(const QVariantMap& command) {

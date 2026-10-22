@@ -49,6 +49,9 @@ QVariantMap AvatarBookmarks::e2eBookmarkStorage() const {
             || QDir::cleanPath(_bookmarksFilename)!=QDir::cleanPath(PathUtils::getAppDataPath()+"/"+AVATARBOOKMARKS_FILENAME)) {return {};}
     return overte::e2e::avatarBookmarkStorage(_bookmarks,_bookmarksFilename,_bookmarkError);
 }
+QVariantMap AvatarBookmarks::e2eBookmarkLoads() const {
+    return _featureBookmarkLoads.snapshot(const_cast<AvatarBookmarks*>(this));
+}
 #endif
 
 QVariantMap AvatarBookmarks::getBookmarks() {
@@ -264,16 +267,41 @@ void AvatarBookmarks::loadBookmarkInternal(const QString& bookmarkName) {
             // from the new avatar, and that would cause the entities to be attached to the wrong joints.
 
             std::shared_ptr<QMetaObject::Connection> connection1 = std::make_shared<QMetaObject::Connection>();
-            *connection1 = connect(myAvatar.get(), &MyAvatar::onLoadComplete, [this, bookmark, bookmarkName, myAvatar, connection1]() {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+            auto featureCapture = QCoreApplication::instance() && QCoreApplication::arguments().contains("--testScript")
+                ? _featureBookmarkLoads.begin(this, myAvatar.get(), bookmarkName,
+                bookmark.value(ENTRY_AVATAR_URL, "").toString(), bookmark.value(ENTRY_AVATAR_SCALE, 1.0f).toFloat(),
+                bookmark.value(ENTRY_AVATAR_ENTITIES, QVariantList()).toList().size(),
+                myAvatar->e2eAvatarLoads().value("instance").toString(), myAvatar->getSessionUUID().toString(QUuid::WithoutBraces))
+                : overte::e2e::AvatarBookmarkLoads::Token();
+#endif
+            *connection1 = connect(myAvatar.get(), &MyAvatar::onLoadComplete, [this, bookmark, bookmarkName, myAvatar, connection1
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+                , featureCapture
+#endif
+            ]() {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+                overte::e2e::AvatarBookmarkLoads::Dispatch featureDispatch(featureCapture);
+#endif
                 qCDebug(interfaceapp) << "Finish loading avatar bookmark" << bookmarkName;
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+                featureDispatch.disconnected(QObject::disconnect(*connection1));
+#else
                 QObject::disconnect(*connection1);
+#endif
                 myAvatar->clearWornAvatarEntities();
                 const float& qScale = bookmark.value(ENTRY_AVATAR_SCALE, 1.0f).toFloat();
                 myAvatar->setAvatarScale(qScale);
                 QVariantList avatarEntities = bookmark.value(ENTRY_AVATAR_ENTITIES, QVariantList()).toList();
                 addAvatarEntities(avatarEntities);
                 emit bookmarkLoaded(bookmarkName);
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+                featureDispatch.completed();
+#endif
             });
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+            _featureBookmarkLoads.connected(featureCapture, bool(*connection1));
+#endif
 
             qCDebug(interfaceapp) << "Start loading avatar bookmark" << bookmarkName;
 

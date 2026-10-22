@@ -43,8 +43,10 @@ class AvatarPeopleControlsNativeTests(unittest.TestCase):
             (stage/'actual-avatar-observe.inc').write_text('namespace overte::pico::e2e {\n'+observer+'\n}\n')
             bookmarks=(ROOT/'interface/src/Bookmarks.cpp').read_text();avatar_bookmarks=(ROOT/'interface/src/AvatarBookmarks.cpp').read_text()
             store='\n'.join(function(bookmarks,s) for s in ('void Bookmarks::insert(', 'void Bookmarks::remove(', 'bool Bookmarks::contains(', 'void Bookmarks::readFromFile(', 'void Bookmarks::persistToFile('))
-            store+='\n'+'\n'.join(function(avatar_bookmarks,s) for s in ('AvatarBookmarks::AvatarBookmarks()', 'QVariantMap AvatarBookmarks::e2eBookmarkStorage(', 'QVariantMap AvatarBookmarks::getBookmarks(', 'QVariantMap AvatarBookmarks::getBookmarkInternal(', 'void AvatarBookmarks::addBookmarkInternal(', 'void AvatarBookmarks::removeBookmarkInternal('))
+            store+='\n'+'\n'.join(function(avatar_bookmarks,s) for s in ('AvatarBookmarks::AvatarBookmarks()', 'QVariantMap AvatarBookmarks::e2eBookmarkStorage(', 'QVariantMap AvatarBookmarks::e2eBookmarkLoads(', 'QVariantMap AvatarBookmarks::getBookmarks(', 'QVariantMap AvatarBookmarks::getBookmarkInternal(', 'void AvatarBookmarks::addBookmarkInternal(', 'void AvatarBookmarks::removeBookmarkInternal(', 'void AvatarBookmarks::loadBookmark(', 'void AvatarBookmarks::loadBookmarkInternal('))
+            store+='\n'+function((ROOT/'interface/src/avatar/MyAvatar.cpp').read_text(),'void MyAvatar::useFullAvatarURL(')
             (stage/'actual-avatar-bookmark-store.inc').write_text(store)
+            subprocess.run([str(prefix/'usr/lib64/qt5/bin/moc'),'-i',str(HERE/'avatar-bookmark-store-actor.h'),'-o',str(stage/'avatar-bookmark-store-actor.moc')],check=True,timeout=20,env=environment)
             start=native.index('    } else if (controlId.startsWith("avatar.") || controlId.startsWith("people.")) {')
             end=native.index('\n    } else if (',start+10)
             branch=native[start:end].split('{',1)[1]
@@ -87,5 +89,11 @@ class AvatarPeopleControlsNativeTests(unittest.TestCase):
             self.assertEqual(physical[0]['bookmarks'],physical[-1]['bookmarks'])
             self.assertTrue(all('unowned' in packet['bookmarks'] for packet in physical))
             self.assertTrue(any('e2e-'+'a'*32 in packet['bookmarks'] for packet in physical))
+            from adapters.pico4.avatar_bookmark_loads import loads
+            work=value['originalBookmarkLoads'];self.assertGreaterEqual(len(work),2)
+            for source in work:loads(source,source['capturedEpochMs'])
+            self.assertGreaterEqual(value['cachedOriginalLoads'],1);self.assertGreaterEqual(value['declaredModelCompletions'],1)
+            self.assertTrue(all(row['completed'] and row['disconnected'] and row['dispatches']==1 and row['active']==0
+                and not row['captureAlive'] and row['ownerThreadOnly'] for row in work[-1]['rows']))
 
 if __name__=='__main__':unittest.main()
