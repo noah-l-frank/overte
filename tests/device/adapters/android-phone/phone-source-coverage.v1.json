@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "documentKind": "android-phone-source-coverage",
-  "assessedRevision": "a4e0d58c23476917cdc934bb87ba318ef31b6038",
+  "assessedRevision": "62bb0685d073981009cfead3619984d2d70c224f",
   "assessedDate": "2026-10-22",
   "scope": {
     "platform": "android-phone",
@@ -389,23 +389,20 @@
     {
       "id": "create-appium-collaboration",
       "area": "create",
-      "status": "pending",
-      "finding": "entity-sync requires collaboration.edit/snapshot, but the assessed Phone Appium inheritance/dispatch contains neither; separate Phone ADB support does not provide a same-target Appium capability union.",
+      "status": "source-join-resolved",
+      "finding": "The guarded opt-in Phone Appium collaboration dispatch now runs the unchanged entity-sync module, actual domain actor/probe source and mandatory Create gate from a serverless initial world. Original actor/native effects are required; one-send intent survives lost returns. No device acceptance is claimed.",
       "evidence": [
         {
-          "path": "tests/device/modules/entity_sync.py"
+          "path": "tests/device/adapters/android-phone/overte_phone_collaboration.py"
         },
         {
-          "path": "tests/device/adapters/shared_appium/adapter.py",
-          "symbol": "def advertised_capabilities",
-          "line": 542
+          "path": "android/phone/tests/device/test_create_collaboration_foundation.py"
         },
         {
-          "path": "tests/device/adapters/android/adapter.py",
-          "symbol": "if self.kind == \"phone\" and os.environ.get(\"OVERTE_ANDROID_E2E_COLLABORATION\")",
-          "line": 185
+          "path": "tests/device/adapters/android-phone/CREATE_COLLABORATION_FOUNDATION.md"
         }
-      ]
+      ],
+      "resolutionCommit": "b7304d01cd"
     },
     {
       "id": "navigation-scene-profile-conflict",
@@ -493,7 +490,7 @@
         "dispatch": {
           "path": "tests/device/adapters/android-phone/appium_adapter.py",
           "symbol": "if operation in NAVIGATION_FEATURE_OPERATIONS:",
-          "line": 2829
+          "line": 2862
         },
         "facade": {
           "path": "tests/device/adapters/android-phone/overte_phone_navigation_feature.py"
@@ -597,7 +594,7 @@
         "dispatch": {
           "path": "tests/device/adapters/android-phone/appium_adapter.py",
           "symbol": "if operation in AUTHENTICATION_FEATURE_OPERATIONS:",
-          "line": 2848
+          "line": 2881
         },
         "facade": {
           "path": "tests/device/adapters/android-phone/overte_phone_authentication_feature.py"
@@ -674,7 +671,7 @@
         "dispatch": {
           "path": "tests/device/adapters/android-phone/appium_adapter.py",
           "symbol": "if operation in AVATAR_PEOPLE_FEATURE_OPERATIONS:",
-          "line": 2820
+          "line": 2853
         },
         "facade": {
           "path": "tests/device/adapters/android-phone/overte_phone_avatar_people_feature.py"
@@ -726,7 +723,7 @@
       "domainPrerequisite": true,
       "sourceImplemented": {
         "publicFacade": true,
-        "completeCatalogComposition": false
+        "completeCatalogComposition": true
       },
       "hostVerified": {
         "publicFacadeReported": true,
@@ -758,7 +755,7 @@
         "dispatch": {
           "path": "tests/device/adapters/android-phone/appium_adapter.py",
           "symbol": "if operation in CREATE_FEATURE_OPERATIONS:",
-          "line": 2884
+          "line": 2917
         },
         "facade": {
           "path": "tests/device/adapters/android-phone/overte_phone_create_feature.py"
@@ -774,7 +771,7 @@
         "OVERTE_PHONE_NORMAL_CREATE=1 (create-management foundation)",
         "controls.primary (world-interaction foundation)",
         "controlled domain permission provider",
-        "missing Appium collaboration foundation join at assessed revision"
+        "OVERTE_ANDROID_E2E_COLLABORATION=1 with exact private loopback broker URLs and existing controlled domain environment"
       ],
       "foundationModules": [
         "create-management",
@@ -806,7 +803,8 @@
       "originalEvidence": "Normal Create/file dialogs, independently acquired native model/texture/voxel/export files and permission effects, original images and actor.",
       "hostTestPaths": [
         "android/phone/tests/device/test_create_feature.py",
-        "android/phone/tests/device/test_create_registration.py"
+        "android/phone/tests/device/test_create_registration.py",
+        "android/phone/tests/device/test_create_collaboration_foundation.py"
       ],
       "nativeCheckPaths": [
         "android/phone/tests/device/test_create_native_ui.py",
@@ -814,11 +812,10 @@
         "android/phone/tests/device/test_create_files.py"
       ],
       "handoffPaths": [
-        "tests/device/adapters/android-phone/CREATE_FEATURE.md"
+        "tests/device/adapters/android-phone/CREATE_FEATURE.md",
+        "tests/device/adapters/android-phone/CREATE_COLLABORATION_FOUNDATION.md"
       ],
-      "gapIds": [
-        "create-appium-collaboration"
-      ]
+      "gapIds": []
     },
     {
       "area": "emotes",
@@ -859,7 +856,7 @@
         "dispatch": {
           "path": "tests/device/adapters/android-phone/appium_adapter.py",
           "symbol": "if operation in EMOTE_FEATURE_OPERATIONS:",
-          "line": 2889
+          "line": 2922
         },
         "facade": {
           "path": "tests/device/adapters/android-phone/overte_phone_emote_feature.py"
@@ -939,7 +936,7 @@
         "dispatch": {
           "path": "tests/device/adapters/android-phone/appium_adapter.py",
           "symbol": "if operation in WORLD_WEB_FEATURE_OPERATIONS:",
-          "line": 2864
+          "line": 2897
         },
         "facade": {
           "path": "tests/device/adapters/android-phone/overte_phone_world_web_feature.py"
@@ -1029,7 +1026,7 @@
         "dispatch": {
           "path": "tests/device/adapters/android-phone/appium_adapter.py",
           "symbol": "if operation in GRAPHICS_FEATURE_OPERATIONS:",
-          "line": 2854
+          "line": 2887
         },
         "facade": {
           "path": "tests/device/adapters/android-phone/overte_phone_graphics_feature.py"
@@ -1108,7 +1105,7 @@
         "dispatch": {
           "path": "tests/device/adapters/android-phone/appium_adapter.py",
           "symbol": "if operation in AUDIO_FEATURE_OPERATIONS:",
-          "line": 2834
+          "line": 2867
         },
         "facade": {
           "path": "tests/device/adapters/android-phone/overte_phone_audio_feature.py"
@@ -1200,7 +1197,7 @@
         "dispatch": {
           "path": "tests/device/adapters/android-phone/appium_adapter.py",
           "symbol": "if operation in CHAT_FEATURE_OPERATIONS:",
-          "line": 2825
+          "line": 2858
         },
         "facade": {
           "path": "tests/device/adapters/android-phone/overte_phone_chat_feature.py"
@@ -1374,7 +1371,7 @@
         "dispatch": {
           "path": "tests/device/adapters/android-phone/appium_adapter.py",
           "symbol": "if operation in SCRIPT_FEATURE_OPERATIONS:",
-          "line": 2842
+          "line": 2875
         },
         "facade": {
           "path": "tests/device/adapters/android-phone/overte_phone_script_feature.py"
@@ -1459,7 +1456,7 @@
         "dispatch": {
           "path": "tests/device/adapters/android-phone/appium_adapter.py",
           "symbol": "if operation in ASSETS_FEATURE_OPERATIONS:",
-          "line": 2879
+          "line": 2912
         },
         "facade": {
           "path": "tests/device/adapters/android-phone/overte_phone_assets_feature.py"
@@ -1546,7 +1543,7 @@
         "dispatch": {
           "path": "tests/device/adapters/android-phone/appium_adapter.py",
           "symbol": "if operation in LIFECYCLE_INPUT_FEATURE_OPERATIONS:",
-          "line": 2814
+          "line": 2847
         },
         "facade": {
           "path": "tests/device/adapters/android-phone/overte_phone_lifecycle_feature.py"
@@ -1640,7 +1637,7 @@
         "dispatch": {
           "path": "tests/device/adapters/android-phone/appium_adapter.py",
           "symbol": "if operation in TABLET_WEB_FEATURE_OPERATIONS:",
-          "line": 2874
+          "line": 2907
         },
         "facade": {
           "path": "tests/device/adapters/android-phone/overte_phone_tablet_web_feature.py"

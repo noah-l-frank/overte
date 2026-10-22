@@ -104,18 +104,24 @@ and their branches are outside this Android Phone continuation.
 | snapshots | `domain-enter`, `snapshot-output-parity` | Actual pending-cancel history; Photos Save denial with successful private capture; measured Save backend, original Save/share/upload bytes, system-sheet cancellation and resume. | file, image, peer | Logic present; Phone original native/review/script/export sources, Save-URI bytes and private binary transfer implemented; complete public adapter missing; device untested. [Details](adapters/android-phone/SNAPSHOT_FEATURE.md) |
 | scripts | `scripts-management`, `scripted-entity` | File-bundle execution; actual mobile restart/three-second absence; separate normal reopen/cancel/reimport; current native/UI URL failure and complete cleanup. Separate existing entity-script consent remains. | peer | Logic present; Phone adapter implemented (native uncompiled); Pico/iOS adapter missing; all devices untested |
 | assets | `asset-load` | glTF/OBJ bundle paths and folder rename, real FBX bake disable/enable, Add to World, disabled Delete, vanished selected file and picker cancellation. | changed, file, image, peer | Phone public adapter source implemented; all 29 common actions, mandatory asset-load foundation, separate actor and strict repeated v18 retirement host verified; complete Android/device untested. [Details](adapters/android-phone/ASSETS_FEATURE.md) |
-| lifecycle-input | `lifecycle-under-load`, `tablet-input-isolation`, `text-input` | Distinct editor contexts/drafts, actual page Back/resume, original pending stale input rejection, held world input, stationary release and immutable counters. | changed, image, peer | Logic present; adapter missing; device untested |
+| lifecycle-input | `lifecycle-under-load`, `tablet-input-isolation`, `text-input` | Distinct editor contexts/drafts, actual page Back/resume, original pending stale input rejection, held world input, stationary release and immutable counters. | changed, image, peer | Phone public facade, independent actor, all three mandatory foundations and strict v18 retirement are source/host verified; partial original Qt/QML/IME/keyboard checks pass; complete Android/device untested. [Details](adapters/android-phone/LIFECYCLE_INPUT_FEATURE.md) |
 | tablet-web | `tablet-web-video`, `tablet` | Same browser flows plus ordinary inline app routing and input ownership. | changed, image, peer | Phone adapter source implemented including both mandatory foundations; common journey and partial native/Java/JNI checks pass; complete Android build/device untested. [Details](adapters/android-phone/TABLET_WEB_FEATURE.md) |
 
-Current Android Phone source integration (2026-10-22): **12/14** complete area
-compositions are implemented and host-verified: world-navigation, authentication,
-graphics, scripts, world-web, tablet-web, create, audio, emotes, avatar-people, assets and chat. The source-only boundary includes the mandatory
-foundations. The full common Emote host replay now passes; the optimized replay also passes and gives no real-time product acceptance. Snapshots
-and Lifecycle/Input remain in progress. Snapshot still needs the complete public composition, supported Android 26–28 document-provider ownership and fresh passive native observations during OS dialogs; Lifecycle/Input still needs its complete public composition.
+Current Android Phone source integration (2026-10-22): **12/14** full catalog
+compositions have source/host evidence: authentication, avatar-people, create,
+emotes, world-web, tablet-web, graphics, audio, chat, scripts, assets and
+lifecycle-input. Create now includes its actual mandatory entity-sync dispatch
+and unchanged module proof. World Navigation has its complete public facade;
+its common HTTP scene/profile foundation join remains in progress. Snapshots
+has original file, native, VM, OS, DocumentsProvider and uploaded-wire sources;
+its public facade/actor/retirement composition remains in progress. The
+[Phone source matrix](adapters/android-phone/SOURCE_STATUS.md) records exact
+capabilities, prerequisites, evidence paths and unresolved joins.
 Missing mandatory capabilities continue to block the aggregate fourteen-area
-suite. Host simulation establishes test logic only. Some native components have
-real host compiler checks; the complete Android client and all devices remain
-unverified. Final shared-Probe source pin regeneration is still pending.
+suite. Host simulations establish source/test logic only. Native component
+compiler checks qualify only their recorded boundaries; the complete Android
+client and all devices remain unverified. Final shared-Probe source pin
+regeneration remains pending.
 
 All areas also require fresh product samples, independent baseline/cleanup
 observations, native lifecycle counters and empty owned-resource inventories

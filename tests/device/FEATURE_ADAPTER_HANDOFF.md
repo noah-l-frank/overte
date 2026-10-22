@@ -917,32 +917,34 @@ coverage count or acceptance claim is changed by this packet.
 
 ## Current Phone integration, 2026-10-22
 
-Twelve of fourteen Phone area compositions are locally source implemented and
-host verified, including mandatory foundations. Assets now passes all 29 common
-actions, the actual mandatory asset-load foundation, separate actor closure,
-interrupted retirement and strict repeated v18 finalization. Parent integration
-passes seven full composition/recovery cases and 45 source/registration/Avatar
-union cases. Chat passes all 25 actions/27 phases, the mandatory original
-text-input module, independent actor FD retirement and repeated finalization;
-parent integration passes 20 full/recovery cases and 25 union/foundation cases.
-Observer v6 retains the closed historical v2–v5 area grammars, Avatar's separate
-peer configuration, Assets v5 and the seven-field Chat v6 grammar.
+Twelve full Phone catalog compositions have source/host evidence:
+Authentication, Avatar/People, Create, Emotes, World Web, Tablet Web, Graphics,
+Audio, Chat, Scripts, Assets and Lifecycle/Input. The
+[exact source matrix](adapters/android-phone/SOURCE_STATUS.md) supersedes the
+historical area counts above and separates public facades from full catalog
+joins. Create now includes the [original entity-sync foundation](adapters/android-phone/CREATE_COLLABORATION_FOUNDATION.md);
+12 parent tests passed in 24.642 seconds. Lifecycle/Input includes all three
+mandatory foundations and independent actor/v18 finalization; its parent
+source/registration union passed 51 cases in 44.043 seconds. The current Chat
+parent replay passed all 20 composition/recovery cases in 149.199 seconds.
+Its aggregate host budget is 240 seconds, matching other complete compositions;
+source freshness, per-checkpoint and quiet-window deadlines are unchanged.
 
-Snapshots and Lifecycle/Input remain in progress. Snapshot original files,
-settings/native-cache restoration and the existing owned five-format foundation
-are integrated; 254 selected parent component/ownership regressions pass. Its
-full public composition, independent uploaded original bytes, supported API26–28
-DocumentsProvider/normal picker ownership, and fresh passive native observations
-during OS handoff are being completed. Lifecycle original editor, world-input,
-actual-drive and feet sources are integrated; complete facade/actor/foundations
-remain open. Required missing capabilities continue to fail the aggregate suite.
+World Navigation's complete public facade is present, while its mandatory HTTP
+scene/profile join remains in progress. Snapshots has its five-format
+foundation, original capture/VM/review/file/settings sources, consumer and
+uploaded wire originals, controlled SDK26–28 DocumentsProvider/ordinary picker
+ownership and passive native handoff sources. Its full public facade, actor and
+closed retirement composition remain open. Required missing capabilities
+continue to fail the aggregate suite. Observer v7 preserves historical v2–v6
+closed grammars and adds Lifecycle/Input; Snapshots is not admitted.
 
-These host simulations, real private-file tests and explicitly partial Qt/Java/
-JNI compiler checks establish source/test logic only. Full Android compilation,
-actual OS behavior and device acceptance remain unverified. Pico/iOS work belongs
-to its separate sessions. Final shared source admission pins and aggregate
-verification await the remaining source packets; no green device or global
-acceptance result is inferred from this status.
+These host simulations, real private-file tests and partial Qt/Java/JNI/compiler
+checks establish source/test logic only. Full Android compilation, actual OS
+behavior and device acceptance remain unverified. Pico/iOS belong to separate
+sessions. Final shared source admission pins and aggregate verification await
+the remaining source packets.
+
 ## Controlled SDK26–28 Documents destination component
 
 The separate fixture APK's [DocumentsProvider/source contract](fixture/android-snapshot-receiver/DOCUMENTS.md)

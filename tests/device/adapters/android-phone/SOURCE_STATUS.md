@@ -1,11 +1,12 @@
 # Android Phone source coverage
 
-This review is pinned to `a4e0d58c23476917cdc934bb87ba318ef31b6038`
+This review is pinned to `62bb0685d073981009cfead3619984d2d70c224f`
 (2026-10-22). The versioned [JSON matrix](phone-source-coverage.v1.json) records
 all 14 common v18 areas, their actual Phone Appium declarations/dispatch,
 default-off flags, every catalog foundation and its required capabilities,
 and existing test/handoff paths. It is documentation, not another runner or
-acceptance result. No target operation, feature host suite or build ran in this review.
+acceptance result. The source review itself runs no target or build. The explicitly recorded parent
+host checks use synthetic native/SDK boundaries and controlled loopback services.
 
 “Implemented” below describes source composition. “Reported” means existing
 handoffs report targeted host verification with explicit synthetic target
@@ -19,7 +20,7 @@ are unknown here and belong to separate sessions.
 | World Navigation | Implemented | **Pending: scene-profile conflict** | Reported | Partial Qt components | [Navigation](WORLD_NAVIGATION_FEATURE.md) |
 | Authentication | Implemented | Implemented with prerequisites | Reported | Area instrumentation uncompiled | [Authentication](AUTHENTICATION_FEATURE.md) |
 | Avatar / People | Implemented | Implemented with prerequisites | Reported | Partial Qt components | [Avatar / People](AVATAR_PEOPLE.md) |
-| Create | Implemented | **Pending: Entity Sync dispatch** | Reported | Partial Qt / filesystem components | [Create](CREATE_FEATURE.md) |
+| Create | Implemented | Implemented with prerequisites | Reported | Partial Qt / filesystem components | [Create](CREATE_FEATURE.md) |
 | Emotes | Implemented | Implemented with prerequisites | Reported | Partial Qt / QML components | [Emotes](EMOTE_FEATURE.md) |
 | World Web | Implemented | Implemented with prerequisites | Reported | Partial Qt / JNI / Java / R8 | [World Web](WORLD_WEB_FEATURE.md) |
 | Graphics | Implemented | Implemented with prerequisites | Reported | Area instrumentation uncompiled | [Graphics](GRAPHICS_FEATURE.md) |
@@ -43,12 +44,12 @@ observed product effect.
 
 ## Concrete open joins at this revision
 
-- **Create:** catalog `entity-sync` requires `collaboration.edit` and
-  `collaboration.snapshot`. The Phone Appium inheritance/dispatch contains
-  neither. The separate Android/Phone ADB adapter's opt-in collaboration support
-  does not join the Appium target's capability set. A private Create facade
-  replay therefore cannot qualify the complete catalog suite. Integration owns
-  the normal existing collaboration bridge and its counterexamples.
+- **Create resolved:** The [original collaboration foundation](CREATE_COLLABORATION_FOUNDATION.md)
+  now provides guarded Appium dispatch and runs the unchanged mandatory entity-sync
+  module and Create gate from a serverless initial world. All 12 new parent
+  source/host cases passed in 24.642 seconds. The original actor and independently
+  received native properties must prove each edit; delivery acknowledgements,
+  ignored domain entry and lost returns cannot produce a false success.
 - **World Navigation:** `domain-roundtrip` calls normal `scene.load` for
   `OVERTE_E2E_SCENE_URL`; the Android debug Appium route accepts only the embedded
   `overte-e2e://fixture/scene` URI. Mandatory `places-navigation`, normal navigation
