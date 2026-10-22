@@ -567,3 +567,16 @@ as a missing effect. Source/role/actor/stereo/final ownership composition is
 still required. The focused Lifecycle source also passes its corrected real
 Qt5 harness after removal of unsafe test-only context ownership manipulation;
 surviving original contexts remain retained. Complete areas remain three.
+
+
+## Integrated parallel normal-input continuation
+
+The selected ten Pico groups pass against the merged branch (10/59 groups,
+162.97 seconds), along with 259 affected shared component cases and four
+project checks. Actual Qt5 Create picker/storage/callback getter tests, original
+Emote/Navigation/Snapshot pointer bodies, Chat actor IPC and Lifecycle QML weak
+ownership checks pass within their explicit host seams. Current native drive
+observations additionally pass their narrow serializer/coordinate checks. The
+full app/APK, V8 proxy additions and MyAvatar/TSI bodies remain uncompiled where
+not explicitly covered. Devices remain untested. Complete feature areas remain
+three; no partial helper or successful input receipt advertises another triple.

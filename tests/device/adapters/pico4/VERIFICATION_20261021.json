@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "status": "local-packets-verified-scope-in-progress",
-  "qualification": "Source implementation and selected device-free host checks only; not a complete 53-group catalog run or product/device qualification.",
+  "qualification": "Source implementation, selected device-free host checks and focused original native component compilation; not a complete 59-group catalog or native application/device qualification.",
   "sourceCompleteAreas": [
     "scripts",
     "authentication",
@@ -2282,5 +2282,98 @@
     "nativeQt5": "Original NativeCreate source and weak editor helper compile/run passed after safe harness fix",
     "initialFailure": "Original integrated native run segfaulted; not reproduced by agent. Risky manual internal QQmlContext/engine ownership manipulation removed. Corrected integrated real Qt5 run exit0. Exact cause not proven.",
     "boundary": "Hidden/detached or surviving original field/page/context remains retained. Context-only lifetime uses explicit application-owned objects. Full original QML context retirement, native app and devices unqualified."
+  },
+  "parallelNormalInputIntegration": {
+    "status": "selected-source-host-and-narrow-native-checks-pass",
+    "pico": {
+      "selectedGroups": 10,
+      "catalogGroups": 59,
+      "durationSeconds": 162.97,
+      "junit": "parallel-normal-input-integration-pico.xml",
+      "groups": [
+        "suite-runner",
+        "coverage-matrix",
+        "lifecycle-input-owner",
+        "normal-create",
+        "create-file-ui",
+        "create-file-native-ui",
+        "create-original-files",
+        "create-callback-native",
+        "normal-chat",
+        "normal-emote"
+      ]
+    },
+    "components": {
+      "tests": 259,
+      "durationSeconds": 23.036
+    },
+    "project": {
+      "suites": 4,
+      "durationSeconds": 3.05,
+      "junit": "parallel-normal-input-integration-project.xml"
+    },
+    "native": {
+      "chatActorFilesAndPeerPosition": {
+        "tests": 1,
+        "durationSeconds": 1.373,
+        "boundary": "Actual original headers and Qt5/POSIX; MessagesClient, Agent and full app remain uncompiled"
+      },
+      "emoteUI": {
+        "tests": 1,
+        "durationSeconds": 3.843,
+        "boundary": "Original helper/branch/geometry/pointer bodies with hosting seam; delivered Down still has zero measured motion"
+      },
+      "legacyNavigationAndSnapshot": {
+        "tests": 2,
+        "durationSeconds": 15.372,
+        "navigationInternalChecks": 31,
+        "snapshotInternalChecks": 41,
+        "snapshotPointers": 10,
+        "boundary": "Actual original Qt5 UI/pointer bodies; explicit service/hosting seams, no app capture/device"
+      },
+      "lifecycleUI": {
+        "status": "passed",
+        "boundary": "Actual NativeCreate and weak-object helper; internal QML context ownership preserved"
+      },
+      "createPicker": {
+        "status": "passed",
+        "durationSeconds": 7.238,
+        "boundary": "Actual QML, FileDialogHelper, NativeFieldInput and original input/geometry branch with host keyboard seam"
+      },
+      "createFiles": {
+        "status": "passed",
+        "durationSeconds": 1.65,
+        "boundary": "Actual private Create storage and original getter with lifecycle seam"
+      },
+      "createCallbacks": {
+        "status": "passed",
+        "durationSeconds": 1.62,
+        "boundary": "Actual collector and ScriptEngines/TSI getters with engine-manager seam; original V8 proxy translation remains uncompiled"
+      }
+    },
+    "limitations": "Only Scripts, Authentication and Graphics have complete source/host triples. Original actor position, peer Send, no-replay, Create picker/callback and Lifecycle/X primitives preserve ownership but do not complete those areas. Full app/APK and devices unqualified."
+  },
+  "lifecycleDriveIntegration": {
+    "sourceCommits": [
+      "1798e691ab1dede899396570e0d00e7f4f1a636e",
+      "dde4872ef2d14425583ba6b44053b27dc6f0e698"
+    ],
+    "localCommits": [
+      "41bdba90f7",
+      "b5be2f37c9"
+    ],
+    "status": "selected-source-host-and-narrow-native-checks-pass",
+    "components": {
+      "tests": 36,
+      "durationSeconds": 1.677
+    },
+    "pico": {
+      "groups": 3,
+      "catalogGroups": 59,
+      "durationSeconds": 5.91,
+      "junit": "lifecycle-drive-integration-pico.xml"
+    },
+    "native": "Original serializer/command validator, shared OpenXR axes block and actual Application DriveZ assignment compile/execute with existing Qt5/GLM; original result admission tested separately from actual writer. Correct Pico forward sign is positive DriveZ. Actual Pico override consumption history is next work. Full MyAvatar/TSI/application not compiled.",
+    "initialFailure": "First invocation supplied the GLM path under the tablet-test variable rather than this harness OVERTE_HOST_GLM_INCLUDE; corrected invocation uses existing same read-only headers, no dependency change."
   }
 }

@@ -290,7 +290,15 @@
         "android/vr/pico/tests/device/test_create_management.py",
         "tests/device/adapters/pico4/create_files.py",
         "tests/device/adapters/pico4/CREATE_FILES_SOURCE.md",
-        "tests/device/native/PrivateCreateFiles.h"
+        "tests/device/native/PrivateCreateFiles.h",
+        "tests/device/adapters/pico4/create_file_ui.py",
+        "tests/device/native/PicoCreateFileControls.h",
+        "tests/device/adapters/pico4/CREATE_FILE_UI.md",
+        "tests/device/adapters/pico4/create_callbacks.py",
+        "libraries/script-engine/src/CreateCallbackObservation.h",
+        "tests/device/adapters/pico4/CREATE_CALLBACK_SOURCE.md",
+        "android/vr/pico/tests/device/test_create_file_ui_native.py",
+        "android/vr/pico/tests/device/test_create_callbacks_native.py"
       ],
       "declaredCheckpoints": 21,
       "inputVerbs": [
@@ -335,7 +343,7 @@
         "Drain original model/texture/picker/export callbacks and files",
         "Restore rez permission, view and actual unowned scene inventory"
       ],
-      "nextExecutableStep": "The existing opt-in create-management vertical flow now has actual Home ray, normal token inputs, independent entity inventory and owned no-resend cleanup. Continue full Create-specific JSON picker/export staged originals, PolyVox controls/effects, domain rez-denial actor, texture/history/stereo and whole final retirement before advertising feature.create.*.",
+      "nextExecutableStep": "Join existing original normal picker/export storage, native weak roots and original Window/V8 callback observations into whole model/texture/import/export ownership; continue actual queued ModalDialogListener delivery retirement, PolyVox, domain authority actor, stereo and final cleanup.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     },
@@ -814,7 +822,16 @@
         "tests/device/self_tests/test_pico_chat_keyboard.py",
         "tests/device/adapters/pico4/CHAT_FEATURE.md",
         "tests/device/adapters/chat_journey/samples.py",
-        "tests/device/self_tests/test_chat_journey_samples.py"
+        "tests/device/self_tests/test_chat_journey_samples.py",
+        "tests/device/adapters/token_chat_ui.py",
+        "tests/device/adapters/chat_journey/no_replay.py",
+        "tests/device/adapters/chat_journey/peer_send.py",
+        "tests/device/adapters/chat_peer_input.py",
+        "tests/device/adapters/native_chat_peer_position.py",
+        "tests/device/native/ChatPeerPosition.h",
+        "tests/device/native/ChatActorFiles.h",
+        "tests/device/native/CHAT_PEER_INPUT.md",
+        "tests/device/contracts/chat/test_chat_peer_input_native.py"
       ],
       "declaredCheckpoints": 25,
       "inputVerbs": [
@@ -858,7 +875,7 @@
         "Restore peer position and owned mixer service",
         "Close view and observe keyboard, peer work and capture ownership fully retired"
       ],
-      "nextExecutableStep": "Join PicoChatIO, actual entity-keyboard v2 and separately acquired native/UI/storage observations with peer normal send/distance, owned mixer outage/recovery, profile restoration and quiet final retirement. Existing default peer heartbeat proves no Chat delivery.",
+      "nextExecutableStep": "Compose original normal UI and entity keyboard, durable independent native/UI/storage samples, actual peer Send/position and no-replay owner. Continue distant rejection/restore, actual Settings writer/file durability, owned mixer outage/recovery, profile restoration and whole quiet final retirement. Actual Send consumption remains separate from independent reception.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     },
@@ -1065,7 +1082,17 @@
         "tests/device/adapters/pico4/PENDING_COMMIT_OWNER.md",
         "tests/device/adapters/pico4/binding.py",
         "tests/device/feature_journeys/LIFECYCLE_INPUT_SOURCE.md",
-        "interface/resources/qml/hifi/tablet/TabletRoot.qml"
+        "interface/resources/qml/hifi/tablet/TabletRoot.qml",
+        "tests/device/adapters/pico4/lifecycle_source.py",
+        "tests/device/native/LifecycleUiObservation.h",
+        "tests/device/adapters/pico4/LIFECYCLE_SOURCE.md",
+        "tests/device/adapters/pico4/lifecycle_back.py",
+        "tests/device/adapters/pico4/LIFECYCLE_BACK.md",
+        "tests/device/adapters/pico4/lifecycle_drive.py",
+        "tests/device/native/LifecycleDriveObservation.h",
+        "tests/device/adapters/pico4/LIFECYCLE_DRIVE.md",
+        "tests/device/contracts/input/test_lifecycle_drive_observation.py",
+        "tests/device/contracts/tablet/test_lifecycle_ui_observation.py"
       ],
       "declaredCheckpoints": 16,
       "inputVerbs": [
@@ -1095,9 +1122,9 @@
         "staleAttempts"
       ],
       "missingOperationsOrEvidence": [
-        "Demonstrated normal Create Back route on real 3D TabletRoot",
-        "Actual VR keyboard/tracking/focus and original page/editor context generation",
-        "Whole pending commit/world-input/interruption/stale rejection/cleanup coordinator"
+        "Whole normal Create/X/editor/keyboard/pending-event composition; actual ordinary X mapping and original weak source are present",
+        "Immutable actual Pico OpenXR gesture consumption, independent peer displacement, original context and controller retirement",
+        "Whole interruption/stale rejection/restoration/final cleanup coordinator"
       ],
       "requiredOriginalEvidence": [
         "Actual current Qt page/editor/window weak identities and lifecycle",
@@ -1110,7 +1137,7 @@
         "Observe real old context retirement and new empty editor",
         "Restore original position/focus and sustain zero deferred/held input for three seconds"
       ],
-      "nextExecutableStep": "Establish a source-backed ordinary Create Back route on TabletRoot before enabling this recipe: the bridge allowlist entry nav.back is not proof a control exists. Bind VR keyboard/tracking/context observation and the existing pending dispatch owner; do not substitute Home or invoke returnToPreviousApp directly.",
+      "nextExecutableStep": "Compose actual left/X owner with original weak editor/keyboard and native drive/feet/tracking sources. Add immutable original gesture consumption from actual Pico OpenXR override, independent displacement, pending/stale IME and interruption. Retained original QQmlContext wrappers remain retained; neutral acknowledgements and hidden views do not retire them.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     }
