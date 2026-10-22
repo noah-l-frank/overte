@@ -229,13 +229,15 @@ class PicoAudioPageOwner:
             self.preview.claim();return self.reconcile()
     def action(self,kind):
         with self.lock.held():
-            self.load();before={'mute':'claimed','record':'muted','restore':'rejected'};need(kind in before and self.state['phase']==before[kind])
+            self.load();need(not any(self.store.path.parent.glob('audio-capture-cycle-*')) and not any(self.store.path.parent.glob('audio-capture-original-*')))
+            before={'mute':'claimed','record':'muted','restore':'rejected'};need(kind in before and self.state['phase']==before[kind])
             row=self.capture();self.check(row,'audio');state=deepcopy(self.state);state['frames'].append(row);state['phase']=kind+'-issued';state['fences'][kind]=len(state['frames'])-1;self.save(state);self.fresh()
             enabled=True if kind=='mute' else self.state['previewOrigin'] if kind=='restore' else None
             self.preview.act(state['operations'][kind],'record-start' if kind=='record' else 'mute',enabled=enabled);return self.reconcile()
     def release(self):
         with self.lock.held():
-            self.load();need(self.state['phase']=='restored');row=self.capture();self.check(row,'audio')
+            self.load();need(self.state['phase']=='restored' and not any(self.store.path.parent.glob('audio-capture-cycle-*'))
+                and not any(self.store.path.parent.glob('audio-capture-original-*')));row=self.capture();self.check(row,'audio')
             state=deepcopy(self.state);state['frames'].append(row);state['phase']='release-issued';self.save(state);self.fresh()
             self.preview.release_native();return self.reconcile()
     def close_page(self):

@@ -52,6 +52,7 @@ TESTS = (
     test("audio-capture-state", "audio", "bash", "pico-audio-capture-state-test.sh", requires=("javac", "java")),
     test("audio-native-transport", "audio", PYTHON, "pico-audio-transport-test.py"),
     test("audio-preview-owner", "audio", PYTHON, "device/test_audio_preview.py"),
+    test("audio-capture-owner", "audio", PYTHON, "device/test_audio_capture_owner.py"),
     test("audio-page-owner", "audio", PYTHON, "device/test_audio_page_owner.py"),
     test("audio-settings-source", "audio", PYTHON, "device/test_audio_settings.py", requires=("node", "c++", "pkg-config")),
     test("openxr-loader", "openxr", PYTHON, "pico-openxr-loader-test.py"),
