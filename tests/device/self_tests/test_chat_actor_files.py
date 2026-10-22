@@ -168,6 +168,132 @@ class ActorFileTests(unittest.TestCase):
         with self.assertRaises(NativeUIError):self.transport.send(self.request(nonce='e'*32))
         self.assertEqual('f'*32,json.loads((self.root/COMMAND).read_bytes())['commandId'])
 
+    def uncertain_v3(self,operation='observe',*,produce=True,reset=True):
+        from self_tests.test_chat_cache_lifetime import NativeBoundary
+        if reset:self.actor.native=NativeBoundary()
+        request=self.request(operation=operation)
+        original=self.store.write;calls=[0]
+        def lost(value,previous):
+            calls[0]+=1
+            if calls[0]==2:raise NativeUIError('Original command published, manifest receipt lost')
+            return original(value,previous)
+        self.store.write=lost
+        with self.assertRaises(NativeUIError):self.transport.send(request)
+        self.store.write=original
+        if produce:self.actor.tick()
+        self.assertEqual(request,self.store.read()['pending'])
+        return request
+
+    def test_pending_v3_resolves_only_actual_processed_original_and_can_then_query_passively(self):
+        request=self.uncertain_v3();before_command=(self.root/COMMAND).read_bytes();before_result=(self.root/RESULT).read_bytes()
+        command_node=node((self.root/COMMAND).stat());result_node=node((self.root/RESULT).stat())
+        self.transport.detach();self.transport=self.make()
+        value=json.loads(self.transport.reconcile_pending(request))
+        self.assertEqual(request['commandId'],value['source']['openedCommandId']);self.assertIsNone(self.store.read()['pending'])
+        self.assertEqual(before_command,(self.root/COMMAND).read_bytes());self.assertEqual(before_result,(self.root/RESULT).read_bytes())
+        self.assertEqual(command_node,node((self.root/COMMAND).stat()));self.assertEqual(result_node,node((self.root/RESULT).stat()))
+        self.assertEqual(['observe'],[row['operation'] for row in self.actor.native.commands])
+        self.transport.send(self.request(nonce='e'*32));self.actor.tick();self.transport.read()
+        self.assertEqual(['observe','inspect'],[row['operation'] for row in self.actor.native.commands])
+
+    def test_pending_missing_original_response_is_retained_without_command_rewrite(self):
+        request=self.uncertain_v3(produce=False);original=self.store.read();raw=(self.root/COMMAND).read_bytes()
+        with self.assertRaises((NativeUIError,OSError)):self.transport.reconcile_pending(request)
+        self.assertEqual(original,self.store.read());self.assertEqual(raw,(self.root/COMMAND).read_bytes())
+        self.assertEqual([],self.actor.native.commands)
+
+    def corrupt_pending_result(self,fault):
+        request=self.uncertain_v3();envelope=json.loads((self.root/RESULT).read_bytes())
+        if fault=='foreign-open':envelope['native']['source']['openedCommandId']='e'*32
+        else:
+            envelope['native']['chatVersion']=2
+            envelope['native']['source'].pop('openedCommandId');envelope['native']['source'].pop('retiredCommandId')
+        # Retain the actual original synthetic writer FD/inode; this fault
+        # tests content admission independently of copied-file refusal.
+        os.ftruncate(self.actor.fd,0);os.lseek(self.actor.fd,0,os.SEEK_SET);os.write(self.actor.fd,encode(envelope))
+        original=self.store.read()
+        with self.assertRaises(NativeUIError):self.transport.reconcile_pending(request)
+        self.assertEqual(original,self.store.read())
+
+    def test_pending_foreign_first_mutation_id_never_closes_original_intent(self):self.corrupt_pending_result('foreign-open')
+    def test_pending_legacy_result_never_closes_original_intent(self):self.corrupt_pending_result('legacy')
+
+    def test_pending_copied_command_cannot_supply_original_inode_receipt(self):
+        request=self.uncertain_v3();original=self.store.read();path=self.root/COMMAND
+        copy=self.root/'copied-command';copy.write_bytes(path.read_bytes());copy.chmod(0o600);os.replace(copy,path)
+        with self.assertRaises(NativeUIError):self.transport.reconcile_pending(request)
+        self.assertEqual(original,self.store.read())
+
+    def test_pending_copied_result_with_forged_current_node_is_not_held_by_original_actor(self):
+        request=self.uncertain_v3();original=self.store.read();envelope=json.loads((self.root/RESULT).read_bytes())
+        copy=self.root/'copied-result';descriptor=os.open(copy,os.O_RDWR|os.O_CREAT|os.O_EXCL,0o600)
+        try:
+            envelope['resultNode']=node(os.fstat(descriptor));os.write(descriptor,encode(envelope));os.replace(copy,self.root/RESULT)
+        finally:os.close(descriptor)
+        with self.assertRaises(NativeUIError):self.transport.reconcile_pending(request)
+        self.assertEqual(original,self.store.read())
+
+    def test_pending_retire_consumes_original_matching_fence_without_repeated_input(self):
+        from self_tests.test_chat_cache_lifetime import NativeBoundary
+        self.actor.native=NativeBoundary();self.produce(self.request('observe',nonce='e'*32))
+        request=self.uncertain_v3('retire',reset=False);value=json.loads(self.transport.reconcile_pending(request))
+        self.assertTrue(value['source']['retired']);self.assertEqual(request['commandId'],value['source']['retiredCommandId'])
+        self.assertEqual('e'*32,value['source']['openedCommandId'])
+        self.assertEqual(['observe','retire'],[row['operation'] for row in self.actor.native.commands])
+
+    def test_pending_inspect_consumption_is_not_an_open_request_or_delivery_verdict(self):
+        request=self.uncertain_v3('inspect');value=json.loads(self.transport.reconcile_pending(request))
+        self.assertFalse(value['source']['scopePresent']);self.assertEqual('',value['source']['openedCommandId'])
+        self.assertEqual(['inspect'],[row['operation'] for row in self.actor.native.commands])
+
+    def test_cache_lifetime_peer_recovery_uses_actual_original_files_then_new_inspects(self):
+        from adapters.chat_journey.cache_lifetime import ChatCacheLifetime
+        from adapters.native_chat_observation import ChatCaptureOwner,OwnedChatCapture
+        from adapters.script_journey.lock import ScriptSourceLock
+        from self_tests.test_chat_cache_lifetime import NativeBoundary
+        self.actor.native=NativeBoundary();root=self.store.path.parent
+        owner=ChatCaptureOwner(PrivateFeatureState(root/'capture.json'),BINDING,lambda:self.alive,component_only=True)
+        self.actor.native.store=owner.store;owner.begin(RUN)
+        initial=self.reader().perform(RUN,'inspect');owner.admit(initial)
+        lifetime=PrivateFeatureState(root/'lifetime.json');lock=ScriptSourceLock(root/'script-sources.lock')
+        def flow():return ChatCacheLifetime(OwnedChatCapture(self.reader(),owner,RUN),lifetime,lock,monotonic=lambda:self.clock)
+        write=self.store.write
+        def lost(value,previous):
+            if value['pending'] is None and value['request'] is not None and value['request']['operation']=='observe':
+                raise NativeUIError('Original Observe publication landed; receipt lost')
+            return write(value,previous)
+        self.store.write=lost
+        with self.assertRaises(NativeUIError):flow().activate()
+        self.store.write=write;self.actor.tick();pending=self.store.read()['pending']
+        self.assertEqual(pending,lifetime.read()['activation']['request'])
+        self.transport.reconcile_pending(pending);replacement=flow();replacement.activate();replacement.retire()
+        self.assertEqual(['observe','retire'],[row['operation'] for row in self.actor.native.commands if row['operation']!='inspect'])
+        self.assertEqual('retired',lifetime.read()['phase']);self.assertIsNotNone(owner.store.read())
+        self.transport.close();self.assertEqual(-1,self.actor.fd)
+        self.assertIsNone(self.store.read());self.assertIsNotNone(lifetime.read())
+
+    def test_pending_final_guard_native_jump_does_not_return_fresh_under_frozen_host(self):
+        request=self.uncertain_v3();original=self.transport.clock_ms;epoch=[20000];self.transport.clock_ms=lambda:epoch[0]
+        write=self.store.write
+        def late(value,previous):
+            write(value,previous)
+            if value['pending'] is None:epoch[0]+=2000
+        self.store.write=late
+        with self.assertRaises(NativeUIError):self.transport.reconcile_pending(request)
+        # The original completed transaction may remain consumed after a lost
+        # fresh receipt. It cannot cause another Observe on the actual actor.
+        self.assertIsNone(self.store.read()['pending']);self.assertEqual(['observe'],[row['operation'] for row in self.actor.native.commands])
+        self.transport.clock_ms=original
+
+    def test_pending_reconciliation_lost_manifest_receipt_keeps_actual_consumption_without_resend(self):
+        request=self.uncertain_v3();write=self.store.write
+        def lost(value,previous):write(value,previous);raise NativeUIError('Original consumption saved, reply lost')
+        self.store.write=lost
+        with self.assertRaises(NativeUIError):self.transport.reconcile_pending(request)
+        self.store.write=write;self.assertIsNone(self.store.read()['pending'])
+        self.transport.detach();self.transport=self.make();self.assertEqual(request['commandId'],json.loads(self.transport.read())['commandId'])
+        self.assertEqual(['observe'],[row['operation'] for row in self.actor.native.commands])
+
     def test_known_complete_journal_recovers_same_actor_without_adopting_replacement_source(self):
         original=self.produce();self.transport.detach();self.transport=self.make()
         self.assertEqual(original,json.loads(self.transport.read()))

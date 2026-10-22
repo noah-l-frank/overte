@@ -126,6 +126,26 @@ malformed, missing-after-acquisition or changed replies fail. Native queries use
 the existing five-second reader deadline; receiver sampling retains its tighter
 1.5-second total bound. External process ownership must remain valid throughout.
 
+`reconcile_pending(original_request)` is an explicit read-only recovery of an
+already processed original transaction. It never writes or republishes a
+command, unlinks a source or labels an old result with a new nonce. The supplied
+request must exactly match the durable pending record. Actual current command
+bytes/inode must match the native result's command node; the result must still
+be held by the original live PID/start-qualified actor. Native Chat v3 and its
+original first Open/Retire mutation ID are mandatory for mutation recovery.
+Absent, old, copied, unheld, changed, legacy or foreign-nonce results retain the
+pending record. Normal `send` still refuses pending publications.
+
+After repeated original-file and clock checks, the helper consumes only that
+original pending publication into the same existing v1 transport journal shape.
+A lost acknowledgement of this local update may leave the genuine transaction
+consumed; the next parent operation must query passively, never resend the old
+mutation. Final copying, persistence, source/FD guards and actual native/host
+clocks remain inside 1.5 seconds. Older v1/v2 Chat packets remain readable by the
+ordinary transport but cannot qualify this recovery. No durable-layout or wire
+version changed. The whole cache owner separately verifies its original nonce
+and obtains new independent passive retirement observations.
+
 Retire the peer cache with its existing owner and independent empty/fenced
 inspections first. `close()` requires the latest fresh original inspect/retire
 to show the actual retired, absent, empty scope. It journals closing intent and
@@ -145,7 +165,7 @@ prove full feature cleanup or MessagesMixer/peer availability.
 
 ## Local verification
 
-The existing quick control-plane registration includes 15 real-private-file
+The existing quick control-plane registration includes 26 real-private-file
 cases, seven Linux kernel cases against temporary synthetic Python workers and
 four existing domain-controller checks (including the opt-in path). They cover
 original native-reader composition, unchanged stale originals, ignored queries,
@@ -154,7 +174,28 @@ unheld source metadata, foreign source/nonce/
 command inode/PID, modes/symlinks/hardlinks, failed intent and uncertain writes,
 known journal recovery, active/false retirement, actual open unlinked descriptors,
 wrong executable digest, lost owner/start/process/root, peer-only argv, private
-config and fresh restart directories. All pass. No native Agent, domain product,
-compiler, build, device or Jenkins job was run. The native timer/file producer
+config and fresh restart directories. All pass. These Python cases start no native Agent, domain product,
+compiler, build, device or Jenkins job. The separately compiled native timer/file producer
 has since received the focused Qt5/POSIX header check linked above; complete
 native integration and laboratory qualification remain required.
+
+The additional actual Qt5 proof is
+[`test_chat_actor_pending_native.py`](../contracts/chat/test_chat_actor_pending_native.py).
+It compiles the complete original ChatActorFiles/ChatObservation/DomainSession
+headers into a private owned stdin worker (not Overte, Assignment Client or a
+service). The existing original Linux guard qualifies its actual executable,
+PID/start/boot/argv/root and kernel open-file inventory. Genuine C++ observation
+files pass through the Python transport and whole-cache lifetime owner after
+lost Observe AND Retire publication acknowledgements. The worker records one
+Observe and one Retire, then new passive Inspect results establish the actual
+cache fence. Native result-FD absence after unlink is separately checked through
+that live original process. Capture/lifetime journals remain retained. Constant
+network/NodeList/assigned-script inputs are explicit seams; this proves neither
+an actual Agent/network peer nor full Chat/process/resource closure.
+
+Prepared Qt5 check from `tests/device/contracts/chat` (use the existing Qt5
+pkg-config/library environment):
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest test_chat_actor_pending_native -v
+```
