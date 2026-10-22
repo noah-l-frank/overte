@@ -95,7 +95,8 @@ class AvatarDisplacement:
         need(all(abs(value)<=1e-6 for index,value in enumerate(drive) if index!=2) and -1<=drive[2]<=1)
         held=[]
         if motors['advancedMovement'] and motors['actionEnabled'] and drive[2]!=0:
-            held=['forward' if drive[2]<0 else 'backward']
+            # Original Pico plugin maps LY=-runtimeY; Application maps driveZ=-TranslateZ.
+            held=['forward' if drive[2]>0 else 'backward']
         delta=[value-origin for value,origin in zip(source['feetPosition'],old['source']['feetPosition'])]
         return dict(heldInputs=held,positionDelta=delta,worldDisplacement=math.sqrt(sum(v*v for v in delta)))
 

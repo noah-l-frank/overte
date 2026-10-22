@@ -611,6 +611,7 @@ QVariantMap TestScriptingInterface::featureLifecycleDriveObservation(const QVari
             || !overte::e2e::previewDirectory(_testResultsLocation) || !overte::e2e::lifecycleDriveCommand(command)
             || _featureLifecycleDriveRequests.contains(request.toString()) || _featureLifecycleDriveRequests.size()>=4096) { return {}; }
     _featureLifecycleDriveRequests.insert(request.toString());
+    if (!DependencyManager::isSet<AvatarManager>()) { return {}; }
     const auto avatar=DependencyManager::get<AvatarManager>()->getMyAvatar();
     if (!avatar || avatar->thread()!=thread()) { return {}; }
     auto original=avatar->featureLifecycleDriveObservation();
@@ -1414,6 +1415,7 @@ void TestScriptingInterface::saveObject(QVariant variant, const QString& filenam
             || filename == "feature-navigation-modals.json" || filename == "feature-navigation-environment.json" || filename == "feature-navigation-directory.json"
             || filename == "feature-process-presence.json"
             || filename == "feature-graphics-subject.json" || filename == "feature-scene-load.json"
+            || filename == "feature-lifecycle-drive.json"
             || filename == "feature-web-runtime.json" || filename == "feature-tablet-http.json"
             || filename == "recorded-preview-observation.json" || filename == "feature-script-observation.json"
             || filename == "feature-script-roots.json"

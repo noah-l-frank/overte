@@ -30,7 +30,10 @@ Its closed command is exactly `{schemaVersion:1,commandId,action:
 booleans, strings, extra expected effects and paths are rejected.
 
 The actual probe forwards the unchanged original native payload to
-`feature-lifecycle-drive.json`; an absent/failed getter remains explicitly
+`feature-lifecycle-drive.json`, included in the original `Test.saveObject`
+private feature-result file set. The passive native getters check existing
+AvatarManager/AddressManager availability before reading them, so an observation
+cannot create a missing service. An absent/failed getter remains explicitly
 unavailable. It neither substitutes probe/MyAvatar script properties nor writes
 requested positions, input names, displacement or counter values. The guarded
 Pico factory `_lifecycle_drive_source(target).capture(run)` uses that existing
@@ -56,7 +59,11 @@ same original native avatar/process/run, world URL and model scale. The narrow
 journey accepts only longitudinal ground-drive translation; unexpected other
 native drive slots fail. Effective `heldInputs` reflects original unmasked
 TranslateZ only while advanced movement and ActionMotor are actually enabled.
-Disabled raw input stays visible in the original source. `positionDelta` is the
+For the reviewed Pico mapping, runtime forward Y is positive;
+OpenXrInputPlugin negates it into Standard.LY, and Application negates
+Actions.TranslateZ into the avatar's DriveZ again. Positive actual DriveZ is
+therefore forward, negative is backward. Disabled raw input stays visible in
+the original source. `positionDelta` is the
 three actual current feet components minus the frozen actual feet components;
 `worldDisplacement` is their Euclidean norm. A directional input request never
 supplies either value. These are primary measurements and still need the
@@ -88,7 +95,11 @@ git diff --check
 
 The compiled Qt5/GLM check runs the actual passive serializer and command
 validator with explicit native avatar/physics value boundaries, including
-runtime denial without `--testScript`. It does not compile the complete MyAvatar,
+runtime denial without `--testScript`. A second compiled fixture executes the
+original OpenXR axis-conversion block and original Application drive assignment
+against the actual compiled forward/backward input profile. It also compiles
+the original private-output filename condition. Mapping, mapper/avatar services
+and filesystem writes remain explicit host boundaries. It does not compile the complete MyAvatar,
 TestScriptingInterface or client binding. Python checks use synthetic original
 native replies; the Node check executes the unchanged original probe branch.
 The owning Pico selection reuses actual adapter candidate guards with synthetic

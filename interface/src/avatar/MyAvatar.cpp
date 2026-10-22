@@ -4485,6 +4485,7 @@ QVariantMap MyAvatar::featureLifecycleDriveObservation() const {
     }
     sample.feet=getWorldFeetPosition();sample.body=getWorldPosition();sample.orientation=getWorldOrientation();
     sample.scale=getModelScale();sample.sensorToWorld=getSensorToWorldMatrix();
+    if (!DependencyManager::isSet<AddressManager>()) { return {}; }
     sample.sceneUrl=DependencyManager::get<AddressManager>()->currentAddress().toString(QUrl::FullyEncoded);
     sample.controllerState=static_cast<int>(_characterController.getState());
     sample.physicsReady=_characterController.isEnabledAndReady();sample.seated=_characterController.getSeated();

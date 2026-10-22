@@ -46,7 +46,7 @@ class Boundary:
 class LifecycleDriveTests(unittest.TestCase):
     def test_original_drive_mask_raw_bytes_and_three_dimensional_feet_are_preserved(self):
         native=Boundary();reader=native.reader();initial=reader.capture(RUN);anchor=AvatarDisplacement(initial)
-        native.source['rawDriveKeys'][2]=-.8;native.source['driveKeys'][2]=-.8
+        native.source['rawDriveKeys'][2]=.8;native.source['driveKeys'][2]=.8
         native.source['feetPosition']=[1.125,2.25,3.5];current=reader.capture(RUN)
         actual=anchor.measure(current)
         self.assertEqual(['forward'],actual['heldInputs']);self.assertEqual([.125,.25,.5],actual['positionDelta'])
@@ -55,11 +55,14 @@ class LifecycleDriveTests(unittest.TestCase):
         self.assertEqual([1,2,3],anchor.original['source']['feetPosition'])
         native.source['disabledDriveKeys'][2]=True;native.source['driveKeys'][2]=0
         self.assertEqual([],anchor.measure(reader.capture(RUN))['heldInputs'])
-        self.assertEqual(-.8,reader.previous['source']['rawDriveKeys'][2])
+        self.assertEqual(.8,reader.previous['source']['rawDriveKeys'][2])
+        native.source['disabledDriveKeys'][2]=False
+        native.source['driveKeys'][2]=native.source['rawDriveKeys'][2]=-.8
+        self.assertEqual(['backward'],anchor.measure(reader.capture(RUN))['heldInputs'])
     def test_disabled_advanced_movement_or_action_motor_is_not_effective_held_input(self):
         for key in ('advancedMovement','actionEnabled'):
             native=Boundary();reader=native.reader();anchor=AvatarDisplacement(reader.capture(RUN))
-            native.source['driveKeys'][2]=native.source['rawDriveKeys'][2]=-.8;native.source['motors'][key]=False
+            native.source['driveKeys'][2]=native.source['rawDriveKeys'][2]=.8;native.source['motors'][key]=False
             self.assertEqual([],anchor.measure(reader.capture(RUN))['heldInputs'])
     def test_unavailable_tracking_or_ground_never_becomes_grounded_movement(self):
         faults=(lambda v:v['source']['tracking']['head'].update(valid=False),lambda v:v['source']['physics'].update(ready=False),
@@ -138,7 +141,7 @@ class LifecycleDriveTests(unittest.TestCase):
     def test_release_never_borrows_a_previous_held_frame_or_an_unobserved_gap(self):
         native=Boundary();reader=native.reader();anchor=AvatarDisplacement(reader.capture(RUN));quiet=AvatarReleaseWindow(anchor)
         self.assertFalse(quiet.observe(reader.capture(RUN),0))
-        native.clock=.5;native.source['driveKeys'][2]=native.source['rawDriveKeys'][2]=-.8
+        native.clock=.5;native.source['driveKeys'][2]=native.source['rawDriveKeys'][2]=.8
         self.assertFalse(quiet.observe(reader.capture(RUN),.5))
         native.clock=.75;native.source['driveKeys'][2]=native.source['rawDriveKeys'][2]=0
         self.assertFalse(quiet.observe(reader.capture(RUN),.75))
