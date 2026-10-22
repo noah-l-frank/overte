@@ -51,6 +51,7 @@ class ControllerHookTests(unittest.TestCase):
         self.io.bind_controller_admission(before,intent=intent)
         for callback,host in ((before,None),(None,intent),(lambda _operation:None,intent),(before,lambda _envelope:None)):
             with self.assertRaises(RuntimeError):self.io.bind_controller_admission(callback,intent=host)
+        with self.assertRaises(RuntimeError):self.io.bind_controller_admission(before,intent=intent,before_publish=lambda _envelope:None)
         self.assertIs(before,self.io._before_controller);self.assertIs(intent,self.io._controller_intent)
 
 

@@ -36,6 +36,8 @@ class ChatPhaseFence:
         self.before_send=self._before_send
         self.before_controller=self._before_controller
         self.stage_intent=self.controller_intent
+        self.before_publish=self._before_publish
+        self.controller_envelope=None
 
     def _before_send(self,command):
         need(type(command) is dict)
@@ -107,5 +109,12 @@ class ChatPhaseFence:
         # original host data and its elapsed-age bound may be touched here.
         try:
             self.host_fresh();need(callable(self.stream_intent))
-            self.stream_intent(deepcopy(envelope));self.host_fresh()
+            self.stream_intent(deepcopy(envelope));self.controller_envelope=deepcopy(envelope);self.host_fresh()
+        except Exception:self.failed=True;raise
+
+    def _before_publish(self,envelope):
+        """Pure host check of the same already-durable original envelope."""
+        try:
+            need(self.controller_envelope is not None and same(envelope,self.controller_envelope))
+            self.host_fresh()
         except Exception:self.failed=True;raise

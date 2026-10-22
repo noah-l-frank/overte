@@ -182,7 +182,8 @@ class PicoChatTests(unittest.TestCase):
                     self.assertTrue(inside);ledger.write({'envelope':envelope},None)
                     if late:boundary.h.h.native.host+=2
                 boundary.fence.stream_intent=intent;stage=transport.stage
-                def publish(envelope,profile):
+                def publish(envelope,profile,*,before_publish):
+                    before_publish(envelope)
                     self.assertEqual(envelope,ledger.read()['envelope']);self.assertTrue(inside)
                     self.native.opened=True;self.widget.tablet=True;return stage(envelope,profile)
                 transport.stage=publish
@@ -193,6 +194,41 @@ class PicoChatTests(unittest.TestCase):
                 self.assertEqual(0 if late else 1,len(transport.envelopes));self.assertIsNotNone(ledger.read())
                 if late:self.assertFalse(self.widget.tablet);self.assertTrue(boundary.fence.failed)
                 else:self.assertTrue(self.widget.panel);self.assertEqual('tablet.open',transport.envelopes[0]['commands'][0]['operation'])
+
+
+    def test_actual_original_sdk_and_command_writer_age_cannot_publish_chat_controller_grant(self):
+        from self_tests import test_openxr_android_transport as sdk
+        from tests.device.openxr_input.adapter_session import PicoOpenXrAdapterSession
+        from adapters.normal_feature_state import PrivateFeatureState
+        for delayed in ('SDK','command'):
+            with self.subTest(delayed=delayed):
+                self.setUp();boundary=self.phase_boundary();self.widget.panel=False;self.widget.tablet=False;self.native.opened=False
+                directory=self.fixture.fixture.state_root/'chat-final-native-session';directory.mkdir(mode=0o700)
+                fake_sdk=directory/'synthetic-adb';fake_sdk.write_text('explicit non-executable SDK seam')
+                runner=sdk.FakeRunner('synthetic-final-chat-target')
+                transport=sdk.AndroidOpenXrTransport(fake_sdk,'synthetic-final-chat-target',runner=runner)
+                session=PicoOpenXrAdapterSession(transport,'synthetic-final-chat-target',directory)
+                session.begin('123:synthetic-start');ledger=PrivateFeatureState(directory/'original-intent.json');intents=[]
+                def intent(envelope):intents.append(envelope);ledger.write({'envelope':envelope},None)
+                boundary.fence.stream_intent=intent
+                guard=transport.require_exclusive_target;write=transport._atomic_write
+                def guarded():
+                    guard()
+                    if delayed=='SDK':boundary.h.h.native.host+=2
+                def written(name,payload):
+                    write(name,payload)
+                    if delayed=='command' and name=='commands.json':boundary.h.h.native.host+=2
+                with patch.object(self.instance,'pico_input_session',return_value=session),\
+                        patch.object(transport,'require_exclusive_target',side_effect=guarded),\
+                        patch.object(transport,'_atomic_write',side_effect=written),\
+                        patch.object(session,'_wait_for_ack',side_effect=AssertionError('unexpected controller publication')),boundary.flow.session():
+                    with self.assertRaises((ValueError,RuntimeError)):self.flow.open()
+                payloads=[payload for _,payload in runner.calls if payload]
+                self.assertEqual(0 if delayed=='SDK' else 1,len(payloads))
+                self.assertFalse(any(payload and 'grant.json' in command[-1] for command,payload in runner.calls))
+                self.assertEqual(1,len(intents));self.assertEqual(intents[0],ledger.read()['envelope'])
+                self.assertEqual(1,session._load()['nextSequence']);self.assertTrue(boundary.fence.failed)
+                self.assertFalse(self.widget.tablet);self.assertEqual([],self.native.inputs)
 
 
 from test_chat_erase_binding import PicoChatControlsTests

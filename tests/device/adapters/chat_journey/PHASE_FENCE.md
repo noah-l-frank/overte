@@ -31,6 +31,11 @@ before the lock, then persists the actual locked original envelope and checks
 host elapsed age before and after that CAS. The original clocks are sampled
 outside the lock. The callback is not an independent native clock sample or
 proof of input application/neutrality; those remain separate original sources.
+The original SDK transport's final `before_publish` callback then validates the
+SAME already-durable envelope and advancing host age before the command writer
+and again before its grant commit marker. It performs no second CAS or IO; a
+slow SDK guard publishes nothing, and a slow first writer leaves an unpublished
+command without a new grant. The enclosing pending intent stays retained.
 
 Denial retains the child and parent intents and their actual journals. It does
 not claim foreground restoration, peer/mixer restoration, timer retirement,
