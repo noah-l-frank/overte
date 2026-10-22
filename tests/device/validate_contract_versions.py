@@ -9,6 +9,8 @@ from pathlib import Path
 
 
 REQUIRED = {
+    "phase-witness-publisher": 1,
+    "phase-witness-publication-record": 1,
     "ios-navigation-composite-actions": 1,
     "original-frame-store": 1,
     "ios-avatar-originals": 1,
