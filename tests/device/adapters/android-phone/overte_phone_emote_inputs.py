@@ -3,6 +3,8 @@
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
 import hashlib
+from types import SimpleNamespace
+import time
 
 from adapters.native_feature_observation import exact,integer,need,number
 from adapters.normal_feature_state import PrivateFeatureState,context
@@ -160,6 +162,27 @@ class PhoneEmoteInputs(PhoneEmoteInputTransport):
         if self.previous is not None:
             try:self.state,self.history_state=self.decode(self.previous)
             except (KeyError,TypeError,ValueError,OSError):raise NativeUIError('Original Emote input journal is invalid') from None
+
+    @classmethod
+    def archive(cls,value,source_header,*,phase,artifact_root,binding,guard,monotonic=time.monotonic):
+        """Replay original input files against original primary sources only.
+
+        No adapter, UI, transport, lock owner or usable input method is created.
+        The returned decoded data is historical and retains unfinished inputs.
+        """
+        need(type(source_header) is dict and source_header.get('role')=='primary' and callable(guard) and callable(monotonic))
+        started=monotonic();need(number(started,0,1e15));clock=started
+        def bound():
+            nonlocal clock
+            need(guard() is not False);now=monotonic();need(number(now,clock,1e15) and now-started<5);clock=now
+        bound()
+        _state,frames=PhoneEmoteSources.archive(source_header,phase=phase,artifact_root=artifact_root,binding=binding,
+            guard=bound,monotonic=monotonic)
+        scope=object.__new__(cls);scope.run,scope.fixture_url,scope.binding=phase.run,phase.fixture_url,deepcopy(context(binding))
+        scope.source=SimpleNamespace(artifact_root=artifact_root,frames=frames,historical=True)
+        scope.history_store=PhoneEmoteOriginals(artifact_root,binding,phase.run,'primary',bound,
+            lambda *_args:need(False),kind='inputs',monotonic=monotonic)
+        result=deepcopy(scope.decode(value));bound();return result
 
     def active(self,call,status):
         phase_packet(status,run=self.run,area='emotes',request=status['requestId'],epoch=status['capturedEpochMs'])

@@ -25,9 +25,13 @@ restoration. The [namespace lease v2](EMOTE_NAMESPACE_LEASE.md) retains aborted
 partial freezes and transfers original proof before metadata retirement.
 [Original world/Script/cache admission](EMOTE_ADMISSION.md) is now mandatory in
 the run owner; each checked role source also rejects late foreign code/worlds.
-Public role/image/motion observation,
-credentialed actor publishing and whole-run resource/file retirement remain
-open; complete Emotes remains missing and unregistered.
+The per-role observation owner retains original native/image/motion records and
+the independent actor publishes its own measured samples through the existing
+observer entrypoint. Closed-provider View/Scene retirement now retains fresh
+original native groups; namespace retirement v2 replays all original source/input
+dependencies without re-dating them. The public facade and whole-run resource/
+host-journal retirement still remain open; complete Emotes is missing and
+unregistered.
 The [consumed animation data source](../../native/ANIMATION_SOURCE.md) now joins
 actual parser bytes and original retargeted model/resource identity to compiled
 Emote effects and image brackets. Wrong file content at the correct URL remains

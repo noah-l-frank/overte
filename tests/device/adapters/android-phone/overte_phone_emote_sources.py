@@ -129,7 +129,7 @@ class PhoneEmoteSources:
         return deepcopy(state),deepcopy(frames)
 
     @classmethod
-    def archive(cls,value,*,phase,artifact_root,binding,guard,monotonic=time.monotonic):
+    def archive(cls,value,*,phase,artifact_root,binding,guard,monotonic=time.monotonic,predecessor=None):
         """Historical files only; no runtime, transport or usable live owner.
 
         The caller guards actual candidate/process authority before and after
@@ -143,7 +143,19 @@ class PhoneEmoteSources:
         scope.artifact_root=Path(artifact_root);scope.monotonic=monotonic
         scope.originals=PhoneEmoteOriginals(scope.artifact_root,scope.binding,scope.run,scope.role,guard,
             lambda *_args:need(False),monotonic=monotonic)
-        return deepcopy(scope.decode(value))
+        state,frames=scope.decode(value)
+        if predecessor is not None:
+            need(predecessor.get('role')==value['role'] and same(predecessor.get('admissionPolicy'),value.get('admissionPolicy')))
+            prior,previous=cls.archive(predecessor,phase=phase,artifact_root=artifact_root,binding=binding,guard=guard,monotonic=monotonic)
+            need(prior['phase']=='ready' and prior['pending'] is None and previous
+                and previous[-1]['group']['native']['animation']['overrideActive'] is False)
+            if frames:
+                scope.validate_frame(frames[0],previous[-1])
+                if value['role']=='primary':
+                    need(frames[0]['group']['native']['animation']['overrideActive'] is False
+                        and frames[0]['group']['native']['animation']['history']['callSequence']==
+                            previous[-1]['group']['native']['animation']['history']['callSequence'])
+        return deepcopy((state,frames))
 
     @staticmethod
     def replay_scripts(reader,frames):

@@ -29,11 +29,15 @@ setup, ordinary inputs, original role sources, bounded namespace switching and
 input cleanup. [Original admission](adapters/android-phone/EMOTE_ADMISSION.md)
 now gates setup and each current source enforces executable/world approval.
 The [per-role observation owner](adapters/android-phone/EMOTE_ROLE.md) now retains
-original native/image/motion evidence and derives common v17 samples. Complete
+original native/image/motion evidence and derives common v17 samples.
 The [independent Phone actor](adapters/android-phone/EMOTE_ACTOR.md) now publishes
 its own originals through the existing observer and retains its own quiet-window
 retirement. Actor v2 keeps new cleanup samples alive through the caller's
 three-second observation window and stops only after actual fixture retirement.
+Closed-provider View/Scene ownership now transfers new original native groups
+without changing active-only journals. Namespace retirement v2 retains and
+replays all original role-source/input dependencies after actual closure; it
+supplies historical ownership proof rather than fresh native or work facts.
 Emotes still lacks its public facade and whole-run retirement; it is
 not counted as an implemented full triple.
 The [Phone failure owner](adapters/android-phone/EMOTE_FAILURES.md) now retains

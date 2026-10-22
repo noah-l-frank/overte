@@ -309,4 +309,119 @@ class EmoteNamespacesTests(unittest.TestCase):
             self.assertIsNone(restored.state['cleanup']['pending']['roles']['actor'])
 
 
+    def closed_lease(self,*,advance=False):
+        m=self.model;primary,_actor,_call=self.frozen()
+        if advance:
+            PhoneEmoteNamespaces(primary).advance();primary=m.source(segment=1);primary.read()
+            actor=m.source('actor',segment=1);actor.read()
+        self.cleanup_phase();PhoneEmoteNamespaces(primary).begin_cleanup()
+        m.widgets.tablet=False;m.widgets.page=False;m.widgets.active=''
+        primary=m.source(segment=1 if advance else 0);primary.read()
+        m.source('actor',segment=1 if advance else 0).read()
+        return PhoneEmoteNamespaces(primary)
+
+    def test_closed_lease_retains_all_originals_with_no_fresh_native_claim(self):
+        m=self.model
+        with m.lock.held():
+            lease=self.closed_lease();sources=[lease.source.store.read(),m.source('actor').store.read()]
+            m.journal.close(lease.run);m.epoch+=10000;m.clock+=10;retained=[]
+            proof=lease.retire_closed(lambda value:retained.append(deepcopy(value)))
+            self.assertEqual([proof],retained);self.assertEqual(2,proof['emoteNamespaceRetirementVersion'])
+            self.assertEqual(sources,[proof['sources'][0][role] for role in ('primary','actor')])
+            self.assertFalse(proof['cleanup']['active']);self.assertIsNone(lease.store.read())
+            self.assertIsNotNone(lease.source.store.read());self.assertEqual(proof,lease.retirement_archive(proof))
+            fresh=PhoneEmoteNamespaces(m.source());self.assertEqual(proof,fresh.retire_closed(lambda _:None,retained=proof))
+
+    def test_closed_lease_replays_multiple_namespaces_and_rejects_missing_dependencies(self):
+        m=self.model
+        with m.lock.held():
+            lease=self.closed_lease(advance=True);m.journal.close(lease.run)
+            proof=lease.retire_closed(lambda _:None);self.assertEqual(2,len(proof['sources']))
+            self.assertEqual(1,unpack(proof['header']['payload'])[0]['current'])
+            for field in ('sources','inputs'):
+                bad=deepcopy(proof);bad[field].pop(0)
+                with self.subTest(field=field),self.assertRaises(NativeUIError):lease.retirement_archive(bad)
+
+    def test_closed_lease_requires_real_closure_and_exact_role_statistics(self):
+        m=self.model
+        with m.lock.held():
+            lease=self.closed_lease()
+            with self.assertRaises(NativeUIError):lease.retire_closed(lambda _:None)
+            self.assertIsNotNone(lease.store.read());m.journal.close(lease.run)
+            proof=lease.retire_closed(lambda _:None)
+            for fault in ('version','provider','statistics','input','source'):
+                bad=deepcopy(proof)
+                if fault=='version':bad['emoteNamespaceRetirementVersion']=True
+                elif fault=='provider':bad['cleanup']['instance']='9'*32
+                elif fault=='statistics':bad['roles']['actor']['callSequence']+=1
+                elif fault=='input':bad['inputs'][0]=None
+                else:bad['sources'][0]['actor']=deepcopy(bad['sources'][0]['primary'])
+                with self.subTest(fault=fault),self.assertRaises((NativeUIError,ValueError)):lease.retirement_archive(bad)
+
+    def test_closed_lease_handoff_rejection_ignored_delete_and_lost_return_remain_owned(self):
+        m=self.model
+        with m.lock.held():
+            lease=self.closed_lease();m.journal.close(lease.run);receipts=[]
+            with self.assertRaises(NativeUIError):lease.retire_closed(lambda _:False)
+            self.assertIsNotNone(lease.store.read())
+            with patch.object(lease.store,'discard',return_value=None),self.assertRaises(NativeUIError):
+                lease.retire_closed(lambda value:receipts.append(deepcopy(value)))
+            self.assertIsNotNone(lease.store.read());discard=lease.store.discard
+            def lost(value):discard(value);raise OSError('Synthetic lost lease removal')
+            with patch.object(lease.store,'discard',side_effect=lost),self.assertRaises(OSError):
+                lease.retire_closed(lambda _:None,retained=receipts[0])
+            fresh=PhoneEmoteNamespaces(m.source())
+            with self.assertRaises(NativeUIError):fresh.retire_closed(lambda _:None)
+            self.assertEqual(receipts[0],fresh.retire_closed(lambda _:None,retained=receipts[0]))
+
+    def test_closed_lease_rejects_new_scopes_foreign_controls_and_slow_retention(self):
+        m=self.model
+        with m.lock.held():
+            lease=self.closed_lease();m.journal.close(lease.run)
+            def late(_):m.clock+=6
+            with self.assertRaises(NativeUIError):lease.retire_closed(late)
+            self.assertIsNotNone(lease.store.read())
+            from adapters.normal_feature_state import PrivateFeatureState
+            scope=PrivateFeatureState(m.root/'phone-emote-actor-capture-unknown.json');scope.write({'owned':True},None)
+            with self.assertRaises(NativeUIError):lease.retire_closed(lambda _:None)
+            scope.discard(scope.read());receipts=[]
+            def replace(value):
+                receipts.append(value);store=lease.source.store;bad=store.read();bad['runId']='9'*32;store.write(bad,store.read())
+            with self.assertRaises(NativeUIError):lease.retire_closed(replace)
+            self.assertIsNotNone(lease.store.read());self.assertEqual(1,len(receipts))
+
+    def test_closed_lease_replay_requires_unchanged_original_file_after_removal(self):
+        m=self.model
+        with m.lock.held():
+            lease=self.closed_lease();m.journal.close(lease.run);proof=lease.retire_closed(lambda _:None)
+            fresh=PhoneEmoteNamespaces(m.source())
+            path=next(m.root.glob('emote-frame-sources-*.json'));path.write_bytes(b'{}')
+            with self.assertRaises(NativeUIError):fresh.retire_closed(lambda _:None,retained=proof)
+
+
+    def test_closed_retained_lease_replays_files_after_dependency_control_retirement(self):
+        m=self.model
+        with m.lock.held():
+            lease=self.closed_lease();m.journal.close(lease.run);proof=lease.retire_closed(lambda _:None)
+            from adapters.normal_feature_state import PrivateFeatureState
+            for name in ('phone-emote-primary-sources.json','phone-emote-actor-sources.json','phone-emote-inputs.json'):
+                store=PrivateFeatureState(m.root/name);store.discard(store.read())
+            # Historical retry uses the already bound primary context and its
+            # parent-retained originals, never opens a replacement live source.
+            retry=PhoneEmoteNamespaces(lease.source)
+            self.assertEqual(proof,retry.retire_closed(lambda _:None,retained=proof))
+            self.assertEqual(proof,retry.retirement_archive(proof))
+            with self.assertRaises(NativeUIError):retry.retire_closed(lambda _:None)
+
+    def test_closed_historical_namespace_replay_remains_bounded(self):
+        m=self.model
+        with m.lock.held():
+            lease=self.closed_lease();m.journal.close(lease.run);proof=lease.retire_closed(lambda _:None)
+            guard=lease.source.guard
+            def slow():m.clock+=6;return guard()
+            lease.source.guard=slow
+            with self.assertRaises(NativeUIError):lease.retirement_archive(proof)
+            self.assertIsNone(lease.started)
+
+
 if __name__=='__main__':unittest.main()

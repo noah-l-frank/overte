@@ -35,9 +35,13 @@ The [Phone setup/input run owner v3](adapters/android-phone/EMOTE_RUN.md) now
 composes actual setup, ordinary input, per-role sources, bounded namespace
 switches and foreground-first input cleanup. It also orders real Scene/View
 restoration and obtains each role's own three-second native/work quiet window.
-Its input acknowledgments do not supply feature facts or complete cleanup; public
-observations/actor and whole-run retirement still block complete Emote capability
-registration.
+Its input acknowledgments do not supply feature facts or complete cleanup.
+Per-role original image/motion observations and independent actor publication are
+implemented as internal components. The public facade and whole-run retirement
+still block complete Emote capability registration. Closed-provider View/Scene
+transfers retain new actual native groups; namespace retirement v2 retains every
+source/input dependency as historical ownership evidence. Neither substitutes
+for final current native/work/resource checks or device qualification.
 
 The [Phone namespace lease v2](adapters/android-phone/EMOTE_NAMESPACE_LEASE.md)
 now preserves aborted partial freezes and both roles' original headers under the

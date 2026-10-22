@@ -13,6 +13,7 @@ from adapters.native_feature_observation import exact,integer,need,number
 from adapters.emote_rig_measurements import source as source_group
 from adapters.normal_feature_state import PrivateFeatureState,context
 from feature_journeys.contract import arguments
+from feature_journeys.phase_fixture import validate as phase_packet
 from overte_phone_emote_sources import PhoneEmoteSources,source_name,MAX_SEGMENTS
 from overte_phone_emote_inputs import PhoneEmoteInputs,input_name
 from overte_phone_script_history import canonical,pack,unpack,same
@@ -316,3 +317,105 @@ class PhoneEmoteNamespaces:
             self.store.discard(self.previous);need(self.store.read() is None);self.previous=None;self.bound()
             return deepcopy(original)
         finally:self.started=None
+
+
+    def retirement_archive(self,value):
+        """Bound historical replay even when called outside a live transfer."""
+        outer=self.started is None
+        if outer:self.started=self.source.monotonic()
+        try:return self._retirement_archive(value)
+        finally:
+            if outer:self.started=None
+
+    def _retirement_archive(self,value):
+        """Verify all original namespace dependencies without live controls.
+
+        Version 2 transfers historical ownership after actual provider closure.
+        It supplies no fresh native/resource or whole-feature cleanup verdict.
+        """
+        self.bound();exact(value,{'emoteNamespaceRetirementVersion','header','sources','inputs','roles','cleanup'})
+        need(type(value['emoteNamespaceRetirementVersion']) is int and value['emoteNamespaceRetirementVersion']==2)
+        state=self.decode(value['header']);need(state['cleanup'] is not None and state['pending'] is None)
+        sources,inputs=value['sources'],value['inputs'];count=state['current']+1
+        need(type(sources) is list and type(inputs) is list and len(sources)==len(inputs)==count)
+        cleanup=value['cleanup'];phase_packet(cleanup,run=self.run,area='emotes',request=cleanup.get('requestId'),epoch=cleanup.get('capturedEpochMs'))
+        need(not cleanup['active'] and cleanup['activations'] and cleanup['activations'][-1]['ticket']==state['cleanup']['ticket']
+            and cleanup['activations'][-1]['stimulus']==dict(verb='cleanup',inputs={}))
+        measured={};decoded=[]
+        for index,headers in enumerate(sources):
+            exact(headers,ROLES);rows={}
+            for role in ROLES:
+                header=headers[role];need(type(header) is dict and header.get('role')==role)
+                original,frames=PhoneEmoteSources.archive(header,phase=self.source.phase,artifact_root=self.source.artifact_root,
+                    binding=self.binding,guard=self.bound,monotonic=self.source.monotonic,
+                    predecessor=sources[index-1][role] if index else None)
+                need(original['phase']=='ready' and original['pending'] is None and frames);rows[role]=frames
+                actual=self.measured(header,frames,digest(inputs[index]));self.proof(actual)
+                if index<state['current']:need(same(actual,state['closed'][index]['roles'][role]))
+                else:
+                    need(frame_closed(frames[-1],state['cleanup']['ticket']))
+                    phase_packet(cleanup,run=self.run,area='emotes',request=cleanup['requestId'],epoch=cleanup['capturedEpochMs'],
+                        previous=frames[-1]['phaseAfter'])
+                    need(same(cleanup['activations'],frames[-1]['phaseAfter']['activations']))
+                    measured[role]=actual
+            if inputs[index] is not None:
+                PhoneEmoteInputs.archive(inputs[index],headers['primary'],phase=self.source.phase,artifact_root=self.source.artifact_root,
+                    binding=self.binding,guard=self.bound,monotonic=self.source.monotonic)
+            elif index<state['current']:need(False)
+            decoded.append(rows)
+        saved=state['cleanup'];need(digest(inputs[-1])==saved['inputsSha256'])
+        for role in ROLES:
+            header=saved['headers'][role];proof=saved['pending']['roles'][role] if saved['pending'] is not None else None
+            if header is None:need(proof is None);continue
+            need(header.get('role')==role)
+            _original,frames=self.archive(header);current=decoded[-1][role]
+            need(len(current)>=len(frames) and same(current[:len(frames)],frames))
+            if proof is not None:need(same(self.measured(header,frames,saved['inputsSha256']),proof))
+        self.same_native(measured);need(same(measured,value['roles']));self.bound();return deepcopy(value)
+
+    def retire_closed(self,retain,*,retained=None):
+        """Retain every original control before retiring only the lease."""
+        need(callable(retain) and self.source.role=='primary' and self.started is None);self.started=self.source.monotonic()
+        try:
+            self.bound()
+            if retained is None:
+                self.verify_closed();need(self.previous is not None and self.source.segment==self.state['current']
+                    and self.state['cleanup'] is not None)
+                for role in ROLES:self.no_scopes(role)
+                sources=[];inputs=[]
+                for index in range(self.state['current']+1):
+                    sources.append({role:PrivateFeatureState(self.store.path.with_name(source_name(role,index))).read() for role in ROLES})
+                    inputs.append(PrivateFeatureState(self.store.path.with_name(input_name(index))).read())
+                roles={}
+                for role in ROLES:
+                    _state,frames=self.archive(sources[-1][role]);need(frames)
+                    roles[role]=self.measured(sources[-1][role],frames,digest(inputs[-1]))
+                value=dict(emoteNamespaceRetirementVersion=2,header=deepcopy(self.previous),sources=sources,inputs=inputs,
+                    roles=roles,cleanup=self.source.phase.status())
+            else:
+                value=deepcopy(retained);need(self.previous is None or same(self.previous,value['header']))
+            value=self.retirement_archive(value);self.bound()
+            current=self.source.phase.status(value['cleanup']);need(not current['active']);self.bound()
+            need(retain(deepcopy(value)) is not False);self.bound();self.retirement_archive(value)
+            # Source/input controls still present must be exactly the originals.
+            # Missing dependencies are allowed only on a retained historical
+            # retry after the enclosing owner started its own retirement.
+            for index,headers in enumerate(value['sources']):
+                for role in ROLES:
+                    actual=PrivateFeatureState(self.store.path.with_name(source_name(role,index))).read()
+                    need(same(actual,headers[role]) or retained is not None and actual is None)
+                actual=PrivateFeatureState(self.store.path.with_name(input_name(index))).read()
+                need(same(actual,value['inputs'][index]) or retained is not None and actual is None)
+            for role in ROLES:self.no_scopes(role)
+            self.bound();self.source.phase.status(value['cleanup']);self.bound()
+            if self.previous is not None:
+                self.store.discard(value['header']);need(self.store.read() is None);self.previous=None
+            self.bound();return deepcopy(value)
+        finally:self.started=None
+
+
+def frame_closed(frame,ticket):
+    """Historical native inactivity and UI absence; no freshness is inferred."""
+    return frame['ui']['open'] is False and not frame['ui']['controls'] and all(
+        frame[key]['activations'][-1]['ticket']==ticket
+        and frame[key]['activations'][-1]['stimulus']==dict(verb='cleanup',inputs={}) for key in ('phaseBefore','phaseAfter'))

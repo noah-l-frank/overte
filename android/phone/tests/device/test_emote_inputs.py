@@ -322,4 +322,45 @@ class PhoneEmoteInputsTests(unittest.TestCase):
         self.assertEqual(legacy,owner.store.read());self.assertEqual([],m.controls.input_requests)
 
 
+    def test_historical_input_archive_reopens_original_files_without_adapter_or_getters(self):
+        m=self.model
+        with m.lock.held():
+            owner=PhoneEmoteInputs(m.source());owner.act(m.call('open'));owner.act(m.call('wait-complete'))
+            header,source=deepcopy(owner.previous),deepcopy(owner.source.previous)
+            expected=deepcopy((owner.state,owner.history_state));owner.store.discard(owner.previous)
+            m.journal.close(owner.run)
+            with patch.object(m,'source',side_effect=AssertionError('Historical replay queried live adapter')):
+                actual=PhoneEmoteInputs.archive(header,source,phase=owner.source.phase,artifact_root=m.root,
+                    binding=owner.binding,guard=lambda:True,monotonic=lambda:m.clock)
+            self.assertEqual(expected,actual)
+            self.assertFalse(hasattr(actual,'act'));self.assertFalse(owner.store.path.exists())
+
+    def test_historical_input_archive_rejects_changed_source_binding_and_original_file(self):
+        m=self.model
+        with m.lock.held():
+            owner=PhoneEmoteInputs(m.source());owner.act(m.call('open'));owner.act(m.call('wait-complete'))
+            def archive(header,source):return PhoneEmoteInputs.archive(header,source,phase=owner.source.phase,
+                artifact_root=m.root,binding=owner.binding,guard=lambda:True,monotonic=lambda:m.clock)
+            header,source=deepcopy(owner.previous),deepcopy(owner.source.previous)
+            bad=deepcopy(header);bad['binding']['processIdentity']='99:foreign'
+            with self.assertRaises(NativeUIError):archive(bad,source)
+            bad=deepcopy(source);bad['role']='actor'
+            with self.assertRaises(NativeUIError):archive(header,bad)
+            path=next(m.root.glob('emote-frame-inputs-*.json'));path.write_bytes(b'{}')
+            with self.assertRaises(NativeUIError):archive(header,source)
+
+    def test_historical_input_archive_preserves_unacknowledged_intent_and_deadline(self):
+        m=self.model
+        with m.lock.held():
+            owner=PhoneEmoteInputs(m.source());m.input_fault='ignored-sdk';m.widgets.tablet=False
+            with self.assertRaises(NativeUIError):owner.act(m.call('open'))
+            header=deepcopy(owner.store.read());source=deepcopy(owner.source.store.read())
+            actual=PhoneEmoteInputs.archive(header,source,phase=owner.source.phase,artifact_root=m.root,
+                binding=owner.binding,guard=lambda:True,monotonic=lambda:m.clock)
+            self.assertNotEqual('acknowledged',actual[0]['current']['phase'])
+            def slow():m.clock+=6;return True
+            with self.assertRaises(NativeUIError):PhoneEmoteInputs.archive(header,source,phase=owner.source.phase,
+                artifact_root=m.root,binding=owner.binding,guard=slow,monotonic=lambda:m.clock)
+
+
 if __name__=='__main__':unittest.main()

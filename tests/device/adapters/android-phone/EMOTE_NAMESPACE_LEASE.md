@@ -133,3 +133,52 @@ Source and normal-input headers, originals and all other ownership remain intact
 The enclosing run owner must retain the proof and remove those resources through
 its own verified retirement plan; it must also retain the run tombstone needed
 to distinguish a committed lost retirement return from a new run.
+
+
+## Closed-provider original ownership transfer, retirement version 2
+
+The namespace control remains version 2 and active `retire(retain)` retains its
+version-1 packet and freshness rules. Separate `retire_closed(retain,
+retained=None)` handles actual provider closure. Both roles must already have
+actual inactive-Rig, closed-UI originals under the exact cleanup ticket. Those
+source frames stay historical: their ages are never refreshed by a new provider
+query, and this operation supplies no new native, Script-work, image or complete
+cleanup result. The whole feature still needs independent current native and
+resource verification after the actor stops.
+
+Its exact packet is `{emoteNamespaceRetirementVersion:2, header, sources,
+inputs, roles, cleanup}`. `header` is the entire original namespace control.
+`sources` is an ordered array for every segment 0 through current; each item
+contains exactly the full `primary` and `actor` source headers. `inputs` is the
+same-length ordered array of corresponding original primary input headers; null
+is accepted only for a genuinely unissued current input owner. Earlier segments
+require their actual inputs. `roles` contains the existing recomputed proof
+fields for the two final cleanup originals. `cleanup` is the original inactive
+phase packet, retaining the original retirement epoch/provider identity/history.
+
+`retirement_archive` reopens all source and input original files and manifests,
+recomputes each closed segment's original proof, checks the real immediate
+predecessor/native/Script/widget continuity and unchanged admission policy, and
+replays the exact aborted cleanup-handshake prefix. The two current native
+identities/call cursors/lifecycle/source identities must agree. Current original
+phase histories must exactly match the retained closed cleanup history. Input
+replay validates actual SDK/Qt intents, consumed receipts, source references and
+unfinished states, without converting them into acknowledged input.
+
+The parent must durably retain this exact packet before namespace control
+removal. Existing source/input controls must still match all original headers;
+open capture or observation scopes block transfer. Rejected/slow retention,
+foreign controls, changed files, missing role records, ignored deletion or a
+substituted provider cannot report retirement. The whole operation and direct
+historical replay are each limited to five seconds. A lost deletion return is
+recovered only with the exact retained packet; absent metadata alone fails.
+Retained retry may tolerate dependency controls already removed by the enclosing
+owner, but still reopens their actual immutable original evidence files. It
+returns the same historical packet without new native observations or epochs.
+Source/input original files remain private handoff evidence; none are deleted.
+
+`PhoneEmoteInputs.archive(header, source_header, ...)` provides the same bounded
+historical input decoder independently, returning decoded data only. It creates
+no usable input owner, adapter, UI or target transport. Existing source/header
+formats, the 64 KiB control limit and 1 MiB original-file limit remain unchanged.
+These host-only checks qualify test logic, not product behavior or devices.
