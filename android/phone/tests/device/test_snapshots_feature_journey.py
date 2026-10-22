@@ -226,6 +226,21 @@ class SnapshotJourneyTests(unittest.TestCase):
         self.assertTrue(all(not path.exists() for path in self.model.os_files.values()))
         self.assertTrue(all(row['retired'] for row in self.model.job_sources.values()))
 
+    def test_closed_finalizer_requires_actual_independent_actor_exit_and_repeats(self):
+        self.client.activate('c'*32);self.invoke('feature.snapshots.observe',dict(contractVersion=VERSION,runId=RUN,afterSequence=0))
+        self.act('open');self.act('capture',dict(mode='still',format='png'));self.act('save');self.act('upload')
+        self.client.activate('d'*32,'cleanup',{})
+        self.invoke('feature.snapshots.cleanup',dict(contractVersion=VERSION,runId=RUN))
+        self.start_actor();deadline=time.monotonic()+30
+        while not self.client.request('/runs/'+RUN)['entries']:
+            self.actor_ok();self.assertLess(time.monotonic(),deadline);time.sleep(.1)
+        self.client.close()
+        out,err=self.actor.communicate(timeout=30);self.assertEqual(0,self.actor.returncode,err[-5000:])
+        for attempt in range(2):self.assertEqual({'performed':True},self.invoke('feature.snapshots.cleanup',dict(contractVersion=VERSION,runId=RUN)))
+        self.assertTrue(list(self.root.glob('emote-frame-snapshots-retirement-*.json')))
+        self.assertIsNone(PrivateFeatureState(self.root/'phone-snapshots-feature.json').read())
+        self.assertIsNone(PrivateFeatureState(self.root/'phone-snapshots-retirement.json').read())
+
     def test_inactive_work_source_has_no_invented_zero_activity_row(self):
         from adapters.native_script_work import scope
         reader=self.proxy._script_work(None)

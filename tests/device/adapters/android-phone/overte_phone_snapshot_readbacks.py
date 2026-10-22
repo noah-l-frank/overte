@@ -197,6 +197,7 @@ class PhoneSnapshotReadbacks:
         need(all(callable(fn) for fn in (send,read,clock_ms,guard,monotonic,sleep)) and integer(pid,1))
         self.send,self.original,self.clock_ms,self.guard,self.pid=send,read,clock_ms,guard,pid
         self.monotonic,self.sleep,self.last=monotonic,sleep,None
+        self.inspections={}
 
     def request(self,run,operation='observe',export_request='',resource_id='',*,_started=None):
         try:
@@ -221,27 +222,41 @@ class PhoneSnapshotReadbacks:
 
     def require_os_retired(self,run):
         start=self.monotonic();id=uuid.uuid4().hex
-        self.request(run,'inspect-destinations',resource_id=id,_started=start)
+        inspection=self.request(run,'inspect-destinations',resource_id=id,_started=start)
         for attempt in range(51):
             value=self.request(run,_started=start);row=value['source']['source'];need(row.get('snapshotExportReadbacksVersion')==2)
             os=row['osDestinations']
-            if os['checkId']==id and os['pending']==0 and (not row['copiesRetired'] or row['workersTerminated']):
+            if os['checkId']==id and os['checkedEpochMs']>=inspection['requestedEpochMs'] and os['pending']==0 and (not row['copiesRetired'] or row['workersTerminated']):
                 fresh(os['checkedEpochMs'],self.clock_ms())
-                need(all(one['phase']=='retired' and one['deleteIssued'] and one['absent'] and one['checkedEpochMs']>=os['checkedEpochMs']-1500 for one in os['rows']))
+                need(all(one['phase']=='retired' and one['deleteIssued'] and one['absent'] and one['checkedEpochMs']>=max(inspection['requestedEpochMs'],os['checkedEpochMs']-1500) for one in os['rows']))
                 if row['copiesRetired']:need(row['workersTerminated'])
+                self.inspections['destinations']=dict(request=deepcopy(inspection),observation=deepcopy(value))
                 return value
             need(attempt<50 and self.monotonic()-start<5);self.sleep(.1)
         raise NativeUIError('Original OS destination retirement did not produce fresh absence')
 
     def require_share_retired(self,run):
         start=self.monotonic();id=uuid.uuid4().hex
-        self.request(run,'inspect-shares',resource_id=id,_started=start)
+        inspection=self.request(run,'inspect-shares',resource_id=id,_started=start)
         for attempt in range(51):
             value=self.request(run,_started=start);row=value['source']['source'];need(row.get('snapshotExportReadbacksVersion')==2)
             grants=row['shareGrants']
-            if grants['checkId']==id and row['osDestinations']['pending']==0 and (not row['copiesRetired'] or row['workersTerminated']):
+            if grants['checkId']==id and grants['checkedEpochMs']>=inspection['requestedEpochMs'] and row['osDestinations']['pending']==0 and (not row['copiesRetired'] or row['workersTerminated']):
                 fresh(grants['checkedEpochMs'],self.clock_ms())
-                need(all(one['revokeIssued'] and not one['granted'] and not one['chooserGranted'] and one['checkedEpochMs']>=grants['checkedEpochMs']-1500 for one in grants['rows']))
+                need(all(one['revokeIssued'] and not one['granted'] and not one['chooserGranted'] and one['checkedEpochMs']>=max(inspection['requestedEpochMs'],grants['checkedEpochMs']-1500) for one in grants['rows']))
+                self.inspections['shares']=dict(request=deepcopy(inspection),observation=deepcopy(value))
                 return value
             need(attempt<50 and self.monotonic()-start<5);self.sleep(.1)
         raise NativeUIError('Original Share grants did not produce fresh absence')
+
+
+    def require_retired(self,run):
+        """Measure both original absence inventories again, without mutation."""
+        started=self.monotonic()
+        self.require_os_retired(run)
+        value=self.require_share_retired(run)
+        need(self.guard() is not False)
+        epoch=self.clock_ms();row=value['source']['source']
+        for key in ('osDestinations','shareGrants'):fresh(row[key]['checkedEpochMs'],epoch)
+        now=self.monotonic();need(number(now,started,1e15) and now-started<10)
+        return value

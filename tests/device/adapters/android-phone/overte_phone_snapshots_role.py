@@ -206,7 +206,11 @@ class PhoneSnapshotsRole(PhoneCreateRole):
             groups=self.state['pending']['work'].get('groups',[])
             self.checkpoint(groups=[*groups,deepcopy(batch['group'])]);return batch
         group,self.selected=self.measurements.read(f.run)
-        readbacks=self.readbacks.request(f.run);upload=self.upload.read(f.run)
+        readbacks=self.readbacks.request(f.run)
+        if f.state['phase'] in ('cleaned','retiring') and readbacks['source']['source'].get('initialized') is not False:
+            readbacks=self.readbacks.require_retired(f.run)
+            self.checkpoint(readbackInspections=deepcopy(self.readbacks.inspections))
+        upload=self.upload.read(f.run)
         self.checkpoint(group=group,groups=[*self.state['pending']['work'].get('groups',[]),deepcopy(group)],readbacksPacket=readbacks,uploadPacket=upload)
         return dict(group=group,readbacks=readbacks,captureFiles=None,upload=upload)
 
@@ -476,6 +480,7 @@ class PhoneSnapshotsRole(PhoneCreateRole):
             nativeBefore=native_before,nativeAfter=native_after,scriptWork=script_work,observerFilesRetirement=observer_retirement,avatarBefore=avatar_before,avatarAfter=avatar_after,world=world,touch=touch,marker=marker,
             capture=capture,image=image,imageReady=image_ready,retirement=retirement,transfer=deepcopy(self.state['pending']['work'].get('transfer')),binaries=deepcopy(self.state['pending']['binaries']),
             workOriginals=deepcopy(self.state['pending']['work'].get('workOriginals',[])),documentOriginals=deepcopy(self.state['pending']['work'].get('documentOriginals',[])),consumerOriginals=deepcopy(self.state['pending']['work'].get('consumerOriginals',[])),
+            readbackInspections=deepcopy(self.state['pending']['work'].get('readbackInspections',{})),
             groups=deepcopy(self.state['pending']['work'].get('groups',[])),handoffOriginals=deepcopy(self.state['pending']['work'].get('handoffOriginals',[])),readbacksPacket=batch['readbacks'],uploadPacket=batch['upload'])
         self.finish_archive(frame);self.bound();artifacts=[]
         if image_ready:artifacts.append(dict(kind='image',source='world-render-target',name=image['name'],sequence=self.state['sequence'],capturedEpochMs=capture['source']['capturedEpochMs'],ticket=ticket))
