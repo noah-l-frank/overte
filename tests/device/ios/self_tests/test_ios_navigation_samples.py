@@ -170,6 +170,50 @@ class NavigationSamplesTests(unittest.TestCase):
             child=self.child(row['requestId']);child.drain();child.drain()
             self.assertEqual(sealed,index.archive_store(row).read());self.assertEqual(result['image'],index.archive(row['requestId'])[1]['image'])
 
+    def test_collective_drain_retains_originals_and_current_native_inspect_ledger(self):
+        with self.lock.held():
+            index=self.index();self.take(index);self.take(index)
+            header=deepcopy(index.store.read());sealed=[deepcopy(index.archive_store(row).read()) for row in index.state['rows']]
+            captures=self.gpu.frames;proof=index.drain();self.assertEqual(2,len(proof['rows']))
+            self.assertEqual(captures,self.gpu.frames);self.assertEqual(header,index.store.read())
+            self.assertEqual(sealed,[index.archive_store(row).read() for row in index.state['rows']])
+            commands=deepcopy(self.gpu.commands);self.sdk.okay=False
+            frozen=self.index(historical=True);self.assertEqual(proof,frozen.validate_drain(proof))
+            self.assertEqual(commands,self.gpu.commands)
+
+    def test_drain_cannot_borrow_foreign_absence_or_omit_original_native_ledger(self):
+        with self.lock.held():
+            index=self.index();self.take(index);proof=index.drain()
+            for fault in ('request','birth','sequence','owner','child','index','row'):
+                value=deepcopy(proof);row=value['rows'][0]
+                if fault=='request':row['absence']['requestId']='ios-'+'f'*32
+                elif fault=='birth':row['absence']['instance']='f'*32
+                elif fault=='sequence':row['absence']['sequence']-=1
+                elif fault=='owner':row['frameOwner']['absence']=None
+                elif fault=='child':
+                    state=unpack(row['child']['payload'])[0];state['drains']=[]
+                    from adapters.script_feature.history import pack
+                    row['child']['payload']=pack([state])
+                elif fault=='index':value['indexSha256']='f'*64
+                else:value['rows']=[]
+                with self.subTest(fault=fault),self.assertRaises((NativeUIError,ValueError)):index.validate_drain(value)
+
+    def test_lost_collective_return_only_reinspects_without_capture_or_sealed_archive_changes(self):
+        with self.lock.held():
+            index=self.index();self.take(index);sealed=deepcopy(index.archive_store(index.state['rows'][0]).read())
+            first=index.drain();second=self.index().drain()
+            self.assertEqual(1,self.gpu.frames);self.assertGreater(second['rows'][0]['absence']['sequence'],first['rows'][0]['absence']['sequence'])
+            self.assertEqual(sealed,index.archive_store(index.state['rows'][0]).read())
+            self.assertEqual(1,sum(row['operation']=='read' for row in self.gpu.commands))
+
+    def test_unresolved_capture_cannot_be_skipped_by_collective_drain(self):
+        with self.lock.held():
+            self.gpu.drop=True;index=self.index()
+            with self.assertRaises(NativeUIError):self.take(index)
+            commands=deepcopy(self.gpu.commands)
+            with self.assertRaises(NativeUIError):index.drain()
+            self.assertEqual(commands,self.gpu.commands)
+
     def test_late_index_validation_cannot_return_a_fresh_measurement(self):
         with self.lock.held():
             index=self.index();seal=index.seal

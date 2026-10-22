@@ -60,6 +60,23 @@ UI/Web/XHR callback drainage, original-scene restoration, three-second quiet,
 process/SDK absence or repeated final cleanup. Those remain responsibilities of
 the final Worlds coordinator and independent actor implementation.
 
+`NavigationSamples.drain()` now acquires a fresh actual native absence for every
+completed or marker-pending retained request. It keeps the immutable sample
+archive and PNG unchanged, while returning the complete original mutable child,
+actual post-drain GPU command ledger and final inspect/release original. The
+`ios-navigation-image-drain` contract writes/reads version 1. Its original-only
+validator rejoins each request to the exact index and sealed sample, checks the
+retained PNG and native command history, and requires a later same-birth GPU
+sequence with zero buffers/callbacks. A standalone absent-shaped packet cannot
+replace that history. An unresolved or failed attempt prevents collective
+admission. A lost return may inspect the same retained owners again; it cannot
+recapture or replace the original image. The restart coordinator must durably
+retain this proof and separately order its native times before its pre-stop
+sources and old native restart packet. This helper never issues a restart or
+retires an artifact. Four added host cases cover these joins, tampered original
+packets, lost collective return, original-only reconstruction and unresolved
+capture refusal.
+
 Host tests use real private state/PNG files and real loopback scene/phase
 sources. Native GPU/UI/process and acquisition clocks are modeled. Tests cover
 multiple original requests, marker-pending ownership, canonical B-to-A changed

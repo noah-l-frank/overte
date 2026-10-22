@@ -11,6 +11,7 @@ import uuid
 
 from adapters.native_clock_join import digest
 from adapters.native_feature_observation import exact,need,number
+from adapters.native_vulkan_world_frame import absent
 from adapters.normal_feature_state import PrivateFeatureState,context
 from adapters.script_feature.history import pack,unpack,same
 from adapters.script_feature.lock import ScriptSourceLock
@@ -125,6 +126,60 @@ class NavigationSamples:
         sample,result=child.archive();need(child.state['phase']==row['status'] and sample['ticket']==row['ticket']
              and (result is None if row['status']=='marker-pending' else result is not None))
         self.bound();return sample,result
+
+    def validate_drain(self,value):
+        """Original-only GPU/PNG responsibility before process retirement.
+
+        This proves neither the scene nor UI restoration. The caller must
+        retain the complete returned original before issuing a restart and
+        independently join its native time to the pre-stop source group.
+        """
+        self.bound();exact(value,{'iosNavigationImageDrainVersion','binding','runId','role','stage','indexSha256','rows'})
+        need(type(value['iosNavigationImageDrainVersion']) is int and value['iosNavigationImageDrainVersion']==1
+            and same(value['binding'],self.binding) and value['runId']==self.run and value['role']==self.role and value['stage']==self.stage
+            and value['indexSha256']==digest(self.previous) and same(self.envelope(self.state),self.previous)
+            and self.state['phase']=='ready' and type(value['rows']) is list and len(value['rows'])==len(self.state['rows']))
+        for row,original in zip(self.state['rows'],value['rows']):
+            exact(original,{'requestId','archiveSha256','child','frameOwner','absence'})
+            need(row['status'] in ('observed','marker-pending') and original['requestId']==row['requestId']
+                and original['archiveSha256']==row['archiveSha256'])
+            sealed,_archive=self.original(row);sample,_result=self.archive(row['requestId'])
+            child=self.frozen_child(row,original['child']);frozen=self.frozen_child(row,sealed)
+            need(same({key:item for key,item in child.state.items() if key!='drains'},
+                {key:item for key,item in frozen.state.items() if key!='drains'})
+                and len(child.state['drains'])>len(frozen.state['drains'])
+                and same(child.state['drains'][:len(frozen.state['drains'])],frozen.state['drains']))
+            proof=original['absence'];need(absent(proof) and same(child.state['drains'][-1],proof)
+                and proof['processId']==int(self.binding['processIdentity']) and proof['requestId']==row['requestId'])
+            # The actual post-drain owner ledger must contain that original
+            # inspect/release result. A standalone absent-shaped DTO cannot
+            # replace the native command history or retained artifact inode.
+            owner=child.owner(original['frameOwner']);raw=owner.archive()
+            need(owner.state['phase']=='released' and same(owner.state['absence'],proof)
+                and any(same(event['receipt'],proof) for event in owner.events)
+                and same(owner.state['frame'],sample['frame']['capture']) and raw==sample['raw']
+                and proof['instance']==sample['frame']['retirement']['instance']
+                and proof['sequence']>sample['frame']['retirement']['sequence']
+                and proof['capturedEpochMs']>=sample['frame']['retirement']['capturedEpochMs'])
+        self.bound();return deepcopy(value)
+
+    def drain(self):
+        """Fresh actual native absence for every retained completed attempt.
+
+        The original captures, PNGs, index and all ledgers remain owned. A
+        lost result may inspect the same owners again, never recapture them.
+        Unresolved or failed attempts cannot be skipped to authorize restart.
+        """
+        need(not self.historical);self.bound()
+        need(self.state['phase']=='ready' and same(self.envelope(self.state),self.previous))
+        value=dict(iosNavigationImageDrainVersion=1,binding=deepcopy(self.binding),runId=self.run,
+            role=self.role,stage=self.stage,indexSha256=digest(self.previous),rows=[])
+        for row in self.state['rows']:
+            need(row['status'] in ('observed','marker-pending'));self.archive(row['requestId'])
+            child=self.live_child(row);proof=child.drain();need(proof is not None)
+            value['rows'].append(dict(requestId=row['requestId'],archiveSha256=row['archiveSha256'],
+                child=deepcopy(child.store.read()),frameOwner=deepcopy(child.owner().store.read()),absence=deepcopy(proof)))
+        return self.validate_drain(value)
 
     def continuity(self,row,sample):
         previous=[entry for entry in self.state['rows'] if entry is not row and entry['frameId'] is not None]
