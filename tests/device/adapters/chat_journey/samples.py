@@ -63,8 +63,8 @@ def compose(run, frame, primary_pid, peer_pid, *, vr, cache_absent=False):
     need(p['instance'] != q['instance'] and ps['selfSha256'] != qs['selfSha256']
         and (frame.get('transition') or ps['mixerPresent'] == qs['mixerPresent']
             and (not ps['mixerPresent'] or ps['mixerSha256'] == qs['mixerSha256'])))
-    if p['chatVersion']==2 or q['chatVersion']==2:
-        need(p['chatVersion']==q['chatVersion']==2)
+    if p['chatVersion']>=2 or q['chatVersion']>=2:
+        need(p['chatVersion']>=2 and q['chatVersion']>=2)
         sessions=[value['source']['session'] for value in (p,q)]
         need(all(source['connected'] and (frame.get('transition') or source['mixerActive']==value['source']['mixerPresent']) for source,value in zip(sessions,(p,q))))
         need(sessions[0]['domainSha256']==sessions[1]['domainSha256'] and sessions[0]['instance']!=sessions[1]['instance'])
@@ -297,5 +297,5 @@ class ChatCacheAbsence(_ChatSources):
     journal_version=1
 
     def _compose(self,frame):
-        need(self.component_only or all(frame[key]['chatVersion']==2 for key in ('primary','peer')))
+        need(self.component_only or all(frame[key]['chatVersion']>=2 for key in ('primary','peer')))
         return compose(self.run,frame,self.primary.pid,self.peer.pid,vr=self.vr,cache_absent=True)

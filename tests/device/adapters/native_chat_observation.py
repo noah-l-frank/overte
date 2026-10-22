@@ -11,7 +11,7 @@ from adapters.native_feature_observation import decode,exact,fresh,integer,need,
 from adapters.normal_ui import NativeUIError
 from feature_journeys.fixtures import context
 
-VERSION=2
+VERSION=3
 FILE='feature-chat-observation.json'
 HEX='[0-9a-f]{32}'
 SHA='[0-9a-f]{64}'
@@ -29,14 +29,15 @@ def command(value,*,ios=False):
 def validate(value,request,pid,epoch):
     command(request,ios=request['commandId'].startswith('ios-'))
     exact(value,{'chatVersion','commandId','runId','operation','instance','sequence','processId','capturedEpochMs','source'})
-    need(type(value['chatVersion']) is int and value['chatVersion'] in (1,VERSION)
+    need(type(value['chatVersion']) is int and value['chatVersion'] in (1,2,VERSION)
          and all(value[k]==request[k] for k in ('commandId','runId','operation'))
          and type(value['instance']) is str and re.fullmatch(HEX,value['instance'])
          and integer(value['sequence'],1) and integer(pid,1) and integer(value['processId'],1) and value['processId']==pid)
     fresh(value['capturedEpochMs'],epoch)
     source=value['source']
     exact(source,{'scopePresent','retired','selfSha256','mixerPresent','mixerSha256','openedEpochMs','eventSequence','droppedEvents','events'}
-        | ({'session'} if value['chatVersion']==2 else set()))
+        | ({'session'} if value['chatVersion']>=2 else set())
+        | ({'openedCommandId','retiredCommandId'} if value['chatVersion']>=3 else set()))
     need(all(type(source[k]) is bool for k in ('scopePresent','retired','mixerPresent'))
          and not (source['scopePresent'] and source['retired'])
          and type(source['selfSha256']) is str and re.fullmatch(SHA,source['selfSha256'])
@@ -45,7 +46,7 @@ def validate(value,request,pid,epoch):
          and integer(source['openedEpochMs']) and integer(source['eventSequence']) and integer(source['droppedEvents'])
          and type(source['events']) is list and len(source['events'])==min(128,source['eventSequence'])
          and source['droppedEvents']==source['eventSequence']-len(source['events']))
-    if value['chatVersion']==2:
+    if value['chatVersion']>=2:
         session=source['session']
         exact(session,{'domainSessionVersion','instance','revision','connected','domainSha256','connectionBirth','connectedEpochMs','mixerActive'})
         need(type(session['domainSessionVersion']) is int and session['domainSessionVersion']==1
@@ -58,6 +59,12 @@ def validate(value,request,pid,epoch):
             need(session['domainSha256']!='' and re.fullmatch(HEX,session['connectionBirth'])
                 and 0<session['connectedEpochMs']<=value['capturedEpochMs'] and session['revision']>=1)
         else:need(session['connectionBirth']=='' and session['connectedEpochMs']==0)
+    if value['chatVersion']>=3:
+        opened,retired=source['openedCommandId'],source['retiredCommandId']
+        need(all(type(item) is str and (item=='' or re.fullmatch('(?:ios-)?'+HEX,item)) for item in (opened,retired)))
+        if source['scopePresent']:need(opened!='' and retired=='')
+        elif source['retired']:need(retired!='')
+        else:need(opened==retired=='')
     if source['scopePresent']:need(0<source['openedEpochMs']<=value['capturedEpochMs'])
     else:need(source['openedEpochMs']==source['eventSequence']==source['droppedEvents']==len(source['events'])==0)
     if request['operation']=='observe':need(source['scopePresent'] and not source['retired'])
@@ -136,6 +143,10 @@ class NativeChatObservation:
                             if current['session']['revision']==self.source['session']['revision']:
                                 need(all(current['session'][key]==self.source['session'][key] for key in
                                     ('connected','domainSha256','connectionBirth','connectedEpochMs')))
+                        if 'openedCommandId' in self.source:
+                            need(all(key in current for key in ('openedCommandId','retiredCommandId')))
+                            for key in ('openedCommandId','retiredCommandId'):
+                                if self.source[key]:need(current[key]==self.source[key])
                         if self.source['scopePresent'] and current['scopePresent']:
                             need(current['openedEpochMs']==self.source['openedEpochMs']
                                  and current['eventSequence']>=self.source['eventSequence']

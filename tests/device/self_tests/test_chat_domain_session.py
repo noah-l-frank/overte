@@ -17,7 +17,43 @@ def session(value,*,instance='1'*32):
         domainSha256='4'*64,connectionBirth='2'*32,connectedEpochMs=19000,mixerActive=value['source']['mixerPresent'])
 
 
+def ownership(value,*,opened='',retired=''):
+    session(value);value['chatVersion']=3
+    value['source'].update(openedCommandId=opened,retiredCommandId=retired)
+
+
 class DomainSessionTests(unittest.TestCase):
+    def test_v3_actual_open_and_retirement_ids_survive_passive_queries(self):
+        boundary=Boundary()
+        def original(value):
+            opened=next((row['commandId'] for row in boundary.commands if row['operation']=='observe'),'')
+            retired=next((row['commandId'] for row in boundary.commands if row['operation']=='retire'),'')
+            ownership(value,opened=opened,retired=retired)
+        boundary.mutate=original;reader=boundary.reader();initial=reader.perform(RUN,'inspect')
+        self.assertEqual('',initial['source']['openedCommandId'])
+        opened=reader.perform(RUN,'observe');first=opened['commandId']
+        self.assertEqual(first,opened['source']['openedCommandId'])
+        self.assertEqual(first,reader.perform(RUN,'inspect')['source']['openedCommandId'])
+        retired=reader.perform(RUN,'retire');self.assertEqual(first,retired['source']['openedCommandId'])
+        self.assertEqual(retired['commandId'],retired['source']['retiredCommandId'])
+        final=reader.perform(RUN,'inspect');self.assertEqual(retired['source'],final['source'])
+
+    def test_v3_never_accepts_missing_foreign_or_rewritten_original_mutation_ids(self):
+        for fault in ('missing','empty-open','fake-retired','changed-open','version-regression'):
+            boundary=Boundary()
+            boundary.mutate=lambda value:ownership(value,opened=next((row['commandId'] for row in boundary.commands if row['operation']=='observe'),''))
+            reader=boundary.reader();reader.perform(RUN,'observe');original=boundary.mutate
+            def corrupt(value):
+                original(value)
+                if fault=='missing':value['source'].pop('openedCommandId')
+                elif fault=='empty-open':value['source']['openedCommandId']=''
+                elif fault=='fake-retired':value['source']['retiredCommandId']='f'*32
+                elif fault=='changed-open':value['source']['openedCommandId']='f'*32
+                else:
+                    value['chatVersion']=2;value['source'].pop('openedCommandId');value['source'].pop('retiredCommandId')
+            boundary.mutate=corrupt
+            with self.subTest(fault=fault),self.assertRaises(NativeUIError):reader.perform(RUN,'inspect')
+
     def test_v2_native_source_preserves_domain_birth_revision_and_actual_mixer_activity(self):
         boundary=Boundary();boundary.present=True;boundary.opened=19000;boundary.mutate=session
         reader=boundary.reader();first=reader.perform(RUN,'inspect')

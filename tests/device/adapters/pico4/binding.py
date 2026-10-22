@@ -1743,7 +1743,7 @@ def create_adapter(args, base_class):
             with source_lock.held():
                 capture=self._chat_capture(target,run);capture.owner.begin(run)
                 original=capture.reader.perform(run,'inspect')
-                _need(original['chatVersion']==2 and not original['source']['scopePresent'] and not original['source']['retired'])
+                _need(original['chatVersion']>=2 and not original['source']['scopePresent'] and not original['source']['retired'])
                 capture.owner.admit(original)
                 return capture
 

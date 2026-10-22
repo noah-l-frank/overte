@@ -129,7 +129,7 @@ class ChatMixerOwner:
                 and reference['queries']==[native[key].get('commandId',native[key].get('requestId')) for key in ('primary','peer','view','lifecycle')]
                 and frame['transition']==native.get('transition',False))
             for key in ('primary','peer'):
-                value=native[key];need(value['chatVersion']==2)
+                value=native[key];need(value['chatVersion']>=2)
                 session=value['source']['session'];need(session['connected'] and session['domainSha256']==expected)
         return frame
 
