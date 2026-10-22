@@ -73,6 +73,10 @@ final class SnapshotDestinationOwner {
         catch(IOException | RuntimeException failure) { synchronized(this) { entry.phase="delete-uncertain"; }throw failure; }
         inspect(entry);
     }
+    synchronized boolean uncertain(String request,String id) {
+        Entry entry=entries.get(request);
+        return entry!=null && entry.deleteIssued && entry.deleteId.equals(id) && "delete-uncertain".equals(entry.phase);
+    }
     private void inspect(Entry entry) throws IOException {
         boolean absent=entry.access.absent();long now=System.currentTimeMillis();
         synchronized(this) {

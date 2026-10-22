@@ -64,10 +64,15 @@ int main(int argc,char** argv) {
     if(result.value("requestId")!=command.value("commandId") || result.value("processId").toLongLong()!=QCoreApplication::applicationPid()
         || result.value("sequence")!=1 || result.value("source").toMap()!=QVariantMap{{"accepted",true}})return 9;
     if(NativeSnapshotAdapter::last!=QJsonObject{{"snapshotReadbackCommandVersion",1},{"action","read"},{"request",QString(32,'c')},{"id",QString(32,'d')}})return 10;
-    for(const auto& operation:QStringList{"observe","retire-copies","cancel","remove-copy"}) {
+    for(const auto& operation:QStringList{"observe","retire-copies","cancel","remove-copy","inspect-destinations","inspect-shares"}) {
         auto value=command;value["operation"]=operation;value["exportRequest"]="";
         value["resourceId"]=(operation=="observe" || operation=="retire-copies") ? QString() : QString(32,'d');
         if(owner.phoneSnapshotReadback(value).isEmpty())return 11;
+    }
+    for(const auto& operation:QStringList{"remove-destination","revoke-share"}) {
+        auto value=command;value["operation"]=operation;
+        if(owner.phoneSnapshotReadback(value).isEmpty())return 12;
+        value["exportRequest"]="";if(!reject(value))return 13;
     }
     return 0;
 }

@@ -4,8 +4,9 @@ The separate `snapshotExportReadbacksVersion: 2` source retains the original
 Save URI and adds `osDestinations`, a passive original MediaStore identity/byte
 owner. Outer Snapshot-v5 and Android callback history-v2 remain unchanged.
 Legacy readback-v1 can still acquire original host copies; it cannot establish
-OS destination retirement. The complete Snapshot facade and separate consuming
-Share receiver remain distinct integration work.
+OS destination retirement. The complete Snapshot facade remains distinct
+integration work. The separately installed consuming Share fixture and reader
+are documented in [the receiver handoff](../../fixture/android-snapshot-receiver/README.md).
 
 The existing native Save callback registers only its actual returned URI,
 original resolver/context, actual file name and whether the original
@@ -69,3 +70,26 @@ to the real filesystem and pauses immediately after actual creation. Original
 copy, observation, close and retirement bodies run concurrently. Restoring the
 former creation-before-lock ordering is rejected in that same window. This
 qualifies E2E helper synchronization only, not Android provider behavior.
+
+The native OS queue permits a fresh original absence inspection after an
+unknown IOException from the already-issued one-send deletion. Only that
+retained `delete-uncertain` state is resumable; identity, permission/runtime,
+stream-close and provider-query failures still invalidate the source. A second
+operation ID never authorizes another deletion, and an ignored delete remains
+present/red. This does not treat a lost ACK or thrown request as success.
+
+The shared private-file helper includes the exact atomic file-publication fix
+and deterministic mutation counterprobe from parent commit `0791d14be9`.
+Creation and captured fileKey now share the same existing observation lock.
+The receiver additionally reads actual original private bytes only after
+identity/mode/link/size/SHA checks, closes the read and verifies identity again.
+
+Local verification for the consuming-receiver packet: 72 explicit Snapshot
+readback/publication/file/OS/grant/consumer tests passed, including eleven
+actual receiver file/stream/thread scenarios and twelve strict consumer reader
+and transport tests. The actual TestScriptingInterface readback method compiles
+against Qt6 and admits only the new closed ID routes. All Snapshot Android Java
+classes compile against prepared API34+AndroidX; the standalone receiver also
+runs actual javac+d8+aapt2 packaging. The emitted APK is unsigned/uninstalled.
+No real Android grant, chooser, MediaStore/SAF or native app execution is
+claimed. Global feature-count/profile/source-pin updates remain parent-owned.

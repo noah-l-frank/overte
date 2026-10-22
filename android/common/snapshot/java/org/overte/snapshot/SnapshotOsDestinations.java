@@ -50,7 +50,13 @@ final class SnapshotOsDestinations {
     synchronized void published(String request) throws IOException { submit(request,() -> owner.published(request),null); }
     synchronized boolean remove(String request,String id) throws IOException {
         if(!id.matches("[0-9a-f]{32}") || used.size()>=4096 || used.contains(id) && !request.equals(deletions.get(id)))return false;
-        used.add(id);deletions.put(id,request);submit(request,() -> owner.remove(request,id),null);return true;
+        used.add(id);deletions.put(id,request);submit(request,() -> {
+            try { owner.remove(request,id); }
+            catch(IOException failure) { if(!owner.uncertain(request,id))throw failure; }
+            // Only an unknown one-send delete return can be resumed by a fresh
+            // independent absence query. Permission/runtime/identity failures
+            // still invalidate this source; the deletion is never resent.
+        },null);return true;
     }
     synchronized boolean inspect(String id) throws IOException {
         if(!id.matches("[0-9a-f]{32}") || used.contains(id) || used.size()>=4096)return false;

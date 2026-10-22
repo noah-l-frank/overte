@@ -54,7 +54,7 @@ public final class SnapshotDestinationOwnerHostTest {
         if("changed-inode".equals(mode)) { Files.move(path,root.resolve("old.bin"));Files.write(path,new byte[]{1,2,3,4,5});fails(() -> owner.remove(REQUEST,DELETE));check(access.deletions==0);return; }
         if("early-missing".equals(mode)) { Files.delete(path);fails(owner::inspect);check(!owner.retired());return; }
         if("ignored-delete".equals(mode)) { access.ignore=true;owner.remove(REQUEST,DELETE);check(!owner.retired());owner.remove(REQUEST,DELETE);check(access.deletions==1);return; }
-        if("lost-return".equals(mode)) { access.lost=true;fails(() -> owner.remove(REQUEST,DELETE));owner.inspect();owner.remove(REQUEST,DELETE);check(owner.retired() && access.deletions==1);return; }
+        if("lost-return".equals(mode)) { access.lost=true;fails(() -> owner.remove(REQUEST,DELETE));check(owner.uncertain(REQUEST,DELETE) && !owner.uncertain(REQUEST,"cccccccccccccccccccccccccccccccc"));owner.inspect();owner.remove(REQUEST,DELETE);check(owner.retired() && access.deletions==1);return; }
         if("permission-denied".equals(mode)) { access.deny=true;fails(() -> owner.remove(REQUEST,DELETE));check(!owner.retired());return; }
         owner.remove(REQUEST,DELETE);check(owner.retired() && !Files.exists(path) && access.deletions==1);
         owner.inspect();owner.remove(REQUEST,DELETE);check(access.deletions==1);

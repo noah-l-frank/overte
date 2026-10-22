@@ -135,6 +135,23 @@ final class SnapshotReadbackFiles {
         }
         return result;
     }
+    synchronized byte[] originalBytes(String id) throws IOException {
+        Entry entry=entries.get(id);
+        if(entry==null || !"complete".equals(entry.phase))throw new IOException("Original is not owned and complete");
+        bound(entry);long start=System.nanoTime();
+        java.io.ByteArrayOutputStream output=new java.io.ByteArrayOutputStream();MessageDigest actual=digest();long total=0;
+        try(InputStream input=Files.newInputStream(entry.path,StandardOpenOption.READ,LinkOption.NOFOLLOW_LINKS)) {
+            byte[] data=new byte[65536];int count;
+            while((count=input.read(data))!=-1) {
+                if(count==0 || (total+=count)>MAX_BYTES || System.nanoTime()-start>=15000000000L)throw new IOException("Original read expired or changed");
+                output.write(data,0,count);actual.update(data,0,count);
+            }
+        }
+        bound(entry);
+        if(total!=entry.bytes || !hex(actual.digest()).equals(entry.sha256))throw new IOException("Original content changed");
+        return output.toByteArray();
+    }
+
     synchronized void remove(String id) throws IOException {
         Entry entry=entries.get(id);
         if(entry==null)throw new IOException("Readback not owned");

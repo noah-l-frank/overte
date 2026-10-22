@@ -1328,6 +1328,18 @@ class PhoneAppiumAdapter(AppiumAdapter):
             lambda:transport.read_debug_app_file(device,target['appId'],'files/overte-e2e/'+FILE,attempts=1),
             native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep)
 
+    def _snapshot_consumer(self,selector,run,arm,receiver_apk_sha256,*,read_only=True,binding=None):
+        from overte_phone_snapshot_consumer import PhoneSnapshotConsumer,SnapshotConsumerTransport
+        # A separate prepared fixture APK pin is mandatory. No fixture install,
+        # implicit package discovery or successful Chooser result is inferred.
+        native=self._native_feature_observer(selector,read_only=True)
+        target=self.target(selector);device=target['capabilities']['appium:udid']
+        transport=SnapshotConsumerTransport(PhoneAdapter(self.candidate).adb,device,
+            receiver_apk_sha256,native.guard,read_only=read_only)
+        return PhoneSnapshotConsumer(transport.read,transport.binary,transport.control,
+            transport.identity,native.clock_ms,native.guard,run,arm,read_only=read_only,binding=binding,
+            monotonic=native.monotonic,sleep=native.sleep)
+
     def _snapshot_saved_files(self,selector,run,artifact_root):
         from overte_phone_snapshot_saved_files import PhoneSnapshotSavedFiles
         _ui,_observe,binding,guard,_installed=self.normal_feature_runtime(selector,read_only=True)
