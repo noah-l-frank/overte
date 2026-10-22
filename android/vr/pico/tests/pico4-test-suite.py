@@ -70,6 +70,7 @@ TESTS = (
     test("authentication-feature-engine", "interaction", PYTHON, "device/test_authentication_journey.py", "PicoAuthenticationEngineTests"),
     test("tablet-home-ray", "interaction", PYTHON, "device/test_tablet_home.py"),
     test("lifecycle-input-owner", "interaction", PYTHON, "device/test_lifecycle_input.py", requires=("node",)),
+    test("lifecycle-background-owner", "interaction", PYTHON, "device/test_lifecycle_background_owner.py", requires=("node",)),
     test("normal-create", "interaction", PYTHON, "device/test_normal_create.py"),
     test("normal-chat", "interaction", PYTHON, "device/test_normal_chat.py"),
     test("normal-login", "interaction", PYTHON, "device/test_normal_login.py"),

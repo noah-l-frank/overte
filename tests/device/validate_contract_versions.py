@@ -151,6 +151,8 @@ REQUIRED = {
     "pico-lifecycle-editor-owner": 1,
     "pico-lifecycle-chat-owner": 1,
     "native-lifecycle-background": 1,
+    "pico-lifecycle-background-owner": 1,
+    "pico-lifecycle-background-originals": 1,
     "chat-journey-source-chunks": 1,
     "native-navigation-replies": 2,
     "native-navigation-modals": 1,

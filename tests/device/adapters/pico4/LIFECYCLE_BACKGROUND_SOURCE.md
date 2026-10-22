@@ -98,7 +98,8 @@ PYTHONDONTWRITEBYTECODE=1 TMPDIR=<private-directory> \
   python3 tests/device/self_tests/test_pico_lifecycle_background_source.py
 ```
 
-A whole background owner must still join its durable arm to normal OS HOME,
+The [bounded normal background owner](LIFECYCLE_BACKGROUND_OWNER.md) now joins
+its durable arm to normal OS HOME,
 actual original OS process/foreground proof, native lifecycle advancement,
 original Hidden/Suspended frames with real keyboard/focus absence, normal return,
 fresh same-context draft/model observations, quiet and original timer release.
@@ -120,6 +121,6 @@ with the same original field/page/context and Reply. Retained partial identities
 resumed-only false keyboard values and input acknowledgements cannot qualify it.
 This pure historical verifier sends no input and establishes no current age,
 three-second quiet, observer release or complete feature verdict. The durable
-normal OS coordinator and final original-source acquisition remain separate.
+normal OS coordinator and final acquisition belong to that separate partial owner.
 It reports no editor generation: the earlier original Create/X/Chat history
 must independently establish that ordering in the whole Lifecycle composition.
