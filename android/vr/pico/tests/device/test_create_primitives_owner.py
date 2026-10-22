@@ -25,6 +25,7 @@ def initialize(b):
     b.extra_rows=[];b.extra_sequence=0;b.polyvox=False;b.extra_choices={k:0 for k in COUNTS};b.extra_choices['create-extra.polyvox.style']=3
     b.extra_fields={k:'20' for k in FIELDS};b.local_creations=[];b.creation_times={};b.position_fields=dict(x='',y='',z='')
     b.extra_context_retained=False;b.voxel_dirty=False;b.voxel_empty=False;b.foreign_creation=False
+    b.ignore_position=False
 
 
 def inventory(b):
@@ -99,9 +100,18 @@ class PrimitiveIO(UnifiedIO):
             from adapters.token_create_ui import same_reference as normal_reference
             normal_reference(reference,self.capture(),identifier)
             original=UnifiedIO.capture(self)
-            super().command(identifier,action,original,value)
-            if identifier=='create.apply' and b.rows and b.rows[0]['type']=='PolyVox' and all(b.position_fields.values()):
+            # This actor adds position to the shared Model actor's Apply.
+            # Its lost reply must follow ALL actual actor effects, rather than
+            # interrupting between dimensions and position. A failed original
+            # admission still raises before either additional position effect.
+            lost=b.lose if identifier=='create.apply' else None
+            if lost is not None:b.lose=None
+            try:super().command(identifier,action,original,value)
+            finally:
+                if lost is not None:b.lose=lost
+            if identifier=='create.apply' and b.rows and b.rows[0]['type']=='PolyVox' and all(b.position_fields.values()) and not b.ignore_position:
                 b.rows[0]['position']=[float(b.position_fields[a]) for a in 'xyz']
+            if lost==identifier:raise NativeUIError('declared lost original Apply reply after all actor properties')
 
 
 class CreatePrimitiveJourneyTests(unittest.TestCase):
@@ -208,6 +218,14 @@ class CreatePrimitiveJourneyTests(unittest.TestCase):
         with patch.object(PrimitiveIO,'command',command),self.assertRaises(NativeUIError):self.create()
         self.b.lose=None;count=len(self.b.inputs);self.make();self.root.invoke('reconcile')
         self.assertEqual(count,len(self.b.inputs));self.assertEqual('created',self.root.state()['primitives'][-1]['outcome'])
+    def test_unchanged_actual_position_remains_pending_without_readonly_replay(self):
+        self.b.ignore_position=True
+        with self.assertRaises(NativeUIError):self.create()
+        self.assertEqual([0,1,-12.8],self.b.rows[0]['position']);count=len(self.b.inputs);pending=self.root.state()['pending']
+        self.make()
+        with self.assertRaises(NativeUIError):self.root.invoke('reconcile')
+        self.assertEqual(count,len(self.b.inputs));self.assertEqual(pending,self.root.state()['pending'])
+        self.assertEqual('creating',self.root.state()['primitives'][-1]['outcome'])
     def test_phase_advance_during_extra_acquisition_refuses_add_before_dispatch(self):
         original=ExtraIO.capture;advanced=False
         def capture(io):
