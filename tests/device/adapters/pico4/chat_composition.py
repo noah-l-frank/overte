@@ -23,7 +23,7 @@ from adapters.script_journey.history import same
 from adapters.script_journey.lock import ScriptSourceLock
 from feature_journeys.phase_fixture import PhaseFixtureReader
 
-VERSION=1
+VERSION=2
 
 
 PHASES=('admitted','bound','profile-acquire-issued','profile-acquired','prepared','step-issued','step-completed',
@@ -33,7 +33,7 @@ PHASES=('admitted','bound','profile-acquire-issued','profile-acquired','prepared
 def record(value):
     import re
     exact(value,{'picoChatCompositionVersion','runId','binding','fixtureUrl','phase','peerBinding','peerOriginBasis','completedSteps'})
-    need(type(value['picoChatCompositionVersion']) is int and value['picoChatCompositionVersion']==VERSION
+    need(type(value['picoChatCompositionVersion']) is int and value['picoChatCompositionVersion'] in (1,VERSION)
         and type(value['runId']) is str and re.fullmatch('[0-9a-f]{32}',value['runId'])
         and type(value['fixtureUrl']) is str and len(value['fixtureUrl'])<=512
         and value['fixtureUrl'].endswith('/runs/'+value['runId']+'/') and value['phase'] in PHASES
@@ -125,6 +125,8 @@ class PicoChatComposition:
         try:
             need(not self.failed and self.previous['phase']=='bound' and self.dispatcher is None)
             with self.held():
+                self.code_sources=tuple(self.adapter._chat_script_source(self.target,self.source.run,role=role,
+                    source_lock=self.lock) for role in ('primary','actor'))
                 self.save('profile-acquire-issued')
                 self.profile=self.adapter._chat_profile(self.target,self.source.run,self.lock)
                 original=self.profile.perform('acquire');need(original['owned'] and not original['restoreAttempted'])
@@ -132,9 +134,11 @@ class PicoChatComposition:
                 self.adapter._chat_admit_capture(self.target,self.source.run,source_lock=self.lock)
                 self.peer.admit_capture(self.source.run)
                 self.initial=tuple(self.adapter._chat_cache_absence(self.target,self.source.run,self.peer.reader(),self.peer.binding,
-                    role=role,stage='initial',source_lock=self.lock,peer_lock=self.peer.lock) for role in ('primary','actor'))
+                    role=role,stage='initial',source_lock=self.lock,peer_lock=self.peer.lock,script_source=code)
+                    for role,code in zip(('primary','actor'),self.code_sources))
                 self.roles=tuple(self.adapter._chat_samples(self.target,self.source.run,self.peer.reader(),self.peer.binding,
-                    role=role,source_lock=self.lock,peer_lock=self.peer.lock,pending_capture=True) for role in ('primary','actor'))
+                    role=role,source_lock=self.lock,peer_lock=self.peer.lock,pending_capture=True,script_source=code)
+                    for role,code in zip(('primary','actor'),self.code_sources))
                 self.flow=self.adapter._chat_flow_inputs(self.target,self.source,*self.roles,*self.initial)
                 factories=dict(normal=lambda:self.adapter._chat_normal_input(self.target,*self.roles),
                     peer=self.peer_sender,distant=lambda:self.adapter._chat_peer_distant(self.target,self.dispatcher.child('peer')),
@@ -182,7 +186,8 @@ class PicoChatComposition:
                 self.input_close=self.peer.input_close(distant.sender.input,distant=distant);self.input_close.run()
                 self.save('input-closed')
                 self.after=tuple(self.adapter._chat_samples(self.target,self.source.run,self.peer.reader(),self.peer.binding,
-                    role=role,source_lock=self.lock,peer_lock=self.peer.lock,erased=True) for role in ('primary','actor'))
+                    role=role,source_lock=self.lock,peer_lock=self.peer.lock,erased=True,script_source=code)
+                    for role,code in zip(('primary','actor'),self.code_sources))
                 self.erase=self.adapter._chat_erase_restore(self.target,self.profile,self.roles,self.after)
                 # This private terminal path still owns the actual last Close
                 # ticket/prefix. A later/retired fixture phase refuses input.
@@ -226,10 +231,11 @@ class PicoChatWitness:
             need(same(self.peer.binding,original['peerBinding']) and self.peer.lock.path!=self.lock.path)
             with ExitStack() as held:
                 for lock in sorted((self.lock,self.peer.lock),key=lambda lock:str(lock.path)):held.enter_context(lock.held())
+                code=adapter._chat_script_source(target,source.run,role='actor',source_lock=self.lock,witness=True)
                 initial=adapter._chat_cache_absence(target,source.run,self.peer.reader(),self.peer.binding,
-                    role='actor',stage='initial',source_lock=self.lock,peer_lock=self.peer.lock,witness=True)
+                    role='actor',stage='initial',source_lock=self.lock,peer_lock=self.peer.lock,witness=True,script_source=code)
                 samples=adapter._chat_samples(target,source.run,self.peer.reader(),self.peer.binding,
-                    role='actor',source_lock=self.lock,peer_lock=self.peer.lock,witness=True,pending_capture=True)
+                    role='actor',source_lock=self.lock,peer_lock=self.peer.lock,witness=True,pending_capture=True,script_source=code)
                 self.publisher=adapter._chat_witness(target,source,samples,initial)
         except Exception:
             self.detach();raise NativeUIError('Independent Pico Chat witness originals are unavailable') from None

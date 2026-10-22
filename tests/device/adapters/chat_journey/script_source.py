@@ -107,7 +107,7 @@ class ChatScriptSource:
         need(roots.last is None and scripts.instance is None and scripts.sequence==0)
         source_lock.assert_held()
         self.run,self.role,self.roots,self.scripts,self.store,self.lock,self.monotonic=run,role,roots,scripts,store,source_lock,monotonic
-        self.failed=False;self.frames=[]
+        self.failed=False;self.frames=[];self.transactions={}
         self.base=dict(chatScriptObservationVersion=VERSION,runId=run,role=role,binding=self.binding,
             phase='ready',revision=0,chunks=[])
         self.history=ChatSourceChunks(store,{key:value for key,value in self.base.items() if key not in ('phase','revision','chunks')})
@@ -118,7 +118,8 @@ class ChatScriptSource:
             need(all(same(self.previous[key],self.base[key]) for key in set(self.base)-{'phase','revision','chunks'})
                 and self.previous['phase']=='ready' and integer(self.previous['revision'],0,2*MAX_FRAMES))
             self.frames=self.history.load(self.previous['chunks']);need(self.previous['revision']==2*len(self.frames))
-            for index,frame in enumerate(self.frames):self._validate(frame,self.frames[:index])
+            for index,frame in enumerate(self.frames):
+                self._validate(frame,self.frames[:index]);self.transactions[frame['ticket']]=frame
             if self.frames:
                 roots.restore(self.frames[-1]['after'])
                 scripts.restore_history([frame['scripts'] for frame in self.frames])
@@ -142,7 +143,7 @@ class ChatScriptSource:
         need(same(self.store.read(),self.previous));self.store.write(value,self.previous)
         need(same(self.store.read(),value));self.previous=self.base=deepcopy(value)
 
-    def capture(self,ticket,after_epoch):
+    def capture(self,transaction_id,after_epoch):
         started=last=self.monotonic();need(number(started,0,1e15))
         barrier=None
         def check():
@@ -151,7 +152,7 @@ class ChatScriptSource:
             need(self.roots.guard() is not False and self.scripts.guard() is not False)
             now=self.monotonic();need(number(now,last,started+1.5));last=now
         try:
-            identifier(ticket);need(not self.failed and integer(after_epoch,1))
+            identifier(transaction_id);need(not self.failed and integer(after_epoch,1))
             with self.lock.held():
                 check();self.history.verify();need(self.base['phase']=='ready' and len(self.frames)<MAX_FRAMES)
                 barrier=self.roots.clock_ms();need(integer(barrier,after_epoch));check()
@@ -160,7 +161,7 @@ class ChatScriptSource:
                 scripts=self.scripts.read(self.scripts.sequence,require_effects=True,require_code_identity=True,
                     require_load_history=True,require_membership=True);check()
                 after=self.roots.read(before['sequence']);check()
-                frame=dict(ticket=ticket,afterEpochMs=after_epoch,before=before,scripts=scripts,after=after)
+                frame=dict(ticket=transaction_id,afterEpochMs=after_epoch,before=before,scripts=scripts,after=after)
                 selected=self._validate(frame,self.frames);candidate=deepcopy(frame);result=deepcopy(selected)
                 self._write({**self.base,'phase':'ready','revision':self.base['revision']+1,
                     'chunks':self.history.append(frame,self.base['chunks'])})
@@ -170,7 +171,7 @@ class ChatScriptSource:
                 final=self.monotonic();need(number(final,measured,started+1.5)
                     and max(epoch-before['requestedEpochMs']+math.ceil((final-measured)*1000),
                         barrier-before['requestedEpochMs']+math.ceil((final-started)*1000))<=1500)
-                self.frames.append(candidate);return result
+                self.frames.append(candidate);self.transactions[candidate['ticket']]=candidate;return result
         except Exception:
             self.failed=True
             raise NativeUIError('Original compiled Chat source is unavailable; interrupted source history is retained') from None

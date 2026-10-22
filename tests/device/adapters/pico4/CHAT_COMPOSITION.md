@@ -1,4 +1,4 @@
-# Private Pico Chat composition v1
+# Private Pico Chat composition v2
 
 `PicoBoundAdapter._chat_composition(target, phase_source, peer_config, domain_ready)`
 constructs `PicoChatComposition` from the existing original candidate/process
@@ -50,6 +50,13 @@ paths, and replacement of the original ready inode.
 durable native owner, then admits both genuinely absent native caches. It builds
 two initial absence roles and two separate active roles, using the existing
 shared `ChatFlowInputs`, `ChatDispatcher` v2 and their original phase fences.
+V2 selects the closed compiled-source model and absence readers described in
+[the source/model join](../chat_journey/COMPILED_CHAT_SOURCE.md). Initial, active
+and Erase readers share each role's exact original code-source owner and lock;
+the independent witness owns separate readers and its own source journal.
+Every actual model read obtains fresh configured-root/Script/V8/root originals
+before the four existing native sources, with one unchanged 1.5-second bound.
+Legacy v1 parent manifests remain retained and cannot qualify this witness.
 Active roles cannot read before original cache activation. Cache creation stays
 lazy until the first Open. All six child kinds use the existing actual Pico
 factories: ordinary Chat UI/keyboard, original peer Send/distance, passive native
