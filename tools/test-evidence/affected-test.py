@@ -16,6 +16,9 @@ from types import SimpleNamespace
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import inputs
 
+# Preserve an unmocked immutable reader for fixture admission, never production policy.
+_REAL_FULL_TREE = inputs.full_tree
+
 
 def blob(raw=b'fixed', *, mode='100644'):
     return {'mode':mode,'type':'blob','sha':hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\0'+raw).hexdigest()}
@@ -483,6 +486,36 @@ _MAIN_PROJECTION_B85 = (
 
 
 class ShippingPolicyTests(unittest.TestCase):
+    def historical_workflow_tree(self, root):
+        """Use retained producer bytes after the live controller supersedes them.
+
+        This is a private historical test fixture, not current CI acceptance.
+        Mocked mixed/mode/CodeQL variants remain unchanged and must still fail.
+        No production catalog, reader certificate or policy bytes are rewritten.
+        """
+        tree=inputs.full_tree(root,'HEAD')
+        generations=json.loads((root/'.github/package-workflow-generations.json').read_bytes())['generations']
+        if any(all(tree.get(path)==entry for path,entry in row['workflows'].items()) for row in generations):
+            return tree
+        self.assertEqual(tree,_REAL_FULL_TREE(root,'HEAD'), 'unknown producer tuple is not the actual central source fixture')
+        enrolled=next(row['workflows'] for row in generations if row['name']=='protected-producer-exact-parent-command-owners-v1')
+        retained={
+            '.github/workflows/project-tests.yml':'tools/repository-checks/workflows/producers/protected-project-tests-optional-leaf.yml',
+            '.github/workflows/parent-qualification.yml':'tools/repository-checks/workflows/producers/parent-qualification-android-platform.yml',
+            '.github/workflows/repository-checks.yml':'tools/repository-checks/workflows/producers/repository-checks-parent-owners.yml',
+            '.github/workflows/pr-metadata-context.yml':'tools/repository-checks/workflows/metadata-edits/pr-metadata-context.yml',
+            '.github/workflows/sync-validation.yml':'tools/repository-checks/workflows/sync-ci-selection.yml',
+            '.github/workflows/browser-client.yml':'tools/repository-checks/workflows/npm-consumers/browser-client.yml',
+        }
+        self.assertEqual(set(enrolled),set(retained))
+        for path,source in retained.items():
+            expected=blob((root/source).read_bytes())
+            self.assertEqual(expected,enrolled[path],source)
+            tree[path]=expected
+        tree['.github/workflows/codeql.yml']=blob((root/'tools/repository-checks/workflows/metadata-edits/codeql-upload-provenance.yml').read_bytes())
+        self.assertEqual(tree['.github/workflows/codeql.yml']['sha'],'b29e0558dc69bc9dd6fc6b47bd6024382be4079d')
+        return tree
+
     def trusted_main_projection(self, root, raw, source):
         """Authenticate fixture fields; never call this native D evidence."""
         payload=zlib.decompress(base64.b85decode(_MAIN_PROJECTION_B85))
@@ -510,6 +543,28 @@ class ShippingPolicyTests(unittest.TestCase):
         for path,entry in matches[0].items():
             if path in inputs.AFFECTED_AUTHORITY:tree[path]=dict(entry)
         return tree
+
+    def assert_unreviewed_namespace_is_conservative(self, root, registry, raw, base, candidate):
+        """A newer central namespace grants no historical omission certificate."""
+        policy=json.loads(raw)
+        lookup=inputs.affected_lookup_digest(base)
+        matches=[name for name,row in policy['targets'].items()
+                 if row['lookup_digest']==lookup and row['profile']==base['tests/platform-profile.json']]
+        if matches:
+            return False
+        trusted=self.trusted_main_projection(root,raw,base)
+        for claimed in policy['targets']:
+            with self.subTest(unreviewed_target=claimed),self.assertRaisesRegex(inputs.InputError,'lookup membership|platform profile'):
+                inputs.plan_affected(registry,raw,base,candidate,trusted,target=claimed)
+        spec=importlib.util.spec_from_file_location('historical_unreviewed_host_policy',root/'tools/repository-checks/host_selection.py')
+        host=importlib.util.module_from_spec(spec);spec.loader.exec_module(host)
+        paths=sorted(path for path in base.keys()|candidate.keys() if base.get(path)!=candidate.get(path))
+        selected=host.select(candidate,paths,True,trusted_tree=trusted,base_tree=base)
+        self.assertEqual(selected['suites'],list(registry['suites']))
+        self.assertTrue(selected['full_host'])
+        self.assertTrue(selected['include_platform'])
+        self.assertNotIn('affected',selected)
+        return True
 
     def target_context(self, root, raw, source):
         policy=json.loads(raw)
@@ -539,7 +594,7 @@ class ShippingPolicyTests(unittest.TestCase):
         root=Path(__file__).resolve().parents[2]
         registry=inputs.load_registry(root/'.github/test-suites.json')
         raw=inputs.load_dependencies(root/inputs.AFFECTED_POLICY,registry)
-        tree=inputs.full_tree(root,'HEAD')
+        tree=self.historical_workflow_tree(root)
         for path in ('tools/test-evidence/affected-test.py','tools/test-evidence/AFFECTED_SELECTION.md'):
             tree[path]=blob((root/path).read_bytes())
         tree[inputs.AFFECTED_POLICY]=blob(raw)
@@ -592,7 +647,7 @@ class ShippingPolicyTests(unittest.TestCase):
         historical=next(row['workflows'] for row in generations if row['name']=='protected-producer-seven-target-ci-v1')
         self.assertEqual(historical['.github/workflows/repository-checks.yml']['sha'],
             'd9fefd275d9e3c6977cf9350a1945a6bbe5051b4')
-        actual=inputs.full_tree(root,'HEAD')
+        actual=self.historical_workflow_tree(root)
         installed=[row for row in generations if row['name'] in {
             'protected-producer-original-default-v1','protected-producer-original-default-boolean-v1',
             'protected-producer-original-default-required-context-v1',
@@ -609,7 +664,7 @@ class ShippingPolicyTests(unittest.TestCase):
             '.github/workflows/repository-checks.yml':'tools/repository-checks/workflows/producers/repository-checks.yml',
             '.github/workflows/pr-metadata-context.yml':'tools/repository-checks/workflows/metadata-edits/pr-metadata-context.yml',
             '.github/workflows/sync-validation.yml':'tools/repository-checks/workflows/sync-ci-selection.yml',
-            '.github/workflows/browser-client.yml':'.github/workflows/browser-client.yml',
+            '.github/workflows/browser-client.yml':'tools/repository-checks/workflows/npm-consumers/browser-client.yml',
         }
         if installed['name'] in {'protected-producer-optional-leaf-common-v1',
                 'protected-producer-exact-parent-command-owners-v1'}:
@@ -701,7 +756,7 @@ class ShippingPolicyTests(unittest.TestCase):
         tree[inputs.AFFECTED_POLICY]=blob(sealed)
         return root,registry,sealed,tree
 
-    def test_source_and_shipping_fixtures_bind_the_actual_deployed_boolean_variant(self):
+    def test_retained_source_and_shipping_fixtures_bind_enrolled_boolean_variants(self):
         root=Path(__file__).resolve().parents[2]
         actual=inputs.full_tree(root,'HEAD')
         generations=json.loads((root/'.github/package-workflow-generations.json').read_bytes())['generations']
@@ -741,6 +796,8 @@ class ShippingPolicyTests(unittest.TestCase):
         candidate=deepcopy(base)
         for name in ('attested.py','postmerge.py','producer_workflow.py','sandbox.py','sandbox_host.py'):
             candidate['tools/test-evidence/'+name]=blob(('changed '+name).encode())
+        if self.assert_unreviewed_namespace_is_conservative(root,registry,raw,base,candidate):
+            return
         target,trusted=self.target_context(root,raw,base)
         native=json.loads(raw)['suites']['device-control-plane-full']
         spec=importlib.util.spec_from_file_location('affected_host_policy',root/'tools/repository-checks/host_selection.py')
@@ -821,6 +878,8 @@ class ShippingPolicyTests(unittest.TestCase):
         self.assertNotIn('.github/workflows/pr-metadata-context.yml',base)
         candidate=deepcopy(base)
         candidate['tools/test-evidence/sandbox_host.py']=blob(b'changed preinstallation controller')
+        if self.assert_unreviewed_namespace_is_conservative(root,registry,raw,base,candidate):
+            return
         target,trusted=self.target_context(root,raw,base)
         plan=inputs.plan_affected(registry,raw,base,candidate,trusted,target=target)
         owners={'device-control-plane-full',*inputs._AFFECTED_PRODUCT_SUITES,*inputs._AFFECTED_SUBJECTS}
@@ -840,8 +899,10 @@ class ShippingPolicyTests(unittest.TestCase):
 
     def test_actual_child_namespace_cannot_be_claimed_as_main_or_trusted_default(self):
         root,registry,raw,base=self.shipping_context()
-        target,trusted=self.target_context(root,raw,base)
         candidate=deepcopy(base);candidate['tools/test-evidence/sandbox_host.py']=blob(b'changed CI')
+        if self.assert_unreviewed_namespace_is_conservative(root,registry,raw,base,candidate):
+            return
+        target,trusted=self.target_context(root,raw,base)
         # A real child keeps its extra import membership and native readers.
         # On main, a synthetic neighboring import proves the same refusal.
         foreign=deepcopy(base)
