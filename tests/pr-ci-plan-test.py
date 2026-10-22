@@ -5,6 +5,8 @@ from copy import deepcopy
 import hashlib
 import importlib.util
 import json
+import subprocess
+import re
 from pathlib import Path
 import unittest
 
@@ -302,7 +304,7 @@ class CentralPlannerTests(unittest.TestCase):
         product = {"device-control-plane-full", "web-entity-visibility", "lod-preferences",
                    "goto-dialog-script", "recorded-voice-native", "shared-script-behavior"}
         self.assertFalse(product & selected)
-        self.assertEqual({"pr-ci-plan", "pr-ci-context", "pr-ci-run", "pr-ci-observer", "pr-ci-workflow", "pr-ci-cli", "pr-ci-transport", "pr-ci-platform", "documentation"}, selected)
+        self.assertEqual({"pr-ci-plan", "pr-ci-context", "pr-ci-run", "pr-ci-observer", "pr-ci-workflow", "pr-ci-cli", "pr-ci-transport", "pr-ci-platform", "pr-ci-reuse", "pr-ci-native", "documentation"}, selected)
         self.assertFalse({"host-full", "qt", "compiler", "qt5-qml", "qt6-qml"} & set(result["setup"]))
 
     def test_platform_ci_metadata_selects_its_own_consumers_without_product_work(self):
@@ -421,6 +423,26 @@ class CentralPlannerTests(unittest.TestCase):
         key = lambda plan: next(t["reuse_key"] for t in plan["tasks"] if t["id"] == "suite:lod-preferences")
         self.assertNotEqual(key(normal), key(linked))
 
+    def test_android_compile_selection_tracks_production_inputs_and_deleted_resources(self):
+        phone = "android/phone/apps/phoneInterface/src/main/"
+        pico = "android/vr/pico/apps/picoInterface/src/main/"
+        tree = {phone + "java/Activity.java": self.objects.entry("class Activity {}"),
+                pico + "java/Activity.java": self.objects.entry("class Activity {}"),
+                "android/common/web/java/Shared.java": self.objects.entry("class Shared {}")}
+        select = lambda paths, target="android-phone", after=None: PLANNER._android_compile_products(
+            paths, tree, tree if after is None else after, target)
+        self.assertEqual(["phone"], select([phone + "java/Activity.java"]))
+        self.assertEqual(["pico"], select([pico + "res/xml/policy.xml"], "android-vr-pico"))
+        self.assertEqual([], select([pico + "res/xml/policy.xml"], "android-phone"))
+        for target, owner in (("android-phone", "phone"), ("android-vr-pico", "pico"),
+                ("android-main", "common"), ("android-vr", "common")):
+            self.assertEqual([owner], select(["android/common/snapshot/java/Policy.java"], target))
+        for path in ("android/phone/tests/Test.java", "android/common/snapshot/tests/java/Test.java",
+                "android/phone/README.md", "browser-client/package-lock.json", "android/phone/apps/phoneInterface/build.gradle"):
+            self.assertEqual([], select([path]), path)
+        self.assertEqual([], select([phone + "java/Activity.java"], "main"))
+        self.assertEqual(["phone"], select([phone + "res/xml/policy.xml"], after={}))
+
     def console_candidate(self):
         self.active_policy()
         registry = json.loads((ROOT / PLANNER.ACTIVE_REGISTRY).read_text())
@@ -440,7 +462,7 @@ class CentralPlannerTests(unittest.TestCase):
 
     def test_console_overlap_rejects_hooks_altered_script_missing_or_nonordinary_inputs(self):
         candidate = self.console_candidate()
-        for mutation in ("pretest", "posttest", "script", "missing", "alias", "extra"):
+        for mutation in ("pretest", "posttest", "script", "missing", "alias", "extra-alias"):
             with self.subTest(mutation=mutation):
                 changed = deepcopy(candidate)
                 manifest = json.loads(self.objects.read(changed["server-console/package.json"]["sha"]))
@@ -453,8 +475,8 @@ class CentralPlannerTests(unittest.TestCase):
                     del changed["server-console/test/open-url.test.js"]
                 if mutation == "alias":
                     changed["server-console/test/open-url.test.js"] = self.objects.entry("../../elsewhere", "120000")
-                if mutation == "extra":
-                    changed["server-console/test/extra.test.js"] = self.objects.entry("extra test")
+                if mutation == "extra-alias":
+                    changed["server-console/test/extra.test.js"] = self.objects.entry("../../elsewhere", "120000")
                 result = self.plan(changed)
                 self.assertNotIn("suite:server-console-behavior", result["covered_tasks"])
                 self.assertIn("suite:server-console-behavior", {task["id"] for task in result["tasks"]})
@@ -666,6 +688,113 @@ class CentralPlannerTests(unittest.TestCase):
         before = deepcopy((self.base, candidate, self.trusted))
         self.plan(candidate)
         self.assertEqual(before, (self.base, candidate, self.trusted))
+
+
+class ActualRegistrySelectionTests(unittest.TestCase):
+    """Compose the deployed registry with the complete real tracked inventory."""
+    @classmethod
+    def setUpClass(cls):
+        cls.objects = Objects()
+        raw = subprocess.check_output(["git", "ls-tree", "-r", "-z", "HEAD"], cwd=ROOT)
+        cls.base = {}
+        for record in raw.split(b"\0"):
+            if not record:
+                continue
+            metadata, name = record.split(b"\t", 1)
+            mode, kind, oid = metadata.decode().split()
+            cls.base[name.decode()] = {"mode": mode, "type": kind, "sha": oid}
+        # The tested working registry is intentionally not substituted with the
+        # historical HEAD policy; all product inventory still comes from Git.
+        for path in (PLANNER.ACTIVE_REGISTRY, PLANNER.ACTIVE_DEPENDENCIES):
+            cls.base[path] = cls.objects.entry((ROOT / path).read_bytes())
+        cls.cache = {}
+
+    @classmethod
+    def read(cls, oid):
+        if oid in cls.objects.blobs:
+            return cls.objects.read(oid)
+        if oid not in cls.cache:
+            cls.cache[oid] = subprocess.check_output(["git", "cat-file", "blob", oid], cwd=ROOT)
+        return cls.cache[oid]
+
+    def plan_change(self, path, raw, *, base=None, target="main"):
+        base = self.base if base is None else base
+        candidate = dict(base)
+        candidate[path] = self.objects.entry(raw)
+        return PLANNER.plan(base, candidate, self.base, read_blob=self.read, target=target)
+
+    def test_real_console_glob_superset_covers_registered_tests(self):
+        self.assertIn("server-console/test/dependency-compat.test.js", self.base)
+        result = self.plan_change("server-console/package-lock.json", b'{"lockfileVersion":3,"changed":true}')
+        self.assertEqual({"suite:server-console-behavior": "npm:server-console"}, result["covered_tasks"])
+        self.assertNotIn("suite:server-console-behavior", {t["id"] for t in result["tasks"]})
+
+    def test_existing_phone_java_does_not_select_unrelated_product_suites_or_extractors(self):
+        # Main has no Phone application. Compose one ordinary existing leaf
+        # into both endpoints, preserving the actual complete shared registry.
+        path = "android/phone/apps/phoneInterface/src/main/java/org/overte/phone/PhoneInterfaceActivity.java"
+        base = dict(self.base)
+        base[path] = self.objects.entry("package org.overte.phone; class PhoneInterfaceActivity {}")
+        result = self.plan_change(path, b"package org.overte.phone; class PhoneInterfaceActivity { int n; }", base=base, target="android-phone")
+        self.assertEqual(["documentation"], result["host_suites"])
+        self.assertEqual([], result["codeql_languages"])
+        self.assertTrue(result["android_required"])
+        self.assertEqual(["phone"], result["android_compile_products"])
+        self.assertIn("--compile-product", next(t for t in result["tasks"] if t["id"] == "platform:android")["command"])
+
+    def test_browser_source_runs_only_its_journey_without_shared_host_contracts(self):
+        for project, command in (("browser-client", ["npm", "run", "test:browser"]),
+                ("browser-direct-client", ["node", "node_modules/@playwright/test/cli.js", "test", "--config", "playwright.config.ts"])):
+            path = next(p for p in self.base if p.startswith(project + "/src/") and p.endswith(".ts"))
+            result = self.plan_change(path, self.read(self.base[path]["sha"]) + b"\n// changed source\n")
+            self.assertEqual(["documentation"], result["host_suites"])
+            task = next(t for t in result["tasks"] if t["id"] == "npm:" + project)
+            self.assertIn(command, task["command"])
+            self.assertIn("browser", task["setup"])
+
+    def test_membership_and_actual_readers_still_invalidate_narrowed_tasks(self):
+        registry, dependencies = PLANNER._policy(self.base, self.read)
+        for name, changed in (("project-coverage", "tests/project-coverage.json"),
+                ("device-control-plane-full", "tests/device/run_control_plane_tests.py"),
+                ("lod-preferences", "interface/src/LODManager.cpp"),
+                ("shared-script-behavior", "scripts/system/goto.js")):
+            result = self.plan_change(changed, self.read(self.base[changed]["sha"]) + b"\n")
+            self.assertIn(name, result["host_suites"])
+        candidate = dict(self.base)
+        candidate["android/new-source.java"] = self.objects.entry("class NewSource {}")
+        for name in ("project-coverage", "device-control-plane-full"):
+            self.assertNotEqual(PLANNER._suite_inputs(self.base, registry, registry["suites"][name], dependencies[name]),
+                PLANNER._suite_inputs(candidate, registry, registry["suites"][name], dependencies[name]))
+
+    def test_new_java_or_executable_script_retains_conservative_analysis(self):
+        for mode, before in (("100644", False), ("100755", True)):
+            base = dict(self.base)
+            path = "android/phone/Unsafe.java"
+            if before:
+                base[path] = self.objects.entry("#!/usr/bin/env node\nconsole.log(1)", mode)
+            result = self.plan_change(path, b"class Unsafe {}", base=base)
+            self.assertEqual(list(PLANNER._CODEQL.LANGUAGES), result["codeql_languages"])
+
+    def test_hidden_eslint_configuration_with_java_suffix_is_still_javascript_input(self):
+        path = "android/phone/.eslintrc.java"
+        base = dict(self.base)
+        base[path] = self.objects.entry('{"root":true}')
+        result = self.plan_change(path, b'{"root":false}', base=base)
+        self.assertEqual(["javascript-typescript"], result["codeql_languages"])
+
+    def test_versioned_rules_require_only_deployed_central_and_topology_jobs(self):
+        expected = {"permanent-branches.json": {"source-policy", "required-ci"},
+            "apple-target-branches.json": {"Enforce apple-main sync path"},
+            "android-target-branches.json": {"Enforce Android parent sync path"}}
+        workflow = (ROOT / ".github/workflows/repository-checks.yml").read_text()
+        for filename, contexts in expected.items():
+            policy = json.loads((ROOT / ".github/rulesets" / filename).read_text())
+            required = next(rule for rule in policy["rules"] if rule["type"] == "required_status_checks")["parameters"]
+            self.assertEqual(contexts, {row["context"] for row in required["required_status_checks"]})
+            self.assertTrue(all(row["integration_id"] == 15368 for row in required["required_status_checks"]))
+            self.assertTrue(required["strict_required_status_checks_policy"])
+        for job in expected["permanent-branches.json"]:
+            self.assertRegex(workflow, r"(?m)^  " + re.escape(job) + r":$")
 
 
 if __name__ == "__main__":
