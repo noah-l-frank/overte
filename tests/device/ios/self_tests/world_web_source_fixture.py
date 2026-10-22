@@ -13,15 +13,17 @@ URL='http://127.0.0.1:43210/feature-fixture/v1/runs/'+RUN+'/'
 
 
 class OriginalSources:
-    def __init__(self,resource='reference.html',status_origin='primary',*,dom_version=2):
-        self.dom_version=dom_version
+    def __init__(self,resource='reference.html',status_origin='primary',*,dom_version=2,transcript_version=source.VERSION,clock_ms=None,monotonic_ms=None,source_identity='actual-native-owner',run=RUN,ticket=TICKET,fixture_url=URL,origins=None,browser=None):
+        self.run,self.ticket,self.fixture_url=run,ticket,fixture_url;self.transcript_version=transcript_version
+        self.dom_version=dom_version;self.clock_ms=clock_ms;self.monotonic_ms=monotonic_ms
         self.epoch=100000;self.events=[];self.inputs=[];self.sequence=0;self.dom_sequence=0
-        self.browser=BrowserResources(clock_ms=self.clock);self.browser.open(RUN)
-        self.origins=dict(primary='http://127.0.0.1:43210',foreign='http://127.0.0.1:43211')
-        self.resource=resource;status,_mime,self.body,response=self.browser.resource(RUN,TICKET,resource,origin=status_origin)
-        self.url=self.origins[status_origin]+'/feature-fixture/v1/runs/'+RUN+'/tickets/'+TICKET+'/'+resource
+        self.browser=BrowserResources(clock_ms=self.clock) if browser is None else browser
+        if browser is None:self.browser.open(run)
+        self.origins=dict(primary='http://127.0.0.1:43210',foreign='http://127.0.0.1:43211') if origins is None else deepcopy(origins)
+        self.resource=resource;status,_mime,self.body,response=self.browser.resource(run,ticket,resource,origin=status_origin)
+        self.url=self.origins[status_origin]+'/feature-fixture/v1/runs/'+run+'/tickets/'+ticket+'/'+resource
         self.identity=dict(handle='1',creation=1,grant=1,page=1,nonce='00000000-0000-4000-8000-000000000001',url=self.url,
-            sourceUrl=URL+'tickets/'+TICKET+'/reference.html',sourceIdentity='actual-native-owner',surface='world-entity')
+            sourceUrl=fixture_url+'tickets/'+ticket+'/reference.html',sourceIdentity=source_identity,surface='world-entity')
         self.event('view-created',{},identity=self.identity|dict(page=0,nonce=''))
         self.event('document-began',dict(frame=self.url))
         self.event('dom-observer-installed',dict(sourceSha256=dom.SOURCE_PINS[dom_version],wrapperSha256='a'*64))
@@ -30,15 +32,18 @@ class OriginalSources:
         self.view={key:deepcopy(value) for key,value in self.identity.items() if key!='surface'}
         self.view.update(nativeFinished=True,httpErrorStatus=404 if status==404 else 0,inlineLease=False,
             httpStatus=status,responseId=response,finishedEpochMs=self.finished,observerSha256=dom.SOURCE_PINS[dom_version])
-    def clock(self):self.epoch+=1;return self.epoch
-    def stamp(self):return dict(epochMs=self.clock(),monotonicMs=self.epoch-100000)
+    def clock(self):
+        if self.clock_ms is not None:self.epoch=self.clock_ms();return self.epoch
+        self.epoch+=1;return self.epoch
+    def stamp(self):
+        epoch=self.clock();return dict(epochMs=epoch,monotonicMs=self.epoch-100000 if self.monotonic_ms is None else self.monotonic_ms())
     def event(self,kind,detail,*,identity=None):
         value=dict(sequence=len(self.events)+1,eventId=secrets.token_hex(16),kind=kind,clock=self.stamp(),
             identity=deepcopy(self.identity if identity is None else identity),detail=deepcopy(detail))
         self.events.append(value);return deepcopy(value)
     def ledger(self,request=None):
-        self.sequence+=1;query=dict(schemaVersion=1,action=source.ACTION,commandId='ios-'+secrets.token_hex(16),runId=RUN,fixtureUrl=URL) if request is None else request
-        return dict(iosWorldWebVersion=1,commandId=query['commandId'],runId=RUN,fixtureUrl=URL,instance='c'*32,
+        self.sequence+=1;query=dict(schemaVersion=1,action=source.ACTION,commandId='ios-'+secrets.token_hex(16),runId=self.run,fixtureUrl=self.fixture_url) if request is None else request
+        return dict(iosWorldWebVersion=self.transcript_version,commandId=query['commandId'],runId=self.run,fixtureUrl=self.fixture_url,instance='c'*32,
             sequence=self.sequence,processId=42,clockDomain='native-main-ios-world-web',clockBefore=self.stamp(),clockAfter=self.stamp(),
             complete=True,eventSequence=len(self.events),events=deepcopy(self.events))
     def document(self,request=None):
@@ -49,9 +54,9 @@ class OriginalSources:
         if self.dom_version>=2:
             for row in elements:row.update(focused=False,value='' if row['id'] in ('text','foreign') else None)
         body=dict(iosWorldWebDOMVersion=self.dom_version,requestId=query,instance='d'*32,sequence=self.dom_sequence,capturedEpochMs=stamp,
-            document=dict(runId=RUN,href=self.url,responseId=self.view['responseId'],readyState='complete',title='Actual fixture title',width=100,height=100),
+            document=dict(runId=self.run,href=self.url,responseId=self.view['responseId'],readyState='complete',title='Actual fixture title',width=100,height=100),
             editor=dict(text='',focused=False),elements=elements,events=deepcopy(self.inputs),echoes=[])
-        return dict(iosWorldWebDOMNativeVersion=1,commandId=query,runId=RUN,surface='world',instance='e'*32,sequence=self.dom_sequence,
+        return dict(iosWorldWebDOMNativeVersion=1,commandId=query,runId=self.run,surface='world',instance='e'*32,sequence=self.dom_sequence,
             processId=42,capturedEpochMs=self.clock(),status='ready',source=dict(nativeView=deepcopy(self.view),dom=body))
     def pointer(self,*,returned=True):
         entry=self.event('pointer-enter',dict(type='release',x=50,y=50,width=100,height=100,button=0,codeSha256='a'*64))

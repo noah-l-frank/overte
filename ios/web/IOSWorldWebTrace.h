@@ -126,7 +126,7 @@ inline QVariantMap observe(const QVariantMap& query) {
     }
     if (actual.sequence>=9007199254740991ULL) { actual.complete=false;return {}; }
     const auto after=clock(actual);
-    QVariantMap result{{"iosWorldWebVersion",1},{"commandId",query.value("commandId")},{"runId",query.value("runId")},
+    QVariantMap result{{"iosWorldWebVersion",2},{"commandId",query.value("commandId")},{"runId",query.value("runId")},
         {"fixtureUrl",root},{"instance",actual.instance},{"sequence",static_cast<qulonglong>(++actual.sequence)},
         {"processId",QCoreApplication::applicationPid()},{"clockDomain","native-main-ios-world-web"},
         {"clockBefore",before},{"clockAfter",after},{"complete",actual.complete},

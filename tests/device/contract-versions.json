@@ -207,7 +207,7 @@
     "ios-avatar-image-change": {"current": 1, "reads": [1]},
     "ios-avatar-world": {"current": 1, "reads": [1]},
     "ios-avatar-world-acquisition": {"current": 1, "reads": [1]},
-    "ios-world-web-transcript": {"current": 1, "reads": [1]},
+    "ios-world-web-transcript": {"current": 2, "reads": [1, 2]},
     "ios-world-web-dom": {"current": 2, "reads": [1, 2]},
     "ios-world-web-dom-native": {"current": 1, "reads": [1]},
     "ios-world-web-geometry": {"current": 1, "reads": [1]},

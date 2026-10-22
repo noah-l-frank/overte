@@ -11,7 +11,8 @@ from adapters.native_feature_observation import decode,exact,fresh,integer,need,
 from adapters.normal_ui import NativeUIError
 from ios.adapters.places_model import text,tree as json_tree
 
-VERSION=1
+VERSION=2
+READS=(1,2)
 ACTION='feature-ios-world-web'
 FILE=ACTION+'.json'
 LIMIT=1048576
@@ -97,7 +98,7 @@ def validate(value,query,pid,epoch=None,previous=None):
     command(query)
     exact(value,{'iosWorldWebVersion','commandId','runId','fixtureUrl','instance','sequence','processId','clockDomain',
         'clockBefore','clockAfter','complete','eventSequence','events'})
-    need(type(value['iosWorldWebVersion']) is int and value['iosWorldWebVersion']==VERSION
+    need(type(value['iosWorldWebVersion']) is int and value['iosWorldWebVersion'] in READS
         and all(value[key]==query[key] for key in ('commandId','runId','fixtureUrl'))
         and type(value['instance']) is str and re.fullmatch(HEX,value['instance'])
         and integer(value['sequence'],1) and integer(pid,1) and type(value['processId']) is int and value['processId']==pid
@@ -125,7 +126,7 @@ def validate(value,query,pid,epoch=None,previous=None):
         earlier[event['sequence']]=event
     if previous is not None:
         validate(previous,dict(query,commandId=previous['commandId']),pid)
-        need(value['instance']==previous['instance'] and value['sequence']>previous['sequence']
+        need(value['iosWorldWebVersion']==previous['iosWorldWebVersion'] and value['instance']==previous['instance'] and value['sequence']>previous['sequence']
             and value['commandId']!=previous['commandId'] and value['eventSequence']>=previous['eventSequence']
             and a['epochMs']>=previous['clockAfter']['epochMs'] and a['monotonicMs']>=previous['clockAfter']['monotonicMs']
             and (previous['complete'] or not value['complete'])

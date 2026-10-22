@@ -11,7 +11,13 @@ action:"feature-ios-world-web",runId:"<32hex>",fixtureUrl:"<actual-run-root>"}`.
 The fixed private result file is `feature-ios-world-web.json`, limit 1048576.
 The provider uses `IOSWorldWebTrace.h`, `world_web_trace::command`,
 `world_web_trace::providerProperty` and its distinct `Provider` metatype.
-The result contract is `iosWorldWebVersion=1`; Python preserves native instance,
+The result writer is `iosWorldWebVersion=2`, with historical readers 1 and 2.
+Version 2 records `owner-destroyed` from the actual `QObject::destroyed` signal
+after the derived destructor and its members finish. Version 1 recorded derived
+destructor entry, so it remains historical input and cannot qualify whole
+retirement or authorize new world input. The gated connection captures only
+the original identity value, retains no QObject and changes no product action.
+Python preserves native instance,
 process, sequence, clock domain, event IDs and complete event prefixes.
 
 `world_web_dom` uses the equally closed `feature-ios-world-web-dom` action and

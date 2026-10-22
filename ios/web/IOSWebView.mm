@@ -452,7 +452,16 @@ IOSWebView::IOSWebView(QQuickItem* parent) : QQuickPaintedItem(parent), _private
 }
 IOSWebView::~IOSWebView() {
 #if defined(OVERTE_E2E_FEATURE_TESTS)
-    world_web_trace::event(featureWorldIdentity(true),"owner-destroyed");
+    if (featureEnabled()) {
+        const auto identity=featureWorldIdentity(true);
+        if (!world_web_trace::rootFor(identity).isEmpty()) {
+            // QObject emits this only after the derived destructor and its
+            // members have finished. Entry into this destructor is not death.
+            QObject::connect(this,&QObject::destroyed,[identity] {
+                world_web_trace::event(identity,"owner-destroyed");
+            });
+        }
+    }
     { QMutexLocker guard(&featureRegistryMutex);featureRegistry.remove(_private->featureHandle); }
 #endif
     tearDown();

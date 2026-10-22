@@ -213,7 +213,7 @@ REQUIRED = {
     "ios-avatar-image-change": 1,
     "ios-avatar-world": 1,
     "ios-avatar-world-acquisition": 1,
-    "ios-world-web-transcript": 1,
+    "ios-world-web-transcript": 2,
     "ios-world-web-dom": 2,
     "ios-world-web-dom-native": 1,
     "ios-world-web-geometry": 1,
