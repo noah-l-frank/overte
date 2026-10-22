@@ -7,7 +7,9 @@ import json
 from pathlib import Path
 import sys
 import unittest
+from unittest import mock
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
+from adapters.pico4 import lifecycle_source
 from adapters.pico4.lifecycle_source import PicoLifecycleSource,current_editor,summary,validate,accept
 from adapters.normal_ui import NativeUIError
 from self_tests.test_pico_chat_keyboard import keyboard
@@ -138,6 +140,33 @@ class LifecycleSourceTests(unittest.TestCase):
         native=Boundary();native.ignore=True
         with self.assertRaises(NativeUIError):native.source().capture(RUN)
         self.assertEqual(1,len(native.commands));self.assertLessEqual(native.clock,5.1)
+
+    def test_final_accept_and_guard_age_are_bounded_with_a_frozen_device_clock(self):
+        for fault in ('accept','guard'):
+            native=Boundary();source=native.source();source.capture(RUN);original=deepcopy(source.previous)
+            if fault=='accept':
+                accept_original=lifecycle_source.accept
+                def slow(*args):
+                    value=accept_original(*args);native.clock+=2;return value
+                with mock.patch.object(lifecycle_source,'accept',side_effect=slow):
+                    with self.subTest(fault=fault),self.assertRaises(NativeUIError):source.capture(RUN)
+            else:
+                calls=0
+                def slow_guard():
+                    nonlocal calls
+                    calls+=1
+                    if calls==4:native.clock+=2
+                    return True
+                source.guard=slow_guard
+                with self.subTest(fault=fault),self.assertRaises(NativeUIError):source.capture(RUN)
+            self.assertEqual(original,source.previous)
+
+    def test_oversize_or_non_string_original_is_rejected_before_json_decoding_even_for_another_nonce(self):
+        for raw in (' '*262145,None,{'commandId':'f'*32}):
+            native=Boundary();source=native.source();source.original=lambda:raw
+            with mock.patch.object(lifecycle_source,'decode') as decoder:
+                with self.subTest(raw_type=type(raw)),self.assertRaises(NativeUIError):source.capture(RUN)
+                decoder.assert_not_called()
 
     def test_transfer_deadline_and_lost_process_do_not_commit_the_new_source_cursor(self):
         native=Boundary();source=native.source();first=source.capture(RUN)
