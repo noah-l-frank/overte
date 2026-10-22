@@ -78,6 +78,7 @@ COMMON_HOST_CHECKS = (
     "android/phone/tests/device/test_snapshot_catalog_pass.py",
     "android/phone/tests/device/test_snapshots_full_retirement_audit.py",
     "android/phone/tests/device/test_snapshots_actor.py",
+    "android/phone/tests/device/test_snapshots_resident_actor.py",
     "android/phone/tests/device/test_snapshots_quiet_role_reuse.py",
     "android/phone/tests/device/test_snapshot_handoff_admission_audit.py",
     "android/phone/tests/device/test_navigation_foundations.py",
