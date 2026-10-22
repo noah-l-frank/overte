@@ -284,7 +284,10 @@
       "sources": [
         "tests/device/adapters/pico4/normal_create.py",
         "tests/device/adapters/token_create_ui.py",
-        "tests/device/feature_journeys/CREATE_SOURCE.md"
+        "tests/device/feature_journeys/CREATE_SOURCE.md",
+        "tests/device/adapters/pico4/create_management.py",
+        "tests/device/adapters/pico4/CREATE_FEATURE.md",
+        "android/vr/pico/tests/device/test_create_management.py"
       ],
       "declaredCheckpoints": 21,
       "inputVerbs": [
@@ -329,7 +332,7 @@
         "Drain original model/texture/picker/export callbacks and files",
         "Restore rez permission, view and actual unowned scene inventory"
       ],
-      "nextExecutableStep": "Extend the existing TokenCreateUI and Pico navigation controls for the actual JSON picker and export, then join the existing entity observer to original file/texture and domain permission sources before enabling the area.",
+      "nextExecutableStep": "The existing opt-in create-management vertical flow now has actual Home ray, normal token inputs, independent entity inventory and owned no-resend cleanup. Continue full Create-specific JSON picker/export staged originals, PolyVox controls/effects, domain rez-denial actor, texture/history/stereo and whole final retirement before advertising feature.create.*.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     },
@@ -716,7 +719,9 @@
         "tests/device/adapters/pico4/normal_audio.py",
         "tests/device/adapters/pico4/binding.py",
         "tests/device/native/RECORDED_PREVIEW_EVIDENCE.md",
-        "tests/device/feature_journeys/scenarios.py"
+        "tests/device/feature_journeys/scenarios.py",
+        "tests/device/adapters/recorded_preview_evidence.py",
+        "tests/device/self_tests/test_recorded_preview_evidence.py"
       ],
       "declaredCheckpoints": 14,
       "inputVerbs": [
@@ -756,7 +761,7 @@
         "Release native E2E PCM/history files after product quiet state",
         "Independently inspect actual memory/files and restore original mute/echo/permission"
       ],
-      "nextExecutableStep": "Compose existing Pico TokenAudioUI, native cycle/history and PCM readers with a separately owned fixture stimulus/acoustic recorder and role journals; native sink-write success alone is not acoustic playback evidence.",
+      "nextExecutableStep": "Compose existing normal VR audio controls and hardened original immutable PCM/phase reader into a durable cycle owner, then bind independent acoustic stimulus/capture roles, background/restart and complete quiet retirement. Sink bytes alone do not prove acoustic playback.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     },
@@ -772,7 +777,12 @@
         "tests/device/adapters/pico4/normal_chat.py",
         "tests/device/adapters/pico4/binding.py",
         "tests/device/fixture/chat_actor_process.py",
-        "tests/device/feature_journeys/CHAT_SOURCE.md"
+        "tests/device/feature_journeys/CHAT_SOURCE.md",
+        "interface/src/ui/Keyboard.cpp",
+        "tests/device/native/ChatViewObservation.h",
+        "tests/device/adapters/native_chat_view.py",
+        "tests/device/self_tests/test_pico_chat_keyboard.py",
+        "tests/device/adapters/pico4/CHAT_FEATURE.md"
       ],
       "declaredCheckpoints": 25,
       "inputVerbs": [
@@ -801,7 +811,7 @@
         "open"
       ],
       "missingOperationsOrEvidence": [
-        "Whole ordinary Chat UI/storage/context/actual VR keyboard coordinator",
+        "Whole ordinary Chat UI/storage/context/actual VR keyboard coordinator; original entity keyboard v2 source is now present",
         "Peer normal send/local-distance and owned mixer outage/recovery actuation",
         "Independent per-role native/UI/storage/message ledger and resource retirement"
       ],
@@ -816,7 +826,7 @@
         "Restore peer position and owned mixer service",
         "Close view and observe keyboard, peer work and capture ownership fully retired"
       ],
-      "nextExecutableStep": "Join PicoChatIO and passive Chat sources with the existing owned peer IPC/mixer fixture, adding actual VR keyboard and separately acquired UI/storage observations; the default peer heartbeat proves no Chat delivery.",
+      "nextExecutableStep": "Join PicoChatIO, actual entity-keyboard v2 and separately acquired native/UI/storage observations with peer normal send/distance, owned mixer outage/recovery, profile restoration and quiet final retirement. Existing default peer heartbeat proves no Chat delivery.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     },

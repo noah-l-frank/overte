@@ -1,0 +1,60 @@
+# Local build and integration continuation, 2026-10-22
+
+The user explicitly authorized local builds, superseding the initial session
+compiler/build prohibition. No device access, installation/dependency changes,
+Jenkins runs, product functional changes or remote writes were performed.
+The reviewed Pico doctor found the existing SDK36, NDK27, CMake, JDK21, Conan,
+compiler and Gradle wrapper. This is tool availability, not an APK qualification.
+
+## Executed native and production-surface checks
+
+The real Qt5 tablet harness compiles the actual NavigationUi and NativeFieldInput
+sources plus extracted original VR surface pointer bodies with Qt5 5.15.18 and
+the existing read-only GLM headers. Both native programs pass: Navigation 31
+internal checks; Snapshot 41 checks and ten ordinary pointers. Surface/window
+service boundaries are explicit host fixtures; no application capture, Android
+runtime, headset or stereo acceptance is implied. The first real compilation
+exposed an omitted dependency: the harness selected `sendPointerClick` without
+its actual `sendPointerAt` body. Including both original bodies fixes the
+harness without changing product code.
+
+The unchanged production `PhoneEmote.qml`, which the actual Pico bootstrap uses
+through its separately loaded Emote engine, passes five real Qt5 QML checks
+(including setup/teardown). The exact observed ten-button click trace then enters
+the unchanged production JavaScript: all 29 Node cases pass. Actual animation
+cache, avatar and timers remain explicit seams. The normal V8 native-call
+harness also compiles the original method-dispatch body and passes all seven
+execution modes with real V8/Qt meta dispatch; its single owning test passes.
+This last harness uses the normal non-E2E dispatch build and does not compile
+or qualify the new E2E caller instrumentation or the full ScriptManager.
+
+The initial Qt5 invocation used a no-longer-existing historical GLM path. After
+locating the existing actual headers, a separate attempt hit the workstation
+`/tmp` quota and the missing pointer dependency above. Original sources were
+preserved. Successful native runs use this session's own private 0700 build temp
+area on `/home`; no shared cache, reference files or global storage were changed.
+Original logs and source/action identities are retained privately.
+
+## Parallel feature integration
+
+Reviewed local selections are integrated only on the isolated Pico branch:
+
+- Audio `8252deb881` -> `c7356df824`: immutable actual PCM/event history and
+  genuine complete phase/draining requirements.
+- Audio `1b121403d7` -> `55776065c6`: Status and PCM taps share the actual
+  original Start instant. The real observer header compiles and executes with
+  Qt6 Core and an explicit audio-format seam; AudioClient/QtMultimedia and
+  actual acoustic playback remain unqualified.
+- Chat `9ab61ccda3` -> `209076f762`: original Pico entity-keyboard inventory,
+  ChatView v2 with legacy reads, candidate-bound VR source and counterexamples.
+- Create `b9b2c3d312` -> `81aa42ffd9`: existing opt-in normal create-management
+  routing, actual Home ray, independent entity observation and owned cleanup.
+
+The combined 94-case component selection passes. The existing Pico groups
+`normal-create`, `normal-chat`, `script-feature-engine`, `suite-runner` and
+`coverage-matrix` all pass (5/52 selected groups, 138.68 seconds). The unchanged
+complete Script engine remains exercised; no full catalog result is claimed.
+Create, Audio and Chat agents continue their own remaining whole-feature work.
+Only Scripts, Authentication and Graphics currently have complete source/host
+feature triples. Application native compilation, a complete Pico APK and all
+physical/device qualification remain unverified.

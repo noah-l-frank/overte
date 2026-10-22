@@ -531,3 +531,11 @@ inputs. Device access, installation/dependency changes, Jenkins/device services,
 functional product changes, remote writes and protected/foreign integration
 remain outside the current authorized scope. Complete native or Pico build
 qualification must be recorded separately from narrow host fixture compilation.
+
+
+The [first authorized native checks](BUILD_VERIFICATION_20261022.md) now compile
+and execute original Qt5 tablet pointer/field bodies and ordinary V8 dispatch,
+and exercise the exact production Emote QML/JavaScript click trace. These narrow
+host results do not qualify the new E2E native caller or full Pico application.
+Parallel Create/Chat/Audio packets are locally integrated; their full feature
+triples remain unavailable while each owner continues the missing composition.

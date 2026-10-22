@@ -1994,5 +1994,92 @@
     ],
     "details": "Actual nearest V8 frame ID joins immutable original compilation metadata, original manager assignment/code and original native thread handoff. Original Rig history retains explicit null native origins. Closed v2 readers accept legacy v1, reject downgrade and keep per-manager call/compilation identities across bounded trimming; no Phone callback/timer work instrumentation selected. Host fixtures use reviewed standalone Emote source pins, not Phone input behavior.",
     "limitations": "Native V8/Qt/Rig boundaries are synthetic; C++ uncompiled and physical runs zero. Profile/cache/normal VR input/stereo/actor/full cleanup remain incomplete. Three of fourteen complete source/host feature areas; common journey v16 unchanged."
+  },
+  "parallelFeatureIntegration20261022": {
+    "status": "source-host-verified-partial-features",
+    "commits": {
+      "audio": [
+        "8252deb881",
+        "c7356df824"
+      ],
+      "chat": [
+        "9ab61ccda3",
+        "209076f762"
+      ],
+      "create": [
+        "b9b2c3d312",
+        "81aa42ffd9"
+      ],
+      "audioNativeStart": [
+        "1b121403d7",
+        "55776065c6"
+      ]
+    },
+    "checks": [
+      {
+        "command": "python3 -m unittest self_tests.test_recorded_preview_evidence self_tests.test_recorded_preview_history self_tests.test_pico_chat_keyboard self_tests.test_native_chat_view self_tests.test_native_chat_observation self_tests.test_native_animation_caller self_tests.test_native_animation_history",
+        "status": "passed",
+        "tests": 94,
+        "durationSeconds": 0.257
+      },
+      {
+        "command": "python3 android/vr/pico/tests/pico4-test-suite.py --test normal-create --test normal-chat --test script-feature-engine --test suite-runner --test coverage-matrix --timeout 240",
+        "status": "passed",
+        "selectedGroups": 5,
+        "catalogGroups": 52,
+        "durationSeconds": 138.68,
+        "junit": "parallel-create-chat-audio-pico.xml"
+      },
+      {
+        "command": "python3 tests/run-project-tests.py --suite documentation --suite documentation-contracts --suite source-layout --suite project-coverage",
+        "status": "passed",
+        "suites": 4,
+        "durationSeconds": 2.78,
+        "junit": "parallel-native-integration-project.xml"
+      }
+    ],
+    "completeFeatureAdded": false
+  },
+  "authorizedNativeChecks20261022": {
+    "userAuthorizedBuilds": true,
+    "report": "BUILD_VERIFICATION_20261022.md",
+    "picoDoctor": "ready-existing-tools-no-installation",
+    "qt5Tablet": {
+      "status": "passed",
+      "tests": 2,
+      "durationSeconds": 15.877,
+      "internalNavigationChecks": 31,
+      "internalSnapshotChecks": 41,
+      "normalSnapshotPointers": 10,
+      "qt": "5.15.18",
+      "harnessRepair": "Include actual sendPointerAt dependency alongside sendPointerClick"
+    },
+    "productionEmote": {
+      "status": "passed",
+      "qmlChecksIncludingSetupTeardown": 5,
+      "nodeTests": 29,
+      "qt": "5.15.18",
+      "trace": "Original ten actual QML button clicks passed to unchanged production JS",
+      "boundary": "Native animation/cache/timers remain explicit seams"
+    },
+    "ordinaryV8Dispatch": {
+      "status": "passed",
+      "tests": 1,
+      "modes": 7,
+      "durationSeconds": 3.14,
+      "boundary": "Normal non-E2E dispatch body with real V8 and Qt MOC; new E2E caller and full native application remain uncompiled"
+    },
+    "initialFailures": [
+      "Historical GLM path no longer exists; actual existing read-only package headers located",
+      "Workstation /tmp quota; use own private home build temp area",
+      "Harness omitted actual sendPointerAt dependency; corrected original-body extraction"
+    ],
+    "nativeApplicationBuild": "unverified",
+    "physicalRuns": 0,
+    "recordedPreviewObserver": {
+      "status": "passed",
+      "command": "python3 tests/device/contracts/audio/test_recorded_preview_observation.py",
+      "boundary": "Actual observer header, Qt6Core and explicit audio-format value seam; synthetic byte inputs; no AudioClient/QtMultimedia/acoustic/device qualification"
+    }
   }
 }

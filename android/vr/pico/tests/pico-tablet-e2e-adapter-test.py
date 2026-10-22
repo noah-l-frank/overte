@@ -134,7 +134,7 @@ public:
                     "void OffscreenQmlSurface::hoverBeginEvent(", "void OffscreenQmlSurface::hoverEndEvent(",
                     "bool OffscreenQmlSurface::handlePointerEvent(")]
                 functions += [original(BRIDGE, signature) for signature in (
-                    "bool effectiveVisible(", "QTouchDevice& bridgeTouchDevice(", "bool sendPointerClick(")]
+                    "bool effectiveVisible(", "QTouchDevice& bridgeTouchDevice(", "bool sendPointerAt(", "bool sendPointerClick(")]
                 (Path(directory) / "actual-pointer-route.inc").write_text("\n".join(functions))
                 pointer_flags += ["-DOVERTE_TEST_PICO_SURFACE_POINTER=1",
                                   "-I" + str(ROOT / "libraries/script-engine/src")]
