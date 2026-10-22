@@ -6,14 +6,16 @@
 #include <QDateTime>
 #include <QHash>
 #include <QRegularExpression>
+#include <QPointer>
+#include <EntityItem.h>
 #include <QThread>
 #include <QUuid>
 #include <QVariantMap>
 #include <memory>
-class EntityItem;
 namespace overte::e2e {
 // Original Tree objects only. Never holds a strong entity/renderer reference,
-// removes an entity, or substitutes tree absence for original-object death.
+// removes an entity, or substitutes tree absence/shared-holder expiry for
+// actual QObject death (the original Model factory uses deleteLater()).
 class CreateEntityLifetimes {
 public:
     QVariantMap observe(const QString& run,const QUuid& id,const std::shared_ptr<EntityItem>& actual) {
@@ -26,18 +28,18 @@ public:
         auto& records=_runs[run];
         if (!records.contains(id)) {
             if (!actual || records.size()>=32) {return {};}
-            records.insert(id,{QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-'),epoch,actual});
+            records.insert(id,{QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-'),epoch,actual,actual.get()});
         }
         const auto& original=records[id];
         if (actual) {
             const auto first=original.object.lock();
-            if (!first || first.get()!=actual.get()) {return {};}
+            if (!first || first.get()!=actual.get() || original.guard.data()!=actual.get()) {return {};}
         }
         return {{"id",id.toString(QUuid::WithoutBraces)},{"instance",original.instance},
-            {"firstObservedEpochMs",original.created},{"alive",!original.object.expired()},{"inTree",bool(actual)}};
+            {"firstObservedEpochMs",original.created},{"alive",!original.object.expired() || !original.guard.isNull()},{"inTree",bool(actual)}};
     }
 private:
-    struct Original {QString instance;qint64 created;std::weak_ptr<EntityItem> object;};
+    struct Original {QString instance;qint64 created;std::weak_ptr<EntityItem> object;QPointer<EntityItem> guard;};
     QHash<QString,QHash<QUuid,Original>> _runs;bool _valid {true};qint64 _epoch {0};
 };
 } // namespace overte::e2e

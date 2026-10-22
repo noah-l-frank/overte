@@ -27,8 +27,10 @@ class CreateEntitiesNativeTests(unittest.TestCase):
             libraries=['-L'+str(prefix/'usr/lib64')]
         flags=shlex.split(subprocess.check_output(['pkg-config','--cflags','--libs','Qt'+major+'Core'],text=True,env=environment))
         with tempfile.TemporaryDirectory(prefix='pico-create-entities-') as directory:
-            stage=Path(directory);source=(ROOT/'interface/src/scripting/TestScriptingInterface.cpp').read_text()
+            stage=Path(directory);(stage/'EntityItem.h').write_text('#pragma once\n');source=(ROOT/'interface/src/scripting/TestScriptingInterface.cpp').read_text()
             (stage/'OriginalCreateEntities.inc').write_text(function(source,'QVariantMap TestScriptingInterface::featureCreateEntities('))
+            factory=(ROOT/'libraries/entities-renderer/src/RenderableModelEntityItem.cpp').read_text()
+            (stage/'OriginalEntityDeleter.inc').write_text(function(factory,'[](RenderableModelEntityItem* ptr)'))
             binary=stage/'entity-test'
             subprocess.run(['c++','-std=c++17','-fPIC','-pthread','-I'+directory,'-I'+str(ROOT/'tests/device/native'),str(HERE/'create-entities-native.cpp'),
                 '-o',str(binary),*libraries,*flags],check=True,timeout=60,env=environment)
