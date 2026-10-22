@@ -669,10 +669,11 @@ QVariantMap TestScriptingInterface::featureAudioSettingsObservation(const QVaria
         auto original=static_cast<AudioClient*>(owner);const auto epoch=QDateTime::currentMSecsSinceEpoch();
         const auto preview=original->featureRecordedVoiceObservation();
         if (preview.value("active").userType()!=QMetaType::Bool || preview.value("cycle").userType()!=QMetaType::ULongLong) {return overte::e2e::AudioSettingsPart{};}
+        const auto lifetime=original->featureRecordedVoiceLifetime();if(lifetime.isEmpty()) {return overte::e2e::AudioSettingsPart{};}
         const QVariantMap native{{"recording",original->getRecording()},{"muted",original->isMuted()},
             {"localEcho",original->getLocalEcho()},{"serverEcho",original->getServerEcho()},
             {"previewActive",preview.value("active")},{"previewCycle",preview.value("cycle")}};
-        return overte::e2e::AudioSettingsPart{{{"clientCapturedEpochMs",epoch},{"native",native}},{{"client",original}}};
+        return overte::e2e::AudioSettingsPart{{{"clientCapturedEpochMs",epoch},{"native",native},{"previewLifetime",lifetime}},{{"client",original}}};
     });
     if(clientPart.values.isEmpty()) {return {};}
     const auto scriptPart=queue->read("script",script.data(),[](QObject* owner) {

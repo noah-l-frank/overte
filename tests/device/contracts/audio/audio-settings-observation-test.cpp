@@ -14,6 +14,7 @@
 #include <functional>
 #include <memory>
 #include "tests/device/native/AudioSettingsObservation.h"
+#include "libraries/audio-client/src/RecordedPreviewDeferred.h"
 #include "tests/device/native/PrivatePreviewFiles.h"
 
 class InputBoundary:public QObject {
@@ -45,6 +46,13 @@ public:
     int reads{0};bool malformed{false};
     QVariantMap featureRecordedVoiceObservation(){assert(thread()==QThread::currentThread());++reads;
         return {{"active",false},{"cycle",malformed?QVariant(0):QVariant::fromValue(qulonglong(0))}};}
+    overte::e2e::RecordedPreviewDeferred deferred;
+    QVariantMap featureRecordedVoiceLifetime(){assert(thread()==QThread::currentThread());
+        return {{"audioPreviewLifetimeVersion",1},{"deferred",deferred.snapshot(this)},
+            {"previewTimer",QVariantMap{{"created",false},{"id",""},{"createdEpochMs",0},{"alive",false},{"active",false}}},
+            {"pendingLoopbackBytes",0},{"pendingLoopbackCapacityBytes",0},{"loopbackDeviceAssigned",false},
+            {"retainedPreviewBytes",0},{"previewBufferCapacityBytes",0},{"previewTapStateEmpty",true}};
+    }
     bool getRecording()const{return false;}bool isMuted()const{return false;}
     bool getLocalEcho()const{return false;}bool getServerEcho()const{return false;}
 };

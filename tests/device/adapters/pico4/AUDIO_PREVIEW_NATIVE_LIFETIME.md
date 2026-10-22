@@ -36,8 +36,16 @@ The latter can leave its functor retained until Qt's later cleanup; the test
 waits for the original lease rather than deleting an internal Qt timer. No audio
 engine or device runs. This check is part of `audio-settings-source`.
 
-This native API is preparation for the Pico source/owner cleanup join. The
-normal page segment still reports partial Audio qualification and retains all
+The version 2 Pico Audio settings source reads this DTO through its existing
+bounded original AudioClient owner-thread queue, alongside the independent
+native preview cycle. Its strict reader binds immutable registrations and event
+times, keeps the receiver identity fixed, and rejects missing cycle callbacks,
+resurrection, rewritten events and size-only allocation release. Historical
+settings version 1 remains readable but cannot be adopted as lifetime evidence.
+The actual native Qt test emits original DTOs to this Python reader without
+rewriting or inventing native values.
+
+The normal page segment still reports partial Audio qualification and retains all
 journals, Qt contexts and process scopes. Full qualification also needs the
 independent acoustic/peer recipe and original process/resource closure. Native
 polling timers and reusable recording-buffer allocations can remain retained;
