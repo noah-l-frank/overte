@@ -637,3 +637,33 @@ The complete acquisition has a real five-second deadline. Stale current source,
 changed bytes/inodes, lost guards and slow acquisition remain failures. The
 existing `acquire()` foundation behavior and decoder are unchanged. These are
 host/source boundaries, not physical Android acceptance.
+
+### Public-state measurement joins
+
+`overte_phone_snapshots_measurements` derives public fields from the role's
+original VM/native group, owned FD/file inventory, Android export callbacks,
+actual OS destinations/readback jobs, separate receiver identity and copy, and
+actual HTTPS multipart/reply receipts. It accepts no expected state or desired
+count. A retained effect is rejoined against its current actual owner. Save
+requires actual copy/publication and closed readback; Share requires the actual
+chosen component, URI/UID/grant and closed independent consumer copy; Upload
+requires both original HTTP exchanges and terminated native lifetimes.
+
+Before this scope issues any export, the exact uninitialized readback packet
+remains explicitly unavailable. An unchanged empty original export prefix can
+establish that no scope-owned export has occurred; it cannot establish an empty
+OS destination inventory or qualify cleanup. After export, complete fresh v2
+readbacks are mandatory. Empty live `captureHistory` requires actual scope
+retirement: sealed and absent files, original typed settings restoration, fresh
+OS absence, revoked grants, terminated Java/native work and the separate
+consumer's actual retirement. Immutable raw VM/native histories are retained.
+The facade must additionally establish its independent real quiet windows,
+host-owner retirement and actual actor exit.
+
+The dedicated host counterexamples cover actual file identities, unfinished
+inventories, borrowed Save/Share receipts, missing OS publication/consumption,
+changed bodies/providers/tickets/replies, old current sources, and cleanup that
+leaves settings, descriptors, workers, grants or files live. The upload join
+uses the real loopback HTTPS provider's retained multipart original. Native,
+VM and Android producers in this check are explicit synthetic seams; this
+component does not enable or qualify the complete public Snapshot capability.
