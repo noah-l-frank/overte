@@ -1078,6 +1078,15 @@ def create_adapter(args, base_class):
                 native.clock_ms, native.guard, native.pid, monotonic=native.monotonic, sleep=native.sleep)
 
         @_private
+        def _audio_settings_source(self,target,*,source_lock=None):
+            from adapters.pico4.audio_settings_source import PicoAudioSettings,FILE
+            native=self._native_feature_observer(target)
+            source_lock=self._script_journey()._lock(target,source_lock)
+            return PicoAudioSettings(native.send,
+                lambda:self.adb.read_debug_app_file(target,'org.overte.pico','files/overte-e2e/'+FILE,attempts=1),
+                native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep,source_lock=source_lock)
+
+        @_private
         def _lifecycle_drive_source(self,target,*,source_lock=None):
             from adapters.pico4.lifecycle_drive import PicoLifecycleDrive,FILE
             native=self._native_feature_observer(target)
