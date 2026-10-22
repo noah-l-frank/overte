@@ -7,12 +7,16 @@ complete TestScriptingInterface translation-unit build is claimed.
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 from pathlib import Path
+import json
+import re
 import shlex
 import subprocess
 import tempfile
 import unittest
 
 ROOT=Path(__file__).resolve().parents[4]
+PROBE=(ROOT/'tests/device/probe/overte_e2e_probe.js').read_text()
+PRIVATE_NAMES=sorted(set(re.findall(r'Test\.saveObject\s*\([^;]*?,\s*"((?:phone-|feature-)[^"\n]+\.json)"\s*\)',PROBE)))
 PREFIX=r'''
 #include <QCoreApplication>
 #include <QCryptographicHash>
@@ -47,7 +51,10 @@ int main(int argc,char** argv) {
     QCoreApplication app(argc,argv);QTemporaryDir temporary;if(!temporary.isValid())return 1;
     TestScriptingInterface test;test._testResultsLocation=temporary.path();
     const QString selected=QString::fromLocal8Bit(argv[1]);
-    const QStringList names{"phone-snapshot-ui.json","phone-snapshot-cancel.json","phone-snapshot-readback.json","phone-snapshot-upload-observation.json"};
+    const QStringList names=selected=="ordinary" ? QStringList{
+        "ios-primary-observation.json","pico-collaboration-observation.json","client-command-result.json",
+        "overte-probe.json","voice-result.json","e2e-collaboration-observation.json","unrelated-ordinary.json"
+    } : QStringList{PRIVATE_PRODUCER_NAMES};
     const QVariantMap packet{{"actualPrivateOriginal","private-path/uri"},{"sequence",1}};
     const auto raw=QJsonDocument::fromVariant(packet).toJson();
     ::umask(0022);
@@ -80,8 +87,7 @@ int main(int argc,char** argv) {
         } else if(selected=="ordinary") {
             // The non-instrumented product path remains the existing generic
             // writer, including ordinary filenames in an E2E-capable binary.
-            const auto normal=name+".ordinary";test.saveObject(packet,normal);
-            if(read(path+".ordinary")!=raw)return 13;
+            test.saveObject(packet,name);if(read(path)!=raw)return 13;
         } else if(selected=="disabled-build") {
             test.saveObject(packet,name);if(read(path)!=raw)return 14;
         } else return 15;
@@ -98,7 +104,9 @@ class SnapshotPrivatePublicationTests(unittest.TestCase):
         temp=tempfile.TemporaryDirectory(prefix='qt6-',dir=parent);cls.addClassCleanup(temp.cleanup);stage=Path(temp.name)
         source=(ROOT/'interface/src/scripting/TestScriptingInterface.cpp').read_text()
         start=source.index('void TestScriptingInterface::saveObject(');end=source.index('\n}',start)+2
-        cpp=stage/'actual.cpp';cpp.write_text(PREFIX+source[start:end]+SUFFIX)
+        assert len(PRIVATE_NAMES)>=50 and 'phone-snapshot-observation.json' in PRIVATE_NAMES
+        names=','.join(json.dumps(name) for name in PRIVATE_NAMES)
+        cpp=stage/'actual.cpp';cpp.write_text(PREFIX+source[start:end]+SUFFIX.replace('PRIVATE_PRODUCER_NAMES',names))
         flags=shlex.split(subprocess.check_output(['pkg-config','--cflags','--libs','Qt6Core'],text=True))
         cls.binaries={}
         for enabled in (True,False):
@@ -107,7 +115,7 @@ class SnapshotPrivatePublicationTests(unittest.TestCase):
                 '-I'+str(ROOT),str(cpp),'-o',str(binary),*flags],check=True,timeout=60)
     def case(self,mode,*,enabled=True,test_script=True):
         subprocess.run([str(self.binaries[enabled]),mode,*(['--testScript'] if test_script else [])],check=True,timeout=10)
-    def test_all_four_original_sources_publish_private_atomically_without_truncating_aliases(self):self.case('atomic-private')
+    def test_all_actual_private_phone_and_shared_feature_producers_publish_atomically(self):self.case('atomic-private')
     def test_live_and_dangling_symlinks_cannot_publish_or_modify_foreign_files(self):self.case('aliases')
     def test_missing_testscript_gate_cannot_create_private_originals(self):self.case('gate',test_script=False)
     def test_failed_atomic_publication_preserves_the_previous_original(self):self.case('publication-failure')

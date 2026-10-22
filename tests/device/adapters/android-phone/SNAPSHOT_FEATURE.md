@@ -930,14 +930,18 @@ Snapshot to the thirteen qualified Phone compositions. No hardware run,
 installation, complete Android build, Proxmox laboratory result or device
 acceptance is claimed by these source and host checks.
 
-The fixed private UI, FastCancel, Save readback and upload-observation JSON
-outputs use the existing E2E-only atomic `QSaveFile` publication path alongside
+The fixed private native Snapshot, UI, FastCancel, Save readback and
+upload-observation JSON outputs use the existing E2E-only atomic `QSaveFile`
+publication path alongside
 the handoff/settings/capture-file outputs. They require `--testScript`, reject
 live or dangling symlinks, set mode 0600 and do not fall back to truncating an
 existing file if atomic replacement fails. `test_snapshot_private_publication.py`
-compiles the unchanged actual `saveObject` method with Qt6 and tests all four
-names on a real private host filesystem, including old-inode/hardlink
+compiles the unchanged actual `saveObject` method with Qt6. It extracts all
+58 actual fixed Phone/shared-feature output names from the original probe and
+tests their publication on a real private host filesystem, including old-inode/hardlink
 preservation, failed publication and the missing launch gate. Ordinary names
-and a build without the E2E flag retain their existing writer behavior. Only
+and a build without the E2E flag retain their existing writer behavior. Existing
+general probe, voice and iOS/Pico output paths keep their original behavior.
+The production allowlist remains literal names rather than a prefix grant. Only
 the unrelated GPU receipt service is an unavailable host seam; the complete
 scripting translation unit and Android client remain uncompiled by this check.
