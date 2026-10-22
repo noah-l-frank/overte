@@ -128,6 +128,8 @@
     "recorded-preview-evidence": {"current": 1, "reads": [1]},
     "recorded-preview-history": {"current": 1, "reads": [1]},
     "audio-preview-owner": {"current": 1, "reads": [1]},
+    "pico-lifecycle-ui-observation": {"current": 1, "reads": [1]},
+    "lifecycle-ui-source-state": {"current": 1, "reads": [1]},
     "fixture-environment": {"current": 1, "reads": [1]},
     "matrix-summary": {"current": 1, "reads": [1]},
     "probe-snapshot": {"current": 2, "reads": [2]},
