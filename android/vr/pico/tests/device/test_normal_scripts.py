@@ -637,6 +637,27 @@ class PicoNormalScriptsTests(unittest.TestCase):
         with self.assertRaises(ValueError):self.instance._chat_mixer(self.native.target,controls,primary,actor)
         self.assertIsNone(owner.store.read());self.assertEqual([],peer.commands)
 
+    def test_pico_chat_mixer_recovery_factory_requires_original_candidate_but_no_running_native_source(self):
+        from copy import deepcopy
+        from self_tests import test_chat_mixer_owner as mixer_seams
+        from adapters.chat_journey.mixer_recovery import ChatMixerRecovery
+        fixture=mixer_seams.MixerOwnerTests();fixture.setUp();self.addCleanup(fixture.doCleanups)
+        fixture.owner.remove(20000)
+        # Explicit source seam: retain the original measured controller/native
+        # history and supply this test's actual Pico wrapper candidate binding.
+        binding=self.instance._scripts(self.native.target).binding
+        original=deepcopy(fixture.store.read());original['binding']=binding
+        original['peerBinding']=binding|dict(processIdentity='456:2000',targetFingerprint='d'*64)
+        original['transcripts']=[self.instance._chat_samples_store(self.native.target,role).path.name for role in ('primary','actor')]
+        store=self.instance._chat_mixer_store(self.native.target);store.write(original,None)
+        before=len(self.native.inputs);self.native.running=False
+        owner=self.instance._chat_mixer_recovery(self.native.target,fixture.controls(),CHAT_RUN)
+        self.assertIsInstance(owner,ChatMixerRecovery);self.assertEqual(binding,owner.base['binding'])
+        self.assertEqual(before,len(self.native.inputs));self.assertEqual(original,store.read())
+        self.native.digest='f'*64
+        with self.assertRaises(ValueError):self.instance._chat_mixer_recovery(self.native.target,fixture.controls(),CHAT_RUN)
+        self.assertEqual(original,store.read());self.assertEqual(before,len(self.native.inputs))
+
     def test_pico_chat_process_teardown_preserves_restored_mixer_owner_and_original_input_intent(self):
         store=self.instance._chat_mixer_store(self.native.target)
         original={'phase':'online','unreleased':'original-mixer-input-and-transcript'};store.write(original,None)

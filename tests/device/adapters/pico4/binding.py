@@ -1164,6 +1164,24 @@ def create_adapter(args, base_class):
             return ChatMixerOwner(controls,(primary,actor),self._chat_mixer_store(target),
                 monotonic=native.monotonic,sleep=native.sleep)
 
+        @_private
+        def _chat_mixer_recovery(self,target,controls,run):
+            from adapters.chat_journey.mixer_recovery import ChatMixerRecovery
+            store=self._chat_mixer_store(target);original=store.read()
+            _need(type(original) is dict and type(original.get('binding')) is dict)
+            binding=original['binding']
+            _need(original.get('runId')==run and original.get('transcripts')==
+                [self._chat_samples_store(target,role).path.name for role in ('primary','actor')])
+            def guard():
+                _need(hashlib.sha256((target+'\0'+str(self.pico_configuration)).encode()).hexdigest()==binding['targetFingerprint'])
+                installed=self._installation(target)
+                _need(all(installed[key]==binding[key] for key in ('sourceRevision','artifactSha256')))
+                return True
+            guard()
+            # No running app/Qt/OpenXR source is required for the distinct
+            # original fixture process restoration. No native journal is read.
+            return ChatMixerRecovery(controls,store,binding,run,guard)
+
         def _chat_no_replay_store(self,target):
             state,_ui=self._script_paths(target)
             return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-','chat-no-replay-')))
