@@ -16,6 +16,7 @@ from adapters.native_feature_observation import exact,integer,need
 from adapters.native_vulkan_world_frame import command,storage,absent,PNG_LIMIT
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.owned_vulkan_world_frame import VulkanWorldFrameOwner
+from adapters.original_marker_restoration_frames import owns_slot
 from adapters.script_feature.history import pack,unpack,same
 from feature_journeys.phase_fixture import validate as phase_packet
 from feature_journeys.contract import identifier
@@ -33,7 +34,7 @@ def retained_file(owner,root,binding,run,role,request,lock):
         def discard(self,*_):need(False)
     scope=VulkanWorldFrameOwner(Archive(lock.path.with_name('graphics-world-frame-'+role+'-0-'+request[4:]+'.json')),
         root,binding,run,role,0,request,lambda *_:need(False),lambda:True,source_lock=lock)
-    scope._load();need(scope.state['phase']=='released' and absent(scope.state['absence']))
+    scope._load();need(owns_slot(scope.state) and scope.state['phase']=='released' and absent(scope.state['absence']))
     path=Path(root)/scope.name
     if scope.state['file'] is None:need(not path.exists());return None
     descriptor=os.open(path,os.O_RDONLY|getattr(os,'O_NOFOLLOW',0)|getattr(os,'O_NONBLOCK',0))
@@ -167,7 +168,7 @@ class IOSEmoteSampleRecovery:
             attempt['started']=deepcopy(window.started);self.save()
             owner=s.owner(row)
             if owner.store.read() is not None:
-                proof=owner.release();attempt['owner']=deepcopy(owner.store.read())
+                need(owns_slot(owner.store.read()));proof=owner.release();attempt['owner']=deepcopy(owner.store.read())
                 attempt['partialFile']=retained_file(attempt['owner'],s.root,s.binding,s.run,s.role,row['requestId'],s.lock)
             else:proof=self.inspect_unused(attempt,row,live)
             need(absent(proof));attempt['absence']=deepcopy(proof);self.save()

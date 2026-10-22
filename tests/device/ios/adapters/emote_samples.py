@@ -23,6 +23,7 @@ from ios.adapters.emote_marker_scope import IOSEmoteMarkerScope
 from ios.adapters.emote_images import compose,originals
 from ios.adapters.graphics_history import restore_native
 from ios.adapters.script_runtime import IOSScriptRuntime
+from adapters.original_marker_restoration_frames import owns_slot
 from ios.adapters.avatar_state import session
 
 VERSION=2
@@ -42,7 +43,7 @@ def archived_sample(value,*,root,binding,run,role,lock,policy,marker_nonce,marke
     identifier(value['requestId'][4:]);identifier(value['ticket'])
     if value['avatarId'] is not None:session(value['avatarId'])
     rows=unpack(value['payload']);owners=unpack(value['owner']);need(len(rows)==len(owners)==1)
-    frame,owner=rows[0],owners[0];need(type(frame) is dict and type(owner) is dict
+    frame,owner=rows[0],owners[0];need(type(frame) is dict and type(owner) is dict and owns_slot(owner)
         and same(owner['frame'],frame['capture']) and owner['ticket']==value['ticket']
         and any(same(row['receipt'],frame['retirement']) for row in unpack(owner['transcript'])))
     raw=VulkanWorldFrameOwner.archive_original(owner,Path(root),binding,run,role,0,value['requestId'],lock)
@@ -162,7 +163,7 @@ class IOSEmoteSamples:
             frame['capture'],raw=owner.capture(ticket)
             identity=frame['capture']['source']['renderTrace']['frameId'];need(identity not in self.state['seenFrames'])
         finally:
-            if owner.store.read() is not None:frame['retirement']=owner.release()
+            if owner.store.read() is not None and owns_slot(owner.store.read()):frame['retirement']=owner.release()
         frame['renderersAfter']=renderers.read(self.run);self.remember('renderers',frame['renderersAfter'])
         frame['worldAfter']=world.read(self.run);self.remember('world',frame['worldAfter'])
         packets=originals(frame);fields=[(name,field) for name,p in packets.items() for field in ('capturedEpochMs','sampleEpochMs') if field in p]
@@ -192,6 +193,6 @@ class IOSEmoteSamples:
         for row in self.state['rows']:
             owner=self.owner(row)
             if owner.store.read() is not None:
-                proof=owner.release();need(absent(proof));proofs.append(deepcopy(proof))
+                need(owns_slot(owner.store.read()));proof=owner.release();need(absent(proof));proofs.append(deepcopy(proof))
             else:need(row['phase'] in ('reserved','abandoned'))
         return proofs
