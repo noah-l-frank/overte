@@ -98,7 +98,7 @@ def _inputs(args):
 
 def _candidate_arguments(args):
     return (tuple(sorted((key,type(value).__name__,str(value)) for key,value in vars(args).items())),
-        dict(os.environ),str(verifier.WEB_ROOT),str(verifier.PICO_MANIFEST),
+        dict(os.environ),os.getcwd(),str(verifier.WEB_ROOT),str(verifier.PICO_MANIFEST),
         id(verifier.verify_candidate),id(verifier.decoder_inputs))
 
 
