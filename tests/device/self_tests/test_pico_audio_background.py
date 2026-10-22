@@ -142,6 +142,16 @@ class AudioBackgroundTests(unittest.TestCase):
         self.assertEqual(calls,self.runtime_calls);self.assertEqual(['lifecycle.background'],self.inputs)
         self.assertEqual('resume-issued',self.flow.state['phase'])
 
+    def test_phase_progress_inside_last_native_guard_prevents_home(self):
+        self.flow.prepare();original=self.capture.parent.fresh
+        def changed():
+            original()
+            if self.flow.state['phase']=='home-issued':self.fixture.activate('record-cancel')
+        with patch.object(self.capture.parent,'fresh',side_effect=changed):
+            with self.assertRaises(NativeUIError):self.flow.home()
+        self.assertEqual([],self.inputs);self.assertEqual('home-issued',self.flow.state['phase'])
+        self.assertTrue(self.flow.store.path.exists())
+
     def change_during_save(self,phase,change):
         original=self.flow.save
         def changed(state):
