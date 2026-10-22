@@ -115,6 +115,19 @@ class SnapshotInputTests(unittest.TestCase):
         current['source']['events'][0]['details']['controlId']='snapshot.name'
         with self.assertRaises(NativeUIError):source.original(current)
 
+    def test_native_event_byte_budget_is_enforced_before_the_larger_transport_limit(self):
+        _native,_reader,packet,_command,_root=completed();received,returned=packet['source']['events'];dense=deepcopy(packet);events=[]
+        for index in range(256):
+            first,last=deepcopy(received),deepcopy(returned);event_id=str(uuid.uuid4());inner=str(uuid.uuid4());outer='ios-'+uuid.uuid4().hex
+            first['details']['command'].update(commandId=inner,sequence=index+1);first['details']['outerCommandId']=outer
+            first['details']['root']['qmlSource']='qrc:/'+('a'*1800)+'/system/snapshot/NativeSnapshotReview.qml'
+            last['details']['commandId']=outer;last['details']['status'].update(commandId=inner,sequence=index+1,sampleEpochMs=packet['clockBefore']['epochMs'])
+            for row in (first,last):
+                row.update(sequence=len(events)+1,eventId=str(uuid.uuid4()),inputId=event_id,clock=deepcopy(packet['clockBefore']));events.append(row)
+        dense['source']['events']=events
+        self.assertLess(len(json.dumps(dense,separators=(',',':')).encode()),source.LIMIT)
+        with self.assertRaises(NativeUIError):source.original(dense)
+
     def test_actual_fixture_and_probe_keep_closed_original_reads_once_per_nonce(self):
         _native,_reader,packet,_command,_root=completed();query=dict(schemaVersion=1,action=source.ACTION,commandId=packet['requestId'],runId=RUN)
         fixture=FixtureState();self.assertEqual(query,fixture.set_client_command(query))

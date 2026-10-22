@@ -55,6 +55,7 @@ def validate(value,query,pid,epoch=None,previous=None):
     need(0<=utc<1500 and 0<=mono<1500 and abs(utc-mono)<=250)
     if epoch is not None:fresh(after['epochMs'],epoch)
     source=value['source'];exact(source,{'complete','events'});need(type(source['complete']) is bool and type(source['events']) is list and len(source['events'])<=512)
+    need(sum(len(json.dumps(row,ensure_ascii=False,separators=(',',':'),allow_nan=False).encode()) for row in source['events'])<=524288)
     received={};returned=set();events=set();last=None
     for index,row in enumerate(source['events'],1):
         exact(row,{'sequence','eventId','inputId','kind','clock','details'})

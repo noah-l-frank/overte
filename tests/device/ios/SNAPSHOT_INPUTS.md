@@ -36,10 +36,39 @@ delivery proof only: `productOutcomeRequired` stays true. It supplies no capture
 history, pending cancellation, bytes, export success, UI closure or quiet result.
 The outer owner must durably retain the exact command before its initial send.
 
-Eight no-build host tests exercise the real Python normal-input HTTP/AFC paths,
+Nine no-build host tests exercise the real Python normal-input HTTP/AFC paths,
 actual JavaScript probe and fixture/factory dispatch over explicit modeled Qt
 and native event producers. A lost return occurs after the actual modeled
 native receipt and is resolved with no second edit POST. These tests do not
 execute the new C++ source, compile a client or qualify a device. Native code
 remains uncompiled; whole Snapshot input/file/image ownership, all system-sheet
 recipes, independent witness, restoration and paired retirement remain open.
+
+## Durable ordinary input owner
+
+`SnapshotInputOwner` owns the exact command and complete original control
+reference in a private, run/role/candidate/process-bound journal. It pins one
+actual Snapshot root. `reserve` persists the command UUID; `send` checks a fresh
+unchanged original token/root, then persists `issued` before the existing
+ordinary native delivery. A retained issued or delivered event cannot send
+again, including after reconstruction. The positive original AFC return is
+retained; it proves delivery only.
+
+`recover` resolves a lost return from the actual Snapshot reception history.
+Before accepting it, the owner writes that complete source to an immutable,
+inode/hash-bound private `OriginalFrameStore` file under its own namespace.
+Planned/opened/saved storage states are durable. A lost completed file return
+is adopted by reading that original locally; no source query, edit or file
+rewrite occurs. An incomplete opened file remains retained, blocks replay and
+cannot be treated as a positive receipt. Its original inode/bytes are preserved.
+The source validator enforces the native 512 KiB event budget independently of
+the larger transport limit, so a complete typed recovery packet plus its storage
+envelope fits the existing 1 MiB original-frame bound.
+
+Eight additional no-build owner tests cover durable pre-send UUID/intent,
+lost native and saved-file returns, interrupted empty files, wrong/rejected
+originals, replaced roots, changed bytes/inodes and a purely historical reader
+that cannot construct or query a native SDK. The historical proof reopens real
+originals without retiming their clocks. No discard/retirement or product-effect
+API is supplied by this input owner. Whole capture/cancellation facts and file,
+image, companion/system-sheet, actor and finalization integration remain open.
