@@ -121,6 +121,7 @@ WEB_REFERENCE_OPERATIONS={'web.reference.'+kind for kind in ('open','close','pla
 AVATAR_PEOPLE_FEATURE_OPERATIONS={'feature.avatar-people.'+kind for kind in ('act','observe','cleanup')}
 LIFECYCLE_INPUT_FEATURE_OPERATIONS={'feature.lifecycle-input.'+kind for kind in ('act','observe','cleanup')}
 COLLABORATION_OPERATIONS={'collaboration.edit','collaboration.snapshot'}
+SNAPSHOTS_FEATURE_OPERATIONS={'feature.snapshots.'+kind for kind in ('act','observe','cleanup')}
 
 
 def readonly_feature_command(command):
@@ -371,6 +372,19 @@ class PhoneAppiumAdapter(AppiumAdapter):
                     and self.controlled_android_client(target),
                     'PHONE_NORMAL_SCRIPTS_REQUIRES_BOUND_DEBUG_TARGET')
             values = sorted(set(values) | SCRIPT_OPERATIONS)
+        full_snapshots=os.environ.get('OVERTE_PHONE_FEATURE_SNAPSHOTS','0')
+        require(full_snapshots in ('0','1'),'PHONE_FEATURE_SNAPSHOTS_CONFIGURATION_INVALID')
+        if full_snapshots=='1':
+            require(getattr(self,'candidate',None) is not None and target.get('appId')=='io.github.noah_be.overte.phone'
+                and self.controlled_android_client(target),'PHONE_FEATURE_SNAPSHOTS_REQUIRES_BOUND_DEBUG_TARGET')
+            require(os.environ.get('OVERTE_PHONE_NORMAL_SNAPSHOT')=='1'
+                and {'app.foreground','app.launch','app.process','navigation.enter-domain','probe.snapshot','scene.load'}<=set(values),
+                'PHONE_FEATURE_SNAPSHOTS_REQUIRES_FOUNDATIONS')
+            require(self.account_fixture_configuration(target) is not None,'PHONE_FEATURE_SNAPSHOTS_REQUIRES_ACCOUNT_FIXTURE_LAUNCH')
+            self._snapshots_configuration();client=self._feature_fixture_client()
+            require(urlsplit(client.url).scheme=='https','PHONE_FEATURE_SNAPSHOTS_REQUIRES_TLS')
+            require(SNAPSHOT_OPERATIONS<=set(values),'PHONE_FEATURE_SNAPSHOTS_REQUIRES_FOUNDATIONS')
+            values=sorted(set(values)|SNAPSHOTS_FEATURE_OPERATIONS)
         full_scripts=os.environ.get('OVERTE_PHONE_FEATURE_SCRIPTS','0')
         require(full_scripts in ('0','1'),'PHONE_FEATURE_SCRIPTS_CONFIGURATION_INVALID')
         if full_scripts=='1':
@@ -879,6 +893,79 @@ class PhoneAppiumAdapter(AppiumAdapter):
         feature=PhoneAssetsFeature(self,selector,PhaseFixtureReader(client,run,'assets'),self._assets_configuration(actor=True),role='actor')
         require(metadata['configuration']==feature.public_configuration(),'PHONE_ASSETS_ACTOR_ORIGINAL_CONFIGURATION_REQUIRED')
         return PhoneAssetsActor(feature)
+
+    def snapshots_feature_store(self,selector):
+        return PrivateFeatureState(self.state_path(selector).with_name('phone-snapshots-feature.json'))
+
+    def snapshots_retirement_store(self,selector):
+        return PrivateFeatureState(self.state_path(selector).with_name('phone-snapshots-retirement.json'))
+
+    @staticmethod
+    def _snapshots_configuration(metadata=None):
+        try:
+            from overte_phone_snapshots_feature import configuration
+            if metadata is None:
+                value=PrivateFeatureState(Path(os.environ.get('OVERTE_PHONE_SNAPSHOTS_CONFIGURATION',''))).read()
+            else:
+                require(type(metadata) is dict and type(metadata.get('snapshotsFeatureVersion')) is int
+                    and metadata['snapshotsFeatureVersion']==1,'PHONE_SNAPSHOTS_ORIGINAL_CONFIGURATION_REQUIRED')
+                value=metadata['configuration']
+            return configuration(value)
+        except (OSError,RuntimeError,ValueError,TypeError,KeyError):
+            raise ValueError('PHONE_FEATURE_SNAPSHOTS_CONFIGURATION_INVALID') from None
+
+    def _snapshots_feature(self,selector,run,*,retirement=False):
+        from overte_phone_snapshots_feature import PhoneSnapshotsFeature
+        from overte_phone_snapshot_upload_fixture import SnapshotUploadFixtureReader
+        from overte_phone_script_history import unpack
+        target=self.target(selector)
+        require(getattr(self,'candidate',None) is not None and target.get('appId')=='io.github.noah_be.overte.phone'
+            and self.controlled_android_client(target),'PHONE_FEATURE_SNAPSHOTS_REQUIRES_BOUND_DEBUG_TARGET')
+        require(type(retirement) is bool,'PHONE_SNAPSHOTS_ORIGINAL_CONFIGURATION_REQUIRED')
+        client=self._feature_fixture_client();metadata=self.snapshots_feature_store(selector).read()
+        parent=self.snapshots_retirement_store(selector).read()
+        if parent is not None:
+            require(retirement,'PHONE_SNAPSHOTS_RETIREMENT_ALREADY_STARTED')
+            require(type(parent) is dict and set(parent)=={'snapshotsRetirementVersion','runId','binding','payload'}
+                and type(parent['snapshotsRetirementVersion']) is int and parent['snapshotsRetirementVersion']==1
+                and parent['runId']==run,'PHONE_SNAPSHOTS_ORIGINAL_CONFIGURATION_REQUIRED')
+            rows=unpack(parent['payload']);require(len(rows)==1,'PHONE_SNAPSHOTS_ORIGINAL_CONFIGURATION_REQUIRED')
+            original=rows[0]['owner']
+            require(type(original) is dict and original.get('binding')==parent['binding'],
+                'PHONE_SNAPSHOTS_ORIGINAL_CONFIGURATION_REQUIRED')
+            require(metadata is None or metadata==original,'PHONE_SNAPSHOTS_ORIGINAL_CONFIGURATION_REQUIRED');metadata=original
+        if retirement and metadata is None:
+            # A repeated closed cleanup still owes the exact immutable original
+            # receipt. Missing controls or a newly supplied config prove nothing.
+            from overte_phone_snapshots_retirement import completed_archive
+            config=self._snapshots_configuration()
+            _ui,_observe,binding,guard,_installed=self.normal_feature_runtime(selector,read_only=True)
+            archive=completed_archive(Path(config['artifactRoot']),binding,run,guard)
+            metadata=archive['owner']
+            require(metadata['configuration']==config and metadata['binding']==binding,
+                'PHONE_SNAPSHOTS_ORIGINAL_CONFIGURATION_REQUIRED')
+        if metadata is not None:
+            require(type(metadata) is dict and set(metadata)=={'snapshotsFeatureVersion','runId','fixtureUrl','binding','configuration','payload'}
+                and type(metadata['snapshotsFeatureVersion']) is int and metadata['snapshotsFeatureVersion']==1
+                and metadata.get('runId')==run and metadata.get('fixtureUrl')==client.url+'/runs/'+run+'/',
+                'PHONE_SNAPSHOTS_ORIGINAL_CONFIGURATION_REQUIRED')
+        config=self._snapshots_configuration(metadata if retirement else None)
+        return PhoneSnapshotsFeature(self,selector,SnapshotUploadFixtureReader(client,run),config)
+
+    def _snapshots_actor(self,selector,run,*,client):
+        from feature_journeys.witness import Client
+        from overte_phone_snapshots_feature import PhoneSnapshotsFeature
+        from overte_phone_snapshots_actor import PhoneSnapshotsActor
+        from overte_phone_snapshot_upload_fixture import SnapshotUploadFixtureReader
+        target=self.target(selector)
+        require(getattr(self,'candidate',None) is not None and target.get('appId')=='io.github.noah_be.overte.phone'
+            and self.controlled_android_client(target) and isinstance(client,Client),
+            'PHONE_SNAPSHOTS_ACTOR_REQUIRES_BOUND_TARGET')
+        metadata=self.snapshots_feature_store(selector).read()
+        require(type(metadata) is dict and metadata.get('runId')==run and metadata.get('fixtureUrl')==client.url+'/runs/'+run+'/',
+            'PHONE_SNAPSHOTS_ACTOR_ORIGINAL_RUN_REQUIRED')
+        config=self._snapshots_configuration(metadata)
+        return PhoneSnapshotsActor(PhoneSnapshotsFeature(self,selector,SnapshotUploadFixtureReader(client,run),config,role='actor'))
 
     def create_feature_store(self,selector):
         return PrivateFeatureState(self.state_path(selector).with_name('phone-create-feature.json'))
@@ -2550,6 +2637,11 @@ class PhoneAppiumAdapter(AppiumAdapter):
         return result
 
     def cleanup(self, selector):
+        snapshots_error=False
+        try:
+            metadata=self.snapshots_feature_store(selector).read() or self.snapshots_retirement_store(selector).read()
+            if metadata is not None:self._snapshots_feature(selector,metadata['runId'],retirement=True).finalize()
+        except Exception:snapshots_error=True
         collaboration_error=False
         try:
             from overte_phone_collaboration import retire_journal
@@ -2713,6 +2805,11 @@ class PhoneAppiumAdapter(AppiumAdapter):
             binding.adb.shell(device, 'am', 'force-stop', target['appId'])
             binding.wait_for_process_stopped(device)
         result = super().cleanup(selector)
+        require(not snapshots_error and self.snapshots_feature_store(selector).read() is None
+            and self.snapshots_retirement_store(selector).read() is None
+            and all(PrivateFeatureState(self.state_path(selector).with_name('phone-snapshots-'+name+'.json')).read() is None
+                for name in ('primary-originals','actor-originals','actor-lifecycle','files-owner','primary-files-observer','actor-files-observer')),
+            'PHONE_SNAPSHOTS_FEATURE_CLEANUP_INCOMPLETE')
         require(not collaboration_error and PrivateFeatureState(self.state_path(selector).with_name('phone-collaboration.json')).read() is None,
             'PHONE_COLLABORATION_CLEANUP_INCOMPLETE')
         require(not foundation_error and foundation_store.read() is None,'PHONE_SNAPSHOT_FOUNDATION_CLEANUP_INCOMPLETE')
@@ -2993,6 +3090,11 @@ class PhoneAppiumAdapter(AppiumAdapter):
             arguments(operation,values)
             require(operation in self.advertised_capabilities(self.target(selector)),'PHONE_ASSETS_FEATURE_NOT_ENABLED')
             return self._invoke_feature(selector,operation,values,lambda retired:self._assets_feature(selector,values['runId'],**({'retirement':True} if retired else {})))
+        if operation in SNAPSHOTS_FEATURE_OPERATIONS:
+            from feature_journeys.contract import arguments
+            arguments(operation,values)
+            require(operation in self.advertised_capabilities(self.target(selector)),'PHONE_SNAPSHOTS_FEATURE_NOT_ENABLED')
+            return self._invoke_feature(selector,operation,values,lambda retired:self._snapshots_feature(selector,values['runId'],**({'retirement':True} if retired else {})))
         if operation in CREATE_FEATURE_OPERATIONS:
             from feature_journeys.contract import arguments
             arguments(operation,values)
