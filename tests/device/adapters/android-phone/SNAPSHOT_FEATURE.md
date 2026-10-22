@@ -1238,3 +1238,20 @@ such as A→B→A; no history is pruned and no validation verdict is cached.
 and the original comparison behavior. The parent join of these tests, role
 recovery, publication guards and original cloning passed 44 tests in 10.401
 seconds. This scoped result does not qualify the complete SDK26 common journey.
+
+Each public Primary observation also owns an outer lifetime for its ephemeral
+readers. After all historical checks, callbacks, input-session and source-lock
+exits, it drops only those readers' own Python attribute references. This also
+covers partially constructed readers and retries. Returned DTOs and stored
+originals are not mutated; a new reader still reopens and validates the complete
+original history. Generic readers and the independent actor's retained readers
+do not opt into this lifetime. It performs no target or file retirement and
+does not alter garbage-collection policy, source clocks or time limits.
+
+Seven registered host counterprobes verify prompt release of actual historical
+graphs with cycle collection disabled only in the test, unchanged DTOs and
+original files, constructor/read failures, recovery, cleanup ordering and actor
+exclusion. Those seven cases, the twenty-two facade cases and the eleven plus
+nine existing cleanup/history counterprobes passed on the integrated packet.
+This proves local reader lifetime and source invariants; it does not establish
+the cause of an earlier scheduling pause or a complete common-backend result.

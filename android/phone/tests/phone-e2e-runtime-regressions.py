@@ -76,6 +76,7 @@ COMMON_HOST_CHECKS = (
     "android/phone/tests/device/test_snapshots_publication_guard.py",
     "android/phone/tests/device/test_snapshots_storage_intent.py",
     "android/phone/tests/device/test_snapshots_distinct.py",
+    "android/phone/tests/device/test_snapshots_ephemeral_role_disposal.py",
     "android/phone/tests/device/test_snapshots_historical_png.py",
     "android/phone/tests/device/test_snapshots_original_clone.py",
     "android/phone/tests/device/test_snapshot_catalog_pass.py",
