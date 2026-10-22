@@ -337,7 +337,16 @@ class WorkflowCostTests(unittest.TestCase):
         self.assertIn('  workflow_call:', workflow)
         self.assertNotRegex(workflow, r'(?m)^  (push|pull_request|pull_request_target):')
         config = json.loads((ROOT / '.github/repository-checks.json').read_text())
-        if config.get('native_required', False) or 'main' in config.get('native_required_branches', []):
+        jobs = yaml.safe_load(caller)['jobs']
+        if 'plan' in jobs:
+            self.assertEqual(jobs['native']['needs'], ['plan', 'policy'])
+            self.assertEqual(jobs['native']['if'], "needs.plan.outputs.active == 'true' && "
+                "needs.plan.outputs.native == 'true' && github.event_name == 'pull_request'")
+            self.assertEqual(jobs['native']['with']['mode'], '${{ needs.plan.outputs.native_mode }}')
+            self.assertIn('native', jobs['ci-execution']['needs'])
+            self.assertIn('pr_ci.py verify-native', workflow)
+            self.assertNotIn('trusted/tools/native-tests/check.py plan', workflow)
+        elif config.get('native_required', False) or 'main' in config.get('native_required_branches', []):
             jobs = yaml.safe_load(caller)['jobs']
             generation = load('native_complete_workflow_contract',
                               'tests/workflow-contract-test.py').reviewed_package_generation()
@@ -409,7 +418,10 @@ class WorkflowCostTests(unittest.TestCase):
         self.assertIn('trusted/tools/native-tests/run.py', run_step)
         self.assertIn('cancel-in-progress: true', caller)
         triggers = caller.split('  pull_request:', 1)[1].split('  workflow_dispatch:', 1)[0]
-        self.assertNotIn('ready_for_review', triggers)
+        if 'plan' in jobs:
+            self.assertIn('ready_for_review', triggers)  # Drafts acquire acceptance only after activation.
+        else:
+            self.assertNotIn('ready_for_review', triggers)
         self.assertIn('synchronize', triggers)
         self.assertIn('edited', triggers)  # Retargeting must validate the new merge candidate.
 
@@ -536,7 +548,8 @@ class WorkflowCostTests(unittest.TestCase):
                 self.assertNotIn('CONAN_HOME', job.get('env', {}))
                 self.assertNotIn('CCACHE_DIR', job.get('env', {}))
                 self.assertLess(steps.index(setup), next(i for i, step in enumerate(steps)
-                    if 'check.py plan' in step.get('run', '')))
+                    if any(command in step.get('run', '')
+                           for command in ('check.py plan', 'pr_ci.py verify-native'))))
                 env_file = root / 'environment'
                 config = root / 'gitconfig'
                 env = {**os.environ, 'GITHUB_WORKSPACE': str(workspace),
@@ -549,7 +562,8 @@ class WorkflowCostTests(unittest.TestCase):
                 self.assertEqual(values['CCACHE_DIR'], str(workspace / '.native-ccache'))
                 trusted = subprocess.check_output(['git', 'config', '--global', '--get-all',
                     'safe.directory'], env=env, text=True).splitlines()
-                self.assertEqual(trusted, [str(workspace)])
+                self.assertEqual(trusted, [str(workspace), str(workspace / 'trusted')]
+                    if name == 'native-tests.yml' else [str(workspace)])
 
     def test_cache_actions_use_the_existing_repository_allowlist(self):
         for name in ('native-tests.yml', 'native-dependencies.yml'):
@@ -579,6 +593,10 @@ class GitInventoryTests(unittest.TestCase):
         import shutil
         import yaml
         workflow = yaml.safe_load((ROOT / '.github/workflows/repository-checks.yml').read_text())
+        if 'route' not in workflow['jobs']:
+            # Preserve the supported historical CLI fixture independently of
+            # the active central caller, covered by pr-ci-native-test.py.
+            workflow = yaml.safe_load((ROOT / 'tools/repository-checks/workflows/packages/repository-checks.yml').read_text())
         checkout = next(step for step in workflow['jobs']['route']['steps']
                         if step.get('name') == 'Check out trusted routing policy')
         directories = checkout['with']['sparse-checkout'].splitlines()

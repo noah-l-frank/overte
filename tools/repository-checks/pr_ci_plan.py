@@ -47,7 +47,8 @@ DEPENDENCIES = ".github/test-suite-dependencies.json"
 ACTIVE_REGISTRY = ".github/pr-ci-suites.json"
 ACTIVE_DEPENDENCIES = ".github/pr-ci-dependencies.json"
 RUNTIME_INPUTS = (".github/attested-runtime.json", ".github/ci37-runtime.json",
-                  "tests/requirements-host.txt", ".tool-versions", ".github/pr-ci-platforms.json")
+                  "tests/requirements-host.txt", ".tool-versions", ".github/pr-ci-platforms.json",
+                  ".github/pr-ci-platform-inputs.json")
 _BROWSER_SUFFIXES = frozenset({".js", ".mjs", ".cjs", ".jsx", ".ts", ".tsx",
     ".mts", ".cts", ".html", ".css", ".scss", ".sass", ".vue", ".svelte",
     ".json", ".svg", ".png", ".jpg", ".jpeg", ".webp", ".wasm", ".glb"})
@@ -64,7 +65,7 @@ _KNOWN_SUFFIXES = _BROWSER_SUFFIXES | frozenset({".py", ".pyw", ".pyi", ".sh",
     ".c", ".cc", ".cpp", ".cxx", ".h", ".hh", ".hpp", ".m", ".mm", ".swift",
     ".kt", ".java", ".cmake", ".gradle", ".properties", ".pro", ".pri"})
 _SETUP = frozenset({"host-full", "python", "git", "qt5-qml", "qt6-qml",
-                   "node", "npm", "cmake", "compiler", "qt", "glm", "pillow"})
+                   "node", "npm", "browser", "cmake", "compiler", "qt", "glm", "pillow"})
 
 
 class PlanError(ValueError):
@@ -171,7 +172,8 @@ def _security(base_tree, candidate_tree, trusted_tree, changes, read_blob):
         ordinary = all(entry and entry["mode"] == "100644" and entry["type"] == "blob"
                        for entry in (change["before"], change["after"]))
         native = False
-        if ordinary and PurePosixPath(path).suffix in _CODEQL._PINNED_NATIVE_EXTENSIONS:
+        if (ordinary and not PurePosixPath(path).name.startswith(".")
+                and PurePosixPath(path).suffix in _CODEQL._PINNED_NATIVE_EXTENSIONS):
             try:
                 if native_count + 2 > _CODEQL._NATIVE_BLOB_COUNT:
                     return {"languages": both, "reasons": [{"code": "native-input-inventory-bound"}]}
@@ -236,6 +238,13 @@ def _policy(trusted_tree, read_blob):
             raise PlanError("invalid trusted dependencies for suite " + name)
         if all(active) and row.get("kind") not in {"patterns", "product-inventory", "documentation-inventory"}:
             raise PlanError("unsupported active dependency closure for suite " + name)
+        if "content_inputs" in row:
+            try:
+                _INPUTS._paths(row["content_inputs"], "content inputs", nonempty=True)
+            except _INPUTS.InputError as error:
+                raise PlanError("invalid content input closure for suite " + name) from error
+            if not all(active) or suite["closure"]["kind"] != "repository":
+                raise PlanError("content inputs require an active repository inventory")
         rows[name] = dict(row)
         rows[name]["excluded"] = set(independent + ci_independent) if row.get("kind") == "product-inventory" else set()
     # Epochs, workflow generations, lookup pins and target program hashes are
@@ -249,8 +258,23 @@ def _suite_inputs(tree, registry, suite, dependency):
         return _rows(tree)
     if suite["closure"]["kind"] == "repository":
         excluded = dependency["excluded"] - set(suite["closure"]["required"])
-        return [entry for entry in _rows(tree) if entry["path"] not in excluded
+        rows = [entry for entry in _rows(tree) if entry["path"] not in excluded
                 or any(fnmatchcase(entry["path"], pattern) for pattern in registry["control_inputs"])]
+        if "content_inputs" in dependency:
+            content = [*dependency["content_inputs"], *registry["control_inputs"],
+                       *suite["closure"]["required"]]
+            # Directory existence, glob discovery and deleted paths remain
+            # dependencies even when a reader does not consume file contents.
+            entrypoint = next((arg for arg in suite["command"][1:] if arg.endswith(".py")), None)
+            lookup = {PurePosixPath("."), PurePosixPath(entrypoint).parent} if entrypoint else set()
+            def consumes(row):
+                path = PurePosixPath(row["path"])
+                return (any(fnmatchcase(row["path"], pattern) for pattern in content)
+                    or path.parent in lookup and path.suffix in {".py", ".pyc", ".pyo", ".so", ".pyd", ".pth"})
+            rows = [row if consumes(row)
+                    else {key: value for key, value in row.items() if key != "sha"}
+                    for row in rows]
+        return rows
     patterns = list(suite["closure"]["inputs"]) + list(registry["control_inputs"])
     for root in suite.get("python_imports", {}).get("roots", []):
         patterns.extend((root, root + "/**"))
@@ -304,8 +328,36 @@ def _platform_inputs(paths, native_mode, target):
     return android, ios
 
 
+
+def _android_compile_products(paths, base_tree, candidate_tree, target):
+    """Select real SDK Java/resource compilation only for present app inputs."""
+    if not target.startswith("android-"):
+        return []
+    roots = {"phone": "android/phone/apps/phoneInterface/src/main/",
+             "pico": "android/vr/pico/apps/picoInterface/src/main/"}
+    shared = any(not path.endswith((".md", ".markdown")) and (
+        path.startswith(("android/common/web/java/", "android/common/web/res/",
+                         "android/common/snapshot/java/", "android/common/snapshot/res/",
+                         "android/common/documents/java/", "android/common/documents/res/",
+                         "security/redaction/java/", "android/common/libraries/qt/src/main/")))
+        for path in paths)
+    available = base_tree.keys() | candidate_tree.keys()
+    # Integration branches retain historical product snapshots. Compile only
+    # their governed owner, never stale sibling applications merely present.
+    owner = {"android-main": "common", "android-vr": "common",
+             "android-phone": "phone", "android-vr-pico": "pico"}[target]
+    if owner == "common":
+        present = any(path.startswith("android/common/") for path in available)
+        return [owner] if shared and present else []
+    root = roots[owner]
+    return [owner] if any(path.startswith(root) for path in available) and (shared or any(
+        path.startswith((root + "java/", root + "res/")) or path == root + "AndroidManifest.xml"
+        for path in paths)) else []
+
+
+
 def _server_console_coverage(tree, registry, dependency, read_blob):
-    """Recognize only the actual standard npm script and its exact file set."""
+    """Recognize only the actual standard npm script covering the registered subset."""
     suite = registry["suites"].get("server-console-behavior")
     if (not suite or suite["environment"] != "node" or dependency["setup"] != ["node"]
             or suite["command"][:2] != ["node", "--test"]):
@@ -324,7 +376,7 @@ def _server_console_coverage(tree, registry, dependency, read_blob):
     required = suite["closure"]["required"]
     inputs = _suite_inputs(tree, registry, suite, dependency)
     return (bool(registered) and len(registered) == len(set(registered))
-        and sorted(registered) == matched and not (set(required) - set(tree))
+        and set(registered) <= set(matched) and not (set(required) - set(tree))
         and all(row["mode"] in {"100644", "100755"} and row["type"] == "blob" for row in inputs))
 
 
@@ -523,6 +575,8 @@ def plan(base_tree, candidate_tree, trusted_tree, *, read_blob, target="main"):
                        != _suite_inputs(selection, registry, suite, dependencies[name])):
                 selected.append(name)
     android, ios = _platform_inputs(paths, native["mode"], target)
+    android_compile = _android_compile_products(paths, base_tree, candidate_tree, target)
+    android = android or bool(android_compile)
     ios_build = ios and (native["mode"] != "skip" or any(
         (path.startswith("ios/") and not path.startswith(("ios/tests/", "ios/release-check/"))
          and not path.endswith(".md"))
@@ -574,10 +628,15 @@ def plan(base_tree, candidate_tree, trusted_tree, *, read_blob, target="main"):
         if project == "browser-client" and project in vite_profiles:
             commands = commands[:2] + [["npm", "run", "build"],
                 ["node_modules/.bin/tsx", "--test", "tests/embedded-fbx-worker.test.ts"]]
+        browser_journey = (project in {"browser-client", "browser-direct-client"}
+            and any(path.startswith(project + "/") and _browser_code(path) for path in paths))
+        if browser_journey:
+            commands.append(["npm", "run", "test:browser"] if project == "browser-client" else
+                ["node", "node_modules/@playwright/test/cli.js", "test", "--config", "playwright.config.ts"])
         # Package scripts may read files outside their directory. Until a
         # narrower closure is declared, their identity includes the whole tree.
         add("npm:" + project, "npm", commands, _rows(candidate_tree),
-            ["node", "npm"], environment="node", required=[project + "/package.json",
+            ["node", "npm", *(["browser"] if browser_journey else [])], environment="node", required=[project + "/package.json",
                                                               project + "/package-lock.json"])
         tasks["npm:" + project]["covers"] = [name for name, owner in covered.items()
                                               if owner == "npm:" + project]
@@ -592,7 +651,8 @@ def plan(base_tree, candidate_tree, trusted_tree, *, read_blob, target="main"):
         add("codeql:" + language, "codeql", ["codeql", "analyze", language],
             _rows(candidate_tree), ["codeql"], environment="codeql")
     if android:
-        add("platform:android", "android", ["platform-validation", target],
+        add("platform:android", "android", ["platform-validation", target,
+                *[argument for product in android_compile for argument in ("--compile-product", product)]],
             _rows(candidate_tree), ["host-full"], environment=target, target_scoped=True)
     if ios:
         add("platform:ios", "ios", ["platform-validation", target],
@@ -604,7 +664,7 @@ def plan(base_tree, candidate_tree, trusted_tree, *, read_blob, target="main"):
             "dependency_profiles": {"pillow13": pillow, "vite": vite_profiles},
             "native": native, "codeql_languages": security["languages"],
             "codeql_reasons": security["reasons"], "browser_required": browser,
-            "android_required": android, "ios_required": ios, "ios_build_required": ios_build,
+            "android_required": android, "android_compile_products": android_compile, "ios_required": ios, "ios_build_required": ios_build,
             "tasks": list(tasks.values()),
             "setup": sorted({item for task in tasks.values() for item in task["setup"]}),
             "input_identity": {"base": _digest(_rows(base_tree)),
