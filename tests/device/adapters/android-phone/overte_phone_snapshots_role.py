@@ -59,6 +59,10 @@ class PassiveReadbacks(PhoneSnapshotReadbacks):
 _UNPINNED=object()
 
 
+class SnapshotPhaseDeferred(SnapshotPending):
+    """An original actor phase moved before any current subject acquisition."""
+
+
 class PhoneSnapshotsRole(PhoneCreateRole):
     def __init__(self,feature,role,*,expected_previous=_UNPINNED):
         need(role in ('primary','actor'));feature.lock.assert_held()
@@ -392,21 +396,24 @@ class PhoneSnapshotsRole(PhoneCreateRole):
         else:frame=dict(pending['work'],diagnostic=True,image=pending['image'],binaries=pending['binaries'],retirement=pending['retirement'])
         self.finish_archive(frame)
 
-    def read(self,after_sequence):
+    def read(self,after_sequence,*,phase_admission=None):
         need(not self._host_publication)
+        need(phase_admission is None or self.role=='actor' and callable(phase_admission))
         self._host_publication=True
         try:
             with self.handoff.expected_catalog() if self.handoff is not None else nullcontext():
-                try:return self.acquire(after_sequence)
+                try:return self.acquire(after_sequence,phase_admission=phase_admission) if phase_admission is not None else self.acquire(after_sequence)
                 except SnapshotPending:
                     self._host_publication=False;self.recover();raise
         finally:self._host_publication=False
 
-    def acquire(self,after_sequence):
+    def acquire(self,after_sequence,*,phase_admission=None):
         f=self.feature;self.bound();need(self.state['phase'] in ('ready','retired') and integer(after_sequence,0,self.state['sequence']) and self.state['sequence']<256)
         self.state.update(phase='reading',pending=dict(original=None,manifest=None,image=None,binaries=[],retirement=None,frame=None,work={}));self.save()
         phase_before=f.phase.status();need(phase_before['activations']);ticket=phase_before['activations'][-1]['ticket']
         need(phase_before['active'] or f.state['phase'] in ('cleaned','retiring'));self.checkpoint(ticket=ticket,phaseBefore=phase_before)
+        if phase_admission is not None:
+            need(self.role=='actor' and callable(phase_admission));phase_admission(self,phase_before)
         native_before=avatar_before=world=touch=marker=capture=image=retirement=None;image_ready=False
         if not self.system:
             native_before=self.native.read(self.native.sequence,require_account=True);avatar_before=self.avatar.read()
