@@ -1444,7 +1444,8 @@
             var markerObserve=command.action === "phone-navigation-marker-observe";
             var markerFields=["schemaVersion","commandId","action","runId"];
             if (!markerObserve) { markerFields.push("operation");
-                markerFields=markerFields.concat(command.operation === "prepare" ? ["fixtureUrl","ticket","imageExtent","markerRoi"] : ["fixtureInstance"]); }
+                markerFields=markerFields.concat(command.operation === "prepare" ? ["fixtureUrl","ticket","imageExtent","markerRoi"] : ["fixtureInstance"]);
+                if (command.operation === "prepare" && command.holdView === true) { markerFields.push("holdView"); } }
             if (command.schemaVersion === 1 && typeof command.commandId === "string" && /^[0-9a-f]{32}$/.test(command.commandId)
                     && typeof command.runId === "string" && /^[0-9a-f]{32}$/.test(command.runId) && objectKeysMatch(command,markerFields)
                     && (markerObserve || /^(prepare|release)$/.test(command.operation))) {

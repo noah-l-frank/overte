@@ -72,3 +72,40 @@ this packet does not regenerate or learn those pins from a target.
 The packet passes 50 explicitly selected host tests (including the existing
 all-14 independent-boundary common-journey model), plus both Qt6 helper checks.
 That all-14 boundary model is not the still-missing public Avatar/People facade.
+
+
+The next source packet adds the original successful ordinary Avatar Model entity
+return ID, runtime parent/joint and actual packed AvatarEntityMap membership.
+Actual EntityTree/RenderableModelEntityItem geometry and textures remain separate
+from the return event. Native world feet, orientation and `shouldRender` are
+retained for a later actual GPU geometry/draw join; they are not pixel evidence.
+Account origin and avatar model name are original restoration preflight data.
+The Avatar page current entry is read from its real QObject properties rather
+than serializing a QObject pointer into JSON.
+
+An optional closed `holdView:true` preparation extends the existing navigation
+marker fixture with a subordinate E2E-only measured-camera lease. It captures
+only the actual normal Selfie/Look At view, holds that view in Independent mode,
+and never changes ordinary avatar URL/scale/wearable inputs or geometry draws.
+Existing `keepLookingAt` ownership prevents preparation. Camera identity,
+projection, position, orientation and original mode are checked from the actual
+camera. Any foreign mode signal, replaced camera or changed held view loses
+restoration authority. Restoration is observed independently and is required
+before fixture drainage can qualify. Foreign camera changes retain ownership
+journals; an input receipt is never proof of restoration. Legacy navigation
+preparation/source schemas are unchanged when `holdView` is absent.
+
+Nine new host projection/lease counterexamples cover original scale, retained A
+geometry under a missing request, stale failure generations, a mandatory consumed
+404 even when geometry is unavailable, ignored/foreign camera input and exact
+restoration. The Qt6 helper source check additionally exercises the actual lease
+class against explicit QObject camera callbacks. Those callbacks are synthetic;
+`Camera`, `PhoneNavigationMarker` product integration and all product translation
+units remain **uncompiled** by that helper check. A complete public Avatar/People
+facade, both actual phone participants, pixel qualification and common public
+journey remain outstanding. No device result or global completion count changes.
+
+The checked source packet passes 60 explicitly selected host tests plus the
+existing complete Navigation public composition's 16 tests (94.452 s). Both
+updated Qt6 helper checks pass in separate fresh build directories. These 76
+host tests include no complete Avatar/People public adapter journey.

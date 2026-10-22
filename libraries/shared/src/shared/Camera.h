@@ -56,6 +56,11 @@ public:
     void update();
 
     CameraMode getMode() const { return _mode; }
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PHONE_INTERFACE)
+    // Passive preflight: a measurement fixture must never displace an existing
+    // keepLookingAt owner whose target cannot be restored by ordinary input.
+    bool e2eKeepsLookingAt() const { return _isKeepLookingAt; }
+#endif
     void setMode(CameraMode m);
 
     void loadViewFrustum(ViewFrustum& frustum) const;

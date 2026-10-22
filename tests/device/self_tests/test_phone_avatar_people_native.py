@@ -24,17 +24,19 @@ def loads(url=URL,*,instance='1'*32):
 
 def avatar():
     return dict(sessionId=SESSION,replicated=False,requestedUrl=URL,advertisedLoads=loads(),modelInstance='2'*32,modelLoads=loads(instance='3'*32),rigId=4,
-        loaded=True,visible=True,addedToScene=True,targetScale=1.0,scale=1.0,hipsJoint=17,
+        loaded=True,visible=True,addedToScene=True,targetScale=1.0,scale=1.0,hipsJoint=17,feetPosition=[0,0,0],orientation=[0,0,0,1],shouldRender=True,
         geometry=dict(instance='4'*32,url=URL.rsplit('/',1)[0]+'/mannequin/mannequin.fbx',texturesLoaded=True,textures={'eyes':URL.rsplit('/',1)[0]+'/mannequin/Eyes.png'}))
 
 
 def source():
     prefs={key:dict(present=False,value=None) for key in ('filtered','nearDistance','nearbySortIndicatorColumn','nearbySortIndicatorOrder','connectionsSortIndicatorColumn','connectionsSortIndicatorOrder')}
     return dict(view=dict(avatarPeopleViewVersion=1,tabletShown=False,avatar=dict(present=False,dialogs=[]),people=dict(present=False,dialog=False),models={},preferences=prefs),
-        bookmarks=dict(present=False,sha256=digest(''),bytes=0,bookmarks={}),auth=account(),avatar=avatar(),peers=[],canRezAvatarEntities=True,attachments=[],preferredAvatarUrl=URL,
+        bookmarks=dict(present=False,sha256=digest(''),bytes=0,bookmarks={}),auth=account(),accountOrigin='https://controlled.invalid',avatar=avatar(),peers=[],canRezAvatarEntities=True,attachments=[],preferredAvatarUrl=URL,preferredAvatarName='',
         domainId='22222222-2222-4222-8222-222222222222',connected=True,
         resourceReplies=dict(resourceRepliesVersion=1,instance='5'*32,sequence=1,capturedEpochMs=20000,complete=True,runId=RUN,events=[]),
-        peopleReplies=dict(peopleRepliesVersion=1,instance='6'*32,sequence=1,capturedEpochMs=20000,complete=True,events=[]))
+        peopleReplies=dict(peopleRepliesVersion=1,instance='6'*32,sequence=1,capturedEpochMs=20000,complete=True,events=[]),
+        avatarEntityOrigins=dict(avatarEntityOriginsVersion=1,instance='7'*32,sequence=1,capturedEpochMs=20000,runId=RUN,complete=True,events=[]),
+        avatarEntities=dict(complete=True,entities=[],absentIds=[]))
 
 
 class Boundary:
@@ -47,7 +49,7 @@ class Boundary:
         value['auth']['observation']['capturedEpochMs']=self.epoch
         for actual in [value['avatar'],*value['peers']]:
             for key in ('advertisedLoads','modelLoads'):actual[key]['sequence']=self.sequence;actual[key]['capturedEpochMs']=self.epoch
-        for key in ('resourceReplies','peopleReplies'):value[key]['sequence']=self.sequence;value[key]['capturedEpochMs']=self.epoch
+        for key in ('resourceReplies','peopleReplies','avatarEntityOrigins'):value[key]['sequence']=self.sequence;value[key]['capturedEpochMs']=self.epoch
         self.sample=dict(avatarPeopleObservationVersion=1,commandId=request['commandId'],runId=RUN,instance='f'*32,sequence=self.sequence,processId=31,
             requestedEpochMs=self.epoch,capturedEpochMs=self.epoch,source=value)
         if self.edit:self.edit(self.sample)

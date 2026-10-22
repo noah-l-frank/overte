@@ -49,6 +49,9 @@ int main(int argc,char** argv) {
     bool scaled=false;for (const auto& row:capture().value("controls").toArray()) { if (row.toObject().value("id")=="avatar.scale" && qAbs(row.toObject().value("value").toDouble()-15.0)<0.1) { scaled=true; } }
     if (!scaled || !input("avatar.dialog.cancel","activate")) { return 9; }
     overte::e2e::AvatarPeopleViewObservation view;const auto observed=view.read({root},true);if (observed.isEmpty() || !observed.value("avatar").toMap().value("present").toBool()) { return 10; }
+    const auto current=observed.value("avatar").toMap().value("current").toMap();
+    if (current.keys()!=QStringList{"avatarScale","avatarUrl","name"} || current.value("avatarUrl")!=original.value("avatarUrl")
+            || current.value("avatarScale").toDouble()!=1.0) { std::cerr<<"Missing original current avatar QObject properties\n";return 32; }
     QQuickItem blocker(window.contentItem());blocker.setSize(QSizeF(640,1000));blocker.setZ(100000);blocker.setAcceptedMouseButtons(Qt::LeftButton);
     if (input("avatar.url","activate")) { return 11; }blocker.setVisible(false);
     // A separately loaded original People page receives host producer messages;

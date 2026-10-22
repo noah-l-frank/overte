@@ -8,6 +8,8 @@
 #include "libraries/render-utils/src/FeatureModelLoads.h"
 #include "libraries/networking/src/FeatureResourceReplies.h"
 #include "libraries/networking/src/FeaturePeopleReplies.h"
+#include "libraries/entities/src/FeatureAvatarEntityOrigins.h"
+#include "tests/device/native/MeasuredCameraLease.h"
 struct Reply : QNetworkReply {
     QByteArray raw{"original missing resource"};qint64 cursor{0};
     explicit Reply(const QUrl& url) {
@@ -53,5 +55,41 @@ int main(int argc,char** argv) {
             || socialRows[0].toMap().value("responseId").toString()!=QString(32,'c')) { return 7; }
     people.completed(&unrelated,unrelated.url(),"GET",{});
     if (people.snapshot().value("events").toList()!=socialRows) { return 8; }
-    qInfo("PASS: original generation/failure/fallback history and non-consuming owned HTTP reply provenance");return 0;
+    auto& origins=overte::e2e::FeatureAvatarEntityOrigins::instance();
+    const QUuid entity("11111111-1111-4111-8111-111111111111"),parent("22222222-2222-4222-8222-222222222222");
+    const auto url=a.toString().replace("avatar-a.fst","gltf-bundle/main.gltf");origins.added(entity,url,parent,17,true);
+    const auto original=origins.snapshot(QString(32,'a'));const auto returned=original.value("events").toList();
+    if (!original.value("complete").toBool() || returned.size()!=1 || returned[0].toMap().value("entityId").toString()!=entity.toString(QUuid::WithoutBraces)
+            || returned[0].toMap().value("parentJointIndex").toInt()!=17 || !returned[0].toMap().value("treePresent").toBool()) { return 9; }
+    origins.added(QUuid::createUuid(),"https://controlled.invalid/foreign",parent,17,true);
+    if (origins.snapshot(QString(32,'a')).value("events").toList()!=returned || !origins.snapshot(QString(32,'e')).value("events").toList().isEmpty()) { return 10; }
+    using Lease=overte::e2e::MeasuredCameraLease;
+    const QVariantMap cameraOriginal{{"mode","selfie"},{"position",QVariantList{0.,1.6,4.}},
+        {"rotation",QVariantList{0.,0.,0.,1.}},{"projection",QVariantList{1.,0.,0.,0.,0.,1.,0.,0.,0.,0.,-1.,-1.,0.,0.,-.2,0.}}};
+    QObject camera;QVariantMap actualView=cameraOriginal;bool ignore=false;
+    Lease::Source cameraSource{&camera,[&] { return actualView; },[&](const QVariantMap& captured,bool hold) {
+        if (!ignore) { actualView=captured;if (hold) { actualView.insert("mode","independent"); } }
+    }};
+    Lease lease;
+    if (!lease.prepare(cameraSource) || !lease.owns(cameraSource) || actualView.value("mode")!="independent"
+            || lease.observe(cameraSource).value("originalView").toMap()!=cameraOriginal) { return 11; }
+    if (lease.prepare(cameraSource) || !lease.release(cameraSource) || actualView!=cameraOriginal || !lease.restored()
+            || !lease.release(cameraSource)) { return 12; }
+    Lease replaced;actualView=cameraOriginal;if (!replaced.prepare(cameraSource)) { return 13; }
+    QObject foreign;auto foreignSource=cameraSource;foreignSource.object=&foreign;
+    if (replaced.owns(foreignSource) || replaced.release(foreignSource) || replaced.observe(foreignSource).value("originalObject").toBool()) { return 14; }
+    Lease moved;actualView=cameraOriginal;if (!moved.prepare(cameraSource)) { return 15; }
+    actualView.insert("position",QVariantList{1.,1.6,4.});const auto foreignView=actualView;
+    if (moved.owns(cameraSource) || moved.release(cameraSource) || actualView!=foreignView) { return 16; }
+    Lease switched;actualView=cameraOriginal;if (!switched.prepare(cameraSource)) { return 17; }
+    switched.modeChanged(); // Original Camera signal is hooked by the product caller.
+    if (switched.owns(cameraSource) || switched.release(cameraSource)
+            || switched.observe(cameraSource).value("foreignModeChanges").toInt()!=1) { return 18; }
+    Lease ignored;actualView=cameraOriginal;ignore=true;
+    if (ignored.prepare(cameraSource) || ignored.release(cameraSource) || actualView!=cameraOriginal) { return 19; }
+    ignore=false;Lease restoreIgnored;actualView=cameraOriginal;if (!restoreIgnored.prepare(cameraSource)) { return 20; }
+    ignore=true;if (restoreIgnored.release(cameraSource) || restoreIgnored.restored()) { return 21; }
+    ignore=false;Lease unsupported;actualView=cameraOriginal;actualView.insert("mode","entity");
+    if (unsupported.prepare(cameraSource)) { return 22; }
+    qInfo("PASS: original model/wire/entity histories and owned measured camera lease counterexamples");return 0;
 }

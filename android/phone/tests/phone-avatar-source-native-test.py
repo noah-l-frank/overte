@@ -13,5 +13,5 @@ if ROOT not in build.parents:parser.error('Build directory must be inside this c
 build.mkdir(parents=True,exist_ok=False)
 flags=shlex.split(subprocess.check_output(['pkg-config','--cflags','--libs','Qt6Core','Qt6Network'],text=True))
 binary=build/'avatar-source-runtime'
-subprocess.run(['c++','-std=c++17','-fPIC','-DOVERTE_E2E_FEATURE_TESTS','-I'+str(ROOT),str(ROOT/'android/phone/tests/device/avatar-source-runtime.cpp'),'-o',str(binary),*flags],check=True,timeout=120)
+subprocess.run(['c++','-std=c++17','-fPIC','-DOVERTE_E2E_FEATURE_TESTS','-DANDROID_APP_PHONE_INTERFACE','-I'+str(ROOT),str(ROOT/'android/phone/tests/device/avatar-source-runtime.cpp'),'-o',str(binary),*flags],check=True,timeout=120)
 subprocess.run([str(binary),'--testScript'],check=True,timeout=10)

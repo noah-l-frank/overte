@@ -32,7 +32,15 @@ public:
         if (invalid || visited.isEmpty() || dialogs.size()>4) { return {}; }
         QVariantMap avatarSource{{"present",avatar!=nullptr},{"dialogs",dialogs}};
         if (avatar) {
-            avatarSource.insert("current",createVariant(avatar->property("currentAvatar")));
+            const auto variant=createVariant(avatar->property("currentAvatar"));QVariantMap current;
+            if (auto actual=variant.value<QObject*>()) {
+                if (actual->thread()!=qApp->thread()) { return {}; }
+                for (const auto& key:QStringList{"name","avatarUrl","avatarScale"}) { current.insert(key,createVariant(actual->property(key.toUtf8().constData()))); }
+            } else if (variant.canConvert<QVariantMap>()) {
+                const auto actual=variant.toMap();
+                for (const auto& key:QStringList{"name","avatarUrl","avatarScale"}) { current.insert(key,actual.value(key)); }
+            }
+            avatarSource.insert("current",current);
             avatarSource.insert("settings",createVariant(avatar->property("currentAvatarSettings")));
             avatarSource.insert("managing",avatar->property("isInManageState"));
             for (const auto& key:QStringList{"allAvatars","pageOfAvatars"}) {

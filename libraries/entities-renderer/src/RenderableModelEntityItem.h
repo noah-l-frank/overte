@@ -44,6 +44,11 @@ protected:
     ModelEntityWrapper(const EntityItemID& entityItemID) : Parent(entityItemID) {}
     void setModel(const ModelPointer& model);
     ModelPointer getModel() const;
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+public:
+    ModelPointer e2eAvatarEntityModel() const { return getModel(); }
+protected:
+#endif
 
     bool _needsInitialSimulation { true };
 private:

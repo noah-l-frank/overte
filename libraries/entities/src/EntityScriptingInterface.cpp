@@ -12,6 +12,9 @@
 //
 
 #include "EntityScriptingInterface.h"
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+#include "FeatureAvatarEntityOrigins.h"
+#endif
 
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/transform.hpp>
@@ -709,6 +712,13 @@ QUuid EntityScriptingInterface::addEntityInternal(const EntityItemProperties& pr
     // queue the packet
     if (success) {
         queueEntityMessage(PacketType::EntityAdd, id, propertiesWithSimID);
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        if (entityHostType==entity::HostType::AVATAR && propertiesWithSimID.getType()==EntityTypes::Model) {
+            bool present=false;if (_entityTree) { _entityTree->withReadLock([&] { present=bool(_entityTree->findEntityByEntityItemID(id)); }); }
+            overte::e2e::FeatureAvatarEntityOrigins::instance().added(id,propertiesWithSimID.getModelURL(),
+                propertiesWithSimID.getParentID(),propertiesWithSimID.getParentJointIndex(),present);
+        }
+#endif
         return id;
     } else {
         return QUuid();

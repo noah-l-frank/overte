@@ -3,6 +3,7 @@
 #pragma once
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PHONE_INTERFACE)
 #include "PhoneWebRuntimeBridge.h"
+#include "MeasuredCameraLease.h"
 #include <EntityScriptingInterface.h>
 #include <EntityTree.h>
 #include <EntityItem.h>
@@ -27,13 +28,16 @@ namespace overte::e2e {
 class PhoneNavigationMarker {
 public:
     QVariantMap input(const QVariantMap& command, const ViewFrustum& view, const QString& mode,
-            const glm::vec3& feet, float scale, float boom) {
+            const glm::vec3& feet, float scale, float boom, const MeasuredCameraLease::Source& camera = {}) {
         const auto object=QJsonObject::fromVariantMap(command);
         const auto operation=object.value("operation").toString();
         const auto id=object.value("commandId").toString(),run=object.value("runId").toString();
-        const auto allowed=operation=="prepare" ? QStringList{"action","commandId","fixtureUrl","imageExtent","markerRoi",
+        auto allowed=operation=="prepare" ? QStringList{"action","commandId","fixtureUrl","imageExtent","markerRoi",
             "operation","runId","schemaVersion","ticket"} : QStringList{"action","commandId","fixtureInstance","operation","runId","schemaVersion"};
+        const bool hold=command.contains("holdView");
+        if (operation=="prepare" && hold) { allowed.insert(3,"holdView"); }
         if (QThread::currentThread()!=qApp->thread() || command.keys()!=allowed
+                || (hold && (!object.value("holdView").isBool() || !object.value("holdView").toBool() || !camera.object || !camera.read || !camera.apply))
                 || !object.value("schemaVersion").isDouble() || object.value("schemaVersion").toDouble()!=1
                 || object.value("action").toString()!="phone-navigation-marker-input"
                 || !hex(id) || !hex(run) || (operation!="prepare" && operation!="release")) { return {}; }
@@ -56,7 +60,8 @@ public:
                     || !finite(view.getNearClip(),.00001,1e6) || !finite(view.getFarClip(),.001,1e9)
                     || view.getFarClip()<=view.getNearClip()
                     || _seenRuns.contains(id) || _seenRuns.size()>=256
-                    || (!_instance.isEmpty() && _phase!="drained")) { return {}; }
+                    || (!_instance.isEmpty() && _phase!="drained")
+                    || (hold && !MeasuredCameraLease::canPrepare(camera)) || (_camera && !_camera->release(camera))) { return {}; }
             const auto extent=object.value("imageExtent").toArray(),roi=object.value("markerRoi").toArray();
             auto whole=[](const QJsonValue& v,int low,int high) {
                 return v.isDouble() && std::isfinite(v.toDouble()) && v.toDouble()>=low && v.toDouble()<=high
@@ -100,6 +105,11 @@ public:
                 {"fieldOfViewDegrees",view.getFieldOfView()},{"aspectRatio",view.getAspectRatio()},
                 {"nearClip",view.getNearClip()},{"farClip",view.getFarClip()},{"perspective",view.isPerspective()},
                 {"feetPosition",vec(feet)},{"modelScale",scale},{"boomLength",boom},{"mode",mode}};
+            _camera.reset();
+            if (hold) {
+                _camera=std::make_shared<MeasuredCameraLease>();
+                if (!_camera->prepare(camera)) { _phase="failed"; }
+            }
             const QString url=command.value("fixtureUrl").toString()+"tickets/"+ticket+"/graphics-marker.v1.html";
             auto add=[&](const QString& role,EntityTypes::EntityType type,const glm::vec3& position,const glm::vec3& size) {
                 _objects.push_back({role,{}, {}});
@@ -115,7 +125,7 @@ public:
                 entities->getEntityTree()->withReadLock([&] { _objects.back().object=entities->getEntityTree()->findEntityByEntityItemID(entity); });
                 return !_objects.back().object.expired();
             };
-            const bool marker=add("marker",EntityTypes::Web,(markerTop+markerBottom)*.5f,dimensions(markerSize));
+            const bool marker=_phase!="failed" && add("marker",EntityTypes::Web,(markerTop+markerBottom)*.5f,dimensions(markerSize));
             _phase=marker ? "active" : "failed";
             receipt={{"phoneNavigationMarkerInputVersion",1},{"commandId",id},{"runId",run},{"fixtureInstance",_instance},
                 {"operation",operation},{"recorded",true}};
@@ -126,6 +136,11 @@ public:
             // write lock. A same-UUID replacement cannot race into deletion;
             // unknown children never join the deletion set.
             bool refused=false;
+            if (_camera && !_camera->owns(camera) && !_camera->restored()) { return {}; }
+            // Camera mode signals may enter application code; never emit them
+            // under an EntityTree lock. Original entity preflight still shares
+            // the deletion lock below. A refused marker retains the journal.
+            if (_camera && !_camera->release(camera)) { return {}; }
             entities->getEntityTree()->withWriteLock([&] {
                 std::vector<EntityItemPointer> originals;
                 for (const auto& entry:_objects) {
@@ -148,7 +163,7 @@ public:
         _lastInput=command;_lastReceipt=receipt;return receipt; // Input receipt only.
     }
 
-    QVariantMap observe(const QString& run) {
+    QVariantMap observe(const QString& run, const MeasuredCameraLease::Source& camera = {}) {
         if (QThread::currentThread()!=qApp->thread() || _instance.isEmpty() || run!=_run) { return {}; }
         auto entities=DependencyManager::get<EntityScriptingInterface>();
         if (!entities || !entities->getEntityTree()) { return {}; }
@@ -177,10 +192,13 @@ public:
                 {"dpi",p.getDpi()},{"lastEditedEpochUs",static_cast<qulonglong>(p.getLastEdited())}});
         }
         if (_phase=="releasing" && present.isEmpty() && retained==0) { _phase="drained"; }
-        return {{"phoneNavigationMarkerVersion",1},{"fixtureInstance",_instance},{"runId",_run},{"phase",_phase},
+        QVariantMap result {{"phoneNavigationMarkerVersion",1},{"fixtureInstance",_instance},{"runId",_run},{"phase",_phase},
             {"createdEpochMs",_created},{"originalInput",_originalInput},{"originalView",_view},{"objects",objects},
             {"entities",present},{"absentIds",absent},{"retainedObjects",retained}};
+        if (_camera) { result.insert("cameraLease",_camera->observe(camera)); }
+        return result;
     }
+    void cameraModeChanged() { if (_camera) { _camera->modeChanged(); } }
 private:
     struct Object { QString role;QUuid id;std::weak_ptr<EntityItem> object; };
     static bool hex(const QString& value) { return QRegularExpression("\\A[0-9a-f]{32}\\z").match(value).hasMatch(); }
@@ -191,6 +209,7 @@ private:
     qint64 _created {0};
     QVariantMap _originalInput,_view,_lastInput,_lastReceipt;
     std::vector<Object> _objects;
+    std::shared_ptr<MeasuredCameraLease> _camera;
 };
 }
 #endif

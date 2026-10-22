@@ -28,7 +28,8 @@ def input_command(value):
     need(type(value) is dict and value.get('operation') in ('prepare','release'))
     operation=value['operation']
     fields={'schemaVersion','commandId','action','operation','runId'}
-    exact(value,fields|({'fixtureUrl','ticket','imageExtent','markerRoi'} if operation=='prepare' else {'fixtureInstance'}))
+    held={'holdView'} if operation=='prepare' and value.get('holdView') is True else set()
+    exact(value,fields|({'fixtureUrl','ticket','imageExtent','markerRoi'} if operation=='prepare' else {'fixtureInstance'})|held)
     need(type(value['schemaVersion']) is int and value['schemaVersion']==1 and nonce(value['commandId'])
         and value['action']=='phone-navigation-marker-input');identifier(value['runId'])
     if operation=='prepare':
@@ -62,7 +63,7 @@ def original_view(value):
 def validate(value,request,pid,epoch):
     command(request);envelope(value,request,pid,epoch);source=value['source']
     exact(source,{'phoneNavigationMarkerVersion','fixtureInstance','runId','phase','createdEpochMs','originalInput',
-        'originalView','objects','entities','absentIds','retainedObjects'})
+        'originalView','objects','entities','absentIds','retainedObjects'}|({'cameraLease'} if source.get('originalInput',{}).get('holdView') is True else set()))
     need(type(source['phoneNavigationMarkerVersion']) is int and source['phoneNavigationMarkerVersion']==VERSION
         and nonce(source['fixtureInstance']) and source['runId']==request['runId']
         and source['phase'] in ('creating','active','failed','releasing','drained')
@@ -71,7 +72,8 @@ def validate(value,request,pid,epoch):
         and source['originalInput']['runId']==source['runId'])
     original_view(source['originalView']);need(abs(source['originalInput']['imageExtent'][0]/source['originalInput']['imageExtent'][1]
         -source['originalView']['aspectRatio'])<=.005)
-    objects=source['objects'];need(type(objects) is list and 0<len(objects)<=1)
+    if 'cameraLease' in source:camera_lease(source['cameraLease'],source['originalView'])
+    objects=source['objects'];need(type(objects) is list and 0<=len(objects)<=1)
     ids=[]
     for index,item in enumerate(objects):
         exact(item,{'role','id'});need(item['role']=='marker'
@@ -97,6 +99,30 @@ def validate(value,request,pid,epoch):
     need(all(id in ids and id not in seen for id in absent) and len(set(absent))==len(absent) and set(seen+absent)==set(ids))
     if source['phase']=='active':need(len(ids)==len(objects)==1)
     if source['phase']=='drained':need(not rows and source['retainedObjects']==0)
+    if source['phase']=='drained' and 'cameraLease' in source:need(source['cameraLease']['phase']=='restored')
+    return value
+
+
+def camera_lease(value,view):
+    exact(value,{'measuredCameraLeaseVersion','instance','phase','originalObject','originalView','heldView','currentView','foreignModeChanges'})
+    need(type(value['measuredCameraLeaseVersion']) is int and value['measuredCameraLeaseVersion']==1 and nonce(value['instance'])
+        and value['phase'] in ('preparing','held','restoring','restored','lost') and type(value['originalObject']) is bool
+        and integer(value['foreignModeChanges'],0,1000000000))
+    for key in ('originalView','heldView','currentView'):
+        actual=value[key]
+        if key=='currentView' and not actual:need(not value['originalObject']);continue
+        if key=='heldView' and not actual:need(value['phase']=='lost');continue
+        exact(actual,{'mode','position','rotation','projection'});need(type(actual['mode']) is str and len(actual['mode'])<=32)
+        vector(actual['position'],3,-1e6,1e6);rotation(actual['rotation']);vector(actual['projection'],16,-1e12,1e12)
+    original=value['originalView'];need(original['mode']==view['mode'] and original['mode'] in ('selfie','look at'))
+    for key in ('position','rotation','projection'):need(near(original[key],view[key],.000001))
+    if value['heldView']:
+        need(value['heldView']['mode']=='independent')
+        for key in ('position','rotation','projection'):need(near(original[key],value['heldView'][key],.000001))
+    if value['phase'] in ('held','restored'):
+        expected=value['heldView'] if value['phase']=='held' else original
+        need(value['originalObject'] and value['foreignModeChanges']==0 and value['currentView']['mode']==expected['mode'])
+        for key in ('position','rotation','projection'):need(near(expected[key],value['currentView'][key],.000001))
     return value
 
 
@@ -153,6 +179,11 @@ def continuation(previous,value):
     allowed={'creating':{'creating','active','failed','releasing','drained'},'active':{'active','releasing','drained'},
         'failed':{'failed','releasing','drained'},'releasing':{'releasing','drained'},'drained':{'drained'}}
     need(new['phase'] in allowed[old['phase']])
+    if 'cameraLease' in old:
+        a,b=old['cameraLease'],new['cameraLease'];need(all(a[k]==b[k] for k in ('instance','originalView','heldView'))
+            and b['foreignModeChanges']>=a['foreignModeChanges'])
+        transitions={'held':{'held','restored','lost'},'restored':{'restored'},'lost':{'lost'},'preparing':{'held','lost'},'restoring':{'restored','lost'}}
+        need(b['phase'] in transitions[a['phase']])
 
 
 def ready(value,avatar):

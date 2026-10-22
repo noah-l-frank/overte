@@ -12,6 +12,7 @@ from pathlib import Path
 import secrets
 import sys
 import threading
+import time
 import unittest
 from unittest.mock import patch
 from urllib.parse import urlencode
@@ -142,6 +143,20 @@ class AvatarPeopleServiceTests(unittest.TestCase):
                         self.assertEqual(403,self.request(path,headers={'Authorization':'Bearer '+token})[0])
         # The separately authorized fixture controller can still retire both.
         self.client.close();self.assertTrue(all(self.social.owns_account(auth) for auth in scopes.values()))
+
+    def test_readonly_feature_attachment_keeps_tls_phase_and_credential_roles(self):
+        sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'adapters/android-phone'))
+        from adapters.feature_fixture_access import AdapterFixtureClient
+        from overte_phone_avatar_people_fixture import AvatarPeopleFixtureReader
+        self.epoch=int(time.time()*1000)
+        primary=AvatarPeopleFixtureReader(AdapterFixtureClient(self.client.url,self.adapter),self.run,epoch_ms=lambda:self.epoch)
+        peer=AvatarPeopleFixtureReader(witness.Client(self.client.url,self.actor),self.run,epoch_ms=lambda:self.epoch)
+        for source,role in ((primary,'primary'),(peer,'peer')):
+            phase=source.read();self.assertEqual(TICKET,phase['ticket']);self.assertEqual(self.social.instance,phase['backend']['instance'])
+            self.assertEqual(self.social.credentials(self.run,role),source.credentials(role))
+        for source,foreign in ((primary,'peer'),(peer,'primary')):
+            with self.subTest(role=foreign),self.assertRaises(ValueError):source.credentials(foreign)
+        previous=primary.backend;self.assertNotEqual(primary.status_backend(previous)['requestId'],previous['requestId'])
 
     def test_original_history_replay_drop_rewrite_and_wrong_request_cannot_validate(self):
         self.submit('primary');first=self.client.avatar_people_status();self.submit('peer');second=self.client.avatar_people_status()

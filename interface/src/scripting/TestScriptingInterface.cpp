@@ -50,6 +50,9 @@
 #include "../AvatarBookmarks.h"
 #include <FeatureResourceReplies.h>
 #include <FeaturePeopleReplies.h>
+#include <FeatureAvatarEntityOrigins.h>
+#include <EntityTreeRenderer.h>
+#include <RenderableModelEntityItem.h>
 #include <NodeList.h>
 #include "../../../tests/device/native/AvatarPeopleViewObservation.h"
 #endif
@@ -880,6 +883,27 @@ QVariantMap TestScriptingInterface::phoneEmoteFixtureObservation(const QVariantM
 }
 
 #if defined(ANDROID_APP_PHONE_INTERFACE)
+namespace {
+overte::e2e::MeasuredCameraLease::Source measuredPhoneCamera() {
+    auto* camera=&qApp->getCamera();
+    return {camera,[camera] {
+        if (camera->e2eKeepsLookingAt()) { return QVariantMap(); }
+        const auto p=camera->getPosition();const auto q=camera->getOrientation();const auto projection=camera->getProjection();QVariantList matrix;
+        for (int row=0;row<4;++row) { for (int column=0;column<4;++column) { matrix.append(projection[column][row]); } }
+        return QVariantMap{{"mode",camera->getModeString()},{"position",QVariantList{p.x,p.y,p.z}},
+            {"rotation",QVariantList{q.x,q.y,q.z,q.w}},{"projection",matrix}};
+    },[camera](const QVariantMap& captured,bool hold) {
+        const auto p=captured.value("position").toList(),q=captured.value("rotation").toList(),matrix=captured.value("projection").toList();
+        if (p.size()!=3 || q.size()!=4 || matrix.size()!=16 || camera->e2eKeepsLookingAt()) { return; }
+        glm::mat4 projection;
+        for (int row=0;row<4;++row) { for (int column=0;column<4;++column) { projection[column][row]=matrix[row*4+column].toFloat(); } }
+        if (hold) { camera->setMode(CAMERA_MODE_INDEPENDENT); }
+        camera->setPosition(glm::vec3(p[0].toFloat(),p[1].toFloat(),p[2].toFloat()));
+        camera->setOrientation(glm::quat(q[3].toFloat(),q[0].toFloat(),q[1].toFloat(),q[2].toFloat()));camera->setProjection(projection);
+        if (!hold) { camera->setModeString(captured.value("mode").toString()); }
+    }};
+}
+}
 QVariantMap TestScriptingInterface::phoneNavigationMarkerInput(const QVariantMap& command) {
 #if defined(ANDROID_APP_PHONE_INTERFACE)
     if (QThread::currentThread()!=thread()) {
@@ -891,10 +915,14 @@ QVariantMap TestScriptingInterface::phoneNavigationMarkerInput(const QVariantMap
             || !QCoreApplication::arguments().contains("--testScript")) { return {}; }
     const auto avatar=DependencyManager::get<AvatarManager>()->getMyAvatar();
     if (!avatar) { return {}; }
-    if (!_phoneNavigationMarker) { _phoneNavigationMarker=std::make_shared<overte::e2e::PhoneNavigationMarker>(); }
+    if (!_phoneNavigationMarker) {
+        _phoneNavigationMarker=std::make_shared<overte::e2e::PhoneNavigationMarker>();
+        const std::weak_ptr<overte::e2e::PhoneNavigationMarker> weak=_phoneNavigationMarker;
+        QObject::connect(&qApp->getCamera(),&Camera::modeUpdated,this,[weak](const QString&) { if (const auto fixture=weak.lock()) { fixture->cameraModeChanged(); } });
+    }
     ViewFrustum view;qApp->getCamera().loadViewFrustum(view);
     return _phoneNavigationMarker->input(command,view,qApp->getCamera().getModeString(),
-        avatar->getWorldFeetPosition(),avatar->getModelScale(),avatar->getBoomLength());
+        avatar->getWorldFeetPosition(),avatar->getModelScale(),avatar->getBoomLength(),measuredPhoneCamera());
 #else
     Q_UNUSED(command);return {};
 #endif
@@ -917,7 +945,7 @@ QVariantMap TestScriptingInterface::phoneNavigationMarkerObservation(const QVari
             || !QRegularExpression("\\A[0-9a-f]{32}\\z").match(id).hasMatch()
             || !QRegularExpression("\\A[0-9a-f]{32}\\z").match(run).hasMatch()) { return {}; }
     const auto requested=QDateTime::currentMSecsSinceEpoch();
-    const auto source=_phoneNavigationMarker->observe(run);
+    const auto source=_phoneNavigationMarker->observe(run,measuredPhoneCamera());
     if (source.isEmpty()) { return {}; }
     return {{"schemaVersion",1},{"requestId",id},{"instance",_featureObservationInstance},
         {"sequence",static_cast<qulonglong>(++_phoneNavigationMarkerSequence)},
@@ -1343,8 +1371,8 @@ QVariantMap TestScriptingInterface::phoneAvatarPeopleObservation(const QVariantM
     if (!_phoneAvatarPeopleView) { _phoneAvatarPeopleView=std::make_shared<overte::e2e::AvatarPeopleViewObservation>(); }
     const auto view=_phoneAvatarPeopleView->read({ui->getRootItem(),tablet->getTabletRoot()},tabletState.value("shown").toBool());
     const auto bookmarks=DependencyManager::get<AvatarBookmarks>()->featureBookmarkStorage();
-    const auto account=DependencyManager::get<AccountManager>();QVariantMap auth;
-    const auto readAuth=[&] { auth=account->featureAccountObservation(); };
+    const auto account=DependencyManager::get<AccountManager>();QVariantMap auth;QString accountOrigin;
+    const auto readAuth=[&] { auth=account->featureAccountObservation();accountOrigin=account->getMetaverseServerURL().toString(QUrl::FullyEncoded); };
     if (account->thread()==QThread::currentThread()) { readAuth(); }
     else if (!QMetaObject::invokeMethod(account.data(),readAuth,Qt::BlockingQueuedConnection)) { return {}; }
     if (view.isEmpty() || bookmarks.isEmpty() || auth.isEmpty()) { return {}; }
@@ -1359,7 +1387,10 @@ QVariantMap TestScriptingInterface::phoneAvatarPeopleObservation(const QVariantM
             {"requestedUrl",avatar->getSkeletonModelURL().toString()},{"advertisedLoads",avatar->e2eAvatarLoads()},
             {"modelInstance",model->e2eModelInstance()},{"modelLoads",model->e2eModelLoads()},{"rigId",model->getRig().e2eRigId()},
             {"loaded",model->isLoaded()},{"visible",model->isVisible()},{"addedToScene",model->isAddedToScene()},
-            {"targetScale",avatar->getTargetScale()},{"scale",avatar->getModelScale()},{"hipsJoint",avatar->getJointIndex("Hips")},{"geometry",loaded}};
+            {"targetScale",avatar->getTargetScale()},{"scale",avatar->getModelScale()},{"hipsJoint",avatar->getJointIndex("Hips")},
+            {"feetPosition",QVariantList{avatar->getWorldFeetPosition().x,avatar->getWorldFeetPosition().y,avatar->getWorldFeetPosition().z}},
+            {"orientation",QVariantList{avatar->getWorldOrientation().x,avatar->getWorldOrientation().y,avatar->getWorldOrientation().z,avatar->getWorldOrientation().w}},
+            {"shouldRender",avatar->shouldRender()},{"geometry",loaded}};
     };
     const auto original=modelSource(local);if (original.isEmpty()) { return {}; }QVariantList peers;
     const auto hash=avatars->getHashCopy();if (hash.size()>128) { return {}; }
@@ -1370,15 +1401,47 @@ QVariantMap TestScriptingInterface::phoneAvatarPeopleObservation(const QVariantM
     }
     const bool canRez=nodes->getThisNodeCanRezAvatarEntities();
     const auto attachments=local->getAvatarEntitiesVariant();if (attachments.size()>128) { return {}; }
+    const auto treeRenderer=DependencyManager::get<EntityTreeRenderer>();const auto entities=DependencyManager::get<EntityScriptingInterface>();
+    if (!treeRenderer || !treeRenderer->getTree() || !entities) { return {}; }
+    QSet<QUuid> ownedIds;const auto localEntities=local->getAvatarEntityData();
+    if (localEntities.size()>128) { return {}; }for (auto it=localEntities.begin();it!=localEntities.end();++it) { ownedIds.insert(it.key()); }
+    for (auto it=hash.begin();it!=hash.end();++it) { if (!it.value()) { return {}; }const auto data=it.value()->getAvatarEntityData();if (data.size()>128) { return {}; }
+        for (auto entry=data.begin();entry!=data.end();++entry) { ownedIds.insert(entry.key()); }
+    }
+    if (ownedIds.size()>256) { return {}; }QVariantList entityRows,absentIds;
+    auto vec=[](const glm::vec3& value) { return QVariantList{value.x,value.y,value.z}; };
+    auto quat=[](const glm::quat& value) { return QVariantList{value.x,value.y,value.z,value.w}; };
+    for (const auto& id:ownedIds) {
+        if (id.isNull()) { return {}; }const auto p=entities->getEntityProperties(id);
+        if (p.getType()==EntityTypes::Unknown) { absentIds.append(id.toString(QUuid::WithoutBraces));continue; }
+        QVariant nativeModel;
+        if (p.getType()==EntityTypes::Model) {
+            std::shared_ptr<RenderableModelEntityItem> entity;treeRenderer->getTree()->withReadLock([&] { entity=std::dynamic_pointer_cast<RenderableModelEntityItem>(treeRenderer->getTree()->findEntityByEntityItemID(id)); });
+            if (entity) { const auto model=entity->e2eAvatarEntityModel();if (model) {
+                QVariant geometrySource;const auto geometry=model->getGeometry();
+                if (geometry && geometry->isHFMModelLoaded()) { geometrySource=QVariantMap{{"instance",geometry->e2eGeometryInstance()},
+                    {"url",geometry->getHFMModel().originalURL},{"texturesLoaded",geometry->areTexturesLoaded()},{"textures",geometry->getTextures()}}; }
+                nativeModel=QVariantMap{{"modelInstance",model->e2eModelInstance()},{"modelLoads",model->e2eModelLoads()},
+                    {"loaded",model->isLoaded()},{"visible",model->isVisible()},{"addedToScene",model->isAddedToScene()},{"geometry",geometrySource}};
+            } }
+        }
+        entityRows.append(QVariantMap{{"entityId",id.toString(QUuid::WithoutBraces)},{"type",EntityTypes::getEntityTypeName(p.getType())},
+            {"host",p.getEntityHostType()==entity::HostType::AVATAR ? "avatar" : p.getEntityHostType()==entity::HostType::LOCAL ? "local" : "domain"},
+            {"parentId",p.getParentID().toString(QUuid::WithoutBraces)},{"parentJointIndex",p.getParentJointIndex()},{"modelUrl",p.getModelURL()},
+            {"visible",p.getVisible()},{"localPosition",vec(p.getLocalPosition())},{"localRotation",quat(p.getLocalRotation())},
+            {"localDimensions",vec(p.getLocalDimensions())},{"model",nativeModel}});
+    }
     const auto captured=QDateTime::currentMSecsSinceEpoch();if (captured<requested || captured-requested>1500) { return {}; }
     return {{"avatarPeopleObservationVersion",1},{"commandId",request},{"runId",run},{"instance",_featureObservationInstance},
         {"sequence",static_cast<qulonglong>(++_phoneAvatarPeopleSequence)},{"processId",QCoreApplication::applicationPid()},
         {"requestedEpochMs",requested},{"capturedEpochMs",captured},
-        {"source",QVariantMap{{"view",view},{"bookmarks",bookmarks},{"auth",auth},{"avatar",original},{"peers",peers},
-            {"canRezAvatarEntities",canRez},{"attachments",attachments},{"preferredAvatarUrl",local->getFullAvatarURLFromPreferences().toString()},
+        {"source",QVariantMap{{"view",view},{"bookmarks",bookmarks},{"auth",auth},{"accountOrigin",accountOrigin},{"avatar",original},{"peers",peers},
+            {"canRezAvatarEntities",canRez},{"attachments",attachments},{"preferredAvatarUrl",local->getFullAvatarURLFromPreferences().toString()},{"preferredAvatarName",local->getFullAvatarModelName()},
             {"domainId",nodes->getDomainHandler().getUUID().toString(QUuid::WithoutBraces)},{"connected",nodes->getDomainHandler().isConnected()},
             {"resourceReplies",overte::e2e::FeatureResourceReplies::instance().snapshot(run)},
-            {"peopleReplies",overte::e2e::FeaturePeopleReplies::instance().snapshot()}}}};
+            {"peopleReplies",overte::e2e::FeaturePeopleReplies::instance().snapshot()},
+            {"avatarEntityOrigins",overte::e2e::FeatureAvatarEntityOrigins::instance().snapshot(run)},
+            {"avatarEntities",QVariantMap{{"complete",true},{"entities",entityRows},{"absentIds",absentIds}}}}}};
 }
 QVariantMap TestScriptingInterface::phoneScriptFileUi(const QVariantMap& command) { return phoneControlUi(command, 0); }
 QVariantMap TestScriptingInterface::phoneAudioUi(const QVariantMap& command) { return phoneControlUi(command, 1); }

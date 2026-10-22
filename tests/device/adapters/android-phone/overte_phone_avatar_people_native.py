@@ -60,10 +60,13 @@ def history(value,epoch,*,previous=None):
 
 
 def model(value,epoch,*,previous=None):
-    exact(value,{'sessionId','replicated','requestedUrl','advertisedLoads','modelInstance','modelLoads','rigId','loaded','visible','addedToScene','targetScale','scale','hipsJoint','geometry'})
+    exact(value,{'sessionId','replicated','requestedUrl','advertisedLoads','modelInstance','modelLoads','rigId','loaded','visible','addedToScene','targetScale','scale','hipsJoint','feetPosition','orientation','shouldRender','geometry'})
     session(value['sessionId']);need(type(value['replicated']) is bool and text(value['requestedUrl']) and nonce(value['modelInstance'])
         and integer(value['rigId']) and all(type(value[k]) is bool for k in ('loaded','visible','addedToScene'))
         and number(value['scale'],.01,1000) and number(value['targetScale'],.01,1000) and type(value['hipsJoint']) is int and -1<=value['hipsJoint']<=65535)
+    for key,count in (('feetPosition',3),('orientation',4)):
+        need(type(value[key]) is list and len(value[key])==count and all(number(v,-1e6,1e6) for v in value[key]))
+    need(type(value['shouldRender']) is bool and abs(sum(v*v for v in value['orientation'])-1)<.001)
     history(value['advertisedLoads'],epoch,previous=previous['advertisedLoads'] if previous else None)
     history(value['modelLoads'],epoch,previous=previous['modelLoads'] if previous and previous['modelInstance']==value['modelInstance'] else None)
     if value['advertisedLoads']['currentGeneration']>0:need(value['advertisedLoads']['requestedSha256']==digest(value['requestedUrl']))
@@ -149,6 +152,44 @@ class PhoneAvatarPeopleIO(PhoneScriptFileIO):
         self.deliver(request,original)
 
 
+def entities(source,epoch,run,previous=None):
+    origins=source['avatarEntityOrigins'];exact(origins,{'avatarEntityOriginsVersion','instance','sequence','capturedEpochMs','runId','complete','events'})
+    need(type(origins['avatarEntityOriginsVersion']) is int and origins['avatarEntityOriginsVersion']==1 and nonce(origins['instance'])
+        and integer(origins['sequence'],1) and integer(origins['capturedEpochMs'],1,epoch) and origins['runId']==run and origins['complete'] is True
+        and type(origins['events']) is list and len(origins['events'])<=256)
+    sequence=0;captured=0;seen=set()
+    for row in origins['events']:
+        exact(row,{'eventSequence','capturedEpochMs','runId','ticket','entityId','parentId','parentJointIndex','treePresent','modelUrlSha256'})
+        need(integer(row['eventSequence'],sequence+1) and integer(row['capturedEpochMs'],max(1,captured),origins['capturedEpochMs'])
+            and row['runId']==run and nonce(row['ticket']) and integer(row['parentJointIndex'],0,65535) and type(row['treePresent']) is bool
+            and type(row['modelUrlSha256']) is str and HASH.fullmatch(row['modelUrlSha256']))
+        session(row['entityId']);session(row['parentId']);need(row['entityId'] not in seen);seen.add(row['entityId']);sequence=row['eventSequence'];captured=row['capturedEpochMs']
+    if previous is not None:
+        old=previous['avatarEntityOrigins'];need(origins['instance']==old['instance'] and origins['sequence']>old['sequence']
+            and origins['capturedEpochMs']>=old['capturedEpochMs'] and same(origins['events'][:len(old['events'])],old['events']))
+    actual=source['avatarEntities'];exact(actual,{'complete','entities','absentIds'})
+    need(actual['complete'] is True and type(actual['entities']) is list and len(actual['entities'])<=256 and type(actual['absentIds']) is list and len(actual['absentIds'])<=256)
+    ids=set()
+    for row in actual['entities']:
+        exact(row,{'entityId','type','host','parentId','parentJointIndex','modelUrl','visible','localPosition','localRotation','localDimensions','model'})
+        session(row['entityId']);session(row['parentId']);need(row['entityId'] not in ids and text(row['type'],128) and row['host'] in ('avatar','local','domain')
+            and integer(row['parentJointIndex'],0,65535) and text(row['modelUrl']) and type(row['visible']) is bool)
+        ids.add(row['entityId'])
+        for key,count in (('localPosition',3),('localRotation',4),('localDimensions',3)):
+            need(type(row[key]) is list and len(row[key])==count and all(number(v,-1e6,1e6) for v in row[key]))
+        if row['model'] is not None:
+            m=row['model'];exact(m,{'modelInstance','modelLoads','loaded','visible','addedToScene','geometry'})
+            need(nonce(m['modelInstance']) and all(type(m[k]) is bool for k in ('loaded','visible','addedToScene')))
+            old=next((r for r in previous['avatarEntities']['entities'] if r['entityId']==row['entityId']),None) if previous else None
+            old_model=old.get('model') if old else None
+            history(m['modelLoads'],epoch,previous=old_model['modelLoads'] if old_model and old_model['modelInstance']==m['modelInstance'] else None)
+            if m['geometry'] is not None:
+                g=m['geometry'];exact(g,{'instance','url','texturesLoaded','textures'});need(nonce(g['instance']) and text(g['url'])
+                    and type(g['texturesLoaded']) is bool and type(g['textures']) is dict and len(g['textures'])<=256 and all(text(k,1024) and text(v) for k,v in g['textures'].items()))
+            need(not m['loaded'] or m['geometry'] is not None)
+    for id in actual['absentIds']:session(id);need(id not in ids);ids.add(id)
+
+
 def validate(value,request,pid,epoch,*,previous=None):
     command(request)
     exact(value,{'avatarPeopleObservationVersion','commandId','runId','instance','sequence','processId','requestedEpochMs','capturedEpochMs','source'})
@@ -157,8 +198,9 @@ def validate(value,request,pid,epoch,*,previous=None):
         and type(value['processId']) is int and value['processId']==pid and integer(value['requestedEpochMs'],1)
         and integer(value['capturedEpochMs'],value['requestedEpochMs'],value['requestedEpochMs']+1500))
     fresh(value['capturedEpochMs'],epoch);source=value['source'];before=previous['source'] if previous else None
-    exact(source,{'view','bookmarks','auth','avatar','peers','canRezAvatarEntities','attachments','preferredAvatarUrl','domainId','connected','resourceReplies','peopleReplies'})
+    exact(source,{'view','bookmarks','auth','accountOrigin','avatar','peers','canRezAvatarEntities','attachments','preferredAvatarUrl','preferredAvatarName','domainId','connected','resourceReplies','peopleReplies','avatarEntityOrigins','avatarEntities'})
     need(type(source['connected']) is bool and type(source['canRezAvatarEntities']) is bool and text(source['preferredAvatarUrl'])
+        and text(source['preferredAvatarName'],256) and text(source['accountOrigin'],1024)
         and type(source['attachments']) is list and len(source['attachments'])<=128 and all(type(row) is dict for row in source['attachments']))
     session(source['domainId']);account_observation(source['auth'],value['capturedEpochMs'],value['requestedEpochMs'])
     model(source['avatar'],value['capturedEpochMs'],previous=before['avatar'] if before else None)
@@ -177,7 +219,10 @@ def validate(value,request,pid,epoch,*,previous=None):
     need(type(avatar['dialogs']) is list and len(avatar['dialogs'])<=4)
     for dialog in avatar['dialogs']:
         exact(dialog,{'title','source'});need((dialog['title'] is None or text(dialog['title'],512)) and text(dialog['source'],256))
-    if avatar['present']:need(view['tabletShown'] and type(avatar['managing']) is bool and type(avatar['settings']) is dict)
+    if avatar['present']:
+        need(view['tabletShown'] and type(avatar['managing']) is bool and type(avatar['settings']) is dict and type(avatar['current']) is dict)
+        if avatar['current']:
+            exact(avatar['current'],{'name','avatarUrl','avatarScale'});need(text(avatar['current']['name'],256) and text(avatar['current']['avatarUrl']) and number(avatar['current']['avatarScale'],.01,1000))
     people=view['people'];need(type(people) is dict and type(people.get('present')) is bool)
     exact(people,{'present','dialog'}|({'consent','nearby','self','tab'} if people['present'] else set()))
     need(type(people['dialog']) is bool and (people['present'] or not people['dialog']))
@@ -194,6 +239,7 @@ def validate(value,request,pid,epoch,*,previous=None):
     exact(view['preferences'],{'filtered','nearDistance','nearbySortIndicatorColumn','nearbySortIndicatorOrder','connectionsSortIndicatorColumn','connectionsSortIndicatorOrder'})
     for pref in view['preferences'].values():exact(pref,{'present','value'});need(type(pref['present']) is bool and (pref['present'] or pref['value'] is None))
     replies(source['resourceReplies'],value['capturedEpochMs'],resource=True,run=request['runId'],previous=before['resourceReplies'] if before else None)
+    entities(source,value['capturedEpochMs'],request['runId'],before)
     replies(source['peopleReplies'],value['capturedEpochMs'],resource=False,previous=before['peopleReplies'] if before else None)
     if previous is not None:
         validate(previous,dict(schemaVersion=1,commandId=previous['commandId'],action=ACTION,runId=previous['runId']),pid,previous['capturedEpochMs'])
