@@ -93,5 +93,16 @@ class OwnedPeerTests(unittest.TestCase):
         with self.assertRaises(NativeUIError):
             OwnedChatPeer(self.config,PrivateFeatureState(self.state/'other-files.json'),source_lock=ScriptSourceLock(self.root/'script-sources.lock'))
 
+    def test_recycled_original_executable_descriptor_is_foreign_and_never_closed_by_peer_detach(self):
+        peer=self.acquire();process=peer.process;descriptor,anchor=process.fd,process.fd_owner.anchor
+        self.assertIsNotNone(peer.files.fd_owner)
+        os.close(descriptor);foreign=os.open(f'/proc/{self.worker.pid}/exe',os.O_RDONLY|os.O_CLOEXEC)
+        try:
+            self.assertEqual(descriptor,foreign)
+            with self.assertRaises(NativeUIError):peer.guard()
+            peer.close_host();self.assertEqual(Path(f'/proc/{self.worker.pid}/exe').stat().st_ino,os.fstat(foreign).st_ino)
+            self.assertIsNotNone(self.store.read());self.assertIsNone(self.worker.poll())
+        finally:os.close(foreign);os.close(anchor)
+
 
 if __name__=='__main__':unittest.main()

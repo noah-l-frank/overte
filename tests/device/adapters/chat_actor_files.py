@@ -101,16 +101,20 @@ class ChatActorFiles:
     True only after its original result FD has closed. Neither is an input ACK.
     """
     def __init__(self,directory,store,binding,script_sha256,guard,released,*,component_only=False,
-                 clock_ms=lambda:int(time.time()*1000),monotonic=time.monotonic,sleep=time.sleep):
+                 clock_ms=lambda:int(time.time()*1000),monotonic=time.monotonic,sleep=time.sleep,require_original_fd=False):
         need(os.name=='posix' and all(callable(v) for v in (guard,released,clock_ms,monotonic,sleep))
-             and type(script_sha256) is str and re.fullmatch('[0-9a-f]{64}',script_sha256))
+             and type(script_sha256) is str and re.fullmatch('[0-9a-f]{64}',script_sha256) and type(require_original_fd) is bool)
         self.path=Path(directory);self.store=store;self.guard=guard;self.released=released
         self.clock_ms,self.monotonic,self.sleep=clock_ms,monotonic,sleep
         self.binding=deepcopy(context(binding,component_only=component_only));self.component_only=component_only
         pid=self.binding['processIdentity'].split(':',1)[0];need(re.fullmatch('[1-9][0-9]*',pid))
-        self.pid=int(pid);self.fd=-1
+        self.pid=int(pid);self.fd=-1;self.fd_owner=None
         need(self.path.is_absolute() and self.path.resolve(strict=True)==self.path and self.guard() is not False)
-        self.fd=os.open(self.path,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW|os.O_CLOEXEC)
+        flags=os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW|os.O_CLOEXEC
+        if require_original_fd:
+            from adapters.native_fd_owner import OriginalDescriptor
+            self.fd_owner=OriginalDescriptor(self.path,flags);self.fd=self.fd_owner.fd
+        else:self.fd=os.open(self.path,flags)
         try:
             info=os.fstat(self.fd);self.root=node(info);self._check_root()
             raw,source_info=self._read(SOURCE,4096)
@@ -129,9 +133,13 @@ class ChatActorFiles:
 
     def detach(self):
         """Close this host handle only; never claim native cache/file cleanup."""
-        if self.fd>=0:os.close(self.fd);self.fd=-1
+        if self.fd>=0:
+            if self.fd_owner is None:os.close(self.fd)
+            else:self.fd_owner.close()
+            self.fd=-1
 
     def _check_root(self):
+        if self.fd_owner is not None:self.fd_owner.require(self.fd)
         need(self.fd>=0 and self.guard() is not False and self.path.resolve(strict=True)==self.path)
         original=os.fstat(self.fd);current=self.path.lstat()
         need(node(original)==node(current)==self.root and stat.S_ISDIR(current.st_mode)

@@ -116,6 +116,7 @@
     "chat-compiled-model-samples": {"current": 1, "reads": [1]},
     "chat-compiled-cache-absence": {"current": 1, "reads": [1]},
     "chat-cleanup-admission": {"current": 1, "reads": [1]},
+    "native-host-descriptor-owner": {"current": 1, "reads": [1]},
     "chat-cache-lifetime": {"current": 1, "reads": [1]},
     "native-chat-observation": {"current": 3, "reads": [1, 2, 3]},
     "native-chat-domain-session": {"current": 1, "reads": [1]},

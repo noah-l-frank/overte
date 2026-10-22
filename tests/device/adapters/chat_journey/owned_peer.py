@@ -54,7 +54,7 @@ class OwnedChatPeer:
             self.lock=ScriptSourceLock(files_store.path.with_name('script-sources.lock')) if source_lock is None else source_lock
             need(isinstance(self.lock,ScriptSourceLock) and self.lock.path==files_store.path.with_name('script-sources.lock'))
             self.files=ChatActorFiles(self.directory,files_store,self.binding,self.config['expectedScriptSha256'],
-                self.process_guard,self.process.released,clock_ms=clock_ms,monotonic=monotonic,sleep=sleep)
+                self.process_guard,self.process.released,clock_ms=clock_ms,monotonic=monotonic,sleep=sleep,require_original_fd=True)
             need(self.files.source==native and self.files.require_compiled_source()==self.binding['sourceRevision'])
             self.guard_callback=self.guard;self.guard()
         except Exception:

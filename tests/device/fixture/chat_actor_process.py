@@ -14,19 +14,20 @@ import sys
 from adapters.chat_actor_files import identity,node,stamp
 from adapters.native_feature_observation import integer,need
 from adapters.normal_ui import NativeUIError
+from adapters.native_fd_owner import OriginalDescriptor
 
 
 class LinuxChatActorProcess:
     def __init__(self,pid,directory,executable_sha256,owned):
         need(sys.platform.startswith('linux') and integer(pid,1) and callable(owned)
              and type(executable_sha256) is str and re.fullmatch('[0-9a-f]{64}',executable_sha256))
-        self.pid,self.path,self.owned=pid,Path(directory),owned;self.fd=-1
+        self.pid,self.path,self.owned=pid,Path(directory),owned;self.fd=-1;self.fd_owner=None
         need(self.path.is_absolute() and self.path.resolve(strict=True)==self.path)
         root=self.path.lstat();need(stat.S_ISDIR(root.st_mode) and stat.S_IMODE(root.st_mode)==0o700 and root.st_uid==os.geteuid())
         self.root=node(root);self.boot=Path('/proc/sys/kernel/random/boot_id').read_text().strip()
         need(re.fullmatch('[0-9a-f-]{36}',self.boot));self.start=self._start()
         self._arguments()
-        self.fd=os.open(f'/proc/{pid}/exe',os.O_RDONLY|os.O_CLOEXEC)
+        self.fd_owner=OriginalDescriptor(f'/proc/{pid}/exe',os.O_RDONLY|os.O_CLOEXEC);self.fd=self.fd_owner.fd
         try:
             before=os.fstat(self.fd);need(stat.S_ISREG(before.st_mode));self.executable=stamp(before)
             digest=hashlib.sha256()
@@ -58,6 +59,7 @@ class LinuxChatActorProcess:
 
     def guard(self):
         try:
+            self.fd_owner.require(self.fd)
             need(self.fd>=0 and self._start()==self.start
                  and Path('/proc/sys/kernel/random/boot_id').read_text().strip()==self.boot
                  and self.path.resolve(strict=True)==self.path)
@@ -80,4 +82,5 @@ class LinuxChatActorProcess:
         self.guard();return not found
 
     def close(self):
-        if self.fd>=0:os.close(self.fd);self.fd=-1
+        if self.fd>=0:
+            self.fd_owner.close();self.fd=-1

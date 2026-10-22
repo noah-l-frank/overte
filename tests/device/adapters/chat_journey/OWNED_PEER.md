@@ -8,6 +8,12 @@ actual executable digest, PID/start/boot identity, original owner environment,
 private root and held native source inode are independently checked through the
 existing `LinuxChatActorProcess` and `ChatActorFiles` implementations.
 
+Both host executable and actor-directory handles additionally require
+[original kernel descriptor ownership](../../native/HOST_DESCRIPTOR_OWNER.md).
+Recycling either descriptor for the same original inode cannot preserve its
+guard or authorize closing the foreign replacement. Unsupported OFD query
+sources fail acquisition; legacy standalone file transports gain no such claim.
+
 The full peer binding uses that actor's original version-2 compiled configure
 revision, actual executable hash and kernel process identity. It never copies
 the primary APK's revision, artifact or process. Legacy source version 1,
