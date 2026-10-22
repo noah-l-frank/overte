@@ -108,6 +108,8 @@ REQUIRED = {
     "chat-mixer-owner": 1,
     "chat-normal-input": 1,
     "chat-background-owner": 1,
+    "chat-flow-inputs": 1,
+    "chat-independent-witness": 1,
     "chat-journey-no-replay": 2,
     "chat-peer-input": 4,
     "native-chat-peer-input": 3,
