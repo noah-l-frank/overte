@@ -441,3 +441,44 @@ def install_keepalive_snapshot_rpc(proxy_type):
             except Exception:
                 connection.close();self.__dict__.pop('_snapshot_rpc_connection',None);raise
     proxy_type.call=call
+
+
+class ScopeGuardTrace:
+    """Opt-in local caller counts; no measurements, RPCs or clock replacement."""
+    def __init__(self,label='parent'):
+        from collections import Counter
+        if label not in ('parent','actor'):raise ValueError('Closed diagnostic process label required')
+        self.label=label;self.counts=Counter();self.saved=[];self.local=threading.local()
+    def __enter__(self):
+        import sys
+        from overte_phone_snapshot_system_context import SnapshotSystemContext
+        if self.saved:raise RuntimeError('Scope diagnostics already active')
+        missing=object()
+        for cls in (SnapshotDocumentContext,SnapshotSystemContext):
+            own=cls.__dict__.get('guard',missing);original=cls.guard
+            self.saved.append((cls,own,missing))
+            def guard(scope,*args,_original=original,**kwargs):
+                outer=not getattr(self.local,'active',False)
+                if outer:
+                    self.local.active=True;frame=sys._getframe(1);chain=[]
+                    try:
+                        for index in range(4):
+                            if frame is None:break
+                            chain.append(Path(frame.f_code.co_filename).name+':'+frame.f_code.co_name);frame=frame.f_back
+                        self.counts[(type(scope).__name__,*chain)]+=1
+                    finally:del frame
+                try:return _original(scope,*args,**kwargs)
+                finally:
+                    if outer:self.local.active=False
+            cls.guard=guard
+        return self
+    def __exit__(self,*_args):
+        for cls,own,missing in reversed(self.saved):
+            if own is missing:delattr(cls,'guard')
+            else:cls.guard=own
+        self.saved=[]
+    def report(self,limit=15):
+        import sys
+        if type(limit) is not int or not 1<=limit<=15:raise ValueError('Bounded caller profile required')
+        value=dict(process=self.label,total=sum(self.counts.values()),callers=[dict(count=count,chain=list(chain)) for chain,count in self.counts.most_common(limit)])
+        print('Snapshot SDK guard callers '+json.dumps(value,separators=(',',':')),file=sys.stderr,flush=True)

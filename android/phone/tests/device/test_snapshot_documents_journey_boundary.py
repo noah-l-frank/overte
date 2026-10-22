@@ -20,7 +20,7 @@ ROOT=Path(__file__).resolve().parents[4]
 sys.path[:0]=[str(ROOT/'tests/device'),str(ROOT/'tests/device/adapters/android-phone'),str(Path(__file__).parent)]
 from adapters.normal_ui import NativeUIError
 from snapshot_documents_journey_boundary import (install_documents,OriginalDocumentsProcess,PICKER,PHONE_UID,APK_SHA256,PACKAGE,NativeUI,PhoneSnapshotDocumentsUI,
-    keepalive_handler,install_keepalive_snapshot_rpc,close_snapshot_rpc)
+    keepalive_handler,install_keepalive_snapshot_rpc,close_snapshot_rpc,ScopeGuardTrace)
 from test_snapshot_capture_files import Producer
 from test_snapshot_os_retirement_source import boundary as readback_seed
 from test_snapshot_system_context import BINDING
@@ -345,6 +345,27 @@ class SnapshotKeepaliveBoundaryTests(unittest.TestCase):
         self.assertEqual([],self.records)
 
 
+class SnapshotScopeTraceTests(unittest.TestCase):
+    def test_actual_guard_queries_errors_and_original_methods_are_preserved(self):
+        from test_snapshot_system_context import Source
+        from overte_phone_snapshot_system_context import SnapshotSystemContext
+        from overte_phone_snapshot_documents_ui import SnapshotDocumentContext
+        original,documents=SnapshotSystemContext.guard,SnapshotDocumentContext.guard
+        source=Source();self.assertTrue(source.reader.guard());before=source.calls
+        with ScopeGuardTrace() as trace:
+            self.assertTrue(source.reader.guard());self.assertEqual(2,source.calls-before)
+            source.component='foreign.app/foreign.app.Activity'
+            with self.assertRaises(NativeUIError):source.reader.guard()
+            self.assertEqual(2,sum(trace.counts.values()))
+        self.assertIs(original,SnapshotSystemContext.guard);self.assertIs(documents,SnapshotDocumentContext.guard)
+    def test_denied_authority_still_stops_before_any_sdk_queries(self):
+        from test_snapshot_system_context import Source
+        source=Source();source.authorized=False
+        with ScopeGuardTrace('actor') as trace:
+            with self.assertRaises(NativeUIError):source.reader.guard()
+            self.assertEqual(0,source.calls);self.assertEqual(1,sum(trace.counts.values()))
+
+
 class SnapshotDocumentsCommonJourneyTests(unittest.TestCase):
     """Reuse the guarded public harness; select only the actual SDK26 profile."""
     SDK=26
@@ -358,8 +379,8 @@ class SnapshotDocumentsCommonJourneyTests(unittest.TestCase):
     def setUp(self):
         from unittest.mock import patch
         shared=self.shared;original=shared.SnapshotTarget
-        install_keepalive_snapshot_rpc(shared.SnapshotProxy)
-        p=patch.object(shared,'Handler',keepalive_handler(shared.Handler));p.start();self.addCleanup(p.stop)
+        if __import__('os').environ.get('OVERTE_SNAPSHOT_SCOPE_TRACE')=='1':
+            trace=ScopeGuardTrace('parent');trace.__enter__();self.addCleanup(trace.__exit__);self.addCleanup(trace.report)
         # Use the existing host RAM filesystem for this IO-heavy transport
         # replay. Real files/inodes/bytes and every fsync still execute; this
         # establishes no Android storage or power-loss durability claim.
@@ -368,11 +389,13 @@ class SnapshotDocumentsCommonJourneyTests(unittest.TestCase):
             model=original(*args,**kwargs);boundary=install_documents(model,shared.SnapshotProxy)
             self.addCleanup(boundary.close);return model
         p=patch.object(shared,'SnapshotTarget',side_effect=target);p.start();self.addCleanup(p.stop)
-        script=shared.ACTOR.replace("configuration=PrivateFeatureState", "from snapshot_documents_journey_boundary import install_proxy_documents,install_keepalive_snapshot_rpc\nfrom snapshots_journey_producers import SnapshotProxy\ninstall_proxy_documents(SnapshotProxy)\ninstall_keepalive_snapshot_rpc(SnapshotProxy)\nconfiguration=PrivateFeatureState")
+        script=shared.ACTOR.replace("configuration=PrivateFeatureState", "from snapshot_documents_journey_boundary import install_proxy_documents\nfrom snapshots_journey_producers import SnapshotProxy\ninstall_proxy_documents(SnapshotProxy)\nconfiguration=PrivateFeatureState")
         if script==shared.ACTOR:raise AssertionError('Original guarded actor insertion point changed')
+        if __import__('os').environ.get('OVERTE_SNAPSHOT_SCOPE_TRACE')=='1':
+            script=script.replace("configuration=PrivateFeatureState","from snapshot_documents_journey_boundary import ScopeGuardTrace\nscope_trace=ScopeGuardTrace('actor');scope_trace.__enter__()\nconfiguration=PrivateFeatureState")
+            script=script.replace("    time.sleep(.1)","    scope_trace_steps=globals().get('scope_trace_steps',0)+1\n    if scope_trace_steps in (1,8,32):scope_trace.report(5)\n    time.sleep(.1)")
         p=patch.object(shared,'ACTOR',script);p.start();self.addCleanup(p.stop)
         shared.SnapshotJourneyTests.setUp(self)
-        self.addCleanup(close_snapshot_rpc,self.proxy)
         # urllib retains its original HTTPS context after earlier HTTP-only
         # unit tests. Acquire a fresh context under the actual fixture CA;
         # certificate and hostname checks remain enabled.
@@ -381,7 +404,15 @@ class SnapshotDocumentsCommonJourneyTests(unittest.TestCase):
             p=patch.object(self.adapter,name,getattr(self.proxy,name));p.start();self.addCleanup(p.stop)
     def invoke(self,*args,**kwargs):return self.shared.SnapshotJourneyTests.invoke(self,*args,**kwargs)
     def act(self,*args,**kwargs):return self.shared.SnapshotJourneyTests.act(self,*args,**kwargs)
-    def start_actor(self,*args,**kwargs):return self.shared.SnapshotJourneyTests.start_actor(self,*args,**kwargs)
+    def start_actor(self,*args,**kwargs):
+        self.shared.SnapshotJourneyTests.start_actor(self,*args,**kwargs)
+        if __import__('os').environ.get('OVERTE_SNAPSHOT_SCOPE_TRACE')=='1':
+            def trace_results():
+                if self.actor.poll() is None:self.actor.terminate()
+                _out,err=self.actor.communicate(timeout=5)
+                lines=[line for line in err.splitlines() if line.startswith('Snapshot SDK guard callers ')]
+                if lines:print(lines[-1],file=sys.stderr,flush=True)
+            self.addCleanup(trace_results)
     def actor_ok(self,*args,**kwargs):return self.shared.SnapshotJourneyTests.actor_ok(self,*args,**kwargs)
     def test_normal_public_document_picker_open_cancel_and_success_acquires_original(self):
         from feature_journeys.scenarios import VERSION
@@ -391,6 +422,7 @@ class SnapshotDocumentsCommonJourneyTests(unittest.TestCase):
         self.act('save-picker-open');self.act('save-picker-cancel');self.act('save-picker-open');self.act('save')
         result=self.invoke('feature.snapshots.observe',dict(contractVersion=VERSION,runId=self.shared.RUN,afterSequence=1))
         self.assertEqual('document-picker',result['state']['saveBackend']);self.assertEqual(1,result['state']['saved'])
+
 
 
 
