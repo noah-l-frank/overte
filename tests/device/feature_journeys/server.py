@@ -23,6 +23,7 @@ from feature_journeys.contract import exact, identifier, json_document
 from feature_journeys.fixtures import check, companion, payload
 from feature_journeys.witness import Journal
 from feature_journeys.account_provider import AccountProvider,form,TOKEN_PATH,PROFILE_PATH,REQUEST_HEADER,RUN_HEADER,TICKET_HEADER
+from feature_journeys.avatar_people_service import AvatarPeopleService,REQUEST as SOCIAL_REQUEST,USERS as SOCIAL_USERS,DELETE as SOCIAL_DELETE,query as social_query
 from feature_journeys.browser_fixture import BrowserResources
 from feature_journeys.navigation_fixture import NavigationResources,DIRECTORY
 from feature_journeys.script_fixture import ScriptResources
@@ -168,6 +169,25 @@ class Handler(BaseHTTPRequestHandler):
         self.send(status,value)
         return True
 
+    def social_request(self,parsed):
+        if parsed.path!=SOCIAL_REQUEST and parsed.path not in SOCIAL_USERS and not parsed.path.startswith(SOCIAL_DELETE):return False
+        provider=self.server.avatar_people_service;self.close_connection=True
+        if provider is None or not isinstance(self.connection,ssl.SSLSocket) or self.connection.version() not in ('TLSv1.2','TLSv1.3'):
+            self.send(404,{'error':'not-found'});return True
+        if parsed.scheme or parsed.netloc or parsed.fragment:raise ValueError('Invalid social request URL')
+        if len(self.headers.get_all('Authorization',[]))!=1:raise ValueError('One original social authorization is required')
+        body=None
+        if self.command=='POST':
+            lengths=self.headers.get_all('Content-Length',[])
+            if len(lengths)!=1 or not lengths[0].isdigit() or not 0<int(lengths[0])<=4096 or self.headers.get('Transfer-Encoding') or self.headers.get('Content-Encoding') or self.headers.get('Content-Type','').split(';')[0].lower().strip()!='application/json':
+                raise ValueError('Invalid bounded social body')
+            body=json_document(read_account_body(self.rfile,self.connection,int(lengths[0])))
+        elif self.headers.get('Content-Length') not in (None,'0') or self.headers.get('Transfer-Encoding'):
+            raise ValueError('Unexpected social body')
+        with provider.response(self.headers['Authorization'],self.command,parsed.path,social_query(parsed.query),body) as response:
+            self.send(response[0],response[1],response_id=response[2],observe_write=response[3])
+        return True
+
     def handle_request(self):
         try:
             parsed = urlsplit(self.path)
@@ -188,6 +208,7 @@ class Handler(BaseHTTPRequestHandler):
             adapter_markers=self.headers.get_all('X-Overte-Fixture-Adapter-Read',[])
             if adapter_markers and (adapter_markers!=['1'] or not adapter_reader):return self.send(403,{'error':'forbidden'})
             if adapter_reader and self.command!='GET':return self.send(403,{'error':'forbidden'})
+            if self.social_request(parsed):return
             if self.account_request(parsed):return
             if self.navigation_request(parsed):return
             if parsed.query or parsed.fragment or not parsed.path.startswith(PREFIX + '/'):
@@ -227,6 +248,9 @@ class Handler(BaseHTTPRequestHandler):
                 if not adapter_reader:return self.send(403,{'error':'forbidden'})
                 return self.send(200,dict(fixtureAdapterAccessVersion=1,role='adapter',canMutate=False,
                     canPublish=False,peerFactsVisible=False))
+            if self.command=='GET' and parts==['avatar-people-provider']:
+                if self.server.avatar_people_service is None:return self.send(503,{'error':'avatar-people-service-unavailable'})
+                return self.send(200,dict(avatarPeopleServiceVersion=1,instance=self.server.avatar_people_service.instance,domainId=self.server.avatar_people_service.domain_id,transport='https',tlsVersion=self.connection.version(),internalErrors=self.server.internal_errors))
             if self.command=='GET' and parts==['account-provider']:
                 if self.server.account_provider is None:return self.send(503,{'error':'account-provider-unavailable'})
                 return self.send(200,dict(providerVersion=2,instance=self.server.account_provider.instance,
@@ -248,6 +272,8 @@ class Handler(BaseHTTPRequestHandler):
                 body = json_document(self.rfile.read(size))
             if self.command == 'POST' and parts == ['runs'] and reader:
                 exact(body, {'area'}, 'fixture registration')
+                if body['area']=='avatar-people' and self.server.avatar_people_service is None:
+                    return self.send(503,{'error':'avatar-people-service-unavailable'})
                 if body['area']=='authentication' and self.server.account_provider is None:
                     return self.send(503,{'error':'account-provider-unavailable'})
                 if body['area']=='world-navigation' and self.server.navigation_resources is None:
@@ -271,6 +297,10 @@ class Handler(BaseHTTPRequestHandler):
                     except Exception:
                         self.server.journal.close(run)
                         raise
+                if body['area']=='avatar-people':
+                    try:self.server.avatar_people_service.provision(run)
+                    except BaseException:
+                        self.server.journal.close(run);raise
                 if body['area']=='authentication' and self.server.account_provider is not None:
                     try:self.server.account_provider.provision(run)
                     except Exception:
@@ -285,6 +315,20 @@ class Handler(BaseHTTPRequestHandler):
                 requests=self.headers.get_all('X-Overte-Phase-Read',[])
                 if len(requests)!=1:raise ValueError('Original phase snapshot nonce is required')
                 return self.send(200,self.server.journal.phase(run,identifier(requests[0])))
+            if parts[2:]==['avatar-people']:
+                if self.command=='GET' and self.server.avatar_people_service is not None:
+                    nonces=self.headers.get_all('X-Overte-Avatar-People-Read',[])
+                    if len(nonces)!=1:raise ValueError('One original social status nonce is required')
+                    return self.send(200,self.server.avatar_people_service.snapshot(run,identifier(nonces[0])))
+                return self.send(503,{'error':'avatar-people-service-unavailable'})
+            if len(parts)==5 and parts[2:4]==['avatar-people','credentials']:
+                if self.command=='GET' and self.server.avatar_people_service is not None and ((parts[4]=='primary' and (reader or adapter_reader)) or (parts[4]=='peer' and (reader or actor))):
+                    return self.send(200,self.server.avatar_people_service.credentials(run,parts[4]))
+                return self.send(403,{'error':'forbidden'})
+            if parts[2:]==['avatar-people','cleanup-accounts']:
+                if self.command=='POST' and reader and self.server.avatar_people_service is not None:
+                    exact(body,{},'social authority cleanup');self.server.avatar_people_service.cleanup_accounts(run);return self.send(200,{})
+                return self.send(403,{'error':'forbidden'})
             if parts[2:]==['graphics']:
                 if self.command=='GET' and self.server.graphics_resources is not None:
                     requests=self.headers.get_all('X-Overte-Graphics-Read',[])
@@ -345,11 +389,12 @@ class Handler(BaseHTTPRequestHandler):
                         self.server.journal.activate(run, body['ticket'], body['verb'], body['inputs'])
                         self.server.script_resources.activate(run,body['ticket'])
                 else:self.server.journal.activate(run, body['ticket'], body['verb'], body['inputs'])
+                if self.server.journal.runs[run]['area']=='avatar-people':self.server.avatar_people_service.activate(run,body['ticket'])
                 if self.server.journal.runs[run]['area']=='world-navigation':
                     self.server.navigation_resources.activate(run,body['ticket'])
                 if body['verb']=='restore-resource' and self.server.browser_resources.has_run(run):
                     self.server.browser_resources.control(run,{'operation':'restore-resource'})
-                if self.server.account_provider is not None and run in self.server.account_provider.runs:
+                if self.server.account_provider is not None and run in self.server.account_provider.runs and self.server.journal.runs[run]['area']=='authentication':
                     self.server.account_provider.activate(run,body['ticket'])
                     stimulus=self.server.journal.active(run)['stimulus']
                     if stimulus['verb']=='login-submit' and stimulus['inputs'].get('account')=='delayed':
@@ -381,6 +426,7 @@ class Handler(BaseHTTPRequestHandler):
                     return self.send(200,{})
                 if self.server.navigation_resources is not None and run in self.server.navigation_resources.runs:
                     self.server.navigation_resources.retire(run)
+                if self.server.avatar_people_service is not None and self.server.avatar_people_service.has_run(run):self.server.avatar_people_service.retire(run)
                 if self.server.account_provider is not None and run in self.server.account_provider.runs:
                     self.server.account_provider.retire(run)
                 self.server.journal.close(run)
@@ -417,7 +463,7 @@ class FixtureServer(ThreadingHTTPServer):
         super().server_close()
 
 
-def make_server(reader_token, actor_token, address=('127.0.0.1', 0),*,account_provider=None,tls_context=None,browser_peer_of=None,navigation_resources=None,graphics_resources=None,adapter_token=None):
+def make_server(reader_token, actor_token, address=('127.0.0.1', 0),*,account_provider=None,tls_context=None,browser_peer_of=None,navigation_resources=None,graphics_resources=None,adapter_token=None,avatar_people_service=None):
     if adapter_token is not None and (type(adapter_token) is not str or not 32<=len(adapter_token)<=256
             or not adapter_token.isascii() or any(not 33<=ord(c)<=126 for c in adapter_token)
             or adapter_token in (reader_token,actor_token)):
@@ -437,11 +483,14 @@ def make_server(reader_token, actor_token, address=('127.0.0.1', 0),*,account_pr
             or account_provider is not None):raise ValueError('Browser second listener needs the original primary owner')
     if navigation_resources is not None and (not isinstance(navigation_resources,NavigationResources) or browser_peer_of is not None):
         raise ValueError('Navigation provider requires its original primary owner')
+    if avatar_people_service is not None and (not isinstance(avatar_people_service,AvatarPeopleService) or avatar_people_service.accounts is not account_provider or tls_context is None or browser_peer_of is not None):
+        raise ValueError('Social service requires the same original HTTPS account owner')
     if account_provider is not None:account_provider._attach(reader_token,actor_token)
     if graphics_resources is not None and (not isinstance(graphics_resources,GraphicsResources) or browser_peer_of is not None):
         raise ValueError('Graphics provider requires its original primary owner')
     server = FixtureServer(address, Handler)
     server.account_provider,server.tls_context=account_provider,tls_context
+    server.avatar_people_service=avatar_people_service
     server.navigation_resources=navigation_resources
     server.graphics_resources=graphics_resources
     server.script_resources=ScriptResources() if browser_peer_of is None else browser_peer_of.script_resources
@@ -468,7 +517,7 @@ def main():
         parser.error('--private-config is required to serve')
     from adapters.normal_feature_state import PrivateFeatureState
     config=PrivateFeatureState(args.private_config.absolute()).read()
-    fields={'readerToken','actorToken','host','port'}|({'adapterToken'} if 'adapterToken' in config else set())|({'tls'} if 'tls' in config else set())|({'accountProvider'} if 'accountProvider' in config else set())|({'browserPeer'} if 'browserPeer' in config else set())|({'navigationProvider'} if 'navigationProvider' in config else set())|({'graphicsProvider'} if 'graphicsProvider' in config else set())
+    fields={'readerToken','actorToken','host','port'}|({'adapterToken'} if 'adapterToken' in config else set())|({'tls'} if 'tls' in config else set())|({'accountProvider'} if 'accountProvider' in config else set())|({'browserPeer'} if 'browserPeer' in config else set())|({'navigationProvider'} if 'navigationProvider' in config else set())|({'graphicsProvider'} if 'graphicsProvider' in config else set())|({'avatarPeopleService'} if 'avatarPeopleService' in config else set())
     exact(config,fields,'private fixture configuration')
     tls=None;provider=None
     if 'tls' in config:
@@ -484,6 +533,10 @@ def main():
     if 'accountProvider' in config:
         if config['accountProvider'] is not True:raise ValueError('Explicit account provider opt-in is required')
         provider=AccountProvider()
+    social=None
+    if 'avatarPeopleService' in config:
+        exact(config['avatarPeopleService'],{'domainId'},'owned social service configuration')
+        social=AvatarPeopleService(provider,config['avatarPeopleService']['domainId'])
     navigation=NavigationResources(config['navigationProvider']) if 'navigationProvider' in config else None
     graphics=None
     if 'graphicsProvider' in config:
@@ -491,7 +544,7 @@ def main():
         graphics=GraphicsResources(config['graphicsProvider']['fixtureUrl'])
     with ExitStack() as owned:
         server=owned.enter_context(make_server(config['readerToken'],config['actorToken'],(config['host'],config['port']),
-            account_provider=provider,tls_context=tls,navigation_resources=navigation,graphics_resources=graphics,adapter_token=config.get('adapterToken')))
+            account_provider=provider,tls_context=tls,navigation_resources=navigation,graphics_resources=graphics,adapter_token=config.get('adapterToken'),avatar_people_service=social))
         peer=None;worker=None
         if 'browserPeer' in config:
             exact(config['browserPeer'],{'host','port'},'private second browser listener')

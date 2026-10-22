@@ -166,7 +166,7 @@ class Client:
         self.url, self.token = url, reader_token
         self.monotonic,self.sleep=monotonic,sleep
 
-    def request(self, path, value=None, method=None, *, script_nonce=None, graphics_nonce=None, phase_nonce=None, adapter_access=False):
+    def request(self, path, value=None, method=None, *, script_nonce=None, graphics_nonce=None, phase_nonce=None, avatar_people_nonce=None, adapter_access=False):
         raw = None if value is None else json.dumps(value).encode()
         headers={'Authorization': 'Bearer ' + self.token, 'Content-Type': 'application/json'}
         if type(adapter_access) is not bool:raise ValueError('Invalid adapter fixture access marker')
@@ -174,6 +174,7 @@ class Client:
         if script_nonce is not None:headers['X-Overte-Script-Read']=identifier(script_nonce)
         if graphics_nonce is not None:headers['X-Overte-Graphics-Read']=identifier(graphics_nonce)
         if phase_nonce is not None:headers['X-Overte-Phase-Read']=identifier(phase_nonce)
+        if avatar_people_nonce is not None:headers['X-Overte-Avatar-People-Read']=identifier(avatar_people_nonce)
         request = Request(self.url + path, data=raw, method=method,
                           headers=headers)
         try:
@@ -214,6 +215,14 @@ class Client:
             self.navigation_inputs,_urls=configuration(provider['inputs'])
             number(provider['capturedEpochMs'],1)
             self.navigation_previous=None
+        if area=='avatar-people':
+            from urllib.parse import urlsplit
+            from .avatar_people_service import session
+            if urlsplit(self.url).scheme!='https':raise ValueError('Avatar/People requires its trusted HTTPS service')
+            provider=self.request('/avatar-people-provider')
+            exact(provider,{'avatarPeopleServiceVersion','instance','domainId','transport','tlsVersion','internalErrors'},'social readiness')
+            if type(provider['avatarPeopleServiceVersion']) is not int or provider['avatarPeopleServiceVersion']!=1 or provider['transport']!='https' or provider['tlsVersion'] not in ('TLSv1.2','TLSv1.3') or type(provider['internalErrors']) is not int or provider['internalErrors']!=0:raise ValueError('Required social service is unavailable')
+            self.avatar_people_instance=identifier(provider['instance']);self.avatar_people_domain=session(provider['domainId']);self.avatar_people_previous=None
         if area=='authentication':
             from urllib.parse import urlsplit
             if urlsplit(self.url).scheme!='https':raise ValueError('Authentication requires the trusted HTTPS account fixture')
@@ -239,6 +248,10 @@ class Client:
 
     def close(self):
         if getattr(self,'closed',False):return
+        if self.area=='avatar-people':
+            self.request('/runs/'+self.run+'/avatar-people/cleanup-accounts',{},'POST')
+            status=self.avatar_people_status()
+            if status['pending'] or status['inflightResponses'] or any(status['relationships'].values()) or any(status['accounts'][role][key] for role in ('primary','peer') for key in ('accountExists','accessTokens','refreshTokens','inflightRequests')):raise ValueError('Original social authority did not retire')
         if self.area=='authentication':
             started=previous=number(self.monotonic())
             self.account_control('cleanup') # Exactly once; an uncertain mutation is never replayed here.
@@ -262,6 +275,15 @@ class Client:
         if self.area=='graphics' and getattr(self,'graphics_instance',None) is not None:
             if self.graphics_status()['active']:raise ValueError('Graphics fixture cleanup is incomplete')
         self.closed=True
+
+    def avatar_people_status(self):
+        from .avatar_people_service import validate_status
+        if self.area!='avatar-people':raise ValueError('No owned social provider')
+        nonce=secrets.token_hex(16)
+        value=self.request('/runs/'+self.run+'/avatar-people',avatar_people_nonce=nonce)
+        validate_status(value,run=self.run,request=nonce,instance=self.avatar_people_instance,previous=self.avatar_people_previous)
+        if value['domainId']!=self.avatar_people_domain:raise ValueError('Original social service domain changed')
+        self.avatar_people_previous=copy.deepcopy(value);return value
 
     def graphics_status(self):
         if self.area!='graphics':raise ValueError('No owned Graphics provider')
