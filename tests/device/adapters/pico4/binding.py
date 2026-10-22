@@ -845,7 +845,19 @@ def create_adapter(args, base_class):
             # Orphan manifests and original PCM still own their scope. A base
             # process-stop acknowledgement cannot retire or delete them.
             return any(any(store.path.parent.glob(prefix)) for prefix in
-                ('audio-capture-cycle-*','audio-capture-original-*','audio-background-cycle-*'))
+                ('audio-capture-cycle-*','audio-capture-original-*','audio-background-cycle-*','audio-final-*'))
+
+        @_private
+        def _audio_final_close(self,target,run,cycle,phase_source,*,capture=None,source_lock=None):
+            from adapters.pico4.audio_final_close import PicoAudioFinalClose
+            from adapters.pico4.audio_capture_owner import PicoAudioCaptureOwner
+            if capture is not None:
+                _need(isinstance(capture,PicoAudioCaptureOwner) and capture.run==run and capture.store.path==self._audio_capture_store(target,cycle).path)
+                _need(source_lock is None or source_lock is capture.lock);source_lock=capture.lock
+            source_lock=self._script_journey()._lock(target,source_lock)
+            actual=capture or self._audio_capture_owner(target,run,cycle,phase_source,source_lock=source_lock)
+            _need(actual.source is phase_source and actual.lock is source_lock)
+            return PicoAudioFinalClose(actual.store.path.with_name('audio-final-close.json'),actual)
 
         def _audio_background_store(self,target,cycle,*,create=True):
             store=self._audio_capture_store(target,cycle,create=create)

@@ -38,7 +38,7 @@ class PicoAudioPageOwner:
         with self.lock.held():self.load()
     def capture_owned(self):
         return any(any(self.store.path.parent.glob(prefix)) for prefix in
-            ('audio-capture-cycle-*','audio-capture-original-*','audio-background-cycle-*'))
+            ('audio-capture-cycle-*','audio-capture-original-*','audio-background-cycle-*','audio-final-*'))
     def now(self):
         need(self.settings.guard() is not False);now=self.settings.monotonic()
         need(number(now,0,1e15) and (self.last_clock is None or now>=self.last_clock));self.last_clock=now;return now
