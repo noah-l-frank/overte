@@ -38,8 +38,22 @@ with tempfile.TemporaryDirectory(prefix='lifecycle-gesture-') as directory:
     body=source[begin:end];body=body[body.index('{')+1:body.rfind('}')]
     (private/'original-pico-vector-query.inc').write_text(body)
     binary=private/'test'
-    subprocess.run(['c++','-std=c++17','-fPIC','-UNDEBUG','-DOVERTE_E2E_FEATURE_TESTS','-DOVERTE_E2E_OPENXR_INPUT_V1=1',
+    subprocess.run(['c++','-std=c++17','-fPIC','-UNDEBUG','-DOVERTE_E2E_FEATURE_TESTS','-DANDROID_APP_PICO_INTERFACE','-DOVERTE_E2E_OPENXR_INPUT_V1=1',
         '-I'+str(ROOT),'-I'+str(private),str(Path(__file__).with_name('lifecycle-gesture-observation-test.cpp')),
         str(ROOT/'libraries/controllers/src/controllers/AxisValue.cpp'),'-o',str(binary),*library_paths,*flags],check=True,timeout=90,env=environment)
     subprocess.run([str(binary)],check=True,timeout=10,env=environment)
     subprocess.run([str(binary),'--testScript',str(script),'--testResultsLocation',str(private)],check=True,timeout=10,env=environment)
+
+    # Compile and execute the exact original non-Pico TSI body as well. The
+    # Pico/Android-owned source/provider does not exist on this branch.
+    tsi=(ROOT/'interface/src/scripting/TestScriptingInterface.cpp').read_text()
+    begin=tsi.index('QVariantMap TestScriptingInterface::featureLifecycleGestureObservation(')
+    end=tsi.index('QVariantMap TestScriptingInterface::featureLifecycleDriveObservation(',begin)
+    non_pico=private/'non-pico.cpp'
+    non_pico.write_text('#include "tests/device/native/LifecycleGestureObservation.h"\n#include <QVariantMap>\n#include <cassert>\n'
+        'class TestScriptingInterface {public:QVariantMap featureLifecycleGestureObservation(const QVariantMap& command);};\n'
+        +tsi[begin:end]+'int main(){TestScriptingInterface source;assert(source.featureLifecycleGestureObservation({}).isEmpty());}\n')
+    plain=private/'non-pico'
+    subprocess.run(['c++','-std=c++17','-fPIC','-UNDEBUG','-DOVERTE_E2E_FEATURE_TESTS','-I'+str(ROOT),str(non_pico),
+        '-o',str(plain),*library_paths,*flags],check=True,timeout=90,env=environment)
+    subprocess.run([str(plain)],check=True,timeout=10,env=environment)

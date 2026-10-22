@@ -1,7 +1,7 @@
 // Copyright 2026 Overte contributors.
 // SPDX-License-Identifier: Apache-2.0
 #pragma once
-#if defined(OVERTE_E2E_FEATURE_TESTS)
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
 #include "PrivatePreviewFiles.h"
 #include "../../../android/vr/pico/apps/picoInterface/openxr/e2e_input/E2eInputConstants.h"
 #include <QCoreApplication>

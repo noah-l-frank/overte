@@ -595,6 +595,7 @@ QVariantMap TestScriptingInterface::featureNavigationReplies(const QVariantMap& 
 }
 
 QVariantMap TestScriptingInterface::featureLifecycleGestureObservation(const QVariantMap& command) {
+#if defined(ANDROID_APP_PICO_INTERFACE)
     if (QThread::currentThread()!=thread()) {
         if (!thread() || !thread()->isRunning()) { return {}; }
         QVariantMap result;
@@ -610,6 +611,10 @@ QVariantMap TestScriptingInterface::featureLifecycleGestureObservation(const QVa
     if (!provider.owner || provider.owner->thread()!=thread()) { return {}; }
     const auto source=provider.source.lock();
     return source ? source->snapshot(command) : QVariantMap();
+#else
+    Q_UNUSED(command);
+    return {};
+#endif
 }
 
 QVariantMap TestScriptingInterface::featureLifecycleDriveObservation(const QVariantMap& command) {
