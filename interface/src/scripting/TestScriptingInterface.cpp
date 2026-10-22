@@ -29,6 +29,7 @@
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #include "../../../tests/device/native/FeatureLifecycle.h"
 #include "../../../tests/device/native/LifecycleDriveObservation.h"
+#include "../../../tests/device/native/LifecycleGestureObservation.h"
 #include "../../../tests/device/native/ChatViewObservation.h"
 #include "../../../tests/device/native/ChatPeerPosition.h"
 #include "../../../tests/device/native/WebDOMObservationBridge.h"
@@ -596,6 +597,24 @@ QVariantMap TestScriptingInterface::featureNavigationReplies(const QVariantMap& 
     else if (!address->thread() || !address->thread()->isRunning()
             || !QMetaObject::invokeMethod(address.data(),[&] { result=address->featureNavigationReplies(command); },Qt::BlockingQueuedConnection)) { return {}; }
     return result;
+}
+
+QVariantMap TestScriptingInterface::featureLifecycleGestureObservation(const QVariantMap& command) {
+    if (QThread::currentThread()!=thread()) {
+        if (!thread() || !thread()->isRunning()) { return {}; }
+        QVariantMap result;
+        if (!QMetaObject::invokeMethod(this,[&] { result=featureLifecycleGestureObservation(command); },Qt::BlockingQueuedConnection)) { return {}; }
+        return result;
+    }
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript") || !qApp->isHMDMode()
+            || !overte::e2e::previewDirectory(_testResultsLocation) || !overte::e2e::lifecycleGestureCommand(command)) { return {}; }
+    const auto original=qApp->property(overte::e2e::lifecycleGestureProperty());
+    if (original.userType()!=qMetaTypeId<overte::e2e::LifecycleGestureProvider>()) { return {}; }
+    const auto provider=original.value<overte::e2e::LifecycleGestureProvider>();
+    if (!provider.owner || provider.owner->thread()!=thread()) { return {}; }
+    const auto source=provider.source.lock();
+    return source ? source->snapshot(command) : QVariantMap();
 }
 
 QVariantMap TestScriptingInterface::featureLifecycleDriveObservation(const QVariantMap& command) {
@@ -1415,7 +1434,7 @@ void TestScriptingInterface::saveObject(QVariant variant, const QString& filenam
             || filename == "feature-navigation-modals.json" || filename == "feature-navigation-environment.json" || filename == "feature-navigation-directory.json"
             || filename == "feature-process-presence.json"
             || filename == "feature-graphics-subject.json" || filename == "feature-scene-load.json"
-            || filename == "feature-lifecycle-drive.json"
+            || filename == "feature-lifecycle-drive.json" || filename == "feature-lifecycle-gesture.json"
             || filename == "feature-web-runtime.json" || filename == "feature-tablet-http.json"
             || filename == "recorded-preview-observation.json" || filename == "feature-script-observation.json"
             || filename == "feature-script-roots.json"

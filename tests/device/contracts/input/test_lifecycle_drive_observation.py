@@ -43,7 +43,7 @@ with tempfile.TemporaryDirectory(prefix='lifecycle-drive-') as directory:
     direct=[row for row in mapping['channels'] if row.get('from')=='Standard.LY' and row.get('to')=='Actions.TranslateZ']
     assert len(direct)==1 and direct[0].get('filters') is None
     assert direct[0]['when']==['Application.RightHandDominant','!Application.TabletShown']
-    plugin=(ROOT/'plugins/openxr/src/OpenXrInputPlugin.cpp').read_text()
+    plugin=(ROOT/'android/vr/pico/apps/picoInterface/openxr/src/OpenXrInputPlugin.cpp').read_text()
     start=plugin.index('    std::vector<std::tuple<std::string, StandardAxisChannel, StandardAxisChannel>> axesToUpdate = {')
     end=plugin.index('    std::vector<std::pair<std::string, StandardButtonChannel>> buttonsToUpdate = {',start)
     original_axes=plugin[start:end]
@@ -72,7 +72,10 @@ with tempfile.TemporaryDirectory(prefix='lifecycle-drive-') as directory:
 #include <vector>
 using StandardAxisChannel=int;
 constexpr int LX=0,LY=1,RX=2,RY=3,LEFT_TRACKPAD_X=4,LEFT_TRACKPAD_Y=5,RIGHT_TRACKPAD_X=6,RIGHT_TRACKPAD_Y=7;
-struct Axis { float value{0}; };
+#include "libraries/controllers/src/controllers/AxisValue.h"
+using controller::AxisValue;
+struct LogBoundary {template<class T>LogBoundary& operator<<(const T&){return *this;}};
+#define qCInfo(category) LogBoundary()
 struct State { bool isActive{false};struct { float x{0},y{0}; } currentState; };
 struct Action { State state;State getVector2f() const {return state;} };
 namespace controller { enum class Action { TRANSLATE_Z }; }
@@ -89,7 +92,8 @@ bool privateOutput(const QString& filename) {
     original();return admitted;
 }
 void original(float runtimeY) {
-    std::map<StandardAxisChannel,Axis> _axisStateMap;
+    std::map<StandardAxisChannel,AxisValue> _axisStateMap;
+    unsigned _trackedControllers{2};
     std::map<std::string,std::shared_ptr<Action>> _actions;
     for (const auto& name:{"left_thumbstick","left_trackpad","right_thumbstick","right_trackpad"})
         _actions[name]=std::make_shared<Action>();
@@ -112,6 +116,6 @@ int main() {
         'ORIGINAL_ASSIGNMENT',assignment[0]).replace('FORWARD',repr(amplitudes[0])+'f').replace('BACKWARD',repr(amplitudes[1])+'f')
     route_source=Path(directory)/'original-route.cpp';route_source.write_text(fixture)
     route_binary=Path(directory)/'original-route'
-    subprocess.run(['c++','-std=c++17','-fPIC','-UNDEBUG',str(route_source),'-o',str(route_binary),*library_paths,*flags],
+    subprocess.run(['c++','-std=c++17','-fPIC','-UNDEBUG','-DOVERTE_E2E_OPENXR_INPUT_V1=1','-I'+str(ROOT),str(ROOT/'libraries/controllers/src/controllers/AxisValue.cpp'),str(route_source),'-o',str(route_binary),*library_paths,*flags],
         check=True,timeout=90,env=environment)
     subprocess.run([str(route_binary)],check=True,timeout=10,env=environment)

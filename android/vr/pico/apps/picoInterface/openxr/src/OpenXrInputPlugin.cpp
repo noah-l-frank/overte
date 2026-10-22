@@ -15,6 +15,9 @@
 #include <tuple>
 
 #include "OpenXrInputPlugin.h"
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(OVERTE_E2E_OPENXR_INPUT_V1)
+#include "../../../../../../../tests/device/native/LifecycleGestureObservation.h"
+#endif
 
 #include "AvatarConstants.h"
 #include "PathUtils.h"
@@ -297,6 +300,9 @@ bool OpenXrInputPlugin::activate() {
 }
 
 void OpenXrInputPlugin::deactivate() {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(OVERTE_E2E_OPENXR_INPUT_V1)
+    if (_inputDevice->_featureGesture) { _inputDevice->_featureGesture->unavailable("deactivated"); }
+#endif
     InputPlugin::deactivate();
 
     _inputDevice->_poseStateMap.clear();
@@ -318,6 +324,9 @@ void OpenXrInputPlugin::pluginUpdate(float deltaTime, const controller::InputCal
     auto userInputMapper = DependencyManager::get<controller::UserInputMapper>();
 
     if (_registeredWithInputMapper && !_context->_isDisplayActive) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(OVERTE_E2E_OPENXR_INPUT_V1)
+        if (_inputDevice->_featureGesture) { _inputDevice->_featureGesture->unavailable("display-inactive"); }
+#endif
         userInputMapper->removeDevice(_inputDevice->_deviceID);
         _registeredWithInputMapper = false;
         _inputDevice->_poseStateMap.clear();
@@ -327,7 +336,18 @@ void OpenXrInputPlugin::pluginUpdate(float deltaTime, const controller::InputCal
         _registeredWithInputMapper = true;
     }
 
-    if (!_registeredWithInputMapper) { return; }
+    if (!_registeredWithInputMapper) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(OVERTE_E2E_OPENXR_INPUT_V1)
+        if (_inputDevice->_featureGesture) { _inputDevice->_featureGesture->unavailable("not-registered"); }
+#endif
+        return;
+    }
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(OVERTE_E2E_OPENXR_INPUT_V1)
+    if (!overte::e2e::gestureResultsDirectory().isEmpty()) {
+        if (!_inputDevice->_featureGesture) { _inputDevice->_featureGesture=std::make_shared<overte::e2e::LifecycleGestureObservation>(this); }
+        overte::e2e::installLifecycleGesture(this,_inputDevice->_featureGesture);
+    }
+#endif
 
     const auto sampleTime = _context->_lastPredictedDisplayTime;
     userInputMapper->withLock([&, this]() {
@@ -412,6 +432,9 @@ OpenXrInputPlugin::InputDevice::~InputDevice() {
 }
 
 void OpenXrInputPlugin::InputDevice::focusOutEvent() {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(OVERTE_E2E_OPENXR_INPUT_V1)
+    if (_featureGesture) { _featureGesture->unavailable("focus-out"); }
+#endif
     _axisStateMap.clear();
     _buttonPressedMap.clear();
 };
@@ -1193,10 +1216,16 @@ void OpenXrInputPlugin::InputDevice::update(float deltaTime, const controller::I
     _trackedControllers = 0;
 
     if (_context->_session == XR_NULL_HANDLE) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(OVERTE_E2E_OPENXR_INPUT_V1)
+        if (_featureGesture) { _featureGesture->unavailable("no-session"); }
+#endif
         return;
     }
 
     if (!_actionsInitialized && !initActions()) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(OVERTE_E2E_OPENXR_INPUT_V1)
+        if (_featureGesture) { _featureGesture->unavailable("init-failed"); }
+#endif
         qCCritical(xr_input_cat) << "Could not initialize actions!";
         return;
     }
@@ -1216,6 +1245,9 @@ void OpenXrInputPlugin::InputDevice::update(float deltaTime, const controller::I
 
     XrResult result = xrSyncActions(session, &syncInfo);
     if (!xrCheck(instance, result, "failed to sync actions!")) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(OVERTE_E2E_OPENXR_INPUT_V1)
+        if (_featureGesture) { _featureGesture->unavailable("sync-failed"); }
+#endif
         return;
     }
 
@@ -1382,6 +1414,15 @@ void OpenXrInputPlugin::InputDevice::update(float deltaTime, const controller::I
             _axisStateMap[y_channel].value = -action.currentState.y;
 #endif
         }
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(OVERTE_E2E_OPENXR_INPUT_V1)
+        if (_featureGesture && name == "left_thumbstick") {
+            const auto x=_axisStateMap.find(x_channel),y=_axisStateMap.find(y_channel);
+            _featureGesture->consume(action.isActive,action.currentState.x,action.currentState.y,
+                x==_axisStateMap.end() ? 0 : x->second.value,y==_axisStateMap.end() ? 0 : y->second.value,
+                x!=_axisStateMap.end() && y!=_axisStateMap.end() && x->second.valid && y->second.valid,
+                action.changedSinceLastSync,action.lastChangeTime);
+        }
+#endif
 #if defined(OVERTE_E2E_OPENXR_INPUT_V1)
         if (name == "left_thumbstick") {
             static bool reportedNonzero { false };
