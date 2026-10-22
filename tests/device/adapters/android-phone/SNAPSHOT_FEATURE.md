@@ -1063,9 +1063,15 @@ also proved a real quiet interval, but does not publish independent actor
 facts. Seventeen resident-reader host counterexamples additionally pass at the
 parent integration, with explicit native/header-load seams. The separate
 [partial-read cases](../../../../android/phone/tests/device/test_snapshots_partial_read_resume.py)
-execute actual acquisition, diagnostic archive and reconstruction. The bounded
-late-history alternating replay still fails to maintain continuous quiet;
-both complete SDK29+ and SDK26–28 common replays remain pending.
+execute actual acquisition, diagnostic archive and reconstruction. Earlier
+bounded stress probes omitted the common primary loop's 0.25-second pause and
+reset the actor quiet interval. A later bounded run with the actual common
+primary and actor cadence, thirty additional primary frames and thirty actor
+frames, retained ten advancing quiet samples without a reset; the largest
+completion gap was 1.424 seconds. The separate actor acquired the actual shared
+source lock once during each unlocked history pass. This scheduling check does
+not qualify either complete SDK29+ or SDK26–28 common replay, which remain
+pending, including strict ordinary-phase transition recovery.
 
 The durable owner is written before setup can acquire settings, capture-file or
 document leases. Baseline preparation takes readonly originals before ordinary
