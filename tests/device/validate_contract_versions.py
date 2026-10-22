@@ -249,7 +249,7 @@ REQUIRED = {
     "navigation-stereo-source": 2,
     "navigation-stereo-owner": 2,
     "navigation-transit-operations": 2,
-    "navigation-tablet-close": 1,
+    "navigation-tablet-close": 2,
     "navigation-frame-publication": 1,
     "stereo-navigation-evidence": 1,
     "navigation-scene-stimulus": 1,

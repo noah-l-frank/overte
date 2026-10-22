@@ -1117,3 +1117,25 @@ errors and actual Qt5 original SOURCE to kernel/factory admission. Integrated
 source and coverage groups pass 2/92 in 5.90s. Actual peer lifecycle/input-file
 retirement, fixed Pico coordinator, independent publication and whole cleanup
 remain incomplete; Chat remains partial.
+
+
+## Joined normal Navigation lookup closure
+
+The [lookup continuation](NAVIGATION_LOOKUP.md) now joins the earlier original
+404/ticket/submit barrier to later normal OK, whole-tablet close and three-second
+independent quiet through the existing close engine. Fresh stereo publication
+uses the existing original image/storage/receipt engine; previous transit pixels
+are not borrowed. Both lookup/dismissal journals remain unchanged and owned.
+Factories retain their actual original input owner across `_scripts()` runtime
+reconstruction, while checking the current full candidate binding and source
+lock. Changed candidate identity refuses before composed dismissal input.
+
+Close v2 adds an explicit source kind and preserves strict v1 transit reads.
+The integrated coverage/Navigation selection passes 2/93 groups (16 original
+journey/recovery/factory/legacy/counterexample cases) in 79.52s without skips.
+The final candidate-binding refusal is also included in the focused factory
+rerun. This does not complete Navigation: maturity/origin/scene/restart/bookmark
+transfer, independent actor/public composition, original controller retirement
+and whole Script/XHR/Web/native/host-journal finalization remain open.
+All native/Qt/GPU/OpenXR sources in these checks are explicit host seams.
+Complete source/host feature areas remain 3/14 and devices remain untested.

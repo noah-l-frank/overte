@@ -68,3 +68,48 @@ HTTP server during normal submit and retains the original 404 header, body
 bytes/digest and original response ticket through dismissal. Other provider body
 completions and every native/Qt/OpenXR boundary remain simulations. This joined
 host test does not supply the missing public feature/actor/finalizer composition.
+
+
+## Original lookup, later OK and whole-tablet closure
+
+`_navigation_lookup_dismissal` retains the original lookup's actual normal input
+owner while requiring the current source lock and independently checked current
+manager binding. `_navigation_lookup_close` then supplies a typed original
+lookup/dismissal context to the existing `NavigationTabletClose` engine. It
+requires both immutable original journals, the earlier submit barrier/ticket,
+the same original 404 response and independently retired modal/listener. The
+context creates no transit, issues no input and cannot substitute an expected
+location or closed state for an actual observation.
+
+Actual `_scripts()` constructs a fresh runtime each time. Both normal transit
+closure and the new lookup closure now retain their original Pico input owner
+instead of using that newly constructed Navigation object. Factory tests use
+distinct fresh/retained runtime objects and require the original owner. The
+dismissal path keeps its default independent use; the composed path explicitly
+shares the lookup owner. No second SDK/OpenXR input system is introduced.
+
+Before closing, original Home, native panels, actual B arrival, unchanged
+bookmark bytes, original response/modal and generic UI/keyboard sources must
+agree. The existing engine records responsibility before one normal physical
+close. It then requires a new actual visibility generation with unchanged Qt
+input count, no retained address/Places root, retired original modal/listener,
+closed Home and independent three-second native/Home/GUI/elapsed-clock quiet.
+An ignored or lost close is observed, never toggled again. Both original child
+journals stay unchanged. Modified RAM or disk child context, conflicting close
+source kind, reopened/retained roots, keyboard or foreign storage refuse.
+
+Close v2 adds explicit `sourceKind:transit|dismissed-lookup` while retaining the
+original source digest. A legacy v1 header is readable only for original transit;
+construction leaves it unchanged. It cannot be relabeled as lookup closure.
+The same existing NavigationFrames/Stereo owner can publish a fresh original
+image after a closed lookup; the joined host case verifies both PNG eyes and
+actual receipt/native-buffer retirement with explicit synthetic GPU seams.
+Historical transit images are never substituted for this new acquisition.
+
+`navigation-lookup-close` owns the new joined cases and all prior tablet-close
+counterexamples under the unchanged 120-second group limit. No assertion or
+legacy case is removed. These are host adapter/ownership checks, not compiled
+product, networking, GPU or device qualification. Whole Navigation still needs
+its public/independent actor coordinator, maturity/origin/scene restoration,
+restart/bookmark transfer, original controller-stream retirement and all
+Script/XHR/Web/resource/journal retirement. No complete capability is added.

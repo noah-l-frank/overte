@@ -105,7 +105,10 @@
         "tests/device/self_tests/test_navigation_missing.py",
         "tests/device/adapters/pico4/NAVIGATION_LOOKUP.md",
         "tests/device/self_tests/test_navigation_lookup_recovery.py",
-        "tests/device/self_tests/test_navigation_origin_ray.py"
+        "tests/device/self_tests/test_navigation_origin_ray.py",
+        "tests/device/adapters/pico4/navigation_lookup_close.py",
+        "tests/device/self_tests/test_navigation_lookup_close.py",
+        "android/vr/pico/tests/pico-navigation-lookup-close-test.py"
       ],
       "declaredCheckpoints": 15,
       "inputVerbs": [
@@ -135,7 +138,7 @@
       ],
       "missingOperationsOrEvidence": [
         "Whole-area independent Navigation actor/state and public operation composition with normal Places/bookmark/origin/directory/error/transit owners; post-transit normal global tablet close and durable fresh v2 original frame publication are now host verified internally for both source roles; original-lookup versus current-dismissal challenge ownership is explicitly versioned and host verified",
-        "Join the now host-verified normal Home paging/GOTO/focus/replace/Return -> original owned 404/hidden-modal -> one normal reopen owner to later original-ticket dismissal and whole-tablet closure; parent maturity preparation/restoration and actual process/bookmark transfer remain unfinished",
+        "Compose the now joined normal Home/GOTO/focus/replace/Return -> original owned 404/hidden modal -> later-ticket normal OK -> normal whole-tablet close/three-second quiet -> fresh original stereo publication with the whole-area coordinator. Actual factories now retain the original input owner across runtime reconstruction. Parent maturity/origin/scene restoration, restart/bookmark transfer, original controller-stream and complete Script/resource/journal retirement remain unfinished.",
         "Whole-area complete original Script/XHR/Web/timer/callback/resource and metadata retirement plus original scene restoration; historical transit captures cannot substitute for current image samples"
       ],
       "requiredOriginalEvidence": [
@@ -150,7 +153,7 @@
         "Restore original location and closed owned dialogs",
         "Prove pending reply/callback retirement and a three-second quiet baseline"
       ],
-      "nextExecutableStep": "Compose independently measured Navigation state/actor/public operations around existing owners, retaining original missing-lookup ticket/barrier across the later dismissal challenge and whole-tablet close. Continue maturity/origin/scene restoration, actual process/bookmark transfer and full Script/XHR/Web/timer/callback/metadata retirement. Do not advertise a complete Navigation triple.",
+      "nextExecutableStep": "Compose the whole-area independently measured Navigation state/actor/public coordinator around the existing owners and the joined original lookup/dismissal/whole-tablet-close/fresh-stereo flow. Continue maturity/origin/scene restoration, actual process/bookmark transfer and full controller/Script/XHR/Web/timer/callback/metadata retirement. Do not advertise a complete Navigation triple.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     },
@@ -552,7 +555,7 @@
         "Observe original pose/mapping/timer/resource retirement",
         "Restore captured prior override and closed panel"
       ],
-      "nextExecutableStep": "Join real controlled-avatar View4, durable original two-object scene, Input2/effect/background and stereo owners into the whole parent/independent actor. Exact QML command and current phase/ages are admitted after internal navigation guards; input and callback/resource/journal retirement remain independently required.",
+      "nextExecutableStep": "Keep the self-avatar stereo lane unavailable while original Pico startup disables local rendering. A remote-avatar stereo lane would require its own actual independently bound remote model/Rig/network-source/draw/camera originals, rather than relabeling the local getter or enabling a test-only render setter. Whole parent/independent actor and input/callback/resource/journal retirement remain required; continue other executable feature areas meanwhile.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     },
@@ -912,7 +915,7 @@
         "open"
       ],
       "missingOperationsOrEvidence": [
-        "Whole normal recipe/public coordinator over Page/Capture/Background/FinalClose owners; complete peer/acoustic original publication",
+        "Whole public coordinator and complete independent peer/acoustic original publication over the now joined unchanged14-stage Page/Capture/Background/FinalClose normal recipe; original child/PCM journals and readonly recovery are retained",
         "Actual controlled microphone stimulus and independent acoustic capture, distinct from original digital input/sink PCM",
         "Whole retained Qt/native capacity/history/resource and host-original retirement; common v16 same-process cleanup cannot silently restart or clear history"
       ],
@@ -927,7 +930,7 @@
         "Release native E2E PCM/history files after product quiet state",
         "Independently inspect actual memory/files and restore original mute/echo/permission"
       ],
-      "nextExecutableStep": "Compose actual normal Page/Capture/Background/FinalClose through the whole unchanged Audio recipe, retaining original source/PCM and actual deferred-resource observations. Bind background to the once-only final OS writer; add independent acoustic/peer originals. Explicitly reconcile the common v16 same-process/empty-history cleanup contract with actual retained native history; never synthesize idle/absence or hide a restart.",
+      "nextExecutableStep": "Supply independently owned physical acoustic and peer original producers, then the public/independent full Audio coordinator around the joined normal recipe. Resolve the documented executed v16 same-process/empty-history cleanup incompatibility through an explicitly reviewed shared architecture change; never synthesize idle/absence or hide a restart. Original retained capacity/context/history/PCM and host-journal retirement remain required.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested",
       "nativeComponentCompilation": "Original AudioClient recorded preview/pause/poll/deferred callback lifetime bodies pass real Qt5 fragment checks; full application/TUs, physical capture/playback and devices remain unqualified."
@@ -1038,7 +1041,7 @@
       ],
       "missingOperationsOrEvidence": [
         "Whole ordinary Chat UI/storage/context/actual VR keyboard coordinator; original entity keyboard v2 source is now present",
-        "Peer normal send/local-distance and owned mixer outage/recovery actuation",
+        "Whole Pico factory and restoration/finalizer composition around the existing actual peer normal-send/local-distance and mixer outage/recovery owners, fixed25-step Dispatcher2 and passive independent actor build/process source",
         "Independent per-role native/UI/storage/message ledger and resource retirement"
       ],
       "requiredOriginalEvidence": [

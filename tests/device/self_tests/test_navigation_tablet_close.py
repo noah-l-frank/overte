@@ -113,17 +113,23 @@ class NavigationTabletCloseTests(unittest.TestCase):
             with self.subTest(fault=fault),self.assertRaises(NativeUIError):self.owner()
             self.assertEqual(1,len(self.controllers))
     def test_actual_private_factory_pins_existing_manager_binding_and_same_world_lock(self):
+        from copy import copy
         from pathlib import Path
         import sys
         sys.path.insert(0,str(Path(__file__).resolve().parents[3]/'android/vr/pico/tests/device'))
         import test_native_execution_binding as n
         fixture=n.NativeExecutionBindingTest();fixture.setUp();self.addCleanup(fixture.doCleanups);adapter=fixture.instance()
-        adapter._scripts=lambda target:SimpleNamespace(ui=self.normal,binding=self.world.binding)
+        # Production transit retains the original PicoScriptIO. Earlier tests
+        # substituted a bare capture/navigation namespace for that exact owner.
+        self.transit.ui.io.original=self.normal.io
+        fresh=copy(self.normal);fresh.io=copy(fresh.io);fresh.io.navigation=copy(fresh.io.navigation)
+        adapter._scripts=lambda target:SimpleNamespace(ui=fresh,binding=self.world.binding)
         adapter._native_feature_observer=lambda target:SimpleNamespace(guard=self.world.guard,monotonic=lambda:self.world.clock,sleep=self.world.sleep)
         adapter._graphics_ui_observer=lambda target:self.source()
         def lock(_self,target,provided):self.assertEqual('owned',target);self.assertIs(self.world.lock,provided);return provided
         with patch('adapters.pico4.graphics_binding.PicoGraphicsBinding._lock',lock):
             owner=adapter._navigation_tablet_close('owned',self.path,self.transit,source_lock=self.world.lock)
+            self.assertIs(self.normal.io,owner.normal.io)
             with self.assertRaises(NativeUIError):owner.close(SELECT)
             self.assertFalse(self.controllers)
             with self.world.lock.held():self.assertEqual(dict(performed=True),owner.close(SELECT))

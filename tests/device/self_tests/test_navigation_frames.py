@@ -41,6 +41,9 @@ class NavigationFramesTests(unittest.TestCase):
         self.fixture=close_tests.NavigationTabletCloseTests();self.fixture.setUp();self.addCleanup(self.fixture.doCleanups)
         self.world=self.fixture.world;self.closed=self.fixture.owner();self.closed.close(SELECT);self.world.active=SELECT
         self.path=self.world.root/'navigation-frames.json'
+        self.prepare_sources()
+    def prepare_sources(self):
+        """Configure explicit native/GPU source seams for an already closed flow."""
         native=self.world._native_feature_observer
         def reader(*args,**kwargs):
             source=native(*args,**kwargs);source.clock_ms=self.world.epoch;return source

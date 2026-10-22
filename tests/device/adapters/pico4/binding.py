@@ -920,6 +920,7 @@ def create_adapter(args, base_class):
 
         @_private
         def _navigation_tablet_close(self, target, path, transit, *, source_lock):
+            from adapters.token_script_ui import TokenScriptUI
             from adapters.pico4.navigation_close import NavigationTabletClose
             from adapters.pico4.graphics_binding import PicoGraphicsBinding
             from adapters.native_feature_observation import need
@@ -928,8 +929,37 @@ def create_adapter(args, base_class):
             lock=PicoGraphicsBinding(self)._lock(target,source_lock)
             def guard():
                 lock.assert_held();return native.guard()
-            return NavigationTabletClose(transit,manager.ui,self._graphics_ui_observer(target),path,guard,
+            # _scripts creates a fresh runtime. Retain the actual transit input
+            # owner instead of substituting that new Navigation instance.
+            normal=TokenScriptUI(transit.ui.io.original,monotonic=native.monotonic,sleep=native.sleep)
+            return NavigationTabletClose(transit,normal,self._graphics_ui_observer(target),path,guard,
                 monotonic=native.monotonic,sleep=native.sleep)
+
+        @_private
+        def _navigation_lookup_close(self,target,path,lookup,dismissal,*,source_lock):
+            from adapters.pico4.navigation_close import NavigationTabletClose
+            from adapters.pico4.navigation_lookup_close import NavigationDismissedLookup
+            from adapters.pico4.graphics_binding import PicoGraphicsBinding
+            manager=self._scripts(target);native=self._native_feature_observer(target)
+            lock=PicoGraphicsBinding(self)._lock(target,source_lock);lock.assert_held()
+            _need(manager.binding==lookup.binding==dismissal.binding)
+            def guard():
+                lock.assert_held();return native.guard()
+            return NavigationTabletClose(NavigationDismissedLookup(lookup,dismissal),lookup.ui.normal,
+                self._graphics_ui_observer(target),path,guard,monotonic=native.monotonic,sleep=native.sleep)
+
+        @_private
+        def _navigation_lookup_dismissal(self,target,path,lookup,*,source_lock):
+            from adapters.navigation_missing import NavigationMissing
+            from adapters.pico4.graphics_binding import PicoGraphicsBinding
+            _need(isinstance(lookup,NavigationMissing))
+            lock=PicoGraphicsBinding(self)._lock(target,source_lock);lock.assert_held()
+            _need(lookup.store.read()==lookup.disk)
+            native=self._native_feature_observer(target)
+            def guard():
+                lock.assert_held();return native.guard()
+            return self._navigation_error_dismissal(target,path,lookup.run,lookup.status,lookup.provider,
+                lookup.inputs,lookup.origin,guard,normal=lookup.ui.normal,binding=lookup.binding)
 
         @_private
         def _navigation_frames(self, target, path, artifact_root, closed, *, source_lock, role='primary'):
@@ -995,14 +1025,19 @@ def create_adapter(args, base_class):
             return TokenNavigationErrorUI(PicoNavigationErrorIO(manager.ui.io), intent, run)
 
         @_private
-        def _navigation_error_dismissal(self, target, path, run, status, provider_instance, provider_inputs, owned_origin, guard):
+        def _navigation_error_dismissal(self, target, path, run, status, provider_instance, provider_inputs, owned_origin, guard,*,normal=None,binding=None):
+            from adapters.token_script_ui import TokenScriptUI
             from adapters.navigation_error_dismissal import NavigationErrorDismissal
             from adapters.token_navigation_error_ui import TokenNavigationErrorUI
             from adapters.pico4.normal_navigation_error import PicoNavigationErrorIO
             manager = self._scripts(target)
-            return NavigationErrorDismissal(lambda intent: TokenNavigationErrorUI(PicoNavigationErrorIO(manager.ui.io), intent, run),
+            if normal is None:
+                _need(binding is None);normal=manager.ui
+            else:_need(binding==manager.binding)
+            _need(isinstance(normal,TokenScriptUI) and isinstance(normal.io,normal_scripts.PicoScriptIO))
+            return NavigationErrorDismissal(lambda intent: TokenNavigationErrorUI(PicoNavigationErrorIO(normal.io), intent, run),
                 self._navigation_replies(target), self._navigation_modals(target), status, path, run, manager.binding,
-                provider_instance, provider_inputs, owned_origin, guard)
+                provider_instance, provider_inputs, owned_origin, guard,monotonic=normal.monotonic,sleep=normal.sleep)
 
         def _login_controls(self, target, intent, run, origin):
             from adapters.token_login_ui import TokenLoginUI

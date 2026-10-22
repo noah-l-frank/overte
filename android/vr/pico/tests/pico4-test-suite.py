@@ -35,6 +35,7 @@ TESTS = (
     test("suite-runner", "infrastructure", PYTHON, "pico4-test-suite-self-test.py"),
     test("coverage-matrix", "infrastructure", PYTHON, "pico4-coverage-test.py"),
     test("normal-input-transport", "interaction", PYTHON, "pico-normal-transport-test.py"),
+    test("navigation-lookup-close", "interaction", PYTHON, "pico-navigation-lookup-close-test.py"),
     test("chat-dispatcher-journey", "interaction", PYTHON, "pico-chat-dispatcher-test.py", "journey"),
     test("chat-dispatcher-recovery", "interaction", PYTHON, "pico-chat-dispatcher-test.py", "recovery"),
     test("chat-input-phase", "interaction", PYTHON, "pico-chat-dispatcher-test.py", "phase"),
