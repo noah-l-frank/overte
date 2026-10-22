@@ -19,9 +19,9 @@ from adapters.pico4.lifecycle_source import LIVENESS
 from adapters.script_journey.lock import ScriptSourceLock
 from adapters.script_journey.history import pack,unpack,same
 
-VERSION=1
+VERSION=2
 PHASES=('sampling','arm-issued','armed','background-issued','background-observed','foreground-issued',
-    'foreground-observed','quiet','release-issued','observed','failed')
+    'foreground-observed','quiet','release-issued','released-quiet','observed','failed')
 
 
 def original_packet(record,pid):
@@ -38,10 +38,10 @@ def decode_owner(record):
     exact(record,{'chatBackgroundVersion','runId','binding','peerBinding','transcripts','payload'})
     need(type(record['chatBackgroundVersion']) is int and record['chatBackgroundVersion']==VERSION)
     context(record['binding']);context(record['peerBinding']);rows=unpack(record['payload']);need(len(rows)==1);state=rows[0]
-    exact(state,{'phase','afterEpochMs','before','after','quiet','sourceInputs','sources','os'})
+    exact(state,{'phase','afterEpochMs','before','after','quiet','releasedQuiet','sourceInputs','sources','os'})
     need(state['phase'] in PHASES and integer(state['afterEpochMs'],1) and type(state['sourceInputs']) is list
         and len(state['sourceInputs'])<=2 and type(state['sources']) is list and len(state['sources'])<=16
-        and type(state['os']) is list and len(state['os'])<=128 and type(state['quiet']) is list and len(state['quiet'])<=64)
+        and type(state['os']) is list and len(state['os'])<=128 and all(type(state[key]) is list and len(state[key])<=64 for key in ('quiet','releasedQuiet')))
     previous=None;pid=int(record['binding']['processIdentity'].split(':')[0])
     for index,request in enumerate(state['sourceInputs']):
         command(request);need(request['runId']==record['runId'] and request['operation']==('arm' if index==0 else 'release'))
@@ -77,7 +77,7 @@ class ChatBackground:
             need(all(same(self.previous.get(key),value) for key,value in self.scope.items()))
             self.state=decode_owner(self.previous)
             for refs in ([self.state['before']] if self.state['before'] is not None else [])+([self.state['after']] if self.state['after'] is not None else []):self.frames(refs)
-            for row in self.state['quiet']:
+            for row in self.state['quiet']+self.state['releasedQuiet']:
                 exact(row,{'roles','hostMonotonic'});self.frames(row['roles']);need(number(row['hostMonotonic'],0,1e15))
         self.source=source_factory(self.intent)
         need(isinstance(self.source,NativeLifecycleBackground) and self.source.pid==roles[0].primary.pid
@@ -172,7 +172,9 @@ class ChatBackground:
         need(frames[-1]['applicationState']=='active' and frames[-1]['editor']['current'] and frames[-1]['editor']['visible'] and clean(frames[-1]))
         return packet
 
-    def quiet(self):
+    def quiet(self,*,released=False):
+        key='releasedQuiet' if released else 'quiet'
+        if released:need(not self.state['releasedQuiet'] and len(self.state['sourceInputs'])==2 and self.state['sources'] and self.source.last['released'] and not self.source.last['timerActive'])
         initial=self.frames(self.state['before']);started=None;epochs=None;previous=None;baseline=None
         for _index in range(64):
             observed=self.pair();current=[role.frames[-1] for role in self.roles];self.stable(initial,current);refs=references(self.roles);now=self.now()
@@ -181,7 +183,8 @@ class ChatBackground:
             else:
                 need(0<now-previous['hostMonotonic']<=1.5 and all(0<end-begin<=1500 for begin,end in zip(previous['epochs'],actual_epochs)))
                 need(all(frame['lifecycle']['lifecycle']==old['lifecycle']['lifecycle'] for frame,old in zip(current,baseline)))
-            self.state['quiet'].append(dict(roles=refs,hostMonotonic=now));self.state['after']=refs;self.save('quiet')
+            if released:need([frame['lifecycle']['lifecycle'] for frame in current]==[frame['lifecycle']['lifecycle'] for frame in self.frames(self.state['quiet'][0]['roles'])])
+            self.state[key].append(dict(roles=refs,hostMonotonic=now));self.state['after']=refs;self.save('released-quiet' if released else 'quiet')
             previous=dict(hostMonotonic=now,epochs=actual_epochs)
             if now-started>=3 and all(end-begin>=3000 for begin,end in zip(epochs,actual_epochs)):return observed
             self.sleep(.1)
@@ -192,19 +195,25 @@ class ChatBackground:
         packet=self.history(original_packet(self.state['sources'][-1],self.source.pid));release=self.state['sourceInputs'][1]
         need(packet['released'] and not packet['active'] and not packet['timerActive'] and packet['releaseCommandId']==release['commandId']
             and packet['lastIntentSequence']==release['intentSequence'])
-        self.stable(self.frames(self.state['before']),self.frames(self.state['after']));rows=self.state['quiet'];need(len(rows)>=2)
-        previous=None;original_lifecycle=None
-        for row in rows:
-            current_lifecycle=[frame['lifecycle']['lifecycle'] for frame in self.frames(row['roles'])]
-            if original_lifecycle is None:original_lifecycle=current_lifecycle
-            else:need(current_lifecycle==original_lifecycle)
-            self.stable(self.frames(self.state['before']),self.frames(row['roles']))
-            epochs=[epoch for ref in row['roles'] for epoch in ref['epochs']]
-            if previous is not None:need(0<row['hostMonotonic']-previous['hostMonotonic']<=1.5 and all(0<end-begin<=1500 for begin,end in zip(previous['epochs'],epochs)))
-            previous={**row,'epochs':epochs}
+        self.stable(self.frames(self.state['before']),self.frames(self.state['after']))
+        release_packet=next(original_packet(row,self.source.pid) for row in self.state['sources']
+            if original_packet(row,self.source.pid)['released'])
+        original_lifecycle=None
+        for key in ('quiet','releasedQuiet'):
+            rows=self.state[key];need(len(rows)>=2);previous=None
+            for row in rows:
+                current_lifecycle=[frame['lifecycle']['lifecycle'] for frame in self.frames(row['roles'])]
+                if original_lifecycle is None:original_lifecycle=current_lifecycle
+                else:need(current_lifecycle==original_lifecycle)
+                self.stable(self.frames(self.state['before']),self.frames(row['roles']))
+                epochs=[epoch for ref in row['roles'] for epoch in ref['epochs']]
+                if key=='releasedQuiet':need(all(ref['epochs'][index]>=release_packet['capturedEpochMs'] for ref in row['roles'] for index in (0,2,3)))
+                if previous is not None:need(0<row['hostMonotonic']-previous['hostMonotonic']<=1.5 and all(0<end-begin<=1500 for begin,end in zip(previous['epochs'],epochs)))
+                previous={**row,'epochs':epochs}
+            need(rows[-1]['hostMonotonic']-rows[0]['hostMonotonic']>=3
+                and all(end-begin>=3000 for begin,end in zip([epoch for ref in rows[0]['roles'] for epoch in ref['epochs']],epochs)))
         need([frame['lifecycle']['lifecycle'] for frame in self.frames(self.state['after'])]==original_lifecycle)
-        need(rows[-1]['hostMonotonic']-rows[0]['hostMonotonic']>=3
-            and all(end-begin>=3000 for begin,end in zip([epoch for ref in rows[0]['roles'] for epoch in ref['epochs']],epochs)))
+        need(all(a['index']<b['index'] for a,b in zip(self.state['quiet'][-1]['roles'],self.state['releasedQuiet'][0]['roles'])))
         osrows=self.state['os'];need(any(row['label']=='before-home' and row['packet']['foreground'] for row in osrows)
             and any(row['label']=='background' and not row['packet']['foreground'] for row in osrows)
             and any(row['label']=='before-resume' and not row['packet']['foreground'] for row in osrows)
@@ -252,6 +261,7 @@ class ChatBackground:
             release=self.state['sourceInputs'][1]
             need(packet['released'] and not packet['active'] and not packet['timerActive']
                 and packet['releaseCommandId']==release['commandId'] and packet['lastIntentSequence']==release['intentSequence'])
+            self.quiet(released=True);self.record_source(self.history(self.source.read(self.run_id)))
             observed=self.pair();self.stable(self.frames(self.state['before']),[role.frames[-1] for role in self.roles])
             self.state['after']=references(self.roles);self.save('observed');self.closed_history()
             result=deepcopy(observed);self.fresh_current(self.fresh_started,background=True);return result
@@ -263,7 +273,7 @@ class ChatBackground:
                 for lock in sorted(self.roles[0].locks,key=lambda value:str(value.path)):held.enter_context(lock.held())
                 with self.os.existing_input_session(self.target):
                     if self.state is None:
-                        self.state=dict(phase='sampling',afterEpochMs=after_epoch,before=None,after=None,quiet=[],sourceInputs=[],sources=[],os=[]);self.save()
+                        self.state=dict(phase='sampling',afterEpochMs=after_epoch,before=None,after=None,quiet=[],releasedQuiet=[],sourceInputs=[],sources=[],os=[]);self.save()
                         observed=self.pair();need(observed[0]['state']['open'] and observed[0]['state']['channel']=='domain' and observed[0]['state']['draft']=='')
                         self.state['before']=references(self.roles);self.save();self.record_source(self.source.read(self.run_id))
                         self.record_source(self.source.arm(self.run_id),'armed')
@@ -280,8 +290,8 @@ class ChatBackground:
                         self.sleep(.6);need(not self.os_status('before-resume')['foreground']);self.save('foreground-issued')
                         self.os._graphics_lifecycle_input(self.target,'app.launch',self.binding)
                     if self.state['phase']=='foreground-issued':self.wait_os(True,'foreground');self.save('foreground-observed')
-                    need(self.state['phase'] in ('foreground-observed','quiet','release-issued'))
-                    if self.state['phase']!='release-issued':
+                    need(self.state['phase'] in ('foreground-observed','quiet','release-issued','released-quiet'))
+                    if self.state['phase'] not in ('release-issued','released-quiet'):
                         self.record_source(self.history(self.source.read(self.run_id)))
                         observed=self.quiet();self.record_source(self.history(self.source.read(self.run_id)))
                         self.record_source(self.source.release_owned(self.run_id,self.state['sourceInputs'][0]))
@@ -289,6 +299,7 @@ class ChatBackground:
                     packet=self.source.last;release=self.state['sourceInputs'][-1]
                     need(release['operation']=='release' and packet['released'] and not packet['active'] and not packet['timerActive']
                         and packet['releaseCommandId']==release['commandId'] and packet['lastIntentSequence']==release['intentSequence'])
+                    self.quiet(released=True);self.record_source(self.history(self.source.read(self.run_id)))
                     observed=self.pair();self.stable(self.frames(self.state['before']),[role.frames[-1] for role in self.roles])
                     self.state['after']=references(self.roles);self.save('observed');self.closed_history()
                     result=deepcopy(observed);self.fresh_current(self.fresh_started,background=True);return result
@@ -296,13 +307,19 @@ class ChatBackground:
             # Recovery is separate input authority. Do not retry HOME, arm or a
             # recorded Resume/release, and do not retire any original journal.
             try:
-                if self.state is not None and self.state['phase'] in ('background-issued','background-observed','foreground-issued'):
-                    self.recover_foreground(self.os,self.target,self.store,self.roles[0].locks[0],monotonic=self.monotonic,sleep=self.sleep)
-                    self.previous=self.store.read();self.state=decode_owner(self.previous)
-                if self.state is not None and self.state['sourceInputs'] and len(self.state['sourceInputs'])==1:
-                    current=self.source.read(self.run_id);arm=self.state['sourceInputs'][0]
-                    if current['ownerRunId']==self.run_id and current['armCommandId']==arm['commandId']:
-                        self.record_source(current);self.record_source(self.source.release_owned(self.run_id,arm))
-                if self.state is not None:self.save('failed')
+                with ExitStack() as held:
+                    for lock in sorted(self.roles[0].locks,key=lambda value:str(value.path)):held.enter_context(lock.held())
+                    # A write may have landed although its acknowledgement was
+                    # lost. Never overwrite that different durable parent or
+                    # infer permission for another input from warm memory.
+                    need(same(self.store.read(),self.previous))
+                    if self.state is not None and self.state['phase'] in ('background-issued','background-observed','foreground-issued'):
+                        self.recover_foreground(self.os,self.target,self.store,self.roles[0].locks[0],monotonic=self.monotonic,sleep=self.sleep)
+                        self.previous=self.store.read();self.state=decode_owner(self.previous)
+                    if self.state is not None and self.state['sourceInputs'] and len(self.state['sourceInputs'])==1:
+                        current=self.source.read(self.run_id);arm=self.state['sourceInputs'][0]
+                        if current['ownerRunId']==self.run_id and current['armCommandId']==arm['commandId']:
+                            self.record_source(current);self.record_source(self.source.release_owned(self.run_id,arm))
+                    if self.state is not None:self.save('failed')
             except Exception:pass
             raise NativeUIError('Chat background/return is unresolved; original inputs and histories remain without replay') from None

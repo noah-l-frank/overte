@@ -57,6 +57,9 @@ class BackgroundTests(unittest.TestCase):
             def mutate(value,previous=previous):
                 if previous:previous(value)
                 value['capturedEpochMs']=self.native.epoch
+                if 'requestedEpochMs' in value:
+                    value['requestedEpochMs']=self.native.epoch;value['animationFence']['requestedEpochMs']=self.native.epoch
+                    value['animation']['capturedEpochMs']=self.native.epoch;value['animation']['clip']['evaluatedEpochMs']=self.native.epoch
                 if 'source' in value and 'keyboard' in value['source']:
                     self.keyboard_sequence+=1;value['source']['keyboard']['sequence']=self.keyboard_sequence
                 if 'lifecycle' in value:value['lifecycle'].update(backgrounds=self.backgrounds,activations=self.activations)
@@ -97,7 +100,7 @@ class BackgroundTests(unittest.TestCase):
         self.assertTrue(all(row['state']['open'] and row['state']['channel']=='domain' and not row['state']['keyboard'] for row in result))
         self.assertEqual(['lifecycle.background','app.launch'],self.original.inputs)
         self.assertEqual('observed',self.owner.state['phase']);self.assertTrue(self.native.released);self.assertFalse(self.native.active)
-        self.assertGreaterEqual(len(self.owner.state['quiet']),31);self.assertTrue(self.store.path.exists())
+        self.assertGreaterEqual(len(self.owner.state['quiet']),31);self.assertGreaterEqual(len(self.owner.state['releasedQuiet']),31);self.assertTrue(self.store.path.exists())
         before=len(self.native.commands);self.roles=(self.samples('primary',self.h.store),self.samples('actor',self.roles[1].store));rebuilt=self.create()
         self.assertEqual(before,len(self.native.commands));self.assertEqual('observed',rebuilt.state['phase'])
         with self.assertRaises(NativeUIError):rebuilt.run(20000)
@@ -172,6 +175,82 @@ class BackgroundTests(unittest.TestCase):
         self.native.frame=changed
         with self.assertRaises(NativeUIError):self.owner.run(20000)
         self.assertNotEqual('observed',self.owner.state['phase'])
+
+    def test_delayed_keyboard_or_chat_after_actual_timer_release_cannot_escape_final_quiet(self):
+        for fault in ('keyboard','chat'):
+            with self.subTest(fault=fault):
+                self.setUp();original=self.sleep;released_at=None;changed=False
+                def sleep(seconds):
+                    nonlocal released_at,changed
+                    original(seconds)
+                    if self.native.released:
+                        if released_at is None:released_at=self.native.host
+                        elif not changed and self.native.host-released_at>=2:
+                            changed=True
+                            if fault=='keyboard':
+                                from self_tests.test_pico_chat_keyboard import keyboard
+                                self.h.view.source['keyboard']=keyboard(True)
+                            else:
+                                from feature_journeys.fixtures import context
+                                self.h.accept(context(RUN)['hidden'])
+                self.owner.sleep=sleep
+                with self.assertRaises(NativeUIError):self.owner.run(20000)
+                self.assertTrue(changed);self.assertTrue(self.native.released);self.assertNotEqual('observed',self.owner.state['phase'])
+                self.assertTrue(self.store.path.exists());self.assertEqual(['lifecycle.background','app.launch'],self.original.inputs)
+
+    def test_error_recovery_reads_and_parent_writes_hold_both_original_locks(self):
+        self.original.lost='lifecycle.background';original_guard=self.owner.source.guard;original_write=self.store.write
+        def guarded():
+            for lock in self.roles[0].locks:lock.assert_held()
+            return original_guard()
+        def write(*args):
+            for lock in self.roles[0].locks:lock.assert_held()
+            return original_write(*args)
+        self.owner.source.guard=guarded;self.store.write=write
+        with self.assertRaises(NativeUIError):self.owner.run(20000)
+        self.assertEqual(['lifecycle.background','app.launch'],self.original.inputs);self.assertTrue(self.native.released)
+        self.assertEqual('failed',self.owner.state['phase']);self.assertFalse(self.native.active)
+
+    def test_lost_parent_manifest_write_preserves_original_phase_and_performed_input_without_warm_overwrite(self):
+        original=self.store.write;lost=False
+        def write(value,previous):
+            nonlocal lost
+            original(value,previous)
+            if not lost and unpack(value['payload'])[0]['phase']=='foreground-observed':
+                lost=True;raise OSError('Explicit lost acknowledgement after actual parent manifest rename')
+        self.store.write=write
+        with self.assertRaises(NativeUIError):self.owner.run(20000)
+        actual=unpack(self.store.read()['payload'])[0]
+        self.assertTrue(lost);self.assertEqual('foreground-observed',actual['phase']);self.assertTrue(self.native.active)
+        self.assertEqual(['arm'],[row['operation'] for row in actual['sourceInputs']]);self.assertEqual(['lifecycle.background','app.launch'],self.original.inputs)
+        self.store.write=original;self.roles=(self.samples('primary',self.h.store),self.samples('actor',self.roles[1].store));self.owner=self.create()
+        self.owner.run(20000);self.assertEqual('observed',self.owner.state['phase']);self.assertTrue(self.native.released)
+        self.assertEqual(['lifecycle.background','app.launch'],self.original.inputs)
+
+    def test_lost_manifest_after_actual_release_keeps_release_original_and_never_resends_it(self):
+        import json
+        original=self.store.write;lost=False
+        def write(value,previous):
+            nonlocal lost
+            original(value,previous);state=unpack(value['payload'])[0]
+            if not lost and state['sources'] and json.loads(state['sources'][-1]['raw'])['released']:
+                lost=True;raise OSError('Explicit lost parent write response after native timer release')
+        self.store.write=write
+        with self.assertRaises(NativeUIError):self.owner.run(20000)
+        actual=unpack(self.store.read()['payload'])[0];self.assertTrue(lost);self.assertTrue(self.native.released)
+        self.assertEqual('release-issued',actual['phase']);self.assertTrue(json.loads(actual['sources'][-1]['raw'])['released'])
+        self.assertEqual(2,len(actual['sourceInputs']));self.assertEqual([],actual['releasedQuiet'])
+        self.store.write=original;self.roles=(self.samples('primary',self.h.store),self.samples('actor',self.roles[1].store));self.owner=self.create()
+        self.owner.run(20000);self.assertEqual('observed',self.owner.state['phase'])
+        self.assertEqual(1,[row['operation'] for row in self.native.commands].count('release'))
+        self.assertEqual(['lifecycle.background','app.launch'],self.original.inputs)
+
+    def test_v1_missing_post_release_originals_is_retained_without_adoption_or_new_input(self):
+        self.owner.run(20000);current=self.store.read();old={**current,'chatBackgroundVersion':1};self.store.write(old,current)
+        before=len(self.native.commands)
+        self.roles=(self.samples('primary',self.h.store),self.samples('actor',self.roles[1].store))
+        with self.assertRaises(NativeUIError):self.create()
+        self.assertEqual(old,self.store.read());self.assertEqual(before,len(self.native.commands))
 
     def test_source_receipt_or_os_ack_cannot_replace_actual_hidden_keyboard_and_lifecycle(self):
         self.original.effect=False

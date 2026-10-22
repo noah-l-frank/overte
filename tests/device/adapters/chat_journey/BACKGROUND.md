@@ -29,20 +29,26 @@ Fresh complete Chat samples after return must retain both channel models,
 receive histories, stored rows and the original Chat page generation. Both
 independent original lifecycle sources must show background and activation,
 without a process launch. Three seconds of advancing host and all eight native
-source clocks prove quiet with gaps at most 1.5 seconds. Lifecycle counters stay
+source clocks prove quiet with gaps at most 1.5 seconds, both before and after the actual
+timer release. The post-release window rejects delayed native keyboard, Chat
+arrival or model changes; a single final pair is insufficient. Lifecycle counters stay
 constant through the final post-release samples. The original timer release is
 recorded once; its original ID, sequence, actual stopped timer and released
 state are read back. Final result copying, persistence and guards remain inside
 the original final source-clock freshness check.
 
-The private `chat-background-owner` v1 journal preserves original raw native
+The private `chat-background-owner` v2 journal preserves original raw native
 packets, hashes, exact arm/release requests, OS packets and complete source
 references. Reconstruction issues no input or query. Lost HOME can permit only
 the distinct original Resume; an uncertain Resume is only observed. Cold
 recovery acquires the same original Chat lock and uses only candidate/kernel/OS
 sources until foreground is recovered, retaining every native journal. A lost
 timer release is resolved with a new query and fresh complete Chat sources,
-never a second release. Missing/replaced original processes are refused. Failed
+never a second release. An interrupted post-release quiet window is retained
+and is not restarted/adopted. Missing/replaced original processes are refused. Both original locks are reacquired for error recovery and all parent writes.
+A parent-manifest write that landed despite a lost acknowledgement blocks warm
+cleanup writes and new inputs through the original CAS; the durable original is
+not overwritten from memory. Failed
 qualification retains ownership and cannot repeat HOME, arm or Resume.
 
 Pico's `_chat_background_source` directly binds this unchanged native source to
@@ -59,4 +65,5 @@ frozen native time and a new lifecycle activation after quiet. Actual Pico
 native application compilation, device lifecycle, OpenXR and networking remain
 unqualified. Timer release does not retire Qt objects or callbacks; final
 process/resource release and the full 25-step independent witness remain open.
+Old v1 journals lack this post-release proof and remain without adoption.
 No complete Chat capability is advertised.

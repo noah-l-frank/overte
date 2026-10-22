@@ -107,7 +107,7 @@ REQUIRED = {
     "chat-journey-source-chunks": 1,
     "chat-mixer-owner": 1,
     "chat-normal-input": 1,
-    "chat-background-owner": 1,
+    "chat-background-owner": 2,
     "chat-flow-inputs": 1,
     "chat-independent-witness": 1,
     "chat-journey-no-replay": 2,
