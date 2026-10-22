@@ -203,8 +203,104 @@ int main(int argc,char** argv) {
 '''
 
 
+PROFILE=r'''
+#include "tests/device/native/ChatProfileOwner.h"
+#include <QTemporaryDir>
+#include <QJsonDocument>
+#include <cassert>
+class OwnedManager:public Setting::Manager {public:~OwnedManager(){terminateThread();}};
+class SettingsTests {
+public:static Setting::WriteWorker* worker(Setting::Manager& manager){return manager._featureChatWorker.data();}
+};
+int main(int argc,char** argv) {
+    QCoreApplication app(argc,argv);QTemporaryDir scratch;assert(scratch.isValid());
+    QCoreApplication::setOrganizationName("OverteActualProfile");QCoreApplication::setApplicationName("Settings");
+    QSettings::setDefaultFormat(QSettings::IniFormat);QSettings::setPath(QSettings::IniFormat,QSettings::UserScope,scratch.path());
+    assert(::chmod(QFile::encodeName(scratch.path()).constData(),0700)==0);
+    assert(QDir().mkpath(scratch.path()+"/OverteActualProfile"));OwnedManager manager;
+    const QVariantMap config{{"enabled",true},{"privateMarker","original private configuration"}};
+    manager.setValue("ArmoredChat-Config",config);bool viewClosed{true};qint64 viewSequence{0};
+    const auto view=[&](const QString& run) {
+        return QVariantMap{{"chatViewVersion",2},{"runId",run},{"instance",QString(32,'a')},{"sequence",++viewSequence},
+            {"processId",QCoreApplication::applicationPid()},{"capturedEpochMs",QDateTime::currentMSecsSinceEpoch()},
+            {"source",QVariantMap{{"editorFocused",false},{"editorHasDraft",false},{"keyboard",QVariantMap{{"available",true},{"visible",false}}},
+                {"ui",QVariantMap{{"present",!viewClosed}}}}}};
+    };
+    auto command=[](const QString& run,const QString& operation) {
+        return QVariantMap{{"schemaVersion",1},{"commandId",QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-')},
+            {"runId",run},{"action","feature-chat-profile"},{"operation",operation}};
+    };
+    for (const auto original:{QVariant(),QVariant(QVariantList()),QVariant(QStringList()),QVariant(QString()),QVariant(QString(""))}) {
+        manager.remove("ArmoredChat-Messages");manager.setValue("ArmoredChat-Messages",original);
+        overte::e2e::ChatProfileOwner owner(&manager,view);const auto run=QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-');
+        viewClosed=false;assert(owner.request(command(run,"acquire")).isEmpty());viewClosed=true;
+        const auto acquire=command(run,"acquire"),saved=owner.request(acquire);assert(!saved.isEmpty());
+        assert(owner.request(acquire).isEmpty());
+        assert(!QJsonDocument::fromVariant(saved).toJson().contains("original private configuration"));
+        manager.setValue("ArmoredChat-Messages",QVariantList{QVariantMap{{"message","unowned original row"}}});
+        assert(owner.request(command(run,"restore")).isEmpty());
+        // This is a storage seam, not a claimed normal UI Erase operation.
+        manager.setValue("ArmoredChat-Messages",QVariant());
+        manager.setValue("ArmoredChat-Config",QVariantMap{{"enabled",false}});
+        assert(owner.request(command(run,"restore")).isEmpty());
+        manager.setValue("ArmoredChat-Config",config);
+        const auto restored=owner.request(command(run,"restore"));assert(!restored.isEmpty());
+        assert(restored.value("owned")==true && restored.value("restored")==true);
+        assert(restored.value("original")==restored.value("current"));
+        assert(owner.request(command(run,"restore")).isEmpty());
+        assert(owner.request(command(QString(32,'b'),"inspect")).isEmpty());
+    }
+    // Qt's original worker equality optimization can retain a different live
+    // type even when empty list/string-list values compare equal. Refuse it.
+    manager.remove("ArmoredChat-Messages");manager.setValue("ArmoredChat-Messages",QVariantList());
+    assert(!manager.featureChatSnapshot().isEmpty());manager.setValue("ArmoredChat-Messages",QStringList());
+    overte::e2e::ChatProfileOwner unequalTypes(&manager,view);
+    assert(unequalTypes.request(command(QString(32,'e'),"acquire")).isEmpty());
+    manager.remove("ArmoredChat-Messages");
+    overte::e2e::ChatProfileOwner absent(&manager,view);const auto absentRun=QString(32,'c');
+    assert(!absent.request(command(absentRun,"acquire")).isEmpty());
+    manager.setValue("ArmoredChat-Messages",QVariant());
+    const auto back=absent.request(command(absentRun,"restore"));assert(back.value("restored")==true);
+    assert(!manager.contains("ArmoredChat-Messages"));
+
+    // Original cache/file refusal: the physical parser never calls a shared
+    // QSettings reader or labels a nonempty row as empty from live variants.
+    const auto ini=scratch.path()+"/unowned.ini";QFile file(ini);assert(file.open(QIODevice::WriteOnly));
+    file.write("[General]\nArmoredChat-Messages=unowned-file-history\n");file.close();
+    assert(overte::e2e::chatSettingsFile(ini).value("ArmoredChat-Messages").toMap().value("empty")==false);
+    const auto expected=manager.featureChatSnapshot();assert(!expected.isEmpty());
+    manager.setValue("ArmoredChat-Messages",QVariantList{QString("changed after acquisition")});
+    assert(!manager.featureChatRestoreHistory(expected,QVariantMap{{"present",false},{"value",QVariant()}}));
+    assert(manager.value("ArmoredChat-Messages").toList()==QVariantList{QString("changed after acquisition")});
+
+    // Post-write uncertainty retains native ownership and cannot repeat input.
+    manager.setValue("ArmoredChat-Messages",QString(""));
+    overte::e2e::ChatProfileOwner late(&manager,view);const auto lateRun=QString(32,'d');
+    assert(!late.request(command(lateRun,"acquire")).isEmpty());manager.setValue("ArmoredChat-Messages",QVariant());
+    auto* worker=SettingsTests::worker(manager);QSemaphore blocked,release;int writes{0};
+    const auto connection=QObject::connect(&manager,&Setting::Manager::valueChanged,&manager,[&](QString key,QVariant) {
+        if(key!="ArmoredChat-Messages")return;++writes;
+        assert(QMetaObject::invokeMethod(worker,[&]{blocked.release();release.acquire();},Qt::QueuedConnection));
+    },Qt::DirectConnection);
+    assert(late.request(command(lateRun,"restore")).isEmpty());assert(blocked.tryAcquire(1,500));
+    assert(late.request(command(lateRun,"restore")).isEmpty() && writes==1);
+    assert(late.request(command(lateRun,"inspect")).isEmpty());
+    QObject::disconnect(connection);release.release();
+    QSemaphore drained;assert(QMetaObject::invokeMethod(worker,[&]{drained.release();},Qt::QueuedConnection));assert(drained.tryAcquire(1,1000));
+    const auto resolved=late.request(command(lateRun,"inspect"));assert(resolved.value("restored")==true && resolved.value("owned")==true);
+    assert(writes==1);
+}
+'''
+
+
 class SettingsBarrierTests(unittest.TestCase):
     def test_actual_manager_translation_unit_and_original_worker(self):
+        self.compile_manager(FULL_MANAGER)
+
+    def test_actual_profile_owner_saved_types_physical_refusal_and_one_restore(self):
+        self.compile_manager(PROFILE)
+
+    def compile_manager(self,program):
         flags=shlex.split(subprocess.check_output(['pkg-config','--cflags','--libs','Qt5Core'],text=True))
         library=subprocess.check_output(['pkg-config','--variable=libdir','Qt5Core'],text=True).strip()
         moc=os.environ.get('OVERTE_CHAT_MOC') or shutil.which('moc-qt5') or shutil.which('moc')
@@ -212,8 +308,8 @@ class SettingsBarrierTests(unittest.TestCase):
             moc=str(Path(os.environ['PKG_CONFIG_SYSROOT_DIR'])/'usr/bin/moc-qt5')
         self.assertTrue(moc and Path(moc).is_file(),'Existing Qt5 moc is required')
         with tempfile.TemporaryDirectory(prefix='overte-chat-settings-manager-') as scratch:
-            unit=Path(scratch)/'test.cpp';binary=Path(scratch)/'test';generated=Path(scratch)/'moc.cpp';unit.write_text(FULL_MANAGER)
-            includes=['-I'+str(ROOT/'libraries/shared/src'),*[flag for flag in flags if flag.startswith(('-I','-D'))]]
+            unit=Path(scratch)/'test.cpp';binary=Path(scratch)/'test';generated=Path(scratch)/'moc.cpp';unit.write_text(program)
+            includes=['-I'+str(ROOT),'-I'+str(ROOT/'libraries/shared/src'),*[flag for flag in flags if flag.startswith(('-I','-D'))]]
             meta=subprocess.run([moc,'-DOVERTE_E2E_FEATURE_TESTS',*includes,
                 str(ROOT/'libraries/shared/src/SettingManager.h'),'-o',str(generated)],capture_output=True,text=True,timeout=30)
             self.assertEqual(0,meta.returncode,meta.stderr[:6000])

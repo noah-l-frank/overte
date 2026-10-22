@@ -210,6 +210,7 @@ namespace Setting {
         // Internal native source only. Raw values stay inside the native
         // original-profile owner and must never be exposed as script output.
         QVariantMap featureChatSnapshot();
+        bool featureChatRestoreHistory(const QVariantMap& expected,const QVariantMap& original);
 #endif
     protected:
         /**

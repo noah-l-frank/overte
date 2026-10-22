@@ -20,7 +20,7 @@
 #include <QSet>
 #include <QHash>
 #include <memory>
-namespace overte::e2e { class ChatViewObservation; }
+namespace overte::e2e { class ChatViewObservation; class ChatProfileOwner; }
 namespace overte::e2e { class ChatPeerPosition; }
 #include <QUuid>
 namespace overte::e2e { class FeatureLifecycle; class AccountOriginLease; }
@@ -160,6 +160,7 @@ public slots:
     Q_INVOKABLE QVariantMap featureChatObservation(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureChatViewObservation(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureChatPeerPosition(const QVariantMap& command);
+    Q_INVOKABLE QVariantMap featureChatProfile(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureWebRuntimeObservation(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureWebDOMObservation(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureNavigationReplies(const QVariantMap& command);
@@ -242,6 +243,7 @@ private:
     overte::e2e::AccountOriginLease* _featureAccountOriginLease {nullptr};
     std::shared_ptr<overte::e2e::ChatViewObservation> _featureChatView;
     std::shared_ptr<overte::e2e::ChatPeerPosition> _featureChatPeerPosition;
+    std::shared_ptr<overte::e2e::ChatProfileOwner> _featureChatProfile;
     QString _featureObservationInstance;
     quint64 _featureObservationSequence {0};
     QString _featurePendingRequest;

@@ -15,6 +15,9 @@
 #include <QtCore/QThread>
 #include <QtCore/QDebug>
 #include <QtCore/QUuid>
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+#include <QDataStream>
+#endif
 
 #include "SettingInterface.h"
 
@@ -35,6 +38,39 @@ namespace Setting {
             values.insert(key,QVariantMap{{"present",_qSettings->contains(key)},{"value",_qSettings->value(key)}});
         }
         return {{"instance",_featureChatInstance},{"values",values},{"physical",physical}};
+    }
+
+
+    bool Manager::featureChatRestoreHistory(const QVariantMap& expected,const QVariantMap& original) {
+        if (!QCoreApplication::arguments().contains("--testScript") || QThread::currentThread()!=thread()
+                || expected.value("settingsBarrierVersion")!=QVariant(2) || original.size()!=2
+                || original.value("present").userType()!=QMetaType::Bool || !original.contains("value")) { return false; }
+        const auto value=original.value("value");
+        if (value.isValid() && !value.isNull() && !(value.userType()==QMetaType::QString && value.toString().isEmpty())
+                && !(value.userType()==QMetaType::QVariantList && value.toList().isEmpty())
+                && !(value.userType()==QMetaType::QStringList && value.toStringList().isEmpty())) { return false; }
+        if (!original.value("present").toBool() && value.isValid()) { return false; }
+        overte::e2e::ChatSettingsBarrier::Mutation mutation(_featureChatSettings,"ArmoredChat-Messages");
+        bool admitted{false};
+        if (!withTryWriteLock([&] {
+            const auto cache=expected.value("cache").toMap();
+            for (const auto key:{"ArmoredChat-Messages","ArmoredChat-Config"}) {
+                QByteArray before,actual;QDataStream beforeStream(&before,QIODevice::WriteOnly),actualStream(&actual,QIODevice::WriteOnly);
+                const auto row=cache.value(key).toMap();
+                if (row.size()!=2 || row.value("present").userType()!=QMetaType::Bool || !row.contains("value")) { return; }
+                beforeStream<<row.value("present").toBool()<<row.value("value");
+                actualStream<<_settings.contains(key)<<_settings.value(key);
+                if (beforeStream.status()!=QDataStream::Ok || actualStream.status()!=QDataStream::Ok || before!=actual) { return; }
+            }
+            if (!_featureChatSettings.restoreAdmission(expected.value("instance").toString(),expected.value("mutationSequence").toLongLong())) { return; }
+            if (original.value("present").toBool()) { _settings.insert("ArmoredChat-Messages",value); }
+            else { _settings.remove("ArmoredChat-Messages"); }
+            admitted=true;
+        },0) || !admitted) { return false; }
+        // Match the normal original Manager mutation path: signal after unlock.
+        if (original.value("present").toBool()) { emit valueChanged("ArmoredChat-Messages",value); }
+        else { emit keyRemoved("ArmoredChat-Messages"); }
+        return true;
     }
 
     QVariantMap Manager::featureChatSnapshot() {

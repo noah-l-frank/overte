@@ -26,6 +26,13 @@ namespace overte::e2e {
 class ChatSettingsBarrier {
 public:
     qint64 pendingMutations() const { return _attempts.load(); }
+    // Called under the Manager's actual write lock by its one tracked restore.
+    // No mutex survives this admission check or the original signal emission.
+    bool restoreAdmission(const QString& instance,qint64 sequence) {
+        if (!_mutex.tryLock()) { return false; }
+        const bool allowed=_valid && _instance==instance && _sequence==sequence && _pending==1 && _attempts.load()==1;
+        _mutex.unlock();return allowed;
+    }
     class Mutation {
     public:
         Mutation(ChatSettingsBarrier& owner,const QString& key) : _owner(owner) {
@@ -63,7 +70,7 @@ public:
         if (!_valid || actualWriter.isEmpty() || finished-started>1500 || elapsed.elapsed()>1500
                 || _pending || _attempts.load()!=0 || _sequence!=sequence) { return {}; }
         _epoch=finished;
-        return {{"settingsBarrierVersion",1},{"instance",_instance},{"mutationSequence",_sequence},{"pending",_pending},{"capturedEpochMs",finished},{"elapsedMs",elapsed.elapsed()},
+        return {{"settingsBarrierVersion",2},{"instance",_instance},{"mutationSequence",_sequence},{"pending",_pending},{"capturedEpochMs",finished},{"elapsedMs",elapsed.elapsed()},
             {"cache",actualCache},{"writer",actualWriter}};
     }
 private:
@@ -143,8 +150,14 @@ inline QVariantMap chatSettingsFile(const QString& originalPath) {
     QVariantMap result;
     for (const auto key:{"ArmoredChat-Messages","ArmoredChat-Config"}) {
         const auto name=QByteArray(key);const bool present=rows.contains(name);
-        result.insert(QString::fromLatin1(key),QVariantMap{{"present",present},
-            {"sha256",QString::fromLatin1(QCryptographicHash::hash((present?QByteArray("present:"):QByteArray("absent:"))+rows.value(name),QCryptographicHash::Sha256).toHex())}});
+        QVariantMap row{{"present",present},
+            {"sha256",QString::fromLatin1(QCryptographicHash::hash((present?QByteArray("present:"):QByteArray("absent:"))+rows.value(name),QCryptographicHash::Sha256).toHex())}};
+        if (name=="ArmoredChat-Messages") {
+            // Admit only independently read literal empty physical encodings.
+            // A null or empty cached value cannot hide unowned file history.
+            row.insert("empty",!present || rows.value(name).isEmpty() || rows.value(name)=="@Invalid()");
+        }
+        result.insert(QString::fromLatin1(key),row);
     }
     return result;
 #else
