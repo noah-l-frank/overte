@@ -90,6 +90,37 @@ class NavigationAddressInputsTests(unittest.TestCase):
             self.assertEqual(calls,self.b.calls);self.assertEqual(native,self.b.native_boundary.requests)
             self.assertIsNotNone(self.store.read())
 
+    def test_exact_missing_name_extends_same_original_root_between_entry_and_return(self):
+        from feature_journeys.fixtures import context
+        with self.held():
+            first=self.owner();self.goto(first);lease=deepcopy(first.state['lease'])
+            name='hifi://'+context(RUN)['hidden'];owner=self.owner()
+            self.b.mutation='goto-ignored' # Missing lookup never imports another scene.
+            owner.goto('missing',name,self.b.profile,{name});self.b.mutation=''
+            self.assertEqual(lease,owner.state['lease']);self.assertEqual(name,self.b.field)
+            self.assertEqual('missing',owner.state['rows'][-1]['key'])
+            self.assertFalse(owner.state['rows'][-1]['closed']['drained'])
+            final=self.owner();self.goto(final,'return','B');self.assertEqual(lease,final.state['lease'])
+            self.assertEqual(['enter','missing','return'],[row['key'] for row in final.state['rows']])
+
+    def test_missing_name_cannot_widen_normal_viewpoint_contract_or_select_a_foreign_run(self):
+        from feature_journeys.fixtures import context
+        with self.held():
+            owner=self.owner();name='hifi://'+context(RUN)['hidden'];before=list(self.b.calls)
+            for url,allowed in ((name+'x',{name+'x'}),(name,{name,'hifi://foreign'})):
+                with self.subTest(url=url),self.assertRaises(NativeUIError):owner.goto('missing',url,self.b.profile,allowed)
+            self.assertEqual(before,self.b.calls);self.assertIsNone(self.store.read())
+
+    def test_original_version_one_entry_carrier_remains_readable_and_cannot_contain_missing_recipe(self):
+        from adapters.script_feature.history import pack
+        with self.held():
+            owner=self.owner();self.goto(owner);actual=owner.store.read();state=deepcopy(owner.state)
+            legacy=dict(iosNavigationAddressInputsVersion=1,binding=BINDING,runId=RUN,payload=pack([state]))
+            self.store.write(legacy,actual);calls=list(self.b.calls);restored=self.owner()
+            self.assertEqual(state,restored.state);self.assertEqual(legacy,self.store.read());self.assertEqual(calls,self.b.calls)
+            state['rows'][0]['key']='missing';bad=dict(legacy,payload=pack([state]))
+            with self.assertRaises(NativeUIError):restored.decode(bad)
+
     def test_lost_native_or_final_result_never_repeats_any_existing_input(self):
         for fault in ('native','finish'):
             if fault!='native':self.doCleanups();self.setUp()

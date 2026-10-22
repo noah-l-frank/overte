@@ -22,7 +22,7 @@ native inventory with no root and no address control reports `absent`. The
 validator neither hides nor destroys any object, and it makes no statement
 about unrelated callbacks or whole-run cleanup.
 
-`NavigationAddressInputs` version 1 now wraps the existing `IOSNavigation`
+`NavigationAddressInputs` writes version 2 and reads versions 1 and 2. It wraps the existing `IOSNavigation`
 ordinary recipe for scene entry and original-scene return. Its separate
 process-qualified private journal retains the actual HUD lookup, each matching
 UIKit click intent, focused Qt field original, exact native command UUID and
@@ -41,8 +41,7 @@ preexisting root.
 
 The version-2 process context now accepts this original closed ownership only
 alongside independent old-process death and new-process root absence. The
-missing-destination input owner, ordinary restart controller and whole cleanup
-still require integration. No feature capability or whole-area completion is
+ordinary restart controller and whole cleanup still require integration. No feature capability or whole-area completion is
 enabled.
 
 Thirteen explicit host tests cover root UI inventory and this ownership join,
@@ -58,3 +57,15 @@ lost mutation/completion returns, read-only pending-root acquisition, preexistin
 objects, foreign retained text, ignored edits and Go To, expired input intent,
 changed candidate and original-root tampering. Ten existing scene-entry/return
 tests now model the actual retained root rather than silently dropping it.
+
+The version-2 missing-destination input owner now delegates its exact hidden run
+name to this same retained-root journal. This remains a separately closed recipe;
+the normal public Places operation still accepts only controlled viewpoints.
+The actual original Qt command/receipt and root carrier are retained inside the
+missing-action journal before its delivery result is acknowledged. Entry,
+missing-name lookup and original-scene return share their actual root when they
+occur in the same process. An uncertain Go return stays issued in both owners;
+a separate passive acquisition may retain the hidden root without replay.
+Version-1 address and missing-action carriers remain readable in their original
+shape and cannot supply the new root handoff. The original 404/OK/listener-death
+proof remains independent of input delivery and hidden address controls.

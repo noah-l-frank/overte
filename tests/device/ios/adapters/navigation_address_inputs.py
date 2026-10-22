@@ -21,7 +21,8 @@ from ios.adapters import navigation_address_roots as roots
 from ios.adapters.normal_input import NativeInput
 from ios.adapters.normal_navigation import IOSNavigation
 
-VERSION=1
+VERSION=2
+READS=(1,2)
 ORDER=('hud.goto','address.field','replace','address.go')
 
 
@@ -57,13 +58,13 @@ class NavigationAddressInputs:
         lock.assert_held();self.previous=store.read();self.state=dict(lease=None,rows=[]) if self.previous is None else self.decode(self.previous)
         self.active=None;self.lookups={};self.started=None;self.failed=False
 
-    def envelope(self,state):
-        return dict(iosNavigationAddressInputsVersion=VERSION,binding=self.binding,runId=self.run,payload=pack([state]))
+    def envelope(self,state,version=VERSION):
+        return dict(iosNavigationAddressInputsVersion=version,binding=self.binding,runId=self.run,payload=pack([state]))
 
     def decode(self,value):
         exact(value,{'iosNavigationAddressInputsVersion','binding','runId','payload'})
-        rows=unpack(value['payload']);need(len(rows)==1 and type(value['iosNavigationAddressInputsVersion']) is int
-            and value['iosNavigationAddressInputsVersion']==VERSION and same(value,self.envelope(rows[0])))
+        rows=unpack(value['payload']);version=value['iosNavigationAddressInputsVersion']
+        need(len(rows)==1 and type(version) is int and version in READS and same(value,self.envelope(rows[0],version)))
         state=rows[0];exact(state,{'lease','rows'});need(type(state['rows']) is list and len(state['rows'])<=32)
         lease=state['lease'];admitted=False;prior=None;keys=set()
         openings=[e['intent'] for r in state['rows'] for e in r['intents'] if e['kind']=='hud.goto']
@@ -71,12 +72,15 @@ class NavigationAddressInputs:
             roots.validate(lease);need(same(lease['binding'],self.binding) and lease['runId']==self.run)
         for index,row in enumerate(state['rows']):
             exact(row,{'key','url','phase','component','captures','intents','closed'})
-            need(row['key'] in ('enter','return') and row['key'] not in keys and type(row['url']) is str
+            need(row['key'] in (('enter','return') if version==1 else ('enter','return','missing')) and row['key'] not in keys and type(row['url']) is str
                  and row['phase'] in ('issued','acknowledged') and type(row['component']) is dict
                  and set(row['component'])<= {'iosNormalNavigation'}
                  and type(row['captures']) is list and len(row['captures'])<=32
                  and type(row['intents']) is list and len(row['intents'])<=4)
             keys.add(row['key']);need(index==len(state['rows'])-1 or row['phase']=='acknowledged')
+            if row['key']=='missing':
+                from feature_journeys.fixtures import context as fixture_context
+                need(row['url']=='hifi://'+fixture_context(self.run)['hidden'])
             for packet in row['captures']:
                 projected=roots.packet(self.binding,packet)
                 if prior is not None:roots.follow(prior,packet)
@@ -198,7 +202,10 @@ class NavigationAddressInputs:
         event['receipt']=deepcopy(self.native.last_receipt);self.save();return result
 
     def goto(self,key,url,profile,allowed):
-        self.bound();need(self.active is None and key in ('enter','return') and url in allowed)
+        self.bound();need(self.active is None and key in ('enter','return','missing') and url in allowed)
+        if key=='missing':
+            from feature_journeys.fixtures import context as fixture_context
+            need(url=='hifi://'+fixture_context(self.run)['hidden'] and set(allowed)=={url})
         old=[r for r in self.state['rows'] if r['key']==key]
         if old:
             need(old[0]['phase']=='acknowledged' and old[0]['url']==url);self.decode(self.previous);return deepcopy(old[0]['closed'])
@@ -214,7 +221,15 @@ class NavigationAddressInputs:
         ui=Ui(self.ui.client,self.binding['sessionId'],self.bound,timeout=self.ui.timeout,monotonic=self.ui.monotonic,sleep=self.ui.sleep)
         try:
             flow=IOSNavigation(ui,Native(),profile,row['component'],self.save);flow.urls=set(allowed)
-            flow.invoke('places.goto',dict(url=url));packet=self.capture()
+            if key=='missing':
+                # The public Places component contract intentionally accepts
+                # only fixture viewpoints. Keep this separately closed hidden
+                # name on the same ordinary controls without widening it.
+                flow.open_address();flow.ui.click(flow.address)
+                flow.native.edit('replace',url);flow.ui.click(flow.go)
+                flow.ui.wait_absent(flow.address);flow.mark('addressOwned',False)
+            else:flow.invoke('places.goto',dict(url=url))
+            packet=self.capture()
             row.update(phase='acknowledged',closed=roots.current(self.state['lease'],packet,closed=True));self.save()
             return deepcopy(row['closed'])
         finally:self.active=None;self.started=None

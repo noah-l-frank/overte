@@ -1,6 +1,7 @@
 """Real fixture 404/normal codecs/private owners; SDK and native Qt modeled."""
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
+from contextlib import contextmanager
 from copy import deepcopy
 import json
 import unittest
@@ -16,7 +17,6 @@ from ios.adapters import normal_input
 from ios.adapters.navigation_missing_actions import NavigationMissingActions
 from ios.self_tests import test_ios_navigation_scene_inputs as scene
 from ios.self_tests.test_ios_navigation_dialogs import Boundary as Dialogs
-from ios.self_tests.test_ios_navigation_ui import root as address_root
 from ios.self_tests.test_ios_navigation_world_measurements import global_packet
 from feature_journeys.fixtures import context
 
@@ -44,19 +44,19 @@ class NavigationMissingActionsTests(unittest.TestCase):
         self.h=scene.NavigationSceneInputsTests();self.h.setUp();self.addCleanup(self.h.doCleanups)
         self.admission,self.b=self.h.admission,self.h.b;self.tick(10)
         self.dialogs=Dialogs();self.dialogs.epoch=self.epoch
-        with self.h.h.lock.held():proof=self.admission.archive()
+        with self.held():proof=self.admission.archive()
         self.dialogs.sequence=proof['originals']['dialogs']['sequence']
         self.dialogs.clock=proof['originals']['dialogs']['clockAfter']['monotonicMs']/1000+.002
         self.admission.native=Native(self);self.admission.sources['dialogs']=self.dialogs.reader()
         self.admission.sources['replies']=Replies(self);self.admission.sources['ui']=self.h.native
         self.admission.sources['replies'].sequence=proof['originals']['replies']['sequence']
         self.ui_counter=100;self.ignored=False;self.ignore_ok=False;self.partial_destroy=False
-        self.address=address_root();self.original_ui=self.b.observed
+        self.original_ui=self.b.observed
         def observed():
             self.tick();value=self.original_ui();self.ui_counter+=1
             value.update(elapsedMs=round(self.b.clock*1000)+100000,navigationDialogControlsVersion=1,
                 navigationDialogSourceSequence=self.ui_counter,navigationInventory=dict(iosNavigationUiInventoryVersion=1,
-                    complete=True,roots=[self.address] if self.b.address_open else []))
+                    complete=True,roots=deepcopy(value['navigationInventory']['roots'])))
             if self.dialogs.rows and self.dialogs.rows[0]['dialog'] is not None:
                 value['controls'] += [dict(row,frame=dict(x=1,y=1,width=100,height=20)) for row in self.dialogs.controls()['controls']]
             return value
@@ -89,6 +89,13 @@ class NavigationMissingActionsTests(unittest.TestCase):
         self.post=patch.object(normal_input,'urlopen',post);self.post.start();self.addCleanup(self.post.stop)
         with patch('feature_journeys.witness.secrets.token_hex',return_value=self.admission.run):
             self.assertEqual(self.admission.run,self.h.h.fixture.harness.open())
+    @contextmanager
+    def held(self):
+        caught=None
+        with self.h.h.lock.held():
+            try:yield
+            except Exception as error:caught=error
+        if caught is not None:raise caught
     def tick(self,count=1):self.h.h.ms+=count
     def epoch(self):return self.h.native_epoch()
     def owner(self):
@@ -99,7 +106,7 @@ class NavigationMissingActionsTests(unittest.TestCase):
         return dict(contractVersion=16,runId=self.admission.run,ticket=ticket,verb=verb,inputs={},fixtureUrl=self.admission.fixture.fixture_url)
 
     def test_normal_missing_uses_actual_hifi_name_and_independent_404_then_real_ok_and_destruction(self):
-        with self.h.h.lock.held():
+        with self.held():
             owner=self.owner();call=self.call('navigate-missing');self.assertEqual({'performed':True},owner.navigate(call))
             proof=owner.observe_missing();self.assertEqual(404,proof['joined']['nativeError']['httpStatus'])
             self.assertEqual('hifi://'+context(self.admission.run)['hidden'],self.b.field)
@@ -108,14 +115,58 @@ class NavigationMissingActionsTests(unittest.TestCase):
             self.assertTrue(cleared['ownedDialogDrained']);self.assertEqual('none',cleared['fields']['error'])
             self.assertIsNotNone(owner.store.read());self.assertIsNotNone(owner.state['proof'])
 
+    def test_retained_missing_root_and_actual_native_command_are_required_in_original_carrier(self):
+        from adapters.script_feature.history import pack,unpack
+        with self.held():
+            owner=self.owner();owner.navigate(self.call('navigate-missing'))
+            original=owner.state['addressOwner'];child=unpack(original['payload'])[0]
+            self.assertEqual('missing',child['rows'][-1]['key']);self.assertFalse(child['rows'][-1]['closed']['drained'])
+            command=child['rows'][-1]['intents'][2]
+            self.assertEqual(command['intent']['command']['commandId'],command['receipt']['status']['commandId'])
+            self.assertEqual('hifi://'+context(self.admission.run)['hidden'],command['intent']['command']['text'])
+            before=list(self.b.inputs);state=deepcopy(owner.state);state['addressOwner']=None
+            with self.assertRaises(NativeUIError):owner.decode(owner.envelope(state))
+            state=deepcopy(owner.state);carrier=state['addressOwner'];rows=unpack(carrier['payload'])
+            rows[0]['rows'][-1]['intents'][2]['receipt']['status']['commandId']=str(uuid.uuid4())
+            carrier['payload']=pack(rows)
+            with self.assertRaises(NativeUIError):owner.decode(owner.envelope(state))
+            self.assertEqual(before,self.b.inputs)
+
+    def test_lost_go_return_keeps_original_address_owner_issued_and_observes_root_without_replay(self):
+        from ios.adapters.navigation_address_inputs import NavigationAddressInputs
+        with self.held():
+            original=self.b.call
+            def lost(method,path,body=None):
+                value=original(method,path,body)
+                if method=='POST' and path.endswith('/click') and self.b.by_reference[path.split('/element/',1)[1].split('/')[0]]=='PhoneAddressGoButton':
+                    raise OSError('Synthetic original Go return loss')
+                return value
+            self.b.call=lost;owner=self.owner();call=self.call('navigate-missing')
+            with self.assertRaises(NativeUIError):owner.navigate(call)
+            rebuilt=self.owner();self.assertEqual('issued',rebuilt.state['missing']['phase'])
+            self.assertIsNone(rebuilt.state['addressOwner']);before=list(self.b.inputs)
+            child=NavigationAddressInputs(PrivateFeatureState(self.h.h.root/'ios-navigation-address-42-inputs.json'),
+                owner.binding,owner.run,owner.lock,lambda:True,self.b.ui,self.h.native,epoch_ms=self.h.h.epoch,monotonic=self.h.h.mono)
+            self.assertEqual('issued',child.state['rows'][-1]['phase'])
+            self.assertEqual('retained',child.observe_pending()['root']['status'])
+            with self.assertRaises(NativeUIError):rebuilt.navigate(call)
+            self.assertEqual(before,self.b.inputs)
+
+    def test_version_one_carrier_stays_unchanged_without_claiming_new_root_ownership(self):
+        with self.held():
+            owner=self.owner();owner.version=1;owner.navigate(self.call('navigate-missing'))
+            actual=deepcopy(owner.store.read());before=list(self.b.inputs);again=self.owner()
+            self.assertEqual(1,actual['iosNavigationMissingActionsVersion']);self.assertEqual(actual,again.store.read())
+            self.assertNotIn('addressOwner',again.state);self.assertEqual(before,self.b.inputs)
+
     def test_ignored_missing_input_ack_cannot_generate_modal_proof(self):
-        with self.h.h.lock.held():
+        with self.held():
             self.ignored=True;owner=self.owner();owner.navigate(self.call('navigate-missing'))
             self.assertIsNone(owner.observe_missing());self.assertIsNone(owner.state['proof'])
             with self.assertRaises(NativeUIError):owner.dismiss(self.call('dismiss-error'))
 
     def test_wrong_response_or_undestroyed_listener_is_not_cleared(self):
-        with self.h.h.lock.held():
+        with self.held():
             owner=self.owner();owner.navigate(self.call('navigate-missing'));owner.observe_missing();self.partial_destroy=True
             owner.dismiss(self.call('dismiss-error'))
             with self.assertRaises(NativeUIError):owner.observe_cleared()
@@ -123,7 +174,7 @@ class NavigationMissingActionsTests(unittest.TestCase):
             self.assertTrue(owner.observe_cleared()['ownedDialogDrained'])
 
     def test_lost_input_return_remains_issued_and_never_reexecutes_native_or_w3c_input(self):
-        with self.h.h.lock.held():
+        with self.held():
             owner=self.owner();original=self.b.call
             def lost(method,path,body=None):
                 value=original(method,path,body)
@@ -136,13 +187,13 @@ class NavigationMissingActionsTests(unittest.TestCase):
             self.assertEqual(before,self.b.inputs);self.assertEqual('issued',again.state['missing']['phase'])
 
     def test_unowned_modal_or_changed_provider_cannot_be_adopted_before_input(self):
-        with self.h.h.lock.held():
+        with self.held():
             self.dialogs.foreign=1;owner=self.owner()
             with self.assertRaises(NativeUIError):owner.navigate(self.call('navigate-missing'))
             self.assertEqual([],self.b.inputs)
 
     def test_lost_proof_result_recovers_the_same_original_without_reading_or_sending_again(self):
-        with self.h.h.lock.held():
+        with self.held():
             owner=self.owner();owner.navigate(self.call('navigate-missing'));write=owner.store.write
             def lose(value,previous):
                 from adapters.script_feature.history import unpack
@@ -157,7 +208,7 @@ class NavigationMissingActionsTests(unittest.TestCase):
             self.assertEqual(retained['clockJoin'],proof['clockJoin']);self.assertEqual(before,self.b.inputs)
 
     def test_lost_ok_return_can_be_observed_drained_without_resending_the_native_input(self):
-        with self.h.h.lock.held():
+        with self.held():
             owner=self.owner();owner.navigate(self.call('navigate-missing'));owner.observe_missing()
             deliver=self.h.native.navigation_error_input
             def lost(**options):deliver(**options);raise OSError('Synthetic lost OK return')
@@ -172,7 +223,7 @@ class NavigationMissingActionsTests(unittest.TestCase):
             self.assertEqual(cleared,again.observe_cleared());self.assertEqual(before,again.store.read())
 
     def test_partial_source_read_retains_the_original_prefix_and_refuses_a_replacement_read(self):
-        with self.h.h.lock.held():
+        with self.held():
             owner=self.owner();owner.navigate(self.call('navigate-missing'))
             self.admission.sources['replies'].read=lambda *_:(_ for _ in ()).throw(OSError('Synthetic missing source return'))
             with self.assertRaises(OSError):owner.observe_missing()
@@ -183,7 +234,7 @@ class NavigationMissingActionsTests(unittest.TestCase):
             self.assertEqual(before,self.b.inputs)
 
     def test_original_ui_counter_rollback_is_rejected_before_owned_ok_input(self):
-        with self.h.h.lock.held():
+        with self.held():
             owner=self.owner();owner.navigate(self.call('navigate-missing'));owner.observe_missing()
             self.ui_counter=0;before=len(self.b.native_boundary.requests)
             with self.assertRaises(NativeUIError):owner.dismiss(self.call('dismiss-error'))

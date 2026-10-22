@@ -26,7 +26,8 @@ from ios.adapters.normal_navigation import IOSNavigation, PROFILE
 from ios.adapters.graphics_history import follow_native
 from ios.adapters import navigation_error_state as errors, navigation_dialog_controls as controls, navigation_ui
 
-VERSION = 1
+VERSION = 2
+READS = (1,2)
 
 
 class _LookupNative:
@@ -52,11 +53,12 @@ class NavigationMissingActions:
         self.epoch_ms, self.monotonic = epoch_ms, monotonic
         self.started = self.last_clock = self.active = None
         self.lock.assert_held(); self.previous = store.read()
+        self.version=VERSION if self.previous is None else self.previous.get('iosNavigationMissingActionsVersion')
         self.state = None if self.previous is None else self.decode(self.previous)
         self.bound()
 
     def envelope(self, state):
-        return dict(iosNavigationMissingActionsVersion=VERSION, binding=self.binding, runId=self.run, payload=pack([state]))
+        return dict(iosNavigationMissingActionsVersion=self.version, binding=self.binding, runId=self.run, payload=pack([state]))
 
     def call(self, value, verb):
         arguments('feature.world-navigation.act', value)
@@ -66,8 +68,9 @@ class NavigationMissingActions:
     def decode(self, value):
         exact(value, {'iosNavigationMissingActionsVersion','binding','runId','payload'})
         rows = unpack(value['payload']); need(type(value['iosNavigationMissingActionsVersion']) is int
-            and value['iosNavigationMissingActionsVersion'] == VERSION and len(rows) == 1 and same(value,self.envelope(rows[0])))
-        state = rows[0]; exact(state, {'missing','dismiss','component','admission','frames','proof','cleared'})
+            and value['iosNavigationMissingActionsVersion'] in READS and len(rows) == 1 and same(value,self.envelope(rows[0])))
+        state = rows[0]; exact(state, {'missing','dismiss','component','admission','frames','proof','cleared'}
+            | ({'addressOwner'} if self.version==2 else set()))
         need(type(state['component']) is dict and set(state['component']) <= {'iosNormalNavigation'}
              and type(state['frames']) is list and len(state['frames']) <= 32)
         previous_ui = None
@@ -98,6 +101,15 @@ class NavigationMissingActions:
                 self.packet(row['returnedUi'])
                 if previous_ui is not None: self.follow_ui(previous_ui,row['returnedUi'])
                 previous_ui = row['returnedUi']
+        if self.version==2:
+            original=state['addressOwner']
+            if original is not None:
+                from ios.adapters.navigation_address_inputs import transfer_original
+                need(state['missing']['phase']=='delivered')
+                transfer_original(original,self.binding,self.run,state['missing']['returnedUi'])
+                child=unpack(original['payload'])[0]
+                need(child['rows'][-1]['key']=='missing' and child['rows'][-1]['url']=='hifi://'+context(self.run)['hidden'])
+            elif state['missing']['phase']=='delivered':need(False)
         previous = None
         for index, frame in enumerate(state['frames']):
             exact(frame, {'kind','hostBarrier','provider','nativeStart','originals','nativeEnd','clockJoin'})
@@ -205,7 +217,9 @@ class NavigationMissingActions:
         if self.state is not None and self.state[key] is not None:
             old = self.state[key]; need(old['phase'] == 'delivered' and same(old['call'],call)); return False
         self.started = self.bound(); self.active = key
-        if self.state is None: self.state = dict(missing=None,dismiss=None,component={},admission=None,frames=[],proof=None,cleared=None)
+        if self.state is None:
+            self.state = dict(missing=None,dismiss=None,component={},admission=None,frames=[],proof=None,cleared=None)
+            if self.version==2:self.state['addressOwner']=None
         self.state[key] = dict(call=call,phase='checking',fixture=None,intents=[],returnedUi=None); self.save()
         row = self.state[key]; row['fixture'] = self.admission.fixture.read(); self.save()
         need(row['fixture']['ticket'] == call['ticket'] and row['fixture']['verb'] == verb and row['fixture']['inputs'] == {})
@@ -219,11 +233,19 @@ class NavigationMissingActions:
             need(not originals['ui']['tabletShown'] and not navigation_ui.project(originals['ui'])['addressDialog'])
             self.state['admission'] = self.lookup_admission(self.state,frame); self.save()
             row = self.state['missing']; row['phase'] = 'issued'; self.save()
-            flow = IOSNavigation(_SurfaceUI(self),_LookupNative(self),
-                dict(contractVersion=1,profile=PROFILE,sceneUrl=self.admission.fixture.inputs['sceneUrl']),self.state['component'],self.save)
-            flow.open_address(); flow.ui.click(flow.address)
-            flow.native.edit('replace','hifi://'+context(self.run)['hidden'])
-            flow.ui.click(flow.go); flow.ui.wait_absent(flow.address); flow.mark('addressOwned',False)
+            profile=dict(contractVersion=1,profile=PROFILE,sceneUrl=self.admission.fixture.inputs['sceneUrl'])
+            if self.version==2:
+                from ios.adapters.navigation_address_inputs import NavigationAddressInputs
+                child=NavigationAddressInputs(PrivateFeatureState(self.store.path.with_name(
+                    'ios-navigation-address-'+self.binding['processIdentity']+'-inputs.json')),self.binding,self.run,
+                    self.lock,self.bound,_SurfaceUI(self),self.native,epoch_ms=self.epoch_ms,monotonic=self.monotonic)
+                url='hifi://'+context(self.run)['hidden'];child.goto('missing',url,profile,{url})
+                self.state['addressOwner']=deepcopy(child.store.read())
+            else:
+                flow=IOSNavigation(_SurfaceUI(self),_LookupNative(self),profile,self.state['component'],self.save)
+                flow.open_address();flow.ui.click(flow.address)
+                flow.native.edit('replace','hifi://'+context(self.run)['hidden'])
+                flow.ui.click(flow.go);flow.ui.wait_absent(flow.address);flow.mark('addressOwned',False)
             row.update(phase='delivered',returnedUi=self.capture()); self.save(); return {'performed':True}
         finally: self.active = self.started = None
 
