@@ -3,8 +3,9 @@
 Chat remains partial: no complete `feature.chat.act|observe|cleanup` triple is
 advertised. The shared v16 journey still requires all 25 checkpoints and every
 original observation, error/recovery and cleanup obligation in the
-[source contract](../../feature_journeys/CHAT_SOURCE.md). Native sources below
-are uncompiled and devices are untested.
+[source contract](../../feature_journeys/CHAT_SOURCE.md). The native application
+has not been linked; only the specific host components described below have
+been compiled. Devices are untested.
 
 The current original normal-input route is `PicoChatIO` over the existing
 candidate/process/OpenXR-bound `PicoNavigation`. `TokenChatUI` opens CHAT,
@@ -177,3 +178,11 @@ check cover these boundaries; full native application/device execution remains
 unperformed. The private `_chat_peer_distant` factory and base teardown retain
 its ownership even after this component succeeds. Complete Chat still requires
 the remaining lifecycle/mixer/profile/whole-resource/publisher composition.
+
+The [original Settings writer barrier](../../native/CHAT_SETTINGS_BARRIER.md)
+now handles the actual cache-update/signal-enqueue race and independently reads
+physical Chat-key INI rows after the real worker sync. Its entire original
+SettingManager translation unit and QObject metadata compile and run against
+real Qt5, alongside the worker/barrier/file counterexamples. This is internal
+source infrastructure; there is no public raw-value output, original-profile
+restoration owner or whole-run cleanup claim yet.

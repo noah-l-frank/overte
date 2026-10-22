@@ -24,6 +24,9 @@
 
 #include "DependencyManager.h"
 #include "shared/ReadWriteLockable.h"
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+#include "../../../tests/device/native/ChatSettingsBarrier.h"
+#endif
 
 Q_DECLARE_LOGGING_CATEGORY(settings_manager)
 Q_DECLARE_LOGGING_CATEGORY(settings_writer)
@@ -99,6 +102,10 @@ namespace Setting {
          */
         void terminate();
 
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        public:
+        QVariantMap featureChatSnapshot();
+#endif
         private:
 
         void init() {
@@ -108,6 +115,9 @@ namespace Setting {
         }
 
         QSettings* _qSettings = nullptr;
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        const QString _featureChatInstance{QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-')};
+#endif
     };
 
     /**
@@ -185,6 +195,11 @@ namespace Setting {
          *
          */
         void clearAllSettings();
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        // Internal native source only. Raw values stay inside the native
+        // original-profile owner and must never be exposed as script output.
+        QVariantMap featureChatSnapshot();
+#endif
     protected:
         /**
          * @brief How long to wait for writer thread termination
@@ -266,6 +281,10 @@ namespace Setting {
         QHash<QString, QVariant> _settings;
         QString _fileName;
         QThread _workerThread;
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        overte::e2e::ChatSettingsBarrier _featureChatSettings;
+        QPointer<WriteWorker> _featureChatWorker;
+#endif
     };
 }
 
