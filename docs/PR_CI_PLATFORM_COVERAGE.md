@@ -33,6 +33,15 @@ verified published Qt dependency archive; its independent hash permits a small
 cache. SDK tools are copied fresh from the runner's selected SDK, not restored
 from an untrusted dependency cache. Candidate compilation has no network.
 
+The reviewed Java API baseline is the published
+`qt/5.15.18-2026.01.04@overte/stable#4fc772a2dbcd84731eb6ff9904e6e358`
+recipe declared by the current Android products. Its `QtAndroid.jar` SHA-256 is
+`a9f64f066766e3908d64183a49c0722aff09495c5f17768213a2989a73edf893`.
+The compiler reads the declared reference as syntax/data and rejects a provider
+change until its real Java API baseline is reviewed. This is a compatible,
+version-bound API baseline, not proof that a legacy native dependency archive
+equals Pico's current independently frozen source-graph/runtime payload.
+
 This tier establishes Java/resource compilation. It does **not** establish an
 APK, Gradle configuration, Android native cross-compilation or a device run.
 Relevant native/host regressions continue to run. Linux C++ test results must

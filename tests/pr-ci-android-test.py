@@ -100,6 +100,18 @@ class ApiRuntimeTests(unittest.TestCase):
                     A.compile_product(root, root, 'phone')
                 run.assert_not_called()
 
+    def test_qt_reference_is_read_as_data_and_unknown_api_provider_is_rejected(self):
+        with tempfile.TemporaryDirectory() as scratch:
+            recipe = Path(scratch) / 'android/common/conan/conanfile-pico.py'
+            recipe.parent.mkdir(parents=True)
+            recipe.write_text('raise RuntimeError("must never execute candidate recipes")\n'
+                              'class Product:\n    qt_ref = ' + repr(A.QT_API_REFERENCE) + '\n')
+            A.verify_qt_api_reference(scratch)
+            for value in ('qt/5.15.19@overte/stable', 'qt/5.15.18-2026.01.04@overte/stable#unreviewed'):
+                recipe.write_text('qt_ref = ' + repr(value))
+                with self.assertRaisesRegex(ValueError, 'provider changed'):
+                    A.verify_qt_api_reference(scratch)
+
     def test_phone_java_selects_only_proven_related_suites(self):
         profile = P.policy()['android']['android-phone']
         inputs = json.loads((ROOT / '.github/pr-ci-platform-inputs.json').read_text())['android'][0]

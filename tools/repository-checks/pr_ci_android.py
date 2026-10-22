@@ -8,6 +8,7 @@ Java/resource acceptance; it does not attest an APK, Android C++ or device run.
 from __future__ import annotations
 
 import argparse
+import ast
 import hashlib
 import io
 import json
@@ -30,6 +31,7 @@ MAVEN = (
 )
 QT_URL = 'https://github.com/noah-l-frank/overte/releases/download/pico4-deps-v1/pico4-qt-conan.tgz'
 QT_ARCHIVE_SHA = 'e9265b30ad84e1bba045e68fda0de380ab83776a65a339b9121eaee46073de25'
+QT_API_REFERENCE = 'qt/5.15.18-2026.01.04@overte/stable#4fc772a2dbcd84731eb6ff9904e6e358'
 FIXED_JARS = {
     'QtAndroid.jar': 'a9f64f066766e3908d64183a49c0722aff09495c5f17768213a2989a73edf893',
     'webkit.jar': 'b03291b19348fdb4e7c5a97b316a19d71a583f45e68fd2b9ea2ea0a867e25cad',
@@ -149,6 +151,18 @@ def verify_runtime(runtime):
     return runtime
 
 
+def verify_qt_api_reference(candidate):
+    recipe = Path(candidate) / 'android/common/conan/conanfile-pico.py'
+    require(recipe.is_file() and recipe.stat().st_size <= 1_000_000,
+            'declared Android Qt API reference is missing or oversized')
+    tree = ast.parse(recipe.read_text())
+    values = [node.value for node in ast.walk(tree) if isinstance(node, ast.Assign)
+              and any(isinstance(target, ast.Name) and target.id == 'qt_ref' for target in node.targets)]
+    require(len(values) == 1 and isinstance(values[0], ast.Constant)
+            and values[0].value == QT_API_REFERENCE,
+            'Android Qt provider changed; review and qualify its actual Java API before compilation')
+
+
 def compile_product(candidate, runtime, product, run=subprocess.run):
     require(product in PRODUCTS, 'unknown Android product')
     candidate, runtime = Path(candidate).resolve(strict=True), verify_runtime(runtime)
@@ -161,6 +175,7 @@ def compile_product(candidate, runtime, product, run=subprocess.run):
         require(root.is_dir(), 'production Android prerequisite is missing: ' + relative)
         sources += sorted(root.rglob('*.java'))
     require(bool(sources), 'selected Android product has no production Java')
+    verify_qt_api_reference(candidate)
     with tempfile.TemporaryDirectory(prefix='overte-android-api-') as temporary:
         stage = Path(temporary)
         generated, classes = stage / 'generated', stage / 'classes'
