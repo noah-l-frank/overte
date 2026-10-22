@@ -1235,7 +1235,25 @@ def create_adapter(args, base_class):
             # Orphan manifests and original PCM still own their scope. A base
             # process-stop acknowledgement cannot retire or delete them.
             return any(any(store.path.parent.glob(prefix)) for prefix in
-                ('audio-capture-cycle-*','audio-capture-original-*','audio-background-cycle-*','audio-final-*'))
+                ('audio-capture-cycle-*','audio-capture-original-*','audio-background-cycle-*','audio-final-*','audio-recipe-*'))
+
+        @_private
+        def _audio_recipe(self,target,run,phase_source,*,source_lock=None):
+            from adapters.pico4.audio_recipe import PicoAudioRecipe
+            from adapters.pico4.graphics_binding import PicoGraphicsBinding
+            from adapters.normal_feature_state import context
+            source_lock=self._script_journey()._lock(target,source_lock)
+            path=self._audio_page_store(target).path.with_name('audio-recipe-owner.json')
+            disk=PrivateFeatureState(path).read()
+            # Cold background construction reads only private original metadata.
+            binding=context(disk['binding']) if disk is not None else self._scripts(target).binding
+            facade=PicoGraphicsBinding(self)
+            return PicoAudioRecipe(path,run,binding,source_lock,phase_source,
+                lambda:self._audio_page_owner(target,run,source_lock=source_lock),
+                lambda cycle,parent:self._audio_capture_owner(target,run,cycle,phase_source,parent=parent,source_lock=source_lock),
+                lambda cycle,capture:self._audio_background_owner(target,run,cycle,phase_source,capture=capture,source_lock=source_lock),
+                lambda cycle,capture:self._audio_final_close(target,run,cycle,phase_source,capture=capture,source_lock=source_lock),
+                lambda owned:facade._graphics_lifecycle_status(target,owned),monotonic=phase_source.monotonic)
 
         @_private
         def _audio_final_close(self,target,run,cycle,phase_source,*,capture=None,source_lock=None):

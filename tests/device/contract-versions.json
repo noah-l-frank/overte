@@ -199,6 +199,7 @@
     "pico-audio-capture-background": {"current": 1, "reads": [1]},
     "pico-audio-capture-owner": {"current": 2, "reads": [1, 2]},
     "pico-audio-final-close": {"current": 1, "reads": [1]},
+    "pico-audio-normal-recipe": {"current": 1, "reads": [1]},
     "pico-audio-page-owner": {"current": 1, "reads": [1]},
     "pico-audio-page-observation": {"current": 1, "reads": [1]},
     "pico-audio-settings-observation": {"current": 2, "reads": [1, 2]},

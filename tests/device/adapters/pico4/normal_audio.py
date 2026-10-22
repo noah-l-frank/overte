@@ -8,6 +8,9 @@ class PicoAudioIO:
     def __init__(self, original):
         self.original = original
 
+    def bind_before_send(self, callback):
+        self.original.navigation.io.bind_before_send(callback)
+
     def capture(self):
         value = self.original.capture()
         need(type(value.get('audioControlsVersion')) is int and value['audioControlsVersion'] == 1)

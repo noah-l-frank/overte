@@ -217,6 +217,7 @@ REQUIRED = {
     "pico-audio-capture-background": 1,
     "pico-audio-capture-owner": 2,
     "pico-audio-final-close": 1,
+    "pico-audio-normal-recipe": 1,
     "pico-audio-page-observation": 1,
     "pico-audio-settings-observation": 2,
     "pico-lifecycle-drive-observation": 1,

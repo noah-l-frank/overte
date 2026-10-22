@@ -25,7 +25,7 @@ class PicoAudioFinalClose:
         self.lock,self.run,self.binding=capture.lock,capture.run,capture.binding
         self.store=PrivateFeatureState(path)
         need(self.store.path==capture.store.path.with_name('audio-final-close.json'))
-        self.disk=self.state=None
+        self.disk=self.state=None;self.before_stream=None
         with self.lock.held():self.disk=self.store.read();self.load()
     def files_bound(self):
         self.lock.assert_held();need(self.store.read()==self.disk
@@ -182,9 +182,15 @@ class PicoAudioFinalClose:
             if where=='home':self.quiet('home')
             anchor=self.anchor();row=self.capture(empty=True);self.check(row,where,released=True)
             state=deepcopy(self.state);state['phase']=phase;state['frames'].append(row);state['streams'].append(dict(envelope=None,neutral=None,fence=len(state['frames'])-1));self.save(state);fixture_anchor=self.fresh(anchor);native_anchor=self.parent.anchor
+            guard=None if self.before_stream is None else self.before_stream()
+            need(guard is None or type(guard) is tuple and len(guard)==2 and all(callable(value) for value in guard))
             def intent(value):
                 state=deepcopy(self.state);state['streams'][-1]['envelope']=deepcopy(value);self.save(state,input_intent=True);self.intent_fresh(native_anchor,fixture_anchor)
-            self.parent.session.stage(self.binding['processIdentity'],'controller.button',BUTTON,intent=intent)
+                if guard is not None:guard[0](value)
+            def publish(value):
+                need(value==self.state['streams'][-1]['envelope']);self.intent_fresh(native_anchor,fixture_anchor);guard[1](value)
+            kwargs={} if guard is None else dict(before_publish=publish)
+            self.parent.session.stage(self.binding['processIdentity'],'controller.button',BUTTON,intent=intent,**kwargs)
             return self.reconcile()
     def reconcile(self):
         with self.lock.held():

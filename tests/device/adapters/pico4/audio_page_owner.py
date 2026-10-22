@@ -35,8 +35,12 @@ class PicoAudioPageOwner:
             and preview.binding==self.binding and preview.run==run and page_source.bridge==binding['sessionId'])
         self.pages,self.settings,self.ui,self.preview,self.session,self.route,self.lock=page_source,settings_source,ui_source,preview,session,route,source_lock
         self.disk=self.state=self.anchor=self.last_clock=None;self.route.intent=self.intent
+        self.recipe_gate=self.before_stream=None
         with self.lock.held():self.load()
     def capture_owned(self):
+        if any(self.store.path.parent.glob('audio-recipe-*')):
+            if self.recipe_gate is None:return True
+            need(self.recipe_gate() is True)
         return any(any(self.store.path.parent.glob(prefix)) for prefix in
             ('audio-capture-cycle-*','audio-capture-original-*','audio-background-cycle-*','audio-final-*'))
     def now(self):
@@ -211,11 +215,20 @@ class PicoAudioPageOwner:
         self.save(state);self.fresh()
     def stream(self,phase,operation):
         need(not self.capture_owned());state=deepcopy(self.state);state.update(phase=phase);state['streams'].append(dict(operation=operation,envelope=None,neutral=None));self.save(state);self.fresh()
+        guard=None if self.before_stream is None else self.before_stream()
+        need(guard is None or type(guard) is tuple and len(guard)==2 and all(callable(value) for value in guard))
         def intent(value):
             state=deepcopy(self.state);state['streams'][-1]['envelope']=deepcopy(value);self.save(state)
             started,requested,captured=self.anchor;now=self.settings.monotonic()
             need(number(now,0,1e15) and now>=self.last_clock and requested-captured+(now-started)*1000<=1500)
-        self.session.stage(self.binding['processIdentity'],operation,dict(holdMilliseconds=1000) if operation=='tablet.open' else BUTTON,intent=intent)
+            if guard is not None:guard[0](value)
+        def publish(value):
+            need(value==self.state['streams'][-1]['envelope'])
+            started,requested,captured=self.anchor;now=self.settings.monotonic()
+            need(number(now,self.last_clock,1e15) and requested-captured+(now-started)*1000<=1500)
+            guard[1](value)
+        kwargs={} if guard is None else dict(before_publish=publish)
+        self.session.stage(self.binding['processIdentity'],operation,dict(holdMilliseconds=1000) if operation=='tablet.open' else BUTTON,intent=intent,**kwargs)
     def tablet(self):
         with self.lock.held():
             self.load();need(self.state['phase']=='prepared');row=self.capture(empty=True);self.check(row,'closed')

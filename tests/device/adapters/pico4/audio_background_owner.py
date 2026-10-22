@@ -35,7 +35,7 @@ class PicoAudioBackground:
         self.os_status,self.os_input,self.runtime_factory=os_status,os_input,runtime;self.monotonic,self.sleep=monotonic,sleep
         need(isinstance(phase_source,PhaseFixtureReader) and phase_source.run==run and phase_source.area=='audio')
         self.source=phase_source
-        self.owner=None;self.disk=self.state=self.last_clock=None
+        self.owner=None;self.disk=self.state=self.last_clock=None;self.before_os=None
         with lock.held():self.disk=self.store.read();self.load()
     def bound(self):
         self.lock.assert_held();now=self.monotonic()
@@ -152,6 +152,10 @@ class PicoAudioBackground:
             state=dict(phase='prepared',cycle=cycle,parentSha256=sha(parent),captureArchive=owner.store.read(),fixturePhase=phase,
                 before=row,background=[],backgroundFirst=None,foreground=None,after=None,quiet=[])
             self.save(state);owner.parent.fresh()
+    def input_fence(self,operation,anchor,*,owner=None):
+        self.phase_fence(anchor,owner=owner)
+        if self.before_os is not None:self.before_os(operation,deepcopy(self.binding))
+        self.phase_fence(anchor,owner=owner)
     def home(self):
         with self.lock.held():
             self.load();need(self.state['phase']=='prepared');self.archives();owner=self.live();phase=owner.phase('background-resume')
@@ -161,7 +165,7 @@ class PicoAudioBackground:
             state=deepcopy(self.state);state.update(phase='home-issued',captureArchive=owner.store.read(),before=row,fixturePhase=phase);self.save(state)
             self.phase_fence(anchor,owner=owner)
             self.os_input('lifecycle.background',deepcopy(self.binding),
-                before_input=lambda:self.phase_fence(anchor,owner=owner));return self.observe_background()
+                before_input=lambda:self.input_fence('lifecycle.background',anchor,owner=owner));return self.observe_background()
     def observe_background(self):
         with self.lock.held():
             self.load();need(self.state['phase'] in ('home-issued','background-observed'));self.archives();started=self.bound()
@@ -181,7 +185,7 @@ class PicoAudioBackground:
             need(self.state['background'][-1]['hostMonotonic']-self.state['background'][self.state['backgroundFirst']]['hostMonotonic']>=.25)
             anchor=self.phase_anchor()
             state=deepcopy(self.state);state['phase']='resume-issued';self.save(state);self.phase_fence(anchor)
-            self.os_input('app.launch',deepcopy(self.binding),before_input=lambda:self.phase_fence(anchor));return self.reconcile()
+            self.os_input('app.launch',deepcopy(self.binding),before_input=lambda:self.input_fence('app.launch',anchor));return self.reconcile()
     def adopt_observation(self,owner,original):
         # A crash after the owned read-only observation may leave a longer
         # actual capture journal. Adopt only that exact immutable prefix, never
