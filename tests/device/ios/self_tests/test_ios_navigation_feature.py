@@ -125,5 +125,16 @@ class NavigationFeatureTests(unittest.TestCase):
         self.assertFalse(PrivateFeatureState(self.root/'ios-navigation-surface-actions.json').path.exists())
         self.assertEqual(before,self.b.inputs)
 
+    def test_slow_candidate_verification_cannot_return_a_new_child_input_authorization(self):
+        flow=self.flow();flow.prepare();before=list(self.b.inputs)
+        with self.assertRaises(NativeUIError),flow.held():
+            flow.load();owner=flow.admission();guard=owner.guard
+            def slow():
+                result=guard();self.b.clock+=31;return result
+            owner.guard=slow;flow.limited(owner)
+            owner.bound()
+            self.fail('A slow candidate guard returned input authorization')
+        self.assertEqual(before,self.b.inputs)
+
 
 if __name__=='__main__':unittest.main()

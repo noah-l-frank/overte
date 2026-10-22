@@ -111,7 +111,8 @@ class IOSNavigationFeature:
     def limited(self,owner):
         """Keep the enclosing deadline in every child's before-input guard."""
         original=owner.guard
-        def guard():self.clock();return original()
+        def guard():
+            self.clock();result=original();self.clock();return result
         owner.guard=guard;return owner
 
     def prepare(self):
