@@ -218,9 +218,9 @@ class ApplicationCloseTests(unittest.TestCase):
         def inventory(expected):self.assertEqual(expected,{path for path in admitted if path.exists()})
         ledger=PrivateFeatureState(self.root/'archive-retirement.json');directory=self.root/'archive'
         guard=ChatArchiveReleaseSource(self.owner,fresh_phase_final=True)
-        archive=ChatEvidenceArchive(catalog,directory,ledger,dict(runId=RUN),guard,inventory,unlink_fence=ChatArchiveUnlinkFence(guard));self.addCleanup(archive.close_host)
+        archive=ChatEvidenceArchive(catalog,directory,ledger,dict(runId=RUN),guard,inventory,unlink_fence=ChatArchiveUnlinkFence(guard),indexed_verify=True);self.addCleanup(archive.close_host)
         self.addCleanup(lambda:directory.chmod(0o700) if directory.exists() else None)
-        result=archive.retire();self.assertTrue(archive.complete);self.assertIsNone(ledger.read());self.assertEqual(3,result['chatEvidenceArchiveVersion'])
+        result=archive.retire();self.assertTrue(archive.complete);self.assertIsNone(ledger.read());self.assertEqual(4,result['chatEvidenceArchiveVersion'])
         evidence=completed_archive(directory);self.assertEqual(result['finalSha256'],evidence['finalSha256'])
         self.assertEqual('ESRCH',evidence['original']['absence']['errorSymbol']);self.assertEqual(789,evidence['original']['native']['processId'])
         self.assertIsNone(self.inputs_store.read());self.assertTrue(self.h.fresh.fd_owner.closed)

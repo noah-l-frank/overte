@@ -1,4 +1,4 @@
-# Original Pico Chat application v1 and archive closure v3
+# Original Pico Chat application v1 and archive closure v4
 
 The private `PicoChatComposition.restart_and_close_application(after_epoch)` and
 `finalize_application()` extend its existing deferred-cache branch. They do not
@@ -216,3 +216,59 @@ and phase change after the actual inner RestartInputs observation CAS. Its
 new original phase queries for every unlink; it never fabricates a later native
 timestamp from HTTP. No complete 2623-file warm archive result follows from
 this smaller actual host component proof.
+
+The full warm v3 diagnostic then copied all 2623 originals and multipart manifest
+in 470.022 seconds of archive time. The first 256 admitted retirements needed a
+further 120.037 seconds: each copy and each retirement reopened the entire copy
+set. Following explicit test coordination, the single host diagnostic was
+controlled-stopped at 393 retirements (exit 143), without whole success. Its
+remaining original files, complete immutable copies, manifest and incomplete
+retirement ledger remain private and untouched. They are not adopted by a new
+owner, retried or qualified as a sealed complete archive. A separately recorded
+private abort report preserves the measured counters. No registered test bound
+was changed. A concurrent narrow source regression was reported during this
+measurement; no source-age failure was reported before the controlled stop.
+
+Archive/plan v4 addresses that measured repeated byte scanning explicitly.
+Every new copy still gets the unchanged complete `ClosedOriginalFile` read
+window: original held directory, actual nofollow FD/kernel alias, full physical
+stamp, bytes and safe alias closure. The complete archive byte pass remains
+before any original retirement and before the last native source acquisition.
+Each actual unlink, including the inner RestartInputs CAS/discard boundary,
+fully rechecks its own original/copy, original manifest part and manifest root.
+After the final CAS it also checks the entire actual held-directory inventory
+and every copy's original device/inode/UID/mode/link count/size/mtime/ctime.
+The source fence runs after those checks and uses exactly its pre-intent frame.
+No native source refresh is permitted after that unlink's durable intent.
+
+Between those complete byte passes, unchanged *other* copies are not reopened.
+The physical-inventory pass is explicitly not a new read of cached bytes. Each
+cached immutable bytes object/owner is independently pinned; its full stamp,
+original digest and byte count belong to an immutable admission tuple and a
+separate digest chain. Mutating a cached value/digest/stamp cannot change that
+admission. Inventory enumeration resets only the kernel-verified original
+directory cursor and uses nofollow stats relative to its held FD; replaced
+parents, extra entries, symlinks and replaced/lost copies fail closed. Every
+opened file window still performs its full original byte/FD/path checks.
+
+The new final receipt gets its own full byte window and a complete physical
+inventory before same-original source/phase freshness checks. Missing/replaced
+copies cannot seal. The cold reader still performs the complete original byte
+pass; a partial/uncertain warm attempt cannot be reconstructed or retried.
+The v4 manifest declares
+`copyVerification: full-current-copy-and-original-physical-inventory` alongside
+the v3 source fence and v2 immutable-file ownership declarations. Legacy v1–v3
+paths remain supported with their existing verification policy. No bounds or
+source ages are widened. Host-handle finalization and the complete warm v4
+measurement remain explicit outstanding closure work; public Chat stays partial.
+
+The v4 physical-index/byte-window, retained v3 source-fence, existing archive,
+typed plan and actual Pico cold-scope factory selection passed 41 host cases in
+6.739 seconds. Its 32-original positive bounds the actual full copy-read windows
+linearly while retaining complete passes and each current-copy/manifest read.
+Counterexamples cover own/other copies, both manifest levels, extra paths,
+original-directory replacement, in-memory bytes/digest/stamp mutation, inner
+RestartInputs CAS corruption, late final physical inventory and lost or
+identical-byte replaced copies during the final receipt. The full smaller
+application-owner composition and full warm v4 measurement still need reruns;
+these focused checks do not qualify either missing result.

@@ -57,12 +57,12 @@ class ChatArchiveUnlinkFenceTests(unittest.TestCase):
         proof['phase']=self.guard.phase.read(self.guard.expected)['status']
         self.guard.last=deepcopy(proof);self.guard.final(proof);return deepcopy(proof)
 
-    def make(self,count=2):
+    def make(self,count=2,*,indexed=False):
         for index in range(count):
             store=PrivateFeatureState(self.root/f'original-{index:03d}.json');store.write(dict(consumed=index),None)
             self.catalog.add('primary/'+store.path.name,store,store.read())
         def inventory(expected):self.assertEqual(expected,{path for path in self.root.iterdir() if path.name.startswith('original-')})
-        self.archive=ChatEvidenceArchive(self.catalog,self.root/'archive',self.ledger,dict(runId=RUN),self.guard,inventory,unlink_fence=self.fence)
+        self.archive=ChatEvidenceArchive(self.catalog,self.root/'archive',self.ledger,dict(runId=RUN),self.guard,inventory,unlink_fence=self.fence,indexed_verify=indexed)
         self.addCleanup(self.archive.close_host)
         self.addCleanup(lambda:self.archive.directory.chmod(0o700) if self.archive.directory.exists() else None)
         return self.archive
