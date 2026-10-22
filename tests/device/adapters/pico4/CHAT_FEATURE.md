@@ -249,3 +249,12 @@ histories. Old v1/v2/v3 ownership is retained. The real Qt5 Settings proof also
 supports the product's actual registered JSON writer as described in the
 [Erase/profile component](../chat_journey/ERASE_RESTORE.md). Neither change
 completes the remaining full-journey/publication/lifetime composition.
+
+The [same original peer input owner](../chat_journey/PEER_INPUT.md) can now
+reconstruct a fully consumed host v4 journal across public RPC processes.
+Complete original native receipt bytes and actual current command/receipt
+identities remain mandatory; the old input is never dispatched again. Only a
+different fixed operation may proceed. Uncertain or old v1/v2/v3 host journals
+remain unresolved. The unchanged native receipt wire protocol stays v1/v2/v3;
+its registry entry is separate from the host owner format. This continuation
+still supplies no delivery, position, cleanup or complete Chat verdict.
