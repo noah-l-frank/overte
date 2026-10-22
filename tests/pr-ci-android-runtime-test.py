@@ -14,6 +14,9 @@ ROOT = Path(__file__).resolve().parents[1]
 SPEC = importlib.util.spec_from_file_location("runtime", ROOT / "tools/repository-checks/pr_ci_android_runtime.py")
 R = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(R)
+EXPORT_SPEC = importlib.util.spec_from_file_location("runtime_export", ROOT / "tools/repository-checks/pr_ci_android_export.py")
+EXPORT = importlib.util.module_from_spec(EXPORT_SPEC)
+EXPORT_SPEC.loader.exec_module(EXPORT)
 
 
 class RuntimeTests(unittest.TestCase):
@@ -220,6 +223,41 @@ class RuntimeTests(unittest.TestCase):
         self.ledger.write_text('{"kind":"first","kind":"second"}')
         with self.assertRaisesRegex(ValueError, "duplicate"):
             R.read_inventory(self.ledger, R.digest(self.ledger))
+
+    def test_producer_export_roundtrip_and_content_identity(self):
+        record = EXPORT.pack(self.payload, self.ledger, self.identity, self.archive)
+        self.assertFalse(record["build_qualified"])
+        self.assertEqual(record["archive_sha256"], R.digest(self.archive))
+        self.assertEqual(self.extract(), self.expected)
+
+    def test_export_regular_hardlinks_remain_regular_archive_entries(self):
+        os.link(self.payload / "tools/compiler", self.payload / "tools/compiler-copy")
+        self.expected = R.inventory(self.payload)
+        self.ledger.write_bytes(R.canonical(self.expected))
+        self.identity = R.digest(self.ledger)
+        EXPORT.pack(self.payload, self.ledger, self.identity, self.archive)
+        with tarfile.open(self.archive) as archive:
+            self.assertTrue(archive.getmember("tools/compiler").isfile())
+            self.assertTrue(archive.getmember("tools/compiler-copy").isfile())
+        self.assertEqual(self.extract(), self.expected)
+
+    def test_export_rejects_unsealed_payload_without_publishing_archive(self):
+        (self.payload / "tools/compiler").write_text("modified before export")
+        with self.assertRaisesRegex(ValueError, "payload differs"):
+            EXPORT.pack(self.payload, self.ledger, self.identity, self.archive)
+        self.assertFalse(self.archive.exists())
+
+    def test_export_does_not_replace_a_concurrently_published_archive(self):
+        from unittest.mock import patch
+        link = os.link
+        def concurrent(source, destination):
+            Path(destination).write_bytes(b"another producer's completed archive")
+            return link(source, destination)
+        with patch.object(EXPORT.os, "link", side_effect=concurrent):
+            with self.assertRaises(FileExistsError):
+                EXPORT.pack(self.payload, self.ledger, self.identity, self.archive)
+        self.assertEqual(self.archive.read_bytes(), b"another producer's completed archive")
+        self.assertEqual(list(self.archive.parent.glob(".android-export-*")), [])
 
 
 if __name__ == "__main__":

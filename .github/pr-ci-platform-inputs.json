@@ -1,5 +1,5 @@
 {
-  "schema": 1,
+  "schema": 2,
   "android": [
     {
       "target": "android-phone",
@@ -12,7 +12,7 @@
         "tests/device/jenkins": "5f075ec8c0cd366df90588a62231701d3a056616",
         "tests/device/schema": "93f815e60f37b15cc2e9756c9d234418d2984268",
         "android/phone/fdroid": "ddebf7343ac2fe21c82c20da913f6469f18604fe",
-        "android/phone/tests": "cdcf9895d87875dabe2ed090881f61b069846715"
+        "android/phone/tests": "ebb1cef78a3f33d9d549e2cf467ec5391744cf97"
       },
       "omit": [
         "phone-package-binding",
@@ -31,5 +31,82 @@
       ]
     }
   ],
-  "fallback": "complete-reviewed-profile"
+  "fallback": "complete-reviewed-profile",
+  "infrastructure": [
+    {
+      "name": "android-common-native-ci",
+      "targets": [
+        "android-main",
+        "android-phone",
+        "android-vr",
+        "android-vr-pico"
+      ],
+      "inputs": [
+        "CMakeLists.txt",
+        "android/common/native-ci/CMakeLists.txt",
+        "android/common/native-ci/qt-host-tools.cmake",
+        "android/common/native-ci/tests.py",
+        "android/common/native-ci/verify.py"
+      ]
+    },
+    {
+      "name": "pico-native-ci-graph",
+      "targets": [
+        "android-vr-pico"
+      ],
+      "inputs": [
+        "android/common/native-ci/android-arm64-ci",
+        "android/common/native-ci/target.conanfile.py",
+        "android/vr/pico/native-ci/android-arm64-ci-release",
+        "android/vr/pico/native-ci/graph_contract.py",
+        "android/vr/pico/native-ci/target.conanfile.py",
+        "android/vr/pico/native-ci/tests.py"
+      ]
+    },
+    {
+      "name": "pico-native-ci-inputs",
+      "targets": [
+        "android-vr-pico"
+      ],
+      "inputs": [
+        "android/common/cmake/overte-android-bootstrap.cmake",
+        "android/common/cmake/overte-android-toolchain.cmake",
+        "android/common/conan/conanfile-pico.py",
+        "android/common/conan/patches/qt-pico-android-runtime.patch",
+        "android/common/gradle/wrapper/gradle-wrapper.properties",
+        "android/common/native-ci/CMakeLists.txt",
+        "android/common/native-ci/android-arm64-ci",
+        "android/common/native-ci/qt-host-tools.cmake",
+        "android/common/native-ci/target.conanfile.py",
+        "android/common/native-ci/verify.py",
+        "android/vr/pico/apps/picoInterface/build.gradle",
+        "android/vr/pico/apps/picoInterface/src/main/res/values/qt_dependencies.xml",
+        "android/vr/pico/build.gradle",
+        "android/vr/pico/cmake/pico-qt-host-tools.cmake",
+        "android/vr/pico/cmake/pico-source-bootstrap.cmake",
+        "android/vr/pico/conan/openxr-16k",
+        "android/vr/pico/native-ci/android-arm64-ci-release",
+        "android/vr/pico/native-ci/graph_contract.py",
+        "android/vr/pico/native-ci/inputs.py",
+        "android/vr/pico/native-ci/inputs_test.py",
+        "android/vr/pico/native-ci/source-inputs.groovy",
+        "android/vr/pico/native-ci/target.conanfile.py",
+        "android/vr/pico/native-ci/tests.py",
+        "android/vr/pico/settings.gradle",
+        "conanfile.py"
+      ]
+    },
+    {
+      "name": "pico-native-ci-unsigned-apk",
+      "targets": [
+        "android-vr-pico"
+      ],
+      "inputs": [
+        "android/common/native-ci/verify.py",
+        "android/vr/pico/ci/verify-pico-apk.py",
+        "android/vr/pico/native-ci/verify_apk.py",
+        "android/vr/pico/native-ci/verify_apk_test.py"
+      ]
+    }
+  ]
 }
