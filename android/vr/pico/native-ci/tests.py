@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Offline Pico CI graph/profile regressions; no resolution or builds."""
 import copy
+import ast
+import configparser
 import importlib.util
 from pathlib import Path
 import unittest
@@ -89,6 +91,27 @@ class PicoCiGraphContracts(unittest.TestCase):
         recipe = (HERE / "target.conanfile.py").read_text()
         self.assertIn("android/common/native-ci/target.conanfile.py", recipe)
         self.assertNotIn("android/phone", recipe)
+
+    def test_declared_dependency_cohort_matches_graph_admission(self):
+        common = HERE.parents[2] / "common/native-ci"
+        declaration = ast.parse((common / "target.conanfile.py").read_text())
+        target = next(node for node in declaration.body if isinstance(node, ast.ClassDef) and node.name == "AndroidCiTarget")
+        values = {node.targets[0].id: ast.literal_eval(node.value) for node in target.body
+                  if isinstance(node, ast.Assign) and isinstance(node.targets[0], ast.Name)
+                  and isinstance(node.value, ast.Constant)}
+        self.assertEqual(values["qt_ref"], GRAPH.QT)
+        self.assertEqual(values["openexr_ref"], "openexr/3.2.12")
+        profile = configparser.ConfigParser(interpolation=None, delimiters=("=",), strict=True)
+        profile.optionxform = str
+        profile.read_string("\n".join(line for line in (common / "android-arm64-ci").read_text().splitlines()
+                                      if not line.startswith("{%")))
+        expected = {"os": "Android", "os.api_level": "26", "arch": "armv8", "compiler": "clang",
+                    "compiler.version": "18", "compiler.libcxx": "c++_shared", "compiler.cppstd": "gnu20", "build_type": "Debug"}
+        expected.update({name + "/*:build_type": value for name, value in GRAPH.OVERRIDES.items() if value is not None})
+        self.assertEqual(dict(profile["settings"]), expected)
+        for option in ("qtwebengine", "with_mysql", "with_odbc", "with_openal", "with_pq"):
+            self.assertEqual(profile["options"]["qt/*:" + option], "False")
+        self.assertEqual(profile["options"]["qt/*:opengl"], "es2")
 
     def test_wrong_target_abi_api_compiler_and_legacy_buildtype_rejected(self):
         for key, field, value in (("1", "os.api_level", "25"), ("1", "arch", "x86_64"),
