@@ -5,7 +5,9 @@ of the existing `create-management-parity` foundation on Pico. It adds no
 `feature.create.act`, `feature.create.observe` or `feature.create.cleanup`
 capability. The twenty-one-checkpoint full feature contract still needs the
 domain Model/texture/export/JSON-picker/PolyVox/rez-permission joins below.
-Native compilation and physical Pico behavior remain unverified.
+The isolated Qt5 file-storage and original picker/input harnesses compile and
+pass. Complete native application compilation and physical Pico behavior remain
+unverified.
 
 ## Implemented normal vertical flow
 
@@ -79,8 +81,10 @@ existing serverless scene's avatar-entity rights and cannot stand in for it.
 The next executable source work is:
 
 - The [explicit Create JSON storage role](CREATE_FILES_SOURCE.md) now stages and
-  independently reads original input/output bytes. Bind its actual
-  `Select .json to Import` caption/filter/root to ordinary picker input. Script
+  independently reads original input/output bytes, and the
+  [actual Import/Save control source](CREATE_FILE_UI.md) now binds normal input
+  and original weak Qt roots. Compose both with the full feature, actual
+  domain effects and native Script/ModalDialog callback sources. Script
   file roots and picker identities must remain distinct. Observe cancel and
   accept through their original retained callbacks and a quiet absence window.
 - Compose normal Domain/New Model/Properties input with actual selected UUID,

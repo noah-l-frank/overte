@@ -23,6 +23,7 @@
 #include "../../../../../../tests/device/native/NavigationDirectoryBridge.h"
 #include "../../../../../../tests/device/native/NavigationPanelsObservation.h"
 #include "../../../../../../tests/device/native/FeatureUiInventory.h"
+#include "../../../../../../tests/device/native/PicoCreateFileControls.h"
 #include "../../../../../../tests/device/native/NormalNavigationAddress.h"
 #include "../../../../../../tests/device/native/TabletHttpObservation.h"
 #include <AudioClient.h>
@@ -67,6 +68,8 @@ bool enabled(QQuickItem* item) {
 QString controlId(QQuickItem* item) {
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #if defined(ANDROID_APP_PICO_INTERFACE)
+    const auto createFile=overte::e2e::createFileControlId(item);
+    if (!createFile.isEmpty()) { return createFile; }
     const auto navigationError=overte::e2e::navigationFailureModals().controlId(item);
     if (!navigationError.isEmpty()) { return navigationError; }
     const auto places = overte::e2e::placesControlId(item);
@@ -154,6 +157,7 @@ QJsonObject NavigationUi::observe(QQuickItem* root, QQuickWindow* window, bool o
     // close/replacement, even if no passive publisher has polled yet.
     overte::e2e::graphicsUiInventory().observe(root,window);
     overte::e2e::ensureTabletHttpProvider(root);
+    const auto createInventory=overte::e2e::createUiInventory().observe(root,window);
 #endif
     if (_root != root || _window != window || _open != open) {
         _generation = token();
@@ -219,6 +223,10 @@ QJsonObject NavigationUi::observe(QQuickItem* root, QQuickWindow* window, bool o
                 auto source = fileSource.isEmpty() ? overte::e2e::scriptRowSource(item) : fileSource;
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #if defined(ANDROID_APP_PICO_INTERFACE)
+                if (id.startsWith("create-file.")) {
+                    source=overte::e2e::createFileControlSource(item,id);
+                    if (source.isEmpty()) { ambiguous=true;return; }
+                } else
                 if (id.startsWith("navigation.error.ok.")) {
                     source=overte::e2e::navigationFailureModals().controlSource(item,id);
                     if (source.isEmpty()) { ambiguous=true;return; }
@@ -280,6 +288,16 @@ QJsonObject NavigationUi::observe(QQuickItem* root, QQuickWindow* window, bool o
             if (!id.startsWith(QStringLiteral("script-file."))) { controls.remove(id); }
         }
     }
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    bool createPicker {false};
+    for (const auto& id:controls.keys()) { createPicker=createPicker || id.startsWith("create-file."); }
+    if (createPicker) {
+        for (const auto& id:controls.keys()) { if (!id.startsWith("create-file.")) { controls.remove(id); } }
+    }
+#endif
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    ready=ready && createInventory.value("complete").toBool();
+#endif
     if (ambiguous || !ready || controls.size() > 384) { controls.clear(); ready = false; }
     _controls = controls;
     auto ids = controls.keys();
@@ -296,6 +314,9 @@ QJsonObject NavigationUi::observe(QQuickItem* root, QQuickWindow* window, bool o
         overte::e2e::appendScriptFileObservation(row, control.item, id);
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #if defined(ANDROID_APP_PICO_INTERFACE)
+        if (id.startsWith("create-file.")) {
+            overte::e2e::appendCreateFileObservation(row,control.item,id);
+        } else
         if (id.startsWith("navigation.error.ok.")) {
             overte::e2e::navigationFailureModals().appendControl(row,control.item,id);
         } else if (id.startsWith("places.")) {
@@ -329,6 +350,8 @@ QJsonObject NavigationUi::observe(QQuickItem* root, QQuickWindow* window, bool o
         { "open", open }, { "ready", ready }, { "controls", observed } };
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     result["featureControlsVersion"] = 1;
+    result["createFileControlsVersion"]=1;
+    result["createUiInventory"]=createInventory;
     result["createControlsVersion"] = 1;
     result["chatControlsVersion"] = 1;
     result["fileControlsVersion"] = 1;
@@ -445,6 +468,20 @@ QJsonObject NavigationUi::apply(QQuickItem* root, QQuickWindow* window, bool ope
                 && overte::e2e::NormalControlUi::ownsPoint(control.item,window,point)) {
             delivered=overte::ui::replaceFocusedField(control.item,window,command.value("text").toString());
         } else if (controlId=="chat.input" && action=="submit") {
+            delivered=overte::ui::submitFocusedField(control.item,window);
+        }
+    } else if (controlId.startsWith("create-file.")) {
+        QJsonObject row;overte::e2e::appendCreateFileObservation(row,control.item,controlId);
+        if (current.value("createFileControlsVersion")!=QJsonValue(1) || !row.value("inputReady").toBool()) { return result; }
+        const auto point=control.item->mapToScene(QPointF(control.item->width()/2,control.item->height()/2));
+        if (action=="activate" && controlId!="create-file.page" && pointerClick
+                && overte::e2e::NormalControlUi::ownsPoint(control.item,window,point)) { delivered=pointerClick(control.item); }
+        else if (action=="replace" && (controlId=="create-file.folder" || controlId=="create-file.name")
+                && command.value("text").isString()
+                && overte::e2e::createFilePath(command.value("text").toString(),controlId,row.value("role").toString())
+                && overte::e2e::NormalControlUi::ownsPoint(control.item,window,point)) {
+            delivered=overte::ui::replaceFocusedField(control.item,window,command.value("text").toString());
+        } else if (action=="submit" && controlId=="create-file.folder") {
             delivered=overte::ui::submitFocusedField(control.item,window);
         }
     } else if (controlId.startsWith("create.")) {
