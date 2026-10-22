@@ -62,10 +62,12 @@ class PicoAudioBackground:
         # background. Recheck the exact original ticket after durable intent,
         # never reconstruct a live UI owner just to read fixture metadata.
         started,requested=anchor;original=self.state['fixturePhase']
+        # Native/SDK guards can themselves advance the independent fixture.
+        # Read its exact original history after the final such guard.
+        if owner is not None:owner.parent.fresh()
         current=self.source.status(original)
         need(current['active'] and all(current[key]==original[key] for key in
             ('instance','createdEpochMs','activations')))
-        if owner is not None:owner.parent.fresh()
         epoch=self.source.epoch_ms();completed=self.bound()
         need(number(requested,1,1e15) and number(epoch,requested,1e15) and completed>=started
             and -250<=epoch-current['capturedEpochMs']
