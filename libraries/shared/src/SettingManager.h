@@ -26,6 +26,8 @@
 #include "shared/ReadWriteLockable.h"
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #include "../../../tests/device/native/ChatSettingsBarrier.h"
+#include <QSemaphore>
+#include <memory>
 #endif
 
 Q_DECLARE_LOGGING_CATEGORY(settings_manager)
@@ -39,6 +41,15 @@ class SettingsTestsWorker;
 
 namespace Setting {
     class Interface;
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    // A timed-out original job owns its result until the worker actually finishes.
+    // No queued callback captures a Manager or a caller's stack.
+    struct ChatSnapshotJob {
+        QSemaphore finished;
+        std::atomic<bool> done{false};
+        QVariantMap result;
+    };
+#endif
 
     /**
      * @brief Settings write worker
@@ -284,6 +295,7 @@ namespace Setting {
 #if defined(OVERTE_E2E_FEATURE_TESTS)
         overte::e2e::ChatSettingsBarrier _featureChatSettings;
         QPointer<WriteWorker> _featureChatWorker;
+        std::shared_ptr<ChatSnapshotJob> _featureChatRead;
 #endif
     };
 }

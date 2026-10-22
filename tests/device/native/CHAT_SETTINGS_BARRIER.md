@@ -14,22 +14,27 @@ Ordinary builds and E2E launches without `--testScript` retain their existing
 behavior. Native counters record actual method lifetimes, not requested writes.
 
 `ChatSettingsBarrier` rejects a read while any original mutation is active.
-During acquisition its short gate prevents new Chat mutations from changing
-the cache before the actual writer is read. An atomic attempt count also
-detects a newly blocked mutator that entered during that gate. The callback
-cannot turn a still-pending write into a zero-pending source. Native birth,
-completed mutation sequence, wall-clock capture and actual monotonic elapsed
-time stay original. Clock regression and acquisitions above 1.5 seconds are
-unavailable. This bounds admission, not filesystem I/O cancellation.
+Its mutex protects only short counter snapshots before and after acquisition;
+it never spans cache locking, worker waiting or physical I/O. Any mutation
+started or completed during acquisition invalidates the result through actual
+pending/attempt counters and completed mutation sequence. Native birth,
+wall-clock capture and actual monotonic elapsed time stay original. Clock
+regression and acquisitions above 1.5 seconds are unavailable. This bounds
+admission, not filesystem I/O cancellation.
 
-The manager reads original key presence and QVariant values under its existing
-cache lock. It then posts a blocking callback to its actual original WriteWorker
-QObject/thread, held by the manager's original weak pointer; original shutdown
-is covered by the same in-flight gate. Earlier completed Chat mutations have
-already enqueued their original worker events. The callback executes the real
-worker's sync, checks its real QSettings status and separately reads that
-worker's actual live key presence/variants. No other QSettings reader is created.
-Raw cache/worker values remain internal to the future native profile owner;
+The manager tries its existing cache read lock without waiting, reading original
+key presence and QVariant values only if available. It then posts exactly one
+queued job to its actual original WriteWorker QObject/thread. A semaphore wait
+is bounded to 1.5 seconds; no mutex is held while waiting. A timed-out job remains
+owned and prevents another enqueue until actual completion. A subsequent query
+always discards a finished old result and requests new original work. Queued
+callbacks own their result storage, hold only the original weak worker pointer
+and never capture the Manager or caller stack. A real worker-to-UI synchronous
+callback therefore cannot indefinitely block this source. Earlier completed
+Chat mutations have already enqueued their original worker events. The job
+executes the real worker's sync, checks its real QSettings status and separately
+reads that worker's actual live key presence/variants. No other QSettings reader
+is created. Raw values remain internal to the future native profile owner;
 they must be reduced to bounded private hashes before any script publication.
 
 After the original sync, `chatSettingsFile` opens the actual worker-selected
@@ -54,9 +59,11 @@ that physical boundary.
 Two real Qt5 compiler/run checks pass. One compiles the complete original
 SettingManager.cpp translation unit and real generated QObject metadata, then
 executes its original worker thread, Manager set/remove/clear paths, native
-snapshot and an actual still-active signal emission. The second executes the
+snapshot, an actual still-active signal emission, contended cache lock, worker-
+thread mutation and real worker-to-UI wait cycle with owned late-job recovery.
+The second executes the
 original worker setValue/sync/snapshot bodies with the original barrier and
-physical file reader, exercising pre-enqueue delay, a mutation blocked during
+physical file reader, exercising pre-enqueue delay, mutations started and completed during
 snapshot, actual null/list/string differences, file modes, duplicate rows and
 symlink refusal. Its manager cache is an explicit seam. These checks qualify
 this host component only; full application/Android linking and devices remain
