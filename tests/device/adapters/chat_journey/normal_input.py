@@ -263,7 +263,8 @@ class ChatNormalInput:
             if verb=='close' or verb=='send' and not before[0]['primary']['source']['mixerPresent']:
                 attempt['phase']='quiet';self.write(attempt);observed=self.quiet(attempt)
             self.check_inputs(attempt);attempt['after']=references(self.roles);attempt['phase']='observed'
-            self.check_quiet(attempt);self.write(attempt);self.fresh_current(self.fresh_started)
-            return deepcopy(observed)
+            self.check_quiet(attempt);self.write(attempt);result=deepcopy(observed)
+            self.fresh_current(self.fresh_started)
+            return result
         except Exception:
             raise NativeUIError('Normal Chat input lacks fresh original closure; no uncertain input is resent') from None
