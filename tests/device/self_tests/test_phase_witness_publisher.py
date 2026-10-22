@@ -221,6 +221,23 @@ class PhaseWitnessPublisherTests(unittest.TestCase):
             row=recovered.load(recovered.state['records'][0]);self.assertEqual('planned',row['intent']['phase'])
             self.assertEqual('run-retired',row['mode'])
 
+    def test_slow_issued_journal_cannot_publish_expired_original_or_resend_after_reconstruction(self):
+        with self.lock.held():
+            owner=self.owner();original=self.original();save=owner.save
+            epoch,mono=time.time()*1000,time.monotonic();delay=[0.]
+            owner.epoch_ms=lambda:epoch+delay[0]*1000;owner.monotonic=lambda:mono+delay[0]
+            def slow():
+                result=save()
+                if owner.state['pending'] is not None and owner.state['pending']['phase']=='issued':delay[0]+=1.6
+                return result
+            calls,request=self.posts('normal')
+            with patch.object(owner,'save',side_effect=slow),patch.object(self.actor,'request',side_effect=request),self.assertRaises(NativeUIError):
+                owner.publish(original)
+            self.assertEqual([],calls);recovered=self.owner();self.assertEqual('issued',recovered.state['pending']['phase'])
+            self.assertEqual(self.known[digest(original)]['public']['capturedEpochMs'],recovered.state['pending']['body']['capturedEpochMs'])
+            with self.assertRaises(PublicationPending):recovered.publish(original)
+            self.assertEqual([],self.server.journal.snapshot(self.run)['entries'])
+
     def test_replaced_record_bytes_or_external_owner_write_cannot_be_adopted(self):
         with self.lock.held():
             owner=self.owner();original=self.original();owner.publish(original);ref=owner.state['records'][0]
