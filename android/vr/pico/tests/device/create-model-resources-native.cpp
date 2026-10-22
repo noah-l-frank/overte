@@ -3,6 +3,13 @@
 // Original observer/getter, substituted entity/model/material/network actor.
 #include <QCoreApplication>
 #include <QDateTime>
+#include <QDir>
+#include <QFile>
+#include <QFileInfo>
+#include <QSaveFile>
+#include <QTemporaryDir>
+#include <QRegularExpression>
+#include <QCryptographicHash>
 #include <QHash>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -77,6 +84,7 @@ struct DependencyManager {
 struct Lifecycle {QVariantMap snapshot(){return {{"alive",true}};}};
 struct TestScriptingInterface:QObject {
     QVariantMap featureCreateModels(const QVariantMap& command);
+    void saveObject(QVariant variant,const QString& filename);
     QString _testResultsLocation="/private-owned",_featureObservationInstance=QString(32,'f');
     std::shared_ptr<Lifecycle> _featureLifecycle=std::make_shared<Lifecycle>();
     QHash<QString,QSet<QUuid>> _featureCreateEntityIds;
@@ -85,6 +93,41 @@ struct TestScriptingInterface:QObject {
     std::shared_ptr<overte::e2e::CreateModelResources> _featureCreateModelResources;
 };
 #include "OriginalCreateModels.inc"
+// Unused world-render branch is explicitly outside this source-write test.
+struct SaveRender {QByteArray receiptDigest(const QString&,const QString&,bool){assert(false);return {};}};
+struct SaveGpu {SaveRender* featureWorldRender(){assert(false);return nullptr;}};
+struct SaveApplication {SaveGpu* getGPUContext(){assert(false);return nullptr;}} saveApplication;
+namespace overte {namespace e2e {
+bool previewDirectory(const QString&){assert(false);return false;}
+bool ownPreviewFile(const QString&,const QByteArray&){assert(false);return false;}
+}}
+#undef qApp
+#define qApp (&saveApplication)
+#include "OriginalSaveObject.inc"
+#undef qApp
+void sourceWrite(TestScriptingInterface& target,bool enabled){
+    QTemporaryDir directory;assert(directory.isValid());target._testResultsLocation=directory.path();
+    const QString name="feature-create-models.json",path=directory.filePath(name);
+    target.saveObject(QVariantMap{{"actual",1}},name);
+    assert(QFileInfo::exists(path)==enabled);
+    if(!enabled)return;
+    const auto permissions=QFileInfo(path).permissions();
+    assert((permissions&(QFile::ReadGroup|QFile::WriteGroup|QFile::ExeGroup|QFile::ReadOther|QFile::WriteOther|QFile::ExeOther))==0);
+    QFile source(path);assert(source.open(QIODevice::ReadOnly));
+    assert(QJsonDocument::fromJson(source.readAll()).object().value("actual").toInt()==1);source.close();
+    assert(QFile::setPermissions(path,QFile::ReadOwner|QFile::WriteOwner|QFile::ReadGroup|QFile::ReadOther));
+    target.saveObject(QVariantMap{{"actual",2}},name);
+    assert((QFileInfo(path).permissions()&(QFile::ReadGroup|QFile::ReadOther))==0);
+    assert(source.open(QIODevice::ReadOnly));assert(QJsonDocument::fromJson(source.readAll()).object().value("actual").toInt()==2);source.close();
+    assert(QFile::remove(path));const QString foreign=directory.filePath("foreign.json");
+    QFile other(foreign);assert(other.open(QIODevice::WriteOnly));assert(other.write("original")==8);other.close();
+    assert(QFile::link(foreign,path));assert(QFileInfo(path).isSymLink());
+    target.saveObject(QVariantMap{{"actual",3}},name);
+    assert(QFileInfo(path).isSymLink() && other.open(QIODevice::ReadOnly) && other.readAll()=="original");
+    target.saveObject(QVariantMap{{"actual",4}},"../feature-create-models.json");
+    target._testResultsLocation="/private-owned";
+}
+
 const QString run(32,'a');const QUuid entityId("33333333-3333-3333-3333-333333333333");
 QVariantMap command(int i){return {{"schemaVersion",1},{"commandId",QString::number(i,16).rightJustified(32,'0')},{"action","feature-create-models-observe"},{"runId",run}};}
 QVariantMap source(const QVariantMap& p){return p.value("source").toMap();}
@@ -92,6 +135,7 @@ QVariantMap first(const QVariantMap& p,const char* key){return source(p).value(k
 void print(const QVariantMap& p){assert(!p.isEmpty());QTextStream(stdout)<<QJsonDocument::fromVariant(p).toJson(QJsonDocument::Compact)<<'\n';}
 int main(int argc,char** argv){
     QCoreApplication app(argc,argv);TestScriptingInterface target;target._featureCreateEntityIds.insert(run,{});
+    sourceWrite(target,app.arguments().contains("--testScript"));
     if(!app.arguments().contains("--testScript")){assert(target.featureCreateModels(command(1)).isEmpty());assert(gets==0);return 0;}
     nodes->domain.session.changed(QUuid("11111111-1111-1111-1111-111111111111"),true,true);
     available=false;assert(target.featureCreateModels(command(1)).isEmpty() && gets==0);available=true;

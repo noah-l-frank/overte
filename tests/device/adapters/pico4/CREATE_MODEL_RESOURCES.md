@@ -14,6 +14,9 @@ The closed `feature-create-models-observe` command accepts only schema version,
 nonce, action and run. The native getter requires the existing dedicated
 `OVERTE_E2E_FEATURE_TESTS`/Pico build, `--testScript`, private results location,
 live original lifecycle, GUI affinity and already tracked actual Create IDs.
+The original `saveObject` routes the fixed `feature-create-models.json` output
+through its test-gated atomic QSaveFile branch, disables direct-write fallback,
+sets owner-only permissions and refuses a symbolic-link destination.
 It never accepts a requested entity, model, geometry, URL, material or effect.
 Dependency lookup requires existing EntityScriptingInterface and NodeList.
 
@@ -83,6 +86,11 @@ execute actual QObject, thread, queue, semaphore, weak/shared reference and
 deferred-deletion behavior. Explicit substituted boundaries are the EntityTree,
 Model/HFM/Geometry/material load actor and ResourceCache container; no actual
 model download, renderer or GPU is claimed.
+
+The same harness executes the original `saveObject` body: no-testScript refusal,
+actual private file creation and replacement, parsed output, symbolic-link
+refusal preserving foreign bytes, and path traversal refusal. Only its unused
+world-render branch has explicit refusing stubs.
 
 Counterexamples cover foreign/missing arguments and dependencies, immutable
 nonce results after a changed material binding, retained Model/Geometry after
