@@ -79,7 +79,9 @@ class OwnedChatPeer:
 
     def guard(self):
         try:
-            self.process_guard();need(self.files is not None);self.files._check_source()
+            self.process_guard();need(self.files is not None and self.files.guard==self.process_guard
+                and self.files.released==self.process.released and self.process.owned==self._owned)
+            self.files._check_source()
             need(context(self.binding)==self.files.binding
                 and self.binding['sourceRevision']==self.files.require_compiled_source()
                 and self.binding['artifactSha256']==self.config['expectedExecutableSha256']==self.process.sha256

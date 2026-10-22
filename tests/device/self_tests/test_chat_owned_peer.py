@@ -104,5 +104,13 @@ class OwnedPeerTests(unittest.TestCase):
             self.assertIsNotNone(self.store.read());self.assertIsNone(self.worker.poll())
         finally:os.close(foreign);os.close(anchor)
 
+    def test_replaced_kernel_release_or_process_owner_callback_cannot_supply_peer_facts(self):
+        peer=self.acquire()
+        for target,field in ((peer.files,'released'),(peer.files,'guard'),(peer.process,'owned')):
+            original=getattr(target,field);setattr(target,field,lambda *_:True)
+            with self.subTest(callback=field),self.assertRaises(NativeUIError):peer.guard()
+            setattr(target,field,original);self.assertTrue(peer.guard())
+        self.assertEqual({SOURCE},set(path.name for path in self.actor.iterdir()));self.assertIsNone(self.store.read()['request'])
+
 
 if __name__=='__main__':unittest.main()

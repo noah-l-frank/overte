@@ -14,6 +14,7 @@ REQUIRED = {
     "chat-compiled-cache-absence": 1,
     "chat-cleanup-admission": 1,
     "native-host-descriptor-owner": 1,
+    "native-chat-actor-ipc-close": 1,
     "pico-graphics-feature-binding": 1,
     "graphics-journey-feature": 1,
     "graphics-journey-lifetime": 1,
