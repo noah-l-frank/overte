@@ -553,26 +553,50 @@ class PhoneSnapshotsRole(PhoneCreateRole):
 
     def restore_originals(self):
         self.bound()
-        f=self.feature
-        host=SnapshotsOriginals(f.root,f.binding,f.run,self.role,self.history_authority,lambda *_:need(False),kind='snapshots')
-        frames=host.restore(self.state['manifests'],self.state['sequence'])
-        self.validate_files(frames=frames,historical=True)
+        frames=self._restore_historical_originals(self.history_authority)
         self.bound();return frames
 
-    def validate_files(self,*,frames=None,historical=False):
+    def _restore_historical_originals(self,guard,*,receipts=None):
+        """Read immutable host originals under an explicit read-only authority.
+
+        The ordinary path retains its locked history authority. Only the
+        separately pinned cleanup history pass supplies an unlocked authority;
+        neither path acquires a current target fact here.
+        """
+        need(callable(guard) and guard() is True)
+        f=self.feature
+        host=SnapshotsOriginals(f.root,f.binding,f.run,self.role,guard,lambda *_:need(False),kind='snapshots')
+        if receipts is not None:
+            read,manifest=host.read,host.manifest
+            host.read=lambda value:receipts.read_original(read,host.path,value)
+            host.manifest=lambda value:receipts.read_original(manifest,host.manifest_path,value)
+        frames=host.restore(self.state['manifests'],self.state['sequence'])
+        self.validate_files(frames=frames,historical=True,history_guard=guard,receipts=receipts)
+        need(guard() is True);return frames
+
+    def validate_files(self,*,frames=None,historical=False,history_guard=None,receipts=None):
         """A retained JSON receipt cannot hide a missing or replaced original."""
+        need(historical or history_guard is None and receipts is None)
+        guard=self.history_authority if history_guard is None else history_guard
         f=self.feature
         decoded_pngs=set()
         for index,frame in enumerate(self.frames if frames is None else frames,1):
-            image_engine=(SnapshotsImages(f.root,f.binding,f.run,self.role,index,self.history_authority,lambda *_:need(False))
+            image_engine=(SnapshotsImages(f.root,f.binding,f.run,self.role,index,guard,lambda *_:need(False))
                 if historical else self.image_engine(index))
-            binary_engine=(HistoricalSnapshotsBinary(f.root,f.binding,f.run,self.role,index,self.history_authority,lambda *_:need(False),decoded_pngs=decoded_pngs)
+            binary_engine=(HistoricalSnapshotsBinary(f.root,f.binding,f.run,self.role,index,guard,lambda *_:need(False),decoded_pngs=decoded_pngs)
                 if historical else self.binary_engine(index))
             image=frame.get('image')
             if image is not None:
-                if image['phase']=='planned':need(frame.get('diagnostic') is True and image_engine.absent(image))
-                else:need(image['phase']=='saved');image_engine.read(image)
-            for row in frame.get('binaries',[]):need(row['phase']=='saved');binary_engine.read(row)
+                if image['phase']=='planned':
+                    need(frame.get('diagnostic') is True and (image_engine.absent(image) if receipts is None else receipts.absent(image_engine,image)))
+                else:
+                    need(image['phase']=='saved')
+                    if receipts is None:image_engine.read(image)
+                    else:receipts.read_original(image_engine.read,image_engine._path,image)
+            for row in frame.get('binaries',[]):
+                need(row['phase']=='saved')
+                if receipts is None:binary_engine.read(row)
+                else:receipts.read_original(binary_engine.read,binary_engine._path,row)
 
     def retire(self):
         """Validate every original inode before handing journal removal to owner."""
