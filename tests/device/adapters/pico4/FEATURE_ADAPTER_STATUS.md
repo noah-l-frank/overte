@@ -82,6 +82,9 @@ replacement, natural completion and early cancellation from retained Pico
 originals. It checks the compiled caller, consumed FBX, advancing clip and final
 pose, independent of input acknowledgement. Interruption, current stereo/actor
 and whole resource retirement remain open.
+The [cleanup work owner](EMOTE_LIFETIME.md) now joins that same source to actual
+manager-thread timer/callback inventories and requires a full multi-clock quiet
+window; it retains journals and does not supply whole resource retirement.
 This adds no complete feature area and keeps shared journey v16 unchanged.
 
 ## Historical component checkpoints

@@ -2736,5 +2736,36 @@
     },
     "earlierFailure": "Resolved incorrect harness receiver affinity: actual Application setup creates GUI Window singleton; real Script thread DirectConnection call enters original blocking UI factory. Native queued receiver moved off GUI was an unsupported diagnostic seam; stack retained in Create docs. No functional product change.",
     "deviceQualified": false
+  },
+  "emoteLifetime20261022": {
+    "status": "passed",
+    "protocol": 1,
+    "components": {
+      "tests": 9,
+      "seconds": 16.735
+    },
+    "pico": {
+      "groups": 3,
+      "catalog": 63,
+      "seconds": 93.11,
+      "sourceGroupTests": 80,
+      "normalEmoteTests": 13
+    },
+    "requiredProject": {
+      "suites": 4,
+      "seconds": 3.19,
+      "status": "passed"
+    },
+    "source": "fixed committed Phone original-work/read architecture with actual Pico projection, native reader factory and per-target role stores",
+    "additionalRules": [
+      "All six actual clocks span 3 seconds",
+      "Observation gaps over 1.5 seconds reset quiet",
+      "Original complete bootstrap/Emote membership must match independently sampled work membership",
+      "Retained inactive/unknown timers and callbacks fail quiet",
+      "Orphan lifetime ownership blocks base cleanup"
+    ],
+    "qualification": "Explicit synthetic VM/Rig/Qt boundaries around real Pico host owners. Existing focused native queue compilation is separately qualified; no app or devices.",
+    "fullEmoteCapability": false,
+    "journalsRetired": false
   }
 }

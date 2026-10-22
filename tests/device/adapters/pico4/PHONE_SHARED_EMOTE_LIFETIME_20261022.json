@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "abb7f6b60d97daf17752aadf94e2b5df099bb7ba",
+  "targetBase": "88a6d6d90185c8b8e00e1ea5e243031ff29d2626",
+  "uncommittedPhoneWorkExcluded": true,
+  "files": [
+    {
+      "sourcePath": "tests/device/adapters/android-phone/overte_phone_emote_lifetime.py",
+      "targetPath": "tests/device/adapters/pico4/emote_lifetime.py",
+      "sourceSha256": "c4f9c65026ae03149c1a6e72e3c7ce66756978578488c48092777f1110882f03",
+      "targetSha256": "a77a1acdb407dc21b033d829c6bde01ded87d21adf576af1e959bc8f243fd966"
+    }
+  ],
+  "selection": "original-read-and-quiet-window-methods-through-wait-only",
+  "changes": [
+    "Actual Pico raw-widget projection and actual private ScriptWork reader factory replace Phone adapter/selector.",
+    "Exact native compiled membership/code/work remains independently validated against each owned original Pico group.",
+    "Every actual host/device/provider/worker/UI clock must span 3 seconds; a gap over 1.5 seconds resets quiet.",
+    "Lost work reply retains its pending responsibility; reconstruction cannot repeat source queries.",
+    "No final archive/retirement/cleanup/publisher from Phone is copied. No whole capability or journal deletion."
+  ]
+}

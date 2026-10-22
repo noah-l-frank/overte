@@ -509,6 +509,21 @@ def create_adapter(args, base_class):
                 lambda intent, receipt: self._emote_controls(target, intent, receipt=receipt), ui.io,
                 lambda: self._script_journey().existing_input_session(target))
 
+        def _emote_lifetime_store(self, target, role):
+            source = self._emote_source_store(target, role)
+            return PrivateFeatureState(source.path.with_name(source.path.stem + '-lifetime.json'))
+
+        @_private
+        def _emote_lifetime(self, target, source):
+            from adapters.pico4.emote_lifetime import PicoEmoteLifetime
+            from adapters.pico4.emote_sources import PicoEmoteSources
+            _need(isinstance(source, PicoEmoteSources)
+                and source.store.path == self._emote_source_store(target, source.role).path)
+            source.lock.assert_held(); source.guard()
+            _ui, _observe, binding = self._script_runtime(target)
+            _need(binding == source.binding)
+            return PicoEmoteLifetime(source, lambda: self._script_work(target))
+
         @_private
         def _script_work(self, target):
             from adapters.native_script_work import NativeScriptWork, FILE, command
@@ -1469,6 +1484,7 @@ def create_adapter(args, base_class):
                       and self._chat_peer_distant_store(target).read() is None
                       and self._emote_input_store(target).read() is None
                       and all(self._emote_source_store(target, role).read() is None for role in ('primary', 'actor'))
+                      and all(self._emote_lifetime_store(target, role).read() is None for role in ('primary', 'actor'))
                       and self._chat_profile_store(target).read() is None
                       and self._chat_erase_restore_store(target).read() is None
                       and all(self._chat_samples_store(target,role,erased=erased).read() is None

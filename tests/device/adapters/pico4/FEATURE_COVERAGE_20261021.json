@@ -440,7 +440,11 @@
         "tests/device/self_tests/test_native_script_work.py",
         "tests/device/native/SCRIPT_WORK_OBSERVATION.md",
         "tests/device/contracts/emote/test_script_work_native.py",
-        "tests/device/adapters/pico4/PHONE_SHARED_SCRIPT_WORK_20261022.json"
+        "tests/device/adapters/pico4/PHONE_SHARED_SCRIPT_WORK_20261022.json",
+        "tests/device/adapters/pico4/emote_lifetime.py",
+        "tests/device/adapters/pico4/EMOTE_LIFETIME.md",
+        "tests/device/self_tests/test_pico_emote_lifetime.py",
+        "tests/device/adapters/pico4/PHONE_SHARED_EMOTE_LIFETIME_20261022.json"
       ],
       "declaredCheckpoints": 28,
       "inputVerbs": [

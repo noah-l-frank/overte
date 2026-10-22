@@ -237,5 +237,19 @@ if(calls!==51||files.length!==1||files[0].available!==false||"source" in files[0
             self.assertEqual(1,len(source.commands))
 
 
+    def test_orphaned_lifetime_journal_remains_owned_after_base_cleanup(self):
+        from adapters.script_journey.lock import ScriptSourceLock
+        from self_tests.test_pico_emote_sources import SourcesTests
+        seam=SourcesTests();seam.setUp();self.addCleanup(seam.doCleanups)
+        path=self.instance._script_journey().state_path(self.native.target)
+        lock=ScriptSourceLock(path.with_name('script-sources.lock'))
+        with lock.held():
+            source=self.instance._emote_sources(self.native.target,seam.phase,'primary',seam.root,lock)
+            owner=self.instance._emote_lifetime(self.native.target,source)
+            self.assertEqual(self.instance._emote_lifetime_store(self.native.target,'primary').path,owner.store.path)
+            owner.save();original=owner.store.read();self.assertIsNone(source.store.read())
+        with self.assertRaises(ValueError):self.instance.cleanup(self.native.target)
+        self.assertFalse(self.native.running);self.assertEqual(original,owner.store.read())
+
 
 if __name__=='__main__':unittest.main()
