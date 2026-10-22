@@ -1722,3 +1722,25 @@ Still recovery21.413s, Still originals3.107s, Avatar UI10.340s, Avatar state/
 Bookmarks5.395s, Chat archive3.359s, Script/Browser VM4.027s and coverage0.059s.
 These are host/original-source and selected native component checks. Complete
 source features remain3/14; no full application/APK/device claim is added.
+
+
+## Tablet Web original stereo file references
+
+Private coordinator v2 replaces duplicated embedded stereo bodies with their
+existing exact original file reference (full dev/inode/size/timestamps/SHA256).
+The entire separately stored source journal and PNG remain present and are
+revalidated through the independent common browser artifact grammar on every
+read. V1 remains readable: every original file and exact old embedded body must
+first match before an explicit later host CAS can write v2. Failed migration
+never invents a missing file or retries a capture. Duplicate journal, capture
+query and PNG identities refuse; captures are never truncated or dropped.
+
+Four additional host cases exercise actual private parent/facade/stereo/file
+owners with explicit GPU/SDK/DOM producer seams. The real component capture
+retires its actual source-owner protocols; it is not an HMD-render qualification.
+The capacity case separately demonstrates26 distinct metadata references fit
+under the unchanged48KiB packed/64KiB parent limits where embedded full-size
+packed DTOs overflow; those random DTOs are not accepted product evidence.
+Owning parent/VM/coverage groups pass3/139 in10.23s. Whole26-stage execution,
+actor/stereo/phase/final capture absence and immutable archive remain open;
+private finalize still refuses and complete source areas remain3/14.

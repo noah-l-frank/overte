@@ -9,4 +9,5 @@ ROOT=Path(__file__).resolve().parents[4]
 sys.path.insert(0,str(ROOT/'tests/device'))
 if __name__=='__main__':
     suite=unittest.defaultTestLoader.loadTestsFromName('self_tests.test_pico_tablet_web_feature')
+    suite.addTests(unittest.defaultTestLoader.loadTestsFromName('self_tests.test_pico_tablet_web_images'))
     raise SystemExit(not unittest.TextTestRunner(verbosity=2).run(suite).wasSuccessful())

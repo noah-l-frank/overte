@@ -31,7 +31,8 @@ from adapters.script_journey.lock import ScriptSourceLock
 from adapters.pico4.browser_source import continuity,fixture,validate as validate_source
 from adapters.pico4.browser_measurements import browser_status,measurement
 
-VERSION=1
+VERSION=2
+READS=(1,2)
 
 
 def archive_originals(value):
@@ -99,11 +100,17 @@ class PicoTabletWebFeature:
         value=store.read();self.originals[store.path]=deepcopy(value)
         if value is None:return None
         exact(value,{self.version_field,'kind','runId','fixtureUrl','artifactRoot','foreignFixtureUrl','payload'})
-        need(type(value[self.version_field]) is int and value[self.version_field]==VERSION and value['kind']==kind
+        need(type(value[self.version_field]) is int and value[self.version_field] in READS and value['kind']==kind
             and value['runId']==self.run and value['fixtureUrl']==self.fixture_url and value['artifactRoot']==str(self.artifact_root)
             and value['foreignFixtureUrl']==self.foreign_url.rsplit('/runs/',1)[0])
         rows=unpack(value['payload']);need(len(rows)==1)
-        return restore_originals(rows[0]) if kind in ('retirement','completed') else rows[0]
+        decoded=restore_originals(rows[0]) if kind in ('retirement','completed') else rows[0]
+        if kind in ('primary','actor') and value[self.version_field]==1:
+            # Verify every original v1 file and duplicate body before replacing
+            # the duplicate with its existing full-stamp/hash file reference.
+            self.verify_images(decoded,kind,legacy=True)
+            for image in decoded['images']:del image['record']
+        return decoded
 
     def write(self,store,kind,value):
         self.lock.assert_held();need(store.path in self.originals and same(store.read(),self.originals[store.path]))
@@ -329,19 +336,25 @@ class PicoTabletWebFeature:
         if value['last'] is not None:result('feature.'+self.area+'.observe',value['last'])
         return value
 
-    def verify_images(self,value,role):
+    def verify_images(self,value,role,*,legacy=False):
         from adapters.pico4.browser_stereo import original_name
         from adapters.graphics_journey.originals import GraphicsOriginals
         from feature_journeys.stereo_browser_evidence import archive_sources
         owner=self.owner() if value['images'] else None
         need(not value['images'] or owner is not None)
+        journals=set();captures=set();pngs=set()
         for image in value['images']:
-            exact(image,{'journalId','ticket','phase','record','metadata'})
-            identifier(image['journalId']);identifier(image['ticket']);need(image['phase'] in ('planned','saved'))
-            if image['phase']=='planned':need(image['record'] is image['metadata'] is None);continue
+            exact(image,{'journalId','ticket','phase','metadata'}|({'record'} if legacy else set()))
+            identifier(image['journalId']);identifier(image['ticket']);need(image['phase'] in ('planned','saved')
+                and image['journalId'] not in journals);journals.add(image['journalId'])
+            if image['phase']=='planned':
+                need(image['metadata'] is None and (not legacy or image['record'] is None));continue
             name=original_name(self.run,role,image['journalId']);raw=self.metadata(name,image['metadata'])
-            body=json.loads(raw);need(same(body,image['record']) and body['role']==role and body['runId']==self.run)
+            body=json.loads(raw);need((not legacy or same(body,image['record'])) and body['role']==role and body['runId']==self.run)
             rows=unpack(body['payload']);need(len(rows)==1 and rows[0]['phase']=='complete' and rows[0]['ticket']==image['ticket'])
+            capture=rows[0]['frame']['capture'];key=(capture['instance'],capture['requestId'])
+            need(key not in captures and rows[0]['image']['name'] not in pngs)
+            captures.add(key);pngs.add(rows[0]['image']['name'])
             png=GraphicsOriginals.archive(self.artifact_root,rows[0]['image'])
             original,_state,_facts=archive_sources(raw,png,self.run,image['ticket'],self.adapter.scene_url,role=role)
             need(original['binding']==owner['binding'] and original['journalId']==image['journalId']
@@ -375,13 +388,13 @@ class PicoTabletWebFeature:
 
     def screenshot(self,owner,ticket,sequence,role,state):
         from adapters.pico4.browser_stereo_source import validate as frame_packet
-        journal=uuid.uuid4().hex;image=dict(journalId=journal,ticket=ticket,phase='planned',record=None,metadata=None)
+        journal=uuid.uuid4().hex;image=dict(journalId=journal,ticket=ticket,phase='planned',metadata=None)
         state['images'].append(image);self.write(self.role_store,self.role,state)
         stereo=self.adapter._tablet_web_stereo(self.selector,self,journal,role)
         captured=stereo.acquire(ticket);raw=stereo.image_bytes()
         facts=frame_packet(captured['frame'],raw,self.run,owner['binding'],self.adapter.scene_url)
         metadata,tag=self.metadata(stereo.store.path.name)
-        need(same(json.loads(metadata),stereo.disk));image.update(phase='saved',record=deepcopy(stereo.disk),metadata=tag)
+        need(same(json.loads(metadata),stereo.disk));image.update(phase='saved',metadata=tag)
         self.write(self.role_store,self.role,state)
         return stereo.artifacts(sequence),facts
 

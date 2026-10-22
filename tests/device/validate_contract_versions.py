@@ -12,7 +12,7 @@ REQUIRED = {
     "pico-browser-vm": 1,
     "native-script-object-lifetimes": 1,
     "pico-tablet-web-binding": 1,
-    "pico-tablet-web-feature": 1,
+    "pico-tablet-web-feature": 2,
     "pico-browser-quiet": 1,
     "pico-browser-stereo-source": 1,
     "pico-browser-stereo-owner": 1,
