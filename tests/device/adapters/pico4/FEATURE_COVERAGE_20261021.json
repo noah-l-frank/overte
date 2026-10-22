@@ -103,7 +103,8 @@
         "tests/device/adapters/navigation_missing.py",
         "tests/device/self_tests/test_navigation_lookup.py",
         "tests/device/self_tests/test_navigation_missing.py",
-        "tests/device/adapters/pico4/NAVIGATION_LOOKUP.md"
+        "tests/device/adapters/pico4/NAVIGATION_LOOKUP.md",
+        "tests/device/self_tests/test_navigation_lookup_recovery.py"
       ],
       "declaredCheckpoints": 15,
       "inputVerbs": [

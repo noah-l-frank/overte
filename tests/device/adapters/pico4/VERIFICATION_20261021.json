@@ -1809,5 +1809,30 @@
       }
     ],
     "limitations": "Internal normal lookup and original modal presentation only; no complete Navigation state/actor/public/cleanup composition. Native code uncompiled, all Qt/OpenXR/device boundaries synthetic, zero physical runs. No builds, compilers, devices, dependencies, services, remote writes or protected integration."
+  },
+  "normalGoToRecovery": {
+    "status": "joined-owners-host-verified",
+    "checks": [
+      {
+        "command": "PYTHONDONTWRITEBYTECODE=1 TMPDIR=PRIVATE_TMPFS PYTHONPATH=tests/device python3 -m unittest self_tests.test_navigation_lookup_recovery self_tests.test_navigation_missing self_tests.test_navigation_error_dismissal",
+        "tests": 30,
+        "durationSeconds": 53.68,
+        "status": "passed"
+      },
+      {
+        "command": "python3 -m unittest self_tests.test_navigation_lookup_recovery",
+        "status": "passed",
+        "tests": 5,
+        "durationSeconds": 5.606
+      },
+      {
+        "command": "python3 tests/run-project-tests.py --suite documentation --suite documentation-contracts --suite source-layout --suite project-coverage",
+        "status": "passed",
+        "suites": 4,
+        "durationSeconds": 2.39,
+        "junit": "navigation-recovery-project.xml"
+      }
+    ],
+    "details": "Same original Python Pico normal input route across normal Go To and later-challenge original modal OK, one actual loopback HTTP 404 body/header completion, original lookup ticket/barrier, fresh B and bookmark storage, lost submit/OK no-resend and ignored/retained/wrong-ticket counterexamples. Native/Qt/OpenXR boundaries synthetic; no complete feature/actor/finalizer is added."
   }
 }

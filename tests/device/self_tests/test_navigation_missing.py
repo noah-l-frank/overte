@@ -46,7 +46,11 @@ class Source(lookup.Source):
         self.inputs_config=dict(protocolSignature='AAAAAAAAAAAAAAAAAAAAAA==',sourceRevision=world.binding['sourceRevision'],sceneUrl=SCENE)
         self.provider=NavigationResources(self.inputs_config,clock_ms=lambda:self.epoch);self.provider.provision(RUN);self.provider.activate(RUN,TICKET)
         self.book=Widgets(world.root);self.book.map[context(RUN)['renamed']]=viewpoint_urls(SCENE)['A'];self.book.persist()
-        self.home_sequence=0
+        self.home_sequence=0;self.owned_origin=ORIGIN
+    def fetch_missing(self):
+        # Default host boundary completes a body without a socket. The joined
+        # recovery suite replaces this boundary with the real loopback server.
+        with self.provider.response(DIRECTORY+'/'+context(RUN)['hidden'],'') as response:return response
     def check(self,kind,control=None):
         assert self.owner is not None
         state=unpack(json.loads(self.path.read_text())['payload'])[0];p=state['pending'];assert p['kind']==kind
@@ -67,8 +71,8 @@ class Source(lookup.Source):
             self.generation=str(uuid.uuid4())
             if self.changed_world:self.world.position='A'
             if not self.skip_failure:
-                with self.provider.response(DIRECTORY+'/'+context(RUN)['hidden'],'') as response:status,body,nonce=response
-                self.modal.replies.generation+=1;self.modal.replies.error(nonce,origin=ORIGIN)
+                status,body,nonce=self.fetch_missing()
+                self.modal.replies.generation+=1;self.modal.replies.error(nonce,origin=self.owned_origin)
                 if self.bad_response:self.modal.replies.events[-1]['responseId']='8'*32
                 self.modal.event=deepcopy(self.modal.replies.events[-1]);self.modal.create()
                 if not self.hide_modal:self.opened=True
@@ -105,7 +109,7 @@ class NavigationMissingTests(unittest.TestCase):
     def owner(self):
         owner=NavigationMissing(lambda intent:PicoNavigationLookup(self.normal,self.native.panels(),intent,RUN),self.world.arrival(),self.home,
             self.native.bookmark_reader(),self.native.replies(),self.native.modals(),lambda:self.native.provider.snapshot(RUN),self.path,
-            RUN,self.world.binding,self.native.provider.instance,self.native.inputs_config,ORIGIN,self.native.guard,
+            RUN,self.world.binding,self.native.provider.instance,self.native.inputs_config,self.native.owned_origin,self.native.guard,
             monotonic=lambda:self.world.clock,sleep=self.world.sleep)
         self.native.owner=owner;return owner
     def act(self):return self.owner().act(TICKET)

@@ -52,3 +52,19 @@ whole-tablet close and complete resource retirement belong to the enclosing
 flow. Navigation state/actor/public composition, maturity/scene restoration,
 process/bookmark transfer and complete Script/XHR/Web/timer/callback retirement
 remain unfinished. No complete feature triple is advertised.
+
+
+## Joined normal lookup and later dismissal verification
+
+The recovery self-test executes both existing owners over the same original
+PicoNavigation/PicoScriptIO input manager and native source identities. It
+activates the later dismissal challenge without retagging the earlier lookup,
+then uses original modal OK and proves seven native retirement samples spanning
+three seconds. Fresh arrival and original bookmark storage remain at B/baseline.
+Lost submit and lost OK results preserve their own intents without another
+lookup or click; ignored OK, retained roots/listeners and wrong ticket/barrier
+fail. One case performs the missing lookup against the actual owned loopback
+HTTP server during normal submit and retains the original 404 header, body
+bytes/digest and original response ticket through dismissal. Other provider body
+completions and every native/Qt/OpenXR boundary remain simulations. This joined
+host test does not supply the missing public feature/actor/finalizer composition.
