@@ -8,6 +8,7 @@ The caller owns executable/PID/start qualification and the independent receiver.
 from copy import deepcopy
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import re
@@ -16,7 +17,7 @@ import time
 import uuid
 
 from adapters.native_chat_observation import command, validate
-from adapters.native_feature_observation import decode, exact, integer, need, number
+from adapters.native_feature_observation import decode, exact, fresh, integer, need, number
 from adapters.normal_feature_state import context
 from adapters.normal_ui import NativeUIError
 
@@ -201,6 +202,53 @@ class ChatActorFiles:
                     retired=frame['source']['retired'] and not frame['source']['scopePresent'] and frame['source']['events']==[])
         if previous['result']!=result:self.store.write({**previous,'result':result},previous)
         return encode(frame).decode('utf-8')
+
+    def reconcile_pending(self,request):
+        """Consume only the original actually processed pending transaction.
+
+        No command write, input dispatch, unlink or result relabel occurs here.
+        Unknown/unpublished/old replies keep their original pending journal.
+        """
+        command(request);need(not request['commandId'].startswith('ios-'))
+        started=self.monotonic();need(number(started,0,1e15))
+        self._check_source();previous=self._owned()
+        need(not previous['closing'] and previous['pending']==request and previous['runId']==request['runId'])
+        command_raw,command_info=self._read(COMMAND,2048);need(command_raw==encode(request))
+        raw,info=self._read(RESULT,131072);envelope=decode(raw.decode('utf-8'))
+        exact(envelope,{'actorFileVersion','commandNode','resultNode','native'})
+        need(type(envelope['actorFileVersion']) is int and envelope['actorFileVersion']==VERSION
+            and identity(envelope['commandNode'])==node(command_info) and identity(envelope['resultNode'])==node(info))
+        frame=envelope['native'];validate(frame,request,self.pid,self.clock_ms())
+        need(frame['chatVersion']==3 and frame['instance']==self.source['instance']
+            and frame['capturedEpochMs']>=self.source['configuredEpochMs'] and self.released(node(info)) is False)
+        source=frame['source']
+        if request['operation']=='observe':need(source['scopePresent'] and source['openedCommandId']==request['commandId'])
+        elif request['operation']=='retire':need(source['retired'] and not source['scopePresent'] and source['retiredCommandId']==request['commandId'])
+        if previous['commandStamp'] is not None:
+            # Original publication replaces the old node atomically. Its new
+            # temporary inode exists before replacement; it cannot be the old
+            # still-linked command inode even when bytes happen to match.
+            need(node(command_info)!={key:previous['commandStamp'][key] for key in ('device','inode')})
+        result=dict(stamp=stamp(info),sha256=hashlib.sha256(raw).hexdigest(),commandId=frame['commandId'],
+            retired=source['retired'] and not source['scopePresent'] and source['events']==[])
+        # Check the exact current originals again before consuming only this
+        # pending publication. A copied/rewritten/foreign result is not a receipt.
+        current_command,current_command_info=self._read(COMMAND,2048);current,current_info=self._read(RESULT,131072)
+        need(current_command==command_raw and stamp(current_command_info)==stamp(command_info)
+            and current==raw and stamp(current_info)==stamp(info) and self.store.read()==previous)
+        self._check_source();fresh(frame['capturedEpochMs'],self.clock_ms())
+        need(number(self.monotonic(),started,started+1.5) and self.released(node(info)) is False)
+        updated={**previous,'pending':None,'request':deepcopy(request),'commandStamp':stamp(command_info),'result':result}
+        self.store.write(updated,previous);need(self.store.read()==updated)
+        # Copy before the last actual clock/guard/FD checks, never after them.
+        value=encode(frame).decode('utf-8');self._check_source()
+        after_command,after_command_info=self._read(COMMAND,2048);after,after_info=self._read(RESULT,131072)
+        need(after_command==command_raw and stamp(after_command_info)==stamp(command_info)
+            and after==raw and stamp(after_info)==stamp(info) and self.store.read()==updated and self.released(node(info)) is False)
+        measured=self.monotonic();need(number(measured,started,started+1.5));epoch=self.clock_ms();fresh(frame['capturedEpochMs'],epoch)
+        ended=self.monotonic();need(number(ended,measured,started+1.5)
+            and epoch-frame['capturedEpochMs']+math.ceil((ended-measured)*1000)<=1500)
+        return value
 
     def close(self):
         """After the owned cache's actual retirement, remove original IPC only.
