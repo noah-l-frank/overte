@@ -61,6 +61,9 @@ class PicoAudioSettingsTests(unittest.TestCase):
     def test_actual_qt_native_observer_and_whole_pico_nonpico_getter_bodies(self):
         subprocess.run([sys.executable,str(ROOT/'tests/device/contracts/audio/test_audio_settings_observation.py')],check=True,timeout=180)
 
+    def test_actual_original_audio_client_cleanup_functor_and_timer(self):
+        subprocess.run([sys.executable,str(ROOT/'tests/device/contracts/audio/test_recorded_preview_lifetime.py')],check=True,timeout=90)
+
     def test_actual_original_audio_qml_page_and_peak_restore(self):
         subprocess.run([sys.executable,str(ROOT/'tests/device/contracts/audio/test_audio_page_observation.py')],check=True,timeout=180)
 
