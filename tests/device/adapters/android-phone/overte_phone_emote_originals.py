@@ -115,6 +115,38 @@ class PhoneEmoteOriginals:
         value['phase']='saved';need(self.intent('original',deepcopy(value)) is not False);self.bound(started)
         return self.compact(value)
 
+    def resume_write(self,index,frame,value):
+        """Finish exact owned archival bytes, retaining every existing prefix.
+
+        The caller supplies an independently validated frozen archival record,
+        never an expected product result. Existing bytes cannot be overwritten.
+        """
+        started=self.now();self.bound(started);self.original(value)
+        need(integer(index,1,MAX_FRAMES) and type(frame) is dict)
+        body=dict(emoteFrameVersion=VERSION,kind=self.kind,binding=self.binding,runId=self.run,role=self.role,index=index,frame=frame)
+        raw=canonical(body);need(value['index']==index and value['bytes']==len(raw)<=LIMIT
+            and value['sha256']==hashlib.sha256(raw).hexdigest())
+        value=deepcopy(value);path=self.path(value)
+        if value['phase']=='saved':need(same(self.read(value),frame));self.bound(started);return self.compact(value)
+        if value['phase']=='planned':
+            need(self.diagnostic(value) is None)
+            descriptor=os.open(path,os.O_RDWR|os.O_CREAT|os.O_EXCL|getattr(os,'O_NOFOLLOW',0),0o600)
+        else:descriptor=os.open(path,os.O_RDWR|getattr(os,'O_NOFOLLOW',0)|getattr(os,'O_NONBLOCK',0))
+        with os.fdopen(descriptor,'r+b') as stream:
+            if value['phase']=='planned':
+                info=os.fstat(stream.fileno());value.update(phase='opened',file=dict(device=info.st_dev,inode=info.st_ino))
+                self.file(path,stream.fileno(),value);need(self.intent('original',deepcopy(value)) is not False);self.bound(started)
+            self.file(path,stream.fileno(),value);before=os.fstat(stream.fileno())
+            prefix=stream.read(LIMIT+1);self.file(path,stream.fileno(),value);after=os.fstat(stream.fileno())
+            signature=lambda row:(row.st_dev,row.st_ino,row.st_size,row.st_mtime_ns,row.st_ctime_ns)
+            need(signature(before)==signature(after) and len(prefix)==after.st_size<=len(raw) and raw.startswith(prefix))
+            self.bound(started);remaining=raw[len(prefix):]
+            need(stream.write(remaining)==len(remaining));stream.flush();os.fsync(stream.fileno())
+            self.file(path,stream.fileno(),value);self.bound(started)
+        need(same(self.read(value),frame));self.bound(started)
+        value['phase']='saved';need(self.intent('original',deepcopy(value)) is not False);self.bound(started)
+        return self.compact(value)
+
     def compact(self,value):
         self.original(value);need(value['phase']=='saved')
         return dict(index=value['index'],sha256=value['sha256'],bytes=value['bytes'],**value['file'])
@@ -172,6 +204,33 @@ class PhoneEmoteOriginals:
         need(same(self.manifest(reference),entries));self.bound(started)
         intent['phase']='saved';need(self.intent('manifest',deepcopy(intent)) is not False);self.bound(started)
         result.append(reference);return result
+
+    def resume_manifest(self,references,original,intent):
+        """Finish this exact durable manifest intent; never adopt another index."""
+        if intent is None:return self.append(references,original)
+        started=self.now();self.bound(started);expanded=self.expand(original);index=expanded['index']
+        need(type(references) is list and len(references)<=MAX_FRAMES//BLOCK)
+        exact(intent,{'emoteManifestVersion','reference','phase'})
+        need(type(intent['emoteManifestVersion']) is int and intent['emoteManifestVersion']==VERSION and intent['phase'] in ('planned','saved'))
+        self.manifest_reference(intent['reference']);self.read(expanded)
+        block=(index-1)//BLOCK+1;offset=(index-1)%BLOCK+1;result=deepcopy(references)
+        for count,reference in enumerate(result,1):
+            self.manifest_reference(reference);need(reference['block']==count and (count==len(result) or reference['count']==BLOCK))
+        if offset==1:
+            need(len(result)==block-1 and (not result or result[-1]['count']==BLOCK));entries=[]
+        else:
+            need(len(result)==block and result[-1]['block']==block and result[-1]['count']==offset-1)
+            entries=self.manifest(result.pop())
+        entries.append(deepcopy(original))
+        body=dict(emoteManifestVersion=VERSION,kind=self.kind,binding=self.binding,runId=self.run,role=self.role,block=block,entries=entries)
+        raw=canonical(body);reference=dict(block=block,count=len(entries),sha256=hashlib.sha256(raw).hexdigest(),bytes=len(raw))
+        need(same(reference,intent['reference']));self.bound(started)
+        store=PrivateFeatureState(self.manifest_path(reference));actual=store.read()
+        if actual is None:
+            need(intent['phase']=='planned');store.write(body,None)
+        need(same(self.manifest(reference),entries));self.bound(started)
+        if intent['phase']=='planned':need(self.intent('manifest',dict(intent,phase='saved')) is not False)
+        self.bound(started);result.append(reference);return result
 
     def restore(self,references,revision):
         need(type(references) is list and len(references)<=MAX_FRAMES//BLOCK and integer(revision,0,MAX_FRAMES))

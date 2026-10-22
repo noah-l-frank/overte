@@ -76,6 +76,10 @@ the real child current/closed call and commits the same next namespace without
 advancing twice. The pending new normal call stays bound in acting state; another
 action cannot consume its new namespace. Cleanup also reconciles a committed
 child transition before releasing it, without dispatching that reserved play.
+Before namespace/input restoration, the [failure owner](EMOTE_FAILURES.md) now
+retains both roles' interrupted source reads. Its actual durable originals and
+manifest must finish before a failed readonly acquisition can release pending
+ownership. This neither adds a source frame nor supplies cleanup success.
 Closed source/input headers and original frames remain intact.
 
 All target acquisition, ordinary input and phase deadlines remain the existing

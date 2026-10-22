@@ -245,6 +245,102 @@ class PhoneEmoteSources:
                 else:self.state,self.frames=dict(phase='ready',revision=0,manifests=[],pending=None),[]
             raise
 
+    def failure_archive(self,value):
+        """Verify retained failed-read originals; never a completed measurement."""
+        exact(value,{'emoteSourceFailureArchiveVersion','segment','header','predecessorHeader',
+            'originalDiagnostic','manifestDiagnostic','cleanup'})
+        need(type(value['emoteSourceFailureArchiveVersion']) is int and value['emoteSourceFailureArchiveVersion']==1
+            and integer(value['segment'],0,MAX_SEGMENTS-1))
+        self.lock.assert_held();started=self.monotonic();need(number(started,0,1e15) and self.guard() is not False)
+        state,frames=self.archive(value['header'],phase=self.phase,artifact_root=self.artifact_root,
+            binding=self.binding,guard=self.guard,monotonic=self.monotonic)
+        need(value['header']['role']==self.role and same(value['header'].get('admissionPolicy'),self.admission)
+            and state['phase']=='reading' and state['pending'] is not None)
+        historical=object.__new__(type(self));historical.__dict__=self.__dict__.copy()
+        historical.previous,historical.state,historical.frames=deepcopy(value['header']),state,frames
+        historical.historical=True;historical.predecessor=None
+        prior=value['predecessorHeader']
+        if value['segment']==0:need(prior is None)
+        else:
+            need(prior is not None and prior.get('role')==self.role and same(prior.get('admissionPolicy'),self.admission))
+            old,previous=self.archive(prior,phase=self.phase,artifact_root=self.artifact_root,
+                binding=self.binding,guard=self.guard,monotonic=self.monotonic)
+            need(old['phase']=='ready' and previous and not previous[-1]['group']['native']['animation']['overrideActive'])
+            historical.predecessor=previous[-1]
+            if frames:historical.validate_frame(frames[0],previous[-1]);historical.segment_start(frames[0]['group']['native'])
+        cleanup=value['cleanup'];phase_packet(cleanup,run=self.run,area='emotes',request=cleanup['requestId'],epoch=cleanup['capturedEpochMs'])
+        need(cleanup['active'] and cleanup['activations'] and cleanup['activations'][-1]['stimulus']==dict(verb='cleanup',inputs={}))
+        if frames:
+            old=frames[-1]['phaseAfter'];rows=cleanup['activations'];prior_rows=old['activations']
+            need(cleanup['instance']==old['instance'] and cleanup['createdEpochMs']==old['createdEpochMs']
+                and len(rows)>=len(prior_rows) and same(rows[:len(prior_rows)],prior_rows))
+        pending=state['pending'];original=pending['original'];diagnostic=None
+        if original is not None:
+            diagnostic=self.originals.diagnostic(original)
+            if original['phase']=='saved':
+                frame=self.originals.read(original)
+                historical.validate_frame(frame,frames[-1] if frames else historical.predecessor)
+                if not frames:historical.segment_start(frame['group']['native'])
+                replay=NativeScriptObservation(lambda *_:need(False),lambda:need(False),lambda:need(False),lambda:need(False),self.pid)
+                self.replay_scripts(replay,frames+[frame]);self.replay_animation(frames+[frame])
+        need(same(diagnostic,value['originalDiagnostic']))
+        manifest=pending['manifest'];observed=None
+        if manifest is not None:
+            ref=manifest['reference'];store=PrivateFeatureState(self.originals.manifest_path(ref));present=store.read() is not None
+            need(present or manifest['phase']=='planned')
+            if present:
+                entries=self.originals.manifest(ref);need(same(entries[-1],self.originals.compact(original)))
+                expected=[] if len(entries)==1 else self.originals.manifest(state['manifests'][-1])
+                need(same(entries[:-1],expected))
+            observed=dict(present=present)
+        need(same(observed,value['manifestDiagnostic']))
+        self.lock.assert_held();need(self.guard() is not False)
+        end=self.monotonic();need(number(end,started,1e15) and end-started<5)
+        return deepcopy(value)
+
+    def transfer_failed(self,retain,*,retained=None):
+        """Transfer a readonly failed acquisition during actual cleanup only.
+
+        Retention preserves all complete/partial files and the original reading
+        header. Clearing pending does not add a source frame or report success.
+        """
+        need(getattr(self,'historical',False) is False and not self.failed and callable(retain))
+        started=self.monotonic();need(number(started,0,1e15));clock=started
+        def bound():
+            nonlocal clock
+            self.lock.assert_held();need(self.guard() is not False);self.configuration_bound();self.predecessor_bound()
+            now=self.monotonic();need(number(now,clock,1e15) and now-started<5);clock=now
+        bound();need(self.previous is not None and (self.state['phase']=='reading' or retained is not None and self.state['phase']=='ready'))
+        state,frames=self.decode(self.previous);need(same(state,self.state) and same(frames,self.frames))
+        cleanup=self.phase.status();bound()
+        need(cleanup['active'] and cleanup['activations'] and cleanup['activations'][-1]['stimulus']==dict(verb='cleanup',inputs={}))
+        if retained is None:
+            pending=self.state['pending'];original=pending['original'];manifest=pending['manifest']
+            original_diagnostic=None if original is None else self.originals.diagnostic(original)
+            manifest_diagnostic=None
+            if manifest is not None:
+                present=PrivateFeatureState(self.originals.manifest_path(manifest['reference'])).read() is not None
+                manifest_diagnostic=dict(present=present)
+            value=dict(emoteSourceFailureArchiveVersion=1,segment=self.segment,header=deepcopy(self.previous),
+                predecessorHeader=deepcopy(self.prior_header),originalDiagnostic=original_diagnostic,
+                manifestDiagnostic=manifest_diagnostic,cleanup=cleanup)
+        else:
+            value=deepcopy(retained);self.failure_archive(value)
+            need(value['segment']==self.segment and same(value['predecessorHeader'],self.prior_header))
+            expected=deepcopy(value['header'])
+            if self.state['phase']=='ready':
+                rows=unpack(expected['payload']);rows[0].update(phase='ready',pending=None);expected['payload']=pack(rows)
+            need(same(expected,self.previous))
+            prior=value['cleanup'];need(prior['instance']==cleanup['instance'] and prior['createdEpochMs']==cleanup['createdEpochMs']
+                and same(prior['activations'],cleanup['activations']))
+        self.failure_archive(value);bound();need(retain(deepcopy(value)) is not False);bound()
+        self.failure_archive(value);bound();final=self.phase.status();bound()
+        need(final['active'] and final['activations'][-1]['ticket']==cleanup['activations'][-1]['ticket']
+            and final['activations'][-1]['stimulus']==dict(verb='cleanup',inputs={}))
+        if self.state['phase']=='reading':
+            self.state.update(phase='ready',pending=None);self.save();bound()
+        return deepcopy(value)
+
     def recover_complete(self):
         """Commit an interrupted complete original; never deliver it as fresh.
 

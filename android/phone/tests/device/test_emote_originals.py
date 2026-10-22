@@ -11,6 +11,7 @@ import unittest
 ROOT=Path(__file__).resolve().parents[4]
 sys.path[:0]=[str(ROOT/'tests/device'),str(ROOT/'tests/device/adapters/android-phone')]
 from adapters.normal_ui import NativeUIError
+from adapters.normal_feature_state import PrivateFeatureState
 from overte_phone_emote_originals import PhoneEmoteOriginals,BLOCK,MAX_FRAMES,LIMIT
 from test_graphics_images import BINDING
 
@@ -28,6 +29,49 @@ class EmoteOriginalsTests(unittest.TestCase):
     def intent(self,kind,value):
         self.intents.append((kind,deepcopy(value)))
         if self.fail==(kind,value['phase']):raise NativeUIError('Synthetic durable evidence intent failure')
+    def test_resume_exact_durable_intents_preserves_original_epoch_and_opened_inode(self):
+        for phase in ('planned','opened','saved'):
+            with self.subTest(phase=phase):
+                self.setUp();frame=dict(originalEpochMs=20000,opaque='Actual retained original')
+                self.fail=('original',phase)
+                with self.assertRaises(NativeUIError):self.store.write(1,frame)
+                value=self.intents[-1][1];old_inode=None if value['file'] is None else value['file']['inode']
+                self.fail=None;ref=self.store.resume_write(1,frame,value)
+                self.assertEqual(frame,self.store.read(self.store.expand(ref)))
+                if old_inode is not None:self.assertEqual(old_inode,ref['inode'])
+                self.assertEqual(20000,self.store.read(self.store.expand(ref))['originalEpochMs'])
+
+    def test_resume_partial_archival_bytes_appends_only_to_matching_original_prefix(self):
+        frame=dict(originalEpochMs=20000,opaque='Original persisted record with a partial tail')
+        ref=self.store.write(1,frame);value=self.store.expand(ref);path=self.store.path(value);raw=path.read_bytes()
+        value['phase']='opened';prefix=raw[:len(raw)//2];path.write_bytes(prefix);inode=path.stat().st_ino
+        result=self.store.resume_write(1,frame,value)
+        self.assertEqual(raw,path.read_bytes());self.assertEqual(inode,result['inode']);self.assertTrue(path.read_bytes().startswith(prefix))
+        path.write_bytes(b'Foreign prefix')
+        with self.assertRaises(NativeUIError):self.store.resume_write(1,frame,value)
+        self.assertEqual(b'Foreign prefix',path.read_bytes())
+
+    def test_resume_cannot_adopt_unowned_planned_files_replace_inode_or_change_record(self):
+        frame=dict(originalEpochMs=20000);ref=self.store.write(1,frame);value=self.store.expand(ref);path=self.store.path(value)
+        planned=deepcopy(value);planned.update(phase='planned',file=None);raw=path.read_bytes()
+        with self.assertRaises(NativeUIError):self.store.resume_write(1,frame,planned)
+        with self.assertRaises(NativeUIError):self.store.resume_write(1,dict(originalEpochMs=20001),value)
+        replacement=self.root/'replacement';replacement.write_bytes(raw);replacement.chmod(0o600);os.replace(replacement,path)
+        value['phase']='opened'
+        with self.assertRaises(NativeUIError):self.store.resume_write(1,frame,value)
+        self.assertEqual(raw,path.read_bytes())
+
+    def test_missing_planned_manifest_can_finish_only_its_exact_original_prefix(self):
+        frame=dict(originalEpochMs=20000);ref=self.store.write(1,frame);self.fail=('manifest','planned')
+        with self.assertRaises(NativeUIError):self.store.append([],ref)
+        intent=self.intents[-1][1];self.assertIsNone(PrivateFeatureState(self.store.manifest_path(intent['reference'])).read())
+        self.fail=None;refs=self.store.resume_manifest([],ref,intent)
+        self.assertEqual([frame],self.store.restore(refs,1));self.assertEqual('saved',self.intents[-1][1]['phase'])
+        self.assertEqual(refs,self.store.resume_manifest([],ref,dict(intent,phase='saved')))
+        bad=deepcopy(intent);bad['reference']['sha256']='f'*64
+        with self.assertRaises(NativeUIError):self.store.resume_manifest([],ref,bad)
+        self.assertFalse(self.store.manifest_path(bad['reference']).exists())
+
     def test_original_bytes_identity_and_manifest_survive_reconstruction_without_retiming(self):
         value=dict(originalEpochMs=20000,sourceSequence=9,opaque='Original ä Ω 東京')
         descriptor=self.store.write(1,value);references=self.store.append([],descriptor)

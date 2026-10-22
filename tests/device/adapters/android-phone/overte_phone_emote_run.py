@@ -250,6 +250,9 @@ class PhoneEmoteRun:
                     and lease.state['closed'][-1]['segment']==self.state['segment']
                     and same(lease.state['closed'][-1]['call'],self.state['call']))
                 self.state['segment']+=1;self.save();source=self.source();lease=PhoneEmoteNamespaces(source)
+            from overte_phone_emote_failures import PhoneEmoteFailures
+            PhoneEmoteFailures(self).collect_sources()
+            source=self.source();lease=PhoneEmoteNamespaces(source)
             lease.begin_cleanup();lease.assert_acquiring()
             owner=PhoneEmoteInputs(source);clean=PhoneEmoteCleanup(owner);clean.cleanup(call,sleep=self.sleep)
             self.state['phase']='inputs-restored';self.save();return deepcopy(clean.previous)
