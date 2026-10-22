@@ -9,7 +9,7 @@ count, common v17 contract, product functionality or physical acceptance.
 | --- | --- | --- |
 | Ordinary input | Model URL/Domain creation, unit-size/position properties, actual texture field, real JSON Browse/Cancel/Select and Export/Save dialogs, existing Voxel mode/shape/remove/size controls | Run-owned input coordinator, original UI/settings restoration, original world click targeting and effect joins |
 | Original entity source | Fresh private native entity/permission packets, bounded complete nearby ID inventory, direct tracked-UUID reads, saved PolyVox bytes SHA-256/size, actual native ready state and volume | Durable role histories, original object identity/ownership, resolved loaded model/texture/render facts, permission-controller composition |
-| Controlled input | Exact owned model import document and separately serialized 8³ central-cube PolyVox input | Exclusive native file staging/receipts and export ownership/retirement |
+| Controlled input | Exact owned model import document, separately serialized 8³ central-cube PolyVox input, exclusive app-private native staging, independent export-byte reads and durable file retirement | Public action/effect and actual export joins |
 | Public adapter | Internal source and read-only original UI factories only | Public triple, separately credentialed actor, full common journey, whole resource/host journal retirement |
 | Native verification | `NormalCreateControls.h` compiled against Qt 6.11.2 and run against unchanged `NativeCreate.qml` and `NativeFileBrowser.qml` | `PhoneCreateObservation.h` and Test/Android integration remain uncompiled; every device path remains untested |
 
@@ -101,11 +101,24 @@ as measured product state or exported bytes.
 
 ## Verification and continuation
 
+`PrivateCreateFiles.h` implements a Phone/E2E-only app-private file lease.
+The durable host owner persists its random token and issuing intent before
+exclusive staging; an uncertain response is reconciled through a fresh native
+read, without resending stage. The native source cannot write `selection.json`.
+It independently opens the output after ordinary Save input, returns actual
+bytes/digest/inode, and requires sealing that exact original before removal.
+Inputs are immutable, private regular files. Foreign children, symlinks,
+hardlinks, FIFOs, directories, replaced roots and changed sealed output fail
+closed. Cleanup confirms actual root absence and transfers the exact transcript
+to its parent before discarding its host journal. These file facts alone do not
+prove product export semantics or the complete public Create journey.
+
 Focused commands (no device, install, Jenkins or network access):
 
 ```sh
 python3 android/phone/tests/device/test_create_source.py
 python3 android/phone/tests/device/test_create_workflows.py
+python3 android/phone/tests/device/test_create_files.py
 python3 android/phone/tests/device/test_create_native_ui.py
 python3 -m unittest discover -s tests/device/self_tests -p test_token_create_ui.py
 python3 -m unittest discover -s tests/device/self_tests -p test_normal_create_adapter.py
@@ -121,6 +134,15 @@ unchanged. It verifies real widget identities/metadata and rejects wrong
 captions/modes and pending/closing native requests. It does not compile the
 entity source or Android application, deliver actual product inputs, prove
 file export or qualify hardware.
+
+The separate file check compiles the actual `PrivateCreateFiles.h` with Qt
+6.11.2 into this worktree's own temporary build folder and drives its persistent
+native instance against real host files. Twelve cases cover exact input bytes,
+independent output reads, negative filesystem nodes, foreign ownership,
+interrupted stage, sealing, retirement and host-journal changes. The prepared
+Test/Android source compiler check was green before this packet; the full
+application and physical path remain untested. Probe changes require the root
+integration's single final regeneration/check of source-bound Emote catalogs.
 
 Next work must complete the public vertical through existing `OverteSession`
 operations: versioned durable ownership and original role histories, exclusive

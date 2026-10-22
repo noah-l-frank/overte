@@ -317,6 +317,7 @@
     var lastProcessPresenceRequest = "";
     var lastGraphicsSubjectRequest = "";
     var lastPhoneCreateObservationRequest = "";
+    var lastPhoneCreateFilesRequest = "";
     var lastAvatarRenderRequest = "";
     var lastWorldModelDrawsRequest = "";
     var lastSceneLoadRequest = "";
@@ -1730,6 +1731,24 @@
             return;
         }
         if (command && command.schemaVersion === 1 && /^[0-9a-f]{32}$/.test(String(command.commandId))
+                && /^[0-9a-f]{32}$/.test(String(command.runId)) && /^[0-9a-f]{64}$/.test(String(command.ownerToken))
+                && command.action === "phone-create-files" && ["stage","observe","seal-export","release"].indexOf(command.operation) !== -1
+                && objectKeysMatch(command,command.operation === "stage"
+                    ? ["schemaVersion","commandId","action","operation","runId","ownerToken","files"]
+                    : ["schemaVersion","commandId","action","operation","runId","ownerToken"])) {
+            if (command.commandId === lastPhoneCreateFilesRequest) { return; }
+            lastPhoneCreateFilesRequest = command.commandId;
+            var createFiles = {schemaVersion: 1, requestId: command.commandId, available: false};
+            try {
+                if (typeof Test.phoneCreateFiles === "function") {
+                    var actualCreateFiles = Test.phoneCreateFiles(command);
+                    if (actualCreateFiles && actualCreateFiles.requestId === command.commandId) { createFiles = actualCreateFiles; }
+                }
+            } catch (_createFilesError) { /* No file/write ACK proves an export or retirement. */ }
+            Test.saveObject(createFiles,"phone-create-files.json");
+            return;
+        }
+        if (command && command.schemaVersion === 1 && /^[0-9a-f]{32}$/.test(String(command.commandId))
                 && /^[0-9a-f]{32}$/.test(String(command.runId)) && command.action === "phone-create-observe"
                 && objectKeysMatch(command, ["schemaVersion", "commandId", "action", "runId", "trackedIds"])
                 && Array.isArray(command.trackedIds) && command.trackedIds.length <= 32) {
@@ -2124,7 +2143,7 @@
                 || command.action === "phone-emote-fixture-observe" || command.action === "phone-emote-fixture-input"
                 || command.action === "feature-avatar-render-observe" || command.action === "feature-world-model-draws-observe"
                 || command.action === "feature-scene-load-observe"
-                || command.action === "feature-script-files")) {
+                || command.action === "feature-script-files" || command.action === "phone-create-files")) {
             // Android's existing private channel is separate from the HTTP
             // fixture command endpoint. Reuse the closed native feature path.
             applyClientCommand(command);

@@ -52,6 +52,7 @@ from overte_phone_chat_controls import PhoneChatIO, FILE as CHAT_UI_FILE
 from adapters.token_create_ui import TokenCreateUI
 from overte_phone_create_controls import PhoneCreateIO, FILE as CREATE_UI_FILE
 from overte_phone_create_source import PhoneCreateSource, FILE as CREATE_SOURCE_FILE
+from overte_phone_create_files import PhoneCreateFiles, FILE as CREATE_FILES_FILE
 from adapters.token_login_ui import TokenLoginUI
 from overte_phone_login import PhoneLoginIO, FILE as LOGIN_UI_FILE
 from adapters.token_audio_ui import TokenAudioUI
@@ -132,6 +133,10 @@ def readonly_feature_command(command):
     elif action=='feature-world-model-draws-observe':
         from adapters.native_world_model_draws import command as validate_model_draws
         validate_model_draws(command)
+    elif action=='phone-create-files':
+        from overte_phone_create_files import command as validate_create_files
+        validate_create_files(command)
+        require(command['operation']=='observe','PHONE_READ_ONLY_COMMAND_REJECTED')
     elif action=='phone-create-observe':
         from overte_phone_create_source import command as validate_create_source
         validate_create_source(command)
@@ -725,6 +730,15 @@ class PhoneAppiumAdapter(AppiumAdapter):
         target=self.target(selector);device=target['capabilities']['appium:udid'];transport=PhoneAdapter(self.candidate).adb
         return NativeWorldModelDraws(native.send,
             lambda:transport.read_debug_app_file(device,target['appId'],'files/overte-e2e/'+WORLD_MODEL_DRAWS_FILE,attempts=1),
+            native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep)
+
+    def _create_files(self, selector, *, read_only=True):
+        native=self._native_feature_observer(selector,read_only=read_only)
+        target=self.target(selector);device=target['capabilities']['appium:udid']
+        transport=PhoneAdapter(self.candidate).adb
+        return PhoneCreateFiles(native.send,
+            lambda:transport.read_debug_app_file(device,target['appId'],
+                'files/overte-e2e/'+CREATE_FILES_FILE,attempts=1),
             native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep)
 
     def _create_source(self, selector, *, read_only=True):
