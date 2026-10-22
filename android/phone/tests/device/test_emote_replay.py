@@ -66,6 +66,18 @@ class EmoteReplayTests(unittest.TestCase):
             self.assertEqual(second_state,third_state);self.assertEqual(second,third)
             self.assertNotEqual(999999,source.frames[0]['group']['native']['sequence'])
 
+    def test_decode_results_cannot_mutate_header_live_frames_or_later_original_reads(self):
+        with self.model.lock.held():
+            source=self.source();state,frames=source.decode(source.previous)
+            state['revision']=999;state['manifests'].clear()
+            frames[0]['group']['native']['sequence']=999999
+            frames[0]['group']['script']['source'].clear()
+            actual_state,actual_frames=source.decode(source.previous)
+            self.assertEqual(1,actual_state['revision']);self.assertTrue(actual_state['manifests'])
+            self.assertEqual(source.frames,actual_frames)
+            self.assertNotEqual(999999,actual_frames[0]['group']['native']['sequence'])
+            self.assertTrue(actual_frames[0]['group']['script']['source'])
+
     def test_catalog_byte_change_invalidates_pure_validation_memo(self):
         with self.model.lock.held(),tempfile.TemporaryDirectory(prefix='overte-emote-pin-key-') as temporary:
             source=self.source();source.decode(source.previous)

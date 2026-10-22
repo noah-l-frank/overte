@@ -129,7 +129,10 @@ class PhoneEmoteSources:
                     and pending['original'] is not None and pending['original']['phase']=='saved')
                 self.originals.manifest_reference(item['reference'])
                 need(item['reference']['block']==state['revision']//BLOCK+1 and item['reference']['count']==state['revision']%BLOCK+1)
-        return deepcopy(state),deepcopy(frames)
+        # unpack() and restore() just decoded independent original bytes. The
+        # returned graphs share neither the input header nor a live/cached
+        # frame. Copying the entire native/script history again is redundant.
+        return state,frames
 
     @classmethod
     def archive(cls,value,*,phase,artifact_root,binding,guard,monotonic=time.monotonic,predecessor=None):
