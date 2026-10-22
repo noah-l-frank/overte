@@ -39,18 +39,13 @@ assertion failure.
 The fourteen-area [feature journeys](FEATURE_JOURNEYS.md) compose the existing
 modules with missing feature workflows. See the [coverage matrix](FEATURE_COVERAGE.md)
 and [adapter handoff](FEATURE_ADAPTER_HANDOFF.md): shared logic is implemented;
-the complete Phone Script, Authentication and [Graphics](adapters/android-phone/GRAPHICS_FEATURE.md)
-extensions are now source-implemented; the other area
-adapters and physical-device qualification are pending. Native instrumentation
-remains uncompiled. See [the Script handoff](adapters/android-phone/SCRIPT_FEATURE.md)
-and [Authentication handoff](adapters/android-phone/AUTHENTICATION_FEATURE.md).
-The internal [Phone Emote role owner](adapters/android-phone/EMOTE_ROLE.md) now
-retains independently acquired originals, image/motion files and per-role
-sequences. The [independent Phone actor](adapters/android-phone/EMOTE_ACTOR.md)
-now publishes those originals and retains its own quiet-window retirement; the
-[public composition](adapters/android-phone/EMOTE_FEATURE.md) now connects the
-operation paths and whole-run retirement. Full normal-journey composition
-verification remains open; the completed Phone count stays 3/14.
+seven Phone area compositions are source implemented and host verified: Navigation,
+Authentication, Create, World Web, Tablet Web, Graphics and Scripts, including
+their mandatory foundations. Other Phone areas remain in progress. Component
+Qt/Java/JNI builds cover only their documented boundaries; complete Android
+compilation and every device acceptance remain unverified. See the current
+[coverage matrix](FEATURE_COVERAGE.md) for the exact integration status and
+[adapter handoff](FEATURE_ADAPTER_HANDOFF.md) for remaining work.
 The optional [controlled HTTPS account provider](feature_journeys/ACCOUNT_PROVIDER.md)
 supplies real password/refresh grants and protected profile requests for owned
 test accounts. The Phone Authentication adapter joins actual native/UI/protected

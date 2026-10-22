@@ -832,7 +832,7 @@ required; the complete Phone count stays 3/14 and native source is uncompiled.
 ## Android Phone integration continuation (2026-10-22)
 
 The current [coverage matrix](FEATURE_COVERAGE.md) supersedes the historical
-three-area progress counts above: six complete Phone source/host compositions
+three-area progress counts above: seven complete Phone source/host compositions
 are now integrated. [World Navigation](adapters/android-phone/WORLD_NAVIGATION_FEATURE.md)
 includes the common 17-checkpoint journey, real native Places/modal boundaries,
 independent publication and guarded cleanup. [World Web](adapters/android-phone/WORLD_WEB_FEATURE.md)
@@ -848,11 +848,12 @@ retains original evidence within the existing journal and deadline bounds.
 files, controlled actual domain rez settings/restoration and original model,
 texture, entity lifetime and voxel sources. Cross-thread observations use
 dedicated mutex-protected snapshots from their original producer boundaries.
-Its full public composition is still in progress. [Snapshots](adapters/android-phone/SNAPSHOT_FEATURE.md)
+Its complete public composition now passes all 21 unchanged common v17 steps, independent actor publication, original host/native resource retention and verified retirement. The default-off triple and mandatory foundations are source implemented. Parent integration additionally passes 186 selected registration, source and common tests. [Snapshots](adapters/android-phone/SNAPSHOT_FEATURE.md)
 has a versioned original capture/upload, native-review and Android export
 callback source, alongside the
-existing five-mode output foundation; external destination/receiver/upload
-evidence and the extended public owner are still missing. Emotes is not complete:
+existing five-mode output foundation. Original saved-URI stream consumption
+and bounded private host transfer now exist; OS destination cleanup, external
+receiver/upload evidence and the extended public owner are still missing. Emotes is not complete:
 the full common test found an idle-Stop composition defect after automatic
 completion. Its targeted corrections pass; the complete common test is still
 running and has not been counted as successful. Avatar/People has real controlled
