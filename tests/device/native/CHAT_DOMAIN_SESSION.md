@@ -40,8 +40,8 @@ snapshot before and after the existing locked NodeList session UUID and actual
 MessagesMixer node/socket reads. It refuses a changed domain snapshot, changed
 self UUID or replaced mixer node during acquisition. It adds actual mixerActive
 to session, then records the actual original receive-cache result as chatVersion
-2. Existing v1 packets remain readable for partial components but supply no
-domain proof. Mixed v1/v2 primary/peer joins fail. Both v2 clients must be
+3. Existing v1 packets remain readable for partial components but supply no
+domain proof. Mixed legacy/domain-aware primary/peer joins fail. Both domain-aware clients must be
 connected to the same actual domain hash, with distinct native source lifetimes,
 and a present mixer must have an actual active socket. Across the whole source
 transcript, original domain birth/revision/UUID/connection time stay pinned even
@@ -61,3 +61,15 @@ actor-file compatibility, mixed legacy peers, disconnected domains and changed
 native birth/revision. The next mixer owner must join these sources to the
 existing dedicated fixture-owned `-t 4` process control, preserve all other
 actual fixture processes and independently prove absence/recovery/no replay.
+
+Native Chat v3 additionally records `openedCommandId` and `retiredCommandId`
+from the actual first accepted Observe/Retire mutations under the same original
+receive-cache mutex. Passive Inspect, repeated Observe and repeated Retire
+never replace either original ID. Retiring an unopened run has only a retirement
+ID. A retired run cannot reopen; late receive signals cannot repopulate it.
+The retained bounded ID fence is historical metadata, not an active receive
+cache or a proof that the entire native QObject/process has been destroyed.
+Older v2 packets remain readable for existing partial domain joins, but cannot
+prove original mutation ownership to the new whole-journey cache owner.
+The actual Qt5 source-body harness independently serializes initial, opened and
+retired packets and feeds those exact C++ originals to the Python v3 validator.

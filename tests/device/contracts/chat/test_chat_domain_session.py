@@ -22,6 +22,7 @@ HARNESS=r'''
 #include <QLoggingCategory>
 #include <QSharedPointer>
 #include <cassert>
+#include <iostream>
 Q_LOGGING_CATEGORY(networking,"test.networking")
 Q_LOGGING_CATEGORY(networking_ice,"test.networking.ice")
 namespace overte::security {
@@ -99,11 +100,18 @@ int main(int argc,char** argv) {
     nodes.reset(new NodeList);nodes->domain.setUUID(original);nodes->domain.setIsConnected(true);
     auto command=[&](QString operation){return QVariantMap{{"schemaVersion",1},
         {"commandId",QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-')},{"runId",run},{"action","feature-chat-observe"},{"operation",operation}};};
-    const auto initial=messages.featureChatObservation(command("inspect")).value("source").toMap();
+    const auto initialPacket=messages.featureChatObservation(command("inspect"));
+    const auto initial=initialPacket.value("source").toMap();
     assert(!initial.value("scopePresent").toBool() && !initial.value("retired").toBool()
         && initial.value("openedEpochMs").toLongLong()==0 && initial.value("eventSequence").toLongLong()==0
-        && initial.value("events").toList().isEmpty());
-    const auto received=messages.featureChatObservation(command("observe"));assert(received.value("chatVersion")==2);
+        && initial.value("events").toList().isEmpty()
+        && initial.value("openedCommandId").toString().isEmpty() && initial.value("retiredCommandId").toString().isEmpty());
+    const auto openCommand=command("observe");
+    const auto received=messages.featureChatObservation(openCommand);assert(received.value("chatVersion")==3);
+    const auto openId=openCommand.value("commandId");
+    assert(received.value("source").toMap().value("openedCommandId")==openId);
+    assert(received.value("source").toMap().value("retiredCommandId").toString().isEmpty());
+    assert(messages.featureChatObservation(command("observe")).value("source").toMap().value("openedCommandId")==openId);
     const auto session=received.value("source").toMap().value("session").toMap();assert(session.value("domainSha256")==expected);
     assert(session.value("instance")!=first.value("instance") && session.value("connectionBirth")!=first.value("connectionBirth"));
     assert(session.value("mixerActive")==true);
@@ -119,14 +127,28 @@ int main(int argc,char** argv) {
     const auto bytes=QString::fromUtf8(QJsonDocument(ordinary).toJson(QJsonDocument::Compact));
     messages._featureChat.received("chat",bytes,other,false);
     assert(messages.featureChatObservation(command("inspect")).value("source").toMap().value("eventSequence").toLongLong()==1);
-    const auto retired=messages.featureChatObservation(command("retire")).value("source").toMap();
+    const auto retireCommand=command("retire");
+    const auto retiredPacket=messages.featureChatObservation(retireCommand);
+    const auto retired=retiredPacket.value("source").toMap();
+    assert(retired.value("openedCommandId")==openId && retired.value("retiredCommandId")==retireCommand.value("commandId"));
+    const auto repeated=messages.featureChatObservation(command("retire")).value("source").toMap();
+    assert(repeated.value("openedCommandId")==openId && repeated.value("retiredCommandId")==retireCommand.value("commandId"));
+    assert(messages.featureChatObservation(command("observe")).isEmpty());
     assert(retired.value("retired").toBool() && !retired.value("scopePresent").toBool()
         && retired.value("openedEpochMs").toLongLong()==0 && retired.value("eventSequence").toLongLong()==0
         && retired.value("events").toList().isEmpty());
     messages._featureChat.received("chat",bytes,other,false);
     const auto passive=messages.featureChatObservation(command("inspect")).value("source").toMap();
     assert(passive.value("retired").toBool() && !passive.value("scopePresent").toBool()
-        && passive.value("events").toList().isEmpty() && passive.value("session").toMap().value("connected").toBool());
+        && passive.value("events").toList().isEmpty() && passive.value("session").toMap().value("connected").toBool()
+        && passive.value("openedCommandId")==openId && passive.value("retiredCommandId")==retireCommand.value("commandId"));
+    const auto unused=QString(32,'b');auto unusedRetire=command("retire");unusedRetire.insert("runId",unused);
+    const auto unusedOriginal=messages.featureChatObservation(unusedRetire).value("source").toMap();
+    assert(unusedOriginal.value("openedCommandId").toString().isEmpty()
+        && unusedOriginal.value("retiredCommandId")==unusedRetire.value("commandId"));
+    for (const auto& packet:{initialPacket,received,retiredPacket}) {
+        std::cout << QJsonDocument::fromVariant(packet).toJson(QJsonDocument::Compact).constData() << '\n';
+    }
     overte::e2e::ChatDomainSession badThread;badThread.changed(original,true,false);assert(badThread.snapshot(run).isEmpty());
     nodes.clear();const auto reads=DependencyManager::reads;
     assert(messages.featureChatObservation(command("inspect")).isEmpty());
@@ -161,6 +183,18 @@ class DomainSessionTests(unittest.TestCase):
             for arguments in ([],['--testScript']):
                 executed=subprocess.run([str(binary),*arguments],capture_output=True,text=True,timeout=5)
                 self.assertEqual(0,executed.returncode,executed.stderr[:2500])
+                if arguments:
+                    # Historical validation of actual C++-serialized originals;
+                    # this is not a current device/native-clock observation.
+                    import json,sys
+                    sys.path.insert(0,str(ROOT/'tests/device'))
+                    from adapters.native_chat_observation import validate
+                    packets=[json.loads(row) for row in executed.stdout.splitlines()]
+                    self.assertEqual(3,len(packets))
+                    for packet in packets:
+                        request=dict(schemaVersion=1,action='feature-chat-observe',**{key:packet[key] for key in ('commandId','runId','operation')})
+                        validate(packet,request,packet['processId'],packet['capturedEpochMs'])
+                        self.assertEqual(3,packet['chatVersion'])
 
 
 if __name__=='__main__':unittest.main()

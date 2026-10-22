@@ -74,15 +74,19 @@ public:
         if (!now) { return {}; }
         if (operation == "observe") {
             if (_retired.contains(run) || (!_scopes.contains(run) && _scopes.size() >= 32)) { return {}; }
-            if (!_scopes.contains(run)) { _scopes.insert(run, Scope {now, 0, {}}); }
+            if (!_scopes.contains(run)) { _scopes.insert(run, Scope {now, id, 0, {}}); }
         } else if (operation == "retire") {
             if (!_retired.contains(run) && _retired.size() >= 4096) { return {}; }
-            _retired.insert(run); // Fence late signal emissions before clearing originals.
+            if (!_retired.contains(run)) {
+                // The actual first accepted mutation owns this fence. A later
+                // request or passive inspection can never replace its nonce.
+                _retired.insert(run, Retirement {_scopes.value(run).openedCommandId, id});
+            } // Fence late signal emissions before clearing originals.
             _scopes.remove(run);
         }
         const bool present = _scopes.contains(run);
         const auto scope = _scopes.value(run);
-        QVariantMap result{{"chatVersion", session.isEmpty()?1:2}, {"commandId", id}, {"runId", run}, {"operation", operation},
+        QVariantMap result{{"chatVersion", session.isEmpty()?1:3}, {"commandId", id}, {"runId", run}, {"operation", operation},
             {"instance", _instance}, {"sequence", static_cast<qulonglong>(++_sequence)},
             {"processId", QCoreApplication::applicationPid()}, {"capturedEpochMs", now},
             {"source", QVariantMap {{"scopePresent", present}, {"retired", _retired.contains(run)},
@@ -93,13 +97,17 @@ public:
                 {"droppedEvents", static_cast<qulonglong>(scope.sequence - scope.events.size())},
                 {"events", scope.events}}}};
         if (!session.isEmpty()) {
-            auto source=result.value("source").toMap();source.insert("session",session);result.insert("source",source);
+            auto source=result.value("source").toMap();source.insert("session",session);
+            source.insert("openedCommandId", present ? scope.openedCommandId : _retired.value(run).openedCommandId);
+            source.insert("retiredCommandId", _retired.value(run).retiredCommandId);
+            result.insert("source",source);
         }
         return result;
     }
 
 private:
-    struct Scope { qint64 openedEpochMs {0}; quint64 sequence {0}; QVariantList events; };
+    struct Scope { qint64 openedEpochMs {0}; QString openedCommandId; quint64 sequence {0}; QVariantList events; };
+    struct Retirement { QString openedCommandId; QString retiredCommandId; };
     static constexpr quint64 MAX_SEQUENCE = 9007199254740991ULL;
     static QString identity(const QString& run, const QUuid& value) {
         return QString::fromLatin1(QCryptographicHash::hash(run.toUtf8() + ':' + value.toRfc4122(), QCryptographicHash::Sha256).toHex());
@@ -115,7 +123,7 @@ private:
     quint64 _sequence {0};
     const QString _instance {QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-')};
     QMap<QString, Scope> _scopes;
-    QSet<QString> _retired;
+    QMap<QString, Retirement> _retired;
 };
 } // namespace overte::e2e
 #endif
