@@ -533,6 +533,28 @@ class NativeExecutionBindingTest(unittest.TestCase):
                 with self.assertRaises(ValueError):bound.describe(self.fake.target)
                 self.assertEqual([],self.fake.events)
 
+    def test_original_relative_candidate_paths_cannot_move_to_a_changed_working_directory(self):
+        prefix=list(self.prefix);prefix[prefix.index('--apk')+1]=os.path.relpath(self.fixture.apk)
+        args,pico=adapter.cli([*prefix,'describe','--target',self.fake.target]);bound=pico.create_adapter(args,adapter.AndroidAdapter)
+        original=Path.cwd();other=self.fixture.root/'changed-cwd';other.mkdir();self.fake.events.clear()
+        try:
+            os.chdir(other) # PWD/environment deliberately remain unchanged.
+            with self.assertRaises(ValueError):bound.describe(self.fake.target)
+        finally:os.chdir(original)
+        self.assertEqual([],self.fake.events)
+        with self.assertRaises(ValueError):bound.describe(self.fake.target)
+
+    def test_working_directory_change_during_original_verification_cannot_admit(self):
+        args,pico=adapter.cli([*self.prefix,'describe','--target',self.fake.target]);verify=pico.verifier.verify_candidate
+        original=Path.cwd();other=self.fixture.root/'cold-changed-cwd';other.mkdir()
+        def changing(value):
+            result=verify(value);os.chdir(other);return result
+        try:
+            with patch.object(pico.verifier,'verify_candidate',side_effect=changing):
+                with self.assertRaises(ValueError):pico.create_adapter(args,adapter.AndroidAdapter)
+        finally:os.chdir(original)
+        self.assertEqual([],self.fake.events)
+
     def test_original_candidate_seal_refuses_arguments_changed_during_original_verification(self):
         args,pico=adapter.cli([*self.prefix,'describe','--target',self.fake.target]);original=pico.verifier.verify_candidate
         def changing(value):

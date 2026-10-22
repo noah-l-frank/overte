@@ -2,7 +2,7 @@
 
 Every adapter instance still runs the unchanged original Pico candidate verifier
 before admitting a candidate. The original arguments (including types and all
-flags), environment and input inventory are frozen before that verification.
+flags), environment, working directory and input inventory are frozen before that verification.
 A changed argument during verification fails before device access.
 
 After successful verification, `CandidateReadSeal` opens and hashes the original
@@ -17,7 +17,7 @@ helper and it cannot refresh its original inputs.
 
 Subsequent guards compare the original held descriptor and actual current path
 with that same kernel identity, and recheck all argument values/types,
-environment, source-policy paths, actual tool resolution and the original
+environment, working directory (also for relative arguments), source-policy paths, actual tool resolution and the original
 original decoder dependency inventory. The cold SDK walk has hard limits of
 128 directories, 4096 total entries and depth 16; at most 256 files and 128
 directories may be held. Original directory descriptors/ctime detect additions
