@@ -917,9 +917,9 @@ coverage count or acceptance claim is changed by this packet.
 
 ## Current Phone integration, 2026-10-22
 
-Twelve full Phone catalog compositions have source/host evidence:
+Thirteen full Phone catalog compositions have source/host evidence:
 Authentication, Avatar/People, Create, Emotes, World Web, Tablet Web, Graphics,
-Audio, Chat, Scripts, Assets and Lifecycle/Input. The
+Audio, Chat, Scripts, Assets, Lifecycle/Input and World Navigation. The
 [exact source matrix](adapters/android-phone/SOURCE_STATUS.md) supersedes the
 historical area counts above and separates public facades from full catalog
 joins. Create now includes the [original entity-sync foundation](adapters/android-phone/CREATE_COLLABORATION_FOUNDATION.md);
@@ -930,14 +930,15 @@ parent replay passed all 20 composition/recovery cases in 149.199 seconds.
 Its aggregate host budget is 240 seconds, matching other complete compositions;
 source freshness, per-checkpoint and quiet-window deadlines are unchanged.
 
-World Navigation's complete public facade is present, while its mandatory HTTP
-scene/profile join remains in progress. Snapshots has its five-format
+World Navigation now includes its mandatory exact HTTP scene/profile/provider
+join, unchanged foundation module proofs and strict original SDK continuity. Snapshots has its five-format
 foundation, original capture/VM/review/file/settings sources, consumer and
 uploaded wire originals, controlled SDK26–28 DocumentsProvider/ordinary picker
 ownership and passive native handoff sources. Its full public facade, actor and
 closed retirement composition remain open. Required missing capabilities
-continue to fail the aggregate suite. Observer v7 preserves historical v2–v6
-closed grammars and adds Lifecycle/Input; Snapshots is not admitted.
+continue to fail the aggregate suite. Observer v8 preserves historical v2–v7
+closed grammars and admits Snapshot actor configuration/dispatch; the actual
+Snapshot actor factory and full public facade are still pending.
 
 These host simulations, real private-file tests and partial Qt/Java/JNI/compiler
 checks establish source/test logic only. Full Android compilation, actual OS

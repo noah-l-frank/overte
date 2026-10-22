@@ -107,12 +107,12 @@ and their branches are outside this Android Phone continuation.
 | lifecycle-input | `lifecycle-under-load`, `tablet-input-isolation`, `text-input` | Distinct editor contexts/drafts, actual page Back/resume, original pending stale input rejection, held world input, stationary release and immutable counters. | changed, image, peer | Phone public facade, independent actor, all three mandatory foundations and strict v18 retirement are source/host verified; partial original Qt/QML/IME/keyboard checks pass; complete Android/device untested. [Details](adapters/android-phone/LIFECYCLE_INPUT_FEATURE.md) |
 | tablet-web | `tablet-web-video`, `tablet` | Same browser flows plus ordinary inline app routing and input ownership. | changed, image, peer | Phone adapter source implemented including both mandatory foundations; common journey and partial native/Java/JNI checks pass; complete Android build/device untested. [Details](adapters/android-phone/TABLET_WEB_FEATURE.md) |
 
-Current Android Phone source integration (2026-10-22): **12/14** full catalog
+Current Android Phone source integration (2026-10-22): **13/14** full catalog
 compositions have source/host evidence: authentication, avatar-people, create,
 emotes, world-web, tablet-web, graphics, audio, chat, scripts, assets and
-lifecycle-input. Create now includes its actual mandatory entity-sync dispatch
-and unchanged module proof. World Navigation has its complete public facade;
-its common HTTP scene/profile foundation join remains in progress. Snapshots
+lifecycle-input and world-navigation. Create now includes its actual mandatory entity-sync dispatch
+and unchanged module proof. World Navigation now includes the exact controlled HTTP scene/profile/provider
+join and unchanged mandatory foundation/module proofs. Snapshots
 has original file, native, VM, OS, DocumentsProvider and uploaded-wire sources;
 its public facade/actor/retirement composition remains in progress. The
 [Phone source matrix](adapters/android-phone/SOURCE_STATUS.md) records exact

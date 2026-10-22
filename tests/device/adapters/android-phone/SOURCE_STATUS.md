@@ -1,6 +1,6 @@
 # Android Phone source coverage
 
-This review is pinned to `62bb0685d073981009cfead3619984d2d70c224f`
+This review is pinned to `3dbdaeeacc1817a824623d8a44848e21e57a4cf3`
 (2026-10-22). The versioned [JSON matrix](phone-source-coverage.v1.json) records
 all 14 common v18 areas, their actual Phone Appium declarations/dispatch,
 default-off flags, every catalog foundation and its required capabilities,
@@ -17,7 +17,7 @@ are unknown here and belong to separate sessions.
 
 | Area | Public facade source | Whole catalog source join | Host facade | Native qualification available | Handoff |
 | --- | --- | --- | --- | --- | --- |
-| World Navigation | Implemented | **Pending: scene-profile conflict** | Reported | Partial Qt components | [Navigation](WORLD_NAVIGATION_FEATURE.md) |
+| World Navigation | Implemented | Implemented with prerequisites | Reported | Partial Qt components | [Navigation](WORLD_NAVIGATION_FEATURE.md) |
 | Authentication | Implemented | Implemented with prerequisites | Reported | Area instrumentation uncompiled | [Authentication](AUTHENTICATION_FEATURE.md) |
 | Avatar / People | Implemented | Implemented with prerequisites | Reported | Partial Qt components | [Avatar / People](AVATAR_PEOPLE.md) |
 | Create | Implemented | Implemented with prerequisites | Reported | Partial Qt / filesystem components | [Create](CREATE_FEATURE.md) |
@@ -50,17 +50,18 @@ observed product effect.
   source/host cases passed in 24.642 seconds. The original actor and independently
   received native properties must prove each edit; delivery acknowledgements,
   ignored domain entry and lost returns cannot produce a false success.
-- **World Navigation:** `domain-roundtrip` calls normal `scene.load` for
-  `OVERTE_E2E_SCENE_URL`; the Android debug Appium route accepts only the embedded
-  `overte-e2e://fixture/scene` URI. Mandatory `places-navigation`, normal navigation
-  profile and provider instead require an HTTP(S) `/scene.json`. No single suite
-  URL currently satisfies both. The full facade's initial scene must additionally
-  match the independently configured HTTP provider. Integration owns an exact
-  controlled scene/profile join through normal inputs and original arrival.
+- **World Navigation resolved:** Exact HTTP scene/profile/provider admission
+  through ordinary Go To inputs now runs unchanged `domain_roundtrip.py`,
+  `places_navigation.py`, feature preparation and the mandatory gate. Actual
+  advancing domain/scene arrivals prove effects. SDK session/generation/target,
+  PID and installed bytes stay pinned around every input; lost returns are never
+  replayed. Parent integration passed 71 combined Navigation/Create/OS-input
+  cases in 55.364 seconds, with explicit synthetic target boundaries.
 - **Snapshots:** capture/VM/review/normal controls, Save/Share consumer originals,
   exact owned files and HTTPS upload sources are present and have component
   evidence. The assessed adapter still declares no `feature.snapshots.*` triple,
-  complete feature flag/factory or observer area. Root must update this row only
+  complete feature flag/factory. Closed observer v8 configuration/dispatch now
+  exists, awaiting the independent actor factory. Root must update this row only
   after full public facade, mandatory foundations and closed retirement integrate.
 
 These are source findings, not skipped passing checkpoints. Missing abilities
@@ -68,8 +69,9 @@ stay red; this review changes no dispatch or gate to conceal them.
 
 ## Scope of evidence and updates
 
-The current [observer](script_observer.py) uses closed grammar **v7**, with
-historical v2–v6 grammars retained separately; snapshots is absent. Some older
+The current [observer](script_observer.py) uses closed grammar **v8**, with
+historical v2–v7 grammars retained separately. Snapshot admission/configuration
+exists, while its actor/facade composition remains pending. Some older
 handoffs still mention v17 or earlier observer versions. Current source imports
 common `VERSION=18`; the matrix uses that source and preserves the historical
 handoffs as qualified evidence. This document does not amend their old results.
