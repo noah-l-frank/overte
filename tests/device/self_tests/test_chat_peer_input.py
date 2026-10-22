@@ -105,6 +105,18 @@ class PeerInputTests(unittest.TestCase):
         for position in ({'x':float('nan'),'y':0,'z':0}, {'x':True,'y':0,'z':0}, {'x':100001,'y':0,'z':0}):
             with self.assertRaises(NativeUIError): command(dict(schemaVersion=1, commandId='b'*32, runId=RUN, operation='hold', position=position))
 
+    def test_v2_actual_avatar_source_is_preserved_and_cannot_downgrade(self):
+        def native_avatar(value):
+            value['native'].update(peerInputVersion=2,avatarSha256='7'*64,avatarPosition=dict(x=2,y=0,z=2))
+        self.mutate=native_avatar
+        original=self.peer.issue('hold',position=dict(x=40,y=0,z=2))
+        self.assertEqual(dict(x=2,y=0,z=2),original['avatarPosition'])
+        self.assertEqual('7'*64,original['avatarSha256'])
+        self.assertEqual('inspect',self.peer.issue('inspect')['operation'])
+        self.mutate=None
+        with self.assertRaises(NativeUIError):self.peer.issue('restore')
+        self.assertEqual('uncertain',self.store.read()['intents'][-1]['phase'])
+
     def test_original_fixture_normal_send_uses_actual_avatar_and_resumes_saved_motion(self):
         source = (Path(__file__).resolve().parents[1] / 'fixture/domain_peer_agent.js').read_text()
         program = r'''

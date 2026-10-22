@@ -33,6 +33,7 @@
 #include <MessagesClient.h>
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #include <QCryptographicHash>
+#include <QWeakPointer>
 #endif
 #include <NetworkAccessManager.h>
 #include <NodeList.h>
@@ -386,12 +387,28 @@ void Agent::executeScript() {
         // Actual downloaded assignment source, never an expected source digest
         // supplied in a query. The native IPC path is an explicit actor opt-in.
         const auto actualScriptSha=QString::fromLatin1(QCryptographicHash::hash(_scriptContents.toUtf8(),QCryptographicHash::Sha256).toHex());
-        DependencyManager::get<MessagesClient>()->configureFeatureChatActor(actualScriptSha);
 #endif
 
         // setup an Avatar for the script to use
         auto scriptedAvatar = DependencyManager::get<ScriptableAvatar>();
         scriptedAvatar->setID(getSessionUUID());
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        // Weak original Avatar ownership: the read cannot retain a departed
+        // ScriptableAvatar or substitute requested input coordinates. Its
+        // spatial transform getter reads the original locked transform.
+        const QWeakPointer<ScriptableAvatar> chatAvatar(scriptedAvatar.toWeakRef());
+        const std::weak_ptr<ScriptManager> chatEngine(_scriptManager);
+        DependencyManager::get<MessagesClient>()->configureFeatureChatActor(actualScriptSha,[chatAvatar,chatEngine] {
+            const auto owner=chatEngine.lock();
+            if (!owner || !owner->isRunning() || owner->isStopping() || owner->isFinished()) { return QVariantMap(); }
+            const auto original=chatAvatar.toStrongRef();
+            if (!original || original->getSessionUUID().isNull()) { return QVariantMap(); }
+            bool valid{false};const auto position=original->getWorldPosition(valid);
+            if (!valid || !owner->isRunning() || owner->isStopping() || owner->isFinished()) { return QVariantMap(); }
+            return QVariantMap{{"sessionId",original->getSessionUUID()},
+                {"position",QVariantMap{{"x",double(position.x)},{"y",double(position.y)},{"z",double(position.z)}}}};
+        });
+#endif
 
         // call model URL setters with empty URLs so our avatar, if user, will have the default models
         scriptedAvatar->setSkeletonModelURL(QUrl());

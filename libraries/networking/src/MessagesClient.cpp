@@ -57,18 +57,18 @@ QVariantMap MessagesClient::featureChatActorInput() {
     return _featureChatActorFiles?_featureChatActorFiles->takeInput():QVariantMap();
 }
 
-bool MessagesClient::configureFeatureChatActor(const QString& actualScriptSha256) {
+bool MessagesClient::configureFeatureChatActor(const QString& actualScriptSha256,std::function<QVariantMap()> avatarPosition) {
     if (!QCoreApplication::arguments().contains("--testScript")) { return false; }
     if (QThread::currentThread()!=thread()) {
         if (!thread() || !thread()->isRunning()) { return false; }
         bool configured{false};
-        if (!QMetaObject::invokeMethod(this,[&] { configured=configureFeatureChatActor(actualScriptSha256); },Qt::BlockingQueuedConnection)) { return false; }
+        if (!QMetaObject::invokeMethod(this,[&] { configured=configureFeatureChatActor(actualScriptSha256,avatarPosition); },Qt::BlockingQueuedConnection)) { return false; }
         return configured;
     }
     if (_featureChatActorFiles || _subscribedChannels.contains("chat")) { return false; }
     const auto arguments=QCoreApplication::arguments();const auto index=arguments.indexOf("--e2eChatActorDir");
     if (index<0 || index+1>=arguments.size()) { return false; }
-    auto files=std::make_shared<overte::e2e::ChatActorFiles>(arguments.at(index+1),actualScriptSha256,_featureChat.instance());
+    auto files=std::make_shared<overte::e2e::ChatActorFiles>(arguments.at(index+1),actualScriptSha256,_featureChat.instance(),std::move(avatarPosition));
     if (!files->available()) { return false; }
     _featureChatActorFiles=files;
     // This is an explicitly owned secondary fixture client, never a primary
