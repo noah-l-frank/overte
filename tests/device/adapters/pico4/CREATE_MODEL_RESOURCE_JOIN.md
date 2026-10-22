@@ -70,7 +70,8 @@ image bytes, complete allocation history, actual GPU texture binding, both
 completed draw eyes and submitted capture, current visible pixels and peer
 replication are still separate required joins. The internal property outcome
 remains `texture-property-applied`; this component does not set the full
-common Create `textured` checkpoint. Model-to-export composition, PolyVox
+common Create `textured` checkpoint. The private [parent owner](CREATE_FEATURE_OWNER.md)
+now joins the same actual normal Model to Save/export and subsequent deletion. PolyVox
 world interaction, permission/denied-authority restoration and whole GUI/
 script/resource closure remain part of full Create work.
 
