@@ -44,7 +44,32 @@ seams. The actual ordinary Surface transport and real loopback publication
 authorization are independently covered by their component suites. Native
 compilation and device qualification remain unverified.
 
-The new contracts `ios-avatar-observer` and `ios-avatar-observation-record`
-write/read version 1. This is the observation coordinator, not an advertised
+The contracts `ios-avatar-observer` and `ios-avatar-observation-record`
+write version 2 and read versions 1 and 2. Frozen version-1 files retain their
+original bytes and grammar. Version 2 stores every acquisition component and
+the completed staged record in separate immutable private originals. The
+fixed journal retains planned/opened/saved inode descriptors, rather than
+nesting growing native histories inside its 64 KiB packed payload. Record-2
+parts bind every component descriptor to its actual retained bytes; interrupted
+opened parts remain owned even if they contain no complete JSON. Recovery
+adopts a completed staged file without another native query or writer resend.
+The private carrier namespaces `avatar-observation-part` and
+`avatar-observation-staged` have independent version-1 storage envelopes; they
+add no product evidence. Historical publication also replaces the live
+OriginalFrameStore guard with an explicitly read-only guard, so candidate
+continuity cannot cause an SDK call during pure validation. This is the observation coordinator, not an advertised
 whole-feature capability. Whole feature preparation, recipe coordination,
 input-outcome recovery and complete paired cleanup remain separate work.
+
+Within one observer instance, `AvatarRecordCache` reuses a fully typed original
+record only after two byte-based reads agree across independent actual file
+signature inventories. Each use checks the exact dependency files again for
+original device/inode, ownership, mode, link count, length, mtime and ctime, and
+records their actual read membership. Planned-but-uncreated paths remain
+separate absence dependencies: every use checks `lstat`-equivalent existence,
+including dangling symlinks, without inventing a successful original read.
+Private parent ownership and 0700 mode are checked again on reuse.
+Any changed dependency fails that cache
+closed, even if bytes and mtime are later restored. A cold reader still performs
+full original decoding. This avoids repeatedly decompressing every historical
+record at each pending-journal transition; it adds no product fact or timestamp.

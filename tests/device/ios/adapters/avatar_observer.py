@@ -6,7 +6,7 @@ recovery abandons that acquisition before taking distinct passive samples.
 """
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
-from copy import deepcopy
+from copy import deepcopy,copy
 import hashlib
 import os
 import time
@@ -28,7 +28,9 @@ from ios.adapters.avatar_source_recovery import IOSAvatarSourceRecovery
 from ios.adapters.avatar_surface import IOSAvatarSurface
 from ios.adapters.avatar_sources import IOSAvatarSources
 
-VERSION=1
+VERSION=2
+READS=(1,2)
+PARTS=frozenset(('started','authorityBefore','baseline-primary','baseline-actor','surface-primary','surface-actor','primaryPeer','primary','actorBefore','actor','actorAfter','authorityAfter','image'))
 ROLES=('primary','actor')
 
 
@@ -54,20 +56,84 @@ class IOSAvatarObserver:
         need(same(self.binding,sources[role].binding));self.lock.assert_held();self.failed=False
         self.originals=OriginalFrameStore(self.root,self.binding,self.run,role,guard,self.storage,
             namespace='avatar-observation',schema_prefix='avatarObservation',monotonic=monotonic)
-        self.previous=store.read();self.state=dict(rows=[],pending=None,baseline=None,authorityBarrier=None,phaseInstance=None)
+        self.previous=store.read();self.schema_version=VERSION if self.previous is None or unpack(self.previous['payload'])[0]['pending'] is None else self.previous['iosAvatarObserverVersion']
+        self.state=dict(rows=[],pending=None,baseline=None,authorityBarrier=None,phaseInstance=None)
         if self.previous is not None:self.state=self.decode(self.previous)
 
-    def envelope(self,state):
-        return dict(iosAvatarObserverVersion=VERSION,binding=self.binding,runId=self.run,role=self.role,
+    def envelope(self,state,version=None):
+        version=getattr(self,'schema_version',VERSION) if version is None else version;state=deepcopy(state)
+        if version>=2:
+            for row in state['rows']:row.setdefault('staged',None)
+        return dict(iosAvatarObserverVersion=version,binding=self.binding,runId=self.run,role=self.role,
             artifactRoot=str(self.root),fixtureUrl=self.phase.fixture_url,payload=pack([state]))
+
+    def carrier(self,kind,*,live=False):
+        need(kind in ('part','staged'))
+        return OriginalFrameStore(self.root,self.binding,self.run,self.role,self.guard if live else lambda:True,
+            (lambda name,value:self.carrier_storage(kind,name,value)) if live else lambda *_:need(False),
+            namespace='avatar-observation-'+kind,schema_prefix='avatarObservation'+kind.title(),monotonic=getattr(self,'monotonic',time.monotonic))
+
+    def absent_file(self,path):
+        need(not os.path.lexists(path))
+        if getattr(self,'record_absences',None) is not None:self.record_absences.add(path)
+
+    def carrier_file(self,kind,value):
+        store=self.carrier(kind);store.original(value);path=store.path(value)
+        if value['phase']=='planned':self.absent_file(path);return None
+        descriptor=os.open(path,os.O_RDONLY|getattr(os,'O_NOFOLLOW',0)|getattr(os,'O_NONBLOCK',0))
+        with os.fdopen(descriptor,'rb') as stream:
+            store.file(path,stream.fileno(),value);raw=stream.read(value['bytes']+1);store.file(path,stream.fileno(),value)
+        need(len(raw)<=value['bytes']);complete=len(raw)==value['bytes'] and hashlib.sha256(raw).hexdigest()==value['sha256']
+        if value['phase']=='saved':need(complete)
+        from adapters.original_file_reads import record as read_original
+        read_original(path)
+        return dict(identity=value['file'],bytes=len(raw),sha256=hashlib.sha256(raw).hexdigest(),complete=complete)
+
+    def carrier_storage(self,kind,name,value):
+        self.bound();need(name=='original');p=self.state['pending'];need(p is not None);self.carrier(kind).original(value)
+        need(value['index']==p['index'])
+        if kind=='part':
+            field=self.writing_part;need(field in PARTS);old=p['partial'].get(field)
+        else:old=p['record']
+        need(value['phase']=='planned' if old is None else value['phase']=={'planned':'opened','opened':'saved'}.get(old['phase'])
+            and all(same(value[key],old[key]) for key in value if key not in ('phase','file'))
+            and (old['phase']=='planned' or same(value['file'],old['file'])))
+        if kind=='part':p['partial'][field]=deepcopy(value)
+        else:p['record']=deepcopy(value)
+        self.save()
+
+    def partial_values(self,p,version=None,*,complete=False):
+        version=getattr(self,'schema_version',VERSION) if version is None else version
+        if version==1:return deepcopy(p['partial'])
+        need(type(p['partial']) is dict and set(p['partial'])<=PARTS);result={}
+        for name,ref in p['partial'].items():
+            self.carrier('part').original(ref);need(ref['index']==p['index']);file=self.carrier_file('part',ref)
+            ready=file is not None and file['complete']
+            if complete:need(ready)
+            if ready:
+                value=self.carrier('part').read(ref);exact(value,{'name','value'});need(value['name']==name and type(value['value']) is dict);result[name]=value['value']
+        return result
+
+    def partial_files(self,p):
+        return {name:self.carrier_file('part',ref) for name,ref in p['partial'].items()}
+
+    def pending_record(self,p,version=None):
+        version=getattr(self,'schema_version',VERSION) if version is None else version
+        if p['record'] is None:return None
+        if version==1:return deepcopy(p['record'])
+        self.carrier('staged').original(p['record']);need(p['record']['index']==p['index'])
+        file=self.carrier_file('staged',p['record'])
+        return None if file is None or not file['complete'] else self.carrier('staged').read(p['record'])
+
 
     def decode(self,value):
         exact(value,{'iosAvatarObserverVersion','binding','runId','role','artifactRoot','fixtureUrl','payload'})
-        rows=unpack(value['payload']);need(len(rows)==1 and same(value,self.envelope(rows[0])))
+        rows=unpack(value['payload']);version=value['iosAvatarObserverVersion']
+        need(type(version) is int and version in READS and len(rows)==1 and same(value,self.envelope(rows[0],version)))
         state=rows[0];exact(state,{'rows','pending','baseline','authorityBarrier','phaseInstance'})
         need(type(state['rows']) is list and len(state['rows'])<=512)
         for index,row in enumerate(state['rows'],1):
-            exact(row,{'index','status','ticket','original'});need(type(row['index']) is int and row['index']==index
+            exact(row,{'index','status','ticket','original'}|({'staged'} if version>=2 else set()));need(type(row['index']) is int and row['index']==index
                 and row['status'] in ('observed','abandoned'));identifier(row['ticket']);self.originals.expand(row['original'])
             record=self.read_record(row);need(record['index']==index and record['ticket']==row['ticket'] and record['status']==row['status'])
         if state['baseline'] is not None:
@@ -79,7 +145,9 @@ class IOSAvatarObserver:
             p=state['pending'];exact(p,{'index','ticket','partial','original','record','abandonedOriginal'})
             need(type(p['index']) is int and p['index']==len(state['rows'])+1 and type(p['partial']) is dict);identifier(p['ticket'])
             if p['original'] is not None:self.originals.original(p['original'])
-            if p['record'] is not None:self.record(p['record'])
+            self.partial_values(p,version)
+            staged=self.pending_record(p,version)
+            if staged is not None:self.record(staged)
         return deepcopy(state)
 
     def bound(self):
@@ -102,7 +170,11 @@ class IOSAvatarObserver:
 
     def remember(self,name,value):
         self.bound();p=self.state['pending'];need(p is not None and name not in p['partial'])
-        p['partial'][name]=deepcopy(value);self.save();return value
+        if getattr(self,'schema_version',VERSION)==1:p['partial'][name]=deepcopy(value);self.save();return value
+        need(name in PARTS and type(value) is dict);self.writing_part=name
+        try:self.carrier('part',live=True).write(p['index'],dict(name=name,value=deepcopy(value)))
+        finally:self.writing_part=None
+        return value
 
     @staticmethod
     def reference(owner,ref=None):
@@ -114,21 +186,27 @@ class IOSAvatarObserver:
     def partial_file(self,original):
         if original is None:return None
         self.originals.original(original);path=self.originals.path(original)
-        if original['phase']=='planned':need(not path.exists());return None
+        if original['phase']=='planned':self.absent_file(path);return None
         descriptor=os.open(path,os.O_RDONLY|getattr(os,'O_NOFOLLOW',0)|getattr(os,'O_NONBLOCK',0))
         with os.fdopen(descriptor,'rb') as stream:
             self.originals.file(path,stream.fileno(),original);raw=stream.read(original['bytes']+1);self.originals.file(path,stream.fileno(),original)
         need(len(raw)<=original['bytes'])
         if original['phase']=='saved':need(len(raw)==original['bytes'] and hashlib.sha256(raw).hexdigest()==original['sha256'])
+        from adapters.original_file_reads import record as read_original
+        read_original(path)
         return dict(identity=original['file'],bytes=len(raw),sha256=hashlib.sha256(raw).hexdigest())
 
     def record(self,value,depth=0):
         need(integer(depth,0,8))
-        exact(value,{'iosAvatarObservationRecordVersion','index','ticket','status','partial','components','facts','abandonment'})
-        need(type(value['iosAvatarObservationRecordVersion']) is int and value['iosAvatarObservationRecordVersion']==VERSION
+        version=value.get('iosAvatarObservationRecordVersion');need(type(version) is int and version in READS)
+        exact(value,{'iosAvatarObservationRecordVersion','index','ticket','status','partial','components','facts','abandonment'}|({'parts','partFiles'} if version>=2 else set()))
+        need(type(value['iosAvatarObservationRecordVersion']) is int and value['iosAvatarObservationRecordVersion'] in READS
             and integer(value['index'],1,512) and value['status'] in ('observed','abandoned')
             and type(value['partial']) is dict and type(value['components']) is dict)
         identifier(value['ticket']);exact(value['components'],{'sources','peers','samples'})
+        if version>=2:
+            parts=dict(index=value['index'],partial=value['parts'])
+            need(same(self.partial_values(parts,version),value['partial']) and same(self.partial_files(parts),value['partFiles']))
         for kind in ('sources','peers'):
             exact(value['components'][kind],set(ROLES))
             for row in value['components'][kind].values():exact(row,{'owner','recovery'})
@@ -141,16 +219,33 @@ class IOSAvatarObserver:
             need(same(facts['current'],{subject:partial[subject] for subject in ROLES})
                 and all(same(facts['acquisition'][key],item) for key,item in partial['started'].items()))
         else:
-            need(value['facts'] is None);abandoned=value['abandonment'];exact(abandoned,{'priorOwner','partialFile'})
+            need(value['facts'] is None);abandoned=value['abandonment'];exact(abandoned,{'priorOwner','partialFile'}|({'stagedFile'} if version>=2 else set()))
             prior=abandoned['priorOwner'];exact(prior,{'iosAvatarObserverVersion','binding','runId','role','artifactRoot','fixtureUrl','payload'})
-            rows=unpack(prior['payload']);need(len(rows)==1 and same(prior,self.envelope(rows[0])))
+            rows=unpack(prior['payload']);version=prior['iosAvatarObserverVersion']
+            need(type(version) is int and version in READS and len(rows)==1 and same(prior,self.envelope(rows[0],version)))
             pending=rows[0]['pending'];need(pending is not None and pending['index']==value['index'] and pending['ticket']==value['ticket']
-                and same(pending['partial'],value['partial']) and same(abandoned['partialFile'],self.partial_file(pending['original'])))
-            if pending['record'] is not None:self.record(pending['record'],depth+1)
+                and same(self.partial_values(pending,version),value['partial']) and same(abandoned['partialFile'],self.partial_file(pending['original'])))
+            if value['iosAvatarObservationRecordVersion']>=2:
+                need(same(abandoned['stagedFile'],None if pending['record'] is None else self.carrier_file('staged',pending['record'])))
+            staged=self.pending_record(pending,version)
+            if staged is not None:self.record(staged,depth+1)
         return value
 
     def read_record(self,row):
-        value=self.originals.read(self.originals.expand(row['original']));self.record(value)
+        from ios.adapters.avatar_record_cache import AvatarRecordCache
+        if not hasattr(self,'record_cache'):self.record_cache=AvatarRecordCache()
+        def validate():
+            previous=getattr(self,'record_absences',None);self.record_absences=set()
+            try:return self._read_record(row)
+            finally:self.last_record_absences=set(self.record_absences);self.record_absences=previous
+        return self.record_cache.read(row,validate,absent=lambda:self.last_record_absences)
+
+    def _read_record(self,row):
+        reader=copy(self.originals);reader.guard=lambda:True;reader.intent=lambda *_:need(False)
+        value=reader.read(reader.expand(row['original']));self.record(value)
+        if row.get('staged') is not None:
+            need(value['iosAvatarObservationRecordVersion']==2 and same(self.carrier('staged').read(row['staged']),value))
+        elif value['iosAvatarObservationRecordVersion']==2:need(False)
         need(all(value[key]==row[key] for key in ('index','ticket','status')));return value
 
     def snapshot(self):
@@ -206,20 +301,23 @@ class IOSAvatarObserver:
 
     def finish(self,record):
         self.bound();p=self.state['pending'];need(p is not None and record['index']==p['index']);self.record(record)
-        if p['record'] is None:p['record']=deepcopy(record);self.save()
-        else:need(same(record,p['record']))
+        if p['record'] is None:
+            if getattr(self,'schema_version',VERSION)==1:p['record']=deepcopy(record);self.save()
+            else:self.carrier('staged',live=True).write(record['index'],record)
+        else:need(same(record,self.pending_record(p)))
         if p['original'] is None:original=self.originals.write(record['index'],record)
         else:
             need(p['original']['phase']=='saved' and same(self.originals.read(p['original']),record))
             original=self.originals.compact(p['original'])
         row={key:record[key] for key in ('index','status','ticket')};row['original']=original
-        self.state['rows'].append(row);self.state['pending']=None;self.save();return deepcopy(row)
+        if record['iosAvatarObservationRecordVersion']>=2:row['staged']=deepcopy(p['record'])
+        self.state['rows'].append(row);self.state['pending']=None;self.schema_version=VERSION;self.save();return deepcopy(row)
 
     def recover(self):
         self.bound();p=self.state['pending']
         if p is None:return
-        if p['record'] is not None and p['original'] is not None and p['original']['phase']=='saved':
-            return self.finish(p['record'])
+        staged=self.pending_record(p)
+        if staged is not None and (p['original'] is None or p['original']['phase']=='saved'):return self.finish(staged)
         # No native read is repeated. Each component keeps its actual partial
         # query, opened inode and native source prefix in its own recovery owner.
         for subject in ROLES:
@@ -230,9 +328,11 @@ class IOSAvatarObserver:
         # overwritten by the abandonment record; its raw inode is retained.
         if p['abandonedOriginal'] is None or p['record'] is not None:
             p['abandonedOriginal']=dict(priorOwner=deepcopy(self.previous),partialFile=self.partial_file(p['original']))
+            if self.schema_version>=2:p['abandonedOriginal']['stagedFile']=None if p['record'] is None else self.carrier_file('staged',p['record'])
             p['record']=None;p['original']=None;self.save()
-        record=dict(iosAvatarObservationRecordVersion=VERSION,index=p['index'],ticket=p['ticket'],status='abandoned',
-            partial=deepcopy(p['partial']),components=self.snapshot(),facts=None,abandonment=deepcopy(p['abandonedOriginal']))
+        record=dict(iosAvatarObservationRecordVersion=self.schema_version,index=p['index'],ticket=p['ticket'],status='abandoned',
+            partial=self.partial_values(p),components=self.snapshot(),facts=None,abandonment=deepcopy(p['abandonedOriginal']))
+        if self.schema_version>=2:record.update(parts=deepcopy(p['partial']),partFiles=self.partial_files(p))
         p['record']=None;self.save();return self.finish(record)
 
     def provider(self):
@@ -290,12 +390,13 @@ class IOSAvatarObserver:
             baseline=self.reference(self.sources[subject],self.state['baseline'][subject]);barriers[subject]=dict(
                 nativeEpochMs=baseline['clockJoin']['nativeAfter']['capturedEpochMs'],providerEpochMs=self.state['authorityBarrier'],
                 httpEvent=len(baseline['originals']['http']['events']))
-        facts=dict(iosAvatarFactsOriginalVersion=VERSION,runId=self.run,role=self.role,sequence=p['index'],ticket=ticket,
+        facts=dict(iosAvatarFactsOriginalVersion=1,runId=self.run,role=self.role,sequence=p['index'],ticket=ticket,
             phaseInstance=self.state['phaseInstance'],baseline=deepcopy(self.state['baseline']),current=dict(primary=pstate,actor=astate),
             primaryPeer=ppeer,actorBefore=abefore,actorAfter=aafter,provider=provider,barriers=barriers,image=image,
             imageBefore=previous if phase['verb'] in ('avatar-scale','wearable-add','avatar-bookmark-choose') else None,acquisition=clock)
-        record=dict(iosAvatarObservationRecordVersion=VERSION,index=p['index'],ticket=ticket,status='observed',partial=deepcopy(p['partial']),
+        record=dict(iosAvatarObservationRecordVersion=self.schema_version,index=p['index'],ticket=ticket,status='observed',partial=self.partial_values(p,complete=True),
             components=self.snapshot(),facts=facts,abandonment=None)
+        if self.schema_version>=2:record.update(parts=deepcopy(p['partial']),partFiles=self.partial_files(p))
         proof=self.decoder(record).derive(facts);row=self.finish(record);need(row['index']>after_sequence)
         # The original acquisition clocks are immutable. Include decoding and
         # private-file persistence in the return deadline without retiming any
