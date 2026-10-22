@@ -1586,3 +1586,18 @@ cancel12.420s; quiet11.572s; recovery8.857s; fences14.817s. The four required
 repository suites pass2.94s; registry and whitespace pass. Each group remains
 below the existing120-second bound. No source/host component result is counted
 as an additional complete feature area.
+
+
+## Full compiled Chat dispatcher source selection
+
+Fixed follow-up `ea8b912f5434e38872fefff8726ba154f3d2f6bd` replaces only
+the catalog's prior whole dispatcher positive with the same25 actions and all26
+independent Witness stages, now through three separate original compiled code
+histories for Primary, Actor and Witness. All prior positive assertions remain.
+Recovery still excludes the legacy whole positive, so no second full journey is
+introduced. The small compiled ownership prefix joins the archive/factory group.
+The four affected groups pass4/130 in130.63s: compiled journey104.869s,
+recovery21.157s, archive/prefix4.533s and coverage0.069s. The unchanged120-second
+per-group bound holds. Required repository checks pass2.85s. This strengthens
+host source qualification; a complete warm Parent-to-archive execution, hermetic
+peer build receipt and real target qualification remain outstanding.

@@ -9,7 +9,8 @@ import unittest
 
 ROOT=Path(__file__).resolve().parents[4]
 sys.path[:0]=[str(ROOT/'tests/device'),str(ROOT/'android/vr/pico/tests/device')]
-JOURNEY='self_tests.test_chat_dispatcher.DispatcherTests.test_all_25_real_child_steps_share_original_native_ui_storage_and_peer_histories'
+LEGACY_JOURNEY='self_tests.test_chat_dispatcher.DispatcherTests.test_all_25_real_child_steps_share_original_native_ui_storage_and_peer_histories'
+JOURNEY='self_tests.test_chat_compiled_dispatcher.CompiledDispatcherTests.test_all_original_25_steps_and_26_independent_compiled_witness_stages'
 
 
 def cases(suite):
@@ -26,7 +27,7 @@ def selected(part):
         'self_tests.test_chat_cleanup_admission',
         'test_chat_lifecycle_phase_transport'])
     suite=loader.loadTestsFromName('self_tests.test_chat_dispatcher')
-    return unittest.TestSuite(case for case in cases(suite) if case.id()!=JOURNEY)
+    return unittest.TestSuite(case for case in cases(suite) if case.id()!=LEGACY_JOURNEY)
 
 
 if __name__=='__main__':
