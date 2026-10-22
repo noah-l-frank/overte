@@ -881,7 +881,12 @@
         "tests/device/adapters/pico4/audio_final_close.py",
         "tests/device/adapters/pico4/AUDIO_FINAL_CLOSE.md",
         "tests/device/self_tests/test_pico_audio_final_close.py",
-        "android/vr/pico/tests/device/test_audio_final_close.py"
+        "android/vr/pico/tests/device/test_audio_final_close.py",
+        "tests/device/adapters/pico4/audio_recipe.py",
+        "tests/device/adapters/pico4/AUDIO_NORMAL_RECIPE.md",
+        "tests/device/adapters/pico4/AUDIO_ORIGINAL_GAPS.md",
+        "tests/device/self_tests/test_pico_audio_recipe.py",
+        "android/vr/pico/tests/device/test_audio_normal_recipe.py"
       ],
       "declaredCheckpoints": 14,
       "inputVerbs": [

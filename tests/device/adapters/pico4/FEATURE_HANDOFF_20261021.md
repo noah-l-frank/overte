@@ -1083,3 +1083,23 @@ After the earlier integrated ten-group host run, two narrow Audio countercases
 also pass in 2.513s: phase progress inside the final native guard prevents normal
 HOME and private tap release. They preserve the final independent phase check
 after native/PCM admission. Full Audio and Chat remain partial.
+
+
+## Integrated normal Audio recipe, still partial
+
+The [private normal Audio recipe](AUDIO_NORMAL_RECIPE.md) now composes all 14
+unchanged v16 input stages over the original page, five capture cycles, once-only
+HOME/return and final double-X owners. Parent intent precedes child construction;
+immutable child sources, exact controller envelopes and original PCM descriptors
+remain owned. Lost readonly final quiet/deferred waits can reobserve only after
+checking the exact existing original prefix; normal inputs and PCM writers are
+never replayed. No public complete Audio capability is registered.
+
+The integrated root selection passes 3/92 groups in 92.47s without skips:
+coverage 0.074s, normal flow 38.802s and remaining recipe/factory fences 53.592s.
+The later readonly final-wait and private-prepare recovery cases pass separately
+(2/2, 32.875s). These use
+explicit native/Qt/OS/PCM host seams, not physical acoustic or device evidence.
+The [original evidence gaps](AUDIO_ORIGINAL_GAPS.md) retain the concrete missing
+physical acoustic/independent peer producers and executed same-PID v16 cleanup
+incompatibility. Original journals and PCM remain retained; full areas stay 3/14.
