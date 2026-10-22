@@ -40,12 +40,18 @@ bind the actual Create source before choosing this recipe.
 
 Phone may use actual Android Back. iOS uses the actual normal tablet Back
 control, with its actual current semantic source/history. Pico's reviewed
-3D `TabletRoot` has a different app stack and no demonstrated normal Create
-Back control: the old native bridge's vocabulary `nav.back` proves no actual
-control exists on that page. Establish the original real user route before
-enabling that adapter. Do not substitute Home, send an unrelated key or invoke
-`returnToPreviousApp` directly to claim Back. A missing route is a concrete
-implementation/product-source blocker, not a passing skipped checkpoint.
+3D `TabletRoot` uses the original `pico-tablet-x-back` mapping in
+`scripts/system/tablet-ui/tabletUI.js`: the Pico-enabled left controller X
+(`Controller.Standard.LeftPrimaryThumb`) sends a shown app page to Home and
+closes the shown tablet when already on Home. The Pico default script enables
+its existing `deferTabletCreationUntilOpen` condition. The original OpenXR
+`left_primary_click` action and existing left/primary controller-button profile
+reach that same normal control. The [bounded Pico X owner](../adapters/pico4/LIFECYCLE_BACK.md)
+retains its exact one-send stream and independently observes Home, original
+Qt editor lifetimes and actual VR keyboard quiet. This establishes a concrete
+normal Back route; the complete sixteen-step Pico adapter is still missing.
+Do not call Home or `returnToPreviousApp` directly or treat an input ACK as
+observed Back, context retirement, released keyboard or completed cleanup.
 
 Chat background/resume retains its own typed draft. The original `chat.hidden`
 handler releases text focus and `keyboardRaised` without clearing text. Require
