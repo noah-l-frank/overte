@@ -12,6 +12,8 @@
 #include <QSet>
 #include <QTextStream>
 #include <QThread>
+#include <QTimer>
+#include <QPointer>
 #include <QUuid>
 #include <QVariant>
 #include <QUrl>
@@ -21,6 +23,8 @@
 #include <memory>
 #include <type_traits>
 #define OVERTE_E2E_FEATURE_TESTS 1
+struct EntityItem:QObject{};using EntityItemPointer=std::shared_ptr<EntityItem>;
+using RenderableModelEntityItem=EntityItem;
 #include "CreateEntityLifetimes.h"
 #include "ChatDomainSession.h"
 namespace glm {struct vec3 {float x=0,y=0,z=0;};struct quat {float x=0,y=0,z=0,w=1;};}
@@ -38,7 +42,6 @@ struct EntityItemProperties {
     bool getVisible() const{return visible;}bool getLocked() const{return false;}auto getLastEdited() const{return edited;}
 };
 struct PickFilter {enum class FlagBit {DOMAIN_ENTITIES,COARSE};static int getBitMask(FlagBit b){return b==FlagBit::DOMAIN_ENTITIES ? 1 : 2;}};
-struct EntityItem{};using EntityItemPointer=std::shared_ptr<EntityItem>;
 struct EntityTree {QHash<QUuid,EntityItemProperties>* values;QHash<QUuid,EntityItemPointer> objects;
     template<typename F>void withReadLock(F&& fn){fn();}
     EntityItemPointer findEntityByEntityItemID(const QUuid& id){if(!values->contains(id)){objects.remove(id);return {};}
@@ -137,5 +140,24 @@ int main(int argc,char** argv) {
     for(int i=7;i<512;++i){assert(!target.featureCreateEntities(command(i)).isEmpty());}
     assert(target.featureCreateEntities(command(512)).isEmpty());assert(target.featureCreateEntities(command(2))==imported);
     target._featureLifecycle.reset();assert(target.featureCreateEntities(command(2)).isEmpty());
+    // Exact original factory deleter: shared holder retirement precedes actual
+    // QObject death; only the ordinary Qt event loop delivers deleteLater().
+    auto originalDeleter=
+#include "OriginalEntityDeleter.inc"
+    ;
+    TestScriptingInterface deferred;
+    const QUuid deferredId("77777777-7777-7777-7777-777777777777");
+    EntityItemPointer pending(new EntityItem,originalDeleter);std::weak_ptr<EntityItem> weak=pending;QPointer<EntityItem> guard(pending.get());
+    entities->values[deferredId]=initialProperties;entities->scan={deferredId};entities->tree.objects[deferredId]=pending;
+    const auto live=deferred.featureCreateEntities(command(1));
+    assert(source(live).value("entityLifetimes").toList().first().toMap().value("alive").toBool());
+    entities->values.remove(deferredId);entities->tree.objects.remove(deferredId);entities->scan.clear();pending.reset();
+    assert(weak.expired() && guard);const auto pendingDeath=deferred.featureCreateEntities(command(2));
+    assert(source(pendingDeath).value("entities").toList().isEmpty());
+    assert(source(pendingDeath).value("entityLifetimes").toList().first().toMap().value("alive").toBool());
+    QObject::connect(guard.data(),&QObject::destroyed,&app,[&]{app.quit();});
+    QTimer::singleShot(1000,&app,[&]{app.exit(1);});assert(app.exec()==0 && !guard);
+    const auto actualDeath=deferred.featureCreateEntities(command(3));
+    assert(!source(actualDeath).value("entityLifetimes").toList().first().toMap().value("alive").toBool());
     return 0;
 }

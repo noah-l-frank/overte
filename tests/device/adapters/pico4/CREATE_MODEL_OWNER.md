@@ -68,6 +68,13 @@ drew either eye or changed current pixels. Those independent sources still need
 to join before the full Create checkpoint can set its `textured` state. No full
 feature observation is emitted by this owner.
 
+The original Model entity factory's shared-pointer deleter uses `deleteLater()`.
+Entity source v3 now retains its actual QObject guard as well as the original
+weak shared holder: `alive` remains true until both holders and the original
+QObject have died. No observer dispatches Qt events or deletes an object. The
+native host counterexample compiles the exact original factory deleter and
+proves the pending-deletion interval before ordinary Qt event-loop delivery.
+
 ## Original work and object lifetime
 
 The shared ScriptWork v2 source records real native timer registrations,
