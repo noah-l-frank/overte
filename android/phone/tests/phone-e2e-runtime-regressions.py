@@ -280,5 +280,8 @@ for name in selected + COMMON_HOST_CHECKS + (EXTENDED_HOST_CHECKS if args.extend
     # Primary cleanup stage counters include ten full public prefixes and real
     # quiet/lock intervals (98.782s before the additional memory-pin case);
     # apply the same complete-composition budget to their file.
+    # Eight complete host history-pass methods, including actual partial-image
+    # recovery and late original/manifest/absence mutations, measured129.302s.
+    # Their aggregate uses240s; individual file/source deadlines stay unchanged.
     subprocess.run(arguments, cwd=ROOT, check=True,
                    timeout=10800 if name in EXTENDED_HOST_CHECKS else 600 if name.endswith("test_assets_feature.py") else 180 if name.endswith(("phone-chat-native-test.py","phone-chat-peer-native-test.py","phone-chat-history-native-test.py","phone-snapshot-settings-native-test.py")) else 240 if name.endswith(("test_graphics_feature.py","test_create_feature.py","test_avatar_people_feature.py","test_chat_feature.py","test_snapshots_full_retirement_audit.py","test_snapshots_quiet_role_reuse.py","test_snapshots_primary_cleanup_stages.py","test_snapshots_history_pass.py")) else 90)

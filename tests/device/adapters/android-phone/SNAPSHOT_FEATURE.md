@@ -1022,6 +1022,26 @@ borrow a valid before packet. Diagnostic frames and their complete original
 groups remain in the archive. These historical floors never replace new target
 observations.
 
+`SnapshotHistoryReadPass` defines a single-use primary cleanup history boundary.
+Construction requires the original source lock, current native authority, the
+same existing SDK-session pin, and verified ready role/cleaned feature owners.
+Between locks it uses isolated read-only engines to reopen every historical
+manifest, frame JSON, PNG and binary, including genuinely planned absent PNGs.
+All original bytes/hash/schema/image checks and per-file five-second bounds
+remain. This host pass cannot acquire target facts, send input, recover or
+publish. It records actual metadata around each full read and seals the exact
+receipt collection; it returns only a historical graph digest.
+
+On reacquisition, `finish()` requires the same process/thread, SDK pin, trusted
+headers/binding, role state/history and cleanup activation. Actual owner inode,
+mode, link count and modification/change metadata reject equal-payload header
+replacement. Every original file and absence receipt is rechecked before and
+after current native/phase authority, so a file changed after replay cannot be
+hidden by the digest. The pass closes on success or failure before a new normal
+role acquisition. The ordinary role history path retains its original locked
+authority. Eight host test methods exercise this helper; its public observation
+integration and both complete common replay qualifications remain pending.
+
 The unchanged `quiet_window` requires at least three advancing samples spanning
 three real seconds and resets after any gap greater than 1.5 seconds. An
 incomplete batch saves its history and returns without a successful witness.
