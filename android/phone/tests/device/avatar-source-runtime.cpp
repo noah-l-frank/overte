@@ -7,6 +7,7 @@
 #include <QJsonDocument>
 #include "libraries/render-utils/src/FeatureModelLoads.h"
 #include "libraries/networking/src/FeatureResourceReplies.h"
+#include "libraries/networking/src/FeaturePeopleReplies.h"
 struct Reply : QNetworkReply {
     QByteArray raw{"original missing resource"};qint64 cursor{0};
     explicit Reply(const QUrl& url) {
@@ -41,5 +42,16 @@ int main(int argc,char** argv) {
             || rows[0].toMap().value("responseId").toString()!=QString(32,'c')) { return 4; }
     Reply unrelated(QUrl("https://controlled.invalid/private"));replies.completed(&unrelated,unrelated.url());
     if (replies.snapshot(QString(32,'a')).value("events").toList()!=rows || !replies.snapshot(QString(32,'d')).value("events").toList().isEmpty()) { return 5; }
+    auto& people=overte::e2e::FeaturePeopleReplies::instance();
+    Reply social(QUrl("https://controlled.invalid/api/v1/user/connection_request"));
+    const QByteArray sent("{\"user_connection_request\":{\"node_id\":\"original\"}}");
+    people.completed(&social,social.url(),"POST",sent);
+    if (social.readAll()!=social.raw) { return 6; }
+    const auto received=people.snapshot();const auto socialRows=received.value("events").toList();
+    if (!received.value("complete").toBool() || socialRows.size()!=1 || socialRows[0].toMap().value("method")!="POST"
+            || socialRows[0].toMap().value("requestBodySha256").toString()!=QString::fromLatin1(QCryptographicHash::hash(sent,QCryptographicHash::Sha256).toHex())
+            || socialRows[0].toMap().value("responseId").toString()!=QString(32,'c')) { return 7; }
+    people.completed(&unrelated,unrelated.url(),"GET",{});
+    if (people.snapshot().value("events").toList()!=socialRows) { return 8; }
     qInfo("PASS: original generation/failure/fallback history and non-consuming owned HTTP reply provenance");return 0;
 }

@@ -12,6 +12,7 @@
 #include "NormalChatControls.h"
 #include "NormalEmoteControls.h"
 #include "NormalNavigationControls.h"
+#include "NormalAvatarPeopleControls.h"
 #include <ui/NativeFieldInput.h>
 #include <QCoreApplication>
 #include <QDateTime>
@@ -32,7 +33,7 @@ namespace overte::e2e {
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 class NormalControlUi {
 public:
-    enum class Surface { ScriptFiles, Audio, Graphics, Login, Create, Chat, Emote, Navigation };
+    enum class Surface { ScriptFiles, Audio, Graphics, Login, Create, Chat, Emote, Navigation, AvatarPeople };
     explicit NormalControlUi(Surface surface = Surface::ScriptFiles) : _surface(surface), _instance(nonce()), _generation(nonce()) { _clock.start(); }
 
     QJsonObject observe(QQuickItem* root, QQuickWindow* window, const AudioUiContext& audio = {}, const GraphicsUiContext& graphics = {}, const LoginUiContext& login = {}) {
@@ -64,7 +65,8 @@ public:
                     : _surface == Surface::Create ? createControlId(item)
                     : _surface == Surface::Chat ? chatControlId(item)
                     : _surface == Surface::Emote ? emoteControlId(item)
-                    : _surface == Surface::Navigation ? navigationControlId(item) : scriptFileControlId(item);
+                    : _surface == Surface::Navigation ? navigationControlId(item)
+                    : _surface == Surface::AvatarPeople ? avatarPeopleControlId(item) : scriptFileControlId(item);
                 if (!id.isEmpty()) {
                     if (controls.contains(id)) { ambiguous = true; return; }
                     const auto previous = _controls.value(id);
@@ -74,7 +76,8 @@ public:
                         : _surface == Surface::Create ? createControlSource(item,id)
                         : _surface == Surface::Chat ? chatControlSource(item,id)
                         : _surface == Surface::Emote ? emoteControlSource(item,id)
-                        : _surface == Surface::Navigation ? navigationControlSource(item,id) : scriptFileControlSource(item);
+                        : _surface == Surface::Navigation ? navigationControlSource(item,id)
+                        : _surface == Surface::AvatarPeople ? avatarPeopleControlSource(item,id) : scriptFileControlSource(item);
                     if ((_surface==Surface::Chat || _surface==Surface::Emote) && source.isEmpty()) { ambiguous=true;return; }
                     controls.insert(id, {item, previous.item == item && previous.source == source ? previous.token : nonce(), source});
                 }
@@ -107,6 +110,7 @@ public:
             else if (_surface == Surface::Chat) { appendChatControlObservation(row,control.item,id); }
             else if (_surface == Surface::Emote) { appendEmoteControlObservation(row,control.item,id); }
             else if (_surface == Surface::Navigation) { appendNavigationControlObservation(row,control.item,id); }
+            else if (_surface == Surface::AvatarPeople) { appendAvatarPeopleControl(row,control.item,id); }
             else { appendScriptFileObservation(row, control.item, id); }
             rows.append(row);
         }
@@ -122,7 +126,8 @@ public:
             : _surface == Surface::Create ? "createControlsVersion"
             : _surface == Surface::Chat ? "chatControlsVersion"
             : _surface == Surface::Emote ? "emoteControlsVersion"
-            : _surface == Surface::Navigation ? "navigationControlsVersion" : "fileControlsVersion"] = _surface==Surface::Login ? 2 : 1;
+            : _surface == Surface::Navigation ? "navigationControlsVersion"
+            : _surface == Surface::AvatarPeople ? "avatarPeopleControlsVersion" : "fileControlsVersion"] = _surface==Surface::Login ? 2 : 1;
 #if defined(ANDROID_APP_PHONE_INTERFACE)
         if (_surface==Surface::ScriptFiles) { result["scriptInventory"]=scriptInventory.observation(ready); }
 #endif
@@ -163,6 +168,7 @@ public:
                     : _surface == Surface::Chat ? action != "activate" && action != "replace" && action != "submit"
                     : _surface == Surface::Emote ? action != "activate" && action != "scroll"
                     : _surface == Surface::Navigation ? action != "activate" && action != "replace"
+                    : _surface == Surface::AvatarPeople ? action != "activate" && action != "replace" && action != "set-value" && action != "scroll"
                     : action != "activate" && action != "replace" && action != "submit" && action != "select-index")) { return result; }
         // Consume intent before dispatch; never replay uncertain native input.
         _lastCommandSequence = sequence;
@@ -171,7 +177,28 @@ public:
         if (!control.item || !control.item->isEnabled() || command.value("controlToken") != QJsonValue(control.token)
                 || visibleRect(control.item, window).isEmpty()) { return result; }
         bool delivered {false};
-        if (_surface == Surface::Navigation) {
+        if (_surface == Surface::AvatarPeople) {
+            QJsonObject row;appendAvatarPeopleControl(row,control.item,id);
+            if (!row.value("inputReady").toBool()) { return result; }
+            const auto center=avatarPeopleActivatePoint(control.item,id);
+            if (action=="set-value" && id=="avatar.scale" && command.value("value").isDouble()) {
+                QPointF point;if (avatarPeopleSliderPoint(control.item,command.value("value").toDouble(),point) && avatarPeopleOwnsPoint(control.item,window,point) && pointerAt) { delivered=pointerAt(control.item,point); }
+            } else if (action=="scroll" && id=="avatar.settings.scrollbar") {
+                auto thumb=qobject_cast<QQuickItem*>(control.item->property("contentItem").value<QObject*>());
+                const auto direction=command.value("direction").toString();
+                if (thumb && thumb->parentItem()==control.item && (direction=="up" || direction=="down")) {
+                    const auto rect=thumb->mapRectToItem(control.item,QRectF(0,0,thumb->width(),thumb->height()));
+                    const auto low=direction=="up" ? 0.0 : rect.bottom(),high=direction=="up" ? rect.top() : control.item->height();
+                    const auto point=control.item->mapToScene(QPointF(control.item->width()/2,(low+high)/2));
+                    if (high-low>=2 && avatarPeopleOwnsPoint(control.item,window,point) && pointerAt) { delivered=pointerAt(control.item,point); }
+                }
+            } else if (avatarPeopleOwnsPoint(control.item,window,center)) {
+                if (action=="activate" && !id.endsWith(".page") && pointerAt) { delivered=pointerAt(control.item,center); }
+                else if (action=="replace" && id=="avatar.dialog.input" && command.value("text").isString() && avatarPeopleText(command.value("text").toString())) {
+                    delivered=overte::ui::replaceFocusedField(control.item,window,command.value("text").toString());
+                }
+            }
+        } else if (_surface == Surface::Navigation) {
             QJsonObject row;appendNavigationControlObservation(row,control.item,id);
             const auto point=control.item->mapToScene(QPointF(control.item->width()/2,control.item->height()/2));
             if (!row.value("inputReady").toBool() || (!ownsPoint(control.item,window,point) && !navigationDecorationPoint(control.item,window,point))) { return result; }
@@ -405,6 +432,10 @@ public:
 class LoginUi : public NormalControlUi {
 public:
     LoginUi() : NormalControlUi(Surface::Login) {}
+};
+class AvatarPeopleUi : public NormalControlUi {
+public:
+    AvatarPeopleUi() : NormalControlUi(Surface::AvatarPeople) {}
 };
 class NavigationUi : public NormalControlUi {
 public:

@@ -119,6 +119,13 @@ def readonly_feature_command(command):
     action=command.get('action')
     if action in ('feature-native-observe','feature-script-observe','feature-world-render-observe','feature-script-roots-observe','feature-animation-inventory-observe'):
         require(set(command)=={'schemaVersion','commandId','action'},'PHONE_READ_ONLY_COMMAND_REJECTED')
+    elif action=='phone-avatar-people-observe':
+        from overte_phone_avatar_people_native import command as validate_avatar_people
+        validate_avatar_people(command)
+    elif action=='phone-avatar-people-ui':
+        request=command.get('request')
+        require(set(command)=={'schemaVersion','commandId','action','request'} and type(request) is dict and type(request.get('schemaVersion')) is int
+            and request==dict(schemaVersion=1,commandId=command['commandId'],action='observe'),'PHONE_READ_ONLY_COMMAND_REJECTED')
     elif action=='phone-navigation-view-observe':
         from overte_phone_navigation_native import command as validate_navigation
         validate_navigation(command)
@@ -697,6 +704,22 @@ class PhoneAppiumAdapter(AppiumAdapter):
         with self.existing_input_session(selector):
             return project_probe(validate_operation_result('probe.snapshot',self.invoke(selector,'probe.snapshot',
                 {'afterSampleSequence':after} if after else {})))
+
+    def _avatar_people_controls(self,selector,*,read_only=False):
+        from overte_phone_avatar_people_native import PhoneAvatarPeopleIO,UI_FILE
+        native=self._native_feature_observer(selector,read_only=read_only)
+        target=self.target(selector);device=target['capabilities']['appium:udid'];transport=PhoneAdapter(self.candidate).adb
+        return PhoneAvatarPeopleIO(native.send,
+            lambda:transport.read_debug_app_file(device,target['appId'],'files/overte-e2e/'+UI_FILE,attempts=1),
+            native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep)
+
+    def _avatar_people_source(self,selector,*,read_only=True):
+        from overte_phone_avatar_people_native import PhoneAvatarPeopleObservation,FILE
+        native=self._native_feature_observer(selector,read_only=read_only)
+        target=self.target(selector);device=target['capabilities']['appium:udid'];transport=PhoneAdapter(self.candidate).adb
+        return PhoneAvatarPeopleObservation(native.send,
+            lambda:transport.read_debug_app_file(device,target['appId'],'files/overte-e2e/'+FILE,attempts=1),
+            native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep)
 
     def _navigation_controls(self,selector,*,read_only=False):
         native=self._native_feature_observer(selector,read_only=read_only)

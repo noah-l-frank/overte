@@ -22,7 +22,7 @@
 #include <memory>
 namespace overte::e2e { class ChatViewObservation; }
 #include <QUuid>
-namespace overte::e2e { class FeatureLifecycle; class AccountOriginLease; class ScriptFileUi; class AudioUi; class GraphicsUi; class LoginUi; class CreateUi; class ChatUi; class EmoteUi; class PhoneEmoteFixture; class PrivateCreateFiles; class PhoneCreateFixture; class PhoneNavigationMarker; class NavigationUi; class NavigationViewObservation; }
+namespace overte::e2e { class FeatureLifecycle; class AccountOriginLease; class ScriptFileUi; class AudioUi; class GraphicsUi; class LoginUi; class CreateUi; class ChatUi; class EmoteUi; class PhoneEmoteFixture; class PrivateCreateFiles; class PhoneCreateFixture; class PhoneNavigationMarker; class NavigationUi; class NavigationViewObservation; class AvatarPeopleUi; class AvatarPeopleViewObservation; }
 #endif
 
 class TestScriptingInterface : public QObject {
@@ -185,6 +185,8 @@ public slots:
     Q_INVOKABLE QVariantMap phoneNavigationMarkerInput(const QVariantMap& command);
     Q_INVOKABLE QVariantMap phoneNavigationMarkerObservation(const QVariantMap& command);
     Q_INVOKABLE QVariantMap phoneNavigationUi(const QVariantMap& command);
+    Q_INVOKABLE QVariantMap phoneAvatarPeopleUi(const QVariantMap& command);
+    Q_INVOKABLE QVariantMap phoneAvatarPeopleObservation(const QVariantMap& command);
     Q_INVOKABLE QVariantMap phoneNavigationView(const QVariantMap& command);
     Q_INVOKABLE QVariantMap phoneCreateFixtureInput(const QVariantMap& command);
     Q_INVOKABLE QVariantMap phoneCreateFixtureObservation(const QVariantMap& command);
@@ -288,6 +290,9 @@ private:
     std::shared_ptr<overte::e2e::PhoneNavigationMarker> _phoneNavigationMarker;
     quint64 _phoneNavigationMarkerSequence {0};
     std::shared_ptr<overte::e2e::NavigationUi> _phoneNavigationUi;
+    std::shared_ptr<overte::e2e::AvatarPeopleUi> _phoneAvatarPeopleUi;
+    std::shared_ptr<overte::e2e::AvatarPeopleViewObservation> _phoneAvatarPeopleView;
+    quint64 _phoneAvatarPeopleSequence {0};
     std::shared_ptr<overte::e2e::NavigationViewObservation> _phoneNavigationView;
 #endif
     QSet<QUuid> _featureScriptEffectIds;

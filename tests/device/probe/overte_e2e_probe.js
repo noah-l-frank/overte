@@ -164,6 +164,25 @@
         return c.action !== "replace" || /^(?:navigation\.placesSearch|navigation\.bookmarkName)$/.test(c.controlId)
             && typeof c.text === "string" && (c.text === "" || /^(?:e2e-|renamed-|hidden-)[0-9a-f]{32}$/.test(c.text));
     }
+    var lastPhoneAvatarPeopleRequest="", lastPhoneAvatarPeopleObservation="";
+    function validPhoneAvatarPeopleRequest(c) {
+        if (!c || c.schemaVersion !== 1 || !/^[0-9a-f]{32}$/.test(String(c.commandId))) { return false; }
+        if (c.action === "observe") { return objectKeysMatch(c,["schemaVersion","commandId","action"]); }
+        var fields=["schemaVersion","commandId","action","instance","generation","sequence","observedElapsedMs","controlId","controlToken"];
+        if (c.action === "replace") { fields.push("text"); }
+        if (c.action === "set-value") { fields.push("value"); }
+        if (c.action === "scroll") { fields.push("direction"); }
+        if (!objectKeysMatch(c,fields) || !/^(activate|replace|set-value|scroll)$/.test(String(c.action))
+                || !/^[0-9a-f]{32}$/.test(String(c.instance)) || !/^[0-9a-f]{32}$/.test(String(c.generation))
+                || !/^[0-9a-f]{32}$/.test(String(c.controlToken)) || !phoneFileInteger(c.sequence,1,1000000000)
+                || !phoneFileInteger(c.observedElapsedMs,0,9007199254740991)
+                || !/^(?:avatar\.(?:entry|url|wearables|settings|scale|settings\.scrollbar|wearable\.add|bookmark\.(?:add|manage|previous|next|row\.(?:0|[1-9][0-9]{0,2}))|dialog\.(?:input|confirm|cancel))|people\.(?:entry|nearby|connections|ConnectionAccept|ConnectionDecline|ConnectionCancel|RequestConnection|row\.(?:0|[1-9][0-9]{0,2})|remove\.[A-Za-z0-9_-]{1,128}))$/.test(String(c.controlId))) { return false; }
+        if (c.action === "replace") { return c.controlId === "avatar.dialog.input" && typeof c.text === "string" && c.text.length <= 4096
+            && (/^(?:e2e-|hidden-)[0-9a-f]{32}$/.test(c.text) || /^(?:https:\/\/[^\s@#]+|qrc:\/[^\s@#]+)$/.test(c.text)); }
+        if (c.action === "set-value") { return c.controlId === "avatar.scale" && typeof c.value === "number" && isFinite(c.value) && c.value >= 1 && c.value <= 40; }
+        if (c.action === "scroll") { return c.controlId === "avatar.settings.scrollbar" && /^(up|down)$/.test(String(c.direction)); }
+        return true;
+    }
     function validPhoneScriptFileRequest(request) {
         if (!request || request.schemaVersion !== 1 || !/^[0-9a-f]{32}$/.test(String(request.commandId))) { return false; }
         if (request.action === "observe") { return objectKeysMatch(request, ["schemaVersion", "commandId", "action"]); }
@@ -1423,6 +1442,32 @@
             }
             return true;
         }
+        if (command && command.action === "phone-avatar-people-ui") {
+            if (command.schemaVersion === 1 && /^[0-9a-f]{32}$/.test(String(command.commandId))
+                    && objectKeysMatch(command,["schemaVersion","commandId","action","request"])
+                    && validPhoneAvatarPeopleRequest(command.request) && command.request.commandId === command.commandId
+                    && command.commandId !== lastPhoneAvatarPeopleRequest) {
+                lastPhoneAvatarPeopleRequest=command.commandId;
+                var avatarPeopleUi={schemaVersion:1,commandId:command.commandId,available:false};
+                try { if (typeof Test.phoneAvatarPeopleUi === "function") {
+                    var originalAvatarPeopleUi=Test.phoneAvatarPeopleUi(command.request);
+                    if (originalAvatarPeopleUi && originalAvatarPeopleUi.commandId === command.commandId) { avatarPeopleUi=originalAvatarPeopleUi; }
+                } } catch (_avatarPeopleUiError) { /* ACK never proves effect. */ }
+                Test.saveObject(avatarPeopleUi,"phone-avatar-people-ui.json");
+            }return true;
+        }
+        if (command && command.action === "phone-avatar-people-observe") {
+            if (command.schemaVersion === 1 && /^[0-9a-f]{32}$/.test(String(command.commandId)) && /^[0-9a-f]{32}$/.test(String(command.runId))
+                    && objectKeysMatch(command,["schemaVersion","commandId","action","runId"]) && command.commandId !== lastPhoneAvatarPeopleObservation) {
+                lastPhoneAvatarPeopleObservation=command.commandId;
+                var avatarPeopleSource={avatarPeopleObservationVersion:1,commandId:command.commandId,status:"unavailable"};
+                try { if (typeof Test.phoneAvatarPeopleObservation === "function") {
+                    var originalAvatarPeopleSource=Test.phoneAvatarPeopleObservation(command);
+                    if (originalAvatarPeopleSource && originalAvatarPeopleSource.commandId === command.commandId) { avatarPeopleSource=originalAvatarPeopleSource; }
+                } } catch (_avatarPeopleSourceError) { /* Mandatory original absence stays unavailable. */ }
+                Test.saveObject(avatarPeopleSource,"phone-avatar-people-observation.json");
+            }return true;
+        }
         if (command && command.action === "phone-navigation-ui") {
             if (command.schemaVersion === 1 && typeof command.commandId === "string" && /^[0-9a-f]{32}$/.test(command.commandId)
                     && objectKeysMatch(command,["schemaVersion","commandId","action","request"])
@@ -2281,6 +2326,7 @@
                 || command.action === "feature-phone-web-runtime-observe" || command.action === "phone-world-web" || command.action === "phone-tablet-web" || command.action === "phone-web-reference" || command.action === "feature-phone-web-reference-runtime-observe"
                 || command.action === "phone-navigation-marker-input" || command.action === "phone-navigation-marker-observe"
                 || command.action === "phone-navigation-ui" || command.action === "phone-navigation-view-observe"
+                || command.action === "phone-avatar-people-ui" || command.action === "phone-avatar-people-observe"
                 || command.action === "feature-pending-commit-owner" || command.action === "feature-navigation-replies"
                 || command.action === "feature-process-presence" || command.action === "feature-script-roots-observe"
                 || command.action === "feature-script-work-observe" || command.action === "feature-animation-inventory-observe"

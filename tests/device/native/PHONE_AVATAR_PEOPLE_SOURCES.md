@@ -1,0 +1,74 @@
+# Android Phone Avatar/People source and ordinary input seams
+
+These are E2E-only native source components and bounded readers. They do not
+register an Avatar/People feature triple, perform a complete common journey or
+qualify rendered avatar pixels. The complete facade still must provide both
+real participants, mandatory multi-user foundation, per-phase independent
+publisher evidence, GPU/body pixels and durable verified restoration/retirement.
+
+`phoneAvatarPeopleUi` enters the existing ordinary Qt window dispatcher. It
+resolves only the original AvatarApp, Settings, MessageBox, favorite dialogs,
+PeopleTable and Pal/NameCard source contexts. Fresh instance, generation,
+sequence and control tokens bind dispatch. It never calls QML handlers or sets
+QML/product state. Text enters the actual focused field; scale uses the actual
+slider track and handle. An acknowledgment never supplies observed state.
+
+The separate Avatar/People hit test follows sibling z order; `childAt` alone
+returned an underlying display-name field for the real settings slider in the
+Qt6 host check. The source-bounded walk skips only branches with no enabled
+input handler at the point. Foreign MouseAreas, touch handlers and pointer
+handlers still block input. People row selection uses its original delegate's
+leading gutter, leaving the overlaid NameCard/audio actions untouched. Actual
+row model roles bind username and session; guessing a row does not bind a peer.
+
+`phoneAvatarPeopleObservation` independently reads actual backing bookmark file
+and in-memory contents, original advertised/Model load histories, loaded HFM
+geometry, textures, settled scale, actual Hips index, local entity properties,
+permission, native AccountManager observations and actual remote AvatarManager
+participants. The original QML consent prompt, models and persistent People
+preferences are passive sources. Reader identity, PID, command, acquisition
+clock, source generation and append-only histories remain mandatory. An absent
+model source is not an empty successful model; source data never includes an
+expected feature state.
+
+`FeaturePeopleReplies` observes original script XMLHttpRequest completion before
+its consumer reads bytes. The closed HTTPS People endpoint paths and original
+fixture response header permit bounded private collection. It retains original
+URL, request-body and response digests, method, status/error, cache/redirect
+facts and clock. It never retains token or body bytes. The feature owner must
+join the response ID, digest and exact owned origin to the separately acquired
+service receipt and actual participants; a matching header alone is not proof.
+
+Validation in this packet:
+
+```sh
+PYTHONPATH=tests/device:tests/device/self_tests:android/phone/tests/device:tests/device/adapters/android-phone \
+  python3 -m unittest self_tests.test_phone_avatar_people_native -v
+python3 android/phone/tests/phone-avatar-people-native-test.py --build-dir build/avatar-people-controls-review
+python3 android/phone/tests/phone-avatar-source-native-test.py --build-dir build/avatar-people-wire-review
+```
+
+The Qt6 host check compiles the real source/input helper headers and loads the
+original AvatarApp and Pal QML. Its explicit host context/script producers
+supply initial messages and platform services. Ordinary URL/bookmark/scale and
+People request/decline/accept/cancel/remove input, actual source model roles, native
+passive model reads and foreign-overlay rejection are exercised. Original QML
+emitted messages are inspected separately from input acknowledgments. The actual
+People pager consumes original request IDs, including the initial/deferred
+request, and its loaded connection row is removed through the normal source
+control. Service pagination is at the top level consumed by PSFListModel, so
+the loaded first page cannot silently trigger repeated duplicate pages. Missing
+host thumbnail/info assets and Qt.labs.settings deprecation warnings are not
+pixel/render acceptance. The helper-wire check uses synthetic QNetworkReply
+producers and proves that observation preserves original consumer bytes.
+
+Product translation units (`TestScriptingInterface.cpp`, Avatar/Model loaders,
+`HTTPResourceRequest.cpp`, `XMLHttpRequestClass.cpp`) remain **uncompiled** by
+these header/Qt checks. No APK, Android runtime, device, actual two-phone social
+session, complete Avatar/People public facade or device acceptance is claimed.
+Probe changes require the parent's central Emote source-pin integration check;
+this packet does not regenerate or learn those pins from a target.
+
+The packet passes 50 explicitly selected host tests (including the existing
+all-14 independent-boundary common-journey model), plus both Qt6 helper checks.
+That all-14 boundary model is not the still-missing public Avatar/People facade.

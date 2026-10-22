@@ -20,6 +20,9 @@
 #include <qurlquery.h>
 
 #include <AccountManager.h>
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+#include <FeaturePeopleReplies.h>
+#endif
 #include <NetworkAccessManager.h>
 #include <NetworkingConstants.h>
 #include <MetaverseAPI.h>
@@ -223,6 +226,9 @@ void XMLHttpRequestClass::requestFinished() {
     disconnect(&_timer, SIGNAL(timeout()), this, SLOT(requestTimeout()));
 
     _errorCode = _reply->error();
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    overte::e2e::FeaturePeopleReplies::instance().completed(_reply,_url,_method,_sendData);
+#endif
 
     if (_errorCode == QNetworkReply::NoError) {
         _rawResponseData.append(_reply->readAll());

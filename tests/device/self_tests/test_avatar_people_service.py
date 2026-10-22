@@ -75,6 +75,12 @@ class AvatarPeopleServiceTests(unittest.TestCase):
         self.assertEqual(404,code);self.assertEqual('not-found',value['error'])
         self.assertEqual(404,self.client.avatar_people_status()['responses'][-1]['status'])
 
+    def test_original_people_pager_metadata_matches_the_actual_qml_consumer(self):
+        self.connect()
+        code,value=self.request('/api/v1/users/connections?per_page=1000&page=1',headers={'Authorization':'Bearer '+self.tokens['primary']})
+        self.assertEqual(200,code);self.assertEqual(1,value['total_pages']);self.assertEqual(1,value['current_page']);self.assertEqual(1,value['total_entries'])
+        self.assertEqual({'users'},set(value['data']));self.assertEqual(1,len(value['data']['users']))
+
     def test_delete_before_first_original_post_is_bounded_and_preserves_unbound_scope(self):
         token=self.grant('primary');peer_name=self.social.credentials(self.run,'peer')['username']
         status,value=self.request(DELETE+peer_name,method='DELETE',headers={'Authorization':'Bearer '+token})

@@ -121,7 +121,7 @@ class AvatarPeopleService:
                 if key in parameters and (not parameters[key].isdigit() or not 1<=int(parameters[key])<=1000):raise ValueError('Invalid relationship page')
             user=self._user(row,other) if row['binding'] is not None else None
             users=[user] if user is not None and row['relationship'] and parameters.get('search',user['username']) in user['username'] and parameters.get('page','1')=='1' else []
-            return 200,dict(status='success',data=dict(users=users,total_entries=len(users),total_pages=1,current_page=1))
+            return 200,dict(status='success',data=dict(users=users),total_entries=len(users),total_pages=1,current_page=1)
         if path.startswith(DELETE) and method=='DELETE':
             if row['binding'] is None:return 409,dict(status='fail',error='session-unbound')
             if parameters or unquote(path[len(DELETE):])!=self._user(row,other)['username']:return 403,dict(status='fail',error='foreign-account')
@@ -256,7 +256,7 @@ def validate_status(value,*,run,request,instance,previous=None):
     for row in value['responses']:
         exact(row,{'sequence','responseId','role','ticket','method','path','startedEpochMs','completedEpochMs','status','bytes','sha256'},'completed social wire original')
         identifier(row['responseId']);identifier(row['ticket'])
-        if not integer(row['sequence'],sequence+1) or row['responseId'] in seen or row['role'] not in (*ROLES,'resource') or row['method'] not in ('GET','POST','DELETE') or row['path'] not in (REQUEST,*USERS) and not row['path'].startswith(DELETE) and not (row['role']=='resource' and row['method']=='GET' and re.fullmatch('/feature-fixture/v1/runs/'+run+'/tickets/[0-9a-f]{32}/(?:avatar-a\.fst|missing\.fst|mannequin/[A-Za-z0-9_.-]+|gltf-bundle/(?:main\.gltf|mesh/triangle\.bin|textures/checker\.png))',row['path'])) or not integer(row['status'],100,599) or not integer(row['bytes'],1,16*1024*1024 if row['role']=='resource' else 65536) or not re.fullmatch('[0-9a-f]{64}',row['sha256']) or not integer(row['startedEpochMs'],1,row['completedEpochMs']) or not integer(row['completedEpochMs'],1,value['capturedEpochMs']):raise ValueError('Invalid completed social wire source')
+        if not integer(row['sequence'],sequence+1) or row['responseId'] in seen or row['role'] not in (*ROLES,'resource') or row['method'] not in ('GET','POST','DELETE') or row['path'] not in (REQUEST,*USERS) and not row['path'].startswith(DELETE) and not (row['role']=='resource' and row['method']=='GET' and re.fullmatch('/feature-fixture/v1/runs/'+run+r'/tickets/[0-9a-f]{32}/(?:avatar-a\.fst|missing\.fst|mannequin/[A-Za-z0-9_.-]+|gltf-bundle/(?:main\.gltf|mesh/triangle\.bin|textures/checker\.png))',row['path'])) or not integer(row['status'],100,599) or not integer(row['bytes'],1,16*1024*1024 if row['role']=='resource' else 65536) or not re.fullmatch('[0-9a-f]{64}',row['sha256']) or not integer(row['startedEpochMs'],1,row['completedEpochMs']) or not integer(row['completedEpochMs'],1,value['capturedEpochMs']):raise ValueError('Invalid completed social wire source')
         sequence=row['sequence'];seen.add(row['responseId'])
     if not value['active'] and (value['pending'] or value['inflightResponses'] or any(value['relationships'].values())):raise ValueError('Retired social scope remains live')
     if previous is not None:
