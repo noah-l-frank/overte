@@ -9,7 +9,7 @@ import json
 import subprocess
 
 ROOT=Path(__file__).resolve().parents[2]
-BASE='6e886b2a3548fd99991e0a7b89dd606622b6cfb8'
+BASE='3c8e85c69f007b6a3702bcc7aa5f412218b84668'
 DEST=ROOT/'tests/device/feature_journeys/phone-emote-admission-pins.v1.json'
 BOUND='(function(id) { return Script.require(Script.require.resolve(id, this.filename)); })'
 JSON_MODULE='module.exports = JSON.parse(__json)'
