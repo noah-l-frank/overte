@@ -45,6 +45,20 @@ def identity(value):
     return value
 
 
+def validate_actor_source(source,pid,script_sha256,epoch):
+    need(type(source) is dict and type(source.get('actorVersion')) is int and source['actorVersion'] in (1,2))
+    exact(source,{'actorVersion','instance','processId','configuredEpochMs','scriptSha256'}|({'build'} if source['actorVersion']==2 else set()))
+    if source['actorVersion']==2:
+        build=source['build'];exact(build,{'cleanConfiguredSource','compiledSourceRevision'})
+        need(type(build['cleanConfiguredSource']) is bool and type(build['compiledSourceRevision']) is str
+            and (re.fullmatch('[0-9a-f]{40}',build['compiledSourceRevision']) is not None if build['cleanConfiguredSource'] else build['compiledSourceRevision']==''))
+    need(type(source['instance']) is str and re.fullmatch('[0-9a-f]{32}',source['instance'])
+        and integer(source['processId'],1) and source['processId']==pid
+        and integer(source['configuredEpochMs'],1) and source['configuredEpochMs']<=epoch+1000
+        and source['scriptSha256']==script_sha256)
+    return source
+
+
 class ChatActorFiles:
     """One owned native actor and one run; uncertain writes remain journalled.
 
@@ -66,17 +80,7 @@ class ChatActorFiles:
         try:
             info=os.fstat(self.fd);self.root=node(info);self._check_root()
             raw,source_info=self._read(SOURCE,4096)
-            source=decode(raw.decode('utf-8'));need(type(source) is dict and type(source.get('actorVersion')) is int and source['actorVersion'] in (1,2))
-            exact(source,{'actorVersion','instance','processId','configuredEpochMs','scriptSha256'}|({'build'} if source['actorVersion']==2 else set()))
-            if source['actorVersion']==2:
-                build=source['build'];exact(build,{'cleanConfiguredSource','compiledSourceRevision'})
-                need(type(build['cleanConfiguredSource']) is bool and type(build['compiledSourceRevision']) is str
-                    and (re.fullmatch('[0-9a-f]{40}',build['compiledSourceRevision']) is not None if build['cleanConfiguredSource'] else build['compiledSourceRevision']==''))
-            need(type(source['actorVersion']) is int and source['actorVersion'] in (1,2)
-                 and type(source['instance']) is str and re.fullmatch('[0-9a-f]{32}',source['instance'])
-                 and integer(source['processId'],1) and source['processId']==self.pid
-                 and integer(source['configuredEpochMs'],1) and source['configuredEpochMs']<=self.clock_ms()+1000
-                 and source['scriptSha256']==script_sha256)
+            source=validate_actor_source(decode(raw.decode('utf-8')),self.pid,script_sha256,self.clock_ms())
             self.source=source;self.source_stamp=stamp(source_info);self.source_sha=hashlib.sha256(raw).hexdigest()
             value=self.store.read()
             if value is None:
