@@ -1,0 +1,35 @@
+{
+  "schema": 1,
+  "android": [
+    {
+      "target": "android-phone",
+      "paths_under": "android/phone/apps/phoneInterface/src/main/java/",
+      "suffix": ".java",
+      "inventory": {
+        "android/vr/pico/tests": "ecb9c54a65f03a65c28186aa1a90e0ce204e701f",
+        "android/common/conan": "fc305d408066e2a9c7c0bc9a786094d9bb725cd3",
+        "android/common/tests": "7aee2ddc121d5b29931375534967cf6e11ba348a",
+        "tests/device/jenkins": "5f075ec8c0cd366df90588a62231701d3a056616",
+        "tests/device/schema": "93f815e60f37b15cc2e9756c9d234418d2984268",
+        "android/phone/fdroid": "ddebf7343ac2fe21c82c20da913f6469f18604fe",
+        "android/phone/tests": "cdcf9895d87875dabe2ed090881f61b069846715"
+      },
+      "omit": [
+        "phone-package-binding",
+        "android-package-store",
+        "android-package-binding",
+        "pico4-device-free",
+        "android-source-boundary",
+        "android-build-workspace",
+        "android-conan-cache",
+        "android-build-evidence",
+        "android-neutral-bootstrap",
+        "android-input-provenance",
+        "android-source-host-tools",
+        "phone-default-input",
+        "phone-editor-teardown"
+      ]
+    }
+  ],
+  "fallback": "complete-reviewed-profile"
+}

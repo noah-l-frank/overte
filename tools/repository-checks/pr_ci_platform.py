@@ -10,6 +10,7 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import re
 import subprocess
 import sys
 import time
@@ -58,7 +59,48 @@ def authenticate(candidate, context, plan, recompute):
     return candidate
 
 
-def commands(candidate, target, lane):
+def android_suites(candidate, target, profile, plan):
+    """Prune only a reviewed closed case; unknown/mixed changes keep all suites.
+
+    Fingerprints bind every supporting test/harness source in the reviewed
+    closure. If those tests evolve, exclusions stop until the closure is reviewed
+    again. Presence of a product directory never assigns ownership of that code.
+    """
+    suites = profile["suites"]
+    if not plan or not plan.get("paths") or plan.get("regular") is not True:
+        return suites
+    inputs = json.loads((ROOT / ".github/pr-ci-platform-inputs.json").read_text(), object_pairs_hook=C.unique)
+    C.require(type(inputs) is dict and set(inputs) == {"schema", "android", "fallback"}
+              and inputs["schema"] == 1 and inputs["fallback"] == "complete-reviewed-profile"
+              and type(inputs["android"]) is list, "invalid platform input closure policy")
+    for case in inputs["android"]:
+        C.require(type(case) is dict and set(case) == {"target", "paths_under", "suffix", "inventory", "omit"}
+                  and type(case["paths_under"]) is str and case["paths_under"].startswith("android/")
+                  and ".." not in Path(case["paths_under"]).parts
+                  and case["suffix"] == ".java" and type(case["inventory"]) is dict
+                  and bool(case["inventory"]) and type(case["omit"]) is list,
+                  "invalid reviewed Android closure")
+        if target != case["target"] or not all(type(path) is str and path.startswith(case["paths_under"])
+                and path.endswith(case["suffix"]) for path in plan["paths"]):
+            continue
+        for path, expected in case["inventory"].items():
+            C.require(type(path) is str and not Path(path).is_absolute() and ".." not in Path(path).parts
+                      and type(expected) is str and re.fullmatch(r"[0-9a-f]{40}", expected),
+                      "invalid Android harness input fingerprint")
+            try:
+                actual = subprocess.check_output(["git", "--no-replace-objects", "rev-parse", "HEAD:" + path],
+                                                 cwd=candidate, stderr=subprocess.DEVNULL).decode().strip()
+            except subprocess.CalledProcessError:
+                return suites
+            if actual != expected:
+                return suites
+        known = {suite["name"] for suite in suites}
+        C.require(set(case["omit"]).issubset(known), "Android input closure names an unowned suite")
+        return [suite for suite in suites if suite["name"] not in case["omit"]]
+    return suites
+
+
+def commands(candidate, target, lane, plan=None):
     value = policy()
     if lane == "ios":
         C.require(target == value["ios"]["target"], "iOS owner selected on another target")
@@ -68,7 +110,8 @@ def commands(candidate, target, lane):
     actual = json.loads(subprocess.check_output(["git", "--no-replace-objects", "show",
         "HEAD:tests/platform-profile.json"], cwd=candidate), object_pairs_hook=C.unique)
     C.require(actual == profile, "candidate platform inventory differs from protected mandatory suites")
-    return [[suite["interpreter"], suite["entrypoint"]] for suite in profile["suites"]]
+    return [[suite["interpreter"], suite["entrypoint"]]
+            for suite in android_suites(candidate, target, profile, plan)]
 
 
 def qml_runner():
@@ -76,12 +119,33 @@ def qml_runner():
                  if Path(path).is_file()), None)
 
 
-def execute(candidate, context, plan, lane, prepared_roots, *, recompute):
+def android_compile_commands(target, plan, runtime, prepared_roots):
+    products = plan.get("android_compile_products", [])
+    C.require(type(products) is list and len(products) == len(set(products))
+              and set(products).issubset({"common", "phone", "pico"}), "invalid Android compile ownership")
+    if not products:
+        return []
+    owner = {"android-main": "common", "android-vr": "common",
+             "android-phone": "phone", "android-vr-pico": "pico"}
+    C.require(products == [owner.get(target)], "Android compiler selected an unowned product")
+    C.require(runtime is not None, "selected Android compilation requires its real API runtime")
+    runtime = Path(runtime).resolve(strict=True)
+    roots = [Path(path).resolve(strict=True) for path in prepared_roots]
+    C.require(any(runtime == root or root in runtime.parents for root in roots),
+              "Android runtime is outside the explicit prepared inputs")
+    script = (ROOT / "tools/repository-checks/pr_ci_android.py").read_text()
+    # The controller supplies this exact reviewed compiler, not a candidate
+    # script capable of claiming success without compiling production source.
+    return [[sys.executable, "-I", "-S", "-B", "-c", script, "compile",
+             "--runtime", str(runtime), "--product", product] for product in products]
+
+
+def execute(candidate, context, plan, lane, prepared_roots, *, recompute, android_runtime=None):
     candidate = authenticate(candidate, context, plan, recompute)
     C.require(lane in {"android", "ios"} and plan[lane + "_required"] is True,
               "unselected platform execution")
     results = []
-    for arguments in commands(candidate, context["target"], lane):
+    for arguments in commands(candidate, context["target"], lane, plan):
         command = [sys.executable if item == "python" and index == 0 else item
                    for index, item in enumerate(arguments)]
         if lane == "ios":
@@ -95,6 +159,14 @@ def execute(candidate, context, plan, lane, prepared_roots, *, recompute):
         C.require(status == 0, "selected product command failed: " + " ".join(arguments))
         authenticate(candidate, context, plan, recompute)
         results.append({"command": arguments, "result": "success"})
+    if lane == "android":
+        for command in android_compile_commands(context["target"], plan, android_runtime, prepared_roots):
+            status = R.run(candidate, command, prepared_roots=prepared_roots,
+                           boundary="user-namespace", timeout=600)
+            C.require(status == 0, "selected Android production Java/resource compilation failed")
+            authenticate(candidate, context, plan, recompute)
+            results.append({"command": ["android-production-compile", "--product", command[-1]],
+                            "scope": "production-java-and-resources", "result": "success"})
     C.require(bool(results), "selected product owner executed no contracts")
     return {"kind": "pr-ci-product-execution-v1", "source": context["original_merge"],
             "tree": context["tree"], "target": context["target"], "result": "success", "commands": results}
