@@ -13,6 +13,7 @@ from adapters.chat_peer_input import ChatPeerInput, COMMAND, RECEIPT, command
 from adapters.chat_actor_files import encode, node
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.normal_ui import NativeUIError
+from adapters.script_journey.history import unpack
 from self_tests import test_chat_actor_files as actor_seams
 from self_tests.test_native_chat_observation import RUN
 
@@ -54,8 +55,8 @@ class PeerInputTests(unittest.TestCase):
             receipt = self.peer.issue(operation, **inputs)
             self.assertEqual(operation, receipt['operation']); self.assertNotIn('position', receipt)
             self.assertNotIn('delivered', receipt); self.assertNotIn('restored', receipt)
-        self.assertEqual(5, len(self.store.read()['intents']))
-        self.assertTrue(all(value['phase'] == 'consumed' for value in self.store.read()['intents']))
+        self.assertEqual(5, len(unpack(self.store.read()['intents'])))
+        self.assertTrue(all(value['phase'] == 'consumed' for value in unpack(self.store.read()['intents'])))
         with self.assertRaises(NativeUIError): self.peer.issue('send', channel='domain', textKey='hidden')
         self.assertTrue(self.store.path.exists())
 
@@ -68,15 +69,15 @@ class PeerInputTests(unittest.TestCase):
     def test_lost_receipt_keeps_uncertain_input_and_only_allows_one_original_restoration(self):
         self.peer.issue('hold', position=dict(x=40, y=0, z=2)); self.ignored = True
         with self.assertRaises(NativeUIError): self.peer.issue('send', channel='local', textKey='hidden')
-        self.assertEqual('uncertain', self.store.read()['intents'][-1]['phase'])
-        before = len(self.store.read()['intents'])
+        self.assertEqual('uncertain', unpack(self.store.read()['intents'])[-1]['phase'])
+        before = len(unpack(self.store.read()['intents']))
         with self.assertRaises(NativeUIError): self.peer.issue('send', channel='local', textKey='hidden')
-        self.assertEqual(before, len(self.store.read()['intents']))
+        self.assertEqual(before, len(unpack(self.store.read()['intents'])))
         # The missing original command might already have been consumed. A
         # later restoration cannot assume its native counter or report success.
         self.ignored = False
         with self.assertRaises(NativeUIError): self.peer.issue('restore')
-        self.assertEqual('restore', self.store.read()['intents'][-1]['command']['operation'])
+        self.assertEqual('restore', unpack(self.store.read()['intents'])[-1]['command']['operation'])
         with self.assertRaises(NativeUIError): self.peer.issue('restore')
 
     def test_foreign_receipt_original_inode_or_actor_loss_retains_input(self):
@@ -90,13 +91,67 @@ class PeerInputTests(unittest.TestCase):
                 else: value['native']['capturedEpochMs'] = 18000
             self.mutate = mutate
             with self.subTest(fault=fault), self.assertRaises(NativeUIError): self.peer.issue('send', channel='domain', textKey='reply')
-            self.assertEqual('uncertain', self.store.read()['intents'][-1]['phase'])
+            self.assertEqual('uncertain', unpack(self.store.read()['intents'])[-1]['phase'])
 
     def test_failed_durable_intent_prevents_any_command_file(self):
         original = self.store.write
         self.store.write = lambda *_args: (_ for _ in ()).throw(OSError('injected private write failure'))
         with self.assertRaises(NativeUIError): self.peer.issue('send', channel='domain', textKey='reply')
         self.assertFalse((self.h.root / COMMAND).exists()); self.store.write = original
+
+    def test_reconstruction_verifies_original_files_without_resending_then_admits_only_different_input(self):
+        original=self.store.path.read_bytes();rebuilt=ChatPeerInput(self.h.transport,self.store,RUN)
+        self.assertEqual(original,self.store.path.read_bytes());self.assertEqual(0,self.count)
+        rebuilt.issue('send',channel='domain',textKey='reply');before=self.count;original=self.store.path.read_bytes()
+        rebuilt=ChatPeerInput(self.h.transport,self.store,RUN)
+        self.assertEqual(before,self.count);self.assertEqual(original,self.store.path.read_bytes())
+        with self.assertRaises(NativeUIError):rebuilt.issue('send',channel='domain',textKey='reply')
+        self.assertEqual(before,self.count);rebuilt.issue('send',channel='local',textKey='reply')
+        self.assertEqual(before+1,self.count);self.assertEqual(2,len(unpack(self.store.read()['intents'])))
+
+    def test_last_actor_guard_cannot_refresh_a_consumed_receipt_with_frozen_host_time(self):
+        delta=0;original=self.h.transport._check_source
+        def guarded():
+            nonlocal delta
+            original()
+            if self.peer.previous['intents'] and self.peer.previous['intents'][-1]['phase']=='consumed':delta=2000
+        self.h.transport._check_source=guarded;self.h.transport.clock_ms=lambda:20000+delta
+        with self.assertRaises(NativeUIError):self.peer.issue('send',channel='domain',textKey='reply')
+        self.assertEqual('consumed',unpack(self.store.read()['intents'])[-1]['phase']);self.assertEqual(1,self.count)
+        with self.assertRaises(NativeUIError):self.peer.issue('send',channel='domain',textKey='reply')
+        self.assertEqual(1,self.count)
+
+    def test_complete_original_v3_receipts_survive_long_inspection_history_and_reconstruct_passively(self):
+        def actual(value):
+            value['native'].update(peerInputVersion=3,avatarSha256='7'*64,avatarPosition=dict(x=self.count/19,y=.25,z=.5),scriptPolls=self.count,releaseConsumed=False)
+        self.mutate=actual
+        for _index in range(200):self.peer.issue('inspect')
+        original=self.store.path.read_bytes();before=self.count;rebuilt=ChatPeerInput(self.h.transport,self.store,RUN)
+        self.assertEqual(original,self.store.path.read_bytes());self.assertEqual(before,self.count)
+        self.assertEqual(200,len(rebuilt.previous['intents']));self.assertLess(len(original),65536)
+        rebuilt.issue('send',channel='domain',textKey='reply');self.assertEqual(before+1,self.count)
+
+    def test_reconstruction_never_adopts_uncertain_old_or_modified_original_transactions(self):
+        for fault in ('uncertain','old-v3','receipt-bytes','command-bytes','command-stamp','native-sequence','source'):
+            with self.subTest(fault=fault):
+                self.setUp();self.peer.issue('send',channel='domain',textKey='reply');value=self.store.read();before=self.count
+                if fault=='old-v3':self.store.write(value|dict(chatPeerInputVersion=3),value)
+                elif fault=='receipt-bytes':(self.h.root/RECEIPT).write_bytes(b'{}')
+                elif fault=='command-bytes':(self.h.root/COMMAND).write_bytes(b'{}')
+                elif fault=='source':self.h.transport.source['instance']='e'*32
+                else:
+                    rows=unpack(value['intents'])
+                    if fault=='uncertain':rows[-1]['phase']='uncertain'
+                    elif fault=='command-stamp':rows[-1]['commandStamp']['inode']='0'
+                    else:
+                        import base64,hashlib
+                        envelope=json.loads(base64.b64decode(rows[-1]['receipt']['base64']));envelope['native']['sequence']=2
+                        raw=encode(envelope);rows[-1]['receipt'].update(base64=base64.b64encode(raw).decode('ascii'),sha256=hashlib.sha256(raw).hexdigest())
+                    from adapters.script_journey.history import pack
+                    self.store.write(value|dict(intents=pack(rows)),value)
+                original=self.store.path.read_bytes()
+                with self.assertRaises(NativeUIError):ChatPeerInput(self.h.transport,self.store,RUN)
+                self.assertEqual(before,self.count);self.assertEqual(original,self.store.path.read_bytes())
 
     def test_closed_input_inventory_rejects_arbitrary_bodies_expected_effects_and_coordinates(self):
         base = dict(schemaVersion=1, commandId='b' * 32, runId=RUN, operation='send', channel='domain', textKey='reply')
@@ -115,7 +170,7 @@ class PeerInputTests(unittest.TestCase):
         self.assertEqual('inspect',self.peer.issue('inspect')['operation'])
         self.mutate=None
         with self.assertRaises(NativeUIError):self.peer.issue('restore')
-        self.assertEqual('uncertain',self.store.read()['intents'][-1]['phase'])
+        self.assertEqual('uncertain',unpack(self.store.read()['intents'])[-1]['phase'])
 
     def test_original_fixture_normal_send_uses_actual_avatar_and_resumes_saved_motion(self):
         source = (Path(__file__).resolve().parents[1] / 'fixture/domain_peer_agent.js').read_text()
