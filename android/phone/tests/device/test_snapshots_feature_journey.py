@@ -216,6 +216,17 @@ class SnapshotJourneyTests(unittest.TestCase):
         self.assertEqual(1,result['state']['saved']);self.assertEqual(1,len(self.model.os_files))
         self.assertTrue(all(path.read_bytes()==self.model.raw_png for path in self.model.os_files.values()))
 
+    def test_actual_offline_reply_then_new_normal_upload_clears_error_and_publishes(self):
+        self.client.activate('c'*32);self.invoke('feature.snapshots.observe',dict(contractVersion=VERSION,runId=RUN,afterSequence=0))
+        self.act('open');self.act('capture',dict(mode='still',format='png'));self.act('save')
+        self.act('upload-fail')
+        failed=self.invoke('feature.snapshots.observe',dict(contractVersion=VERSION,runId=RUN,afterSequence=1))
+        self.assertEqual('offline',failed['state']['error']);self.assertEqual(0,failed['state']['uploads'])
+        self.act('upload')
+        uploaded=self.invoke('feature.snapshots.observe',dict(contractVersion=VERSION,runId=RUN,afterSequence=failed['sequence']))
+        self.assertEqual('none',uploaded['state']['error']);self.assertEqual(1,uploaded['state']['uploads'],uploaded['state'])
+        self.assertEqual(1,self.service.snapshot(RUN,os.urandom(16).hex())['stories'])
+
     def test_normal_upload_story_deleted_by_cleanup_before_logout(self):
         self.client.activate('c'*32);self.invoke('feature.snapshots.observe',dict(contractVersion=VERSION,runId=RUN,afterSequence=0))
         self.act('open');self.act('capture',dict(mode='still',format='png'));self.act('save');self.act('upload')
@@ -305,7 +316,7 @@ class SnapshotJourneyTests(unittest.TestCase):
             continuity=lambda *_:None,monotonic=time.monotonic,epoch_ms=self.model.now,sleep=sleep,report=reports.append)
         try:journey.execute()
         except BaseException:
-            print('Explicit Snapshot producer replay stopped; recent source calls '+repr(timings[-8:])+'; original witness age/transport/receipt ages '+repr(witness_clocks),file=sys.stderr)
+            print('Explicit Snapshot producer replay stopped; recent source calls '+repr(timings[-8:])+'; original witness age/transport/receipt ages '+repr(witness_clocks)+'; actual final measured samples '+repr([(row['phase'],row['state']) for row in journey.samples[-4:]]),file=sys.stderr)
             if initialized[0]:self.actor_ok()
             raise
         self.assertTrue(reports[-1]['sequenceCompleted']);self.assertTrue(reports[-1]['cleanupSucceeded'])
