@@ -1812,3 +1812,13 @@ Create browse-setting7.884s, Chat compiled source4.318s, coverage0.061s.
 The new source includes the actual original Manager/WriteWorker/JSON codec and
 new getter in a narrow Qt harness; this does not qualify the full application,
 MyAvatar/V8/Android build or a physical device.
+
+
+The private Tablet Web normal-open prefix now joins separate original primary
+and actor stereo/file owners to the common two-eye verifier. The independent
+actor adds no target input; its native image/receipt resources retire separately.
+The updated complete service diagnostic DTO and all four input/state/cleanup
+flow regressions pass together:5 cases8.643s. The render/Qt/OS/VM producers are
+explicit analytical host seams; no actual HMD/device frame is claimed. The
+existing owning selector includes this prefix; catalog remains139. Full26
+Journey/actor/image and immutable final retirement remain outstanding.

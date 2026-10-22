@@ -262,13 +262,19 @@ class PicoTarget(OriginalTabletTarget):
     def __init__(self,*args):
         super().__init__(*args);self.lock=ScriptSourceLock(self.path/'script-sources.lock')
         self.vm=VmBoundary(self.path);self.vm_epoch=None;self.geometry_sequence=0;self.scroll=0
-        self.runtime_sequence=0;self.runtime_raw=None;self.renderer_rows={};self.inputs=[];self.command_log=[]
+        self.runtime_sequence=0;self.runtime_raw=None;self.renderer_rows={};self.inputs=[];self.command_log=[];self.service_sequence=0
         original=self.vm.objects.send
         def objects(request):
             self.vm.objects.epoch=self.clock.epoch();self.vm.objects.host=self.clock.now();return original(request)
         self.vm.objects.send=objects
 
     def _lock(self,target):return self.lock
+    def normal_feature_runtime(self,target,**kwargs):
+        def observe(after):
+            self.service_sequence=max(after+1,self.service_sequence+1)
+            return dict(schemaVersion=1,instance='a'*32,sampleSequence=self.service_sequence,sampleEpochMs=self.clock.tick(),complete=True,
+                scripts=[] if self.script is None else [dict(url=self.script,path=self.script)]),self.clock.epoch()
+        return None,observe,deepcopy(self.binding),lambda:self.foreground,None
     def input_attempt(self,request):
         issued=self.clock.tick();geometry=self.geometry_raw(request)
         pointer=wheel=ime=None;focus=None;native=None

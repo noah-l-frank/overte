@@ -59,3 +59,22 @@ Phone commit5527d540e99cc6dba4204a5e904a854e6e1cd2b4,
 factory or monoscopic screenshot fallback. Pico closed v2 browser/runtime/input
 history and original VM/QObject readers are exercised independently. Neither
 Phone moving HEAD nor uncommitted Phone state is read or adopted.
+
+
+## Original primary/actor stereo prefix
+
+The first normal open phase now passes through the actual private primary
+observer and independent actor publisher to separate original stereo/file
+owners and the common two-eye browser verifier. The actor issues no target
+input; it has a separate VM transcript and original image/journal. Both capture
+owners independently retire their native image memory and physical receipt
+files. The shared service diagnostic fixture now supplies its complete original
+closed schema and advancing sequence, rather than a partial measurement DTO.
+
+The analytical GPU/Qt/OS producers remain explicit seams in
+`self_tests/pico_browser_render_fixture.py`. Fresh producer packets use the
+fixture's clock at original production; retained originals are not retimed.
+A generated challenge card is an analytical fixture image, not an actual HMD
+frame. No monoscopic fallback or public capability is added. Five stereo-prefix
+and input/state/cleanup flow cases pass8.643s. Full26 Journey/actor/stereo
+execution and final archive remain the next work.
