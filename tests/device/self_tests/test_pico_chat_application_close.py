@@ -5,7 +5,6 @@ No application, Assignment Client, device, network or Qt destruction is run.
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
-from pathlib import Path
 from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
@@ -17,7 +16,7 @@ from adapters.normal_ui import NativeUIError
 from adapters.pico4.chat_application_close import PicoChatApplicationClose
 from adapters.pico4.chat_restart_io import PicoChatRestartIO
 from self_tests import test_chat_journey_samples as initial_seams
-from self_tests.test_chat_cache_release import CacheReleaseTests
+from self_tests import test_chat_cache_release as cache_seams
 from self_tests.test_chat_script_source import CompiledBoundary
 from self_tests.test_native_chat_observation import RUN
 from self_tests.test_pico_chat_restart_io import RestartBoundary
@@ -25,7 +24,7 @@ from self_tests.test_pico_chat_restart_io import RestartBoundary
 
 class ApplicationCloseTests(unittest.TestCase):
     def setUp(self):
-        self.h=CacheReleaseTests()
+        self.h=cache_seams.CacheReleaseTests()
         with patch.object(initial_seams,'BINDING',initial_seams.BINDING|dict(processIdentity='123:456')):self.h.setUp()
         self.addCleanup(self.h.doCleanups);self.root=self.h.root
         self.os=RestartBoundary(self.root);self.os.pico_configuration=('explicit-layer',self.root)
