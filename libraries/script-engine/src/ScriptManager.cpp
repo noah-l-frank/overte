@@ -1324,7 +1324,7 @@ ScriptManager::FeatureNativeCallScope::FeatureNativeCallScope(ScriptManager* man
     if (!manager || !manager->_featureWorkEnabled || QThread::currentThread()!=manager->thread()
             || (method!="overrideAnimation" && method!="restoreAnimation"
 #if defined(Q_OS_IOS)
-                && method!="featureIOSCreateEvent"
+                && method!="featureIOSCreateEvent" && method!="addEntity" && method!="deleteEntity"
 #endif
                 )
             || manager->_featureNativeCallSequence>=1000000000) { return; }
@@ -1336,6 +1336,12 @@ ScriptManager::FeatureNativeCallScope::FeatureNativeCallScope(ScriptManager* man
         {"invokedEpochMs",QDateTime::currentMSecsSinceEpoch()},{"manager",membership},{"code",code}};
 #if defined(Q_OS_IOS)
     if (method=="featureIOSCreateEvent") { _featureNativeCallContext.insert("codeSources",manager->featureCreateSources()); }
+    if (method=="addEntity" || method=="deleteEntity") {
+        _featureNativeCallContext.insert("callerChain",manager->featureAvatarTimerCallers());
+        const auto original=manager->featureAvatarScriptObservation();
+        _featureNativeCallContext.insert("avatarCode",QVariantMap{{"avatarScriptVersion",original.value("avatarScriptVersion")},
+            {"instance",original.value("instance")},{"complete",original.value("complete")},{"code",original.value("code")}});
+    }
 #endif
 }
 

@@ -1,6 +1,9 @@
 {
   "schemaVersion": 1,
   "contracts": {
+    "ios-avatar-entities": {"current": 1, "reads": [1]},
+    "ios-avatar-entities-acquisition": {"current": 1, "reads": [1]},
+    "native-avatar-entity-observation": {"current": 1, "reads": [1]},
     "ios-avatar-login-owner": {"current": 1, "reads": [1]},
     "ios-emote-marker-measurements": {"current": 1, "reads": [1]},
     "ios-emote-peer": {"current": 1, "reads": [1]},

@@ -12,6 +12,9 @@
 //
 
 #include "EntityScriptingInterface.h"
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+#include <AvatarEntityObservation.h>
+#endif
 
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/transform.hpp>
@@ -720,6 +723,17 @@ QUuid EntityScriptingInterface::addEntityInternal(const EntityItemProperties& pr
     // queue the packet
     if (success) {
         queueEntityMessage(PacketType::EntityAdd, id, propertiesWithSimID);
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+        if (entityHostType==entity::HostType::AVATAR) {
+            overte::e2e::AvatarEntityObservation::instance().event("add-returned",{
+                {"entityId",id.toString(QUuid::WithoutBraces)},{"hostType","avatar"},
+                {"modelUrl",propertiesWithSimID.getModelURL()},{"parentId",propertiesWithSimID.getParentID().toString(QUuid::WithoutBraces)},
+                {"parentJointIndex",propertiesWithSimID.getParentJointIndex()},
+                {"owningAvatarId",propertiesWithSimID.getOwningAvatarID().toString(QUuid::WithoutBraces)},
+                {"lastEditedEpochUs",QString::number(propertiesWithSimID.getLastEdited())},{"localTreeAvailable",bool(_entityTree)}},
+                ScriptManager::featureNativeCallContext());
+        }
+#endif
         return id;
     } else {
         return QUuid();
@@ -1281,6 +1295,16 @@ void EntityScriptingInterface::deleteEntity(const QUuid& id) {
     for (auto entity : entitiesToDeleteImmediately) {
         if (entity->isMyAvatarEntity()) {
             getEntityPacketSender()->getMyAvatar()->clearAvatarEntityInternal(entity->getID());
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+            const auto properties=entity->getProperties();
+            overte::e2e::AvatarEntityObservation::instance().event("deleted-local",{
+                {"entityId",entity->getID().toString(QUuid::WithoutBraces)},{"hostType","avatar"},
+                {"modelUrl",properties.getModelURL()},{"parentId",properties.getParentID().toString(QUuid::WithoutBraces)},
+                {"parentJointIndex",properties.getParentJointIndex()},
+                {"owningAvatarId",properties.getOwningAvatarID().toString(QUuid::WithoutBraces)},
+                {"lastEditedEpochUs",QString::number(properties.getLastEdited())},{"localTreeAvailable",bool(_entityTree)}},
+                ScriptManager::featureNativeCallContext());
+#endif
         }
     }
 }

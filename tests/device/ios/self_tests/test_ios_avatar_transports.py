@@ -9,11 +9,12 @@ import subprocess
 import unittest
 from unittest.mock import patch
 
-from ios.adapters import feature_observation, avatar_renderers, avatar_social_http, people_model, avatar_scripts
+from ios.adapters import feature_observation, avatar_renderers, avatar_social_http, people_model, avatar_scripts, avatar_entities
 from ios.self_tests import test_ios_avatar_renderers as render_tests
 from ios.self_tests import test_ios_avatar_social_http as http_tests
 from ios.self_tests import test_ios_people_model as people_tests
 from ios.self_tests import test_ios_avatar_scripts as script_tests
+from ios.self_tests import test_ios_avatar_entities as entity_tests
 from ios.self_tests.test_ios_feature_observation import Native
 from ios.self_tests.test_ios_location_bookmarks import Boundary as Clocks
 from self_tests.test_native_feature_observation import Boundary as ClockBoundary, probe_source
@@ -82,10 +83,15 @@ class AvatarTransportTests(unittest.TestCase):
         self.assertEqual(original['source'],result['source'])
         self.assertFalse(avatar_scripts.drained(result,{script_tests.MANAGER}))
 
+    def test_avatar_entities_retains_original_returned_UUID_caller_module_and_raw_self_sentinel(self):
+        original,*_=entity_tests.packet();result=self.transport(avatar_entities,original,'avatar_entities')
+        self.assertEqual(original['source'],result['source'])
+        self.assertEqual(avatar_renderers.SELF,result['source']['events'][0]['entity']['owningAvatarId'])
+
     def test_probe_calls_once_preserves_originals_and_never_forges_unavailable_sources(self):
         for module,method,key in ((avatar_renderers,'featureIOSAvatarRenderers','source'),
                 (avatar_social_http,'featureIOSAvatarSocialHttp','events'),(people_model,'featureIOSPeopleModel','source'),
-                (avatar_scripts,'featureIOSAvatarScripts','source')):
+                (avatar_scripts,'featureIOSAvatarScripts','source'),(avatar_entities,'featureIOSAvatarEntities','source')):
             program=r'''
 const Uuid={generate:()=>"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"};
 const objectKeysMatch=(v,k)=>JSON.stringify(Object.keys(v).sort())===JSON.stringify(k.sort());

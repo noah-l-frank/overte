@@ -629,6 +629,12 @@ class FixtureState:
             try:validate_ios_source(command)
             except (ValueError,RuntimeError):raise ValueError("invalid iOS avatar_scripts request") from None
             valid=True
+        elif action == "feature-ios-avatar-entities":
+            sys.path.insert(0,str(ROOT.parent))
+            from ios.adapters.avatar_entities import command as validate_ios_source
+            try:validate_ios_source(command)
+            except (ValueError,RuntimeError):raise ValueError("invalid iOS avatar_entities request") from None
+            valid=True
         elif action == "feature-ios-avatar-state":
             sys.path.insert(0,str(ROOT.parent))
             from ios.adapters.avatar_state import command as avatar_state_command
