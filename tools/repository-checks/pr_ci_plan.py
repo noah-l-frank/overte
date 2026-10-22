@@ -35,6 +35,7 @@ _NATIVE = _load("central_pr_native_selection", "tools/native-tests/check.py")
 _PACKAGES = _load("central_pr_package_selection", "tools/repository-checks/package_checks.py")
 _CODEQL = _load("central_pr_codeql_selection", "tools/repository-checks/codeql.py")
 _TOOLS = _load("central_pr_tool_dependencies", "tools/repository-checks/tool_dependencies.py")
+_ANDROID_NATIVE = _load("central_android_native_inputs", "tools/repository-checks/pr_ci_android_preflight.py")
 # package_checks.select uses this same protected helper. Cache that code at
 # import time so planning itself does not read files or load another module.
 _PACKAGES.tools = lambda: _TOOLS
@@ -576,7 +577,10 @@ def plan(base_tree, candidate_tree, trusted_tree, *, read_blob, target="main"):
                 selected.append(name)
     android, ios = _platform_inputs(paths, native["mode"], target)
     android_compile = _android_compile_products(paths, base_tree, candidate_tree, target)
-    android = android or bool(android_compile)
+    android_native = ([{"android-main": "common", "android-vr": "common",
+                        "android-phone": "phone", "android-vr-pico": "pico"}[target]]
+                      if _ANDROID_NATIVE.classify(paths, target=target)["native_qualification_required"] else [])
+    android = android or bool(android_compile) or bool(android_native)
     ios_build = ios and (native["mode"] != "skip" or any(
         (path.startswith("ios/") and not path.startswith(("ios/tests/", "ios/release-check/"))
          and not path.endswith(".md"))
@@ -652,7 +656,8 @@ def plan(base_tree, candidate_tree, trusted_tree, *, read_blob, target="main"):
             _rows(candidate_tree), ["codeql"], environment="codeql")
     if android:
         add("platform:android", "android", ["platform-validation", target,
-                *[argument for product in android_compile for argument in ("--compile-product", product)]],
+                *[argument for product in android_compile for argument in ("--compile-product", product)],
+                *[argument for product in android_native for argument in ("--native-product", product)]],
             _rows(candidate_tree), ["host-full"], environment=target, target_scoped=True)
     if ios:
         add("platform:ios", "ios", ["platform-validation", target],
@@ -664,7 +669,8 @@ def plan(base_tree, candidate_tree, trusted_tree, *, read_blob, target="main"):
             "dependency_profiles": {"pillow13": pillow, "vite": vite_profiles},
             "native": native, "codeql_languages": security["languages"],
             "codeql_reasons": security["reasons"], "browser_required": browser,
-            "android_required": android, "android_compile_products": android_compile, "ios_required": ios, "ios_build_required": ios_build,
+            "android_required": android, "android_compile_products": android_compile,
+            "android_native_products": android_native, "ios_required": ios, "ios_build_required": ios_build,
             "tasks": list(tasks.values()),
             "setup": sorted({item for task in tasks.values() for item in task["setup"]}),
             "input_identity": {"base": _digest(_rows(base_tree)),

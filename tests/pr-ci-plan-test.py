@@ -37,6 +37,25 @@ class Objects:
 
 
 class CentralPlannerTests(unittest.TestCase):
+    def test_android_native_owner_is_target_specific_and_excludes_npm_docs_and_java(self):
+        owners = {"android-main": "common", "android-vr": "common",
+                  "android-phone": "phone", "android-vr-pico": "pico"}
+        cases = (("libraries/shared/item.cpp", "int changed = 2;", True),
+                 ("android/common/src/Shared.cpp", "int shared = 2;", True),
+                 ("browser-client/package-lock.json", '{"lockfileVersion":3,"changed":true}', False),
+                 ("script-archive/marketplace/S3Server/package-lock.json", '{"lockfileVersion":3,"changed":true}', False),
+                 ("docs/native.md", "Documentation only", False),
+                 ("android/common/web/java/org/overte/Shared.java", "class Shared {}", False))
+        for target in PLANNER.TARGETS:
+            for path, raw, native in cases:
+                with self.subTest(target=target, path=path):
+                    result = self.plan(self.candidate(path, raw), target)
+                    expected = [owners[target]] if native and target in owners else []
+                    self.assertEqual(result["android_native_products"], expected)
+                    if expected:
+                        owner = next(task for task in result["tasks"] if task["id"] == "platform:android")
+                        self.assertEqual(owner["command"][-2:], ["--native-product", expected[0]])
+
     def setUp(self):
         self.objects = Objects()
         self.registry = {"schema": 1, "control_inputs": [

@@ -1,0 +1,102 @@
+# Android native CI infrastructure
+
+This infrastructure is being qualified locally. GitHub Actions remain disabled;
+transport checks and small contract fixtures do not establish Android build or
+APK acceptance. The existing prerequisite gate remains closed until the actual
+producer, owning application outputs and protected offline consumer are qualified.
+
+The source-only producer's completed bootstrap and host-tool phases are retained
+as original evidence. A separate guarded continuation may reuse only packages
+whose recipe revision, package ID, package revision, dependency graph and original
+successful build are verified. It must additionally verify the original package
+manifest revision and an independently sealed SHA256 payload inventory. Conan's
+cache-integrity command alone does not establish that identity. A cache hit or
+skipped graph node is never relabeled as a newly executed build.
+
+Phone and Pico retain distinct owning application qualification. A dedicated
+Pico CI profile may explicitly share compatible prepared dependencies, while
+requiring its own input mapping, OpenXR graph, actual native link and unsigned
+APK verification. It does not alter the existing Pico release-consumer contracts.
+The Android parent branches use the parent-owned common native harness and do
+not select a child application's APK merely because its files are present.
+
+## Immutable payload transport
+
+`tools/repository-checks/pr_ci_android_runtime.py` records every payload file's
+SHA256, size and permissions, every directory's permissions, and each confined
+relative symlink. Modification times are deliberately excluded. The inventory's
+own digest must be supplied by reviewed protected policy outside the downloaded
+payload. Recomputing a local inventory cannot authorize modified dependencies.
+
+Archive extraction requires both the protected archive digest and exact size,
+and verifies the full inventory before making the destination available. The
+extractor refuses absolute or noncanonical paths, hard links, device files,
+duplicate or unlisted entries, escaping symlinks, and pre-existing destinations.
+Restored dependency caches require the same complete verification before use.
+An inventory proves transport integrity only; original build provenance, exact
+toolchain/profile identity and actual product qualification remain separate.
+
+The producer can write an inventory outside the payload directory:
+
+```sh
+python3 -I -S -B tools/repository-checks/pr_ci_android_runtime.py inventory \
+  --root "$PAYLOAD" --output "$INVENTORY"
+```
+
+Before consuming a locally prepared or restored payload:
+
+```sh
+python3 -I -S -B tools/repository-checks/pr_ci_android_runtime.py verify \
+  --root "$PAYLOAD" --inventory "$INVENTORY" \
+  --inventory-sha256 "$PROTECTED_INVENTORY_SHA256"
+```
+
+Run the focused transport regressions without downloads or builds:
+
+```sh
+python3 -I -S -B tests/pr-ci-android-runtime-test.py
+```
+
+The eventual executing consumer must run candidate CMake/Gradle only inside its
+credential-free, network-disabled boundary, with a checksum-bound SDK/NDK,
+prepared host tools and target dependency graph. PR execution must never build
+missing Conan dependencies or run a cold source producer. Package locks, docs,
+unrelated JavaScript and owning Java/resource-only changes retain their narrower
+existing checks rather than triggering the Android native consumer.
+
+## Offline execution boundary
+
+`tools/repository-checks/pr_ci_android_boundary.py` constructs the isolated
+consumer invocation using the exact prepared image ID, the fixed local Docker
+daemon and an empty temporary Docker client configuration. Candidate programs
+receive no host credentials, Docker socket or host system mounts. The container
+runs as a nonroot user with no capabilities, no network, a read-only filesystem,
+the default Docker security policy, and explicit CPU, memory and process limits.
+
+The dependency payload and SDK are mounted read-only. Only the private candidate
+and build scratch are writable; candidate Git metadata stays read-only. The
+caller supplies a separate small reviewed controller directory. Product identity
+is explicit: the Phone/common host mapping is not exposed to Pico, whose owning
+adapter requires its distinct graph. On interruption or timeout, the launcher
+removes only its own unique container and does not retry the build. Failure to
+confirm cleanup is reported separately. Constructing this boundary does not
+verify payload provenance or establish product acceptance.
+
+The same immutable payload also appears at `/prepared`, where candidate source
+cannot shadow its inventory. Proof documents live separately at `/qualification`
+to avoid self-referential inventory hashes. On SELinux hosts, prepare container
+labels only on the private exported copies; retain the enforcing security policy
+and leave the original SDK and producer attempt unchanged.
+
+The original image configuration and its exported Docker manifest have separate
+pinned identities. The launcher accepts those two engine representations only
+after comparing the actual configuration digest and every ordered uncompressed
+filesystem layer. This supports the containerd image store's manifest identity
+without relying on a mutable tag. See the
+[Moby containerd inspection implementation](https://github.com/moby/moby/blob/master/daemon/containerd/image_inspect.go).
+
+Run boundary construction and lifecycle tests without a build:
+
+```sh
+python3 -I -S -B tests/pr-ci-android-boundary-test.py
+```
