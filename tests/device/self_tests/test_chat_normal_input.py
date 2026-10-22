@@ -6,6 +6,7 @@ from pathlib import Path
 import sys
 import unittest
 import uuid
+from unittest.mock import patch
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 from adapters.chat_journey.normal_input import ChatNormalInput
 from adapters.normal_feature_state import PrivateFeatureState
@@ -145,6 +146,21 @@ class NormalInputTests(unittest.TestCase):
         observed=self.act('type',text=context(RUN)['unicode'])
         self.assertEqual(context(RUN)['unicode'],observed[0]['state']['draft'])
         self.assertEqual(3,len(self.widgets.calls));self.assertEqual(2,len(self.attempts()))
+
+    def test_final_return_copy_clock_jump_is_not_fresh_with_a_frozen_host_timer(self):
+        from adapters.chat_journey import normal_input
+        original=normal_input.deepcopy;delta=0
+        for role in self.roles:role.primary.clock_ms=lambda:self.epoch()+delta
+        def copied(value):
+            nonlocal delta
+            result=original(value)
+            if type(value) is list and len(value)==2 and all(type(row) is dict and 'state' in row and 'capturedEpochMs' in row for row in value):
+                delta=2000
+            return result
+        with patch.object(normal_input,'deepcopy',side_effect=copied):
+            with self.assertRaises(NativeUIError):self.act('open')
+        self.assertEqual(0,self.clock);self.assertEqual(1,len(self.widgets.calls))
+        self.assertTrue(self.store.path.exists());self.assertEqual(2000,delta)
 
     def test_lost_normal_send_ack_cannot_repeat_after_a_new_owner(self):
         self.prepared();self.widgets.lose_ack=True
