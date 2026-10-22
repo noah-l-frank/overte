@@ -91,6 +91,17 @@ class PicoInputContracts(unittest.TestCase):
             if name != "qt": node.update(ref=name + "/1.0#" + f"{number:032x}", rrev=f"{number:032x}")
             graph[str(number)] = node
         self.graph = graph
+        host_graph = {"0": copy.deepcopy(graph["0"])}
+        host_graph["0"]["dependencies"] = {}
+        host_bindings = {}
+        for key, node in graph.items():
+            if node.get("settings", {}).get("os") != "Linux": continue
+            host_bindings[node["ref"] + ":" + node["package_id"] + "#" + node["prev"]] = node["package_folder"]
+            original = copy.deepcopy(node)
+            original.update(binary="Build", context="host", package_folder="/original/unchanged/raw/package")
+            host_graph[key] = original
+            node.update(binary="Skip", package_folder=None)
+        self.host_graph = host_graph
         xml = self.repo / "android/vr/pico/apps/picoInterface/src/main/res/values/qt_dependencies.xml"
         names = {item.text.split(":", 1)[0] for item in ET.parse(xml).findall("./string-array[@name='bundled_in_lib']/item")}
         names |= {"libssl_3.so", "libcrypto_3.so", "libopenxr_loader.so"}
@@ -103,10 +114,12 @@ class PicoInputContracts(unittest.TestCase):
         for name, kind in INPUTS.PROOF_KINDS.items():
             if name == "runtime_inventory": continue
             file = self.proof / (name + ".json")
-            write(file, json.dumps({"graph": {"nodes": graph}}) if name == "target_graph" else json.dumps({"kind": kind, "fixture": True}))
+            write(file, json.dumps({"graph": {"nodes": graph if name == "target_graph" else host_graph}})
+                  if name in {"target_graph", "host_tools_graph"} else json.dumps({"kind": kind, "fixture": True}))
             refs[name] = {"kind": kind, "path": str(file), "sha256": INPUTS.sha(file)}
         self.data = {"kind": "overte-pico-ci-product-inputs-v1", "product": "android-vr-pico",
                      "dependency_intent": INPUTS.intent(self.repo, self.head), **refs,
+                     "host_package_bindings": host_bindings,
                      "generators": str(self.generators), "qtPackage": str(self.qt), "dracoInclude": str(self.draco),
                      "tools": tools, "runtime": runtime, "stagedRuntime": runtime.copy(), "qmlModules": sorted(INPUTS.MODULES),
                      "openxr": {"library": runtime["libopenxr_loader.so"], "sha256": INPUTS.sha(Path(runtime["libopenxr_loader.so"])),
@@ -166,6 +179,28 @@ class PicoInputContracts(unittest.TestCase):
         write(path, json.dumps({"graph": {"nodes": self.graph}}))
         self.data["target_graph"]["sha256"] = INPUTS.sha(path)
         with self.assertRaisesRegex(ValueError, "incomplete"): self.resolve()
+
+    def test_null_skip_tools_need_exact_original_build_and_protected_aliases(self):
+        host = self.data["host_tools_graph"]
+        original = copy.deepcopy(self.host_graph)
+        for change in (lambda node: node.update(binary="Cache"),
+                       lambda node: node.update(prev="f" * 32),
+                       lambda node: node.update(options={"different": True})):
+            self.host_graph = copy.deepcopy(original)
+            change(self.host_graph["8"])
+            write(Path(host["path"]), json.dumps({"graph": {"nodes": self.host_graph}}))
+            host["sha256"] = INPUTS.sha(Path(host["path"]))
+            with self.assertRaisesRegex(ValueError, "original Build identity"): self.resolve()
+        write(Path(host["path"]), json.dumps({"graph": {"nodes": original}}))
+        host["sha256"] = INPUTS.sha(Path(host["path"]))
+        bindings = self.data["host_package_bindings"]
+        identity = next(iter(bindings))
+        saved = bindings.pop(identity)
+        with self.assertRaises(ValueError): self.resolve()
+        bindings[identity] = str(self.qt)
+        with self.assertRaises((ValueError, OSError)): self.resolve()
+        bindings[identity] = saved
+        self.assertFalse(self.resolve()["pico_qualified"])
 
     def test_changed_modes_bytes_unmapped_tools_and_unshadowed_copy_fail(self):
         path = Path(self.data["tools"]["moc"])

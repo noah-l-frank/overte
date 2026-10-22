@@ -28,6 +28,7 @@ PROOF_KINDS = {
     "producer_completion": "overte-phone-guarded-target-complete-v1",
     "package_origins": "overte-android-package-origins-v1",
     "target_graph": "conan-graph-v1",
+    "host_tools_graph": "conan-graph-v1",
 }
 EXTRA_INTENT = (
     "android/common/native-ci/verify.py", "android/common/native-ci/CMakeLists.txt",
@@ -148,11 +149,37 @@ def resolve(expected_map_sha, expected_head, *, repo=ROOT, attempt=ATTEMPT, prep
 
     # These original proofs were authenticated before protected map publication.
     # Keep their original producer identity; do not relabel Phone completion.
-    for name in ("producer_completion", "package_origins", "target_graph"):
+    for name in ("producer_completion", "package_origins", "target_graph", "host_tools_graph"):
         bound_file(data.get(name), PROOF_KINDS[name])
     graph = module(repo / "android/vr/pico/native-ci/graph_contract.py", "pico_ci_graph")
     nodes = read_json(Path(data["target_graph"]["path"]))["graph"]["nodes"]
     graph.validate_pico_target(nodes)
+    host_nodes = read_json(Path(data["host_tools_graph"]["path"]))["graph"]["nodes"]
+    graph.validate(host_nodes)
+    # Conan leaves skipped tools' package_folder null. Preserve that original
+    # graph and bind separately authenticated aliases to actual original Builds.
+    # The protected publisher verifies complete original graph/byte lineage;
+    # these pinned fields neither promote Skip nor manufacture Build evidence.
+    host_bindings = data.get("host_package_bindings")
+    require(isinstance(host_bindings, dict), "Missing protected host package aliases")
+
+    def package_ref(node):
+        return node["ref"] + ":" + node["package_id"] + "#" + node["prev"]
+
+    def host_package(node):
+        require(node.get("settings", {}).get("os") == "Linux" and
+                node["settings"].get("arch") == "x86_64" and graph.hexdigest(node.get("prev"), 32),
+                "Wrong host tool package identity")
+        fields = tuple(field for field in graph.IDENTITY if field != "context")
+        originals = [source for source in host_nodes.values()
+                     if source.get("binary") == "Build" and source.get("context") == "host" and
+                     all(source.get(field) == node.get(field) for field in fields)]
+        require(len(originals) == 1, "Host tool lacks matching original Build identity")
+        root = confined(host_bindings.get(package_ref(node)))
+        require(root.is_dir(), "Host tool alias is not a package directory")
+        if node.get("package_folder") is not None:
+            require(confined(node["package_folder"]) == root, "Host graph package alias differs")
+        return root
     require(all(key == "0" or node.get("binary") == "Skip" or graph.hexdigest(node.get("prev"), 32)
                 for key, node in nodes.items()), "Target graph is incomplete")
     generators = confined(data.get("generators"))
@@ -191,7 +218,7 @@ def resolve(expected_map_sha, expected_head, *, repo=ROOT, attempt=ATTEMPT, prep
     host_qt = [node for node in nodes.values() if (node.get("ref") or "").startswith("qt/") and
                node.get("settings", {}).get("os") == "Linux"]
     require(len(host_qt) == 1 and host_qt[0]["ref"] == target_qt[0]["ref"], "Host/target Qt recipe differs")
-    host_qt_root = confined(host_qt[0].get("package_folder"))
+    host_qt_root = host_package(host_qt[0])
     for name in ("moc", "rcc", "qmake"):
         require(confined(tools[name]) == confined(str(host_qt_root / "bin" / name)), "Qt host tool package differs")
     uic_locations = [folder / "bin/uic" for folder in (qt, host_qt_root) if (folder / "bin/uic").exists()]
@@ -202,8 +229,14 @@ def resolve(expected_map_sha, expected_head, *, repo=ROOT, attempt=ATTEMPT, prep
     for tool, (package, relative) in shader_packages.items():
         matches = [node for node in nodes.values() if (node.get("ref") or "").split("/")[0] == package and
                    node.get("settings", {}).get("os") == "Linux"]
-        require(len(matches) == 1 and confined(str(confined(matches[0].get("package_folder")) / relative)) == Path(tools[tool]),
+        require(len(matches) == 1 and confined(str(host_package(matches[0]) / relative)) == Path(tools[tool]),
                 "Shader host tool package differs")
+    selected_hosts = host_qt + [node for node in nodes.values()
+                               if (node.get("ref") or "").split("/")[0] in
+                               {package for package, _ in shader_packages.values()} and
+                               node.get("settings", {}).get("os") == "Linux"]
+    require(set(host_bindings) == {package_ref(node) for node in selected_hosts},
+            "Unexpected or missing host package alias identity")
     runtime = data.get("runtime")
     staged = data.get("stagedRuntime")
     require(isinstance(runtime, dict) and runtime and isinstance(staged, dict) and staged, "Missing Pico runtime selection")

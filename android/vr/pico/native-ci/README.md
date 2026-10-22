@@ -89,6 +89,13 @@ consumer before Gradle and is not the new CI entry point. This new consumer neve
 installs/resolves/repairs dependencies. A separate preflight-admitted producer
 must build any distinct OpenXR node before the runtime is frozen.
 
+The map also pins the unchanged original `host_tools_graph` and a
+`host_package_bindings` table keyed by exact `ref#RREV:PID#PREV`. The protected
+publisher authenticates each restored alias against the original Build and
+strong package inventory. Selected target tools must match that original Linux
+x86_64 Build identity, settings and options. Conan's raw target graph retains
+its null tool paths and Cache/Skip decisions; these never become Build evidence.
+
 After the actual build, `verify_apk.py` verifies the bounded unsigned archive,
 required Pico/OpenXR/Interface outputs, no E2E payload, actual ELF64/AArch64/16 KiB
 LOAD segments, filename/SONAME equality and the complete packaged DT_NEEDED closure
