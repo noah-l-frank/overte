@@ -13,12 +13,12 @@
 namespace overte::e2e {
 class RecordedPreviewObservation {
 public:
-    quint64 begin(const QAudioFormat& format) {
+    quint64 begin(const QAudioFormat& format, qint64 startedEpochMs) {
         clear();
         ++_cycle;
         _format = format;
-        _started = QDateTime::currentMSecsSinceEpoch();
-        _valid = format.sampleSize() == 16 && format.sampleType() == QAudioFormat::SignedInt
+        _started = startedEpochMs;
+        _valid = _started > 0 && format.sampleSize() == 16 && format.sampleType() == QAudioFormat::SignedInt
             && format.byteOrder() == QAudioFormat::LittleEndian
             && format.channelCount() >= 1 && format.channelCount() <= 2
             && format.sampleRate() >= 8000 && format.sampleRate() <= 48000;

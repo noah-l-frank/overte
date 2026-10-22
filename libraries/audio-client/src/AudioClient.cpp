@@ -1869,7 +1869,7 @@ void AudioClient::startRecordedVoiceTest() {
         _e2eRecordedVoiceCaptureChannels = _outputFormat.channelCount();
         _e2eRecordedVoiceHistory.clear();
         _e2eRecordedVoiceHistoryComplete = true;
-        const auto cycle = _e2eRecordedPreview.begin(_outputFormat);
+        const auto cycle = _e2eRecordedPreview.begin(_outputFormat, _e2eRecordedVoiceStarted);
         QTimer::singleShot(30000, this, [this, cycle] {
             if (_e2eRecordedPreview.cycle() == cycle) { _e2eRecordedPreview.clear(); }
         });
