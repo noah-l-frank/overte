@@ -379,3 +379,66 @@ been restored. Exact native-owned CAS restoration, joined Favorites/Scale,
 wearables, mutual contact/actor facts, resource consumption, actual remote
 stereo evidence and full native/context/callback cleanup remain unfinished.
 No full Feature 3 capability is enabled.
+
+## Original bookmark load callback and cached URL
+
+The normal AvatarApp QML and whole original avatarapp.js host pipeline now
+forwards Favorite loads into the complete original
+`AvatarBookmarks::loadBookmark` / `loadBookmarkInternal` and
+`MyAvatar::useFullAvatarURL` C++ bodies. Its existing
+`updateCurrentAvatarInBookmarks` QML callback can request the Favorite during
+normal UI updates. If the skeleton URL already matches, only the original
+MyAvatar branch emits `onLoadComplete`; no model-completion actor emits that
+cached event. A highlighted matching Favorite is not force-clicked. Different
+URLs still use an explicitly declared model-completion actor in this host
+pipeline, and wearable clear/add/scale live services remain declared actors.
+This proves the original input/callback route, not downloaded model geometry,
+wearable effects, remote pixels or persisted preference restoration.
+
+The dedicated passive `featurePicoAvatarBookmarkLoads` getter, closed probe
+action `feature-pico-avatar-bookmark-loads-observe` and private
+`_avatar_bookmark_loads_observer` expose the actual original registration and
+callback metadata. They use their own existing bounded weak queue, strict
+512-request history, original Manager identity and a fresh source bracket.
+The native collector retains at most 128 registrations. Overflow makes the
+observation unavailable without changing ordinary product loading. It never
+disconnects, emits, replays, cancels or completes a product callback.
+
+Each row records an original registration ID/time, name/URL hashes, the
+original Avatar load-history instance and session UUID, actual Qt connection
+and disconnect results, entry/return times and active dispatch count. The
+`bookmarkScale` and `bookmarkEntities` fields describe the selected bookmark
+arguments; they are not observed effects. Independent Avatar state and actual
+preference sources must supply effect evidence. Callback entry/exit metadata
+is mutex-protected, including an explicit fact about original thread affinity.
+The raw observer/parser keeps the exact append-only history and refuses
+replacements or regressions. The two new version-1 contracts are
+`native-avatar-bookmark-loads` and `pico-avatar-bookmark-loads-source`.
+
+`captureAlive` follows a weak marker captured by the original contextless Qt
+functor. The observer adds no strong Avatar, connection or QObject reference.
+Marker expiration is deliberately separate from whole-functor/resource/task
+retirement. The native Qt test proves that the original pending functor itself
+holds MyAvatar alive, that the original callback disconnects before effects,
+and that a subsequent original signal does not repeat those effects. After
+the real callback and release of the declared application/model references,
+the actual original QObject QPointer becomes null. It also observes an active
+callback from the original bookmarkLoaded signal and rejects late observer
+results from blocked dispatch and Manager-worker queues. The Manager-worker
+affinity move is a diagnostic host seam, not a claim about product affinity.
+
+Fixed Phone5527 was inspected again for the reusable route. Its original
+bookmark C++ connection has no finished capture/dispatch observation source;
+the new Pico source therefore instruments that existing common C++ body only
+under the dedicated Pico/E2E gates and runtime `--testScript`. Phone facade,
+touch and mono evidence are not copied. The existing UI and native-state
+owning selectors retain their names; the latter now includes the dedicated
+original callback case. Joined durable Favorite/Scale ownership, exact typed
+native restoration and whole Avatar/People retirement remain unfinished.
+
+Validation on 2026-10-23: the original QML/whole-JS/native-load pipeline passed
+in 10.471 seconds. The dedicated original-call/real-Qt/blocked-queue case
+passed through its owning wrapper with Qt5 in 2.877 seconds and directly with
+Qt6 in 3.845 seconds. Both disabled runtime admission and active `--testScript`
+were executed. The full Android application was not built and no physical
+device or OpenXR session was run.

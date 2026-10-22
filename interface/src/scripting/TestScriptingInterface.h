@@ -212,6 +212,7 @@ public slots:
 #if defined(ANDROID_APP_PICO_INTERFACE)
     Q_INVOKABLE QVariantMap featurePicoAvatarState(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featurePicoAvatarBookmarks(const QVariantMap& command);
+    Q_INVOKABLE QVariantMap featurePicoAvatarBookmarkLoads(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featurePicoAvatarPreferences(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featurePicoEmoteScene(const QVariantMap& command);
 #endif
@@ -314,6 +315,11 @@ private:
     QSet<QString> _featureAvatarBookmarksRequests;
     QPointer<QObject> _featureAvatarBookmarkObject;
     QString _featureAvatarBookmarkBirth;
+    std::shared_ptr<overte::e2e::AudioSettingsQueue> _featureAvatarBookmarkLoadsQueue;
+    quint64 _featureAvatarBookmarkLoadsSequence {0};
+    QSet<QString> _featureAvatarBookmarkLoadsRequests;
+    QPointer<QObject> _featureAvatarBookmarkLoadObject;
+    QString _featureAvatarBookmarkLoadBirth;
     std::shared_ptr<overte::e2e::AudioSettingsQueue> _featureAvatarPreferencesQueue;
     std::shared_ptr<overte::e2e::AvatarPreferenceSnapshot> _featureAvatarPreferences;
     quint64 _featureAvatarPreferencesSequence {0};

@@ -14,4 +14,7 @@ AvatarBookmarksNativeTests=BOOKMARK_MODULE.AvatarBookmarksNativeTests
 PREFERENCES_SPEC=importlib.util.spec_from_file_location('pico_avatar_preferences_native',ROOT/'tests/device/contracts/avatar/test_avatar_preferences_native.py')
 PREFERENCES_MODULE=importlib.util.module_from_spec(PREFERENCES_SPEC);PREFERENCES_SPEC.loader.exec_module(PREFERENCES_MODULE)
 AvatarPreferencesNativeTests=PREFERENCES_MODULE.AvatarPreferencesNativeTests
+LOADS_SPEC=importlib.util.spec_from_file_location('pico_avatar_bookmark_loads_native',ROOT/'tests/device/contracts/avatar/test_avatar_bookmark_loads_native.py')
+LOADS_MODULE=importlib.util.module_from_spec(LOADS_SPEC);LOADS_SPEC.loader.exec_module(LOADS_MODULE)
+AvatarBookmarkLoadsNativeTests=LOADS_MODULE.AvatarBookmarkLoadsNativeTests
 if __name__=='__main__':unittest.main()
