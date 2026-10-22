@@ -1,0 +1,15 @@
+{
+  "contractVersion": 1,
+  "managers": [
+    {
+      "id": "phone-default-includes-v1",
+      "sourcePath": "scripts/+android_phoneInterface/defaultScripts.js",
+      "runtimePath": "defaultScripts.js",
+      "sourceBase": "65b4c7e66d5671c5e7ca3d40da3016222bf0bca2",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 2018,
+      "sha256": "e83a0029ac7ae356114c1b16174e6d357ed092651f1bf4ad06b3417fd4728d68",
+      "includedProfiles": ["phone-one-shot-hide-v1"]
+    }
+  ]
+}

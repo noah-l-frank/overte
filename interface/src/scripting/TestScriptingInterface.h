@@ -168,6 +168,7 @@ public slots:
     Q_INVOKABLE QVariantMap releaseFeatureRecordedVoiceEvidence(const QString& requestId);
     Q_INVOKABLE QVariantMap featureRecordedVoiceFiles(const QString& requestId);
     Q_INVOKABLE QVariantMap featureScriptObservation(const QString& requestId);
+    Q_INVOKABLE QVariantMap featureScriptRoots(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureScriptFiles(const QVariantMap& command);
 #if defined(ANDROID_APP_PICO_INTERFACE)
     Q_INVOKABLE QVariantMap featureLocationBookmarks(const QVariantMap& command);
@@ -245,6 +246,8 @@ private:
     QByteArray _featurePreviewInputDigest, _featurePreviewSinkDigest;
     quint64 _featurePreviewSequence {0}, _featurePreviewLease {0};
     quint64 _featureScriptSequence {0};
+    quint64 _featureScriptRootsSequence {0};
+    QSet<QString> _featureScriptRootRequests;
     QSet<QUuid> _featureScriptEffectIds;
     quint64 _featureScriptFilesSequence {0};
     quint64 _featureWorldReceiptSequence {0};

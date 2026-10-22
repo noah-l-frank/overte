@@ -1,0 +1,127 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "abb7f6b60d97daf17752aadf94e2b5df099bb7ba",
+  "originalFrozenReference": "fe4684bf46585088370b3a328a738f147e670b97",
+  "targetBase": "76abcfafce",
+  "uncommittedPhoneWorkExcluded": true,
+  "sharedContracts": [
+    "native-script-roots v1",
+    "emote-source-profile v3 preserves v1/v2 joins",
+    "emote-rig-measurement v2",
+    "phone-emote-manager-pins v1 review metadata"
+  ],
+  "files": [
+    {
+      "sourcePath": "tests/device/adapters/native_script_roots.py",
+      "targetPath": "tests/device/adapters/native_script_roots.py",
+      "sourceSha256": "65e2edd4f0e64e7c815578661b1d2eac532f7edd29565bce420e230d929ad674",
+      "targetSha256": "65e2edd4f0e64e7c815578661b1d2eac532f7edd29565bce420e230d929ad674",
+      "selection": "exact"
+    },
+    {
+      "sourcePath": "tests/device/self_tests/test_native_script_roots.py",
+      "targetPath": "tests/device/self_tests/test_native_script_roots.py",
+      "sourceSha256": "fba12b576c367901587b143e0899385d0d6f85dc39d3dd84457633d2e6fef80b",
+      "targetSha256": "fba12b576c367901587b143e0899385d0d6f85dc39d3dd84457633d2e6fef80b",
+      "selection": "exact"
+    },
+    {
+      "sourcePath": "tests/device/adapters/emote_source_profile.py",
+      "targetPath": "tests/device/adapters/emote_source_profile.py",
+      "sourceSha256": "2530ead1511e14bb660cc000bf03541f44d921b8b063cf7f4560e6c077965ed3",
+      "targetSha256": "a642007cdb7e96ca891865b9d0db0c07c33f2858d3fb27960120b9abbf6897b4",
+      "selection": "reviewed-narrow-Pico-compatible-selection"
+    },
+    {
+      "sourcePath": "tests/device/self_tests/test_emote_source_profile.py",
+      "targetPath": "tests/device/self_tests/test_emote_source_profile.py",
+      "sourceSha256": "ee34720e61b0453ce36286f4c8748c436c7bebb078c552ac74ee6f9e17233164",
+      "targetSha256": "ee34720e61b0453ce36286f4c8748c436c7bebb078c552ac74ee6f9e17233164",
+      "selection": "exact"
+    },
+    {
+      "sourcePath": "tests/device/feature_journeys/phone-emote-manager-pins.v1.json",
+      "targetPath": "tests/device/feature_journeys/phone-emote-manager-pins.v1.json",
+      "sourceSha256": "bfe22b93b7f0cb8a53a4519fc8d13d0eeb5308d895e024ef151c0dc926c47208",
+      "targetSha256": "bfe22b93b7f0cb8a53a4519fc8d13d0eeb5308d895e024ef151c0dc926c47208",
+      "selection": "exact"
+    },
+    {
+      "sourcePath": "tests/device/adapters/emote_rig_measurements.py",
+      "targetPath": "tests/device/adapters/emote_rig_measurements.py",
+      "sourceSha256": "4dd0d42dacb9cbf460f693fbe8eb6f4bc570089ee1a543ca65a0660b3278c97a",
+      "targetSha256": "4dd0d42dacb9cbf460f693fbe8eb6f4bc570089ee1a543ca65a0660b3278c97a",
+      "selection": "exact"
+    },
+    {
+      "sourcePath": "tests/device/self_tests/test_emote_rig_measurements.py",
+      "targetPath": "tests/device/self_tests/test_emote_rig_measurements.py",
+      "sourceSha256": "8e352ec5ed8aec0c8f1992dc998df2072e3be92f5f0faf596dc4cd81658e1272",
+      "targetSha256": "8e352ec5ed8aec0c8f1992dc998df2072e3be92f5f0faf596dc4cd81658e1272",
+      "selection": "exact"
+    },
+    {
+      "sourcePath": "tests/device/native/SCRIPT_RESOURCE_ROOTS.md",
+      "targetPath": "tests/device/native/SCRIPT_RESOURCE_ROOTS.md",
+      "sourceSha256": "bf154fa64432701da4a45cfcf6cce03859a5f77a2213b9ac2846919851dfe9e7",
+      "targetSha256": "2f5fd8cbfc41e8d4ee8021e1c72685c3aab57d9b4526eb5f41c2266e9ef38297",
+      "selection": "reviewed-narrow-Pico-compatible-selection"
+    },
+    {
+      "sourcePath": "tests/device/native/EMOTE_SOURCE_PROFILE.md",
+      "targetPath": "tests/device/native/EMOTE_SOURCE_PROFILE.md",
+      "sourceSha256": "288a8b94619b6ec0cf513133b912edb90109f841f2d0ebbf9b8c3046a96ce3b2",
+      "targetSha256": "7c9fe5b231868520d82aa374f1e7e844feb8eafae41bbec7b8c1284f93f7550b",
+      "selection": "reviewed-narrow-Pico-compatible-selection"
+    },
+    {
+      "sourcePath": "tests/device/native/EMOTE_RIG_MEASUREMENTS.md",
+      "targetPath": "tests/device/native/EMOTE_RIG_MEASUREMENTS.md",
+      "sourceSha256": "0a99f301dbcd013670c261a2a01f056b1d4ccf168263e5d8696862a7a2b9e7c6",
+      "targetSha256": "43141b1327a110f4cb343b99874cc7ce638ed10da4150e7a422a626e2993fc27",
+      "selection": "reviewed-narrow-Pico-compatible-selection"
+    },
+    {
+      "sourcePath": "interface/src/scripting/TestScriptingInterface.cpp",
+      "targetPath": "interface/src/scripting/TestScriptingInterface.cpp",
+      "sourceSha256": "4f5e525a6e3ab547a7de6002db29c8a71c6afd1d124db1cf5520a45d15c4e0cd",
+      "targetSha256": "623aff5064a69ea9446a4fc62570af327af2beb39697ef764be90b855a3b670a",
+      "selection": "reviewed-narrow-Pico-compatible-selection"
+    },
+    {
+      "sourcePath": "interface/src/scripting/TestScriptingInterface.h",
+      "targetPath": "interface/src/scripting/TestScriptingInterface.h",
+      "sourceSha256": "469d8495d3da87b3f1a205b43b57b70d407f05543f2c2882b656ef8ffe3d0ec5",
+      "targetSha256": "e2ce1f27e3d06b3a09c59462df3255ea6c6760c6a33d76a4c3336e8d51a92f9e",
+      "selection": "reviewed-narrow-Pico-compatible-selection"
+    },
+    {
+      "sourcePath": "tests/device/probe/overte_e2e_probe.js",
+      "targetPath": "tests/device/probe/overte_e2e_probe.js",
+      "sourceSha256": "52bbdc2a266774316fc5b315504318f95e3c284d99d265752425661e7445fbc0",
+      "targetSha256": "86a78f5b6b1453f149411adacb536d38f2f4f6f41aca7fb01a90011ba00b420a",
+      "selection": "reviewed-narrow-Pico-compatible-selection"
+    },
+    {
+      "sourcePath": "tests/device/adapters/pico4/binding.py",
+      "targetPath": "tests/device/adapters/pico4/binding.py",
+      "sourceSha256": "72161f41ff2ea2814e843fb8ee2eaa60724fc1b080bf259caf049b3a78f6fa6c",
+      "targetSha256": "a0869814360d8c69ef01db53444c5257bae70de719f07c4caf9bcaaf50fb3723",
+      "selection": "reviewed-narrow-Pico-compatible-selection"
+    },
+    {
+      "sourcePath": "tests/device/fixture/serve.py",
+      "targetPath": "tests/device/fixture/serve.py",
+      "sourceSha256": "9860840da0b28a90c0db82b58510e4f235f225ea45e47190184e342bbdeb309a",
+      "targetSha256": "c4578d85d15006662cf770dd0d3186968c555cc56eabb4e0aa6b94e967e76a92",
+      "selection": "reviewed-narrow-Pico-compatible-selection"
+    }
+  ],
+  "excluded": [
+    "Phone platform/touch/mono/actor/input bindings",
+    "Phone callback/timer work and full journals",
+    "Native animation cache inventory, readiness and shared v17 motion migration remain separate",
+    "Moving branch or uncommitted Phone work"
+  ],
+  "qualification": "Pure source/caller/loaded-Rig joins only; new native getter/caller uncompiled and device0; no complete Emote adapter."
+}

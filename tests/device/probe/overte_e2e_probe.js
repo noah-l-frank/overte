@@ -143,6 +143,7 @@
         Test.saveObject(value, "world-render-observation.json");
     }
     var lastScriptSourceRequest = "";
+    var lastScriptRootRequest = "";
     var lastGraphicsSubjectRequest = "";
     var lastSceneLoadRequest = "";
     var lastTabletHttpRequest = "";
@@ -1191,6 +1192,24 @@
             }
             return true;
         }
+        if (command && command.action === "feature-script-roots-observe") {
+            if (command.schemaVersion === 1 && typeof command.commandId === "string"
+                    && /^(?:ios-)?[0-9a-f]{32}$/.test(command.commandId)
+                    && command.commandId.length === (command.commandId.indexOf("ios-") === 0 ? 36 : 32)
+                    && objectKeysMatch(command,["schemaVersion","commandId","action"])) {
+                if (lastScriptRootRequest === command.commandId) { return; }
+                lastScriptRootRequest = command.commandId;
+                var roots={scriptRootsVersion:1,commandId:command.commandId,available:false};
+                try {
+                    if (typeof Test.featureScriptRoots === "function") {
+                        var originalRoots=Test.featureScriptRoots(command);
+                        if (originalRoots && originalRoots.commandId === command.commandId) { roots=originalRoots; }
+                    }
+                } catch (_rootsError) { /* Missing original configuration never becomes a guessed root. */ }
+                Test.saveObject(roots,"feature-script-roots.json");
+            }
+            return;
+        }
         if (command && command.action === "feature-chat-view-observe") {
             if (command.schemaVersion === 1 && typeof command.commandId === "string"
                     && /^(?:ios-)?[0-9a-f]{32}$/.test(command.commandId)
@@ -1726,6 +1745,7 @@
                 || command.action === "feature-process-presence"
                 || command.action === "feature-recorded-audio-observe" || command.action === "feature-recorded-audio-release"
                 || command.action === "feature-recorded-audio-files" || command.action === "feature-script-observe"
+                || command.action === "feature-script-roots-observe"
                 || command.action === "feature-world-render-observe"
                 || command.action === "feature-graphics-subject-observe"
                 || command.action === "feature-scene-load-observe"

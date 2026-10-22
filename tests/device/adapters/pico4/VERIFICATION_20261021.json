@@ -2081,5 +2081,52 @@
       "command": "python3 tests/device/contracts/audio/test_recorded_preview_observation.py",
       "boundary": "Actual observer header, Qt6Core and explicit audio-format value seam; synthetic byte inputs; no AudioClient/QtMultimedia/acoustic/device qualification"
     }
+  },
+  "emoteOriginalSourceRig": {
+    "status": "shared-prerequisite-source-host-verified",
+    "sourceCommit": "abb7f6b60d97daf17752aadf94e2b5df099bb7ba",
+    "manifest": "PHONE_SHARED_EMOTE_SOURCES_20261022.json",
+    "contracts": [
+      "native-script-roots v1",
+      "emote-source-profile v3 preserves v1/v2 joins",
+      "emote-rig-measurement v2",
+      "phone-emote-manager-pins v1 review metadata"
+    ],
+    "checks": [
+      {
+        "command": "PYTHONDONTWRITEBYTECODE=1 TMPDIR=PRIVATE_DISK PYTHONPATH=tests/device:tests/device/self_tests python3 -m unittest self_tests.test_native_script_roots self_tests.test_pico_emote_source self_tests.test_emote_source_profile self_tests.test_emote_rig_measurements self_tests.test_native_animation_caller self_tests.test_native_animation_history self_tests.test_native_animation_source",
+        "status": "passed",
+        "tests": 101,
+        "durationSeconds": 0.644
+      },
+      {
+        "command": "python3 -m unittest test_feature_observation.FeatureObservationTests.test_pico_root_factory_reads_original_configuration_without_normal_input test_feature_observation.FeatureObservationTests.test_pico_root_factory_rejects_candidate_or_process_replacement_before_query",
+        "status": "passed",
+        "tests": 2,
+        "durationSeconds": 1.32
+      },
+      {
+        "command": "python3 tests/run-project-tests.py --suite documentation --suite documentation-contracts --suite source-layout --suite project-coverage",
+        "status": "passed",
+        "suites": 4,
+        "durationSeconds": 2.86,
+        "junit": "emote-original-source-rig-project.xml"
+      },
+      {
+        "command": "python3 android/vr/pico/tests/pico4-test-suite.py --test feature-observation --test suite-runner --test coverage-matrix --timeout 240",
+        "status": "passed",
+        "selectedGroups": 3,
+        "catalogGroups": 52,
+        "durationSeconds": 23.23,
+        "junit": "emote-original-source-rig-pico.xml"
+      },
+      {
+        "command": "node --check tests/device/probe/overte_e2e_probe.js; python3 tests/device/validate_contract_versions.py; git diff --check",
+        "status": "passed"
+      }
+    ],
+    "details": "Original configured roots and complete manager/code/compilation join actual separate Pico Emote VM with touch-one-shot-chooser-v1 retained UI. Unknown default manager is unrelated only after own original assignment/submission/top compilation and complete absence of reviewed Emote names or code. Additional/renamed Emote origins, missing/incomplete/foreign top evidence remain red. Exact common original Rig joins loaded consumed bytes, advancing clips, changing final poses, Sit replacement and restoration under original caller/native clocks. Closed read-only fixture/probe route has current-command deduplication and native bounded nonce ownership; no guessed resource root.",
+    "initialFailure": "The new isolated probe test initially omitted its existing Uuid native-boundary stub; corrected the fixture without product changes. Final complete selected checks pass.",
+    "limitations": "No complete Emote capability, passive cache admission, durable Pico role/source group, normal VR input, actor/stereo or whole finalizer. New root/caller native additions uncompiled; device0 and common journey v16 unchanged."
   }
 }

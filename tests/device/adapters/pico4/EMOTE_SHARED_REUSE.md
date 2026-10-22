@@ -80,3 +80,35 @@ These host cases establish Python reader/counterexample behavior only. Native
 code is uncompiled; actual V8 dispatch, Qt delivery, animation and VR are
 unqualified. The Pico source-profile v1 selector and common journey v16 remain
 unchanged in this packet. No complete Emote capability is advertised.
+
+
+## Configured roots, Pico source profile and original Rig measurements
+
+The next selection reuses the common original configured-root reader, full
+source/profile joins and `emote_rig_measurements` v2, with dependencies recorded
+in [PHONE_SHARED_EMOTE_SOURCES_20261022.json](PHONE_SHARED_EMOTE_SOURCES_20261022.json).
+The private Pico factory reads the actual application root through the existing
+guarded transport. Native queries retain original nonces; repeated private
+polling preserves the first original response. No root is inferred from an
+engine URL, resource basename or expected behavior.
+
+The actual Pico bootstrap loads the shared QML Emote source in a separate VM.
+Its current source bytes select `touch-one-shot-chooser-v1` and the retained
+chooser. The reviewed Phone default VM instead includes different reviewed code;
+its `phone-one-shot-hide-v1` profile cannot be relabeled for Pico. Source selector
+v3 preserves those Phone/legacy selections and admits an unrelated Pico default
+manager only with its own assignment, submitted code, matching actual top
+compilation and complete absence of reviewed Emote names or code bytes in that
+manager's original compile inventory. Additional or disguised Emote origins,
+unknown/incomplete inventories and foreign/default assignments remain failures.
+
+The pure Rig join now composes roots, compiled caller and consumed FBX originals
+with new override, advancing loaded clip frames, changed evaluated joint poses,
+active Sit replacement and original restoration. Cancel barriers use actual
+caller and native event time; queued natural completion cannot become an early
+user cancellation. Current original groups and immutable history remain required.
+These joins emit no complete feature capability or normal input verdict. Passive
+cache admission, durable Pico source groups, actual normal VR input, independent
+stereo avatar/actor publication, interruption and full quiet retirement remain
+open. Common journey v16 is unchanged; new native root/caller sources remain
+uncompiled and all devices untested.

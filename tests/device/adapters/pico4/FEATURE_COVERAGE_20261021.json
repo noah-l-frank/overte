@@ -380,7 +380,17 @@
         "tests/device/self_tests/test_native_animation_caller.py",
         "tests/device/native/ANIMATION_CALLER.md",
         "tests/device/native/ANIMATION_HISTORY.md",
-        "tests/device/adapters/pico4/PHONE_SHARED_ANIMATION_CALLER_20261022.json"
+        "tests/device/adapters/pico4/PHONE_SHARED_ANIMATION_CALLER_20261022.json",
+        "tests/device/adapters/native_script_roots.py",
+        "tests/device/adapters/emote_rig_measurements.py",
+        "tests/device/self_tests/test_native_script_roots.py",
+        "tests/device/self_tests/test_pico_emote_source.py",
+        "tests/device/self_tests/test_emote_rig_measurements.py",
+        "tests/device/native/SCRIPT_RESOURCE_ROOTS.md",
+        "tests/device/native/EMOTE_SOURCE_PROFILE.md",
+        "tests/device/native/EMOTE_RIG_MEASUREMENTS.md",
+        "tests/device/feature_journeys/phone-emote-manager-pins.v1.json",
+        "tests/device/adapters/pico4/PHONE_SHARED_EMOTE_SOURCES_20261022.json"
       ],
       "declaredCheckpoints": 28,
       "inputVerbs": [
@@ -402,8 +412,8 @@
         "restoredBeforeNominalEnd"
       ],
       "missingOperationsOrEvidence": [
-        "Current actual submitted Emote entrypoint/profile qualification and full normal input recipe",
-        "Durable Pico configured-root/profile/Rig/source join and actual timer/restoration source composition",
+        "Complete normal VR recipe for the actual retained QML chooser selected from original Pico source bytes",
+        "Durable Pico roots/profile/Rig original groups, passive loaded-cache admission and actual timer/restoration source composition",
         "Original stereo avatar images and independent actor publication"
       ],
       "requiredOriginalEvidence": [
@@ -417,7 +427,7 @@
         "Observe original pose/mapping/timer/resource retirement",
         "Restore captured prior override and closed panel"
       ],
-      "nextExecutableStep": "Join the selected original native caller/history to independently observed Pico configured roots and compiled source profile, then passive cache readiness. Bind normal Pico chooser/VR input, original stereo avatar images, independent actor and whole interruption/resource retirement. Current shared journey v16 remains unchanged; no complete Emote triple.",
+      "nextExecutableStep": "Compose passive actual loaded-cache admission and durable Pico roots/script/native source groups around normal VR QML Emote input; current v3 selector now distinguishes actual Pico separate VM/retained chooser from Phone included VM/hidden chooser, and pure Rig joins original caller/content/pose/restore. Add stereo avatar evidence, independent actor and whole interruption/resource retirement. Common journey v16 unchanged; no complete Emote triple.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     },
