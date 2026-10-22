@@ -95,6 +95,8 @@ TESTS = (
     test("emote-view-native-ui", "interaction", PYTHON, "pico-view-menu-native-test.py", requires=("c++", "pkg-config")),
     test("emote-scene-native", "interaction", PYTHON, "pico-emote-scene-native-test.py", requires=("c++", "pkg-config")),
     test("emote-original-sources", "interaction", PYTHON, "pico-emote-sources-test.py"),
+    test("emote-input-effects", "interaction", PYTHON, "pico-emote-input-effects-test.py"),
+    test("emote-lifetime", "interaction", PYTHON, "pico-emote-lifetime-test.py"),
     test("emote-stereo-capture", "interaction", PYTHON, "pico-emote-stereo-capture-test.py"),
     test("emote-background-effects", "interaction", PYTHON, "pico-emote-background-test.py"),
     test("normal-login", "interaction", PYTHON, "device/test_normal_login.py"),

@@ -792,3 +792,35 @@ replacement and oldv1 owners remain unknown without adoption or replay.
 All15 integrated normal-input cases pass62.600s, actual Pico factory case
 passes.879s. The complete dispatcher/actor and final resource/FD/process
 retirement are still open; source-complete count stays3/14.
+
+
+## Exact original Emote controller streams
+
+PicoEmoteInputsv2 now owns the actual canonical OpenXR tablet envelopes and
+separately queried original neutral packets before independent after-frames.
+Immutable input archives preserve the original nonce/advancing sequences.
+The callback is strictly host-only under the canonical sequence lock. Final
+controller-retirement reads preserve all journals. Each Qt entry/scroll/play
+now retains a fresh full original source barrier; phase/native/host bounds
+include durable intent and guards. Oldv1 input histories cannot acquire
+missing stream facts or v2 authority. No complete Emote capability is added.
+The original9 cases pass10.316s after migration; all15 cases with new exact
+stream, missing/foreign/active/future neutral, slow CAS, phase race, pure-host
+callback, final original neutral and legacy refusal pass23.223s.
+
+The first four-group regression passed coverage.063s, normal Emote10.942s
+and background/effects42.169s, but the expanded source group hit120.037s.
+The initial lifetime-only split passed its new group39.081s while the source
+group still hit120.007s. Both original failed JUnit files are retained privately.
+The final lossless split keeps original storage/source28 cases separately
+from normal input/native effects28 and manager-work/lifetime32. Default120s
+limits and every original assertion remain unchanged; the catalog grows78 to80
+only to partition the owning checks. Final source96.987s/coverage.275s pass
+2/80 groups; input/effects114.526s passes its1/80 selection. Earlier lifetime
+39.081s remains the unchanged owning result. The added last-guard case also
+passes.494s: native-clock advance after the last candidate guard with frozen
+host time prevents input. No higher-level feature or device completion follows.
+
+All4 final repository suites pass13.45s. Registry, probe syntax and whitespace
+pass. The input registry correctly advertises only readablev2; oldv1 remains
+retained/rejected, never silently promoted. Complete source/host areas stay3/14.

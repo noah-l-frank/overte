@@ -678,7 +678,7 @@ def create_adapter(args, base_class):
             _need(binding == source.binding)
             return PicoEmoteInputs(source, self._emote_input_store(target),
                 lambda intent, receipt: self._emote_controls(target, intent, receipt=receipt), ui.io,
-                lambda: self._script_journey().existing_input_session(target))
+                lambda: self._script_journey().existing_input_session(target),controller=lambda:self.pico_input_session(target))
 
         def _emote_background_store(self, target):
             source = self._emote_source_store(target, 'primary')

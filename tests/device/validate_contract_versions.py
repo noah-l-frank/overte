@@ -191,7 +191,7 @@ REQUIRED = {
     "pico-emote-background": 1,
     "pico-emote-foreground-recovery": 1,
     "pico-emote-background-effect": 1,
-    "pico-emote-inputs": 1,
+    "pico-emote-inputs": 2,
     "pico-emote-effect": 1,
     "pico-emote-pending-restore": 1,
     "pico-emote-phase-effect": 1,

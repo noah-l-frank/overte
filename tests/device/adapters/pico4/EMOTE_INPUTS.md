@@ -1,6 +1,6 @@
 # Durable ordinary Pico Emote inputs
 
-`PicoEmoteInputs` v1 joins normal `open`, `play`, `sit`, `override`, `cancel`,
+`PicoEmoteInputs` v2 joins normal `open`, `play`, `sit`, `override`, `cancel`,
 `wait-complete` and `close` inputs to the existing original phase reader and
 [Pico original sources](EMOTE_SOURCES.md). It remains a private component:
 `performed` means the input was handled, never that playback, pixels or release
@@ -9,7 +9,7 @@ have been proved. It advertises no complete feature capability.
 The durable phase, intent, receipt and immutable archival design is selected
 from fixed Phone commit `abb7f6b60d97daf17752aadf94e2b5df099bb7ba` and documented
 in [the selection manifest](PHONE_SHARED_EMOTE_INPUTS_20261022.json). Actual
-`PicoScriptIO.tablet`, the existing OpenXR controller path and original
+The canonical `PicoOpenXrAdapterSession` controller path and original
 `PicoEmoteIO`/`TokenEmoteUI` pointer transport replace the Phone SDK/UI boundary.
 The private factory requires the actual primary source journal, shared source
 lock, candidate/process/VR binding and original existing input session.
@@ -42,7 +42,7 @@ responsibility independently. Neither operation retires journals.
 
 ## Host checks and remaining composition
 
-The owning `emote-original-sources` group tests normal open/play/cancel/close,
+The owning `emote-input-effects` group tests normal open/play/cancel/close,
 actual controller-generation transitions, ignored/lost Qt and controller
 boundaries, missing original sources, archival recovery, fixture/candidate
 changes and historical replay. `normal-emote` also verifies the actual private
@@ -61,3 +61,37 @@ two-eye images, independent actor and actual callback/timer/Qt/native-resource
 retirement. General teardown retains both source and input journals and refuses
 success while they remain. No application build or device qualification is
 established by these host results.
+
+
+## Version 2 exact controller ownership
+
+Each controller intent now retains the exact canonical session nonce, sequence,
+command ID and normal1000ms tablet operation before transport publication.
+The callback runs under the original session sequence lock and performs only
+private host CAS/fsync and elapsed-host admission checks. It never reenters
+ADB, candidate guards, the PhaseReader or the controller session. A slow writer
+with a frozen native clock refuses before publication; the uncertain original
+envelope remains owned without resend.
+
+A separate original require_owned_neutral query must identify that exact
+stream before an independent after-frame can acknowledge visibility. Missing,
+foreign, active or future neutral packets refuse. Original streams retain one
+nonce and strictly advancing sequences across immutable input archives.
+controller_retirement reads the last exact stream again after a normally
+acknowledged Close and a fresh original closed-tablet frame. This supplies only
+controller retirement, preserving all journals and all other cleanup duties.
+Call it before a later View-restoration stream changes the canonical cursor.
+
+Every Qt input, including entry/scroll, now retains its own full original source
+barrier. Final exact fixture-phase/native-age checks include intent persistence
+and guards. The controller envelope CAS additionally uses the original combined
+native/host anchor while the transport lock is held. Oldv1 input owners stay
+retained and are rejected byv2; later queries never invent original envelopes
+or grant them new stream authority. No whole Emote capability is added.
+
+The original source/storage checks stay in `emote-original-sources`; manager
+work and lifetime checks are now `emote-lifetime`. The two added selectors
+retain every previous case under the unchanged120-second per-group limit.
+The combined source group exceeded120 seconds, including after the initial
+lifetime-only split; no failing or slow case was omitted. Selector counts are
+test partitions, never completed feature counts.

@@ -7,10 +7,12 @@ commit. Actual Pico VR pointer and OpenXR tablet transport replace Phone SDK/UI.
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
 import hashlib
+import json
+import math
 from types import SimpleNamespace
 import time
 
-from adapters.native_feature_observation import exact,integer,need,number
+from adapters.native_feature_observation import exact,fresh,integer,need,number
 from adapters.normal_feature_state import PrivateFeatureState,context
 from adapters.normal_ui import NativeUIError
 from adapters.token_emote_ui import control_id,snapshot,same_reference
@@ -20,8 +22,12 @@ from adapters.pico4.emote_sources import PicoEmoteSources
 from adapters.emote_originals import EmoteOriginals,BLOCK
 from adapters.script_journey.history import pack,unpack,same,canonical
 from adapters.pico4.normal_scripts import PicoScriptIO
+from adapters.pico4.lifecycle_back import PicoLifecycleBack
+from openxr_input.adapter_session import PicoOpenXrAdapterSession,PROFILE_PATH
+from openxr_input.controller_protocol import validate_envelope
 
-VERSION=1
+VERSION=2
+PROFILE=json.loads(PROFILE_PATH.read_text())
 MAX_INPUTS=256
 VERBS={'open','play','sit','override','cancel','wait-complete','close'}
 
@@ -69,20 +75,31 @@ class PicoEmoteInputTransport:
             and right['capturedEpochMs']>=left['capturedEpochMs'])
 
     def capture(self):
-        frame=self.source.read();self.active(self.state['current']['call'],frame['phaseAfter']);return self.reference()
+        started=self.source.monotonic();device=self.source.clock_ms();host=self.source.phase.epoch_ms()
+        frame=self.source.read();self.active(self.state['current']['call'],frame['phaseAfter'])
+        self.anchor=(started,device,host,frame);return self.reference()
+
+    def host_fresh(self):
+        need(self.anchor is not None);started,device,host,frame=self.anchor;now=self.source.monotonic()
+        need(number(now,started,started+1.5))
+        fresh(frame['group']['rootsBefore']['requestedEpochMs'],device+math.ceil((now-started)*1000))
+        fresh(frame['phaseBefore']['capturedEpochMs'],host+math.ceil((now-started)*1000))
+
+    def fresh_input(self):
+        self.bound();need(self.anchor is not None);frame=self.anchor[3]
+        phase=self.source.phase.status(frame['phaseAfter']);self.active(self.state['current']['call'],phase)
+        need(same(phase['activations'],frame['phaseAfter']['activations']));self.host_fresh()
+        self.bound();clock=self.source.clock_ms();self.host_fresh()
+        fresh(frame['group']['rootsBefore']['requestedEpochMs'],clock)
 
     def intent(self,value):
         current=self.state['current'];need(current['phase']=='acting' and len(current['intents'])<64);self.qt_intent(value)
-        barrier=None
-        if value['controlId'].startswith('emote.play.'):
-            barrier=self.capture();frame=self.original(barrier)
-            same_reference(value['original'],self.ui(frame),value['controlId']);provider=frame['phaseAfter']
-            if self.cancelling(current):
-                self.cancel_barrier(frame,value)
-        else:provider=self.source.phase.read(self.source.frames[-1]['phaseAfter'])['status']
+        barrier=self.capture();frame=self.original(barrier)
+        same_reference(value['original'],self.ui(frame),value['controlId']);provider=frame['phaseAfter']
+        if value['controlId'].startswith('emote.play.') and self.cancelling(current):self.cancel_barrier(frame,value)
         self.active(current['call'],provider)
         current['intents'].append(dict(kind='qt',input=deepcopy(value),provider=deepcopy(provider),barrier=barrier,after=None))
-        current['phase']='issuing';self.save()
+        current['phase']='issuing';self.save();self.fresh_input()
 
     def cancel_barrier(self,frame,value):
         pages=[row for row in value['original']['controls'] if row['id']=='emote.page']
@@ -99,10 +116,18 @@ class PicoEmoteInputTransport:
         current=self.state['current'];need(identifier in ('tablet.open','tablet.close')
             and current['phase']=='acting' and len(current['intents'])<64)
         before=self.capture();need(self.ui(self.original(before))['open']==(identifier=='tablet.close'))
-        item=dict(kind='controller',controlId=identifier,before=before,after=None);current['intents'].append(item)
-        current['phase']='issuing';self.save()
-        self.tablet.tablet(identifier=='tablet.open')
+        item=dict(kind='controller',controlId=identifier,before=before,after=None,stream=dict(envelope=None,neutral=None));current['intents'].append(item)
+        current['phase']='issuing';self.save();self.fresh_input()
+        def intent(envelope):
+            need(item['stream']['envelope'] is None);self.stream_packet(item,envelope)
+            item['stream']['envelope']=deepcopy(envelope);self.persist(host_only=True)
+        self.controller_session.stage(self.binding['processIdentity'],identifier,dict(holdMilliseconds=1000),intent=intent)
+        neutral=self.controller_session.require_owned_neutral(self.binding['processIdentity'],item['stream']['envelope'])
+        PicoLifecycleBack.neutral(neutral,item['stream']['envelope'],self.ui(self.original(before))['scope']['capturedEpochMs'])
+        fresh(neutral['updatedEpochMs'],self.source.clock_ms())
+        item['stream']['neutral']=deepcopy(neutral);self.save()
         after=self.capture();need(self.ui(self.original(after))['open']==(identifier=='tablet.open'))
+        need(neutral['updatedEpochMs']<=self.ui(self.original(after))['scope']['capturedEpochMs']+250)
         item['after']=after;current['phase']='acting';self.save()
 
     def input_chain(self,row,call):
@@ -118,23 +143,27 @@ class PicoEmoteInputTransport:
                 self.same_ui_before_input(previous_ui,item['input']['original'])
                 phase_packet(item['provider'],run=self.run,area='emotes',request=item['provider']['requestId'],
                     epoch=item['provider']['capturedEpochMs'],previous=previous_provider)
-                if item['input']['controlId'].startswith('emote.play.'):
-                    frame=self.original(item['barrier']);self.active(call,frame['phaseAfter'])
-                    same_reference(item['input']['original'],self.ui(frame),item['input']['controlId'])
-                    need(same(frame['phaseAfter'],item['provider']))
-                else:need(item['barrier'] is None)
+                frame=self.original(item['barrier']);self.active(call,frame['phaseAfter'])
+                same_reference(item['input']['original'],self.ui(frame),item['input']['controlId'])
+                need(same(frame['phaseAfter'],item['provider']))
                 if item['after'] is not None:
                     self.qt_receipt(item['input'],item['after']);previous_ui=item['after']
                 previous_provider=item['provider']
             else:
-                exact(item,{'kind','controlId','before','after'})
+                exact(item,{'kind','controlId','before','after','stream'})
                 need(item['controlId'] in ('tablet.open','tablet.close'))
                 frame=self.original(item['before']);self.active(call,frame['phaseAfter'])
                 self.same_ui_before_input(previous_ui,self.ui(frame))
                 phase_packet(frame['phaseAfter'],run=self.run,area='emotes',request=frame['phaseAfter']['requestId'],
                     epoch=frame['phaseAfter']['capturedEpochMs'],previous=previous_provider)
                 need(self.ui(frame)['open']==(item['controlId']=='tablet.close'))
+                exact(item['stream'],{'envelope','neutral'});stream=item['stream']
+                if stream['envelope'] is not None:self.stream_packet(item,stream['envelope'])
+                else:need(stream['neutral'] is None)
+                if stream['neutral'] is not None:
+                    need(stream['envelope'] is not None);PicoLifecycleBack.neutral(stream['neutral'],stream['envelope'],self.ui(frame)['scope']['capturedEpochMs'])
                 if item['after'] is not None:
+                    need(stream['neutral'] is not None)
                     after=self.original(item['after']);self.active(call,after['phaseAfter'])
                     need(item['after']['revision']>item['before']['revision']
                         and self.ui(after)['open']==(item['controlId']=='tablet.open'))
@@ -158,13 +187,14 @@ class PicoEmoteInputTransport:
 
 
 class PicoEmoteInputs(PicoEmoteInputTransport):
-    def __init__(self,source,store,controls,tablet,session):
+    def __init__(self,source,store,controls,tablet,session,*,controller):
         need(isinstance(source,PicoEmoteSources) and source.role=='primary');source.lock.assert_held()
         need(isinstance(store,PrivateFeatureState) and store.path!=source.store.path
-            and callable(controls) and isinstance(tablet,PicoScriptIO) and callable(session))
+            and callable(controls) and isinstance(tablet,PicoScriptIO) and callable(session) and callable(controller))
         self.source,self.lock,self.controls,self.tablet,self.session=source,source.lock,controls,tablet,session
         self.run,self.fixture_url,self.binding=source.run,source.phase.fixture_url,source.binding
         self.store=store
+        self.controller_factory,self._controller=controller,None;self.anchor=None
         self.previous=self.store.read();self.state=dict(history=[],current=None)
         self.history_state=dict(count=0,manifests=[],pendingArchive=None)
         self.history_store=EmoteOriginals(source.artifact_root,self.binding,self.run,'primary',source.guard,
@@ -173,6 +203,18 @@ class PicoEmoteInputs(PicoEmoteInputTransport):
         if self.previous is not None:
             try:self.state,self.history_state=self.decode(self.previous)
             except (KeyError,TypeError,ValueError,OSError):raise NativeUIError('Original Emote input journal is invalid') from None
+
+    @property
+    def controller_session(self):
+        if self._controller is None:
+            value=self.controller_factory();need(isinstance(value,PicoOpenXrAdapterSession));self._controller=value
+        return self._controller
+
+    @staticmethod
+    def stream_packet(item,value):
+        validate_envelope(value,PROFILE)
+        need(value['commands']==[dict(id=item['controlId'].replace('.','-')+'-'+str(value['sequence']),
+            operation=item['controlId'],arguments=dict(holdMilliseconds=1000))])
 
     @classmethod
     def archive(cls,value,source_header,*,phase,artifact_root,binding,guard,monotonic=time.monotonic):
@@ -235,9 +277,14 @@ class PicoEmoteInputs(PicoEmoteInputTransport):
         rows=unpack(value['payload']);need(len(rows)==1);stored=rows[0];exact(stored,{'historyCount','manifests','pendingArchive','current'})
         need(integer(stored['historyCount'],0,MAX_INPUTS) and (stored['current'] is None or stored['historyCount']<MAX_INPUTS))
         history=self.history_store.restore(stored['manifests'],stored['historyCount'])
-        state=dict(history=history,current=stored['current']);tickets=set()
+        state=dict(history=history,current=stored['current']);tickets=set();last_stream=None
         for row in state['history']+([state['current']] if state['current'] is not None else []):
             self.row(row);need(row['call']['ticket'] not in tickets);tickets.add(row['call']['ticket'])
+            for item in row['intents']:
+                if item['kind']=='controller' and item['stream']['envelope'] is not None:
+                    stream=item['stream']['envelope']
+                    if last_stream is not None:need(stream['sessionNonce']==last_stream['sessionNonce'] and stream['sequence']>last_stream['sequence'])
+                    last_stream=stream
         need(all(row['phase']=='acknowledged' for row in state['history']))
         pending=stored['pendingArchive']
         if pending is not None:
@@ -260,20 +307,24 @@ class PicoEmoteInputs(PicoEmoteInputTransport):
         self.lock.assert_held();need(not self.failed and self.source.guard() is not False and same(self.store.read(),self.previous)
             and same(self.source.store.read(),self.source.previous))
 
-    def persist(self):
+    def persist(self,*,host_only=False):
         try:
-            self.bound()
+            if host_only:
+                self.lock.assert_held();need(not self.failed and same(self.store.read(),self.previous)
+                    and same(self.source.store.read(),self.source.previous));self.host_fresh()
+            else:self.bound()
             stored=dict(historyCount=self.history_state['count'],manifests=self.history_state['manifests'],
                 pendingArchive=self.history_state['pendingArchive'],current=self.state['current'])
             need(len(self.state['history'])==stored['historyCount'])
             value=dict(picoEmoteInputsVersion=VERSION,runId=self.run,fixtureUrl=self.fixture_url,binding=self.binding,
                 artifactRoot=str(self.source.artifact_root),payload=pack([stored]))
             self.store.write(value,self.previous);need(same(self.store.read(),value));self.previous=deepcopy(value)
+            if host_only:self.host_fresh()
         except Exception:
             self.failed=True
             # A failed final ACK write must not make this same live object
             # acknowledge an uncommitted state on the caller's next attempt.
-            if same(self.store.read(),self.previous):
+            if not host_only and same(self.store.read(),self.previous):
                 if self.previous is not None:self.state,self.history_state=self.decode(self.previous)
                 else:self.state,self.history_state=dict(history=[],current=None),dict(count=0,manifests=[],pendingArchive=None)
             raise
@@ -323,6 +374,21 @@ class PicoEmoteInputs(PicoEmoteInputTransport):
         manifests=self.history_store.resume_manifest(self.history_state['manifests'],original,pending['manifest'])
         self.bound();self.state['history'].append(current);self.state['current']=None
         self.history_state=dict(count=len(self.state['history']),manifests=manifests,pendingArchive=None);self.persist();self.bound()
+
+    def controller_retirement(self):
+        """Fresh final owned neutral, preserving all original input journals."""
+        self.bound();need(self.state['current'] is not None and self.state['current']['phase']=='acknowledged'
+            and self.state['current']['call']['verb']=='close' and self.history_state['pendingArchive'] is None)
+        streams=[item for row in self.state['history']+[self.state['current']] for item in row['intents'] if item['kind']=='controller']
+        need(streams and all(item['after'] is not None and item['stream']['envelope'] is not None
+            and item['stream']['neutral'] is not None for item in streams))
+        frame=self.source.read();need(not self.ui(frame)['open'])
+        started=self.source.monotonic();epoch=self.source.clock_ms()
+        value=self.controller_session.require_owned_neutral(self.binding['processIdentity'],streams[-1]['stream']['envelope'])
+        PicoLifecycleBack.neutral(value,streams[-1]['stream']['envelope'],frame['widgets']['updatedEpochMs'])
+        result=deepcopy(value);self.bound();clock=self.source.clock_ms();now=self.source.monotonic()
+        need(number(now,started,started+1.5) and integer(clock,epoch))
+        fresh(value['updatedEpochMs'],max(clock,epoch+math.ceil((now-started)*1000)));return result
 
     def act(self,call):
         call=deepcopy(arguments('feature.emotes.act',call));need(call['verb'] in VERBS and call['runId']==self.run

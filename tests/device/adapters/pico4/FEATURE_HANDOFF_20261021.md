@@ -995,3 +995,13 @@ The Create parent now freshly fences every actual child input/completion and
 cleanup against its original phase. A monotonic admission bound includes the
 final CAS/guard, and a durable completion companion blocks a later input after
 a lost pending-clear or rollback. No phase or input is automatically replayed.
+
+
+Emote normal inputv2 now records exact canonical controller envelopes and
+independent original neutral packets, with final separate retirement before
+View restoration changes the cursor. Each Qt input retains a full source
+barrier and freshly fences its phase/age after durable intent. The original
+locked controller callback uses host CAS/elapsed admission only. Legacy inputv1
+stays owned without new authority. Every previous source/ownership/effect and
+lifetime case is retained across the three bounded selectors; full Emotes are
+still partial.

@@ -160,7 +160,7 @@
     "pico-emote-background": {"current": 1, "reads": [1]},
     "pico-emote-foreground-recovery": {"current": 1, "reads": [1]},
     "pico-emote-background-effect": {"current": 1, "reads": [1]},
-    "pico-emote-inputs": {"current": 1, "reads": [1]},
+    "pico-emote-inputs": {"current": 2, "reads": [2]},
     "pico-emote-effect": {"current": 1, "reads": [1]},
     "pico-emote-pending-restore": {"current": 1, "reads": [1]},
     "pico-emote-phase-effect": {"current": 1, "reads": [1]},
