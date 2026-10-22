@@ -55,6 +55,14 @@ class AvatarEntityTests(unittest.TestCase):
         owned=entities.returned(value,before,code,EXPECTED,avatar_id=renderers.SELF,resource=renderers.WEARABLE,after_epoch=1700000000120)
         self.assertEqual(renderers.ENTITY,owned['entity']['entityId'])
         with self.assertRaises(NativeUIError):join(value,before,after,code)
+
+    def test_separate_manager_checks_its_actual_modules_against_reviewed_values_without_requiring_another_manager_code(self):
+        from ios.adapters.avatar_code import for_worker
+        value,_before,_after,code=packet();manager=value['source']['events'][0]['caller']['manager']['instance']
+        reviewed=deepcopy(EXPECTED)|{'/system/pal.js':dict(codeUnits=10,sha256='2'*64)}
+        self.assertEqual(EXPECTED,for_worker(code,manager,reviewed,required={'/system/avatarapp.js'}))
+        changed=deepcopy(code);changed['source']['workers'][0]['avatar']['code'][0]['sha256']='0'*64
+        with self.assertRaises(NativeUIError):for_worker(changed,manager,reviewed,required={'/system/avatarapp.js'})
         value,before,after,code=packet();renderers.attach(before)
         with self.assertRaises(NativeUIError):join(value,before,after,code)
 

@@ -9,6 +9,8 @@ from pathlib import Path
 
 
 REQUIRED = {
+    "ios-avatar-actions": 1,
+    "ios-avatar-code-pins": 1,
     "ios-navigation-address-root": 1,
     "ios-navigation-address-root-state": 1,
     "ios-navigation-restart-proof": 1,

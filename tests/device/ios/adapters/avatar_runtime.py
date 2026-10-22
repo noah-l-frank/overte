@@ -8,6 +8,7 @@ These factories neither create sessions nor advertise a complete capability.
 # SPDX-License-Identifier: Apache-2.0
 from adapters.native_feature_observation import need
 from adapters.normal_feature_state import PrivateFeatureState
+from adapters.normal_ui import NativeUI
 from adapters.script_feature.lock import ScriptSourceLock
 from feature_journeys.contract import identifier
 from feature_journeys.phase_fixture import PhaseFixtureReader
@@ -47,6 +48,17 @@ class IOSAvatarLoginRuntime(IOSAuthenticationRuntime):
 
 
 class IOSAvatarRuntime(IOSScriptRuntime):
+    def _avatar_actions(self,selector,sources,peer):
+        from ios.adapters.avatar_actions import IOSAvatarActions
+        from ios.adapters.avatar_input_owner import AvatarInputOwner
+        from ios.adapters.avatar_code import pins
+        need(isinstance(sources,IOSAvatarSources) and not sources.historical and sources.role=='primary')
+        sources.bound();actual=self._sources(selector);need(actual['binding']==sources.binding)
+        inputs=AvatarInputOwner(PrivateFeatureState(self.state_path(selector).with_name('ios-avatar-primary-inputs.json')),
+            sources.lock,sources.binding,sources.run,'primary',sources.phase.fixture_url,sources.guard)
+        return IOSAvatarActions(PrivateFeatureState(self.state_path(selector).with_name('ios-avatar-primary-actions.json')),sources,inputs,
+            NativeUI(actual['client'],actual['session'],actual['check']),peer,pins())
+
     def _avatar_sources(self,selector,client,run,role,root,lock):
         identifier(run);need(isinstance(client,Client) and role in ('primary','actor') and isinstance(lock,ScriptSourceLock))
         expected_origin=origin(client.url);lock.assert_held()

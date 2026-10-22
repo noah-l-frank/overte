@@ -113,7 +113,9 @@ def returned(value,before,scripts,expected_code,*,avatar_id,resource,after_epoch
         need(who['manager']==worker['membership'] and who['code']==worker['code']
             and who['avatarCode']['instance']==worker['avatar']['instance']
             and worker['avatar']['code'][:len(who['avatarCode']['code'])]==who['avatarCode']['code'])
-        bound=avatar_scripts.bound_code(scripts,who['manager']['instance'],expected_code)
+        from ios.adapters.avatar_code import for_worker
+        expected=for_worker(scripts,who['manager']['instance'],expected_code,required={'/system/avatarapp.js'})
+        bound=avatar_scripts.bound_code(scripts,who['manager']['instance'],expected)
         need(any(row in who['avatarCode']['code'] and row['submittedEpochMs']<=who['invokedEpochMs'] for row in bound['/system/avatarapp.js']))
         candidates.append(event)
     need(len(candidates)==1);return deepcopy(candidates[0])

@@ -1,0 +1,26 @@
+{
+  "avatarCodePinsVersion": 1,
+  "encoding": "utf-16le-code-units",
+  "sources": {
+    "system/avatarapp.js": {
+      "codeUnits": 26267,
+      "sha256": "45ccb7045419a537f39854d2461b4c4b1383e855d69d28e1f86275db2715f66e"
+    },
+    "system/pal.js": {
+      "codeUnits": 45320,
+      "sha256": "9c06306a8b3693c72961a9f40c6244b6b365629f73a81e1d27b53864701f5ae8"
+    },
+    "system/libraries/peopleConnection.js": {
+      "codeUnits": 11585,
+      "sha256": "749f488851f5c0303e82c44c46059b1146a22f16d8ade7416613465cfdb1ed83"
+    },
+    "modules/request.js": {
+      "codeUnits": 3452,
+      "sha256": "d1a7bfbdef56ffb74bee06310d7405ac097cce49dd68ece76efdffce2aa5cacb"
+    },
+    "system/request-service.js": {
+      "codeUnits": 2433,
+      "sha256": "5b0a283f2ff5d6f92eb52c2c59252fe7d133bbc1b4aea2a245d051da12588053"
+    }
+  }
+}
