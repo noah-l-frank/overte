@@ -64,7 +64,8 @@ def wall_pixels(raw,view,extent,wall):
                 if projected is None:continue
                 x,y=[round(v) for v in projected]
                 if not radius<=x<extent[0]-radius or not radius<=y<extent[1]-radius:continue
-                patch=image.crop((x-radius,y-radius,x+radius+1,y+radius+1));pixels=list(patch.getdata())
+                patch=image.crop((x-radius,y-radius,x+radius+1,y+radius+1))
+                pixels=[patch.getpixel((px,py)) for py in range(patch.height) for px in range(patch.width)]
                 purple=sum(min(r,b)>45 and min(r,b)>g+20 and abs(r-b)<45 for r,g,b in pixels)/len(pixels)
                 points.append(dict(world=point,pixel=[x,y],purpleFraction=purple))
     need(len(points)>=6 and len({tuple(row['pixel']) for row in points})==len(points)
@@ -90,6 +91,8 @@ def compose(run,binding,frame,raw,*,url,label,capture_query):
     need(first['sceneLoads']['currentGeneration']==last['sceneLoads']['currentGeneration']
          and first['sceneLoads']['requests']==last['sceneLoads']['requests'] and first['markers']==last['markers']
          and first['domain']==last['domain'] and first['sceneUrl']==last['sceneUrl']
+         and before['iosNavigationStateVersion']==after['iosNavigationStateVersion']
+         and first.get('challengeMarker')==last.get('challengeMarker')
          and math.dist(first['avatar']['feetPosition'],last['avatar']['feetPosition'])<=.025
          and near(first['avatar']['orientation'],last['avatar']['orientation'],.0001)
          and near(first['avatar']['modelScale'],last['avatar']['modelScale'],.0001))

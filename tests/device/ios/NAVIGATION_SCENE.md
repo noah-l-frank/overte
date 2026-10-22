@@ -53,10 +53,8 @@ DOM, original byte receipts, changed tickets, source history, socket-write
 ownership and repeated retirement. It does not establish actual Web rendering,
 native source identity, pixels or iOS acceptance.
 
-Next integration: extend the passive iOS navigation state source with the actual
-run marker entity/source URL and observed absence; bracket it with the original
-Vulkan trace, project its actual geometry into the image, decode the shared
-per-ticket challenge and join the original subject-change pixels. Then retain
-those sources in the durable Worlds owner and independent publisher. The
-rendered-state prerequisite currently observes only the five fixed boxes; it
-must not pretend it already measures this Web marker.
+The passive [native state version 2](NAVIGATION_STATE.md) now observes the actual
+run marker, and the [challenge-image component](NAVIGATION_CHALLENGE.md) decodes
+its visible current ticket using original GPU geometry. The durable Worlds owner
+and independent publisher still need to acquire, retain and join these sources
+through the complete ordinary flow, restart, failure recovery and cleanup.

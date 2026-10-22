@@ -11,6 +11,13 @@ probe dispatcher and fixed private `feature-ios-navigation-state.json` AFC
 transport carry its original result. Duplicate command polling does not issue a
 second native read. A missing hook stays unavailable.
 
+The native writer emits state version 2; readers preserve version-1 originals
+and reject a subsequent downgrade of the same source. Version 2 adds the
+run-scoped marker entity selected by the versioned fixture UUIDv5: actual
+presence/absence, type/name/host, source URL, position, rotation, dimensions,
+visibility, collision state and original last-edit time. It records wrong types
+or absent entities honestly rather than fabricating a Web marker.
+
 The dedicated `OVERTE_E2E_FEATURE_TESTS` and iOS gate, explicit `--testScript`,
 existing lifecycle/results configuration and GUI thread are mandatory. Missing
 services fail without creating dependencies. The passive read obtains:

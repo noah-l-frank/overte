@@ -37,8 +37,9 @@ frame ID, scene generation, installed binding, native epoch, actual host window
 start and measured pixel patches. It does not constitute the shared journey's
 `image`/`changed` evidence: the per-ticket visible challenge marker, canonical
 subject-change measurement and independent publisher are still required. The
-static controlled fixture has no such marker; server delivery must not be used
-to manufacture it. The future whole-operation owner must supply that actual
+static base fixture has no such marker. The optional [normal navigation
+scene](NAVIGATION_SCENE.md) supplies it, and [challenge-image validation](NAVIGATION_CHALLENGE.md)
+now independently decodes it. Server delivery must not manufacture image facts. The future whole-operation owner must supply that actual
 visible source through the normal scene/UI path and retain the originals with
 Worlds-specific ownership records. The Graphics archive filename convention is
 not repurposed here.

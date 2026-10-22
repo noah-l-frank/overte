@@ -21,7 +21,7 @@ public:
                 || !QCoreApplication::arguments().contains("--testScript")) { return {}; }
         const auto before=clock();const auto source=reader();const auto after=clock();
         if (source.isEmpty() || QJsonDocument::fromVariant(source).toJson(QJsonDocument::Compact).size()>250000) { return {}; }
-        return {{"iosNavigationStateVersion",1},{"requestId",request},{"runId",run},{"instance",_instance},
+        return {{"iosNavigationStateVersion",2},{"requestId",request},{"runId",run},{"instance",_instance},
             {"sequence",static_cast<double>(++_sequence)},{"processId",static_cast<double>(QCoreApplication::applicationPid())},
             {"clockDomain","native-main-navigation"},{"clockBefore",before},{"clockAfter",after},{"source",source}};
     }

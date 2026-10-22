@@ -12,8 +12,9 @@ from adapters.native_graphics_subject import vector,rotation,text
 from adapters.native_scene_loads import validate as scene_packet,continuity as scene_continuity,committed
 from ios.adapters.places_model import IOSPlacesModel
 from navigation_observation import POSITIONS,same_viewpoint,viewpoint_urls
+from feature_journeys.navigation_scene import marker_id
 
-VERSION=1
+VERSION=2
 ACTION='feature-ios-navigation-state'
 FILE=ACTION+'.json'
 LIMIT=262144
@@ -32,7 +33,7 @@ def validate(value,query,pid,epoch=None,previous=None):
     command(query)
     exact(value,{'iosNavigationStateVersion','requestId','runId','instance','sequence','processId','clockDomain',
                  'clockBefore','clockAfter','source'})
-    need(type(value['iosNavigationStateVersion']) is int and value['iosNavigationStateVersion']==VERSION
+    need(type(value['iosNavigationStateVersion']) is int and value['iosNavigationStateVersion'] in (1,VERSION)
          and value['requestId']==query['commandId'] and value['runId']==query['runId']
          and integer(pid,1) and type(value['processId']) is int and value['processId']==pid
          and type(value['instance']) is str and re.fullmatch('[a-f0-9]{32}',value['instance'])
@@ -43,7 +44,19 @@ def validate(value,query,pid,epoch=None,previous=None):
     utc=after['epochMs']-before['epochMs'];mono=after['monotonicMs']-before['monotonicMs']
     need(0<=utc<1500 and 0<=mono<1500 and abs(utc-mono)<=250)
     if epoch is not None:fresh(after['epochMs'],epoch)
-    source=value['source'];exact(source,{'foreground','sceneUrl','domain','avatar','view','markers','absentMarkerIds','sceneLoads'})
+    source=value['source'];exact(source,{'foreground','sceneUrl','domain','avatar','view','markers','absentMarkerIds','sceneLoads'}
+        |({'challengeMarker'} if value['iosNavigationStateVersion']>=2 else set()))
+    if value['iosNavigationStateVersion']>=2:
+        challenge=source['challengeMarker'];exact(challenge,{'id','present','entity'})
+        need(challenge['id']==marker_id(query['runId']) and type(challenge['present']) is bool)
+        if not challenge['present']:need(challenge['entity'] is None)
+        else:
+            row=challenge['entity'];exact(row,{'name','type','hostType','sourceUrl','position','rotation','dimensions',
+                                            'visible','collisionless','lastEditedEpochUs'})
+            need(text(row['name'],256) and text(row['type'],64) and row['hostType'] in ('local','domain','avatar')
+                 and text(row['sourceUrl'],2048) and type(row['visible']) is bool and type(row['collisionless']) is bool
+                 and integer(row['lastEditedEpochUs'],0,2**53-1))
+            vector(row['position'],3,-1000000,1000000);rotation(row['rotation']);vector(row['dimensions'],3,.000001,1000000)
     need(type(source['foreground']) is bool and text(source['sceneUrl'],2048))
     domain=source['domain'];exact(domain,{'handlerConnected','serverless','protocol'})
     need(type(domain['handlerConnected']) is bool and type(domain['serverless']) is bool and text(domain['protocol'],32))
@@ -74,7 +87,8 @@ def validate(value,query,pid,epoch=None,previous=None):
     need(len(json.dumps(value,allow_nan=False,ensure_ascii=False).encode())<=LIMIT)
     if previous is not None:
         validate(previous,dict(query,commandId=previous['requestId']),pid)
-        need(value['instance']==previous['instance'] and value['sequence']>previous['sequence']
+        need(value['iosNavigationStateVersion']>=previous['iosNavigationStateVersion']
+             and value['instance']==previous['instance'] and value['sequence']>previous['sequence']
              and value['requestId']!=previous['requestId'] and value['runId']==previous['runId']
              and before['epochMs']>=previous['clockAfter']['epochMs'] and before['monotonicMs']>=previous['clockAfter']['monotonicMs']
              and abs((before['epochMs']-previous['clockAfter']['epochMs'])

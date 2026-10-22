@@ -32,7 +32,7 @@ def markers():
 
 class Boundary(Clocks):
     def __init__(self):
-        super().__init__(None);self.run=RUN;self.url=URL;self.history=None
+        super().__init__(None);self.run=RUN;self.url=URL;self.history=None;self.version=1
         self.source=dict(foreground=True,sceneUrl=URL,domain=dict(handlerConnected=True,serverless=True,protocol='http'),
             avatar=dict(feetPosition=[0,0,4],orientation=[0,0,0,1],velocity=[0,0,0],inAir=False,flying=False,modelScale=1),
             view=dict(position=[0,1.6,4],rotation=[0,0,0,1],mode='first person',fieldOfViewDegrees=60,aspectRatio=1.5,perspective=True),
@@ -46,7 +46,7 @@ class Boundary(Clocks):
                 startedEpochMs=1700000000000,updatedEpochMs=1700000000001,releasedEpochMs=1700000000001,
                 phase='committed',pending=False,result=0,bytes=1234)])
         self.clock+=.001
-        value=dict(iosNavigationStateVersion=1,requestId=query['commandId'],runId=self.run,instance='c'*32,
+        value=dict(iosNavigationStateVersion=self.version,requestId=query['commandId'],runId=self.run,instance='c'*32,
             sequence=self.sequence,processId=42,clockDomain='native-main-navigation',clockBefore=before,clockAfter=self.clocks(),
             source=deepcopy(self.source)|dict(sceneLoads=scene))
         if self.mutate:self.mutate(value)

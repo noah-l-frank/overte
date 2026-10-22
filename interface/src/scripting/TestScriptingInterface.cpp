@@ -548,6 +548,20 @@ QVariantMap TestScriptingInterface::featureIOSNavigationState(const QVariantMap&
                 {"color",QVariantList{int(color.x),int(color.y),int(color.z)}},{"visible",actual.getVisible()},
                 {"collisionless",actual.getCollisionless()}});
         }
+        const auto space=QUuid::fromRfc4122(QByteArray::fromHex(run.toLatin1()));
+        const auto markerId=QUuid::createUuidV5(space,QByteArray("navigation-marker-v1"));
+        const auto marker=entities->getEntityProperties(markerId);
+        QVariantMap challenge {{"id",markerId.toString(QUuid::WithoutBraces)},
+            {"present",marker.getType()!=EntityTypes::Unknown},{"entity",QVariant()}};
+        if (marker.getType()!=EntityTypes::Unknown) {
+            if (marker.getName().size()>256 || marker.getSourceUrl().size()>2048) { return {}; }
+            const auto host=marker.getEntityHostType();
+            challenge["entity"]=QVariantMap{{"name",marker.getName()},{"type",EntityTypes::getEntityTypeName(marker.getType())},
+                {"hostType",host==entity::HostType::LOCAL ? "local" : host==entity::HostType::AVATAR ? "avatar" : "domain"},
+                {"sourceUrl",marker.getSourceUrl()},{"position",vec(marker.getPosition())},{"rotation",quat(marker.getRotation())},
+                {"dimensions",vec(marker.getDimensions())},{"visible",marker.getVisible()},{"collisionless",marker.getCollisionless()},
+                {"lastEditedEpochUs",static_cast<qulonglong>(marker.getLastEdited())}};
+        }
         const auto address=addresses->currentAddress().toString(QUrl::FullyEncoded);
         if (address.size()>2048) { return {}; }
         auto sceneCommand=command;sceneCommand["action"]="feature-scene-load-observe";
@@ -563,7 +577,7 @@ QVariantMap TestScriptingInterface::featureIOSNavigationState(const QVariantMap&
             {"view",QVariantMap{{"position",vec(frustum.getPosition())},{"rotation",quat(frustum.getOrientation())},
                 {"mode",camera.getModeString()},{"fieldOfViewDegrees",frustum.getFieldOfView()},
                 {"aspectRatio",frustum.getAspectRatio()},{"perspective",frustum.isPerspective()}}},
-            {"markers",present},{"absentMarkerIds",absent},{"sceneLoads",scene}};
+            {"markers",present},{"absentMarkerIds",absent},{"sceneLoads",scene},{"challengeMarker",challenge}};
     });
 }
 
