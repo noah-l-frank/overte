@@ -125,8 +125,9 @@ inline QString avatarPeopleControlId(QQuickItem* item) {
                 if (input==item || avatarPeopleQmlName(item,"hifi/avatarapp/CreateFavoriteDialog.qml")=="favoriteName") { return "avatar.dialog.input"; }
             }
             const auto button=avatarPeopleQmlName(item,"hifi/avatarapp/DialogButtons.qml");
-            if (button=="yesButton") { return "avatar.dialog.confirm"; }
-            if (button=="noButton") { return "avatar.dialog.cancel"; }
+            const auto settings=avatarPeopleComponent(item,"hifi/avatarapp/Settings.qml","root");
+            if (button=="yesButton") { return settings ? "avatar.settings.confirm" : "avatar.dialog.confirm"; }
+            if (button=="noButton") { return settings ? "avatar.settings.cancel" : "avatar.dialog.cancel"; }
         }
         if (avatarPeopleComponent(item,"hifi/avatarapp/AdjustWearables.qml","root") && item->inherits("QQuickText") && item->property("text").toString()=="<a href='#'>Add custom</a>") { return "avatar.wearable.add"; }
         if (avatarPeopleComponent(item,"hifi/avatarapp/AdjustWearables.qml","root") && item->inherits("QQuickAbstractButton")
@@ -163,10 +164,15 @@ inline void appendAvatarPeopleControl(QJsonObject& row,QQuickItem* item,const QS
         ready=ready && actual.value("avatarUrl").userType()==QMetaType::QString && !actual.value("avatarUrl").toString().isEmpty()
             && actual.value("avatarScale").canConvert<double>() && std::isfinite(actual.value("avatarScale").toDouble()) && actual.value("avatarScale").toDouble()>0 && !settings.toMap().isEmpty();
     }
-    row["inputReady"]=ready && item->isEnabled() && !id.endsWith(".page");
+    // Existing favorites must never become an adapter overwrite, including a
+    // name that is on another page. Read the original confirmation binding.
+    const bool overwrite=id=="avatar.dialog.confirm" && avatarPeopleComponent(item,"hifi/avatarapp/CreateFavoriteDialog.qml","root")
+        && item->property("text").toString()=="OVERWRITE";
+    row["inputReady"]=ready && item->isEnabled() && !id.endsWith(".page") && !overwrite;
     if (id=="avatar.dialog.input") { row["text"]=item->property("text").toString(); }
     if (auto dialog=avatarDialog(item)) {
-        row["dialogTitle"]=dialog->property("titleText").toString();
+        const auto title=dialog->property("titleText");
+        if (title.userType()==QMetaType::QString && !title.toString().isEmpty()) {row["dialogTitle"]=title.toString();}
         row["dialogSource"]=QString::fromLatin1(dialog->metaObject()->className());
     }
     if (auto page=avatarApp(item)) { row["managing"]=page->property("isInManageState").toBool(); }
@@ -198,7 +204,33 @@ inline bool avatarPeopleOwnsPoint(QQuickItem* item,QQuickWindow* window,const QP
     // order and skip only branches with no enabled input handler at this point.
     // Any foreign overlay/MouseArea/PointerHandler still blocks dispatch.
     if (!item || !window || (!avatarApp(item) && !peopleApp(item) && avatarPeopleControlId(item)!="avatar.entry" && avatarPeopleControlId(item)!="people.entry")) { return false; }
-    return picoAvatarInputOwnsPoint(item,window,point);
+    const auto decoration=[item](QQuickItem* node) {
+        const auto page=avatarApp(item);const auto id=avatarPeopleControlId(item);
+        if (!page || !page->property("isInManageState").toBool() || !id.startsWith("avatar.bookmark.row.") || !node
+                || !node->children().isEmpty()) {return false;}
+        const auto thumbnail=item->parentItem(),container=thumbnail ? thumbnail->parentItem() : nullptr;
+        if (!container || node->parentItem()!=container || avatarPeopleQmlName(thumbnail,"hifi/AvatarApp.qml")!="favoriteAvatarImage"
+                || avatarPeopleQmlName(container,"hifi/AvatarApp.qml")!="container") {return false;}
+        auto anchors=createVariant(node->property("anchors")).value<QObject*>();
+        const auto fill=anchors ? createVariant(anchors->property("fill")).value<QObject*>() : nullptr;
+        // Only the original noninteractive Manage tint and trash glyph are
+        // transparent to input. Foreign painted/input overlays remain blockers.
+        const auto original=qmlContext(node);
+        if (!original || original->baseUrl()!=PathUtils::qmlUrl("hifi/AvatarApp.qml") || !original->nameForObject(node).isEmpty()) {return false;}
+        if (node->inherits("QQuickRectangle") && node->acceptedMouseButtons()==Qt::NoButton && !node->acceptTouchEvents()
+                && original->nameForObject(node).isEmpty() && fill==thumbnail && qAbs(node->opacity()-.4)<.000001
+                && node->property("color").value<QColor>()==QColor("#AFAFAF") && node->property("radius").toDouble()==5) {return true;}
+        // A component root carries its outer AvatarApp creation context. The
+        // real HiFiGlyphs base type/closed literal is required; Qt Quick Text
+        // advertises mouse/touch even for this non-link plain glyph. The real
+        // pointer regression independently proves fall-through to row input.
+        return node->inherits("QQuickText") && QRegularExpression("\\AHiFiGlyphs_QMLTYPE_[0-9]+\\z").match(QString::fromLatin1(node->metaObject()->className())).hasMatch()
+            && fill==container && node->property("text").toString()=="{" && node->property("size").toInt()==56
+            && node->property("horizontalAlignment").toInt()==Qt::AlignHCenter && node->opacity()==1
+            && node->acceptedMouseButtons()==Qt::LeftButton && node->acceptTouchEvents()
+            && (node->property("textFormat").toInt()==Qt::AutoText || node->property("textFormat").toInt()==Qt::PlainText);
+    };
+    return picoAvatarInputOwnsPoint(item,window,point,decoration);
 }
 
 inline QPointF avatarPeopleActivatePoint(QQuickItem* item,const QString& id) {

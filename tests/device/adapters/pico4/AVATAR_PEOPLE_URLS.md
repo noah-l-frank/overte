@@ -163,3 +163,69 @@ Pico's original local-self rendering is disabled; later rendered evidence must
 use an actual remote avatar/stereo lane without overriding that behavior.
 No physical device, ADB/Appium/OpenXR run, dependency installation, service,
 Jenkins job or remote write was performed.
+
+## Bookmark and scale continuation
+
+The same private normal-control factory now exposes bounded `save_bookmark`,
+`set_scale`, and `bookmark` (choose/delete) flows. Settings use their actual
+separate confirmation/cancellation controls; Settings has no original title
+property, so no invented title is supplied. An original Favorite confirmation
+whose actual label becomes `OVERWRITE` is unavailable to adapter input. The
+Qt regression confirms that a duplicate name cannot reach a pointer or change
+the original physical file.
+
+The closed Manage-row hit observer recognizes only the original AvatarApp
+creation context, original `container`/`favoriteAvatarImage` identities, actual
+anchors and real rectangle/plain HiFiGlyphs base types and properties. These
+known noninteractive tint/trash decorations fall through to the original row
+MouseArea. Qt Quick Text advertises mouse/touch even for the original plain
+non-link trash glyph. Actual normal Qt pointer delivery independently reaches
+Delete; foreign look-alike tint and glyph components still refuse input. No
+product stacking, event handler or component has been changed.
+
+`AvatarBookmarks::e2eBookmarkStorage` reads the actual protected original cache
+and its actual `avatarbookmarks.json` without constructing a missing manager.
+The fixed Phone storage foundation is strengthened with an owned private
+ancestor, stable immediate-parent/file descriptors, no symlink/hardlink or
+foreign writable file, bounded raw bytes and actual cache/disk equality.
+Absence requires an independently absent file and genuinely empty original
+cache. Unknown, busy or mismatched sources never provide an empty baseline.
+Raw bytes, their hash, original cache serialization and file revision/path
+hashes remain private. The combined result is limited to 245760 bytes so the
+existing 262144-byte host envelope limit remains unchanged; oversized originals
+are unavailable, not truncated. Native queries remain bounded at 512.
+
+The separate `featurePicoAvatarBookmarks` getter uses a dedicated original
+bounded dispatcher, actual manager-thread reads, weak object identity and
+request replay refusal. A blocked worker or GUI cannot hang the caller or
+publish a timed-out value later. The private host observer is available through
+`_avatar_bookmarks_observer`; actual manager replacement invalidates continuity.
+
+The real Qt5 AvatarApp/Pico-pointer/whole-avatarapp.js harness now passes normal
+Get/Add/Remove calls through a closed synchronous host IPC to the complete
+original native Bookmarks constructor, cache access, Add/Remove and physical
+writer bodies. It independently reads the actual file after calls and preserves
+an unrelated original bookmark. The latest normal Save → scale 1.5 → reload →
+Delete path passed in 10.614 seconds, including duplicate and foreign-decoration
+refusal. The native storage/complete getter test passed separately with Qt5
+(2.763 seconds) and Qt6 (3.900 seconds), including physical/cache mismatch,
+file identity/permissions, blocked dispatch/worker, manager replacement,
+absence and the real query cap. No additional catalog selector was added.
+
+Avatar model/scale/wearable services and Script permissions at that UI IPC are
+declared host actors. Bookmark-load model completion and its original native
+callback lifetime are not supplied by this storage test. The original script
+can issue additional bookmark-load callbacks after native change notifications;
+all actual host callback calls are retained, without replaying adapter input.
+The host timer actor runs original scheduled functions at a declared message
+boundary; it does not qualify a real 300-ms delay. The separate native
+load/failure source remains the loaded-model authority.
+
+The durable URL owner still permits URL operations only. A durable joined
+Bookmark/Scale owner, original physical avatar-preference baseline/restoration,
+native bookmark-load callback work and full parent composition remain open.
+Normal Settings Save calls other original settings setters as well as scale;
+these effects must enter that owner before full cleanup can be qualified. The
+original bookmark writer can reformat otherwise unchanged unrelated data:
+actual native tests preserve this raw-byte difference instead of claiming exact
+physical restoration. This continuation does not enable a capability triple.

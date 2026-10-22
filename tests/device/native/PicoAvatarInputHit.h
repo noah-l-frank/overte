@@ -12,7 +12,8 @@
 namespace overte::e2e {
 // Fixed Phone5527 handler traversal adapted to the actual Pico scene. Opaque
 // foreign drawn items and unproven negative-z branches conservatively refuse.
-inline bool picoAvatarInputOwnsPoint(QQuickItem* item,QQuickWindow* window,const QPointF& point) {
+inline bool picoAvatarInputOwnsPoint(QQuickItem* item,QQuickWindow* window,const QPointF& point,
+        const std::function<bool(QQuickItem*)>& originalDecoration={}) {
     if (!item || !window || !qApp || item->window()!=window || item->thread()!=qApp->thread()
             || window->thread()!=qApp->thread() || QThread::currentThread()!=qApp->thread()
             || !std::isfinite(point.x()) || !std::isfinite(point.y())) {return false;}
@@ -26,8 +27,9 @@ inline bool picoAvatarInputOwnsPoint(QQuickItem* item,QQuickWindow* window,const
         for (auto it=children.crbegin();it!=children.crend();++it) {if ((*it)->z()>=0 && visit(*it,depth+1)) {return true;}}
         bool handler=false;
         if (node->isEnabled()) {for (auto child:node->children()) {if (child->inherits("QQuickPointerHandler") && child->property("enabled").toBool()) {handler=true;}}}
-        if (inside && ((node->isEnabled() && (handler || (node->acceptedMouseButtons() & Qt::LeftButton) || node->acceptTouchEvents()))
-                || node->flags().testFlag(QQuickItem::ItemHasContents))) {recipient=node;return true;}
+        const bool decoration=originalDecoration && originalDecoration(node);
+        if (inside && (handler || !decoration && ((node->isEnabled() && ((node->acceptedMouseButtons() & Qt::LeftButton) || node->acceptTouchEvents()))
+                || node->flags().testFlag(QQuickItem::ItemHasContents)))) {recipient=node;return true;}
         if (inside && std::any_of(children.begin(),children.end(),[](QQuickItem* child){return child->z()<0;})) {invalid=true;return true;}
         for (auto it=children.crbegin();it!=children.crend();++it) {if ((*it)->z()<0 && visit(*it,depth+1)) {return true;}}
         return false;

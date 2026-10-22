@@ -155,6 +155,7 @@
     var lastAvatarRenderRequest = "";
     var lastPicoEmoteSceneRequest = "";
     var lastPicoAvatarStateRequest = "";
+    var lastPicoAvatarBookmarksRequest = "";
     var lastGraphicsSubjectRequest = "";
     var lastSceneLoadRequest = "";
     var lastTabletHttpRequest = "";
@@ -1105,6 +1106,23 @@
                 }
             } catch (_picoEmoteSceneError) { /* Original ownership and missing scene facts remain unresolved. */ }
             Test.saveObject(picoEmoteScene, "feature-pico-emote-scene.json");
+            return;
+        }
+
+        if (command && command.schemaVersion === 1
+                && typeof command.commandId === "string" && /^[0-9a-f]{32}$/.test(command.commandId)
+                && command.action === "feature-pico-avatar-bookmarks-observe"
+                && objectKeysMatch(command, ["schemaVersion", "commandId", "action"])) {
+            if (command.commandId === lastPicoAvatarBookmarksRequest) {return;}
+            lastPicoAvatarBookmarksRequest = command.commandId;
+            var picoAvatarBookmarks = {schemaVersion:1,requestId:command.commandId,available:false};
+            try {
+                if (typeof Test.featurePicoAvatarBookmarks === "function") {
+                    var originalPicoAvatarBookmarks = Test.featurePicoAvatarBookmarks(command);
+                    if (originalPicoAvatarBookmarks && originalPicoAvatarBookmarks.requestId === command.commandId) {picoAvatarBookmarks = originalPicoAvatarBookmarks;}
+                }
+            } catch (_picoAvatarBookmarksError) { /* Independent original cache/physical bytes remain unavailable. */ }
+            Test.saveObject(picoAvatarBookmarks, "feature-pico-avatar-bookmarks.json");
             return;
         }
 
@@ -2213,6 +2231,7 @@
                 || command.action === "feature-create-browse-setting"
                 || command.action === "feature-world-render-observe"
                 || command.action === "feature-pico-avatar-state-observe"
+                || command.action === "feature-pico-avatar-bookmarks-observe"
                 || command.action === "feature-avatar-render-observe"
                 || command.action === "feature-pico-emote-scene-observe" || command.action === "feature-pico-emote-scene-input"
                 || command.action === "feature-pico-world-model-draws-observe"

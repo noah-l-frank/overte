@@ -41,6 +41,10 @@ class AvatarPeopleControlsNativeTests(unittest.TestCase):
             observer+='\nNavigationUi::NavigationUi() : _bridgeId(token()), _generation(token()) { _clock.start(); }\n'
             observer+='\n'+function(native,'QJsonObject NavigationUi::observe(')
             (stage/'actual-avatar-observe.inc').write_text('namespace overte::pico::e2e {\n'+observer+'\n}\n')
+            bookmarks=(ROOT/'interface/src/Bookmarks.cpp').read_text();avatar_bookmarks=(ROOT/'interface/src/AvatarBookmarks.cpp').read_text()
+            store='\n'.join(function(bookmarks,s) for s in ('void Bookmarks::insert(', 'void Bookmarks::remove(', 'bool Bookmarks::contains(', 'void Bookmarks::readFromFile(', 'void Bookmarks::persistToFile('))
+            store+='\n'+'\n'.join(function(avatar_bookmarks,s) for s in ('AvatarBookmarks::AvatarBookmarks()', 'QVariantMap AvatarBookmarks::e2eBookmarkStorage(', 'QVariantMap AvatarBookmarks::getBookmarks(', 'QVariantMap AvatarBookmarks::getBookmarkInternal(', 'void AvatarBookmarks::addBookmarkInternal(', 'void AvatarBookmarks::removeBookmarkInternal('))
+            (stage/'actual-avatar-bookmark-store.inc').write_text(store)
             start=native.index('    } else if (controlId.startsWith("avatar.") || controlId.startsWith("people.")) {')
             end=native.index('\n    } else if (',start+10)
             branch=native[start:end].split('{',1)[1]
@@ -71,5 +75,17 @@ class AvatarPeopleControlsNativeTests(unittest.TestCase):
             self.assertGreater(value['pointerCalls'],5)
             self.assertTrue(value['hmdActive'])
             self.assertTrue(value['wholeOriginalObserver'])
+            self.assertEqual(['save','e2e-'+'a'*32],value['bookmarkCalls'][0])
+            self.assertEqual(['delete','e2e-'+'a'*32],value['bookmarkCalls'][-1])
+            self.assertTrue(1<=len(value['bookmarkCalls'][1:-1])<=8)
+            self.assertTrue(all(row==['load','e2e-'+'a'*32] for row in value['bookmarkCalls'][1:-1]))
+            self.assertTrue(any(abs(s-1.5)<.001 for s in value['scaleCalls']))
+            self.assertEqual(1,value['scaleCalls'][-1])
+            from adapters.pico4.avatar_bookmarks import storage
+            physical=value['originalBookmarkStorage'];self.assertGreater(len(physical),5)
+            for packet in physical:storage(packet,packet['capturedEpochMs'])
+            self.assertEqual(physical[0]['bookmarks'],physical[-1]['bookmarks'])
+            self.assertTrue(all('unowned' in packet['bookmarks'] for packet in physical))
+            self.assertTrue(any('e2e-'+'a'*32 in packet['bookmarks'] for packet in physical))
 
 if __name__=='__main__':unittest.main()

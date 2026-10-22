@@ -51,6 +51,7 @@
 #include "../../../tests/device/native/NavigationDirectoryObservation.h"
 #include "../../../tests/device/native/NavigationPanelsObservation.h"
 #include "LocationBookmarks.h"
+#include "AvatarBookmarks.h"
 #include <XMLHttpRequestClass.h>
 #include "../../../tests/device/native/PrivateWorldRenderReceipts.h"
 #include "../../../tests/device/native/PrivateCreateFiles.h"
@@ -127,6 +128,7 @@ void TestScriptingInterface::setTestResultsLocation(const QString path) {
 #if defined(ANDROID_APP_PICO_INTERFACE)
         _featureEmoteSceneQueue=std::make_shared<overte::e2e::AudioSettingsQueue>();
         _featureAvatarStateQueue=std::make_shared<overte::e2e::AudioSettingsQueue>();
+        _featureAvatarBookmarksQueue=std::make_shared<overte::e2e::AudioSettingsQueue>();
         overte::e2e::ensureNavigationDirectoryProvider(this);
 #endif
     }
@@ -225,6 +227,38 @@ QVariantMap TestScriptingInterface::featureAvatarRenderObservation(const QVarian
 }
 
 #if defined(ANDROID_APP_PICO_INTERFACE)
+QVariantMap TestScriptingInterface::featurePicoAvatarBookmarks(const QVariantMap& command) {
+    const auto queue=_featureAvatarBookmarksQueue;if(!queue) {return {};}
+    if(QThread::currentThread()!=thread()) {
+        return queue->read("dispatch",this,[command](QObject* original) {
+            return overte::e2e::AudioSettingsPart{static_cast<TestScriptingInterface*>(original)->featurePicoAvatarBookmarks(command),{}};
+        }).values;
+    }
+    const auto json=QJsonObject::fromVariantMap(command);const auto request=command.value("commandId").toString();
+    if(_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript") || !qApp || thread()!=qApp->thread()
+            || command.keys()!=QStringList{"action","commandId","schemaVersion"} || !json.value("schemaVersion").isDouble()
+            || json.value("schemaVersion").toDouble()!=1 || !json.value("commandId").isString()
+            || !QRegularExpression("\\A[0-9a-f]{32}\\z").match(request).hasMatch()
+            || command.value("action").toString()!="feature-pico-avatar-bookmarks-observe"
+            || _featureAvatarBookmarksRequests.contains(request) || _featureAvatarBookmarksRequests.size()>=512
+            || !queue->settled(overte::e2e::AudioSettingsQueue::dispatching(this) ? "dispatch" : QString())
+            || !DependencyManager::isSet<AvatarBookmarks>()) {return {};}
+    const auto manager=DependencyManager::get<AvatarBookmarks>();if(!manager) {return {};}
+    if(_featureAvatarBookmarkObject!=manager.data()) {
+        _featureAvatarBookmarkObject=manager.data();_featureAvatarBookmarkBirth=QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-');
+    }
+    const auto requested=QDateTime::currentMSecsSinceEpoch();_featureAvatarBookmarksRequests.insert(request);
+    const auto read=queue->read("client",manager.data(),[](QObject* original) {
+        return overte::e2e::AudioSettingsPart{static_cast<AvatarBookmarks*>(original)->e2eBookmarkStorage(),{}};
+    });
+    if(read.values.isEmpty() || _featureAvatarBookmarkObject.isNull() || _featureAvatarBookmarkObject!=manager.data()) {return {};}
+    return {{"schemaVersion",1},{"requestId",request},{"instance",_featureObservationInstance},
+        {"sequence",static_cast<qulonglong>(++_featureAvatarBookmarksSequence)},{"processId",QCoreApplication::applicationPid()},
+        {"requestedEpochMs",requested},{"capturedEpochMs",QDateTime::currentMSecsSinceEpoch()},
+        {"source",QVariantMap{{"picoAvatarBookmarksVersion",1},{"instance",_featureAvatarBookmarkBirth},{"storage",read.values}}}};
+}
+
 QVariantMap TestScriptingInterface::featurePicoAvatarState(const QVariantMap& command) {
     const auto queue=_featureAvatarStateQueue;if (!queue) {return {};}
     if (QThread::currentThread()!=thread()) {

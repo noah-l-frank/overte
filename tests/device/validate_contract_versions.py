@@ -19,6 +19,8 @@ REQUIRED = {
     "stereo-browser-evidence": 1,
     "normal-input-phase-fence": 1,
     "pico-browser-entry": 1,
+    "native-avatar-bookmark-storage": 1,
+    "pico-avatar-bookmarks-source": 1,
     "native-avatar-entity-storage": 1,
     "pico-avatar-people-controls": 1,
     "pico-avatar-state": 1,
