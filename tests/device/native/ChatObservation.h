@@ -3,6 +3,7 @@
 #pragma once
 
 #if defined(OVERTE_E2E_FEATURE_TESTS)
+#include "ChatDomainSession.h"
 #include <QCoreApplication>
 #include <QCryptographicHash>
 #include <QDateTime>
@@ -52,7 +53,7 @@ public:
         if (scope.events.size() > 128) { scope.events.removeFirst(); }
     }
 
-    QVariantMap request(const QVariantMap& command, const QUuid& self, const QUuid& mixer) {
+    QVariantMap request(const QVariantMap& command, const QUuid& self, const QUuid& mixer, const QVariantMap& session={}) {
         const auto keys = command.keys();
         const QSet<QString> required {"schemaVersion", "commandId", "action", "operation", "runId"};
         const auto json = QJsonObject::fromVariantMap(command);
@@ -66,6 +67,7 @@ public:
                 || !QRegularExpression("\\A[0-9a-f]{32}\\z").match(run).hasMatch()
                 || (operation != "observe" && operation != "retire" && operation != "inspect")
                 || self.isNull() || !QCoreApplication::arguments().contains("--testScript")) { return {}; }
+        if (!session.isEmpty() && (!ChatDomainSession::valid(session) || (mixer.isNull() && session.value("mixerActive").toBool()))) { return {}; }
         QMutexLocker locker(&_mutex);
         if (!_available || _sequence >= MAX_SEQUENCE) { return {}; }
         const auto now = tick();
@@ -80,7 +82,7 @@ public:
         }
         const bool present = _scopes.contains(run);
         const auto scope = _scopes.value(run);
-        return {{"chatVersion", 1}, {"commandId", id}, {"runId", run}, {"operation", operation},
+        QVariantMap result{{"chatVersion", session.isEmpty()?1:2}, {"commandId", id}, {"runId", run}, {"operation", operation},
             {"instance", _instance}, {"sequence", static_cast<qulonglong>(++_sequence)},
             {"processId", QCoreApplication::applicationPid()}, {"capturedEpochMs", now},
             {"source", QVariantMap {{"scopePresent", present}, {"retired", _retired.contains(run)},
@@ -90,6 +92,10 @@ public:
                 {"eventSequence", static_cast<qulonglong>(scope.sequence)},
                 {"droppedEvents", static_cast<qulonglong>(scope.sequence - scope.events.size())},
                 {"events", scope.events}}}};
+        if (!session.isEmpty()) {
+            auto source=result.value("source").toMap();source.insert("session",session);result.insert("source",source);
+        }
+        return result;
     }
 
 private:

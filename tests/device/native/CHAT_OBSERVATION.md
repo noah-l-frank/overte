@@ -117,3 +117,9 @@ script-invokable on its owner thread in explicitly enabled E2E Assignment Client
 processes. This opens a native source seam; authenticated/private actor transport,
 send/mixer ownership, complete UI/storage joins and device qualification remain
 missing. The default domain peer's heartbeat still proves no Chat receipt.
+
+Version 2 additionally carries the [original DomainHandler session](CHAT_DOMAIN_SESSION.md)
+and actual mixer socket activity in the existing source. Legacy v1 packets stay
+readable but cannot provide this actual domain/connection-birth evidence. Both
+independent v2 source roles pin their original domain lifetime across a mixer-only
+outage; no new observation or requested-domain channel is introduced.

@@ -200,3 +200,12 @@ restoration, followed by a fresh unchanged original settings mutation count.
 The source-only Settings purpose never invents a shared Chat channel. The private
 Pico factory and teardown retain every source/profile/Erase journal even when
 this component succeeds; full Chat registration and device claims remain closed.
+
+The [actual DomainHandler source](../../native/CHAT_DOMAIN_SESSION.md) now adds
+native domain UUID hashing, original connection birth/event time and revision to
+the existing Chat v2 cache/actor path. Independent roles reject changed domains,
+reconnects, hidden UUID A-to-B-to-A and inactive mixer sockets. A real Qt5 check
+executes original setter and observation bodies on explicit transport seams;
+whole networking compilation and device execution remain unqualified. This
+source still needs the original owned fixture process/control join for the full
+mixer outage/recovery operation.
