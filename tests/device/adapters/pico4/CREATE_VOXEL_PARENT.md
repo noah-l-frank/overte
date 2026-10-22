@@ -126,3 +126,23 @@ texture/pixel/artifact qualification, GPU/backend allocation retirement and
 complete v16 final-state/resource closure. Mesh-copy lifetime and render-update
 identity alone do not prove any of those effects. There have been no physical
 Pico/OpenXR runs or complete Interface builds for this packet.
+
+The passive `e2eSettingsReceived` provenance follows fixed Phone commit
+`203d6b65f06f46d03e47bf8ca9314dcb149ffdf8` (read-only source pinned at
+`5527d540e99cc6dba4204a5e904a854e6e1cd2b4`). It becomes true only in the
+original `nativeCreate.settings` receiver and never drives a control. Native
+voxel controls and settings are absent until this actual Bool receipt is true;
+the parent waits read-only for their admission. The actual Qt test opens TOOLS
+through normal input, withholds only original backend transport delivery, and
+proves that QML defaults yield zero controls and no settings baseline. Original
+backend delivery then admits controls and the normal stroke/restore completes.
+The native wrapper also adds its own device-module import path, so standalone
+execution requires no inherited PYTHONPATH (same narrow fix as Root b29f563b46).
+
+This counterexample exposed a host-listener error: the old harness attached its
+signal spy after `Component.onCompleted`, losing the original `nativeCreate.ready`
+request and admitting unchanged QML defaults. The harness now uses normal
+QQmlComponent beginCreate/completeCreate lifecycle to attach before completion,
+asserts the actual ready message, and delivers its original bridge reply only
+after the no-baseline counterexample. Its explicit entity-list transport actor
+implements the original ready branch's refresh; no product lifecycle is altered.

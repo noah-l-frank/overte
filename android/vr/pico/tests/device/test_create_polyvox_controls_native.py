@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 import os
 import json
+import sys
 from pathlib import Path
 import shlex
 import subprocess
@@ -106,7 +107,8 @@ class CreatePolyvoxControlsNativeTests(unittest.TestCase):
     def test_original_voxel_tools_fields_backend_settings_remove_stroke_and_restore(self):
         output=self.run_original('create-voxel-controls.cpp');message=json.loads(output)
         from adapters.pico4.create_voxel_ui import settings
-        self.assertEqual({'before','configured','restored','stroke','pointerCalls','counterexamples'},set(message))
+        self.assertEqual({'before','configured','restored','stroke','pointerCalls','counterexamples','settingsReceipt'},set(message))
+        self.assertEqual({'beforeReply':False,'beforeControls':0,'afterReply':True},message['settingsReceipt'])
         self.assertEqual(['moved-token','disabled','higher-overlay','clipped'],message['counterexamples'])
         settings(message['before']);settings(message['configured']);self.assertEqual(message['before'],message['restored'])
         self.assertEqual('cube',message['configured']['voxelEditMode']);self.assertEqual(.5,message['configured']['voxelSphereSize'])

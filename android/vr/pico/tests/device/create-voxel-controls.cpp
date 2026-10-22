@@ -36,8 +36,12 @@ int main(int argc,char**argv){
     QQuickRenderControl renderControl;QQuickWindow window(&renderControl);window.resize(600,1000);window.contentItem()->setSize(QSizeF(600,1000));
     QQuickItem root(window.contentItem());root.setSize(QSizeF(600,1000));
     QQmlComponent component(&engine,QUrl::fromLocalFile(path+"/scripts/system/create/qml/NativeCreate.qml"));
-    auto page=qobject_cast<QQuickItem*>(component.create());if(!page){qFatal("%s",qPrintable(component.errorString()));}
-    page->setParentItem(&root);page->setSize(root.size());QTest::qWait(50);QSignalSpy calls(page,SIGNAL(sendToScript(QVariant)));
+    auto page=qobject_cast<QQuickItem*>(component.beginCreate(engine.rootContext()));if(!page){qFatal("%s",qPrintable(component.errorString()));}
+    page->setParentItem(&root);page->setSize(root.size());QSignalSpy calls(page,SIGNAL(sendToScript(QVariant)));
+    component.completeCreate();QTest::qWait(50);assert(calls.size()==1);
+    assert(createVariant(calls.first().first()).toMap().value("method").toString()=="nativeCreate.ready");
+    assert(page->property("e2eSettingsReceived").userType()==QMetaType::Bool && !page->property("e2eSettingsReceived").toBool());
+    QJsonObject settingsReceipt;
     auto evaluate=[&](const QString& code,const QString& file=QString()){
         auto result=engine.evaluate(code,file);if(result.isError()){qFatal("%s",qPrintable(result.toString()+"\n"+result.property("stack").toString()));}return result;};
     auto source=[&](const QString& file){QFile input(path+'/'+file);assert(input.open(QIODevice::ReadOnly));return QString::fromUtf8(input.readAll());};
@@ -67,9 +71,19 @@ int main(int argc,char**argv){
             {"observedElapsedMs",actual.value("elapsedMs")},{"controlId",id},{"controlToken",item.value("token")},{"action",action}};
         if(action=="replace"){command["text"]=argument;}else if(action=="select-index"){command["index"]=argument;}
         const auto result=ui.apply(&root,&window,command,pointer);if(!result.value("performed").toBool()){qFatal("actual normal input refused: %s/%s",qPrintable(id),qPrintable(action));}
+        if(id=="create.tab.3" && settingsReceipt.isEmpty()){
+            // The normal tab has opened, but the original backend reply has not
+            // been delivered. QML defaults must not become an owned baseline.
+            const auto receipt=page->property("e2eSettingsReceived");
+            assert(receipt.userType()==QMetaType::Bool && !receipt.toBool());
+            const auto controls=tools.observe(&root,&window).value("controls").toArray();
+            assert(controls.isEmpty() && createVoxelSettings(page).isEmpty());
+            settingsReceipt["beforeReply"]=receipt.toBool();settingsReceipt["beforeControls"]=controls.size();
+        }
         drain();QCoreApplication::processEvents();renderControl.polishItems();QCoreApplication::processEvents();return result;
     };
     apply(normal,"create.tab.3","activate");assert(page->property("currentTab").toInt()==3);
+    assert(page->property("e2eSettingsReceived").toBool());settingsReceipt["afterReply"]=true;
     const auto baseline=row(tools,"create-voxel.mode").value("settings").toObject();assert(baseline.value("createAppMode")==QJsonValue("object"));
     auto choose=[&](const QString& id,int index){apply(tools,id,"activate");apply(tools,id,"select-index",index);assert(row(tools,id).value("currentIndex").toInt()==index);};
     choose("create-voxel.mode",1);choose("create-voxel.shape",2);choose("create-voxel.dynamics",0);choose("create-voxel.pointer",0);
@@ -111,6 +125,6 @@ int main(int argc,char**argv){
     assert(!tools.apply(&root,&window,heldCommand,pointer).value("performed").toBool());page->setParentItem(&root);
     assert(pointers==originalPointers);
     QJsonArray counterexamples{"moved-token","disabled","higher-overlay","clipped"};
-    QJsonObject output{{"before",baseline},{"configured",measured},{"restored",restored},{"stroke",changed},{"pointerCalls",pointers},{"counterexamples",counterexamples}};
+    QJsonObject output{{"settingsReceipt",settingsReceipt},{"before",baseline},{"configured",measured},{"restored",restored},{"stroke",changed},{"pointerCalls",pointers},{"counterexamples",counterexamples}};
     delete page;QTextStream(stdout)<<QJsonDocument(output).toJson(QJsonDocument::Compact)<<'\n';
 }
