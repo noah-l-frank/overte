@@ -212,6 +212,7 @@ public slots:
     Q_INVOKABLE QVariantMap featureIOSTabletWeb(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureIOSTabletWebDeferred(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureIOSTabletWebDefer(const QVariantMap& command);
+    Q_INVOKABLE QVariantMap featureIOSTabletAppButtons(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureIOSUIKitInput(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureIOSTabletWebClosures(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureIOSTabletWebDOM(const QVariantMap& command);

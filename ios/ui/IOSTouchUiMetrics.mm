@@ -27,6 +27,7 @@
 #include "IOSNormalUiInput.h"
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #include "../../tests/device/native/PendingFieldCommitOwner.h"
+#include "../web/IOSUIKitControlObservation.h"
 #include <QMouseEvent>
 #endif
 #include <QJsonArray>
@@ -419,6 +420,15 @@ void updateNormalUiButtons(UIWindow* window, CGRect safeBounds, NSMutableSet<NSS
         }
         OverteIOSE2EAccessibilityButton* control = tabletE2EAccessibilityButton(window, identifier);
         control.sourceControlToken = sourceToken;
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        if (id.startsWith("tablet-web-app.")) {
+            // The ordinary source-token factory above created this actual
+            // UIButton. Re-read the real Qt control immediately at binding;
+            // an ID, a label or a caller-supplied Web identity cannot bind it.
+            auto* item=normalUiInput().item(id,token);
+            overte::ios::uikit_input::bindTabletButton(control,item,token,row.value("tabletAppButton").toObject().toVariantMap());
+        }
+#endif
         // Every E2E proxy is a source-token control, including Home, tablet
         // pages and the address editor. Text comes from the original native
         // survey/private carrier, never this token attribute. Replacing the
@@ -456,6 +466,9 @@ void updateNormalUiButtons(UIWindow* window, CGRect safeBounds, NSMutableSet<NSS
         };
         const auto label = id.startsWith(QStringLiteral("tablet.page."))
             ? QStringLiteral("Tablet page %1").arg(id.section('.', -1))
+            : id=="tablet-web-app.open" ? QStringLiteral("WEB TEST")
+            : id=="tablet-web-app.inline" ? QStringLiteral("WEB INLINE")
+            : id=="tablet-web-app.return" ? QStringLiteral("WEB RETURN")
             : id.startsWith(QStringLiteral("scripts.restart.")) ? QStringLiteral("Restart ") + row.value("rowLabel").toString()
             : id.startsWith(QStringLiteral("scripts.stop.")) ? QStringLiteral("Stop ") + row.value("rowLabel").toString() : id.startsWith(QStringLiteral("script-file.row.")) ? row.value("rowLabel").toString() : labels.value(id);
         const auto actualLabel = id.startsWith("audio.") || id.startsWith("graphics.") || id == "settings.entry"

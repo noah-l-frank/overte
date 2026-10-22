@@ -36,7 +36,7 @@ if(JSON.stringify(files[0].v.contacts)!==JSON.stringify(original.contacts))throw
 applyClientCommand({...q,commandId:"ios-"+"d".repeat(32),expectedActiveTouches:0});if(calls!==2)throw Error("expected result accepted");
 delete Test.featureIOSUIKitInput;applyClientCommand({...q,commandId:"ios-"+"e".repeat(32)});
 if(files.at(-1).v.complete!==false||files.at(-1).v.contacts)throw Error("missing source became absence");
-'''.replace('PACKET',json.dumps(packet(phase="ended"))).replace('QUERY',json.dumps(query())).replace('SOURCE',probe_source())
+'''.replace('PACKET',json.dumps(dict(packet(phase="ended"),iosUIKitInputVersion=2))).replace('QUERY',json.dumps(query())).replace('SOURCE',probe_source())
         result=subprocess.run(['node','-e',program],capture_output=True,text=True,timeout=5)
         self.assertEqual(0,result.returncode,result.stderr)
 
@@ -44,7 +44,7 @@ if(files.at(-1).v.complete!==false||files.at(-1).v.contacts)throw Error("missing
         native=Native();observer=native.observer();commands=[];reads=[]
         def post(request,timeout):
             command=native.fixture.set_client_command(json.loads(request.data));commands.append(command);native.echo=json.dumps(command).encode()
-            native.value=packet(len(commands),phase="ended");native.value.update(commandId=command['commandId'],processId=native.pid);return native
+            native.value=packet(len(commands),phase="ended");native.value.update(commandId=command['commandId'],processId=native.pid,iosUIKitInputVersion=2);return native
         def execute(session,operation,arguments):
             self.assertEqual('native-session',session);self.assertEqual('mobile: pullFile',operation)
             self.assertEqual({'remotePath':'@org.example.client:documents/owned-results/'+source.FILE},arguments)

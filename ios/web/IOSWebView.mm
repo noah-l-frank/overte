@@ -19,6 +19,7 @@
 #include "IOSTabletWebDOMState.h"
 #include "IOSTabletWebClosures.h"
 #include "IOSUIKitInputObservation.h"
+#include "IOSUIKitControlObservation.h"
 #include "IOSTabletWebDeferred.h"
 #endif
 #include <QFile>
@@ -53,6 +54,7 @@
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 namespace overte::ios::uikit_input {
 void startup() noexcept { install(); }
+void bindTabletButton(UIButton* button,QQuickItem* item,const QString& token,const QVariantMap& source) noexcept { bindControl(button,item,token,source); }
 QVariantMap observation(const QVariantMap& query) { return observe(query); }
 }
 #endif

@@ -16,7 +16,9 @@ load receipt, and the native Sources/DOM/trace still independently prove the
 actual decoded inline carrier, binding and document.
 
 The real app has three ordinary Tablet.addButton controls: WEB TEST, WEB INLINE
-and WEB RETURN. Their callbacks call only the existing public
+and WEB RETURN. Each receives an actual `fixtureUrl` property, semantic run,
+generation nonce and verb. These are input/control ownership metadata, never a
+measured WK URL or document address. Their callbacks call only the existing public
 Tablet.gotoWebScreen routes for the controlled HTTP index, canonical data URL
 and controlled HTTP reference. The echo validator/responder is copied verbatim
 from the pinned original parity client.js; no expected echo/counter is supplied.
@@ -41,10 +43,19 @@ readback of all four byte strings. Release uses only the saved storage UUID and
 owner token, observes actual directory absence, then retires its metadata;
 whole cleanup must separately archive the genuine native absence receipts.
 
-Five host tests execute the actual generated JavaScript through Node with
+The current owner writes version 2 and reads versions 1 and 2. Version 2 uses
+one-pass unique template markers, so valid hostnames containing RUN, REFERENCE
+or NONCE cannot rewrite already inserted input bytes. Genuine version 1 owners
+reconstruct the exact original sequential-template bytes from the old generator;
+their saved hashes, native files and namespace are not upgraded or relabelled.
+An independently frozen c75de13a9f hash fixture and native file readback check
+that compatibility. Legacy inputs lack the new actual fixture property and
+cannot qualify the new current app-control source.
+
+Seven host tests execute the actual generated JavaScript through Node with
 ordinary Tablet/Script boundary models, check all unchanged canonical inline
 bytes and existing file bounds, real echo/invalid-message handling, disconnected
 handlers, normal button routes, separate native storage generations, lost stage
 without resending, and changed native file readback. They do not execute UIKit,
 Overte native Script engines or a device. Actual returned TabletButtonProxy and
-visual/control ownership is still the next source dependency.
+visual/control ownership is a separate `tablet_web_buttons` source dependency.

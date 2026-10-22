@@ -134,7 +134,7 @@ class UIKitInputTests(unittest.TestCase):
     def test_own_transport_sends_once_preserves_original_and_never_installs_or_replays(self):
         calls=[];raw={}
         def send(q):
-            calls.append(deepcopy(q));value=packet(len(calls),phase='ended');value['commandId']=q['commandId'];raw['value']=json.dumps(value)
+            calls.append(deepcopy(q));value=packet(len(calls),phase='ended');value.update(commandId=q['commandId'],iosUIKitInputVersion=2);raw['value']=json.dumps(value)
         reader=source.IOSUIKitInput(send,lambda:raw['value'],lambda:90621,lambda:True,31,monotonic=lambda:0)
         value=reader.read(RUN,ROOT);self.assertEqual(source.ACTION,calls[0]['action']);self.assertEqual('ActualRuntimeApplication',value['applicationClass'])
         def lost(q):calls.append(deepcopy(q));raise OSError('Actual UIKit source query return lost')

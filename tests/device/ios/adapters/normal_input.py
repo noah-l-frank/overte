@@ -39,6 +39,7 @@ from adapters.token_script_file_ui import (file_control, folder_text,
 from ios.adapters.places_controls import (PROFILES as PLACES_PROFILES,metadata as places_metadata,
     control_id as places_control,text as places_text,FIELDS as PLACES_FIELDS)
 from ios.adapters.navigation_dialog_controls import IDS as ERROR_IDS,metadata as error_metadata
+from ios.adapters.tablet_web_buttons import IDS as TABLET_APP_IDS,metadata as tablet_app_metadata
 
 CONTROLS = frozenset({'hud.goto', 'hud.tablet', 'address.field', 'address.go',
     'address.cancel', 'address.back', 'tablet.home', 'tablet.close', 'tablet.places',
@@ -110,6 +111,10 @@ def observation(value, pid, now_ms=None):
         if type(value['fileControlsVersion']) is not int or value['fileControlsVersion'] != 1:
             raise NativeUIError('Native iOS file control version is invalid')
         fields.add('fileControlsVersion')
+    if type(value) is dict and 'tabletAppControlsVersion' in value:
+        if type(value['tabletAppControlsVersion']) is not int or value['tabletAppControlsVersion']!=1:
+            raise NativeUIError('Native iOS Tablet app control version is invalid')
+        fields.add('tabletAppControlsVersion')
     if type(value) is dict and 'snapshotExportControlsVersion' in value:
         if type(value['snapshotExportControlsVersion']) is not int or value['snapshotExportControlsVersion']!=1:
             raise NativeUIError('Native iOS Snapshot export source version is invalid')
@@ -180,7 +185,11 @@ def observation(value, pid, now_ms=None):
         is_chat=type(control) is dict and type(control.get('id')) is str and control['id'].startswith('chat.')
         is_places=type(control) is dict and control.get('profile') in PLACES_PROFILES.values()
         is_error=type(control) is dict and control.get('id') in ERROR_IDS
-        if is_error:
+        if type(control) is dict and control.get('id') in TABLET_APP_IDS:
+            if value.get('tabletAppControlsVersion')!=1:raise NativeUIError('Native iOS Tablet app source is missing')
+            tablet_app_metadata(control.get('tabletAppButton'));fields.add('tabletAppButton')
+            if control['id']!='tablet-web-app.'+control['tabletAppButton']['verb']:raise NativeUIError('Native iOS Tablet app control identity differs')
+        elif is_error:
             if value.get('navigationDialogControlsVersion')!=1:raise NativeUIError('Native iOS navigation modal source is missing')
             original=dict(control);original.pop('frame',None);error_metadata(original);fields=set(control)
         elif is_places:
@@ -236,7 +245,7 @@ def observation(value, pid, now_ms=None):
             fields.add('checked')
         if (not isinstance(control, dict) or set(control) != fields
                 or not isinstance(control['id'], str)
-                or not (control['id'] in CONTROLS or control['id'] in SNAPSHOT_EXPORT_IDS or script_control(control['id']) or file_control(control['id']) or audio_control(control['id']) or graphics_control(control['id']) or control['id'] in LOGIN_IDS or control['id'] in ACCOUNT_IDS or control['id'] in VIEW_IDS or control['id']==REMEMBER_ID or is_create and create_control(control['id']) or is_chat and chat_control(control['id']) or is_places and places_control(control['id']) or is_error or is_avatar and avatar_control(control['id']) or is_emote and emote_control(control['id'])) or control['id'] in seen
+                or not (control['id'] in CONTROLS or control['id'] in TABLET_APP_IDS or control['id'] in SNAPSHOT_EXPORT_IDS or script_control(control['id']) or file_control(control['id']) or audio_control(control['id']) or graphics_control(control['id']) or control['id'] in LOGIN_IDS or control['id'] in ACCOUNT_IDS or control['id'] in VIEW_IDS or control['id']==REMEMBER_ID or is_create and create_control(control['id']) or is_chat and chat_control(control['id']) or is_places and places_control(control['id']) or is_error or is_avatar and avatar_control(control['id']) or is_emote and emote_control(control['id'])) or control['id'] in seen
                 or not _uuid(control['token']) or control['token'] in tokens
                 or type(control['enabled']) is not bool or type(control['focused']) is not bool):
             raise NativeUIError('Native iOS input controls are invalid')

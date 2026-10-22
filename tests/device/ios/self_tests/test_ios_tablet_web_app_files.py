@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
 import json
+import hashlib
 import re
 from pathlib import Path
 import subprocess
@@ -45,6 +46,7 @@ const web=signal(),ending=signal();
 const tablet={webEventReceived:web,addButton:p=>{const b={properties:p,clicked:signal()};buttons.push(b);return b},removeButton:b=>removed.push(b),gotoWebScreen:u=>nav.push(u),emitScriptEvent:r=>replies.push(r)};
 const Script={require:path=>{const module={exports:{}};vm.runInNewContext(files[path.replace(/^\.\//,'')],{module});return module.exports},scriptEnding:ending};
 vm.runInNewContext(files['script.js'],{Script,Tablet:{getTablet:id=>{if(id!=='com.highfidelity.interface.tablet.system')throw Error('foreign tablet');return tablet}}});
+if(buttons.some(b=>b.properties.fixtureUrl!==__ROOT__))throw Error('missing actual ordinary button fixture property');
 if(buttons.length!==3||nav.length)throw Error('unexpected execution shortcut');
 const button=label=>buttons.find(b=>b.properties.text===label);
 button('WEB TEST').clicked.emit();button('WEB INLINE').clicked.emit();button('WEB RETURN').clicked.emit();
@@ -65,11 +67,29 @@ web.emit(JSON.stringify({contract:'overte-web-parity-v1',action:'echo',sequence:
 
     def test_actual_storage_subrun_is_distinct_from_feature_run_and_originals_survive_rebuild(self):
         files=self.files();owner=files.reserve_app(RUN,ROOT,TICKET)
+        self.assertEqual(2,owner['tabletWebAppFilesVersion'])
         self.assertNotEqual(RUN,owner['runId']);self.assertEqual(RUN,owner['featureRun'])
         self.assertEqual(owner,self.files().owned());directory=files.stage_reserved()
         self.assertEqual('file:///private/feature-script-'+owner['runId'],directory)
         self.assertEqual(directory,self.files().verify());self.assertEqual(owner,self.files().owned())
         self.assertEqual({'performed':True},files.release());self.assertIsNone(self.store.read())
+
+    def test_allowed_hostname_containing_template_words_is_preserved_in_actual_executed_js(self):
+        root='http://RUN.REFERENCE.NONCE.invalid/feature-fixture/v1/runs/'+RUN+'/'
+        files={key:value.decode() for key,value in originals(RUN,root,TICKET,NONCE).items()}
+        program=r'''
+const vm=require('vm'),files=__FILES__,root=__ROOT__,ticket=__TICKET__,buttons=[],nav=[];
+const signal=()=>({connect:()=>{},disconnect:()=>{}});
+const tablet={webEventReceived:signal(),addButton:p=>{const b={properties:p,clicked:signal()};b.clicked.connect=f=>b.click=f;buttons.push(b);return b;},gotoWebScreen:u=>nav.push(u)};
+const Script={require:path=>{const module={exports:{}};vm.runInNewContext(files[path.replace(/^\.\//,'')],{module});return module.exports;},scriptEnding:signal()};
+vm.runInNewContext(files['script.js'],{Script,Tablet:{getTablet:()=>tablet}});
+buttons[0].click();buttons[1].click();buttons[2].click();
+if(buttons.some(b=>b.properties.fixtureUrl!==root)||nav[0]!==root+'tickets/'+ticket+'/index.html'||nav[2]!==root+'tickets/'+ticket+'/reference.html'||nav[1]!==__INLINE__)throw Error('original URL changed by template replacement');
+'''
+        replacements=dict(FILES=files,ROOT=root,TICKET=TICKET,INLINE=inline_data_url(RUN,TICKET,root))
+        program=re.sub(r'__(FILES|ROOT|TICKET|INLINE)__',lambda match:json.dumps(replacements[match[1]]),program)
+        result=subprocess.run(['node','-e',program],capture_output=True,text=True,timeout=5)
+        self.assertEqual(0,result.returncode,result.stderr)
 
     def test_lost_stage_is_not_retried_and_no_file_byte_tampering_is_adopted(self):
         files=self.files();owner=files.reserve_app(RUN,ROOT,TICKET);self.native.fail=True
@@ -85,6 +105,21 @@ web.emit(JSON.stringify({contract:'overte-web-parity-v1',action:'echo',sequence:
         self.assertNotEqual(first['runId'],second['runId']);self.assertNotEqual(first['ownerToken'],second['ownerToken'])
         self.assertNotEqual(first['hashes'],second['hashes']);self.assertEqual(RUN,second['featureRun'])
         with self.assertRaises(NativeUIError):self.files().reserve(RUN)
+
+    def test_independently_frozen_v1_hashes_owner_and_actual_file_bytes_remain_unchanged(self):
+        run='a'*32;root='http://127.0.0.1:38123/feature-fixture/v1/runs/'+run+'/'
+        # Calculated once from c75de13a9f, before the safe v2 generator existed.
+        hashes={'companion.js':'c52100d3d7cc95a952417adc7108a59c13aa304ce265676e3e2002cc9adf43f3',
+            'script-bundle/companion.js':'1c7c19fba8ed7d88e1e6ce40f9353c216a8498d251d9a5cdb6266ebdfa6b9604',
+            'script-bundle/main.js':'675bd315167b1d72f5e2ab23f50ade1093693554cee7a66ca8a25f6a405a00bd',
+            'script.js':'6f9a00c1c57027eb332c30cc07d0dbe52c3268307dad18a67850dd1cb019fb45'}
+        legacy=originals(run,root,TICKET,NONCE,version=1)
+        self.assertEqual(hashes,{name:hashlib.sha256(raw).hexdigest() for name,raw in legacy.items()})
+        owner=dict(contractVersion=1,tabletWebAppFilesVersion=1,runId='d'*32,featureRun=run,ownerToken='e'*64,binding=BINDING,
+            fixtureUrl=root,ticket=TICKET,nonce=NONCE,hashes=hashes)
+        self.store.write(owner,None);self.assertEqual(owner,self.files().owned())
+        self.files().stage_reserved();self.files().verify();self.assertEqual(legacy,self.native.files)
+        self.assertNotEqual(legacy,originals(run,root,TICKET,NONCE));self.assertEqual({'performed':True},self.files().release())
 
 
 if __name__=='__main__':unittest.main()

@@ -19,6 +19,7 @@ QVariantMap observation(const QVariantMap&);
 #import <WebKit/WebKit.h>
 #import <objc/runtime.h>
 #include "IOSTabletWebTrace.h"
+#include "../../tests/device/native/IOSTabletAppButtonsObservation.h"
 #include <QGuiApplication>
 #include <cstdlib>
 #include <cstring>
@@ -33,7 +34,7 @@ using SendEvent=void(*)(id,SEL,UIEvent*);
 struct Object {
     QString id,kind;__weak NSObject* object=nil;QVariantMap born,expired;
 };
-struct Target { __weak WKWebView* view=nil;QString object;QVariantMap identity,clock; };
+struct Target { __weak WKWebView* view=nil;__weak UIButton* button=nil;QString object;QVariantMap identity,control,clock; };
 struct Contact { QString id,kind,object,target,window;QVariantMap source,began,ended;int phase{0};bool active{true}; };
 struct State {
     const QString instance{world_web_trace::nonce()};QElapsedTimer timer;
@@ -82,14 +83,33 @@ inline void bind(WKWebView* view,const QVariantMap& identity) noexcept {
         const auto id=objectId(view,"view");
         for (const auto& target:actual.targets) { if (target.view==view) { if (target.identity!=identity) { invalidate("view-source-rebound"); }return; } }
         if (actual.targets.size()>=1024 || id.isEmpty()) { invalidate("target-capacity");return; }
-        actual.targets.push_back(Target{view,id,identity,clock(actual)});
+        Target target;target.view=view;target.object=id;target.identity=identity;target.clock=clock(actual);actual.targets.push_back(target);
     } @catch (NSException*) { invalidate("binding-exception"); } } catch (...) { invalidate("binding-exception"); }
+}
+inline void bindControl(UIButton* button,QQuickItem* item,const QString& token,const QVariantMap& source) noexcept {
+    if (!enabled()) {return;}
+    try { @try {
+        if (!mainThread() || !button || ![button isKindOfClass:UIButton.class] || !item) {invalidate("qt-control-unavailable");return;}
+        auto& actual=state();const auto original=overte::e2e::tablet_app_buttons::control(item);
+        if (!actual.installed || original.isEmpty() || original!=source || QUuid(token).isNull()
+                || token!=QUuid(token).toString(QUuid::WithoutBraces)) {invalidate("qt-control-unqualified");return;}
+        auto metadata=original;metadata.insert("sourceToken",token);const auto id=objectId(button,"view");
+        for (const auto& target:actual.targets) {if (target.button==button) {
+            if (target.control!=metadata) {invalidate("qt-control-rebound");}return;
+        }}
+        if (actual.targets.size()>=1024 || id.isEmpty()) {invalidate("target-capacity");return;}
+        Target target;target.button=button;target.object=id;target.control=metadata;target.clock=clock(actual);actual.targets.push_back(target);
+    } @catch (NSException*) {invalidate("qt-control-binding-exception");} }catch (...) {invalidate("qt-control-binding-exception");}
+}
+inline QVariantMap targetOriginal(const Target& target) {
+    QVariantMap original{{"view",target.object},{"bound",target.clock}};
+    if (target.control.isEmpty()) {original.insert("identity",target.identity);}else {original.insert("qtControl",target.control);}return original;
 }
 inline QVariantMap association(UIView* view) {
     QSet<QString> visited;QVariantList ancestry;auto& actual=state();
     for (UIView* current=view;current;current=current.superview) {
         const auto id=objectId(current,"view");if (id.isEmpty() || visited.contains(id) || visited.size()>=128) { invalidate("view-ancestry");return {}; }
-        visited.insert(id);ancestry.push_back(id);for (const auto& target:actual.targets) { if (target.view==current) { return {{"view",target.object},{"identity",target.identity},{"bound",target.clock},{"ancestry",ancestry}}; } }
+        visited.insert(id);ancestry.push_back(id);for (const auto& target:actual.targets) { if (target.view==current || target.button==current) { auto original=targetOriginal(target);original.insert("ancestry",ancestry);return original; } }
     }return {};
 }
 inline QVariantMap contact(NSObject* object,const QString& kind,int phase,UIView* view,UIWindow* window) {
@@ -193,14 +213,14 @@ inline QVariantMap observe(const QVariantMap& query) {
     QVariantList objects,targets,contacts,pending;
     for (const auto& row:actual.objects) { objects.push_back(QVariantMap{{"id",row->id},{"kind",row->kind},{"born",row->born},
         {"expired",row->expired.isEmpty() ? QVariant() : QVariant(row->expired)},{"alive",static_cast<bool>(row->object!=nil)}}); }
-    for (const auto& row:actual.targets) { targets.push_back(QVariantMap{{"view",row.object},{"identity",row.identity},{"bound",row.clock}}); }
+    for (const auto& row:actual.targets) { targets.push_back(targetOriginal(row)); }
     for (const auto& row:actual.contacts) { contacts.push_back(QVariantMap{{"id",row.id},{"kind",row.kind},{"object",row.object},
         {"target",row.target.isEmpty() ? QVariant() : QVariant(row.target)},{"window",row.window.isEmpty() ? QVariant() : QVariant(row.window)},
         {"source",row.source.isEmpty() ? QVariant() : QVariant(row.source)},{"began",row.began},{"ended",row.ended.isEmpty() ? QVariant() : QVariant(row.ended)},
         {"phase",row.phase},{"active",row.active}}); }
     for (const auto entry:actual.pending) { pending.push_back(static_cast<qulonglong>(entry)); }
     if (actual.sequence>=9007199254740991ULL) { invalidate("query-capacity");return {}; }
-    QVariantMap packet{{"iosUIKitInputVersion",1},{"commandId",query.value("commandId")},{"runId",query.value("runId")},{"fixtureUrl",query.value("fixtureUrl")},
+    QVariantMap packet{{"iosUIKitInputVersion",2},{"commandId",query.value("commandId")},{"runId",query.value("runId")},{"fixtureUrl",query.value("fixtureUrl")},
         {"instance",actual.instance},{"sequence",static_cast<qulonglong>(++actual.sequence)},{"processId",QCoreApplication::applicationPid()},
         {"clockDomain","native-main-ios-uikit-input"},{"clockBefore",before},{"clockAfter",clock(actual)},
         {"complete",actual.complete},{"installed",actual.installed},{"applicationClass",actual.applicationClass},

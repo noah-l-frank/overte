@@ -71,6 +71,23 @@ inline std::shared_ptr<Navigation> findNavigation(State& actual,const QString& b
 inline std::shared_ptr<Carrier> findCarrier(State& actual,QObject* owner) {
     for (const auto& row:actual.carriers) { if (row->owner==owner) { return row; } }return {};
 }
+// The ordinary app controls can observe this actual QML root before the first
+// Web navigation. Creation and navigation reuse one zeroing-weak original birth;
+// observing a root supplies no navigation, source fixture or loaded Web result.
+inline std::shared_ptr<Root> ensureRoot(State& actual,QQuickItem* item) {
+    auto root=findRoot(actual,item);if (root) {return root;}
+    if (!item || actual.roots.size()>=32) {actual.complete=false;return {};}
+    root=std::make_shared<Root>();root->birth=id();root->item=item;
+    root->original={{"id",root->birth},{"clock",clock(actual)}};actual.roots.push_back(root);
+    const auto birth=root->birth;QObject::connect(item,&QObject::destroyed,QCoreApplication::instance(),[birth] {
+        auto& s=state();QMutexLocker locked(&s.mutex);if (!mainThread()) {s.complete=false;return;}
+        for (const auto& r:s.roots) {if (r->birth==birth) {r->original.insert("destroyed",clock(s));return;}}
+    },Qt::DirectConnection);return root;
+}
+inline QString registerRoot(QQuickItem* item) {
+    if (!enabled() || !mainThread() || !item || item->thread()!=QThread::currentThread()) {return {};}
+    auto& actual=state();QMutexLocker guard(&actual.mutex);const auto root=ensureRoot(actual,item);return root?root->birth:QString();
+}
 // Called from the actual native source-navigation entry, before its unchanged
 // QML invocation. This records an input; it never claims a loaded document.
 inline QString navigation(QQuickItem* item,const QString& tablet,const QString& source,const QString& script) {
@@ -86,14 +103,7 @@ inline QString navigation(QQuickItem* item,const QString& tablet,const QString& 
     }
     if (fixture.isEmpty()) { if (root) { root->current.clear();root->fixture.clear(); }return {}; }
     if (source.toUtf8().size()>1048576 || script.toUtf8().size()>4096 || tablet.toUtf8().size()>512 || actual.navigations.size()>=128) { actual.complete=false;return {}; }
-    if (!root) {
-        if (actual.roots.size()>=32) { actual.complete=false;return {}; }root=std::make_shared<Root>();root->birth=id();root->item=item;
-        root->original={{"id",root->birth},{"clock",clock(actual)}};actual.roots.push_back(root);
-        const auto birth=root->birth;QObject::connect(item,&QObject::destroyed,QCoreApplication::instance(),[birth] {
-            auto& s=state();QMutexLocker locked(&s.mutex);if (!mainThread()) { s.complete=false;return; }
-            for (const auto& r:s.roots) { if (r->birth==birth) { r->original.insert("destroyed",clock(s));return; } }
-        },Qt::DirectConnection);
-    }
+    if (!root) {root=ensureRoot(actual,item);if (!root) {return {};}}
     auto row=std::make_shared<Navigation>();row->birth=id();row->root=root->birth;row->fixture=fixture;row->url=source;row->script=script;
     QVariant body;
     if (decoded.valid()) { body=QVariantMap{{"base64",QString::fromLatin1(decoded.body.toBase64())},{"sha256",sha(decoded.body)},{"charset",decoded.charset}}; }

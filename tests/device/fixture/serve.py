@@ -565,6 +565,12 @@ class FixtureState:
             try:tablet_deferred_command(command,operation=action=="feature-ios-tablet-web-defer")
             except (ValueError,RuntimeError):raise ValueError("invalid iOS Tablet deferred callback request") from None
             valid=True
+        elif action == "feature-ios-tablet-app-buttons":
+            sys.path.insert(0,str(ROOT.parent))
+            from ios.adapters.tablet_web_buttons import command as tablet_buttons_command
+            try:tablet_buttons_command(command)
+            except (ValueError,RuntimeError):raise ValueError("invalid iOS Tablet app button source request") from None
+            valid=True
         elif action == "feature-ios-uikit-input":
             sys.path.insert(0,str(ROOT.parent))
             from ios.adapters.uikit_input import command as uikit_input_command

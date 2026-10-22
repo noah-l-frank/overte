@@ -34,6 +34,7 @@
 #include "../../tests/device/native/IOSNormalInputObservation.h"
 #include "../../tests/device/native/IOSSnapshotExportControls.h"
 #include "../../tests/device/native/IOSSnapshotCaptureControls.h"
+#include "../../tests/device/native/IOSTabletAppButtonsObservation.h"
 #endif
 #include "../../tests/device/native/NormalNavigationErrorControls.h"
 #include "../../tests/device/native/AccountPreferenceObservation.h"
@@ -66,6 +67,8 @@ QRectF visibleBounds(QQuickItem* item) {
 
 QString identify(QQuickItem* item, bool hud, bool fileAllowed) {
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    const auto tabletApp=overte::e2e::tablet_app_buttons::controlId(item);
+    if (!hud && fileAllowed && !tabletApp.isEmpty()) {return tabletApp;}
     const auto snapshot=overte::e2e::snapshotExportControlId(item);
     if (!snapshot.isEmpty()) {return snapshot;}
     const auto capture=overte::e2e::snapshotCaptureControlId(item);
@@ -278,6 +281,10 @@ QJsonObject NormalUiInput::observe(QQuickItem* hud, QQuickItem* tablet, bool tab
                 auto source = overte::e2e::scriptFileControlSource(node);
                 if (source.isEmpty()) { source = overte::e2e::scriptRowSource(node); }
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+                if (id.startsWith("tablet-web-app.")) {
+                    source=overte::e2e::tablet_app_buttons::controlSource(node);
+                    if (source.isEmpty()) {ambiguous=true;return;}
+                }
                 if (overte::e2e::snapshotExportControlId(node)==id) {
                     source=overte::e2e::snapshotExportControlSource(node);
                     if (source.isEmpty()) {ambiguous=true;return;}
@@ -355,7 +362,7 @@ QJsonObject NormalUiInput::observe(QQuickItem* hud, QQuickItem* tablet, bool tab
         for (const auto& id : controls.keys()) {
             if (id.startsWith(QStringLiteral("tablet.")) || id.startsWith(QStringLiteral("places."))
                     || id.startsWith(QStringLiteral("snapshot.")) || id.startsWith(QStringLiteral("scripts."))
-                    || id.startsWith(QStringLiteral("script-file.")) || id.startsWith("chat.") || id.startsWith("create.") || id.startsWith("audio.") || id.startsWith("graphics.") || id == "settings.entry") {
+                    || id.startsWith(QStringLiteral("script-file.")) || id.startsWith("tablet-web-app.") || id.startsWith("chat.") || id.startsWith("create.") || id.startsWith("audio.") || id.startsWith("graphics.") || id == "settings.entry") {
                 controls.remove(id);
             }
         }
@@ -392,6 +399,9 @@ QJsonObject NormalUiInput::observe(QQuickItem* hud, QQuickItem* tablet, bool tab
         overte::e2e::appendScriptControlObservation(row, control.item, id);
         overte::e2e::appendScriptFileObservation(row, control.item, id);
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+        if (id.startsWith("tablet-web-app.")) {
+            row["tabletAppButton"]=QJsonObject::fromVariantMap(overte::e2e::tablet_app_buttons::control(control.item));
+        }
         if (overte::e2e::snapshotExportControlId(control.item)==id) {
             const auto metadata=overte::e2e::snapshotExportControlObservation(control.item);
             for (auto it=metadata.begin();it!=metadata.end();++it) {row[it.key()]=it.value();}
@@ -442,6 +452,7 @@ QJsonObject NormalUiInput::observe(QQuickItem* hud, QQuickItem* tablet, bool tab
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     result["featureControlsVersion"] = 1;
 #if defined(Q_OS_IOS)
+    result["tabletAppControlsVersion"]=1;
     result["snapshotExportControlsVersion"]=1;
     result["snapshotCaptureControlsVersion"]=1;
 #endif
@@ -502,6 +513,11 @@ bool NormalUiInput::press(const QString& controlId, const QString& token) {
     auto control = item(controlId, token);
     if (!control || !enabled(control)) { return false; }
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    if (controlId.startsWith("tablet-web-app.")) {
+        if (overte::e2e::tablet_app_buttons::controlId(control)!=controlId
+                || overte::e2e::tablet_app_buttons::controlSource(control)!=_controls.value(controlId).source
+                || !overte::e2e::NormalControlUi::ownsPoint(control,control->window(),control->mapToScene(QPointF(control->width()/2,control->height()/2)))) {return false;}
+    }
     if (overte::e2e::snapshotExportControlId(control)==controlId) {
         const auto metadata=overte::e2e::snapshotExportControlObservation(control);
         if (!metadata.value("inputReady").toBool() || overte::e2e::snapshotExportControlSource(control)!=_controls.value(controlId).source) {return false;}

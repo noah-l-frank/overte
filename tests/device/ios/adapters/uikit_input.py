@@ -8,10 +8,13 @@ native producer remains uncompiled; these pure readers do not execute UIKit.
 from copy import deepcopy
 import json
 import re
+import uuid
 from adapters.native_feature_observation import exact,fresh,integer,need
 from ios.adapters import tablet_web_source as native
+from ios.adapters import tablet_web_buttons as buttons
 
-VERSION=1
+VERSION=2
+READS=(1,2)
 ACTION='feature-ios-uikit-input'
 FILE=ACTION+'.json'
 LIMIT=2097152
@@ -32,11 +35,25 @@ def _identity(value):
     native.command(query);native.identity(value,query);return value
 
 
+def qt_control(value):
+    need(type(value) is dict and 'sourceToken' in value)
+    buttons.metadata({key:item for key,item in value.items() if key!='sourceToken'})
+    token=value['sourceToken'];need(type(token) is str)
+    try:need(str(uuid.UUID(token))==token and uuid.UUID(token).int>0)
+    except ValueError:need(False)
+    return value
+
+
+def _owned(target,value):
+    if 'qtControl' in target:return target['qtControl']['fixtureUrl']==value['fixtureUrl'] and target['qtControl']['featureRun']==value['runId']
+    return target['identity']['source']['fixtureUrl']==value['fixtureUrl']
+
+
 def validate(value,query,pid,epoch=None,previous=None):
     command(query);exact(value,{'iosUIKitInputVersion','commandId','runId','fixtureUrl','instance','sequence','processId','clockDomain',
         'clockBefore','clockAfter','complete','installed','applicationClass','installation','failure','dispatchSequence',
         'pendingDispatches','objects','targets','contacts','dispatches'})
-    need(type(value['iosUIKitInputVersion']) is int and value['iosUIKitInputVersion']==VERSION
+    need(type(value['iosUIKitInputVersion']) is int and value['iosUIKitInputVersion'] in READS
         and all(value[k]==query[k] for k in ('commandId','runId','fixtureUrl')) and integer(pid,1)
         and type(value['processId']) is int and value['processId']==pid and integer(value['sequence'],1)
         and value['clockDomain']=='native-main-ios-uikit-input' and type(value['complete']) is bool and type(value['installed']) is bool
@@ -61,12 +78,15 @@ def validate(value,query,pid,epoch=None,previous=None):
         if nullable and identifier is None:return None
         native.sources.identifier(identifier);need(identifier in objects and objects[identifier]['kind'] in kind);return objects[identifier]
     for row in value['targets']:
-        exact(row,{'view','identity','bound'});obj=object_(row['view'],{'view'});need(row['view'] not in targets)
-        _identity(row['identity']);native.sources.stamp(row['bound'],a,obj['born']);targets[row['view']]=row
+        if 'qtControl' in row:
+            need(value['iosUIKitInputVersion']>=2);exact(row,{'view','qtControl','bound'});qt_control(row['qtControl'])
+        else:exact(row,{'view','identity','bound'});_identity(row['identity'])
+        obj=object_(row['view'],{'view'});need(row['view'] not in targets)
+        native.sources.stamp(row['bound'],a,obj['born']);targets[row['view']]=row
     def source_(source,target,window):
         object_(target,{'view','window'},True);object_(window,{'window'},True)
         if source is None:return
-        exact(source,{'view','identity','bound','ancestry'});need(source['view'] in targets and {k:v for k,v in source.items() if k!='ancestry'}==targets[source['view']]
+        exact(source,{'view','qtControl' if 'qtControl' in source else 'identity','bound','ancestry'});need(source['view'] in targets and {k:v for k,v in source.items() if k!='ancestry'}==targets[source['view']]
             and type(source['ancestry']) is list and 1<=len(source['ancestry'])<=128
             and all(type(id_) is str for id_ in source['ancestry']) and len(source['ancestry'])==len(set(source['ancestry'])) and source['ancestry'][0]==target and source['ancestry'][-1]==source['view'])
         for id_ in source['ancestry']:object_(id_,{'view'})
@@ -115,6 +135,7 @@ def validate(value,query,pid,epoch=None,previous=None):
     if previous is not None:
         validate(previous,dict(query,commandId=previous['commandId']),pid)
         need(all(value[k]==previous[k] for k in ('instance','processId','applicationClass','installation','installed'))
+            and value['iosUIKitInputVersion']>=previous['iosUIKitInputVersion']
             and value['sequence']>previous['sequence'] and value['commandId']!=previous['commandId']
             and (previous['complete'] or not value['complete']) and (previous['failure'] is None or value['failure']==previous['failure']))
         native.sources.stamp(a,floor=previous['clockAfter'])
@@ -142,9 +163,31 @@ def join_sources(value,sources,transcript):
     original(value);native.join_sources(transcript,sources)
     need(value['complete'] and all(value[k]==sources[k]==transcript[k] for k in ('runId','fixtureUrl','processId')))
     for target in value['targets']:
+        if 'identity' not in target:continue
         if target['identity']['source']['fixtureUrl']!=value['fixtureUrl']:continue
         matches=[event for event in transcript['events'] if event['kind']=='view-created' and event['identity']==target['identity']]
         need(len(matches)==1 and matches[0]['clock']['epochMs']<=target['bound']['epochMs']<=value['clockBefore']['epochMs'])
+    return deepcopy(value)
+
+
+def join_buttons(value,original_buttons):
+    """Join the real native UIButton to the original returned Qt proxy/control.
+
+    This is input provenance. It supplies no current Web address, WK document,
+    browser effect or callback/VM drainage.
+    """
+    original(value);buttons.original(original_buttons)
+    need(value['iosUIKitInputVersion']>=2 and value['complete'] and original_buttons['complete']
+        and all(value[key]==original_buttons[key] for key in ('processId','runId','fixtureUrl')))
+    for target in value['targets']:
+        if 'qtControl' not in target or not _owned(target,value):continue
+        control=target['qtControl'];need(control['instance']==original_buttons['instance'] and control['rootInstance']==original_buttons['rootInstance'])
+        rows=[row for row in original_buttons['buttons'] if row['id']==control['button']];need(len(rows)==1);button=rows[0]
+        need(button['caller'] is not None and button['returned'] is not None
+            and all(button[key]==control[key] for key in ('uuid','semanticId','root','fixtureUrl'))
+            and button['returned']['epochMs']<=target['bound']['epochMs'])
+        controls=[row for row in original_buttons['controls'] if row['id']==control['control']];need(len(controls)==1)
+        need(controls[0]['button']==button['id'] and controls[0]['root']==button['root'] and controls[0]['born']['epochMs']<=target['bound']['epochMs'])
     return deepcopy(value)
 
 
@@ -164,7 +207,7 @@ def quiescent(before,current,*,after_epoch,require_delivery=False,kind='touch'):
 def retired(admitted,current):
     """Positive zeroing-weak death of observed owned views/events/contacts."""
     quiescent(admitted,current,after_epoch=admitted['clockAfter']['epochMs'])
-    own={row['view'] for row in current['targets'] if row['identity']['source']['fixtureUrl']==current['fixtureUrl']}
+    own={row['view'] for row in current['targets'] if _owned(row,current)}
     need(own);contacts={row['id'] for row in current['contacts'] if row['source'] is not None and row['source']['view'] in own}
     objects=set(own)
     for row in current['contacts']:
@@ -181,3 +224,6 @@ class IOSUIKitInput(native.IOSTabletWebSource):
     _command=staticmethod(command)
     _validate=staticmethod(validate)
     _limit=LIMIT
+
+    @staticmethod
+    def _ready(value):need(value['complete'] and value['iosUIKitInputVersion']==VERSION);return True

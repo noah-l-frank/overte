@@ -36,6 +36,7 @@
 #include "NativeInlineHtmlSource.h"
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
 #include "../../../../tests/device/native/IOSTabletSourcesObservation.h"
+#include "../../../../tests/device/native/IOSTabletAppButtonsObservation.h"
 #endif
 
 #include <AudioInjectorManager.h>
@@ -121,6 +122,16 @@ TabletButtonProxy* TabletButtonListModel::addButton(const QVariant& properties) 
         "index=", index,
         "total=", _buttons.size());
 #endif
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    if (overte::e2e::tablet_sources::enabled()) {
+        const auto observedButton=overte::e2e::tablet_app_buttons::inserted(button.data(),this,button->getProperties(),ScriptManager::featureNativeCallContext());
+        if (!observedButton.isEmpty()) {
+            QObject::connect(button.data(),&TabletButtonProxy::clicked,QCoreApplication::instance(),[observedButton] {
+                overte::e2e::tablet_app_buttons::clicked(observedButton);
+            },Qt::DirectConnection);
+        }
+    }
+#endif
     return button.data();
 }
 
@@ -130,9 +141,17 @@ void TabletButtonListModel::removeButton(TabletButtonProxy* button) {
         qCWarning(uiLogging) << "TabletProxy::removeButton() could not find button " << button;
         return;
     }
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    const auto observedButton=overte::e2e::tablet_app_buttons::removing(button);
+#endif
     beginResetModel();
     _buttons.erase(itr);
     endResetModel();
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    // Erasing the shared proxy may destroy it. Use the immutable original ID;
+    // there is deliberately no post-erase dereference of the raw argument.
+    overte::e2e::tablet_app_buttons::removed(observedButton);
+#endif
 }
 
 int TabletButtonListModel::computeNewButtonIndex(const QVariantMap& newButtonProperties) {
@@ -1164,11 +1183,27 @@ void TabletProxy::loadHTMLSourceOnTopImpl(const QString& url, const QString& inj
 TabletButtonProxy* TabletProxy::addButton(const QVariant& properties) {
     if (QThread::currentThread() != thread()) {
         TabletButtonProxy* result = nullptr;
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+        if (overte::e2e::tablet_sources::enabled()) {
+            const auto caller=ScriptManager::featureNativeCallContext();
+            QMetaObject::invokeMethod(this,[this,properties,caller,&result] {
+                ScriptManager::FeatureNativeCallScope original(caller);result=addButton(properties);
+            },Qt::BlockingQueuedConnection);
+            return result;
+        }
+#endif
         BLOCKING_INVOKE_METHOD(this, "addButton", Q_RETURN_ARG(TabletButtonProxy*, result), Q_ARG(QVariant, properties));
         return result;
     }
 
-    return _buttons.addButton(properties);
+    auto* result=_buttons.addButton(properties);
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    if (overte::e2e::tablet_sources::enabled() && overte::e2e::tablet_app_buttons::find(result)) {
+        auto* root=getIOSTabletRoot();const auto rootBirth=overte::e2e::tablet_sources::registerRoot(root);
+        overte::e2e::tablet_app_buttons::returned(result,this,root,rootBirth);
+    }
+#endif
+    return result;
 }
 
 bool TabletProxy::onHomeScreen() {

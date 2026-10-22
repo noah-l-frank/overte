@@ -56,6 +56,23 @@ object and lifetime IDs and phases. Coordinates, pressure, touch timestamps,
 keys, characters, text, composition contents, lengths, and object descriptions
 are never read or serialized.
 
+Version 2 additionally observes the actual ordinary source-token UIButton for a
+source-qualified Tablet app button. A separate ARC bridge is invoked by the
+existing normal-control factory after its native button creation. It re-reads
+the real Qt control for the exact current source token and requires its genuine
+returned proxy/model/root/visual metadata. The target uses a closed `qtControl`
+variant; it has no invented WK handle, navigation, policy grant or document.
+Its actual fixture property remains input provenance. The independent button
+original must match the native target's source instance, root instance, button
+UUID, QML control birth, semantic generation, fixture and real Script caller.
+
+Changing a Qt source changes the existing normal-control token. The unchanged
+factory removes the old actual UIButton from its superview and dictionary
+before creating a new native button. A UIKit-held old object/contact keeps its
+old original association and weak responsibility. Rebinding the same live
+physical UIButton to a different Qt identity is rejected; ordinary Script
+generation changes require no rewrite of native target/contact history.
+
 A later whole-area owner must independently join this original source to the
 actual process, native trace/Sources records, normal UIKit input intent, trusted
 DOM observations and actual presentation. A quiet interval needs original
@@ -68,7 +85,8 @@ receipts; this source does not bypass current session Stop guards or fabricate
 cleanup facts. Pointer/Qt Keys and native editor/keyboard/presentation duties
 remain separate.
 
-The current closed source is `iosUIKitInputVersion:1`, action
+The current closed source is `iosUIKitInputVersion:2`, with exact historical
+version 1 reading and live version 2 required, action
 `feature-ios-uikit-input`, with a 2 MiB original JSON bound. The existing generic
 decoder bound remains unchanged. `FeatureObservation.uikit_input(clock)` uses
 the existing actual private AFC file and separate original native process-clock
@@ -79,7 +97,7 @@ The Python reader retains exact immutable object/target/contact/dispatch
 prefixes. Newly filled normal-return/finally/end/weak-expiry timestamps and new
 rows cannot precede the previous actual snapshot's clockAfter. Genuine contact
 began and event object birth precede their original dispatch use. Full opaque
-hit-view-to-WK ancestry is retained and each observed owned ancestor participates
+hit-view-to-owned-target ancestry is retained and each observed owned ancestor participates
 in positive weak retirement. An ended cached object can begin a later distinct
 contact without changing its original object birth.
 
