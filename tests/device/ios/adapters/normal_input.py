@@ -32,6 +32,7 @@ from ios.adapters.account_menu import IDS as ACCOUNT_IDS,FIELDS as ACCOUNT_FIELD
 from ios.adapters.account_preferences import CONTROL_ID as REMEMBER_ID,CONTROL_FIELDS as REMEMBER_FIELDS,control_metadata as remember_metadata
 from ios.adapters.view_controls import IDS as VIEW_IDS,FIELDS as VIEW_FIELDS,metadata as view_metadata
 from ios.adapters.snapshot_export_controls import IDS as SNAPSHOT_EXPORT_IDS,FIELDS as SNAPSHOT_EXPORT_FIELDS,metadata as snapshot_export_metadata
+from ios.adapters.snapshot_capture_controls import IDS as SNAPSHOT_CAPTURE_IDS,FIELDS as SNAPSHOT_CAPTURE_FIELDS,metadata as snapshot_capture_metadata
 from adapters.token_audio_ui import audio_control, metadata_fields as audio_metadata_fields, validate_metadata as validate_audio_metadata
 from adapters.token_script_file_ui import (file_control, folder_text,
     metadata_fields as file_metadata_fields, validate_metadata as validate_file_metadata)
@@ -113,6 +114,10 @@ def observation(value, pid, now_ms=None):
         if type(value['snapshotExportControlsVersion']) is not int or value['snapshotExportControlsVersion']!=1:
             raise NativeUIError('Native iOS Snapshot export source version is invalid')
         fields.add('snapshotExportControlsVersion')
+    if type(value) is dict and 'snapshotCaptureControlsVersion' in value:
+        if type(value['snapshotCaptureControlsVersion']) is not int or value['snapshotCaptureControlsVersion']!=1:
+            raise NativeUIError('Native iOS Snapshot capture source version is invalid')
+        fields.add('snapshotCaptureControlsVersion')
     if type(value) is dict and 'audioControlsVersion' in value:
         if type(value['audioControlsVersion']) is not int or value['audioControlsVersion'] != 1:
             raise NativeUIError('Native iOS Audio control version is invalid')
@@ -195,6 +200,8 @@ def observation(value, pid, now_ms=None):
             if value['createControlsVersion']==1 and not legacy_create_control(control['id']):
                 raise NativeUIError('Native iOS Create version 1 cannot provide version 2 controls')
             original=dict(control);original.pop('frame',None);create_metadata(original);fields=set(control)
+        elif type(control) is dict and control.get('id') in SNAPSHOT_CAPTURE_IDS and value.get('snapshotCaptureControlsVersion')==1:
+            snapshot_capture_metadata(control);fields |= SNAPSHOT_CAPTURE_FIELDS
         elif type(control) is dict and control.get('id') in SNAPSHOT_EXPORT_IDS:
             if value.get('snapshotExportControlsVersion')!=1:raise NativeUIError('Native iOS Snapshot export source is missing')
             snapshot_export_metadata(control);fields |= SNAPSHOT_EXPORT_FIELDS
@@ -430,6 +437,20 @@ class NativeInput:
         original=reference['scope']
         return self.deliver(dict(schemaVersion=1,commandId=str(uuid.uuid4()),instance=original['instance'],
             sequence=original['sequence']+1,observedElapsedMs=original['elapsedMs'],fieldToken=row['token'],operation='activate'))
+
+    def snapshot_capture_input(self,identifier,operation,*,reference,text=None):
+        from ios.adapters.snapshot_capture_controls import project,same_reference,PREFIX,EMPTY
+        if operation not in ('activate','replace') or operation=='activate' and text is not None:
+            raise NativeUIError('Native iOS Snapshot capture operation is invalid')
+        row=same_reference(reference,project(self.capture()),identifier)
+        if not row['enabled'] or not row['inputReady']:raise NativeUIError('Native iOS Snapshot capture control is unavailable')
+        if operation=='replace' and (identifier!='snapshot.name' or not row['focused'] or type(text) is not str
+                or text!='' and not PREFIX.fullmatch(text) or not (row['snapshotNameOwned'] or row['snapshotNameSha256']==EMPTY)):
+            raise NativeUIError('Native iOS Snapshot name replacement lacks its actual owned source')
+        original=reference['scope'];command=dict(schemaVersion=1,commandId=str(uuid.uuid4()),instance=original['instance'],
+            sequence=original['sequence']+1,observedElapsedMs=original['elapsedMs'],fieldToken=row['token'],operation=operation)
+        if operation=='replace':command['text']=text
+        return self.deliver(command)
 
     def places_input(self,identifier,action,*,reference,value=None):
         from ios.adapters.places_controls import project,same_reference

@@ -23,6 +23,10 @@ Rectangle {
     // These identities only exist for the dedicated native observation API.
     property bool featureObservation: typeof Snapshot !== "undefined"
         && typeof Snapshot.featureObservationEnabled === "function" && Snapshot.featureObservationEnabled()
+    readonly property string featureCaptureName: featureObservation ? captureName.text : ""
+    readonly property int featureCaptureMode: featureObservation ? captureMode.currentIndex : -1
+    readonly property string featureCaptureFormat: featureObservation ? captureFormat.currentText : ""
+    readonly property int featureImageCount: featureObservation ? images.length : -1
     property bool printEnabled: false
     property bool printProcessing: false
     property bool keyboardEnabled: true

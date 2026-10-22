@@ -33,6 +33,7 @@
 #if defined(Q_OS_IOS)
 #include "../../tests/device/native/IOSNormalInputObservation.h"
 #include "../../tests/device/native/IOSSnapshotExportControls.h"
+#include "../../tests/device/native/IOSSnapshotCaptureControls.h"
 #endif
 #include "../../tests/device/native/NormalNavigationErrorControls.h"
 #include "../../tests/device/native/AccountPreferenceObservation.h"
@@ -67,6 +68,8 @@ QString identify(QQuickItem* item, bool hud, bool fileAllowed) {
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
     const auto snapshot=overte::e2e::snapshotExportControlId(item);
     if (!snapshot.isEmpty()) {return snapshot;}
+    const auto capture=overte::e2e::snapshotCaptureControlId(item);
+    if (!capture.isEmpty()) {return capture;}
 #endif
     if (fileAllowed) {
         const auto file = overte::e2e::scriptFileControlId(item);
@@ -279,6 +282,10 @@ QJsonObject NormalUiInput::observe(QQuickItem* hud, QQuickItem* tablet, bool tab
                     source=overte::e2e::snapshotExportControlSource(node);
                     if (source.isEmpty()) {ambiguous=true;return;}
                 }
+                if (overte::e2e::snapshotCaptureControlId(node)==id) {
+                    source=overte::e2e::snapshotCaptureControlSource(node);
+                    if (source.isEmpty()) {ambiguous=true;return;}
+                }
 #endif
 #if defined(OVERTE_E2E_FEATURE_TESTS)
                 if (id.startsWith("navigation.error.")) {
@@ -389,6 +396,10 @@ QJsonObject NormalUiInput::observe(QQuickItem* hud, QQuickItem* tablet, bool tab
             const auto metadata=overte::e2e::snapshotExportControlObservation(control.item);
             for (auto it=metadata.begin();it!=metadata.end();++it) {row[it.key()]=it.value();}
         }
+        if (overte::e2e::snapshotCaptureControlId(control.item)==id) {
+            const auto metadata=overte::e2e::snapshotCaptureControlObservation(control.item);
+            for (auto it=metadata.begin();it!=metadata.end();++it) {row[it.key()]=it.value();}
+        }
 #endif
 #if defined(OVERTE_E2E_FEATURE_TESTS)
         if (id.startsWith("navigation.error.")) {
@@ -432,6 +443,7 @@ QJsonObject NormalUiInput::observe(QQuickItem* hud, QQuickItem* tablet, bool tab
     result["featureControlsVersion"] = 1;
 #if defined(Q_OS_IOS)
     result["snapshotExportControlsVersion"]=1;
+    result["snapshotCaptureControlsVersion"]=1;
 #endif
     result["placesControlsVersion"]=2;result["placesSourceSequence"]=static_cast<double>(++_placesObservationSequence);
     result["navigationDialogControlsVersion"]=1;
@@ -493,6 +505,10 @@ bool NormalUiInput::press(const QString& controlId, const QString& token) {
     if (overte::e2e::snapshotExportControlId(control)==controlId) {
         const auto metadata=overte::e2e::snapshotExportControlObservation(control);
         if (!metadata.value("inputReady").toBool() || overte::e2e::snapshotExportControlSource(control)!=_controls.value(controlId).source) {return false;}
+    }
+    if (overte::e2e::snapshotCaptureControlId(control)==controlId) {
+        const auto metadata=overte::e2e::snapshotCaptureControlObservation(control);
+        if (!metadata.value("inputReady").toBool() || overte::e2e::snapshotCaptureControlSource(control)!=_controls.value(controlId).source) {return false;}
     }
 #endif
 #if defined(OVERTE_E2E_FEATURE_TESTS)
@@ -609,8 +625,26 @@ QJsonObject NormalUiInput::edit(const QJsonObject& command) {
     observe(_hud,_tablet,_tabletShown);
 #if defined(Q_OS_IOS)
     for (auto it=_controls.cbegin();it!=_controls.cend();++it) {
-        if (it.value().token==fieldToken && overte::e2e::snapshotExportControlId(it.value().item)==it.key()) {
-            if (action=="activate") {result["performed"]=press(it.key(),fieldToken);}
+        auto target=it.value().item;
+        const auto identifier=it.key(); // press()/item() refresh the map; retain no key reference across that call.
+        if (it.value().token!=fieldToken || overte::e2e::snapshotCaptureControlId(target)!=identifier) {continue;}
+        const auto metadata=overte::e2e::snapshotCaptureControlObservation(target);
+        if (!metadata.value("inputReady").toBool() || overte::e2e::snapshotCaptureControlSource(target)!=it.value().source) {return result;}
+        if (action=="activate") {result["performed"]=press(identifier,fieldToken);}
+        else if (action=="replace" && identifier=="snapshot.name" && target && target->hasActiveFocus() && command.value("text").isString()) {
+            const auto text=command.value("text").toString();
+            const bool controlled=QRegularExpression("\\Aparity-[0-9a-f]{16}-(still-png|still-jpg|animated|panorama|cubemap)\\z").match(text).hasMatch();
+            const auto empty=QString::fromLatin1(QCryptographicHash::hash(QByteArray(),QCryptographicHash::Sha256).toHex());
+            if ((controlled || text.isEmpty()) && (metadata.value("snapshotNameOwned").toBool() || metadata.value("snapshotNameSha256").toString()==empty)) {
+                result["performed"]=overte::ui::replaceFocusedField(target,target->window(),text);
+            }
+        }
+        return result;
+    }
+    for (auto it=_controls.cbegin();it!=_controls.cend();++it) {
+        const auto identifier=it.key();
+        if (it.value().token==fieldToken && overte::e2e::snapshotExportControlId(it.value().item)==identifier) {
+            if (action=="activate") {result["performed"]=press(identifier,fieldToken);}
             return result;
         }
     }
