@@ -194,18 +194,32 @@ class CreateRezControl:
     @staticmethod
     def command(value):
         need(type(value) is dict)
-        exact(value, {'schemaVersion', 'commandId', 'runId', 'operation'} | ({'allowed'} if value.get('operation') == 'set' else set()))
+        exact(value, {'schemaVersion', 'commandId', 'runId', 'operation'}
+              | ({'allowed'} if value.get('operation') == 'set' else set())
+              | ({'queryCommandId'} if value.get('operation') == 'recover' else set()))
         need(type(value['schemaVersion']) is int and value['schemaVersion'] == 1
              and type(value['commandId']) is str and re.fullmatch('[a-f0-9]{32}', value['commandId'])
              and type(value['runId']) is str and re.fullmatch('[a-f0-9]{32}', value['runId'])
-             and value['operation'] in ('observe', 'set', 'restore')
+             and value['operation'] in ('observe', 'set', 'restore', 'recover')
              and (value['operation'] != 'set' or type(value['allowed']) is bool))
+        if value['operation'] == 'recover':
+            need(type(value['queryCommandId']) is str and re.fullmatch('[a-f0-9]{32}', value['queryCommandId'])
+                 and value['queryCommandId'] != value['commandId'])
         return value
 
     def handle(self, command):
         self.command(command)
         with self.lock:
             self.authority.guard(); need(same(self.store.read(), self.previous))
+            if command['operation'] == 'recover':
+                need(self.state is not None and self.state['runId'] == command['runId'])
+                matching = [row for row in self.state['commands'] if row['command']['commandId'] == command['queryCommandId']]
+                need(len(matching) == 1)
+                # This explicit read command cannot reach the new-input branch.
+                # Its target's original intent and nonce stay unchanged.
+                target = matching[0]
+                if target['result'] is None: return self.handle(deepcopy(target['command']))
+                return deepcopy(target['result'])
             if self.state is None: self.state = dict(runId=command['runId'], commands=[])
             need(self.state['runId'] == command['runId'])
             matching = [row for row in self.state['commands'] if row['command']['commandId'] == command['commandId']]

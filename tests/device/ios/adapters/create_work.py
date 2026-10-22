@@ -66,8 +66,13 @@ def pending(role, state):
     need(type(state['strokeIds']) is list and len(state['strokeIds']) <= 128 and state['strokeIds'] == sorted(set(state['strokeIds']))
          and all(type(state[key]) is bool for key in ('strokeTimer', 'editing', 'updateConnected'))
          and integer(state['strokePolls'], 0, 1000000000) and state['triggeredHand'] in (-1, 0, 1) and state['pressedHand'] in (-1, 0, 1))
-    for id_ in state['strokeIds']: uuid(id_)
-    if state['sphereId']: uuid(state['sphereId'])
+    # Script QUuid.toString() may retain braces. Keep the actual string in the
+    # original and validate its UUID representation without rewriting it.
+    def script_uuid(value):
+        need(type(value) is str)
+        uuid(value[1:-1] if value.startswith('{') and value.endswith('}') else value)
+    for id_ in state['strokeIds']: script_uuid(id_)
+    if state['sphereId']: script_uuid(state['sphereId'])
     else: need(state['sphereId'] == '')
     return bool(state['strokeIds'] or state['strokeTimer'] or state['editing'] or state['updateConnected'] or state['sphereId']
                 or state['triggeredHand'] != -1 or state['pressedHand'] != -1)
@@ -156,7 +161,7 @@ def validate(value, query, pid, epoch=None, previous=None):
                 else: stack.pop()
         need(same(stack, row['calls']) and len(stack) <= 32)
         latest = event(row['latest'], role, after['epochMs'])
-        need(latest['sequence'] >= cursor and latest['callerSequence'] >= native_cursor
+        need(cursor <= latest['sequence'] <= source['eventSequence'] and latest['callerSequence'] >= native_cursor
              and latest['capturedEpochMs'] >= stamp and same(latest['state'], row['state'])
              and row['ended'] == (latest['event'] == 'ending'))
         if latest['sequence'] == cursor: need(same(latest, events[-1]))

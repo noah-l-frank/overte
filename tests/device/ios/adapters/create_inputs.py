@@ -95,6 +95,13 @@ class IOSCreateUI(TokenCreateUI):
         for axis in ('x', 'y', 'z'): self.replace('create.field.dimensions.'+axis, '1')
         self.reveal('create.apply'); self.input('create.apply')
 
+    def position(self, entity_id, coordinates):
+        from adapters.native_feature_observation import number
+        need(self.selected() == [entity_id] and type(coordinates) is list and len(coordinates) == 3
+             and all(number(value,-1000000,1000000) for value in coordinates))
+        for axis,value in zip(('x','y','z'),coordinates): self.replace('create.field.position.'+axis,str(value))
+        self.reveal('create.apply'); self.input('create.apply')
+
     def create_polyvox(self):
         """Existing detailed Box path; no direct voxel filling or setter."""
         self.tab(0); self.choose('create.host', 0); self.choose('create.detailed-type', 3)

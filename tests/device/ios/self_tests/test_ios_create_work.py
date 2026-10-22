@@ -61,6 +61,11 @@ class CreateWorkTests(unittest.TestCase):
         life.update(destroyed=True,destructionObservedEpochMs=EPOCH); life['models'][0].update(destroyed=True,destructionObservedEpochMs=EPOCH)
         self.assertEqual([life],source.retired(value,ROOT,[ID])['entityLifetimes']['entities'])
 
+    def test_latest_snapshot_cannot_claim_an_event_beyond_the_actual_native_ledger(self):
+        value=packet();latest=value['source']['roles'][0]['latest']
+        latest.update(event='snapshot',sequence=value['source']['eventSequence']+1)
+        with self.assertRaises(NativeUIError):source.admit(value,ROOT,quiet=True)
+
     def test_actual_closure_stack_callback_timer_source_and_old_sample_cannot_be_retired(self):
         for fault in ('browse','export','timer','editing','ended','stale','source','root','hash','partial'):
             value = packet(); row = value['source']['roles'][0]

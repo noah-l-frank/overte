@@ -9,6 +9,16 @@ from pathlib import Path
 
 
 REQUIRED = {
+    "ios-create-action-owner": 1,
+    "ios-create-actions": 1,
+    "ios-create-rez-client": 1,
+    "ios-create-peer": 1,
+    "ios-create-sources": 1,
+    "ios-create-source-record": 1,
+    "ios-create-drain": 1,
+    "ios-create-marker-files": 1,
+    "ios-create-marker-admission": 1,
+    "ios-create-world-measurements": 1,
     "ios-avatar-entities": 1,
     "ios-avatar-entities-acquisition": 1,
     "native-avatar-entity-observation": 1,
