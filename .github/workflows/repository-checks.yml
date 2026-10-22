@@ -568,12 +568,14 @@ jobs:
           fi
       - name: Restore the checksum-bound Android Java API cache
         if: needs.plan.outputs.android_compile_products != '[]'
+        id: android-qt-api-cache
         uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25
         with:
           path: ${{ runner.temp }}/pr-ci-android-qt-api/QtAndroid.jar
           key: pr-ci-android-qt-api-a9f64f066766e3908d64183a49c0722aff09495c5f17768213a2989a73edf893
       - name: Prepare actual Android SDK and Java API inputs only when selected
         if: needs.plan.outputs.android_compile_products != '[]'
+        id: android-api
         run: |
           set -euo pipefail
           sdk="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}"
@@ -584,10 +586,17 @@ jobs:
           python3 -I -S -B trusted/tools/repository-checks/pr_ci_android.py prepare \
             --sdk "$sdk" --destination "$RUNNER_TEMP/pr-ci-android-api" \
             --qt-api-cache "$RUNNER_TEMP/pr-ci-android-qt-api/QtAndroid.jar"
-          mkdir -p "$RUNNER_TEMP/pr-ci-android-qt-api"
-          cp "$RUNNER_TEMP/pr-ci-android-api/QtAndroid.jar" "$RUNNER_TEMP/pr-ci-android-qt-api/QtAndroid.jar"
+          # The trusted helper atomically refreshes an optional cache leaf. Do
+          # not follow a restored cache alias with an additional shell copy.
+          qt_api_cache="$RUNNER_TEMP/pr-ci-android-qt-api/QtAndroid.jar"
+          if test -f "$qt_api_cache" && test ! -L "$qt_api_cache" \
+              && test "$(realpath -- "$qt_api_cache")" = "$qt_api_cache" \
+              && printf '%s  %s\n' a9f64f066766e3908d64183a49c0722aff09495c5f17768213a2989a73edf893 "$qt_api_cache" \
+                | sha256sum --check --strict; then
+            echo 'cache_ready=true' >> "$GITHUB_OUTPUT"
+          fi
       - name: Save only the verified small Android Java API cache
-        if: needs.plan.outputs.android_compile_products != '[]'
+        if: needs.plan.outputs.android_compile_products != '[]' && steps.android-api.outputs.cache_ready == 'true' && steps.android-qt-api-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25
         with:
           path: ${{ runner.temp }}/pr-ci-android-qt-api/QtAndroid.jar

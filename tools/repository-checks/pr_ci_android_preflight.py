@@ -33,6 +33,7 @@ PRODUCER = {
     "pico_consumer": "android/vr/pico/release/pico-source-inputs.py",
     "documentation": "android/vr/pico/release/SOURCE_INPUTS.md",
     "minimum_free_bytes": 60000000000,
+    "runtime_abort_free_bytes": 12884901888,
     "toolchain_image_id": "sha256:1b2da099cf7c03f6ea4b751cf8f148784f12db71fdaabb2b6330d60ba1572dda",
     "note": "The existing source-only producer is not a completed or hosted-qualified Android graph.",
 }
@@ -89,9 +90,14 @@ def classify(paths, *, target):
                     or relative.name == "CMakeLists.txt"):
                 relevant.append(path)
     required = bool(relevant)
+    producer = dict(PRODUCER) if required else None
+    if producer is not None and target == "android-phone":
+        # The owning Phone producer explicitly removed its additional start
+        # reserve. Its monitored 12 GiB runtime abort floor remains active.
+        producer["minimum_free_bytes"] = 0
     return {"schema": 1, "target": target,
             "status": "missing-android-native-prerequisites" if required else "not-required",
             "native_qualification_required": required,
             "paths": relevant, "missing": [dict(item) for item in MISSING] if required else [],
-            "producer": dict(PRODUCER) if required else None,
+            "producer": producer,
             "execution": False, "build_qualified": False}

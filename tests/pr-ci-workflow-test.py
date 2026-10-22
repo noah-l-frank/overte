@@ -9,6 +9,8 @@ import hashlib
 import json
 from pathlib import Path
 import re
+import subprocess
+import tempfile
 import unittest
 
 import yaml
@@ -411,6 +413,62 @@ class WorkflowContracts(unittest.TestCase):
         execute = next(s for s in job['steps'] if 'pr_ci.py platform' in s.get('run', ''))
         self.assertIn('--android-runtime', execute['run'])
         self.assertIn('COMPILE_PRODUCTS', execute['env'])
+
+    def test_optional_android_api_cache_has_no_alias_following_copy_or_duplicate_save(self):
+        job = self.jobs['android']
+        restore = next(s for s in job['steps'] if s.get('id') == 'android-qt-api-cache')
+        prepare = next(s for s in job['steps'] if s.get('id') == 'android-api')
+        save = next(s for s in job['steps'] if s['name'] == 'Save only the verified small Android Java API cache')
+        self.assertEqual(restore['with']['key'], save['with']['key'])
+        self.assertEqual(restore['with']['path'], save['with']['path'])
+        self.assertNotRegex(prepare['run'], r'(?m)^\s*cp\s')
+        self.assertIn('test ! -L "$qt_api_cache"', prepare['run'])
+        self.assertIn('realpath -- "$qt_api_cache"', prepare['run'])
+        self.assertIn('sha256sum --check --strict', prepare['run'])
+        self.assertIn("steps.android-api.outputs.cache_ready == 'true'", save['if'])
+        self.assertIn("steps.android-qt-api-cache.outputs.cache-hit != 'true'", save['if'])
+        self.assertNotIn('restore-keys', restore['with'])
+
+    def test_browser_worker_installs_only_trusted_runtime_then_passes_exact_executable(self):
+        job = self.jobs['npm']
+        prepare = next(s for s in job['steps'] if s.get('id') == 'browser')
+        self.assertIn('--package=playwright@1.63.0', prepare['run'])
+        self.assertIn('test -f /opt/google/chrome/chrome', prepare['run'])
+        self.assertIn('ldd /opt/google/chrome/chrome', prepare['run'])
+        self.assertIn('executable=/opt/google/chrome/chrome', prepare['run'])
+        self.assertNotIn('candidate', prepare['run'].replace('candidate-provided', ''))
+        execute = next(s for s in job['steps'] if 'pr_ci.py execute' in s.get('run', ''))
+        self.assertEqual('${{ steps.browser.outputs.executable }}', execute['env']['BROWSER_EXECUTABLE'])
+        self.assertIn('--browser-executable "$BROWSER_EXECUTABLE"', execute['run'])
+        self.assertIn('--prepared-root "$(dirname "$BROWSER_EXECUTABLE")"', execute['run'])
+        self.assertIn('browser_projects', str(job['timeout-minutes']))
+
+    def test_actual_optional_cache_save_script_rejects_changed_bytes_and_aliases(self):
+        prepare = next(s for s in self.jobs['android']['steps'] if s.get('id') == 'android-api')
+        marker = 'qt_api_cache="$RUNNER_TEMP/pr-ci-android-qt-api/QtAndroid.jar"'
+        code = prepare['run'][prepare['run'].index(marker):]
+        published_hash = 'a9f64f066766e3908d64183a49c0722aff09495c5f17768213a2989a73edf893'
+        self.assertIn(published_hash, code)
+        artifact = b'reviewed dependency fixture'
+        # Substitute only the fixed public artifact identity; execute the real
+        # workflow cache conditions, realpath and checksum pipeline unchanged.
+        code = code.replace(published_hash, hashlib.sha256(artifact).hexdigest())
+        for kind in ('regular', 'changed', 'leaf-alias', 'parent-alias', 'directory'):
+            with self.subTest(kind=kind), tempfile.TemporaryDirectory(prefix='pr-ci-cache-script-') as scratch:
+                root = Path(scratch); cache = root / 'pr-ci-android-qt-api'; output = root / 'output'
+                output.touch(); target = root / 'target'; target.mkdir()
+                if kind == 'parent-alias': cache.symlink_to(target, target_is_directory=True)
+                else: cache.mkdir()
+                leaf = cache / 'QtAndroid.jar'
+                if kind == 'leaf-alias':
+                    valid = target / 'api.jar'; valid.write_bytes(artifact); leaf.symlink_to(valid)
+                elif kind == 'directory': leaf.mkdir()
+                else: leaf.write_bytes(b'changed dependency' if kind == 'changed' else artifact)
+                result = subprocess.run(['bash', '-euo', 'pipefail', '-c', code],
+                    env={'PATH': '/usr/bin:/bin', 'RUNNER_TEMP': str(root), 'GITHUB_OUTPUT': str(output)},
+                    capture_output=True, text=True, timeout=10)
+                self.assertEqual(0, result.returncode, result.stderr)
+                self.assertEqual('cache_ready=true\n' if kind == 'regular' else '', output.read_text())
 
 
 if __name__ == "__main__":

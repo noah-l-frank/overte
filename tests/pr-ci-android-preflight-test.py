@@ -12,6 +12,13 @@ SPEC.loader.exec_module(PREFLIGHT)
 
 
 class AndroidPrerequisiteTests(unittest.TestCase):
+    def test_phone_start_reserve_is_disabled_but_runtime_abort_floor_remains(self):
+        for target in PREFLIGHT.ANDROID_TARGETS:
+            producer = PREFLIGHT.classify(["android/phone/build.sh"], target=target)["producer"]
+            self.assertEqual(0 if target == 'android-phone' else 60000000000,
+                             producer['minimum_free_bytes'])
+            self.assertEqual(12 * 1024 ** 3, producer['runtime_abort_free_bytes'])
+
     def test_shared_native_changes_require_target_compile_only_on_android(self):
         for target in PREFLIGHT.TARGETS:
             result = PREFLIGHT.classify(["libraries/shared/src/Example.cpp"], target=target)
