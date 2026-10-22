@@ -22,6 +22,18 @@
 #include "Menu.h"
 #include "ScriptPermissions.h"
 
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+#include "../../tests/device/native/LocationBookmarkObservation.h"
+#include <QCoreApplication>
+#include <QThread>
+
+QVariantMap LocationBookmarks::featureBookmarkStorage(const QString& run) const {
+    if (!qApp || QThread::currentThread() != qApp->thread() || thread() != qApp->thread()
+            || !QCoreApplication::arguments().contains("--testScript")) { return {}; }
+    return overte::e2e::locationBookmarkStorage(_bookmarks, _bookmarksFilename, _bookmarkError, run);
+}
+#endif
+
 const QString LocationBookmarks::HOME_BOOKMARK = "Home";
 
 LocationBookmarks::LocationBookmarks() {

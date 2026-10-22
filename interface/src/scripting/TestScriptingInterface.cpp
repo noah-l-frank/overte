@@ -33,6 +33,8 @@
 #include "../../../tests/device/native/WebRuntimeBridge.h"
 #if defined(ANDROID_APP_PICO_INTERFACE)
 #include "../../../tests/device/native/TabletHttpObservationBridge.h"
+#include "../../../tests/device/native/LocationBookmarkObservation.h"
+#include "LocationBookmarks.h"
 #include <XMLHttpRequestClass.h>
 #include "../../../tests/device/native/PrivateWorldRenderReceipts.h"
 #include <PointerManager.h>
@@ -486,6 +488,30 @@ QVariantMap TestScriptingInterface::featureProcessPresence(const QVariantMap& co
     result.insert("capturedEpochMs", QDateTime::currentMSecsSinceEpoch());
     return result;
 }
+
+#if defined(ANDROID_APP_PICO_INTERFACE)
+QVariantMap TestScriptingInterface::featureLocationBookmarks(const QVariantMap& command) {
+    if (QThread::currentThread() != thread()) {
+        if (!thread() || !thread()->isRunning()) { return {}; }
+        QVariantMap result;
+        if (!QMetaObject::invokeMethod(this, [&] { result = featureLocationBookmarks(command); }, Qt::BlockingQueuedConnection)) { return {}; }
+        return result;
+    }
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript") || !overte::e2e::previewDirectory(_testResultsLocation)
+            || !overte::e2e::bookmarkObservationCommand(command) || !DependencyManager::isSet<LocationBookmarks>()
+            || _featureLocationBookmarksRequests.size() >= 4096
+            || _featureLocationBookmarksRequests.contains(command.value("commandId").toString())) { return {}; }
+    _featureLocationBookmarksRequests.insert(command.value("commandId").toString());
+    const auto requested = QDateTime::currentMSecsSinceEpoch();
+    const auto source = DependencyManager::get<LocationBookmarks>()->featureBookmarkStorage(command.value("runId").toString());
+    if (source.isEmpty()) { return {}; }
+    return {{"bookmarkObservationVersion", 1}, {"commandId", command.value("commandId")}, {"runId", command.value("runId")},
+        {"instance", _featureObservationInstance}, {"sequence", static_cast<qulonglong>(++_featureLocationBookmarksSequence)},
+        {"processId", QCoreApplication::applicationPid()}, {"requestedEpochMs", requested},
+        {"capturedEpochMs", QDateTime::currentMSecsSinceEpoch()}, {"storage", source}};
+}
+#endif
 
 QVariantMap TestScriptingInterface::featureNavigationReplies(const QVariantMap& command) {
     if (QThread::currentThread()!=thread()) {
@@ -1143,6 +1169,7 @@ void TestScriptingInterface::saveObject(QVariant variant, const QString& filenam
     if (filename == "feature-chat-observation.json" || filename == "feature-native-observation.json" || filename == "normal-feature-observation.json"
             || filename == "feature-chat-view-observation.json" || filename == "feature-web-dom-observation.json"
             || filename == "feature-pending-commit-owner.json" || filename == "feature-navigation-replies.json"
+            || filename == "feature-location-bookmarks.json"
             || filename == "feature-process-presence.json"
             || filename == "feature-graphics-subject.json" || filename == "feature-scene-load.json"
             || filename == "feature-web-runtime.json" || filename == "feature-tablet-http.json"

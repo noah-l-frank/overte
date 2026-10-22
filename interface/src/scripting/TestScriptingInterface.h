@@ -170,6 +170,7 @@ public slots:
     Q_INVOKABLE QVariantMap featureScriptObservation(const QString& requestId);
     Q_INVOKABLE QVariantMap featureScriptFiles(const QVariantMap& command);
 #if defined(ANDROID_APP_PICO_INTERFACE)
+    Q_INVOKABLE QVariantMap featureLocationBookmarks(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureWorldRenderReceipts(const QVariantMap& command);
     Q_INVOKABLE void featureBindTabletHttpRequest(const QString& lease, QObject* request);
     Q_INVOKABLE QVariantMap featureTabletHttpObservation(const QVariantMap& command);
@@ -244,6 +245,8 @@ private:
     quint64 _featureWorldReceiptSequence {0};
 #if defined(ANDROID_APP_PICO_INTERFACE)
     quint64 _featureWorldReceiptsSequence {0};
+    quint64 _featureLocationBookmarksSequence {0};
+    QSet<QString> _featureLocationBookmarksRequests;
     QSet<QString> _featureWorldReceiptsRequests;
 #endif
     quint64 _featureGraphicsSubjectSequence {0};

@@ -10,7 +10,7 @@ device qualification. Native code is uncompiled; no device is tested.
 
 | Area | Current Pico implementation | Concrete next boundary |
 | --- | --- | --- |
-| Worlds/navigation | Partial Go To/history and original reply reader | Actual bookmark/Places storage/model, failure modal, arrival/image and independent observer join |
+| Worlds/navigation | Partial Go To/history, original replies and native bookmark map/backing-file reader | Actual Places/bookmark inputs/model, selected-origin restoration, failure modal, arrival/image and independent observer join |
 | Authentication | Complete source; 17-step shared flow and counterexamples host verified | Compile and qualify actual VR Home ray, IME, HTTPS provider and account lifetime on Proxmox |
 | Avatar/contacts | Complete adapter missing | Source-bound Avatar/People inputs and independent model/bookmark/wearable/consent observations |
 | Create | Partial token controls and entity foundations | Actual JSON picker/export, model/texture/PolyVox, permission actor and original file/image/peer joins |

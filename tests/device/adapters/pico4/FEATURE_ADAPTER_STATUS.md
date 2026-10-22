@@ -19,6 +19,15 @@ areas remain unavailable; native source is uncompiled and every device is
 untested. See the [Scripts contract](SCRIPT_FEATURE.md) and
 [machine matrix](FEATURE_COVERAGE_20261021.json).
 
+## Current Worlds/navigation continuation
+
+The [native bookmark source](../../native/LOCATION_BOOKMARK_OBSERVATION.md)
+now reads actual protected storage and the original backing-file revision
+through the existing private Pico binding. Host reader/probe/factory
+counterexamples pass; native code remains uncompiled. Actual Places input/model,
+normal endpoint restoration, modal, arrival/images and independent whole-area
+coordination remain incomplete. This component adds no complete feature area.
+
 ## Historical component checkpoints
 
 The entries below describe the earlier reference branch and do not override

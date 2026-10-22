@@ -1327,5 +1327,37 @@
     ],
     "details": "Private explicit normal-VR/fixture/artifact configuration, default-off public triple and actual Pico routing. Actor protocol v2 pins artifacts and preserves v1 Auth/Script readers. Graphics continues observation during the parent retirement plan until its independent final window completes. Existing cleanup inspection no longer creates unused feature namespaces, including the Auth source-lease inspection. Package/GUI/OS/GPU/fixture transport boundaries are synthetic; real owners, schemas, files, source validators, common engine, session, router and actor retirement execute.",
     "limits": "Host source/adapter qualification only. No builds, compilers, installation, device, service or physical VR/render/timing qualification. Eleven areas remain partial/missing."
+  },
+  "navigationBookmarkStorage": {
+    "status": "partial-source-host-verified",
+    "contract": "native-location-bookmarks v1",
+    "checks": [
+      {
+        "command": "python3 -m unittest self_tests.test_native_location_bookmarks self_tests.test_native_navigation_replies self_tests.test_native_feature_observation",
+        "tests": 39,
+        "status": "passed",
+        "durationSeconds": 0.828
+      },
+      {
+        "command": "python3 tests/device/validate_contract_versions.py",
+        "status": "passed"
+      },
+      {
+        "command": "python3 tests/run-project-tests.py --suite documentation --suite documentation-contracts --suite source-layout --suite project-coverage",
+        "suites": 4,
+        "status": "passed",
+        "durationSeconds": 2.44,
+        "junit": "navigation-bookmark-storage-project.xml"
+      },
+      {
+        "command": "python3 android/vr/pico/tests/pico4-test-suite.py --test suite-runner --test coverage-matrix --timeout 240",
+        "groups": 2,
+        "status": "passed",
+        "durationSeconds": 1.38,
+        "junit": "navigation-bookmark-storage-inventory.xml"
+      }
+    ],
+    "details": "Actual original JavaScript probe and Android dispatcher, actual private Pico factory with mock APK/package/transport, and synthetic native storage counterexamples. Closed nonce/run command, original actual protected map and backing-file source, private unowned count/digests, original file-byte/revision hashes, stable descriptor/path read, true disk/map consistency, bounded one-send read, cursor/birth/time/guard and privacy rejection. Normal Login directory-server field was inspected: switching can log out an account, requiring explicit preservation/refusal in the unfinished coordinator.",
+    "limits": "Native Qt/POSIX source is uncompiled and has not been exercised against a native filesystem or product process. No build, compiler, device, installation, service, remote write or physical rendering qualification. No new complete capability; three complete areas and eleven partial/missing remain."
   }
 }

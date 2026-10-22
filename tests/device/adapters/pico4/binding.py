@@ -19,6 +19,7 @@ from adapters.native_chat_observation import NativeChatObservation, ChatCaptureO
 from adapters.native_chat_view import NativeChatView, FILE as CHAT_VIEW_FILE
 from adapters.native_web_dom import NativeWebDOMObservation, FILE as WEB_DOM_FILE
 from adapters.native_navigation_replies import NativeNavigationReplies, FILE as NAVIGATION_REPLIES_FILE
+from adapters.native_location_bookmarks import NativeLocationBookmarks, FILE as LOCATION_BOOKMARKS_FILE
 from adapters.native_process_presence import NativeProcessPresence, FILE as PROCESS_PRESENCE_FILE
 from adapters.pending_commit_owner import NativePendingCommitOwner, FILE as PENDING_OWNER_FILE
 from adapters.native_account_origin import NativeAccountOrigin, OwnedAccountOrigin, FILE as ACCOUNT_ORIGIN_FILE
@@ -626,6 +627,14 @@ def create_adapter(args, base_class):
             return NativeNavigationReplies(native.send,
                 lambda:self.adb.read_debug_app_file(target,'org.overte.pico','files/overte-e2e/'+NAVIGATION_REPLIES_FILE,attempts=1),
                 native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep)
+
+        @_private
+        def _location_bookmarks(self, target):
+            native = self._native_feature_observer(target)
+            return NativeLocationBookmarks(native.send,
+                lambda: self.adb.read_debug_app_file(target, 'org.overte.pico',
+                    'files/overte-e2e/' + LOCATION_BOOKMARKS_FILE, attempts=1),
+                native.clock_ms, native.guard, native.pid, monotonic=native.monotonic, sleep=native.sleep)
 
         @_private
         def _pending_owner(self,target,intent=None):

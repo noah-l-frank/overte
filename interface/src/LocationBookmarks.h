@@ -38,6 +38,11 @@ class LocationBookmarks : public Bookmarks, public  Dependency  {
 public:
     LocationBookmarks();
 
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+    // Passive native map/backing-file observation, not a script permission bypass.
+    QVariantMap featureBookmarkStorage(const QString& run) const;
+#endif
+
     void setupMenus(Menu* menubar, MenuWrapper* menu) override;
     static const QString HOME_BOOKMARK;
 

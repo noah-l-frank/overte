@@ -1023,6 +1023,22 @@
     }
 
     function applyClientCommand(command) {
+        if (command && command.action === "feature-location-bookmarks") {
+            if (command.schemaVersion === 1 && typeof command.commandId === "string"
+                    && command.commandId.length === 32 && /^[0-9a-f]{32}$/.test(command.commandId)
+                    && typeof command.runId === "string" && command.runId.length === 32 && /^[0-9a-f]{32}$/.test(command.runId)
+                    && objectKeysMatch(command,["schemaVersion","commandId","action","runId"])) {
+                var bookmarkObservation={bookmarkObservationVersion:1,commandId:command.commandId,status:"unavailable"};
+                try {
+                    if (typeof Test.featureLocationBookmarks === "function") {
+                        var originalBookmarks=Test.featureLocationBookmarks(command);
+                        if (originalBookmarks && originalBookmarks.commandId === command.commandId) { bookmarkObservation=originalBookmarks; }
+                    }
+                } catch (_bookmarkObservationError) { /* Missing storage is never an empty successful map. */ }
+                Test.saveObject(bookmarkObservation,"feature-location-bookmarks.json");
+            }
+            return true;
+        }
         if (command && command.action === "feature-navigation-replies") {
             if (command.schemaVersion === 1 && typeof command.commandId === "string"
                     && /^(?:ios-)?[0-9a-f]{32}$/.test(command.commandId)
@@ -1639,6 +1655,7 @@
         if (command && (command.action === "normal-feature-observe" || command.action === "feature-native-observe"
                 || command.action === "feature-chat-observe" || command.action === "feature-chat-view-observe" || command.action === "feature-web-dom-observe" || command.action === "feature-account-probe" || command.action === "feature-account-origin"
                 || command.action === "feature-pending-commit-owner" || command.action === "feature-navigation-replies"
+                || command.action === "feature-location-bookmarks"
                 || command.action === "feature-process-presence"
                 || command.action === "feature-recorded-audio-observe" || command.action === "feature-recorded-audio-release"
                 || command.action === "feature-recorded-audio-files" || command.action === "feature-script-observe"

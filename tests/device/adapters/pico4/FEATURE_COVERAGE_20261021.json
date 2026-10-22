@@ -43,7 +43,11 @@
         "tests/device/adapters/native_scene_loads.py",
         "tests/device/native/SceneLoadObservation.h",
         "tests/device/adapters/native_tablet_http.py",
-        "tests/device/native/TabletHttpObservation.h"
+        "tests/device/native/TabletHttpObservation.h",
+        "tests/device/adapters/native_location_bookmarks.py",
+        "tests/device/native/LocationBookmarkObservation.h",
+        "tests/device/native/LOCATION_BOOKMARK_OBSERVATION.md",
+        "tests/device/self_tests/test_native_location_bookmarks.py"
       ],
       "declaredCheckpoints": 15,
       "inputVerbs": [
@@ -72,7 +76,7 @@
         "addressDialog"
       ],
       "missingOperationsOrEvidence": [
-        "Bookmark cancel/create/rename/delete and persistent original bookmark storage",
+        "Normal bookmark cancel/create/rename/delete inputs and complete storage/restart/cleanup joins; passive native map/backing-file reader is present",
         "Actual Places query/model and directory selection",
         "Whole-area arrival/error/modal/restart coordination and independent publisher"
       ],
@@ -88,7 +92,7 @@
         "Restore original location and closed owned dialogs",
         "Prove pending reply/callback retirement and a three-second quiet baseline"
       ],
-      "nextExecutableStep": "Extend Pico NavigationUi on actual Places/bookmark controls with passive current QML/model and native bookmark storage reads; join the existing navigation-reply source before registering a whole-area triple.",
+      "nextExecutableStep": "Join actual Pico Places/bookmark controls and current model to the native bookmark map/file reader, normal selected-origin/account restoration, named-lookup modal, original stereo arrival and independent whole-area publisher before registering a complete triple.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     },
