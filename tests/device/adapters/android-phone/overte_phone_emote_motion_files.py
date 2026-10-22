@@ -4,6 +4,7 @@
 from copy import deepcopy
 import hashlib
 import json
+import os
 
 from adapters.native_feature_observation import exact,integer,need,number
 from adapters.normal_feature_state import context
@@ -53,3 +54,19 @@ class PhoneEmoteMotionFiles(PhoneGraphicsImages):
             captured=value['capturedEpochMs'],state=value['state'])
         actual=json.loads(raw)
         need(actual['after']['group']['native']['requestId']==value['requestId'])
+
+    def diagnostic(self,value):
+        """Observe exact partial bytes; do not complete a motion measurement."""
+        started=self._now();previous=self._budget(started,started);path=self._path(value)
+        if value['phase']=='planned':need(self.absent(value));self._budget(started,previous);return None
+        if value['phase']=='saved':self.read(value);self._budget(started,previous);return None
+        descriptor=os.open(path,os.O_RDONLY|getattr(os,'O_NOFOLLOW',0)|getattr(os,'O_NONBLOCK',0))
+        with os.fdopen(descriptor,'rb') as stream:
+            self._file(path,stream.fileno(),value);before=os.fstat(stream.fileno());raw=stream.read(self.LIMIT+1)
+            self._file(path,stream.fileno(),value);after=os.fstat(stream.fileno());current=path.lstat()
+            signature=lambda row:(row.st_dev,row.st_ino,row.st_size,row.st_mtime_ns,row.st_ctime_ns)
+            need(signature(before)==signature(after)==signature(current) and len(raw)==after.st_size<=value['bytes'])
+            need(all(integer(stamp,0,2**64-1) for stamp in (after.st_mtime_ns,after.st_ctime_ns)))
+        result=dict(emoteMotionDiagnosticVersion=1,name=value['name'],bytes=len(raw),sha256=hashlib.sha256(raw).hexdigest(),
+            file=dict(device=after.st_dev,inode=after.st_ino,modifiedNs=after.st_mtime_ns,changedNs=after.st_ctime_ns))
+        self._budget(started,previous);return result

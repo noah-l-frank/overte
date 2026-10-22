@@ -146,3 +146,68 @@ Controlled loopback tests also use the real fixture HTTP server and distinct
 reader/actor credentials: only actor publication succeeds, duplicate packets
 fail and a failed reader POST cannot cause cached re-emission. They qualify
 test/adapter logic only, not product features or devices.
+
+
+## Failed role transfer, archive version 1
+
+`transfer_failed(retain, retained=None)` is allowed only under the actual held
+source lock, Run cleaning-inputs state and real cleanup activation. Source
+failures must already be transferred. It retains the exact acquiring/retaining
+role control and uses the existing completed/failed Observation transfer plus
+Capture cleanup. It sends no play, input retry, new image or effect measurement.
+The role returns to ready only after verified retention, with the successful
+public sequence, local index and original successful manifest prefix unchanged.
+A failed attempt cannot become a public observation or an actor sample.
+
+The exact packet is
+`{emoteRoleFailureArchiveVersion:1,segment,header,inputHeader,inputSourceHeader,sourceHeader,scope,originalDiagnostic,manifestDiagnostic,motionDiagnostic,cleanup}`.
+The three input/source headers freeze the actual historical context. Header is
+the original failed role journal. Its actual scope ID, index, ticket, image policy,
+run/candidate/process binding and Source admission policy remain mandatory.
+Cleanup is the original real phase snapshot; exact birth and activation history
+must agree when a retained packet is reused.
+
+Scope is null before a scope ID was allocated. Otherwise it is exactly
+`{kind,archive}`. Kind complete carries the existing complete Observation archive;
+kind failed carries its original failure archive and actual child retirement.
+Kind absent is permitted only for acquiring state with no role original,
+manifest or motion intent, after independently observing absent scope/capture
+host metadata and world-owner metadata. It classifies host ownership only and
+contains no native retirement proof. Final native resource/receipt/quiet checks
+remain mandatory. Missing metadata cannot replace a required complete archive.
+
+The existing original diagnostic preserves planned absence, exact opened-file
+bytes/identity/times or a verified saved role original. A manifest diagnostic is
+null or `{present:boolean}`; only a planned index may be absent. Saved originals
+recompute their effect/image/motion proof; saved index entries must preserve the
+exact previous prefix and pending original. Successful historical files remain
+byte/inode/digest checked, while restoration's referenced last/play/image
+observations are independently replayed. They are retained historical data,
+not fresh results or a new verification of the whole journey.
+
+`PhoneEmoteMotionFiles.diagnostic` introduces the closed partial descriptor
+`{emoteMotionDiagnosticVersion:1,name,bytes,sha256,file}`; file is exactly
+`{device,inode,modifiedNs,changedNs}`. It reads actual private, single-link,
+recorded-identity bytes under the existing 2 MiB/five-second bound. Planned files
+must be absent, saved files must reopen as valid original native motion, and
+opened files retain their actual partial bytes without parsing/completing a
+measurement. A saved motion file must additionally match this scope's original
+after-frame and measured state. Empty, changed, foreign or replaced bytes never
+supply success. Existing bytes and epochs are not rewritten.
+
+Retention precedes scope metadata removal. Actual GPU-buffer/receipt retirement
+is verified by the existing Capture/world owners; an ignored release keeps the
+role, scope and native ownership open. Lost original/index/final-role writes can
+be transferred as failures, including a complete scope already removed after a
+saved role original. A retained failure packet can finish the same interrupted
+transfer without another capture or replacement epoch. Rejected/lost retention,
+phase changes, stale ownership, partial-file mutation and ignored commits remain
+errors. Whole-operation bounds remain 20 seconds with existing five-second child
+limits. `failure_archive` is historical replay only and returns no new facts.
+
+Failure-owner/record version 3 integrates this path for both roles after source
+failure recovery and before admission/input restoration. Versions 1/2 remain
+readable, preserving their old source/admission record bytes and original inodes.
+Role journals and all diagnostic originals still require final whole-run
+retirement; an independently measured cleanup observation requires a later new
+source read after actual resource restoration. Host tests qualify logic only.

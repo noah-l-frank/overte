@@ -1,7 +1,7 @@
-# Phone Emote source/admission retention, version 2
+# Phone Emote source/admission retention, version 3
 
 `PhoneEmoteFailures` connects actual failed readonly Source acquisitions and
-admitted/failed Admission contexts to the existing Run input-cleanup path. It is an internal component. No failed attempt
+admitted/failed Admission contexts and interrupted role/image/motion attempts to the existing Run input-cleanup path. It is an internal component. No failed attempt
 becomes a source sample, no evidence file is deleted, and no complete Emote
 capability is registered. Three Phone feature triples remain source-implemented;
 native code remains uncompiled and all device behavior untested.
@@ -51,7 +51,7 @@ files and reconstructs the old reading context without target/fixture queries,
 a usable live owner or a fresh verdict. It remains valid after subsequent source
 frames only while its original evidence files remain intact.
 
-## Durable enclosing failure owner, versions 1 and 2
+## Durable enclosing failure owner, versions 1, 2 and 3
 
 Construct `PhoneEmoteFailures(run)` under the loaded Run's held source lock. The
 actual candidate/process binding, run, fixture and artifact root must agree.
@@ -65,12 +65,12 @@ same lock/binding. Kind admission uses namespace zero and its actual Admission
 owner. `collect_admissions()` runs after source failure transfer, before ordinary
 input restoration, for both roles' existing admission journals.
 It persists responsibility before source transfer. The private control is exactly
-`{emoteFailureOwnerVersion:2,runId,fixtureUrl,binding,artifactRoot,payload}`. Its
+`{emoteFailureOwnerVersion:3,runId,fixtureUrl,binding,artifactRoot,payload}`. Its
 existing bounded packed payload holds one `{count,manifests,pending}` state.
 Count is 0..1024; manifests retain the existing 128-entry blocks and eight-block
 bound. Pending is null or
 `{kind,recordVersion,role,segment,headerSha256,archive,original,manifest}`.
-Kind is source or admission. RecordVersion is 2 for new transfers; a recovered v1
+Kind is source, admission or role. RecordVersion is 3 for new transfers; a recovered v1
 source transfer retains record version 1. Header SHA-256 binds the
 exact source or admission journal. Archive is null until the actual complete failure
 packet is durably frozen; it contains no guessed product effects. Original and
@@ -78,7 +78,7 @@ manifest use the existing planned/opened/saved storage protocol.
 
 The same 64 KiB control and 1 MiB original limits apply; neither is increased.
 A failure original is exactly
-`{emoteFailureRecordVersion:2,index,kind,archive}` and uses the existing
+`{emoteFailureRecordVersion:3,index,kind,archive}` and uses the existing
 immutable file/index engine with kind source-failures and primary run ownership.
 An actor's failure archive still names and validates the actor's actual original
 source stream. Primary ownership of diagnostic storage supplies no actor facts.
@@ -88,15 +88,16 @@ parent-pinned hash. A failed pre-setup admission remains unapproved. The fixed
 legacy source-failures storage kind is retained for both record types; no
 original filenames or indexes are renamed.
 
-Version 1 owner/record files remain readable. Reconstruction alone never
+Version 1/2 owner and record files remain readable. Version 1 pending sources
+retain record 1; version 2 pending source/admission transfers retain record 2. Reconstruction alone never
 rewrites a v1 control. Its pending transfer is interpreted as source/record 1;
-the next explicit transition writes owner v2 while preserving its frozen v1
+the next explicit transition writes owner v3 while preserving its frozen v1
 record bytes, digest, inode, manifest and epochs. Version 1 cannot encode the
 new kind/recordVersion fields or an admission record.
 
 Run cleanup recovers owned foreground first and reconciles any committed
 namespace transition, then collects failed sources and retires admission owners
-before releasing namespace freezes and invoking ordinary input restoration. A lost final failure-owner
+with interrupted roles in between, before releasing namespace freezes and invoking ordinary input restoration. A lost final failure-owner
 commit can reuse the exact already-transferred source, original and manifest;
 it cannot append a second record or advance native/UI sequences. Failure journals
 and their evidence remain owned for final whole-run retention/retirement.
@@ -126,9 +127,10 @@ existing five-second budgets and private file limits.
 ## Boundaries still required
 
 This owner integrates failed readonly Source reads and original Admission
-retirement, including a failed cache check before View/Scene setup. Full cleanup
+retirement, including a failed cache check before View/Scene setup, plus the
+[failed role/scope transfer](EMOTE_ROLE.md#failed-role-transfer-archive-version-1). Full cleanup
 when initial admission fails before the first baseline, missing View/Scene setup,
-incomplete role/image/motion scopes, selected native work,
+selected native work,
 scene/view/namespace/background resources, independently credentialed actor
 retirement and final evidence/control-journal retirement remain obligations of
 the complete facade. No resources-restored, quiet, cleaned or successful feature
@@ -141,3 +143,28 @@ both roles' absent/partial/saved source results, lost/rejected retention, mutati
 or replacement during transfer, changed phase, late verification, ignored commits,
 foreign archived contexts and interrupted original/index/final-owner writes.
 They verify ownership/test logic only, not product behavior or acceptance.
+
+
+## Role/scope ownership in version 3
+
+`collect_roles()` recovers pending transfers, inspects both existing role
+controls and retains acquiring/retaining attempts through the actual Role
+failure operation. Run order is source failures, role/scope failures, Admission
+retirement, namespace/input restoration. Scope/capture cleanup keeps its existing
+original byte, native buffer and issuer-receipt proofs. A failed cleanup release
+never permits a role reset. The role's successful sequence and manifest prefix
+remain unchanged; new cleanup data requires a later fresh observation.
+
+Records of kind role use the original role-failure archive v1, including its
+image policy, exact source/input context and partial original/index/motion
+metadata. The same control/original/file/time limits apply. A complete image
+whose role write failed is retained as failed ownership; its old public result
+cannot be emitted or published as a new sample. An absent unmaterialized host
+scope contains no native retirement proof. Whole native and host retirement
+still has to be verified before full feature registration.
+
+Old completed and pending v1/v2 records are not rewritten. V2 pending admission
+records retain their original bytes/digest/inode during explicit owner upgrade.
+Version 3 alone admits kind role. Source and Admission packet formats remain
+unchanged; the new role archive and partial-motion descriptor have their own
+version 1 contracts in the registry.

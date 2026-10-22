@@ -120,7 +120,7 @@ class EmoteFailureOwnerTests(unittest.TestCase):
                     recovered=PhoneEmoteFailures(run);retained=deepcopy(recovered.state['pending']['archive']);calls=deepcopy(m.calls)
                     recovered.collect_admissions();rows=self.records(recovered)
                     self.assertEqual(1,len(rows));self.assertEqual(retained,rows[0]['archive']);self.assertEqual('admission',rows[0]['kind'])
-                    self.assertEqual(2,rows[0]['emoteFailureRecordVersion']);self.assertTrue(all(call=='phase-read' for call in m.calls[len(calls):]))
+                    self.assertEqual(3,rows[0]['emoteFailureRecordVersion']);self.assertTrue(all(call=='phase-read' for call in m.calls[len(calls):]))
                     self.assertFalse((m.root/'phone-emote-primary-admission.json').exists());self.assertIsNone(recovered.state['pending'])
 
     def test_version_one_pending_source_archive_keeps_original_record_bytes_during_upgrade(self):
@@ -144,7 +144,7 @@ class EmoteFailureOwnerTests(unittest.TestCase):
             recovered=PhoneEmoteFailures(run);self.assertEqual(legacy,recovered.previous);self.assertEqual(legacy,recovered.store.read())
             recovered.collect_sources();rows=self.records(recovered)
             self.assertEqual(1,rows[0]['emoteFailureRecordVersion']);self.assertEqual(raw,path.read_bytes());self.assertEqual(inode,path.stat().st_ino)
-            self.assertEqual(2,recovered.previous['emoteFailureOwnerVersion']);self.assertEqual(1,recovered.state['count'])
+            self.assertEqual(3,recovered.previous['emoteFailureOwnerVersion']);self.assertEqual(1,recovered.state['count'])
 
     def test_changed_parent_pinned_admission_header_does_not_retire_as_the_original_approval(self):
         from overte_phone_emote_admission import PhoneEmoteAdmission
@@ -170,6 +170,28 @@ class EmoteFailureOwnerTests(unittest.TestCase):
             self.assertEqual('reading',state['phase']);self.assertEqual([],state['records']);self.assertIsNone(state['window'])
             self.assertIsNone(run.state['admissionSha256']);self.assertIsNotNone(owner.store.read())
             self.assertFalse((m.root/'phone-emote-primary-admission.json').exists())
+
+    def test_version_two_pending_admission_preserves_original_archive_bytes_during_upgrade(self):
+        from overte_phone_emote_admission import PhoneEmoteAdmission
+        from overte_phone_script_history import canonical
+        import hashlib
+        run=self.prepared();self.cleaning(run)
+        with run.lock.held():
+            source=run.source();admission=PhoneEmoteAdmission(source,run.policy);owner=PhoneEmoteFailures(run)
+            owner.state['pending']=dict(kind='admission',recordVersion=2,role='primary',segment=0,
+                headerSha256=hashlib.sha256(canonical(admission.previous)).hexdigest(),archive=None,original=None,manifest=None);owner.save()
+            intent=owner.originals.intent
+            def interrupt(kind,value):
+                intent(kind,value)
+                if kind=='original' and value['phase']=='saved':raise NativeUIError('Synthetic lost v2 admission archive')
+            owner.originals.intent=interrupt
+            with self.assertRaises(NativeUIError):owner.collect_admissions()
+            path=owner.originals.path(owner.state['pending']['original']);raw=path.read_bytes();inode=path.stat().st_ino
+            legacy=deepcopy(owner.previous);legacy['emoteFailureOwnerVersion']=2;owner.store.write(legacy,owner.previous)
+            recovered=PhoneEmoteFailures(run);self.assertEqual(legacy,recovered.previous);self.assertEqual(legacy,recovered.store.read())
+            recovered.collect_admissions();rows=self.records(recovered)
+            self.assertEqual(2,rows[0]['emoteFailureRecordVersion']);self.assertEqual(raw,path.read_bytes());self.assertEqual(inode,path.stat().st_ino)
+            self.assertEqual(3,recovered.previous['emoteFailureOwnerVersion']);self.assertEqual(1,recovered.state['count'])
 
 
 if __name__=='__main__':unittest.main()
