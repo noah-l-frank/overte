@@ -264,5 +264,7 @@ class PhaseWitnessPublisher:
              and number(epoch, clock['hostAfterEpochMs'], clock['hostBeforeEpochMs']+1500)
              and epoch-clock['hostBeforeEpochMs'] < 1500
              and abs(epoch-clock['hostBeforeEpochMs']-(now-clock['hostBeforeMonotonic'])*1000) <= 250)
-        self.phase.client.request('/runs/'+self.run+'/samples', deepcopy(pending['body']))
+        from adapters.original_publication_delivery import delivery
+        with delivery(self,clock):
+            self.phase.client.request('/runs/'+self.run+'/samples', deepcopy(pending['body']))
         self.bound(); sequence = pending['body']['actorSequence']; self.resolve(); return sequence

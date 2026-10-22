@@ -31,6 +31,14 @@ actor journal with actual phase snapshots and retains the exact server entry,
 including both original capture and receive clocks. An uncertain issued POST
 is never sent again. New samples remain blocked until its responsibility resolves.
 
+Facts and retirement publishers also retain the original acquisition window
+through the actual HTTP send. After serialization and opener preparation, the
+shared client checks that window immediately before `open`. The registered
+guard reads only the original host clocks; candidate SDK continuity is checked
+before entering it to avoid recursive SDK requests. Expiration leaves the
+issued journal owned and prevents delivery or a later retry. This changes no
+wire fields, projections, authentication rights or contract versions.
+
 A genuine later phase may retire an unknown old publication responsibility.
 Two original inactive phase snapshots may similarly retire it after run deletion
 without requesting the deleted actor journal. Neither mode claims publication,

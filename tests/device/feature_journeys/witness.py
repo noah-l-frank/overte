@@ -178,7 +178,10 @@ class Client:
         request = Request(self.url + path, data=raw, method=method,
                           headers=headers)
         try:
-            with build_opener(NoRedirect).open(request, timeout=5) as response:
+            opener=build_opener(NoRedirect)
+            from adapters.operation_transport_guard import check as final_transport_guard
+            final_transport_guard()
+            with opener.open(request, timeout=5) as response:
                 body = response.read(1024 * 1024 + 1)
             if len(body) > 1024 * 1024:
                 raise ValueError('Feature fixture response exceeds the bounded limit')
