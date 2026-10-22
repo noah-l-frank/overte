@@ -312,6 +312,19 @@
         "python",
         "git"
       ]
+    },
+    "pr-ci-android-runtime": {
+      "kind": "patterns",
+      "setup": [
+        "python"
+      ]
+    },
+    "pr-ci-android-boundary": {
+      "kind": "patterns",
+      "setup": [
+        "python",
+        "git"
+      ]
     }
   },
   "product_independent_paths": [

@@ -57,6 +57,7 @@ needs a native build, cache preparation, and staged gate activation.
 | Build and host the browser client | [Browser client](browser-client/README.md) |
 | Select and run the relevant verification layer | [Project testing](../tests/PROJECT_TESTING.md) |
 | Review dormant Android APK source selection | [Android build inputs](ANDROID_BUILD_INPUTS.md) |
+| Review Android native CI qualification and payload transport | [Android native CI](ANDROID_NATIVE_CI.md) |
 | Review dormant Browser CPU-history CI selection | [Browser CPU selection](BROWSER_CPU_SELECTION.md) |
 | Review dormant authenticated producer evidence | [Producer API proof](PRODUCER_API_PROOF.md) |
 | Review dormant shared reuse without consumer setup | [Attested runtime reuse](ATTESTED_RUNTIME_REUSE.md) |
