@@ -64,6 +64,9 @@ public:
             ui=histories;ui.insert("present",true);ui.insert("generation",_generation);
             ui.insert("channel",page->property("pageVal"));ui.insert("draft",editor->property("text"));
             ui.insert("keyboardRequested",page->property("keyboardRaised"));
+            const auto eraseDigest=chatEraseHistoryDigest(page);
+            if (eraseDigest.isEmpty()) { return {}; }
+            ui.insert("historySha256",eraseDigest);
             // Read the actual visible ListView model too. The selected alias is
             // not evidence that the view really uses that model.
             QQuickItem* list {nullptr};int count {0};bool bad {false};

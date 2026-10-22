@@ -10,9 +10,10 @@ import unittest
 import uuid
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from adapters.normal_ui import NativeUIError
-from adapters.token_chat_ui import TokenChatUI, same_reference, snapshot
+from adapters.token_chat_ui import TokenChatUI, authorize_erase, same_reference, snapshot
 from feature_journeys.fixtures import context
 from self_tests.test_token_chat_ui import Widgets, RUN
+from self_tests.test_native_chat_view import Boundary
 
 
 class CleanupWidgets(Widgets):
@@ -124,6 +125,52 @@ class ChatEraseControlsTests(unittest.TestCase):
             elif edit == 'hash': row['historySha256'] = 'bad'
             else: row['messages'] = ['private']
             with self.assertRaises(NativeUIError): snapshot(value)
+
+    def authority_source(self):
+        self.ui.input('chat.settings'); reference = self.ui.capture()
+        native = Boundary(); native.source.update(editorFocused=False, editorHasDraft=False,
+            keyboard=dict(available=True, backend='native-touch-metrics', visible=False))
+        native.source['ui'].update(channel='settings', draft='', keyboardRequested=False,
+            localMessages=[], localRowCount=0, domainMessages=list(self.widgets.domain), domainRowCount=1,
+            visibleMessages=[], visibleRowCount=0, historySha256=self.widgets.digest())
+        native.source['storage'].update(count=1,
+            events=[dict(channel='domain', text=context(RUN)['unicode'], timestamp=19000)])
+        native.mutate = lambda value: value.update(chatViewVersion=2)
+        return reference, native.reader().read(RUN)
+
+    def test_separate_original_view_and_exact_model_digest_authorize_only_owned_history(self):
+        reference, view = self.authority_source()
+        self.assertTrue(authorize_erase(RUN, reference, view, 'b' * 64, 20000))
+        self.assertNotIn('historySha256', str(view['source']['storage']))
+
+    def test_same_count_changed_history_cannot_borrow_a_separate_original_view(self):
+        reference, view = self.authority_source()
+        for fault in ('digest', 'missing-digest', 'old-view', 'unowned', 'config', 'rows', 'count',
+                      'focused', 'draft-presence', 'keyboard', 'keyboard-request', 'foreign-pid', 'stale'):
+            changed = deepcopy(view); epoch = 20000
+            source = changed['source']; ui = source['ui']; storage = source['storage']
+            if fault == 'digest': ui['historySha256'] = 'f' * 64
+            elif fault == 'missing-digest': del ui['historySha256']
+            elif fault == 'old-view': changed['chatViewVersion'] = 1; del ui['historySha256']
+            elif fault == 'unowned': storage.update(unowned=1, count=2)
+            elif fault == 'config': storage['configSha256'] = 'f' * 64
+            elif fault == 'rows': ui['domainMessages'] = [context(RUN)['reply']]
+            elif fault == 'count': ui['domainRowCount'] = 2
+            elif fault == 'focused': source['editorFocused'] = True
+            elif fault == 'draft-presence': source['editorHasDraft'] = True
+            elif fault == 'keyboard': source['keyboard']['visible'] = True
+            elif fault == 'keyboard-request': ui['keyboardRequested'] = True
+            elif fault == 'foreign-pid': changed['processId'] += 1
+            else: epoch += 1501
+            with self.subTest(fault=fault), self.assertRaises(NativeUIError):
+                authorize_erase(RUN, reference, changed, 'b' * 64, epoch)
+
+    def test_old_passive_view_remains_readable_but_cannot_supply_erase_authority(self):
+        reference, view = self.authority_source(); del view['source']['ui']['historySha256']
+        from adapters.native_chat_view import validate
+        request = dict(schemaVersion=1, action='feature-chat-view-observe', commandId=view['commandId'], runId=RUN)
+        validate(view, request, 123, 20000)
+        with self.assertRaises(NativeUIError): authorize_erase(RUN, reference, view, 'b' * 64, 20000)
 
 
 if __name__ == '__main__': unittest.main()
