@@ -1374,7 +1374,10 @@
         if (command && command.schemaVersion === 1 && command.action === "phone-snapshot-cancel"
                 && /^[0-9a-f]{32}$/.test(String(command.commandId)) && /^[0-9a-f]{32}$/.test(String(command.runId))
                 && /^[0-9a-f]{32}$/.test(String(command.jobId))
-                && objectKeysMatch(command,["schemaVersion","commandId","action","runId","jobId","operation","request"])
+                && objectKeysMatch(command,["schemaVersion","commandId","action","runId","jobId","operation","request"].concat(
+                    command.closedReadWorkRequestId === undefined ? [] : ["closedReadWorkRequestId"]))
+                && (command.closedReadWorkRequestId === undefined || ((command.operation === "observe" || command.operation === "retire")
+                    && /^[0-9a-f]{32}$/.test(String(command.closedReadWorkRequestId))))
                 && ((command.operation === "start" && validPhoneSnapshotRequest(command.request)
                     && command.request.action === "activate" && command.request.controlId === "snapshot.capture"
                     && command.request.commandId === command.jobId)

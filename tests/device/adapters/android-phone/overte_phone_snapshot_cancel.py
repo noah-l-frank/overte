@@ -15,6 +15,7 @@ from adapters.normal_ui import NativeUIError
 from feature_journeys.contract import typed_equal
 from overte_phone_snapshot_source import source,review,nonce,text
 from overte_phone_snapshot_controls import original_path
+from adapters.native_script_work import validate as work_packet,scope as work_scope
 
 FILE='phone-snapshot-cancel.json'
 
@@ -28,28 +29,44 @@ def input_command(value,*,cancel=False):
 
 
 def command(value):
-    exact(value,{'schemaVersion','commandId','action','runId','jobId','operation','request'})
+    extra={'closedReadWorkRequestId'} if type(value) is dict and 'closedReadWorkRequestId' in value else set()
+    exact(value,{'schemaVersion','commandId','action','runId','jobId','operation','request'}|extra)
     need(type(value['schemaVersion']) is int and value['schemaVersion']==1 and value['action']=='phone-snapshot-cancel'
         and all(nonce(value[key]) for key in ('commandId','runId','jobId'))
         and value['operation'] in ('start','observe','retire') and type(value['request']) is dict)
     if value['operation']=='start':
         input_command(value['request']);need(value['request']['commandId']==value['jobId'])
     else:need(value['request']=={})
+    if extra:need(value['operation'] in ('observe','retire') and nonce(value['closedReadWorkRequestId']))
     return value
 
 
-def original(value,epoch):
-    exact(value,{'capturedEpochMs','native','review'})
+def original(value,epoch,*,allow_closed=False,caller=None,pid=None):
+    extra={'scriptWork'} if type(value) is dict and 'scriptWork' in value else set()
+    exact(value,{'capturedEpochMs','native','review'}|extra)
     need(integer(value['capturedEpochMs'],1,epoch))
     source(value['native'],value['capturedEpochMs'],native_core=True)
-    review(value['review'],original_path);need(value['review']['present'])
+    review(value['review'],original_path)
+    visible=value['review']['present'] and value['review']['review']['visible']
+    if visible:need(not extra)
+    else:
+        need(allow_closed and extra and caller is not None and integer(pid,1))
+        packet=value['scriptWork'];request=dict(schemaVersion=1,commandId=packet['requestId'],action='feature-script-work-observe',managerInstance=caller['manager']['instance'])
+        work_packet(packet,request,pid,value['capturedEpochMs'])
+        need(typed_equal(packet['source']['manager'],caller['manager']) and typed_equal(packet['source']['code'],caller['code']))
+        selected=work_scope(packet,caller['compilation'])
+        need(not selected['evaluating'] and not selected['timers'] and not selected['unknownTimers']
+            and all(selected[key]==0 for key in ('signalCallbacks','timerCallbacks','unknownSignalCallbacks','unknownTimerCallbacks')))
+        own=[row for row in packet['source']['work']['activity'] if row['scriptId']==caller['compilation']['scriptId']];need(len(own)==1)
+        need(all(own[0][key]>=caller['snapshotWork'][key] for key in ('signalInvocations','timerInvocations','timerRegistrations')))
+        need(idle(value))
     return value
 
 
 def idle(value):
-    native=value['native'];ui=value['review']['review'];latest={}
+    native=value['native'];ui=value['review']['review'] or {};latest={}
     for row in native['scriptHistory']['events']:latest[row['id']]=row['kind']
-    return (not any(ui[key] for key in ('capturing','processing','exportBusy','exportTicket','uploadPath'))
+    return ((bool(ui) or 'scriptWork' in value) and not any(ui.get(key) for key in ('capturing','processing','exportBusy','exportTicket','uploadPath'))
         and not native['captures'] and not native['uploads']
         and not any(phase in ('pending','processing') for phase in latest.values()))
 
@@ -60,6 +77,16 @@ def prefix(before,after):
         and typed_equal(a['history'],b['history']) and not b['captures'] and not b['uploads']
         and a['scriptHistory']['instance']==b['scriptHistory']['instance']
         and typed_equal(a['scriptHistory']['events'],b['scriptHistory']['events'][:a['scriptHistory']['sequence']]))
+
+
+def history_prefix(before,after):
+    """Retain both immutable original histories while allowing later work."""
+    a,b=before['native'],after['native']
+    need(after['capturedEpochMs']>=before['capturedEpochMs'] and a['storageRoot']==b['storageRoot'])
+    for key in ('history','scriptHistory'):
+        first,last=a[key],b[key]
+        need(first['instance']==last['instance'] and last['sequence']>=first['sequence']
+            and typed_equal(first['events'],last['events'][:first['sequence']]))
 
 
 def receipt(value,request,pid):
@@ -91,9 +118,21 @@ def validate(value,request,pid,epoch):
     terminal=row['phase'] in ('complete','failed')
     need(row['timerActive'] is (not terminal) and (row['phase']=='failed' if row['error'] else row['phase']!='failed'))
     need(integer(row['completedEpochMs'],row['startedEpochMs'],row['observedEpochMs']) if terminal else integer(row['completedEpochMs'],0,0))
-    for key in ('before','pending','cancelled','retirement','current'):
+    for key in ('before','pending','cancelled'):
         need(type(row[key]) is dict)
         if row[key]:original(row[key],row['observedEpochMs'])
+    selected=row['cancelled'] or row['pending']
+    caller=selected['native']['scriptHistory']['events'][-1]['caller'] if selected else None
+    for key in ('retirement','current'):
+        need(type(row[key]) is dict)
+        if row[key]:original(row[key],row['observedEpochMs'],allow_closed=terminal,caller=caller,pid=pid)
+    prior=None
+    for key in ('before','pending','cancelled','retirement','current'):
+        if row[key]:
+            if prior is not None:history_prefix(prior,row[key])
+            prior=row[key]
+    if 'scriptWork' in row['current']:
+        need(request.get('closedReadWorkRequestId')==row['current']['scriptWork']['requestId'])
     need(bool(row['current']) and value['requestedEpochMs']<=row['current']['capturedEpochMs']<=row['observedEpochMs']
         and row['observedEpochMs']-row['current']['capturedEpochMs']<1500)
     if row['captureInput']:receipt(row['captureInput'],row['captureCommand'],pid)
@@ -145,10 +184,12 @@ class PhoneSnapshotCancel:
         self.monotonic,self.sleep,self.last=monotonic,sleep,None
         self.jobs={}
 
-    def request(self,run,job,operation,request=None):
+    def request(self,run,job,operation,request=None,*,closed_read_work_request_id=None):
         try:
-            value=command(dict(schemaVersion=1,commandId=uuid.uuid4().hex,action='phone-snapshot-cancel',runId=run,
-                jobId=job,operation=operation,request={} if request is None else request))
+            value=dict(schemaVersion=1,commandId=uuid.uuid4().hex,action='phone-snapshot-cancel',runId=run,
+                jobId=job,operation=operation,request={} if request is None else request)
+            if closed_read_work_request_id is not None:value['closedReadWorkRequestId']=closed_read_work_request_id
+            command(value)
             need(self.guard() is not False);started=previous=self.monotonic();need(number(started,0,1e15))
             barrier=self.clock_ms();need(integer(barrier,1));self.send(value)
             for attempt in range(51):
@@ -169,6 +210,7 @@ class PhoneSnapshotCancel:
                             if prior['retired']:need(present['retired'])
                     old=self.jobs.get(job);current=actual['source']
                     if old is not None:
+                        history_prefix(old['current'],current['current'])
                         need(all(typed_equal(old[key],current[key]) for key in ('instance','job','runId','startedEpochMs','captureCommand')))
                         for key in ('before','pending','cancelled','captureInput','cancelCommand','cancelInput','retirement'):
                             if old[key]:need(typed_equal(old[key],current[key]))

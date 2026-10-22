@@ -308,6 +308,7 @@ def state(frame,baseline,*,run,pid,epoch):
     for packet in frame['cancels']:
         request=dict(schemaVersion=1,commandId=packet['requestId'],action='phone-snapshot-cancel',runId=run,
             jobId=packet['source']['job'],operation='observe',request={})
+        if 'scriptWork' in packet['source']['current']:request['closedReadWorkRequestId']=packet['source']['current']['scriptWork']['requestId']
         cancel_source(packet,request,pid,packet['capturedEpochMs']);recipe=packet['source']
         need(recipe['phase']=='complete' and recipe['request'] in cancelled and recipe['request'] not in recipes)
         context=one(measured['contexts'],lambda row:row['id']==recipe['request'])

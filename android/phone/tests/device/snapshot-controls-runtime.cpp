@@ -57,7 +57,8 @@ int main(int argc,char** argv) {
     window.show();window.requestActivate();QTest::qWait(80);
     auto message=[&](const QVariantMap& value) { QVariant data=value;return QMetaObject::invokeMethod(page,"fromScript",Q_ARG(QVariant,data)); };
     if(!message({{"type","snapshot"},{"action","captureSettings"},{"setting",false}})) { return 2; }QTest::qWait(30);
-    auto sharedUi=std::make_shared<overte::e2e::SnapshotUi>();auto& ui=*sharedUi;auto observe=[&] { return ui.observe(page,&window); };
+    QQuickItem* observedRoot=page;
+    auto sharedUi=std::make_shared<overte::e2e::SnapshotUi>();auto& ui=*sharedUi;auto observe=[&] { return ui.observe(observedRoot,&window); };
     auto row=[](const QJsonObject& source,const QString& id) { for(const auto& value:source.value("controls").toArray()) { if(value.toObject().value("id")==id) { return value.toObject(); } }return QJsonObject{}; };
     auto request=[&](const QJsonObject& source,const QString& id,const QString& action) {
         const auto control=row(source,id);
@@ -68,7 +69,7 @@ int main(int argc,char** argv) {
     };
     auto pointer=[&](QQuickItem* item,const QPointF& point) { return overte::e2e::NormalControlUi::pointerEvent(item,&window,point); };
     auto click=[&](QQuickItem* item) { return pointer(item,item->mapToScene(QPointF(item->width()/2,item->height()/2))); };
-    auto apply=[&](const QJsonObject& command) { return ui.apply(page,&window,command,click,{},pointer); };
+    auto apply=[&](const QJsonObject& command) { return ui.apply(observedRoot,&window,command,click,{},pointer); };
     auto input=[&](const QString& id,const QString& action,const QJsonValue& value=QJsonValue()) {
         const auto source=observe();if(row(source,id).isEmpty()) { qWarning()<<"Missing"<<id<<source;return false; }
         auto command=request(source,id,action);if(action=="replace") { command["text"]=value; }if(action=="select-index") { command["index"]=value; }
@@ -147,24 +148,27 @@ int main(int argc,char** argv) {
                 }
             }
         });scriptBridge.start();
+        QString currentScriptInstance=scriptInstance,currentHistoryInstance=historyInstance;
         auto native=[&] {
             QVariantList owned;
             if(captures)owned.append(QVariantMap{{"id",active},{"state","active"},{"announced",false}});
             return QVariantMap{{"phoneSnapshotObservationVersion",1},{"nativeReview",true},
                 {"storageRoot","/data/user/0/io.github.noah_be.overte.phone/files/Snapshots"},{"captures",owned},{"uploads",QStringList{}},
-                {"history",QVariantMap{{"snapshotHistoryVersion",1},{"instance",historyInstance},{"complete",true},{"sequence",captureEvents.size()},{"events",captureEvents}}},
-                {"scriptHistory",QVariantMap{{"snapshotScriptHistoryVersion",1},{"instance",scriptInstance},{"complete",true},{"sequence",scriptEvents.size()},{"events",scriptEvents}}}};
+                {"history",QVariantMap{{"snapshotHistoryVersion",1},{"instance",currentHistoryInstance},{"complete",true},{"sequence",captureEvents.size()},{"events",captureEvents}}},
+                {"scriptHistory",QVariantMap{{"snapshotScriptHistoryVersion",1},{"instance",currentScriptInstance},{"complete",true},{"sequence",scriptEvents.size()},{"events",scriptEvents}}}};
         };
+        if (mode.startsWith("fast-closed")) { observedRoot=window.contentItem(); }
         const QString run(32,'e');const auto command=request(observe(),"snapshot.capture","activate");
         const auto id=command.value("commandId").toString();
         auto snapshotNative=QSharedPointer<Snapshot>::create();snapshotNative->read=native;
-        auto offscreen=QSharedPointer<OffscreenUi>::create();offscreen->root=page;offscreen->window=&window;
+        auto offscreen=QSharedPointer<OffscreenUi>::create();offscreen->root=observedRoot;offscreen->window=&window;
         SnapshotTestDependencies::service<Snapshot>()=snapshotNative;SnapshotTestDependencies::service<OffscreenUi>()=offscreen;
         TestScriptingInterface bridge;bridge._phoneSnapshotUi=sharedUi;
-        QVariantMap latest;
+        QVariantMap latest;QString closedNonce;
         auto call=[&](const QString& operation,const QJsonObject& input=QJsonObject{}) {
-            const QVariantMap wire{{"schemaVersion",1},{"commandId",QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-')},
+            QVariantMap wire{{"schemaVersion",1},{"commandId",QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-')},
                 {"action","phone-snapshot-cancel"},{"runId",run},{"jobId",id},{"operation",operation},{"request",input.toVariantMap()}};
+            if (!closedNonce.isEmpty()) { wire.insert("closedReadWorkRequestId",closedNonce); }
             latest=bridge.phoneSnapshotCancel(wire);return latest.value("source").toMap();
         };
         const QVariantMap invalid{{"schemaVersion",1},{"commandId",QString(32,'a')},{"action","phone-snapshot-cancel"},
@@ -182,12 +186,54 @@ int main(int argc,char** argv) {
         while(state.value("phase")=="capturing" || state.value("phase")=="cancelling") {
             if(wait.elapsed()>5500) { return 31; }QTest::qWait(5);state=call("observe");
         }
-        if(mode=="fast-normal" || mode=="fast-late-work") {
+        if(mode=="fast-normal" || mode=="fast-late-work" || mode.startsWith("fast-closed")) {
             if(state.value("phase")!="complete" || captures!=0 || delay.isActive() || timeout.isActive()
                 || state.value("timerActive").toBool() || scriptEvents.size()!=2) { qWarning()<<state;return 32; }
             if(state.value("pending").toMap().isEmpty() || state.value("cancelled").toMap().isEmpty()) { return 33; }
             const auto before=messages.size();call("start",command);
             QTest::qWait(10);if(messages.size()!=before) { return 34; }
+            if (mode.startsWith("fast-closed")) {
+                const auto caller=scriptEvents.last().toMap().value("caller").toMap();const auto epoch=QDateTime::currentMSecsSinceEpoch();
+                closedNonce=QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-');
+                QVariantMap activity{{"scriptId",2},{"signalCallbacks",0},{"timerCallbacks",0},{"signalInvocations",invocations},
+                    {"timerInvocations",0},{"timerRegistrations",starts*2}};
+                QVariantMap work{{"scriptWorkVersion",2},{"requestId",closedNonce},{"sequence",1},{"requestedEpochMs",epoch},{"capturedEpochMs",epoch},
+                    {"signalCallbacks",0},{"timerCallbacks",0},{"evaluating",false},{"timers",QVariantList{}},
+                    {"activity",QVariantList{activity}},{"timerEntries",0},{"activityEntries",1}};
+                QVariantMap source{{"complete",true},{"revision",1},{"manager",caller.value("manager")},{"code",caller.value("code")},
+                    {"compiled",QVariantMap{{"compiledSourcesVersion",1},{"complete",true},{"compilations",QVariantList{caller.value("compilation")}}}},
+                    {"work",work},{"workers",QVariantList{QVariantMap{{"membership",caller.value("manager")},{"running",true},{"stopping",false},{"finished",false},{"done",false}}}}};
+                bridge._featureScriptWorkCommand={{"schemaVersion",1},{"commandId",closedNonce},{"action","feature-script-work-observe"},
+                    {"managerInstance",caller.value("manager").toMap().value("instance")}};
+                bridge._featureScriptWorkResult={{"schemaVersion",1},{"requestId",closedNonce},{"instance",bridge._featureObservationInstance},
+                    {"sequence",1},{"processId",QCoreApplication::applicationPid()},{"requestedEpochMs",epoch},{"capturedEpochMs",epoch},{"source",source}};
+                if (mode=="fast-closed-hidden") { page->setVisible(false); }else { page->setParentItem(nullptr); }
+                if (mode=="fast-closed-stale") { bridge._featureScriptWorkResult["requestedEpochMs"]=epoch-2000; }
+                if (mode=="fast-closed-nonce") { closedNonce=QString(32,'1'); }
+                if (mode=="fast-closed-manager") { source["manager"]=QVariantMap{{"instance",QString(32,'2')}}; }
+                if (mode=="fast-closed-compiled") { source["compiled"]=QVariantMap{{"complete",true},{"compilations",QVariantList{}}}; }
+                if (mode=="fast-closed-evaluating") { work["evaluating"]=true; }
+                if (mode=="fast-closed-callback") { activity["signalCallbacks"]=1;work["signalCallbacks"]=1;work["activity"]=QVariantList{activity}; }
+                if (mode=="fast-closed-timer" || mode=="fast-closed-unknown") {
+                    work["timers"]=QVariantList{QVariantMap{{"functionScriptId",mode=="fast-closed-timer" ? 2 : 999}}};work["timerEntries"]=1;
+                }
+                if (mode=="fast-closed-missing") { bridge._featureScriptWorkResult.clear(); }
+                else { source["work"]=work;bridge._featureScriptWorkResult["source"]=source; }
+                if (mode=="fast-closed-native") { ++captures; }
+                if (mode=="fast-closed-script-instance") { currentScriptInstance=QString(32,'9'); }
+                if (mode=="fast-closed-history-instance") { currentHistoryInstance=QString(32,'9'); }
+                if (mode=="fast-closed-history-drop") { scriptEvents.clear(); }
+                if (mode=="fast-closed-history-change") { auto row=scriptEvents.first().toMap();row["revision"]=999;scriptEvents.first()=row; }
+                if (mode=="fast-closed" || mode=="fast-closed-hidden") {
+                    const auto current=call("observe");
+                    if (current.value("current").toMap().value("scriptWork")!=bridge._featureScriptWorkResult || current.value("phase")!="complete"
+                            || call("retire").value("retired")!=true || messages.size()!=before || delay.isActive() || timeout.isActive()) { return 43; }
+                    std::puts((QByteArray("CLOSED:")+QJsonDocument::fromVariant(latest).toJson(QJsonDocument::Compact)).constData());
+                } else {
+                    if (!call("retire").isEmpty() || messages.size()!=before) { return 44; }
+                    return 0;
+                }
+            } else
             if(call("retire").value("retired")!=true) { return 35; }
             if(mode=="fast-late-work") {
                 if(!input("snapshot.capture","activate")) { return 36; }QTest::qWait(10);

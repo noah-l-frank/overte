@@ -12,7 +12,7 @@ ROOT=Path(__file__).resolve().parents[4]
 sys.path[:0]=[str(ROOT/'tests/device'),str(ROOT/'tests/device/adapters/android-phone')]
 from adapters.normal_ui import NativeUIError
 from appium_adapter import readonly_feature_command
-from overte_phone_snapshot_cancel import PhoneSnapshotCancel,command
+from overte_phone_snapshot_cancel import PhoneSnapshotCancel,command,history_prefix
 from test_snapshot_source import Boundary as SnapshotBoundary
 
 RUN='a'*32;JOB='b'*32
@@ -124,6 +124,33 @@ class SnapshotCancelTests(unittest.TestCase):
                 dict(request=INPUT|dict(expectedCancelled=True)),dict(operation='observe'),dict(operation='reset')):
             with self.subTest(change=change),self.assertRaises((RuntimeError,ValueError)):command(request|change)
 
+    def test_terminal_floors_preserve_both_complete_original_streams(self):
+        boundary=Boundary();before=boundary.before
+        for key in ('history','scriptHistory'):
+            changed=deepcopy(before);changed['native'][key]['instance']='0'*32 if before['native'][key]['instance']!='0'*32 else '1'*32
+            with self.subTest(stream=key),self.assertRaises((RuntimeError,ValueError)):history_prefix(before,changed)
+        later=deepcopy(before);later['capturedEpochMs']+=10
+        # Synthetic append tests only the continuity algebra; packet validation
+        # separately requires the original closed event grammars.
+        for key in ('history','scriptHistory'):
+            later['native'][key]['events'].append(dict(original='unchanged'))
+            later['native'][key]['sequence']+=1
+        history_prefix(before,later)
+        for key in ('history','scriptHistory'):
+            for fault in ('drop','replace','instance'):
+                changed=deepcopy(later)
+                if fault=='drop':changed['native'][key].update(sequence=0,events=[])
+                elif fault=='replace':changed['native'][key]['events'][0]['original']='changed'
+                else:changed['native'][key]['instance']='8'*32
+                with self.subTest(stream=key,fault=fault),self.assertRaises((RuntimeError,ValueError)):history_prefix(later,changed)
+
+    def test_only_observe_and_retire_accept_a_closed_current_original_work_nonce(self):
+        base=dict(schemaVersion=1,commandId='d'*32,action='phone-snapshot-cancel',runId=RUN,jobId=JOB,operation='observe',request={})
+        command(base|dict(closedReadWorkRequestId='1'*32));command(base|dict(operation='retire',closedReadWorkRequestId='1'*32))
+        for changed in (base|dict(operation='start',request=INPUT,closedReadWorkRequestId='1'*32),
+                base|dict(closedReadWorkRequestId='invalid'),base|dict(closedReadWorkRequestId='1'*32,scriptWork={})):
+            with self.subTest(changed=changed),self.assertRaises((RuntimeError,ValueError)):command(changed)
+
     def test_probe_dispatch_executes_only_closed_commands_and_never_replays_start(self):
         raw=(ROOT/'tests/device/probe/overte_e2e_probe.js').read_text()
         start=raw.index('    function applyClientCommand(command) {')
@@ -141,6 +168,8 @@ for(const change of [{expectedCancelled:true},{request:{...request.request,contr
  applyClientCommand({...request,commandId:'e'.repeat(32),...change});
 assert.equal(calls.length,1);assert.deepEqual(saved,['phone-snapshot-cancel.json']);
 applyClientCommand({...request,commandId:'f'.repeat(32),operation:'observe',request:{}});assert.equal(calls.length,2);
+applyClientCommand({...request,commandId:'1'.repeat(32),closedReadWorkRequestId:'2'.repeat(32)});assert.equal(calls.length,2);
+applyClientCommand({...request,commandId:'3'.repeat(32),operation:'observe',request:{},closedReadWorkRequestId:'2'.repeat(32)});assert.equal(calls.length,3);
 '''
         subprocess.run(['node','-e',script],check=True,timeout=10)
 

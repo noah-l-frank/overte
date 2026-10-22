@@ -1500,7 +1500,9 @@ QVariantMap TestScriptingInterface::phoneSnapshotCancel(const QVariantMap& comma
         return result;
     }
     const auto json=QJsonObject::fromVariantMap(command);
-    QStringList keys{"schemaVersion","commandId","action","runId","jobId","operation","request"};keys.sort();
+    QStringList keys{"schemaVersion","commandId","action","runId","jobId","operation","request"};
+    const bool closedRead=command.contains("closedReadWorkRequestId");
+    if (closedRead) { keys.append("closedReadWorkRequestId"); }keys.sort();
     const QRegularExpression nonce("\\A[0-9a-f]{32}\\z");
     if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
             || !QCoreApplication::arguments().contains("--testScript") || command.keys()!=keys
@@ -1513,6 +1515,20 @@ QVariantMap TestScriptingInterface::phoneSnapshotCancel(const QVariantMap& comma
     const auto operation=json.value("operation").toString(),job=json.value("jobId").toString();
     if (!QStringList{"start","observe","retire"}.contains(operation)
             || (operation!="start" && !json.value("request").toObject().isEmpty())) { return {}; }
+    QVariantMap closedWork;
+    if (closedRead) {
+        const auto workId=json.value("closedReadWorkRequestId");
+        if (operation=="start" || !workId.isString() || !nonce.match(workId.toString()).hasMatch()
+                || _featureScriptWorkCommand.value("commandId")!=command.value("closedReadWorkRequestId")
+                || _featureScriptWorkResult.value("requestId")!=command.value("closedReadWorkRequestId")
+                || _featureScriptWorkResult.value("instance")!=_featureObservationInstance
+                || _featureScriptWorkResult.value("processId").toLongLong()!=QCoreApplication::applicationPid()
+                || _featureScriptWorkResult.value("source").toMap().value("manager").toMap().value("instance")
+                    !=_featureScriptWorkCommand.value("managerInstance")) { return {}; }
+        // The caller supplies only the nonce of a completed ordinary readonly
+        // owner-thread barrier. Its original times and body stay unchanged.
+        closedWork=_featureScriptWorkResult;
+    }
     const auto requested=QDateTime::currentMSecsSinceEpoch();
     auto owner=_phoneSnapshotCancelJobs.value(job);
     if (!owner) {
@@ -1531,7 +1547,7 @@ QVariantMap TestScriptingInterface::phoneSnapshotCancel(const QVariantMap& comma
             item->mapToScene(QPointF(item->width()/2,item->height()/2)));
     };
     const auto source=owner->request(json.value("runId").toString(),job,operation,
-        json.value("request").toObject(),ui->getRootItem(),window,_phoneSnapshotUi,read,click);
+        json.value("request").toObject(),ui->getRootItem(),window,_phoneSnapshotUi,read,click,closedWork);
     if (source.isEmpty() || QJsonDocument::fromVariant(source).toJson(QJsonDocument::Compact).size()>200000) { return {}; }
     _phoneSnapshotCancelJobs.insert(job,owner);
     QVariantList jobs;

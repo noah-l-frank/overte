@@ -55,6 +55,7 @@ public:
     QString _testResultsLocation{"private-test-only"},_featureObservationInstance{QString(32,'f')};
     std::shared_ptr<Lifecycle> _featureLifecycle=std::make_shared<Lifecycle>();
     quint64 _phoneSnapshotCancelSequence{0};
+    QVariantMap _featureScriptWorkCommand,_featureScriptWorkResult;
     std::shared_ptr<overte::e2e::SnapshotUi> _phoneSnapshotUi;
     QMap<QString,std::shared_ptr<overte::e2e::PhoneSnapshotFastCancel>> _phoneSnapshotCancelJobs;
     QVariantMap phoneSnapshotCancel(const QVariantMap& command);
@@ -75,6 +76,26 @@ public:
             env=os.environ|{'QT_QPA_PLATFORM':'offscreen','QT_QUICK_BACKEND':'software','XDG_CONFIG_HOME':str(self.stage/'config')})
         lines=raw.splitlines();original=json.loads(lines[0]);original.update(commandId='a'*32,action='observe')
         validate(original,'a'*32,original['processId'],original['capturedEpochMs'])
+        if mode in ('fast-closed','fast-closed-hidden'):
+            actual=json.loads(next(line[7:] for line in lines if line.startswith('CLOSED:')))
+            work=actual['source']['current']['scriptWork']
+            request=dict(schemaVersion=1,commandId=actual['requestId'],action='phone-snapshot-cancel',runId=actual['runId'],
+                jobId=actual['source']['job'],operation='retire',request={},closedReadWorkRequestId=work['requestId'])
+            validate_cancel(actual,request,original['processId'],actual['capturedEpochMs'])
+            self.assertEqual(work,actual['source']['retirement']['scriptWork'])
+            self.assertTrue(actual['source']['retired']);self.assertEqual('complete',actual['source']['phase'])
+            for field in ('current','retirement'):
+                for fault in ('instance','drop','replace','missing-work','stale-work','foreign-work','busy-work'):
+                    changed=deepcopy(actual);frame=changed['source'][field]
+                    if fault=='instance':frame['native']['scriptHistory']['instance']='9'*32
+                    elif fault=='drop':frame['native']['scriptHistory'].update(sequence=0,events=[])
+                    elif fault=='replace':frame['native']['scriptHistory']['events'][0]['revision']+=1
+                    elif fault=='missing-work':frame.pop('scriptWork')
+                    elif fault=='stale-work':frame['scriptWork']['capturedEpochMs']=1
+                    elif fault=='foreign-work':frame['scriptWork']['source']['manager']['instance']='9'*32
+                    else:frame['scriptWork']['source']['work']['evaluating']=True
+                    with self.subTest(field=field,fault=fault),self.assertRaises((RuntimeError,ValueError,KeyError)):
+                        validate_cancel(changed,request,original['processId'],actual['capturedEpochMs'])
         if mode=='fast-normal':
             state=json.loads(next(line[5:] for line in lines if line.startswith('FAST:')))
             epoch=state['observedEpochMs'];request=dict(schemaVersion=1,commandId='d'*32,action='phone-snapshot-cancel',
@@ -112,6 +133,11 @@ public:
     def test_fast_cancel_foreign_completion_cannot_borrow_the_owned_pending_context(self):self.run_case('fast-foreign')
     def test_fast_cancel_native_history_replacement_cannot_hide_render_submission(self):self.run_case('fast-native-replacement')
     def test_fast_cancel_retirement_never_clears_or_masks_late_product_work(self):self.run_case('fast-late-work')
+    def test_closed_review_observation_and_retirement_require_actual_current_vm_barrier(self):
+        self.run_case('fast-closed');self.run_case('fast-closed-hidden')
+    def test_closed_review_never_accepts_missing_stale_foreign_or_unfinished_vm_and_native_work(self):
+        for mode in ('stale','nonce','manager','compiled','evaluating','callback','timer','unknown','missing','native','script-instance','history-instance','history-drop','history-change'):
+            with self.subTest(mode=mode):self.run_case('fast-closed-'+mode)
 
 
 if __name__=='__main__':unittest.main()

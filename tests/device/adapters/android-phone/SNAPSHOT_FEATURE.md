@@ -710,3 +710,19 @@ is foreground. The evidence namespace retains the separately acquired provider
 bytes in addition to the actual native Save copy. The targeted SDK26 source
 composition and retirement counterprobes remain synthetic Android/VM boundaries;
 the complete common replay and physical acceptance are separate qualifications.
+
+
+Closed Review FastCancel observations preserve the original recipe and both
+append-only native/script histories. Start, before, pending and cancelled still
+require the original visible Review and unchanged normal Capture/Cancel inputs.
+Only observe/retire can supply `closedReadWorkRequestId`, the nonce of an already
+completed original `feature-script-work-observe` owner-thread barrier. Native
+code joins that nonce to its actual cached command/result, original manager,
+submitted source and compilation; no caller-supplied work body is accepted.
+Absent/hidden Review additionally requires actual current native idle state,
+zero owned/unknown timers and callbacks, no evaluation, and original monotone
+activity counters. Historical work timestamps are retained. Current source
+loss, changed histories or unfinished work keep observation/retirement red;
+retirement never cancels work or changes the original complete/failed result.
+The Qt/QML contract runs the unchanged Test method and actual input/timer code
+with explicitly synthetic VM/source producers; it is not device acceptance.
