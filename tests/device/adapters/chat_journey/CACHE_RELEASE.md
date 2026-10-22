@@ -71,3 +71,13 @@ or full Chat acceptance is added.
 cd tests/device
 PYTHONDONTWRITEBYTECODE=1 python3 -m unittest self_tests.test_chat_cache_release -v
 ```
+
+For the Pico catalog's unchanged 120-second budget, four lossless suite factories
+separate the actual positive closure, admission/lost-CAS countercases, quiet/late
+input countercases and final-clock countercase:
+`cache_release_positive_tests`, `cache_release_admission_tests`,
+`cache_release_quiet_tests`, and `cache_release_final_clock_tests` in the same
+host test module. Selection refuses missing or duplicated original cases. No
+case, repetition or freshness bound is removed, and normal module discovery
+continues to include every case. An aggregate module timing is not presented as
+a measured per-selector timing.
