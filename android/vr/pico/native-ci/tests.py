@@ -163,6 +163,14 @@ class PicoCiGraphContracts(unittest.TestCase):
         # Avoid Gradle's 512 MiB default without granting an unbounded heap.
         self.assertEqual(properties["org.gradle.jvmargs"].split(), ["-Xms256m", "-Xmx4g"])
 
+    def test_independent_gradle_root_enables_required_androidx_dependencies(self):
+        # Pico has its own settings.gradle: common/gradle.properties cannot
+        # enable AndroidX for its WebKit/Core runtime dependencies.
+        properties = dict(line.split("=", 1) for line in
+                          (HERE.parent / "gradle.properties").read_text().splitlines()
+                          if line and not line.startswith("#"))
+        self.assertEqual(properties.get("android.useAndroidX"), "true")
+
     def test_declared_dependency_cohort_matches_graph_admission(self):
         common = HERE.parents[2] / "common/native-ci"
         declaration = ast.parse((common / "target.conanfile.py").read_text())
