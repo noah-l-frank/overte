@@ -30,6 +30,7 @@ REQUIRED = {
     "ios-tablet-web": 1,
     "ios-world-web-snapshot": 1,
     "ios-world-web-snapshot-body": 1,
+    "ios-uikit-input": 1,
     "ios-tablet-web-closures": 1,
     "ios-tablet-web-dom": 1,
     "ios-tablet-screen-images": 1,

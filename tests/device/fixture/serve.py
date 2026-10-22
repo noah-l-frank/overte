@@ -557,6 +557,12 @@ class FixtureState:
             try:tablet_web_command(command)
             except (ValueError,RuntimeError):raise ValueError("invalid iOS tablet Web transcript request") from None
             valid=True
+        elif action == "feature-ios-uikit-input":
+            sys.path.insert(0,str(ROOT.parent))
+            from ios.adapters.uikit_input import command as uikit_input_command
+            try:uikit_input_command(command)
+            except (ValueError,RuntimeError):raise ValueError("invalid iOS UIKit input source request") from None
+            valid=True
         elif action == "feature-ios-tablet-web-closures":
             sys.path.insert(0,str(ROOT.parent))
             from ios.adapters.tablet_web_closures import command as tablet_closures_command

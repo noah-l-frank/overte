@@ -13,6 +13,9 @@
 //
 
 #include "Application.h"
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+#include "../../ios/web/IOSUIKitInputObservation.h"
+#endif
 #include "ApplicationLifecycle.h"
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
 #include "../../tests/device/native/IOSPointerObservation.h"
@@ -290,14 +293,14 @@ Application::Application(
     _window(new MainWindow(desktop())),
 #else
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
-    _window((overte::e2e::IOSPointerObservation::startup(),overte::e2e::IOSWorldWebKeysObservation::startup(),new MainWindow())),
+    _window((overte::e2e::IOSPointerObservation::startup(),overte::e2e::IOSWorldWebKeysObservation::startup(),overte::ios::uikit_input::startup(),new MainWindow())),
 #else
     _window(new MainWindow()),
 #endif
 #endif
 #else
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
-    _vkWindow((overte::e2e::IOSPointerObservation::startup(),overte::e2e::IOSWorldWebKeysObservation::startup(),new VKWindow())),
+    _vkWindow((overte::e2e::IOSPointerObservation::startup(),overte::e2e::IOSWorldWebKeysObservation::startup(),overte::ios::uikit_input::startup(),new VKWindow())),
 #else
     _vkWindow(new VKWindow()),
 #endif

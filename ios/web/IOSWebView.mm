@@ -18,6 +18,7 @@
 #include "IOSTabletWebPresentation.h"
 #include "IOSTabletWebDOMState.h"
 #include "IOSTabletWebClosures.h"
+#include "IOSUIKitInputObservation.h"
 #endif
 #include <QFile>
 #include <QFileInfo>
@@ -46,6 +47,13 @@
 #import <WebKit/WebKit.h>
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #import <objc/runtime.h>
+#endif
+
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+namespace overte::ios::uikit_input {
+void startup() noexcept { install(); }
+QVariantMap observation(const QVariantMap& query) { return observe(query); }
+}
 #endif
 
 namespace overte::ios {
@@ -742,6 +750,7 @@ void IOSWebView::open() {
             if (featureEnabled() && state.view && state.featureCreation<9007199254740991ULL) {
                 ++state.featureCreation;
                 browser_trace::event(owner->featureBrowserIdentity(),"view-created");
+                uikit_input::bind(state.view,owner->featureBrowserIdentity());
             }
             state.delegate->featureScope = owner->featureClosureContext();
             feature_closures::nativeObject((__bridge void*)state.view, state.delegate->featureScope, feature_closures::Kind::NativeView);
