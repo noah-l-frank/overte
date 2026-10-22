@@ -61,3 +61,16 @@ Qt 6 and executes the real Python adapter and journey against explicit native
 I/O boundaries. It does not compile UIKit or install/run an IPA. The native Mac
 build, independent installed-code binding, ordinary device observations and
 physical acceptance remain pending.
+
+The isolated feature-adapter work additionally exercises the connected ordinary
+restart coordinator with sources constructed after modeled launch. A fresh SDK,
+independent startup bookmark-file load, complete import/tree ledger, navigation,
+Places model/HTTP/dialog inventory and UI/reply sources feed the real typed
+`NavigationProcessOwner`. The original admission, old process histories and
+restart receipts remain byte-for-byte unchanged. One shared modeled import
+ledger supplies its own read counter to its two independent source readers;
+original clocks and returned native DTOs are never retimed. Ignored startup
+bookmark loading leaves the transfer unresolved and never repeats stop/launch.
+These two host tests prove source ownership and process-stage coordination.
+They do not establish actual iOS restart behavior, whole paired restoration,
+compilation or device acceptance. The complete Worlds capability remains gated.
