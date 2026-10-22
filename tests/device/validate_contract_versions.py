@@ -124,6 +124,7 @@ REQUIRED = {
     "original-frame-store": 1,
     "ios-avatar-originals": 1,
     "ios-avatar-scripts": 1,
+    "ios-avatar-ui-work": 1,
     "ios-avatar-scripts-acquisition": 1,
     "native-avatar-script-observation": 1,
     "ios-avatar-social": 1,

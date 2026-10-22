@@ -59,6 +59,7 @@
 #if defined(Q_OS_IOS)
 #include "CreateSourceObservation.h"
 #include "AvatarScriptObservation.h"
+#include "AvatarUiWorkObservation.h"
 #endif
 #endif
 
@@ -1053,6 +1054,7 @@ public:
 #if defined(Q_OS_IOS)
     QVariantMap featureCreateSources() const { return _featureCreateSources.snapshot(); }
     QVariantMap featureAvatarScriptObservation() const { return _featureAvatarScript->snapshot(); }
+    QVariantMap featureAvatarUiWorkObservation() const { return _featureAvatarUiWork->snapshot(); }
 #endif
     QVariantMap featureRequiredModules() const { return _e2eRequiredModules.snapshot(); }
     QVariantMap featureSourceIdentity() const { return _e2eRequiredModules.sourceIdentity(); }
@@ -1725,6 +1727,7 @@ protected:
     overte::e2e::CreateSourceObservation _featureCreateSources;
     QStringList featureAvatarTimerCallers() const;
     std::shared_ptr<overte::e2e::AvatarScriptObservation> _featureAvatarScript {std::make_shared<overte::e2e::AvatarScriptObservation>()};
+    std::shared_ptr<overte::e2e::AvatarUiWorkObservation> _featureAvatarUiWork {std::make_shared<overte::e2e::AvatarUiWorkObservation>()};
 #endif
     void featureCallbackBoundary(bool timer, bool entering);
     const bool _featureWorkEnabled {QCoreApplication::arguments().contains("--testScript")};

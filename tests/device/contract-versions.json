@@ -118,6 +118,7 @@
     "original-frame-store": {"current": 1, "reads": [1]},
     "ios-avatar-originals": {"current": 1, "reads": [1]},
     "ios-avatar-scripts": {"current": 1, "reads": [1]},
+    "ios-avatar-ui-work": {"current": 1, "reads": [1]},
     "ios-avatar-scripts-acquisition": {"current": 1, "reads": [1]},
     "native-avatar-script-observation": {"current": 1, "reads": [1]},
     "ios-avatar-social": {"current": 1, "reads": [1]},

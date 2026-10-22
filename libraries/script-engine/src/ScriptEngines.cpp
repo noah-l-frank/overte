@@ -505,7 +505,8 @@ QVariantMap ScriptEngines::featureAvatarScriptObservation() {
         const auto source=manager->featureAvatarScriptObservation();const auto id=member.value("instance").toString();
         if (member.isEmpty() || code.isEmpty() || source.isEmpty() || id.isEmpty() || workers.contains(id)) { return {}; }
         workers.insert(id,QVariantMap{{"membership",member},{"code",code},{"running",manager->isRunning()},
-            {"stopping",manager->isStopping()},{"finished",manager->isFinished()},{"done",manager->isDoneRunning()},{"avatar",source}});
+            {"stopping",manager->isStopping()},{"finished",manager->isFinished()},{"done",manager->isDoneRunning()},{"avatar",source},
+            {"uiWork",manager->featureAvatarUiWorkObservation()}});
         if (member!=manager->featureLoadMembership() || code!=manager->featureSourceIdentity()) { return {}; }
     }
     {

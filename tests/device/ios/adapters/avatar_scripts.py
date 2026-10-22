@@ -103,9 +103,12 @@ def validate(value,query,pid,epoch=None,previous=None):
          and type(source['workers']) is list and len(source['workers'])<=128)
     ids=[];births=set();membership(members(source),after['epochMs'])
     for worker in source['workers']:
-        exact(worker,{'membership','code','running','stopping','finished','done','avatar'})
+        exact(worker,{'membership','code','running','stopping','finished','done','avatar'}|({'uiWork'} if 'uiWork' in worker else set()))
         for key in ('running','stopping','finished','done'):need(type(worker[key]) is bool)
         validate_code(worker['code'],after['epochMs']);timer_states(worker['avatar'],after['epochMs'])
+        if 'uiWork' in worker:
+            from ios.adapters.avatar_ui_work import validate as ui_work
+            ui_work(worker['uiWork'],after['epochMs'])
         ids.append(worker['membership']['instance']);birth=worker['avatar']['instance'];need(birth not in births);births.add(birth)
     need(ids==sorted(set(ids)) and len(json.dumps(value,allow_nan=False).encode())<=LIMIT)
     if previous is not None:
@@ -123,6 +126,10 @@ def validate(value,query,pid,epoch=None,previous=None):
             for key in ('code','events'):
                 original=prior['avatar'][key];need(len(row['avatar'][key])>=len(original) and row['avatar'][key][:len(original)]==original)
             need(prior['avatar']['complete'] or not row['avatar']['complete'])
+            if 'uiWork' in prior:
+                need('uiWork' in row)
+                from ios.adapters.avatar_ui_work import validate as ui_work
+                ui_work(row['uiWork'],after['epochMs'],prior['uiWork'])
     return value
 
 

@@ -1477,6 +1477,8 @@ void ScriptManager::timerFired(int handle) {
     auto data = functionPair.second;
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
     const auto avatarTimer=_featureAvatarScript->fired(handle,timer.get());
+    const auto avatarUiTimer=_featureAvatarUiWork->fired(handle,timer.get());
+    Finally avatarUiDispatchReturned([&] { _featureAvatarUiWork->dispatchReturned(avatarUiTimer); });
 #endif
 
     if (!timer->isActive()) {
@@ -1494,6 +1496,8 @@ void ScriptManager::timerFired(int handle) {
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
         _featureAvatarScript->callback(avatarTimer,true);
         Finally avatarCallbackLeft([&] { _featureAvatarScript->callback(avatarTimer,false); });
+        _featureAvatarUiWork->callback(avatarUiTimer,true);
+        Finally avatarUiCallbackLeft([&] { _featureAvatarUiWork->callback(avatarUiTimer,false); });
 #endif
         callWithEnvironment(data.definingEntityIdentifier, data.definingSandboxURL, data.function, data.function, ScriptValueList(), data.consentRequest);
         auto postTimer = p_high_resolution_clock::now();
@@ -1515,11 +1519,11 @@ QStringList ScriptManager::featureAvatarTimerCallers() const {
     while (context && ++depth<=128) {
         const auto function=context->functionContext();
         if (function && function->functionType()==ScriptFunctionContext::ScriptFunction) {
-            const auto source=function->fileName();if (source.size()>4096 || result.size()>=32) { _featureAvatarScript->unavailable();return {}; }result.append(source);
+            const auto source=function->fileName();if (source.size()>4096 || result.size()>=32) { _featureAvatarScript->unavailable();_featureAvatarUiWork->unavailable();return {}; }result.append(source);
         }
         owner=context->parentContext();context=owner.get();
     }
-    if (depth>128) { _featureAvatarScript->unavailable();return {}; }
+    if (depth>128) { _featureAvatarScript->unavailable();_featureAvatarUiWork->unavailable();return {}; }
     return result;
 }
 #endif
@@ -1560,6 +1564,11 @@ int ScriptManager::setupTimerWithInterval(const ScriptValue& function, int inter
     if (!avatarTimer.isEmpty()) {
         const auto observer=_featureAvatarScript;
         QObject::connect(newTimer.get(),&QObject::destroyed,[observer,avatarTimer] { observer->destroyed(avatarTimer); });
+    }
+    const auto avatarUiTimer=_featureAvatarUiWork->created(handle,featureAvatarTimerCallers(),newTimer.get());
+    if (!avatarUiTimer.isEmpty()) {
+        const auto observer=_featureAvatarUiWork;
+        QObject::connect(newTimer.get(),&QObject::destroyed,[observer,avatarUiTimer] { observer->destroyed(avatarUiTimer); });
     }
 #endif
     return handle;
