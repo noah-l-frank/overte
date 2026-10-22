@@ -177,7 +177,7 @@ class OwnedCreatePicker:
     def same_scene(before,after):
         a,b=before['source'],after['source']
         need(before['instance']==after['instance'] and a['domainConnected'] and b['domainConnected'] and a['domainId'] is not None and a['sessionId'] is not None
-            and a['createEntitySourceVersion']==b['createEntitySourceVersion'] and a['createEntitySourceVersion'] in (2,3,4) and a['domainSession']==b['domainSession']
+            and a['createEntitySourceVersion']==b['createEntitySourceVersion'] and a['createEntitySourceVersion'] in (2,3,4,5) and a['domainSession']==b['domainSession']
             and all(a[k]==b[k] for k in ('runId','domainId','sessionId','canRez','canRezTmp'))
             and a['scan']['center']==b['scan']['center'] and a['scan']['unowned']==b['scan']['unowned'])
 
@@ -236,7 +236,7 @@ class OwnedCreatePicker:
             value=dict(schemaVersion=VERSION,binding=self.binding,runId=run,fixtureUrl=fixture_url,steps=[],lastInput=None,inputCount=0,pending=None)
             allowed=set();need(role=='import')
         need(all(r['id'] in allowed for r in active_dialogs(actual['dialogs'])))
-        source=actual['entities']['source'];need(source['createEntitySourceVersion'] in (3,4) and source['domainConnected'] and source['domainId'] and source['sessionId']
+        source=actual['entities']['source'];need(source['createEntitySourceVersion'] in (3,4,5) and source['domainConnected'] and source['domainId'] and source['sessionId']
             and (source['canRez'] or source['canRezTmp']))
         if role=='import':need(entities_retired(source))
         else:

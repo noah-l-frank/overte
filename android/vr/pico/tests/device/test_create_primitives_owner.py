@@ -169,7 +169,11 @@ class CreatePrimitiveJourneyTests(unittest.TestCase):
         self.assertEqual('created',step['outcome']);self.assertEqual('primitive',state['subject']);self.assertEqual([0,1,-2],step['position'])
         self.assertEqual([1,1,1],self.b.rows[0]['dimensions']);self.assertEqual('e2e-'+self.root.run+'-voxel',self.b.rows[0]['name'])
         with self.root.lock.held():self.assertEqual(CANONICAL,voxel_source(self.root.sample()['entities']['source']['entities'][0]['voxels']))
-        self.make();self.act('delete-owned');self.assertEqual('deleted',self.root.state()['primitives'][-1]['outcome']);self.assertFalse(self.b.rows)
+        with self.root.lock.held():
+            legacy=self.root.state();legacy.pop('voxelEdit');legacy['createFeatureVersion']=2;self.root.write(legacy)
+        original_proof=deepcopy(step['creationProof']);self.make();self.assertEqual(2,self.root.state()['createFeatureVersion'])
+        self.act('delete-owned');self.assertEqual(3,self.root.state()['createFeatureVersion'])
+        self.assertEqual(original_proof,self.root.state()['primitives'][-1]['creationProof']);self.assertEqual('deleted',self.root.state()['primitives'][-1]['outcome']);self.assertFalse(self.b.rows)
         from adapters.script_journey.history import unpack
         proof=self.root.state()['primitives'][-1]['creationProof'];frames=unpack(proof['native']);actual=json.loads(frames[0]['raw'])
         self.assertEqual(CANONICAL,voxel_source(actual['source']['entities'][0]['voxels']))

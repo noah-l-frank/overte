@@ -12,6 +12,7 @@
 #include <cassert>
 #include <array>
 #include <memory>
+#include <functional>
 #include <mutex>
 #include <glm/glm.hpp>
 #define OVERTE_E2E_FEATURE_TESTS 1
@@ -60,7 +61,7 @@ struct RenderablePolyVoxEntityItem {
     mutable std::recursive_mutex mutex;mutable int locked{0};mutable int reads{0};
     template<class F>void withReadLock(F&& function) const{std::lock_guard<std::recursive_mutex> lock(mutex);++locked;function();--locked;}
     uint8_t getVoxelInternal(const glm::ivec3& point) const{assert(locked==1);++reads;return _volData->at(point.z*64+point.y*8+point.x);}
-    QVariantMap featureCreateVoxels() const;
+    QVariantMap featureCreateVoxels(const std::function<void(const std::shared_ptr<void>&)>& observed=std::function<void(const std::shared_ptr<void>&)>()) const;
 };
 #include "OriginalAtomicVoxels.inc"
 int main(int argc,char**argv){

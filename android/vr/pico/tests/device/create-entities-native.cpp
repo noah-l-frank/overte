@@ -24,14 +24,18 @@
 #include <algorithm>
 #include <cassert>
 #include <memory>
+#include <functional>
 #include <type_traits>
 #define OVERTE_E2E_FEATURE_TESTS 1
+#include "CreatePolyvoxResources.h"
 struct EntityItem:QObject{};using EntityItemPointer=std::shared_ptr<EntityItem>;
 using RenderableModelEntityItem=EntityItem;
 #include "CreateEntityLifetimes.h"
 #include "CreateLocalCreations.h"
 struct PolyVoxEntityItem:EntityItem {
-    QVariantMap featureCreateVoxels() const {
+    std::shared_ptr<void> actualMesh{std::make_shared<int>(1)};
+    QVariantMap featureCreateVoxels(const std::function<void(const std::shared_ptr<void>&)>& observed=std::function<void(const std::shared_ptr<void>&)>()) const {
+        if (observed) {observed(actualMesh);}
         // Declared renderer-storage actor; the complete original atomic
         // renderer method is independently compiled by the second host test.
         QByteArray values(512,0);for(int z=2;z<6;++z){for(int y=2;y<6;++y){for(int x=2;x<6;++x){values[z*64+y*8+x]=char(255);}}}

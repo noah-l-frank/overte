@@ -567,6 +567,12 @@ def create_adapter(args, base_class):
             self._bind_create_transport(ui,before_send)
             return TokenCreateExtraUI(PicoCreateExtraIO(ui.io),intent,monotonic=ui.monotonic,sleep=ui.sleep)
 
+        def _create_voxel_controls(self,target,intent,*,before_send=None):
+            from adapters.pico4.create_voxel_ui import TokenCreateVoxelUI,PicoCreateVoxelIO
+            ui,_observe,_binding=self._script_runtime(target)
+            self._bind_create_transport(ui,before_send)
+            return TokenCreateVoxelUI(PicoCreateVoxelIO(ui.io),intent,monotonic=ui.monotonic,sleep=ui.sleep)
+
         def _create_management(self, target):
             return create_management.PicoCreateManagement(self, target)
 

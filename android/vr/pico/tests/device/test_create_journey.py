@@ -171,6 +171,7 @@ class CreateJourneyTests(unittest.TestCase):
                 patch('adapters.pico4.create_browse_setting.OwnedCreateBrowseSetting',side_effect=lambda *_a:FakeSetting(self.b)),
                 patch('adapters.pico4.tablet_home.bind_home',side_effect=lambda *_a:PicoTabletHome(home,home.stage))):
             boundary.start();self.addCleanup(boundary.stop)
+        if callable(getattr(self,'_before_prepare',None)):self._before_prepare()
         self.root.invoke('prepare')
     def make(self):
         self.root=PicoCreateJourney(self.adapter,self.adapter.target,RUN,self.source());self.b.root=self.root;return self.root

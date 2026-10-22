@@ -103,6 +103,8 @@ QString controlId(QQuickItem* item) {
     if (!chat.isEmpty()) { return chat; }
     const auto createExtra=overte::e2e::createExtraControlId(item);
     if (!createExtra.isEmpty()) {return createExtra;}
+    const auto createVoxel=overte::e2e::createVoxelControlId(item);
+    if (!createVoxel.isEmpty()) {return createVoxel;}
     const auto create=overte::e2e::createControlId(item);
     if (!create.isEmpty()) { return create; }
     const auto graphics = overte::e2e::graphicsControlId(item);
@@ -292,6 +294,9 @@ QJsonObject NavigationUi::observe(QQuickItem* root, QQuickWindow* window, bool o
                 } else if (id.startsWith("create-extra.")) {
                     source=overte::e2e::createExtraControlSource(item,id);
                     if (source.isEmpty()) {ambiguous=true;return;}
+                } else if (id.startsWith("create-voxel.")) {
+                    source=overte::e2e::createVoxelControlSource(item,id);
+                    if (source.isEmpty()) {ambiguous=true;return;}
                 } else if (id.startsWith("create.")) {
                     source=overte::e2e::createControlSource(item,id);
                 } else if (id.startsWith("account-menu.")) {
@@ -385,6 +390,8 @@ QJsonObject NavigationUi::observe(QQuickItem* root, QQuickWindow* window, bool o
             overte::e2e::appendChatControlObservation(row,control.item,id);
         } else if (id.startsWith("create-extra.")) {
             overte::e2e::appendCreateExtraObservation(row,control.item,id);
+        } else if (id.startsWith("create-voxel.")) {
+            overte::e2e::appendCreateVoxelObservation(row,control.item,id);
         } else if (id.startsWith("create.")) {
             overte::e2e::appendCreateControlObservation(row,control.item,id);
         } else if (id.startsWith("account-menu.")) {
@@ -427,6 +434,7 @@ QJsonObject NavigationUi::observe(QQuickItem* root, QQuickWindow* window, bool o
     result["emoteSourceSequence"] = static_cast<double>(++_emoteSourceSequence);
     result["lifecycleControlsVersion"] = 1;
     result["createExtraControlsVersion"]=1;
+    result["createVoxelControlsVersion"]=1;
     result["createExtraUiInventory"]=overte::e2e::createExtraUiLifetimes().snapshot();
     result["fileControlsVersion"] = 1;
     if (audioContext.valid) { result["audioControlsVersion"] = 1; }
@@ -600,6 +608,20 @@ QJsonObject NavigationUi::apply(QQuickItem* root, QQuickWindow* window, bool ope
         } else if (action=="select-index" && overte::e2e::createExtraCount(controlId)) {
             qint64 index{0};if (integer(command.value("index"),index)) {
                 delivered=overte::e2e::NormalControlUi::selectCreateChoice(control.item,window,index,overte::e2e::createExtraCount(controlId));
+            }
+        }
+    } else if (controlId.startsWith("create-voxel.")) {
+        QJsonObject row;overte::e2e::appendCreateVoxelObservation(row,control.item,controlId);
+        if (current.value("createVoxelControlsVersion")!=QJsonValue(1) || !row.value("inputReady").toBool()) {return result;}
+        const auto point=control.item->mapToScene(QPointF(control.item->width()/2,control.item->height()/2));
+        if (action=="activate" && pointerClick && overte::e2e::NormalControlUi::ownsPoint(control.item,window,point)) {delivered=pointerClick(control.item);}
+        else if (action=="replace" && command.value("text").isString()
+                && overte::e2e::createVoxelText(controlId,command.value("text").toString())
+                && overte::e2e::NormalControlUi::ownsPoint(control.item,window,point)) {
+            delivered=overte::ui::replaceFocusedField(control.item,window,command.value("text").toString());
+        } else if (action=="select-index" && overte::e2e::createVoxelCount(controlId)) {
+            qint64 index{0};if (integer(command.value("index"),index)) {
+                delivered=overte::e2e::NormalControlUi::selectCreateChoice(control.item,window,index,overte::e2e::createVoxelCount(controlId));
             }
         }
     } else if (controlId.startsWith("create.")) {
