@@ -324,7 +324,12 @@ class RequiredAndroidTests(unittest.TestCase):
         self.write_policy()
 
     def lock_sources(self):
-        """Actual reviewed package trees and caller wiring; no npm execution."""
+        """Real package bytes and wiring under a private consumer-policy fixture.
+
+        The positive lock-owner cases must not depend on HEAD still matching a
+        production npm certificate. Changed historical package inputs remain a
+        separate negative case; the deployed consumer policy stays untouched.
+        """
         self.workflow_files()
         packages = gate.packages()
         archive = subprocess.check_output([
@@ -341,7 +346,7 @@ class RequiredAndroidTests(unittest.TestCase):
                     destination.write_bytes(contents.extractfile(member).read())
                     destination.chmod(member.mode)
         consumers = packages.load("android_lock_fixture_consumers", "tools/repository-checks/npm_consumers.py")
-        self.consumer_policies = consumers.PROJECTS
+        self.consumer_policies = deepcopy(consumers.PROJECTS)
         for project, policy in self.consumer_policies.items():
             target = self.candidate / project / "package-lock.json"
             value = json.loads(target.read_text())
@@ -349,6 +354,19 @@ class RequiredAndroidTests(unittest.TestCase):
             target.write_text(json.dumps(value) + "\n")
         (self.candidate / gate.POLICY).write_bytes((ROOT / gate.POLICY).read_bytes())
         self.fixture.commit()
+        snapshot = consumers._snapshot(self.candidate, self.git("rev-parse", "HEAD"))
+        for project, policy in self.consumer_policies.items():
+            complement = consumers._complement(snapshot, project)
+            policy["complement"] = consumers._digest(complement)
+            policy["entries"] = len(complement)
+            lock = json.loads((self.candidate / project / "package-lock.json").read_text())
+            policy["graph"] = consumers._digest(consumers._graph(lock, policy["node"]))
+        self.enterContext(patch.dict(consumers.PROJECTS, self.consumer_policies, clear=True))
+        real_load = packages.load
+        def load(name, relative):
+            return consumers if relative == "tools/repository-checks/npm_consumers.py" else real_load(name, relative)
+        self.enterContext(patch.object(packages, "load", side_effect=load))
+        self.enterContext(patch.object(gate, "packages", return_value=packages))
 
     def lock_anchor(self):
         sources = gate._sources(self.candidate)
@@ -452,6 +470,21 @@ class RequiredAndroidTests(unittest.TestCase):
         package = gate.packages().candidate_plan(self.candidate, self.event, self.sha)
         self.assertEqual(set(package["package_set"]), {"browser-client", "script-archive/marketplace/S3Server"})
         self.assertEqual(result["lock_package_plan"], package["plan"])
+
+    def test_historical_package_documentation_change_retains_android_despite_fresh_reader_anchor(self):
+        self.lock_sources()
+        document = self.candidate / "browser-client/ci/jenkins/README.md"
+        document.write_text(document.read_text() + "\nChanged historical package documentation.\n")
+        self.fixture.commit()
+        self.lock_anchor()
+        browser = "browser-client/package-lock.json"
+        result = self.merge(browser, self.updated_lock(browser))
+        self.assertTrue(result["required"])
+        self.assertIsNone(result["lock_package_plan"])
+        package = gate.packages().candidate_plan(self.candidate, self.event, self.sha)
+        profile = package["dependency_profiles"]["projects"]["browser-client"]
+        self.assertEqual(profile["profile"], "full")
+        self.assertEqual(profile["reason"], "package-reader-complement-not-reviewed")
 
     def test_lock_reader_projection_binds_every_other_root_and_policy_membership(self):
         self.lock_sources()

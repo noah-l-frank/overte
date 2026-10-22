@@ -661,7 +661,7 @@ class ShippingPolicyTests(unittest.TestCase):
                     tree[path]=expected
         return root,registry,raw,tree
 
-    def bounded_context(self):
+    def bounded_context(self, *, extra_required=()):
         """Seal a small synthetic repository while preserving real definitions.
 
         Real whole-inventory shipping/legacy routing and protected iOS proofs
@@ -673,6 +673,7 @@ class ShippingPolicyTests(unittest.TestCase):
         policy=json.loads(raw)
         required=set(inputs.AFFECTED_AUTHORITY)
         required.update(policy['suites']['device-control-plane-full']['native_independent_paths'])
+        required.update(extra_required)
         # These existing importable mutation subjects must remain edits, rather
         # than becoming new import names in the smaller synthetic inventory.
         required.update({'tests/device/self_tests/test_voice_roundtrip.py',
@@ -731,7 +732,7 @@ class ShippingPolicyTests(unittest.TestCase):
             with self.subTest(name=name,invalid='mixed tuple'),patch.object(inputs,'full_tree',side_effect=lambda *_:deepcopy(variant)), \
                     self.assertRaises(AssertionError):self.source_context()
 
-    def test_shipping_five_controller_case_omits_device_without_running_any_suite(self):
+    def test_shipping_five_controller_case_requires_reviewed_native_readers(self):
         root,registry,raw,base=self.shipping_context()
         _,_,_,source=self.source_context()
         self.assertEqual(inputs.affected_lookup_digest(source),inputs.affected_lookup_digest(base))
@@ -755,17 +756,20 @@ class ShippingPolicyTests(unittest.TestCase):
         # and reader identities remain independently preserved below.
         if routing is not None:
             base,candidate=routing['base'],routing['candidate']
-        # The installed compiler-data family has a separate complete raw
-        # reader certificate; retain the original target certificate as well.
+        # A current checkout may have changed component data since the protected
+        # reader was reviewed. Shipping policy must retain the product owners
+        # in that case, even if the five controller edits are independent.
         reader=inputs.device_reader_digest(base,native['native_independent_paths'])
         if inputs.installed_compiler_profile(base,target=target):
             self.assertEqual(target,'apple-ios')
-            self.assertEqual(reader,inputs.INSTALLED_COMPILER_READER)
+            expected_reader=inputs.INSTALLED_COMPILER_READER
         else:
-            self.assertEqual(reader,json.loads(raw)['targets'][target]['reader_digest'])
+            expected_reader=json.loads(raw)['targets'][target]['reader_digest']
+        self.assertEqual(inputs.device_reader_digest(candidate,native['native_independent_paths']),reader)
         plan=inputs.plan_affected(registry,raw,base,candidate,trusted,target=target)
-        self.assertIn('device-control-plane-full',plan['omitted'])
-        self.assertLess(len(plan['required']),60)
+        owners={'device-control-plane-full',*inputs._AFFECTED_PRODUCT_SUITES,*inputs._AFFECTED_SUBJECTS}
+        self.assertTrue(owners <= set(plan['omitted' if reader==expected_reader else 'required']))
+        self.assertLess(len(plan['required']),len(registry['suites']))
         self.assertIn('attested-runtime',plan['required'])
         self.assertIn('test-evidence',plan['required'])
         self.assertEqual(plan['required_setup'],['host-full'])
@@ -782,6 +786,35 @@ class ShippingPolicyTests(unittest.TestCase):
         if routing is not None:
             self.assertNotEqual(original_base,base)
             self.assertNotEqual(original_candidate,candidate)
+
+    def test_private_five_controller_fixture_omits_device_until_documentation_reader_changes(self):
+        # This fixture seals its own bounded source inventory. Its policy never
+        # changes the deployed certificates or certifies the current checkout.
+        document='tests/device/README.md'
+        root,registry,raw,base=self.bounded_context(extra_required=(document,))
+        spec=importlib.util.spec_from_file_location('affected_private_reader_policy',
+            root/'tools/repository-checks/host_selection.py')
+        host=importlib.util.module_from_spec(spec);spec.loader.exec_module(host)
+        owners={'device-control-plane-full',*inputs._AFFECTED_PRODUCT_SUITES,*inputs._AFFECTED_SUBJECTS}
+        for historical_document_change in (False,True):
+            old=deepcopy(base)
+            if historical_document_change:
+                old[document]=blob(b'changed documentation already present before the CI delta')
+            candidate=deepcopy(old)
+            for name in ('attested.py','postmerge.py','producer_workflow.py','sandbox.py','sandbox_host.py'):
+                candidate['tools/test-evidence/'+name]=blob(('changed '+name).encode())
+            original_old,original_candidate=deepcopy(old),deepcopy(candidate)
+            with self.subTest(historical_document_change=historical_document_change):
+                plan=inputs.plan_affected(registry,raw,old,candidate,base)
+                expected='required' if historical_document_change else 'omitted'
+                self.assertTrue(owners <= set(plan[expected]))
+                with patch.object(inputs,'load_dependencies',return_value=raw):
+                    selected=host.select(candidate,plan['paths'],True,trusted_tree=base,base_tree=old)
+                self.assertEqual(selected['reason'],'protected-affected-dependencies')
+                self.assertEqual(selected['suites'],plan['required'])
+                self.assertTrue(selected['full_host'])
+                self.assertFalse(selected['affected']['reusable'])
+                self.assertEqual((old,candidate),(original_old,original_candidate))
 
     def test_preinstallation_source_cannot_inherit_the_prospective_native_omissions(self):
         root,registry,raw,base=self.source_context()

@@ -25,7 +25,10 @@ SPDX-License-Identifier: Apache-2.0
 
 Start with the [developer guide and documentation index](docs/README.md). It
 links the correct branch and build guide for each target, the first local check,
-and the [source architecture](docs/ARCHITECTURE.md).
+and the [source architecture](docs/ARCHITECTURE.md). The
+[CI and testing portal](docs/portal/testing/index.md) separates local checks
+from the maintainer's private Proxmox device laboratory; that personal
+infrastructure is not a service or setup requirement for contributors.
 
 For a contribution, read [CONTRIBUTING.md](CONTRIBUTING.md) and the current
 [roadmap](docs/ROADMAP.md). Repository maintenance commands are indexed in
@@ -45,7 +48,7 @@ main
     └── iPhone and iPad (apple-ios)
 ```
 
-Android application sources live on [`android-main`](https://github.com/noah-be/overte/tree/android-main/android)
+Android application sources live on [`android-main`](https://github.com/noah-l-frank/overte/tree/android-main/android)
 and its Phone and Pico descendants. This shared branch contains the portable
 client, libraries, resources, and repository control plane. See the
 [source ownership boundary](docs/SOURCE_LAYOUT.md) before synchronizing a
