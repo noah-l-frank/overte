@@ -533,6 +533,7 @@ class PhoneSnapshotsFeature(PhoneCreateFeature):
     def observe(self,value):
         from overte_phone_snapshots_role import PhoneSnapshotsRole
         from overte_phone_snapshots_history_pass import SnapshotHistoryReadPass
+        from overte_phone_snapshots_constructor_history import SnapshotConstructorHistoryPass
         call=arguments('feature.snapshots.observe',value);need(call['runId']==self.run)
         # The inner session closes history callbacks, scope and source locks
         # before this operation releases its ephemeral readers' host graphs.
@@ -545,24 +546,63 @@ class PhoneSnapshotsFeature(PhoneCreateFeature):
                     if self.state is None or self.state['phase']=='preparing':self.initialize()
                     need(self.state['phase'] in ('baseline','active','cleaned'))
                     if self.state['phase']=='cleaned':
+                        constructor_history=None
                         role=PhoneSnapshotsRole(self,self.role,_observe_disposals=observations)
                         if role.state['phase']=='reading':role.recover()
                         prepared=self.cleanup_observe_pin(role)
                         history=SnapshotHistoryReadPass(role,prepared)
                         session.callback(history.close)
                     else:
-                        try:
-                            for attempt in range(51):
-                                role=PhoneSnapshotsRole(self,self.role,_observe_disposals=observations)
-                                if role.state['phase']=='reading':role.recover()
-                                try:return role.read(call['afterSequence'])
-                                except SnapshotPending:need(attempt<50);self.sleep(.1)
-                            need(False)
-                        finally:session.close()
+                        constructor_history=SnapshotConstructorHistoryPass.prepare(self,self.role)
+                        if constructor_history is not None:session.callback(constructor_history.close)
+                        else:
+                            try:
+                                for attempt in range(51):
+                                    role=PhoneSnapshotsRole(self,self.role,_observe_disposals=observations)
+                                    if role.state['phase']=='reading':role.recover()
+                                    try:return role.read(call['afterSequence'])
+                                    except SnapshotPending:need(attempt<50);self.sleep(.1)
+                                need(False)
+                            finally:session.close()
                 except BaseException:
                     session.close();raise
+            if constructor_history is not None:
+                return self.observe_constructor(call,constructor_history,session,observations)
             try:return self.observe_cleaned(call,role,prepared,session,history,observations)
             finally:history.close()
+
+    def observe_constructor(self,call,history,session,observations):
+        """Replay original files unlocked, then qualify a normal current reader."""
+        from overte_phone_snapshots_role import PhoneSnapshotsRole
+        from overte_phone_snapshots_constructor_history import SnapshotConstructorHistoryPass
+        try:
+            for attempt in range(51):
+                # This token permits complete immutable host IO only. It cannot
+                # construct target readers, recover, publish or acquire facts.
+                history.read()
+                with self.lock.held():
+                    try:
+                        history.before_load()
+                        self.load();history.after_load()
+                        role=PhoneSnapshotsRole(self,self.role,expected_previous=history.role_header,
+                            _observe_disposals=observations,_history_pass=history)
+                        history.before_read(role)
+                        try:return role.read(call['afterSequence'])
+                        except SnapshotPending:
+                            need(attempt<50)
+                            previous_phase=deepcopy(history.phase)
+                            history.close()
+                            next_history=SnapshotConstructorHistoryPass.prepare(self,self.role,
+                                expected_role=role.previous,previous_phase=previous_phase)
+                            # Once admitted, a lost owner or changed context
+                            # never authorizes a fallback to a fresh bootstrap.
+                            need(next_history is not None)
+                            history=next_history;session.callback(history.close)
+                    except BaseException:
+                        session.close();raise
+                self.sleep(.1)
+            need(False)
+        finally:history.close()
 
     @staticmethod
     def cleanup_observe_phase(status,previous=None):
