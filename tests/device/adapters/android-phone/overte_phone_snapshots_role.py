@@ -58,10 +58,10 @@ class PassiveReadbacks(PhoneSnapshotReadbacks):
 class PhoneSnapshotsRole(PhoneCreateRole):
     def __init__(self,feature,role):
         need(role in ('primary','actor'));feature.lock.assert_held()
-        self.feature,self.role=feature,role
+        self.feature,self.role=feature,role;self._host_publication=False
         self.store=PrivateFeatureState(feature.store.path.with_name('phone-snapshots-'+role+'-originals.json'))
         self.previous=self.store.read();self.state=dict(phase='ready',sequence=0,manifests=[],pending=None)
-        self.originals=SnapshotsOriginals(feature.root,feature.binding,feature.run,role,self.bound,self.storage_intent,kind='snapshots')
+        self.originals=SnapshotsOriginals(feature.root,feature.binding,feature.run,role,self.publication_bound,self.storage_intent,kind='snapshots')
         if self.previous is not None:
             exact(self.previous,{'snapshotsRoleVersion','runId','binding','role','payload'})
             need(type(self.previous['snapshotsRoleVersion']) is int and self.previous['snapshotsRoleVersion']==1
@@ -168,8 +168,19 @@ class PhoneSnapshotsRole(PhoneCreateRole):
         if self.state['pending'] is not None:rows.append(self.state['pending'].get('work',{}))
         return rows
 
+    def publication_bound(self):
+        if not self._host_publication:return self.bound()
+        # Durable host bytes and metadata do not measure a target. During a
+        # guarded read, each actual native/render/file/OS acquisition retains
+        # its own original guards; complete-frame publication is additionally
+        # bracketed by actual target checks. Never repeat SDK queries merely
+        # to hash or fsync a private host transcript.
+        self.feature.lock.assert_held()
+        need(self.feature.header_authority() is True and same(self.store.read(),self.previous))
+        return True
+
     def save(self):
-        self.bound();value=dict(snapshotsRoleVersion=1,runId=self.feature.run,binding=self.feature.binding,role=self.role,payload=pack([self.state]))
+        self.publication_bound();value=dict(snapshotsRoleVersion=1,runId=self.feature.run,binding=self.feature.binding,role=self.role,payload=pack([self.state]))
         self.store.write(value,self.previous);need(same(self.store.read(),value));self.previous=deepcopy(value)
 
     def storage_intent(self,kind,value):
@@ -180,11 +191,11 @@ class PhoneSnapshotsRole(PhoneCreateRole):
 
     def image_engine(self,index=None):
         f=self.feature
-        return SnapshotsImages(f.root,f.binding,f.run,self.role,index or self.state['sequence']+1,self.bound,self.image_intent)
+        return SnapshotsImages(f.root,f.binding,f.run,self.role,index or self.state['sequence']+1,self.publication_bound,self.image_intent)
 
     def binary_engine(self,index=None):
         f=self.feature
-        return SnapshotsBinary(f.root,f.binding,f.run,self.role,index or self.state['sequence']+1,self.bound,self.binary_intent)
+        return SnapshotsBinary(f.root,f.binding,f.run,self.role,index or self.state['sequence']+1,self.publication_bound,self.binary_intent)
 
     def binary_intent(self,value):
         need(self.state['phase']=='reading');rows=self.state['pending']['binaries'];old=next((row for row in rows if row['name']==value['name']),None)
@@ -369,8 +380,13 @@ class PhoneSnapshotsRole(PhoneCreateRole):
         self.finish_archive(frame)
 
     def read(self,after_sequence):
-        try:return self.acquire(after_sequence)
-        except SnapshotPending:self.recover();raise
+        need(not self._host_publication)
+        self._host_publication=True
+        try:
+            try:return self.acquire(after_sequence)
+            except SnapshotPending:
+                self._host_publication=False;self.recover();raise
+        finally:self._host_publication=False
 
     def acquire(self,after_sequence):
         f=self.feature;self.bound();need(self.state['phase'] in ('ready','retired') and integer(after_sequence,0,self.state['sequence']) and self.state['sequence']<256)
@@ -482,7 +498,7 @@ class PhoneSnapshotsRole(PhoneCreateRole):
             workOriginals=deepcopy(self.state['pending']['work'].get('workOriginals',[])),documentOriginals=deepcopy(self.state['pending']['work'].get('documentOriginals',[])),consumerOriginals=deepcopy(self.state['pending']['work'].get('consumerOriginals',[])),
             readbackInspections=deepcopy(self.state['pending']['work'].get('readbackInspections',{})),
             groups=deepcopy(self.state['pending']['work'].get('groups',[])),handoffOriginals=deepcopy(self.state['pending']['work'].get('handoffOriginals',[])),readbacksPacket=batch['readbacks'],uploadPacket=batch['upload'])
-        self.finish_archive(frame);self.bound();artifacts=[]
+        self.bound();self.finish_archive(frame);self.bound();artifacts=[]
         if image_ready:artifacts.append(dict(kind='image',source='world-render-target',name=image['name'],sequence=self.state['sequence'],capturedEpochMs=capture['source']['capturedEpochMs'],ticket=ticket))
         source={'capture':'snapshot-capture-original','save':'snapshot-saved-original','share-select-owned':'snapshot-receiver-original','upload':'snapshot-upload-original'}.get(phase_before['activations'][-1]['stimulus']['verb'])
         selected=[row for row in binaries if row['acquisition']['source']==source]

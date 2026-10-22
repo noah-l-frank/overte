@@ -1,5 +1,26 @@
 # Android Phone Snapshot adapter
 
+## Guarded host publication
+
+Snapshot role reads keep actual target checks at entry, immediately before
+complete-frame publication and after publication. Every current native, render,
+capture-file, saved-file, Documents, consumer and upload acquisition retains its
+own original guards and deadlines. Private host transcript writes inside that
+read use the exact source lock, unchanged feature-owner authority and role-header
+compare-and-swap. They retain actual file hashing, inode/link/owner/mode checks,
+fsync and durable planned/opened/saved stages. Outside that read, publication
+continues to require the full target guard; exceptions cannot retain host-only
+authority. No target facts or SDK responses are cached by this path.
+
+A scoped native-producer fixture with actual private host files reduced repeated
+target guards from 51 to 8 per capture read (0.451425 to 0.243107 host seconds).
+Those are synthetic target-guard counts and host measurements, not Android
+latency qualification. Four new counterprobes reject actual target changes after
+binary/frame writes, preserve a foreign actual role header and prove failed
+publication cannot leave authority for subsequent calls. The combined publication,
+role, actor and facade union passed 50 cases in 35.785 seconds. Full common
+MediaStore/document-picker and device qualification remain separate.
+
 The separate [original capture-file owner](SNAPSHOT_CAPTURE_FILES.md) records
 native FD/inode/close originals and independent binary acquisition, including
 partial output ownership and one-send durable retirement. Its component sources
