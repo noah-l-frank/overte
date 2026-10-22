@@ -37,12 +37,17 @@ def viewpoint_query(value):
     return set(parts)=={'location'} and len(parts['location'])==1 and parts['location'][0] in VIEWPOINTS.values()
 
 
-def scene(run,ticket,fixture_url):
-    identifier(run);identifier(ticket);resource_root(fixture_url,run)
+def base_scene():
     original=json.loads((Path(__file__).resolve().parents[1]/'fixture'/'scene.json').read_text())
     # Retain all five real navigation geometry/physics markers. The unrelated
     # interactable and its entity-script load are outside this fixture profile.
     original['Entities']=[row for row in original['Entities'] if row['name']!='OVERTE_E2E_INTERACTABLE']
+    return original
+
+
+def scene(run,ticket,fixture_url):
+    identifier(run);identifier(ticket);resource_root(fixture_url,run)
+    original=base_scene()
     original['Entities'].append(dict(id='{'+marker_id(run)+'}',name='e2e-'+run+'-navigation-marker',type='Web',
         position=dict(x=1.,y=1.3,z=.8),dimensions=dict(x=2.2,y=.55,z=.01),rotation=dict(x=0.,y=0.,z=0.,w=1.),
         collisionless=True,locked=True,visible=True,dpi=100,

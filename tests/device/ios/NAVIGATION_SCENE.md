@@ -41,7 +41,7 @@ source; they do not become successful empty histories. The same provider lock
 spans the actual bounded write and retirement, so retirement cannot overtake an
 owned write. Clocks and earlier receipts remain unchanged on repeated reads.
 
-After retirement the scene and registered HTML/PNG resources fail closed. The
+After retirement the run-scoped marker scene and registered HTML/PNG resources fail closed. The
 existing retired generic journal boundary returns HTTP 400 for `/current` and
 registered HTML/PNG lookups; it does not return a new successful challenge. This establishes only fixture input retirement.
 Actual native Web document/texture/callback drainage and process quiet must be
@@ -58,3 +58,37 @@ run marker, and the [challenge-image component](NAVIGATION_CHALLENGE.md) decodes
 its visible current ticket using original GPU geometry. The durable Worlds owner
 and independent publisher still need to acquire, retain and join these sources
 through the complete ordinary flow, restart, failure recovery and cleanup.
+
+## Static original base input
+
+The same explicit marker-scene profile now also supplies a static original
+resource. For `/navigation/scene.json`, its URL is `/navigation/scene.base.json`;
+other configured paths use the same deterministic sibling naming. The host,
+scheme and effective port stay fixed. Legacy directory-only providers enable
+neither this route nor its source endpoint.
+
+This input contains the unchanged five original navigation boxes and root
+viewpoint, with no interactable/entity script, run marker, Web entity or ticket.
+The provider freezes its exact JSON bytes at construction. They remain identical
+before registration, during a run and after run retirement, so a separately
+prepared original test scene can be reloaded without restoring a retired marker.
+The static resource belongs to the fixture lifetime, separately from an active
+run's dynamic resources. Serving it after retirement does not resurrect a run.
+
+`GET /feature-fixture/v1/navigation-base-scene` is an authenticated input-only
+source, readable by the existing adapter-only credential. Its version-1 packet
+retains the original provider instance, source revision, static URL, exact byte
+count/hash, original server capture time, availability/completeness and immutable
+actual socket-write receipts. Receipts have no run or ticket. The provider lock
+spans the actual bounded socket write, so a snapshot cannot report a completed
+receipt while that write is blocked. Failed writes poison availability instead
+of returning a successful empty history. The retained receipt budget is bounded.
+
+Source bytes and HTTP receipts establish controlled input only. Initial scene
+admission must independently match the actual native
+[commit body and editable map](SCENE_INVENTORY.md), preserve original current
+pose/view/preferences/panels and reject unsaved edits before ordinary Go To.
+Restoration must independently observe the same actual native committed body
+and editable map, grounded pose and lifetime/quiet conditions. The static route
+does not prepare an app, change its startup URL, repair a product or establish
+any of these native effects. Whole scene ownership remains to be integrated.

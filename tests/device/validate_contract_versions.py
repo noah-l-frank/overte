@@ -194,6 +194,7 @@ REQUIRED = {
     "native-navigation-replies": 1,
     "feature-navigation-provider": 1,
     "feature-navigation-scene": 1,
+    "feature-navigation-base-scene": 1,
     "feature-navigation-scene-source": 1,
     "feature-navigation-marker-input": 1,
     "feature-navigation-directory-marker": 1,

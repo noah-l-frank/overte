@@ -34,8 +34,10 @@ original native clocks and typed HTTP/AFC readers without launching or sending
 input. This is source wiring; complete operation dispatch is still required.
 Version-2 [whole-tree inventory](SCENE_INVENTORY.md) also freezes actual imported
 body hashes and editable maps at native commit, so a later admission can reject
-unsaved edits before leaving. Stable base-scene inputs and the scene owner are
-still required; native changes remain uncompiled.
+unsaved edits before leaving. A static, script-free
+[base-scene input](NAVIGATION_SCENE.md) now preserves the same original bytes
+before/during/after a run, with independent original socket histories. The scene
+owner still needs to admit and restore it; native changes remain uncompiled.
 
 The canonical physical source binding and explicit lost-launch recovery have
 host-tested implementations. The native byte observer and SDK plugin remain

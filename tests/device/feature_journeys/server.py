@@ -124,7 +124,7 @@ class Handler(BaseHTTPRequestHandler):
     def navigation_scene_request(self,parsed):
         provider=self.server.navigation_resources
         if (provider is None or provider.scene_profile is None
-                or parsed.path!=urlsplit(provider.inputs['sceneUrl']).path):return False
+                or parsed.path not in (urlsplit(provider.inputs['sceneUrl']).path,urlsplit(provider.base_url).path)):return False
         hosts=self.headers.get_all('Host',[])
         if (self.command!='GET' or parsed.scheme or parsed.netloc or parsed.fragment or len(hosts)!=1):
             self.send(404,{'error':'not-found'});return True
@@ -254,6 +254,10 @@ class Handler(BaseHTTPRequestHandler):
             if self.command=='GET' and parts==['navigation-provider']:
                 if self.server.navigation_resources is None:return self.send(503,{'error':'navigation-provider-unavailable'})
                 return self.send(200,dict(self.server.navigation_resources.ready(),internalErrors=self.server.internal_errors))
+            if self.command=='GET' and parts==['navigation-base-scene']:
+                provider=self.server.navigation_resources
+                if provider is None or provider.scene_profile is None:return self.send(503,{'error':'navigation-base-scene-unavailable'})
+                return self.send(200,provider.base_snapshot())
             if self.command=='GET' and parts==['script-provider']:
                 if self.server.script_resources is None:return self.send(503,{'error':'script-provider-unavailable'})
                 return self.send(200,dict(self.server.script_resources.ready(),internalErrors=self.server.internal_errors))

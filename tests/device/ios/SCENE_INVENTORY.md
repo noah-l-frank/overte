@@ -41,7 +41,8 @@ actual stable original resource-byte availability and matching restored body
 hash, original pose/camera/settings/panels, absence of pending work, ordinary
 input and independent repeated cleanup. The generic fixture's script may make
 real edits after commit; those edits are not silently approved as reloadable.
-A separately chosen static base-scene input remains to be supplied. No source
+A separately chosen [static base-scene input](NAVIGATION_SCENE.md) is available;
+the whole scene owner still needs to admit and restore it. No source
 packet alone establishes a pristine whole product or grants a feature capability.
 
 The native `feature-ios-scene-inventory` command is closed: schemaVersion 1,

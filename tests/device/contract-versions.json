@@ -8,6 +8,7 @@
     "feature-journey": {"current": 16, "reads": [16]},
     "feature-navigation-provider": {"current": 1, "reads": [1]},
     "feature-navigation-scene": {"current": 1, "reads": [1]},
+    "feature-navigation-base-scene": {"current": 1, "reads": [1]},
     "feature-navigation-scene-source": {"current": 1, "reads": [1]},
     "feature-navigation-marker-input": {"current": 1, "reads": [1]},
     "feature-navigation-directory-marker": {"current": 1, "reads": [1]},
