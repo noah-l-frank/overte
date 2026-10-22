@@ -31,6 +31,27 @@ from ios.adapters.script_runtime import IOSScriptRuntime
 
 
 class IOSNavigationRuntime(IOSScriptRuntime):
+    def _navigation_restored_image(self,selector,client,run,role,request,root,lock,*,process_context,owner_files,directory_proof,previous):
+        """Current static pixels after an original typed process transfer."""
+        from ios.adapters.navigation_restored_image import NavigationRestoredImage
+        from ios.adapters.graphics_history import restore_native
+        identifier(run);need(role in ('primary','actor') and isinstance(lock,ScriptSourceLock));lock.assert_held()
+        need(isinstance(previous,NavigationObservationOwner));previous.archive()
+        source=self._sources(selector);directory=self.state_path(selector).parent
+        need(lock.path==directory/'script-feature-sources.lock' and previous.lock is lock
+            and same(source['binding'],previous.binding))
+        fixture=NavigationFixtureReader(client,run);fixture.attach()
+        need(fixture.inputs['sourceRevision']==source['binding']['sourceRevision'])
+        observer,clock=source['observer'],source['clock_source']
+        readers=dict(inventory=observer.scene_inventory(clock),navigation=observer.navigation_state(clock),
+            bookmarks=observer.location_bookmarks(clock),model=observer.places_model(clock),http=observer.places_http(clock),
+            dialogs=observer.navigation_dialogs(clock),replies=observer.navigation_replies(),ui=source['native'])
+        native=observer.bound_native_observer(clock);restore_native(native,previous.state['clockJoin']['nativeAfter']);source['check']()
+        return NavigationRestoredImage(PrivateFeatureState(directory/('ios-navigation-restored-'+role+'-'+request[4:]+'.json')),
+            root,source['binding'],run,role,request,lock,source['check'],native=native,sources=readers,fixture=fixture,
+            frame_factory=lambda intent,receipt:observer.vulkan_world_frame(intent,receipt),process_context=process_context,
+            owner_files=owner_files,directory=directory_proof,previous=previous)
+
     def _navigation_baseline_image(self,selector,client,run,role,request,root,lock):
         """Untouched static pixels on this existing installed candidate only."""
         from ios.adapters.navigation_baseline_image import NavigationBaselineImage

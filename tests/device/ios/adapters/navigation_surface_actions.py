@@ -47,11 +47,22 @@ class NavigationSurfaceActions:
     @classmethod
     def retained_roots(cls,value,initial,model,ui,fixture_url):
         """Original owned hidden roots; retention never means destruction."""
+        from ios.adapters.navigation_scene_admission import validate as admission_original
+        return cls._retained_roots(value,admission_original(initial),model,ui,fixture_url)
+
+    @classmethod
+    def retained_process_roots(cls,value,process_context,owner_files,model,ui):
+        """New-process roots against its typed actual source basis only."""
+        from ios.adapters.navigation_process_context import source_basis
+        basis=source_basis(process_context,owner_files)
+        return cls._retained_roots(value,basis,model,ui,process_context['fixtureUrl'])
+
+    @classmethod
+    def _retained_roots(cls,value,initial,model,ui,fixture_url):
         from types import SimpleNamespace
         from adapters.native_clock_join import digest
         from ios.adapters.places_model import original as model_original
-        from ios.adapters.navigation_scene_admission import validate as admission_original
-        initial=admission_original(initial);model_original(model);need(model['iosPlacesModelVersion']==2)
+        model_original(model);need(model['iosPlacesModelVersion']==2)
         checker=object.__new__(cls);checker.binding=initial['binding'];checker.run=initial['runId']
         checker.admission=SimpleNamespace(archive=lambda:initial,fixture=SimpleNamespace(fixture_url=fixture_url,
             inputs=initial['providerInputs'],instance=initial['providerInstance']))

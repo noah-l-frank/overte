@@ -29,6 +29,12 @@ KEYS=('base','baseRead','nativeStart','navigationBefore','capture','retirement',
 
 
 class NavigationBaselineImage:
+    PREFIX='baseline'
+    ENVELOPE='iosNavigationBaselineImageVersion'
+    ORIGINAL='iosNavigationBaselineOriginalVersion'
+    STAGE=0
+    KEYS=KEYS
+
     def __init__(self,store,root,binding,run,role,request,lock,guard,*,native=None,sources=None,
                  fixture=None,frame_factory=None,historical=False,epoch_ms=lambda:time.time()*1000,
                  monotonic=time.monotonic,sleep=time.sleep):
@@ -43,7 +49,7 @@ class NavigationBaselineImage:
         self.pid=int(binding['processIdentity']);need(self.pid>0 and str(self.pid)==binding['processIdentity'])
         need(self.root.is_absolute() and self.root.resolve()==self.root and self.root.is_dir()
             and lock.path==store.path.with_name('script-feature-sources.lock')
-            and store.path.name=='ios-navigation-baseline-'+role+'-'+request[4:]+'.json')
+            and store.path.name=='ios-navigation-'+self.PREFIX+'-'+role+'-'+request[4:]+'.json')
         PrivateFeatureState(self.root/'navigation-baseline-root-check')._parent()
         if historical:need(native is sources is fixture is frame_factory is None)
         else:
@@ -57,32 +63,32 @@ class NavigationBaselineImage:
         self.bound()
 
     def envelope(self,state):
-        return dict(iosNavigationBaselineImageVersion=VERSION,binding=self.binding,runId=self.run,role=self.role,
-            requestId=self.request,artifactRoot=str(self.root),payload=pack([state]))
+        return dict(binding=self.binding,runId=self.run,role=self.role,
+            requestId=self.request,artifactRoot=str(self.root),payload=pack([state]),**{self.ENVELOPE:VERSION})
 
     def component(self,key):
-        need(key in KEYS)
-        return PrivateFeatureState(self.root/('navigation-baseline-'+self.run+'-'+self.role+'-'+self.request[4:]+'-'+key+'.json'))
+        need(key in self.KEYS)
+        return PrivateFeatureState(self.root/('navigation-'+self.PREFIX+'-'+self.run+'-'+self.role+'-'+self.request[4:]+'-'+key+'.json'))
 
     def wrap(self,key,value):
-        return dict(iosNavigationBaselineOriginalVersion=VERSION,binding=self.binding,runId=self.run,role=self.role,
-            requestId=self.request,kind=key,original=value)
+        return dict(binding=self.binding,runId=self.run,role=self.role,
+            requestId=self.request,kind=key,original=value,**{self.ORIGINAL:VERSION})
 
     def decode(self,value):
         exact(value,set(self.envelope({})));rows=unpack(value['payload'])
-        need(type(value['iosNavigationBaselineImageVersion']) is int and value['iosNavigationBaselineImageVersion']==VERSION
+        need(type(value[self.ENVELOPE]) is int and value[self.ENVELOPE]==VERSION
             and len(rows)==1 and same(value,self.envelope(rows[0])))
         state=rows[0];exact(state,{'phase','hostBarrier','providerInstance','providerInputs','issued','records','resultSha256','drains'})
         need(state['phase'] in ('reading','observed') and number(state['hostBarrier'],1,1e15))
         identifier(state['providerInstance']);need(type(state['issued']) is list and len(set(state['issued']))==len(state['issued'])
-            and set(state['issued'])<=set(KEYS) and type(state['records']) is list and type(state['drains']) is list
+            and set(state['issued'])<=set(self.KEYS) and type(state['records']) is list and type(state['drains']) is list
             and len(state['drains'])<=128)
         names=[]
         for ref in state['records']:
             exact(ref,{'kind','sha256'});need(ref['kind'] in state['issued'] and ref['kind'] not in names
                 and type(ref['sha256']) is str and len(ref['sha256'])==64);names.append(ref['kind'])
         need((state['resultSha256'] is None) if state['phase']=='reading' else
-            type(state['resultSha256']) is str and len(state['resultSha256'])==64 and set(names)==set(KEYS))
+            type(state['resultSha256']) is str and len(state['resultSha256'])==64 and set(names)==set(self.KEYS))
         for packet in state['drains']:need(absent(packet) and packet['processId']==self.pid and packet['requestId']==self.request)
         return deepcopy(state)
 
@@ -111,7 +117,7 @@ class NavigationBaselineImage:
         return result
 
     def owner(self,original=None):
-        path=self.store.path.with_name('navigation-baseline-world-frame-'+self.role+'-'+self.request[4:]+'.json')
+        path=self.store.path.with_name('navigation-'+self.PREFIX+'-world-frame-'+self.role+'-'+self.request[4:]+'.json')
         store=PrivateFeatureState(path)
         if original is not None:
             value=deepcopy(original)
@@ -120,7 +126,7 @@ class NavigationBaselineImage:
                 def write(self,*_args):need(False)
                 def discard(self,*_args):need(False)
             store=Frozen(path)
-        return VulkanWorldFrameOwner(store,self.root,self.binding,self.run,self.role,0,self.request,
+        return VulkanWorldFrameOwner(store,self.root,self.binding,self.run,self.role,self.STAGE,self.request,
             (lambda *_:need(False)) if self.historical or original is not None else self.factory,
             (lambda:True) if original is not None else self.guard,source_lock=self.lock,
             monotonic=self.monotonic,sleep=self.sleep)
@@ -132,7 +138,7 @@ class NavigationBaselineImage:
             for field in ('capturedEpochMs','sampleEpochMs') if field in packet])
 
     def qualify(self):
-        self.bound();parts=self.originals();exact(parts,KEYS)
+        self.bound();parts=self.originals();exact(parts,self.KEYS)
         original={key:parts[key] for key in SOURCES};clock=self.join(parts,original);validate_join(clock,original)
         before,after=parts['baseRead']['before'],parts['baseRead']['after']
         for packet in (before,after):exact(packet,{'epochMs','monotonic'})
@@ -144,8 +150,7 @@ class NavigationBaselineImage:
             and abs(clock['hostAfterEpochMs']-before['epochMs']-(clock['hostAfterMonotonic']-before['monotonic'])*1000)<=250)
         fresh(parts['base']['capturedEpochMs'],int(after['epochMs']))
         need(parts['base']['capturedEpochMs']>=before['epochMs']-1)
-        proof=admission.admit(self.run,self.binding,original,clock,parts['base'],
-            provider_instance=self.state['providerInstance'],provider_inputs=self.state['providerInputs'])
+        proof=self.static_state(original,clock,parts)
         owner=self.owner(parts['frameOwner']);raw=owner.archive()
         need(owner.state['phase']=='released' and absent(owner.state['absence']) and same(owner.state['frame'],parts['capture'])
             and any(same(row['receipt'],parts['retirement']) for row in owner.events))
@@ -156,6 +161,12 @@ class NavigationBaselineImage:
         pixels=rendered(self.run,self.binding,frame,raw,url=viewpoint_urls(proof['base']['url'])['A'],label='A',capture_query=query)
         result=dict(admissionSha256=digest(proof),rendered=pixels,originalsSha256=digest(parts))
         self.bound();return result,proof,raw
+
+    def static_state(self,original,clock,parts):
+        return admission.admit(self.run,self.binding,original,clock,parts['base'],
+            provider_instance=self.state['providerInstance'],provider_inputs=self.state['providerInputs'])
+
+    def extra_originals(self):pass
 
     def acquire(self,host_barrier):
         need(not self.historical);self.bound();need(self.state is None and number(host_barrier,1,1e15))
@@ -176,6 +187,7 @@ class NavigationBaselineImage:
         for name in SOURCES:
             reader=self.sources[name]
             self.take(name,lambda reader=reader,name=name:reader.capture() if name=='ui' else reader.read(self.run))
+        self.extra_originals()
         self.take('nativeEnd',lambda:dict(nativeAfter=self.native.read(self.native.sequence),
             hostAfterEpochMs=self.epoch_ms(),hostAfterMonotonic=self.monotonic()))
         result,_proof,_raw=self.qualify();self.state.update(phase='observed',resultSha256=digest(result));self.save()

@@ -43,6 +43,10 @@ class Whole:
         self.now=f.epoch;self.mono=f.mono;self.gpu=pictures.GPU(self.sdk)
         run_source=deepcopy(self.sdk.navigation.source)
         initial=f.h.fixture.originals
+        # The retained static admission already consumed an observation from
+        # this modeled QML source. Seed the live producer before its first
+        # future response, preserving every archived packet unchanged.
+        f.b.source_sequence=max(f.b.source_sequence,initial['ui']['navigationDialogSourceSequence'])
         # These are physical model producers, installed before their first
         # future response, not changes to the retained static admission.
         self.sdk.navigation.source=deepcopy(initial['navigation']['source'])

@@ -125,3 +125,23 @@ freshness after the final original-file and candidate validation. Native code
 remains uncompiled and devices untested. Whole preparation must still retain
 both role baselines before entry and acquire a new actual admission cut just
 before its first ordinary input; this image owner alone grants no capability.
+
+`NavigationRestoredImage` uses the same original acquisition protocol after the
+typed process transfer, with a separate closed schema. Current independent
+sources must restore the actual initial scene import hash, complete semantic
+map, settled pose, bookmark content and preferences. The latest retained
+current-process observation supplies additional source floors; HTTP history
+cannot roll back or disappear. Every current XHR, reply, callback and timer
+must actually drain. Immutable input journals retain the owned hidden Places
+and address roots explicitly until a separately proved process end.
+
+`navigation_static_comparison` reopens both original full-target RGBA PNGs,
+their actual Vulkan owners, the original admission and the typed restart proof.
+It requires independent process/frame births, the original target extent and
+matching measured view geometry, then compares original pixels without
+reconstructing expected pixels. Numerical coordinates such as `0` and `0.0`
+are compared as geometry; all original bytes remain unchanged. The current
+candidate runtime obtains these ports from its existing installed session.
+Three connected source/image tests and eleven comparison/runtime tests cover
+this packet. Whole preparation, paired quiet input evidence, final process
+absence and complete capability dispatch still remain to be integrated.

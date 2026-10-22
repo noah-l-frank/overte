@@ -57,6 +57,31 @@ class NextUI:
         self.static_source['view']['aspectRatio']=1.6
         self.static_source['challengeMarker']=dict(id=marker_id(self.run),present=False,entity=None)
         self.base_url=initial['base']['url']
+        from ios.self_tests.navigation_baseline_image_fixture import static_raster
+        original_raster=cohort.gpu.raster
+        cohort.gpu.raster=lambda:(original_raster() if self.sdk.navigation.source['challengeMarker']['present']
+            else static_raster(self.sdk.navigation))
+        # Model independent native collection of completed XHRs. Actual HTTP
+        # bytes/JS materialization precede this timer; accepted source packets
+        # are never edited. Disabling collection models a genuine retained
+        # callback/reply/timer and must block final restoration qualification.
+        self.collect_http=True;self.http_collection=[]
+        response=self.http.response
+        def completed(*args,**kwargs):
+            value=response(*args,**kwargs)
+            self.http_collection.append((self.http.xhr,self.http.reply,self.sdk.gpu.clock+.2));return value
+        self.http.response=completed
+        original_http=self.http.original
+        def http_original():
+            if self.collect_http:
+                due=[row for row in self.http_collection if row[2]<=self.sdk.gpu.clock]
+                for row in due:
+                    xhr,reply,_when=row;current=self.http.xhr,self.http.reply
+                    self.http.xhr,self.http.reply=xhr,reply;self.http.retire();self.http.xhr,self.http.reply=current
+                    self.http_collection.remove(row)
+            return original_http()
+        self.http.original=http_original
+        self.sources['http'].original=http_original
         b=RetainedBoundary();physical_clock=self.sdk.gpu
         b.__class__=type('NewQtSurface',(type(b),),{'clock':property(lambda _:physical_clock.clock,
             lambda _,value:setattr(physical_clock,'clock',max(physical_clock.clock,value)))})
