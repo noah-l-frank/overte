@@ -51,6 +51,8 @@
     "ios-emote-images": {"current": 1, "reads": [1]},
     "ios-emote-lifecycle": {"current": 1, "reads": [1]},
     "feature-avatar-accounts": {"current": 1, "reads": [1]},
+    "ios-avatar-source-recovery": {"current": 1, "reads": [1]},
+    "ios-avatar-abandoned-source": {"current": 1, "reads": [1]},
     "ios-avatar-sources": {"current": 2, "reads": [1, 2]},
     "phase-witness-publisher": {"current": 1, "reads": [1]},
     "phase-witness-publication-record": {"current": 1, "reads": [1]},
