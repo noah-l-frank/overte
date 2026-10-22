@@ -291,26 +291,73 @@ def remote_selection(api, context):
     return plan, after, trusted
 
 
+def current_controller(api, controller):
+    """Allow a newer protected main only when its complete CI program is unchanged."""
+    import pr_ci_transport as transport
+    default = api.get("branches/main")
+    C.require(default.get("protected") is True, "default controller is not protected")
+    revision = C.sha(default.get("commit", {}).get("sha"))
+    if revision == controller:
+        return
+    commit = api.get("git/commits/" + revision)
+    C.require(commit.get("sha") == revision, "default controller metadata changed")
+    current = remote_tree(api, commit["tree"]["sha"])
+    loaded = P._INPUTS.full_tree(ROOT, "HEAD")
+    transport.validate_sources(current, loaded)
+    C.require(all(current.get(path) == loaded.get(path) for path in P.RUNTIME_INPUTS),
+              "protected controller runtime inputs changed")
+
+
+def source_policy(event, event_name, number, controller):
+    """Authenticate candidate workflow sources early without executing them."""
+    import pr_ci_transport as transport
+    C.require(event_name == "pull_request_target", "source policy requires the protected event")
+    C.require(os.environ.get("GITHUB_REPOSITORY") == C.REPOSITORY
+              and os.environ.get("GITHUB_REPOSITORY_ID") == str(C.REPOSITORY_ID)
+              and controller == os.environ.get("GITHUB_WORKFLOW_SHA")
+              and git(ROOT, "rev-parse", "HEAD").decode().strip() == C.sha(controller),
+              "source policy repository or protected controller differs")
+    api = API()
+    current_controller(api, controller)
+    context = C.capture(api, int(number or event.get("number", 0)), event_pr=event.get("pull_request"))
+    context["controller"] = controller
+    _, actual, trusted = remote_selection(api, context)
+    if context["target"] == "main":
+        transport.validate_sources(actual, trusted)
+    else:
+        base = api.get("git/commits/" + context["base"])
+        C.require(base.get("sha") == context["base"], "protected base metadata changed")
+        transport.validate_sources(actual, trusted, protected_base=remote_tree(api, base["tree"]["sha"]))
+    C.bookend(api, context)
+    current_controller(API(), controller)
+    print(json.dumps({"result": "success", "head": context["head"], "tree": context["tree"]}))
+
+
 def gate(event, event_name, number, controller, *, timeout=5700, pause=time.sleep):
     import pr_ci_observer as observer
     import pr_ci_transport as transport
-    C.require(event_name in {"pull_request_target", "workflow_dispatch"},
-              "only the protected observer or reviewed manual bootstrap can accept CI")
+    C.require(event_name in {"pull_request", "pull_request_target", "workflow_dispatch"},
+              "only an authenticated native final job or protected observer can accept CI")
     C.require(os.environ.get("GITHUB_REPOSITORY") == C.REPOSITORY
               and os.environ.get("GITHUB_REPOSITORY_ID") == str(C.REPOSITORY_ID)
               and git(ROOT, "rev-parse", "HEAD").decode().strip() == C.sha(controller),
               "observer repository or loaded controller differs")
     number = int(number or event.get("number", 0))
     first = C.capture(API(), number,
-        event_pr=event.get("pull_request") if event_name == "pull_request_target" else None)
+        event_pr=event.get("pull_request") if event_name != "workflow_dispatch" else None,
+        original_merge=os.environ.get("GITHUB_SHA") if event_name == "pull_request" else None)
     if event_name == "workflow_dispatch":
         C.require(controller == first["head"] and controller == os.environ.get("GITHUB_WORKFLOW_SHA"),
                   "manual bootstrap must use the exact reviewed PR head")
     else:
-        default = API().get("branches/main")
-        C.require(default.get("protected") is True and default.get("commit", {}).get("sha") == controller
-                  and controller == os.environ.get("GITHUB_WORKFLOW_SHA"),
-                  "observer is not the current protected default controller")
+        if event_name == "pull_request_target":
+            C.require(controller == os.environ.get("GITHUB_WORKFLOW_SHA"),
+                      "observer does not use the protected event controller")
+        else:
+            C.require(first["original_merge"] == os.environ.get("GITHUB_WORKFLOW_SHA")
+                      and os.environ.get("GITHUB_REF") == f"refs/pull/{number}/merge",
+                      "native final job differs from its original PR caller")
+        current_controller(API(), controller)
     workflow = API().get("actions/workflows/repository-checks.yml")
     C.require(type(workflow.get("id")) is int
               and workflow.get("path") == ".github/workflows/repository-checks.yml",
@@ -319,7 +366,7 @@ def gate(event, event_name, number, controller, *, timeout=5700, pause=time.slee
     while time.monotonic() < deadline:
         api = API()
         if run is None:
-            if event_name == "workflow_dispatch":
+            if event_name in {"workflow_dispatch", "pull_request"}:
                 run = api.get("actions/runs/" + str(int(os.environ["GITHUB_RUN_ID"])))
             else:
                 listing = api.pages("actions/workflows/repository-checks.yml/runs?event=pull_request&head_sha="
@@ -391,7 +438,13 @@ def gate(event, event_name, number, controller, *, timeout=5700, pause=time.slee
                     caller_source=context["head"] if execution_event == "workflow_dispatch" else original)
                 plan, actual_tree, trusted_tree = remote_selection(api, context)
                 validate_execution_scope(context, plan)
-                transport.validate_sources(actual_tree, trusted_tree)
+                if context["target"] == "main":
+                    transport.validate_sources(actual_tree, trusted_tree)
+                else:
+                    base_commit = api.get("git/commits/" + context["base"])
+                    C.require(base_commit.get("sha") == context["base"], "protected base metadata changed")
+                    transport.validate_sources(actual_tree, trusted_tree,
+                        protected_base=remote_tree(api, base_commit["tree"]["sha"]))
                 jobs = api.pages(f"actions/runs/{identity['id']}/attempts/{identity['run_attempt']}/jobs", field="jobs")
                 try:
                     transport.validate_jobs(jobs, expected_owners(plan), plan=plan, context=context)
@@ -429,6 +482,8 @@ def gate(event, event_name, number, controller, *, timeout=5700, pause=time.slee
                             f"actions/runs/{identity['id']}/attempts/{identity['run_attempt']}/jobs", field="jobs")
                         transport.validate_jobs(final_jobs, expected_owners(plan), plan=plan, context=context)
                         C.bookend(API(), context)
+                        if event_name != "workflow_dispatch":
+                            current_controller(API(), controller)
                         print(json.dumps({"result": "success", "run_id": identity["id"],
                             "run_attempt": identity["run_attempt"], "source": original,
                             "tree": context["tree"], "owners": expected_owners(plan)}, sort_keys=True))
@@ -451,11 +506,12 @@ def main():
     context_cli.add_argument("--controller", required=True)
     context_cli.add_argument("--out", type=Path, required=True)
     context_cli.add_argument("--output", type=Path)
-    gate_cli = sub.add_parser("gate")
-    gate_cli.add_argument("--event", type=Path, required=True)
-    gate_cli.add_argument("--event-name", required=True)
-    gate_cli.add_argument("--number", default="")
-    gate_cli.add_argument("--controller", required=True)
+    for name in ("gate", "source-policy"):
+        gate_cli = sub.add_parser(name)
+        gate_cli.add_argument("--event", type=Path, required=True)
+        gate_cli.add_argument("--event-name", required=True)
+        gate_cli.add_argument("--number", default="")
+        gate_cli.add_argument("--controller", required=True)
     upload_cli = sub.add_parser("upload-proof")
     upload_cli.add_argument("--context-json", required=True)
     upload_cli.add_argument("--language", required=True)
@@ -466,28 +522,29 @@ def main():
     plan_cli.add_argument("--candidate", type=Path, required=True)
     plan_cli.add_argument("--out", type=Path, required=True)
     plan_cli.add_argument("--output", type=Path)
-    for name in ("policy", "execute", "complete", "verify-native", "platform"):
+    for name in ("policy", "execute", "complete", "verify-native", "platform", "verify-ios"):
         command = sub.add_parser(name)
         command.add_argument("--context-json", required=True)
         command.add_argument("--plan-json", required=True)
         command.add_argument("--candidate", type=Path)
         command.add_argument("--out", type=Path)
-        if name == "execute":
-            command.add_argument("--lane", choices=("host", "npm"), required=True)
+        if name in ("execute", "platform"):
+            command.add_argument("--lane", choices=("host", "npm") if name == "execute" else ("android", "ios"), required=True)
             command.add_argument("--project", default="")
             command.add_argument("--prepared-root", action="append", default=[])
         if name == "complete":
             command.add_argument("--needs-json", required=True)
-        if name == "platform":
-            command.add_argument("--lane", choices=("android", "ios"), required=True)
+        if name == "verify-ios":
+            command.add_argument("--needs-json", required=True)
+            command.add_argument("--artifacts", type=Path, required=True)
     args = parser.parse_args()
     if args.command == "context":
         context = source_context(read_json(args.event.read_text()), args.event_name, args.number, args.controller)
         write_json(args.out, context)
         outputs(args.output, {**{k: context[k] for k in ("number", "base", "head", "target", "tree", "controller")},
                              "source": context["original_merge"], "context_json": C.canonical(context).decode().strip()})
-    elif args.command == "gate":
-        gate(read_json(args.event.read_text()), args.event_name, args.number, args.controller)
+    elif args.command in {"gate", "source-policy"}:
+        (gate if args.command == "gate" else source_policy)(read_json(args.event.read_text()), args.event_name, args.number, args.controller)
     elif args.command == "upload-proof":
         write_json(args.out, upload_proof(read_json(args.context_json), args.language, args.sarif))
     elif args.command == "plan":
@@ -501,7 +558,8 @@ def main():
                   "npm_projects": json.dumps(plan["npm_projects"]),
                   "codeql_languages": json.dumps(plan["codeql_languages"]),
                   "full_host": "host-full" in plan["setup"],
-                  "setup_json": json.dumps(plan["setup"])}
+                  "setup_json": json.dumps(plan["setup"]),
+                  "ios_build": plan["ios_build_required"]}
         outputs(args.output, values)
         print(json.dumps({"target": context["target"], "tasks": [t["id"] for t in plan["tasks"]],
                           "native": plan["native"]["mode"], "setup": plan["setup"]}))
@@ -520,10 +578,15 @@ def main():
             if args.out:
                 write_json(args.out, native)
         elif args.command == "platform":
-            # The initial replacement is enrolled for main only. An existing
-            # child/platform gate must not silently become a passing no-op.
-            raise C.ContextError("platform enrollment is required before central "
-                                 + args.lane + " execution can replace its existing owner")
+            import pr_ci_platform
+            receipt = pr_ci_platform.execute(args.candidate, context, plan, args.lane,
+                args.prepared_root, recompute=selection)
+            if args.out:
+                write_json(args.out, receipt)
+        elif args.command == "verify-ios":
+            import pr_ci_platform
+            write_json(args.out, pr_ci_platform.verify_ios(args.candidate, context, plan,
+                args.artifacts, read_json(args.needs_json), API(deadline=time.monotonic() + 660), recompute=selection))
     return 0
 
 

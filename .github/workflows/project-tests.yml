@@ -1193,7 +1193,7 @@ jobs:
         path: ${{ runner.temp }}/ci-platform-report/platform.xml
         if-no-files-found: warn
         retention-days: 7
-'on':
+on:
   workflow_call:
     inputs:
       dependency_projects:
@@ -1219,13 +1219,4 @@ jobs:
         value: ${{ jobs.project-results.outputs.package_plan }}
       package_lane:
         value: ${{ jobs.project-results.outputs.package_lane }}
-  push:
-    branches:
-    - android-phone
-    - android-vr-pico
-    - apple-ios
-    - ci/**
-    - test/**
-    paths-ignore:
-    - '**/*.md'
   workflow_dispatch: null

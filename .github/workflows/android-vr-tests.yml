@@ -1,19 +1,6 @@
 name: Android VR integration tests
 
 on:
-  push:
-    branches:
-      - android-main
-      - android-vr
-      - "android-vr-**"
-      - refactor/android-platform-boundaries
-    paths:
-      - "android/**"
-      - "interface/**"
-      - "libraries/**"
-      - "scripts/**"
-      - ".github/workflows/android-vr-tests.yml"
-      - "!**/*.md"
   workflow_dispatch:
 
 permissions:

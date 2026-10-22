@@ -51,6 +51,12 @@ STEPS = {
                  "Scan candidate workflows for secrets with redacted output"),
     "android": ("Require the selected Android product validation",),
     "ios": ("Require the selected iOS product validation",),
+    "ios-qt": (),
+    "ios-handoff": ("Validate same-revision host contract handoff",),
+    "ios-v8": (),
+    "ios-build": ("Build experimental full client", "Verify required Interface QML plugins in full-client link",
+                  "Package numbered unsigned client IPA", "Upload short-lived unsigned E2E client handoff"),
+    "ios-verify": ("Verify exact iOS application artifact",),
     "receipt": ("Require every selected owner and unchanged PR identities",
                 "Publish the exact native execution receipt"),
 }
@@ -58,6 +64,7 @@ SOURCE_PREFIXES = (".github/workflows/", ".github/codeql/", "tools/repository-ch
     "tools/test-evidence/", "tools/branch-policy/", "tools/dependency-releases/",
     "tools/native-tests/", "tools/workflow-security/", "tools/ios-build-qualification/")
 SOURCE_FILES = frozenset((".github/pr-ci-suites.json", ".github/pr-ci-dependencies.json",
+    ".github/pr-ci-platforms.json",
     ".github/branch-policy.json", ".github/dependency-releases.json",
     ".github/native-tests.json", ".github/actionlint.yaml"))
 
@@ -152,7 +159,7 @@ def validate_run(run, context, *, workflow_id, controller, execution_event):
             "execution_event": execution_event, "controller": controller}
 
 
-def validate_sources(actual_tree, trusted_tree):
+def validate_sources(actual_tree, trusted_tree, *, protected_base=None):
     """Compare complete immutable controller/launcher and workflow inventories.
 
     Both maps must come from authenticated complete Git trees. Candidate test and
@@ -177,7 +184,21 @@ def validate_sources(actual_tree, trusted_tree):
             ".github/pr-ci-dependencies.json"}
         require(essential <= result.keys(), "trusted controller source is incomplete")
         return result
-    require(inventory(actual_tree) == inventory(trusted_tree),
+    actual, trusted = inventory(actual_tree), inventory(trusted_tree)
+    if protected_base is not None:
+        base = inventory(protected_base)
+        # Product workflows already installed on the protected target retain
+        # their reviewed branch implementation. A PR cannot change, delete or
+        # add one through this exception. Central/reusable execution recipes
+        # must always equal the current protected default-branch controller.
+        central = {WORKFLOW, ".github/workflows/native-tests.yml",
+                   ".github/workflows/pr-ci-ios.yml", ".github/workflows/ios-integrated.yml",
+                   ".github/workflows/ios-qt-source.yml"}
+        for path, entry in base.items():
+            if path.startswith(".github/workflows/") and path not in central:
+                if entry != trusted.get(path):
+                    trusted[path] = entry
+    require(actual == trusted,
             "native worker controller, launcher, policy or workflow differs from trusted source")
     return True
 
@@ -232,6 +253,28 @@ def validate_jobs(jobs, expected_owners, *, plan=None, context=None):
                 expected[name] = (owner, False)
     if "Native C++ owner" in named and not expected_owners["native"]:
         expected["Native C++ owner"] = expected.pop("Native C++ owner / build")
+    if expected_owners["ios"]:
+        expected.pop("iOS product owner")
+        build = plan.get("ios_build_required", True) if plan is not None else True
+        require(type(build) is bool, "invalid iOS build selection")
+        ios_jobs = {
+            "iOS product owner / iOS host contracts": ("ios", True),
+            "iOS product owner / qt / qt-ios-source": ("ios-qt", build),
+            "iOS product owner / client / Host contracts": ("ios-handoff", build),
+            "iOS product owner / client / Static JITless V8 checkpoint": ("ios-v8", build),
+            "iOS product owner / client / Toolchain, dependencies, build and package": ("ios-build", build),
+            "iOS product owner / Verify iOS product qualification": ("ios-verify", True),
+        }
+        expected.update(ios_jobs)
+        if not build:
+            for label, role in (("qt", "ios-qt"), ("client", "ios-build")):
+                placeholder = "iOS product owner / " + label
+                if placeholder in named:
+                    for name in list(expected):
+                        if name.startswith(placeholder + " / "):
+                            expected.pop(name)
+                    expected[placeholder] = (role, False)
+    expected["Source policy not applicable"] = ("source-policy", False)
     observers = {"required-ci", "Execution observer has no acceptance authority"}
     require(len(set(named) & observers) <= 1, "native observer inventory is ambiguous")
     allowed = {*expected, *observers}

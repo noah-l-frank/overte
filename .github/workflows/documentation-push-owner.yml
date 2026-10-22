@@ -2,8 +2,7 @@
 # This fixed push owner consumes original proof or requires actual documentation.
 name: Documentation checks
 on:
-  push:
-    branches: [android-phone, android-vr-pico, apple-ios]
+  workflow_dispatch:
 permissions:
   contents: read
 concurrency:
