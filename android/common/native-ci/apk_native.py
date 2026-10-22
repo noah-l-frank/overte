@@ -132,7 +132,8 @@ def inspect_native(apk):
             path = PurePosixPath(row.filename)
             require(not path.is_absolute() and ".." not in path.parts and "\\" not in row.filename and
                     not any(ord(c) < 32 or ord(c) == 127 for c in row.filename) and
-                    (row.external_attr >> 16) & 0o170000 != 0o120000, "Unsafe APK ZIP path/type")
+                    (row.external_attr >> 16) & 0o170000 in {0, stat.S_IFREG, stat.S_IFDIR},
+                    "Unsafe APK ZIP path/type")
             if not row.filename.startswith("lib/") or row.is_dir(): continue
             parts = row.filename.split("/")
             require(len(parts) == 3 and parts[1] == "arm64-v8a" and parts[2].endswith(".so"),
