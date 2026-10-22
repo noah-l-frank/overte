@@ -138,6 +138,25 @@ class BackgroundAdapter(LeasedAdapter):
         self.calls.append(operation);self.app_state=4;self.lifecycle['activations']+=1
 
 
+class NoExportAdapter(LeasedAdapter):
+    """Qualified readonly baseline sources with a never initialized exporter."""
+    def __init__(self,root):
+        super().__init__(root)
+        from self_tests.test_native_avatar_render import Boundary as Avatar
+        from self_tests.test_native_phone_touch_state import Boundary as Touch
+        from self_tests.test_native_graphics_subject import Boundary as World
+        self.avatar=Avatar();self.touch=Touch();self.world=World()
+        self.world.source.update(subjectVersion=2,avatarPose=dict(feetPosition=[0,0,-2],orientation=[0,0,0,1],modelScale=1))
+        send=self.world.send
+        def sample(request):
+            from feature_journeys.graphics_fixture import subject_ids
+            self.world.source['absentIds']=list(subject_ids(request['runId']).values());send(request)
+        self.world.send=sample
+    def _avatar_render_observer(self,*_,**kwargs):return self.avatar.reader()
+    def _touch_state_observer(self,*_,**kwargs):return self.touch.reader()
+    def _graphics_subject_observer(self,*_,**kwargs):return self.world.reader()
+
+
 class HandoffAdapter(Adapter):
     """Original handoff/control/input readers over explicit native IO producers."""
     def __init__(self,root,run):
@@ -243,6 +262,26 @@ class SnapshotsFeatureTests(unittest.TestCase):
             self.assertTrue(proof['proof']['settings']['source']['retired']);self.assertFalse(proof['proof']['inventory']['files'])
             self.assertFalse(proof['proof']['readbacks']['source']['source']['initialized'])
         self.assertTrue(self.adapter.foreign_ui_open);self.assertFalse(any(row['operation'] not in ('capture','observe','restore','retire') for row in self.adapter.settings.calls))
+
+    def test_qualified_baseline_failure_before_first_export_retires_actual_leases_without_empty_os_facts(self):
+        self.failed_preflight();self.adapter=NoExportAdapter(self.root);f=self.feature()
+        with f.lock.held():
+            f.load();group,_=self.adapter._snapshot_measurements(None).read(self.run)
+            native=self.adapter._native_feature_observer(None,read_only=True).read(0,require_account=True)
+            avatar=self.adapter._avatar_render_observer(None,read_only=True).read()
+            world=self.adapter._graphics_subject_observer(None,read_only=True).read(self.run,require_avatar=True)
+            f.state['original']=dict(avatar=dict(source=dict(cameraMode=avatar['source']['cameraMode'])));f.save()
+            f.archive_input(dict(snapshotsBaseline=dict(group=group,native=native,avatar=avatar,world=world,documentResolution=None)))
+            f.prepare_owned_leases();f.state.update(partial=False,phase='baseline',current=None);f.save()
+        self.client.activate('cleanup');started=time.monotonic()
+        self.assertEqual({'performed':True},self.feature().cleanup(self.call()));self.assertGreaterEqual(time.monotonic()-started,6)
+        f=self.feature()
+        with f.lock.held():
+            f.load();self.assertEqual('cleaned',f.state['phase']);self.assertFalse(f.state['partial'])
+            proof=f.restored();self.assertFalse(proof['readbacks']['initialized']);self.assertNotIn('osDestinations',proof['readbacks'])
+            rows=f.input_originals();original=next(row['snapshotNoOwnedExports'] for row in rows if 'snapshotNoOwnedExports' in row)
+            self.assertFalse(original['readbacksUnavailable']['initialized']);self.assertEqual(2,len(f.state['quiet']))
+        self.assertTrue(self.adapter.foreign_ui_open)
 
     def test_partial_finalize_requires_real_actor_exit_and_retires_exact_journals_idempotently(self):
         from fixture.messages_mixer import start_identity

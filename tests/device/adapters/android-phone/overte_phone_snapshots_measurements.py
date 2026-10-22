@@ -204,7 +204,15 @@ def provider_quiet(value,*,run,epoch,closed=False):
     return value
 
 
-def retired(group,native_files,actual_inventory,readbacks,upload,settings,*,run,epoch,consumer=None,consumer_binding=None,documents=None,documents_binding=None):
+def no_owned_exports(snapshot,baseline,readbacks):
+    """An unavailable backend is not absence; actual native history proves no export."""
+    readback_source(dict(accepted=False,source=readbacks));need(readbacks.get('initialized') is False)
+    need(not export_requests(snapshot,baseline) and not snapshot['source']['androidExport']['activeRequest']
+        and not snapshot['source']['androidExport']['pendingIo'])
+    return dict(snapshot=deepcopy(snapshot),baseline=deepcopy(baseline),readbacksUnavailable=deepcopy(readbacks))
+
+
+def retired(group,native_files,actual_inventory,readbacks,upload,settings,*,run,epoch,consumer=None,consumer_binding=None,documents=None,documents_binding=None,baseline=None):
     """Fresh current absence permits an empty *live scope*, never raw erasure."""
     vm_source(group,run=run,pid=group['snapshot']['processId'],epoch=epoch)
     files_source(native_files,epoch);fresh(native_files['capturedEpochMs'],epoch)
@@ -212,19 +220,25 @@ def retired(group,native_files,actual_inventory,readbacks,upload,settings,*,run,
     need(not actual_inventory['files'] and all(row['closed'] and row['absent'] and row['retireId'] for row in rows))
     plans=[row for row in native_files['plans'] if row['runId']==run]
     need(plans and all(row['sealed'] and row['sealId'] for row in plans))
-    readback_source(dict(accepted=False,source=readbacks));fresh(readbacks['capturedEpochMs'],epoch)
-    need(readbacks['snapshotExportReadbacksVersion']==2 and readbacks['copiesRetired'] and readbacks['workersTerminated']
-        and not readbacks['files'] and all(row['phase'] in ('complete','failed') for row in readbacks['jobs']))
-    destinations=readbacks['osDestinations'];grants=readbacks['shareGrants'];need(destinations['pending']==0)
-    fresh(destinations['checkedEpochMs'],epoch);fresh(grants['checkedEpochMs'],epoch)
-    need(all(row['phase']=='retired' and row['absent'] and row['deleteIssued'] for row in destinations['rows'])
-        and all(row['revokeIssued'] and not row['granted'] and not row['chooserGranted'] for row in grants['rows']))
+    readback_source(dict(accepted=False,source=readbacks));destinations=grants=None
+    if readbacks.get('initialized') is False:
+        need(baseline is not None);no_owned_exports(group['snapshot'],baseline['snapshot'],readbacks)
+        if consumer is not None:need(consumer['original'] is None and not consumer['files'])
+        if documents is not None:need(not documents['plans'] and not documents['documents'] and not documents['fdLifetimes'])
+    else:
+        fresh(readbacks['capturedEpochMs'],epoch)
+        need(readbacks['snapshotExportReadbacksVersion']==2 and readbacks['copiesRetired'] and readbacks['workersTerminated']
+            and not readbacks['files'] and all(row['phase'] in ('complete','failed') for row in readbacks['jobs']))
+        destinations=readbacks['osDestinations'];grants=readbacks['shareGrants'];need(destinations['pending']==0)
+        fresh(destinations['checkedEpochMs'],epoch);fresh(grants['checkedEpochMs'],epoch)
+        need(all(row['phase']=='retired' and row['absent'] and row['deleteIssued'] for row in destinations['rows'])
+            and all(row['revokeIssued'] and not row['granted'] and not row['chooserGranted'] for row in grants['rows']))
     if consumer is not None:
         need(consumer_binding is not None)
         consumer_source(consumer,run,consumer['armId'],consumer['observationId'],consumer_binding['installed'],epoch)
         need(consumer['instance']==consumer_binding['instance'] and consumer['retired'] and consumer['workersTerminated']
             and not consumer['activityAlive'] and not consumer['grantPresent'] and consumer['originalClosed'] and not consumer['files'])
-    else:need(consumer_binding is None and not any(row['component'] for row in grants['rows']))
+    else:need(consumer_binding is None and (grants is None or not any(row['component'] for row in grants['rows'])))
     if documents is not None:
         need(documents_binding is not None)
         document_binding(documents_binding,documents,run=run,epoch=epoch)
@@ -232,7 +246,7 @@ def retired(group,native_files,actual_inventory,readbacks,upload,settings,*,run,
             and documents['workersTerminated'] and not documents['root']['present']
             and all(row['absent'] for row in documents['documents']) and all(row['closed'] and not row['error'] for row in documents['fdLifetimes']))
         fresh(documents['root']['checkedEpochMs'],epoch)
-        for destination in destinations['rows']:
+        for destination in destinations['rows'] if destinations is not None else []:
             identity=destination['identity']
             if identity is None or identity.get('storage')!='documents':continue
             actual=one(documents['documents'],lambda row:row['documentId']==identity['documentId'])
@@ -241,7 +255,7 @@ def retired(group,native_files,actual_inventory,readbacks,upload,settings,*,run,
                 and all(identity[key]==actual[key] for key in ('documentId','uri','displayName','device','inode','createUid','createdEpochMs'))
                 and destination['original']=={key:actual[key] for key in ('bytes','sha256')}
                 and actual['deleteCalls']==1 and destination['deleteCount']==1)
-    else:need(documents_binding is None and not any(row['identity'] is not None and row['identity'].get('storage')=='documents' for row in destinations['rows']))
+    else:need(documents_binding is None and (destinations is None or not any(row['identity'] is not None and row['identity'].get('storage')=='documents' for row in destinations['rows'])))
     upload_retired(upload);fresh(upload['capturedEpochMs'],epoch)
     request=dict(schemaVersion=1,commandId=settings['commandId'],action='phone-snapshot-settings',runId=run,operation=settings['operation'])
     if settings['operation']=='restore':request.update({key:settings['source'][key] for key in ('restoreId','expectedSha256')})
@@ -331,7 +345,7 @@ def state(frame,baseline,*,run,pid,epoch):
         need(primary and not save_sheet and not share_sheet)
         provider_quiet(provider,run=run,epoch=epoch)
         retired(group,files,frame['inventory'],readbacks,upload,settings,run=run,epoch=epoch,
-            consumer=frame['consumer'],consumer_binding=frame['consumerBinding'],documents=frame['documents'],documents_binding=frame['documentsBinding'])
+            consumer=frame['consumer'],consumer_binding=frame['consumerBinding'],documents=frame['documents'],documents_binding=frame['documentsBinding'],baseline=baseline)
         result=dict(open=False,pending=False,captureHistory=[],files=0,saved=0,uploads=0,shares=0,
             saveBackend=backend,savePermission=platform['source']['savePermission'],saveSheet=False,shareSheet=False,error='none')
         contract_state('snapshots',result);return result

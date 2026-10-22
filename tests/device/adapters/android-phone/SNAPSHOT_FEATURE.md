@@ -913,6 +913,19 @@ original partial-retirement proof, never a successful baseline or an invented
 actor witness. The separate actor accepts that proof only after original
 fixture closure.
 
+A qualified baseline can also fail before the first actual Save/Share request.
+If the original readback source is still `initialized:false`, full cleanup
+requires the unchanged complete original native export-history prefix since
+baseline, no new owned export request, no active request and no pending IO.
+That proof retains the actual unavailable DTO and native originals; it never
+creates OS-destination or grant inventories. All real private capture files,
+settings, current VM work, account, consumer/document and provider retirement
+obligations still apply. An actual export request, foreign history or missing
+baseline makes this branch red. A source/host owner test exercises actual
+file/settings leases and both real three-second quiet windows after a qualified
+baseline. Successful Save/Share checkpoints still require their initialized
+version-2 independent export sources and original bytes.
+
 Before fixture closure, normal animated Capture/FastCancel must actually delete
 the owned uploaded story and native jobs/FDs/replies/callbacks must retire. The
 provider's retained multipart body remains an unchanged private provenance
@@ -941,7 +954,7 @@ removed and reports unresolved ownership after attempting base teardown.
 
 The historical compiler, Java/JNI, Qt, file, transport, reducer, actor and
 recovery results above remain scoped host evidence. The current focused facade
-suite has twenty-one passing cases, including actual private filesystem/journal
+suite has twenty-two passing cases, including actual private filesystem/journal
 recovery and an actual separate actor process. Full public common SDK29+ and
 SDK26–28 replay qualification is still pending; this document does not promote
 Snapshot to the thirteen qualified Phone compositions. No hardware run,

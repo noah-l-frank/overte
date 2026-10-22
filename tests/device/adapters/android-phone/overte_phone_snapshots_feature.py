@@ -683,11 +683,10 @@ class PhoneSnapshotsFeature(PhoneCreateFeature):
                 if key not in stages:stages[key]=uuid.uuid4().hex;self.save()
                 if not row['revokeIssued']:readbacks.request(self.run,'revoke-share',row['request'],stages[key])
             if observed.get('initialized') is False:
-                need(self.state['partial'])
-                from overte_phone_snapshots_measurements import export_requests
-                need(not export_requests(source,self.original()['group']['snapshot']) and not source['source']['androidExport']['activeRequest']
-                    and not source['source']['androidExport']['pendingIo'])
-                self.archive_input(dict(snapshotNoOwnedExports=dict(snapshot=source,readbacksUnavailable=observed)))
+                from overte_phone_snapshots_measurements import no_owned_exports
+                source=self.adapter._snapshot_source(self.selector).read(self.run)
+                proof=no_owned_exports(source,self.original()['group']['snapshot'],observed)
+                self.archive_input(dict(snapshotNoOwnedExports=proof))
             else:
                 readbacks.request(self.run,'retire-copies');readbacks.require_os_retired(self.run);readbacks.require_share_retired(self.run)
             if self.state['consumerArm'] is not None:
@@ -749,7 +748,8 @@ class PhoneSnapshotsFeature(PhoneCreateFeature):
             files=self.adapter._snapshot_capture_file_source(self.selector,read_only=True).request(self.run)['source']
             inventory=self.file_inventory(files,file_owners=file_owners)
             readbacks=self.adapter._snapshot_readbacks(self.selector,read_only=True)
-            readback=readbacks.require_os_retired(self.run);readback=readbacks.require_share_retired(self.run)['source']['source']
+            readback=readbacks.request(self.run)['source']['source']
+            if readback.get('initialized') is not False:readback=readbacks.require_retired(self.run)['source']['source']
             upload=self.adapter._snapshot_upload_source(self.selector).read(self.run)['source'];settings=self.settings().request(self.run,'observe')
             consumer=self.consumer().observe() if self.state['consumerArm'] is not None else None
             documents=self.documents().observe() if self.state['docArm'] is not None else None
@@ -769,7 +769,7 @@ class PhoneSnapshotsFeature(PhoneCreateFeature):
         self.queued_idle(group,script_work,previous=self.quiet_work_floor())
         capture_facts(self.original()['group'],group,run=self.run,pid=self.pid,epoch=epoch)
         retired(group,files,inventory,readback,upload,settings,run=self.run,epoch=epoch,consumer=consumer,
-            consumer_binding=self.state['consumerBinding'],documents=documents,documents_binding=self.state['docBinding'])
+            consumer_binding=self.state['consumerBinding'],documents=documents,documents_binding=self.state['docBinding'],baseline=self.original()['group'])
         touch_released(touch);need(avatar['source']['cameraMode']==self.original()['avatar']['source']['cameraMode'])
         a={row['id']:row['sha256'] for row in self.original()['world']['source']['scan']['unowned']}
         b={row['id']:row['sha256'] for row in world['source']['scan']['unowned']};need(same(a,b))

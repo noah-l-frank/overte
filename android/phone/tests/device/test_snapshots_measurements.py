@@ -13,7 +13,7 @@ from test_snapshot_capture_source import Boundary as Files
 from test_snapshot_os_retirement_source import boundary as Readbacks
 from test_snapshot_consumer_source import Boundary as Consumer,ARM
 from test_snapshot_settings import Boundary as Settings
-from overte_phone_snapshots_measurements import capture,saved,shared,inventory,retired,state,SnapshotPending
+from overte_phone_snapshots_measurements import capture,saved,shared,inventory,retired,state,SnapshotPending,no_owned_exports
 
 
 def completed():
@@ -215,6 +215,26 @@ class SnapshotsMeasurementsTests(unittest.TestCase):
         self.assertEqual([],measured['captureHistory']);self.assertEqual(0,measured['files']);self.assertEqual(raw,group)
         frame['settings']=None
         with self.assertRaises(NativeUIError):state(frame,before,run=RUN,pid=31,epoch=20000)
+
+    def test_failure_before_first_export_can_retire_only_with_original_no_export_history(self):
+        group,files,actual,_readbacks,upload,settings=self.retirement();before,_,_,_=completed()
+        unavailable=dict(snapshotExportReadbacksVersion=1,initialized=False,complete=True)
+        raw=deepcopy(unavailable);proof=no_owned_exports(group['snapshot'],before['snapshot'],unavailable)
+        self.assertEqual(raw,proof['readbacksUnavailable']);self.assertNotIn('osDestinations',proof)
+        self.assertTrue(retired(group,files,actual,unavailable,upload,settings,run=RUN,epoch=20000,baseline=before))
+        frame=public_frame(group,files,[],unavailable);frame.update(inventory=actual,upload=upload,settings=settings)
+        self.assertEqual([],state(frame,before,run=RUN,pid=31,epoch=20000)['captureHistory'])
+        self.assertEqual(raw,frame['readbacks']);self.assertNotIn('shareGrants',frame['readbacks'])
+        for fault in ('missing-baseline','owned-request','pending-io','active-request','foreign-history','live-file','unrestored'):
+            values=deepcopy((group,files,actual,unavailable,upload,settings));baseline=deepcopy(before)
+            if fault=='missing-baseline':baseline=None
+            elif fault=='owned-request':callbacks(values[0],'save','b'*32,values[1]['rows'][0]['path'],[('request-active',''),('result-ready','cancelled'),('delivered','cancelled')])
+            elif fault=='pending-io':values[0]['snapshot']['source']['androidExport']['pendingIo']=['d'*32]
+            elif fault=='active-request':values[0]['snapshot']['source']['androidExport']['activeRequest']='b'*32
+            elif fault=='foreign-history':values[0]['snapshot']['source']['androidExport']['instance']='0'*32
+            elif fault=='live-file':values[1]['rows'][0]['absent']=False
+            else:values[5]['source']['retired']=False
+            with self.subTest(fault=fault),self.assertRaises(NativeUIError):retired(*values,run=RUN,epoch=20000,baseline=baseline)
 
     def test_live_history_cannot_retire_before_actual_story_delete_and_native_http_quiescence(self):
         group,files,actual,readbacks,upload,settings=self.retirement();before,_,_,_=completed()
