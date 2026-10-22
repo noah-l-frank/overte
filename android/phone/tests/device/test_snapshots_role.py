@@ -72,8 +72,12 @@ class SnapshotRolesBoundary:
         send=self.vm.snapshot_reader.send
         def sample(request):self.vm.snapshot.epoch=self.epoch-10;send(request)
         self.vm.snapshot_reader.send=sample
-        self.native_source=NativeBoundary()
-        def native(value):value['processId']=31;account_source(value)
+        self.native_source=NativeBoundary();self.logged_in=False
+        def native(value):
+            value['processId']=31;account_source(value)
+            if self.logged_in:
+                value['account']['loggedIn']=True;value['account']['principalSha256']=hashlib.sha256(('e2e-'+RUN).encode()).hexdigest()
+                value['account']['observation'].update(tokenPresent=True,tokenValid=True)
         self.native_source.mutate=native
         self.avatar_source=AvatarBoundary();self.touch_source=TouchBoundary();self.world_source=WorldBoundary()
         self.world_source.source.update(subjectVersion=2,avatarPose=dict(feetPosition=[0,0,-2],orientation=[0,0,0,1],modelScale=1),absentIds=list(subject_ids(RUN).values()))
@@ -88,6 +92,9 @@ class SnapshotRolesBoundary:
             platform=self._snapshot_platform(None).read(),resolution=dict(component='android/android.ChooserActivity'),documentResolution=None)
         self.feature.monotonic=lambda:self.clock;self.feature.sleep=lambda seconds:setattr(self,'clock',self.clock+seconds)
         self.feature.original=lambda:deepcopy(self.baseline)
+        from overte_phone_snapshots_feature import PhoneSnapshotsFeature
+        self.feature.validate_account=lambda account,verb,epoch:PhoneSnapshotsFeature.validate_account(self.feature,account,verb,epoch)
+        self.logged_in=True
         self.feature.observer_files=lambda role,**kwargs:self.observer(role,**kwargs)
         self.feature.settings=lambda **_:SimpleNamespace(request=lambda *_:None)
         self.readback_sequence=0;self.upload_sequence=0
@@ -97,6 +104,7 @@ class SnapshotRolesBoundary:
         from overte_phone_snapshot_settings import PhoneSnapshotSettings
         from self_tests.test_native_script_work import WorkBoundary,activity
         from test_snapshot_os_retirement_source import boundary as Readbacks
+        self.logged_in=False
         self.primary.retire();self.feature.state['phase']='cleaned';self.feature.state['partial']=False
         self.settings_source=Settings()
         def reader(read_only):
@@ -152,6 +160,8 @@ class SnapshotRolesBoundary:
         for packet in native.group.values():packet.update(requestedEpochMs=self.epoch,capturedEpochMs=self.epoch)
         def raw():
             value=native.frame();batch=value['source']['source']
+            account_frame=dict(capturedEpochMs=batch['context']['capturedEpochMs']);self.native_source.mutate(account_frame)
+            batch['context']['account']=account_frame['account']
             self.producer.sequence+=1;self.producer.body.update(sequence=self.producer.sequence,capturedEpochMs=self.epoch)
             batch['captureFiles']=dict(schemaVersion=1,requestId=uuid.uuid4().hex,runId=RUN,instance='a'*32,sequence=self.producer.sequence,processId=31,requestedEpochMs=self.epoch,capturedEpochMs=self.epoch,accepted=True,source=deepcopy(self.producer.body))
             self.vm.scripts.sequence=batch['group']['script']['sequence'];self.vm.roots.sequence=batch['group']['rootsAfter']['sequence'];self.vm.snapshot.sequence=batch['group']['snapshot']['sequence']
@@ -161,7 +171,7 @@ class SnapshotRolesBoundary:
         self._snapshot_system_platform=lambda *_:self._snapshot_platform(None)
         self.passive=native
 
-    def phase(self):return dict(active=True,activations=[dict(ticket=TICKET,stimulus=dict(verb='capture'))])
+    def phase(self):return dict(active=True,activations=[dict(ticket=TICKET,stimulus=dict(verb='cleanup' if self.feature.state['phase']=='cleaned' else 'capture'))])
     def native_reader(self):
         source=self.native_source
         return NativeFeatureObservation(source.send,source.original,lambda:self.epoch,source.guard,31,monotonic=lambda:self.clock,sleep=lambda _:None)
@@ -199,6 +209,22 @@ class SnapshotsRoleTests(unittest.TestCase):
         with b.role() as role:
             second=role.read(measured['sequence']);self.assertEqual(2,second['sequence']);self.assertEqual(2,len(role.frames))
             self.assertEqual(19000,role.frames[-1]['binaries'][0]['acquisition']['nativeClosedEpochMs'])
+    def test_fresh_foreign_account_or_endpoint_cannot_qualify_owned_capture(self):
+        for fault in ('principal','endpoint','logout'):
+            with self.subTest(fault=fault):
+                b=self.boundary;original=b.native_source.mutate
+                def changed(value):
+                    original(value)
+                    if fault=='principal':value['account']['principalSha256']='9'*64
+                    elif fault=='endpoint':value['account']['observation']['endpointSha256']='9'*64
+                    else:value['account']['loggedIn']=False;value['account']['observation'].update(tokenPresent=False,tokenValid=False)
+                b.native_source.mutate=changed
+                with b.role() as role,self.assertRaises(NativeUIError):role.read(role.state['sequence'])
+                b.native_source.mutate=original
+                # Each failed original remains retained. A separate role cannot
+                # borrow its public success or pretend that the source vanished.
+                self.setUp()
+
     def test_actor_acquires_its_own_binary_and_cannot_reuse_primary_inode(self):
         b=self.boundary
         with b.role() as role:role.read(0);primary=role.frames[-1]['binaries'][0]

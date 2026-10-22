@@ -460,6 +460,8 @@ class PhoneSnapshotsRole(PhoneCreateRole):
             platform=platform,system=system,resolution=resolution,consumer=consumer,consumerBinding=deepcopy(f.state['consumerBinding']),
             acquisitions=deepcopy(self.state['pending']['work'].get('acquisitions',[])),cancels=cancels,settings=settings,
             documents=documents,documentsBinding=deepcopy(f.state['docBinding']),phoneUid=phone_uid,documentResolution=self.baseline['documentResolution'])
+        account=native_after['account'] if native_after is not None else batch['context']['account']
+        f.validate_account(account,phase_after['activations'][-1]['stimulus']['verb'],epoch)
         measured=measured_state(measurement,self.baseline['group'],run=f.run,pid=f.pid,epoch=epoch)
         observer_retirement=None
         if f.state['phase'] in ('cleaned','retiring'):

@@ -326,6 +326,21 @@ class PhoneSnapshotsFeature(PhoneCreateFeature):
         else:need(value['principalSha256']==baseline['principalSha256'] and observation['credentialActive'] and not any(observation[key] for key in ('tokenPresent','tokenValid','refreshPresent')))
         return packet
 
+    def validate_account(self,account,verb,epoch):
+        from adapters.native_account_observation import validate as account_packet
+        account_packet(account,epoch)
+        baseline=self.original()['native']['account'];source=account['observation']
+        account_advance(baseline['observation'],account)
+        need(source['credentialActive'] and source['endpointPresent']
+            and source['endpointSha256']==baseline['observation']['endpointSha256']
+            and not source['loginPending'] and not source['refreshPending'])
+        logged_in=verb not in ('baseline','cleanup')
+        principal=hashlib.sha256(('e2e-'+self.run).encode()).hexdigest() if logged_in else baseline['principalSha256']
+        need(account['loggedIn'] is logged_in and account['principalSha256']==principal)
+        if logged_in:need(source['tokenPresent'] and source['tokenValid'])
+        else:need(not source['tokenPresent'] and not source['tokenValid'] and not source['refreshPresent'])
+        return account
+
     def login(self):
         origin=self.phase.provider()['origin'];ui=self.adapter._login_controls(self.selector,self.login_intent,self.run,origin)
         ui.open();credentials=self.phase.client.request('/runs/'+self.run+'/snapshot-upload/credentials')
@@ -453,7 +468,7 @@ class PhoneSnapshotsFeature(PhoneCreateFeature):
                 self.wait_original(consumer.observe,lambda row:row['phase']=='complete' and row['originalClosed'])
                 self.handoff_ui().back(receiver=True);self.finish_handoff()
             elif verb in ('upload-fail','upload'):ui.image_action('upload',self.capture_path())
-            elif verb=='background-resume':self.background()
+            elif verb=='background-resume':self.marker('prepare');self.background()
             elif verb=='close':ui.close();self.state['leases']['tablet']=False;self.save()
             else:need(False) # Unsupported required backend actions remain red.
             self.active();self.state['actions'].append(dict(call=call,ticket=call['ticket'],phase='acknowledged'))
