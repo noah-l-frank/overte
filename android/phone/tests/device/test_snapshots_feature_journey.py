@@ -387,7 +387,11 @@ class SnapshotJourneyTests(unittest.TestCase):
 
     def common(self):
         from feature_journeys.engine import Journey
+        from feature_journeys.scenarios import SCENARIOS
         reports=[];initialized=[False];timings=[]
+        def phase_inventory(report):
+            return dict(sourceProfile=report['sourceProfile'],normalPhases=[row['phase'] for row in report['phases'] if row['phase'][:2].isdigit()],
+                notApplicableSteps=report['notApplicableSteps'],cleanupSucceeded=report['cleanupSucceeded'],sequenceCompleted=report['sequenceCompleted'],deviceAcceptance=report['deviceAcceptance'])
         def invoke(operation,fields):
             started=time.monotonic();before=self.model.rpc_counts.copy();result=self.invoke(operation,fields)
             counts=self.model.rpc_counts-before
@@ -407,6 +411,7 @@ class SnapshotJourneyTests(unittest.TestCase):
         try:journey.execute()
         except BaseException:
             print('Explicit Snapshot producer replay stopped; recent source calls '+repr(timings[-8:])+'; original witness age/transport/receipt ages '+repr(witness_clocks)+'; actual final measured samples '+repr([(row['phase'],row['state'],row['lifecycle'],None if row['witness'] is None else row['witness']['facts']) for row in journey.samples[-8:]])+'; required original lifecycle '+repr(journey.required_lifecycle),file=sys.stderr)
+            if reports:print('Snapshot actual common phase inventory '+json.dumps(phase_inventory(reports[-1]),sort_keys=True),file=sys.stderr,flush=True)
             if initialized[0]:self.actor_ok()
             raise
         self.assertTrue(reports[-1]['sequenceCompleted']);self.assertTrue(reports[-1]['cleanupSucceeded'])
@@ -416,6 +421,13 @@ class SnapshotJourneyTests(unittest.TestCase):
             self.assertIsNone(PrivateFeatureState(self.root/('phone-snapshots-'+name+'.json')).read())
         self.assertTrue(list(self.root.glob('emote-frame-snapshots-retirement-*.json')))
         self.assertEqual(0,self.server.internal_errors);self.assertEqual([],self.rpc.errors)
+        inventory=phase_inventory(reports[-1]);profile=reports[-1]['sourceProfile']
+        required=[];not_applicable=[]
+        for index,step in enumerate(SCENARIOS['snapshots']['steps'],1):
+            if 'backends' in step and profile not in step['backends']:not_applicable.append(dict(index=index,verb=step['verb'],sourceProfile=profile))
+            else:required.append(str(index).zfill(2)+'-'+step['verb'])
+        self.assertEqual(required,inventory['normalPhases']);self.assertEqual(not_applicable,inventory['notApplicableSteps'])
+        print('Snapshot actual common phase inventory '+json.dumps(inventory,sort_keys=True),flush=True)
         return reports[-1]
     def test_complete_media_store_common_journey_and_closed_repeated_cleanup(self):
         self.assertEqual('media-store',self.common()['sourceProfile'])
