@@ -1065,3 +1065,21 @@ no assertion is dropped or default120s group timeout changed. Complete Pico
 factory/peer source-build admission, Erase/profile/native-input restoration,
 Qt/process/independent final absence and recovery authority remain unfinished.
 Chat is partial and no new public complete feature capability is advertised.
+
+
+## Independent Chat actor configured source metadata
+
+Chat ActorSource2 exposes a full revision only when the original configure
+helper observes the same clean root HEAD before and after acquisition. Dirty,
+untracked, exported or changing sources remain unknown. Native-held original
+source bytes, process identity and the original Linux file descriptor protect
+that metadata from later RAM DTO replacement. This is configure-time compiled
+metadata, not a hermetic build receipt or full application qualification.
+The peer factory still requires its own executable hash and process birth;
+it cannot borrow the Pico revision. The additive `chat-actor-source` selector
+checks original CMake acquisition and narrow native source/pending-actor bodies.
+
+After the earlier integrated ten-group host run, two narrow Audio countercases
+also pass in 2.513s: phase progress inside the final native guard prevents normal
+HOME and private tap release. They preserve the final independent phase check
+after native/PCM admission. Full Audio and Chat remain partial.

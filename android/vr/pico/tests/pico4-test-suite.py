@@ -38,6 +38,7 @@ TESTS = (
     test("chat-dispatcher-journey", "interaction", PYTHON, "pico-chat-dispatcher-test.py", "journey"),
     test("chat-dispatcher-recovery", "interaction", PYTHON, "pico-chat-dispatcher-test.py", "recovery"),
     test("chat-input-phase", "interaction", PYTHON, "pico-chat-dispatcher-test.py", "phase"),
+    test("chat-actor-source", "interaction", PYTHON, "pico-chat-actor-source-test.py", requires=("cmake", "git", "c++", "pkg-config")),
     test("shell-syntax", "infrastructure", "bash", "pico-shell-syntax-test.sh"),
     test("source-inputs-v1", "android", PYTHON, "test_source_inputs.py"),
     test("source-inputs-v2", "android", PYTHON, "test_qualified_reuse.py"),
