@@ -34,6 +34,7 @@ from ios.adapters.emote_rendered_retirement import IOSEmoteRenderedRetirement
 from ios.adapters.emote_restoration_frames import IOSEmoteRestorationFrames
 from ios.adapters.emote_pointers import IOSEmotePointers,zero as pointer_zero
 from ios.adapters.emote_keys import IOSEmoteKeys
+from ios.adapters.emote_scene_operation import retry_scene,initial as initial_scene,retired as retired_scene
 from ios.adapters.emote_keyed_retirement import IOSEmoteKeyedRetirement
 from ios.adapters.world_web_keys import drained as keys_zero
 from ios.adapters.emote_retirement_scope import refresh as refresh_quiet
@@ -209,6 +210,7 @@ class IOSEmoteFeature:
                 # The untouched background is captured before the first normal
                 # marker input. An old challenge frame cannot stand in for it.
                 restoration.capture('initial')
+            initial_scene(self,parts)
             with self.runtime.existing_input_session(self.selector):parts['scope'].prepare()
             if parts['scope'].state['webAdmission'] is None:parts['scope'].admit_rendered()
             files=self.file_receipts(parts);files.abandon()
@@ -222,6 +224,7 @@ class IOSEmoteFeature:
         ref=row['before'];return dict(index=ref['revision'],sha256=ref['sha256'])
 
     @operation(25)
+    @retry_scene
     def act(self,call):
         need(self.role=='primary');call=deepcopy(arguments('feature.emotes.act',call));need(call['runId']==self.run and call['fixtureUrl']==self.phase.fixture_url)
         with self.held():
@@ -253,6 +256,7 @@ class IOSEmoteFeature:
             return result
 
     @operation(30)
+    @retry_scene
     def observe(self,call):
         call=arguments('feature.emotes.observe',call);need(call['runId']==self.run)
         with self.held(30):
@@ -277,8 +281,8 @@ class IOSEmoteFeature:
             self.load();self.phase.status()
             archived=PrivateFeatureState(self.runtime.state_path(self.selector).with_name(
                 'ios-emote-'+self.role+'-'+self.run+'-finalization.json')).read()
-            if not self.phase.previous['active'] and (self.state is not None or archived is not None):
-                return self.finalize()
+            retired=not self.phase.previous['active'] and (self.state is not None or archived is not None)
+        if retired:return self.finalize()
         return self.observe(dict(contractVersion=16,runId=self.run,afterSequence=0))
 
     def cleanup_inputs(self,parts):
@@ -351,6 +355,7 @@ class IOSEmoteFeature:
         files=None
         if parts['scope'].state['fileOwnership'] is not None:
             files=self.file_receipts(parts);files.abandon();files.capture('absent',parts['scope'].state['fileOwnership'])
+        retired_scene(self,parts)
         if self.role=='actor':
             # Receive and render the independently acquired current Primary
             # pose before fencing the Actor's final world pixels. A later peer
@@ -402,6 +407,7 @@ class IOSEmoteFeature:
         return {'performed':True}
 
     @operation(60)
+    @retry_scene
     def cleanup(self,call):
         call=arguments('feature.emotes.cleanup',call);need(call['runId']==self.run)
         with self.held(30):
@@ -445,6 +451,7 @@ class IOSEmoteFeature:
             return {'performed':True}
 
     @operation(60)
+    @retry_scene
     def finalize(self):
         """After fixture retirement, retain originals and retire only metadata."""
         from ios.adapters.emote_finalization import IOSEmoteFinalization

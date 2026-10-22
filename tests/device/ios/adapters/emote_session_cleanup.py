@@ -16,7 +16,7 @@ from ios.adapters.emote_runtime import IOSEmoteRuntime
 from ios.adapters.emote_session_carriers import configured_roots,scoped,scoped_covered
 
 _FIXED=('marker','marker-files','marker-script','marker-recovery','samples','sample-recovery','observer','native-files',
-    'marker-entities','retirement-originals','rendered-retirement-originals','keyed-retirement-originals','restoration-frames','pointers','keys')
+    'marker-entities','retirement-originals','rendered-retirement-originals','keyed-retirement-originals','restoration-frames','pointers','keys','scene-gate')
 _ACTIVE=ContextVar('ios_emote_session_retirement_budget',default=None)
 
 

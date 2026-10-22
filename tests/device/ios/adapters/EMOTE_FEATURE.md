@@ -50,6 +50,10 @@ fact. Every other actually rendered avatar's complete known projected bounds
 is excluded from the selected subject ROI. Unknown bounds fail closed.
 
 Each role captures a genuine pre-marker raw world frame before marker input.
+Both original initial owners are admitted before either normal camera change;
+both actual restored scene endpoints precede any cleanup PNG. The private
+[scene barrier](../EMOTE_SCENE_BARRIER.md) orders these operations outside both
+SDK locks and retains the original public-call deadline.
 Normal Script/File/View setup retains exact marker-only script bytes, actual
 Script-dialog callback return and listener death, actual API-return UUID,
 EntityTree birth/removal and independent weak expiry. Cleanup restores the

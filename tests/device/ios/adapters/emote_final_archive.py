@@ -16,7 +16,9 @@ from feature_journeys.contract import identifier
 from feature_journeys.phase_fixture import validate as phase_packet
 from ios.adapters.emote_original_lease import EmoteOriginalLease
 
-VERSION=1
+VERSION=2
+READS=(1,2)
+COPY_VERSION=1
 
 
 class IOSEmoteFinalArchive:
@@ -28,16 +30,18 @@ class IOSEmoteFinalArchive:
         need(role in ('primary','actor') and self.root.is_absolute() and self.root.resolve()==self.root and self.root.is_dir()
             and type(paths) is list and 1<=len(paths)<=256 and all(isinstance(path,PrivateFeatureState) for path in paths)
             and len({str(path.path) for path in paths})==len(paths))
-        self.paths=paths;self.previous=store.read();self.state=None;self.qualified=None
+        self.paths=paths;self.previous=store.read();self.state=None;self.qualified=None;self.version=VERSION
+        if self.previous is not None:
+            actual=self.previous.get('iosEmoteFinalArchiveVersion');need(type(actual) is int and actual in READS);self.version=actual
         if self.previous is not None:self.state=self.decode(self.previous)
-    def envelope(self,state):return dict(iosEmoteFinalArchiveVersion=VERSION,runId=self.run,role=self.role,binding=self.binding,
+    def envelope(self,state):return dict(iosEmoteFinalArchiveVersion=self.version,runId=self.run,role=self.role,binding=self.binding,
         artifactRoot=str(self.root),paths=[str(path.path) for path in self.paths],payload=pack([state]))
     def record_store(self,index):
         need(integer(index,1,len(self.paths)));return PrivateFeatureState(self.root/('emote-final-'+self.run+'-'+self.role+'-'+str(index)+'.json'))
     def copy(self,ref):
         exact(ref,{'index','sha256'});value=self.record_store(ref['index']).read();need(value is not None and digest(value)==ref['sha256'])
         exact(value,{'iosEmoteFinalCopyVersion','runId','role','binding','index','path','payload'})
-        need(type(value['iosEmoteFinalCopyVersion']) is int and value['iosEmoteFinalCopyVersion']==VERSION and value['runId']==self.run and value['role']==self.role
+        need(type(value['iosEmoteFinalCopyVersion']) is int and value['iosEmoteFinalCopyVersion']==COPY_VERSION and value['runId']==self.run and value['role']==self.role
             and same(value['binding'],self.binding) and value['index']==ref['index'] and value['path']==str(self.paths[ref['index']-1].path))
         rows=unpack(value['payload']);need(len(rows)==1 and (rows[0] is None or type(rows[0]) is dict));return rows[0]
     def copies(self):return {str(self.paths[ref['index']-1].path):self.copy(ref) for ref in self.state['records']}
@@ -75,7 +79,7 @@ class IOSEmoteFinalArchive:
             if self.state['pending'] is None:
                 value=self.paths[index-1].read();need(digest(value)==self.state['hashes'][index-1])
                 self.state['pending']=dict(index=index,value=value);self.save()
-            pending=self.state['pending'];value=dict(iosEmoteFinalCopyVersion=VERSION,runId=self.run,role=self.role,binding=self.binding,
+            pending=self.state['pending'];value=dict(iosEmoteFinalCopyVersion=COPY_VERSION,runId=self.run,role=self.role,binding=self.binding,
                 index=index,path=str(self.paths[index-1].path),payload=pack([pending['value']]))
             store=self.record_store(index);old=store.read()
             if old is None:store.write(value,None)

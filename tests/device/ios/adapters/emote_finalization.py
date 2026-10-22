@@ -29,6 +29,7 @@ from ios.adapters.emote_restoration_frames import IOSEmoteRestorationFrames
 from ios.adapters.emote_native_prefix import follow
 from ios.adapters.emote_pointers import IOSEmotePointers
 from ios.adapters.emote_keys import IOSEmoteKeys
+from ios.adapters.emote_scene_operation import retired as retired_scene
 from ios.adapters.emote_keyed_retirement import IOSEmoteKeyedRetirement
 from ios.adapters.emote_retirement_scope import refresh as refresh_quiet
 from ios.adapters.emote_sample_recovery import IOSEmoteSampleRecovery
@@ -40,6 +41,10 @@ from ios.adapters.peer_admission import admit_existing_peer,validate as peer_adm
 class IOSEmoteFinalization:
     def __init__(self,flow):
         self.flow=flow;self.store=PrivateFeatureState(flow.runtime.state_path(flow.selector).with_name('ios-emote-'+flow.role+'-'+flow.run+'-finalization.json'))
+        previous=self.store.read()
+        from ios.adapters.emote_final_archive import READS,VERSION
+        version=VERSION if previous is None else previous.get('iosEmoteFinalArchiveVersion')
+        need(type(version) is int and version in READS);flow.archive_version=version
     def path(self,name,*,primary=False):
         f=self.flow;return PrivateFeatureState(f.runtime.state_path(f.primary_selector if primary else f.selector).with_name(name))
     def paths(self,read=None):
@@ -50,6 +55,7 @@ class IOSEmoteFinalization:
         if role=='primary':names+=['ios-emote-cleanup-inputs.json','ios-emote-inputs.json','ios-emote-background.json','ios-emote-primary-peer-retirement.json']
         else:names+=['ios-emote-actor-peer-sources.json','ios-emote-actor-peer-recovery.json',
             'phase-publication-emotes-'+f.run+'-actor.json','phase-retirement-emotes-'+f.run+'-actor.json']
+        if f.archive_version>=2:names.append('ios-emote-'+role+'-scene-gate.json')
         result=[self.path(name) for name in names]
         if role=='actor':
             # Publisher records originate in the SDK directory. Preserve their
@@ -169,6 +175,9 @@ class IOSEmoteFinalization:
         if files is not None:barrier=files.original(files.state['records'][-1])['clockJoin']['nativeAfter']
         follow(barrier,current['clockJoin']['nativeBefore']);follow(current['clockJoin']['nativeAfter'],final_native)
         owner.samples(raw('ios-emote-'+role+'-samples.json'),scope)
+        if f.archive_version>=2:
+            from ios.adapters.emote_scene_history import validate as scene_history
+            scene_history(self,copies,scope,frames)
         recovery_originals(self,copies,sources,peers,scope,samples)
         if role=='actor':
             for cls,prefix,callback in ((PhaseWitnessPublisher,'phase-publication',observer.validate_original),
@@ -225,6 +234,7 @@ class IOSEmoteFinalization:
         entities=f.marker_entities(parts);entities.abandon();entities.capture();entities.closed(scope)
         if scope.state['fileOwnership'] is not None:
             files=f.file_receipts(parts);files.abandon();files.capture('absent',scope.state['fileOwnership'])
+        retired_scene(f,parts)
         restoration=parts['restoration'];restoration.abandon();restoration.capture('cleanup')
         pointers.capture();keys.capture()
         # The historical validator rereads each actual resource and pointer
