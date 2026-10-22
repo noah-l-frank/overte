@@ -11,6 +11,9 @@
 
 #ifndef hifi_Avatar_h
 #define hifi_Avatar_h
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+#include <FeatureModelLoads.h>
+#endif
 
 #include <functional>
 #include <glm/glm.hpp>
@@ -139,6 +142,10 @@ class Avatar : public AvatarData, public scriptable::ModelProvider, public MetaM
     Q_PROPERTY(glm::vec3 skeletonOffset READ getSkeletonOffset WRITE setSkeletonOffset)
 
 public:
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    QVariantMap e2eAvatarLoads() { return _e2eAvatarLoads.snapshot(); }
+#endif
+
     static void setShowAvatars(bool render);
     static void setShowReceiveStats(bool receiveStats);
     static void setShowMyLookAtVectors(bool showMine);
@@ -780,6 +787,10 @@ protected:
     void updateDescendantRenderIDs();
     render::ItemIDs _descendantRenderIDs;
     std::unordered_set<EntityItemID> _renderingDescendantEntityIDs;
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    overte::e2e::FeatureModelLoads _e2eAvatarLoads;
+#endif
+
 };
 
 #endif // hifi_Avatar_h

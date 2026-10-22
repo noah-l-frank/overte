@@ -83,6 +83,11 @@ class Handler(BaseHTTPRequestHandler):
             observe_write(dict(status=actual_status,responseId=actual_id,bytes=written,sha256=hashlib.sha256(body).hexdigest()))
 
     def resource(self,run,ticket,name):
+        social=self.server.avatar_people_service
+        if social is not None and run in social.runs and (name in ('avatar-a.fst','missing.fst') or name.startswith(('mannequin/','gltf-bundle/'))):
+            self.connection.settimeout(2)
+            with social.resource_response(run,ticket,name) as response:
+                return self.send(response[0],response[1],response[2],response_id=response[3],observe_write=response[4])
         if name==GRAPHICS_SCENE:
             provider=self.server.graphics_resources
             if provider is None:return self.send(503,{'error':'graphics-provider-unavailable'})

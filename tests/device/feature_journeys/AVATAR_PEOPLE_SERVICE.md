@@ -15,6 +15,11 @@ only the peer's credentials. Neither fixture-role credential can establish a
 relationship, publish with the primary role, or control account cleanup.
 Credentials and native request details remain private; no request is logged.
 
+Owned FST/FBX/texture/glTF resource responses use the same completed-wire
+receipt mechanism. Their immutable body digests and response IDs are original
+service facts; the adapter must separately join actual native consumption.
+A DELETE before any original session POST returns a bounded 409 response.
+
 The normal original People protocol sends authenticated POSTs to
 `/api/v1/user/connection_request`, then bounded GET polls. The first actual POST
 binds its declared session pair to the two owned principals; the native adapter

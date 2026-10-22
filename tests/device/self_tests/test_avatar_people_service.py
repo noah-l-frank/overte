@@ -61,6 +61,27 @@ class AvatarPeopleServiceTests(unittest.TestCase):
         self.assertEqual('pending',self.submit('primary')[1]['connection'])
         self.assertEqual('success',self.submit('peer')[1]['status'])
         self.assertIsInstance(self.submit('primary',method='GET')[1]['connection'],dict)
+    def test_actual_model_texture_and_missing_resource_responses_have_completed_wire_identity(self):
+        from feature_journeys.fixtures import pinned_resource
+        from urllib.request import Request
+        expected={name:pinned_resource(name) for name in ('avatar-a.fst','mannequin/mannequin.fbx','mannequin/Eyes.png')}
+        for name,raw in expected.items():
+            with self.opener.open(Request(self.origin+'/feature-fixture/v1/runs/'+self.run+'/tickets/'+TICKET+'/'+name),timeout=3) as response:
+                self.assertEqual(raw,response.read());identity=response.headers['X-Overte-Fixture-Response']
+            source=self.client.avatar_people_status();original=source['responses'][-1]
+            self.assertEqual(identity,original['responseId']);self.assertEqual('resource',original['role'])
+            self.assertEqual(hashlib.sha256(raw).hexdigest(),original['sha256']);self.assertEqual(len(raw),original['bytes'])
+        code,value=self.request('/feature-fixture/v1/runs/'+self.run+'/tickets/'+TICKET+'/missing.fst')
+        self.assertEqual(404,code);self.assertEqual('not-found',value['error'])
+        self.assertEqual(404,self.client.avatar_people_status()['responses'][-1]['status'])
+
+    def test_delete_before_first_original_post_is_bounded_and_preserves_unbound_scope(self):
+        token=self.grant('primary');peer_name=self.social.credentials(self.run,'peer')['username']
+        status,value=self.request(DELETE+peer_name,method='DELETE',headers={'Authorization':'Bearer '+token})
+        self.assertEqual(409,status);self.assertEqual('session-unbound',value['error'])
+        original=self.client.avatar_people_status();self.assertIsNone(original['binding']);self.assertFalse(any(original['relationships'].values()))
+        self.assertEqual(409,original['responses'][-1]['status'])
+
     def test_two_distinct_actual_authenticated_reciprocal_posts_and_completed_wire_receipts(self):
         self.connect();status=self.client.avatar_people_status()
         self.assertEqual(dict(domainId=DOMAIN,primarySession=PRIMARY,peerSession=PEER),status['binding'])

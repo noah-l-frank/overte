@@ -11,6 +11,9 @@
 //
 
 #include "HTTPResourceRequest.h"
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+#include "FeatureResourceReplies.h"
+#endif
 
 #include <QFile>
 #include <QNetworkReply>
@@ -120,6 +123,9 @@ void HTTPResourceRequest::onRequestFinished() {
     Q_ASSERT(_reply);
 
     cleanupTimer();
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    overte::e2e::FeatureResourceReplies::instance().completed(_reply,_url);
+#endif
 
     // Content-Range headers have the form: 
     //

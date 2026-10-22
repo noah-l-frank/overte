@@ -123,6 +123,7 @@ class AvatarPeopleService:
             users=[user] if user is not None and row['relationship'] and parameters.get('search',user['username']) in user['username'] and parameters.get('page','1')=='1' else []
             return 200,dict(status='success',data=dict(users=users,total_entries=len(users),total_pages=1,current_page=1))
         if path.startswith(DELETE) and method=='DELETE':
+            if row['binding'] is None:return 409,dict(status='fail',error='session-unbound')
             if parameters or unquote(path[len(DELETE):])!=self._user(row,other)['username']:return 403,dict(status='fail',error='foreign-account')
             row['relationship']=False;row['pending']={}
             return 200,dict(status='success')
@@ -152,6 +153,38 @@ class AvatarPeopleService:
                     method=method,path=path,startedEpochMs=started,completedEpochMs=self.accounts.now(),**{k:value[k] for k in ('status','bytes','sha256')}))
                 completed=True
         try:yield status,raw,response_id,observed
+        finally:
+            with self.accounts.changed:
+                row['inflight']-=1
+                if not completed:row['failedResponses']+=1
+                self.accounts.changed.notify_all()
+
+    @contextmanager
+    def resource_response(self,run,ticket,name):
+        from .fixtures import payload,companion
+        identifier(run);identifier(ticket)
+        if not re.fullmatch(r'(?:avatar-a\.fst|missing\.fst|mannequin/[A-Za-z0-9_.-]+|gltf-bundle/(?:main\.gltf|mesh/triangle\.bin|textures/checker\.png))',name):
+            raise ValueError('Resource is outside the owned avatar dependency inventory')
+        with self.accounts.changed:
+            row=self.runs[run]
+            if not row['active'] or row['inflight']>=8 or len(row['responses'])+row['inflight']>=512:raise ValueError('Owned avatar resource is unavailable')
+            started=self.accounts.now();row['inflight']+=1
+            data=payload(name,run,ticket)
+            if data is None:
+                try:data=('application/octet-stream',companion(name))
+                except ValueError:data=None
+            status=200 if data is not None else 404
+            content_type,raw=data if data is not None else ('application/json',b'{"error":"not-found"}')
+            response_id=secrets.token_hex(16);completed=False
+            path='/feature-fixture/v1/runs/'+run+'/tickets/'+ticket+'/'+name
+        def observed(value):
+            nonlocal completed
+            exact(value,{'status','responseId','bytes','sha256'},'original avatar resource wire response')
+            with self.accounts.changed:
+                if completed or value!=dict(status=status,responseId=response_id,bytes=len(raw),sha256=hashlib.sha256(raw).hexdigest()):raise ValueError('Incomplete original avatar resource response')
+                self.sequence+=1;row['responses'].append(dict(sequence=self.sequence,responseId=response_id,role='resource',ticket=ticket,
+                    method='GET',path=path,startedEpochMs=started,completedEpochMs=self.accounts.now(),**{k:value[k] for k in ('status','bytes','sha256')}));completed=True
+        try:yield status,raw,content_type,response_id,observed
         finally:
             with self.accounts.changed:
                 row['inflight']-=1
@@ -223,7 +256,7 @@ def validate_status(value,*,run,request,instance,previous=None):
     for row in value['responses']:
         exact(row,{'sequence','responseId','role','ticket','method','path','startedEpochMs','completedEpochMs','status','bytes','sha256'},'completed social wire original')
         identifier(row['responseId']);identifier(row['ticket'])
-        if not integer(row['sequence'],sequence+1) or row['responseId'] in seen or row['role'] not in ROLES or row['method'] not in ('GET','POST','DELETE') or row['path'] not in (REQUEST,*USERS) and not row['path'].startswith(DELETE) or not integer(row['status'],100,599) or not integer(row['bytes'],1,65536) or not re.fullmatch('[0-9a-f]{64}',row['sha256']) or not integer(row['startedEpochMs'],1,row['completedEpochMs']) or not integer(row['completedEpochMs'],1,value['capturedEpochMs']):raise ValueError('Invalid completed social wire source')
+        if not integer(row['sequence'],sequence+1) or row['responseId'] in seen or row['role'] not in (*ROLES,'resource') or row['method'] not in ('GET','POST','DELETE') or row['path'] not in (REQUEST,*USERS) and not row['path'].startswith(DELETE) and not (row['role']=='resource' and row['method']=='GET' and re.fullmatch('/feature-fixture/v1/runs/'+run+'/tickets/[0-9a-f]{32}/(?:avatar-a\.fst|missing\.fst|mannequin/[A-Za-z0-9_.-]+|gltf-bundle/(?:main\.gltf|mesh/triangle\.bin|textures/checker\.png))',row['path'])) or not integer(row['status'],100,599) or not integer(row['bytes'],1,16*1024*1024 if row['role']=='resource' else 65536) or not re.fullmatch('[0-9a-f]{64}',row['sha256']) or not integer(row['startedEpochMs'],1,row['completedEpochMs']) or not integer(row['completedEpochMs'],1,value['capturedEpochMs']):raise ValueError('Invalid completed social wire source')
         sequence=row['sequence'];seen.add(row['responseId'])
     if not value['active'] and (value['pending'] or value['inflightResponses'] or any(value['relationships'].values())):raise ValueError('Retired social scope remains live')
     if previous is not None:

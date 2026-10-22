@@ -20,6 +20,7 @@
 #include <QMutex>
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #include <QUuid>
+#include "FeatureModelLoads.h"
 #endif
 
 #include <unordered_map>
@@ -92,6 +93,7 @@ public:
 
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     QString e2eModelInstance() const { return _e2eModelInstance; }
+    QVariantMap e2eModelLoads() { return _e2eModelLoads.snapshot(); }
 #endif
 
     typedef RenderArgs::RenderMode RenderMode;
@@ -392,6 +394,7 @@ signals:
 
 protected:
 #if defined(OVERTE_E2E_FEATURE_TESTS)
+    overte::e2e::FeatureModelLoads _e2eModelLoads;
     const QString _e2eModelInstance {QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-')};
 #endif
 
