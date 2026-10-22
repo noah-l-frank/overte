@@ -17,6 +17,8 @@ PREPARED_HOST_CHECKS = (
     "android/phone/tests/phone-chat-peer-native-test.py",
     "android/phone/tests/phone-chat-history-native-test.py",
     "android/phone/tests/device/test_assets_bake_originals.py",
+    "android/phone/tests/device/test_snapshot_capture_files_native.py",
+    "android/phone/tests/device/test_snapshot_capture_gif_native.py",
     "android/phone/tests/device/test_assets_upload_originals.py",
     "android/phone/tests/device/test_assets_geometry_input.py",
     "android/phone/tests/device/test_assets_native_ui.py",
@@ -54,6 +56,8 @@ PREPARED_HOST_CHECKS = (
 )
 COMMON_HOST_CHECKS = (
     "tests/device/self_tests/test_token_chat_ui.py",
+    "android/phone/tests/device/test_snapshot_capture_source.py",
+    "android/phone/tests/device/test_snapshot_capture_files.py",
     "android/phone/tests/device/test_feature_dispatch.py",
 
     "android/phone/tests/device/test_snapshot_os_retirement_source.py",

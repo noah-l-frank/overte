@@ -56,6 +56,7 @@
 #include <algorithm>
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PHONE_INTERFACE)
 #include "../../../tests/device/native/PhoneSnapshotHistory.h"
+#include "../../../tests/device/native/PhoneSnapshotCaptureFiles.h"
 #include "../../../tests/device/native/PhoneSnapshotScriptHistory.h"
 #include <ScriptManager.h>
 #endif
@@ -76,6 +77,7 @@ Snapshot::Snapshot() {
     _featureSnapshotScriptHistory=std::make_shared<overte::e2e::PhoneSnapshotScriptHistory>();
     connect(this,&Snapshot::captureStatusChanged,this,[this](const QString& id,const QString& phase,const QString& path,const QString& error) {
         _featureSnapshotHistory->record("capture-status",id,phase,path,error);
+        overte::e2e::PhoneSnapshotCaptureFiles::get().terminal(id,phase,path);
     });
     connect(this,&Snapshot::uploadStatusChanged,this,[this](const QString& path,const QString& status,const QString& error) {
         _featureSnapshotHistory->record("upload-status",path,status,path,error);
@@ -133,6 +135,7 @@ SnapshotCapture Snapshot::beginCapture(const QString& requestId) {
     _captures.insert(requestId, capture);
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PHONE_INTERFACE)
     _featureSnapshotHistory->record("capture-begin",requestId);
+    overte::e2e::PhoneSnapshotCaptureFiles::get().begin(requestId);
 #endif
     return capture;
 }
@@ -528,6 +531,9 @@ QImage Snapshot::convertToEquirectangular(std::array<QImage, 6> images, Snapshot
 
 void Snapshot::complete360(const QImage& image, const QString& filename, bool notify, const SnapshotCapture& capture) {
     if (!capture->current()) { return; }
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PHONE_INTERFACE)
+    overte::e2e::PhoneSnapshotCaptureFiles::Scope originalFileScope(capture->id);
+#endif
     const auto path = saveSnapshot(image, filename);
     if (path.isEmpty()) { captureStatus(capture, "error", {}, "save-failed"); return; }
     emit DependencyManager::get<WindowScriptingInterface>()->snapshot360Taken(path, notify);
@@ -625,8 +631,14 @@ QFile* Snapshot::savedFileForSnapshot(QImage& shot,
             snapshotFullPath.append(filename);
 
             if (nativeReviewEnabled() && QFileInfo(snapshotFullPath).isSymLink()) { return nullptr; }
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PHONE_INTERFACE)
+            auto originalFileTicket=overte::e2e::PhoneSnapshotCaptureFiles::get().opening(snapshotFullPath,overte::snapshot::storageRoot());
+#endif
             QFile* imageFile = new QFile(snapshotFullPath);
             while (!imageFile->open(QIODevice::WriteOnly)) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PHONE_INTERFACE)
+                overte::e2e::PhoneSnapshotCaptureFiles::get().openFailed(originalFileTicket);
+#endif
                 delete imageFile;
                 if (nativeReviewEnabled()) { return nullptr; }
                 // It'd be better for the directory chooser to restore the cursor to its previous state
@@ -649,13 +661,36 @@ QFile* Snapshot::savedFileForSnapshot(QImage& shot,
                 }
                 snapshotFullPath.append(filename);
 
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PHONE_INTERFACE)
+                originalFileTicket=overte::e2e::PhoneSnapshotCaptureFiles::get().opening(snapshotFullPath,overte::snapshot::storageRoot());
+#endif
                 imageFile = new QFile(snapshotFullPath);
             }
 
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PHONE_INTERFACE)
+            overte::e2e::PhoneSnapshotCaptureFiles::get().opened(originalFileTicket,imageFile->handle());
+#endif
             if (!shot.save(imageFile, nullptr, imageQuality)) {
-                imageFile->close(); imageFile->remove(); delete imageFile; return nullptr;
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PHONE_INTERFACE)
+                overte::e2e::PhoneSnapshotCaptureFiles::get().beforeClose(originalFileTicket,imageFile->handle());
+#endif
+                imageFile->close();
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PHONE_INTERFACE)
+                overte::e2e::PhoneSnapshotCaptureFiles::get().closed(originalFileTicket,imageFile->isOpen());
+                const bool actualRemoved=imageFile->remove();
+                overte::e2e::PhoneSnapshotCaptureFiles::get().removed(originalFileTicket,actualRemoved);
+#else
+                imageFile->remove();
+#endif
+                delete imageFile; return nullptr;
             }
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PHONE_INTERFACE)
+            overte::e2e::PhoneSnapshotCaptureFiles::get().beforeClose(originalFileTicket,imageFile->handle());
+#endif
             imageFile->close();
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PHONE_INTERFACE)
+            overte::e2e::PhoneSnapshotCaptureFiles::get().closed(originalFileTicket,imageFile->isOpen());
+#endif
 
             return imageFile;
         }

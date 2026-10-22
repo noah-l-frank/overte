@@ -217,6 +217,9 @@ def readonly_feature_command(command):
     elif action=='feature-scene-load-observe':
         from adapters.native_phone_scene_loads import command as validate_scene_load
         validate_scene_load(command)
+    elif action=='phone-snapshot-files-observe':
+        from overte_phone_snapshot_capture_source import command as validate_capture_files
+        validate_capture_files(command)
     elif action=='phone-snapshot-observe':
         from overte_phone_snapshot_source import command as validate_snapshot
         validate_snapshot(command)
@@ -1431,6 +1434,14 @@ class PhoneAppiumAdapter(AppiumAdapter):
             lambda:transport.read_debug_app_file(device,target['appId'],'files/overte-e2e/'+FILE,attempts=1),
             native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep)
 
+    def _snapshot_capture_file_source(self,selector,*,read_only=True):
+        from overte_phone_snapshot_capture_source import PhoneSnapshotCaptureFileSource,FILE
+        native=self._native_feature_observer(selector,read_only=read_only)
+        target=self.target(selector);device=target['capabilities']['appium:udid'];transport=PhoneAdapter(self.candidate).adb
+        return PhoneSnapshotCaptureFileSource(native.send,
+            lambda:transport.read_debug_app_file(device,target['appId'],'files/overte-e2e/'+FILE,attempts=1),
+            native.clock_ms,native.guard,native.pid,read_only=read_only,monotonic=native.monotonic,sleep=native.sleep)
+
     def _snapshot_readbacks(self,selector,*,read_only=True):
         from overte_phone_snapshot_readbacks import PhoneSnapshotReadbacks,FILE
         native=self._native_feature_observer(selector,read_only=read_only)
@@ -1439,6 +1450,15 @@ class PhoneAppiumAdapter(AppiumAdapter):
         return PhoneSnapshotReadbacks(native.send,
             lambda:transport.read_debug_app_file(device,target['appId'],'files/overte-e2e/'+FILE,attempts=1),
             native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep)
+
+    def _snapshot_capture_files(self,selector,artifact_root,owner_path,*,read_only=False):
+        from overte_phone_snapshot_capture_files import CaptureFileTransport,PhoneSnapshotCaptureFiles
+        _ui,_observe,binding,guard,_installed=self.normal_feature_runtime(selector,read_only=read_only)
+        target=self.target(selector);context={key:binding[key] for key in ('sourceRevision','artifactSha256','processIdentity')}
+        transport=CaptureFileTransport(PhoneAdapter(self.candidate).adb,target['capabilities']['appium:udid'],
+            target['appId'],context,guard,artifact_root)
+        return PhoneSnapshotCaptureFiles(transport,self._snapshot_capture_file_source(selector,read_only=read_only),
+            binding,owner_path,read_only=read_only)
 
     def _snapshot_cancel(self,selector,*,read_only=True):
         from overte_phone_snapshot_cancel import PhoneSnapshotCancel,FILE

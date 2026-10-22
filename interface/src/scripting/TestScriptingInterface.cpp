@@ -86,6 +86,7 @@
 #include "ui/Snapshot.h"
 #include "../../../tests/device/native/PhoneSnapshotReviewObservation.h"
 #include "../../../tests/device/native/PhoneSnapshotFastCancel.h"
+#include "../../../tests/device/native/PhoneSnapshotCaptureFiles.h"
 #include "NativeSnapshotAdapter.h"
 #include "../../../tests/device/native/PhoneNavigationMarker.h"
 #include <SettingHandle.h>
@@ -1300,6 +1301,16 @@ QVariantMap TestScriptingInterface::phoneSnapshotObservation(const QVariantMap& 
         {"instance",_featureObservationInstance},{"sequence",static_cast<qulonglong>(++_phoneSnapshotObservationSequence)},
         {"processId",QCoreApplication::applicationPid()},{"requestedEpochMs",requested},
         {"capturedEpochMs",QDateTime::currentMSecsSinceEpoch()},{"source",source}};
+}
+
+QVariantMap TestScriptingInterface::phoneSnapshotCaptureFiles(const QVariantMap& command) {
+    if (QThread::currentThread()!=thread()) {
+        QVariantMap result;
+        if (!QMetaObject::invokeMethod(this,[&] { result=phoneSnapshotCaptureFiles(command); },Qt::BlockingQueuedConnection)) { return {}; }
+        return result;
+    }
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()) { return {}; }
+    return overte::e2e::phoneSnapshotCaptureFileObservation(command,_featureObservationInstance,_phoneSnapshotCaptureFilesSequence);
 }
 
 QVariantMap TestScriptingInterface::phoneSnapshotReadback(const QVariantMap& command) {

@@ -190,6 +190,7 @@ public slots:
     Q_INVOKABLE QVariantMap phoneSnapshotObservation(const QVariantMap& command);
     Q_INVOKABLE QVariantMap phoneSnapshotUi(const QVariantMap& command);
     Q_INVOKABLE QVariantMap phoneSnapshotUploadObservation(const QVariantMap& command);
+    Q_INVOKABLE QVariantMap phoneSnapshotCaptureFiles(const QVariantMap& command);
     Q_INVOKABLE QVariantMap phoneSnapshotReadback(const QVariantMap& command);
     Q_INVOKABLE QVariantMap phoneSnapshotCancel(const QVariantMap& command);
     Q_INVOKABLE QVariantMap phoneCreateFiles(const QVariantMap& command);
@@ -301,6 +302,7 @@ private:
     quint64 _phoneCreateObservationSequence {0};
     quint64 _phoneSnapshotObservationSequence {0};
     quint64 _phoneSnapshotUploadObservationSequence {0};
+    quint64 _phoneSnapshotCaptureFilesSequence {0};
     quint64 _phoneSnapshotReadbackSequence {0};
     quint64 _phoneSnapshotCancelSequence {0};
     QMap<QString,std::shared_ptr<overte::e2e::PhoneSnapshotFastCancel>> _phoneSnapshotCancelJobs;

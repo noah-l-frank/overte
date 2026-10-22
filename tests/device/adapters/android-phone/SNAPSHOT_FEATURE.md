@@ -1,5 +1,11 @@
 # Android Phone Snapshot adapter continuation
 
+The separate [original capture-file owner](SNAPSHOT_CAPTURE_FILES.md) records
+native FD/inode/close originals and independent binary acquisition, including
+partial output ownership and one-send durable retirement. It is component
+source/host verified; public foundation/facade composition and device acceptance
+are separate obligations.
+
 The existing normal `snapshot.open/capture/files/close` implementation remains
 the owner of the catalog's `snapshot-output-parity` foundation. It obtains
 original files independently of input delivery. The common v17 extended
