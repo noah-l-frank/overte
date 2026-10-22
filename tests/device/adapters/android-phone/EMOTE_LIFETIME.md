@@ -86,8 +86,9 @@ independent monotonic age floors, guards, file validation and journal work.
 
 ## Retirement and remaining whole-feature join
 
-`retire` requires a recomputed complete window and obtains another new source/
-worker observation before removing only its exact lifetime journal. Late actual
+`retire(retain, retained=None)` requires a mandatory retention callback. For a new
+retirement it recomputes the complete window and obtains another new source/worker
+observation before removing only its exact lifetime journal. Late actual
 activity invalidates a prior green window and preserves ownership. Source files
 and native history remain intact. General Phone teardown attempts base cleanup
 but refuses success while either lifetime role remains.
@@ -104,3 +105,47 @@ native boundaries: retained active/inactive timers, active callbacks/evaluation,
 ignored cleanup, late activity, open UI, native/source/fixture mismatch, old or
 reused work, lost results/guards/commits, replaced/missing originals, separate
 roles and fresh retirement. These validate test logic only.
+
+
+## Original lifetime retirement packet, version 1
+
+The closed packet is exactly
+`{emoteLifetimeRetirementVersion:1,segment,header,sourceHeader,cleanup}`.
+Header is the original complete lifetime control, SourceHeader is this role's
+actual ready source control after the final worker acquisition, and cleanup is
+the actual original provider phase after that acquisition. Segment remains the
+actual current namespace, not a native measurement. Both original headers retain
+run/candidate/process identity, role, admission policy and private artifact root.
+The complete stable window is recomputed from original source files and original
+worker packets. The final lifetime reference must be the final source frame.
+
+The mandatory callback must durably retain this exact packet before returning;
+returning false or raising preserves ownership. Before and after retention the
+owner reopens original files and validates the same cleanup provider birth and
+complete activation history. Fresh retirement also rechecks the original native,
+provider and independent monotonic age floors before and after journal deletion.
+The entire retirement is bounded to five seconds. Delayed callbacks cannot
+refresh old observations, even with frozen external clocks. Source originals
+are retained unchanged. A retired live owner cannot acquire another sample.
+
+If a retention or deletion return is lost, reconstruct the owner and pass the
+exact already-retained packet. Only its original complete header, or an absent
+journal with this exact original packet, may finish that historical transfer.
+A missing journal alone is insufficient. No new source/worker/input is acquired,
+no successful sequence advances and no epoch is replaced. Repeated callbacks
+must retain the same packet. Unknown versions, a foreign role/candidate/namespace,
+changed window/work/source, missing or replaced original files, changed current
+cleanup phase or an ignored deletion fail closed.
+
+`retirement_archive(packet, source)` reopens only historical originals and returns
+validated historical state; it creates no live owner and performs no native
+query or normal input. The enclosing owner must keep source files available
+until all dependent archives have been validated. Historical transfer after a
+lost return supplies no current quiet/idle or whole-feature verdict; the final
+whole-run resource checks remain mandatory. Lifetime header versions 1/2 and
+all existing source/work packet formats are unchanged. Device-free tests cover
+new retirement, late real work, rejected/slow callbacks, ignored/lost deletion,
+exact historical retry and altered/foreign/missing evidence. They qualify logic
+only. Failed pending lifetime acquisitions still require explicit failure
+transfer before a later new quiet-window acquisition; whole-facade integration
+remains pending.

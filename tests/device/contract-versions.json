@@ -95,6 +95,7 @@
     "phone-emote-background": {"current": 2, "reads": [1, 2]},
     "phone-emote-background-effect": {"current": 1, "reads": [1]},
     "phone-emote-lifetime": {"current": 2, "reads": [1, 2]},
+    "phone-emote-lifetime-retirement": {"current": 1, "reads": [1]},
     "phone-emote-pixels": {"current": 1, "reads": [1]},
     "phone-emote-images": {"current": 1, "reads": [1]},
     "phone-emote-capture": {"current": 1, "reads": [1]},

@@ -140,6 +140,7 @@ REQUIRED = {
     "phone-emote-background": 2,
     "phone-emote-background-effect": 1,
     "phone-emote-lifetime": 2,
+    "phone-emote-lifetime-retirement": 1,
     "phone-emote-pixels": 1,
     "phone-emote-images": 1,
     "phone-emote-capture": 1,

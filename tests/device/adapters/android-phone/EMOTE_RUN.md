@@ -126,6 +126,9 @@ role's window cannot replace the other. An actual selected Emote timer, unknown
 work, live callback/evaluation, native override or visible UI blocks completion.
 Known unrelated default-manager work retains its existing scoped semantics.
 The method returns the original role lifetime header and retains its journal.
+The Lifetime child now requires durable original retirement retention and supports
+exact historical recovery after a lost deletion return; the enclosing whole-run
+retirement still has to supply that durable callback.
 Its final fixture and binding checks remain inside the original native/host/
 monotonic freshness window; a slow final check cannot redate a historical quiet
 proof as current. All original timestamps remain unchanged.

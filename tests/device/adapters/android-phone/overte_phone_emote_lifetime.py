@@ -6,6 +6,7 @@ and ordinary cleanup inputs remain the complete feature owner's obligations.
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
+from types import SimpleNamespace
 import hashlib
 import time
 
@@ -202,7 +203,84 @@ class PhoneEmoteLifetime:
             sleep(.25);self.bound()
         need(False)
 
-    def retire(self):
-        self.started=self.source.monotonic();self.current();need(self.state['phase']=='complete')
-        self.decode(self.previous);self.read();need(self.state['phase']=='complete');self.bound()
-        self.store.discard(self.previous);need(self.store.read() is None)
+    @classmethod
+    def retirement_archive(cls,value,source):
+        """Historical originals only; no live owner, query or current verdict."""
+        need(isinstance(source,PhoneEmoteSources));source.lock.assert_held()
+        started=source.monotonic();clock=started
+        def bound():
+            nonlocal clock
+            source.lock.assert_held();need(source.guard() is not False)
+            now=source.monotonic();need(number(now,clock,1e15) and now-started<5);clock=now
+        bound();exact(value,{'emoteLifetimeRetirementVersion','segment','header','sourceHeader','cleanup'})
+        need(type(value['emoteLifetimeRetirementVersion']) is int and value['emoteLifetimeRetirementVersion']==1
+            and type(value['segment']) is int and value['segment']==source.segment)
+        header=value['sourceHeader'];need(type(header) is dict and header.get('role')==source.role
+            and same(header.get('admissionPolicy'),source.admission))
+        state,frames=PhoneEmoteSources.archive(header,phase=source.phase,artifact_root=source.artifact_root,
+            binding=source.binding,guard=bound,monotonic=source.monotonic)
+        need(state['phase']=='ready' and state['pending'] is None and frames
+            and len(source.frames)>=len(frames) and same(source.frames[:len(frames)],frames))
+        view=object.__new__(cls)
+        view.source=SimpleNamespace(frames=frames,state=state,pid=source.pid,phase=source.phase,run=source.run,
+            role=source.role,binding=source.binding,artifact_root=source.artifact_root)
+        view.originals=PhoneEmoteOriginals(source.artifact_root,source.binding,source.run,source.role,
+            bound,lambda *_:need(False),monotonic=source.monotonic)
+        result=view.decode(value['header']);need(result['phase']=='complete')
+        # A saved worker packet cannot borrow a later unrelated source frame.
+        last=result['records'][-1];need(last['source']['revision']==len(frames))
+        cleanup=value['cleanup'];previous=last['providerAfter']
+        phase_packet(cleanup,run=source.run,area='emotes',request=cleanup.get('requestId'),
+            epoch=cleanup.get('capturedEpochMs'),previous=previous)
+        view.cleanup_phase(cleanup,view.cleanup_phase(previous));bound()
+        return deepcopy(result)
+
+    def retirement_phase(self,proof):
+        previous=proof['cleanup'];current=self.source.phase.status(previous)
+        self.cleanup_phase(current,self.cleanup_phase(previous))
+        # Provider birth and complete activation history remain authoritative.
+        need(same(current['activations'],previous['activations']))
+        return current
+
+    def retirement_delivery(self,row,started):
+        source=self.source;self.bound()
+        native=source.adapter._native_feature_observer(source.selector,read_only=True)
+        need(native.pid==source.pid and native.ios is False and native.guard() is not False)
+        epoch,host=native.clock_ms(),source.phase.epoch_ms()
+        frame=self.original(row['source']);end=source.monotonic();floor=frame['group']['rootsBefore']['requestedEpochMs']
+        provider=frame['phaseBefore']['capturedEpochMs'];fresh(floor,epoch)
+        need(number(end,started,1e15) and end-started<5 and number(end,row['monotonicMs']/1000,1e15))
+        elapsed=end*1000-row['monotonicMs']
+        need(-250<=host-provider<=1500 and max(epoch-floor,row['epochMs']-floor+elapsed)<=1500
+            and row['hostEpochMs']-provider+elapsed<=1500)
+
+    def retire(self,retain,*,retained=None):
+        """Retain originals before journal removal, including a lost return.
+
+        Reusing an exact retained packet transfers historical ownership only;
+        it never refreshes the old quiet window or makes a current idle claim.
+        """
+        need(callable(retain));started=self.source.monotonic();self.started=started
+        try:
+            self.current()
+            if retained is None:
+                need(self.state['phase']=='complete');self.read();need(self.state['phase']=='complete')
+                previous=self.state['records'][-1]['providerAfter'];cleanup=self.source.phase.status(previous)
+                self.cleanup_phase(cleanup,self.cleanup_phase(previous))
+                proof=dict(emoteLifetimeRetirementVersion=1,segment=self.source.segment,header=deepcopy(self.previous),
+                    sourceHeader=deepcopy(self.source.previous),cleanup=cleanup)
+            else:
+                proof=deepcopy(retained)
+                need(self.previous is None or same(self.previous,proof.get('header')))
+            state=self.retirement_archive(proof,self.source);self.retirement_phase(proof);self.bound()
+            need(retain(deepcopy(proof)) is not False)
+            self.bound();self.retirement_archive(proof,self.source);self.retirement_phase(proof);self.bound()
+            need(self.source.monotonic()-started<5)
+            if retained is None:self.retirement_delivery(state['records'][-1],started)
+            if self.previous is not None:
+                self.store.discard(self.previous);need(self.store.read() is None);self.previous=None
+            self.bound();need(self.source.monotonic()-started<5)
+            if retained is None:self.retirement_delivery(state['records'][-1],started)
+            self.failed=True # A retired owner cannot create another measurement.
+            return deepcopy(proof)
+        finally:self.started=None

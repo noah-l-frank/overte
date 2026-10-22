@@ -7,6 +7,7 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 ROOT=Path(__file__).resolve().parents[4]
 sys.path[:0]=[str(ROOT/'tests/device'),str(ROOT/'tests/device/adapters/android-phone'),str(ROOT/'tests/device/self_tests')]
@@ -97,7 +98,7 @@ class PhoneEmoteLifetimeTests(unittest.TestCase):
             self.assertLess(owner.store.path.stat().st_size,65536)
             self.assertEqual([],m.controls.input_requests)
             self.assertTrue(all(set(command)=={'schemaVersion','commandId','action','managerInstance'} for command in m.work_commands))
-            current=PhoneEmoteLifetime(m.source());current.retire();self.assertIsNone(current.store.read())
+            current=PhoneEmoteLifetime(m.source());current.retire(lambda proof: None);self.assertIsNone(current.store.read())
             self.assertIsNotNone(owner.source.store.read())
 
     def test_busy_timer_then_actual_release_starts_a_new_complete_window_after_the_busy_original(self):
@@ -128,7 +129,7 @@ class PhoneEmoteLifetimeTests(unittest.TestCase):
             owner=self.owner()
             with self.assertRaises(NativeUIError):owner.wait(sleep=m.sleep)
             self.assertIsNotNone(owner.store.read());self.assertEqual(32,len(owner.state['records']))
-            with self.assertRaises(NativeUIError):owner.retire()
+            with self.assertRaises(NativeUIError):owner.retire(lambda proof: None)
         self.assertEqual([],m.controls.input_requests)
 
     def test_open_chooser_or_tablet_cannot_become_quiet_from_empty_work(self):
@@ -264,8 +265,121 @@ class PhoneEmoteLifetimeTests(unittest.TestCase):
         m=self.model
         with m.lock.held():
             owner=self.owner();owner.wait(sleep=m.sleep);m.busy=3
-            with self.assertRaises(NativeUIError):owner.retire()
+            with self.assertRaises(NativeUIError):owner.retire(lambda proof: None)
             self.assertIsNotNone(owner.store.read());self.assertEqual('ready',owner.state['phase'])
+
+    def completed(self):
+        owner=self.owner();owner.wait(sleep=self.model.sleep);return owner
+
+    def test_retirement_retains_exact_originals_before_deleting_and_cannot_reuse_retired_owner(self):
+        m=self.model
+        with m.lock.held():
+            owner=self.completed();retained=[];before=len(m.work_commands)
+            def retain(proof):
+                self.assertEqual(proof['header'],owner.store.read())
+                self.assertEqual(proof['sourceHeader'],owner.source.store.read());retained.append(deepcopy(proof))
+            proof=owner.retire(retain)
+            self.assertEqual([proof],retained);self.assertEqual(before+1,len(m.work_commands));self.assertIsNone(owner.store.read())
+            self.assertEqual('complete',PhoneEmoteLifetime.retirement_archive(proof,m.source())['phase'])
+            with self.assertRaises(NativeUIError):owner.read()
+            self.assertEqual([],m.controls.input_requests)
+
+    def test_retirement_requires_a_retainer_and_rejection_keeps_exact_owned_journal(self):
+        m=self.model
+        with m.lock.held():
+            owner=self.completed();before=len(m.work_commands)
+            with self.assertRaises(NativeUIError):owner.retire(None)
+            self.assertEqual(before,len(m.work_commands))
+            retained=[]
+            def reject(proof):retained.append(deepcopy(proof));return False
+            with self.assertRaises(NativeUIError):owner.retire(reject)
+            self.assertEqual(retained[0]['header'],owner.store.read());self.assertIsNotNone(owner.source.store.read())
+
+    def test_lost_callback_return_reuses_identical_originals_without_new_work_or_redating(self):
+        m=self.model
+        with m.lock.held():
+            owner=self.completed();retained=[]
+            def lost(proof):
+                retained.append(deepcopy(proof));raise OSError('Synthetic lost durable retention return')
+            with self.assertRaises(OSError):owner.retire(lost)
+            current=PhoneEmoteLifetime(m.source());before=len(m.work_commands);m.sleep(2)
+            # Exact old proof is historical transfer only, even after it ages.
+            result=current.retire(lambda proof:self.assertEqual(retained[0],proof),retained=retained[0])
+            self.assertEqual(retained[0],result);self.assertEqual(before,len(m.work_commands));self.assertIsNone(current.store.read())
+            self.assertEqual(retained[0]['header'],result['header'])
+
+    def test_lost_deletion_return_recovers_only_from_retained_original_packet(self):
+        m=self.model
+        with m.lock.held():
+            owner=self.completed();retained=[];discard=owner.store.discard
+            def lost(previous):discard(previous);raise OSError('Synthetic lost deletion return')
+            with patch.object(owner.store,'discard',side_effect=lost),self.assertRaises(OSError):owner.retire(lambda proof:retained.append(deepcopy(proof)))
+            self.assertIsNone(owner.store.read());current=PhoneEmoteLifetime(m.source());before=len(m.work_commands)
+            with self.assertRaises(NativeUIError):current.retire(lambda proof:None)
+            self.assertEqual(before,len(m.work_commands))
+            proof=current.retire(lambda proof:self.assertEqual(retained[0],proof),retained=retained[0])
+            self.assertEqual(retained[0],proof);self.assertEqual(before,len(m.work_commands))
+
+    def test_ignored_journal_deletion_stays_owned_and_retry_does_not_acquire_again(self):
+        m=self.model
+        with m.lock.held():
+            owner=self.completed();retained=[]
+            with patch.object(owner.store,'discard',return_value=None),self.assertRaises(NativeUIError):owner.retire(lambda proof:retained.append(deepcopy(proof)))
+            self.assertEqual(retained[0]['header'],owner.store.read());before=len(m.work_commands)
+            PhoneEmoteLifetime(m.source()).retire(lambda proof:None,retained=retained[0])
+            self.assertEqual(before,len(m.work_commands));self.assertIsNone(owner.store.read())
+
+    def test_foreign_role_candidate_segment_or_window_cannot_supply_retirement(self):
+        from overte_phone_script_history import pack,unpack
+        m=self.model
+        with m.lock.held():
+            owner=self.completed();proof=owner.retire(lambda proof:None);before=len(m.work_commands)
+            for fault in ('role','binding','segment','window','version','work','source'):
+                value=deepcopy(proof)
+                if fault=='role':value['header']['role']='actor'
+                elif fault=='binding':value['header']['binding']['processIdentity']='32:foreign'
+                elif fault=='segment':value['segment']=1
+                elif fault=='version':value['emoteLifetimeRetirementVersion']=2
+                elif fault=='source':value['sourceHeader']['role']='actor'
+                else:
+                    state=unpack(value['header']['payload'])[0]
+                    if fault=='window':state['window']['elapsedMs']+=1
+                    else:state['records'][-1]['work']['source']['work']['signalCallbacks']=1
+                    value['header']['payload']=pack([state])
+                with self.subTest(fault=fault),self.assertRaises(NativeUIError):PhoneEmoteLifetime.retirement_archive(value,m.source())
+            self.assertEqual(before,len(m.work_commands))
+
+    def test_replaced_original_source_file_blocks_retained_retirement_after_metadata_loss(self):
+        m=self.model
+        with m.lock.held():
+            owner=self.completed();proof=owner.retire(lambda proof:None);current=PhoneEmoteLifetime(m.source())
+            refs=current.originals.manifest(current.source.state['manifests'][0]);path=current.originals.path(current.originals.expand(refs[-1]))
+            data=path.read_bytes();path.unlink();path.write_bytes(data);path.chmod(0o600)
+            with self.assertRaises(NativeUIError):current.retire(lambda proof:None,retained=proof)
+
+    def test_changed_cleanup_phase_after_retention_does_not_remove_lifetime_ownership(self):
+        m=self.model
+        with m.lock.held():
+            owner=self.completed();retained=[]
+            def changed(proof):retained.append(deepcopy(proof));m.call('open')
+            with self.assertRaises(NativeUIError):owner.retire(changed)
+            self.assertEqual(retained[0]['header'],owner.store.read())
+
+    def test_slow_retention_with_frozen_external_clocks_cannot_delete_as_current_quiet(self):
+        m=self.model
+        with m.lock.held():
+            owner=self.completed();retained=[]
+            def slow(proof):retained.append(deepcopy(proof));m.clock+=2
+            with self.assertRaises(NativeUIError):owner.retire(slow)
+            self.assertEqual(retained[0]['header'],owner.store.read());self.assertEqual([],m.controls.input_requests)
+
+    def test_recovery_rechecks_same_cleanup_and_preserves_stale_original_epochs(self):
+        m=self.model
+        with m.lock.held():
+            owner=self.completed();proof=owner.retire(lambda proof:None);before=len(m.work_commands);m.call('open')
+            current=PhoneEmoteLifetime(m.source())
+            with self.assertRaises(NativeUIError):current.retire(lambda proof:None,retained=proof)
+            self.assertEqual(before,len(m.work_commands));self.assertIsNone(current.store.read())
 
     def scoped_model(self):
         temporary=tempfile.TemporaryDirectory(prefix='overte-emote-scoped-work-');self.addCleanup(temporary.cleanup)
@@ -278,7 +392,7 @@ class PhoneEmoteLifetimeTests(unittest.TestCase):
             self.assertGreaterEqual(window['elapsedMs'],3000);self.assertTrue(owner.quiet(owner.state['records'][-1]))
             self.assertEqual(1,len(owner.state['records'][-1]['work']['source']['work']['timers']))
             self.assertGreater(m.worker.activity[-1]['timerInvocations'],0)
-            current=PhoneEmoteLifetime(m.source());current.retire();self.assertIsNone(current.store.read())
+            current=PhoneEmoteLifetime(m.source());current.retire(lambda proof: None);self.assertIsNone(current.store.read())
             self.assertEqual(1,len(m.worker.timers));self.assertEqual(31,m.worker.timers[0]['functionScriptId'])
             self.assertEqual([],m.controls.input_requests)
 
@@ -330,7 +444,7 @@ class PhoneEmoteLifetimeTests(unittest.TestCase):
         m=self.scoped_model()
         with m.lock.held():
             owner=self.owner();owner.wait(sleep=m.sleep);m.worker.activity[0]['signalInvocations']+=1
-            with self.assertRaises(NativeUIError):owner.retire()
+            with self.assertRaises(NativeUIError):owner.retire(lambda proof: None)
             self.assertIsNotNone(owner.store.read());self.assertEqual('ready',owner.state['phase'])
 
     def test_version_one_standalone_originals_replay_without_retiming_and_next_write_uses_v2(self):
