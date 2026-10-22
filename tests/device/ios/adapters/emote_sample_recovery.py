@@ -9,6 +9,7 @@ are retained. A new image read always receives a new request identity.
 from copy import deepcopy
 import hashlib
 import os
+from adapters.original_file_reads import record as record_original_read
 from pathlib import Path
 import uuid
 from adapters.native_clock_join import NativeClockAcquisition,digest,validate_join
@@ -45,6 +46,7 @@ def retained_file(owner,root,binding,run,role,request,lock):
     else:
         expected=frame['source']['image'];need(len(raw)<=expected['bytes'])
         if len(raw)==expected['bytes']:need(hashlib.sha256(raw).hexdigest()==expected['sha256'])
+    record_original_read(path)
     return dict(identity=deepcopy(scope.state['file']),bytes=len(raw),sha256=hashlib.sha256(raw).hexdigest())
 
 

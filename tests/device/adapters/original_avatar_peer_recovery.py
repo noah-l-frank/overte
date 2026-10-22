@@ -10,6 +10,7 @@ This component sends no SDK, native command, normal input or file deletion.
 from copy import deepcopy
 import hashlib
 import os
+from adapters.original_file_reads import record as record_original_read
 from adapters.native_clock_join import digest
 from adapters.native_feature_observation import exact,integer,need
 from adapters.native_avatar_receive import validate as receive_packet
@@ -74,6 +75,7 @@ class OriginalAvatarPeerRecovery:
         if original['phase']=='saved':
             need(len(raw)==original['bytes'] and hashlib.sha256(raw).hexdigest()==original['sha256'])
             self.sources.originals.read(original)
+        record_original_read(path)
         return dict(file=deepcopy(original['file']),bytes=len(raw),sha256=hashlib.sha256(raw).hexdigest())
 
     def attempt(self,value):

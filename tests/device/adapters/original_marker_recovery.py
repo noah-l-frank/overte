@@ -4,6 +4,7 @@
 from copy import deepcopy
 import hashlib
 import os
+from adapters.original_file_reads import record as record_original_read
 from adapters.native_clock_join import digest
 from adapters.native_feature_observation import exact,integer,need
 from adapters.native_script_terminal import validate as terminal_packet,terminal
@@ -18,6 +19,18 @@ VERSION=1
 
 
 class OriginalMarkerRecovery:
+    @classmethod
+    def archive(cls,value,scope,store):
+        """Strict original recovery reader; all live mutation stays forbidden."""
+        from adapters.original_marker_scope import OriginalMarkerScope
+        need(isinstance(scope,OriginalMarkerScope) and isinstance(store,PrivateFeatureState))
+        scope.lock.assert_held();result=object.__new__(cls)
+        result.scope=scope;result.profile=scope.components.profile
+        prefix='WorldWeb' if result.profile=='worldweb' else result.profile.title()
+        result.key='ios'+prefix+'MarkerRecoveryVersion';result.record_key='ios'+prefix+'MarkerAbandonedReadVersion'
+        result.store,result.previous,result.historical=store,value,True
+        result.state=result.decode(value);return result
+
     def __init__(self,scope):
         from adapters.original_marker_scope import OriginalMarkerScope
         need(isinstance(scope,OriginalMarkerScope));self.scope=scope
@@ -33,7 +46,7 @@ class OriginalMarkerRecovery:
         s=self.scope
         return dict(**{self.key:VERSION},runId=s.run,role=s.role,binding=s.binding,artifactRoot=str(s.root),payload=pack([state]))
 
-    def bound(self):self.scope.bound();need(same(self.store.read(),self.previous))
+    def bound(self):need(not getattr(self,'historical',False));self.scope.bound();need(same(self.store.read(),self.previous))
 
     def save(self):
         self.bound();value=self.envelope(self.state);self.store.write(value,self.previous)
@@ -57,6 +70,7 @@ class OriginalMarkerRecovery:
             s.originals.file(path,stream.fileno(),original);raw=stream.read(original['bytes']+1);s.originals.file(path,stream.fileno(),original)
         need(len(raw)<=original['bytes'])
         if original['phase']=='saved':need(len(raw)==original['bytes'] and hashlib.sha256(raw).hexdigest()==original['sha256']);s.originals.read(original)
+        record_original_read(path)
         return dict(identity=original['file'],bytes=len(raw),sha256=hashlib.sha256(raw).hexdigest())
 
     def record(self,reference):
@@ -101,8 +115,11 @@ class OriginalMarkerRecovery:
         if same(s.previous,pending['record']['priorOwner']):s.state=unpack(pending['targetOwner']['payload'])[0];s.save()
         self.state['records'].append(reference);self.state['pending']=None;self.save();return True
 
-    def follow(self,frame):
-        self.bound();s=self.scope;need(self.state['pending'] is None)
+    def follow(self,frame,*,historical=False):
+        if historical:
+            self.scope.lock.assert_held();need(getattr(self,'historical',False) and any(same(frame,row) for row in self.scope.frames))
+        else:self.bound()
+        s=self.scope;need(self.state['pending'] is None)
         for reference in self.state['records']:
             record=self.record(reference);prior=self.prior(record['priorOwner']);partial=prior['pending']['partial']
             native=frame['clockJoin']['nativeBefore'];epoch=frame['clockJoin']['nativeAfter']['capturedEpochMs']
