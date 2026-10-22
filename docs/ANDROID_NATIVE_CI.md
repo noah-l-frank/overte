@@ -69,12 +69,42 @@ Run the focused transport regressions without downloads or builds:
 python3 -I -S -B tests/pr-ci-android-runtime-test.py
 ```
 
-The eventual executing consumer must run candidate CMake/Gradle only inside its
+The executing consumer runs candidate CMake/Gradle only inside its
 credential-free, network-disabled boundary, with a checksum-bound SDK/NDK,
 prepared host tools and target dependency graph. PR execution must never build
 missing Conan dependencies or run a cold source producer. Package locks, docs,
 unrelated JavaScript and owning Java/resource-only changes retain their narrower
 existing checks rather than triggering the Android native consumer.
+
+## Qualification and selected execution
+
+`.github/pr-ci-android-native.json` is protected controller policy. Its initial
+`awaiting-local-qualification` state grants no build or merge authority. Activation
+requires all three owning baseline executions, sealed public release assets and
+exact source/configuration, SDK, runtime and toolchain image identities. Updating
+payload bytes cannot reuse an older baseline receipt for those different inputs.
+
+`pr_ci_android_assets.py` checks public fork release URLs, exact byte counts and
+SHA256 digests. A damaged optional transport-cache leaf is discarded without
+following its target; only newly verified bytes replace it. Archive extraction
+checks every payload byte before publication. The isolated worker repeats the
+runtime and SDK checks through the actual read-only mounts before executing any
+candidate program. The host avoids repeating those large scans between these
+checks; it authenticates the ledgers and the smaller controller/proof documents.
+
+`pr_ci_android_native.py` joins protected policy, owning dependency declarations
+and actual execution. Changed dependency declarations require a separately
+qualified producer graph and are rejected before expensive setup. The worker
+`pr_ci_android_worker.py` runs fixed offline common/Phone/Pico build commands,
+stops candidate descendants before trusted output verification, and writes a
+source-bound receipt only after the actual build and owning verifier succeed.
+The PR consumer never invokes Conan or resolves missing native dependencies.
+
+The Android parent owns a common native build. Phone and Pico own separate
+unsigned APK outputs, ELF64/AArch64 checks, 16 KiB alignment and packaged native
+dependency closure. These checks establish build/package acceptance, not device
+journey acceptance. Infrastructure fixture suites follow their reviewed exact
+input closures; changing a fixture alone does not request an application build.
 
 ## Offline execution boundary
 

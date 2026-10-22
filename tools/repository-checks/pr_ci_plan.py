@@ -49,7 +49,7 @@ ACTIVE_REGISTRY = ".github/pr-ci-suites.json"
 ACTIVE_DEPENDENCIES = ".github/pr-ci-dependencies.json"
 RUNTIME_INPUTS = (".github/attested-runtime.json", ".github/ci37-runtime.json",
                   "tests/requirements-host.txt", ".tool-versions", ".github/pr-ci-platforms.json",
-                  ".github/pr-ci-platform-inputs.json")
+                  ".github/pr-ci-platform-inputs.json", ".github/pr-ci-android-native.json")
 _BROWSER_SUFFIXES = frozenset({".js", ".mjs", ".cjs", ".jsx", ".ts", ".tsx",
     ".mts", ".cts", ".html", ".css", ".scss", ".sass", ".vue", ".svelte",
     ".json", ".svg", ".png", ".jpg", ".jpeg", ".webp", ".wasm", ".glb"})
