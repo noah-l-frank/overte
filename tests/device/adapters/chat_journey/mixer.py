@@ -16,6 +16,34 @@ from adapters.script_journey.history import pack,unpack
 VERSION=1
 
 
+def control_join(frame,commands,run):
+    """Original controller join only; supplies no native Chat state."""
+    exact(frame,{'controls','roles','transition','controlOnly'})
+    need(type(frame['controls']) is list and len(frame['controls'])==2
+        and type(frame['controlOnly']) is bool and type(frame['transition']) is bool and type(frame['roles']) is list)
+    first,last=frame['controls']
+    for value in frame['controls']:
+        control_packet(value,value['capturedEpochMs']);need(value['mixerControlVersion']==2)
+    need(all(first[key]==last[key] for key in ('instance','domainId','stackGeneration','processes','mixer','mixerIdentity',
+        'runId','offlineFenced','commands')) and first['sequence']<last['sequence']
+        and first['capturedEpochMs']<=last['capturedEpochMs'] and first['runId'] in (None,run))
+    for row in first['commands']:
+        matches=[command for command in commands if command['commandId']==row['commandId']]
+        need(len(matches)==1 and matches[0]['instance']==first['instance'] and matches[0]['runId']==first['runId']
+            and all(matches[0][key]==row[key] for key in ('action','observedGeneration')))
+    if frame['controlOnly']:need(frame['transition'] and frame['roles']==[])
+    else:
+        need(len(frame['roles'])==2)
+        for reference in frame['roles']:
+            exact(reference,{'index','ticket','epochs','queries'})
+            need(integer(reference['index']) and type(reference['ticket']) is str and len(reference['ticket'])==32
+                and type(reference['epochs']) is list and len(reference['epochs'])==4
+                and all(integer(epoch,1) for epoch in reference['epochs'])
+                and type(reference['queries']) is list and len(reference['queries'])==4
+                and all(type(query) is str and len(query)==32 for query in reference['queries']))
+    return first
+
+
 class ChatMixerOwner:
     def __init__(self,controls,roles,store,*,monotonic=time.monotonic,sleep=time.sleep):
         need(type(controls) is tuple and len(controls)==2 and all(isinstance(source,FixtureMixerControl) for source in controls)
@@ -87,16 +115,7 @@ class ChatMixerOwner:
             queries=[role.frames[-1][key].get('commandId',role.frames[-1][key].get('requestId')) for key in ('primary','peer','view','lifecycle')]) for role in self.roles]
 
     def join(self,frame):
-        first,last=frame['controls']
-        need(all(first[key]==last[key] for key in ('instance','domainId','stackGeneration','processes','mixer','mixerIdentity',
-            'runId','offlineFenced','commands')) and first['sequence']<last['sequence']
-            and first['capturedEpochMs']<=last['capturedEpochMs'] and first['mixerControlVersion']==last['mixerControlVersion']==2
-            and first['runId'] in (None,self.roles[0].run))
-        for row in first['commands']:
-            matches=[command for command in self.base['commands'] if command['commandId']==row['commandId']]
-            need(len(matches)==1 and matches[0]['instance']==first['instance'] and matches[0]['runId']==first['runId']
-                and all(matches[0][key]==row[key] for key in ('action','observedGeneration')))
-        need(type(frame['controlOnly']) is bool and type(frame['transition']) is bool and type(frame['roles']) is list)
+        first=control_join(frame,self.base['commands'],self.roles[0].run)
         if frame['controlOnly']:
             need(frame['transition'] and frame['roles']==[]);return frame
         need(len(frame['roles'])==2)
@@ -210,12 +229,13 @@ class ChatMixerOwner:
         need(action in ('offline','online') and action not in [row['action'] for row in self.base['commands']])
         # New passive original sources choose the admission generation. They
         # cannot resend/complete a prior input; the full request is durable first.
-        need(integer(after_epoch,1));frame=self.measure_control(recovery=recovery);actual=frame['controls'][1]
+        need(integer(after_epoch,1));started=self.now();frame=self.measure_control(recovery=recovery);actual=frame['controls'][1]
         need(actual['runId'] in (None,self.roles[0].run))
         request=dict(schemaVersion=2,commandId=uuid.uuid4().hex,runId=self.roles[0].run,
             instance=actual['instance'],observedGeneration=actual['mixer']['generation'],action=action)
         self.write('issuing-'+action,commands=self.base['commands']+[request])
-        self.budget();self.controls[0].command(request) # Receipt is never used as a node fact.
+        self.final_clocks([(source,value['capturedEpochMs']) for source,value in zip(self.controls,frame['controls'])],started)
+        self.controls[0].command(request) # Receipt is never used as a node fact.
 
     def remove(self,after_epoch):
         admitted=False

@@ -168,6 +168,18 @@ class MixerOwnerTests(unittest.TestCase):
         self.assertEqual(before,self.store.read()['transcript']);self.assertEqual(2,len(self.store.read()['recoverySources']))
         rebuilt=self.make();rebuilt.recover(20000);self.assertEqual(2,len(self.controller.posts))
 
+    def test_wall_clock_jump_during_durable_input_write_blocks_actual_dispatch(self):
+        write=self.owner.store.write;delta=0
+        for source in self.owner.controls:source.clock_ms=lambda:self.epoch()+delta
+        def persisted(value,previous):
+            nonlocal delta
+            write(value,previous)
+            if value['phase']=='issuing-offline':delta=2000
+        self.owner.store.write=persisted
+        with self.assertRaises(NativeUIError):self.owner.remove(20000)
+        self.assertEqual([],self.controller.posts);self.assertTrue(self.store.read()['commands'])
+        self.assertTrue(self.controller.value['mixer']['running'])
+
     def test_last_controller_guard_cannot_age_native_clock_under_frozen_host_time(self):
         controls=self.owner.controls;calls=0;delta=0
         def guarded():

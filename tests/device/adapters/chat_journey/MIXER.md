@@ -70,3 +70,20 @@ publication, background/resume and original profile/peer/cache/callback/file/
 process release composition. Every original source and owner journal remains;
 Pico base teardown refuses green while the mixer owner is retained, even if its
 phase is online and the application has stopped.
+
+
+`ChatMixerRecovery` is the distinct recovery entry when a native role journal
+cannot be reconstructed because it remains reading/unavailable. It reuses the
+same original controller history and once-only full input requests, validates
+all original controller/run/eight-process scopes and consumes no native source.
+Its Pico factory checks the original target fingerprint, installed candidate and
+known role journal names without requiring a running application/Qt/OpenXR
+source. The separately supplied fixture guards still qualify the actual owned
+fixture. A new online request is durably recorded before its sole dispatch;
+once it exists, any reconstruction uses only passive independent GETs. A delayed
+original admission can later be observed without resend. Actual running state,
+absent process intent, the original online fence and a terminal original
+callback remain mandatory. Both the frozen-host/late-clock and lost persistence
+cases fail closed. The return explicitly marks nativeChatUnresolved and retains
+all journals; it emits no shared Chat state or resource inventory. Original
+packed/native histories are neither repacked, changed to ready nor retired.
