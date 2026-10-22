@@ -569,3 +569,57 @@ helper and unchanged native gateway body against explicit original-getter,
 account and lifecycle seams, writes a real private atomic file, and waits the
 actual 60 second deadline. The full native product translation unit, Android
 background event delivery, OS UI and physical client remain unverified.
+
+
+### SDK26–28 ordinary document picker and independent reader
+
+`SnapshotDocumentResolution` reads PackageManager resolution twice around the
+actual resolved package UID for precisely CREATE_DOCUMENT, OPENABLE and
+image/png. Its version-1 document-resolution contract is separate from the
+share-chooser contract. The original kernel/candidate/session handoff checks
+admit only that actual resolved activity and the original Phone foreground
+window; a share receiver or another activity in the same package is refused.
+No in-client foreground command protection is weakened.
+
+`PhoneSnapshotDocumentsUI` uses normal W3C touch/Back. It reads and brackets the
+actual OS package/activity/XML, opens the normal root drawer when necessary,
+selects the unique displayed **Overte Snapshot Evidence** root and observes its
+actual toolbar title. Save requires the unchanged actual native PNG basename
+in the unique displayed filename editor and the enabled Save control. Every
+input first records durable intent and then rechecks the identical original
+window/tree within 1.5 seconds. Changed, duplicate, disabled, missing or foreign
+controls prevent input. Ignored Save/Cancel/selection ACKs cannot qualify a
+transition and are not replayed. UI transitions supply no saved-file verdict.
+The English navigation descriptions are part of the controlled English test
+UI prerequisite; unknown OEM layouts fail rather than select another provider.
+
+`PhoneSnapshotDocuments` reads the separate fixture's exact original JSON and
+binary routes described in [DOCUMENTS.md](../../fixture/android-snapshot-receiver/DOCUMENTS.md).
+Its original APK/UID/PID/kernel identity, native provider instance and exact
+private root identity are bound by the primary and independently attached by
+the readonly actor. New nonce/sequence/current source times, all creation
+plans/documents/actual FD closes, historical identities and original completion
+times are retained. Reserved descriptor observations may be polled for at most
+five seconds; a permanent incomplete source remains red. No caller-provided
+content, path, writer identity or desired result is sent to the fixture.
+
+Binary acquisition joins the native immutable SAF identity to the independent
+provider source, actual resolved picker creator UID and separately measured
+Phone writer UID, then reads the actual original bytes, verifies full size/SHA
+and decodes the PNG. Fresh independent observations before and after acquisition
+must retain the same original document and actual closed FDs. Completion time
+stays historical; acquisition time is separately observed. Wrong writer/creator,
+borrowed native identity, changed process/root/inode, stale/replayed source,
+missing/non-PNG bytes and a five-second overrun fail. Provider retirement can
+only remove its independently empty original root after normal native one-send
+DocumentsContract deletion has already proved every destination absent. Actual
+FDs, source transfer workers and callback thread must be retired. ACKs and an
+empty filtered document list cannot establish cleanup.
+
+Factories `_snapshot_document_resolution`, `_snapshot_document_ui`,
+`_snapshot_documents` and `_snapshot_phone_uid` expose these narrow prerequisites.
+They neither install the fixture nor launch a document Intent directly. SDK
+transport/PackageManager/OS-window producers remain explicit host-test seams;
+the Java fixture/native ownership has its separate actual-file/API34 compiler
+checks. Android DocumentsUI/Binder/URI grants and physical acceptance remain
+unverified. This component alone does not advertise complete Snapshot support.

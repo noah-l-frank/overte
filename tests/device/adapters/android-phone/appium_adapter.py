@@ -1523,6 +1523,45 @@ class PhoneAppiumAdapter(AppiumAdapter):
             lambda:transport.read_debug_app_file(device,target['appId'],'files/overte-e2e/'+FILE,attempts=1),
             native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep)
 
+    def _snapshot_documents(self,selector,run,arm,receiver_apk_sha256,application_binding,resolution,authority,*,read_only=True,binding=None):
+        from overte_phone_snapshot_documents import PhoneSnapshotDocuments,SnapshotDocumentsTransport
+        from overte_phone_snapshot_documents_ui import resolution as validate_resolution
+        validate_resolution(resolution)
+        scope=self._snapshot_system_context(selector,application_binding,resolution,authority)
+        target=self.target(selector);device=target['capabilities']['appium:udid'];adb=PhoneAdapter(self.candidate).adb
+        transport=SnapshotDocumentsTransport(adb,device,receiver_apk_sha256,scope.guard,read_only=read_only)
+        return PhoneSnapshotDocuments(transport,lambda:adb.epoch_milliseconds(device),scope.guard,run,arm,
+            read_only=read_only,binding=binding)
+
+    def _snapshot_phone_uid(self,selector,application_binding,resolution,authority):
+        from adapters.native_feature_observation import need,number
+        import shlex
+        import time
+        scope=self._snapshot_system_context(selector,application_binding,resolution,authority)
+        target=self.target(selector);device=target['capabilities']['appium:udid'];adb=PhoneAdapter(self.candidate).adb
+        scope.guard();start=time.monotonic();requested=adb.epoch_milliseconds(device)
+        raw=adb.execute(['shell',shlex.join(['run-as',target['appId'],'id','-u'])],target=device,timeout=5)
+        need(type(raw) is str and re.fullmatch('[1-9][0-9]{0,9}',raw.strip()))
+        scope.guard();captured=adb.epoch_milliseconds(device);now=time.monotonic()
+        need(type(requested) is int and type(captured) is int and 0<=captured-requested<=1500 and number(now,start,1e15) and now-start<=1.5)
+        return dict(snapshotPhoneUidVersion=1,uid=int(raw.strip()),requestedEpochMs=requested,capturedEpochMs=captured)
+
+    def _snapshot_document_resolution(self,selector):
+        from overte_phone_snapshot_documents_ui import SnapshotDocumentResolution
+        native=self._native_feature_observer(selector,read_only=True)
+        target=self.target(selector);transport=PhoneAdapter(self.candidate).adb
+        return SnapshotDocumentResolution(transport,target['capabilities']['appium:udid'],native.guard,native.clock_ms,
+            monotonic=native.monotonic)
+
+    def _snapshot_document_ui(self,selector,binding,resolution,intent,authority):
+        from overte_phone_snapshot_documents_ui import PhoneSnapshotDocumentsUI,resolution as validate_resolution
+        from adapters.normal_ui import NativeUI
+        validate_resolution(resolution);scope=self._snapshot_system_context(selector,binding,resolution,authority)
+        client,session,_state=self.existing_session(selector);target=self.target(selector)
+        transport=PhoneAdapter(self.candidate).adb;device=target['capabilities']['appium:udid']
+        return PhoneSnapshotDocumentsUI(NativeUI(client,session,scope.guard),intent,
+            lambda:transport.epoch_milliseconds(device),resolution['component'])
+
     def _snapshot_share_resolution(self,selector):
         from overte_phone_snapshot_resolution import SnapshotChooserResolution
         native=self._native_feature_observer(selector,read_only=True)
@@ -1542,7 +1581,10 @@ class PhoneAppiumAdapter(AppiumAdapter):
             base='/session/'+session
             return component(client.call('GET',base+'/appium/device/current_package'),
                 client.call('GET',base+'/appium/device/current_activity'))
-        scope=SnapshotSystemContext(binding,resolution,lambda:self._graphics_lifecycle_status(selector,binding),current,authority)
+        if type(resolution) is dict and 'snapshotDocumentResolutionVersion' in resolution:
+            from overte_phone_snapshot_documents_ui import SnapshotDocumentContext
+            scope=SnapshotDocumentContext(binding,resolution,lambda:self._graphics_lifecycle_status(selector,binding),current,authority)
+        else:scope=SnapshotSystemContext(binding,resolution,lambda:self._graphics_lifecycle_status(selector,binding),current,authority)
         scope.guard()
         return scope
 

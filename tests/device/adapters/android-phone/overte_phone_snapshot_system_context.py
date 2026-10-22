@@ -29,6 +29,9 @@ class SnapshotSystemContext:
             and type(value['appState']) is int and value['appState'] in (2,3,4) and value['foreground']==(value['appState']==4))
         return value
 
+    def _allowed_component(self,actual):
+        return actual in (self.chooser['component'],RECEIVER_COMPONENT)
+
     def guard(self):
         try:
             need(self.authority() is True)
@@ -37,7 +40,7 @@ class SnapshotSystemContext:
             need(type(actual) is str and actual.count('/')==1)
             package,activity=actual.split('/');need(actual==component(package,activity))
             if package==PRIMARY:need(before['foreground'])
-            else:need(actual in (self.chooser['component'],RECEIVER_COMPONENT))
+            else:need(self._allowed_component(actual))
             after=self._status();now=self.monotonic()
             need(after==before and self.authority() is True and number(now,start,1e15) and now-start<=1.5)
             self.last_clock=now;return True
