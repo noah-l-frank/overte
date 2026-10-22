@@ -557,6 +557,12 @@ class FixtureState:
             try:tablet_web_command(command)
             except (ValueError,RuntimeError):raise ValueError("invalid iOS tablet Web transcript request") from None
             valid=True
+        elif action == "feature-ios-tablet-web-dom":
+            sys.path.insert(0,str(ROOT.parent))
+            from ios.adapters.tablet_web_dom import command as tablet_web_dom_command
+            try:tablet_web_dom_command(command)
+            except (ValueError,RuntimeError):raise ValueError("invalid iOS tablet Web DOM request") from None
+            valid=True
         elif action == "feature-ios-world-web-keys":
             sys.path.insert(0,str(ROOT.parent))
             from ios.adapters.world_web_keys import command as world_web_keys_command

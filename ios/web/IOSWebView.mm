@@ -15,6 +15,8 @@
 #include <QMutex>
 #include <QThread>
 #include "../../tests/device/native/WebDOMObservationBridge.h"
+#include "IOSTabletWebPresentation.h"
+#include "IOSTabletWebDOMState.h"
 #endif
 #include <QFile>
 #include <QFileInfo>
@@ -373,7 +375,7 @@ struct IOSWebView::Private {
     QVariantMap featureWorldLastIdentity;
     QVariantMap featureTabletSource,featureBrowserLastIdentity;
     QString featureHTTPResponseId;
-    QString featureWorldDOMSourceSha256;
+    QString featureWorldDOMSourceSha256,featureTabletDOMSourceSha256;
     bool featureIssued { false };
     QElapsedTimer featureTimer;
     __weak WKWebView* featureFinishedView { nil };
@@ -1059,17 +1061,33 @@ void IOSWebView::prepareDocument(const QUrl& frame) {
                 injectionTime:WKUserScriptInjectionTimeAtDocumentStart forMainFrameOnly:YES];
             [controller addUserScript:passive];
         }
-        _private->featureWorldDOMSourceSha256.clear();
-        QFile worldFile(":/overte/e2e/browser/ios-world-web-dom.js");
-        if (worldFile.open(QFile::ReadOnly) && worldFile.size()<=65536) {
-            const auto bytes=worldFile.readAll();const auto source=QString::fromUtf8(bytes);
-            const auto observer=QStringLiteral("(function(){")+source+QStringLiteral("\nObject.defineProperty(window,'__overteIOSWorldWebDOM',{value:overteIOSWorldWebDOM(window),writable:false,configurable:false});})();");
-            WKUserScript* passive=[[WKUserScript alloc] initWithSource:nativeString(observer)
-                injectionTime:WKUserScriptInjectionTimeAtDocumentStart forMainFrameOnly:YES];
-            [controller addUserScript:passive];
-            _private->featureWorldDOMSourceSha256=QString::fromLatin1(QCryptographicHash::hash(bytes,QCryptographicHash::Sha256).toHex());
-            world_web_trace::event(featureWorldIdentity(),"dom-observer-installed",{{"sourceSha256",_private->featureWorldDOMSourceSha256},
-                {"wrapperSha256",world_web_trace::codeSha256(observer)}});
+        if (_private->policy.surface()==web::Surface::WorldEntity) {
+            _private->featureWorldDOMSourceSha256.clear();
+            QFile worldFile(":/overte/e2e/browser/ios-world-web-dom.js");
+            if (worldFile.open(QFile::ReadOnly) && worldFile.size()<=65536) {
+                const auto bytes=worldFile.readAll();const auto source=QString::fromUtf8(bytes);
+                const auto observer=QStringLiteral("(function(){")+source+QStringLiteral("\nObject.defineProperty(window,'__overteIOSWorldWebDOM',{value:overteIOSWorldWebDOM(window),writable:false,configurable:false});})();");
+                WKUserScript* passive=[[WKUserScript alloc] initWithSource:nativeString(observer)
+                    injectionTime:WKUserScriptInjectionTimeAtDocumentStart forMainFrameOnly:YES];
+                [controller addUserScript:passive];
+                _private->featureWorldDOMSourceSha256=QString::fromLatin1(QCryptographicHash::hash(bytes,QCryptographicHash::Sha256).toHex());
+                world_web_trace::event(featureWorldIdentity(),"dom-observer-installed",{{"sourceSha256",_private->featureWorldDOMSourceSha256},
+                    {"wrapperSha256",world_web_trace::codeSha256(observer)}});
+            }
+        }
+        _private->featureTabletDOMSourceSha256.clear();
+        if (_private->policy.surface()==web::Surface::Tablet && !_private->featureTabletSource.isEmpty()) {
+            QFile file(":/overte/e2e/browser/ios-tablet-web-dom.js");
+            if (file.open(QFile::ReadOnly) && file.size()<=65536) {
+                const auto bytes=file.readAll();const auto source=QString::fromUtf8(bytes);
+                const auto observer=QStringLiteral("(function(){")+source+QStringLiteral("\nObject.defineProperty(window,'__overteIOSTabletWebDOM',{value:overteIOSTabletWebDOM(window),writable:false,configurable:false});})();");
+                WKUserScript* passive=[[WKUserScript alloc] initWithSource:nativeString(observer)
+                    injectionTime:WKUserScriptInjectionTimeAtDocumentStart forMainFrameOnly:YES];
+                [controller addUserScript:passive];
+                _private->featureTabletDOMSourceSha256=QString::fromLatin1(QCryptographicHash::hash(bytes,QCryptographicHash::Sha256).toHex());
+                tablet_web_trace::event(featureBrowserIdentity(),"dom-observer-installed",{{"sourceSha256",_private->featureTabletDOMSourceSha256},
+                    {"wrapperSha256",world_web_trace::codeSha256(observer)}});
+            }
         }
     }
 #endif
@@ -1424,6 +1442,89 @@ QVariantMap IOSWebView::featureWorldWebDOMObservation(const QVariantMap& command
     }
     return selected ? selected->featureWebDOMRequest(command,true) : QVariantMap();
 }
+QVariantMap IOSWebView::featureTabletWebDOMObservation(const QVariantMap& command) {
+    if (!featureEnabled() || !NSThread.isMainThread || !tablet_web_trace::domCommand(command)) { return {}; }
+    const auto read=tablet_web_dom::begin(command);if (!read) { return {}; }
+    if (!tablet_web_dom::pending(read) || !tablet_web_dom::fresh(read)) { return read->packet; }
+    QList<QPointer<IOSWebView>> original;
+    { QMutexLocker guard(&featureRegistryMutex);if (featureRegistry.size()>128) { tablet_web_dom::failed(read);return read->packet; }original=featureRegistry.values(); }
+    QPointer<IOSWebView> selected;QVariantMap selectedIdentity,presentation;
+    for (const auto& item:original) {
+        if (!item) { continue; }
+        if (item->thread()!=QThread::currentThread()) { tablet_web_dom::failed(read);return read->packet; }
+        if (!item->active() || !item->_private->view || item->_private->policy.surface()!=web::Surface::Tablet) { continue; }
+        const auto identity=item->featureBrowserIdentity();
+        if (tablet_web_trace::rootFor(identity)!=command.value("fixtureUrl").toString()) { continue; }
+        const auto shown=tablet_web_presentation::observe(item->_private->view,item->_private->window,item->_private->presentation,item->_private->presenter);
+        if (!tablet_web_presentation::current(shown)) { continue; }
+        if (selected) { tablet_web_dom::failed(read);return read->packet; }
+        selected=item;selectedIdentity=identity;presentation=shown;
+    }
+    if (!selected || (read->owner && read->owner.data()!=selected.data())) { tablet_web_dom::failed(read);return read->packet; }
+    if (read->owner) {
+        for (const auto* key:{"handle","creation","grant","sourceUrl","sourceIdentity","surface","source"}) {
+            if (QJsonObject::fromVariantMap(read->identity).value(key)!=QJsonObject::fromVariantMap(selectedIdentity).value(key)) { tablet_web_dom::failed(read);return read->packet; }
+        }
+    } else { read->owner=selected.data();read->identity=selectedIdentity; }
+    auto& actual=*selected->_private;const auto generation=actual.generation,epoch=actual.document.epoch();
+    const auto document=qtURL(actual.view.URL);const auto nonce=actual.document.nonce();
+    if (!generation || !epoch || nonce.isEmpty() || document.isEmpty() || !actual.document.accepts(generation,nonce,document,true)
+            || actual.featureFinishedGrant!=generation || actual.featureFinishedPage!=epoch || actual.featureFinishedView!=actual.view
+            || actual.featureFinishedDocument!=document || actual.featureVerifiedGrant!=generation || actual.featureVerifiedPage!=epoch) { return read->packet; }
+    if (read->issued) { return read->packet; }
+    // An earlier outstanding native query still owns its actual callback. New
+    // nonces cannot replace it or invoke the same JavaScript read twice.
+    for (const auto& old:tablet_web_dom::state().reads) {
+        if (old!=read && old->owner.data()==selected.data() && old->issued && !old->callbackCapture.expired()) { tablet_web_dom::failed(read);return read->packet; }
+    }
+    if (actual.featureTabletDOMSourceSha256.isEmpty()) { tablet_web_dom::failed(read);return read->packet; }
+    read->identity=selectedIdentity;read->presentation=presentation;read->issued=true;
+    const auto callbackCapture=std::make_shared<int>(0);read->callbackCapture=callbackCapture;
+    const auto requestId=command.value("commandId").toString();const auto argument=encodedArguments(QJsonArray{requestId});
+    const auto code=QStringLiteral("return window.__overteIOSTabletWebDOM?JSON.stringify(window.__overteIOSTabletWebDOM.read(%1[0])):null;").arg(argument);
+    const auto script=guardedScript(code,nonce);QPointer<IOSWebView> owner=selected;__weak WKWebView* observed=actual.view;
+    const auto lease=feature_closures::retain(selected->featureClosureContext(),feature_closures::Kind::JavaScript);
+    const auto identity=read->identity;const auto entry=tablet_web_trace::event(identity,"dom-read-enter",{{"requestId",requestId}});
+    @try {
+        [actual.view evaluateJavaScript:nativeString(script) completionHandler:^(id result,NSError* error) {
+            browser_trace::Callback callback(identity,entry,{{"error",error!=nil}});(void)lease;(void)callbackCapture;
+            if (!tablet_web_dom::pending(read) || !tablet_web_dom::fresh(read)) { return; }
+            if (!owner || !featureEnabled() || !owner->active()) { tablet_web_dom::failed(read);return; }
+            auto& current=*owner->_private;
+            if (!observed || observed!=current.view || current.generation!=generation || current.document.epoch()!=epoch
+                    || current.document.nonce()!=nonce || qtURL(observed.URL)!=document
+                    || QJsonObject::fromVariantMap(owner->featureBrowserIdentity())!=QJsonObject::fromVariantMap(identity)
+                    || !current.document.accepts(generation,nonce,document,true)
+                    || current.featureFinishedGrant!=generation || current.featureFinishedPage!=epoch || current.featureFinishedView!=current.view
+                    || current.featureFinishedDocument!=document || current.featureVerifiedGrant!=generation || current.featureVerifiedPage!=epoch) { tablet_web_dom::failed(read);return; }
+            const auto after=tablet_web_presentation::observe(current.view,current.window,current.presentation,current.presenter);
+            if (!tablet_web_presentation::current(after) || QJsonObject::fromVariantMap(after)!=QJsonObject::fromVariantMap(read->presentation)) { tablet_web_dom::failed(read);return; }
+            QVariantMap dom;
+            if (!error && [result isKindOfClass:NSString.class] && [(NSString*)result length]<=1048576) {
+                const auto raw=qtString((NSString*)result).toUtf8();
+                if (raw.size()<=1048576) { const auto parsed=QJsonDocument::fromJson(raw);if (parsed.isObject()) { dom=parsed.object().toVariantMap(); } }
+            }
+            const auto observedDocument=dom.value("document").toMap();
+            if (QJsonObject::fromVariantMap(dom).value("iosTabletWebDOMVersion")!=QJsonValue(1) || dom.value("requestId")!=requestId
+                    || observedDocument.value("runId")!=read->command.value("runId") || observedDocument.value("href")!=document.toString(QUrl::FullyEncoded)) { tablet_web_dom::failed(read);return; }
+            QVariant http;
+            if (current.inlineMode) {
+                if (!current.inlineBinding.current(owner.data()) || !current.policy.allowsInlineResponse(generation,document,true,QStringLiteral("GET"))
+                        || !QJsonObject::fromVariantMap(observedDocument).value("responseId").isNull()) { tablet_web_dom::failed(read);return; }
+            } else {
+                if (current.featureHTTPGrant!=generation || current.featureHTTPPage!=epoch || current.featureHTTPDocument!=document
+                        || current.featureHTTPStatus<100 || current.featureHTTPStatus>599 || current.featureHTTPResponseId.isEmpty()
+                        || observedDocument.value("responseId")!=current.featureHTTPResponseId) { tablet_web_dom::failed(read);return; }
+                http=QVariantMap{{"status",current.featureHTTPStatus},{"responseId",current.featureHTTPResponseId},{"url",document.toString(QUrl::FullyEncoded)}};
+            }
+            QVariantMap source{{"nativeView",identity},{"nativeFinishedEpochMs",current.featureFinishedEpoch},
+                {"observerSha256",current.featureTabletDOMSourceSha256},{"inlineLease",current.inlineMode && current.inlineBinding.current(owner.data())},
+                {"http",http},{"presentationBefore",read->presentation},{"presentationAfter",after},{"dom",dom}};
+            tablet_web_dom::store(read,tablet_web_dom::packet(read,"ready",source));
+        }];
+    } @catch (NSException*) { tablet_web_dom::failed(read); }
+    return read->packet;
+}
 QVariantMap IOSWebView::featureWebDOMRequest(const QVariantMap& command,bool world) {
     if (!featureEnabled() || !NSThread.isMainThread || thread()!=QThread::currentThread()
             || !(world ? world_web_trace::domCommand(command) : overte::e2e::webDOMCommand(command)) || !active() || !_private->view
@@ -1542,6 +1643,10 @@ void registerIOSWebView() {
             return overte::ios::tablet_web_trace::observe(command);
         };
         QCoreApplication::instance()->setProperty(overte::ios::tablet_web_trace::providerProperty(),QVariant::fromValue(tabletWeb));
+        overte::ios::tablet_web_trace::Provider tabletDOM=[](const QVariantMap& command) {
+            return overte::ios::IOSWebView::featureTabletWebDOMObservation(command);
+        };
+        QCoreApplication::instance()->setProperty(overte::ios::tablet_web_trace::domProviderProperty(),QVariant::fromValue(tabletDOM));
         overte::ios::world_web_trace::Provider worldDOM=[](const QVariantMap& command) {
             return overte::ios::IOSWebView::featureWorldWebDOMObservation(command);
         };

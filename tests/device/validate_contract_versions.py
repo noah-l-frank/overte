@@ -28,6 +28,7 @@ REQUIRED = {
     "native-keys-raw": 1,
     "ios-tablet-sources": 1,
     "ios-tablet-web": 1,
+    "ios-tablet-web-dom": 1,
     "ios-tablet-screen-images": 1,
     "ios-emote-pointers": 1,
     "ios-emote-pointer-receipt": 1,

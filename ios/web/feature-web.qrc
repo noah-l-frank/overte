@@ -1,1 +1,1 @@
-<RCC><qresource prefix="/overte/e2e/browser"><file alias="web-dom-observation.js">../../tests/device/native/web_dom_observation.js</file><file alias="ios-world-web-dom.js">../../tests/device/native/ios_world_web_dom.js</file></qresource></RCC>
+<RCC><qresource prefix="/overte/e2e/browser"><file alias="web-dom-observation.js">../../tests/device/native/web_dom_observation.js</file><file alias="ios-world-web-dom.js">../../tests/device/native/ios_world_web_dom.js</file><file alias="ios-tablet-web-dom.js">../../tests/device/native/ios_tablet_web_dom.js</file></qresource></RCC>
