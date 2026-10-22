@@ -75,6 +75,7 @@
 #include "../../../ios/web/IOSTabletWebTrace.h"
 #include "../../../ios/web/IOSTabletWebClosures.h"
 #include "../../../ios/web/IOSUIKitInputObservation.h"
+#include "../../../ios/web/IOSTabletWebDeferred.h"
 #include "../../../tests/device/native/IOSTabletSourcesObservation.h"
 #include "../../../ios/snapshot/IOSSnapshotObservation.h"
 #include "../../../tests/device/native/IOSSnapshotWorkObservation.h"
@@ -1580,6 +1581,36 @@ QVariantMap TestScriptingInterface::featureIOSTabletWeb(const QVariantMap& comma
     return provider ? provider(command) : QVariantMap();
 }
 
+QVariantMap TestScriptingInterface::featureIOSTabletWebDeferred(const QVariantMap& command) {
+    if (QThread::currentThread()!=thread()) {
+        if (!thread() || !thread()->isRunning()) { return {}; }
+        QVariantMap result;
+        if (!QMetaObject::invokeMethod(this,[&] { result=featureIOSTabletWebDeferred(command); },Qt::BlockingQueuedConnection)) { return {}; }
+        return result;
+    }
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !overte::e2e::tablet_sources::enabled() || !overte::ios::tablet_web_deferred::query(command,false)) { return {}; }
+    const auto original=qApp->property(overte::ios::tablet_web_deferred::providerProperty());
+    if (original.userType()!=qMetaTypeId<overte::ios::tablet_web_deferred::Provider>()) { return {}; }
+    const auto provider=original.value<overte::ios::tablet_web_deferred::Provider>();
+    return provider ? provider(command) : QVariantMap();
+}
+
+QVariantMap TestScriptingInterface::featureIOSTabletWebDefer(const QVariantMap& command) {
+    if (QThread::currentThread()!=thread()) {
+        if (!thread() || !thread()->isRunning()) { return {}; }
+        QVariantMap result;
+        if (!QMetaObject::invokeMethod(this,[&] { result=featureIOSTabletWebDefer(command); },Qt::BlockingQueuedConnection)) { return {}; }
+        return result;
+    }
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !overte::e2e::tablet_sources::enabled() || !overte::ios::tablet_web_deferred::query(command,true)) { return {}; }
+    const auto original=qApp->property(overte::ios::tablet_web_deferred::faultProviderProperty());
+    if (original.userType()!=qMetaTypeId<overte::ios::tablet_web_deferred::Provider>()) { return {}; }
+    const auto provider=original.value<overte::ios::tablet_web_deferred::Provider>();
+    return provider ? provider(command) : QVariantMap();
+}
+
 QVariantMap TestScriptingInterface::featureIOSUIKitInput(const QVariantMap& command) {
     if (QThread::currentThread()!=thread()) {
         if (!thread() || !thread()->isRunning()) { return {}; }
@@ -2518,7 +2549,7 @@ void TestScriptingInterface::saveObject(QVariant variant, const QString& filenam
     // Adding whitespace can exceed the existing reader limit with no new data.
     // Other source writers keep their original encoding.
     if (filename=="feature-ios-snapshot-inputs.json" || filename=="feature-ios-snapshot-work.json" || filename=="feature-ios-snapshot-exports.json" || filename=="feature-ios-snapshot-captures.json"
-            || filename=="feature-ios-tablet-web-dom.json" || filename=="feature-ios-uikit-input.json" || filename=="feature-ios-tablet-web-closures.json" || filename=="feature-ios-tablet-web.json" || filename=="feature-ios-tablet-sources.json" || filename=="feature-ios-world-web.json" || filename=="feature-ios-world-web-dom.json"
+            || filename=="feature-ios-tablet-web-dom.json" || filename=="feature-ios-tablet-web-deferred.json" || filename=="feature-ios-tablet-web-defer.json" || filename=="feature-ios-uikit-input.json" || filename=="feature-ios-tablet-web-closures.json" || filename=="feature-ios-tablet-web.json" || filename=="feature-ios-tablet-sources.json" || filename=="feature-ios-world-web.json" || filename=="feature-ios-world-web-dom.json"
             || filename=="feature-ios-world-web-work.json" || filename=="feature-ios-world-web-geometry.json"
             || filename=="feature-ios-world-web-keys.json" || filename=="feature-ios-world-web-snapshot.json") {
         jsonData=jsonDocument.toJson(QJsonDocument::Compact);
@@ -2534,7 +2565,7 @@ void TestScriptingInterface::saveObject(QVariant variant, const QString& filenam
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     if (filename == "feature-ios-snapshot-inputs.json" || filename == "feature-chat-observation.json" || filename == "feature-native-observation.json" || filename == "normal-feature-observation.json"
             || filename == "feature-ios-world-web-snapshot.json" || filename == "feature-ios-world-web-keys.json" || filename == "feature-ios-world-web-work.json" || filename == "feature-ios-world-web-geometry.json"
-            || filename == "feature-ios-tablet-web-dom.json" || filename == "feature-ios-uikit-input.json" || filename == "feature-ios-tablet-web-closures.json" || filename == "feature-ios-tablet-web.json" || filename == "feature-ios-tablet-sources.json" || filename == "feature-ios-world-web.json" || filename == "feature-ios-world-web-dom.json"
+            || filename == "feature-ios-tablet-web-dom.json" || filename == "feature-ios-tablet-web-deferred.json" || filename == "feature-ios-tablet-web-defer.json" || filename == "feature-ios-uikit-input.json" || filename == "feature-ios-tablet-web-closures.json" || filename == "feature-ios-tablet-web.json" || filename == "feature-ios-tablet-sources.json" || filename == "feature-ios-world-web.json" || filename == "feature-ios-world-web-dom.json"
             || filename == "feature-ios-web-closures.json" || filename == "feature-ios-location-bookmarks.json" || filename == "feature-ios-places-model.json" || filename == "feature-ios-places-http.json" || filename == "feature-ios-navigation-dialogs.json" || filename == "feature-ios-navigation-state.json" || filename == "feature-ios-scene-inventory.json" || filename == "feature-chat-view-observation.json" || filename == "feature-web-dom-observation.json"
             || filename == "feature-pending-commit-owner.json" || filename == "feature-navigation-replies.json"
             || filename == "feature-process-presence.json" || filename == "feature-graphics-subject.json" || filename == "feature-scene-load.json" || filename == "feature-completed-frame.json" || filename == "feature-vulkan-world-frame.json"

@@ -22,6 +22,8 @@
     "ios-tablet-web": {"current": 1, "reads": [1]},
     "ios-world-web-snapshot": {"current": 1, "reads": [1]},
     "ios-world-web-snapshot-body": {"current": 1, "reads": [1]},
+    "ios-tablet-web-deferred": {"current": 1, "reads": [1]},
+    "ios-tablet-web-defer-receipt": {"current": 1, "reads": [1]},
     "ios-uikit-input": {"current": 1, "reads": [1]},
     "ios-tablet-web-closures": {"current": 1, "reads": [1]},
     "ios-tablet-web-dom": {"current": 1, "reads": [1]},

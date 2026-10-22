@@ -19,6 +19,7 @@
 #include "IOSTabletWebDOMState.h"
 #include "IOSTabletWebClosures.h"
 #include "IOSUIKitInputObservation.h"
+#include "IOSTabletWebDeferred.h"
 #endif
 #include <QFile>
 #include <QFileInfo>
@@ -65,6 +66,7 @@ struct IOSWebViewNative {
 #endif
     static bool navigation(IOSWebView*, std::uint64_t, NSURL*, bool, NSString*);
     static void message(IOSWebView*, std::uint64_t, NSString*, NSString*, NSURL*, bool);
+    static void messageOriginal(IOSWebView*, std::uint64_t, NSString*, NSString*, NSURL*, bool);
     static void prepare(IOSWebView*, std::uint64_t, NSURL*);
     static void prepareNavigation(IOSWebView*, std::uint64_t, const QUrl&, const QUrl&, bool);
     static void redirected(IOSWebView*, std::uint64_t, NSURL*);
@@ -1289,7 +1291,30 @@ QVariant IOSWebView::inputMethodQuery(Qt::InputMethodQuery query) const {
 
 bool IOSWebViewNative::current(IOSWebView* owner, std::uint64_t generation) { return owner && owner->active() && owner->_private->generation == generation; }
 bool IOSWebViewNative::navigation(IOSWebView* owner, std::uint64_t generation, NSURL* url, bool mainFrame, NSString* method) { return current(owner, generation) && owner->allowsNavigation(qtURL(url), mainFrame, qtString(method)); }
-void IOSWebViewNative::message(IOSWebView* owner, std::uint64_t generation, NSString* message, NSString* nonce, NSURL* frame, bool mainFrame) { if (current(owner, generation)) { owner->nativeMessage(qtString(message), qtString(nonce), qtURL(frame), mainFrame); } }
+void IOSWebViewNative::messageOriginal(IOSWebView* owner, std::uint64_t generation, NSString* message, NSString* nonce, NSURL* frame, bool mainFrame) { if (current(owner, generation)) { owner->nativeMessage(qtString(message), qtString(nonce), qtURL(frame), mainFrame); } }
+void IOSWebViewNative::message(IOSWebView* owner, std::uint64_t generation, NSString* message, NSString* nonce, NSURL* frame, bool mainFrame) {
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    if (featureEnabled() && owner) {
+        const auto identity=owner->featureBrowserIdentity(true);
+        const auto fixture=tablet_web_trace::rootFor(identity);
+        const int originalMethod=IOSPageEventBridge::staticMetaObject.indexOfMethod("emitWebEvent(QVariant)");
+        if (!fixture.isEmpty() && tablet_web_deferred::pending(fixture)
+                && tablet_web_deferred::parityEnvelope(qtString(message),originalMethod)) {
+            // These are original immutable argument copies from THIS native
+            // arrival, not caller-provided replay bytes or a view-retaining
+            // WKScriptMessage. The unchanged admission checks run on delivery.
+            const QPointer<IOSWebView> originalOwner(owner);
+            NSString* originalMessage=[message copy];NSString* originalNonce=[nonce copy];NSURL* originalFrame=[frame copy];
+            auto original=[originalOwner,generation,originalMessage,originalNonce,originalFrame,mainFrame] {
+                messageOriginal(originalOwner.data(),generation,originalMessage,originalNonce,originalFrame,mainFrame);
+            };
+            if (tablet_web_deferred::intercept(identity,generation,qtString(message),qtString(nonce),qtURL(frame),mainFrame,
+                    originalMethod,owner->featureClosureContext(),std::move(original))) { return; }
+        }
+    }
+#endif
+    messageOriginal(owner,generation,message,nonce,frame,mainFrame);
+}
 void IOSWebViewNative::prepare(IOSWebView* owner, std::uint64_t generation, NSURL* frame) { if (current(owner, generation)) { owner->prepareDocument(qtURL(frame)); } }
 void IOSWebViewNative::prepareNavigation(IOSWebView* owner, std::uint64_t generation, const QUrl& previous,
         const QUrl& frame, bool mainFrame) {
@@ -1456,6 +1481,31 @@ QVariantMap IOSWebView::featureWorldWebDOMObservation(const QVariantMap& command
     }
     return selected ? selected->featureWebDOMRequest(command,true) : QVariantMap();
 }
+QVariantMap IOSWebView::featureTabletWebDeferredObservation(const QVariantMap& command) {
+    return tablet_web_deferred::observe(command);
+}
+QVariantMap IOSWebView::featureTabletWebDefer(const QVariantMap& command) {
+    if (!featureEnabled() || !world_web_trace::mainThread() || !tablet_web_deferred::query(command,true)) { return {}; }
+    QVariantMap identity;
+    if (command.value("operation")=="arm") {
+        QList<QPointer<IOSWebView>> original;
+        { QMutexLocker guard(&featureRegistryMutex);for (const auto& value:featureRegistry) { original.push_back(value); } }
+        for (const auto& owner:original) {
+            if (!owner || !owner->active()) { continue; }auto& actual=*owner->_private;
+            if (actual.policy.surface()!=web::Surface::Tablet || !actual.inlineMode || !actual.inlineBinding.current(owner.data())
+                    || !actual.view || !actual.presentation || actual.featureFinishedGrant!=actual.generation
+                    || actual.featureVerifiedGrant!=actual.generation || actual.featureFinishedPage!=actual.document.epoch()
+                    || actual.featureVerifiedPage!=actual.document.epoch() || actual.featureFinishedView!=actual.view
+                    || actual.featureFinishedDocument!=qtURL(actual.view.URL) || actual.document.nonce().isEmpty()
+                    || !actual.document.accepts(actual.generation,actual.document.nonce(),qtURL(actual.view.URL),true)) { continue; }
+            const auto candidate=owner->featureBrowserIdentity();
+            if (tablet_web_trace::rootFor(candidate)!=command.value("fixtureUrl")) { continue; }
+            if (!identity.isEmpty()) { tablet_web_deferred::fail("ambiguous-inline-owner");identity.clear();break; }identity=candidate;
+        }
+    }
+    return tablet_web_deferred::command(command,identity);
+}
+
 QVariantMap IOSWebView::featureTabletWebDOMObservation(const QVariantMap& command) {
     if (!featureEnabled() || !NSThread.isMainThread || !tablet_web_trace::domCommand(command)) { return {}; }
     const auto read=tablet_web_dom::begin(command);if (!read) { return {}; }
@@ -1661,6 +1711,14 @@ void registerIOSWebView() {
             return overte::ios::tablet_web_trace::observe(command);
         };
         QCoreApplication::instance()->setProperty(overte::ios::tablet_web_trace::providerProperty(),QVariant::fromValue(tabletWeb));
+        overte::ios::tablet_web_deferred::Provider deferred=[](const QVariantMap& command) {
+            return overte::ios::IOSWebView::featureTabletWebDeferredObservation(command);
+        };
+        QCoreApplication::instance()->setProperty(overte::ios::tablet_web_deferred::providerProperty(),QVariant::fromValue(deferred));
+        overte::ios::tablet_web_deferred::Provider defer=[](const QVariantMap& command) {
+            return overte::ios::IOSWebView::featureTabletWebDefer(command);
+        };
+        QCoreApplication::instance()->setProperty(overte::ios::tablet_web_deferred::faultProviderProperty(),QVariant::fromValue(defer));
         overte::ios::tablet_web_trace::Provider tabletDOM=[](const QVariantMap& command) {
             return overte::ios::IOSWebView::featureTabletWebDOMObservation(command);
         };

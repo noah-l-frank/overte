@@ -557,6 +557,12 @@ class FixtureState:
             try:tablet_web_command(command)
             except (ValueError,RuntimeError):raise ValueError("invalid iOS tablet Web transcript request") from None
             valid=True
+        elif action in ("feature-ios-tablet-web-deferred","feature-ios-tablet-web-defer"):
+            sys.path.insert(0,str(ROOT.parent))
+            from ios.adapters.tablet_web_deferred import command as tablet_deferred_command
+            try:tablet_deferred_command(command,operation=action=="feature-ios-tablet-web-defer")
+            except (ValueError,RuntimeError):raise ValueError("invalid iOS Tablet deferred callback request") from None
+            valid=True
         elif action == "feature-ios-uikit-input":
             sys.path.insert(0,str(ROOT.parent))
             from ios.adapters.uikit_input import command as uikit_input_command

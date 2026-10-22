@@ -38,6 +38,8 @@ public:
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     static QVariantMap featureWebDOMObservation(const QVariantMap& command);
     static QVariantMap featureWorldWebDOMObservation(const QVariantMap& command);
+    static QVariantMap featureTabletWebDefer(const QVariantMap& command);
+    static QVariantMap featureTabletWebDeferredObservation(const QVariantMap& command);
     static QVariantMap featureTabletWebDOMObservation(const QVariantMap& command);
 #endif
     ~IOSWebView() override;
