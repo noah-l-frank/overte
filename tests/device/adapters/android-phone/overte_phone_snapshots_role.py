@@ -293,7 +293,8 @@ class PhoneSnapshotsRole(PhoneCreateRole):
                 if row['absent'] or not row['writeClosedEpochMs']:continue
                 owned=next(item for item in readbacks['osDestinations']['rows'] if item['identity'] is not None and item['identity'].get('documentId')==row['documentId'])
                 uid=f.adapter._snapshot_phone_uid(f.selector,f.binding,(f.state['handoff'] or {}).get('resolution',self.baseline['documentResolution']),f.header_authority)
-                value,raw=self.documents.acquire(row['documentId'],owned['identity'],captured,uid['uid'],self.baseline['documentResolution'])
+                lease=self.documents.acquisition_lease()
+                value,raw=self.documents.acquire(row['documentId'],owned['identity'],captured,uid['uid'],self.baseline['documentResolution'],observation_lease=lease)
                 records.append(self.binary(ticket,value,raw))
         for job in upload['jobs']:
             if job['terminal']=='success':

@@ -11,6 +11,7 @@ import hashlib
 import json
 import re
 import time
+import threading
 import uuid
 from urllib.parse import urlsplit
 from adapters.native_feature_observation import exact,fresh,integer,need,number
@@ -173,6 +174,8 @@ class PhoneSnapshotDocuments:
         self.transport,self.clock_ms,self.guard,self.run,self.arm,self.read_only=transport,clock_ms,guard,run,arm,read_only
         self.monotonic,self.sleep,self.last,self.bound,self.instance,self.root,self.last_clock=monotonic,sleep,None,None,None,None,None
         self.floor=None
+        self._lease_lock=threading.Lock();self._qualified=None;self._qualified_hash=None;self._qualified_started=None
+        self._observation_lease=None;self._leased_key=None
         if binding is not None:
             exact(binding,{'snapshotDocumentsBindingVersion','installed','instance','runId','armId','root','floor'})
             need(type(binding['snapshotDocumentsBindingVersion']) is int and binding['snapshotDocumentsBindingVersion']==2
@@ -211,6 +214,10 @@ class PhoneSnapshotDocuments:
         else:need(self.bound==value)
         return value
     def observe(self):
+        # A new acquisition attempt invalidates any earlier transaction token,
+        # including attempts which later fail qualification. Historical floors
+        # never populate the private live-observation slot.
+        with self._lease_lock:self._observation_lease=None;self._qualified=None
         try:
             need(self.guard() is not False);start=previous=self.monotonic();requested=self.clock_ms()
             need(number(start,0,1e15) and (self.last_clock is None or start>=self.last_clock))
@@ -230,19 +237,68 @@ class PhoneSnapshotDocuments:
                 if value['complete']:
                     fresh(value['capturedEpochMs'],self.clock_ms());need(self.guard() is not False)
                     final=self.monotonic();need(number(final,now,1e15) and final-start<5)
-                    self.last_clock=final;return deepcopy(value)
+                    self.last_clock=final
+                    with self._lease_lock:
+                        self._qualified=deepcopy(value);self._qualified_hash=self._observation_hash(value);self._qualified_started=start
+                    return deepcopy(value)
                 need(attempt<50);self.sleep(.1)
         except Exception:raise NativeUIError('Original Snapshot Documents provider is unavailable, foreign or incomplete') from None
         raise NativeUIError('Original Snapshot Documents provider did not complete')
     def control(self,operation):
+        with self._lease_lock:self._observation_lease=None;self._qualified=None
         try:
             need(not self.read_only and operation in ('arm','retire') and self.guard() is not False)
             self.transport.control(operation,self.run,self.arm if operation=='arm' else '')
             need(self.guard() is not False)
         except Exception:raise NativeUIError('Snapshot Documents control is unavailable or unauthorized') from None
-    def acquire(self,document_id,native_identity,capture,phone_uid,documents_resolution):
+    @staticmethod
+    def _observation_hash(value):
+        return hashlib.sha256(json.dumps(value,sort_keys=True,separators=(',',':'),allow_nan=False).encode()).digest()
+
+    def acquisition_lease(self):
+        """Mint an opaque, single-use handle for this reader's live original.
+
+        No caller DTO, persisted floor or expected value can authorize a body
+        read. All current guard/identity/freshness checks happen at consumption,
+        immediately before the ordinary binary acquisition.
+        """
         try:
-            start=self.monotonic();before=self.observe();need(not before['retired'])
+            with self._lease_lock:
+                value=self._qualified;need(value is not None and self.last==value
+                    and self._observation_hash(value)==self._qualified_hash)
+                key=(value['instance'],value['sequence'],value['observationId'])
+                need(self._observation_lease is None and key!=self._leased_key)
+                token=object();self._observation_lease=(token,deepcopy(value),self._qualified_hash,
+                    self._qualified_started,deepcopy(self.bound));self._leased_key=key
+                return token
+        except Exception:raise NativeUIError('Live original Snapshot document acquisition lease is unavailable') from None
+
+    def _consume_acquisition_lease(self,token):
+        with self._lease_lock:
+            held=self._observation_lease;self._observation_lease=None
+            need(held is not None and held[0] is token)
+            _token,before,digest,started,identity=held
+            need(self._qualified==before and self.last==before and self._observation_hash(before)==digest
+                and self._qualified_hash==digest and self.bound==identity)
+        # Consumption is irreversible even if a later guard or identity check
+        # fails. A retry needs a genuinely new original provider observation.
+        need(self.guard() is not False)
+        now=self.monotonic();need(number(now,started,1e15) and number(now,self.last_clock,1e15) and now-started<=1.5)
+        epoch=self.clock_ms();source(before,self.run,self.arm,before['observationId'],installed(identity),epoch)
+        need(self._identity()==identity)
+        fresh(before['capturedEpochMs'],self.clock_ms())
+        need(self.guard() is not False);final=self.monotonic()
+        need(number(final,now,1e15) and final-started<=1.5)
+        with self._lease_lock:
+            need(self._qualified==before and self.last==before and self.bound==identity
+                and self._observation_hash(self._qualified)==digest and self._qualified_hash==digest)
+        return before
+
+    def acquire(self,document_id,native_identity,capture,phone_uid,documents_resolution,*,observation_lease=None):
+        try:
+            start=self.monotonic()
+            before=self.observe() if observation_lease is None else self._consume_acquisition_lease(observation_lease)
+            need(not before['retired'])
             matches=[row for row in before['documents'] if row['documentId']==document_id];need(len(matches)==1)
             document=join(native_identity,matches[0],before,phone_uid,documents_resolution)
             need(all(fd['closed'] for fd in before['fdLifetimes'] if fd['documentId']==document_id))
