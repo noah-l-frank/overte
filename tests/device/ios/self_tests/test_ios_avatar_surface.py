@@ -69,5 +69,15 @@ class AvatarSurfaceTests(unittest.TestCase):
         with self.assertRaises(AvatarSurfacePending):restored.prepare('1'*32)
         self.assertEqual(requests,len(self.widget.requests));self.assertEqual(original,restored.state['calls'][-1]['events'][-1]['intent'])
 
+    def test_terminal_peer_consent_waits_without_admitting_or_closing_observer_input(self):
+        self.widget.shown=True;self.widget.screen='people';self.widget.dialog='connection';self.widget.phase='success'
+        owner=self.owner();before=sum(row['operation']=='edit' for row in self.widget.requests)
+        with self.assertRaises(AvatarSurfacePending):owner.prepare('1'*32)
+        self.assertEqual([],owner.state['calls']);self.assertEqual(before,sum(row['operation']=='edit' for row in self.widget.requests))
+        self.assertEqual('connection',self.widget.dialog)
+        # Explicit synthetic product-owner completion, outside observation.
+        self.widget.dialog='none';self.widget.phase='idle';restored=self.owner();restored.prepare('1'*32)
+        self.assertEqual('ready',restored.state['calls'][0]['phase']);self.assertEqual(1,self.fetches)
+
 
 if __name__=='__main__':unittest.main()

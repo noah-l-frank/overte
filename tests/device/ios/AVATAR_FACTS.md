@@ -28,6 +28,10 @@ to obtain a fresh product fetch. Actual incoming/outgoing prompts are sampled
 without accepting, declining or cancelling them. Every original Qt command and
 UIKit open intent is persisted before dispatch. A lost delivery remains owned
 and cannot cause a repeated input or a fresh table fetch on reconstruction.
+After peer consent, a still-open terminal prompt belongs to the original
+action owner. Observation passively waits before admitting any navigation
+recipe. It neither closes that prompt nor strands an unfinished observer
+recipe merely because the primary has not yet closed its actual panel.
 
 Host coverage composes real private source/peer archives, original PNG/chunk
 ownership and actual account/OAuth/social-provider logic at explicitly

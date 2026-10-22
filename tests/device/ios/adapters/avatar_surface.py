@@ -113,8 +113,14 @@ class IOSAvatarSurface:
                 if call['phase']!='ready':raise AvatarSurfacePending('Retained observer navigation is unresolved; no ordinary input is resent')
                 return self.capture(ticket)
         need(not self.state['calls'] or self.state['calls'][-1]['phase']=='ready')
-        call=dict(ticket=ticket,phase='preparing',before=None,after=None,sdk=[],events=[],invitation=None)
-        self.state['calls'].append(call);self.save();before=self.capture(ticket);call['before']=self.reference(before);self.save()
+        before=self.capture(ticket);page=AvatarUI.row(before['ui'],'people.page')
+        if page is not None and page['dialog']=='connection' and page['connectionState']['phase'] not in ('incoming','outgoing'):
+            # Primary closes its genuine terminal panel after peer consent.
+            # Waiting here has issued no observer input and must not strand a
+            # durable navigation recipe or close that panel on its behalf.
+            raise AvatarSurfacePending('Waiting for the actual owner to close its terminal connection panel')
+        call=dict(ticket=ticket,phase='preparing',before=self.reference(before),after=None,sdk=[],events=[],invitation=None)
+        self.state['calls'].append(call);self.save()
         if not before['ui']['open']:
             call['sdk'].append(dict(before=self.reference(before),after=None));call['phase']='opening';self.save()
             self.sdk.click(Locator('accessibility id','OverteTabletOpen'))
