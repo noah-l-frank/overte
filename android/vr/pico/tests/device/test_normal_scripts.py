@@ -28,6 +28,7 @@ from adapters.restart_inputs import RestartInputs
 from self_tests.test_native_script_observation import Boundary as ScriptBoundary, code_source, effect_source
 from self_tests.test_native_process_presence import Boundary as PresenceBoundary
 from adapters.normal_feature_state import PrivateFeatureState
+from adapters.script_journey.lock import ScriptSourceLock
 from adapters.token_graphics_ui import TokenGraphicsUI
 from self_tests.test_token_graphics_ui import GraphicsBoundary
 from adapters.token_audio_ui import TokenAudioUI
@@ -579,6 +580,43 @@ class PicoNormalScriptsTests(unittest.TestCase):
         with self.assertRaises(ValueError):self.cleanup_instance().cleanup(self.native.target)
         self.assertFalse(self.native.running);self.assertTrue(source.present)
         self.assertIsNotNone(self.instance._chat_capture_store(self.native.target).read())
+
+    def chat_samples(self,*,activate=True):
+        source,capture=self.chat_capture()
+        if activate:capture.observe()
+        self.chat_view()
+        peer=ChatBoundary();peer.present=True;peer.opened=20000
+        peer.mutate=lambda value:value.update(processId=456,instance='e'*32)
+        peer_reader=peer.reader();peer_reader.pid=456
+        binding=capture.owner.binding|dict(processIdentity='456',targetFingerprint='d'*64)
+        store=self.instance._chat_samples_store(self.native.target,'primary')
+        lock=ScriptSourceLock(store.path.with_name('script-sources.lock'))
+        root=self.fixture.state_root/'peer-chat-sources';root.mkdir(mode=0o700)
+        peer_lock=ScriptSourceLock(root/'script-sources.lock')
+        return source,peer,lambda:self.instance._chat_samples(self.native.target,CHAT_RUN,peer_reader,binding,
+            role='primary',source_lock=lock,peer_lock=peer_lock)
+
+    def test_pico_chat_samples_factory_requires_an_original_active_primary_cache(self):
+        source,peer,create=self.chat_samples(activate=False)
+        with self.assertRaises(ValueError):create()
+        self.assertEqual([],source.commands);self.assertEqual([],peer.commands)
+
+    def test_pico_chat_samples_factory_preserves_actual_pico_candidate_and_distinct_peer(self):
+        source,peer,create=self.chat_samples();before=len(source.commands);samples=create()
+        self.assertTrue(samples.vr);self.assertTrue(samples.view.vr)
+        self.assertEqual(123,samples.primary.pid);self.assertEqual(456,samples.peer.pid)
+        self.assertEqual(before,len(source.commands));self.assertEqual([],peer.commands)
+        self.assertFalse(any(cap.startswith('feature.chat.') for cap in self.instance.capabilities(self.native.target)))
+        self.native.digest='f'*64
+        with self.assertRaises(RuntimeError):samples.read('b'*32,1)
+        self.assertEqual(before,len(source.commands));self.assertEqual([],peer.commands)
+        self.assertIsNotNone(self.instance._chat_capture_store(self.native.target).read())
+
+    def test_pico_chat_process_teardown_cannot_discard_an_unresolved_role_transcript(self):
+        store=self.instance._chat_samples_store(self.native.target,'actor')
+        original={'unresolved':'original-source-transcript'};store.write(original,None)
+        with self.assertRaises(ValueError):self.cleanup_instance().cleanup(self.native.target)
+        self.assertFalse(self.native.running);self.assertEqual(original,store.read())
 
     def account_probe(self):
         source=AccountProbeBoundary()

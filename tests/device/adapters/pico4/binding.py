@@ -857,6 +857,28 @@ def create_adapter(args, base_class):
             state,_ui=self._script_paths(target)
             return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-','chat-capture-owner-')))
 
+        def _chat_samples_store(self,target,role):
+            _need(role in ('primary','actor'))
+            state,_ui=self._script_paths(target)
+            return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-','chat-'+role+'-samples-')))
+
+        @_private
+        def _chat_samples(self,target,run,peer,peer_binding,*,role,source_lock,peer_lock):
+            from adapters.chat_journey.samples import ChatSamples
+            from adapters.script_journey.lock import ScriptSourceLock
+            store=self._chat_samples_store(target,role)
+            _need(isinstance(source_lock,ScriptSourceLock) and source_lock.path==store.path.with_name('script-sources.lock'))
+            with source_lock.held():
+                manager=self._scripts(target);native=self._native_feature_observer(target)
+                capture=self._chat_capture(target,run);owned=capture.owner.owned()
+                _need(owned is not None and owned['runId']==run and owned['active'] and owned['binding']==manager.binding)
+                # The peer is independently bound by its actual original
+                # actor transport/process owner. This factory cannot launch,
+                # infer or substitute that peer with the heartbeat fixture.
+                native.guard();_need(peer.guard() is not False)
+                return ChatSamples(run,role,manager.binding,peer_binding,capture.reader,peer,self._chat_view(target),native,
+                    store,source_lock,peer_lock,vr=True,monotonic=native.monotonic)
+
         @_private
         def _chat_capture(self,target,run):
             manager=self._scripts(target);native=self._native_feature_observer(target)
@@ -1062,6 +1084,10 @@ def create_adapter(args, base_class):
             chat_error=False
             try:
                 if self.pico_configuration is not None:
+                    # Source transcripts contain original unresolved role
+                    # ownership. Process teardown cannot qualify their removal.
+                    if any(self._chat_samples_store(target,role).read() is not None for role in ('primary','actor')):
+                        chat_error=True
                     owned=self._chat_capture_store(target).read()
                     if owned is not None:
                         if cleanup_only:self._recover_cleanup_candidate()
@@ -1112,7 +1138,8 @@ def create_adapter(args, base_class):
                       and self._script_restart_inputs_store(target).read() is None
                       and self._script_restart_store(target).read() is None
                       and self._script_files_store(target).read() is None and self._account_probe_store(target).read() is None
-                      and self._account_origin_store(target).read() is None and self._chat_capture_store(target).read() is None)
+                      and self._account_origin_store(target).read() is None and self._chat_capture_store(target).read() is None
+                      and all(self._chat_samples_store(target,role).read() is None for role in ('primary','actor')))
             else:
                 _need(not create_error and not feature_error and not script_error and not probe_error and not origin_error and not chat_error)
             return result
