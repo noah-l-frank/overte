@@ -84,6 +84,15 @@ class AssetsControlsTests(unittest.TestCase):
             else:b.covered=True
             with self.subTest(change=change),self.assertRaises(NativeUIError):b.recipe().input('assets.delete')
             self.assertEqual([],b.inputs)
+    def test_explicit_disabled_delete_probe_consumes_normal_input_without_enabling(self):
+        b=Widgets();b.write=False;ui=b.recipe();ui.input('assets.delete','probe-disabled')
+        self.assertEqual('probe-disabled',b.inputs[-1]['action']);self.assertFalse(ui.row(ui.capture(),'assets.delete',enabled=False)['enabled'])
+        self.assertFalse(ui.row(ui.capture(),'assets.delete',enabled=False)['inputReady']);self.assertIsNone(b.dialog)
+        b=Widgets()
+        for identifier in ('assets.delete','assets.rename'):
+            with self.subTest(identifier=identifier),self.assertRaises(NativeUIError):b.recipe().input(identifier,'probe-disabled')
+        self.assertEqual([],b.inputs)
+
     def test_foreign_context_or_replaced_control_is_not_retargeted(self):
         for change in (lambda p:p.update(generation='d'*32),lambda p:p['controls'][1].update(token='d'*32)):
             b=Widgets();io=b.io();original=io.capture();b.fault=change

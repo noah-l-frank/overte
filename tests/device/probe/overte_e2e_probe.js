@@ -294,10 +294,11 @@
         if (request.action === "replace") { keys.push("text"); }
         if (request.action === "select-index") { keys.push("index"); }
         if (request.action === "scroll") { keys.push("direction"); }
-        if (["activate","replace","submit","select-index","scroll"].indexOf(request.action) === -1 || !objectKeysMatch(request,keys)
+        if (["activate","probe-disabled","replace","submit","select-index","scroll"].indexOf(request.action) === -1 || !objectKeysMatch(request,keys)
                 || !phoneChatNonce(request.instance) || !phoneChatNonce(request.generation) || !phoneChatNonce(request.controlToken)
                 || !phoneFileInteger(request.sequence,1,9007199254740991) || !phoneFileInteger(request.observedElapsedMs,0,9007199254740991)
                 || typeof request.controlId !== "string") { return false; }
+        if (request.action === "probe-disabled") { return request.controlId === "assets.delete"; }
         var field=/^(?:assets\.(?:filter|rename\.path|destination\.path|model\.url)|assets-file\.(?:name|folder))$/.test(request.controlId);
         if (request.action === "replace") { return field && typeof request.text === "string" && /^[\x20-\x7e]{0,4096}$/.test(request.text); }
         if (request.action === "submit") { return request.controlId === "assets-file.folder"; }

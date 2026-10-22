@@ -47,14 +47,17 @@ class PhoneAssetsIO(PhoneScriptFileIO):
 
     def input(self,identifier,action,*,reference,value=None):
         try:
-            need(control_id(identifier) and identifier!='assets.page' and action in ('activate','replace','submit','select-index','scroll'))
-            if action=='replace':need(identifier in FIELDS);ascii_text(value)
+            need(control_id(identifier) and identifier!='assets.page' and action in ('activate','probe-disabled','replace','submit','select-index','scroll'))
+            if action=='probe-disabled':need(identifier=='assets.delete' and value is None)
+            elif action=='replace':need(identifier in FIELDS);ascii_text(value)
             elif action=='submit':need(identifier=='assets-file.folder' and value is None)
             elif action=='select-index':need(identifier=='assets-file.primary' and integer(value,0,31))
             elif action=='scroll':need(identifier in ('assets.tree','assets-file.list') and value in ('up','down'))
             else:need(identifier not in ('assets.tree','assets-file.list') and value is None)
             current=self.capture();row=same_reference(reference,current,identifier)
-            need(current['open'] and current['ready'] and row['enabled'] and row.get('inputReady',True))
+            need(current['open'] and current['ready'])
+            if action=='probe-disabled':need(not row['enabled'] and not row['inputReady'])
+            else:need(row['enabled'] and row.get('inputReady',True))
             if action in ('replace','submit'):need(row['focused'])
             if action=='select-index':need(value<row['count'])
             original=reference['scope']
@@ -67,6 +70,7 @@ class PhoneAssetsIO(PhoneScriptFileIO):
             self.deliver(request,dict(instance=original['instance'],generation=original['generation']))
         except Exception:raise NativeUIError('Phone original Assets input delivery failed') from None
 
+    def probe_disabled(self,identifier,*,reference):self.input(identifier,'probe-disabled',reference=reference)
     def activate(self,identifier,*,reference):self.input(identifier,'activate',reference=reference)
     def replace(self,identifier,value,*,reference):self.input(identifier,'replace',reference=reference,value=value)
     def select_index(self,identifier,value,*,reference):self.input(identifier,'select-index',reference=reference,value=value)

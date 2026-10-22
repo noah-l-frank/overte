@@ -110,7 +110,11 @@ QtObject {
  // real binding disables Delete. An ACK cannot invent a permission error.
  service->setProperty("allowed",false);QMetaObject::invokeMethod(service.data(),"canWriteAssetsChanged",Q_ARG(bool,false));QTest::qWait(60);
  if(row("assets.page").value("canWrite")!=false||row("assets.delete").value("enabled")!=false||apply(command("assets.delete","activate"))||service->property("deletes").toInt()!=1)return 11;
+ if(!apply(command("assets.delete","probe-disabled"))||service->property("deletes").toInt()!=1||row("assets.delete").value("enabled")!=false||row("assets.delete").value("inputReady")!=false||!row("assets.delete.accept").isEmpty())return 31;
+ {QQuickItem cover(window.contentItem());cover.setSize(QSizeF(900,1200));cover.setZ(100000);cover.setAcceptedMouseButtons(Qt::LeftButton);
+  if(apply(command("assets.delete","probe-disabled")))return 32;}
  service->setProperty("allowed",true);QMetaObject::invokeMethod(service.data(),"canWriteAssetsChanged",Q_ARG(bool,true));QTest::qWait(60);
+ if(apply(command("assets.delete","probe-disabled"))||apply(command("assets.upload","probe-disabled")))return 33;
  // Foreign modal obstruction must reject the real reference before delivery.
  QQuickItem blocker(window.contentItem());blocker.setSize(QSizeF(900,1200));blocker.setZ(100000);blocker.setAcceptedMouseButtons(Qt::LeftButton);
  if(apply(command("assets.upload","activate")))return 12;blocker.setVisible(false);

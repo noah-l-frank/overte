@@ -181,13 +181,14 @@ public:
                     : _surface == Surface::Navigation ? action != "activate" && action != "replace"
                     : _surface == Surface::AvatarPeople ? action != "activate" && action != "replace" && action != "set-value" && action != "scroll"
                     : _surface == Surface::Snapshot ? action != "activate" && action != "replace" && action != "select-index" && action != "scroll"
-                    : _surface == Surface::Assets ? action != "activate" && action != "replace" && action != "submit" && action != "select-index" && action != "scroll"
+                    : _surface == Surface::Assets ? action != "probe-disabled" && action != "activate" && action != "replace" && action != "submit" && action != "select-index" && action != "scroll"
                     : action != "activate" && action != "replace" && action != "submit" && action != "select-index")) { return result; }
         // Consume intent before dispatch; never replay uncertain native input.
         _lastCommandSequence = sequence;
         const auto id = command.value("controlId").toString();
         const auto control = _controls.value(id);
-        if (!control.item || !control.item->isEnabled() || command.value("controlToken") != QJsonValue(control.token)
+        const bool disabledProbe=_surface==Surface::Assets && action=="probe-disabled" && id=="assets.delete";
+        if (!control.item || (!control.item->isEnabled() && !disabledProbe) || (disabledProbe && control.item->isEnabled()) || command.value("controlToken") != QJsonValue(control.token)
                 || visibleRect(control.item, window).isEmpty()) { return result; }
         bool delivered {false};
         if (_surface == Surface::Snapshot) {
@@ -208,12 +209,13 @@ public:
             }
         } else if (_surface == Surface::Assets) {
             QJsonObject row;appendAssetsControlObservation(row,control.item,id);
-            if (!row.value("inputReady").toBool()) { return result; }
+            if (!row.value("inputReady").toBool() && !disabledProbe) { return result; }
             const auto point=control.item->mapToScene(QPointF(control.item->width()/2,control.item->height()/2));
             // Keyboard choices remain bound to the original ComboBox or its
             // own live popup focus; a popup can legitimately cover its center.
-            if (action!="select-index" && !normalInputOwnsPoint(control.item,window,point)) { return result; }
-            if (action=="activate" && id!="assets.page" && id!="assets.tree" && id!="assets-file.list" && pointerClick) { delivered=pointerClick(control.item); }
+            if (action!="select-index" && !normalInputOwnsPoint(control.item,window,point,disabledProbe)) { return result; }
+            if (disabledProbe && pointerClick) { delivered=pointerClick(control.item); }
+            else if (action=="activate" && id!="assets.page" && id!="assets.tree" && id!="assets-file.list" && pointerClick) { delivered=pointerClick(control.item); }
             else if (action=="replace" && assetsField(id) && command.value("text").isString() && createText(command.value("text").toString())) {
                 delivered=overte::ui::replaceFocusedField(control.item,window,command.value("text").toString());
             } else if (action=="submit" && id=="assets-file.folder") {

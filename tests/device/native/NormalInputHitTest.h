@@ -14,15 +14,17 @@ namespace overte::e2e {
 // Shared original Avatar/People scene-input algorithm. Traverse actual stacking
 // order, ignoring only branches without enabled input at the requested point.
 // Callers retain their own original component/field/role and visibility guards.
-inline bool normalInputOwnsPoint(QQuickItem* item,QQuickWindow* window,const QPointF& point) {
+inline bool normalInputOwnsPoint(QQuickItem* item,QQuickWindow* window,const QPointF& point,bool disabledProbe=false) {
     if (!item || !window || !qApp || item->window()!=window || item->thread()!=qApp->thread()
             || window->thread()!=qApp->thread() || QThread::currentThread()!=qApp->thread()
             || !std::isfinite(point.x()) || !std::isfinite(point.y())) { return false; }
+    if (disabledProbe && item->isEnabled()) { return false; }
     int visited=0;bool invalid=false;QQuickItem* recipient{nullptr};
     std::function<bool(QQuickItem*,int)> visit=[&](QQuickItem* node,int depth) {
-        if (!node || !node->isVisible() || !node->isEnabled()) { return false; }
+        if (!node || !node->isVisible() || (!node->isEnabled() && !(disabledProbe && node==item))) { return false; }
         if (++visited>4096 || depth>128 || node->thread()!=qApp->thread()) { invalid=true;return true; }
         const bool inside=node->contains(node->mapFromScene(point));if (node->clip() && !inside) { return false; }
+        if (disabledProbe && node==item && inside) { recipient=item;return true; }
         auto children=node->childItems();std::stable_sort(children.begin(),children.end(),[](QQuickItem* a,QQuickItem* b) { return a->z()<b->z(); });
         for (auto it=children.crbegin();it!=children.crend();++it) { if (visit(*it,depth+1)) { return true; } }
         bool handler=false;for (auto child:node->children()) { if (child->inherits("QQuickPointerHandler") && child->property("enabled").toBool()) { handler=true; } }

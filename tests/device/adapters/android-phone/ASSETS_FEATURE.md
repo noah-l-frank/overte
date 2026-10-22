@@ -227,6 +227,12 @@ Import/Rename/Delete dialog events, rejects disabled Delete and foreign overlays
 and observes the actual unavailable-file error after a real main-file unlink.
 Every native UI snapshot is also checked by the Python metadata validator.
 Its Asset Server/entity service endpoints are explicit synthetic seams.
+An explicit Assets-only `probe-disabled` operation delivers real pointer events
+to the actual disabled Delete button. Normal `activate` remains rejected. The
+probe neither enables the button nor marks it input-ready or calls its handler;
+the existing stacking/overlay checks still guard that exact original point.
+Enabled Delete, a different control and a foreign overlay reject this operation.
+Only subsequent unchanged original mappings/content prove denial.
 
 The geometry contract compiles the actual reader-publication, render-copy and
 mesh-trace source blocks with the real immutable Qt metadata class and explicit
