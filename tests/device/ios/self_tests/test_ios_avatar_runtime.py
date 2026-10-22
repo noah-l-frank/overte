@@ -103,7 +103,7 @@ class AvatarRuntimeTests(unittest.TestCase):
 
     def test_existing_session_factory_reuses_true_readers_and_archives_whole_source_group(self):
         fixture=SourcesFixture();fixture.phase.client.url=self.client.url;readers=fixture.readers()
-        names={'avatar_state':'state','avatar_renderers':'renderers','avatar_social_http':'http','people_model':'people','avatar_scripts':'scripts',
+        names={'avatar_state':'state','avatar_renderers':'renderers','avatar_social_http':'http','people_model':'people','avatar_scripts':'scripts','avatar_entities':'entities',
             'bound_native_observer':'native'}
         observer=SimpleNamespace(**{name:(lambda _clock,key=key:readers[key]) for name,key in names.items()})
         native=readers['ui'].native

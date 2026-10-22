@@ -19,18 +19,20 @@ from adapters.script_feature.history import pack, unpack, same
 from adapters.script_feature.lock import ScriptSourceLock
 from feature_journeys.contract import identifier
 from feature_journeys.phase_fixture import PhaseFixtureReader, validate as phase_packet
-from ios.adapters import avatar_state, avatar_renderers, avatar_social_http, people_model, avatar_scripts
+from ios.adapters import avatar_state, avatar_renderers, avatar_social_http, people_model, avatar_scripts, avatar_entities
 from ios.adapters.avatar_controls import IOSAvatarIO, project
 from ios.adapters.avatar_originals import IOSAvatarOriginals, MAX_FRAMES, BLOCK
 from ios.adapters.graphics_history import restore_native, follow_native
 from ios.adapters.normal_input import observation as native_widgets
 
-VERSION=1
-CHANNELS=dict(state=avatar_state,renderers=avatar_renderers,http=avatar_social_http,people=people_model,scripts=avatar_scripts)
+VERSION=2
+READS=(1,2)
+CHANNELS=dict(state=avatar_state,renderers=avatar_renderers,http=avatar_social_http,people=people_model,scripts=avatar_scripts,entities=avatar_entities)
 ACQUISITIONS=dict(state='iosAvatarStateAcquisitionVersion',renderers='iosAvatarRenderersAcquisitionVersion',
-    http='iosAvatarSocialHttpAcquisitionVersion',people='iosPeopleModelAcquisitionVersion',scripts='iosAvatarScriptsAcquisitionVersion')
+    http='iosAvatarSocialHttpAcquisitionVersion',people='iosPeopleModelAcquisitionVersion',scripts='iosAvatarScriptsAcquisitionVersion',
+    entities='iosAvatarEntitiesAcquisitionVersion')
 VERSIONS=dict(state=('iosAvatarStateVersion',2),renderers=('iosAvatarRenderersVersion',4),
-    http=('iosAvatarSocialHttpVersion',1),people=('iosPeopleModelVersion',1),scripts=('iosAvatarScriptsVersion',1))
+    http=('iosAvatarSocialHttpVersion',1),people=('iosPeopleModelVersion',1),scripts=('iosAvatarScriptsVersion',1),entities=('iosAvatarEntitiesVersion',1))
 
 
 class AvatarPhaseChanged(NativeUIError):pass
@@ -60,16 +62,18 @@ class IOSAvatarSources:
         if self.previous is not None:self.state,self.frames=self.decode(self.previous)
         if not historical and self.frames:self.restore_readers()
 
-    def envelope(self,state):
-        return dict(iosAvatarSourcesVersion=VERSION,runId=self.run,role=self.role,binding=self.binding,artifactRoot=str(self.root),payload=pack([state]))
+    def envelope(self,state,*,version=VERSION):
+        return dict(iosAvatarSourcesVersion=version,runId=self.run,role=self.role,binding=self.binding,artifactRoot=str(self.root),payload=pack([state]))
 
     def decode(self,value):
         exact(value,{'iosAvatarSourcesVersion','runId','role','binding','artifactRoot','payload'})
-        rows=unpack(value['payload']);need(len(rows)==1 and same(value,self.envelope(rows[0])))
+        version=value['iosAvatarSourcesVersion'];need(type(version) is int and version in READS)
+        rows=unpack(value['payload']);need(len(rows)==1 and same(value,self.envelope(rows[0],version=version)))
         state=rows[0];exact(state,{'phase','revision','manifests','pending'})
         need(state['phase'] in ('ready','reading') and integer(state['revision'],0,MAX_FRAMES))
         frames=self.originals.restore(state['manifests'],state['revision']);previous=None;retired=set()
         for frame in frames:
+            need(version>=2 or 'avatarSourceGroupVersion' not in frame)
             self.validate_frame(frame,previous)
             _members,retired=accept_membership(avatar_scripts.members(previous['originals']['scripts']['source']) if previous else None,
                 avatar_scripts.members(frame['originals']['scripts']['source']),retired,frame['originals']['scripts']['clockAfter']['epochMs'])
@@ -114,15 +118,19 @@ class IOSAvatarSources:
         pending[kind]=deepcopy(value);self.save()
 
     def validate_frame(self,frame,previous=None):
-        exact(frame,{'originals','acquisitions','ui','clockJoin','phaseBefore','phaseAfter'})
-        originals=frame['originals'];exact(originals,set(CHANNELS)|{'native','widgets'})
-        acquisitions=frame['acquisitions'];exact(acquisitions,set(CHANNELS))
+        current='avatarSourceGroupVersion' in frame
+        exact(frame,{'originals','acquisitions','ui','clockJoin','phaseBefore','phaseAfter'}|({'avatarSourceGroupVersion'} if current else set()))
+        if current:need(type(frame['avatarSourceGroupVersion']) is int and frame['avatarSourceGroupVersion']==2)
+        originals=frame['originals'];channels=CHANNELS if current else {key:value for key,value in CHANNELS.items() if key!='entities'}
+        need(previous is None or 'entities' not in previous['originals'] or 'entities' in originals)
+        exact(originals,set(channels)|{'native','widgets'})
+        acquisitions=frame['acquisitions'];exact(acquisitions,set(channels))
         clock=validate_join(frame['clockJoin'],originals);first,last=clock['nativeBefore'],clock['nativeAfter']
         need(first['processId']==last['processId']==self.pid)
-        queries=[first['requestId'],last['requestId'],originals['native']['requestId']]+[originals[name]['requestId'] for name in CHANNELS]
+        queries=[first['requestId'],last['requestId'],originals['native']['requestId']]+[originals[name]['requestId'] for name in channels]
         need(len(set(queries))==len(queries))
         if previous:follow_native(previous['clockJoin']['nativeAfter'],first)
-        for name,module in CHANNELS.items():
+        for name,module in channels.items():
             packet=originals[name];module.original(packet)
             version_key,version=VERSIONS[name];need(type(packet[version_key]) is int and packet[version_key]==version)
             need(packet['processId']==self.pid and packet['runId']==self.run
@@ -135,7 +143,7 @@ class IOSAvatarSources:
                  and packet['clockAfter']['epochMs']<=acquisition['nativeAfterEpochMs']<=last['capturedEpochMs']
                  and number(acquisition['hostBeforeMonotonic'],clock['hostBeforeMonotonic'],clock['hostAfterMonotonic'])
                  and number(acquisition['hostAfterMonotonic'],acquisition['hostBeforeMonotonic'],clock['hostAfterMonotonic']))
-            if previous:
+            if previous and name in previous['originals']:
                 query=dict(schemaVersion=1,commandId=packet['requestId'],action=module.ACTION,runId=self.run)
                 module.validate(packet,query,self.pid,previous=previous['originals'][name])
         native_widgets(originals['widgets'],self.pid,originals['widgets']['sampleEpochMs'])
@@ -169,6 +177,7 @@ class IOSAvatarSources:
         originals=self.frames[-1]['originals']
         for name in CHANNELS:
             reader=self.readers[name];need(reader.last is None)
+            if name not in originals:continue # Legacy v1 contains no entity-return facts.
             if name=='scripts':reader.restore([frame['originals'][name] for frame in self.frames])
             else:reader.last=deepcopy(originals[name])
         restore_native(self.readers['native'],self.frames[-1]['clockJoin']['nativeAfter'])
@@ -189,7 +198,7 @@ class IOSAvatarSources:
         ui=r['ui'].capture();originals['widgets']=deepcopy(r['ui'].original_packet);self.remember('widgets',originals['widgets'])
         clock=window.finish(originals,[('native','capturedEpochMs'),('widgets','sampleEpochMs')]);self.remember('clockJoin',clock)
         final=self.phase.status(phase['status']);self.remember('phaseAfter',final)
-        frame=dict(originals=originals,acquisitions=acquisitions,ui=ui,clockJoin=clock,phaseBefore=phase['status'],phaseAfter=final)
+        frame=dict(avatarSourceGroupVersion=2,originals=originals,acquisitions=acquisitions,ui=ui,clockJoin=clock,phaseBefore=phase['status'],phaseAfter=final)
         stable=self.validate_frame(frame,previous)
         original=self.originals.write(len(self.frames)+1,frame);manifests=self.originals.append(self.state['manifests'],original)
         self.frames.append(deepcopy(frame));self.state.update(phase='ready',revision=len(self.frames),manifests=manifests,pending=None);self.save()

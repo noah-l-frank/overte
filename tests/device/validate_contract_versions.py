@@ -32,7 +32,7 @@ REQUIRED = {
     "ios-emote-images": 1,
     "ios-emote-lifecycle": 1,
     "feature-avatar-accounts": 1,
-    "ios-avatar-sources": 1,
+    "ios-avatar-sources": 2,
     "phase-witness-publisher": 1,
     "phase-witness-publication-record": 1,
     "ios-navigation-composite-actions": 1,

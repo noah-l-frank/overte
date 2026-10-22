@@ -95,18 +95,18 @@ def original(value):
     return validate(value,dict(schemaVersion=1,commandId=value['requestId'],action=ACTION,runId=value['runId']),value['processId'])
 
 
-def created(value,before,after,scripts,expected_code,*,avatar_id,resource,after_epoch):
-    """Bind an actual returned ID before renderer inspection, never infer by URL."""
-    original(value);avatar_renderers.original(before);avatar_renderers.original(after);avatar_scripts.original(scripts)
+def returned(value,before,scripts,expected_code,*,avatar_id,resource,after_epoch):
+    """Retain actual original returned ownership before asynchronous geometry."""
+    original(value);avatar_renderers.original(before);avatar_scripts.original(scripts)
     session(avatar_id);text(resource);need(resource and integer(after_epoch,1) and value['source']['complete'])
-    need(value['processId']==before['processId']==after['processId']==scripts['processId']
-        and value['runId']==before['runId']==after['runId']==scripts['runId'] and before['clockAfter']['epochMs']<=after_epoch)
+    need(value['processId']==before['processId']==scripts['processId']
+        and value['runId']==before['runId']==scripts['runId'] and before['clockAfter']['epochMs']<=after_epoch)
     old={row['id'] for row in before['source']['tree']['entities']}
     candidates=[]
     for event in value['source']['events']:
         entity=event['entity']
         if event['kind']!='add-returned' or event['clock']['epochMs']<after_epoch or entity['modelUrl']!=resource:continue
-        need(event['caller']['invokedEpochMs']>=after_epoch and event['clock']['epochMs']<=after['clockBefore']['epochMs'])
+        need(event['caller']['invokedEpochMs']>=after_epoch)
         need(entity['entityId'] not in old and entity['owningAvatarId'] in (avatar_id,avatar_renderers.SELF)
             and entity['parentId'] in (avatar_id,avatar_renderers.SELF) and entity['localTreeAvailable'])
         who=event['caller'];worker=avatar_scripts.worker(scripts,who['manager']['instance'])
@@ -115,13 +115,22 @@ def created(value,before,after,scripts,expected_code,*,avatar_id,resource,after_
             and worker['avatar']['code'][:len(who['avatarCode']['code'])]==who['avatarCode']['code'])
         bound=avatar_scripts.bound_code(scripts,who['manager']['instance'],expected_code)
         need(any(row in who['avatarCode']['code'] and row['submittedEpochMs']<=who['invokedEpochMs'] for row in bound['/system/avatarapp.js']))
-        # Presence/renderability is another original surface. Creation itself
-        # cannot claim downloaded geometry, Hips parenting or an actual draw.
-        need(avatar_renderers.wearable(after,entity['entityId'],avatar_id,resource))
-        rendered=[row for row in after['source']['avatarEntities'] if row['id']==entity['entityId']];need(len(rendered)==1)
-        need(entity['parentJointIndex']==rendered[0]['parentJointIndex'])
         candidates.append(event)
     need(len(candidates)==1);return deepcopy(candidates[0])
+
+
+def created(value,before,after,scripts,expected_code,*,avatar_id,resource,after_epoch):
+    """Join original returned ownership to independently loaded render facts."""
+    event=returned(value,before,scripts,expected_code,avatar_id=avatar_id,resource=resource,after_epoch=after_epoch)
+    avatar_renderers.original(after)
+    need(after['processId']==value['processId'] and after['runId']==value['runId'] and event['clock']['epochMs']<=after['clockBefore']['epochMs'])
+    entity=event['entity']
+    # Presence/renderability is another original surface. Creation itself
+    # cannot claim downloaded geometry, Hips parenting or an actual draw.
+    need(avatar_renderers.wearable(after,entity['entityId'],avatar_id,resource))
+    rendered=[row for row in after['source']['avatarEntities'] if row['id']==entity['entityId']];need(len(rendered)==1)
+    need(entity['parentJointIndex']==rendered[0]['parentJointIndex'])
+    return event
 
 
 class IOSAvatarEntities(IOSPlacesModel):

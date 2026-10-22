@@ -39,3 +39,9 @@ ordering checks. Native code has not been compiled or executed on a device.
 This is a source ownership prerequisite. The complete action owner still must
 retain IDs before uncertainty, preserve unowned resources, coordinate genuine
 peer and GPU evidence, and prove complete product/provider cleanup.
+
+`IOSAvatarSources` now writes version 2 with an explicit version-2 acquisition
+group containing this sixth typed source and its own original acquisition
+clock/hash. It still reads version 1 without inventing entity events. Existing
+immutable version-1 groups and source floors survive migration; only a new
+actual read can add the new source, and a subsequent group cannot downgrade it.

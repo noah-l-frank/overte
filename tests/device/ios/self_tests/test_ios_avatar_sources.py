@@ -18,12 +18,13 @@ from feature_journeys.witness import Client,Journal
 from feature_journeys.phase_fixture import PhaseFixtureReader
 from ios.adapters.avatar_sources import IOSAvatarSources,AvatarSourcePending,CHANNELS
 from ios.adapters.avatar_controls import IOSAvatarIO
-from ios.adapters import avatar_state,avatar_renderers,avatar_social_http,people_model,avatar_scripts
+from ios.adapters import avatar_state,avatar_renderers,avatar_social_http,people_model,avatar_scripts,avatar_entities
 from ios.self_tests import test_ios_avatar_state as state_tests
 from ios.self_tests import test_ios_avatar_renderers as renderer_tests
 from ios.self_tests import test_ios_avatar_social_http as http_tests
 from ios.self_tests import test_ios_people_model as people_tests
 from ios.self_tests import test_ios_avatar_scripts as script_tests
+from ios.self_tests import test_ios_avatar_entities as entity_tests
 from ios.self_tests.test_ios_avatar_controls import Boundary as WidgetBoundary
 from ios.self_tests.test_ios_avatar_input_owner import BINDING
 from self_tests.test_native_feature_observation import Boundary as CoreBoundary
@@ -42,7 +43,7 @@ class SourcesFixture:
         state['source']['bookmarkFile']=dict(source='avatar-bookmarks-persistence',status='ready',reason='',bytes=2,
             sha256=hashlib.sha256(b'{}').hexdigest(),contentBase64=base64.b64encode(b'{}').decode(),identity=dict(device='1',inode='2'))
         people=people_tests.packet();people['source']['roots'][0].update(visible=False,active=False)
-        self.prototypes=dict(state=state,renderers=renderer_tests.packet(),http=http.value,people=people,scripts=script_tests.packet())
+        self.prototypes=dict(state=state,renderers=renderer_tests.packet(),http=http.value,people=people,scripts=script_tests.packet(),entities=entity_tests.packet()[0])
         self.widget=WidgetBoundary();self.core=CoreBoundary();self.proto_core=None
     def now(self):return 1700000000000+round(self.clock*1000)
     def host(self):return 1800000000000+self.clock*1000
@@ -68,7 +69,7 @@ class SourcesFixture:
     def readers(self):
         result=dict(state=self.reader('state',avatar_state.IOSAvatarState),renderers=self.reader('renderers',avatar_renderers.IOSAvatarRenderers),
             http=self.reader('http',avatar_social_http.IOSAvatarSocialHttp),people=self.reader('people',people_model.IOSPeopleModel),
-            scripts=self.reader('scripts',avatar_scripts.IOSAvatarScripts),native=self.native())
+            scripts=self.reader('scripts',avatar_scripts.IOSAvatarScripts),entities=self.reader('entities',avatar_entities.IOSAvatarEntities),native=self.native())
         def capture():
             self.tick();raw=self.widget.observed();raw.update(sampleEpochMs=self.now(),elapsedMs=round(self.clock*1000));return raw
         class NativeWidgets:
@@ -103,6 +104,26 @@ class AvatarSourcesTests(unittest.TestCase):
             self.assertGreater(second['originals']['scripts']['sequence'],first['originals']['scripts']['sequence'])
             self.assertNotEqual(first['originals']['state']['requestId'],second['originals']['state']['requestId'])
             self.assertGreater(second['ui']['scope']['sourceSequence'],first['ui']['scope']['sourceSequence'])
+    def test_frozen_v1_group_stays_original_and_first_v2_read_adds_new_channel_without_inventing_old_returns(self):
+        from adapters.native_clock_join import digest
+        with self.lock.held():frame=self.owner().read()
+        legacy=deepcopy(frame);del legacy['avatarSourceGroupVersion'];del legacy['originals']['entities'];del legacy['acquisitions']['entities']
+        legacy['clockJoin']['originalsSha256']=digest(legacy['originals'])
+        directory=self.path/'legacy';directory.mkdir(mode=0o700);artifacts=directory/'originals';artifacts.mkdir(mode=0o700)
+        store=PrivateFeatureState(directory/'ios-avatar-primary-sources.json');lock=ScriptSourceLock(directory/'script-feature-sources.lock')
+        def make():return IOSAvatarSources(store,artifacts,BINDING,self.fixture.run,'primary',lock,lambda:True,self.fixture.phase,
+            readers=self.fixture.readers(),monotonic=lambda:self.fixture.clock,epoch_ms=self.fixture.host)
+        with lock.held():
+            writer=make();writer.state.update(phase='reading',pending=dict(original=None,manifest=None,partial={}));writer.save()
+            original=writer.originals.write(1,legacy);manifests=writer.originals.append([],original)
+            frozen=dict(phase='ready',revision=1,manifests=manifests,pending=None)
+            store.write(writer.envelope(frozen,version=1),writer.previous)
+            restored=make();self.assertNotIn('entities',restored.frames[0]['originals'])
+            self.assertIsNone(restored.readers['entities'].last)
+            current=restored.read();self.assertEqual(2,current['avatarSourceGroupVersion'])
+            self.assertIn('entities',current['originals']);self.assertNotIn('entities',restored.frames[0]['originals'])
+            self.assertEqual(2,store.read()['iosAvatarSourcesVersion'])
+            with self.assertRaises(NativeUIError):restored.validate_frame(legacy,current)
     def test_lost_source_or_partial_storage_remains_owned_and_cannot_replay_as_new_group(self):
         with self.lock.held():
             owner=self.owner()

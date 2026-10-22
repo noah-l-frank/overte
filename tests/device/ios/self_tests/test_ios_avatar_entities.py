@@ -49,6 +49,12 @@ class AvatarEntityTests(unittest.TestCase):
     def test_loaded_matching_URL_never_supplies_a_missing_original_creation_or_adopts_preexisting_ID(self):
         value,before,after,code=packet();value['source']['events']=[]
         with self.assertRaises(NativeUIError):join(value,before,after,code)
+
+    def test_original_returned_ownership_can_be_retained_before_pending_geometry_without_claiming_render_success(self):
+        value,before,after,code=packet();after['source']['avatarEntities'][0]['geometryLoaded']=False
+        owned=entities.returned(value,before,code,EXPECTED,avatar_id=renderers.SELF,resource=renderers.WEARABLE,after_epoch=1700000000120)
+        self.assertEqual(renderers.ENTITY,owned['entity']['entityId'])
+        with self.assertRaises(NativeUIError):join(value,before,after,code)
         value,before,after,code=packet();renderers.attach(before)
         with self.assertRaises(NativeUIError):join(value,before,after,code)
 

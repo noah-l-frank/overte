@@ -54,7 +54,7 @@ class IOSAvatarRuntime(IOSScriptRuntime):
         source=self._sources(selector);observer=source['observer'];clock=source['clock_source']
         need(source['target'].get('testBuild',{}).get('launchEnvironment',{}).get('HIFI_METAVERSE_URL')==expected_origin)
         readers=dict(state=observer.avatar_state(clock),renderers=observer.avatar_renderers(clock),
-            http=observer.avatar_social_http(clock),people=observer.people_model(clock),scripts=observer.avatar_scripts(clock),
+            http=observer.avatar_social_http(clock),people=observer.people_model(clock),scripts=observer.avatar_scripts(clock),entities=observer.avatar_entities(clock),
             native=observer.bound_native_observer(clock),ui=IOSAvatarIO(source['native']))
         return IOSAvatarSources(PrivateFeatureState(self.state_path(selector).with_name('ios-avatar-'+role+'-sources.json')),
             root,source['binding'],run,role,lock,source['check'],PhaseFixtureReader(client,run,'avatar-people'),readers=readers)
