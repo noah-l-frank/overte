@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
 import json
+import math
 import re
 import time
 import uuid
@@ -82,9 +83,19 @@ class NativeScriptRoots:
                     epoch=self.clock_ms();need(integer(epoch,barrier))
                     validate(value,request,self.pid,epoch,previous=self.last)
                     need(value['sequence']>after_sequence and value['requestedEpochMs']>=barrier and self.guard() is not False)
-                    final=self.monotonic();need(number(final,previous,1e15) and final-started<5)
-                    need(max(epoch-value['capturedEpochMs'],barrier-value['capturedEpochMs']+(final-started)*1000)<=1500)
-                    self.last=deepcopy(value);return deepcopy(value)
+                    # Prepare both independent snapshots before the final
+                    # actual guard/clocks. Copying cannot extend freshness or
+                    # advance the accepted cursor on a failed acquisition.
+                    candidate=deepcopy(value);result=deepcopy(value)
+                    need(self.guard() is not False)
+                    measured=self.monotonic();need(number(measured,previous,started+1.5))
+                    final_epoch=self.clock_ms();need(integer(final_epoch,epoch))
+                    fresh(value['capturedEpochMs'],final_epoch)
+                    final=self.monotonic();need(number(final,measured,started+1.5))
+                    need(max(final_epoch-value['capturedEpochMs'],
+                        barrier-value['capturedEpochMs']+math.ceil((final-started)*1000),
+                        final_epoch-value['capturedEpochMs']+math.ceil((final-measured)*1000))<=1500)
+                    self.last=candidate;return result
                 if attempt<50:self.sleep(.1)
         except Exception:raise NativeUIError('Original configured Script root is unavailable or invalid') from None
         raise NativeUIError('Original configured Script root did not produce this request')

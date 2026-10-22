@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 import sys
 import unittest
+from unittest.mock import patch
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 from adapters.native_script_roots import NativeScriptRoots,command,root_url,validate
 from adapters.normal_ui import NativeUIError
@@ -89,6 +90,36 @@ class ScriptRootTests(unittest.TestCase):
         with self.assertRaises(NativeUIError):source.reader().read(0)
         source=RootBoundary();source.mutate=lambda value:setattr(source,'clock',-1)
         with self.assertRaises(NativeUIError):source.reader().read(0)
+    def test_slow_final_packet_copies_cannot_escape_frozen_native_or_host_clock_guards(self):
+        for changed in ('host','native'):
+            source=RootBoundary();reader=source.reader();original=reader.read(0)
+            def slow(value):
+                copied=deepcopy(value)
+                if type(value) is dict and 'scriptRootsVersion' in value:
+                    if changed=='host':source.clock+=2
+                    else:source.epoch+=2000
+                return copied
+            with self.subTest(clock=changed),patch('adapters.native_script_roots.deepcopy',slow),self.assertRaises(NativeUIError):
+                reader.read(original['sequence'])
+            self.assertEqual(original,reader.last)
+
+    def test_last_original_guard_clock_jump_after_copy_never_advances_the_reader_cursor(self):
+        for changed in ('host','native'):
+            source=RootBoundary();reader=source.reader();original=reader.read(0);armed=[False]
+            def copy(value):
+                result=deepcopy(value)
+                if type(value) is dict and 'scriptRootsVersion' in value:armed[0]=True
+                return result
+            def guard():
+                if armed[0]:
+                    if changed=='host':source.clock+=2
+                    else:source.epoch+=2000
+                return True
+            reader.guard=guard
+            with self.subTest(clock=changed),patch('adapters.native_script_roots.deepcopy',copy),self.assertRaises(NativeUIError):
+                reader.read(original['sequence'])
+            self.assertEqual(original,reader.last)
+
     def test_missing_result_foreign_guard_or_oversized_original_never_returns_a_guessed_root(self):
         source=RootBoundary();source.ignored=True
         with self.assertRaises(NativeUIError):source.reader().read(0)
