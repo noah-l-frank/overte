@@ -139,6 +139,14 @@ delivery, callback return and weak export expiry. Seven host checks pass; native
 code is uncompiled. Destination Photos bytes, an actual independent Share
 recipient and the full pending/input/cleanup coordinator remain required.
 
+A separate opt-in [Photos resource companion](snapshot_companion/README.md)
+and destination validator now join actual resource bytes to the client's
+original Photos transaction and placeholder, with actual owned-deletion/weak
+expiry/full-access absence joins. Eight host checks pass over modeled PhotoKit
+boundaries and real host files. Installed-code, normal UIKit/AFC and quiet-window
+integration remains open; this is a source prerequisite,
+not a complete Snapshot adapter. No native compilation or device test ran.
+
 The canonical physical source binding and explicit lost-launch recovery have
 host-tested implementations. The native byte observer and SDK plugin remain
 uninstalled/uncompiled and unqualified here. See the [Script handoff](SCRIPT_FEATURE.md)

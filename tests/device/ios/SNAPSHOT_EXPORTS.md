@@ -7,6 +7,13 @@ operation state, owner/sheet presence, immutable callback history and weak
 operation lifetime. The test probe preserves the native response unchanged and
 does not repeat a source nonce. No complete Snapshot capability is advertised.
 
+A separate opt-in [Photos original companion](snapshot_companion/README.md)
+now provides a native resource-reader source and strict host transaction/byte
+join. Its own ReadWrite declaration does not alter the client's AddOnly
+authorization. The same source observes actual owned deletion, callback expiry
+and a fresh full-access asset lookup. Installed companion/normal UIKit/AFC and
+quiet-window integration remain required; the source is uncompiled.
+
 `IOSSnapshotAdapter` records its actual authorization, Photos transaction,
 system activity completion and Qt delivery callbacks. Callback entry and return
 are separate events. The actual Photos placeholder is only a creation identity;
