@@ -72,6 +72,32 @@ class EmoteFeatureTests(unittest.TestCase):
         with self.assertRaises(NativeUIError):PhoneEmoteFeature(self.owner(),policy)
         self.assertEqual(before,self.model.controls.input_requests)
 
+    def test_idle_stop_after_actual_automatic_completion_retains_play_provenance_without_early_cancel(self):
+        feature=self.feature();value=feature.observe(self.observation());m=self.model
+        feature.act(m.call('play',dict(name='Crying')));value=feature.observe(self.observation(value['sequence']))
+        m.epoch+=2100;m.restore();feature.act(m.call('wait-complete'))
+        value=feature.observe(self.observation(value['sequence']));self.assertFalse(value['state']['override'])
+        for _ in range(2):
+            feature=self.feature();feature.act(m.call('cancel'));before=len(m.events)
+            value=feature.observe(self.observation(value['sequence']))
+            self.assertEqual(before,len(m.events));self.assertEqual('idle',value['state']['animation'])
+            self.assertFalse(value['state']['restoredBeforeNominalEnd'])
+            self.assertEqual([],value['artifacts'])
+            with feature.run.lock.held():
+                feature.run.load();role=PhoneEmoteRole(feature.run,'primary',POLICY);row=role.stored(value['sequence'])
+                self.assertEqual('idle-reset',row['effect']['kind']);self.assertIsNotNone(row['played'])
+                self.assertEqual('restoration',row['effect']['proof']['kind'])
+
+    def test_idle_stop_cannot_borrow_a_foreign_retained_play_reference(self):
+        feature=self.feature();value=feature.observe(self.observation());m=self.model
+        feature.act(m.call('play',dict(name='Crying')));value=feature.observe(self.observation(value['sequence']))
+        m.epoch+=2100;m.restore();feature.act(m.call('wait-complete'));value=feature.observe(self.observation(value['sequence']))
+        feature.act(m.call('cancel'))
+        with feature.run.lock.held():
+            feature.run.load();role=PhoneEmoteRole(feature.run,'primary',POLICY)
+            role.state['played']['reference']['inputTicket']='f'*32;role.save()
+        with self.assertRaises(NativeUIError):self.feature().observe(self.observation(value['sequence']))
+
     def test_changed_durable_policy_cannot_be_adopted_by_reconstructed_owner(self):
         feature=self.feature();feature.observe(self.observation());value=feature.run.store.read()
         value['imagePolicy']['subject']=[500,200,900,600];feature.run.store.write(value,feature.run.previous)

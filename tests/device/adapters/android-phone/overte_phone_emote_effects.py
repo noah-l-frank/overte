@@ -181,7 +181,13 @@ class PhoneEmoteEffects:
             state=deepcopy(proof['state']);kind='playback'
             play_reference=dict(inputTicket=call['ticket'],frame=deepcopy(reference))
         elif verb=='cancel' and row['idleReset'] is not None:
-            need(played is None and not frame['group']['native']['animation']['overrideActive'])
+            need(not frame['group']['native']['animation']['overrideActive'])
+            if played is not None:
+                # A completed previous play remains retained for provenance.
+                # An ordinary Stop on an already idle chooser neither erases
+                # that original nor claims a second active-to-idle transition.
+                original=self.restore_play(played,rows[:position])
+                proof=restoration(frame['group'],original,pid=source.pid,epoch=frame['epochMs'])
             # No new active-to-inactive ordinary input exists for an idle reset.
             # It cannot satisfy the final early-cancel requirement.
             state=dict(animation='idle',sit='none',override=False,poseProgress=0.,restoredBeforeNominalEnd=False);kind='idle-reset'

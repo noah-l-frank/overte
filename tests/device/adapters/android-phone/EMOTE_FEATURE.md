@@ -5,8 +5,9 @@ and Retirement owners through the normal `feature.emotes.act|observe|cleanup`
 entrypoint. Shared contract v17 remains unchanged. This package implements the
 public operation paths and guarded registration; full normal-journey composition
 verification is still pending. Emotes is not yet counted as a completed Phone
-area. The complete Phone count remains 3/14. Native code remains uncompiled and
-all devices untested.
+area. See the current coverage matrix for the complete Phone count. The native
+Qt6 input contract has a host compiler check; the complete Android client and
+all devices remain untested.
 
 ## Explicit configuration
 
@@ -97,3 +98,14 @@ The complete common normal journey still needs composed verification, including
 all ten clips, automatic completion, randomized Sit discovery, replacement/early
 cancel, background return and normal final cleanup. No host simulation qualifies
 the native implementation, product behavior or physical devices.
+
+## Idle Stop after an original completion
+
+A normal Stop on an already idle chooser retains any prior play's provenance
+and requalifies its actual native restoration from original sources. It does
+not claim a new active-to-idle transition or early cancellation. This idle-reset
+case returns no changed-image artifact: the subject is already idle. Active
+cancellation still requires its original native transition and changed pixels.
+Repeated idle Stop and a foreign retained play reference have focused public
+composition counterexamples. The full common journey remains pending after its
+first composed run exposed this defect.

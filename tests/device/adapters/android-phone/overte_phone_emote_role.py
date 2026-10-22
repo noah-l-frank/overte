@@ -291,7 +291,8 @@ class PhoneEmoteRole:
             elif verb in ('cancel','wait-complete') and frame['group']['native']['animation']['overrideActive']:
                 effect=self.effects.pending_restore(ref,played)
             else:effect=self.effects.measure(ref,played=played)
-            image=self.picture(verb) and 'emotePendingRestoreVersion' not in effect
+            image=(self.picture(verb) and 'emotePendingRestoreVersion' not in effect
+                and effect.get('kind')!='idle-reset')
             self.state['pending']['image']=image;self.save()
             if image:
                 scope=PhoneEmoteObservation(self.effects,self.state['pending']['index'],self.policy)
