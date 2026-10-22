@@ -48,7 +48,7 @@ int main(int argc,char** argv) {
         packets.append(original);return original.value("source").toMap();};
     QObject::connect(&product,&WindowScriptingInterface::browseChanged,[&](const QString& result){actualResult=result;within=capture();});
     auto& inventory=overte::e2e::createUiInventory();
-    product.browseAsync("Select .json to Import",directory,"*.json");QTest::qWait(40);
+    product.browseAsync("Select .json to Import","","*.json");QTest::qWait(40);
     QPointer<QQuickItem> picker=named(host,"nativeFileBrowser");assert(picker);
     inventory.observe(host,&window);auto original=capture();assert(original.value("complete").toBool());
     const auto binding=offscreen->featureCreateDialogIdentity(picker);const auto id=binding.value("dialogId").toString();assert(id.size()==32);
@@ -60,6 +60,9 @@ int main(int argc,char** argv) {
     auto pending=row(original,id);assert(pending.value("pending").toBool() && pending.value("dispatches").toInt()==0);
     assert(pending.value("listenerAlive").toBool() && pending.value("rootAlive").toBool() && pending.value("contextAlive").toBool());
     assert(binding.value("rootId")==pending.value("rootId"));
+    assert(pending.value("browseSettingRead").toMap().value("before").toMap().contains("raw"));
+    assert(pending.value("browseSettingRead").toMap().value("after").toMap().contains("raw"));
+    assert(original.value("createDialogSourceVersion")==QVariant(3) && pending.value("responseSha256").isNull());
     assert(originalCreateFileInput(named(picker,"fileCancel"),&window,"create-file.cancel","activate",{}).value("performed").toBool());
     const auto running=row(within,id);assert(running.value("pending").toBool() && running.value("dispatches").toInt()==1);
     assert(running.value("enteredEpochMs").toLongLong()>0 && running.value("returnedEpochMs").toLongLong()==0);
@@ -67,6 +70,7 @@ int main(int argc,char** argv) {
     assert(!canceled.value("pending").toBool() && canceled.value("dispatches").toInt()==0);
     assert(!canceled.value("listenerAlive").toBool() && !canceled.value("rootAlive").toBool());
     assert(canceled.value("returnedEpochMs").toLongLong()>=running.value("enteredEpochMs").toLongLong());
+    assert(canceled.value("responseSha256")==QString::fromLatin1(QCryptographicHash::hash(QByteArray(),QCryptographicHash::Sha256).toHex()));
     // The source reports Qt's actual context lifetime; it never destroys an
     // internal context or equates a missing view with complete retirement.
     assert(canceled.value("contextAlive").userType()==QMetaType::Bool);
@@ -77,6 +81,7 @@ int main(int argc,char** argv) {
     assert(originalCreateFileInput(named(picker,"fileAccept"),&window,"create-file.accept","activate",{}).value("performed").toBool());
     QTest::qWait(60);assert(actualResult==directory+"/entity-import.json");assert(!picker);
     assert(row(offscreen->featureCreateDialogs(),acceptedId).value("returnedEpochMs").toLongLong()>0);
+    assert(row(offscreen->featureCreateDialogs(),acceptedId).value("responseSha256")==QString::fromLatin1(QCryptographicHash::hash(actualResult.toUtf8(),QCryptographicHash::Sha256).toHex()));
     QObject::connect(&product,&WindowScriptingInterface::saveFileChanged,[&](const QString& result){actualResult=result;within=capture();});
     product.saveAsync("Select Where to Save",directory,"*.json");QTest::qWait(40);picker=named(host,"nativeFileBrowser");assert(picker);
     inventory.observe(host,&window);const auto exportId=offscreen->featureCreateDialogIdentity(picker).value("dialogId").toString();
@@ -86,6 +91,7 @@ int main(int argc,char** argv) {
     QTest::qWait(60);assert(actualResult==directory+"/export.json" && !QFileInfo::exists(actualResult));assert(!picker);
     const auto exported=row(offscreen->featureCreateDialogs(),exportId);assert(exported.value("role")==QVariant("export") && !exported.value("pending").toBool());
     assert(row(within,exportId).value("dispatches").toInt()==1);
+    assert(exported.value("responseSha256")==QString::fromLatin1(QCryptographicHash::hash(actualResult.toUtf8(),QCryptographicHash::Sha256).toHex()));
     assert(offscreen->featureCreateDialogs().value("dialogs").toList().size()==3);
     // Product provenance: Application_Setup creates the shared Window on the
     // GUI thread; Application registers that same object in each Script engine.

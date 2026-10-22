@@ -92,3 +92,26 @@ held listener or callback synchronization hides that diagnostic lifetime race.
 It does not qualify an off-GUI Window receiver. The normal catalog harness was
 corrected to retain the actual product receiver affinity and to exercise the
 real Script-caller/UI-factory marshaling instead.
+
+
+Source version 2 records the UTF-8 SHA-256 of the actual original Window result
+inside the guarded response lambda, before its ordinary setting write/signal.
+No requested filename or input acknowledgement supplies that hash. An entered
+response can initially have no hash; a returned response requires one, and a
+known hash is immutable. Passive version-1 parsing remains available. The actual
+Qt5 Import/Save pipeline verifies empty Cancel, accepted import and accepted
+Save hashes against the original emitted response. The fixed-key Browse owner
+joins this hash, original pointer binding and authenticated file ticket before
+claiming the real setting mutation.
+
+
+Source version 3 additionally retains actual fixed-key Settings snapshots from
+before and after the original Window empty-directory getPreviousBrowseLocation
+call, attached once to its real native Ticket. These are the actual map effects
+of the original temporary QString Handle, including typed coercion/removal.
+Native acquisition timestamps and raw type/presence/bytes/hash are immutable.
+The metadata is absent when that original read branch did not execute. The
+original Qt5 Window pipeline exercises the empty-directory branch and the real
+Ticket/source; its Settings map remains an explicitly supplied boundary. A
+separate original Manager/Handle/Interface/getter/writer test proves actual
+coercion, successful CAS restoration and the retained persisted Cancel failure.

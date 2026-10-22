@@ -3,6 +3,7 @@
 #pragma once
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
 #include <QCoreApplication>
+#include <QCryptographicHash>
 #include <QDateTime>
 #include <QElapsedTimer>
 #include <QGuiApplication>
@@ -29,6 +30,8 @@ public:
     struct Ticket {
         std::shared_ptr<CreateDialogs> source;QString id;
         std::shared_ptr<void> dispatch() const {return source ? source->dispatch(id) : std::shared_ptr<void>();}
+        void observedBrowseRead(const QVariantMap& before,const QVariantMap& after) const {if(source){source->observedBrowseRead(id,before,after);}}
+        void observedResponse(const QString& result) const {if(source){source->observedResponse(id,result);}}
     };
     CreateDialogs() {
         if (gui()) {_instance=identity();_clock.start();}
@@ -77,17 +80,19 @@ public:
             rows.append(QVariantMap{{"id",row.id},{"rootId",row.rootId},{"listenerId",row.listenerId},
                 {"contextId",row.contextId},{"windowId",row.windowId},{"role",row.role},{"componentSource",row.source},
                 {"registeredEpochMs",row.registered},{"enteredEpochMs",row.entered},{"returnedEpochMs",row.returned},
+                {"browseSettingRead",row.browseRead.isEmpty() ? QVariant() : QVariant(row.browseRead)},
+                {"responseSha256",row.responseKnown ? QVariant(row.responseSha256) : QVariant()},
                 {"pending",row.returned==0},{"dispatches",row.dispatches},{"listenerAlive",!row.listener.isNull()},
                 {"rootAlive",!row.root.isNull()},{"contextAlive",!row.context.isNull()},{"windowAlive",!row.window.isNull()}});
         }
-        return {{"createDialogSourceVersion",1},{"instance",_instance},{"sequence",static_cast<qulonglong>(++_sequence)},
+        return {{"createDialogSourceVersion",3},{"instance",_instance},{"sequence",static_cast<qulonglong>(++_sequence)},
             {"elapsedMs",_clock.elapsed()},{"complete",_complete},{"dialogs",_complete ? rows : QVariantList()}};
     }
 private:
     struct Row {
         QString id,rootId,listenerId,contextId,windowId,role,source;
         QPointer<QObject> listener;QPointer<QQuickItem> root;QPointer<QQmlContext> context;QPointer<QQuickWindow> window;
-        qint64 registered {0},entered {0},returned {0};int dispatches {0};
+        qint64 registered {0},entered {0},returned {0};int dispatches {0};QString responseSha256;bool responseKnown {false};QVariantMap browseRead;
     };
     static bool enabled() {return qApp && QCoreApplication::arguments().contains("--testScript");}
     static bool gui() {return enabled() && QThread::currentThread()==qApp->thread();}
@@ -105,8 +110,9 @@ private:
         if (_objectGenerations>=128) {_complete=false;return {};}
         ++_objectGenerations;const auto id=identity();_objects.insert(object,{object,id});return id;
     }
-    // Original Window receivers may run on their Script thread. These two
-    // methods touch only locked scalar delivery history; all weak QObject/QML
+    // Original calls can originate on a Script thread while the product
+    // Window retains GUI affinity. These methods use locked scalar delivery
+    // history (also safe for the explicitly different diagnostic receiver); weak QObject/QML
     // inspection stays in the GUI-only acquisition methods above.
     std::shared_ptr<void> dispatch(const QString& id) {
         {
@@ -117,9 +123,25 @@ private:
         const auto self=shared_from_this();
         return std::shared_ptr<void>(new int(0),[self,id](void* value){delete static_cast<int*>(value);self->returned(id);});
     }
+    void observedBrowseRead(const QString& id,const QVariantMap& before,const QVariantMap& after) {
+        std::lock_guard<std::mutex> lock(_mutex);
+        if (!enabled() || !_complete || !_rows.contains(id) || !_rows[id].browseRead.isEmpty() || _rows[id].entered!=0
+                || before.isEmpty() || after.isEmpty() || before.value("capturedEpochMs").toLongLong()<=0
+                || after.value("capturedEpochMs").toLongLong()<before.value("capturedEpochMs").toLongLong()
+                || after.value("capturedEpochMs").toLongLong()>_rows[id].registered) {_complete=false;return;}
+        _rows[id].browseRead={{"before",before},{"after",after}};
+    }
+
+    void observedResponse(const QString& id,const QString& result) {
+        std::lock_guard<std::mutex> lock(_mutex);
+        if (!enabled() || !_complete || !_rows.contains(id) || _rows[id].dispatches!=1 || _rows[id].responseKnown
+                || result.size()>4096 || !advance()) {_complete=false;return;}
+        _rows[id].responseSha256=QString::fromLatin1(QCryptographicHash::hash(result.toUtf8(),QCryptographicHash::Sha256).toHex());
+        _rows[id].responseKnown=true;
+    }
     void returned(const QString& id) {
         std::lock_guard<std::mutex> lock(_mutex);
-        if (!enabled() || !_complete || !_rows.contains(id) || _rows[id].dispatches!=1 || _rows[id].returned!=0 || !advance()) {
+        if (!enabled() || !_complete || !_rows.contains(id) || _rows[id].dispatches!=1 || !_rows[id].responseKnown || _rows[id].returned!=0 || !advance()) {
             _complete=false;return;
         }
         _rows[id].dispatches=0;_rows[id].returned=_epoch;

@@ -1,6 +1,7 @@
 """Original native Create modal delivery and weak listener/root/context facts."""
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
+import re
 from adapters.native_feature_observation import exact,fresh,integer,need
 from adapters.pico4.create_callbacks import NativeCreateCallbacks
 from adapters.pico4.create_file_ui import component,inventory as validate_inventory
@@ -16,19 +17,28 @@ ALIVE=('listenerAlive','rootAlive','contextAlive','windowAlive')
 
 def dialogs(value,epoch):
     exact(value,{'createDialogSourceVersion','instance','sequence','elapsedMs','complete','dialogs'})
-    need(type(value['createDialogSourceVersion']) is int and value['createDialogSourceVersion']==VERSION
+    need(type(value['createDialogSourceVersion']) is int and value['createDialogSourceVersion'] in (1,2,3)
          and nonce(value['instance']) and integer(value['sequence'],1) and integer(value['elapsedMs'])
          and type(value['complete']) is bool and type(value['dialogs']) is list and len(value['dialogs'])<=32
          and (value['complete'] or not value['dialogs']))
     identities={};ids=[]
     for row in value['dialogs']:
-        exact(row,set(IDENTITIES+TIMES+ALIVE)|{'role','componentSource','pending','dispatches'})
+        exact(row,set(IDENTITIES+TIMES+ALIVE)|{'role','componentSource','pending','dispatches'}
+            | ({'responseSha256'} if value['createDialogSourceVersion']>=2 else set())
+            | ({'browseSettingRead'} if value['createDialogSourceVersion']>=3 else set()))
         need(all(nonce(row[k]) and (row[k] not in identities or k in ('contextId','windowId') and identities[row[k]]==k) for k in IDENTITIES)
              and len({row[k] for k in IDENTITIES})==len(IDENTITIES))
         identities.update((row[k],k) for k in IDENTITIES);ids.append(row['id'])
         need(row['role'] in ('import','export'));component(row['componentSource'],'/dialogs/NativeFileBrowser.qml')
         need(integer(row['registeredEpochMs'],1,epoch) and integer(row['enteredEpochMs']) and integer(row['returnedEpochMs'])
              and all(type(row[k]) is bool for k in ALIVE+('pending',)) and integer(row['dispatches'],0,1))
+        if value['createDialogSourceVersion']>=3 and row['browseSettingRead'] is not None:
+            from adapters.pico4.create_browse_setting import browse_read
+            browse_read(row['browseSettingRead'],row['registeredEpochMs'])
+        if value['createDialogSourceVersion']>=2:
+            digest=row['responseSha256'];need(digest is None or type(digest) is str and re.fullmatch('[0-9a-f]{64}',digest))
+            need(row['enteredEpochMs']!=0 or digest is None)
+            need(row['returnedEpochMs']==0 or digest is not None)
         if row['enteredEpochMs']==0:need(row['returnedEpochMs']==0 and row['pending'] and row['dispatches']==0)
         elif row['returnedEpochMs']==0:
             need(row['registeredEpochMs']<=row['enteredEpochMs']<=epoch and row['pending'] and row['dispatches']==1)
@@ -52,13 +62,15 @@ def continuity(previous,value):
     need(previous['instance']==value['instance'] and value['sequence']>previous['sequence']
          and value['capturedEpochMs']>=previous['capturedEpochMs'])
     old=previous['source'];new=value['source']
-    need(new['instance']==old['instance'] and new['sequence']>old['sequence'] and new['elapsedMs']>=old['elapsedMs'])
+    need(new['createDialogSourceVersion']==old['createDialogSourceVersion'] and new['instance']==old['instance'] and new['sequence']>old['sequence'] and new['elapsedMs']>=old['elapsedMs'])
     current={row['id']:row for row in new['dialogs']}
     for row in old['dialogs']:
         need(row['id'] in current);now=current[row['id']]
         need(all(now[k]==row[k] for k in IDENTITIES+('registeredEpochMs','role','componentSource'))
              and all(row[k]==0 or row[k]==now[k] for k in ('enteredEpochMs','returnedEpochMs'))
              and all(row[k] or not now[k] for k in ALIVE))
+        if old['createDialogSourceVersion']>=3 and row['browseSettingRead'] is not None:need(now['browseSettingRead']==row['browseSettingRead'])
+        if old['createDialogSourceVersion']>=2 and row['responseSha256'] is not None:need(now['responseSha256']==row['responseSha256'])
 
 
 def active(value):

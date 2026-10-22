@@ -617,6 +617,14 @@ def create_adapter(args, base_class):
                 native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep)
 
         @_private
+        def _create_browse_setting_native(self, target):
+            from adapters.pico4.create_browse_setting import NativeCreateBrowseSetting, FILE as SETTING_FILE
+            native=self._native_feature_observer(target)
+            return NativeCreateBrowseSetting(native.send,
+                lambda:self.adb.read_debug_app_file(target,'org.overte.pico','files/overte-e2e/'+SETTING_FILE,attempts=1),
+                native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep)
+
+        @_private
         def _create_entity_observer(self, target, run):
             from adapters.pico4.create_entities import NativeCreateEntities, FILE as CREATE_ENTITIES_FILE
             native=self._native_feature_observer(target)

@@ -37,7 +37,9 @@ Q_DECLARE_LOGGING_CATEGORY(settings_writer)
 class SettingsTests;
 class SettingsTestsWorker;
 
-
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+namespace overte::e2e { class CreateBrowseSettingOwner; }
+#endif
 
 namespace Setting {
     class Interface;
@@ -128,6 +130,9 @@ namespace Setting {
         QSettings* _qSettings = nullptr;
 #if defined(OVERTE_E2E_FEATURE_TESTS)
         const QString _featureChatInstance{QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-')};
+#endif
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+        friend class overte::e2e::CreateBrowseSettingOwner;
 #endif
     };
 
@@ -282,7 +287,14 @@ namespace Setting {
     private:
         QHash<QString, Interface*> _handles;
 
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+        QPointer<WriteWorker> _featureBrowseWriteWorker;
+        QString _featureBrowseWriteWorkerBirth;
+#endif
         friend class Interface;
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+        friend class overte::e2e::CreateBrowseSettingOwner;
+#endif
         friend class ::SettingsTests;
         friend class ::SettingsTestsWorker;
 

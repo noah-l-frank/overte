@@ -57,6 +57,31 @@ class CreateDialogTests(unittest.TestCase):
         self.assertEqual(1,len(active(retained))) # Root/listener absence never implies internal Qt context death.
         self.assertTrue(all(c['action']==ACTION and set(c)=={'schemaVersion','commandId','action'} for c in boundary.commands))
 
+    def test_v2_response_hash_is_original_immutable_and_required_only_after_response(self):
+        before=frame();before['source']['createDialogSourceVersion']=2;row=before['source']['dialogs'][0];row['responseSha256']=None
+        validate(before,before['requestId'],123,20000)
+        after=deepcopy(before);after['sequence']=2;after['source'].update(sequence=2,elapsedMs=200)
+        after['source']['dialogs'][0].update(enteredEpochMs=18000,returnedEpochMs=19000,pending=False,responseSha256='1'*64)
+        validate(after,after['requestId'],123,20000);continuity(before,after)
+        for change in (lambda p:p['source']['dialogs'][0].update(responseSha256=None),
+                lambda p:p['source']['dialogs'][0].update(responseSha256='2'*64)):
+            value=deepcopy(after);value['sequence']=3;value['source'].update(sequence=3,elapsedMs=300);change(value)
+            with self.assertRaises(NativeUIError):validate(value,value['requestId'],123,20000);continuity(after,value)
+        row['responseSha256']='1'*64
+        with self.assertRaises(NativeUIError):validate(before,before['requestId'],123,20000)
+
+    def test_v3_original_browse_read_is_time_bound_and_never_retimed_or_replaced(self):
+        from test_create_browse_setting import raw
+        before=frame();before['source']['createDialogSourceVersion']=3
+        row=before['source']['dialogs'][0];row.update(responseSha256=None,browseSettingRead=dict(
+            before=dict(capturedEpochMs=8000,raw=raw()),after=dict(capturedEpochMs=9000,raw=raw())))
+        validate(before,before['requestId'],123,20000)
+        for change in (lambda p:p['source']['dialogs'][0]['browseSettingRead']['after'].update(capturedEpochMs=11000),
+                lambda p:p['source']['dialogs'][0]['browseSettingRead']['before'].update(raw=raw('/foreign/value')),
+                lambda p:p['source']['dialogs'][0].update(browseSettingRead=None)):
+            value=deepcopy(before);value['sequence']=2;value['source'].update(sequence=2,elapsedMs=200);change(value)
+            with self.assertRaises(NativeUIError):validate(value,value['requestId'],123,20000);continuity(before,value)
+
     def test_original_ui_pointer_binding_requires_same_inventory_role_and_native_source(self):
         original=frame();native=bound(original)
         inventory=dict(inventoryVersion=1,instance='2'*32,sequence=8,complete=True,retiredRoots=[],roots=[dict(id='3'*32,

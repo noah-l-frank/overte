@@ -42,6 +42,7 @@ class CreateDialogsNativeTests(unittest.TestCase):
 #include <QRegularExpression>
 #include <QSharedPointer>
 #include <type_traits>
+#include <QDataStream>
 '''+modal+listener+'''
 class TabletProxy:public QObject {public:QQuickItem* root=nullptr;bool getToolbarMode(){return false;}QQuickItem* getTabletRoot(){return root;}};
 class TabletScriptingInterface:public QObject {public:TabletProxy tablet;QObject* getTablet(const QString&){return &tablet;}void tabletNotification(){}};
@@ -67,6 +68,16 @@ struct DependencyManager {template<typename T>static bool isSet(){return offscre
  if constexpr(std::is_same<T,OffscreenUi>::value){++offscreenGets;}
  if constexpr(std::is_same<T,OffscreenUi>::value){return offscreen;}else{return tablets;}
 }};
+namespace overte::e2e {
+// Settings-map boundary only; actual Manager/Handle coercion is compiled by
+// the separate create-browse-setting-native test. This fixture follows the
+// original Window empty-directory branch and native Ticket/source pipeline.
+struct CreateBrowseSettingOwner {
+ static QVariantMap captureRead(){QByteArray bytes;QDataStream stream(&bytes,QIODevice::WriteOnly);stream.setVersion(QDataStream::Qt_5_15);stream<<QVariant();
+ return {{"capturedEpochMs",QDateTime::currentMSecsSinceEpoch()},{"raw",QVariantMap{{"present",false},{"typeId",0},{"typeName",QVariant()},
+ {"base64",QString::fromLatin1(bytes.toBase64())},{"sha256",QString::fromLatin1(QCryptographicHash::hash(bytes,QCryptographicHash::Sha256).toHex())},{"stringValue",QVariant()}}}};}
+};
+}
 class WindowScriptingInterface:public QObject {
  Q_OBJECT
 public:
