@@ -27,6 +27,21 @@
 Q_LOGGING_CATEGORY(settings_interface, "settings.interface")
 
 namespace Setting {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+    AvatarPreferenceMutation::AvatarPreferenceMutation(Interface* handle) {
+        if(!handle || !QCoreApplication::instance() || !QCoreApplication::arguments().contains("--testScript")
+                || !overte::e2e::avatarPreferenceKey(handle->_key) || !DependencyManager::isSet<Manager>()) {return;}
+        _manager=DependencyManager::get<Manager>();
+        if(_manager) {_mutation=std::make_unique<overte::e2e::AvatarPreferenceBarrier::Mutation>(_manager->_featureAvatarPreferencesBarrier,handle->_key);}
+    }
+    AvatarPreferenceMutation::~AvatarPreferenceMutation()=default;
+    QVariantMap Interface::e2ePreferenceInterface() const {
+        if(!overte::e2e::avatarPreferenceKey(_key) || !DependencyManager::isSet<Manager>()) {return {};}
+        const auto manager=DependencyManager::get<Manager>();if(!manager || !manager->_featureAvatarPreferencesBarrier.reading()) {return {};}
+        const auto original=_manager.lock();if(_isInitialized && (!original || original!=manager)) {return {};}
+        return {{"key",_key},{"isSet",_isSet},{"initialized",_isInitialized},{"managerBound",bool(original)}};
+    }
+#endif
     // This should only run as a post-routine in the QCoreApplication destructor
     void cleanupSettingsSaveThread() {
         auto globalManager = DependencyManager::get<Manager>();
@@ -72,6 +87,9 @@ namespace Setting {
     }
 
     void Interface::init() {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+        AvatarPreferenceMutation avatarMutation(this);
+#endif
         if (!DependencyManager::isSet<Manager>()) {
             // WARNING: As long as we are using QSettings this should always be triggered for each Setting::Handle
             // in an assignment-client - the QSettings backing we use for this means persistence of these
@@ -97,6 +115,9 @@ namespace Setting {
     }
 
     void Interface::deinit() {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+        AvatarPreferenceMutation avatarMutation(this);
+#endif
         if (_isInitialized && _manager) {
             auto manager = _manager.lock();
             if (manager) {

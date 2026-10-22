@@ -38,7 +38,9 @@ class SettingsTests;
 class SettingsTestsWorker;
 
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+#include "../../../tests/device/native/AvatarPreferenceBarrier.h"
 namespace overte::e2e { class CreateBrowseSettingOwner; }
+namespace overte::e2e { class AvatarPreferenceSnapshot; }
 #endif
 
 namespace Setting {
@@ -133,6 +135,7 @@ namespace Setting {
 #endif
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
         friend class overte::e2e::CreateBrowseSettingOwner;
+        friend class overte::e2e::AvatarPreferenceSnapshot;
         friend class ::SettingsTests;
 #endif
     };
@@ -295,6 +298,9 @@ namespace Setting {
         friend class Interface;
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
         friend class overte::e2e::CreateBrowseSettingOwner;
+        friend class overte::e2e::AvatarPreferenceSnapshot;
+        friend class AvatarPreferenceMutation;
+        overte::e2e::AvatarPreferenceBarrier _featureAvatarPreferencesBarrier;
 #endif
         friend class ::SettingsTests;
         friend class ::SettingsTestsWorker;

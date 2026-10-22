@@ -1327,6 +1327,46 @@ void MyAvatar::restoreRoleAnimation(const QString& role) {
     _skeletonModel->getRig().restoreRoleAnimation(role);
 }
 
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+QVariantMap MyAvatar::e2ePreferenceHandles() const {
+    if(!QCoreApplication::instance() || !QCoreApplication::arguments().contains("--testScript")
+            || thread()!=QThread::currentThread() || thread()!=QCoreApplication::instance()->thread()
+            || _avatarEntityIDSettings.size()>128 || _avatarEntityDataSettings.size()>128) {return {};}
+    QVariantMap handles;
+    const auto append=[&](const QString& field,const auto& handle) {
+        const auto value=handle.e2ePreferenceSnapshot();if(value.isEmpty()) {return false;}
+        handles.insert(field,value);return true;
+    };
+    if(!append("dominantHand",_dominantHandSetting)) {return {};}
+    if(!append("strafeEnabled",_strafeEnabledSetting)) {return {};}
+    if(!append("hmdAvatarAlignmentType",_hmdAvatarAlignmentTypeSetting)) {return {};}
+    if(!append("headPitch",_headPitchSetting)) {return {};}
+    if(!append("scale",_scaleSetting)) {return {};}
+    if(!append("yawSpeed",_yawSpeedSetting)) {return {};}
+    if(!append("hmdYawSpeed",_hmdYawSpeedSetting)) {return {};}
+    if(!append("cameraSensitivity",_cameraSensitivitySetting)) {return {};}
+    if(!append("pitchSpeed",_pitchSpeedSetting)) {return {};}
+    if(!append("fullAvatarURL",_fullAvatarURLSetting)) {return {};}
+    if(!append("fullAvatarModelName",_fullAvatarModelNameSetting)) {return {};}
+    if(!append("animGraphURL",_animGraphURLSetting)) {return {};}
+    if(!append("displayName",_displayNameSetting)) {return {};}
+    if(!append("collisionSoundURL",_collisionSoundURLSetting)) {return {};}
+    if(!append("useSnapTurn",_useSnapTurnSetting)) {return {};}
+    if(!append("hoverWhenUnsupported",_hoverWhenUnsupportedSetting)) {return {};}
+    if(!append("userHeight",_userHeightSetting)) {return {};}
+    if(!append("flyingHMD",_flyingHMDSetting)) {return {};}
+    if(!append("movementReference",_movementReferenceSetting)) {return {};}
+    if(!append("avatarEntityCount",_avatarEntityCountSetting)) {return {};}
+    if(!append("vrWalkSpeed",_vrWalkSpeedSetting)) {return {};}
+    if(!append("allowAvatarStandingPreference",_allowAvatarStandingPreferenceSetting)) {return {};}
+    if(!append("allowAvatarLeaningPreference",_allowAvatarLeaningPreferenceSetting)) {return {};}
+    for(size_t i=0;i<_avatarEntityIDSettings.size();++i) {if(!append("avatarEntityID/"+QString::number(i),_avatarEntityIDSettings[i])) {return {};}}
+    for(size_t i=0;i<_avatarEntityDataSettings.size();++i) {if(!append("avatarEntityData/"+QString::number(i),_avatarEntityDataSettings[i])) {return {};}}
+    return {{"nativeAvatarPreferenceHandlesVersion",1},{"handles",handles},
+        {"avatarEntityIDCount",static_cast<int>(_avatarEntityIDSettings.size())},{"avatarEntityDataCount",static_cast<int>(_avatarEntityDataSettings.size())}};
+}
+#endif
+
 void MyAvatar::saveAvatarUrl() {
     if (qApp->getSaveAvatarOverrideUrl() || !qApp->getAvatarOverrideUrl().isValid()) {
         _fullAvatarURLSetting.set(_fullAvatarURLFromPreferences == AvatarData::defaultFullAvatarModelUrl() ?

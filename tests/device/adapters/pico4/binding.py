@@ -641,6 +641,14 @@ def create_adapter(args, base_class):
                 native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep)
 
         @_private
+        def _avatar_preferences_observer(self,target):
+            from adapters.pico4.avatar_preferences import NativePicoAvatarPreferences,FILE
+            native=self._native_feature_observer(target)
+            return NativePicoAvatarPreferences(native.send,
+                lambda:self.adb.read_debug_app_file(target,'org.overte.pico','files/overte-e2e/'+FILE,attempts=1),
+                native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep)
+
+        @_private
         def _avatar_bookmarks_observer(self,target):
             from adapters.pico4.avatar_bookmarks import NativePicoAvatarBookmarks,FILE
             native=self._native_feature_observer(target)

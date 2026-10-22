@@ -30,7 +30,11 @@ class CreateBrowseSettingNativeTests(unittest.TestCase):
             stage=Path(directory);stage.chmod(0o700)
             (stage/'OriginalCreateBrowseSetting.inc').write_text(function((ROOT/'interface/src/scripting/TestScriptingInterface.cpp').read_text(),'QVariantMap TestScriptingInterface::featureCreateBrowseSetting('))
             interface=(ROOT/'libraries/shared/src/SettingInterface.cpp').read_text()
-            (stage/'OriginalSettingInterface.inc').write_text('\n'.join(function(interface,'    void Interface::'+name+'(') for name in ('init','deinit','maybeInit','save','load')))
+            originals='\n'.join(function(interface,'    void Interface::'+name+'(') for name in ('init','deinit','maybeInit','save','load'))
+            originals+='\n'+function(interface,'    AvatarPreferenceMutation::AvatarPreferenceMutation(')
+            originals+='\n'+next(line for line in interface.splitlines() if 'AvatarPreferenceMutation::~AvatarPreferenceMutation()' in line)
+            originals+='\n'+function(interface,'    QVariantMap Interface::e2ePreferenceInterface(')
+            (stage/'OriginalSettingInterface.inc').write_text(originals)
             (stage/'OriginalPreviousBrowse.inc').write_text(function((ROOT/'interface/src/scripting/WindowScriptingInterface.cpp').read_text(),'QString WindowScriptingInterface::getPreviousBrowseLocation('))
             definitions=['-DOVERTE_E2E_FEATURE_TESTS=1','-DANDROID_APP_PICO_INTERFACE=1']
             include=['-I'+directory,'-I'+str(ROOT/'libraries/shared/src'),'-I'+str(ROOT/'tests/device/native')]

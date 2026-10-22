@@ -18,11 +18,18 @@
 #include <QtCore/QString>
 #include <QtCore/QVariant>
 #include <QLoggingCategory>
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+#include "../../../tests/device/native/AvatarPreferenceBarrier.h"
+#include <QSharedPointer>
+#endif
 
 Q_DECLARE_LOGGING_CATEGORY(settings_interface)
 
 namespace Setting {
     class Manager;
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+    class AvatarPreferenceMutation;
+#endif
 
     void init();
 
@@ -35,6 +42,9 @@ namespace Setting {
         virtual QVariant getVariant() = 0;
 
     protected:
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+        QVariantMap e2ePreferenceInterface() const;
+#endif
         Interface(const QString& key) : _key(key) {}
         virtual ~Interface() = default;
 
@@ -52,8 +62,23 @@ namespace Setting {
         mutable bool _isInitialized = false;
 
         friend class Manager;
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+        friend class AvatarPreferenceMutation;
+#endif
         mutable QWeakPointer<Manager> _manager;
     };
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+    // Defined in the original shared library. Every Handle and Manager uses
+    // the same actual Manager member, not one inline singleton per DSO.
+    class AvatarPreferenceMutation {
+    public:
+        explicit AvatarPreferenceMutation(Interface* handle);
+        ~AvatarPreferenceMutation();
+    private:
+        QSharedPointer<Manager> _manager;
+        std::unique_ptr<overte::e2e::AvatarPreferenceBarrier::Mutation> _mutation;
+    };
+#endif
 }
 
 #endif // hifi_SettingInterface_h
