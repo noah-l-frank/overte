@@ -1429,7 +1429,7 @@ QVariantMap IOSWebView::featureWebDOMRequest(const QVariantMap& command,bool wor
                     if (raw.size()<=262144) { const auto parsed=QJsonDocument::fromJson(raw);if (parsed.isObject()) { dom=parsed.object().toVariantMap(); } }
                 }
                 const auto actualDocument=dom.value("document").toMap();
-                if (QJsonObject::fromVariantMap(dom).value(world ? "iosWorldWebDOMVersion" : "webDOMVersion")!=QJsonValue(1) || dom.value("requestId")!=requestId
+                if (QJsonObject::fromVariantMap(dom).value(world ? "iosWorldWebDOMVersion" : "webDOMVersion")!=QJsonValue(world ? 2 : 1) || dom.value("requestId")!=requestId
                         || actualDocument.value("runId")!=actual.featureCommand.value("runId")
                         || actualDocument.value("href")!=document.toString(QUrl::FullyEncoded) || actual.inlineMode
                         || actual.featureFinishedGrant!=generation || actual.featureFinishedPage!=epoch
