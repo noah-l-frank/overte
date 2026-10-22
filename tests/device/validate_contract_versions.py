@@ -19,6 +19,8 @@ REQUIRED = {
     "ios-emote-pointer-abandoned": 1,
     "ios-emote-retirement": 1,
     "ios-emote-retirement-original": 1,
+    "ios-emote-rendered-retirement": 1,
+    "ios-emote-rendered-retirement-original": 1,
     "ios-emote-final-archive": 1,
     "ios-emote-final-copy": 1,
     "ios-emote-samples": 2,

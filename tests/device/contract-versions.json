@@ -12,6 +12,8 @@
     "ios-emote-pointer-abandoned": {"current": 1, "reads": [1]},
     "ios-emote-retirement": {"current": 1, "reads": [1]},
     "ios-emote-retirement-original": {"current": 1, "reads": [1]},
+    "ios-emote-rendered-retirement": {"current": 1, "reads": [1]},
+    "ios-emote-rendered-retirement-original": {"current": 1, "reads": [1]},
     "ios-emote-final-archive": {"current": 1, "reads": [1]},
     "ios-emote-final-copy": {"current": 1, "reads": [1]},
     "ios-emote-samples": {"current": 2, "reads": [1, 2]},
