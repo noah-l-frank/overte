@@ -14,6 +14,20 @@ if ((ANDROID OR CMAKE_SYSTEM_NAME STREQUAL "Android") AND
     message(FATAL_ERROR "Android sources are not present; use android-main or an Android product branch.")
 endif()
 
+# CI can compile the actual shared Android client without selecting a child app.
+option(OVERTE_ANDROID_COMMON_NATIVE "Build parent-owned Android native acceptance" OFF)
+if(OVERTE_ANDROID_COMMON_NATIVE)
+    if(NOT ANDROID AND NOT CMAKE_SYSTEM_NAME STREQUAL "Android")
+        message(FATAL_ERROR "Common native acceptance requires an explicit Android toolchain")
+    endif()
+    if(DEFINED HIFI_ANDROID_APP AND NOT HIFI_ANDROID_APP STREQUAL "" AND
+       NOT HIFI_ANDROID_APP STREQUAL "commonNative")
+        message(FATAL_ERROR "Common native acceptance must not select a product application")
+    endif()
+    set(HIFI_ANDROID_APP commonNative)
+    set(HIFI_ANDROID ON)
+endif()
+
 # This should allow using long paths on Windows
 SET(CMAKE_NINJA_FORCE_RESPONSE_FILE 1 CACHE INTERNAL "")
 # The legacy Android Gradle graph still uses CMake's server protocol, which was
@@ -269,7 +283,9 @@ set(OVERTE_USE_NSIGHT ON CACHE BOOL "Attempt to find the Nvidia nSight libraries
 
 # FIXME hack to work on the proper Android toolchain
 if (ANDROID)
-  if (HIFI_ANDROID_APP STREQUAL "picoInterface")
+  if (OVERTE_ANDROID_COMMON_NATIVE)
+    add_subdirectory(android/common/native-ci)
+  elseif (HIFI_ANDROID_APP STREQUAL "picoInterface")
     add_subdirectory(android/vr/pico/apps/${HIFI_ANDROID_APP})
   elseif (HIFI_ANDROID_APP STREQUAL "questInterface" OR
           HIFI_ANDROID_APP STREQUAL "questFramePlayer")
