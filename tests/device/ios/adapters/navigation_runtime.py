@@ -22,6 +22,7 @@ from ios.adapters.navigation_surface_actions import NavigationSurfaceActions
 from ios.adapters.navigation_missing_actions import NavigationMissingActions
 from ios.adapters.navigation_composite_actions import NavigationCompositeActions
 from ios.adapters.navigation_process_owner import NavigationProcessOwner
+from ios.adapters.navigation_process_scope import NavigationProcessScope,owner_path
 from ios.adapters.navigation_restart_proof import OWNERS as RESTART_OWNERS
 from ios.adapters.places_controls import IOSPlacesIO
 from ios.adapters.navigation_sample import NavigationSampleOwner
@@ -30,6 +31,9 @@ from ios.adapters.script_runtime import IOSScriptRuntime
 
 
 class IOSNavigationRuntime(IOSScriptRuntime):
+    def _navigation_process_scope(self,owner):
+        return NavigationProcessScope(owner)
+
     def _navigation_process_owner(self,selector,client,initial,before,receipt,lock):
         """Acquire on the existing new candidate; never launch or infer a restart."""
         from ios.adapters.graphics_history import restore_native
@@ -53,36 +57,37 @@ class IOSNavigationRuntime(IOSScriptRuntime):
         need(same(source['binding'],admission.binding))
         navigation=source['observer'].navigation_state(source['clock_source'])
         return NavigationCompositeActions(
-            PrivateFeatureState(admission.store.path.with_name('ios-navigation-composite-actions.json')),
+            PrivateFeatureState(owner_path(admission,'ios-navigation-composite-actions.json')),
             surfaces,places,navigation)
 
     def _navigation_missing_actions(self,selector,admission):
-        need(isinstance(admission,NavigationAdmissionOwner));admission.bound()
+        need(isinstance(admission,(NavigationAdmissionOwner,NavigationProcessScope)));admission.bound()
         source=self._sources(selector);need(same(source['binding'],admission.binding)
             and admission.store.path.parent==self.state_path(selector).parent)
         ui=NativeUI(source['client'],source['session'],source['check'])
-        return NavigationMissingActions(PrivateFeatureState(admission.store.path.with_name('ios-navigation-missing-actions.json')),
+        return NavigationMissingActions(PrivateFeatureState(owner_path(admission,'ios-navigation-missing-actions.json')),
             admission,ui,source['native'])
 
     def _navigation_surface_actions(self,selector,admission):
-        need(isinstance(admission,NavigationAdmissionOwner));admission.bound()
+        need(isinstance(admission,(NavigationAdmissionOwner,NavigationProcessScope)));admission.bound()
         source=self._sources(selector);need(same(source['binding'],admission.binding)
             and admission.store.path.parent==self.state_path(selector).parent)
         ui=NativeUI(source['client'],source['session'],source['check'])
-        return NavigationSurfaceActions(PrivateFeatureState(admission.store.path.with_name('ios-navigation-surface-actions.json')),
+        return NavigationSurfaceActions(PrivateFeatureState(owner_path(admission,'ios-navigation-surface-actions.json')),
             admission,ui,source['native'])
 
     def _navigation_places_actions(self,selector,admission,*,floor=None):
-        need(isinstance(admission,NavigationAdmissionOwner));admission.bound()
+        need(isinstance(admission,(NavigationAdmissionOwner,NavigationProcessScope)));admission.bound()
         source=self._sources(selector);need(same(source['binding'],admission.binding)
             and admission.store.path.parent==self.state_path(selector).parent)
         def factory(intent,previous):
             return self._navigation_places_flow(selector,admission,intent,previous=previous,floor=floor)
-        return NavigationPlacesActions(PrivateFeatureState(admission.store.path.with_name('ios-navigation-places-actions.json')),
-            source['binding'],admission.run,admission.lock,source['check'],admission.fixture,factory)
+        return NavigationPlacesActions(PrivateFeatureState(owner_path(admission,'ios-navigation-places-actions.json')),
+            source['binding'],admission.run,admission.lock,source['check'],admission.fixture,factory,
+            scope=admission if isinstance(admission,NavigationProcessScope) else None)
 
     def _navigation_places_flow(self,selector,admission,intent,*,previous=None,floor=None):
-        need(isinstance(admission,NavigationAdmissionOwner));admission.bound()
+        need(isinstance(admission,(NavigationAdmissionOwner,NavigationProcessScope)));admission.bound()
         source=self._sources(selector);need(same(source['binding'],admission.binding)
             and admission.store.path.parent==self.state_path(selector).parent)
         proof=admission.archive();native=source['native']

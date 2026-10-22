@@ -19,6 +19,7 @@ from ios.adapters import places_controls as controls
 from ios.adapters.navigation_fixture import NavigationFixtureReader
 from ios.adapters.navigation_observation_owner import fixture_original
 from ios.adapters.navigation_places_inputs import IOSPlacesFlow
+from ios.adapters.navigation_process_scope import NavigationProcessScope,owner_path
 
 VERSION=1
 VERBS=frozenset(('bookmark-add-cancel','bookmark-add','bookmark-rename-cancel','bookmark-rename',
@@ -26,14 +27,18 @@ VERBS=frozenset(('bookmark-add-cancel','bookmark-add','bookmark-rename-cancel','
 
 
 class NavigationPlacesActions:
-    def __init__(self,store,binding,run,lock,guard,fixture,factory,*,monotonic=time.monotonic):
+    def __init__(self,store,binding,run,lock,guard,fixture,factory,*,scope=None,monotonic=time.monotonic):
         need(isinstance(store,PrivateFeatureState) and isinstance(lock,ScriptSourceLock)
              and isinstance(fixture,NavigationFixtureReader) and all(callable(fn) for fn in (guard,factory,monotonic)))
         context(binding);identifier(run)
-        need(store.path.name=='ios-navigation-places-actions.json' and lock.path==store.path.parent/'script-feature-sources.lock'
+        need(scope is None or isinstance(scope,NavigationProcessScope) and scope.lock is lock
+            and same(scope.binding,binding) and scope.run==run and scope.fixture is fixture)
+        need((store.path.name=='ios-navigation-places-actions.json' if scope is None else store.path==owner_path(scope,'ios-navigation-places-actions.json'))
+             and lock.path==store.path.parent/'script-feature-sources.lock'
              and fixture.run==run and fixture.instance is not None and fixture.inputs['sourceRevision']==binding['sourceRevision'])
         self.store,self.binding,self.run,self.lock=store,deepcopy(binding),run,lock
         self.guard,self.fixture,self.factory,self.monotonic=guard,fixture,factory,monotonic
+        self.scope=scope
         self.started=self.last_clock=None;lock.assert_held();self.previous=store.read()
         self.state=None if self.previous is None else self.decode(self.previous);self.bound()
 
@@ -109,6 +114,7 @@ class NavigationPlacesActions:
              and new['sampleEpochMs']>=old['sampleEpochMs'] and new['elapsedMs']>=old['elapsedMs'])
 
     def bound(self):
+        if self.scope is not None:self.scope.bound()
         self.lock.assert_held();need(self.guard() is not False and same(self.store.read(),self.previous))
         now=self.monotonic();need(number(now,0,1e15) and (self.last_clock is None or now>=self.last_clock))
         self.last_clock=now

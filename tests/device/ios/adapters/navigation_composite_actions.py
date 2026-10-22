@@ -17,6 +17,7 @@ from ios.adapters.graphics_history import follow_native
 from ios.adapters.navigation_observation_owner import fixture_original
 from ios.adapters.navigation_places_actions import NavigationPlacesActions
 from ios.adapters.navigation_surface_actions import NavigationSurfaceActions
+from ios.adapters.navigation_process_scope import owner_path
 from ios.adapters import navigation_state as source
 from navigation_observation import viewpoint_urls
 
@@ -33,7 +34,7 @@ class NavigationCompositeActions:
         need(isinstance(store, PrivateFeatureState) and isinstance(surfaces, NavigationSurfaceActions)
              and isinstance(places, NavigationPlacesActions) and isinstance(navigation, source.IOSNavigationState)
              and callable(epoch_ms) and callable(monotonic)
-             and store.path.name == 'ios-navigation-composite-actions.json'
+             and store.path == owner_path(surfaces.admission,'ios-navigation-composite-actions.json')
              and store.path.parent == surfaces.store.path.parent == places.store.path.parent
              and same(surfaces.binding, places.binding) and surfaces.run == places.run
              and surfaces.lock.path == places.lock.path and surfaces.admission.fixture is places.fixture

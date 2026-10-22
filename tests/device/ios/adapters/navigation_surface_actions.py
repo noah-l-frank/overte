@@ -16,6 +16,7 @@ from adapters.script_feature.history import pack, unpack, same
 from feature_journeys.contract import arguments
 from feature_journeys.phase_fixture import validate as phase_packet
 from ios.adapters.navigation_admission_owner import NavigationAdmissionOwner
+from ios.adapters.navigation_process_scope import NavigationProcessScope,owner_path
 from ios.adapters.navigation_observation_owner import fixture_original
 from ios.adapters.normal_input import NativeInput, observation
 from ios.adapters.normal_navigation import IOSNavigation, PROFILE
@@ -44,9 +45,9 @@ class _SurfaceUI(NativeUI):
 
 class NavigationSurfaceActions:
     def __init__(self, store, admission, ui, native, *, monotonic=time.monotonic):
-        need(isinstance(store, PrivateFeatureState) and isinstance(admission, NavigationAdmissionOwner)
+        need(isinstance(store, PrivateFeatureState) and isinstance(admission, (NavigationAdmissionOwner,NavigationProcessScope))
              and not admission.historical and isinstance(ui, NativeUI) and isinstance(native, NativeInput)
-             and callable(monotonic) and store.path.name == 'ios-navigation-surface-actions.json'
+             and callable(monotonic) and store.path == owner_path(admission,'ios-navigation-surface-actions.json')
              and store.path.parent == admission.store.path.parent)
         self.store, self.admission, self.ui, self.native = store, admission, ui, native
         self.binding, self.run, self.lock = admission.binding, admission.run, admission.lock
@@ -66,6 +67,7 @@ class NavigationSurfaceActions:
         return value
 
     def packet(self, value):
+        if isinstance(self.admission,NavigationProcessScope):self.admission.ui_original(value)
         observation(value, int(self.binding['processIdentity']), value.get('sampleEpochMs'))
         original = self.admission.archive()['originals']['ui']
         need(value['instance'] == original['instance'] and value['lastSequence'] >= original['lastSequence']

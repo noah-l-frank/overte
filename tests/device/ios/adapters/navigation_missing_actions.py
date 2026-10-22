@@ -18,6 +18,7 @@ from feature_journeys.contract import arguments
 from feature_journeys.fixtures import context
 from feature_journeys.navigation_fixture import validate_status
 from ios.adapters.navigation_admission_owner import NavigationAdmissionOwner
+from ios.adapters.navigation_process_scope import NavigationProcessScope,owner_path
 from ios.adapters.navigation_observation_owner import fixture_original
 from ios.adapters.navigation_surface_actions import _SurfaceUI
 from ios.adapters.normal_input import NativeInput, observation
@@ -41,10 +42,10 @@ class _LookupNative:
 class NavigationMissingActions:
     def __init__(self, store, admission, ui, native, *, epoch_ms=lambda:time.time()*1000,
                  monotonic=time.monotonic):
-        need(isinstance(store, PrivateFeatureState) and isinstance(admission, NavigationAdmissionOwner)
+        need(isinstance(store, PrivateFeatureState) and isinstance(admission, (NavigationAdmissionOwner,NavigationProcessScope))
              and not admission.historical and isinstance(ui, NativeUI) and isinstance(native, NativeInput)
              and callable(epoch_ms) and callable(monotonic)
-             and store.path.name == 'ios-navigation-missing-actions.json' and store.path.parent == admission.store.path.parent)
+             and store.path == owner_path(admission,'ios-navigation-missing-actions.json'))
         self.store, self.admission, self.ui, self.native = store, admission, ui, native
         self.binding, self.run, self.lock = admission.binding, admission.run, admission.lock
         need(native.session == self.binding['sessionId'])
@@ -123,6 +124,7 @@ class NavigationMissingActions:
         return state
 
     def packet(self, value):
+        if isinstance(self.admission,NavigationProcessScope):self.admission.ui_original(value)
         observation(value,int(self.binding['processIdentity']),value.get('sampleEpochMs'))
         original = self.admission.archive()['originals']['ui']
         need(value['instance'] == original['instance'] and value['lastSequence'] >= original['lastSequence']

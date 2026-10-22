@@ -88,7 +88,18 @@ versioned context as an explicit nested original, including archived v1 data.
 The ordinary restart controller and pre-stop input/image drainage still need
 whole-journey integration. This transfer accepts only a reloaded owned run
 scene. A default/foreign startup world requires a fresh, explicitly owned
-normal entry. Source bases still need connection to later normal action owners.
+normal entry.
+
+`NavigationProcessScope` connects the proven live source basis to ordinary
+surface, Places, missing-destination and composite owners. It validates the
+actual new process and source floors before each action. Their private journal
+filenames include that actual PID, so earlier input journals remain unchanged.
+The scope exposes the original admission separately and cannot substitute the
+new source basis for it. Scene entry and static return still require their
+separate ordinary ownership integration. Fifty-four host tests cover these
+owners, runtime factories and process scope, including stale PID and source
+counters; they do not demonstrate product restart behavior.
+
 Full independent publication, static restoration, callback/resource drainage
 and repeated quiet finalization remain open.
 
