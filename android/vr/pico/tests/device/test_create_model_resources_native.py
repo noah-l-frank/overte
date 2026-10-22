@@ -35,6 +35,7 @@ class CreateModelResourcesNativeTests(unittest.TestCase):
             geometry=(ROOT/'libraries/model-networking/src/model-networking/ModelCache.h').read_text()
             association=(ROOT/'libraries/entities-renderer/src/RenderableModelEntityItem.h').read_text()
             resource=(ROOT/'libraries/networking/src/ResourceCache.cpp').read_text()
+            (stage/'OriginalSaveObject.inc').write_text(function(getter,'void TestScriptingInterface::saveObject('))
             (stage/'OriginalCreateModels.inc').write_text(function(getter,'QVariantMap TestScriptingInterface::featureCreateModels('))
             (stage/'OriginalResourceRetirement.inc').write_text(function(resource,'void Resource::allReferencesCleared('))
             (stage/'OriginalMaterials.inc').write_text(function(geometry,'    const NetworkMaterials& featureCreateMaterials('))
