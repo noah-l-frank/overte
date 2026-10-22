@@ -9,6 +9,10 @@ from pathlib import Path
 
 
 REQUIRED = {
+    "ios-navigation-restart-proof": 1,
+    "ios-navigation-process-context": 1,
+    "ios-navigation-process-source-basis": 1,
+    "ios-navigation-process-owner": 1,
     "ios-emote-native-prefix": 1,
     "ios-emote-source-recovery": 1,
     "ios-emote-abandoned-source": 1,

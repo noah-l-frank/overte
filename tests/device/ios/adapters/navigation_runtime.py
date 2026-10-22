@@ -21,6 +21,8 @@ from ios.adapters.navigation_places_actions import NavigationPlacesActions
 from ios.adapters.navigation_surface_actions import NavigationSurfaceActions
 from ios.adapters.navigation_missing_actions import NavigationMissingActions
 from ios.adapters.navigation_composite_actions import NavigationCompositeActions
+from ios.adapters.navigation_process_owner import NavigationProcessOwner
+from ios.adapters.navigation_restart_proof import OWNERS as RESTART_OWNERS
 from ios.adapters.places_controls import IOSPlacesIO
 from ios.adapters.navigation_sample import NavigationSampleOwner
 from ios.adapters.navigation_samples import NavigationSamples
@@ -28,6 +30,22 @@ from ios.adapters.script_runtime import IOSScriptRuntime
 
 
 class IOSNavigationRuntime(IOSScriptRuntime):
+    def _navigation_process_owner(self,selector,client,initial,before,receipt,lock):
+        """Acquire on the existing new candidate; never launch or infer a restart."""
+        from ios.adapters.graphics_history import restore_native
+        need(isinstance(lock,ScriptSourceLock));lock.assert_held()
+        source=self._sources(selector);directory=self.state_path(selector).parent
+        need(same(source['binding'],receipt['input']['newBinding']) and lock.path==directory/'script-feature-sources.lock')
+        fixture=NavigationFixtureReader(client,initial['runId']);fixture.attach()
+        observer,clock=source['observer'],source['clock_source']
+        readers=dict(inventory=observer.scene_inventory(clock),navigation=observer.navigation_state(clock),
+            bookmarks=observer.location_bookmarks(clock),model=observer.places_model(clock),http=observer.places_http(clock),
+            dialogs=observer.navigation_dialogs(clock),replies=observer.navigation_replies(),ui=source['native'])
+        native=observer.bound_native_observer(clock);restore_native(native,receipt['native']);source['check']()
+        return NavigationProcessOwner(PrivateFeatureState(directory/'ios-navigation-process-context.json'),
+            initial,before,receipt,[str(directory/name) for name in RESTART_OWNERS],lock,source['check'],
+            native=native,sources=readers,fixture=fixture)
+
     def _navigation_composite_actions(self,selector,admission,*,floor=None):
         surfaces=self._navigation_surface_actions(selector,admission)
         places=self._navigation_places_actions(selector,admission,floor=floor)

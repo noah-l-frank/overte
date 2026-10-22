@@ -73,6 +73,12 @@ arrival recovery requires another fresh read before close, and lost close
 results recover only an actual existing child acknowledgment. Missing-address
 closure, restart transfer, publication and whole repeated cleanup remain open.
 
+An [original process-context transfer](NAVIGATION_PROCESS_CONTEXT.md) now binds
+actual old-PID absence and full new-candidate/native birth to independently read
+new scene/bookmark/UI sources. Its durable acquisition owner retains partial
+reads and original deadlines through lost returns. The ordinary restart
+controller, later action-owner handoff and full quiet cleanup remain open.
+
 The canonical physical source binding and explicit lost-launch recovery have
 host-tested implementations. The native byte observer and SDK plugin remain
 uninstalled/uncompiled and unqualified here. See the [Script handoff](SCRIPT_FEATURE.md)
