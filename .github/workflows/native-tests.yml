@@ -3,6 +3,18 @@ name: Native C++ checks
 on:
   workflow_call:
     inputs:
+      context_json:
+        type: string
+        required: true
+      plan_json:
+        type: string
+        required: true
+      controller:
+        type: string
+        required: true
+      source:
+        type: string
+        required: true
       mode:
         type: string
         required: true
@@ -32,24 +44,25 @@ jobs:
       - name: Check out candidate without credentials
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ inputs.source }}
           fetch-depth: 2
           persist-credentials: false
 
       - name: Check out trusted selection tools
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.event.repository.default_branch }}
+          ref: ${{ inputs.controller }}
           path: trusted
           persist-credentials: false
           sparse-checkout: |
             .github
-            tools/native-tests
-            tools/repository-checks
+            tools
 
       - name: Initialize the container workspace
         run: |
           # Checkout's temporary Git configuration does not persist to shell steps.
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git config --global --add safe.directory "$GITHUB_WORKSPACE/trusted"
           # github.workspace expressions refer to host paths; use container paths.
           printf 'CONAN_HOME=%s/.native-conan\nCCACHE_DIR=%s/.native-ccache\n' \
             "$GITHUB_WORKSPACE" "$GITHUB_WORKSPACE" >> "$GITHUB_ENV"
@@ -57,10 +70,13 @@ jobs:
       - name: Recheck exact candidate selection
         env:
           EXPECTED_MODE: ${{ inputs.mode }}
+          PR_CI_SOURCE_REF: ${{ github.ref }}
+          CONTEXT_JSON: ${{ inputs.context_json }}
+          PLAN_JSON: ${{ inputs.plan_json }}
         run: |
-          python3 trusted/tools/native-tests/check.py plan --candidate . \
-            --event "$GITHUB_EVENT_PATH" --sha "$GITHUB_SHA" --report build/native-plan.json
-          python3 -c 'import json, os; assert json.load(open("build/native-plan.json"))["mode"] == os.environ["EXPECTED_MODE"] in ("core", "full")'
+          python3 -I -S -B trusted/tools/repository-checks/pr_ci.py verify-native \
+            --candidate . --context-json "$CONTEXT_JSON" --plan-json "$PLAN_JSON" \
+            --out build/native-plan.json
 
       - name: Verify reviewed prepared dependency inputs
         if: inputs.mode == 'full'

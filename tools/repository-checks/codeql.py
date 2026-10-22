@@ -104,6 +104,11 @@ _PINNED_NPM_LOCKS = frozenset({
 # leaves preserve directory-dependent startup/package-entrypoint discovery.
 _PINNED_NATIVE_EXTENSIONS = frozenset({
     ".c", ".cpp", ".h", ".hpp", ".m", ".mm", ".qml", ".vert", ".frag", ".glsl",
+    # Existing Android Java/Kotlin source has the same no-build discovery proof:
+    # AutoBuild.setupFilters enumerates supported JS/data suffixes; Python
+    # traverser._treewalk uses Python suffix/shebang discovery. Kotlin scripts
+    # (.kts), new paths and shebangs are deliberately outside this exception.
+    ".java", ".kt",
 })
 _NATIVE_BLOB_BYTES = 4 * 1024 ** 2
 _NATIVE_TOTAL_BYTES = 16 * 1024 ** 2
@@ -361,6 +366,9 @@ def _python_requirements_manifest(name: str) -> bool:
 def _source_languages(path: str) -> tuple[str, ...] | None:
     relative = PurePosixPath(path)
     name, extension = relative.name, relative.suffix.lower()
+    # AutoBuild.setupFilters includes **/.eslintrc* regardless of extension.
+    if name.startswith(".eslintrc"):
+        return LANGUAGES if extension in _PYTHON_EXTENSIONS else ("javascript-typescript",)
     if name in _PYTHON_MANIFESTS or _python_requirements_manifest(name):
         if extension in _JAVASCRIPT_EXTENSIONS:
             return LANGUAGES  # Lock/YAML manifests are also extracted as JS data.
