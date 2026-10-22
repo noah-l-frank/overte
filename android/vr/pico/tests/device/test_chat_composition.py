@@ -132,6 +132,11 @@ class PicoChatCompositionTests(unittest.TestCase):
         for role in owner.roles+owner.initial:
             self.assertIs(role.locks[0],owner.lock);self.assertIs(role.locks[1],owner.peer.lock)
             self.assertEqual(owner.binding,role.binding);self.assertEqual(owner.peer.binding,role.peer_binding)
+        for index in range(2):
+            self.assertIs(owner.roles[index].script_source,owner.code_sources[index])
+            self.assertIs(owner.initial[index].script_source,owner.code_sources[index])
+            self.assertIs(owner.code_sources[index].lock,owner.lock)
+        self.assertEqual(2,owner.previous['picoChatCompositionVersion'])
         self.assertEqual([],self.native.inputs)
         with self.assertRaises(NativeUIError):owner.prepare()
         self.assertEqual(['acquire'],[request['operation'] for request in profile.requests])
@@ -174,7 +179,20 @@ class PicoChatCompositionTests(unittest.TestCase):
         self.assertIs(witness.publisher.samples.locks[1],witness.peer.lock)
         self.assertIsNot(witness.publisher.samples.peer,owner.roles[1].peer)
         self.assertIsNot(witness.publisher.samples.store,owner.roles[1].store)
+        code=witness.publisher.samples.script_source
+        self.assertIs(code,witness.publisher.initial_samples.script_source);self.assertIs(code.lock,witness.lock)
+        self.assertIsNot(code,owner.code_sources[1]);self.assertIsNot(code.roots,owner.code_sources[1].roots)
+        self.assertIsNot(code.scripts,owner.code_sources[1].scripts)
+        self.assertNotEqual(code.store.path,owner.code_sources[1].store.path)
         self.assertEqual([],witness.publisher.samples.frames);self.assertEqual([],self.native.inputs)
+
+    def test_legacy_parent_manifest_is_retained_but_cannot_qualify_compiled_source_witness(self):
+        from feature_journeys.witness import Client
+        owner=self.compose();self.prepare_sources(owner);owner.prepare()
+        original=owner.store.read();legacy=dict(original,picoChatCompositionVersion=1);owner.store.write(legacy,original)
+        source=PhaseFixtureReader(Client(self.source.client.url,'w'*48),RUN,'chat')
+        with self.assertRaises(ValueError):self.instance._chat_witness_composition(self.native.target,source,self.peer.config)
+        self.assertEqual(legacy,owner.store.read());self.assertEqual([],self.native.inputs)
 
     def test_lost_parent_profile_receipt_keeps_original_native_acquire_without_replay(self):
         owner=self.compose();profile,chat=self.prepare_sources(owner);original=owner.store.write

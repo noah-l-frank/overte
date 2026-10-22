@@ -39,7 +39,9 @@ def compose(run, frame, primary_pid, peer_pid, *, vr, cache_absent=False):
     whole multi-source transaction by actual host monotonic time separately.
     """
     identifier(run)
-    exact(frame, {'ticket', 'afterEpochMs', 'primaryEpochMs', 'peerEpochMs', *SOURCES} | ({'settings'} if 'settings' in frame else set()) | ({'transition'} if 'transition' in frame else set()))
+    compiled='compiledChatSourceVersion' in frame or 'compiledChat' in frame
+    exact(frame, {'ticket', 'afterEpochMs', 'primaryEpochMs', 'peerEpochMs', *SOURCES} | ({'settings'} if 'settings' in frame else set()) | ({'transition'} if 'transition' in frame else set())
+        | ({'compiledChatSourceVersion','compiledChat'} if compiled else set()))
     need(('settings' not in frame or frame['settings'] is True) and ('transition' not in frame or frame['transition'] is True)
         and not ('settings' in frame and 'transition' in frame))
     identifier(frame['ticket'])
@@ -57,6 +59,16 @@ def compose(run, frame, primary_pid, peer_pid, *, vr, cache_absent=False):
         need(view['chatViewVersion'] == 2 and view['source']['keyboard'].get('backend') == 'native-vr-entity-keyboard')
     native_packet(lifecycle, identifier(lifecycle.get('requestId')), primary_pid, frame['primaryEpochMs'])
     epochs = [value['capturedEpochMs'] for value in (p, view, lifecycle)]
+    if compiled:
+        from adapters.chat_journey.script_source import identity
+        need(type(frame['compiledChatSourceVersion']) is int and frame['compiledChatSourceVersion']==1)
+        original=frame['compiledChat'];exact(original,{'ticket','afterEpochMs','before','scripts','after'})
+        identifier(original['ticket'])
+        need(original['afterEpochMs']==frame['afterEpochMs'] and original['before']['requestedEpochMs']>=frame['afterEpochMs']
+            and original['before']['instance']==lifecycle['instance']
+            and original['after']['capturedEpochMs']<=min(epochs))
+        identity(original['before'],original['scripts'],original['after'],pid=primary_pid,epoch=frame['primaryEpochMs'])
+        epochs.append(original['before']['requestedEpochMs'])
     need(min(epochs) >= frame['afterEpochMs'] and max(epochs) - min(epochs) <= 1500)
     fresh(min(epochs), frame['primaryEpochMs'])
     ps, qs, source = p['source'], q['source'], view['source']
@@ -132,6 +144,15 @@ def continuity(frames, frame):
         need(frame.get('transition') or p['mixerPresent'] and q['mixerPresent'])
         return
     old = frames[-1]
+    need(('compiledChat' in frame)==('compiledChat' in old))
+    if 'compiledChat' in frame:
+        from adapters.chat_journey.script_source import identity
+        current,prior=frame['compiledChat'],old['compiledChat']
+        def selected(row):return identity(row['before'],row['scripts'],row['after'],pid=frame['primary']['processId'],epoch=row['after']['capturedEpochMs'])
+        need(same(selected(current),selected(prior))
+            and current['before']['sequence']>prior['after']['sequence']
+            and current['scripts']['sequence']>prior['scripts']['sequence']
+            and all(current['ticket']!=row['compiledChat']['ticket'] for row in frames))
     need(frame['primaryEpochMs'] >= old['primaryEpochMs'] and frame['peerEpochMs'] >= old['peerEpochMs'])
     for key in SOURCES:
         value, previous = frame[key], old[key]
@@ -182,6 +203,7 @@ class _ChatSources:
     journal_version=VERSION
 
     def _compose(self,frame):
+        need(('compiledChat' in frame)==getattr(self,'compiled_model',False))
         return compose(self.run,frame,self.primary.pid,self.peer.pid,vr=self.vr)
 
     def __init__(self, run, role, binding, peer_binding, primary, peer, view, lifecycle, store,
@@ -247,6 +269,12 @@ class _ChatSources:
     def read_transition(self,ticket,after_epoch):
         return self.read(ticket,after_epoch,transition=True)
 
+    def _extra_frame(self,ticket,after_epoch):
+        return {}
+
+    def _extra_clocks(self,frame):
+        return ()
+
     def read(self, ticket, after_epoch, *, settings=False, transition=False):
         started = previous = self.monotonic(); need(number(started, 0, 1e15))
         def check():
@@ -259,12 +287,13 @@ class _ChatSources:
                 for lock in sorted(self.locks, key=lambda item: str(item.path)): held.enter_context(lock.held())
                 check(); self.history.verify(); need(self.base['phase'] == 'ready' and len(self.frames) < MAX_FRAMES)
                 self._write({**self.base, 'phase': 'reading', 'revision': self.base['revision'] + 1}); check()
+                extra=self._extra_frame(ticket,after_epoch);check()
                 p = self.primary.perform(self.run, 'inspect'); check()
                 view = self.view.read(self.run); check()
                 q = self.peer.perform(self.run, 'inspect'); check()
                 lifecycle = self.lifecycle.read(self.lifecycle.sequence); check()
                 frame = dict(ticket=ticket, afterEpochMs=after_epoch, primaryEpochMs=self.primary.clock_ms(),
-                    peerEpochMs=self.peer.clock_ms(), primary=p, peer=q, view=view, lifecycle=lifecycle)
+                    peerEpochMs=self.peer.clock_ms(), primary=p, peer=q, view=view, lifecycle=lifecycle,**extra)
                 if settings:frame['settings']=True
                 if transition:frame['transition']=True
                 check(); measured = self._compose(frame)
@@ -274,8 +303,11 @@ class _ChatSources:
                 # Re-read original wall clocks after the final guards and the
                 # durable write. A frozen host clock cannot mask a native jump.
                 clocks=[]
-                for reader,oldest in ((self.primary,min(p['capturedEpochMs'],view['capturedEpochMs'],lifecycle['capturedEpochMs'])),
-                                      (self.peer,q['capturedEpochMs'])):
+                oldest_primary=min(p['capturedEpochMs'],view['capturedEpochMs'],lifecycle['capturedEpochMs'],
+                    extra['compiledChat']['before']['requestedEpochMs'] if extra else p['capturedEpochMs'])
+                for reader,oldest in ((self.primary,oldest_primary),
+                                      (self.peer,q['capturedEpochMs']),*self._extra_clocks(frame)):
+                    need(reader.guard() is not False)
                     before=self.monotonic();need(number(before,previous,started+1.5));previous=before
                     epoch=reader.clock_ms();fresh(oldest,epoch);clocks.append((before,epoch,oldest))
                 finished=self.monotonic();need(number(finished,previous,started+1.5)
@@ -299,5 +331,6 @@ class ChatCacheAbsence(_ChatSources):
     journal_version=1
 
     def _compose(self,frame):
+        need(('compiledChat' in frame)==getattr(self,'compiled_model',False))
         need(self.component_only or all(frame[key]['chatVersion']>=2 for key in ('primary','peer')))
         return compose(self.run,frame,self.primary.pid,self.peer.pid,vr=self.vr,cache_absent=True)

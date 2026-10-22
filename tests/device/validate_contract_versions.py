@@ -10,6 +10,8 @@ from pathlib import Path
 
 REQUIRED = {
     "chat-compiled-script-source": 1,
+    "chat-compiled-model-samples": 1,
+    "chat-compiled-cache-absence": 1,
     "pico-graphics-feature-binding": 1,
     "graphics-journey-feature": 1,
     "graphics-journey-lifetime": 1,
@@ -119,7 +121,7 @@ REQUIRED = {
     "native-chat-actor-source": 2,
     "native-chat-input-lifetime": 1,
     "chat-peer-input-close": 1,
-    "pico-chat-composition": 1,
+    "pico-chat-composition": 2,
     "native-script-roots": 1,
     "owned-messages-mixer": 1,
     "independent-chat-receiver": 1,

@@ -1218,7 +1218,7 @@ def create_adapter(args, base_class):
                 'chat-'+stage+'-'+('witness' if witness else role)+'-cache-absence-')))
 
         @_private
-        def _chat_cache_absence(self,target,run,peer,peer_binding,*,role,stage,source_lock,peer_lock,witness=False):
+        def _chat_cache_absence(self,target,run,peer,peer_binding,*,role,stage,source_lock,peer_lock,witness=False,script_source=None):
             from adapters.chat_journey.samples import ChatCacheAbsence
             from adapters.script_journey.lock import ScriptSourceLock
             store=self._chat_cache_absence_store(target,role,stage=stage,witness=witness)
@@ -1229,11 +1229,16 @@ def create_adapter(args, base_class):
                 # No capture-owner begin/observe/retire or ownership write.
                 # The actual inspect source must independently prove absence.
                 native.guard();_need(peer.guard() is not False)
-                return ChatCacheAbsence(run,role,manager.binding,peer_binding,capture.reader,peer,self._chat_view(target),native,
-                    store,source_lock,peer_lock,vr=True,monotonic=native.monotonic)
+                selected=ChatCacheAbsence;extra={}
+                if script_source is not None:
+                    from adapters.chat_journey.compiled_samples import CompiledChatCacheAbsence
+                    _need(script_source.store.path==self._chat_script_source_store(target,role,witness=witness).path)
+                    selected=CompiledChatCacheAbsence;extra=dict(script_source=script_source)
+                return selected(run,role,manager.binding,peer_binding,capture.reader,peer,self._chat_view(target),native,
+                    store,source_lock,peer_lock,vr=True,monotonic=native.monotonic,**extra)
 
         @_private
-        def _chat_samples(self,target,run,peer,peer_binding,*,role,source_lock,peer_lock,erased=False,witness=False,pending_capture=False):
+        def _chat_samples(self,target,run,peer,peer_binding,*,role,source_lock,peer_lock,erased=False,witness=False,pending_capture=False,script_source=None):
             from adapters.chat_journey.samples import ChatSamples
             from adapters.script_journey.lock import ScriptSourceLock
             store=self._chat_samples_store(target,role,erased=erased,witness=witness)
@@ -1259,8 +1264,13 @@ def create_adapter(args, base_class):
                             and capture.reader.source['selfSha256']==owned['selfSha256'])
                     return True
                 capture.reader.guard=cache_guard
-                return ChatSamples(run,role,manager.binding,peer_binding,capture.reader,peer,self._chat_view(target),native,
-                    store,source_lock,peer_lock,vr=True,monotonic=native.monotonic)
+                selected=ChatSamples;extra={}
+                if script_source is not None:
+                    from adapters.chat_journey.compiled_samples import CompiledChatSamples
+                    _need(script_source.store.path==self._chat_script_source_store(target,role,witness=witness).path)
+                    selected=CompiledChatSamples;extra=dict(script_source=script_source)
+                return selected(run,role,manager.binding,peer_binding,capture.reader,peer,self._chat_view(target),native,
+                    store,source_lock,peer_lock,vr=True,monotonic=native.monotonic,**extra)
 
         def _chat_cache_lifetime_store(self,target):
             state,_ui=self._script_paths(target)

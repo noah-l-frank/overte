@@ -1,6 +1,6 @@
 # Original compiled Chat source v1
 
-`ChatScriptSource.capture(ticket, after_epoch)` reads the actual native configured
+`ChatScriptSource.capture(transaction_id, after_epoch)` reads the actual native configured
 Script root, the original Script manager/V8 inventory, and a new original root
 again. All three belong to the same actual process and native birth, have fresh
 ordered original requests, and fit the existing 1.5-second native and host bound.
@@ -53,8 +53,29 @@ source_lock=..., witness=False)` binds the existing actual Pico candidate/proces
 and native observation routes. The three role stores are distinct. Generic
 cleanup preserves their roots and rootless chunks and cannot report success
 because process teardown occurred. This packet adds the passive component and
-factory only: the whole Chat parent/model join remains separate work, and no
-public Chat capability is granted by constructing or reading it.
+factory. The unique transaction ID identifies this passive acquisition, never a
+new fixture activation. A real phase may be sampled repeatedly; every acquisition
+still uses new native requests and its original model/phase epoch barrier.
+
+The private Pico composition v2 now uses `CompiledChatSamples` and
+`CompiledChatCacheAbsence`. Each read records a new root/Script/root transaction
+before its actual four-source native Chat/model read, then retains the full
+original code packets in that same immutable model frame. The code packets and
+native lifecycle must have the same original TSI birth and PID, preserve actual
+acquisition order, and fit the original 1.5-second bound across the full read,
+copies, journal writes, and final guards/clocks. The parent final freshness join
+also rechecks the original code-source clocks. No extra deadline is granted.
+
+Their closed v1 journals are distinct from legacy ChatSamples v4 and absence v1.
+Legacy histories cannot be adopted or promoted into compiled-source histories,
+and legacy readers reject the compiled frame extension. Initial/active/Erase
+readers share exactly the same role-owned code source object and lock; the
+independent witness uses its own readers and journal, including before first
+Open. Every same-phase quiet sample obtains a new source transaction. Compiled
+model reconstruction cross-checks each embedded original against that exact
+source owner's retained immutable history. Composition v1 manifests remain
+readable for retention; they cannot qualify the v2 compiled-source witness.
+No public Chat capability is granted by this source/model join.
 
 Verification uses synthetic native/V8 packet seams with the actual Python
 readers, durable journals, Linux source locks, Pico factory and original
@@ -70,3 +91,12 @@ candidate changes plus rootless source chunks. The combined 10 tests passed in
 PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=tests/device:android/vr/pico/tests/device \
 python3 -m unittest self_tests.test_chat_script_source test_chat_script_source -v
 ```
+
+The compiled source/model join adds seven component cases. Together with the
+eight original code-source cases, all 15 passed in 0.559 seconds. The legacy
+model/absence regression and new join passed 30 cases in 1.110 seconds. Focused
+actual Pico parent tests also verify Initial/Active exact-owner sharing, all six
+lazy child factories, independent witness readers and retention of an old parent
+manifest. Early targeted invocations had a mistyped selector/import and an
+incorrect expected private-factory exception; corrected focused reruns passed.
+No complete Pico 25-step/device run or final resource closure is claimed.

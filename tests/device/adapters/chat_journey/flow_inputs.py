@@ -72,7 +72,10 @@ def fresh_roles(roles,started,now):
     for role in roles:
         for reader in (role.primary,role.peer,role.view,role.lifecycle):need(reader.guard() is not False)
         frame=role.frames[-1]
-        for reader,oldest in ((role.primary,min(frame[key]['capturedEpochMs'] for key in ('primary','view','lifecycle'))),(role.peer,frame['peer']['capturedEpochMs'])):
+        oldest_primary=min([frame[key]['capturedEpochMs'] for key in ('primary','view','lifecycle')]
+            +([frame['compiledChat']['before']['requestedEpochMs']] if 'compiledChat' in frame else []))
+        for reader,oldest in ((role.primary,oldest_primary),(role.peer,frame['peer']['capturedEpochMs']),*role._extra_clocks(frame)):
+            need(reader.guard() is not False)
             measured=now();epoch=reader.clock_ms();fresh(oldest,epoch);clocks.append((measured,epoch,oldest))
     finished=now();need(finished-started<=1.5 and all(epoch-oldest+math.ceil((finished-measured)*1000)<=1500 for measured,epoch,oldest in clocks))
 
