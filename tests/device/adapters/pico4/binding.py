@@ -487,6 +487,12 @@ def create_adapter(args, base_class):
             manager = self._scripts(target)
             return TokenEmoteUI(PicoEmoteIO(manager.ui.io), intent, receipt=receipt)
 
+        def _create_file_controls(self, target, intent, directory, run, ticket, role, before):
+            from adapters.pico4.create_file_ui import CreateFileUI, PicoCreateFileIO
+            ui, _observe, _binding = self._script_runtime(target)
+            return CreateFileUI(PicoCreateFileIO(ui.io), intent, directory, run, ticket, role, before,
+                monotonic=ui.monotonic, sleep=ui.sleep)
+
         def _chat_controls(self, target, intent, run):
             from adapters.token_chat_ui import TokenChatUI
             from adapters.pico4.normal_chat import PicoChatIO
