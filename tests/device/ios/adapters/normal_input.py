@@ -298,6 +298,10 @@ class NativeInput:
                           headers={'Content-Type': 'application/json'})
         if before_send is not None and before_send() is False:
             raise NativeUIError('Native iOS input transport guard refused delivery')
+        observe_intent=getattr(self,'observe_intent',None) if operation=='observe' else None
+        if observe_intent is not None:
+            if not callable(observe_intent):raise NativeUIError('Native observation requires a callable passive query owner')
+            observe_intent(deepcopy(payload))
         with urlopen(request, timeout=5) as response:
             result = response.read(32769)
             if response.status != 200 or len(result) > 32768 or json.loads(result) != payload:
