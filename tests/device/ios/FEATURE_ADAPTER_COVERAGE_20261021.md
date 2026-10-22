@@ -27,8 +27,15 @@ remain terminal or unresolved; the whole coordinator still needs to own them.
 A [whole-observation owner](NAVIGATION_OBSERVATION_OWNER.md) now checkpoints the
 original outer clock and all eleven accepted sources, links immutable image
 archives and checks the immediate predecessor across field/source histories.
-It resolves only fully retained lost returns without rereading sources. Input,
-runtime admission, publication, restart and whole-run cleanup remain partial.
+It resolves fully retained lost returns without rereading sources. An explicit
+source-only failure path preserves the sealed PNG and every accepted partial
+source floor, including older channels missing from that partial read.
+Unresolved GPU captures remain owned separately. The
+[independent observation ledger](NAVIGATION_OBSERVER.md) reserves role-local
+original owners and uses the canonical publisher for actual journal receipts,
+lost-return resolution and immutable publication history. Stage-1 publication
+still needs actual restart transfer and the cross-cohort cursor; the whole
+action/observation/cleanup coordinator remains partial.
 Its runtime factory now uses the existing candidate-qualified iOS session,
 original native clocks and typed HTTP/AFC readers without launching or sending
 input. This is source wiring; complete operation dispatch is still required.
@@ -76,8 +83,11 @@ closure, restart transfer, publication and whole repeated cleanup remain open.
 An [original process-context transfer](NAVIGATION_PROCESS_CONTEXT.md) now binds
 actual old-PID absence and full new-candidate/native birth to independently read
 new scene/bookmark/UI sources. Its durable acquisition owner retains partial
-reads and original deadlines through lost returns. The ordinary restart
-controller, later action-owner handoff and full quiet cleanup remain open.
+reads and original deadlines through lost returns. The
+[ordinary restart controller](NAVIGATION_PROCESS_CONTEXT.md) now joins original
+pre-stop sources, both logical observers' actual GPU drains, pointer closure,
+one-send normal Stop/Launch, actual old-PID absence and new native birth. Later
+source/observer publication handoff and full quiet cleanup remain open.
 
 The canonical physical source binding and explicit lost-launch recovery have
 host-tested implementations. The native byte observer and SDK plugin remain
