@@ -122,7 +122,7 @@ REQUIRED = {
     "native-chat-actor-source": 2,
     "native-chat-input-lifetime": 1,
     "chat-peer-input-close": 1,
-    "pico-chat-composition": 2,
+    "pico-chat-composition": 3,
     "native-script-roots": 1,
     "owned-messages-mixer": 1,
     "independent-chat-receiver": 1,

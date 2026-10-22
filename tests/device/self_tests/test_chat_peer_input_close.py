@@ -141,5 +141,25 @@ class PeerInputCloseTests(unittest.TestCase):
         self.assertEqual('command-removal-issued',self.store.read()['phase'])
         self.assertTrue((self.s.h.root/COMMAND).exists());self.assertTrue((self.s.h.root/RECEIPT).exists())
 
+    def test_original_cleanup_phase_change_after_unlink_intent_prevents_actual_resource_removal(self):
+        import uuid
+        from adapters.chat_journey.phase_fence import ChatPhaseFence,bind_phase_fence
+        from self_tests import test_chat_cleanup_admission as phase_seams
+        metadata=phase_seams.ChatCleanupAdmissionTests();metadata.setUp();self.addCleanup(metadata.doCleanups)
+        metadata.activate()
+        with metadata.flow.session():metadata.owner.admit()
+        metadata.h.journal.clock=self.epoch
+        metadata.flow.source.epoch_ms=self.epoch;metadata.flow.source.monotonic=lambda:self.s.h.clock
+        fence=ChatPhaseFence(metadata.flow,cleanup=metadata.owner);bind_phase_fence(self.owner,fence)
+        write=self.store.write
+        def changed(value,previous):
+            write(value,previous)
+            if value['phase']=='command-removal-issued':metadata.h.journal.activate(RUN,uuid.uuid4().hex,'cleanup',{})
+        self.store.write=changed
+        with self.assertRaises(NativeUIError),metadata.flow.session():self.owner.run()
+        self.assertEqual('command-removal-issued',self.store.read()['phase'])
+        self.assertTrue((self.s.h.root/COMMAND).exists());self.assertTrue((self.s.h.root/RECEIPT).exists())
+        self.assertTrue(fence.failed);self.assertTrue(self.owner.failed)
+
 
 if __name__=='__main__':unittest.main()

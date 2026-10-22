@@ -1,4 +1,4 @@
-# Private Pico Chat composition v2
+# Private Pico Chat composition v3
 
 `PicoBoundAdapter._chat_composition(target, phase_source, peer_config, domain_ready)`
 constructs `PicoChatComposition` from the existing original candidate/process
@@ -50,13 +50,13 @@ paths, and replacement of the original ready inode.
 durable native owner, then admits both genuinely absent native caches. It builds
 two initial absence roles and two separate active roles, using the existing
 shared `ChatFlowInputs`, `ChatDispatcher` v2 and their original phase fences.
-V2 selects the closed compiled-source model and absence readers described in
+V2 and later select the closed compiled-source model and absence readers described in
 [the source/model join](../chat_journey/COMPILED_CHAT_SOURCE.md). Initial, active
 and Erase readers share each role's exact original code-source owner and lock;
 the independent witness owns separate readers and its own source journal.
 Every actual model read obtains fresh configured-root/Script/V8/root originals
 before the four existing native sources, with one unchanged 1.5-second bound.
-Legacy v1 parent manifests remain retained and cannot qualify this witness.
+Legacy v1/v2 parent manifests remain retained and cannot qualify the v3 witness.
 Active roles cannot read before original cache activation. Cache creation stays
 lazy until the first Open. All six child kinds use the existing actual Pico
 factories: ordinary Chat UI/keyboard, original peer Send/distance, passive native
@@ -71,17 +71,30 @@ freshness checks. Cold construction retains an existing root and refuses input
 reconstruction. A lost parent receipt does not overwrite the earlier issued
 intent, reacquire a native profile or replay a child.
 
-After all original 26 baseline/action records complete,
-`close_input_and_restore_profile(after_epoch)` joins the original held-peer
+After all original 26 baseline/action records complete, `admit_cleanup(after_epoch)`
+qualifies the actual unchanged Dispatcher chunk/root proofs and uses
+[original cleanup admission](../chat_journey/CLEANUP_ADMISSION.md) to admit only
+the independently observed current cleanup ticket27. The original activation
+epoch must precede the caller's barrier. Its dedicated original journal and
+current phase fence remain separate from the completed action fence. A lost
+admission or incomplete action sequence authorizes no cleanup input.
+
+`close_input_and_restore_profile(after_epoch)` first admits this actual cleanup
+phase when not already admitted, then joins the original held-peer
 restore/motion proof to the dedicated input close owner. It then creates two new
 post-Erase source histories and runs the existing normal Settings/Erase,
 reconstruction, exact original profile restoration and quiet owner. Those old
 and new histories remain separate and retained. Each ordinary Erase input marks
-the original terminal Close ticket before its own durable intent and uses the
-same final QML publication fence. A changed/retired/later cleanup ticket fails
-closed. This private terminal path does not yet admit a separate public fixture
-cleanup activation. This method does not claim
-native cache, process, QML-context or full-feature resource release.
+the original cleanup ticket before its own durable intent and uses that same
+final QML publication fence. Closed-tablet Open stores its actual original
+controller envelope through the Erase owner's host-only CAS, with the existing
+original final grant checks. Each input-file unlink also marks before its issued
+CAS and rechecks the actual cleanup phase immediately before removal. The saved
+profile's one Restore marks before its durable request and the actual bound
+native writer checks the same cleanup fence after its final native guard.
+Original run, binding and exact lock must match the profile owner. A changed or
+retired cleanup ticket fails closed. This method does not yet claim native cache,
+observation IPC, process, QML-context or full-feature resource release.
 
 `_chat_witness_composition(target, independent_phase_source, peer_config)`
 constructs a separate `PicoChatWitness` with its own publisher Client/credential,

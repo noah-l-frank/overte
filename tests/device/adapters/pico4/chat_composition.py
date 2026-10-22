@@ -9,6 +9,7 @@ from contextlib import ExitStack,contextmanager
 from copy import deepcopy
 import stat
 import os
+import math
 
 from adapters.chat_journey.dispatcher import ChatDispatcher
 from adapters.chat_journey.owned_peer import OwnedChatPeer
@@ -23,22 +24,23 @@ from adapters.script_journey.history import same
 from adapters.script_journey.lock import ScriptSourceLock
 from feature_journeys.phase_fixture import PhaseFixtureReader
 
-VERSION=2
+VERSION=3
 
 
 PHASES=('admitted','bound','profile-acquire-issued','profile-acquired','prepared','step-issued','step-completed',
-    'input-close-issued','input-closed','erase-restore-issued','profile-restored')
+    'cleanup-admission-issued','cleanup-admitted','input-close-issued','input-closed','erase-restore-issued','profile-restored')
 
 
 def record(value):
     import re
     exact(value,{'picoChatCompositionVersion','runId','binding','fixtureUrl','phase','peerBinding','peerOriginBasis','completedSteps'})
-    need(type(value['picoChatCompositionVersion']) is int and value['picoChatCompositionVersion'] in (1,VERSION)
+    need(type(value['picoChatCompositionVersion']) is int and value['picoChatCompositionVersion'] in (1,2,VERSION)
         and type(value['runId']) is str and re.fullmatch('[0-9a-f]{32}',value['runId'])
         and type(value['fixtureUrl']) is str and len(value['fixtureUrl'])<=512
         and value['fixtureUrl'].endswith('/runs/'+value['runId']+'/') and value['phase'] in PHASES
         and integer(value['completedSteps'],0,26))
     context(value['binding'])
+    if value['picoChatCompositionVersion']<3:need(value['phase'] not in ('cleanup-admission-issued','cleanup-admitted'))
     if value['phase']=='admitted':need(value['peerBinding'] is None and value['peerOriginBasis']=='unavailable')
     else:context(value['peerBinding']);need(value['peerOriginBasis']=='native-configured-metadata-only')
     if value['phase'] in PHASES[:5]:need(value['completedSteps']==0)
@@ -87,7 +89,7 @@ class PicoChatComposition:
         self.store=adapter._chat_composition_store(target);need(self.store.read() is None)
         self.lock=ScriptSourceLock(self.store.path.with_name('script-sources.lock'))
         self.peer=self.mixer=self.profile=self.dispatcher=None;self.previous=None;self.failed=False
-        self.after=None;self.erase=self.input_close=None
+        self.after=None;self.erase=self.input_close=self.cleanup_admission=self.cleanup_fence=None
         with self.lock.held():
             self.save('admitted',peerBinding=None,peerOriginBasis='unavailable',completedSteps=0)
             try:
@@ -176,26 +178,52 @@ class PicoChatComposition:
             self.failed=True
             raise NativeUIError('Pico Chat parent is unresolved; no child input is repeated') from None
 
-    def close_input_and_restore_profile(self,after_epoch):
+    def admit_cleanup(self,after_epoch):
+        from adapters.chat_journey.cleanup_admission import ChatCleanupAdmission
+        from adapters.chat_journey.phase_fence import ChatPhaseFence
         try:
             need(not self.failed and integer(after_epoch,1) and self.previous['phase']=='step-completed'
+                and self.previous['completedSteps']==26 and self.cleanup_admission is None
+                and self.dispatcher.base['phase']=='ready' and len(self.dispatcher.base['steps'])==26
+                and all(row['phase']=='completed' for row in self.dispatcher.base['steps']))
+            with self.held():
+                self.dispatcher.chunks.verify();self.dispatcher.audit()
+                need(same(self.dispatcher.store.read(),self.dispatcher.previous))
+                self.save('cleanup-admission-issued')
+                self.cleanup_admission=ChatCleanupAdmission(self.flow,self.adapter._chat_cleanup_admission_store(self.target))
+                original=self.cleanup_admission.admit()
+                need(after_epoch>=math.ceil(original['activations'][-1]['activatedEpochMs']))
+                self.cleanup_fence=ChatPhaseFence(self.flow,cleanup=self.cleanup_admission)
+                from adapters.chat_journey.phase_fence import bind_phase_fence
+                bind_phase_fence(self.profile,self.cleanup_fence)
+                bind_phase_fence(self.profile.reader._chat_transport,self.cleanup_fence)
+                self.save('cleanup-admitted');return deepcopy(original)
+        except Exception:
+            self.failed=True
+            raise NativeUIError('Original Chat cleanup admission is unresolved; no cleanup input is authorized') from None
+
+    def close_input_and_restore_profile(self,after_epoch):
+        try:
+            need(not self.failed and integer(after_epoch,1) and self.previous['phase'] in ('step-completed','cleanup-admitted')
                 and self.previous['completedSteps']==26 and all(row['phase']=='completed' for row in self.dispatcher.base['steps']))
+            if self.previous['phase']=='step-completed':self.admit_cleanup(after_epoch)
+            from adapters.chat_journey.phase_fence import bind_phase_fence
             with self.held():
                 self.save('input-close-issued')
                 distant=self.dispatcher.children.get('distant');need(distant is not None)
-                self.input_close=self.peer.input_close(distant.sender.input,distant=distant);self.input_close.run()
+                self.input_close=self.peer.input_close(distant.sender.input,distant=distant)
+                bind_phase_fence(self.input_close,self.cleanup_fence);self.input_close.run()
                 self.save('input-closed')
                 self.after=tuple(self.adapter._chat_samples(self.target,self.source.run,self.peer.reader(),self.peer.binding,
                     role=role,source_lock=self.lock,peer_lock=self.peer.lock,erased=True,script_source=code)
                     for role,code in zip(('primary','actor'),self.code_sources))
                 self.erase=self.adapter._chat_erase_restore(self.target,self.profile,self.roles,self.after)
-                # This private terminal path still owns the actual last Close
-                # ticket/prefix. A later/retired fixture phase refuses input.
                 original_intent=self.erase.ui.intent
                 def intent(value):
-                    self.dispatcher.fence.mark();original_intent(value)
-                self.erase.ui.intent=intent;self.erase.ui.io.bind_input_fence(self.dispatcher.fence)
-                self.dispatcher.fence.mark();self.save('erase-restore-issued');result=self.erase.run(after_epoch)
+                    self.cleanup_fence.mark();original_intent(value)
+                self.cleanup_fence.stream_intent=self.erase.controller_intent
+                self.erase.ui.intent=intent;self.erase.ui.io.bind_input_fence(self.cleanup_fence)
+                self.cleanup_fence.mark();self.save('erase-restore-issued');result=self.erase.run(after_epoch)
                 need(result['phase']=='complete');self.save('profile-restored')
                 return deepcopy(self.previous)
         except Exception:
