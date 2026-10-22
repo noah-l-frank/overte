@@ -298,7 +298,12 @@
         "libraries/script-engine/src/CreateCallbackObservation.h",
         "tests/device/adapters/pico4/CREATE_CALLBACK_SOURCE.md",
         "android/vr/pico/tests/device/test_create_file_ui_native.py",
-        "android/vr/pico/tests/device/test_create_callbacks_native.py"
+        "android/vr/pico/tests/device/test_create_callbacks_native.py",
+        "tests/device/native/PicoCreateDialogs.h",
+        "tests/device/adapters/pico4/create_dialogs.py",
+        "tests/device/adapters/pico4/CREATE_DIALOG_SOURCE.md",
+        "android/vr/pico/tests/device/test_create_dialogs.py",
+        "android/vr/pico/tests/device/test_create_dialogs_native.py"
       ],
       "declaredCheckpoints": 21,
       "inputVerbs": [
@@ -839,7 +844,10 @@
         "tests/device/native/ChatPeerPosition.h",
         "tests/device/native/ChatActorFiles.h",
         "tests/device/native/CHAT_PEER_INPUT.md",
-        "tests/device/contracts/chat/test_chat_peer_input_native.py"
+        "tests/device/contracts/chat/test_chat_peer_input_native.py",
+        "tests/device/native/ChatSettingsBarrier.h",
+        "tests/device/native/CHAT_SETTINGS_BARRIER.md",
+        "tests/device/contracts/chat/test_chat_settings_barrier.py"
       ],
       "declaredCheckpoints": 25,
       "inputVerbs": [
@@ -1100,7 +1108,13 @@
         "tests/device/native/LifecycleDriveObservation.h",
         "tests/device/adapters/pico4/LIFECYCLE_DRIVE.md",
         "tests/device/contracts/input/test_lifecycle_drive_observation.py",
-        "tests/device/contracts/tablet/test_lifecycle_ui_observation.py"
+        "tests/device/contracts/tablet/test_lifecycle_ui_observation.py",
+        "tests/device/native/LifecycleGestureObservation.h",
+        "tests/device/native/PicoOpenXrInputConstants.h",
+        "tests/device/adapters/pico4/lifecycle_gesture.py",
+        "tests/device/adapters/pico4/LIFECYCLE_GESTURE.md",
+        "tests/device/contracts/input/test_lifecycle_gesture_observation.py",
+        "tests/device/self_tests/test_pico_lifecycle_gesture.py"
       ],
       "declaredCheckpoints": 16,
       "inputVerbs": [

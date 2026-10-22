@@ -600,3 +600,33 @@ observed generation/visibility edges. Lost/ignored delivery cannot be resent
 after reconstruction; exact archival recovery sends no input or query.
 Playback/cancel/replacement effects, actor/stereo and original resource
 retirement remain distinct unfinished joins. No full Emote triple is advertised.
+
+## Original dialog, writer and gesture integration
+
+The original [Create dialog delivery](CREATE_DIALOG_SOURCE.md) now joins the
+real Tablet wrapper and native listener to Window response dispatch, independent
+weak Qt lifetimes and the exact pre-input UI binding. The actual Qt5 original
+wrapper/browser/listener/Window/TSI harness passes; retained contexts remain
+retained after ordinary view destruction.
+
+Chat's [original settings barrier](../../native/CHAT_SETTINGS_BARRIER.md)
+compiles the full original SettingManager translation unit and generated Qt5
+metadata, including its real worker queue and physical file reader. Pending
+mutations, worker/UI lock cycles and late jobs refuse current snapshots. No
+barrier mutex spans the queued worker wait and no late result is adopted as a
+new request. The profile/Erase/restoration composition remains unfinished.
+
+The [Pico gesture source](LIFECYCLE_GESTURE.md) observes actual successful left
+stick publication in the Pico override, with original immutable Start/Changed/
+Neutral/Unavailable history and original layer status bytes. Its original
+getVector2f/error path and axis map compile and run in the targeted Qt5 host
+fixture. Original drive transforms and private result writes also pass. Shared
+protocol constants now live in a neutral test-native header; the old Android
+include forwards to it. The existing source-boundary audit is unchanged and
+passes, as does an original non-Pico TSI getter compilation.
+
+Against the merged branch, eight selected Pico groups pass (8/61, 64.04 seconds),
+69 affected components pass and all four required project groups pass after the
+source-boundary correction. These are focused host/native-component results.
+Create, Chat and Lifecycle still have unfinished whole-area ownership and
+retirement; no full application/APK or physical device result is established.

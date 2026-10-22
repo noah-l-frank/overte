@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "status": "local-packets-verified-scope-in-progress",
-  "qualification": "Source implementation, selected device-free host checks and focused original native component compilation; not a complete 60-group catalog or native application/device qualification.",
+  "qualification": "Source implementation, selected device-free host checks and focused original native component compilation; not a complete 61-group catalog or native application/device qualification.",
   "sourceCompleteAreas": [
     "scripts",
     "authentication",
@@ -2480,5 +2480,69 @@
       "An imported TestCase class initially duplicated nine source cases in the first test discovery. Replaced the class import with a fixture module import before final owning-group counts."
     ],
     "remaining": "Measured playback/completion/early-cancel/replacement, all Sit variants, background/interruption, current stereo, independent actor and actual callback/timer/Qt/native resource retirement. Original source and input journals stay owned; no complete area capability or app/device qualification."
+  },
+  "parallelDialogsSettingsGesture20261022": {
+    "status": "reviewed-local-integration-with-focused-host-verification",
+    "selectedCommits": {
+      "create": [
+        "fb399bf7e69461af26dd00e866b4b6f88c07977c"
+      ],
+      "chat": [
+        "d7524f3558c7d85761301f6e9758ccd2d5edbd4d",
+        "fe96322724ce56bb01abbdcd364bb040f3a169c7"
+      ],
+      "lifecycle": [
+        "31975696b13cea9a6001fb6603d654d15e5f896d",
+        "e971ce92f4f4ec059da69989c97afc3c927d9195"
+      ]
+    },
+    "checks": [
+      {
+        "command": "Actual full Qt5 SettingManager.cpp/moc/WriteWorker and queued physical-file barrier",
+        "tests": 2,
+        "durationSeconds": 7.395,
+        "status": "passed"
+      },
+      {
+        "command": "Actual original Pico getVector2f/axis publication/Gesture header and original non-Pico TSI getter",
+        "status": "passed",
+        "qtMajor": 5
+      },
+      {
+        "command": "Actual Qt5/GLM drive serializer plus original Pico-axis/Application assignments",
+        "status": "passed"
+      },
+      {
+        "command": "Original Qt5 private feature-result writer after merge resolution",
+        "tests": 1,
+        "durationSeconds": 1.31,
+        "status": "passed"
+      },
+      {
+        "command": "Merged Lifecycle/Session/Create-dialog components",
+        "tests": 69,
+        "durationSeconds": 4.609,
+        "status": "passed"
+      },
+      {
+        "command": "Pico suite-runner/coverage-matrix/openxr-input/lifecycle-input-owner/create-file-native-ui/create-callback-native/create-dialog-native/normal-emote",
+        "groups": 8,
+        "catalogGroups": 61,
+        "durationSeconds": 64.04,
+        "status": "passed"
+      },
+      {
+        "command": "Required documentation/documentation-contracts/source-layout/project-coverage after boundary fix",
+        "suites": 4,
+        "durationSeconds": 2.48,
+        "status": "passed"
+      }
+    ],
+    "failuresAndCorrections": [
+      "The first complete source-layout audit rejected the Gesture helper including Android-owned protocol constants from a shared header. A Pico-specific macro alone was not a recognized platform predicate for that existing auditor. Extracted byte-identical pure constants to a neutral common test-native header; preserved the former Android include as forwarding compatibility. No auditor/safeguard was changed.",
+      "The shared TSI Gesture getter now returns unavailable outside the Pico configuration; both actual original Pico helper and extracted original non-Pico getter compile and execute. Full TSI remains uncompiled.",
+      "Resolved additive catalog, capability-mapping and private-result filename conflicts by retaining all current Audio/Emote/Lifecycle additions and the new Create dialog route. Current catalog61; historical incoming agent counts were not adopted."
+    ],
+    "qualification": "Full original SettingManager translation unit compiled on Qt5 host; Create real Qt wrapper/dialog/listener/Window/TSI and Gesture/Pico source use focused extracted bodies and explicit runtime seams. No full native application/APK linking or physical device qualification. Create/Chat/Lifecycle remain partial; all unresolved journals retained."
   }
 }
