@@ -18,20 +18,12 @@ from ios.adapters.avatar_authority import AvatarAuthorityReader
 from ios.adapters.avatar_postlogout_reads import IOSAvatarPostLogoutReads
 from ios.adapters.avatar_postlogout_tail import IOSAvatarPostLogoutTail
 from ios.adapters.avatar_pointers import IOSAvatarPointers
+from ios.adapters.avatar_final_quiet import account_equal
 from ios.adapters import world_web_keys
 from ios.adapters.emote_native_prefix import follow
 
 VERSION=1
 ROLES=('primary','actor')
-
-
-def account_equal(left,right):
-    a,b=deepcopy(left),deepcopy(right)
-    # The native account getter genuinely samples its observation timestamp on
-    # each read. Preserve both originals, compare the actual account state and
-    # immutable event history without treating this timestamp as a mutation.
-    for value in (a,b):value['observation'].pop('capturedEpochMs',None)
-    return same(a,b)
 
 
 class Frozen(PrivateFeatureState):
@@ -239,36 +231,8 @@ class IOSAvatarFinal:
         groups=[self.record(ref) for ref in references];actual=[self.group(row) for row in groups];first,last=groups[0],groups[-1]
         need(all(row['ticket']==last['ticket'] and row['phaseInstance']==last['phaseInstance'] for row in groups)
             and all(b['sequence']>a['sequence'] for a,b in zip(groups,groups[1:])) and integer(sequence,last['sequence']))
-        quiets={}
-        for subject in ROLES:
-            samples=[row[subject] for row in actual];a,b=samples[0],samples[-1]
-            frames=[dict(clockJoin=row['ui']['clockJoin']) for row in samples]
-            a['pointers'].receipt(a['left'],self.bindings[subject],self.run,self.role)
-            proof=b['pointers'].quiet(frames,baseline=a['left'])
-            native_a,native_b=a['ui']['clockJoin']['nativeAfter'],b['ui']['clockJoin']['nativeBefore']
-            keys_a,keys_b=a['tail'].keys(a['ui']),b['tail'].keys(b['ui'])
-            need(keys_a['source']['instance']==keys_b['source']['instance'])
-            clock_a,clock_b=keys_a['clockAfter'],keys_b['clockBefore']
-            q=dict(hostAfterFirstEpochMs=frames[0]['clockJoin']['hostAfterEpochMs'],hostBeforeLastEpochMs=frames[-1]['clockJoin']['hostBeforeEpochMs'],
-                hostAfterFirstMonotonic=frames[0]['clockJoin']['hostAfterMonotonic'],hostBeforeLastMonotonic=frames[-1]['clockJoin']['hostBeforeMonotonic'],
-                nativeAfterFirstEpochMs=clock_a['epochMs'],nativeBeforeLastEpochMs=clock_b['epochMs'],
-                nativeAfterFirstMonotonicMs=clock_a['monotonicMs'],nativeBeforeLastMonotonicMs=clock_b['monotonicMs'],
-                nativeInstance=keys_a['source']['instance'],processId=keys_a['processId'])
-            from feature_journeys.retirement_receipts import quiet,binding_from_context
-            quiet(q,binding_from_context(self.bindings[subject]));quiets[subject]=q
-            before_native=frames[0]['clockJoin']['nativeBefore'];epoch=before_native['capturedEpochMs']
-            for row in samples:
-                keys=row['tail'].keys(row['ui']);world_web_keys.drained(keys)
-                need(same(keys['source'],keys_a['source']))
-                need(row['proof']['endpointEpochMs']<=epoch and same(row['model']['source'],a['model']['source'])
-                    and same(row['ui']['packets']['http']['events'],a['ui']['packets']['http']['events']))
-                for native in (row['ui']['clockJoin']['nativeBefore'],row['ui']['clockJoin']['nativeAfter'],row['right']['clockJoin']['nativeAfter']):
-                    need(same(native['lifecycle'],before_native['lifecycle']) and account_equal(native['account'],before_native['account'])
-                        and native['capturedEpochMs']>=epoch)
-                follow(row['ui']['clockJoin']['nativeAfter'],row['right']['clockJoin']['nativeBefore'])
-            need(proof['last']['clockJoin']['nativeAfter']['capturedEpochMs']>=native_b['capturedEpochMs'])
-            http_a,http_b=a['ui']['packets']['http']['clockAfter'],b['ui']['packets']['http']['clockBefore']
-            need(3000<=http_b['epochMs']-http_a['epochMs']<60000 and 3000<=http_b['monotonicMs']-http_a['monotonicMs']<60000)
+        from ios.adapters.avatar_final_quiet import subject_quiet
+        quiets={subject:subject_quiet([row[subject] for row in actual],self.bindings[subject],run=self.run,role=self.role) for subject in ROLES}
         acquisition=deepcopy(last['acquisition']);native=actual[-1][self.role]['right']['clockJoin']['nativeAfter']
         ref=references[-1]
         return dict(iosAvatarFinalProofVersion=VERSION,runId=self.run,ticket=last['ticket'],phaseInstance=last['phaseInstance'],sequence=sequence,
