@@ -7,6 +7,7 @@ import hashlib
 import json
 import math
 import os
+from copy import deepcopy
 from pathlib import Path
 import re
 import shlex
@@ -228,9 +229,13 @@ class AndroidOpenXrTransport:
                   purpose=purpose, payload=payload)
 
     def stage(self, envelope: dict[str, Any], profile: dict[str, Any], *,
-              now_ms: int | None = None, lifetime_ms: int = 60_000) -> dict[str, Any]:
+              now_ms: int | None = None, lifetime_ms: int = 60_000,
+              before_publish: Callable[[dict[str, Any]], None] | None = None) -> dict[str, Any]:
+        if before_publish is not None and not callable(before_publish):
+            raise TransportError("Pico final publication admission is invalid")
         self.require_exclusive_target()
-        compiled = compile_envelope(envelope, profile)
+        original = deepcopy(envelope) if before_publish is not None else envelope
+        compiled = compile_envelope(original, profile)
         if isinstance(lifetime_ms, bool) or not isinstance(lifetime_ms, int) \
                 or not 1_000 <= lifetime_ms <= MAX_GRANT_LIFETIME_MS:
             raise TransportError("grant lifetime is outside the safety boundary")
@@ -248,14 +253,26 @@ class AndroidOpenXrTransport:
             "channel": CHANNEL,
             "consumer": CONSUMER,
             "bindingProfileSha256": fingerprint,
-            "sessionNonce": envelope["sessionNonce"],
-            "sequence": envelope["sequence"],
+            "sessionNonce": original["sessionNonce"],
+            "sequence": original["sequence"],
             "expiresEpochMs": issued + lifetime_ms,
         }
         # grant.json is the native commit marker. Writing it last prevents the
         # layer from accepting a new grant with an older command envelope.
-        self._atomic_write("commands.json", _canonical(envelope))
-        self._atomic_write("grant.json", _canonical(grant))
+        commands_payload, grant_payload = _canonical(original), _canonical(grant)
+        if before_publish is not None:
+            # Pure host validation of an already durable original intent and
+            # its native/monotonic anchors. No SDK/transport/session reentry,
+            # second intent write, new source query or automatic retry here.
+            # Both validated payloads are fixed before the isolated callback.
+            before_publish(deepcopy(original))
+        self._atomic_write("commands.json", commands_payload)
+        if before_publish is not None:
+            # The first bounded SDK writer can itself take time. Revalidate
+            # the SAME durable intent immediately before native publication;
+            # a stale staged command never receives a new grant commit marker.
+            before_publish(deepcopy(original))
+        self._atomic_write("grant.json", grant_payload)
         return {
             "sequence": compiled["sequence"],
             "sessionNonce": "[redacted]",
