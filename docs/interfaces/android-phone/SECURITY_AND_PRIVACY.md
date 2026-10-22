@@ -3,7 +3,7 @@
 The Phone port remains experimental and has not completed a production security
 or privacy review.
 
-- The APK uses the independent package `org.overte.phone` and an explicit
+- The APK uses the independent application ID `io.github.noah_be.overte.phone` and an explicit
   permission allowlist verified from the merged binary manifest.
 - Microphone permission is optional for world access. Denial must remain a
   supported path.

@@ -230,13 +230,14 @@ class ConsumerTests(unittest.TestCase):
         self.assertEqual(len(commands["candidate"]), 2)
         self.assertIn("-DOVERTE_ANDROID_COMMON_NATIVE=ON", commands["candidate"][0])
         self.assertIn("overte-android-common-native", commands["candidate"][1])
+        self.assertEqual(commands["candidate"][1][-2:], ["--parallel", "4"])
         self.assertIn(str(self.roots.controller / "android/common/native-ci/verify.py"), commands["verify"])
         self.assertFalse(any("conan" == item for command in commands["candidate"] for item in command))
 
     def test_fixed_pico_gradle_has_offline_unsigned_and_no_fdroid_environment(self):
         self.product_config("pico"); self.config["expected_head"] = self.head
         command = W.vectors("pico", self.head, self.config, self.roots)["candidate"][0]
-        for item in ("--offline", "--no-daemon", "--max-workers=2", "-PPICO_UNSIGNED=1", ":picoInterface:assembleRelease"):
+        for item in ("--offline", "--no-daemon", "--max-workers=4", "-PPICO_UNSIGNED=1", ":picoInterface:assembleRelease"):
             self.assertIn(item, command)
         env = W.environment("pico", self.config, self.roots)
         self.assertNotIn("OVERTE_FDROID_CONAN_DIR", env)
@@ -244,6 +245,40 @@ class ConsumerTests(unittest.TestCase):
         self.assertNotIn("conan/bin", env["PATH"])
         self.assertEqual(env["GIT_CONFIG_GLOBAL"], "/dev/null")
         self.assertEqual(env["GIT_CONFIG_NOSYSTEM"], "1")
+
+    def test_android_and_java_preferences_use_fixed_private_home(self):
+        self.config["expected_head"] = self.head
+        self.config["product_map"] = {"sha256": "a" * 64}
+        with mock.patch.dict(os.environ, {"HOME": "/foreign", "ANDROID_USER_HOME": "/foreign/android",
+                                         "JAVA_TOOL_OPTIONS": "-javaagent:/foreign/agent.jar",
+                                         "_JAVA_OPTIONS": "-Duser.home=/foreign"}):
+            for product in ("common", "phone", "pico"):
+                with self.subTest(product=product):
+                    env = W.environment(product, self.config, self.roots)
+                    self.assertEqual(env["HOME"], str(self.roots.scratch / "home"))
+                    self.assertEqual(env["ANDROID_USER_HOME"], str(self.roots.scratch / "home/.android"))
+                    self.assertEqual(env["JAVA_TOOL_OPTIONS"], "-Duser.home=" + str(self.roots.scratch / "home"))
+                    self.assertNotIn("_JAVA_OPTIONS", env)
+                    self.assertNotIn("JDK_JAVA_OPTIONS", env)
+                    self.assertEqual(env["MAKEFLAGS"], "-j4")
+                    for name in ("CMAKE_BUILD_PARALLEL_LEVEL", "PICO_BUILD_JOBS", "OMP_NUM_THREADS", "OMP_THREAD_LIMIT"):
+                        self.assertEqual(env[name], "4")
+
+    def test_protected_verifier_uses_its_own_fresh_java_preferences(self):
+        seen = []
+        def invoke(command, roots, env):
+            seen.append(dict(env))
+        with mock.patch.object(W.os, "getpid", return_value=1), mock.patch.object(W.os, "getuid", return_value=1000), \
+             mock.patch.object(W, "prepare", return_value=(self.roots, self.config, R)), \
+             mock.patch.object(W, "invoke", side_effect=invoke):
+            with self.assertRaisesRegex(ValueError, "consumer JSON"):
+                W.execute("common", self.head, self.config_path, "a" * 64)
+        self.assertEqual(len(seen), 4)
+        self.assertEqual(seen[0]["JAVA_TOOL_OPTIONS"], "-Duser.home=" + str(self.roots.scratch / "home"))
+        self.assertEqual(seen[-1]["HOME"], str(self.roots.scratch / "verifier-home"))
+        self.assertEqual(seen[-1]["ANDROID_USER_HOME"], str(self.roots.scratch / "verifier-home/.android"))
+        self.assertEqual(seen[-1]["JAVA_TOOL_OPTIONS"], "-Duser.home=" + str(self.roots.scratch / "verifier-home"))
+        self.assertFalse((self.roots.scratch / "android-native-execution.json").exists())
 
     def test_failed_candidate_never_invokes_verifier_or_writes_success(self):
         self.config_path.write_bytes(R.canonical(self.config))

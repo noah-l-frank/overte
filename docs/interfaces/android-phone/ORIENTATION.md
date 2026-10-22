@@ -1,17 +1,21 @@
 # Android Phone orientation contract
 
-The Android Phone Activities declare `android:screenOrientation="fullSensor"`.
-The application therefore does not force landscape and Android may rotate it
-through all sensor-reported phone orientations. This source contract is
-separate from physical-device qualification.
+The current `PermissionsActivity` and `PhoneInterfaceActivity` request
+`android:screenOrientation="landscape"` in
+[AndroidManifest.xml](../../../android/phone/apps/phoneInterface/src/main/AndroidManifest.xml).
+This is the source contract reviewed on October 20, 2026; the earlier
+`fullSensor` description is obsolete.
 
 | Classification | Current contract |
 | --- | --- |
-| Supported | Normal full-screen landscape is the primary developer and Personal Alpha acceptance layout. Both landscape directions must preserve safe insets and reachable core controls. |
-| Tolerated, not yet qualified | Portrait and reverse portrait are intentionally accepted by `fullSensor`. Responsive Phone controls must reflow and the lifecycle must remain bounded, but broad physical-device, cutout, IME and rotation evidence is still pending. |
-| Unsupported / no claim | Fixed-orientation guarantees, foldable posture behavior, freeform or split-screen production support, non-phone form factors, and any claim that source-level reflow proves physical-device acceptance. |
+| Supported | Normal full-screen landscape is the declared Phone layout. Verify safe insets, reachable controls, and keyboard behavior on the selected candidate. |
+| Not yet qualified | Reverse-landscape behavior, vendor overrides, rotation transitions, cutouts, and IME behavior need their own current-device evidence. |
+| Unsupported / no claim | Portrait and reverse portrait are not declared supported modes by these Activities. Foldable, freeform, split-screen, and non-phone layouts have no general production claim. |
 
-Documentation must not describe portrait as disabled or impossible while the
-manifest uses `fullSensor`. It may describe portrait as experimental or
-unqualified. Emulator evidence also cannot establish physical cutout, vendor,
-GPU, thermal, audio or page-size behavior.
+Android defines `landscape` separately from `sensorLandscape` and `fullSensor`;
+windowing/device policy can also affect how a request is applied. See the
+[Android activity orientation reference](https://developer.android.com/guide/topics/manifest/activity-element#screen).
+Responsive QML or an emulator result does not by itself establish a different
+orientation contract or physical-device acceptance. A future orientation change
+must update the manifest, documentation, checker, and relevant runtime evidence
+together.

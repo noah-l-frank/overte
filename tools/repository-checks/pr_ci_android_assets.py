@@ -23,6 +23,7 @@ ROOT = Path(__file__).resolve().parents[2]
 POLICY = ".github/pr-ci-android-native.json"
 NATIVE_KINDS = frozenset({"image", "sdk", "runtime", "qualification", "controller"})
 KINDS = NATIVE_KINDS | {"groovy"}
+CAPACITY_PHASES = frozenset({"bootstrap", "prepare", "execute"})
 MAX_ASSET = 2 * 1024 ** 3 - 1
 SHA = re.compile(r"[0-9a-f]{64}")
 
@@ -61,7 +62,7 @@ def policy(root=ROOT, *, qualified=True):
         return value
     require(set(value["assets"]) == KINDS and set(value["products"]) == {"common", "phone", "pico"},
             "qualified Android runtime is missing an owning product or immutable payload")
-    require(type(value["capacity"]) is dict and set(value["capacity"]) == {"prepare", "execute"},
+    require(type(value["capacity"]) is dict and set(value["capacity"]) == CAPACITY_PHASES,
             "qualified Android runtime is missing measured capacity budgets")
     for limit in value["capacity"].values():
         CAP.budget(limit)

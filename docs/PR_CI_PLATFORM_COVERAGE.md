@@ -50,14 +50,38 @@ APK, Gradle configuration, Android native cross-compilation or a device run.
 Relevant native/host regressions continue to run. Linux C++ test results must
 not be described as Android ABI/native-build evidence.
 
-The current manual Phone/Pico builds deliberately use trusted self-hosted
-runners and must not receive untrusted PR code. They are not a safe substitute
-for a hosted PR build. The current Pico producer also consumes a frozen Shared
-source graph; its legacy `deps --download` path can use `--build=missing` and
-rebuild Qt. A future automatic Android-native owner requires a separately
-qualified immutable SDK/NDK/Gradle/Conan/source-graph runtime and an offline
-`--build=never` acquisition/execution contract before it can claim APK/native
-acceptance. The Java tier does not silently assert that missing guarantee.
+## Android native and unsigned packages
+
+The automatic Android native consumer is qualified locally against three
+separate baselines: the parent-owned common native harness, Phone and Pico.
+`android-main` and `android-vr` compile and link the common production native
+closure; they do not claim a child application package. `android-phone` and
+`android-vr-pico` build their own unsigned APKs and verify package identity,
+AArch64 ELF files, 16 KiB alignment and packaged native dependency closure.
+These are build/package results, not device acceptance or a hosted-run result.
+
+The protected policy binds the prepared runtime, SDK 36/Build-Tools 36.0.0,
+NDK 27.3.13750724, toolchain image, verifier and qualification assets by exact
+SHA256 and byte count. Release hosting itself is not an immutability guarantee;
+every download and restored payload must match the protected identities.
+Changed owning dependency declarations fail before asset setup and require a
+new qualified dependency graph. PR execution never resolves or builds missing
+Conan dependencies.
+
+Selected builds run offline as a nonroot user with four CPUs and 8 GiB of
+memory, read-only dependency/SDK mounts, and private writable build, Java and
+Android preference directories. Capacity admission checks disk space, inodes
+and available memory against derived policy budgets before expensive setup
+and again before execution. Missing capacity or proof stops the owner. Narrow
+Java/resource, package-lock and infrastructure-fixture changes retain their
+selected checks without requesting an unrelated native build.
+
+GitHub Actions remain disabled until separate maintainer activation. Local
+baseline qualification does not establish cloud capacity or a successful
+hosted execution. The historical manual self-hosted Phone/Pico workflows remain
+separate diagnostics and must not receive untrusted PR code. See
+[Android native infrastructure](ANDROID_NATIVE_CI.md) for the acceptance boundary.
+
 Production Kotlin sources are explicitly refused by the Java compiler owner;
 they require a real Kotlin/target compile owner. An existing `.java` inventory
 must never make an added `.kt` file appear compiled.

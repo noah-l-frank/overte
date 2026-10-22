@@ -11,7 +11,12 @@ Please read the [general build guide](BUILD.md) for information on dependencies 
 
 ~~You can use the [Overte Builder](https://github.com/overte-org/overte-builder) to build on Linux more easily. Alternatively, you can follow the manual steps below.~~ (Currently outdated.)
 
-This documentation assumes that you are running our current target distribution, which is currently Ubuntu 22.04. The target distribution is usually the latest Ubuntu LTS still receiving standard support, though we may upgrade a little sooner if we require certain newer packages. Ubuntu version numbers are date codes and standard support is 5 years, meaning that Ubuntu 22.04 leaves standard support after around 2027-04.
+The package examples below use Debian/Ubuntu and retain the Ubuntu 22.04 manual
+build baseline. The fork's qualified Linux CI environment is Ubuntu 24.04; see
+the [native lane guide](tools/native-tests/README.md) for its prepared image and
+locked dependencies. These are separate build environments, not a claim that
+every distribution or toolchain has been qualified. Linux is maintained on
+`main` in this personal hobby fork.
 
 ## Install build tools:
 
@@ -104,9 +109,10 @@ git tag
 
 The next step is setting up conan
 
-First, create a conan profile
+First, create a default Conan profile if this Conan home does not already have
+one. Inspect an existing profile instead of overwriting its compiler settings:
 ```bash
-conan profile detect --force
+conan profile detect
 ```
 
 Next, add the overte remote to conan

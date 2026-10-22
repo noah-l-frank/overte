@@ -119,11 +119,13 @@ class AssetTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             A.policy(self.root)
         limit = {name: 1 for name in A.CAP.KEYS}
-        value['capacity'] = {'prepare': limit, 'execute': limit}
+        value['capacity'] = {phase: limit for phase in ('bootstrap', 'prepare', 'execute')}
         path.write_text(json.dumps(value))
         self.assertEqual(A.policy(self.root)['capacity'], value['capacity'])
-        for capacity in ({'prepare': limit}, {'prepare': limit, 'execute': {}},
-                         {'prepare': limit, 'execute': dict(limit, memory_available_bytes=True)}):
+        for capacity in ({'prepare': limit}, {'prepare': limit, 'execute': limit},
+                         dict(value['capacity'], bootstrap={}),
+                         dict(value['capacity'], prepare=dict(limit, memory_available_bytes=True)),
+                         dict(value['capacity'], unexpected=limit)):
             path.write_text(json.dumps(value | {'capacity': capacity}))
             with self.subTest(capacity=capacity), self.assertRaises(ValueError):
                 A.policy(self.root)

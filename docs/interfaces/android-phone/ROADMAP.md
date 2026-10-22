@@ -1,57 +1,51 @@
 # Android Phone roadmap
 
-- **Priority:** NOW; first product milestone
-- **Maturity:** Emulator-verified and build-ready; physical-device acceptance
-  incomplete
-- **Last verified:** Host and x86_64 emulator evidence at `d22f491e9c`,
-  2026-08-24, Linux; physical-device evidence is still required
+- **Priority:** NOW, alongside iOS and Pico under `CLIENT-PARITY`.
+- **Maturity:** Personal alpha completed; current-artifact cross-client
+  acceptance remains separate.
+- **Status reviewed:** 2026-10-20 against the shared roadmap and live milestones,
+  not a new phone-test result.
 
 ## Current milestone
 
-`PHONE-P1` — Personal Alpha: a repeatable private build that completes the
-core Overte journey on one named ARM64 Android phone without a critical
-failure.
+[PHONE-P2 — Genuine Cross-Client Feature Parity](https://github.com/noah-l-frank/overte/milestone/4).
+The [shared roadmap](https://github.com/noah-l-frank/overte/blob/main/docs/ROADMAP.md)
+and [feature contract](https://github.com/noah-l-frank/overte/blob/main/docs/interfaces/FEATURE_PARITY.md)
+own product order and required outcomes. Preserve working Phone behavior while
+bringing useful features to parity with iOS and Pico.
 
 ## Exit criteria
 
-- [ ] At a named source revision, the documented Linux path builds the ARM64
-  APK, installs it on one named phone, and launches it successfully.
-- [ ] One representative world loads and renders usefully in the primary
-  landscape layout, including the named device's cutout and safe areas; the
-  tolerated portrait path does not crash or expose unreachable core controls.
-- [ ] Touch movement, camera control, selection, and one representative object
-  interaction work for the core journey.
-- [ ] Tablet controls, text entry, and the Android system keyboard remain usable
-  through focus and resize transitions.
-- [ ] Playback, mute, microphone permission allowed, and microphone permission
-  denied each behave safely and predictably.
-- [ ] Background/foreground, deep-link entry, application restart, and clean
-  exit do not leave the app in an unusable state.
-- [ ] A documented 30-minute device session completes without a crash, critical
-  thermal behavior, uncontrolled memory growth, or an unusable battery/power
-  response; known limitations are recorded.
+- The selected shared feature outcomes are usable through normal client startup
+  and Phone-appropriate controls, as defined by PHONE-P2 and the shared contract.
+- Exact integrated source, APK, installation identity, and required phone
+  journeys are bound to the same candidate.
+- Negative, lifecycle, privacy, and remaining platform limitations are recorded;
+  host or emulator success is not substituted for required device evidence.
 
 ## Single next action
 
-Resolve and recheck the remaining Phone acceptance blockers on an identified
-physical-device candidate, recording candidate-bound core-journey, text-input,
-and remote-audio evidence before final acceptance.
+Qualify the integrated Phone candidate through the regular parent hierarchy and
+perform the remaining PHONE-P2 acceptance journeys on its exact installed APK,
+recording the first blocking failure and artifact/source binding.
 
-## Blockers
+## Completed baseline and later work
 
-- Runtime evidence requires an authorized physical ARM64 Android phone; emulator
-  evidence cannot satisfy `PHONE-P1`.
+The maintainer completed [PHONE-P1 — Personal Alpha](https://github.com/noah-l-frank/overte/milestone/2)
+on September 25, 2026. Its eleven acceptance issues are closed. Retain that
+historical baseline without treating it as qualification of every newer build.
+Broader Adreno/Mali coverage belongs to the later `PHONE-V1` work; it is not a
+reason to reopen the completed personal alpha.
 
-## Non-goals
+## Execution boundary and non-goals
 
-- Adreno-plus-Mali coverage or a broad device matrix, which belongs to
-  `PHONE-V1`;
-- production qualification of portrait/reverse-orientation layouts, 32-bit
-  devices, store publication, and release support;
-- iPad, macOS, Quest, or optional feature-parity work during `PHONE-P1`; and
-- treating emulator success as physical-device acceptance.
+The maintainer's hardware runs use the private Proxmox Jenkins laboratory;
+local builds, host contracts, and emulator tests do not require access to it.
+The workstation device lab is retired. Broad device coverage, production
+portrait qualification, 32-bit support, and store/release support are not
+implied by the current parity milestone.
 
-## Evidence
+## References
 
 - [Development status](DEVELOPMENT_STATUS.md)
 - [Testing](TESTING.md)

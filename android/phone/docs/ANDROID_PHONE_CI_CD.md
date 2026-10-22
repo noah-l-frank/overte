@@ -3,13 +3,27 @@
 The Android Phone pipeline separates untrusted device-free checks from trusted
 APK builds. Neither workflow invokes ADB or changes a connected device.
 
-## Pull-request and branch CI
+## Selected host and platform CI
 
-`.github/workflows/android-tests.yml` runs the modular fast, contract, coverage,
-mutation, Robolectric, and regression tiers on GitHub-hosted Ubuntu runners.
-It has read-only permissions, does not persist checkout credentials, pins every
-third-party action to an immutable commit, cancels superseded pull-request runs,
-and retains reports for seven days.
+The central selective PR controller in `repository-checks.yml` selects shared
+and branch-owned consumers and reports `source-policy` and `required-ci`.
+The Android topology result remains separate. See the
+[selective CI guide](https://github.com/noah-l-frank/overte/blob/main/docs/PR_CI.md)
+and [platform coverage](https://github.com/noah-l-frank/overte/blob/main/docs/PR_CI_PLATFORM_COVERAGE.md)
+for the current execution contract and native prerequisites. Actions was disabled
+when inspected on October 22, 2026; local qualification is not a hosted run.
+`.github/workflows/android-tests.yml`, named `Android tests`, retains its own
+relevant branch-push, scheduled, and manual entry points; it is not a standalone
+PR trigger. Its job conditions select the fast, contract, coverage, mutation,
+Robolectric, and regression tiers rather than running every tier on every event.
+
+Host checks use GitHub-hosted Ubuntu, read-only repository permissions,
+credential-free checkout, immutable third-party action pins, and explicit
+report retention. See the
+[shared CI overview](https://github.com/noah-l-frank/overte/blob/main/docs/portal/testing/github-actions.md)
+for current required result names and activation boundaries. Private self-hosted
+build runners and Proxmox Jenkins hardware jobs belong to the maintainer's hobby
+setup, not a public service or a prerequisite for local host checks.
 
 ## Trusted build
 

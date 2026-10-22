@@ -40,14 +40,15 @@ ENVIRONMENT = {
     "LANG": "C.UTF-8", "LC_ALL": "C.UTF-8", "TZ": "UTC", "CI": "true",
     "PYTHONDONTWRITEBYTECODE": "1", "PYTHONNOUSERSITE": "1",
     "JAVA_HOME": "/usr/lib/jvm/java-17-openjdk-amd64",
+    "ANDROID_USER_HOME": "/scratch/home/.android", "JAVA_TOOL_OPTIONS": "-Duser.home=/scratch/home",
     "ANDROID_SDK_ROOT": "/opt/android-sdk",
     "ANDROID_HOME": "/opt/android-sdk",
     "ANDROID_NDK_HOME": "/opt/android-sdk/ndk/27.3.13750724",
     "GRADLE_USER_HOME": "/scratch/gradle-home",
     "CONAN_HOME": "/attempt/conan",
     "OVERTE_QT_COMPOSED_SOURCE": "/attempt/qt-composed",
-    "CMAKE_BUILD_PARALLEL_LEVEL": "2", "MAKEFLAGS": "-j2",
-    "PICO_BUILD_JOBS": "2", "OMP_NUM_THREADS": "2", "OMP_THREAD_LIMIT": "2",
+    "CMAKE_BUILD_PARALLEL_LEVEL": "4", "MAKEFLAGS": "-j4",
+    "PICO_BUILD_JOBS": "4", "OMP_NUM_THREADS": "4", "OMP_THREAD_LIMIT": "4",
 }
 
 
@@ -89,7 +90,7 @@ def docker_command(candidate, command, *, runtime, sdk, scratch, controller, qua
             "--name=" + name, "--read-only", "--cap-drop=ALL",
             "--security-opt=no-new-privileges:true", "--user=" + str(uid) + ":" + str(gid),
             "--workdir=/attempt/source", "--network=none", "--ipc=private", "--cgroupns=private",
-            "--pids-limit=512", "--memory=8g", "--memory-swap=8g", "--cpus=2",
+            "--pids-limit=512", "--memory=8g", "--memory-swap=8g", "--cpus=4",
             "--ulimit=nofile=8192:8192", "--ulimit=core=0", "--log-driver=none",
             "--tmpfs=/tmp:rw,nosuid,nodev,size=2g,mode=1777"]
     mounts = ((runtime, "/attempt", True), (runtime, "/prepared", True),

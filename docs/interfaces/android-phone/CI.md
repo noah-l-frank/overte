@@ -3,7 +3,22 @@
 The active product branch is `android-phone`; the retired
 `feature/android-phone-support` branch must not be used.
 
-- `Android tests` provides device-free host and contract gates.
+The central selective PR controller in `repository-checks.yml` selects shared
+and branch-owned consumers and reports `source-policy` and `required-ci`.
+`Enforce Android parent sync path` remains a separate topology result. These
+are the live required names read on October 22, 2026; Actions was disabled at
+that inspection. See the
+[shared CI overview](https://github.com/noah-l-frank/overte/blob/main/docs/portal/testing/github-actions.md)
+and [selective CI guide](https://github.com/noah-l-frank/overte/blob/main/docs/PR_CI.md)
+for selection and acceptance. The workflows below are separate entry points;
+local qualification does not establish a hosted run.
+
+This personal hobby fork's isolated build runners and Proxmox Jenkins hardware
+jobs belong to the maintainer. They are not contributor services or prerequisites
+for local host and emulator checks; the workstation device lab is retired.
+
+- `Android tests` provides selected device-free checks on relevant branch
+  pushes, schedules, and manual runs; it has no standalone PR trigger.
 - `Android Phone trusted build` is manual and accepts `android-phone` or an
   immutable Phone alpha tag on the isolated build runner.
 - `Android Phone release candidate` produces an unsigned, store-neutral,

@@ -6,34 +6,36 @@ SPDX-License-Identifier: Apache-2.0
 
 # Overte Server Packaging Scripts
 
-Collection of scripts to create server distribution packages. Most of these scripts assume
-that the following directory structure exists:
+These scripts create Linux server packages from an existing native build.
+Run them from the repository's `pkg-scripts` directory: the default `OVERTE`
+root is `realpath ..`, or an explicit `OVERTE` override. It is not `../..`.
 
-```
-base folder/    git checkout
-	build/		result of cmake build
-```
+The scripts expect the flat Release binary layout used by
+[the current server workflow](../.github/workflows/linux_server_build.yml),
+including `build/domain-server/domain-server` and
+`build/assignment-client/assignment-client`. That layout is different from the
+Ninja Multi-Config paths in the manual Linux build guide. Use the workflow's
+matching Conan/CMake configuration before packaging. The
+[container guide](../tools/ci-scripts/README.md) records its image selection.
 
-These scripts assume that the current directory is the pkg-scripts folder inside of the source directory
-and that the base folder can be reached by going to `../..`. This may not work if pkg-scripts is a symlink; adding an OVERTE=~/Overte to the beginning of the commandline will override where it looks for the base folder.
+Version/environment values below are examples, not the current release identity.
+Packaging can install build prerequisites and write staging trees; building a
+package does not publish a release or require the private device laboratory.
 
-## Ubuntu
+## Debian/Ubuntu packages
 ```
-DEBVERSION="2021.1.3-ubuntu-18.04" DEBEMAIL="your-email@somewhere.com" DEBFULLNAME="Your Full Name" ./make-deb-server
+DEBVERSION="0.0.0-local" DEBEMAIL="your-email@somewhere.com" DEBFULLNAME="Your Full Name" ./make-deb-server
 ```
 
 This script will retrieve the current git commit date and hash and append it to your specified version.
 It will attempt construct a .deb file in the pkg-scripts folder
 
-## Amazon Linux 2
+## RPM packages
 
-You will need to install `rpm-build` if you have not already.
+Use the RPM build toolchain for the selected distribution; the current CI matrix
+uses Fedora rather than the historical Amazon Linux 2 example. Then run the script.
 ```
-sudo yum install rpm-build
-```
-Then, run the build script.
-```
-RPMVERSION="Semver e.g. 2021.1.3" ./make-rpm-server
+RPMVERSION="0.0.0-local" ./make-rpm-server
 ```
 
 This script will retrieve the current git commit date and hash and append it to your specified version.
@@ -70,7 +72,6 @@ overte-domain-server@.service
 overte-entity-script-server@.service
 overte-entity-server@.service
 overte-message-mixer@.service
-overte-domain-server@.service
 overte-server@.target - used to launch/shutdown the prior services
 ```
 The services are "template" services designed

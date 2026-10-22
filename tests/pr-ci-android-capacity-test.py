@@ -56,6 +56,32 @@ class CapacityTests(unittest.TestCase):
         args.update(overrides)
         return C.admit(self.budget, "/workspace/future", "/workspace/cache/future", "/docker", **args)
 
+    def test_remaining_prepare_budget_does_not_charge_completed_setup_and_cache_staging(self):
+        # Scaled explicit lifecycle model, not actual build capacity evidence.
+        build, transport, extracted, setup, docker = 100, 30, 60, 40, 20
+        bootstrap = build + 2 * transport + extracted + setup
+        prepare = build + transport + extracted
+        for shared in (True, False):
+            self.paths['/docker'] = 1 if shared else 2
+            for restored in (False, True):
+                with self.subTest(shared=shared, cache_restored=restored):
+                    initial = bootstrap + (docker if shared else 0)
+                    self.space = {name: (initial if shared or name != '/docker' else docker, 100, 80)
+                                  for name in self.space}
+                    self.budget.update(workspace_free_bytes=bootstrap, docker_free_bytes=docker)
+                    self.admit()
+                    remaining = initial - setup - (transport if restored else 0)
+                    self.space = {name: (remaining if shared or name != '/docker' else docker, 100, 80)
+                                  for name in self.space}
+                    with self.assertRaisesRegex(C.CapacityError, 'free bytes'):
+                        self.admit()  # Reusing bootstrap here was the false failure.
+                    self.budget['workspace_free_bytes'] = prepare
+                    self.admit()
+                    required = prepare + (docker if shared else 0)
+                    self.space['/workspace/cache'] = (required - 1, 100, 80)
+                    with self.assertRaisesRegex(C.CapacityError, 'free bytes'):
+                        self.admit()  # Downloads/extraction still require admission.
+
     def test_same_device_combines_budgets_and_deduplicates_measurements(self):
         result = self.admit()
         self.assertTrue(result["workspace_and_docker_share_filesystem"])

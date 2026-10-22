@@ -19,8 +19,9 @@ STALE_TEXT = {
     "./build-phone.sh": "the checked-in Phone entry point is ./build.sh",
     "android/apps/phoneInterface": "the module is below android/phone/apps",
     "settings-phone.gradle": "the checked-in settings file is android/phone/settings.gradle",
-    "portrait support, 32-bit": "portrait is tolerated by fullSensor, not disabled",
-    "Portrait, 32-bit": "portrait is tolerated by fullSensor, not disabled",
+    "portrait is accepted by the current": "the manifest currently requests landscape",
+    "Portrait and reverse portrait are intentionally accepted by `fullSensor`":
+        "the manifest currently requests landscape",
 }
 
 # Each public command family is bound to the exact executable in a clean checkout.
@@ -53,9 +54,9 @@ REQUIRED_PATHS = (
 )
 
 ORIENTATION_MARKERS = (
-    'android:screenOrientation="fullSensor"',
+    'android:screenOrientation="landscape"',
     "| Supported |",
-    "| Tolerated, not yet qualified |",
+    "| Not yet qualified |",
     "| Unsupported / no claim |",
 )
 
@@ -105,8 +106,8 @@ def validate() -> list[str]:
     manifest = (ROOT / "android/phone/apps/phoneInterface/src/main/AndroidManifest.xml").read_text(
         encoding="utf-8"
     )
-    if manifest.count('android:screenOrientation="fullSensor"') != 2:
-        errors.append("manifest: expected exactly two fullSensor Phone Activity declarations")
+    if manifest.count('android:screenOrientation="landscape"') != 2:
+        errors.append("manifest: expected exactly two landscape Phone Activity declarations")
 
     workflow = (ROOT / "docs/interfaces/android-phone/WORKING_SYSTEM.md").read_text(encoding="utf-8")
     for marker in WORKFLOW_MARKERS:
@@ -119,7 +120,7 @@ def self_test() -> list[str]:
     fixtures = {
         "stale-build": "cd android\n./build-phone.sh doctor\n",
         "stale-apk": "android/apps/phoneInterface/build/outputs/apk/debug/app.apk",
-        "stale-orientation": "Portrait, 32-bit devices, and release are outside scope.",
+        "stale-orientation": "portrait is accepted by the current fullSensor contract.",
     }
     errors: list[str] = []
     for name, text in fixtures.items():

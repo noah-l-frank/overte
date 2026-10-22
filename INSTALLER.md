@@ -11,10 +11,16 @@ SPDX-License-Identifier: Apache-2.0
 
 Follow the [build guide](BUILD.md) to figure out how to build Overte for your platform.
 
+This page describes inherited desktop packaging. It does not publish an official
+Overte release or establish store readiness for this personal hobby fork.
+Android and iOS use their [product-owned build and release guides](docs/interfaces/README.md).
+
 During generation, CMake should produce an `install` target and a `package` target.
 
 The `install` target will copy the Overte targets and their dependencies to your `CMAKE_INSTALL_PREFIX`.
-This variable is set by the `project(hifi)` command in `CMakeLists.txt` to `C:/Program Files/hifi` and stored in `build/CMakeCache.txt`
+Inspect `CMAKE_INSTALL_PREFIX` in your own `build/CMakeCache.txt`; the root project
+is named `overte`. Choose a writable staging prefix for local packaging rather
+than assuming a historical `C:/Program Files/hifi` installation.
 
 ## Packaging
 
@@ -45,14 +51,14 @@ To produce an executable installer on Windows, the following are required:
           1. Copy `Plugins\nsProcess.dll` to `C:\Program Files (x86)\NSIS\Plugins\x86-ansi\`
           1. Copy `Plugins\nsProcessW.dll` to `C:\Program Files (x86)\NSIS\Plugins\x86-unicode\` and rename it to `nsProcess.dll`
 
-      1. [ApplicationID plug-in for Nullsoft]() - 1.0
+      1. [ApplicationID plug-in for Nullsoft](https://github.com/connectiblutz/NSIS-ApplicationID) - use the linked package
           1. Download [`Pre-built DLLs`](<https://github.com/connectiblutz/NSIS-ApplicationID/releases/download/1.1/NSIS-ApplicationID.zip>)
           1. Extract Zip
           1. Copy `Release\ApplicationID.dll` to `C:\Program Files (x86)\NSIS\Plugins\x86-ansi\`
           1. Copy `ReleaseUnicode\ApplicationID.dll` to `C:\Program Files (x86)\NSIS\Plugins\x86-unicode\`
 
       1. [Node.JS and NPM](https://nodejs.org/en/download/)
-          1. Install version 10.15.0 LTS (or greater)
+          1. Use the Node.js 22 reference version in [BUILD.md](BUILD.md).
 #### Code Signing (optional)
 
 For code signing to work, you will need to set the `HF_PFX_FILE` and `HF_PFX_PASSPHRASE` environment variables to be present during CMake runtime and globally as we proceed to package the installer.
@@ -60,7 +66,7 @@ For code signing to work, you will need to set the `HF_PFX_FILE` and `HF_PFX_PAS
 #### Creating the Installer
 
 1.  Perform a clean cmake from a new terminal.
-1.  Open the `overte.sln` solution with elevated (administrator) permissions on Visual Studio and select the **Release** configuration.
+1.  Open the `overte.sln` solution in Visual Studio and select **Release**. Use a writable build/staging directory; installing into a protected system directory is a separate elevation step.
 1.  Build the solution.
 1.  Build `packaged-server-console` (found under **Server Console**)
     This will add 2 folders to `build\server-console\` -

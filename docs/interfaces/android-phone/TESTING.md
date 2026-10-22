@@ -1,5 +1,12 @@
 # Test Overte for Android phones
 
+Local host and emulator checks are separate from physical-device acceptance.
+Hardware command examples below are prepared-agent/adapter references. The
+maintainer runs device tests through the private Proxmox Jenkins laboratory,
+using the prepared `overte-jenkins` wrapper; the workstation lab is retired.
+That personal infrastructure is not required for the host checks below. See
+[the operator boundary](https://github.com/noah-l-frank/overte/blob/main/docs/portal/jenkins/index.md).
+
 ## Device-free host tests
 
 ```bash
@@ -40,8 +47,9 @@ ANDROID_SERIAL=<serial> ./tests/phone-device-test.sh
 ```
 
 The test validates the APK and target before installation, exercises bounded
-lifecycle and deep-link behavior, and records only aggregate diagnostics. Test
-at least one Adreno and one Mali device. Emulator evidence cannot replace
+lifecycle and deep-link behavior, and records only aggregate diagnostics. Broader `PHONE-V1` coverage
+requires separate Adreno and Mali evidence; current parity acceptance remains
+bound to its selected candidate and target. Emulator evidence cannot replace
 physical 4-KiB/16-KiB, graphics, audio, thermal, battery, cutout, or vendor
 validation.
 
