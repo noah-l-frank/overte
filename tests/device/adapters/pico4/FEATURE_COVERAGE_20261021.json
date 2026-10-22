@@ -1075,7 +1075,14 @@
       "sources": [
         "tests/device/adapters/pico4/snapshot.py",
         "tests/device/adapters/android_snapshot_files.py",
-        "tests/device/feature_journeys/SNAPSHOT_SOURCE.md"
+        "tests/device/feature_journeys/SNAPSHOT_SOURCE.md",
+        "tests/device/adapters/pico4/snapshot_originals.py",
+        "tests/device/adapters/pico4/SNAPSHOT_ORIGINALS.md",
+        "tests/device/native/SnapshotCaptureOriginals.h",
+        "tests/device/self_tests/test_pico_snapshot_originals.py",
+        "tests/device/contracts/snapshot/test_snapshot_originals.py",
+        "tests/device/contracts/snapshot/snapshot-originals-test.cpp",
+        "android/vr/pico/tests/device/test_snapshot_originals.py"
       ],
       "declaredCheckpoints": 18,
       "inputVerbs": [
@@ -1125,7 +1132,7 @@
         "Delete only actual owned private/saved/received/uploaded originals",
         "Restore permissions/preferences and observe quiet absent leases"
       ],
-      "nextExecutableStep": "Expose actual Pico SnapshotStorage backend/lease state and bind its real OS Save/Share routes; provide independently owned receiving/upload endpoints. Existing private snapshot.files and a chooser ACK cannot stand in for external original deliveries.",
+      "nextExecutableStep": "Compose the existing normal PicoSnapshot/Navigation and AndroidSnapshotFiles/decoder paths with the now available original accepted-native-request/callback/weak-lease source in a durable Still-PNG owner. Native accepted requests do not establish the earlier 350ms Script-pending/cancel history; normal HMD still PNG reads one composite region and cannot prove two eyes. Script/Qt/OS Save/Share/upload and original whole-resource/file retirement remain required.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     },

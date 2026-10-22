@@ -1166,3 +1166,21 @@ load; no clocks, freshness bounds or checks were weakened. The final agent
 rerun and this integrated root selection pass, without claiming a continuously
 green earlier sequence. Whole Chat factory/public/Qt/cache/process/journal
 closure remains incomplete.
+
+
+## Original accepted Snapshot requests and weak resources
+
+The [Snapshot source continuation](SNAPSHOT_ORIGINALS.md) retains actual accepted
+native request births, emitted native status callbacks and original weak
+request lifetime. Actual GUI-owned native timer/projection/image resources use
+the existing bounded query queue and private Probe channel. Original requests
+are not created, cancelled, retained strongly or removed by observation.
+The current full application, renderer and device remain unqualified.
+
+Root coverage/source groups pass 2/94 in 6.08s, including eight reader/factory/
+Probe/native checks and original Qt5 Snapshot/TSI method bodies for Pico/non-Pico
+and runtime gate on/off. This does not establish the earlier 350ms Script
+pending/cancel history, ordinary output images or OS delivery. The actual normal
+HMD still path reads one composite region, not an independently measured pair
+of eyes. The normal Still-PNG owner is being composed with original file bytes
+and the existing decoder; no complete Snapshot capability is registered.
