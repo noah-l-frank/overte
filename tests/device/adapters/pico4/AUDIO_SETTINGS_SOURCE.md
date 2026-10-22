@@ -38,7 +38,18 @@ late fresh value. The host checks cover blocked worker/GUI queues, destruction
 before delivery and child destruction between original script/device reads.
 
 Each component has its own timestamp recorded before its first getter. A later
-envelope cannot refresh an earlier component value.
+envelope cannot refresh an earlier component value. Version 2 includes the
+original AudioClient preview lifetime DTO in the same bounded client-thread
+observation. Actual callback registration, entry, completion and final captured
+lease destruction, timer identity/liveness/activity, and byte capacities remain
+original facts. The strict lifetime reader validates complete cycle membership
+and immutable event history. Empty PCM, an elapsed requested delay or a dead
+receiver cannot retire a callback.
+
+Historical version 1 remains readable. A live source cannot change between
+versions; version 1 has no lifetime evidence and cannot acquire it by migration.
+The native receiver identity is retained independently of the existing Audio
+role identity. See [the native lifetime source](AUDIO_PREVIEW_NATIVE_LIFETIME.md).
 
 The strict reader preserves original raw bytes and SHA-256, fixes PID, native
 instance, run, role identities and monotone cursors, and supports passive

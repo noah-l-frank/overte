@@ -9,7 +9,8 @@ import uuid
 from adapters.native_feature_observation import LIMIT,decode,exact,fresh,integer,need,number
 from adapters.pico4.lifecycle_source import nonce
 
-VERSION=1
+VERSION=2
+READS=(1,2)
 FILE='feature-audio-settings.json'
 ACTION='feature-audio-settings-observe'
 ROLES=('client','devices','input','nodes','script')
@@ -21,13 +22,15 @@ NUMBERS=('noiseReductionThreshold','inputVolume','localInjectorGain','systemInje
 
 def validate(value,request,pid,epoch):
     exact(value,{'audioSettingsVersion','commandId','runId','instance','sequence','processId','capturedEpochMs','source'})
-    need(type(value['audioSettingsVersion']) is int and value['audioSettingsVersion']==VERSION
+    need(type(value['audioSettingsVersion']) is int and value['audioSettingsVersion'] in READS
         and nonce(value['commandId']) and value['commandId']==request['commandId']
         and nonce(value['runId']) and value['runId']==request['runId'] and nonce(value['instance'])
         and integer(value['sequence'],1) and integer(value['processId'],1) and value['processId']==pid)
     fresh(value['capturedEpochMs'],epoch)
-    source=value['source'];exact(source,{'complete','hmd','native','properties','mixerGains','inputPeakValuesEnabled',
-        *CLOCKS,*(role+'Id' for role in ROLES)})
+    source=value['source'];fields={'complete','hmd','native','properties','mixerGains','inputPeakValuesEnabled',
+        *CLOCKS,*(role+'Id' for role in ROLES)}
+    if value['audioSettingsVersion']==2:fields.add('previewLifetime')
+    exact(source,fields)
     need(source['complete'] is True and source['hmd'] is True and type(source['inputPeakValuesEnabled']) is bool
         and all(nonce(source[role+'Id']) for role in ROLES)
         and len({source[role+'Id'] for role in ROLES})==len(ROLES))
@@ -42,6 +45,9 @@ def validate(value,request,pid,epoch):
     native=source['native'];exact(native,{'recording','muted','localEcho','serverEcho','previewActive','previewCycle'})
     need(all(type(native[key]) is bool for key in ('recording','muted','localEcho','serverEcho','previewActive'))
         and integer(native['previewCycle']))
+    if value['audioSettingsVersion']==2:
+        from adapters.audio_preview_lifetime import validate as lifetime
+        lifetime(source['previewLifetime'],source['clientCapturedEpochMs'],native['previewCycle'])
     exact(source['mixerGains'],{'avatarGain','injectorGain'})
     need(all(number(v,-1e6,1e6) for v in source['mixerGains'].values()))
     return value
@@ -49,12 +55,15 @@ def validate(value,request,pid,epoch):
 
 def accept(previous,current):
     if previous is not None:
-        need(all(current[key]==previous[key] for key in ('instance','processId','runId'))
+        need(all(current[key]==previous[key] for key in ('instance','processId','runId','audioSettingsVersion'))
             and current['sequence']>previous['sequence'] and current['capturedEpochMs']>=previous['capturedEpochMs']
             and current['commandId']!=previous['commandId']
             and all(current['source'][role+'Id']==previous['source'][role+'Id'] for role in ROLES)
             and all(current['source'][key]>=previous['source'][key] for key in CLOCKS)
             and current['source']['native']['previewCycle']>=previous['source']['native']['previewCycle'])
+        if current['audioSettingsVersion']==2:
+            from adapters.audio_preview_lifetime import accept as lifetime
+            lifetime(previous['source']['previewLifetime'],current['source']['previewLifetime'])
     return deepcopy(current)
 
 

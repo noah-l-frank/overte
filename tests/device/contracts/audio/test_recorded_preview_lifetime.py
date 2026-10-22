@@ -2,7 +2,9 @@
 """Whole original AudioClient bodies with real Qt timers and explicit audio seams."""
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
+import json
 import os
+import sys
 from pathlib import Path
 import re
 import shlex
@@ -35,7 +37,7 @@ scripting=methods((ROOT/'libraries/audio/src/AudioScriptingInterface.cpp').read_
     ('setLocalAudioInterface','startRecordedVoiceTest','cancelRecordedVoiceTest','getRecordedVoiceTestStatus','updateRecordedVoiceTestStatus'))
 template=Path(__file__).with_name('recorded-voice-native-fixture.cpp').read_text()
 fixture=template.replace('@STATE@',state).replace('@METHODS@',actual).replace('@SCRIPTING@',scripting)
-fixture=fixture.replace('#include <QCoreApplication>','#include <QCoreApplication>\n#include "libraries/audio-client/src/RecordedPreviewDeferred.h"\n#include "libraries/audio-client/src/RecordedPreviewObservation.h"')
+fixture=fixture.replace('#include <QCoreApplication>','#include <QCoreApplication>\n#include <QJsonDocument>\n#include <cstdio>\n#include "libraries/audio-client/src/RecordedPreviewDeferred.h"\n#include "libraries/audio-client/src/RecordedPreviewObservation.h"')
 fixture=fixture.replace('struct Format {','struct Format : QAudioFormat {')
 fixture=fixture.replace('    AudioClient() {','    QVariantMap featureRecordedVoiceLifetime();\n    void releaseFeatureRecordedVoiceEvidence();\n    AudioClient() {')
 helper=fixture.index('static QByteArray pcm(');main=fixture.index('int main(int argc, char** argv) {',helper)
@@ -45,11 +47,15 @@ fixture=fixture[:start]+r'''
 int main(int argc,char** argv) {
     QCoreApplication app(argc,argv);AudioClient audio;
     if(!QCoreApplication::arguments().contains("--testScript")) {assert(audio.featureRecordedVoiceLifetime().isEmpty());return 0;}
-    const auto initial=audio.featureRecordedVoiceLifetime();assert(!initial.isEmpty());
+    const auto publish=[&](const QVariantMap& value) {
+        const QVariantMap original{{"epoch",QDateTime::currentMSecsSinceEpoch()},{"cycle",static_cast<qulonglong>(audio._e2eRecordedVoiceCycle)},{"source",value}};
+        std::puts(QJsonDocument::fromVariant(original).toJson(QJsonDocument::Compact).constData());
+    };
+    const auto initial=audio.featureRecordedVoiceLifetime();assert(!initial.isEmpty());publish(initial);
     assert(initial.value("previewTapStateEmpty").toBool());
     assert(initial.value("deferred").toMap().value("callbacks").toList().isEmpty());
     audio._isMuted=true;audio.startRecordedVoiceTest();assert(audio.status.value("error")=="microphone-muted");
-    const auto owned=audio.featureRecordedVoiceLifetime();auto rows=owned.value("deferred").toMap().value("callbacks").toList();assert(rows.size()==1);
+    const auto owned=audio.featureRecordedVoiceLifetime();publish(owned);auto rows=owned.value("deferred").toMap().value("callbacks").toList();assert(rows.size()==1);
     const auto original=rows.first().toMap();assert(original.value("scheduledDelayMs")==30000&&!original.value("retired").toBool());
     assert(original.value("enteredEpochMs").toLongLong()==0&&original.value("receiverAlive").toBool());
     assert(!owned.value("previewTapStateEmpty").toBool());
@@ -70,7 +76,7 @@ int main(int argc,char** argv) {
     assert(ended.value("enteredEpochMs").toLongLong()>=original.value("registeredEpochMs").toLongLong()+28500);
     assert(ended.value("completedEpochMs").toLongLong()>=ended.value("enteredEpochMs").toLongLong());
     assert(ended.value("retiredEpochMs").toLongLong()>=ended.value("completedEpochMs").toLongLong());
-    assert(audio.featureRecordedVoiceLifetime().value("previewTapStateEmpty").toBool());
+    assert(audio.featureRecordedVoiceLifetime().value("previewTapStateEmpty").toBool());publish(audio.featureRecordedVoiceLifetime());
     // A canceled Qt context releases its actual closure lease, too; the dead
     // AudioClient itself would be unavailable to its existing weak reader.
     overte::e2e::RecordedPreviewDeferred tracker;auto receiver=std::make_unique<QObject>();
@@ -86,7 +92,7 @@ int main(int argc,char** argv) {
     const auto timer=audio.featureRecordedVoiceLifetime().value("previewTimer").toMap();
     assert(timer.value("created").toBool()&&timer.value("alive").toBool()&&timer.value("active").toBool());
     audio.cancelRecordedVoiceTest();const auto stopped=audio.featureRecordedVoiceLifetime().value("previewTimer").toMap();
-    assert(stopped.value("id")==timer.value("id")&&stopped.value("alive").toBool()&&!stopped.value("active").toBool());
+    assert(stopped.value("id")==timer.value("id")&&stopped.value("alive").toBool()&&!stopped.value("active").toBool());publish(audio.featureRecordedVoiceLifetime());
     const auto originalTimer=audio._recordedVoiceTestTimer;audio._recordedVoiceTestTimer=nullptr;
     assert(audio.featureRecordedVoiceLifetime().isEmpty());audio._recordedVoiceTestTimer=originalTimer;
     qInfo("PASS original AudioClient30s cleanup callback invocation/functor release and actual preview timer; explicit audio seams, no devices");
@@ -109,4 +115,11 @@ int sampleRate()const{return 48000;}int channelCount()const{return 2;}};
         '-I'+str(ROOT),str(Path(__file__).with_name('recorded-preview-deferred-clock-test.cpp')),'-o',str(clock_binary),*library_paths,*flags],
         check=True,timeout=60,env=environment)
     subprocess.run([str(clock_binary),'--testScript'],check=True,timeout=10,env=environment)
-    for arguments in ([],['--testScript']):subprocess.run([str(binary),*arguments],check=True,timeout=38,env=environment)
+    subprocess.run([str(binary)],check=True,timeout=10,env=environment)
+    raw=subprocess.check_output([str(binary),'--testScript'],text=True,timeout=38,env=environment)
+    sys.path.insert(0,str(ROOT/'tests/device'))
+    from adapters.audio_preview_lifetime import validate,accept
+    previous=None
+    for line in raw.splitlines():
+        packet=json.loads(line);validate(packet['source'],packet['epoch'],packet['cycle']);previous=accept(previous,packet['source'])
+    assert previous is not None

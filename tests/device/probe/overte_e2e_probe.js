@@ -1539,7 +1539,7 @@
                 && objectKeysMatch(command, ["schemaVersion", "commandId", "action", "runId"])) {
             if (command.commandId === lastAudioSettingsRequest) { return; }
             lastAudioSettingsRequest = command.commandId;
-            var audioSettings = {audioSettingsVersion: 1, commandId: command.commandId, available: false};
+            var audioSettings = {audioSettingsVersion: 2, commandId: command.commandId, available: false};
             try {
                 if (typeof Test.featureAudioSettingsObservation === "function") {
                     var originalAudioSettings = Test.featureAudioSettingsObservation(command);

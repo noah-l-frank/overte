@@ -186,7 +186,7 @@
     "native-audio-preview-lifetime": {"current": 1, "reads": [1]},
     "pico-audio-page-owner": {"current": 1, "reads": [1]},
     "pico-audio-page-observation": {"current": 1, "reads": [1]},
-    "pico-audio-settings-observation": {"current": 1, "reads": [1]},
+    "pico-audio-settings-observation": {"current": 2, "reads": [1, 2]},
     "pico-lifecycle-drive-observation": {"current": 1, "reads": [1]},
     "pico-lifecycle-gesture-observation": {"current": 1, "reads": [1]},
     "pico-lifecycle-world-owner": {"current": 1, "reads": [1]},

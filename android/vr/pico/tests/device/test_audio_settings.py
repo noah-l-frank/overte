@@ -11,6 +11,7 @@ import test_normal_scripts as original
 sys.path.insert(0,str(Path(__file__).resolve().parents[5]/'tests/device'))
 from adapters.pico4.audio_settings_source import FILE,ACTION
 from adapters.android.adapter import ANDROID_CONTROL_COMMAND
+from self_tests.test_audio_preview_lifetime import AudioPreviewLifetimeTests
 from self_tests.test_pico_audio_pages import AudioPageTests
 from self_tests.test_pico_audio_settings_source import AudioSettingsTests,AudioSettingsProbeTests,Boundary,RUN
 ROOT=Path(__file__).resolve().parents[5]

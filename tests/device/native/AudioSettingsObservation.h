@@ -80,7 +80,7 @@ public:
         const auto now=QDateTime::currentMSecsSinceEpoch();
         if (now<=0 || now<_epoch || source.isEmpty()) { _valid=false;return {}; } _epoch=now;
         _published.insert(command.value("commandId").toString());
-        return {{"audioSettingsVersion",1},{"commandId",command.value("commandId")},{"runId",_run},
+        return {{"audioSettingsVersion",2},{"commandId",command.value("commandId")},{"runId",_run},
             {"instance",_instance},{"sequence",static_cast<qulonglong>(++_sequence)},
             {"processId",QCoreApplication::applicationPid()},{"capturedEpochMs",now},{"source",result}};
     }
