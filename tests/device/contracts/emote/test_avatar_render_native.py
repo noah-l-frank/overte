@@ -31,12 +31,16 @@ HARNESS=r'''
 #include <QCryptographicHash>
 #include <QRegularExpression>
 #include <QUuid>
+#include <QResource>
+#include <QJsonDocument>
+#include <iostream>
+#include "tests/device/native/AvatarResourceIdentity.h"
 #include <cassert>
 #include <memory>
 #include <atomic>
 namespace glm {
 struct vec3{float x,y,z;};struct quat{float x,y,z,w;};
-struct mat4{float v[4][4]{};const float*operator[](int i)const{return v[i];}};
+struct mat4{float v[4][4]{{1,0,0,0},{0,1,0,0},{0,0,-1.002f,0},{0,0,0,0}};const float*operator[](int i)const{return v[i];}};
 }
 class Geometry {
 public:
@@ -64,6 +68,7 @@ public:
     ORIGINAL_BOOM_GETTER
     float _boomLength{4.25f};
     std::shared_ptr<Model>getSkeletonModel()const{return model;}
+    QUrl getSkeletonModelURL()const{return QUrl("qrc:/meshes/defaultAvatar_full.fst");}
     bool getShouldRenderLocally()const{return local;}bool shouldRender()const{return render;}
     glm::vec3 getWorldFeetPosition()const{return {2,3,4};}
     glm::quat getWorldOrientation()const{return {0,0,0,1};}float getModelScale()const{return 1.25f;}
@@ -99,13 +104,14 @@ public:
 GETTER
 int main(int argc,char**argv){
     TestApp app(argc,argv);TestScriptingInterface test;
+    assert(QResource::registerResource(app.arguments().value(app.arguments().indexOf("--resource-file")+1)));
     QVariantMap command{{"schemaVersion",1},{"commandId",QString(32,'b')},{"action","feature-avatar-render-observe"}};
     if(!app.arguments().contains("--testScript")){
         assert(test.featureAvatarRenderObservation(command).isEmpty()&&!manager&&managerReads==0);return 0;
     }
     assert(test.featureAvatarRenderObservation(command).isEmpty()&&!manager&&managerReads==0);
     manager.reset(new AvatarManager);auto model=manager->avatar->model;
-    app.camera.frustum.projection.v[2][3]=23;app.camera.frustum.projection.v[3][2]=32;
+    app.camera.frustum.projection.v[2][3]=-1;app.camera.frustum.projection.v[3][2]=-.2002f;
     const auto first=test.featureAvatarRenderObservation(command);const auto source=first.value("source").toMap();
     assert(first.value("instance")==QString(32,'a')&&first.value("sequence").toLongLong()==1);
     assert(source.value("modelInstance")==model->e2eModelInstance()&&source.value("rigId")==17);
@@ -115,13 +121,29 @@ int main(int argc,char**argv){
         model->geometry->hfm.originalURL.toUtf8(),QCryptographicHash::Sha256).toHex()));
     assert(source.value("loaded")==true&&source.value("visible")==false&&source.value("localRenderingEnabled")==false);
     assert(source.value("cameraStateVersion")==1);
+    const auto resources=source.value("avatarResources").toMap();assert(source.value("avatarResourcesVersion")==1);
+    assert(resources.value("configured").toMap().value("bundledResource").isValid());
+    assert(!resources.value("loaded").toMap().value("bundledResource").isValid());
+    model->geometry->hfm.originalURL="qrc:/meshes/mannequin/mannequin.fbx";
+    const auto actualBundled=test.featureAvatarRenderObservation(command);
+    assert(actualBundled.value("source").toMap().value("avatarResources").toMap().value("loaded").toMap().value("bundledResource").isValid());
+    std::cout << QJsonDocument(QJsonObject::fromVariantMap(actualBundled)).toJson(QJsonDocument::Compact).constData() << std::endl;
+    for(const QString& invalid:{QString("https://owned.invalid/meshes/mannequin/mannequin.fbx"),
+            QString("file:///meshes/mannequin/mannequin.fbx"),QString("qrc://foreign/meshes/mannequin/mannequin.fbx"),
+            QString("qrc:/meshes/mannequin/mannequin.fbx?foreign"),QString("qrc:/meshes/mannequin/mannequin.fbx#fragment"),
+            QString("qrc:/meshes/defaultAvatar_full.fst")}) {
+        const auto original=overte::e2e::avatarUrlSource(invalid,"meshes/mannequin/mannequin.fbx");
+        assert(!original.value("bundledResource").isValid() && original.value("urlSha256")==QString::fromLatin1(
+            QCryptographicHash::hash(invalid.toUtf8(),QCryptographicHash::Sha256).toHex()));
+    }
+    assert(overte::e2e::avatarBundledResource(QUrl("qrc:/meshes/mannequin/../mannequin/mannequin.fbx"),"meshes/mannequin/mannequin.fbx").isValid());
     assert(source.value("cameraState").toMap()==QVariantMap({{"hmd",true},{"boomLength",4.25f},{"zoomMin",MyAvatar::ZOOM_MIN},{"zoomDefault",MyAvatar::ZOOM_DEFAULT}}));
     app.hmd=false;manager->avatar->_boomLength=2.75f;
     auto next=test.featureAvatarRenderObservation(command).value("source").toMap().value("cameraState").toMap();
     assert(!next.value("hmd").toBool()&&next.value("boomLength").toFloat()==2.75f);app.hmd=true;
     assert(source.value("pose").toMap().value("feetPosition").toList()==QVariantList({2.f,3.f,4.f}));
     const auto projection=source.value("view").toMap().value("projection").toList();
-    assert(projection[11]==32.f&&projection[14]==23.f); // Original row-major contract.
+    assert(projection[11]==-.2002f&&projection[14]==-1.f); // Original row-major contract.
     auto copied=Geometry(*model->geometry);assert(copied.e2eGeometryInstance()!=model->geometry->e2eGeometryInstance());
     copied=*model->geometry;assert(copied.e2eGeometryInstance()!=model->geometry->e2eGeometryInstance());
     auto old=model->e2eModelInstance();manager->avatar->model.reset(new Model);
@@ -169,8 +191,18 @@ class OriginalAvatarGetter(unittest.TestCase):
         flags=shlex.split(subprocess.check_output(['pkg-config','--cflags','--libs','Qt'+major+'Core'],text=True,env=env))
         with tempfile.TemporaryDirectory(prefix='native-avatar-source-') as directory:
             path=Path(directory);cpp=path/'test.cpp';cpp.write_text(harness);binary=path/'test'
-            subprocess.run(['c++','-std=c++17','-fPIC','-pthread','-UNDEBUG',str(cpp),'-o',str(binary),*extra,*flags],check=True,timeout=60,env=env)
-            for args in ([],['--testScript']):subprocess.run([str(binary),*args],check=True,timeout=10,env=env)
+            qrc=path/'avatar.qrc';qrc.write_text('<RCC><qresource prefix="/meshes"><file alias="defaultAvatar_full.fst">'+str(ROOT/'interface/resources/meshes/defaultAvatar_full.fst')+
+                '</file><file alias="mannequin/mannequin.fbx">'+str(ROOT/'interface/resources/meshes/mannequin/mannequin.fbx')+'</file></qresource></RCC>')
+            rcc=str(prefix/'usr/lib64/qt5/bin/rcc') if major=='5' and env.get('OVERTE_QT5_HOST_ROOT') else '/usr/lib64/qt'+major+'/libexec/rcc'
+            bundle=path/'avatar.rcc';subprocess.run([rcc,'--binary',str(qrc),'-o',str(bundle)],check=True,timeout=30,env=env)
+            subprocess.run(['c++','-std=c++17','-fPIC','-pthread','-UNDEBUG','-DOVERTE_E2E_FEATURE_TESTS','-I'+str(ROOT),str(cpp),'-o',str(binary),*extra,*flags],check=True,timeout=60,env=env)
+            for args in ([],['--testScript']):
+                result=subprocess.run([str(binary),'--resource-file',str(bundle),*args],check=True,timeout=10,env=env,capture_output=True,text=True)
+                if args:
+                    import json,sys
+                    sys.path.insert(0,str(ROOT/'tests/device'))
+                    from adapters.native_avatar_render import controlled_resources
+                    original=json.loads(result.stdout);self.assertEqual(3654465,controlled_resources(original)['loaded']['bundledResource']['bytes'])
 
 
 if __name__=='__main__':unittest.main()

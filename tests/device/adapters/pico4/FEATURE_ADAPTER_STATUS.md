@@ -689,3 +689,32 @@ V1/v2/v3 view owners remain retained and cannot invent these missing originals.
 Actual session/grant persistence is exercised with explicit synthetic native
 transport/HMD boundaries. Physical controller, OpenXR and application/device
 qualification remain absent; no complete feature capability is enabled.
+
+
+## Actual bundled avatar identity during normal Emote view setup
+
+The optional native-avatar-resources v1 extension of existing AvatarRender v1
+records exact original configured skeleton and loaded HFM URL digests. Only the
+known immutable qrc defaultAvatar_full.fst/mannequin.fbx may be read, bounded to
+4MiB each; no URL is fetched or avatar loaded. Original qrc bytes, size and digest
+are independently joined to the loaded Model/Geometry/Rig and existing pinned
+repository resources. Unavailable/foreign resources remain measurable without
+being admitted as controlled. Old AvatarRender packets remain readable.
+
+PicoEmoteView.controlled() composes this admission before the first normal
+controller input and on each original preparation/restoration observation.
+All retained historical originals must already contain the real resource proof;
+an older view journal cannot invent it from a newer query. The normal v4 partial
+route remains available without claiming a controlled-avatar setup. Optional
+resource identity, once present, cannot change or disappear inside that route.
+No preference, avatar resource, pose or texture is set by this observer. This
+does not qualify actual GPU materials, complete stereo scene, actor or whole
+Emotes. All resource/model/render seams remain explicit in the native harness.
+
+The immutable resource helper is selected from the fixed Phone commit
+abb7f6b60d97daf17752aadf94e2b5df099bb7ba (PhoneAvatarConfiguration.h source
+SHA2566dd05f674dac52f2d46f84011bd14084a29171ffb84c8ce7eba5dabfa4afc56a).
+The shared helper removes the Phone-only compile gate and uses neutral names.
+Phone pinch/Touch/selfie/scene behavior is excluded. The original full getter
+compiles with actual Qt qrc registration of both original repository files;
+its actual C++ packet passes the strict Python reader and pinned-byte join.

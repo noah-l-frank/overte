@@ -1,0 +1,35 @@
+{
+  "sourceCommit": "abb7f6b60d97daf17752aadf94e2b5df099bb7ba",
+  "sourcePath": "tests/device/native/PhoneAvatarConfiguration.h",
+  "sourceSha256": "6dd05f674dac52f2d46f84011bd14084a29171ffb84c8ce7eba5dabfa4afc56a",
+  "targetPath": "tests/device/native/AvatarResourceIdentity.h",
+  "selection": "Immutable known qrc resource hashing and exact original URL digest. Shared E2E-only helper; no Phone touch, pinch preference, selfie input, scene geometry or mono evidence copied.",
+  "qualification": "Partial controlled-avatar source/setup; actual Qt5 getter and real registered qrc bytes compiled; full application/render/device unqualified.",
+  "schemaVersion": 1,
+  "reference": "abb7f6b60d97daf17752aadf94e2b5df099bb7ba",
+  "uncommittedPhoneWorkExcluded": true,
+  "targetBase": "30c915cbbdcead76520263d313a870cdd2036262",
+  "targetFiles": {
+    "tests/device/native/AvatarResourceIdentity.h": "b63aad7b84954207f1a04e3f213bc49a05b53edab283b007d54e8cd763d63694",
+    "tests/device/adapters/native_avatar_render.py": "b9f3f7d0621c13f42cb5d22dd7e6a49e94fa88b408ac5c471ec4043e1e819117",
+    "interface/src/scripting/TestScriptingInterface.cpp": "2bbbd0912e1ba6ac1e1bd7111d68681e664fc0b34bb2537a437e1c3c7bf5d885"
+  },
+  "nativeVerification": {
+    "qt5": "5.15.18",
+    "qt5FocusedTests": 1,
+    "qt5ElapsedSeconds": 3.385,
+    "qt6": "6.11.2",
+    "qt6FocusedTests": 1,
+    "qt6ElapsedSeconds": 3.678,
+    "boundary": "Original getter and identity fragments plus actual registered qrc resources; manager/model/geometry/rig/camera are explicit source seams. Full TUs/app/GL/HMD unqualified."
+  },
+  "hostVerification": {
+    "nativeReaderCases": 18,
+    "normalViewCases": 25,
+    "catalogGroupsPassed": 3,
+    "catalogTotal": 75,
+    "catalogElapsedSeconds": 60.49,
+    "projectGroupsPassed": 4,
+    "projectElapsedSeconds": 4.16
+  }
+}

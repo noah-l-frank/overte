@@ -44,6 +44,27 @@ def loaded_source(present,sha):
     need(type(present) is bool and digest(sha) and (present or sha==EMPTY_SHA256))
 
 
+def resource_source(value,path):
+    exact(value,{'present','urlSha256','bundledResource'});loaded_source(value['present'],value['urlSha256'])
+    resource=value['bundledResource']
+    if resource is not None:
+        exact(resource,{'resourcePath','bytes','sha256'})
+        need(value['present'] and resource['resourcePath']==path and integer(resource['bytes'],1,4*1024*1024) and digest(resource['sha256']))
+
+
+def controlled_resources(value):
+    """Admit actual original bundled avatar bytes; no loading or render verdict."""
+    from feature_journeys.fixtures import pinned_resource
+    validate(value,dict(schemaVersion=1,commandId=value.get('requestId'),action='feature-avatar-render-observe'),
+        value.get('processId'),value.get('capturedEpochMs'))
+    source=value['source'];need(source.get('avatarResourcesVersion')==1 and source['geometry'] is not None)
+    resources=source['avatarResources'];need(resources['loaded'] is not None)
+    for original,name in ((resources['configured'],'avatar-a.fst'),(resources['loaded'],'mannequin/mannequin.fbx')):
+        data=pinned_resource(name);resource=original['bundledResource']
+        need(resource is not None and resource['bytes']==len(data) and resource['sha256']==hashlib.sha256(data).hexdigest())
+    return deepcopy(resources)
+
+
 def validate(value,request,pid,epoch):
     command(request,ios=request['commandId'].startswith('ios-'));envelope(value,request,pid,epoch)
     source=value['source']
@@ -55,6 +76,17 @@ def validate(value,request,pid,epoch):
         state=source.get('cameraState');exact(state,{'hmd','boomLength','zoomMin','zoomDefault'})
         need(type(state['hmd']) is bool and number(state['zoomMin'],.0001,1000)
             and number(state['zoomDefault'],state['zoomMin'],1000) and number(state['boomLength'],state['zoomMin'],1000))
+    if type(source) is dict and ('avatarResourcesVersion' in source or 'avatarResources' in source):
+        fields|={'avatarResourcesVersion','avatarResources'}
+        need(type(source.get('avatarResourcesVersion')) is int and source['avatarResourcesVersion']==1)
+        resources=source.get('avatarResources');exact(resources,{'configured','loaded'})
+        resource_source(resources['configured'],'meshes/defaultAvatar_full.fst')
+        loaded=resources['loaded']
+        if loaded is not None:
+            resource_source(loaded,'meshes/mannequin/mannequin.fbx')
+            need(type(source.get('geometry')) is dict and loaded['present']==source['geometry'].get('sourcePresent')
+                and loaded['urlSha256']==source['geometry'].get('sourceSha256'))
+        else:need(source.get('geometry') is None)
     exact(source,fields)
     need(type(source['avatarRenderVersion']) is int and source['avatarRenderVersion']==VERSION
          and nonce(source['modelInstance']) and integer(source['rigId'],0,2147483647)

@@ -491,7 +491,9 @@
         "tests/device/self_tests/test_pico_emote_view.py",
         "tests/device/native/ViewMenuLifetimes.h",
         "tests/device/adapters/pico4/view_menu_lifetimes.py",
-        "tests/device/self_tests/test_pico_view_menu_lifetimes.py"
+        "tests/device/self_tests/test_pico_view_menu_lifetimes.py",
+        "tests/device/native/AvatarResourceIdentity.h",
+        "tests/device/adapters/pico4/PHONE_SHARED_AVATAR_RESOURCES_20261022.json"
       ],
       "declaredCheckpoints": 28,
       "inputVerbs": [
@@ -528,7 +530,7 @@
         "Observe original pose/mapping/timer/resource retirement",
         "Restore captured prior override and closed panel"
       ],
-      "nextExecutableStep": "Compose durable v4 normal HMD View/Home setup and restoration (original OpenXR envelopes and actual neutralization retained) with controlled scene/avatar identity, fresh full-body stereo pixels and independent actor effects. Complete common quiet windows and actual Qt/native/journal retirement before enabling the full feature.",
+      "nextExecutableStep": "Join the normal controlled-avatar View v4 route (actual pinned configured/loaded qrc bytes, original controller envelopes and neutralization) to controlled stereo scene/current full-body pixels and independent actor effects. Complete common quiet windows and actual Qt/native/journal retirement before enabling the full feature.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     },

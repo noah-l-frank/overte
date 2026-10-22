@@ -3,13 +3,14 @@
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
 import json
+import hashlib
 import subprocess
 from pathlib import Path
 import sys
 import unittest
 from unittest.mock import patch
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
-from adapters.native_avatar_render import NativeAvatarRender,command as avatar_command,EMPTY_SHA256,LIMIT
+from adapters.native_avatar_render import NativeAvatarRender,command as avatar_command,EMPTY_SHA256,LIMIT,controlled_resources
 from adapters.normal_ui import NativeUIError
 from self_tests.test_native_feature_observation import probe_source
 from fixture.serve import FixtureState
@@ -43,6 +44,35 @@ class Boundary:
             monotonic=lambda:self.clock,sleep=self.sleep,**options)
 
 class OriginalAvatarRenderTests(unittest.TestCase):
+    def test_optional_actual_resource_identities_join_original_loaded_url_and_pinned_bytes(self):
+        from feature_journeys.fixtures import pinned_resource
+        b=Boundary();self.assertNotIn('avatarResources',b.reader().read()['source'])
+        with self.assertRaises(NativeUIError):controlled_resources(b.reader().read())
+        def original(url,path,name):
+            content=pinned_resource(name)
+            return dict(present=True,urlSha256=hashlib.sha256(url.encode()).hexdigest(),bundledResource=dict(resourcePath=path,
+                bytes=len(content),sha256=hashlib.sha256(content).hexdigest()))
+        configured=original('qrc:/meshes/defaultAvatar_full.fst','meshes/defaultAvatar_full.fst','avatar-a.fst')
+        loaded=original('qrc:/meshes/mannequin/mannequin.fbx','meshes/mannequin/mannequin.fbx','mannequin/mannequin.fbx')
+        b.avatar['geometry']['sourceSha256']=loaded['urlSha256']
+        b.avatar.update(avatarResourcesVersion=1,avatarResources=dict(configured=configured,loaded=loaded))
+        self.assertEqual(b.avatar['avatarResources'],controlled_resources(b.reader().read()))
+        source=deepcopy(b.avatar)
+        for edit in (lambda s:s.pop('avatarResourcesVersion'),lambda s:s.pop('avatarResources'),
+                lambda s:s.update(avatarResourcesVersion=True),lambda s:s['avatarResources'].update(expected=True),
+                lambda s:s['avatarResources']['loaded'].update(urlSha256='1'*64),
+                lambda s:s['avatarResources']['loaded']['bundledResource'].update(bytes=4*1024*1024+1),
+                lambda s:s['avatarResources']['loaded']['bundledResource'].update(resourcePath='foreign'),
+                lambda s:s['avatarResources'].update(loaded=None)):
+            b.avatar=deepcopy(source);edit(b.avatar)
+            with self.subTest(edit=edit),self.assertRaises(NativeUIError):b.reader().read()
+        for key in ('configured','loaded'):
+            b.avatar=deepcopy(source);b.avatar['avatarResources'][key]['bundledResource']=None
+            packet=b.reader().read()
+            with self.subTest(key=key),self.assertRaises(NativeUIError):controlled_resources(packet)
+            b.avatar=deepcopy(source);b.avatar['avatarResources'][key]['bundledResource']['sha256']='1'*64
+            with self.subTest(key=key),self.assertRaises(NativeUIError):controlled_resources(b.reader().read())
+
     def test_optional_original_hmd_boom_extension_is_closed_and_never_implied_for_legacy_sources(self):
         b=Boundary();self.assertNotIn('cameraState',b.reader().read()['source'])
         b.avatar.update(cameraStateVersion=1,cameraState=dict(hmd=True,boomLength=4.25,zoomMin=.5,zoomDefault=1.5))

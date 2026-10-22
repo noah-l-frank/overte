@@ -167,6 +167,7 @@ REQUIRED = {
     "native-script-roots": 1,
     "native-avatar-render": 1,
     "native-avatar-camera-state": 1,
+    "native-avatar-resources": 1,
     "pico-model-draw-trace": 1,
     "pico-model-draw-capture": 1,
     "pico-emote-pixel-policy": 1,

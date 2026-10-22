@@ -136,6 +136,7 @@
     "native-script-roots": {"current": 1, "reads": [1]},
     "native-avatar-render": {"current": 1, "reads": [1]},
     "native-avatar-camera-state": {"current": 1, "reads": [1]},
+    "native-avatar-resources": {"current": 1, "reads": [1]},
     "pico-model-draw-trace": {"current": 1, "reads": [1]},
     "pico-model-draw-capture": {"current": 1, "reads": [1]},
     "pico-emote-pixel-policy": {"current": 1, "reads": [1]},

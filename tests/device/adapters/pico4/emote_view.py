@@ -9,7 +9,7 @@ from copy import deepcopy
 import math
 import time
 
-from adapters.native_avatar_render import validate as avatar_packet
+from adapters.native_avatar_render import validate as avatar_packet,controlled_resources
 from adapters.native_feature_observation import exact,fresh,integer,need,number
 from adapters.normal_feature_state import context
 from adapters.pico4.navigation import validate_snapshot
@@ -41,7 +41,7 @@ class PicoEmoteView:
         self.home,self.controller_factory,self._session=home,controller,None
         self.monotonic,self.sleep=monotonic,sleep
         self.run,self.pid=phase.run,int(binding['processIdentity'].split(':')[0]);need(integer(self.pid,1))
-        self.started=self.clock=None;self.failed=False;self.anchor=None
+        self.started=self.clock=None;self.failed=False;self.anchor=None;self.require_resources=False
         self.previous=store.read()
         self.state=dict(phase='reserved',original=None,current=None,steps=[])
         self.bound()
@@ -90,6 +90,8 @@ class PicoEmoteView:
         a,b=original['avatar'],current['avatar'];need(a['instance']==b['instance'])
         a,b=a['source'],b['source']
         need(all(same(a[k],b[k]) for k in ('modelInstance','rigId','geometry')))
+        if 'avatarResourcesVersion' in a:
+            need(b.get('avatarResourcesVersion')==a['avatarResourcesVersion'] and same(a['avatarResources'],b.get('avatarResources')))
         need(all(same(a['cameraState'][k],b['cameraState'][k]) for k in ('hmd','zoomMin','zoomDefault')))
         # Native head/camera pose may advance in HMD. The owned avatar itself
         # must stay at its original location, orientation and model scale.
@@ -205,6 +207,7 @@ class PicoEmoteView:
         started=self.monotonic();epoch=reader.clock_ms();host=self.phase.epoch_ms()
         before=self.phase.status(None if previous is None else previous['phaseAfter'])
         avatar=reader.read();widgets=None
+        if self.require_resources:controlled_resources(avatar)
         # Navigation publishes independently. Wait for an actually newer GUI
         # observation; never relabel an older file with the avatar query time.
         for attempt in range(16):
@@ -354,6 +357,20 @@ class PicoEmoteView:
 
     def prepare(self):return self.operate()
     def restore(self):return self.operate(True)
+
+    def controlled(self,*,restore=False):
+        """Normal view preparation/restoration with actual bundled byte admission.
+
+        Original v4 histories without this optional native source remain owned;
+        they cannot be upgraded into this controlled-avatar qualification.
+        """
+        self.bound();need(type(restore) is bool and not self.require_resources)
+        originals=[] if self.state['original'] is None else [self.state['original'],self.state['current']]
+        for row in self.state['steps']:originals.extend([row['before']]+([] if row['after'] is None else [row['after']]))
+        for original in originals:controlled_resources(original['avatar'])
+        self.require_resources=True
+        try:return self.operate(restore)
+        finally:self.require_resources=False
 
     def controller_retirement(self):
         """Fresh original final stream neutral; historical originals stay owned."""

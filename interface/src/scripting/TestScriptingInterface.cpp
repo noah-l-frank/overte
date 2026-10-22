@@ -28,6 +28,7 @@
 
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #include "../../../tests/device/native/FeatureLifecycle.h"
+#include "../../../tests/device/native/AvatarResourceIdentity.h"
 #include "../../../tests/device/native/AudioSettingsObservation.h"
 #include "../../../tests/device/native/LifecycleDriveObservation.h"
 #include "../../../tests/device/native/LifecycleGestureObservation.h"
@@ -175,12 +176,13 @@ QVariantMap TestScriptingInterface::featureAvatarRenderObservation(const QVarian
     const auto model = avatar->getSkeletonModel();
     if (!model) { return {}; }
     const auto geometry = model->getGeometry();
-    QVariant loadedGeometry;
+    QVariant loadedGeometry,loadedResource;
     if (geometry && geometry->isHFMModelLoaded()) {
         // This is the immutable loaded HFM source, never the requested Model URL.
         const auto source = geometry->getHFMModel().originalURL.toUtf8();
         loadedGeometry = QVariantMap{{"instance",geometry->e2eGeometryInstance()},{"sourcePresent",!source.isEmpty()},
             {"sourceSha256",QString::fromLatin1(QCryptographicHash::hash(source,QCryptographicHash::Sha256).toHex())}};
+        loadedResource=overte::e2e::avatarUrlSource(geometry->getHFMModel().originalURL,"meshes/mannequin/mannequin.fbx");
     }
     const auto& camera = qApp->getCamera();
     ViewFrustum frustum; camera.loadViewFrustum(frustum);
@@ -200,6 +202,9 @@ QVariantMap TestScriptingInterface::featureAvatarRenderObservation(const QVarian
         {"cameraMode",camera.getModeString()},
         {"cameraStateVersion",1},{"cameraState",QVariantMap{{"hmd",qApp->isHMDMode()},
             {"boomLength",avatar->getBoomLength()},{"zoomMin",MyAvatar::ZOOM_MIN},{"zoomDefault",MyAvatar::ZOOM_DEFAULT}}},
+        {"avatarResourcesVersion",1},{"avatarResources",QVariantMap{
+            {"configured",overte::e2e::avatarUrlSource(avatar->getSkeletonModelURL(),"meshes/defaultAvatar_full.fst")},
+            {"loaded",loadedResource}}},
         {"view",QVariantMap{{"position",vec(frustum.getPosition())},{"rotation",quat(frustum.getOrientation())},
             {"projection",projection},{"fieldOfViewDegrees",frustum.getFieldOfView()},{"aspectRatio",frustum.getAspectRatio()},
             {"nearClip",frustum.getNearClip()},{"farClip",frustum.getFarClip()},{"perspective",frustum.isPerspective()}}}};

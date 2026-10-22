@@ -683,3 +683,25 @@ stdin fixture, not an Overte Agent, device lab or service. Network/NodeList/
 assigned-script are explicit seams. Full Chat composition remains partial.
 
 All4 final repository suites pass5.39s; registry and whitespace pass.
+
+
+## Controlled original avatar resources in the normal Emote view route
+
+The selected fixed Phone immutable resource helper supplies actual configured/
+loaded URL hashes and bounded original qrc bytes through existing AvatarRender.
+The full original getter compiles and its actual qrc-backed C++ output now passes
+the strict Python reader and pinned-resource join. The first cross-language
+execution detected the old native fixture's singular sentinel projection; a
+second attempt still lacked the required perspective bottom-right zero. The
+fixture now supplies an invertible perspective matrix while retaining distinct
+original row/column sentinels. Product camera behavior was unchanged. Final
+Qt5 getter/resource/reader case passes3.385s. All18 native-reader cases pass
+.097s and25 actual normal view/controlled admission cases pass30.831s, with
+explicit synthetic HMD/transport boundaries. Native full TU/app/GL/HMD remain
+unqualified. All original v4 histories without resource proof remain owned
+and cannot be qualified by a later query. Full stereo scene/actor still open.
+
+Final Qt6 actual qrc/getter/strict-reader case passes3.678s. The integrated
+normal Emote11.456s, expanded stereo/owner48.963s and coverage.074s pass
+3/75 catalog groups60.49s. All4 final repository suites pass4.16s; registry
+and whitespace pass. Source-complete feature count remains3/14.

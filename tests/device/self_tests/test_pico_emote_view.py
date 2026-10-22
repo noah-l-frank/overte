@@ -6,6 +6,7 @@ from copy import deepcopy
 from types import SimpleNamespace
 from pathlib import Path
 import sys
+import hashlib
 import unittest
 import uuid
 sys.path.insert(0,str(Path(__file__).resolve().parents[3]))
@@ -134,9 +135,52 @@ class ViewBoundary:
         return PicoEmoteView(self.store,BINDING,self.sources.phase,self.lock,lambda:self.io,self.avatar.reader,
             self.sources.guard,nullcontext,lambda:self.home,lambda:self.session,monotonic=lambda:self.sources.clock,sleep=self.sleep,**options)
     def cleanup_phase(self):self.sources.journal.activate(RUN,'a'*32,verb='cleanup')
+    def bundled_avatar(self):
+        from feature_journeys.fixtures import pinned_resource
+        values={}
+        for key,path,name in (('configured','meshes/defaultAvatar_full.fst','avatar-a.fst'),
+                ('loaded','meshes/mannequin/mannequin.fbx','mannequin/mannequin.fbx')):
+            content=pinned_resource(name);values[key]=dict(present=True,urlSha256=hashlib.sha256(('qrc:/'+path).encode()).hexdigest(),
+                bundledResource=dict(resourcePath=path,bytes=len(content),sha256=hashlib.sha256(content).hexdigest()))
+        self.avatar.avatar['geometry']['sourceSha256']=values['loaded']['urlSha256']
+        self.avatar.avatar.update(avatarResourcesVersion=1,avatarResources=values)
 
 
 class PicoEmoteViewTests(unittest.TestCase):
+    def test_controlled_avatar_bytes_qualify_normal_view_preparation_and_restoration(self):
+        b=ViewBoundary(self);b.bundled_avatar()
+        with b.lock.held():
+            self.assertEqual({'performed':True},b.owner().controlled())
+            b.cleanup_phase();self.assertEqual({'performed':True},b.owner().controlled(restore=True))
+            self.assertEqual(12,len(b.inputs));self.assertIsNotNone(b.store.read())
+
+    def test_missing_or_changed_actual_bundled_bytes_fail_before_first_input(self):
+        for fault in ('old-source','missing','foreign-bytes','size'):
+            b=ViewBoundary(self)
+            if fault!='old-source':b.bundled_avatar()
+            if fault=='missing':b.avatar.avatar['avatarResources']['loaded']['bundledResource']=None
+            elif fault=='foreign-bytes':b.avatar.avatar['avatarResources']['configured']['bundledResource']['sha256']='1'*64
+            elif fault=='size':b.avatar.avatar['avatarResources']['loaded']['bundledResource']['bytes']-=1
+            with b.lock.held(),self.subTest(fault=fault):
+                with self.assertRaises(RuntimeError):b.owner().controlled()
+                self.assertEqual([],b.inputs);self.assertIsNone(b.store.read())
+
+    def test_legacy_preparation_cannot_invent_controlled_avatar_originals_on_recovery(self):
+        b=ViewBoundary(self)
+        with b.lock.held():
+            b.owner().prepare();before=deepcopy(b.inputs);original=b.store.read();b.bundled_avatar()
+            with self.assertRaises(RuntimeError):b.owner().controlled()
+            self.assertEqual(before,b.inputs);self.assertEqual(original,b.store.read())
+
+    def test_actual_resource_change_after_controller_input_stops_further_menu_mutation(self):
+        b=ViewBoundary(self);b.bundled_avatar();tablet=b.tablet
+        def changed(opened):
+            tablet(opened);b.avatar.avatar['avatarResources']['loaded']['bundledResource']['sha256']='1'*64
+        b.tablet=changed
+        with b.lock.held():
+            with self.assertRaises(RuntimeError):b.owner().controlled()
+            self.assertEqual(['tablet.open'],b.inputs);self.assertIsNotNone(b.store.read())
+
     def test_normal_open_view_third_and_original_first_restoration_survive_cold_reconstruction(self):
         b=ViewBoundary(self)
         with b.lock.held():
