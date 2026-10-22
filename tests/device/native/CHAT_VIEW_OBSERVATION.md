@@ -1,9 +1,9 @@
-# Original Chat UI and stored history source v1
+# Original Chat UI and stored history source v2
 
 `ChatViewObservation.h` and `adapters/native_chat_view.py` add a passive source,
 not a complete `feature.chat` adapter. Native code is uncompiled; devices are
-untested. Thirteen host cases exercise original JS/Python paths with synthetic
-GUI/settings state only. No full capability is advertised.
+untested. Host cases exercise original JS/Python paths with synthetic
+GUI/settings/entity state only. No full capability is advertised.
 
 ## Request and acquisition
 
@@ -17,9 +17,13 @@ existing private results directory. Missing hooks and wrong nonces are unavailab
 The hook exists only in E2E builds with explicit `--testScript`, results location
 and valid lifecycle source. Native reads run on the original GUI thread, bounded
 to 4096 nodes/depth 128 and 1500 ms. Native wall-clock regression disables the
-source. Envelope fields are exactly `chatViewVersion:1`, `commandId`, `runId`,
+source. Envelope fields are exactly `chatViewVersion:2`, `commandId`, `runId`,
 `instance`, `sequence`, `processId`, `capturedEpochMs`, `source`. Instance is an
 actual source birth nonce; PID, increasing read sequence and time are native.
+Version 2 refuses reuse of any admitted nonce, including a failed acquisition,
+with a bounded 4096-query lifetime. Exhaustion is unavailable. The host retains
+an explicit version 1 reader for existing Phone/iOS producers; version downgrade
+after a version 2 acquisition is refused. Pico requires version 2.
 
 The host uses existing installed-code/process/private-profile guards before and
 after acquisition, sends once and polls for at most 5 seconds/51 reads. Run,
@@ -51,8 +55,10 @@ private/foreign editor refuses acquisition without exporting its text.
 
 `keyboardRequested` is only QML intent. Actual `keyboard` is `{available:false}`
 or `{available:true,backend:"native-touch-metrics",visible}` from native OS-derived
-runtime metrics. Pico VR entity keyboard lacks this qualifying source and must
-block projection. A missing measurement never becomes false.
+runtime metrics on Phone/iOS. Pico version 2 instead preserves the original
+`native-vr-entity-keyboard` inventory described in the
+[Pico Chat continuation](../adapters/pico4/CHAT_FEATURE.md). It refuses Phone
+touch metrics as a substitute. A missing measurement never becomes false.
 
 `storage` has exactly `kind`, `count`, `unowned`, `events`, `configSha256`.
 Original live recursive-locked Setting::Manager supplies atomic presence/values
@@ -82,7 +88,7 @@ script messageHistory too; settings writes alone cannot prove that. Unowned
 history prevents destructive cleanup. Complete cleanup is still missing here.
 
 Remaining joins include independently bound peer send/movement, actual mixer-node
-recovery, VR keyboard, lifecycle/position effects, settings restoration and an
+recovery, lifecycle/position effects, settings restoration and an
 independent evidence publisher for all ten Chat state fields. Send ACK, editor
 clearing and local receive echo are not delivery. Register a full triple only
 after these joins and cleanup counterexamples exist. Coverage stays adapter
