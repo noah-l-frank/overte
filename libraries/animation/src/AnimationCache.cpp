@@ -12,6 +12,10 @@
 #include "AnimationCache.h"
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #include "AnimationDataObservation.h"
+#include <QCryptographicHash>
+#include <QReadLocker>
+#include <QThread>
+#include <algorithm>
 #endif
 
 #include <QRunnable>
@@ -138,6 +142,63 @@ const QVector<HFMAnimationFrame>& Animation::getFramesReference() const {
 }
 
 #if defined(OVERTE_E2E_FEATURE_TESTS)
+QVariantMap AnimationCache::featureResourceObservation() {
+    const QVariantMap unavailable{{"complete",false}};
+    const auto app=QCoreApplication::instance();
+    if (!app || !QCoreApplication::arguments().contains("--testScript") || QThread::currentThread()!=app->thread()) { return unavailable; }
+    QHash<QUrl,QMultiHash<size_t,QWeakPointer<Resource>>> original;
+    {
+        QReadLocker lock(&_resourcesLock);
+        if (_resources.size()>1024) { return unavailable; }
+        original=_resources; // Weak owners only; no resource creation or load.
+    }
+    int slotCount=0,expired=0;QHash<QString,QVariantMap> rows;
+    QList<QPair<QWeakPointer<Resource>,bool>> observed;
+    for (auto urls=original.constBegin();urls!=original.constEnd();++urls) {
+        for (auto slot=urls.value().constBegin();slot!=urls.value().constEnd();++slot) {
+            if (++slotCount>1024) { return unavailable; }
+            // Drop all temporary strong refs outside the registry read lock.
+            // Resource state/HFM publication belongs to the actual GUI thread.
+            const auto resource=slot.value().toStrongRef();
+            observed.append(qMakePair(slot.value(),bool(resource)));
+            if (!resource) { ++expired;continue; }
+            const auto animation=qSharedPointerDynamicCast<Animation>(resource);
+            if (!animation || animation->thread()!=QThread::currentThread()) { return unavailable; }
+            auto row=animation->featureResourceObservation();
+            const auto id=row.value("resourceInstance").toString();
+            if (id.isEmpty()) { return unavailable; }
+            if (rows.contains(id)) {
+                auto previous=rows.value(id);const auto count=previous.take("registrySlots").toInt();
+                if (previous!=row) { return unavailable; }
+                row.insert("registrySlots",count+1);
+            } else {
+                if (rows.size()>=256) { return unavailable; }
+                row.insert("registrySlots",1);
+            }
+            rows.insert(id,row);
+        }
+    }
+    {
+        QReadLocker lock(&_resourcesLock);
+        // QWeakPointer equality includes its weak control block, including
+        // expired entries. Reused addresses cannot mimic the captured map.
+        if (_resources!=original) { return unavailable; }
+        for (const auto& slot:observed) { if (slot.first.isNull()==slot.second) { return unavailable; } }
+    }
+    auto ids=rows.keys();std::sort(ids.begin(),ids.end());QVariantList resources;
+    for (const auto& id:ids) { resources.append(rows.value(id)); }
+    return {{"complete",true},{"registrySlots",slotCount},{"expiredSlots",expired},{"resources",resources}};
+}
+
+QVariantMap Animation::featureResourceObservation() const {
+    const auto app=QCoreApplication::instance();
+    if (!app || _featureInstance.isEmpty() || QThread::currentThread()!=app->thread() || thread()!=QThread::currentThread()) { return {}; }
+    const auto original=overte::e2e::animationDataObservation().source(_hfmModel.get());
+    return {{"resourceInstance",_featureInstance},
+        {"urlSha256",QString::fromLatin1(QCryptographicHash::hash(getURL().toString().toUtf8(),QCryptographicHash::Sha256).toHex())},
+        {"loaded",isLoaded()},{"failed",isFailed()},{"model",original.isEmpty() ? QVariant() : QVariant(original)}};
+}
+
 QVariantMap Animation::featureSourceForModel(const HFMModel* original) const {
     if (_featureInstance.isEmpty() || !original || _hfmModel.get()!=original) { return {}; }
     const auto model=overte::e2e::animationDataObservation().source(original);

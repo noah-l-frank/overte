@@ -393,7 +393,13 @@
         "tests/device/native/EMOTE_SOURCE_PROFILE.md",
         "tests/device/native/EMOTE_RIG_MEASUREMENTS.md",
         "tests/device/feature_journeys/phone-emote-manager-pins.v1.json",
-        "tests/device/adapters/pico4/PHONE_SHARED_EMOTE_SOURCES_20261022.json"
+        "tests/device/adapters/pico4/PHONE_SHARED_EMOTE_SOURCES_20261022.json",
+        "tests/device/adapters/native_animation_inventory.py",
+        "tests/device/adapters/emote_animation_readiness.py",
+        "tests/device/self_tests/test_native_animation_inventory.py",
+        "tests/device/contracts/emote/test_animation_inventory_native.py",
+        "tests/device/native/ANIMATION_INVENTORY.md",
+        "tests/device/adapters/pico4/PHONE_SHARED_ANIMATION_INVENTORY_20261022.json"
       ],
       "declaredCheckpoints": 28,
       "inputVerbs": [
@@ -416,7 +422,7 @@
       ],
       "missingOperationsOrEvidence": [
         "Complete normal VR recipe for the actual retained QML chooser selected from original Pico source bytes",
-        "Durable Pico roots/profile/Rig original groups, passive loaded-cache admission and actual timer/restoration source composition",
+        "Durable Pico roots/profile/Rig original groups, actual timer/restoration source composition and durable cache admission",
         "Original stereo avatar images and independent actor publication"
       ],
       "requiredOriginalEvidence": [

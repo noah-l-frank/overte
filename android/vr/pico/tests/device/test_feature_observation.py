@@ -551,6 +551,53 @@ class FeatureObservationTests(unittest.TestCase):
             self.assertEqual([], source.commands)
             self.native.digest, self.native.identity = digest, identity
 
+    def inventory_boundaries(self):
+        from self_tests.test_native_animation_inventory import InventoryBoundary
+        source = InventoryBoundary()
+        original_write = self.native.write_debug_app_file
+        original_read = self.native.read_debug_app_file
+        def write(target, package, path, raw):
+            command = json.loads(raw)
+            if command.get('action') == 'feature-animation-inventory-observe':
+                self.assertEqual('org.overte.pico', package)
+                source.epoch = self.native.epoch_milliseconds(target)
+                source.send(command)
+                source.value['processId'] = int(self.native.identity.split(':')[0])
+                return
+            return original_write(target, package, path, raw)
+        def read(target, package, path, **options):
+            if path == 'files/overte-e2e/feature-animation-inventory.json':
+                self.assertEqual({'attempts': 1}, options)
+                return source.original()
+            return original_read(target, package, path, **options)
+        for boundary in (patch.object(self.native, 'write_debug_app_file', side_effect=write),
+                         patch.object(self.native, 'read_debug_app_file', side_effect=read)):
+            boundary.start(); self.addCleanup(boundary.stop)
+        return source
+
+    def test_pico_inventory_factory_reads_actual_cache_without_normal_input(self):
+        source = self.inventory_boundaries()
+        reader = self.adapter._animation_inventory_observer(self.native.target)
+        first = reader.read(0)
+        self.assertEqual(source.resources, first['source']['resources'])
+        second = reader.read(first['sequence'])
+        self.assertGreater(second['sequence'], first['sequence'])
+        self.assertEqual([], self.native.inputs)
+        self.assertEqual([], self.native.controllers)
+        self.assertTrue(all(set(row) == {'schemaVersion', 'commandId', 'action'} for row in source.commands))
+
+    def test_pico_inventory_factory_rejects_candidate_or_process_replacement_before_query(self):
+        from adapters.normal_ui import NativeUIError
+        for fault in ('candidate', 'process'):
+            source = self.inventory_boundaries()
+            reader = self.adapter._animation_inventory_observer(self.native.target)
+            digest, identity = self.native.digest, self.native.identity
+            if fault == 'candidate': self.native.digest = 'f' * 64
+            else: self.native.identity = '999:foreign'
+            with self.subTest(fault=fault), self.assertRaises(NativeUIError): reader.read(0)
+            self.assertEqual([], source.commands)
+            self.native.digest, self.native.identity = digest, identity
+
     def test_unavailable_avatar_query_is_not_an_empty_world(self):
         self.mutation = lambda value: value.pop('entitiesComplete')
         with self.assertRaises(RuntimeError): self.observer.read(0, include_avatar_entities=True)

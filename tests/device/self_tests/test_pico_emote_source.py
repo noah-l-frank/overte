@@ -93,6 +93,66 @@ class PicoEmoteSourceTests(unittest.TestCase):
         caller['compilation'] = deepcopy(packet['source']['engines'][1]['compiled']['compilations'][0])
         with self.assertRaises(NativeUIError): join(event, selected)
 
+    def test_actual_pico_source_joins_all_twelve_passive_cache_resources(self):
+        from self_tests.test_native_animation_inventory import InventoryBoundary
+        from adapters.emote_animation_readiness import ready
+        from adapters.native_animation_source import NAMES
+        packet, before, after, _pin = pico_sources()
+        source = InventoryBoundary(before['source']['defaultScriptsUrl'])
+        source.value = None
+        source.send_packet_instance = before['instance']
+        source_send = source.send
+        def send(request):
+            source_send(request)
+            source.value['instance'] = source.send_packet_instance
+        source.send = send
+        group = dict(rootsBefore=before, script=packet,
+            inventory=source.reader().read(0), rootsAfter=after)
+        original = deepcopy(group)
+        result = ready(group, pid=31, epoch=20000)
+        self.assertEqual(NAMES, tuple(row['name'] for row in result['resources']))
+        self.assertEqual(original, group)
+        self.assertEqual(1, len(source.commands))
+        for fault in ('ambiguous', 'foreign-url', 'missing', 'pending'):
+            changed = deepcopy(original); inventory = changed['inventory']['source']
+            row = inventory['resources'][0]
+            if fault == 'ambiguous':
+                extra = deepcopy(row); extra['resourceInstance'] = 'f' * 32
+                inventory['resources'].append(extra); inventory['registrySlots'] += 1
+            elif fault == 'foreign-url': row['urlSha256'] = 'f' * 64
+            elif fault == 'missing': inventory['resources'].pop(0); inventory['registrySlots'] -= 1
+            else: row['loaded'] = False
+            with self.subTest(fault=fault), self.assertRaises(NativeUIError):
+                ready(changed, pid=31, epoch=20000)
+
+    def test_private_inventory_probe_is_passive_and_deduplicates_original_query(self):
+        from fixture.serve import FixtureState
+        fixture = FixtureState()
+        command = dict(schemaVersion=1, commandId='ios-' + 'a' * 32,
+            action='feature-animation-inventory-observe')
+        self.assertEqual(command, fixture.set_client_command(command))
+        for edit in (dict(url='qrc:/expected.fbx'), dict(expected=True), dict(name='Wave')):
+            with self.subTest(edit=edit), self.assertRaises(ValueError):
+                fixture.set_client_command(command | edit)
+        program = r'''
+const Uuid={generate:()=>"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"};
+const objectKeysMatch=(v,keys)=>JSON.stringify(Object.keys(v).sort())===JSON.stringify(keys.sort());
+let calls=0,files=[];
+const Test={featureAnimationInventory:command=>{calls++;return {animationInventoryVersion:1,commandId:command.commandId,
+ source:{complete:true,registrySlots:0,expiredSlots:0,resources:[]}};},saveObject:(v,name)=>files.push({v,name})};
+SOURCE
+const command={schemaVersion:1,commandId:"a".repeat(32),action:"feature-animation-inventory-observe"};
+applyAndroidControlCommand(command);applyAndroidControlCommand(command);
+if(calls!==1||files[0].name!=="feature-animation-inventory.json"||files[0].v.source.resources.length!==0)throw Error("original cache");
+for(const edit of [{url:"qrc:/expected.fbx"},{name:"Wave"},{expected:true},{commandId:"b".repeat(32)+"\n"}])applyAndroidControlCommand({...command,...edit});
+if(calls!==1||files.length!==1)throw Error("requested cache state admitted");
+delete Test.featureAnimationInventory;
+applyAndroidControlCommand({...command,commandId:"c".repeat(32)});
+if(files.length!==2||files[1].v.available!==false||files[1].v.source)throw Error("missing cache green");
+'''.replace('SOURCE', probe_source())
+        result = subprocess.run(['node', '-e', program], capture_output=True, text=True, timeout=5)
+        self.assertEqual(0, result.returncode, result.stderr)
+
     def test_private_probe_preserves_original_root_and_refuses_requested_paths(self):
         from fixture.serve import FixtureState
         fixture = FixtureState()

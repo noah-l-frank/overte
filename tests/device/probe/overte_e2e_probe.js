@@ -143,6 +143,7 @@
         Test.saveObject(value, "world-render-observation.json");
     }
     var lastScriptSourceRequest = "";
+    var lastAnimationInventoryRequest = null;
     var lastScriptRootRequest = "";
     var lastGraphicsSubjectRequest = "";
     var lastSceneLoadRequest = "";
@@ -1193,6 +1194,24 @@
             }
             return true;
         }
+        if (command && command.action === "feature-animation-inventory-observe") {
+            if (command.schemaVersion === 1 && typeof command.commandId === "string"
+                    && /^(?:ios-)?[0-9a-f]{32}$/.test(command.commandId)
+                    && command.commandId.length === (command.commandId.indexOf("ios-") === 0 ? 36 : 32)
+                    && objectKeysMatch(command,["schemaVersion","commandId","action"])) {
+                if (lastAnimationInventoryRequest === command.commandId) { return; }
+                lastAnimationInventoryRequest = command.commandId;
+                var inventory={animationInventoryVersion:1,commandId:command.commandId,available:false};
+                try {
+                    if (typeof Test.featureAnimationInventory === "function") {
+                        var originalInventory=Test.featureAnimationInventory(command);
+                        if (originalInventory && originalInventory.commandId === command.commandId) { inventory=originalInventory; }
+                    }
+                } catch (_inventoryError) { /* Missing original cache never becomes a requested cache state. */ }
+                Test.saveObject(inventory,"feature-animation-inventory.json");
+            }
+            return;
+        }
         if (command && command.action === "feature-script-roots-observe") {
             if (command.schemaVersion === 1 && typeof command.commandId === "string"
                     && /^(?:ios-)?[0-9a-f]{32}$/.test(command.commandId)
@@ -1769,6 +1788,7 @@
                 || command.action === "feature-recorded-audio-observe" || command.action === "feature-recorded-audio-release"
                 || command.action === "feature-recorded-audio-files" || command.action === "feature-script-observe"
                 || command.action === "feature-script-roots-observe"
+                || command.action === "feature-animation-inventory-observe"
                 || command.action === "feature-world-render-observe"
                 || command.action === "feature-graphics-subject-observe"
                 || command.action === "feature-scene-load-observe"

@@ -2191,5 +2191,36 @@
       "junit": "chat-erase-integration-pico.xml"
     },
     "limitations": "Independent authorization must bind original full history; durable full owner, profile persistence, peer stimulus and final retirement remain in progress. No complete Chat feature or device qualification."
+  },
+  "emotePassiveAnimationInventory": {
+    "status": "source-selected-host-and-narrow-Qt5-method-verified",
+    "manifest": "PHONE_SHARED_ANIMATION_INVENTORY_20261022.json",
+    "componentTests": 117,
+    "componentSeconds": 1.441,
+    "nativeMethod": {
+      "tests": 1,
+      "durationSeconds": 1.745,
+      "qt": "5.15.18",
+      "boundary": "Actual extracted registry method with real weak maps and locks; explicit loading and animation-row seams, not complete AnimationCache or product compile"
+    },
+    "pico": {
+      "groups": 3,
+      "catalog": 53,
+      "durationSeconds": 29.41,
+      "junit": "emote-animation-inventory-pico.xml"
+    },
+    "project": {
+      "suites": 4,
+      "durationSeconds": 3.71,
+      "junit": "emote-animation-inventory-project.xml"
+    },
+    "factoryCases": 2,
+    "initialFailures": [
+      "First selection stopped before missing AnimationCache include; incomplete packet correctly failed source check, then selection completed",
+      "Actual Qt compile found selected local slots name conflicts with Qt macro; observation-only counter renamed slotCount",
+      "Pico source sample had foreign native birth; fixture corrected to same actual observation birth",
+      "Standalone catalog exposed plain import in shared test helper; package-qualified/lazy test imports fixed"
+    ],
+    "limitations": "No whole Emote input, durable original role group, actor/stereo or complete retirement; full native app/APK unverified and devices0."
   }
 }

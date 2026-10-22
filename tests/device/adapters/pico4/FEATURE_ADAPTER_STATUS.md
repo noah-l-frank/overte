@@ -550,3 +550,11 @@ storage role, durable independent Chat native/UI/storage/peer samples, and the
 normal Audio preview-cycle owner. Each preserves uncertain original ownership;
 none advertises its incomplete whole-feature triple. The Pico host catalog has
 53 groups after registering the focused Audio owner group.
+
+
+Emotes now includes a passive actual animation-cache inventory and compiled
+Pico-source readiness join. The actual registry method passes a focused Qt5
+compile/execution with weak-map/resource-row seams; full native application
+compilation remains unverified. Normal whole Emote input, durable role evidence,
+independent actor/stereo and full retirement remain open. No complete feature
+capability is added.

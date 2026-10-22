@@ -1,0 +1,88 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "abb7f6b60d97daf17752aadf94e2b5df099bb7ba",
+  "targetBase": "10d58a721e6a8483f335370c2d188a90a5792e13",
+  "uncommittedPhoneWorkExcluded": true,
+  "files": [
+    {
+      "sourcePath": "tests/device/adapters/native_animation_inventory.py",
+      "targetPath": "tests/device/adapters/native_animation_inventory.py",
+      "sourceSha256": "1f0c45cae8d01d778aed458bf4f87a9fcd852a5d20ec934b71261f58a5fca6bb",
+      "targetSha256": "1f0c45cae8d01d778aed458bf4f87a9fcd852a5d20ec934b71261f58a5fca6bb",
+      "selection": "exact"
+    },
+    {
+      "sourcePath": "tests/device/adapters/emote_animation_readiness.py",
+      "targetPath": "tests/device/adapters/emote_animation_readiness.py",
+      "sourceSha256": "581019fee65ec14cbfd93ae49d412faa412a6dac9d864db0b7bcd7f3eba98d96",
+      "targetSha256": "581019fee65ec14cbfd93ae49d412faa412a6dac9d864db0b7bcd7f3eba98d96",
+      "selection": "exact"
+    },
+    {
+      "sourcePath": "tests/device/self_tests/test_native_animation_inventory.py",
+      "targetPath": "tests/device/self_tests/test_native_animation_inventory.py",
+      "sourceSha256": "e58304309efc87903e0d2f5000d80ea1c51bc69be679f0a80f605fa62b227f2e",
+      "targetSha256": "da3614a95b9dc8d45c19fc6c544c52ca08fff82ed573495ec587d18fa003dbf7",
+      "selection": "reviewed-narrow-Pico-compatible-selection"
+    },
+    {
+      "sourcePath": "libraries/animation/src/AnimationCache.cpp",
+      "targetPath": "libraries/animation/src/AnimationCache.cpp",
+      "sourceSha256": "4442dce44b64a8858032b5f1871e3b178397e60da86fc39a54b6bc9644329c88",
+      "targetSha256": "b3d35d8ea1559d11f5908f2b17cec0bdd1ee6396593ad5bcdef8cbbc1eeccfea",
+      "selection": "reviewed-narrow-Pico-compatible-selection"
+    },
+    {
+      "sourcePath": "libraries/animation/src/AnimationCache.h",
+      "targetPath": "libraries/animation/src/AnimationCache.h",
+      "sourceSha256": "b69389bc41486855621bd763af57fb771c7212939eba9c479eb98a3b0c6f1172",
+      "targetSha256": "2cc7e516f44562d4a155914cc2cbf54ac99968a6dc4db90da2d845b9b490b3c1",
+      "selection": "reviewed-narrow-Pico-compatible-selection"
+    },
+    {
+      "sourcePath": "interface/src/scripting/TestScriptingInterface.cpp",
+      "targetPath": "interface/src/scripting/TestScriptingInterface.cpp",
+      "sourceSha256": "4f5e525a6e3ab547a7de6002db29c8a71c6afd1d124db1cf5520a45d15c4e0cd",
+      "targetSha256": "f1a16ed08fe10e47a6a7523488096ca2e608b9972e9080cf802693200a4a6209",
+      "selection": "reviewed-narrow-Pico-compatible-selection"
+    },
+    {
+      "sourcePath": "interface/src/scripting/TestScriptingInterface.h",
+      "targetPath": "interface/src/scripting/TestScriptingInterface.h",
+      "sourceSha256": "469d8495d3da87b3f1a205b43b57b70d407f05543f2c2882b656ef8ffe3d0ec5",
+      "targetSha256": "c02a9a407352d9d4c4d5b490a1275d2c22f44921cac7cc3083ecdd2601fce41f",
+      "selection": "reviewed-narrow-Pico-compatible-selection"
+    },
+    {
+      "sourcePath": "tests/device/probe/overte_e2e_probe.js",
+      "targetPath": "tests/device/probe/overte_e2e_probe.js",
+      "sourceSha256": "52bbdc2a266774316fc5b315504318f95e3c284d99d265752425661e7445fbc0",
+      "targetSha256": "4506acf11bb9556a37d9cace80a46f96d8f3a15213a784cafb2afb36de4c7ccf",
+      "selection": "reviewed-narrow-Pico-compatible-selection"
+    },
+    {
+      "sourcePath": "tests/device/fixture/serve.py",
+      "targetPath": "tests/device/fixture/serve.py",
+      "sourceSha256": "9860840da0b28a90c0db82b58510e4f235f225ea45e47190184e342bbdeb309a",
+      "targetSha256": "6db3fb6f92bbddb9d647605ea7d08b8fadbb51118b9c1bd518d1d29aa630863b",
+      "selection": "reviewed-narrow-Pico-compatible-selection"
+    },
+    {
+      "sourcePath": "tests/device/native/ANIMATION_INVENTORY.md",
+      "targetPath": "tests/device/native/ANIMATION_INVENTORY.md",
+      "sourceSha256": "d8bdf120c9886aba27d2c1f0abe71bdb8313ae87c95f7a66a46fef2f01bfa0ad",
+      "targetSha256": "eab5983cc9fbf20b5b8c7416cdc47673b5b3cc4a17adffa1f88823225a18e138",
+      "selection": "reviewed-narrow-Pico-compatible-selection"
+    }
+  ],
+  "sharedContracts": [
+    "native-animation-inventory v1",
+    "emote-animation-readiness v1"
+  ],
+  "nativeChanges": [
+    "Guarded passive observation only; full Pico FBX parser preserved",
+    "Rename selected counter slots to slotCount for Qt keyword compatibility",
+    "Bound consumed nonce ownership and existing private output admission"
+  ],
+  "qualification": "Selected source/host and actual registry-method Qt5 compilation with explicit loading/row seams; no full native app or device qualification"
+}

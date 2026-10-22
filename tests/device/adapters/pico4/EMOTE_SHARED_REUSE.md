@@ -112,3 +112,15 @@ cache admission, durable Pico source groups, actual normal VR input, independent
 stereo avatar/actor publication, interruption and full quiet retirement remain
 open. Common journey v16 is unchanged; new native root/caller sources remain
 uncompiled and all devices untested.
+
+## Passive cache continuation
+
+The fixed committed Phone reader/readiness join and narrow native registry
+observations are selected with hashes in
+[the inventory selection](PHONE_SHARED_ANIMATION_INVENTORY_20261022.json).
+Pico `_animation_inventory_observer` uses the existing guarded native transport;
+[the source contract](../../native/ANIMATION_INVENTORY.md) records the actual
+method compile and its Qt keyword fix. Complete original roots, compiled Pico
+source and all twelve actual loaded models must agree. Nothing is prefetched
+or repaired. Cache readiness is a prerequisite; durable whole-feature input,
+actor/stereo and final retirement remain unfinished.

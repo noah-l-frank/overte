@@ -68,3 +68,15 @@ pass, and `normal-chat`, `suite-runner`, `coverage-matrix` pass (3/53 catalog
 groups, 28.48 seconds). Erase uses original version-2 controls and full ordered
 row hashes, not row counts. These checks do not qualify independent whole-run
 authorization, durable profile restoration, peer stimulus or complete Chat.
+
+## Passive original animation registry
+
+The actual registry observation method passes a Qt5 compile/execution test
+(1 test, 1.745 seconds) with real weak maps and locks. Resource loading and
+Animation row values remain explicit seams; full AnimationCache/application
+compilation is unverified. The compile found and fixed a selected E2E counter
+name colliding with Qt's `slots` macro. The complete 117-case Emote component
+selection passes; `feature-observation`, `suite-runner`, `coverage-matrix` pass
+(3/53 groups, 29.41 seconds). Standalone catalog execution also exposed a test
+helper import that had been masked by a broader PYTHONPATH; fixed package/lazy
+imports preserve the same tests. Full whole-feature/device qualification is open.
