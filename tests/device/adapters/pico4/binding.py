@@ -1304,6 +1304,21 @@ def create_adapter(args, base_class):
                 lambda:self.adb.read_debug_app_file(target,'org.overte.pico','files/overte-e2e/'+FILE,attempts=1),
                 native.clock_ms,native.guard,native.pid,source_lock,monotonic=native.monotonic,sleep=native.sleep)
 
+        def _snapshot_still_store(self,target,*,create=True):
+            journey=self._script_journey();path=journey.state_path(target) if create else journey.existing_state_path(target)
+            return None if path is None else PrivateFeatureState(path.with_name('snapshot-still-owner.json'))
+
+        @_private
+        def _snapshot_still_owner(self,target,run,phase_source,*,source_lock=None):
+            from adapters.pico4.snapshot_still_owner import PicoSnapshotStillOwner
+            source_lock=self._script_journey()._lock(target,source_lock)
+            snapshot=self._snapshot(target);observed=snapshot.ui.snapshot();installed=self._installation(target)
+            binding={key:installed[key] for key in ('sourceRevision','artifactSha256')}
+            binding.update(processIdentity=snapshot.ui.io.identity,sessionId=observed['bridgeId'],generation=0,
+                targetFingerprint=hashlib.sha256((target+'\0'+str(self.pico_configuration)).encode()).hexdigest())
+            return PicoSnapshotStillOwner(self._snapshot_still_store(target).path,run,binding,snapshot,
+                self._snapshot_native_originals(target,source_lock=source_lock),self.pico_input_session(target),phase_source)
+
         @_private
         def _audio_recipe(self,target,run,phase_source,*,source_lock=None):
             from adapters.pico4.audio_recipe import PicoAudioRecipe
@@ -2156,6 +2171,8 @@ def create_adapter(args, base_class):
                 elif operation in NAVIGATION_OPERATIONS:
                     result = self._navigation(target).invoke(operation, values)
                 elif operation in SNAPSHOT_OPERATIONS:
+                    owner=self._snapshot_still_store(target,create=False)
+                    _need(owner is None or not owner.path.exists() and not owner.path.is_symlink())
                     result = self._snapshot(target).invoke(operation, values)
                 elif operation in SCRIPT_OPERATIONS:
                     result = self._scripts(target).invoke(operation, values)
@@ -2171,6 +2188,13 @@ def create_adapter(args, base_class):
 
         @_private
         def cleanup(self, target):
+            # Base stop remains available, but cannot retire this private
+            # owner or its original normal preference/UI journals.
+            snapshot_error=False
+            try:
+                snapshot_owner=self._snapshot_still_store(target,create=False) if self.pico_configuration is not None else None
+                snapshot_error=snapshot_owner is not None and (snapshot_owner.path.exists() or snapshot_owner.path.is_symlink())
+            except Exception:snapshot_error=True
             feature_error = False
             create_error = False
             try:
@@ -2326,11 +2350,12 @@ def create_adapter(args, base_class):
             # owned host intent even when a partial input invalidated receipts.
             if self.pico_configuration is not None:
                 discard_stopped_state(self._navigation_path(target))
-                for path in self._snapshot_paths(target):
-                    discard_stopped_state(path)
+                if not snapshot_error:
+                    for path in self._snapshot_paths(target):
+                        discard_stopped_state(path)
                 state, ui = self._script_paths(target)
                 discard_stopped_state(ui)
-                _need(not audio_error and not create_error and not self._create_management(target).owned() and not self._create_picker_owned(target) and not self._create_models_owned(target) and not self._create_feature_owned(target)
+                _need(not snapshot_error and not audio_error and not create_error and not self._create_management(target).owned() and not self._create_picker_owned(target) and not self._create_models_owned(target) and not self._create_feature_owned(target)
                       and not feature_error and not script_error and not probe_error and not origin_error and not chat_error and PrivateFeatureState(state).read() is None
                       and self._lifecycle_back_store(target).read() is None
                       and (self._lifecycle_world_store(target,create=False) is None or self._lifecycle_world_store(target,create=False).read() is None)
@@ -2366,7 +2391,7 @@ def create_adapter(args, base_class):
                       and all(self._chat_samples_store(target,role,erased=erased,witness=witness).read() is None
                               for erased in (False,True) for role,witness in (('primary',False),('actor',False),('actor',True))))
             else:
-                _need(not audio_error and not create_error and not feature_error and not script_error and not probe_error and not origin_error and not chat_error)
+                _need(not snapshot_error and not audio_error and not create_error and not feature_error and not script_error and not probe_error and not origin_error and not chat_error)
             return result
 
     return PicoBoundAdapter(args.kind)

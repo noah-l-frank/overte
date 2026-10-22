@@ -42,6 +42,9 @@ if reading and os.environ.get('OVERTE_TEST_SNAPSHOT_TRANSFER_LOG'):
     Path(os.environ['OVERTE_TEST_SNAPSHOT_TRANSFER_LOG']).write_text(str(len(result.stdout)))
 if reading and os.environ.get('OVERTE_TEST_SNAPSHOT_REPLACE_AFTER_READ'):
     (root/'files/Snapshots'/remote[6]).write_bytes(b'replaced after actual transfer')
+if reading and os.environ.get('OVERTE_TEST_SNAPSHOT_REPLACE_SAME_BYTES'):
+    path=root/'files/Snapshots'/remote[6]
+    replacement=path.with_suffix('.owned-replacement');replacement.write_bytes(path.read_bytes());replacement.replace(path)
 if reading and completing=='after' and (root/'files/Snapshots'/remote[6]).stat().st_size==0:
     (root/'files/Snapshots'/remote[6]).write_bytes(b'new original after empty reservation')
 output=result.stdout
@@ -143,6 +146,19 @@ class OriginalAndroidSnapshotFiles(unittest.TestCase):
             with self.assertRaisesRegex(SnapshotFileError, 'changed during observation'):
                 self.reader().files(PREFIX)
         self.assertEqual(list(self.artifacts.iterdir()), [])
+
+    def test_same_original_bytes_on_replaced_inode_are_not_the_original_file(self):
+        self.save()
+        with patch.dict(os.environ,{'OVERTE_TEST_SNAPSHOT_REPLACE_SAME_BYTES':'1'}):
+            with self.assertRaisesRegex(SnapshotFileError,'changed during observation'):self.reader().files(PREFIX)
+        self.assertEqual([],list(self.artifacts.iterdir()))
+
+    def test_original_stat_identity_and_hash_are_retained_without_changing_public_file_dto(self):
+        path=self.save();reader=self.reader();result=reader.files(PREFIX)
+        row=reader.last_original['files'][0]
+        self.assertEqual({'basename','artifact'},set(result['files'][0]));self.assertEqual(NAME,row['basename'])
+        self.assertEqual(str(path.stat().st_ino),row['originalStat'].split()[1])
+        self.assertEqual(CONTEXT,reader.last_original['context']);self.assertEqual(len(PAYLOAD),row['bytes'])
 
     def test_truncated_transfer_never_passes_even_with_an_unchanged_original(self):
         self.save()
