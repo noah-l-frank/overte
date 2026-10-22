@@ -150,6 +150,10 @@ class PicoInputContracts(unittest.TestCase):
         saved = self.data.pop("producer_completion")
         with self.assertRaises(ValueError): self.resolve()
         self.data["producer_completion"] = saved
+        self.assertEqual(saved["kind"], "overte-phone-guarded-target-complete-v1")
+        self.data["producer_completion"] = {**saved, "kind": "overte-phone-guarded-continuation-v1-complete"}
+        with self.assertRaisesRegex(ValueError, "proof kind/identity"): self.resolve()
+        self.data["producer_completion"] = saved
         write(Path(saved["path"]), "changed receipt")
         with self.assertRaisesRegex(ValueError, "seal differs"): self.resolve()
 

@@ -25,7 +25,7 @@ PROOF = Path("/qualification")
 MAP = PROOF / "product-inputs-pico.json"
 PROOF_KINDS = {
     "runtime_inventory": "overte-android-runtime-inventory-v1",
-    "producer_completion": "overte-phone-guarded-continuation-v1-complete",
+    "producer_completion": "overte-phone-guarded-target-complete-v1",
     "package_origins": "overte-android-package-origins-v1",
     "target_graph": "conan-graph-v1",
 }
