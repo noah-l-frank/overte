@@ -16,6 +16,15 @@ sources until the original process is independently foreground again. A host
 monotonic clock regression cannot reuse an earlier observation window. It never
 repeats an uncertain HOME or activation or initializes/queries Qt while hidden.
 
+Immediately after each durable HOME/activation intent, the independent HTTP
+`PhaseFixtureReader` must still show the exact original active instance, birth
+and full ticket history. This check also runs while hidden without building a
+Qt owner. Phase progress or retirement prevents OS input, leaving the issued
+journal unresolved; an issued activation can only recover through reads.
+Return and final quiet repeat this phase fence after the last journal CAS,
+report copy and foreground guard. A final host-clock read bounds source age,
+including a slow save/guard when the fixture clock is frozen.
+
 After return, fresh original native, Audio settings, canonical Audio.qml page
 and Lifecycle samples must agree. The original native instance/cycle must show
 `cancelled` with `backgrounded`, `lifecycle-stopped` or

@@ -37,7 +37,7 @@ class AudioBackgroundTests(unittest.TestCase):
         self.assertTrue(self.foreground);self.runtime_calls+=1;return self.fixture.capture_owner()
     def owner(self):
         return PicoAudioBackground(self.fixture.path/'audio-background-cycle-01.json',self.capture.run,self.capture.binding,self.capture.lock,
-            self.os_status,self.os_input,self.runtime,monotonic=lambda:self.native.clock,sleep=self.native.sleep)
+            self.os_status,self.os_input,self.runtime,self.fixture.source,monotonic=lambda:self.native.clock,sleep=self.native.sleep)
     def prepare(self):self.flow.prepare();return self.flow.home()
     def test_normal_home_return_actual_native_cancellation_and_original_three_second_quiet(self):
         self.prepare();result=self.flow.resume();self.assertTrue(result['nativeCancellationObserved'])
@@ -71,7 +71,7 @@ class AudioBackgroundTests(unittest.TestCase):
         self.prepare()
         with self.assertRaises(NativeUIError):
             PicoAudioBackground(self.flow.store.path,self.capture.run,self.capture.binding,self.capture.lock,
-                self.os_status,self.os_input,self.runtime,monotonic=lambda:0,sleep=self.native.sleep)
+                self.os_status,self.os_input,self.runtime,self.fixture.source,monotonic=lambda:0,sleep=self.native.sleep)
         self.assertTrue(self.flow.store.path.exists());self.assertEqual(['lifecycle.background'],self.inputs)
     def test_lost_root_write_after_read_only_return_adopts_only_original_frame_prefix(self):
         self.prepare();original=self.flow.save
@@ -121,6 +121,72 @@ class AudioBackgroundTests(unittest.TestCase):
         self.prepare();original=self.flow.report
         def late():result=original();self.native.clock+=2;return result
         with patch.object(self.flow,'report',side_effect=late):
+            with self.assertRaises(NativeUIError):self.flow.resume()
+        self.assertEqual('returned',self.flow.state['phase']);self.assertEqual(['lifecycle.background','app.launch'],self.inputs)
+
+    def change_during_save(self,phase,change):
+        original=self.flow.save
+        def changed(state):
+            original(state)
+            if state['phase']==phase:change()
+        return patch.object(self.flow,'save',side_effect=changed)
+    def retire(self):self.fixture.journal.close(self.capture.run)
+    def test_home_phase_progress_during_durable_intent_prevents_os_input(self):
+        self.flow.prepare()
+        with self.change_during_save('home-issued',lambda:self.fixture.activate('record-cancel')):
+            with self.assertRaises(NativeUIError):self.flow.home()
+        self.assertEqual([],self.inputs);self.assertEqual('home-issued',self.flow.state['phase'])
+        self.assertTrue(self.flow.store.path.exists())
+    def test_home_phase_retirement_during_durable_intent_prevents_os_input(self):
+        self.flow.prepare()
+        with self.change_during_save('home-issued',self.retire):
+            with self.assertRaises(NativeUIError):self.flow.home()
+        self.assertEqual([],self.inputs);self.assertEqual('home-issued',self.flow.state['phase'])
+    def test_background_phase_progress_prevents_resume_without_qt_or_os_input(self):
+        self.prepare();calls=self.runtime_calls;self.fixture.activate('record-cancel')
+        recovered=self.owner()
+        with self.assertRaises(NativeUIError):recovered.resume()
+        with self.assertRaises(NativeUIError):self.owner().reconcile()
+        self.assertEqual(calls,self.runtime_calls);self.assertEqual(['lifecycle.background'],self.inputs)
+        self.assertEqual('resume-issued',recovered.state['phase']);self.assertTrue(recovered.store.path.exists())
+    def test_background_phase_retirement_prevents_resume_without_qt_or_os_input(self):
+        self.prepare();calls=self.runtime_calls;self.retire();recovered=self.owner()
+        with self.assertRaises(NativeUIError):recovered.resume()
+        with self.assertRaises(NativeUIError):self.owner().reconcile()
+        self.assertEqual(calls,self.runtime_calls);self.assertEqual(['lifecycle.background'],self.inputs)
+    def test_resume_phase_progress_during_durable_intent_prevents_os_input(self):
+        self.prepare();calls=self.runtime_calls
+        with self.change_during_save('resume-issued',lambda:self.fixture.activate('record-cancel')):
+            with self.assertRaises(NativeUIError):self.flow.resume()
+        self.assertEqual(calls,self.runtime_calls);self.assertEqual(['lifecycle.background'],self.inputs)
+    def freeze_fixture_clock(self):
+        epoch=self.native.epoch();self.fixture.source.epoch_ms=lambda:epoch;self.fixture.journal.clock=lambda:epoch
+    def test_home_frozen_fixture_clock_and_two_second_save_prevents_os_input(self):
+        self.flow.prepare();self.freeze_fixture_clock()
+        with self.change_during_save('home-issued',lambda:self.native.sleep(2)):
+            with self.assertRaises(NativeUIError):self.flow.home()
+        self.assertEqual([],self.inputs);self.assertEqual('home-issued',self.flow.state['phase'])
+    def test_resume_frozen_fixture_clock_and_two_second_save_prevents_os_input(self):
+        self.prepare();self.freeze_fixture_clock();calls=self.runtime_calls
+        with self.change_during_save('resume-issued',lambda:self.native.sleep(2)):
+            with self.assertRaises(NativeUIError):self.flow.resume()
+        self.assertEqual(calls,self.runtime_calls);self.assertEqual(['lifecycle.background'],self.inputs)
+    def test_return_phase_retirement_during_final_cas_prevents_release(self):
+        self.prepare()
+        with self.change_during_save('returned',self.retire):
+            with self.assertRaises(NativeUIError):self.flow.resume()
+        self.assertEqual('returned',self.flow.state['phase']);self.assertEqual(['lifecycle.background','app.launch'],self.inputs)
+        with self.assertRaises(NativeUIError):self.flow.quiet()
+    def test_quiet_phase_progress_during_final_cas_prevents_release(self):
+        self.prepare();self.flow.resume()
+        with self.change_during_save('quiet',lambda:self.fixture.activate('record-cancel')):
+            with self.assertRaises(NativeUIError):self.flow.quiet()
+        self.assertEqual('quiet',self.flow.state['phase']);self.assertTrue(self.flow.store.path.exists())
+    def test_final_host_time_includes_last_foreground_guard_with_frozen_source_clocks(self):
+        self.prepare();offset=[0];self.flow.monotonic=lambda:self.native.clock+offset[0]
+        original=self.capture.parent.fresh
+        def slow_guard():original();offset[0]+=2
+        with patch.object(self.capture.parent,'fresh',side_effect=slow_guard):
             with self.assertRaises(NativeUIError):self.flow.resume()
         self.assertEqual('returned',self.flow.state['phase']);self.assertEqual(['lifecycle.background','app.launch'],self.inputs)
 
