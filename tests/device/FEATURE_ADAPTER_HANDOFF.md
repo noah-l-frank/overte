@@ -40,8 +40,9 @@ Per-role original image/motion observations and independent actor publication ar
 implemented as internal components. The public facade and whole-run retirement
 still block complete Emote capability registration. The internal
 [retirement coordinator](adapters/android-phone/EMOTE_RETIREMENT.md) now implements
-the completed-setup resource/journal path; setup/admission abort retirement still
-needs to be composed. Its immutable handoff retains the original dependency graph
+the completed-setup resource/journal path and version 2 also retires fully
+unissued preparation after failed world/cache admission. Partly issued setup
+retirement still needs to be composed. Its immutable handoff retains the original dependency graph
 and retries obtain new native facts even after all child controls are gone. Closed-provider View/Scene
 transfers retain new actual native groups; namespace retirement v2 retains every
 source/input dependency as historical ownership evidence. Neither substitutes
