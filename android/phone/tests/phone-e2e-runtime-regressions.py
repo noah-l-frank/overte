@@ -71,6 +71,8 @@ COMMON_HOST_CHECKS = (
     "android/phone/tests/device/test_snapshot_handoff.py",
     "android/phone/tests/device/test_lifecycle_editor.py",
     "android/phone/tests/device/test_lifecycle_world.py",
+    "android/phone/tests/device/test_lifecycle_measurements.py",
+    "android/phone/tests/device/test_lifecycle_feature.py",
     "tests/device/self_tests/test_token_chat_ui.py",
     "android/phone/tests/device/test_snapshot_capture_source.py",
     "android/phone/tests/device/test_snapshot_capture_files.py",

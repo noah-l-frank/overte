@@ -66,6 +66,16 @@ def advance(before,after):
         if row['retiredEpochMs']:need(current['retiredEpochMs']==row['retiredEpochMs'] and not current['active'])
 
 
+def validate(value,run,pid,epoch):
+    exact(value,{'schemaVersion','requestId','runId','instance','sequence','processId','requestedEpochMs','capturedEpochMs','performed','source'})
+    need(type(value['schemaVersion']) is int and value['schemaVersion']==1 and value['runId']==run and nonce(value['requestId']) and nonce(value['instance'])
+        and integer(value['sequence'],1) and type(value['processId']) is int and value['processId']==pid and type(value['performed']) is bool
+        and integer(value['requestedEpochMs'],1) and integer(value['capturedEpochMs'],value['requestedEpochMs'])
+        and value['capturedEpochMs']-value['requestedEpochMs']<1500)
+    fresh(value['capturedEpochMs'],epoch);source(value['source'],run,value['capturedEpochMs'])
+    need(value['source']['capturedEpochMs']>=value['requestedEpochMs']);return value
+
+
 class PhoneLifecycleEditorSource:
     def __init__(self,send,read,clock_ms,guard,pid,*,intent=None,monotonic=time.monotonic,sleep=time.sleep):
         need(all(callable(fn) for fn in (send,read,clock_ms,guard,monotonic,sleep)) and integer(pid,1) and (intent is None or callable(intent)))

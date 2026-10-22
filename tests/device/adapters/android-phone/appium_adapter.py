@@ -119,6 +119,7 @@ AUDIO_FEATURE_OPERATIONS={'feature.audio.'+kind for kind in ('act','observe','cl
 NAVIGATION_FEATURE_OPERATIONS={'feature.world-navigation.'+kind for kind in ('act','observe','cleanup')}
 WEB_REFERENCE_OPERATIONS={'web.reference.'+kind for kind in ('open','close','play','pause','seek')}
 AVATAR_PEOPLE_FEATURE_OPERATIONS={'feature.avatar-people.'+kind for kind in ('act','observe','cleanup')}
+LIFECYCLE_INPUT_FEATURE_OPERATIONS={'feature.lifecycle-input.'+kind for kind in ('act','observe','cleanup')}
 
 
 def readonly_feature_command(command):
@@ -129,6 +130,9 @@ def readonly_feature_command(command):
     action=command.get('action')
     if action in ('feature-native-observe','feature-script-observe','feature-world-render-observe','feature-script-roots-observe','feature-animation-inventory-observe'):
         require(set(command)=={'schemaVersion','commandId','action'},'PHONE_READ_ONLY_COMMAND_REJECTED')
+    elif action=='feature-pending-commit-owner':
+        from adapters.pending_commit_owner import command as pending_command
+        pending_command(command);require(command['operation']=='observe','PHONE_READ_ONLY_COMMAND_REJECTED')
     elif action=='feature-chat-history':
         from adapters.native_chat_history import command as validate_chat_history
         validate_chat_history(command);require(command['operation']=='inspect','PHONE_READ_ONLY_COMMAND_REJECTED')
@@ -380,6 +384,21 @@ class PhoneAppiumAdapter(AppiumAdapter):
                     and self.controlled_android_client(target),'PHONE_FEATURE_WORLD_NAVIGATION_REQUIRES_BOUND_DEBUG_TARGET')
             self._navigation_configuration();self._feature_fixture_client()
             values=sorted(set(values)|NAVIGATION_FEATURE_OPERATIONS)
+        full_lifecycle=os.environ.get('OVERTE_PHONE_FEATURE_LIFECYCLE_INPUT','0')
+        require(full_lifecycle in ('0','1'),'PHONE_FEATURE_LIFECYCLE_INPUT_CONFIGURATION_INVALID')
+        if full_lifecycle=='1':
+            require(getattr(self,'candidate',None) is not None and target.get('appId')=='io.github.noah_be.overte.phone'
+                and self.controlled_android_client(target),'PHONE_FEATURE_LIFECYCLE_INPUT_REQUIRES_BOUND_DEBUG_TARGET')
+            require(os.environ.get('OVERTE_ANDROID_E2E_TEXT_INPUT')=='1' and os.environ.get('OVERTE_E2E_VOICE_TESTS')=='1'
+                and target.get('scene',{}).get('kind')=='android-debug-e2e'
+                and isinstance(target.get('controls',{}).get('move',{}).get('forward'),dict),
+                'PHONE_FEATURE_LIFECYCLE_INPUT_REQUIRES_FOUNDATIONS')
+            self._lifecycle_input_configuration();self._feature_fixture_client()
+            values=sorted(set(values)|TABLET_FOUNDATION_OPERATIONS)
+            require({'app.foreground','app.launch','app.process','lifecycle.background','probe.snapshot','scene.load','input.move',
+                'tablet.open','tablet.close','text.dismiss','text.focus','text.snapshot','text.type'}<=set(values),
+                'PHONE_FEATURE_LIFECYCLE_INPUT_REQUIRES_FOUNDATIONS')
+            values=sorted(set(values)|LIFECYCLE_INPUT_FEATURE_OPERATIONS)
         full_avatar=os.environ.get('OVERTE_PHONE_FEATURE_AVATAR_PEOPLE','0')
         require(full_avatar in ('0','1'),'PHONE_FEATURE_AVATAR_PEOPLE_CONFIGURATION_INVALID')
         if full_avatar=='1':
@@ -510,9 +529,10 @@ class PhoneAppiumAdapter(AppiumAdapter):
             lambda:transport.read_debug_app_file(device,target['appId'],'files/overte-e2e/'+NAVIGATION_REPLIES_FILE,attempts=1),
             native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep)
 
-    def _pending_owner(self, selector, intent=None):
-        _ui,_observe,context,check,installed=self.normal_feature_runtime(selector)
-        native=self._native_feature_observer(selector)
+    def _pending_owner(self, selector, intent=None, *, read_only=False):
+        require(type(read_only) is bool and (not read_only or intent is None),'PHONE_PENDING_OWNER_READONLY_INPUT')
+        _ui,_observe,context,check,installed=self.normal_feature_runtime(selector,read_only=read_only)
+        native=self._native_feature_observer(selector,read_only=read_only)
         target=self.target(selector);device=target['capabilities']['appium:udid'];transport=PhoneAdapter(self.candidate).adb
         check();require(self.installed_identity(selector)==installed and native.pid==int(context['processIdentity'].split(':')[0]),
             'PHONE_PENDING_OWNER_CONTEXT_CHANGED')
@@ -998,6 +1018,43 @@ class PhoneAppiumAdapter(AppiumAdapter):
         with self.existing_input_session(selector):
             return project_probe(validate_operation_result('probe.snapshot',self.invoke(selector,'probe.snapshot',
                 {'afterSampleSequence':after} if after else {})))
+
+    def lifecycle_input_feature_store(self,selector):
+        return PrivateFeatureState(self.state_path(selector).with_name('phone-lifecycle-input-feature.json'))
+
+    def lifecycle_input_retirement_store(self,selector):
+        return PrivateFeatureState(self.state_path(selector).with_name('phone-lifecycle-input-retirement.json'))
+
+    def lifecycle_input_completed_store(self,selector):
+        return PrivateFeatureState(self.state_path(selector).with_name('phone-lifecycle-input-completed.json'))
+
+    @classmethod
+    def _lifecycle_input_configuration(cls,metadata=None):
+        if metadata is None:
+            policy=PrivateFeatureState(Path(os.environ.get('OVERTE_PHONE_LIFECYCLE_INPUT_IMAGE_POLICY',''))).read()
+            root=Path(os.environ.get('OVERTE_DEVICE_ARTIFACT_DIR',''))
+        else:
+            require(type(metadata) is dict and type(metadata.get('lifecycleInputFeatureVersion')) is int
+                and metadata['lifecycleInputFeatureVersion']==1,'PHONE_LIFECYCLE_INPUT_ORIGINAL_CONFIGURATION_REQUIRED')
+            policy=metadata['imagePolicy'];root=Path(metadata['artifactRoot'])
+        # Reuse the exact external original world-render/marker ROI contract.
+        return cls._navigation_configuration(dict(navigationFeatureVersion=1,imagePolicy=policy,artifactRoot=str(root)))
+
+    def _lifecycle_input_feature(self,selector,run,*,role='primary',client=None,retirement=False):
+        from feature_journeys.phase_fixture import PhaseFixtureReader
+        from overte_phone_lifecycle_feature import PhoneLifecycleInputFeature
+        target=self.target(selector)
+        require(getattr(self,'candidate',None) is not None and target.get('appId')=='io.github.noah_be.overte.phone'
+            and self.controlled_android_client(target),'PHONE_LIFECYCLE_INPUT_REQUIRES_BOUND_DEBUG_TARGET')
+        if client is None:
+            require(role=='primary','PHONE_LIFECYCLE_INPUT_ACTOR_REQUIRES_SEPARATE_CLIENT');client=self._feature_fixture_client()
+        metadata=None
+        if role=='actor' or retirement:
+            metadata=self.lifecycle_input_feature_store(selector).read() or self.lifecycle_input_retirement_store(selector).read() or self.lifecycle_input_completed_store(selector).read()
+            require(type(metadata) is dict and metadata.get('runId')==run and metadata.get('fixtureUrl')==client.url+'/runs/'+run+'/',
+                'PHONE_LIFECYCLE_INPUT_ORIGINAL_CONFIGURATION_REQUIRED')
+        root,policy=self._lifecycle_input_configuration(metadata)
+        return PhoneLifecycleInputFeature(self,selector,PhaseFixtureReader(client,run,'lifecycle-input'),root,policy,role=role)
 
     def _avatar_people_controls(self,selector,*,read_only=False):
         from overte_phone_avatar_people_native import PhoneAvatarPeopleIO,UI_FILE
@@ -2438,6 +2495,11 @@ class PhoneAppiumAdapter(AppiumAdapter):
             metadata=self.chat_feature_store(selector).read() or self.chat_retirement_store(selector).read()
             if metadata is not None:self._chat_feature(selector,metadata['runId'],retirement=True).finalize()
         except Exception:chat_feature_error=True
+        lifecycle_input_error=False
+        try:
+            feature=self.lifecycle_input_feature_store(selector).read() or self.lifecycle_input_retirement_store(selector).read()
+            if feature is not None:self._lifecycle_input_feature(selector,feature['runId'],retirement=True).finalize()
+        except Exception:lifecycle_input_error=True
         audio_error=False
         try:
             metadata=self.audio_feature_store(selector).read() or self.audio_retirement_store(selector).read()
@@ -2684,6 +2746,9 @@ class PhoneAppiumAdapter(AppiumAdapter):
         require(not navigation_error and self.navigation_feature_store(selector).read() is None and self.navigation_retirement_store(selector).read() is None
             and all(PrivateFeatureState(self.state_path(selector).with_name('phone-navigation-'+role+'-feature.json')).read() is None for role in ('primary','actor')),
             'PHONE_NAVIGATION_FEATURE_CLEANUP_INCOMPLETE')
+        require(not lifecycle_input_error and self.lifecycle_input_feature_store(selector).read() is None and self.lifecycle_input_retirement_store(selector).read() is None
+            and all(PrivateFeatureState(self.state_path(selector).with_name('phone-lifecycle-input-'+role+'.json')).read() is None for role in ('primary','actor')),
+            'PHONE_LIFECYCLE_INPUT_FEATURE_CLEANUP_INCOMPLETE')
         require(not avatar_people_error and self.avatar_people_feature_store(selector).read() is None and self.avatar_people_retirement_store(selector).read() is None
             and all(PrivateFeatureState(self.state_path(selector).with_name('phone-avatar-people-'+role+'-feature.json')).read() is None for role in ('primary','actor')),
             'PHONE_AVATAR_PEOPLE_FEATURE_CLEANUP_INCOMPLETE')
@@ -2746,6 +2811,10 @@ class PhoneAppiumAdapter(AppiumAdapter):
 
     def invoke(self, selector, operation, values):
         PhoneAdapter.require_bound_operation(self, operation, values)
+        if operation in LIFECYCLE_INPUT_FEATURE_OPERATIONS:
+            from feature_journeys.contract import arguments
+            arguments(operation,values);require(operation in self.advertised_capabilities(self.target(selector)),'PHONE_LIFECYCLE_INPUT_FEATURE_NOT_ENABLED')
+            return self._invoke_feature(selector,operation,values,lambda retired:self._lifecycle_input_feature(selector,values['runId'],**({'retirement':True} if retired else {})))
         if operation in ('app.launch','scene.load'):
             self.account_fixture_configuration(self.target(selector))
         if operation in AVATAR_PEOPLE_FEATURE_OPERATIONS:
@@ -2797,7 +2866,8 @@ class PhoneAppiumAdapter(AppiumAdapter):
             arguments(operation,values)
             require(operation in self.advertised_capabilities(self.target(selector)),'PHONE_WORLD_WEB_FEATURE_NOT_ENABLED')
             return self._invoke_feature(selector,operation,values,lambda retired:self._world_web_feature(selector,values['runId'],**({'retirement':True} if retired else {})))
-        if operation in TABLET_FOUNDATION_OPERATIONS and os.environ.get('OVERTE_PHONE_FEATURE_TABLET_WEB','0')=='1':
+        if operation in TABLET_FOUNDATION_OPERATIONS and (os.environ.get('OVERTE_PHONE_FEATURE_TABLET_WEB','0')=='1'
+                or os.environ.get('OVERTE_PHONE_FEATURE_LIFECYCLE_INPUT','0')=='1'):
             validate_operation_arguments(operation,values)
             require(operation in self.advertised_capabilities(self.target(selector)),'PHONE_TABLET_CONTROLS_NOT_ENABLED')
             return self.normal_tablet_control(selector,operation)

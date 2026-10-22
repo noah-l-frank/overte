@@ -29,7 +29,7 @@ from overte_phone_emote_actor import image_policy
 from overte_phone_avatar_people_feature import image_policy as avatar_people_image_policy
 
 SCRIPT_VERSION=1
-VERSION=6
+VERSION=7
 
 
 def configuration(path):
@@ -39,14 +39,15 @@ def configuration(path):
         need(type(value['scriptObserverVersion']) is int and value['scriptObserverVersion']==SCRIPT_VERSION)
     else:
         exact(value,{'featureObserverVersion','area','target','candidateArguments','fixtureUrl','actorToken','durationSeconds'}
-            |({'imagePolicy'} if value.get('featureObserverVersion') in (3,4,5,6) and value.get('area')=='emotes' else set())
-            |({'peerTarget','peerImagePolicy'} if value.get('featureObserverVersion') in (4,5,6) and value.get('area')=='avatar-people' else set()))
-        need(type(value['featureObserverVersion']) is int and value['featureObserverVersion'] in (2,3,4,5,VERSION)
+            |({'imagePolicy'} if value.get('featureObserverVersion') in (3,4,5,6,7) and value.get('area')=='emotes' else set())
+            |({'peerTarget','peerImagePolicy'} if value.get('featureObserverVersion') in (4,5,6,7) and value.get('area')=='avatar-people' else set()))
+        need(type(value['featureObserverVersion']) is int and value['featureObserverVersion'] in (2,3,4,5,6,VERSION)
              and value['area'] in (('scripts','authentication','graphics') if value['featureObserverVersion']==2 else
                  ('scripts','authentication','graphics','emotes','world-web','tablet-web','world-navigation','audio') if value['featureObserverVersion']==3 else
                  ('scripts','authentication','graphics','emotes','world-web','tablet-web','world-navigation','create','audio','avatar-people') if value['featureObserverVersion']==4 else
                  ('scripts','authentication','graphics','emotes','world-web','tablet-web','world-navigation','create','audio','avatar-people','assets') if value['featureObserverVersion']==5 else
-                 ('scripts','authentication','graphics','emotes','world-web','tablet-web','world-navigation','create','audio','avatar-people','assets','chat')))
+                 ('scripts','authentication','graphics','emotes','world-web','tablet-web','world-navigation','create','audio','avatar-people','assets','chat') if value['featureObserverVersion']==6 else
+                 ('scripts','authentication','graphics','emotes','world-web','tablet-web','world-navigation','create','audio','avatar-people','assets','chat','lifecycle-input')))
         if value['area']=='emotes':image_policy(value['imagePolicy'])
         if value['area']=='authentication':account_origin(value['fixtureUrl'])
         if value['area']=='avatar-people':
@@ -64,9 +65,9 @@ def run(adapter,config,*,monotonic=time.monotonic,sleep=time.sleep):
     """One owned run; no session repair, child launch or device discovery."""
     started=previous=monotonic();need(number(started,0,1e15))
     client=Client(config['fixtureUrl'],config['actorToken']);flow=None
-    area=config.get('area','scripts');need(area in ('scripts','authentication','graphics','emotes','world-web','tablet-web','world-navigation','create','audio','avatar-people','assets','chat'))
+    area=config.get('area','scripts');need(area in ('scripts','authentication','graphics','emotes','world-web','tablet-web','world-navigation','create','audio','avatar-people','assets','chat','lifecycle-input'))
     if area=='avatar-people':return run_avatar_people(adapter,config,client,monotonic=monotonic,sleep=sleep)
-    if area in ('world-web','tablet-web','audio'):return run_world_web(adapter,config,client,monotonic=monotonic,sleep=sleep)
+    if area in ('world-web','tablet-web','audio','lifecycle-input'):return run_world_web(adapter,config,client,monotonic=monotonic,sleep=sleep)
     if area=='assets':return run_assets(adapter,config,client,monotonic=monotonic,sleep=sleep)
     if area=='chat':return run_chat(adapter,config,client,monotonic=monotonic,sleep=sleep)
     if area=='create':return run_create(adapter,config,client,monotonic=monotonic,sleep=sleep)
@@ -235,6 +236,7 @@ def main(argv=None):
         # This process owns only its actor credential and internal read-only
         # factories. It never advertises or invokes the primary feature triple.
         os.environ['OVERTE_PHONE_FEATURE_SCRIPTS']='0'
+        os.environ['OVERTE_PHONE_FEATURE_LIFECYCLE_INPUT']='0'
         os.environ['OVERTE_PHONE_FEATURE_AUTHENTICATION']='0'
         os.environ['OVERTE_PHONE_FEATURE_GRAPHICS']='0'
         os.environ['OVERTE_PHONE_FEATURE_EMOTES']='0'
