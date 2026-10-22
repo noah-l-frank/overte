@@ -152,6 +152,10 @@ class PicoCiGraphContracts(unittest.TestCase):
         recipe = (HERE / "target.conanfile.py").read_text()
         self.assertIn("android/common/native-ci/target.conanfile.py", recipe)
         self.assertNotIn("android/phone", recipe)
+        # The hermetic SDK contains this reviewed build-tools cohort only;
+        # compileSdk alone does not override AGP's older default tool version.
+        gradle = (HERE.parent / "apps/picoInterface/build.gradle").read_text()
+        self.assertRegex(gradle, r"(?m)^    buildToolsVersion '36[.]0[.]0'$")
 
     def test_declared_dependency_cohort_matches_graph_admission(self):
         common = HERE.parents[2] / "common/native-ci"
