@@ -371,6 +371,7 @@ struct IOSWebView::Private {
     QUrl featureDocument,featureFinishedDocument,featureHTTPDocument;
     QVariantMap featureCommand,featurePacket;
     QVariantMap featureWorldLastIdentity;
+    QVariantMap featureTabletSource,featureBrowserLastIdentity;
     QString featureHTTPResponseId;
     QString featureWorldDOMSourceSha256;
     bool featureIssued { false };
@@ -413,7 +414,7 @@ IOSWebView::IOSWebView(QQuickItem* parent) : QQuickPaintedItem(parent), _private
             _private->featureHandle=featureNextHandle++;featureRegistry.insert(_private->featureHandle,this);
         }
         _private->channel.featureObserver=[this](const QString& kind,const QVariant& message) -> std::shared_ptr<void> {
-            return std::make_shared<world_web_trace::Signal>(featureWorldIdentity(),kind,QVariantMap{{"message",message}});
+            return std::make_shared<browser_trace::Signal>(featureBrowserIdentity(),kind,QVariantMap{{"message",message}});
         };
     }
 #endif
@@ -453,12 +454,12 @@ IOSWebView::IOSWebView(QQuickItem* parent) : QQuickPaintedItem(parent), _private
 IOSWebView::~IOSWebView() {
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     if (featureEnabled()) {
-        const auto identity=featureWorldIdentity(true);
-        if (!world_web_trace::rootFor(identity).isEmpty()) {
+        const auto identity=featureBrowserIdentity(true);
+        if (!identity.isEmpty()) {
             // QObject emits this only after the derived destructor and its
             // members have finished. Entry into this destructor is not death.
             QObject::connect(this,&QObject::destroyed,[identity] {
-                world_web_trace::event(identity,"owner-destroyed");
+                browser_trace::event(identity,"owner-destroyed");
             });
         }
     }
@@ -598,7 +599,7 @@ bool IOSWebView::observeInlineDocument() {
 
 void IOSWebView::tearDown() {
 #if defined(OVERTE_E2E_FEATURE_TESTS)
-    if (_private->view) { world_web_trace::event(featureWorldIdentity(true),"view-teardown"); }
+    if (_private->view) { browser_trace::event(featureBrowserIdentity(true),"view-teardown"); }
 #endif
     _private->policy.close(); // Shared invalidation precedes every native cleanup.
 #if defined(OVERTE_E2E_FEATURE_TESTS)
@@ -606,6 +607,9 @@ void IOSWebView::tearDown() {
 #endif
     QObject::disconnect(_private->inlineRevocationConnection); _private->inlineRevocationConnection = {};
     _private->generation = 0;
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    _private->featureTabletSource.clear();
+#endif
     _private->inlineBinding.clear(); _private->inlineNavigation.clear(); _private->inlineMode = false;
     _private->openTimer.stop(); _private->deadline.stop();
     QObject::disconnect(_private->snapshotConnection); _private->snapshotConnection = {};
@@ -659,6 +663,12 @@ bool IOSWebView::openSource() {
     }
     if (!_private->generation) { return false; }
 #if defined(OVERTE_E2E_FEATURE_TESTS)
+    // Immutable original association belongs to this actual opened policy
+    // grant. Later QML property assignments cannot relabel old callbacks.
+    if (featureEnabled() && _private->policy.surface()==web::Surface::Tablet) {
+        _private->featureTabletSource=overte::e2e::tablet_sources::view(this,_private->originalSource,
+            _private->policy.sourceIdentity(),_private->inlineMode ? _private->inlineBinding.document() : web::InlineHtmlDocument());
+    }
     _private->featurePolicyLease = feature_closures::retain(featureClosureContext(), feature_closures::Kind::PolicyGrant);
 #endif
     if (_private->inlineMode && !observeInlineDocument()) {
@@ -728,7 +738,7 @@ void IOSWebView::open() {
 #if defined(OVERTE_E2E_FEATURE_TESTS)
             if (featureEnabled() && state.view && state.featureCreation<9007199254740991ULL) {
                 ++state.featureCreation;
-                world_web_trace::event(owner->featureWorldIdentity(),"view-created");
+                browser_trace::event(owner->featureBrowserIdentity(),"view-created");
             }
             state.delegate->featureScope = owner->featureClosureContext();
             feature_closures::nativeObject((__bridge void*)state.view, state.delegate->featureScope, feature_closures::Kind::NativeView);
@@ -959,7 +969,7 @@ void IOSWebView::verifyDocument() {
             if (featureEnabled() && state.featureFinishedGrant==generation && state.featureFinishedPage==epoch
                     && state.featureFinishedView==state.view && state.featureFinishedDocument==qtURL(state.view.URL)) {
                 state.featureVerifiedGrant=generation;state.featureVerifiedPage=epoch;
-                world_web_trace::event(owner->featureWorldIdentity(),"document-verified");
+                browser_trace::event(owner->featureBrowserIdentity(),"document-verified");
             }
 #endif
             owner->nativeNavigationFinished();
@@ -975,7 +985,7 @@ void IOSWebView::verifyDocument() {
 }
 void IOSWebView::nativeMessage(const QString& envelope, const QString& documentNonce, const QUrl& frame, bool mainFrame) {
 #if defined(OVERTE_E2E_FEATURE_TESTS)
-    world_web_trace::Signal featureSignal(featureWorldIdentity(),"native-envelope",{{"envelope",envelope},
+    browser_trace::Signal featureSignal(featureBrowserIdentity(),"native-envelope",{{"envelope",envelope},
         {"documentNonce",documentNonce},{"frame",frame.toString(QUrl::FullyEncoded)},{"mainFrame",mainFrame}});
 #endif
     if (active() && _private->document.accepts(_private->generation, documentNonce, frame, mainFrame) &&
@@ -1008,7 +1018,7 @@ bool IOSWebView::beginDocumentNavigation(const QUrl& frame) {
         fail(tr("The web document identity is unavailable.")); return false;
     }
 #if defined(OVERTE_E2E_FEATURE_TESTS)
-    world_web_trace::event(featureWorldIdentity(),"document-began",{{"frame",frame.toString(QUrl::FullyEncoded)}});
+    browser_trace::event(featureBrowserIdentity(),"document-began",{{"frame",frame.toString(QUrl::FullyEncoded)}});
 #endif
     return true;
 }
@@ -1071,7 +1081,7 @@ void IOSWebView::prepareDocument(const QUrl& frame) {
 }
 void IOSWebView::emitScriptEvent(const QVariant& message) {
 #if defined(OVERTE_E2E_FEATURE_TESTS)
-    world_web_trace::Signal featureSignal(featureWorldIdentity(),"script-event-slot",{{"message",message},{"active",active()}});
+    browser_trace::Signal featureSignal(featureBrowserIdentity(),"script-event-slot",{{"message",message},{"active",active()}});
 #endif
     if (active()) { _private->channel.publishScriptEvent(message); }
 }
@@ -1080,11 +1090,11 @@ void IOSWebView::evaluate(const QString& code) {
     if (active() && _private->view) {
         const auto featureLease = feature_closures::retain(featureClosureContext(), feature_closures::Kind::JavaScript);
         if (featureLease) {
-            const auto featureIdentity=featureWorldIdentity();
-            const auto featureEntry=world_web_trace::event(featureIdentity,"evaluation-enter",{{"codeSha256",world_web_trace::codeSha256(code)}});
+            const auto featureIdentity=featureBrowserIdentity();
+            const auto featureEntry=browser_trace::event(featureIdentity,"evaluation-enter",{{"codeSha256",world_web_trace::codeSha256(code)}});
             [_private->view evaluateJavaScript:nativeString(guardedScript(code, _private->document.nonce()))
                 completionHandler:^(id, NSError* error) {
-                    world_web_trace::Callback actualCallback(featureIdentity,featureEntry,{{"error",error!=nil}});
+                    browser_trace::Callback actualCallback(featureIdentity,featureEntry,{{"error",error!=nil}});
                     (void)featureLease;
                 }];
             return;
@@ -1151,13 +1161,13 @@ return !!(el.isContentEditable||el.tagName==='TEXTAREA'||(el.tagName==='INPUT'&&
     const auto epoch = _private->document.epoch();
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     const auto featureLease = feature_closures::retain(featureClosureContext(), feature_closures::Kind::JavaScript);
-    const auto featureIdentity=featureWorldIdentity();
-    const auto featureEntry=world_web_trace::event(featureIdentity,"pointer-enter",{{"type",type},{"x",x},
+    const auto featureIdentity=featureBrowserIdentity();
+    const auto featureEntry=browser_trace::event(featureIdentity,"pointer-enter",{{"type",type},{"x",x},
         {"y",y},{"width",width()},{"height",height()},{"button",button},{"codeSha256",world_web_trace::codeSha256(code)}});
 #endif
     [_private->view evaluateJavaScript:nativeString(guardedScript(QStringLiteral("return ") + code, _private->document.nonce())) completionHandler:^(id result, NSError* error) {
 #if defined(OVERTE_E2E_FEATURE_TESTS)
-        world_web_trace::Callback actualCallback(featureIdentity,featureEntry,{{"error",error!=nil},{"result",qtValue(result)}});
+        browser_trace::Callback actualCallback(featureIdentity,featureEntry,{{"error",error!=nil},{"result",qtValue(result)}});
         (void)featureLease;
 #endif
         if (!owner || type != QStringLiteral("press")) { return; }
@@ -1168,7 +1178,7 @@ void IOSWebView::keyEvent(const QString& text, int key, int modifiers) {
     if (!active() || !_private->inputActive || _private->presentation || text.size() > 8192 ||
             (modifiers & (Qt::ControlModifier | Qt::AltModifier | Qt::MetaModifier))) { return; }
 #if defined(OVERTE_E2E_FEATURE_TESTS)
-    world_web_trace::Signal featureSignal(featureWorldIdentity(),"key-enter",{{"text",text},{"key",key},{"modifiers",modifiers}});
+    browser_trace::Signal featureSignal(featureBrowserIdentity(),"key-enter",{{"text",text},{"key",key},{"modifiers",modifiers}});
 #endif
     const bool control = key == Qt::Key_Backspace || key == Qt::Key_Delete || key == Qt::Key_Return || key == Qt::Key_Enter;
     const auto args = encodedArguments(QJsonArray { control ? QString() : text, key, bool(modifiers & Qt::ShiftModifier) });
@@ -1317,6 +1327,29 @@ feature_closures::ContextPointer IOSWebView::featureClosureContext() const {
     return feature_closures::context(value.featureHandle, value.featureCreation, value.generation,
         value.document.epoch(), value.surface, value.identity, value.policy.url().toString(QUrl::FullyEncoded));
 }
+QVariantMap IOSWebView::featureBrowserIdentity(bool historical) const {
+    if (!featureEnabled()) { return {}; }
+    auto& actual=*_private;
+    // The existing World producer remains a closed, unchanged source.
+    if (actual.policy.surface()==web::Surface::WorldEntity && (actual.generation || historical)) {
+        const auto identity=featureWorldIdentity(historical);
+        if (!identity.isEmpty()) { actual.featureBrowserLastIdentity=identity; }return identity;
+    }
+    if (actual.generation && actual.policy.surface()==web::Surface::Tablet && !actual.featureTabletSource.isEmpty()) {
+        QVariantMap identity{{"handle",QString::number(actual.featureHandle)},{"creation",static_cast<qulonglong>(actual.featureCreation)},
+            {"grant",static_cast<qulonglong>(actual.generation)},{"page",static_cast<qulonglong>(actual.document.epoch())},
+            {"nonce",actual.document.nonce()},{"url",actual.view ? qtURL(actual.view.URL).toString(QUrl::FullyEncoded) : QString()},
+            {"sourceUrl",actual.policy.url().toString(QUrl::FullyEncoded)},{"sourceIdentity",actual.policy.sourceIdentity()},
+            {"surface","tablet"},{"source",actual.featureTabletSource}};
+        if (!tablet_web_trace::rootFor(identity).isEmpty()) { actual.featureBrowserLastIdentity=identity;return identity; }
+    }
+    if (historical) {
+        const auto& previous=actual.featureBrowserLastIdentity;
+        if (!previous.isEmpty() && (!actual.view || previous.value("creation").toULongLong()==actual.featureCreation)) { return previous; }
+        return {};
+    }
+    return {};
+}
 QVariantMap IOSWebView::featureWorldIdentity(bool historical) const {
     if (!featureEnabled()) { return {}; }
     auto& actual=*_private;
@@ -1338,14 +1371,14 @@ void IOSWebViewNative::featureResponse(IOSWebView* owner,std::uint64_t generatio
     state.featureHTTPGrant=generation;state.featureHTTPPage=state.document.epoch();
     state.featureHTTPDocument=frame;state.featureHTTPStatus=response.statusCode;
     state.featureHTTPResponseId=qtString([response valueForHTTPHeaderField:@"X-Overte-Fixture-Response"]);
-    world_web_trace::event(owner->featureWorldIdentity(),"main-response",{{"url",frame.toString(QUrl::FullyEncoded)},
+    browser_trace::event(owner->featureBrowserIdentity(),"main-response",{{"url",frame.toString(QUrl::FullyEncoded)},
         {"status",static_cast<qint64>(response.statusCode)},
         {"responseId",qtString([response valueForHTTPHeaderField:@"X-Overte-Fixture-Response"])},
         {"mimeType",qtString(response.MIMEType)}});
 }
 void IOSWebViewNative::featureFinished(IOSWebView* owner,std::uint64_t generation,WKWebView* view) {
     if (featureEnabled() && current(owner,generation) && view==owner->_private->view) {
-        world_web_trace::event(owner->featureWorldIdentity(),"native-finished");
+        browser_trace::event(owner->featureBrowserIdentity(),"native-finished");
     }
 }
 QVariantMap IOSWebView::featureWebPacket(const QVariantMap& command,const QString& status,const QVariantMap& source) {
@@ -1505,6 +1538,10 @@ void registerIOSWebView() {
             return overte::ios::world_web_trace::observe(command);
         };
         QCoreApplication::instance()->setProperty(overte::ios::world_web_trace::providerProperty(),QVariant::fromValue(worldWeb));
+        overte::ios::tablet_web_trace::Provider tabletWeb=[](const QVariantMap& command) {
+            return overte::ios::tablet_web_trace::observe(command);
+        };
+        QCoreApplication::instance()->setProperty(overte::ios::tablet_web_trace::providerProperty(),QVariant::fromValue(tabletWeb));
         overte::ios::world_web_trace::Provider worldDOM=[](const QVariantMap& command) {
             return overte::ios::IOSWebView::featureWorldWebDOMObservation(command);
         };

@@ -4,6 +4,7 @@
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #include "IOSWebClosureTrace.h"
 #include "IOSWorldWebTrace.h"
+#include "IOSBrowserTrace.h"
 #endif
 #include <QImage>
 #include <QJSValue>
@@ -126,6 +127,7 @@ private:
     QVariantMap featureWebDOMRequest(const QVariantMap& command, bool world = false);
     QVariantMap featureWebPacket(const QVariantMap& command, const QString& status, const QVariantMap& source = {});
     QVariantMap featureWorldIdentity(bool historical = false) const;
+    QVariantMap featureBrowserIdentity(bool historical = false) const;
 #endif
     struct Private;
     std::unique_ptr<Private> _private;
