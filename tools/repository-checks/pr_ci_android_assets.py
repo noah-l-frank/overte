@@ -20,7 +20,8 @@ import pr_ci_android_runtime as R
 
 ROOT = Path(__file__).resolve().parents[2]
 POLICY = ".github/pr-ci-android-native.json"
-KINDS = frozenset({"image", "sdk", "runtime", "qualification", "controller"})
+NATIVE_KINDS = frozenset({"image", "sdk", "runtime", "qualification", "controller"})
+KINDS = NATIVE_KINDS | {"groovy"}
 MAX_ASSET = 2 * 1024 ** 3 - 1
 SHA = re.compile(r"[0-9a-f]{64}")
 
@@ -145,7 +146,7 @@ def prepare(value, destination, cache, *, opener=urllib.request.urlopen):
     staging = Path(tempfile.mkdtemp(prefix=".android-runtime-", dir=destination.parent))
     try:
         image = None
-        for name in sorted(KINDS):
+        for name in sorted(NATIVE_KINDS):
             payload = value["assets"][name]
             archive = fetch(payload["archive"], cache, opener=opener)
             if name == "image":

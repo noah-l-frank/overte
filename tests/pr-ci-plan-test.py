@@ -52,9 +52,24 @@ class CentralPlannerTests(unittest.TestCase):
                     result = self.plan(self.candidate(path, raw), target)
                     expected = [owners[target]] if native and target in owners else []
                     self.assertEqual(result["android_native_products"], expected)
+                    self.assertFalse(result['android_groovy_contracts'])
                     if expected:
                         owner = next(task for task in result["tasks"] if task["id"] == "platform:android")
                         self.assertEqual(owner["command"][-2:], ["--native-product", expected[0]])
+
+    def test_groovy_fixture_selects_only_small_owning_runtime_and_no_native_build(self):
+        result = self.plan(self.candidate('android/vr/pico/native-ci/inputs_test.py', 'pass\n'), 'android-vr-pico')
+        self.assertTrue(result['android_required'])
+        self.assertTrue(result['android_groovy_contracts'])
+        self.assertEqual(result['android_native_products'], [])
+        closure = json.loads((ROOT / '.github/pr-ci-platform-inputs.json').read_text())
+        inputs = next(item['inputs'] for item in closure['infrastructure'] if item['name'] == 'pico-native-ci-inputs')
+        for path in inputs:
+            with self.subTest(path=path):
+                self.assertTrue(PLANNER._android_groovy_required([path], True, 'android-vr-pico',
+                                                               self.trusted, self.objects.read))
+        self.assertFalse(PLANNER._android_groovy_required(['browser-client/package-lock.json'], True,
+                                                        'android-vr-pico', self.trusted, self.objects.read))
 
     def setUp(self):
         self.objects = Objects()
@@ -86,6 +101,8 @@ class CentralPlannerTests(unittest.TestCase):
         for project in ("browser-client", "script-archive/marketplace/S3Server", "tools/jsdoc"):
             self.base[project + "/package.json"] = self.objects.entry('{"name":"fixture"}')
             self.base[project + "/package-lock.json"] = self.objects.entry('{"lockfileVersion":3}')
+        self.base['.github/pr-ci-platform-inputs.json'] = self.objects.entry(
+            (ROOT / '.github/pr-ci-platform-inputs.json').read_bytes())
         # The language selector receives the real protected extractor controls;
         # these entries are not a workflow admission or a fabricated run record.
         for path in PLANNER._CODEQL._REVIEWED_CONTROLS:

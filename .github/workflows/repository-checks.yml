@@ -65,6 +65,7 @@ jobs:
       browser_projects: ${{ steps.plan.outputs.browser_projects }}
       android_compile_products: ${{ steps.plan.outputs.android_compile_products }}
       android_native_products: ${{ steps.plan.outputs.android_native_products }}
+      android_groovy_contracts: ${{ steps.plan.outputs.android_groovy_contracts }}
     steps:
       - name: Check out the trusted controller
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -615,6 +616,25 @@ jobs:
           python3 -I -S -B trusted/tools/repository-checks/pr_ci_android_native.py \
             --destination "$RUNNER_TEMP/pr-ci-android-native" \
             --cache "$RUNNER_TEMP/pr-ci-android-native-cache"
+      - name: Restore the small Pico Groovy transport cache
+        if: needs.plan.outputs.android_groovy_contracts == 'true'
+        id: android-groovy-cache
+        uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25
+        with:
+          path: ${{ runner.temp }}/pr-ci-android-groovy-cache
+          key: pr-ci-android-groovy-v1-${{ hashFiles('trusted/.github/pr-ci-android-native.json') }}
+      - name: Prepare exact Groovy only for the selected Pico adapter contracts
+        if: needs.plan.outputs.android_groovy_contracts == 'true'
+        run: |
+          python3 -I -S -B trusted/tools/repository-checks/pr_ci_android_native.py \
+            --groovy-only --destination "$RUNNER_TEMP/pr-ci-android-groovy" \
+            --cache "$RUNNER_TEMP/pr-ci-android-groovy-cache"
+      - name: Save the verified small Pico Groovy transport cache
+        if: needs.plan.outputs.android_groovy_contracts == 'true' && steps.android-groovy-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25
+        with:
+          path: ${{ runner.temp }}/pr-ci-android-groovy-cache
+          key: pr-ci-android-groovy-v1-${{ hashFiles('trusted/.github/pr-ci-android-native.json') }}
       - name: Save verified Android native asset transport
         if: needs.plan.outputs.android_native_products != '[]' && steps.android-native-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25
@@ -628,6 +648,7 @@ jobs:
           FULL_HOST: 'true'
           COMPILE_PRODUCTS: ${{ needs.plan.outputs.android_compile_products }}
           NATIVE_PRODUCTS: ${{ needs.plan.outputs.android_native_products }}
+          GROOVY_CONTRACTS: ${{ needs.plan.outputs.android_groovy_contracts }}
         run: |
           node_root=$(dirname "$(dirname "$(readlink -f "$(command -v node)")")")
           prepared=(--prepared-root "$node_root")
@@ -639,6 +660,9 @@ jobs:
           fi
           if test "$NATIVE_PRODUCTS" != '[]'; then
             prepared+=(--prepared-root "$RUNNER_TEMP/pr-ci-android-native" --android-native-runtime "$RUNNER_TEMP/pr-ci-android-native")
+          fi
+          if test "$GROOVY_CONTRACTS" = 'true'; then
+            prepared+=(--prepared-root "$RUNNER_TEMP/pr-ci-android-groovy" --android-groovy-runtime "$RUNNER_TEMP/pr-ci-android-groovy")
           fi
           "$RUNNER_TEMP/pr-ci-venv/bin/python" -I -S -B trusted/tools/repository-checks/pr_ci.py platform \
             --lane android --context-json "$CONTEXT_JSON" --plan-json "$PLAN_JSON" \
