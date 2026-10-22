@@ -118,6 +118,14 @@ session Stop and its independent process-absence proof must be joined without
 turning an ended renderer into a fresh live-world reading. No hidden root is
 reported as destroyed and no unresolved owner is discarded.
 
+Snapshots also has [original pending-work observations](SNAPSHOT_WORK.md):
+actual private closure state, native submitted main/helper code and separate
+native timer/dispatch/QObject histories, with unchanged Avatar/Create defaults.
+Eight no-build component checks and thirteen actual production JavaScript cases
+cover early pending cancellation, thrown callbacks and strict original history.
+Render/encode lifetime joins and independent destination/receiver originals
+remain open; this does not enable the complete Snapshot capability.
+
 Snapshots now has a [passive native export source](SNAPSHOT_EXPORTS.md): actual
 Photos authorization/commit/placeholder/completion, system Share result, Qt
 delivery, callback return and weak export expiry. Seven host checks pass; native

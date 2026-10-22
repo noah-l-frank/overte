@@ -945,6 +945,30 @@ function startup() {
     }
     registerButtonMappings();
 }
+// This passive observer exists only when the dedicated native feature API is
+// present. Ordinary startup/callbacks keep their original behavior otherwise.
+if (typeof Test !== "undefined" && typeof Test.featureIOSSnapshotEvent === "function") {
+    var featureSnapshotWork = Script.require("./snapshot/featureSnapshotWork.js").observer(Script.resolvePath("snapshot.js"), function () {
+        return { nativeReview: nativeReview, revision: nativeReviewRevision, captureId: nativeCaptureId,
+            captureCounter: nativeCaptureCounter, mode: nativeCaptureMode, timerHandles: nativeCaptureTimers.slice().sort(function (a, b) { return a - b; }),
+            pendingUploads: Object.keys(nativeUploadPaths).length, overlaysHidden: nativeOverlaysHidden,
+            open: typeof ui !== "undefined" && !!ui.isOpen };
+    });
+    function featureSnapshotObserved(name, original) {
+        return function () {
+            var receiver = this, args = arguments;
+            return featureSnapshotWork.call(name, function () { return original.apply(receiver, args); });
+        };
+    }
+    takeSnapshot = featureSnapshotObserved("takeSnapshot", takeSnapshot);
+    cancelNativeCapture = featureSnapshotObserved("cancelNativeCapture", cancelNativeCapture);
+    clearNativeCaptureTimers = featureSnapshotObserved("clearNativeCaptureTimers", clearNativeCaptureTimers);
+    scheduleNativeCapture = featureSnapshotObserved("scheduleNativeCapture", scheduleNativeCapture);
+    onNativeCaptureStatus = featureSnapshotObserved("onNativeCaptureStatus", onNativeCaptureStatus);
+    onNativeUploadStatus = featureSnapshotObserved("onNativeUploadStatus", onNativeUploadStatus);
+    onClosingWindow = featureSnapshotObserved("onClosingWindow", onClosingWindow);
+    onMessage = featureSnapshotObserved("onMessage", onMessage);
+}
 startup();
 
 function shutdown() {
@@ -964,5 +988,10 @@ function shutdown() {
     ContextMenu.enable();
 }
 Script.scriptEnding.connect(shutdown);
+if (typeof featureSnapshotWork !== "undefined" && featureSnapshotWork.enabled) {
+    // Observe the original ending state after ordinary shutdown has cancelled
+    // its own work, rather than invalidating later real shutdown callbacks.
+    Script.scriptEnding.connect(featureSnapshotWork.ending);
+}
 
 }()); // END LOCAL_SCOPE

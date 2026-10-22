@@ -13,9 +13,16 @@ COUNTERS=('fired','entered','left')
 TIMES=('destroyedEpochMs','lastFiredEpochMs','lastCallbackEpochMs','lastDispatchEpochMs')
 
 
-def validate(value,epoch,previous=None):
-    exact(value,{'avatarUiWorkVersion','instance','complete','timers'})
-    need(type(value['avatarUiWorkVersion']) is int and value['avatarUiWorkVersion']==VERSION and identity(value['instance'])
+def validate(value,epoch,previous=None,*,schema='avatarUiWorkVersion',suffixes=SUFFIXES):
+    """Validate a native timer instance with its original schema and filters.
+
+    Snapshot uses a separate producer instance; its packet is never relabeled
+    into an Avatar original. The defaults preserve the existing Avatar wire.
+    """
+    need(type(schema) is str and type(suffixes) is tuple and suffixes
+        and all(type(suffix) is str and suffix.startswith('/') for suffix in suffixes))
+    exact(value,{schema,'instance','complete','timers'})
+    need(type(value[schema]) is int and value[schema]==VERSION and identity(value['instance'])
         and type(value['complete']) is bool and type(value['timers']) is list and len(value['timers'])<=256)
     identifiers=[];handles=set()
     for row in value['timers']:
@@ -28,7 +35,7 @@ def validate(value,epoch,previous=None):
         relevant=False
         for caller in chain:
             need(type(caller) is str and len(caller)<=4096 and all(ord(c)>=32 and ord(c)!=127 for c in caller))
-            for suffix in SUFFIXES:
+            for suffix in suffixes:
                 if caller.endswith(suffix):installed(caller,suffix);relevant=True
         need(relevant)
         for key in COUNTERS:need(integer(row[key],0,9007199254740991))
@@ -46,7 +53,7 @@ def validate(value,epoch,previous=None):
         elif row['lastFiredEpochMs'] is not None:need(row['lastFiredEpochMs']<=row['destroyedEpochMs'])
     need(identifiers==sorted(set(identifiers)))
     if previous is not None:
-        validate(previous,epoch);need(value['instance']==previous['instance'] and (previous['complete'] or not value['complete']))
+        validate(previous,epoch,schema=schema,suffixes=suffixes);need(value['instance']==previous['instance'] and (previous['complete'] or not value['complete']))
         current={row['timerId']:row for row in value['timers']}
         for old in previous['timers']:
             need(old['timerId'] in current);row=current[old['timerId']]

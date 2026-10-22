@@ -8,6 +8,7 @@
 #include <QMutex>
 #include <QMutexLocker>
 #include <QTimer>
+#include <utility>
 
 namespace overte::e2e {
 // Actual installed Avatar/Pal timer state. Counter snapshots avoid logging a
@@ -16,10 +17,11 @@ namespace overte::e2e {
 // including singleShot destruction before callback entry.
 class AvatarUiWorkObservation {
 public:
+    explicit AvatarUiWorkObservation(QStringList suffixes={"/system/avatarapp.js","/system/pal.js","/system/libraries/peopleConnection.js",
+        "/modules/request.js","/system/request-service.js"},QString schema="avatarUiWorkVersion") :
+        _suffixes(std::move(suffixes)),_schema(std::move(schema)) {}
     QString created(int handle,const QStringList& callers,const QTimer* timer) {
-        const QStringList suffixes{"/system/avatarapp.js","/system/pal.js","/system/libraries/peopleConnection.js",
-            "/modules/request.js","/system/request-service.js"};
-        bool relevant{false};for (const auto& caller:callers) { for (const auto& suffix:suffixes) {
+        bool relevant{false};for (const auto& caller:callers) { for (const auto& suffix:_suffixes) {
             relevant=relevant || PlacesHttpObservation::installed(caller,suffix);
         } }
         if (!enabled() || !relevant) { return {}; }QMutexLocker lock(&_mutex);
@@ -64,7 +66,7 @@ public:
     QVariantMap snapshot() const {
         QMutexLocker lock(&_mutex);QVariantList states;
         for (auto it=_states.cbegin();it!=_states.cend();++it) { states.append(it.value()); }
-        return {{"avatarUiWorkVersion",1},{"instance",_instance},{"complete",_complete},{"timers",states}};
+        return {{_schema,1},{"instance",_instance},{"complete",_complete},{"timers",states}};
     }
     void unavailable() { QMutexLocker lock(&_mutex);_complete=false; }
 private:
@@ -83,6 +85,7 @@ private:
     QHash<int,QString> _handles;
     QMap<QString,QVariantMap> _states;
     qint64 _epoch{0};bool _complete{true};
+    const QStringList _suffixes;const QString _schema;
 };
 } // namespace overte::e2e
 #endif

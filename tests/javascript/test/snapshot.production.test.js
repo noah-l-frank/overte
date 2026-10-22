@@ -5,12 +5,17 @@ const assert = require("node:assert/strict");
 const path = require("node:path");
 const { FakeSignal, createScriptApi, runProductionScript } = require("../support");
 const source = path.resolve(__dirname,"../../../scripts/system/snapshot.js");
-function start(native=true) {
+function start(native=true,observe=false) {
     const Script=createScriptApi(), settings=new Map(), calls=[], messages=[], requests=[], cancelled=[];
+    const work=[];
+    const Test=observe?{featureIOSSnapshotEvent(value){work.push(structuredClone(value));}}:undefined;
+    if(observe){Script.update=new FakeSignal();}
     let ui;
     function AppUi(options) { ui=this; this.options=options;this.isOpen=true;this.sendMessage=value=>messages.push(value);this.openNewAppOnTop=()=>{}; }
     Script.include=()=>{};Script.resourcesPath=()=>"/packaged/";Script.getExternalPath=(_,p)=>p;Script.ExternalPaths={HF_Content:1};
-    Script.require=name=>name==="appUi"?AppUi:name==="contextMenu"?{enable(){},disable(){}}:{request(options,callback){requests.push({options,callback});}};
+    Script.require=name=>name==="./snapshot/featureSnapshotWork.js"
+        ?runProductionScript(path.resolve(__dirname,"../../../scripts/system/snapshot/featureSnapshotWork.js"),{Script,Test,module:{exports:{}}}).context.module.exports
+        :name==="appUi"?AppUi:name==="contextMenu"?{enable(){},disable(){}}:{request(options,callback){requests.push({options,callback});}};
     const Window={snapshotShared:new FakeSignal(),stillSnapshotTaken:new FakeSignal(),processingGifStarted:new FakeSignal(),processingGifCompleted:new FakeSignal(),browseDirChanged:new FakeSignal(),
         takeSnapshot(...args){calls.push(["still",...args]);},takeSecondaryCamera360Snapshot(...args){calls.push(["360",...args]);},shareSnapshot(...args){calls.push(["upload",...args]);}};
     const Snapshot={nativeReviewEnabled:()=>native,getSnapshotFormat:()=>"png",getSnapshotsLocation:()=>"/app/Snapshots",captureStatusChanged:new FakeSignal(),uploadStatusChanged:new FakeSignal(),snapshotLocationSet:new FakeSignal(),
@@ -19,7 +24,7 @@ function start(native=true) {
     const Account={metaverseServerURL:"https://metaverse.invalid",isLoggedIn:()=>true};
     const HMD={active:false,displayModeChanged:new FakeSignal(),closeTablet(){calls.push(["close"]);},openTablet(){calls.push(["open"]);}};
     const GlobalServices={myUsernameChanged:new FakeSignal()};
-    runProductionScript(source,{Script,Snapshot,Window,Account,GlobalServices,Reticle,Menu,HMD,print(){},openLoginWindow(){},
+    runProductionScript(source,{Script,Test,Snapshot,Window,Account,GlobalServices,Reticle,Menu,HMD,print(){},openLoginWindow(){},
         Settings:{getValue(key,fallback=""){return settings.has(key)?settings.get(key):fallback;},setValue(key,value){settings.set(key,value);}},
         Controller:{getDeviceNames:()=>[],newMapping:()=>({enable(){},disable(){},from(){return{to(){}};}})},
         Entities:{canRez:()=>false,canRezTmp:()=>false,canRezChanged:new FakeSignal(),canRezTmpChanged:new FakeSignal()},
@@ -30,7 +35,7 @@ function start(native=true) {
     ui.options.onOpened.call(ui);
     function message(action,extra={}) { ui.options.onMessage({type:"snapshot",action,...extra}); }
     function delayedCapture() { for(const delay of [350,500]){const entry=[...Script.timers].find(([,timer])=>timer.delay===delay);assert.ok(entry);Script.runTimer(entry[0]);} }
-    return{Script,Snapshot,Window,Account,GlobalServices,Reticle,Menu,HMD,ui,settings,calls,messages,requests,cancelled,message,delayedCapture};
+    return{Script,Snapshot,Window,Account,GlobalServices,Reticle,Menu,HMD,ui,settings,calls,messages,requests,cancelled,work,message,delayedCapture};
 }
 test("native SNAP loads actual QML while desktop retains full HTML review",()=>{
     const mobile=start();assert.match(mobile.ui.options.home,/NativeSnapshotReview.qml$/);
@@ -122,4 +127,35 @@ test("idle Cancel cannot fabricate an actual pending-capture cancellation proof"
     h.message("cancelSnapshotCapture");
     assert.equal(h.cancelled.length,1);
     assert.equal(h.messages.filter(row=>row.action==="captureStatus"&&row.phase==="cancelled").length,1);
+});
+
+test("test observer retains real delayed capture state and cancellation closure order",()=>{
+    const h=start(true,true);
+    assert.equal(h.work[0].event,"snapshot");assert.equal(h.work[0].state.captureId,"");
+    assert.equal(h.Script.timers.size,0);assert.equal(h.Script.update.listenerCount,1);
+    h.message("takeSnapshot",{mode:"animated"});h.Script.update.emit();
+    const pending=h.work.at(-1).state;
+    assert.match(pending.captureId,/^snap_/);assert.equal(pending.mode,"animated");
+    assert.equal(pending.overlaysHidden,true);assert.equal(pending.timerHandles.length,2);
+    assert.deepEqual(pending.timerHandles.map(id=>h.Script.timers.get(id).delay).sort((a,b)=>a-b),[350,60000]);
+    assert.equal(h.calls.filter(row=>row[0]==="still").length,0);
+    h.message("cancelSnapshotCapture");h.Script.update.emit();
+    const cancel=h.work.filter(row=>row.closure==="cancelNativeCapture");
+    assert.deepEqual(cancel.slice(-3).map(row=>row.event),["entry","returned","finally"]);
+    assert.equal(cancel.at(-3).state.captureId,pending.captureId);
+    assert.equal(cancel.at(-1).state.captureId,"");assert.equal(cancel.at(-1).state.timerHandles.length,0);
+    assert.equal(cancel.at(-1).state.overlaysHidden,false);assert.equal(h.Script.timers.size,0);
+    assert.equal(h.calls.filter(row=>row[0]==="still").length,0);
+    h.Script.end();assert.equal(h.work.at(-1).event,"ending");
+    assert.equal(h.Script.update.listenerCount,0);assert.equal(h.work.at(-1).state.captureId,"");
+});
+
+test("observer preserves actual thrown cancellation and never fabricates returned or restored overlays",()=>{
+    const h=start(true,true);h.message("takeSnapshot",{mode:"still"});
+    const thrown={nativeFailure:true};h.Snapshot.cancelCapture=()=>{throw thrown;};
+    assert.throws(()=>h.message("cancelSnapshotCapture"),value=>value===thrown);
+    const cancel=h.work.filter(row=>row.closure==="cancelNativeCapture").slice(-2);
+    assert.deepEqual(cancel.map(row=>row.event),["entry","finally"]);
+    assert.equal(cancel.at(-1).state.overlaysHidden,true);
+    assert.equal(h.calls.filter(row=>row[0]==="still").length,0);
 });

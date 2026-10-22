@@ -1135,6 +1135,7 @@ void ScriptManager::run() {
         _e2eRequiredModules.submitted(_scriptContents);
 #if defined(Q_OS_IOS)
         _featureCreateSources.submitted(_fileNameString,_scriptContents);
+        _featureSnapshotSources.submitted(_fileNameString,_scriptContents);
         _featureAvatarScript->submitted(_fileNameString,_scriptContents);
 #endif
 #endif
@@ -1324,7 +1325,7 @@ ScriptManager::FeatureNativeCallScope::FeatureNativeCallScope(ScriptManager* man
     if (!manager || !manager->_featureWorkEnabled || QThread::currentThread()!=manager->thread()
             || (method!="overrideAnimation" && method!="restoreAnimation"
 #if defined(Q_OS_IOS)
-                && method!="featureIOSCreateEvent" && method!="featureIOSWorldWebEvent" && method!="addEntity" && method!="deleteEntity"
+                && method!="featureIOSCreateEvent" && method!="featureIOSWorldWebEvent" && method!="featureIOSSnapshotEvent" && method!="addEntity" && method!="deleteEntity"
 #endif
                 )
             || manager->_featureNativeCallSequence>=1000000000) { return; }
@@ -1336,6 +1337,7 @@ ScriptManager::FeatureNativeCallScope::FeatureNativeCallScope(ScriptManager* man
         {"invokedEpochMs",QDateTime::currentMSecsSinceEpoch()},{"manager",membership},{"code",code}};
 #if defined(Q_OS_IOS)
     if (method=="featureIOSCreateEvent") { _featureNativeCallContext.insert("codeSources",manager->featureCreateSources()); }
+    if (method=="featureIOSSnapshotEvent") {_featureNativeCallContext.insert("codeSources",manager->featureSnapshotSources());}
     if (method=="addEntity" || method=="deleteEntity") {
         _featureNativeCallContext.insert("callerChain",manager->featureAvatarTimerCallers());
         const auto original=manager->featureAvatarScriptObservation();
@@ -1479,6 +1481,8 @@ void ScriptManager::timerFired(int handle) {
     const auto avatarTimer=_featureAvatarScript->fired(handle,timer.get());
     const auto avatarUiTimer=_featureAvatarUiWork->fired(handle,timer.get());
     Finally avatarUiDispatchReturned([&] { _featureAvatarUiWork->dispatchReturned(avatarUiTimer); });
+    const auto snapshotTimer=_featureSnapshotTimerWork->fired(handle,timer.get());
+    Finally snapshotDispatchReturned([&] {_featureSnapshotTimerWork->dispatchReturned(snapshotTimer);});
 #endif
 
     if (!timer->isActive()) {
@@ -1498,6 +1502,8 @@ void ScriptManager::timerFired(int handle) {
         Finally avatarCallbackLeft([&] { _featureAvatarScript->callback(avatarTimer,false); });
         _featureAvatarUiWork->callback(avatarUiTimer,true);
         Finally avatarUiCallbackLeft([&] { _featureAvatarUiWork->callback(avatarUiTimer,false); });
+        _featureSnapshotTimerWork->callback(snapshotTimer,true);
+        Finally snapshotCallbackLeft([&] {_featureSnapshotTimerWork->callback(snapshotTimer,false);});
 #endif
         callWithEnvironment(data.definingEntityIdentifier, data.definingSandboxURL, data.function, data.function, ScriptValueList(), data.consentRequest);
         auto postTimer = p_high_resolution_clock::now();
@@ -1519,11 +1525,11 @@ QStringList ScriptManager::featureAvatarTimerCallers() const {
     while (context && ++depth<=128) {
         const auto function=context->functionContext();
         if (function && function->functionType()==ScriptFunctionContext::ScriptFunction) {
-            const auto source=function->fileName();if (source.size()>4096 || result.size()>=32) { _featureAvatarScript->unavailable();_featureAvatarUiWork->unavailable();return {}; }result.append(source);
+            const auto source=function->fileName();if (source.size()>4096 || result.size()>=32) { _featureAvatarScript->unavailable();_featureAvatarUiWork->unavailable();_featureSnapshotTimerWork->unavailable();return {}; }result.append(source);
         }
         owner=context->parentContext();context=owner.get();
     }
-    if (depth>128) { _featureAvatarScript->unavailable();_featureAvatarUiWork->unavailable();return {}; }
+    if (depth>128) { _featureAvatarScript->unavailable();_featureAvatarUiWork->unavailable();_featureSnapshotTimerWork->unavailable();return {}; }
     return result;
 }
 #endif
@@ -1569,6 +1575,11 @@ int ScriptManager::setupTimerWithInterval(const ScriptValue& function, int inter
     if (!avatarUiTimer.isEmpty()) {
         const auto observer=_featureAvatarUiWork;
         QObject::connect(newTimer.get(),&QObject::destroyed,[observer,avatarUiTimer] { observer->destroyed(avatarUiTimer); });
+    }
+    const auto snapshotTimer=_featureSnapshotTimerWork->created(handle,featureAvatarTimerCallers(),newTimer.get());
+    if (!snapshotTimer.isEmpty()) {
+        const auto observer=_featureSnapshotTimerWork;
+        QObject::connect(newTimer.get(),&QObject::destroyed,[observer,snapshotTimer] {observer->destroyed(snapshotTimer);});
     }
 #endif
     return handle;
@@ -1922,6 +1933,7 @@ ScriptValue ScriptManager::instantiateModule(const ScriptValue& module, const QS
         //_engine->scriptValueDebugDetails(module);
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
         _featureCreateSources.submitted(modulePath,sourceCode);
+        _featureSnapshotSources.submitted(modulePath,sourceCode);
         _featureAvatarScript->submitted(modulePath,sourceCode);
 #endif
         result = _engine->evaluateInClosure(closure, _engine->newProgram( sourceCode, modulePath ));
@@ -2144,6 +2156,7 @@ void ScriptManager::include(const QStringList& includeFiles, const ScriptValue& 
                     auto operation = [&]() {
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
                         _featureCreateSources.submitted(url.toString(),contents);
+                        _featureSnapshotSources.submitted(url.toString(),contents);
                         _featureAvatarScript->submitted(url.toString(),contents);
 #endif
                         _engine->evaluate(contents, url.toString());

@@ -41,8 +41,10 @@ altered history/birth/PID/nonce/clocks and the actual one-send probe branch.
 These use explicit host producers for native Photos/UIKit facts. Objective-C++
 and UIKit/Photos remain uncompiled; no device, installation or lab is accessed.
 
-Remaining Snapshot integration includes actual pending Script/timer/render
-cancellation before submission; normal OS authorization and activity inputs;
+The [pending-work component](SNAPSHOT_WORK.md) now observes actual Script closure
+and timer originals, with unchanged default Avatar/Create component schemas.
+Remaining Snapshot integration includes native render lifetime and the join
+proving cancellation before submission; normal OS authorization/activity inputs;
 independent saved-original Photos bytes and deletion of only owned assets;
 an actual external share recipient; authenticated upload/body receipts; and
 paired fresh image/source/quiet cleanup. Add-only Photos completion alone

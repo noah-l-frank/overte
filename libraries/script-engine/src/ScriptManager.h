@@ -1053,6 +1053,8 @@ public:
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #if defined(Q_OS_IOS)
     QVariantMap featureCreateSources() const { return _featureCreateSources.snapshot(); }
+    QVariantMap featureSnapshotSources() const {return _featureSnapshotSources.snapshot();}
+    QVariantMap featureSnapshotTimerWork() const {return _featureSnapshotTimerWork->snapshot();}
     QVariantMap featureAvatarScriptObservation() const { return _featureAvatarScript->snapshot(); }
     QVariantMap featureAvatarUiWorkObservation() const { return _featureAvatarUiWork->snapshot(); }
 #endif
@@ -1725,6 +1727,10 @@ protected:
     overte::e2e::RequiredModuleObservation _e2eRequiredModules;
 #if defined(Q_OS_IOS)
     overte::e2e::CreateSourceObservation _featureCreateSources;
+    overte::e2e::CreateSourceObservation _featureSnapshotSources {"/system/snapshot/","snapshotSourcesVersion","/system/snapshot.js"};
+    std::shared_ptr<overte::e2e::AvatarUiWorkObservation> _featureSnapshotTimerWork {
+        std::make_shared<overte::e2e::AvatarUiWorkObservation>(QStringList{"/system/snapshot.js","/system/snapshot/featureSnapshotWork.js",
+            "/modules/request.js","/system/request-service.js"},"snapshotTimerWorkVersion")};
     QStringList featureAvatarTimerCallers() const;
     std::shared_ptr<overte::e2e::AvatarScriptObservation> _featureAvatarScript {std::make_shared<overte::e2e::AvatarScriptObservation>()};
     std::shared_ptr<overte::e2e::AvatarUiWorkObservation> _featureAvatarUiWork {std::make_shared<overte::e2e::AvatarUiWorkObservation>()};

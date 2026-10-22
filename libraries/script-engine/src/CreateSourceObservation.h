@@ -9,16 +9,19 @@
 #include <QUrl>
 #include <QVariantMap>
 #include <mutex>
+#include <utility>
 
 namespace overte::e2e {
 // Observe the actual code handed to main/include/require evaluation. A later
 // file read or requested source URL cannot substitute for this retained input.
 class CreateSourceObservation {
 public:
+    explicit CreateSourceObservation(QString fragment="/system/create/",QString schema="createSourcesVersion",QString exactSuffix={}) :
+        _fragment(std::move(fragment)),_schema(std::move(schema)),_exactSuffix(std::move(exactSuffix)) {}
     void submitted(const QString& url,const QString& code) {
         if (!QCoreApplication::arguments().contains("--testScript")) { return; }
         const QUrl original(url);
-        if (!original.path().contains("/system/create/")) { return; }
+        if (!original.path().contains(_fragment) && (_exactSuffix.isEmpty() || !original.path().endsWith(_exactSuffix))) { return; }
         std::lock_guard<std::mutex> lock(_mutex);
         if (!_complete) { return; }
         if (!original.isValid() || !original.userInfo().isEmpty() || original.hasQuery() || original.hasFragment()
@@ -35,10 +38,11 @@ public:
     }
     QVariantMap snapshot() const {
         std::lock_guard<std::mutex> lock(_mutex);
-        return {{"createSourcesVersion",1},{"complete",_complete},{"evaluations",_evaluations}};
+        return {{_schema,1},{"complete",_complete},{"evaluations",_evaluations}};
     }
 private:
     mutable std::mutex _mutex;bool _complete {true};QVariantList _evaluations;
+    const QString _fragment,_schema,_exactSuffix;
 };
 } // namespace overte::e2e
 #endif

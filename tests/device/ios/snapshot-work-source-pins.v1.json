@@ -1,0 +1,14 @@
+{
+  "snapshotWorkSourcePinsVersion": 1,
+  "encoding": "utf-16le-code-units",
+  "sources": {
+    "system/snapshot.js": {
+      "codeUnits": 41725,
+      "sha256": "3dd3320d76d33953aaa7cb039f40c0ff8ddfcc130210b47586b3bddd662af5ef"
+    },
+    "system/snapshot/featureSnapshotWork.js": {
+      "codeUnits": 1283,
+      "sha256": "b328658c836ee2f8c08a003743ffc09fa8461ac4aca2327fb218eff39bc9fe56"
+    }
+  }
+}

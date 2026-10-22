@@ -82,6 +82,7 @@ public:
     QVariantMap featureScriptObservation();
 #if defined(Q_OS_IOS)
     QVariantMap featureAvatarScriptObservation();
+    QVariantMap featureSnapshotScriptObservation();
 #endif
     QVariantMap featureScriptWorkObservation(const QString& managerInstance, const QString& requestId);
 #endif

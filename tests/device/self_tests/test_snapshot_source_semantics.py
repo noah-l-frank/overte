@@ -12,7 +12,7 @@ class SnapshotSourceSemantics(unittest.TestCase):
         result=subprocess.run(['node','--test','tests/javascript/test/snapshot.production.test.js'],
             cwd=root,capture_output=True,text=True,timeout=15)
         self.assertEqual(0,result.returncode,result.stdout+result.stderr)
-        self.assertIn('tests 11',result.stdout)
+        self.assertIn('tests 13',result.stdout)
         self.assertIn('fail 0',result.stdout)
 
 
