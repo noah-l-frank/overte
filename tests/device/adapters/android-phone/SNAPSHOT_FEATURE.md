@@ -980,3 +980,6 @@ one-millisecond guard transport measured 44.205→18.768 ms and
 127.145→23.582 ms respectively on the real host filesystem. These counts and
 timings describe that host seam only. They do not establish device RPC cost,
 real OS latency or complete common/actor qualification.
+The same bracketed immutable input replay is used by lease preparation,
+FastCancel observation/retirement, quiet-work floors and issued-input recovery;
+none of those paths bypasses the final actual target check.

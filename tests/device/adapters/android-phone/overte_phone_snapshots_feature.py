@@ -191,17 +191,20 @@ class PhoneSnapshotsFeature(PhoneCreateFeature):
         planned=originals[handoff['sourceIndex']-1]['handoffPlan'];check_plan(planned,self.pid,planned['original']['capturedEpochMs'])
         need(planned['request']['controlId'].startswith('snapshot.'+('share' if handoff['kind']=='share' else 'save')+'.'))
 
-    def original(self):
-        # These are immutable host originals, not current target measurements.
-        # Recheck target continuity around the complete replay; each old file
-        # still checks this exact locked owner, inode, bytes/hash and deadline.
+    def input_originals(self):
+        # Immutable host history never supplies a current product measurement.
+        # Keep every file check and bracket the complete pass with current
+        # target continuity rather than issuing a target RPC per old reference.
         self.bound()
         host=SnapshotsOriginals(self.root,self.binding,self.run,'primary',self.header_authority,lambda *_:need(False),kind='snapshots-input')
-        frames=host.restore(self.state['inputs'],self.state['inputSequence']);need(frames and 'snapshotsBaseline' in frames[0])
+        frames=host.restore(self.state['inputs'],self.state['inputSequence'])
+        self.bound();return frames
+
+    def original(self):
+        frames=self.input_originals();need(frames and 'snapshotsBaseline' in frames[0])
         baseline=deepcopy(frames[0]['snapshotsBaseline'])
         if self.state['settingsIndex'] is not None:baseline['settings']=deepcopy(frames[self.state['settingsIndex']-1]['snapshotsSettingsCaptured'])
         if self.state['filesIndex'] is not None:baseline['filesBinding']=deepcopy(frames[self.state['filesIndex']-1]['snapshotsFilesPlanned'])
-        self.bound()
         return baseline
 
     def archive_input(self,frame):
@@ -290,7 +293,7 @@ class PhoneSnapshotsFeature(PhoneCreateFeature):
 
     def prepare_owned_leases(self):
         need(self.state['phase'] in ('preparing','cleaning'))
-        originals=self.inputs.restore(self.state['inputs'],self.state['inputSequence'])
+        originals=self.input_originals()
         if self.state['settingsIndex'] is None:
             saved=[index for index,row in enumerate(originals,1) if 'snapshotsSettingsCaptured' in row];need(len(saved)<=1)
             if saved:self.state['settingsIndex']=saved[0];self.save()
@@ -412,7 +415,7 @@ class PhoneSnapshotsFeature(PhoneCreateFeature):
     def capture_path(self):
         if self.state['handoff'] is not None:
             saved=self.state['capturePath'];need(saved is not None)
-            originals=self.inputs.restore(self.state['inputs'],self.state['inputSequence'])
+            originals=self.input_originals()
             actual=originals[saved['sourceIndex']-1]['snapshotCapturePath']
             need(any(row['runId']==self.run and row['path']==saved['path'] and row['closed'] and not row['absent'] for row in actual['rows']))
             return saved['path']
@@ -436,7 +439,7 @@ class PhoneSnapshotsFeature(PhoneCreateFeature):
         return packet
 
     def close_cancels(self):
-        originals=self.inputs.restore(self.state['inputs'],self.state['inputSequence'])
+        originals=self.input_originals()
         for job in self.state['cancelJobs']:
             need(job['sourceIndex'] is not None)
             original=originals[job['sourceIndex']-1]['snapshotCancel'];caller=original['source']['cancelled']['native']['scriptHistory']['events'][-1]['caller']
@@ -564,7 +567,7 @@ class PhoneSnapshotsFeature(PhoneCreateFeature):
     def quiet_work_floor(self):
         if not self.state['quiet']:return None
         proof=self.state['quiet'][-1];need(proof['sources'])
-        originals=self.inputs.restore(self.state['inputs'],self.state['inputSequence'])
+        originals=self.input_originals()
         return originals[proof['sources'][-1]-1]['snapshotQuiet']['work']
 
     def quiet(self,label):
@@ -615,7 +618,7 @@ class PhoneSnapshotsFeature(PhoneCreateFeature):
         exact(pending,{'kind','plan','binding','issued'})
         need(pending['kind']=='handoff-input' and self.state['handoff'] is not None and pending['issued'] is True)
         handoff=self.state['handoff'];need(same(pending['binding'],handoff['binding']))
-        originals=self.inputs.restore(self.state['inputs'],self.state['inputSequence'])
+        originals=self.input_originals()
         need(same(pending['plan'],originals[handoff['sourceIndex']-1]['handoffPlan']))
         check_plan(pending['plan'],self.pid,pending['plan']['original']['capturedEpochMs'])
         reader=self.adapter._snapshot_handoff_input(self.selector,self.binding,handoff['resolution'],self.header_authority,

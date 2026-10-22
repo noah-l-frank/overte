@@ -426,7 +426,7 @@ class PhoneSnapshotsRole(PhoneCreateRole):
         settings=None if self.system else self.settings.request(f.run,'observe')
         cancels=[]
         if f.state['cancelJobs']:
-            originals=f.inputs.restore(f.state['inputs'],f.state['inputSequence'])
+            originals=f.input_originals()
             reader=None if self.system else f.adapter._snapshot_cancel(f.selector,read_only=True)
             if reader is not None:
                 previous=[packet for frame in self.history() if frame.get('measurement') is not None for packet in frame['measurement']['cancels']]
