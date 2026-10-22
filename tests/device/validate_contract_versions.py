@@ -113,6 +113,7 @@ REQUIRED = {
     "ios-graphics-observer-worker": 1,
     "ios-graphics-worker-failure": 1,
     "ios-graphics-session-retirement": 1,
+    "ios-places-controls": 1,
     "ios-graphics-feature": 1,
     "ios-graphics-restart-barrier-record": 1,
     "ios-graphics-restart-rejoined": 1,

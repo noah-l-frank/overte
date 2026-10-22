@@ -31,6 +31,8 @@ from ios.adapters.view_controls import IDS as VIEW_IDS,FIELDS as VIEW_FIELDS,met
 from adapters.token_audio_ui import audio_control, metadata_fields as audio_metadata_fields, validate_metadata as validate_audio_metadata
 from adapters.token_script_file_ui import (file_control, folder_text,
     metadata_fields as file_metadata_fields, validate_metadata as validate_file_metadata)
+from ios.adapters.places_controls import (PROFILE as PLACES_PROFILE,metadata as places_metadata,
+    control_id as places_control,text as places_text,FIELDS as PLACES_FIELDS)
 
 CONTROLS = frozenset({'hud.goto', 'hud.tablet', 'address.field', 'address.go',
     'address.cancel', 'address.back', 'tablet.home', 'tablet.close', 'tablet.places',
@@ -102,6 +104,11 @@ def observation(value, pid, now_ms=None):
         if type(value['graphicsControlsVersion']) is not int or value['graphicsControlsVersion']!=1:
             raise NativeUIError('Native iOS Graphics control version is invalid')
         fields.add('graphicsControlsVersion')
+    if type(value) is dict and 'placesControlsVersion' in value:
+        if (type(value['placesControlsVersion']) is not int or value['placesControlsVersion']!=1
+                or not _integer(value.get('placesSourceSequence'),1)):
+            raise NativeUIError('Native iOS Places controls lack their original source sequence')
+        fields |= {'placesControlsVersion','placesSourceSequence'}
     if type(value) is dict and 'chatControlsVersion' in value:
         if type(value['chatControlsVersion']) is not int or value['chatControlsVersion']!=1 or not _uuid(value.get('chatGeneration')):
             raise NativeUIError('Native iOS Chat control version/context is invalid')
@@ -131,7 +138,11 @@ def observation(value, pid, now_ms=None):
             raise NativeUIError('Native iOS Graphics controls lack their source extension')
         is_create=type(control) is dict and type(control.get('id')) is str and control['id'].startswith('create.')
         is_chat=type(control) is dict and type(control.get('id')) is str and control['id'].startswith('chat.')
-        if is_chat:
+        is_places=type(control) is dict and control.get('profile')==PLACES_PROFILE
+        if is_places:
+            if value.get('placesControlsVersion')!=1:raise NativeUIError('Native iOS Places controls lack their source extension')
+            original=dict(control);original.pop('frame',None);places_metadata(original);fields=set(control)
+        elif is_chat:
             if value.get('chatControlsVersion')!=1:raise NativeUIError('Native iOS Chat controls lack their source extension')
             original=dict(control);original.pop('frame',None);chat_metadata(original);fields=set(control)
         elif is_create:
@@ -168,7 +179,7 @@ def observation(value, pid, now_ms=None):
             fields.add('checked')
         if (not isinstance(control, dict) or set(control) != fields
                 or not isinstance(control['id'], str)
-                or not (control['id'] in CONTROLS or script_control(control['id']) or file_control(control['id']) or audio_control(control['id']) or graphics_control(control['id']) or control['id'] in LOGIN_IDS or control['id'] in ACCOUNT_IDS or control['id'] in VIEW_IDS or control['id']==REMEMBER_ID or is_create and create_control(control['id']) or is_chat and chat_control(control['id'])) or control['id'] in seen
+                or not (control['id'] in CONTROLS or script_control(control['id']) or file_control(control['id']) or audio_control(control['id']) or graphics_control(control['id']) or control['id'] in LOGIN_IDS or control['id'] in ACCOUNT_IDS or control['id'] in VIEW_IDS or control['id']==REMEMBER_ID or is_create and create_control(control['id']) or is_chat and chat_control(control['id']) or is_places and places_control(control['id'])) or control['id'] in seen
                 or not _uuid(control['token']) or control['token'] in tokens
                 or type(control['enabled']) is not bool or type(control['focused']) is not bool):
             raise NativeUIError('Native iOS input controls are invalid')
@@ -344,6 +355,24 @@ class NativeInput:
             command['text'] = text
         if operation == 'select-index':
             command['index'] = index
+        return self.deliver(command)
+
+    def places_input(self,identifier,action,*,reference,value=None):
+        from ios.adapters.places_controls import project,same_reference
+        if not places_control(identifier) or identifier=='places.page' or action not in ('activate','replace'):
+            raise NativeUIError('Native iOS Places input is invalid')
+        observed=project(self.capture());row=same_reference(reference,observed,identifier)
+        if not observed['open'] or not row['enabled'] or not row['inputReady']:
+            raise NativeUIError('Native iOS Places control is unavailable')
+        if action=='replace':
+            if identifier not in PLACES_FIELDS or not row['focused']:raise NativeUIError('Native iOS Places field lacks focus')
+            places_text(value)
+            if len(value.encode('utf-16-le'))//2>4096:raise NativeUIError('Native iOS Places field exceeds its input bound')
+        elif value is not None:raise NativeUIError('Native iOS Places activation has an unexpected value')
+        original=reference['scope']
+        command=dict(schemaVersion=1,commandId=str(uuid.uuid4()),instance=original['instance'],
+            sequence=original['sequence']+1,observedElapsedMs=original['elapsedMs'],fieldToken=row['token'],operation=action)
+        if action=='replace':command['text']=value
         return self.deliver(command)
 
     def chat_input(self,identifier,action,*,reference,value=None):

@@ -112,6 +112,7 @@
     "ios-graphics-observer-worker": {"current": 1, "reads": [1]},
     "ios-graphics-worker-failure": {"current": 1, "reads": [1]},
     "ios-graphics-session-retirement": {"current": 1, "reads": [1]},
+    "ios-places-controls": {"current": 1, "reads": [1]},
     "ios-graphics-feature": {"current": 1, "reads": [1]},
     "ios-graphics-restart-barrier-record": {"current": 1, "reads": [1]},
     "ios-graphics-restart-rejoined": {"current": 1, "reads": [1]},
