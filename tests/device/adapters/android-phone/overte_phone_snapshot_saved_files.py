@@ -1,0 +1,111 @@
+"""Transfer an independently consumed Save original through existing file transport.
+
+The copy ID selects only a real completed native readback. Callers cannot supply
+expected filenames, URIs, bytes, digests or successful export results.
+"""
+# Copyright 2026 Overte contributors.
+# SPDX-License-Identifier: Apache-2.0
+from copy import deepcopy
+import hashlib
+import re
+
+from adapters.android_snapshot_files import AndroidSnapshotFiles,SnapshotFileError
+from overte_phone_snapshot_readbacks import PhoneSnapshotReadbacks,ROOTS,nonce
+from snapshot_observation import MAX_BYTES
+
+META_HEADER='OVT_SNAPSHOT_SAVED_META_V1'
+META_FOOTER='OVT_SNAPSHOT_SAVED_META_END_V1'
+BYTES_HEADER=b'OVT_SNAPSHOT_SAVED_BYTES_V1\n'
+BYTES_FOOTER=b'\nOVT_SNAPSHOT_SAVED_BYTES_END_V1\n'
+META_SCRIPT=r'''
+saved_directory="files/$1"
+saved_path="$saved_directory/$2"
+[ -d files ] && [ ! -L files ] || exit 1
+[ -d "$saved_directory" ] && [ ! -L "$saved_directory" ] || exit 1
+[ "$(stat -c %a "$saved_directory")" = 700 ] || exit 1
+[ -f "$saved_path" ] && [ ! -L "$saved_path" ] || exit 1
+saved_size=$(stat -c %s "$saved_path") || exit 1
+[ "$saved_size" -ge 1 ] && [ "$saved_size" -le "$3" ] || exit 1
+[ "$(stat -c %h "$saved_path")" = 1 ] && [ "$(stat -c %a "$saved_path")" = 600 ] || exit 1
+saved_metadata=$(stat -c '%d:%i:%s:%h:%a' "$saved_path") || exit 1
+saved_hash=$(sha256sum "$saved_path") || exit 1
+saved_hash=${saved_hash%% *}
+printf 'OVT_SNAPSHOT_SAVED_META_V1\n%s\n%s\nOVT_SNAPSHOT_SAVED_META_END_V1\n' "$saved_metadata" "$saved_hash"
+'''.strip()
+READ_SCRIPT=r'''
+saved_directory="files/$1"
+saved_path="$saved_directory/$2"
+[ -d files ] && [ ! -L files ] || exit 1
+[ -d "$saved_directory" ] && [ ! -L "$saved_directory" ] || exit 1
+[ "$(stat -c %a "$saved_directory")" = 700 ] || exit 1
+[ -f "$saved_path" ] && [ ! -L "$saved_path" ] || exit 1
+[ "$(stat -c %h "$saved_path")" = 1 ] && [ "$(stat -c %a "$saved_path")" = 600 ] || exit 1
+printf 'OVT_SNAPSHOT_SAVED_BYTES_V1\n'
+head -c "$3" "$saved_path" || exit 1
+printf '\nOVT_SNAPSHOT_SAVED_BYTES_END_V1\n'
+'''.strip()
+
+
+class PhoneSnapshotSavedFiles(AndroidSnapshotFiles):
+    """Same original-file transport/privacy as the existing Snapshot foundation."""
+    def __init__(self,adb,selector,package,context,check_continuity,artifact_directory,readbacks,run):
+        super().__init__(adb,selector,package,context,check_continuity,artifact_directory)
+        if (package!='io.github.noah_be.overte.phone' or not isinstance(readbacks,PhoneSnapshotReadbacks)
+                or not nonce(run) or str(readbacks.pid)!=context['processIdentity'].split(':')[0]):
+            raise SnapshotFileError('Saved Snapshot source binding is invalid')
+        self.readbacks,self.run=readbacks,run
+
+    def current(self,id):
+        self._check();packet=self.readbacks.request(self.run);self._check()
+        body=packet['source']['source']
+        if 'initialized' in body or body['copiesRetired']:
+            raise SnapshotFileError('Saved Snapshot readback source is unavailable')
+        copies=[row for row in body['files'] if row['id']==id and row['phase']=='complete']
+        jobs=[row for row in body['jobs'] if row['phase']=='complete' and row['original'] is not None and row['original']['id']==id]
+        if (len(copies)!=1 or len(jobs)!=1 or copies[0]!=jobs[0]['original']
+                or not 0<=packet['capturedEpochMs']-jobs[0]['completedEpochMs']<1500):
+            raise SnapshotFileError('Saved Snapshot has no fresh completed original readback')
+        original=deepcopy(copies[0]);parts=[]
+        for root in ROOTS:
+            if original['path'].startswith(root):parts=original['path'][len(root):].split('/')
+        if (len(parts)!=2 or re.fullmatch('overte-snapshot-e2e-[0-9a-f]{32}',parts[0]) is None
+                or parts[1]!=id+'.bin'):
+            raise SnapshotFileError('Saved Snapshot copy path is not owned')
+        return packet,original,deepcopy(jobs[0]),parts
+
+    def metadata(self,parts):
+        raw=self._execute(META_SCRIPT,*parts,str(MAX_BYTES))
+        if type(raw) is not bytes or len(raw)>1024:raise SnapshotFileError('Saved Snapshot metadata is unavailable')
+        try:lines=raw.decode('ascii').splitlines()
+        except UnicodeError:raise SnapshotFileError('Saved Snapshot metadata is malformed') from None
+        if len(lines)!=4 or lines[0]!=META_HEADER or lines[-1]!=META_FOOTER:
+            raise SnapshotFileError('Saved Snapshot metadata did not complete')
+        fields=lines[1].split(':')
+        if (len(fields)!=5 or any(re.fullmatch('[0-9]{1,20}',item) is None for item in fields)
+                or not 1<=int(fields[2])<=MAX_BYTES or fields[3:]!=['1','600']
+                or re.fullmatch('[0-9a-f]{64}',lines[2]) is None):
+            raise SnapshotFileError('Saved Snapshot metadata is invalid')
+        return dict(device=int(fields[0]),inode=int(fields[1]),bytes=int(fields[2]),sha256=lines[2])
+
+    def acquire(self,id):
+        try:
+            if not nonce(id):raise SnapshotFileError('Saved Snapshot copy ID is invalid')
+            before,original,job,parts=self.current(id);metadata=self.metadata(parts)
+            if any(metadata[key]!=original[key] for key in ('bytes','sha256')):
+                raise SnapshotFileError('Saved Snapshot original differs from the actual provider readback')
+            raw=self._execute(READ_SCRIPT,*parts,str(MAX_BYTES+1),timeout=90)
+            if (type(raw) is not bytes or not raw.startswith(BYTES_HEADER) or not raw.endswith(BYTES_FOOTER)
+                    or len(raw)>MAX_BYTES+1+len(BYTES_HEADER)+len(BYTES_FOOTER)):
+                raise SnapshotFileError('Saved Snapshot binary transfer did not complete')
+            content=raw[len(BYTES_HEADER):-len(BYTES_FOOTER)]
+            if not content or len(content)>MAX_BYTES or not self._matches(metadata,content) or self.metadata(parts)!=metadata:
+                raise SnapshotFileError('Saved Snapshot original changed during transfer')
+            after,observed,completed,_parts=self.current(id)
+            if (observed!=original or completed!=job or before['instance']!=after['instance']
+                    or before['processId']!=after['processId'] or before['source']['source']['instance']!=after['source']['source']['instance']):
+                raise SnapshotFileError('Saved Snapshot original ownership changed during transfer')
+            artifact=self._publish(id+'.bin',content,metadata['sha256']);self._check()
+            return dict(artifact=artifact,bytes=len(content),sha256=hashlib.sha256(content).hexdigest(),
+                capturedEpochMs=job['completedEpochMs'],request=original['request'],job=job['id'],copy=id,
+                source='snapshot-saved-original')
+        except Exception:raise SnapshotFileError('Original saved Snapshot acquisition failed') from None

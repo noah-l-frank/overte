@@ -1206,6 +1206,13 @@ class PhoneAppiumAdapter(AppiumAdapter):
             lambda:transport.read_debug_app_file(device,target['appId'],'files/overte-e2e/'+FILE,attempts=1),
             native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep)
 
+    def _snapshot_saved_files(self,selector,run,artifact_root):
+        from overte_phone_snapshot_saved_files import PhoneSnapshotSavedFiles
+        _ui,_observe,binding,guard,_installed=self.normal_feature_runtime(selector,read_only=True)
+        target=self.target(selector);context={key:binding[key] for key in ('sourceRevision','artifactSha256','processIdentity')}
+        return PhoneSnapshotSavedFiles(PhoneAdapter(self.candidate).adb,target['capabilities']['appium:udid'],
+            target['appId'],context,guard,artifact_root,self._snapshot_readbacks(selector),run)
+
     def _graphics_subject_observer(self, selector, *, read_only=False):
         native=self._native_feature_observer(selector,read_only=read_only)
         target=self.target(selector);device=target['capabilities']['appium:udid']

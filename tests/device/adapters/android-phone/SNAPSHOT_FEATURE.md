@@ -113,9 +113,9 @@ paths and incomplete worker retirement remain failures. Repeated cleanup
 revalidates actual absence, including after copy-directory retirement.
 
 Copy retirement says nothing about deletion of the actual OS destination. That
-separate URI cleanup, the bounded binary transfer into host artifacts, normal
-review/system-sheet input, receiver consumption and complete public owner remain
-unfinished. This component must not advertise the extended Snapshot capability
+separate URI cleanup, normal review/system-sheet input, receiver consumption
+and complete public owner remain unfinished. Bounded binary acquisition below
+now retains the completed Save readback in private host artifacts. This component must not advertise the extended Snapshot capability
 or report a complete feature/cleanup verdict.
 
 ## Remaining composition
@@ -184,3 +184,32 @@ preservation of foreign files. `phone-snapshot-readback-contract-test.py`
 compiles the original TestScriptingInterface command function against real Qt
 JSON/thread APIs with explicit synthetic lifecycle/JNI endpoints; those endpoints
 return only an ACK. It does not compile the complete scripting translation unit.
+
+## Original Save binary acquisition v1
+
+`PhoneSnapshotSavedFiles.acquire(copyId)` composes the existing candidate-bound
+`AndroidSnapshotFiles` binary transport and private artifact publisher with
+`PhoneSnapshotReadbacks`. It accepts only an opaque original completed copy ID;
+callers cannot select a URI, path, expected bytes, digest or successful result.
+Fresh native observations before and after transfer must retain the same
+process, native/Java instances, completed job, original file and original job
+time. A repeated acquisition never refreshes that original completion time.
+The existing 1.5-second evidence window applies across the transfer.
+
+Fixed run-as scripts allow only the app-private owned readback directory/file,
+check actual directory/file modes (0700/0600), reject symlinks and hardlinks, and
+retain actual device/inode/size/hash metadata. Bounded binary header/footer and
+SHA-256/size checks detect missing or changed output; a second OS metadata read
+and native observation detect replacement, changed ownership or retirement.
+The source's real Java observation also independently rechecks its retained
+file/directory identities. Only measured original bytes reach the inherited
+private, content-addressed artifact publisher. URI and native path never enter
+the returned artifact metadata.
+
+`test_snapshot_saved_files.py` executes these actual fixed shell scripts against
+a private host filesystem through an explicitly synthetic SDK boundary. Nine
+cases include binary NUL/non-ASCII bytes, ignored/foreign IDs, stale or missing
+readback jobs, source replacement, changed bytes, same-byte inode replacement,
+file aliases, permissions, truncated transfer and foreign host artifacts.
+These host checks do not execute run-as on Android or prove OS saving, receiver
+consumption, complete cleanup, product function or device acceptance.
