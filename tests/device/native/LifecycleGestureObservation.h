@@ -3,7 +3,7 @@
 #pragma once
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
 #include "PrivatePreviewFiles.h"
-#include "../../../android/vr/pico/apps/picoInterface/openxr/e2e_input/E2eInputConstants.h"
+#include "PicoOpenXrInputConstants.h"
 #include <QCoreApplication>
 #include <QDateTime>
 #include <QElapsedTimer>
