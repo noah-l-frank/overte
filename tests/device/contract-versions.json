@@ -486,6 +486,7 @@
     "ios-snapshot-chunk": {"current": 1, "reads": [1]},
     "ios-snapshot-chunk-original": {"current": 1, "reads": [1]},
     "ios-snapshot-original-file": {"current": 1, "reads": [1]},
+    "ios-snapshot-completed-capture": {"current": 1, "reads": [1]},
     "ios-snapshot-artifact": {"current": 1, "reads": [1]},
     "ios-snapshot-artifact-work-frame": {"current": 1, "reads": [1]},
     "ios-snapshot-artifact-work-original": {"current": 1, "reads": [1]},

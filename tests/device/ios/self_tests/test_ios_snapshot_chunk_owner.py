@@ -24,12 +24,13 @@ class SnapshotChunkOwnerTests(unittest.TestCase):
         actual=patch.object(feature_observation,'post_request',self.post);actual.start();self.addCleanup(actual.stop)
     def post(self,request,timeout):
         native=self.f.files;query=native.fixture.set_client_command(json.loads(request.data));native.commands.append(query)
-        native.echo=json.dumps(query).encode();metadata=self.path.stat();raw=self.path.read_bytes()
-        revision=hashlib.sha256(str((metadata.st_dev,metadata.st_ino,metadata.st_size,metadata.st_mtime_ns,metadata.st_ctime_ns)).encode()).hexdigest()
+        native.echo=json.dumps(query).encode();metadata=self.path.stat() if self.path.exists() else None
+        raw=self.path.read_bytes() if metadata is not None else b''
+        revision=hashlib.sha256(str((metadata.st_dev,metadata.st_ino,metadata.st_size,metadata.st_mtime_ns,metadata.st_ctime_ns)).encode()).hexdigest() if metadata is not None else None
         row=dict(name=self.path.name,size=len(raw),revision=revision,sha256=hashlib.sha256(raw).hexdigest())
         native.value=dict(schemaVersion=query['schemaVersion'],commandId=query['commandId'],operation=query['operation'],prefix=query['prefix'],
-            processId=42,sampleEpochMs=20000,ok=True)
-        if query['operation']=='list':native.value['files']=[row]
+            processId=42,sampleEpochMs=getattr(self,'epoch_ms',lambda:20000)(),ok=True)
+        if query['operation']=='list':native.value['files']=[row] if metadata is not None else []
         else:
             self.assertEqual(revision,query['revision']);offset=query['offset'];part=raw[offset:offset+chunks.CHUNK_BYTES]
             native.value['file']=dict(name=row['name'],revision=revision,size=len(raw),offset=offset,eof=offset+len(part)==len(raw),
