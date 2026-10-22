@@ -498,6 +498,24 @@ class PhoneAppiumAdapter(AppiumAdapter):
         except (OSError,RuntimeError,ValueError,TypeError,KeyError):
             raise ValueError('PHONE_FEATURE_GRAPHICS_CONFIGURATION_INVALID') from None
 
+    def emote_feature_store(self,selector):
+        return PrivateFeatureState(self.state_path(selector).with_name('phone-emote-run.json'))
+
+    def _emote_actor(self,selector,run,*,client,image_policy):
+        from feature_journeys.witness import Client
+        from feature_journeys.phase_fixture import PhaseFixtureReader
+        from overte_phone_emote_run import PhoneEmoteRun
+        from overte_phone_emote_actor import PhoneEmoteActor
+        target=self.target(selector)
+        require(getattr(self,'candidate',None) is not None and target.get('appId')=='io.github.noah_be.overte.phone'
+            and self.controlled_android_client(target) and isinstance(client,Client),'PHONE_EMOTE_ACTOR_REQUIRES_BOUND_TARGET')
+        metadata=self.emote_feature_store(selector).read()
+        require(type(metadata) is dict and metadata.get('runId')==run
+            and metadata.get('fixtureUrl')==client.url+'/runs/'+run+'/','PHONE_EMOTE_ACTOR_ORIGINAL_RUN_REQUIRED')
+        owner=PhoneEmoteRun(self,selector,PhaseFixtureReader(client,run,'emotes'),metadata['artifactRoot'],
+            metadata['imageExtent'],metadata['markerRoi'],admission=metadata.get('admissionPolicy'))
+        return PhoneEmoteActor(owner,image_policy)
+
     def graphics_feature_store(self, selector):
         return PrivateFeatureState(self.state_path(selector).with_name('phone-graphics-feature.json'))
 
@@ -1411,6 +1429,12 @@ class PhoneAppiumAdapter(AppiumAdapter):
                 'PHONE_EMOTE_NAMESPACE_CLEANUP_INCOMPLETE')
         require(PrivateFeatureState(self.state_path(selector).with_name('phone-emote-cleanup-inputs.json')).read() is None,
                 'PHONE_EMOTE_CLEANUP_INPUT_OWNERSHIP_REMAINS')
+        require(PrivateFeatureState(self.state_path(selector).with_name('phone-emote-actor-lifecycle.json')).read() is None,
+                'PHONE_EMOTE_ACTOR_OWNERSHIP_PENDING')
+        require(PrivateFeatureState(self.state_path(selector).with_name('phone-emote-failures.json')).read() is None,
+                'PHONE_EMOTE_FAILURE_OWNERSHIP_PENDING')
+        require(all(PrivateFeatureState(self.state_path(selector).with_name('phone-emote-'+role+'-role.json')).read() is None
+                for role in ('primary','actor')),'PHONE_EMOTE_ROLE_OWNERSHIP_PENDING')
         require(PrivateFeatureState(self.state_path(selector).with_name('phone-emote-run.json')).read() is None,
                 'PHONE_EMOTE_RUN_OWNERSHIP_REMAINS')
         require(all(PrivateFeatureState(self.state_path(selector).with_name('phone-emote-'+role+'-admission.json')).read() is None

@@ -1,0 +1,249 @@
+"""Independent Emote publication and owned observer retirement, not a facade."""
+# Copyright 2026 Overte contributors.
+# SPDX-License-Identifier: Apache-2.0
+from copy import deepcopy
+
+from adapters.native_feature_observation import exact,integer,need,number
+from adapters.normal_feature_state import PrivateFeatureState,context
+from adapters.normal_ui import NativeUIError
+from feature_journeys.contract import identifier
+from feature_journeys.evidence import rectangle
+from feature_journeys.witness import Client,projection,WITNESS_KEYS
+from overte_phone_emote_failures import PhoneEmoteFailures
+from overte_phone_emote_lifetime import PhoneEmoteLifetime
+from overte_phone_emote_role import PhoneEmoteRole
+from overte_phone_emote_run import PhoneEmoteRun
+from overte_phone_script_history import pack,unpack,same
+
+VERSION=1
+LIMIT=1024
+
+
+def image_policy(value):
+    exact(value,{'source','marker','subject'});need(value['source']=='world-render-target')
+    rectangle(value['marker'],(16384,16384));rectangle(value['subject'],(16384,16384))
+    return deepcopy(value)
+
+
+class PhoneEmoteActor:
+    def __init__(self,run,policy):
+        need(isinstance(run,PhoneEmoteRun) and isinstance(run.phase.client,Client))
+        self.run,self.policy,self.client=run,image_policy(policy),run.phase.client
+        for key in ('marker','subject'):rectangle(self.policy[key],tuple(run.extent))
+        self.store=PrivateFeatureState(run.store.path.with_name('phone-emote-actor-lifecycle.json'))
+        self.previous=self.state=None;self.failed=False
+
+    def sample(self,value):
+        exact(value,{'ticket','actor','actorSequence','capturedEpochMs','facts'})
+        identifier(value['ticket']);need(value['actor']=='owned-observer' and integer(value['actorSequence'],1,LIMIT)
+            and number(value['capturedEpochMs'],1,1e15))
+        exact(value['facts'],set(WITNESS_KEYS['emotes']))
+        need(type(value['facts']['animation']) is str and type(value['facts']['sit']) is str
+            and number(value['facts']['poseProgress'],0,1)
+            and all(type(value['facts'][key]) is bool for key in ('override','restoredBeforeNominalEnd')))
+        return value
+
+    def load(self):
+        self.run.lock.assert_held();need(not self.failed and self.run.state is not None)
+        self.previous=self.store.read()
+        self.state=dict(phase='watching',binding=deepcopy(context(self.run.state['binding'])),pending=None,last=None,quiet=None,dropped=[])
+        if self.previous is not None:self.state=self.decode(self.previous)
+        self.bound()
+
+    def decode(self,value):
+        exact(value,{'emoteActorVersion','runId','fixtureUrl','artifactRoot','imagePolicy','payload'})
+        need(type(value['emoteActorVersion']) is int and value['emoteActorVersion']==VERSION
+            and value['runId']==self.run.run and value['fixtureUrl']==self.run.fixture_url
+            and value['artifactRoot']==str(self.run.root) and same(value['imagePolicy'],self.policy))
+        rows=unpack(value['payload']);need(len(rows)==1);state=rows[0]
+        exact(state,{'phase','binding','pending','last','quiet','dropped'})
+        need(same(context(state['binding']),self.run.state['binding']) and state['phase'] in ('watching','publishing','quiet','retired')
+            and type(state['dropped']) is list and len(state['dropped'])<=LIMIT)
+        cursor=0
+        for row in state['dropped']:
+            exact(row,{'sequence','ticket','reason'});identifier(row['ticket'])
+            need(integer(row['sequence'],cursor+1,LIMIT) and row['reason'] in ('phase-changed','expired-before-send'));cursor=row['sequence']
+        if state['pending'] is not None:
+            pending=state['pending'];exact(pending,{'sample','startedMonotonicMs','hostEpochMs','provider','issued'})
+            self.sample(pending['sample']);need(type(pending['issued']) is bool and number(pending['startedMonotonicMs'],0,1e15)
+                and number(pending['hostEpochMs'],1,1e15) and type(pending['provider']) is dict)
+        need((state['phase']=='publishing')==(state['pending'] is not None))
+        if state['last'] is not None:
+            exact(state['last'],{'sample','receipt'});self.sample(state['last']['sample'])
+            receipt=state['last']['receipt'];exact(receipt,{'kind','receivedEpochMs','body'})
+            need(receipt['kind']=='journal' and number(receipt['receivedEpochMs'],1,1e15))
+            row=receipt['body'];exact(row,set(state['last']['sample'])|{'sequence','receivedEpochMs'})
+            need(same({key:row[key] for key in state['last']['sample']},state['last']['sample'])
+                and integer(row['sequence'],1) and number(row['receivedEpochMs'],1,1e15))
+            if state['pending'] is not None:need(state['pending']['sample']['actorSequence']>state['last']['sample']['actorSequence'])
+        if state['quiet'] is not None:need(type(state['quiet']) is dict
+            and type(state['quiet'].get('emoteLifetimeRetirementVersion')) is int and state['quiet']['emoteLifetimeRetirementVersion']==1)
+        if state['phase']=='retired':need(state['quiet'] is not None and state['last'] is not None)
+        return deepcopy(state)
+
+    def bound(self):
+        self.run.lock.assert_held();need(not self.failed and not self.run.failed
+            and same(self.store.read(),self.previous) and same(self.run.store.read(),self.run.previous)
+            and same(self.state['binding'],self.run.state['binding']))
+
+    def save(self):
+        self.bound()
+        value=dict(emoteActorVersion=VERSION,runId=self.run.run,fixtureUrl=self.run.fixture_url,artifactRoot=str(self.run.root),
+            imagePolicy=deepcopy(self.policy),payload=pack([self.state]))
+        try:
+            self.decode(value);self.store.write(value,self.previous);need(same(self.store.read(),value));self.previous=deepcopy(value);self.bound()
+        except Exception:self.failed=True;raise
+
+    def original(self,sample):
+        role=PhoneEmoteRole(self.run,'actor',self.policy);row=role.stored(sample['actorSequence'])
+        expected=dict(ticket=row['ticket'],actor='owned-observer',actorSequence=row['sequence'],
+            capturedEpochMs=row['public']['capturedEpochMs'],facts=projection('emotes',row['public']['state']))
+        need(same(expected,sample));return role,row
+
+    def current(self,previous=None):
+        status=self.run.phase.status(previous);need(status['active'] and status['activations'])
+        return status,status['activations'][-1]
+
+    def fresh(self,pending):
+        now=self.run.monotonic();epoch=self.run.phase.epoch_ms();sample=pending['sample']
+        need(number(now,pending['startedMonotonicMs']/1000,1e15) and number(epoch,1,1e15))
+        return -250<=epoch-sample['capturedEpochMs']<=1500 and max(epoch-sample['capturedEpochMs'],
+            pending['hostEpochMs']-sample['capturedEpochMs']+now*1000-pending['startedMonotonicMs'])<=1500
+
+    def dropped(self,pending,reason):
+        self.bound();need(same(self.state['pending'],pending) and len(self.state['dropped'])<LIMIT)
+        self.state['dropped'].append(dict(sequence=pending['sample']['actorSequence'],ticket=pending['sample']['ticket'],reason=reason))
+        self.state.update(phase='watching',pending=None);self.save();return False
+
+    def retired_role(self,sample):
+        quiet=self.state['quiet'];need(quiet is not None and self.run.state['phase']=='resources-restored'
+            and sample['ticket']==self.run.state['cleanupTicket']==quiet['cleanup']['activations'][-1]['ticket'])
+        role,_row=self.original(sample)
+        need(role.state['phase']=='ready' and role.source.state['phase']=='ready' and role.source.state['pending'] is None)
+        PhoneEmoteLifetime.retirement_archive(quiet,role.source)
+        from overte_phone_emote_namespaces import PhoneEmoteNamespaces
+        PhoneEmoteNamespaces(role.source).no_scopes('actor')
+        from adapters.owned_world_render import OwnedWorldRenderCapture
+        owned=self.run.adapter._world_render_capture(self.run.selector,read_only=True,role='actor',require_frame_view=True)
+        need(isinstance(owned,OwnedWorldRenderCapture) and same(owned.owner.binding,self.state['binding'])
+            and owned.owner.role=='actor' and owned.owner.store.read() is None)
+        return role
+
+    def accept(self,pending,receipt):
+        with self.run.lock.held():
+            self.run.load();self.load();need(same(self.state['pending'],pending))
+            if self.run.state['phase'] not in ('prepared','active','switching','resources-restored'):return False
+            self.original(pending['sample'])
+            self.state.update(phase='watching',pending=None,last=dict(sample=deepcopy(pending['sample']),receipt=deepcopy(receipt)))
+            quiet=self.state['quiet']
+            if quiet is not None and self.fresh(pending):
+                self.retired_role(pending['sample']);self.state['phase']='retired'
+            self.save()
+            if self.state['phase']=='retired' and not self.fresh(pending):self.state['phase']='watching';self.save()
+            return self.state['phase']=='retired'
+
+    def receipt(self,pending):
+        started=self.run.monotonic();host=self.run.phase.epoch_ms()
+        value=self.client.request('/runs/'+self.run.run)
+        exact(value,{'schemaVersion','runId','area','ticket','sampleEpochMs','entries'})
+        need(type(value['schemaVersion']) is int and value['schemaVersion']==1 and value['runId']==self.run.run
+            and value['area']=='emotes' and type(value['entries']) is list and len(value['entries'])<=512)
+        identifier(value['ticket']);epoch=self.run.phase.epoch_ms();end=self.run.monotonic()
+        need(number(end,started,1e15) and end-started<5 and number(value['sampleEpochMs'],1,1e15)
+            and -250<=epoch-value['sampleEpochMs']<=1500
+            and host-value['sampleEpochMs']+(end-started)*1000<=1500)
+        matches=[]
+        for row in value['entries']:
+            exact(row,set(pending['sample'])|{'sequence','receivedEpochMs'})
+            if row['actorSequence']==pending['sample']['actorSequence']:
+                need(same({key:row[key] for key in pending['sample']},pending['sample'])
+                    and integer(row['sequence'],1) and number(row['receivedEpochMs'],1,1e15))
+                matches.append(row)
+        need(len(matches)<=1)
+        return None if not matches else dict(kind='journal',receivedEpochMs=epoch,body=deepcopy(matches[0]))
+
+    def deliver(self):
+        # Every transport operation below is outside the native source lock.
+        with self.run.lock.held():
+            self.run.load();self.load();pending=deepcopy(self.state['pending']);need(pending is not None)
+            if self.run.state['phase'] not in ('prepared','active','switching','resources-restored'):return False
+            self.original(pending['sample'])
+        if pending['issued']:
+            receipt=self.receipt(pending)
+            if receipt is not None:return self.accept(pending,receipt)
+        status,current=self.current(pending['provider'])
+        if current['ticket']!=pending['sample']['ticket']:
+            with self.run.lock.held():self.run.load();self.load();return self.dropped(pending,'phase-changed')
+        need(not pending['issued']) # Missing/unknown delivery cannot replay a POST.
+        if not self.fresh(pending):
+            with self.run.lock.held():self.run.load();self.load();return self.dropped(pending,'expired-before-send')
+        with self.run.lock.held():
+            self.run.load();self.load();need(same(self.state['pending'],pending))
+            self.state['pending']['issued']=True;self.save();pending=deepcopy(self.state['pending'])
+        need(self.fresh(pending))
+        try:
+            reply=self.client.request('/runs/'+self.run.run+'/samples',pending['sample']);need(reply=={})
+            receipt=self.receipt(pending);need(receipt is not None)
+        except ValueError:
+            receipt=self.receipt(pending)
+            if receipt is None:
+                _status,current=self.current(pending['provider'])
+                if current['ticket']!=pending['sample']['ticket']:
+                    with self.run.lock.held():self.run.load();self.load();return self.dropped(pending,'phase-changed')
+                raise
+        return self.accept(pending,receipt)
+
+    def cleanup_quiet(self):
+        need(self.run.state['phase']=='resources-restored')
+        self.state['phase']='quiet';self.save()
+        if self.state['quiet'] is None:self.run.cleanup_quiet('actor')
+        source=self.run.source('actor');life=PhoneEmoteLifetime(source)
+        def retain(proof):
+            if self.state['quiet'] is None:self.state['quiet']=deepcopy(proof);self.save()
+            else:need(same(self.state['quiet'],proof))
+        life.retire(retain,retained=self.state['quiet'])
+        self.state['phase']='watching';self.save()
+
+    def step(self):
+        ready=False
+        with self.run.lock.held():
+            self.run.load();need(self.run.state is not None);self.load()
+            parent=self.run.state['phase']
+            # No foreground-only factory while setup/input/OS recovery is pending.
+            if parent not in ('prepared','active','switching','resources-restored'):return False
+            if self.state['phase']=='retired':
+                self.retired_role(self.state['last']['sample']);return True
+            if self.state['pending'] is not None:ready=True
+            else:
+                status,current=self.current()
+                if parent=='switching':
+                    role_path=PrivateFeatureState(self.store.path.with_name('phone-emote-actor-role.json')).read()
+                    if role_path is not None:
+                        role=PhoneEmoteRole(self.run,'actor',self.policy)
+                        if role.state['phase']!='ready':PhoneEmoteFailures(self.run).collect_phase()
+                    self.run.acknowledge_switch('actor');return False
+                if current['stimulus']['verb']=='baseline':
+                    if parent!='prepared':return False
+                elif current['stimulus']['verb']=='cleanup':
+                    if parent!='resources-restored' or current['ticket']!=self.run.state['cleanupTicket']:return False
+                elif parent!='active' or self.run.state['call'] is None or not same(
+                        dict(ticket=current['ticket'],verb=current['stimulus']['verb'],inputs=current['stimulus']['inputs']),
+                        {key:self.run.state['call'][key] for key in ('ticket','verb','inputs')}):return False
+                role=PhoneEmoteRole(self.run,'actor',self.policy)
+                if role.state['phase']!='ready':
+                    if role.state['pending']['ticket']!=current['ticket']:PhoneEmoteFailures(self.run).collect_phase();return False
+                    role.recover();return False
+                if current['stimulus']['verb']=='cleanup' and self.state['quiet'] is None:self.cleanup_quiet();role=PhoneEmoteRole(self.run,'actor',self.policy)
+                # An already-retained quiet proof may be awaiting child deletion.
+                elif self.state['phase']=='quiet':self.cleanup_quiet();role=PhoneEmoteRole(self.run,'actor',self.policy)
+                started,host=self.run.monotonic(),self.run.phase.epoch_ms()
+                try:sample=role.publication()
+                except NativeUIError:
+                    _status,latest=self.current(status)
+                    if latest['ticket']==current['ticket']:raise
+                    if role.state['phase']!='ready':PhoneEmoteFailures(self.run).collect_phase()
+                    return False
+                row=role.stored(sample['actorSequence']);provider=role.effects.current_original(row['frame'])['phaseAfter']
+                self.state.update(phase='publishing',pending=dict(sample=sample,startedMonotonicMs=started*1000,
+                    hostEpochMs=host,provider=deepcopy(provider),issued=False));self.save();ready=True
+        return self.deliver() if ready else False

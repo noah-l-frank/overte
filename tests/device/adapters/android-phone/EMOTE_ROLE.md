@@ -330,8 +330,9 @@ its original resource-free grammar and five-second bound. Boolean/unknown versio
 selectors are rejected. Failure-owner/record version 6 writes new v2 phase
 archives; pending record v5 continues its exact old v1 archive and original bytes/
 inode/digest. A v5 record cannot carry a v2 image archive. Other failure archive
-formats and role control/record versions are unchanged. Whole native/resource/
-file/control retirement, the actor loop and complete feature facade remain open.
+formats and role control/record versions are unchanged. The [independent actor loop](EMOTE_ACTOR.md) now composes these phase transfers.
+Whole native/resource/file/control retirement and the complete feature facade
+remain open.
 
 Host checks drive actual normal Sit -> Crying override -> cancel and this actor's
 own native observations. The synthetic GPU producer can advance the real fixture

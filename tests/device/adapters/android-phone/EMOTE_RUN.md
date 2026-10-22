@@ -4,9 +4,9 @@
 Background, Namespace and Cleanup Input components under the same source lock.
 This internal owner is not a complete feature adapter and is deliberately not
 registered as `feature.emotes.*`. The [per-role observation owner](EMOTE_ROLE.md)
-now retains original role/image/motion observations. The public facade,
-independently credentialed actor lifecycle and whole-run resource/file retirement
-are still required. Its private `prepared` phase requires the actual original world/Script/
+now retains original role/image/motion observations. The [separately credentialed actor](EMOTE_ACTOR.md) now publishes independent
+role originals and retains its own terminal quiet window. The public facade and
+whole-run resource/file retirement are still required. Its private `prepared` phase requires the actual original world/Script/
 cache admission and completion of its actual setup children. Native source
 remains uncompiled; device behavior is untested.
 

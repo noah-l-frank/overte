@@ -82,11 +82,15 @@ class PhoneEmoteEffects:
         owner.previous=deepcopy(input_header)
         if input_header is None:
             need(bool(primary.frames))
-            for key in ('phaseBefore','phaseAfter'):
-                packet=primary.frames[-1][key]
-                need(packet['active'] and len(packet['activations'])==1
-                    and packet['activations'][0]['stimulus']==dict(verb='baseline',inputs={}))
-            # Historical absence of a baseline input owner is not an ACK.
+            for frame in primary.frames:
+                for key in ('phaseBefore','phaseAfter'):
+                    packet=frame[key];rows=packet['activations']
+                    need(packet['active'] and len(rows) in (1,2)
+                        and rows[0]['stimulus']==dict(verb='baseline',inputs={})
+                        and (len(rows)==1 or rows[1]['stimulus']==dict(verb='cleanup',inputs={})))
+            # Historical absence is valid only before any normal fixture action.
+            # Baseline -> cleanup owns no ordinary input; a normal action in
+            # either original phase forbids borrowing this absent context.
             # This read-only view cannot create or act through a live store.
             owner.state=dict(history=[],current=None);owner.history_state=dict(count=0,manifests=[],pendingArchive=None)
         else:owner.state,owner.history_state=owner.decode(owner.previous)

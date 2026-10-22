@@ -30,8 +30,10 @@ input cleanup. [Original admission](adapters/android-phone/EMOTE_ADMISSION.md)
 now gates setup and each current source enforces executable/world approval.
 The [per-role observation owner](adapters/android-phone/EMOTE_ROLE.md) now retains
 original native/image/motion evidence and derives common v17 samples. Complete
-Emotes still lacks its public facade, separately credentialed actor lifecycle
-and whole-run retirement; it is not counted as an implemented full triple.
+The [independent Phone actor](adapters/android-phone/EMOTE_ACTOR.md) now publishes
+its own originals through the existing observer and retains its own quiet-window
+retirement. Emotes still lacks its public facade and whole-run retirement; it is
+not counted as an implemented full triple.
 The [Phone failure owner](adapters/android-phone/EMOTE_FAILURES.md) now retains
 both roles' interrupted readonly source, role/image/motion and lifetime-work attempts, then
 admitted/failed Admission originals before run input cleanup. Run v4 now records

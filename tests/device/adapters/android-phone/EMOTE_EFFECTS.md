@@ -210,3 +210,15 @@ dispatches input or obtains native/UI measurements; the caller owns acquisition.
 The background archive uses the actual bound OS observer and therefore is not
 an offline/device-disconnected reader. Image-frame integration and full feature
 registration remain pending.
+
+
+## Absent input context before any normal action
+
+Historical absent input ownership can be replayed through baseline -> cleanup
+only while every original primary frame's before/after phase is active and has
+exactly the initial baseline, optionally followed by cleanup. No normal fixture
+action may occur anywhere in that history. This admits real cleanup after setup
+without inventing an input/ACK row. A normal open/play/close or any other action
+still makes an absent input header invalid, even if the current native state is
+idle. Original source/phase files remain mandatory. This parser correction adds
+no packet fields, native facts, product input or complete cleanup verdict.

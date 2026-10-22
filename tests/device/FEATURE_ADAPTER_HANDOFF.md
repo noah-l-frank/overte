@@ -1,5 +1,14 @@
 # Feature adapter handoff, contract v17
 
+The [Phone independent Emote actor](adapters/android-phone/EMOTE_ACTOR.md) now
+uses observer config v3, acquires its own role originals, posts outside the
+shared source lock and verifies an actual separate backend entry. It transfers
+obsolete image scopes, acknowledges only its own namespace freeze and retains
+its own original quiet-window retirement. HTTP ACKs, old peer samples, unknown
+background state and unresolved actor/role/failure journals cannot prove full
+cleanup. Public Emote capability registration and whole-run retirement remain
+pending; source implementations are uncompiled and all devices untested.
+
 Active Emote checkpoints require a private original `kind: file`
 [native motion proof](feature_journeys/EMOTE_MOTION.md), plus PNG and independent
 facts. Brief one-shot clips use verified native motion windows; all idle,

@@ -24,9 +24,10 @@ from overte_phone_authentication_feature import AuthenticationPhasePending,Authe
 from overte_phone_graphics_fixture import GraphicsPhasePending,GraphicsRunRetired
 from overte_phone_account_fixture import origin as account_origin
 from overte_phone_script_lock import PhoneScriptSourceBusy
+from overte_phone_emote_actor import image_policy
 
 SCRIPT_VERSION=1
-VERSION=2
+VERSION=3
 
 
 def configuration(path):
@@ -35,9 +36,11 @@ def configuration(path):
         exact(value,{'scriptObserverVersion','target','candidateArguments','fixtureUrl','actorToken','durationSeconds'})
         need(type(value['scriptObserverVersion']) is int and value['scriptObserverVersion']==SCRIPT_VERSION)
     else:
-        exact(value,{'featureObserverVersion','area','target','candidateArguments','fixtureUrl','actorToken','durationSeconds'})
-        need(type(value['featureObserverVersion']) is int and value['featureObserverVersion']==VERSION
-             and value['area'] in ('scripts','authentication','graphics'))
+        exact(value,{'featureObserverVersion','area','target','candidateArguments','fixtureUrl','actorToken','durationSeconds'}
+            |({'imagePolicy'} if value.get('featureObserverVersion')==3 and value.get('area')=='emotes' else set()))
+        need(type(value['featureObserverVersion']) is int and value['featureObserverVersion'] in (2,VERSION)
+             and value['area'] in (('scripts','authentication','graphics') if value['featureObserverVersion']==2 else ('scripts','authentication','graphics','emotes')))
+        if value['area']=='emotes':image_policy(value['imagePolicy'])
         if value['area']=='authentication':account_origin(value['fixtureUrl'])
     need(type(value['target']) is str and bool(value['target'])
          and type(value['candidateArguments']) is list and len(value['candidateArguments'])<=64
@@ -51,7 +54,8 @@ def run(adapter,config,*,monotonic=time.monotonic,sleep=time.sleep):
     """One owned run; no session repair, child launch or device discovery."""
     started=previous=monotonic();need(number(started,0,1e15))
     client=Client(config['fixtureUrl'],config['actorToken']);flow=None
-    area=config.get('area','scripts');need(area in ('scripts','authentication','graphics'))
+    area=config.get('area','scripts');need(area in ('scripts','authentication','graphics','emotes'))
+    if area=='emotes':return run_emote(adapter,config,client,monotonic=monotonic,sleep=sleep)
     if area=='authentication':account_origin(config['fixtureUrl'])
     owner_store=getattr(adapter,'script_feature_store' if area=='scripts' else area+'_feature_store')
     retirement_store=getattr(adapter,'script_retirement_store' if area=='scripts' else area+'_retirement_store')
@@ -80,6 +84,25 @@ def run(adapter,config,*,monotonic=time.monotonic,sleep=time.sleep):
         sleep(.25)
 
 
+def run_emote(adapter,config,client,*,monotonic=time.monotonic,sleep=time.sleep):
+    """The same observer entry point, with independent Emote run ownership."""
+    started=previous=monotonic();flow=None
+    while True:
+        now=monotonic();need(number(now,previous,1e15) and now-started<config['durationSeconds']);previous=now
+        if flow is None:
+            metadata=adapter.emote_feature_store(config['target']).read()
+            if metadata is not None:
+                need(metadata.get('fixtureUrl')==client.url+'/runs/'+metadata['runId']+'/')
+                flow=adapter._emote_actor(config['target'],metadata['runId'],client=client,image_policy=config['imagePolicy'])
+        if flow is not None:
+            try:
+                finished=flow.step();end=monotonic()
+                need(number(end,previous,1e15) and end-started<config['durationSeconds']);previous=end
+                if finished:return 0
+            except PhoneScriptSourceBusy:pass
+        sleep(.25)
+
+
 def main(argv=None):
     parser=argparse.ArgumentParser(description=__doc__,allow_abbrev=False)
     parser.add_argument('--config',type=Path,required=True)
@@ -101,6 +124,7 @@ def main(argv=None):
         os.environ['OVERTE_PHONE_FEATURE_SCRIPTS']='0'
         os.environ['OVERTE_PHONE_FEATURE_AUTHENTICATION']='0'
         os.environ['OVERTE_PHONE_FEATURE_GRAPHICS']='0'
+        os.environ['OVERTE_PHONE_FEATURE_EMOTES']='0'
         return run(PhoneAppiumAdapter(candidate),config)
     except (OSError,RuntimeError,ValueError,TypeError,KeyError,RecursionError):
         print('PHONE_FEATURE_OBSERVER_REJECTED',file=sys.stderr)

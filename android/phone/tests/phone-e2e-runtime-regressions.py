@@ -62,6 +62,7 @@ COMMON_HOST_CHECKS = (
     "android/phone/tests/device/test_emote_effects.py",
     "android/phone/tests/device/test_emote_motion_files.py",
     "android/phone/tests/device/test_emote_role.py",
+    "android/phone/tests/device/test_emote_actor.py",
     "android/phone/tests/device/test_emote_role_failure.py",
     "android/phone/tests/device/test_emote_phase_retirement.py",
     "android/phone/tests/device/test_emote_image_phase_retirement.py",

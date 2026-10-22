@@ -41,7 +41,9 @@ remains uncompiled. See [the Script handoff](adapters/android-phone/SCRIPT_FEATU
 and [Authentication handoff](adapters/android-phone/AUTHENTICATION_FEATURE.md).
 The internal [Phone Emote role owner](adapters/android-phone/EMOTE_ROLE.md) now
 retains independently acquired originals, image/motion files and per-role
-sequences; its public facade, actor lifecycle and complete retirement remain open.
+sequences. The [independent Phone actor](adapters/android-phone/EMOTE_ACTOR.md)
+now publishes those originals and retains its own quiet-window retirement; the
+public facade and complete whole-run retirement remain open.
 The optional [controlled HTTPS account provider](feature_journeys/ACCOUNT_PROVIDER.md)
 supplies real password/refresh grants and protected profile requests for owned
 test accounts. The Phone Authentication adapter joins actual native/UI/protected

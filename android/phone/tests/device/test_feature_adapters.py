@@ -985,6 +985,16 @@ class FeatureAdapterTests(unittest.TestCase):
             base.assert_called_once()
         self.assertEqual({'unresolved':True},store.read());store.discard(store.read())
 
+    def test_general_cleanup_cannot_forget_actor_failure_or_role_emote_ownership(self):
+        for name,error in (('actor-lifecycle','ACTOR'),('failures','FAILURE'),('primary-role','ROLE'),('actor-role','ROLE')):
+            with self.subTest(name=name):
+                store=appium.PrivateFeatureState(self.adapter.state_path(SELECTOR).with_name('phone-emote-'+name+'.json'))
+                store.write({'unresolved':True},None)
+                with patch.object(AppiumAdapter,'cleanup',return_value={'cleaned':True}) as base:
+                    with self.assertRaisesRegex(ValueError,'PHONE_EMOTE_'+error+'_OWNERSHIP_PENDING'):self.adapter.cleanup(SELECTOR)
+                    base.assert_called_once()
+                self.assertEqual({'unresolved':True},store.read());store.discard(store.read())
+
     def test_general_cleanup_cannot_forget_either_role_admission_originals(self):
         for role in ('primary','actor'):
             store=appium.PrivateFeatureState(self.adapter.state_path(SELECTOR).with_name('phone-emote-'+role+'-admission.json'))
