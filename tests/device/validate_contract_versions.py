@@ -9,6 +9,22 @@ from pathlib import Path
 
 
 REQUIRED = {
+    "ios-emote-samples": 1,
+    "ios-emote-sample": 1,
+    "ios-emote-sample-recovery": 1,
+    "ios-emote-abandoned-sample": 1,
+    "ios-emote-observation-original": 1,
+    "ios-emote-observer": 1,
+    "ios-emote-observer-record": 1,
+    "ios-emote-observation-reference": 1,
+    "ios-emote-cleanup-inputs": 1,
+    "ios-emote-file-receipts": 1,
+    "ios-emote-native-file-receipt": 1,
+    "ios-emote-abandoned-file-read": 1,
+    "ios-peer-admission": 1,
+    "original-marker-entities": 1,
+    "marker-entity-original": 1,
+    "marker-entity-record": 1,
     "ios-create-entities": 1,
     "ios-create-returned-entity": 1,
     "native-create-entity-calls": 1,
