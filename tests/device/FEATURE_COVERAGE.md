@@ -40,8 +40,9 @@ resources plus ownership-only input cleanup before the first baseline. Native
 quiet/current-state checks and final whole-run retirement remain required.
 The Lifetime child now requires original retirement retention; its failure path
 retains interrupted work before a later new measurement, without refreshing
-old quiet/idle evidence. Failure-owner/record v5 reads all prior versions and retains obsolete actor
-reads before image allocation; allocated image scopes still require full cleanup.
+old quiet/idle evidence. Failure-owner/record v6 reads all prior versions and retains obsolete actor
+reads, including allocated image scopes after actual GPU-buffer/receipt retirement.
+Failed attempts never add a public sequence or a fresh product verdict.
 These are implementation statuses, not complete product-feature acceptance.
 The [source compatibility review](FEATURE_SOURCE_COMPATIBILITY.md) identifies
 remaining platform Emote prerequisites. Version 5 corrects ordinary override/chooser semantics, adds nine automatic completions and a separate early-restoration check. Version 4 corrects Graphics to immediate settings and independently measured original preferences. Version 2 corrected Scripts to the real file-bundle picker; version 3 corrected

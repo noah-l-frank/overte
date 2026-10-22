@@ -1,4 +1,4 @@
-# Phone Emote source/admission/role/work retention, version 5
+# Phone Emote source/admission/role/work retention, version 6
 
 `PhoneEmoteFailures` connects actual failed readonly Source acquisitions and
 admitted/failed Admission contexts, interrupted role/image/motion attempts and
@@ -52,7 +52,7 @@ files and reconstructs the old reading context without target/fixture queries,
 a usable live owner or a fresh verdict. It remains valid after subsequent source
 frames only while its original evidence files remain intact.
 
-## Durable enclosing failure owner, versions 1, 2, 3, 4 and 5
+## Durable enclosing failure owner, versions 1, 2, 3, 4, 5 and 6
 
 Construct `PhoneEmoteFailures(run)` under the loaded Run's held source lock. The
 actual candidate/process binding, run, fixture and artifact root must agree.
@@ -66,12 +66,12 @@ same lock/binding. Kind admission uses namespace zero and its actual Admission
 owner. `collect_admissions()` runs after source failure transfer, before ordinary
 input restoration, for both roles' existing admission journals.
 It persists responsibility before source transfer. The private control is exactly
-`{emoteFailureOwnerVersion:5,runId,fixtureUrl,binding,artifactRoot,payload}`. Its
+`{emoteFailureOwnerVersion:6,runId,fixtureUrl,binding,artifactRoot,payload}`. Its
 existing bounded packed payload holds one `{count,manifests,pending}` state.
 Count is 0..1024; manifests retain the existing 128-entry blocks and eight-block
 bound. Pending is null or
 `{kind,recordVersion,role,segment,headerSha256,archive,original,manifest}`.
-Kind is source, admission, role, lifetime or phase. RecordVersion is 5 for new transfers; a recovered v1
+Kind is source, admission, role, lifetime or phase. RecordVersion is 6 for new transfers; a recovered v1
 source transfer retains record version 1. Header SHA-256 binds the
 exact source or admission journal. Archive is null until the actual complete failure
 packet is durably frozen; it contains no guessed product effects. Original and
@@ -79,7 +79,7 @@ manifest use the existing planned/opened/saved storage protocol.
 
 The same 64 KiB control and 1 MiB original limits apply; neither is increased.
 A failure original is exactly
-`{emoteFailureRecordVersion:5,index,kind,archive}` and uses the existing
+`{emoteFailureRecordVersion:6,index,kind,archive}` and uses the existing
 immutable file/index engine with kind source-failures and primary run ownership.
 An actor's failure archive still names and validates the actor's actual original
 source stream. Primary ownership of diagnostic storage supplies no actor facts.
@@ -89,10 +89,10 @@ parent-pinned hash. A failed pre-setup admission remains unapproved. The fixed
 legacy source-failures storage kind is retained for both record types; no
 original filenames or indexes are renamed.
 
-Version 1/2/3/4 owner and record files remain readable. Version 1 pending sources
+Version 1/2/3/4/5 owner and record files remain readable. Version 1 pending sources
 retain record 1; version 2 pending source/admission transfers retain record 2. Reconstruction alone never
 rewrites a v1 control. Its pending transfer is interpreted as source/record 1;
-the next explicit transition writes owner v5 while preserving its frozen v1
+the next explicit transition writes owner v6 while preserving its frozen v1
 record bytes, digest, inode, manifest and epochs. Version 1 cannot encode the
 new kind/recordVersion fields or an admission record.
 
@@ -166,7 +166,7 @@ still has to be verified before full feature registration.
 
 Old completed and pending v1/v2 records are not rewritten. V2 pending admission
 records retain their original bytes/digest/inode during explicit owner upgrade.
-Versions 3/4/5 admit kind role; versions 4/5 admit kind lifetime. Source and Admission packet formats remain
+Versions 3/4/5/6 admit kind role; versions 4/5/6 admit kind lifetime. Source and Admission packet formats remain
 unchanged; the new role archive and partial-motion descriptor have their own
 version 1 contracts in the registry.
 
@@ -202,7 +202,7 @@ returns reading state only. Only a later actual new source/work acquisition can
 complete a quiet window. Existing 40-record/30-second lifetime and five-second
 transfer bounds remain unchanged; this path does not reset an exhausted window.
 
-Versions 4/5 retain old pending record versions and old completed bytes/inodes/
+Versions 4/5/6 retain old pending record versions and old completed bytes/inodes/
 digests. New original and manifest writes use the existing exclusive staged
 engine; planned/opened/saved interruptions resume only exact owned bytes. The
 same 64 KiB control and 1 MiB original limits apply. These journals and originals
@@ -213,13 +213,31 @@ implied.
 
 ## Obsolete actor phase transfers in version 5
 
-Only version 5 admits kind phase. `collect_phase()` performs the existing staged
+Versions 5/6 admit kind phase. `collect_phase()` performs the existing staged
 original/index retention for the [resource-free actor phase transfer](EMOTE_ROLE.md#obsolete-actor-reads-before-image-allocation-version-1).
 It is an explicit normal-operation path; it cannot invoke ordinary input cleanup
 or clear an allocated image scope. The child classification is validated before
-a new parent intent is written. New records use version 5; existing pending
+a new parent intent is written. New records use version 6; existing pending
 records retain their actual original version. `resume_pending()` still requires
 normal failure kinds to run in cleaning-inputs, while an already-owned phase
 transfer may finish in a later active phase, including actual cleanup. Old
 provider epochs and successful actor sequences are never advanced by transfer.
 This internal addition registers no complete feature capability.
+
+
+## Image phase ownership in version 6
+
+New phase records carry the [v2 original actor image retirement](EMOTE_ROLE.md#obsolete-actor-image-retirement-version-2).
+The actual stale ticket, current namespace, ready source and original provider
+birth/history are checked before a new enclosing intent. Completed/failed image
+Scopes use the existing actual child retirement before the original packet/index
+can commit and the role becomes ready. A callback acknowledgment alone cannot
+release native ownership. Raw failure originals retain the existing 1 MiB bound;
+control payloads use the existing bounded packing. No limit is increased.
+
+Owner/record versions 1..5 remain readable, preserving each pending record's
+actual version. A pending v5 phase transfer writes/reuses its exact old phase v1
+packet and original bytes/inode; v5 cannot be relabelled to hold a v2 image
+archive. New records use version 6. This adds neither a public sample nor a
+complete feature capability. All original evidence and journals still require
+final whole-run retention and verified retirement.

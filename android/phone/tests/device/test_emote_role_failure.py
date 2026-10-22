@@ -107,7 +107,7 @@ class EmoteRoleFailureTests(unittest.TestCase):
         with run.lock.held():
             failure=PhoneEmoteFailures(run);rows=failure.originals.restore(failure.state['manifests'],failure.state['count'])
             self.assertEqual(['role','admission'],[row['kind'] for row in rows]);self.assertEqual(header,rows[0]['archive']['header'])
-            self.assertEqual(5,rows[0]['emoteFailureRecordVersion']);failure.record(rows[0],1)
+            self.assertEqual(6,rows[0]['emoteFailureRecordVersion']);failure.record(rows[0],1)
             role=PhoneEmoteRole(run,'primary',POLICY);self.assertEqual('ready',role.state['phase']);self.assertEqual(0,role.state['sequence'])
             self.assertIsNotNone(failure.store.read());self.assertEqual([],list(m.root.glob('phone-emote-primary-observation-*.json')))
 

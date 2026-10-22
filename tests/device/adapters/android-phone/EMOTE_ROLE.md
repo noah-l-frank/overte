@@ -205,7 +205,7 @@ phase changes, stale ownership, partial-file mutation and ignored commits remain
 errors. Whole-operation bounds remain 20 seconds with existing five-second child
 limits. `failure_archive` is historical replay only and returns no new facts.
 
-Failure-owner/record versions 3/4/5 integrate this path for both roles after source
+Failure-owner/record versions 3/4/5/6 integrate this path for both roles after source
 failure recovery and before admission/input restoration. Versions 1/2 remain
 readable, preserving their old source/admission record bytes and original inodes.
 Role journals and all diagnostic originals still require final whole-run
@@ -275,3 +275,69 @@ completion and all staged original/index writes, late cleanup, unknown image/
 world owners, forged image intents, same-phase errors, altered/foreign packets
 and rejected/slow/ignored retention. They qualify orchestration only; native
 code is uncompiled and no device behavior is accepted.
+
+
+## Obsolete actor image retirement, version 2
+
+New `transfer_phase(retain, retained=None, archive_version=None)` calls write
+`emoteRolePhaseRetirementVersion:2`. The closed field set is unchanged from v1;
+version 2 also admits acquiring/retaining actor image attempts and their actual
+Scope/original/index/motion diagnostics. Run must already exist, the source must
+be ready with no pending read, and the actual role namespace must match the
+current source. `phase_intent()` checks this classification and the retired
+ticket against a new original phase, anchored to an independently reopened
+source/provider history, before the enclosing failure owner writes an intent.
+A reconstructed phase reader cannot adopt a replacement provider birth.
+
+The existing ordinary cleanup transfer and phase transfer share the same child
+retirement implementation. Ordinary cleanup still requires Run cleaning-inputs
+and an actual cleanup stimulus. Phase transfer instead requires the actor's old
+ticket to occur before the current ticket in the actual immutable fixture
+activation history. This authorizes retirement of that exact obsolete E2E
+measurement only; it sends no ordinary close, cancel, playback or OS input and
+provides no product cleanup/idle/quiet result.
+
+Scope complete carries the original complete Observation archive, including its
+actual GPU-buffer and issuer-receipt retirement. Scope failed carries the actual
+Observation failure archive, child Capture retirement and any partial PNG/
+original/index evidence. The existing Capture cleanup independently observes
+memory/receipt absence and retains its exact release proof before metadata
+removal. An ignored release keeps Role/Observation/Capture/world ownership.
+Missing metadata alone cannot replace a required child retirement packet. Scope
+absent retains only the existing unmaterialized host-ownership classification;
+it supplies no native release proof or whole-run verdict. With no scopeId,
+independent absence of this role's scope/capture/world owners is mandatory.
+
+Successful role sequences, indexes, lastImage and played references are unchanged
+by failure transfer. A completed image whose enclosing role original/index or
+final commit was interrupted stays a failed attempt; it cannot be published as
+new actor evidence or substitute for a successful prior cancel image. Original
+completed Scope data, actual native/image observations and partial file bytes
+remain available in the exact transferred archive. New public state requires a
+later fresh role acquisition.
+
+The mandatory callback durably retains the full original packet before child
+metadata and then pending role ownership can disappear. The original file engine
+retains its existing 1 MiB limit; the packed control remains at 64 KiB. The full
+operation is bounded to 20 seconds, with the existing five-second child and file
+bounds. Rejected/slow callbacks and lost/ignored commits preserve responsibility.
+A retained packet can finish the same staged original/index/child/parent transfer
+without another acquisition, input, image or successful sequence. Later real
+cleanup may extend the same provider history; it never replaces old epochs.
+
+Version 1 remains readable and recoverable through `archive_version=1`, retaining
+its original resource-free grammar and five-second bound. Boolean/unknown version
+selectors are rejected. Failure-owner/record version 6 writes new v2 phase
+archives; pending record v5 continues its exact old v1 archive and original bytes/
+inode/digest. A v5 record cannot carry a v2 image archive. Other failure archive
+formats and role control/record versions are unchanged. Whole native/resource/
+file/control retirement, the actor loop and complete feature facade remain open.
+
+Host checks drive actual normal Sit -> Crying override -> cancel and this actor's
+own native observations. The synthetic GPU producer can advance the real fixture
+phase during acquisition; its real buffer/receipt owners still have to retire.
+Cases include ignored release, complete/partial image-role records, all staged
+failure-original/index writes, lost parent completion, same-phase denial,
+changed/foreign native retirement, old v5 recovery, changed provider birth and
+strict version selection. These confirm Python logic only, not compiled native
+code, device behavior or a complete common Emote journey.

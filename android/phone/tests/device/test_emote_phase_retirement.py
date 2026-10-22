@@ -41,7 +41,7 @@ class PhaseRetirementTests(unittest.TestCase):
         m=self.model;run=self.prepared()
         with run.lock.held():
             header=self.raced(run);role=PhoneEmoteRole(run,'actor',POLICY);calls=deepcopy(m.calls)
-            proof=role.transfer_phase(self.retain);self.assertEqual(header,proof['header']);self.assertEqual(1,proof['emoteRolePhaseRetirementVersion'])
+            proof=role.transfer_phase(self.retain,archive_version=1);self.assertEqual(header,proof['header']);self.assertEqual(1,proof['emoteRolePhaseRetirementVersion'])
             self.assertEqual('ready',role.state['phase']);self.assertEqual(0,role.state['sequence']);self.assertEqual(0,role.state['index'])
             self.assertEqual([],m.controls.input_requests);self.assertIsNone(proof['scope']);self.assertNotIn('public',proof)
             self.assertTrue(all(call=='phase-read' for call in m.calls[len(calls):]));self.assertEqual(proof,role.phase_archive(proof))
@@ -51,7 +51,7 @@ class PhaseRetirementTests(unittest.TestCase):
         m=self.model;run=self.prepared()
         with run.lock.held():
             header=self.raced(run);failure=PhoneEmoteFailures(run);failure.collect_phase()
-            rows=failure.originals.restore(failure.state['manifests'],1);self.assertEqual('phase',rows[0]['kind']);self.assertEqual(5,rows[0]['emoteFailureRecordVersion'])
+            rows=failure.originals.restore(failure.state['manifests'],1);self.assertEqual('phase',rows[0]['kind']);self.assertEqual(6,rows[0]['emoteFailureRecordVersion'])
             self.assertEqual(header,rows[0]['archive']['header']);failure.record(rows[0],1);self.assertEqual(0,PhoneEmoteRole(run,'actor',POLICY).state['sequence'])
         run.act(m.call('open'))
         with run.lock.held():
@@ -109,9 +109,9 @@ class PhaseRetirementTests(unittest.TestCase):
                         if fault=='reject':return False
                         if fault=='slow':m.clock+=6
                     if fault=='clear':
-                        with patch.object(role.store,'write',return_value=None),self.assertRaises(NativeUIError):role.transfer_phase(retain)
+                        with patch.object(role.store,'write',return_value=None),self.assertRaises(NativeUIError):role.transfer_phase(retain,archive_version=1)
                     else:
-                        with self.assertRaises(NativeUIError):role.transfer_phase(retain)
+                        with self.assertRaises(NativeUIError):role.transfer_phase(retain,archive_version=1)
                     self.assertEqual(header,role.store.read())
 
     def test_unknown_capture_or_world_owner_blocks_resource_free_phase_transfer(self):
@@ -124,7 +124,7 @@ class PhaseRetirementTests(unittest.TestCase):
                         store=m._world_render_capture('synthetic-selector',read_only=True,role='actor',require_frame_view=True).owner.store
                     else:store=PrivateFeatureState(m.root/('phone-emote-actor-'+kind+'-1.json'))
                     store.write(dict(unaccounted=True),None)
-                    with self.assertRaises(NativeUIError):role.transfer_phase(self.retain)
+                    with self.assertRaises(NativeUIError):role.transfer_phase(self.retain,archive_version=1)
                     self.assertEqual(header,role.store.read());self.assertEqual(dict(unaccounted=True),store.read())
 
     def test_forged_image_or_scope_intent_cannot_use_phase_transfer(self):
@@ -136,7 +136,7 @@ class PhaseRetirementTests(unittest.TestCase):
                 if fault=='scope':state['pending']['scopeId']='e'*32
                 header['payload']=pack([state]);store=PrivateFeatureState(m.root/'phone-emote-actor-role.json');store.write(header,store.read())
                 role=PhoneEmoteRole(run,'actor',POLICY);failure=PhoneEmoteFailures(run)
-                with self.subTest(fault=fault),self.assertRaises(NativeUIError):failure.collect_phase()
+                with self.subTest(fault=fault),self.assertRaises(NativeUIError):role.transfer_phase(self.retain,archive_version=1)
                 self.assertEqual(header,role.store.read());self.assertIsNone(failure.store.read())
 
     def test_changed_role_namespace_cannot_claim_a_new_enclosing_phase_intent(self):
@@ -148,13 +148,47 @@ class PhaseRetirementTests(unittest.TestCase):
             with self.assertRaises(NativeUIError):owner.collect_phase()
             self.assertEqual(header,store.read());self.assertIsNone(owner.store.read())
 
+    def test_old_v5_pending_phase_v1_keeps_original_bytes_during_explicit_v6_completion(self):
+        m=self.model;run=self.prepared()
+        with run.lock.held():
+            header=self.raced(run)
+            with patch('overte_phone_emote_failures.VERSION',5):
+                owner=PhoneEmoteFailures(run);save=owner.save
+                def lost():
+                    if owner.state['pending'] is None:raise NativeUIError('Synthetic lost old v5 phase completion')
+                    return save()
+                with patch.object(owner,'save',side_effect=lost),self.assertRaises(NativeUIError):owner.collect_phase()
+            old=owner.store.read();self.assertEqual(5,old['emoteFailureOwnerVersion'])
+            pending=unpack(old['payload'])[0]['pending'];self.assertEqual(1,pending['archive']['emoteRolePhaseRetirementVersion'])
+            descriptor=pending['original'];path=owner.originals.path(descriptor);raw=path.read_bytes();inode=path.stat().st_ino
+            owner=PhoneEmoteFailures(run);self.assertEqual(old,owner.previous);owner.collect_phase()
+            self.assertEqual(6,owner.previous['emoteFailureOwnerVersion']);self.assertEqual(1,owner.state['count'])
+            rows=owner.originals.restore(owner.state['manifests'],1)
+            self.assertEqual(5,rows[0]['emoteFailureRecordVersion']);self.assertEqual(header,rows[0]['archive']['header'])
+            self.assertEqual(raw,path.read_bytes());self.assertEqual(inode,path.stat().st_ino);owner.record(rows[0],1)
+
+    def test_replaced_fixture_birth_is_rejected_before_new_parent_intent(self):
+        m=self.model;run=self.prepared()
+        with run.lock.held():header=self.raced(run)
+        run=self.owner() # Fresh phase reader has no in-memory provider cursor.
+        with run.lock.held():
+            run.load();m.journal.phase_instance='e'*32;owner=PhoneEmoteFailures(run)
+            with self.assertRaises((NativeUIError,ValueError)):owner.collect_phase()
+            self.assertIsNone(owner.store.read());self.assertEqual(header,PhoneEmoteRole(run,'actor',POLICY).previous)
+
+    def test_boolean_archive_version_cannot_adopt_a_retained_integer_version(self):
+        run=self.prepared()
+        with run.lock.held():
+            self.raced(run);role=PhoneEmoteRole(run,'actor',POLICY);proof=role.transfer_phase(self.retain,archive_version=1)
+            with self.assertRaises(NativeUIError):role.transfer_phase(self.retain,retained=proof,archive_version=True)
+
     def test_changed_or_foreign_retained_proof_cannot_reuse_ready_role(self):
         m=self.model;run=self.prepared()
         with run.lock.held():
-            self.raced(run);role=PhoneEmoteRole(run,'actor',POLICY);proof=role.transfer_phase(self.retain)
+            self.raced(run);role=PhoneEmoteRole(run,'actor',POLICY);proof=role.transfer_phase(self.retain,archive_version=1)
             for fault in ('version','role','binding','ticket','segment','kind'):
                 value=deepcopy(proof)
-                if fault=='version':value['emoteRolePhaseRetirementVersion']=2
+                if fault=='version':value['emoteRolePhaseRetirementVersion']=3
                 elif fault=='role':value['header']['role']='primary'
                 elif fault=='binding':value['header']['binding']['processIdentity']='32:foreign'
                 elif fault=='segment':value['segment']=1

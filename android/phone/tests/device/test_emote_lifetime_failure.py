@@ -72,7 +72,7 @@ class LifetimeFailureTests(unittest.TestCase):
             failure=PhoneEmoteFailures(run);rows=failure.originals.restore(failure.state['manifests'],failure.state['count'])
             self.assertEqual(['lifetime','lifetime','admission'],[row['kind'] for row in rows])
             for row,role in zip(rows,('primary','actor')):
-                self.assertEqual(headers[role],row['archive']['header']);self.assertEqual(5,row['emoteFailureRecordVersion']);failure.record(row,row['index'])
+                self.assertEqual(headers[role],row['archive']['header']);self.assertEqual(6,row['emoteFailureRecordVersion']);failure.record(row,row['index'])
                 owner=PhoneEmoteLifetime(run.source(role));self.assertEqual('ready',owner.state['phase']);self.assertEqual(1,len(owner.state['records']))
             self.assertNotEqual(unpack(headers['primary']['payload'])[0]['records'][0]['work']['requestId'],unpack(headers['actor']['payload'])[0]['records'][0]['work']['requestId'])
             self.assertIsNotNone(failure.store.read());self.assertIsNotNone(run.store.read())
@@ -175,7 +175,7 @@ class LifetimeFailureTests(unittest.TestCase):
             rows=owner.originals.restore(owner.state['manifests'],1);old=deepcopy(owner.previous)
             self.assertEqual(3,old['emoteFailureOwnerVersion']);self.assertEqual(3,rows[0]['emoteFailureRecordVersion'])
             current=PhoneEmoteFailures(run);self.assertEqual(old,current.previous)
-            current.collect_lifetimes();self.assertEqual(5,current.previous['emoteFailureOwnerVersion'])
+            current.collect_lifetimes();self.assertEqual(6,current.previous['emoteFailureOwnerVersion'])
             self.assertEqual(rows,current.originals.restore(current.state['manifests'],2)[:1])
 
 

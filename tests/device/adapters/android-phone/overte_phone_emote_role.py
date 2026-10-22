@@ -402,7 +402,7 @@ class PhoneEmoteRole:
         provider='phase' if phase_only else 'cleanup'
         exact(value,{field,'segment','header','inputHeader','inputSourceHeader','sourceHeader',
             'scope','originalDiagnostic','manifestDiagnostic','motionDiagnostic',provider})
-        need(type(value[field]) is int and value[field]==1
+        need(type(value[field]) is int and value[field] in ((1,2) if phase_only else (1,))
             and integer(value['segment'],0,15))
         self.source.lock.assert_held();started=self.source.monotonic();need(number(started,0,1e15))
         frozen=deepcopy(value['header'])
@@ -417,8 +417,10 @@ class PhoneEmoteRole:
         scope.state=scope.decode(frozen);state=scope.state;pending=state['pending']
         need(state['phase'] in ('acquiring','retaining') and state['segment']==value['segment'])
         if phase_only:
-            need(self.role=='actor' and state['phase']=='acquiring' and pending['image'] is False
-                and all(pending[key] is None for key in ('scopeId','motion','original','manifest')))
+            need(self.role=='actor')
+            if value[field]==1:
+                need(state['phase']=='acquiring' and pending['image'] is False
+                    and all(pending[key] is None for key in ('scopeId','motion','original','manifest')))
         # Retain exact immutable historical bytes; replay dependencies actually
         # used by restoration separately instead of issuing replacement reads.
         references=scope.references(state['manifests'],state['sequence'])
@@ -477,6 +479,25 @@ class PhoneEmoteRole:
                 and len(cleanup['activations'])>=len(rows) and same(cleanup['activations'][:len(rows)],rows))
         bound();return deepcopy(value)
 
+    def phase_intent(self):
+        """Classify an obsolete owned attempt before an enclosing write."""
+        self.bound();need(self.role=='actor' and self.state['phase'] in ('acquiring','retaining')
+            and self.state['segment']==self.source.segment and self.source.state['phase']=='ready'
+            and self.source.state['pending'] is None)
+        previous=self.source.frames[-1]['phaseAfter'] if self.source.frames else self.inputs.source.frames[-1]['phaseAfter']
+        current=self.source.phase.status(previous);pending=self.state['pending']
+        need(current['active'] and current['activations'][-1]['ticket']!=pending['ticket']
+            and any(row['ticket']==pending['ticket'] for row in current['activations'][:-1]))
+        return current
+
+    def transfer_phase(self,retain,*,retained=None,archive_version=None):
+        need(archive_version is None or type(archive_version) is int and archive_version in (1,2))
+        version=(retained.get('emoteRolePhaseRetirementVersion') if type(retained) is dict else
+            2 if archive_version is None else archive_version)
+        need(type(version) is int and version in (1,2) and (archive_version is None or archive_version==version))
+        if version==1:return self._transfer_phase_v1(retain,retained=retained)
+        return self._transfer_pending(retain,retained=retained,phase_only=True)
+
     def phase_snapshot(self):
         self.bound();need(self.role=='actor' and self.state['phase']=='acquiring'
             and self.state['segment']==self.source.segment and self.source.state['phase']=='ready' and self.source.state['pending'] is None)
@@ -485,7 +506,7 @@ class PhoneEmoteRole:
             sourceHeader=deepcopy(self.source.previous),scope=None,originalDiagnostic=None,manifestDiagnostic=None,
             motionDiagnostic=None,phase=self.source.phase.status())
 
-    def transfer_phase(self,retain,*,retained=None):
+    def _transfer_phase_v1(self,retain,*,retained=None):
         """Retain an obsolete actor read before any image scope was allocated.
 
         This cannot release GPU/native resources or replace cleanup. It clears
@@ -522,38 +543,55 @@ class PhoneEmoteRole:
         finally:self.started=None
 
     def transfer_failed(self,retain,*,retained=None):
-        """Retain incomplete role/image/motion ownership during actual cleanup."""
+        return self._transfer_pending(retain,retained=retained,phase_only=False)
+
+    def _transfer_pending(self,retain,*,retained,phase_only):
+        """Retain exact child retirement before clearing an owned attempt."""
         need(self.started is None and callable(retain));self.started=self.source.monotonic()
         try:
-            self.bound();need(self.run.state['phase']=='cleaning-inputs')
-            cleanup=self.source.phase.status();self.bound()
-            need(cleanup['active'] and cleanup['activations'][-1]['stimulus']==dict(verb='cleanup',inputs={}))
+            self.bound()
+            if phase_only:
+                need(self.role=='actor' and self.source.state['phase']=='ready' and self.source.state['pending'] is None)
+                cleanup=self.phase_intent() if retained is None else self.source.phase.status()
+            else:
+                need(self.run.state['phase']=='cleaning-inputs');cleanup=self.source.phase.status()
+                need(cleanup['active'] and cleanup['activations'][-1]['stimulus']==dict(verb='cleanup',inputs={}))
+            self.bound();archive=self.phase_archive if phase_only else self.failure_archive
+            field='emoteRolePhaseRetirementVersion' if phase_only else 'emoteRoleFailureArchiveVersion'
+            provider='phase' if phase_only else 'cleanup'
             if retained is None:need(self.state['phase'] in ('acquiring','retaining'))
             else:
-                self.failure_archive(retained)
+                archive(retained)
                 expected=deepcopy(retained['header'])
                 if self.state['phase']=='ready':
                     rows=unpack(expected['payload']);rows[0].update(phase='ready',pending=None);expected['payload']=pack(rows)
                 need(same(expected,self.previous))
-                old=retained['cleanup'];need(old['instance']==cleanup['instance'] and old['createdEpochMs']==cleanup['createdEpochMs']
-                    and same(old['activations'],cleanup['activations']))
+                old=retained[provider];need(old['instance']==cleanup['instance'] and old['createdEpochMs']==cleanup['createdEpochMs'])
+                if phase_only:
+                    need(cleanup['active'] and len(cleanup['activations'])>=len(old['activations'])
+                        and same(cleanup['activations'][:len(old['activations'])],old['activations']))
+                else:need(same(old['activations'],cleanup['activations']))
             frozen=deepcopy(self.previous if retained is None else retained['header']);state=unpack(frozen['payload'])[0];pending=state['pending']
             results=[]
             def hold(child):
                 self.bound()
-                value=dict(emoteRoleFailureArchiveVersion=1,segment=state['segment'],header=frozen,
+                value=dict(segment=state['segment'],header=frozen,
                     inputHeader=deepcopy(self.inputs.previous),inputSourceHeader=deepcopy(self.inputs.source.previous),sourceHeader=deepcopy(self.source.previous),
                     scope=deepcopy(child),originalDiagnostic=None if pending['original'] is None else self.originals.diagnostic(pending['original']),
                     manifestDiagnostic=None if pending['manifest'] is None else dict(present=PrivateFeatureState(
                         self.originals.manifest_path(pending['manifest']['reference'])).read() is not None),
-                    motionDiagnostic=self.motion_diagnostic(pending),cleanup=cleanup if retained is None else deepcopy(retained['cleanup']))
+                    motionDiagnostic=self.motion_diagnostic(pending))
+                value[field]=2 if phase_only else 1
+                value[provider]=cleanup if retained is None else deepcopy(retained[provider])
                 if retained is not None:need(same(value,retained))
-                self.failure_archive(value);need(retain(deepcopy(value)) is not False);self.bound();self.failure_archive(value);results.append(value)
+                archive(value);need(retain(deepcopy(value)) is not False);self.bound();archive(value);results.append(value)
             index=pending['index'];path=self.source.store.path.with_name('phone-emote-'+self.role+'-observation-'+str(index)+'.json')
             from adapters.owned_world_render import OwnedWorldRenderCapture
             owned=self.source.adapter._world_render_capture(self.source.selector,read_only=True,role=self.role,require_frame_view=True)
             need(isinstance(owned,OwnedWorldRenderCapture) and same(owned.owner.binding,self.binding) and owned.owner.role==self.role)
-            if pending['scopeId'] is None:hold(None)
+            if pending['scopeId'] is None:
+                if phase_only:PhoneEmoteNamespaces(self.source).no_scopes(self.role);need(owned.owner.store.read() is None)
+                hold(None)
             elif PrivateFeatureState(path).read() is not None:
                 scope=PhoneEmoteObservation(self.effects,index,self.policy);need(scope.scope_id==pending['scopeId'])
                 if scope.state['phase']=='complete':scope.transfer(lambda value:hold(dict(kind='complete',archive=value)))
@@ -569,7 +607,10 @@ class PhoneEmoteRole:
                     hold(dict(kind='complete',archive=row['archive']))
                 else:hold(dict(kind='absent',archive=None))
             need(len(results)==1 and PrivateFeatureState(path).read() is None and owned.owner.store.read() is None)
-            final=self.source.phase.status();self.bound();need(final['active'] and final['activations'][-1]['ticket']==cleanup['activations'][-1]['ticket'])
+            final=self.source.phase.status(cleanup);self.bound();need(final['active'])
+            if phase_only:
+                need(final['activations'][-1]['ticket']!=pending['ticket']);PhoneEmoteNamespaces(self.source).no_scopes(self.role)
+            else:need(final['activations'][-1]['ticket']==cleanup['activations'][-1]['ticket'])
             if self.state['phase']!='ready':self.state.update(phase='ready',pending=None);self.save()
             self.bound();return deepcopy(results[0])
         finally:self.started=None

@@ -16,7 +16,7 @@ from overte_phone_emote_role import PhoneEmoteRole
 from overte_phone_emote_lifetime import PhoneEmoteLifetime
 from overte_phone_script_history import canonical,pack,unpack,same
 
-VERSION=5
+VERSION=6
 KINDS={'source':1,'admission':2,'role':3,'lifetime':4,'phase':5}
 
 
@@ -50,7 +50,7 @@ class PhoneEmoteFailures:
     def decode(self,value):
         exact(value,{'emoteFailureOwnerVersion','runId','fixtureUrl','binding','artifactRoot','payload'})
         version=value['emoteFailureOwnerVersion']
-        need(type(version) is int and version in (1,2,3,4,VERSION)
+        need(type(version) is int and version in (1,2,3,4,5,VERSION)
             and value['runId']==self.run.run and value['fixtureUrl']==self.run.fixture_url
             and same(value['binding'],self.binding) and value['artifactRoot']==str(self.run.root))
         rows=unpack(value['payload']);need(len(rows)==1);state=rows[0]
@@ -73,7 +73,8 @@ class PhoneEmoteFailures:
                 and all(c in '0123456789abcdef' for c in pending['headerSha256']))
             if pending['archive'] is not None:
                 proof=pending['archive'];field={'source':'emoteSourceFailureArchiveVersion','admission':'emoteAdmissionArchiveVersion','role':'emoteRoleFailureArchiveVersion','lifetime':'emoteLifetimeFailureArchiveVersion','phase':'emoteRolePhaseRetirementVersion'}[pending['kind']]
-                need(type(proof) is dict and type(proof.get(field)) is int and proof[field]==1
+                need(type(proof) is dict and type(proof.get(field)) is int
+                    and proof[field] in ((1,2) if pending['kind']=='phase' and pending['recordVersion']>=6 else (1,))
                     and (pending['kind']=='admission' or proof.get('segment')==pending['segment'])
                     and type(proof.get('header')) is dict and proof['header'].get('role')==pending['role']
                     and hashlib.sha256(canonical(proof['header'])).hexdigest()==pending['headerSha256'])
@@ -113,14 +114,16 @@ class PhoneEmoteFailures:
     def record(self,value,index):
         exact(value,{'emoteFailureRecordVersion','index','kind','archive'})
         version=value['emoteFailureRecordVersion']
-        need(type(version) is int and version in (1,2,3,4,5) and type(value['index']) is int and value['index']==index
+        need(type(version) is int and version in (1,2,3,4,5,6) and type(value['index']) is int and value['index']==index
             and value['kind'] in KINDS and KINDS[value['kind']]<=version)
         proof=value['archive'];segment=0 if value['kind']=='admission' else proof['segment']
         source=self.run.source(proof['header']['role'],segment=segment)
         if value['kind']=='source':source.failure_archive(proof)
         elif value['kind']=='role':PhoneEmoteRole(self.run,source.role,proof['header']['imagePolicy']).failure_archive(proof)
         elif value['kind']=='lifetime':PhoneEmoteLifetime.failure_archive(proof,source)
-        elif value['kind']=='phase':PhoneEmoteRole(self.run,source.role,proof['header']['imagePolicy']).phase_archive(proof)
+        elif value['kind']=='phase':
+            need(proof['emoteRolePhaseRetirementVersion'] in ((1,2) if version>=6 else (1,)))
+            PhoneEmoteRole(self.run,source.role,proof['header']['imagePolicy']).phase_archive(proof)
         else:
             expected=self.run.state['admissionSha256']
             if source.role=='primary' and expected is not None:need(hashlib.sha256(canonical(proof['header'])).hexdigest()==expected)
@@ -141,7 +144,7 @@ class PhoneEmoteFailures:
             header=source.previous if kind=='source' else admission.previous if kind=='admission' else life.previous if kind=='lifetime' else role.previous
             pending=self.state['pending']
             if pending is None:
-                if kind=='phase':role.phase_archive(role.phase_snapshot())
+                if kind=='phase':role.phase_intent()
                 need(header is not None and self.state['count']<MAX_FRAMES and (source.state['phase']=='reading' if kind=='source' else life.state['phase']=='reading' if kind=='lifetime' else role.state['phase']!='ready' if kind in ('role','phase') else True))
                 self.state['pending']=dict(kind=kind,recordVersion=VERSION,role=source.role,segment=source.segment,
                     headerSha256=hashlib.sha256(canonical(header)).hexdigest(),archive=None,original=None,manifest=None);self.save()
@@ -162,7 +165,7 @@ class PhoneEmoteFailures:
             if kind=='source':source.transfer_failed(retain,retained=retained)
             elif kind=='admission':admission.retire(retain,retained=retained)
             elif kind=='lifetime':life.transfer_failed(retain,retained=retained)
-            elif kind=='phase':role.transfer_phase(retain,retained=retained)
+            elif kind=='phase':role.transfer_phase(retain,retained=retained,archive_version=1 if self.state['pending']['recordVersion']==5 else 2)
             else:role.transfer_failed(retain,retained=retained)
             self.bound();need(manifests is not None and source.state['phase']=='ready');self.collecting(kind)
             if admission is not None:need(admission.store.read() is None)
