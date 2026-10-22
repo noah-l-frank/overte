@@ -62,10 +62,14 @@ final class SnapshotDestinationOwner {
         synchronized(this) {
             entry=owned(request);replay=!entry.deleteId.isEmpty();
             if(replay && !entry.deleteId.equals(id))throw new IOException("Second destination deletion is forbidden");
-            if(!replay && (!(entry.inserted || entry.access.createdHere()) || !"qualified".equals(entry.phase) || entry.original==null))throw new IOException("New OS destination ownership is unproved");
+            if(!replay && (!"qualified".equals(entry.phase) || entry.original==null))throw new IOException("New OS destination ownership is unproved");
             if(!replay)entry.phase="checking-delete";
         }
         if(replay) { inspect(entry);return; }
+        // SAF creation proof may query an independent DocumentsProvider. It
+        // must not hold the passive history monitor while that provider runs.
+        // The checking phase already prevents another send or origin query.
+        if(!(entry.inserted || entry.access.createdHere()))throw new IOException("New OS destination ownership is unproved");
         same(entry.identity,entry.access.identity());same(entry.original,read(entry.access));same(entry.identity,entry.access.identity());
         // Intent precedes the one real resolver deletion. A lost return is
         // resolved solely by a later independent existence query.

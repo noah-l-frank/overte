@@ -12,6 +12,9 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 /** Real host file identity/bytes/deletion. Android resolver operations are fixtures. */
 public final class SnapshotDestinationOwnerHostTest {
@@ -20,7 +23,7 @@ public final class SnapshotDestinationOwnerHostTest {
     static void fails(Work work) throws Exception { try { work.run();throw new AssertionError("Foreign or unproved original accepted"); }catch(IOException expected){} }
     interface Work { void run() throws Exception; }
     static final class Access implements SnapshotDestinationOwner.Access {
-        final Path path;int deletions;boolean ignore,lost,deny,closeFails,blocking;
+        final Path path;int deletions,creationQueries;boolean ignore,lost,deny,closeFails,blocking,originBlocking,originDenied,originFails;
         CountDownLatch entered=new CountDownLatch(1),release=new CountDownLatch(1);
         Access(Path path) { this.path=path; }
         public Map<String,Object> identity() throws IOException {
@@ -38,10 +41,39 @@ public final class SnapshotDestinationOwnerHostTest {
         }
         public int delete() throws IOException { ++deletions;if(!ignore)Files.delete(path);if(lost)throw new IOException("Return was lost after actual deletion");return 1; }
         public boolean absent() throws IOException { if(deny)throw new IOException("Provider permission unavailable");return !Files.exists(path); }
+        @Override public boolean createdHere() throws IOException {
+            ++creationQueries;if(!originBlocking)return false;
+            entered.countDown();try { if(!release.await(5,TimeUnit.SECONDS))throw new IOException("Original provider query remained blocked"); }
+            catch(InterruptedException failure) { Thread.currentThread().interrupt();throw new IOException(failure); }
+            if(originFails)throw new IOException("Original provider creation query failed");return !originDenied;
+        }
     }
     public static void main(String[] args) throws Exception {
         String mode=args[0];Path root=Paths.get(args[1]),path=root.resolve("actual-target.bin");Files.write(path,new byte[]{1,2,3,4,5});
         Access access=new Access(path);SnapshotDestinationOwner owner=new SnapshotDestinationOwner();
+        if(mode.startsWith("pending-origin")) {
+            owner.register(REQUEST,access,false);owner.created(REQUEST);owner.published(REQUEST);
+            access.originBlocking=true;access.originDenied=mode.equals("pending-origin-denied");access.originFails=mode.equals("pending-origin-failed");
+            ExecutorService threads=Executors.newFixedThreadPool(2);
+            Future<?> removal=threads.submit(() -> { try {
+                if(access.originDenied || access.originFails)fails(() -> owner.remove(REQUEST,DELETE));else owner.remove(REQUEST,DELETE);
+            }catch(Exception failure) { throw new AssertionError(failure); } });
+            try {
+                check(access.entered.await(2,TimeUnit.SECONDS));
+                Future<?> observation=threads.submit(() -> {
+                    check(owner.snapshot().get(0).get("phase").equals("checking-delete"));check(!owner.retired());
+                    try { fails(() -> owner.remove(REQUEST,DELETE)); }catch(Exception failure) { throw new AssertionError(failure); }
+                });
+                // A stalled provider is not allowed to own the passive history
+                // monitor. This uses actual threads and the actual Java owner.
+                observation.get(500,TimeUnit.MILLISECONDS);check(access.deletions==0 && access.creationQueries==1);
+            } finally {
+                access.release.countDown();removal.get(2,TimeUnit.SECONDS);threads.shutdown();check(threads.awaitTermination(2,TimeUnit.SECONDS));
+            }
+            if(access.originDenied || access.originFails)check(!owner.retired() && Files.exists(path) && access.deletions==0);
+            else check(owner.retired() && !Files.exists(path) && access.deletions==1);
+            return;
+        }
         owner.register(REQUEST,access,!"foreign".equals(mode));owner.created(REQUEST);
         if("pending-close".equals(mode)) {
             access.blocking=true;Thread worker=new Thread(() -> { try { owner.published(REQUEST); }catch(IOException failure) { throw new AssertionError(failure); } });worker.start();

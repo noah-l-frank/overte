@@ -19,6 +19,10 @@ class SnapshotDestinationOwnerTests(unittest.TestCase):
         for mode in ('original','foreign','changed-bytes','changed-inode','early-missing','ignored-delete','lost-return','permission-denied','pending-close','close-failure','late-file'):
             with self.subTest(mode=mode),tempfile.TemporaryDirectory(prefix=mode+'-',dir=self.classes) as root:
                 subprocess.run(['java','-cp',str(self.classes),'org.overte.snapshot.SnapshotDestinationOwnerHostTest',mode,root],check=True,timeout=10)
+    def test_stalled_original_creation_query_does_not_hold_passive_history_lock(self):
+        for mode in ('pending-origin','pending-origin-denied','pending-origin-failed'):
+            with self.subTest(mode=mode),tempfile.TemporaryDirectory(prefix=mode+'-',dir=self.classes) as root:
+                subprocess.run(['java','-cp',str(self.classes),'org.overte.snapshot.SnapshotDestinationOwnerHostTest',mode,root],check=True,timeout=10)
 
 
 if __name__=='__main__':unittest.main()

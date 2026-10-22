@@ -56,3 +56,46 @@ clock counterexamples. The pre-change provider/native/OS/UI group also passed
 provider and native SAF owner. No source in the Java owner changed in this SDK
 packet. Full Android/Overte compilation and real SDK 26–28 UI behavior remain
 unverified here. No devices, installations, network or Jenkins were used.
+
+## Passive native getter follow-up
+
+The Handoff sampler calls its existing Roots/Script/Snapshot/Readback/Files/
+Upload getters on the original Test/GUI owner. The outer Test dispatch branches
+are not traversed by this timer. `Snapshot` is created during GUI application
+setup and has no thread relocation. Script evidence reads locked source
+histories without invoking each ScriptManager thread. No new Audio-owner
+invocation was found in this sampler path. This is a scoped source review, not
+a claim that arbitrary disk operations, mutex acquisition or JVM/Binder work
+have a universal execution bound.
+
+One concrete SAF-specific stall was reproduced. Passive JNI readback observation
+acquires `SnapshotOsDestinations.observation()` and then `owner.snapshot()`.
+Meanwhile `SnapshotDestinationOwner.remove()` held that owner's history monitor
+while `Access.createdHere()` queried the independent DocumentsProvider. A
+provider that stalled that original query therefore also stalled the passive
+GUI sample. Checking freshness only after that sample returned did not help.
+
+The E2E owner now reserves `checking-delete` under its monitor and queries the
+original SAF creation outside it. The reserved phase rejects another removal
+or origin query. Real identity/byte checks and one-send deletion remain in the
+original order, and denied/failed creation never deletes the file. MediaStore's
+already-inserted branch does not issue a creation query.
+
+An actual compiled Java-owner test blocks `createdHere()` with a latch on a real
+worker. A concurrent snapshot/retirement query must finish within 500 ms and
+show incomplete cleanup while the provider remains blocked. The three cases
+(valid origin, denied origin, throwing origin) each timed out before the fix;
+all now pass, with no duplicate query or delete. Real host file bytes and
+deletion are used; Android/provider queries are explicitly synthetic seams.
+
+Native follow-up validation:
+
+* Actual owner compilation and two tests, including all 11 existing file/delete
+  scenarios and the three new stalled-origin cases: 1.613 seconds.
+* Actual SAF Access plus controlled Provider composition, four tests: 2.391
+  seconds.
+* Readback-source nine tests, OS-retirement-source four tests, and actual
+  readback-publication two tests: passed (0.567 / 0.577 / 1.607 seconds).
+
+Only the E2E evidence owner changed; no Android product destination behavior,
+getter transport, runner, Appium registration or source pins changed.
