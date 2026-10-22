@@ -83,6 +83,7 @@
     "native-chat-input-lifetime": {"current": 1, "reads": [1]},
     "chat-peer-input-close": {"current": 1, "reads": [1]},
     "pico-chat-composition": {"current": 1, "reads": [1]},
+    "native-script-roots": {"current": 1, "reads": [1]},
     "chat-cache-lifetime": {"current": 1, "reads": [1]},
     "native-chat-observation": {"current": 3, "reads": [1, 2, 3]},
     "native-chat-domain-session": {"current": 1, "reads": [1]},
