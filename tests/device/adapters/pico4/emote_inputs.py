@@ -87,10 +87,23 @@ class PicoEmoteInputTransport:
 
     def fresh_input(self):
         self.bound();need(self.anchor is not None);frame=self.anchor[3]
+        self.host_fresh()
+        # The last live candidate/source guard precedes the final exact phase
+        # and clock reads. Nothing below re-enters a source guard before send.
+        clock=self.source.clock_ms()
         phase=self.source.phase.status(frame['phaseAfter']);self.active(self.state['current']['call'],phase)
         need(same(phase['activations'],frame['phaseAfter']['activations']));self.host_fresh()
-        self.bound();clock=self.source.clock_ms();self.host_fresh()
         fresh(frame['group']['rootsBefore']['requestedEpochMs'],clock)
+
+    def before_send(self,command):
+        current=self.state['current'];need(current is not None and current['phase']=='issuing' and current['intents'])
+        item=current['intents'][-1];need(item['kind']=='qt' and item['after'] is None)
+        value=item['input'];original=self.qt_intent(value)
+        control=next(row for row in original['controls'] if row['id']==value['controlId'])
+        need(all(command.get(key)==expected for key,expected in dict(controlId=value['controlId'],action=value['action'],
+            bridgeId=value['instance'],generation=value['generation'],sequence=value['sequence'],controlToken=control['token'],
+            observedElapsedMs=original['scope']['elapsedMs']).items()) and command.get('direction')==value['direction'])
+        self.fresh_input()
 
     def intent(self,value):
         current=self.state['current'];need(current['phase']=='acting' and len(current['intents'])<64);self.qt_intent(value)
@@ -195,6 +208,7 @@ class PicoEmoteInputs(PicoEmoteInputTransport):
         self.run,self.fixture_url,self.binding=source.run,source.phase.fixture_url,source.binding
         self.store=store
         self.controller_factory,self._controller=controller,None;self.anchor=None
+        self._before_send=self.before_send
         self.previous=self.store.read();self.state=dict(history=[],current=None)
         self.history_state=dict(count=0,manifests=[],pendingArchive=None)
         self.history_store=EmoteOriginals(source.artifact_root,self.binding,self.run,'primary',source.guard,
@@ -409,7 +423,7 @@ class PicoEmoteInputs(PicoEmoteInputTransport):
         with self.session():
             current=self.state['current'];current['before']=self.capture();self.save()
             self.bound()
-            ui=self.controls(self.intent,self.receipt)
+            ui=self.controls(self.intent,self.receipt,self._before_send)
             verb=call['verb']
             if verb in ('open','play','sit','override','cancel'):
                 if not self.ui(self.source.frames[-1])['open']:self.controller('tablet.open')

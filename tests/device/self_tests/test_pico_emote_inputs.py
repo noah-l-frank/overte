@@ -18,6 +18,7 @@ from adapters.pico4.emote_inputs import PicoEmoteInputs
 from adapters.pico4.emote_sources import PicoEmoteSources
 from adapters.pico4.normal_emote import PicoEmoteIO, project
 from adapters.pico4.normal_scripts import PicoScriptIO
+from adapters.pico4.navigation import NativeNavigationIO
 from adapters.token_emote_ui import TokenEmoteUI, same_reference
 from feature_journeys.scenarios import VERSION
 from self_tests import test_pico_emote_sources as source_seams
@@ -36,7 +37,7 @@ class InputsTests(unittest.TestCase):
         # Only the actual OpenXR/Qt delivery edges below are explicit seams.
         self.tablet=object.__new__(PicoScriptIO)
         self.tablet.navigation=SimpleNamespace(controller=self.controller)
-        self.original=SimpleNamespace(capture=self.s.widgets,navigation=SimpleNamespace(input=self.input))
+        self.original=SimpleNamespace(capture=self.s.widgets,navigation=SimpleNamespace(input=self.input,io=None))
         outer=self;self.neutral_fault=None
         class Transport(FakeTransport):
             def stage(self,envelope,profile):
@@ -63,6 +64,13 @@ class InputsTests(unittest.TestCase):
         if self.fault=='changed-context':self.s.widget.generation=str(uuid.uuid4())
         same_reference(reference,project(self.s.widgets()),identifier)
         original=self.s.widget.capture();row=next(value for value in original['controls'] if value['id']==identifier)
+        if self.fault=='last-phase':self.s.journal.activate(RUN,uuid.uuid4().hex,'play',{'name':'Waving'})
+        if self.fault=='last-native-age':self.s.epoch+=2000
+        native_control=next(value for value in reference['controls'] if value['id']==identifier)
+        command=dict(controlId=identifier,action=action,bridgeId=reference['scope']['instance'],generation=reference['scope']['generation'],
+            sequence=reference['scope']['sequence']+1,controlToken=native_control['token'],observedElapsedMs=reference['scope']['elapsedMs'])
+        if direction is not None:command['direction']=direction
+        self.original.navigation.io._before_send(deepcopy(command))
         self.inputs.append(identifier if direction is None else direction)
         if action=='scroll':self.s.widget.scroll(identifier,direction,token=row['token'])
         else:self.s.widget.activate(identifier,token=row['token'])
@@ -79,8 +87,9 @@ class InputsTests(unittest.TestCase):
     def session(self):
         self.s.lock.assert_held();self.assertTrue(self.s.okay);yield;self.assertTrue(self.s.okay)
 
-    def controls(self,intent,receipt):
-        return TokenEmoteUI(PicoEmoteIO(self.original),intent,receipt=receipt,
+    def controls(self,intent,receipt,before_send):
+        self.original.navigation.io=NativeNavigationIO(None,None,None,None)
+        return TokenEmoteUI(PicoEmoteIO(self.original,before_send=before_send),intent,receipt=receipt,
             monotonic=lambda:self.s.clock,sleep=self.sleep)
 
     def create(self):
@@ -155,6 +164,16 @@ class InputsTests(unittest.TestCase):
             old=self.store.path.read_bytes()
             with self.assertRaises(NativeUIError):self.create()
             self.assertEqual(old,self.store.path.read_bytes());self.assertFalse(self.transport.envelopes)
+
+    def test_last_transport_phase_or_native_age_change_cannot_publish_qt_input(self):
+        for fault in ('last-phase','last-native-age'):
+            with self.subTest(fault=fault):
+                self.setUp();self.fault=fault
+                with self.s.lock.held():
+                    owner=self.create()
+                    with self.assertRaises(NativeUIError):owner.act(self.call('open'))
+                    self.assertFalse(self.inputs);self.assertFalse(self.controllers)
+                    self.assertEqual('issuing',self.create().state['current']['phase'])
 
     def test_last_candidate_guard_native_clock_advance_cannot_hide_behind_frozen_host(self):
         with self.s.lock.held():

@@ -95,3 +95,16 @@ retain every previous case under the unchanged120-second per-group limit.
 The combined source group exceeded120 seconds, including after the initial
 lifetime-only split; no failing or slow case was omitted. Selector counts are
 test partitions, never completed feature counts.
+
+## Final original QML publication fence
+
+The actual Pico factory forwards one owned `NativeNavigationIO.before_send`
+callback to the existing QML transport. It compares the final command's original
+control, token, bridge, generation, sequence, elapsed reference and direction
+to the already durable input intent. Only then does it check the exact active
+fixture ticket/prefix and combined native/host source ages after internal
+navigation guards, immediately before the existing single writer. A phase or
+native-age change at this boundary leaves the original issuing record owned
+without publishing or replaying the input. The canonical controller intent
+callback remains host-only. These are admission checks; actual Rig, pixels,
+actor and resource effects still require independent observations.

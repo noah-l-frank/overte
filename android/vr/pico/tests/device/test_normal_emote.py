@@ -13,6 +13,7 @@ from self_tests.test_native_feature_observation import probe_source
 from self_tests.test_token_emote_ui import EmoteBoundary
 from adapters.token_emote_ui import TokenEmoteUI,snapshot as validate_emote
 from adapters.pico4.navigation import validate_snapshot
+from test_navigation_transport_hook import TransportHookTests
 
 
 class PicoEmoteTests(unittest.TestCase):

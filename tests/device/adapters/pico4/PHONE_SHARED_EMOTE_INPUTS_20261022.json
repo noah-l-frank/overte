@@ -8,7 +8,7 @@
       "sourcePath": "tests/device/adapters/android-phone/overte_phone_emote_inputs.py",
       "targetPath": "tests/device/adapters/pico4/emote_inputs.py",
       "sourceSha256": "4ec933ec10ff86bfe766664b78ee4c269954696780d16458d2793f3aa23e7647",
-      "targetSha256": "193ac7fc8fb0a519635aa939e41cbf9162f85aeb4572b8df859229245d6b905e",
+      "targetSha256": "5de285a0985bf093a0491dc3e62138739685d43b777be8195e9b5a32d2ff085d",
       "selection": "reviewed-durable-architecture-with-actual-Pico-input-adaptation",
       "initialTargetSha256": "faf05d993dfb1bc31ee3b1684424e1744f3f1bf97d164ceac23dd7283a1daf19"
     }
@@ -19,6 +19,7 @@
     "Original Pico NavigationUi changes generation on actual root/window/open changes. Only real visibility edges are admitted; retired generations cannot recur. Pico source v2 reads v1 with its original fixed-generation constraint.",
     "New bounded host-only archive recovery preserves exact frozen records/prefixes; it never repeats an uncertain product input.",
     "No Phone UI, package, Appium runtime, mono images, product setters or actual observed effect are copied/generated. No full Emote capability or journal retirement is added.",
-    "Pico v2 retains exact canonical controller envelopes and actual neutral originals; every Qt input has a full source barrier and final phase/native/elapsed-host intent fences. Legacy v1 stays owned without adoption."
+    "Pico v2 retains exact canonical controller envelopes and actual neutral originals; every Qt input has a full source barrier and final phase/native/elapsed-host intent fences. Legacy v1 stays owned without adoption.",
+    "The shared owned NativeNavigationIO final before_send boundary rechecks the exact original Emote intent, phase and combined source ages after internal navigation guards, before its single writer. No input receipt or effect is inferred."
   ]
 }

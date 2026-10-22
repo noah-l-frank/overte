@@ -42,6 +42,7 @@ class PicoEmoteView:
         self.monotonic,self.sleep=monotonic,sleep
         self.run,self.pid=phase.run,int(binding['processIdentity'].split(':')[0]);need(integer(self.pid,1))
         self.started=self.clock=None;self.failed=False;self.anchor=None;self.require_resources=False
+        self._before_send=self.before_send
         self.previous=store.read()
         self.state=dict(phase='reserved',original=None,current=None,steps=[])
         self.bound()
@@ -222,14 +223,25 @@ class PicoEmoteView:
 
     def delivery(self,value):
         self.bound();need(self.anchor is not None);started,epoch,host,clock=self.anchor
+        native_now=clock();host_now=self.phase.epoch_ms()
         phase=self.phase.status(value['phaseAfter']);need(same(phase['activations'],value['phaseAfter']['activations'])
             and phase['active']==value['phaseAfter']['active'])
-        native_now=clock();host_now=self.phase.epoch_ms();self.bound();finished=self.monotonic()
+        self.lock.assert_held();need(not self.failed and same(self.store.read(),self.previous));finished=self.monotonic()
         need(number(finished,started,started+5) and integer(native_now,epoch) and number(host_now,host,1e15))
         fresh(value['avatar']['requestedEpochMs'],max(native_now,epoch+math.ceil((finished-started)*1000)))
         fresh(value['widgets']['updatedEpochMs'],max(native_now,epoch+math.ceil((finished-started)*1000)))
         fresh(value['home']['capturedEpochMs'],max(native_now,epoch+math.ceil((finished-started)*1000)))
         fresh(value['phaseBefore']['capturedEpochMs'],max(host_now,host+math.ceil((finished-started)*1000)))
+        self.clock=finished
+
+    def before_send(self,command):
+        need(self.state['steps']);row=self.state['steps'][-1]
+        need(row['after'] is None and row['stream'] is None and len(row['intent'])==1
+            and row['control']==command.get('controlId') and command.get('action')=='activate')
+        widgets=row['intent'][0]['widgets'];control=next(item for item in widgets['controls'] if item['id']==row['control'])
+        need(all(command.get(key)==value for key,value in dict(bridgeId=widgets['bridgeId'],generation=widgets['generation'],
+            sequence=widgets['lastCommandSequence']+1,controlToken=control['token']).items()))
+        self.delivery(row['before'])
 
     @staticmethod
     def intent_packet(value,row):
@@ -294,6 +306,7 @@ class PicoEmoteView:
                 stream=dict(envelope=None,neutral=None) if control in ('tablet.open','tablet.close','tablet.home-ray') else None)
             self.state['steps'].append(row);self.save()
             io=self.original()
+            if row['stream'] is None:io.navigation.io.bind_before_send(self._before_send)
             if control=='tablet.home-ray':
                 need(not before['home']['onHomeScreen'])
                 route=self.home();need(isinstance(route,PicoTabletHome) and route.source.pid==self.pid)

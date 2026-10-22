@@ -14,6 +14,7 @@ sys.path.insert(0,str(Path(__file__).resolve().parents[3]))
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.normal_ui import NativeUIError
 from adapters.pico4.emote_view import PicoEmoteView
+from adapters.pico4.navigation import NativeNavigationIO
 from adapters.pico4.tablet_home import PicoTabletHome
 from self_tests.test_native_avatar_render import Boundary as AvatarBoundary
 from self_tests import test_pico_emote_sources as source_fixture
@@ -38,6 +39,7 @@ class ViewBoundary:
         self.home=PicoTabletHome(source,self.home_stage)
         self.life=False;self.life_sequence=0;self.life_rows=[]
         self.neutral_fault=None;outer=self
+        self.transport_guard=None
         class Transport(FakeTransport):
             def stage(self,envelope,profile):
                 from adapters.script_journey.history import unpack
@@ -110,8 +112,12 @@ class ViewBoundary:
         if control!=self.ignored:self.open=opened;self.generation=str(uuid.uuid4())
         if control==self.lost:raise NativeUIError('Synthetic lost controller reply')
     def input(self,control,**options):
-        row=next(row for row in self.capture()['controls'] if row['id']==control)
+        widgets=self.capture();row=next(row for row in widgets['controls'] if row['id']==control)
         unittest.TestCase().assertEqual(dict(token=row['token']),options)
+        if self.transport_guard:self.transport_guard()
+        command=dict(controlId=control,action='activate',bridgeId=widgets['bridgeId'],generation=widgets['generation'],
+            sequence=widgets['lastCommandSequence']+1,controlToken=row['token'])
+        self.io.navigation.io._before_send(deepcopy(command))
         self.before_input(control);self.sequence+=1
         if control!=self.ignored:
             if control=='scripts.menu':
@@ -132,6 +138,7 @@ class ViewBoundary:
         return {'performed':True}
     def sleep(self,seconds):self.sources.sleep(seconds)
     def owner(self,**options):
+        self.io.navigation.io=NativeNavigationIO(None,None,None,None)
         return PicoEmoteView(self.store,BINDING,self.sources.phase,self.lock,lambda:self.io,self.avatar.reader,
             self.sources.guard,nullcontext,lambda:self.home,lambda:self.session,monotonic=lambda:self.sources.clock,sleep=self.sleep,**options)
     def cleanup_phase(self):self.sources.journal.activate(RUN,'a'*32,verb='cleanup')
@@ -294,6 +301,21 @@ class PicoEmoteViewTests(unittest.TestCase):
             b.io.capture=changed
             with b.lock.held(),self.subTest(fault=fault),self.assertRaises((RuntimeError,ValueError)):b.owner().prepare()
             self.assertEqual([],b.inputs)
+
+    def test_phase_or_native_age_change_at_final_qml_transport_blocks_original_pointer(self):
+        for fault in ('phase','native'):
+            b=ViewBoundary(self)
+            def changed():
+                if fault=='phase':b.cleanup_phase()
+                else:b.avatar.epoch+=2000
+            b.transport_guard=changed
+            with b.lock.held(),self.subTest(fault=fault):
+                owner=b.owner()
+                with self.assertRaises(RuntimeError):owner.prepare()
+                self.assertEqual(['tablet.open'],b.inputs)
+                self.assertEqual('scripts.menu',owner.state['steps'][-1]['control'])
+                self.assertEqual(1,len(owner.state['steps'][-1]['intent']))
+                self.assertIsNone(owner.state['steps'][-1]['after']);self.assertIsNotNone(b.store.read())
 
     def test_navigation_waits_for_actual_newer_timestamp_without_relabeling_old_source(self):
         b=ViewBoundary(self);capture=b.capture;reads=[0]

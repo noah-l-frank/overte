@@ -556,11 +556,11 @@ def create_adapter(args, base_class):
         def _create_management(self, target):
             return create_management.PicoCreateManagement(self, target)
 
-        def _emote_controls(self, target, intent, receipt=None):
+        def _emote_controls(self, target, intent, receipt=None, *, before_send=None):
             from adapters.token_emote_ui import TokenEmoteUI
             from adapters.pico4.normal_emote import PicoEmoteIO
             ui, _observe, _binding = self._script_runtime(target)
-            return TokenEmoteUI(PicoEmoteIO(ui.io), intent, receipt=receipt)
+            return TokenEmoteUI(PicoEmoteIO(ui.io,before_send=before_send), intent, receipt=receipt)
 
         def _emote_source_store(self, target, role):
             _need(role in ('primary', 'actor'))
@@ -677,7 +677,7 @@ def create_adapter(args, base_class):
             ui, _observe, binding = self._script_runtime(target)
             _need(binding == source.binding)
             return PicoEmoteInputs(source, self._emote_input_store(target),
-                lambda intent, receipt: self._emote_controls(target, intent, receipt=receipt), ui.io,
+                lambda intent, receipt, before_send: self._emote_controls(target, intent, receipt=receipt,before_send=before_send), ui.io,
                 lambda: self._script_journey().existing_input_session(target),controller=lambda:self.pico_input_session(target))
 
         def _emote_background_store(self, target):

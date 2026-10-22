@@ -868,3 +868,29 @@ case also verifies a flushed original Unicode diagnostic, without changing
 failure/timeout/pending semantics. Registry, probe syntax and whitespace pass.
 Complete source/host areas remain3/14; whole Audio and physical qualification
 remain open.
+
+## Final original QML admission and normal Audio final-close integration
+
+8544d36768 selects5bd12aa3ae's shared owned final QML transport callback. The
+original Pico navigation/NativeIO route passes all five targeted host cases
+(.876s): final guard ordering, original command-copy isolation, single writer,
+refusal without retry, candidate change, owner retention and unchanged default.
+The normal Emote catalog now owns these cases as well. Emote Inputs and View
+reuse this boundary and retain their original pending intent when the actual
+phase or native source age changes immediately before publication. Four focused
+Emote cases pass5.974s, including the ordinary complete open/play/cancel/close
+input sequence and original camera restore tested in the first narrow run.
+The initial narrow run exposed a synthetic test-transport token mismatch:
+it used the synthetic widget's internal token instead of the original Pico
+projection's token. Only that explicit test seam was corrected. No product
+input token or native validation was relaxed. Broader regression is pending.
+
+b625e519f9 selects e11c42fb42's normal Audio final double-X owner. It retains
+original PCM and source manifests, requires actual private tap absence, normal
+Audio page destruction and original peak restoration, then closes the tablet
+with original controller streams and fresh quiet. Deferred native functor
+retirement and baseline resource equality remain separate observations. The
+catalog gains exactly audio-final-close and audio-final-retirement (81 to83),
+preserving the root background partition and all newer feature guards. Root
+final-owner regression is pending. Audio/Emote remain partial; no application,
+OpenXR, physical audio, stereo or device qualification is asserted here.

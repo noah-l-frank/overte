@@ -223,3 +223,13 @@ The shared helper removes the Phone-only compile gate and uses neutral names.
 Phone pinch/Touch/selfie/scene behavior is excluded. The original full getter
 compiles with actual Qt qrc registration of both original repository files;
 its actual C++ packet passes the strict Python reader and pinned-byte join.
+
+## Final menu publication fence
+
+`PicoEmoteView` binds one retained callback to the shared original QML transport
+for each normal menu pointer. The final actual command must match the durable
+original control/token, bridge, generation and sequence. Its final fixture
+prefix and original avatar/UI/Home ages are checked after navigation guards,
+without another source guard after that phase check. A boundary phase or age
+change refuses publication while preserving the pending original intent. The
+separate canonical controller callback remains private host IO only.

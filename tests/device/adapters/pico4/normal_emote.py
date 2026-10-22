@@ -28,7 +28,9 @@ def project(original):
 
 
 class PicoEmoteIO:
-    def __init__(self,original):self.original=original
+    def __init__(self,original,*,before_send=None):
+        self.original=original
+        if before_send is not None:self.original.navigation.io.bind_before_send(before_send)
     def capture(self):
         try:return project(self.original.capture())
         except Exception:raise NativeUIError('Pico original Emote UI is unavailable or invalid') from None
