@@ -448,6 +448,11 @@ function snapshotUploaded(isError, reply) {
     isUploadingPrintableStill = false;
 }
 var href, snapshotDomainID;
+function recordNativeCaptureEvent(kind, request) {
+    if (nativeReview && typeof Snapshot.featureCaptureEvent === "function") {
+        Snapshot.featureCaptureEvent(kind, request, nativeCaptureMode, nativeReviewRevision);
+    }
+}
 function clearNativeCaptureTimers() {
     nativeCaptureTimers.forEach(function (timer) { Script.clearTimeout(timer); });
     nativeCaptureTimers = [];
@@ -471,6 +476,7 @@ function cancelNativeCapture(openReview) {
     if (request) { Snapshot.cancelCapture(request); }
     restoreNativeOverlays(openReview);
     if (request) { ui.sendMessage({ type: "snapshot", action: "captureStatus", phase: "cancelled" }); }
+    if (request) { recordNativeCaptureEvent("cancelled", request); }
 }
 
 function scheduleNativeCapture(callback, delay) {
@@ -496,6 +502,7 @@ function onNativeCaptureStatus(request, phase, path, error) {
         restoreNativeOverlays(true);
     }
     ui.sendMessage({ type: "snapshot", action: "captureStatus", phase: phase, error: error || "" });
+    recordNativeCaptureEvent(phase, request);
 }
 
 function onNativeUploadStatus(path, status, error) {
@@ -584,6 +591,7 @@ function takeSnapshot(mode, title) {
             Snapshot.cancelCapture(request);
             onNativeCaptureStatus(request, "error", "", "capture-timeout");
         }, 60000);
+        recordNativeCaptureEvent("pending", request);
         return;
     }
     // take snapshot (with no notification)

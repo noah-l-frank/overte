@@ -1132,7 +1132,7 @@ void ScriptMethodV8Proxy::call(const v8::FunctionCallbackInfo<v8::Value>& argume
         const QMetaMethod& meta = _metas[bestMeta];
 #if defined(OVERTE_E2E_FEATURE_TESTS)
         const auto featureMethod=meta.name();
-        const int featureScriptId=(featureMethod=="overrideAnimation" || featureMethod=="restoreAnimation")
+        const int featureScriptId=(featureMethod=="overrideAnimation" || featureMethod=="restoreAnimation" || featureMethod=="featureCaptureEvent")
             ? _engine->featureCurrentScriptId() : 0;
         ScriptManager::FeatureNativeCallScope featureNativeCall(_engine->manager(),featureMethod,featureScriptId);
 #endif

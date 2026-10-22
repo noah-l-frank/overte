@@ -165,6 +165,7 @@ public slots:
     Q_INVOKABLE QVariantMap featureLifecycleDriveObservation(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureAudioSettingsObservation(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureSnapshotCaptureOriginals(const QVariantMap& command);
+    Q_INVOKABLE QVariantMap featureSnapshotScriptOriginals(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureLifecycleGestureObservation(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureAccountProbe(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureAccountOrigin(const QVariantMap& command);

@@ -41,8 +41,10 @@ with tempfile.TemporaryDirectory(prefix='snapshot-originals-') as directory:
     stage=Path(directory)
     (stage/'original-snapshot.inc').write_text(''.join(body(source,marker) for marker in (
         'SnapshotCapture Snapshot::beginCapture(', 'void Snapshot::captureStatus(',
-        'void Snapshot::cancelCapture(', 'QVariantMap Snapshot::featureSnapshotCaptureOriginals(')))
-    (stage/'original-snapshot-getter.inc').write_text(body(getter,'QVariantMap TestScriptingInterface::featureSnapshotCaptureOriginals('))
+        'void Snapshot::cancelCapture(', 'QVariantMap Snapshot::featureSnapshotCaptureOriginals(',
+        'QVariantMap Snapshot::featureSnapshotScriptOriginals(')))
+    (stage/'original-snapshot-getter.inc').write_text(body(getter,'QVariantMap TestScriptingInterface::featureSnapshotCaptureOriginals(')
+        +body(getter,'QVariantMap TestScriptingInterface::featureSnapshotScriptOriginals('))
     subprocess.run([str(moc),str(HERE/'snapshot-originals-test.cpp'),'-o',str(stage/'snapshot-originals-test.moc')],check=True,timeout=30,env=environment)
     runtime=stage/'runtime';runtime.mkdir(mode=0o700)
     environment.update(QT_QPA_PLATFORM='offscreen',XDG_RUNTIME_DIR=str(runtime))

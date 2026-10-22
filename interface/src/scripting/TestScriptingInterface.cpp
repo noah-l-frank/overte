@@ -672,6 +672,34 @@ QVariantMap TestScriptingInterface::featureSnapshotCaptureOriginals(const QVaria
 #endif
 }
 
+QVariantMap TestScriptingInterface::featureSnapshotScriptOriginals(const QVariantMap& command) {
+#if defined(ANDROID_APP_PICO_INTERFACE)
+    const auto queue=_featureSnapshotQueue;if(!queue) {return {};}
+    if(QThread::currentThread()!=thread()) {
+        return queue->read("dispatch",this,[command](QObject* original) {
+            auto owner=static_cast<TestScriptingInterface*>(original);
+            return overte::e2e::AudioSettingsPart{owner->featureSnapshotScriptOriginals(command),{}};
+        }).values;
+    }
+    const auto keys=command.keys();
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript") || !qApp || !qApp->isHMDMode()
+            || !overte::e2e::previewDirectory(_testResultsLocation) || !DependencyManager::isSet<Snapshot>()
+            || QSet<QString>(keys.begin(),keys.end())!=QSet<QString>{"schemaVersion","action","commandId","runId"}
+            || command.value("action").userType()!=QMetaType::QString || command.value("action").toString()!="feature-snapshot-script-originals"
+            || !queue->settled(overte::e2e::AudioSettingsQueue::dispatching(this) ? "dispatch" : QString())) {return {};}
+    const auto original=DependencyManager::get<Snapshot>();if(!original) {return {};}
+    auto request=command;request.remove("action");
+    const auto result=queue->read("client",original.data(),[request](QObject* owner) {
+        return overte::e2e::AudioSettingsPart{static_cast<Snapshot*>(owner)->featureSnapshotScriptOriginals(request),{}};
+    });
+    if(!queue->settled(overte::e2e::AudioSettingsQueue::dispatching(this) ? "dispatch" : QString())) {return {};}
+    return result.values;
+#else
+    Q_UNUSED(command) return {};
+#endif
+}
+
 QVariantMap TestScriptingInterface::featureAudioSettingsObservation(const QVariantMap& command) {
 #if defined(ANDROID_APP_PICO_INTERFACE)
     // Dedicated runtime-owned queue; every timed-out original callback remains
@@ -1393,7 +1421,7 @@ void TestScriptingInterface::saveObject(QVariant variant, const QString& filenam
             || filename == "feature-navigation-modals.json" || filename == "feature-navigation-environment.json" || filename == "feature-navigation-directory.json"
             || filename == "feature-process-presence.json"
             || filename == "feature-graphics-subject.json" || filename == "feature-scene-load.json"
-            || filename == "feature-lifecycle-drive.json" || filename == "feature-lifecycle-gesture.json" || filename == "feature-audio-settings.json" || filename == "feature-snapshot-capture-originals.json"
+            || filename == "feature-lifecycle-drive.json" || filename == "feature-lifecycle-gesture.json" || filename == "feature-audio-settings.json" || filename == "feature-snapshot-capture-originals.json" || filename == "feature-snapshot-script-originals.json"
             || filename == "feature-web-runtime.json" || filename == "feature-tablet-http.json"
             || filename == "recorded-preview-observation.json" || filename == "feature-script-observation.json"
             || filename == "feature-script-files.json" || filename == "world-render-observation.json"

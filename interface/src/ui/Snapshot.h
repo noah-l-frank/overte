@@ -27,6 +27,7 @@
 #include "SnapshotCapture.h"
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #include "../../../tests/device/native/SnapshotCaptureOriginals.h"
+#include "../../../tests/device/native/SnapshotScriptHistory.h"
 #endif
 
 #include <SettingHandle.h>
@@ -82,6 +83,8 @@ public:
     SnapshotCapture beginCapture(const QString& requestId);
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     QVariantMap featureSnapshotCaptureOriginals(const QVariantMap& command);
+    QVariantMap featureSnapshotScriptOriginals(const QVariantMap& command);
+    Q_INVOKABLE void featureCaptureEvent(const QString& kind,const QString& id,const QString& mode,int revision);
 #endif
     void captureStatus(const SnapshotCapture&, const QString& phase, const QString& path = {}, const QString& error = {});
 
@@ -257,6 +260,10 @@ private:
     QHash<QString, SnapshotCapture> _captures;
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     overte::e2e::SnapshotCaptureOriginals _featureCaptureOriginals;
+    overte::e2e::SnapshotScriptHistory _featureCaptureScriptHistory;
+    QSet<QString> _featureCaptureScriptQueries;
+    QString _featureCaptureScriptRun;
+    quint64 _featureCaptureScriptSequence{0};
 #endif
     QHash<QString, QPointer<SnapshotUploader>> _uploads;
     bool _uploadContextConnected { false };

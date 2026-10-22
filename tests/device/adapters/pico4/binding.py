@@ -856,6 +856,15 @@ def create_adapter(args, base_class):
                 lambda:self.adb.read_debug_app_file(target,'org.overte.pico','files/overte-e2e/'+FILE,attempts=1),
                 native.clock_ms,native.guard,native.pid,source_lock,monotonic=native.monotonic,sleep=native.sleep)
 
+        @_private
+        def _snapshot_script_originals(self,target,*,source_lock=None):
+            from adapters.pico4.snapshot_script_originals import PicoSnapshotScriptOriginals,FILE
+            source_lock=self._script_journey()._lock(target,source_lock)
+            native=self._native_feature_observer(target)
+            return PicoSnapshotScriptOriginals(native.send,
+                lambda:self.adb.read_debug_app_file(target,'org.overte.pico','files/overte-e2e/'+FILE,attempts=1),
+                native.clock_ms,native.guard,native.pid,source_lock,monotonic=native.monotonic,sleep=native.sleep)
+
         def _snapshot_still_store(self,target,*,create=True):
             journey=self._script_journey();path=journey.state_path(target) if create else journey.existing_state_path(target)
             return None if path is None else PrivateFeatureState(path.with_name('snapshot-still-owner.json'))

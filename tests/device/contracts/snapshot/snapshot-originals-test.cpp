@@ -21,6 +21,7 @@
 #include <thread>
 #include "interface/src/ui/SnapshotCapture.h"
 #include "tests/device/native/SnapshotCaptureOriginals.h"
+#include "tests/device/native/SnapshotScriptHistory.h"
 
 struct SnapshotAnimated {static void cancelCapture(const SnapshotCapture&) {}};
 class Snapshot : public QObject {
@@ -30,8 +31,10 @@ public:
     void captureStatus(const SnapshotCapture&,const QString&,const QString& path={},const QString& error={});
     void cancelCapture(const QString&);
     QVariantMap featureSnapshotCaptureOriginals(const QVariantMap&);
+    QVariantMap featureSnapshotScriptOriginals(const QVariantMap&);
     // Renderer, platform and secondary camera are explicit host boundaries.
-    bool nativeReviewEnabled() const {return false;}
+    bool reviewEnabled{false};
+    bool nativeReviewEnabled() const {return reviewEnabled;}
     void restoreSecondaryCamera() {}
     QHash<QString,SnapshotCapture> _captures;
     QMutex _captureMutex;
@@ -40,6 +43,8 @@ public:
     bool _taking360Snapshot{false},_waitingOnSnapshot{false};
     std::array<QImage,6> _imageArray;
     overte::e2e::SnapshotCaptureOriginals _featureCaptureOriginals;
+    overte::e2e::SnapshotScriptHistory _featureCaptureScriptHistory;
+    QSet<QString> _featureCaptureScriptQueries;QString _featureCaptureScriptRun;quint64 _featureCaptureScriptSequence{0};
 signals:
     void captureStatusChanged(const QString&,const QString&,const QString&,const QString&);
 };
@@ -62,6 +67,7 @@ template<class T> QSharedPointer<T> get() {return qSharedPointerCast<T>(original
 class TestScriptingInterface : public QObject {
 public:
     QVariantMap featureSnapshotCaptureOriginals(const QVariantMap&);
+    QVariantMap featureSnapshotScriptOriginals(const QVariantMap&);
     QString _testResultsLocation;
     overte::e2e::FeatureLifecycle* _featureLifecycle{nullptr};
     std::shared_ptr<overte::e2e::AudioSettingsQueue> _featureSnapshotQueue{std::make_shared<overte::e2e::AudioSettingsQueue>()};
@@ -146,6 +152,18 @@ int main(int argc,char** argv) {
     assert(!actual.isEmpty());assert(actual.value("requests").toList().isEmpty());
 #else
     assert(test.featureSnapshotCaptureOriginals(query).isEmpty());
+#endif
+    auto scriptQuery=command();scriptQuery.remove("operation");scriptQuery.insert("action","feature-snapshot-script-originals");
+    assert(test.featureSnapshotScriptOriginals(scriptQuery).isEmpty()); // Actual nativeReview false, not empty success.
+    DependencyManager::original->reviewEnabled=true;
+#if defined(ANDROID_APP_PICO_INTERFACE)
+    const auto scriptActual=test.featureSnapshotScriptOriginals(scriptQuery);
+    assert(scriptActual.value("snapshotScriptOriginalsVersion")==1 && scriptActual.value("history").toMap().value("sequence")==0);
+    assert(test.featureSnapshotScriptOriginals(scriptQuery).isEmpty());
+    scriptQuery["commandId"]=QString(32,'f');scriptQuery["expectedPending"]=true;
+    assert(test.featureSnapshotScriptOriginals(scriptQuery).isEmpty());
+#else
+    assert(test.featureSnapshotScriptOriginals(scriptQuery).isEmpty());
 #endif
     DependencyManager::original.reset();
 

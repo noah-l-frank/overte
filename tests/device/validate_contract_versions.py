@@ -143,6 +143,8 @@ REQUIRED = {
     "pico-lifecycle-back-owner": 1,
     "native-audio-preview-lifetime": 1,
     "pico-audio-page-owner": 1,
+    "pico-snapshot-script-originals": 1,
+    "snapshot-script-history": 1,
     "pico-snapshot-native-originals": 2,
     "pico-snapshot-still-owner": 1,
     "android-snapshot-file-originals": 2,

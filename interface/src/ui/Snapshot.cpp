@@ -50,6 +50,9 @@
 #include <QGuiApplication>
 #include <QFutureWatcher>
 #include <QRegularExpression>
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+#include <ScriptManager.h>
+#endif
 
 // filename format: overte-snap-by-%username%-on-%date%_%time%_@-%location%.png
 // %1 <= username, %2 <= date and time, %3 <= current location
@@ -161,6 +164,32 @@ void Snapshot::cancelCapture(const QString& requestId) {
 }
 
 #if defined(OVERTE_E2E_FEATURE_TESTS)
+void Snapshot::featureCaptureEvent(const QString& kind,const QString& id,const QString& mode,int revision) {
+    _featureCaptureScriptHistory.record(kind,id,mode,revision,ScriptManager::featureNativeCallContext());
+}
+
+QVariantMap Snapshot::featureSnapshotScriptOriginals(const QVariantMap& command) {
+    if (!QCoreApplication::instance() || !QCoreApplication::arguments().contains("--testScript")
+            || QThread::currentThread()!=thread() || thread()!=QCoreApplication::instance()->thread()
+            || !nativeReviewEnabled() || command.size()!=3
+            || (command.value("schemaVersion").userType()!=QMetaType::Int && command.value("schemaVersion").userType()!=QMetaType::Double)
+            || command.value("schemaVersion").toDouble()!=1 || command.value("commandId").userType()!=QMetaType::QString
+            || command.value("runId").userType()!=QMetaType::QString
+            || !QRegularExpression("\\A[0-9a-f]{32}\\z").match(command.value("commandId").toString()).hasMatch()
+            || !QRegularExpression("\\A[0-9a-f]{32}\\z").match(command.value("runId").toString()).hasMatch()
+            || _featureCaptureScriptQueries.size()>=4096 || _featureCaptureScriptQueries.contains(command.value("commandId").toString())
+            || (!_featureCaptureScriptRun.isEmpty() && _featureCaptureScriptRun!=command.value("runId").toString())) {return {};}
+    _featureCaptureScriptRun=command.value("runId").toString();
+    _featureCaptureScriptQueries.insert(command.value("commandId").toString());
+    const auto history=_featureCaptureScriptHistory.snapshot();
+    if (history.isEmpty() || history.value("complete")!=true) {return {};}
+    const QVariantMap result{{"snapshotScriptOriginalsVersion",1},{"commandId",command.value("commandId")},
+        {"runId",_featureCaptureScriptRun},{"pid",QCoreApplication::applicationPid()},
+        {"sequence",++_featureCaptureScriptSequence},{"capturedEpochMs",QDateTime::currentMSecsSinceEpoch()},
+        {"history",history}};
+    return QJsonDocument::fromVariant(result).toJson(QJsonDocument::Compact).size()<=65536 ? result : QVariantMap{};
+}
+
 QVariantMap Snapshot::featureSnapshotCaptureOriginals(const QVariantMap& command) {
     if (!QCoreApplication::instance() || !QCoreApplication::arguments().contains("--testScript")
             || QThread::currentThread()!=thread() || thread()!=QCoreApplication::instance()->thread()
