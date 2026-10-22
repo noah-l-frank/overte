@@ -26,7 +26,15 @@ hashing and transfer. A same-byte replacement is a different original. The
 actual run-as command hashes the canonical path with the run and NUL separator;
 it does not expose the absolute private path in its result. A platform `stat`
 without the required timestamp precision fails this source profile. The public
-`snapshot.files` DTO is unchanged. File decoding still checks the original full
+`snapshot.files` DTO is unchanged. The private five-column listing uses explicit
+`OVT_SNAPSHOT_FILES_V2`/`OVT_SNAPSHOT_FILES_END_V2` framing, and its retained
+original has `snapshotFileOriginalVersion=2` (`android-snapshot-file-originals`
+reads version 2 only). Legacy V1 three-column output and incomplete V2 output
+are refused; no previous inode/path provenance is invented. The fixed Phone
+reference still uses the older common V1 reader, so later shared reconciliation
+must select the V2 producer and parser together. The binary transfer remains
+V1 because its framing and byte semantics are unchanged.
+File decoding still checks the original full
 PNG bytes, encoding, checksum, dimensions, every frame, nonuniform pixels and
 hash. It is byte/output evidence only. In particular, actual HMD still capture
 downloads half the composite width and does not establish both stereo eyes.
@@ -95,7 +103,7 @@ ignored ACK, lost capture response, last-CAS phase advancement, frozen native
 clock plus slow CAS, delayed controller publication, native full-path mismatch,
 same-byte OS/host inode replacement, forged archived quiet, closed cold command
 identity/types and retained cleanup.
-Sixteen existing file-source cases cover binary/framing/bounds, incomplete
+Seventeen existing file-source cases cover binary/framing/bounds, incomplete
 reservation progress, companions, continuity and aliases. These are device-free
 source/host tests, not renderer/headset/OS-export or device evidence.
 

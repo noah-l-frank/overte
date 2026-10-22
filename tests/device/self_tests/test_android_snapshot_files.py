@@ -159,6 +159,14 @@ class OriginalAndroidSnapshotFiles(unittest.TestCase):
         self.assertEqual({'basename','artifact'},set(result['files'][0]));self.assertEqual(NAME,row['basename'])
         self.assertEqual(str(path.stat().st_ino),row['originalStat'].split()[1])
         self.assertEqual(CONTEXT,reader.last_original['context']);self.assertEqual(len(PAYLOAD),row['bytes'])
+        self.assertEqual(2,reader.last_original['snapshotFileOriginalVersion'])
+
+    def test_legacy_three_column_source_never_becomes_original_stat_and_path_provenance(self):
+        for version in ('1','2'):
+            raw=('OVT_SNAPSHOT_FILES_V'+version+'\n'+NAME+'\t1\t'+'a'*64+'\nOVT_SNAPSHOT_FILES_END_V'+version+'\n').encode()
+            reader=self.reader()
+            with self.subTest(version=version),patch.object(reader,'_execute',return_value=raw),self.assertRaises(SnapshotFileError):reader.files(PREFIX)
+            self.assertIsNone(reader.last_original);self.assertEqual([],list(self.artifacts.iterdir()))
 
     def test_truncated_transfer_never_passes_even_with_an_unchanged_original(self):
         self.save()
