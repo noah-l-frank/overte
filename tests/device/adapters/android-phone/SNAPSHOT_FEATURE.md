@@ -623,3 +623,17 @@ transport/PackageManager/OS-window producers remain explicit host-test seams;
 the Java fixture/native ownership has its separate actual-file/API34 compiler
 checks. Android DocumentsUI/Binder/URI grants and physical acceptance remain
 unverified. This component alone does not advertise complete Snapshot support.
+### Current acquisition of a retained export original
+
+The extended owner uses `PhoneSnapshotSavedFiles.acquire_current(copyId)` and
+`PhoneSnapshotConsumer.acquire_current(grant, capture)`. Both acquire the actual
+retained bytes again through fresh original owner observations. They retain the
+unchanged `originalCompletedEpochMs` and report the actual new acquisition as
+`capturedEpochMs`; an old completion is never rewritten as a new completion.
+Save still requires the same completed job and private copy before and after
+transfer, exact device/inode, mode, link count, bytes and SHA-256. The consumer
+still requires its distinct original UID/process, URI/grant and closed copy.
+The complete acquisition has a real five-second deadline. Stale current source,
+changed bytes/inodes, lost guards and slow acquisition remain failures. The
+existing `acquire()` foundation behavior and decoder are unchanged. These are
+host/source boundaries, not physical Android acceptance.

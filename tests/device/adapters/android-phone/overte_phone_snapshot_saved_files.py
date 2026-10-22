@@ -8,6 +8,7 @@ expected filenames, URIs, bytes, digests or successful export results.
 from copy import deepcopy
 import hashlib
 import re
+import time
 
 from adapters.android_snapshot_files import AndroidSnapshotFiles,SnapshotFileError
 from overte_phone_snapshot_readbacks import PhoneSnapshotReadbacks,ROOTS,nonce
@@ -55,7 +56,8 @@ class PhoneSnapshotSavedFiles(AndroidSnapshotFiles):
             raise SnapshotFileError('Saved Snapshot source binding is invalid')
         self.readbacks,self.run=readbacks,run
 
-    def current(self,id):
+    def current(self,id,*,historical=False):
+        if type(historical) is not bool:raise SnapshotFileError('Saved Snapshot acquisition mode is invalid')
         self._check();packet=self.readbacks.request(self.run);self._check()
         body=packet['source']['source']
         if 'initialized' in body or body['copiesRetired']:
@@ -63,7 +65,8 @@ class PhoneSnapshotSavedFiles(AndroidSnapshotFiles):
         copies=[row for row in body['files'] if row['id']==id and row['phase']=='complete']
         jobs=[row for row in body['jobs'] if row['phase']=='complete' and row['original'] is not None and row['original']['id']==id]
         if (len(copies)!=1 or len(jobs)!=1 or copies[0]!=jobs[0]['original']
-                or not 0<=packet['capturedEpochMs']-jobs[0]['completedEpochMs']<1500):
+                or not 0<=packet['capturedEpochMs']-jobs[0]['completedEpochMs']
+                or not historical and packet['capturedEpochMs']-jobs[0]['completedEpochMs']>=1500):
             raise SnapshotFileError('Saved Snapshot has no fresh completed original readback')
         original=deepcopy(copies[0]);parts=[]
         for root in ROOTS:
@@ -87,25 +90,45 @@ class PhoneSnapshotSavedFiles(AndroidSnapshotFiles):
             raise SnapshotFileError('Saved Snapshot metadata is invalid')
         return dict(device=int(fields[0]),inode=int(fields[1]),bytes=int(fields[2]),sha256=lines[2])
 
-    def acquire(self,id):
+    def _acquire(self,id,*,historical):
         try:
+            if type(historical) is not bool:raise SnapshotFileError('Saved Snapshot acquisition mode is invalid')
+            started=time.monotonic()
             if not nonce(id):raise SnapshotFileError('Saved Snapshot copy ID is invalid')
-            before,original,job,parts=self.current(id);metadata=self.metadata(parts)
+            before,original,job,parts=self.current(id,historical=historical);metadata=self.metadata(parts)
             if any(metadata[key]!=original[key] for key in ('bytes','sha256')):
                 raise SnapshotFileError('Saved Snapshot original differs from the actual provider readback')
-            raw=self._execute(READ_SCRIPT,*parts,str(MAX_BYTES+1),timeout=90)
+            raw=self._execute(READ_SCRIPT,*parts,str(MAX_BYTES+1),timeout=5 if historical else 90)
             if (type(raw) is not bytes or not raw.startswith(BYTES_HEADER) or not raw.endswith(BYTES_FOOTER)
                     or len(raw)>MAX_BYTES+1+len(BYTES_HEADER)+len(BYTES_FOOTER)):
                 raise SnapshotFileError('Saved Snapshot binary transfer did not complete')
             content=raw[len(BYTES_HEADER):-len(BYTES_FOOTER)]
             if not content or len(content)>MAX_BYTES or not self._matches(metadata,content) or self.metadata(parts)!=metadata:
                 raise SnapshotFileError('Saved Snapshot original changed during transfer')
-            after,observed,completed,_parts=self.current(id)
+            after,observed,completed,_parts=self.current(id,historical=historical)
             if (observed!=original or completed!=job or before['instance']!=after['instance']
                     or before['processId']!=after['processId'] or before['source']['source']['instance']!=after['source']['source']['instance']):
                 raise SnapshotFileError('Saved Snapshot original ownership changed during transfer')
             artifact=self._publish(id+'.bin',content,metadata['sha256']);self._check()
-            return dict(artifact=artifact,bytes=len(content),sha256=hashlib.sha256(content).hexdigest(),
+            result=dict(artifact=artifact,bytes=len(content),sha256=hashlib.sha256(content).hexdigest(),
                 capturedEpochMs=job['completedEpochMs'],request=original['request'],job=job['id'],copy=id,
                 source='snapshot-saved-original')
+            if historical:
+                now=self.readbacks.clock_ms()
+                if (time.monotonic()-started>=5 or not 0<=now-after['capturedEpochMs']<=1500):
+                    raise SnapshotFileError('Saved Snapshot acquisition exceeded its current source boundary')
+                result.update(capturedEpochMs=now,originalCompletedEpochMs=job['completedEpochMs'])
+                self._check()
+            return result
         except Exception:raise SnapshotFileError('Original saved Snapshot acquisition failed') from None
+
+    def acquire(self,id):
+        return self._acquire(id,historical=False)
+
+    def acquire_current(self,id):
+        """Read an unchanged old original through fresh actual owner inventories.
+
+        The acquisition gets its actual current epoch; native completion keeps
+        its original timestamp. The existing foundation decoder is unchanged.
+        """
+        return self._acquire(id,historical=True)

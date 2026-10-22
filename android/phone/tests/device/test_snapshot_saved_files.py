@@ -117,5 +117,31 @@ class SnapshotSavedFilesTests(unittest.TestCase):
             'io.github.noah_be.overte.phone',self.context|dict(processIdentity='99:1'),lambda:True,
             self.artifacts,self.reader,source.RUN)
 
+    def test_extended_acquisition_reads_old_completion_through_current_original_inventories(self):
+        self.boundary.epoch+=100000
+        value=self.files.acquire_current(source.COPY)
+        self.assertEqual(10000,value['originalCompletedEpochMs'])
+        self.assertEqual(self.boundary.epoch,value['capturedEpochMs'])
+        self.assertEqual(self.file.read_bytes(),(self.artifacts/value['artifact']).read_bytes())
+        # The existing foundation receipt remains strict and unchanged.
+        with self.assertRaises(SnapshotFileError):self.files.acquire(source.COPY)
+
+    def test_extended_acquisition_rejects_changed_original_stale_current_source_and_total_deadline(self):
+        from unittest.mock import patch
+        for fault in ('source','bytes','inode','slow'):
+            with self.subTest(fault=fault):
+                self.setUp();self.boundary.epoch+=100000
+                if fault=='source':self.boundary.fault=lambda value:value.update(capturedEpochMs=18000)
+                elif fault=='bytes':self.sdk.before_read=lambda:self.file.write_bytes(b'foreign bytes')
+                elif fault=='inode':
+                    def replace():
+                        self.file.rename(self.file.with_suffix('.old'));self.file.write_bytes(b'actual-provider-bytes\0\xff\nindependent-original');self.file.chmod(0o600)
+                    self.sdk.before_read=replace
+                if fault=='slow':
+                    with patch('overte_phone_snapshot_saved_files.time.monotonic',side_effect=[0.,5.]):
+                        with self.assertRaises(SnapshotFileError):self.files.acquire_current(source.COPY)
+                else:
+                    with self.assertRaises(SnapshotFileError):self.files.acquire_current(source.COPY)
+
 
 if __name__=='__main__':unittest.main()

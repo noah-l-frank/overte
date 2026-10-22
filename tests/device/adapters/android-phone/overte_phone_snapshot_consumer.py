@@ -148,6 +148,18 @@ class PhoneSnapshotConsumer:
         row=self.observe();need(row['retired'] and row['workersTerminated'] and not row['activityAlive'] and not row['grantPresent'] and row['originalClosed'] and not row['files'])
         return row
 
+    def acquire_current(self,native_share,capture):
+        """Fresh binary acquisition with the original completion kept separate."""
+        try:
+            started=self.monotonic();need(number(started,0,1e15));requested=self.clock_ms()
+            value,raw=self.acquire(native_share,capture)
+            epoch=self.clock_ms();now=self.monotonic()
+            need(integer(epoch,requested) and number(now,started,1e15) and now-started<5
+                and self.last is not None and self.last['capturedEpochMs']>=requested)
+            fresh(self.last['capturedEpochMs'],epoch);need(self.guard() is not False)
+            return dict(value,capturedEpochMs=epoch,originalCompletedEpochMs=value['capturedEpochMs']),raw
+        except Exception:raise NativeUIError('Current original shared Snapshot acquisition failed') from None
+
 
 class SnapshotConsumerTransport:
     """Fixed shell/DUMP route; caller supplies a separately prepared APK pin.

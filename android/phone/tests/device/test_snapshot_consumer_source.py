@@ -37,6 +37,17 @@ class SnapshotConsumerSourceTests(unittest.TestCase):
         value=Boundary();reader=value.reader();metadata,raw=reader.acquire(value.native,value.original)
         self.assertEqual(value.raw,raw);self.assertEqual('snapshot-receiver-original',metadata['source']);self.assertEqual(value.native['request'],metadata['request'])
         self.assertEqual(3,len(value.reads));self.assertEqual(3,len({row[-1] for row in value.reads}));self.assertFalse(value.sent)
+
+    def test_current_binary_keeps_old_completion_and_rejects_total_deadline(self):
+        value=Boundary();completed=value.source['completedEpochMs'];value.epoch+=100000
+        metadata,raw=value.reader().acquire_current(value.native,value.original)
+        self.assertEqual(value.raw,raw);self.assertEqual(completed,metadata['originalCompletedEpochMs'])
+        self.assertEqual(value.epoch,metadata['capturedEpochMs'])
+        value=Boundary();reader=value.reader();binary=reader.binary
+        def slow(*args):
+            raw=binary(*args);value.time+=5;return raw
+        reader.binary=slow
+        with self.assertRaises(NativeUIError):reader.acquire_current(value.native,value.original)
     def test_chooser_ack_without_consumption_never_qualifies(self):
         for fault in ('armed','no-original','no-identity','open','no-permission'):
             value=Boundary()
