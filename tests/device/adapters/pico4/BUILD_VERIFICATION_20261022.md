@@ -1012,3 +1012,16 @@ compilers and Android SDK tools do not supply that graph. No input was invented,
 no historical Phone/other-commit payload was relabeled, and no dependency
 installation or bootstrap was attempted. Selected original native host checks
 remain distinct from a complete application or APK build.
+
+
+The Script object lifetime source now compiles its actual bounded QObject
+registry, out-of-line owning-library accessor, TestScriptingInterface getter and
+complete original disconnect method with Qt5. Actual deferred QObject deletion,
+expired weak holders and separately retained engine/stopped worker objects are
+exercised; the manager/engine producer classes remain explicit QObject seams.
+The full ScriptManager/V8/Android/application translation units are not qualified
+by this test. Owning source/protocol/factory group passes1.840s. The existing
+Avatar native group now compiles the complete original Pico NavigationUi
+observe/controlId/visible/enabled/token bodies with E2E+Pico gates, including
+Browser controls; that group passes7.623s with unrelated platform-service seams.
+No immutable full Pico source graph, application/APK or device claim is added.

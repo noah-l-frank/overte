@@ -39,6 +39,7 @@
 #include "../../../tests/device/native/WebRuntimeBridge.h"
 #include "../../../tests/device/native/PicoBrowserFeatureBridge.h"
 #if defined(ANDROID_APP_PICO_INTERFACE)
+#include <ScriptManager.h>
 #include "../../../tests/device/native/PicoEmoteSceneFixture.h"
 #include "Audio.h"
 #include <ui/Snapshot.h>
@@ -1416,6 +1417,36 @@ QVariantMap TestScriptingInterface::featureScriptFiles(const QVariantMap& comman
     _featureScriptFilesCommand = command; _featureScriptFilesResult = result;
     return result;
 }
+
+#if defined(ANDROID_APP_PICO_INTERFACE)
+QVariantMap TestScriptingInterface::featureScriptObjectLifetimes(const QVariantMap& command) {
+    if (QThread::currentThread()!=thread()) {
+        if (!thread() || !thread()->isRunning()) {return {};}
+        QVariantMap result;
+        if (!QMetaObject::invokeMethod(this,[&] {result=featureScriptObjectLifetimes(command);},Qt::BlockingQueuedConnection)) {return {};}
+        return result;
+    }
+    const auto json=QJsonObject::fromVariantMap(command);const auto keys=json.keys();
+    const auto id=json.value("commandId").toString();
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript") || _featureScriptObjectLifetimesSequence>=1000000000
+            || QSet<QString>(keys.begin(),keys.end())!=QSet<QString>{"schemaVersion","commandId","action"}
+            || json.value("schemaVersion")!=QJsonValue(1)
+            || json.value("action")!=QJsonValue(QStringLiteral("feature-script-object-lifetimes-observe"))
+            || !QRegularExpression("\\A[0-9a-f]{32}\\z").match(id).hasMatch()
+            || _featureScriptObjectLifetimesRequests.contains(id) || _featureScriptObjectLifetimesRequests.size()>=4096) {return {};}
+    _featureScriptObjectLifetimesRequests.insert(id);
+    const auto requested=QDateTime::currentMSecsSinceEpoch();
+    // Call into the owning library; do not instantiate a second header-local
+    // registry across the application/shared-library boundary.
+    const auto source=ScriptManager::featureObjectLifetimes();
+    if (source.isEmpty()) {return {};}
+    return {{"scriptObjectLifetimesVersion",1},{"commandId",id},{"instance",_featureObservationInstance},
+        {"sequence",static_cast<qulonglong>(++_featureScriptObjectLifetimesSequence)},
+        {"processId",QCoreApplication::applicationPid()},{"requestedEpochMs",requested},
+        {"capturedEpochMs",QDateTime::currentMSecsSinceEpoch()},{"source",source}};
+}
+#endif
 
 QVariantMap TestScriptingInterface::featureAnimationInventory(const QVariantMap& command) {
     if (QThread::currentThread()!=thread()) {

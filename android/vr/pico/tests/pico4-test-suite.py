@@ -65,6 +65,7 @@ TESTS = (
     test("platform-glue", "android", PYTHON, "pico-platform-glue-test.py"),
     test("android-entrypoints", "android", PYTHON, "pico-android-entrypoints-test.py"),
     test("activity-ingress", "android", PYTHON, "device/test_activity_ingress.py", requires=("javac", "java")),
+    test("script-object-lifetimes", "interaction", PYTHON, "pico-script-object-lifetimes-test.py", requires=("c++", "pkg-config", "node")),
     test("tablet-web-owner", "interaction", PYTHON, "pico-tablet-web-owner-test.py"),
     test("browser-entry", "interaction", PYTHON, "pico-browser-entry-test.py"),
     test("browser-originals", "webview", PYTHON, "pico-browser-originals-test.py", requires=("c++", "pkg-config", "javac", "java", "node")),

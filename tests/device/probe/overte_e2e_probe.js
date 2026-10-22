@@ -98,6 +98,7 @@
     // Actual execution is still judged by the independent fixture journal.
     var normalFeatureInstance = String(Uuid.generate()).replace(/[{}-]/g, "").toLowerCase();
     var lastScriptWorkRequest = "";
+    var lastScriptObjectLifetimesRequest = "";
     var scriptWorkTimer = null;
     var normalFeatureSequence = 0;
     var lastChatObservationCommand="";
@@ -1341,6 +1342,23 @@
             }
             return;
         }
+        if (command && command.action === "feature-script-object-lifetimes-observe") {
+            if (command.schemaVersion === 1 && typeof command.commandId === "string"
+                    && command.commandId.length === 32 && /^[0-9a-f]{32}$/.test(command.commandId)
+                    && objectKeysMatch(command,["schemaVersion","commandId","action"])
+                    && command.commandId !== lastScriptObjectLifetimesRequest) {
+                lastScriptObjectLifetimesRequest=command.commandId;
+                var objectLifetimes={scriptObjectLifetimesVersion:1,commandId:command.commandId,available:false};
+                try {
+                    if (typeof Test.featureScriptObjectLifetimes === "function") {
+                        var originalLifetimes=Test.featureScriptObjectLifetimes(command);
+                        if (originalLifetimes && originalLifetimes.commandId===command.commandId) {objectLifetimes=originalLifetimes;}
+                    }
+                } catch (lifetimeError) { /* No invented VM or worker absence. */ }
+                Test.saveObject(objectLifetimes,"feature-script-object-lifetimes.json");
+            }
+            return true;
+        }
         if (command && command.action === "feature-script-work-observe") {
             if (command.schemaVersion === 1 && typeof command.commandId === "string"
                     && /^(?:ios-)?[0-9a-f]{32}$/.test(command.commandId)
@@ -2185,6 +2203,7 @@
                 || command.action === "feature-recorded-audio-observe" || command.action === "feature-recorded-audio-release"
                 || command.action === "feature-recorded-audio-files" || command.action === "feature-script-observe"
                 || command.action === "feature-script-work-observe"
+                || command.action === "feature-script-object-lifetimes-observe"
                 || command.action === "feature-script-roots-observe"
                 || command.action === "feature-animation-inventory-observe"
                 || command.action === "feature-create-callbacks-observe"
@@ -2910,6 +2929,7 @@
         if (worldRenderTimer !== null) { Script.clearTimeout(worldRenderTimer); worldRenderTimer = null; }
         lastNativeFeatureRequest = "";
         lastScriptWorkRequest = "";
+        lastScriptObjectLifetimesRequest = "";
         if (scriptWorkTimer !== null) { Script.clearTimeout(scriptWorkTimer); scriptWorkTimer = null; }
         if (nativeFeatureTimer !== null) { Script.clearTimeout(nativeFeatureTimer); nativeFeatureTimer = null; }
         Script.update.disconnect(updateProbe);

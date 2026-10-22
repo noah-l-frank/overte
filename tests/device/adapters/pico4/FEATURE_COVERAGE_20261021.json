@@ -690,7 +690,12 @@
         "tests/device/adapters/pico4/tablet_web_feature.py",
         "tests/device/adapters/pico4/browser_quiet.py",
         "tests/device/self_tests/test_pico_tablet_web_feature.py",
-        "android/vr/pico/tests/pico-tablet-web-owner-test.py"
+        "android/vr/pico/tests/pico-tablet-web-owner-test.py",
+        "libraries/script-engine/src/ScriptObjectLifetimes.h",
+        "tests/device/adapters/native_script_object_lifetimes.py",
+        "tests/device/native/SCRIPT_OBJECT_LIFETIMES.md",
+        "tests/device/self_tests/test_native_script_object_lifetimes.py",
+        "tests/device/contracts/lifecycle/test_script_object_lifetimes.py"
       ],
       "declaredCheckpoints": 26,
       "inputVerbs": [
@@ -731,7 +736,7 @@
       "missingOperationsOrEvidence": [
         "Complete 26-step qualification of the private normal Script/app/Home/wheel/keyboard/document-transition coordinator, including actual joined input effects and lost-input cleanup; source composition is present but only baseline and counterexamples are host verified",
         "Complete independent actor/state/stereo publication and inline/held-callback qualification across all shared steps; private baseline actor, once-only durable publication and post-CAS original clock fences are host verified",
-        "Whole final Script/native/Java/renderer/capture quiet retirement and immutable archive"
+        "Whole final Script/native/Java/renderer/capture quiet retirement and immutable archive: actual Manager/engine/worker QObject death source is present and Qt component compiled, but the original compiled browser VM scope, complete phase histories and final capture absence are not yet joined into this private owner"
       ],
       "requiredOriginalEvidence": [
         "Original VR tablet Web view and current document admission",

@@ -14,6 +14,9 @@
 #include "ScriptManager.h"
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #include "ScriptLoadObservation.h"
+#if defined(ANDROID_APP_PICO_INTERFACE)
+#include "ScriptObjectLifetimes.h"
+#endif
 #include "v8/ScriptEngineV8.h"
 namespace {
 overte::e2e::ScriptLoadObservation& featureScriptLoads() {
@@ -22,6 +25,11 @@ overte::e2e::ScriptLoadObservation& featureScriptLoads() {
 }
 }
 QVariantMap ScriptManager::featureLoadHistory() { return featureScriptLoads().snapshot(); }
+#if defined(ANDROID_APP_PICO_INTERFACE)
+QVariantMap ScriptManager::featureObjectLifetimes() {
+    return overte::e2e::scriptObjectLifetimes().snapshot();
+}
+#endif
 #endif
 #include <Finally.h>
 #include "../../../security/redaction/SafeDiagnostics.h"
@@ -338,6 +346,9 @@ ScriptManager::ScriptManager(Context context, const QString& scriptContents, con
     _assetScriptingInterface(new AssetScriptingInterface(this))
 {
 
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+    overte::e2e::scriptObjectLifetimes().created(featureLoadMembership().value("instance").toString(),this,_engine.get());
+#endif
     switch (_context) {
         case Context::CLIENT_SCRIPT:
             _type = Type::CLIENT;
@@ -458,6 +469,9 @@ ScriptManager::~ScriptManager() {
 
 void ScriptManager::disconnectNonEssentialSignals() {
     disconnect();
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+    overte::e2e::scriptObjectLifetimes().reconnect(featureLoadMembership().value("instance").toString(),this);
+#endif
     QThread* workerThread;
     // Keep destruction-to-quit wiring even before run starts or after it ends.
     // The worker event loop can still be alive while _isRunning is false.
@@ -480,6 +494,9 @@ void ScriptManager::runInThread() {
     // The thread interface cannot live on itself, and we want to move this into the thread, so
     // the thread cannot have this as a parent.
     QThread* workerThread = new QThread();
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+    overte::e2e::scriptObjectLifetimes().worker(featureLoadMembership().value("instance").toString(),workerThread);
+#endif
     QString name = QString("js:") + getFilename().replace("about:","");
     workerThread->setObjectName(name);
     _engine->setThread(workerThread);

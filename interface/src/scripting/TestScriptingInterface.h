@@ -185,6 +185,9 @@ public slots:
     Q_INVOKABLE QVariantMap featureAnimationInventory(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureScriptRoots(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureScriptWork(const QVariantMap& command);
+#if defined(ANDROID_APP_PICO_INTERFACE)
+    Q_INVOKABLE QVariantMap featureScriptObjectLifetimes(const QVariantMap& command);
+#endif
     Q_INVOKABLE QVariantMap featureScriptFiles(const QVariantMap& command);
 #if defined(ANDROID_APP_PICO_INTERFACE)
     QVariantMap featureCreateFiles(const QVariantMap& command);
@@ -288,6 +291,10 @@ private:
     QSet<QString> _featureAnimationInventoryRequests;
     quint64 _featureScriptRootsSequence {0};
     quint64 _featureScriptWorkSequence {0};
+#if defined(ANDROID_APP_PICO_INTERFACE)
+    quint64 _featureScriptObjectLifetimesSequence {0};
+    QSet<QString> _featureScriptObjectLifetimesRequests;
+#endif
     QVariantMap _featureScriptWorkCommand, _featureScriptWorkResult;
     QSet<QString> _featureScriptRootRequests;
     QSet<QUuid> _featureScriptEffectIds;

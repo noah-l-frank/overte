@@ -774,6 +774,19 @@ def create_adapter(args, base_class):
             return PicoEmoteLifetime(source, lambda: self._script_work(target))
 
         @_private
+        def _script_object_lifetimes(self,target,*,source_lock):
+            from adapters.native_script_object_lifetimes import NativeScriptObjectLifetimes,FILE,command
+            lock=self._script_journey()._lock(target,source_lock);lock.assert_held()
+            native=self._native_feature_observer(target)
+            def guard():
+                lock.assert_held();return native.guard()
+            def send(value):
+                command(value);guard();native.send(value)
+            return NativeScriptObjectLifetimes(send,
+                lambda:self.adb.read_debug_app_file(target,'org.overte.pico','files/overte-e2e/'+FILE,attempts=1),
+                native.clock_ms,guard,native.pid,monotonic=native.monotonic,sleep=native.sleep)
+
+        @_private
         def _script_work(self, target):
             from adapters.native_script_work import NativeScriptWork, FILE, command
             native = self._native_feature_observer(target)

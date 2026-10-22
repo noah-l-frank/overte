@@ -1628,3 +1628,34 @@ UI8.560s, independent native state3.003s, URL owner39.247s, original transport
 4.018s, Browser entry2.482s and coverage0.069s. Required repository suites
 pass4.38s; Node syntax, registry and whitespace pass. The complete native
 NavigationUi observe-body regression remains a separate pending selection.
+
+
+## Original Script QObject lifetime source for browser retirement
+
+The new [native lifetime source](../../native/SCRIPT_OBJECT_LIFETIMES.md) v1
+observes each actual Pico ScriptManager, ScriptEngine and worker QObject death,
+including pending deleteLater after public running/membership removal. It owns
+no product object and sends no stop/quit/delete input. Normal disconnect keeps
+only the existing same-object observer alongside product shutdown wiring.
+The native getter calls into the original owning library, avoiding a separate
+application-side registry. The strict reader/actual Pico factory preserves the
+original source lock, full tombstone identities and1.5-second final source-age
+checks. There is no counter reset, history eviction or overflow-as-empty path.
+The source is not yet joined to the complete original compiled browser VM and
+final capture/actor/phase retirement; private Tablet Web finalize still refuses.
+No new complete capability or whole feature count is claimed.
+
+The narrow original Qt registry/getter/disconnect test and the6 protocol/probe/
+actual-factory cases are present. Manager/engine objects are explicit QObject
+producer seams, not executed V8 or the complete ScriptManager/application TU.
+The earlier Avatar observer follow-up `9c4d70b014e104f95a83f62407664d2591c9f464`
+is also integrated: the existing Avatar owning native test now compiles the
+complete original NavigationUi observe/controlId/visible/enabled/token bodies
+with both Pico and E2E gates, including Root's Browser branch. No extra catalog
+selector or duplicated full Avatar journey is introduced.
+
+Integrated validation:4/134 owning groups pass10.32s. Script object source1.840s,
+private Tablet Web0.799s, complete original Avatar observer7.623s, coverage0.060s.
+The four required repository suites pass3.26s; registry, Node syntax and
+whitespace pass. Source-complete features remain3/14; VM/actor/capture whole
+retirement, full application and all device qualification remain outstanding.

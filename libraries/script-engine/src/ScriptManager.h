@@ -1056,6 +1056,9 @@ public:
     QVariantMap featureLoadMembership() const { return _e2eRequiredModules.loadMembership(); }
     std::shared_ptr<overte::e2e::CreateCallbackObservation> featureCreateCallbacks() const { return _e2eCreateCallbacks; }
     static QVariantMap featureLoadHistory();
+#if defined(ANDROID_APP_PICO_INTERFACE)
+    static QVariantMap featureObjectLifetimes();
+#endif
     static QVariantMap featureNativeCallContext();
     // Passive original timer facts on the actual VM manager thread.
     QVariantMap featureCaptureWorkObservation(int originalScriptId) const;
