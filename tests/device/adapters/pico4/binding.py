@@ -1091,6 +1091,16 @@ def create_adapter(args, base_class):
             path=journey.state_path(target) if create else journey.existing_state_path(target)
             return None if path is None else PrivateFeatureState(path.with_name('lifecycle-world-owner.json'))
 
+        def _lifecycle_background_owned(self,target):
+            store=self._lifecycle_world_store(target,create=False)
+            if store is None:return False
+            parent=store.path.parent;store._parent()
+            names={'lifecycle-background-owner.json','lifecycle-background-originals.json'}
+            for index,path in enumerate(parent.iterdir()):
+                _need(index<4096)
+                if path.name in names or path.name.startswith('lifecycle-background-originals.json.frame-'):return True
+            return False
+
         @_private
         def _lifecycle_world(self,target,run,*,source_lock=None):
             from adapters.pico4.lifecycle_world import PicoLifecycleWorld
@@ -1867,8 +1877,7 @@ def create_adapter(args, base_class):
                       and not feature_error and not script_error and not probe_error and not origin_error and not chat_error and PrivateFeatureState(state).read() is None
                       and self._lifecycle_back_store(target).read() is None
                       and (self._lifecycle_world_store(target,create=False) is None or self._lifecycle_world_store(target,create=False).read() is None)
-                      and (self._lifecycle_world_store(target,create=False) is None or
-                           PrivateFeatureState(self._lifecycle_world_store(target,create=False).path.with_name('lifecycle-background-owner.json')).read() is None)
+                      and not self._lifecycle_background_owned(target)
                       and self._script_restart_inputs_store(target).read() is None
                       and self._script_restart_store(target).read() is None
                       and self._script_files_store(target).read() is None and self._account_probe_store(target).read() is None

@@ -205,6 +205,21 @@ class PicoLifecycleBindingTests(unittest.TestCase):
             with self.assertRaises((ValueError,RuntimeError)):owner.status()
         self.assertEqual([],self.native.inputs)
 
+    def background_orphan(self,name):
+        from adapters.normal_feature_state import PrivateFeatureState
+        path=self.adapter._lifecycle_world_store(self.native.target).path
+        store=PrivateFeatureState(path.with_name(name));store.write({'originalOwnership':'retained'},None)
+        self.assertIsNone(PrivateFeatureState(path.with_name('lifecycle-background-owner.json')).read())
+        self.assertTrue(self.adapter._lifecycle_background_owned(self.native.target))
+        with self.assertRaises(ValueError):self.adapter.cleanup(self.native.target)
+        self.assertFalse(self.native.running);self.assertEqual({'originalOwnership':'retained'},store.read())
+
+    def test_orphaned_background_original_manifest_prevents_successful_base_cleanup(self):
+        self.background_orphan('lifecycle-background-originals.json')
+
+    def test_orphaned_background_original_child_prevents_successful_base_cleanup(self):
+        self.background_orphan('lifecycle-background-originals.json.frame-003.json')
+
     def test_actual_draft_factory_uses_original_normal_bridge_and_rejects_changed_field_before_transport(self):
         import uuid
         from copy import deepcopy

@@ -310,7 +310,12 @@
         "tests/device/adapters/pico4/create_browse_setting.py",
         "tests/device/native/CreateBrowseSettingOwner.h",
         "tests/device/native/CreateBrowseSettingFile.h",
-        "tests/device/adapters/pico4/CREATE_BROWSE_SETTING.md"
+        "tests/device/adapters/pico4/CREATE_BROWSE_SETTING.md",
+        "tests/device/adapters/pico4/create_models.py",
+        "tests/device/adapters/pico4/CREATE_MODEL_OWNER.md",
+        "tests/device/native/CreateEntityLifetimes.h",
+        "android/vr/pico/tests/device/test_create_models.py",
+        "android/vr/pico/tests/device/test_create_model_controls_native.py"
       ],
       "declaredCheckpoints": 21,
       "inputVerbs": [
@@ -355,7 +360,7 @@
         "Drain original model/texture/picker/export callbacks and files",
         "Restore rez permission, view and actual unowned scene inventory"
       ],
-      "nextExecutableStep": "Compose actual normal glTF/OBJ Model and texture inputs with original domain effects, Script timer/callback retirement, rendered stereo/peer evidence and PolyVox/permission ownership. Existing ordinary picker Import/Save/export/Delete and fixed physical Browse settings components remain partial; retain the original typed Cancel and any unowned physical restoration boundary.",
+      "nextExecutableStep": "Complete texture editing with actual model/geometry/material acquisition and release, then export, Create driver, PolyVox, independent authority/peer and stereo evidence. The normal glTF/OBJ model owner and weak EntityItem death are integrated; whole Create remains partial.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested",
       "nativeDialogIntegrationStatus": "Focused original Qt5 dialog pipeline passed after restoring actual GUI Window receiver affinity and original worker DirectConnection call. Full application/V8 TUs and devices unqualified; earlier unsupported moved-receiver diagnostic crash documented."
@@ -908,7 +913,14 @@
         "tests/device/adapters/chat_journey/MIXER.md",
         "tests/device/adapters/chat_journey/normal_input.py",
         "tests/device/adapters/chat_journey/NORMAL_INPUT.md",
-        "tests/device/native/ChatSettingsJson.h"
+        "tests/device/native/ChatSettingsJson.h",
+        "tests/device/adapters/chat_journey/background.py",
+        "tests/device/adapters/chat_journey/BACKGROUND.md",
+        "tests/device/adapters/chat_journey/flow_inputs.py",
+        "tests/device/adapters/chat_journey/witness.py",
+        "tests/device/adapters/chat_journey/WITNESS.md",
+        "tests/device/self_tests/test_chat_background.py",
+        "tests/device/self_tests/test_chat_witness.py"
       ],
       "declaredCheckpoints": 25,
       "inputVerbs": [
@@ -952,7 +964,7 @@
         "Restore peer position and owned mixer service",
         "Close view and observe keyboard, peer work and capture ownership fully retired"
       ],
-      "nextExecutableStep": "Compose the 25-step normal input, original JSON/INI profile/Erase, independent peer/distance, mixer/no-replay and recovery owners. Retain complete bounded original source history without truncation, then bind original stereo/actor publication and real callback/Qt/process/file retirement. No complete Chat triple.",
+      "nextExecutableStep": "Compose actual passive cache-absent baseline/final journals, the normal 25-step dispatcher and independent witness process, then complete Erase/profile/cache/FD/PID release. Background v2 requires original quiet before and after actual timer release. Active transcript resources must not be hidden to fabricate a clean baseline.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     },
@@ -1197,7 +1209,12 @@
         "tests/device/contracts/tablet/test_lifecycle_background.py",
         "tests/device/self_tests/test_pico_lifecycle_background_source.py",
         "tests/device/adapters/pico4/lifecycle_background.py",
-        "tests/device/self_tests/test_pico_lifecycle_background.py"
+        "tests/device/self_tests/test_pico_lifecycle_background.py",
+        "tests/device/adapters/pico4/lifecycle_background_owner.py",
+        "tests/device/adapters/pico4/lifecycle_background_originals.py",
+        "tests/device/adapters/pico4/LIFECYCLE_BACKGROUND_OWNER.md",
+        "tests/device/self_tests/test_pico_lifecycle_background_owner.py",
+        "tests/device/self_tests/test_pico_lifecycle_background_originals.py"
       ],
       "declaredCheckpoints": 16,
       "inputVerbs": [
@@ -1242,7 +1259,7 @@
         "Observe real old context retirement and new empty editor",
         "Restore original position/focus and sustain zero deferred/held input for three seconds"
       ],
-      "nextExecutableStep": "Compose durable normal OS HOME/resume input with the original bounded Qt UI/VR-keyboard history and independent lifecycle counters/quiet proof, then finish second-world/Scripts/Pending/stale/peer/restoration and whole process/resource retirement. The background source is passive and does not establish OS input or whole lifecycle completion.",
+      "nextExecutableStep": "Continue Scripts/pending/stale input interruption, later movement, independent peer/image and complete process restore/retirement around the existing Create/X/Chat and HOME/return owners. Derive generation only from actual prior originals; retain background owners, manifests and orphan children until independently qualified whole cleanup.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     }

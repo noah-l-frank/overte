@@ -373,3 +373,18 @@ original ready source prefix while binding current parent CAS independently.
 Cleanup works after parent advancement or interruption, without another acquire;
 historical source contexts cannot provide live authority. All12 owner cases
 pass5.698s, including the new lost-acquire/advanced/interrupted-parent cases.
+
+
+## Post-release Chat quiet and orphan Lifecycle originals
+
+f55d9c32d5 integrates6455991a62, replacing intermediate Chat background v1 by
+strict v2/reads[2]. A full3s independently advancing original window follows
+actual native timer release, including delayed keyboard/chat counterexamples.
+Recovery holds both exact source locks and does not overwrite unknown persisted
+parent input phases after a lost write response. The old journal is retained.
+Base Lifecycle cleanup now independently refuses orphan background original roots
+and numbered children, including when the owner journal is absent. Both new
+actual Pico teardown cases plus all28 current Chat background/witness cases pass
+(30/30,46.621s). No native source, device or physical publisher process runs in
+this selected host check. Whole Chat/Lifecycle and the total3/14 source-complete
+count remain unchanged.
