@@ -7,6 +7,7 @@ receiver consumption or upload success without their independent source joins.
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
 import hashlib
+import json
 
 from adapters.native_feature_observation import exact,integer,need
 from adapters.normal_feature_state import context
@@ -19,6 +20,13 @@ from snapshot_observation import MAX_BYTES,inspect_snapshot
 
 class SnapshotsOriginals(AssetsOriginals):
     KINDS=frozenset({'snapshots','snapshots-input','snapshots-retirement'})
+
+    def clone_frame(self,body,raw):
+        # The actual immutable file has just passed every inode/hash/header
+        # check, including the existing canonical/schema parse cache. Parse
+        # those exact bytes into a new graph instead of recursively copying
+        # the cached graph in Python. Neither graph can alias a later read.
+        return json.loads(raw)['frame']
 
 
 class SnapshotsImages(CreateImages):

@@ -15,6 +15,10 @@ class AssetsOriginals(CreateOriginals):
     _parsed=OrderedDict()
     _parsed_bytes=0
     _parsed_lock=threading.RLock()
+    def clone_frame(self,body,raw):
+        """Return a caller-owned graph after the original raw file checks."""
+        return deepcopy(body['frame'])
+
     def read(self,value):
         # Cache only JSON parsing of immutable historical bytes. Every call
         # still reads and hashes the entire actual file, checks both original
@@ -37,7 +41,7 @@ class AssetsOriginals(CreateOriginals):
                     _old,(_body,size)=AssetsOriginals._parsed.popitem(last=False);AssetsOriginals._parsed_bytes-=size
                 AssetsOriginals._parsed[key]=(body,len(raw));AssetsOriginals._parsed_bytes+=len(raw)
             else:body=body[0];AssetsOriginals._parsed.move_to_end(key)
-        self.bound(started);return deepcopy(body['frame'])
+        self.bound(started);return self.clone_frame(body,raw)
 
 def sha_binding(value):return hashlib.sha256(canonical(value)).hexdigest()
 
