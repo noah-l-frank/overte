@@ -39,6 +39,7 @@ REQUIRED = {
     "pico-create-browse-setting": 3,
     "chat-compiled-model-samples": 1,
     "chat-compiled-cache-absence": 1,
+    "chat-cleanup-admission": 1,
     "pico-graphics-feature-binding": 1,
     "graphics-journey-feature": 1,
     "graphics-journey-lifetime": 1,
