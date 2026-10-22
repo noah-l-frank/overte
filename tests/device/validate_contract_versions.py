@@ -502,6 +502,8 @@ REQUIRED = {
     "ios-snapshot-owned-files-acquisition": 1,
     "ios-snapshot-file-removed": 1,
     "ios-snapshot-file-remove-receipt": 1,
+    "ios-snapshot-file-absence-sample": 1,
+    "ios-snapshot-file-absence-quiet": 1,
     "ios-snapshot-file-work-packet": 1,
     "ios-snapshot-native-filework-frame": 1,
     "ios-snapshot-native-filework-original": 1,

@@ -508,6 +508,8 @@
     "ios-snapshot-owned-files-acquisition": {"current": 1, "reads": [1]},
     "ios-snapshot-file-removed": {"current": 1, "reads": [1]},
     "ios-snapshot-file-remove-receipt": {"current": 1, "reads": [1]},
+    "ios-snapshot-file-absence-sample": {"current": 1, "reads": [1]},
+    "ios-snapshot-file-absence-quiet": {"current": 1, "reads": [1]},
     "ios-snapshot-file-work-packet": {"current": 1, "reads": [1]},
     "ios-snapshot-native-filework-frame": {"current": 1, "reads": [1]},
     "ios-snapshot-native-filework-original": {"current": 1, "reads": [1]},

@@ -69,7 +69,25 @@ result original is too late for fresh input admission. Historical reconstruction
 reads only original local files; altered admission/result files or journal hashes
 fail closed. No source/file owner is deleted by this component.
 
-Remaining integration includes independently clocked post-unlink empty manifests,
-paired quiet, final file/archive retirement, and the complete capture/export,
-destination/observer/lifecycle flow. The removal proof explicitly retains these
-requirements. This component does not supply complete-feature results.
+`snapshot_file_absence` composes the actual retained empty manifests with original
+`SnapshotFileWorkPacket` and `SnapshotOwnedPacket` observations, complete remove
+owners and independently bracketed native clocks. Each fresh group must fit the
+unchanged 1.5-second acquisition window, including final candidate validation.
+Every known native file must have its original successful, weakly retired unlink;
+every admitted prefix must have been originally empty. Cached read callbacks,
+unknown native reads, reused queries, source replacement and reappearing files
+prevent a positive result. Historical reconstruction reads actual original files
+without SDK access and revalidates each source journal.
+
+The file-only quiet join requires at least three nonoverlapping groups and three
+seconds between the first completed and last started original acquisitions, in
+host UTC/monotonic and both native file channels. Only those groups' own manifest
+reads may be added. This cannot exclude a new capture that writes between file
+observations: script/capture/render/export quiet and independent paired feature
+cleanup remain explicit requirements. Host checks use actual private file IO,
+retained weak functors and historical source files with modeled native/SDK clocks;
+they do not establish physical iOS timing or native compilation.
+
+Remaining integration includes paired script/capture/destination quiet, final
+file/archive retirement, and the complete capture/export, destination/observer/
+lifecycle flow. This component does not supply complete-feature results.
