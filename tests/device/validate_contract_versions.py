@@ -9,6 +9,9 @@ from pathlib import Path
 
 
 REQUIRED = {
+    "pico-browser-stereo-source": 1,
+    "pico-browser-stereo-owner": 1,
+    "stereo-browser-evidence": 1,
     "pico-browser-originals": 2,
     "pico-browser-geometry": 1,
     "pico-browser-app-controls": 1,

@@ -523,6 +523,7 @@ def create_adapter(args, base_class):
             foreign=[facade.world_render_store(target,role=value) for value in ('primary','actor') if value!=role]
             if role is not None:foreign.append(self._world_render_store(target))
             foreign.extend(self._emote_world_render_store(target,value) for value in ('primary','actor'))
+            foreign.extend(self._browser_world_render_store(target,value) for value in ('primary','actor'))
             def world_guard():
                 lock.assert_held();native.guard()
                 _need(all(value.read() is None for value in foreign))
@@ -659,6 +660,7 @@ def create_adapter(args, base_class):
             role=source.role;facade=PicoGraphicsBinding(self)
             foreign=[self._emote_world_render_store(target,'actor' if role=='primary' else 'primary'),self._world_render_store(target)]
             foreign.extend(facade.world_render_store(target,role=value) for value in ('primary','actor'))
+            foreign.extend(self._browser_world_render_store(target,value) for value in ('primary','actor'))
             def world_guard():
                 lock.assert_held();native.guard();_need(source.guard() is not False and all(store.read() is None for store in foreign));return True
             owner=WorldRenderOwner(self._emote_world_render_store(target,role),binding,world_guard,role=role)
@@ -1692,6 +1694,55 @@ def create_adapter(args, base_class):
             return NativePendingCommitOwner(native.send,
                 lambda:self.adb.read_debug_app_file(target,'org.overte.pico','files/overte-e2e/'+PENDING_OWNER_FILE,attempts=1),
                 native.clock_ms,native.guard,native.pid,intent=intent,monotonic=native.monotonic,sleep=native.sleep)
+
+        def _browser_world_render_store(self,target,role):
+            _need(role in ('primary','actor'))
+            state,_ui=self._script_paths(target)
+            return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-','browser-world-render-'+role+'-')))
+
+        def _browser_world_render_capture(self,target,*,role,source_lock):
+            from adapters.pico4.graphics_binding import PicoGraphicsBinding,SerializedWorldCapture
+            from adapters.world_render_receipts import NativeWorldReceiptInventory,NativeWorldReceiptBatchFiles,INVENTORY_FILE
+            _need(role in ('primary','actor'))
+            lock=self._script_journey()._lock(target,source_lock);lock.assert_held()
+            _ui,_observe,binding=self._script_runtime(target);native=self._native_feature_observer(target)
+            _need(native.pid==int(binding['processIdentity'].split(':')[0]))
+            facade=PicoGraphicsBinding(self)
+            foreign=[self._browser_world_render_store(target,'actor' if role=='primary' else 'primary'),self._world_render_store(target)]
+            foreign.extend(facade.world_render_store(target,role=value) for value in ('primary','actor'))
+            foreign.extend(self._emote_world_render_store(target,value) for value in ('primary','actor'))
+            def world_guard():
+                lock.assert_held();native.guard();_need(all(store.read() is None for store in foreign));return True
+            owner=WorldRenderOwner(self._browser_world_render_store(target,role),binding,world_guard,role=role)
+            files=AndroidWorldRenderReceipts(self.adb,target,'org.overte.pico',world_guard)
+            options=dict(monotonic=native.monotonic,sleep=native.sleep)
+            storage=NativeWorldRenderStorage(native.send,files.read,native.clock_ms,world_guard,native.pid,receipt_intent=owner.receipt_intent,**options)
+            inventory=NativeWorldReceiptInventory(native.send,
+                lambda:self.adb.read_debug_app_file(target,'org.overte.pico','files/overte-e2e/'+INVENTORY_FILE,attempts=1),
+                native.clock_ms,world_guard,native.pid,owner.owned,lambda:storage.instance,**options)
+            capture=NativeWorldRenderCapture(native.send,
+                lambda:self.adb.read_debug_app_file(target,'org.overte.pico','files/overte-e2e/'+WORLD_RENDER_FILE,attempts=1),
+                storage,native.clock_ms,world_guard,native.pid,intent=owner.intent,stereo=True,require_cameras=True,**options)
+            return SerializedWorldCapture(capture,storage,owner,NativeWorldReceiptBatchFiles(files,inventory),source_lock=lock)
+
+        @_private
+        def _browser_stereo(self,target,path,artifact_root,run,scene_url,*,role,source_lock,journal_id,
+                fixture_url,foreign_fixture_url,owner_token,script_url,http):
+            from adapters.pico4.browser_stereo import PicoBrowserStereo
+            from adapters.navigation_arrival import NavigationArrival
+            lock=self._script_journey()._lock(target,source_lock);lock.assert_held()
+            _ui,observe,binding=self._script_runtime(target);native=self._native_feature_observer(target)
+            _need(native.pid==int(binding['processIdentity'].split(':')[0]))
+            def probe(after):
+                native.guard();value=self.read_probe_snapshot(target,'org.overte.pico',after);native.guard();return value
+            arrival=NavigationArrival(probe,self._graphics_subject_observer(target),native.clock_ms,native.guard,
+                run,binding,scene_url,monotonic=native.monotonic)
+            return PicoBrowserStereo(arrival,lambda:self._browser_world_render_capture(target,role=role,source_lock=lock),
+                path,artifact_root,run,binding,lock,native.guard,fixture_url=fixture_url,foreign_fixture_url=foreign_fixture_url,
+                owner_token=owner_token,script_url=script_url,browser_factory=lambda:self._browser_originals(target,source_lock=lock),
+                runtime_factory=lambda:self._web_runtime_observer(target),scripts=observe,http=http,role=role,journal_id=journal_id,
+                ui_factory=lambda:self._graphics_ui_observer(target),native_factory=lambda:self._native_feature_observer(target),
+                monotonic=native.monotonic)
 
         @_private
         def _browser_app_controls(self,target,*,source_lock,read_only=True):

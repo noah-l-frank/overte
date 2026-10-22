@@ -256,6 +256,7 @@ class PicoBrowserIO:
         self.lock,self.read_only=source_lock,read_only
         self.send,self.original,self.clock_ms,self.guard,self.pid=send,original,clock_ms,guard,pid
         self.monotonic,self.sleep,self.last=monotonic,sleep,None
+        self.before_send=None
 
     def request(self,run,url,owner,operation,*,reference_surface=None,**fields):
         request=command(dict(schemaVersion=1,commandId=uuid.uuid4().hex,action=self.action if reference_surface is None else 'pico-web-reference',runId=run,
@@ -263,6 +264,8 @@ class PicoBrowserIO:
         try:
             self.lock.assert_held();need(not self.read_only or operation in ('observe','measure'))
             start=previous=self.monotonic();requested=self.clock_ms();need(number(start,0,1e15) and integer(requested,1) and self.guard() is not False)
+            if operation not in ('observe','measure') and self.before_send is not None:
+                need(callable(self.before_send));self.before_send(deepcopy(request))
             self.send(request)
             for attempt in range(51):
                 need(self.guard() is not False);raw=self.original()

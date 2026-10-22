@@ -75,6 +75,19 @@ class Boundary:
 
 
 class NormalScriptManagerTests(unittest.TestCase):
+    def test_feature_browser_urls_use_the_existing_normal_manager_without_adopting_other_sources(self):
+        root='http://fixture.test/feature-fixture/v1/runs/'+'a'*32+'/tickets/'+'b'*32+'/'
+        for kind in ('feature-world-web','feature-tablet-web'):
+            with self.subTest(kind=kind),tempfile.TemporaryDirectory() as directory:
+                native=Boundary(directory)
+                flow=NormalScriptManager(native,native.observe,native.store,BINDING,source_kind=kind,
+                    monotonic=lambda:native.clock,sleep=native.sleep)
+                flow.open();flow.load_source(root+'client.js');flow.stop_source(root+'client.js');flow.close()
+                self.assertEqual([],native.rows);self.assertIsNone(native.store.read())
+                for url in (root+'observer.js',root+'../client.js',root+'client.js?other=1',root+'client.js#fragment',SOURCE):
+                    with self.subTest(url=url),self.assertRaises((ValueError,RuntimeError)):flow.validate_url(url)
+                with self.assertRaises((ValueError,RuntimeError)):native.flow().validate_url(root+'client.js')
+
     def test_explicit_ui_component_scope_never_invents_or_adopts_candidate_binding(self):
         with tempfile.TemporaryDirectory() as directory:
             os.chmod(directory, 0o700)

@@ -1457,3 +1457,22 @@ deferred cache release16.389s, Snapshot file originals9.993s, fast cancellation
 12.159s and native originals6.124s, plus coverage. The catalog has117 owning
 groups; completed source/host feature areas remain3/14. Devices and the full
 application are untested.
+
+
+## Browser stereo originals and common independent evidence
+
+Browser source/owner1 and stereo-browser-evidence1 are integrated. Each actual
+role uses its own original capture and private PNG/journal; shown-tablet, actual
+document/DOM, renderer, service and HTTP sources bracket accepted two-eye
+OpenXR pixels. The existing common journey verifier checks both eye challenges
+and rejects reused frames/queries. Graphics/Emote/Browser capture owners exclude
+one another. The unchanged original memory/file retirement implementation is
+shared with Navigation, whose closed-tablet and known-location guards remain.
+
+The selected coverage, normal transport and browser owning groups pass3/117
+in35.48s (transport2.903s, browser32.517s). The37 targeted source/owner/reducer/
+common-manager cases pass19.344s; the earlier34-case combined Navigation/browser
+run had one new test calling the wrong engine method, corrected and verified
+in the owning group. Navigation itself remained green. Full browser normal
+coordination, phase input ownership, actor loop and final quiet retirement remain
+open. Completed source/host feature areas remain3/14; devices are untested.

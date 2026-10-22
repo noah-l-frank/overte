@@ -46,7 +46,7 @@ class Journey:
         self.evidence_cache = {}
         self.stereo_evidence_seen,self.stereo_frames_seen,self.stereo_contexts={},{},{}
         self.stereo_cursors,self.stereo_queries_seen={},{}
-        self.stereo_graphics=False;self.stereo_navigation=False
+        self.stereo_graphics=False;self.stereo_navigation=False;self.stereo_browser=False
         self.navigation_stereo_cursors={};self.navigation_stereo_queries={};self.navigation_stereo_frames={};self.navigation_render_ids={}
         if area=='graphics' and type(self.policy) is dict and type(self.policy.get('screen')) is dict and 'profile' in self.policy['screen']:
             from .stereo_graphics_evidence import policy as stereo_policy
@@ -54,6 +54,9 @@ class Journey:
         if area=='world-navigation' and type(self.policy) is dict and type(self.policy.get('screen')) is dict and 'profile' in self.policy['screen']:
             from .stereo_navigation_evidence import policy as navigation_policy
             navigation_policy(self.policy['screen']);self.stereo_navigation=True
+        if area=='tablet-web' and type(self.policy) is dict and type(self.policy.get('screen')) is dict and 'profile' in self.policy['screen']:
+            from .stereo_browser_evidence import policy as browser_policy
+            browser_policy(self.policy['screen']);self.stereo_browser=True
         self.lifecycle = None
         self.required_lifecycle = None
         self.sit_variants = set()
@@ -186,14 +189,14 @@ class Journey:
             source_ticket = (self.recorded_ticket if self.area == 'audio' and (kind == 'file' or value['state']['phase'] == 'completed' and requested == 'audio')
                              else self.capture_ticket if self.area == 'snapshots' and kind == 'file' else ticket)
             metadata=None;metadata_digest=None
-            if kind=='image' and (self.stereo_graphics or self.stereo_navigation):
+            if kind=='image' and (self.stereo_graphics or self.stereo_navigation or self.stereo_browser):
                 original=by_kind.get('file')
                 if original is None or original['ticket']!=ticket:
                     raise AssertionError('Original stereo metadata artifact is missing or foreign')
                 metadata=self.read_artifact(original['name'])
                 from .stereo_graphics_evidence import LIMIT as GRAPHICS_LIMIT
                 from .stereo_navigation_evidence import LIMIT as NAVIGATION_LIMIT
-                LIMIT=NAVIGATION_LIMIT if self.stereo_navigation else GRAPHICS_LIMIT
+                LIMIT=NAVIGATION_LIMIT if self.stereo_navigation or self.stereo_browser else GRAPHICS_LIMIT
                 if type(metadata) is not bytes or not 0<len(metadata)<=LIMIT:
                     raise ValueError('Invalid bounded original stereo metadata bytes')
                 metadata_digest=hashlib.sha256(metadata).hexdigest()
@@ -203,7 +206,13 @@ class Journey:
             if key in self.evidence_cache:
                 observed, cached_subject = self.evidence_cache[key]
             elif kind == 'image':
-                if self.stereo_navigation:
+                if self.stereo_browser:
+                    from .stereo_browser_evidence import observation as browser_observation
+                    observed,cached_subject=browser_observation(content,metadata,self.run,ticket,self.url,self.policy['screen'],value,
+                        previous=self.previous_subject,changed=requested=='changed',monotonic=self.monotonic)
+                    if len(self.evidence_cache)>=256:raise ValueError('Original browser image cache is exhausted')
+                    self.remember_navigation_stereo(cached_subject,(value['sequence'],digest,metadata_digest),browser=True)
+                elif self.stereo_navigation:
                     from .stereo_navigation_evidence import observation as navigation_observation
                     observed,cached_subject=navigation_observation(content,metadata,self.run,ticket,self.url,self.policy['screen'],value,
                         previous=self.previous_subject,changed=requested=='changed',monotonic=self.monotonic)
@@ -266,15 +275,23 @@ class Journey:
             observations.append(dict(kind=requested, artifact=item['name'], acquisition=item.copy(), observed=observed))
         return observations, subject
 
-    def remember_navigation_stereo(self,subject,pin):
-        from .stereo_navigation_evidence import advance
+    def remember_navigation_stereo(self,subject,pin,*,browser=False):
+        if browser:
+            from .stereo_browser_evidence import advance
+        else:
+            from .stereo_navigation_evidence import advance
         binding=hashlib.sha256(json.dumps(subject['binding'],sort_keys=True).encode()).hexdigest()
         scope=(binding,subject['role'],subject['stage']);previous=self.navigation_stereo_cursors.get(scope)
         frame=(subject['captureInstance'],subject['frameIndex'],subject['executionSequence'])
         render_id=(subject['captureInstance'],subject['frameId'])
-        queries=[('native' if kind.startswith(('native','subject')) else 'ui' if kind.startswith('ui') else 'capture',
-                  subject['nativeInstance'] if kind.startswith(('native','subject')) else subject['uiInstance'] if kind.startswith('ui') else subject['captureInstance'],nonce)
-                 for kind,nonce in subject['requests'].items()]
+        queries=[]
+        for kind,nonce in subject['requests'].items():
+            family='native' if kind.startswith(('native','subject')) else 'ui' if kind.startswith('ui') else 'capture'
+            instance=subject['nativeInstance'] if family=='native' else subject['uiInstance'] if family=='ui' else subject['captureInstance']
+            if browser:
+                if kind.startswith('browser'):family,instance='browser',subject['browserInstance']
+                elif kind.startswith('runtime'):family,instance='runtime',subject['runtimeInstance']
+            queries.append((family,instance,nonce))
         if (render_id in self.navigation_render_ids and self.navigation_render_ids[render_id]!=pin
                 or frame in self.navigation_stereo_frames and self.navigation_stereo_frames[frame]!=pin
                 or any(query in self.navigation_stereo_queries and self.navigation_stereo_queries[query]!=pin for query in queries)):

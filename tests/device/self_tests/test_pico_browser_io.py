@@ -61,6 +61,15 @@ class PicoBrowserIOTests(unittest.TestCase):
                     times=iter((20000,20000,20100,20050));reader.clock_ms=lambda:next(times)
                 with lock.held(),self.assertRaises(NativeUIError):reader.request(RUN,URL,OWNER,'reserve')
                 self.assertIsNone(reader.last);self.assertEqual(1,len(boundary.calls))
+    def test_final_whole_owner_admission_precedes_actual_native_publication(self):
+        lock=self.lock();boundary=Boundary();reader=boundary.reader(lock);seen=[]
+        def final(command):
+            seen.append(deepcopy(command));command['action']='foreign'
+            raise NativeUIError('Original fixture admission expired')
+        reader.before_send=final
+        with lock.held(),self.assertRaises(NativeUIError):reader.request(RUN,URL,OWNER,'reserve')
+        self.assertEqual(1,len(seen));self.assertEqual([],boundary.calls);self.assertIsNone(reader.last)
+
     def test_closed_pico_protocol_never_accepts_phone_actions_host_coordinates_or_desired_outcomes(self):
         call=dict(schemaVersion=1,commandId='d'*32,action='pico-tablet-web',runId=RUN,fixtureUrl=URL,operation='reserve',ownerToken=OWNER)
         command(call)

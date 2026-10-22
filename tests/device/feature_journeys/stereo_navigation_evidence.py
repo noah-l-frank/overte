@@ -97,6 +97,11 @@ def clocks(frame):
 def source_identity(frame):
     """Original source clocks/cursors only; no pixel policy or feature verdict."""
     need(frame['navigationStereoSourceVersion']==2)
+    return stereo_source_identity(frame)
+
+
+def stereo_source_identity(frame):
+    """Shared original pose/capture/UI cursor projection; callers validate profile."""
     source=frame['capture']['source'];capture=frame['capture'];before,after=frame['before'],frame['after']
     cameras=source['renderTrace']['cameraBatches'];start,end=clocks(frame)
     return dict(captureInstance=capture['instance'],nativeInstance=before['subject']['instance'],

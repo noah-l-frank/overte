@@ -141,3 +141,43 @@ whole feature are still under construction.
 The passive app source now takes only the original normal UI runtime, without
 creating or adopting the default script-manager journal. The59-case browser
 selection passes in15.131s, including this actual private-factory counterexample.
+
+
+## Original visible-tablet stereo acquisition
+
+`pico-browser-stereo-source`1 and `pico-browser-stereo-owner`1 bracket each
+original accepted two-eye OpenXR capture with actual avatar/head, native
+lifecycle, shown VR tablet/composition, document/DOM, complete native/Java/
+renderer, service-script and HTTP originals. The actual source/document URL
+hashes must join the same handle/creation/grant/page. The document effect,
+original root and lifecycle cannot change during exposure. All relevant source
+clocks must fit the unchanged1.5-second window. A raised original VR keyboard
+is retained as a fact; the independent pixels must qualify any obstruction.
+
+Each role has its own capture namespace and exclusive original PNG/journal.
+Graphics, Emote and Browser reject one another's live capture owners. The
+shared original memory/file retirement implementation is reused without
+resending uncertain mutations. Navigation retains its separate closed-tablet
+and known-location admission. The complete original PNG and durable file
+identity survive final native memory and file absence; late/unknown results
+retain ownership. No screenshot is synthesized or converted from Phone mono.
+
+`stereo-browser-evidence`1 (`pico-stereo-tablet-web-v1`) extends the existing
+journey image verifier. It independently decodes the run/ticket challenge and
+subject from trusted disjoint regions inside each actual eye viewport. Sample
+effects, lifecycle, original metadata and complete retirement must agree.
+Original render frames, source instances, cursors and query nonces cannot be
+reused under a newer sample. Original actor captures remain a distinct role.
+
+The shared normal Script manager URL grammar is reused exactly from fixed
+Phone5527d540e99cc6dba4204a5e904a854e6e1cd2b4. It accepts only the closed
+feature script source kinds and canonical run/ticket client URLs. The pure
+HTTP/DOM measurement reducer is also reused from that commit, adapted to
+require Pico's complete renderer inventory and exact native/Java URL hashes.
+This does not reuse the Phone input actuator or screenshot implementation.
+
+The normal script/app/Home coordinator, full independent actor loop, complete
+phase/input fence and whole browser finalization are still being composed.
+These private capture factories and the common verifier do not advertise a
+complete Web feature. Host tests use explicit Qt/DOM/Java/HMD/GPU/SDK seams;
+the full application, Android build and physical headset remain unqualified.
