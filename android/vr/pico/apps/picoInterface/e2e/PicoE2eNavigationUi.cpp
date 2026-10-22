@@ -18,6 +18,7 @@
 #include "../../../../../../tests/device/native/ScriptFileUi.h"
 #include "../../../../../../tests/device/native/NormalLifecycleControls.h"
 #include "../../../../../../tests/device/native/AudioPageObservation.h"
+#include "../../../../../../tests/device/native/SnapshotReviewObservation.h"
 #include <PathUtils.h>
 #include "../../../../../../tests/device/native/NormalAccountMenuControls.h"
 #include "../../../../../../tests/device/native/NormalPlacesControls.h"
@@ -346,6 +347,8 @@ QJsonObject NavigationUi::observe(QQuickItem* root, QQuickWindow* window, bool o
         { "open", open }, { "ready", ready }, { "controls", observed } };
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     if (!audioPages.isEmpty()) { result["picoAudioPageVersion"]=1;result["picoAudioPages"]=audioPages; }
+    const auto snapshotReview=overte::e2e::picoSnapshotReviewObservation(root,window);
+    if (!snapshotReview.isEmpty()) {result["picoSnapshotReview"]=snapshotReview;}
     result["featureControlsVersion"] = 1;
     result["createControlsVersion"] = 1;
     result["lifecycleControlsVersion"] = 1;
