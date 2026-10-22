@@ -74,9 +74,9 @@ class BackgroundTests(unittest.TestCase):
         self.native.pending=Pending()
         self.roles=(self.samples('primary',self.h.store),self.samples('actor',PrivateFeatureState(self.h.root/'actor.json')))
         self.owner=self.create()
-    def samples(self,role,store):
+    def samples(self,role,store,*,kind=ChatSamples):
         peer=self.h.peer.reader();peer.pid=456
-        result=ChatSamples(RUN,role,self.binding,self.peer_binding,self.h.primary.reader(),peer,self.h.view.reader(vr=True),self.h.native.reader(),store,
+        result=kind(RUN,role,self.binding,self.peer_binding,self.h.primary.reader(),peer,self.h.view.reader(vr=True),self.h.native.reader(),store,
             self.h.primary_lock,self.h.peer_lock,vr=True,monotonic=lambda:self.native.host)
         for reader in (result.primary,result.peer,result.view,result.lifecycle):
             reader.clock_ms=lambda:self.native.epoch

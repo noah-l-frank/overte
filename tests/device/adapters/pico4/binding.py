@@ -1386,24 +1386,28 @@ def create_adapter(args, base_class):
             return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-','chat-witness-publisher-')))
 
         @_private
-        def _chat_flow_inputs(self,target,source,primary,actor):
+        def _chat_flow_inputs(self,target,source,primary,actor,initial_primary,initial_actor):
             from adapters.chat_journey.flow_inputs import ChatFlowInputs
             from adapters.feature_fixture_access import AdapterFixtureClient
             manager=self._scripts(target);native=self._native_feature_observer(target);native.guard()
             _need(isinstance(source.client,AdapterFixtureClient) and primary.binding==actor.binding==manager.binding
                 and primary.store.path==self._chat_samples_store(target,'primary').path
-                and actor.store.path==self._chat_samples_store(target,'actor').path)
+                and actor.store.path==self._chat_samples_store(target,'actor').path
+                and initial_primary.store.path==self._chat_cache_absence_store(target,'primary',stage='initial').path
+                and initial_actor.store.path==self._chat_cache_absence_store(target,'actor',stage='initial').path)
             return ChatFlowInputs(source,(primary,actor),self._chat_flow_inputs_store(target),
-                self._chat_samples_store(target,'actor',witness=True),monotonic=native.monotonic)
+                self._chat_samples_store(target,'actor',witness=True),initial_roles=(initial_primary,initial_actor),
+                initial_witness_store=self._chat_cache_absence_store(target,'actor',stage='initial',witness=True),monotonic=native.monotonic)
 
         @_private
-        def _chat_witness(self,target,source,samples):
+        def _chat_witness(self,target,source,samples,initial_samples):
             from adapters.chat_journey.witness import ChatWitness
             from adapters.feature_fixture_access import AdapterFixtureClient
             manager=self._scripts(target);native=self._native_feature_observer(target);native.guard()
             _need(not isinstance(source.client,AdapterFixtureClient) and samples.binding==manager.binding
-                and samples.store.path==self._chat_samples_store(target,'actor',witness=True).path)
-            return ChatWitness(source,samples,self._chat_flow_inputs_store(target),self._chat_witness_store(target),monotonic=native.monotonic)
+                and samples.store.path==self._chat_samples_store(target,'actor',witness=True).path
+                and initial_samples.store.path==self._chat_cache_absence_store(target,'actor',stage='initial',witness=True).path)
+            return ChatWitness(source,samples,self._chat_flow_inputs_store(target),self._chat_witness_store(target),initial_samples=initial_samples,monotonic=native.monotonic)
 
         def _chat_normal_input_store(self,target):
             state,_ui=self._script_paths(target)
@@ -1610,21 +1614,45 @@ def create_adapter(args, base_class):
                     store,source_lock,peer_lock,vr=True,monotonic=native.monotonic)
 
         @_private
-        def _chat_samples(self,target,run,peer,peer_binding,*,role,source_lock,peer_lock,erased=False,witness=False):
+        def _chat_samples(self,target,run,peer,peer_binding,*,role,source_lock,peer_lock,erased=False,witness=False,pending_capture=False):
             from adapters.chat_journey.samples import ChatSamples
             from adapters.script_journey.lock import ScriptSourceLock
             store=self._chat_samples_store(target,role,erased=erased,witness=witness)
-            _need(isinstance(source_lock,ScriptSourceLock) and source_lock.path==store.path.with_name('script-sources.lock'))
+            _need(type(pending_capture) is bool and isinstance(source_lock,ScriptSourceLock) and source_lock.path==store.path.with_name('script-sources.lock'))
             with source_lock.held():
                 manager=self._scripts(target);native=self._native_feature_observer(target)
                 capture=self._chat_capture(target,run);owned=capture.owner.owned()
-                _need(owned is not None and owned['runId']==run and owned['active'] and owned['binding']==manager.binding)
+                _need(owned is not None and owned['runId']==run and (owned['active'] or pending_capture and owned['admitted']) and owned['binding']==manager.binding)
                 # The peer is independently bound by its actual original
                 # actor transport/process owner. This factory cannot launch,
                 # infer or substitute that peer with the heartbeat fixture.
                 native.guard();_need(peer.guard() is not False)
+                original_guard=capture.reader.guard
+                def cache_guard():
+                    # owned() already calls this exact original guard before
+                    # reading the private owner. Do not hash the APK twice.
+                    _need(capture.owner.guard is original_guard)
+                    current=capture.owner.owned()
+                    _need(current is not None and current['active'] and current['runId']==run
+                        and all(current[key]==owned[key] for key in ('binding','sourceInstance','selfSha256','admitted')))
+                    if capture.reader.instance is not None:
+                        _need(capture.reader.instance==owned['sourceInstance']
+                            and capture.reader.source['selfSha256']==owned['selfSha256'])
+                    return True
+                capture.reader.guard=cache_guard
                 return ChatSamples(run,role,manager.binding,peer_binding,capture.reader,peer,self._chat_view(target),native,
                     store,source_lock,peer_lock,vr=True,monotonic=native.monotonic)
+
+        @_private
+        def _chat_admit_capture(self,target,run,*,source_lock):
+            from adapters.script_journey.lock import ScriptSourceLock
+            _need(isinstance(source_lock,ScriptSourceLock) and source_lock.path==self._chat_samples_store(target,'primary').path.with_name('script-sources.lock'))
+            with source_lock.held():
+                capture=self._chat_capture(target,run);capture.owner.begin(run)
+                original=capture.reader.perform(run,'inspect')
+                _need(original['chatVersion']==2 and not original['source']['scopePresent'] and not original['source']['retired'])
+                capture.owner.admit(original)
+                return capture
 
         @_private
         def _chat_capture(self,target,run):

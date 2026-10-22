@@ -633,6 +633,54 @@ class PicoNormalScriptsTests(unittest.TestCase):
         with self.assertRaises(ValueError):self.instance._chat_normal_input(self.native.target,primary,actor)
         self.assertEqual([],self.native.inputs);self.assertIsNone(owner.store.read())
 
+    def test_pico_chat_pending_active_reader_requires_original_passive_admission_and_never_opens_cache(self):
+        from self_tests.test_chat_domain_session import session
+        source,_capture=self.chat_capture();original=source.mutate
+        def actual(value):original(value);session(value)
+        source.mutate=actual;self.chat_view()
+        state=self.instance._chat_samples_store(self.native.target,'primary');lock=ScriptSourceLock(state.path.with_name('script-sources.lock'))
+        peer_root=self.fixture.state_root/'pending-peer';peer_root.mkdir(mode=0o700);peer_lock=ScriptSourceLock(peer_root/'script-sources.lock')
+        peer=ChatBoundary();peer.mutate=lambda value:value.update(processId=456,instance='e'*32)
+        binding=self.instance._scripts(self.native.target).binding|dict(processIdentity='456',targetFingerprint='d'*64)
+        def create(pending=False):
+            reader=peer.reader();reader.pid=456
+            return self.instance._chat_samples(self.native.target,CHAT_RUN,reader,binding,role='primary',source_lock=lock,peer_lock=peer_lock,pending_capture=pending)
+        with self.assertRaises(ValueError):create(True)
+        admitted=self.instance._chat_admit_capture(self.native.target,CHAT_RUN,source_lock=lock)
+        self.assertTrue(admitted.owner.owned()['admitted']);self.assertFalse(admitted.owner.owned()['active'])
+        self.assertFalse(source.present);self.assertEqual(['inspect'],[row['operation'] for row in source.commands])
+        pending=create(True);self.assertEqual([],pending.frames);self.assertIsNone(pending.store.read())
+        self.assertFalse(source.present);self.assertEqual(['inspect'],[row['operation'] for row in source.commands])
+        with self.assertRaises(ValueError):create()
+        self.assertEqual([],self.native.inputs);self.assertEqual([],peer.commands)
+        self.native.digest='f'*64
+        with self.assertRaises(ValueError):create(True)
+
+    def test_pico_chat_pending_reader_cannot_query_before_actual_original_owner_activation(self):
+        from self_tests.test_chat_domain_session import session
+        from adapters.normal_ui import NativeUIError
+        source,_capture=self.chat_capture();original=source.mutate
+        def actual(value):original(value);session(value)
+        source.mutate=actual;self.chat_view()
+        state=self.instance._chat_samples_store(self.native.target,'primary');lock=ScriptSourceLock(state.path.with_name('script-sources.lock'))
+        root=self.fixture.state_root/'pending-peer-reader';root.mkdir(mode=0o700);peer_lock=ScriptSourceLock(root/'script-sources.lock')
+        self.instance._chat_admit_capture(self.native.target,CHAT_RUN,source_lock=lock)
+        peer=ChatBoundary();reader=peer.reader();reader.pid=456
+        binding=self.instance._scripts(self.native.target).binding|dict(processIdentity='456',targetFingerprint='d'*64)
+        pending=self.instance._chat_samples(self.native.target,CHAT_RUN,reader,binding,role='primary',source_lock=lock,peer_lock=peer_lock,pending_capture=True)
+        before=len(source.commands)
+        with self.assertRaises(NativeUIError):pending.read('b'*32,1)
+        self.assertEqual(before,len(source.commands));self.assertEqual([],peer.commands);self.assertIsNone(pending.store.read())
+
+    def test_pico_chat_source_cannot_borrow_a_replacement_cache_birth_at_the_same_pid(self):
+        from adapters.normal_ui import NativeUIError
+        source,peer,create=self.chat_samples();samples=create();original=source.mutate
+        def replacement(value):original(value);value['instance']='9'*32
+        source.mutate=replacement
+        with self.assertRaises(NativeUIError):samples.read('b'*32,1)
+        self.assertEqual([],peer.commands);self.assertEqual('reading',samples.store.read()['phase'])
+        self.assertEqual([],self.native.inputs);self.assertIsNotNone(self.instance._chat_capture_store(self.native.target).read())
+
     def test_pico_chat_cache_absence_factory_never_begins_or_retires_a_native_capture(self):
         from adapters.chat_journey.samples import ChatCacheAbsence,ChatSamples
         source,_capture=self.chat_capture();self.chat_view();peer=ChatBoundary()
@@ -675,21 +723,27 @@ class PicoNormalScriptsTests(unittest.TestCase):
             return self.instance._chat_samples(self.native.target,CHAT_RUN,reader,primary.peer_binding,
                 role='actor',source_lock=primary.locks[0],peer_lock=primary.locks[1],witness=witness)
         actor=role();witness=role(True)
+        def initial(name,witness=False):
+            reader=peer.reader();reader.pid=456
+            return self.instance._chat_cache_absence(self.native.target,CHAT_RUN,reader,primary.peer_binding,role=name,stage='initial',
+                source_lock=primary.locks[0],peer_lock=primary.locks[1],witness=witness)
+        initial_primary,initial_actor,initial_witness=initial('primary'),initial('actor'),initial('actor',True)
         self.assertEqual(3,len({row.store.path for row in (primary,actor,witness)}))
         self.assertIs(primary.locks[0],witness.locks[0]);self.assertIs(primary.locks[1],witness.locks[1])
         self.assertEqual('actor',witness.role);self.assertEqual([],peer.commands)
         parent=PhaseFixtureReader(AdapterFixtureClient('http://controlled.test/feature-fixture/v1','r'*64),CHAT_RUN,'chat')
         observer=PhaseFixtureReader(Client('http://controlled.test/feature-fixture/v1','p'*64),CHAT_RUN,'chat')
-        owner=self.instance._chat_flow_inputs(self.native.target,parent,primary,actor)
-        publisher=self.instance._chat_witness(self.native.target,observer,witness)
+        owner=self.instance._chat_flow_inputs(self.native.target,parent,primary,actor,initial_primary,initial_actor)
+        publisher=self.instance._chat_witness(self.native.target,observer,witness,initial_witness)
         self.assertIsInstance(owner,ChatFlowInputs);self.assertIsInstance(publisher,ChatWitness)
         self.assertEqual(owner.scope['transcripts'][2],witness.store.path.name)
-        with self.assertRaises(ValueError):self.instance._chat_flow_inputs(self.native.target,observer,primary,actor)
-        with self.assertRaises(ValueError):self.instance._chat_witness(self.native.target,parent,witness)
-        with self.assertRaises(ValueError):self.instance._chat_witness(self.native.target,observer,actor)
+        self.assertEqual(owner.scope['baselineTranscripts'][2],initial_witness.store.path.name)
+        with self.assertRaises(ValueError):self.instance._chat_flow_inputs(self.native.target,observer,primary,actor,initial_primary,initial_actor)
+        with self.assertRaises(ValueError):self.instance._chat_witness(self.native.target,parent,witness,initial_witness)
+        with self.assertRaises(ValueError):self.instance._chat_witness(self.native.target,observer,actor,initial_witness)
         self.assertEqual([],peer.commands);self.assertEqual([],self.native.inputs)
         self.native.digest='f'*64
-        with self.assertRaises(ValueError):self.instance._chat_witness(self.native.target,observer,witness)
+        with self.assertRaises(ValueError):self.instance._chat_witness(self.native.target,observer,witness,initial_witness)
 
     def test_pico_chat_process_teardown_preserves_third_witness_source_and_publication_intents(self):
         stores=[self.instance._chat_samples_store(self.native.target,'actor',witness=True),
