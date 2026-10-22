@@ -101,7 +101,7 @@ class PicoCiGraphContracts(unittest.TestCase):
                   and isinstance(node.value, ast.Constant)}
         self.assertEqual(values["qt_ref"], GRAPH.QT)
         self.assertEqual(values["openexr_ref"], "openexr/3.2.12")
-        profile = configparser.ConfigParser(interpolation=None, delimiters=("=",), strict=True)
+        profile = configparser.ConfigParser(interpolation=None, delimiters=("=",), strict=True, allow_no_value=True)
         profile.optionxform = str
         profile.read_string("\n".join(line for line in (common / "android-arm64-ci").read_text().splitlines()
                                       if not line.startswith("{%")))
@@ -112,6 +112,8 @@ class PicoCiGraphContracts(unittest.TestCase):
         for option in ("qtwebengine", "with_mysql", "with_odbc", "with_openal", "with_pq"):
             self.assertEqual(profile["options"]["qt/*:" + option], "False")
         self.assertEqual(profile["options"]["qt/*:opengl"], "es2")
+        self.assertEqual(dict(profile["tool_requires"]),
+                         {"opus/*:cmake/3.31.12": None, "abseil/*:cmake/3.31.12": None})
 
     def test_wrong_target_abi_api_compiler_and_legacy_buildtype_rejected(self):
         for key, field, value in (("1", "os.api_level", "25"), ("1", "arch", "x86_64"),
