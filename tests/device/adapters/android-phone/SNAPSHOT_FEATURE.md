@@ -941,7 +941,7 @@ removed and reports unresolved ownership after attempting base teardown.
 
 The historical compiler, Java/JNI, Qt, file, transport, reducer, actor and
 recovery results above remain scoped host evidence. The current focused facade
-suite has seventeen passing cases, including actual private filesystem/journal
+suite has twenty-one passing cases, including actual private filesystem/journal
 recovery and an actual separate actor process. Full public common SDK29+ and
 SDK26–28 replay qualification is still pending; this document does not promote
 Snapshot to the thirteen qualified Phone compositions. No hardware run,
@@ -963,3 +963,20 @@ general probe, voice and iOS/Pico output paths keep their original behavior.
 The production allowlist remains literal names rather than a prefix grant. Only
 the unrelated GPU receipt service is an unavailable host seam; the complete
 scripting translation unit and Android client remain uncompiled by this check.
+
+Historical replay performs fresh target-continuity checks before and after the
+whole immutable host replay. Each intervening original/PNG/binary still checks
+the exact locked feature/role header, binding, inode, owner, mode, link count,
+actual bytes/hash and its file deadline. This host-only authority is never used
+for current source acquisition, body transfer, input delivery or archive writes.
+There is no history pruning, timestamp refresh or new expected-state source.
+An actual target change at the final guard, changed old bytes/inode, or a target
+change during a current native acquisition remains red.
+
+With six real immutable role frames and six binary PNG originals, reconstruction
+used 26 target guards before this change and two afterwards. With 41 immutable
+input originals, baseline replay used 84 and then two. An explicitly synthetic
+one-millisecond guard transport measured 44.205→18.768 ms and
+127.145→23.582 ms respectively on the real host filesystem. These counts and
+timings describe that host seam only. They do not establish device RPC cost,
+real OS latency or complete common/actor qualification.

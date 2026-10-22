@@ -192,10 +192,16 @@ class PhoneSnapshotsFeature(PhoneCreateFeature):
         need(planned['request']['controlId'].startswith('snapshot.'+('share' if handoff['kind']=='share' else 'save')+'.'))
 
     def original(self):
-        frames=self.inputs.restore(self.state['inputs'],self.state['inputSequence']);need(frames and 'snapshotsBaseline' in frames[0])
+        # These are immutable host originals, not current target measurements.
+        # Recheck target continuity around the complete replay; each old file
+        # still checks this exact locked owner, inode, bytes/hash and deadline.
+        self.bound()
+        host=SnapshotsOriginals(self.root,self.binding,self.run,'primary',self.header_authority,lambda *_:need(False),kind='snapshots-input')
+        frames=host.restore(self.state['inputs'],self.state['inputSequence']);need(frames and 'snapshotsBaseline' in frames[0])
         baseline=deepcopy(frames[0]['snapshotsBaseline'])
         if self.state['settingsIndex'] is not None:baseline['settings']=deepcopy(frames[self.state['settingsIndex']-1]['snapshotsSettingsCaptured'])
         if self.state['filesIndex'] is not None:baseline['filesBinding']=deepcopy(frames[self.state['filesIndex']-1]['snapshotsFilesPlanned'])
+        self.bound()
         return baseline
 
     def archive_input(self,frame):

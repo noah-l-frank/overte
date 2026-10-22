@@ -69,8 +69,7 @@ class PhoneSnapshotsRole(PhoneCreateRole):
             rows=unpack(self.previous['payload']);need(len(rows)==1);self.state=rows[0]
             exact(self.state,{'phase','sequence','manifests','pending'})
             need(self.state['phase'] in ('ready','reading','retired') and integer(self.state['sequence'],0,256))
-        self.frames=self.originals.restore(self.state['manifests'],self.state['sequence'])
-        self.validate_files()
+        self.frames=self.restore_originals()
         self.system=feature.state['handoff'] is not None
         self.measurements=self.native=self.avatar=self.world=self.touch=self.marker=None
         self.handoff=None;self.files=None;self.readbacks=self.upload=None
@@ -502,19 +501,37 @@ class PhoneSnapshotsRole(PhoneCreateRole):
         lifecycle=native_after['lifecycle'] if native_after is not None else batch['context']['lifecycle']
         return result('feature.snapshots.observe',dict(schemaVersion=1,contractVersion=VERSION,runId=f.run,sequence=self.state['sequence'],capturedEpochMs=captured_epoch,state=measured,artifacts=artifacts,resources=sorted(resources),lifecycle=lifecycle))
 
-    def validate_files(self):
+    def history_authority(self):
+        """Only historical host IO; never a target/input/transfer guard."""
+        self.feature.lock.assert_held();self.feature.header_authority()
+        need(same(self.store.read(),self.previous));return True
+
+    def restore_originals(self):
+        self.bound()
+        f=self.feature
+        host=SnapshotsOriginals(f.root,f.binding,f.run,self.role,self.history_authority,lambda *_:need(False),kind='snapshots')
+        frames=host.restore(self.state['manifests'],self.state['sequence'])
+        self.validate_files(frames=frames,historical=True)
+        self.bound();return frames
+
+    def validate_files(self,*,frames=None,historical=False):
         """A retained JSON receipt cannot hide a missing or replaced original."""
-        for index,frame in enumerate(self.frames,1):
+        f=self.feature
+        for index,frame in enumerate(self.frames if frames is None else frames,1):
+            image_engine=(SnapshotsImages(f.root,f.binding,f.run,self.role,index,self.history_authority,lambda *_:need(False))
+                if historical else self.image_engine(index))
+            binary_engine=(SnapshotsBinary(f.root,f.binding,f.run,self.role,index,self.history_authority,lambda *_:need(False))
+                if historical else self.binary_engine(index))
             image=frame.get('image')
             if image is not None:
-                if image['phase']=='planned':need(frame.get('diagnostic') is True and self.image_engine(index).absent(image))
-                else:need(image['phase']=='saved');self.image_engine(index).read(image)
-            for row in frame.get('binaries',[]):need(row['phase']=='saved');self.binary_engine(index).read(row)
+                if image['phase']=='planned':need(frame.get('diagnostic') is True and image_engine.absent(image))
+                else:need(image['phase']=='saved');image_engine.read(image)
+            for row in frame.get('binaries',[]):need(row['phase']=='saved');binary_engine.read(row)
 
     def retire(self):
         """Validate every original inode before handing journal removal to owner."""
         self.bound();need(self.state['phase'] in ('ready','retired') and self.state['pending'] is None)
-        self.frames=self.originals.restore(self.state['manifests'],self.state['sequence']);self.validate_files()
+        self.frames=self.restore_originals()
         need(not any(self.feature.root.glob('snapshots-'+self.role+'-transfer-*')))
         self.files_owner().retire();self.files_owner().require_retired()
         self.state['phase']='retired';self.save();return True

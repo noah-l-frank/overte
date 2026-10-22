@@ -23,7 +23,7 @@ sys.path[:0]=[str(ROOT/'tests/device'),str(ROOT/'tests/device/adapters/android-p
 from PIL import Image,ImageDraw
 from adapters.normal_ui import NativeUIError
 from adapters.normal_feature_state import PrivateFeatureState
-from adapters.native_feature_observation import NativeFeatureObservation
+from adapters.native_feature_observation import NativeFeatureObservation,need
 from adapters.native_script_observation import NativeScriptObservation
 from feature_journeys.fixtures import marker_bytes
 from feature_journeys.graphics_fixture import subject_ids
@@ -365,6 +365,27 @@ class SnapshotsRoleTests(unittest.TestCase):
         path.unlink();before=len(b.calls)
         with self.assertRaises(NativeUIError),b.role():pass
         self.assertEqual(before,len(b.calls))
+    def test_historical_file_validation_still_requires_final_actual_target_guard(self):
+        b=self.boundary
+        with b.role() as role:role.read(0)
+        before=list(b.calls);current=dict(owned=True);guards=[]
+        def guard():guards.append(current['owned']);need(current['owned']);return True
+        b.feature.bound=guard;read=SnapshotsBinary.read
+        def changed(reader,value):
+            raw=read(reader,value);current['owned']=False;return raw
+        with patch.object(SnapshotsBinary,'read',changed),self.assertRaises(NativeUIError),b.role():pass
+        self.assertEqual([True,False],guards);self.assertEqual(before,b.calls)
+    def test_current_acquisition_does_not_use_the_historical_host_only_guard(self):
+        b=self.boundary;current=dict(owned=True)
+        def guard():need(current['owned']);return True
+        b.feature.bound=guard
+        with b.role() as role:
+            read=role.native.read
+            def changed(*args,**kwargs):
+                packet=read(*args,**kwargs);current['owned']=False;return packet
+            role.native.read=changed
+            with self.assertRaises(NativeUIError):role.read(0)
+            self.assertEqual('reading',role.state['phase']);self.assertEqual(0,role.state['sequence'])
     def test_transfer_unlink_interruption_resumes_only_exact_original_inode_and_rejects_replacement(self):
         b=self.boundary
         with b.role() as role:

@@ -16,6 +16,7 @@ import tempfile
 import time
 from types import SimpleNamespace
 import unittest
+from unittest.mock import patch
 import uuid
 ROOT=Path(__file__).resolve().parents[4]
 sys.path[:0]=[str(ROOT/'tests/device'),str(ROOT/'tests/device/adapters/android-phone'),str(ROOT/'tests/device/self_tests')]
@@ -424,5 +425,32 @@ class SnapshotsFeatureTests(unittest.TestCase):
         self.adapter.system=False
         with f.lock.held(),self.assertRaises(NativeUIError):f.load()
         self.assertEqual(calls,self.adapter.runtime_calls);self.assertEqual(header,f.store.read());self.assertEqual(1,len(self.adapter.input.sent))
+
+    def input_history(self):
+        f=self.failed_preflight()
+        with f.lock.held():
+            f.load();f.state['original']=dict(avatar=dict(source=dict(cameraMode='selfie')))
+            f.archive_input(dict(snapshotsBaseline=deepcopy(f.state['original'])))
+            for index in range(12):f.archive_input(dict(explicitHistoricalInput=index))
+        return f
+
+    def test_immutable_input_replay_brackets_actual_target_identity_and_checks_every_old_file(self):
+        f=self.input_history();calls=[]
+        f.guard=lambda:calls.append(deepcopy(self.adapter.binding)) or self.adapter.binding==BINDING
+        with f.lock.held():
+            original=f.original();self.assertEqual('selfie',original['avatar']['source']['cameraMode'])
+            self.assertEqual(2,len(calls))
+            from overte_phone_snapshots_evidence import SnapshotsOriginals
+            read=SnapshotsOriginals.read
+            def changed(reader,value):
+                result=read(reader,value)
+                if value['index']==13:self.adapter.binding['artifactSha256']='9'*64
+                return result
+            with patch.object(SnapshotsOriginals,'read',changed),self.assertRaises(NativeUIError):f.original()
+            self.adapter.binding=deepcopy(BINDING)
+            # Corrupt old actual bytes without changing the pinned inode.
+            path=next(f.root.glob('emote-frame-snapshots-input-'+f.run+'-primary-0001-*.json'))
+            raw=path.read_bytes();path.write_bytes(raw.replace(b'selfie',b'broken',1))
+            with self.assertRaises(NativeUIError):f.original()
 
 if __name__=='__main__':unittest.main()
