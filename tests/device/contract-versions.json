@@ -464,6 +464,7 @@
     "ios-snapshot-manifest": {"current": 1, "reads": [1]},
     "ios-snapshot-manifest-original": {"current": 1, "reads": [1]},
     "ios-snapshot-manifest-absence": {"current": 1, "reads": [1]},
+    "ios-snapshot-files": {"current": 2, "reads": [1, 2]},
     "ios-snapshot-owned-pending-cancellation": {"current": 1, "reads": [1]},
     "ios-snapshot-input-proof": {"current": 1, "reads": [1]},
     "ios-snapshot-input-proof-original": {"current": 1, "reads": [1]},

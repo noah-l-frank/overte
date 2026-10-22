@@ -150,7 +150,10 @@ class FeatureObservation:
     def send(self, command):
         self.guard()
         limit = 4096
-        if command.get("action") == "feature-script-files":
+        if command.get('action')=='snapshot-files':
+            from snapshot_file_contract import read_request
+            read_request(command)
+        elif command.get("action") == "feature-script-files":
             script_files_command(command, ios=True)
             limit = 49152
         elif command.get('action')=='feature-private-login-input':private_input_command(command)

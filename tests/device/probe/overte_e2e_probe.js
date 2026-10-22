@@ -2277,6 +2277,20 @@
             lastClientCommandId = String(command.commandId);
             return;
         }
+        if (command && command.schemaVersion === 2 && command.action === "snapshot-files") {
+            if (typeof command.commandId === "string" && command.commandId.length === 36 && /^ios-[0-9a-f]{32}$/.test(command.commandId)
+                    && command.operation === "read" && command.chunkBytes === 524288
+                    && objectKeysMatch(command,["schemaVersion","commandId","action","operation","prefix","name","revision","offset","chunkBytes"])) {
+                if (iosNewSourceRequests[command.commandId] || iosNewSourceRequestCount >= 4096) { return; }
+                // Claim before native entry, including an unknown return. A
+                // later request must never resample this retained chunk nonce.
+                iosNewSourceRequests[command.commandId]=true;iosNewSourceRequestCount+=1;
+                try {
+                    if (typeof Test.iosSnapshotFilesRequest === "function") { Test.iosSnapshotFilesRequest(command); }
+                } catch (_snapshotChunkError) { /* Retain the unresolved original query; never replay it. */ }
+            }
+            return;
+        }
         if (command && command.schemaVersion === 1
                 && /^ios-[0-9a-f]{32}$/.test(command.commandId)
                 && command.commandId !== lastClientCommandId

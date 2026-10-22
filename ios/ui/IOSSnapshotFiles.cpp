@@ -25,6 +25,7 @@ namespace overte::ios {
 namespace {
 constexpr qint64 MAX_BYTES = 256LL * 1024 * 1024;
 constexpr qint64 CHUNK_BYTES = 4 * 1024 * 1024;
+constexpr qint64 BOUNDED_CHUNK_BYTES = 512 * 1024;
 const QString PREFIX = QStringLiteral("parity-[0-9a-f]{16}-(still-png|still-jpg|animated|panorama|cubemap)");
 
 bool matches(const QString& pattern, const QJsonValue& value) {
@@ -150,11 +151,15 @@ bool validSnapshotFileRequest(const QJsonObject& command) {
     const auto operation = command.value("operation").toString();
     QSet<QString> expected { "schemaVersion", "commandId", "action", "operation", "prefix" };
     if (operation == QStringLiteral("read")) { expected.unite({ "name", "revision", "offset" }); }
+    const bool bounded = command.value("schemaVersion") == QJsonValue(2);
+    if (bounded) { expected.insert("chunkBytes"); }
     const auto keys = command.keys();
-    if (QSet<QString>(keys.begin(), keys.end()) != expected || command.value("schemaVersion") != QJsonValue(1)
+    if (QSet<QString>(keys.begin(), keys.end()) != expected
+            || (command.value("schemaVersion") != QJsonValue(1) && !bounded)
             || command.value("action") != QJsonValue(QStringLiteral("snapshot-files"))
             || !matches(QStringLiteral("ios-[0-9a-f]{32}"), command.value("commandId"))
             || !matches(PREFIX, command.value("prefix")) || (operation != "list" && operation != "read")) { return false; }
+    if (bounded && (operation != "read" || command.value("chunkBytes") != QJsonValue(static_cast<double>(BOUNDED_CHUNK_BYTES)))) { return false; }
     if (operation == "list") { return true; }
     const auto offset = command.value("offset").toDouble(-1);
     return filename(command.value("prefix").toString(), command.value("name").toString())
@@ -165,7 +170,8 @@ bool validSnapshotFileRequest(const QJsonObject& command) {
 
 QJsonObject readSnapshotFiles(const QJsonObject& command, const QString& root) {
     if (!validSnapshotFileRequest(command)) { return {}; }
-    QJsonObject result { { "schemaVersion", 1 }, { "commandId", command.value("commandId") },
+    const qint64 chunkLimit = command.value("schemaVersion") == QJsonValue(2) ? BOUNDED_CHUNK_BYTES : CHUNK_BYTES;
+    QJsonObject result { { "schemaVersion", command.value("schemaVersion") }, { "commandId", command.value("commandId") },
         { "operation", command.value("operation") }, { "prefix", command.value("prefix") },
         { "processId", static_cast<double>(QCoreApplication::applicationPid()) }, { "ok", false } };
     try {
@@ -194,9 +200,9 @@ QJsonObject readSnapshotFiles(const QJsonObject& command, const QString& root) {
                         || ::lseek(opened.value, static_cast<off_t>(offset), SEEK_SET) != offset) {
                     throw "snapshot-original-revision-or-offset-changed";
                 }
-                const auto chunk = bytes(opened.value, std::min<qint64>(CHUNK_BYTES, before.st_size - offset));
+                const auto chunk = bytes(opened.value, std::min<qint64>(chunkLimit, before.st_size - offset));
                 const auto after = metadata(directory.value, name, opened.value);
-                if (revision(before) != revision(after) || chunk.size() != std::min<qint64>(CHUNK_BYTES, before.st_size - offset)) {
+                if (revision(before) != revision(after) || chunk.size() != std::min<qint64>(chunkLimit, before.st_size - offset)) {
                     throw "snapshot-original-file-changed";
                 }
                 result["file"] = QJsonObject { { "name", command.value("name") }, { "revision", revision(after) },

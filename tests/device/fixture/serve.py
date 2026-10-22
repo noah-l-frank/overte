@@ -463,7 +463,9 @@ class FixtureState:
             with self._lock:
                 self.client_command = dict(command)
                 return dict(self.client_command)
-        if (not isinstance(command, dict) or command.get("schemaVersion") != 1
+        if (not isinstance(command, dict)
+                or (command.get("schemaVersion") != 1 and not (type(command.get("schemaVersion")) is int and command.get("schemaVersion") == 2
+                    and command.get("action") == "snapshot-files" and command.get("operation") == "read"))
                 or not isinstance(command.get("commandId"), str)
                 or not CLIENT_COMMAND_ID.fullmatch(command["commandId"])):
             raise ValueError("invalid client command envelope")

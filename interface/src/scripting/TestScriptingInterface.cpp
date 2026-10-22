@@ -296,7 +296,8 @@ bool TestScriptingInterface::iosSnapshotFilesRequest(const QVariantMap& command)
     if (directory.isEmpty() || storage.isEmpty() || !QCoreApplication::arguments().contains("--testScript")
             || !overte::ios::validSnapshotFileRequest(request)) { return false; }
     // One bounded read job at a time. Hashing original captures must not block
-    // the GUI/render thread. The probe retries only unaccepted read requests.
+    // the GUI/render thread. Legacy v1 retries unaccepted requests; the bounded
+    // v2 owner retains an uncertain nonce and never asks the probe to resample.
     static QSemaphore fileReads(1);
     if (!fileReads.tryAcquire()) { return false; }
     QThreadPool::globalInstance()->start([directory, storage, request] {
