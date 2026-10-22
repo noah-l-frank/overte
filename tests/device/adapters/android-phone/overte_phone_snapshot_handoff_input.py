@@ -37,6 +37,11 @@ def plan(value,pid,epoch):
     return value
 
 
+def admission(value,pid,owner,epoch):
+    plan(value,pid,epoch)
+    need(integer(epoch,owner['startedEpochMs']) and epoch<owner['deadlineEpochMs'])
+
+
 def receipt(value,request,pid):
     exact(value,{'schemaVersion','commandId','action','performed','instance','generation','sequence','processId'})
     need(type(value['schemaVersion']) is int and value['schemaVersion']==1 and value['performed'] is True
@@ -58,8 +63,7 @@ class SnapshotHandoffInput:
         try:
             need(not self.issued and self.foreground_guard() is not False)
             started=previous=self.monotonic();need(number(started,0,1e15))
-            epoch=self.clock_ms();plan(value,self.pid,epoch)
-            need(self.owner['startedEpochMs']<=epoch<self.owner['deadlineEpochMs'])
+            epoch=self.clock_ms();admission(value,self.pid,self.owner,epoch)
             request=deepcopy(value['request'])
             # Persist an issued intent BEFORE the sole write. An uncertain write
             # is recovered through originals, never a second click.
@@ -67,19 +71,33 @@ class SnapshotHandoffInput:
             self.issued=True
             need(self.foreground_guard() is not False)
             now=self.monotonic();need(number(now,previous,1e15) and now-started<5);previous=now
-            self.send(dict(schemaVersion=1,commandId=request['commandId'],action='phone-snapshot-ui',request=request))
-            for attempt in range(51):
-                need(self.system_guard() is not False)
-                raw=self.read();need(type(raw) is str and len(raw.encode())<=65536)
-                try:actual=decode(raw) if raw else None
-                except json.JSONDecodeError:actual=None
-                need(self.system_guard() is not False)
-                now=self.monotonic();need(number(now,previous,1e15) and now-started<5);previous=now
-                current=self.clock_ms();need(integer(current,epoch) and current<self.owner['deadlineEpochMs'])
-                if type(actual) is dict and actual.get('commandId')==request['commandId']:
-                    receipt(actual,request,self.pid);need(self.system_guard() is not False)
-                    now=self.monotonic();need(number(now,previous,1e15) and now-started<5)
-                    return deepcopy(actual)
-                if attempt<50:self.sleep(.1)
+            admission(value,self.pid,self.owner,self.clock_ms())
+            self.send(dict(schemaVersion=1,commandId=request['commandId'],action='phone-snapshot-ui',request=request),deepcopy(value))
+            return self._receipt(request,started,previous,epoch)
         except Exception:raise NativeUIError('Original Snapshot OS handoff input delivery is unavailable or uncertain') from None
+
+    def observe(self,value):
+        """Recover only the archived exact receipt; never admit or send again."""
+        try:
+            need(self.system_guard() is not False)
+            plan(value,self.pid,value['original']['capturedEpochMs'])
+            started=self.monotonic();need(number(started,0,1e15))
+            epoch=self.clock_ms();need(integer(epoch,self.owner['startedEpochMs']) and epoch<self.owner['deadlineEpochMs'])
+            return self._receipt(value['request'],started,started,epoch)
+        except Exception:raise NativeUIError('Original Snapshot OS handoff receipt recovery failed') from None
+
+    def _receipt(self,request,started,previous,epoch):
+        for attempt in range(51):
+            need(self.system_guard() is not False)
+            raw=self.read();need(type(raw) is str and len(raw.encode())<=65536)
+            try:actual=decode(raw) if raw else None
+            except json.JSONDecodeError:actual=None
+            need(self.system_guard() is not False)
+            now=self.monotonic();need(number(now,previous,1e15) and now-started<5);previous=now
+            current=self.clock_ms();need(integer(current,epoch) and current<self.owner['deadlineEpochMs'])
+            if type(actual) is dict and actual.get('commandId')==request['commandId']:
+                receipt(actual,request,self.pid);need(self.system_guard() is not False)
+                now=self.monotonic();need(number(now,previous,1e15) and now-started<5)
+                return deepcopy(actual)
+            if attempt<50:self.sleep(.1)
         raise NativeUIError('Original Snapshot OS handoff input receipt is unavailable')

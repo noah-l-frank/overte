@@ -26,7 +26,7 @@ class Handoff(Boundary):
         key=owner['handoffId']
         if key in self.admitted:return False
         self.admitted.add(key);self.admissions.append(deepcopy((plan,owner)));return True
-    def deliver(self,command):
+    def deliver(self,command,planned=None):
         assert self.foreground and self.admissions and self.admissions[-1][0]['request']==command['request']
         self.sent.append(deepcopy(command));self.foreground=False
         if self.ignore:return
@@ -88,6 +88,21 @@ class SnapshotHandoffInputTests(unittest.TestCase):
                 b=Handoff();b.receipt_fault=lambda row:row.update({field:value})
                 with self.assertRaises(NativeUIError):b.reader().deliver(b.plan)
                 self.assertEqual(1,len(b.sent))
+    def test_slow_durable_admission_cannot_click_with_expired_lease_or_stale_plan(self):
+        for fault in ('lease','plan'):
+            with self.subTest(fault=fault):
+                b=Handoff();reader=b.reader();admit=reader.admit
+                def delay(value,owner):
+                    result=admit(value,owner);b.epoch+=60000 if fault=='lease' else 1600;return result
+                reader.admit=delay
+                with self.assertRaises(NativeUIError):reader.deliver(b.plan)
+                self.assertEqual([],b.sent);self.assertEqual(1,len(b.admissions))
+    def test_readonly_receipt_recovery_sends_no_command_or_new_admission(self):
+        b=Handoff();original=b.reader().deliver(b.plan);reader=b.reader()
+        reader.send=lambda *_:self.fail('Recovery must not send')
+        reader.admit=lambda *_:self.fail('Recovery must not admit')
+        self.assertEqual(original,reader.observe(b.plan));self.assertEqual(1,len(b.sent))
+
     def test_real_factory_writes_only_fixed_normal_channel_after_foreground_admission(self):
         from types import SimpleNamespace
         from unittest.mock import patch
@@ -95,7 +110,8 @@ class SnapshotHandoffInputTests(unittest.TestCase):
         b=Handoff();application=dict(processIdentity='31:1');adapter=PhoneAppiumAdapter.__new__(PhoneAppiumAdapter)
         adapter.candidate=object();guards=[];writes=[]
         def foreground():guards.append('foreground');return b.foreground
-        adapter.normal_feature_runtime=lambda *_args,**_kwargs:(None,None,application,foreground,None)
+        adapter.normal_feature_runtime=lambda *_args,**_kwargs:(None,None,application,foreground,dict(sha256='a'*64))
+        adapter.installed_identity=lambda _:dict(sha256='a'*64)
         adapter._snapshot_system_context=lambda *_args:SimpleNamespace(guard=lambda:b.system)
         adapter.target=lambda _:dict(appId='io.github.noah_be.overte.phone',capabilities={'appium:udid':'explicit-synthetic-only'})
         adapter.existing_session=lambda _:(None,'session',None)

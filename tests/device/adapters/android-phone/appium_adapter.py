@@ -2165,25 +2165,31 @@ class PhoneAppiumAdapter(AppiumAdapter):
             lambda:transport.read_debug_app_file(device,target['appId'],'files/overte-e2e/'+ANIMATION_INVENTORY_FILE,attempts=1),
             native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep)
 
-    def _snapshot_handoff_input(self,selector,application_binding,resolution,authority,handoff_binding,admit):
-        from overte_phone_snapshot_handoff_input import SnapshotHandoffInput
+    def _snapshot_handoff_input(self,selector,application_binding,resolution,authority,handoff_binding,admit,*,read_only=False):
+        from overte_phone_snapshot_handoff_input import SnapshotHandoffInput,admission
         from overte_phone_snapshot_handoff import binding as validate_handoff
         from overte_phone_snapshot_controls import FILE
         validate_handoff(handoff_binding)
-        _ui,_observe,binding,foreground_guard,_installed=self.normal_feature_runtime(selector,read_only=True)
+        require(type(read_only) is bool,'PHONE_SNAPSHOT_HANDOFF_CLOSED_MODE_REQUIRED')
+        if read_only:
+            binding=application_binding
+            def foreground_guard():return False
+        else:_ui,_observe,binding,foreground_guard,_installed=self.normal_feature_runtime(selector,read_only=True)
         require(binding==application_binding and handoff_binding['processId']==int(binding['processIdentity'].split(':')[0]),
             'PHONE_SNAPSHOT_HANDOFF_ORIGINAL_APPLICATION_REQUIRED')
         scope=self._snapshot_system_context(selector,binding,resolution,authority)
         target=self.target(selector);device=target['capabilities']['appium:udid'];transport=PhoneAdapter(self.candidate).adb
         client,session,_state=self.existing_session(selector)
-        def send(command):
+        def send(command,planned):
             # This sole narrow writer admits only the already planned ordinary
             # Save/Share click. No post-write foreground requirement is moved
             # into the shared writer and no command is sent from OS context.
-            foreground_guard();require(authority() is True,'PHONE_SNAPSHOT_HANDOFF_OWNER_REQUIRED')
+            require(not read_only and foreground_guard() is not False and authority() is True,'PHONE_SNAPSHOT_HANDOFF_OWNER_REQUIRED')
             expected={'running':True,'identity':binding['processIdentity']}
             require(self.android_client_identity(client,session,target)==expected,'PHONE_SNAPSHOT_HANDOFF_PROCESS_CHANGED')
-            foreground_guard()
+            require(self.installed_identity(selector)==_installed,'PHONE_SNAPSHOT_HANDOFF_INSTALLED_IDENTITY_CHANGED')
+            foreground_guard();scope.guard()
+            admission(planned,handoff_binding['processId'],handoff_binding,transport.epoch_milliseconds(device))
             transport.write_debug_app_file(device,target['appId'],self.ANDROID_CLIENT_COMMAND,
                 json.dumps(command,sort_keys=True,separators=(',',':'))+'\n')
         return SnapshotHandoffInput(send,
