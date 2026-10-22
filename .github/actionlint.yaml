@@ -16,6 +16,8 @@ self-hosted-runner:
     - depot-windows-202?-??
     - depot-macos-latest
     - depot-macos-??
+    # Isolated ephemeral VM for selected high-disk Android native jobs.
+    - overte-native-large-disk
     # Protected fork build and device pools; shared so synchronization preserves labels.
     - overte-android-build
     - overte-android-phone-build

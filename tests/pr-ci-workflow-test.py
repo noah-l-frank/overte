@@ -80,6 +80,24 @@ def source_contract(job):
             assert checkout["fetch-depth"] == 2
 
 
+def android_runner_contract(workflow):
+    jobs = workflow['jobs']
+    expression = jobs['android']['runs-on']
+    expected = ("${{ needs.plan.outputs.android_native_products != '[]' && "
+                "fromJSON('[\"self-hosted\",\"Linux\",\"X64\",\"overte-native-large-disk\"]') || 'ubuntu-24.04' }}")
+    assert expression == expected
+    # Route from the authenticated plan only after protected policy succeeds.
+    assert set(jobs['android']['needs']) == {'plan', 'policy'}
+    assert jobs['android']['if'] == "needs.plan.outputs.active == 'true' && needs.plan.outputs.android == 'true'"
+    assert "github.event_name != 'pull_request_target'" in jobs['plan']['if']
+    assert workflow['permissions'] == {'contents': 'read'}
+    for name, job in jobs.items():
+        if name != 'android' and 'runs-on' in job:
+            assert job['runs-on'] == 'ubuntu-24.04'
+    labels = json.loads(re.search(r"fromJSON\('([^']+)'\)", expression)[1])
+    return lambda products: labels if products != '[]' else 'ubuntu-24.04'
+
+
 def native_recipe_contract(caller, workflow):
     fields = {"mode": "native_mode", "context_json": "context_json",
               "plan_json": "plan_json", "controller": "controller", "source": "source"}
@@ -152,6 +170,33 @@ class WorkflowContracts(unittest.TestCase):
         candidate = checkouts(self.jobs["plan"])[1]
         self.assertEqual("${{ steps.context.outputs.source }}", candidate["ref"])
         self.assertFalse(candidate["persist-credentials"])
+
+    def test_only_selected_android_native_products_use_large_disk_runner(self):
+        select = android_runner_contract(self.workflow)
+        labels = yaml.safe_load((ROOT / '.github/actionlint.yaml').read_text())['self-hosted-runner']['labels']
+        self.assertIn('overte-native-large-disk', labels)
+        for products in ('["common"]', '["phone"]', '["pico"]', '["common","phone"]'):
+            with self.subTest(products=products):
+                self.assertEqual(select(products), ['self-hosted', 'Linux', 'X64', 'overte-native-large-disk'])
+        # Java/resource and Groovy-only plans both have no native products.
+        self.assertEqual(select('[]'), 'ubuntu-24.04')
+        for mutation in ('java-routing', 'unconditional', 'missing-label', 'other-job', 'no-policy', 'pr-target'):
+            changed = deepcopy(self.workflow)
+            job = changed['jobs']['android']
+            if mutation == 'java-routing':
+                job['runs-on'] = job['runs-on'].replace('android_native_products', 'android_compile_products')
+            elif mutation == 'unconditional':
+                job['runs-on'] = ['self-hosted', 'Linux', 'X64', 'overte-native-large-disk']
+            elif mutation == 'missing-label':
+                job['runs-on'] = job['runs-on'].replace(',"overte-native-large-disk"', '')
+            elif mutation == 'other-job':
+                changed['jobs']['host']['runs-on'] = ['self-hosted', 'overte-native-large-disk']
+            elif mutation == 'no-policy':
+                job['needs'] = ['plan']
+            else:
+                changed['jobs']['plan']['if'] = 'always()'
+            with self.subTest(mutation=mutation), self.assertRaises(AssertionError):
+                android_runner_contract(changed)
 
     def test_groovy_contract_transport_is_conditional_and_cannot_poison_native_cache(self):
         def contract(workflow):

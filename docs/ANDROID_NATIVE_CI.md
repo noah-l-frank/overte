@@ -21,6 +21,23 @@ APK verification. It does not alter the existing Pico release-consumer contracts
 The Android parent branches use the parent-owned common native harness and do
 not select a child application's APK merely because its files are present.
 
+## Runner selection
+
+Only an Android owner with a nonempty authenticated `android_native_products`
+selection requests `[self-hosted, Linux, X64, overte-native-large-disk]`.
+Java/resource compilation and Groovy-only contracts stay on `ubuntu-24.04`, as
+do the other central workflow jobs. The job still requires the shared plan and
+protected policy; runner selection grants no execution or merge authority.
+An unavailable matching runner leaves the native job queued rather than moving
+it to a smaller hosted worker.
+
+The custom label must belong to an isolated, ephemeral Ubuntu VM. It must not
+expose workstation files, credentials, host container sockets or device-lab
+services. Candidate native execution retains its separate offline, nonroot
+container boundary and all protected capacity and payload checks. Registering
+the runner and enabling Actions are separate operations; this workflow change
+does not perform either operation.
+
 ## Immutable payload transport
 
 `tools/repository-checks/pr_ci_android_runtime.py` records every payload file's
