@@ -168,6 +168,10 @@ class NativeHostTests(unittest.TestCase):
             return status
         with patch.object(N.A, 'policy', return_value=self.definition), \
              patch.object(N, 'capacity_admission'), \
+             patch.object(N.E, 'destination', return_value=self.root / 'export'), \
+             patch.object(N.E, 'bound_context'), \
+             patch.object(N.E, 'export_success', return_value={'fixture': 'export seam'}), \
+             patch.object(N.E, 'export_failure'), \
              patch.object(N, 'validate_prepared', return_value=self.prepared), \
              patch.object(N, 'load_template', return_value=template), \
              patch.object(N.B, 'run', side_effect=boundary) as run:

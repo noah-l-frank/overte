@@ -16,6 +16,7 @@ import pr_ci_android_assets as A
 import pr_ci_android_boundary as B
 import pr_ci_android_runtime as R
 import pr_ci_android_capacity as CAP
+import pr_ci_android_artifacts as E
 import pr_ci_context as C
 
 OWNER = {'android-main': 'common', 'android-vr': 'common',
@@ -198,6 +199,10 @@ def execute(candidate, context, plan, prepared, *, authenticate):
     C.require(len(selected) == 1, 'Unselected Android native execution')
     product = selected[0]
     authenticate()
+    # The workflow controls this fixed RUNNER_TEMP sink. Refuse an expensive
+    # build when its outputs cannot subsequently be preserved.
+    artifact_destination = E.destination()
+    E.bound_context(context, product, candidate)
     definition = A.policy()
     root = validate_prepared(prepared, definition)
     template = load_template(root, definition, product)
@@ -207,11 +212,12 @@ def execute(candidate, context, plan, prepared, *, authenticate):
     capacity_admission(definition, root, root, 'execute')
     # Copy only already authenticated public proof data. The run-specific
     # candidate binding is separate from the immutable baseline definition.
-    with tempfile.TemporaryDirectory(prefix='android-native-execution-', dir=root) as session:
-        session = Path(session)
-        qualification, scratch = session / 'qualification', session / 'scratch'
+    session = Path(tempfile.mkdtemp(prefix='android-native-execution-', dir=root))
+    qualification, scratch = session / 'qualification', session / 'scratch'
+    scratch.mkdir()
+    config = None
+    try:
         shutil.copytree(root / 'qualification', qualification, symlinks=True)
-        scratch.mkdir()
         configuration = dict(template, candidate_tree=context['tree'])
         config = qualification / 'consumer.json'
         C.require(not config.exists() and not config.is_symlink(), 'Qualification bundle reserves the consumer configuration name')
@@ -247,7 +253,20 @@ def execute(candidate, context, plan, prepared, *, authenticate):
         # A current same-run result is not blanket reuse authority for a later
         # PR, a different product, or changed dependency declarations.
         result['toolchain_image_archive_sha256'] = definition['assets']['image']['archive']['sha256']
-        return result
+        result['artifact_export'] = E.export_success(artifact_destination, candidate, scratch,
+                                                     config, context, result)
+    except BaseException as error:
+        # Never remove failed or incompletely exported output. The supervisor
+        # retains this VM overlay and blocks the next job until recovery.
+        try:
+            E.export_failure(artifact_destination, candidate, scratch, config, context, product, error)
+        except (OSError, ValueError, KeyError, TypeError):
+            print('Android native diagnostics could not be exported; execution data retained at ' + str(session), file=sys.stderr)
+        raise
+    # Scratch reclamation follows a complete, atomically published export.
+    # A cleanup error fails the job and leaves its exported proof for recovery.
+    shutil.rmtree(session)
+    return result
 
 
 def main():

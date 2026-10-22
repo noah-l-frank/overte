@@ -80,6 +80,25 @@ def source_contract(job):
             assert checkout["fetch-depth"] == 2
 
 
+def android_runner_contract(workflow):
+    jobs = workflow['jobs']
+    expression = jobs['android']['runs-on']
+    expected = ("${{ needs.plan.outputs.android_native_products != '[]' && "
+                "fromJSON(format('[\"self-hosted\",\"Linux\",\"X64\",\"overte-native-large-disk\",\"overte-native-{0}-{1}\"]', "
+                "github.run_id, github.run_attempt)) || 'ubuntu-24.04' }}")
+    assert expression == expected
+    # Route from the authenticated plan only after protected policy succeeds.
+    assert set(jobs['android']['needs']) == {'plan', 'policy'}
+    assert jobs['android']['if'] == "needs.plan.outputs.active == 'true' && needs.plan.outputs.android == 'true'"
+    assert "github.event_name != 'pull_request_target'" in jobs['plan']['if']
+    assert workflow['permissions'] == {'contents': 'read'}
+    for name, job in jobs.items():
+        if name != 'android' and 'runs-on' in job:
+            assert job['runs-on'] == 'ubuntu-24.04'
+    template = re.search(r"fromJSON\(format\('([^']+)'", expression)[1]
+    return lambda products, run_id=123, attempt=2: json.loads(template.format(run_id, attempt)) if products != '[]' else 'ubuntu-24.04'
+
+
 def native_recipe_contract(caller, workflow):
     fields = {"mode": "native_mode", "context_json": "context_json",
               "plan_json": "plan_json", "controller": "controller", "source": "source"}
@@ -152,6 +171,79 @@ class WorkflowContracts(unittest.TestCase):
         candidate = checkouts(self.jobs["plan"])[1]
         self.assertEqual("${{ steps.context.outputs.source }}", candidate["ref"])
         self.assertFalse(candidate["persist-credentials"])
+
+    def test_only_selected_android_native_products_use_large_disk_runner(self):
+        select = android_runner_contract(self.workflow)
+        labels = yaml.safe_load((ROOT / '.github/actionlint.yaml').read_text())['self-hosted-runner']['labels']
+        self.assertIn('overte-native-large-disk', labels)
+        self.assertIn('overte-native-*-*', labels)
+        for products in ('["common"]', '["phone"]', '["pico"]', '["common","phone"]'):
+            with self.subTest(products=products):
+                self.assertEqual(select(products), ['self-hosted', 'Linux', 'X64', 'overte-native-large-disk', 'overte-native-123-2'])
+        self.assertNotEqual(select('["phone"]', 123, 2), select('["phone"]', 123, 3))
+        self.assertNotEqual(select('["phone"]', 123, 2), select('["phone"]', 124, 2))
+        # Java/resource and Groovy-only plans both have no native products.
+        self.assertEqual(select('[]'), 'ubuntu-24.04')
+        for mutation in ('java-routing', 'unconditional', 'missing-label', 'other-job', 'no-policy', 'pr-target', 'unbound-attempt'):
+            changed = deepcopy(self.workflow)
+            job = changed['jobs']['android']
+            if mutation == 'java-routing':
+                job['runs-on'] = job['runs-on'].replace('android_native_products', 'android_compile_products')
+            elif mutation == 'unconditional':
+                job['runs-on'] = ['self-hosted', 'Linux', 'X64', 'overte-native-large-disk']
+            elif mutation == 'missing-label':
+                job['runs-on'] = job['runs-on'].replace(',"overte-native-large-disk"', '')
+            elif mutation == 'other-job':
+                changed['jobs']['host']['runs-on'] = ['self-hosted', 'overte-native-large-disk']
+            elif mutation == 'no-policy':
+                job['needs'] = ['plan']
+            elif mutation == 'unbound-attempt':
+                job['runs-on'] = job['runs-on'].replace('github.run_attempt', '1')
+            else:
+                changed['jobs']['plan']['if'] = 'always()'
+            with self.subTest(mutation=mutation), self.assertRaises(AssertionError):
+                android_runner_contract(changed)
+
+    def test_native_outputs_upload_is_mandatory_attempt_bound_and_runs_after_failure(self):
+        def contract(workflow):
+            job = workflow['jobs']['android']
+            steps = job['steps']
+            execute = next(step for step in steps if step['name'] == 'Require the selected Android product validation')
+            assert execute['env']['PR_CI_ANDROID_NATIVE_EXPORT'] == '${{ runner.temp }}/pr-ci-android-export'
+            assert '--out "$RUNNER_TEMP/pr-ci-android-result.json"' in execute['run']
+            uploads = [step for step in steps if step.get('uses') == UPLOAD]
+            assert len(uploads) == 1
+            upload = uploads[0]
+            assert steps.index(upload) > steps.index(execute)
+            assert upload['if'] == "always() && needs.plan.outputs.android_native_products != '[]'"
+            assert upload['with']['name'] == 'android-native-${{ github.run_id }}-${{ github.run_attempt }}-${{ needs.plan.outputs.target }}'
+            assert upload['with']['path'].splitlines() == [
+                '${{ runner.temp }}/pr-ci-android-export/', '${{ runner.temp }}/pr-ci-android-result.json']
+            assert upload['with']['if-no-files-found'] == 'error'
+            assert upload['with']['overwrite'] is False
+            assert upload['with']['retention-days'] == 7
+            assert 'continue-on-error' not in upload and 'continue-on-error' not in job
+            assert 'android' in workflow['jobs']['ci-execution']['needs']
+        contract(self.workflow)
+        for mutation in ('success-only', 'optional', 'all-temp', 'no-result', 'no-export', 'no-final-owner'):
+            changed = deepcopy(self.workflow)
+            steps = changed['jobs']['android']['steps']
+            upload = next(step for step in steps if step.get('uses') == UPLOAD)
+            execute = next(step for step in steps if step['name'] == 'Require the selected Android product validation')
+            if mutation == 'success-only':
+                upload['if'] = "needs.plan.outputs.android_native_products != '[]'"
+            elif mutation == 'optional':
+                upload['continue-on-error'] = True
+            elif mutation == 'all-temp':
+                upload['with']['path'] = '${{ runner.temp }}/'
+            elif mutation == 'no-result':
+                execute['run'] = execute['run'].replace('--out "$RUNNER_TEMP/pr-ci-android-result.json"', '')
+            elif mutation == 'no-export':
+                del execute['env']['PR_CI_ANDROID_NATIVE_EXPORT']
+            else:
+                changed['jobs']['ci-execution']['needs'].remove('android')
+            with self.subTest(mutation=mutation), self.assertRaises((AssertionError, KeyError)):
+                contract(changed)
 
     def test_groovy_contract_transport_is_conditional_and_cannot_poison_native_cache(self):
         def contract(workflow):
