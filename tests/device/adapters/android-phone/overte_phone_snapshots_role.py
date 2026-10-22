@@ -105,7 +105,11 @@ class PhoneSnapshotsRole(PhoneCreateRole):
             self.readbacks=feature.adapter._snapshot_readbacks(feature.selector,read_only=True)
             self.upload=feature.adapter._snapshot_upload_source(feature.selector)
             self.platform=feature.adapter._snapshot_platform(feature.selector)
-            previous=next((row['nativeAfter'] for row in reversed(history) if row.get('nativeAfter') is not None),None)
+            # A pending read can archive its actual before packet without an
+            # after packet. That original is still a continuity floor when a
+            # new reader resumes; diagnostic does not mean unobserved.
+            previous=next((row.get('nativeAfter') or row['nativeBefore'] for row in reversed(history)
+                if row.get('nativeAfter') is not None or row.get('nativeBefore') is not None),None)
             if previous is not None:restore_native(self.native,previous)
             else:restore_native(self.native,baseline['native'])
             groups=[group for frame in history for group in ([row['source']['source']['group'] for row in frame['handoffOriginals']] if frame.get('handoffOriginals') else frame.get('groups',([frame['measurement']['group']] if frame.get('measurement') is not None else [])))]
@@ -118,7 +122,8 @@ class PhoneSnapshotsRole(PhoneCreateRole):
                     setattr(self.measurements.scripts,key,deepcopy(value))
             self.measurements.roots.last=deepcopy(groups[-1]['rootsAfter'])
             self.measurements.snapshot.last=deepcopy(groups[-1]['snapshot'])
-            previous=next((row['avatarAfter'] for row in reversed(history) if row.get('avatarAfter') is not None),baseline['avatar'])
+            previous=next((row.get('avatarAfter') or row['avatarBefore'] for row in reversed(history)
+                if row.get('avatarAfter') is not None or row.get('avatarBefore') is not None),baseline['avatar'])
             self.avatar.restore([previous])
             for key,reader in (('touch',self.touch),('world',self.world),('marker',self.marker)):
                 previous=next((frame[key] for frame in reversed(history) if frame.get(key) is not None),baseline.get(key))
@@ -134,7 +139,8 @@ class PhoneSnapshotsRole(PhoneCreateRole):
         # A resumed foreground reader retains lifecycle/account floors from
         # every passive original, including intermediate body transfer reads.
         if self.native is not None:
-            last_native=max((index for index,frame in enumerate(history) if frame.get('nativeAfter') is not None),default=-1)
+            last_native=max((index for index,frame in enumerate(history)
+                if frame.get('nativeAfter') is not None or frame.get('nativeBefore') is not None),default=-1)
             contexts=[row['source']['source']['context'] for frame in history[last_native+1:] for row in frame.get('handoffOriginals',[])]
             for current in contexts:
                 need(all(current['lifecycle'][key]>=value for key,value in self.native.lifecycle.items()))
