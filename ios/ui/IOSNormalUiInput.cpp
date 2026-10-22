@@ -1049,8 +1049,24 @@ QJsonObject NormalUiInput::request(const QJsonObject& command) {
         }
         auto& originals=overte::e2e::IOSNormalInputObservation::shared();
         const auto inputId=originals.received(overte::e2e::IOSNormalInputObservation::Profile::Avatar,command,avatarControl,avatarRoot);
+        QString snapshotControl;QJsonObject snapshotRoot;
+        for (auto it=_controls.cbegin();it!=_controls.cend();++it) {
+            if (it.value().token!=token) {continue;}
+            const auto capture=overte::e2e::snapshotCaptureControlId(it.value().item);
+            const auto exportControl=overte::e2e::snapshotExportControlId(it.value().item);
+            const auto control=capture.isEmpty()?exportControl:capture;
+            if (control.isEmpty() || control!=it.key()) {continue;}
+            if (!snapshotControl.isEmpty()) {snapshotControl.clear();snapshotRoot={};break;}
+            const auto row=capture.isEmpty()?overte::e2e::snapshotExportControlObservation(it.value().item)
+                :overte::e2e::snapshotCaptureControlObservation(it.value().item);
+            if (!row.contains("snapshotRootId") || !row.contains("snapshotQmlSource")) {continue;}
+            snapshotControl=control;snapshotRoot={{"rootId",row.value("snapshotRootId")},{"qmlSource",row.value("snapshotQmlSource")}};
+        }
+        auto& snapshotOriginals=overte::e2e::IOSNormalInputObservation::shared(overte::e2e::IOSNormalInputObservation::Profile::Snapshot);
+        const auto snapshotInputId=snapshotOriginals.received(overte::e2e::IOSNormalInputObservation::Profile::Snapshot,command,snapshotControl,snapshotRoot);
         result["status"]=edit(input);
         originals.returned(inputId,result);
+        snapshotOriginals.returned(snapshotInputId,result);
 #else
         result["status"]=edit(command.value("input").toObject());
 #endif

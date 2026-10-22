@@ -164,6 +164,14 @@ input can restore a controlled title to its original empty value; foreign
 drafts and native sheets block input. Eight host checks cover this extension;
 whole durable capture/cancel/file/cleanup coordination remains required.
 
+The [separate Snapshot normal-input history](SNAPSHOT_INPUTS.md) now joins the
+actual native command UUID, original capture/export control and trusted QML
+root to real reception/return. Eight host checks include lost caller return
+resolved by passive history without a second edit, and wrong-root/token/UUID,
+rejected/partial input and profile substitution negatives. This establishes
+input delivery only; the outer durable owner and independent product outcomes
+remain required. Default Avatar history and input dispatch are unchanged.
+
 The canonical physical source binding and explicit lost-launch recovery have
 host-tested implementations. The native byte observer and SDK plugin remain
 uninstalled/uncompiled and unqualified here. See the [Script handoff](SCRIPT_FEATURE.md)

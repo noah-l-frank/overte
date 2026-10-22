@@ -452,6 +452,8 @@
     "native-ios-snapshot-export-controls": {"current": 1, "reads": [1]},
     "ios-snapshot-work": {"current": 1, "reads": [1]},
     "ios-snapshot-captures": {"current": 1, "reads": [1]},
+    "ios-snapshot-inputs": {"current": 1, "reads": [1]},
+    "ios-snapshot-input-delivery": {"current": 1, "reads": [1]},
     "ios-snapshot-captures-acquisition": {"current": 1, "reads": [1]},
     "ios-snapshot-pending-cancellation": {"current": 1, "reads": [1]},
     "ios-snapshot-work-source-pins": {"current": 1, "reads": [1]},

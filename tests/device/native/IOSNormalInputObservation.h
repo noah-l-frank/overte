@@ -10,6 +10,7 @@
 #include <QJsonObject>
 #include <QMutex>
 #include <QMutexLocker>
+#include <QRegularExpression>
 #include <QUuid>
 
 namespace overte::e2e {
@@ -18,16 +19,31 @@ namespace overte::e2e {
 // dispatches no event and deliberately excludes all login/private input.
 class IOSNormalInputObservation {
 public:
-    enum class Profile { Avatar };
-    static IOSNormalInputObservation& shared() { static IOSNormalInputObservation value;return value; }
+    enum class Profile { Avatar, Snapshot };
+    static IOSNormalInputObservation& shared(Profile profile=Profile::Avatar) {
+        if (profile==Profile::Snapshot) {static IOSNormalInputObservation snapshot(Profile::Snapshot);return snapshot;}
+        static IOSNormalInputObservation value(Profile::Avatar);return value;
+    }
 
     QString received(Profile profile,const QJsonObject& outer,const QString& control,const QJsonObject& root) {
         QMutexLocker locker(&_mutex);
-        if (profile!=Profile::Avatar) { return {}; }
+        if (profile!=_profile) { return {}; }
         const auto input=outer.value("input").toObject();
-        if (!control.startsWith("avatar.") && !control.startsWith("people.")
+        if (profile==Profile::Snapshot) {
+            if (root.isEmpty() || !QRegularExpression("\\Asnapshot\\.(name|mode|format|capture|cancel|export-cancel|upload-cancel|(?:save|share|upload)\\.[0-7])\\z").match(control).hasMatch()) {return {};}
+            // This passive source must not retain foreign/private text even
+            // when the ordinary input handler would subsequently reject it.
+            const auto operation=input.value("operation").toString();
+            if (operation=="replace") {
+                if (control!="snapshot.name" || !input.value("text").isString()) {return {};}
+                const auto text=input.value("text").toString();
+                if (!text.isEmpty() && !QRegularExpression("\\Aparity-[0-9a-f]{16}-(still-png|still-jpg|animated|panorama|cubemap)\\z").match(text).hasMatch()) {return {};}
+            } else if (operation!="activate") {return {};}
+        } else {
+            if (!control.startsWith("avatar.") && !control.startsWith("people.")
                 && control!="tablet.home" && !control.startsWith("tablet.page.")) { return {}; }
-        if ((control=="tablet.home" || control.startsWith("tablet.page.")) && root.isEmpty()) { return {}; }
+            if ((control=="tablet.home" || control.startsWith("tablet.page.")) && root.isEmpty()) { return {}; }
+        }
         const auto id=QUuid::createUuid().toString(QUuid::WithoutBraces);
         QJsonObject details{{"outerCommandId",outer.value("commandId")},{"command",input},
             {"controlId",control},{"root",root.isEmpty() ? QJsonValue(QJsonValue::Null) : QJsonValue(root)}};
@@ -42,15 +58,15 @@ public:
 
     QJsonObject observation(Profile profile,const QString& request,const QString& run) {
         QMutexLocker locker(&_mutex);const auto before=clock();
-        if (profile!=Profile::Avatar) { return {}; }
+        if (profile!=_profile) { return {}; }
         QJsonObject source{{"complete",_complete},{"events",_events}};
-        return QJsonObject{{"iosNormalInputsVersion",1},{"profile","avatar"},{"requestId",request},{"runId",run},{"instance",_instance},
+        return QJsonObject{{"iosNormalInputsVersion",1},{"profile",profile==Profile::Snapshot ? "snapshot" : "avatar"},{"requestId",request},{"runId",run},{"instance",_instance},
             {"sequence",static_cast<double>(++_sequence)},{"processId",static_cast<double>(QCoreApplication::applicationPid())},
             {"clockDomain","native-process-normal-inputs"},{"clockBefore",before},{"clockAfter",clock()},{"source",source}};
     }
 
 private:
-    IOSNormalInputObservation() : _instance(QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-')) { _clock.start(); }
+    explicit IOSNormalInputObservation(Profile profile) : _profile(profile),_instance(QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-')) { _clock.start(); }
     QJsonObject clock() const {
         return QJsonObject{{"epochMs",static_cast<double>(QDateTime::currentMSecsSinceEpoch())},
             {"monotonicMs",static_cast<double>(_clock.elapsed())}};
@@ -64,6 +80,7 @@ private:
         _bytes+=bytes;_events.append(row);return true;
     }
     QMutex _mutex;
+    const Profile _profile;
     QElapsedTimer _clock;
     QString _instance;
     QJsonArray _events;

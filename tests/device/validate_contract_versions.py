@@ -446,6 +446,8 @@ REQUIRED = {
     "native-ios-snapshot-export-controls": 1,
     "ios-snapshot-work": 1,
     "ios-snapshot-captures": 1,
+    "ios-snapshot-inputs": 1,
+    "ios-snapshot-input-delivery": 1,
     "ios-snapshot-captures-acquisition": 1,
     "ios-snapshot-pending-cancellation": 1,
     "ios-snapshot-work-source-pins": 1,
