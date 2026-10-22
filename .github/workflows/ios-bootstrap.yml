@@ -2,34 +2,6 @@ name: iOS bootstrap
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - apple-ios
-  pull_request:
-    paths:
-      - 'CMakeLists.txt'
-      - '.github/workflows/ios-bootstrap.yml'
-      - 'cmake/QtCompat.cmake'
-      - 'cmake/init.cmake'
-      - 'cmake/compiler.cmake'
-      - 'cmake/macros/SetupHifiLibrary.cmake'
-      - 'cmake/macros/SetupHifiProject.cmake'
-      - 'cmake/macros/SetupHifiTestCase.cmake'
-      - 'cmake/macros/TargetV8.cmake'
-      - 'cmake/macros/TargetVulkan.cmake'
-      - 'cmake/modules/FindMoltenVK.cmake'
-      - 'docs/ios/**'
-      - 'interface/CMakeLists.txt'
-      - 'interface/resources/qml/controls/+ios/**'
-      - 'interface/src/AboutUtil.cpp'
-      - 'interface/src/main.cpp'
-      - 'libraries/script-engine/src/v8/ScriptEngineV8.cpp'
-      - 'libraries/shared/src/shared/FileUtils.cpp'
-      - 'libraries/ui/src/**'
-      - 'libraries/vk/**'
-      - 'ios/**'
-      - '!**/*.md'
-
 permissions:
   contents: read
 
@@ -47,7 +19,10 @@ jobs:
     needs: provision-qt-ios
     uses: ./.github/workflows/ios-integrated.yml
     with:
-      qt_cache_key: ${{ needs.provision-qt-ios.outputs.qt_cache_key }}
+      qt_host_artifact_prefix: ${{ needs.provision-qt-ios.outputs.qt_host_artifact_prefix }}
+      qt_host_cache_key: ${{ needs.provision-qt-ios.outputs.qt_host_cache_key }}
+      qt_ios_artifact_prefix: ${{ needs.provision-qt-ios.outputs.qt_ios_artifact_prefix }}
+      qt_ios_cache_key: ${{ needs.provision-qt-ios.outputs.qt_ios_cache_key }}
 
   host-contracts:
     runs-on: ubuntu-24.04
