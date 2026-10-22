@@ -8,13 +8,17 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QObject>
+#include <QPointer>
 #include <QRegularExpression>
+#include <QSemaphore>
 #include <QSet>
 #include <QThread>
 #include <QTimer>
 #include <QUuid>
 #include <QVariantMap>
 #include <functional>
+#include <atomic>
+#include <memory>
 
 namespace overte::e2e {
 // Foreground authorization starts only passive original getters. No input,
@@ -25,6 +29,29 @@ public:
     using Read=std::function<QVariantMap()>;
     using Publish=std::function<void(const QVariantMap&)>;
     static constexpr int INTERVAL_MS=250,LEASE_MS=60000,MAX_BYTES=1024*1024;
+    // Same original QObject/owner thread, bounded wait, heap-owned result.
+    // A stalled/deleted owner or a late callback is unavailable; a timed-out
+    // callback cannot touch a caller stack or supply a later current result.
+    static QVariantMap ownedRead(QObject* owner,Read read) {
+        if (!owner || !read) { return {}; }
+        const QPointer<QObject> original(owner);const QPointer<QThread> originalThread(owner->thread());
+        if (!originalThread || !originalThread->isRunning()) { return {}; }
+        if (QThread::currentThread()==originalThread) {
+            const auto result=read();
+            return original && originalThread && original->thread()==originalThread ? result : QVariantMap{};
+        }
+        struct Result { QSemaphore ready;QVariantMap value;std::atomic<bool> cancelled{false}; };
+        const auto result=std::make_shared<Result>();
+        if (!QMetaObject::invokeMethod(owner,[original,originalThread,read=std::move(read),result] {
+            if (result->cancelled.load() || !original || !originalThread || original->thread()!=originalThread
+                    || QThread::currentThread()!=originalThread) { result->ready.release();return; }
+            try { result->value=read(); }catch (...) { result->value.clear(); }
+            result->ready.release();
+        },Qt::QueuedConnection)) { return {}; }
+        if (!result->ready.tryAcquire(1,1000)) { result->cancelled.store(true);return {}; }
+        if (!original || !originalThread || original->thread()!=originalThread || !originalThread->isRunning()) { return {}; }
+        return result->value;
+    }
     PhoneSnapshotHandoff(const QString& run,const QString& handoff,Read read,Publish publish)
         : _run(run),_handoff(handoff),_read(std::move(read)),_publish(std::move(publish)) {
         _timer.setInterval(INTERVAL_MS);_timer.setTimerType(Qt::PreciseTimer);
@@ -46,6 +73,9 @@ public:
     }
     bool retire() {
         if (!enabled() || !_started || _reading) { return false; }
+        // Qt may have been paused past expiry without delivering its timer.
+        // First retirement cannot turn that missed deadline into green proof.
+        if (!_retired && _age.elapsed()>=LEASE_MS) { fail("lease-expired"); }
         _timer.stop();_retired=true;sample();return !_reading && !_timer.isActive();
     }
     bool retired() const { return _retired && !_timer.isActive() && !_reading; }
@@ -75,6 +105,7 @@ private:
         try { original=_read(); }catch (...) { fail("source-unavailable"); }
         _reading=false;
         const auto captured=QDateTime::currentMSecsSinceEpoch();
+        if (!_retired && _age.elapsed()>=LEASE_MS) { fail("lease-expired"); }
         if (original.isEmpty() || QJsonDocument::fromVariant(original).toJson(QJsonDocument::Compact).size()>MAX_BYTES
                 || captured<requested || captured-requested>=1500 || elapsed.elapsed()>=1500) { fail("source-unavailable"); }
         _source=std::move(original);_captured=captured;++_sequence;

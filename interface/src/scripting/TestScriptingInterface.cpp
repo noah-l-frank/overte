@@ -1389,9 +1389,8 @@ QVariantMap TestScriptingInterface::phoneSnapshotHandoff(const QVariantMap& comm
             const auto lifecycle=_featureLifecycle->snapshot();
             QVariantMap accountState;const auto account=DependencyManager::get<AccountManager>();
             if (!account || lifecycle.isEmpty()) { return QVariantMap{}; }
-            const auto readAccount=[&] { accountState=account->featureAccountObservation(); };
-            if (QThread::currentThread()==account->thread()) { readAccount(); }
-            else if (!QMetaObject::invokeMethod(account.data(),readAccount,Qt::BlockingQueuedConnection)) { return QVariantMap{}; }
+            accountState=Handoff::ownedRead(account.data(),[account] { return account->featureAccountObservation(); });
+            if (accountState.isEmpty()) { return QVariantMap{}; }
             const QVariantMap context{{"snapshotHandoffContextVersion",1},{"requestedEpochMs",contextRequested},
                 {"capturedEpochMs",QDateTime::currentMSecsSinceEpoch()},{"lifecycle",lifecycle.toVariantMap()},{"account",accountState}};
             const auto before=roots();const auto script=featureScriptObservation(nonce());
