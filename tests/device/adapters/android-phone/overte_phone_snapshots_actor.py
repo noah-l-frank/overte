@@ -88,18 +88,55 @@ class PhoneSnapshotsActor(PhoneAssetsActor):
             if verb!='cleanup' and f.state['phase']=='cleaned':return False
             role=PhoneSnapshotsRole(f,'actor')
             if role.state['phase']=='reading':role.recover()
-            try:measured=role.read(role.state['sequence'])
-            except SnapshotPending:return False
-            sample=dict(ticket=current['ticket'],actor='owned-observer',actorSequence=measured['sequence'],capturedEpochMs=measured['capturedEpochMs'],
-                facts={key:deepcopy(measured['state'][key]) for key in WITNESS_KEYS['snapshots']})
-            need(role.frames[-1]['ticket']==current['ticket'])
             if verb=='cleanup':
-                proof=f.restored(snapshot=role.frames[-1]);now=f.monotonic();need(measured['resources']==[])
+                prepared=dict(feature=deepcopy(f.store.read()),actor=deepcopy(self.previous),role=deepcopy(role.previous),
+                    binding=deepcopy(f.binding),phase=deepcopy(status))
+            else:
+                try:measured=role.read(role.state['sequence'])
+                except SnapshotPending:return False
+                sample=dict(ticket=current['ticket'],actor='owned-observer',actorSequence=measured['sequence'],capturedEpochMs=measured['capturedEpochMs'],
+                    facts={key:deepcopy(measured['state'][key]) for key in WITNESS_KEYS['snapshots']})
+                need(role.frames[-1]['ticket']==current['ticket'])
+                self.state['pending']=dict(sample=sample,issued=False);self.save();self.deliver();return False
+        # Preparation may replay a long immutable history. Release its lock
+        # before the bounded current quiet interval so another role can run.
+        # No measurement or publication authority survives this boundary.
+        f.sleep(.1)
+        return self.cleanup_batch(role,prepared)
+
+    def cleanup_batch(self,role,prepared):
+        f=self.feature
+        with f.lock.held():
+            started=f.monotonic()
+            # Pin all three actual owners before loading any changed state.
+            need(same(f.store.read(),prepared['feature']) and same(self.store.read(),prepared['actor'])
+                and same(role.store.read(),prepared['role']) and same(f.binding,prepared['binding']))
+            f.load();self.load();f.bound();role.bound();role.history_authority()
+            need(f.state['phase']=='cleaned' and self.state['phase']=='watching' and self.state['pending'] is None
+                and self.state['closure'] is None and self.state['partialClosure'] is None)
+            status=f.phase.status();self.cleanup_phase(status,prepared['phase'])
+            while True:
+                f.bound();role.history_authority()
+                # Reuse only normal reader continuity. Every old file still
+                # passes its complete original inode/byte/hash validation.
+                need(same(role.restore_originals(),role.frames))
+                status=f.phase.status();self.cleanup_phase(status,prepared['phase'])
+                try:measured=role.read(role.state['sequence'])
+                except SnapshotPending:return False
+                need(measured['resources']==[] and role.frames[-1]['ticket']==status['activations'][-1]['ticket'])
+                proof=f.restored(snapshot=role.frames[-1]);now=f.monotonic()
                 quiet=quiet_window(self.state['quiet'],now,measured['sequence']);quiet['final']=proof;self.state['quiet']=quiet
-                if not quiet['complete']:
-                    self.save()
-                    # Release between actual quiet samples. Multiple full
-                    # acquisitions can exceed the primary's existing lock
-                    # deadline even when each source read is timely.
-                    return False
-            self.state['pending']=dict(sample=sample,issued=False);self.save();self.deliver();return False
+                self.save()
+                if quiet['complete']:
+                    sample=dict(ticket=status['activations'][-1]['ticket'],actor='owned-observer',actorSequence=measured['sequence'],capturedEpochMs=measured['capturedEpochMs'],
+                        facts={key:deepcopy(measured['state'][key]) for key in WITNESS_KEYS['snapshots']})
+                    self.state['pending']=dict(sample=sample,issued=False);self.save();self.deliver();return False
+                if f.monotonic()-started>=3.5:return False
+                f.sleep(.1)
+
+    @staticmethod
+    def cleanup_phase(status,prepared):
+        need(status['active'] and prepared['active'] and status['activations']
+            and status['activations'][-1]['stimulus']['verb']=='cleanup')
+        for key in ('fixturePhaseVersion','instance','runId','area','createdEpochMs','retiredEpochMs','activations'):
+            need(same(status[key],prepared[key]))
