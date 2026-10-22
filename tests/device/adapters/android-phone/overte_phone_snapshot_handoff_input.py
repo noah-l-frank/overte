@@ -97,6 +97,7 @@ class SnapshotHandoffInput:
             current=self.clock_ms();need(integer(current,epoch) and current<self.owner['deadlineEpochMs'])
             if type(actual) is dict and actual.get('commandId')==request['commandId']:
                 receipt(actual,request,self.pid);need(self.system_guard() is not False)
+                final_epoch=self.clock_ms();need(integer(final_epoch,current) and final_epoch<self.owner['deadlineEpochMs'])
                 now=self.monotonic();need(number(now,previous,1e15) and now-started<5)
                 return deepcopy(actual)
             if attempt<50:self.sleep(.1)

@@ -103,6 +103,17 @@ class SnapshotHandoffInputTests(unittest.TestCase):
         reader.admit=lambda *_:self.fail('Recovery must not admit')
         self.assertEqual(original,reader.observe(b.plan));self.assertEqual(1,len(b.sent))
 
+    def test_final_os_guard_cannot_qualify_receipt_after_original_deadline(self):
+        b=Handoff();reader=b.reader();calls=0
+        def guard():
+            nonlocal calls
+            calls+=1
+            if calls==3:b.epoch=reader.owner['deadlineEpochMs']
+            return True
+        reader.system_guard=guard
+        with self.assertRaises(NativeUIError):reader.deliver(b.plan)
+        self.assertEqual(1,len(b.sent))
+
     def test_real_factory_writes_only_fixed_normal_channel_after_foreground_admission(self):
         from types import SimpleNamespace
         from unittest.mock import patch
