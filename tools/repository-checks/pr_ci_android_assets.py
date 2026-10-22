@@ -17,6 +17,7 @@ import urllib.parse
 import urllib.request
 
 import pr_ci_android_runtime as R
+import pr_ci_android_capacity as CAP
 
 ROOT = Path(__file__).resolve().parents[2]
 POLICY = ".github/pr-ci-android-native.json"
@@ -48,7 +49,8 @@ def policy(root=ROOT, *, qualified=True):
     raw = (Path(root) / POLICY).read_bytes()
     require(len(raw) <= 2_000_000, "Android runtime policy exceeds its bound")
     value = json.loads(raw, object_pairs_hook=R.unique)
-    require(type(value) is dict and set(value) == {"schema", "kind", "status", "assets", "products"}
+    require(type(value) is dict and set(value) == ({"schema", "kind", "status", "assets", "products"}
+                | ({"capacity"} if value.get("status") == "qualified" else set()))
             and value["schema"] == 1 and value["kind"] == "overte-android-native-runtime-v1"
             and value["status"] in {"awaiting-local-qualification", "qualified"}
             and type(value["assets"]) is dict and type(value["products"]) is dict,
@@ -59,6 +61,10 @@ def policy(root=ROOT, *, qualified=True):
         return value
     require(set(value["assets"]) == KINDS and set(value["products"]) == {"common", "phone", "pico"},
             "qualified Android runtime is missing an owning product or immutable payload")
+    require(type(value["capacity"]) is dict and set(value["capacity"]) == {"prepare", "execute"},
+            "qualified Android runtime is missing measured capacity budgets")
+    for limit in value["capacity"].values():
+        CAP.budget(limit)
     for name, payload in value["assets"].items():
         keys = {"archive"} if name == "image" else {"archive", "inventory"}
         require(type(payload) is dict and set(payload) == keys, "invalid Android runtime payload")
