@@ -254,14 +254,7 @@ class PicoAudioCaptureOwner:
     def signature(info):
         need(stat.S_ISREG(info.st_mode) and info.st_nlink==1 and info.st_uid==os.geteuid() and stat.S_IMODE(info.st_mode)==0o600)
         return [info.st_dev,info.st_ino,info.st_mode,info.st_uid,info.st_nlink,info.st_size,info.st_mtime_ns,info.st_ctime_ns]
-    def read_file(self,value):
-        path=self.store.path.with_name(value['name']);descriptor=os.open(path,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK)
-        with os.fdopen(descriptor,'rb') as stream:
-            before=self.signature(os.fstat(stream.fileno()));need(before==value['file'] and before==self.signature(path.lstat()))
-            raw=stream.read(32*1024*1024+1)
-            need(self.signature(os.fstat(stream.fileno()))==before==self.signature(path.lstat())
-                and len(raw)==value['bytes'] and hashlib.sha256(raw).hexdigest()==value['sha256'])
-        return raw
+    def read_file(self,value):return read_original_file(self.store.path,value)
     def retain_originals(self):
         with self.lock.held():
             self.load();need(self.state['phase']=='terminal');self.quiet();packet,raw=self.preview.originals()
@@ -290,3 +283,13 @@ class PicoAudioCaptureOwner:
 
 def ui_frame(raw):
     need(type(raw) is str);return dict(raw=raw,sha256=hashlib.sha256(raw.encode()).hexdigest())
+
+
+def read_original_file(owner_path,value):
+    path=owner_path.with_name(value['name']);descriptor=os.open(path,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK)
+    with os.fdopen(descriptor,'rb') as stream:
+        before=PicoAudioCaptureOwner.signature(os.fstat(stream.fileno()));need(before==value['file'] and before==PicoAudioCaptureOwner.signature(path.lstat()))
+        raw=stream.read(32*1024*1024+1)
+        need(PicoAudioCaptureOwner.signature(os.fstat(stream.fileno()))==before==PicoAudioCaptureOwner.signature(path.lstat())
+            and len(raw)==value['bytes'] and hashlib.sha256(raw).hexdigest()==value['sha256'])
+    return raw
