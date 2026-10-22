@@ -1765,3 +1765,29 @@ prepare and full DOM identity cases pass8 narrow cases0.067s. The input/state
 lane is explicitly separate from the missing complete Journey actor/image/
 archive execution; original product producers remain host seams. Finalize still
 refuses, complete source areas stay3/14, and no device/application claim is made.
+
+
+## Bounded Chat archive descriptor ownership
+
+Fixed selection `6b4ca690721139b96d12eb940965acd80edb5d4a` adds archive/plan
+v2 with explicit closed-immutable-original file ownership. Original directory
+OFD pairs remain held. Each admitted immutable file uses a bounded original
+NoFollow/FD-to-path/full-stamp/byte read window; every close checks actual kernel
+open-file-description ownership. Replaced parents/files, same-file FD recycling
+and relabelled legacy receipts refuse. Original limits and legacy v1 held-file
+semantics are unchanged. The2100-file regression holds at most four additional
+steady descriptors and leaves the RLIMIT tuple unchanged.
+
+Root registered the new file/plan regressions in the existing archive group and
+continuation regressions in compiled-source; catalog stays139. Owning3/139
+groups pass19.53s (archive15.249s, compiled source4.222s, coverage0.062s).
+The separate16-case new FS/FD/plan/factory selection passes13.703s.
+
+The agent's frozen warm measurement now reaches full26 compiled/Witness stages,
+Erase/Profile, both cache releases, original process restart/new birth/IPC and
+both quiet windows. Before archive unlink, its budget preflight detects2623
+original files plus new-process Root sequence186: per-file Root/Script/Root
+would require5438 native queries, above the unchanged4096 source bound.
+No original was deleted by that measured attempt. A bounded opt-in original
+source fence is being implemented separately; it is not part of the selected
+v2 package, and whole Chat/archive completion remains unqualified.
