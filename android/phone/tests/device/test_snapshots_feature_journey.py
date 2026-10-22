@@ -57,10 +57,11 @@ class TargetClockPhase(SnapshotUploadFixtureReader):
     def __init__(self,client,run):super().__init__(client,run,epoch_ms=adapter.clock_ms)
 overte_phone_snapshot_upload_fixture.SnapshotUploadFixtureReader=TargetClockPhase
 client=Client(configuration['fixtureUrl'],configuration['actorToken'])
-started=time.monotonic()
+started=time.monotonic();flow=None
 while time.monotonic()-started<240:
     try:
-        if adapter.actor('synthetic',RUN,client).step():sys.exit(0)
+        if flow is None:flow=adapter.actor('synthetic',RUN,client)
+        if flow.step():sys.exit(0)
     except PhoneScriptSourceBusy:pass
     except Exception as error:
         current=error.__context__
