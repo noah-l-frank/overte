@@ -48,6 +48,25 @@ class IOSAvatarLoginRuntime(IOSAuthenticationRuntime):
 
 
 class IOSAvatarRuntime(IOSScriptRuntime):
+    def _avatar_marker_scope(self,selector,client,run,role,root,ticket,lock):
+        from ios.adapters.avatar_marker_scope import IOSAvatarMarkerScope
+        identifier(run);identifier(ticket)
+        need(isinstance(client,Client) and role in ('primary','actor') and isinstance(lock,ScriptSourceLock))
+        lock.assert_held();need(lock.path==self.state_path(selector).with_name('script-feature-sources.lock'))
+        source=self._sources(selector)
+        need(source['target'].get('testBuild',{}).get('launchEnvironment',{}).get('HIFI_METAVERSE_URL')==origin(client.url))
+        return IOSAvatarMarkerScope(self,selector,root,run,role,client.url+'/runs/'+run+'/',ticket,lock)
+
+    def _avatar_samples(self,selector,scope,client,root,policy,lock):
+        from ios.adapters.avatar_marker_scope import IOSAvatarMarkerScope
+        from ios.adapters.avatar_samples import IOSAvatarSamples
+        need(isinstance(scope,IOSAvatarMarkerScope) and isinstance(client,Client) and isinstance(lock,ScriptSourceLock))
+        scope.bound();lock.assert_held();source=self._sources(selector)
+        need(source['binding']==scope.binding and lock.path==self.state_path(selector).with_name('script-feature-sources.lock')
+            and scope.fixture_url==client.url+'/runs/'+scope.run+'/'
+            and source['target'].get('testBuild',{}).get('launchEnvironment',{}).get('HIFI_METAVERSE_URL')==origin(client.url))
+        return IOSAvatarSamples(self,selector,scope,root,policy,PhaseFixtureReader(client,scope.run,'avatar-people'),lock)
+
     def _avatar_consent(self,selector,sources,peer,username):
         from ios.adapters.avatar_consent import IOSAvatarConsent
         from ios.adapters.avatar_input_owner import AvatarInputOwner

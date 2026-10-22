@@ -120,6 +120,8 @@
     "ios-avatar-marker-scope": {"current": 1, "reads": [1]},
     "ios-avatar-marker-recovery": {"current": 1, "reads": [1]},
     "ios-avatar-marker-abandoned-read": {"current": 1, "reads": [1]},
+    "ios-avatar-samples": {"current": 1, "reads": [1]},
+    "ios-avatar-sample": {"current": 1, "reads": [1]},
     "ios-avatar-image": {"current": 1, "reads": [1]},
     "ios-avatar-image-change": {"current": 1, "reads": [1]},
     "ios-avatar-world": {"current": 1, "reads": [1]},

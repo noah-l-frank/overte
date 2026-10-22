@@ -145,6 +145,29 @@ class AvatarRuntimeTests(unittest.TestCase):
             source['target']['testBuild']['launchEnvironment']['HIFI_METAVERSE_URL']='https://foreign.invalid'
             with self.assertRaises(NativeUIError):runtime._avatar_peer_sources('target',self.client,self.run,'actor',self.root,lock)
 
+    def test_marker_and_sample_factories_preserve_actual_sdk_role_lock_and_controlled_origin(self):
+        from ios.adapters import avatar_marker_scope,avatar_samples
+        source=dict(binding=BINDING,target=dict(testBuild=dict(launchEnvironment=dict(HIFI_METAVERSE_URL='https://controlled.invalid'))))
+        class Runtime(IOSAvatarRuntime):
+            def _sources(_self,_selector):return source
+        runtime=Runtime(self.adapter);lock=ScriptSourceLock(self.path/'script-feature-sources.lock')
+        marker=object.__new__(avatar_marker_scope.IOSAvatarMarkerScope)
+        marker.binding,marker.run,marker.role=BINDING,self.run,'actor';marker.fixture_url=self.client.url+'/runs/'+self.run+'/'
+        marker.bound=lambda:lock.assert_held()
+        with lock.held(),patch.object(avatar_marker_scope,'IOSAvatarMarkerScope',autospec=True) as constructor:
+            constructor.return_value=marker
+            self.assertIs(marker,runtime._avatar_marker_scope('target',self.client,self.run,'actor',self.root,self.ticket,lock))
+            self.assertEqual((runtime,'target',self.root,self.run,'actor',marker.fixture_url,self.ticket,lock),constructor.call_args.args)
+        with lock.held(),patch.object(avatar_samples,'IOSAvatarSamples',autospec=True) as constructor:
+            made=runtime._avatar_samples('target',marker,self.client,self.root,dict(source='world-render-target'),lock)
+            self.assertIs(constructor.return_value,made);phase=constructor.call_args.args[-2]
+            self.assertEqual('avatar-people',phase.area);self.assertEqual(self.run,phase.run)
+            self.assertIs(marker,constructor.call_args.args[2])
+            source['binding']=BINDING|dict(artifactSha256='f'*64)
+            with self.assertRaises(NativeUIError):runtime._avatar_samples('target',marker,self.client,self.root,{},lock)
+            source['binding']=BINDING;source['target']['testBuild']['launchEnvironment']['HIFI_METAVERSE_URL']='https://foreign.invalid'
+            with self.assertRaises(NativeUIError):runtime._avatar_marker_scope('target',self.client,self.run,'actor',self.root,self.ticket,lock)
+
     def test_consent_factory_owns_actor_only_under_actual_candidate_and_fixture_origin(self):
         fixture=SourcesFixture();fixture.phase.client.url=self.client.url;readers=fixture.readers()
         from ios.adapters.avatar_sources import IOSAvatarSources

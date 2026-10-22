@@ -127,6 +127,8 @@ REQUIRED = {
     "ios-avatar-marker-scope": 1,
     "ios-avatar-marker-recovery": 1,
     "ios-avatar-marker-abandoned-read": 1,
+    "ios-avatar-samples": 1,
+    "ios-avatar-sample": 1,
     "ios-avatar-image": 1,
     "ios-avatar-image-change": 1,
     "ios-avatar-world": 1,
