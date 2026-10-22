@@ -23,6 +23,8 @@ sys.path.insert(0,str(Path(__file__).resolve().parent))
 from test_chat_actor_pending_native import HARNESS as ORIGINAL
 from adapters.chat_actor_files import ChatActorFiles
 from adapters.chat_peer_input import ChatPeerInput,COMMAND,RECEIPT
+from adapters.chat_journey.peer_input_close import ChatPeerInputClose
+from adapters.script_journey.lock import ScriptSourceLock
 from adapters.native_chat_observation import NativeChatObservation
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.normal_ui import NativeUIError
@@ -85,7 +87,17 @@ class NativeInputLifetimeTests(unittest.TestCase):
                 self.assertEqual(released['scriptPolls'],actual['scriptPolls'])
                 original_node=actual['receiptHandle']['node'];self.assertFalse(kernel.released(original_node))
                 self.assertTrue(actual['command']['present']);self.assertTrue(actual['receipt']['present'])
-                (actor/COMMAND).unlink();(actor/RECEIPT).unlink();os.fsync(transport.fd)
+                close=ChatPeerInputClose(owner,reader,PrivateFeatureState(root/'input-close.json'),
+                    ScriptSourceLock(root/'script-sources.lock'))
+                try:closed=close.run()
+                except NativeUIError as error:
+                    cause=error
+                    while cause.__context__ is not None:cause=cause.__context__
+                    raise AssertionError('Actual original native input closure failed') from cause
+                self.assertEqual('complete',closed['phase'])
+                self.assertTrue(any(row['stage']=='before' for row in close.frames))
+                self.assertTrue(any(row['stage']=='after' for row in close.frames))
+                with self.assertRaises(NativeUIError):owner.issue('inspect')
                 after=capture();self.assertFalse(after['command']['present']);self.assertFalse(after['receipt']['present'])
                 self.assertFalse(after['receiptHandle']['open']);self.assertEqual({},after['receiptHandle']['node'])
                 self.assertTrue(kernel.released(original_node));self.assertEqual(actual['scriptPolls'],after['scriptPolls'])
