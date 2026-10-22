@@ -111,6 +111,8 @@ class PhoneEmoteFailures:
             need(value['phase']=='planned' if old is None else old['phase']=='planned' and value['phase']=='saved' and same(value['reference'],old['reference']))
         pending[kind]=deepcopy(value);self.save()
 
+    def role(self,role,policy):return PhoneEmoteRole(self.run,role,policy)
+
     def record(self,value,index):
         exact(value,{'emoteFailureRecordVersion','index','kind','archive'})
         version=value['emoteFailureRecordVersion']
@@ -122,11 +124,11 @@ class PhoneEmoteFailures:
             need(proof['emoteSourceFailureArchiveVersion'] in ((1,2) if version>=7 else (1,)));source.failure_archive(proof)
         elif value['kind']=='role':
             need(proof['emoteRoleFailureArchiveVersion'] in ((1,2) if version>=7 else (1,)))
-            PhoneEmoteRole(self.run,source.role,proof['header']['imagePolicy']).failure_archive(proof)
+            self.role(source.role,proof['header']['imagePolicy']).failure_archive(proof)
         elif value['kind']=='lifetime':PhoneEmoteLifetime.failure_archive(proof,source)
         elif value['kind']=='phase':
             need(proof['emoteRolePhaseRetirementVersion'] in ((1,2) if version>=6 else (1,)))
-            PhoneEmoteRole(self.run,source.role,proof['header']['imagePolicy']).phase_archive(proof)
+            self.role(source.role,proof['header']['imagePolicy']).phase_archive(proof)
         else:
             expected=self.run.state['admissionSha256']
             if source.role=='primary' and expected is not None:need(hashlib.sha256(canonical(proof['header'])).hexdigest()==expected)

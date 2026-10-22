@@ -38,7 +38,11 @@ restoration and obtains each role's own three-second native/work quiet window.
 Its input acknowledgments do not supply feature facts or complete cleanup.
 Per-role original image/motion observations and independent actor publication are
 implemented as internal components. The public facade and whole-run retirement
-still block complete Emote capability registration. Closed-provider View/Scene
+still block complete Emote capability registration. The internal
+[retirement coordinator](adapters/android-phone/EMOTE_RETIREMENT.md) now implements
+the completed-setup resource/journal path; setup/admission abort retirement still
+needs to be composed. Its immutable handoff retains the original dependency graph
+and retries obtain new native facts even after all child controls are gone. Closed-provider View/Scene
 transfers retain new actual native groups; namespace retirement v2 retains every
 source/input dependency as historical ownership evidence. Neither substitutes
 for final current native/work/resource checks or device qualification.

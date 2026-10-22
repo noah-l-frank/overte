@@ -376,4 +376,56 @@ class EmoteSceneTests(unittest.TestCase):
             fresh=m.scene(m.factory());self.assertEqual(proof,fresh.retire_closed(lambda _:None,retained=proof))
 
 
+    def parent_resource_context(self):
+        # Exercise the coordinator's production View/Scene call path. Namespace
+        # retirement has its independent original-source tests and is doubled
+        # only here; the real View/Scene readers and private files remain intact.
+        from types import SimpleNamespace
+        from overte_phone_emote_retirement import PhoneEmoteRetirement
+        from overte_phone_script_history import pack
+        m=self.model;scene=self.closed_ready()
+        originals={scene.store.path.name:deepcopy(scene.previous),m.factory().store.path.name:m.factory().store.read()}
+        store=PrivateFeatureState(m.root/'unit-resource-handoff.json')
+        def get(key):
+            header=store.read();return None if header is None else unpack(header['payload'])[0].get(key)
+        def retain(key,value):
+            previous=store.read();records={} if previous is None else unpack(previous['payload'])[0]
+            if key in records:self.assertEqual(records[key],value)
+            else:records[key]=deepcopy(value);store.write(dict(payload=pack([records])),previous)
+        def namespace_retire(callback,*,retained=None):
+            callback(retained if retained is not None else dict(unitNamespaceBoundaryVersion=1,header=None))
+        owner=object.__new__(PhoneEmoteRetirement)
+        owner.run=SimpleNamespace(adapter=m,selector='controlled',phase=m.phase,lock=m.lock,root=m.root,
+            extent=[1000,750],marker=[20,20,180,60],monotonic=lambda:m.sdk.clock,sleep=m.scene_sleep)
+        owner.owner_state=dict(cleanupTicket='e'*32);owner.state=dict(attempts=1)
+        owner.get,owner.retain,owner.original=get,retain,lambda name:deepcopy(originals[name])
+        owner.namespace=lambda:SimpleNamespace(retire_closed=namespace_retire)
+        m.journal.close(RUN);return owner,store
+
+    def test_parent_uses_actual_closed_view_scene_readers_and_retains_fresh_originals_after_child_removal(self):
+        m=self.model
+        with m.lock.held():
+            owner,store=self.parent_resource_context();calls=deepcopy(m.fixture_calls);inputs=deepcopy(m.sdk.inputs)
+            owner.retire_resources();records=unpack(store.read()['payload'])[0]
+            self.assertEqual({'scene','view','namespace','resources/1'},set(records))
+            self.assertIsNone(PrivateFeatureState(m.root/'phone-emote-scene.json').read())
+            self.assertIsNone(PrivateFeatureState(m.root/'phone-emote-view.json').read())
+            final=records['resources/1'];self.assertFalse(final['view']['phaseAfter']['active'])
+            self.assertFalse(final['scene']['phaseAfter']['active']);self.assertEqual('look at',final['scene']['avatar']['source']['cameraMode'])
+            self.assertGreater(final['view']['avatar']['sequence'],records['view']['frame']['avatar']['sequence'])
+            self.assertGreater(final['scene']['world']['sequence'],records['scene']['frame']['world']['sequence'])
+            self.assertEqual(calls,m.fixture_calls);self.assertEqual(inputs,m.sdk.inputs)
+            owner.state['attempts']=2;owner.retire_resources();later=unpack(store.read()['payload'])[0]
+            self.assertEqual(records['view'],later['view']);self.assertEqual(records['scene'],later['scene'])
+            self.assertGreater(later['resources/2']['scene']['world']['sequence'],final['scene']['world']['sequence'])
+
+    def test_parent_rejects_actual_retained_browser_even_when_old_release_window_is_complete(self):
+        m=self.model
+        with m.lock.held():
+            owner,store=self.parent_resource_context();m.scene_fault='retain-browser'
+            with self.assertRaises(NativeUIError):owner.retire_resources()
+            self.assertIsNotNone(PrivateFeatureState(m.root/'phone-emote-scene.json').read())
+            self.assertIsNotNone(PrivateFeatureState(m.root/'phone-emote-view.json').read());self.assertIsNone(store.read())
+
+
 if __name__=='__main__':unittest.main()

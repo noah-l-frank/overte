@@ -34,8 +34,10 @@ obtains new root/Script/Rig/UI/probe originals after actual provider closure,
 retaining pending responsibility before queries and exact measured completion
 before fresh delivery. Final-work observation v1 now independently checks actual
 Script work and cumulative selected/unclassified activity against the completed
-quiet tail. Whole-run resource/host-journal retirement and the public facade
-remain open; complete Emotes is missing and
+quiet tail. The [retirement coordinator](EMOTE_RETIREMENT.md) now joins the completed-setup
+resource/host-journal path, retaining all original dependencies and reobserving
+native state after partial deletion. Setup/admission abort retirement and the
+public facade remain open; complete Emotes is missing and
 unregistered.
 The [consumed animation data source](../../native/ANIMATION_SOURCE.md) now joins
 actual parser bytes and original retargeted model/resource identity to compiled

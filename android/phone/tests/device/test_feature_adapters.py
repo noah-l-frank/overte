@@ -985,6 +985,14 @@ class FeatureAdapterTests(unittest.TestCase):
             base.assert_called_once()
         self.assertEqual({'unresolved':True},store.read());store.discard(store.read())
 
+    def test_general_cleanup_cannot_forget_emote_retirement_when_child_journals_are_absent(self):
+        store=appium.PrivateFeatureState(self.adapter.state_path(SELECTOR).with_name('phone-emote-retirement.json'))
+        store.write({'unresolved':True},None)
+        with patch.object(AppiumAdapter,'cleanup',return_value={'cleaned':True}) as base:
+            with self.assertRaisesRegex(ValueError,'PHONE_EMOTE_RETIREMENT_OWNERSHIP_REMAINS'):self.adapter.cleanup(SELECTOR)
+            base.assert_called_once()
+        self.assertEqual({'unresolved':True},store.read());store.discard(store.read())
+
     def test_general_cleanup_cannot_forget_actor_failure_or_role_emote_ownership(self):
         for name,error in (('actor-lifecycle','ACTOR'),('failures','FAILURE'),('primary-role','ROLE'),('actor-role','ROLE')):
             with self.subTest(name=name):

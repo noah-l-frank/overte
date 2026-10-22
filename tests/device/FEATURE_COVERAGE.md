@@ -42,8 +42,10 @@ A separate closed-source observation v1 now acquires new root/Script/Rig/UI/prob
 originals through the existing readers after actual closure, with mandatory
 pending/completed parent retention. Final-work observation v1 now independently measures actual work after the new
 source group, checking the original quiet tail and cumulative selected/unknown
-activity. Whole-run resource/journal retirement and public registration still
-have to be composed.
+activity. The [retirement coordinator](adapters/android-phone/EMOTE_RETIREMENT.md) now joins
+the completed-setup resource/journal path, including fresh retry after every child
+control is gone and a durable original-reference handoff. Setup/admission abort
+retirement, the public facade and complete registration still remain open.
 Emotes still lacks its public facade and whole-run retirement; it is
 not counted as an implemented full triple.
 The [Phone failure owner](adapters/android-phone/EMOTE_FAILURES.md) now retains

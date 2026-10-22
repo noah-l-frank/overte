@@ -1437,6 +1437,8 @@ class PhoneAppiumAdapter(AppiumAdapter):
                 for role in ('primary','actor')),'PHONE_EMOTE_ROLE_OWNERSHIP_PENDING')
         require(PrivateFeatureState(self.state_path(selector).with_name('phone-emote-run.json')).read() is None,
                 'PHONE_EMOTE_RUN_OWNERSHIP_REMAINS')
+        require(PrivateFeatureState(self.state_path(selector).with_name('phone-emote-retirement.json')).read() is None,
+                'PHONE_EMOTE_RETIREMENT_OWNERSHIP_REMAINS')
         require(all(PrivateFeatureState(self.state_path(selector).with_name('phone-emote-'+role+'-admission.json')).read() is None
                     for role in ('primary','actor')),'PHONE_EMOTE_ADMISSION_OWNERSHIP_REMAINS')
         require(all(PrivateFeatureState(self.state_path(selector).with_name('phone-emote-'+role+'-lifetime.json')).read() is None
