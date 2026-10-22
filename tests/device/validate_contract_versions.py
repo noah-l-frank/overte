@@ -140,6 +140,8 @@ REQUIRED = {
     "native-navigation-origin-controls": 1,
     "navigation-origin-operations": 1,
     "navigation-environment-archive": 1,
+    "native-navigation-directory": 1,
+    "navigation-directory-operations": 1,
     "feature-navigation-provider": 1,
     "feature-journey": 16, "acceptance-policy": 1, "adapter-manifest": 1, "artifact-manifest": 1,
     "capability-registry": 1, "fixture-environment": 1, "matrix-summary": 1,

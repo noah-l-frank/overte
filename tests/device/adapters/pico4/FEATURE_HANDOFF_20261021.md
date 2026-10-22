@@ -594,3 +594,31 @@ replay or environment override is introduced. These restrictions are explicit
 source prerequisites, not a complete-area or device claim. The complete count
 remains three. Next join actual consumed directory/model/native arrival/stereo,
 remaining Go To closure, original restart and independent final retirement.
+
+
+## Original consumed directory and normal search
+
+The [directory refresh/search owner](NAVIGATION_DIRECTORY.md) joins original
+response bytes/header, the original qualified Places engine's first actual
+responseText read, its unchanged outgoing message and the original root.records
+notification to the independently read current QML model. Normal refresh,
+hidden-query three-second quiet and owned-query recovery use existing Pico
+input. Applied lost replies resolve original pending ownership without resends.
+
+The native collector retains exact original manager/code/load/response and
+root/message identities with bounded histories. Old preloaded rows, HTTP-only,
+read-only and outgoing-only histories fail. A real owned loopback response and
+the private Pico factory are host tested; all Qt/native boundaries remain
+synthetic and C++ remains uncompiled. This advances internal Navigation source
+and input composition, not a complete area. Continue row selection/native
+arrival/stereo, maturity, remaining Go To closure, restart and final actor/resource
+retirement. Complete source/host areas remain three of fourteen.
+
+Shared reconciliation: the two new v1 contracts and strict original-data reader
+are additive. The native getter observation, script-thread outgoing provider,
+existing Test slot and original QML root watch require both Pico E2E flags;
+non-Pico getter results stay unchanged. The bridge uses a forward-declared Qt
+Quick pointer so script-engine keeps its original Core/Network/Qml dependencies.
+The parent must provide original qualified code/profile inputs and compose the
+existing provider, normal controls and source lock. No Phone/iOS branch or
+reference worktree was edited and no full catalog group was added or removed.

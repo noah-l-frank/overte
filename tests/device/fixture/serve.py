@@ -507,6 +507,12 @@ class FixtureState:
             try:process_presence_command(command,ios=True)
             except (ValueError,RuntimeError):raise ValueError("invalid native process presence request") from None
             valid=True
+        elif action == "feature-navigation-directory":
+            sys.path.insert(0,str(ROOT.parent))
+            from adapters.native_navigation_directory import command as navigation_directory_command
+            try:navigation_directory_command(command)
+            except (ValueError,RuntimeError):raise ValueError("invalid native navigation directory request") from None
+            valid=True
         elif action == "feature-navigation-environment":
             sys.path.insert(0,str(ROOT.parent))
             from adapters.native_navigation_environment import command as navigation_environment_command

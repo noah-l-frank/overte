@@ -13,6 +13,7 @@
 #include <algorithm>
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
 #include "../../../../tests/device/native/TabletHttpObservation.h"
+#include "../../../../tests/device/native/NavigationDirectoryBridge.h"
 #endif
 
 #include <QtCore/QThread>
@@ -1123,6 +1124,11 @@ void TabletProxy::emitScriptEvent(const QVariant& msg) {
 }
 
 void TabletProxy::sendToQml(const QVariant& msg) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+    // Observe the original script-thread call once, before the unchanged GUI
+    // queue hop; the GUI re-entry must not duplicate its provenance.
+    if (_name==SYSTEM_TABLET && QThread::currentThread()!=thread()) { overte::e2e::observeNavigationDirectoryOutgoing(msg); }
+#endif
     if (QThread::currentThread() != thread()) {
         QMetaObject::invokeMethod(this, "sendToQml", Q_ARG(QVariant, msg));
         return;

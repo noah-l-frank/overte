@@ -1023,18 +1023,34 @@
     }
 
     function applyClientCommand(command) {
+        if (command && command.action === "feature-navigation-directory") {
+            if (command.schemaVersion === 1 && typeof command.commandId === "string"
+                    && command.commandId.length === 32 && /^[0-9a-f]{32}$/.test(command.commandId)
+                    && typeof command.runId === "string" && command.runId.length === 32 && /^[0-9a-f]{32}$/.test(command.runId)
+                    && objectKeysMatch(command,["schemaVersion","commandId","action","runId"])) {
+                var navigationDirectory={navigationDirectoryVersion:1,commandId:command.commandId,status:"unavailable"};
+                try {
+                    if (typeof Test.featureNavigationDirectory === "function") {
+                        var originalNavigationDirectory=Test.featureNavigationDirectory(command);
+                        if (originalNavigationDirectory && originalNavigationDirectory.commandId === command.commandId) { navigationDirectory=originalNavigationDirectory; }
+                    }
+                } catch (_navigationDirectoryError) { /* Missing original source stays unavailable. */ }
+                Test.saveObject(navigationDirectory,"feature-navigation-directory.json");
+            }
+            return true;
+        }
         if (command && command.action === "feature-navigation-environment") {
             if (command.schemaVersion === 1 && typeof command.commandId === "string"
                     && command.commandId.length === 32 && /^[0-9a-f]{32}$/.test(command.commandId)
                     && typeof command.runId === "string" && command.runId.length === 32 && /^[0-9a-f]{32}$/.test(command.runId)
                     && objectKeysMatch(command,["schemaVersion","commandId","action","runId"])) {
-                var navigationEnvironment={navigationModalVersion:1,commandId:command.commandId,status:"unavailable"};
+                var navigationEnvironment={navigationEnvironmentVersion:1,commandId:command.commandId,status:"unavailable"};
                 try {
                     if (typeof Test.featureNavigationEnvironment === "function") {
                         var originalNavigationEnvironment=Test.featureNavigationEnvironment(command);
                         if (originalNavigationEnvironment && originalNavigationEnvironment.commandId === command.commandId) { navigationEnvironment=originalNavigationEnvironment; }
                     }
-                } catch (_navigationModalError) { /* Unknown presentation is never an absent successful modal. */ }
+                } catch (_navigationEnvironmentError) { /* Missing original source stays unavailable. */ }
                 Test.saveObject(navigationEnvironment,"feature-navigation-environment.json");
             }
             return true;
@@ -1690,6 +1706,7 @@
                 || command.action === "feature-location-bookmarks"
                 || command.action === "feature-navigation-modals"
                 || command.action === "feature-navigation-environment"
+                || command.action === "feature-navigation-directory"
                 || command.action === "feature-process-presence"
                 || command.action === "feature-recorded-audio-observe" || command.action === "feature-recorded-audio-release"
                 || command.action === "feature-recorded-audio-files" || command.action === "feature-script-observe"

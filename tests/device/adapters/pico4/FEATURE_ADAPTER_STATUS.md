@@ -31,9 +31,11 @@ reply-owner capture, queued native callback, original modal/listener, normal OK
 and full three-second QObject retirement, including lost-reply continuation.
 The [normal directory owner](NAVIGATION_ORIGIN.md) now selects and restores
 the actual original path-bearing endpoint, preserves unrelated settings and
-requires a credential-free original state. Directory consumption/model/arrival
-joins, maturity composition, remaining Go To closure, restart and independent
-whole-area retirement remain incomplete. These components add
+requires a credential-free original state. The [directory refresh/search owner](NAVIGATION_DIRECTORY.md)
+now joins actual original responseText consumption, outgoing message and
+original QML records notification to the normal refreshed/search-filtered model.
+Actual row selection/arrival/stereo, maturity composition, remaining Go To
+closure, restart and independent whole-area retirement remain incomplete. These components add
 no complete feature area.
 
 ## Historical component checkpoints

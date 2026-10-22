@@ -70,7 +70,13 @@
         "tests/device/adapters/navigation_origin.py",
         "tests/device/adapters/pico4/normal_navigation_origin.py",
         "tests/device/adapters/pico4/NAVIGATION_ORIGIN.md",
-        "tests/device/self_tests/test_navigation_origin.py"
+        "tests/device/self_tests/test_navigation_origin.py",
+        "tests/device/native/NavigationDirectoryBridge.h",
+        "tests/device/native/NavigationDirectoryObservation.h",
+        "tests/device/adapters/native_navigation_directory.py",
+        "tests/device/adapters/navigation_directory.py",
+        "tests/device/adapters/pico4/NAVIGATION_DIRECTORY.md",
+        "tests/device/self_tests/test_navigation_directory.py"
       ],
       "declaredCheckpoints": 15,
       "inputVerbs": [
@@ -99,8 +105,8 @@
         "addressDialog"
       ],
       "missingOperationsOrEvidence": [
-        "Whole-area integration of the present normal Places/bookmark flow and original lookup-error modal/normal OK/quiet release with directory consumption, arrival and actual restart",
-        "Whole-area composition of the present original directory selection/restoration owner with current directory consumption/model/normal selection/arrival, maturity preservation and original restart; an absent original endpoint setting or unowned credentials/draft is explicitly refused before input",
+        "Whole-area integration of normal Places/bookmark, directory origin and original consumed-response/normal-search owners with actual arrival/stereo, matching lookup error and process restart",
+        "Whole-area composition of present original selected-origin and actual refreshed-directory/model/search joins with maturity preservation, normal B/A row selection/arrival and restart; absent original endpoint settings or unowned credentials/draft are refused before input",
         "Whole-area independent publisher and complete original callback/resource retirement"
       ],
       "requiredOriginalEvidence": [
@@ -115,7 +121,7 @@
         "Restore original location and closed owned dialogs",
         "Prove pending reply/callback retirement and a three-second quiet baseline"
       ],
-      "nextExecutableStep": "Compose the normal Places/bookmark, original directory selection/restoration and lookup-error dismissal owners with actual directory response consumption/model/native arrival/stereo, remaining Go To closure, actual restart and an independent final quiet/resource observer before registering the complete area triple.",
+      "nextExecutableStep": "Compose the original normal directory refresh/search, selected-origin restoration, bookmark and lookup-error owners with actual B/A row selection/native arrival/stereo, remaining Go To closure, actual restart/bookmark transfer and independent final resource retirement before registering the complete area triple.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     },

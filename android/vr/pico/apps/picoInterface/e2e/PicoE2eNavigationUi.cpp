@@ -20,6 +20,7 @@
 #include "../../../../../../tests/device/native/NormalPlacesControls.h"
 #include "../../../../../../tests/device/native/NavigationFailureModals.h"
 #include "../../../../../../tests/device/native/NavigationEnvironmentObservation.h"
+#include "../../../../../../tests/device/native/NavigationDirectoryBridge.h"
 #include "../../../../../../tests/device/native/FeatureUiInventory.h"
 #include "../../../../../../tests/device/native/NormalNavigationAddress.h"
 #include "../../../../../../tests/device/native/TabletHttpObservation.h"
@@ -337,6 +338,8 @@ QJsonObject NavigationUi::observe(QQuickItem* root, QQuickWindow* window, bool o
     result["navigationErrorControlsVersion"]=1;
     result["navigationOriginControlsVersion"]=1;
     overte::e2e::navigationEnvironmentObservation().observe(result,controls.value("login.server").item,controls.value("login.page").item);
+    const auto directoryProvider=overte::e2e::navigationDirectoryProvider();
+    if (directoryProvider.watch) { directoryProvider.watch(controls.value("places.page").item,result); }
 #endif
 #endif
     return result;

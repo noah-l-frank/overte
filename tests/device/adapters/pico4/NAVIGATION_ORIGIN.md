@@ -106,7 +106,8 @@ absent original setting, stale clocks/cursors, source replacement, changed
 settings/account/input during quiet, archive/query tampering and full original
 64-event history. These tests never compile or run native code.
 
-Next compose current directory HTTP consumption, original Places models and
-maturity controls, actual B/A arrival/stereo evidence, remaining owned Go To
+The [directory owner](NAVIGATION_DIRECTORY.md) now joins current original
+HTTP consumption and original Places records/models with normal search. Next
+compose maturity controls, actual B/A arrival/stereo evidence, remaining owned Go To
 closure, real process restart/bookmark owner transfer and the independent final
 observer. This component never advertises a complete Navigation feature.

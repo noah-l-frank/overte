@@ -224,7 +224,7 @@ public:
     int getTimeout() const { return _timeout; }
     void setTimeout(int timeout) { _timeout = timeout; }
     ScriptValue getResponse() const { return _responseData; }
-    ScriptValue getResponseText() const { return _engine->newValue(QString(_rawResponseData.data())); }
+    ScriptValue getResponseText() const;
     QString getResponseType() const { return _responseType; }
     void setResponseType(const QString& responseType) { _responseType = responseType; }
     ScriptValue getReadyState() const { return _engine->newValue(_readyState); }
@@ -310,6 +310,8 @@ signals:
 
 private:
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+    void featureNavigationDirectoryRead() const;
+    mutable bool _featureNavigationDirectoryRead{false};
     void featureTabletHttpState(const QString& kind);
     void featureTabletHttpReply();
     QString _featureTabletHttpLease;

@@ -19,6 +19,10 @@
 #include <QEventLoop>
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
 #include "../../../tests/device/native/TabletHttpObservationBridge.h"
+#include "../../../tests/device/native/NavigationDirectoryBridge.h"
+#include "ScriptManager.h"
+#include <QJsonArray>
+#include <QUuid>
 #include <QCryptographicHash>
 #include <QUuid>
 #endif
@@ -63,6 +67,13 @@ XMLHttpRequestClass::~XMLHttpRequestClass() {
 
 ScriptValue XMLHttpRequestClass::constructor(ScriptContext* context, ScriptEngine* engine) {
     return engine->newQObject(new XMLHttpRequestClass(engine), ScriptEngine::ScriptOwnership);
+}
+
+ScriptValue XMLHttpRequestClass::getResponseText() const {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+    featureNavigationDirectoryRead();
+#endif
+    return _engine->newValue(QString(_rawResponseData.data()));
 }
 
 ScriptValue XMLHttpRequestClass::getStatus() const {
@@ -314,6 +325,47 @@ void XMLHttpRequestClass::disconnectFromReply(QNetworkReply* reply) {
 }
 
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+void XMLHttpRequestClass::featureNavigationDirectoryRead() const {
+    if (_featureNavigationDirectoryRead || !overte::e2e::navigationDirectoryEnabled() || QThread::currentThread()!=thread()
+            || _readyState!=DONE || _featureTabletHttpDepth<=0 || !_reply || _reply->thread()!=thread()
+            || _reply->error()!=QNetworkReply::NoError || _method!="GET" || _rawResponseData.size()>1048576
+            || _rawResponseData.isEmpty() || _rawResponseData.contains('\0')) { return; }
+    const auto manager=_engine->manager();if (!manager || manager->thread()!=thread() || !manager->isRunning()) { return; }
+    const auto membership=manager->featureLoadMembership();const auto source=manager->featureSourceIdentity();
+    const QUrl script(membership.value("url").toString());const auto url=_reply->url();
+    if (!membership.value("assigned").toBool() || !source.value("submitted").toBool()
+            || (script.scheme()!="file" && script.scheme()!="qrc") || !script.authority().isEmpty()
+            || !script.path().endsWith("/system/places/places.js") || script.hasQuery() || script.hasFragment()
+            || url.path(QUrl::FullyEncoded)!="/api/v1/places" || url.query(QUrl::FullyEncoded)!="status=online&per_page=1000"
+            || (url.scheme()!="http" && url.scheme()!="https") || !url.userInfo().isEmpty() || url.hasFragment()
+            || _reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt()!=200) { return; }
+    int headers{0};QByteArray response;
+    for (const auto& header:_reply->rawHeaderPairs()) {
+        if (header.first.toLower()=="x-overte-fixture-response") { ++headers;response=header.second; }
+    }
+    if (headers!=1 || !QRegularExpression("\\A[0-9a-f]{32}\\z").match(QString::fromLatin1(response)).hasMatch()) { return; }
+    QJsonParseError error;const auto document=QJsonDocument::fromJson(_rawResponseData,&error);
+    if (error.error!=QJsonParseError::NoError || !document.isObject()) { return; }
+    const auto places=document.object().value("data").toObject().value("places");
+    if (!places.isArray() || places.toArray().size()!=1) { return; }
+    const auto row=places.toArray().first().toObject();
+    const auto match=QRegularExpression("\\Ae2e-([0-9a-f]{32})\\z").match(row.value("name").toString());
+    if (!match.hasMatch() || row.value("id").toString()!="owned-place-"+match.captured(1)) { return; }
+    const auto hash=[](const QByteArray& bytes) { return QString::fromLatin1(QCryptographicHash::hash(bytes,QCryptographicHash::Sha256).toHex()); };
+    overte::e2e::NavigationDirectoryEvent event;event.kind="read";
+    event.facts={{"readId",QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-')},{"runId",match.captured(1)},
+        {"responseId",QString::fromLatin1(response)},{"origin",url.adjusted(QUrl::RemovePath|QUrl::RemoveQuery|QUrl::RemoveFragment).toString(QUrl::FullyEncoded)},
+        {"httpStatus",200},{"networkError",0},{"bytes",_rawResponseData.size()},{"sha256",hash(_rawResponseData)},
+        {"readEpochMs",QDateTime::currentMSecsSinceEpoch()},{"managerInstance",membership.value("instance")},
+        {"loadGeneration",membership.value("loadGeneration")},{"scriptUrlSha256",hash(script.toEncoded(QUrl::FullyEncoded))},{"code",source},
+        {"idSha256",hash(row.value("id").toString().toUtf8())},{"nameSha256",hash(row.value("name").toString().toUtf8())},
+        {"addressSha256",hash(row.value("address").toString().toUtf8())},
+        {"protocolSha256",hash(row.value("domain").toObject().value("protocol_version").toString().toUtf8())},
+        {"maturity",row.value("maturity").toString()}};
+    _featureNavigationDirectoryRead=true; // First original read only; never refresh an old response's clock.
+    overte::e2e::postNavigationDirectoryEvent(event);
+}
+
 void XMLHttpRequestClass::featureBindTabletHttp(const QString& lease) {
     if (!overte::e2e::tabletHttpEnabled() || QThread::currentThread()!=thread()
             || !_featureTabletHttpLease.isEmpty() || _readyState!=UNSENT || _reply || _timer.isActive()

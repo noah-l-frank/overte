@@ -36,6 +36,7 @@
 #include "../../../tests/device/native/LocationBookmarkObservation.h"
 #include "../../../tests/device/native/NavigationFailureModals.h"
 #include "../../../tests/device/native/NavigationEnvironmentObservation.h"
+#include "../../../tests/device/native/NavigationDirectoryObservation.h"
 #include "LocationBookmarks.h"
 #include <XMLHttpRequestClass.h>
 #include "../../../tests/device/native/PrivateWorldRenderReceipts.h"
@@ -94,6 +95,9 @@ void TestScriptingInterface::setTestResultsLocation(const QString path) {
         _featureObservationInstance = QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-');
         _featureLifecycle = new overte::e2e::FeatureLifecycle(this);
         _featureLifecycle->start(path); // Failure leaves an unavailable observer.
+#if defined(ANDROID_APP_PICO_INTERFACE)
+        overte::e2e::ensureNavigationDirectoryProvider(this);
+#endif
     }
 #endif
 }
@@ -492,6 +496,24 @@ QVariantMap TestScriptingInterface::featureProcessPresence(const QVariantMap& co
 }
 
 #if defined(ANDROID_APP_PICO_INTERFACE)
+void TestScriptingInterface::featurePlacesRecordsChanged() {
+    const auto provider=overte::e2e::navigationDirectoryProvider();
+    if (provider.changed) { provider.changed(qobject_cast<QQuickItem*>(sender())); }
+}
+
+QVariantMap TestScriptingInterface::featureNavigationDirectory(const QVariantMap& command) {
+    if (QThread::currentThread()!=thread()) {
+        if (!thread() || !thread()->isRunning()) { return {}; }
+        QVariantMap result;
+        if (!QMetaObject::invokeMethod(this,[&] { result=featureNavigationDirectory(command); },Qt::BlockingQueuedConnection)) { return {}; }
+        return result;
+    }
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript") || !overte::e2e::previewDirectory(_testResultsLocation)) { return {}; }
+    const auto provider=overte::e2e::navigationDirectoryProvider();
+    return provider.snapshot ? provider.snapshot(command) : QVariantMap();
+}
+
 QVariantMap TestScriptingInterface::featureNavigationEnvironment(const QVariantMap& command) {
     if (QThread::currentThread()!=thread()) {
         if (!thread() || !thread()->isRunning()) { return {}; }
@@ -1196,7 +1218,7 @@ void TestScriptingInterface::saveObject(QVariant variant, const QString& filenam
             || filename == "feature-chat-view-observation.json" || filename == "feature-web-dom-observation.json"
             || filename == "feature-pending-commit-owner.json" || filename == "feature-navigation-replies.json"
             || filename == "feature-location-bookmarks.json"
-            || filename == "feature-navigation-modals.json" || filename == "feature-navigation-environment.json"
+            || filename == "feature-navigation-modals.json" || filename == "feature-navigation-environment.json" || filename == "feature-navigation-directory.json"
             || filename == "feature-process-presence.json"
             || filename == "feature-graphics-subject.json" || filename == "feature-scene-load.json"
             || filename == "feature-web-runtime.json" || filename == "feature-tablet-http.json"

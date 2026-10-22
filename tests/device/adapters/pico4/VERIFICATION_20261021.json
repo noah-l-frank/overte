@@ -1492,5 +1492,49 @@
     ],
     "details": "Actual private Pico factories and existing normal input router; separate native-source protocol and passive account original validation; original probe and actual LinkAccountBody directory Return handler run under Node. Normal focus/replace/Return/Home and separate original URL restoration including /server path, all four applied lost replies without resend, each ignored effect retaining pending ownership, original scope/counter admission, original settings/account/UI quiet, query/source/archive faults and full 64-event history retained through bounded digest-referenced private original files. Native packet capture time is taken after nested original account observation to preserve its actual clock ordering.",
     "limitations": "Native Qt/Settings/account/key/thread sources remain uncompiled and all OS/device boundaries are simulated. No builds, compilers, devices, installations, services, remote or protected writes. The parent still owns normal login-page opening and full source/input lock. Unowned credentials/principal/password/draft, environment override and absence of the original explicit directory setting are refused before input: an ordinary UI field cannot restore setting absence. Federation/maturity are preserved unchanged by this component, not normally reconfigured. Whole Navigation still requires consumed directory/model/arrival/stereo, maturity composition, remaining Go To closure, actual restart/bookmark transfer, independent publication and full final retirement. Three complete source/host areas remain; no new full capability."
+  },
+  "navigationConsumedDirectory": {
+    "status": "partial-source-host-verified",
+    "contracts": [
+      "native-navigation-directory v1",
+      "navigation-directory-operations v1"
+    ],
+    "checks": [
+      {
+        "command": "python3 -m unittest self_tests.test_navigation_directory self_tests.test_navigation_origin self_tests.test_navigation_error_dismissal self_tests.test_native_navigation_modals self_tests.test_token_navigation_error_ui self_tests.test_native_navigation_replies self_tests.test_native_location_bookmarks self_tests.test_navigation_bookmarks self_tests.test_token_places_ui self_tests.test_navigation_source_semantics self_tests.test_native_tablet_http",
+        "tests": 106,
+        "status": "passed",
+        "durationSeconds": 27.867,
+        "detail": "Includes the existing original QML/XHR ownership source regressions. Later focused checks additionally cover maturity/tab/dialog/generation and exact original frame revision."
+      },
+      {
+        "command": "python3 tests/run-unittest-suite.py tests/device/self_tests --pattern test_navigation_directory.py",
+        "tests": 13,
+        "status": "passed",
+        "durationSeconds": 10.653,
+        "detail": "Final focused source/owner checks, including exact original frameRevision, old preloaded model, all lost/ignored input phases and source/receipt/code/protocol/root/history faults."
+      },
+      {
+        "command": "python3 tests/device/validate_contract_versions.py",
+        "status": "passed"
+      },
+      {
+        "command": "python3 android/vr/pico/tests/pico4-test-suite.py --test normal-create --test normal-chat --test normal-login --test suite-runner --test coverage-matrix --timeout 240",
+        "groups": 5,
+        "catalogGroups": 52,
+        "status": "passed",
+        "durationSeconds": 65.68,
+        "junit": "navigation-directory-pico.xml"
+      },
+      {
+        "command": "python3 tests/run-project-tests.py --suite documentation --suite documentation-contracts --suite source-layout --suite project-coverage",
+        "suites": 4,
+        "status": "passed",
+        "durationSeconds": 2.6,
+        "junit": "navigation-directory-final-project.xml"
+      }
+    ],
+    "details": "Normal refresh -> hidden query with three-second quiet -> owned query recovery uses original Pico Python controls and durable one-send ownership. Original completed provider write/header/body digest joins original first responseText read, actual qualified Places manager/load/UTF-16 source, original script-thread outgoing array and actual original QML records notify/revision plus current independent model. Exact frameRevision rejects an older UI frame even at identical millisecond timestamps. Actual private Pico factories and original probe/dispatcher execute; an owned short-lived loopback fixture supplies real HTTP bytes/header/completed-write receipts. Actual Places fetch JavaScript under Node rejects obsolete/closed/duplicate callbacks before response consumption. Existing shared compressed original-history envelope retains complete baseline/current/quiet packets with source/cursor/birth/query and final quiet/current continuity. All C++/Qt data-flow boundaries are explicitly simulated.",
+    "limitations": "No builds, compilers, devices, installation, device services, remote or protected writes. Native response getter, cross-thread Qt ordering, actual QML records notify/model conversion and VR inputs are uncompiled and unqualified. Parent still owns open page, selected origin, source/input lock and final lifetime. This is data provenance, not full Script/XHR/timer/callback release. Actual row selection, B/A native arrival/stereo, maturity restoration composition, remaining Go To closure, process restart/bookmark transfer, independent publication and whole final resource/metadata retirement remain unfinished. No complete Navigation capability; three source/host-complete areas and eleven incomplete remain."
   }
 }

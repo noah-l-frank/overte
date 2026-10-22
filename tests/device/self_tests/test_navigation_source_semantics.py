@@ -137,5 +137,21 @@ ctx.event.key=4;ctx.isLoggingInToDomain=true;ctx.press();assert.equal(calls.leng
             capture_output=True,text=True,timeout=5)
         self.assertEqual(0,result.returncode,result.stdout+result.stderr)
 
+    def test_original_fetch_reads_response_only_for_its_live_current_generation_before_publication(self):
+        self.run_case(r'''
+let reads=0,finished=0;const requests=[];
+const source={shuttingDown:false,appStatus:true,requestGeneration:1,httpRequest:null,
+ metaverseServers:[{fetch:true,url:'https://controlled.invalid'}],REQUEST_TIMEOUT:10000,
+ processData:()=>{assert.equal(source.placesData.data.places[0].id,'owned');},finishPortalList:()=>finished++,
+ XMLHttpRequest:function(){this.open=(method,url,async)=>{assert.equal(method,'GET');assert.equal(url,'https://controlled.invalid/api/v1/places?status=online&per_page=1000');assert.equal(async,true);};
+ this.setRequestHeader=()=>{};this.send=()=>{};this.readyState=4;this.status=200;
+ Object.defineProperty(this,'responseText',{get:()=>{reads++;return JSON.stringify({data:{places:[{id:'owned'}]}});}});requests.push(this);}};
+vm.createContext(source);vm.runInContext(section(script,'    function fetchMetaverse(', '    function sendToPlacesUi('),source);
+source.fetchMetaverse(0,1);source.requestGeneration=2;requests[0].onreadystatechange();assert.equal(reads,0);assert.equal(finished,0);
+source.fetchMetaverse(0,2);requests[1].onreadystatechange();assert.equal(reads,1);assert.equal(finished,1);
+requests[1].onreadystatechange();assert.equal(reads,1);assert.equal(finished,1);
+source.fetchMetaverse(0,2);source.appStatus=false;requests[2].onreadystatechange();assert.equal(reads,1);assert.equal(finished,1);
+''')
+
 
 if __name__=='__main__':unittest.main()
