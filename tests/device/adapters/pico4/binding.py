@@ -1367,6 +1367,33 @@ def create_adapter(args, base_class):
             journey=self._script_journey();path=journey.state_path(target) if create else journey.existing_state_path(target)
             return None if path is None else PrivateFeatureState(path.with_name('snapshot-still-owner.json'))
 
+        def _snapshot_originals_owned(self,target):
+            store=self._snapshot_still_store(target,create=False)
+            if store is None:return False
+            return any(path.exists() or path.is_symlink() for path in (store.path,
+                store.path.with_name('snapshot-cancel-owner.json'),store.path.with_name('snapshot-cancel-files-owner.json')))
+
+        @_private
+        def _snapshot_cancel_owner(self,target,run,phase_source,*,source_lock=None):
+            from adapters.pico4.snapshot_cancel_owner import PicoSnapshotCancelOwner
+            lock=self._script_journey()._lock(target,source_lock)
+            snapshot=self._snapshot(target);observed=snapshot.ui.snapshot();installed=self._installation(target)
+            binding={key:installed[key] for key in ('sourceRevision','artifactSha256')}
+            binding.update(processIdentity=snapshot.ui.io.identity,sessionId=observed['bridgeId'],generation=0,
+                targetFingerprint=hashlib.sha256((target+'\0'+str(self.pico_configuration)).encode()).hexdigest())
+            owner=None
+            def before_cancel(command):
+                _need(owner is not None);owner.before_cancel(command)
+            def before_file(command):
+                _need(owner is not None);owner.before_file(command)
+            files=self._snapshot_capture_files(target,snapshot.files.artifacts,lock.path.with_name('snapshot-cancel-files-owner.json'),
+                binding,before_send=before_file,source_lock=lock)
+            owner=PicoSnapshotCancelOwner(lock.path.with_name('snapshot-cancel-owner.json'),run,binding,snapshot,
+                self._snapshot_native_originals(target,source_lock=lock),self._snapshot_script_originals(target,source_lock=lock),
+                self._snapshot_cancel(target,before_send=before_cancel,source_lock=lock),files,
+                self._script_roots_observer(target),self._script_execution_observer(target),self._script_work(target),self.pico_input_session(target),phase_source)
+            return owner
+
         @_private
         def _snapshot_still_owner(self,target,run,phase_source,*,source_lock=None):
             from adapters.pico4.snapshot_still_owner import PicoSnapshotStillOwner
@@ -2426,8 +2453,7 @@ def create_adapter(args, base_class):
                 elif operation in NAVIGATION_OPERATIONS:
                     result = self._navigation(target).invoke(operation, values)
                 elif operation in SNAPSHOT_OPERATIONS:
-                    owner=self._snapshot_still_store(target,create=False)
-                    _need(owner is None or not owner.path.exists() and not owner.path.is_symlink())
+                    _need(not self._snapshot_originals_owned(target))
                     result = self._snapshot(target).invoke(operation, values)
                 elif operation in SCRIPT_OPERATIONS:
                     result = self._scripts(target).invoke(operation, values)
@@ -2447,8 +2473,7 @@ def create_adapter(args, base_class):
             # owner or its original normal preference/UI journals.
             snapshot_error=False
             try:
-                snapshot_owner=self._snapshot_still_store(target,create=False) if self.pico_configuration is not None else None
-                snapshot_error=snapshot_owner is not None and (snapshot_owner.path.exists() or snapshot_owner.path.is_symlink())
+                snapshot_error=self.pico_configuration is not None and self._snapshot_originals_owned(target)
             except Exception:snapshot_error=True
             feature_error = False
             create_error = False
