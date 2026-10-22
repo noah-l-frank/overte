@@ -146,6 +146,8 @@
     "ios-avatar-marker-recovery": {"current": 1, "reads": [1]},
     "ios-avatar-marker-abandoned-read": {"current": 1, "reads": [1]},
     "ios-avatar-appearance": {"current": 1, "reads": [1]},
+    "ios-avatar-facts-original": {"current": 1, "reads": [1]},
+    "ios-avatar-surface": {"current": 1, "reads": [1]},
     "ios-avatar-samples": {"current": 1, "reads": [1]},
     "ios-avatar-sample": {"current": 1, "reads": [1]},
     "ios-avatar-image": {"current": 1, "reads": [1]},
