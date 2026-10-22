@@ -302,7 +302,7 @@ class CentralPlannerTests(unittest.TestCase):
         product = {"device-control-plane-full", "web-entity-visibility", "lod-preferences",
                    "goto-dialog-script", "recorded-voice-native", "shared-script-behavior"}
         self.assertFalse(product & selected)
-        self.assertEqual({"pr-ci-plan", "pr-ci-context", "pr-ci-run", "pr-ci-observer", "pr-ci-workflow", "pr-ci-cli", "pr-ci-transport", "documentation"}, selected)
+        self.assertEqual({"pr-ci-plan", "pr-ci-context", "pr-ci-run", "pr-ci-observer", "pr-ci-workflow", "pr-ci-cli", "pr-ci-transport", "pr-ci-platform", "documentation"}, selected)
         self.assertFalse({"host-full", "qt", "compiler", "qt5-qml", "qt6-qml"} & set(result["setup"]))
 
     def test_active_registry_preserves_all_product_suites_and_nonlegacy_direct_tests(self):
@@ -584,6 +584,7 @@ class CentralPlannerTests(unittest.TestCase):
                 self.assertEqual("skip", result["native"]["mode"])
                 self.assertFalse(result["android_required"])
                 self.assertFalse(result["ios_required"])
+                self.assertFalse(result["ios_build_required"])
                 self.assertFalse(result["browser_required"])
                 self.assertEqual({"browser-client", "browser-direct-client"}, set(result["dependency_profiles"]["vite"]))
 
@@ -594,6 +595,7 @@ class CentralPlannerTests(unittest.TestCase):
                 result = self.plan(candidate, target)
                 self.assertEqual(target.startswith("android-"), result["android_required"])
                 self.assertEqual(target == "apple-ios", result["ios_required"])
+                self.assertEqual(target == "apple-ios", result["ios_build_required"])
 
     def test_android_and_ios_owned_inputs_do_not_enable_other_platform(self):
         for path, own_target, flag, other_flag in (

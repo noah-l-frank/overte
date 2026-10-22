@@ -259,6 +259,13 @@
         "compiler",
         "qt6-qml"
       ]
+    },
+    "pr-ci-platform": {
+      "kind": "patterns",
+      "setup": [
+        "python",
+        "git"
+      ]
     }
   },
   "product_independent_paths": [

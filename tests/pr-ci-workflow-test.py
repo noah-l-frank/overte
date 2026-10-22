@@ -104,12 +104,12 @@ class WorkflowContracts(unittest.TestCase):
         cls.jobs = cls.workflow["jobs"]
         cls.native = load("native-tests.yml")
 
-    def test_initial_rollout_is_main_only_and_manual_bootstrap_is_explicit(self):
+    def test_all_seven_targets_share_one_plan_and_manual_bootstrap_is_explicit(self):
         events = self.workflow["on"]
         self.assertEqual({"pull_request", "pull_request_target", "workflow_dispatch"}, set(events))
         expected = {"opened", "reopened", "synchronize", "ready_for_review", "edited"}
         for event in ("pull_request", "pull_request_target"):
-            self.assertEqual(["main"], events[event]["branches"])
+            self.assertEqual({"main", "apple-main", "apple-ios", "android-main", "android-phone", "android-vr", "android-vr-pico"}, set(events[event]["branches"]))
             self.assertEqual(expected, set(events[event]["types"]))
         self.assertEqual({"type": "string", "required": True,
             "description": "Open pull request to qualify with this reviewed controller"},
@@ -178,7 +178,7 @@ class WorkflowContracts(unittest.TestCase):
         self.assertEqual({"contents": "read"}, self.workflow["permissions"])
         for name, job in self.jobs.items():
             for scope, permission in job.get("permissions", {}).items():
-                self.assertTrue(permission == "read" or (name == "codeql" and scope == "security-events" and permission == "write"), (name, scope, permission))
+                self.assertTrue(permission == "read" or ((name == "codeql" and scope == "security-events" or name == "ios" and scope == "actions") and permission == "write"), (name, scope, permission))
         text = (WORKFLOWS / "repository-checks.yml").read_text()
         self.assertNotIn("secrets.", text)
         for name in ("host", "npm"):
@@ -295,8 +295,16 @@ class WorkflowContracts(unittest.TestCase):
                 native_recipe_contract(caller, workflow)
 
     def test_selected_platforms_fail_closed_through_trusted_cli(self):
+        self.assertEqual("./.github/workflows/pr-ci-ios.yml", self.jobs["ios"]["uses"])
+        product = load("pr-ci-ios.yml")
+        self.assertEqual({"workflow_call"}, set(product["on"]))
+        self.assertEqual("inputs.build_required", product["jobs"]["qt"]["if"])
+        self.assertEqual("inputs.build_required", product["jobs"]["client"]["if"])
+        self.assertIn("pr_ci.py verify-ios", scripts(product["jobs"]["verify"]))
+        self.assertEqual("${{ inputs.source }}", product["jobs"]["client"]["with"]["validated_host_contracts_sha"])
         for name in ("android", "ios"):
-            command = scripts(self.jobs[name])
+            job = self.jobs[name] if name == "android" else product["jobs"]["host"]
+            command = scripts(job)
             self.assertIn("trusted/tools/repository-checks/pr_ci.py platform", command)
             self.assertIn("--lane " + name, command)
             self.assertNotIn("continue-on-error", self.jobs[name])
@@ -319,15 +327,15 @@ class WorkflowContracts(unittest.TestCase):
         self.assertIn("workflow_dispatch", load("browser-client.yml")["on"])
         self.assertEqual({"workflow_dispatch"}, set(load("browser-direct-client.yml")["on"]))
         self.assertIn("schedule", load("codeql.yml")["on"])
-        self.assertNotIn("main", load("codeql.yml")["on"]["push"]["branches"])
+        self.assertNotIn("push", load("codeql.yml")["on"])
         self.assertIn("schedule", load("dependency-releases.yml")["on"])
         self.assertIn("workflow_dispatch", load("dependency-releases.yml")["on"])
         self.assertIn("tags", load("linux_server_build.yml")["on"]["push"])
-        self.assertIn("pull_request", load("branch-policy.yml")["on"])
-        self.assertIn("pull_request_target", load("sync-test-reuse.yml")["on"])
+        self.assertNotIn("pull_request", load("branch-policy.yml")["on"])
+        self.assertNotIn("pull_request_target", load("sync-test-reuse.yml")["on"])
         for name in ("parent-qualification.yml", "documentation-push-owner.yml", "dependency-releases.yml"):
             with self.subTest(retired_main_push=name):
-                self.assertNotIn("main", load(name)["on"]["push"]["branches"])
+                self.assertNotIn("push", load(name).get("on", {}))
 
     def test_every_external_action_is_pinned_to_an_immutable_commit(self):
         for workflow in (self.workflow, self.native):

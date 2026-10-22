@@ -1,10 +1,13 @@
-# Pull-request CI on main
+# Selective pull-request CI
 
 The central pull-request workflow selects work once and observes the resulting
 native GitHub Actions jobs. This guide describes that implementation. Installing
 the source does not establish that its bootstrap passed or that branch rules have
-been migrated. The initial rollout covers `main` only; the six platform branches
-retain their existing rules until a separately verified migration.
+been migrated. The source routing covers all seven protected branches. The same trusted
+controller owns policy, shared host tests, packages, native C++, CodeQL and
+selected Android/iOS contracts. GitHub Actions remains disabled under the
+maintainer's local-only integration instruction; installing these sources does
+not claim a hosted execution or physical-device qualification.
 
 ## One context, one plan
 
@@ -76,47 +79,39 @@ runtime inputs. Content-scoped host tasks omit an unrelated target branch;
 candidate-scoped tasks retain it. A fingerprint is a comparison key, not a test
 result, reusable evidence, or permission to skip a required owner.
 
-## Activate main without weakening its rules
+## Platform ownership and merge gates
 
-Before changing required checks, an authorized maintainer must run the manual
-`Repository checks` bootstrap on the exact reviewed PR head, supplying its real
-`pr_number`. The manual controller must equal that head. The bootstrap must finish
-with genuine selected-owner success, authenticated execution transport, complete
-CodeQL processing when selected, and unchanged PR identities.
-The manual bootstrap accepts only plans without native or platform builds.
-Selected native or platform work requires its ordinary PR execution; a manual
-run cannot replace it.
+All seven targets use the same `required-ci` observer. Branch-path guards retain
+their separate topology checks. The previous shared PR, synchronization and
+post-merge push producers are retired so an integrated PR does not repeat its
+host, package or CodeQL work. Explicit diagnostics, release jobs and maintenance
+schedules remain separate from PR acceptance.
 
-Only after that result is verified should the existing main requirements be
-replaced by the protected native `required-ci` check. Keep the old requirements
-until this transition is justified; never replace missing results with synthetic
-checks, administrative bypasses, or a success from another head. Finalize the PR
-description before the qualification run when possible. Text-only edits observe
-existing genuine execution rather than starting another set of owners.
+The Android owner executes the branch's complete reviewed platform inventory
+from [pr-ci-platforms.json](../.github/pr-ci-platforms.json). A candidate cannot
+remove a mandatory suite by editing its own profile. Commands run inside the
+same offline, credential-free namespace used by shared host tests.
 
-The controlled rollout also needs these automation changes:
+The selected iOS owner runs the actual iOS host contracts. Host-only inputs do
+not provision Qt or build an IPA. Application inputs additionally select the
+existing Qt and full-client recipes exactly once, preserving their audited
+compiler caches. The client consumes the successful same-source host handoff
+instead of repeating that launcher. The final owner checks actual compile,
+package and upload steps and the exact source-bound IPA. No device tests run as
+part of this host/build owner; device acceptance belongs to the Proxmox Jenkins
+laboratory.
 
-- Remove `main` from the old Parent qualification, Documentation checks, and
-  Dependency release policy **push** triggers, and from Sync test reuse's
-  `pull_request_target` trigger. The new PR plan owns main's corresponding work.
-- Hold automatic branch-cleanup writes on closed-PR, scheduled, and completion
-  events during the transition. That workflow can create history-integration PRs
-  and retire integrated branches. Retain its explicit read-only report mode.
-- Keep Branch synchronization's read-only drift report. It does not create or
-  merge child PRs. Scheduled dependency inventories and security scans remain
-  distinct maintenance work.
+Unchanged product workflows already installed on a protected child may retain
+their branch implementation. This exception uses the independently read
+protected base and cannot authorize a PR to add, modify or delete a workflow.
+Central executors, reusable build recipes, helpers and policy must match the
+protected default-branch controller exactly.
 
-The new central workflow has no main push trigger. Its acceptance does not need
-a duplicate post-merge host run. Existing child push owners and product build
-workflows are not implicitly retired by the main transition.
-
-Do not propagate the new controller into child PRs under an assumption that old
-default-branch helpers enroll it automatically. Their requirement-source,
-controller/import, and complete workflow-tuple checks deliberately reject an
-unreviewed combination. A main-only workflow also cannot supply a child's legacy
-required check. Hold that propagation until its target-specific routing and
-required-check transition have been tested; do not add a catalog generation just
-to disguise the mismatch.
+The maintainer explicitly authorized local verification followed by direct
+integration while Actions is disabled. This is a scoped integration exception,
+not a reusable passing check. No synthetic status or hosted test result is
+created. Enabling Actions later requires an explicit maintainer instruction;
+source readiness and local results must not be described as hosted success.
 
 ## Check a focused local change
 
@@ -130,6 +125,7 @@ python3 -B tests/pr-ci-observer-test.py
 python3 -B tests/pr-ci-transport-test.py
 python3 -B tests/pr-ci-cli-test.py
 python3 -B tests/pr-ci-workflow-test.py
+python3 -B tests/pr-ci-platform-test.py
 git diff --check
 ```
 

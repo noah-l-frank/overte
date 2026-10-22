@@ -1,7 +1,8 @@
 {
   "schema": 1,
   "control_inputs": [
-    "tests/requirements-host.txt"
+    "tests/requirements-host.txt",
+    ".github/pr-ci-platforms.json"
   ],
   "suites": {
     "documentation-contracts": {
@@ -1130,6 +1131,47 @@
           "interface/resources/qml/hifi/overlays/ImageOverlay.qml",
           "interface/resources/qml/hifi/overlays/ItemTint.qml",
           "tests/requirements-host.txt"
+        ]
+      }
+    },
+    "pr-ci-platform": {
+      "command": [
+        "python",
+        "tests/pr-ci-platform-test.py"
+      ],
+      "layer": "quick",
+      "scope": "content",
+      "environment": "python",
+      "closure": {
+        "kind": "patterns",
+        "inputs": [
+          "tools/repository-checks/pr_ci.py",
+          "tools/repository-checks/pr_ci_context.py",
+          "tools/repository-checks/pr_ci_plan.py",
+          "tools/repository-checks/pr_ci_run.py",
+          "tools/repository-checks/pr_ci_observer.py",
+          "tests/pr-ci-plan-test.py",
+          "tests/pr-ci-context-test.py",
+          "tests/pr-ci-run-test.py",
+          "tests/pr-ci-observer-test.py",
+          "tests/pr-ci-workflow-test.py",
+          ".github/pr-ci-suites.json",
+          ".github/pr-ci-dependencies.json",
+          ".github/workflows/**",
+          "tools/native-tests/check.py",
+          "tools/repository-checks/package_checks.py",
+          "tools/repository-checks/tool_dependencies.py",
+          "tools/repository-checks/codeql.py",
+          "tools/test-evidence/inputs.py",
+          "tools/repository-checks/pr_ci_transport.py",
+          "tests/pr-ci-cli-test.py",
+          "tests/pr-ci-transport-test.py",
+          "tools/repository-checks/pr_ci_platform.py",
+          "tests/pr-ci-platform-test.py",
+          ".github/pr-ci-platforms.json"
+        ],
+        "required": [
+          "tests/pr-ci-platform-test.py"
         ]
       }
     }

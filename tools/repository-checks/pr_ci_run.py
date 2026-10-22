@@ -323,7 +323,7 @@ def namespace_command(candidate, command, *, prepared_roots=(), network=False,
                 "system linker alias escapes prepared /usr")
         argv += ["--symlink", str(target), "/etc/alternatives/ld"]
     argv += ["--proc", "/proc", "--dev", "/dev", "--size", str(2 * 1024 ** 3),
-             "--tmpfs", "/tmp", "--bind", str(candidate), "/work",
+             "--tmpfs", "/tmp", "--tmpfs", "/run", "--bind", str(candidate), "/work",
              "--ro-bind", str(candidate / ".git"), "/work/.git",
              "--remount-ro", "/", "--chdir", "/work"]
     for name, value in sorted(values.items()):

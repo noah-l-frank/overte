@@ -391,7 +391,13 @@ def gate(event, event_name, number, controller, *, timeout=5700, pause=time.slee
                     caller_source=context["head"] if execution_event == "workflow_dispatch" else original)
                 plan, actual_tree, trusted_tree = remote_selection(api, context)
                 validate_execution_scope(context, plan)
-                transport.validate_sources(actual_tree, trusted_tree)
+                if context["target"] == "main":
+                    transport.validate_sources(actual_tree, trusted_tree)
+                else:
+                    base_commit = api.get("git/commits/" + context["base"])
+                    C.require(base_commit.get("sha") == context["base"], "protected base metadata changed")
+                    transport.validate_sources(actual_tree, trusted_tree,
+                        protected_base=remote_tree(api, base_commit["tree"]["sha"]))
                 jobs = api.pages(f"actions/runs/{identity['id']}/attempts/{identity['run_attempt']}/jobs", field="jobs")
                 try:
                     transport.validate_jobs(jobs, expected_owners(plan), plan=plan, context=context)
@@ -466,20 +472,21 @@ def main():
     plan_cli.add_argument("--candidate", type=Path, required=True)
     plan_cli.add_argument("--out", type=Path, required=True)
     plan_cli.add_argument("--output", type=Path)
-    for name in ("policy", "execute", "complete", "verify-native", "platform"):
+    for name in ("policy", "execute", "complete", "verify-native", "platform", "verify-ios"):
         command = sub.add_parser(name)
         command.add_argument("--context-json", required=True)
         command.add_argument("--plan-json", required=True)
         command.add_argument("--candidate", type=Path)
         command.add_argument("--out", type=Path)
-        if name == "execute":
-            command.add_argument("--lane", choices=("host", "npm"), required=True)
+        if name in ("execute", "platform"):
+            command.add_argument("--lane", choices=("host", "npm") if name == "execute" else ("android", "ios"), required=True)
             command.add_argument("--project", default="")
             command.add_argument("--prepared-root", action="append", default=[])
         if name == "complete":
             command.add_argument("--needs-json", required=True)
-        if name == "platform":
-            command.add_argument("--lane", choices=("android", "ios"), required=True)
+        if name == "verify-ios":
+            command.add_argument("--needs-json", required=True)
+            command.add_argument("--artifacts", type=Path, required=True)
     args = parser.parse_args()
     if args.command == "context":
         context = source_context(read_json(args.event.read_text()), args.event_name, args.number, args.controller)
@@ -501,7 +508,8 @@ def main():
                   "npm_projects": json.dumps(plan["npm_projects"]),
                   "codeql_languages": json.dumps(plan["codeql_languages"]),
                   "full_host": "host-full" in plan["setup"],
-                  "setup_json": json.dumps(plan["setup"])}
+                  "setup_json": json.dumps(plan["setup"]),
+                  "ios_build": plan["ios_build_required"]}
         outputs(args.output, values)
         print(json.dumps({"target": context["target"], "tasks": [t["id"] for t in plan["tasks"]],
                           "native": plan["native"]["mode"], "setup": plan["setup"]}))
@@ -520,10 +528,15 @@ def main():
             if args.out:
                 write_json(args.out, native)
         elif args.command == "platform":
-            # The initial replacement is enrolled for main only. An existing
-            # child/platform gate must not silently become a passing no-op.
-            raise C.ContextError("platform enrollment is required before central "
-                                 + args.lane + " execution can replace its existing owner")
+            import pr_ci_platform
+            receipt = pr_ci_platform.execute(args.candidate, context, plan, args.lane,
+                args.prepared_root, recompute=selection)
+            if args.out:
+                write_json(args.out, receipt)
+        elif args.command == "verify-ios":
+            import pr_ci_platform
+            write_json(args.out, pr_ci_platform.verify_ios(args.candidate, context, plan,
+                args.artifacts, read_json(args.needs_json), API(deadline=time.monotonic() + 660), recompute=selection))
     return 0
 
 
