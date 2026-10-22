@@ -141,7 +141,7 @@ callback, Rig and closed-UI observations. Three seconds in native and host clock
 and a new retirement read prevent cached cleanup success. Mandatory original
 retirement retention and exact historical lost-return recovery now preserve the
 quiet-window proof before journal removal. Run cleanup also retains interrupted
-lifetime reads through failure-owner/record v4, preserving completed packets
+lifetime reads through failure-owner/record v4/v5, preserving completed packets
 and requiring new measurements for any later quiet result. Retained/late work
 and unresolved journals stay red. This remains a subresource proof; whole image/
 fixture/UI-lifetime/actor/run retirement is still required before registration.

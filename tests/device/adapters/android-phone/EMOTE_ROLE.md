@@ -205,9 +205,73 @@ phase changes, stale ownership, partial-file mutation and ignored commits remain
 errors. Whole-operation bounds remain 20 seconds with existing five-second child
 limits. `failure_archive` is historical replay only and returns no new facts.
 
-Failure-owner/record versions 3/4 integrate this path for both roles after source
+Failure-owner/record versions 3/4/5 integrate this path for both roles after source
 failure recovery and before admission/input restoration. Versions 1/2 remain
 readable, preserving their old source/admission record bytes and original inodes.
 Role journals and all diagnostic originals still require final whole-run
 retirement; an independently measured cleanup observation requires a later new
 source read after actual resource restoration. Host tests qualify logic only.
+
+
+## Obsolete actor reads before image allocation, version 1
+
+An independent actor can finish a Source acquisition while the controlled fixture
+advances its actual ticket. Source already retains the real before/after phases
+and returns `EmotePhaseChanged`; the Role's acquiring intent must also remain
+accounted for. `transfer_phase(retain, retained=None)` transfers that obsolete
+host attempt without waiting for cleanup and without acquiring a replacement
+measurement. It applies only to the actor, acquiring state, image=false and
+null scopeId/motion/original/manifest. The actual source must be ready after its
+original acquisition/transfer. No already allocated image/capture scope can use
+this operation; it remains subject to full resource cleanup.
+
+The closed original packet is exactly
+`{emoteRolePhaseRetirementVersion:1,segment,header,inputHeader,inputSourceHeader,sourceHeader,scope,originalDiagnostic,manifestDiagnostic,motionDiagnostic,phase}`.
+The three original input/source headers and original role header retain their
+actual run/candidate/process, role, namespace, root and image-policy identities.
+Scope and all diagnostics must be null for this path. All historical successful
+role originals and referenced play/image records are reopened, unchanged.
+Phase is original actual provider metadata. It must prove that the pending
+ticket occurs in the retained activation history and is no longer current;
+a same-phase failure cannot be relabelled obsolete. This packet supplies no
+public sample, PNG/motion file, native release receipt, idle or quiet verdict.
+
+Before and after retention the helper independently checks that this role has
+no observation/capture metadata and no world-render ownership. An unknown child
+or world owner blocks transfer even when the parent says image=false. The
+mandatory callback must durably retain the exact packet before pending can be
+cleared. A later provider phase may extend the same original birth/history, but
+cannot reactivate the retired ticket or replace its original timestamps. The
+whole operation, including repeated validation and callback, takes at most five
+seconds. Rejected/slow callbacks and ignored commits keep ownership. An exact
+already-retained packet can recover a lost callback or final clear without
+another native/image/input query or an incremented successful role sequence.
+
+`phase_archive(packet)` performs historical validation only. It returns the
+unchanged packet, never a usable live owner or fresh product facts. Existing
+role header/record formats stay at version 1 and cleanup failure archives keep
+their existing version 1 format and cleanup requirement.
+
+Failure-owner/record version 5 adds kind phase. `collect_phase()` explicitly
+collects the current actor's obsolete, resource-free attempt under the loaded
+Run/source lock, including prepared/active normal operation. It validates that
+classification and exact current namespace before writing a new enclosing intent.
+The enclosing actor must finish obsolete-attempt retention before acknowledging
+a namespace freeze or letting the parent advance that namespace. A new namespace
+cannot adopt the old attempt; existing frozen proof and pending ownership are
+never relabelled. Unclassifiable image
+attempts and same-phase failures cannot leave a new phase-transfer intent.
+Old pending/completed failure formats 1..4 remain readable; existing original
+bytes and indexes are unchanged. A pending phase transfer may finish during
+later real cleanup, retaining its old phase packet. Ordinary cleanup still
+collects normal source/role/lifetime/admission failures through their original
+cleanup-only paths. Whole resource/file/journal retirement, the independent
+actor loop and public Emote facade remain required before registration.
+
+Host counterexamples use a real Source acquisition whose producer advances the
+actual controlled fixture between its phase reads. Tests cover exact original
+retention, subsequent actual normal input and new actor measurement, lost parent
+completion and all staged original/index writes, late cleanup, unknown image/
+world owners, forged image intents, same-phase errors, altered/foreign packets
+and rejected/slow/ignored retention. They qualify orchestration only; native
+code is uncompiled and no device behavior is accepted.
