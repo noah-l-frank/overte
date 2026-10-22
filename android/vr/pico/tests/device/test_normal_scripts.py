@@ -673,6 +673,14 @@ class PicoNormalScriptsTests(unittest.TestCase):
         with self.assertRaises(ValueError):self.cleanup_instance().cleanup(self.native.target)
         self.assertFalse(self.native.running);self.assertEqual(original,store.read())
 
+    def test_pico_chat_process_teardown_preserves_completed_erase_and_both_post_erase_transcripts(self):
+        stores=[self.instance._chat_erase_restore_store(self.native.target),
+            *[self.instance._chat_samples_store(self.native.target,role,erased=True) for role in ('primary','actor')]]
+        for store in stores:store.write({'phase':'complete','unreleased':'original-erase-proof'},None)
+        with self.assertRaises(ValueError):self.cleanup_instance().cleanup(self.native.target)
+        self.assertFalse(self.native.running)
+        for store in stores:self.assertEqual('original-erase-proof',store.read()['unreleased'])
+
     def account_probe(self):
         source=AccountProbeBoundary()
         def captured(value):

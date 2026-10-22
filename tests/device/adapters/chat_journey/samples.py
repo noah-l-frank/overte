@@ -10,7 +10,7 @@ from copy import deepcopy
 import time
 
 from adapters.native_chat_observation import NativeChatObservation, validate as chat_packet
-from adapters.native_chat_view import NativeChatView, measured_view, validate as view_packet
+from adapters.native_chat_view import NativeChatView, measured_view, measured_keyboard, validate as view_packet
 from adapters.native_feature_observation import (NativeFeatureObservation, exact, fresh, integer,
     need, number, validate as native_packet)
 from adapters.normal_feature_state import context
@@ -21,7 +21,7 @@ from adapters.script_journey.lock import ScriptSourceLock
 from adapters.graphics_journey.source_history import restore_native
 from feature_journeys.contract import identifier, state as chat_state
 
-VERSION = 1
+VERSION = 2
 SOURCES = ('primary', 'peer', 'view', 'lifecycle')
 
 
@@ -37,7 +37,8 @@ def compose(run, frame, primary_pid, peer_pid, *, vr):
     whole multi-source transaction by actual host monotonic time separately.
     """
     identifier(run)
-    exact(frame, {'ticket', 'afterEpochMs', 'primaryEpochMs', 'peerEpochMs', *SOURCES})
+    exact(frame, {'ticket', 'afterEpochMs', 'primaryEpochMs', 'peerEpochMs', *SOURCES} | ({'settings'} if 'settings' in frame else set()))
+    need('settings' not in frame or frame['settings'] is True)
     identifier(frame['ticket'])
     need(type(vr) is bool and integer(frame['afterEpochMs'], 1))
     p, q, view, lifecycle = (frame[key] for key in SOURCES)
@@ -71,6 +72,14 @@ def compose(run, frame, primary_pid, peer_pid, *, vr):
         need(ui['localMessages'] == local and ui['domainMessages'] == domain
             and ui['localRowCount'] == len(local) and ui['domainRowCount'] == len(domain)
             and ui['visibleRowCount'] == len(ui['visibleMessages']))
+    if frame.get('settings'):
+        # Internal source checkpoint only. The shared Chat state has no Settings
+        # channel, so never manufacture Local/closed state for this real page.
+        need(ui['present'] and ui['channel']=='settings' and ui['draft']=='' and not ui['keyboardRequested']
+            and not source['editorFocused'] and not source['editorHasDraft'] and not measured_keyboard(source['keyboard'])
+            and not ui['visibleMessages'] and ui['visibleRowCount']==0)
+        return deepcopy(dict(settings=True,capturedEpochMs=min(epochs),lifecycle=lifecycle['lifecycle'],
+            resources=['connection:chat-primary-cache','connection:chat-peer-cache','panel:chat']))
     measured = measured_view(view)
     # Preserve global actual remote arrival order and multiplicity. A local
     # fallback echo, outgoing ACK or foreign sender is never remote receipt.
@@ -186,14 +195,17 @@ class ChatSamples:
         need(same(self.store.read(), value))
         self.previous = self.base = deepcopy(value)
 
-    def read(self, ticket, after_epoch):
+    def read_settings(self,ticket,after_epoch):
+        return self.read(ticket,after_epoch,settings=True)
+
+    def read(self, ticket, after_epoch, *, settings=False):
         started = previous = self.monotonic(); need(number(started, 0, 1e15))
         def check():
             nonlocal previous
             for reader in (self.primary, self.peer, self.view, self.lifecycle): need(reader.guard() is not False)
             now = self.monotonic(); need(number(now, 0, 1e15) and previous <= now and now - started <= 1.5); previous = now
         try:
-            identifier(ticket); need(integer(after_epoch, 1)); check()
+            identifier(ticket); need(integer(after_epoch, 1) and type(settings) is bool); check()
             with ExitStack() as held:
                 for lock in sorted(self.locks, key=lambda item: str(item.path)): held.enter_context(lock.held())
                 check(); need(self.base['phase'] == 'ready' and len(self.frames) < MAX_FRAMES)
@@ -204,6 +216,7 @@ class ChatSamples:
                 lifecycle = self.lifecycle.read(self.lifecycle.sequence); check()
                 frame = dict(ticket=ticket, afterEpochMs=after_epoch, primaryEpochMs=self.primary.clock_ms(),
                     peerEpochMs=self.peer.clock_ms(), primary=p, peer=q, view=view, lifecycle=lifecycle)
+                if settings:frame['settings']=True
                 check(); measured = compose(self.run, frame, self.primary.pid, self.peer.pid, vr=self.vr)
                 continuity(self.frames, frame); frames = self.frames + [deepcopy(frame)]
                 self._write({**self.base, 'phase': 'ready', 'revision': self.base['revision'] + 1, 'transcript': pack(frames)})

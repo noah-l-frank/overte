@@ -69,6 +69,19 @@ class ChatSamplesTests(unittest.TestCase):
     def close(self):
         self.view.source.update(ui={'present': False}, editorFocused=False, editorHasDraft=False, keyboard=keyboard(False))
 
+    def test_internal_settings_sources_preserve_originals_without_inventing_a_shared_chat_state(self):
+        self.open('settings');self.view.source['ui'].update(visibleMessages=[],visibleRowCount=0)
+        value=self.samples.read_settings(TICKET,20000)
+        self.assertTrue(value['settings']);self.assertNotIn('state',value)
+        before=len(self.view.commands);rebuilt=self.sampler();self.assertEqual(before,len(self.view.commands))
+        self.assertTrue(rebuilt.read_settings('c'*32,20000)['settings'])
+        self.assertEqual('settings',rebuilt.frames[-1]['view']['source']['ui']['channel'])
+
+    def test_v1_transcript_is_retained_without_adopting_new_settings_semantics(self):
+        self.read();previous=self.store.read();old={**previous,'chatSamplesVersion':1};self.store.write(old,previous)
+        with self.assertRaises(NativeUIError):self.sampler()
+        self.assertEqual(old,self.store.read())
+
     def test_closed_open_typed_and_actual_remote_deliveries_use_distinct_original_sources(self):
         self.assertEqual(dict(draft='', messages=[], localMessages=[], domainMessages=[], peerMessages=[],
             channel='none', mixerConnected=True, focused=False, keyboard=False, open=False), self.read()['state'])

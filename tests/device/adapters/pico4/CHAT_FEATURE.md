@@ -190,3 +190,13 @@ captures and restores actual original storage without exporting raw values.
 Its real Qt5 proof includes a post-write timeout followed by fresh original
 recovery and no second restore. Normal Erase/reopen composition and whole-run
 cleanup remain required.
+
+The [normal Erase/profile component](../chat_journey/ERASE_RESTORE.md) now joins
+both independent original model digests to one ordinary Erase, preserves all
+before-Erase sources, starts separate independently bound after-Erase sources,
+and verifies empty history through normal Close/CHAT reopening. Three-second
+windows surround closed-view cleanup and the one original native profile
+restoration, followed by a fresh unchanged original settings mutation count.
+The source-only Settings purpose never invents a shared Chat channel. The private
+Pico factory and teardown retain every source/profile/Erase journal even when
+this component succeeds; full Chat registration and device claims remain closed.
