@@ -23,6 +23,7 @@
 #include <memory>
 namespace overte::e2e { class ChatViewObservation; }
 namespace overte::e2e { class PhoneAudioFixtureHTTP; }
+namespace overte::e2e { class PhoneLifecycleEditor; }
 #include <QUuid>
 namespace overte::e2e { class FeatureLifecycle; class AccountOriginLease; class ScriptFileUi; class AudioUi; class GraphicsUi; class LoginUi; class CreateUi; class ChatUi; class EmoteUi; class PhoneEmoteFixture; class PrivateCreateFiles; class PhoneCreateFixture; class PhoneNavigationMarker; class NavigationUi; class NavigationViewObservation; class AvatarPeopleUi; class AvatarPeopleViewObservation; class PhoneAssetsReadJob; class SnapshotUi; class PhoneSnapshotFastCancel; class PrivateAssetsFiles; class AssetsUi; }
 #endif
@@ -214,6 +215,7 @@ public slots:
     Q_INVOKABLE QVariantMap phoneEmoteFixtureInput(const QVariantMap& command);
     Q_INVOKABLE QVariantMap phoneEmoteFixtureObservation(const QVariantMap& command);
     Q_INVOKABLE QVariantMap phoneTouchObservation(const QVariantMap& command);
+    Q_INVOKABLE QVariantMap phoneLifecycleEditor(const QVariantMap& command);
     Q_INVOKABLE QVariantMap phoneAvatarConfigurationObservation(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureAvatarRenderObservation(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureWorldRenderReceipt(const QVariantMap& command);
@@ -329,6 +331,8 @@ private:
     quint64 _featureAvatarRenderSequence {0};
     quint64 _phoneAvatarConfigurationSequence {0};
     quint64 _phoneTouchSequence {0};
+    quint64 _phoneLifecycleEditorSequence {0};
+    std::shared_ptr<overte::e2e::PhoneLifecycleEditor> _phoneLifecycleEditor;
     quint64 _phoneEmoteFixtureSequence {0};
 #if defined(ANDROID_APP_PHONE_INTERFACE)
     std::shared_ptr<overte::e2e::PhoneEmoteFixture> _phoneEmoteFixture;

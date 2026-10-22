@@ -331,6 +331,7 @@
     var lastPhoneEmoteRequest = "";
     var lastPhoneAvatarConfigurationRequest = "";
     var lastPhoneTouchStateRequest = "";
+    var lastPhoneLifecycleEditorRequest = "";
     var lastPhoneEmoteFixtureRequest = "";
     var lastPhoneEmoteFixtureInputRequest = "";
     function validPhoneEmoteFixtureInput(c) {
@@ -1541,6 +1542,23 @@
             return;
         }
         if (command && command.schemaVersion === 1 && typeof command.commandId === "string"
+                && /^[0-9a-f]{32}$/.test(command.commandId) && /^[0-9a-f]{32}$/.test(String(command.runId))
+                && (command.action === "phone-lifecycle-editor-observe" || command.action === "phone-lifecycle-editor-input")
+                && objectKeysMatch(command,command.action === "phone-lifecycle-editor-observe" ? ["schemaVersion","commandId","action","runId"]
+                    : ["schemaVersion","commandId","action","runId","operation","fieldToken","observationSequence"])) {
+            if (command.commandId === lastPhoneLifecycleEditorRequest) { return; }
+            lastPhoneLifecycleEditorRequest=command.commandId;
+            var lifecycleEditorOriginal={schemaVersion:1,requestId:command.commandId,available:false};
+            try {
+                if (typeof Test.phoneLifecycleEditor === "function") {
+                    var lifecycleEditorActual=Test.phoneLifecycleEditor(command);
+                    if (lifecycleEditorActual && lifecycleEditorActual.requestId === command.commandId) { lifecycleEditorOriginal=lifecycleEditorActual; }
+                }
+            } catch (_lifecycleEditorError) { /* Neither input receipts nor missing sources prove editing. */ }
+            Test.saveObject(lifecycleEditorOriginal,"phone-lifecycle-editor.json");
+            return;
+        }
+        if (command && command.schemaVersion === 1 && typeof command.commandId === "string"
                 && /^[0-9a-f]{32}$/.test(command.commandId) && command.action === "phone-emote-ui"
                 && objectKeysMatch(command,["schemaVersion","commandId","action","request"])
                 && validPhoneEmoteRequest(command.request) && command.request.commandId === command.commandId) {
@@ -2621,6 +2639,7 @@
                 || command.action === "feature-world-render-receipts"
                 || command.action === "feature-graphics-subject-observe" || command.action === "phone-create-observe" || command.action === "phone-assets-observe" || command.action === "phone-assets-download" || command.action === "phone-assets-resolve" || command.action === "phone-snapshot-observe" || command.action === "phone-snapshot-readback" || command.action === "phone-snapshot-upload-observe" || command.action === "phone-snapshot-files-observe" || command.action === "phone-snapshot-files-control" || command.action === "phone-snapshot-cancel" || command.action === "phone-snapshot-settings"
                 || command.action === "phone-avatar-configuration-observe" || command.action === "phone-touch-state-observe"
+                || command.action === "phone-lifecycle-editor-observe" || command.action === "phone-lifecycle-editor-input"
                 || command.action === "phone-emote-fixture-observe" || command.action === "phone-emote-fixture-input"
                 || command.action === "phone-create-fixture-observe" || command.action === "phone-create-fixture-input"
                 || command.action === "feature-avatar-render-observe" || command.action === "feature-world-model-draws-observe"

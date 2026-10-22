@@ -129,6 +129,9 @@ def readonly_feature_command(command):
     elif action=='feature-chat-history':
         from adapters.native_chat_history import command as validate_chat_history
         validate_chat_history(command);require(command['operation']=='inspect','PHONE_READ_ONLY_COMMAND_REJECTED')
+    elif action=='phone-lifecycle-editor-observe':
+        from overte_phone_lifecycle_editor import command as validate_lifecycle_editor
+        validate_lifecycle_editor(command)
     elif action=='feature-chat-view-observe':
         from adapters.native_chat_view import command as validate_chat_view
         validate_chat_view(command)
@@ -1365,6 +1368,15 @@ class PhoneAppiumAdapter(AppiumAdapter):
             lambda:transport.read_debug_app_file(device,target['appId'],
                 'files/overte-e2e/'+CREATE_SOURCE_FILE,attempts=1),
             native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep)
+
+    def _lifecycle_editor(self,selector,*,read_only=True,intent=None):
+        from overte_phone_lifecycle_editor import PhoneLifecycleEditorSource,FILE
+        require(type(read_only) is bool and (not read_only or intent is None),'PHONE_LIFECYCLE_EDITOR_SCOPE_INVALID')
+        native=self._native_feature_observer(selector,read_only=read_only)
+        target=self.target(selector);device=target['capabilities']['appium:udid'];transport=PhoneAdapter(self.candidate).adb
+        return PhoneLifecycleEditorSource(native.send,
+            lambda:transport.read_debug_app_file(device,target['appId'],'files/overte-e2e/'+FILE,attempts=1),
+            native.clock_ms,native.guard,native.pid,intent=intent,monotonic=native.monotonic,sleep=native.sleep)
 
     def _snapshot_upload_source(self,selector):
         from overte_phone_snapshot_upload_source import PhoneSnapshotUploadSource,FILE
