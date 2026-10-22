@@ -1268,3 +1268,21 @@ last guard/native/host clocks and commits no cursor on a late acquisition. Root
 passes all twelve owning cases, including final-copy and last-guard clock-jump
 refusals, in 0.005s. Four repository suites pass in 2.74s. This is source-reader
 validation; it grants no new feature or native/application/device qualification.
+
+## Fixed Phone Chat code reuse and shared ready-file compatibility
+
+The [compiled Chat source](../chat_journey/COMPILED_CHAT_SOURCE.md) is selected
+from `6b7a53eaf5bf25d41f4e0ab36ab1fade0de3a16f`. It reuses the fixed Phone Chat
+code pin and requires actual configured root, complete manager assignment,
+submitted UTF16 code and actual matching V8 compilation. Pico's normalized
+engine URL and the different original peer script remain distinct. Both roles
+and the independent witness own separate source histories under their exact
+parent lock. The full four-source Chat frame/parent join is still required;
+this passive factory grants no complete Chat capability.
+
+The owning ten reader/factory cases plus coverage pass 2/100 selectors in
+2.33s. The [ready-file reader](CHAT_COMPOSITION.md) additionally accepts the
+optional original Create-permissions URL only at the same owned controller's
+exact `/v1/create-permissions` path. Its twelve-case actual composition selector
+passes in 10.34s. Foreign ports/paths and same-byte replaced ready inodes fail.
+The source count is a test catalog count, not completed feature areas.

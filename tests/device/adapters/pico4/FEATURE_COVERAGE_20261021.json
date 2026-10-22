@@ -1032,7 +1032,12 @@
         "tests/device/adapters/pico4/chat_composition.py",
         "tests/device/adapters/chat_journey/owned_mixer.py",
         "tests/device/adapters/pico4/CHAT_COMPOSITION.md",
-        "android/vr/pico/tests/device/test_chat_composition.py"
+        "android/vr/pico/tests/device/test_chat_composition.py",
+        "tests/device/adapters/chat_journey/script_source.py",
+        "tests/device/adapters/chat_journey/COMPILED_CHAT_SOURCE.md",
+        "tests/device/feature_journeys/chat-script-source.v1.json",
+        "tests/device/self_tests/test_chat_script_source.py",
+        "android/vr/pico/tests/device/test_chat_script_source.py"
       ],
       "declaredCheckpoints": 25,
       "inputVerbs": [
