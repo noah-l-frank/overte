@@ -78,6 +78,12 @@ def observed(value, original, acknowledged, pid):
 
 
 class AvatarInputOwner:
+    VERSION_KEY='iosAvatarInputOwnerVersion'
+    STORE_SUFFIX='inputs'
+
+    def call_arguments(self,value):return arguments('feature.avatar-people.act',value)
+    def call_key(self,value):return value['ticket']
+
     def __init__(self, store, lock, binding, run, role, fixture_url, guard):
         need(isinstance(store, PrivateFeatureState) and isinstance(lock, ScriptSourceLock) and callable(guard)
              and role in ('primary', 'actor'))
@@ -85,24 +91,24 @@ class AvatarInputOwner:
         need(type(binding['processIdentity']) is str and re.fullmatch('[1-9][0-9]*', binding['processIdentity']))
         self.store, self.lock, self.binding, self.run, self.role = store, lock, deepcopy(binding), run, role
         self.fixture_url, self.guard, self.pid = fixture_url, guard, int(binding['processIdentity'])
-        need(store.path.name == 'ios-avatar-'+role+'-inputs.json' and store.path.parent == lock.path.parent)
+        need(store.path.name == 'ios-avatar-'+role+'-'+self.STORE_SUFFIX+'.json' and store.path.parent == lock.path.parent)
         self.previous = self.state = None
     def envelope(self, state):
-        return dict(iosAvatarInputOwnerVersion=VERSION, binding=self.binding, runId=self.run, role=self.role,
+        return dict({self.VERSION_KEY:VERSION}, binding=self.binding, runId=self.run, role=self.role,
                     fixtureUrl=self.fixture_url, payload=pack([state]))
     def decode(self, value):
-        exact(value, {'iosAvatarInputOwnerVersion', 'binding', 'runId', 'role', 'fixtureUrl', 'payload'})
-        rows = unpack(value['payload']); need(len(rows) == 1 and type(value['iosAvatarInputOwnerVersion']) is int
-            and value['iosAvatarInputOwnerVersion'] == VERSION and same(value, self.envelope(rows[0])))
+        exact(value, {self.VERSION_KEY, 'binding', 'runId', 'role', 'fixtureUrl', 'payload'})
+        rows = unpack(value['payload']); need(len(rows) == 1 and type(value[self.VERSION_KEY]) is int
+            and value[self.VERSION_KEY] == VERSION and same(value, self.envelope(rows[0])))
         state = rows[0]; exact(state, {'phase', 'calls'})
         need(state['phase'] in ('ready', 'acting', 'acknowledged') and type(state['calls']) is list and len(state['calls']) <= 128)
         tickets = set(); last_scope = None
         for index, call in enumerate(state['calls']):
             exact(call, {'arguments', 'phase', 'events'})
-            query = arguments('feature.avatar-people.act', call['arguments'])
-            need(query['runId'] == self.run and query['fixtureUrl'] == self.fixture_url and query['ticket'] not in tickets
+            query = self.call_arguments(call['arguments'])
+            need(query['runId'] == self.run and query['fixtureUrl'] == self.fixture_url and self.call_key(query) not in tickets
                  and call['phase'] in ('acting', 'acknowledged') and type(call['events']) is list and len(call['events']) <= 64)
-            tickets.add(query['ticket'])
+            tickets.add(self.call_key(query))
             if index < len(state['calls'])-1: need(call['phase'] == 'acknowledged')
             for event_index, event in enumerate(call['events']):
                 exact(event, {'phase', 'intent', 'delivery', 'observed'})
@@ -132,11 +138,11 @@ class AvatarInputOwner:
         self.bound(); value = self.envelope(self.state); self.decode(value)
         self.store.write(value, self.previous); need(same(value, self.store.read())); self.previous = deepcopy(value)
     def begin(self, query):
-        query = deepcopy(arguments('feature.avatar-people.act', query))
+        query = deepcopy(self.call_arguments(query))
         need(query['runId'] == self.run and query['fixtureUrl'] == self.fixture_url)
         self.load()
         for call in self.state['calls']:
-            if call['arguments']['ticket'] == query['ticket']:
+            if self.call_key(call['arguments']) == self.call_key(query):
                 need(same(call['arguments'], query))
                 if call['phase'] == 'acknowledged': return False
                 raise AvatarInputPending('Existing Avatar action remains owned; its input is not replayed')
