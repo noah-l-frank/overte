@@ -54,6 +54,9 @@ private:
     static bool processFrames(QVector<QImage> frames, QVector<qint64> delays, QString path, SnapshotCapture capture);
     static void clearTempVariables();
 public:
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    static QVariantMap featureCaptureActivity();
+#endif
     static void saveSnapshotAnimated(QString pathStill, float aspectRatio, QSharedPointer<WindowScriptingInterface> dm, const SnapshotCapture& capture = {});
     static void cancelCapture(const SnapshotCapture& capture);
     static bool isAlreadyTakingSnapshotAnimated() { return bool(encodingCapture) || (snapshotCapture && snapshotCapture->current()); };

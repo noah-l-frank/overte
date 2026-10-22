@@ -43,8 +43,10 @@ and UIKit/Photos remain uncompiled; no device, installation or lab is accessed.
 
 The [pending-work component](SNAPSHOT_WORK.md) now observes actual Script closure
 and timer originals, with unchanged default Avatar/Create component schemas.
-Remaining Snapshot integration includes native render lifetime and the join
-proving cancellation before submission; normal OS authorization/activity inputs;
+The [native capture component](SNAPSHOT_CAPTURE_LIFETIMES.md) also observes weak
+render/worker/timer lifetimes and joins early cancellation source originals.
+Remaining integration includes durable normal input and owned-file absence for
+that join; normal OS authorization/activity inputs;
 independent saved-original Photos bytes and deletion of only owned assets;
 an actual external share recipient; authenticated upload/body receipts; and
 paired fresh image/source/quiet cleanup. Add-only Photos completion alone

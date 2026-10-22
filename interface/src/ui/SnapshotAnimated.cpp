@@ -21,6 +21,9 @@
 #include <QtConcurrent/QtConcurrentRun>
 #include <algorithm>
 #include <cmath>
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+#include "../../../tests/device/native/IOSSnapshotCaptureObservation.h"
+#endif
 
 QTimer* SnapshotAnimated::snapshotAnimatedTimer = nullptr;
 qint64 SnapshotAnimated::snapshotAnimatedTimestamp = 0;
@@ -52,6 +55,9 @@ void SnapshotAnimated::saveSnapshotAnimated(QString pathStill, float ratio, QSha
     const QFileInfo still(pathStill);
     snapshotAnimatedPath = still.dir().filePath(still.completeBaseName() + ".gif");
     snapshotAnimatedTimer = new QTimer(qApp);
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    overte::e2e::IOSSnapshotCaptureObservation::instance().resource(snapshotCapture,snapshotAnimatedTimer,"animated-timer");
+#endif
     snapshotAnimatedTimer->setTimerType(Qt::PreciseTimer);
     QObject::connect(snapshotAnimatedTimer, &QTimer::timeout, qApp, captureFrames);
     snapshotAnimatedTimerRunning = true;
@@ -113,6 +119,9 @@ void SnapshotAnimated::captureFrames() {
     emit dm->processingGifStarted(still);
     DependencyManager::get<Snapshot>()->captureStatus(request, "processing", still);
     auto watcher = new QFutureWatcher<bool>(qApp);
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    overte::e2e::IOSSnapshotCaptureObservation::instance().resource(request,watcher,"animated-watcher");
+#endif
     QObject::connect(watcher, &QFutureWatcher<bool>::finished, qApp, [watcher, request, path, dm] {
         const bool success = watcher->result();
         watcher->deleteLater();
@@ -130,6 +139,15 @@ void SnapshotAnimated::clearTempVariables() {
     snapshotAnimatedFrameDelayVector.clear(); snapshotAnimatedFrameDelayVector.squeeze();
     snapshotAnimatedTimestamp = snapshotAnimatedFirstFrameTimestamp = 0;
 }
+
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+QVariantMap SnapshotAnimated::featureCaptureActivity() {
+    return {{"capturePresent",bool(snapshotCapture)},{"encodingPresent",bool(encodingCapture)},
+        {"timerPresent",snapshotAnimatedTimer!=nullptr},{"timerRunning",snapshotAnimatedTimerRunning},
+        {"framePending",snapshotFramePending},{"frames",snapshotAnimatedFrameVector.size()},
+        {"delays",snapshotAnimatedFrameDelayVector.size()}};
+}
+#endif
 
 bool SnapshotAnimated::processFrames(QVector<QImage> frames, QVector<qint64> delays, QString path, SnapshotCapture request) {
     if (!request->current()) { return false; }

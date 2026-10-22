@@ -78,6 +78,9 @@ public:
     void uploadSnapshot(const QString& filename, const QUrl& href = QUrl(""));
     SnapshotCapture beginCapture(const QString& requestId);
     void captureStatus(const SnapshotCapture&, const QString& phase, const QString& path = {}, const QString& error = {});
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    QVariantMap featureCaptureActivity();
+#endif
 
 signals:
     /*@jsdoc

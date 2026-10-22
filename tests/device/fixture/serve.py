@@ -659,10 +659,12 @@ class FixtureState:
             try:validate_ios_source(command)
             except (ValueError,RuntimeError):raise ValueError("invalid iOS create_work request") from None
             valid=True
-        elif action in {"feature-ios-snapshot-work", "feature-ios-snapshot-exports"}:
+        elif action in {"feature-ios-snapshot-work", "feature-ios-snapshot-exports", "feature-ios-snapshot-captures"}:
             sys.path.insert(0,str(ROOT.parent))
             if action == "feature-ios-snapshot-work":
                 from ios.adapters.snapshot_work import command as validate_ios_source
+            elif action == "feature-ios-snapshot-captures":
+                from ios.adapters.snapshot_captures import command as validate_ios_source
             else:
                 from ios.adapters.snapshot_exports import command as validate_ios_source
             try:validate_ios_source(command)

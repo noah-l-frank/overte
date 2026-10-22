@@ -41,9 +41,11 @@ request, real cancellation order and an actual thrown cancellation that cannot
 produce a return or restored-overlay fact. The native timer paths are inspected
 source only; they remain uncompiled and devices remain untested.
 
-This is a component, not a complete Snapshot adapter. Native render/encode
-request lifetimes and independent original files must still join early cancel
-proof. Photos destination bytes and owned deletion, an external share receiver,
+The [native capture lifetime component](SNAPSHOT_CAPTURE_LIFETIMES.md) now adds
+actual weak request/timer/watcher originals and a pure early-cancel source join.
+This is not a complete Snapshot adapter: durable normal input and independent
+original files must still join that cancellation proof. Photos destination bytes
+and owned deletion, an external share receiver,
 normal system authorization/activity input, authenticated upload receipts and
 paired final image/source quiet evidence remain required. A quiet script or
 native export acknowledgment does not establish those outcomes. See

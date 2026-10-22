@@ -74,6 +74,8 @@
 #include "../../../ios/web/IOSWorldWebTrace.h"
 #include "../../../ios/snapshot/IOSSnapshotObservation.h"
 #include "../../../tests/device/native/IOSSnapshotWorkObservation.h"
+#include "../../../tests/device/native/IOSSnapshotCaptureObservation.h"
+#include "../ui/Snapshot.h"
 #include "../../../tests/device/native/IOSLocationBookmarksObservation.h"
 #include "../../../tests/device/native/IOSPlacesModelObservation.h"
 #include "../../../tests/device/native/IOSPeopleModelObservation.h"
@@ -1000,6 +1002,27 @@ QVariantMap TestScriptingInterface::featureIOSSnapshotWork(const QVariantMap& co
             || !DependencyManager::isSet<ScriptEngines>()) {return {};}
     const auto scripts=DependencyManager::get<ScriptEngines>();if (!scripts) {return {};}
     return overte::e2e::IOSSnapshotWorkObservation::instance().read(request,run,[scripts] {return scripts->featureSnapshotScriptObservation();});
+}
+
+QVariantMap TestScriptingInterface::featureIOSSnapshotCaptures(const QVariantMap& command) {
+    if (QThread::currentThread()!=thread()) {
+        if (!thread() || !thread()->isRunning()) {return {};}
+        QVariantMap result;
+        if (!QMetaObject::invokeMethod(this,[&] {result=featureIOSSnapshotCaptures(command);},Qt::BlockingQueuedConnection)) {return {};}
+        return result;
+    }
+    QStringList fields {"schemaVersion","commandId","action","runId"};fields.sort();
+    const auto json=QJsonObject::fromVariantMap(command);
+    const auto request=command.value("commandId").toString(),run=command.value("runId").toString();
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript") || command.keys()!=fields
+            || json.value("schemaVersion")!=QJsonValue(1) || json.value("action")!=QJsonValue("feature-ios-snapshot-captures")
+            || !json.value("commandId").isString() || !json.value("runId").isString()
+            || !QRegularExpression("\\Aios-[0-9a-f]{32}\\z").match(request).hasMatch()
+            || !QRegularExpression("\\A[0-9a-f]{32}\\z").match(run).hasMatch()
+            || !DependencyManager::isSet<Snapshot>()) {return {};}
+    const auto snapshots=DependencyManager::get<Snapshot>();if (!snapshots) {return {};}
+    return overte::e2e::IOSSnapshotCaptureObservation::instance().read(request,run,[snapshots] {return snapshots->featureCaptureActivity();});
 }
 
 QVariantMap TestScriptingInterface::featureIOSSnapshotExports(const QVariantMap& command) {
@@ -2375,7 +2398,7 @@ void TestScriptingInterface::saveObject(QVariant variant, const QString& filenam
     // Preserve these passive sources' native compact-byte bounds through AFC.
     // Adding whitespace can exceed the existing reader limit with no new data.
     // Other source writers keep their original encoding.
-    if (filename=="feature-ios-snapshot-work.json" || filename=="feature-ios-snapshot-exports.json"
+    if (filename=="feature-ios-snapshot-work.json" || filename=="feature-ios-snapshot-exports.json" || filename=="feature-ios-snapshot-captures.json"
             || filename=="feature-ios-world-web.json" || filename=="feature-ios-world-web-dom.json"
             || filename=="feature-ios-world-web-work.json" || filename=="feature-ios-world-web-geometry.json"
             || filename=="feature-ios-world-web-keys.json") {
@@ -2401,6 +2424,7 @@ void TestScriptingInterface::saveObject(QVariant variant, const QString& filenam
             || filename == "feature-ios-script-dialogs.json" || filename == "feature-ios-emote-world.json" || filename == "feature-ios-avatar-world.json" || filename == "feature-ios-avatar-inputs.json" || filename == "feature-ios-avatar-social-http.json" || filename == "feature-ios-avatar-state.json" || filename == "feature-ios-avatar-renderers.json" || filename == "feature-ios-avatar-scripts.json" || filename == "feature-ios-avatar-entities.json" || filename == "feature-ios-create-entities.json" || filename == "feature-ios-pointer-state.json"
             || filename == "feature-ios-people-model.json" || filename == "feature-ios-create-work.json" || filename == "feature-ios-create-state.json" || filename == "feature-ios-create-files.json"
             || filename == "feature-ios-snapshot-work.json" || filename == "feature-ios-snapshot-exports.json"
+            || filename == "feature-ios-snapshot-captures.json"
             || filename == "feature-script-files.json" || filename == "world-render-observation.json"
             || filename == "world-render-receipt-result.json"
             || QRegularExpression("\\Aworld-render-storage-[0-9a-f]{32}\\.json\\z").match(filename).hasMatch()) {

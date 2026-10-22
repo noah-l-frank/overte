@@ -123,8 +123,11 @@ actual private closure state, native submitted main/helper code and separate
 native timer/dispatch/QObject histories, with unchanged Avatar/Create defaults.
 Eight no-build component checks and thirteen actual production JavaScript cases
 cover early pending cancellation, thrown callbacks and strict original history.
-Render/encode lifetime joins and independent destination/receiver originals
-remain open; this does not enable the complete Snapshot capability.
+[Native capture lifetimes](SNAPSHOT_CAPTURE_LIFETIMES.md) also join actual weak
+render/worker/timer/watcher owners and the early-cancel source history (ten
+host checks). Durable normal input and owned-file absence must still join that
+proof; whole capture/image, OS permission/sheet, destination/receiver, upload and
+paired cleanup integration remain open. No complete capability is enabled.
 
 Snapshots now has a [passive native export source](SNAPSHOT_EXPORTS.md): actual
 Photos authorization/commit/placeholder/completion, system Share result, Qt

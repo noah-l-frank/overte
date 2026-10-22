@@ -51,6 +51,12 @@
 #include <QGuiApplication>
 #include <QFutureWatcher>
 #include <QRegularExpression>
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+#include "../../../tests/device/native/IOSSnapshotCaptureObservation.h"
+#define snapshotObserved(...) overte::e2e::IOSSnapshotCaptureObservation::instance().event(__VA_ARGS__)
+#else
+#define snapshotObserved(...) ((void)0)
+#endif
 
 // filename format: overte-snap-by-%username%-on-%date%_%time%_@-%location%.png
 // %1 <= username, %2 <= date and time, %3 <= current location
@@ -104,27 +110,34 @@ QUrl Snapshot::snapshotFileUrl(const QString& path) const {
 
 SnapshotCapture Snapshot::beginCapture(const QString& requestId) {
     auto capture = std::make_shared<SnapshotCaptureRequest>(requestId);
-    if (requestId.isEmpty()) { return capture; } // Existing un-ticketed callers.
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    overte::e2e::IOSSnapshotCaptureObservation::instance().begin(capture);
+#endif
+    if (requestId.isEmpty()) {snapshotObserved(capture,"accepted");return capture;} // Existing un-ticketed callers.
     QMutexLocker lock(&_captureMutex);
     if (requestId.size() > 64 || !QRegularExpression(QStringLiteral("^[A-Za-z0-9_-]+$")).match(requestId).hasMatch() ||
             _captures.size() >= 8 || _captures.contains(requestId)) {
         lock.unlock();
+        snapshotObserved(capture,"rejected");
         emit captureStatusChanged(requestId, "error", {}, "capture-busy-or-invalid-request");
         return {};
     }
     _captures.insert(requestId, capture);
+    snapshotObserved(capture,"accepted");
     return capture;
 }
 
 void Snapshot::captureStatus(const SnapshotCapture& capture, const QString& phase, const QString& path, const QString& error) {
     if (!capture || !capture->current()) { return; }
     if (QThread::currentThread() != thread()) {
+        snapshotObserved(capture,"status-enqueued",QVariantMap{{"phase",phase}});
         QMetaObject::invokeMethod(this, [this, capture, phase, path, error] { captureStatus(capture, phase, path, error); }, Qt::QueuedConnection);
         return;
     }
     const bool terminal = phase == "complete" || phase == "error";
     if (terminal && !capture->finish()) { return; }
     if (terminal) { capture->announced.store(true); }
+    snapshotObserved(capture,"status",(QVariantMap{{"phase",phase},{"hasPath",!path.isEmpty()},{"hasError",!error.isEmpty()}}));
     if (!capture->id.isEmpty()) {
         if (terminal) { QMutexLocker lock(&_captureMutex); if (_captures.value(capture->id) == capture) { _captures.remove(capture->id); } }
         emit captureStatusChanged(capture->id, phase, path, error);
@@ -135,7 +148,9 @@ void Snapshot::cancelCapture(const QString& requestId) {
     SnapshotCapture capture;
     { QMutexLocker lock(&_captureMutex); capture = _captures.take(requestId); }
     if (!capture) { return; }
+    snapshotObserved(capture,"cancel-requested");
     if (!capture->cancel()) { return; } // Invalidate render/worker callbacks immediately.
+    snapshotObserved(capture,"cancelled");
     QMetaObject::invokeMethod(this, [this, capture] {
         SnapshotAnimated::cancelCapture(capture);
         if (_capture360 == capture) {
@@ -147,8 +162,19 @@ void Snapshot::cancelCapture(const QString& requestId) {
             for (auto& image : _imageArray) { image = {}; }
         }
         if (!capture->announced.exchange(true)) { emit captureStatusChanged(capture->id, "cancelled", {}, {}); }
+        snapshotObserved(capture,"cancel-delivered");
     }, Qt::QueuedConnection);
 }
+
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+QVariantMap Snapshot::featureCaptureActivity() {
+    if (!QCoreApplication::arguments().contains("--testScript") || QThread::currentThread()!=thread()) {return {};}
+    QMutexLocker lock(&_captureMutex);
+    return {{"requests",_captures.size()},{"secondaryCapturePresent",bool(_capture360)},
+        {"secondaryTimerActive",_snapshotTimer.isActive()},{"secondaryTaking",_taking360Snapshot},
+        {"secondaryFramePending",_waitingOnSnapshot},{"animated",SnapshotAnimated::featureCaptureActivity()}};
+}
+#endif
 
 SnapshotMetaData* Snapshot::parseSnapshotData(QString snapshotPath) {
     if (!QFile(snapshotPath).exists()) {
@@ -319,6 +345,9 @@ void Snapshot::takeNextSnapshot() {
         // Workers own immutable images/request state; a replacement cannot
         // mutate their camera faces or revive cancelled completion callbacks.
         auto watcher = new QFutureWatcher<QImage>(this);
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+        overte::e2e::IOSSnapshotCaptureObservation::instance().resource(capture,watcher,"secondary-watcher");
+#endif
         connect(watcher, &QFutureWatcher<QImage>::finished, this, [this, watcher, filename, notify, capture] {
             const auto image = watcher->result();
             watcher->deleteLater();
