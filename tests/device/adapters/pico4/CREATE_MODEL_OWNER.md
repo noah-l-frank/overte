@@ -75,6 +75,13 @@ QObject have died. No observer dispatches Qt events or deletes an object. The
 native host counterexample compiles the exact original factory deleter and
 proves the pending-deletion interval before ordinary Qt event-loop delivery.
 
+The production factory now composes this v2 owner with the separate
+[resource-binding owner v1](CREATE_MODEL_RESOURCE_JOIN.md). Its durable
+pre-input source anchors and actual material/resource predicate are additional
+to this property's verdict. Original owner versions and their raw baselines
+remain unchanged. Older owners without those pre-input resource anchors can
+still use distinct normal Delete, but cannot claim complete resource retirement.
+
 ## Original work and object lifetime
 
 The shared ScriptWork v2 source records real native timer registrations,
