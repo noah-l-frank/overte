@@ -55,6 +55,14 @@ def validate_pico_target(nodes):
         if key == "0":
             continue
         settings = node["settings"]
+        if node["context"] == "build" and settings == {}:
+            # Conan's portable Python applications have no target ABI/settings.
+            # Their exact recipe/PREV and complete Build lineage remain checked
+            # independently; this classification does not grant package reuse.
+            require(node.get("package_type") == "application" and node["options"] == {} and
+                    node["package_id"] == hashlib.sha1(b"").hexdigest(),
+                    "Invalid platform-independent build-tool identity")
+            continue
         if settings.get("os") == "Linux":
             require(settings.get("arch") == "x86_64", "Wrong host-tools ABI")
             continue
@@ -182,7 +190,8 @@ def minimum_delta(wanted, origins, *, linux_role_mapping=False):
             reused[key] = valid[0]
         else:
             require(node["binary"] == "Build", "Cached package lacks complete original Build lineage")
-            require(node["ref"].split("/", 1)[0] != "qt" and node["settings"].get("os") != "Linux",
+            require(node["ref"].split("/", 1)[0] != "qt" and node["settings"].get("os") != "Linux" and
+                    node["context"] != "build",
                     "Missing qualified Qt/host-tool graph; a second full build is forbidden")
             build.append(key)
     return {"status": "PICO_CI_DELTA_PLAN_NATIVE_AND_APK_VERIFICATION_PENDING",

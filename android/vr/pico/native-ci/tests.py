@@ -47,7 +47,68 @@ def fixture():
     return wanted, [origin]
 
 
+def portable_build_tool():
+    # Actual Meson 1.6 identity from completed Pico graph (node 56, skipped):
+    # fc971a14be7dfd1b794ec6330f8a2dd898caa4f2089c3f4c95952ab68b7575bb.
+    # Use it as a consumed tool here so the independent Build-lineage gate is
+    # also exercised; do not change or relabel the original producer graph.
+    return dict(id="7", ref="meson/1.6.0#df190c5b0592572e6f5a1b05999e7e6d",
+                rrev="df190c5b0592572e6f5a1b05999e7e6d", package_id="da39a3ee5e6b4b0d3255bfef95601890afd80709",
+                prev="6e4dcc10bd6989a72a3bec7c1c328cfe", context="build", settings={}, options={},
+                package_type="application", binary="Build", dependencies={})
+
+
+def fixture_with_portable_tool():
+    wanted, origins = fixture()
+    original = origins[0]["nodes"]
+    original["7"] = portable_build_tool()
+    wanted["7"] = dict(copy.deepcopy(original["7"]), binary="Cache")
+    for nodes in (wanted, original):
+        nodes["0"]["dependencies"]["7"] = {"direct": True, "build": True, "run": True}
+    return wanted, origins
+
+
 class PicoCiGraphContracts(unittest.TestCase):
+    def test_actual_portable_meson_identity_retains_complete_build_lineage(self):
+        wanted, origins = fixture_with_portable_tool()
+        result = GRAPH.minimum_delta(wanted, origins)
+        self.assertEqual(result["reused_original_builds"]["7"]["node_id"], "7")
+        self.assertEqual(result["distinct_nodes_requiring_build"], [])
+        self.assertFalse(result["pico_qualified"])
+
+    def test_portable_application_does_not_bypass_role_options_pid_or_target_abi(self):
+        for field, value in (("context", "host"), ("package_type", "shared-library"),
+                             ("package_type", "header-library"), ("options", {"shared": "True"}),
+                             ("package_id", "e" * 40), ("settings", {"arch": "armv8"}),
+                             ("settings", {"os": "Linux", "arch": "armv8"}),
+                             ("settings", {"os": "Android", "arch": "armv8", "os.api_level": "26"})):
+            with self.subTest(field=field, value=value):
+                wanted, origins = fixture_with_portable_tool()
+                wanted["7"][field] = value
+                with self.assertRaises(ValueError):
+                    GRAPH.minimum_delta(wanted, origins)
+
+    def test_portable_cache_skip_or_changed_prev_cannot_establish_original_build(self):
+        for change in (dict(binary="Cache"), dict(binary="Skip"), dict(prev="e" * 32)):
+            with self.subTest(change=change):
+                wanted, origins = fixture_with_portable_tool()
+                origins[0]["nodes"]["7"].update(change)
+                with self.assertRaises(ValueError):
+                    GRAPH.minimum_delta(wanted, origins)
+
+    def test_portable_build_tool_does_not_trigger_second_host_graph_build(self):
+        wanted, origins = fixture_with_portable_tool()
+        wanted["7"].update(binary="Build", prev=None)
+        with self.assertRaisesRegex(ValueError, "second full build is forbidden"):
+            GRAPH.minimum_delta(wanted, origins)
+
+    def test_portable_tool_does_not_satisfy_missing_target_dependency(self):
+        wanted, _ = fixture_with_portable_tool()
+        del wanted["1"]
+        del wanted["0"]["dependencies"]["1"]
+        with self.assertRaisesRegex(ValueError, "Required Pico dependency missing"):
+            GRAPH.validate_pico_target(wanted)
+
     def test_exact_phone_builds_are_only_dependency_plan_not_pico_acceptance(self):
         wanted, origins = fixture()
         result = GRAPH.minimum_delta(wanted, origins)
