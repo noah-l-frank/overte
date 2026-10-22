@@ -29,6 +29,9 @@ int main(int argc,char** argv){
     }
     overte::e2e::RecordedPreviewDeferred wrongThread;auto lease=wrongThread.registerCallback(&receiver,1,1000);assert(lease);
     QThread thread;QObject executor;executor.moveToThread(&thread);thread.start();
+    overte::e2e::RecordedPreviewDeferred wrongEntry;auto entryLease=wrongEntry.registerCallback(&receiver,1,1000);assert(entryLease);
+    assert(QMetaObject::invokeMethod(&executor,[entryLease]{const auto invocation=overte::e2e::RecordedPreviewDeferred::enter(entryLease);},Qt::BlockingQueuedConnection));
+    assert(wrongEntry.snapshot(&receiver).isEmpty());entryLease.reset();
     auto held=std::make_shared<std::shared_ptr<overte::e2e::RecordedPreviewDeferred::Lease>>(std::move(lease));
     assert(QMetaObject::invokeMethod(&executor,[held]{held->reset();},Qt::BlockingQueuedConnection));
     assert(wrongThread.snapshot(&receiver).isEmpty());

@@ -69,8 +69,8 @@ public:
         const auto value=lease ? lease->original : nullptr;
         if(!value) {return Invocation(nullptr);}
         const auto now=QDateTime::currentMSecsSinceEpoch();
-        if(!enabled() || !value->valid.load() || !value->clock->valid.load() || !value->receiver || value->receiver->thread()!=QThread::currentThread()
-                || QThread::currentThread()!=value->thread || value->entered || value->released || now<value->registered || now<value->clock->epoch) {
+        if(QThread::currentThread()!=value->thread || !enabled() || !value->valid.load() || !value->clock->valid.load()
+                || !value->receiver || value->receiver->thread()!=QThread::currentThread() || value->entered || value->released || now<value->registered || now<value->clock->epoch) {
             value->valid.store(false);value->clock->valid.store(false);return Invocation(nullptr);
         }
         value->clock->epoch=now;value->entered=now;value->active=true;return Invocation(value);
