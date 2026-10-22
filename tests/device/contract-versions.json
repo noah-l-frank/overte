@@ -143,6 +143,7 @@
     "native-chat-peer-input": {"current": 3, "reads": [1, 2, 3]},
     "native-chat-peer-position": {"current": 1, "reads": [1]},
     "native-chat-settings-barrier": {"current": 2, "reads": [1, 2]},
+    "native-chat-profile-current": {"current": 1, "reads": [1]},
     "native-chat-profile": {"current": 1, "reads": [1]},
     "chat-profile-owner": {"current": 1, "reads": [1]},
     "chat-erase-restore": {"current": 2, "reads": [1, 2]},

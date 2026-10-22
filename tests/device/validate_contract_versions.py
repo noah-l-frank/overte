@@ -149,6 +149,7 @@ REQUIRED = {
     "native-chat-peer-input": 3,
     "native-chat-peer-position": 1,
     "native-chat-settings-barrier": 2,
+    "native-chat-profile-current": 1,
     "native-chat-profile": 1,
     "chat-profile-owner": 1,
     "chat-erase-restore": 2,

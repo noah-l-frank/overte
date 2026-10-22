@@ -1951,6 +1951,14 @@ def create_adapter(args, base_class):
             reader._chat_transport=native
             return OwnedChatProfile(reader,self._chat_profile_store(target),manager.binding,run,source_lock)
 
+        @_private
+        def _chat_profile_current(self,target):
+            from adapters.native_chat_profile_current import NativeChatProfileCurrent,FILE
+            native=self._native_feature_observer(target);native.guard()
+            return NativeChatProfileCurrent(native.send,
+                lambda:self.adb.read_debug_app_file(target,'org.overte.pico','files/overte-e2e/'+FILE,attempts=1),
+                native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep)
+
         def _chat_peer_input_store(self,target):
             state,_ui=self._script_paths(target)
             return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-','chat-peer-input-')))

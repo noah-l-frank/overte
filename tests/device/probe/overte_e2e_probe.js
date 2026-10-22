@@ -103,6 +103,7 @@
     var lastChatObservationCommand="";
     var lastChatPeerPositionCommand="";
     var lastChatProfileCommand="";
+    var lastChatProfileCurrentCommand="";
     function validChatObservationCommand(command) {
         return command && command.schemaVersion===1 && command.action==="feature-chat-observe"
             && /^(?:ios-)?[0-9a-f]{32}$/.test(String(command.commandId))
@@ -1370,6 +1371,24 @@
             }
             return;
         }
+        if (command && command.action === "feature-chat-profile-current") {
+            if (command.schemaVersion === 1 && typeof command.commandId === "string" && command.commandId.length === 32
+                    && /^[0-9a-f]{32}$/.test(command.commandId) && typeof command.runId === "string" && command.runId.length === 32
+                    && /^[0-9a-f]{32}$/.test(command.runId)
+                    && objectKeysMatch(command,["schemaVersion","commandId","action","runId"])) {
+                if (command.commandId === lastChatProfileCurrentCommand) return;
+                lastChatProfileCurrentCommand=String(command.commandId);
+                var currentChatProfile={commandId:command.commandId,available:false};
+                try {
+                    if (typeof Test.featureChatProfileCurrent === "function") {
+                        var originalCurrentChatProfile=Test.featureChatProfileCurrent(command);
+                        if (originalCurrentChatProfile && originalCurrentChatProfile.commandId === command.commandId) { currentChatProfile=originalCurrentChatProfile; }
+                    }
+                } catch (_currentChatProfileError) {}
+                Test.saveObject(currentChatProfile,"feature-chat-profile-current.json");
+            }
+            return;
+        }
         if (command && command.action === "feature-chat-profile") {
             if (command.schemaVersion === 1 && typeof command.commandId === "string" && command.commandId.length === 32
                     && /^[0-9a-f]{32}$/.test(command.commandId) && typeof command.runId === "string" && command.runId.length === 32
@@ -2118,7 +2137,7 @@
 
     function applyAndroidControlCommand(command) {
         if (command && (command.action === "normal-feature-observe" || command.action === "feature-native-observe"
-                || command.action === "feature-chat-observe" || command.action === "feature-chat-view-observe" || command.action === "feature-chat-peer-position" || command.action === "feature-chat-profile" || command.action === "feature-web-dom-observe" || command.action === "pico-world-web" || command.action === "pico-tablet-web" || command.action === "pico-web-reference" || command.action === "feature-account-probe" || command.action === "feature-account-origin"
+                || command.action === "feature-chat-observe" || command.action === "feature-chat-view-observe" || command.action === "feature-chat-peer-position" || command.action === "feature-chat-profile" || command.action === "feature-chat-profile-current" || command.action === "feature-web-dom-observe" || command.action === "pico-world-web" || command.action === "pico-tablet-web" || command.action === "pico-web-reference" || command.action === "feature-account-probe" || command.action === "feature-account-origin"
                 || command.action === "feature-pending-commit-owner" || command.action === "feature-navigation-replies"
                 || command.action === "feature-location-bookmarks"
                 || command.action === "feature-navigation-modals"
