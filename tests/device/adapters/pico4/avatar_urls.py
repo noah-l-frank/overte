@@ -9,7 +9,9 @@ Avatar/People contexts, bookmarks, wearables, peer and backend are not retired.
 from copy import deepcopy
 import hashlib
 import math
+import os
 import re
+import stat
 import time
 from urllib.parse import urljoin
 from adapters.native_feature_observation import decode,exact,fresh,integer,need,number
@@ -52,7 +54,7 @@ class PicoAvatarUrls:
         need(re.fullmatch('[0-9a-f]{32}',artifact_key) is not None)
         self.frame_prefix='avatar-urls-frame-'+artifact_key+'-'+self.run+'-'
         self.preferences_factory,self.preferences_reader,self.version=preferences,None,VERSION
-        self._frame_references={};self._frame_originals={}
+        self._frame_references={};self._frame_originals={};self._frame_files={}
         self.previous=store.read();self.clock=self.anchor=None;self.failed=False;self._reconciling=False;self._before_send=self.before_send
         self.state=dict(stage='reserved',baseline=None,baselineIndex=None,prepared=None,frames=[],calls=[],inputs=[],pending=None,unresolved=[],restored=False)
         self.bound()
@@ -142,25 +144,52 @@ class PicoAvatarUrls:
         need(type(reference['avatarUrlFrameVersion']) is int and reference['avatarUrlFrameVersion']==1
             and type(reference['sha256']) is str and len(reference['sha256'])==64 and all(c in '0123456789abcdef' for c in reference['sha256']))
         name=self.frame_prefix+reference['sha256'][:32]+'.json';need(reference['name']==name)
+        if reference['sha256'] in self._frame_references:
+            need(same(self._frame_references[reference['sha256']],reference));self.verify_frame_file(reference)
+            return deepcopy(self._frame_originals[reference['sha256']])
         record=PrivateFeatureState(self.store.path.with_name(name)).read();need(record is not None)
         exact(record,{'avatarUrlFrameVersion','binding','runId','fixtureUrl','payload'})
         need(type(record['avatarUrlFrameVersion']) is int and record['avatarUrlFrameVersion']==1 and same(record['binding'],self.binding)
             and record['runId']==self.run and record['fixtureUrl']==self.phase.fixture_url)
         values=unpack(record['payload']);need(len(values)==1 and hashlib.sha256(canonical(values[0])).hexdigest()==reference['sha256'])
+        self.verify_frame_file(reference,canonical(record)+b'\n')
         self._frame_references[reference['sha256']]=deepcopy(reference);self._frame_originals[reference['sha256']]=deepcopy(values[0]);return values[0]
+    @staticmethod
+    def frame_stamp(info):
+        return (info.st_dev,info.st_ino,info.st_uid,info.st_mode,info.st_nlink,info.st_size,info.st_mtime_ns,info.st_ctime_ns)
+    def verify_frame_file(self,reference,original=None):
+        # Cache only parsing/decompression. Every admission and final input
+        # fence rereads the original bounded descriptor, inode/stamps and bytes.
+        store=PrivateFeatureState(self.store.path.with_name(reference['name']));store._parent();before=store.path.lstat()
+        need(stat.S_ISREG(before.st_mode) and before.st_nlink==1 and before.st_size<=65536
+            and (os.name=='nt' or before.st_uid==os.geteuid() and stat.S_IMODE(before.st_mode)==0o600))
+        descriptor=os.open(store.path,os.O_RDONLY|getattr(os,'O_NOFOLLOW',0)|getattr(os,'O_NONBLOCK',0))
+        with os.fdopen(descriptor,'rb') as stream:
+            opened=os.fstat(stream.fileno());need(self.frame_stamp(before)==self.frame_stamp(opened))
+            raw=stream.read(65537);after=os.fstat(stream.fileno());current=store.path.lstat()
+        stamp=self.frame_stamp(current);need(stamp==self.frame_stamp(after)==self.frame_stamp(opened) and len(raw)==current.st_size)
+        observed=(stamp,hashlib.sha256(raw).hexdigest());digest=reference['sha256']
+        if digest in self._frame_files:need(self._frame_files[digest]==observed)
+        else:need(original is not None and raw==original);self._frame_files[digest]=observed
+    def verify_frames(self):
+        if self.version>=2:
+            for frame in self.state['frames']:
+                digest=hashlib.sha256(canonical(frame)).hexdigest();need(digest in self._frame_references)
+                self.verify_frame_file(self._frame_references[digest])
     def frame_reference(self,frame):
         # Fixed Phone5527 content-addressed private blob foundation. An original
         # frame is never truncated to fit the root CAS envelope. Every leaf
         # keeps the existing pack/PrivateFeatureState limits and exact binding.
         digest=hashlib.sha256(canonical(frame)).hexdigest()
         if digest in self._frame_references:
-            need(same(self._frame_originals[digest],frame));return deepcopy(self._frame_references[digest])
+            need(same(self._frame_originals[digest],frame));self.verify_frame_file(self._frame_references[digest]);return deepcopy(self._frame_references[digest])
         name=self.frame_prefix+digest[:32]+'.json';reference=dict(avatarUrlFrameVersion=1,name=name,sha256=digest)
         record=dict(avatarUrlFrameVersion=1,binding=self.binding,runId=self.run,fixtureUrl=self.phase.fixture_url,payload=pack([frame]))
         store=PrivateFeatureState(self.store.path.with_name(name));old=store.read()
         if old is None:store.write(record,None)
         else:need(same(old,record))
-        need(same(store.read(),record));self._frame_references[digest]=deepcopy(reference);self._frame_originals[digest]=deepcopy(frame);return reference
+        need(same(store.read(),record));self.verify_frame_file(reference,canonical(record)+b'\n')
+        self._frame_references[digest]=deepcopy(reference);self._frame_originals[digest]=deepcopy(frame);return reference
     def save(self):
         self.bound();self.check(self.state)
         payload=deepcopy(self.state)
@@ -224,7 +253,7 @@ class PicoAvatarUrls:
             if self.version>=2:self.state['baselineIndex']=len(self.state['frames'])
         self.anchor=(started,epoch,reader.clock_ms);self.save();return self.finish(frame)
     def finish(self,frame):
-        retained=deepcopy(frame);self.bound();self.phase_fence(frame['phaseAfter']);self.fresh_current();return retained
+        retained=deepcopy(frame);self.bound();self.phase_fence(frame['phaseAfter']);self.verify_frames();self.fresh_current();return retained
     def record_input(self,intent):
         self.bound();need(self.version>=2 and self.state['pending'] is not None and len(self.state['inputs'])<128)
         self.sample();self.phase_fence();self.fresh_current();self.state['inputs'].append(dict(ticket=self.state['pending'],intent=deepcopy(intent),command=None));self.save()
@@ -238,7 +267,7 @@ class PicoAvatarUrls:
         if command['action']=='replace':need(identifier=='avatar.dialog.input' and command['text']==call['url'])
         else:need(command['action']=='activate')
         need(identifier!='avatar.dialog.cancel' or call['verb']=='cleanup')
-        row['command']=deepcopy(command);self.save();self.phase_fence();self.bound();self.fresh_current()
+        row['command']=deepcopy(command);self.save();self.phase_fence();self.verify_frames();self.bound();self.fresh_current()
     def controls(self):
         ui=self.controls_factory(self.record_input,self._before_send);need(isinstance(ui,TokenAvatarPeopleUI));return ui
     def matches(self,source,call,baseline=None,before=None):
