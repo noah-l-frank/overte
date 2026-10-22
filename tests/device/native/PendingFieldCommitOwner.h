@@ -4,6 +4,9 @@
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #include "PendingFieldCommitBridge.h"
 #include "NormalControlUi.h"
+#if defined(ANDROID_APP_PHONE_INTERFACE)
+#include "PhoneLifecycleFieldIdentity.h"
+#endif
 #include <ui/PreparedFieldCommit.h>
 #include <ui/NativeFieldInput.h>
 #include <PathUtils.h>
@@ -155,7 +158,13 @@ private:
         }
         if (result.token.isEmpty()) {
             if (_seen.size() >= 64) { return Field(); }
-            result.token = nonce(); _seen.append({result.field, result.window, result.context, result.token});
+#if defined(ANDROID_APP_PHONE_INTERFACE)
+            result.token = phoneLifecycleFieldIdentity(result.field,result.window,result.context);
+            if (result.token.isEmpty()) { return Field(); }
+#else
+            result.token = nonce();
+#endif
+            _seen.append({result.field, result.window, result.context, result.token});
         }
         result.status = "ready";
         return result;

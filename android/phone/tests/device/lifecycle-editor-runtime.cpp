@@ -84,9 +84,11 @@ int main(int argc,char**argv) {
                 return owner.request(command);
             };
             auto prepared=request("hold",request("observe",{}));need(prepared.value("performed")==true);
+            need(prepared.value("commit").toMap().value("fieldToken")==current().value("fieldToken"));
             const auto old=current();delete page;page=nullptr;need(current().value("status")=="none");
             auto replacement=create("scripts");const auto newer=current();need(newer.value("token")!=old.value("token") && newer.value("text")=="" && newer.value("focused")==false);
-            auto pending=request("observe",{});const auto attempted=request("attempt",pending);const auto event=attempted.value("commit").toMap().value("observation").toMap().value("events").toList().last().toMap();
+            auto pending=request("observe",{});need(pending.value("current").toMap().value("token")==newer.value("fieldToken"));
+            const auto attempted=request("attempt",pending);const auto event=attempted.value("commit").toMap().value("observation").toMap().value("events").toList().last().toMap();
             need(event.value("kind")=="rejected" && event.value("reason")=="context-retired");need(current().value("text")=="" && current().value("focused")==false);
             delete replacement;
         }

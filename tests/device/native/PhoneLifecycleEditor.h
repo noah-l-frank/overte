@@ -3,6 +3,7 @@
 #pragma once
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PHONE_INTERFACE)
 #include "NormalControlUi.h"
+#include "PhoneLifecycleFieldIdentity.h"
 #include <PathUtils.h>
 #include <QJsonObject>
 #include <QQmlContext>
@@ -62,7 +63,8 @@ public:
             }
             if(current<0) {
                 if(_seen.size()>=64)return {};
-                _seen.append({selected.editor,selected.field,selected.window,selected.context,selected.page,nonce(),nonce(),epoch,0});current=_seen.size()-1;
+                const auto fieldIdentity=phoneLifecycleFieldIdentity(selected.field,selected.window,selected.context);if(fieldIdentity.isEmpty())return {};
+                _seen.append({selected.editor,selected.field,selected.window,selected.context,selected.page,nonce(),fieldIdentity,epoch,0});current=_seen.size()-1;
             }
         }
         QVariantList identities;

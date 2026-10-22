@@ -97,3 +97,13 @@ seams. The insertion in the complete Application update is source reviewed;
 the full Application/Android translation unit is not compiled by that component
 check. No hardware input, phone rendering, Android IME or device acceptance is
 claimed. Common foundation/facade composition remains work in progress.
+
+The Phone-only weak field/window/QQmlContext identity registry is shared with
+the existing PendingFieldCommitOwner. Its original held-event field token must
+equal the real generation-3 editor's field token; the later actual current
+Scripts token must equal the genuinely new generation-4 editor's token. No
+Python association or copied source filename substitutes for that join. The
+registry keeps dead weak references and never reuses their tokens. Existing
+non-Phone pending-owner token behavior and wire schema remain unchanged. The
+native Qt test compares both observers around a real original held IME event,
+actual old-page destruction and a real new Scripts page before guard rejection.
