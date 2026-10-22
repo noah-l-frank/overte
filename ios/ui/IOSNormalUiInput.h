@@ -53,6 +53,7 @@ private:
     std::function<overte::e2e::AudioUiContext()> _audioReader;
     std::function<overte::e2e::GraphicsUiContext()> _graphicsReader;
     quint64 _avatarObservationSequence {0};
+    QHash<QQuickItem*, QPointer<QQuickItem>> _avatarRoots;
     QString _emoteGeneration;
     QHash<QQuickItem*, QPointer<QQuickItem>> _emoteRoots;
     quint64 _emoteObservationSequence {0};

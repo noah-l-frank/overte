@@ -29,6 +29,7 @@
 #include "../../tests/device/native/NormalPlacesControls.h"
 #include "../../tests/device/native/NormalEmoteControls.h"
 #include "../../tests/device/native/NormalAvatarControls.h"
+#include "../../tests/device/native/IOSAvatarUiInventory.h"
 #include "../../tests/device/native/NormalNavigationErrorControls.h"
 #include "../../tests/device/native/AccountPreferenceObservation.h"
 #endif
@@ -183,6 +184,7 @@ QJsonObject NormalUiInput::observe(QQuickItem* hud, QQuickItem* tablet, bool tab
     overte::e2e::ScriptUiInventory scriptInventory;
     overte::e2e::IOSNavigationUiInventory navigationInventory;
     overte::e2e::IOSEmoteUiInventory emoteInventory;
+    overte::e2e::IOSAvatarUiInventory avatarInventory;
     QSet<QQuickItem*> surveyed;
     bool inventoryComplete {hud != nullptr && hud->window() != nullptr};
     std::function<void(QQuickItem*, int)> survey = [&](QQuickItem* node, int depth) {
@@ -194,6 +196,8 @@ QJsonObject NormalUiInput::observe(QQuickItem* hud, QQuickItem* tablet, bool tab
         scriptInventory.visit(node);
         navigationInventory.visit(node);
         emoteInventory.visit(node);
+        avatarInventory.visit(node);
+        if (!overte::e2e::avatarComponentSource(node).isEmpty()) { _avatarRoots.insert(node,node); }
         if (!overte::e2e::emoteComponentSource(node).isEmpty()) { _emoteRoots.insert(node,node); }
         if (!overte::e2e::IOSNavigationUiInventory::source(node).isEmpty()) { _navigationRoots.insert(node,node); }
         if (node->objectName()=="RunningScripts"
@@ -225,6 +229,12 @@ QJsonObject NormalUiInput::observe(QQuickItem* hud, QQuickItem* tablet, bool tab
     }
     const auto retainedEmoteRoots=_emoteRoots.values();
     for (const auto& root:retainedEmoteRoots) { if (root) { survey(root,0); } }
+    for (auto it=_avatarRoots.begin();it!=_avatarRoots.end();) {
+        if (!it.value()) { it=_avatarRoots.erase(it);continue; }++it;
+    }
+    const auto retainedAvatarRoots=_avatarRoots.values();
+    for (const auto& root:retainedAvatarRoots) { if (root) { survey(root,0); } }
+    if (_avatarRoots.size()>16) { inventoryComplete=false; }
     if (_emoteRoots.size()>16) { inventoryComplete=false; }
     if (_navigationRoots.size()>16) { inventoryComplete=false; }
     if (_scriptRoots.size()>32 || _scriptObservationSequence>=9007199254740991LL) { inventoryComplete=false; }
@@ -412,6 +422,7 @@ QJsonObject NormalUiInput::observe(QQuickItem* hud, QQuickItem* tablet, bool tab
     result["scriptInventory"]=scriptState;
     result["navigationInventory"]=navigationInventory.observation(inventoryComplete);
     result["avatarControlsVersion"]=1;result["avatarGeneration"]=_instance;
+    result["avatarInventory"]=avatarInventory.observation(inventoryComplete);
     result["avatarSourceSequence"]=static_cast<double>(++_avatarObservationSequence);
     result["emoteControlsVersion"]=2;result["emoteGeneration"]=_emoteGeneration;
     result["emoteInventory"]=emoteInventory.observation(inventoryComplete);

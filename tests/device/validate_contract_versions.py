@@ -162,6 +162,7 @@ REQUIRED = {
     "ios-avatar-appearance": 1,
     "ios-avatar-facts-original": 1,
     "ios-avatar-surface": 1,
+    "ios-avatar-ui-inventory": 1,
     "ios-avatar-samples": 1,
     "ios-avatar-sample": 1,
     "ios-avatar-image": 1,

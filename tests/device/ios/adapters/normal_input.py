@@ -130,6 +130,9 @@ def observation(value, pid, now_ms=None):
                 or not _uuid(value.get('avatarGeneration')) or not _integer(value.get('avatarSourceSequence'),1)):
             raise NativeUIError('Native iOS Avatar control version/context is invalid')
         fields |= {'avatarControlsVersion','avatarGeneration','avatarSourceSequence'}
+        if 'avatarInventory' in value:
+            from ios.adapters.avatar_ui_inventory import validate as avatar_inventory
+            avatar_inventory(value['avatarInventory']);fields.add('avatarInventory')
     if type(value) is dict and 'emoteControlsVersion' in value:
         if (type(value['emoteControlsVersion']) is not int or value['emoteControlsVersion'] not in (1,2)
                 or not _uuid(value.get('emoteGeneration')) or not _integer(value.get('emoteSourceSequence'),1)):
