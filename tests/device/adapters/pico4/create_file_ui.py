@@ -205,7 +205,7 @@ class CreateFileUI:
         self.wait_open();self.input('create-file.cancel');return self.retired()
 
     def retired(self):
-        need(self.root is not None);start=self.now();quiet=None;last=0
+        need(self.root is not None);start=self.now();quiet=None;native_quiet=None;last=0
         original_ids={row['id'] for row in self.before['roots']}
         retired_ids=set(self.before['retiredRoots'])|original_ids|{self.root}
         for attempt in range(132):
@@ -216,8 +216,10 @@ class CreateFileUI:
                      and any(row['id']==self.editor and row['inCurrentTree'] for row in observed['roots']))
             if absent and sequence>last:
                 quiet=self.now() if quiet is None else quiet
-                if self.now()-quiet>=3:return value
-            else:quiet=None
+                elapsed=value['scope']['elapsedMs']
+                native_quiet=elapsed if native_quiet is None else native_quiet
+                if self.now()-quiet>=3 and elapsed-native_quiet>=3000:return value
+            else:quiet=None;native_quiet=None
             last=sequence
             need(self.now()-start<13 and attempt<131)
             self.sleep(.1)

@@ -27,7 +27,7 @@ class FileEffects:
         self.clock=0.;self.source_sequence=0;self.command_sequence=0;self.retired=[]
         self.input=[];self.intents=[];self.selected=[];self.cancels=0
         self.ignore=set();self.retain=False;self.closing=False;self.frozen=False;self.covered=False
-        self.before_input=None;self.no_counter=False
+        self.before_input=None;self.no_counter=False;self.native_elapsed=None
     def open(self):self.root='c'*32
     def sleep(self,seconds):self.clock+=seconds
     def capture(self):
@@ -48,7 +48,8 @@ class FileEffects:
                 rows.append(row)
         return dict(createFileControlsVersion=1,open=True,ready=True,
             scope=dict(instance=self.native.bridge_id,generation=self.native.generation,processId=123,
-                elapsedMs=round(self.clock*1000),sequence=self.command_sequence),controls=rows,
+                elapsedMs=round(self.clock*1000) if self.native_elapsed is None else self.native_elapsed,
+                sequence=self.command_sequence),controls=rows,
             inventory=dict(inventoryVersion=1,instance='d'*32,sequence=self.source_sequence,complete=True,
                 roots=sorted(roots,key=lambda row:row['id']),retiredRoots=sorted(self.retired)))
     def apply(self,command):
@@ -148,6 +149,13 @@ class CreateFileUITests(unittest.TestCase):
     def test_frozen_retirement_inventory_cannot_accumulate_a_quiet_window(self):
         self.flow.wait_open();self.flow.input('create-file.cancel');self.boundary.frozen=True
         with self.assertRaises(NativeUIError):self.flow.retired()
+
+    def test_host_quiet_and_increasing_native_inventory_cannot_replace_frozen_native_clock(self):
+        self.flow.wait_open();self.flow.input('create-file.cancel');self.boundary.native_elapsed=0
+        before=self.boundary.source_sequence
+        with self.assertRaises(NativeUIError):self.flow.retired()
+        self.assertGreater(self.boundary.clock,3)
+        self.assertGreater(self.boundary.source_sequence,before)
 
     def test_unknown_late_picker_or_missing_original_editor_cannot_qualify_cleanup(self):
         self.flow.wait_open();self.flow.input('create-file.cancel');self.boundary.root='e'*32

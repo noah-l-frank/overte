@@ -53,6 +53,21 @@ int main(int argc,char** argv) {
     QJsonObject page;overte::e2e::appendCreateFileObservation(page,picker,"create-file.page");
     assert(page.value("role")==QJsonValue("import"));assert(!page.value("inputReady").toBool());
     const auto source=overte::e2e::createFileControlSource(named(picker,"fileNameInput"),"create-file.name");assert(!source.isEmpty());
+    // Actual scene geometry and native window identity are part of the original
+    // token source, independently of text, focus and the picker role.
+    const auto fileName=named(picker,"fileNameInput");
+    host->setX(9);assert(overte::e2e::createFileControlSource(fileName,"create-file.name")!=source);host->setX(0);
+    host->setWidth(880);QTest::qWait(20);
+    assert(overte::e2e::createFileControlSource(fileName,"create-file.name")!=source);
+    host->setWidth(900);QTest::qWait(20);
+    assert(overte::e2e::createFileControlSource(fileName,"create-file.name")==source);
+    QQuickWindow otherWindow;otherWindow.resize(window.width(),window.height());
+    host->setParentItem(otherWindow.contentItem());
+    const auto moved=overte::e2e::createFileControlSource(fileName,"create-file.name");assert(!moved.isEmpty() && moved!=source);
+    const auto oldWindow=QJsonDocument::fromJson(source.toUtf8()).object().value("nativeWindow").toObject();
+    assert(QJsonDocument::fromJson(moved.toUtf8()).object().value("nativeWindow").toObject().value("id")!=oldWindow.value("id"));
+    host->setParentItem(window.contentItem());assert(overte::e2e::createFileControlSource(fileName,"create-file.name")==source);
+    host->setScale(1e12);assert(overte::e2e::createFileControlSource(fileName,"create-file.name").isEmpty());host->setScale(1);
     QSignalSpy selected(picker,SIGNAL(selectedFile(QVariant)));
     const auto name=named(picker,"fileNameInput");assert(name);
     assert(originalCreateFileInput(name,&window,"create-file.name","activate",{}).value("performed").toBool());

@@ -19,6 +19,7 @@
 #include <QThread>
 #include <QUuid>
 #include <algorithm>
+#include <cmath>
 #include <functional>
 
 namespace overte::e2e {
@@ -125,10 +126,23 @@ public:
     QString identity(QQuickItem* item) const {
         const auto row=_known.value(item);return row.item==item ? row.id : QString();
     }
+    QString windowIdentity(QQuickWindow* window) {
+        if (!qApp || QThread::currentThread()!=qApp->thread() || !window || window->thread()!=qApp->thread()
+                || !QCoreApplication::arguments().contains("--testScript")) { return {}; }
+        const auto row=_windows.value(window);
+        if (row.window==window) { return row.id; }
+        // Never borrow a prior native-window identity when Qt reuses an address.
+        if (_windowGenerations>=16) { return {}; }
+        ++_windowGenerations;const auto id=QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-');
+        _windows.insert(window,{window,id});return id;
+    }
 private:
     struct Tracked {QPointer<QQuickItem> item;QString id,profile;};
     QHash<QQuickItem*,Tracked> _known;
     QSet<QString> _retired;
+    struct TrackedWindow {QPointer<QQuickWindow> window;QString id;};
+    QHash<QQuickWindow*,TrackedWindow> _windows;
+    int _windowGenerations {0};
     const QString _instance {QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-')};
     quint64 _sequence {0};
 };
@@ -175,6 +189,22 @@ inline QString createFileControlSource(QQuickItem* item,const QString& identifie
     QJsonObject value;appendCreateFileObservation(value,item,identifier);
     const auto root=createFileBrowser(item);
     if (!root || value.value("rootId").toString().isEmpty()) { return {}; }
+    const auto window=item->window();const auto windowId=createUiInventory().windowIdentity(window);
+    if (windowId.isEmpty() || !window || item->thread()!=qApp->thread()) { return {}; }
+    const auto center=item->mapToScene(QPointF(item->width()/2,item->height()/2));
+    const auto rect=item->mapRectToScene(item->boundingRect());
+    const auto finite=[](qreal number,qreal limit) {return std::isfinite(number) && std::abs(number)<=limit;};
+    if (!finite(item->width(),1000000) || !finite(item->height(),1000000) || item->width()<=0 || item->height()<=0
+            || !finite(center.x(),1000000000) || !finite(center.y(),1000000000)
+            || !finite(rect.x(),1000000000) || !finite(rect.y(),1000000000)
+            || !finite(rect.width(),1000000) || !finite(rect.height(),1000000) || rect.width()<=0 || rect.height()<=0
+            || window->width()<=0 || window->height()<=0 || window->width()>1000000 || window->height()>1000000
+            || !finite(window->devicePixelRatio(),16) || window->devicePixelRatio()<=0) { return {}; }
+    value["geometry"]=QJsonObject{{"sceneCenterX",center.x()},{"sceneCenterY",center.y()},
+        {"width",item->width()},{"height",item->height()},{"sceneX",rect.x()},{"sceneY",rect.y()},
+        {"sceneWidth",rect.width()},{"sceneHeight",rect.height()}};
+    value["nativeWindow"]=QJsonObject{{"id",windowId},{"width",window->width()},{"height",window->height()},
+        {"devicePixelRatio",window->devicePixelRatio()}};
     value["directory"]=root->property("dir").toUrl().toString(QUrl::FullyEncoded);
     value["closing"]=root->property("closing").toBool();value["requestId"]=root->property("requestId").toString();
     return QString::fromUtf8(QJsonDocument(value).toJson(QJsonDocument::Compact));
