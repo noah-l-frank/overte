@@ -17,7 +17,7 @@ from adapters.native_graphics_subject import entity_id, vector, rotation
 from adapters.normal_ui import NativeUIError
 
 FILE='phone-create-observation.json'
-VERSION=1
+VERSION=2
 LIMIT=262144
 
 
@@ -26,6 +26,27 @@ def nonce(value):return type(value) is str and re.fullmatch('[0-9a-f]{32}',value
 def text(value,limit):return type(value) is str and len(value)<=limit and all(ord(ch)>=32 and ord(ch)!=127 for ch in value)
 
 def digest(value):return type(value) is str and re.fullmatch('[0-9a-f]{64}',value) is not None
+
+
+def render_source(value):
+    exact(value,{'modelInstance','loaded','visible','addedToScene','geometry'})
+    need(nonce(value['modelInstance']) and all(type(value[key]) is bool for key in ('loaded','visible','addedToScene')))
+    geometry=value['geometry'];need(value['loaded']==(geometry is not None))
+    if geometry is None:return value
+    exact(geometry,{'instance','sourcePresent','sourceSha256','textures'})
+    need(nonce(geometry['instance']) and type(geometry['sourcePresent']) is bool and digest(geometry['sourceSha256'])
+        and type(geometry['textures']) is list and len(geometry['textures'])<=256)
+    seen=set()
+    for row in geometry['textures']:
+        exact(row,{'material','channel','name','urlSha256','loaded','failed','originalSha256','originalBytes','gpuWidth','gpuHeight'})
+        need(integer(row['material'],0,65535) and integer(row['channel'],0,255) and text(row['name'],256)
+            and digest(row['urlSha256']) and all(type(row[key]) is bool for key in ('loaded','failed'))
+            and (row['originalSha256']=='' or digest(row['originalSha256'])) and integer(row['originalBytes'],0,32*1024*1024)
+            and (row['originalSha256']=='')==(row['originalBytes']==0)
+            and all(integer(row[key],0,16384) for key in ('gpuWidth','gpuHeight'))
+            and (row['material'],row['channel']) not in seen)
+        seen.add((row['material'],row['channel']))
+    return value
 
 
 def command(value):
@@ -47,11 +68,12 @@ def validate(value,request,pid,epoch):
          and integer(value['capturedEpochMs'],1) and 0<=value['capturedEpochMs']-value['requestedEpochMs']<1500)
     fresh(value['capturedEpochMs'],epoch)
     source=value['source']
-    exact(source,{'phoneCreateObservationVersion','connected','domainId','canRez','canRezTmp','canRezAvatarEntities',
+    exact(source,{'phoneCreateObservationVersion','connected','domainId','sessionId','canRez','canRezTmp','canRezAvatarEntities',
                   'scan','entities','absentIds'})
     need(type(source['phoneCreateObservationVersion']) is int and source['phoneCreateObservationVersion']==VERSION
          and all(type(source[key]) is bool for key in ('connected','canRez','canRezTmp','canRezAvatarEntities'))
          and (source['domainId'] is None or entity_id(source['domainId']))
+         and (source['sessionId'] is None or entity_id(source['sessionId']))
          and (source['connected'] is False or source['domainId'] is not None))
     scan=source['scan'];exact(scan,{'center','radiusMeters','scannedEntities','complete','inventory'})
     vector(scan['center'],3,-1000000,1000000)
@@ -60,17 +82,19 @@ def validate(value,request,pid,epoch):
          and type(scan['inventory']) is list and len(scan['inventory'])==scan['scannedEntities'])
     inventory=set()
     for row in scan['inventory']:
-        exact(row,{'id','type','host','nameSha256'})
-        need(entity_id(row['id']) and row['id'] not in inventory and text(row['type'],64) and row['type']!='Unknown'
+        exact(row,{'id','instance','type','host','nameSha256'})
+        need(entity_id(row['id']) and nonce(row['instance']) and row['id'] not in inventory and text(row['type'],64) and row['type']!='Unknown'
              and row['host'] in ('local','avatar','domain') and digest(row['nameSha256']))
         inventory.add(row['id'])
     need(type(source['entities']) is list and len(source['entities'])<=32
          and type(source['absentIds']) is list and len(source['absentIds'])<=32)
     seen=set();tracked=set(request['trackedIds']);prefix='e2e-'+request['runId']+'-'
     for row in source['entities']:
-        exact(row,{'id','name','type','host','parentId','position','rotation','dimensions','visible','locked',
-                   'modelUrl','textures','voxel'})
-        need(entity_id(row['id']) and row['id'] not in seen and text(row['name'],256)
+        exact(row,{'id','instance','name','createdEpochUs','lastEditedBy','type','host','parentId','position','rotation','dimensions','visible','locked',
+                   'modelUrl','textures','voxel','render'})
+        need(entity_id(row['id']) and nonce(row['instance']) and row['id'] not in seen and text(row['name'],256)
+             and integer(row['createdEpochUs'],1,9007199254740991)
+             and (row['lastEditedBy'] is None or entity_id(row['lastEditedBy']))
              and (row['id'] in tracked or row['name'] in {prefix+kind for kind in ('model','voxel','cube')})
              and text(row['type'],64) and row['type']!='Unknown' and row['host'] in ('local','avatar','domain')
              and (row['parentId'] is None or entity_id(row['parentId']))
@@ -80,10 +104,18 @@ def validate(value,request,pid,epoch):
         need(min(row['dimensions'])>0)
         voxel=row['voxel']
         if row['type']=='PolyVox':
-            exact(voxel,{'savedSha256','savedBytes','ready','volumeSize'})
+            exact(voxel,{'savedSha256','savedBytes','ready','volumeSize','cells'})
             need(digest(voxel['savedSha256']) and integer(voxel['savedBytes'],0,16*1024*1024) and type(voxel['ready']) is bool)
             vector(voxel['volumeSize'],3,1,128)
+            if voxel['cells'] is not None:
+                exact(voxel['cells'],{'sha256','occupied'})
+                need(voxel['ready'] and voxel['volumeSize']==[8,8,8] and digest(voxel['cells']['sha256'])
+                    and integer(voxel['cells']['occupied'],0,512))
         else:need(voxel is None)
+        if row['render'] is not None:
+            need(row['type']=='Model');render_source(row['render'])
+        listed=[item for item in scan['inventory'] if item['id']==row['id']]
+        if listed:need(listed[0]['instance']==row['instance'])
         seen.add(row['id'])
     absent=source['absentIds']
     need(all(entity_id(item) and item in tracked and item not in seen for item in absent)

@@ -58,6 +58,10 @@ public:
     ~NetworkTexture() override;
 
     QString getType() const override { return "NetworkTexture"; }
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    QString e2eOriginalContentSha256() const { return _e2eOriginalContentSha256; }
+    int e2eOriginalContentBytes() const { return _e2eOriginalContentBytes; }
+#endif
 
     int getOriginalWidth() const { return _textureSource->getGPUTexture() ? _textureSource->getGPUTexture()->getOriginalWidth() : 0; }
     int getOriginalHeight() const { return _textureSource->getGPUTexture() ? _textureSource->getGPUTexture()->getOriginalHeight() : 0; }
@@ -109,6 +113,10 @@ private:
     friend class ImageReader;
 
     image::TextureUsage::Type _type { image::TextureUsage::UNUSED_TEXTURE };
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    QString _e2eOriginalContentSha256;
+    int _e2eOriginalContentBytes {0};
+#endif
     image::ColorChannel _sourceChannel;
 
     enum class ResourceType {

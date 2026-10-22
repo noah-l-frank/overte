@@ -53,6 +53,7 @@ from adapters.token_create_ui import TokenCreateUI
 from overte_phone_create_controls import PhoneCreateIO, FILE as CREATE_UI_FILE
 from overte_phone_create_source import PhoneCreateSource, FILE as CREATE_SOURCE_FILE
 from overte_phone_create_files import PhoneCreateFiles, FILE as CREATE_FILES_FILE
+from overte_phone_create_marker import NativePhoneCreateFixture, FILE as CREATE_FIXTURE_FILE, input_command as create_fixture_input_command
 from adapters.token_login_ui import TokenLoginUI
 from overte_phone_login import PhoneLoginIO, FILE as LOGIN_UI_FILE
 from adapters.token_audio_ui import TokenAudioUI
@@ -155,6 +156,9 @@ def readonly_feature_command(command):
         from overte_phone_create_files import command as validate_create_files
         validate_create_files(command)
         require(command['operation']=='observe','PHONE_READ_ONLY_COMMAND_REJECTED')
+    elif action=='phone-create-fixture-observe':
+        from overte_phone_create_marker import command as validate_create_marker
+        validate_create_marker(command)
     elif action=='phone-create-observe':
         from overte_phone_create_source import command as validate_create_source
         validate_create_source(command)
@@ -925,6 +929,30 @@ class PhoneAppiumAdapter(AppiumAdapter):
             client,session,_state=self.existing_session(selector);target=self.target(selector)
             guard();self._guarded_existing_session(selector,self._existing_input_scope);lock.assert_held()
             require(intent(deepcopy(command),deepcopy(binding)) is not False,'PHONE_EMOTE_FIXTURE_INTENT_NOT_RECORDED')
+            guard();self._guarded_existing_session(selector,self._existing_input_scope);lock.assert_held()
+            self.write_android_client_command(client,session,target,command,{'running':True,'identity':binding['processIdentity']})
+            guard();self._guarded_existing_session(selector,self._existing_input_scope);lock.assert_held()
+            return {'performed':True} # Never fixture readiness, pixels or cleanup.
+
+    def _create_fixture_observer(self, selector, *, read_only=True):
+        require(read_only is True,'PHONE_CREATE_FIXTURE_REQUIRES_EXISTING_READ_ONLY_SESSION')
+        native=self._native_feature_observer(selector,read_only=True)
+        target=self.target(selector);device=target['capabilities']['appium:udid'];transport=PhoneAdapter(self.candidate).adb
+        return NativePhoneCreateFixture(native.send,
+            lambda:transport.read_debug_app_file(device,target['appId'],'files/overte-e2e/'+CREATE_FIXTURE_FILE,attempts=1),
+            native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep)
+
+    def _create_fixture_input(self, selector, command, *, lock, intent):
+        require(self.candidate is not None and self.controlled_android_client(self.target(selector)),
+                'PHONE_CREATE_FIXTURE_BOUND_DEBUG_TARGET_REQUIRED')
+        require(isinstance(lock,PhoneScriptSourceLock) and lock.path==self.state_path(selector).with_name('phone-script-sources.lock')
+                and callable(intent),'PHONE_CREATE_FIXTURE_INPUT_REQUIRES_DURABLE_OWNER')
+        command=deepcopy(create_fixture_input_command(command));lock.assert_held()
+        with self.existing_input_session(selector):
+            _ui,_service,binding,guard,_installed=self.normal_feature_runtime(selector,read_only=True)
+            client,session,_state=self.existing_session(selector);target=self.target(selector)
+            guard();self._guarded_existing_session(selector,self._existing_input_scope);lock.assert_held()
+            require(intent(deepcopy(command),deepcopy(binding)) is not False,'PHONE_CREATE_FIXTURE_INTENT_NOT_RECORDED')
             guard();self._guarded_existing_session(selector,self._existing_input_scope);lock.assert_held()
             self.write_android_client_command(client,session,target,command,{'running':True,'identity':binding['processIdentity']})
             guard();self._guarded_existing_session(selector,self._existing_input_scope);lock.assert_held()

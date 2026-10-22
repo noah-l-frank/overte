@@ -509,6 +509,10 @@ NetworkTexture::NetworkTexture(const NetworkTexture& other) :
     _maxNumPixels(other._maxNumPixels),
     _content(other._content)
 {
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    _e2eOriginalContentSha256 = other._e2eOriginalContentSha256;
+    _e2eOriginalContentBytes = other._e2eOriginalContentBytes;
+#endif
     if (_width == 0 || _height == 0 ||
         other._currentlyLoadingResourceType == ResourceType::META ||
         (other._currentlyLoadingResourceType == ResourceType::KTX && other._ktxResourceState != KTXResourceState::WAITING_FOR_MIP_REQUEST)) {
@@ -1441,6 +1445,10 @@ void NetworkTexture::loadTextureContent(const QByteArray& content) {
         return;
     }
 
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    _e2eOriginalContentSha256 = QString::fromLatin1(QCryptographicHash::hash(content,QCryptographicHash::Sha256).toHex());
+    _e2eOriginalContentBytes = content.size();
+#endif
     QThreadPool::globalInstance()->start(new ImageReader(_self, _url, content, _extraHash, _maxNumPixels, _sourceChannel));
 }
 
@@ -1463,6 +1471,10 @@ void NetworkTexture::refresh() {
     }
 
     _ktxResourceState = PENDING_INITIAL_LOAD;
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    _e2eOriginalContentSha256.clear();
+    _e2eOriginalContentBytes = 0;
+#endif
 #if defined(ANDROID_APP_PHONE_INTERFACE)
     _phoneProbeInitialKtxCache = false;
 #endif

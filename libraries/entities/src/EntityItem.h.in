@@ -19,6 +19,9 @@
 
 #include <QtGui/QWindow>
 #include <QSet>
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+#include <QUuid>
+#endif
 
 #include <Octree.h> // for EncodeBitstreamParams class
 #include <OctreeElement.h> // for OctreeElement::AppendState
@@ -91,6 +94,14 @@ class EntityItem : public QObject, public SpatiallyNestable, public ReadWriteLoc
     friend class EntityTreeElement;
     friend class EntitySimulation;
 public:
+
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    // Original object lifetime, independent of its editable name or wire UUID.
+    QString e2eEntityInstance() const { return _e2eEntityInstance; }
+private:
+    const QString _e2eEntityInstance {QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-')};
+public:
+#endif
 
     DONT_ALLOW_INSTANTIATION // This class can not be instantiated directly
 

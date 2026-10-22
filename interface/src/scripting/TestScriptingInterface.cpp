@@ -64,6 +64,7 @@
 #include "../../../tests/device/native/ScriptFileUi.h"
 #include "../../../tests/device/native/PhoneAvatarConfiguration.h"
 #include "../../../tests/device/native/PhoneEmoteFixture.h"
+#include "../../../tests/device/native/PhoneCreateFixture.h"
 #include "../../../tests/device/native/PhoneCreateObservation.h"
 #include "../../../tests/device/native/PrivateCreateFiles.h"
 #include "ui/Snapshot.h"
@@ -1136,6 +1137,54 @@ QVariantMap TestScriptingInterface::featureGraphicsSubjectObservation(const QVar
         {"capturedEpochMs",QDateTime::currentMSecsSinceEpoch()},{"source",source}};
 }
 #if defined(ANDROID_APP_PHONE_INTERFACE)
+QVariantMap TestScriptingInterface::phoneCreateFixtureInput(const QVariantMap& command) {
+#if defined(ANDROID_APP_PHONE_INTERFACE)
+    if (QThread::currentThread()!=thread()) {
+        QVariantMap result;
+        if (!QMetaObject::invokeMethod(this,[&] { result=phoneCreateFixtureInput(command); },Qt::BlockingQueuedConnection)) { return {}; }
+        return result;
+    }
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript")) { return {}; }
+    const auto avatar=DependencyManager::get<AvatarManager>()->getMyAvatar();
+    if (!avatar) { return {}; }
+    if (!_phoneCreateFixture) { _phoneCreateFixture=std::make_shared<overte::e2e::PhoneCreateFixture>(); }
+    ViewFrustum view;qApp->getCamera().loadViewFrustum(view);
+    return _phoneCreateFixture->input(command,view,qApp->getCamera().getModeString(),
+        avatar->getWorldFeetPosition(),avatar->getModelScale(),avatar->getBoomLength());
+#else
+    Q_UNUSED(command);return {};
+#endif
+}
+
+QVariantMap TestScriptingInterface::phoneCreateFixtureObservation(const QVariantMap& command) {
+#if defined(ANDROID_APP_PHONE_INTERFACE)
+    if (QThread::currentThread()!=thread()) {
+        QVariantMap result;
+        if (!QMetaObject::invokeMethod(this,[&] { result=phoneCreateFixtureObservation(command); },Qt::BlockingQueuedConnection)) { return {}; }
+        return result;
+    }
+    const auto json=QJsonObject::fromVariantMap(command);
+    const auto id=json.value("commandId").toString(),run=json.value("runId").toString();
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript") || !_phoneCreateFixture
+            || command.keys()!=QStringList{"action","commandId","runId","schemaVersion"}
+            || !json.value("schemaVersion").isDouble() || json.value("schemaVersion").toDouble()!=1
+            || json.value("action").toString()!="phone-create-fixture-observe"
+            || !QRegularExpression("\\A[0-9a-f]{32}\\z").match(id).hasMatch()
+            || !QRegularExpression("\\A[0-9a-f]{32}\\z").match(run).hasMatch()) { return {}; }
+    const auto requested=QDateTime::currentMSecsSinceEpoch();
+    const auto source=_phoneCreateFixture->observe(run);
+    if (source.isEmpty()) { return {}; }
+    return {{"schemaVersion",1},{"requestId",id},{"instance",_featureObservationInstance},
+        {"sequence",static_cast<qulonglong>(++_phoneCreateFixtureSequence)},
+        {"processId",QCoreApplication::applicationPid()},{"requestedEpochMs",requested},
+        {"capturedEpochMs",QDateTime::currentMSecsSinceEpoch()},{"source",source}};
+#else
+    Q_UNUSED(command);return {};
+#endif
+}
+
 QVariantMap TestScriptingInterface::phoneSnapshotObservation(const QVariantMap& command) {
     if (QThread::currentThread()!=thread()) {
         QVariantMap result;
@@ -1741,6 +1790,7 @@ void TestScriptingInterface::saveObject(QVariant variant, const QString& filenam
             || filename == "phone-script-file-ui.json" || filename == "phone-audio-ui.json" || filename == "phone-graphics-ui.json"
             || filename == "feature-script-files.json" || filename == "world-render-observation.json"
             || filename == "feature-graphics-subject.json" || filename == "phone-create-observation.json" || filename == "phone-create-files.json"
+            || filename == "phone-create-fixture.json" || filename == "phone-create-fixture-input.json"
             || filename == "feature-scene-load.json"
             || filename == "world-render-receipt-result.json"
             || filename == "world-render-receipts-result.json"

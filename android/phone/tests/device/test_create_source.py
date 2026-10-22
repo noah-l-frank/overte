@@ -26,10 +26,13 @@ DOMAIN='12345678-1234-4234-8234-000000000001'
 
 
 def entity(kind='Model'):
-    return dict(id=ID,name='e2e-'+RUN+'-'+('voxel' if kind=='PolyVox' else 'model'),type=kind,host='domain',parentId=None,
+    return dict(id=ID,instance='f'*32,name='e2e-'+RUN+'-'+('voxel' if kind=='PolyVox' else 'model'),
+        createdEpochUs=20000000,lastEditedBy=DOMAIN,type=kind,host='domain',parentId=None,
         position=[0.,1.,-2.],rotation=[0.,0.,0.,1.],dimensions=[1.,1.,1.],visible=True,locked=False,
         modelUrl='http://controlled.invalid/model.gltf' if kind=='Model' else '',textures='',
-        voxel=dict(savedSha256=hashlib.sha256(b'actual-saved').hexdigest(),savedBytes=12,ready=True,volumeSize=[8,8,8]) if kind=='PolyVox' else None)
+        voxel=dict(savedSha256=hashlib.sha256(b'actual-saved').hexdigest(),savedBytes=12,ready=True,volumeSize=[8,8,8],cells=None) if kind=='PolyVox' else None,
+        render=dict(modelInstance='e'*32,loaded=True,visible=True,addedToScene=True,
+            geometry=dict(instance='d'*32,sourcePresent=True,sourceSha256=hashlib.sha256(b'http://controlled.invalid/model.gltf').hexdigest(),textures=[])) if kind=='Model' else None)
 
 
 class Boundary:
@@ -41,10 +44,10 @@ class Boundary:
         command(request);self.commands.append(deepcopy(request));self.sequence+=1
         self.value=dict(schemaVersion=1,requestId=request['commandId'],runId=request['runId'],instance='a'*32,
             sequence=self.sequence,processId=31,requestedEpochMs=self.epoch,capturedEpochMs=self.epoch,
-            source=dict(phoneCreateObservationVersion=1,connected=True,domainId=DOMAIN,
+            source=dict(phoneCreateObservationVersion=2,connected=True,domainId=DOMAIN,sessionId=DOMAIN,
                 canRez=self.permissions[0],canRezTmp=self.permissions[1],canRezAvatarEntities=self.permissions[2],
                 scan=dict(center=[0,0,0],radiusMeters=128,scannedEntities=len(self.rows),complete=True,
-                    inventory=[dict(id=row['id'],type=row['type'],host=row['host'],nameSha256=hashlib.sha256(row['name'].encode()).hexdigest()) for row in self.rows]),
+                    inventory=[dict(id=row['id'],instance=row['instance'],type=row['type'],host=row['host'],nameSha256=hashlib.sha256(row['name'].encode()).hexdigest()) for row in self.rows]),
                 entities=deepcopy(self.rows),absentIds=deepcopy(self.missing)))
         if self.fault:self.fault(self.value)
         if self.send_hook:self.send_hook()
@@ -70,6 +73,32 @@ class CreateSourceTests(unittest.TestCase):
         value=boundary.reader().read(RUN)
         self.assertFalse(value['source']['entities'][0]['voxel']['ready'])
         self.assertEqual(hashlib.sha256(b'actual-saved').hexdigest(),value['source']['entities'][0]['voxel']['savedSha256'])
+
+    def test_model_render_geometry_material_gpu_and_consumed_bytes_are_original_fields(self):
+        boundary=Boundary();row=entity();boundary.rows=[row]
+        texture=dict(material=0,channel=0,name='checker.png',urlSha256=hashlib.sha256(b'original-url').hexdigest(),
+            loaded=True,failed=False,originalSha256=hashlib.sha256(b'actual-network-content').hexdigest(),
+            originalBytes=22,gpuWidth=16,gpuHeight=16)
+        row['render']['geometry']['textures']=[texture]
+        observed=boundary.reader().read(RUN)['source']['entities'][0]
+        self.assertEqual('f'*32,observed['instance']);self.assertEqual(texture,observed['render']['geometry']['textures'][0])
+        self.assertNotIn('expected',boundary.commands[0])
+
+    def test_replaced_entity_lifetime_and_invalid_render_or_material_fields_fail(self):
+        faults=(lambda p:p['source']['scan']['inventory'][0].update(instance='a'*32),
+            lambda p:p['source']['entities'][0]['render'].update(loaded=1),
+            lambda p:p['source']['entities'][0]['render'].update(geometry=None),
+            lambda p:p['source']['entities'][0]['render']['geometry'].update(sourceSha256='bad'))
+        for fault in faults:
+            boundary=Boundary();boundary.rows=[entity()];boundary.fault=fault
+            with self.assertRaises(NativeUIError):boundary.reader().read(RUN)
+
+    def test_actual_voxel_cells_are_separate_from_saved_compression_and_input_bytes(self):
+        boundary=Boundary();row=entity('PolyVox');boundary.rows=[row]
+        row['voxel']['cells']=dict(sha256=hashlib.sha256(b'actual-512-cells').hexdigest(),occupied=47)
+        self.assertEqual(47,boundary.reader().read(RUN)['source']['entities'][0]['voxel']['cells']['occupied'])
+        row['voxel']['ready']=False
+        with self.assertRaises(NativeUIError):boundary.reader().read(RUN)
     def test_direct_tracked_id_can_be_renamed_and_moved_without_becoming_absent(self):
         boundary=Boundary();row=entity();row.update(name='foreign-replacement',position=[900,1,-2]);boundary.rows=[row]
         self.assertEqual([row],boundary.reader().read(RUN,[ID])['source']['entities'])

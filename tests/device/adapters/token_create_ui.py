@@ -65,6 +65,19 @@ def ascii_text(value):
     return value
 
 
+def tool_settings(value):
+    exact(value,{'createAppMode','voxelEditMode','voxelSphereSize','voxelEditDynamics','voxelRemove',
+                 'voxelPointerMode','voxelBrushLength'})
+    for key,choices in {'createAppMode':('object','voxel'),'voxelEditMode':('single','sphere','cube'),
+                        'voxelEditDynamics':('click','continuous'),'voxelPointerMode':('laser','brush')}.items():
+        need(value[key] in choices)
+    need(type(value['voxelRemove']) is bool and type(value['voxelSphereSize']) in (int,float)
+        and math.isfinite(value['voxelSphereSize']) and 0<value['voxelSphereSize']<=100
+        and type(value['voxelBrushLength']) in (int,float) and math.isfinite(value['voxelBrushLength'])
+        and 0<=value['voxelBrushLength']<=100)
+    return value
+
+
 def scope(value):
     exact(value,{'instance','generation','sequence','elapsedMs','processId'})
     need(nonce(value['instance'])
@@ -83,7 +96,9 @@ def metadata(row):
     base|={'focused','inputReady'}
     need(type(row.get('focused')) is bool and type(row.get('inputReady')) is bool)
     if identifier=='create.page':
-        exact(row,base|{'profile','tab','selectedIds','statusError','statusText','componentSourceSha256'})
+        exact(row,base|{'profile','tab','selectedIds','statusError','statusText','componentSourceSha256'}
+            |({'toolSettings'} if 'toolSettings' in row else set()))
+        if 'toolSettings' in row:tool_settings(row['toolSettings'])
         need(row['profile']=='native-create-v1' and integer(row['tab'],0,4) and type(row['selectedIds']) is list
              and len(row['selectedIds'])<=256 and all(nonce(v) and re.fullmatch(UUID,v) for v in row['selectedIds'])
              and len(set(row['selectedIds']))==len(row['selectedIds']) and type(row['statusError']) is bool
@@ -351,3 +366,20 @@ class TokenCreateUI:
         if not self.row(value,'create.voxel-remove')['checked']:self.input('create.voxel-remove')
         self.wait(lambda value:bool(self.row(value,'create.voxel-remove') and self.row(value,'create.voxel-remove')['checked']))
         self.replace('create.voxel-diameter','0.5');self.reveal('create.voxel-apply');self.input('create.voxel-apply')
+
+    def restore_tools(self,original):
+        """Restore actual original tool preferences through the existing widgets."""
+        tool_settings(original);self.tab(3)
+        for control,key,choices in (('create.edit-mode','createAppMode',('object','voxel')),
+            ('create.voxel-shape','voxelEditMode',('single','sphere','cube')),
+            ('create.voxel-dynamics','voxelEditDynamics',('click','continuous')),
+            ('create.voxel-pointer','voxelPointerMode',('laser','brush'))):
+            self.choose(control,choices.index(original[key]))
+        self.reveal('create.voxel-remove');value=self.capture()
+        if self.row(value,'create.voxel-remove')['checked']!=original['voxelRemove']:self.input('create.voxel-remove')
+        self.wait(lambda value:bool(self.row(value,'create.voxel-remove') and
+            self.row(value,'create.voxel-remove')['checked']==original['voxelRemove']))
+        self.replace('create.voxel-diameter',str(original['voxelSphereSize']))
+        self.replace('create.voxel-reach',str(original['voxelBrushLength']))
+        self.reveal('create.voxel-apply');self.input('create.voxel-apply')
+        self.wait(lambda value:self.page(value).get('toolSettings')==original)

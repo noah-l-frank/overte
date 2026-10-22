@@ -22,7 +22,7 @@
 #include <memory>
 namespace overte::e2e { class ChatViewObservation; }
 #include <QUuid>
-namespace overte::e2e { class FeatureLifecycle; class AccountOriginLease; class ScriptFileUi; class AudioUi; class GraphicsUi; class LoginUi; class CreateUi; class ChatUi; class EmoteUi; class PhoneEmoteFixture; class PrivateCreateFiles; class PhoneNavigationMarker; class NavigationUi; class NavigationViewObservation; }
+namespace overte::e2e { class FeatureLifecycle; class AccountOriginLease; class ScriptFileUi; class AudioUi; class GraphicsUi; class LoginUi; class CreateUi; class ChatUi; class EmoteUi; class PhoneEmoteFixture; class PrivateCreateFiles; class PhoneCreateFixture; class PhoneNavigationMarker; class NavigationUi; class NavigationViewObservation; }
 #endif
 
 class TestScriptingInterface : public QObject {
@@ -186,6 +186,8 @@ public slots:
     Q_INVOKABLE QVariantMap phoneNavigationMarkerObservation(const QVariantMap& command);
     Q_INVOKABLE QVariantMap phoneNavigationUi(const QVariantMap& command);
     Q_INVOKABLE QVariantMap phoneNavigationView(const QVariantMap& command);
+    Q_INVOKABLE QVariantMap phoneCreateFixtureInput(const QVariantMap& command);
+    Q_INVOKABLE QVariantMap phoneCreateFixtureObservation(const QVariantMap& command);
     Q_INVOKABLE QVariantMap phoneChatUi(const QVariantMap& command);
     Q_INVOKABLE QVariantMap phoneLoginUi(const QVariantMap& command);
     Q_INVOKABLE QVariantMap phoneReadFeatureCommand();
@@ -280,6 +282,8 @@ private:
     quint64 _phoneSnapshotObservationSequence {0};
     quint64 _phoneCreateFilesSequence {0};
     std::shared_ptr<overte::e2e::PrivateCreateFiles> _phoneCreateFiles;
+    quint64 _phoneCreateFixtureSequence {0};
+    std::shared_ptr<overte::e2e::PhoneCreateFixture> _phoneCreateFixture;
     std::shared_ptr<overte::e2e::ChatUi> _phoneChatUi;
     std::shared_ptr<overte::e2e::PhoneNavigationMarker> _phoneNavigationMarker;
     quint64 _phoneNavigationMarkerSequence {0};

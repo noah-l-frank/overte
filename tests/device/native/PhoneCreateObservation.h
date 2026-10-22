@@ -6,6 +6,7 @@
 #include <EntityItemProperties.h>
 #include <EntityTree.h>
 #include <PolyVoxEntityItem.h>
+#include <RenderableModelEntityItem.h>
 #include <NodeList.h>
 #include <PickFilter.h>
 #include <QJsonDocument>
@@ -56,8 +57,13 @@ inline QVariantMap phoneCreateObservationSource(const QVariantMap& command, cons
     for (const auto& id:nearby) {
         const auto actual=entities->getEntityProperties(id);
         if (actual.getType()==EntityTypes::Unknown) { return {}; }
-        const auto host=actual.getEntityHostType();
-        inventory.append(QVariantMap{{"id",id.toString(QUuid::WithoutBraces)},
+        const auto host=actual.getEntityHostType();QString instance;
+        entities->getEntityTree()->withReadLock([&] {
+            const auto object=entities->getEntityTree()->findEntityByEntityItemID(id);
+            if (object) { instance=object->e2eEntityInstance(); }
+        });
+        if (instance.isEmpty()) { return {}; }
+        inventory.append(QVariantMap{{"id",id.toString(QUuid::WithoutBraces)},{"instance",instance},
             {"type",EntityTypes::getEntityTypeName(actual.getType())},
             {"host",host==entity::HostType::LOCAL ? "local" : host==entity::HostType::AVATAR ? "avatar" : "domain"},
             {"nameSha256",QString::fromLatin1(QCryptographicHash::hash(actual.getName().toUtf8(),QCryptographicHash::Sha256).toHex())}});
@@ -73,7 +79,25 @@ inline QVariantMap phoneCreateObservationSource(const QVariantMap& command, cons
         if (p.getType()==EntityTypes::Unknown) { absent.append(id.toString(QUuid::WithoutBraces));continue; }
         if (p.getName().size()>256 || p.getModelURL().size()>2048 || p.getTextures().size()>16384) { return {}; }
         const auto host=p.getEntityHostType();
-        QVariant voxel;
+        QVariant voxel,render;QString instance;
+        entities->getEntityTree()->withReadLock([&] {
+            const auto object=entities->getEntityTree()->findEntityByEntityItemID(id);
+            if (!object) { return; }
+            instance=object->e2eEntityInstance();
+            const auto modelEntity=std::dynamic_pointer_cast<RenderableModelEntityItem>(object);
+            if (!modelEntity) { return; }
+            const auto model=modelEntity->e2eOriginalModel();if (!model) { return; }
+            const auto geometry=model->getGeometry();QVariant loaded;
+            if (geometry && geometry->isHFMModelLoaded()) {
+                const auto original=geometry->getHFMModel().originalURL.toUtf8();
+                loaded=QVariantMap{{"instance",geometry->e2eGeometryInstance()},{"sourcePresent",!original.isEmpty()},
+                    {"sourceSha256",QString::fromLatin1(QCryptographicHash::hash(original,QCryptographicHash::Sha256).toHex())},
+                    {"textures",geometry->e2eCreateTextures()}};
+            }
+            render=QVariantMap{{"modelInstance",model->e2eModelInstance()},{"loaded",model->isLoaded()},
+                {"visible",model->isVisible()},{"addedToScene",model->isAddedToScene()},{"geometry",loaded}};
+        });
+        if (instance.isEmpty()) { return {}; }
         if (p.getType()==EntityTypes::PolyVox) {
             const auto tree=entities->getEntityTree();bool valid=false;
             tree->withReadLock([&] {
@@ -81,21 +105,37 @@ inline QVariantMap phoneCreateObservationSource(const QVariantMap& command, cons
                 if (!actual) { return; }
                 const auto bytes=actual->getVoxelData();
                 if (bytes.size()>16*1024*1024) { return; }
+                QVariant cells;
+                if (actual->isVoxelDataReady() && actual->getVoxelVolumeSize()==glm::vec3(8)) {
+                    QByteArray values;int occupied=0;values.reserve(512);
+                    for (int z=0;z<8;++z) { for (int y=0;y<8;++y) { for (int x=0;x<8;++x) {
+                        const auto value=actual->getVoxel(x,y,z);values.append(char(value));if (value) { ++occupied; }
+                    } } }
+                    // A concurrently resaved volume cannot yield a mixed cell
+                    // packet presented as a settled original saved baseline.
+                    if (!actual->isVoxelDataReady() || actual->getVoxelVolumeSize()!=glm::vec3(8)
+                            || actual->getVoxelData()!=bytes) { return; }
+                    cells=QVariantMap{{"sha256",QString::fromLatin1(QCryptographicHash::hash(values,QCryptographicHash::Sha256).toHex())},
+                        {"occupied",occupied}};
+                }
                 voxel=QVariantMap{{"savedSha256",QString::fromLatin1(QCryptographicHash::hash(bytes,QCryptographicHash::Sha256).toHex())},
-                    {"savedBytes",bytes.size()},{"ready",actual->isVoxelDataReady()},{"volumeSize",vec(actual->getVoxelVolumeSize())}};
+                    {"savedBytes",bytes.size()},{"ready",actual->isVoxelDataReady()},{"volumeSize",vec(actual->getVoxelVolumeSize())},{"cells",cells}};
                 valid=true;
             });
             if (!valid) { return {}; }
         }
-        rows.append(QVariantMap{{"id",id.toString(QUuid::WithoutBraces)},{"name",p.getName()},
+        rows.append(QVariantMap{{"id",id.toString(QUuid::WithoutBraces)},{"instance",instance},{"name",p.getName()},
+            {"createdEpochUs",static_cast<qulonglong>(p.getCreated())},
+            {"lastEditedBy",p.getLastEditedBy().isNull() ? QVariant() : QVariant(p.getLastEditedBy().toString(QUuid::WithoutBraces))},
             {"type",EntityTypes::getEntityTypeName(p.getType())},
             {"host",host==entity::HostType::LOCAL ? "local" : host==entity::HostType::AVATAR ? "avatar" : "domain"},
             {"parentId",p.getParentID().isNull() ? QVariant() : QVariant(p.getParentID().toString(QUuid::WithoutBraces))},
             {"position",vec(p.getPosition())},{"rotation",quat(p.getRotation())},{"dimensions",vec(p.getDimensions())},
-            {"visible",p.getVisible()},{"locked",p.getLocked()},{"modelUrl",p.getModelURL()},{"textures",p.getTextures()},{"voxel",voxel}});
+            {"visible",p.getVisible()},{"locked",p.getLocked()},{"modelUrl",p.getModelURL()},{"textures",p.getTextures()},{"voxel",voxel},{"render",render}});
     }
     const auto domain=nodes->getDomainHandler().getUUID();
-    return {{"phoneCreateObservationVersion",1},{"connected",nodes->getDomainHandler().isConnected()},
+    return {{"phoneCreateObservationVersion",2},{"connected",nodes->getDomainHandler().isConnected()},
+        {"sessionId",nodes->getSessionUUID().isNull() ? QVariant() : QVariant(nodes->getSessionUUID().toString(QUuid::WithoutBraces))},
         {"domainId",domain.isNull() ? QVariant() : QVariant(domain.toString(QUuid::WithoutBraces))},
         {"canRez",entities->canRez()},{"canRezTmp",entities->canRezTmp()},{"canRezAvatarEntities",entities->canRezAvatarEntities()},
         {"scan",QVariantMap{{"center",vec(feet)},{"radiusMeters",128},{"scannedEntities",nearby.size()},{"complete",true},{"inventory",inventory}}},

@@ -303,6 +303,33 @@
         if (request.action === "scroll") { return request.controlId === "emote.grid" && (request.direction === "up" || request.direction === "down"); }
         return /^(?:tablet\.(?:home|page\.(?:[1-9]|[12][0-9]|3[0-2]))|emote\.(?:entry|play\.(?:Crying|Surprised|Dancing|Cheering|Waving|Fall|Pointing|Clapping|Sit|Love)))$/.test(request.controlId);
     }
+
+    var lastPhoneCreateFixtureRequest = "";
+    var lastPhoneCreateFixtureInputRequest = "";
+    function validPhoneCreateFixtureInput(c) {
+        if (!c || c.schemaVersion !== 1 || c.action !== "phone-create-fixture-input"
+                || typeof c.commandId !== "string" || c.commandId.length !== 32 || !/^[0-9a-f]{32}$/.test(c.commandId)
+                || typeof c.runId !== "string" || c.runId.length !== 32 || !/^[0-9a-f]{32}$/.test(c.runId)) { return false; }
+        if (c.operation === "release") {
+            return objectKeysMatch(c,["schemaVersion","commandId","action","operation","runId","fixtureInstance"])
+                && typeof c.fixtureInstance === "string" && c.fixtureInstance.length === 32 && /^[0-9a-f]{32}$/.test(c.fixtureInstance);
+        }
+        if (c.operation !== "prepare" || !objectKeysMatch(c,["schemaVersion","commandId","action","operation","runId",
+                    "fixtureUrl","ticket","imageExtent","markerRoi"])
+                || typeof c.ticket !== "string" || c.ticket.length !== 32 || !/^[0-9a-f]{32}$/.test(c.ticket)
+                || typeof c.fixtureUrl !== "string" || c.fixtureUrl.length > 512
+                || !new RegExp("^https?://[^/?#@\\s]+/feature-fixture/v1/runs/"+c.runId+"/$").test(c.fixtureUrl)
+                || !Array.isArray(c.imageExtent) || c.imageExtent.length !== 2
+                || !Array.isArray(c.markerRoi) || c.markerRoi.length !== 4) { return false; }
+        function whole(v,low,high) { return typeof v === "number" && isFinite(v) && Math.floor(v) === v && v >= low && v <= high; }
+        if (!c.imageExtent.every(function(v){return whole(v,240,16384);})
+                || !c.markerRoi.every(function(v){return whole(v,0,16384);})) { return false; }
+        var r=c.markerRoi,e=c.imageExtent;
+        return r[2] <= e[0] && r[3] <= e[1] && r[2]-r[0] >= 160 && r[3]-r[1] >= 40
+            && (r[2]-r[0])*(r[3]-r[1]) <= .1*e[0]*e[1];
+    }
+
+
     var lastPhoneGraphicsRequest = "";
     function validPhoneGraphicsRequest(request) {
         if (!request || request.schemaVersion !== 1 || !/^[0-9a-f]{32}$/.test(String(request.commandId))) { return false; }
@@ -1737,6 +1764,36 @@
             Test.saveObject(emoteFixture, "phone-emote-fixture.json");
             return;
         }
+        if (command && command.action === "phone-create-fixture-input") {
+            if (!validPhoneCreateFixtureInput(command) || command.commandId === lastPhoneCreateFixtureInputRequest) { return; }
+            lastPhoneCreateFixtureInputRequest = command.commandId;
+            var createFixtureInput = {phoneCreateFixtureInputVersion:1,commandId:command.commandId,recorded:false};
+            try {
+                if (typeof Test.phoneCreateFixtureInput === "function") {
+                    var originalCreateFixtureInput = Test.phoneCreateFixtureInput(command);
+                    if (originalCreateFixtureInput && originalCreateFixtureInput.commandId === command.commandId) { createFixtureInput = originalCreateFixtureInput; }
+                }
+            } catch (_createFixtureInputError) { /* Receipt never proves created pixels or resource retirement. */ }
+            Test.saveObject(createFixtureInput, "phone-create-fixture-input.json");
+            return;
+        }
+        if (command && command.schemaVersion === 1 && typeof command.commandId === "string"
+                && /^[0-9a-f]{32}$/.test(command.commandId) && command.commandId.length === 32
+                && typeof command.runId === "string" && /^[0-9a-f]{32}$/.test(command.runId) && command.runId.length === 32
+                && command.action === "phone-create-fixture-observe"
+                && objectKeysMatch(command,["schemaVersion","commandId","action","runId"])) {
+            if (command.commandId === lastPhoneCreateFixtureRequest) { return; }
+            lastPhoneCreateFixtureRequest = command.commandId;
+            var createFixture = {schemaVersion:1,requestId:command.commandId,available:false};
+            try {
+                if (typeof Test.phoneCreateFixtureObservation === "function") {
+                    var originalCreateFixture = Test.phoneCreateFixtureObservation(command);
+                    if (originalCreateFixture && originalCreateFixture.requestId === command.commandId) { createFixture = originalCreateFixture; }
+                }
+            } catch (_createFixtureError) { /* No empty or expected scene replaces an original inventory. */ }
+            Test.saveObject(createFixture, "phone-create-fixture.json");
+            return;
+        }
         if (command && command.schemaVersion === 1 && typeof command.commandId === "string"
                 && /^[0-9a-f]{32}$/.test(command.commandId) && command.commandId.length === 32
                 && command.action === "phone-touch-state-observe"
@@ -2237,6 +2294,7 @@
                 || command.action === "feature-graphics-subject-observe" || command.action === "phone-create-observe" || command.action === "phone-snapshot-observe"
                 || command.action === "phone-avatar-configuration-observe" || command.action === "phone-touch-state-observe"
                 || command.action === "phone-emote-fixture-observe" || command.action === "phone-emote-fixture-input"
+                || command.action === "phone-create-fixture-observe" || command.action === "phone-create-fixture-input"
                 || command.action === "feature-avatar-render-observe" || command.action === "feature-world-model-draws-observe"
                 || command.action === "feature-scene-load-observe"
                 || command.action === "feature-script-files" || command.action === "phone-create-files")) {

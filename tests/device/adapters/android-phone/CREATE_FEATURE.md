@@ -8,10 +8,15 @@ count, common v17 contract, product functionality or physical acceptance.
 | Layer | Implemented here | Still required for the complete area |
 | --- | --- | --- |
 | Ordinary input | Model URL/Domain creation, unit-size/position properties, actual texture field, real JSON Browse/Cancel/Select and Export/Save dialogs, existing Voxel mode/shape/remove/size controls | Run-owned input coordinator, original UI/settings restoration, original world click targeting and effect joins |
-| Original entity source | Fresh private native entity/permission packets, bounded complete nearby ID inventory, direct tracked-UUID reads, saved PolyVox bytes SHA-256/size, actual native ready state and volume | Durable role histories, original object identity/ownership, resolved loaded model/texture/render facts, permission-controller composition |
+| Original entity source | Fresh private entity/permission packets, complete bounded inventory, direct tracked-UUID reads, immutable native object lifetime, original loaded Model/Geometry and consumed texture/GPU facts, saved PolyVox bytes and actual 8³ cells | Durable role histories, ownership/effect/render joins and permission-controller composition |
 | Controlled input | Exact owned model import document, separately serialized 8³ central-cube PolyVox input, exclusive app-private native staging, independent export-byte reads and durable file retirement | Public action/effect and actual export joins |
 | Public adapter | Internal source and read-only original UI factories only | Public triple, separately credentialed actor, full common journey, whole resource/host journal retirement |
 | Native verification | `NormalCreateControls.h` compiled against Qt 6.11.2 and run against unchanged `NativeCreate.qml` and `NativeFileBrowser.qml` | `PhoneCreateObservation.h` and Test/Android integration remain uncompiled; every device path remains untested |
+
+The native entity-source header is additionally compiled/executed against real
+Qt and synthetic Entity/Model/Domain endpoints. That check verifies the actual
+header's reads and closed command, and does not compile the concrete product
+dependencies or Test/Android integration.
 
 ## Actual ordinary paths
 
@@ -69,6 +74,26 @@ present/absent partition must cover all of them. A matching name grants no
 cleanup authority. Saved voxel SHA-256/byte size are read from the actual
 PolyVox object, together with `isVoxelDataReady()` and its actual volume size.
 Neither a property string nor these fields establishes rendered geometry.
+
+Source version 2 adds a lifetime nonce on the actual native Entity object, its
+real creation epoch and last-editor session, and the actual local network
+session UUID. Reusing a wire UUID cannot preserve the original object nonce.
+The actual render Model and copied Geometry have independent lifetime nonces;
+the loaded HFM original source hash is independent of the editable model URL.
+Material texture rows read the actual resource URL hash, loading/failure flags,
+the SHA-256/size of bytes delivered to the normal decoder, and the actual GPU
+texture extent. The passive decoder hook is compiled only for E2E builds.
+It never downloads or refreshes a resource. Missing original bytes remain
+missing, including resource paths that did not consume the original decoder.
+For a ready 8³ PolyVox, actual cell reads additionally provide occupied count
+and normalized cell SHA-256, independently of compressed input/output bytes.
+
+The separate Create marker fixture owns its own two local original native
+objects in the current domain and requires the normal first-person view.
+Its closed prepare/release inputs and original object/readiness inventory use
+separate private Test/Probe/transport endpoints from Emotes. Pixel acquisition,
+Browser drainage, public resources and whole-run retirement remain required;
+neither a fixture receipt nor its native object inventory proves those effects.
 
 The Python reader rejects missing/partial/over-limit inventory, malformed or
 duplicate IDs/JSON keys, unavailable sources, mismatched request/run/PID,
@@ -134,6 +159,8 @@ python3 android/phone/tests/device/test_create_workflows.py
 python3 android/phone/tests/device/test_create_files.py
 python3 tests/device/self_tests/test_create_permissions.py
 python3 android/phone/tests/device/test_create_native_ui.py
+python3 android/phone/tests/device/test_create_native_measurements.py
+python3 android/phone/tests/device/test_create_marker.py
 python3 -m unittest discover -s tests/device/self_tests -p test_token_create_ui.py
 python3 -m unittest discover -s tests/device/self_tests -p test_normal_create_adapter.py
 python3 -m unittest discover -s android/phone/tests/device -p test_feature_adapters.py -k create
@@ -154,8 +181,8 @@ The separate file check compiles the actual `PrivateCreateFiles.h` with Qt
 native instance against real host files. Twelve cases cover exact input bytes,
 independent output reads, negative filesystem nodes, foreign ownership,
 interrupted stage, sealing, retirement and host-journal changes. The prepared
-Test/Android source compiler check was green before this packet; the full
-application and physical path remain untested. Probe changes require the root
+Test/Android integration and full application remain uncompiled; the physical
+path remains untested. Probe changes require the root
 integration's single final regeneration/check of source-bound Emote catalogs.
 
 Next work must complete the public vertical through existing `OverteSession`

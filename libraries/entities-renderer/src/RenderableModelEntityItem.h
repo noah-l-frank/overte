@@ -52,6 +52,9 @@ class RenderableModelEntityItem : public ModelEntityWrapper {
     friend class render::entities::ModelEntityRenderer;
     using Parent = ModelEntityWrapper;
 public:
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    ModelPointer e2eOriginalModel() const { return getModel(); }
+#endif
     static EntityItemPointer factory(const EntityItemID& entityID, const EntityItemProperties& properties);
 
     RenderableModelEntityItem(const EntityItemID& entityItemID, bool dimensionsInitialized);
