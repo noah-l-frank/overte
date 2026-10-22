@@ -349,7 +349,8 @@ class IOSEmoteFeature:
             except NativeUIError:owner.abandon()
         parts['observer'].abandon_read();parts['samples'].drain()
         pointers=self.pointers(parts);pointers.abandon();keys=self.keys(parts);keys.abandon()
-        if fresh_end:extend_quiet(parts['scope'],pointers,keys=keys)
+        waiting=('scene-retired',self.phase.previous['activations'][-1]['ticket']) in (getattr(self,'_scene_proofs',None) or {})
+        if fresh_end or waiting:extend_quiet(parts['scope'],pointers,keys=keys)
         else:refresh_quiet(parts['scope'],clock=self.monotonic,sleep=self.sleep,pointers=pointers,keys=keys)
         entities=self.marker_entities(parts);entities.abandon();entities.capture();entities.closed(parts['scope'])
         files=None

@@ -268,14 +268,27 @@ class IOSEmoteObserver:
         original=self.decoder.source(before);reference=self.source_reference()
         need(before['index']>=self.state['baseline']['index'] and before['index']<reference['index']
             and same(current,self.decoder.source(reference)))
-        measured=playback(current['group'],original['group']['native'],pid=self.decoder.pid,
-            epoch=current['clockJoin']['nativeAfter']['capturedEpochMs'])
         previous=self.state['episode']
         if previous is not None:
-            old=self.decoder.source(previous['played'])['group']['native']['animation']['history']['overrideSequence']
+            played=self.decoder.source(previous['played'])
+            old=played['group']['native']['animation']['history']['overrideSequence']
             actual=current['group']['native']['animation']['history']['overrideSequence']
             need(actual>=old)
-            if actual==old:return
+            if actual==old:
+                # The immutable original already proved this exact episode.
+                # A finite native frame ring may since have retired active
+                # evaluations. Preserve real source/Rig/caller history births
+                # rather than reacquiring those expired historical frames.
+                from ios.adapters.emote_native_prefix import follow
+                follow(played['group']['native'],current['group']['native'])
+                event=next(row for row in played['group']['native']['animation']['history']['events']
+                    if row['kind']=='override' and row['overrideSequence']==old)
+                barrier=original['group']['native']
+                need(event['eventSequence']>barrier['animation']['history']['callSequence']
+                    and event['capturedEpochMs']>=barrier['capturedEpochMs'])
+                return
+        measured=playback(current['group'],original['group']['native'],pid=self.decoder.pid,
+            epoch=current['clockJoin']['nativeAfter']['capturedEpochMs'])
         self.state['episode']=dict(before=deepcopy(before),played=reference);self.save()
         return measured
 

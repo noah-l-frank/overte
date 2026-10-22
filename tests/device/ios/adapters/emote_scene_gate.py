@@ -128,7 +128,7 @@ class IOSEmoteSceneGate:
                     current=item['original']['snapshot'];_root,new=self.peer_envelope(current)
                     if peer_prefix is not None:
                         _oldroot,old=self.peer_envelope(peer_prefix)
-                        need(same(_oldroot,_root) and new['own'][:len(old['own'])]==old['own'] and len(new['own'])>=len(old['own']))
+                        need(_oldroot==_root and new['own'][:len(old['own'])]==old['own'] and len(new['own'])>=len(old['own']))
                     peer_prefix=current
                 prior=actual
         for ref in state['abandoned']:

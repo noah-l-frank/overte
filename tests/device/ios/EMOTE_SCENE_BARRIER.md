@@ -46,3 +46,24 @@ GPU/PNG originals, retained weak objects, actual Keys2/native ACK after the peer
 read, unchanged operation deadlines, independently authored v1 archive/copy bytes,
 and native override/restore history crossing the untouched barrier. The sources
 are not compiled and no iOS/device execution is claimed.
+
+## Current paired fixture qualification
+
+`emote_scene_pair_fixture.connect` maps each actual modeled target to one SDK
+directory, leaves construction leases before live work, and schedules independent
+ordinary observation only outside both production locks. Former Primary-only
+whole cases construct an actual Actor owner. Both roles retain genuine initial
+owners and released Scope/Entity endpoints; no gate bypass or expected effects
+are supplied. A repeated readiness retry extends the already genuine three-second
+quiet interval instead of restarting it and aging a committed Actor receipt.
+
+The current first-direct-act/repeated-input paired case passed in 9.418 seconds.
+The current complete native/rendered local retirement plus the explicit native
+ring-expiry counterexample passed in 147.996 seconds. The counterexample advances
+40 actual modeled Rig reads; an unchanged immutable already-measured override
+survives active-frame expiry, whereas a new actual override of the same clip
+still requires fresh playback originals. Source/Rig/history births and the exact
+original event remain checked. A separate second-stage replay regression covers
+the actual Path identity comparison, without JSON-encoding host Path objects.
+These bounded cases are current follow-up qualification, not a newly executed
+broad paired-finalization suite or any physical iOS qualification.

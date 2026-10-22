@@ -5,14 +5,15 @@ import unittest
 from adapters.normal_feature_state import PrivateFeatureState
 from ios.self_tests.emote_whole_primary_fixture import WholePrimaryFixture
 from ios.self_tests.emote_whole_actor_fixture import WholeActorFixture
+from ios.self_tests.emote_scene_pair_fixture import connect
 
 
 class WholeActorTests(unittest.TestCase):
     def test_independent_actor_publishes_real_baseline_playback_and_rendered_retirement(self):
-        p=WholePrimaryFixture(self);a=WholeActorFixture(self,p)
+        p=WholePrimaryFixture(self);a=WholeActorFixture(self,p);connect(p,a)
         call=dict(contractVersion=16,runId=p.flow.run,afterSequence=0)
         p.flow.observe(call);baseline=a.flow.observe(call);self.assertEqual('idle',baseline['state']['animation'])
-        p.flow.act(p.call('play',name='Waving'));p.target.native.sleep(.25)
+        p.flow.act(p.call('play',name='Waving'));p.target.native.sleep(.25);p.flow.observe(call)
         played=a.flow.observe(dict(call,afterSequence=baseline['sequence']));self.assertTrue(played['state']['override'])
         p.call('cleanup')
         with p.flow.held(30):
@@ -68,14 +69,14 @@ class WholeActorTests(unittest.TestCase):
 
     def test_paired_primary_wait_releases_actual_sdk_lock_and_repeated_cleanup_reacquires_originals(self):
         from contextlib import nullcontext
-        p=WholePrimaryFixture(self);a=WholeActorFixture(self,p)
+        p=WholePrimaryFixture(self);a=WholeActorFixture(self,p);connect(p,a)
         # Construction created the actual children under their SDK locks.
         # End those setup leases: all remaining locking belongs to production.
         for fixture in (a.target.fixture,p.target.f.fixture):
             fixture.held.__exit__(None,None,None);fixture.held=nullcontext()
         call=dict(contractVersion=16,runId=p.flow.run,afterSequence=0)
         p.flow.observe(call);a.flow.observe(call)
-        p.flow.act(p.call('play',name='Waving'));p.target.native.sleep(.25);a.flow.observe(call)
+        p.flow.act(p.call('play',name='Waving'));p.target.native.sleep(.25);p.flow.observe(call);a.flow.observe(call)
         p.call('cleanup');cleanup=dict(contractVersion=16,runId=p.flow.run);admissions=[]
         def waiting(seconds):
             if p.target.lock._owner is None:

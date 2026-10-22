@@ -87,3 +87,13 @@ class SceneGateTests(unittest.TestCase):
             archived.qualified('initial',self.ticket)
             with self.assertRaises(NativeUIError):archived.retain('own','initial',self.ticket,self.endpoint('primary'))
         with self.assertRaises(NativeUIError):archived.candidate('initial',self.ticket)
+
+    def test_second_actual_peer_stage_replays_root_identity_without_json_encoding_path_objects(self):
+        for stage in ('initial','scene-retired'):
+            for role in self.roots:self.write(role,stage)
+            for role in self.roots:self.read(role,stage)
+        for role in self.roots:
+            gate=self.gates[role]
+            with self.locks[role].held():
+                self.assertEqual(2,len(gate.decode(gate.store.read())['peer']))
+                gate.ready('scene-retired',self.ticket)

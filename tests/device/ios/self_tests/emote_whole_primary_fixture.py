@@ -57,7 +57,9 @@ class WholePrimaryFixture:
         current=self
         class Runtime(IOSEmoteRuntime):
             def state_path(_self,selector):
-                need(selector in ('primary','actor'));return f.root/'session.json' if selector=='primary' else current.installed.store.path.with_name('session.json')
+                need(selector in ('primary','actor'))
+                if selector=='primary':return f.root/'session.json'
+                return (current.actor.target.root/'session.json' if hasattr(current,'actor') else current.installed.store.path.with_name('session.json'))
             def _sources(_self,selector):
                 need(selector=='primary');result=f.runtime_sources('owned');observer=result['observer']
                 observer.create_entities=lambda _:current.entities.reader
