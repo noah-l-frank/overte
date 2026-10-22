@@ -70,3 +70,15 @@ The host-only four-acquisition measurement after this change was approximately
 clocks; functional tests do not establish real device timing. A paired whole
 cleanup run also stopped at its original overall deadline rather than extending
 it. Whole-feature completion and the real timing budget remain unqualified.
+
+When a normal Avatar API scope is already active, its existing 25-second budget
+owns separate account and segment byte-cache namespaces. Reconstructed live and
+historical owners can share those original-byte decoders for that one call;
+all complete context keys, file signatures, read membership and planned-path
+absence checks still apply to every use. Nested scopes retain the original
+deadline. Outside an API scope, owners keep their independent local caches.
+A new API budget starts separate shared namespaces and cannot renew the prior
+deadline. An existing owner can retain its own guarded cache reference, as it
+could without the optional shared scope; it gains no new input authority.
+Fresh-owner measurements with the actual optional hooks were approximately
+0.71, 1.06, 1.42 and 1.96 seconds; the budget remains unqualified.

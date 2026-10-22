@@ -56,7 +56,9 @@ class IOSAvatarPostLogoutReads(AvatarPostLogoutParts):
 
     def account(self,value):
         from ios.adapters.avatar_record_cache import AvatarRecordCache
-        if not hasattr(self,'account_cache'):self.account_cache=AvatarRecordCache()
+        if not hasattr(self,'account_cache'):
+            from ios.adapters.avatar_api_entry import original_cache
+            self.account_cache=original_cache('postlogout-account') or AvatarRecordCache()
         key=dict(context=digest(dict(binding=self.binding,runId=self.run,role=self.role,subject=self.subject,
             root=str(self.root),store=str(self.store.path),inputs=self.inputs)),boundary=value)
         return self.account_cache.read(key,lambda:self.account_original(value))

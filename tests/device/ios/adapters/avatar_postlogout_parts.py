@@ -111,7 +111,9 @@ class AvatarPostLogoutParts:
     def row_material(self,row):
         """Reuse only exact decoded immutable bytes, never a derived verdict."""
         from ios.adapters.avatar_record_cache import AvatarRecordCache
-        if not hasattr(self,'part_cache'):self.part_cache=AvatarRecordCache()
+        if not hasattr(self,'part_cache'):
+            from ios.adapters.avatar_api_entry import original_cache
+            self.part_cache=original_cache('postlogout-parts') or AvatarRecordCache()
         key=dict(context=digest(dict(binding=self.binding,runId=self.run,role=self.role,subject=self.subject,
             root=str(self.root),store=str(self.store.path),inputs=self.inputs)),row=row)
         missing=set()
