@@ -845,3 +845,24 @@ input, recovery and whole retirement still need composition. Chat now reconstruc
 only complete consumed peer inputs/received deliveries from original receipts,
 file/native identities and both source histories. Old/uncertain attempts stay
 retained and are never replayed. These are partial source/ownership components.
+
+
+## Original Create resources, passive Chat absence and Audio restoration
+
+The [Model resource source](CREATE_MODEL_RESOURCES.md) now preserves actual
+Entity/Model/Geometry/material/texture associations, real worker-thread resource
+state and original cached QObject lifetime. Normal texture property edits and
+actual Entity deleteLater retirement are composed with the original owner.
+GPU/pixels, peer evidence, JSON/export and full Create orchestration remain open.
+
+The [Audio settings source](AUDIO_SETTINGS_SOURCE.md) uses bounded original
+Qt queues without device enumeration or setters. [Original Audio pages](AUDIO_PAGE_ORIGINALS.md)
+preserve native page/context/root/window lifetimes and original peak flags;
+actual Audio.qml destruction restores both prior values. Hidden/detached pages
+and alive contexts remain owned. Normal Audio flow and acoustic proof remain open.
+
+Chat has separate strict passive initial/final absence journals. Their original
+inspect queries cannot begin or retire an active cache, and cannot substitute
+for active v4 histories/input ownership. Complete Chat coordination and physical
+profile/FD/PID/Qt restoration remain open. See the current
+[verification log](BUILD_VERIFICATION_20261022.md) for integrated host results.

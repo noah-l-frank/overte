@@ -426,3 +426,37 @@ Normal Emote separately passes40.996s. No native observation/input/quiet timeout
 was enlarged. All four final project checks pass2.92s; registry and whitespace
 pass. Source completeness remains3/14; durable view setup/restore, controlled
 scene/avatar, independent actor and complete Emote retirement remain unfinished.
+
+
+## Integrated original Model resources, Chat absence and bounded Audio sources
+
+7d0acd3531 and b906323307 integrate normal texture property ownership v2 and
+actual Entity QObject death. 6efa3d353c selects d33b969aff's original
+Model/Geometry/material/texture associations and weak histories. Cached texture
+QObjects remain alive after the old shared control block expires; the actual
+original Resource::allReferencesCleared body is exercised. This is a sampled
+observed-object inventory, not complete intermediate allocation history, GPU
+bytes, rendering or whole Create completion.
+
+f05d470700, f2a579a8d4 and c7574c1a55 select 5c45014080,1326264ea0 and
+63fd562456. The dedicated Audio source reads actual native/script/input/mixer
+properties without mutation or enumeration. Four bounded original queue
+channels retain timed-out work until actual Qt functor destruction; late values
+are discarded. The original full Audio.qml execution proves peak restoration
+for both original values on actual component destruction, while an alive
+QQmlContext remains explicitly unretired. No app/acoustic/device qualification.
+
+The combined Qt5/default-timeout selection passes5/73 groups in68.85s:
+Audio settings/page sources9.125s, Model resources4.952s, normal Model owner
+52.502s, actual Entity source2.199s and coverage.067s. These compiler harnesses
+execute original bodies with explicit actor/dependency boundaries, not full
+Pico translation units or an APK.
+
+49db8bd2ac selects8ecc68242a's passive initial/final Chat cache absence. It
+requires actual absent native scopes and closed UI/keyboard, preserving the
+separate v4 active history. All51 source/chunk/witness/domain counterexamples
+pass22.317s; the actual Qt5 DomainHandler/MessagesClient body passes1.700s, and
+the actual Pico absence factory passes8.196s. All4 repository suites pass3.58s.
+The first combined CLI command rejected the unknown coverage selector before
+running tests; the corrected coverage-matrix command above passes. Total
+source-complete areas remain3/14; Create, Audio and Chat remain partial.

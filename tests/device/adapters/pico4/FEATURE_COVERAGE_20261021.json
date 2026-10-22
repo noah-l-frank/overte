@@ -315,7 +315,10 @@
         "tests/device/adapters/pico4/CREATE_MODEL_OWNER.md",
         "tests/device/native/CreateEntityLifetimes.h",
         "android/vr/pico/tests/device/test_create_models.py",
-        "android/vr/pico/tests/device/test_create_model_controls_native.py"
+        "android/vr/pico/tests/device/test_create_model_controls_native.py",
+        "tests/device/adapters/pico4/CREATE_MODEL_RESOURCES.md",
+        "tests/device/adapters/pico4/create_model_resources.py",
+        "tests/device/native/CreateModelResources.h"
       ],
       "declaredCheckpoints": 21,
       "inputVerbs": [
@@ -826,7 +829,14 @@
         "tests/device/adapters/audio_preview.py",
         "tests/device/self_tests/test_audio_preview.py",
         "tests/device/adapters/pico4/AUDIO_PREVIEW_OWNER.md",
-        "android/vr/pico/tests/device/test_audio_preview.py"
+        "android/vr/pico/tests/device/test_audio_preview.py",
+        "tests/device/adapters/pico4/AUDIO_SETTINGS_SOURCE.md",
+        "tests/device/adapters/pico4/audio_settings_source.py",
+        "tests/device/native/AudioSettingsObservation.h",
+        "tests/device/native/AudioSettingsQueue.h",
+        "tests/device/adapters/pico4/AUDIO_PAGE_ORIGINALS.md",
+        "tests/device/adapters/pico4/audio_pages.py",
+        "tests/device/native/AudioPageObservation.h"
       ],
       "declaredCheckpoints": 14,
       "inputVerbs": [
