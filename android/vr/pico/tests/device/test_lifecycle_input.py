@@ -23,6 +23,7 @@ from self_tests.test_pico_lifecycle_join import LifecycleJoinTests
 from self_tests.test_pico_lifecycle_process import LifecycleProcessTests
 from self_tests.test_token_lifecycle_ui import LifecycleControlTests
 from self_tests.test_pico_lifecycle_editor import LifecycleEditorTests
+from self_tests.test_pico_lifecycle_chat import LifecycleChatTests
 from self_tests.test_pico_openxr_adapter_session import FakeTransport
 
 
@@ -149,6 +150,22 @@ class PicoLifecycleBindingTests(unittest.TestCase):
             with self.assertRaises((ValueError,RuntimeError)):owner.prepare()
             self.assertIsNone(owner.store.read());self.assertEqual([],session.transport.envelopes)
         self.assertEqual([],self.native.inputs)
+
+    def test_actual_chat_editor_factory_reuses_normal_chat_and_original_x_shared_source_lock(self):
+        from adapters.pico4.lifecycle_chat import PicoLifecycleChatDraft
+        from adapters.pico4.normal_chat import PicoChatIO
+        session=PicoOpenXrAdapterSession(FakeTransport(),'explicit-chat-target',self.fixture.fixture.state_root);session.begin(self.native.identity)
+        with patch.object(self.adapter,'pico_input_session',return_value=session):owner=self.adapter._lifecycle_chat_editor(self.native.target,RUN)
+        self.assertIsInstance(owner,PicoLifecycleChatDraft);self.assertIsInstance(owner.route.io,PicoChatIO)
+        self.assertIs(owner.lock,owner.joined.world.lock);self.assertIs(owner.source.source_lock,owner.lock)
+        self.assertEqual(owner.binding['sessionId'],owner.route.io.original.bridge)
+        self.assertEqual(owner.binding['processIdentity'],owner.route.io.original.navigation.context['processIdentity'])
+        self.assertIsNone(owner.state);self.assertIsNone(owner.joined.state)
+        with self.assertRaises((ValueError,RuntimeError)):owner.prepare()
+        self.assertIsNone(owner.store.read());self.assertEqual([],self.native.inputs)
+        self.native.digest='f'*64
+        with self.assertRaises((ValueError,RuntimeError)):owner.prepare()
+        self.assertIsNone(owner.store.read());self.assertEqual([],self.native.inputs)
 
     def test_actual_draft_factory_uses_original_normal_bridge_and_rejects_changed_field_before_transport(self):
         import uuid

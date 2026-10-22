@@ -149,6 +149,7 @@ REQUIRED = {
     "native-lifecycle-controls": 1,
     "pico-lifecycle-draft-controls": 1,
     "pico-lifecycle-editor-owner": 1,
+    "pico-lifecycle-chat-owner": 1,
     "native-navigation-replies": 2,
     "native-navigation-modals": 1,
     "native-navigation-error-controls": 1,
