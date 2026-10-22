@@ -83,6 +83,10 @@ class SnapshotJourneyTests(unittest.TestCase):
     def setUp(self):
         host_only=HostOnlyBoundary();host_only.__enter__();self.addCleanup(host_only.close)
         temporary=tempfile.TemporaryDirectory(prefix='snapshots-common-');self.addCleanup(temporary.cleanup);self.root=Path(temporary.name);self.root.chmod(0o700)
+        if os.environ.get('OVERTE_SNAPSHOT_HOST_TRACE')=='1':
+            filesystem=os.statvfs(self.root)
+            print('Host Snapshot actual fixture filesystem '+json.dumps(dict(root=str(self.root),device=self.root.stat().st_dev,
+                availableBytes=filesystem.f_bavail*filesystem.f_frsize,deviceAcceptance=False),sort_keys=True),file=sys.stderr,flush=True)
         self.model=SnapshotTarget(self.root,sdk=self.SDK);self.addCleanup(self.model.close)
         self.rpc=ThreadingHTTPServer(('127.0.0.1',0),keepalive_handler(Handler));self.rpc.target=self.model;self.rpc.errors=[]
         thread=threading.Thread(target=self.rpc.serve_forever,daemon=True);thread.start()
