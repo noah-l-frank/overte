@@ -26,8 +26,8 @@ PROVIDER='7'*32
 SCENE_TICKET='8'*32
 
 
-def marker_original(ticket=SCENE_TICKET):
-    entry=scene(RUN,ticket,ROOT)['Entities'][-1]
+def marker_original(ticket=SCENE_TICKET,root=ROOT):
+    entry=scene(RUN,ticket,root)['Entities'][-1]
     return dict(id=entry['id'].strip('{}'),present=True,entity=dict(name=entry['name'],type='Web',hostType='domain',
         sourceUrl=entry['sourceUrl'],position=[entry['position'][axis] for axis in 'xyz'],
         rotation=[entry['rotation'][axis] for axis in 'xyzw'],dimensions=[entry['dimensions'][axis] for axis in 'xyz'],
@@ -39,11 +39,13 @@ class MarkerState(State):
         super().__init__();self.version=2;self.source['challengeMarker']=marker_original()
 
 
-def bundle(label='A',ticket='9'*32,*,offset=0.,index=0,pixel_ticket=None):
+def bundle(label='A',ticket='9'*32,*,offset=0.,index=0,pixel_ticket=None,scene_url=URL,fixture_url=ROOT,
+           provider_instance=PROVIDER,scene_ticket=SCENE_TICKET,return_source=False):
     # New synthetic SDK packets only. No production evidence is converted,
     # repainted, retimed or wrapped as a fresh capture by this test builder.
     state=MarkerState();state.clock+=offset;state.sequence=4*index;reader=state.reader();epoch_before=state.epoch()
-    x=0 if label=='A' else 2;url=viewpoint_urls(URL)[label]
+    state.source['challengeMarker']=marker_original(scene_ticket,fixture_url)
+    x=0 if label=='A' else 2;url=viewpoint_urls(scene_url)[label];state.url=url
     state.source['sceneUrl']=url;state.source['avatar']['feetPosition']=[x,0,4]
     state.source['view'].update(position=[x,1.6,4],aspectRatio=1.6)
     before=reader.read(RUN);gpu=World();gpu.clock=state.clock+.005;gpu.sequence=10*index
@@ -76,12 +78,13 @@ def bundle(label='A',ticket='9'*32,*,offset=0.,index=0,pixel_ticket=None):
             hostAfterEpochMs=1_000_000.+offset*1000+epoch_after-epoch_before,hostBeforeMonotonic=10.+offset,
             hostAfterMonotonic=10.+offset+(epoch_after-epoch_before)/1000,
             nativeBefore=global_packet(epoch_before,1+index*2),nativeAfter=global_packet(epoch_after,2+index*2)))
-    rebind(frame);body=json.dumps(scene(RUN,SCENE_TICKET,ROOT),separators=(',',':'),ensure_ascii=False).encode()
-    provider=dict(navigationSceneVersion=1,instance=PROVIDER,runId=RUN,profile=PROFILE,sceneUrl=URL.split('?')[0],
+    rebind(frame);body=json.dumps(scene(RUN,scene_ticket,fixture_url),separators=(',',':'),ensure_ascii=False).encode()
+    provider=dict(navigationSceneVersion=1,instance=provider_instance,runId=RUN,profile=PROFILE,sceneUrl=scene_url.split('?')[0],
         active=True,ticket=ticket,capturedEpochMs=123456,complete=True,responses=[dict(sequence=1,responseId='a'*32,
-            ticket=SCENE_TICKET,bytes=len(body),sha256=hashlib.sha256(body).hexdigest(),completedEpochMs=123450)])
-    return dict(frame=frame,raw=raw,captureQuery=query,url=url,label=label,ticket=ticket,provider=provider,
-                providerInstance=PROVIDER,fixtureUrl=ROOT)
+            ticket=scene_ticket,bytes=len(body),sha256=hashlib.sha256(body).hexdigest(),completedEpochMs=123450)])
+    result=dict(frame=frame,raw=raw,captureQuery=query,url=url,label=label,ticket=ticket,provider=provider,
+                providerInstance=provider_instance,fixtureUrl=fixture_url)
+    return (result,state) if return_source else result
 
 
 class NavigationChallengeTests(unittest.TestCase):

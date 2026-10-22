@@ -13,6 +13,17 @@ The [Places/bookmark field projection](NAVIGATION_PLACES_STATE.md) now joins
 actual saved/loaded maps, current model/field/UI originals and retained genuine
 directory consumption without retiming the original response. Arrival, current
 error and independent publication still need the whole-journey coordinator.
+The [error-state projection](NAVIGATION_ERROR_STATE.md) preserves the original
+missing ticket while fresh native modal/listener lifetime reads establish
+dismissal and independent Go To visibility. Whole-state publication remains open.
+An [eight-field original-state join](NAVIGATION_PRODUCT_STATE.md) now combines
+these fields with the original challenge PNG and final current scene/pose under
+one bounded native acquisition. Durable whole-run ownership, ordinary input,
+independent publication, restart and repeated cleanup remain required.
+A [durable per-role image index](NAVIGATION_SAMPLES.md) now reserves each request,
+seals immutable child originals, rejects reused frames/source rollback and chooses
+the preceding actual observed image for changed evidence. Failed partial attempts
+remain terminal or unresolved; the whole coordinator still needs to own them.
 
 The canonical physical source binding and explicit lost-launch recovery have
 host-tested implementations. The native byte observer and SDK plugin remain
