@@ -10,7 +10,7 @@ device qualification. Native code is uncompiled; no device is tested.
 
 | Area | Current Pico implementation | Concrete next boundary |
 | --- | --- | --- |
-| Worlds/navigation | Partial normal Places/bookmark/origin/directory/error and measured B/A transit with original stereo-source retirement | Fresh Navigation challenge/changed-world pixels, maturity composition, remaining Go To closure, restart and independent final retirement |
+| Worlds/navigation | Partial normal Places/bookmark/origin/directory/error and measured B/A transit with original stereo-source retirement | Fresh v2 image/actor publication, normal tablet and Go To closure, maturity composition, restart and independent final retirement |
 | Authentication | Complete source; 17-step shared flow and counterexamples host verified | Compile and qualify actual VR Home ray, IME, HTTPS provider and account lifetime on Proxmox |
 | Avatar/contacts | Complete adapter missing | Source-bound Avatar/People inputs and independent model/bookmark/wearable/consent observations |
 | Create | Partial token controls and entity foundations | Actual JSON picker/export, model/texture/PolyVox, permission actor and original file/image/peer joins |
@@ -648,3 +648,28 @@ challenge or changed-world raster proof. Whole-area maturity/origin composition,
 remaining Go To closure, normal opening/restart/bookmark transfer, independent
 publication and final resource/metadata retirement remain unfinished. Complete
 source/host feature areas remain three of fourteen.
+
+
+## Navigation current two-eye evidence and explicit scene profile
+
+The [stereo evidence extension](NAVIGATION_STEREO.md) now reconstructs original
+hidden-UI/lifecycle/pose intervals, exact PNG and source/retirement journal. The
+existing independent 128-bit marker and changed-subject verifier runs separately
+in both actual native eye viewports. The common Journey rejects replayed source
+queries, original render IDs and frame/execution pairs, retimed samples, wrong
+builds and a missing or later original owned scene write. Repeated current reads
+under one action retain distinct allocated journal identities.
+
+Provider v2 explicitly opts into `pico-navigation-scene-v1` on the existing server,
+retains the original controlled geometry and adds owned world challenge/cue
+input. Default provider v1 and legacy mono/Graphics behavior remain. V1 source/
+owner journals stay readable; new two-eye evidence requires v2 original native
+and UI brackets. No native C++/Qt instrumentation changes in this packet.
+
+Host evidence includes actual private Pico source factories, immutable host
+originals/native receipt protocols, per-eye byte counterexamples and real owned
+loopback writes/headers. Native/Qt/GPU/OS boundaries remain synthetic. Full
+Navigation still needs durable fresh-image/actor publication, normal global
+tablet close, remaining Go To closure, maturity/origin restoration, original
+process/bookmark transfer and final Script/XHR/Web/timer/metadata retirement.
+No new full capability, build, device or remote integration is claimed.

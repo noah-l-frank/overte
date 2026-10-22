@@ -1582,5 +1582,59 @@
     ],
     "details": "Normal owned directory/bookmark tab/scroll/row selection joins independently measured actual probe/native avatar B/A arrival. Normal Home requires absent page plus independently destroyed original weak Places root. Exact original stereo PNG/capture v4/executed GPU cameras/same-frame OpenXR is bracketed by original HMD/avatar poses; original native image buffer, callbacks and complete issuer receipt-file absence precede native owner discard. Three seconds of actual native/UI/storage/input quiet and bounded original private histories follow. Applied lost replies resolve without resends. Existing Graphics role/image implementation namespace and foreign owner exclusions are retained for generic capture infrastructure only. The actual private Pico factory enforces the parent shared source lock. Python/input parsers, original host image files, native receipt files and journals execute; Qt/native/probe/HMD/GPU/OpenXR/OS boundaries are synthetic.",
     "limitations": "No builds, compilers, devices, installations, device services, remote or protected writes. No new native instrumentation in this packet; the reused native sources remain uncompiled and devices unqualified. Original source acquisition does not prove current Navigation challenge/changed-world raster pixels. Whole feature still needs parent normal opening/maturity/origin composition, remaining Go To closure, original process restart/bookmark transfer, independent publisher and full Script/XHR/timer/callback/resource/metadata retirement. Uncertain acquisition/partial image/retirement retain ownership for the enclosing finalizer. No complete Navigation capability; three source/host-complete areas and eleven incomplete remain."
+  },
+  "navigationStereoImages": {
+    "status": "source-host-verified-partial-feature",
+    "contracts": [
+      "navigation-stereo-source v2 reads v1/v2",
+      "navigation-stereo-owner v2 reads v1/v2",
+      "feature-navigation-provider v2 reads v1/v2; default v1 retained",
+      "stereo-navigation-evidence v1",
+      "navigation-scene-stimulus v1"
+    ],
+    "checks": [
+      {
+        "command": "python3 -m unittest self_tests.test_stereo_navigation_evidence self_tests.test_navigation_scene self_tests.test_navigation_resources self_tests.test_navigation_arrival self_tests.test_navigation_transit self_tests.test_navigation_directory self_tests.test_navigation_origin self_tests.test_navigation_error_dismissal self_tests.test_native_navigation_replies self_tests.test_native_tablet_http self_tests.test_stereo_graphics_evidence self_tests.test_graphics_originals self_tests.test_feature_journeys.FeatureJourneys.test_navigation_actual_empty_query_filtering_cancellation_and_reopen_have_independent_reads self_tests.test_feature_journeys.FeatureJourneys.test_navigation_ignored_effects_cancelled_saves_and_retired_pages_cannot_pass self_tests.test_feature_journeys.FeatureJourneys.test_navigation_requires_actual_owned_directory_and_current_named_404_receipts self_tests.test_feature_journeys.FeatureJourneys.test_navigation_final_http_source_read_cannot_finish_after_the_existing_deadline",
+        "tests": 138,
+        "status": "passed",
+        "durationSeconds": 90.385,
+        "detail": "Shared source, original files/retirement, real HTTP fixture, default provider v1, common Navigation flow and original Graphics image regressions before final additional factory/render-ID/source-query cases."
+      },
+      {
+        "command": "python3 -m unittest self_tests.test_stereo_navigation_evidence self_tests.test_navigation_scene self_tests.test_navigation_arrival self_tests.test_navigation_transit",
+        "tests": 40,
+        "status": "passed",
+        "durationSeconds": 52.211,
+        "detail": "Final focused checks: actual private Pico source factory and shared lock; native lifecycle/pose/hidden-UI brackets, multiple original frames under one action, both-eye current marker and changed subject, wrong build/missing or later scene write, replayed queries/cursors/render IDs, actual loopback scene/HTML/original-script bytes, failed writes, preserved v1 owners and normal transit regressions."
+      },
+      {
+        "command": "python3 -m unittest self_tests.test_stereo_graphics_surface_evidence self_tests.test_pico_graphics_common_engine",
+        "tests": 6,
+        "status": "passed",
+        "durationSeconds": 262.927,
+        "detail": "Includes the existing complete 17-step Graphics common Journey through OverteSession/public router, original stereo/native/file sources and independent actor/final retirement at synthetic native boundaries."
+      },
+      {
+        "command": "python3 tests/device/validate_contract_versions.py",
+        "status": "passed"
+      },
+      {
+        "command": "python3 android/vr/pico/tests/pico4-test-suite.py --test normal-create --test normal-chat --test normal-login --test suite-runner --test coverage-matrix --timeout 240",
+        "groups": 5,
+        "catalogGroups": 52,
+        "status": "passed",
+        "durationSeconds": 65.62,
+        "junit": "navigation-stereo-pico.xml"
+      },
+      {
+        "command": "python3 tests/run-project-tests.py --suite documentation --suite documentation-contracts --suite source-layout --suite project-coverage",
+        "suites": 4,
+        "status": "passed",
+        "durationSeconds": 2.67,
+        "junit": "navigation-stereo-project.xml"
+      }
+    ],
+    "details": "The common Journey now accepts only an explicit Pico Navigation stereo policy for the optional profile. It revalidates the exact original compressed source/retirement journal and PNG, original native lifecycle/Graphics/pose and hidden UI brackets, per-eye native viewports and distinct original identities. The existing independent 128-bit marker/nonblank/changed-subject verifier runs separately in each eye; both world regions must change while actual measured location changes. Current samples retain original epochs/lifecycle and cannot republish queries, render IDs or GPU frames with newer sequence numbers. The original owned scene write precedes acquisition and installed-source revision matches. The explicit optional Navigation provider v2 serves the original controlled scene plus owned marker/checker geometry, same current-ticket HTML mechanism and identical original interactable script bytes; wrong authority/viewpoint/inactive ownership and uncertain original writes fail closed. Default v1 remains unchanged. No native instrumentation or functional product changes were made in this packet.",
+    "limitations": "No builds, compilers, devices, installation, device services, remote or protected writes. All reused C++/Qt/HMD/GPU/OpenXR/Android boundaries remain uncompiled and synthetic. Real loopback HTTP proves fixture delivery, not client receipt or rendered geometry. Authored scene visibility and actual original-pixel policy rectangles/latency are not qualified on a headset. Whole Navigation still lacks durable fresh publisher/actor composition, normal global tablet close and remaining Go To closure, maturity/origin/scene restoration, actual process/bookmark transfer and complete original Script/XHR/Web/timer/callback/active-metadata retirement. Preserve completed PNG/native-journal evidence while retiring live indexes. Legacy transit captures remain historical and cannot supply fresh v2 samples. No new complete capability; three complete source/host areas and eleven incomplete remain."
   }
 }

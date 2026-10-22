@@ -52,7 +52,7 @@ recorded head and actual forward camera midpoints must agree with actual HMD
 pose; no fixed mono eye is substituted. The exact original RGBA PNG is retained
 through the existing private image-only writer and file identity checks.
 
-`navigation-stereo-owner` v1 records acquisition intent before the existing
+`navigation-stereo-owner` v2 (reading v1/v2) records acquisition intent before the existing
 native role owner. It verifies actual image-buffer release, retained callback
 absence and complete issuer receipt-file removal plus separate absence reads
 before discarding that native owner. A lost acquisition, partial image or
@@ -86,3 +86,10 @@ or changed-world raster pixels. It does not establish original Script/XHR/timer
 retirement. Whole-area maturity/origin composition, remaining Go To closure,
 restart/bookmark transfer, independent actor publication and final resource/
 metadata retirement remain unfinished. No full Navigation capability is added.
+
+The later [stereo evidence extension](NAVIGATION_STEREO.md) adds independently
+verified hidden-UI/lifecycle v2 source intervals, exact original-journal metadata,
+two-eye current challenge/world change and an explicit owned scene profile. This
+transit component retains its v1 historical-source behavior. The enclosing
+feature must normally close the whole tablet and acquire fresh v2 samples after
+quiet; it cannot republish this earlier capture with a new timestamp.

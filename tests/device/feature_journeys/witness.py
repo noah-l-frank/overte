@@ -208,12 +208,15 @@ class Client:
         if area=='world-navigation':
             from .navigation_fixture import configuration
             provider=self.request('/navigation-provider')
-            exact(provider,{'navigationProviderVersion','instance','inputs','capturedEpochMs','ready','activeRuns','failedResponses','internalErrors'},'navigation provider readiness')
-            if (type(provider['navigationProviderVersion']) is not int or provider['navigationProviderVersion']!=1
+            exact(provider,{'navigationProviderVersion','instance','inputs','capturedEpochMs','ready','activeRuns','failedResponses','internalErrors'}|({'sceneProfile'} if provider.get('navigationProviderVersion')==2 else set()),'navigation provider readiness')
+            if (type(provider['navigationProviderVersion']) is not int or provider['navigationProviderVersion'] not in (1,2)
                     or provider['ready'] is not True or type(provider['activeRuns']) is not int or provider['activeRuns']!=0
                     or type(provider['failedResponses']) is not int or provider['failedResponses']!=0
                     or type(provider['internalErrors']) is not int or provider['internalErrors']!=0):
                 raise ValueError('Required original navigation provider is unavailable')
+            from .navigation_scene import PROFILE as NAVIGATION_SCENE_PROFILE
+            self.navigation_profile=provider.get('sceneProfile')
+            if provider['navigationProviderVersion']==2 and self.navigation_profile!=NAVIGATION_SCENE_PROFILE:raise ValueError('Unknown Navigation scene profile')
             self.navigation_instance=identifier(provider['instance'])
             self.navigation_inputs,_urls=configuration(provider['inputs'])
             number(provider['capturedEpochMs'],1)
@@ -309,6 +312,7 @@ class Client:
         if self.area!='world-navigation':raise ValueError('No owned navigation provider')
         from .navigation_fixture import validate_status
         value=self.request('/runs/'+self.run+'/navigation')
+        if value.get('sceneProfile')!=getattr(self,'navigation_profile',None):raise ValueError('Original Navigation scene profile changed')
         validate_status(value,instance=self.navigation_instance,run=self.run,inputs=self.navigation_inputs,
             previous=self.navigation_previous)
         self.navigation_previous=json.loads(json.dumps(value))

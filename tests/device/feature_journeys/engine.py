@@ -46,10 +46,14 @@ class Journey:
         self.evidence_cache = {}
         self.stereo_evidence_seen,self.stereo_frames_seen,self.stereo_contexts={},{},{}
         self.stereo_cursors,self.stereo_queries_seen={},{}
-        self.stereo_graphics=False
+        self.stereo_graphics=False;self.stereo_navigation=False
+        self.navigation_stereo_cursors={};self.navigation_stereo_queries={};self.navigation_stereo_frames={};self.navigation_render_ids={}
         if area=='graphics' and type(self.policy) is dict and type(self.policy.get('screen')) is dict and 'profile' in self.policy['screen']:
             from .stereo_graphics_evidence import policy as stereo_policy
             stereo_policy(self.policy['screen']);self.stereo_graphics=True
+        if area=='world-navigation' and type(self.policy) is dict and type(self.policy.get('screen')) is dict and 'profile' in self.policy['screen']:
+            from .stereo_navigation_evidence import policy as navigation_policy
+            navigation_policy(self.policy['screen']);self.stereo_navigation=True
         self.lifecycle = None
         self.required_lifecycle = None
         self.sit_variants = set()
@@ -139,12 +143,18 @@ class Journey:
         if self.navigation_instance is None:
             self.navigation_instance=identifier(value['instance'])
             self.navigation_inputs,_urls=navigation_configuration(value['inputs'])
+            if self.stereo_navigation and self.navigation_inputs['sceneUrl']!=self.policy['screen']['sceneUrl']:
+                raise ValueError('Stereo policy and original Navigation provider select different scenes')
         navigation_status(value,instance=self.navigation_instance,run=self.run,inputs=self.navigation_inputs,previous=self.navigation_previous)
         if not value['active'] or value['ticket']!=ticket:raise ValueError('Original navigation provider is retired or belongs to a different challenge')
+        if self.stereo_navigation:
+            from .navigation_scene import PROFILE as NAVIGATION_SCENE_PROFILE
+            if value.get('sceneProfile')!=NAVIGATION_SCENE_PROFILE:raise ValueError('Original Pico Navigation stimulus is unavailable')
         self.navigation_previous=deepcopy(value)
         receipts=[row for row in value['responses'] if row['kind']==self.navigation_required
             and (self.navigation_required=='directory' or row['ticket']==ticket and row['completedEpochMs']>=barrier)]
-        return self.navigation_required is None or bool(receipts),receipts
+        scenes=[row for row in value['responses'] if row['kind']=='stereo-scene'] if self.stereo_navigation else []
+        return (self.navigation_required is None or bool(receipts)) and (not self.stereo_navigation or bool(scenes)),receipts+scenes
 
     def artifacts(self, value, ticket, kinds):
         observations = []
@@ -176,12 +186,14 @@ class Journey:
             source_ticket = (self.recorded_ticket if self.area == 'audio' and (kind == 'file' or value['state']['phase'] == 'completed' and requested == 'audio')
                              else self.capture_ticket if self.area == 'snapshots' and kind == 'file' else ticket)
             metadata=None;metadata_digest=None
-            if kind=='image' and self.stereo_graphics:
+            if kind=='image' and (self.stereo_graphics or self.stereo_navigation):
                 original=by_kind.get('file')
                 if original is None or original['ticket']!=ticket:
-                    raise AssertionError('Original stereo Graphics metadata artifact is missing or foreign')
+                    raise AssertionError('Original stereo metadata artifact is missing or foreign')
                 metadata=self.read_artifact(original['name'])
-                from .stereo_graphics_evidence import LIMIT
+                from .stereo_graphics_evidence import LIMIT as GRAPHICS_LIMIT
+                from .stereo_navigation_evidence import LIMIT as NAVIGATION_LIMIT
+                LIMIT=NAVIGATION_LIMIT if self.stereo_navigation else GRAPHICS_LIMIT
                 if type(metadata) is not bytes or not 0<len(metadata)<=LIMIT:
                     raise ValueError('Invalid bounded original stereo metadata bytes')
                 metadata_digest=hashlib.sha256(metadata).hexdigest()
@@ -191,7 +203,18 @@ class Journey:
             if key in self.evidence_cache:
                 observed, cached_subject = self.evidence_cache[key]
             elif kind == 'image':
-                if self.stereo_graphics:
+                if self.stereo_navigation:
+                    from .stereo_navigation_evidence import observation as navigation_observation
+                    observed,cached_subject=navigation_observation(content,metadata,self.run,ticket,self.url,self.policy['screen'],value,
+                        previous=self.previous_subject,changed=requested=='changed',monotonic=self.monotonic)
+                    source=self.navigation_previous
+                    if (source is None or not source['active'] or source['ticket']!=ticket
+                            or source['inputs']['sourceRevision']!=cached_subject['binding']['sourceRevision']
+                            or not any(row['kind']=='stereo-scene' and row['completedEpochMs']<=cached_subject['earliestEpochMs'] for row in source['responses'])):
+                        raise AssertionError('Original Navigation scene write/build does not precede this native capture')
+                    if len(self.evidence_cache)>=256:raise ValueError('Original Navigation image cache is exhausted')
+                    self.remember_navigation_stereo(cached_subject,(value['sequence'],digest,metadata_digest))
+                elif self.stereo_graphics:
                     from .stereo_graphics_evidence import observation as stereo_observation
                     observed,cached_subject=stereo_observation(content,metadata,self.run,ticket,self.url,self.policy['screen'],value,
                         previous=self.previous_subject,changed=requested=='changed',monotonic=self.monotonic)
@@ -242,6 +265,27 @@ class Journey:
                 subject = cached_subject
             observations.append(dict(kind=requested, artifact=item['name'], acquisition=item.copy(), observed=observed))
         return observations, subject
+
+    def remember_navigation_stereo(self,subject,pin):
+        from .stereo_navigation_evidence import advance
+        binding=hashlib.sha256(json.dumps(subject['binding'],sort_keys=True).encode()).hexdigest()
+        scope=(binding,subject['role'],subject['stage']);previous=self.navigation_stereo_cursors.get(scope)
+        frame=(subject['captureInstance'],subject['frameIndex'],subject['executionSequence'])
+        render_id=(subject['captureInstance'],subject['frameId'])
+        queries=[('native' if kind.startswith(('native','subject')) else 'ui' if kind.startswith('ui') else 'capture',
+                  subject['nativeInstance'] if kind.startswith(('native','subject')) else subject['uiInstance'] if kind.startswith('ui') else subject['captureInstance'],nonce)
+                 for kind,nonce in subject['requests'].items()]
+        if (render_id in self.navigation_render_ids and self.navigation_render_ids[render_id]!=pin
+                or frame in self.navigation_stereo_frames and self.navigation_stereo_frames[frame]!=pin
+                or any(query in self.navigation_stereo_queries and self.navigation_stereo_queries[query]!=pin for query in queries)):
+            raise AssertionError('Original Navigation stereo query or frame was reused under another sample')
+        if previous is not None and previous[0]!=pin:advance(previous[1],subject)
+        if (scope not in self.navigation_stereo_cursors and len(self.navigation_stereo_cursors)>=64
+                or frame not in self.navigation_stereo_frames and len(self.navigation_stereo_frames)>=4096
+                or len(set(queries)-self.navigation_stereo_queries.keys())+len(self.navigation_stereo_queries)>28672):
+            raise ValueError('Original Navigation stereo history is exhausted')
+        self.navigation_stereo_cursors[scope]=(pin,deepcopy(subject));self.navigation_stereo_frames[frame]=pin;self.navigation_render_ids[render_id]=pin
+        for query in queries:self.navigation_stereo_queries[query]=pin
 
     def wait(self, label, ticket, barrier, expected, kinds, *, duration=0.5):
         deadline = self.now() + 20

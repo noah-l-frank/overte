@@ -124,6 +124,19 @@ class Handler(BaseHTTPRequestHandler):
             except ValueError:return self.send(404,{'error':'not-found'})
         return self.send(200,data[1],data[0])
 
+    def navigation_scene_request(self,parsed):
+        provider=self.server.navigation_resources
+        if provider is None or provider.scene_profile is None or parsed.path!=urlsplit(provider.inputs['sceneUrl']).path:return False
+        authorities=self.headers.get_all('Host',[])
+        if self.command!='GET' or parsed.scheme or parsed.netloc or parsed.fragment or len(authorities)!=1:
+            self.send(404,{'error':'not-found'});return True
+        self.connection.settimeout(2)
+        with provider.scene_response(parsed.path,parsed.query,request_authority=authorities[0],
+                request_scheme='https' if isinstance(self.connection,ssl.SSLSocket) else 'http') as response:
+            if response is None:self.send(404,{'error':'not-found'})
+            else:self.send(response[0],response[1],'application/json',response_id=response[2],observe_write=response[3])
+        return True
+
     def navigation_request(self,parsed):
         if parsed.path!=DIRECTORY and not parsed.path.startswith(DIRECTORY+'/'):return False
         provider=self.server.navigation_resources
@@ -192,6 +205,7 @@ class Handler(BaseHTTPRequestHandler):
             if adapter_markers and (adapter_markers!=['1'] or not adapter_reader):return self.send(403,{'error':'forbidden'})
             if adapter_reader and self.command!='GET':return self.send(403,{'error':'forbidden'})
             if self.account_request(parsed):return
+            if self.navigation_scene_request(parsed):return
             if self.navigation_request(parsed):return
             if parsed.query or parsed.fragment or not parsed.path.startswith(PREFIX + '/'):
                 return self.send(404, {'error': 'not-found'})
@@ -473,7 +487,7 @@ def main():
         parser.error('--private-config is required to serve')
     from adapters.normal_feature_state import PrivateFeatureState
     config=PrivateFeatureState(args.private_config.absolute()).read()
-    fields={'readerToken','actorToken','host','port'}|({'adapterToken'} if 'adapterToken' in config else set())|({'tls'} if 'tls' in config else set())|({'accountProvider'} if 'accountProvider' in config else set())|({'browserPeer'} if 'browserPeer' in config else set())|({'navigationProvider'} if 'navigationProvider' in config else set())|({'graphicsProvider'} if 'graphicsProvider' in config else set())
+    fields={'readerToken','actorToken','host','port'}|({'adapterToken'} if 'adapterToken' in config else set())|({'tls'} if 'tls' in config else set())|({'accountProvider'} if 'accountProvider' in config else set())|({'browserPeer'} if 'browserPeer' in config else set())|({'navigationProvider'} if 'navigationProvider' in config else set())|({'graphicsProvider'} if 'graphicsProvider' in config else set())|({'navigationSceneProfile'} if 'navigationSceneProfile' in config else set())
     exact(config,fields,'private fixture configuration')
     tls=None;provider=None
     if 'tls' in config:
@@ -489,7 +503,8 @@ def main():
     if 'accountProvider' in config:
         if config['accountProvider'] is not True:raise ValueError('Explicit account provider opt-in is required')
         provider=AccountProvider()
-    navigation=NavigationResources(config['navigationProvider']) if 'navigationProvider' in config else None
+    if 'navigationSceneProfile' in config and 'navigationProvider' not in config:raise ValueError('Navigation scene requires its original provider')
+    navigation=NavigationResources(config['navigationProvider'],scene_profile=config.get('navigationSceneProfile')) if 'navigationProvider' in config else None
     graphics=None
     if 'graphicsProvider' in config:
         exact(config['graphicsProvider'],{'fixtureUrl'},'actual Graphics fixture input')

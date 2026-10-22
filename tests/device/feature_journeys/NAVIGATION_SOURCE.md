@@ -106,7 +106,7 @@ TLS trust where the selected client requires HTTPS; never bypass trust or add a
 functional endpoint override. The local host tests use private loopback HTTP
 only. No production endpoint setter or device configuration is implemented here.
 
-One active owned Navigation run is allowed. Public product-input routes are
+One active owned Navigation run is allowed. The default v1 public product-input routes are
 exactly GET `/api/v1/places?status=online&per_page=1000` and the single current
 owned missing-name route. The directory returns a normal `data.places` array
 containing one original input row with owned ID/name, actual controlled B URL,
@@ -145,3 +145,22 @@ observes the baseline and empty product resources. The existing fixture client
 then retires its real provider and reads actual inactive ownership; a successful
 DELETE response alone is insufficient. Retain unresolved intent/evidence on any
 failure. Device-free checks establish test/fixture logic only, never acceptance.
+
+
+## Optional Pico stereo input and evidence extension
+
+The [Pico stereo handoff](../adapters/pico4/NAVIGATION_STEREO.md) specifies the
+explicit `pico-navigation-scene-v1` provider v2 stimulus and trusted external
+`pico-stereo-navigation-v1` image policy. Default provider v1 stays unchanged.
+The optional scene retains the existing controlled floor/wall/markers/spawn and
+original interactable script bytes, adds owned challenge/cue geometry and records
+actual completed scene writes under the same provider lock. Its alias is served
+only at the configured scene path/authority with fixed existing viewpoints.
+
+The common Journey independently verifies both native eye regions using the
+existing marker/nonblank/changed-subject algorithm and original v2 native/UI/
+pose/capture/retirement metadata. It requires the original scene write before
+the frame and the actual source revision. The external pixel rectangles remain
+separate from adapter inputs; host rectangles are not physical-device presets.
+V1 owners/source frames remain readable but cannot supply v2 current evidence.
+A full Pico Navigation adapter/publisher/actor/finalizer remains incomplete.

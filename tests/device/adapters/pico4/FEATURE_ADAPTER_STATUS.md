@@ -37,8 +37,10 @@ original QML records notification to the normal refreshed/search-filtered model.
 The [normal transit owner](NAVIGATION_TRANSIT.md) now joins owned directory or
 bookmark selection to independently measured B/A arrival, normal Home, original
 weak Places-root destruction, retained stereo source and native image/receipt
-retirement, followed by three seconds of original quiet. Current Navigation
-challenge/changed-world pixels, maturity composition, remaining Go To closure,
+retirement, followed by three seconds of original quiet. The [stereo evidence extension](NAVIGATION_STEREO.md) now verifies current
+128-bit challenges and disjoint changed-world regions independently in both
+eyes, with original hidden-UI/lifecycle sources and explicit owned scene input.
+Fresh publication/actor composition, maturity, remaining Go To closure,
 restart and independent whole-area retirement remain incomplete. These components add
 no complete feature area.
 

@@ -54,10 +54,10 @@ class Model(WorldModel):
             monotonic=lambda:self.clock,sleep=self.sleep)
     def arrival(self):
         return NavigationArrival(self.probe,self.subject_reader(),self.epoch,self.guard,self.run_id,self.binding,SCENE,monotonic=lambda:self.clock)
-    def stereo(self,path=None,arrival=None):
+    def stereo(self,path=None,arrival=None,*,journal_id=None):
         return NavigationStereo(arrival or self.arrival(),
             lambda:self._world_render_capture('owned',read_only=True,role='primary',require_frame_view=True,source_lock=self.lock),
-            path or self.root/'navigation-stereo.json',self.artifacts,self.run_id,self.binding,self.lock,self.guard,monotonic=lambda:self.clock)
+            path or self.root/'navigation-stereo.json',self.artifacts,self.run_id,self.binding,self.lock,self.guard,journal_id=journal_id,ui_factory=lambda:self.ui.source(),native_factory=lambda:self._native_feature_observer('owned',read_only=True),monotonic=lambda:self.clock)
 
 class NavigationArrivalTests(unittest.TestCase):
     def setUp(self):self.model=Model();self.addCleanup(self.model.close)
@@ -145,6 +145,12 @@ class NavigationArrivalTests(unittest.TestCase):
                 with self.assertRaises(NativeUIError):model.stereo().acquire(TICKET)
                 self.assertEqual(before,sum(c['operation']=='release' for c in model.storage.commands))
             finally:model.close()
+    def test_original_v1_owner_and_source_stay_readable_without_reacquisition(self):
+        self.model.stereo().acquire(TICKET);path=self.model.root/'navigation-stereo.json'
+        disk=json.loads(path.read_text());disk['navigationStereoOwnerVersion']=1;disk.pop('journalId');path.write_text(json.dumps(disk));path.chmod(0o600)
+        self.model.stereo().acquire(TICKET);self.assertEqual(1,len(self.model.gpu.commands))
+        self.assertEqual(1,self.model.stereo().disk['navigationStereoOwnerVersion'])
+
     def test_changed_original_png_and_changed_retirement_headers_are_rejected_after_recreation(self):
         result=self.model.stereo().acquire(TICKET);path=self.model.artifacts/result['image']['name'];raw=path.read_bytes()
         path.write_bytes(raw[:-1])

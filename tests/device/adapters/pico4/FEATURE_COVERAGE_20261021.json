@@ -82,7 +82,12 @@
         "tests/device/adapters/navigation_transit.py",
         "tests/device/self_tests/test_navigation_arrival.py",
         "tests/device/self_tests/test_navigation_transit.py",
-        "tests/device/adapters/pico4/NAVIGATION_TRANSIT.md"
+        "tests/device/adapters/pico4/NAVIGATION_TRANSIT.md",
+        "tests/device/feature_journeys/navigation_scene.py",
+        "tests/device/feature_journeys/stereo_navigation_evidence.py",
+        "tests/device/self_tests/test_navigation_scene.py",
+        "tests/device/self_tests/test_stereo_navigation_evidence.py",
+        "tests/device/adapters/pico4/NAVIGATION_STEREO.md"
       ],
       "declaredCheckpoints": 15,
       "inputVerbs": [
@@ -111,9 +116,9 @@
         "addressDialog"
       ],
       "missingOperationsOrEvidence": [
-        "Whole-area composition of normal Places/bookmark, origin, consumed directory/search, original error and measured B/A transit owners with fresh Navigation challenge/changed-world stereo pixels, remaining Go To closure and restart",
-        "Parent maturity preparation/restoration, normal page reopening and actual process/bookmark transfer with original candidate/PID/lifecycle evidence",
-        "Whole-area independent publisher and complete original Script/XHR/timer/callback/resource and metadata retirement; original stereo-source acquisition alone does not satisfy feature image evidence"
+        "Whole-area durable fresh v2 stereo publication and independent actor composition with normal Places/bookmark/origin/directory/error/transit owners; current two-eye verifier and explicit owned scene stimulus are implemented separately",
+        "Normal global tablet close and remaining Go To closure, parent maturity preparation/restoration, normal page reopening and actual process/bookmark transfer with original candidate/PID/lifecycle evidence",
+        "Whole-area complete original Script/XHR/Web/timer/callback/resource and metadata retirement plus original scene restoration; historical transit captures cannot substitute for current image samples"
       ],
       "requiredOriginalEvidence": [
         "Original directory response and native consumed response ID",
@@ -127,7 +132,7 @@
         "Restore original location and closed owned dialogs",
         "Prove pending reply/callback retirement and a three-second quiet baseline"
       ],
-      "nextExecutableStep": "Compose fresh Navigation challenge/changed-world stereo evidence using the existing scene/journey infrastructure, then join normal Go To closure, original restart/bookmark transfer, maturity/origin restoration and independent final retirement. The measured B/A transit owner now verifies normal selection/Home, original weak Places-root destruction, original stereo capture/native receipt retirement and three-second storage/input quiet; it remains internal and cannot enable the full area triple.",
+      "nextExecutableStep": "Compose a durable fresh v2 Navigation image/actor publisher under the shared source lock, using normal global tablet close and the explicit owned scene profile. Then join remaining Go To closure, original restart/bookmark transfer, maturity/origin and original scene restoration with independent final Script/XHR/Web/timer/metadata retirement. The common two-eye verifier, original scene write/input and actual private source factories are host verified separately; do not register the complete area triple yet.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     },

@@ -12,9 +12,11 @@ import threading
 import time
 from .contract import exact,identifier,number
 from .fixtures import context
-from navigation_observation import viewpoint_urls
+from navigation_observation import viewpoint_urls,owned_scene
+from urllib.parse import urlsplit
+from .navigation_scene import PROFILE as SCENE_PROFILE,scene as authored_scene
 
-VERSION=1
+VERSION=2
 DIRECTORY='/api/v1/places'
 QUERY='status=online&per_page=1000'
 
@@ -33,8 +35,10 @@ def configuration(value):
 
 
 class NavigationResources:
-    def __init__(self,inputs,*,clock_ms=lambda:int(time.time()*1000)):
+    def __init__(self,inputs,*,scene_profile=None,clock_ms=lambda:int(time.time()*1000)):
         self.inputs,self.urls=configuration(inputs)
+        if scene_profile not in (None,SCENE_PROFILE):raise ValueError('Unknown explicit Navigation scene profile')
+        self.scene_profile=scene_profile;self.version=1 if scene_profile is None else VERSION
         if not callable(clock_ms):raise ValueError('Original server clock is required')
         self.clock_ms=clock_ms;self.lock=threading.RLock();self.runs={};self.instance=secrets.token_hex(16)
         self.last_epoch=0;self.failed=0;self.valid=True
@@ -47,9 +51,9 @@ class NavigationResources:
 
     def ready(self):
         with self.lock:
-            return dict(navigationProviderVersion=VERSION,instance=self.instance,inputs=deepcopy(self.inputs),
+            return dict(navigationProviderVersion=self.version,instance=self.instance,inputs=deepcopy(self.inputs),
                 capturedEpochMs=self.epoch(),ready=self.valid and not self.failed and len(self.runs)<32,
-                activeRuns=sum(row['active'] for row in self.runs.values()),failedResponses=self.failed)
+                activeRuns=sum(row['active'] for row in self.runs.values()),failedResponses=self.failed,**(dict(sceneProfile=self.scene_profile) if self.scene_profile is not None else {}))
 
     def provision(self,run):
         identifier(run)
@@ -69,9 +73,9 @@ class NavigationResources:
     def snapshot(self,run):
         with self.lock:
             row=self.runs[identifier(run)]
-            return dict(navigationProviderVersion=VERSION,instance=self.instance,runId=run,inputs=deepcopy(self.inputs),
+            return dict(navigationProviderVersion=self.version,instance=self.instance,runId=run,inputs=deepcopy(self.inputs),
                 capturedEpochMs=self.epoch(),active=row['active'],ticket=row['ticket'],responses=deepcopy(row['responses']),
-                failedResponses=self.failed)
+                failedResponses=self.failed,**(dict(sceneProfile=self.scene_profile) if self.scene_profile is not None else {}))
 
     def retire(self,run):
         with self.lock:
@@ -111,11 +115,47 @@ class NavigationResources:
                 row['responses'].append(dict(sequence=len(row['responses'])+1,responseId=response_id,ticket=ticket,
                     kind=kind,status=status,bytes=len(body),sha256=hashlib.sha256(body).hexdigest(),completedEpochMs=self.epoch()))
 
+    @contextmanager
+    def scene_response(self,path,query,*,request_authority,request_scheme):
+        with self.lock:
+            expected=urlsplit(self.inputs['sceneUrl'])
+            if (self.scene_profile!=SCENE_PROFILE or path!=expected.path or type(request_authority) is not str
+                    or request_authority.lower()!=expected.netloc.lower() or request_scheme!=expected.scheme
+                    or not self.valid or self.failed):yield None;return
+            try:owned_scene(self.inputs['sceneUrl']+('?' + query if query else ''))
+            except ValueError:yield None;return
+            active=[(run,row) for run,row in self.runs.items() if row['active']]
+            if len(active)!=1:yield None;return
+            run,row=active[0]
+            if row['ticket'] is None or len(row['responses'])>=256:yield None;return
+            ticket=row['ticket'];origin=expected.scheme+'://'+expected.netloc
+            try:
+                body=json.dumps(authored_scene(run,ticket,origin),separators=(',',':')).encode()
+                if not 0<len(body)<=1048576:raise ValueError('Navigation scene exceeds its original response budget')
+            except Exception:self.valid=False;raise
+            response_id=secrets.token_hex(16)
+            written=[]
+            def observe(actual):
+                exact(actual,{'status','responseId','bytes','sha256'},'original Navigation scene write')
+                if (written or type(actual['status']) is not int or actual['status']!=200 or actual['responseId']!=response_id
+                        or type(actual['bytes']) is not int or actual['bytes']!=len(body)
+                        or actual['sha256']!=hashlib.sha256(body).hexdigest()):
+                    raise ValueError('Original Navigation scene response was not fully written')
+                written.append(deepcopy(actual))
+            try:
+                yield 200,body,response_id,observe
+                if len(written)!=1:raise ValueError('Original Navigation scene response write is missing')
+                actual=written[0]
+                row['responses'].append(dict(sequence=len(row['responses'])+1,responseId=actual['responseId'],ticket=ticket,
+                    kind='stereo-scene',status=actual['status'],bytes=actual['bytes'],sha256=actual['sha256'],completedEpochMs=self.epoch()))
+            except BaseException:self.failed+=1;raise
+
 
 def validate_status(value,*,instance,run,inputs,previous=None):
+    version=value.get('navigationProviderVersion') if type(value) is dict else None
     exact(value,{'navigationProviderVersion','instance','runId','inputs','capturedEpochMs','active','ticket',
-                 'responses','failedResponses'},'original navigation provider status')
-    if (type(value['navigationProviderVersion']) is not int or value['navigationProviderVersion']!=VERSION
+                 'responses','failedResponses'}|({'sceneProfile'} if version==2 else set()),'original navigation provider status')
+    if (type(value['navigationProviderVersion']) is not int or version not in (1,2) or version==2 and value['sceneProfile']!=SCENE_PROFILE
             or value['instance']!=instance or value['runId']!=run or value['inputs']!=inputs
             or type(value['active']) is not bool or type(value['failedResponses']) is not int or value['failedResponses']!=0
             or type(value['responses']) is not list or len(value['responses'])>256):raise ValueError('Navigation source changed or failed')
@@ -127,16 +167,17 @@ def validate_status(value,*,instance,run,inputs,previous=None):
         exact(row,{'sequence','responseId','ticket','kind','status','bytes','sha256','completedEpochMs'},'original HTTP response receipt')
         identifier(row['responseId']);identifier(row['ticket'])
         if (type(row['sequence']) is not int or row['sequence']!=sequence or row['responseId'] in ids
-                or row['kind'] not in ('directory','missing-name')
-                or type(row['status']) is not int or row['status']!=(200 if row['kind']=='directory' else 404)
-                or type(row['bytes']) is not int or not 1<=row['bytes']<=4096
+                or row['kind'] not in (('directory','missing-name','stereo-scene') if version==2 else ('directory','missing-name'))
+                or type(row['status']) is not int or row['status']!=(404 if row['kind']=='missing-name' else 200)
+                or type(row['bytes']) is not int or not 1<=row['bytes']<=(1048576 if row['kind']=='stereo-scene' else 4096)
                 or type(row['sha256']) is not str or re.fullmatch('[0-9a-f]{64}',row['sha256']) is None):raise ValueError('Invalid actual HTTP response receipt')
         number(row['completedEpochMs'],1)
         if not epoch<=row['completedEpochMs']<=value['capturedEpochMs']:raise ValueError('Original navigation response clock regressed')
         ids.add(row['responseId']);epoch=row['completedEpochMs']
     if previous is not None:
         old=previous['responses']
-        if (value['capturedEpochMs']<previous['capturedEpochMs'] or len(value['responses'])<len(old)
+        if (version!=previous['navigationProviderVersion'] or value.get('sceneProfile')!=previous.get('sceneProfile')
+                or value['capturedEpochMs']<previous['capturedEpochMs'] or len(value['responses'])<len(old)
                 or value['responses'][:len(old)]!=old or not previous['active'] and value['active']):
             raise ValueError('Original navigation history changed or resurrected')
     return value

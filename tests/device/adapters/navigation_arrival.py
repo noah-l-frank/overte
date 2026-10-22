@@ -18,6 +18,7 @@ from contracts import validate_probe_snapshot
 from navigation_observation import FreshNavigation,project_probe,arrived,viewpoint_urls,same_viewpoint
 
 VERSION=1
+STEREO_VERSION=2
 
 
 def pose_packet(value,run,binding,scene_url,epoch):
@@ -90,16 +91,38 @@ def camera_position(view):
 
 def stereo_frame(value,raw,run,binding,scene_url):
     """Historical original frame/pose analysis, never a current sample verdict."""
-    exact(value,{'navigationStereoSourceVersion','runId','binding','before','capture','after'})
-    need(type(value['navigationStereoSourceVersion']) is int and value['navigationStereoSourceVersion']==VERSION
+    version=value.get('navigationStereoSourceVersion') if type(value) is dict else None
+    exact(value,{'navigationStereoSourceVersion','runId','binding','before','capture','after'}|({'uiBefore','uiAfter','nativeBefore','nativeAfter'} if version==2 else set()))
+    need(type(version) is int and version in (1,2)
          and value['runId']==run and value['binding']==binding)
     before,after,capture=value['before'],value['after'],value['capture'];context(binding)
-    pid=int(binding['processIdentity'].split(':',1)[0]);end=after['subject']['capturedEpochMs']
+    pid=int(binding['processIdentity'].split(':',1)[0]);end=value['nativeAfter']['capturedEpochMs'] if version==2 else after['subject']['capturedEpochMs']
     a=pose_packet(before,run,binding,scene_url,before['subject']['capturedEpochMs']);b=pose_packet(after,run,binding,scene_url,end)
     need(a is not None and a==b);advance(before,after)
     capture_packet(capture,capture.get('requestId'),pid,end,stereo=True,require_cameras=True);original_pixels(capture,raw)
     need(before['subject']['capturedEpochMs']<=capture['requestedEpochMs']
          and capture['capturedEpochMs']<=after['subject']['requestedEpochMs'])
+    if version==2:
+        from adapters.native_feature_observation import validate as native_packet
+        native_a,native_b=value['nativeBefore'],value['nativeAfter']
+        for packet in (native_a,native_b):
+            native_packet(packet,packet.get('requestId'),pid,end);need(integer(packet.get('requestedEpochMs'),1))
+        need(native_a['instance']==native_b['instance']==before['subject']['instance']
+             and native_a['requestId']!=native_b['requestId'] and native_b['sequence']>native_a['sequence']
+             and native_a['lifecycle']==native_b['lifecycle'] and native_a['graphics']==native_b['graphics']
+             and native_a['capturedEpochMs']<=before['probe']['sampleEpochMs']
+             and after['subject']['capturedEpochMs']<=native_b['requestedEpochMs'])
+        from adapters.pico4.graphics_source import validate as ui_packet,PROFILES,accept_inventory
+        a_ui,b_ui=value['uiBefore'],value['uiAfter']
+        for packet in (a_ui,b_ui):
+            ui_packet(packet,packet.get('commandId'),pid,end)
+            need(not packet['tabletShown'] and not packet['editorFocused'] and not packet['graphicsInventory']['keyboard3D']['raised'])
+        accept_inventory(a_ui['graphicsInventory'],b_ui['graphicsInventory'],profiles=PROFILES)
+        need(a_ui['instance']==b_ui['instance'] and a_ui['generation']==b_ui['generation']
+             and a_ui['commandId']!=b_ui['commandId'] and b_ui['sourceSequence']>a_ui['sourceSequence']
+             and b_ui['elapsedMs']>=a_ui['elapsedMs'] and a_ui['lastCommandSequence']==b_ui['lastCommandSequence']
+             and before['subject']['capturedEpochMs']<=a_ui['capturedEpochMs']<=capture['requestedEpochMs']
+             and capture['capturedEpochMs']<=b_ui['capturedEpochMs']<=after['probe']['sampleEpochMs'])
     h1,h2=first_person_head(before['subject']),first_person_head(after['subject'])
     need(math.dist(before['subject']['source']['avatarPose']['feetPosition'],after['subject']['source']['avatarPose']['feetPosition'])<=.05)
     source=capture['source'];recorded=source['renderTrace']['recordedView']

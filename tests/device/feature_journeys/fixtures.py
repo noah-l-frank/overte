@@ -89,13 +89,16 @@ def payload(resource, run, ticket):
             return 'application/octet-stream', pinned_resource(resource)
         except ValueError:
             return None
+    if resource=='navigation-interactable.v1.js':
+        from pathlib import Path
+        return 'application/javascript',(Path(__file__).resolve().parents[1]/'fixture/scripted_interactable.js').read_bytes()
     if resource == 'marker.png':
         return 'image/png', marker_bytes(run, ticket)
     if resource == 'challenge.wav':
         return 'audio/wav', wav_bytes(run, ticket)
     if resource == 'preview-challenge.v1.wav':
         return 'audio/wav', wav_bytes(run, ticket, profile='recorded-preview-v1')
-    if resource == 'graphics-marker.v1.html':
+    if resource in ('graphics-marker.v1.html','navigation-marker.v1.html'):
         current='/feature-fixture/v1/runs/'+run+'/current'
         body=('<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
               '<title>Owned Graphics marker</title><style>html,body{margin:0;width:100%;height:100%;background:#808080}'
@@ -105,6 +108,7 @@ def payload(resource, run, ticket):
               'if(!/^[0-9a-f]{32}$/.test(v.ticket))return;let p="/feature-fixture/v1/runs/'+run+'/tickets/"+v.ticket+"/marker.png";'
               'let m=document.querySelector("#marker");if(m.getAttribute("src")!==p)m.src=p;'
               '}finally{pending=false}}refresh();setInterval(refresh,100);</script>')
+        if resource=='navigation-marker.v1.html':body=body.replace('Owned Graphics marker','Owned Navigation marker')
         return 'text/html; charset=utf-8',body.encode()
     # Browser documents/scripts are served by BrowserResources from the original
     # parity fixture, with actual HTTP status/response IDs. An HTTP inline.html

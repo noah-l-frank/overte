@@ -506,7 +506,7 @@ def create_adapter(args, base_class):
                 run,manager.binding,scene_url,monotonic=native.monotonic)
 
         @_private
-        def _navigation_stereo(self, target, path, artifact_root, run, scene_url, *, role='primary', source_lock=None, arrival=None):
+        def _navigation_stereo(self, target, path, artifact_root, run, scene_url, *, role='primary', source_lock=None, arrival=None, journal_id=None):
             from adapters.navigation_stereo import NavigationStereo
             from adapters.pico4.graphics_binding import PicoGraphicsBinding
             facade=PicoGraphicsBinding(self);lock=facade._lock(target,source_lock)
@@ -514,7 +514,9 @@ def create_adapter(args, base_class):
             arrival=self._navigation_arrival(target,run,scene_url) if arrival is None else arrival
             return NavigationStereo(arrival,
                 lambda:self._world_render_capture(target,read_only=True,role=role,require_frame_view=True,source_lock=lock),
-                path,artifact_root,run,manager.binding,lock,native.guard,role=role,monotonic=native.monotonic)
+                path,artifact_root,run,manager.binding,lock,native.guard,role=role,journal_id=journal_id,
+                ui_factory=lambda:self._graphics_ui_observer(target),native_factory=lambda:self._native_feature_observer(target),
+                monotonic=native.monotonic)
 
         @_private
         def _navigation_transit(self, target, path, artifact_root, run, scene_url, *, source_lock, directory=None, role='primary'):
