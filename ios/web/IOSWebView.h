@@ -3,6 +3,7 @@
 #pragma once
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #include "IOSWebClosureTrace.h"
+#include "IOSWorldWebTrace.h"
 #endif
 #include <QImage>
 #include <QJSValue>
@@ -35,6 +36,7 @@ public:
     explicit IOSWebView(QQuickItem* parent = nullptr);
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     static QVariantMap featureWebDOMObservation(const QVariantMap& command);
+    static QVariantMap featureWorldWebDOMObservation(const QVariantMap& command);
 #endif
     ~IOSWebView() override;
     QString url() const;
@@ -121,8 +123,9 @@ private:
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     QSGNode* updatePaintNode(QSGNode* oldNode, UpdatePaintNodeData* data) override;
     feature_closures::ContextPointer featureClosureContext() const;
-    QVariantMap featureWebDOMRequest(const QVariantMap& command);
+    QVariantMap featureWebDOMRequest(const QVariantMap& command, bool world = false);
     QVariantMap featureWebPacket(const QVariantMap& command, const QString& status, const QVariantMap& source = {});
+    QVariantMap featureWorldIdentity(bool historical = false) const;
 #endif
     struct Private;
     std::unique_ptr<Private> _private;

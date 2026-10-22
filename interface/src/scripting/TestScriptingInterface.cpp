@@ -71,6 +71,7 @@
 #if defined(Q_OS_IOS)
 #include "../../../tests/device/ios/InstalledBundleIdentity.h"
 #include "../../../tests/device/native/IOSWebClosureBridge.h"
+#include "../../../ios/web/IOSWorldWebTrace.h"
 #include "../../../tests/device/native/IOSLocationBookmarksObservation.h"
 #include "../../../tests/device/native/IOSPlacesModelObservation.h"
 #include "../../../tests/device/native/IOSPeopleModelObservation.h"
@@ -1386,6 +1387,36 @@ QVariantMap TestScriptingInterface::featureIOSWebClosures(const QVariantMap& com
     const auto provider = original.value<overte::ios::feature_closures::Provider>();
     return provider ? provider(command) : QVariantMap();
 }
+
+QVariantMap TestScriptingInterface::featureIOSWorldWeb(const QVariantMap& command) {
+    if (QThread::currentThread()!=thread()) {
+        if (!thread() || !thread()->isRunning()) { return {}; }
+        QVariantMap result;
+        if (!QMetaObject::invokeMethod(this,[&] { result=featureIOSWorldWeb(command); },Qt::BlockingQueuedConnection)) { return {}; }
+        return result;
+    }
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript") || !overte::ios::world_web_trace::command(command)) { return {}; }
+    const auto original=qApp->property(overte::ios::world_web_trace::providerProperty());
+    if (original.userType()!=qMetaTypeId<overte::ios::world_web_trace::Provider>()) { return {}; }
+    const auto provider=original.value<overte::ios::world_web_trace::Provider>();
+    return provider ? provider(command) : QVariantMap();
+}
+
+QVariantMap TestScriptingInterface::featureIOSWorldWebDOM(const QVariantMap& command) {
+    if (QThread::currentThread()!=thread()) {
+        if (!thread() || !thread()->isRunning()) { return {}; }
+        QVariantMap result;
+        if (!QMetaObject::invokeMethod(this,[&] { result=featureIOSWorldWebDOM(command); },Qt::BlockingQueuedConnection)) { return {}; }
+        return result;
+    }
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript") || !overte::ios::world_web_trace::domCommand(command)) { return {}; }
+    const auto original=qApp->property(overte::ios::world_web_trace::domProviderProperty());
+    if (original.userType()!=qMetaTypeId<overte::ios::world_web_trace::Provider>()) { return {}; }
+    const auto provider=original.value<overte::ios::world_web_trace::Provider>();
+    return provider ? provider(command) : QVariantMap();
+}
 #endif
 
 QVariantMap TestScriptingInterface::featureWebDOMObservation(const QVariantMap& command) {
@@ -2231,6 +2262,7 @@ void TestScriptingInterface::saveObject(QVariant variant, const QString& filenam
     QString filepath = QDir::cleanPath(_testResultsLocation + filename);
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     if (filename == "feature-chat-observation.json" || filename == "feature-native-observation.json" || filename == "normal-feature-observation.json"
+            || filename == "feature-ios-world-web.json" || filename == "feature-ios-world-web-dom.json"
             || filename == "feature-ios-web-closures.json" || filename == "feature-ios-location-bookmarks.json" || filename == "feature-ios-places-model.json" || filename == "feature-ios-places-http.json" || filename == "feature-ios-navigation-dialogs.json" || filename == "feature-ios-navigation-state.json" || filename == "feature-ios-scene-inventory.json" || filename == "feature-chat-view-observation.json" || filename == "feature-web-dom-observation.json"
             || filename == "feature-pending-commit-owner.json" || filename == "feature-navigation-replies.json"
             || filename == "feature-process-presence.json" || filename == "feature-graphics-subject.json" || filename == "feature-scene-load.json" || filename == "feature-completed-frame.json" || filename == "feature-vulkan-world-frame.json"

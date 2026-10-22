@@ -11,11 +11,22 @@
 #include <memory>
 
 namespace overte::ios {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+using IOSWebSignalObserver=std::function<std::shared_ptr<void>(const QString&,const QVariant&)>;
+#endif
 class IOSPageEventBridge final : public QObject {
     Q_OBJECT
 public:
     explicit IOSPageEventBridge(QObject* parent = nullptr) : QObject(parent) {}
-    Q_INVOKABLE void emitWebEvent(const QVariant& message) { emit webEventReceived(message); }
+    Q_INVOKABLE void emitWebEvent(const QVariant& message) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+        const auto featureSignal=featureObserver ? featureObserver("script-delivery",message) : std::shared_ptr<void>();
+#endif
+        emit webEventReceived(message);
+    }
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    IOSWebSignalObserver featureObserver;
+#endif
 signals:
     void webEventReceived(const QVariant& message);
     void scriptEventReceived(const QVariant& message);
@@ -40,6 +51,9 @@ public:
     bool receiveEnvelope(const QString& envelope, const QUrl& frame, bool mainFrame);
     void publishScriptEvent(const QVariant& message);
     static QString transportJavaScript(const QString& documentNonce);
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    IOSWebSignalObserver featureObserver;
+#endif
 signals:
     void sendToPage(const QString& envelope);
     void webEventReceived(const QVariant& message);

@@ -198,6 +198,8 @@ public slots:
     Q_INVOKABLE QVariantMap featureIOSCreateState(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureIOSCreateFiles(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureIOSAvatarState(const QVariantMap& command);
+    Q_INVOKABLE QVariantMap featureIOSWorldWeb(const QVariantMap& command);
+    Q_INVOKABLE QVariantMap featureIOSWorldWebDOM(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureIOSSceneInventory(const QVariantMap& command);
 #endif
 

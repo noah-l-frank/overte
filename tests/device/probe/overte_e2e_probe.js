@@ -1557,6 +1557,31 @@
             }
             return true;
         }
+        if (command && (command.action === "feature-ios-world-web" || command.action === "feature-ios-world-web-dom")) {
+            if (command.schemaVersion === 1 && typeof command.commandId === "string"
+                    && /^ios-[0-9a-f]{32}$/.test(command.commandId) && command.commandId.length === 36
+                    && typeof command.runId === "string" && command.runId.length === 32 && /^[0-9a-f]{32}$/.test(command.runId)
+                    && typeof command.fixtureUrl === "string" && command.fixtureUrl.length <= 512
+                    && new RegExp("^https?://[^/?#@\\s]+/feature-fixture/v1/runs/"+command.runId+"/$").test(command.fixtureUrl)
+                    && objectKeysMatch(command,["schemaVersion","commandId","action","runId","fixtureUrl"])) {
+                var worldDOM = command.action === "feature-ios-world-web-dom";
+                if (!worldDOM) {
+                    if (iosNewSourceRequests[command.commandId] || iosNewSourceRequestCount >= 4096) { return; }
+                    iosNewSourceRequests[command.commandId]=true;iosNewSourceRequestCount+=1;
+                }
+                var worldWeb = worldDOM ? {iosWorldWebDOMNativeVersion:1,commandId:command.commandId,status:"unavailable"}
+                    : {iosWorldWebVersion:1,commandId:command.commandId,complete:false};
+                try {
+                    var worldGetter = worldDOM ? Test.featureIOSWorldWebDOM : Test.featureIOSWorldWeb;
+                    if (typeof worldGetter === "function") {
+                        var originalWorldWeb = worldGetter.call(Test,command);
+                        if (originalWorldWeb && originalWorldWeb.commandId === command.commandId) { worldWeb=originalWorldWeb; }
+                    }
+                } catch (_worldWebError) { /* A missing actual transcript never supplies a ready document. */ }
+                Test.saveObject(worldWeb,worldDOM ? "feature-ios-world-web-dom.json" : "feature-ios-world-web.json");
+            }
+            return;
+        }
         if (command && command.action === "feature-ios-web-closures") {
             if (command.schemaVersion === 1 && typeof command.commandId === "string"
                     && /^ios-[0-9a-f]{32}$/.test(command.commandId) && command.commandId.length === 36

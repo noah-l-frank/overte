@@ -100,10 +100,17 @@ class BrowserResources:
                 body = pinned_resource('web-source/index.html').decode('utf-8')
                 title = 'Overte web parity ' + ('second' if name == 'page-b.html' else
                     'recovery unavailable' if status == 404 else 'recovery available' if name == 'recovery.html' else 'reference')
+                # The actual selected resource listener supplies this visible
+                # distinction; a world view has no native address bar.
+                if origin == 'foreign': title = title.replace('parity ', 'parity foreign ', 1)
                 body = body.replace('Overte web parity reference', title)
+                # Keep the pinned DOM/handlers, making the browser journey's
+                # original controls fit its actual bounded world viewport.
+                # Independent video parity resources remain unchanged.
+                body = body.replace('</head>', '<style id="owned-browser-controls-v1">\nbody{margin:8px;font:16px sans-serif;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:4px}\nbody>section{display:contents}section>*{display:none!important}\nsection>label:has(>input#text),section>label:has(>input#foreign),#bridge,#bridgeStatus,#back,#reload,#recovery,section>a,#navigate{display:block!important}\nh1{grid-column:1;grid-row:1;font-size:18px;margin:0}#document{grid-column:1;grid-row:2;font-size:12px;margin:0;overflow-wrap:anywhere}\n#feature-marker{grid-column:2;grid-row:1/span 2;width:400px;max-width:100%;height:auto;justify-self:end}\nsection>label,#bridgeStatus{grid-column:1/-1}button,input,a{font:inherit;min-height:40px;margin:0;padding:6px;box-sizing:border-box}\ninput{width:100%;display:block}#bridgeStatus{min-height:24px;overflow-wrap:anywhere}\n</style>' + '</head>')
                 body = body.replace('href="index.html?page=second"', 'href="page-b.html"')
                 # A real ordinary link exposes the failing/recovered resource.
-                body = body.replace('<button id="back">', '<a id="recovery" href="recovery.html">Recovery document</a><button id="back">')
+                body = body.replace('<button id="back">', '<a id="recovery" href="recovery.html">Recovery document</a><a id="reference" href="reference.html">Reference document</a><button id="back">')
                 marker = '/feature-fixture/v1/runs/' + run + '/tickets/' + ticket + '/marker.png'
                 head = ('<meta name="overte-fixture-response" content="' + response + '">'
                         '<meta name="overte-fixture-owner" content="' + run + '">')

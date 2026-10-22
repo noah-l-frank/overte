@@ -545,6 +545,12 @@ class FixtureState:
             try:pending_owner_command(command,ios=True)
             except (ValueError,RuntimeError):raise ValueError("invalid native pending input owner request") from None
             valid=True
+        elif action in ("feature-ios-world-web", "feature-ios-world-web-dom"):
+            sys.path.insert(0,str(ROOT.parent))
+            from ios.adapters import world_web_source,world_web_dom
+            try:(world_web_source if action == "feature-ios-world-web" else world_web_dom).command(command)
+            except (ValueError,RuntimeError):raise ValueError("invalid iOS world Web source request") from None
+            valid=True
         elif action == "feature-ios-web-closures":
             sys.path.insert(0,str(ROOT.parent))
             from ios.adapters.web_closures import command as web_closures_command

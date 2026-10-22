@@ -22,6 +22,9 @@ void IOSWebChannel::reset(Gate gate) {
     if (!gate) { return; }
     _gate = std::move(gate);
     _bridge = std::make_unique<IOSPageEventBridge>();
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    _bridge->featureObserver=featureObserver;
+#endif
     _transport = std::make_unique<IOSWebTransport>();
     _channel = std::make_unique<QWebChannel>();
     _transport->sender = [this](const QJsonObject& message) {
@@ -76,7 +79,12 @@ bool IOSWebChannel::receiveEnvelope(const QString& envelope, const QUrl& frame, 
 }
 
 void IOSWebChannel::publishScriptEvent(const QVariant& message) {
-    if (_bridge) { emit _bridge->scriptEventReceived(message); }
+    if (_bridge) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+        const auto featureSignal=featureObserver ? featureObserver("page-reply",message) : std::shared_ptr<void>();
+#endif
+        emit _bridge->scriptEventReceived(message);
+    }
 }
 
 QString IOSWebChannel::transportJavaScript(const QString& documentNonce) {
