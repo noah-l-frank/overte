@@ -174,17 +174,66 @@ class ChatCaptureOwner:
     def owned(self):
         need(self.guard() is not False);value=self.store.read()
         if value is None:return None
-        exact(value,{'ownershipVersion','binding','runId','sourceInstance','selfSha256','admitted','active'})
+        need(type(value) is dict and type(value.get('ownershipVersion')) is int and value['ownershipVersion'] in (1,2))
+        fields={'ownershipVersion','binding','runId','sourceInstance','selfSha256','admitted','active'}
+        exact(value,fields if value['ownershipVersion']==1 else fields|{'lifetimeOwner','retirement'})
         from adapters.normal_feature_state import context as binding_context
         binding_context(value['binding'],component_only=self.component_only)
-        need(type(value['ownershipVersion']) is int and value['ownershipVersion']==1 and value['binding']==self.binding
+        need(value['binding']==self.binding
              and type(value['runId']) is str and re.fullmatch(HEX,value['runId'])
              and (value['sourceInstance'] is None or type(value['sourceInstance']) is str and re.fullmatch(HEX,value['sourceInstance']))
              and (value['selfSha256'] is None or type(value['selfSha256']) is str and re.fullmatch(SHA,value['selfSha256']))
              and all(type(value[k]) is bool for k in ('admitted','active'))
              and (not value['active'] or value['admitted'])
              and (not value['admitted'] or value['sourceInstance'] is not None and value['selfSha256'] is not None))
+        if value['ownershipVersion']==2:
+            need(type(value['lifetimeOwner']) is str and re.fullmatch('[a-z0-9][a-z0-9.-]*\\.json',value['lifetimeOwner'])
+                and value['lifetimeOwner']!=self.store.path.name and value['admitted'])
+            proof=value['retirement']
+            if proof is not None:
+                exact(proof,{'openedCommandId','retiredCommandId','inspections'})
+                need(all(type(proof[key]) is str and re.fullmatch(HEX,proof[key]) for key in ('openedCommandId','retiredCommandId'))
+                    and proof['openedCommandId']!=proof['retiredCommandId'] and not value['active']
+                    and type(proof['inspections']) is list and len(proof['inspections'])==2)
+                previous=None
+                for row in proof['inspections']:
+                    exact(row,{'commandId','sequence','capturedEpochMs'})
+                    need(type(row['commandId']) is str and re.fullmatch(HEX,row['commandId'])
+                        and integer(row['sequence'],1) and integer(row['capturedEpochMs'],1)
+                        and row['commandId'] not in (proof['openedCommandId'],proof['retiredCommandId']))
+                    if previous is not None:need(row['commandId']!=previous['commandId'] and row['sequence']>previous['sequence']
+                        and row['capturedEpochMs']>=previous['capturedEpochMs'])
+                    previous=row
         return value
+
+    def bind_lifetime(self,store):
+        owned=self.owned();need(owned is not None and owned['admitted'] and store.path.parent==self.store.path.parent
+            and store.path!=self.store.path and re.fullmatch('[a-z0-9][a-z0-9.-]*\\.json',store.path.name))
+        if owned['ownershipVersion']==1:
+            updated={**owned,'ownershipVersion':2,'lifetimeOwner':store.path.name,'retirement':None}
+            self.store.write(updated,owned);need(self.owned()==updated)
+        else:need(owned['lifetimeOwner']==store.path.name)
+
+    def finish_lifetime(self,lifetime,value):
+        from adapters.chat_journey.cache_lifetime import ChatCacheLifetime
+        need(isinstance(lifetime,ChatCacheLifetime) and lifetime.capture.owner is self)
+        lifetime.lock.assert_held();lifetime.validate()
+        need(lifetime.base['phase']=='retired' and lifetime.store.read()==lifetime.previous)
+        owned=self.match(value);need(owned['ownershipVersion']==2 and owned['lifetimeOwner']==lifetime.store.path.name)
+        rows=lifetime.base['frames'][-2:];proof=dict(
+            openedCommandId=lifetime.base['activation']['request']['commandId'],
+            retiredCommandId=lifetime.base['retirement']['request']['commandId'],
+            inspections=[{key:row['packet'][key] for key in ('commandId','sequence','capturedEpochMs')} for row in rows])
+        need(value==rows[-1]['packet'] and all(row['packet']['source']['events']==[]
+            and row['packet']['source']['eventSequence']==0 for row in rows))
+        if owned['retirement'] is None:
+            updated={**owned,'active':False,'retirement':proof}
+            self.store.write(updated,owned);need(self.owned()==updated)
+        else:
+            original=owned['retirement'];need(not owned['active'] and all(original[key]==proof[key]
+                for key in ('openedCommandId','retiredCommandId'))
+                and all(any(all(row['packet'][key]==saved[key] for key in saved) for row in lifetime.base['frames'])
+                    for saved in original['inspections']))
 
     def begin(self,run):
         need(type(run) is str and re.fullmatch(HEX,run));value=self.owned()
@@ -208,7 +257,8 @@ class ChatCaptureOwner:
         return owned
 
     def activated(self,value):
-        owned=self.match(value);need(owned['admitted'] and value['source']['scopePresent'] and not value['source']['retired'])
+        owned=self.match(value);need(owned['admitted'] and value['source']['scopePresent'] and not value['source']['retired']
+            and (owned['ownershipVersion']==1 or owned['retirement'] is None))
         if not owned['active']:self.store.write({**owned,'active':True},owned)
 
 
@@ -219,7 +269,7 @@ class OwnedChatCapture:
         self.reader,self.owner,self.run=reader,owner,run
 
     def observe(self):
-        owned=self.owner.begin(self.run)
+        owned=self.owner.begin(self.run);need(owned['ownershipVersion']==1)
         original=self.reader.perform(self.run,'inspect');self.owner.match(original)
         if owned['active']:need(original['source']['scopePresent'] and not original['source']['retired'])
         self.owner.admit(original) # Native absence and durable source pin before observe can create a cache.
@@ -230,7 +280,9 @@ class OwnedChatCapture:
     def retire(self):
         owned=self.owner.owned()
         if owned is None:return
-        need(owned['runId']==self.run)
+        # Version 2 belongs to the once-only lifetime ledger, including after
+        # retirement. Generic cleanup must neither resend nor discard its proof.
+        need(owned['runId']==self.run and owned['ownershipVersion']==1)
         started=previous=self.reader.monotonic();need(number(started,0,1e15))
         def budget():
             nonlocal previous

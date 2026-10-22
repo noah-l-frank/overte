@@ -35,6 +35,8 @@ class ChatCacheLifetime:
                 self.reader.instance,self.reader.run,self.reader.sequence,self.reader.captured=value['instance'],capture.run,value['sequence'],value['capturedEpochMs']
                 self.reader.source=deepcopy(value['source'])
         need(not owned['active'] or self.base['phase']!='ready')
+        capture.owner.bind_lifetime(store)
+        owned=capture.owner.owned();need(owned['retirement'] is None or self.base['phase']=='retired')
         self.original_send=self.reader.send;self.reader.send=self.send;self.reader._chat_cache_lifetime_owned=True
 
     def now(self):
@@ -159,4 +161,4 @@ class ChatCacheLifetime:
                 value=self.query('inspect');source=value['source']
                 need(source['retired'] and not source['scopePresent'] and source['openedCommandId']==self.base['activation']['request']['commandId']
                     and source['retiredCommandId']==self.base['retirement']['request']['commandId'])
-            self.save(phase='retired');return self.finished(value)
+            self.save(phase='retired');self.capture.owner.finish_lifetime(self,value);return self.finished(value)

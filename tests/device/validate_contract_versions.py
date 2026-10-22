@@ -124,6 +124,7 @@ REQUIRED = {
     "navigation-bookmark-operations": 2,
     "navigation-bookmark-restart": 1,
     "navigation-bookmark-restart-proof": 1,
+    "native-chat-capture-owner": 2,
     "chat-cache-lifetime": 1,
     "native-chat-observation": 3,
     "native-chat-domain-session": 1,

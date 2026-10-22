@@ -4,7 +4,12 @@
 whole Chat parent. Construction requires an already admitted original
 `OwnedChatCapture`, its unchanged run/binding/native instance/self hash, the
 same exact parent `ScriptSourceLock` object and a separate fixed private ledger.
-Construction performs no input. The parent first establishes the independent
+Construction performs no native input. It durably binds capture-owner v2 to the
+exact original private lifetime ledger before that lifetime can mutate native
+state. Legacy capture-owner v1 remains readable; an admitted original owner
+can acquire this binding only after the existing lifetime history validates.
+An active owner cannot acquire a new empty lifetime. A different lifetime
+filename cannot replace the binding. The parent first establishes the independent
 absent-cache baseline, then admits this source; activation belongs to its first
 normal Open step. Existing v1/v2 source packets cannot supply this ownership.
 
@@ -29,10 +34,18 @@ operation acquisition, durable intent, final copy and guards share the original
 At most 24 native packets are retained; no truncation or old-state adoption
 provides more capacity. The same reader cannot be wrapped by a second owner.
 
+Generic `OwnedChatCapture.observe/retire` refuses a v2 capture owner before any
+query or mutation. It cannot issue a second retirement or discard the original
+proof after a whole-journey lifetime has taken ownership.
+
 Retirement requires two distinct NEW original passive inspections after the
 single Retire attempt, with the original matching fence and actual absent,
 empty receive cache. It retains the capture ownership, lifetime ledger and
-native historical ID fence. It does not claim Qt-object/global-memory release,
+native historical ID fence. Only the validated retired lifetime can record
+capture-owner retirement: actual original open/retire IDs and both distinct
+native inspection IDs, sequences and epochs are retained, and `active` becomes
+false. A lost owner-write receipt permits only passive reconciliation; later
+inspections preserve the first recorded proof. It does not claim Qt-object/global-memory release,
 peer input-file/descriptor release, original process destruction, final physical
 profile restoration, post-Erase independent publication or complete Chat.
 Those remain whole-journey responsibilities. Separate final cache-absence
