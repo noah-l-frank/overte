@@ -14,6 +14,12 @@ Recycling either descriptor for the same original inode cannot preserve its
 guard or authorize closing the foreign replacement. Unsupported OFD query
 sources fail acquisition; legacy standalone file transports gain no such claim.
 
+The original process guard, kernel release method and inherited-owner callback
+are also pinned as actual bound methods. A substituted success function cannot
+qualify source ownership or native FD release. The whole parent can use
+[retained IPC closure](../../native/CHAT_ACTOR_IPC_CLOSE.md) to preserve the full
+original consumed journal after actual original handle release.
+
 The full peer binding uses that actor's original version-2 compiled configure
 revision, actual executable hash and kernel process identity. It never copies
 the primary APK's revision, artifact or process. Legacy source version 1,

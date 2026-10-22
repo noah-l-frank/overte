@@ -20,6 +20,7 @@ from adapters.native_chat_observation import command, validate
 from adapters.native_feature_observation import decode, exact, fresh, integer, need, number
 from adapters.normal_feature_state import context
 from adapters.normal_ui import NativeUIError
+from feature_journeys.contract import typed_equal as same
 
 VERSION=1
 SOURCE='chat-actor-source.v1.json'
@@ -137,6 +138,7 @@ class ChatActorFiles:
             if self.fd_owner is None:os.close(self.fd)
             else:self.fd_owner.close()
             self.fd=-1
+        return self.fd_owner.closed if self.fd_owner is not None else True
 
     def _check_root(self):
         if self.fd_owner is not None:self.fd_owner.require(self.fd)
@@ -338,17 +340,21 @@ class ChatActorFiles:
             and epoch-frame['capturedEpochMs']+math.ceil((ended-measured)*1000)<=1500)
         return value
 
-    def close(self):
+    def close(self,*,retain=False):
         """After the owned cache's actual retirement, remove original IPC only.
 
         The global actor/source/root remains owned by the enclosing fixture.
         Closing an actor transport is never full feature cleanup by itself.
         """
+        need(type(retain) is bool)
         self._check_source();previous=self._owned();need(previous['pending'] is None)
+        fence=getattr(self,'phase_fence',None)
+        if fence is not None:need(fence.flow.source.run==previous['runId'])
         if not previous['closing']:
             frame=decode(self.read());previous=self._owned()
             need(previous['request']['operation'] in ('inspect','retire') and previous['result']['retired']
                  and frame['source']['retired'] and not frame['source']['scopePresent'])
+            if fence is not None:fence.mark()
             closing={**previous,'closing':True};self.store.write(closing,previous);previous=closing
         if not previous['removed']:
             self._check_command(previous)
@@ -356,16 +362,30 @@ class ChatActorFiles:
             need(stamp(info)==previous['result']['stamp'] and hashlib.sha256(raw).hexdigest()==previous['result']['sha256'])
             # The durable closing intent precedes deletion. A crash between an
             # unlink and its journal update remains unresolved, never adoption.
+            if fence is not None:fence.check()
             os.unlink(RESULT,dir_fd=self.fd)
+            self._check_command(previous)
+            if fence is not None:fence.check()
             os.unlink(COMMAND,dir_fd=self.fd);os.fsync(self.fd)
             updated={**previous,'removed':True};self.store.write(updated,previous);previous=updated
         need(not self._exists(COMMAND) and not self._exists(RESULT))
         started=prior=self.monotonic();need(number(started,0,1e15))
         for attempt in range(31):
+            sample_started=self.monotonic();sample_epoch=self.clock_ms()
+            need(number(sample_started,prior,started+1.5) and integer(sample_epoch,1))
             self._check_source()
             if self.released({k:previous['result']['stamp'][k] for k in ('device','inode')}) is True:
+                result=deepcopy(previous) if retain else None
                 self._check_source();need(not self._exists(COMMAND) and not self._exists(RESULT))
-                self.store.discard(previous);self.detach();return
+                need(same(self.store.read(),previous)
+                    and self.released({k:previous['result']['stamp'][k] for k in ('device','inode')}) is True)
+                need(self.detach())
+                need(self.guard() is not False)
+                measured=self.monotonic();epoch=self.clock_ms();ended=self.monotonic()
+                need(number(measured,sample_started,sample_started+1.5) and number(ended,measured,sample_started+1.5)
+                    and integer(epoch,sample_epoch) and epoch-sample_epoch+math.ceil((ended-measured)*1000)<=1500)
+                if not retain:self.store.discard(previous)
+                return result
             now=self.monotonic();need(number(now,0,1e15) and prior<=now);prior=now
             if now-started>=1.5 or attempt==30:break
             self.sleep(min(.05,1.5-(now-started)))

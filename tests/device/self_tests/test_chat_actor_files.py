@@ -9,6 +9,7 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 from adapters.chat_actor_files import ChatActorFiles,COMMAND,RESULT,SOURCE,encode,node
 from adapters.native_chat_observation import NativeChatObservation
@@ -58,9 +59,9 @@ class ActorFileTests(unittest.TestCase):
         path=self.root/SOURCE;path.write_bytes(encode(source));path.chmod(0o600)
         self.actor=FileActor(self.root);self.addCleanup(self.actor.close_all);self.clock=0;self.alive=True
         self.transport=self.make();self.addCleanup(self.transport.detach)
-    def make(self):
+    def make(self,*,strict=False):
         result=ChatActorFiles(self.root,self.store,BINDING,self.sha,lambda:self.alive,self.actor.released,
-            component_only=True,clock_ms=lambda:20000,monotonic=lambda:self.clock,sleep=self.sleep)
+            component_only=True,clock_ms=lambda:20000,monotonic=lambda:self.clock,sleep=self.sleep,require_original_fd=strict)
         self.addCleanup(result.detach);return result
     def sleep(self,delay):self.clock+=delay
     def request(self,operation='inspect',nonce='f'*32):
@@ -91,6 +92,53 @@ class ActorFileTests(unittest.TestCase):
             transport.detach();self.assertEqual(self.root.stat().st_ino,os.fstat(foreign).st_ino)
             self.assertFalse((self.root/COMMAND).exists());self.assertIsNone(self.store.read()['pending'])
         finally:os.close(foreign);os.close(anchor)
+
+    def retired_transport(self):
+        reader=self.reader();reader.perform(RUN,'observe');reader.perform(RUN,'retire');reader.perform(RUN,'inspect')
+        return self.make(strict=True)
+
+    def test_retained_ipc_close_keeps_original_consumed_journal_after_actual_fd_release(self):
+        transport=self.retired_transport();original=self.store.read();result=transport.close(retain=True)
+        self.assertTrue(result['closing']);self.assertTrue(result['removed']);self.assertEqual(result,self.store.read())
+        self.assertEqual(original['request'],result['request']);self.assertEqual(original['result'],result['result'])
+        self.assertEqual(-1,self.actor.fd);self.assertTrue(transport.fd_owner.closed)
+        self.assertFalse((self.root/COMMAND).exists());self.assertFalse((self.root/RESULT).exists());self.assertTrue((self.root/SOURCE).exists())
+
+    def test_retained_ipc_close_cannot_treat_unlink_as_native_handle_release(self):
+        transport=self.retired_transport();self.actor.release=False
+        with self.assertRaises(NativeUIError):transport.close(retain=True)
+        self.assertTrue(self.store.read()['removed']);self.assertFalse(transport.fd_owner.closed)
+        self.assertGreaterEqual(self.actor.fd,0);self.assertFalse((self.root/COMMAND).exists());self.assertFalse((self.root/RESULT).exists())
+
+    def test_current_cleanup_change_after_ipc_close_intent_keeps_original_paths_and_journal(self):
+        import uuid
+        from adapters.chat_journey.phase_fence import ChatPhaseFence,bind_phase_fence
+        from self_tests import test_chat_cleanup_admission as phase_seams
+        transport=self.retired_transport();metadata=phase_seams.ChatCleanupAdmissionTests();metadata.setUp();self.addCleanup(metadata.doCleanups)
+        metadata.activate()
+        with metadata.flow.session():metadata.owner.admit()
+        fence=ChatPhaseFence(metadata.flow,cleanup=metadata.owner);bind_phase_fence(transport,fence)
+        write=self.store.write
+        def changed(value,previous):
+            write(value,previous)
+            if value['closing']:metadata.h.journal.activate(RUN,uuid.uuid4().hex,'cleanup',{})
+        self.store.write=changed
+        with self.assertRaises(NativeUIError),metadata.flow.session():transport.close(retain=True)
+        self.assertTrue(self.store.read()['closing']);self.assertFalse(self.store.read()['removed'])
+        self.assertTrue((self.root/COMMAND).exists());self.assertTrue((self.root/RESULT).exists());self.assertGreaterEqual(self.actor.fd,0)
+
+    def test_retained_final_record_copy_cannot_age_native_fd_absence_under_either_frozen_clock(self):
+        for clock in ('host','native'):
+            if clock!='host':self.setUp()
+            transport=self.retired_transport();epoch=[20000];transport.clock_ms=lambda:epoch[0]
+            def slow(value):
+                result=deepcopy(value)
+                if type(value) is dict and value.get('actorFilesVersion')==1 and value.get('removed') is True:
+                    if clock=='host':self.clock+=2
+                    else:epoch[0]+=2000
+                return result
+            with self.subTest(clock=clock),patch('adapters.chat_actor_files.deepcopy',slow),self.assertRaises(NativeUIError):transport.close(retain=True)
+            self.assertIsNotNone(self.store.read());self.assertTrue(self.store.read()['removed'])
 
     def test_stale_original_reply_is_preserved_while_waiting_never_relabelled(self):
         original=self.produce();request=self.request(nonce='e'*32);self.transport.send(request)
