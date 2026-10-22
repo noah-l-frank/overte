@@ -190,6 +190,21 @@ class PicoLifecycleBindingTests(unittest.TestCase):
             with self.assertRaises((ValueError,RuntimeError)):reader.read(RUN)
             self.assertEqual(1,len(boundary.commands));self.assertEqual([],self.native.inputs)
 
+    def test_actual_background_owner_factory_keeps_parent_lock_and_uses_original_os_candidate_status(self):
+        from adapters.pico4.lifecycle_background_owner import PicoLifecycleBackground
+        self.native.identity='123:400'
+        lock=self.adapter._script_journey()._lock(self.native.target)
+        session=PicoOpenXrAdapterSession(FakeTransport(),'explicit-background-target',self.fixture.fixture.state_root)
+        session.begin(self.native.identity)
+        with lock.held(),patch.object(self.adapter,'pico_input_session',return_value=session),patch.object(self.adapter,'_lifecycle_world',side_effect=AssertionError('Live runtime not requested')):
+            owner=self.adapter._lifecycle_background_owner(self.native.target,RUN,source_lock=lock)
+            self.assertIsInstance(owner,PicoLifecycleBackground);self.assertIs(owner.lock,lock);self.assertIsNone(owner.runtime)
+            self.assertIsNone(owner.store.read());self.assertEqual('lifecycle-background-owner.json',owner.store.path.name)
+            self.assertTrue(owner.status()['foreground']);self.assertIsNone(owner.runtime)
+            self.native.digest='f'*64
+            with self.assertRaises((ValueError,RuntimeError)):owner.status()
+        self.assertEqual([],self.native.inputs)
+
     def test_actual_draft_factory_uses_original_normal_bridge_and_rejects_changed_field_before_transport(self):
         import uuid
         from copy import deepcopy

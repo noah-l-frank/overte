@@ -71,6 +71,7 @@ TESTS = (
     test("authentication-feature-engine", "interaction", PYTHON, "device/test_authentication_journey.py", "PicoAuthenticationEngineTests"),
     test("tablet-home-ray", "interaction", PYTHON, "device/test_tablet_home.py"),
     test("lifecycle-input-owner", "interaction", PYTHON, "device/test_lifecycle_input.py", requires=("node",)),
+    test("lifecycle-background-owner", "interaction", PYTHON, "device/test_lifecycle_background_owner.py", requires=("node",)),
     test("normal-create", "interaction", PYTHON, "device/test_normal_create.py"),
     test("create-file-ui", "interaction", PYTHON, "device/test_create_file_ui.py"),
     test("create-file-native-ui", "interaction", PYTHON, "device/test_create_file_ui_native.py", requires=("c++", "pkg-config")),

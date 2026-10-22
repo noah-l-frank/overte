@@ -6,6 +6,7 @@ import hashlib
 import os
 from pathlib import Path, PurePosixPath
 import re
+import time
 
 from execution_identity import file_digest
 from adapters.pico4.navigation import NativeNavigationIO, PicoNavigation, configured_scene, discard_stopped_state
@@ -1242,6 +1243,33 @@ def create_adapter(args, base_class):
             from adapters.pico4.lifecycle_background_source import bind_source
             return bind_source(self,target,self._native_feature_observer(target),source_lock=source_lock,intent=intent)
 
+        @_private
+        def _lifecycle_background_owner(self,target,run,*,source_lock=None,world=None):
+            from adapters.pico4.lifecycle_background_owner import PicoLifecycleBackground
+            from adapters.pico4.lifecycle_world import PicoLifecycleWorld
+            from adapters.pico4.graphics_binding import PicoGraphicsBinding
+            from adapters.normal_feature_state import context
+            path=self._lifecycle_world_store(target).path.with_name('lifecycle-background-owner.json')
+            source_lock=self._script_journey()._lock(target,source_lock or (world.lock if world is not None else None))
+            disk=PrivateFeatureState(path).read()
+            # Reading an old private archive is not a foreground assertion.
+            # The OS facade below revalidates actual PID/start and candidate
+            # before normal activation or acquiring any live Qt runtime.
+            binding=context(disk['binding']) if disk is not None else self._scripts(target).binding
+            if world is not None:
+                _need(isinstance(world,PicoLifecycleWorld) and world.lock is source_lock and world.run==run and world.binding==binding)
+            facade=PicoGraphicsBinding(self)
+            def runtime(intent):
+                actual=world or self._lifecycle_world(target,run,source_lock=source_lock)
+                _need(actual.binding==binding and self._scripts(target).binding==binding)
+                native=self._native_feature_observer(target)
+                return actual,self._lifecycle_background_source(target,source_lock=source_lock,intent=intent),native
+            return PicoLifecycleBackground(path,run,binding,source_lock,
+                lambda owned:facade._graphics_lifecycle_status(target,owned),
+                lambda operation,owned:facade._graphics_lifecycle_input(target,operation,owned),runtime,
+                monotonic=world.monotonic if world is not None else time.monotonic,
+                sleep=world.sleep if world is not None else time.sleep)
+
         def _lifecycle_back_store(self,target):
             state,_ui=self._script_paths(target)
             return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-','lifecycle-back-owner-')))
@@ -1839,6 +1867,8 @@ def create_adapter(args, base_class):
                       and not feature_error and not script_error and not probe_error and not origin_error and not chat_error and PrivateFeatureState(state).read() is None
                       and self._lifecycle_back_store(target).read() is None
                       and (self._lifecycle_world_store(target,create=False) is None or self._lifecycle_world_store(target,create=False).read() is None)
+                      and (self._lifecycle_world_store(target,create=False) is None or
+                           PrivateFeatureState(self._lifecycle_world_store(target,create=False).path.with_name('lifecycle-background-owner.json')).read() is None)
                       and self._script_restart_inputs_store(target).read() is None
                       and self._script_restart_store(target).read() is None
                       and self._script_files_store(target).read() is None and self._account_probe_store(target).read() is None
