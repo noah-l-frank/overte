@@ -108,3 +108,12 @@ frame and the selection responsibility. A later real arrival acquires a distinct
 new frame before close; it never repeats the selection or rewrites the earlier
 not-ready original. Fenced B pixels and fresh field sources are acquired after
 closure, separately from the input return.
+
+The connected first-process journey now runs add/cancel, add, rename/cancel,
+rename, both searches, directory selection to B, actual missing lookup, dismissal
+and bookmark return to A through normal inputs and fresh complete observations.
+The return opens a genuinely new modeled Places root admitted by its actual
+surface journal. New physical HTTP requests have distinct XHR/reply identities;
+earlier received originals remain untouched. Its final fenced image must differ
+from the immediately preceding original. A replaced page without a new owned
+open cannot send a token. Restart and paired restoration remain separate work.

@@ -41,3 +41,11 @@ and temporary bookmark files with modeled native Qt controls/models. They check
 cancellation, rename/delete preserving unowned entries, ignored ACKs, failed
 journal writes, changed roots, collisions, foreign calls and source rollback.
 Native compilation, actual product behavior/timing and devices remain unverified.
+
+When the coordinator supplies an actual `NavigationSurfaceActions` owner, the
+recipe admits the root of its last acknowledged ordinary open. The complete
+surface carrier and in-memory action stay sealed through every token capture;
+its original UI/source/time floors must precede the new input. This allows a
+newly created actual Places page after bookmark-return reopening without
+accepting an arbitrary replacement of the previous page. Standalone recipes
+retain their original same-page rule. No root is substituted in old originals.

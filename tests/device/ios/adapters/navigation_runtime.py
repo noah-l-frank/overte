@@ -173,7 +173,8 @@ class IOSNavigationRuntime(IOSScriptRuntime):
         io=IOSPlacesIO(SimpleNamespace(native=native,capture=native.capture))
         return IOSPlacesFlow(io,source['observer'].places_model(source['clock_source']),source['binding'],admission.run,
             proof['providerInputs'],proof['originals']['ui']['instance'],admission.lock,source['check'],intent,
-            previous=previous,floor=proof['originals']['ui'] if floor is None else floor)
+            previous=previous,floor=proof['originals']['ui'] if floor is None else floor,
+            surface=self._navigation_surface_actions(selector,admission))
 
     def _navigation_scene_inputs(self,selector,admission):
         need(isinstance(admission,NavigationAdmissionOwner));admission.bound()

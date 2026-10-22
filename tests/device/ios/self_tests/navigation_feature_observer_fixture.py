@@ -7,6 +7,7 @@ retained original packet is rewritten to bridge otherwise unrelated fixtures.
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
 import json
+import uuid
 from urllib.parse import parse_qs,urlsplit
 from unittest.mock import patch
 
@@ -152,12 +153,13 @@ class Whole:
         return call
 
     def materialize(self):
+        if self.http.events:self.http.xhr,self.http.reply=uuid.uuid4().hex,uuid.uuid4().hex
         self.http.begin(self.harness.origin)
         status,raw,response=self.harness.get('/api/v1/places?status=online&per_page=1000')
         if status!=200:raise AssertionError('Actual Places response failed')
         self.http.response(raw,response)
         page=self.http.model(raw,origin=self.harness.origin,run=self.run)['roots'][0]
-        page.update(bookmarkAddresses={},popup='none',serverDraft='')
+        page.update(rootId=self.flow_fixture.f.root_id,bookmarkAddresses={},popup='none',serverDraft='')
         page['lists']['bookmarks']['rows']=[]
         self.model.pages=[page];self.model.shown=True
         if hasattr(self,'widget'):self.widget.materialized(raw,page)
