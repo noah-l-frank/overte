@@ -181,3 +181,28 @@ phase/input fence and whole browser finalization are still being composed.
 These private capture factories and the common verifier do not advertise a
 complete Web feature. Host tests use explicit Qt/DOM/Java/HMD/GPU/SDK seams;
 the full application, Android build and physical headset remain unqualified.
+
+
+## Normal Home/app entry and final fixture admission
+
+`PicoBrowserScriptIO`1 keeps the original Pico QML/controller input route and
+requires the whole owner's durable begin/complete callbacks for each ordinary
+Script input. `PicoBrowserEntry`1 uses the actual observed physical Home ray,
+original app UUID references and ordinary page controls; it never creates a
+Tablet app or adopts a foreign open tablet. An acknowledged page/Home input
+only permits passive reads. Ignored or lost results never authorize a second
+click. Tablet closure requires an owned lease and observed actual closure.
+
+The existing Chat input phase/clock implementation is extracted unchanged into
+`PhaseInputFence`1. Chat keeps its strict flow and cleanup ownership admission.
+Browser owners supply their own exact source journal admission. Every input
+is marked before its durable child intent, then checked at the original final
+native writer. Controller envelope callbacks stay purely on the host under
+the original session lock. Fresh HTTP responses cannot erase time spent in
+the original CAS; both host and native1.5-second bounds remain.
+
+The owning `browser-entry` selection exercises the real Pico Navigation path
+with explicit SDK/OpenXR/Home effects: initial open, Home, original app/paging,
+close, ignored/lost Home, ignored page effect, changed fixture and slow host
+CAS/frozen native clock. The whole owner/phase/actor/archive coordination remains
+partial; these normal input components alone grant no feature capability.

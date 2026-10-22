@@ -12,6 +12,8 @@ REQUIRED = {
     "pico-browser-stereo-source": 1,
     "pico-browser-stereo-owner": 1,
     "stereo-browser-evidence": 1,
+    "normal-input-phase-fence": 1,
+    "pico-browser-entry": 1,
     "pico-browser-originals": 2,
     "pico-browser-geometry": 1,
     "pico-browser-app-controls": 1,

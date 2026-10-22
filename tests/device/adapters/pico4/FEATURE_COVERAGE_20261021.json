@@ -585,7 +585,8 @@
         "tests/device/feature_journeys/WEB_SOURCE.md",
         "tests/device/adapters/native_web_runtime.py",
         "tests/device/native/WEB_RUNTIME_OBSERVATION.md",
-        "android/common/web/java/org/overte/web/WebTextureObservation.java"
+        "android/common/web/java/org/overte/web/WebTextureObservation.java",
+        "tests/device/adapters/pico4/browser_source.py"
       ],
       "declaredCheckpoints": 19,
       "inputVerbs": [
@@ -621,8 +622,8 @@
       ],
       "missingOperationsOrEvidence": [
         "Normal trusted DOM input from an actual controller ray/world-surface hit",
-        "Cumulative original document/admission/native script echo journals",
-        "Original HTTP/document receipt, stereo pixels and independent publisher composition"
+        "Whole normal script/entity/document coordinator with durable recovery ownership",
+        "Original HTTP/DOM joins, world-specific stereo pixels, independent publisher and complete final retirement"
       ],
       "requiredOriginalEvidence": [
         "Original native Web view/document/main-frame URL/response ID",
@@ -664,7 +665,17 @@
         "android/common/web/src/PicoBrowserFeatureE2E.inc",
         "tests/device/self_tests/test_pico_browser_geometry.py",
         "tests/device/self_tests/test_pico_browser_io.py",
-        "android/vr/pico/tests/device/test_pico_browser_originals.py"
+        "android/vr/pico/tests/device/test_pico_browser_originals.py",
+        "tests/device/adapters/pico4/browser_entry.py",
+        "tests/device/adapters/pico4/browser_apps.py",
+        "tests/device/adapters/pico4/browser_measurements.py",
+        "tests/device/adapters/pico4/browser_stereo.py",
+        "tests/device/adapters/pico4/browser_stereo_source.py",
+        "tests/device/adapters/phase_input_fence.py",
+        "tests/device/feature_journeys/stereo_browser_evidence.py",
+        "android/vr/pico/tests/device/test_pico_browser_entry.py",
+        "tests/device/self_tests/test_pico_browser_stereo.py",
+        "tests/device/self_tests/test_stereo_browser_evidence.py"
       ],
       "declaredCheckpoints": 26,
       "inputVerbs": [
@@ -703,9 +714,9 @@
         "open"
       ],
       "missingOperationsOrEvidence": [
-        "Complete normal VR tablet fixture-app opening, wheel scrolling, keyboard and document-transition flow",
-        "Normal inline-app entry, original held-callback delivery and whole-owner recovery",
-        "Independent DOM/bridge/stereo-image publisher and complete original Script/resource retirement"
+        "Whole normal Script/app/Home/wheel/keyboard/document-transition coordinator with durable original input and recovery ownership",
+        "Independent actor publication and complete joined inline/held-callback flow across all shared steps",
+        "Whole final Script/native/Java/renderer/capture quiet retirement and immutable archive"
       ],
       "requiredOriginalEvidence": [
         "Original VR tablet Web view and current document admission",
@@ -718,7 +729,7 @@
         "Revoke leases and retire callback/grant authority",
         "Observe actual source destruction and closed quiet baseline"
       ],
-      "nextExecutableStep": "Compose the frozen Phone whole browser flow around the Pico originals factory; implement ordinary surface wheel input for offscreen controls, then actual Pico stereo acquisition and independent final closure.",
+      "nextExecutableStep": "Compose the frozen Phone whole browser owner around the existing Pico normal app/Home/input and original stereo factories, retaining the exact root lock and final phase fence; then independently publish original actor samples and verify final quiet/archive retirement.",
       "nativeCompilation": "Selected native backend translation unit and original Pico pointer/provider bodies host-compiled; full application unverified",
       "deviceQualification": "untested"
     },

@@ -1476,3 +1476,16 @@ run had one new test calling the wrong engine method, corrected and verified
 in the owning group. Navigation itself remained green. Full browser normal
 coordination, phase input ownership, actor loop and final quiet retirement remain
 open. Completed source/host feature areas remain3/14; devices are untested.
+
+
+## Normal browser entry and shared final input phase fence
+
+The normal original Pico Home/app/paging/close route now composes with durable
+input callbacks and the shared original PhaseInputFence1. Chat retains its
+original flow/cleanup checks and all unchanged1.5-second clock/CAS guards.
+The six Browser entry cases and six direct Chat fence cases pass12/12 in1.502s.
+The owning entry, complete Chat phase group and coverage pass3/118 in15.85s
+(entry2.182s, Chat phase13.608s). The initial entry seam modeled an always-open
+app-only tablet and exposed invalid closed producer DTOs; only that synthetic
+source was corrected. Production admission was retained. Browser whole owner,
+independent actor and final quiet archive remain unfinished.

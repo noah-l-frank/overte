@@ -1,6 +1,8 @@
 {
   "schemaVersion": 1,
   "contracts": {
+    "normal-input-phase-fence": {"current": 1, "reads": [1]},
+    "pico-browser-entry": {"current": 1, "reads": [1]},
     "pico-browser-stereo-source": {"current": 1, "reads": [1]},
     "pico-browser-stereo-owner": {"current": 1, "reads": [1]},
     "stereo-browser-evidence": {"current": 1, "reads": [1]},

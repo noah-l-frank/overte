@@ -821,3 +821,16 @@ pass in4.93s. The initial harness mismatched a requested scroll-up control with
 scroll-down geometry; correcting that synthetic original made the unchanged
 strict validator pass. App entry, full stereo/actor flow and final retirement
 remain open. Completed areas stay3/14; no APK/device qualification is claimed.
+
+
+## Visible browser stereo and normal fixture app entry
+
+The [browser source handoff](BROWSER_ORIGINALS.md) now includes original
+shown-tablet stereo capture/retirement, independent two-eye pixel verification
+in the existing common Journey and ordinary Home/app/paging/close input with
+final fixture admission. Closed-tablet Navigation checks are preserved. The
+selected stereo/browser/transport checks pass3/117 in35.48s; normal Browser
+entry, Chat phase regression and coverage pass3/118 in15.85s. Host/native SDK,
+Qt/DOM/Java/HMD/GPU seams remain explicit; no application or device result is
+implied. Whole browser coordination, independent publication and full quiet
+archive retirement remain open. Completed areas stay3/14.
