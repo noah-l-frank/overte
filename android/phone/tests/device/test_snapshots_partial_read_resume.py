@@ -66,7 +66,7 @@ def partial_child(boundary,url,queue,command):
 
 
 class SnapshotPartialReadResumeTests(unittest.TestCase):
-    def partial(self,native_edit=lambda _:None):
+    def partial(self,native_edit=lambda _:None,*,empty_after=None):
         import tempfile
         temporary=tempfile.TemporaryDirectory(prefix='snapshot-actual-partial-');self.addCleanup(temporary.cleanup)
         b=roles.SnapshotRolesBoundary(temporary.name);b.clean();original=b.native_source.mutate
@@ -74,13 +74,18 @@ class SnapshotPartialReadResumeTests(unittest.TestCase):
         b.native_source.mutate=changed
         with b.role() as role:
             batch=role.batch
-            def actual_then_pending():batch();raise source.SnapshotPending()
+            def actual_then_pending():
+                batch()
+                if empty_after is not None:role.checkpoint(**{empty_after:{}})
+                raise source.SnapshotPending()
             role.batch=actual_then_pending
             with self.assertRaises(source.SnapshotPending):role.read(0)
             frame=deepcopy(role.frames[-1]);header=deepcopy(role.previous)
             self.assertEqual('ready',role.state['phase']);self.assertIsNone(role.state['pending'])
             self.assertTrue(frame['diagnostic']);self.assertTrue(frame['groups'])
-            self.assertNotIn('nativeAfter',frame);self.assertNotIn('avatarAfter',frame)
+            for key in ('nativeAfter','avatarAfter'):
+                if key==empty_after:self.assertEqual({},frame[key])
+                else:self.assertNotIn(key,frame)
         b.native_source.mutate=original
         return b,frame,header
 
@@ -114,6 +119,16 @@ class SnapshotPartialReadResumeTests(unittest.TestCase):
         b,partial,_=self.partial()
         b.avatar_source.edit=lambda value:value.update(sequence=partial['avatarBefore']['sequence'])
         with b.role() as role,self.assertRaises(NativeUIError):role.avatar.read()
+
+    def test_present_invalid_native_after_in_actual_immutable_diagnostic_cannot_fall_back(self):
+        b,partial,_=self.partial(empty_after='nativeAfter')
+        self.assertTrue(partial['nativeBefore']);self.assertEqual({},partial['nativeAfter'])
+        with self.assertRaises(NativeUIError),b.role():pass
+
+    def test_present_invalid_avatar_after_in_actual_immutable_diagnostic_cannot_fall_back(self):
+        b,partial,_=self.partial(empty_after='avatarAfter')
+        self.assertTrue(partial['avatarBefore']);self.assertEqual({},partial['avatarAfter'])
+        with self.assertRaises(NativeUIError),b.role():pass
 
     def test_actual_batch_pending_archives_raw_prefix_then_cold_actor_resume_and_close(self):
         rig=base.SnapshotsActorTests('test_own_original_quiet_and_actual_closed_phase_precede_actor_retirement')

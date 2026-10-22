@@ -108,7 +108,7 @@ class PhoneSnapshotsRole(PhoneCreateRole):
             # A pending read can archive its actual before packet without an
             # after packet. That original is still a continuity floor when a
             # new reader resumes; diagnostic does not mean unobserved.
-            previous=next((row.get('nativeAfter') or row['nativeBefore'] for row in reversed(history)
+            previous=next((row['nativeAfter'] if row.get('nativeAfter') is not None else row['nativeBefore'] for row in reversed(history)
                 if row.get('nativeAfter') is not None or row.get('nativeBefore') is not None),None)
             if previous is not None:restore_native(self.native,previous)
             else:restore_native(self.native,baseline['native'])
@@ -122,7 +122,7 @@ class PhoneSnapshotsRole(PhoneCreateRole):
                     setattr(self.measurements.scripts,key,deepcopy(value))
             self.measurements.roots.last=deepcopy(groups[-1]['rootsAfter'])
             self.measurements.snapshot.last=deepcopy(groups[-1]['snapshot'])
-            previous=next((row.get('avatarAfter') or row['avatarBefore'] for row in reversed(history)
+            previous=next((row['avatarAfter'] if row.get('avatarAfter') is not None else row['avatarBefore'] for row in reversed(history)
                 if row.get('avatarAfter') is not None or row.get('avatarBefore') is not None),baseline['avatar'])
             self.avatar.restore([previous])
             for key,reader in (('touch',self.touch),('world',self.world),('marker',self.marker)):
