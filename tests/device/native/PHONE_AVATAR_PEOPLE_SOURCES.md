@@ -116,3 +116,10 @@ bounded wire read. The native XHR consumer joins these exact original bytes,
 response ID, own HTTPS origin and completed response digest. Semantically
 similar query reorderings, foreign origins or a different body cannot borrow a
 successful response. No request body, token or password is retained.
+
+Camera restoration retains the actual synchronous original camera read and
+clock at return. It is immutable after success. Later ordinary camera input
+(including the owner's return from prepared Selfie to its initial camera mode)
+never revives lease authority or causes another camera write. The current view
+remains independently observable; final owner cleanup must verify its own
+initial view separately. Lost ownership before return still prevents restoration.

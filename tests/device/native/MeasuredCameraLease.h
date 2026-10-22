@@ -3,6 +3,7 @@
 #pragma once
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PHONE_INTERFACE)
 #include <QObject>
+#include <QDateTime>
 #include <QPointer>
 #include <QVariantMap>
 #include <QUuid>
@@ -44,14 +45,16 @@ public:
         return true;
     }
     bool release(const Source& camera) {
-        if (_phase=="restored") { return _object && camera.object==_object && camera.read && valid(camera.read())
-            && camera.read().value("mode")==_original.value("mode") && sameView(camera.read(),_original); }
+        // Authority was returned at the retained original restoration read.
+        // Later ordinary camera input must not revive this lease or be reset.
+        if (_phase=="restored") { return !_restoration.isEmpty(); }
         if (!owns(camera) || !camera.apply) { return false; }
         _phase="restoring";_applying=true;camera.apply(_original,false);_applying=false;
         const auto actual=camera.read();
         if (!_object || camera.object!=_object || !valid(actual) || actual.value("mode")!=_original.value("mode") || !sameView(actual,_original)) {
             _phase="lost";return false;
         }
+        _restoration={{"capturedEpochMs",QDateTime::currentMSecsSinceEpoch()},{"originalObject",true},{"view",actual}};
         _phase="restored";return true;
     }
     QVariantMap observe(const Source& camera) {
@@ -61,7 +64,7 @@ public:
         const auto current=original && camera.read ? camera.read() : QVariantMap();
         return {{"measuredCameraLeaseVersion",1},{"instance",_instance},{"phase",_phase},
             {"originalObject",original},{"originalView",_original},{"heldView",_held},{"currentView",current},
-            {"foreignModeChanges",_foreignModeChanges}};
+            {"foreignModeChanges",_foreignModeChanges},{"restoration",_restoration.isEmpty() ? QVariant() : QVariant(_restoration)}};
     }
     bool restored() const { return _phase=="restored"; }
 private:
@@ -82,7 +85,7 @@ private:
     }
     QPointer<QObject> _object;
     QString _instance,_phase {"empty"};
-    QVariantMap _original,_held;
+    QVariantMap _original,_held,_restoration;
     int _foreignModeChanges {0};bool _applying {false};
 };
 }

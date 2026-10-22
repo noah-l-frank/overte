@@ -21,7 +21,7 @@ def camera():
     view={key:deepcopy(original[key]) for key in ('mode','position','rotation','projection')}
     held=deepcopy(view);held['mode']='independent'
     source=dict(measuredCameraLeaseVersion=1,instance='c'*32,phase='held',originalObject=True,
-        originalView=view,heldView=held,currentView=deepcopy(held),foreignModeChanges=0)
+        originalView=view,heldView=held,currentView=deepcopy(held),foreignModeChanges=0,restoration=None)
     return original,source
 
 
@@ -44,13 +44,15 @@ class CameraLeaseTests(unittest.TestCase):
     def test_lost_or_replaced_camera_cannot_reacquire_ownership(self):
         view,source=camera();source.update(phase='lost',foreignModeChanges=1);camera_lease(source,view)
         old=dict(source=dict(fixtureInstance='e'*32,runId=RUN,createdEpochMs=10,originalInput={},originalView=view,objects=[],phase='active',cameraLease=source))
-        new=deepcopy(old);new['source']['cameraLease'].update(phase='held',foreignModeChanges=0)
+        new=deepcopy(old);new['source']['cameraLease'].update(phase='held',foreignModeChanges=0,restoration=None)
         with self.assertRaises(NativeUIError):continuation(old,new)
         source.update(originalObject=False,currentView={});camera_lease(source,view)
     def test_restoration_requires_original_mode_and_original_native_view(self):
-        view,source=camera();source.update(phase='restored',currentView=deepcopy(source['originalView']));camera_lease(source,view)
-        source['currentView']['position'][2]=9
-        with self.assertRaises(NativeUIError):camera_lease(source,view)
+        view,source=camera();source.update(phase='restored',currentView=deepcopy(source['originalView']),
+            restoration=dict(capturedEpochMs=20000,originalObject=True,view=deepcopy(source['originalView'])));camera_lease(source,view,20000)
+        source['currentView'].update(mode='first person look at',position=[0,1.6,9]);camera_lease(source,view,20000)
+        source['restoration']['view']['position'][2]=9
+        with self.assertRaises(NativeUIError):camera_lease(source,view,20000)
 
 
 class ModelMeasurementTests(unittest.TestCase):

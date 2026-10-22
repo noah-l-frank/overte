@@ -72,7 +72,7 @@ def validate(value,request,pid,epoch):
         and source['originalInput']['runId']==source['runId'])
     original_view(source['originalView']);need(abs(source['originalInput']['imageExtent'][0]/source['originalInput']['imageExtent'][1]
         -source['originalView']['aspectRatio'])<=.005)
-    if 'cameraLease' in source:camera_lease(source['cameraLease'],source['originalView'])
+    if 'cameraLease' in source:camera_lease(source['cameraLease'],source['originalView'],value['capturedEpochMs'])
     objects=source['objects'];need(type(objects) is list and 0<=len(objects)<=1)
     ids=[]
     for index,item in enumerate(objects):
@@ -103,8 +103,8 @@ def validate(value,request,pid,epoch):
     return value
 
 
-def camera_lease(value,view):
-    exact(value,{'measuredCameraLeaseVersion','instance','phase','originalObject','originalView','heldView','currentView','foreignModeChanges'})
+def camera_lease(value,view,epoch=9007199254740991):
+    exact(value,{'measuredCameraLeaseVersion','instance','phase','originalObject','originalView','heldView','currentView','foreignModeChanges','restoration'})
     need(type(value['measuredCameraLeaseVersion']) is int and value['measuredCameraLeaseVersion']==1 and nonce(value['instance'])
         and value['phase'] in ('preparing','held','restoring','restored','lost') and type(value['originalObject']) is bool
         and integer(value['foreignModeChanges'],0,1000000000))
@@ -119,10 +119,15 @@ def camera_lease(value,view):
     if value['heldView']:
         need(value['heldView']['mode']=='independent')
         for key in ('position','rotation','projection'):need(near(original[key],value['heldView'][key],.000001))
-    if value['phase'] in ('held','restored'):
-        expected=value['heldView'] if value['phase']=='held' else original
+    if value['phase']=='held':
+        expected=value['heldView']
         need(value['originalObject'] and value['foreignModeChanges']==0 and value['currentView']['mode']==expected['mode'])
         for key in ('position','rotation','projection'):need(near(expected[key],value['currentView'][key],.000001))
+    restored=value['restoration']
+    if value['phase']=='restored':
+        exact(restored,{'capturedEpochMs','originalObject','view'});need(integer(restored['capturedEpochMs'],1,epoch) and restored['originalObject'] is True
+            and restored['view']==original and value['foreignModeChanges']==0)
+    else:need(restored is None)
     return value
 
 
@@ -184,6 +189,10 @@ def continuation(previous,value):
             and b['foreignModeChanges']>=a['foreignModeChanges'])
         transitions={'held':{'held','restored','lost'},'restored':{'restored'},'lost':{'lost'},'preparing':{'held','lost'},'restoring':{'restored','lost'}}
         need(b['phase'] in transitions[a['phase']])
+        if a['restoration'] is not None:need(same_restoration(a['restoration'],b['restoration']))
+
+
+def same_restoration(a,b):return type(a) is type(b) and a==b
 
 
 def ready(value,avatar):

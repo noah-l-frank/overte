@@ -75,6 +75,10 @@ int main(int argc,char** argv) {
             || lease.observe(cameraSource).value("originalView").toMap()!=cameraOriginal) { return 11; }
     if (lease.prepare(cameraSource) || !lease.release(cameraSource) || actualView!=cameraOriginal || !lease.restored()
             || !lease.release(cameraSource)) { return 12; }
+    const auto returnedViewProof=lease.observe(cameraSource).value("restoration").toMap();
+    if (returnedViewProof.isEmpty() || returnedViewProof.value("view").toMap()!=cameraOriginal || !returnedViewProof.value("originalObject").toBool()) { return 23; }
+    actualView.insert("mode","first person look at");actualView.insert("position",QVariantList{8.,1.6,4.});const auto laterView=actualView;
+    if (!lease.release(cameraSource) || actualView!=laterView || lease.observe(cameraSource).value("restoration").toMap()!=returnedViewProof) { return 24; }
     Lease replaced;actualView=cameraOriginal;if (!replaced.prepare(cameraSource)) { return 13; }
     QObject foreign;auto foreignSource=cameraSource;foreignSource.object=&foreign;
     if (replaced.owns(foreignSource) || replaced.release(foreignSource) || replaced.observe(foreignSource).value("originalObject").toBool()) { return 14; }
