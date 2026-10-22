@@ -7,6 +7,7 @@
 #include <EntityTree.h>
 #include <RenderableModelEntityItem.h>
 #include <QMap>
+#include <cmath>
 
 namespace overte::e2e {
 // Loaded render-model facts, separate from the independently received Avatar
@@ -30,6 +31,13 @@ public:
                 if (joints.size()>1024) { return {}; }
                 QVariantMap jointIndices;for (const auto& name:joints) { jointIndices.insert(name,avatar->getJointIndex(name)); }
                 const auto rigOriginal=model->getRig().e2eAnimationObservation();QVariantMap rigPose;
+                const auto externalPose=model->getRig().e2eExternalPoseObservation();
+                const bool meshReady=geometry && model->isRenderable() && !model->needsFixupInScene();
+                const auto box=meshReady ? avatar->getBounds() : AABox();
+                const auto corner=box.getCorner(),dimensions=box.getDimensions();
+                const bool boundsReady=meshReady && std::isfinite(corner.x) && std::isfinite(corner.y) && std::isfinite(corner.z)
+                    && std::isfinite(dimensions.x) && std::isfinite(dimensions.y) && std::isfinite(dimensions.z)
+                    && dimensions.x>0.0f && dimensions.y>0.0f && dimensions.z>0.0f;
                 if (!rigOriginal.isEmpty()) {
                     for (const auto& key:QStringList {"rigId","capturedEpochMs","evaluationSequence","animationsEnabled",
                             "graphLoaded","overrideActive","joints"}) {
@@ -40,11 +48,15 @@ public:
                     {"replicated",avatar->getIsReplicated()},
                     {"requestedUrl",avatar->getSkeletonModelURL().toString(QUrl::FullyEncoded)},
                     {"resourceUrl",model->getURL().toString(QUrl::FullyEncoded)},
-                    {"geometryLoaded",geometry},{"rigReady",geometry && model->getRig().getAnimNode()!=nullptr && !joints.isEmpty()},
+                    {"geometryLoaded",geometry},{"rigReady",geometry && model->getRig().getAnimSkeleton()!=nullptr && !joints.isEmpty()},
                     {"shouldRender",avatar->shouldRender()},{"addedToScene",model->isAddedToScene()},
                     {"targetScale",avatar->getTargetScale()},{"modelScale",avatar->getModelScale()},
                     {"jointNames",joints},{"jointIndices",jointIndices},{"hipsIndex",avatar->getJointIndex("Hips")},
-                    {"rigPose",rigPose.isEmpty() ? QVariant() : QVariant(rigPose)}});
+                    {"rigPose",rigPose.isEmpty() ? QVariant() : QVariant(rigPose)},
+                    {"externalPose",externalPose.isEmpty() ? QVariant() : QVariant(externalPose)},
+                    {"boundsReady",boundsReady},{"bounds",boundsReady ? QVariant(QVariantMap{
+                        {"corner",QVariantList{corner.x,corner.y,corner.z}},
+                        {"dimensions",QVariantList{dimensions.x,dimensions.y,dimensions.z}}}) : QVariant()}});
             }
             QVariantList attachments;
             for (const auto& entry:before.value("entities").toList()) {
@@ -75,7 +87,7 @@ public:
             QVariantList rows;for (auto it=originalAvatars.constBegin();it!=originalAvatars.constEnd();++it) { rows.append(it.value()); }
             return {{"complete",true},{"avatars",rows},{"avatarEntities",attachments},{"tree",before}};
         });
-        if (!result.isEmpty()) { result["iosAvatarRenderersVersion"]=2; }
+        if (!result.isEmpty()) { result["iosAvatarRenderersVersion"]=4; }
         return result;
     }
 private:

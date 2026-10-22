@@ -5,6 +5,7 @@
 #include "NativeReadBracket.h"
 #include "NormalCreateControls.h"
 #include "NormalControlUi.h"
+#include "IOSCreateLifetimes.h"
 #include <EntityScriptingInterface.h>
 #include <EntityTree.h>
 #include <RenderableModelEntityItem.h>
@@ -29,8 +30,10 @@ public:
             for (const auto& entry:first.value("entities").toList()) {
                 const auto id=entry.toMap().value("id").toString();
                 const auto item=tree->findEntityByID(QUuid(id));if (!item) { return {}; }
+                IOSCreateLifetimes::instance().observe(item);
                 const auto p=item->getProperties();
-                if (p.getName().size()>256 || p.getModelURL().size()>4096 || p.getTextures().size()>8192) { return {}; }
+                if (p.getName().size()>256 || p.getModelURL().size()>4096 || p.getTextures().size()>8192
+                        || p.getSourceUrl().size()>4096 || p.getUserData().size()>8192) { return {}; }
                 const auto host=p.getEntityHostType();const auto dimensions=p.getDimensions();
                 const auto position=p.getPosition();const auto rotation=p.getRotation();
                 QVariantMap model,voxels;
@@ -54,6 +57,7 @@ public:
                     {"position",QVariantList{position.x,position.y,position.z}},
                     {"rotation",QVariantList{rotation.x,rotation.y,rotation.z,rotation.w}},
                     {"shape",p.getShapeAsString()},{"modelURL",p.getModelURL()},
+                    {"sourceUrl",p.getSourceUrl()},{"userData",p.getUserData()},{"collisionless",p.getCollisionless()},
                     {"textures",p.getTextures()},{"lastEditedBy",p.getLastEditedBy().toString(QUuid::WithoutBraces)},
                     {"createdEpochUs",QString::number(p.getCreated())},{"lastEditedEpochUs",QString::number(p.getLastEdited())},
                     {"locked",p.getLocked()},{"visible",p.getVisible()},{"model",model},{"voxels",voxels}});
@@ -139,7 +143,7 @@ public:
                     {"fieldOfViewDegrees",frustum.getFieldOfView()},{"aspectRatio",frustum.getAspectRatio()},
                     {"perspective",frustum.isPerspective()},{"uiWidth",ui.x},{"uiHeight",ui.y}}}};
         });
-        if (!result.isEmpty()) { result.insert("iosCreateStateVersion",2); }
+        if (!result.isEmpty()) { result.insert("iosCreateStateVersion",3); }
         return result;
     }
 private:

@@ -81,3 +81,34 @@ Native source remains uncompiled, all devices untested, and all three areas
 partial. The packet's combined 151 host tests and 10 additional bookmark/terminal
 transport tests passed, as did five project suites, contract, Node syntax and
 whitespace checks. These are source/adapter tests, not product qualification.
+
+## Third source packet
+
+Avatar renderers now write version 4 and read versions 1–4. Actual remote
+SkeletonModel external-pose copies are observed separately from a local
+AnimGraph evaluation. Actual loaded animation skeleton and renderable mesh
+bounds are required for current remote evidence; requested-scale fallback
+bounds are excluded. See AVATAR_OBSERVATION.md for exact origins and remaining
+whole-area obligations.
+
+Separate SocialXHR1 and PeopleModel1 readers connect actual original native
+request/reply/callback/lifetime events and retained Pal models, callback keys,
+pagination, prompt state and timers through the existing typed fixed-file
+HTTP/AFC transport. Provider socket bytes and matching native response reads
+do not establish a materialized relationship or peer consent.
+
+CreateWork1 retains actual VM closure entry/return/finally, callbacks and pending
+work, actual evaluated main/include/CommonJS code and original caller identity.
+All new helper loading is gated before Script.require; ordinary environments
+without the E2E Test method retain their original production behavior. Pins1
+hashes the actual UTF-16 evaluation inputs. Lifetimes1 uses weak entity/model
+references to observe actual destruction without retaining or evicting product
+resources. State3 adds actual entity sourceUrl, userData and collisionless;
+versions 1 and 2 remain readable. None of these sources independently proves
+full cleanup, a render, import/export outcome or actor receipt.
+
+The combined 138 explicitly selected host tests, seven existing Create bridge
+JavaScript tests, five project suites, contract versions, probe syntax and
+whitespace checks passed. The host suite includes separately owned Places
+composite input and missing-name regression tests. Native code is uncompiled,
+devices are untested and no complete capability was enabled by this packet.

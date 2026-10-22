@@ -70,6 +70,12 @@ function createBridge(context) {
     var browseGeneration = 0;
     var browsing = false;
 
+    var featureWork = (typeof Test !== "undefined" && typeof Test.featureIOSCreateEvent === "function")
+        ? Script.require("./featureCreateWork.js").observer("bridge", Script.resolvePath("nativeCreateBridge.js"), function () {
+            return { browsing: browsing, browseGeneration: browseGeneration };
+        })
+        : { enabled: false, call: function (_name, callback) { return callback(); } };
+
     function send(kind, params) { context.send({ method: "nativeCreate." + kind, params: params }); }
     function status(text, error) { send("status", { text: text, error: error === true }); }
     function hostAllowed(host) {
@@ -185,7 +191,7 @@ function createBridge(context) {
     var noSelection = ["paste", "undo", "redo", "grid-avatar", "grid-visible", "grid-snap", "space-mode", "assets"];
     var readSelection = ["copy", "focus", "export", "grid-selection"];
 
-    function handle(message) {
+    function handleOriginal(message) {
         if (!record(message) || typeof message.method !== "string" || message.method.indexOf("nativeCreate.") !== 0) {
             return false;
         }
@@ -275,6 +281,10 @@ function createBridge(context) {
             status("Unknown editor request.", true);
         }
         return true;
+    }
+
+    function handle(message) {
+        return featureWork.call("handle", function () { return handleOriginal(message); });
     }
 
     function reset() {

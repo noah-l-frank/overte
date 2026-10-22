@@ -2820,6 +2820,9 @@ void Rig::computeExternalPoses(const glm::mat4& modelOffsetMat) {
     buildAbsoluteRigPoses(_internalPoseSet._relativePoses, _internalPoseSet._absolutePoses);
     QWriteLocker writeLock(&_externalPoseSetLock);
     _externalPoseSet = _internalPoseSet;
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    _e2eExternalPose.copied(_rigId,_externalPoseSet._relativePoses);
+#endif
 }
 
 void Rig::computeAvatarBoundingCapsule(

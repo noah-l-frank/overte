@@ -65,6 +65,14 @@ def remap(row):
 
 
 class CreateStateTests(unittest.TestCase):
+    def test_state3_adds_original_marker_properties_without_changing_legacy_state2(self):
+        value = version2(packet()); row = add_model(value); version2(value)
+        source.original(value); value['iosCreateStateVersion'] = 3
+        with self.assertRaises(NativeUIError): source.original(value)
+        row.update(sourceUrl='',userData='',collisionless=False); source.original(value)
+        row['sourceUrl'] = 'qrc:/scripts/original-marker.html'; row['userData'] = '{"actual":true}'
+        self.assertEqual(row['sourceUrl'],source.live(value)['entities'][0]['sourceUrl'])
+
     def test_complete_empty_native_tree_is_only_state_and_keeps_original_clocks(self):
         value = packet(); self.assertIs(value, source.original(value))
         self.assertEqual(dict(objects=[], editor=False, picker=False, error='none', canRez=True, selection=[],

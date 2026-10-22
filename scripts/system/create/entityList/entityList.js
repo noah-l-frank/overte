@@ -339,14 +339,25 @@ var EntityListTool = function(shouldUseEditTabletApp, selectionManager) {
         return num;
     }
 
-    function onFileSaveChanged(filename) {
+    var featureExportPending = false;
+    var featureWork = (typeof Test !== "undefined" && typeof Test.featureIOSCreateEvent === "function")
+        ? Script.require("../modules/featureCreateWork.js").observer("entity-list", Script.resolvePath("entityList.js"), function () {
+        return { exportCallback: featureExportPending };
+    })
+        : { enabled: false, call: function (_name, callback) { return callback(); } };
+    function onFileSaveChangedOriginal(filename) {
         Window.saveFileChanged.disconnect(onFileSaveChanged);
+        if (featureWork.enabled) { featureExportPending = false; }
         if (filename !== "") {
             var success = Clipboard.exportEntities(filename, that.selectionManager.selections);
             if (!success) {
                 Window.notifyEditError("Export failed.");
             }
         }
+    }
+
+    function onFileSaveChanged(filename) {
+        return featureWork.call("save", function () { return onFileSaveChangedOriginal(filename); });
     }
 
     var onWebEventReceived = function(data) {
@@ -382,6 +393,7 @@ var EntityListTool = function(shouldUseEditTabletApp, selectionManager) {
                 Window.notifyEditError("No entities have been selected.");
             } else {
                 Window.saveFileChanged.connect(onFileSaveChanged);
+                if (featureWork.enabled) { featureExportPending = true; }
                 Window.saveAsync("Select Where to Save", "", "*.json");
             }
         } else if (data.type === "delete") {

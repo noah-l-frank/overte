@@ -1,0 +1,26 @@
+{
+  "createWorkSourcePinsVersion": 1,
+  "encoding": "utf-16le-code-units",
+  "sources": {
+    "system/create/edit.js": {
+      "codeUnits": 163496,
+      "sha256": "f928b103bed99fe1e03fe108450f65746d4ab2ff4b5b62e82519b17ab0c0b4be"
+    },
+    "system/create/modules/nativeCreateBridge.js": {
+      "codeUnits": 16145,
+      "sha256": "9ecb68f095044de5d6453b0d9a064b896cf6a11bbf832d4f831fd33b522be99d"
+    },
+    "system/create/editModes/editVoxels.js": {
+      "codeUnits": 33653,
+      "sha256": "4c78bc1c7cbb18b0026453397cda54d0910e4cd9aa053efb2bb526a2c3a9f68b"
+    },
+    "system/create/entityList/entityList.js": {
+      "codeUnits": 21871,
+      "sha256": "d46eeb0700a90e4fd9a4b13bcb5390393932bed104a2580364091ccf94bd730e"
+    },
+    "system/create/modules/featureCreateWork.js": {
+      "codeUnits": 1320,
+      "sha256": "eabfbf57483db7ba3d2bee8d6e50e5e0aeb1db9985858363ca4b2b0385973cb0"
+    }
+  }
+}

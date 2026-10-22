@@ -9,6 +9,16 @@ from pathlib import Path
 
 
 REQUIRED = {
+    "ios-avatar-social-http": 1,
+    "ios-avatar-social-http-acquisition": 1,
+    "ios-people-model": 1,
+    "ios-people-model-acquisition": 1,
+    "ios-create-work": 1,
+    "ios-create-work-acquisition": 1,
+    "ios-create-source-observation": 1,
+    "ios-create-work-source-pins": 1,
+    "ios-create-lifetimes": 1,
+    "native-external-pose-observation": 1,
     "feature-emote-provider": 1,
     "feature-avatar-social-provider": 1,
     "create-rez-control": 1,
@@ -27,9 +37,9 @@ REQUIRED = {
     "ios-create-file-owner": 1,
     "ios-create-files": 1,
     "ios-create-state-acquisition": 1,
-    "ios-create-state": 2,
+    "ios-create-state": 3,
     "ios-create-controls": 2,
-    "ios-avatar-renderers": 2,
+    "ios-avatar-renderers": 4,
     "ios-avatar-state": 2,
     "ios-emote-actions": 1,
     "native-avatar-receive-observation": 1,

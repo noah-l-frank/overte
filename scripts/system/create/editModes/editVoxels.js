@@ -76,6 +76,15 @@ EditVoxels = function() {
     var stroke = {};
     var strokeTimer = null;
     var strokePolls = 0;
+    var featureWork = (typeof Test !== "undefined" && typeof Test.featureIOSCreateEvent === "function")
+        ? Script.require("../modules/featureCreateWork.js").observer("voxels", Script.resolvePath("editVoxels.js"), function () {
+        return { strokeIds: Object.keys(stroke).sort(), strokeTimer: strokeTimer !== null,
+            strokePolls: strokePolls, editing: isEditing, updateConnected: isOnUpdateConnected,
+            sphereId: sphereEntityID ? sphereEntityID.toString() : "",
+            triggeredHand: that.triggeredHand === undefined ? -1 : that.triggeredHand,
+            pressedHand: that.pressedHand === undefined ? -1 : that.pressedHand };
+    })
+        : { enabled: false, call: function (_name, callback) { return callback(); } };
 
     that.triggerClickMapping = Controller.newMapping(Script.resolvePath('') + '-click-voxels');
     that.triggerPressMapping = Controller.newMapping(Script.resolvePath('') + '-press-voxels');
@@ -123,6 +132,9 @@ EditVoxels = function() {
     // Readiness comes from the renderer's locked state, never elapsed time or
     // unchanged compressed bytes: workers can publish an intermediate result.
     function settleStroke() {
+        return featureWork.call("settleStroke", function () { return settleStrokeOriginal(); });
+    }
+    function settleStrokeOriginal() {
         if (isEditing) { return; }
         var ids = Object.keys(stroke);
         if (!ids.length) { return; }
@@ -383,6 +395,9 @@ EditVoxels = function() {
     }
 
     function mousePressEvent(event) {
+        return featureWork.call("mousePressEvent", function () { return mousePressEventOriginal(event); });
+    }
+    function mousePressEventOriginal(event) {
         var wantDebug = false;
         var attemptChangeOnEmpty = false;
         if (!editEnabled || !isActive) {
@@ -462,6 +477,9 @@ EditVoxels = function() {
     }
 
     function mouseReleaseEvent(event) {
+        return featureWork.call("mouseReleaseEvent", function () { return mouseReleaseEventOriginal(event); });
+    }
+    function mouseReleaseEventOriginal(event) {
         var wantDebug = false;
 
         if (wantDebug) {

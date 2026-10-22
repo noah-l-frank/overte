@@ -17,8 +17,8 @@ from ios.adapters import create_controls_v2 as controls
 from ios.adapters.places_model import IOSPlacesModel, tree as json_tree
 from ios.adapters.scene_inventory import tree, uint64
 
-VERSION = 2
-READS = (1, 2)
+VERSION = 3
+READS = (1, 2, 3)
 ACTION = 'feature-ios-create-state'
 FILE = ACTION+'.json'
 LIMIT = 262144
@@ -62,7 +62,10 @@ def texture_original(value, url, epoch):
 def entity(row, original, epoch, version=VERSION):
     exact(row, {'id', 'name', 'type', 'hostType', 'dimensions', 'modelURL', 'textures', 'lastEditedBy',
                 'createdEpochUs', 'lastEditedEpochUs', 'shape', 'locked', 'visible', 'model', 'voxels'}
-          | ({'position', 'rotation'} if version >= 2 else set()))
+          | ({'position', 'rotation'} if version >= 2 else set())
+          | ({'sourceUrl', 'userData', 'collisionless'} if version >= 3 else set()))
+    if version >= 3:
+        text(row['sourceUrl']); text(row['userData'], 8192); need(type(row['collisionless']) is bool)
     if version >= 2: vector(row['position'], 3, -1000000, 1000000); rotation(row['rotation'])
     need(entity_id(row['id']) and row['id'] == original['id'] and row['hostType'] == original['hostType']
          and type(row['locked']) is bool and type(row['visible']) is bool)

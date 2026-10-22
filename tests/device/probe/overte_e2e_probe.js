@@ -1134,6 +1134,66 @@
             }
             return;
         }
+        if (command && command.action === "feature-ios-avatar-social-http") {
+            if (command.schemaVersion === 1 && typeof command.commandId === "string"
+                    && /^ios-[0-9a-f]{32}$/.test(command.commandId) && command.commandId.length === 36
+                    && typeof command.runId === "string" && /^[0-9a-f]{32}$/.test(command.runId) && command.runId.length === 32
+                    && objectKeysMatch(command,["schemaVersion","commandId","action","runId"])) {
+                // Keep every nonce consumed, including unavailable reads and
+                // storage mutations with a lost return. No reissue on polling.
+                if (iosNewSourceRequests[command.commandId] || iosNewSourceRequestCount >= 4096) { return; }
+                iosNewSourceRequests[command.commandId]=true;iosNewSourceRequestCount+=1;
+                var sourceAvatarSocialHttp={iosAvatarSocialHttpVersion:1,requestId:command.commandId,status:"unavailable"};
+                try {
+                    if (typeof Test.featureIOSAvatarSocialHttp === "function") {
+                        var originalAvatarSocialHttp=Test.featureIOSAvatarSocialHttp(command);
+                        if (originalAvatarSocialHttp && originalAvatarSocialHttp.requestId === command.commandId) { sourceAvatarSocialHttp=originalAvatarSocialHttp; }
+                    }
+                } catch (_AvatarSocialHttpError) { /* Retain unavailable; never retry an uncertain input. */ }
+                Test.saveObject(sourceAvatarSocialHttp,"feature-ios-avatar-social-http.json");
+            }
+            return;
+        }
+        if (command && command.action === "feature-ios-people-model") {
+            if (command.schemaVersion === 1 && typeof command.commandId === "string"
+                    && /^ios-[0-9a-f]{32}$/.test(command.commandId) && command.commandId.length === 36
+                    && typeof command.runId === "string" && /^[0-9a-f]{32}$/.test(command.runId) && command.runId.length === 32
+                    && objectKeysMatch(command,["schemaVersion","commandId","action","runId"])) {
+                // Keep every nonce consumed, including unavailable reads and
+                // storage mutations with a lost return. No reissue on polling.
+                if (iosNewSourceRequests[command.commandId] || iosNewSourceRequestCount >= 4096) { return; }
+                iosNewSourceRequests[command.commandId]=true;iosNewSourceRequestCount+=1;
+                var sourcePeopleModel={iosPeopleModelVersion:1,requestId:command.commandId,status:"unavailable"};
+                try {
+                    if (typeof Test.featureIOSPeopleModel === "function") {
+                        var originalPeopleModel=Test.featureIOSPeopleModel(command);
+                        if (originalPeopleModel && originalPeopleModel.requestId === command.commandId) { sourcePeopleModel=originalPeopleModel; }
+                    }
+                } catch (_PeopleModelError) { /* Retain unavailable; never retry an uncertain input. */ }
+                Test.saveObject(sourcePeopleModel,"feature-ios-people-model.json");
+            }
+            return;
+        }
+        if (command && command.action === "feature-ios-create-work") {
+            if (command.schemaVersion === 1 && typeof command.commandId === "string"
+                    && /^ios-[0-9a-f]{32}$/.test(command.commandId) && command.commandId.length === 36
+                    && typeof command.runId === "string" && /^[0-9a-f]{32}$/.test(command.runId) && command.runId.length === 32
+                    && objectKeysMatch(command,["schemaVersion","commandId","action","runId"])) {
+                // Keep every nonce consumed, including unavailable reads and
+                // storage mutations with a lost return. No reissue on polling.
+                if (iosNewSourceRequests[command.commandId] || iosNewSourceRequestCount >= 4096) { return; }
+                iosNewSourceRequests[command.commandId]=true;iosNewSourceRequestCount+=1;
+                var sourceCreateWork={iosCreateWorkVersion:1,requestId:command.commandId,status:"unavailable"};
+                try {
+                    if (typeof Test.featureIOSCreateWork === "function") {
+                        var originalCreateWork=Test.featureIOSCreateWork(command);
+                        if (originalCreateWork && originalCreateWork.requestId === command.commandId) { sourceCreateWork=originalCreateWork; }
+                    }
+                } catch (_CreateWorkError) { /* Retain unavailable; never retry an uncertain input. */ }
+                Test.saveObject(sourceCreateWork,"feature-ios-create-work.json");
+            }
+            return;
+        }
         if (command && command.action === "feature-ios-avatar-renderers") {
             if (command.schemaVersion === 1 && typeof command.commandId === "string"
                     && /^ios-[0-9a-f]{32}$/.test(command.commandId) && command.commandId.length === 36

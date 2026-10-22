@@ -27,6 +27,10 @@
 #include <QVariantMap>
 #endif
 
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+#include "FeatureExternalPoseObservation.h"
+#endif
+
 #include "AnimNode.h"
 #include "AnimNodeLoader.h"
 #include "SimpleMovingAverage.h"
@@ -213,6 +217,9 @@ public:
     AnimNode::ConstPointer getAnimNode() const { return _animNode; }
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     QVariantMap e2eAnimationObservation() const;
+#if defined(Q_OS_IOS)
+    QVariantMap e2eExternalPoseObservation() const { return _e2eExternalPose.snapshot(); }
+#endif
 #endif
     AnimNode::ConstPointer findAnimNodeByName(const QString& name) const;
     AnimSkeleton::ConstPointer getAnimSkeleton() const { return _animSkeleton; }
@@ -500,6 +507,9 @@ protected:
     mutable QReadWriteLock _e2eAnimationLock;
     QVariantMap _e2eAnimationObservation;
     overte::e2e::AnimationObservationHistory _e2eAnimationHistory;
+#if defined(Q_OS_IOS)
+    overte::e2e::FeatureExternalPoseObservation _e2eExternalPose;
+#endif
 #endif
 };
 

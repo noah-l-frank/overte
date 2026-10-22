@@ -56,6 +56,9 @@
 #include <mutex>
 #include "RequiredModuleObservation.h"
 #include "ScriptTerminalObservation.h"
+#if defined(Q_OS_IOS)
+#include "CreateSourceObservation.h"
+#endif
 #endif
 
 static const QString NO_SCRIPT("");
@@ -1046,6 +1049,9 @@ public:
      */
     bool isRunning() const { return _isRunning; } // used by ScriptWidget
 #if defined(OVERTE_E2E_FEATURE_TESTS)
+#if defined(Q_OS_IOS)
+    QVariantMap featureCreateSources() const { return _featureCreateSources.snapshot(); }
+#endif
     QVariantMap featureRequiredModules() const { return _e2eRequiredModules.snapshot(); }
     QVariantMap featureSourceIdentity() const { return _e2eRequiredModules.sourceIdentity(); }
     QVariantMap featureLoadMembership() const { return _e2eRequiredModules.loadMembership(); }
@@ -1713,6 +1719,9 @@ protected:
     const Context _context;
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     overte::e2e::RequiredModuleObservation _e2eRequiredModules;
+#if defined(Q_OS_IOS)
+    overte::e2e::CreateSourceObservation _featureCreateSources;
+#endif
     void featureCallbackBoundary(bool timer, bool entering);
     const bool _featureWorkEnabled {QCoreApplication::arguments().contains("--testScript")};
     QString _featureTerminalThread;

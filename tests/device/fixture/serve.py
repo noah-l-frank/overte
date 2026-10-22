@@ -605,6 +605,24 @@ class FixtureState:
             try:validate_ios_source(command)
             except (ValueError,RuntimeError):raise ValueError("invalid iOS create files request") from None
             valid=True
+        elif action == "feature-ios-avatar-social-http":
+            sys.path.insert(0,str(ROOT.parent))
+            from ios.adapters.avatar_social_http import command as avatar_social_http_command
+            try:avatar_social_http_command(command)
+            except (ValueError,RuntimeError):raise ValueError("invalid iOS original social HTTP request") from None
+            valid=True
+        elif action == "feature-ios-people-model":
+            sys.path.insert(0,str(ROOT.parent))
+            from ios.adapters.people_model import command as validate_ios_source
+            try:validate_ios_source(command)
+            except (ValueError,RuntimeError):raise ValueError("invalid iOS people_model request") from None
+            valid=True
+        elif action == "feature-ios-create-work":
+            sys.path.insert(0,str(ROOT.parent))
+            from ios.adapters.create_work import command as validate_ios_source
+            try:validate_ios_source(command)
+            except (ValueError,RuntimeError):raise ValueError("invalid iOS create_work request") from None
+            valid=True
         elif action == "feature-ios-avatar-state":
             sys.path.insert(0,str(ROOT.parent))
             from ios.adapters.avatar_state import command as avatar_state_command

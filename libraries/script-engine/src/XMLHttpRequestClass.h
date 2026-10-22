@@ -22,6 +22,9 @@
 #include <QNetworkRequest>
 #include <QObject>
 #include <QTimer>
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+#include <QStringList>
+#endif
 
 #include "ScriptEngine.h"
 #include "ScriptValue.h"
@@ -224,6 +227,7 @@ public:
     ScriptValue getResponseText() const;
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
     static QVariantMap featurePlacesHttpObservation(const QVariantMap& command);
+    static QVariantMap featureAvatarSocialHttpObservation(const QVariantMap& command);
 #endif
     QString getResponseType() const { return _responseType; }
     void setResponseType(const QString& responseType) { _responseType = responseType; }
@@ -302,6 +306,12 @@ signals:
 
 private:
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    QStringList featureAvatarSocialCallers() const;
+    void featureAvatarSocialOpen();
+    void featureAvatarSocialFinished();
+    QString _featureAvatarSocialId;
+    QString _featureAvatarSocialReplyId;
+    mutable bool _featureAvatarSocialTextRead {false};
     QString featurePlacesCaller() const;
     void featurePlacesOpen();
     void featurePlacesFinished();

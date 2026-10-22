@@ -1133,6 +1133,9 @@ void ScriptManager::run() {
         PROFILE_RANGE(script, _fileNameString);
 #if defined(OVERTE_E2E_FEATURE_TESTS)
         _e2eRequiredModules.submitted(_scriptContents);
+#if defined(Q_OS_IOS)
+        _featureCreateSources.submitted(_fileNameString,_scriptContents);
+#endif
 #endif
         _returnValue = _engine->evaluate(_scriptContents, _fileNameString);
 
@@ -1318,7 +1321,11 @@ ScriptManager::FeatureNativeCallScope::FeatureNativeCallScope(ScriptManager* man
     _previous(_featureNativeCallContext) {
     _featureNativeCallContext.clear();
     if (!manager || !manager->_featureWorkEnabled || QThread::currentThread()!=manager->thread()
-            || (method!="overrideAnimation" && method!="restoreAnimation")
+            || (method!="overrideAnimation" && method!="restoreAnimation"
+#if defined(Q_OS_IOS)
+                && method!="featureIOSCreateEvent"
+#endif
+                )
             || manager->_featureNativeCallSequence>=1000000000) { return; }
     const auto membership=manager->featureLoadMembership();const auto code=manager->featureSourceIdentity();
     if (membership.isEmpty() || code.isEmpty() || !membership.value("assigned").toBool()
@@ -1326,6 +1333,9 @@ ScriptManager::FeatureNativeCallScope::FeatureNativeCallScope(ScriptManager* man
     _featureNativeCallContext={{"callerVersion",1},{"method",QString::fromLatin1(method)},
         {"sequence",static_cast<qulonglong>(++manager->_featureNativeCallSequence)},
         {"invokedEpochMs",QDateTime::currentMSecsSinceEpoch()},{"manager",membership},{"code",code}};
+#if defined(Q_OS_IOS)
+    if (method=="featureIOSCreateEvent") { _featureNativeCallContext.insert("codeSources",manager->featureCreateSources()); }
+#endif
 }
 
 ScriptManager::FeatureNativeCallScope::~FeatureNativeCallScope() { _featureNativeCallContext=_previous; }
@@ -1864,6 +1874,9 @@ ScriptValue ScriptManager::instantiateModule(const ScriptValue& module, const QS
         closure.setProperty("__dirname", QString(modulePath).replace(
             QRegularExpression(QStringLiteral("/[^/]*$")), QString()), READONLY_HIDDEN_PROP_FLAGS);
         //_engine->scriptValueDebugDetails(module);
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+        _featureCreateSources.submitted(modulePath,sourceCode);
+#endif
         result = _engine->evaluateInClosure(closure, _engine->newProgram( sourceCode, modulePath ));
     }
 
@@ -2082,6 +2095,9 @@ void ScriptManager::include(const QStringList& includeFiles, const ScriptValue& 
                     // to this script's url during its initial evaluation
                     _parentURL = url.toString();
                     auto operation = [&]() {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+                        _featureCreateSources.submitted(url.toString(),contents);
+#endif
                         _engine->evaluate(contents, url.toString());
                     };
 

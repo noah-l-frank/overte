@@ -73,12 +73,14 @@
 #include "../../../tests/device/native/IOSWebClosureBridge.h"
 #include "../../../tests/device/native/IOSLocationBookmarksObservation.h"
 #include "../../../tests/device/native/IOSPlacesModelObservation.h"
+#include "../../../tests/device/native/IOSPeopleModelObservation.h"
 #include "../../../tests/device/native/IOSNavigationStateObservation.h"
 #include "../../../tests/device/native/IOSAvatarStateObservation.h"
 #include "../../../tests/device/native/IOSAvatarBookmarkFile.h"
 #include "../../../tests/device/native/IOSAvatarRenderersObservation.h"
 #include "../../../tests/device/native/IOSEmoteWorldObservation.h"
 #include "../../../tests/device/native/IOSCreateStateObservation.h"
+#include "../../../tests/device/native/IOSCreateWorkObservation.h"
 #include "../../../tests/device/native/PrivateCreateFiles.h"
 #include "../AvatarBookmarks.h"
 #include "../../../tests/device/native/NativeReadBracket.h"
@@ -110,6 +112,7 @@
 #include <QUuid>
 #include <QTimer>
 #include <ScriptEngines.h>
+#include <ScriptManager.h>
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #include <ScriptTerminalObservation.h>
 #endif
@@ -645,6 +648,30 @@ QVariantMap TestScriptingInterface::featureIOSAvatarRenderers(const QVariantMap&
     return _featureIOSAvatarRenderers->read(request,run,DependencyManager::get<AvatarManager>().data(),entities->getEntityTree());
 }
 
+void TestScriptingInterface::featureIOSCreateEvent(const QVariantMap& value) {
+    if (_testResultsLocation.isEmpty() || !QCoreApplication::arguments().contains("--testScript")) { return; }
+    overte::e2e::IOSCreateWorkObservation::instance().event(value,ScriptManager::featureNativeCallContext());
+}
+
+QVariantMap TestScriptingInterface::featureIOSCreateWork(const QVariantMap& command) {
+    if (QThread::currentThread()!=thread()) {
+        if (!thread() || !thread()->isRunning()) { return {}; }
+        QVariantMap result;
+        if (!QMetaObject::invokeMethod(this,[&] { result=featureIOSCreateWork(command); },Qt::BlockingQueuedConnection)) { return {}; }
+        return result;
+    }
+    QStringList fields {"schemaVersion","commandId","action","runId"};fields.sort();
+    const auto json=QJsonObject::fromVariantMap(command);
+    const auto request=command.value("commandId").toString(),run=command.value("runId").toString();
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript") || command.keys()!=fields
+            || json.value("schemaVersion")!=QJsonValue(1) || json.value("action")!=QJsonValue("feature-ios-create-work")
+            || !json.value("commandId").isString() || !json.value("runId").isString()
+            || !QRegularExpression("\\Aios-[0-9a-f]{32}\\z").match(request).hasMatch()
+            || !QRegularExpression("\\A[0-9a-f]{32}\\z").match(run).hasMatch()) { return {}; }
+    return overte::e2e::IOSCreateWorkObservation::instance().read(request,run);
+}
+
 QVariantMap TestScriptingInterface::featureIOSCreateState(const QVariantMap& command) {
     if (QThread::currentThread()!=thread()) {
         if (!thread() || !thread()->isRunning()) { return {}; }
@@ -844,6 +871,17 @@ QVariantMap TestScriptingInterface::featureIOSNavigationDialogs(const QVariantMa
     return OffscreenUi::featureNavigationDialogs(command);
 }
 
+QVariantMap TestScriptingInterface::featureIOSAvatarSocialHttp(const QVariantMap& command) {
+    if (QThread::currentThread()!=thread()) {
+        if (!thread() || !thread()->isRunning()) { return {}; }
+        QVariantMap result;
+        if (!QMetaObject::invokeMethod(this,[&] { result=featureIOSAvatarSocialHttp(command); },Qt::BlockingQueuedConnection)) { return {}; }
+        return result;
+    }
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript")) { return {}; }
+    return XMLHttpRequestClass::featureAvatarSocialHttpObservation(command);
+}
 QVariantMap TestScriptingInterface::featureIOSPlacesHttp(const QVariantMap& command) {
     if (QThread::currentThread()!=thread()) {
         if (!thread() || !thread()->isRunning()) { return {}; }
@@ -856,6 +894,37 @@ QVariantMap TestScriptingInterface::featureIOSPlacesHttp(const QVariantMap& comm
     return XMLHttpRequestClass::featurePlacesHttpObservation(command);
 }
 
+QVariantMap TestScriptingInterface::featureIOSPeopleModel(const QVariantMap& command) {
+    if (QThread::currentThread()!=thread()) {
+        if (!thread() || !thread()->isRunning()) { return {}; }
+        QVariantMap result;
+        if (!QMetaObject::invokeMethod(this,[&] { result=featureIOSPeopleModel(command); },Qt::BlockingQueuedConnection)) { return {}; }
+        return result;
+    }
+    QStringList fields {"schemaVersion","commandId","action","runId"};fields.sort();
+    const auto json=QJsonObject::fromVariantMap(command);
+    const auto request=command.value("commandId").toString(),run=command.value("runId").toString();
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript") || command.keys()!=fields
+            || !json.value("schemaVersion").isDouble() || json.value("schemaVersion").toDouble()!=1
+            || json.value("action")!=QJsonValue("feature-ios-people-model")
+            || !json.value("commandId").isString() || !json.value("runId").isString()
+            || !QRegularExpression("\\Aios-[0-9a-f]{32}\\z").match(request).hasMatch()
+            || !QRegularExpression("\\A[0-9a-f]{32}\\z").match(run).hasMatch()
+            || !DependencyManager::isSet<OffscreenUi>() || !DependencyManager::isSet<TabletScriptingInterface>()) { return {}; }
+    const auto ui=DependencyManager::get<OffscreenUi>();
+    const auto tablets=DependencyManager::get<TabletScriptingInterface>();
+    TabletProxy* tablet {nullptr};
+    for (auto candidate:tablets->findChildren<TabletProxy*>(QString(),Qt::FindDirectChildrenOnly)) {
+        if (candidate->getName()=="com.highfidelity.interface.tablet.system") {
+            if (tablet) { return {}; }tablet=candidate;
+        }
+    }
+    if (!ui || !ui->getRootItem() || !tablet || !tablet->getIOSTabletRoot()) { return {}; }
+    const auto shown=tablet->property("tabletShown");if (shown.userType()!=QMetaType::Bool) { return {}; }
+    if (!_featureIOSPeopleModel) { _featureIOSPeopleModel=std::make_shared<overte::e2e::IOSPeopleModelObservation>(); }
+    return _featureIOSPeopleModel->read(request,run,{ui->getRootItem(),tablet->getIOSTabletRoot()},shown.toBool());
+}
 QVariantMap TestScriptingInterface::featureIOSPlacesModel(const QVariantMap& command) {
     if (QThread::currentThread()!=thread()) {
         if (!thread() || !thread()->isRunning()) { return {}; }
@@ -2008,8 +2077,8 @@ void TestScriptingInterface::saveObject(QVariant variant, const QString& filenam
             || filename == "feature-process-presence.json" || filename == "feature-graphics-subject.json" || filename == "feature-scene-load.json" || filename == "feature-completed-frame.json" || filename == "feature-vulkan-world-frame.json"
             || filename == "recorded-preview-observation.json" || filename == "feature-script-observation.json"
             || filename == "feature-avatar-receive.json" || filename == "feature-script-roots.json" || filename == "feature-script-terminal.json" || filename == "feature-script-work.json"
-            || filename == "feature-ios-emote-world.json" || filename == "feature-ios-avatar-state.json" || filename == "feature-ios-avatar-renderers.json"
-            || filename == "feature-ios-create-state.json" || filename == "feature-ios-create-files.json"
+            || filename == "feature-ios-emote-world.json" || filename == "feature-ios-avatar-social-http.json" || filename == "feature-ios-avatar-state.json" || filename == "feature-ios-avatar-renderers.json"
+            || filename == "feature-ios-people-model.json" || filename == "feature-ios-create-work.json" || filename == "feature-ios-create-state.json" || filename == "feature-ios-create-files.json"
             || filename == "feature-script-files.json" || filename == "world-render-observation.json"
             || filename == "world-render-receipt-result.json"
             || QRegularExpression("\\Aworld-render-storage-[0-9a-f]{32}\\.json\\z").match(filename).hasMatch()) {

@@ -3707,7 +3707,9 @@
         importEntities: function(options) { return createApp.importNativeEntities(options); },
         browse: function(callback) {
             cancelNativeBrowse();
-            nativeBrowseCallback = function(file) { cancelNativeBrowse(); callback(file); };
+            nativeBrowseCallback = function(file) {
+                return featureCreateWork.call("browse", function () { cancelNativeBrowse(); return callback(file); });
+            };
             Window.browseChanged.connect(nativeBrowseCallback);
             Window.browseAsync("Select .json to Import", "", "*.json");
         },
@@ -3715,6 +3717,12 @@
         exportSelection: function() { entityListTool.handleNativeEvent({ type: "export" }); },
         showAssets: function() { Window.showAssetServer(); }
     });
+    var featureCreateWork = (typeof Test !== "undefined" && typeof Test.featureIOSCreateEvent === "function")
+        ? Script.require("./modules/featureCreateWork.js").observer("edit", Script.resolvePath("edit.js"), function () {
+        return { browseCallback: nativeBrowseCallback !== null, numericEditing: picoNumericEditing,
+            numericDirty: picoNumericEditDirty, active: isActive && nativeCreateEnabled };
+    })
+        : { enabled: false, call: function (_name, callback) { return callback(); } };
     entityListTool.onNativeEvent = nativeCreate.acceptList;
     editTools.onNativeUpdate = function(settings) {
         nativeCreate.sendSettings(settings);
