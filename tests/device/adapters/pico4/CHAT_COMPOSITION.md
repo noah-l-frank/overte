@@ -171,3 +171,12 @@ unlink. The final packet's unchanged age remains bounded after receipt writes,
 marker unlink and archive sealing. Failure retains an explicit retirement marker
 without overwriting any landed or foreign journal. No public operation or
 capability is added by this private continuation.
+
+Composition v6 uses bounded original source continuations for normal Erase and
+final cache closure. The active, Erase and final code journals retain all original
+frames under their existing per-source limits. They share only the exact native
+reader objects of that same role and its original parent lock. A new segment
+cannot reset a cursor or admit a different configured root, native birth, manager
+or compilation. The independent witness remains separate. Older composition
+records are retained; they cannot acquire this v6 continuation guarantee. See
+[the closed source continuation contract](../chat_journey/COMPILED_CHAT_SOURCE.md#bounded-warm-continuation-v2).

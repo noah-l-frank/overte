@@ -14,7 +14,7 @@ from pathlib import Path
 import re
 import time
 
-from adapters.chat_journey.source_chunks import ChatSourceChunks
+from adapters.chat_journey.source_chunks import ChatSourceChunks,digest
 from adapters.independent_chat_receiver import binding_pid
 from adapters.native_feature_observation import exact,fresh,integer,need,number
 from adapters.native_script_observation import NativeScriptObservation,validate as script_packet
@@ -97,21 +97,34 @@ class ChatScriptSource:
     Interrupted reads and orphan chunks are retained. Reconstruction replays
     only fully committed originals; every new capture still queries natively.
     """
-    def __init__(self,run,role,binding,roots,scripts,store,source_lock,*,monotonic=time.monotonic):
+    def __init__(self,run,role,binding,roots,scripts,store,source_lock,*,monotonic=time.monotonic,predecessor=None):
         identifier(run)
         need(role in ('primary','actor') and isinstance(roots,NativeScriptRoots)
             and isinstance(scripts,NativeScriptObservation) and not roots.ios and not scripts.ios
             and isinstance(store,PrivateFeatureState) and isinstance(source_lock,ScriptSourceLock)
             and source_lock.path==store.path.with_name('script-sources.lock') and callable(monotonic))
         self.binding=deepcopy(context(binding));need(roots.pid==scripts.pid==binding_pid(binding))
-        need(roots.last is None and scripts.instance is None and scripts.sequence==0)
+        if predecessor is None:
+            need(roots.last is None and scripts.instance is None and scripts.sequence==0)
+        else:
+            need(type(predecessor) is ChatScriptSource and predecessor.run==run and predecessor.role==role
+                and predecessor.binding==binding and predecessor.lock is source_lock and predecessor.store.path!=store.path
+                and predecessor.roots is roots and predecessor.scripts is scripts and predecessor.successor is None
+                and predecessor.depth<2)
+            predecessor.retained()
         source_lock.assert_held()
         self.run,self.role,self.roots,self.scripts,self.store,self.lock,self.monotonic=run,role,roots,scripts,store,source_lock,monotonic
         self.failed=False;self.frames=[];self.transactions={}
+        self.predecessor,self.successor,self.anchor=predecessor,None,None
+        self.depth=0 if predecessor is None else predecessor.depth+1
         self.base=dict(chatScriptObservationVersion=VERSION,runId=run,role=role,binding=self.binding,
             phase='ready',revision=0,chunks=[])
+        if predecessor is not None:self.base.update(chatScriptObservationVersion=2,predecessor=None)
         self.history=ChatSourceChunks(store,{key:value for key,value in self.base.items() if key not in ('phase','revision','chunks')})
         self.previous=store.read()
+        # A continuation is a warm transfer of original native reader objects,
+        # never a cold acquisition of a ready-looking second source root.
+        if predecessor is not None:need(self.previous is None)
         if self.previous is None:self.history.inventory(0)
         else:
             exact(self.previous,set(self.base))
@@ -124,6 +137,33 @@ class ChatScriptSource:
                 roots.restore(self.frames[-1]['after'])
                 scripts.restore_history([frame['scripts'] for frame in self.frames])
             self.base=deepcopy(self.previous)
+
+    def retained(self):
+        self.lock.assert_held();self.history.verify()
+        need(not self.failed and self.base['phase']=='ready' and same(self.store.read(),self.previous))
+        if self.predecessor is not None and self.anchor is not None:
+            self.predecessor.retained()
+            need(self.predecessor.successor is self and self.base['predecessor']==self.link())
+
+    def link(self):
+        original=self.predecessor
+        need(original.frames and original.previous is not None)
+        return dict(journal=original.store.path.name,sha256=digest(original.previous),lastFrameSha256=digest(original.frames[-1]))
+
+    def continue_original(self):
+        original=self.predecessor
+        if original is None or self.anchor is not None:return
+        original.retained()
+        need(original.successor is None and original.frames and self.previous is None
+            and same(self.roots.last,original.frames[-1]['after'])
+            and self.scripts.sequence==original.frames[-1]['scripts']['sequence']
+            and self.scripts.instance==original.frames[-1]['scripts']['instance'])
+        self.anchor=deepcopy(original.frames[-1]);self.base['predecessor']=self.link()
+        self.history=ChatSourceChunks(self.store,{key:value for key,value in self.base.items() if key not in ('phase','revision','chunks')})
+        self.history.inventory(0);original.successor=self
+
+    def tickets(self):
+        return set(self.transactions)|(self.predecessor.tickets() if self.predecessor is not None else set())
 
     def _validate(self,frame,previous):
         exact(frame,{'ticket','afterEpochMs','before','scripts','after'})
@@ -150,19 +190,23 @@ class ChatScriptSource:
             nonlocal last
             self.lock.assert_held()
             need(self.roots.guard() is not False and self.scripts.guard() is not False)
+            if self.predecessor is not None and self.anchor is not None:
+                self.predecessor.retained();need(self.predecessor.successor is self and self.base['predecessor']==self.link())
             now=self.monotonic();need(number(now,last,started+1.5));last=now
         try:
-            identifier(transaction_id);need(not self.failed and integer(after_epoch,1))
+            identifier(transaction_id);need(not self.failed and self.successor is None and integer(after_epoch,1)
+                and transaction_id not in self.tickets())
             with self.lock.held():
-                check();self.history.verify();need(self.base['phase']=='ready' and len(self.frames)<MAX_FRAMES)
+                check();self.continue_original();self.retained();need(len(self.frames)<MAX_FRAMES)
                 barrier=self.roots.clock_ms();need(integer(barrier,after_epoch));check()
                 self._write({**self.base,'phase':'reading','revision':self.base['revision']+1});check()
+                current=self.roots.clock_ms();need(integer(current,barrier));fresh(barrier,current);check()
                 before=self.roots.read(0 if self.roots.last is None else self.roots.last['sequence']);check()
                 scripts=self.scripts.read(self.scripts.sequence,require_effects=True,require_code_identity=True,
                     require_load_history=True,require_membership=True);check()
                 after=self.roots.read(before['sequence']);check()
                 frame=dict(ticket=transaction_id,afterEpochMs=after_epoch,before=before,scripts=scripts,after=after)
-                selected=self._validate(frame,self.frames);candidate=deepcopy(frame);result=deepcopy(selected)
+                selected=self._validate(frame,self.frames or ([] if self.anchor is None else [self.anchor]));candidate=deepcopy(frame);result=deepcopy(selected)
                 self._write({**self.base,'phase':'ready','revision':self.base['revision']+1,
                     'chunks':self.history.append(frame,self.base['chunks'])})
                 self.history.verify();check()
