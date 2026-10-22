@@ -842,7 +842,7 @@ def create_adapter(args, base_class):
             native.guard();_need(native.pid==int(manager.binding['processIdentity'].split(':')[0]))
             return NativeChatView(native.send,
                 lambda:self.adb.read_debug_app_file(target,'org.overte.pico','files/overte-e2e/'+CHAT_VIEW_FILE,attempts=1),
-                native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep)
+                native.clock_ms,native.guard,native.pid,vr=True,monotonic=native.monotonic,sleep=native.sleep)
 
         def _chat_capture_store(self,target):
             state,_ui=self._script_paths(target)

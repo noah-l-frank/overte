@@ -90,7 +90,7 @@ REQUIRED = {
     "native-places-controls": 1,
     "navigation-bookmark-operations": 1,
     "native-chat-observation": 1,
-    "native-chat-view": 1,
+    "native-chat-view": 2,
     "native-chat-actor-files": 1,
     "owned-messages-mixer": 1,
     "independent-chat-receiver": 1,

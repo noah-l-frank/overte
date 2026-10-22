@@ -689,6 +689,16 @@ QVariantMap TestScriptingInterface::featureChatViewObservation(const QVariantMap
         }
     }
     if (!_featureChatView) { _featureChatView=std::make_shared<overte::e2e::ChatViewObservation>(); }
+#if defined(ANDROID_APP_PICO_INTERFACE)
+    // Pico has an entity keyboard; Phone OS inset metrics cannot qualify it.
+    // Preserve the current original owner/key/entity scan without substituting
+    // QML keyboardRaised or causing keyboard creation/raising here.
+    if (!DependencyManager::isSet<Keyboard>()) { return {}; }
+    const auto keyboard=DependencyManager::get<Keyboard>();
+    if (!keyboard || keyboard->thread()!=thread()) { return {}; }
+    metrics=keyboard->featureChatObservation();
+    if (metrics.isEmpty()) { return {}; }
+#endif
     return _featureChatView->request(command,roots,shown,metrics);
 }
 

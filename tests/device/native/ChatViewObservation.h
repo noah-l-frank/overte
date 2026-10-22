@@ -26,6 +26,10 @@ public:
                 || command.value("schemaVersion")!=QJsonValue(1) || command.value("action")!=QJsonValue("feature-chat-view-observe")
                 || !QRegularExpression("\\A(?:ios-)?[0-9a-f]{32}\\z").match(id).hasMatch()
                 || !QRegularExpression("\\A[0-9a-f]{32}\\z").match(run).hasMatch()) { return {}; }
+        // A retried transport request cannot recapture a newer page under an
+        // old original query. Failed acquisitions retain their nonce too.
+        if (_requests.contains(id) || _requests.size()>=4096) { return {}; }
+        _requests.insert(id);
         const auto started=tick();if (!started) { return {}; }
         QQuickItem* page {nullptr};bool invalid {false},focused {false},hasDraft {false},anyRoot {false};QSet<QQuickItem*> visited;
         std::function<void(QQuickItem*,int)> visit=[&](QQuickItem* item,int depth) {
@@ -85,12 +89,17 @@ public:
         // OS-derived host metrics may be unavailable (e.g. a VR entity
         // keyboard). Never label QML keyboardRaised as measured visibility.
         QVariantMap keyboard{{"available",false}};
+#if defined(ANDROID_APP_PICO_INTERFACE)
+        if (nativeKeyboard.value("available")==QVariant(true)
+                && nativeKeyboard.value("backend")==QVariant("native-vr-entity-keyboard")) { keyboard=nativeKeyboard; }
+#else
         if (nativeKeyboard.value("valid").userType()==QMetaType::Bool && nativeKeyboard.value("valid").toBool()
                 && nativeKeyboard.value("keyboardVisible").userType()==QMetaType::Bool) {
             keyboard={{"available",true},{"backend","native-touch-metrics"},{"visible",nativeKeyboard.value("keyboardVisible")}};
         }
+#endif
         const auto captured=tick();if (!captured || captured-started>1500 || _sequence>=9007199254740991ULL) { return {}; }
-        return {{"chatViewVersion",1},{"commandId",id},{"runId",run},{"instance",_instance},
+        return {{"chatViewVersion",2},{"commandId",id},{"runId",run},{"instance",_instance},
             {"sequence",static_cast<qulonglong>(++_sequence)},{"processId",QCoreApplication::applicationPid()},
             {"capturedEpochMs",captured},{"source",QVariantMap{{"tabletShown",tabletShown},{"editorFocused",focused},{"editorHasDraft",hasDraft},
                 {"keyboard",keyboard},{"ui",ui},{"storage",stored}}}};
@@ -160,7 +169,7 @@ private:
         const auto now=QDateTime::currentMSecsSinceEpoch();
         if (now<=0 || now<_epoch) { _available=false;return 0; }_epoch=now;return now;
     }
-    const QString _instance{nonce()};QString _generation{nonce()};QPointer<QQuickItem> _page;QPointer<QQuickWindow> _window;
+    const QString _instance{nonce()};QString _generation{nonce()};QPointer<QQuickItem> _page;QPointer<QQuickWindow> _window;QSet<QString> _requests;
     bool _available{true},_present{false};qint64 _epoch{0};quint64 _sequence{0};
 };
 } // namespace overte::e2e

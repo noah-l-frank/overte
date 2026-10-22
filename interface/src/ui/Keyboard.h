@@ -129,6 +129,7 @@ public:
     QSet<QUuid> getKeyIDs();
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
     QVariantMap featureEntityOwnership() const;
+    QVariantMap featureChatObservation();
 #endif
     QUuid getAnchorID();
 
@@ -142,6 +143,10 @@ public slots:
     void handleHoverEnd(const QUuid& id, const PointerEvent& event);
 
 private:
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+    const QUuid _featureChatInstance { QUuid::createUuid() };
+    quint64 _featureChatSequence { 0 };
+#endif
     struct Anchor {
         QUuid entityID;
         glm::vec3 originalDimensions;

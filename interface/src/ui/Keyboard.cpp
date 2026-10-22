@@ -13,7 +13,12 @@
 
 #include <utility>
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+#include <algorithm>
 #include <QThread>
+#include <QCoreApplication>
+#include <EntityScriptingInterface.h>
+#include <EntityItemProperties.h>
+#include <EntityTypes.h>
 #endif
 
 #include <glm/gtc/quaternion.hpp>
@@ -1249,6 +1254,56 @@ void Keyboard::emitKeyEvent(const KeyEvent& event, bool pressed) const {
 }
 
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+QVariantMap Keyboard::featureChatObservation() {
+    if (!qApp || QThread::currentThread()!=thread() || thread()!=qApp->thread()
+            || !QCoreApplication::arguments().contains("--testScript") || !qApp->isHMDMode()
+            || !DependencyManager::isSet<EntityScriptingInterface>() || _featureChatSequence>=9007199254740991ULL) { return {}; }
+    const auto entities=DependencyManager::get<EntityScriptingInterface>();
+    if (!entities || !entities->getEntityTree()) { return {}; }
+    const auto ownership=featureEntityOwnership();
+    const auto ids=ownership.value("entityIds").toStringList();
+    if (ownership.isEmpty() || ids.size()>1024 || _keyboardLayers.size()>32
+            || (_created && (_keyboardLayers.empty() || _layerIndex<0 || _layerIndex>=int(_keyboardLayers.size())
+                || _anchor.entityID.isNull() || _textDisplay.entityID.isNull() || _backPlate.entityID.isNull()))) { return {}; }
+    // Preserve every layer, including hidden layers and pressed keys. A stale
+    // visible key must not disappear behind the requested raised flag.
+    QVariantList keys,originals;QSet<QUuid> expected;
+    expected.insert(_anchor.entityID);expected.insert(_textDisplay.entityID);expected.insert(_backPlate.entityID);expected.remove(QUuid());
+    for (size_t layer=0;layer<_keyboardLayers.size();++layer) {
+        const auto& current=_keyboardLayers[layer];
+        auto sorted=current.keys();std::sort(sorted.begin(),sorted.end(),[](const QUuid& a,const QUuid& b) { return a.toRfc4122()<b.toRfc4122(); });
+        for (const auto& identifier:sorted) {
+            if (identifier.isNull() || expected.contains(identifier) || keys.size()>=1021) { return {}; }
+            expected.insert(identifier);
+            keys.append(QVariantMap{{"id",identifier.toString(QUuid::WithoutBraces)},{"layer",int(layer)},{"pressed",current.value(identifier).isPressed()}});
+        }
+    }
+    QSet<QUuid> actual;for (const auto& identifier:ids) { actual.insert(QUuid(identifier)); }
+    if (actual!=expected || (_created && keys.isEmpty())) { return {}; }
+    bool visible{false};
+    auto id=[](const QUuid& value) { return value.isNull() ? QVariant() : QVariant(value.toString(QUuid::WithoutBraces)); };
+    for (const auto& identifier:ids) {
+        const auto original=entities->getEntityProperties(QUuid(identifier));
+        // A missing/deleted owner is unavailable, never a successfully hidden
+        // keyboard. The anchor is deliberately invisible in the real product;
+        // key/display/back-plate visibility is read independently of it.
+        if (original.getType()==EntityTypes::Unknown || original.getEntityHostType()!=entity::HostType::LOCAL) { return {}; }
+        const bool shown=original.getVisible();
+        if (QUuid(identifier)!=_anchor.entityID) { visible=visible || shown; }
+        originals.append(QVariantMap{{"id",identifier},{"type",EntityTypes::getEntityTypeName(original.getType())},
+            {"parentId",id(original.getParentID())},{"visible",shown},{"hostType","local"}});
+    }
+    if (!DependencyManager::isSet<HMDScriptingInterface>()) { return {}; }
+    const auto hmd=DependencyManager::get<HMDScriptingInterface>();
+    if (!hmd) { return {}; }
+    return {{"available",true},{"backend","native-vr-entity-keyboard"},{"visible",visible},
+        {"instance",_featureChatInstance.toString(QUuid::WithoutBraces).remove('-')},{"sequence",static_cast<qulonglong>(++_featureChatSequence)},
+        {"created",_created},{"enabled",getUse3DKeyboard()},{"raised",isRaised()},{"inputToHud",_inputToHudUI.load()},
+        {"inputTarget",id(_inputTarget)},{"focusedEntity",id(qApp->getKeyboardFocusEntity())},{"tabletScreen",id(hmd->getCurrentTabletScreenID())},
+        {"anchor",id(_anchor.entityID)},{"textDisplay",id(_textDisplay.entityID)},{"backPlate",id(_backPlate.entityID)},
+        {"activeLayer",_layerIndex},{"keys",keys},{"entities",originals}};
+}
+
 QVariantMap Keyboard::featureEntityOwnership() const {
     if (QThread::currentThread()!=thread()) { return {}; }
     // Keyboard construction/resource callbacks and UI updates belong to this
