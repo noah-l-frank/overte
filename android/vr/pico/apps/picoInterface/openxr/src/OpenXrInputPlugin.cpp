@@ -527,6 +527,9 @@ XrActionStateFloat OpenXrInputPlugin::Action::getFloat() {
 }
 
 XrActionStateVector2f OpenXrInputPlugin::Action::getVector2f() {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(OVERTE_E2E_OPENXR_INPUT_V1)
+    _featureVectorSucceeded=false;
+#endif
     XrActionStateVector2f state = {
         .type = XR_TYPE_ACTION_STATE_VECTOR2F,
     };
@@ -541,6 +544,9 @@ XrActionStateVector2f OpenXrInputPlugin::Action::getVector2f() {
         return { .type = XR_TYPE_ACTION_STATE_VECTOR2F };
     }
 
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(OVERTE_E2E_OPENXR_INPUT_V1)
+    _featureVectorSucceeded=true;
+#endif
     return state;
 }
 
@@ -1415,7 +1421,9 @@ void OpenXrInputPlugin::InputDevice::update(float deltaTime, const controller::I
 #endif
         }
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(OVERTE_E2E_OPENXR_INPUT_V1)
-        if (_featureGesture && name == "left_thumbstick") {
+        if (_featureGesture && name == "left_thumbstick" && !_actions.at(name)->_featureVectorSucceeded) {
+            _featureGesture->unavailable("vector-query-failed");
+        } else if (_featureGesture && name == "left_thumbstick") {
             const auto x=_axisStateMap.find(x_channel),y=_axisStateMap.find(y_channel);
             _featureGesture->consume(action.isActive,action.currentState.x,action.currentState.y,
                 x==_axisStateMap.end() ? 0 : x->second.value,y==_axisStateMap.end() ? 0 : y->second.value,

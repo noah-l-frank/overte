@@ -71,6 +71,9 @@ private:
         bool applyHaptic(XrDuration duration, float frequency, float amplitude);
 
         XrAction _action = XR_NULL_HANDLE;
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(OVERTE_E2E_OPENXR_INPUT_V1)
+        bool _featureVectorSucceeded{false};
+#endif
     private:
         bool createPoseSpaces();
         std::shared_ptr<OpenXrContext> _context;

@@ -13,17 +13,39 @@ using StandardAxisChannel=int;
 using controller::AxisValue;
 constexpr int LX=0,LY=1,RX=2,RY=3,LEFT_TRACKPAD_X=4,LEFT_TRACKPAD_Y=5,RIGHT_TRACKPAD_X=6,RIGHT_TRACKPAD_Y=7;
 struct NativeActionState {
-    bool isActive{false},changedSinceLastSync{true};qint64 lastChangeTime{12345};
+    int type{1};bool isActive{false},changedSinceLastSync{true};qint64 lastChangeTime{12345};
     struct {float x{0},y{0};} currentState;
 };
-struct ActionBoundary { NativeActionState state;NativeActionState getVector2f() const {return state;} };
+using XrActionStateVector2f=NativeActionState;
+struct XrActionStateGetInfo { int type{0},action{0}; };
+using XrResult=int;
+constexpr int XR_TYPE_ACTION_STATE_VECTOR2F=1,XR_TYPE_ACTION_STATE_GET_INFO=2;
+static NativeActionState returnedState;
+static bool querySucceeds=true;
+int xrGetActionStateVector2f(int,const XrActionStateGetInfo*,NativeActionState* state) {*state=returnedState;return querySucceeds ? 0 : -1;}
+bool xrCheck(int,int result,const char*) {return result==0;}
+struct ActionBoundary {
+    NativeActionState state;bool succeeds{true},_featureVectorSucceeded{false};int _action{0};
+    struct Context {int _session{1},_instance{1};} context;
+    Context* _context{&context};
+    NativeActionState getVector2f() {
+        returnedState=state;querySucceeds=succeeds;
+#include "original-pico-vector-query.inc"
+    }
+};
+namespace overte::e2e {
+struct LifecycleGestureHostBoundary {
+    static bool stable(const struct stat& a,const struct stat& b) {return LifecycleGestureObservation::stableStatus(a,b);}
+};
+}
 struct LogBoundary {template<class T>LogBoundary& operator<<(const T&){return *this;}};
 #define qCInfo(category) LogBoundary()
-void publish(const std::shared_ptr<LifecycleGestureObservation>& _featureGesture,float y,bool active=true) {
+void publish(const std::shared_ptr<LifecycleGestureObservation>& _featureGesture,float y,bool active=true,bool succeeds=true) {
     std::map<StandardAxisChannel,AxisValue> _axisStateMap;
     std::map<std::string,std::shared_ptr<ActionBoundary>> _actions;
     for (const auto& name:{"left_thumbstick","left_trackpad","right_thumbstick","right_trackpad"})
         _actions[name]=std::make_shared<ActionBoundary>();
+    _actions["left_thumbstick"]->succeeds=succeeds;
     _actions["left_thumbstick"]->state.isActive=active;_actions["left_thumbstick"]->state.currentState.y=y;
     unsigned _trackedControllers{2};
 #include "original-pico-gesture-axis.inc"
@@ -42,13 +64,16 @@ int main(int argc,char** argv) {
     invalid.remove("expected");invalid["schemaVersion"]=true;assert(!lifecycleGestureCommand(invalid));
     publish(source,0);auto baseline=snapshot(source);assert(baseline["known"].toBool());
     assert(baseline["activeGesture"].toString().isEmpty());assert(baseline["events"].toList().size()==1);
-    publish(source,.8f);auto started=snapshot(source);auto events=started["events"].toList();assert(events.size()==2);
+    publish(source,0,true,false);auto failed=snapshot(source);assert(!failed["known"].toBool());
+    assert(failed["events"].toList().last().toMap()["cause"]=="vector-query-failed");
+    publish(source,0);baseline=snapshot(source);assert(baseline["known"].toBool());
+    publish(source,.8f);auto started=snapshot(source);auto events=started["events"].toList();assert(events.size()==4);
     const auto start=events.last().toMap();const auto id=started["activeGesture"];
     assert(start["kind"]=="started" && start["gestureId"]==id && !id.toString().isEmpty());
     const auto proof=start["stream"].toMap();assert(!proof.isEmpty());
     QFile status(gestureResultsDirectory()+"/openxr-input/status.json");assert(status.open(QIODevice::ReadOnly));
     assert(proof["raw"].toString().toUtf8()==status.readAll());status.close();
-    publish(source,.8f);assert(snapshot(source)["events"].toList().size()==2); // Keepalive is not another gesture.
+    publish(source,.8f);assert(snapshot(source)["events"].toList().size()==4); // Keepalive is not another gesture.
     source->unavailable("focus-out");auto unknown=snapshot(source);
     assert(!unknown["known"].toBool() && unknown["activeGesture"]==id);
     publish(source,0,false);unknown=snapshot(source);
@@ -57,7 +82,28 @@ int main(int argc,char** argv) {
     assert(resumed["events"].toList().last().toMap()["kind"]=="resumed");
     publish(source,0);auto neutral=snapshot(source);assert(neutral["activeGesture"].toString().isEmpty());
     assert(neutral["events"].toList().last().toMap()["kind"]=="neutral");
-    assert(neutral["events"].toList()[1].toMap()==start); // Original status bytes/time never rewritten.
+    assert(neutral["events"].toList()[3].toMap()==start); // Original status bytes/time never rewritten.
+    // Exact original metadata comparisons reject same-size/inode rewrites,
+    // subsecond-only changes and pathname chmod/ownership/identity changes.
+    struct stat before{};assert(::stat(QFile::encodeName(status.fileName()).constData(),&before)==0);
+    assert(LifecycleGestureHostBoundary::stable(before,before));
+    for (int field=0;field<8;++field) {
+        auto changed=before;
+#if defined(Q_OS_DARWIN)
+        if(field==0) {++changed.st_mtimespec.tv_nsec;}
+        if(field==1) {++changed.st_ctimespec.tv_nsec;}
+#else
+        if(field==0) {++changed.st_mtim.tv_nsec;}
+        if(field==1) {++changed.st_ctim.tv_nsec;}
+#endif
+        if(field==2) {changed.st_mode|=S_IRGRP;}
+        if(field==3) {++changed.st_uid;}
+        if(field==4) {++changed.st_size;}
+        if(field==5) {++changed.st_ino;}
+        if(field==6) {++changed.st_nlink;}
+        if(field==7) {++changed.st_gid;}
+        assert(!LifecycleGestureHostBoundary::stable(before,changed));
+    }
     auto once=request();assert(!source->snapshot(once).isEmpty());assert(source->snapshot(once).isEmpty());
     QObject otherOwner;auto other=std::make_shared<LifecycleGestureObservation>(&otherOwner);
     assert(!installLifecycleGesture(&otherOwner,other));delete owner;assert(source->snapshot(request()).isEmpty());
