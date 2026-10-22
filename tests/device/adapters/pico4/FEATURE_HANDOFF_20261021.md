@@ -879,3 +879,19 @@ files or later phases from adopting an uncertain input. The restored journal
 remains owned until independent Qt/menu/native retirement; base process cleanup
 cannot discard it. Whole scene/avatar, stereo effect and actor/public/cleanup
 coordination remain open; this adds no complete feature capability.
+
+
+## Original candidate read admission and Chat mutation identity
+
+The [immutable candidate read seal](CANDIDATE_READ_SEAL.md) removes repeated
+external APK decoding only while all originally verified inputs remain exactly
+bound. Installed package/hash, PID and OpenXR checks stay live. Changed file
+descriptions, paths, arguments, CWD, policy or tool inputs permanently reject;
+unsupported kernels use the original verifier. The positive actual Pico quartet
+now fits the unchanged real-clock deadline. This adds no new tool/device trust.
+
+Native Chat v3 records the actual first opening/retirement command IDs. They
+provide a prerequisite for reconciling lost mutation replies through passive
+inspection; legacy sources cannot invent them. Full Chat/actor/cleanup
+coordination remains partial. See the [verification log](BUILD_VERIFICATION_20261022.md)
+for all integrated normal Scripts/Chat/Emote/binding/native counterexamples.

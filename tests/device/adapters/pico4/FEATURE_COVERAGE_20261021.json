@@ -943,7 +943,9 @@
         "tests/device/adapters/chat_journey/witness.py",
         "tests/device/adapters/chat_journey/WITNESS.md",
         "tests/device/self_tests/test_chat_background.py",
-        "tests/device/self_tests/test_chat_witness.py"
+        "tests/device/self_tests/test_chat_witness.py",
+        "tests/device/adapters/pico4/CANDIDATE_READ_SEAL.md",
+        "tests/device/adapters/pico4/candidate_read_seal.py"
       ],
       "declaredCheckpoints": 25,
       "inputVerbs": [

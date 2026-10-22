@@ -594,3 +594,33 @@ Final Qt5 owning menu/lifetime selector7.553s and75-case stereo/owner selection
 15.108s plus coverage.065s pass3/75 groups22.73s. Qt6 original menu/lifetime
 owning case also passes10.196s. All4 repository suites pass3.07s; registry and
 whitespace pass. Native application/whole translation unit/HMD remain unqualified.
+
+
+## Immutable original candidate admission and actual native Chat mutations
+
+d6ccd57e70/283851a65b/16dc65817f select9d7ac4ae01/bbe14c879b/51b7043c2e.
+One original full verifier result is bound to held original hashed files, exact
+arguments/types/environment/CWD, original policy/decoder/JVM/receipt inventory
+and bounded original directory identities. Queries admit nothing new and do
+not recursively scan tools. Kernel OFD identity with a retained duplicate
+prevents closing a recycled foreign descriptor, including a new open of the
+same file. Unsupported kernels retain the original full-verifier path. Every
+PM path, installed double hash, process and OpenXR guard remains live. Changed
+inputs permanently reject the original lifetime; no timeout or CI verifier was
+weakened. This preserves original qualification, not new decoder qualification.
+
+ccf6f9618a selects4ea6ad1bfe's native Chat v3 original opening/retirement command
+identities. The actual first mutation records them under the original mutex;
+later inspect/observe/retire cannot replace them. Existing v1/v2 component
+histories remain readable, with no v3 downgrade or invented mutation provenance.
+
+All54 original binding/OFD/CWD/actual positive quartet counterexamples pass
+22.161s. The full integrated default-timeout selection passes4/75 groups119.94s:
+normal Scripts105.585s, normal Chat3.953s, normal Emotes10.335s, coverage.070s.
+No host or adapter budget changed. All83 native Chat/domain/absence/samples/
+mixer/witness cases pass29.553s. The first command used a nonexistent mixer
+module name and failed that import; the corrected complete command above passes.
+The actual Qt5 DomainHandler/MessagesClient/header v3 source, with original C++
+packets also validated by Python, passes1.677s. All4 repository suites pass3.31s.
+Whole Chat activation/retirement/25-step/physical cleanup composition remains
+open; source-complete feature count is3/14.
