@@ -48,6 +48,18 @@ class IOSAvatarLoginRuntime(IOSAuthenticationRuntime):
 
 
 class IOSAvatarRuntime(IOSScriptRuntime):
+    def _avatar_consent(self,selector,sources,peer,username):
+        from ios.adapters.avatar_consent import IOSAvatarConsent
+        from ios.adapters.avatar_input_owner import AvatarInputOwner
+        need(isinstance(sources,IOSAvatarSources) and not sources.historical and sources.role=='actor')
+        sources.bound();actual=self._sources(selector);need(actual['binding']==sources.binding)
+        owned_origin=origin(sources.phase.client.url)
+        need(actual['target'].get('testBuild',{}).get('launchEnvironment',{}).get('HIFI_METAVERSE_URL')==owned_origin)
+        inputs=AvatarInputOwner(PrivateFeatureState(self.state_path(selector).with_name('ios-avatar-actor-inputs.json')),
+            sources.lock,sources.binding,sources.run,'actor',sources.phase.fixture_url,sources.guard)
+        return IOSAvatarConsent(PrivateFeatureState(self.state_path(selector).with_name('ios-avatar-actor-consent.json')),
+            sources,inputs,NativeUI(actual['client'],actual['session'],actual['check']),peer,username,owned_origin)
+
     def _avatar_receive(self,selector):
         from adapters.native_avatar_receive import NativeAvatarReceive,FILE,LIMIT
         source=self._sources(selector);observer=source['observer'];remote=observer.remote.rsplit('/',1)[0]+'/'+FILE

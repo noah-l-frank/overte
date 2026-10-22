@@ -10,6 +10,7 @@ import unittest
 from unittest.mock import patch
 
 from adapters.native_feature_observation import need
+from adapters.normal_feature_state import PrivateFeatureState
 from adapters.normal_ui import NativeUIError
 from adapters.script_feature.lock import ScriptSourceLock
 from feature_journeys.account_provider import AccountProvider
@@ -143,6 +144,26 @@ class AvatarRuntimeTests(unittest.TestCase):
                 self.assertEqual('ios-avatar-'+role+'-peer-sources.json',owner.store.path.name)
             source['target']['testBuild']['launchEnvironment']['HIFI_METAVERSE_URL']='https://foreign.invalid'
             with self.assertRaises(NativeUIError):runtime._avatar_peer_sources('target',self.client,self.run,'actor',self.root,lock)
+
+    def test_consent_factory_owns_actor_only_under_actual_candidate_and_fixture_origin(self):
+        fixture=SourcesFixture();fixture.phase.client.url=self.client.url;readers=fixture.readers()
+        from ios.adapters.avatar_sources import IOSAvatarSources
+        from ios.adapters.avatar_consent import IOSAvatarConsent
+        actual=dict(binding=BINDING,check=lambda:True,client=object(),session='owned-sdk-session',
+            target=dict(testBuild=dict(launchEnvironment=dict(HIFI_METAVERSE_URL='https://controlled.invalid'))))
+        class Runtime(IOSAvatarRuntime):
+            def _sources(_self,_selector):return actual
+        lock=ScriptSourceLock(self.path/'script-feature-sources.lock');runtime=Runtime(self.adapter)
+        with lock.held():
+            source=IOSAvatarSources(PrivateFeatureState(self.path/'ios-avatar-actor-sources.json'),self.root,BINDING,
+                fixture.run,'actor',lock,lambda:True,fixture.phase,readers=readers,
+                monotonic=lambda:fixture.clock,epoch_ms=fixture.host)
+            consent=runtime._avatar_consent('target',source,'00000000-0000-4000-8000-000000000002','e2e-'+'e'*32)
+            self.assertIsInstance(consent,IOSAvatarConsent);self.assertEqual('actor',consent.inputs.role)
+            self.assertEqual('ios-avatar-actor-consent.json',consent.store.path.name)
+            self.assertEqual('https://controlled.invalid',consent.origin)
+            actual['binding']=BINDING|dict(artifactSha256='f'*64)
+            with self.assertRaises(NativeUIError):runtime._avatar_consent('target',source,consent.peer,consent.username)
 
 
 if __name__=='__main__':unittest.main()

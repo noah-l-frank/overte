@@ -217,11 +217,12 @@ class IOSAvatarActions:
             ui.add_wearable(self.resource(query))
             self.wait(lambda frame:any(row['ticket']==query['ticket'] and self.wearable_ready(frame,row) for row in self.state['owned']))
         elif verb=='connection-request':ui.request_connection(self.peer['sessionId'])
-        elif verb=='connection-cancel':ui.close_connection()
+        elif verb=='connection-cancel':ui.close_connection();ui.connections()
         elif verb in ('peer-reject','peer-accept'):
             desired='declined' if verb=='peer-reject' else 'success'
             self.wait(lambda frame:any(row['id']=='people.page' and row['connectionState']['phase']==desired for row in frame['ui']['controls']))
             ui.close_connection() # Independent peer supplies consent; primary only closes its actual terminal panel.
+            ui.connections()
         elif verb=='connection-remove':
             ui.remove_connection(self.peer['username'])
             self.wait(lambda frame:self.absent_contact(frame,call))

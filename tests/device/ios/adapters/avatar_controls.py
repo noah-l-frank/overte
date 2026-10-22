@@ -297,6 +297,12 @@ class AvatarUI:
         self.wait(lambda packet: bool(self.row(packet, 'people.request.'+peer)))
         self.input('people.request.'+peer)
         self.wait(lambda packet: self.row(packet, 'people.page')['dialog'] == 'connection')
+    def connections(self):
+        """Ordinary tab navigation triggers the product's real first-page fetch."""
+        self.open('people');page=self.row(self.capture(),'people.page');need(page['dialog']=='none')
+        if page['activeTab']=='connectionsTab':
+            self.input('people.nearby');self.wait(lambda packet:self.row(packet,'people.page')['activeTab']=='nearbyTab')
+        self.input('people.connections');self.wait(lambda packet:self.row(packet,'people.page')['activeTab']=='connectionsTab')
     def respond_connection(self, peer, *, accept):
         session(peer); need(type(accept) is bool); self.open('people')
         page = self.row(self.capture(), 'people.page')

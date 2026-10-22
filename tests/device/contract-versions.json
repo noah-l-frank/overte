@@ -7,6 +7,7 @@
     "ios-create-export-artifact": {"current": 1, "reads": [1]},
     "ios-create-sample": {"current": 1, "reads": [1]},
     "ios-avatar-peer": {"current": 1, "reads": [1]},
+    "ios-avatar-consent": {"current": 1, "reads": [1]},
     "ios-avatar-actions": {"current": 1, "reads": [1]},
     "ios-avatar-code-pins": {"current": 1, "reads": [1]},
     "ios-navigation-address-root": {"current": 1, "reads": [1]},

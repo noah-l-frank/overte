@@ -15,6 +15,7 @@ REQUIRED = {
     "ios-create-export-artifact": 1,
     "ios-create-sample": 1,
     "ios-avatar-peer": 1,
+    "ios-avatar-consent": 1,
     "ios-avatar-actions": 1,
     "ios-avatar-code-pins": 1,
     "ios-navigation-address-root": 1,
