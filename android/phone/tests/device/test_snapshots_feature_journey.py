@@ -267,8 +267,10 @@ class HostBoundaryTests(unittest.TestCase):
         with patch('subprocess.Popen',side_effect=AssertionError('Escaped host boundary')) as original:
             with HostOnlyBoundary():
                 with self.assertRaisesRegex(AssertionError,'Unprovisioned Android'):AdbTransport()
-                for command in (['adb','get-state'],['/unavailable/adb','get-state'],['sh','-c','adb get-state']):
+                for command in (['adb','get-state'],['/unavailable/adb','get-state'],['sh','-c','adb get-state'],['env','adb','get-state']):
                     with self.assertRaisesRegex(AssertionError,'Device subprocess forbidden'):subprocess.run(command)
+                with self.assertRaisesRegex(AssertionError,'Device subprocess forbidden'):subprocess.run(['python3','--version'],executable='/unavailable/adb')
+                with self.assertRaisesRegex(AssertionError,'Device subprocess forbidden'):subprocess.run(['adb','get-state'],shell=True)
             original.assert_not_called()
 
 

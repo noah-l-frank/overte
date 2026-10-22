@@ -73,10 +73,16 @@ class HostOnlyBoundary(ExitStack):
         def guarded(command, *args, **kwargs):
             words = shlex.split(command) if isinstance(command, str) else list(command)
             executable = os.path.basename(os.fsdecode(words[0])) if words else ''
+            allowed = {'sh','bash','dash','python','python3',Path(__import__('sys').executable).name,
+                       'openssl','java','javac'}
+            override = kwargs.get('executable')
+            override_name = os.path.basename(os.fsdecode(override)) if override is not None else executable
+            if (executable not in allowed or override_name != executable
+                    or (kwargs.get('shell') and not isinstance(command,str))):
+                raise AssertionError('Device subprocess forbidden: unprovisioned host command')
             shell_text = command if kwargs.get('shell') else (
                 words[-1] if executable in ('sh','bash','dash') and '-c' in words else '')
-            if re.search(r'(^|[-_])adb(?:[.\-_]|$)', executable, re.I) or (
-                    isinstance(shell_text,str) and re.search(r'(?<![\w-])(?:[^\s;/]+/)?adb(?:\.exe)?(?=\s|$|[;&|])',shell_text)):
+            if isinstance(shell_text,str) and re.search(r'(?<![\w-])(?:[^\s;/]+/)?adb(?:\.exe)?(?=\s|$|[;&|])',shell_text):
                 raise AssertionError('Device subprocess forbidden in host Snapshot replay')
             return original(command, *args, **kwargs)
         self.enter_context(patch('subprocess.Popen', guarded))
@@ -448,6 +454,13 @@ class SnapshotTarget(CreateTarget):
 
 
 class SnapshotProxy(CreateProxy):
+    def capture_transport(self,artifact):
+        transport=LocalTransport(self.root/'snapshot-app',artifact)
+        # LocalTransport's stand-alone test constant is not the current target.
+        transport.context={key:self.binding[key] for key in ('sourceRevision','artifactSha256','processIdentity')}
+        transport.adb=SavedSdk(self.root/'snapshot-app');transport.selector='synthetic-readback-only'
+        return transport
+
     def _snapshot_source(self,_):return self.reader('snapshot',PhoneSnapshotSource)
     def _snapshot_measurements(self,_):
         return PhoneSnapshotMeasurements(self.reader('roots',NativeScriptRoots),self.reader('scripts',NativeScriptObservation),
@@ -461,7 +474,7 @@ class SnapshotProxy(CreateProxy):
     def _snapshot_capture_files(self,_s,artifact,owner,*,read_only=False):
         Path(artifact).mkdir(mode=0o700,exist_ok=True)
         source=self.reader('snapshot-files',PhoneSnapshotCaptureFileSource,read_only=read_only)
-        return PhoneSnapshotCaptureFiles(LocalTransport(self.root/'snapshot-app',Path(artifact)),source,self.binding,owner,read_only=read_only,clock_ms=self.clock_ms)
+        return PhoneSnapshotCaptureFiles(self.capture_transport(Path(artifact)),source,self.binding,owner,read_only=read_only,clock_ms=self.clock_ms)
     def _snapshot_settings(self,_s,*,read_only=False):return self.reader('snapshot-settings',PhoneSnapshotSettings,read_only=read_only)
     def _snapshot_platform(self,_):return PhoneSnapshotPlatform(lambda:str(self.call('sdk-version',None)),lambda:True,self.clock_ms)
     def _snapshot_share_resolution(self,_):return SimpleNamespace(read=lambda:self.call('share-resolution',None))
@@ -505,7 +518,7 @@ class SnapshotProxy(CreateProxy):
     def _snapshot_system_files(self,_s,root,owner,binding,resolution,authority,handoff):
         from overte_phone_snapshot_system_files import SnapshotSystemFileSource
         source=SnapshotSystemFileSource(handoff)
-        return PhoneSnapshotCaptureFiles(LocalTransport(self.root/'snapshot-app',root),source,binding,owner,read_only=True,clock_ms=self.clock_ms)
+        return PhoneSnapshotCaptureFiles(self.capture_transport(root),source,binding,owner,read_only=True,clock_ms=self.clock_ms)
     def _graphics_lifecycle_status(self,_s,binding):
         value=self.call('snapshot-state',None)
         return dict(binding=self.call('binding',None),foreground=value['foreground'],running=True,appState=4 if value['foreground'] else 3)
