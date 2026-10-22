@@ -283,4 +283,29 @@ neither same-inode replacement nor a second detach closes a foreign FD.
 The parent reports false when any host owner is unresolved while still
 checking its independent remaining owners. This only reports host detachment;
 it does not retire source journals, stop the actor or prove feature cleanup.
-Durable whole-parent host-finalization admission remains a separate open join.
+`PicoChatComposition.finalize_host()` now supplies a separate version-1 durable
+host-finalization owner after a sealed v4 archive. It binds the exact warm plan,
+peer/restart/transfer objects, immutable artifact hashes, original host PID/
+kernel-start/boot identity, original parent inode and every captured original
+descriptor pair/closed immutable window. Original wrapper callbacks are checked;
+an unknown existing host marker is refused without closing or replacing it.
+
+After its `detach-issued` CAS, it repeats the complete original archive byte
+pass. It invokes the actual `OriginalDescriptor.close` implementation for the
+captured pairs, then independently requires the original owners' closed flags,
+cleared descriptor/alias fields and absence of poisoned windows. A success ACK
+without those actual state changes is insufficient. Only then does it clear the
+original wrappers and retire its own host marker. No target input or peer stop
+occurs. Lost initial/closed/unlink publications retain a durable marker, including
+CAS-from-absence `final-unavailable` when the last unlink landed. A failed warm
+owner cannot be retried or reconstructed from a ready-looking file. Generic
+cleanup detects this new private root and rootless chunks in every phase.
+
+The source scope is explicitly `original-host-chat-handles`: it describes this
+host's selected pairs/windows only. It neither retimes archived native facts nor
+replaces the independent process/peer/Qt release evidence, the absent hermetic
+actor receipt or the absent device run. Nine host-owner cases plus the actual
+Pico root/orphan guard passed 10 cases in 1.689 seconds. They include real kernel
+FD reuse, fake close ACK, replaced wrapper callback/parent, unknown marker and
+lost initial/closed/final-unlink receipts. The full warm v4 composition through
+this final host owner remains to be measured; public Chat stays partial.

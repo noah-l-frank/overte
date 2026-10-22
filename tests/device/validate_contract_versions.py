@@ -16,6 +16,7 @@ REQUIRED = {
     "pico-chat-application-close": 1,
     "chat-evidence-archive": 4,
     "pico-chat-archive-plan": 4,
+    "pico-chat-host-close": 1,
     "pico-chat-restart-io": 1,
     "pico-openxr-binding-transfer": 1,
     "native-host-descriptor-owner": 1,

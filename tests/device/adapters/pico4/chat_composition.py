@@ -307,6 +307,18 @@ class PicoChatComposition:
             self.failed=True
             raise NativeUIError('Pico Chat final archive is unresolved; all unknown originals and retirement intents remain') from None
 
+    def finalize_host(self):
+        """Close captured original host pairs under a separate durable intent."""
+        from adapters.pico4.chat_host_close import PicoChatHostClose
+        try:
+            need(not self.failed and getattr(self,'host_close',None) is None)
+            with self.held():
+                self.host_close=PicoChatHostClose(self,self.adapter._chat_host_close_store(self.target))
+                return self.host_close.run()
+        except Exception:
+            self.failed=True
+            raise NativeUIError('Original Chat host closure is unresolved; the exact owner and intent remain retained') from None
+
     def detach(self):
         """Host handles only; never a native, journal or feature cleanup claim."""
         okay=True

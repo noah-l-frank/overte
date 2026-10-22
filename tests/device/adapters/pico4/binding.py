@@ -1022,10 +1022,14 @@ def create_adapter(args, base_class):
             state,_ui=self._script_paths(target)
             return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-','chat-archive-retirement-')))
 
+        def _chat_host_close_store(self,target):
+            state,_ui=self._script_paths(target)
+            return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-','chat-host-close-')))
+
         def _chat_application_retained(self,target):
             # Rootless successor/retirement chunks must not disappear behind
             # a missing parent root or ordinary application force-stop.
-            stores=[self._chat_application_store(target),self._chat_restart_inputs_store(target),self._chat_archive_retirement_store(target)]
+            stores=[self._chat_application_store(target),self._chat_restart_inputs_store(target),self._chat_archive_retirement_store(target),self._chat_host_close_store(target)]
             stores.extend(self._chat_postrestart_store(target,kind) for kind in ('ui','primary-code','actor-code','primary-absence','actor-absence'))
             retained=any(self._chat_chunk_store_retained(store) for store in stores)
             state,_ui=self._script_paths(target);key=state.stem.removeprefix('normal-script-state-')

@@ -125,5 +125,14 @@ class PicoChatApplicationFactoryTests(unittest.TestCase):
         key=state.stem.removeprefix('normal-script-state-');directory=state.parent/('chat-evidence-'+key+'-'+'a'*32);directory.mkdir(mode=0o700)
         with self.assertRaises(RuntimeError):self.instance._chat_application_retained(self.native.target)
 
+    def test_actual_generic_guard_retains_unknown_host_close_root_and_rootless_original_chunk(self):
+        for chunk in (False,True):
+            if chunk:self.setUp()
+            store=self.instance._chat_host_close_store(self.native.target)
+            if chunk:store=PrivateFeatureState(store.path.with_name(store.path.name+'.frame-000.json'))
+            value=dict(original='unresolved-host-close');store.write(value,None);raw=store.path.read_bytes()
+            with self.subTest(chunk=chunk):self.assertTrue(self.instance._chat_application_retained(self.native.target))
+            self.assertEqual(raw,store.path.read_bytes());self.assertEqual([],self.native.inputs);self.assertEqual([],self.native.controllers)
+
 
 if __name__=='__main__':unittest.main()
