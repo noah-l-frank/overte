@@ -64,9 +64,10 @@ hit-test and pointer callback; no clicked signal or QML handler is invoked by
 the adapter. The original QML Android action already avoids a second onClicked
 call. A consumed input counter establishes delivery only.
 
-`navigation-error-dismissal` v1 is instantiated by the private Pico factory.
+`navigation-error-dismissal` v2 (reading closed v1 journals) is instantiated by the private Pico factory.
 The parent must own the failed normal Go To input, selected fixture origin and
-source/input lock. It supplies its original ticket and input epoch barrier,
+source/input lock. It supplies the current dismissal action ticket, original
+lookup ticket and original lookup input epoch barrier,
 provider identity/configuration and actual same-candidate binding. The owner
 joins the separately acquired original completed HTTP write receipt, original
 v2 native callback and the one actual current visible modal. A server 404 alone
@@ -78,11 +79,23 @@ and receipt, exact pending normal input, original source cursors and unique read
 queries. Intent is saved before one OK click. An applied lost reply is resolved
 through fresh actual response and weak-object destruction after recreation;
 no input is resent and no replacement ticket can adopt pending ownership.
+The original HTTP response remains under `lookupTicket`; the current active
+provider belongs to `ticket`, the new dismissal action. The owner never
+reactivates the old fixture challenge or retags a response. Omitted
+`lookup_ticket` retains the older same-ticket call shape. Closed v1 journals
+normalize to that same-ticket history and retain their original CAS disk value
+until the first ordinary write; unexpected v1 fields and version aliases fail.
+A pending input cannot be adopted by a different current or lookup ticket.
+
 Both root and listener must be gone and the original selected button must be OK.
 A three-second quiet window then requires unchanged original modal history,
 unchanged UI generation/input count, current parent lookup/provider ownership
 and advancing native epoch, UI epoch and UI elapsed clocks. Gaps above 1500 ms,
 retained objects, stalled clocks or another input/lookup cannot finish.
+Even a completed owner requires a fresh current provider/lookup-scope join
+before reporting success again. A later active challenge, retired lookup or
+advanced lookup generation cannot borrow old completed retirement. The final
+action clock is rechecked after persistence.
 Each operation has a twenty-second ceiling; at most 81 retirement samples,
 eight quiet samples and 512 durable read query IDs are admitted. Historical
 originals are validated at their original timestamps without retiming. The
@@ -95,7 +108,8 @@ The explicit eight-module selection covers positive ordinary dismissal,
 recreation/lost reply, ignored input, independently retained root/listener,
 provider/native/modal source faults, original clock/cursor replay, forbidden
 version aliases, capture reuse/barriers, changed geometry, quiet interruption
-and changed durable originals. Tests exercise the actual private Pico factories
+and changed durable originals. The real owned loopback case keeps the original
+404 receipt while activating a different current dismissal challenge. Tests exercise the actual private Pico factories
 and existing input router, original probe/Android dispatch and original QML
 button functions under Node. A short-lived owned loopback fixture proves the
 actual HTTP response header and completed write receipt; native/Qt/device

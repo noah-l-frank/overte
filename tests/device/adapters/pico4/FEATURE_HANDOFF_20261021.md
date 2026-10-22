@@ -725,3 +725,22 @@ restart/bookmark transfer and complete final retirement remain unfinished.
 Source/host-complete areas remain three. The own source and selected host
 evidence are privately backed up. The earlier Btrfs index `rename` ENOSPC is
 recorded in verification; a later ordinary staging attempt succeeded.
+
+## Original lookup ticket versus current dismissal challenge
+
+`navigation-error-dismissal` v2 now separates the immutable original 404
+`lookupTicket` from the current dismissal action `ticket`. The actual common
+Journey activates a new challenge before `dismiss-error`; reactivating the old
+challenge or attributing its HTTP write to the new action would break original
+source provenance. The owner preserves both identities and the original submit
+barrier, joins the original response/callback/modal and requires the current
+provider challenge through normal OK and independent three-second retirement.
+
+Closed v1 journals remain readable with their original same-ticket semantics.
+Applied lost OK results resume without another input; neither ticket can change
+an unresolved owner. Completed owners also reject a later challenge or lookup
+scope instead of borrowing old cleanup. The real owned HTTP fixture case now
+activates dismissal after its original completed lookup response. Native code
+and input wire shape are unchanged; sources remain uncompiled and devices
+untested. Full Go To input/open/closure and Navigation actor/public/finalizer
+composition remain unfinished; no complete capability is added.

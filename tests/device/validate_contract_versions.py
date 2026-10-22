@@ -135,7 +135,7 @@ REQUIRED = {
     "native-navigation-replies": 2,
     "native-navigation-modals": 1,
     "native-navigation-error-controls": 1,
-    "navigation-error-dismissal": 1,
+    "navigation-error-dismissal": 2,
     "native-navigation-environment": 1,
     "native-navigation-origin-controls": 1,
     "navigation-origin-operations": 1,

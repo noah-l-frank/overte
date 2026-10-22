@@ -77,6 +77,73 @@ class NavigationErrorDismissalTests(unittest.TestCase):
         self.assertEqual(dict(performed=True), self.owner().act(TICKET, 20000))
         self.assertEqual(inputs, self.model.calls)
 
+    def test_new_dismissal_challenge_joins_original_lookup_receipt_without_reactivating_it(self):
+        current='9'*32;self.provider['ticket']=current
+        self.assertEqual(TICKET,self.provider['responses'][0]['ticket'])
+        self.assertEqual(dict(performed=True),self.owner().act(current,20000,lookup_ticket=TICKET))
+        state=self.owner().state
+        self.assertEqual((current,TICKET),(state['ticket'],state['lookupTicket']))
+        self.assertEqual(current,state['original']['provider']['ticket'])
+        self.assertEqual(TICKET,state['joined']['response']['ticket']);self.assertEqual(7,len(state['quiet']))
+        self.assertEqual(1,len(self.model.calls));self.owner().act(current,20000,lookup_ticket=TICKET)
+        self.assertEqual(1,len(self.model.calls))
+
+    def test_lost_reply_keeps_both_original_tickets_and_refuses_a_replacement_action(self):
+        current='9'*32;self.provider['ticket']=current;self.model.lose_ack=True
+        with self.assertRaises(NativeUIError):self.owner().act(current,20000,lookup_ticket=TICKET)
+        self.assertEqual('pending',self.owner().state['phase'])
+        for ticket,lookup in (('8'*32,TICKET),(current,current),(TICKET,TICKET)):
+            with self.subTest(ticket=ticket),self.assertRaises(NativeUIError):self.owner().act(ticket,20000,lookup_ticket=lookup)
+        self.assertEqual(1,len(self.model.calls));self.model.lose_ack=False
+        self.owner().act(current,20000,lookup_ticket=TICKET);self.assertEqual(1,len(self.model.calls))
+
+    def test_wrong_lookup_or_active_provider_ticket_cannot_adopt_a_preexisting_modal(self):
+        for ticket,lookup in (('9'*32,'9'*32),('8'*32,TICKET)):
+            self.setUp();self.provider['ticket']='9'*32
+            with self.subTest(ticket=ticket),self.assertRaises(NativeUIError):self.owner().act(ticket,20000,lookup_ticket=lookup)
+            self.assertFalse(self.model.calls);self.assertIsNone(self.owner().state)
+
+    def test_completed_dismissal_cannot_borrow_a_later_provider_or_lookup_scope(self):
+        for fault in ('ticket','generation','inactive'):
+            self.setUp();self.owner().act(TICKET,20000)
+            if fault=='ticket':self.provider['ticket']='9'*32
+            elif fault=='generation':self.model.modal.replies.generation+=1
+            else:self.model.modal.replies.active=False
+            with self.subTest(fault=fault),self.assertRaises(NativeUIError):self.owner().act(TICKET,20000)
+            self.assertEqual(1,len(self.model.calls))
+
+    def test_closed_v1_pending_record_resumes_with_same_lookup_ticket_and_no_new_input(self):
+        self.model.lose_ack=True
+        with self.assertRaises(NativeUIError):self.owner().act(TICKET,20000)
+        disk=self.owner().disk;disk.pop('lookupTicket');disk['navigationErrorDismissalVersion']=1
+        self.path.write_text(json.dumps(disk));self.path.chmod(0o600)
+        owner=self.owner();self.assertEqual(1,owner.disk['navigationErrorDismissalVersion'])
+        self.assertEqual(TICKET,owner.state['lookupTicket']);self.model.lose_ack=False;owner.act(TICKET,20000)
+        self.assertEqual(1,len(self.model.calls));self.assertEqual(2,self.owner().disk['navigationErrorDismissalVersion'])
+
+    def test_v1_alias_extra_field_or_changed_original_active_ticket_never_admits_input(self):
+        for fault in ('v1-extra','v2-missing','original-ticket','version-bool'):
+            self.setUp();self.model.lose_ack=True
+            with self.assertRaises(NativeUIError):self.owner().act(TICKET,20000)
+            disk=self.owner().disk
+            if fault=='v1-extra':disk['navigationErrorDismissalVersion']=1
+            elif fault=='v2-missing':disk.pop('lookupTicket')
+            elif fault=='version-bool':disk['navigationErrorDismissalVersion']=True
+            else:disk['original']['provider']['ticket']='9'*32
+            self.path.write_text(json.dumps(disk));self.path.chmod(0o600)
+            with self.subTest(fault=fault),self.assertRaises(NativeUIError):self.owner()
+            self.assertEqual(1,len(self.model.calls))
+
+    def test_slow_final_persistence_cannot_escape_the_action_deadline_or_resend_ok(self):
+        owner=self.owner();write=owner.store.write
+        def slow(value,previous):
+            write(value,previous)
+            if value['phase']=='complete':self.model.clock+=21
+        owner.store.write=slow
+        with self.assertRaises(NativeUIError):owner.act(TICKET,20000)
+        self.assertEqual('complete',self.owner().state['phase']);self.assertEqual(1,len(self.model.calls))
+        self.owner().act(TICKET,20000);self.assertEqual(1,len(self.model.calls))
+
     def test_ignored_input_or_retained_resources_keep_one_pending_input_and_refuse_replacement_ticket(self):
         for fault in ('ignore', 'ignore_effect', 'retain_root', 'retain_listener'):
             self.setUp();setattr(self.model, fault, True)
@@ -199,11 +266,14 @@ class NavigationErrorDismissalTests(unittest.TestCase):
             event = self.model.modal.replies.events[0]
             event.update(runId=run, origin=origin, responseId=response)
             self.model.modal.event = deepcopy(event);self.model.modal.records[0]['event'] = deepcopy(event)
+            # The server keeps the completed lookup response under its original
+            # challenge when the real common journey activates dismissal.
+            dismiss='9'*32;client.activate(dismiss)
             # The actual native/Qt boundaries stay explicit simulations. Only
             # the owned HTTP write/receipt and host state/input code are real.
             owner = self.owner(run=run, ui_factory=lambda intent: TokenNavigationErrorUI(PicoNavigationErrorIO(self.fixture.original), intent, run),
                                status=client.navigation_status, provider_instance=provider.instance, owned_origin=origin)
-            self.assertEqual(dict(performed=True), owner.act(TICKET, 20000))
+            self.assertEqual(dict(performed=True), owner.act(dismiss, 20000,lookup_ticket=TICKET))
             self.assertEqual(response, owner.state['joined']['response']['responseId'])
             client.close()
         finally:

@@ -1730,5 +1730,42 @@
     "details": "The actual private Pico close factory pins the same normal manager/binding/source lock and original completed transit/Home proof, saves one normal OpenXR tablet.close intent, independently observes actual Qt/Home/generic VR UI/native root/pose/bookmark effects and requires original three-second quiet. Ignored/lost close, foreign entity/pages/input/focus/keyboard and stale clocks keep ownership without another toggle. A passive role-bound frame publisher then allocates a fresh original NavigationStereo v2 journal per acquisition; it performs no UI input/repair and accepts no desired state/image policy. Both actual private source roles are tested with common independent two-eye PNG/journal verification, advancing original sources and immutable raw metadata/PNG identities. A lost publication returns the same still-fresh original sequence/epochs; an uncertain capture, rejected cursor/render ID or metadata remains owned. Source-only extraction is shared with the existing independent verifier; full state/actor/public operations are not registered.",
     "integrationBlock": "Prior ordinary staging was blocked by verified Btrfs index rename ENOSPC. A later ordinary git add succeeded. Source/backup and original diagnostic evidence remain retained; no alternate-index commit, manual index/reference write, global filesystem reconfiguration or safeguard bypass.",
     "limitations": "Original Python controller/source/PNG/file/CAS/receipt components run with synthetic Qt/Pico/HMD/OpenXR/GPU/process boundaries. Native sources remain uncompiled and physical runs are zero. No new native/product behavior, builds, compilers, services, Jenkins, devices, installation, dependency installation, remote writes or protected integration. This is post-transit normal close and internal fresh source publication, not the independent full Navigation state/actor service, Go To/end-page closure, maturity/origin/scene restoration, actual restart/bookmark transfer or complete Script/XHR/Web/timer/callback/active-index finalization. All originals remain retained; source/host-complete areas remain Scripts, Authentication and Graphics only."
+  },
+  "navigationDismissalChallengePacket": {
+    "status": "implemented-host-verified",
+    "contracts": [
+      "navigation-error-dismissal v2 reads closed v1 journals; native/input wire unchanged"
+    ],
+    "checks": [
+      {
+        "command": "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest self_tests.test_navigation_error_dismissal self_tests.test_token_navigation_error_ui self_tests.test_native_navigation_modals self_tests.test_native_navigation_replies",
+        "status": "passed",
+        "tests": 41,
+        "durationSeconds": 2.41
+      },
+      {
+        "command": "python3 -m unittest self_tests.test_feature_journeys.FeatureJourneys.test_navigation_actual_empty_query_filtering_cancellation_and_reopen_have_independent_reads self_tests.test_feature_journeys.FeatureJourneys.test_navigation_ignored_effects_cancelled_saves_and_retired_pages_cannot_pass self_tests.test_feature_journeys.FeatureJourneys.test_navigation_requires_actual_owned_directory_and_current_named_404_receipts self_tests.test_feature_journeys.FeatureJourneys.test_navigation_final_http_source_read_cannot_finish_after_the_existing_deadline",
+        "status": "passed",
+        "tests": 4,
+        "durationSeconds": 3.285
+      },
+      {
+        "command": "python3 tests/device/validate_contract_versions.py",
+        "status": "passed"
+      },
+      {
+        "command": "python3 tests/run-project-tests.py --suite documentation --suite documentation-contracts --suite source-layout --suite project-coverage",
+        "status": "passed",
+        "suites": 4,
+        "durationSeconds": 4.44,
+        "junit": "navigation-dismissal-challenge-project.xml"
+      }
+    ],
+    "sourceFindings": [
+      "Common Journey activates a new ticket before dismiss-error; the owned 404 receipt belongs to the earlier lookup ticket.",
+      "Actual Android PlatformInfo.isStandalone returns false, bypassing the QML optimization warning. TabletAddressDialog.onAccepted calls its existing loadAddress path; DialogsManager.hideAddressBar goes Home and closes the HMD tablet on the Pico path. OffscreenUi creates its original TabletMessageBox and emits a notification, not a guaranteed tablet reopen. The enclosing missing-lookup owner still needs ordinary tablet reopening to present that original modal."
+    ],
+    "details": "The owner separately pins original lookup receipt identity/barrier and current dismissal challenge, preserves one pending normal OK across lost replies, rejects replacement identities or changed original provider history, and rechecks current provider/lookup scope even after completed cleanup. Closed v1 records retain same-ticket semantics without overwriting the original CAS comparison value. Unexpected legacy fields/version aliases and missing new fields fail closed. The existing real loopback response case activates a new challenge after the original 404; no fixture history is retagged or reactivated. Final action budget is checked after persistence.",
+    "limitations": "All native/Qt/controller boundaries are synthetic and native sources remain uncompiled; physical runs remain zero. No builds, compilers, devices, installations, dependency installation, services, Jenkins, remote writes or protected integration. Actual Go To input/open/closure and full Navigation independent state/actor/public/final retirement remain unfinished; three source/host-complete areas only."
   }
 }

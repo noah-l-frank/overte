@@ -18,7 +18,9 @@ from adapters.token_create_ui import nonce, scope
 from adapters.token_navigation_error_ui import TokenNavigationErrorUI
 from feature_journeys.navigation_fixture import configuration, validate_status
 
-VERSION = 1
+VERSION = 2
+LEGACY_FIELDS={'navigationErrorDismissalVersion','runId','binding','providerInstance','providerInputs','origin',
+    'ticket','afterEpochMs','original','last','joined','phase','input','quiet','queries'}
 
 
 class NavigationErrorDismissal:
@@ -34,8 +36,13 @@ class NavigationErrorDismissal:
         self.provider_instance, self.inputs, self.origin = provider_instance, deepcopy(provider_inputs), owned_origin
         self.guard, self.monotonic, self.sleep = guard, monotonic, sleep
         self.last_clock = self.deadline = None
-        self.store = PrivateFeatureState(path);self.state = self.store.read()
+        self.store = PrivateFeatureState(path);self.disk = self.store.read();self.state = deepcopy(self.disk)
         if self.state is not None:
+            version=self.state.get('navigationErrorDismissalVersion')
+            need(type(version) is int and version in (1,2))
+            if version==1:
+                exact(self.state,LEGACY_FIELDS)
+                self.state.update(navigationErrorDismissalVersion=VERSION,lookupTicket=self.state['ticket'])
             self.validate_state(self.state)
         self.ui = ui_factory(self.intent)
         need(isinstance(self.ui, TokenNavigationErrorUI) and self.ui.run == run)
@@ -50,7 +57,7 @@ class NavigationErrorDismissal:
 
     def save(self, value):
         self.validate_state(value)
-        self.store.write(value, self.state);self.state = deepcopy(value)
+        self.store.write(value, self.disk);self.disk = deepcopy(value);self.state = deepcopy(value)
 
     def archive_group(self, value):
         exact(value, {'reply', 'modal', 'provider'})
@@ -88,12 +95,12 @@ class NavigationErrorDismissal:
         return dict(event=deepcopy(event), response=deepcopy(response))
 
     def validate_state(self, value):
-        exact(value, {'navigationErrorDismissalVersion', 'runId', 'binding', 'providerInstance', 'providerInputs', 'origin',
-                      'ticket', 'afterEpochMs', 'original', 'last', 'joined', 'phase', 'input', 'quiet', 'queries'})
+        exact(value, LEGACY_FIELDS|{'lookupTicket'})
         need(type(value['navigationErrorDismissalVersion']) is int and value['navigationErrorDismissalVersion'] == VERSION
              and value['runId'] == self.run and value['binding'] == self.binding
              and value['providerInstance'] == self.provider_instance and value['providerInputs'] == self.inputs and value['origin'] == self.origin
-             and type(value['ticket']) is str and re.fullmatch('[0-9a-f]{32}', value['ticket']) and integer(value['afterEpochMs'], 1)
+             and all(type(value[k]) is str and re.fullmatch('[0-9a-f]{32}', value[k]) for k in ('ticket','lookupTicket'))
+             and integer(value['afterEpochMs'], 1)
              and value['phase'] in ('ready', 'pending', 'quiet', 'complete')
              and type(value['queries']) is list and 2 <= len(value['queries']) <= 512
              and all(type(v) is str and re.fullmatch('[0-9a-f]{32}', v) for v in value['queries'])
@@ -101,7 +108,10 @@ class NavigationErrorDismissal:
         self.archive_group(value['original']);self.archive_group(value['last'])
         if value['last'] != value['original']:
             self.continuation(value['original'], value['last'])
-        need(value['joined'] == self.join(value['original'], value['ticket'], value['afterEpochMs']))
+        need(value['joined'] == self.join(value['original'], value['lookupTicket'], value['afterEpochMs']))
+        need(value['original']['provider']['active'] and value['original']['provider']['ticket']==value['ticket']
+             and value['original']['reply']['currentLookupActive']
+             and value['original']['reply']['currentLookupGeneration']==value['joined']['event']['lookupGeneration'])
         original_modal = presented(value['original']['modal'], value['joined']['event'])
         need(all(value['original'][kind]['commandId'] in value['queries'] and value['last'][kind]['commandId'] in value['queries']
                  for kind in ('reply', 'modal')))
@@ -131,7 +141,7 @@ class NavigationErrorDismissal:
             need(group['provider']['active'] and group['provider']['ticket'] == value['ticket']
                  and group['reply']['currentLookupActive']
                  and group['reply']['currentLookupGeneration'] == value['joined']['event']['lookupGeneration']
-                 and self.join(group, value['ticket'], value['afterEpochMs']) == value['joined'])
+                 and self.join(group, value['lookupTicket'], value['afterEpochMs']) == value['joined'])
             if previous is not None:
                 self.continuation(previous, group)
                 need(0 <= group['modal']['capturedEpochMs'] - previous['modal']['capturedEpochMs'] <= 1500)
@@ -165,7 +175,7 @@ class NavigationErrorDismissal:
         need(group['provider']['active'] and group['provider']['ticket'] == self.state['ticket']
              and group['reply']['currentLookupActive']
              and group['reply']['currentLookupGeneration'] == self.state['joined']['event']['lookupGeneration']
-             and self.join(group, self.state['ticket'], self.state['afterEpochMs']) == self.state['joined'])
+             and self.join(group, self.state['lookupTicket'], self.state['afterEpochMs']) == self.state['joined'])
 
     def effect(self, group, state=None):
         state = self.state if state is None else state
@@ -176,11 +186,13 @@ class NavigationErrorDismissal:
              and current['uiGeneration'] == old['generation'] and current['uiInputSequence'] == old['sequence'] + 1)
         return True
 
-    def act(self, ticket, after_epoch):
+    def act(self, ticket, after_epoch, *, lookup_ticket=None):
         need(self.deadline is None and type(ticket) is str and re.fullmatch('[0-9a-f]{32}', ticket) and integer(after_epoch, 1))
+        lookup_ticket=ticket if lookup_ticket is None else lookup_ticket
+        need(type(lookup_ticket) is str and re.fullmatch('[0-9a-f]{32}',lookup_ticket))
         self.deadline = self.now() + 20
         try:
-            return self.execute(ticket, after_epoch)
+            result=self.execute(ticket, after_epoch, lookup_ticket);self.now();return result
         except NativeUIError:
             raise
         except Exception:
@@ -188,20 +200,20 @@ class NavigationErrorDismissal:
         finally:
             self.deadline = None
 
-    def execute(self, ticket, after_epoch):
+    def execute(self, ticket, after_epoch, lookup_ticket):
         if self.state is None:
             group = self.sample(initial=True)
-            joined = self.join(group, ticket, after_epoch)
+            joined = self.join(group, lookup_ticket, after_epoch)
             presented(group['modal'], joined['event'])
             need(group['provider']['active'] and group['provider']['ticket'] == ticket
                  and group['reply']['currentLookupActive'] and group['reply']['currentLookupGeneration'] == joined['event']['lookupGeneration'])
             self.save(dict(navigationErrorDismissalVersion=VERSION, runId=self.run, binding=self.binding,
-                providerInstance=self.provider_instance, providerInputs=self.inputs, origin=self.origin, ticket=ticket, afterEpochMs=after_epoch,
+                providerInstance=self.provider_instance, providerInputs=self.inputs, origin=self.origin, ticket=ticket, lookupTicket=lookup_ticket, afterEpochMs=after_epoch,
                 original=group, last=group, joined=joined, phase='ready', input=None, quiet=[],
                 queries=[group[kind]['commandId'] for kind in ('reply', 'modal')]))
-        need(self.state['ticket'] == ticket and self.state['afterEpochMs'] == after_epoch)
+        need(self.state['ticket'] == ticket and self.state['lookupTicket']==lookup_ticket and self.state['afterEpochMs'] == after_epoch)
         if self.state['phase'] == 'complete':
-            self.effect(self.sample());return dict(performed=True)
+            group=self.sample();self.current(group);self.effect(group);return dict(performed=True)
         group = self.sample();self.current(group)
         if self.state['phase'] == 'ready':
             self.ui.dismiss(group['modal'], self.state['joined']['event'])

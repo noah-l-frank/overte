@@ -43,7 +43,7 @@
     "native-navigation-replies": {"current": 2, "reads": [1, 2]},
     "native-navigation-modals": {"current": 1, "reads": [1]},
     "native-navigation-error-controls": {"current": 1, "reads": [1]},
-    "navigation-error-dismissal": {"current": 1, "reads": [1]},
+    "navigation-error-dismissal": {"current": 2, "reads": [1, 2]},
     "native-navigation-environment": {"current": 1, "reads": [1]},
     "native-navigation-origin-controls": {"current": 1, "reads": [1]},
     "navigation-origin-operations": {"current": 1, "reads": [1]},
