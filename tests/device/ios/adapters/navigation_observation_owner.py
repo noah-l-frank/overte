@@ -310,8 +310,28 @@ class NavigationObservationOwner:
             result=self.validate();need(same(result,self.state['result']) and (result is None)==(self.state['phase']=='marker-pending'))
         self.bound();cache[key]=(self,deepcopy(self.previous),deepcopy(result));return deepcopy(result)
 
-    def recover(self):
-        """Resolve only a fully retained old return; never perform source reads."""
+    def recover(self,*,directory=None):
+        """Resolve retained originals; never perform source reads or input.
+
+        First-open directory ownership may be joined after the complete raw
+        group was retained. Its proof must use these exact HTTP/model/provider
+        originals; it cannot import another sample or supply requested state.
+        The enclosing normal-input owner remains responsible for its original
+        admission barriers. This method yields no fresh measurement.
+        """
         need(not self.historical);self.bound();need(self.state is not None and self.state['phase']=='reading')
-        result=self.validate();self.state.update(phase='marker-pending' if result is None else 'observed',result=result);self.save()
+        old=deepcopy(self.state['options']['directory'])
+        if directory is not None:
+            from ios.adapters.navigation_places_state import validate_directory_proof
+            validate_directory_proof(directory,self.binding,self.run)
+            originals=self.state['originals'];phase=self.state['phaseAfter']
+            need(phase is not None and directory['admission']['ticket']==self.state['ticket']
+                and same(directory['admission']['inputs'],self.state['options']['provider_inputs'])
+                and same(directory['originals'],dict(http=originals['http'],model=originals['model'],
+                    provider=phase['originals']['navigation'])) and (old is None or same(old,directory)))
+            self.state['options']['directory']=deepcopy(directory)
+        try:result=self.validate()
+        except BaseException:
+            self.state['options']['directory']=old;raise
+        self.state.update(phase='marker-pending' if result is None else 'observed',result=result);self.save()
 

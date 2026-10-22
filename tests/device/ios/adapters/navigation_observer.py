@@ -150,15 +150,15 @@ class NavigationObserver:
             and abs(epoch-clock['hostBeforeEpochMs']-(mono-clock['hostBeforeMonotonic'])*1000)<=250)
         self.bound();return deepcopy(measured)
 
-    def recover(self,*,abandon_sources=False):
+    def recover(self,*,abandon_sources=False,directory=None):
         """Explicit old-return recovery, never another capture/source request."""
-        need(not self.historical and type(abandon_sources) is bool);self.bound()
+        need(not self.historical and type(abandon_sources) is bool and (not abandon_sources or directory is None));self.bound()
         need(same(self.envelope(self.state),self.previous))
         need(self.state['rows'] and self.state['rows'][-1]['status']=='reserved')
         row=self.state['rows'][-1];need(row['childStarted']);owner=self.live(row);need(owner.state is not None)
         if owner.state['phase']=='reading':
             if abandon_sources:owner.abandon_sources()
-            else:owner.recover()
+            else:owner.recover(directory=directory)
         return self.adopt(row,owner)
 
     def publication_store(self):

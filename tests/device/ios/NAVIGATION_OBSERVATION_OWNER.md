@@ -82,6 +82,12 @@ Historical reconstruction performs no SDK query, source retry or capture.
 
 `recover()` only resolves a complete retained old record whose final return was
 lost. It reads no SDK/native/provider source and cannot issue another capture.
+For a first opened directory, `recover(directory=...)` can join its genuine
+directory proof after the full raw group was retained. The ticket, provider
+inputs and original HTTP/model/provider packets must match that exact group.
+Another valid acquisition cannot replace them. The enclosing normal-input
+owner must retain the original admission barriers; this join cannot prove that
+an ignored open succeeded. A rejected join leaves the saved carrier unchanged.
 Historical `archive()` reevaluates the same originals and actual retained PNG.
 It keeps the original acquisition time, including when recovery occurs much
 later. A fresh return additionally requires the whole operation, including
