@@ -50,7 +50,9 @@ attempt refuses further inputs. There is no resend, transcript reset or owner
 retirement API. The original source and input files remain even on success.
 
 The Pico `_chat_normal_input` factory pins the actual candidate and distinct
-role journal paths. Base teardown refuses green while this input owner remains.
+role journal paths. Base teardown refuses green while this input owner or any
+of its reserved immutable chunk names remains, even when the root is missing.
+The namespace check opens no child and never adopts or removes an orphan.
 Focused host tests use declared synthetic widget/native/peer boundaries and the
 actual token/Pico/owner code. They cover button and Return routes, cancelled
 draft, hidden tablet, genuine local-only fallback, independent remote receipt,

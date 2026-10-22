@@ -973,6 +973,19 @@ def create_adapter(args, base_class):
             state,_ui=self._script_paths(target)
             return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-','chat-normal-input-')))
 
+        def _chat_dispatcher_store(self,target):
+            state,_ui=self._script_paths(target)
+            return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-','chat-dispatcher-')))
+
+        @staticmethod
+        def _chat_chunk_store_retained(store):
+            # A missing root never retires its original immutable children.
+            # Inspect only this existing private namespace; no child is opened,
+            # adopted, removed or inferred released from a process-stop ACK.
+            if store.read() is not None:return True
+            store._parent();prefix=store.path.name+'.frame-'
+            return any(path.name.startswith(prefix) for path in store.path.parent.iterdir())
+
         @_private
         def _chat_normal_input(self,target,primary,actor,*,enter=False):
             from adapters.chat_journey.normal_input import ChatNormalInput
@@ -1421,7 +1434,8 @@ def create_adapter(args, base_class):
                            for stage in ('initial','final') for role,witness in (('primary',False),('actor',False),('actor',True))):chat_error=True
                     if self._chat_no_replay_store(target).read() is not None:chat_error=True
                     if self._chat_mixer_store(target).read() is not None:chat_error=True
-                    if self._chat_normal_input_store(target).read() is not None:chat_error=True
+                    if self._chat_chunk_store_retained(self._chat_normal_input_store(target)):chat_error=True
+                    if self._chat_chunk_store_retained(self._chat_dispatcher_store(target)):chat_error=True
                     if self._chat_background_store(target).read() is not None:chat_error=True
                     if self._chat_flow_inputs_store(target).read() is not None or self._chat_witness_store(target).read() is not None:chat_error=True
                     if self._chat_peer_input_store(target).read() is not None or self._chat_peer_send_store(target).read() is not None:chat_error=True
@@ -1485,7 +1499,8 @@ def create_adapter(args, base_class):
                               for stage in ('initial','final') for role,witness in (('primary',False),('actor',False),('actor',True)))
                       and self._chat_no_replay_store(target).read() is None
                       and self._chat_mixer_store(target).read() is None
-                      and self._chat_normal_input_store(target).read() is None
+                      and not self._chat_chunk_store_retained(self._chat_normal_input_store(target))
+                      and not self._chat_chunk_store_retained(self._chat_dispatcher_store(target))
                       and self._chat_background_store(target).read() is None
                       and self._chat_flow_inputs_store(target).read() is None and self._chat_witness_store(target).read() is None
                       and self._chat_peer_input_store(target).read() is None and self._chat_peer_send_store(target).read() is None

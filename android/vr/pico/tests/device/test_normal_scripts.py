@@ -850,6 +850,24 @@ class PicoNormalScriptsTests(unittest.TestCase):
         with self.assertRaises(ValueError):self.cleanup_instance().cleanup(self.native.target)
         self.assertFalse(self.native.running);self.assertEqual(original,store.read())
 
+    def test_pico_chat_process_teardown_cannot_hide_normal_or_dispatcher_orphans_without_roots(self):
+        for kind in ('normal','dispatcher'):
+            with self.subTest(kind=kind):
+                self.setUp()
+                store=(self.instance._chat_normal_input_store if kind=='normal' else self.instance._chat_dispatcher_store)(self.native.target)
+                child=PrivateFeatureState(store.path.with_name(store.path.name+'.frame-000.json'))
+                original={'original':'unresolved-input-and-original-quiet-sources'};child.write(original,None)
+                before=child.path.lstat();self.assertIsNone(store.read())
+                with self.assertRaises(ValueError):self.cleanup_instance().cleanup(self.native.target)
+                self.assertFalse(self.native.running);self.assertIsNone(store.read());self.assertEqual(original,child.read())
+                self.assertEqual((before.st_dev,before.st_ino),(child.path.lstat().st_dev,child.path.lstat().st_ino))
+
+    def test_pico_chat_retained_chunk_guard_never_reads_unknown_reserved_children(self):
+        store=self.instance._chat_normal_input_store(self.native.target)
+        child=store.path.with_name(store.path.name+'.frame-unknown');child.mkdir(mode=0o700)
+        self.assertTrue(self.instance._chat_chunk_store_retained(store));self.assertIsNone(store.read())
+        self.assertTrue(child.is_dir());self.assertEqual([],self.native.inputs)
+
     def test_pico_chat_mixer_factory_pins_actual_candidate_and_independent_role_stores_without_input(self):
         from adapters.chat_journey.mixer_control import FixtureMixerControl
         from adapters.chat_journey.mixer import ChatMixerOwner

@@ -37,6 +37,8 @@ refuse reconstruction. Cold construction can audit historical root packets;
 feature success claim. Cold owners cannot resume inputs, including after a
 completed prefix, because not every lazy child yet has a passive reconstruction
 contract. A new original run does not acquire an old unresolved run's journals.
+Pico base teardown also refuses green if the dispatcher root or a reserved
+immutable chunk name remains. A missing root never retires its children.
 
 Focused host checks compose all 25 real child steps and the baseline using
 explicit synthetic SDK/widget/native/network/process/time boundaries. Separate
