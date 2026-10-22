@@ -229,3 +229,14 @@ adopted. `_chat_mixer` pins the actual Pico candidate and original role paths;
 its owner survives application teardown. This remains a component: normal
 fallback/retry, independent publication, lifecycle and whole resource/process
 retirement still need composition before complete Chat admission.
+
+
+The [normal Chat input owner](../chat_journey/NORMAL_INPUT.md) now connects
+ordinary Open/type/channel/Send/Return/Close to both original native/UI/storage/
+remote source roles. It records every input before dispatch, independently
+requires real localOnly fallback or actual remote reception, verifies close and
+offline three-second quiet, and preserves explicit retry multiplicity. A hidden
+tablet first uses the existing original OpenXR/controller/tablet owner. The
+private `_chat_normal_input` factory and base teardown retain its original
+intent even after observed delivery/close. Host-only source/control checks do
+not qualify actual product networking, device input or full Chat resource release.

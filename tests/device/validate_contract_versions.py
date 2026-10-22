@@ -102,6 +102,7 @@ REQUIRED = {
     "native-chat-view": 2,
     "chat-journey-samples": 3,
     "chat-mixer-owner": 1,
+    "chat-normal-input": 1,
     "chat-journey-no-replay": 2,
     "chat-peer-input": 3,
     "native-chat-peer-position": 1,

@@ -106,7 +106,7 @@ class TokenChatUI:
         self.io,self.intent,self.run=io,intent,run;self.monotonic,self.sleep=monotonic,sleep
         self.last_clock=None;self.instance=None;self.pid=None;self.sequence=0;self.elapsed=0;self.generation=None
         self.version=1
-        self.erase_issued=False
+        self.erase_issued=False;self.tablet_open_issued=False
 
     def now(self):
         from adapters.native_feature_observation import number
@@ -173,7 +173,18 @@ class TokenChatUI:
         return original
 
     def open(self):
-        current=self.capture();need(current['open'] and current['ready'])
+        current=self.capture()
+        if not current['open']:
+            need(callable(getattr(self.io,'open_tablet',None)) and not self.tablet_open_issued)
+            self.tablet_open_issued=True
+            scope_value=current['scope']
+            # This is the original controller gesture, whose own native/root
+            # journal consumes it. It is not a predicted QML-command sequence.
+            self.intent(dict(controlId='tablet.open',action='controller-open',instance=scope_value['instance'],
+                generation=scope_value['generation'],sequence=scope_value['sequence']))
+            self.io.open_tablet(reference=current)
+            current=self.wait(lambda value:value['open'] and value['ready'])
+        need(current['open'] and current['ready'])
         if self.row(current,'chat.page',enabled=False) is None:
             if self.row(current,'chat.entry') is None:
                 self.input('tablet.home')

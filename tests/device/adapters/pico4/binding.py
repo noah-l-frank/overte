@@ -1165,6 +1165,20 @@ def create_adapter(args, base_class):
             return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-',
                 'chat-'+('erased-' if erased else '')+role+'-samples-')))
 
+        def _chat_normal_input_store(self,target):
+            state,_ui=self._script_paths(target)
+            return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-','chat-normal-input-')))
+
+        @_private
+        def _chat_normal_input(self,target,primary,actor,*,enter=False):
+            from adapters.chat_journey.normal_input import ChatNormalInput
+            manager=self._scripts(target);native=self._native_feature_observer(target);native.guard()
+            _need(primary.binding==actor.binding==manager.binding
+                and primary.store.path==self._chat_samples_store(target,'primary').path
+                and actor.store.path==self._chat_samples_store(target,'actor').path)
+            return ChatNormalInput((primary,actor),lambda intent:self._chat_controls(target,intent,primary.run),
+                self._chat_normal_input_store(target),enter=enter,monotonic=native.monotonic,sleep=native.sleep)
+
         def _chat_mixer_store(self,target):
             state,_ui=self._script_paths(target)
             return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-','chat-mixer-owner-')))
@@ -1569,6 +1583,7 @@ def create_adapter(args, base_class):
                         chat_error=True
                     if self._chat_no_replay_store(target).read() is not None:chat_error=True
                     if self._chat_mixer_store(target).read() is not None:chat_error=True
+                    if self._chat_normal_input_store(target).read() is not None:chat_error=True
                     if self._chat_peer_input_store(target).read() is not None or self._chat_peer_send_store(target).read() is not None:chat_error=True
                     if self._chat_peer_distant_store(target).read() is not None:chat_error=True
                     if self._chat_profile_store(target).read() is not None:chat_error=True
@@ -1628,6 +1643,7 @@ def create_adapter(args, base_class):
                       and self._account_origin_store(target).read() is None and self._chat_capture_store(target).read() is None
                       and self._chat_no_replay_store(target).read() is None
                       and self._chat_mixer_store(target).read() is None
+                      and self._chat_normal_input_store(target).read() is None
                       and self._chat_peer_input_store(target).read() is None and self._chat_peer_send_store(target).read() is None
                       and self._chat_peer_distant_store(target).read() is None
                       and self._emote_input_store(target).read() is None

@@ -58,6 +58,23 @@ class PicoChatTests(unittest.TestCase):
             boundary.start();self.addCleanup(boundary.stop)
         self.flow=self.instance._chat_controls(self.native.target,self.intents.append,RUN)
 
+    def test_closed_tablet_uses_existing_original_openxr_controller_owner_before_chat_pointer_input(self):
+        self.widget.panel=False;self.widget.tablet=False;self.native.opened=False
+        def stage(identity,operation,values):
+            self.assertEqual('123:synthetic-start',identity);self.assertEqual('tablet.open',operation)
+            self.assertEqual({'holdMilliseconds':1000},values)
+            original=json.loads(self.flow.io.original.navigation.path.read_text())
+            self.assertTrue(original['tabletOwned']);self.assertEqual(self.widget.instance,original['bridgeId'])
+            self.assertEqual('controller-open',self.intents[-1]['action'])
+            self.native.controllers.append(operation);self.native.opened=True;self.widget.tablet=True
+            return {'performed':True}
+        boundary=patch.object(self.native,'stage',side_effect=stage);boundary.start();self.addCleanup(boundary.stop)
+        self.flow.open()
+        self.assertTrue(self.widget.panel);self.assertEqual(['tablet.open'],self.native.controllers)
+        self.assertEqual('controller-open',self.intents[0]['action'])
+        self.assertEqual([('chat.entry','activate',None)],self.widget.calls)
+        self.assertEqual(1,len(self.native.inputs))
+
     def test_original_wrapper_uses_unicode_channel_send_and_return_with_consumed_counters(self):
         self.flow.select_channel('domain');self.flow.type(context(RUN)['unicode']);self.flow.send()
         self.flow.type(context(RUN)['retry']);self.flow.send(enter=True);self.flow.close()
