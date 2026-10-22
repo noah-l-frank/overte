@@ -1,6 +1,6 @@
 # Android Phone source coverage
 
-This review is pinned to `3dbdaeeacc1817a824623d8a44848e21e57a4cf3`
+This review is pinned to `4b6ad2974cc85549aafa30f8ef9530bba404f568`
 (2026-10-22). The versioned [JSON matrix](phone-source-coverage.v1.json) records
 all 14 common v18 areas, their actual Phone Appium declarations/dispatch,
 default-off flags, every catalog foundation and its required capabilities,
@@ -26,7 +26,7 @@ are unknown here and belong to separate sessions.
 | Graphics | Implemented | Implemented with prerequisites | Reported | Area instrumentation uncompiled | [Graphics](GRAPHICS_FEATURE.md) |
 | Audio | Implemented | Implemented with prerequisites | Reported | Partial Qt audio components | [Audio](AUDIO_FEATURE.md) |
 | Chat | Implemented | Implemented with prerequisites | Reported | Partial Qt / QML / peer / Settings | [Chat](CHAT_FEATURE.md) |
-| Snapshots | **Pending public composition** | **Pending parent integration** | Components only | Partial Qt / Java / filesystem / HTTPS | [Snapshots](SNAPSHOT_FEATURE.md) |
+| Snapshots | Present; full replay pending | **Pending full common/recovery qualification** | Components/dispatch only | Partial Qt / Java / filesystem / HTTPS | [Snapshots](SNAPSHOT_FEATURE.md) |
 | Scripts | Implemented | Implemented with prerequisites | Reported | Area instrumentation uncompiled | [Scripts](SCRIPT_FEATURE.md) |
 | Assets | Implemented | Implemented with prerequisites | Reported | Partial Qt / QML / file / geometry / oven components | [Assets](ASSETS_FEATURE.md) |
 | Lifecycle / Input | Implemented | Implemented with prerequisites | Reported | Partial original Qt / QML / IME / keyboard / timer | [Lifecycle / Input](LIFECYCLE_INPUT_FEATURE.md) |
@@ -57,12 +57,14 @@ observed product effect.
   PID and installed bytes stay pinned around every input; lost returns are never
   replayed. Parent integration passed 71 combined Navigation/Create/OS-input
   cases in 55.364 seconds, with explicit synthetic target boundaries.
-- **Snapshots:** capture/VM/review/normal controls, Save/Share consumer originals,
-  exact owned files and HTTPS upload sources are present and have component
-  evidence. The assessed adapter still declares no `feature.snapshots.*` triple,
-  complete feature flag/factory. Closed observer v8 configuration/dispatch now
-  exists, awaiting the independent actor factory. Root must update this row only
-  after full public facade, mandatory foundations and closed retirement integrate.
+- **Snapshots in progress:** The public facade/default-off triple, independent
+  original role/actor, v8 observer and original-bound retirement source are now
+  integrated. Parent verification passed 67 targeted original/dispatch/Qt/TLS
+  cases in 88.631 seconds. That union does not execute a complete common area.
+  Both whole MediaStore and SDK26–28 document-picker replays, passive OS history
+  and interrupted bootstrap/background/handoff/finalization recovery remain in
+  progress. The area stays outside the 13 qualified full catalog joins until
+  those actual source compositions and counterexamples pass.
 
 These are source findings, not skipped passing checkpoints. Missing abilities
 stay red; this review changes no dispatch or gate to conceal them.

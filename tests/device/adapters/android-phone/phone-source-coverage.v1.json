@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "documentKind": "android-phone-source-coverage",
-  "assessedRevision": "3dbdaeeacc1817a824623d8a44848e21e57a4cf3",
+  "assessedRevision": "4b6ad2974cc85549aafa30f8ef9530bba404f568",
   "assessedDate": "2026-10-22",
   "scope": {
     "platform": "android-phone",
@@ -425,8 +425,8 @@
     {
       "id": "snapshot-public-composition-pending",
       "area": "snapshots",
-      "status": "pending-parent-integration",
-      "finding": "Original sources, foundation owners, single ordinary OS input admission and closed v8 observer configuration exist; the complete feature.snapshots public facade/actor factories, flag and dispatch remain pending. Component and dispatch tests supply no target effect or device acceptance.",
+      "status": "pending-full-common-replay-and-interrupted-recovery",
+      "finding": "Public facade/guarded default-off dispatch, independent original role/actor, v8 observer and strict retirement source now exist. Parent67 targeted component/dispatch/original/Qt/TLS cases passed88.631s, but whole common MediaStore and document-picker replays, passive OS history and interrupted bootstrap/background/handoff/finalization recovery are still being completed. This is not full-area or device qualification.",
       "evidence": [
         {
           "path": "tests/device/adapters/android-phone/appium_adapter.py"
@@ -437,7 +437,9 @@
         {
           "path": "tests/device/adapters/android-phone/SNAPSHOT_FEATURE.md"
         }
-      ]
+      ],
+      "sourcePacket": "603e30c4d9",
+      "wiringPacket": "72a555788c"
     }
   ],
   "rows": [
@@ -480,7 +482,7 @@
         "dispatch": {
           "path": "tests/device/adapters/android-phone/appium_adapter.py",
           "symbol": "if operation in NAVIGATION_FEATURE_OPERATIONS:",
-          "line": 2941
+          "line": 3038
         },
         "facade": {
           "path": "tests/device/adapters/android-phone/overte_phone_navigation_feature.py"
@@ -584,7 +586,7 @@
         "dispatch": {
           "path": "tests/device/adapters/android-phone/appium_adapter.py",
           "symbol": "if operation in AUTHENTICATION_FEATURE_OPERATIONS:",
-          "line": 2960
+          "line": 3057
         },
         "facade": {
           "path": "tests/device/adapters/android-phone/overte_phone_authentication_feature.py"
@@ -661,7 +663,7 @@
         "dispatch": {
           "path": "tests/device/adapters/android-phone/appium_adapter.py",
           "symbol": "if operation in AVATAR_PEOPLE_FEATURE_OPERATIONS:",
-          "line": 2932
+          "line": 3029
         },
         "facade": {
           "path": "tests/device/adapters/android-phone/overte_phone_avatar_people_feature.py"
@@ -745,7 +747,7 @@
         "dispatch": {
           "path": "tests/device/adapters/android-phone/appium_adapter.py",
           "symbol": "if operation in CREATE_FEATURE_OPERATIONS:",
-          "line": 2996
+          "line": 3098
         },
         "facade": {
           "path": "tests/device/adapters/android-phone/overte_phone_create_feature.py"
@@ -846,7 +848,7 @@
         "dispatch": {
           "path": "tests/device/adapters/android-phone/appium_adapter.py",
           "symbol": "if operation in EMOTE_FEATURE_OPERATIONS:",
-          "line": 3001
+          "line": 3103
         },
         "facade": {
           "path": "tests/device/adapters/android-phone/overte_phone_emote_feature.py"
@@ -926,7 +928,7 @@
         "dispatch": {
           "path": "tests/device/adapters/android-phone/appium_adapter.py",
           "symbol": "if operation in WORLD_WEB_FEATURE_OPERATIONS:",
-          "line": 2976
+          "line": 3073
         },
         "facade": {
           "path": "tests/device/adapters/android-phone/overte_phone_world_web_feature.py"
@@ -1016,7 +1018,7 @@
         "dispatch": {
           "path": "tests/device/adapters/android-phone/appium_adapter.py",
           "symbol": "if operation in GRAPHICS_FEATURE_OPERATIONS:",
-          "line": 2966
+          "line": 3063
         },
         "facade": {
           "path": "tests/device/adapters/android-phone/overte_phone_graphics_feature.py"
@@ -1095,7 +1097,7 @@
         "dispatch": {
           "path": "tests/device/adapters/android-phone/appium_adapter.py",
           "symbol": "if operation in AUDIO_FEATURE_OPERATIONS:",
-          "line": 2946
+          "line": 3043
         },
         "facade": {
           "path": "tests/device/adapters/android-phone/overte_phone_audio_feature.py"
@@ -1187,7 +1189,7 @@
         "dispatch": {
           "path": "tests/device/adapters/android-phone/appium_adapter.py",
           "symbol": "if operation in CHAT_FEATURE_OPERATIONS:",
-          "line": 2937
+          "line": 3034
         },
         "facade": {
           "path": "tests/device/adapters/android-phone/overte_phone_chat_feature.py"
@@ -1243,7 +1245,7 @@
       "commonContractVersion": 18,
       "domainPrerequisite": true,
       "sourceImplemented": {
-        "publicFacade": false,
+        "publicFacade": true,
         "completeCatalogComposition": false
       },
       "hostVerified": {
@@ -1262,11 +1264,25 @@
           "feature.snapshots.observe",
           "feature.snapshots.cleanup"
         ],
-        "declared": [],
-        "defaultOffFlag": null,
-        "declaration": null,
-        "dispatch": null,
-        "facade": null,
+        "declared": [
+          "feature.snapshots.act",
+          "feature.snapshots.observe",
+          "feature.snapshots.cleanup"
+        ],
+        "defaultOffFlag": "OVERTE_PHONE_FEATURE_SNAPSHOTS",
+        "declaration": {
+          "path": "tests/device/adapters/android-phone/appium_adapter.py",
+          "symbol": "SNAPSHOTS_FEATURE_OPERATIONS=",
+          "line": 124
+        },
+        "dispatch": {
+          "path": "tests/device/adapters/android-phone/appium_adapter.py",
+          "symbol": "if operation in SNAPSHOTS_FEATURE_OPERATIONS:",
+          "line": 3093
+        },
+        "facade": {
+          "path": "tests/device/adapters/android-phone/overte_phone_snapshots_feature.py"
+        },
         "observer": {
           "path": "tests/device/adapters/android-phone/script_observer.py",
           "currentConfigurationVersion": 8,
@@ -1274,9 +1290,12 @@
         }
       },
       "prerequisites": [
-        "OVERTE_PHONE_NORMAL_SNAPSHOT=1 (existing foundation only)",
-        "controlled domain and normal OAuth account prerequisite",
-        "extended facade/registration and independent actor factory still pending"
+        "OVERTE_PHONE_FEATURE_SNAPSHOTS=1 (source opt-in; full common/recovery qualification pending)",
+        "OVERTE_PHONE_NORMAL_SNAPSHOT=1 (existing owned five-format foundation)",
+        "OVERTE_PHONE_SNAPSHOTS_CONFIGURATION (closed secret-free original config)",
+        "controlled domain and original HTTPS OAuth account/upload fixture",
+        "separately credentialed v8 Snapshot actor; actual pinned receiving fixture APK",
+        "complete common MediaStore/document-picker replay and interrupted recovery remain pending"
       ],
       "foundationModules": [
         "domain-enter",
@@ -1305,7 +1324,13 @@
         "android/phone/tests/device/test_snapshots_measurements.py",
         "android/phone/tests/device/test_snapshot_upload_bytes.py",
         "android/phone/tests/device/test_snapshots_observer.py",
-        "android/phone/tests/device/test_snapshot_handoff_input.py"
+        "android/phone/tests/device/test_snapshot_handoff_input.py",
+        "android/phone/tests/device/test_snapshots_feature.py",
+        "android/phone/tests/device/test_snapshots_registration.py",
+        "android/phone/tests/device/test_snapshots_role.py",
+        "android/phone/tests/device/test_snapshots_actor.py",
+        "android/phone/tests/device/test_snapshot_handoff_admission_audit.py",
+        "android/phone/tests/device/test_snapshot_cancel_followfloor_audit.py"
       ],
       "nativeCheckPaths": [
         "android/phone/tests/device/test_snapshot_capture_files_native.py",
@@ -1319,7 +1344,8 @@
         "tests/device/adapters/android-phone/SNAPSHOT_OS_RETIREMENT.md",
         "tests/device/adapters/android-phone/SNAPSHOT_CAPTURE_FILES.md",
         "tests/device/adapters/android-phone/SNAPSHOT_HANDOFF_AUDIT.md",
-        "tests/device/adapters/android-phone/SNAPSHOT_OBSERVER.md"
+        "tests/device/adapters/android-phone/SNAPSHOT_OBSERVER.md",
+        "tests/device/adapters/android-phone/SNAPSHOT_PUBLIC_COMPOSITION_AUDIT.md"
       ],
       "gapIds": [
         "snapshot-public-composition-pending"
@@ -1364,7 +1390,7 @@
         "dispatch": {
           "path": "tests/device/adapters/android-phone/appium_adapter.py",
           "symbol": "if operation in SCRIPT_FEATURE_OPERATIONS:",
-          "line": 2954
+          "line": 3051
         },
         "facade": {
           "path": "tests/device/adapters/android-phone/overte_phone_script_feature.py"
@@ -1449,7 +1475,7 @@
         "dispatch": {
           "path": "tests/device/adapters/android-phone/appium_adapter.py",
           "symbol": "if operation in ASSETS_FEATURE_OPERATIONS:",
-          "line": 2991
+          "line": 3088
         },
         "facade": {
           "path": "tests/device/adapters/android-phone/overte_phone_assets_feature.py"
@@ -1536,7 +1562,7 @@
         "dispatch": {
           "path": "tests/device/adapters/android-phone/appium_adapter.py",
           "symbol": "if operation in LIFECYCLE_INPUT_FEATURE_OPERATIONS:",
-          "line": 2924
+          "line": 3021
         },
         "facade": {
           "path": "tests/device/adapters/android-phone/overte_phone_lifecycle_feature.py"
@@ -1630,7 +1656,7 @@
         "dispatch": {
           "path": "tests/device/adapters/android-phone/appium_adapter.py",
           "symbol": "if operation in TABLET_WEB_FEATURE_OPERATIONS:",
-          "line": 2986
+          "line": 3083
         },
         "facade": {
           "path": "tests/device/adapters/android-phone/overte_phone_tablet_web_feature.py"

@@ -934,11 +934,12 @@ World Navigation now includes its mandatory exact HTTP scene/profile/provider
 join, unchanged foundation module proofs and strict original SDK continuity. Snapshots has its five-format
 foundation, original capture/VM/review/file/settings sources, consumer and
 uploaded wire originals, controlled SDK26–28 DocumentsProvider/ordinary picker
-ownership and passive native handoff sources. Its full public facade, actor and
-closed retirement composition remain open. Required missing capabilities
+ownership and passive native handoff sources. Its public facade, actor and
+closed retirement source are integrated, with 67 targeted parent cases passing;
+full common/recovery qualification remains open. Required missing capabilities
 continue to fail the aggregate suite. Observer v8 preserves historical v2–v7
-closed grammars and admits Snapshot actor configuration/dispatch; the actual
-Snapshot actor factory and full public facade are still pending.
+closed grammars and admits Snapshot actor configuration/dispatch; the full
+Snapshot common/recovery qualification remains pending.
 
 These host simulations, real private-file tests and partial Qt/Java/JNI/compiler
 checks establish source/test logic only. Full Android compilation, actual OS

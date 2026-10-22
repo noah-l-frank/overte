@@ -42,7 +42,8 @@ and [adapter handoff](FEATURE_ADAPTER_HANDOFF.md): shared logic is implemented;
 thirteen complete Phone catalog compositions have source/host evidence:
 Authentication, Avatar/People, Create, Emotes, World Web, Tablet Web, Graphics,
 Audio, Chat, Scripts, Assets, Lifecycle/Input and World Navigation. Snapshots
-still lacks its full public composition. The current
+has its public facade/dispatch and independent role/actor source, while full
+common/recovery qualification remains in progress. The current
 [Phone source matrix](adapters/android-phone/SOURCE_STATUS.md) separates these
 states and lists every mandatory foundation and private prerequisite. Required
 missing capabilities keep the aggregate suite red. Shared v18 cleanup requires
