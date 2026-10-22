@@ -68,7 +68,7 @@ while time.monotonic()-started<240:
         while current is not None:
             traceback.print_exception(type(current),current,current.__traceback__,chain=False);current=current.__context__
         raise
-    time.sleep(.1)
+    time.sleep(.25)
 raise RuntimeError('Explicit synthetic actor lifetime exceeded')
 '''
 

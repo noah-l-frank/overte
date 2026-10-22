@@ -56,12 +56,17 @@ class PassiveReadbacks(PhoneSnapshotReadbacks):
         self.last=deepcopy(packet);return deepcopy(packet)
 
 
+_UNPINNED=object()
+
+
 class PhoneSnapshotsRole(PhoneCreateRole):
-    def __init__(self,feature,role):
+    def __init__(self,feature,role,*,expected_previous=_UNPINNED):
         need(role in ('primary','actor'));feature.lock.assert_held()
         self.feature,self.role=feature,role;self._host_publication=False
         self.store=PrivateFeatureState(feature.store.path.with_name('phone-snapshots-'+role+'-originals.json'))
-        self.previous=self.store.read();self.state=dict(phase='ready',sequence=0,manifests=[],pending=None)
+        self.previous=self.store.read()
+        if expected_previous is not _UNPINNED:need(same(self.previous,expected_previous))
+        self.state=dict(phase='ready',sequence=0,manifests=[],pending=None)
         self.originals=SnapshotsOriginals(feature.root,feature.binding,feature.run,role,self.publication_bound,self.storage_intent,kind='snapshots')
         if self.previous is not None:
             exact(self.previous,{'snapshotsRoleVersion','runId','binding','role','payload'})
