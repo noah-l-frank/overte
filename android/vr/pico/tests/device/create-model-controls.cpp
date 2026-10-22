@@ -49,7 +49,7 @@ int main(int argc,char** argv) {
         QCoreApplication::processEvents();return true;
     };
     auto apply=[&](const QJsonObject& command) { return controls.apply(&root,&window,command,pointer); };
-    auto activate=[&](const QString& id) { auto result=apply(request(id,"activate"));assert(result.value("performed").toBool()); };
+    auto activate=[&](const QString& id) { auto result=apply(request(id,"activate"));if (!result.value("performed").toBool()) {fprintf(stderr,"normal activation refused: %s\n",qPrintable(id));abort();} };
     assert(row("create.host").value("currentIndex").toInt()==0); // Original domain default.
     activate("create.resource");const auto url=QStringLiteral("http://controlled.test/feature-fixture/v1/runs/")+QString(32,'a')+
         "/tickets/"+QString(32,'b')+"/gltf-bundle/main.gltf";
@@ -63,6 +63,59 @@ int main(int argc,char** argv) {
     assert(original.value("method")=="nativeCreate.create" && params.value("host")=="domain"
         && properties.size()==2 && properties.value("type")=="Model" && properties.value("modelURL")==url);
     assert(!apply(create).value("performed").toBool() && calls.count()==0); // No replay after page transition.
+    // A declared entity-actor boundary delivers the original backend selection
+    // route. All property input below remains original pointer/IME delivery.
+    QVariantMap selectedProperties{{"name",""},{"type","Model"},{"textures",""},
+        {"dimensions",QVariantMap{{"x",1.0},{"y",1.0},{"z",1.0}}}};
+    for (int index=0;index<100;++index) { selectedProperties.insert(QString("extra%1").arg(index,3,10,QChar('0')),"original"); }
+    QVariantMap selection{{"method","nativeCreate.selection"},{"params",QVariantMap{{"entities",QVariantList{
+        QVariantMap{{"id","33333333-3333-3333-3333-333333333333"},{"type","Model"},{"editable",true},{"properties",selectedProperties}}}}}}};
+    assert(QMetaObject::invokeMethod(page,"fromScript",Q_ARG(QVariant,QVariant(selection))));QTest::qWait(30);
+    calls.clear();auto search=page->findChild<QQuickItem*>("NativeCreatePropertySearch");assert(search);
+    assert(createControlId(search)=="create.filter");
+    const auto center=search->mapToScene(QPointF(search->width()/2,search->height()/2));
+    assert(NormalControlUi::ownsPoint(search,&window,center));
+    // A genuinely higher visible foreign item blocks the actual original field,
+    // including when disabled; hidden children cannot supply false occlusion.
+    auto foreign=new QQuickItem(window.contentItem());foreign->setZ(1000);foreign->setPosition(center-QPointF(20,20));foreign->setSize(QSizeF(40,40));
+    assert(!NormalControlUi::ownsPoint(search,&window,center));foreign->setEnabled(false);
+    assert(!NormalControlUi::ownsPoint(search,&window,center));foreign->setVisible(false);
+    assert(NormalControlUi::ownsPoint(search,&window,center));delete foreign;
+    search->setEnabled(false);assert(!NormalControlUi::ownsPoint(search,&window,center));
+    assert(!row("create.filter").value("inputReady").toBool());search->setEnabled(true);
+    // Unbounded original-style content must honor a real parent's clip. These
+    // host items diagnose scene geometry only; no product QML field is moved.
+    auto container=new QQuickItem(window.contentItem());container->setZ(1000);
+    auto outside=new QQuickItem(container);outside->setPosition(center-QPointF(20,20));outside->setSize(QSizeF(40,40));
+    assert(!NormalControlUi::ownsPoint(search,&window,center));container->setClip(true);
+    assert(NormalControlUi::ownsPoint(search,&window,center));delete container;
+    auto excessive=new QQuickItem(window.contentItem());excessive->setZ(1000);auto depth=excessive;
+    for(int index=0;index<130;++index) { depth=new QQuickItem(depth); }
+    assert(!NormalControlUi::ownsPoint(search,&window,center));delete excessive;
+    excessive=new QQuickItem(window.contentItem());excessive->setZ(1000);
+    for(int index=0;index<4097;++index) { new QQuickItem(excessive); }
+    assert(!NormalControlUi::ownsPoint(search,&window,center));delete excessive;
+    assert(NormalControlUi::ownsPoint(search,&window,center));
+    activate("create.filter");
+    assert(apply(request("create.filter","replace","textures")).value("performed").toBool());QTest::qWait(30);
+    assert(search->property("text").toString()=="textures");
+    assert(row("create.textures").value("text")=="");activate("create.textures");
+    const auto textureUrl=QStringLiteral("http://controlled.test/feature-fixture/v1/runs/")+QString(32,'a')+
+        "/tickets/"+QString(32,'c')+"/checker.png";
+    const auto textureJson=QString::fromUtf8(QJsonDocument(QJsonObject{{"checker.png",textureUrl}}).toJson(QJsonDocument::Compact));
+    assert(apply(request("create.textures","replace",textureJson)).value("performed").toBool());
+    assert(row("create.textures").value("text")==textureJson);activate("create.apply-typed");
+    int edits{0};
+    for (const auto& call:calls) {
+        const auto message=createVariant(call.first()).toMap();
+        if (message.value("method")=="nativeCreate.edit") {
+            ++edits;const auto body=createVariant(message.value("params")).toMap();
+            assert(body.value("id")=="33333333-3333-3333-3333-333333333333");
+            const auto patch=createVariant(body.value("properties")).toMap();
+            assert(patch.size()==1 && patch.value("textures")==textureJson);
+        }
+    }
+    assert(edits==1);calls.clear();
     // Original NEW-tab navigation is normal pointer input; another entity is
     // never created by changing a native observation or by invoking a handler.
     activate("create.tab.0");auto stale=request("create.new-model","activate");
@@ -72,5 +125,5 @@ int main(int argc,char** argv) {
     QSignalSpy replacementCalls(page,SIGNAL(sendToScript(QVariant)));
     activate("create.new-model");assert(replacementCalls.count()==0 && page->property("statusError").toBool()); // Original error, no entity request.
     assert(clicks>=4);delete page;
-    qInfo("PASS actual NativeCreate NEW Model via original NormalControlUi pointer/NativeFieldInput, exact original domain URL callback, no replay, original missing-URL error; visible Qt host window and entity actor are explicit boundaries");
+    qInfo("PASS actual NativeCreate NEW Model and original texture filter/TextArea/Apply via pointer/NativeFieldInput; exact original domain/Model/URL and texture edit callbacks; unbounded Flickable/clip/foreign overlay/hidden/disabled/traversal bounds, no replay and missing-URL error; host window and backend actor are explicit boundaries");
 }

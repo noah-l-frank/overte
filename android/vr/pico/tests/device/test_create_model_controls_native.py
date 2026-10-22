@@ -30,9 +30,27 @@ class CreateModelControlsNativeTests(unittest.TestCase):
             subprocess.run(['c++','-std=c++17','-fPIC','-UNDEBUG','-DOVERTE_E2E_FEATURE_TESTS','-I'+directory,'-I'+str(ROOT),
                 '-I'+str(ROOT/'libraries/ui/src'),str(HERE/'create-model-controls.cpp'),str(ROOT/'libraries/ui/src/ui/NativeFieldInput.cpp'),
                 '-o',str(binary),*libraries,*flags],check=True,timeout=90,env=environment)
+            environment.update(QT_QPA_PLATFORM='offscreen',QT_QUICK_BACKEND='software',QT_FORCE_STDERR_LOGGING='1')
             for arguments in ([],['--testScript']):
                 subprocess.run(['unshare','--user','--map-root-user','--net',str(binary),*arguments,str(ROOT)],check=True,timeout=30,
-                    env={**environment,'QT_QPA_PLATFORM':'offscreen','QT_QUICK_BACKEND':'software'})
+                    env=environment)
+            # Preserve the original QML/input and change only the rejected old
+            # hit assumption in an owned header copy. It must fail at the real
+            # non-clipping Flickable field, never at a substitute widget.
+            native=stage/'tests/device/native';native.mkdir(parents=True)
+            header=(ROOT/'tests/device/native/NormalControlUi.h').read_text()
+            original='if (opacity<=.01 || (node->clip() && !node->clipRect().contains(local)))'
+            self.assertEqual(1,header.count(original))
+            (native/'NormalControlUi.h').write_text(header.replace(original,
+                'if (opacity<=.01 || !node->contains(local) || (node->clip() && !node->clipRect().contains(local)))'))
+            mutant=stage/'old-hit'
+            subprocess.run(['c++','-std=c++17','-fPIC','-UNDEBUG','-DOVERTE_E2E_FEATURE_TESTS','-I'+directory,'-I'+str(ROOT),
+                '-I'+str(ROOT/'tests/device/native'),'-I'+str(ROOT/'libraries/ui/src'),str(HERE/'create-model-controls.cpp'),
+                str(ROOT/'libraries/ui/src/ui/NativeFieldInput.cpp'),'-o',str(mutant),*libraries,*flags],check=True,timeout=90,env=environment)
+            rejected=subprocess.run(['unshare','--user','--map-root-user','--net',str(mutant),'--testScript',str(ROOT)],
+                timeout=30,env=environment,capture_output=True,text=True)
+            self.assertNotEqual(0,rejected.returncode)
+            self.assertIn('Assertion `NormalControlUi::ownsPoint(search,&window,center)',rejected.stderr)
 
 
 if __name__=='__main__':unittest.main()

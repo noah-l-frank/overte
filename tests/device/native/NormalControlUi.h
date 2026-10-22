@@ -309,23 +309,33 @@ public:
     // Conservative actual scene hit-test: an overlay/modal outside the
     // resolved item blocks input. Never replace the point by guessed coordinates.
     static bool ownsPoint(QQuickItem* item, QQuickWindow* window, const QPointF& point) {
-        if (visibleRect(item, window).isEmpty() || !visibleRect(item, window).contains(point)) { return false; }
-        QQuickItem* hit = window->contentItem();
-        for (int depth = 0; hit && depth < 128; ++depth) {
-            // Qt5 GridView can expose a later empty focus item via childAt
-            // despite its actual delegates having higher visual z. Inspect
-            // the original stacking order and retain foreign occlusion.
-            auto children=hit->childItems();
-            for (auto child:children) { if (!std::isfinite(child->z())) { return false; } }
-            std::stable_sort(children.begin(),children.end(),[](QQuickItem* a,QQuickItem* b) { return a->z()<b->z(); });
-            QQuickItem* next{nullptr};
-            for (auto child=children.crbegin();child!=children.crend();++child) {
-                if ((*child)->isVisible() && std::isfinite((*child)->opacity()) && (*child)->opacity()>.01
-                        && (*child)->contains((*child)->mapFromScene(point))) { next=*child;break; }
+        const auto visible=visibleRect(item,window);
+        if (visible.isEmpty() || !item->isEnabled() || !visible.contains(point)) { return false; }
+        int visited{0};bool complete{true};
+        std::function<QQuickItem*(QQuickItem*,int)> top=[&](QQuickItem* node,int depth)->QQuickItem* {
+            if (!node || !complete) { return nullptr; }
+            if (++visited>4096 || depth>128 || node->thread()!=QThread::currentThread()) { complete=false;return nullptr; }
+            if (!node->isVisible()) { return nullptr; }
+            const auto opacity=node->opacity(),z=node->z();
+            const auto local=node->mapFromScene(point);
+            if (!std::isfinite(opacity) || !std::isfinite(z) || !std::isfinite(local.x()) || !std::isfinite(local.y())) {
+                complete=false;return nullptr;
             }
-            if (!next) { break; } hit=next;
-        }
-        for (auto parent = hit; parent; parent = parent->parentItem()) { if (parent == item) { return true; } }
+            if (opacity<=.01 || (node->clip() && !node->clipRect().contains(local))) { return nullptr; }
+            // Non-clipping Flickable content items can have zero geometry while
+            // their original Layout/TextInput children paint and accept input
+            // outside it. Do not stop at that container's contains() result.
+            // Preserve actual visual z order, foreign occlusion and all clips.
+            auto children=node->childItems();
+            for (auto child:children) { if (!std::isfinite(child->z())) { complete=false;return nullptr; } }
+            std::stable_sort(children.begin(),children.end(),[](QQuickItem* a,QQuickItem* b) { return a->z()<b->z(); });
+            for (auto child=children.crbegin();child!=children.crend();++child) {
+                const auto found=top(*child,depth+1);if (!complete || found) { return found; }
+            }
+            return node->contains(local) ? node : nullptr;
+        };
+        const auto hit=top(window->contentItem(),0);if (!complete) { return false; }
+        for (auto parent=hit;parent;parent=parent->parentItem()) { if (parent==item) { return true; } }
         return false;
     }
 
