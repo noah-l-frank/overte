@@ -928,25 +928,27 @@ def create_adapter(args, base_class):
                 native.clock_ms, native.guard, native.pid, monotonic=native.monotonic, sleep=native.sleep)
 
         @_private
-        def _lifecycle_drive_source(self,target):
+        def _lifecycle_drive_source(self,target,*,source_lock=None):
             from adapters.pico4.lifecycle_drive import PicoLifecycleDrive,FILE
             native=self._native_feature_observer(target)
+            source_lock=self._script_journey()._lock(target,source_lock)
             return PicoLifecycleDrive(native.send,
                 lambda:self.adb.read_debug_app_file(target,'org.overte.pico','files/overte-e2e/'+FILE,attempts=1),
-                native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep)
+                native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep,source_lock=source_lock)
 
         @_private
-        def _lifecycle_gesture_source(self,target):
+        def _lifecycle_gesture_source(self,target,*,source_lock=None):
             from adapters.pico4.lifecycle_gesture import PicoLifecycleGesture,FILE
             native=self._native_feature_observer(target)
+            source_lock=self._script_journey()._lock(target,source_lock)
             return PicoLifecycleGesture(native.send,
                 lambda:self.adb.read_debug_app_file(target,'org.overte.pico','files/overte-e2e/'+FILE,attempts=1),
-                native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep)
+                native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep,source_lock=source_lock)
 
         @_private
-        def _lifecycle_ui_source(self, target):
+        def _lifecycle_ui_source(self, target,*,source_lock=None):
             from adapters.pico4.lifecycle_source import bind_source
-            return bind_source(self, target, self._native_feature_observer(target))
+            return bind_source(self, target, self._native_feature_observer(target),source_lock=source_lock)
 
         def _lifecycle_world_store(self,target,*,create=True):
             journey=self._script_journey()
@@ -959,9 +961,20 @@ def create_adapter(args, base_class):
             manager=self._scripts(target);native=self._native_feature_observer(target)
             native.guard();identity=self.require_pico_session_identity(target)
             _need(identity==manager.binding['processIdentity'] and native.pid==int(identity.split(':')[0]))
-            return PicoLifecycleWorld(self._lifecycle_ui_source(target),self._lifecycle_gesture_source(target),
-                self._lifecycle_drive_source(target),self.pico_input_session(target),self._lifecycle_world_store(target).path,
-                run,manager.binding,native.guard,self._script_journey()._lock(target),monotonic=native.monotonic,sleep=native.sleep)
+            source_lock=self._script_journey()._lock(target)
+            return PicoLifecycleWorld(self._lifecycle_ui_source(target,source_lock=source_lock),self._lifecycle_gesture_source(target,source_lock=source_lock),
+                self._lifecycle_drive_source(target,source_lock=source_lock),self.pico_input_session(target),self._lifecycle_world_store(target).path,
+                run,manager.binding,native.guard,source_lock,monotonic=native.monotonic,sleep=native.sleep)
+
+        @_private
+        def _lifecycle_x_join(self,target,run):
+            from adapters.pico4.lifecycle_join import PicoLifecycleXJoin
+            from adapters.pico4.lifecycle_back import PicoLifecycleBack
+            from adapters.pico4.lifecycle_source import bind_source
+            world=self._lifecycle_world(target,run);native=self._native_feature_observer(target)
+            back=PicoLifecycleBack(bind_source(self,target,native,source_lock=world.lock),world.session,world.store.path.with_name('lifecycle-x-back-owner.json'),
+                run,world.binding,native.guard,monotonic=native.monotonic,sleep=native.sleep,source_lock=world.lock)
+            return PicoLifecycleXJoin(world,back,world.store.path.with_name('lifecycle-x-join.json'))
 
         def _lifecycle_back_store(self,target):
             state,_ui=self._script_paths(target)
@@ -974,9 +987,10 @@ def create_adapter(args, base_class):
             manager=self._scripts(target);native=self._native_feature_observer(target)
             native.guard();identity=self.require_pico_session_identity(target)
             _need(identity==manager.binding['processIdentity'] and native.pid==int(identity.split(':')[0]))
-            return PicoLifecycleBack(bind_source(self,target,native),self.pico_input_session(target),
+            source_lock=self._script_journey()._lock(target)
+            return PicoLifecycleBack(bind_source(self,target,native,source_lock=source_lock),self.pico_input_session(target),
                 self._lifecycle_back_store(target).path,run,manager.binding,native.guard,
-                monotonic=native.monotonic,sleep=native.sleep)
+                monotonic=native.monotonic,sleep=native.sleep,source_lock=source_lock)
 
         @_private
         def _pending_owner(self,target,intent=None):

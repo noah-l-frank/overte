@@ -96,9 +96,11 @@ def current_editor(packet):
 
 
 class PicoLifecycleSource:
-    def __init__(self,send,original,clock_ms,guard,pid,*,monotonic=time.monotonic,sleep=time.sleep):
+    def __init__(self,send,original,clock_ms,guard,pid,*,monotonic=time.monotonic,sleep=time.sleep,source_lock=None):
         need(all(callable(value) for value in (send,original,clock_ms,guard,monotonic,sleep)) and integer(pid,1))
         self.send,self.original,self.clock_ms,self.guard,self.pid=send,original,clock_ms,guard,pid
+        from adapters.script_journey.lock import ScriptSourceLock
+        need(source_lock is None or isinstance(source_lock,ScriptSourceLock));self.source_lock=source_lock
         self.monotonic,self.sleep=monotonic,sleep
         self.previous,self.last_raw,self.last_sha256=None,None,None
 
@@ -108,6 +110,11 @@ class PicoLifecycleSource:
         self.previous=deepcopy(previous)
 
     def capture(self,run):
+        if self.source_lock is not None:
+            with self.source_lock.held():return self._capture(run)
+        return self._capture(run)  # Explicit unbound host/native boundary only.
+
+    def _capture(self,run):
         need(nonce(run) and self.guard() is not False)
         request=dict(schemaVersion=1,commandId=uuid.uuid4().hex,action='observe',runId=run)
         started=previous=self.monotonic();requested=self.clock_ms();need(number(started,0,1e15) and integer(requested,1))
@@ -133,8 +140,9 @@ class PicoLifecycleSource:
         need(False)
 
 
-def bind_source(adapter,target,native):
+def bind_source(adapter,target,native,*,source_lock=None):
+    source_lock=adapter._script_journey()._lock(target,source_lock)
     def send(request):
         native.guard();adapter.adb.write_debug_app_file(target,'org.overte.pico',COMMAND,json.dumps(request,separators=(',',':'))+'\n');native.guard()
     return PicoLifecycleSource(send,lambda:adapter.adb.read_debug_app_file(target,'org.overte.pico',
-        'files/overte-e2e/'+FILE,attempts=1),native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep)
+        'files/overte-e2e/'+FILE,attempts=1),native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep,source_lock=source_lock)

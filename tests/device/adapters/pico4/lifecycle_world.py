@@ -45,6 +45,8 @@ class PicoLifecycleWorld:
         self.pid=source.pid;self.identity=self.binding['processIdentity'];need(axes.pid==avatar.pid==self.pid==int(self.identity.split(':')[0]))
         self.store=PrivateFeatureState(path);self.lock=source_lock
         need(self.lock.path==self.store.path.with_name('script-sources.lock'))
+        for reader in (source,axes,avatar):
+            need(reader.source_lock is None or reader.source_lock is self.lock);reader.source_lock=self.lock
         self.monotonic,self.sleep=monotonic,sleep;self.disk=self.state=self.anchor=self.last_clock=self.acquired_start=self.fresh_anchor=None
         with self.lock.held():self.load()
 
@@ -72,7 +74,7 @@ class PicoLifecycleWorld:
         if index==0:
             need(current is not None and current['kind']=='create' and current['focused'] and current['visible']
                 and source['tabletShown'] and not source['onHomeScreen'] and measured_keyboard(source['keyboard']) is True)
-        else:need(current is None and measured_keyboard(source['keyboard']) is False
+        else:need(current is None and not source['tabletShown'] and measured_keyboard(source['keyboard']) is False
             and not any(row['focused'] for row in source['editors']))
 
     def save(self,state):

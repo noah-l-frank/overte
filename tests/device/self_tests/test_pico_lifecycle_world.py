@@ -105,7 +105,7 @@ class LifecycleWorldTests(unittest.TestCase):
         owner=self.started();blocked=owner.world_input()
         self.assertEqual((1,[],0.),(blocked['worldAttempts'],blocked['heldInputs'],blocked['worldDisplacement']))
         first=deepcopy(blocked['originals']['gesture']['source']['events'][-1]);self.assertEqual('quiet',self._release(owner))
-        self.native.retire();moved=owner.world_input()
+        self.native.retire();self.native.ui.shown=False;moved=owner.world_input()
         self.assertEqual(2,moved['worldAttempts']);self.assertEqual(['forward'],moved['heldInputs'])
         self.assertEqual(dict(x=0,y=0,z=.5),moved['positionDelta']);self.assertEqual(.5,moved['worldDisplacement'])
         self.assertTrue(moved['originals']['ui']['source']['editors'][0]['contextAlive'])
@@ -158,6 +158,11 @@ class LifecycleWorldTests(unittest.TestCase):
         owner=self.started();owner.world_input();self.transport.fail='axis-neutral'
         with self.assertRaises(NativeUIError):owner.release()
         self.assertEqual('release-issued',owner.state['attempts'][0]['phase']);self.assertTrue(self.path.exists())
+    def test_home_without_a_closed_owned_tablet_cannot_become_post_editor_world_input(self):
+        owner=self.started();owner.world_input();owner.release();self.native.retire()
+        with self.assertRaises(NativeUIError):owner.world_input()
+        self.assertEqual(1,len(self.transport.envelopes))
+
     def test_foreign_native_status_prevents_even_the_first_grant_removal(self):
         owner=self.started();owner.world_input();original=self.transport.read_status
         def foreign(**kwargs):return original(**kwargs)|dict(acceptedSequence=2)

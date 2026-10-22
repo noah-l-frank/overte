@@ -37,17 +37,54 @@ def frame(raw):
     return dict(raw=raw,sha256=hashlib.sha256(raw.encode()).hexdigest())
 
 
+def validate_history(disk,run,binding,pid,profile):
+    """Validate the immutable original Back journal without any live IO."""
+    def original_packet(original):
+        exact(original,{'raw','sha256'});need(frame(original['raw'])==original)
+        value=decode(original['raw']);validate(value,value,pid,value['capturedEpochMs']);need(value['runId']==run);return value
+    exact(disk,{'lifecycleBackOwnerVersion','runId','binding','payload'})
+    need(type(disk['lifecycleBackOwnerVersion']) is int and disk['lifecycleBackOwnerVersion']==VERSION
+        and disk['runId']==run and disk['binding']==binding)
+    payload=unpack(disk['payload']);need(len(payload)==1)
+    value=payload[0];exact(value,{'phase','originalId','envelope','frames','neutral','quiet'})
+    need(value['phase'] in ('reserved','enveloped','retained','released') and nonce(value['originalId'])
+        and type(value['frames']) is list and 1<=len(value['frames'])<=MAX_FRAMES)
+    previous=None;commands=set()
+    for original in value['frames']:
+        packet=original_packet(original);need(packet['commandId'] not in commands);commands.add(packet['commandId'])
+        previous=accept(previous,summary(packet))
+    before=original_packet(value['frames'][0]);editor=current_editor(before)
+    need(editor is not None and editor['id']==value['originalId'] and editor['kind']=='create'
+        and editor['visible'] and before['source']['tabletShown'] and not before['source']['onHomeScreen'])
+    if value['envelope'] is None:need(value['phase']=='reserved' and len(value['frames'])==1)
+    else:envelope(value['envelope'],profile);need(value['phase']!='reserved')
+    if value['phase'] in ('retained','released'):
+        PicoLifecycleBack.neutral(value['neutral'],value['envelope'],before['capturedEpochMs'])
+        quiet=value['quiet'];exact(quiet,{'first','last'})
+        need(integer(quiet['first'],1,len(value['frames'])-1) and integer(quiet['last'],quiet['first'],len(value['frames'])-1))
+        samples=[original_packet(row) for row in value['frames'][quiet['first']:quiet['last']+1]]
+        need(len(samples)>=2 and samples[-1]['capturedEpochMs']-samples[0]['capturedEpochMs']>=3000)
+        for packet in samples:PicoLifecycleBack.home(packet,value['originalId'])
+        retired=PicoLifecycleBack.retired(samples[-1],value['originalId'])
+        need((value['phase']=='released')==retired)
+    else:need(value['neutral'] is None and value['quiet'] is None)
+    return deepcopy(value),deepcopy(previous)
+
+
 class PicoLifecycleBack:
-    def __init__(self,source,session,path,run,binding,guard,*,monotonic=time.monotonic,sleep=time.sleep):
+    def __init__(self,source,session,path,run,binding,guard,*,monotonic=time.monotonic,sleep=time.sleep,source_lock=None):
         need(isinstance(source,PicoLifecycleSource) and isinstance(session,PicoOpenXrAdapterSession)
             and nonce(run) and all(callable(f) for f in (guard,monotonic,sleep)))
         self.source,self.session,self.run,self.guard=source,session,run,guard
         self.binding=deepcopy(context(binding));self.identity=self.binding['processIdentity']
         need(source.pid==int(self.identity.split(':')[0]))
         self.store=PrivateFeatureState(path);self.lock=ScriptSourceLock(self.store.path.with_suffix('.lock'))
+        self.source_lock=source_lock or source.source_lock or ScriptSourceLock(self.store.path.with_name('script-sources.lock'))
+        need(isinstance(self.source_lock,ScriptSourceLock) and (source.source_lock is None or source.source_lock is self.source_lock))
+        source.source_lock=self.source_lock
         self.monotonic,self.sleep,self.clock,self.deadline=monotonic,sleep,None,None
         self.disk,self.state,self.anchor=None,None,None
-        with self.lock.held():self.load()
+        with self.source_lock.held(),self.lock.held():self.load()
 
     def now(self):
         need(self.guard() is not False);now=self.monotonic()
@@ -66,32 +103,7 @@ class PicoLifecycleBack:
         disk=self.store.read()
         if self.disk is not None:need(disk==self.disk)
         if disk is None:need(self.state is None);return
-        exact(disk,{'lifecycleBackOwnerVersion','runId','binding','payload'})
-        need(type(disk['lifecycleBackOwnerVersion']) is int and disk['lifecycleBackOwnerVersion']==VERSION
-            and disk['runId']==self.run and disk['binding']==self.binding)
-        payload=unpack(disk['payload']);need(len(payload)==1)
-        value=payload[0];exact(value,{'phase','originalId','envelope','frames','neutral','quiet'})
-        need(value['phase'] in ('reserved','enveloped','retained','released') and nonce(value['originalId'])
-            and type(value['frames']) is list and 1<=len(value['frames'])<=MAX_FRAMES)
-        previous=None;commands=set()
-        for original in value['frames']:
-            packet=self.packet(original);need(packet['commandId'] not in commands);commands.add(packet['commandId'])
-            previous=accept(previous,summary(packet))
-        before=self.packet(value['frames'][0]);editor=current_editor(before)
-        need(editor is not None and editor['id']==value['originalId'] and editor['kind']=='create'
-            and editor['visible'] and before['source']['tabletShown'] and not before['source']['onHomeScreen'])
-        if value['envelope'] is None:need(value['phase']=='reserved' and len(value['frames'])==1)
-        else:envelope(value['envelope'],self.session.profile);need(value['phase']!='reserved')
-        if value['phase'] in ('retained','released'):
-            self.neutral(value['neutral'],value['envelope'],before['capturedEpochMs'])
-            quiet=value['quiet'];exact(quiet,{'first','last'})
-            need(integer(quiet['first'],1,len(value['frames'])-1) and integer(quiet['last'],quiet['first'],len(value['frames'])-1))
-            samples=[self.packet(row) for row in value['frames'][quiet['first']:quiet['last']+1]]
-            need(len(samples)>=2 and samples[-1]['capturedEpochMs']-samples[0]['capturedEpochMs']>=3000)
-            for packet in samples:self.home(packet,value['originalId'])
-            retired=self.retired(samples[-1],value['originalId'])
-            need((value['phase']=='released')==retired)
-        else:need(value['neutral'] is None and value['quiet'] is None)
+        value,previous=validate_history(disk,self.run,self.binding,self.source.pid,self.session.profile)
         if self.source.previous is None:self.source.restore(previous)
         else:need(self.source.previous==previous)
         self.disk,self.state=deepcopy(disk),deepcopy(value)
@@ -116,6 +128,7 @@ class PicoLifecycleBack:
         self.clock=now
 
     def acquire(self):
+        self.source_lock.assert_held()
         started=self.now();requested=self.source.clock_ms();need(integer(requested,1))
         packet=self.source.capture(self.run);self.now()
         self.anchor=(started,requested,packet['capturedEpochMs']);self.fresh_packet()
@@ -153,12 +166,13 @@ class PicoLifecycleBack:
             and number(value.get('updatedEpochMs'),epoch,1e15))
         return value
 
-    def back(self):
+    def back(self,*,original_id=None):
         try:
-            with self.lock.held():
+            with self.source_lock.held(),self.lock.held():
                 self.load();need(self.state is None);self.deadline=self.now()+10
                 before=self.acquire();editor=current_editor(before)
-                need(editor is not None and editor['kind']=='create' and editor['visible']
+                need((original_id is None or nonce(original_id)) and editor is not None
+                    and (original_id is None or editor['id']==original_id) and editor['kind']=='create' and editor['visible']
                     and before['source']['tabletShown'] and not before['source']['onHomeScreen'])
                 self.save(dict(phase='reserved',originalId=editor['id'],envelope=None,
                     frames=[frame(self.source.last_raw)],neutral=None,quiet=None))
@@ -208,7 +222,7 @@ class PicoLifecycleBack:
 
     def reconcile(self):
         try:
-            with self.lock.held():
+            with self.source_lock.held(),self.lock.held():
                 self.load();need(self.state is not None);self.deadline=self.now()+10
                 return self.observe() # Only source queries; never another input.
         except Exception:raise NativeUIError('Pico normal Back reconciliation unresolved; original ownership retained') from None
