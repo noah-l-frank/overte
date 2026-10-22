@@ -1,20 +1,6 @@
 name: Android tests
 
 on:
-  push:
-    branches:
-      - android-phone
-      - "ci/android/**"
-      - "test/android/**"
-      - "test/android-phone/**"
-      - "test/android-pico/**"
-    paths:
-      - "android/**"
-      - "interface/**"
-      - "libraries/**"
-      - "scripts/**"
-      - ".github/workflows/android-tests.yml"
-      - "!**/*.md"
   schedule:
     - cron: "17 2 * * *"
   workflow_dispatch:
