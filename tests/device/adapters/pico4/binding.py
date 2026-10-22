@@ -891,6 +891,23 @@ def create_adapter(args, base_class):
                 return owner
 
         @_private
+        def _snapshot_exports(self,target,*,read_only=True,before_send=None,source_lock=None):
+            from adapters.pico4.snapshot_exports import PicoSnapshotExports,PicoSnapshotExportIO
+            _need(type(read_only) is bool and (read_only or callable(before_send)))
+            lock=self._script_journey()._lock(target,source_lock)
+            installed=self._installation(target);identity=self.require_controlled_debug_identity(target)
+            native=self._native_feature_observer(target);source=None
+            def final_admission(command):
+                _need(source is not None)
+                if before_send is not None:before_send(command)
+                source.before_publish(command)
+            io=PicoSnapshotExportIO(self,target,identity,lambda operation:None,before_send=final_admission)
+            _need(installed==self._installation(target))
+            source=PicoSnapshotExports(io,native.clock_ms,native.pid,lock,read_only=read_only,
+                monotonic=native.monotonic,sleep=native.sleep)
+            return source
+
+        @_private
         def _snapshot_capture_file_source(self,target,*,read_only=True,before_send=None,source_lock=None):
             from adapters.pico4.snapshot_capture_source import PicoSnapshotCaptureFileSource,PicoSnapshotCaptureFileIO
             _need(type(read_only) is bool and (read_only or callable(before_send)))

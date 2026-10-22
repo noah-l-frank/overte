@@ -18,6 +18,7 @@ import android.os.Looper;
 import android.provider.MediaStore;
 import androidx.core.content.FileProvider;
 import org.overte.web.WebFilePickerState;
+import org.json.JSONObject;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -41,7 +42,78 @@ public final class SnapshotAdapter {
     private static final String CHOSEN = "org.overte.snapshot.CHOSEN";
     private static native void nativeInitialize();
     private static native void nativeCompleted(long handle, long ticket, String status, String error);
+    private static native boolean nativeFeatureEnabled();
+    private static volatile SnapshotExportObservation feature;
+    private static volatile SnapshotExportReadbacks featureReadbacks;
+    private static volatile boolean featureReadbacksFailed;
     private SnapshotAdapter() { }
+
+    private static synchronized SnapshotExportObservation feature() {
+        if (!nativeFeatureEnabled()) return null;
+        if (feature == null) feature = new SnapshotExportObservation();
+        return feature;
+    }
+    /** Private JNI read-only source, enabled only in an admitted Android E2E test process. */
+    public static String featureObservation() {
+        SnapshotExportObservation value = feature();
+        return value == null ? "" : new JSONObject(value.snapshot()).toString();
+    }
+    private static void observed(Request request, String kind, String value, String auxiliary) {
+        if (request.feature != null) request.feature.event(request.featureToken, kind, value, auxiliary);
+    }
+    private static void postIo(Request request,Runnable operation) {
+        if(request.feature==null) { IO.execute(operation);return; }
+        final String id=request.feature.submit(request.featureToken);
+        try {
+            IO.execute(() -> {
+                observed(request,"io-started",id,"");
+                try { operation.run(); }
+                finally { observed(request,"io-finished",id,""); }
+            });
+            observed(request,"io-accepted",id,"");
+        } catch(RuntimeException failure) { observed(request,"io-rejected",id,"");throw failure; }
+    }
+    private static synchronized void featureReadbacks(Request request) {
+        if (request.feature == null || featureReadbacks != null || featureReadbacksFailed) return;
+        try { featureReadbacks = new SnapshotExportReadbacks(request.owner.activity().getFilesDir().toPath()); }
+        catch (IOException | RuntimeException failure) { featureReadbacksFailed = true; }
+    }
+    private static void featureDestination(Request request, Uri uri, boolean inserted) {
+        if (request.feature != null && featureReadbacks != null)
+            featureReadbacks.destination(request.featureToken, request.owner.activity().getApplicationContext(), request.resolver, uri, inserted, request.file.getName());
+    }
+    private static void featurePublished(Request request, Uri uri) {
+        if (request.feature != null && featureReadbacks != null) featureReadbacks.published(request.featureToken, uri);
+    }
+    /** E2E file acquisition/retirement only. No caller path, URI or expected bytes. */
+    public static String featureReadbackCommand(String raw) {
+        if (!nativeFeatureEnabled() || raw == null || raw.length() > 4096) return "";
+        try {
+            JSONObject command = new JSONObject(raw);
+            if (command.length() != 4 || !(command.opt("snapshotReadbackCommandVersion") instanceof Integer)
+                    || command.getInt("snapshotReadbackCommandVersion") != 1 || !(command.opt("action") instanceof String)
+                    || !(command.opt("request") instanceof String) || !(command.opt("id") instanceof String)) return "";
+            String action = command.getString("action"), request = command.getString("request"), id = command.getString("id");
+            SnapshotExportReadbacks current = featureReadbacks;
+            JSONObject result = new JSONObject(); boolean accepted = false;
+            if (current != null && !featureReadbacksFailed) {
+                if ("observe".equals(action) && request.isEmpty() && id.isEmpty()) accepted = true;
+                else if ("read".equals(action)) accepted = current.read(request, id);
+                else if ("cancel".equals(action) && request.isEmpty() && id.matches("[0-9a-f]{32}")) { current.cancel(id); accepted = true; }
+                else if ("remove-copy".equals(action) && request.isEmpty() && id.matches("[0-9a-f]{32}")) { current.removeCopy(id); accepted = true; }
+                else if ("retire-copies".equals(action) && request.isEmpty() && id.isEmpty()) { current.retireCopies(); accepted = true; }
+                else if ("remove-destination".equals(action) && request.matches("[0-9a-f]{32}") && id.matches("[0-9a-f]{32}")) accepted=current.removeDestination(request,id);
+                else if ("inspect-destinations".equals(action) && request.isEmpty() && id.matches("[0-9a-f]{32}")) accepted=current.inspectDestinations(id);
+                else if ("revoke-share".equals(action) && request.matches("[0-9a-f]{32}") && id.matches("[0-9a-f]{32}")) accepted=current.revokeShare(request,id);
+                else if ("inspect-shares".equals(action) && request.isEmpty() && id.matches("[0-9a-f]{32}")) accepted=current.inspectShares(id);
+                result.put("source", new JSONObject(current.observation()));
+            } else {
+                result.put("source", new JSONObject().put("snapshotExportReadbacksVersion",1)
+                    .put("initialized",false).put("complete",!featureReadbacksFailed));
+            }
+            result.put("accepted",accepted);return result.toString();
+        } catch (IOException | RuntimeException | org.json.JSONException failure) { return ""; }
+    }
 
     public static void initialize(SnapshotHost owner) {
         MAIN.post(() -> {
@@ -79,8 +151,10 @@ public final class SnapshotAdapter {
                 if (!"save".equals(action) && !"share".equals(action)) throw new IOException("Unknown action");
                 Request pending = new Request(handle, ticket, generation, owner, file, root, action);
                 active = pending;
+                if (pending.feature != null) pending.featureToken = pending.feature.begin(handle, ticket, generation, action, file.getPath());
+                featureReadbacks(pending);
                 if ("share".equals(action)) share(pending);
-                else if (Build.VERSION.SDK_INT >= 29) IO.execute(() -> saveMediaStore(pending));
+                else if (Build.VERSION.SDK_INT >= 29) postIo(pending,() -> saveMediaStore(pending));
                 else saveDocument(pending);
             } catch (IOException | RuntimeException failure) {
                 if (active != null && active.lease.handle == handle && active.lease.ticket == ticket)
@@ -104,12 +178,15 @@ public final class SnapshotAdapter {
         if (!request.lease.abort(request.lease.handle, request.lease.ticket, request.lease.generation, request.owner)) return;
         request.picker.cancel();
         if (request.chosenCallback != null) request.chosenCallback.cancel();
+        observed(request, "cancelled", "cancelled", "");
         nativeCompleted(request.lease.handle, request.lease.ticket, "cancelled", "");
     }
     private static void finish(Request request, String status, String error) {
         MAIN.post(() -> {
             if (!current(request)) return;
-            request.status = status; request.error = error; deliver(request);
+            request.status = status; request.error = error;
+            observed(request, "result-ready", status, error);
+            deliver(request);
         });
     }
     private static void deliver(Request request) {
@@ -117,6 +194,7 @@ public final class SnapshotAdapter {
         if (!request.lease.close(request.lease.handle, request.lease.ticket, generation, host.get())) return;
         active = null;
         if (request.chosenCallback != null) request.chosenCallback.cancel();
+        observed(request, "delivered", request.status, request.error);
         nativeCompleted(request.lease.handle, request.lease.ticket, request.status, request.error);
     }
     private static final class Request {
@@ -125,6 +203,8 @@ public final class SnapshotAdapter {
         final File file;
         final String root, action;
         final ContentResolver resolver;
+        final SnapshotExportObservation feature;
+        String featureToken = "";
         final WebFilePickerState<Uri> picker = new WebFilePickerState<>();
         PendingIntent chosenCallback;
         boolean chosen;
@@ -132,6 +212,7 @@ public final class SnapshotAdapter {
         Request(long handle, long ticket, long generation, SnapshotHost owner, File file, String root, String action) {
             lease = new SnapshotLease(handle, ticket, generation, owner); this.owner = owner;
             this.file = file; this.root = root; this.action = action; resolver = owner.activity().getContentResolver();
+            feature = feature();
         }
     }
     private static int picker(Request request) throws IOException {
@@ -139,7 +220,10 @@ public final class SnapshotAdapter {
             if (!current(request)) return;
             if ("share".equals(request.action)) MAIN.post(() -> finish(request, request.chosen ? "success" : "cancelled", ""));
             else if (uri == null) finish(request, "cancelled", "");
-            else IO.execute(() -> saveUri(request, uri));
+            else {
+                featureDestination(request, uri, false);
+                postIo(request,() -> saveUri(request, uri));
+            }
         });
         if (code == 0) throw new IOException("Picker unavailable");
         return code;
@@ -148,11 +232,13 @@ public final class SnapshotAdapter {
         Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE)
             .setType(SnapshotFilePolicy.mime(request.file)).putExtra(Intent.EXTRA_TITLE, request.file.getName());
         request.owner.activity().startActivityForResult(intent, picker(request));
+        observed(request, "document-launched", "", "");
     }
     private static void share(Request request) throws IOException {
         Activity activity = request.owner.activity();
         Uri uri = FileProvider.getUriForFile(activity, activity.getPackageName() + ".snapshot.files", request.file);
         if (!"content".equals(uri.getScheme())) throw new IOException("Provider unavailable");
+        observed(request, "share-uri", uri.toString(), "");
         Intent send = new Intent(Intent.ACTION_SEND).setType(SnapshotFilePolicy.mime(request.file))
             .putExtra(Intent.EXTRA_STREAM, uri).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
         send.setClipData(ClipData.newUri(request.resolver, "Snapshot", uri));
@@ -165,6 +251,7 @@ public final class SnapshotAdapter {
         request.chosenCallback = PendingIntent.getBroadcast(activity, code, selected, flags);
         Intent chooser = Intent.createChooser(send, "Share snapshot", request.chosenCallback.getIntentSender());
         chooser.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION); chooser.setClipData(send.getClipData());
+        if(request.feature!=null && featureReadbacks!=null)featureReadbacks.shareIssued(request.featureToken,activity.getApplicationContext(),uri,chooser);
         activity.startActivityForResult(chooser, code);
     }
     static void shareChosen(Context context, Intent intent) {
@@ -176,7 +263,11 @@ public final class SnapshotAdapter {
                     || intent.getLongExtra("ticket", 0) != request.lease.ticket
                     || intent.getLongExtra("generation", 0) != request.lease.generation) return;
             Object component = intent.getParcelableExtra(Intent.EXTRA_CHOSEN_COMPONENT);
-            if (component instanceof ComponentName) request.chosen = true;
+            if (component instanceof ComponentName) {
+                request.chosen = true;
+                observed(request, "share-chosen", ((ComponentName) component).flattenToString(), "");
+                if(request.feature!=null && featureReadbacks!=null)featureReadbacks.shareSelected(request.featureToken,(ComponentName)component);
+            }
         });
     }
     public static boolean activityResult(SnapshotHost owner, int requestCode, int resultCode, Intent data) {
@@ -184,6 +275,7 @@ public final class SnapshotAdapter {
         if (host.get() != owner || request == null || !current(request) || !request.picker.owns(requestCode)) return false;
         Uri selected = resultCode == Activity.RESULT_OK && data != null ? data.getData() : null;
         if (selected != null && (!"content".equals(selected.getScheme()) || selected.getAuthority() == null)) selected = null;
+        observed(request, "document-result", selected == null ? "" : selected.toString(), requestCode + ":" + resultCode);
         // Android returns before actual Activity/window-focus restoration; never rebind the callback.
         return request.picker.receive(requestCode, selected, false);
     }
@@ -192,9 +284,10 @@ public final class SnapshotAdapter {
         try (InputStream input = Files.newInputStream(request.file.toPath(), StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS)) {
             SnapshotCopy.copy(input, request.resolver.openOutputStream(uri, "w"), request.lease::cancelled);
         }
+        observed(request, "destination-copied", uri.toString(), "");
     }
     private static void saveUri(Request request, Uri uri) {
-        try { copy(request, uri); finish(request, "success", ""); }
+        try { copy(request, uri); featurePublished(request, uri); finish(request, "success", ""); }
         catch (IOException | RuntimeException failure) { finish(request, "error", "The snapshot could not be saved."); }
     }
     private static void saveMediaStore(Request request) {
@@ -208,16 +301,25 @@ public final class SnapshotAdapter {
             values.put(MediaStore.Images.Media.IS_PENDING, 1);
             uri = request.resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values);
             if (uri == null) throw new IOException("MediaStore unavailable");
+            featureDestination(request, uri, true);
+            observed(request, "destination-created", uri.toString(), "");
             copy(request, uri);
             if (request.lease.cancelled()) throw new IOException("Cancelled export");
             values.clear(); values.put(MediaStore.Images.Media.IS_PENDING, 0);
             if (request.resolver.update(uri, values, null, null) != 1) throw new IOException("Publish failed");
+            observed(request, "destination-published", uri.toString(), "1");
+            featurePublished(request, uri);
             published = true; finish(request, "success", "");
         } catch (IOException | RuntimeException failure) {
             finish(request, "error", "The snapshot could not be saved.");
         } finally {
             if (uri != null && (!published || request.lease.cancelled())) {
-                try { request.resolver.delete(uri, null, null); } catch (RuntimeException ignored) { /* No paths or destination URIs are logged. */ }
+                try {
+                    int deleted = request.resolver.delete(uri, null, null);
+                    observed(request, "destination-deleted", uri.toString(), Integer.toString(deleted));
+                } catch (RuntimeException ignored) {
+                    observed(request, "destination-delete-failed", uri.toString(), "");
+                }
             }
         }
     }

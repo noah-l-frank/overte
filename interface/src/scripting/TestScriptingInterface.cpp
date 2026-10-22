@@ -13,6 +13,8 @@
 #include <QtCore/QLoggingCategory>
 #include <QtCore/QSaveFile>
 #include <QtCore/QThread>
+#include <QGuiApplication>
+#include <limits>
 
 #include <shared/FileUtils.h>
 #include <shared/QtHelpers.h>
@@ -55,6 +57,8 @@
 #include "../../../tests/device/native/PendingFieldCommitBridge.h"
 #include "../../../tests/device/native/PicoSnapshotCancelBridge.h"
 #include "../../../tests/device/native/PicoSnapshotCaptureFiles.h"
+#include "../../../tests/device/native/PicoSnapshotExportCommand.h"
+#include "../../../tests/device/native/PicoSnapshotExportLease.h"
 #include "../../../tests/device/native/ProcessPresence.h"
 #include <ui/TabletScriptingInterface.h>
 #include "../../../tests/device/native/PrivatePreviewFiles.h"
@@ -698,6 +702,57 @@ QVariantMap TestScriptingInterface::featureSnapshotScriptOriginals(const QVarian
     });
     if(!queue->settled(overte::e2e::AudioSettingsQueue::dispatching(this) ? "dispatch" : QString())) {return {};}
     return result.values;
+#else
+    Q_UNUSED(command) return {};
+#endif
+}
+
+QVariantMap TestScriptingInterface::featurePicoSnapshotExports(const QVariantMap& command) {
+#if defined(ANDROID_APP_PICO_INTERFACE) && (defined(Q_OS_ANDROID) || defined(OVERTE_PICO_SETUP))
+    const auto queue=_featureSnapshotQueue;if(!queue) {return {};}
+    if(QThread::currentThread()!=thread()) {
+        return queue->read("dispatch",this,[command](QObject* original) {
+            return overte::e2e::AudioSettingsPart{static_cast<TestScriptingInterface*>(original)->featurePicoSnapshotExports(command),{}};
+        }).values;
+    }
+    if(_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript") || !qApp || !qApp->isHMDMode()
+            || !overte::e2e::previewDirectory(_testResultsLocation) || !overte::e2e::picoSnapshotExportCommand(command)
+            || !DependencyManager::isSet<TabletScriptingInterface>()
+            || !queue->settled(overte::e2e::AudioSettingsQueue::dispatching(this) ? "dispatch" : QString())
+            || _featureSnapshotExportQueries.size()>=4096 || _featureSnapshotExportQueries.contains(command.value("commandId").toString())
+            || _featureSnapshotExportSequence==std::numeric_limits<quint64>::max()) {return {};}
+    const auto tablets=DependencyManager::get<TabletScriptingInterface>();if(!tablets) {return {};}
+    _featureSnapshotExportQueries.insert(command.value("commandId").toString()); // Before any uncertain readback/retirement operation.
+    const auto sequence=++_featureSnapshotExportSequence;const auto instance=_featureObservationInstance;
+    const auto observed=queue->read("client",tablets.data(),[command,sequence,instance](QObject* original) {
+        const auto requested=QDateTime::currentMSecsSinceEpoch();
+        if(!qApp || QThread::currentThread()!=qApp->thread() || QGuiApplication::applicationState()!=Qt::ApplicationActive) {return overte::e2e::AudioSettingsPart{};}
+        auto owner=static_cast<TabletScriptingInterface*>(original);
+        QPointer<TabletProxy> tablet=owner->featureExistingTablet("com.highfidelity.interface.tablet.system");
+        if(!tablet || tablet->thread()!=QThread::currentThread()) {return overte::e2e::AudioSettingsPart{};}
+        QPointer<OffscreenQmlSurface> surface=tablet->getTabletSurface();
+        QPointer<QQuickItem> root=tablet->getTabletRoot();
+        if(!surface || !root || surface->thread()!=QThread::currentThread() || root->thread()!=QThread::currentThread()) {return overte::e2e::AudioSettingsPart{};}
+        QPointer<QQuickWindow> window=surface->getWindow();
+        if(!tablet || !surface || !root || !window) {return overte::e2e::AudioSettingsPart{};}
+        const auto lease=overte::e2e::picoSnapshotExportLease(root,window);if(lease.isEmpty()) {return overte::e2e::AudioSettingsPart{};}
+        const auto exports=NativeSnapshotAdapter::featureExportObservation();
+        const QVariantMap readback{{"snapshotReadbackCommandVersion",1},{"action",command.value("operation")},
+            {"request",command.value("exportRequest")},{"id",command.value("resourceId")}};
+        const auto readbacks=NativeSnapshotAdapter::featureReadbackCommand(QString::fromUtf8(QJsonDocument::fromVariant(readback).toJson(QJsonDocument::Compact)));
+        if(exports.isEmpty() || readbacks.isEmpty() || !tablet || !surface || !root || !window
+                || root!=tablet->getTabletRoot() || surface!=tablet->getTabletSurface() || window!=surface->getWindow()
+                || lease!=overte::e2e::picoSnapshotExportLease(root,window)) {return overte::e2e::AudioSettingsPart{};}
+        QVariantMap result{{"picoSnapshotExportsVersion",1},{"requestId",command.value("commandId")},{"runId",command.value("runId")},
+            {"instance",instance},{"sequence",sequence},{"processId",QCoreApplication::applicationPid()},
+            {"requestedEpochMs",requested},{"capturedEpochMs",QDateTime::currentMSecsSinceEpoch()},
+            {"lease",lease},{"exportsRaw",exports},{"readbacksRaw",readbacks}};
+        if(QJsonDocument::fromVariant(result).toJson(QJsonDocument::Compact).size()>240000) {return overte::e2e::AudioSettingsPart{};}
+        return overte::e2e::AudioSettingsPart{result,{}};
+    });
+    if(!queue->settled(overte::e2e::AudioSettingsQueue::dispatching(this) ? "dispatch" : QString())) {return {};}
+    return observed.values;
 #else
     Q_UNUSED(command) return {};
 #endif
@@ -1543,7 +1598,7 @@ void TestScriptingInterface::saveObject(QVariant variant, const QString& filenam
             || filename == "feature-navigation-modals.json" || filename == "feature-navigation-environment.json" || filename == "feature-navigation-directory.json"
             || filename == "feature-process-presence.json"
             || filename == "feature-graphics-subject.json" || filename == "feature-scene-load.json"
-            || filename == "feature-lifecycle-drive.json" || filename == "feature-lifecycle-gesture.json" || filename == "feature-audio-settings.json" || filename == "feature-snapshot-capture-originals.json" || filename == "feature-snapshot-script-originals.json" || filename == "feature-pico-snapshot-files.json" || filename == "feature-script-work.json" || filename == "feature-script-roots.json"
+            || filename == "feature-lifecycle-drive.json" || filename == "feature-lifecycle-gesture.json" || filename == "feature-audio-settings.json" || filename == "feature-snapshot-capture-originals.json" || filename == "feature-snapshot-script-originals.json" || filename == "feature-pico-snapshot-files.json" || filename == "feature-pico-snapshot-exports.json" || filename == "feature-script-work.json" || filename == "feature-script-roots.json"
             || filename == "feature-web-runtime.json" || filename == "feature-tablet-http.json"
             || filename == "recorded-preview-observation.json" || filename == "feature-script-observation.json"
             || filename == "feature-script-files.json" || filename == "world-render-observation.json"

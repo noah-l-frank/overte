@@ -17,6 +17,7 @@
 #endif
 
 #include <QtCore/QThread>
+#include <QtCore/QCoreApplication>
 #include <QtQml/QQmlProperty>
 
 #include <shared/QtHelpers.h>
@@ -215,6 +216,18 @@ TabletProxy* TabletScriptingInterface::getTablet(const QString& tabletId) {
     tabletProxy->setToolbarMode(_toolbarMode);
     return tabletProxy;
 }
+
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+TabletProxy* TabletScriptingInterface::featureExistingTablet(const QString& tabletId) const {
+    if(!QCoreApplication::instance() || !QCoreApplication::arguments().contains("--testScript")
+            || QThread::currentThread()!=QCoreApplication::instance()->thread()
+            || QThread::currentThread()!=thread()) {return nullptr;}
+    const auto found=_tabletProxies.find(tabletId);
+    if(found==_tabletProxies.end()) {return nullptr;}
+    auto original=found->second;
+    return original && original->parent()==this && original->thread()==QThread::currentThread() ? original : nullptr;
+}
+#endif
 
 void TabletScriptingInterface::preloadSounds() {
     //preload audio events

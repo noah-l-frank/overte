@@ -110,6 +110,10 @@ public:
      * tablet.gotoWebScreen("https://overte.org/");
      */
     Q_INVOKABLE TabletProxy* getTablet(const QString& tabletId);
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    // Passive original source only; never creates or initializes a tablet.
+    TabletProxy* featureExistingTablet(const QString& tabletId) const;
+#endif
 
     void preloadSounds();
 

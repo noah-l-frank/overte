@@ -151,6 +151,7 @@
     var lastSnapshotCaptureRequest = "";
     var lastSnapshotScriptRequest = "";
     var lastPicoSnapshotFilesRequest = "";
+    var lastPicoSnapshotExportsRequest = "";
     var lastScriptWorkRequest = "";
     var lastScriptRootRequest = "";
     var scriptWorkTimer = null;
@@ -1437,6 +1438,29 @@
         if (command && command.schemaVersion === 1
                 && typeof command.commandId === "string" && /^[0-9a-f]{32}$/.test(command.commandId)
                 && typeof command.runId === "string" && /^[0-9a-f]{32}$/.test(command.runId)
+                && command.action === "feature-pico-snapshot-exports"
+                && objectKeysMatch(command, ["schemaVersion", "commandId", "action", "runId", "operation", "exportRequest", "resourceId"])
+                && typeof command.operation === "string" && typeof command.exportRequest === "string" && typeof command.resourceId === "string"
+                && (((command.operation === "observe" || command.operation === "retire-copies") && command.exportRequest === "" && command.resourceId === "")
+                    || ((command.operation === "read" || command.operation === "remove-destination" || command.operation === "revoke-share")
+                        && /^[0-9a-f]{32}$/.test(command.exportRequest) && /^[0-9a-f]{32}$/.test(command.resourceId))
+                    || ((command.operation === "cancel" || command.operation === "remove-copy" || command.operation === "inspect-destinations" || command.operation === "inspect-shares")
+                        && command.exportRequest === "" && /^[0-9a-f]{32}$/.test(command.resourceId)))) {
+            if (command.commandId === lastPicoSnapshotExportsRequest) { return; }
+            lastPicoSnapshotExportsRequest = command.commandId;
+            var exportOriginals = {picoSnapshotExportsVersion: 1, requestId: command.commandId, available: false};
+            try {
+                if (typeof Test.featurePicoSnapshotExports === "function") {
+                    var actualExports = Test.featurePicoSnapshotExports(command);
+                    if (actualExports && actualExports.requestId === command.commandId) { exportOriginals = actualExports; }
+                }
+            } catch (_exportOriginalsError) { /* Actual URI/IO/lease originals remain unavailable. */ }
+            Test.saveObject(exportOriginals, "feature-pico-snapshot-exports.json");
+            return;
+        }
+        if (command && command.schemaVersion === 1
+                && typeof command.commandId === "string" && /^[0-9a-f]{32}$/.test(command.commandId)
+                && typeof command.runId === "string" && /^[0-9a-f]{32}$/.test(command.runId)
                 && ((command.action === "pico-snapshot-files-observe"
                     && objectKeysMatch(command, ["schemaVersion", "commandId", "action", "runId"]))
                     || (command.action === "pico-snapshot-files-control"
@@ -1898,7 +1922,7 @@
                 || command.action === "feature-tablet-http-observe"
                 || command.action === "feature-lifecycle-drive-observe" || command.action === "feature-lifecycle-gesture-observe"
                 || command.action === "feature-audio-settings-observe" || command.action === "feature-snapshot-capture-originals" || command.action === "feature-snapshot-script-originals" || command.action === "feature-script-work-observe" || command.action === "feature-script-roots-observe"
-                || command.action === "pico-snapshot-files-observe" || command.action === "pico-snapshot-files-control"
+                || command.action === "pico-snapshot-files-observe" || command.action === "pico-snapshot-files-control" || command.action === "feature-pico-snapshot-exports"
                 || command.action === "feature-web-runtime-observe"
                 || command.action === "feature-world-render-storage"
                 || command.action === "feature-world-render-receipt"

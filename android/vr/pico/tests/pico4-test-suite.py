@@ -59,6 +59,7 @@ TESTS = (
     test("audio-final-retirement", "audio", PYTHON, "device/test_audio_final_close.py", "AudioFinalRetirementTests"),
     test("audio-page-owner", "audio", PYTHON, "device/test_audio_page_owner.py"),
     test("audio-settings-source", "audio", PYTHON, "device/test_audio_settings.py", requires=("node", "c++", "pkg-config")),
+    test("snapshot-export-originals", "interaction", PYTHON, "device/test_snapshot_exports.py", requires=("node", "javac", "java", "c++", "pkg-config")),
     test("snapshot-cancel-still-owner", "interaction", PYTHON, "device/test_snapshot_cancel_owner.py", "SnapshotStillSequenceTests.test_continuous_normal_cancel_then_still_original_png_fd_ui_and_live_work_quiet"),
     test("snapshot-still-recovery", "interaction", PYTHON, "device/test_snapshot_cancel_owner.py", "SnapshotStillSequenceTests.test_v1_original_migration_and_lost_still_reply_recover_without_new_capture_or_baseline_facts"),
     test("snapshot-still-no-output", "interaction", PYTHON, "device/test_snapshot_cancel_owner.py", "SnapshotStillSequenceTests.test_acknowledged_ignored_still_never_creates_original_png_or_allows_cold_resend"),
