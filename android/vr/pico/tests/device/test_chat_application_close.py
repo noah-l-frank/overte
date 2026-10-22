@@ -59,7 +59,7 @@ class PicoChatApplicationFactoryTests(unittest.TestCase):
         with self.assertRaises(RuntimeError):self.sources()
         self.assertEqual([],self.native.inputs);self.assertEqual([],self.native.controllers)
 
-    def completed_scope_archive(self,*,bounded):
+    def completed_scope_archive(self,*,bounded,fenced=False,plan_version=2):
         from adapters.chat_journey.evidence_archive import ChatArchiveCatalog,ChatEvidenceArchive
         state,_=self.instance._script_paths(self.native.target);key=state.stem.removeprefix('normal-script-state-')
         source=PrivateFeatureState(state.with_name('closed-original.json'));source.write(dict(original='already-consumed-scope-seam'),None)
@@ -71,8 +71,9 @@ class PicoChatApplicationFactoryTests(unittest.TestCase):
         def guard(original=None):
             if original is not None:self.assertEqual(proof,original)
             return proof.copy()
-        archive=ChatEvidenceArchive(catalog,directory,ledger,dict(picoChatArchivePlanVersion=2,runId=RUN,
-            oldBinding=self.old,newBinding=self.old),guard,inventory)
+        fence=SimpleNamespace(guard=guard,prepare=lambda:dict(original='source-fence-seam'),check=lambda token:None,complete=lambda token:None) if fenced else None
+        archive=ChatEvidenceArchive(catalog,directory,ledger,dict(picoChatArchivePlanVersion=plan_version,runId=RUN,
+            oldBinding=self.old,newBinding=self.old),guard,inventory,unlink_fence=fence)
         self.addCleanup(archive.close_host);self.addCleanup(lambda:directory.chmod(0o700) if directory.exists() else None)
         archive.retire();return directory
 
@@ -83,6 +84,16 @@ class PicoChatApplicationFactoryTests(unittest.TestCase):
 
     def test_actual_scope_reader_rejects_plan2_relabelled_legacy_fd_receipt(self):
         self.completed_scope_archive(bounded=False)
+        with self.assertRaises(ValueError):self.instance._chat_application_retained(self.native.target)
+        self.assertEqual([],self.native.inputs);self.assertEqual([],self.native.controllers)
+
+    def test_actual_scope_reader_accepts_explicit_v3_without_claiming_current_target_release(self):
+        self.completed_scope_archive(bounded=True,fenced=True,plan_version=3)
+        self.assertFalse(self.instance._chat_application_retained(self.native.target))
+        self.assertEqual([],self.native.inputs);self.assertEqual([],self.native.controllers)
+
+    def test_actual_scope_reader_refuses_plan3_relabelled_v2_without_unlink_policy(self):
+        self.completed_scope_archive(bounded=True,plan_version=3)
         with self.assertRaises(ValueError):self.instance._chat_application_retained(self.native.target)
         self.assertEqual([],self.native.inputs);self.assertEqual([],self.native.controllers)
 

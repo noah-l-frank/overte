@@ -5,6 +5,7 @@ from copy import deepcopy
 import hashlib
 import math
 import re
+import uuid
 
 from adapters.chat_actor_files import COMMAND,RESULT
 from adapters.chat_journey.evidence_archive import ChatArchiveCatalog,ChatEvidenceArchive
@@ -18,7 +19,7 @@ from adapters.restart_inputs import validate_native_restart
 from adapters.script_journey.history import same
 from feature_journeys.phase_fixture import PhaseFixtureReader,validate as phase_packet
 
-VERSION=2
+VERSION=3
 
 
 class PicoChatArchivePlan:
@@ -149,18 +150,19 @@ class PicoChatArchivePlan:
         self.catalog.verify_all();application.authority();application.ipc_absent()
         for role in application.roles:self.add_role(role)
         self.add_owner(application);self.add(application.inputs.store,application.inputs.read())
-        self.catalog.rows['primary/'+application.inputs.store.path.name]['retire']=lambda:application.inputs.retire(application.new_binding,application.sources[1])
+        self.catalog.rows['primary/'+application.inputs.store.path.name]['retire']=lambda check:application.inputs.retire(application.new_binding,application.sources[1],before_discard=check)
         self.add(p.peer.files_store,application.closed)
         ui=self.adapter._chat_postrestart_store(self.target,'ui');value=ui.read()
         if value is not None:
             need(value['processIdentity']==application.new_binding['processIdentity'] and value['bridgeId']==application.new_binding['sessionId']);self.add(ui,value)
-        guard=ChatArchiveReleaseSource(application)
+        guard=ChatArchiveReleaseSource(application,fresh_phase_final=True)
         metadata=dict(picoChatArchivePlanVersion=VERSION,runId=p.source.run,oldBinding=p.binding,newBinding=application.new_binding,
             peerBinding=p.peer.binding,peerOriginBasis='native-configured-metadata-only',
             oldNative=application.inputs.read()['oldNative'],newNative=application.inputs.read()['newNative'],
             originalProfile=application.profile['original'],cleanupSha256=digest(guard.expected),parentSha256=digest(p.previous),applicationSha256=digest(application.previous))
         directory=self.state.parent/('chat-evidence-'+self.key+'-'+p.source.run)
-        self.archive=ChatEvidenceArchive(self.catalog,directory,self.adapter._chat_archive_retirement_store(self.target),metadata,guard,self.inventory)
+        self.archive=ChatEvidenceArchive(self.catalog,directory,self.adapter._chat_archive_retirement_store(self.target),metadata,guard,self.inventory,
+            unlink_fence=ChatArchiveUnlinkFence(guard))
         return self.archive.retire()
 
     def close_host(self):
@@ -174,7 +176,8 @@ class ChatArchiveReleaseSource:
     activation. It cannot admit a different current ticket, source or candidate.
     No cache creation, old script-manager access or peer query is permitted.
     """
-    def __init__(self,application):
+    def __init__(self,application,*,fresh_phase_final=False):
+        need(type(fresh_phase_final) is bool);self.fresh_phase_final=fresh_phase_final
         self.app=application;self.role=application.roles[0];self.expected=deepcopy(application.fence.original())
         original=application.fence.source
         self.phase=PhaseFixtureReader(original.client,original.run,'chat',epoch_ms=original.epoch_ms,monotonic=original.monotonic)
@@ -190,10 +193,12 @@ class ChatArchiveReleaseSource:
         need(files.fd_owner.closed and not original._exists(COMMAND) and not original._exists(RESULT)
             and files.released({key:self.app.closed['result']['stamp'][key] for key in ('device','inode')}) is True)
 
-    def final(self,proof):
+    def final(self,proof,*,expected_cursors=None):
         need(self.last is not None and same(proof,self.last));self.files_absent();app=self.app
         readers=(self.role.primary,self.role.view,self.role.lifecycle,self.role.script_source.roots,self.role.script_source.scripts,*app.sources[1:])
         for reader in readers:need(reader.guard() is not False)
+        if expected_cursors is not None:need(same(expected_cursors,self.cursors()))
+        need(same(proof,self.last))
         measured=app.now();epoch=self.role.primary.clock_ms();phase_epoch=self.phase.epoch_ms();ended=app.now()
         need(number(measured,self.started,self.started+1.5) and number(ended,measured,self.started+1.5))
         oldest=min(proof[key]['capturedEpochMs'] for key in ('primary','view','native','absence','profile'))
@@ -202,8 +207,33 @@ class ChatArchiveReleaseSource:
         phase_packet(proof['phase'],run=app.run_id,area='chat',request=proof['phase']['requestId'],epoch=phase_epoch,previous=self.expected)
         need(phase_epoch-proof['phase']['capturedEpochMs']+math.ceil((ended-measured)*1000)<=1500)
 
+    def current_phase(self,proof):
+        # A new HTTP phase response is only input authority. Native facts and
+        # their original deadlines remain the exact already selected packet.
+        self.final(proof)
+        current=self.phase.read(self.expected)['status']
+        need(current['active'] and same(current['activations'],self.expected['activations']))
+        current=deepcopy(current);self.final(proof)
+        phase_packet(current,run=self.app.run_id,area='chat',request=current['requestId'],epoch=self.phase.epoch_ms(),previous=self.expected)
+        self.final(proof);return current
+
+    def cursors(self):
+        # Reject a newer accepted observation or mutation of a reader's
+        # retained facts while an unlink uses an older selected frame.
+        role=self.role;app=self.app
+        fields=('instance','sequence','captured','captured_epoch','source','engines','lifecycle','last',
+            'keyboard_instance','keyboard_sequence')
+        # RestartInputs.retire performs one further original native read. Its
+        # sequence may advance, but the actual native birth/lifecycle must not.
+        return deepcopy([{key:getattr(reader,key) for key in fields if hasattr(reader,key)
+            and not (reader is app.sources[1] and key=='sequence')} for reader in
+            (role.primary,role.view,role.script_source.roots,role.script_source.scripts,*app.sources[1:])])
+
     def __call__(self,original=None):
-        if original is not None:self.final(original);return original
+        if original is not None:
+            if self.fresh_phase_final:self.current_phase(original)
+            else:self.final(original)
+            return original
         app=self.app;self.started=app.now();self.files_absent()
         current=self.phase.read(self.expected)['status'];need(current['active'] and same(current['activations'],self.expected['activations']))
         code=self.role.script_source;before=code.roots.read(code.roots.last['sequence'])
@@ -221,3 +251,59 @@ class ChatArchiveReleaseSource:
         validate_native_restart(app.inputs.read()['oldNative'] if app.inputs.store.read() is not None else app.old_birth,birth(native))
         result=deepcopy(dict(primary=primary,view=view,native=native,absence=absence,profile=profile,compiledChat=compiled,phase=current))
         self.last=deepcopy(result);self.final(result);return result
+
+
+class ChatArchiveUnlinkFence:
+    """At most 16 unlinks/250 ms using the same original source acquisition.
+
+    The 250-ms window begins when that acquisition completes; its original
+    1.5-s host/native deadlines still include the complete acquisition. Every
+    actual unlink has a NEW independent phase query after its final intent.
+    Only prepare() before that intent may acquire a new source. Any failure
+    retains the original pending token and makes this warm fence unusable.
+    """
+    def __init__(self,guard):
+        need(type(guard) is ChatArchiveReleaseSource and guard.fresh_phase_final)
+        self.guard=guard;self.proof=None;self.snapshot=None;self.started=self.epoch=None
+        self.uses=0;self.pending=None;self.failed=False
+
+    def clocks(self):
+        measured=self.guard.app.now();epoch=self.guard.role.primary.clock_ms();ended=self.guard.app.now()
+        need(number(ended,measured,measured+1.5));return measured,epoch,ended
+
+    def window(self):
+        measured,epoch,ended=self.clocks()
+        need(number(measured,self.started,self.started+.250) and number(ended,measured,self.started+.250)
+            and number(epoch,self.epoch,self.epoch+250) and epoch-self.epoch+math.ceil((ended-measured)*1000)<=250)
+
+    def prepare(self):
+        try:
+            need(not self.failed and self.pending is None)
+            now,epoch,ended=self.clocks()
+            expired=self.proof is None or self.uses>=16 or now-self.started>=.250 or epoch-self.epoch>=250
+            if expired:
+                self.proof=deepcopy(self.guard());self.guard.final(self.proof)
+                self.snapshot=self.guard.cursors();self.started,self.epoch,_ended=self.clocks();self.uses=0
+            self.guard.final(self.proof,expected_cursors=self.snapshot);self.window()
+            need(same(self.snapshot,self.guard.cursors()))
+            token=dict(archiveUnlinkFenceVersion=1,requestId=uuid.uuid4().hex,sourceSha256=digest(self.proof),
+                sourceSequence=self.proof['compiledChat']['after']['sequence'],windowUse=self.uses+1)
+            self.pending=deepcopy(token);result=deepcopy(token)
+            self.guard.final(self.proof,expected_cursors=self.snapshot);self.window();return result
+        except Exception:self.failed=True;raise
+
+    def check(self,token):
+        try:
+            need(not self.failed and self.pending is not None and same(token,self.pending)
+                and digest(self.proof)==token['sourceSha256'] and same(self.snapshot,self.guard.cursors()))
+            self.window();self.guard.current_phase(self.proof)
+            need(same(self.snapshot,self.guard.cursors()))
+            self.window();self.guard.final(self.proof,expected_cursors=self.snapshot)
+        except Exception:self.failed=True;raise
+
+    def complete(self,token):
+        try:
+            need(not self.failed and self.pending is not None and same(token,self.pending) and digest(self.proof)==token['sourceSha256'])
+            self.guard.final(self.proof,expected_cursors=self.snapshot);self.window()
+            self.uses+=1;self.pending=None
+        except Exception:self.failed=True;raise

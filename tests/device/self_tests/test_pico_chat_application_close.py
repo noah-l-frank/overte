@@ -200,8 +200,8 @@ class ApplicationCloseTests(unittest.TestCase):
 
     def archive_complete(self):
         from adapters.chat_journey.evidence_archive import ChatArchiveCatalog,ChatEvidenceArchive,completed_archive
-        from adapters.pico4.chat_archive import ChatArchiveReleaseSource
-        catalog=ChatArchiveCatalog();self.addCleanup(catalog.close_host)
+        from adapters.pico4.chat_archive import ChatArchiveReleaseSource,ChatArchiveUnlinkFence
+        catalog=ChatArchiveCatalog(hold_files=False);self.addCleanup(catalog.close_host)
         # These explicit component roots are fully consumed. A real parent
         # additionally requires all 26 independent Witness stages and the full
         # typed catalog; this component fixture makes no such journey claim.
@@ -213,14 +213,14 @@ class ApplicationCloseTests(unittest.TestCase):
             for index in range(len(history.identities)):
                 store=history.store(index);add(store,store.read())
         add(self.inputs_store,self.owner.inputs.read())
-        catalog.rows['primary/'+self.inputs_store.path.name]['retire']=lambda:self.owner.inputs.retire(self.owner.new_binding,self.owner.sources[1])
+        catalog.rows['primary/'+self.inputs_store.path.name]['retire']=lambda check:self.owner.inputs.retire(self.owner.new_binding,self.owner.sources[1],before_discard=check)
         admitted={row['store'].path for row in catalog.rows.values()}
         def inventory(expected):self.assertEqual(expected,{path for path in admitted if path.exists()})
         ledger=PrivateFeatureState(self.root/'archive-retirement.json');directory=self.root/'archive'
-        guard=ChatArchiveReleaseSource(self.owner)
-        archive=ChatEvidenceArchive(catalog,directory,ledger,dict(runId=RUN),guard,inventory);self.addCleanup(archive.close_host)
+        guard=ChatArchiveReleaseSource(self.owner,fresh_phase_final=True)
+        archive=ChatEvidenceArchive(catalog,directory,ledger,dict(runId=RUN),guard,inventory,unlink_fence=ChatArchiveUnlinkFence(guard));self.addCleanup(archive.close_host)
         self.addCleanup(lambda:directory.chmod(0o700) if directory.exists() else None)
-        result=archive.retire();self.assertTrue(archive.complete);self.assertIsNone(ledger.read())
+        result=archive.retire();self.assertTrue(archive.complete);self.assertIsNone(ledger.read());self.assertEqual(3,result['chatEvidenceArchiveVersion'])
         evidence=completed_archive(directory);self.assertEqual(result['finalSha256'],evidence['finalSha256'])
         self.assertEqual('ESRCH',evidence['original']['absence']['errorSymbol']);self.assertEqual(789,evidence['original']['native']['processId'])
         self.assertIsNone(self.inputs_store.read());self.assertTrue(self.h.fresh.fd_owner.closed)
