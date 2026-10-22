@@ -12,8 +12,9 @@ import unittest
 from unittest.mock import patch
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.normal_ui import NativeUIError
-from ios.adapters import avatar_scripts,avatar_social_http,people_model,normal_input,world_web_keys
+from ios.adapters import avatar_scripts,avatar_social_http,people_model,normal_input,world_web_keys,uikit_input
 from ios.adapters.native_geometry import OriginalGeometry
+from ios.self_tests.avatar_uikit_fixture import UIKit2Boundary
 from ios.self_tests.test_ios_world_web_keys import QtKeys
 from ios.adapters.avatar_code import pins
 from ios.adapters.avatar_postlogout_tail import IOSAvatarPostLogoutTail
@@ -27,7 +28,7 @@ class AvatarPostLogoutTailTests(unittest.TestCase):
     def setUp(self):
         self.f=fixture.AvatarPostLogoutReadsTests();self.f.setUp();self.addCleanup(self.f.doCleanups)
         self.store=PrivateFeatureState(self.f.root/'ios-avatar-actor-primary-postlogout-tail.json');self.roots=[];self.channel_calls=[];self.lost=False;self.keys=QtKeys();self.geometry_sequence=0;self.geometry_value=None;self.keyboard=False;self.inset=0
-        f=self.f.f;worker=f.prototypes['scripts']['source']['workers'][0];worker['avatar']['events']=[]
+        f=self.f.f;self.uikit=UIKit2Boundary(f.now,lambda:round(f.clock*1000),pid=42);self.uikit_value=None;worker=f.prototypes['scripts']['source']['workers'][0];worker['avatar']['events']=[]
         worker['avatar']['code']=[dict(sequence=index,url='qrc:/scripts'+suffix,submittedEpochMs=1700000000000+index,
             encoding='utf-16le-code-units',**pin) for index,(suffix,pin) in enumerate(pins().items(),1)]
         worker['uiWork']=dict(avatarUiWorkVersion=1,instance='f'*32,complete=True,timers=[])
@@ -83,7 +84,14 @@ class AvatarPostLogoutTailTests(unittest.TestCase):
                         keyboardVisible=self.keyboard,imeInsetBottom=self.inset),window=dict(width=1024,height=728)))
             return OriginalGeometry(send,lambda:json.dumps(self.geometry_value),lambda:clock.read(clock.sequence)['capturedEpochMs'],lambda:True,
                 monotonic=lambda:f.clock,sleep=f.sleep)
-        observer=SimpleNamespace(world_web_keys=key_source,geometry=geometry_source,avatar_scripts=lambda given:reader('scripts',avatar_scripts.IOSAvatarScripts,given),
+        def uikit_source(given):
+            self.assertIs(clock,given)
+            def send(query):
+                p=__import__('adapters.script_feature.history',fromlist=['unpack']).unpack(self.store.read()['payload'])[0]['pending']
+                self.assertEqual(query,p['queries']['uikit']);self.channel_calls.append(deepcopy(query));f.tick();self.uikit_value=self.uikit.packet(query)
+            return uikit_input.IOSUIKitInput(send,lambda:json.dumps(self.uikit_value),lambda:clock.read(clock.sequence)['capturedEpochMs'],lambda:True,42,
+                monotonic=lambda:f.clock,sleep=f.sleep)
+        observer=SimpleNamespace(uikit_input=uikit_source,world_web_keys=key_source,geometry=geometry_source,avatar_scripts=lambda given:reader('scripts',avatar_scripts.IOSAvatarScripts,given),
             avatar_social_http=lambda given:reader('http',avatar_social_http.IOSAvatarSocialHttp,given),
             people_model=lambda given:reader('people',people_model.IOSPeopleModel,given))
         widgets=normal_input.NativeInput(f.widget,'owned-session',f.widget.target,f.widget.process,
@@ -140,7 +148,7 @@ class AvatarPostLogoutTailTests(unittest.TestCase):
             if p is not None and p['widgetsReceipt'] is not None and not lost:
                 lost.append(True);raise OSError('Lost durable widget response return')
         with patch.object(self.store,'write',side_effect=saving),self.assertRaises(OSError):owner.capture()
-        again=self.owner();again.recover();partial=again.state['rows'][-1]['partial'];before=deepcopy(self.channel_calls)
+        again=self.owner();again.recover();partial=again.row_partial(again.state['rows'][-1]);before=deepcopy(self.channel_calls)
         actual.sequence+=2;next_row=again.capture();current=again.record(next_row['reference'])
         self.assertNotEqual(partial['widgetsQuery']['commandId'],current['widgetsQuery']['commandId'])
         self.assertEqual(before,self.channel_calls[:len(before)])
@@ -151,8 +159,8 @@ class AvatarPostLogoutTailTests(unittest.TestCase):
             altered=deepcopy(current);altered['widgetsReceipt']['observation'][key]=prior['widgetsReceipt']['observation'][key]-(1 if key in ('elapsedMs','lastSequence') else 0)
             with self.subTest(completed=key),self.assertRaises(NativeUIError):again.widget_prefix(prior['widgetsReceipt']['observation'],altered['widgetsReceipt']['observation'])
 
-    def test_writer2_actual_held_key_and_unreturned_release_block_until_original_finally(self):
-        owner=self.owner();first=owner.capture();self.assertEqual(2,owner.proof(first)['iosAvatarPostLogoutTailProofVersion'])
+    def test_writer3_actual_held_key_and_unreturned_release_block_until_original_finally(self):
+        owner=self.owner();first=owner.capture();self.assertEqual(3,owner.proof(first)['iosAvatarPostLogoutTailProofVersion'])
         self.keys.finish(self.keys.enter('key-press'))
         with self.assertRaises(NativeUIError):owner.capture()
         held=deepcopy(owner.state['rows'][-1]);release=self.keys.enter('key-release')
@@ -182,10 +190,20 @@ class AvatarPostLogoutTailTests(unittest.TestCase):
         archived=self.archive(legacy);proof=archived.proof(archived.state['rows'][0])
         self.assertEqual(1,proof['iosAvatarPostLogoutTailProofVersion']);self.assertNotIn('keys',proof)
         self.assertEqual(metadata,self.store.path.read_bytes());self.assertEqual(original,legacy.file(1).path.read_bytes())
-        current=self.owner();second=current.capture();self.assertEqual(2,current.previous['iosAvatarPostLogoutTailVersion'])
-        self.assertEqual(2,current.proof(second)['iosAvatarPostLogoutTailProofVersion'])
+        current=self.owner();second=current.capture();self.assertEqual(3,current.previous['iosAvatarPostLogoutTailVersion'])
+        self.assertEqual(3,current.proof(second)['iosAvatarPostLogoutTailProofVersion'])
         self.assertEqual(1,current.proof(first)['iosAvatarPostLogoutTailProofVersion'])
         self.assertEqual(original,legacy.file(1).path.read_bytes())
+
+    def test_frozen_writer2_original_is_byte_exact_without_uikit_claim(self):
+        from ios.self_tests.avatar_tail_v2_producer import LegacyAvatarTail2
+        legacy=self.owner(LegacyAvatarTail2);first=legacy.capture()
+        metadata=self.store.path.read_bytes();original=legacy.file(1).path.read_bytes()
+        archived=self.archive(legacy);proof=archived.proof(archived.state['rows'][0])
+        self.assertEqual(2,proof['iosAvatarPostLogoutTailProofVersion']);self.assertNotIn('uikit',proof)
+        self.assertEqual(metadata,self.store.path.read_bytes());self.assertEqual(original,legacy.file(1).path.read_bytes())
+        current=self.owner();second=current.capture();self.assertEqual(3,current.proof(second)['iosAvatarPostLogoutTailProofVersion'])
+        self.assertEqual(proof,current.proof(first));self.assertEqual(original,legacy.file(1).path.read_bytes())
 
     def test_exhausted_raw_carrier_capacity_fails_before_any_next_native_query(self):
         owner=self.owner();queries=deepcopy(self.f.calls)

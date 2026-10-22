@@ -11,12 +11,12 @@ from adapters import original_marker_clock_queries as clock_queries
 from adapters.native_clock_join import NativeClockAcquisition
 from adapters.native_feature_observation import need
 from adapters.script_feature.history import same,pack
-from ios.adapters.avatar_postlogout_tail import IOSAvatarPostLogoutTail,CHANNELS
+from ios.self_tests.avatar_tail_v2_producer import LegacyAvatarTail2,CHANNELS
 from ios.adapters.authentication_causality import check as account_causality
 VERSION=1
 
 
-class Tail1Producer(IOSAvatarPostLogoutTail):
+class Tail1Producer(LegacyAvatarTail2):
     def envelope(self,state,version=1):return super().envelope(state,1)
 
     def capture(self):

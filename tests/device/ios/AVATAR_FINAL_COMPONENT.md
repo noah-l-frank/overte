@@ -41,3 +41,11 @@ Contracts `ios-avatar-final`, `ios-avatar-final-original` and
 source owners, prefix validators, original archives and fixture account backend;
 native Qt/application boundaries remain explicit modeled producers. Native
 compilation and device execution remain unverified.
+
+When actual Tail3 originals are present, the subject quiet decoder also checks
+the unchanged UIKitInput2 originals: installed complete source, ended contacts,
+no pending dispatch, every dispatch returned/finally, unchanged global dispatch
+sequence and three seconds on the actual UIKit epoch/monotonic clocks. Host
+intervals exclude acquisition. Cached objects are not claimed dead. Historical
+Tail2-backed Final1 originals remain readable with their original qualifications;
+the whole Avatar final decoder requires Tail3 separately.

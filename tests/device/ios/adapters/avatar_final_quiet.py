@@ -4,7 +4,7 @@
 from copy import deepcopy
 from adapters.native_feature_observation import need
 from adapters.script_feature.history import same
-from ios.adapters import world_web_keys
+from ios.adapters import world_web_keys,uikit_input
 from ios.adapters.emote_native_prefix import follow
 
 
@@ -34,6 +34,22 @@ def subject_quiet(samples,binding,*,run,role):
         nativeInstance=keys_a['source']['instance'],processId=keys_a['processId'])
     from feature_journeys.retirement_receipts import quiet,binding_from_context
     quiet(q,binding_from_context(binding))
+    if 'uikit' in a['ui']:
+        need(all('uikit' in row['ui'] and row['proof']['iosAvatarPostLogoutTailProofVersion']==3 for row in samples))
+        first_uikit=a['tail'].uikit(a['ui']);last_uikit=b['tail'].uikit(b['ui'])
+        ua,ub=first_uikit['clockAfter'],last_uikit['clockBefore']
+        uq=dict(q,nativeAfterFirstEpochMs=ua['epochMs'],nativeBeforeLastEpochMs=ub['epochMs'],
+            nativeAfterFirstMonotonicMs=ua['monotonicMs'],nativeBeforeLastMonotonicMs=ub['monotonicMs'],
+            nativeInstance=first_uikit['instance'],processId=first_uikit['processId'])
+        quiet(uq,binding_from_context(binding))
+        previous=first_uikit
+        for index,row in enumerate(samples):
+            current=row['tail'].uikit(row['ui']);row['tail'].uikit_idle(current)
+            need(current['dispatchSequence']==first_uikit['dispatchSequence'])
+            if index:
+                uikit_input.quiescent(previous,current,after_epoch=first_uikit['clockAfter']['epochMs'],require_delivery=False)
+            previous=current
+    else:need(all('uikit' not in row['ui'] for row in samples))
     before_native=frames[0]['clockJoin']['nativeBefore'];epoch=before_native['capturedEpochMs']
     for row in samples:
         keys=row['tail'].keys(row['ui']);world_web_keys.drained(keys)

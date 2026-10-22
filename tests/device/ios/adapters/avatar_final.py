@@ -105,7 +105,7 @@ class IOSAvatarFinal:
         need(integer(parts['rows']['post'],1,len(post.state['rows'])) and integer(parts['rows']['tail'],1,len(tail.state['rows'])))
         a,b=post.state['rows'][parts['rows']['post']-1],tail.state['rows'][parts['rows']['tail']-1];post.proof(a);proof=tail.proof(b)
         need(parts['rows']['left'] in pointer.state['records'] and parts['rows']['right'] in pointer.state['records'])
-        need(proof['iosAvatarPostLogoutTailProofVersion']==2)
+        need(proof['iosAvatarPostLogoutTailProofVersion'] in (2,3))
         left,right=pointer.original(parts['rows']['left']),pointer.original(parts['rows']['right']);body=post.record(a);ui=tail.record(b['reference'])
         before=post.account(body['before']);after=post.account(body['after'])
         follow(left['clockJoin']['nativeAfter'],before);follow(after,ui['clockJoin']['nativeBefore']);follow(ui['clockJoin']['nativeAfter'],right['clockJoin']['nativeBefore'])
