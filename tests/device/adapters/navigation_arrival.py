@@ -89,6 +89,44 @@ def camera_position(view):
     return [row[3] for row in rows]
 
 
+def stereo_pose(before,capture,after,raw,run,binding,scene_url,epoch,*,require_location=True):
+    """Original HMD pose/GPU/eye/presentation proof shared by stereo surfaces.
+
+    Navigation additionally requires its independently observed known location.
+    Other surfaces retain their actual unchanged world URL and must separately
+    qualify their original UI/document and per-eye pixels.
+    """
+    context(binding);pid=int(binding['processIdentity'].split(':',1)[0]);end=epoch
+    a=pose_packet(before,run,binding,scene_url,before['subject']['capturedEpochMs']);b=pose_packet(after,run,binding,scene_url,end)
+    need(type(require_location) is bool and a==b and (not require_location or a is not None))
+    if not require_location:
+        need(before['subject']['source']['sceneUrl']==after['subject']['source']['sceneUrl'])
+    advance(before,after)
+    capture_packet(capture,capture.get('requestId'),pid,end,stereo=True,require_cameras=True);original_pixels(capture,raw)
+    need(before['subject']['capturedEpochMs']<=capture['requestedEpochMs']
+         and capture['capturedEpochMs']<=after['subject']['requestedEpochMs'])
+    h1,h2=first_person_head(before['subject']),first_person_head(after['subject'])
+    need(math.dist(before['subject']['source']['avatarPose']['feetPosition'],after['subject']['source']['avatarPose']['feetPosition'])<=.05)
+    source=capture['source'];recorded=source['renderTrace']['recordedView']
+    need(all(math.dist(recorded['position'],h['worldPosition'])<=.15 for h in (h1,h2)))
+    from adapters.vr_graphics_subject import rotation_columns
+    actual=rotation_columns(recorded['rotation'])
+    for h in (h1,h2):
+        expected=rotation_columns(h['worldRotation'])
+        need(all(abs(actual[c][r]-expected[c][r])<=.08 for c in range(3) for r in range(3)))
+    forward=[batch for batch in camera_batches(source) if batch['role']=='forward'];need(forward)
+    for batch in forward:
+        centres={}
+        for camera in batch['cameras']:centres.setdefault(camera['slot'],{})[camera['eye']]=camera_position(camera['view'])
+        for pair in centres.values():
+            need(set(pair)=={'left','right'});centre=[(a+b)/2 for a,b in zip(pair['left'],pair['right'])]
+            need(all(math.dist(centre,h['worldPosition'])<=.15 for h in (h1,h2)))
+    # Native exact pixels, two distinct original eye descriptors and successful
+    # same-frame OpenXR submission are proved. No scene marker/change is guessed.
+    return dict(location=a,frameIndex=source['stereo']['frameIndex'],executionSequence=source['stereo']['executionSequence'],
+        submissionSequence=source['presentation']['submissionSequence'],imageSha256=source['image']['sha256'])
+
+
 def stereo_frame(value,raw,run,binding,scene_url):
     """Historical original frame/pose analysis, never a current sample verdict."""
     version=value.get('navigationStereoSourceVersion') if type(value) is dict else None
@@ -97,11 +135,6 @@ def stereo_frame(value,raw,run,binding,scene_url):
          and value['runId']==run and value['binding']==binding)
     before,after,capture=value['before'],value['after'],value['capture'];context(binding)
     pid=int(binding['processIdentity'].split(':',1)[0]);end=value['nativeAfter']['capturedEpochMs'] if version==2 else after['subject']['capturedEpochMs']
-    a=pose_packet(before,run,binding,scene_url,before['subject']['capturedEpochMs']);b=pose_packet(after,run,binding,scene_url,end)
-    need(a is not None and a==b);advance(before,after)
-    capture_packet(capture,capture.get('requestId'),pid,end,stereo=True,require_cameras=True);original_pixels(capture,raw)
-    need(before['subject']['capturedEpochMs']<=capture['requestedEpochMs']
-         and capture['capturedEpochMs']<=after['subject']['requestedEpochMs'])
     if version==2:
         from adapters.native_feature_observation import validate as native_packet
         native_a,native_b=value['nativeBefore'],value['nativeAfter']
@@ -123,23 +156,4 @@ def stereo_frame(value,raw,run,binding,scene_url):
              and b_ui['elapsedMs']>=a_ui['elapsedMs'] and a_ui['lastCommandSequence']==b_ui['lastCommandSequence']
              and before['subject']['capturedEpochMs']<=a_ui['capturedEpochMs']<=capture['requestedEpochMs']
              and capture['capturedEpochMs']<=b_ui['capturedEpochMs']<=after['probe']['sampleEpochMs'])
-    h1,h2=first_person_head(before['subject']),first_person_head(after['subject'])
-    need(math.dist(before['subject']['source']['avatarPose']['feetPosition'],after['subject']['source']['avatarPose']['feetPosition'])<=.05)
-    source=capture['source'];recorded=source['renderTrace']['recordedView']
-    need(all(math.dist(recorded['position'],h['worldPosition'])<=.15 for h in (h1,h2)))
-    from adapters.vr_graphics_subject import rotation_columns
-    actual=rotation_columns(recorded['rotation'])
-    for h in (h1,h2):
-        expected=rotation_columns(h['worldRotation'])
-        need(all(abs(actual[c][r]-expected[c][r])<=.08 for c in range(3) for r in range(3)))
-    forward=[batch for batch in camera_batches(source) if batch['role']=='forward'];need(forward)
-    for batch in forward:
-        centres={}
-        for camera in batch['cameras']:centres.setdefault(camera['slot'],{})[camera['eye']]=camera_position(camera['view'])
-        for pair in centres.values():
-            need(set(pair)=={'left','right'});centre=[(a+b)/2 for a,b in zip(pair['left'],pair['right'])]
-            need(all(math.dist(centre,h['worldPosition'])<=.15 for h in (h1,h2)))
-    # Native exact pixels, two distinct original eye descriptors and successful
-    # same-frame OpenXR submission are proved. No scene marker/change is guessed.
-    return dict(location=a,frameIndex=source['stereo']['frameIndex'],executionSequence=source['stereo']['executionSequence'],
-        submissionSequence=source['presentation']['submissionSequence'],imageSha256=source['image']['sha256'])
+    return stereo_pose(before,capture,after,raw,run,binding,scene_url,end)

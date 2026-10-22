@@ -151,6 +151,24 @@ class NavigationArrivalTests(unittest.TestCase):
         self.model.stereo().acquire(TICKET);self.assertEqual(1,len(self.model.gpu.commands))
         self.assertEqual(1,self.model.stereo().disk['navigationStereoOwnerVersion'])
 
+    def test_shared_pose_core_preserves_known_navigation_proof_and_does_not_relax_navigation_scope(self):
+        from adapters.navigation_arrival import stereo_pose
+        owner=self.model.stereo();state=owner.acquire(TICKET);frame=state['frame'];raw=owner.image_bytes()
+        expected=stereo_frame(frame,raw,RUN,self.model.binding,SCENE)
+        self.assertEqual(expected,stereo_pose(frame['before'],frame['capture'],frame['after'],raw,RUN,self.model.binding,SCENE,
+            frame['after']['subject']['capturedEpochMs']))
+        for key in ('before','after'):
+            frame[key]['probe']['scene']['url']='http://other.invalid/scene.json'
+            frame[key]['subject']['source']['sceneUrl']='http://other.invalid/scene.json'
+        with self.assertRaises(NativeUIError):stereo_frame(frame,raw,RUN,self.model.binding,SCENE)
+        result=stereo_pose(frame['before'],frame['capture'],frame['after'],raw,RUN,self.model.binding,SCENE,
+            frame['after']['subject']['capturedEpochMs'],require_location=False)
+        self.assertIsNone(result['location'])
+        frame['after']['probe']['scene']['url']='http://replaced.invalid/scene.json'
+        frame['after']['subject']['source']['sceneUrl']='http://replaced.invalid/scene.json'
+        with self.assertRaises(NativeUIError):stereo_pose(frame['before'],frame['capture'],frame['after'],raw,RUN,self.model.binding,SCENE,
+            frame['after']['subject']['capturedEpochMs'],require_location=False)
+
     def test_changed_original_png_and_changed_retirement_headers_are_rejected_after_recreation(self):
         result=self.model.stereo().acquire(TICKET);path=self.model.artifacts/result['image']['name'];raw=path.read_bytes()
         path.write_bytes(raw[:-1])

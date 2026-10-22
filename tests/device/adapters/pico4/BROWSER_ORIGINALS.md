@@ -124,3 +124,20 @@ first combined run correctly rejected changed/missing-lock input but two tests
 expected only RuntimeError; the existing private factory reports ValueError.
 The corrected expectations accept both established refusal types. No production
 admission was changed to make those counterexamples green.
+
+
+## Shared stereo pose foundation and passive app source
+
+The original head/GPU/two-eye/presentation proof is factored as
+`navigation_arrival.stereo_pose`. Navigation keeps its existing independently
+observed known-location and closed-tablet requirements. Other surface owners can
+reuse the physical pose/frame proof while separately qualifying their original
+UI/document and per-eye pixels. An unknown navigation location remains unknown;
+changing the actual world URL across that capture is refused. The24 original
+arrival/stereo-evidence checks pass in24.568s, including the retained Navigation
+scope and the new shared-core counterexample. Browser stereo ownership and the
+whole feature are still under construction.
+
+The passive app source now takes only the original normal UI runtime, without
+creating or adopting the default script-manager journal. The59-case browser
+selection passes in15.131s, including this actual private-factory counterexample.

@@ -34,6 +34,13 @@ class PicoBrowserAppTests(unittest.TestCase):
         self.snapshot=capture
     def source(self,read_only=False):
         return self.adapter._browser_app_controls(self.native.target,source_lock=self.lock,read_only=read_only)
+    def test_passive_tile_source_does_not_create_or_adopt_the_default_script_manager(self):
+        from pathlib import Path
+        manager_path=Path(self.adapter._script_paths(self.native.target)[0]);self.assertFalse(manager_path.exists())
+        with self.lock.held():
+            source=self.source(read_only=True);source.capture()
+        self.assertFalse(manager_path.exists());self.assertEqual([],self.native.inputs)
+
     def test_actual_private_factory_uses_exact_root_lock_and_normal_single_pointer_command(self):
         with self.lock.held():
             source=self.source();original=source.capture();source.activate('browser-app.web',reference=original)

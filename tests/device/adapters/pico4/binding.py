@@ -1685,7 +1685,7 @@ def create_adapter(args, base_class):
         def _browser_app_controls(self,target,*,source_lock,read_only=True):
             from adapters.pico4.browser_apps import PicoBrowserAppsIO
             source_lock=self._script_journey()._lock(target,source_lock);source_lock.assert_held()
-            return PicoBrowserAppsIO(self._scripts(target).ui.io,source_lock=source_lock,read_only=read_only)
+            return PicoBrowserAppsIO(self._script_runtime(target)[0].io,source_lock=source_lock,read_only=read_only)
 
         @_private
         def _browser_originals(self,target,*,source_lock,tablet=True,read_only=True):
