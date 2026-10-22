@@ -25,6 +25,15 @@ endif()
 # library closure, generated entities/shaders and resources into the build.
 # Neither product's CMake wrapper nor Java/Gradle/APK shell is configured here.
 add_subdirectory("${CMAKE_SOURCE_DIR}/interface" "${CMAKE_BINARY_DIR}/interface")
+# Bionic exposes pthread in libc. Preserve the normal production metadata
+# while removing a stale desktop-only link name if supplied transitively.
+foreach(_link_property LINK_LIBRARIES INTERFACE_LINK_LIBRARIES)
+    get_target_property(_gpu_gl_links gpu-gl ${_link_property})
+    if(_gpu_gl_links)
+        list(REMOVE_ITEM _gpu_gl_links pthread)
+        set_property(TARGET gpu-gl PROPERTY ${_link_property} "${_gpu_gl_links}")
+    endif()
+endforeach()
 # The shared renderer implementation is owned by the Android parent. Match
 # the production Android path without importing either application's wrapper.
 get_target_property(_overte_gl_sources gl SOURCES)

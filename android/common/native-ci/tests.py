@@ -77,10 +77,10 @@ foreach(dependency draco::draco glad::glad etc2comp::etc2comp nvidia-texture-too
 add_library(${dependency} INTERFACE IMPORTED GLOBAL)
 endforeach()
 ''')
-            names = sorted(VERIFY.REQUIRED - {"overte-android-common-runtime"})
+            names = sorted((VERIFY.REQUIRED | {"gpu-gl"}) - {"overte-android-common-runtime"})
             write(root / "interface/CMakeLists.txt", ''.join(
                 f'add_library({name} SHARED "${{CMAKE_SOURCE_DIR}}/libraries/fixture.cpp")\n' for name in names)
-                + 'add_custom_target(resources)\n')
+                + 'target_link_libraries(gpu-gl pthread)\nadd_custom_target(resources)\n')
             write(root / "libraries/fixture.cpp", "int common_contract() { return 1; }\n")
             for source in ("QtInputConnectionCompat.cpp", "OffscreenGLCanvas.cpp"):
                 write(root / "android/common/src" / source, "int fixture;\n")
@@ -98,8 +98,9 @@ endforeach()
                 target = json.loads((reply / reference["jsonFile"]).read_text())
                 if target["type"] == "SHARED_LIBRARY":
                     self.assertIn("--no-undefined", " ".join(row["fragment"] for row in target["link"]["commandFragments"]))
+                    self.assertNotIn("-lpthread", " ".join(row["fragment"] for row in target["link"]["commandFragments"]))
                     shared.append(target["name"])
-            self.assertEqual(set(shared), VERIFY.REQUIRED)
+            self.assertEqual(set(shared), VERIFY.REQUIRED | {"gpu-gl"})
 
 
 class OutputContracts(unittest.TestCase):
@@ -111,6 +112,8 @@ class OutputContracts(unittest.TestCase):
         self.source.mkdir(); self.build.mkdir()
         write(self.source / "interface/src/common.cpp", "int interface_source;\n")
         write(self.source / "android/common/src/common.cpp", "int android_common;\n")
+        for relative in VERIFY.DEPENDENCY_INPUTS:
+            write(self.source / relative, "fixture dependency declaration\n")
         for command in (("init", "--quiet"), ("add", "."),
                         ("-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid", "commit", "--quiet", "-m", "Fixture")):
             result = run("git", *command, cwd=self.source)
@@ -147,6 +150,12 @@ class OutputContracts(unittest.TestCase):
         self.assertEqual({row["target"] for row in receipt["outputs"]}, VERIFY.REQUIRED)
         self.assertFalse(receipt["apk_qualified"])
         self.assertFalse(receipt["device_tested"])
+        self.assertEqual(set(receipt["dependency_intent"]["files"]), set(VERIFY.DEPENDENCY_INPUTS))
+
+    def test_changed_owned_dependency_declaration_rejected(self):
+        (self.source / "android/common/native-ci/android-arm64-ci").write_text("different profile\n")
+        with self.assertRaisesRegex(ValueError, "Tracked candidate inputs changed"):
+            self.inspect()
 
     def test_missing_production_target(self):
         self.targets.pop()
@@ -191,6 +200,17 @@ class OutputContracts(unittest.TestCase):
         write(self.source / "libraries/untracked.cpp", "int untracked;\n")
         self.targets[0]["sources"][0]["path"] = "libraries/untracked.cpp"
         with self.assertRaises(subprocess.CalledProcessError):
+            self.inspect()
+
+    def test_replacement_blob_cannot_hide_modified_candidate(self):
+        path = self.source / "interface/src/common.cpp"
+        original = run("git", "rev-parse", "HEAD:interface/src/common.cpp", cwd=self.source).stdout.strip()
+        path.write_text("int changed_with_replacement;\n")
+        replacement = run("git", "hash-object", "-w", str(path), cwd=self.source).stdout.strip()
+        result = run("git", "replace", original, replacement, cwd=self.source)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(run("git", "diff", "--quiet", "HEAD", cwd=self.source).returncode, 0)
+        with self.assertRaisesRegex(ValueError, "Tracked candidate inputs changed"):
             self.inspect()
 
     def test_host_or_unaligned_or_truncated_elf_rejected(self):

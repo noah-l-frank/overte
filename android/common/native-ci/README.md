@@ -15,6 +15,18 @@ download artifacts, repair a graph, use legacy precompiled fallback locations or
 publish caches. Configure it with the independently verified toolchain and its
 actual prepared generator paths; do not substitute a different Conan graph.
 
+`target.conanfile.py` and `android-arm64-ci` declare the Android parent's new CI
+dependency intent explicitly. They pin the selected Qt/OpenEXR cohort and the
+Node/ETC/WebRTC build variants; they do not inherit an unowned Phone snapshot.
+The old product profiles are unchanged. An original qualified Phone producer can
+supply matching packages only when exact recipe/settings/options/package/edge
+identity and original Build provenance pass independently. Its qualification is
+not renamed as parent or Pico qualification. Before compilation the executing
+consumer must compare the runtime descriptor against `dependency_intent()` from
+`verify.py`, which binds the owning candidate's root/common recipes, dedicated CI
+profile/recipe, Qt patch and neutral bootstrap/toolchain. A changed declaration
+invalidates that runtime; unchanged package names alone never establish reuse.
+
 Before configuration, request the CMake codemodel:
 
 ```sh

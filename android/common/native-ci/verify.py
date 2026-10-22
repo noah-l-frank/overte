@@ -20,6 +20,14 @@ REQUIRED = frozenset({
     "overte-android-common-runtime",
 })
 ALLOWED_SOURCE_ROOTS = ("interface/", "libraries/", "android/common/")
+DEPENDENCY_INPUTS = (
+    "conanfile.py", "android/common/conan/conanfile-pico.py",
+    "android/common/conan/patches/qt-pico-android-runtime.patch",
+    "android/common/cmake/overte-android-bootstrap.cmake",
+    "android/common/cmake/overte-android-toolchain.cmake",
+    "android/common/native-ci/target.conanfile.py",
+    "android/common/native-ci/android-arm64-ci",
+)
 
 
 def require(condition, message):
@@ -73,7 +81,7 @@ def android_elf(path):
 
 
 def git(source, *args):
-    return subprocess.check_output(["git", "-C", str(source), *args])
+    return subprocess.check_output(["git", "--no-replace-objects", "-C", str(source), *args], stderr=subprocess.PIPE)
 
 
 def query(build):
@@ -82,14 +90,32 @@ def query(build):
     (path / "codemodel-v2").write_text("")
 
 
+def dependency_intent(source, expected_head):
+    """Current owned declarations, distinct from the original Phone producer.
+
+    The immutable runtime descriptor must compare these hashes before building;
+    this output alone is not proof of compatible resolved package identities.
+    """
+    result = {}
+    for relative in DEPENDENCY_INPUTS:
+        path = regular_inside(source / relative, source)
+        actual = digest(path)
+        require(actual == hashlib.sha256(git(source, "cat-file", "blob", expected_head + ":" + relative)).hexdigest(),
+                "Dependency intent differs from the candidate Git blob")
+        result[relative] = actual
+    data = {"contract": "overte-owned-android-ci-dependency-intent-v1", "files": result}
+    return {**data, "sha256": hashlib.sha256(json.dumps(data, sort_keys=True, separators=(",", ":")).encode()).hexdigest()}
+
+
 def inspect(source, build, expected_head):
     source, build = source.resolve(strict=True), build.resolve(strict=True)
     require(not build.is_relative_to(source), "Use a fresh build directory outside the candidate tree")
     require(re.fullmatch(r"[0-9a-f]{40}", expected_head) is not None, "Invalid candidate SHA")
     require(git(source, "rev-parse", "HEAD").decode().strip() == expected_head,
             "Candidate HEAD differs from the authenticated selection")
-    require(subprocess.run(["git", "-C", str(source), "diff", "--quiet", "HEAD", "--"],
+    require(subprocess.run(["git", "--no-replace-objects", "-C", str(source), "diff", "--quiet", "HEAD", "--"],
                            check=False).returncode == 0, "Tracked candidate inputs changed")
+    intent = dependency_intent(source, expected_head)
     reply = build / ".cmake/api/v1/reply"
     indexes = sorted(reply.glob("index-*.json"))
     require(len(indexes) == 1, "Expected one fresh CMake File API reply")
@@ -156,12 +182,13 @@ def inspect(source, build, expected_head):
     # its authenticated dependency/runtime/build invocation and final CI gate.
     require(git(source, "rev-parse", "HEAD").decode().strip() == expected_head,
             "Candidate HEAD changed during output verification")
-    require(subprocess.run(["git", "-C", str(source), "diff", "--quiet", "HEAD", "--"],
+    require(subprocess.run(["git", "--no-replace-objects", "-C", str(source), "diff", "--quiet", "HEAD", "--"],
                            check=False).returncode == 0, "Candidate changed during output verification")
     return {"schema": 1, "scope": "parent-owned-android-common-native-elf",
             "candidate_sha": expected_head, "candidate_tree": git(source, "rev-parse", "HEAD^{tree}").decode().strip(),
             "configuration": configs[0]["name"], "abi": "arm64-v8a", "page_size": 16384,
             "source_inputs": dict(sorted(inputs.items())),
+            "dependency_intent": intent,
             "outputs": sorted(outputs, key=lambda row: row["target"]),
             "apk_qualified": False, "device_tested": False}
 
