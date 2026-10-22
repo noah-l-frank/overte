@@ -187,9 +187,11 @@ class FeatureObservation:
         elif command.get('action')=='feature-ios-avatar-social-http':avatar_social_http_command(command)
         elif command.get('action')=='feature-ios-people-model':people_model_command(command)
         elif command.get('action')=='feature-ios-create-work':create_work_command(command)
-        elif command.get('action') in ('feature-ios-snapshot-work','feature-ios-snapshot-exports','feature-ios-snapshot-captures','feature-ios-snapshot-inputs'):
+        elif command.get('action') in ('feature-ios-snapshot-work','feature-ios-snapshot-file-work','feature-ios-snapshot-exports','feature-ios-snapshot-captures','feature-ios-snapshot-inputs'):
             if command['action']=='feature-ios-snapshot-work':
                 from ios.adapters.snapshot_work import command as snapshot_command
+            elif command['action']=='feature-ios-snapshot-file-work':
+                from ios.adapters.snapshot_file_work import command as snapshot_command
             elif command['action']=='feature-ios-snapshot-inputs':
                 from ios.adapters.snapshot_inputs import command as snapshot_command
             elif command['action']=='feature-ios-snapshot-captures':
@@ -650,6 +652,14 @@ class FeatureObservation:
         if clock_source is None:clock_source=self.native_observer()
         def clock():return clock_source.read(clock_source.sequence)['capturedEpochMs']
         return IOSSnapshotCaptures(self.send,lambda:self.original(remote=remote,limit=LIMIT),
+            clock,self.guard,self.process['pid'],monotonic=self.monotonic,sleep=self.sleep)
+
+    def snapshot_file_work(self,clock_source=None):
+        from ios.adapters.snapshot_file_work import IOSSnapshotFileWork,FILE,LIMIT
+        self.guard();remote=self.remote.rsplit('/',1)[0]+'/'+FILE
+        if clock_source is None:clock_source=self.native_observer()
+        def clock():return clock_source.read(clock_source.sequence)['capturedEpochMs']
+        return IOSSnapshotFileWork(self.send,lambda:self.original(remote=remote,limit=LIMIT),
             clock,self.guard,self.process['pid'],monotonic=self.monotonic,sleep=self.sleep)
 
     def chat_view(self):

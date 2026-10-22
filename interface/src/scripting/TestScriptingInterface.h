@@ -203,6 +203,7 @@ public slots:
     Q_INVOKABLE void featureIOSSnapshotEvent(const QVariantMap& value);
     Q_INVOKABLE QVariantMap featureIOSSnapshotWork(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureIOSSnapshotCaptures(const QVariantMap& command);
+    Q_INVOKABLE QVariantMap featureIOSSnapshotFileWork(const QVariantMap& command);
     Q_INVOKABLE void featureIOSWorldWebEvent(const QVariantMap& value);
     Q_INVOKABLE QVariantMap featureIOSWorldWebWork(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureIOSWorldWebKeys(const QVariantMap& command);

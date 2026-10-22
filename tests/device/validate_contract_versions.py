@@ -459,6 +459,8 @@ REQUIRED = {
     "ios-snapshot-manifest-original": 1,
     "ios-snapshot-manifest-absence": 1,
     "ios-snapshot-files": 2,
+    "ios-snapshot-file-work": 1,
+    "ios-snapshot-file-work-acquisition": 1,
     "ios-snapshot-owned-pending-cancellation": 1,
     "ios-snapshot-input-proof": 1,
     "ios-snapshot-input-proof-original": 1,
