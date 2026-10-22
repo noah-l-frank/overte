@@ -33,7 +33,9 @@ class SnapshotHistoryReadPass:
         need(f.role==role.role=='primary' and f.state['phase']=='cleaned'
             and f.state['current'] is None and f.state['handoff'] is None
             and role.state['phase']=='ready' and role.state['pending'] is None and not role._host_publication)
-        f.cleanup_observe_owners(role,prepared)
+        # Full graph validation at _memory() below follows the phase callback;
+        # checking the same graph twice during this preparation adds no guard.
+        f.cleanup_observe_headers(role,prepared)
         f.cleanup_observe_phase(f.phase.status(),prepared['phase'])
         self.role,self.feature=role,f
         self.prepared=deepcopy(prepared)
@@ -89,9 +91,10 @@ class SnapshotHistoryReadPass:
     def _files_digest(files):
         return hashlib.sha256(canonical([[str(path),None if row is None else list(row)] for path,row in files])).hexdigest()
 
-    def _memory(self):
+    def _memory(self,*,verify_graph=True):
         need(hashlib.sha256(canonical(self.prepared)).hexdigest()==self.prepared_sha256)
-        self.feature.cleanup_observe_owners(self.role,self.prepared)
+        if verify_graph:self.feature.cleanup_observe_owners(self.role,self.prepared)
+        else:self.feature.cleanup_observe_headers(self.role,self.prepared)
 
     def _headers(self):
         f,r,p=self.feature,self.role,self.prepared
@@ -136,7 +139,10 @@ class SnapshotHistoryReadPass:
         try:
             f,r=self.feature,self.role
             f.lock.assert_held();need(self.started and self.digest==self.prepared['framesSha256'])
-            self._headers();self._memory();self._verify_files()
+            # No current acquisition consumes role.frames here. Its complete
+            # digest is checked after all continuity callbacks below, before
+            # this pass can authorize the next current read.
+            self._headers();self._memory(verify_graph=False);self._verify_files()
             f.bound();r.bound();r.history_authority()
             need(f.state['phase']=='cleaned' and f.state['current'] is None and f.state['handoff'] is None)
             f.cleanup_observe_phase(f.phase.status(),self.prepared['phase'])

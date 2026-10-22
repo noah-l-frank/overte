@@ -569,7 +569,12 @@ class PhoneSnapshotsFeature(PhoneCreateFeature):
                 need(same(status[key],previous[key]))
 
     def cleanup_observe_owners(self,role,prepared,*,loaded=False):
-        need(same(role.state,prepared['state']) and hashlib.sha256(canonical(role.frames)).hexdigest()==prepared['framesSha256'])
+        self.cleanup_observe_headers(role,prepared,loaded=loaded)
+        need(hashlib.sha256(canonical(role.frames)).hexdigest()==prepared['framesSha256'])
+
+    def cleanup_observe_headers(self,role,prepared,*,loaded=False):
+        """Check current owners; the history pass separately checks graph bytes."""
+        need(same(role.state,prepared['state']))
         need(same(self.store.read() if not loaded else self.previous,prepared['feature'])
             and same(role.store.read(),prepared['role']) and same(role.previous,prepared['role'])
             and same(self.binding,prepared['binding']))
@@ -584,7 +589,9 @@ class PhoneSnapshotsFeature(PhoneCreateFeature):
         status=self.phase.status();self.cleanup_observe_phase(status,previous)
         prepared=dict(feature=deepcopy(self.previous),role=deepcopy(role.previous),binding=deepcopy(self.binding),phase=deepcopy(status),
             state=deepcopy(role.state),framesSha256=hashlib.sha256(canonical(role.frames)).hexdigest())
-        self.cleanup_observe_owners(role,prepared);return prepared
+        # framesSha256 was just computed from this actual graph. No callback
+        # intervenes here; the pass checks it again after its own preparation.
+        self.cleanup_observe_headers(role,prepared);return prepared
 
     def observe_cleaned(self,call,role,prepared,session,history):
         from overte_phone_snapshots_role import PhoneSnapshotsRole
@@ -609,8 +616,11 @@ class PhoneSnapshotsFeature(PhoneCreateFeature):
                 history.read()
                 with self.lock.held():
                     try:
-                        self.cleanup_observe_owners(role,prepared)
-                        self.load();self.cleanup_observe_owners(role,prepared,loaded=True)
+                        # Reject foreign owners before load can adopt them.
+                        # finish() checks the complete graph before current IO;
+                        # load reads input originals and never uses role.frames.
+                        self.cleanup_observe_headers(role,prepared)
+                        self.load();self.cleanup_observe_headers(role,prepared,loaded=True)
                         self.bound();role.bound();role.history_authority()
                         need(self.state['phase']=='cleaned' and self.state['current'] is None and self.state['handoff'] is None)
                         self.cleanup_observe_phase(self.phase.status(),prepared['phase'])
