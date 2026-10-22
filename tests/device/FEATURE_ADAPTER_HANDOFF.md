@@ -937,11 +937,27 @@ join, unchanged foundation module proofs and strict original SDK continuity. Sna
 foundation, original capture/VM/review/file/settings sources, consumer and
 uploaded wire originals, controlled SDK26–28 DocumentsProvider/ordinary picker
 ownership and passive native handoff sources. Its public facade, actor and
-closed retirement source are integrated, with 67 targeted parent cases passing;
-full common/recovery qualification remains open. Required missing capabilities
+closed retirement source are integrated, with 67 targeted parent cases passing.
+Targeted bootstrap, foreground/OS authority, background/handoff lost-return and
+full retirement recovery are verified within their documented host boundaries;
+both whole common backend replays and integrated recovery qualification remain
+open. Required missing capabilities
 continue to fail the aggregate suite. Observer v8 preserves historical v2–v7
 closed grammars and admits Snapshot actor configuration/dispatch; the full
 Snapshot common/recovery qualification remains pending.
+
+The integrated [owned marker refresh](adapters/android-phone/SNAPSHOT_FEATURE.md#owned-marker-refresh-v3)
+corrects the second-`prepare` mismatch at `background-resume`: it updates only
+the existing owned marker's challenge URL, preserves original run/entity/view/
+creation identity, and retains an append-only v3 edit history. Delivery ACKs
+prove no image; the actual URL getter and a new current-ticket world PNG are
+mandatory. Lost replies are observed from the durable original request without
+another edit or `prepare`. The Qt/native-header, Probe, reader and facade
+selection passed 51 checks in 29.488 seconds. Five separate full-retirement
+host cases passed in 90.218 seconds, including actual actor quiet/exit, a late
+owned file with an open FD, foreign child ownership and interruption after a
+real child unlink. These results add no whole-common or physical acceptance.
+The other thirteen source/host-qualified areas retain their status.
 
 These host simulations, real private-file tests and partial Qt/Java/JNI/compiler
 checks establish source/test logic only. Full Android compilation, actual OS

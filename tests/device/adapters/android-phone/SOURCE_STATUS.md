@@ -1,7 +1,11 @@
 # Android Phone source coverage
 
-This review is pinned to `4b6ad2974cc85549aafa30f8ef9530bba404f568`
-(2026-10-22). The versioned [JSON matrix](phone-source-coverage.v1.json) records
+The original matrix assessment is pinned to
+`4b6ad2974cc85549aafa30f8ef9530bba404f568` (2026-10-22). This supplemental
+source/handoff review covers `462552ea34282c3b1536669abd4fda4c094ad790`,
+including the integrated owned-marker refresh. The versioned
+[JSON matrix](phone-source-coverage.v1.json) retains its original assessed
+revision and records
 all 14 common v18 areas, their actual Phone Appium declarations/dispatch,
 default-off flags, every catalog foundation and its required capabilities,
 and existing test/handoff paths. It is documentation, not another runner or
@@ -26,7 +30,7 @@ are unknown here and belong to separate sessions.
 | Graphics | Implemented | Implemented with prerequisites | Reported | Area instrumentation uncompiled | [Graphics](GRAPHICS_FEATURE.md) |
 | Audio | Implemented | Implemented with prerequisites | Reported | Partial Qt audio components | [Audio](AUDIO_FEATURE.md) |
 | Chat | Implemented | Implemented with prerequisites | Reported | Partial Qt / QML / peer / Settings | [Chat](CHAT_FEATURE.md) |
-| Snapshots | Present; full replay pending | **Pending full common/recovery qualification** | Components/dispatch only | Partial Qt / Java / filesystem / HTTPS | [Snapshots](SNAPSHOT_FEATURE.md) |
+| Snapshots | Implemented; full replay pending | **Pending whole SDK29+/SDK26–28 common qualification** | Targeted facade / actor / recovery / retirement | Partial Qt / Java / filesystem / HTTPS | [Snapshots](SNAPSHOT_FEATURE.md) |
 | Scripts | Implemented | Implemented with prerequisites | Reported | Area instrumentation uncompiled | [Scripts](SCRIPT_FEATURE.md) |
 | Assets | Implemented | Implemented with prerequisites | Reported | Partial Qt / QML / file / geometry / oven components | [Assets](ASSETS_FEATURE.md) |
 | Lifecycle / Input | Implemented | Implemented with prerequisites | Reported | Partial original Qt / QML / IME / keyboard / timer | [Lifecycle / Input](LIFECYCLE_INPUT_FEATURE.md) |
@@ -61,10 +65,26 @@ observed product effect.
   original role/actor, v8 observer and original-bound retirement source are now
   integrated. Parent verification passed 67 targeted original/dispatch/Qt/TLS
   cases in 88.631 seconds. That union does not execute a complete common area.
-  Both whole MediaStore and SDK26–28 document-picker replays, passive OS history
-  and interrupted bootstrap/background/handoff/finalization recovery remain in
-  progress. The area stays outside the 13 qualified full catalog joins until
-  those actual source compositions and counterexamples pass.
+  Targeted counterprobes now cover partial bootstrap and pre-export cleanup,
+  constructor-to-lock foreground/OS authority changes, passive history floors,
+  uncertain background/Save/Share delivery, and interrupted journal retirement.
+  The full-retirement audit additionally passes five actual host composition
+  cases (90.218 seconds): normal Capture/Save/upload and cleanup, separate actor
+  quiet/exit, repeated public finalization, late-file/open-FD preservation,
+  foreign child ownership and resume after an actual child unlink. These are
+  scoped host results. Both whole MediaStore SDK29+ and SDK26–28 document-picker
+  common replays and their integrated recovery qualification remain open;
+  Snapshots stays outside the 13 qualified full catalog joins.
+
+The [owned Snapshot marker refresh](SNAPSHOT_FEATURE.md#owned-marker-refresh-v3)
+uses the original active local fixture rather than repeating `prepare`.
+Initial marker source v2 remains unchanged; refreshed source v3 preserves
+creation/view/entity identity and appends original edit inputs and times.
+The Qt/reader/Probe/facade selection passed 51 checks in 29.488 seconds.
+Lost replies recover only the archived request's actual native effect;
+current object URL and fresh current-ticket rendered pixels remain separate
+requirements. This closes the demonstrated second-prepare source mismatch,
+not the pending whole-common qualification.
 
 These are source findings, not skipped passing checkpoints. Missing abilities
 stay red; this review changes no dispatch or gate to conceal them.
@@ -72,8 +92,9 @@ stay red; this review changes no dispatch or gate to conceal them.
 ## Scope of evidence and updates
 
 The current [observer](script_observer.py) uses closed grammar **v8**, with
-historical v2–v7 grammars retained separately. Snapshot admission/configuration
-exists, while its actor/facade composition remains pending. Some older
+historical v2–v7 grammars retained separately. Snapshot admission/configuration,
+public facade, independent actor and strict finalizer are integrated; their
+whole common backend/recovery qualification remains pending. Some older
 handoffs still mention v17 or earlier observer versions. Current source imports
 common `VERSION=18`; the matrix uses that source and preserves the historical
 handoffs as qualified evidence. This document does not amend their old results.
@@ -86,9 +107,12 @@ lifetime risk and missing host GLM for a full HFM syntax check; those are not
 resolved by its synthetic composition test. Central source/admission pins and
 global count/profile reconciliation remain integration-owned.
 
-The matrix was checked directly against catalog/scenario membership, actual
+The original matrix was checked directly against catalog/scenario membership, actual
 operation sets and invoke branches, current default-off flags/observer grammar,
-all repository-relative evidence paths and documentation links. Only these two
-files are changed. After the pending joins integrate, reassess affected rows and
+all repository-relative evidence paths and documentation links. The supplemental
+review confirms the 14 declared triples, default-off admission, original catalog
+foundations and v18 cleanup dispatch in source; it runs no tests or builds and
+changes no JSON row or aggregate qualification. After the pending joins integrate,
+reassess affected rows and
 record the new exact source revision; do not replace a historical assessment
 with an unversioned claim of completion.

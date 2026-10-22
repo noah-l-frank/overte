@@ -804,6 +804,66 @@ archived before the pending-clear write can be rechecked without admission or
 another input. These native/UI producers are explicit transport seams; actual
 OS-scope admission and independent Save/Share effects remain separate checks.
 
+## Owned marker refresh v3
+
+`background-resume` uses `refresh_marker()` on the existing active marker lease.
+It never repeats `prepare`, creates a new run or replaces the fixture objects.
+The closed private request has exactly `schemaVersion:1`, fresh hexadecimal
+`commandId`, `action:"phone-create-fixture-input"`, `operation:"refresh"`,
+`runId`, `fixtureInstance` and the new `ticket`. Run, instance, command ID and
+ticket are 32 hexadecimal characters. The original fixture URL, extent and ROI
+are retained from creation and cannot be supplied or changed by refresh.
+
+The [native owner](../../native/PhoneCreateFixture.h) requires the exact active
+run/instance and all three original local entity pointers. Under the same tree
+write lock, missing/replaced/locked/parented/cloned entities or foreign children
+refuse the operation. The existing Web marker's previous URL must still match
+its original latest challenge. Normal `EntityTree::updateEntity` changes only
+that marker's source URL and edit timestamp. Creation `originalInput`,
+`createdEpochMs`, `originalView`, object IDs and retained ownership remain
+unchanged. Release keeps its existing exact-owner and weak-lifetime checks.
+The existing Phone E2E build, `--testScript`, candidate/process and GUI-thread
+guards remain mandatory; this introduces no ordinary product operation.
+
+Before any refresh, marker observation stays exact v2. After a successful edit,
+the source sets `phoneCreateFixtureVersion:3` and adds
+`refreshes:[{input,editedEpochMs}]` and `lastRefreshInput`. Native input receipts
+retain `phoneCreateFixtureInputVersion:1`; the common contract remains v18.
+The last input is exactly the last history entry; every prior entry remains an
+unchanged prefix. Refresh history is bounded at 256, never evicted. Reused
+creation/refresh tickets, old command IDs, changed same-command payloads and
+refresh after release are rejected. Only the exact last command is natively
+idempotent. A new distinct run after actual drainage starts at v2 again.
+
+The host archives `markerRefreshInput` before its sole write and persists
+`pending.kind="marker-refresh"`, the exact request and original archive index.
+`markerRefreshDelivery` is only an input ACK. It then reads fresh original
+inventory, requires the matching `lastRefreshInput`, original objects, actual
+new URL and original edit time, and archives `markerRefreshOriginal` before
+clearing pending. Lost replies and a crash before that clear recover by reading
+the same original request's effect, including during cleanup; they never resend
+the edit or create another fixture. Missing effects, changed intent/history or
+a mismatching current object URL leave the journal unresolved. The existing
+five-second source/call and freshness bounds apply. Release and full cleanup
+must still drain the original fixture/Web resources.
+
+The role selects its effective challenge from v3 `lastRefreshInput.ticket`
+(v2 keeps `originalInput.ticket`). Readiness joins the actual URL getter and
+edit timestamp, original geometry/view and a newly acquired current-ticket
+world PNG. The earlier private capture keeps its own original capture ticket
+and bytes. Neither the ACK, refresh history alone nor an older image proves
+background/resume rendering.
+
+The [prepared refresh checks](../../../../android/phone/tests/device/test_create_marker_refresh.py)
+compile the actual E2E header with Qt6 and explicit tree endpoints, exercise 14
+native refusal branches, and check reader prefixes, actual Probe grammar and
+six durable facade recovery cases. The combined refresh/marker/native/facade
+selection passed 51 cases in 29.488 seconds. The separate
+[full retirement audit](../../../../android/phone/tests/device/test_snapshots_full_retirement_audit.py)
+passed five cases in 90.218 seconds with actual TLS bodies, filesystem effects
+and a separate actor process. These are targeted host/component results;
+complete common SDK29+ and SDK26–28 replay qualification remains pending.
+
 An already owned facade constructor establishes only immutable host-header
 identity. Every `load()` selects actual foreground, background-recovery or
 original OS-handoff authority again under the shared source lock, after checking
