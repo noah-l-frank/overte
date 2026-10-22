@@ -160,6 +160,7 @@ class ChatActorFiles:
         else:need(not self._exists(COMMAND))
         # A journal write failure cannot be followed by even a query mutation.
         pending={**previous,'runId':request['runId'],'pending':deepcopy(request)};self.store.write(pending,previous)
+        need(self.store.read()==pending)
         temporary='.chat-command-'+uuid.uuid4().hex
         descriptor=os.open(temporary,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW|os.O_CLOEXEC,0o600,dir_fd=self.fd)
         try:
@@ -167,11 +168,15 @@ class ChatActorFiles:
             with os.fdopen(descriptor,'wb') as stream:
                 stream.write(raw);stream.flush();os.fsync(stream.fileno())
             self._check_source()
+            fence=getattr(self,'phase_fence',None)
+            if fence is not None and request['operation']!='inspect':fence.check()
             if previous['request'] is None:
                 os.link(temporary,COMMAND,src_dir_fd=self.fd,dst_dir_fd=self.fd,follow_symlinks=False)
                 os.unlink(temporary,dir_fd=self.fd)
             else:
-                self._check_command(previous);os.replace(temporary,COMMAND,src_dir_fd=self.fd,dst_dir_fd=self.fd)
+                self._check_command(previous)
+                if fence is not None and request['operation']!='inspect':fence.check()
+                os.replace(temporary,COMMAND,src_dir_fd=self.fd,dst_dir_fd=self.fd)
             actual,info=self._read(COMMAND,2048);need(actual==raw);os.fsync(self.fd)
             self.store.write({**pending,'pending':None,'request':deepcopy(request),'commandStamp':stamp(info)},pending)
         finally:

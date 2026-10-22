@@ -102,6 +102,8 @@ class ChatCacheLifetime:
 
     def send(self,request):
         self.lock.assert_held();command(request);need(request['operation']==self.wanted and self.request is None)
+        fence=getattr(self,'phase_fence',None)
+        if fence is not None and self.wanted!='inspect':fence.mark()
         epoch=self.reader.clock_ms();need(integer(epoch,1));self.request=dict(request=deepcopy(request),requestedEpochMs=epoch)
         if self.wanted!='inspect':
             key='activation' if self.wanted=='observe' else 'retirement'
@@ -112,6 +114,7 @@ class ChatCacheLifetime:
         # A slow or lost durable write cannot turn into a later input dispatch.
         self.owner();self.now();current=self.reader.clock_ms();fresh(epoch,current)
         if self.wanted!='inspect':fresh(self.base['frames'][-1]['packet']['capturedEpochMs'],current)
+        if fence is not None and self.wanted!='inspect':fence.check()
         self.original_send(request)
 
     def query(self,operation):

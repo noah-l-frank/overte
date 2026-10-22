@@ -95,6 +95,8 @@ class FixtureMixerControl:
             started=self.monotonic();need(number(started,0,1e15));requested=self.clock_ms();need(integer(requested,1))
             request=Request(self.url,data=None if command is None else json.dumps(command,separators=(',',':')).encode('ascii'),
                 headers={'X-Overte-E2E-Token':self._token,'Content-Type':'application/json'},method='GET' if command is None else 'POST')
+            fence=getattr(self,'phase_fence',None)
+            if command is not None and fence is not None:fence.check()
             with self._opener.open(request,timeout=1.5 if command is None else 10) as response:
                 need(response.status==200 and response.geturl()==self.url)
                 raw=response.read(8193);need(type(raw) is bytes and 0<len(raw)<=8192)

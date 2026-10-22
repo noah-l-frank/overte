@@ -93,6 +93,12 @@ class ActorFileTests(unittest.TestCase):
         self.actor.ignored=False;self.actor.tick();self.transport.read();(self.root/RESULT).unlink()
         with self.assertRaises(NativeUIError):self.transport.read()
 
+    def test_noop_pending_manifest_write_cannot_publish_an_original_native_command(self):
+        self.transport.store.write=lambda _value,_previous:None
+        with self.assertRaises(NativeUIError):self.transport.send(self.request())
+        self.assertFalse((self.root/COMMAND).exists());self.assertEqual([],self.actor.native.commands)
+        self.assertTrue((self.root/SOURCE).exists());self.assertEqual(self.transport.pid,123)
+
     def test_byte_identical_copied_result_is_rejected_even_on_first_acquisition(self):
         self.transport.send(self.request());self.actor.tick();original=(self.root/RESULT).read_bytes()
         copy=self.root/'copied';copy.write_bytes(original);copy.chmod(0o600);os.replace(copy,self.root/RESULT)

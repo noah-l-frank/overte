@@ -25,11 +25,20 @@ class OriginalOS:
     def __init__(self,case):
         self.case=case;self.pico_configuration=('explicit-layer',case.h.root);self.adb=self
         self.foreground=True;self.identity='123';self.inputs=[];self.effect=True;self.lost=None
+        self.profile={'e2e_activity':'org.overte.pico/.E2eLauncherActivity'}
     def _installation(self,target):return dict(sourceRevision='1'*40,artifactSha256='2'*64)
     def process_state(self,target,package):return dict(running=True,identity=self.identity)
     def foreground_package(self,target):return 'org.overte.pico' if self.foreground else 'com.example.synthetic'
     def require_pico_session_identity(self,target):return self.identity
     def require_controlled_debug_identity(self,target):return self.identity
+    def require(self,target):assert target==self.case.target
+    def require_same_process(self,target,identity,operation):assert identity==self.identity
+    def _pico_lifecycle_input_once(self,target,operation,binding,*,before_input):
+        from adapters.pico4.lifecycle_input import issue_once
+        return issue_once(self,target,operation,binding,before_input=before_input)
+    def shell(self,target,*arguments):
+        assert arguments in (('input','keyevent','KEYCODE_HOME'),('am','start','-W','-n',self.profile['e2e_activity']))
+        return self.invoke(target,'lifecycle.background' if arguments[0]=='input' else 'app.launch',{})
     def invoke(self,target,operation,values):
         state=unpack(self.case.store.read()['payload'])[0]
         assert state['phase']==('background-issued' if operation=='lifecycle.background' else 'foreground-issued')

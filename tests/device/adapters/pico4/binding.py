@@ -1081,12 +1081,15 @@ def create_adapter(args, base_class):
                 _need(self._installation(target) == installed)
             def send(command):
                 guard()
+                fence=getattr(observer,'phase_fence',None)
+                if fence is not None and command.get('operation')!='inspect':fence.check()
                 self.write_control_command(target, original.identity, 'native feature sources', command)
-            return NativeFeatureObservation(send,
+            observer=NativeFeatureObservation(send,
                 lambda: self.adb.read_debug_app_file(target, 'org.overte.pico',
                     'files/overte-e2e/' + NATIVE_FEATURE_FILE, attempts=1),
                 lambda: self.adb.epoch_milliseconds(target), guard,
                 int(original.identity.split(':')[0]))
+            return observer
 
         @_private
         def _graphics_surface(self,target,run,intent,owns,lease,allow_url):
@@ -1661,11 +1664,14 @@ def create_adapter(args, base_class):
             native=self._native_feature_observer(target)
             def send(request):
                 command(request);source_lock.assert_held();_need(native.guard() is not False)
+                fence=getattr(source,'phase_fence',None)
+                if fence is not None and request['operation']!='observe':fence.check()
                 self.adb.write_debug_app_file(target,'org.overte.pico',COMMAND,json.dumps(request,separators=(',',':'))+'\n')
                 _need(native.guard() is not False)
-            return NativeLifecycleBackground(send,
+            source=NativeLifecycleBackground(send,
                 lambda:self.adb.read_debug_app_file(target,'org.overte.pico','files/overte-e2e/'+FILE,attempts=1),
                 native.clock_ms,native.guard,native.pid,source_lock,intent=intent,monotonic=native.monotonic,sleep=native.sleep)
+            return source
 
         @_private
         def _pico_lifecycle_input_once(self,target,operation,binding,*,before_input):
@@ -1902,6 +1908,7 @@ def create_adapter(args, base_class):
             reader=NativeChatObservation(native.send,
                 lambda:self.adb.read_debug_app_file(target,'org.overte.pico','files/overte-e2e/'+CHAT_FILE,attempts=1),
                 native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep)
+            reader._chat_transport=native
             native.guard();_need(native.pid==int(manager.binding['processIdentity'].split(':')[0]))
             return OwnedChatCapture(reader,owner,run)
 
