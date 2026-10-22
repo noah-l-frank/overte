@@ -17,6 +17,8 @@
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #include "../../../../../../tests/device/native/ScriptFileUi.h"
 #include "../../../../../../tests/device/native/NormalLifecycleControls.h"
+#include "../../../../../../tests/device/native/AudioPageObservation.h"
+#include <PathUtils.h>
 #include "../../../../../../tests/device/native/NormalAccountMenuControls.h"
 #include "../../../../../../tests/device/native/NormalPlacesControls.h"
 #include "../../../../../../tests/device/native/NavigationFailureModals.h"
@@ -329,6 +331,13 @@ QJsonObject NavigationUi::observe(QQuickItem* root, QQuickWindow* window, bool o
 #endif
         observed.append(row);
     }
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    QJsonObject audioPages;
+    if (QCoreApplication::arguments().contains("--testScript")) {
+        if (!_audioPages) { _audioPages=std::make_shared<overte::e2e::AudioPageObservation>(PathUtils::qmlUrl("hifi/audio/Audio.qml")); }
+        audioPages=_audioPages->observe(root,window,open);
+    }
+#endif
     QJsonObject result { { "schemaVersion", 1 }, { "bridgeId", _bridgeId }, { "generation", _generation },
         { "processId", static_cast<double>(QCoreApplication::applicationPid()) },
         { "elapsedMs", static_cast<double>(_clock.elapsed()) },
@@ -336,6 +345,7 @@ QJsonObject NavigationUi::observe(QQuickItem* root, QQuickWindow* window, bool o
         { "lastCommandSequence", static_cast<double>(_lastCommandSequence) },
         { "open", open }, { "ready", ready }, { "controls", observed } };
 #if defined(OVERTE_E2E_FEATURE_TESTS)
+    if (!audioPages.isEmpty()) { result["picoAudioPageVersion"]=1;result["picoAudioPages"]=audioPages; }
     result["featureControlsVersion"] = 1;
     result["createControlsVersion"] = 1;
     result["lifecycleControlsVersion"] = 1;

@@ -9,6 +9,10 @@
 #include <QQuickItem>
 #include <QQuickWindow>
 #include <functional>
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+#include <memory>
+namespace overte::e2e { class AudioPageObservation; }
+#endif
 
 namespace overte::pico::e2e {
 
@@ -37,6 +41,9 @@ private:
     QElapsedTimer _clock;
     qint64 _lastCommandSequence { 0 };
     bool _open { false };
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    std::shared_ptr<overte::e2e::AudioPageObservation> _audioPages;
+#endif
 };
 
 } // namespace overte::pico::e2e

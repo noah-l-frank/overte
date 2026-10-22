@@ -141,6 +141,7 @@ REQUIRED = {
     "pico-lifecycle-ui-observation": 1,
     "lifecycle-ui-source-state": 1,
     "pico-lifecycle-back-owner": 1,
+    "pico-audio-page-observation": 1,
     "pico-audio-settings-observation": 1,
     "pico-lifecycle-drive-observation": 1,
     "pico-lifecycle-gesture-observation": 1,
