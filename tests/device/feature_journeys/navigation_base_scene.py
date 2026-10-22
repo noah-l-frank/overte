@@ -17,7 +17,7 @@ PROFILE='navigation-static-base-v1'
 def resource_url(scene_url):
     viewpoint_urls(scene_url);parsed=urlsplit(scene_url)
     if parsed.query or parsed.fragment:raise ValueError('A static navigation scene root is required')
-    path=parsed.path[:-5]+'.base.json' if parsed.path.endswith('.json') else parsed.path+'.base.json'
+    path=parsed.path.rpartition('/')[0]+'/base/scene.json'
     return parsed._replace(path=path).geturl()
 
 

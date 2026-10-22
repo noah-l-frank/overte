@@ -18,6 +18,7 @@ from feature_journeys import navigation_base_scene as base
 from feature_journeys.navigation_fixture import NavigationResources
 from feature_journeys.server import Handler
 from self_tests import test_navigation_scene as scene_tests
+from navigation_observation import viewpoint_urls
 
 
 class NavigationBaseSceneTests(unittest.TestCase):
@@ -49,6 +50,13 @@ class NavigationBaseSceneTests(unittest.TestCase):
         self.assertEqual(200,code);self.assertEqual(6,len(json.loads(raw)['Entities']))
         self.assertEqual(1,len(self.status()['responses']));self.assertEqual(1,len(self.provider.scene_snapshot(run)['responses']))
         self.assertEqual([],self.provider.snapshot(run)['responses'])
+
+    def test_existing_normal_go_to_viewpoints_reach_the_static_input_without_relaxing_the_url_contract(self):
+        for label,url in viewpoint_urls(self.url).items():
+            with self.subTest(label=label):
+                code,raw,_response=self.harness.get(url[len(self.harness.origin):])
+                self.assertEqual(200,code);self.assertEqual(base.body(),raw)
+        self.assertEqual(3,len(self.status()['responses']))
 
     def test_legacy_directory_provider_does_not_enable_the_static_route_or_status(self):
         self.harness.server.navigation_resources=NavigationResources(self.harness.inputs)

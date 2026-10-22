@@ -134,6 +134,7 @@ REQUIRED = {
     "native-entity-edit-inventory": 1,
     "ios-scene-inventory": 2,
     "ios-scene-commit-origin": 1,
+    "ios-navigation-scene-admission": 1,
     "ios-scene-inventory-acquisition": 1,
     "ios-navigation-sample-owner": 1,
     "ios-navigation-fixture-reader": 1,

@@ -38,6 +38,10 @@ unsaved edits before leaving. A static, script-free
 [base-scene input](NAVIGATION_SCENE.md) now preserves the same original bytes
 before/during/after a run, with independent original socket histories. The scene
 owner still needs to admit and restore it; native changes remain uncompiled.
+The [original admission validator](NAVIGATION_SCENE_ADMISSION.md) now joins eight
+fresh source packets to that actual static body/map and rejects unsaved edits,
+unowned UI, unsupported bookmark storage and conflicting preferences. The durable
+scene/input/cleanup owner remains to be integrated.
 
 The canonical physical source binding and explicit lost-launch recovery have
 host-tested implementations. The native byte observer and SDK plugin remain

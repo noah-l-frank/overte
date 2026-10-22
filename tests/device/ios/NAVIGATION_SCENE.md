@@ -62,8 +62,9 @@ through the complete ordinary flow, restart, failure recovery and cleanup.
 ## Static original base input
 
 The same explicit marker-scene profile now also supplies a static original
-resource. For `/navigation/scene.json`, its URL is `/navigation/scene.base.json`;
-other configured paths use the same deterministic sibling naming. The host,
+resource. For `/navigation/scene.json`, its URL is `/navigation/base/scene.json`;
+other configured paths use the same deterministic base subdirectory. Both
+resources retain the existing normal-navigation `scene.json` filename. The host,
 scheme and effective port stay fixed. Legacy directory-only providers enable
 neither this route nor its source endpoint.
 
