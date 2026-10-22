@@ -144,6 +144,10 @@ def original(value):
 
 
 class IOSPlacesModel:
+    _action=ACTION
+    _command=staticmethod(command)
+    _validate=staticmethod(validate)
+    _acquisition_key='iosPlacesModelAcquisitionVersion'
     def __init__(self,send,read,clock_ms,guard,pid,*,monotonic=time.monotonic,sleep=time.sleep):
         need(all(callable(fn) for fn in (send,read,clock_ms,guard,monotonic,sleep)) and integer(pid,1))
         self.send,self.original,self.clock_ms,self.guard,self.pid=send,read,clock_ms,guard,pid
@@ -151,7 +155,7 @@ class IOSPlacesModel:
 
     def read(self,run):
         try:
-            query=command(dict(schemaVersion=1,commandId='ios-'+uuid.uuid4().hex,action=ACTION,runId=run))
+            query=self._command(dict(schemaVersion=1,commandId='ios-'+uuid.uuid4().hex,action=self._action,runId=run))
             need(self.guard() is not False);started=last=self.monotonic();need(number(started,0,1e15))
             requested=self.clock_ms();need(integer(requested,1));self.send(deepcopy(query))
             for attempt in range(61):
@@ -161,12 +165,13 @@ class IOSPlacesModel:
                 now=self.monotonic();need(number(now,last,1e15) and now-started<1.5);last=now
                 if type(value) is dict and value.get('requestId')==query['commandId']:
                     epoch=self.clock_ms();need(integer(epoch,requested))
-                    validate(value,query,self.pid,epoch,self.last);need(value['clockBefore']['epochMs']>=requested)
+                    self._validate(value,query,self.pid,epoch,self.last);need(value['clockBefore']['epochMs']>=requested)
                     need(self.guard() is not False);ended=self.monotonic();need(number(ended,last,started+1.5) and ended-started<1.5)
                     self.last=deepcopy(value)
-                    self.acquisition=dict(iosPlacesModelAcquisitionVersion=1,hostBeforeMonotonic=started,hostAfterMonotonic=ended,
+                    self.acquisition=dict(hostBeforeMonotonic=started,hostAfterMonotonic=ended,
                         nativeRequestedEpochMs=requested,nativeAfterEpochMs=epoch,originalSha256=digest(value))
+                    self.acquisition[self._acquisition_key]=1
                     return deepcopy(value)
                 if attempt<60:self.sleep(.025)
-        except Exception:raise NativeUIError('Original iOS Places models are unavailable or invalid') from None
-        raise NativeUIError('Original iOS Places models did not produce this request')
+        except Exception:raise NativeUIError('Original iOS Places source is unavailable or invalid') from None
+        raise NativeUIError('Original iOS Places source did not produce this request')

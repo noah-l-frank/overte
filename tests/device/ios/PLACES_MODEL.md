@@ -53,6 +53,9 @@ page cannot prove a drained queue while any retained root is active, loading,
 has queued commands, has a running dispatch timer or retains a visible bookmark
 dialog. This is only the QML queue condition: HTTP callbacks and native lifetime
 drainage still require their own original source and quiet window.
+The [native XHR source](PLACES_HTTP.md) now supplies the independent HTTP/lifetime
+condition and a response-specific materialized-description join. The complete
+Worlds owner and combined retirement are still pending.
 
 Twelve host tests exercise the Python source, original HTTP/AFC codecs, closed
 fixture grammar and actual probe branch with modeled native/SDK boundaries.

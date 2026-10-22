@@ -70,6 +70,7 @@
 #include "../../../tests/device/native/IOSWebClosureBridge.h"
 #include "../../../tests/device/native/IOSLocationBookmarksObservation.h"
 #include "../../../tests/device/native/IOSPlacesModelObservation.h"
+#include <XMLHttpRequestClass.h>
 #include "../LocationBookmarks.h"
 #endif
 
@@ -502,6 +503,18 @@ QVariantMap TestScriptingInterface::featureSceneLoadObservation(const QVariantMa
 
 
 #if defined(Q_OS_IOS)
+QVariantMap TestScriptingInterface::featureIOSPlacesHttp(const QVariantMap& command) {
+    if (QThread::currentThread()!=thread()) {
+        if (!thread() || !thread()->isRunning()) { return {}; }
+        QVariantMap result;
+        if (!QMetaObject::invokeMethod(this,[&] { result=featureIOSPlacesHttp(command); },Qt::BlockingQueuedConnection)) { return {}; }
+        return result;
+    }
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript")) { return {}; }
+    return XMLHttpRequestClass::featurePlacesHttpObservation(command);
+}
+
 QVariantMap TestScriptingInterface::featureIOSPlacesModel(const QVariantMap& command) {
     if (QThread::currentThread()!=thread()) {
         if (!thread() || !thread()->isRunning()) { return {}; }
@@ -1541,7 +1554,7 @@ void TestScriptingInterface::saveObject(QVariant variant, const QString& filenam
     QString filepath = QDir::cleanPath(_testResultsLocation + filename);
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     if (filename == "feature-chat-observation.json" || filename == "feature-native-observation.json" || filename == "normal-feature-observation.json"
-            || filename == "feature-ios-web-closures.json" || filename == "feature-ios-location-bookmarks.json" || filename == "feature-ios-places-model.json" || filename == "feature-chat-view-observation.json" || filename == "feature-web-dom-observation.json"
+            || filename == "feature-ios-web-closures.json" || filename == "feature-ios-location-bookmarks.json" || filename == "feature-ios-places-model.json" || filename == "feature-ios-places-http.json" || filename == "feature-chat-view-observation.json" || filename == "feature-web-dom-observation.json"
             || filename == "feature-pending-commit-owner.json" || filename == "feature-navigation-replies.json"
             || filename == "feature-process-presence.json" || filename == "feature-graphics-subject.json" || filename == "feature-scene-load.json" || filename == "feature-completed-frame.json" || filename == "feature-vulkan-world-frame.json"
             || filename == "recorded-preview-observation.json" || filename == "feature-script-observation.json"

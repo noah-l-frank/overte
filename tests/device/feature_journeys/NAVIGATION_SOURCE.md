@@ -123,6 +123,16 @@ and byte count come from actual written body bytes. A response is recorded only
 after the bounded socket write returns; this proves server delivery into that
 socket, never client receipt, native callback, model load or rendered outcome.
 
+The supplemental `feature-navigation-directory-marker` v1 contract gives each
+directory response a fresh normal description value:
+`overte-directory-v1:<responseId>`. That value is part of the actual serialized
+body and its receipt digest. ID/name/destination remain stable and the provider
+v1 envelope is unchanged. Adapters using this stronger source must read the
+unique description from the actual materialized model, alongside actual native
+body consumption and independent server originals. A freshly timestamped old row
+cannot borrow a newer response's marker. Existing consumers still receive the
+same ordinary directory schema; the marker is an input, never a UI outcome.
+
 The source holds its original ownership lock across the two-second-bounded
 write. Retirement cannot race an in-flight source response. A failed/uncertain
 write or clock regression poisons readiness and status validation. Limits are

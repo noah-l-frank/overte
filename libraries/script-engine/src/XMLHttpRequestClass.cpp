@@ -29,6 +29,74 @@
 #include "ScriptEngine.h"
 #include "ScriptEngineCast.h"
 #include "ScriptValue.h"
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+#include "PlacesHttpObservation.h"
+#include "ScriptManager.h"
+#include <Finally.h>
+#include <QThread>
+#include <udt/PacketHeaders.h>
+namespace {
+overte::e2e::PlacesHttpObservation& placesHttp() {
+    static overte::e2e::PlacesHttpObservation ledger;return ledger;
+}
+}
+
+QVariantMap XMLHttpRequestClass::featurePlacesHttpObservation(const QVariantMap& command) { return placesHttp().snapshot(command); }
+
+QString XMLHttpRequestClass::featurePlacesCaller() const {
+    if (!QCoreApplication::arguments().contains("--testScript") || !_engine || !_engine->manager()
+            || QThread::currentThread()!=_engine->thread()) { return {}; }
+    auto context=_engine->currentContext();ScriptContextPointer owner;int depth {0};
+    while (context && ++depth<=128) {
+        const auto function=context->functionContext();
+        if (function && function->functionType()==ScriptFunctionContext::ScriptFunction) {
+            const auto source=function->fileName();
+            return overte::e2e::PlacesHttpObservation::installed(source,"/system/places/places.js") ? source : QString();
+        }
+        owner=context->parentContext();context=owner.get();
+    }
+    return {};
+}
+
+void XMLHttpRequestClass::featurePlacesOpen() {
+    const auto caller=featurePlacesCaller();
+    if (caller.isEmpty() || _method!="GET" || !overte::e2e::PlacesHttpObservation::directory(_url) || !_async) { return; }
+    auto manager=_engine->manager();const auto membership=manager->featureLoadMembership(),submitted=manager->featureSourceIdentity();
+    const auto load=membership.value("url").toString();
+    if (membership.value("assigned").userType()!=QMetaType::Bool || !membership.value("assigned").toBool()
+            || !overte::e2e::PlacesHttpObservation::installed(load,"/defaultScripts.js")
+            || submitted.value("submitted").userType()!=QMetaType::Bool || !submitted.value("submitted").toBool()) { return; }
+    _featurePlacesId=placesHttp().create({{"scriptSource",caller},{"engine",membership},{"submitted",submitted},
+        {"requestUrl",_url.toString(QUrl::FullyEncoded)},{"protocolSignature",protocolVersionsSignatureBase64()}});
+    if (_featurePlacesId.isEmpty()) { return; }
+    const auto id=_featurePlacesId;
+    QObject::connect(this,&QObject::destroyed,[id] { placesHttp().event(id,"xhr-destroyed"); });
+    QObject::connect(&_timer,&QObject::destroyed,[id] { placesHttp().event(id,"timer-destroyed"); });
+    QObject::connect(&_timer,&QTimer::timeout,this,[this,id] {
+        placesHttp().event(id,"timer-state",{{"active",_timer.isActive()}});
+    });
+}
+
+void XMLHttpRequestClass::featurePlacesFinished() {
+    if (_featurePlacesId.isEmpty() || !_reply) { return; }
+    QByteArray response;int count {0};
+    for (const auto& header:_reply->rawHeaderPairs()) {
+        if (header.first.toLower()=="x-overte-fixture-response") { response=header.second;++count; }
+    }
+    bool known=count==1 && response.size()==32;
+    for (const auto character:response) { known=known && ((character>='0' && character<='9') || (character>='a' && character<='f')); }
+    if (count>1 || (count && !known) || (known && _rawResponseData.size()>4096)) { placesHttp().invalid(_featurePlacesId);return; }
+    QVariant body;
+    if (known) {
+        body=QVariantMap {{"bytes",_rawResponseData.size()},
+            {"sha256",QString::fromLatin1(QCryptographicHash::hash(_rawResponseData,QCryptographicHash::Sha256).toHex())},
+            {"contentBase64",QString::fromLatin1(_rawResponseData.toBase64())}};
+    }
+    placesHttp().event(_featurePlacesId,"reply-finished",{{"replyId",_featurePlacesReplyId},
+        {"httpStatus",_reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt()},
+        {"networkError",static_cast<int>(_reply->error())},{"responseId",QString::fromLatin1(response)},{"body",body}});
+}
+#endif
 
 Q_DECLARE_METATYPE(QByteArray*)
 
@@ -51,6 +119,21 @@ XMLHttpRequestClass::~XMLHttpRequestClass() {
         _onTimeout = ScriptValue();
         _onReadyStateChange = ScriptValue();
     }
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    placesHttp().event(_featurePlacesId,"callbacks-released");
+#endif
+}
+
+ScriptValue XMLHttpRequestClass::getResponseText() const {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    const auto caller=_featurePlacesId.isEmpty() ? QString() : featurePlacesCaller();
+    if (!_featurePlacesTextRead && !caller.isEmpty() && _readyState==DONE) {
+        _featurePlacesTextRead=true;
+        placesHttp().event(_featurePlacesId,"text-read",{{"replyId",_featurePlacesReplyId},{"scriptSource",caller},
+            {"sha256",QString::fromLatin1(QCryptographicHash::hash(_rawResponseData,QCryptographicHash::Sha256).toHex())}});
+    }
+#endif
+    return _engine->newValue(QString(_rawResponseData.data()));
 }
 
 ScriptValue XMLHttpRequestClass::constructor(ScriptContext* context, ScriptEngine* engine) {
@@ -131,6 +214,10 @@ void XMLHttpRequestClass::setReadyState(ReadyState readyState) {
     if (readyState != _readyState) {
         _readyState = readyState;
         if (_onReadyStateChange.isFunction()) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+            placesHttp().event(_featurePlacesId,"callback-enter",{{"callback","readystatechange"},{"readyState",static_cast<int>(_readyState)}});
+            Finally callbackLeft([&] { placesHttp().event(_featurePlacesId,"callback-leave",{{"callback","readystatechange"},{"readyState",static_cast<int>(_readyState)}}); });
+#endif
             _onReadyStateChange.call(_onReadyStateChange.engine()->nullValue());
         }
     }
@@ -162,6 +249,9 @@ void XMLHttpRequestClass::open(const QString& method, const QString& url, bool a
             _url.setPassword(password);
         }
         _request.setUrl(_url);
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+        featurePlacesOpen();
+#endif
         setReadyState(OPENED);
     }
 }
@@ -195,11 +285,23 @@ void XMLHttpRequestClass::doSend() {
     DependencyManager::get<ResourceRequestObserver>()->update(_url, -1, "XMLHttpRequestClass::doSend");
     _reply = NetworkAccessManager::getInstance().sendCustomRequest(_request, _method.toLatin1(), _sendData);
     connectToReply(_reply);
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    if (!_featurePlacesId.isEmpty()) {
+        _featurePlacesReplyId=overte::e2e::PlacesHttpObservation::nonce();_featurePlacesTextRead=false;
+        const auto id=_featurePlacesId,replyId=_featurePlacesReplyId;
+        if (!overte::e2e::PlacesHttpObservation::directory(_reply->url())) { placesHttp().invalid(id); }
+        else { placesHttp().event(id,"sent",{{"replyId",replyId},{"url",_reply->url().toString(QUrl::FullyEncoded)}}); }
+        QObject::connect(_reply,&QObject::destroyed,[id,replyId] { placesHttp().event(id,"reply-destroyed",{{"replyId",replyId}}); });
+    }
+#endif
 
     if (_timeout > 0) {
         _timer.start(_timeout);
         connect(&_timer, SIGNAL(timeout()), this, SLOT(requestTimeout()));
     }
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    placesHttp().event(_featurePlacesId,"timer-state",{{"active",_timer.isActive()}});
+#endif
 }
 
 /*@jsdoc
@@ -208,6 +310,10 @@ void XMLHttpRequestClass::doSend() {
  */
 void XMLHttpRequestClass::requestTimeout() {
     if (_onTimeout.isFunction()) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+        placesHttp().event(_featurePlacesId,"callback-enter",{{"callback","timeout"},{"readyState",static_cast<int>(_readyState)}});
+        Finally callbackLeft([&] { placesHttp().event(_featurePlacesId,"callback-leave",{{"callback","timeout"},{"readyState",static_cast<int>(_readyState)}}); });
+#endif
         _onTimeout.call(_engine->nullValue());
     }
     abortRequest();
@@ -242,6 +348,9 @@ void XMLHttpRequestClass::requestFinished() {
         }
     }
 
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    featurePlacesFinished();
+#endif
     setReadyState(DONE);
     emit requestComplete();
 
@@ -254,6 +363,9 @@ void XMLHttpRequestClass::abortRequest() {
     // Disconnect from signals we don't want to receive any longer.
     disconnect(&_timer, SIGNAL(timeout()), this, SLOT(requestTimeout()));
     if (_reply) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+        placesHttp().event(_featurePlacesId,"aborted",{{"replyId",_featurePlacesReplyId}});
+#endif
         disconnectFromReply(_reply);
         _reply->abort();
         _reply->deleteLater();

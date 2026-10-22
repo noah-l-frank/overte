@@ -13,7 +13,7 @@ from unittest.mock import patch
 from urllib.error import HTTPError
 from urllib.request import Request,urlopen
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
-from feature_journeys.navigation_fixture import NavigationResources,configuration,validate_status,DIRECTORY,QUERY
+from feature_journeys.navigation_fixture import NavigationResources,configuration,validate_status,DIRECTORY,QUERY,DIRECTORY_MARKER
 from feature_journeys.server import make_server
 from feature_journeys.witness import Client
 from feature_journeys.fixtures import context
@@ -72,6 +72,19 @@ class NavigationResourcesTests(unittest.TestCase):
             headers={'Authorization':'Bearer '+self.reader,'Content-Type':'application/json'})
         with self.assertRaises(HTTPError) as caught:urlopen(request,timeout=2)
         self.assertEqual(503,caught.exception.code);caught.exception.close();self.assertEqual({},self.server.journal.runs)
+
+    def test_each_real_response_has_an_independent_materializable_marker_with_same_destination(self):
+        self.open();originals=[]
+        for _ in range(2):
+            status,raw,response=self.fetch(DIRECTORY+'?'+QUERY);self.assertEqual(200,status)
+            record=json.loads(raw)['data']['places'][0]
+            self.assertEqual(DIRECTORY_MARKER+response,record['description']);originals.append((record,response,raw))
+        first,second=originals
+        for key in ('id','name','address'):self.assertEqual(first[0][key],second[0][key])
+        self.assertNotEqual(first[0]['description'],second[0]['description'])
+        self.assertNotEqual(first[1],second[1]);self.assertNotEqual(first[2],second[2])
+        for receipt,(_,response,raw) in zip(self.client.navigation_status()['responses'],originals):
+            self.assertEqual(response,receipt['responseId']);self.assertEqual(hashlib.sha256(raw).hexdigest(),receipt['sha256'])
 
     def test_original_service_error_prevents_navigation_readiness(self):
         self.server.internal_errors=1

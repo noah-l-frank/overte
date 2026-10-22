@@ -561,6 +561,12 @@ class FixtureState:
             try:places_model_command(command)
             except (ValueError,RuntimeError):raise ValueError("invalid iOS Places model request") from None
             valid=True
+        elif action == "feature-ios-places-http":
+            sys.path.insert(0,str(ROOT.parent))
+            from ios.adapters.places_http import command as places_http_command
+            try:places_http_command(command)
+            except (ValueError,RuntimeError):raise ValueError("invalid iOS Places HTTP request") from None
+            valid=True
         elif action == "feature-web-dom-observe":
             sys.path.insert(0,str(ROOT.parent))
             from adapters.native_web_dom import command as web_dom_command

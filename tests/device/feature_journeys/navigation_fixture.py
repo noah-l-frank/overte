@@ -15,6 +15,8 @@ from .fixtures import context
 from navigation_observation import viewpoint_urls
 
 VERSION=1
+DIRECTORY_MARKER_VERSION=1
+DIRECTORY_MARKER='overte-directory-v1:'
 DIRECTORY='/api/v1/places'
 QUERY='status=online&per_page=1000'
 
@@ -86,10 +88,13 @@ class NavigationResources:
             active=[(run,row) for run,row in self.runs.items() if row['active']]
             if len(active)!=1 or not self.valid or self.failed:
                 yield None;return
-            run,row=active[0];ctx=context(run)
+            run,row=active[0];ctx=context(run);response_id=secrets.token_hex(16)
             if path==DIRECTORY and query==QUERY:
                 kind,status='directory',200
-                record=dict(id=ctx['destination'],name=ctx['name'],address=self.urls['B'],description='',
+                # A fresh real directory field must survive native parsing and
+                # QML materialization. Reusing a previous response's model is
+                # distinguishable even while the destination/name stay stable.
+                record=dict(id=ctx['destination'],name=ctx['name'],address=self.urls['B'],description=DIRECTORY_MARKER+response_id,
                     maturity='everyone',visibility='open',tags=[],managers=[],thumbnail='',path='/2,0,4',
                     domain=dict(id=run[:8]+'-'+run[8:12]+'-'+run[12:16]+'-'+run[16:20]+'-'+run[20:],
                         name=ctx['name'],protocol_version=self.inputs['protocolSignature'],num_users=0,capacity=8))
@@ -102,7 +107,7 @@ class NavigationResources:
             if row['ticket'] is None or len(row['responses'])>=256:
                 yield None;return
             body=json.dumps(document,separators=(',',':'),ensure_ascii=False).encode()
-            response_id=secrets.token_hex(16);ticket=row['ticket']
+            ticket=row['ticket']
             try:
                 yield status,body,response_id
             except BaseException:

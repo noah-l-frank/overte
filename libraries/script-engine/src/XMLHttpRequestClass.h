@@ -221,7 +221,10 @@ public:
     int getTimeout() const { return _timeout; }
     void setTimeout(int timeout) { _timeout = timeout; }
     ScriptValue getResponse() const { return _responseData; }
-    ScriptValue getResponseText() const { return _engine->newValue(QString(_rawResponseData.data())); }
+    ScriptValue getResponseText() const;
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    static QVariantMap featurePlacesHttpObservation(const QVariantMap& command);
+#endif
     QString getResponseType() const { return _responseType; }
     void setResponseType(const QString& responseType) { _responseType = responseType; }
     ScriptValue getReadyState() const { return _engine->newValue(_readyState); }
@@ -298,6 +301,14 @@ signals:
     void requestComplete();
 
 private:
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    QString featurePlacesCaller() const;
+    void featurePlacesOpen();
+    void featurePlacesFinished();
+    QString _featurePlacesId;
+    QString _featurePlacesReplyId;
+    mutable bool _featurePlacesTextRead {false};
+#endif
     void setReadyState(ReadyState readyState);
     void doSend();
     void connectToReply(QNetworkReply* reply);
