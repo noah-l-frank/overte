@@ -9,6 +9,10 @@ installation, build or laboratory execution.
 Worlds also has a passive [original Go To visibility inventory](NAVIGATION_UI.md).
 It preserves hidden retained roots independently of input hit testing; it is a
 state-projection prerequisite and does not change the partial area count.
+The [Places/bookmark field projection](NAVIGATION_PLACES_STATE.md) now joins
+actual saved/loaded maps, current model/field/UI originals and retained genuine
+directory consumption without retiming the original response. Arrival, current
+error and independent publication still need the whole-journey coordinator.
 
 The canonical physical source binding and explicit lost-launch recovery have
 host-tested implementations. The native byte observer and SDK plugin remain

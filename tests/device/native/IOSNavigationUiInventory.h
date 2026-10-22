@@ -21,7 +21,8 @@ namespace overte::e2e {
 class IOSNavigationUiInventory {
 public:
     static QString source(QQuickItem* root) {
-        if (!root || root->objectName()!="AddressBarDialog") { return {}; }
+        if (!QCoreApplication::arguments().contains("--testScript")
+                || !root || root->objectName()!="AddressBarDialog") { return {}; }
         int depth {0};
         for (auto context=qmlContext(root);context && ++depth<=128;context=context->parentContext()) {
             if (context->nameForObject(root)!="root") { continue; }
@@ -37,7 +38,7 @@ public:
     }
 
     void visit(QQuickItem* item) {
-        if (!_complete || !item) { return; }
+        if (!QCoreApplication::arguments().contains("--testScript") || !_complete || !item) { return; }
         const auto url=source(item);
         if (url.isEmpty()) {
             // The normal field must belong to the selected original component.
