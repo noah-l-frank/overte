@@ -121,7 +121,7 @@ inline QString createControlId(QQuickItem* item) {
         {"NativeCreateUndo","create.undo"},{"NativeCreateRedo","create.redo"},
         {"NativeCreateImportUrl","create.import-url"},{"NativeCreateImport","create.import-submit"},
         {"NativeCreateBrowse","create.import-browse"},{"NativeCreateApplyTyped","create.apply-typed"},
-        {"NativeCreateTool_export","create.export"},
+        {"NativeCreateTool_export","create.export"},{"NativeCreateTool_assets","create.assets"},
         {"NativeCreateEditMode","create.edit-mode"},{"NativeCreateVoxelShape","create.voxel-shape"},
         {"NativeCreateVoxelRemove","create.voxel-remove"},{"NativeCreateVoxelDynamics","create.voxel-dynamics"},
         {"NativeCreateVoxelPointer","create.voxel-pointer"},{"NativeCreateVoxelDiameter","create.voxel-diameter"},

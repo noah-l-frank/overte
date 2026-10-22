@@ -15,7 +15,7 @@ NONCE=r'(?:[0-9a-f]{32}|'+UUID+r')'
 FIXED={'create.page','create.entry','create.host','create.import-host','create.resource','create.new-shape',
        'create.new-model','create.new-voxel','create.refresh','create.name','create.apply','create.delete',
        'create.undo','create.redo','create.import-url','create.import-submit','create.import-browse',
-       'create.apply-typed','create.export','create.shape','create.filter','create.textures','create.scrollbar',
+       'create.apply-typed','create.assets','create.export','create.shape','create.filter','create.textures','create.scrollbar',
        'create.edit-mode','create.voxel-shape','create.voxel-remove','create.voxel-dynamics','create.voxel-pointer',
        'create.voxel-diameter','create.voxel-reach','create.voxel-apply','create.property-filter',
        'create-file.name','create-file.accept','create-file.cancel'}

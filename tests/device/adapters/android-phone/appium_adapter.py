@@ -51,6 +51,8 @@ from adapters.token_chat_ui import TokenChatUI
 from overte_phone_chat_controls import PhoneChatIO, FILE as CHAT_UI_FILE
 from adapters.token_create_ui import TokenCreateUI
 from overte_phone_create_controls import PhoneCreateIO, FILE as CREATE_UI_FILE
+from overte_phone_assets_controls import PhoneAssetsIO, FILE as ASSETS_UI_FILE
+from adapters.token_assets_ui import TokenAssetsUI
 from overte_phone_create_source import PhoneCreateSource, FILE as CREATE_SOURCE_FILE
 from overte_phone_create_files import PhoneCreateFiles, FILE as CREATE_FILES_FILE
 from overte_phone_create_marker import NativePhoneCreateFixture, FILE as CREATE_FIXTURE_FILE, input_command as create_fixture_input_command
@@ -232,7 +234,7 @@ def readonly_feature_command(command):
     elif action=='feature-account-probe':
         from adapters.native_account_probe import command as validate_probe
         validate_probe(command) # Only read/release/inspect; no URL or credentials.
-    elif action in ('phone-script-file-ui','phone-login-ui','phone-graphics-ui','phone-emote-ui','phone-create-ui','phone-audio-ui'):
+    elif action in ('phone-script-file-ui','phone-login-ui','phone-graphics-ui','phone-emote-ui','phone-create-ui','phone-audio-ui','phone-assets-ui'):
         require(set(command)=={'schemaVersion','commandId','action','request'}
                 and type(command['request']) is dict
                 and command['request']==dict(schemaVersion=1,commandId=command['commandId'],action='observe')
@@ -1705,6 +1707,16 @@ class PhoneAppiumAdapter(AppiumAdapter):
             subject.guard=serialized(subject.guard)
             graphics.io.guard=serialized(graphics.io.guard)
             return PhoneGraphicsSurface(ui,subject,graphics,run,intent,owns,lease,allow_url)
+
+    def _assets_controls(self, selector, intent, *, read_only=False):
+        # Internal original-input component; complete public capability remains off.
+        native=self._native_feature_observer(selector,read_only=read_only)
+        target=self.target(selector);device=target['capabilities']['appium:udid']
+        transport=PhoneAdapter(self.candidate).adb
+        io=PhoneAssetsIO(native.send,
+            lambda:transport.read_debug_app_file(device,target['appId'],'files/overte-e2e/'+ASSETS_UI_FILE,attempts=1),
+            native.clock_ms,native.guard,native.pid)
+        return TokenAssetsUI(io,intent)
 
     def _create_controls(self, selector, intent, *, read_only=False):
         # Internal normal-input component. The caller owns the panel/entities

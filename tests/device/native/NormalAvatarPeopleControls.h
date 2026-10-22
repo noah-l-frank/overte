@@ -1,6 +1,7 @@
 // Copyright 2026 Overte contributors.
 // SPDX-License-Identifier: Apache-2.0
 #pragma once
+#include "NormalInputHitTest.h"
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #include "NormalNavigationControls.h"
 #include <algorithm>
@@ -150,20 +151,9 @@ inline bool avatarPeopleOwnsPoint(QQuickItem* item,QQuickWindow* window,const QP
     // order and skip only branches with no enabled input handler at this point.
     // Any foreign overlay/MouseArea/PointerHandler still blocks dispatch.
     if (!item || !window || (!avatarApp(item) && !peopleApp(item) && avatarPeopleControlId(item)!="avatar.entry" && avatarPeopleControlId(item)!="people.entry")) { return false; }
-    int visited=0;bool invalid=false;QQuickItem* recipient{nullptr};
-    std::function<bool(QQuickItem*,int)> visit=[&](QQuickItem* node,int depth) {
-        if (!node || !node->isVisible() || !node->isEnabled()) { return false; }
-        if (++visited>4096 || depth>128 || node->thread()!=qApp->thread()) { invalid=true;return true; }
-        const bool inside=node->contains(node->mapFromScene(point));if (node->clip() && !inside) { return false; }
-        auto children=node->childItems();std::stable_sort(children.begin(),children.end(),[](QQuickItem* a,QQuickItem* b) { return a->z()<b->z(); });
-        for (auto it=children.crbegin();it!=children.crend();++it) { if (visit(*it,depth+1)) { return true; } }
-        bool handler=false;for (auto child:node->children()) { if (child->inherits("QQuickPointerHandler") && child->property("enabled").toBool()) { handler=true; } }
-        if (inside && (handler || (node->acceptedMouseButtons() & Qt::LeftButton) || node->acceptTouchEvents())) { recipient=node;return true; }
-        return false;
-    };
-    visit(window->contentItem(),0);if (invalid || !recipient) { return false; }
-    for (auto parent=recipient;parent;parent=parent->parentItem()) { if (parent==item) { return true; } }return false;
+    return normalInputOwnsPoint(item,window,point);
 }
+
 inline QPointF avatarPeopleActivatePoint(QQuickItem* item,const QString& id) {
     // NameCard action controls cover the row center. Its actual delegate leaves
     // a five-pixel leading gutter for ordinary row selection. Never click a

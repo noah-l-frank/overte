@@ -86,9 +86,37 @@ the other can bind. An HTTP success acknowledgement does not establish an
 Interface permission or a disabled Asset Browser control; the public composition
 must independently read those actual effects.
 
+## Original normal browser controls
+
+Surface 9 reads the actual `TabletAssetServer`, `NativeModelTree`, standard Qt
+Dialogs and bundle-mode `NativeFileBrowser`. Composite roots and popup controls
+are tied to their actual QML component contexts and object identities. Row
+references retain original path/status/selection data; replacements invalidate
+their tokens. Standard dialog buttons are resolved by their actual native role.
+No QML action handler, file-helper method or Asset service mutation supplies an
+input shortcut. Normal pointer/key events enter the actual rendered Qt window.
+
+`TokenAssetsUI` and `PhoneAssetsIO` reuse the existing token clock/wait/transport
+engines. They persist original-reference intent before delivery, require actual
+consumed native input sequence and read back widget transitions. Closed common
+bundle inputs keep their relative companion paths and main choice. Ordinary
+folder-field submission navigates without discarding selected companions.
+Actual native filesystem ownership remains independent of these widget buffers.
+The normal Create Tools asset button supplies the existing browser entry.
+
+Assets shares the existing Avatar/People z-sorted input-recipient algorithm
+through `NormalInputHitTest.h`; Avatar retains its original source guard. Foreign
+mouse/touch/pointer-handler overlays still block input. A ComboBox keyboard
+choice is qualified by its own original field or live popup focus, even when
+its popup covers the original center. Input receipts supply no mapping/model
+verdict. The parent integration must retain Snapshot Surface 10 and merge the
+native dispatch range to 0 through 10; this isolated base has only 0 through 9.
+
 ## Host verification and remaining composition
 
 ```sh
+python3 android/phone/tests/device/test_assets_native_ui.py
+python3 android/phone/tests/device/test_assets_controls.py
 python3 tests/device/self_tests/test_assets_permissions.py
 python3 android/phone/tests/device/test_assets_files.py
 python3 android/phone/tests/device/test_assets_source.py
@@ -106,7 +134,13 @@ registered under Common and the compiler check under Prepared in the existing
 Phone runtime regression inventory. Central Emote source-pin regeneration stays
 with the integration owner after all probe merges.
 
-Next are owned domain write-permission control,
-original-token normal browser/file/dialog inputs, independent role/actor
-observations, actual model/render joins and the complete 29-action journey with
+The UI compiler check additionally loads unchanged product QML and compiles the
+unchanged actual `FileDialogHelper.cpp` and `NativeFieldInput.cpp`. It selects
+actual main/mesh/texture files, preserves their bundle manifest, delivers normal
+Import/Rename/Delete dialog events, rejects disabled Delete and foreign overlays,
+and observes the actual unavailable-file error after a real main-file unlink.
+Every native UI snapshot is also checked by the Python metadata validator.
+Its Asset Server/entity service endpoints are explicit synthetic seams.
+
+Next are independent role/actor observations, actual model/render joins and the complete 29-action journey with
 its mandatory asset-load foundation, ownership, interruption and retirement.

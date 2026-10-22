@@ -1647,6 +1647,7 @@ QVariantMap TestScriptingInterface::phoneScriptFileUi(const QVariantMap& command
 QVariantMap TestScriptingInterface::phoneAudioUi(const QVariantMap& command) { return phoneControlUi(command, 1); }
 QVariantMap TestScriptingInterface::phoneGraphicsUi(const QVariantMap& command) { return phoneControlUi(command, 2); }
 QVariantMap TestScriptingInterface::phoneEmoteUi(const QVariantMap& command) { return phoneControlUi(command, 6); }
+QVariantMap TestScriptingInterface::phoneAssetsUi(const QVariantMap& command) { return phoneControlUi(command, 9); }
 QVariantMap TestScriptingInterface::phoneCreateUi(const QVariantMap& command) { return phoneControlUi(command, 4); }
 QVariantMap TestScriptingInterface::phoneNavigationUi(const QVariantMap& command) { return phoneControlUi(command, 7); }
 QVariantMap TestScriptingInterface::phoneAvatarPeopleUi(const QVariantMap& command) { return phoneControlUi(command, 8); }
@@ -1665,7 +1666,7 @@ QVariantMap TestScriptingInterface::phoneControlUi(const QVariantMap& command, i
     const auto root = ui->getRootItem();
     const auto window = ui->getWindow();
     const bool audioSurface = surfaceKind == 1;
-    if (surfaceKind < 0 || (surfaceKind > 8 && surfaceKind != 10)) { return {}; }
+    if (surfaceKind < 0 || surfaceKind > 10) { return {}; }
     overte::e2e::GraphicsUiContext graphicsContext;
     overte::e2e::AudioUiContext audioContext;
     overte::e2e::LoginUiContext loginContext;
@@ -1707,6 +1708,8 @@ QVariantMap TestScriptingInterface::phoneControlUi(const QVariantMap& command, i
         if (!_phoneAvatarPeopleUi) { _phoneAvatarPeopleUi=std::make_shared<overte::e2e::AvatarPeopleUi>(); }
     } else if (surfaceKind == 10) {
         if (!_phoneSnapshotUi) { _phoneSnapshotUi=std::make_shared<overte::e2e::SnapshotUi>(); }
+    } else if (surfaceKind == 9) {
+        if (!_phoneAssetsUi) { _phoneAssetsUi=std::make_shared<overte::e2e::AssetsUi>(); }
     } else if (!_phoneScriptFileUi) { _phoneScriptFileUi = std::make_shared<overte::e2e::ScriptFileUi>(); }
     auto controls = audioSurface ? static_cast<overte::e2e::NormalControlUi*>(_phoneAudioUi.get())
         : surfaceKind == 2 ? static_cast<overte::e2e::NormalControlUi*>(_phoneGraphicsUi.get())
@@ -1717,6 +1720,7 @@ QVariantMap TestScriptingInterface::phoneControlUi(const QVariantMap& command, i
         : surfaceKind == 7 ? static_cast<overte::e2e::NormalControlUi*>(_phoneNavigationUi.get())
         : surfaceKind == 8 ? static_cast<overte::e2e::NormalControlUi*>(_phoneAvatarPeopleUi.get())
         : surfaceKind == 10 ? static_cast<overte::e2e::NormalControlUi*>(_phoneSnapshotUi.get())
+        : surfaceKind == 9 ? static_cast<overte::e2e::NormalControlUi*>(_phoneAssetsUi.get())
         : static_cast<overte::e2e::NormalControlUi*>(_phoneScriptFileUi.get());
     const auto request = QJsonObject::fromVariantMap(command);
     const auto id = request.value("commandId").toString();

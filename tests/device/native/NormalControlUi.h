@@ -14,6 +14,7 @@
 #include "NormalNavigationControls.h"
 #include "NormalSnapshotControls.h"
 #include "NormalAvatarPeopleControls.h"
+#include "NormalAssetsControls.h"
 #include <ui/NativeFieldInput.h>
 #include <QCoreApplication>
 #include <QDateTime>
@@ -35,7 +36,7 @@ namespace overte::e2e {
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 class NormalControlUi {
 public:
-    enum class Surface { ScriptFiles, Audio, Graphics, Login, Create, Chat, Emote, Navigation, AvatarPeople, Snapshot=10 };
+    enum class Surface { ScriptFiles, Audio, Graphics, Login, Create, Chat, Emote, Navigation, AvatarPeople, Assets, Snapshot=10 };
     explicit NormalControlUi(Surface surface = Surface::ScriptFiles) : _surface(surface), _instance(nonce()), _generation(nonce()) { _clock.start(); }
 
     QJsonObject observe(QQuickItem* root, QQuickWindow* window, const AudioUiContext& audio = {}, const GraphicsUiContext& graphics = {}, const LoginUiContext& login = {}) {
@@ -69,6 +70,7 @@ public:
                     : _surface == Surface::Emote ? emoteControlId(item)
                     : _surface == Surface::Navigation ? navigationControlId(item)
                     : _surface == Surface::AvatarPeople ? avatarPeopleControlId(item)
+                    : _surface == Surface::Assets ? assetsControlId(item)
                     : _surface == Surface::Snapshot ? snapshotControlId(item) : scriptFileControlId(item);
                 if (!id.isEmpty()) {
                     if (controls.contains(id)) { ambiguous = true; return; }
@@ -81,6 +83,7 @@ public:
                         : _surface == Surface::Emote ? emoteControlSource(item,id)
                         : _surface == Surface::Navigation ? navigationControlSource(item,id)
                         : _surface == Surface::AvatarPeople ? avatarPeopleControlSource(item,id)
+                        : _surface == Surface::Assets ? assetsControlSource(item,id)
                         : _surface == Surface::Snapshot ? snapshotControlSource(item,id) : scriptFileControlSource(item);
                     if ((_surface==Surface::Chat || _surface==Surface::Emote) && source.isEmpty()) { ambiguous=true;return; }
                     controls.insert(id, {item, previous.item == item && previous.source == source ? previous.token : nonce(), source});
@@ -116,6 +119,7 @@ public:
             else if (_surface == Surface::Navigation) { appendNavigationControlObservation(row,control.item,id); }
             else if (_surface == Surface::AvatarPeople) { appendAvatarPeopleControl(row,control.item,id); }
             else if (_surface == Surface::Snapshot) { appendSnapshotControl(row,control.item,id); }
+            else if (_surface == Surface::Assets) { appendAssetsControlObservation(row,control.item,id); }
             else { appendScriptFileObservation(row, control.item, id); }
             rows.append(row);
         }
@@ -133,6 +137,7 @@ public:
             : _surface == Surface::Emote ? "emoteControlsVersion"
             : _surface == Surface::Navigation ? "navigationControlsVersion"
             : _surface == Surface::AvatarPeople ? "avatarPeopleControlsVersion"
+            : _surface == Surface::Assets ? "assetsControlsVersion"
             : _surface == Surface::Snapshot ? "snapshotControlsVersion" : "fileControlsVersion"] = _surface==Surface::Login ? 2 : 1;
 #if defined(ANDROID_APP_PHONE_INTERFACE)
         if (_surface==Surface::ScriptFiles) { result["scriptInventory"]=scriptInventory.observation(ready); }
@@ -176,6 +181,7 @@ public:
                     : _surface == Surface::Navigation ? action != "activate" && action != "replace"
                     : _surface == Surface::AvatarPeople ? action != "activate" && action != "replace" && action != "set-value" && action != "scroll"
                     : _surface == Surface::Snapshot ? action != "activate" && action != "replace" && action != "select-index" && action != "scroll"
+                    : _surface == Surface::Assets ? action != "activate" && action != "replace" && action != "submit" && action != "select-index" && action != "scroll"
                     : action != "activate" && action != "replace" && action != "submit" && action != "select-index")) { return result; }
         // Consume intent before dispatch; never replay uncertain native input.
         _lastCommandSequence = sequence;
@@ -199,6 +205,27 @@ public:
                 delivered=overte::ui::replaceFocusedField(control.item,window,command.value("text").toString());
             } else if (action=="select-index" && snapshotChoice(id)) {
                 qint64 index=0;if (integer(command.value("index"),index)) { delivered=selectSnapshotChoice(control.item,window,index); }
+            }
+        } else if (_surface == Surface::Assets) {
+            QJsonObject row;appendAssetsControlObservation(row,control.item,id);
+            if (!row.value("inputReady").toBool()) { return result; }
+            const auto point=control.item->mapToScene(QPointF(control.item->width()/2,control.item->height()/2));
+            // Keyboard choices remain bound to the original ComboBox or its
+            // own live popup focus; a popup can legitimately cover its center.
+            if (action!="select-index" && !normalInputOwnsPoint(control.item,window,point)) { return result; }
+            if (action=="activate" && id!="assets.page" && id!="assets.tree" && id!="assets-file.list" && pointerClick) { delivered=pointerClick(control.item); }
+            else if (action=="replace" && assetsField(id) && command.value("text").isString() && createText(command.value("text").toString())) {
+                delivered=overte::ui::replaceFocusedField(control.item,window,command.value("text").toString());
+            } else if (action=="submit" && id=="assets-file.folder") {
+                delivered=overte::ui::submitFocusedField(control.item,window);
+            } else if (action=="select-index" && assetsChoice(id)) {
+                qint64 index {0};if (integer(command.value("index"),index)) { delivered=selectCreateChoice(control.item,window,index); }
+            } else if (action=="scroll" && (id=="assets.tree" || id=="assets-file.list")) {
+                const auto direction=command.value("direction").toString();
+                if (direction=="up" || direction=="down") {
+                    QWheelEvent event(point,window->mapToGlobal(point.toPoint()),QPoint(),QPoint(0,direction=="up" ? 120 : -120),Qt::NoButton,Qt::NoModifier,Qt::NoScrollPhase,false);
+                    delivered=QCoreApplication::sendEvent(window,&event);
+                }
             }
         } else if (_surface == Surface::AvatarPeople) {
             QJsonObject row;appendAvatarPeopleControl(row,control.item,id);
@@ -385,7 +412,7 @@ public:
 
     static bool selectCreateChoice(QQuickItem* item,QQuickWindow* window,qint64 index) {
         if (!item || !window || visibleRect(item,window).isEmpty() || !item->isEnabled()
-                || !createChoice(createControlId(item)) || !item->inherits("QQuickComboBox")
+                || !(createChoice(createControlId(item)) || assetsChoice(assetsControlId(item))) || !item->inherits("QQuickComboBox")
                 || index<0 || index>=32 || index>=item->property("count").toInt()) { return false; }
         const auto focused=[&] {
             if (ownsFocus(item,window)) { return true; }
@@ -482,6 +509,10 @@ public:
 class CreateUi : public NormalControlUi {
 public:
     CreateUi() : NormalControlUi(Surface::Create) {}
+};
+class AssetsUi : public NormalControlUi {
+public:
+    AssetsUi() : NormalControlUi(Surface::Assets) {}
 };
 class ChatUi : public NormalControlUi {
 public:
