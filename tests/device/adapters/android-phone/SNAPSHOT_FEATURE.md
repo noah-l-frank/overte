@@ -1022,6 +1022,27 @@ borrow a valid before packet. Diagnostic frames and their complete original
 groups remain in the archive. These historical floors never replace new target
 observations.
 
+The actor lifecycle journal is now version 2, with a bounded, versioned history
+of unpublished fixture-phase transitions. Exact process-bound version-1 state
+can be read losslessly and upgraded only by its next own compare-and-swap save;
+unknown legacy fields or a rollback of a retained actor's known save fail.
+A role header cannot drop an already archived transition frame: its actual
+manifest block must retain that frame's complete original prefix.
+
+An ordinary actor acquisition admits its actual phase before reading native,
+avatar or measurement sources. One proven owned activation advance can defer
+that acquisition: two actual stable new phase observations and the old phase
+are archived as a phase-only diagnostic. It claims no target state or measured
+scope and produces no pending witness. The next step requires the new action's
+actual acknowledgement or a genuinely cleaned owner before a fresh cleanup
+acquisition and its own quiet interval. This also handles a logged-in ordinary
+phase advancing to cleanup before logout can acquire the source lock. Account
+validation is unchanged. An already completed stable frame observed under a
+new ordinary phase remains an unpublished original, never a relabelled witness.
+Closed/foreign/non-prefix/multiple phase advances, issued witnesses and existing
+cleanup authority do not enter this recovery path. A phase change during actual
+measurement still fails its original consistency checks.
+
 `SnapshotHistoryReadPass` defines a single-use primary cleanup history boundary.
 Construction requires the original source lock, current native authority, the
 same existing SDK-session pin, and verified ready role/cleaned feature owners.
