@@ -1149,7 +1149,9 @@
         "tests/device/adapters/pico4/LIFECYCLE_WORLD.md",
         "tests/device/self_tests/test_pico_lifecycle_world.py",
         "tests/device/adapters/pico4/lifecycle_join.py",
-        "tests/device/adapters/pico4/LIFECYCLE_X_JOIN.md"
+        "tests/device/adapters/pico4/LIFECYCLE_X_JOIN.md",
+        "tests/device/adapters/pico4/lifecycle_process.py",
+        "tests/device/adapters/pico4/LIFECYCLE_PROCESS.md"
       ],
       "declaredCheckpoints": 16,
       "inputVerbs": [

@@ -87,7 +87,7 @@ manager-thread timer/callback inventories and requires a full multi-clock quiet
 window; it retains journals and does not supply whole resource retirement.
 The [owned background cycle](EMOTE_BACKGROUND.md) now joins existing normal
 Pico lifecycle inputs to original OS and native transitions, with separate
-once-only foreground recovery and retained unresolved ownership. Current
+one-send foreground recovery and retained unresolved ownership. Current
 background effect/actor/stereo and final release remain incomplete.
 This adds no complete feature area and keeps shared journey v16 unchanged.
 
