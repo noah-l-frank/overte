@@ -1057,6 +1057,8 @@ public:
     std::shared_ptr<overte::e2e::CreateCallbackObservation> featureCreateCallbacks() const { return _e2eCreateCallbacks; }
     static QVariantMap featureLoadHistory();
     static QVariantMap featureNativeCallContext();
+    // Passive original timer facts on the actual VM manager thread.
+    QVariantMap featureCaptureWorkObservation(int originalScriptId) const;
     class FeatureNativeCallScope {
     public:
         FeatureNativeCallScope(ScriptManager* manager, const QByteArray& method, int originalScriptId=0);

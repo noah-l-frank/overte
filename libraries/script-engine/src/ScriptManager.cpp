@@ -55,7 +55,7 @@ ScriptManager::FeatureNativeCallScope::FeatureNativeCallScope(ScriptManager* man
     _previous(_featureNativeCallContext) {
     _featureNativeCallContext.clear();
     if (!manager || !QCoreApplication::arguments().contains("--testScript") || QThread::currentThread()!=manager->thread()
-            || (method!="overrideAnimation" && method!="restoreAnimation")
+            || (method!="overrideAnimation" && method!="restoreAnimation" && method!="featureCaptureEvent")
             || manager->_featureNativeCallSequence>=1000000000) { return; }
     const auto membership=manager->featureLoadMembership();const auto code=manager->featureSourceIdentity();
     if (membership.isEmpty() || code.isEmpty() || !membership.value("assigned").toBool()
@@ -65,6 +65,9 @@ ScriptManager::FeatureNativeCallScope::FeatureNativeCallScope(ScriptManager* man
         {"sequence",static_cast<qulonglong>(++manager->_featureNativeCallSequence)},
         {"invokedEpochMs",QDateTime::currentMSecsSinceEpoch()},{"manager",membership},{"code",code},
         {"compilation",compilation.isEmpty() ? QVariant() : QVariant(compilation)}};
+    if (method=="featureCaptureEvent") {
+        _featureNativeCallContext.insert("snapshotWork",manager->featureCaptureWorkObservation(originalScriptId));
+    }
 }
 
 ScriptManager::FeatureNativeCallScope::~FeatureNativeCallScope() { _featureNativeCallContext=_previous; }
@@ -1302,6 +1305,26 @@ void ScriptManager::run() {
 }
 
 #if defined(OVERTE_E2E_FEATURE_TESTS)
+QVariantMap ScriptManager::featureCaptureWorkObservation(int originalScriptId) const {
+    if (!_featureWorkEnabled || !_featureWorkValid || QThread::currentThread()!=thread() || originalScriptId<=0
+            || _timerFunctionMap.size()>256 || !_featureWorkActivity.contains(originalScriptId)) { return {}; }
+    QVariantList timers;
+    for (const auto& entry:_timerFunctionMap) {
+        const auto& timer=entry.second.first;
+        if (!timer || timer->thread()!=QThread::currentThread() || entry.first<=0) { return {}; }
+        if (entry.second.second.featureFunctionScriptId!=originalScriptId) { continue; }
+        timers.append(QVariantMap{{"handle",entry.first},{"active",timer->isActive()},
+            {"singleShot",timer->isSingleShot()},{"intervalMs",timer->interval()},{"remainingMs",timer->remainingTime()}});
+    }
+    const auto& activity=_featureWorkActivity.value(originalScriptId);
+    return {{"snapshotScriptWorkVersion",1},{"scriptId",originalScriptId},{"capturedEpochMs",QDateTime::currentMSecsSinceEpoch()},
+        {"timers",timers},{"signalCallbacks",static_cast<qulonglong>(activity.signalCallbacks)},
+        {"timerCallbacks",static_cast<qulonglong>(activity.timerCallbacks)},
+        {"signalInvocations",static_cast<qulonglong>(activity.signalInvocations)},
+        {"timerInvocations",static_cast<qulonglong>(activity.timerInvocations)},
+        {"timerRegistrations",static_cast<qulonglong>(activity.timerRegistrations)}};
+}
+
 void ScriptManager::featureCallbackBoundary(bool timer, bool entering, int scriptId) {
     if (!_featureWorkValid) { return; }
     if (QThread::currentThread()!=thread() || scriptId<0

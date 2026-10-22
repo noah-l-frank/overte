@@ -158,6 +158,7 @@
     var lastLifecycleDriveRequest = "";
     var lastAudioSettingsRequest = "";
     var lastSnapshotCaptureRequest = "";
+    var lastSnapshotScriptRequest = "";
     var lastLifecycleGestureRequest = "";
     var lastProcessPresenceRequest = "";
     var lastScriptFilesRequest = "";
@@ -1591,6 +1592,23 @@
         if (command && command.schemaVersion === 1
                 && typeof command.commandId === "string" && /^[0-9a-f]{32}$/.test(command.commandId)
                 && typeof command.runId === "string" && /^[0-9a-f]{32}$/.test(command.runId)
+                && command.action === "feature-snapshot-script-originals"
+                && objectKeysMatch(command, ["schemaVersion", "commandId", "action", "runId"])) {
+            if (command.commandId === lastSnapshotScriptRequest) { return; }
+            lastSnapshotScriptRequest = command.commandId;
+            var snapshotOriginals = {snapshotScriptOriginalsVersion: 1, commandId: command.commandId, available: false};
+            try {
+                if (typeof Test.featureSnapshotScriptOriginals === "function") {
+                    var actualSnapshot = Test.featureSnapshotScriptOriginals(command);
+                    if (actualSnapshot && actualSnapshot.commandId === command.commandId) { snapshotOriginals = actualSnapshot; }
+                }
+            } catch (_snapshotOriginalError) { /* Missing original native leases stay unavailable. */ }
+            Test.saveObject(snapshotOriginals, "feature-snapshot-script-originals.json");
+            return;
+        }
+        if (command && command.schemaVersion === 1
+                && typeof command.commandId === "string" && /^[0-9a-f]{32}$/.test(command.commandId)
+                && typeof command.runId === "string" && /^[0-9a-f]{32}$/.test(command.runId)
                 && command.action === "feature-audio-settings-observe"
                 && objectKeysMatch(command, ["schemaVersion", "commandId", "action", "runId"])) {
             if (command.commandId === lastAudioSettingsRequest) { return; }
@@ -2125,7 +2143,7 @@
                 || command.action === "feature-scene-load-observe"
                 || command.action === "feature-tablet-http-observe"
                 || command.action === "feature-lifecycle-drive-observe" || command.action === "feature-lifecycle-gesture-observe"
-                || command.action === "feature-audio-settings-observe" || command.action === "feature-snapshot-capture-originals"
+                || command.action === "feature-audio-settings-observe" || command.action === "feature-snapshot-capture-originals" || command.action === "feature-snapshot-script-originals"
                 || command.action === "feature-web-runtime-observe"
                 || command.action === "feature-world-render-storage"
                 || command.action === "feature-world-render-receipt"
