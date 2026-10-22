@@ -287,7 +287,10 @@
         "tests/device/feature_journeys/CREATE_SOURCE.md",
         "tests/device/adapters/pico4/create_management.py",
         "tests/device/adapters/pico4/CREATE_FEATURE.md",
-        "android/vr/pico/tests/device/test_create_management.py"
+        "android/vr/pico/tests/device/test_create_management.py",
+        "tests/device/adapters/pico4/create_files.py",
+        "tests/device/adapters/pico4/CREATE_FILES_SOURCE.md",
+        "tests/device/native/PrivateCreateFiles.h"
       ],
       "declaredCheckpoints": 21,
       "inputVerbs": [
@@ -731,7 +734,11 @@
         "tests/device/native/RECORDED_PREVIEW_EVIDENCE.md",
         "tests/device/feature_journeys/scenarios.py",
         "tests/device/adapters/recorded_preview_evidence.py",
-        "tests/device/self_tests/test_recorded_preview_evidence.py"
+        "tests/device/self_tests/test_recorded_preview_evidence.py",
+        "tests/device/adapters/audio_preview.py",
+        "tests/device/self_tests/test_audio_preview.py",
+        "tests/device/adapters/pico4/AUDIO_PREVIEW_OWNER.md",
+        "android/vr/pico/tests/device/test_audio_preview.py"
       ],
       "declaredCheckpoints": 14,
       "inputVerbs": [
@@ -756,7 +763,7 @@
         "open"
       ],
       "missingOperationsOrEvidence": [
-        "Complete normal preview cycle/one-send input and ownership coordinator",
+        "Whole normal page/lifecycle/restart coordinator; durable one-send native cycle/PCM/quiet owner is now present",
         "Controlled microphone stimulus and independent actual acoustic capture/publisher binding",
         "Original capture/sink/history artifact, lifecycle interruption and cleanup joins"
       ],
@@ -771,7 +778,7 @@
         "Release native E2E PCM/history files after product quiet state",
         "Independently inspect actual memory/files and restore original mute/echo/permission"
       ],
-      "nextExecutableStep": "Compose existing normal VR audio controls and hardened original immutable PCM/phase reader into a durable cycle owner, then bind independent acoustic stimulus/capture roles, background/restart and complete quiet retirement. Sink bytes alone do not prove acoustic playback.",
+      "nextExecutableStep": "Join the durable normal Pico preview owner to an owned physical stimulus and independent acoustic recorder/publisher, then normal page closing, lifecycle/restart, per-role source journals and full final quiet retirement. Native work may release separately; unresolved overall ownership stays retained.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     },
@@ -792,7 +799,9 @@
         "tests/device/native/ChatViewObservation.h",
         "tests/device/adapters/native_chat_view.py",
         "tests/device/self_tests/test_pico_chat_keyboard.py",
-        "tests/device/adapters/pico4/CHAT_FEATURE.md"
+        "tests/device/adapters/pico4/CHAT_FEATURE.md",
+        "tests/device/adapters/chat_journey/samples.py",
+        "tests/device/self_tests/test_chat_journey_samples.py"
       ],
       "declaredCheckpoints": 25,
       "inputVerbs": [

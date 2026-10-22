@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "status": "local-packets-verified-scope-in-progress",
-  "qualification": "Source implementation and selected device-free host checks only; not a complete 52-group catalog run or product/device qualification.",
+  "qualification": "Source implementation and selected device-free host checks only; not a complete 53-group catalog run or product/device qualification.",
   "sourceCompleteAreas": [
     "scripts",
     "authentication",
@@ -2013,6 +2013,18 @@
       "audioNativeStart": [
         "1b121403d7",
         "55776065c6"
+      ],
+      "audioOwner": [
+        "ca2644ef32",
+        "db7770d001"
+      ],
+      "chatSamples": [
+        "87afb4ffe6",
+        "ef274cd4e8"
+      ],
+      "createFiles": [
+        "8e2a9608a3",
+        "a0e4ee18b2"
       ]
     },
     "checks": [
@@ -2036,9 +2048,38 @@
         "suites": 4,
         "durationSeconds": 2.78,
         "junit": "parallel-native-integration-project.xml"
+      },
+      {
+        "command": "python3 -m unittest self_tests.test_native_script_roots self_tests.test_pico_emote_source self_tests.test_emote_source_profile self_tests.test_emote_rig_measurements self_tests.test_native_animation_caller self_tests.test_native_animation_history self_tests.test_native_animation_source self_tests.test_audio_preview self_tests.test_chat_journey_samples self_tests.test_native_script_files test_create_files",
+        "status": "passed",
+        "tests": 156,
+        "durationSeconds": 5.436
+      },
+      {
+        "command": "OVERTE_NATIVE_QT_MAJOR=5 python3 android/vr/pico/tests/device/test_create_files_native.py",
+        "status": "passed",
+        "tests": 1,
+        "durationSeconds": 1.904,
+        "boundary": "Real original Create storage header and extracted getter with Qt5; explicit lifecycle/application seams"
+      },
+      {
+        "command": "python3 tests/run-project-tests.py --suite documentation --suite documentation-contracts --suite source-layout --suite project-coverage",
+        "status": "passed",
+        "suites": 4,
+        "durationSeconds": 3.49,
+        "junit": "parallel-owner-integration-project.xml"
+      },
+      {
+        "command": "python3 android/vr/pico/tests/pico4-test-suite.py --test normal-create --test normal-chat --test audio-preview-owner --test feature-observation --test script-feature-engine --test suite-runner --test coverage-matrix --timeout 240",
+        "status": "passed",
+        "selectedGroups": 7,
+        "catalogGroups": 53,
+        "durationSeconds": 170.69,
+        "junit": "parallel-owner-integration-pico.xml"
       }
     ],
-    "completeFeatureAdded": false
+    "completeFeatureAdded": false,
+    "mergeResolution": "Preserve both original native Roots and CreateFiles getters/private output names; preserve every Audio/Create/Chat cleanup error and unresolved transcript condition. No side chosen wholesale."
   },
   "authorizedNativeChecks20261022": {
     "userAuthorizedBuilds": true,
