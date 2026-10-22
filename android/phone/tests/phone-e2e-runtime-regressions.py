@@ -59,6 +59,7 @@ PREPARED_HOST_CHECKS = (
     "android/phone/tests/phone-voice-clock-test.py",
 )
 COMMON_HOST_CHECKS = (
+    "android/phone/tests/device/test_snapshots_evidence.py",
     "android/phone/tests/device/test_snapshot_upload_bytes.py",
     "android/phone/tests/device/test_lifecycle_editor.py",
     "android/phone/tests/device/test_lifecycle_world.py",
