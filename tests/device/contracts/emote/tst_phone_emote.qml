@@ -17,7 +17,7 @@ TestCase {
     Component {
         id: factory
         Production.PhoneEmote {
-            onSendToScript: testCase.events.push(JSON.parse(JSON.stringify(message)))
+            onSendToScript: function(message) { testCase.events.push(JSON.parse(JSON.stringify(message))) }
         }
     }
     function init() {

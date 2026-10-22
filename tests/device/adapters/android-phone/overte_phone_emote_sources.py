@@ -106,13 +106,16 @@ class PhoneEmoteSources:
         frames=self.originals.restore(state['manifests'],state['revision'])
         # Existing Script history validation owns immutable module/code/load/
         # manager transitions. It issues no transport calls during replay.
-        replay=NativeScriptObservation(lambda *_:need(False),lambda:need(False),lambda:need(False),lambda:need(False),self.pid)
-        self.replay_scripts(replay,frames)
-        previous=None;animation=None
-        for frame in frames:
-            self.validate_frame(frame,previous);previous=frame
-            packet=frame['group']['native']
-            animation=animation_history(animation,packet['animation']['rigId'],packet['animation']['history'])
+        def validate_history():
+            replay=NativeScriptObservation(lambda *_:need(False),lambda:need(False),lambda:need(False),lambda:need(False),self.pid)
+            self.replay_scripts(replay,frames)
+            previous=None;animation=None
+            for frame in frames:
+                self.validate_frame(frame,previous);previous=frame
+                packet=frame['group']['native']
+                animation=animation_history(animation,packet['animation']['rigId'],packet['animation']['history'])
+        from overte_phone_emote_replay import history
+        history(self.phase,value,state,validate_history)
         if state['phase']=='ready':need(state['pending'] is None)
         else:
             pending=state['pending'];exact(pending,{'startedEpochMs','role','revision','original','manifest'})
@@ -155,7 +158,9 @@ class PhoneEmoteSources:
                     need(frames[0]['group']['native']['animation']['overrideActive'] is False
                         and frames[0]['group']['native']['animation']['history']['callSequence']==
                             previous[-1]['group']['native']['animation']['history']['callSequence'])
-        return deepcopy((state,frames))
+        # decode/unpack and every original-file read already produced independent
+        # graphs; no live owner or cached parsed frame escapes this scope.
+        return state,frames
 
     @staticmethod
     def replay_scripts(reader,frames):

@@ -76,7 +76,9 @@ class PhoneEmoteOriginals:
         need(type(body['emoteFrameVersion']) is int and body['emoteFrameVersion']==VERSION and same(body['binding'],self.binding)
             and body['kind']==self.kind and body['runId']==self.run and body['role']==self.role and type(body['index']) is int and body['index']==value['index']
             and type(body['frame']) is dict)
-        self.bound(started);return deepcopy(body['frame'])
+        # json.loads created this graph exclusively for this read. Returning it
+        # cannot alias another read or mutate the immutable original bytes.
+        self.bound(started);return body['frame']
 
     def diagnostic(self,value):
         """Retain actual partial bytes/metadata without adopting a saved frame."""

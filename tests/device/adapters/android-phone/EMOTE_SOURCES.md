@@ -232,3 +232,38 @@ ignored/stale native data, foreign provider/context, altered original files,
 failed handoff, elapsed/frozen/backward clocks and candidate/control changes.
 They establish test logic only. No native compilation or device acceptance is
 claimed, and no new complete Phone feature capability is registered.
+
+
+## Bounded pure replay reuse
+
+A measured full-run host profile found repeated validation of identical original
+histories: 1006 frame validations and 13 archive replays in one 43.924-second
+sample. Source decode now reuses only successful pure historical validation for
+an identical header context, revision, manifest references and exact current
+bytes of all three reviewed admission/profile catalogs. The memo belongs to
+that PhaseFixtureReader's lifetime, contains at most 128 digest keys and no
+frames, target facts, input receipts, timestamps or product results. Failed or
+partial replay is never retained. Different readers have separate memos.
+
+Every decode still reopens all manifests and every original file, checks private
+permissions, inode/link ownership, canonical bytes, size and SHA-256, and obtains
+newly parsed graphs. Pending acquisitions and caller bindings are validated on
+every decode. Changed, missing, foreign or malformed originals therefore cannot
+borrow prior validation. Any reviewed catalog byte change invalidates reuse. New
+live acquisitions and all freshness/phase/candidate checks remain mandatory.
+
+Fresh json.loads/unpack graphs no longer undergo an additional redundant
+deepcopy before returning from file read/archive. They are independent by
+construction; mutating one returned archive cannot alter live source state,
+other returned archives or original evidence. Host counterexamples cover these
+aliasing guarantees as well as changed/missing files, failed replay, catalog
+changes, reader separation and bounded eviction. No wire format or timeout is
+changed, and historical replay still supplies no fresh product observation.
+
+The existing compiled QML/production-JS contract check can explicitly select
+`OVERTE_EMOTE_QT_MAJOR=6` for a matching installed Qt6 Core/QuickTest SDK. Its
+default remains Qt5; there is no implicit fallback or skip. It compiles its own
+private temporary runner, uses real Qt mouse/keyboard dispatch on unchanged
+PhoneEmote.qml and forwards the measured ten-button trace to production JS tests.
+Cache/avatar/timer endpoints in that JS contract remain explicit synthetic
+boundaries; this is not an Android client build or physical-device acceptance.
