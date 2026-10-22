@@ -121,5 +121,28 @@ class AvatarRuntimeTests(unittest.TestCase):
         self.assertEqual(BINDING,owner.binding);self.assertEqual(1,owner.state['revision'])
         self.assertTrue(list(self.root.glob('avatar-frame-*.json')))
 
+    def test_peer_factories_bind_each_actual_role_sdk_and_fixed_original_receive_file(self):
+        from adapters.native_avatar_receive import NativeAvatarReceive,FILE,LIMIT
+        from ios.adapters.avatar_peer_sources import IOSAvatarPeerSources
+        calls=[];observer=SimpleNamespace(remote='@org.example.client:documents/private/feature-native-observation.json',
+            send=lambda value:calls.append(value),original=lambda **kwargs:calls.append(kwargs) or '{}')
+        source=dict(observer=observer,native_clock=lambda:20000,binding=BINDING,check=lambda:True,
+            target=dict(testBuild=dict(launchEnvironment=dict(HIFI_METAVERSE_URL='https://controlled.invalid'))))
+        class Runtime(IOSAvatarRuntime):
+            def _sources(_self,_selector):return source
+        runtime=Runtime(self.adapter);receiver=runtime._avatar_receive('target')
+        self.assertIsInstance(receiver,NativeAvatarReceive);self.assertTrue(receiver.ios)
+        self.assertEqual(int(BINDING['processIdentity']),receiver.pid);receiver.original()
+        self.assertEqual(dict(remote=observer.remote.rsplit('/',1)[0]+'/'+FILE,limit=LIMIT),calls[-1])
+        lock=ScriptSourceLock(self.path/'script-feature-sources.lock')
+        with lock.held():
+            for role in ('primary','actor'):
+                owner=runtime._avatar_peer_sources('target',self.client,self.run,role,self.root,lock)
+                self.assertIsInstance(owner,IOSAvatarPeerSources);self.assertEqual(role,owner.role)
+                self.assertEqual('avatar-people',owner.phase.area);self.assertEqual(BINDING,owner.binding)
+                self.assertEqual('ios-avatar-'+role+'-peer-sources.json',owner.store.path.name)
+            source['target']['testBuild']['launchEnvironment']['HIFI_METAVERSE_URL']='https://foreign.invalid'
+            with self.assertRaises(NativeUIError):runtime._avatar_peer_sources('target',self.client,self.run,'actor',self.root,lock)
+
 
 if __name__=='__main__':unittest.main()

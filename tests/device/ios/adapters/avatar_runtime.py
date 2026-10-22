@@ -48,6 +48,22 @@ class IOSAvatarLoginRuntime(IOSAuthenticationRuntime):
 
 
 class IOSAvatarRuntime(IOSScriptRuntime):
+    def _avatar_receive(self,selector):
+        from adapters.native_avatar_receive import NativeAvatarReceive,FILE,LIMIT
+        source=self._sources(selector);observer=source['observer'];remote=observer.remote.rsplit('/',1)[0]+'/'+FILE
+        return NativeAvatarReceive(observer.send,lambda:observer.original(remote=remote,limit=LIMIT),
+            source['native_clock'],source['check'],int(source['binding']['processIdentity']),ios=True)
+
+    def _avatar_peer_sources(self,selector,client,run,role,root,lock):
+        from ios.adapters.avatar_peer_sources import IOSAvatarPeerSources
+        identifier(run);need(isinstance(client,Client) and role in ('primary','actor') and isinstance(lock,ScriptSourceLock))
+        lock.assert_held();need(lock.path==self.state_path(selector).with_name('script-feature-sources.lock'))
+        source=self._sources(selector)
+        need(source['target'].get('testBuild',{}).get('launchEnvironment',{}).get('HIFI_METAVERSE_URL')==origin(client.url))
+        return IOSAvatarPeerSources(PrivateFeatureState(self.state_path(selector).with_name('ios-avatar-'+role+'-peer-sources.json')),
+            root,source['binding'],run,PhaseFixtureReader(client,run,'avatar-people'),lock,source['check'],
+            runtime=self,selector=selector,role=role)
+
     def _avatar_actions(self,selector,sources,peer):
         from ios.adapters.avatar_actions import IOSAvatarActions
         from ios.adapters.avatar_input_owner import AvatarInputOwner
