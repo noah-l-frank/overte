@@ -23,9 +23,32 @@
 #include <functional>
 
 namespace overte::e2e {
+inline QQmlContext* createOriginalFileContext(QQuickItem* item) {
+    if (!qApp || QThread::currentThread()!=qApp->thread() || !item || item->thread()!=qApp->thread()
+            || !QCoreApplication::arguments().contains("--testScript")) {return nullptr;}
+    bool nativeType=false;int types=0;
+    for (auto type=item->metaObject();type && ++types<=128;type=type->superClass()) {
+        if (QRegularExpression("\\ANativeFileBrowser_QMLTYPE_[0-9]+\\z").match(QString::fromLatin1(type->className())).hasMatch()) {nativeType=true;}
+    }
+    auto initial=qmlContext(item);int depth=0;
+    for (auto context=initial;context && ++depth<=128;context=context->parentContext()) {
+        const auto source=context->baseUrl();
+        if (context->thread()!=qApp->thread()) {return nullptr;}
+        const bool original=nativeType && context->nameForObject(item)=="root" && source.path().endsWith("/dialogs/NativeFileBrowser.qml");
+        // The real VR factory loads TabletFileDialog.qml, an original direct
+        // NativeFileBrowser subclass whose root has no nameForObject("root").
+        const bool tablet=context==initial && nativeType && source.path().endsWith("/dialogs/TabletFileDialog.qml");
+        if ((original || tablet) && (source.scheme()=="file" || source.scheme()=="qrc")
+                && source.authority().isEmpty() && !source.hasQuery() && !source.hasFragment()) {return context;}
+    }
+    return nullptr;
+}
 inline QString createOriginalComponent(QQuickItem* item, const QString& suffix) {
     if (!qApp || QThread::currentThread()!=qApp->thread() || !item || item->thread()!=qApp->thread()
             || !QCoreApplication::arguments().contains("--testScript")) { return {}; }
+    if (suffix=="/dialogs/NativeFileBrowser.qml") {
+        const auto context=createOriginalFileContext(item);return context ? context->baseUrl().toString(QUrl::FullyEncoded) : QString();
+    }
     int depth {0};
     for (auto context=qmlContext(item);context && ++depth<=128;context=context->parentContext()) {
         const auto source=context->baseUrl();
@@ -120,8 +143,22 @@ public:
             }
             roots.append(value);
         }
+        _lastComplete=complete;
         return {{"inventoryVersion",1},{"instance",_instance},{"sequence",static_cast<double>(++_sequence)},
             {"complete",complete},{"roots",complete ? roots : QJsonArray()},{"retiredRoots",complete ? retired : QJsonArray()}};
+    }
+    QJsonObject dialogBindings(const std::function<QVariantMap(QQuickItem*)>& original) const {
+        bool complete=qApp && QThread::currentThread()==qApp->thread() && _lastComplete;
+        QJsonArray bindings;
+        auto tracked=_known.values();std::sort(tracked.begin(),tracked.end(),[](const Tracked& a,const Tracked& b){return a.id<b.id;});
+        for (const auto& row:tracked) {
+            if (row.profile=="create-editor-v1") {continue;}
+            const auto binding=complete && original && row.item ? original(row.item) : QVariantMap();
+            if (binding.isEmpty()) {complete=false;break;}
+            bindings.append(QJsonObject{{"uiRootId",row.id},{"native",QJsonObject::fromVariantMap(binding)}});
+        }
+        return {{"bindingVersion",1},{"inventoryInstance",_instance},{"inventorySequence",static_cast<double>(_sequence)},
+            {"complete",complete},{"bindings",complete ? bindings : QJsonArray()}};
     }
     QString identity(QQuickItem* item) const {
         const auto row=_known.value(item);return row.item==item ? row.id : QString();
@@ -145,6 +182,7 @@ private:
     int _windowGenerations {0};
     const QString _instance {QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-')};
     quint64 _sequence {0};
+    bool _lastComplete {false};
 };
 inline CreateUiInventory& createUiInventory() { static CreateUiInventory source;return source; }
 

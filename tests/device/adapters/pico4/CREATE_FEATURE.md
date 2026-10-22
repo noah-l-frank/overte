@@ -86,7 +86,10 @@ The next executable source work is:
   and original weak Qt roots. The separate
   [original native Script callback source](CREATE_CALLBACK_SOURCE.md) observes
   actual connections and in-flight dispatches. Compose these with the full
-  feature, actual domain effects and native ModalDialog delivery sources. Script
+  feature and actual domain effects. The
+  [original dialog delivery/context source](CREATE_DIALOG_SOURCE.md) now joins
+  actual native listener delivery to original UI roots; the durable cancel/import
+  owner is the next composition. Script
   file roots and picker identities must remain distinct. Observe cancel and
   accept through their original retained callbacks and a quiet absence window.
 - Compose normal Domain/New Model/Properties input with actual selected UUID,

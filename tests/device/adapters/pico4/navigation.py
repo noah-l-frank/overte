@@ -104,6 +104,13 @@ def validate_snapshot(value, process_id, epoch_ms):
         fields|={'createFileControlsVersion','createUiInventory'}
         need(type(value['createFileControlsVersion']) is int and value['createFileControlsVersion']==1)
         create_inventory(value['createUiInventory'])
+    if type(value) is dict and 'createDialogBindingsVersion' in value:
+        from adapters.pico4.create_dialogs import ui_bindings
+        fields|={'createDialogBindingsVersion','createDialogBindings'}
+        need(type(value['createDialogBindingsVersion']) is int and value['createDialogBindingsVersion']==1
+             and value.get('createFileControlsVersion')==1)
+        ui_bindings(value['createDialogBindings'],value['createUiInventory'])
+        need(not value.get('ready') or value['createDialogBindings']['complete'])
     if type(value) is dict and 'loginControlsVersion' in value:
         fields.add('loginControlsVersion')
         need(type(value['loginControlsVersion']) is int and value['loginControlsVersion']==LOGIN_VERSION)

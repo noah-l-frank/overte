@@ -26,6 +26,9 @@
 
 #include "ui/OffscreenQmlSurface.h"
 #include "OffscreenQmlElement.h"
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+#include "../../../tests/device/native/PicoCreateDialogs.h"
+#endif
 
 class VrMenu;
 
@@ -37,6 +40,9 @@ class ModalDialogListener : public QObject {
 
 public:
     QQuickItem* getDialogItem() { return _dialog; };
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+    overte::e2e::CreateDialogs::Ticket featureCreateDialogTicket() const {return _featureCreateDialogTicket;}
+#endif
 
 protected:
     ModalDialogListener(QQuickItem* dialog);
@@ -51,6 +57,9 @@ protected slots:
     virtual void onDestroyed();
 
 protected:
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+    overte::e2e::CreateDialogs::Ticket _featureCreateDialogTicket;
+#endif
     QPointer<QQuickItem> _dialog;
     bool _finished { false };
     QVariant _result;
@@ -62,6 +71,10 @@ class OffscreenUi : public OffscreenQmlSurface, public Dependency {
     friend class VrMenu;
 public:
     OffscreenUi();
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+    QVariantMap featureCreateDialogs() {return _featureCreateDialogs->snapshot();}
+    QVariantMap featureCreateDialogIdentity(QQuickItem* root) const {return _featureCreateDialogs->rootIdentity(root);}
+#endif
     void createDesktop(const QUrl& url);
     void show(const QUrl& url, const QString& name, std::function<void(QQmlContext*, QObject*)> f = [](QQmlContext*, QObject*) {});
     void hide(const QString& name);
@@ -271,6 +284,9 @@ private:
     QQuickItem* _desktop { nullptr };
     void registerModalDialog(ModalDialogListener* listener);
     QList<QObject*> _modalDialogListeners;
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+    std::shared_ptr<overte::e2e::CreateDialogs> _featureCreateDialogs {std::make_shared<overte::e2e::CreateDialogs>()};
+#endif
     std::unordered_map<int, bool> _pressedKeys;
     VrMenu* _vrMenu { nullptr };
     QQueue<std::function<void(VrMenu*)>> _queuedMenuInitializers;

@@ -1,7 +1,8 @@
 # Original Pico Create Import and Save controls v1
 
 This source component binds the real `NativeFileBrowser.qml` Import and Save
-dialogs to the existing Pico native pointer/IME route. Feature 4/14 remains
+dialogs, including the real `TabletFileDialog.qml` subclass, to the existing
+Pico native pointer/IME route. Feature 4/14 remains
 partial. The full feature coordinator, independent domain/peer/stereo effects,
 native Script/ModalDialog callback joins, model/texture/PolyVox and rez recovery
 are still unfinished. No complete Create capability is advertised.
@@ -9,9 +10,13 @@ are still unfinished. No complete Create capability is advertised.
 The Pico NavigationUi adds the explicit `createFileControlsVersion: 1`,
 `createUiInventory` and distinct `create-file.page`, `.folder`, `.name`,
 `.accept`, `.cancel` controls. It identifies only original local/qrc
-`dialogs/NativeFileBrowser.qml` roots, with the actual `Select .json to Import`
+`dialogs/NativeFileBrowser.qml` roots or the actual original
+`dialogs/TabletFileDialog.qml` wrapper, with the actual `Select .json to Import`
 or `Select Where to Save` caption, `*.json` filter, single-file mode and matching
 Save flag. Script bundle roots keep their original separate admission.
+Both routes require the actual original `NativeFileBrowser_QMLTYPE_N` base type.
+The original wrapper has no `nameForObject(root)` identity; its real resolved
+wrapper URL is preserved rather than inventing a base-component URL or QML name.
 An unknown browser matching the Create captions makes the inventory incomplete;
 it cannot establish empty resources or grant input.
 
@@ -76,7 +81,7 @@ test, and no actual Clipboard export, domain entity or device is claimed.
 
 Pico's catalog adds `create-file-ui` (pure Python), `create-file-native-ui`
 (isolated Qt) and `create-original-files` (isolated Qt Core). The local risk
-inventory has 56 cases after the separate callback-source continuation; all
+inventory has 57 cases after the separate callback/dialog-source continuation; all
 three picker/storage cases map to `tablet-and-create-ui`. These are
 test cases, not completed feature areas. Select them explicitly rather than
 running unrelated full catalogs. The complete application, OpenXR rendering and

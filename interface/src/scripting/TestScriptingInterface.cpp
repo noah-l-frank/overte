@@ -1076,6 +1076,26 @@ QVariantMap TestScriptingInterface::featureCreateFiles(const QVariantMap& comman
 #endif
 
 #if defined(ANDROID_APP_PICO_INTERFACE)
+QVariantMap TestScriptingInterface::featureCreateDialogs(const QString& requestId) {
+    if (QThread::currentThread()!=thread()) {
+        if (!thread() || !thread()->isRunning()) {return {};}
+        QVariantMap result;
+        QMetaObject::invokeMethod(this,[&]{result=featureCreateDialogs(requestId);},Qt::BlockingQueuedConnection);return result;
+    }
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript")
+            || !QRegularExpression("\\A[0-9a-f]{32}\\z").match(requestId).hasMatch()) {return {};}
+    if (_featureCreateDialogsResults.contains(requestId)) {return _featureCreateDialogsResults.value(requestId);}
+    if (_featureCreateDialogsResults.size()>=512 || _featureCreateDialogsSequence>=9007199254740991ULL
+            || !DependencyManager::isSet<OffscreenUi>()) {return {};}
+    const auto requested=QDateTime::currentMSecsSinceEpoch();
+    const auto source=DependencyManager::get<OffscreenUi>()->featureCreateDialogs();if (source.isEmpty()) {return {};}
+    const QVariantMap result{{"schemaVersion",1},{"requestId",requestId},{"instance",_featureObservationInstance},
+        {"sequence",static_cast<qulonglong>(++_featureCreateDialogsSequence)},{"requestedEpochMs",requested},
+        {"capturedEpochMs",QDateTime::currentMSecsSinceEpoch()},{"processId",QCoreApplication::applicationPid()},{"source",source}};
+    _featureCreateDialogsResults.insert(requestId,result);return result;
+}
+
 QVariantMap TestScriptingInterface::featureCreateCallbacks(const QString& requestId) {
     if (QThread::currentThread()!=thread()) {
         if (!thread() || !thread()->isRunning()) { return {}; }
@@ -1439,7 +1459,8 @@ void TestScriptingInterface::saveObject(QVariant variant, const QString& filenam
             || filename == "recorded-preview-observation.json" || filename == "feature-script-observation.json"
             || filename == "feature-script-roots.json"
             || filename == "feature-animation-inventory.json"
-            || filename == "feature-script-files.json" || filename == "feature-create-files.json" || filename == "feature-create-callbacks.json" || filename == "world-render-observation.json"
+            || filename == "feature-script-files.json" || filename == "feature-create-files.json" || filename == "feature-create-callbacks.json"
+            || filename == "feature-create-dialogs.json" || filename == "world-render-observation.json"
             || filename == "world-render-receipt-result.json" || filename == "world-render-receipts-result.json"
             || QRegularExpression("\\Aworld-render-storage-[0-9a-f]{32}\\.json\\z").match(filename).hasMatch()) {
         if (!QCoreApplication::arguments().contains("--testScript") || QFileInfo(filepath).isSymLink()) { return; }

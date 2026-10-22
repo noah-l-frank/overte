@@ -155,6 +155,7 @@
     var lastScriptFilesRequest = "";
     var lastCreateFilesRequest = "";
     var lastCreateCallbacksRequest = "";
+    var lastCreateDialogsRequest = "";
     function saveScriptSourceObservation(requestId) {
         var value = {schemaVersion: 1, requestId: requestId, available: false};
         try {
@@ -1543,6 +1544,20 @@
             }
             return;
         }
+        if (command && command.schemaVersion === 1 && command.action === "feature-create-dialogs-observe"
+                && typeof command.commandId === "string" && /^[0-9a-f]{32}$/.test(command.commandId)
+                && objectKeysMatch(command, ["schemaVersion", "commandId", "action"])) {
+            if (command.commandId === lastCreateDialogsRequest) {return;}
+            lastCreateDialogsRequest = command.commandId;
+            var createDialogs = {schemaVersion: 1, requestId: command.commandId, available: false};
+            try {
+                if (typeof Test.featureCreateDialogs === "function") {
+                    var originalCreateDialogs = Test.featureCreateDialogs(command.commandId);
+                    if (originalCreateDialogs && originalCreateDialogs.requestId === command.commandId) {createDialogs = originalCreateDialogs;}
+                }
+            } catch (_createDialogError) { /* Original native modal ownership remains unavailable. */ }
+            Test.saveObject(createDialogs, "feature-create-dialogs.json");return;
+        }
         if (command && command.schemaVersion === 1 && command.action === "feature-create-callbacks-observe"
                 && typeof command.commandId === "string" && /^[0-9a-f]{32}$/.test(command.commandId)
                 && objectKeysMatch(command, ["schemaVersion", "commandId", "action"])) {
@@ -1862,6 +1877,7 @@
                 || command.action === "feature-script-roots-observe"
                 || command.action === "feature-animation-inventory-observe"
                 || command.action === "feature-create-callbacks-observe"
+                || command.action === "feature-create-dialogs-observe"
                 || command.action === "feature-world-render-observe"
                 || command.action === "feature-graphics-subject-observe"
                 || command.action === "feature-scene-load-observe"

@@ -387,7 +387,13 @@ void WindowScriptingInterface::browseAsync(const QString& title, const QString& 
     path = fixupPathForMac(directory);
 #endif
     ModalDialogListener* dlg = OffscreenUi::getOpenFileNameAsync(nullptr, title, path, nameFilter);
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+    const auto featureCreateTicket=dlg ? dlg->featureCreateDialogTicket() : overte::e2e::CreateDialogs::Ticket();
+#endif
     connect(dlg, &ModalDialogListener::response, this, [=, this] (QVariant response) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+        const auto featureCreateDelivery=featureCreateTicket.dispatch();
+#endif
         const QString& result = response.toString();
         disconnect(dlg, &ModalDialogListener::response, this, nullptr);
         if (!result.isEmpty()) {
@@ -435,7 +441,13 @@ void WindowScriptingInterface::saveAsync(const QString& title, const QString& di
     path = fixupPathForMac(directory);
 #endif
     ModalDialogListener* dlg = OffscreenUi::getSaveFileNameAsync(nullptr, title, path, nameFilter);
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+    const auto featureCreateTicket=dlg ? dlg->featureCreateDialogTicket() : overte::e2e::CreateDialogs::Ticket();
+#endif
     connect(dlg, &ModalDialogListener::response, this, [=, this] (QVariant response) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+        const auto featureCreateDelivery=featureCreateTicket.dispatch();
+#endif
         const QString& result = response.toString();
         disconnect(dlg, &ModalDialogListener::response, this, nullptr);
         if (!result.isEmpty()) {

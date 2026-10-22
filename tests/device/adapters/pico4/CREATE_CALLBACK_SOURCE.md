@@ -3,8 +3,9 @@
 Feature 4/14 remains partial. This read-only source separately measures the real
 Window-to-Script callback boundary needed by Import/Save. It does not infer
 callback retirement from a missing picker, restore settings or advertise a
-complete Create capability. Native modal/listener delivery, QML context lifetime
-and the complete domain/render/actor joins remain necessary.
+complete Create capability. Native modal/listener delivery and QML context lifetime
+are separately available from the [original dialog source](CREATE_DIALOG_SOURCE.md).
+The complete owner and domain/render/actor joins remain necessary.
 
 The dedicated `OVERTE_E2E_FEATURE_TESTS` build and `--testScript` gate records
 only actual `WindowScriptingInterface` `browseChanged(QString)` and

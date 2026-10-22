@@ -30,6 +30,7 @@
 #include <AudioClient.h>
 #include <AccountManager.h>
 #include <Application.h>
+#include <OffscreenUi.h>
 #include <scripting/RenderScriptingInterface.h>
 #endif
 
@@ -162,6 +163,14 @@ QJsonObject NavigationUi::observe(QQuickItem* root, QQuickWindow* window, bool o
     overte::e2e::graphicsUiInventory().observe(root,window);
     overte::e2e::ensureTabletHttpProvider(root);
     const auto createInventory=overte::e2e::createUiInventory().observe(root,window);
+    std::function<QVariantMap(QQuickItem*)> createDialogIdentity;
+#if defined(ANDROID_APP_PICO_INTERFACE)
+    if (DependencyManager::isSet<OffscreenUi>()) {
+        const auto original=DependencyManager::get<OffscreenUi>();
+        createDialogIdentity=[original](QQuickItem* item){return original->featureCreateDialogIdentity(item);};
+    }
+#endif
+    const auto createBindings=overte::e2e::createUiInventory().dialogBindings(createDialogIdentity);
 #endif
     if (_root != root || _window != window || _open != open) {
         _generation = token();
@@ -303,7 +312,7 @@ QJsonObject NavigationUi::observe(QQuickItem* root, QQuickWindow* window, bool o
     }
 #endif
 #if defined(OVERTE_E2E_FEATURE_TESTS)
-    ready=ready && createInventory.value("complete").toBool();
+    ready=ready && createInventory.value("complete").toBool() && createBindings.value("complete").toBool();
 #endif
     if (ambiguous || !ready || controls.size() > 384) { controls.clear(); ready = false; }
     _controls = controls;
@@ -361,6 +370,7 @@ QJsonObject NavigationUi::observe(QQuickItem* root, QQuickWindow* window, bool o
     result["featureControlsVersion"] = 1;
     result["createFileControlsVersion"]=1;
     result["createUiInventory"]=createInventory;
+    result["createDialogBindingsVersion"]=1;result["createDialogBindings"]=createBindings;
     result["createControlsVersion"] = 1;
     result["chatControlsVersion"] = 2;
     result["emoteControlsVersion"] = 2;
