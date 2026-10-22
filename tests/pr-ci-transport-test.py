@@ -69,6 +69,21 @@ class NativeTests(unittest.TestCase):
         return T.validate_run(run() if value is None else value, c, workflow_id=456,
             controller=c["controller"], execution_event="pull_request")
 
+    def test_protected_source_job_cannot_execute_in_an_ordinary_worker(self):
+        owners={name:False for name in (*T.LABELS,"npm","codeql")}
+        owners["policy"]=True
+        rows=jobs(owners)
+        extra={"id":2001,"run_id":123,"run_attempt":1,"head_sha":context()["head"],
+               "name":"Source policy not applicable","status":"completed","conclusion":"skipped","steps":[]}
+        rows.append(extra)
+        T.validate_jobs(rows,owners,context=context())
+        extra["conclusion"]="success"
+        with self.assertRaises(T.TransportError):
+            T.validate_jobs(rows,owners,context=context())
+        extra.update(name="source-policy",conclusion="skipped")
+        with self.assertRaises(T.TransportError):
+            T.validate_jobs(rows,owners,context=context())
+
     def test_head_is_pr_head_not_synthetic_merge_and_lifecycle_may_run(self):
         self.assertEqual(self.verify_run()["head_sha"], context()["head"])
         c = context(); c["original_merge"] = "7" * 40

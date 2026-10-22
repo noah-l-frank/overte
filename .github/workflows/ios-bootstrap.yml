@@ -60,63 +60,6 @@ on:
         description: Durable audited Qt 6 iOS artifact namespace for an E2E producer
         required: false
         type: string
-  push:
-    branches:
-      - apple-ios
-    paths:
-      - 'CMakeLists.txt'
-      - '.github/workflows/ios-bootstrap.yml'
-      - '.github/workflows/ios-fedora-e2e-producer.yml'
-      - '.github/workflows/ios-integrated.yml'
-      - '.github/workflows/ios-personal-team-e2e-kit.yml'
-      - 'cmake/QtCompat.cmake'
-      - 'cmake/init.cmake'
-      - 'cmake/compiler.cmake'
-      - 'cmake/macros/SetupHifiLibrary.cmake'
-      - 'cmake/macros/SetupHifiProject.cmake'
-      - 'cmake/macros/SetupHifiTestCase.cmake'
-      - 'cmake/macros/TargetV8.cmake'
-      - 'cmake/macros/TargetVulkan.cmake'
-      - 'cmake/modules/FindMoltenVK.cmake'
-      - 'interface/CMakeLists.txt'
-      - 'interface/resources/qml/**'
-      - 'interface/src/IOSTouchUiMetrics.*'
-      - 'interface/src/AboutUtil.cpp'
-      - 'interface/src/main.cpp'
-      - 'libraries/script-engine/src/v8/ScriptEngineV8.cpp'
-      - 'libraries/shared/src/shared/FileUtils.cpp'
-      - 'libraries/ui/src/**'
-      - 'libraries/vk/**'
-      - 'ios/**'
-      - '!**/*.md'
-  pull_request:
-    paths:
-      - 'CMakeLists.txt'
-      - '.github/workflows/ios-bootstrap.yml'
-      - '.github/workflows/ios-fedora-e2e-producer.yml'
-      - '.github/workflows/ios-integrated.yml'
-      - '.github/workflows/ios-personal-team-e2e-kit.yml'
-      - 'cmake/QtCompat.cmake'
-      - 'cmake/init.cmake'
-      - 'cmake/compiler.cmake'
-      - 'cmake/macros/SetupHifiLibrary.cmake'
-      - 'cmake/macros/SetupHifiProject.cmake'
-      - 'cmake/macros/SetupHifiTestCase.cmake'
-      - 'cmake/macros/TargetV8.cmake'
-      - 'cmake/macros/TargetVulkan.cmake'
-      - 'cmake/modules/FindMoltenVK.cmake'
-      - 'interface/CMakeLists.txt'
-      - 'interface/resources/qml/**'
-      - 'interface/src/IOSTouchUiMetrics.*'
-      - 'interface/src/AboutUtil.cpp'
-      - 'interface/src/main.cpp'
-      - 'libraries/script-engine/src/v8/ScriptEngineV8.cpp'
-      - 'libraries/shared/src/shared/FileUtils.cpp'
-      - 'libraries/ui/src/**'
-      - 'libraries/vk/**'
-      - 'ios/**'
-      - '!**/*.md'
-
 permissions:
   contents: read
 
