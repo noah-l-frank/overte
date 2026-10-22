@@ -739,3 +739,17 @@ The original prestarted passive handoff binding, fixed application identity,
 original token/generation/sequence/path, five-second call deadline and native
 lease deadline remain mandatory. Save/Share effects require independent current
 file, destination or consuming-APK originals; the input receipt adds no effects.
+
+Snapshot cleanup has two distinct original owners. Before fixture closure, the
+normal animated Capture/FastCancel recipe must cause the actual owned story
+DELETE and its current absence; native upload jobs, replies, file descriptors,
+multipart bodies and callbacks must already be retired. The HTTPS fixture keeps
+its immutable received image and multipart inode until the original Client
+closes the run. Its unchanged `uploads` count may therefore remain one while
+`stories` is zero. A retired live product scope may publish zero uploads only
+after actual settings/file/OS/consumer retirement and fresh story absence; held
+requests, missing DELETE or live native jobs still fail. After actual fixture
+closure, strict finalization additionally requires the independent provider's
+fresh `active=false`, zero uploads/stories/inflight, retired request rows and
+its passive real body/sidecar absence checks. No retained raw history is erased
+or relabeled to implement the live public projection.

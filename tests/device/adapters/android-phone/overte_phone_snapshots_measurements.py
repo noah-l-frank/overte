@@ -194,6 +194,16 @@ def document(readbacks,provider,binding,acquisition,captured,phone_uid,resolutio
     return deepcopy(actual)
 
 
+def provider_quiet(value,*,run,epoch,closed=False):
+    """Actual story absence; retained wire/image ownership ends at fixture close."""
+    provider_source(value,run,value['requestId'],epoch)
+    need(value['stories']==0 and value['inflight']==0 and not value['held'])
+    if closed:need(value['active'] is False)
+    if not value['active']:
+        need(value['uploads']==0 and all(row['state']=='retired' for row in value['requests']))
+    return value
+
+
 def retired(group,native_files,actual_inventory,readbacks,upload,settings,*,run,epoch,consumer=None,consumer_binding=None,documents=None,documents_binding=None):
     """Fresh current absence permits an empty *live scope*, never raw erasure."""
     vm_source(group,run=run,pid=group['snapshot']['processId'],epoch=epoch)
@@ -319,6 +329,7 @@ def state(frame,baseline,*,run,pid,epoch):
     settings=frame['settings']
     if settings is not None and settings['source']['retired']:
         need(primary and not save_sheet and not share_sheet)
+        provider_quiet(provider,run=run,epoch=epoch)
         retired(group,files,frame['inventory'],readbacks,upload,settings,run=run,epoch=epoch,
             consumer=frame['consumer'],consumer_binding=frame['consumerBinding'],documents=frame['documents'],documents_binding=frame['documentsBinding'])
         result=dict(open=False,pending=False,captureHistory=[],files=0,saved=0,uploads=0,shares=0,

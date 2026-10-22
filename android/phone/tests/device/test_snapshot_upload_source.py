@@ -15,6 +15,7 @@ import test_snapshot_upload_service as service_tests
 from adapters.normal_ui import NativeUIError
 from overte_phone_snapshot_upload_source import PhoneSnapshotUploadSource,command,source,continuity,require_retired
 from overte_phone_snapshot_upload_fixture import join
+from overte_phone_snapshots_measurements import provider_quiet
 
 JOB='1'*32;RUN='2'*32;PATH='/data/user/0/io.github.noah_be.overte.phone/files/Snapshots/original.png'
 
@@ -47,6 +48,26 @@ class SnapshotUploadSourceTests(unittest.TestCase):
         self.request('/api/v1/user_stories?'+query)
         image=self.upload()[1]['data'];self.story(image);provider=self.status();return native(provider),provider
     def joined(self,native,provider,success=True):return join(native,provider,JOB,ticket=service_tests.TICKET,image_bytes=len(service_tests.png()),image_sha256=hashlib.sha256(service_tests.png()).hexdigest(),path=PATH,success=success)
+    def test_actual_story_delete_precedes_live_cleanup_while_original_wire_image_is_retained(self):
+        observed,provider=self.complete();proof=self.joined(observed,provider)
+        with self.assertRaises(NativeUIError):provider_quiet(provider,run=self.run,epoch=provider['capturedEpochMs'])
+        # This host fixture test drives a real TLS DELETE directly. The Phone
+        # facade must cause this same request through normal animatedCapture.
+        self.assertEqual(200,self.request('/api/v1/user_stories/'+str(proof['storyId']),token=self.token,method='DELETE')[0])
+        provider=self.status();provider_quiet(provider,run=self.run,epoch=provider['capturedEpochMs'])
+        self.assertEqual(1,provider['uploads']);self.assertEqual(0,provider['stories']);require_retired(observed)
+        with self.assertRaises(NativeUIError):provider_quiet(provider,run=self.run,epoch=provider['capturedEpochMs'],closed=True)
+        self.service.retire(self.run);provider=self.status()
+        provider_quiet(provider,run=self.run,epoch=provider['capturedEpochMs'],closed=True)
+        for fault in ('missing','held','stale','still-active'):
+            changed=deepcopy(provider)
+            if fault=='missing':changed.pop('requests')
+            elif fault=='held':changed['held']=True
+            elif fault=='stale':changed['capturedEpochMs']-=2000
+            else:changed['active']=True
+            with self.subTest(fault=fault),self.assertRaises((NativeUIError,KeyError)):
+                provider_quiet(changed,run=self.run,epoch=provider['capturedEpochMs'],closed=True)
+
     def test_original_native_file_and_both_real_tls_receipts_join_without_expected_ids(self):
         observed,provider=self.complete();proof=self.joined(observed,provider);self.assertIsInstance(proof['storyId'],int);self.assertEqual(2,len(proof['requests']));require_retired(observed)
         for field in ('fileAlive','multipartAlive','uploaderAlive'):

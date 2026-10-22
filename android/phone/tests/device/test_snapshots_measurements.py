@@ -216,6 +216,17 @@ class SnapshotsMeasurementsTests(unittest.TestCase):
         frame['settings']=None
         with self.assertRaises(NativeUIError):state(frame,before,run=RUN,pid=31,epoch=20000)
 
+    def test_live_history_cannot_retire_before_actual_story_delete_and_native_http_quiescence(self):
+        group,files,actual,readbacks,upload,settings=self.retirement();before,_,_,_=completed()
+        frame=public_frame(group,files,[],readbacks);frame.update(inventory=actual,upload=upload,settings=settings)
+        frame['provider']['uploads']=1 # Immutable real wire image may remain until Client.close.
+        self.assertEqual([],state(frame,before,run=RUN,pid=31,epoch=20000)['captureHistory'])
+        for field,value in (('stories',1),('inflight',1),('held',True)):
+            changed=deepcopy(frame);changed['provider'][field]=value
+            with self.subTest(field=field),self.assertRaises(NativeUIError):state(changed,before,run=RUN,pid=31,epoch=20000)
+        changed=deepcopy(frame);changed['provider']['capturedEpochMs']=18000
+        with self.assertRaises(NativeUIError):state(changed,before,run=RUN,pid=31,epoch=20000)
+
     def documents_frame(self):
         from test_snapshot_documents import Boundary as Documents,DOC
         from test_snapshot_documents_ui import Boundary as DocumentsUI
