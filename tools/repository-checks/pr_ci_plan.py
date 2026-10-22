@@ -35,6 +35,7 @@ _NATIVE = _load("central_pr_native_selection", "tools/native-tests/check.py")
 _PACKAGES = _load("central_pr_package_selection", "tools/repository-checks/package_checks.py")
 _CODEQL = _load("central_pr_codeql_selection", "tools/repository-checks/codeql.py")
 _TOOLS = _load("central_pr_tool_dependencies", "tools/repository-checks/tool_dependencies.py")
+_ANDROID_NATIVE = _load("central_android_native_inputs", "tools/repository-checks/pr_ci_android_preflight.py")
 # package_checks.select uses this same protected helper. Cache that code at
 # import time so planning itself does not read files or load another module.
 _PACKAGES.tools = lambda: _TOOLS
@@ -48,7 +49,7 @@ ACTIVE_REGISTRY = ".github/pr-ci-suites.json"
 ACTIVE_DEPENDENCIES = ".github/pr-ci-dependencies.json"
 RUNTIME_INPUTS = (".github/attested-runtime.json", ".github/ci37-runtime.json",
                   "tests/requirements-host.txt", ".tool-versions", ".github/pr-ci-platforms.json",
-                  ".github/pr-ci-platform-inputs.json")
+                  ".github/pr-ci-platform-inputs.json", ".github/pr-ci-android-native.json")
 _BROWSER_SUFFIXES = frozenset({".js", ".mjs", ".cjs", ".jsx", ".ts", ".tsx",
     ".mts", ".cts", ".html", ".css", ".scss", ".sass", ".vue", ".svelte",
     ".json", ".svg", ".png", ".jpg", ".jpeg", ".webp", ".wasm", ".glb"})
@@ -100,6 +101,21 @@ def _read_json(tree, path, read_blob):
         return json.loads(raw, object_pairs_hook=_INPUTS._unique_object)
     except (KeyError, OSError, UnicodeError, json.JSONDecodeError, _INPUTS.InputError) as error:
         raise PlanError("cannot read trusted policy: " + path) from error
+
+
+def _android_groovy_required(paths, regular, target, trusted_tree, read_blob):
+    if target != 'android-vr-pico' or not paths:
+        return False
+    value = _read_json(trusted_tree, '.github/pr-ci-platform-inputs.json', read_blob)
+    if type(value) is not dict or value.get('schema') != 2 or type(value.get('infrastructure')) is not list:
+        raise PlanError('invalid protected Android infrastructure closures')
+    matches = [item for item in value['infrastructure'] if type(item) is dict
+               and item.get('name') == 'pico-native-ci-inputs']
+    if (len(matches) != 1 or matches[0].get('targets') != ['android-vr-pico']
+            or type(matches[0].get('inputs')) is not list
+            or not all(type(path) is str for path in matches[0]['inputs'])):
+        raise PlanError('missing owning Pico Groovy input closure')
+    return not regular or bool(set(paths) & set(matches[0]['inputs']))
 
 
 def _blob(entry, read_blob):
@@ -576,7 +592,11 @@ def plan(base_tree, candidate_tree, trusted_tree, *, read_blob, target="main"):
                 selected.append(name)
     android, ios = _platform_inputs(paths, native["mode"], target)
     android_compile = _android_compile_products(paths, base_tree, candidate_tree, target)
-    android = android or bool(android_compile)
+    android_native = ([{"android-main": "common", "android-vr": "common",
+                        "android-phone": "phone", "android-vr-pico": "pico"}[target]]
+                      if _ANDROID_NATIVE.classify(paths, target=target)["native_qualification_required"] else [])
+    android = android or bool(android_compile) or bool(android_native)
+    android_groovy = android and _android_groovy_required(paths, regular, target, trusted_tree, read_blob)
     ios_build = ios and (native["mode"] != "skip" or any(
         (path.startswith("ios/") and not path.startswith(("ios/tests/", "ios/release-check/"))
          and not path.endswith(".md"))
@@ -652,7 +672,8 @@ def plan(base_tree, candidate_tree, trusted_tree, *, read_blob, target="main"):
             _rows(candidate_tree), ["codeql"], environment="codeql")
     if android:
         add("platform:android", "android", ["platform-validation", target,
-                *[argument for product in android_compile for argument in ("--compile-product", product)]],
+                *[argument for product in android_compile for argument in ("--compile-product", product)],
+                *[argument for product in android_native for argument in ("--native-product", product)]],
             _rows(candidate_tree), ["host-full"], environment=target, target_scoped=True)
     if ios:
         add("platform:ios", "ios", ["platform-validation", target],
@@ -664,7 +685,9 @@ def plan(base_tree, candidate_tree, trusted_tree, *, read_blob, target="main"):
             "dependency_profiles": {"pillow13": pillow, "vite": vite_profiles},
             "native": native, "codeql_languages": security["languages"],
             "codeql_reasons": security["reasons"], "browser_required": browser,
-            "android_required": android, "android_compile_products": android_compile, "ios_required": ios, "ios_build_required": ios_build,
+            "android_required": android, "android_compile_products": android_compile,
+            "android_groovy_contracts": android_groovy,
+            "android_native_products": android_native, "ios_required": ios, "ios_build_required": ios_build,
             "tasks": list(tasks.values()),
             "setup": sorted({item for task in tasks.values() for item in task["setup"]}),
             "input_identity": {"base": _digest(_rows(base_tree)),

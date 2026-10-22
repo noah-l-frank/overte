@@ -5,77 +5,19 @@ Copyright 2020-2022 Overte e.V.
 SPDX-License-Identifier: Apache-2.0
 -->
 
-# Build macOS
+# Historical macOS desktop build guide
 
-*Last Updated on September 8, 2022*
+macOS desktop is not an active product target of this personal hobby fork.
+Its former platform branch is retired; shared Linux and Windows development
+belongs to `main`. See the [current branch hierarchy](docs/BRANCH_WORKFLOW.md)
+and [product roadmap](docs/ROADMAP.md).
 
-Please read the [general build guide](BUILD.md) for information on dependencies required for all platforms. This will include the necessary environment variables to customize your build. Only macOS specific instructions are found in this document.
+The inherited 2022 instructions, including Python 3.6 and macOS SDK 10.12,
+are preserved in the [historical build guide](https://github.com/noah-l-frank/overte/blob/b5f48d2a842a5cc1655ceb2f69a46bf3c4030429/BUILD_OSX.md).
+They are not current prerequisites or a qualified build procedure for this fork.
 
-## Prerequisites
-
-### CMake, OpenSSL, and NPM
-
-[Homebrew](https://brew.sh/) is an excellent package manager for macOS. It makes the installation of some Overte dependencies very simple.
-
-```bash
-brew install cmake openssl npm
-```
-
-**Note:** You can also download alternative CMake versions from [Github](https://github.com/Kitware/CMake/releases) if needed.
-
-### Python 3
-
-Download an install Python 3.6.6 or higher from [here](https://www.python.org/downloads/).
-Execute the `Update Shell Profile.command` script that is provided with the installer.
-
-### macOS SDK
-
-You will need version `10.12` of the macOS SDK for building, otherwise you may experience crashing or other unintended issues due to the deprecation of OpenGL on macOS. You can get that SDK from [here](https://github.com/phracker/MacOSX-SDKs). You must copy it in to your Xcode SDK directory, e.g.
-
-```bash
-cp -rp ~/Downloads/MacOSX10.12.sdk /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/
-```
-
-### OpenSSL
-
-Assuming you've installed OpenSSL using the homebrew instructions above, you'll need to set `OPENSSL_ROOT_DIR` so CMake can find your installations.
-For OpenSSL installed via homebrew, set `OPENSSL_ROOT_DIR` via `export OPENSSL_ROOT_DIR=/usr/local/opt/openssl` or by appending `-DOPENSSL_ROOT_DIR=/usr/local/opt/openssl` to `cmake`.
-
-## Generate and Build
-
-You can choose to use either Unix Makefiles or Xcode.
-
-### Xcode
-
-You can ask CMake to generate Xcode project files instead of Unix Makefiles using the `-G Xcode` parameter after CMake. You will need to select the Xcode installation in the terminal first if you have not done so already.
-
-```bash
-sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer
-
-cmake ../ -DCMAKE_OSX_SYSROOT="/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.12.sdk" -DCMAKE_OSX_DEPLOYMENT_TARGET=10.12 -DOPENSSL_ROOT_DIR=/usr/local/opt/openssl -G Xcode -DOSX_SDK=10.12  ..
-```
-
-After running CMake, you will have the make files or Xcode project file necessary to build all of the components. Open the `overte.xcodeproj` file, choose `ALL_BUILD` from the Product > Scheme menu (or target drop down), and click Run.
-
-If the build completes successfully, you will have built targets for all components located in the `build/${target_name}/Debug` directories.
-
-### make
-
-Run CMake.
-
-```bash
-cmake -DCMAKE_OSX_SYSROOT="/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.12.sdk" -DCMAKE_OSX_DEPLOYMENT_TARGET=10.12 -DOPENSSL_ROOT_DIR=/usr/local/opt/openssl -DOSX_SDK=10.12  ..
-```
-
-You can append `-j4` to assign more threads to build with. The number indicates the number of threads, e.g. 4.
-
-To package the installation, you can simply run `make package` afterwards.
-
-## FAQ
-
-1. **Problem:** Running the scheme `interface.app` from Xcode causes a crash for Interface related to `libgl`.
-    1. **Cause:** The target `gl` generates a binary called `libgl`. A macOS `libGL.framework` item gets loaded instead by Xcode.
-    2. **Solution:** In the Xcode target settings for `libgl`, set the version to `1.0.0`.
-2. **Problem:** CMake complains about Python 3 being missing.
-    1. **Cause:** CMake might be out of date.
-    2. **Solution:** Try updating your CMake binary with command `brew upgrade cmake`, or by downloading and running a newer CMake installer, depending on how you originally installed CMake. Please keep in mind the recommended CMake versions noted above.
+For **iPhone/iPad development on a macOS build host**, use the active
+[`apple-ios` guide](https://github.com/noah-l-frank/overte/blob/apple-ios/docs/interfaces/ios/BUILD.md)
+and its named Xcode, SDK, Qt, and signing contracts. That path is distinct from
+building a macOS desktop client and from the maintainer's private Proxmox
+hardware-test laboratory.

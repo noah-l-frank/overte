@@ -38,4 +38,4 @@ This comparison inspected upstream documentation commit
 `aedb3e16ce92bf9cb85b4e46dd735aacb125f320` and fork `main` commit
 `a0102a0133078b36ce3a384a974348b57c22501a`. New upstream changes require a fresh
 review. Upstream repositories remain read-only for this work; all authored
-repository changes belong to `noah-be/overte`.
+repository changes belong to `noah-l-frank/overte`.

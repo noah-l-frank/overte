@@ -1,35 +1,37 @@
-# JavaScript Documentation Generation
+# JavaScript API documentation generation
 
-## Prerequisites
+Use the Node.js 22 host-tool baseline in [BUILD.md](../../BUILD.md) and this
+directory's committed npm lockfile. A global JSDoc installation is not needed.
+From the repository root:
 
-* Install node.js.
-* Install jsdoc via npm.  `npm install jsdoc -g`
+```bash
+cd tools/jsdoc
+npm ci --ignore-scripts --no-fund --no-audit
+node node_modules/jsdoc/jsdoc.js root.js -c config.json -d ../../build/jsdoc
+```
 
-If you would like the extra functionality for gravPrep:
-* Run `npm install`
+The HTML entry point is `build/jsdoc/index.html` relative to the repository
+root. Keeping generated output under `build` avoids rewriting the retained
+`tools/jsdoc/out` tree or mixing API output with the Sphinx developer portal.
+The CMake `jsdoc` target has its own output directory; see
+[`CMakeLists.txt`](CMakeLists.txt).
 
-To generate HTML documentation for the Overte JavaScript API:
+`config.json` selects the repository's template and plugins. To increase the
+Node heap for a large generation, put the option on the local invocation,
+rather than editing a global npm executable:
 
-* `cd tools/jsdoc`
-* `jsdoc root.js -r api-mainpage.md -c config.json -d out`
+```bash
+node --max-old-space-size=2048 node_modules/jsdoc/jsdoc.js \
+  root.js -c config.json -d ../../build/jsdoc
+```
 
-The **out** folder should contain index.html.
+The bounded dependency verification used by CI additionally audits all npm
+severities and generates documentation into a temporary directory. Its entry
+point is documented in [project testing](../../tests/PROJECT_TESTING.md#host-prerequisites).
 
-If you get a "JavaScript heap out of memory" error when running the `jsdoc` command you need to increase the amount of memory 
-available to it. For example, to increase the memory available to 2GB on Windows:
-* `where jsdoc` to find the `jsdoc.cmd` file.
-* Edit the `jsdoc.cmd` file to add `--max-old-space-size=2048` after the `node` and/or `node.exe` commands.
+## Historical Grav export
 
-Reference: https://medium.com/@vuongtran/how-to-solve-process-out-of-memory-in-node-js-5f0de8f8464c
-
-To generate the grav automation files, run node gravPrep.js after you have made a JSdoc output folder.
-
-This will create files that are needed for hifi-grav and hifi-grav-content repos
-
-The md files for hifi-grav-content are located in out/grav/06.api-reference.
-
-The template twig html files for hifi-grav are located out/grav/templates.
-
-if you would like to copy these to a local version of the docs on your system you can run with the follows args:
-
-* node grav true "path/to/grav/" "path/to/grav/content"
+`gravPrep.js` retains an optional export for the former `hifi-grav` and
+`hifi-grav-content` layout. It is separate from the current Sphinx portal and
+has not been qualified as a current documentation publication path. Inspect
+its source and expected `out` layout before adapting that older workflow.

@@ -173,11 +173,11 @@ def source_context(event, event_name, number, controller):
 
 def policy(candidate, context, plan):
     import pr_ci_android_preflight
+    import pr_ci_android_native
     prerequisites = pr_ci_android_preflight.classify(plan['paths'], target=context['target'])
-    C.require(not prerequisites['native_qualification_required'],
-              'Android native/app qualification unavailable: complete the source-only dependency '
-              'producer and qualify its hosted offline consumer before publishing these changes. '
-              'Run the local preflight for exact inputs and prerequisites.')
+    C.require(prerequisites['native_qualification_required'] == bool(
+        pr_ci_android_native.products(plan, context['target'])), 'Android native prerequisite selection differs')
+    pr_ci_android_native.prerequisites(candidate, plan, context['target'])
     # These programs are loaded from the protected controller, and inspect only
     # supplied branch metadata and candidate files. They never import candidate code.
     pr = API().get("pulls/" + str(context["number"]))
@@ -625,6 +625,8 @@ def main():
                 command.add_argument('--browser-executable', type=Path)
             else:
                 command.add_argument('--android-runtime', type=Path)
+                command.add_argument('--android-native-runtime', type=Path)
+                command.add_argument('--android-groovy-runtime', type=Path)
         if name == "complete":
             command.add_argument("--needs-json", required=True)
         if name == "verify-ios":
@@ -643,6 +645,17 @@ def main():
                 return git(args.candidate, 'cat-file', 'blob', oid)
         plan = P.plan(before, after, trusted, read_blob=blob, target=args.target)
         prerequisites = pr_ci_android_preflight.classify(plan['paths'], target=args.target)
+        native_unavailable = prerequisites['native_qualification_required']
+        if native_unavailable:
+            import pr_ci_android_native
+            try:
+                revision = C.sha(git(args.candidate, 'rev-parse', '--verify', '--end-of-options',
+                                     args.revision + '^{commit}').decode().strip())
+                pr_ci_android_native.prerequisites(args.candidate, plan, args.target, revision=revision)
+                native_unavailable = False
+                prerequisites.update(status='qualified-runtime-available', missing=[])
+            except ValueError as error:
+                prerequisites['readiness_error'] = str(error)
         import pr_ci_transport
         source_policy = 'compatible'
         try:
@@ -656,7 +669,7 @@ def main():
             write_json(args.out, result)
         print(json.dumps({'target': args.target, 'tasks': [t['id'] for t in plan['tasks']],
                           'platform_prerequisites': prerequisites, 'source_policy': source_policy}, sort_keys=True))
-        return 2 if prerequisites['native_qualification_required'] or (
+        return 2 if native_unavailable or (
             source_policy != 'compatible' and not args.allow_controller_transition) else 0
     elif args.command == "context":
         context = source_context(read_json(args.event.read_text()), args.event_name, args.number, args.controller)
@@ -682,6 +695,8 @@ def main():
                   "browser_projects": json.dumps([t['id'][4:] for t in plan['tasks']
                       if t['kind'] == 'npm' and 'browser' in t['setup']]),
                   "android_compile_products": json.dumps(plan.get('android_compile_products', [])),
+                  "android_native_products": json.dumps(plan.get('android_native_products', [])),
+                  "android_groovy_contracts": plan.get('android_groovy_contracts', False),
                   "ios_build": plan["ios_build_required"]}
         outputs(args.output, values)
         print(json.dumps({"target": context["target"], "tasks": [t["id"] for t in plan["tasks"]],
@@ -706,7 +721,8 @@ def main():
         elif args.command == "platform":
             import pr_ci_platform
             receipt = pr_ci_platform.execute(args.candidate, context, plan, args.lane,
-                args.prepared_root, recompute=selection, android_runtime=args.android_runtime)
+                args.prepared_root, recompute=selection, android_runtime=args.android_runtime,
+                android_native_runtime=args.android_native_runtime, android_groovy_runtime=args.android_groovy_runtime)
             if args.out:
                 write_json(args.out, receipt)
         elif args.command == "verify-ios":

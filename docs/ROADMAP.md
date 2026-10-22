@@ -62,9 +62,9 @@ candidates.
 This work is coordinated through three High-reasoning client sessions with
 isolated worktrees and a shared integration owner. On 2026-10-13 the owner
 explicitly requested the three client milestones and their open/closed issue
-inventory: [IOS-P2](https://github.com/noah-be/overte/milestone/6),
-[PHONE-P2](https://github.com/noah-be/overte/milestone/4) and
-[PICO-P2](https://github.com/noah-be/overte/milestone/5).
+inventory: [IOS-P2](https://github.com/noah-l-frank/overte/milestone/6),
+[PHONE-P2](https://github.com/noah-l-frank/overte/milestone/4) and
+[PICO-P2](https://github.com/noah-l-frank/overte/milestone/5).
 Completed source/host tasks and open current-artifact acceptance criteria are
 separate; the completed personal-alpha history is retained.
 
@@ -90,14 +90,14 @@ once the corresponding personal alpha is repeatable.
 ### IOS-P1 — iPad personal alpha (2026-10-10)
 
 The owner completed the personal-alpha milestone. The
-[closed IOS-P1 milestone](https://github.com/noah-be/overte/milestone/3) contains
+[closed IOS-P1 milestone](https://github.com/noah-l-frank/overte/milestone/3) contains
 eleven closed acceptance issues and no open issues. Its accepted scope remains
 personal alpha; it does not certify the new full cross-client parity goal.
 
 ### PICO-P1 — Pico 4 personal alpha (2026-09-27)
 
 The owner completed the personal-alpha milestone. The
-[closed PICO-P1 milestone](https://github.com/noah-be/overte/milestone/1) contains
+[closed PICO-P1 milestone](https://github.com/noah-l-frank/overte/milestone/1) contains
 eleven closed acceptance issues and no open issues. Its accepted scope remains
 personal alpha; new parity work preserves the existing VR behavior.
 
@@ -105,12 +105,12 @@ personal alpha; new parity work preserves the existing VR behavior.
 
 All eleven acceptance issues are complete. The owner accepted the recorded
 physical-device evidence, including the final audio and keyboard checks. See the
-[closed PHONE-P1 milestone](https://github.com/noah-be/overte/milestone/2)
+[closed PHONE-P1 milestone](https://github.com/noah-l-frank/overte/milestone/2)
 for source revisions, test records, and the scope of that acceptance.
 
 Known limitations remain documented: microphone permission regrant requires an
 app restart, and the intermittent Go To/Back crash is tracked in
-[#933](https://github.com/noah-be/overte/issues/933). Broader device coverage and
+[#933](https://github.com/noah-l-frank/overte/issues/933). Broader device coverage and
 F-Droid admission/publication are separate from personal-alpha completion.
 
 ### R0 — Reliable baseline and project compass (complete)
@@ -149,9 +149,9 @@ resumption milestone.
 
 | Product | Priority | Current status | Next milestone |
 | --- | --- | --- | --- |
-| Pico 4 | NOW (shared parity) | [Personal alpha completed](https://github.com/noah-be/overte/milestone/1) | [PICO-P2](https://github.com/noah-be/overte/milestone/5): shared features and artifact-bound acceptance |
-| iPad | NOW (shared parity) | [Personal alpha completed](https://github.com/noah-be/overte/milestone/3) | [IOS-P2](https://github.com/noah-be/overte/milestone/6): shared features and artifact-bound acceptance; iPhone coverage later |
-| Android Phone | NOW (shared parity) | [Personal alpha completed](https://github.com/noah-be/overte/milestone/2); known limitations retained | [PHONE-P2](https://github.com/noah-be/overte/milestone/4); PHONE-V1 broader coverage remains later |
+| Pico 4 | NOW (shared parity) | [Personal alpha completed](https://github.com/noah-l-frank/overte/milestone/1) | [PICO-P2](https://github.com/noah-l-frank/overte/milestone/5): shared features and artifact-bound acceptance |
+| iPad | NOW (shared parity) | [Personal alpha completed](https://github.com/noah-l-frank/overte/milestone/3) | [IOS-P2](https://github.com/noah-l-frank/overte/milestone/6): shared features and artifact-bound acceptance; iPhone coverage later |
+| Android Phone | NOW (shared parity) | [Personal alpha completed](https://github.com/noah-l-frank/overte/milestone/2); known limitations retained | [PHONE-P2](https://github.com/noah-l-frank/overte/milestone/4); PHONE-V1 broader coverage remains later |
 
 The linked milestones hold detailed acceptance criteria and evidence. Historical
 records and technical ownership belong in the linked documentation rather than

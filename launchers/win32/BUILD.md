@@ -1,33 +1,13 @@
-## Windows Build Guide
+# Historical Win32 launcher build guide
 
-To build the launcher we need:
+This directory contains an inherited standalone launcher, separate from the
+Overte Interface and the active Android/iOS products. Its older Visual Studio,
+CMake, Qt, packaging, and service assumptions are not the current fork's
+application build procedure. The directory's own CMake files retain those
+legacy project requirements; changing them requires a separate source review.
 
-- Visual Studio Community 2017.
-- CMake.
-
-
-### Installing Visual Studio 2017
-
-If you don’t have Community or Professional edition of Visual Studio 2017, download [Visual Studio Community 2017](https://www.visualstudio.com/downloads/).
-
-When selecting components, check "Desktop development with C++".  Also on the right on the Summary toolbar, check "Windows 8.1 SDK and UCRT SDK" and "VC++ 2015.3 v140 toolset (x86,x64)".
-
-If you already have Visual Studio installed and need to add python, open the "Add or remove programs" control panel and find the "Microsoft Visual Studio Installer".
-
-### Installing CMake
-
-Download and install the latest version of CMake 3.9.
-
-Download the file named win64-x64 Installer from the [CMake Website](https://cmake.org/download/). You can access the installer on this [3.9 Version page](https://cmake.org/files/v3.9/). During installation, make sure to check "Add CMake to system PATH for all users" when prompted.
-
-### Running CMake to Generate Build Files
-
-Run Command Prompt from Start and run the following commands:
-```
-cd "%LAUNCHER_DIR%"
-mkdir build
-cd build
-cmake .. -G "Visual Studio 15 Win64" -T v140
-```
-
-Where `%LAUNCHER_DIR%` is the directory for the PC light launcher repository.
+The original commands are preserved in the [historical launcher guide](https://github.com/noah-l-frank/overte/blob/b5f48d2a842a5cc1655ceb2f69a46bf3c4030429/launchers/win32/BUILD.md).
+Use [BUILD.md](../../BUILD.md) for the current shared client/server build and
+[the platform index](../../docs/interfaces/README.md) for Phone, Pico, and iOS.
+This hobby fork does not supply the former launcher's private service or release
+configuration.

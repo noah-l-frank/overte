@@ -7,12 +7,16 @@ SPDX-License-Identifier: Apache-2.0
 
 # Build Windows
 
-*Last Updated on 2025-08-01*
+*Inherited toolchain baseline: 2025-08-01; fork guidance reviewed 2026-10-20.*
 
-This is a stand-alone guide for creating your first Overte build for Windows 64-bit.
+This guide describes the Windows x64 source build on this hobby fork's `main`
+branch. Its commands are checked against the repository profiles; this review
+does not constitute a new Windows build qualification. Start with the
+[general build guide](BUILD.md) for shared prerequisites and test scope.
 
 Note: We are now using Visual Studio 2022 and Qt 5.15.x.
-If you are upgrading from previous versions, do a clean uninstall of those versions before going through this guide.
+Select the compiler matching the Conan profiles; an existing toolchain does not
+need to be uninstalled merely to prepare a separate build.
 
 **Note: The prerequisites will require about 10 GB of space on your drive. You will also need a system with at least 8GB of main memory.**
 
@@ -26,10 +30,11 @@ When selecting components, check "Desktop development with C++".
 If you do not already have a Python 3.x development environment installed and want to install it with Visual Studio, check "Python Development".
 If you already have Visual Studio installed and need to add Python, open the "Add or remove programs" control panel and find the "Microsoft Visual Studio Installer". Select it and click "Modify". In the installer, select "Modify" again, then check "Python Development" and allow the installer to apply the changes.
 
-Note: MSVC 14.44.35207 seems to be bugged and cannot compile libnode.
-Get an older MSVC 143 version using `.\VisualStudioSetup.exe modify --installPath "C:\Program Files\Microsoft Visual Studio\2022\Community" --add Microsoft.VisualStudio.Component.VC.14.33.17.3.x86.x64` (this installs version 14.33.31629).
-Notice how the relevant component has been added to the "Single components" section on the right.
-Make sure to reload your environment (by restarting your terminal for example), otherwise the new compiler version won't be found.
+The older guide recorded a libnode failure with MSVC 14.44.35207 and suggested
+14.33.31629. That workaround predates the current Conan profiles, which specify
+`compiler.version=194`; it is not a default downgrade step. Match the selected
+compiler to [the release profile](tools/conan-profiles/vs-22-release) and inspect
+the first actual dependency-build error before applying a recipe-specific fix.
 
 ## Step 1a. Alternate Python
 
@@ -40,11 +45,14 @@ and the native build share a compatible environment.
 
 ## Step 2. Python Dependencies
 
-In an administrator command-line that can access Python's pip you will need to run the following command:
+Use a Python version satisfying [BUILD.md](BUILD.md), with a dedicated environment
+from the repository root. These Python helper packages need no administrator shell:
 
-`pip install distro setuptools html5lib`
-
-If you do not use an administrator command-line, you will get errors.
+```bat
+python -m venv build\python-env
+build\python-env\Scripts\activate
+python -m pip install distro setuptools html5lib
+```
 
 ## Step 3. Installing Conan
 
@@ -68,8 +76,9 @@ Download the file named cmake-[version]-windows-x86_64.msi Installer from the [C
 ## Step 5. Create conan environment variable
 
 In the next step, you will use conan to install the dependencies required to build Overte. By default, conan will build and install the dependencies in `<username>/.conan2`.
-Because Windows doesn't support paths which are longer than 260 characters, we need to move this folder to a more shallow location like `C:\`.
-If you don't do this, some things will fail with `No such file or directory`, namely building Qt WebEngine from source.
+Some build tools still encounter Windows path-length limitations, especially
+when building Qt WebEngine from source. Choose a short, writable Conan home
+such as `C:\Conan2` rather than relying on every tool supporting long paths.
 
 To create this variable:
 * Navigate to 'Edit the System Environment Variables' Through the Start menu.
@@ -82,7 +91,7 @@ To create this variable:
 
 ## Step 6. (Optional) Node.JS and NPM
 
-Install the latest LTS version of [Node.JS and NPM](<https://nodejs.org/en/download/>).
+Use the Node.js 22 reference version in [BUILD.md](BUILD.md), with its matching npm.
 This is required to build the server-console and jsdoc, and for JavaScript console autocompletion.
 
 ## Step 7. Running CMake to Generate Build Files
@@ -134,11 +143,14 @@ Note: You can also run Interface by launching it from command line or File Explo
 
 # Troubleshooting
 
-For any problems after Step #7, first try this:
-* Delete your locally cloned copy of the Overte repository
-* Restart your computer
-* Redownload the [repository](https://github.com/overte-org/overte)
-* Restart directions from Step #7
+For a failure after Step #7, retain the first causal error and check the selected
+compiler, Conan profile, and CMake cache. Preserve local changes and existing
+worktrees. Use a separate build directory for a clean comparison; regenerate
+Conan files into that directory and point CMake at its toolchain.
+
+The source repository for this fork is
+[`noah-l-frank/overte`](https://github.com/noah-l-frank/overte), branch `main`.
+Re-cloning upstream is not a repair procedure for this fork's build.
 
 ## CMake gives you the same error message repeatedly after the build fails
 
