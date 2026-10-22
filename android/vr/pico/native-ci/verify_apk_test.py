@@ -3,8 +3,10 @@
 import importlib.util
 from pathlib import Path
 import struct
+import subprocess
 import tempfile
 import unittest
+from unittest import mock
 import zipfile
 
 HERE = Path(__file__).resolve().parent
@@ -54,6 +56,40 @@ class UnsignedPicoOutput(unittest.TestCase):
         result = VERIFY.inspect_unsigned_native(self.archive())
         self.assertEqual(set(result), LIBRARIES)
         self.assertEqual(result["libinterface.so"]["needed"], ["libc.so"])
+
+    def test_protected_verifier_binds_separate_actual_candidate_checkout(self):
+        candidate = Path(self.temp.name) / "separate-candidate"
+        manifest = candidate / "android/vr/pico/apps/picoInterface/src/main/AndroidManifest.xml"
+        manifest.parent.mkdir(parents=True)
+        manifest.write_text("fixture source manifest")
+        for args in (("init", "--quiet"), ("add", "."),
+                     ("-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid", "commit", "--quiet", "-m", "Fixture")):
+            subprocess.run(["git", "-C", str(candidate), *args], check=True, capture_output=True)
+        head = subprocess.check_output(["git", "-C", str(candidate), "rev-parse", "HEAD"], text=True).strip()
+        real_load = VERIFY.load
+
+        def controlled_tools(path, name):
+            helper = real_load(path, name)
+            if name == "pico_ci_unsigned_apk":
+                helper.run_tool = lambda command: "package: name='org.overte.pico' versionCode='1' versionName='0.1.0-ci'\nsdkVersion:'26'\ntargetSdkVersion:'35'\n"
+                def network(args):
+                    self.assertEqual(helper.PICO_MANIFEST, manifest)
+                    self.assertEqual(helper.WEB_ROOT, VERIFY.ROOT / "android/common/web")
+                    return {"fixture_external_sdk_decode": True}
+                helper._verify_network_policy = network
+            return helper
+        kwargs = dict(source=candidate, aapt="fixture-aapt", aapt2="fixture-aapt2", apkanalyzer="fixture-analyzer",
+                      version_code="1", version_name="0.1.0-ci")
+        with mock.patch.object(VERIFY, "load", side_effect=controlled_tools):
+            result = VERIFY.verify(self.archive(), head, **kwargs)
+            self.assertEqual(result["candidate_sha"], head)
+            self.assertEqual(result["candidate_tree"], subprocess.check_output(
+                ["git", "-C", str(candidate), "rev-parse", "HEAD^{tree}"], text=True).strip())
+            with self.assertRaisesRegex(ValueError, "HEAD differs"):
+                VERIFY.verify(self.apk, "f" * 40, **kwargs)
+            manifest.write_text("changed source manifest")
+            with self.assertRaisesRegex(ValueError, "tracked candidate inputs changed"):
+                VERIFY.verify(self.apk, head, **kwargs)
 
     def test_missing_transitive_nonplatform_dependency(self):
         self.libraries["libpicoInterface.so"] = elf("libpicoInterface.so", needed=("libinterface.so", "libmissing.so"))

@@ -130,14 +130,18 @@ def inspect_unsigned_native(apk):
     return libraries
 
 
-def verify(apk, expected_source, *, aapt, aapt2, apkanalyzer, version_code, version_name):
+def verify(apk, expected_source, *, aapt, aapt2, apkanalyzer, version_code, version_name, source=ROOT):
     require(re.fullmatch("[0-9a-f]{40}", str(expected_source)), "Missing candidate identity")
-    command = ["git", "--no-replace-objects", "-C", str(ROOT)]
+    source = source.resolve(strict=True)
+    command = ["git", "--no-replace-objects", "-C", str(source)]
     require(subprocess.check_output(command + ["rev-parse", "HEAD"], text=True).strip() == expected_source,
             "Pico APK candidate HEAD differs")
     require(subprocess.run(command + ["diff", "--quiet", "HEAD", "--"], check=False).returncode == 0,
             "Pico APK tracked candidate inputs changed")
     legacy = load(ROOT / "android/vr/pico/ci/verify-pico-apk.py", "pico_ci_unsigned_apk")
+    # Code and network-capability policy stay in the separately pinned controller
+    # layout. Only the owning candidate manifest and Git identity come from source.
+    legacy.PICO_MANIFEST = source / "android/vr/pico/apps/picoInterface/src/main/AndroidManifest.xml"
     with legacy.bound_apk(apk) as (snapshot, digest):
         libraries = inspect_unsigned_native(snapshot)
         badging = legacy.run_tool([aapt, "dump", "badging", str(snapshot)])
@@ -162,6 +166,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--apk", type=Path, required=True)
     parser.add_argument("--expected-source", required=True)
+    parser.add_argument("--source", type=Path, default=ROOT,
+                        help="Actual candidate checkout, separate from protected verifier/support code")
     parser.add_argument("--version-code", required=True)
     parser.add_argument("--version-name", required=True)
     parser.add_argument("--aapt", required=True)
@@ -170,7 +176,8 @@ def main():
     parser.add_argument("--receipt", type=Path, required=True)
     args = parser.parse_args()
     result = verify(args.apk, args.expected_source, aapt=args.aapt, aapt2=args.aapt2,
-                    apkanalyzer=args.apkanalyzer, version_code=args.version_code, version_name=args.version_name)
+                    apkanalyzer=args.apkanalyzer, version_code=args.version_code, version_name=args.version_name,
+                    source=args.source)
     args.receipt.write_text(json.dumps(result, indent=2) + "\n")
 
 

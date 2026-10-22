@@ -107,6 +107,14 @@ APK digest and actual candidate SHA/tree still require the trusted outer consume
 to join the successful native invocation and independently qualified runtime
 provenance. No device coverage is implied.
 
+The executing controller stages the verifier and its supporting helper/policy
+files in their reviewed repository-relative layout under a separately pinned
+read-only controller root. Pass `--source /attempt/source` to bind the actual
+candidate checkout independently of that code location. The candidate manifest
+and Git identity come from that checkout; acceptance code and the approved
+network-capability policy come from the controller. Running candidate-editable
+acceptance code alone does not authorize a passing result.
+
 Additional focused tests:
 
 ```sh
