@@ -43,6 +43,18 @@ class Boundary:
             monotonic=lambda:self.clock,sleep=self.sleep,**options)
 
 class OriginalAvatarRenderTests(unittest.TestCase):
+    def test_optional_original_hmd_boom_extension_is_closed_and_never_implied_for_legacy_sources(self):
+        b=Boundary();self.assertNotIn('cameraState',b.reader().read()['source'])
+        b.avatar.update(cameraStateVersion=1,cameraState=dict(hmd=True,boomLength=4.25,zoomMin=.5,zoomDefault=1.5))
+        self.assertEqual(4.25,b.reader().read()['source']['cameraState']['boomLength'])
+        original=deepcopy(b.avatar)
+        for edit in (lambda s:s.pop('cameraState'),lambda s:s.pop('cameraStateVersion'),
+                lambda s:s.update(cameraStateVersion=True),lambda s:s['cameraState'].update(hmd=1),
+                lambda s:s['cameraState'].update(boomLength=False),lambda s:s['cameraState'].update(boomLength=.1),
+                lambda s:s['cameraState'].update(zoomDefault=.1),lambda s:s['cameraState'].update(expectedMode='look at')):
+            b.avatar=deepcopy(original);edit(b.avatar)
+            with self.subTest(edit=edit),self.assertRaises(NativeUIError):b.reader().read()
+
     def test_unloaded_hidden_or_disabled_original_is_observable_without_render_verdict(self):
         b=Boundary();b.avatar.update(loaded=False,geometry=None,visible=False,localRenderingEnabled=False)
         value=b.reader().read();self.assertEqual(b.avatar,value['source'])

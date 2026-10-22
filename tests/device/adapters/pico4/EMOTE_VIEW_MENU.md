@@ -57,7 +57,7 @@ qualified by this harness. The existing original surface pointer route has its
 separate compiled checks. Qt source fixtures wait for real menu transition/frame
 settling; they do not bypass input by invoking selection handlers.
 
-PicoEmoteView v1 now journals the actual prior supported HMD mode and native
+PicoEmoteView v2 now journals the actual prior supported HMD mode and native
 loaded Model/Geometry/Rig/pose before any mutation. It uses the original
 controller tablet open, existing normal menu button, View pointer, Third Person
 pointer and tablet close. Restoration uses the same normal route and the actual
@@ -80,7 +80,7 @@ stays within the existing 60s outer bound and each effect wait within5s.
 The owner keeps its journal even after mode restoration. Closing the tablet
 and unchanged camera state do not prove actual menu timer/context retirement.
 Base cleanup independently refuses an unresolved view journal after stopping
-the app. Eleven explicit source/input/clock boundary cases cover the positive
+the app. Twelve explicit source/input/clock boundary cases cover the positive
 normal route and ignored/lost/foreign/stale/cold recovery cases; two actual Pico
 factory/teardown cases check the existing parent lock and candidate association.
 
@@ -98,7 +98,27 @@ camera result is accepted. Controlled scene/avatar identity, independent actor
 and whole Emote cleanup remain required before a complete capability.
 
 The Pico catalog keeps emote-original-sources (81 cases),
-emote-stereo-capture (65 cases) and emote-background-effects (11 cases)
+emote-stereo-capture (67 cases) and emote-background-effects (11 cases)
 separate, preserving every case under the existing default per-group timeout.
 The native menu check is emote-view-native-ui. These selector counts are test
 groups, not completed feature areas; no adapter operation budget was enlarged.
+
+
+The actual menu label Third Person selects CAMERA_MODE_LOOK_AT, whose original
+modeToString is "look at". The older "third person" name selects a different
+legacy enum and is not an admitted original normal-menu mode. An initial local
+owner/host fixture incorrectly used that legacy name; v2 rejects v1 journals
+without rewriting or adopting them. The actual original cameraMenuChanged,
+Camera enum/getMode/setMode/getModeString/modeToString and original Avatar zoom
+constants now execute behind the original QML/QAction path in the native test.
+The exact normal mode and boom changes are asserted independently of labels.
+
+The optional native cameraStateVersion1 extension observes actual HMD mode and
+original Avatar boom length/minimum/default without setters. V2 requires it.
+A pre-existing first-person profile with a custom boom fails before input,
+because normal first-person restoration would reset it. A pre-existing look-at
+profile retains its exact original boom. Subsequent foreign boom changes stop
+input, and actual mode transitions require their original expected native boom
+effect. A restored mode alone cannot qualify restored view parameters. Old
+Avatar v1 packets remain readable by existing clients without supplying this
+missing observation. Full camera pose/render/Qt retirement remains separate.

@@ -47,8 +47,15 @@ def loaded_source(present,sha):
 def validate(value,request,pid,epoch):
     command(request,ios=request['commandId'].startswith('ios-'));envelope(value,request,pid,epoch)
     source=value['source']
-    exact(source,{'avatarRenderVersion','modelInstance','rigId','loaded','visible','addedToScene',
-        'localRenderingEnabled','avatarShouldRender','geometry','pose','cameraMode','view'})
+    fields={'avatarRenderVersion','modelInstance','rigId','loaded','visible','addedToScene',
+        'localRenderingEnabled','avatarShouldRender','geometry','pose','cameraMode','view'}
+    if type(source) is dict and ('cameraStateVersion' in source or 'cameraState' in source):
+        fields|={'cameraStateVersion','cameraState'}
+        need(type(source.get('cameraStateVersion')) is int and source['cameraStateVersion']==1)
+        state=source.get('cameraState');exact(state,{'hmd','boomLength','zoomMin','zoomDefault'})
+        need(type(state['hmd']) is bool and number(state['zoomMin'],.0001,1000)
+            and number(state['zoomDefault'],state['zoomMin'],1000) and number(state['boomLength'],state['zoomMin'],1000))
+    exact(source,fields)
     need(type(source['avatarRenderVersion']) is int and source['avatarRenderVersion']==VERSION
          and nonce(source['modelInstance']) and integer(source['rigId'],0,2147483647)
          and all(type(source[k]) is bool for k in ('loaded','visible','addedToScene','localRenderingEnabled','avatarShouldRender'))

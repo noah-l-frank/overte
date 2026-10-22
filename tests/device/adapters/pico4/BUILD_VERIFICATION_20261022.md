@@ -490,3 +490,38 @@ was inspected for the durable reserve/observe/restore design; its whole-file
 hash is recorded in EMOTE_VIEW_MENU.md. Pico uses its own actual HMD native
 menu/controller route. Full stereo/actor/scene/avatar/Qt-retirement composition
 remains executable next work; source-complete areas remain3/14.
+
+
+## Correct actual normal camera mode and original boom preservation
+
+Further actual Application_Camera.cpp/Camera.cpp inspection found a concrete
+error in the initial local Emote view packet: normal Third Person selects
+CAMERA_MODE_LOOK_AT ("look at"), while "third person" names a different legacy
+enum. The original fixture had mirrored the wrong string. PicoEmoteView v2
+now uses the actual normal enum/string and rejects v1 journals without migration.
+The native menu harness additionally compiles full original cameraMenuChanged,
+Camera enum/getMode/setMode/getModeString/modeToString and actual Avatar zoom
+constant definitions. The original normal pointer/deferred bridge now reaches
+those original camera bodies; Qt5 passes8.501s. Native registry/window/Avatar
+storage are explicit seams; full camera rendering/application/HMD remain open.
+
+Review also found that restoring a custom first-person boom through the normal
+menu would overwrite it. The optional original cameraStateVersion1 source now
+measures actual HMD/boom/minimum/default. The owner rejects that unsupported
+initial profile, requires actual expected boom transitions and keeps an original
+look-at profile's custom boom. Foreign boom changes block new input; restored
+boom is independently required. Base Avatar v1 remains readable without
+implying this extension. All29 selected owner/Avatar reader cases pass10.341s,
+and the full original getter/boom/constant Qt5 body harness passes2.087s.
+
+Create b429bb4381 integrates b938bd9174's production original resource-bound
+normal Model owner while preserving all newer Emote/Chat/Audio sources. The
+three integrated groups pass89.65s (3/74): original normal owner59.803s, resource
+join29.782s, coverage.061s. A property edit/Apply receipt without an actual bound
+loaded texture cannot qualify this join; retained actual resources keep the
+owners. Full GPU/current pixels/peer/21-step Create composition remains open.
+
+Final original Qt6 normal-menu/camera owning case also passes11.388s. The
+final67-case original stereo/reader/owner selection and coverage pass2/74
+groups14.39s (stereo14.316s,coverage.072s); all4 repository suites pass3.48s.
+Registry and whitespace pass. No complete feature count changes.

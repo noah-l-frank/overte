@@ -18,8 +18,8 @@ from adapters.script_journey.history import pack,unpack,same
 from adapters.script_journey.lock import ScriptSourceLock
 from feature_journeys.phase_fixture import PhaseFixtureReader,validate as phase_packet
 
-VERSION=1
-MODES={'first person look at':'view-menu.first','third person':'view-menu.third'}
+VERSION=2
+MODES={'first person look at':'view-menu.first','look at':'view-menu.third'}
 KINDS={prefix+'-'+part for prefix in ('prepare','restore') for part in ('open','menu','view','mode','close')}
 
 
@@ -47,6 +47,7 @@ class PicoEmoteView:
     def packet(self,value,previous=None):
         exact(value,{'avatar','widgets','phaseBefore','phaseAfter'})
         a=value['avatar'];avatar_packet(a,dict(schemaVersion=1,commandId=a.get('requestId'),action='feature-avatar-render-observe'),self.pid,a.get('capturedEpochMs'))
+        need(a['source'].get('cameraStateVersion')==1 and a['source']['cameraState']['hmd'])
         widgets=value['widgets'];validate_snapshot(widgets,self.pid,widgets.get('updatedEpochMs'));project(widgets)
         need(widgets['bridgeId']==self.binding['sessionId'] and a['capturedEpochMs']<=widgets['updatedEpochMs'])
         before,after=value['phaseBefore'],value['phaseAfter']
@@ -67,6 +68,7 @@ class PicoEmoteView:
         a,b=original['avatar'],current['avatar'];need(a['instance']==b['instance'])
         a,b=a['source'],b['source']
         need(all(same(a[k],b[k]) for k in ('modelInstance','rigId','geometry')))
+        need(all(same(a['cameraState'][k],b['cameraState'][k]) for k in ('hmd','zoomMin','zoomDefault')))
         # Native head/camera pose may advance in HMD. The owned avatar itself
         # must stay at its original location, orientation and model scale.
         for key,tolerance in (('feetPosition',.03),('orientation',.001),('modelScale',.0001)):
@@ -83,6 +85,8 @@ class PicoEmoteView:
         need(type(state['steps']) is list and len(state['steps'])<=10)
         if state['original'] is None:need(state['phase']=='reserved' and state['current'] is None and not state['steps']);return state
         self.packet(state['original']);need(not state['original']['widgets']['open'] and state['original']['avatar']['source']['cameraMode'] in MODES)
+        original=state['original']['avatar']['source'];need(original['cameraMode']!='first person look at'
+            or original['cameraState']['boomLength']==original['cameraState']['zoomMin'])
         self.packet(state['current']);self.unchanged(state['original'],state['current'])
         kinds=set();pending=0;chain=state['original'];order=[]
         for prefix in ('prepare','restore'):
@@ -92,7 +96,7 @@ class PicoEmoteView:
             need(row['kind'] in KINDS and row['kind'] not in kinds and row['kind']==order[index]);kinds.add(row['kind'])
             expected={'open':'tablet.open','menu':'scripts.menu','view':'view-menu.view','close':'tablet.close'}
             part=row['kind'].split('-')[1]
-            need(row['control']==(MODES['third person' if row['kind'].startswith('prepare') else state['original']['avatar']['source']['cameraMode']]
+            need(row['control']==(MODES['look at' if row['kind'].startswith('prepare') else state['original']['avatar']['source']['cameraMode']]
                 if part=='mode' else expected[part]))
             self.packet(row['before'],chain);self.unchanged(state['original'],row['before'])
             need(row['before']['phaseBefore']['activations'][-1]['stimulus']['verb']==
@@ -108,7 +112,8 @@ class PicoEmoteView:
         need(pending<=1)
         if state['phase'] in ('ready','restored'):
             need(not pending and len(state['steps'])==(5 if state['phase']=='ready' else 10) and not state['current']['widgets']['open'])
-            need(state['current']['avatar']['source']['cameraMode']==('third person' if state['phase']=='ready' else state['original']['avatar']['source']['cameraMode']))
+            need(state['current']['avatar']['source']['cameraMode']==('look at' if state['phase']=='ready' else state['original']['avatar']['source']['cameraMode']))
+            if state['phase']=='restored':need(state['current']['avatar']['source']['cameraState']['boomLength']==original['cameraState']['boomLength'])
         return deepcopy(state)
 
     def save(self):
@@ -178,6 +183,10 @@ class PicoEmoteView:
             need(len(rows)==1 and rows[0]['inputReady'])
             if control in MODES.values():
                 need(rows[0]['checked'] and current['avatar']['source']['cameraMode']==next(mode for mode,key in MODES.items() if key==control))
+                old=row['before']['avatar']['source'];state=old['cameraState'];now=current['avatar']['source']
+                expected=state['boomLength'] if old['cameraMode']==now['cameraMode'] else state['zoomMin'] if control=='view-menu.first' else (
+                    state['zoomDefault'] if state['boomLength']==state['zoomMin'] else state['boomLength'])
+                need(now['cameraState']['boomLength']==expected)
 
     def step(self,kind,control,verb):
         self.bound();old=[r for r in self.state['steps'] if r['kind']==kind]
@@ -189,7 +198,8 @@ class PicoEmoteView:
             need(len(row['intent'])==1)
         else:
             before=self.read(verb)
-            need(before['avatar']['source']['cameraMode']==self.state['current']['avatar']['source']['cameraMode'])
+            need(before['avatar']['source']['cameraMode']==self.state['current']['avatar']['source']['cameraMode']
+                and before['avatar']['source']['cameraState']['boomLength']==self.state['current']['avatar']['source']['cameraState']['boomLength'])
             self.state['current']=deepcopy(before)
             row=dict(kind=kind,control=control,before=before,intent=[],after=None)
             self.state['steps'].append(row);self.save()
@@ -221,6 +231,8 @@ class PicoEmoteView:
                     need(not restore);original=self.read(verb)
                     need(not original['widgets']['open'] and original['avatar']['source']['cameraMode'] in MODES
                         and original['avatar']['source']['loaded'])
+                    source=original['avatar']['source'];need(source['cameraMode']!='first person look at'
+                        or source['cameraState']['boomLength']==source['cameraState']['zoomMin'])
                     self.state.update(phase='preparing',original=deepcopy(original),current=original);self.save()
                 if restore:
                     need(self.state['phase'] in ('preparing','ready','restoring','restored'))
@@ -231,12 +243,14 @@ class PicoEmoteView:
                 terminal='restored' if restore else 'ready'
                 if self.state['phase']!=terminal:
                     if restore:self.state['phase']='restoring';self.save()
-                    mode=self.state['original']['avatar']['source']['cameraMode'] if restore else 'third person'
+                    mode=self.state['original']['avatar']['source']['cameraMode'] if restore else 'look at'
                     for part,control in (('open','tablet.open'),('menu','scripts.menu'),('view','view-menu.view'),('mode',MODES[mode]),('close','tablet.close')):
                         self.step(prefix+'-'+part,control,verb)
                     self.state['phase']=terminal;self.save()
                 current=self.read(verb);need(not current['widgets']['open']
-                    and current['avatar']['source']['cameraMode']==(self.state['original']['avatar']['source']['cameraMode'] if restore else 'third person'))
+                    and current['avatar']['source']['cameraMode']==(self.state['original']['avatar']['source']['cameraMode'] if restore else 'look at'))
+                need(current['avatar']['source']['cameraState']['boomLength']==
+                    (self.state['original'] if restore else self.state['current'])['avatar']['source']['cameraState']['boomLength'])
                 self.state['current']=current;self.save();self.delivery(current);return {'performed':True}
         finally:self.started=None
 

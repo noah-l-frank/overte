@@ -40,3 +40,16 @@ seams. Full Model, Geometry, TSI, GPU and application compilation is unverified;
 no physical/device run was performed. The host reader/probe/fixture tests are
 owned by the existing `emote-original-sources` group; the actual Pico factory
 counterexample belongs to `normal-emote`.
+
+
+The local optional native-avatar-camera-state v1 extension adds measured HMD
+state, actual MyAvatar boom length and original minimum/default constants. The
+base Avatar v1 contract and old readers remain compatible through explicit
+optional fields. The strict reader rejects partial/coerced/foreign fields; no
+legacy source supplies an assumed boom or HMD state. The normal HMD View owner
+requires this original observation to avoid overwriting an existing custom
+first-person boom. The whole getter/actual getBoomLength/constant fragments
+compile in the existing Qt5 harness with explicit original Avatar/app storage
+boundaries. The real camera mode transition has its separate original
+QML/QAction/Camera method harness. Neither check establishes HMD/stereo or full
+application qualification.

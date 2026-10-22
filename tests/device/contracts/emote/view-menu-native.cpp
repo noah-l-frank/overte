@@ -15,6 +15,7 @@
 #include <cassert>
 Q_LOGGING_CATEGORY(uiLogging,"view.menu.host.fixture")
 #include "ActualMenuBinding.inc"
+#include "ActualCameraBinding.inc"
 #include "ActualViewInput.inc"
 
 int main(int argc,char** argv) {
@@ -48,6 +49,10 @@ int main(int argc,char** argv) {
     auto nativeFirst=nativeView.addAction("First Person"),nativeThird=nativeView.addAction("Third Person");
     for (auto action:{nativeFirst,nativeThird}) {action->setCheckable(true);group.addAction(action);}
     nativeFirst->setChecked(true);
+    Menu::first=nativeFirst;Menu::third=nativeThird;Application originalCamera;
+    QObject::connect(nativeFirst,&QAction::triggered,[&]{originalCamera.cameraMenuChanged();});
+    QObject::connect(nativeThird,&QAction::triggered,[&]{originalCamera.cameraMenuChanged();});
+    assert(originalCamera._myCamera.getModeString()=="first person look at");
     bindActionToQmlAction(first,nativeFirst,menu);bindActionToQmlAction(third,nativeThird,menu);
     auto menuData=new MenuUserData(nativeView.menuAction(),view,menu);
     auto append=[](QObject* parent,const char* method,QObject* value) {
@@ -97,9 +102,15 @@ int main(int argc,char** argv) {
     QSignalSpy actualThird(nativeThird,&QAction::triggered);click(thirdItem);
     if (actualThird.count()!=1) {fprintf(stderr,"third triggers=%d firstChecked=%d thirdChecked=%d qmlChecked=%d\n",actualThird.count(),nativeFirst->isChecked(),nativeThird->isChecked(),third->property("checked").toBool());}
     assert(actualThird.count()==1 && nativeThird->isChecked() && !nativeFirst->isChecked());
+    assert(originalCamera._myCamera.getMode()==CAMERA_MODE_LOOK_AT && originalCamera._myCamera.getModeString()=="look at");
+    assert(originalCamera._myCamera.getModeString()!="third person"); // Legacy enum is not the normal menu mode.
+    assert(originalCamera.avatar.getBoomLength()==MyAvatar::ZOOM_DEFAULT);
     appendViewMenuObservation(observation,thirdItem,"view-menu.third",context);assert(observation["checked"].toBool());
     auto firstItem=find("view-menu.first");QSignalSpy actualFirst(nativeFirst,&QAction::triggered);click(firstItem);
     assert(actualFirst.count()==1 && nativeFirst->isChecked() && !nativeThird->isChecked());
+    assert(originalCamera._myCamera.getMode()==CAMERA_MODE_FIRST_PERSON_LOOK_AT
+        && originalCamera._myCamera.getModeString()=="first person look at");
+    assert(originalCamera.avatar.getBoomLength()==MyAvatar::ZOOM_MIN);
     int forbiddenPointers{0};
     const auto forbidden=[&](QQuickItem*){++forbiddenPointers;return true;};
     assert(!originalViewInput(thirdItem,&window,"view-menu.third","replace",forbidden)["performed"].toBool());

@@ -318,7 +318,9 @@
         "android/vr/pico/tests/device/test_create_model_controls_native.py",
         "tests/device/adapters/pico4/CREATE_MODEL_RESOURCES.md",
         "tests/device/adapters/pico4/create_model_resources.py",
-        "tests/device/native/CreateModelResources.h"
+        "tests/device/native/CreateModelResources.h",
+        "tests/device/adapters/pico4/CREATE_MODEL_RESOURCE_JOIN.md",
+        "tests/device/adapters/pico4/create_model_resource_join.py"
       ],
       "declaredCheckpoints": 21,
       "inputVerbs": [

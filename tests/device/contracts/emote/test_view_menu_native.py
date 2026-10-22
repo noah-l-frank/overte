@@ -38,10 +38,49 @@ class ViewMenuNativeTests(unittest.TestCase):
             'void MenuUserData::updateQmlItemFromAction()', 'void MenuUserData::clear()',
             'bool MenuUserData::hasData(', 'MenuUserData* MenuUserData::forObject(',
             'void bindActionToQmlAction('))
+        camera_header=(ROOT/'libraries/shared/src/shared/Camera.h').read_text()
+        camera_code=(ROOT/'libraries/shared/src/shared/Camera.cpp').read_text()
+        application=(ROOT/'interface/src/Application_Camera.cpp').read_text()
+        avatar=(ROOT/'interface/src/avatar/MyAvatar.cpp').read_text()
+        menu_header=(ROOT/'interface/src/Menu.h').read_text()
+        camera_enum=camera_header[camera_header.index('enum CameraMode'):camera_header.index('};',camera_header.index('enum CameraMode'))+2]
+        camera_declarations='''
+class Camera:public QObject { Q_OBJECT
+public:
+ORIGINAL_GET_MODE
+void setMode(CameraMode mode);QString getModeString()const;
+signals:void modeUpdated(const QString& mode);
+private:CameraMode _mode{CAMERA_MODE_FIRST_PERSON_LOOK_AT};
+};
+class MyAvatar {public:static const float ZOOM_MIN,ZOOM_DEFAULT;
+float getBoomLength()const{return boom;}void setBoomLength(float value){boom=value;}
+float boom{ZOOM_MIN};};
+namespace MenuOption { OPTIONS }
+class Menu {public:
+inline static QAction* first{nullptr};inline static QAction* third{nullptr};
+static Menu* getInstance(){static Menu value;return &value;}
+bool isOptionChecked(const QString& name)const{
+return name==MenuOption::FirstPersonLookAt ? first->isChecked()
+    :name==MenuOption::LookAtCamera ? third->isChecked():false;}
+};
+class Application {public:Camera _myCamera;MyAvatar avatar;
+MyAvatar* getMyAvatar(){return &avatar;}void cameraMenuChanged();};
+'''
+        options='\n'.join(line.strip() for line in menu_header.splitlines()
+            if any('const QString '+name+' =' in line for name in ('FirstPersonLookAt','LookAtCamera','SelfieCamera')))
+        self.assertEqual(3,len(options.splitlines()))
+        camera_declarations=camera_declarations.replace('OPTIONS',options)
+        camera_declarations=camera_declarations.replace('ORIGINAL_GET_MODE',function(camera_header,'    CameraMode getMode() const'))
+        camera_methods='\n'.join(function(camera_code,signature) for signature in (
+            'QString modeToString(', 'void Camera::setMode(', 'QString Camera::getModeString('))
+        camera_methods+='\n'+function(application,'void Application::cameraMenuChanged(')
+        camera_methods+='\n'+'\n'.join(line for line in avatar.splitlines()
+            if line.startswith(('const float MyAvatar::ZOOM_MIN =','const float MyAvatar::ZOOM_DEFAULT =')))
         with tempfile.TemporaryDirectory(prefix='pico-view-menu-') as directory:
             stage=Path(directory);binary=stage/'test'
-            (stage/'ActualMenuBinding.h').write_text('#pragma once\n#include <QAction>\n#include <QMenu>\n#include <QUuid>\n'+declaration+'\n')
+            (stage/'ActualMenuBinding.h').write_text('#pragma once\n#include <QAction>\n#include <QMenu>\n#include <QUuid>\n'+declaration+'\n'+camera_enum+'\n'+camera_declarations)
             (stage/'ActualMenuBinding.inc').write_text(methods)
+            (stage/'ActualCameraBinding.inc').write_text(camera_methods)
             native=(ROOT/'android/vr/pico/apps/picoInterface/e2e/PicoE2eNavigationUi.cpp').read_text()
             branch=function(native,'    if (controlId.startsWith("view-menu.")) {')
             (stage/'ActualViewInput.inc').write_text('static overte::e2e::ViewMenuContext fixtureViewContext;\nstatic auto viewMenuContext(){return fixtureViewContext;}\nQJsonObject originalViewInput(QQuickItem* item,QQuickWindow* window,const QString& controlId,\nconst QString& action,const std::function<bool(QQuickItem*)>& pointerClick){\nQJsonObject result{{"performed",false}},current{{"viewMenuControlsVersion",1}};bool delivered=false;\nstruct {QQuickItem* item;}control{item};\n'+branch+'\nresult["performed"]=delivered;return result;}\n')

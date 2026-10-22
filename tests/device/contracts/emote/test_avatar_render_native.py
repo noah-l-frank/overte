@@ -61,6 +61,8 @@ private:
 };
 class Avatar {
 public:
+    ORIGINAL_BOOM_GETTER
+    float _boomLength{4.25f};
     std::shared_ptr<Model>getSkeletonModel()const{return model;}
     bool getShouldRenderLocally()const{return local;}bool shouldRender()const{return render;}
     glm::vec3 getWorldFeetPosition()const{return {2,3,4};}
@@ -81,8 +83,10 @@ public:
 };
 class Camera{public:void loadViewFrustum(ViewFrustum&v)const{v=frustum;}
     QString getModeString()const{return "third person";}ViewFrustum frustum;};
+class MyAvatar{public:static const float ZOOM_MIN,ZOOM_DEFAULT;};
+ORIGINAL_ZOOM_CONSTANTS
 class TestApp:public QCoreApplication{public:using QCoreApplication::QCoreApplication;
-    const Camera&getCamera()const{return camera;}Camera camera;};
+    const Camera&getCamera()const{return camera;}Camera camera;bool hmd{true};bool isHMDMode()const{return hmd;}};
 #undef qApp
 #define qApp static_cast<TestApp*>(QCoreApplication::instance())
 struct Lifecycle{QVariantMap snapshot()const{return active?QVariantMap{{"original",true}}:QVariantMap{};}bool active{true};};
@@ -110,6 +114,11 @@ int main(int argc,char**argv){
     assert(geometry.value("sourceSha256")==QString::fromLatin1(QCryptographicHash::hash(
         model->geometry->hfm.originalURL.toUtf8(),QCryptographicHash::Sha256).toHex()));
     assert(source.value("loaded")==true&&source.value("visible")==false&&source.value("localRenderingEnabled")==false);
+    assert(source.value("cameraStateVersion")==1);
+    assert(source.value("cameraState").toMap()==QVariantMap({{"hmd",true},{"boomLength",4.25f},{"zoomMin",MyAvatar::ZOOM_MIN},{"zoomDefault",MyAvatar::ZOOM_DEFAULT}}));
+    app.hmd=false;manager->avatar->_boomLength=2.75f;
+    auto next=test.featureAvatarRenderObservation(command).value("source").toMap().value("cameraState").toMap();
+    assert(!next.value("hmd").toBool()&&next.value("boomLength").toFloat()==2.75f);app.hmd=true;
     assert(source.value("pose").toMap().value("feetPosition").toList()==QVariantList({2.f,3.f,4.f}));
     const auto projection=source.value("view").toMap().value("projection").toList();
     assert(projection[11]==32.f&&projection[14]==23.f); // Original row-major contract.
@@ -139,11 +148,16 @@ class OriginalAvatarGetter(unittest.TestCase):
         model=(ROOT/'libraries/render-utils/src/Model.h').read_text()
         geometry=(ROOT/'libraries/model-networking/src/model-networking/ModelCache.h').read_text()
         rig=(ROOT/'libraries/animation/src/Rig.h').read_text()
+        avatar_header=(ROOT/'interface/src/avatar/MyAvatar.h').read_text()
+        avatar_code=(ROOT/'interface/src/avatar/MyAvatar.cpp').read_text()
         pieces=dict(GETTER=block(source,'QVariantMap TestScriptingInterface::featureAvatarRenderObservation('),
             MODEL_GETTER=block(model,'    QString e2eModelInstance()'),
             GEOMETRY_GETTER=block(geometry,'    QString e2eGeometryInstance()'),RIG_GETTER=block(rig,'    int e2eRigId()'),
             MODEL_IDENTITY=model[model.index('    const QString _e2eModelInstance'):model.index(';',model.index('    const QString _e2eModelInstance'))+1],
-            GEOMETRY_IDENTITY=block(geometry,'    struct Identity')+' _e2eIdentity;')
+            GEOMETRY_IDENTITY=block(geometry,'    struct Identity')+' _e2eIdentity;',
+            ORIGINAL_BOOM_GETTER=block(avatar_header,'    float getBoomLength() const'),
+            ORIGINAL_ZOOM_CONSTANTS='\n'.join(line for line in avatar_code.splitlines()
+                if line.startswith(('const float MyAvatar::ZOOM_MIN =','const float MyAvatar::ZOOM_DEFAULT ='))))
         harness=HARNESS.replace('#include <atomic>','#include <atomic>\n#include <thread>')
         for key in sorted(pieces,key=len,reverse=True):harness=harness.replace(key,pieces[key])
         env=dict(os.environ);extra=[];major=env.get('OVERTE_NATIVE_QT_MAJOR','6')

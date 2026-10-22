@@ -198,6 +198,8 @@ QVariantMap TestScriptingInterface::featureAvatarRenderObservation(const QVarian
         {"pose",QVariantMap{{"feetPosition",vec(avatar->getWorldFeetPosition())},
             {"orientation",quat(avatar->getWorldOrientation())},{"modelScale",avatar->getModelScale()}}},
         {"cameraMode",camera.getModeString()},
+        {"cameraStateVersion",1},{"cameraState",QVariantMap{{"hmd",qApp->isHMDMode()},
+            {"boomLength",avatar->getBoomLength()},{"zoomMin",MyAvatar::ZOOM_MIN},{"zoomDefault",MyAvatar::ZOOM_DEFAULT}}},
         {"view",QVariantMap{{"position",vec(frustum.getPosition())},{"rotation",quat(frustum.getOrientation())},
             {"projection",projection},{"fieldOfViewDegrees",frustum.getFieldOfView()},{"aspectRatio",frustum.getAspectRatio()},
             {"nearClip",frustum.getNearClip()},{"farClip",frustum.getFarClip()},{"perspective",frustum.isPerspective()}}}};

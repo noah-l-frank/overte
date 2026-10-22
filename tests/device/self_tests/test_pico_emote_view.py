@@ -20,6 +20,7 @@ class ViewBoundary:
         self.sources=source_fixture.SourcesTests();self.sources.setUp();case.addCleanup(self.sources.doCleanups)
         self.lock=self.sources.lock;self.store=PrivateFeatureState(self.sources.root/'view.json')
         self.avatar=AvatarBoundary();self.avatar.epoch=self.sources.epoch;self.avatar.avatar['cameraMode']='first person look at'
+        self.avatar.avatar.update(cameraStateVersion=1,cameraState=dict(hmd=True,boomLength=.5,zoomMin=.5,zoomDefault=1.5))
         self.open=False;self.page='home';self.sequence=0;self.inputs=[];self.ignored=None;self.lost=None;self.mutate=None
         self.generation=str(uuid.uuid4());self.menu=str(uuid.uuid4());self.loaded=True
         self.io=SimpleNamespace(capture=self.capture,tablet=self.tablet,navigation=SimpleNamespace(input=self.input))
@@ -31,7 +32,7 @@ class ViewBoundary:
                 row=dict(id=key,token=str(uuid.uuid5(uuid.NAMESPACE_URL,key+self.menu+str(self.sequence))),enabled=True,focused=False)
                 if key.startswith('view-menu.'):
                     row.update(menuInstance=self.menu,inputReady=True,checked=self.avatar.avatar['cameraMode']==
-                        ('first person look at' if key=='view-menu.first' else 'third person' if key=='view-menu.third' else ''))
+                        ('first person look at' if key=='view-menu.first' else 'look at' if key=='view-menu.third' else ''))
                 rows.append(row)
         packet=dict(schemaVersion=1,bridgeId=BINDING['sessionId'],generation=self.generation,processId=31,
             elapsedMs=int(self.sources.clock*1000),updatedEpochMs=self.sources.epoch,lastCommandSequence=self.sequence,
@@ -57,7 +58,13 @@ class ViewBoundary:
         if control!=self.ignored:
             if control=='scripts.menu':self.page='menu'
             elif control=='view-menu.view':self.page='view'
-            else:self.avatar.avatar['cameraMode']='first person look at' if control=='view-menu.first' else 'third person'
+            else:
+                mode='first person look at' if control=='view-menu.first' else 'look at';source=self.avatar.avatar
+                if source['cameraMode']!=mode:
+                    state=source['cameraState']
+                    if mode=='first person look at':state['boomLength']=state['zoomMin']
+                    elif state['boomLength']==state['zoomMin']:state['boomLength']=state['zoomDefault']
+                source['cameraMode']=mode
         if control==self.lost:raise NativeUIError('Synthetic lost normal pointer reply')
         return {'performed':True}
     def sleep(self,seconds):self.sources.sleep(seconds)
@@ -83,10 +90,11 @@ class PicoEmoteViewTests(unittest.TestCase):
             self.assertIsNotNone(b.store.read())
 
     def test_original_third_person_is_restored_without_importing_phone_selfie_or_zoom(self):
-        b=ViewBoundary(self);b.avatar.avatar['cameraMode']='third person'
+        b=ViewBoundary(self);b.avatar.avatar['cameraMode']='look at';b.avatar.avatar['cameraState']['boomLength']=4.25
         with b.lock.held():
             b.owner().prepare();b.cleanup_phase();b.owner().restore()
-            self.assertEqual('third person',b.avatar.avatar['cameraMode']);self.assertNotIn('view-menu.first',b.inputs)
+            self.assertEqual('look at',b.avatar.avatar['cameraMode']);self.assertNotIn('view-menu.first',b.inputs)
+            self.assertEqual(4.25,b.avatar.avatar['cameraState']['boomLength'])
             self.assertEqual(10,len(b.inputs))
 
     def test_ignored_pointer_ack_cannot_become_camera_success_or_be_replayed(self):
@@ -141,16 +149,20 @@ class PicoEmoteViewTests(unittest.TestCase):
             self.assertEqual(before,b.inputs);self.assertIsNotNone(b.store.read())
 
     def test_unsupported_mode_unloaded_avatar_and_existing_open_tablet_fail_before_input(self):
-        for fault in ('selfie','unloaded','open'):
+        for fault in ('selfie','legacy-third','unloaded','open','custom-first-boom','legacy-source','desktop'):
             b=ViewBoundary(self)
             if fault=='selfie':b.avatar.avatar['cameraMode']='selfie'
+            elif fault=='legacy-third':b.avatar.avatar['cameraMode']='third person'
             elif fault=='unloaded':b.avatar.avatar.update(loaded=False,geometry=None)
+            elif fault=='custom-first-boom':b.avatar.avatar['cameraState']['boomLength']=5
+            elif fault=='legacy-source':b.avatar.avatar.pop('cameraState');b.avatar.avatar.pop('cameraStateVersion')
+            elif fault=='desktop':b.avatar.avatar['cameraState']['hmd']=False
             else:b.open=True
             with b.lock.held(),self.subTest(fault=fault),self.assertRaises(NativeUIError):b.owner().prepare()
             self.assertEqual([],b.inputs)
 
     def test_foreign_candidate_or_changed_original_avatar_cannot_restore_or_adopt_history(self):
-        for fault in ('candidate','geometry','pose','model','camera'):
+        for fault in ('candidate','geometry','pose','model','camera','boom'):
             b=ViewBoundary(self)
             with b.lock.held():
                 b.owner().prepare();before=deepcopy(b.inputs);b.cleanup_phase()
@@ -158,7 +170,8 @@ class PicoEmoteViewTests(unittest.TestCase):
                 elif fault=='geometry':b.avatar.avatar['geometry']['instance']='1'*32
                 elif fault=='pose':b.avatar.avatar['pose']['feetPosition'][0]+=1
                 elif fault=='model':b.avatar.avatar['modelInstance']='1'*32
-                else:b.avatar.avatar['cameraMode']='selfie'
+                elif fault=='camera':b.avatar.avatar['cameraMode']='selfie'
+                else:b.avatar.avatar['cameraState']['boomLength']+=1
                 with self.subTest(fault=fault),self.assertRaises(NativeUIError):b.owner().restore()
                 self.assertEqual(before,b.inputs);self.assertIsNotNone(b.store.read())
 
@@ -185,6 +198,14 @@ class PicoEmoteViewTests(unittest.TestCase):
             owner=b.owner();owner.prepare();self.assertGreaterEqual(b.sources.clock,.1)
             self.assertEqual(b.avatar.epoch,owner.state['original']['widgets']['updatedEpochMs'])
             self.assertEqual(5,len(b.inputs))
+
+    def test_legacy_v1_owner_remains_retained_without_interpreting_its_old_mode_semantics(self):
+        b=ViewBoundary(self)
+        with b.lock.held():
+            b.owner().prepare();value=b.store.read();value['picoEmoteViewVersion']=1;b.store.write(value,b.store.read())
+            before=deepcopy(b.inputs)
+            with self.assertRaises(NativeUIError):b.owner()
+            self.assertEqual(before,b.inputs);self.assertEqual(value,b.store.read())
 
 
 if __name__=='__main__':unittest.main()
