@@ -6,6 +6,8 @@ These factories neither create sessions nor advertise a complete capability.
 """
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
+import time
+
 from adapters.native_feature_observation import need
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.normal_ui import NativeUI
@@ -56,6 +58,17 @@ class IOSAvatarRuntime(IOSScriptRuntime):
         source=self._sources(selector)
         need(source['target'].get('testBuild',{}).get('launchEnvironment',{}).get('HIFI_METAVERSE_URL')==origin(client.url))
         return IOSAvatarMarkerScope(self,selector,root,run,role,client.url+'/runs/'+run+'/',ticket,lock)
+
+    def _avatar_marker_entities(self,selector,scope,root,lock):
+        from ios.adapters.avatar_marker_scope import IOSAvatarMarkerScope
+        from ios.adapters.avatar_marker_entities import IOSAvatarMarkerEntities
+        need(isinstance(scope,IOSAvatarMarkerScope) and isinstance(lock,ScriptSourceLock))
+        lock.assert_held();scope.bound();source=self._sources(selector)
+        need(source['binding']==scope.binding and lock.path==self.state_path(selector).with_name('script-feature-sources.lock'))
+        observer,clock=source['observer'],source['clock_source']
+        return IOSAvatarMarkerEntities(PrivateFeatureState(self.state_path(selector).with_name('ios-avatar-'+scope.role+'-marker-entities.json')),
+            root,scope.binding,scope.run,scope.role,lock,source['check'],native=observer.bound_native_observer(clock),
+            entities=observer.create_entities(clock),epoch_ms=lambda:time.time()*1000,monotonic=time.monotonic)
 
     def _avatar_samples(self,selector,scope,client,root,policy,lock):
         from ios.adapters.avatar_marker_scope import IOSAvatarMarkerScope

@@ -188,5 +188,25 @@ class AvatarRuntimeTests(unittest.TestCase):
             actual['binding']=BINDING|dict(artifactSha256='f'*64)
             with self.assertRaises(NativeUIError):runtime._avatar_consent('target',source,consent.peer,consent.username)
 
+    def test_marker_entity_factory_uses_own_role_and_actual_native_entity_source(self):
+        from ios.adapters import avatar_marker_scope,avatar_marker_entities
+        native,entities=object(),object();clock=object();seen=[]
+        observer=SimpleNamespace(bound_native_observer=lambda actual:seen.append(actual) or native,
+            create_entities=lambda actual:seen.append(actual) or entities)
+        source=dict(binding=BINDING,observer=observer,clock_source=clock,check=lambda:True)
+        class Runtime(IOSAvatarRuntime):
+            def _sources(_self,_selector):return source
+        runtime=Runtime(self.adapter);lock=ScriptSourceLock(self.path/'script-feature-sources.lock')
+        marker=object.__new__(avatar_marker_scope.IOSAvatarMarkerScope)
+        marker.binding,marker.run,marker.role=BINDING,self.run,'actor';marker.bound=lambda:lock.assert_held()
+        with lock.held(),patch.object(avatar_marker_entities,'IOSAvatarMarkerEntities',autospec=True) as constructor:
+            result=runtime._avatar_marker_entities('target',marker,self.root,lock)
+            self.assertIs(constructor.return_value,result);args=constructor.call_args.args;kwargs=constructor.call_args.kwargs
+            self.assertEqual('ios-avatar-actor-marker-entities.json',args[0].path.name)
+            self.assertEqual((self.root,BINDING,self.run,'actor',lock),args[1:6]);self.assertIs(native,kwargs['native'])
+            self.assertIs(entities,kwargs['entities']);self.assertEqual([clock,clock],seen)
+            source['binding']=BINDING|dict(artifactSha256='f'*64)
+            with self.assertRaises(NativeUIError):runtime._avatar_marker_entities('target',marker,self.root,lock)
+
 
 if __name__=='__main__':unittest.main()
