@@ -1,0 +1,282 @@
+"""Independent paired postlogout originals and measured native quiet.
+
+Scene/pixel retirement remains a separate original. This owner observes both
+actual SDKs without requesting a World after the product resets NodeList.
+It publishes nothing and never replays an input or an interrupted query.
+"""
+# Copyright 2026 Overte contributors.
+# SPDX-License-Identifier: Apache-2.0
+from copy import deepcopy
+from pathlib import Path
+from adapters.native_clock_join import digest
+from adapters.native_feature_observation import exact,integer,need,number
+from adapters.normal_feature_state import PrivateFeatureState,context
+from adapters.phase_retirement_publisher import PhaseRetirementPublisher
+from adapters.script_feature.history import pack,unpack,same
+from feature_journeys.contract import identifier
+from ios.adapters.avatar_authority import AvatarAuthorityReader
+from ios.adapters.avatar_postlogout_reads import IOSAvatarPostLogoutReads
+from ios.adapters.avatar_postlogout_tail import IOSAvatarPostLogoutTail
+from ios.adapters.avatar_pointers import IOSAvatarPointers
+from ios.adapters import world_web_keys
+from ios.adapters.emote_native_prefix import follow
+
+VERSION=1
+ROLES=('primary','actor')
+
+
+def account_equal(left,right):
+    a,b=deepcopy(left),deepcopy(right)
+    # The native account getter genuinely samples its observation timestamp on
+    # each read. Preserve both originals, compare the actual account state and
+    # immutable event history without treating this timestamp as a mutation.
+    for value in (a,b):value['observation'].pop('capturedEpochMs',None)
+    return same(a,b)
+
+
+class Frozen(PrivateFeatureState):
+    def __init__(self,path,value):super().__init__(path);self.value=deepcopy(value)
+    def read(self):return deepcopy(self.value)
+    def write(self,*_args,**_kwargs):need(False)
+    def discard(self,*_args,**_kwargs):need(False)
+
+
+class IOSAvatarFinal:
+    def __init__(self,store,root,bindings,run,role,locks,guard,factory,authority,inputs,*,epoch_ms,monotonic,sleep):
+        need(isinstance(store,PrivateFeatureState) and isinstance(authority,AvatarAuthorityReader) and authority.run==run
+            and role in ROLES and all(callable(fn) for fn in (guard,factory,epoch_ms,monotonic,sleep)))
+        exact(bindings,set(ROLES));exact(locks,set(ROLES));exact(inputs,set(ROLES))
+        self.store,self.root,self.bindings,self.run,self.role,self.locks=store,Path(root),{k:context(v) for k,v in bindings.items()},identifier(run),role,locks
+        need(store.path.name=='ios-avatar-'+role+'-final.json' and store.path.parent==locks[role].path.parent)
+        self.guard,self.factory,self.authority,self.inputs=guard,factory,authority,deepcopy(inputs)
+        self.epoch_ms,self.monotonic,self.sleep=epoch_ms,monotonic,sleep
+        self.historical=False;self.previous=store.read();self.state=dict(rows=[],pending=None)
+        self.bound()
+        for subject in ROLES:self.input(subject)
+        if self.previous is not None:self.state=self.parse(self.previous)
+
+    def input(self,subject):
+        value=self.inputs[subject];exact(value,{'root','paths','childRunId','fixtureUrl','ticket','baseline','logoutBefore'})
+        identifier(value['childRunId']);identifier(value['ticket']);exact(value['baseline'],{'state','scripts','http'})
+        exact(value['paths'],{'post','tail','pointers'})
+        base=self.locks[subject].path.parent
+        names=dict(post=self.role+'-'+subject+'-postlogout',tail=self.role+'-'+subject+'-postlogout-tail',pointers=self.role+'-pointers')
+        need(all(Path(value['paths'][k])==base/('ios-avatar-'+v+'.json') for k,v in names.items()))
+        return value
+
+    def envelope(self,state):return dict(iosAvatarFinalVersion=VERSION,runId=self.run,role=self.role,bindings=self.bindings,
+        artifactRoot=str(self.root),inputs=self.inputs,payload=pack([state]))
+    def bound(self):
+        need(not self.historical and self.guard() is not False)
+        for lock in self.locks.values():lock.assert_held()
+        need(same(self.store.read(),self.previous))
+    def save(self):
+        self.bound();value=self.envelope(self.state);self.parse(value);self.store.write(value,self.previous)
+        need(same(self.store.read(),value));self.previous=deepcopy(value)
+    def file(self,index):
+        need(integer(index,1,128));return PrivateFeatureState(self.root/('avatar-final-'+self.run+'-'+self.role+'-'+str(index)+'.json'))
+    def record(self,ref):
+        exact(ref,{'index','sha256'});value=self.file(ref['index']).read();need(value is not None and digest(value)==ref['sha256'])
+        exact(value,{'iosAvatarFinalOriginalVersion','runId','role','bindings','payload'})
+        need(type(value['iosAvatarFinalOriginalVersion']) is int and value['iosAvatarFinalOriginalVersion']==VERSION
+            and value['runId']==self.run and value['role']==self.role and same(value['bindings'],self.bindings))
+        rows=unpack(value['payload']);need(len(rows)==1);return rows[0]
+
+    def component(self,index,subject,kind,reference):
+        need(integer(index,1,128) and subject in ROLES and kind in ('post','tail','pointers'))
+        exact(reference,{'index','sha256'});need(reference['index']==index)
+        path=self.root/('avatar-final-component-'+self.run+'-'+self.role+'-'+str(index)+'-'+subject+'-'+kind+'.json')
+        value=PrivateFeatureState(path).read();need(value is not None and digest(value)==reference['sha256']);return value
+
+    def retain_component(self,index,subject,kind,value):
+        self.bound();p=self.state['pending'];need(p is not None and p['index']==index)
+        key=subject+'-'+kind;ref=dict(index=index,sha256=digest(value))
+        if key in p['components']:need(same(p['components'][key],ref))
+        else:p['components'][key]=ref;self.save()
+        store=PrivateFeatureState(self.root/('avatar-final-component-'+self.run+'-'+self.role+'-'+str(index)+'-'+subject+'-'+kind+'.json'))
+        old=store.read()
+        if old is None:store.write(value,None)
+        else:need(same(old,value))
+        self.component(index,subject,kind,ref);return ref
+
+    def archives(self,subject,parts):
+        self.locks[subject].assert_held();exact(parts,{'owners','rows'});exact(parts['owners'],{'post','tail','pointers'});exact(parts['rows'],{'post','tail','left','right'})
+        original={kind:self.component(ref['index'],subject,kind,ref) for kind,ref in parts['owners'].items()}
+        config=self.input(subject);shared=dict(root=Path(config['root']),binding=self.bindings[subject],run=self.run,role=self.role,lock=self.locks[subject])
+        common=dict(child_run=config['childRunId'],fixture_url=config['fixtureUrl'],ticket=config['ticket'],logout_before=config['logoutBefore'],subject=subject)
+        post=IOSAvatarPostLogoutReads.archive(original['post'],store=Frozen(config['paths']['post'],original['post']),
+            baseline=config['baseline']['state'],**common,**shared)
+        tail=IOSAvatarPostLogoutTail.archive(original['tail'],store=Frozen(config['paths']['tail'],original['tail']),
+            baseline=config['baseline'],**common,**shared)
+        pointer=IOSAvatarPointers.archive(original['pointers'],store=Frozen(config['paths']['pointers'],original['pointers']),**shared)
+        need(all(owner.state['pending'] is None for owner in (post,tail,pointer)))
+        need(integer(parts['rows']['post'],1,len(post.state['rows'])) and integer(parts['rows']['tail'],1,len(tail.state['rows'])))
+        a,b=post.state['rows'][parts['rows']['post']-1],tail.state['rows'][parts['rows']['tail']-1];post.proof(a);proof=tail.proof(b)
+        need(parts['rows']['left'] in pointer.state['records'] and parts['rows']['right'] in pointer.state['records'])
+        need(proof['iosAvatarPostLogoutTailProofVersion']==2)
+        left,right=pointer.original(parts['rows']['left']),pointer.original(parts['rows']['right']);body=post.record(a);ui=tail.record(b['reference'])
+        before=post.account(body['before']);after=post.account(body['after'])
+        follow(left['clockJoin']['nativeAfter'],before);follow(after,ui['clockJoin']['nativeBefore']);follow(ui['clockJoin']['nativeAfter'],right['clockJoin']['nativeBefore'])
+        return dict(post=post,tail=tail,pointers=pointer,model=body['model'],ui=ui,left=left,right=right,proof=proof)
+
+    def group(self,value):
+        exact(value,{'ticket','phaseInstance','sequence','subjects','provider','providerClock','acquisition'})
+        identifier(value['ticket']);identifier(value['phaseInstance']);need(integer(value['sequence'],1));exact(value['subjects'],set(ROLES))
+        a=PhaseRetirementPublisher.acquisition(value['acquisition']);p=PhaseRetirementPublisher.acquisition(value['providerClock'])
+        need(a['hostBeforeEpochMs']<=p['hostBeforeEpochMs']<=p['hostAfterEpochMs']<=a['hostAfterEpochMs']
+            and a['hostBeforeMonotonic']<=p['hostBeforeMonotonic']<=p['hostAfterMonotonic']<=a['hostAfterMonotonic'])
+        status=self.authority.validate(value['provider'],p['hostAfterEpochMs'])
+        need(status['phase']=='revoking' and status['ticket']==value['ticket'])
+        for row in status['accounts'].values():
+            need(not row['grantsEnabled'] and not row['armedHold'] and all(row[k]==0 for k in ('heldRequests','inflightRequests','accessTokens','refreshTokens'))
+                and p['hostBeforeEpochMs']<=row['capturedEpochMs']<=p['hostAfterEpochMs'])
+        actual={subject:self.archives(subject,parts) for subject,parts in value['subjects'].items()}
+        for subject,parts in actual.items():
+            need(status['accounts'][subject]['runId']==self.inputs[subject]['childRunId'] and value['ticket']==self.inputs[subject]['ticket'])
+            for join in (parts['left']['clockJoin'],parts['ui']['clockJoin'],parts['right']['clockJoin']):
+                need(a['hostBeforeEpochMs']<=join['hostBeforeEpochMs']<=join['hostAfterEpochMs']<=a['hostAfterEpochMs']
+                    and a['hostBeforeMonotonic']<=join['hostBeforeMonotonic']<=join['hostAfterMonotonic']<=a['hostAfterMonotonic'])
+        return actual
+
+    @staticmethod
+    def component_prefix(before,after):
+        need(set(before)==set(after) and all(same(before[k],after[k]) for k in before if k!='payload'))
+        old,new=unpack(before['payload']),unpack(after['payload']);need(len(old)==len(new)==1)
+        a,b=old[0],new[0];need(a['pending'] is None)
+        for key in ('rows','records','abandoned'):
+            if key in a:need(key in b and same(a[key],b[key][:len(a[key])]))
+
+    def parse(self,value):
+        exact(value,{'iosAvatarFinalVersion','runId','role','bindings','artifactRoot','inputs','payload'})
+        rows=unpack(value['payload']);need(len(rows)==1 and same(value,self.envelope(rows[0])));state=rows[0];exact(state,{'rows','pending'})
+        need(type(state['rows']) is list and len(state['rows'])<=128);last={};sequence=0;components={}
+        for index,row in enumerate(state['rows'],1):
+            exact(row,{'index','reference','components'});need(type(row['index']) is int and row['index']==index)
+            self.components(row['components'],index,complete=True)
+            for key,ref in row['components'].items():
+                current=self.component(index,*key.split('-',1),ref)
+                if key in components:self.component_prefix(components[key],current)
+                components[key]=current
+            if row['reference'] is None:continue
+            need(index==row['reference']['index']);record=self.record(row['reference']);actual=self.group(record)
+            need(same(row['components'],{subject+'-'+kind:ref for subject,parts in record['subjects'].items() for kind,ref in parts['owners'].items()}))
+            need(record['sequence']>sequence);sequence=record['sequence']
+            for subject,parts in actual.items():
+                if subject in last:follow(last[subject],parts['left']['clockJoin']['nativeBefore'])
+                last[subject]=parts['right']['clockJoin']['nativeAfter']
+        p=state['pending']
+        if p is not None:
+            exact(p,{'index','value','components'});need(p['index']==len(state['rows'])+1);self.components(p['components'],p['index'],complete=False)
+            if p['value'] is not None:need(type(p['value']) is dict)
+        elif not self.historical and len(state['rows'])<128:need(self.file(len(state['rows'])+1).read() is None)
+        return deepcopy(state)
+
+    def components(self,values,index,*,complete):
+        need(type(values) is dict and set(values)<={s+'-'+k for s in ROLES for k in ('post','tail','pointers')})
+        for key,ref in values.items():
+            exact(ref,{'index','sha256'});need(ref['index']==index)
+            if complete:self.component(index,*key.split('-',1),ref)
+
+    def finish(self):
+        self.bound();p=self.state['pending'];need(p is not None and p['value'] is not None);store=self.file(p['index']);old=store.read()
+        if old is None:store.write(p['value'],None)
+        else:need(same(old,p['value']))
+        ref=dict(index=p['index'],sha256=digest(p['value']));self.group(self.record(ref))
+        self.state['rows'].append(dict(index=p['index'],reference=ref,components=deepcopy(p['components'])));self.state['pending']=None;self.save();return ref
+
+    def recover(self):
+        self.bound();p=self.state['pending']
+        if p is None:return None
+        if p['value'] is not None:return self.finish()
+        # A snapshot intent can be durable before its local file write. Only
+        # the exact unchanged current subordinate metadata can fill that file;
+        # no source query or transport is needed to recover the missing return.
+        for key,ref in p['components'].items():
+            subject,kind=key.split('-',1)
+            path=self.root/('avatar-final-component-'+self.run+'-'+self.role+'-'+str(p['index'])+'-'+subject+'-'+kind+'.json')
+            if PrivateFeatureState(path).read() is None:
+                value=PrivateFeatureState(self.input(subject)['paths'][kind]).read()
+                need(value is not None and digest(value)==ref['sha256'])
+                self.retain_component(p['index'],subject,kind,value)
+        # No operation is resent. Every subordinate sampler owns its exact
+        # query/partial inode; reconstruction validates its append-only history.
+        for subject in ROLES:
+            actual=self.factory(subject)
+            actual['post'].recover();actual['tail'].recover();actual['pointers'].abandon()
+        # Retain every actually written component, even if its return was
+        # lost. Missing declared files remain owned and block abandonment.
+        self.components(p['components'],p['index'],complete=True)
+        self.state['rows'].append(dict(index=p['index'],reference=None,components=deepcopy(p['components'])))
+        self.state['pending']=None;self.save();return None
+
+    def capture(self,*,ticket,phase_instance,sequence):
+        self.bound();self.recover();need(len(self.state['rows'])<128);identifier(ticket);identifier(phase_instance);need(integer(sequence,1))
+        self.state['pending']=dict(index=len(self.state['rows'])+1,value=None,components={});self.save()
+        a=dict(hostBeforeEpochMs=self.epoch_ms(),hostBeforeMonotonic=self.monotonic());subjects={}
+        for subject in ROLES:
+            actual=self.factory(subject);exact(actual,{'post','tail','pointers'})
+            post,tail,pointer=actual['post'],actual['tail'],actual['pointers']
+            need(isinstance(post,IOSAvatarPostLogoutReads) and isinstance(tail,IOSAvatarPostLogoutTail) and isinstance(pointer,IOSAvatarPointers)
+                and post.lock is tail.lock is pointer.lock is self.locks[subject]
+                and all(same(owner.binding,self.bindings[subject]) and owner.role==self.role and owner.run==self.run for owner in actual.values()))
+            pointer.abandon();left=pointer.capture();model=post.capture();ui=tail.capture();right=pointer.capture()
+            subjects[subject]=dict(rows=dict(post=model['index'],tail=ui['index'],left=left,right=right),owners={key:self.retain_component(self.state['pending']['index'],subject,key,owner.previous) for key,owner in actual.items()})
+        p=dict(hostBeforeEpochMs=self.epoch_ms(),hostBeforeMonotonic=self.monotonic());provider=self.authority.read()
+        p.update(hostAfterEpochMs=self.epoch_ms(),hostAfterMonotonic=self.monotonic());a.update(hostAfterEpochMs=self.epoch_ms(),hostAfterMonotonic=self.monotonic())
+        group=dict(ticket=ticket,phaseInstance=phase_instance,sequence=sequence,subjects=subjects,provider=provider,providerClock=p,acquisition=a);self.group(group)
+        self.state['pending']['value']=dict(iosAvatarFinalOriginalVersion=VERSION,runId=self.run,role=self.role,bindings=self.bindings,payload=pack([group]));self.save()
+        ref=self.finish();self.fresh(group);return ref
+
+    def fresh(self,record):
+        self.bound();a=record['acquisition'];now,mono=self.epoch_ms(),self.monotonic()
+        need(a['hostAfterEpochMs']<=now<a['hostBeforeEpochMs']+1500 and a['hostAfterMonotonic']<=mono<a['hostBeforeMonotonic']+1.5
+            and abs(now-a['hostBeforeEpochMs']-(mono-a['hostBeforeMonotonic'])*1000)<=250)
+
+    def quiet(self,references,*,sequence):
+        """File-only postlogout component; no scene or whole cleanup verdict."""
+        for lock in self.locks.values():lock.assert_held()
+        need(type(references) is list and len(references)>=3 and all(any(row['reference']==ref for row in self.state['rows']) for ref in references))
+        groups=[self.record(ref) for ref in references];actual=[self.group(row) for row in groups];first,last=groups[0],groups[-1]
+        need(all(row['ticket']==last['ticket'] and row['phaseInstance']==last['phaseInstance'] for row in groups)
+            and all(b['sequence']>a['sequence'] for a,b in zip(groups,groups[1:])) and integer(sequence,last['sequence']))
+        quiets={}
+        for subject in ROLES:
+            samples=[row[subject] for row in actual];a,b=samples[0],samples[-1]
+            frames=[dict(clockJoin=row['ui']['clockJoin']) for row in samples]
+            a['pointers'].receipt(a['left'],self.bindings[subject],self.run,self.role)
+            proof=b['pointers'].quiet(frames,baseline=a['left'])
+            native_a,native_b=a['ui']['clockJoin']['nativeAfter'],b['ui']['clockJoin']['nativeBefore']
+            keys_a,keys_b=a['tail'].keys(a['ui']),b['tail'].keys(b['ui'])
+            need(keys_a['source']['instance']==keys_b['source']['instance'])
+            clock_a,clock_b=keys_a['clockAfter'],keys_b['clockBefore']
+            q=dict(hostAfterFirstEpochMs=frames[0]['clockJoin']['hostAfterEpochMs'],hostBeforeLastEpochMs=frames[-1]['clockJoin']['hostBeforeEpochMs'],
+                hostAfterFirstMonotonic=frames[0]['clockJoin']['hostAfterMonotonic'],hostBeforeLastMonotonic=frames[-1]['clockJoin']['hostBeforeMonotonic'],
+                nativeAfterFirstEpochMs=clock_a['epochMs'],nativeBeforeLastEpochMs=clock_b['epochMs'],
+                nativeAfterFirstMonotonicMs=clock_a['monotonicMs'],nativeBeforeLastMonotonicMs=clock_b['monotonicMs'],
+                nativeInstance=keys_a['source']['instance'],processId=keys_a['processId'])
+            from feature_journeys.retirement_receipts import quiet,binding_from_context
+            quiet(q,binding_from_context(self.bindings[subject]));quiets[subject]=q
+            before_native=frames[0]['clockJoin']['nativeBefore'];epoch=before_native['capturedEpochMs']
+            for row in samples:
+                keys=row['tail'].keys(row['ui']);world_web_keys.drained(keys)
+                need(same(keys['source'],keys_a['source']))
+                need(row['proof']['endpointEpochMs']<=epoch and same(row['model']['source'],a['model']['source'])
+                    and same(row['ui']['packets']['http']['events'],a['ui']['packets']['http']['events']))
+                for native in (row['ui']['clockJoin']['nativeBefore'],row['ui']['clockJoin']['nativeAfter'],row['right']['clockJoin']['nativeAfter']):
+                    need(same(native['lifecycle'],before_native['lifecycle']) and account_equal(native['account'],before_native['account'])
+                        and native['capturedEpochMs']>=epoch)
+                follow(row['ui']['clockJoin']['nativeAfter'],row['right']['clockJoin']['nativeBefore'])
+            need(proof['last']['clockJoin']['nativeAfter']['capturedEpochMs']>=native_b['capturedEpochMs'])
+            http_a,http_b=a['ui']['packets']['http']['clockAfter'],b['ui']['packets']['http']['clockBefore']
+            need(3000<=http_b['epochMs']-http_a['epochMs']<60000 and 3000<=http_b['monotonicMs']-http_a['monotonicMs']<60000)
+        acquisition=deepcopy(last['acquisition']);native=actual[-1][self.role]['right']['clockJoin']['nativeAfter']
+        ref=references[-1]
+        return dict(iosAvatarFinalProofVersion=VERSION,runId=self.run,ticket=last['ticket'],phaseInstance=last['phaseInstance'],sequence=sequence,
+            capturedEpochMs=acquisition['hostAfterEpochMs'],lifecycle=deepcopy(native['lifecycle']),acquisition=acquisition,bilateralQuiet=quiets,
+            originalSha256=ref['sha256'],provenance=dict(version=1,namespace='ios-avatar-final-original',reference=deepcopy(ref),originalSha256=ref['sha256']))
+
+    @classmethod
+    def archive(cls,value,*,store,root,bindings,run,role,locks,authority,inputs):
+        result=object.__new__(cls);result.store=Frozen(store.path,value);result.root=Path(root);result.bindings={k:context(v) for k,v in bindings.items()}
+        result.run,result.role,result.locks,result.authority,result.inputs=identifier(run),role,locks,authority,deepcopy(inputs)
+        result.historical=True;result.previous=deepcopy(value);result.state=result.parse(value);return result
