@@ -630,3 +630,18 @@ Against the merged branch, eight selected Pico groups pass (8/61, 64.04 seconds)
 source-boundary correction. These are focused host/native-component results.
 Create, Chat and Lifecycle still have unfinished whole-area ownership and
 retirement; no full application/APK or physical device result is established.
+
+The [original Chat profile owner](../../native/CHAT_PROFILE_OWNER.md) now retains
+exact native-only original types and physical row identity, one conditional
+restore and durable host intent across lost results. Its full Qt5 Manager/worker
+checks pass (3 cases); private Pico factory and retained-owner cleanup pass.
+Normal Erase, independent post-Erase histories and final whole Chat retirement
+remain to be joined.
+
+The [ordinary world-input owner](LIFECYCLE_WORLD.md) now retains the actual
+OpenXR session envelope before transport, joins each attempt to an original
+consumed gesture, and measures native neutrality plus three seconds of 3D-feet
+quiet. Missing/ignored input, uncertain grant/release and changed original
+sources cannot count as an attempt or successful release. The journal remains
+owned. The actual X composition and independently proven old-process final
+retirement are the next Lifecycle work; no complete capability is advertised.

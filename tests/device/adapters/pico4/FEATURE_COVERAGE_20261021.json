@@ -847,7 +847,12 @@
         "tests/device/contracts/chat/test_chat_peer_input_native.py",
         "tests/device/native/ChatSettingsBarrier.h",
         "tests/device/native/CHAT_SETTINGS_BARRIER.md",
-        "tests/device/contracts/chat/test_chat_settings_barrier.py"
+        "tests/device/contracts/chat/test_chat_settings_barrier.py",
+        "tests/device/native/ChatProfileOwner.h",
+        "tests/device/native/CHAT_PROFILE_OWNER.md",
+        "tests/device/adapters/native_chat_profile.py",
+        "tests/device/self_tests/test_chat_profile_owner.py",
+        "tests/device/self_tests/test_chat_profile_native_probe.py"
       ],
       "declaredCheckpoints": 25,
       "inputVerbs": [
@@ -891,7 +896,7 @@
         "Restore peer position and owned mixer service",
         "Close view and observe keyboard, peer work and capture ownership fully retired"
       ],
-      "nextExecutableStep": "Compose original normal UI and entity keyboard, durable independent native/UI/storage samples, actual peer Send/position and no-replay owner. Continue distant rejection/restore, actual Settings writer/file durability, owned mixer outage/recovery, profile restoration and whole quiet final retirement. Actual Send consumption remains separate from independent reception.",
+      "nextExecutableStep": "Compose native and durable original-profile owners with normal Erase, two independently acquired fresh post-Erase Script/UI histories, close/reopen, original Config preservation and three-source restoration quiet. Join existing remote/distant/no-replay owners, original stereo/actor evidence and actual callback/Qt/native/file retirement; no complete Chat triple.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     },
@@ -1114,7 +1119,10 @@
         "tests/device/adapters/pico4/lifecycle_gesture.py",
         "tests/device/adapters/pico4/LIFECYCLE_GESTURE.md",
         "tests/device/contracts/input/test_lifecycle_gesture_observation.py",
-        "tests/device/self_tests/test_pico_lifecycle_gesture.py"
+        "tests/device/self_tests/test_pico_lifecycle_gesture.py",
+        "tests/device/adapters/pico4/lifecycle_world.py",
+        "tests/device/adapters/pico4/LIFECYCLE_WORLD.md",
+        "tests/device/self_tests/test_pico_lifecycle_world.py"
       ],
       "declaredCheckpoints": 16,
       "inputVerbs": [
@@ -1159,7 +1167,7 @@
         "Observe real old context retirement and new empty editor",
         "Restore original position/focus and sustain zero deferred/held input for three seconds"
       ],
-      "nextExecutableStep": "Compose actual left/X owner with original weak editor/keyboard and native drive/feet/tracking sources. Add immutable original gesture consumption from actual Pico OpenXR override, independent displacement, pending/stale IME and interruption. Retained original QQmlContext wrappers remain retained; neutral acknowledgements and hidden views do not retire them.",
+      "nextExecutableStep": "Compose actual X with the durable consumed-gesture/world-input and independent native-neutral/3D-feet quiet owner, using the same actual source-lock instance and retained original context IDs. Then verify held-action interruption, original settings/avatar restoration and strong OS PID/start absence plus controlled restart for process-owned final retirement. No complete Lifecycle triple or force-stop-ACK cleanup claim.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     }

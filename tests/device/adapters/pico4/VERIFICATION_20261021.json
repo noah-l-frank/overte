@@ -2544,5 +2544,53 @@
       "Resolved additive catalog, capability-mapping and private-result filename conflicts by retaining all current Audio/Emote/Lifecycle additions and the new Create dialog route. Current catalog61; historical incoming agent counts were not adopted."
     ],
     "qualification": "Full original SettingManager translation unit compiled on Qt5 host; Create real Qt wrapper/dialog/listener/Window/TSI and Gesture/Pico source use focused extracted bodies and explicit runtime seams. No full native application/APK linking or physical device qualification. Create/Chat/Lifecycle remain partial; all unresolved journals retained."
+  },
+  "profileAndWorldOwners20261022": {
+    "status": "reviewed-local-source-and-focused-host-integration-partial",
+    "selectedCommits": {
+      "chat": [
+        "dbb332a0db769513dfef6eab7b5b986ffcfc55d9",
+        "f345baefc212ef3c7edc4a1a6975d5b4bd2e1811"
+      ],
+      "lifecycle": [
+        "d89269aa3cd80b0f116a01e9d65df07d9f66d23c"
+      ]
+    },
+    "checks": [
+      {
+        "command": "Actual Qt5 full SettingManager/moc/worker/profile owner",
+        "tests": 3,
+        "durationSeconds": 11.674,
+        "status": "passed"
+      },
+      {
+        "command": "Merged Chat profile/probe, World/Session and original Pico/root probe components",
+        "tests": 52,
+        "durationSeconds": 1.795,
+        "status": "passed"
+      },
+      {
+        "command": "Actual private Pico profile factory and retained restored owner teardown",
+        "tests": 2,
+        "durationSeconds": 1.82,
+        "status": "passed"
+      },
+      {
+        "command": "Pico suite-runner/coverage-matrix/lifecycle-input-owner",
+        "groups": 3,
+        "catalogGroups": 61,
+        "durationSeconds": 9.31,
+        "status": "passed"
+      },
+      {
+        "command": "Required documentation/documentation-contracts/source-layout/project-coverage",
+        "suites": 4,
+        "durationSeconds": 2.85,
+        "status": "passed"
+      }
+    ],
+    "details": "Native Chat profile keeps exact original private QVariant values and physical rows, refuses original live type mismatches/unowned history, preserves Config, admits one exact conditional restoration and retains uncertain native/host intent. World input uses actual Session.stage with saved original envelope; attempts come from matched actual gesture-start events, and release joins real neutral history plus native/host three-second 3D-feet quiet. Neither component retires its original journal or advertises a full feature.",
+    "testSelectionCorrection": "An initial combined command named a nonexistent wrapper method; its52 actual component cases passed but the command failed. Corrected explicit52-component run passed; both actual wrapper method names then passed separately.",
+    "qualification": "Original Qt5 SettingsManager translation unit/worker/profile helper tested; ChatView is an explicit seam for the owner check and TSI/Android application remains unlinked. Pico World OpenXR/Avatar/Qt boundaries are explicit host fixtures. No devices, APK, full native application or complete Chat/Lifecycle coverage."
   }
 }
