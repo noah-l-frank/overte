@@ -334,7 +334,15 @@
         "tests/device/native/NormalCreateExtraControls.h",
         "android/vr/pico/tests/device/test_create_primitives_owner.py",
         "android/vr/pico/tests/device/test_create_transport_admission.py",
-        "android/vr/pico/tests/device/test_create_polyvox_controls_native.py"
+        "android/vr/pico/tests/device/test_create_polyvox_controls_native.py",
+        "tests/device/adapters/pico4/create_voxel_edit.py",
+        "tests/device/adapters/pico4/create_voxel_ui.py",
+        "tests/device/adapters/pico4/create_polyvox_resources.py",
+        "tests/device/native/CreatePolyvoxResources.h",
+        "tests/device/native/NormalCreateVoxelControls.h",
+        "tests/device/adapters/pico4/CREATE_VOXEL_PARENT.md",
+        "android/vr/pico/tests/device/test_create_voxel_owner.py",
+        "android/vr/pico/tests/device/create-polyvox-resources.cpp"
       ],
       "declaredCheckpoints": 21,
       "inputVerbs": [
@@ -365,8 +373,8 @@
       ],
       "missingOperationsOrEvidence": [
         "Whole model/texture creation and actual local JSON picker/export ownership",
-        "PolyVox editing and actual domain rez-denial/recovery actor",
-        "Independent entity/history, original export, resource and stereo image joins"
+        "Actual domain rez-denial/recovery authority and independent actor",
+        "Independent entity/history, original export, complete resource and stereo image joins"
       ],
       "requiredOriginalEvidence": [
         "Original entity UUID/properties/history and rez authority",
@@ -379,7 +387,7 @@
         "Drain original model/texture/picker/export callbacks and files",
         "Restore rez permission, view and actual unowned scene inventory"
       ],
-      "nextExecutableStep": "Extend the real first-twelve-step parent plus normal PolyVox dialog/Create/Properties/Delete (actual Source4 insertion, atomic 8 cubed voxels and mesh, retained original proof) with normal controller voxel brush edits, exact rez authority denial/restoration, independent actor/current stereo and whole allocation/history/quiet retirement. Final QML admission checks actual intent/token, original current UI and exact fixture phase; generic Home/paging retains its native survey semantics.",
+      "nextExecutableStep": "Extend the normal v3 Create parent with Source5 volume/mesh/renderer weak originals, durable controller cube-removal stroke, exact normal TOOLS settings restoration and Delete with actual rez denial/restoration, independent actor/current stereo and whole allocation/history/quiet retirement. Final QML/controller publication retains original intent/token, source clocks and fixture phase; no requested voxel bytes or ACK establish effect.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested",
       "nativeDialogIntegrationStatus": "Focused original Qt5 dialog pipeline passed after restoring actual GUI Window receiver affinity and original worker DirectConnection call. Full application/V8 TUs and devices unqualified; earlier unsupported moved-receiver diagnostic crash documented.",

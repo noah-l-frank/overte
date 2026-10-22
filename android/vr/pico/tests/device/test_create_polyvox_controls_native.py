@@ -6,10 +6,12 @@ import json
 from pathlib import Path
 import shlex
 import subprocess
+import sys
 import tempfile
 import unittest
 
 HERE=Path(__file__).resolve().parent;ROOT=HERE.parents[4]
+sys.path.insert(0,str(ROOT/'tests/device'))
 
 
 def original(source, signature):

@@ -1184,3 +1184,22 @@ pending/cancel history, ordinary output images or OS delivery. The actual normal
 HMD still path reads one composite region, not an independently measured pair
 of eyes. The normal Still-PNG owner is being composed with original file bytes
 and the existing decoder; no complete Snapshot capability is registered.
+
+## Normal voxel editing integrated after Source5/parent v3
+
+The [normal voxel owner](CREATE_VOXEL_PARENT.md) is selected from local Create
+agent commit `70b28fda1e916246dfc9c704c7f96b42a49e0da4`. Root preserves all
+existing Snapshot, Emote, Chat and Lifecycle source/input extensions. Two new
+bounded selectors extend the actual catalog from 94 to 96. The original nine
+primitive cases remain separately registered; no assertion or deadline changed.
+
+Root normal flow (two cases), refusal/recovery guards (three cases), native
+entity/atomic volume/renderer weak sources (three cases), and coverage passed
+in the first five-selector run (81.89s total). Both native UI bodies executed,
+but the new Python settings validation exposed a missing direct-selector import
+path; the wrapper now inserts its own `tests/device` path explicitly. The owning
+two-case native UI selector then passed in 12.00s without inherited PYTHONPATH.
+Four repository documentation/contract/layout/coverage suites passed in 2.93s.
+Original QML deprecation/layout diagnostics remain visible; product QML was not
+changed. Whole Create, GPU, domain/peer, application and device qualification
+remain open. The matrix records the next actual rez-authority boundary.
