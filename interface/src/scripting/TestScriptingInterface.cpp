@@ -37,6 +37,7 @@
 #include "../../../tests/device/native/NavigationFailureModals.h"
 #include "../../../tests/device/native/NavigationEnvironmentObservation.h"
 #include "../../../tests/device/native/NavigationDirectoryObservation.h"
+#include "../../../tests/device/native/NavigationPanelsObservation.h"
 #include "LocationBookmarks.h"
 #include <XMLHttpRequestClass.h>
 #include "../../../tests/device/native/PrivateWorldRenderReceipts.h"
@@ -499,6 +500,19 @@ QVariantMap TestScriptingInterface::featureProcessPresence(const QVariantMap& co
 void TestScriptingInterface::featurePlacesRecordsChanged() {
     const auto provider=overte::e2e::navigationDirectoryProvider();
     if (provider.changed) { provider.changed(qobject_cast<QQuickItem*>(sender())); }
+}
+
+QVariantMap TestScriptingInterface::featureNavigationPanels(const QVariantMap& command) {
+    if (QThread::currentThread()!=thread()) {
+        if (!thread() || !thread()->isRunning()) { return {}; }
+        QVariantMap result;
+        if (!QMetaObject::invokeMethod(this,[&] { result=featureNavigationPanels(command); },Qt::BlockingQueuedConnection)) { return {}; }
+        return result;
+    }
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript")
+            || !overte::e2e::previewDirectory(_testResultsLocation)) { return {}; }
+    return overte::e2e::navigationPanelsObservation().snapshot(command);
 }
 
 QVariantMap TestScriptingInterface::featureNavigationDirectory(const QVariantMap& command) {

@@ -673,3 +673,55 @@ Navigation still needs durable fresh-image/actor publication, normal global
 tablet close, remaining Go To closure, maturity/origin restoration, original
 process/bookmark transfer and final Script/XHR/Web/timer/metadata retirement.
 No new full capability, build, device or remote integration is claimed.
+
+## Actual VR Home transit and original panel lifetime
+
+Transit v2 now binds the existing observed Home entity and ordinary OpenXR
+primary-trigger ray, persisting the original geometry before delivery. The v1
+assumption of a `nav.home` QML control was incorrect: only an allowlist mapping
+exists, not the original QML control. The actual Pico factory cannot use that
+legacy path. Closed v1 journals remain readable as historical QML input;
+uncertain delivery is never reinterpreted as a ray or resent.
+
+The new additive Pico-only `native-navigation-panels` v1 source observes the
+complete original root subtree, including hidden retained Go To/Places pages.
+It retains weak identities and immutable first-observed/source history and
+requires actual destruction independently of page visibility. Transit joins it
+to the existing directory/native arrival/bookmark proofs, actual Home entity and
+three-second quiet window. Lost Home receipts recover without another gesture;
+extra Qt input, unowned roots, replaced sources, missing history and retained
+pages fail with ownership intact. See [the source contract](../../native/NAVIGATION_PANELS.md)
+and [the transit guide](NAVIGATION_TRANSIT.md).
+
+These native changes are uncompiled and host Qt/OpenXR boundaries are synthetic.
+The actual global tablet close, Go To input/lookup composition and the remaining
+whole-feature work listed above remain open. No complete capability is added:
+Scripts, Authentication and Graphics remain the three source/host-complete
+areas. Do not integrate this Pico producer automatically into Phone or iOS.
+
+## Normal post-transit tablet close and durable fresh frames
+
+The [normal presentation owner](NAVIGATION_PRESENTATION.md) now binds the
+completed original transit/Home proof to one ordinary OpenXR `tablet.close`,
+independent actual Home/Qt/generic UI/native root/bookmark/pose effects and a
+three-second quiet window. Uncertain delivery is retained without a second
+controller toggle. Original Home identity and the same manager/source lock are
+required; retained foreign pages, keyboard/editor or unrelated input fail.
+
+A passive durable publisher then allocates one original v2 source identity per
+frame for primary/actor roles. It performs no UI repair, accepts no expected
+state or image policy, pins all source cursors/render/query IDs and exact raw
+metadata/PNG identity, and retains native/file retirement before publication.
+A lost publication may return the same still-fresh original sequence and clocks;
+a lost acquisition keeps its original unresolved owner. The common independent
+two-eye verifier still owns image interpretation and policy. This is internal
+source publication, not the full Navigation state or actor service.
+
+These Python additions reuse the existing probe/source/capture/file contracts;
+no new native/product behavior was added in this packet. All native/device
+boundaries are uncompiled and synthetic. Whole Navigation state/actor/public,
+remaining Go To/end-page input/closure, maturity/origin/scene restoration,
+restart/bookmark transfer and complete final retirement remain unfinished.
+Source/host-complete areas remain three. The own source and selected host
+evidence are privately backed up. The earlier Btrfs index `rename` ENOSPC is
+recorded in verification; a later ordinary staging attempt succeeded.

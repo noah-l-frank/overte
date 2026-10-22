@@ -38,6 +38,25 @@ inline QString placesComponent(QQuickItem* root) {
     return {};
 }
 
+inline QString placesRootInstance(QQuickItem* root) {
+    if (placesComponent(root).isEmpty()) { return {}; }
+    // Weak original QObject identity survives independent readers without
+    // retaining a closed page or confusing a reused pointer with its old root.
+    static QHash<QQuickItem*, QPair<QPointer<QQuickItem>, QString>> roots;
+    static QSet<QString> retired;
+    for (auto i = roots.begin(); i != roots.end();) {
+        if (!i.value().first) { retired.insert(i.value().second);i = roots.erase(i); }
+        else { ++i; }
+    }
+    if (retired.size() > 256 || (!roots.contains(root) && roots.size() >= 16)) { return {}; }
+    if (!roots.contains(root)) {
+        const auto id = QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-');
+        if (retired.contains(id)) { return {}; }
+        roots.insert(root, qMakePair(QPointer<QQuickItem>(root), id));
+    }
+    return roots.value(root).second;
+}
+
 inline QQuickItem* placesRoot(QQuickItem* item) {
     if (!loginGuiItem(item)) { return nullptr; }
     int depth {0};
@@ -135,21 +154,8 @@ inline QJsonObject placesPageObservation(QQuickItem* root) {
     const auto servers = placesModel(root, "serversModel", {"serverUrl", "serverIndex", "fetched", "pinned", "failed"});
     const auto query = search->property("text").toString(), text = draft->property("text").toString();
     if (directory.isEmpty() || bookmarks.isEmpty() || servers.isEmpty() || query.size() > 8192 || text.size() > 8192) { return {}; }
-    // Weak original QObject identity survives independent readers without
-    // retaining a closed page or confusing a reused pointer with its old root.
-    static QHash<QQuickItem*, QPair<QPointer<QQuickItem>, QString>> roots;
-    static QSet<QString> retired;
-    for (auto i = roots.begin(); i != roots.end();) {
-        if (!i.value().first) { retired.insert(i.value().second);i = roots.erase(i); }
-        else { ++i; }
-    }
-    if (retired.size() > 256 || (!roots.contains(root) && roots.size() >= 16)) { return {}; }
-    if (!roots.contains(root)) {
-        const auto id = QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-');
-        if (retired.contains(id)) { return {}; }
-        roots.insert(root, qMakePair(QPointer<QQuickItem>(root), id));
-    }
-    return {{"profile", "pico-places-v1"}, {"rootInstance", roots.value(root).second}, {"componentSourceSha256", placesHash(source)},
+    const auto rootId=placesRootInstance(root);if (rootId.isEmpty()) { return {}; }
+    return {{"profile", "pico-places-v1"}, {"rootInstance", rootId}, {"componentSourceSha256", placesHash(source)},
         {"tab", tabs->property("currentIndex").toInt()}, {"loading", root->property("loading").toBool()},
         {"querySha256", placesHash(query)}, {"queryLength", query.size()},
         {"currentAddressSha256", placesHash(root->property("currentAddress").toString())},

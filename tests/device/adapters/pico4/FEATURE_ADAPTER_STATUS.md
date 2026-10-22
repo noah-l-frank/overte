@@ -37,12 +37,22 @@ original QML records notification to the normal refreshed/search-filtered model.
 The [normal transit owner](NAVIGATION_TRANSIT.md) now joins owned directory or
 bookmark selection to independently measured B/A arrival, normal Home, original
 weak Places-root destruction, retained stereo source and native image/receipt
-retirement, followed by three seconds of original quiet. The [stereo evidence extension](NAVIGATION_STEREO.md) now verifies current
+retirement, followed by three seconds of original quiet. Transit v2 now uses the
+actual observed Home entity through ordinary OpenXR input and the independent
+[Go To/Places weak panel inventory](../../native/NAVIGATION_PANELS.md). This corrects
+the earlier assumed QML Home control, which does not exist in the product. Hidden
+retained roots, lost ray receipts and unrelated input cannot pass as retirement.
+The [stereo evidence extension](NAVIGATION_STEREO.md) now verifies current
 128-bit challenges and disjoint changed-world regions independently in both
 eyes, with original hidden-UI/lifecycle sources and explicit owned scene input.
-Fresh publication/actor composition, maturity, remaining Go To closure,
-restart and independent whole-area retirement remain incomplete. These components add
-no complete feature area.
+The [normal tablet-close and fresh-frame owner](NAVIGATION_PRESENTATION.md) now
+closes the already owned Home tablet once through ordinary OpenXR input, proves
+three seconds of independent original quiet and publishes new v2 stereo sources
+for primary/actor roles without UI repair. Source IDs, raw metadata/PNG identity,
+clocks, lost-result recovery and retained uncertain ownership are host verified.
+Full Navigation state/actor/public composition, maturity, remaining Go To input
+and closure, restart and independent whole-area retirement remain incomplete.
+These components add no complete feature area.
 
 ## Historical component checkpoints
 

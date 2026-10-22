@@ -172,6 +172,7 @@ public slots:
 #if defined(ANDROID_APP_PICO_INTERFACE)
     Q_INVOKABLE QVariantMap featureLocationBookmarks(const QVariantMap& command);
     void featurePlacesRecordsChanged();
+    Q_INVOKABLE QVariantMap featureNavigationPanels(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureNavigationDirectory(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureNavigationEnvironment(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureNavigationModals(const QVariantMap& command);

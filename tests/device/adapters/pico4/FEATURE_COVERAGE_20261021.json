@@ -87,7 +87,17 @@
         "tests/device/feature_journeys/stereo_navigation_evidence.py",
         "tests/device/self_tests/test_navigation_scene.py",
         "tests/device/self_tests/test_stereo_navigation_evidence.py",
-        "tests/device/adapters/pico4/NAVIGATION_STEREO.md"
+        "tests/device/adapters/pico4/NAVIGATION_STEREO.md",
+        "tests/device/native/NavigationPanelsObservation.h",
+        "tests/device/native/NAVIGATION_PANELS.md",
+        "tests/device/adapters/native_navigation_panels.py",
+        "tests/device/self_tests/test_native_navigation_panels.py",
+        "tests/device/self_tests/test_navigation_ray_transit.py",
+        "tests/device/adapters/pico4/navigation_close.py",
+        "tests/device/adapters/navigation_frames.py",
+        "tests/device/self_tests/test_navigation_tablet_close.py",
+        "tests/device/self_tests/test_navigation_frames.py",
+        "tests/device/adapters/pico4/NAVIGATION_PRESENTATION.md"
       ],
       "declaredCheckpoints": 15,
       "inputVerbs": [
@@ -116,8 +126,8 @@
         "addressDialog"
       ],
       "missingOperationsOrEvidence": [
-        "Whole-area durable fresh v2 stereo publication and independent actor composition with normal Places/bookmark/origin/directory/error/transit owners; current two-eye verifier and explicit owned scene stimulus are implemented separately",
-        "Normal global tablet close and remaining Go To closure, parent maturity preparation/restoration, normal page reopening and actual process/bookmark transfer with original candidate/PID/lifecycle evidence",
+        "Whole-area independent Navigation actor/state and public operation composition with normal Places/bookmark/origin/directory/error/transit owners; post-transit normal global tablet close and durable fresh v2 original frame publication are now host verified internally for both source roles",
+        "Remaining Go To input/lookup/close and final page-close composition, parent maturity preparation/restoration, normal page reopening and actual process/bookmark transfer with original candidate/PID/lifecycle evidence",
         "Whole-area complete original Script/XHR/Web/timer/callback/resource and metadata retirement plus original scene restoration; historical transit captures cannot substitute for current image samples"
       ],
       "requiredOriginalEvidence": [
@@ -132,7 +142,7 @@
         "Restore original location and closed owned dialogs",
         "Prove pending reply/callback retirement and a three-second quiet baseline"
       ],
-      "nextExecutableStep": "Compose a durable fresh v2 Navigation image/actor publisher under the shared source lock, using normal global tablet close and the explicit owned scene profile. Then join remaining Go To closure, original restart/bookmark transfer, maturity/origin and original scene restoration with independent final Script/XHR/Web/timer/metadata retirement. The common two-eye verifier, original scene write/input and actual private source factories are host verified separately; do not register the complete area triple yet.",
+      "nextExecutableStep": "Bind independent original Navigation state/actor and public operations around the existing owned Places/bookmark/origin/directory/transit/error owners and the new normal-close/fresh-frame sources. Implement the remaining actual Go To input/lookup/closure and original process/bookmark transfer, maturity/origin/scene restoration and independent full Script/XHR/Web/timer/active-metadata retirement. Preserve original stereo PNG/native journals. Do not register a complete Navigation triple yet.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     },

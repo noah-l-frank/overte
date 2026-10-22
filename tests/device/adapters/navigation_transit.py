@@ -15,6 +15,8 @@ from adapters.navigation_arrival import pose_packet,advance as pose_advance,ster
 from adapters.navigation_stereo import NavigationStereo
 from adapters.normal_feature_state import PrivateFeatureState,context
 from adapters.normal_ui import NativeUIError
+from adapters.pico4.tablet_home import PicoTabletHome,validate as home_packet,validate_input as home_input
+from adapters.native_navigation_panels import validate as panels_packet,continuation as panels_advance,retired as panels_retired
 from adapters.script_journey.history import pack,unpack,canonical
 from adapters.token_create_ui import scope,nonce
 from adapters.token_places_ui import snapshot,sha,TokenPlacesUI
@@ -22,23 +24,31 @@ from feature_journeys.contract import identifier
 from feature_journeys.fixtures import context as fixture_context
 from navigation_observation import viewpoint_urls
 
-VERSION=1
+VERSION=2
+LEGACY_FIELDS={'ticket','kind','stage','original','last','pending','scrollDirection','scrolls','stereoSha256','quiet','queries'}
 
 class NavigationTransit:
-    def __init__(self,ui_factory,arrival,roots,bookmarks,stereo_factory,path,run,binding,scene_url,guard,*,directory=None,
+    def __init__(self,ui_factory,arrival,roots,bookmarks,stereo_factory,path,run,binding,scene_url,guard,*,directory=None,home=None,panels=None,
                  monotonic=time.monotonic,sleep=time.sleep):
         identifier(run);context(binding);viewpoint_urls(scene_url)
         need(all(callable(f) for f in (ui_factory,stereo_factory,guard,monotonic,sleep)))
         self.arrival,self.roots,self.bookmarks,self.stereo_factory=arrival,roots,bookmarks,stereo_factory
         self.run,self.binding,self.scene_url,self.guard=run,deepcopy(binding),scene_url,guard
+        need(home is None or isinstance(home,PicoTabletHome));need(home is None or panels is not None)
+        self.home,self.panels=home,panels
         self.directory,self.monotonic,self.sleep=directory,monotonic,sleep
         self.store=PrivateFeatureState(path);self.disk=self.store.read();self.state=None;self.clock=self.deadline=None
         self.ui=ui_factory(self.intent);need(isinstance(self.ui,TokenPlacesUI) and self.ui.run==run)
         if self.disk is not None:
             exact(self.disk,{'navigationTransitVersion','runId','binding','sceneUrl','payload'})
-            need(type(self.disk['navigationTransitVersion']) is int and self.disk['navigationTransitVersion']==VERSION
+            need(type(self.disk['navigationTransitVersion']) is int and self.disk['navigationTransitVersion'] in (1,2)
                  and self.disk['runId']==run and self.disk['binding']==binding and self.disk['sceneUrl']==scene_url)
-            values=unpack(self.disk['payload']);need(len(values)==1);self.validate(values[0]);self.state=values[0]
+            values=unpack(self.disk['payload']);need(len(values)==1)
+            if self.disk['navigationTransitVersion']==1:
+                exact(values[0],LEGACY_FIELDS)
+                # Historical QML input is never reinterpreted as a VR gesture.
+                values[0].update(homeMode='qml',homeBefore=None,homeAfter=None)
+            self.validate(values[0]);self.state=values[0]
     def now(self):
         need(self.guard() is not False);value=self.monotonic()
         need(number(value,0,1e15) and (self.clock is None or value>=self.clock) and (self.deadline is None or value<=self.deadline))
@@ -47,7 +57,7 @@ class NavigationTransit:
     def page(ui):
         rows=[r for r in ui['controls'] if r['id']=='places.page'];need(len(rows)<=1);return rows[0] if rows else None
     def archive(self,group):
-        exact(group,{'ui','pose','roots','bookmarks'});snapshot(group['ui'])
+        exact(group,{'ui','pose','roots','bookmarks'}|({'panels'} if 'panels' in group else set()));snapshot(group['ui'])
         pose=group['pose'];epoch=pose['subject']['capturedEpochMs'];pid=int(self.binding['processIdentity'].split(':',1)[0])
         pose_packet(pose,self.run,self.binding,self.scene_url,epoch)
         for name,validator,action in (('roots',roots_packet,'feature-navigation-directory'),('bookmarks',bookmarks_packet,'feature-location-bookmarks')):
@@ -58,17 +68,25 @@ class NavigationTransit:
              and 0<=epoch-ui['observedEpochMs']<=1500
              and 0<=group['roots']['capturedEpochMs']-epoch<=1500
              and 0<=group['bookmarks']['capturedEpochMs']-epoch<=1500)
+        if 'panels' in group:
+            packet=group['panels'];panels_packet(packet,dict(schemaVersion=1,commandId=packet.get('commandId'),action='feature-navigation-panels',runId=self.run),pid,packet.get('capturedEpochMs'))
+            need(all(packet['ui'][k]==frame[k] for k in ('bridgeId','generation','sequence'))
+                 and packet['ui']['open']==ui['open'] and packet['ui']['ready']==ui['ready']
+                 and 0<=packet['capturedEpochMs']-epoch<=1500)
     def advance(self,a,b):
         pose_advance(a['pose'],b['pose']);roots_advance(a['roots'],b['roots'])
+        need(('panels' in a)==('panels' in b))
+        if 'panels' in a:panels_advance(a['panels'],b['panels'])
         need(b['bookmarks']['instance']==a['bookmarks']['instance'] and b['bookmarks']['sequence']>a['bookmarks']['sequence']
              and b['bookmarks']['capturedEpochMs']>=a['bookmarks']['capturedEpochMs']
              and all(b['ui']['scope'][k]>=a['ui']['scope'][k] for k in ('sequence','elapsedMs'))
              and b['ui']['observedEpochMs']>=a['ui']['observedEpochMs'])
     def validate(self,value):
-        exact(value,{'ticket','kind','stage','original','last','pending','scrollDirection','scrolls','stereoSha256','quiet','queries'})
+        exact(value,LEGACY_FIELDS|{'homeMode','homeBefore','homeAfter'})
         identifier(value['ticket']);need(value['kind'] in ('directory','bookmark') and integer(value['stage'],0,5)
             and value['scrollDirection'] in ('up','down') and integer(value['scrolls'],0,64)
             and type(value['quiet']) is list and len(value['quiet'])<=8)
+        need(value['homeMode'] in ('qml','ray'))
         self.archive(value['original']);self.archive(value['last'])
         if value['last']!=value['original']:self.advance(value['original'],value['last'])
         initial=self.page(value['original']['ui']);need(initial is not None and not initial['dialog']['visible']
@@ -80,8 +98,34 @@ class NavigationTransit:
         need(type(value['queries']) is list and len(value['queries'])<=768 and len(set(value['queries']))==len(value['queries']))
         for query in value['queries']:identifier(query)
         for group in (value['original'],value['last']):need(all(q in value['queries'] for q in self.query_ids(group)))
+        if value['homeMode']=='ray':
+            need(self.home is not None and 'panels' in value['original'])
+            self.owned_page(value['original'],initial)
+            if self.page(value['last']['ui']) is not None:self.owned_page(value['last'],initial)
+        else:need(value['homeBefore'] is None and value['homeAfter'] is None)
+        if value['homeBefore'] is not None:
+            exact(value['homeBefore'],{'observation','original'});before=value['homeBefore']['observation'];original=value['homeBefore']['original']
+            self.archive(original);self.advance(value['original'],original)
+            self.owned_page(original,initial)
+            home_input(before,int(self.binding['processIdentity'].split(':')[0]),before['capturedEpochMs'],'tablet.home-ray')
+            need(value['homeMode']=='ray' and value['stage']>=3 and before['commandId'] in value['queries']
+                 and all(q in value['queries'] for q in self.query_ids(original))
+                 and original['bookmarks']['storage']==value['original']['bookmarks']['storage']
+                 and self.page(original['ui']) is not None
+                 and self.page(original['ui'])['rootInstance']==initial['rootInstance']
+                 and self.location(original)==self.target(value['kind'])
+                 and 0<=before['capturedEpochMs']-original['pose']['subject']['capturedEpochMs']<=1500)
+            if value['last']!=original:self.advance(original,value['last'])
+        if value['homeAfter'] is not None:
+            need(value['homeBefore'] is not None);self.home_effect(value['homeBefore']['observation'],value['homeAfter'])
+            need(value['homeAfter']['commandId'] in value['queries'])
+        if value['homeMode']=='ray' and value['stage']>=4:need(value['homeAfter'] is not None)
         pending=value['pending']
-        if pending is not None:
+        if pending is not None and 'home' in pending:
+            exact(pending,{'home','scope'});scope(pending['scope'])
+            need(pending['home'] is True and value['homeMode']=='ray' and value['stage']==3 and value['homeBefore'] is not None
+                 and pending['scope']==value['homeBefore']['original']['ui']['scope'])
+        elif pending is not None:
             exact(pending,{'input','before'});snapshot(pending['before']);p=pending['input']
             exact(p,{'placesInputVersion','action','controlId','controlToken','scope'});scope(p['scope'])
             need(type(p['placesInputVersion']) is int and p['placesInputVersion']==1 and nonce(p['controlToken'])
@@ -89,7 +133,8 @@ class NavigationTransit:
                  and p['controlId']==('places.tab.'+str(0 if value['kind']=='directory' else 1) if value['stage']==0
                     else 'places.scroll.'+('directory' if value['kind']=='directory' else 'bookmarks') if value['stage']==1
                     else self.row_id(value['kind']) if value['stage']==2 else 'tablet.home')
-                 and p['action']==('scroll' if value['stage']==1 else 'activate'))
+                 and p['action']==('scroll' if value['stage']==1 else 'activate')
+                 and (value['stage']!=3 or value['homeMode']=='qml'))
             control=self.ui.row(pending['before'],p['controlId'])
             need(control is not None and control['token']==p['controlToken']
                  and p['scope']['instance']==self.binding['sessionId']
@@ -127,15 +172,33 @@ class NavigationTransit:
     def intent(self,value):
         need(self.state is not None and self.state['pending'] is None)
         current=deepcopy(self.state);current['pending']=dict(input=value,before=deepcopy(self.ui.last));self.save(current)
+    def home_intent(self,stage,before,control):
+        need(stage=='tablet-home-ray' and control=='tablet.home-ray' and self.state['stage']==3 and self.state['pending'] is None
+             and self.state['homeMode']=='ray' and self.state['homeBefore'] is None)
+        current=deepcopy(self.state);query=before['commandId'];need(query not in current['queries'])
+        current['queries'].append(query);current['homeBefore']=dict(observation=deepcopy(before),original=deepcopy(current['last']))
+        current['pending']=dict(home=True,scope=deepcopy(current['last']['ui']['scope']));self.save(current)
+    def home_effect(self,before,after):
+        home_packet(after,after.get('commandId'),int(self.binding['processIdentity'].split(':')[0]),after['capturedEpochMs'])
+        need(all(after[k]==before[k] for k in ('instance','tabletId','homeId')) and after['tabletShown'] and after['onHomeScreen']
+             and after['sourceSequence']>before['sourceSequence'] and after['capturedEpochMs']>=before['capturedEpochMs']
+             and after['elapsedMs']>=before['elapsedMs'])
     @staticmethod
-    def query_ids(group):return [group['pose']['subject']['requestId'],group['roots']['commandId'],group['bookmarks']['commandId']]
+    def owned_page(group,initial):
+        roots=[r for r in group['panels']['roots'] if r['alive']]
+        need(len(roots)==1 and roots[0]['rootId']==initial['rootInstance'] and roots[0]['profile']=='pico-places-v1'
+             and roots[0]['sourceSha256']==initial['componentSourceSha256'] and roots[0]['inCurrentTree'] and roots[0]['visible'])
+    @staticmethod
+    def query_ids(group):return [group['pose']['subject']['requestId'],group['roots']['commandId'],group['bookmarks']['commandId']] + ([group['panels']['commandId']] if 'panels' in group else [])
     @staticmethod
     def stereo_queries(stereo):
         frame=stereo.state['frame']
         return [frame['before']['subject']['requestId'],frame['capture']['requestId'],frame['after']['subject']['requestId']]
     def sample(self):
         self.now();ui=self.ui.capture();pose=self.arrival.read(floor=None if self.state is None else self.state['last']['pose'])
-        group=dict(ui=ui,pose=pose,roots=self.roots.read(self.run),bookmarks=self.bookmarks.read(self.run));self.now();self.archive(group)
+        group=dict(ui=ui,pose=pose,roots=self.roots.read(self.run),bookmarks=self.bookmarks.read(self.run))
+        if self.panels is not None:group['panels']=self.panels.read(self.run)
+        self.now();self.archive(group)
         if self.state is not None:
             self.advance(self.state['last'],group)
             if self.state['pending'] is None:need(group['ui']['scope']['sequence']==self.state['last']['ui']['scope']['sequence'])
@@ -147,7 +210,7 @@ class NavigationTransit:
                      and not page['loading'] and not page['dialog']['visible'] and page['queueCount']==0 and not page['dispatchTimerRunning']
                      and all(page[k]==initial[k] for k in ('directory','bookmarks','servers','maturity','querySha256','queryLength')))
             ids=self.query_ids(group)
-            need(all(q not in self.state['queries'] for q in ids) and len(set(ids))==3)
+            need(all(q not in self.state['queries'] for q in ids) and len(set(ids))==len(ids))
             current=deepcopy(self.state);current['last']=group;current['queries']+=ids;self.save(current)
         return group
     @staticmethod
@@ -159,8 +222,18 @@ class NavigationTransit:
         old=[r for r in roots if r['rootId']==initial['rootInstance']]
         need(self.location(group)==self.target(state['kind']) and self.page(group['ui']) is None and len(old)==1 and not old[0]['alive']
              and group['bookmarks']['storage']==state['original']['bookmarks']['storage'])
+        if 'panels' in group:
+            panels_retired(group['panels'],[initial['rootInstance']]);need(not any(r['alive'] for r in group['panels']['roots']))
+        if state['homeMode']=='ray' and state['homeAfter'] is not None:
+            need(group['pose']['subject']['capturedEpochMs']>=state['homeAfter']['capturedEpochMs'])
     def pending_effect(self,group):
-        stage=self.state['stage'];p=self.state['pending'];before=p['input']['scope'];current=group['ui']['scope']
+        stage=self.state['stage'];p=self.state['pending']
+        if 'home' in p:
+            need(group['ui']['scope']['sequence']==p['scope']['sequence']);self.final(group)
+            after=self.home.source.capture();self.home_effect(self.state['homeBefore']['observation'],after)
+            current=deepcopy(self.state);need(after['commandId'] not in current['queries']);current['queries'].append(after['commandId'])
+            current['homeAfter']=after;self.save(current);return
+        before=p['input']['scope'];current=group['ui']['scope']
         need(current['sequence']==before['sequence']+1)
         page=self.page(group['ui'])
         if stage<3:
@@ -184,7 +257,7 @@ class NavigationTransit:
             need(page is not None and not page['loading'] and not page['dialog']['visible']
                  and self.location(group)==('A' if kind=='directory' else 'B'))
             self.save(dict(ticket=ticket,kind=kind,stage=0,original=group,last=group,pending=None,scrollDirection='up',scrolls=0,
-                stereoSha256=None,quiet=[],queries=self.query_ids(group)))
+                stereoSha256=None,quiet=[],queries=self.query_ids(group),homeMode='qml' if self.home is None else 'ray',homeBefore=None,homeAfter=None))
         need(self.state['ticket']==ticket and self.state['kind']==kind)
         if self.state['quiet']:self.final(self.sample());return dict(performed=True)
         while self.state['stage']<4:
@@ -213,10 +286,15 @@ class NavigationTransit:
                         names=[r for r in group['bookmarks']['storage']['owned'] if r['name']==fixture_context(self.run)['renamed']]
                         need(len(names)==1 and names[0]['addressSha256']==row['addressSha256'])
                     self.ui.input(self.row_id(kind))
-                else:self.ui.input('places.tab.'+str(0 if kind=='directory' else 1) if stage==0 else 'tablet.home')
-            p=self.state['pending']['input']
+                elif stage==3 and self.state['homeMode']=='ray':
+                    self.home.ensure(self.home_intent);need(self.state['pending'] is not None)
+                else:
+                    need(stage!=3 or self.home is None)
+                    self.ui.input('places.tab.'+str(0 if kind=='directory' else 1) if stage==0 else 'tablet.home')
+            pending=self.state['pending'];p=pending.get('input')
+            before_scope=pending['scope'] if p is None else p['scope']
             for attempt in range(81):
-                group=self.sample();need(p['scope']['sequence']<=group['ui']['scope']['sequence']<=p['scope']['sequence']+1)
+                group=self.sample();need(before_scope['sequence']<=group['ui']['scope']['sequence']<=before_scope['sequence']+(0 if p is None else 1))
                 try:self.pending_effect(group);break
                 except NativeUIError:need(attempt<80);self.sleep(.1)
             current=deepcopy(self.state);current['pending']=None
@@ -227,7 +305,7 @@ class NavigationTransit:
             stereo=self.stereo_factory(ticket);result=stereo.acquire(ticket)
             need(stereo_frame(result['frame'],stereo.image_bytes(),self.run,self.binding,self.scene_url)['location']==self.target(kind))
             current=deepcopy(self.state);ids=self.stereo_queries(stereo)
-            need(len(set(ids))==3 and all(q not in current['queries'] for q in ids))
+            need(len(set(ids))==len(ids) and all(q not in current['queries'] for q in ids))
             current['queries']+=ids;current['stereoSha256']=hashlib.sha256(canonical(stereo.disk)).hexdigest();current['stage']=5;self.save(current)
         groups=[];start=self.now()
         for _ in range(8):

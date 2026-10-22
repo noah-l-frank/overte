@@ -521,6 +521,7 @@ def create_adapter(args, base_class):
         @_private
         def _navigation_transit(self, target, path, artifact_root, run, scene_url, *, source_lock, directory=None, role='primary'):
             from adapters.navigation_transit import NavigationTransit
+            from adapters.pico4.tablet_home import bind_home
             from adapters.pico4.graphics_binding import PicoGraphicsBinding
             from adapters.pico4.normal_places import PicoPlacesIO
             from adapters.token_places_ui import TokenPlacesUI
@@ -537,7 +538,38 @@ def create_adapter(args, base_class):
             return NavigationTransit(lambda intent:TokenPlacesUI(PicoPlacesIO(manager.ui.io),intent,run,
                     monotonic=native.monotonic,sleep=native.sleep),
                 arrival,self._navigation_directory_source(target),self._location_bookmarks(target),stereo,
-                path,run,manager.binding,scene_url,guard,directory=directory,monotonic=native.monotonic,sleep=native.sleep)
+                path,run,manager.binding,scene_url,guard,directory=directory,home=bind_home(self,target,native),
+                panels=self._navigation_panels(target),monotonic=native.monotonic,sleep=native.sleep)
+
+        @_private
+        def _navigation_tablet_close(self, target, path, transit, *, source_lock):
+            from adapters.pico4.navigation_close import NavigationTabletClose
+            from adapters.pico4.graphics_binding import PicoGraphicsBinding
+            from adapters.native_feature_observation import need
+            manager=self._scripts(target);native=self._native_feature_observer(target)
+            need(manager.binding==transit.binding)
+            lock=PicoGraphicsBinding(self)._lock(target,source_lock)
+            def guard():
+                lock.assert_held();return native.guard()
+            return NavigationTabletClose(transit,manager.ui,self._graphics_ui_observer(target),path,guard,
+                monotonic=native.monotonic,sleep=native.sleep)
+
+        @_private
+        def _navigation_frames(self, target, path, artifact_root, closed, *, source_lock, role='primary'):
+            from adapters.navigation_frames import NavigationFrames
+            from adapters.pico4.graphics_binding import PicoGraphicsBinding
+            from adapters.native_feature_observation import need
+            from feature_journeys.stereo_navigation_evidence import original_name
+            from pathlib import Path
+            manager=self._scripts(target);native=self._native_feature_observer(target)
+            need(manager.binding==closed.binding)
+            lock=PicoGraphicsBinding(self)._lock(target,source_lock)
+            def guard():
+                lock.assert_held();return native.guard()
+            def stereo(journal):
+                return self._navigation_stereo(target,Path(artifact_root)/original_name(closed.run,role,journal),artifact_root,
+                    closed.run,closed.transit.scene_url,role=role,source_lock=lock,arrival=closed.transit.arrival,journal_id=journal)
+            return NavigationFrames(closed,stereo,path,artifact_root,role,native.clock_ms,guard,monotonic=native.monotonic)
 
         @_private
         def _navigation_directory(self, target, path, run, status, provider_instance, inputs, origin, source_profile, guard):
@@ -734,6 +766,14 @@ def create_adapter(args, base_class):
                 lambda: self.adb.read_debug_app_file(target, 'org.overte.pico',
                     'files/overte-e2e/' + LOCATION_BOOKMARKS_FILE, attempts=1),
                 native.clock_ms, native.guard, native.pid, monotonic=native.monotonic, sleep=native.sleep)
+
+        @_private
+        def _navigation_panels(self, target):
+            from adapters.native_navigation_panels import NativeNavigationPanels,FILE
+            native=self._native_feature_observer(target)
+            return NativeNavigationPanels(native.send,
+                lambda:self.adb.read_debug_app_file(target,'org.overte.pico','files/overte-e2e/'+FILE,attempts=1),
+                native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep)
 
         @_private
         def _navigation_directory_source(self, target):

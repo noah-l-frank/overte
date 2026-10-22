@@ -16,6 +16,7 @@ from unittest.mock import patch
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 from adapters.native_location_bookmarks import NativeLocationBookmarks
 from adapters.native_navigation_directory import NativeNavigationDirectory,joined_directory
+from adapters.pico4.tablet_home import PicoTabletHome
 from adapters.navigation_transit import NavigationTransit
 from adapters.normal_ui import NativeUIError
 from adapters.pico4.navigation import PicoNavigation
@@ -27,6 +28,8 @@ from feature_journeys.navigation_fixture import DIRECTORY,QUERY
 from navigation_observation import viewpoint_urls
 from self_tests.test_navigation_arrival import Model as PoseModel,SCENE
 from self_tests.test_navigation_directory import Model as DirectoryModel,INPUTS,PROFILE,ORIGIN,TICKET,RUN
+from self_tests.test_native_navigation_panels import Boundary as PanelsBoundary
+from self_tests.test_pico_tablet_home import original as home_original
 
 SELECT='9'*32
 
@@ -74,6 +77,39 @@ class Widgets(DirectoryModel):
                 self.page=False;self.root_dead=not self.retained_root
         if c['controlId']==self.lost:raise NativeUIError('Synthetic lost applied input result')
         return reply,epoch
+
+class RayBoundary:
+    """Synthetic entity input, distinct from the original Qt command counter."""
+    def __init__(self,test):
+        self.test=test;self.widgets=test.widgets;self.world=test.world;self.gestures=[]
+        self.on_home=False;self.ignore=False;self.lose=False;self.home_edit=None;self.extra_roots=[]
+        self.home_sequence=0;self.panel_boundary=PanelsBoundary();self.panel_edit=None
+        self.source=SimpleNamespace(pid=31,clock_ms=self.world.epoch,monotonic=lambda:self.world.clock,
+            sleep=self.world.sleep,guard=self.world.guard,capture=self.capture)
+        self.home=PicoTabletHome(self.source,self.stage)
+    def capture(self):
+        self.home_sequence+=1
+        value=home_original()|dict(commandId=uuid.uuid4().hex,processId=31,sourceSequence=self.home_sequence,
+            elapsedMs=100+round(self.world.clock*1000),capturedEpochMs=self.world.epoch(),onHomeScreen=self.on_home)
+        if self.home_edit:self.home_edit(value)
+        return value
+    def stage(self,pose):
+        disk=json.loads(self.test.path.read_text());state=unpack(disk['payload'])[0]
+        self.test.assertTrue(state['pending']['home']);self.test.assertIsNotNone(state['homeBefore'])
+        self.test.assertIsNone(state['homeAfter']);self.gestures.append(deepcopy(pose))
+        if not self.ignore:
+            self.on_home=True;self.widgets.page=False;self.widgets.root_dead=not self.widgets.retained_root
+        if self.lose:raise NativeUIError('Synthetic lost applied OpenXR Home result')
+    def panels(self):
+        boundary=self.panel_boundary;widgets=self.widgets
+        def send(request):
+            boundary.clock=self.world.clock;boundary.input_sequence=widgets.sequence
+            boundary.bridge=widgets.bridge;boundary.generation=widgets.generation
+            boundary.rows=[dict(rootId='e'*32,profile='pico-places-v1',sourceSha256='d'*64,firstObservedEpochMs=20000,
+                alive=not widgets.root_dead,inCurrentTree=widgets.page,visible=widgets.page)]+deepcopy(self.extra_roots)
+            boundary.edit=self.panel_edit;boundary.send(request)
+        return type(boundary.reader())(send,lambda:json.dumps(boundary.packet),self.world.epoch,self.world.guard,31,
+            monotonic=lambda:self.world.clock,sleep=self.world.sleep)
 
 class NavigationTransitTests(unittest.TestCase):
     def setUp(self):
@@ -189,15 +225,18 @@ class NavigationTransitTests(unittest.TestCase):
         adapter._graphics_subject_observer=lambda target:self.world.subject_reader()
         adapter._navigation_directory_source=lambda target:self.widgets.reader()
         adapter._location_bookmarks=lambda target:self.widgets.bookmarks()
+        ray=RayBoundary(self);adapter._navigation_panels=lambda target:ray.panels()
         adapter._world_render_capture=self.world._world_render_capture
         def lock(_self,target,provided=None):
             self.assertEqual('owned',target);self.assertIs(self.world.lock,provided);return provided
-        with patch('adapters.pico4.graphics_binding.PicoGraphicsBinding._lock',lock):
+        with patch('adapters.pico4.graphics_binding.PicoGraphicsBinding._lock',lock), \
+                patch('adapters.pico4.tablet_home.bind_home',return_value=ray.home):
             owner=adapter._navigation_transit('owned',self.path,self.world.artifacts,RUN,SCENE,source_lock=self.world.lock)
             with self.assertRaises(NativeUIError):owner.act(SELECT,'bookmark')
             self.assertFalse(self.widgets.calls)
             with self.world.lock.held():self.assertEqual(dict(performed=True),owner.act(SELECT,'bookmark'))
         self.assertEqual(1,len(self.world.gpu.commands));self.assertIsNone(self.world.owner_store('primary').read())
+        self.assertEqual(1,len(ray.gestures));self.assertNotIn('tablet.home',[c['controlId'] for c in self.widgets.calls])
 
     def test_changed_original_image_refuses_completed_transit_without_new_input_or_capture(self):
         self.act();stereo=self.world.stereo(self.world.root/('navigation-stereo-'+SELECT+'.json'))

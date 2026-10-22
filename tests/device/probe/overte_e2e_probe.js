@@ -1023,6 +1023,22 @@
     }
 
     function applyClientCommand(command) {
+        if (command && command.action === "feature-navigation-panels") {
+            if (command.schemaVersion === 1 && typeof command.commandId === "string"
+                    && command.commandId.length === 32 && /^[0-9a-f]{32}$/.test(command.commandId)
+                    && typeof command.runId === "string" && command.runId.length === 32 && /^[0-9a-f]{32}$/.test(command.runId)
+                    && objectKeysMatch(command,["schemaVersion","commandId","action","runId"])) {
+                var navigationPanels={navigationPanelsVersion:1,commandId:command.commandId,status:"unavailable"};
+                try {
+                    if (typeof Test.featureNavigationPanels === "function") {
+                        var originalNavigationPanels=Test.featureNavigationPanels(command);
+                        if (originalNavigationPanels && originalNavigationPanels.commandId === command.commandId) { navigationPanels=originalNavigationPanels; }
+                    }
+                } catch (_navigationPanelsError) { /* An unavailable original is not empty cleanup. */ }
+                Test.saveObject(navigationPanels,"feature-navigation-panels.json");
+            }
+            return true;
+        }
         if (command && command.action === "feature-navigation-directory") {
             if (command.schemaVersion === 1 && typeof command.commandId === "string"
                     && command.commandId.length === 32 && /^[0-9a-f]{32}$/.test(command.commandId)

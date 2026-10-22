@@ -94,13 +94,38 @@ def clocks(frame):
     return start,end
 
 
-def advance(previous,current):
-    need(all(previous[k]==current[k] for k in ('stereoNavigationSubjectVersion','runId','binding','role','stage',
-         'captureInstance','nativeInstance','uiInstance','uiGeneration','policySha256')) and current['earliestEpochMs']>=previous['earliestEpochMs']
-         and current['latestEpochMs']>=previous['latestEpochMs'])
+def source_identity(frame):
+    """Original source clocks/cursors only; no pixel policy or feature verdict."""
+    need(frame['navigationStereoSourceVersion']==2)
+    source=frame['capture']['source'];capture=frame['capture'];before,after=frame['before'],frame['after']
+    cameras=source['renderTrace']['cameraBatches'];start,end=clocks(frame)
+    return dict(captureInstance=capture['instance'],nativeInstance=before['subject']['instance'],
+        uiInstance=frame['uiBefore']['instance'],uiGeneration=frame['uiBefore']['generation'],
+        earliestEpochMs=start,latestEpochMs=end,frameId=source['renderTrace']['frameId'],
+        frameIndex=source['stereo']['frameIndex'],executionSequence=source['stereo']['executionSequence'],
+        cursors=dict(nativeBefore=frame['nativeBefore']['sequence'],nativeAfter=frame['nativeAfter']['sequence'],
+            uiBefore=frame['uiBefore']['sourceSequence'],uiAfter=frame['uiAfter']['sourceSequence'],capture=capture['sequence'],
+            acquisition=source['acquisitionSequence'],execution=source['stereo']['executionSequence'],
+            submission=source['presentation']['submissionSequence'],cameraFirst=min(c['sequence'] for c in cameras),
+            cameraLast=max(c['sequence'] for c in cameras),subjectBefore=before['subject']['sequence'],
+            subjectAfter=after['subject']['sequence'],probeBefore=before['probe']['sampleSequence'],probeAfter=after['probe']['sampleSequence']),
+        requests=dict(nativeBefore=frame['nativeBefore']['requestId'],nativeAfter=frame['nativeAfter']['requestId'],
+            uiBefore=frame['uiBefore']['commandId'],uiAfter=frame['uiAfter']['commandId'],
+            subjectBefore=before['subject']['requestId'],subjectAfter=after['subject']['requestId'],capture=capture['requestId']))
+
+
+def advance_sources(previous,current):
+    need(all(previous[k]==current[k] for k in ('captureInstance','nativeInstance','uiInstance','uiGeneration'))
+         and current['earliestEpochMs']>=previous['earliestEpochMs'] and current['latestEpochMs']>=previous['latestEpochMs'])
     a,b=previous['cursors'],current['cursors']
     need(all(b[k]>a[k] for k in ('capture','acquisition','execution','submission'))
-         and b['nativeBefore']>a['nativeAfter'] and b['uiBefore']>a['uiAfter'] and b['subjectBefore']>a['subjectAfter'] and b['probeBefore']>a['probeAfter'] and b['cameraFirst']>a['cameraLast'])
+         and b['nativeBefore']>a['nativeAfter'] and b['uiBefore']>a['uiAfter'] and b['subjectBefore']>a['subjectAfter']
+         and b['probeBefore']>a['probeAfter'] and b['cameraFirst']>a['cameraLast'])
+
+
+def advance(previous,current):
+    need(all(previous[k]==current[k] for k in ('stereoNavigationSubjectVersion','runId','binding','role','stage','policySha256')))
+    advance_sources(previous,current)
 
 
 def observation(raw,metadata,run,ticket,fixture_url,external_policy,sample,*,previous=None,changed=False,role='primary',monotonic=time.monotonic):
@@ -118,17 +143,8 @@ def observation(raw,metadata,run,ticket,fixture_url,external_policy,sample,*,pre
         row=artifacts[kind];need(row['name']==name and row['ticket']==ticket and row['capturedEpochMs']==frame['capture']['capturedEpochMs'])
     need(sample['state']['location']==facts['location'] and sample['capturedEpochMs']==start
          and sample['lifecycle']==frame['nativeBefore']['lifecycle'])
-    cameras=source['renderTrace']['cameraBatches'];capture=frame['capture'];before,after=frame['before'],frame['after']
     subject=dict(stereoNavigationSubjectVersion=VERSION,runId=run,ticket=ticket,binding=deepcopy(body['binding']),role=role,stage=0,
-        captureInstance=capture['instance'],nativeInstance=before['subject']['instance'],uiInstance=frame['uiBefore']['instance'],
-        uiGeneration=frame['uiBefore']['generation'],location=facts['location'],
-        earliestEpochMs=start,latestEpochMs=end,frameId=source['renderTrace']['frameId'],frameIndex=facts['frameIndex'],executionSequence=facts['executionSequence'],
-        policySha256=hashlib.sha256(canonical(external_policy)).hexdigest(),
-        cursors=dict(nativeBefore=frame['nativeBefore']['sequence'],nativeAfter=frame['nativeAfter']['sequence'],uiBefore=frame['uiBefore']['sourceSequence'],uiAfter=frame['uiAfter']['sourceSequence'],capture=capture['sequence'],acquisition=source['acquisitionSequence'],execution=facts['executionSequence'],
-            submission=facts['submissionSequence'],cameraFirst=min(c['sequence'] for c in cameras),cameraLast=max(c['sequence'] for c in cameras),
-            subjectBefore=before['subject']['sequence'],subjectAfter=after['subject']['sequence'],
-            probeBefore=before['probe']['sampleSequence'],probeAfter=after['probe']['sampleSequence']),
-        requests=dict(nativeBefore=frame['nativeBefore']['requestId'],nativeAfter=frame['nativeAfter']['requestId'],uiBefore=frame['uiBefore']['commandId'],uiAfter=frame['uiAfter']['commandId'],subjectBefore=before['subject']['requestId'],subjectAfter=after['subject']['requestId'],capture=capture['requestId']),eyes={})
+        location=facts['location'],policySha256=hashlib.sha256(canonical(external_policy)).hexdigest(),eyes={},**source_identity(frame))
     if changed:
         need(type(previous) is dict and previous['location']!=subject['location'] and previous['ticket']!=ticket
              and subject['earliestEpochMs']>=previous['latestEpochMs'] and subject['latestEpochMs']-previous['earliestEpochMs']<=45000)

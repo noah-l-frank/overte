@@ -16,9 +16,12 @@ adds original current RequestTicket/HTTP response-ID provenance and a strict
 fixture-receipt join. The three local platform branches now register guarded
 internal factories. Pico additionally joins an [original modal and normal OK
 retirement owner](adapters/pico4/NAVIGATION_ERROR.md) using reply-owner capture
-and the existing queued original callback. Complete Navigation coordination,
-directory consumption/arrival/stereo, restart and independent final retirement
-remain unfinished; native code is uncompiled.
+and the existing queued original callback. Pico additionally has guarded internal
+normal directory consumption/arrival/transit sources and a
+[normal tablet-close/fresh stereo frame publisher](adapters/pico4/NAVIGATION_PRESENTATION.md).
+Full Navigation state/actor/public coordination, remaining Go To composition,
+restart and independent final retirement remain unfinished; native code is
+uncompiled and devices are untested.
 
 Scripts v16 follows the [actual mobile default-only startup and explicit reimport contract](feature_journeys/SCRIPTS_SOURCE.md).
 

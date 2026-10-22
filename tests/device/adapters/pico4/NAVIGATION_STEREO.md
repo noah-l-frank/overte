@@ -110,3 +110,9 @@ ownership indexes while retaining the complete original PNG/native-journal
 artifacts for independent review. The existing
 transit component's v1 historical image is not a replacement for fresh v2 samples.
 Missing full capabilities continue to prevent an overall green run.
+
+The later [normal-close/fresh-frame owner](NAVIGATION_PRESENTATION.md) now journals
+one normal global tablet close and fresh original source allocation. Both source
+roles retain independent captures, original timestamps and exact metadata/PNG
+identities. The common two-eye policy remains external to that publisher.
+Full feature state/actor/public/finalizer composition remains incomplete.

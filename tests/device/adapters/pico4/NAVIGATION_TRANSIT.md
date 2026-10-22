@@ -5,7 +5,8 @@ Only Scripts, Authentication and Graphics have complete Pico feature triples.
 Native sources remain uncompiled and all devices are untested. These additions
 reuse the existing probe, original native Graphics subject, world-render owner,
 private files, normal Places controls and Pico candidate/process/OpenXR route.
-No native instrumentation or product behavior changes in this packet.
+The later v2 transit adds passive Pico-only weak panel observations. It changes
+no product behavior; all native code remains uncompiled.
 
 ## Inputs and independent observations
 
@@ -17,7 +18,7 @@ original GUI avatar feet must agree within 5 cm. Actual HMD/world pose remains
 separate from avatar feet; no camera or requested destination supplies location.
 The measured result is A, B, C or unavailable, derived from original sources.
 
-`_navigation_transit` composes `navigation-transit-operations` v1. The parent
+`_navigation_transit` composes `navigation-transit-operations` v2 (reading closed v1 histories). The parent
 provides the already open idle original Places page and holds the existing
 `script-sources.lock` for the entire action. The private Pico factory checks
 that same lock before every operation; its child capture uses the same object.
@@ -63,9 +64,22 @@ the exact original PNG and retirement headers; it is never a new screenshot.
 The reused generic role storage retains its existing Graphics namespace and
 foreign-owner exclusion; this does not enable a Graphics or Navigation feature.
 
+The private Pico v2 factory uses the actual observed `PicoTabletHome` Gizmo
+entity and ordinary OpenXR primary-trigger ray. The earlier v1 QML control
+assumption was incorrect: the input allowlist maps `nav.home`, but the original
+QML has no such control. v2 never sends that QML input in the actual Pico
+factory. Original Home geometry and the pre-gesture source group are persisted
+before the single ray. The actual Home observation must advance and report
+Home on the same tablet/entity; the separate Qt input counter must stay stable.
+An uncertain gesture is resolved from independent sources without another ray.
+Historical v1 input is never relabeled as this VR gesture.
+
 After normal selection and independent native arrival, normal Home must remove
-the Places page and the passive original weak root inventory must independently
-show its destruction. The component then acquires/retires the stereo source and
+the Places page and both the directory source and the
+[passive panel inventory](../../native/NAVIGATION_PANELS.md) must independently
+show its destruction. The complete bounded panel history also refuses a hidden
+retained Go To page, replacement root, missing history or changed source. Hidden
+is distinct from destroyed; no observer repairs or closes the UI. The component then acquires/retires the stereo source and
 requires three seconds of measured destination, absent old page/root, unchanged
 bookmark storage, stable input/generation and advancing native/UI/elapsed clocks.
 Complete original before/current/quiet packets and unique query IDs use the
@@ -90,6 +104,10 @@ metadata retirement remain unfinished. No full Navigation capability is added.
 The later [stereo evidence extension](NAVIGATION_STEREO.md) adds independently
 verified hidden-UI/lifecycle v2 source intervals, exact original-journal metadata,
 two-eye current challenge/world change and an explicit owned scene profile. This
-transit component retains its v1 historical-source behavior. The enclosing
+v2 transit component retains its v1 historical stereo-source behavior. The enclosing
 feature must normally close the whole tablet and acquire fresh v2 samples after
 quiet; it cannot republish this earlier capture with a new timestamp.
+
+The later [normal-close/fresh-frame owner](NAVIGATION_PRESENTATION.md) now provides
+that post-transit global close and fresh original v2 source publication for both
+roles. It does not establish the remaining whole Navigation state/actor/finalizer.

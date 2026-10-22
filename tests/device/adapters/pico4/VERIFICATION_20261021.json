@@ -1636,5 +1636,99 @@
     ],
     "details": "The common Journey now accepts only an explicit Pico Navigation stereo policy for the optional profile. It revalidates the exact original compressed source/retirement journal and PNG, original native lifecycle/Graphics/pose and hidden UI brackets, per-eye native viewports and distinct original identities. The existing independent 128-bit marker/nonblank/changed-subject verifier runs separately in each eye; both world regions must change while actual measured location changes. Current samples retain original epochs/lifecycle and cannot republish queries, render IDs or GPU frames with newer sequence numbers. The original owned scene write precedes acquisition and installed-source revision matches. The explicit optional Navigation provider v2 serves the original controlled scene plus owned marker/checker geometry, same current-ticket HTML mechanism and identical original interactable script bytes; wrong authority/viewpoint/inactive ownership and uncertain original writes fail closed. Default v1 remains unchanged. No native instrumentation or functional product changes were made in this packet.",
     "limitations": "No builds, compilers, devices, installation, device services, remote or protected writes. All reused C++/Qt/HMD/GPU/OpenXR/Android boundaries remain uncompiled and synthetic. Real loopback HTTP proves fixture delivery, not client receipt or rendered geometry. Authored scene visibility and actual original-pixel policy rectangles/latency are not qualified on a headset. Whole Navigation still lacks durable fresh publisher/actor composition, normal global tablet close and remaining Go To closure, maturity/origin/scene restoration, actual process/bookmark transfer and complete original Script/XHR/Web/timer/callback/active-metadata retirement. Preserve completed PNG/native-journal evidence while retiring live indexes. Legacy transit captures remain historical and cannot supply fresh v2 samples. No new complete capability; three complete source/host areas and eleven incomplete remain."
+  },
+  "navigationHomeAndPanelsPacket": {
+    "status": "implemented-host-verified",
+    "contracts": [
+      "native-navigation-panels v1",
+      "navigation-transit-operations v2 reads closed v1 histories"
+    ],
+    "checks": [
+      {
+        "command": "python3 -m unittest self_tests.test_navigation_ray_transit self_tests.test_navigation_transit self_tests.test_native_navigation_panels self_tests.test_pico_tablet_home self_tests.test_native_navigation_modals self_tests.test_token_navigation_error_ui self_tests.test_navigation_error_dismissal self_tests.test_navigation_origin self_tests.test_navigation_directory self_tests.test_navigation_bookmarks self_tests.test_token_places_ui self_tests.test_navigation_arrival",
+        "tests": 106,
+        "durationSeconds": 41.084,
+        "status": "passed",
+        "environment": "Process-local TMPDIR in an owned private /tmp directory; no global changes."
+      },
+      {
+        "command": "python3 tests/device/validate_contract_versions.py",
+        "status": "passed"
+      },
+      {
+        "command": "python3 tests/run-project-tests.py --suite documentation --suite documentation-contracts --suite source-layout --suite project-coverage",
+        "suites": 4,
+        "durationSeconds": 8.39,
+        "status": "passed",
+        "junit": "navigation-home-project.xml"
+      },
+      {
+        "command": "python3 android/vr/pico/tests/pico4-test-suite.py --test normal-create --test normal-chat --test normal-login --test suite-runner --test coverage-matrix --timeout 240",
+        "groups": 5,
+        "catalogGroups": 52,
+        "durationSeconds": 68.22,
+        "status": "passed",
+        "junit": "navigation-home-pico.xml"
+      },
+      {
+        "command": "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest self_tests.test_navigation_ray_transit self_tests.test_navigation_transit self_tests.test_native_navigation_panels self_tests.test_pico_tablet_home",
+        "tests": 31,
+        "durationSeconds": 30.697,
+        "status": "passed",
+        "detail": "Final ownership hardening rejects a foreign hidden Go To root that appears after actual arrival and before the Home gesture. Existing v1 archives, actual Pico private factory, lost ray acknowledgment, native root lifetime and quiet cases also pass."
+      }
+    ],
+    "details": "Actual private Pico transit binds the original Home Gizmo observation and ordinary OpenXR primary-trigger ray; original geometry and source group are saved before the single gesture. A separate complete weak Go To/Places root inventory includes hidden retained pages and uses the same original Places IDs as UI/directory observation. Lost Home replies recover from actual Home and native arrival/root/file effects without restaging; unrelated Qt input, unowned roots, replaced sources, dropped history and live retained roots cannot pass. Native instrumentation is additive and gated by Pico/test configuration, runtime testScript, actual GUI thread, lifecycle and private-directory guards. Closed v1 journals remain historical QML input and cannot become a new VR gesture. The earlier assumed nav.home QML control does not exist; the actual Pico factory now refuses that route.",
+    "environmentIssue": "Initial host checks encountered Btrfs metadata ENOSPC despite free data space. The own modified source was backed up privately and tests rerun successfully with process-local private tmpfs temporary storage. No filesystem reconfiguration or changes to other sessions were performed.",
+    "limitations": "Native Qt/QObject/Pico C++ additions remain uncompiled. Host widget, process, geometry, renderer and OpenXR boundaries are synthetic; no builds, compiler, devices, Jenkins, installation, service or remote/protected writes. Whole Navigation still lacks normal global tablet close, remaining Go To input/lookup composition, fresh publisher/actor, maturity/origin/scene restoration, actual restart/bookmark transfer and full Script/XHR/Web/timer/callback/active-metadata retirement. Three areas are complete source/host, eleven incomplete; no complete Navigation capability added.",
+    "integrationBlock": {
+      "operation": "git add on the own worktree index",
+      "status": "resolved-ordinary-staging-verified",
+      "actualErrno": 28,
+      "actualError": "No space left on device",
+      "actualSyscall": "rename (82 on this x86_64 host)",
+      "evidence": "git-index-syscall-errors.json",
+      "details": "A child-only syscall trace confirms rename ENOSPC. An index-sized temporary write succeeds, so simple free-data figures do not establish that atomic Git index replacement is possible. Removing 303 generated untracked Python bytecode files (7346946 bytes) exclusively in the own worktree did not resolve it. The original index and branch were preserved; no alternate-index commit, manual index/reference write, safeguard bypass or global filesystem reconfiguration was attempted.",
+      "resolution": "A later ordinary git add successfully replaced the original own worktree index. The source/backup and original failure evidence were preserved; no alternate index, manual index/reference write, global filesystem maintenance or safeguard bypass."
+    }
+  },
+  "navigationCloseAndFreshFramePacket": {
+    "status": "implemented-host-verified",
+    "contracts": [
+      "navigation-tablet-close v1",
+      "navigation-frame-publication v1",
+      "pure shared v2 source clock/cursor extraction; no existing wire-shape change"
+    ],
+    "checks": [
+      {
+        "command": "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest self_tests.test_navigation_frames self_tests.test_navigation_tablet_close self_tests.test_stereo_navigation_evidence self_tests.test_navigation_ray_transit self_tests.test_navigation_transit self_tests.test_native_navigation_panels self_tests.test_pico_tablet_home",
+        "tests": 62,
+        "durationSeconds": 160.47,
+        "status": "passed",
+        "environment": "Process-local private tmpfs TMPDIR; no compilers/native toolkits/devices/dependency installation."
+      },
+      {
+        "command": "python3 tests/device/validate_contract_versions.py",
+        "status": "passed"
+      },
+      {
+        "command": "python3 tests/run-project-tests.py --suite documentation --suite documentation-contracts --suite source-layout --suite project-coverage",
+        "suites": 4,
+        "status": "passed",
+        "durationSeconds": 5.17,
+        "junit": "navigation-presentation-project.xml"
+      },
+      {
+        "command": "python3 android/vr/pico/tests/pico4-test-suite.py --test normal-create --test normal-chat --test normal-login --test suite-runner --test coverage-matrix --timeout 240",
+        "groups": 5,
+        "catalogGroups": 52,
+        "status": "passed",
+        "durationSeconds": 82.29,
+        "junit": "navigation-presentation-pico.xml"
+      }
+    ],
+    "details": "The actual private Pico close factory pins the same normal manager/binding/source lock and original completed transit/Home proof, saves one normal OpenXR tablet.close intent, independently observes actual Qt/Home/generic VR UI/native root/pose/bookmark effects and requires original three-second quiet. Ignored/lost close, foreign entity/pages/input/focus/keyboard and stale clocks keep ownership without another toggle. A passive role-bound frame publisher then allocates a fresh original NavigationStereo v2 journal per acquisition; it performs no UI input/repair and accepts no desired state/image policy. Both actual private source roles are tested with common independent two-eye PNG/journal verification, advancing original sources and immutable raw metadata/PNG identities. A lost publication returns the same still-fresh original sequence/epochs; an uncertain capture, rejected cursor/render ID or metadata remains owned. Source-only extraction is shared with the existing independent verifier; full state/actor/public operations are not registered.",
+    "integrationBlock": "Prior ordinary staging was blocked by verified Btrfs index rename ENOSPC. A later ordinary git add succeeded. Source/backup and original diagnostic evidence remain retained; no alternate-index commit, manual index/reference write, global filesystem reconfiguration or safeguard bypass.",
+    "limitations": "Original Python controller/source/PNG/file/CAS/receipt components run with synthetic Qt/Pico/HMD/OpenXR/GPU/process boundaries. Native sources remain uncompiled and physical runs are zero. No new native/product behavior, builds, compilers, services, Jenkins, devices, installation, dependency installation, remote writes or protected integration. This is post-transit normal close and internal fresh source publication, not the independent full Navigation state/actor service, Go To/end-page closure, maturity/origin/scene restoration, actual restart/bookmark transfer or complete Script/XHR/Web/timer/callback/active-index finalization. All originals remain retained; source/host-complete areas remain Scripts, Authentication and Graphics only."
   }
 }
