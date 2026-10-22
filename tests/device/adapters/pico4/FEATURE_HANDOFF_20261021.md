@@ -1370,3 +1370,11 @@ pass in4.93s. The initial harness mismatched a requested scroll-up control with
 scroll-down geometry; correcting that synthetic original made the unchanged
 strict validator pass. App entry, full stereo/actor flow and final retirement
 remain open. Completed areas stay3/14; no APK/device qualification is claimed.
+
+
+The subsequent original peer-retirement transport `ac2113730c` is selected with
+Snapshot Review v2 `3ec546ac03` and registry correction `79a8dfde0d`. Eight focused
+peer/Review cases pass in14.085s. Peer transport permits only same-run inspect
+and retire after the full retained original input-close/FD proof; it neither
+refreshes historical epochs nor reopens peer input. Its tests are registered
+in the existing Actor/source group. Whole Chat finalization remains pending.
