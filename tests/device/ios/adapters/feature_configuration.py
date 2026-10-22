@@ -11,7 +11,10 @@ from ios.adapters.normal_scripts import configuration as scripts_configuration
 VERSION=4
 READS=(1,2,3,4)
 AREAS=frozenset(('scripts','authentication','graphics','create','emotes'))
-COMPLETE_AREAS=frozenset(('scripts','authentication','graphics','create','emotes'))
+# Emotes retains its readable v4 configuration and operation implementation.
+# Real cached marker resources still need the two-stage native/process finalizer
+# before this area can again advertise a complete operation triple.
+COMPLETE_AREAS=frozenset(('scripts','authentication','graphics','create'))
 OPERATIONS=frozenset('feature.'+area+'.'+kind for area in AREAS for kind in ('act','observe','cleanup'))
 
 

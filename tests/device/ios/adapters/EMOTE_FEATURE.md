@@ -1,9 +1,13 @@
 # Whole Emote owner
 
-The whole coordinator has passed current host qualification for runtime dispatch
-and both role retirement paths. Its reviewed source packet is ready for local
-integration. Native instrumentation remains source only and uncompiled. Host
-results below do not qualify physical hardware.
+The coordinator has passed modeled host runtime and paired retirement cases.
+Further native source inspection found an unresolved cached marker-resource
+finalization boundary: the existing pre-stop all-zero condition cannot retire
+real retained cache/QSG/image owners. Complete capability admission is withheld
+until actual held-resource disposition and independent normal-stop/process
+retirement are integrated. Version-4 configuration remains readable. The prior
+host results below do not establish that missing native lifetime behavior;
+native instrumentation remains uncompiled and devices unqualified.
 
 ## Existing targets and input authority
 

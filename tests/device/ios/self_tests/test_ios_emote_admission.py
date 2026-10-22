@@ -33,10 +33,10 @@ class EmoteAdmissionTests(unittest.TestCase):
         self.store.write(self.value,None)
         self.target=dict(physical=True,normalScripts=dict(contractVersion=1,profile=PROFILE),
             nativeUiObservation=dict(kind='uikit-documents',version=1),probe=dict(kind='ios-documents'),testBuild={'configured':True})
-    def test_explicit_v4_admits_only_its_three_operations_and_never_by_default(self):
+    def test_explicit_v4_stays_readable_but_cached_marker_gap_withholds_complete_admission(self):
         with patch.dict(os.environ,{'OVERTE_IOS_FEATURE_ADAPTER_CONFIG':str(self.store.path)}):
             self.assertEqual(self.value,config.configuration())
-            self.assertEqual(['feature.emotes.act','feature.emotes.cleanup','feature.emotes.observe'],config.capabilities(self.target))
+            with self.assertRaises(NativeUIError):config.capabilities(self.target)
             for target in (self.target|dict(physical=False),self.target|dict(normalScripts=None)):
                 with self.assertRaises(NativeUIError):config.capabilities(target)
         with patch.dict(os.environ):
