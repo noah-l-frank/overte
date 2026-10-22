@@ -22,7 +22,7 @@ from feature_journeys.scenarios import VERSION
 from overte_phone_create_role import PhoneCreateRole
 from overte_phone_create_marker import ready as marker_ready,retired as marker_retired,current_input as marker_current_input
 from overte_phone_graphics_samples import restore_native
-from overte_phone_script_history import pack,unpack,same
+from overte_phone_script_history import pack,unpack,same,canonical
 from overte_phone_snapshot_handoff import script_advance
 from overte_phone_snapshot_source import continuity as snapshot_continuity
 from overte_phone_snapshot_capture_source import continuity as files_continuity
@@ -39,9 +39,14 @@ from overte_phone_snapshots_measurements import state as measured_state,Snapshot
 
 def distinct(rows):
     """Remove adjacent identical historical floors only, never a transition."""
-    result=[]
+    result=[];previous=None
     for row in rows:
-        if not result or not same(result[-1],row):result.append(deepcopy(row))
+        if not result:
+            result.append(deepcopy(row));continue
+        if previous is None:previous=canonical(result[-1])
+        encoded=canonical(row)
+        if encoded!=previous:
+            result.append(deepcopy(row));previous=encoded
     return result
 
 
