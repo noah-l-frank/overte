@@ -251,5 +251,18 @@ if(calls!==51||files.length!==1||files[0].available!==false||"source" in files[0
         with self.assertRaises(ValueError):self.instance.cleanup(self.native.target)
         self.assertFalse(self.native.running);self.assertEqual(original,owner.store.read())
 
+    def test_background_factory_can_reopen_private_scope_without_foreground_native_repair(self):
+        from adapters.script_journey.lock import ScriptSourceLock
+        from self_tests.test_pico_emote_sources import SourcesTests
+        seam=SourcesTests();seam.setUp();self.addCleanup(seam.doCleanups)
+        path=self.instance._script_journey().state_path(self.native.target)
+        lock=ScriptSourceLock(path.with_name('script-sources.lock'))
+        with lock.held(),patch.object(self.instance,'_script_runtime',side_effect=AssertionError('No native UI construction')):
+            owner=self.instance._emote_background(self.native.target,seam.phase,seam.root,lock)
+            self.assertEqual(self.instance._emote_background_store(self.native.target).path,owner.store.path)
+            owner.store.write({'syntheticUnresolvedOwnership':True},None);original=owner.store.read()
+        with self.assertRaises(ValueError):self.instance.cleanup(self.native.target)
+        self.assertFalse(self.native.running);self.assertEqual(original,owner.store.read())
+
 
 if __name__=='__main__':unittest.main()

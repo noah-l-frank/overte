@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "abb7f6b60d97daf17752aadf94e2b5df099bb7ba",
+  "targetBase": "4e49c9660cf3c1b4862e6b97e0c681d4410d05cc",
+  "uncommittedPhoneWorkExcluded": true,
+  "files": [
+    {
+      "sourcePath": "tests/device/adapters/android-phone/overte_phone_emote_background.py",
+      "targetPath": "tests/device/adapters/pico4/emote_background.py",
+      "sourceSha256": "3c31e18a11d158a061554b4a5a8a8edab2ea91deda8e79efe620672b32c16985",
+      "targetSha256": "042c3a8d4a672616002b6985a8d6511800f3a607b739cb636915496d2efe6b2c"
+    }
+  ],
+  "selection": "reviewed-phase-and-lifecycle-ownership-architecture-with-original-Pico-Graphics-lifecycle-composition",
+  "changes": [
+    "Existing complete PicoGraphicsBinding OS/process/candidate and ordinary lifecycle input paths reused, with no Phone SDK/UI/package or mono capture.",
+    "Durable before-header/input-header and distinct background/activation intents; actual source manager/Rig history and native lifecycle transitions required.",
+    "Reconstruction uses passive original OS admission before acquiring foreground native sources; no native factory while backgrounded.",
+    "Separate once-only cleanup activation remains distinct from completion of the retired action.",
+    "No whole feature capability, current image/publication or journal/resource retirement supplied."
+  ]
+}

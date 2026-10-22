@@ -157,6 +157,8 @@ REQUIRED = {
     "pico-emote-sources": 2,
     "native-script-work": 2,
     "pico-emote-lifetime": 1,
+    "pico-emote-background": 1,
+    "pico-emote-foreground-recovery": 1,
     "pico-emote-inputs": 1,
     "pico-emote-effect": 1,
     "pico-emote-pending-restore": 1,

@@ -509,6 +509,24 @@ def create_adapter(args, base_class):
                 lambda intent, receipt: self._emote_controls(target, intent, receipt=receipt), ui.io,
                 lambda: self._script_journey().existing_input_session(target))
 
+        def _emote_background_store(self, target):
+            source = self._emote_source_store(target, 'primary')
+            return PrivateFeatureState(source.path.with_name(source.path.stem + '-background.json'))
+
+        @_private
+        def _emote_background(self, target, phase, artifact_root, source_lock):
+            from adapters.pico4.emote_background import PicoEmoteBackground
+            from adapters.pico4.graphics_binding import PicoGraphicsBinding
+            from adapters.script_journey.lock import ScriptSourceLock
+            _need(isinstance(source_lock, ScriptSourceLock)
+                and source_lock.path == self._script_journey().state_path(target).with_name('script-sources.lock'))
+            source_lock.assert_held()
+            lifecycle = PicoGraphicsBinding(self)
+            return PicoEmoteBackground(phase, source_lock, self._emote_source_store(target, 'primary'),
+                self._emote_input_store(target),
+                lambda: self._emote_sources(target, phase, 'primary', artifact_root, source_lock),
+                lifecycle, target, lambda: lifecycle.existing_input_session(target), artifact_root=artifact_root)
+
         def _emote_lifetime_store(self, target, role):
             source = self._emote_source_store(target, role)
             return PrivateFeatureState(source.path.with_name(source.path.stem + '-lifetime.json'))
@@ -1485,6 +1503,7 @@ def create_adapter(args, base_class):
                       and self._emote_input_store(target).read() is None
                       and all(self._emote_source_store(target, role).read() is None for role in ('primary', 'actor'))
                       and all(self._emote_lifetime_store(target, role).read() is None for role in ('primary', 'actor'))
+                      and self._emote_background_store(target).read() is None
                       and self._chat_profile_store(target).read() is None
                       and self._chat_erase_restore_store(target).read() is None
                       and all(self._chat_samples_store(target,role,erased=erased).read() is None
