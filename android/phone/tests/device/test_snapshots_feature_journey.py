@@ -59,16 +59,18 @@ overte_phone_snapshot_upload_fixture.SnapshotUploadFixtureReader=TargetClockPhas
 client=Client(configuration['fixtureUrl'],configuration['actorToken'])
 started=time.monotonic();flow=None
 while time.monotonic()-started<240:
+    delay=.25
     try:
         if flow is None:flow=adapter.actor('synthetic',RUN,client)
         if flow.step():sys.exit(0)
+        delay=flow.poll_delay()
     except PhoneScriptSourceBusy:pass
     except Exception as error:
         current=error.__context__
         while current is not None:
             traceback.print_exception(type(current),current,current.__traceback__,chain=False);current=current.__context__
         raise
-    time.sleep(.25)
+    time.sleep(delay)
 raise RuntimeError('Explicit synthetic actor lifetime exceeded')
 '''
 

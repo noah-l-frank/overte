@@ -229,14 +229,16 @@ def run_snapshots(adapter,config,client,*,monotonic=time.monotonic,sleep=time.sl
             if metadata is not None:
                 need(metadata.get('fixtureUrl')==client.url+'/runs/'+metadata['runId']+'/')
                 flow=adapter._snapshots_actor(config['target'],metadata['runId'],client=client)
-        finished=False
+        finished=False;delay=.25
         if flow is not None:
-            try:finished=flow.step()
+            try:
+                finished=flow.step()
+                if finished is False:delay=flow.poll_delay()
             except PhoneScriptSourceBusy:pass
-        need(type(finished) is bool)
+        need(type(finished) is bool and type(delay) is float and delay in (.05,.25))
         end=monotonic();need(number(end,previous,1e15) and end-started<config['durationSeconds']);previous=end
         if finished:return 0
-        sleep(.25)
+        sleep(delay)
 
 
 def main(argv=None):

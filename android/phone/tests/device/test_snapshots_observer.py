@@ -63,7 +63,7 @@ class SnapshotsObserverTests(unittest.TestCase):
     def adapter(self,steps,metadata=None):
         self.run='b'*32
         if metadata is None:metadata=dict(runId=self.run,fixtureUrl=self.base['fixtureUrl']+'/runs/'+self.run+'/')
-        store=SimpleNamespace(read=Mock(return_value=metadata));actor=SimpleNamespace(step=Mock(side_effect=steps))
+        store=SimpleNamespace(read=Mock(return_value=metadata));actor=SimpleNamespace(step=Mock(side_effect=steps),poll_delay=Mock(return_value=.25))
         adapter=SimpleNamespace(snapshots_feature_store=Mock(return_value=store),_snapshots_actor=Mock(return_value=actor),
             invoke=Mock(side_effect=AssertionError('Actor must not invoke primary operations')),
             _snapshots_feature=Mock(side_effect=AssertionError('Actor must not acquire primary facade')))
@@ -81,6 +81,29 @@ class SnapshotsObserverTests(unittest.TestCase):
         for result in (None,1,dict(retired=True),'complete'):
             adapter,_,_=self.adapter([result])
             with self.subTest(result=result),self.assertRaises((ValueError,RuntimeError)):self.run_actor(adapter)
+    def test_only_successful_incomplete_steps_use_the_actor_polling_policy(self):
+        adapter,actor,_=self.adapter([False,False,True]);actor.poll_delay.side_effect=[.25,.05];delays=[]
+        def sleep(value):delays.append(value);self.sleep(value)
+        self.assertEqual(0,observer.run(adapter,self.base,monotonic=lambda:self.now,sleep=sleep))
+        self.assertEqual([.25,.05],delays);self.assertEqual(2,actor.poll_delay.call_count)
+    def test_busy_uses_normal_yield_even_after_a_verified_cleanup_step(self):
+        adapter,actor,_=self.adapter([False,observer.PhoneScriptSourceBusy(),True]);actor.poll_delay.return_value=.05;delays=[]
+        def sleep(value):delays.append(value);self.sleep(value)
+        self.assertEqual(0,observer.run(adapter,self.base,monotonic=lambda:self.now,sleep=sleep))
+        self.assertEqual([.05,.25],delays);actor.poll_delay.assert_called_once_with()
+    def test_waiting_for_the_initial_owner_keeps_normal_cadence(self):
+        adapter,actor,store=self.adapter([True]);metadata=store.read.return_value;store.read.side_effect=[None,metadata];delays=[]
+        def sleep(value):delays.append(value);self.sleep(value)
+        self.assertEqual(0,observer.run(adapter,self.base,monotonic=lambda:self.now,sleep=sleep))
+        self.assertEqual([.25],delays);actor.poll_delay.assert_not_called()
+    def test_completed_actor_exits_without_polling_or_sleeping(self):
+        adapter,actor,_=self.adapter([True]);sleep=Mock(side_effect=AssertionError('Closed actor must exit'))
+        self.assertEqual(0,observer.run(adapter,self.base,monotonic=lambda:self.now,sleep=sleep))
+        actor.poll_delay.assert_not_called();sleep.assert_not_called()
+    def test_invalid_delay_cannot_change_the_closed_scheduling_policy(self):
+        for delay in (0,True,None,.0,.001,.1,.5,float('nan')):
+            adapter,actor,_=self.adapter([False]);actor.poll_delay.return_value=delay;self.now=0.
+            with self.subTest(delay=delay),self.assertRaises((ValueError,RuntimeError)):self.run_actor(adapter)
     def test_foreign_run_source_cannot_construct_actor(self):
         adapter,_,_=self.adapter([True],dict(runId='b'*32,fixtureUrl='http://foreign.invalid/runs/'+'b'*32+'/'))
         with self.assertRaises((ValueError,RuntimeError)):self.run_actor(adapter)

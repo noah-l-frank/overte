@@ -169,6 +169,20 @@ class PhoneSnapshotsActor(PhoneAssetsActor):
             elif self._ordinary_entered:self._ordinary_failed=True
             raise
 
+    def poll_delay(self):
+        """Yield briefly only between this flow's verified cleanup samples.
+
+        This is scheduling, not measurement authority. The following step still
+        reopens every original and checks the current owners, phase and target.
+        """
+        if (self._cleanup_reader is not None and self._cleanup_anchor is not None and not self._cleanup_failed
+                and not self._ordinary_failed and self.state is not None
+                and self.state['phase']=='watching' and self.state['pending'] is None and self.state['quiet'] is not None):
+            # The source-lock contender polls every 25 ms. Leave two polling
+            # opportunities before this actor competes for the lock again.
+            return .05
+        return .25
+
     def ordinary_pin(self):
         f=self.feature;scope=getattr(f.adapter,'_existing_input_scope',None)
         return dict(feature=deepcopy(f.previous),actor=deepcopy(self.previous),binding=deepcopy(f.binding),
