@@ -59,6 +59,7 @@
         "android/common/native-ci/android-arm64-ci",
         "android/common/native-ci/target.conanfile.py",
         "android/vr/pico/apps/picoInterface/build.gradle",
+        "android/vr/pico/gradle.properties",
         "android/vr/pico/native-ci/android-arm64-ci-release",
         "android/vr/pico/native-ci/graph_contract.py",
         "android/vr/pico/native-ci/target.conanfile.py",
