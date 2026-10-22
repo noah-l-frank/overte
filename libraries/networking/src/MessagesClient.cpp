@@ -46,6 +46,17 @@ MessagesClient::MessagesClient() {
 }
 
 #if defined(OVERTE_E2E_FEATURE_TESTS)
+QVariantMap MessagesClient::featureChatActorInput() {
+    if (!QCoreApplication::arguments().contains("--testScript")) { return {}; }
+    if (QThread::currentThread()!=thread()) {
+        if (!thread() || !thread()->isRunning()) { return {}; }
+        QVariantMap input;
+        if (!QMetaObject::invokeMethod(this,[&] { input=featureChatActorInput(); },Qt::BlockingQueuedConnection)) { return {}; }
+        return input;
+    }
+    return _featureChatActorFiles?_featureChatActorFiles->takeInput():QVariantMap();
+}
+
 bool MessagesClient::configureFeatureChatActor(const QString& actualScriptSha256) {
     if (!QCoreApplication::arguments().contains("--testScript")) { return false; }
     if (QThread::currentThread()!=thread()) {

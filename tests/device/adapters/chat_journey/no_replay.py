@@ -14,7 +14,7 @@ from adapters.native_feature_observation import integer, need, number
 from adapters.normal_ui import NativeUIError
 from feature_journeys.contract import identifier
 
-VERSION = 1
+VERSION = 2
 
 
 def original(samples):
@@ -74,7 +74,7 @@ class ChatNoReplay:
             base = dict(chatNoReplayVersion=VERSION, runId=self.primary.run, ticket=ticket,
                 binding=self.primary.binding, peerBinding=self.primary.peer_binding,
                 primaryTranscript=self.primary.store.path.name, actorTranscript=self.actor.store.path.name,
-                phase='reading', elapsedMs=0, samples=[])
+                phase='reading', elapsedMs=0, originals=None, samples=[])
             self.write(base)
             first = None; baseline = None; last_epochs = None
             for _attempt in range(202):
@@ -105,7 +105,8 @@ class ChatNoReplay:
                 elapsed = now - quiet_started
                 complete = elapsed >= 3 and all(end - begin >= 3000 for end, begin in zip(epochs, first))
                 self.write({**self.previous, 'phase': 'complete' if complete else 'waiting',
-                    'elapsedMs': int(elapsed * 1000), 'samples': self.previous['samples'] + [refs]})
+                    'elapsedMs': int(elapsed * 1000), 'originals': baseline,
+                    'samples': self.previous['samples'] + [[{key:ref[key] for key in ('ticket','index','epochs','queries')} for ref in refs]]})
                 if complete: return deepcopy(self.previous)
                 need(now - started < 20)
                 previous = now; self.sleep(.1)

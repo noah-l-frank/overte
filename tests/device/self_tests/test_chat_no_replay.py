@@ -49,6 +49,11 @@ class NoReplayTests(unittest.TestCase):
     def wait(self): return self.quiet.wait('9' * 32, 20000)
 
     def test_full_native_and_host_time_window_requires_new_queries_for_both_roles(self):
+        # Exercise the real journey's retained multiple channel histories;
+        # repeated raw copies must not exhaust the private 64-KiB journal.
+        self.h.open('domain')
+        for key in ('unicode','reply','hidden','retry'):
+            self.h.accept(context(RUN)[key], sender=SELF)
         before = [len(role.frames) for role in self.roles]
         result = self.wait()
         self.assertEqual('complete', result['phase']); self.assertGreaterEqual(result['elapsedMs'], 3000)

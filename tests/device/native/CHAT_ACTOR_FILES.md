@@ -1,7 +1,9 @@
 # Native Chat actor file channel v1
 
 This is E2E-only instrumentation and an actor-host transport, not a complete Chat
-adapter. The native source is uncompiled and real peer reception is untested.
+adapter. The original private-file header now compiles and executes in the
+focused real Qt5/POSIX check described in [peer inputs](CHAT_PEER_INPUT.md);
+full Assignment Client linking and real peer reception remain untested.
 The host checks below validate transport, ownership and rejection logic only.
 The primary normal Chat input/UI/storage adapter, peer stimuli/distance, the remaining native-node/service
 composition (the [process actuator](MESSAGES_MIXER_CONTROL.md) now exists) and the
@@ -23,8 +25,10 @@ hash is never a submitted expected digest. For the existing ASCII peer script
 it equals the repository/served-file digest. A future non-ASCII source profile
 must qualify the actual decoding rather than assume archive-byte identity.
 The actor refuses a pre-existing Chat subscription and owns only its own
-secondary subscription to `chat`. It does not send messages, mutate the primary
-client or implement a user input route. Channel subscription is not evidence of
+secondary subscription to `chat`. The observation channel does not send messages
+or mutate the primary client. The separately named fixture
+[peer input channel](CHAT_PEER_INPUT.md) uses ordinary script inputs.
+Channel subscription is not evidence of
 server acknowledgement, peer readiness or message delivery.
 
 The optional existing domain fixture flag `--feature-chat-receiver` stages a
@@ -152,5 +156,5 @@ known journal recovery, active/false retirement, actual open unlinked descriptor
 wrong executable digest, lost owner/start/process/root, peer-only argv, private
 config and fresh restart directories. All pass. No native Agent, domain product,
 compiler, build, device or Jenkins job was run. The native timer/file producer
-still requires compilation and laboratory qualification in a later authorized
-phase.
+has since received the focused Qt5/POSIX header check linked above; complete
+native integration and laboratory qualification remain required.

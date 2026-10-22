@@ -138,3 +138,19 @@ transaction and remains after success or failure; teardown cannot discard it.
 Seven focused host cases cover this timing and source logic on synthetic native
 boundaries. This window does not establish final callback/resource quiet release
 or independently prove that the intended original service was restarted.
+
+The [owned peer input component](../../native/CHAT_PEER_INPUT.md) now supplies
+actual private native once-only fixture commands and the original peer script's
+ordinary Avatar hold/Send/restore path. `ChatPeerSend` requires both separately
+queried original source roles to witness new remote native reception and the
+accepted stored row; a consumed input remains distinct from that observation.
+The complete native private-file header compiles/runs against real Qt5/POSIX,
+while MessagesClient/full-app linking and actual networking remain unqualified.
+Private `_chat_peer_input` and `_chat_peer_send` factories preserve candidate
+ownership; their journals survive even a forced process teardown.
+
+No-replay persistence v2 now retains one full original baseline and bounded source
+references for subsequent samples. Repeated copies of the retained full Chat
+history cannot exhaust the private journal during its actual three-second window.
+Version 1 persisted windows are not migrated or adopted; their unresolved
+ownership remains retained for the complete run's audited recovery.
