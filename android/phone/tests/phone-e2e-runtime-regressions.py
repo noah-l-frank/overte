@@ -38,6 +38,8 @@ PREPARED_HOST_CHECKS = (
 COMMON_HOST_CHECKS = (
     "android/phone/tests/device/test_navigation_feature.py",
     "android/phone/tests/device/test_snapshot_source.py",
+    "android/phone/tests/device/test_snapshot_script_history.py",
+    "android/phone/tests/device/test_snapshot_script_native.py",
     "android/phone/tests/device/test_snapshot_readback_source.py",
     "android/phone/tests/device/test_snapshot_saved_files.py",
     "android/phone/tests/device/test_create_source.py",

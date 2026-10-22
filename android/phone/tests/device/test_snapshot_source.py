@@ -36,7 +36,8 @@ class Boundary:
         self.sequence+=1;self.epoch+=10
         value=dict(schemaVersion=1,requestId=request['commandId'],runId=request['runId'],instance='b'*32,
             sequence=self.sequence,processId=31,requestedEpochMs=self.epoch,capturedEpochMs=self.epoch,
-            source=dict(phoneSnapshotObservationVersion=4,nativeReview=True,storageRoot=STORAGE,
+            source=dict(phoneSnapshotObservationVersion=5,nativeReview=True,storageRoot=STORAGE,
+                scriptHistory=dict(snapshotScriptHistoryVersion=1,instance='9'*32,complete=True,sequence=0,events=[]),
                 androidExport=dict(snapshotExportObservationVersion=2,instance='d'*32,complete=True,capturedEpochMs=self.epoch,
                     elapsedMs=int(self.clock*1000),sequence=len(self.export_events),activeRequest=self.export_active,pendingIo=self.export_pending[:],
                     events=deepcopy(self.export_events)),

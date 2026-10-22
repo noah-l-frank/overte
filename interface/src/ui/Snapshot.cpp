@@ -53,6 +53,8 @@
 #include <algorithm>
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PHONE_INTERFACE)
 #include "../../../tests/device/native/PhoneSnapshotHistory.h"
+#include "../../../tests/device/native/PhoneSnapshotScriptHistory.h"
+#include <ScriptManager.h>
 #endif
 
 // filename format: overte-snap-by-%username%-on-%date%_%time%_@-%location%.png
@@ -68,6 +70,7 @@ static const QList<QString> SUPPORTED_IMAGE_FORMATS = { "jpg", "jpeg", "png", "w
 Snapshot::Snapshot() {
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PHONE_INTERFACE)
     _featureSnapshotHistory=std::make_shared<overte::e2e::PhoneSnapshotHistory>();
+    _featureSnapshotScriptHistory=std::make_shared<overte::e2e::PhoneSnapshotScriptHistory>();
     connect(this,&Snapshot::captureStatusChanged,this,[this](const QString& id,const QString& phase,const QString& path,const QString& error) {
         _featureSnapshotHistory->record("capture-status",id,phase,path,error);
     });
@@ -132,6 +135,10 @@ SnapshotCapture Snapshot::beginCapture(const QString& requestId) {
 }
 
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PHONE_INTERFACE)
+void Snapshot::featureCaptureEvent(const QString& kind,const QString& id,const QString& mode,int revision) {
+    _featureSnapshotScriptHistory->record(kind,id,mode,revision,ScriptManager::featureNativeCallContext());
+}
+
 QVariantMap Snapshot::featureSnapshotObservation() {
     if (QThread::currentThread()!=thread() || !QCoreApplication::arguments().contains("--testScript")) { return {}; }
     QVariantList captures;QStringList uploads;QVariantMap history;
@@ -154,7 +161,8 @@ QVariantMap Snapshot::featureSnapshotObservation() {
     std::sort(uploads.begin(),uploads.end());
     if (history.isEmpty()) { return {}; }
     return {{"phoneSnapshotObservationVersion",1},{"nativeReview",nativeReviewEnabled()},
-        {"storageRoot",overte::snapshot::storageRoot()},{"captures",captures},{"uploads",uploads},{"history",history}};
+        {"storageRoot",overte::snapshot::storageRoot()},{"captures",captures},{"uploads",uploads},{"history",history},
+        {"scriptHistory",_featureSnapshotScriptHistory->snapshot()}};
 }
 #endif
 

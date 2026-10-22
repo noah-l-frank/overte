@@ -14,6 +14,7 @@ import uuid
 from adapters.native_feature_observation import decode,exact,fresh,integer,need,number
 from adapters.normal_ui import NativeUIError
 from overte_phone_snapshot_exports import exports,continuity as export_continuity
+from overte_phone_snapshot_script_history import validate as script_history,continuity as script_continuity
 
 FILE='phone-snapshot-observation.json'
 ROOTS={'/data/'+base+'/io.github.noah_be.overte.phone/files/Snapshots' for base in ('user/0','data')}
@@ -57,9 +58,9 @@ def review(value,valid_path):
     return value
 
 
-def source(value):
-    exact(value,{'phoneSnapshotObservationVersion','nativeReview','storageRoot','captures','uploads','history','review','androidExport'})
-    need(type(value['phoneSnapshotObservationVersion']) is int and value['phoneSnapshotObservationVersion']==4
+def source(value,captured_epoch=2**63-1):
+    exact(value,{'phoneSnapshotObservationVersion','nativeReview','storageRoot','captures','uploads','history','review','androidExport','scriptHistory'})
+    need(type(value['phoneSnapshotObservationVersion']) is int and value['phoneSnapshotObservationVersion']==5
         and value['nativeReview'] is True and value['storageRoot'] in ROOTS)
     root=value['storageRoot']
     def path(raw):
@@ -92,6 +93,7 @@ def source(value):
     uploads=value['uploads'];need(type(uploads) is list and len(uploads)<=64 and all(path(raw) for raw in uploads) and uploads==sorted(set(uploads)))
     review(value['review'],path)
     exports(value['androidExport'],path)
+    script_history(value['scriptHistory'],captured_epoch)
     return value
 
 
@@ -102,7 +104,7 @@ def validate(value,request,pid,epoch):
         and value['runId']==request['runId'] and nonce(value['instance']) and integer(value['sequence'],1,1_000_000_000)
         and integer(value['processId'],1) and value['processId']==pid and integer(value['requestedEpochMs'],1)
         and integer(value['capturedEpochMs'],value['requestedEpochMs']) and value['capturedEpochMs']-value['requestedEpochMs']<1500)
-    fresh(value['capturedEpochMs'],epoch);source(value['source'])
+    fresh(value['capturedEpochMs'],epoch);source(value['source'],value['capturedEpochMs'])
     need(all(row['capturedEpochMs']<=value['capturedEpochMs'] for row in value['source']['history']['events']))
     need(integer(value['source']['androidExport']['capturedEpochMs'],value['requestedEpochMs'],value['capturedEpochMs']))
     return value
@@ -115,6 +117,7 @@ def continuity(before,after):
     a,b=before['source']['history'],after['source']['history']
     need(b['instance']==a['instance'] and b['sequence']>=a['sequence'] and b['events'][:len(a['events'])]==a['events'])
     export_continuity(before['source']['androidExport'],after['source']['androidExport'])
+    script_continuity(before['source']['scriptHistory'],after['source']['scriptHistory'])
 
 
 class PhoneSnapshotSource:

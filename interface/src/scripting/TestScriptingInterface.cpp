@@ -1244,7 +1244,7 @@ QVariantMap TestScriptingInterface::phoneSnapshotObservation(const QVariantMap& 
     if (review.isEmpty()) { return {}; }
     const auto androidExport=QJsonDocument::fromJson(NativeSnapshotAdapter::featureExportObservation().toUtf8());
     if (!androidExport.isObject()) { return {}; }
-    source.insert("phoneSnapshotObservationVersion",4);source.insert("review",review);
+    source.insert("phoneSnapshotObservationVersion",5);source.insert("review",review);
     source.insert("androidExport",androidExport.object().toVariantMap());
     if (source.isEmpty() || QJsonDocument::fromVariant(source).toJson(QJsonDocument::Compact).size()>200000) { return {}; }
     return {{"schemaVersion",1},{"requestId",command.value("commandId")},{"runId",command.value("runId")},

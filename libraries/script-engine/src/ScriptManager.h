@@ -1059,6 +1059,9 @@ public:
     QVariantMap featureWorkObservation(const QString& requestId);
     // Native-only call provenance. Never accepts a script-supplied manager ID.
     static QVariantMap featureNativeCallContext();
+    // Passive current timer facts at the original Snapshot script call. This
+    // native-only read runs on the manager thread and never evaluates code.
+    QVariantMap featureCaptureWorkObservation(int originalScriptId) const;
     class FeatureNativeCallScope {
     public:
         FeatureNativeCallScope(ScriptManager* manager, const QByteArray& method, int originalScriptId=0);

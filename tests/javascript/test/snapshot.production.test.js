@@ -5,7 +5,7 @@ const assert = require("node:assert/strict");
 const path = require("node:path");
 const { FakeSignal, createScriptApi, runProductionScript } = require("../support");
 const source = path.resolve(__dirname,"../../../scripts/system/snapshot.js");
-function start(native=true) {
+function start(native=true, instrumented=false) {
     const Script=createScriptApi(), settings=new Map(), calls=[], messages=[], requests=[], cancelled=[];
     let ui;
     function AppUi(options) { ui=this; this.options=options;this.isOpen=true;this.sendMessage=value=>messages.push(value);this.openNewAppOnTop=()=>{}; }
@@ -15,6 +15,11 @@ function start(native=true) {
         takeSnapshot(...args){calls.push(["still",...args]);},takeSecondaryCamera360Snapshot(...args){calls.push(["360",...args]);},shareSnapshot(...args){calls.push(["upload",...args]);}};
     const Snapshot={nativeReviewEnabled:()=>native,getSnapshotFormat:()=>"png",getSnapshotsLocation:()=>"/app/Snapshots",captureStatusChanged:new FakeSignal(),uploadStatusChanged:new FakeSignal(),snapshotLocationSet:new FakeSignal(),
         cancelCapture(id){cancelled.push(["capture",id]);},cancelUpload(file){cancelled.push(["upload",file]);}};
+    // Explicit native observer seam; record actual script arguments and live
+    // timer/message state. It does not answer capture or cancellation inputs.
+    const originals=[];
+    if(instrumented)Snapshot.featureCaptureEvent=(kind,id,mode,revision)=>originals.push({kind,id,mode,revision,
+        timers:[...Script.timers.values()].map(timer=>timer.delay),messageActions:messages.map(row=>row.action),lastMessage:messages.at(-1)});
     const Reticle={visible:true,allowMouseCapture:true},Menu={overlays:true,isOptionChecked(){return this.overlays;},setIsOptionChecked(_,value){this.overlays=value;}};
     const Account={metaverseServerURL:"https://metaverse.invalid",isLoggedIn:()=>true};
     const HMD={active:false,displayModeChanged:new FakeSignal(),closeTablet(){calls.push(["close"]);},openTablet(){calls.push(["open"]);}};
@@ -30,7 +35,7 @@ function start(native=true) {
     ui.options.onOpened.call(ui);
     function message(action,extra={}) { ui.options.onMessage({type:"snapshot",action,...extra}); }
     function delayedCapture() { for(const delay of [350,500]){const entry=[...Script.timers].find(([,timer])=>timer.delay===delay);assert.ok(entry);Script.runTimer(entry[0]);} }
-    return{Script,Snapshot,Window,Account,GlobalServices,Reticle,Menu,HMD,ui,settings,calls,messages,requests,cancelled,message,delayedCapture};
+    return{Script,Snapshot,Window,Account,GlobalServices,Reticle,Menu,HMD,ui,settings,calls,messages,requests,cancelled,message,delayedCapture,originals};
 }
 test("native SNAP loads actual QML while desktop retains full HTML review",()=>{
     const mobile=start();assert.match(mobile.ui.options.home,/NativeSnapshotReview.qml$/);
@@ -122,4 +127,32 @@ test("idle Cancel cannot fabricate an actual pending-capture cancellation proof"
     h.message("cancelSnapshotCapture");
     assert.equal(h.cancelled.length,1);
     assert.equal(h.messages.filter(row=>row.action==="captureStatus"&&row.phase==="cancelled").length,1);
+});
+test("passive original hooks retain pre-render pending and actual same-context cancellation",()=>{
+    const h=start(true,true);h.message("cancelSnapshotCapture");assert.equal(h.originals.length,0);
+    h.message("takeSnapshot",{mode:"animated"});const pending=h.originals[0];
+    assert.equal(pending.kind,"pending");assert.equal(pending.mode,"animated");assert.match(pending.id,/^snap_[0-9]+_1$/);
+    assert.deepEqual(pending.timers,[350,60000]);assert.ok(pending.messageActions.includes("clearPreviousImages"));
+    assert.equal(h.calls.filter(row=>row[0]==="still").length,0);
+    h.message("cancelSnapshotCapture");const cancelled=h.originals[1];
+    assert.equal(cancelled.kind,"cancelled");assert.equal(cancelled.id,pending.id);assert.equal(cancelled.revision,pending.revision);
+    assert.deepEqual(cancelled.timers,[]);assert.equal(cancelled.lastMessage.phase,"cancelled");
+    h.message("cancelSnapshotCapture");assert.equal(h.originals.length,2);
+});
+test("passive original hooks reject foreign and retired callbacks before recording actual next completion",()=>{
+    const h=start(true,true);h.message("takeSnapshot",{mode:"animated"});const old=h.originals[0].id;
+    h.message("cancelSnapshotCapture");h.message("takeSnapshot",{mode:"animated"});h.delayedCapture();
+    const current=h.calls.find(row=>row[0]==="still")[5];assert.notEqual(current,old);
+    const count=h.originals.length;
+    for(const id of [old,"snap_foreign"])h.Snapshot.captureStatusChanged.emit(id,"complete","/app/Snapshots/foreign.gif","");
+    assert.equal(h.originals.length,count);
+    h.Snapshot.captureStatusChanged.emit(current,"processing","/app/Snapshots/current.png","");
+    h.Snapshot.captureStatusChanged.emit(current,"complete","/app/Snapshots/current.gif","");
+    assert.deepEqual(h.originals.map(row=>row.kind),["pending","cancelled","pending","processing","complete"]);
+    assert.deepEqual(h.originals.at(-1).timers,[]);
+    h.Snapshot.captureStatusChanged.emit(current,"complete","/app/Snapshots/current.gif","");assert.equal(h.originals.length,5);
+});
+test("desktop uses its unchanged capture path even when an observer seam exists",()=>{
+    const h=start(false,true);h.message("takeSnapshot");h.delayedCapture();
+    assert.equal(h.originals.length,0);assert.equal(h.calls.find(row=>row[0]==="still").length,4);
 });

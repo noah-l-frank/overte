@@ -6,7 +6,7 @@ original files independently of input delivery. The common v17 extended
 `feature.snapshots.*` triple is **not yet advertised** by the Phone adapter.
 Devices and the complete Android client build remain unverified.
 
-## Passive native source v4
+## Passive native source v5
 
 `phone-snapshot-observe` accepts exactly `schemaVersion:1`, a fresh 32-character
 hexadecimal `commandId`, `action`, and the 32-character hexadecimal `runId`.
@@ -35,6 +35,7 @@ Successive reads require the same native/history instances and the unchanged
 full event prefix. Original paths remain in private source files and must never
 be copied to public result JSON. Public resources need opaque owned labels.
 
+Version 5 adds the original VM-bound script capture history described below.
 Version 3 added the original Android export source. Version 4 requires export
 component contract v2. The real Java adapter records its actual native handle,
 ticket, Activity generation, original validated source path, original document
@@ -213,3 +214,41 @@ readback jobs, source replacement, changed bytes, same-byte inode replacement,
 file aliases, permissions, truncated transfer and foreign host artifacts.
 These host checks do not execute run-as on Android or prove OS saving, receiver
 consumption, complete cleanup, product function or device acceptance.
+
+## Original script capture history v1
+
+Outer Snapshot source v5 requires a separate immutable, bounded (256-event)
+`PhoneSnapshotScriptHistory`. It records actual `pending`, `processing`,
+`complete`, `cancelled` and `error` calls from the unchanged normal Snapshot
+workflow. Pending is recorded after actual timer registration; cancellation is
+recorded after actual timer clearing and the cancelled review message. Unknown
+or retired callback request IDs return before recording. An idle Cancel records
+nothing. No input, expected phase, supplied caller identity or reset is exposed.
+Missing/foreign VM provenance, overflow and clock regression permanently leave
+this component incomplete; older sources fail the v5 gate.
+
+The actual V8-to-QObject dispatch obtains the nearest actual V8 Script ID. Its
+native call scope retains the real manager membership, submitted source and
+compiled included-code origin. Only the narrow `featureCaptureEvent` observer
+method additionally copies the selected original function source's actual Qt
+timers and retained registration/callback activity on the manager thread. It
+never evaluates JavaScript, observes a foreign heap, clears a timer or alters a
+capture delay. Every event keeps its original request/mode/review revision,
+wall/monotonic clocks and complete original caller/work metadata. The strict
+reader rejects missing contexts, foreign sources, repeated/late terminal phases,
+rewritten prefixes, impossible work/timer facts and native instance replacement.
+The public owner still must join the reviewed Snapshot code pin, the actual
+review and independent fresh work/files before deriving a product checkpoint.
+
+`test_snapshot_script_native.py` compiles the actual recorder header and unchanged
+extracted Snapshot observer, ScriptManager call-scope and timer-reader function
+bodies with real prepared Qt6. Its VM manager/source boundary is explicitly
+synthetic; real Qt timers exercise registration/removal while foreign timers
+remain untouched. Disabled, missing/foreign/uncompiled/wrong-thread caller and
+permanent overflow cases stay red. This does not compile V8 or the complete
+Snapshot/ScriptManager translation units. `test_snapshot_script_history.py`
+checks the strict Python join and native packet boundary. The original
+`snapshot.production.test.js` additionally checks real script event/timer
+ordering, ignored idle Cancel, foreign/retired completions and the unchanged
+desktop path with an explicit native observer seam. Full normal Qt fast-cancel
+automation, extended owner, output cleanup and devices remain unfinished.
