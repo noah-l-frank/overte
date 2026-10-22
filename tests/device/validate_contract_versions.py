@@ -116,6 +116,8 @@ REQUIRED = {
     "ios-create-controls": 2,
     "ios-avatar-renderers": 4,
     "native-avatar-body-collection": 1,
+    "ios-avatar-image": 1,
+    "ios-avatar-image-change": 1,
     "ios-avatar-world": 1,
     "ios-avatar-world-acquisition": 1,
     "ios-avatar-state": 2,

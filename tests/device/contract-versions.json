@@ -108,6 +108,8 @@
     "ios-create-controls": {"current": 2, "reads": [1, 2]},
     "ios-avatar-renderers": {"current": 4, "reads": [1, 2, 3, 4]},
     "native-avatar-body-collection": {"current": 1, "reads": [1]},
+    "ios-avatar-image": {"current": 1, "reads": [1]},
+    "ios-avatar-image-change": {"current": 1, "reads": [1]},
     "ios-avatar-world": {"current": 1, "reads": [1]},
     "ios-avatar-world-acquisition": {"current": 1, "reads": [1]},
     "ios-avatar-state": {"current": 2, "reads": [1, 2]},
