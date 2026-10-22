@@ -186,3 +186,25 @@ void Bookmarks::enableMenuItems(bool enabled) {
 void Bookmarks::removeBookmarkFromMenu(Menu* menubar, const QString& name) {
     menubar->removeAction(_bookmarksMenu, name);
 }
+
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+#include <QCryptographicHash>
+#include <QFileInfo>
+#include <QThread>
+QVariantMap Bookmarks::featureBookmarkStorage() const {
+    if (QThread::currentThread()!=thread() || !QCoreApplication::arguments().contains("--testScript")
+            || _bookmarks.size()>1000 || _bookmarksFilename.isEmpty() || !_bookmarkError.isEmpty()) { return {}; }
+    const QFileInfo info(_bookmarksFilename);QByteArray bytes;
+    if (info.exists()) {
+        if (!info.isFile() || info.isSymLink() || info.size()>262144) { return {}; }
+        QFile file(_bookmarksFilename);
+        if (!file.open(QIODevice::ReadOnly)) { return {}; }bytes=file.read(262145);
+        const QFileInfo after(_bookmarksFilename);
+        QJsonParseError error;const auto doc=QJsonDocument::fromJson(bytes,&error);
+        if (bytes.size()>262144 || error.error!=QJsonParseError::NoError || !doc.isObject()
+                || doc.object().toVariantMap()!=_bookmarks || info.size()!=after.size() || info.lastModified()!=after.lastModified()) { return {}; }
+    } else if (!_bookmarks.isEmpty()) { return {}; }
+    return {{"present",info.exists()},{"sha256",QString::fromLatin1(QCryptographicHash::hash(bytes,QCryptographicHash::Sha256).toHex())},
+        {"bytes",bytes.size()},{"bookmarks",_bookmarks}};
+}
+#endif

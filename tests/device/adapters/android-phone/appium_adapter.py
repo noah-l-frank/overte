@@ -88,6 +88,10 @@ from adapters.token_emote_ui import TokenEmoteUI
 from adapters.native_script_roots import NativeScriptRoots, FILE as SCRIPT_ROOTS_FILE
 from adapters.native_animation_inventory import NativeAnimationInventory, FILE as ANIMATION_INVENTORY_FILE
 from adapters.native_script_work import NativeScriptWork, FILE as SCRIPT_WORK_FILE, command as script_work_command
+from overte_phone_navigation_feature import PhoneNavigationFeature
+from overte_phone_navigation_fixture import NavigationFixtureReader
+from overte_phone_navigation_native import PhoneNavigationIO,PhoneNavigationView,UI_FILE as NAVIGATION_UI_FILE,VIEW_FILE as NAVIGATION_VIEW_FILE
+from overte_phone_navigation_marker import NativePhoneNavigationMarker,FILE as NAVIGATION_MARKER_FILE
 from overte_phone_graphics_feature import PhoneGraphicsFeature
 from overte_phone_graphics_fixture import GraphicsFixtureReader
 from feature_journeys.witness import Client as FeatureFixtureClient
@@ -100,6 +104,7 @@ AUTHENTICATION_FEATURE_OPERATIONS={'feature.authentication.'+kind for kind in ('
 GRAPHICS_FEATURE_OPERATIONS={'feature.graphics.'+kind for kind in ('act','observe','cleanup')}
 EMOTE_FEATURE_OPERATIONS={'feature.emotes.'+kind for kind in ('act','observe','cleanup')}
 WORLD_WEB_FEATURE_OPERATIONS={'feature.world-web.'+kind for kind in ('act','observe','cleanup')}
+NAVIGATION_FEATURE_OPERATIONS={'feature.world-navigation.'+kind for kind in ('act','observe','cleanup')}
 
 
 def readonly_feature_command(command):
@@ -110,6 +115,17 @@ def readonly_feature_command(command):
     action=command.get('action')
     if action in ('feature-native-observe','feature-script-observe','feature-world-render-observe','feature-script-roots-observe','feature-animation-inventory-observe'):
         require(set(command)=={'schemaVersion','commandId','action'},'PHONE_READ_ONLY_COMMAND_REJECTED')
+    elif action=='phone-navigation-view-observe':
+        from overte_phone_navigation_native import command as validate_navigation
+        validate_navigation(command)
+    elif action=='feature-navigation-replies':
+        from adapters.native_navigation_replies import command as validate_navigation_replies
+        validate_navigation_replies(command)
+    elif action=='phone-navigation-marker-observe':
+        from overte_phone_navigation_marker import command as validate_navigation_marker
+        validate_navigation_marker(command)
+    elif action=='phone-navigation-ui':
+        require(set(command)=={'schemaVersion','commandId','action','request'} and command['request']==dict(schemaVersion=1,commandId=command['commandId'],action='observe'),'PHONE_READ_ONLY_COMMAND_REJECTED')
     elif action=='feature-script-work-observe':
         script_work_command(command)
     elif action=='feature-script-files':
@@ -277,6 +293,13 @@ class PhoneAppiumAdapter(AppiumAdapter):
             require(self.account_fixture_configuration(target) is not None,'PHONE_FEATURE_AUTHENTICATION_REQUIRES_ACCOUNT_FIXTURE_LAUNCH')
             self._feature_fixture_client()
             values=sorted(set(values)|AUTHENTICATION_FEATURE_OPERATIONS)
+        full_navigation=os.environ.get('OVERTE_PHONE_FEATURE_WORLD_NAVIGATION','0')
+        require(full_navigation in ('0','1'),'PHONE_FEATURE_WORLD_NAVIGATION_CONFIGURATION_INVALID')
+        if full_navigation=='1':
+            require(getattr(self,'candidate',None) is not None and target.get('appId')=='io.github.noah_be.overte.phone'
+                    and self.controlled_android_client(target),'PHONE_FEATURE_WORLD_NAVIGATION_REQUIRES_BOUND_DEBUG_TARGET')
+            self._navigation_configuration();self._feature_fixture_client()
+            values=sorted(set(values)|NAVIGATION_FEATURE_OPERATIONS)
         full_graphics=os.environ.get('OVERTE_PHONE_FEATURE_GRAPHICS','0')
         require(full_graphics in ('0','1'),'PHONE_FEATURE_GRAPHICS_CONFIGURATION_INVALID')
         if full_graphics=='1':
@@ -349,8 +372,8 @@ class PhoneAppiumAdapter(AppiumAdapter):
                 'files/overte-e2e/' + PROCESS_PRESENCE_FILE, attempts=1),
             native.clock_ms, native.guard, native.pid, monotonic=native.monotonic, sleep=native.sleep)
 
-    def _navigation_replies(self,selector):
-        native=self._native_feature_observer(selector)
+    def _navigation_replies(self,selector,*,read_only=False):
+        native=self._native_feature_observer(selector,read_only=read_only)
         target=self.target(selector);device=target['capabilities']['appium:udid'];transport=PhoneAdapter(self.candidate).adb
         return NativeNavigationReplies(native.send,
             lambda:transport.read_debug_app_file(device,target['appId'],'files/overte-e2e/'+NAVIGATION_REPLIES_FILE,attempts=1),
@@ -603,6 +626,96 @@ class PhoneAppiumAdapter(AppiumAdapter):
         owner=PhoneEmoteRun(self,selector,PhaseFixtureReader(client,run,'emotes'),metadata['artifactRoot'],
             metadata['imageExtent'],metadata['markerRoi'],admission=metadata.get('admissionPolicy'),image_policy=metadata.get('imagePolicy'))
         return PhoneEmoteActor(owner,image_policy)
+
+    @staticmethod
+    def _navigation_configuration(metadata=None):
+        from feature_journeys.evidence import rectangle
+        if metadata is None:
+            config=PrivateFeatureState(Path(os.environ.get('OVERTE_PHONE_NAVIGATION_IMAGE_POLICY',''))).read()
+            root=Path(os.environ.get('OVERTE_DEVICE_ARTIFACT_DIR',''))
+        else:
+            require(type(metadata) is dict and type(metadata.get('navigationFeatureVersion')) is int
+                and metadata['navigationFeatureVersion']==1,'PHONE_NAVIGATION_ORIGINAL_CONFIGURATION_REQUIRED')
+            config=metadata['imagePolicy'];root=Path(metadata['artifactRoot'])
+        require(type(config) is dict and set(config)=={'imageExtent','markerRoi','imagePolicy'},'PHONE_NAVIGATION_IMAGE_POLICY_REQUIRED')
+        extent=config['imageExtent']
+        require(type(extent) is list and len(extent)==2 and all(type(v) is int and 240<=v<=4096 for v in extent),'PHONE_NAVIGATION_IMAGE_POLICY_REQUIRED')
+        outer=rectangle(config['markerRoi'],extent);policy=config['imagePolicy']
+        require(type(policy) is dict and set(policy)=={'source','marker','subject'} and policy['source']=='world-render-target','PHONE_NAVIGATION_IMAGE_POLICY_REQUIRED')
+        marker=rectangle(policy['marker'],extent);subject=rectangle(policy['subject'],extent)
+        w,h=outer[2]-outer[0],outer[3]-outer[1]
+        require(w>=160 and h>=40 and w*h<=.1*extent[0]*extent[1]
+            and marker==tuple(round(v) for v in (outer[0]+w*4/160,outer[1]+h*4/40,outer[0]+w*132/160,outer[1]+h*36/40))
+            and not (max(outer[0],subject[0])<min(outer[2],subject[2]) and max(outer[1],subject[1])<min(outer[3],subject[3])),
+            'PHONE_NAVIGATION_IMAGE_POLICY_REQUIRED')
+        PrivateFeatureState(root/'navigation-configuration-boundary.json')._parent()
+        return root,deepcopy(config)
+
+    def navigation_feature_store(self,selector):
+        return PrivateFeatureState(self.state_path(selector).with_name('phone-navigation-feature.json'))
+
+    def navigation_retirement_store(self,selector):
+        return PrivateFeatureState(self.state_path(selector).with_name('phone-navigation-retirement.json'))
+
+    def _navigation_feature(self,selector,run,*,role='primary',client=None,retirement=False):
+        target=self.target(selector)
+        require(getattr(self,'candidate',None) is not None and target.get('appId')=='io.github.noah_be.overte.phone'
+            and self.controlled_android_client(target),'PHONE_NAVIGATION_REQUIRES_BOUND_DEBUG_TARGET')
+        if client is None:
+            require(role=='primary','PHONE_NAVIGATION_ACTOR_REQUIRES_SEPARATE_CLIENT');client=self._feature_fixture_client()
+        metadata=None
+        if role=='actor' or retirement:
+            metadata=self.navigation_feature_store(selector).read() or self.navigation_retirement_store(selector).read()
+            require(type(metadata) is dict and metadata.get('runId')==run and metadata.get('fixtureUrl')==client.url+'/runs/'+run+'/',
+                'PHONE_NAVIGATION_ORIGINAL_CONFIGURATION_REQUIRED')
+        root,policy=self._navigation_configuration(metadata)
+        return PhoneNavigationFeature(self,selector,NavigationFixtureReader(client,run),root,policy,role=role)
+
+    def _navigation_probe(self,selector,after=0):
+        from navigation_observation import project_probe
+        from contracts import validate_operation_result
+        with self.existing_input_session(selector):
+            return project_probe(validate_operation_result('probe.snapshot',self.invoke(selector,'probe.snapshot',
+                {'afterSampleSequence':after} if after else {})))
+
+    def _navigation_controls(self,selector,*,read_only=False):
+        native=self._native_feature_observer(selector,read_only=read_only)
+        target=self.target(selector);device=target['capabilities']['appium:udid'];transport=PhoneAdapter(self.candidate).adb
+        return PhoneNavigationIO(native.send,
+            lambda:transport.read_debug_app_file(device,target['appId'],'files/overte-e2e/'+NAVIGATION_UI_FILE,attempts=1),
+            native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep)
+
+    def _navigation_view(self,selector,*,read_only=False):
+        native=self._native_feature_observer(selector,read_only=read_only)
+        target=self.target(selector);device=target['capabilities']['appium:udid'];transport=PhoneAdapter(self.candidate).adb
+        return PhoneNavigationView(native.send,
+            lambda:transport.read_debug_app_file(device,target['appId'],'files/overte-e2e/'+NAVIGATION_VIEW_FILE,attempts=1),
+            native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep)
+
+    def _navigation_marker(self,selector,*,read_only=True):
+        native=self._native_feature_observer(selector,read_only=read_only)
+        target=self.target(selector);device=target['capabilities']['appium:udid'];transport=PhoneAdapter(self.candidate).adb
+        return NativePhoneNavigationMarker(native.send,
+            lambda:transport.read_debug_app_file(device,target['appId'],'files/overte-e2e/'+NAVIGATION_MARKER_FILE,attempts=1),
+            native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep)
+
+    def _navigation_marker_input(self,selector,request):
+        from overte_phone_navigation_marker import input_command
+        input_command(request)
+        # The existing private file exchange is used once; this is a controlled
+        # test fixture input, never a product observation or a UI shortcut.
+        reader=self._navigation_view(selector);reader.send(deepcopy(request))
+        target=self.target(selector);device=target['capabilities']['appium:udid'];transport=PhoneAdapter(self.candidate).adb
+        started=previous=reader.monotonic()
+        for attempt in range(51):
+            reader.guard();raw=transport.read_debug_app_file(device,target['appId'],'files/overte-e2e/'+NAVIGATION_MARKER_FILE,attempts=1)
+            try:value=json.loads(raw) if raw else None
+            except json.JSONDecodeError:value=None
+            now=reader.monotonic();require(previous<=now and now-started<5,'PHONE_NAVIGATION_MARKER_INPUT_TIMEOUT');previous=now
+            if type(value) is dict and value.get('commandId')==request['commandId']:
+                require(reader.guard() is not False,'PHONE_NAVIGATION_MARKER_GUARD_LOST');return value
+            if attempt<50:reader.sleep(.1)
+        require(False,'PHONE_NAVIGATION_MARKER_INPUT_TIMEOUT')
 
     def graphics_feature_store(self, selector):
         return PrivateFeatureState(self.state_path(selector).with_name('phone-graphics-feature.json'))
@@ -1483,6 +1596,11 @@ class PhoneAppiumAdapter(AppiumAdapter):
             feature=self.world_web_feature_store(selector).read() or self.world_web_retirement_store(selector).read()
             if feature is not None:self._world_web_feature(selector,feature['runId'],retirement=True).finalize()
         except Exception:world_web_error=True
+        navigation_error=False
+        try:
+            feature=self.navigation_feature_store(selector).read() or self.navigation_retirement_store(selector).read()
+            if feature is not None:self._navigation_feature(selector,feature['runId'],retirement=True).finalize()
+        except Exception:navigation_error=True
         emote_error=False
         try:
             feature=self.emote_feature_store(selector).read() or PrivateFeatureState(self.state_path(selector).with_name('phone-emote-retirement.json')).read()
@@ -1665,6 +1783,9 @@ class PhoneAppiumAdapter(AppiumAdapter):
         require(not authentication_error and self.authentication_feature_store(selector).read() is None and self.authentication_retirement_store(selector).read() is None
                 and all(PrivateFeatureState(self.state_path(selector).with_name('phone-authentication-'+role+'-feature.json')).read() is None
                         for role in ('primary','actor')),'PHONE_AUTHENTICATION_FEATURE_CLEANUP_INCOMPLETE')
+        require(not navigation_error and self.navigation_feature_store(selector).read() is None and self.navigation_retirement_store(selector).read() is None
+            and all(PrivateFeatureState(self.state_path(selector).with_name('phone-navigation-'+role+'-feature.json')).read() is None for role in ('primary','actor')),
+            'PHONE_NAVIGATION_FEATURE_CLEANUP_INCOMPLETE')
         require(not graphics_error and self.graphics_feature_store(selector).read() is None
                 and self.graphics_retirement_store(selector).read() is None,'PHONE_GRAPHICS_FEATURE_CLEANUP_INCOMPLETE')
         require(not emote_error,'PHONE_EMOTE_FEATURE_CLEANUP_INCOMPLETE')
@@ -1711,6 +1832,11 @@ class PhoneAppiumAdapter(AppiumAdapter):
         PhoneAdapter.require_bound_operation(self, operation, values)
         if operation in ('app.launch','scene.load'):
             self.account_fixture_configuration(self.target(selector))
+        if operation in NAVIGATION_FEATURE_OPERATIONS:
+            from feature_journeys.contract import arguments
+            arguments(operation,values)
+            require(operation in self.advertised_capabilities(self.target(selector)),'PHONE_NAVIGATION_FEATURE_NOT_ENABLED')
+            return getattr(self._navigation_feature(selector,values['runId']),operation.rsplit('.',1)[1])(values)
         if operation in SCRIPT_FEATURE_OPERATIONS:
             from feature_journeys.contract import arguments
             arguments(operation,values)

@@ -23,6 +23,7 @@ from overte_phone_script_feature import ScriptPhasePending,ScriptRunRetired
 from overte_phone_authentication_feature import AuthenticationPhasePending,AuthenticationRunRetired
 from overte_phone_graphics_fixture import GraphicsPhasePending,GraphicsRunRetired
 from overte_phone_account_fixture import origin as account_origin
+from feature_journeys.phase_fixture import PhasePending,PhaseRetired
 from overte_phone_script_lock import PhoneScriptSourceBusy
 from overte_phone_emote_actor import image_policy
 
@@ -39,7 +40,7 @@ def configuration(path):
         exact(value,{'featureObserverVersion','area','target','candidateArguments','fixtureUrl','actorToken','durationSeconds'}
             |({'imagePolicy'} if value.get('featureObserverVersion')==3 and value.get('area')=='emotes' else set()))
         need(type(value['featureObserverVersion']) is int and value['featureObserverVersion'] in (2,VERSION)
-             and value['area'] in (('scripts','authentication','graphics') if value['featureObserverVersion']==2 else ('scripts','authentication','graphics','emotes','world-web')))
+             and value['area'] in (('scripts','authentication','graphics') if value['featureObserverVersion']==2 else ('scripts','authentication','graphics','emotes','world-web','world-navigation')))
         if value['area']=='emotes':image_policy(value['imagePolicy'])
         if value['area']=='authentication':account_origin(value['fixtureUrl'])
     need(type(value['target']) is str and bool(value['target'])
@@ -54,13 +55,14 @@ def run(adapter,config,*,monotonic=time.monotonic,sleep=time.sleep):
     """One owned run; no session repair, child launch or device discovery."""
     started=previous=monotonic();need(number(started,0,1e15))
     client=Client(config['fixtureUrl'],config['actorToken']);flow=None
-    area=config.get('area','scripts');need(area in ('scripts','authentication','graphics','emotes','world-web'))
+    area=config.get('area','scripts');need(area in ('scripts','authentication','graphics','emotes','world-web','world-navigation'))
     if area=='world-web':return run_world_web(adapter,config,client,monotonic=monotonic,sleep=sleep)
     if area=='emotes':return run_emote(adapter,config,client,monotonic=monotonic,sleep=sleep)
     if area=='authentication':account_origin(config['fixtureUrl'])
-    owner_store=getattr(adapter,'script_feature_store' if area=='scripts' else area+'_feature_store')
-    retirement_store=getattr(adapter,'script_retirement_store' if area=='scripts' else area+'_retirement_store')
-    make_flow=getattr(adapter,'_script_feature' if area=='scripts' else '_'+area+'_feature')
+    prefix='navigation' if area=='world-navigation' else area
+    owner_store=getattr(adapter,'script_feature_store' if area=='scripts' else prefix+'_feature_store')
+    retirement_store=getattr(adapter,'script_retirement_store' if area=='scripts' else prefix+'_retirement_store')
+    make_flow=getattr(adapter,'_script_feature' if area=='scripts' else '_'+prefix+'_feature')
     while True:
         now=monotonic();need(number(now,0,1e15) and previous<=now and now-started<config['durationSeconds']);previous=now
         if flow is None:
@@ -78,10 +80,10 @@ def run(adapter,config,*,monotonic=time.monotonic,sleep=time.sleep):
             if retirement is not None:
                 need(retirement.get('kind')=='retirement' and retirement.get('runId')==flow.run
                      and retirement.get('fixtureUrl')==flow.fixture_url)
-                if area!='graphics':return 0 # Graphics still owes its independent restored-world window.
+                if area not in ('graphics','world-navigation'):return 0 # Graphics still owes its independent restored-world window.
             try:flow.publish()
-            except (ScriptRunRetired,AuthenticationRunRetired,GraphicsRunRetired):return 0
-            except (ScriptPhasePending,AuthenticationPhasePending,GraphicsPhasePending,PhoneScriptSourceBusy):pass
+            except (ScriptRunRetired,AuthenticationRunRetired,GraphicsRunRetired,PhaseRetired):return 0
+            except (ScriptPhasePending,AuthenticationPhasePending,GraphicsPhasePending,PhasePending,PhoneScriptSourceBusy):pass
         sleep(.25)
 
 
@@ -143,6 +145,7 @@ def main(argv=None):
         os.environ['OVERTE_PHONE_FEATURE_AUTHENTICATION']='0'
         os.environ['OVERTE_PHONE_FEATURE_GRAPHICS']='0'
         os.environ['OVERTE_PHONE_FEATURE_EMOTES']='0'
+        os.environ['OVERTE_PHONE_FEATURE_WORLD_NAVIGATION']='0'
         return run(PhoneAppiumAdapter(candidate),config)
     except (OSError,RuntimeError,ValueError,TypeError,KeyError,RecursionError):
         print('PHONE_FEATURE_OBSERVER_REJECTED',file=sys.stderr)

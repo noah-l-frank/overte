@@ -18,6 +18,9 @@
 #include "AddressManager.h"
 #include "DialogsManager.h"
 #include "LocationBookmarks.h"
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PHONE_INTERFACE)
+#include "../../../tests/device/native/NavigationModalObservation.h"
+#endif
 
 HIFI_QML_DEF(AddressBarDialog)
 
@@ -79,7 +82,13 @@ void AddressBarDialog::displayAddressOfflineMessage() {
 }
 
 void AddressBarDialog::displayAddressNotFoundMessage() {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PHONE_INTERFACE)
+    const auto listener=OffscreenUi::asyncCritical("", "There is no address information for that user or place");
+    const auto event=DependencyManager::get<AddressManager>()->featureCurrentNavigationNotFound();
+    overte::e2e::NavigationModalObservation::created(listener ? listener->getDialogItem() : nullptr,event);
+#else
     OffscreenUi::asyncCritical("", "There is no address information for that user or place");
+#endif
 }
 
 void AddressBarDialog::observeShownChanged(bool visible) {

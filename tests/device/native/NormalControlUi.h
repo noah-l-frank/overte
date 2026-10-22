@@ -3,6 +3,7 @@
 #pragma once
 
 #include "NormalScriptFileControls.h"
+#include "NormalScriptControls.h"
 #include "ScriptUiInventory.h"
 #include "NormalAudioControls.h"
 #include "NormalGraphicsControls.h"
@@ -10,6 +11,7 @@
 #include "NormalCreateControls.h"
 #include "NormalChatControls.h"
 #include "NormalEmoteControls.h"
+#include "NormalNavigationControls.h"
 #include <ui/NativeFieldInput.h>
 #include <QCoreApplication>
 #include <QDateTime>
@@ -30,7 +32,7 @@ namespace overte::e2e {
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 class NormalControlUi {
 public:
-    enum class Surface { ScriptFiles, Audio, Graphics, Login, Create, Chat, Emote };
+    enum class Surface { ScriptFiles, Audio, Graphics, Login, Create, Chat, Emote, Navigation };
     explicit NormalControlUi(Surface surface = Surface::ScriptFiles) : _surface(surface), _instance(nonce()), _generation(nonce()) { _clock.start(); }
 
     QJsonObject observe(QQuickItem* root, QQuickWindow* window, const AudioUiContext& audio = {}, const GraphicsUiContext& graphics = {}, const LoginUiContext& login = {}) {
@@ -61,7 +63,8 @@ public:
                     : _surface == Surface::Login ? loginControlId(item)
                     : _surface == Surface::Create ? createControlId(item)
                     : _surface == Surface::Chat ? chatControlId(item)
-                    : _surface == Surface::Emote ? emoteControlId(item) : scriptFileControlId(item);
+                    : _surface == Surface::Emote ? emoteControlId(item)
+                    : _surface == Surface::Navigation ? navigationControlId(item) : scriptFileControlId(item);
                 if (!id.isEmpty()) {
                     if (controls.contains(id)) { ambiguous = true; return; }
                     const auto previous = _controls.value(id);
@@ -70,7 +73,8 @@ public:
                         : _surface == Surface::Login ? loginControlSource(item, id, login)
                         : _surface == Surface::Create ? createControlSource(item,id)
                         : _surface == Surface::Chat ? chatControlSource(item,id)
-                        : _surface == Surface::Emote ? emoteControlSource(item,id) : scriptFileControlSource(item);
+                        : _surface == Surface::Emote ? emoteControlSource(item,id)
+                        : _surface == Surface::Navigation ? navigationControlSource(item,id) : scriptFileControlSource(item);
                     if ((_surface==Surface::Chat || _surface==Surface::Emote) && source.isEmpty()) { ambiguous=true;return; }
                     controls.insert(id, {item, previous.item == item && previous.source == source ? previous.token : nonce(), source});
                 }
@@ -102,6 +106,7 @@ public:
             else if (_surface == Surface::Create) { appendCreateControlObservation(row,control.item,id); }
             else if (_surface == Surface::Chat) { appendChatControlObservation(row,control.item,id); }
             else if (_surface == Surface::Emote) { appendEmoteControlObservation(row,control.item,id); }
+            else if (_surface == Surface::Navigation) { appendNavigationControlObservation(row,control.item,id); }
             else { appendScriptFileObservation(row, control.item, id); }
             rows.append(row);
         }
@@ -116,7 +121,8 @@ public:
             : _surface == Surface::Login ? "loginControlsVersion"
             : _surface == Surface::Create ? "createControlsVersion"
             : _surface == Surface::Chat ? "chatControlsVersion"
-            : _surface == Surface::Emote ? "emoteControlsVersion" : "fileControlsVersion"] = _surface==Surface::Login ? 2 : 1;
+            : _surface == Surface::Emote ? "emoteControlsVersion"
+            : _surface == Surface::Navigation ? "navigationControlsVersion" : "fileControlsVersion"] = _surface==Surface::Login ? 2 : 1;
 #if defined(ANDROID_APP_PHONE_INTERFACE)
         if (_surface==Surface::ScriptFiles) { result["scriptInventory"]=scriptInventory.observation(ready); }
 #endif
@@ -156,6 +162,7 @@ public:
                     : _surface == Surface::Create ? action != "activate" && action != "replace" && action != "select-index" && action != "scroll"
                     : _surface == Surface::Chat ? action != "activate" && action != "replace" && action != "submit"
                     : _surface == Surface::Emote ? action != "activate" && action != "scroll"
+                    : _surface == Surface::Navigation ? action != "activate" && action != "replace"
                     : action != "activate" && action != "replace" && action != "submit" && action != "select-index")) { return result; }
         // Consume intent before dispatch; never replay uncertain native input.
         _lastCommandSequence = sequence;
@@ -164,7 +171,16 @@ public:
         if (!control.item || !control.item->isEnabled() || command.value("controlToken") != QJsonValue(control.token)
                 || visibleRect(control.item, window).isEmpty()) { return result; }
         bool delivered {false};
-        if (_surface == Surface::Emote) {
+        if (_surface == Surface::Navigation) {
+            QJsonObject row;appendNavigationControlObservation(row,control.item,id);
+            const auto point=control.item->mapToScene(QPointF(control.item->width()/2,control.item->height()/2));
+            if (!row.value("inputReady").toBool() || (!ownsPoint(control.item,window,point) && !navigationDecorationPoint(control.item,window,point))) { return result; }
+            if (action=="activate" && pointerClick) { delivered=pointerClick(control.item); }
+            else if (action=="replace" && (id=="navigation.placesSearch" || id=="navigation.bookmarkName")
+                    && command.value("text").isString() && navigationText(command.value("text").toString())) {
+                delivered=overte::ui::replaceFocusedField(control.item,window,command.value("text").toString());
+            }
+        } else if (_surface == Surface::Emote) {
             QJsonObject row;appendEmoteControlObservation(row,control.item,id);
             if (!row.value("inputReady").toBool()) { return result; }
             const auto rect=emoteVisibleRect(control.item);const auto point=rect.center();
@@ -389,6 +405,10 @@ public:
 class LoginUi : public NormalControlUi {
 public:
     LoginUi() : NormalControlUi(Surface::Login) {}
+};
+class NavigationUi : public NormalControlUi {
+public:
+    NavigationUi() : NormalControlUi(Surface::Navigation) {}
 };
 class AudioUi : public NormalControlUi {
 public:

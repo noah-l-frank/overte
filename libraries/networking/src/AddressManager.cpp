@@ -684,6 +684,10 @@ void AddressManager::goToAddressFromObject(const QVariantMap& dataObject, const 
 }
 
 #if defined(OVERTE_E2E_FEATURE_TESTS)
+QVariantMap AddressManager::featureCurrentNavigationNotFound() const {
+    if (QThread::currentThread()!=thread()) { return {}; }
+    return _featureNavigationReplies.currentNotFound(_lookupRequests.snapshot());
+}
 QVariantMap AddressManager::featureNavigationReplies(const QVariantMap& command) {
     if (QThread::currentThread()!=thread()) { return {}; }
     return _featureNavigationReplies.snapshot(command,_lookupRequests.snapshot());

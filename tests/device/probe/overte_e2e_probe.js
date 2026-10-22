@@ -150,6 +150,20 @@
         return typeof value === "number" && isFinite(value) && Math.floor(value) === value
             && value >= minimum && value <= maximum;
     }
+    var lastPhoneNavigationRequest = "", lastPhoneNavigationViewRequest = "";
+    function validPhoneNavigationRequest(c) {
+        if (!c || c.schemaVersion !== 1 || typeof c.commandId !== "string" || !/^[0-9a-f]{32}$/.test(c.commandId)) { return false; }
+        if (c.action === "observe") { return objectKeysMatch(c,["schemaVersion","commandId","action"]); }
+        var fields=["schemaVersion","commandId","action","instance","generation","sequence","observedElapsedMs","controlId","controlToken"];
+        if (c.action === "replace") { fields.push("text"); }
+        if (!objectKeysMatch(c,fields) || !/^(activate|replace)$/.test(String(c.action))
+                || !/^[0-9a-f]{32}$/.test(String(c.instance)) || !/^[0-9a-f]{32}$/.test(String(c.generation))
+                || !/^[0-9a-f]{32}$/.test(String(c.controlToken)) || !phoneFileInteger(c.sequence,1,1000000000)
+                || !phoneFileInteger(c.observedElapsedMs,0,9007199254740991)
+                || !/^navigation\.(?:entry|placesTab|bookmarksTab|serversTab|refreshPlaces|addBookmark|maturityFilters|addServer|placesSearch|bookmarkName|bookmark\.(?:save|cancel)|error\.ok|rating_(?:everyone|teen|mature|adult|unrated)|(?:visitPlace|visitBookmark|renameBookmark|deleteBookmark|fetchServer|pinServer)\.(?:0|[1-9][0-9]{0,2}))$/.test(c.controlId)) { return false; }
+        return c.action !== "replace" || /^(?:navigation\.placesSearch|navigation\.bookmarkName)$/.test(c.controlId)
+            && typeof c.text === "string" && (c.text === "" || /^(?:e2e-|renamed-|hidden-)[0-9a-f]{32}$/.test(c.text));
+    }
     function validPhoneScriptFileRequest(request) {
         if (!request || request.schemaVersion !== 1 || !/^[0-9a-f]{32}$/.test(String(request.commandId))) { return false; }
         if (request.action === "observe") { return objectKeysMatch(request, ["schemaVersion", "commandId", "action"]); }
@@ -1362,6 +1376,56 @@
             }
             return;
         }
+        if (command && (command.action === "phone-navigation-marker-input" || command.action === "phone-navigation-marker-observe")) {
+            var markerObserve=command.action === "phone-navigation-marker-observe";
+            var markerFields=["schemaVersion","commandId","action","runId"];
+            if (!markerObserve) { markerFields.push("operation");
+                markerFields=markerFields.concat(command.operation === "prepare" ? ["fixtureUrl","ticket","imageExtent","markerRoi"] : ["fixtureInstance"]); }
+            if (command.schemaVersion === 1 && typeof command.commandId === "string" && /^[0-9a-f]{32}$/.test(command.commandId)
+                    && typeof command.runId === "string" && /^[0-9a-f]{32}$/.test(command.runId) && objectKeysMatch(command,markerFields)
+                    && (markerObserve || /^(prepare|release)$/.test(command.operation))) {
+                var markerResult={schemaVersion:1,commandId:command.commandId,available:false};
+                try {
+                    var markerFunction=markerObserve ? Test.phoneNavigationMarkerObservation : Test.phoneNavigationMarkerInput;
+                    if (typeof markerFunction === "function") {
+                        var markerOriginal=markerObserve ? Test.phoneNavigationMarkerObservation(command) : Test.phoneNavigationMarkerInput(command);
+                        if (markerOriginal && (markerOriginal.commandId === command.commandId || markerOriginal.requestId === command.commandId)) { markerResult=markerOriginal; }
+                    }
+                } catch (_navigationMarkerError) { /* No target state is synthesized. */ }
+                Test.saveObject(markerResult,"phone-navigation-marker.json");
+            }
+            return true;
+        }
+        if (command && command.action === "phone-navigation-ui") {
+            if (command.schemaVersion === 1 && typeof command.commandId === "string" && /^[0-9a-f]{32}$/.test(command.commandId)
+                    && objectKeysMatch(command,["schemaVersion","commandId","action","request"])
+                    && validPhoneNavigationRequest(command.request) && command.request.commandId === command.commandId
+                    && command.commandId !== lastPhoneNavigationRequest) {
+                lastPhoneNavigationRequest=command.commandId;
+                var navigationUi={schemaVersion:1,commandId:command.commandId,available:false};
+                try { if (typeof Test.phoneNavigationUi === "function") {
+                    var originalNavigationUi=Test.phoneNavigationUi(command.request);
+                    if (originalNavigationUi && originalNavigationUi.commandId === command.commandId) { navigationUi=originalNavigationUi; }
+                } } catch (_navigationUiError) { /* No ACK supplies observed state. */ }
+                Test.saveObject(navigationUi,"phone-navigation-ui.json");
+            }
+            return;
+        }
+        if (command && command.action === "phone-navigation-view-observe") {
+            if (command.schemaVersion === 1 && typeof command.commandId === "string" && /^[0-9a-f]{32}$/.test(command.commandId)
+                    && typeof command.runId === "string" && /^[0-9a-f]{32}$/.test(command.runId)
+                    && objectKeysMatch(command,["schemaVersion","commandId","action","runId"])
+                    && command.commandId !== lastPhoneNavigationViewRequest) {
+                lastPhoneNavigationViewRequest=command.commandId;
+                var navigationView={navigationViewVersion:1,commandId:command.commandId,status:"unavailable"};
+                try { if (typeof Test.phoneNavigationView === "function") {
+                    var originalNavigationView=Test.phoneNavigationView(command);
+                    if (originalNavigationView && originalNavigationView.commandId === command.commandId) { navigationView=originalNavigationView; }
+                } } catch (_navigationViewError) { /* Original page/storage absence is mandatory. */ }
+                Test.saveObject(navigationView,"phone-navigation-view.json");
+            }
+            return true;
+        }
         if (command && command.action === "feature-navigation-replies") {
             if (command.schemaVersion === 1 && typeof command.commandId === "string"
                     && /^(?:ios-)?[0-9a-f]{32}$/.test(command.commandId)
@@ -2156,6 +2220,8 @@
         if (command && (command.action === "normal-feature-observe" || command.action === "feature-native-observe"
                 || command.action === "feature-chat-observe" || command.action === "feature-chat-view-observe" || command.action === "feature-web-dom-observe" || command.action === "feature-account-probe" || command.action === "feature-account-origin"
                 || command.action === "feature-phone-web-runtime-observe" || command.action === "phone-world-web"
+                || command.action === "phone-navigation-marker-input" || command.action === "phone-navigation-marker-observe"
+                || command.action === "phone-navigation-ui" || command.action === "phone-navigation-view-observe"
                 || command.action === "feature-pending-commit-owner" || command.action === "feature-navigation-replies"
                 || command.action === "feature-process-presence" || command.action === "feature-script-roots-observe"
                 || command.action === "feature-script-work-observe" || command.action === "feature-animation-inventory-observe"

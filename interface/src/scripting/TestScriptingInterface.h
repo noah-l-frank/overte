@@ -22,7 +22,7 @@
 #include <memory>
 namespace overte::e2e { class ChatViewObservation; }
 #include <QUuid>
-namespace overte::e2e { class FeatureLifecycle; class AccountOriginLease; class ScriptFileUi; class AudioUi; class GraphicsUi; class LoginUi; class CreateUi; class ChatUi; class EmoteUi; class PhoneEmoteFixture; class PrivateCreateFiles; }
+namespace overte::e2e { class FeatureLifecycle; class AccountOriginLease; class ScriptFileUi; class AudioUi; class GraphicsUi; class LoginUi; class CreateUi; class ChatUi; class EmoteUi; class PhoneEmoteFixture; class PrivateCreateFiles; class PhoneNavigationMarker; class NavigationUi; class NavigationViewObservation; }
 #endif
 
 class TestScriptingInterface : public QObject {
@@ -182,6 +182,10 @@ public slots:
     Q_INVOKABLE QVariantMap phoneCreateObservation(const QVariantMap& command);
     Q_INVOKABLE QVariantMap phoneSnapshotObservation(const QVariantMap& command);
     Q_INVOKABLE QVariantMap phoneCreateFiles(const QVariantMap& command);
+    Q_INVOKABLE QVariantMap phoneNavigationMarkerInput(const QVariantMap& command);
+    Q_INVOKABLE QVariantMap phoneNavigationMarkerObservation(const QVariantMap& command);
+    Q_INVOKABLE QVariantMap phoneNavigationUi(const QVariantMap& command);
+    Q_INVOKABLE QVariantMap phoneNavigationView(const QVariantMap& command);
     Q_INVOKABLE QVariantMap phoneChatUi(const QVariantMap& command);
     Q_INVOKABLE QVariantMap phoneLoginUi(const QVariantMap& command);
     Q_INVOKABLE QVariantMap phoneReadFeatureCommand();
@@ -277,6 +281,10 @@ private:
     quint64 _phoneCreateFilesSequence {0};
     std::shared_ptr<overte::e2e::PrivateCreateFiles> _phoneCreateFiles;
     std::shared_ptr<overte::e2e::ChatUi> _phoneChatUi;
+    std::shared_ptr<overte::e2e::PhoneNavigationMarker> _phoneNavigationMarker;
+    quint64 _phoneNavigationMarkerSequence {0};
+    std::shared_ptr<overte::e2e::NavigationUi> _phoneNavigationUi;
+    std::shared_ptr<overte::e2e::NavigationViewObservation> _phoneNavigationView;
 #endif
     QSet<QUuid> _featureScriptEffectIds;
     quint64 _featureScriptFilesSequence {0};

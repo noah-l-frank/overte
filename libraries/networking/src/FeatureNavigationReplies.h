@@ -63,6 +63,12 @@ public:
             {"contentNotFound",reply->error()==QNetworkReply::ContentNotFoundError},{"current",ticket.current()},
             {"lookupGeneration",static_cast<qulonglong>(lookup.featureGeneration())},{"callbackEpochMs",now}});
     }
+    QVariantMap currentNotFound(const overte::network::RequestTicket& lookup) const {
+        if (!enabled() || !_valid || !lookup.scoped() || !lookup.current() || !lookup.featureActive() || _events.isEmpty()) { return {}; }
+        const auto event=_events.last().toMap();
+        return event.value("lookupGeneration").toULongLong()==lookup.featureGeneration()
+            && event.value("httpStatus").toInt()==404 && event.value("contentNotFound").toBool() ? event : QVariantMap();
+    }
     QVariantMap snapshot(const QVariantMap& request, const overte::network::RequestTicket& lookup) {
         if (!enabled() || !command(request) || !_valid || _sequence>=1000000000 || !lookup.scoped()
                 || lookup.featureGeneration()==0 || lookup.featureGeneration()>9007199254740991ULL) { return {}; }

@@ -1,5 +1,10 @@
 # Feature adapter handoff, contract v17
 
+The [Phone World Navigation adapter](adapters/android-phone/WORLD_NAVIGATION_FEATURE.md)
+now connects the complete public triple and common v17 Journey. Host composition
+and a partial native Qt6 check are verified; Android product compilation and
+all device acceptance remain unverified.
+
 The [Phone independent Emote actor](adapters/android-phone/EMOTE_ACTOR.md) now
 uses observer config v3, acquires its own role originals, posts outside the
 shared source lock and verifies an actual separate backend entry. It transfers

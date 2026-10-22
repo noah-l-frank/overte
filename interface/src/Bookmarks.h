@@ -32,6 +32,10 @@ public:
     void insert(const QString& name, const QVariant& address);  // Overwrites any existing entry with same name.
     QString addressForBookmark(const QString& name) const;
 
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    // Passive original storage only; never exposed on the product Script API.
+    QVariantMap featureBookmarkStorage() const;
+#endif
     const QString& getBookmarkError() const { return _bookmarkError; }
 
 protected:

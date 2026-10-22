@@ -43,6 +43,11 @@
 #include "avatar/AvatarManager.h"
 #include "RenderScriptingInterface.h"
 #include <AccountManager.h>
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PHONE_INTERFACE)
+#include <udt/PacketHeaders.h>
+#include "../../../tests/device/native/NavigationViewObservation.h"
+#include "../LocationBookmarks.h"
+#endif
 #include <PathUtils.h>
 #include <AddressManager.h>
 #include <MessagesClient.h>
@@ -63,6 +68,7 @@
 #include "../../../tests/device/native/PrivateCreateFiles.h"
 #include "ui/Snapshot.h"
 #include "../../../tests/device/native/PhoneSnapshotReviewObservation.h"
+#include "../../../tests/device/native/PhoneNavigationMarker.h"
 #include <SettingHandle.h>
 #include "../../../tests/device/adapters/android-phone/PendingCommitOwner.h"
 #include "../../../tests/device/native/PrivateFeatureCommand.h"
@@ -866,6 +872,57 @@ QVariantMap TestScriptingInterface::phoneEmoteFixtureObservation(const QVariantM
 #endif
 }
 
+#if defined(ANDROID_APP_PHONE_INTERFACE)
+QVariantMap TestScriptingInterface::phoneNavigationMarkerInput(const QVariantMap& command) {
+#if defined(ANDROID_APP_PHONE_INTERFACE)
+    if (QThread::currentThread()!=thread()) {
+        QVariantMap result;
+        if (!QMetaObject::invokeMethod(this,[&] { result=phoneNavigationMarkerInput(command); },Qt::BlockingQueuedConnection)) { return {}; }
+        return result;
+    }
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript")) { return {}; }
+    const auto avatar=DependencyManager::get<AvatarManager>()->getMyAvatar();
+    if (!avatar) { return {}; }
+    if (!_phoneNavigationMarker) { _phoneNavigationMarker=std::make_shared<overte::e2e::PhoneNavigationMarker>(); }
+    ViewFrustum view;qApp->getCamera().loadViewFrustum(view);
+    return _phoneNavigationMarker->input(command,view,qApp->getCamera().getModeString(),
+        avatar->getWorldFeetPosition(),avatar->getModelScale(),avatar->getBoomLength());
+#else
+    Q_UNUSED(command);return {};
+#endif
+}
+
+QVariantMap TestScriptingInterface::phoneNavigationMarkerObservation(const QVariantMap& command) {
+#if defined(ANDROID_APP_PHONE_INTERFACE)
+    if (QThread::currentThread()!=thread()) {
+        QVariantMap result;
+        if (!QMetaObject::invokeMethod(this,[&] { result=phoneNavigationMarkerObservation(command); },Qt::BlockingQueuedConnection)) { return {}; }
+        return result;
+    }
+    const auto json=QJsonObject::fromVariantMap(command);
+    const auto id=json.value("commandId").toString(),run=json.value("runId").toString();
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript") || !_phoneNavigationMarker
+            || command.keys()!=QStringList{"action","commandId","runId","schemaVersion"}
+            || !json.value("schemaVersion").isDouble() || json.value("schemaVersion").toDouble()!=1
+            || json.value("action").toString()!="phone-navigation-marker-observe"
+            || !QRegularExpression("\\A[0-9a-f]{32}\\z").match(id).hasMatch()
+            || !QRegularExpression("\\A[0-9a-f]{32}\\z").match(run).hasMatch()) { return {}; }
+    const auto requested=QDateTime::currentMSecsSinceEpoch();
+    const auto source=_phoneNavigationMarker->observe(run);
+    if (source.isEmpty()) { return {}; }
+    return {{"schemaVersion",1},{"requestId",id},{"instance",_featureObservationInstance},
+        {"sequence",static_cast<qulonglong>(++_phoneNavigationMarkerSequence)},
+        {"processId",QCoreApplication::applicationPid()},{"requestedEpochMs",requested},
+        {"capturedEpochMs",QDateTime::currentMSecsSinceEpoch()},{"source",source}};
+#else
+    Q_UNUSED(command);return {};
+#endif
+}
+
+#endif
+
 QVariantMap TestScriptingInterface::phoneTouchObservation(const QVariantMap& command) {
 #if defined(ANDROID_APP_PHONE_INTERFACE)
     if (QThread::currentThread() != thread()) {
@@ -1157,11 +1214,31 @@ QVariantMap TestScriptingInterface::phoneReadFeatureCommand() {
             || !QCoreApplication::arguments().contains("--testScript")) { return {}; }
     return overte::e2e::privateAndroidFeatureCommand(_testResultsLocation).toVariantMap();
 }
+QVariantMap TestScriptingInterface::phoneNavigationView(const QVariantMap& command) {
+    if (QThread::currentThread()!=thread()) {
+        if (!thread() || !thread()->isRunning()) { return {}; }QVariantMap result;
+        if (!QMetaObject::invokeMethod(this,[&] { result=phoneNavigationView(command); },Qt::BlockingQueuedConnection)) { return {}; }return result;
+    }
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript") || !overte::e2e::previewDirectory(_testResultsLocation)
+            || !DependencyManager::isSet<OffscreenUi>() || !DependencyManager::isSet<TabletScriptingInterface>()
+            || !DependencyManager::isSet<LocationBookmarks>() || !DependencyManager::isSet<AccountManager>()) { return {}; }
+    const auto ui=DependencyManager::get<OffscreenUi>();const auto tablets=DependencyManager::get<TabletScriptingInterface>();
+    const auto tablet=tablets->getTablet("com.highfidelity.interface.tablet.system");
+    const auto state=tablets->featurePhoneTabletState();
+    if (!ui || !ui->getRootItem() || !tablet || state.isEmpty()) { return {}; }
+    const auto stored=DependencyManager::get<LocationBookmarks>()->featureBookmarkStorage();
+    const auto endpoint=DependencyManager::get<AccountManager>()->getMetaverseServerURL().toString(QUrl::FullyEncoded);
+    if (!_phoneNavigationView) { _phoneNavigationView=std::make_shared<overte::e2e::NavigationViewObservation>(); }
+    return _phoneNavigationView->request(command,{ui->getRootItem(),tablet->getTabletRoot()},state.value("shown").toBool(),stored,
+        endpoint,protocolVersionsSignatureBase64(),tablets->getTouchUiRuntimeMetrics());
+}
 QVariantMap TestScriptingInterface::phoneScriptFileUi(const QVariantMap& command) { return phoneControlUi(command, 0); }
 QVariantMap TestScriptingInterface::phoneAudioUi(const QVariantMap& command) { return phoneControlUi(command, 1); }
 QVariantMap TestScriptingInterface::phoneGraphicsUi(const QVariantMap& command) { return phoneControlUi(command, 2); }
 QVariantMap TestScriptingInterface::phoneEmoteUi(const QVariantMap& command) { return phoneControlUi(command, 6); }
 QVariantMap TestScriptingInterface::phoneCreateUi(const QVariantMap& command) { return phoneControlUi(command, 4); }
+QVariantMap TestScriptingInterface::phoneNavigationUi(const QVariantMap& command) { return phoneControlUi(command, 7); }
 QVariantMap TestScriptingInterface::phoneChatUi(const QVariantMap& command) { return phoneControlUi(command, 5); }
 QVariantMap TestScriptingInterface::phoneLoginUi(const QVariantMap& command) { return phoneControlUi(command, 3); }
 QVariantMap TestScriptingInterface::phoneControlUi(const QVariantMap& command, int surfaceKind) {
@@ -1176,7 +1253,7 @@ QVariantMap TestScriptingInterface::phoneControlUi(const QVariantMap& command, i
     const auto root = ui->getRootItem();
     const auto window = ui->getWindow();
     const bool audioSurface = surfaceKind == 1;
-    if (surfaceKind < 0 || surfaceKind > 6) { return {}; }
+    if (surfaceKind < 0 || surfaceKind > 7) { return {}; }
     overte::e2e::GraphicsUiContext graphicsContext;
     overte::e2e::AudioUiContext audioContext;
     overte::e2e::LoginUiContext loginContext;
@@ -1212,6 +1289,8 @@ QVariantMap TestScriptingInterface::phoneControlUi(const QVariantMap& command, i
         if (!_phoneChatUi) { _phoneChatUi=std::make_shared<overte::e2e::ChatUi>(); }
     } else if (surfaceKind == 6) {
         if (!_phoneEmoteUi) { _phoneEmoteUi=std::make_shared<overte::e2e::EmoteUi>(); }
+    } else if (surfaceKind == 7) {
+        if (!_phoneNavigationUi) { _phoneNavigationUi=std::make_shared<overte::e2e::NavigationUi>(); }
     } else if (!_phoneScriptFileUi) { _phoneScriptFileUi = std::make_shared<overte::e2e::ScriptFileUi>(); }
     auto controls = audioSurface ? static_cast<overte::e2e::NormalControlUi*>(_phoneAudioUi.get())
         : surfaceKind == 2 ? static_cast<overte::e2e::NormalControlUi*>(_phoneGraphicsUi.get())
@@ -1219,6 +1298,7 @@ QVariantMap TestScriptingInterface::phoneControlUi(const QVariantMap& command, i
         : surfaceKind == 4 ? static_cast<overte::e2e::NormalControlUi*>(_phoneCreateUi.get())
         : surfaceKind == 5 ? static_cast<overte::e2e::NormalControlUi*>(_phoneChatUi.get())
         : surfaceKind == 6 ? static_cast<overte::e2e::NormalControlUi*>(_phoneEmoteUi.get())
+        : surfaceKind == 7 ? static_cast<overte::e2e::NormalControlUi*>(_phoneNavigationUi.get())
         : static_cast<overte::e2e::NormalControlUi*>(_phoneScriptFileUi.get());
     const auto request = QJsonObject::fromVariantMap(command);
     const auto id = request.value("commandId").toString();
