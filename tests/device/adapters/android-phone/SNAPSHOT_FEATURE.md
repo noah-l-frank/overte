@@ -1068,9 +1068,29 @@ pending; these tests alone do not qualify the whole Snapshot composition.
 The unchanged `quiet_window` requires at least three advancing samples spanning
 three real seconds and resets after any gap greater than 1.5 seconds. An
 incomplete batch saves its history and returns without a successful witness.
-The 3.5-second decision point is checked after a completed acquisition; it is
-not a hard lock-hold guarantee. Existing five-second source/lock waits and all
-current freshness limits remain unchanged.
+The four-second scheduling decision point is checked after a completed
+acquisition; it is not a hard lock-hold guarantee. Earlier full-prefix host
+measurements showed that the previous 3.5-second slice repeatedly yielded
+before the first three-second quiet interval completed. Existing five-second
+source/lock waits and all current freshness limits remain unchanged.
+
+The production observer and the host actor call the same `poll_delay()` policy.
+Only an owned retained cleanup reader with its anchor, watching state, quiet
+history, no pending delivery and no failure uses a 50 ms pause. Ordinary,
+bootstrap and busy paths retain 250 ms. This scheduling hint grants no target
+or publication authority; the next step still validates every original and
+acquires fresh sources. The cleanup pause leaves two opportunities for the
+existing 25 ms source-lock contender poll. Actual fairness, complete lock holds
+and the complete common deadline still need qualification together.
+
+Primary cleanup no longer serializes an unchanged full history graph at every
+owner comparison. Cheap checks still validate the current headers, role state
+and binding. Full graph digests remain after preparation, before and after the
+unlocked replay, and after the final native/phase guards before current IO.
+The digest of the actually reopened historical graph remains separate. All
+input-original reloads, actual file reads and receipt checks remain. Two pure
+graph mutation counterexamples leave states, headers and files unchanged and
+prove that the final digest rejects the mutation before the current reader.
 
 Only its own newly acquired sample after completed quiet may be published.
 Actual fixture closure, a new closed-phase read, fresh restoration and actor
@@ -1087,7 +1107,7 @@ parent integration, with explicit native/header-load seams. The separate
 execute actual acquisition, diagnostic archive and reconstruction. Earlier
 bounded stress probes omitted the common primary loop's 0.25-second pause and
 reset the actor quiet interval. A later bounded run with the actual common
-primary and actor cadence, thirty additional primary frames and thirty actor
+primary and actor cadence at that revision, thirty additional primary frames and thirty actor
 frames, retained ten advancing quiet samples without a reset; the largest
 completion gap was 1.424 seconds. The separate actor acquired the actual shared
 source lock once during each unlocked history pass. This scheduling check does
