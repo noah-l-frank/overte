@@ -142,6 +142,7 @@ REQUIRED = {
     "recorded-preview-signal": 1,
     "recorded-preview-evidence": 1,
     "recorded-preview-history": 1,
+    "audio-preview-owner": 1,
     "native-navigation-replies": 2,
     "native-navigation-modals": 1,
     "native-navigation-error-controls": 1,

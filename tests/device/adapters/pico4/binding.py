@@ -925,6 +925,34 @@ def create_adapter(args, base_class):
                 AndroidPreviewFiles(self.adb, target, 'org.overte.pico', native.guard),
                 native.clock_ms, native.guard, native.pid)
 
+        def _audio_preview_store(self, target):
+            state, _ui = self._script_paths(target)
+            return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-', 'audio-preview-owner-')))
+
+        @_private
+        def _audio_preview(self, target, run):
+            # Internal cycle component only: no full-area capability, page
+            # navigation, acoustic provider or journal retirement is inferred.
+            from adapters.audio_preview import AudioPreview
+            from adapters.token_audio_ui import TokenAudioUI
+            from adapters.pico4.normal_audio import PicoAudioIO
+            from adapters.script_journey.lock import ScriptSourceLock
+            manager = self._scripts(target)
+            native = self._native_feature_observer(target)
+            native.guard()
+            _need(native.pid == int(manager.binding['processIdentity'].split(':')[0]))
+            store = self._audio_preview_store(target)
+            lock = ScriptSourceLock(store.path.with_suffix('.lock'))
+            def guard():
+                lock.assert_held()
+                native.guard()
+                manager.ui.io.navigation.io.bind_input()
+            return AudioPreview(store, manager.binding, run,
+                lambda intent: TokenAudioUI(PicoAudioIO(manager.ui.io), intent,
+                    monotonic=native.monotonic, sleep=native.sleep), native,
+                self._recorded_preview_evidence(target), guard, lock,
+                monotonic=native.monotonic, sleep=native.sleep)
+
         @_private
         def _script_roots_observer(self, target):
             from adapters.native_script_roots import NativeScriptRoots, FILE as ROOTS_FILE
@@ -1081,6 +1109,19 @@ def create_adapter(args, base_class):
                         if cleanup_only:self._recover_cleanup_candidate()
                         journey._account_origin(target,read_only=True).release()
                 except Exception:feature_error=True
+            audio_error = False
+            try:
+                if self.pico_configuration is not None:
+                    owned = self._audio_preview_store(target).read()
+                    if owned is not None:
+                        # Drain known native work, but retained terminal history
+                        # still needs the missing independent restart/role join.
+                        # Base force-stop cannot retire that original journal.
+                        audio_error = True
+                        if cleanup_only: self._recover_cleanup_candidate()
+                        self._audio_preview(target, owned['runId']).release_native()
+            except Exception:
+                audio_error = True
             chat_error=False
             try:
                 if self.pico_configuration is not None:
@@ -1133,7 +1174,7 @@ def create_adapter(args, base_class):
                     discard_stopped_state(path)
                 state, ui = self._script_paths(target)
                 discard_stopped_state(ui)
-                _need(not create_error and not self._create_management(target).owned()
+                _need(not audio_error and not create_error and not self._create_management(target).owned()
                       and not feature_error and not script_error and not probe_error and not origin_error and not chat_error and PrivateFeatureState(state).read() is None
                       and self._script_restart_inputs_store(target).read() is None
                       and self._script_restart_store(target).read() is None
@@ -1141,7 +1182,7 @@ def create_adapter(args, base_class):
                       and self._account_origin_store(target).read() is None and self._chat_capture_store(target).read() is None
                       and all(self._chat_samples_store(target,role).read() is None for role in ('primary','actor')))
             else:
-                _need(not create_error and not feature_error and not script_error and not probe_error and not origin_error and not chat_error)
+                _need(not audio_error and not create_error and not feature_error and not script_error and not probe_error and not origin_error and not chat_error)
             return result
 
     return PicoBoundAdapter(args.kind)
