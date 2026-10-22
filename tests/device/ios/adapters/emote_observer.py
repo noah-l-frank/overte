@@ -138,6 +138,10 @@ class IOSEmoteObserver:
                 and number(row['afterEpochMs'],row['pending']['started']['hostBeforeEpochMs'],1e15)
                 and number(row['afterMonotonic'],row['pending']['started']['hostBeforeMonotonic'],1e15)
                 and type(row['gpuRetirements']) is list)
+        if (state['phaseBarrier'] is not None and state['baseline'] is not None and len(state['records'])==1
+                and same(state['lastSource'],state['baseline']) and state['episode'] is None
+                and state['phaseBarrier']['index']>state['baseline']['index']):
+            self.initial_barrier(state['phaseBarrier'],state=state)
         if version==1:
             for name in ('imageBarrier','lastImage'):
                 if state[name] is not None:state[name]=self.sample_reference(state[name])
@@ -162,6 +166,32 @@ class IOSEmoteObserver:
 
     def source_reference(self):
         need(bool(self.sources.frames));return dict(index=len(self.sources.frames),sha256=digest(self.sources.frames[-1]))
+
+    def initial_barrier(self,reference,*,state=None):
+        """Replay the initial idle baseline's later, still unplayed original.
+
+        This is solely the first direct act admission. It neither starts a new
+        fixture phase nor changes any original acquisition clock.
+        """
+        state=self.state if state is None else state
+        need(self.role=='primary' and len(state['records'])==1
+            and state['baseline'] is not None and same(state['lastSource'],state['baseline']) and state['episode'] is None)
+        baseline=self.decoder.source(state['baseline']);barrier=self.decoder.source(reference)
+        need(reference['index']>state['baseline']['index']
+            and baseline['phaseAfter']['activations'][-1]['ticket']==barrier['phaseAfter']['activations'][-1]['ticket']==state['phaseTicket'])
+        from ios.adapters.emote_native_prefix import follow
+        follow(baseline['clockJoin']['nativeAfter'],barrier['clockJoin']['nativeBefore'])
+        left,right=baseline['clockJoin']['nativeAfter'],barrier['clockJoin']['nativeAfter']
+        need(left['animation']['overrideActive'] is right['animation']['overrideActive'] is False
+            and left['animation']['history']['callSequence']==right['animation']['history']['callSequence'])
+        return deepcopy(reference)
+
+    def begin_initial_input(self,reference):
+        """Bind real pre-input originals before the very first direct action."""
+        self.bound();need(self.state['pending'] is None);reference=self.initial_barrier(reference);status=self.phase.read()
+        need(status['ticket']==self.state['phaseTicket'] and self.state['phaseBarrier'] is None)
+        self.state['phaseBarrier']=reference;self.state['peerBarrier']=self.state['lastPeer']
+        self.state['imageBarrier']=deepcopy(self.state['lastImage']);self.save();return reference
 
     def retain(self,original):
         self.decoder.derive(original);index=original['sequence'];store=self.record_store(index)

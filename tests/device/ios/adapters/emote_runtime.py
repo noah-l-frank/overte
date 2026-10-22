@@ -16,9 +16,34 @@ from ios.adapters.emote_actions import IOSEmoteActions
 from ios.adapters.emote_controls import IOSEmoteIO
 from ios.adapters.emote_sources import IOSEmoteSources
 from ios.adapters.script_runtime import IOSScriptRuntime
+from ios.adapters import emote_operation
 
 
 class IOSEmoteRuntime(IOSScriptRuntime):
+    def operation_guard(self,guard):return emote_operation.scope(self,guard)
+
+    def _sources(self,selector):
+        emote_operation.check(self);source=super()._sources(selector);emote_operation.check(self)
+        if not emote_operation.active(self):return source
+        source['client']=emote_operation.Client(self,source['client'])
+        source['check']=emote_operation.guarded(self,source['check'])
+        source['process']=emote_operation.guarded(self,source['process'])
+        clock_owner=getattr(source['clock_source'].guard,'__self__',None)
+        seen=set()
+        for boundary in (source['native'],source['observer'],clock_owner):
+            if boundary is None or id(boundary) in seen:continue
+            seen.add(id(boundary));boundary.client=source['client']
+            boundary.observe_process=emote_operation.guarded(self,boundary.observe_process)
+            if boundary is not source['native']:boundary.before_send=lambda:emote_operation.check(self)
+        original=source['native']._request
+        def request(operation,native=None,*,before_send=None):
+            def final():
+                emote_operation.check(self)
+                if before_send is not None and before_send() is False:return False
+                emote_operation.check(self)
+            return original(operation,native,before_send=final)
+        source['native']._request=request;return source
+
     def _emote_sources(self,selector,client,run,role,root,lock):
         need(isinstance(lock,ScriptSourceLock));lock.assert_held();s=self._sources(selector)
         need(lock.path==self.state_path(selector).with_name('script-feature-sources.lock'))
@@ -34,7 +59,7 @@ class IOSEmoteRuntime(IOSScriptRuntime):
         need(isinstance(sources,IOSEmoteSources));sources.bound();s=self._sources(selector)
         need(s['binding']==sources.binding)
         return IOSEmoteActions(PrivateFeatureState(self.state_path(selector).with_name('ios-emote-inputs.json')),sources,
-            NativeUI(s['client'],s['session'],s['check']))
+            NativeUI(s['client'],s['session'],sources.bound))
 
     def _avatar_receive(self,selector):
         s=self._sources(selector);observer=s['observer'];remote=observer.remote.rsplit('/',1)[0]+'/'+RECEIVE_FILE

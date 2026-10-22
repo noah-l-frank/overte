@@ -6,6 +6,7 @@ from dataclasses import dataclass
 import uuid
 import weakref
 from adapters.normal_ui import NativeUI,W3C_ELEMENT,NativeUIError
+from adapters.operation_transport_guard import check as final_transport_guard
 from ios.adapters import native_ui
 
 
@@ -37,6 +38,7 @@ class NativeTabletClient:
         self.original();return True
 
     def call(self,method,path,body=None):
+        final_transport_guard()
         self.calls.append((method,path,deepcopy(body)));base='/session/'+self.session
         if not path.startswith(base+'/'):raise NativeUIError('Foreign modeled existing W3C session')
         if method=='DELETE' and path==base+'/actions':return None
