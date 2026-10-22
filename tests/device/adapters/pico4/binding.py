@@ -586,7 +586,7 @@ def create_adapter(args, base_class):
             native.guard();_need(native.pid==int(binding['processIdentity'].split(':')[0]))
             return PicoEmoteView(self._emote_view_store(target),binding,phase,lock,lambda:ui.io,
                 lambda:self._avatar_render_observer(target),native.guard,lambda:journey.existing_input_session(target),
-                lambda:bind_home(self,target,native),
+                lambda:bind_home(self,target,native),lambda:self.pico_input_session(target),
                 monotonic=native.monotonic,sleep=native.sleep)
 
         def _emote_world_render_store(self, target, role):

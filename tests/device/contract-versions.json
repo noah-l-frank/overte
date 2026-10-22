@@ -141,7 +141,7 @@
     "pico-emote-pixel-policy": {"current": 1, "reads": [1]},
     "pico-emote-pixels": {"current": 1, "reads": [1]},
     "pico-emote-capture": {"current": 1, "reads": [1]},
-    "pico-emote-view": {"current": 3, "reads": [3]},
+    "pico-emote-view": {"current": 4, "reads": [4]},
     "pico-view-menu-controls": {"current": 1, "reads": [1]},
     "pico-view-menu-input": {"current": 1, "reads": [1]},
     "pico-view-menu-lifetimes": {"current": 1, "reads": [1]},

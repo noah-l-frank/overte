@@ -168,3 +168,29 @@ original C++ empty/live/after-page-death packets are passed through the Python
 reader. Any alive Timer/context remains unretired; the harness does not delete
 internal contexts. Whole application and real Home-loader destruction remain
 unqualified. The existing emote-view-native-ui selector owns this compilation.
+
+
+## Original Emote controller streams and neutralization
+
+PicoEmoteView v4 retains the exact original OpenXR envelopes for all six
+setup/restoration controller gestures: normal tablet open, calibrated Home ray
+and normal tablet close. The canonical existing PicoOpenXrAdapterSession is
+reused with the same tablet hold and original Home geometry; normal Qt/menu
+pointer actions remain on the original route. Each envelope is CAS-written
+before transport while the original session sequence is locked. That callback
+performs only host validation and storage; no session, guard or ADB reentry.
+Host/native/phase freshness includes the complete original durable write.
+
+Each controller step requires separate original same-process/session/sequence
+neutral status before its independently measured GUI/camera/Home effect can
+complete. Unknown grant/ACK/neutral delivery is read-only reconciled, never
+resent. A pretransport lost durable response retains its envelope without
+inventing native consumption. The separate controller_retirement read requires
+all six originals plus fresh final owned-stream neutralization and restored
+mode/boom/closed Home. It preserves every journal and does not qualify menu
+contexts, other resources, common quiet windows or the complete Emote flow.
+V1/v2/v3 view owners remain retained and cannot invent these missing originals.
+
+Actual session/grant persistence is exercised with explicit synthetic native
+transport/HMD boundaries. Physical controller, OpenXR and application/device
+qualification remain absent; no complete feature capability is enabled.

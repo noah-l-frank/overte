@@ -16,25 +16,29 @@ from adapters.pico4.navigation import validate_snapshot
 from adapters.pico4.normal_view_menu import PicoViewMenu,project
 from adapters.pico4.tablet_home import PicoTabletHome,validate as home_packet,validate_input as home_input
 from adapters.pico4 import view_menu_lifetimes
+from adapters.pico4.lifecycle_back import PicoLifecycleBack
+from adapters.android.input_geometry import observed_grip_pose
+from openxr_input.controller_protocol import validate_envelope
+from openxr_input.adapter_session import PicoOpenXrAdapterSession
 from adapters.script_journey.history import pack,unpack,same
 from adapters.script_journey.lock import ScriptSourceLock
 from feature_journeys.phase_fixture import PhaseFixtureReader,validate as phase_packet
 
-VERSION=3
+VERSION=4
 MODES={'first person look at':'view-menu.first','look at':'view-menu.third'}
 PARTS=('open','menu','view','mode','home','close')
 KINDS={prefix+'-'+part for prefix in ('prepare','restore') for part in PARTS}
 
 
 class PicoEmoteView:
-    def __init__(self,store,binding,phase,lock,original,avatar,guard,input_session,home,
+    def __init__(self,store,binding,phase,lock,original,avatar,guard,input_session,home,controller,
                  *,monotonic=time.monotonic,sleep=time.sleep):
         need(isinstance(phase,PhaseFixtureReader) and phase.area=='emotes' and isinstance(lock,ScriptSourceLock)
-            and all(callable(v) for v in (original,avatar,guard,input_session,home,monotonic,sleep)))
+            and all(callable(v) for v in (original,avatar,guard,input_session,home,controller,monotonic,sleep)))
         lock.assert_held()
         self.store,self.binding,self.phase,self.lock=store,deepcopy(context(binding)),phase,lock
         self.original,self.avatar,self.guard,self.input_session=original,avatar,guard,input_session
-        self.home=home
+        self.home,self.controller_factory,self._session=home,controller,None
         self.monotonic,self.sleep=monotonic,sleep
         self.run,self.pid=phase.run,int(binding['processIdentity'].split(':')[0]);need(integer(self.pid,1))
         self.started=self.clock=None;self.failed=False;self.anchor=None
@@ -42,6 +46,12 @@ class PicoEmoteView:
         self.state=dict(phase='reserved',original=None,current=None,steps=[])
         self.bound()
         if self.previous is not None:self.state=self.decode(self.previous)
+
+    @property
+    def session(self):
+        if self._session is None:
+            value=self.controller_factory();need(isinstance(value,PicoOpenXrAdapterSession));self._session=value
+        return self._session
 
     def bound(self):
         self.lock.assert_held();need(not self.failed and self.guard() is not False and same(self.store.read(),self.previous))
@@ -105,7 +115,7 @@ class PicoEmoteView:
         for prefix in ('prepare','restore'):
             order.extend(prefix+'-'+part for part in PARTS)
         for index,row in enumerate(state['steps']):
-            exact(row,{'kind','control','before','intent','after'})
+            exact(row,{'kind','control','before','intent','after','stream'})
             need(row['kind'] in KINDS and row['kind'] not in kinds and row['kind']==order[index]);kinds.add(row['kind'])
             expected={'open':'tablet.open','menu':'scripts.menu','view':'view-menu.view','home':'tablet.home-ray','close':'tablet.close'}
             part=row['kind'].split('-')[1]
@@ -116,9 +126,23 @@ class PicoEmoteView:
                 ('baseline' if row['kind'].startswith('prepare') else 'cleanup'))
             need(type(row['intent']) is list and len(row['intent'])<=1)
             if row['intent']:self.intent_packet(row['intent'][0],row)
+            controller=row['control'] in ('tablet.open','tablet.close','tablet.home-ray')
+            if controller:
+                exact(row['stream'],{'envelope','neutral'})
+                stream=row['stream']
+                if stream['envelope'] is not None:
+                    need(len(row['intent'])==1);self.stream_packet(row,stream['envelope'])
+                    older=[r['stream']['envelope'] for r in state['steps'][:index] if r['stream'] is not None and r['stream']['envelope'] is not None]
+                    if older:need(stream['envelope']['sessionNonce']==older[-1]['sessionNonce'] and stream['envelope']['sequence']>older[-1]['sequence'])
+                else:need(stream['neutral'] is None)
+                if stream['neutral'] is not None:
+                    need(stream['envelope'] is not None)
+                    PicoLifecycleBack.neutral(stream['neutral'],stream['envelope'],row['before']['home']['capturedEpochMs'])
+            else:need(row['stream'] is None)
             if row['after'] is None:pending+=1;need(index==len(state['steps'])-1)
             else:
                 need(len(row['intent'])==1);self.packet(row['after'],row['before']);self.effect(row,row['after'])
+                if controller:need(row['stream']['neutral'] is not None and row['stream']['neutral']['updatedEpochMs']<=row['after']['home']['capturedEpochMs']+250)
                 self.unchanged(state['original'],row['after'])
             chain=row['after'] or row['before']
         if not same(chain,state['current']):self.packet(state['current'],chain)
@@ -130,11 +154,50 @@ class PicoEmoteView:
             if state['phase']=='restored':need(state['current']['avatar']['source']['cameraState']['boomLength']==original['cameraState']['boomLength'])
         return deepcopy(state)
 
-    def save(self):
-        self.bound();value=dict(picoEmoteViewVersion=VERSION,runId=self.run,fixtureUrl=self.phase.fixture_url,
+    def save(self,*,host_only=False):
+        if host_only:
+            # The exact original controller sequence is locked by stage().
+            # No session, ADB or guard reentry is permitted in its callback.
+            self.lock.assert_held();need(not self.failed and same(self.store.read(),self.previous));self.host_fresh()
+        else:self.bound()
+        value=dict(picoEmoteViewVersion=VERSION,runId=self.run,fixtureUrl=self.phase.fixture_url,
             binding=self.binding,payload=pack([self.state]))
-        try:self.store.write(value,self.previous);need(same(self.store.read(),value));self.previous=deepcopy(value);self.bound()
+        try:
+            self.store.write(value,self.previous);need(same(self.store.read(),value));self.previous=deepcopy(value)
+            if host_only:self.host_fresh()
+            else:self.bound()
         except Exception:self.failed=True;raise
+
+    def host_fresh(self):
+        need(self.anchor is not None);started,epoch,host,_clock=self.anchor;now=self.monotonic()
+        need(number(now,started,started+1.5) and (self.clock is None or now>=self.clock))
+        current=self.state['steps'][-1]['before']
+        for captured in (current['avatar']['requestedEpochMs'],current['widgets']['updatedEpochMs'],current['home']['capturedEpochMs']):
+            fresh(captured,epoch+math.ceil((now-started)*1000))
+        fresh(current['phaseBefore']['capturedEpochMs'],host+math.ceil((now-started)*1000));self.clock=now
+
+    def stream_packet(self,row,value):
+        # Validation uses the original protocol, including the actual calibrated
+        # Home ray. A tablet ACK or requested input never proves neutralization.
+        validate_envelope(value,self.session.profile)
+        control=row['control'];need(control in ('tablet.open','tablet.close','tablet.home-ray'))
+        operation='input.primary' if control=='tablet.home-ray' else control
+        if control=='tablet.home-ray':
+            home=row['intent'][0]['home'];arguments=observed_grip_pose(home['sensorToWorld'],home['headPosition'],home['position'])
+        else:arguments=dict(holdMilliseconds=1000)
+        need(value['commands']==[dict(id=operation.replace('.','-')+'-'+str(value['sequence']),operation=operation,arguments=arguments)])
+
+    def stream_intent(self,row,value):
+        need(row['stream'] is not None and row['stream']['envelope'] is None and row['after'] is None and len(row['intent'])==1)
+        self.stream_packet(row,value);row['stream']['envelope']=deepcopy(value);self.save(host_only=True)
+
+    def neutral(self,row):
+        if row['stream'] is None:return
+        stream=row['stream'];need(stream['envelope'] is not None)
+        if stream['neutral'] is None:
+            value=self.session.require_owned_neutral(self.binding['processIdentity'],stream['envelope'])
+            PicoLifecycleBack.neutral(value,stream['envelope'],row['before']['home']['capturedEpochMs'])
+            stream['neutral']=deepcopy(value);self.save()
 
     def read(self,verb):
         self.bound();previous=self.state['current'];reader=self.avatar();need(reader.pid==self.pid and reader.ios is False)
@@ -224,29 +287,35 @@ class PicoEmoteView:
             need(before['avatar']['source']['cameraMode']==self.state['current']['avatar']['source']['cameraMode']
                 and before['avatar']['source']['cameraState']['boomLength']==self.state['current']['avatar']['source']['cameraState']['boomLength'])
             self.state['current']=deepcopy(before)
-            row=dict(kind=kind,control=control,before=before,intent=[],after=None)
+            row=dict(kind=kind,control=control,before=before,intent=[],after=None,
+                stream=dict(envelope=None,neutral=None) if control in ('tablet.open','tablet.close','tablet.home-ray') else None)
             self.state['steps'].append(row);self.save()
             io=self.original()
             if control=='tablet.home-ray':
                 need(not before['home']['onHomeScreen'])
                 route=self.home();need(isinstance(route,PicoTabletHome) and route.source.pid==self.pid)
-                route.ensure(lambda _stage,original,_control:self.intent(row,io.capture(),home=original))
+                route.ensure(lambda _stage,original,_control:self.intent(row,io.capture(),home=original),
+                    stream_intent=lambda value:self.stream_intent(row,value))
             elif control.startswith('view-menu.'):
                 widgets=io.capture();flow=PicoViewMenu(io,lambda request:self.intent(row,widgets,request),monotonic=self.monotonic,sleep=self.sleep)
                 flow.activate(control,project(widgets))
             else:
                 widgets=io.capture();self.intent(row,widgets)
-                if control in ('tablet.open','tablet.close'):io.tablet(control=='tablet.open')
+                if control in ('tablet.open','tablet.close'):
+                    self.session.stage(self.binding['processIdentity'],control,dict(holdMilliseconds=1000),
+                        intent=lambda value:self.stream_intent(row,value))
                 else:
                     rows=[r for r in widgets['controls'] if r['id']==control];need(len(rows)==1 and rows[0]['enabled'])
                     io.navigation.input(control,token=rows[0]['token'])
             need(len(row['intent'])==1)
+        self.neutral(row)
         started=self.monotonic()
         for attempt in range(51):
             current=self.read(verb)
             try:self.effect(row,current)
             except RuntimeError:
                 need(attempt<50 and self.monotonic()-started<5);self.sleep(.1);continue
+            if row['stream'] is not None:need(row['stream']['neutral']['updatedEpochMs']<=current['home']['capturedEpochMs']+250)
             row['after']=deepcopy(current);self.state['current']=current;self.save();self.delivery(current);return
         need(False)
 
@@ -285,6 +354,20 @@ class PicoEmoteView:
 
     def prepare(self):return self.operate()
     def restore(self):return self.operate(True)
+
+    def controller_retirement(self):
+        """Fresh original final stream neutral; historical originals stay owned."""
+        self.bound();need(self.state['phase']=='restored')
+        current=self.read('cleanup');need(not current['widgets']['open'] and current['home']['onHomeScreen']
+            and current['avatar']['source']['cameraMode']==self.state['original']['avatar']['source']['cameraMode']
+            and current['avatar']['source']['cameraState']['boomLength']==self.state['original']['avatar']['source']['cameraState']['boomLength'])
+        streams=[row for row in self.state['steps'] if row['stream'] is not None]
+        need(len(streams)==6 and all(row['after'] is not None and row['stream']['neutral'] is not None for row in streams))
+        value=self.session.require_owned_neutral(self.binding['processIdentity'],streams[-1]['stream']['envelope'])
+        PicoLifecycleBack.neutral(value,streams[-1]['stream']['envelope'],streams[-1]['before']['home']['capturedEpochMs'])
+        need(value['updatedEpochMs']<=current['home']['capturedEpochMs']+250)
+        self.state['current']=current;self.save();self.delivery(current)
+        return dict(retired=True,streams=deepcopy([row['stream'] for row in streams]),finalNeutral=deepcopy(value),journalsRetained=True)
 
     def menu_retirement(self):
         """Fresh original known-menu liveness; keeps every parent journal."""

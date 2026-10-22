@@ -4,8 +4,11 @@
 from contextlib import nullcontext
 from copy import deepcopy
 from types import SimpleNamespace
+from pathlib import Path
+import sys
 import unittest
 import uuid
+sys.path.insert(0,str(Path(__file__).resolve().parents[3]))
 
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.normal_ui import NativeUIError
@@ -14,6 +17,8 @@ from adapters.pico4.tablet_home import PicoTabletHome
 from self_tests.test_native_avatar_render import Boundary as AvatarBoundary
 from self_tests import test_pico_emote_sources as source_fixture
 from self_tests import test_pico_tablet_home as home_fixture
+from self_tests.test_pico_openxr_adapter_session import FakeTransport
+from openxr_input.adapter_session import PicoOpenXrAdapterSession,AdapterSessionError
 RUN,BINDING=source_fixture.RUN,source_fixture.BINDING
 
 
@@ -31,13 +36,44 @@ class ViewBoundary:
             monotonic=lambda:self.sources.clock,sleep=self.sleep,guard=self.sources.guard)
         self.home=PicoTabletHome(source,self.home_stage)
         self.life=False;self.life_sequence=0;self.life_rows=[]
+        self.neutral_fault=None;outer=self
+        class Transport(FakeTransport):
+            def stage(self,envelope,profile):
+                from adapters.script_journey.history import unpack
+                state=unpack(outer.store.read()['payload'])[0];row=state['steps'][-1]
+                unittest.TestCase().assertEqual(envelope,row['stream']['envelope'])
+                value=super().stage(envelope,profile)
+                operation=envelope['commands'][0]['operation']
+                lost=outer.lost;outer.lost=None
+                try:
+                    if operation=='input.primary':outer.home_effect()
+                    else:outer.tablet(operation=='tablet.open')
+                finally:outer.lost=lost
+                return value
+            def read_status(self,**options):
+                value=super().read_status(**options);value['updatedEpochMs']=outer.sources.epoch
+                if options.get('expected_sequence') is not None:
+                    operation=self.envelopes[-1]['commands'][0]['operation']
+                    control='tablet.home-ray' if operation=='input.primary' else operation
+                    if outer.lost==control:raise NativeUIError('Explicit lost original controller ACK after committed host sequence')
+                if options.get('expected_sequence') is None:
+                    if outer.neutral_fault=='missing':raise AdapterSessionError('Explicit lost neutral read')
+                    if outer.neutral_fault=='foreign':value['acceptedSequence']+=1
+                    if outer.neutral_fault=='active':value.update(state='active',activeCommandId='foreign')
+                return value
+        self.transport=Transport();directory=self.sources.root/'controller';directory.mkdir(mode=0o700)
+        self.session=PicoOpenXrAdapterSession(self.transport,'explicit-view-controller-boundary',directory)
+        self.session.begin(BINDING['processIdentity'])
+        self.session._ack_timeout=lambda:.001
     def capture_home(self):
         self.home_sequence+=1
         value=deepcopy(self.home_value);value.update(commandId=uuid.uuid4().hex,sourceSequence=self.home_sequence,
             processId=31,capturedEpochMs=self.sources.epoch,elapsedMs=int(self.sources.clock*1000),
             tabletShown=self.open,onHomeScreen=self.page=='home',visible=self.open)
         return value
-    def home_stage(self,pose):
+    def home_stage(self,pose,*,intent=None):
+        return self.session.stage(BINDING['processIdentity'],'input.primary',pose,intent=intent)
+    def home_effect(self):
         self.before_input('tablet.home-ray')
         if self.ignored!='tablet.home-ray':self.page='home'
         if self.lost=='tablet.home-ray':raise NativeUIError('Synthetic lost actual Home ray result')
@@ -96,7 +132,7 @@ class ViewBoundary:
     def sleep(self,seconds):self.sources.sleep(seconds)
     def owner(self,**options):
         return PicoEmoteView(self.store,BINDING,self.sources.phase,self.lock,lambda:self.io,self.avatar.reader,
-            self.sources.guard,nullcontext,lambda:self.home,monotonic=lambda:self.sources.clock,sleep=self.sleep,**options)
+            self.sources.guard,nullcontext,lambda:self.home,lambda:self.session,monotonic=lambda:self.sources.clock,sleep=self.sleep,**options)
     def cleanup_phase(self):self.sources.journal.activate(RUN,'a'*32,verb='cleanup')
 
 
@@ -227,8 +263,8 @@ class PicoEmoteViewTests(unittest.TestCase):
             self.assertEqual(b.avatar.epoch,owner.state['original']['widgets']['updatedEpochMs'])
             self.assertEqual(6,len(b.inputs))
 
-    def test_legacy_v1_v2_owner_remains_retained_without_inventing_mode_or_home_semantics(self):
-        for version in (1,2):
+    def test_legacy_v1_v2_v3_owner_remains_retained_without_inventing_original_controller_retirement(self):
+        for version in (1,2,3):
             b=ViewBoundary(self)
             with b.lock.held():
                 b.owner().prepare();value=b.store.read();value['picoEmoteViewVersion']=version;b.store.write(value,b.store.read())
@@ -263,6 +299,81 @@ class PicoEmoteViewTests(unittest.TestCase):
             b.owner().prepare();b.cleanup_phase();owner=b.owner();owner.restore()
             with self.assertRaises(NativeUIError):owner.menu_retirement()
             self.assertIsNotNone(b.store.read())
+
+    def test_each_original_controller_envelope_precedes_transport_and_neutral_survives_cold_restore(self):
+        b=ViewBoundary(self)
+        with b.lock.held():
+            b.owner().prepare();b.cleanup_phase();b.owner().restore();before=deepcopy(b.inputs)
+            owner=b.owner();proof=owner.controller_retirement()
+            self.assertTrue(proof['retired']);self.assertTrue(proof['journalsRetained'])
+            self.assertEqual(6,len(proof['streams']));self.assertEqual(6,len(b.transport.envelopes))
+            self.assertEqual([1,2,3,4,5,6],[row['envelope']['sequence'] for row in proof['streams']])
+            self.assertEqual(['tablet.open','input.primary','tablet.close']*2,
+                [row['envelope']['commands'][0]['operation'] for row in proof['streams']])
+            self.assertEqual(before,b.inputs);self.assertIsNotNone(b.store.read())
+
+    def test_missing_foreign_active_or_future_neutral_never_becomes_completed_step_or_replayed_input(self):
+        for fault in ('missing','foreign','active','future'):
+            b=ViewBoundary(self);b.neutral_fault=fault
+            if fault=='future':
+                read=b.transport.read_status
+                def future(**options):
+                    value=read(**options)
+                    if options.get('expected_sequence') is None:value['updatedEpochMs']+=2000
+                    return value
+                b.transport.read_status=future
+            with b.lock.held(),self.subTest(fault=fault):
+                with self.assertRaises(RuntimeError):b.owner().prepare()
+                before=deepcopy(b.inputs)
+                with self.assertRaises(RuntimeError):b.owner().prepare()
+                self.assertEqual(before,b.inputs);self.assertEqual(['tablet.open'],b.inputs)
+                self.assertIsNotNone(b.store.read())
+
+    def test_lost_neutral_read_reconciles_original_consumed_stream_without_new_gesture(self):
+        b=ViewBoundary(self);b.neutral_fault='missing'
+        with b.lock.held():
+            with self.assertRaises(RuntimeError):b.owner().prepare()
+            self.assertEqual(['tablet.open'],b.inputs)
+            b.neutral_fault=None;b.owner().prepare()
+            self.assertEqual(1,b.inputs.count('tablet.open'));self.assertEqual(3,len(b.transport.envelopes))
+
+    def test_foreign_stream_after_restoration_cannot_be_adopted_as_owned_controller_cleanup(self):
+        b=ViewBoundary(self)
+        with b.lock.held():
+            b.owner().prepare();b.cleanup_phase();b.owner().restore();before=deepcopy(b.inputs)
+            with b.session._lock():
+                state=b.session._load();state['nextSequence']+=1;b.session._save(state)
+            with self.assertRaises(RuntimeError):b.owner().controller_retirement()
+            self.assertEqual(before,b.inputs);self.assertIsNotNone(b.store.read())
+
+    def test_failure_after_original_stream_write_cannot_dispatch_or_erase_the_envelope(self):
+        from adapters.script_journey.history import unpack
+        b=ViewBoundary(self);write=b.store.write
+        def lost(value,previous):
+            write(value,previous)
+            steps=unpack(value['payload'])[0]['steps']
+            if steps and steps[-1]['stream'] and steps[-1]['stream']['envelope'] is not None:
+                raise OSError('Explicit lost original stream CAS acknowledgement')
+        with b.lock.held():
+            b.store.write=lost
+            with self.assertRaises(OSError):b.owner().prepare()
+            b.store.write=write;original=b.store.read()
+            self.assertEqual([],b.inputs);self.assertIsNotNone(unpack(original['payload'])[0]['steps'][0]['stream']['envelope'])
+            with self.assertRaises(RuntimeError):b.owner().prepare()
+            self.assertEqual(original,b.store.read());self.assertEqual([],b.inputs)
+
+    def test_slow_original_stream_intent_cannot_dispatch_after_freshness_budget(self):
+        from adapters.script_journey.history import unpack
+        b=ViewBoundary(self);write=b.store.write
+        def slow(value,previous):
+            write(value,previous)
+            steps=unpack(value['payload'])[0]['steps']
+            if steps and steps[-1]['stream'] and steps[-1]['stream']['envelope'] is not None:b.sleep(2)
+        with b.lock.held():
+            b.store.write=slow
+            with self.assertRaises(RuntimeError):b.owner().prepare()
+            self.assertEqual([],b.inputs);self.assertEqual([],b.transport.envelopes)
+            self.assertIsNotNone(unpack(b.store.read()['payload'])[0]['steps'][0]['stream']['envelope'])
         b=ViewBoundary(self);b.life=True
         with b.lock.held():
             b.owner().prepare();b.cleanup_phase();owner=b.owner();owner.restore();b.life=False

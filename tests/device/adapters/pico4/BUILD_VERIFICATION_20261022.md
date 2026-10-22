@@ -624,3 +624,46 @@ The actual Qt5 DomainHandler/MessagesClient/header v3 source, with original C++
 packets also validated by Python, passes1.677s. All4 repository suites pass3.31s.
 Whole Chat activation/retirement/25-step/physical cleanup composition remains
 open; source-complete feature count is3/14.
+
+
+## Integrated actual Audio lifetime, private Create writer and Chat cache owner
+
+c972512d7e/bfd8f185a1/b28b34842c/9ebfe3ff76 select Audio82154743ef/
+0e3ae2add8/2daedbf74d/03cc940d0b. Actual original 30s functor invocation
+and final lease destruction, polling QObject and retained byte/capacity values
+are observed through bounded original worker queues and AudioSettings v2.
+The normal page owner waits read-only for actual original callback completion
+and independently measured baseline resources, then another real3s quiet
+window. No due-time, empty PCM, stopped timer or process restart supplies release.
+712d05d132 selects c2690edd33's actual full saveObject private Create result
+write/replace/refusal checks. The generic root feature-result writer already
+provides the required private path; redundant support7f5f4602b1 was not selected.
+
+The integrated four native/host groups pass80.23s: Audio preview2.413s, normal
+page30.054s, settings including actual30s native42.720s, Create actual original
+resource/private-writer5.038s. Qt5 uses the existing5.15.18 prefix. Narrow
+native harness seams remain documented; whole app/Pico/device unqualified.
+b11226fdd6 selects3333e572cb's original nativev3 Chat mutation lifetime owner.
+Both lost Observe/Retire are reconciled only with original first-mutation IDs;
+two new passive retirement queries retain all journals. All42 CacheLifetime/
+native observation/domain cases pass. Complete source count remains3/14.
+
+
+## Original Emote View v4 controller envelopes and neutralization
+
+All setup/restore controller grants are written before the actual canonical
+session transport and independently require original owned neutral status.
+Original calibrated Home geometry determines the actual ray. Locked callbacks
+perform only host CAS/freshness checks; cold reconciliation never repeats input.
+The separate final controller-retirement read preserves every original journal;
+Qt/menu/native/scene/actor/whole common cleanup remains separate and unfinished.
+The initial focused25 cases pass13.917s; final additional slow intent case is
+included in the broader selector. The first broader invocation exposed a test
+import-root omission and eager session construction in the empty factory.
+The import root and lazy cached original session were corrected. No timeout
+was enlarged. Final normal Emote21 cases11.209s and expanded stereo/owner
+group22.286s pass2/75 catalog groups33.49s. Original session persistence is
+real host code; native transport/HMD effects are explicit synthetic boundaries.
+
+All4 final repository suites pass2.85s; contract registry, probe JavaScript
+syntax and whitespace pass. No complete feature count change.

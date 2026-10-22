@@ -528,7 +528,7 @@
         "Observe original pose/mapping/timer/resource retirement",
         "Restore captured prior override and closed panel"
       ],
-      "nextExecutableStep": "Join durable normal HMD View-menu setup/restore to eligible full-body original stereo capture and controlled scene/avatar identity. Compose independent effects/actor and actual Qt/menu timer/context/native/journal retirement; mode restoration retains its journal until that original proof exists.",
+      "nextExecutableStep": "Compose durable v4 normal HMD View/Home setup and restoration (original OpenXR envelopes and actual neutralization retained) with controlled scene/avatar identity, fresh full-body stereo pixels and independent actor effects. Complete common quiet windows and actual Qt/native/journal retirement before enabling the full feature.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     },
@@ -845,7 +845,9 @@
         "tests/device/adapters/pico4/audio_pages.py",
         "tests/device/native/AudioPageObservation.h",
         "tests/device/adapters/pico4/AUDIO_PAGE_OWNER.md",
-        "tests/device/adapters/pico4/audio_page_owner.py"
+        "tests/device/adapters/pico4/audio_page_owner.py",
+        "libraries/audio-client/src/RecordedPreviewDeferred.h",
+        "tests/device/adapters/audio_preview_lifetime.py"
       ],
       "declaredCheckpoints": 14,
       "inputVerbs": [
@@ -945,7 +947,10 @@
         "tests/device/self_tests/test_chat_background.py",
         "tests/device/self_tests/test_chat_witness.py",
         "tests/device/adapters/pico4/CANDIDATE_READ_SEAL.md",
-        "tests/device/adapters/pico4/candidate_read_seal.py"
+        "tests/device/adapters/pico4/candidate_read_seal.py",
+        "tests/device/adapters/chat_journey/cache_lifetime.py",
+        "tests/device/adapters/chat_journey/CACHE_LIFETIME.md",
+        "tests/device/self_tests/test_chat_cache_lifetime.py"
       ],
       "declaredCheckpoints": 25,
       "inputVerbs": [
