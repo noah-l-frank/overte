@@ -116,7 +116,8 @@ class AvatarInputOwner:
                 scope = event['intent']['reference']['scope']
                 if last_scope is not None:
                     need(all(last_scope[key] == scope[key] for key in ('instance', 'generation', 'processId'))
-                         and scope['sequence'] == last_scope['sequence'] and scope['sourceSequence'] > last_scope['sourceSequence']
+                         and scope['sequence'] >= last_scope['sequence'] and (event_index==0 or scope['sequence']==last_scope['sequence'])
+                         and scope['sourceSequence'] > last_scope['sourceSequence']
                          and scope['capturedEpochMs'] >= last_scope['capturedEpochMs'])
                 if event['phase'] == 'issued': need(event['delivery'] is event['observed'] is None)
                 else:
