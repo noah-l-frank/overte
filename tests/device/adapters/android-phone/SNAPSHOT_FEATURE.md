@@ -1,16 +1,22 @@
-# Android Phone Snapshot adapter continuation
+# Android Phone Snapshot adapter
 
 The separate [original capture-file owner](SNAPSHOT_CAPTURE_FILES.md) records
 native FD/inode/close originals and independent binary acquisition, including
-partial output ownership and one-send durable retirement. It is component
-source/host verified; public foundation/facade composition and device acceptance
-are separate obligations.
+partial output ownership and one-send durable retirement. Its component sources
+and host contracts are verified within the boundaries
+documented below. The public facade, independent actor and strict retirement
+are implemented; full common SDK29+ and SDK26–28 qualification is still pending.
 
 The existing normal `snapshot.open/capture/files/close` implementation remains
 the owner of the catalog's `snapshot-output-parity` foundation. It obtains
-original files independently of input delivery. The common v17 extended
-`feature.snapshots.*` triple is **not yet advertised** by the Phone adapter.
-Devices and the complete Android client build remain unverified.
+original files independently of input delivery. The current common contract is
+**v18**. The Phone adapter contains the default-off
+`feature.snapshots.act|observe|cleanup` triple and its guarded public dispatch.
+Registration is source availability, not full qualification: both complete
+Android backend replays, required foundations and recovery counterexamples must
+pass before this area joins the thirteen completed Phone source/host
+compositions. Device acceptance and a complete Android client build remain
+unverified. Historical v17 contracts and earlier component results are retained.
 
 ## Passive native source v5
 
@@ -121,15 +127,16 @@ revalidates actual absence, including after copy-directory retirement.
 
 Copy retirement says nothing about deletion of the actual OS destination. That
 separate URI cleanup, normal review/system-sheet input, receiver consumption
-and complete public owner remain unfinished. Bounded binary acquisition below
-now retains the completed Save readback in private host artifacts. This component must not advertise the extended Snapshot capability
-or report a complete feature/cleanup verdict.
+and public ownership are composed by the current v18 facade below. Bounded
+binary acquisition below retains the completed Save readback in private host
+artifacts. This component alone cannot qualify the extended Snapshot capability
+or a complete feature/cleanup result.
 
-## Remaining composition
+## Composition requirements
 
-Implement normal review inputs, retain actual pending/cancelled UI observations
-(including cancellation before native capture allocation), and establish
-immutable process/run ownership. Join native capture IDs with
+The facade uses normal review inputs and retains actual pending/cancelled UI
+observations (including cancellation before native capture allocation), with
+immutable process/run ownership. It joins native capture IDs with
 the actual unique capture filename, original bytes and a fresh fixture marker.
 Do not infer capture completion from a button click or filename existence.
 
@@ -140,7 +147,8 @@ Join the retained original Android request/URI identity to actual destination by
 chooser cancellation and an explicitly owned receiver's independently read
 consumed bytes. A chosen component ACK is insufficient. Upload failure/recovery
 needs the controlled account service and independently retained multipart bytes
-plus native completion, rather than replacing the upload input with HTTP.
+plus native completion. The facade uses the normal Upload input; independent
+HTTP provider originals prove its effects.
 
 Cleanup must cancel outstanding capture/encode/upload/system requests, prove
 native and Android quietness, restore original review settings, remove only
@@ -256,8 +264,9 @@ Snapshot/ScriptManager translation units. `test_snapshot_script_history.py`
 checks the strict Python join and native packet boundary. The original
 `snapshot.production.test.js` additionally checks real script event/timer
 ordering, ignored idle Cancel, foreign/retired completions and the unchanged
-desktop path with an explicit native observer seam. Full normal Qt fast-cancel
-automation, extended owner, output cleanup and devices remain unfinished.
+desktop path with an explicit native observer seam. The current normal Qt
+FastCancel, facade and cleanup composition have separate source/host checks
+documented below; these component results alone do not qualify devices.
 
 ## Normal original Qt controls v1
 
@@ -277,8 +286,8 @@ probe transport, five-second exchange budget and 1.5-second source freshness.
 It retains original native packet metadata and requires durable intent before
 input delivery. Read-only actor transport permits observation only. A delivered
 input never creates capture/file/export evidence; the extended owner must obtain
-those independently from original producers. The public Snapshot triple stays
-absent until its complete composition exists.
+those independently from original producers. The public Snapshot triple is now present behind its default-off full-profile
+gates; these control tests alone do not qualify that composition.
 
 `test_snapshot_native_controls.py` compiles the unchanged normal-control helper
 and actual field-input implementation with real Qt6. It loads unchanged product
@@ -484,8 +493,8 @@ this prerequisite alone.
 
 The existing five-format `snapshot-output-parity` flow has an original ownership
 composition for the complete-feature profile. `OVERTE_PHONE_FEATURE_SNAPSHOTS=1`
-selects it inside the existing normal Snapshot operations; this prerequisite does
-not yet advertise a public feature triple. The standalone legacy format decoder
+selects it inside the existing normal Snapshot operations. The full public
+triple additionally requires this ownership composition and its other gates. The standalone legacy format decoder
 profile retains its narrower existing scope. Complete-feature preparation must
 require the owned foundation and cannot substitute the legacy profile.
 
@@ -524,7 +533,7 @@ product/device acceptance. Public extended Snapshot composition remains open.
 
 The readonly `/runs/<run>/snapshot-upload/original/<request>/<nonce>` route reads only the original successful, delivered image POST from the existing HTTPS Snapshot provider. It checks the original private body journal, device/inode, mode/link/owner and complete SHA-256 before parsing that actual retained multipart again. It returns that payload with original request/ticket/provider/body/image identity and a separate current acquisition epoch. Original upload completion is never retimed. Missing, modified, replaced, retired, failed or foreign requests cannot supply bytes. No native capture path or caller-provided body/hash is accepted.
 
-`PhoneSnapshotUploadBytes` brackets binary acquisition with its own fresh provider reads using the existing role credential. It checks the fresh nonce and exact provider/run/request/ticket/domain/HTTPS-origin identities, original multipart receipt and payload metadata, actual decoded bytes, immutable completion time and real five-second acquisition/freshness guards. This separate binary route retains the existing 32 MiB original multipart ceiling and leaves the generic Client's 1 MiB JSON ceiling unchanged. The resulting file source is `snapshot-upload-original`; private capture bytes cannot be relabeled as upload evidence. Both actor and adapter reader credentials can acquire originals, while the product access token and mutation requests cannot use this route. This supplies component evidence only; the complete public composition remains unadvertised.
+`PhoneSnapshotUploadBytes` brackets binary acquisition with its own fresh provider reads using the existing role credential. It checks the fresh nonce and exact provider/run/request/ticket/domain/HTTPS-origin identities, original multipart receipt and payload metadata, actual decoded bytes, immutable completion time and real five-second acquisition/freshness guards. This separate binary route retains the existing 32 MiB original multipart ceiling and leaves the generic Client's 1 MiB JSON ceiling unchanged. The resulting file source is `snapshot-upload-original`; private capture bytes cannot be relabeled as upload evidence. Both actor and adapter reader credentials can acquire originals, while the product access token and mutation requests cannot use this route. This supplies component evidence only; the default-off public composition still requires both complete backend replays.
 
 The dedicated host check uses real loopback TLS, actual multipart uploads, private original inodes and image decoding. It includes an original PNG larger than 1 MiB, changed wire bytes/inodes/permissions/links, missing/retired sources, foreign roles/run/request/ticket/nonces, stale metadata, changed payload and an advanced five-second acquisition clock. SDK/native request producers remain explicit synthetic seams; no live product upload or device acceptance is claimed.
 ### Passive original source during ordinary OS handoff (version 1)
@@ -773,3 +782,150 @@ A changed pending plan cannot acquire authority from the same run. A receipt
 archived before the pending-clear write can be rechecked without admission or
 another input. These native/UI producers are explicit transport seams; actual
 OS-scope admission and independent Save/Share effects remain separate checks.
+
+## Current v18 public composition and configuration
+
+The adapter's three public operations are `feature.snapshots.act`,
+`feature.snapshots.observe` and `feature.snapshots.cleanup`. Their exact DTOs
+come from the common [contract](../../feature_journeys/contract.py): all take
+`contractVersion:18` and the original `runId`; act additionally takes
+`fixtureUrl`, `ticket`, `verb` and `inputs`; observe takes `afterSequence`.
+Unknown fields, wrong types, unowned URLs, arbitrary verbs and requested result
+fields fail before delivery. Observe derives measured state and opaque resource
+references from original sources. An act result of `performed:true` proves no
+capture, Save, Share or Upload effect.
+
+The explicit opt-in is `OVERTE_PHONE_FEATURE_SNAPSHOTS=1`; its default is zero.
+Registration requires the existing bound controlled Phone debug candidate,
+`OVERTE_PHONE_NORMAL_SNAPSHOT=1`, the owned account launch profile,
+`OVERTE_PHONE_ACCOUNT_FIXTURE=1`, a separately credentialed adapter fixture
+reader and an HTTPS fixture origin. It also requires the actual normal Snapshot,
+foreground/process/launch, navigation, scene and probe capabilities. The common
+catalog additionally enforces both `domain-enter` and `snapshot-output-parity`;
+an unavailable mandatory capability stays red even in exploratory execution.
+The legacy standalone decoder profile cannot substitute for the owned
+five-format foundation.
+
+`OVERTE_PHONE_SNAPSHOTS_CONFIGURATION` names the private configuration file. Its
+closed schema is `snapshotsFeatureVersion:1`, `artifactRoot`, `imageExtent`,
+`markerRoi`, `imagePolicy`, `fileImagePolicy`, `domainId` and
+`receiverApkSha256`. Both image policies contain only `source`, `marker` and
+`subject`; the source must be `world-render-target`. The actual marker and
+subject rectangles must be bounded and disjoint, the domain must be a nonzero
+UUID and the receiver digest must bind the actual separate consuming APK.
+The artifact root uses the existing private ownership and inode checks.
+Expected counts, expected hashes and credentials are not configuration fields.
+Adapter access remains in `OVERTE_PHONE_FEATURE_FIXTURE_CONFIG`; the optional
+`OVERTE_E2E_FEATURE_FIXTURE_URL` must match its original origin exactly.
+
+The independent observer uses `featureObserverVersion:8`, `area:snapshots`,
+`target`, `candidateArguments`, `fixtureUrl`, `actorToken` and bounded
+`durationSeconds`. It builds its own credentialed Client and calls the actual
+Snapshot actor's `step()`. All fourteen primary feature flags are explicitly
+disabled in that process. The actor must have a different actual PID/start
+identity, acquire its own original source frames and files, publish through its
+own actor credential, and prove its own cleanup quiet interval. No actor token
+is copied into the primary configuration, owner header or public facts.
+
+## Actions and original evidence
+
+The Android journey uses normal `open`, `capture-cancel`, `capture`, `save`,
+`share-open`, `share-cancel`, `share-select-owned`, `upload-fail`, `upload`,
+`background-resume` and `close` actions. SDK26–28 also requires the actual
+`save-picker-open` and `save-picker-cancel` transitions. The independently read
+platform selects `media-store` on SDK29+ or `document-picker` on SDK26–28, both
+with `savePermission:not-required`. The common Photos permission actions are
+conditional on the Photos backend; Android does not simulate those actions or
+skip mandatory DocumentsUI transitions. Unsupported or missing platform,
+resolution, provider or consumer sources remain failures.
+
+Normal Open obtains the owned fixture account credentials, submits through the
+actual login controls and joins the resulting native principal, token and
+protected-request originals. Each role sample rechecks the original account
+endpoint, owned principal, active credential and absence of pending login or
+refresh work. Credentials are never archived. Capture cancellation joins the
+visible original Review, native FastCancel recipe and original VM timer/work
+history. Capture completion separately joins the reviewed actual script source,
+native capture ID, original file prefix, actual FD close/inode/hash/bytes and
+fresh render marker. Historical completion timestamps never become current by
+being copied into a newer observation.
+
+Save requires the actual native request/callback stream, the original OS
+destination identity and independently reopened destination bytes. SDK26–28
+additionally requires the separate DocumentsProvider's binding v2 floor and
+full subsequent history, actual creator and Phone writer UIDs, original document
+FD closure, independent provider binary and actual root/document retirement.
+Share requires the real chooser/URI-grant context and the separate consuming
+APK's actual ACTION_SEND read/close/hash; a chosen-component callback cannot
+replace consumption. Upload requires the ordinary Upload control, original
+native uploader lifetime and the actual HTTPS provider's retained multipart
+receipt and independently acquired body. Private capture bytes cannot stand in
+for any of these three exported originals.
+
+Both roles retain immutable raw VM/native/input/provider/OS histories and
+independently acquired PNG/binary inode receipts. During a real OS sheet they
+use the prestarted passive native handoff source and the original narrow system
+scope; they do not issue foreground-only client observations. A later Save or
+Share phase retains the earlier actual capture marker ticket. Only a matching
+current marker can qualify a new world-render PNG, including the mandatory
+background/resume image. Original input receipts remain separate from the
+effect reducer and the actor's independent witness.
+
+## Bounds, failure recovery and complete retirement
+
+The original source freshness window is 1.5 seconds and each ordinary source or
+input exchange has its own real five-second monotonic deadline. A native
+passive handoff lasts at most sixty seconds, cannot renew or revive, and the
+facade permits at most four owned handoffs. Background recovery retains its
+original twenty-second monotonic bound. Quiet checkpoints require actual
+contiguous three-second intervals; the facade requires two distinct intervals
+around restoration and the actor requires its own interval. The aggregate
+catalog module budget is not a source freshness or checkpoint deadline.
+Explicit synthetic native epochs used by host replay never replace these real
+monotonic call/quiet bounds or qualify real device latency.
+
+The durable owner is written before setup can acquire settings, capture-file or
+document leases. Baseline preparation takes readonly originals before ordinary
+UI input. A failed first observation still attempts owned cleanup before the
+fixture closes; a failure remains a failure after cleanup. With no issued
+lease, partial cleanup preserves unknown initial UI and sends no normal input.
+With actual issued leases it restores only those exact original settings/files/
+documents and requires both quiet windows. `partial-cleaned` carries an explicit
+original partial-retirement proof, never a successful baseline or an invented
+actor witness. The separate actor accepts that proof only after original
+fixture closure.
+
+Before fixture closure, normal animated Capture/FastCancel must actually delete
+the owned uploaded story and native jobs/FDs/replies/callbacks must retire. The
+provider's retained multipart body remains an unchanged private provenance
+original until Client.close. Normal cleanup then deletes the original OS
+destinations, revokes and checks URI grants, retires actual readback and consumer/
+document workers, seals/deletes owned native/host capture files, restores the
+original thirteen typed raw settings and native cache handle, logs out the owned
+account and restores owned camera/input state. Unknown files, missing source
+observations, pending work, failed deletes or foreign identities retain journals
+and remain red. Empty public live capture history is allowed only after this
+actual retirement; immutable historical events remain archived.
+
+Contract v18 calls the same public cleanup operation again after the original
+fixture has actually closed. The central dispatcher reads the nonce-bound
+original phase before choosing normal cleanup or strict `finalize()`. The final
+path additionally requires fresh provider `active:false`, zero uploads/stories/
+inflight, actual retained-body absence, a new independent actor closed-phase
+read, its original cleanup proof and actual process termination. It rechecks
+all immutable PNG/binary originals and actual current native/file/work absence.
+An immutable archive of the exact original owner and child headers precedes
+their removal. Interrupted retirement resumes only from those originals; a
+second completed cleanup needs the same archive, actual application binding and
+fresh restoration checks. Missing journals alone never prove success. Global
+adapter teardown attempts retained Snapshot cleanup even with the opt-in flag
+removed and reports unresolved ownership after attempting base teardown.
+
+The historical compiler, Java/JNI, Qt, file, transport, reducer, actor and
+recovery results above remain scoped host evidence. The current focused facade
+suite has seventeen passing cases, including actual private filesystem/journal
+recovery and an actual separate actor process. Full public common SDK29+ and
+SDK26–28 replay qualification is still pending; this document does not promote
+Snapshot to the thirteen qualified Phone compositions. No hardware run,
+installation, complete Android build, Proxmox laboratory result or device
+acceptance is claimed by these source and host checks.
