@@ -1,4 +1,4 @@
-# Private Pico Chat composition v4
+# Private Pico Chat composition v5
 
 `PicoBoundAdapter._chat_composition(target, phase_source, peer_config, domain_ready)`
 constructs `PicoChatComposition` from the existing original candidate/process
@@ -57,8 +57,9 @@ the independent witness owns separate readers and its own source journal.
 Every actual model read obtains fresh configured-root/Script/V8/root originals
 before the four existing native sources, with one unchanged 1.5-second bound.
 Legacy v1/v2 parent manifests remain retained and cannot qualify compiled-source
-v3/v4 witness admission. V3 remains readable for its unchanged compiled input
-scope, but cannot acquire v4 cache-release phases.
+v3/v4/v5 witness admission. V3 remains readable for its unchanged compiled input
+scope, but cannot acquire v4 cache-release phases; v4 cannot acquire v5 deferred
+`caches-retired` admission.
 Active roles cannot read before original cache activation. Cache creation stays
 lazy until the first Open. All six child kinds use the existing actual Pico
 factories: ordinary Chat UI/keyboard, original peer Send/distance, passive native
@@ -98,7 +99,7 @@ Original run, binding and exact lock must match the profile owner. A changed or
 retired cleanup ticket fails closed. This method does not yet claim native cache,
 observation IPC, process, QML-context or full-feature resource release.
 
-`close_caches_and_ipc(after_epoch)` then joins the two original cache lifetimes
+`close_caches_and_ipc(after_epoch)` retains the immediate component path and joins the two original cache lifetimes
 and two new compiled final-absence roles through
 [the original cache/IPC release owner](../chat_journey/CACHE_RELEASE.md).
 Its retained chunks and rootless cleanup guard preserve every original source.
@@ -108,6 +109,14 @@ retirement IDs, a full independent three-second source quiet interval and actual
 kernel observation-FD absence permit `caches-ipc-released`. The final parent
 CAS/copy is followed by original guards/clocks and another kernel FD check.
 No journal is retired and no Qt/process or complete feature release is inferred.
+
+For the whole restart route, v5 instead uses `prepare_cache_release(after_epoch)`.
+It executes the same original cache retirements and quiet checks but retains the
+actual peer observation IPC and original result FD, returning `caches-retired`.
+New post-restart peer originals must be acquired through this existing channel
+before the enclosing owner closes it. The immediate component path is not
+promoted to a post-restart proof and a closed channel is never reopened. The
+process/post-restart/final-IPC/archive composition remains pending.
 
 `_chat_witness_composition(target, independent_phase_source, peer_config)`
 constructs a separate `PicoChatWitness` with its own publisher Client/credential,

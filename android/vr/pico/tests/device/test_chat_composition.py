@@ -139,7 +139,7 @@ class PicoChatCompositionTests(unittest.TestCase):
             self.assertIs(owner.roles[index].script_source,owner.code_sources[index])
             self.assertIs(owner.initial[index].script_source,owner.code_sources[index])
             self.assertIs(owner.code_sources[index].lock,owner.lock)
-        self.assertEqual(4,owner.previous['picoChatCompositionVersion'])
+        self.assertEqual(5,owner.previous['picoChatCompositionVersion'])
         self.assertEqual([],self.native.inputs)
         with self.assertRaises(NativeUIError):owner.prepare()
         self.assertEqual(['acquire'],[request['operation'] for request in profile.requests])
