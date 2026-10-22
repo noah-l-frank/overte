@@ -29,7 +29,7 @@ from overte_phone_emote_view import PhoneEmoteView
 from overte_phone_script_history import pack,unpack,same,canonical
 from overte_phone_script_lock import PhoneScriptSourceLock
 
-VERSION=4
+VERSION=5
 
 
 class PhoneEmoteRun:
@@ -55,18 +55,25 @@ class PhoneEmoteRun:
 
     def decode(self,value):
         version=value.get('emoteRunVersion') if type(value) is dict else None
-        need(type(version) is int and version in (1,2,3,VERSION))
+        need(type(version) is int and version in (1,2,3,4,VERSION))
         exact(value,{'emoteRunVersion','runId','fixtureUrl','artifactRoot','imageExtent','markerRoi','payload'}
             |({'admissionPolicy'} if version>=3 else set()))
-        need(type(version) is int and version in (1,2,3,VERSION)
+        need(type(version) is int and version in (1,2,3,4,VERSION)
             and value['runId']==self.run and value['fixtureUrl']==self.fixture_url and value['artifactRoot']==str(self.root)
             and same(value['imageExtent'],self.extent) and same(value['markerRoi'],self.marker))
         rows=unpack(value['payload']);need(len(rows)==1);state=rows[0]
-        exact(state,{'phase','binding','segment','baseline','call','cleanupTicket'}|({'admissionSha256'} if version>=3 else set())|({'setup'} if version==VERSION else set()))
+        exact(state,{'phase','binding','segment','baseline','call','cleanupTicket'}|({'admissionSha256'} if version>=3 else set())|({'setup'} if version>=4 else set())|({'prepared'} if version>=5 else set()))
         state=deepcopy(state)
         if version>=3:need(same(value['admissionPolicy'],self.policy))
         else:state['admissionSha256']=None
-        if version<VERSION:state['setup']=dict(view='legacy',scene='legacy')
+        if version<4:state['setup']=dict(view='legacy',scene='legacy')
+        if version<5:
+            state['prepared']=(True if state['phase'] in ('prepared','acting','active','switching') else
+                False if state['phase']=='preparing' or 'unissued' in state['setup'].values() else None)
+        need(state['prepared'] is None or type(state['prepared']) is bool)
+        if state['phase'] in ('prepared','acting','active','switching'):need(state['prepared'] is True)
+        if state['prepared'] is False:need(state['call'] is None and state['segment']==0)
+        if state['prepared'] is True:need(state['baseline'] is not None and 'unissued' not in state['setup'].values())
         exact(state['setup'],{'view','scene'});need(all(item in ('unissued','issued','legacy') for item in state['setup'].values())
             and (state['setup']['scene']!='issued' or state['setup']['view']=='issued'))
         context(state['binding']);need(integer(state['segment'],0,MAX_SEGMENTS-1)
@@ -154,7 +161,7 @@ class PhoneEmoteRun:
                 need(not list(self.store.path.parent.glob('phone-emote-*.json')))
                 _ui,_service,binding,guard,_installed=self.adapter.normal_feature_runtime(self.selector,read_only=True)
                 need(guard() is not False)
-                self.state=dict(phase='preparing',binding=deepcopy(context(binding)),segment=0,baseline=None,call=None,cleanupTicket=None,admissionSha256=None,setup=dict(view='unissued',scene='unissued'))
+                self.state=dict(phase='preparing',binding=deepcopy(context(binding)),segment=0,baseline=None,call=None,cleanupTicket=None,admissionSha256=None,setup=dict(view='unissued',scene='unissued'),prepared=False)
                 self.save() # Parent ownership precedes every child request/input.
             if self.state['phase']!='preparing':
                 need(self.state['phase'] in ('prepared','acting','active','switching'));self.admitted();return deepcopy(self.state)
@@ -177,7 +184,7 @@ class PhoneEmoteRun:
             if self.state['setup']['scene']!='issued':self.state['setup']['scene']='issued';self.save()
             scene=self.scene(view);scene.prepare();need(scene.state['phase']=='active')
             need(self.active('baseline')['ticket']==baseline_ticket and source.guard() is not False)
-            self.state['phase']='prepared';self.save();return deepcopy(self.state)
+            self.state.update(phase='prepared',prepared=True);self.save();return deepcopy(self.state)
 
     def act(self,call):
         """Input ownership only; no requested values become feature effects."""

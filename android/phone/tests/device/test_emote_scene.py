@@ -376,15 +376,19 @@ class EmoteSceneTests(unittest.TestCase):
             fresh=m.scene(m.factory());self.assertEqual(proof,fresh.retire_closed(lambda _:None,retained=proof))
 
 
-    def parent_resource_context(self):
+    def parent_resource_context(self,*,scene_issued=True):
         # Exercise the coordinator's production View/Scene call path. Namespace
         # retirement has its independent original-source tests and is doubled
         # only here; the real View/Scene readers and private files remain intact.
         from types import SimpleNamespace
         from overte_phone_emote_retirement import PhoneEmoteRetirement
         from overte_phone_script_history import pack
-        m=self.model;scene=self.closed_ready()
-        originals={scene.store.path.name:deepcopy(scene.previous),m.factory().store.path.name:m.factory().store.read()}
+        m=self.model
+        if scene_issued:
+            scene=self.closed_ready();scene_header=deepcopy(scene.previous)
+        else:
+            view=m.factory();view.prepare();m.cleaning();view.cleanup();scene_header=None
+        originals={'phone-emote-scene.json':scene_header,m.factory().store.path.name:m.factory().store.read()}
         store=PrivateFeatureState(m.root/'unit-resource-handoff.json')
         def get(key):
             header=store.read();return None if header is None else unpack(header['payload'])[0].get(key)
@@ -397,9 +401,12 @@ class EmoteSceneTests(unittest.TestCase):
         owner=object.__new__(PhoneEmoteRetirement)
         owner.run=SimpleNamespace(adapter=m,selector='controlled',phase=m.phase,lock=m.lock,root=m.root,
             extent=[1000,750],marker=[20,20,180,60],monotonic=lambda:m.sdk.clock,sleep=m.scene_sleep)
-        owner.owner_state=dict(cleanupTicket='e'*32);owner.state=dict(attempts=1)
+        owner.owner_state=dict(cleanupTicket='e'*32,setup=dict(view='issued',scene='issued' if scene_issued else 'unissued'))
+        owner.state=dict(attempts=1,mode='observed' if scene_issued else 'setup')
         owner.get,owner.retain,owner.original=get,retain,lambda name:deepcopy(originals[name])
+        owner.file=lambda name:PrivateFeatureState(m.root/name)
         owner.namespace=lambda:SimpleNamespace(retire_closed=namespace_retire)
+        owner.retire_namespace=lambda:namespace_retire(lambda proof:retain('namespace',proof),retained=get('namespace'))
         m.journal.close(RUN);return owner,store
 
     def test_parent_uses_actual_closed_view_scene_readers_and_retains_fresh_originals_after_child_removal(self):
@@ -426,6 +433,19 @@ class EmoteSceneTests(unittest.TestCase):
             with self.assertRaises(NativeUIError):owner.retire_resources()
             self.assertIsNotNone(PrivateFeatureState(m.root/'phone-emote-scene.json').read())
             self.assertIsNotNone(PrivateFeatureState(m.root/'phone-emote-view.json').read());self.assertIsNone(store.read())
+
+
+    def test_parent_partial_view_setup_restores_and_retires_actual_view_without_constructing_scene(self):
+        m=self.model
+        with m.lock.held():
+            owner,store=self.parent_resource_context(scene_issued=False);inputs=deepcopy(m.sdk.inputs)
+            with patch.object(m,'_emote_fixture_observer',side_effect=AssertionError('Unissued Scene factory')):
+                owner.retire_resources()
+            records=unpack(store.read()['payload'])[0]
+            self.assertNotIn('scene',records);self.assertIsNone(records['resources/1']['scene'])
+            self.assertIsNone(PrivateFeatureState(m.root/'phone-emote-view.json').read())
+            self.assertEqual('look at',records['resources/1']['view']['avatar']['source']['cameraMode'])
+            self.assertEqual(inputs,m.sdk.inputs)
 
 
 if __name__=='__main__':unittest.main()

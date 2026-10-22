@@ -28,7 +28,7 @@ from overte_phone_emote_scene import PhoneEmoteScene
 from overte_phone_emote_view import PhoneEmoteView
 from overte_phone_script_history import pack,unpack,same,canonical
 
-VERSION=2
+VERSION=3
 LIMIT=128
 
 
@@ -55,7 +55,7 @@ class PhoneEmoteRetirement:
         _ui,_native,binding,self.guard,_installed=run.adapter.normal_feature_runtime(run.selector,read_only=True)
         need(same(context(binding),self.binding))
         self.state=dict(phase='collecting',items=[],pending=None,attempts=0,verification=None,
-            mode='unissued' if self.owner_state['setup']==dict(view='unissued',scene='unissued') and self.owner_state['call'] is None else 'observed')
+            mode='unissued' if self.owner_state['setup']==dict(view='unissued',scene='unissued') and self.owner_state['call'] is None else 'setup' if self.owner_state.get('prepared') is False and self.owner_state['call'] is None else 'observed')
         self.originals=RetirementOriginals(run.root,self.binding,run.run,'primary',self.bound,self.storage_intent,
             kind='retirement',monotonic=run.monotonic)
         self.names=self.control_names();self.sources={};self.roles={}
@@ -90,15 +90,20 @@ class PhoneEmoteRetirement:
 
     def decode(self,value):
         exact(value,{'emoteRetirementVersion','runId','fixtureUrl','artifactRoot','binding','imagePolicy','runHeader','payload'})
-        need(type(value['emoteRetirementVersion']) is int and value['emoteRetirementVersion'] in (1,VERSION)
+        need(type(value['emoteRetirementVersion']) is int and value['emoteRetirementVersion'] in (1,2,VERSION)
             and value['runId']==self.run.run and value['fixtureUrl']==self.run.fixture_url
             and value['artifactRoot']==str(self.run.root) and same(value['binding'],self.binding)
             and same(value['imagePolicy'],self.policy) and same(value['runHeader'],self.owner))
         records=unpack(value['payload']);need(len(records)==1);state=records[0]
-        exact(state,{'phase','items','pending','attempts','verification'}|({'mode'} if value['emoteRetirementVersion']==2 else set()))
+        exact(state,{'phase','items','pending','attempts','verification'}|({'mode'} if value['emoteRetirementVersion']>=2 else set()))
         state=deepcopy(state)
         if value['emoteRetirementVersion']==1:state['mode']='observed'
-        need(state['mode'] in ('observed','unissued'))
+        need(state['mode'] in ('observed','unissued','setup'))
+        if state['mode']=='setup':need(value['emoteRetirementVersion']>=3 and self.owner_state.get('prepared') is False
+            and self.owner_state['call'] is None and self.owner_state['segment']==0
+            and self.owner_state['baseline'] is not None and self.owner_state['admissionSha256'] is not None
+            and 'issued' in self.owner_state['setup'].values()
+            and all(flag in ('issued','unissued') for flag in self.owner_state['setup'].values()))
         if state['mode']=='unissued':need(self.owner_state['setup']==dict(view='unissued',scene='unissued')
             and self.owner_state['call'] is None and self.owner_state['segment']==0)
         need(state['phase'] in ('collecting','retiring') and type(state['items']) is list and len(state['items'])<=LIMIT
@@ -113,11 +118,12 @@ class PhoneEmoteRetirement:
                 self.originals.original(pending['original']);need(pending['original']['index']==len(keys)+1)
         need(state['verification'] is None or type(state['verification']) is str and state['verification'] in keys)
         if state['verification'] is not None:
-            pattern=r'work/([1-9]|1[0-5])/complete' if state['mode']=='observed' else r'unissued/([1-9]|1[0-5])'
+            pattern=r'work/([1-9]|1[0-5])/complete' if state['mode']!='unissued' else r'unissued/([1-9]|1[0-5])'
             need(re.fullmatch(pattern,state['verification']) is not None)
         if state['phase']=='retiring':
             need(state['verification'] is not None and all('control/'+name in keys for name in self.names)
-                and (state['mode']=='unissued' or all(key in keys for key in ('scene','view','namespace')))
+                and (state['mode']=='unissued' or all(key in keys for key in ('view','namespace'))
+                    and (state['mode']=='setup' and self.owner_state['setup']['scene']=='unissued' or 'scene' in keys))
                 and (pending is None or pending['key'].startswith(('work/','resources/','unissued/'))))
         return deepcopy(state)
 
@@ -279,7 +285,7 @@ class PhoneEmoteRetirement:
         actor=object.__new__(PhoneEmoteActor);actor.run,actor.policy,actor.client=self.shadow_run(),deepcopy(self.policy),self.run.phase.client
         actor.store=self.file('phone-emote-actor-lifecycle.json');actor.previous=self.original(actor.store.path.name);need(actor.previous is not None)
         actor.failed=False;actor.state=actor.decode(actor.previous)
-        if self.state['mode']=='unissued':
+        if self.state['mode'] in ('unissued','setup'):
             need(actor.state['phase']=='unadmitted' and actor.state['pending'] is actor.state['last'] is actor.state['quiet'] is None
                 and not actor.state['dropped']);return actor
         need(actor.state['phase']=='retired' and actor.state['pending'] is None)
@@ -363,11 +369,17 @@ class PhoneEmoteRetirement:
         self.bound()
 
     def validate_unissued(self):
-        self.check_controls();need(self.owner_state['setup']==dict(view='unissued',scene='unissued')
-            and self.owner_state['call'] is None and self.owner_state['segment']==0)
+        self.check_controls();setup=self.state['mode']=='setup'
+        need(self.owner_state['call'] is None and self.owner_state['segment']==0)
+        if setup:need(self.owner_state.get('prepared') is False and self.owner_state['baseline'] is not None
+            and self.owner_state['admissionSha256'] is not None and self.owner_state['setup']['view']=='issued')
+        else:need(self.owner_state['setup']==dict(view='unissued',scene='unissued'))
         for name in self.names:
             allowed={'phone-emote-run.json','phone-emote-primary-sources.json','phone-emote-namespaces.json',
                 'phone-emote-failures.json','phone-emote-actor-lifecycle.json','phone-emote-cleanup-inputs.json'}
+            if setup:
+                allowed.add('phone-emote-primary-lifetime.json')
+                allowed.update('phone-emote-'+kind+'.json' for kind,flag in self.owner_state['setup'].items() if flag=='issued')
             if name not in allowed:need(self.original(name) is None)
         source=self.source();self.validate_failures();actor=self.actor()
         namespace=self.namespace();state=namespace.state
@@ -383,8 +395,11 @@ class PhoneEmoteRetirement:
         baseline=self.owner_state['baseline']
         if baseline is not None:
             PhoneEmoteInputs.original(self.inputs(source),baseline)
-            restored=self.validate_cleanup();need(not restored['current']['intents'])
+            restored=self.validate_cleanup()
+            if setup:need(all(row['kind']=='sdk' and row['controlId']=='tablet.close' for row in restored['current']['intents']))
+            else:need(not restored['current']['intents'])
         else:need(self.original('phone-emote-cleanup-inputs.json') is None)
+        if setup:self.lifetime(self.source())
         self.resources_absent();self.phase();return actor
 
     def unissued_proof(self):
@@ -406,23 +421,45 @@ class PhoneEmoteRetirement:
                 +now*1000-proof['startedMonotonicMs'])<=1500)
         self.bound()
 
+    def retire_namespace(self):
+        if self.state['mode']=='setup':
+            saved=self.get('namespace')
+            if saved is None:
+                saved=dict(emoteSetupNamespaceRetirementVersion=1,header=self.original('phone-emote-namespaces.json'),
+                    runHeader=deepcopy(self.owner),sourceHeader=self.original(source_name('primary',0)),
+                    actorHeader=self.original('phone-emote-actor-lifecycle.json'),provider=self.phase())
+                self.retain('namespace',saved)
+            need(type(saved.get('emoteSetupNamespaceRetirementVersion')) is int and saved['emoteSetupNamespaceRetirementVersion']==1
+                and same(saved['header'],self.original('phone-emote-namespaces.json')) and same(saved['runHeader'],self.owner)
+                and same(saved['sourceHeader'],self.original(source_name('primary',0)))
+                and same(saved['actorHeader'],self.original('phone-emote-actor-lifecycle.json')))
+            self.run.phase.status(saved['provider']);actual=self.file('phone-emote-namespaces.json').read()
+            if actual is not None:need(same(actual,saved['header']));self.file('phone-emote-namespaces.json').discard(actual)
+            need(self.file('phone-emote-namespaces.json').read() is None)
+        else:
+            namespace=self.namespace();saved=self.get('namespace')
+            namespace.retire_closed(lambda proof:self.retain('namespace',proof),retained=saved)
+
     def retire_resources(self):
         view=PhoneEmoteView(self.run.adapter,self.run.selector,self.run.phase,self.run.lock,monotonic=self.run.monotonic,sleep=self.run.sleep)
-        scene=PhoneEmoteScene(view,self.run.root,self.run.extent,self.run.marker,monotonic=self.run.monotonic,sleep=self.run.sleep)
+        scene=(PhoneEmoteScene(view,self.run.root,self.run.extent,self.run.marker,monotonic=self.run.monotonic,sleep=self.run.sleep)
+            if self.owner_state['setup']['scene']=='issued' else None)
         for key,child,name in (('scene',scene,'phone-emote-scene.json'),('view',view,'phone-emote-view.json')):
+            if child is None:need(self.original(name) is None and self.file(name).read() is None);continue
             saved=self.get(key);need(saved is None or same(saved['header'],self.original(name)))
             child.retire_closed(lambda proof:self.retain(key,proof),retained=saved)
-        namespace=self.namespace();saved=self.get('namespace')
-        namespace.retire_closed(lambda proof:self.retain('namespace',proof),retained=saved)
-        # Fresh actual native restoration is required on every attempt, including
-        # historical resource transfers after a lost deletion return.
+        self.retire_namespace()
+        # These are new actual groups, including on an archived child retry.
         view.state=view.decode(self.get('view')['header'])
         fresh=view.read(closed=True);view.restored(view.state['original'],fresh);view.delivery(fresh)
-        scene.state,scene.frames=scene.decode(self.get('scene')['header']);scene.required_phase='cleanup'
-        view_frame=deepcopy(fresh)
-        scene.expected_ticket=self.owner_state['cleanupTicket'];fresh=scene.query('fixture',closed=True);scene.drained(fresh)
-        view.restored(view.state['original'],dict(configuration=fresh['configuration'],avatar=fresh['avatar'],touch=fresh['touch']))
-        self.retain('resources/'+str(self.state['attempts']),dict(view=view_frame,scene=fresh));scene.delivery(fresh)
+        view_frame=deepcopy(fresh);scene_frame=None
+        if scene is not None:
+            scene.state,scene.frames=scene.decode(self.get('scene')['header']);scene.required_phase='cleanup'
+            scene.expected_ticket=self.owner_state['cleanupTicket'];scene_frame=scene.query('fixture',closed=True);scene.drained(scene_frame)
+            view.restored(view.state['original'],dict(configuration=scene_frame['configuration'],avatar=scene_frame['avatar'],touch=scene_frame['touch']))
+        self.retain('resources/'+str(self.state['attempts']),dict(view=view_frame,scene=scene_frame))
+        if scene is not None:scene.delivery(scene_frame)
+        else:view.delivery(view_frame)
 
     def finalize(self):
         self.bound();need(self.started is None);self.started=self.run.monotonic()
@@ -431,7 +468,7 @@ class PhoneEmoteRetirement:
             if self.state['pending'] is not None:
                 pending=deepcopy(self.state['pending']);self.retain(pending['key'],pending['value'])
             unissued=self.state['mode']=='unissued'
-            if unissued:self.validate_unissued()
+            if self.state['mode'] in ('unissued','setup'):self.validate_unissued()
             else:self.validate_controls()
             for name in self.names:self.retain('control/'+name,dict(name=name,value=self.original(name)))
             self.check_controls();need(self.state['attempts']<15);self.state['attempts']+=1;attempt=self.state['attempts'];self.save()

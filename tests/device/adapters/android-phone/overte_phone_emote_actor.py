@@ -185,7 +185,7 @@ class PhoneEmoteActor:
         self.bound()
         setup=self.run.state['setup']
         if self.run.state['call'] is not None or any(value not in ('unissued','issued') for value in setup.values()):return False
-        if self.run.state['baseline'] is not None and self.run.state['admissionSha256'] is not None and setup==dict(view='issued',scene='issued'):return False
+        if self.run.state.get('prepared') is not False and self.run.state['baseline'] is not None and self.run.state['admissionSha256'] is not None and setup==dict(view='issued',scene='issued'):return False
         if self.state['pending'] is not None or self.state['last'] is not None or self.state['quiet'] is not None or self.state['dropped']:return False
         from overte_phone_emote_sources import source_name,MAX_SEGMENTS
         from adapters.owned_world_render import OwnedWorldRenderCapture

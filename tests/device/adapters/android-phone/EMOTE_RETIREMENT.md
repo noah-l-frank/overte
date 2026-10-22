@@ -1,9 +1,9 @@
-# Phone Emote retirement coordinator, version 2
+# Phone Emote retirement coordinator, version 3
 
 `PhoneEmoteRetirement` coordinates the completed-setup cleanup path through the
 existing run, role, source, input, namespace, lifetime, View and Scene components.
-It registers no public capability. Retirement after wholly unissued preparation is also implemented below. Partly
-issued preparation and the public Emote facade still remain to be completed; Phone remains at 3/14 complete
+It registers no public capability. Retirement after wholly unissued or partly issued preparation is also implemented
+below. The public Emote facade still remains to be completed; Phone remains at 3/14 complete
 areas. Native code is uncompiled and every device remains untested.
 
 ## Entry and actual observations
@@ -32,7 +32,7 @@ values, input ACKs and old completed proofs never become fresh measurements.
 
 ## Exact controller and retained records
 
-`phone-emote-retirement.json` contains exactly `emoteRetirementVersion:2`, `runId`,
+`phone-emote-retirement.json` contains exactly `emoteRetirementVersion:3`, `runId`,
 `fixtureUrl`, `artifactRoot`, `binding`, `imagePolicy`, `runHeader`, `payload`.
 `runHeader` is the entire original resources-restored run control, permitting
 recovery after its later removal. Actual current candidate/process/session
@@ -118,8 +118,8 @@ These establish test logic only and do not qualify product behavior or devices.
 ## Wholly unissued preparation, version 2
 
 `mode` is observed or unissued. Existing version-1 controls remain observed after
-original validation, without rewriting or inferring new cleanup success. Only
-version 2 can encode unissued mode. The original Run must have both explicit
+original validation, without rewriting or inferring new cleanup success. Versions
+2 and 3 can encode unissued mode. The original Run must have both explicit
 setup flags unissued, no ordinary call and namespace zero. This path can cover a
 failed first world/source observation, cache admission after a real baseline, or
 an initially open unowned tablet. It invokes no View/Scene preparation or native
@@ -154,5 +154,38 @@ including retry after all child/run controls disappear. A legacy controller,
 new actor scope, unknown journal, failed deletion, changed candidate or missing
 original remains owned and red. These ownership-only results cannot repair the
 failed preparation or supply missing mandatory journey evidence. Partly issued
-setup still requires its actual resource-specific retirement and remains the
-next integration task.
+setup uses the distinct version-3 path below.
+
+
+## Partly issued preparation, version 3
+
+Mode setup requires a version-5 Run with `prepared:false`, namespace zero, no
+ordinary call, an original accepted baseline and admission hash, and an issued
+View. Scene can be issued or explicitly unissued. Legacy unknown completion is
+never interpreted as false. The actual actor must terminate as unadmitted with
+no source, role, lifetime, admission, capture or render ownership; this supplies
+no peer or native quiet verdict.
+
+Run resource cleanup must first complete the actual issued children. Retirement
+then transfers their original headers and acquires their actual closed native
+observations. An explicitly unissued Scene must have no control and its factory
+is never constructed. Each resources/N group contains the actual View and
+actual Scene group, or null only for that verified unissued Scene. Primary's
+completed independent Lifetime quiet window and a new actual final source/work
+observation remain mandatory. No ordinary play or background journal is allowed.
+The cleanup-input original may contain only actual tablet.close intents; wholly
+unissued mode continues to forbid every input intent.
+
+The original zero namespace is retained under namespace as exactly
+`{emoteSetupNamespaceRetirementVersion:1,header,runHeader,sourceHeader,actorHeader,provider}`.
+The preparation namespace validator checks its original primary prefix, cleanup
+ticket, null input digest and absence of pending/complete freezes. This packet
+retains host ownership context and actual inactive provider authority; it does
+not claim peer delivery or native measurements. Native resource/work observations
+and the existing verified deletion/handoff protocol remain separate requirements.
+
+Host cases cover View-only and both-issued setup failures, legacy ambiguity, and
+the real View restoration/retirement path without constructing Scene. Coordinator
+tests explicitly double the resource boundary; the real-reader resource test
+doubles only namespace transfer. These establish orchestration logic, with native
+compilation and all device behavior still unverified.

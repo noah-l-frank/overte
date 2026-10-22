@@ -1,4 +1,4 @@
-# Phone Emote setup and input run owner, version 4
+# Phone Emote setup and input run owner, version 5
 
 `PhoneEmoteRun` joins the existing View, Scene, per-role Source, normal Input,
 Background, Namespace and Cleanup Input components under the same source lock.
@@ -17,11 +17,11 @@ stored unchanged and cannot be replaced on reconstruction. The constructor does
 not open a foreground-only target source, so reconstructing the run while an
 owned background action is interrupted remains possible.
 
-The private control `phone-emote-run.json` contains exactly `emoteRunVersion:4`,
+The private control `phone-emote-run.json` contains exactly `emoteRunVersion:5`,
 `runId`, `fixtureUrl`, `artifactRoot`, `imageExtent`, `markerRoi`,
 `admissionPolicy`, `payload`. Its
 existing bounded packed payload holds one
-`{phase,binding,segment,baseline,call,cleanupTicket,admissionSha256,setup}` state. Binding is the actual
+`{phase,binding,segment,baseline,call,cleanupTicket,admissionSha256,setup,prepared}` state. Binding is the actual
 existing candidate/process/session context. Baseline references an original
 primary frame by revision/hash. Call is an actual normal action or null. Current
 segment retains the existing 0..15 bound. Phases are `preparing`, `prepared`,
@@ -224,3 +224,19 @@ include cache denial before View, failure before any baseline, an initially open
 unowned tablet, interrupted View setup before Scene, ignored View/Scene parent
 intents, unaccounted child controls, forged setup state and conservative legacy
 cleanup. Device compilation and qualification remain unperformed.
+
+
+## Durable preparation completion, version 5
+
+`prepared` is false before any setup request and becomes true only in the same
+commit that enters prepared after both actual child completions and the unchanged
+baseline are verified. Cleanup preserves this fact. False requires namespace zero
+and no ordinary call; an issued flag alone cannot imply completed preparation.
+This permits actual partial View/Scene restoration and retirement after a setup
+failure without inventing a prior actor observation or peer publication.
+
+Versions 1–4 remain readable. Prepared/acting/active/switching phases prove prior
+completion; preparing or an explicit unissued child proves incompletion. Older
+cleanup with both children issued leaves `prepared` null. That unknown history
+cannot borrow the new aborted-setup path and still requires the conservative
+observed retirement checks. Reading never rewrites an original header.
