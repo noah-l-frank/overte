@@ -42,7 +42,7 @@ def fresh(value, epoch):
 
 
 def decode(raw, *, limit=LIMIT):
-    need(type(limit) is int and 1 <= limit <= 1048576
+    need(type(limit) is int and 1 <= limit <= 2097152
          and type(raw) is str and len(raw.encode('utf-8')) <= limit)
     def pairs(items):
         value = {}

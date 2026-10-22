@@ -9,7 +9,7 @@ import sys
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from adapters.native_feature_observation import NativeFeatureObservation, validate, LIMIT
+from adapters.native_feature_observation import NativeFeatureObservation, validate, decode, LIMIT
 from adapters.normal_ui import NativeUIError
 
 
@@ -70,6 +70,16 @@ class Boundary:
 
 
 class NativeFeatureObservationTests(unittest.TestCase):
+    def test_larger_explicit_decoder_ceiling_keeps_default_and_caller_limits_strict(self):
+        raw=json.dumps({'actualOriginal':'x'*1100000})
+        with self.assertRaises(NativeUIError):decode(raw)
+        with self.assertRaises(NativeUIError):decode(raw,limit=1048576)
+        self.assertEqual(1100000,len(decode(raw,limit=2097152)['actualOriginal']))
+        for limit in (True,0,2097153):
+            with self.subTest(limit=limit),self.assertRaises(NativeUIError):decode('{}',limit=limit)
+        for raw in ('{"a":1,"a":2}','{"a":NaN}','{"a":"'+'x'*2097152+'"}'):
+            with self.assertRaises(NativeUIError):decode(raw,limit=2097152)
+
     @staticmethod
     def recorded(value):
         value['audio']['recordedVoice'] = dict(active=True, capturedBytes=4000, playedBytes=0,
