@@ -20,6 +20,9 @@
 
 #include <AssetClient.h>
 #include <memory>
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PHONE_INTERFACE)
+#include "../../../tests/device/native/AssetsUploadOriginals.h"
+#endif
 #include <QSortFilterProxyModel>
 
 #include "DependencyManager.h"
@@ -68,6 +71,10 @@ class AssetMappingsScriptingInterface : public QObject, public Dependency {
     Q_PROPERTY(QAbstractProxyModel* proxyModel READ getProxyModel CONSTANT)
 public:
     AssetMappingsScriptingInterface();
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PHONE_INTERFACE)
+    QVariantMap e2eBundleOriginals(const QString& run) const { return _e2eBundles->observe(run); }
+    QVariantMap e2eReleaseBundleOriginals(const QString& run,const QString& instance,const QStringList& ids) { return _e2eBundles->release(run,instance,ids); }
+#endif
 
     Q_INVOKABLE AssetMappingModel* getAssetMappingModel() { return &_assetMappingModel; }
     Q_INVOKABLE QAbstractProxyModel* getProxyModel() { return &_proxyModel; }
@@ -90,6 +97,9 @@ public:
     Q_INVOKABLE void sortProxyModel(int column, Qt::SortOrder order = Qt::AscendingOrder);
 
 private:
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PHONE_INTERFACE)
+    std::shared_ptr<overte::e2e::AssetsUploadOriginals> _e2eBundles=std::make_shared<overte::e2e::AssetsUploadOriginals>();
+#endif
     struct BundleUpload;
     QHash<QString, std::shared_ptr<BundleUpload>> _bundleUploads;
     void advanceBundle(const std::shared_ptr<BundleUpload>& state);

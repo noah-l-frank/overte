@@ -80,6 +80,7 @@
 #include <AssetClient.h>
 #include <AssetRequest.h>
 #include <MappingRequest.h>
+#include "AssetMappingsScriptingInterface.h"
 #include "../../../tests/device/native/PhoneCreateObservation.h"
 #include "../../../tests/device/native/PrivateCreateFiles.h"
 #include "ui/Snapshot.h"
@@ -1416,6 +1417,40 @@ QVariantMap TestScriptingInterface::phoneAssetsFiles(const QVariantMap& command)
         {"sequence",static_cast<qulonglong>(++_phoneAssetsFilesSequence)},
         {"processId",QCoreApplication::applicationPid()},{"requestedEpochMs",requested},
         {"capturedEpochMs",QDateTime::currentMSecsSinceEpoch()},{"source",source}};
+}
+
+QVariantMap TestScriptingInterface::phoneAssetsUploads(const QVariantMap& command) {
+    if (QThread::currentThread()!=thread()) {
+        QVariantMap result;if (!QMetaObject::invokeMethod(this,[&] { result=phoneAssetsUploads(command); },Qt::BlockingQueuedConnection)) { return {}; }return result;
+    }
+    const auto json=QJsonObject::fromVariantMap(command);const auto operation=command.value("operation").toString();
+    const bool release=operation=="release";QStringList fields{"schemaVersion","commandId","action","operation","runId"};
+    if (release) { fields.append("instance");fields.append("bundleIds"); }fields.sort();
+    const QRegularExpression nonce("\\A[0-9a-f]{32}\\z");
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript") || !DependencyManager::isSet<AssetMappingsScriptingInterface>()
+            || _phoneAssetsUploadsSequence>=1000000000 || command.keys()!=fields || json.value("schemaVersion")!=QJsonValue(1)
+            || !json.value("commandId").isString() || !nonce.match(command.value("commandId").toString()).hasMatch()
+            || !json.value("runId").isString() || !nonce.match(command.value("runId").toString()).hasMatch()
+            || command.value("commandId").toString()==QString(32,'0') || command.value("runId").toString()==QString(32,'0')
+            || command.value("action")!="phone-assets-uploads" || (operation!="observe" && !release)) { return {}; }
+    const auto requested=QDateTime::currentMSecsSinceEpoch();const auto assets=DependencyManager::get<AssetMappingsScriptingInterface>();
+    const auto run=command.value("runId").toString();QVariantMap source;
+    if (!release) { source=assets->e2eBundleOriginals(run); }
+    else {
+        if (!json.value("instance").isString() || !nonce.match(command.value("instance").toString()).hasMatch()
+                || !json.value("bundleIds").isArray() || json.value("bundleIds").toArray().size()>64) { return {}; }
+        QStringList ids;
+        for (const auto& value:json.value("bundleIds").toArray()) {
+            const auto id=value.toString();const QUuid uuid(id);
+            if (!value.isString() || uuid.isNull() || uuid.toString(QUuid::WithoutBraces)!=id || (!ids.isEmpty() && id<=ids.last())) { return {}; }ids.append(id);
+        }
+        source=assets->e2eReleaseBundleOriginals(run,command.value("instance").toString(),ids);
+    }
+    if (source.isEmpty()) { return {}; }
+    return {{"schemaVersion",1},{"requestId",command.value("commandId")},{"runId",run},{"operation",operation},
+        {"instance",_featureObservationInstance},{"sequence",static_cast<qulonglong>(++_phoneAssetsUploadsSequence)},
+        {"processId",QCoreApplication::applicationPid()},{"requestedEpochMs",requested},{"capturedEpochMs",QDateTime::currentMSecsSinceEpoch()},{"source",source}};
 }
 
 QVariantMap TestScriptingInterface::phoneAssetsRead(const QVariantMap& command,bool abort) {

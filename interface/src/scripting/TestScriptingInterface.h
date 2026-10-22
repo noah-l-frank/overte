@@ -184,6 +184,7 @@ public slots:
     Q_INVOKABLE QVariantMap phoneAssetsUi(const QVariantMap& command);
     Q_INVOKABLE QVariantMap phoneCreateUi(const QVariantMap& command);
     Q_INVOKABLE QVariantMap phoneAssetsFiles(const QVariantMap& command);
+    Q_INVOKABLE QVariantMap phoneAssetsUploads(const QVariantMap& command);
     Q_INVOKABLE QVariantMap phoneAssetsRead(const QVariantMap& command, bool abort=false);
     Q_INVOKABLE QVariantMap phoneCreateObservation(const QVariantMap& command);
     Q_INVOKABLE QVariantMap phoneSnapshotObservation(const QVariantMap& command);
@@ -294,6 +295,7 @@ private:
     std::shared_ptr<overte::e2e::AssetsUi> _phoneAssetsUi;
     quint64 _phoneAssetsFilesSequence {0};
     std::shared_ptr<overte::e2e::PrivateAssetsFiles> _phoneAssetsFiles;
+    quint64 _phoneAssetsUploadsSequence { 0 };
     quint64 _phoneAssetsReadSequence {0};
     std::shared_ptr<overte::e2e::PhoneAssetsReadJob> _phoneAssetsRead;
     quint64 _phoneCreateObservationSequence {0};

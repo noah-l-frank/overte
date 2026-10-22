@@ -65,6 +65,28 @@ being older than 1.5 seconds. A fresh capture alone cannot qualify an old reader
 from a different URL/hash/generation. Missing reader originals remain red for
 Assets, even though existing Create readers can still read their legacy schema.
 
+## Passive normal upload originals
+
+The normal `uploadBundle` path now retains bounded E2E-only receipts of the
+actual file list, destination, bundle UUID and original Domain/session/Asset
+Server identity. Actual AssetUpload and SetMappingRequest finished signals copy
+body digest/length, filename digest, returned hash, path and error on their
+network owner thread through a DirectConnection. A mutex protects complete
+snapshots. Separate actual QObject-destroyed signals supply request retirement;
+missing, null, replaced or destroyed-without-finished requests fail closed.
+
+These receipts establish no mapping effect by themselves. Ownership still needs
+fresh independent GetAll/GetMapping effects and original private file identity.
+Exact instance/bundle IDs can retire only terminal, actually destroyed receipts.
+A bounded retired-run fence prevents reopening; late events invalidate it.
+
+The existing product upload callbacks connect `deleteLater` before a queued GUI
+callback dereferences the network-owned request. This potential lifetime/thread
+issue is deliberately unchanged. The host contract compiles actual passive
+hooks and runs real Qt threads, but substitutes network endpoints and does not
+execute or qualify those normal callbacks. Neither a live upload nor a product
+PASS follows from this contract test.
+
 ## Actual private inputs
 
 `phone-assets-files` exclusively stages the seven original glTF/OBJ/FBX bundle
@@ -140,6 +162,8 @@ native dispatch range to 0 through 10; this isolated base has only 0 through 9.
 ## Host verification and remaining composition
 
 ```sh
+python3 android/phone/tests/device/test_assets_upload_originals.py
+python3 android/phone/tests/device/test_assets_uploads.py
 python3 android/phone/tests/device/test_assets_geometry_input.py
 python3 android/phone/tests/device/test_assets_native_ui.py
 python3 android/phone/tests/device/test_assets_controls.py

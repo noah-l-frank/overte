@@ -34,6 +34,15 @@
 
 static const int AUTO_REFRESH_INTERVAL = 1000;
 
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PHONE_INTERFACE)
+static QVariantMap assetsOriginalConnection() {
+    const auto nodes=DependencyManager::get<NodeList>();const auto server=nodes->soloNodeOfType(NodeType::AssetServer);
+    return {{"domainId",nodes->getDomainHandler().getUUID().toString(QUuid::WithoutBraces)},
+        {"sessionId",nodes->getSessionUUID().toString(QUuid::WithoutBraces)},
+        {"assetServerId",server ? server->getUUID().toString(QUuid::WithoutBraces) : QString()}};
+}
+#endif
+
 int assetMappingModelMetatypeId = qRegisterMetaType<AssetMappingModel*>("AssetMappingModel*");
 
 AssetMappingsScriptingInterface::AssetMappingsScriptingInterface() {
@@ -170,6 +179,9 @@ QString AssetMappingsScriptingInterface::uploadBundle(QStringList paths, QString
     if (!destination.endsWith('/')) destination.append('/');
     state->destination = destination;
     _bundleUploads.insert(state->id, state);
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PHONE_INTERFACE)
+    _e2eBundles->begin(state->id,state->files,state->relative,state->destination,state->primary,assetsOriginalConnection());
+#endif
     QTimer::singleShot(0, this, [this, state] {
         QList<QUrl> files;
         for (const auto& path : state->files) files.append(QUrl::fromLocalFile(path));
@@ -221,6 +233,9 @@ bool AssetMappingsScriptingInterface::cancelUploadBundle(const QString& requestI
 
 void AssetMappingsScriptingInterface::finishBundle(const std::shared_ptr<BundleUpload>& state, const QString& error) {
     if (!_bundleUploads.remove(state->id)) return;
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PHONE_INTERFACE)
+    _e2eBundles->end(state->id,error);
+#endif
     if (state->completed.isCallable()) {
         QJsonArray paths;
         for (const auto& path : state->published) paths.append(path);
@@ -243,6 +258,15 @@ void AssetMappingsScriptingInterface::advanceBundle(const std::shared_ptr<Bundle
     if (!DependencyManager::get<NodeList>()->getThisNodeCanWriteAssets()) { finishBundle(state, "Asset write permission was revoked."); return; }
     if (!state->publishing) {
         auto* upload = DependencyManager::get<AssetClient>()->createUpload(state->files[state->index]);
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PHONE_INTERFACE)
+        const auto originals=_e2eBundles;const auto id=state->id;const auto instance=originals->issue(id,"upload",assetsOriginalConnection());
+        if (!instance.isEmpty()) {
+            connect(upload,&AssetUpload::finished,upload,[originals,id,instance,upload](AssetUpload* actual,const QString& hash) {
+                auto value=actual && actual==upload ? actual->e2eOriginalUpload() : QVariantMap();if (!value.isEmpty()) { value["returnedHash"]=hash; }originals->finished(id,instance,value);
+            },Qt::DirectConnection);
+            connect(upload,&QObject::destroyed,[originals,id,instance] { originals->destroyed(id,instance); });
+        }
+#endif
         connect(upload, &AssetUpload::finished, upload, &QObject::deleteLater);
         connect(upload, &AssetUpload::finished, this, [this, state](AssetUpload* upload, const QString& hash) {
             const auto error = upload->getErrorString();
@@ -257,6 +281,16 @@ void AssetMappingsScriptingInterface::advanceBundle(const std::shared_ptr<Bundle
         // Recheck local mapping knowledge immediately before publishing. Remote races remain server-authoritative.
         if (isKnownMapping(mapping)) { finishBundle(state, "An asset mapping appeared while uploading; it was not overwritten."); return; }
         auto* request = DependencyManager::get<AssetClient>()->createSetMappingRequest(mapping, state->hashes[state->index]);
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PHONE_INTERFACE)
+        const auto originals=_e2eBundles;const auto id=state->id;const auto instance=originals->issue(id,"mapping",assetsOriginalConnection());
+        if (!instance.isEmpty()) {
+            connect(request,&SetMappingRequest::finished,request,[originals,id,instance,request](SetMappingRequest* actual) {
+                const auto value=actual && actual==request && QThread::currentThread()==actual->thread() ? QVariantMap{{"path",actual->getPath()},{"hash",actual->getHash()},{"errorCode",int(actual->getError())}} : QVariantMap();
+                originals->finished(id,instance,value);
+            },Qt::DirectConnection);
+            connect(request,&QObject::destroyed,[originals,id,instance] { originals->destroyed(id,instance); });
+        }
+#endif
         connect(request, &SetMappingRequest::finished, request, &QObject::deleteLater);
         connect(request, &SetMappingRequest::finished, this, [this, state](SetMappingRequest* request) {
             const auto error = request->getErrorString();

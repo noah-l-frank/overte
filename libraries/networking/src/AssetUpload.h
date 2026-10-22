@@ -17,6 +17,9 @@
 #include <QtCore/QObject>
 
 #include <cstdint>
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+#include <QVariantMap>
+#endif
 
 // You should be able to upload an asset from any thread, and handle the responses in a safe way
 // on your own thread. Everything should happen on AssetClient's thread, the caller should
@@ -46,6 +49,9 @@ public:
     const QString& getFilename() const { return _filename; }
     const Error& getError() const { return _error; }
     QString getErrorString() const;
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    QVariantMap e2eOriginalUpload() const;
+#endif
     
 signals:
     void finished(AssetUpload* upload, const QString& hash);

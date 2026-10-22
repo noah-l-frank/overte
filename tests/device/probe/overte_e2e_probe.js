@@ -275,6 +275,17 @@
         if (request.action === "scroll") { return request.controlId === "snapshot.scrollbar" && (request.direction === "up" || request.direction === "down"); }
         return /^(?:tablet\.(?:home|page\.(?:[1-9]|[12][0-9]|3[0-2]))|snapshot\.(?:entry|name|mode|format|capture|cancel-capture|cancel-upload|cancel-export|(?:save|share|upload)\.[0-9a-f]{64}))$/.test(request.controlId);
     }
+    var lastPhoneAssetsUploadsRequest = "";
+    function validPhoneAssetsUploads(c) {
+        if (!c || c.schemaVersion !== 1 || c.action !== "phone-assets-uploads" || !phoneChatNonce(c.commandId) || !phoneChatNonce(c.runId)) { return false; }
+        if (c.operation === "observe") { return objectKeysMatch(c,["schemaVersion","commandId","action","operation","runId"]); }
+        if (c.operation !== "release" || !objectKeysMatch(c,["schemaVersion","commandId","action","operation","runId","instance","bundleIds"])
+                || !phoneChatNonce(c.instance) || !Array.isArray(c.bundleIds) || c.bundleIds.length > 64) { return false; }
+        var previous="";return c.bundleIds.every(function(id){
+            var valid=typeof id === "string" && /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(id)
+                && id !== "00000000-0000-0000-0000-000000000000" && id > previous;previous=id;return valid;
+        });
+    }
     var lastPhoneAssetsUiRequest = "";
     function validPhoneAssetsUiRequest(request) {
         if (!request || request.schemaVersion !== 1 || !phoneChatNonce(request.commandId)) { return false; }
@@ -1406,6 +1417,18 @@
             }
             return;
         }
+        if (validPhoneAssetsUploads(command)) {
+            if (command.commandId === lastPhoneAssetsUploadsRequest) { return; }
+            lastPhoneAssetsUploadsRequest=command.commandId;
+            var assetsUploads={schemaVersion:1,requestId:command.commandId,available:false};
+            try {
+                if (typeof Test.phoneAssetsUploads === "function") {
+                    var originalUploads=Test.phoneAssetsUploads(command);
+                    if (originalUploads && originalUploads.requestId === command.commandId) { assetsUploads=originalUploads; }
+                }
+            } catch (_assetsUploadsError) { /* No callback receipt alone supplies a mapping effect. */ }
+            Test.saveObject(assetsUploads,"phone-assets-uploads.json");return;
+        }
         if (command && command.action === "phone-assets-ui") {
             if (command.schemaVersion === 1 && phoneChatNonce(command.commandId)
                     && objectKeysMatch(command,["schemaVersion","commandId","action","request"])
@@ -2533,7 +2556,7 @@
                 || command.action === "phone-create-fixture-observe" || command.action === "phone-create-fixture-input"
                 || command.action === "feature-avatar-render-observe" || command.action === "feature-world-model-draws-observe"
                 || command.action === "feature-scene-load-observe"
-                || command.action === "feature-script-files" || command.action === "phone-create-files" || command.action === "phone-assets-files")) {
+                || command.action === "feature-script-files" || command.action === "phone-create-files" || command.action === "phone-assets-files" || command.action === "phone-assets-uploads")) {
             // Android's existing private channel is separate from the HTTP
             // fixture command endpoint. Reuse the closed native feature path.
             applyClientCommand(command);
