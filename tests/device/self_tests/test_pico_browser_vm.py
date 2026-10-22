@@ -181,5 +181,17 @@ class PicoBrowserVmTests(unittest.TestCase):
         chunk.unlink();directory.rmdir();directory.symlink_to(fixture.fixture.root,target_is_directory=True)
         with self.assertRaises((ValueError,RuntimeError)):retained(adapter,target)
 
+    def test_actual_generic_cleanup_keeps_original_browser_capture_owner_without_parent_feature(self):
+        root=Path(__file__).resolve().parents[3];sys.path.insert(0,str(root/'android/vr/pico/tests/device'))
+        import test_native_execution_binding as native
+        fixture=native.NativeExecutionBindingTest();fixture.setUp();self.addCleanup(fixture.doCleanups)
+        fixture.navigation_setup();adapter=fixture.instance();target=fixture.fake.target
+        original=dict(original='uncertain-original-browser-native-image-and-receipt-owner')
+        stores=[adapter._browser_world_render_store(target,role) for role in ('primary','actor')]
+        for store in stores:store.write(original,None)
+        with self.assertRaises((ValueError,RuntimeError)):adapter.cleanup(target)
+        self.assertFalse(fixture.fake.running)
+        for store in stores:self.assertEqual(original,store.read())
+
 
 if __name__=='__main__':unittest.main()

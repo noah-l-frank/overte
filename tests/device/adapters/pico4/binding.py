@@ -2569,6 +2569,8 @@ def create_adapter(args, base_class):
                 if self.pico_configuration is not None:
                     from adapters.pico4.tablet_web_binding import retained
                     if retained(self,target):feature_error=True
+                    if any(self._browser_world_render_store(target,role).read() is not None for role in ('primary','actor')):
+                        feature_error=True
             except Exception:
                 feature_error=True
             create_error = False

@@ -78,3 +78,11 @@ A generated challenge card is an analytical fixture image, not an actual HMD
 frame. No monoscopic fallback or public capability is added. Five stereo-prefix
 and input/state/cleanup flow cases pass8.643s. Full26 Journey/actor/stereo
 execution and final archive remain the next work.
+
+
+Generic canonical cleanup now also checks the separate primary/actor browser
+world-render owners, even if their enclosing feature namespace is absent.
+The actual synthetic-SDK canonical cleanup regression passes1.312s: allowed
+force-stop completes, cleanup still refuses, and both original uncertain
+capture/receipt records remain unchanged. This is retained ownership, not a
+fresh capture absence proof or finalization.
