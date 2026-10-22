@@ -238,12 +238,12 @@
                 || !/^[0-9a-f]{32}$/.test(String(request.controlToken))
                 || !phoneFileInteger(request.sequence,1,9007199254740991)
                 || !phoneFileInteger(request.observedElapsedMs,0,9007199254740991) || typeof request.controlId !== "string") { return false; }
-        var field=/^create\.(?:name|resource|import-url|filter|textures|field\.(?:(?:position|rotation|dimensions)\.[xyz]|color\.(?:red|green|blue)))$/.test(request.controlId);
-        var choice=/^create\.(?:host|import-host|shape)$/.test(request.controlId);
+        var field=/^(?:create-file\.name|create\.(?:name|resource|import-url|filter|textures|property-filter|voxel-diameter|voxel-reach|field\.(?:(?:position|rotation|dimensions)\.[xyz]|color\.(?:red|green|blue))))$/.test(request.controlId);
+        var choice=/^create\.(?:host|import-host|shape|edit-mode|voxel-shape|voxel-dynamics|voxel-pointer)$/.test(request.controlId);
         if (request.action === "replace") { return field && typeof request.text === "string" && /^[\x20-\x7e]{0,4096}$/.test(request.text); }
-        if (request.action === "select-index") { return choice && phoneFileInteger(request.index,0,request.controlId === "create.shape" ? 5 : 1); }
+        if (request.action === "select-index") { return choice && phoneFileInteger(request.index,0,request.controlId === "create.shape" ? 5 : request.controlId === "create.voxel-shape" ? 2 : 1); }
         if (request.action === "scroll") { return request.controlId === "create.scrollbar" && (request.direction === "up" || request.direction === "down"); }
-        return field || choice || /^(?:tablet\.(?:home|page\.(?:[1-9]|[12][0-9]|3[0-2]))|create\.(?:entry|new-shape|new-model|new-voxel|refresh|apply|delete|undo|redo|import-submit|import-browse|apply-typed|export|tab\.[0-4]))$/.test(request.controlId)
+        return field || choice || /^(?:tablet\.(?:home|page\.(?:[1-9]|[12][0-9]|3[0-2]))|create\.(?:entry|new-shape|new-model|new-voxel|refresh|apply|delete|undo|redo|import-submit|import-browse|apply-typed|export|voxel-remove|voxel-apply|tab\.[0-4])|create-file\.(?:accept|cancel))$/.test(request.controlId)
             || (/^create\.entity\.[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(request.controlId)
                 && request.controlId !== "create.entity.00000000-0000-0000-0000-000000000000");
     }
@@ -316,6 +316,7 @@
     var scriptWorkTimer = null;
     var lastProcessPresenceRequest = "";
     var lastGraphicsSubjectRequest = "";
+    var lastPhoneCreateObservationRequest = "";
     var lastAvatarRenderRequest = "";
     var lastWorldModelDrawsRequest = "";
     var lastSceneLoadRequest = "";
@@ -1728,6 +1729,22 @@
             Test.saveObject(sceneLoad, "feature-scene-load.json");
             return;
         }
+        if (command && command.schemaVersion === 1 && /^[0-9a-f]{32}$/.test(String(command.commandId))
+                && /^[0-9a-f]{32}$/.test(String(command.runId)) && command.action === "phone-create-observe"
+                && objectKeysMatch(command, ["schemaVersion", "commandId", "action", "runId", "trackedIds"])
+                && Array.isArray(command.trackedIds) && command.trackedIds.length <= 32) {
+            if (command.commandId === lastPhoneCreateObservationRequest) { return; }
+            lastPhoneCreateObservationRequest = command.commandId;
+            var createOriginal = {schemaVersion: 1, requestId: command.commandId, available: false};
+            try {
+                if (typeof Test.phoneCreateObservation === "function") {
+                    var actualCreate = Test.phoneCreateObservation(command);
+                    if (actualCreate && actualCreate.requestId === command.commandId) { createOriginal = actualCreate; }
+                }
+            } catch (_createObservationError) { /* Missing originals remain unavailable. */ }
+            Test.saveObject(createOriginal, "phone-create-observation.json");
+            return;
+        }
         if (command && command.schemaVersion === 1
                 && /^(?:ios-)?[0-9a-f]{32}$/.test(String(command.commandId))
                 && /^[0-9a-f]{32}$/.test(String(command.runId))
@@ -2102,7 +2119,7 @@
                 || command.action === "feature-world-render-observe" || command.action === "feature-world-render-storage"
                 || command.action === "feature-world-render-receipt"
                 || command.action === "feature-world-render-receipts"
-                || command.action === "feature-graphics-subject-observe"
+                || command.action === "feature-graphics-subject-observe" || command.action === "phone-create-observe"
                 || command.action === "phone-avatar-configuration-observe" || command.action === "phone-touch-state-observe"
                 || command.action === "phone-emote-fixture-observe" || command.action === "phone-emote-fixture-input"
                 || command.action === "feature-avatar-render-observe" || command.action === "feature-world-model-draws-observe"

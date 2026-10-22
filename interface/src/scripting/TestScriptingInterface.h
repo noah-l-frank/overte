@@ -178,6 +178,7 @@ public slots:
     Q_INVOKABLE QVariantMap phoneGraphicsUi(const QVariantMap& command);
     Q_INVOKABLE QVariantMap phoneEmoteUi(const QVariantMap& command);
     Q_INVOKABLE QVariantMap phoneCreateUi(const QVariantMap& command);
+    Q_INVOKABLE QVariantMap phoneCreateObservation(const QVariantMap& command);
     Q_INVOKABLE QVariantMap phoneChatUi(const QVariantMap& command);
     Q_INVOKABLE QVariantMap phoneLoginUi(const QVariantMap& command);
     Q_INVOKABLE QVariantMap phoneReadFeatureCommand();
@@ -268,6 +269,7 @@ private:
     std::shared_ptr<overte::e2e::EmoteUi> _phoneEmoteUi;
     std::shared_ptr<overte::e2e::LoginUi> _phoneLoginUi;
     std::shared_ptr<overte::e2e::CreateUi> _phoneCreateUi;
+    quint64 _phoneCreateObservationSequence {0};
     std::shared_ptr<overte::e2e::ChatUi> _phoneChatUi;
 #endif
     QSet<QUuid> _featureScriptEffectIds;

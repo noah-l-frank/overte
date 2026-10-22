@@ -205,6 +205,14 @@ parent proof before metadata removal. Complete current input/Rig/image/actor
 and whole-feature registration/retirement remain open. Full count stays 3/14;
 native instrumentation is uncompiled and all devices remain unqualified.
 
+The [Create input/original-source packet](CREATE_FEATURE.md) now binds real
+JSON Browse/Save and Voxel tool widgets, supplies fixed normal-import PolyVox
+input bytes, and reads actual native entity/permission/saved-voxel facts. Its
+passive UI source is Qt6-compiled against unchanged product QML; the new entity
+source and Android integration remain uncompiled/device-untested. Public
+Create ownership, render/file/permission/actor and whole-run retirement are
+still incomplete. No complete Create capability or area count is promoted.
+
 ## Historical component packets
 
 Graphics now has source-only [same-view render-batch provenance](../../native/WORLD_RENDER_ACQUISITION.md)

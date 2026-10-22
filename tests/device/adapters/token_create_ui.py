@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
 import math
+import json
 import re
 import time
 from adapters.native_feature_observation import exact,integer,need
@@ -14,7 +15,10 @@ NONCE=r'(?:[0-9a-f]{32}|'+UUID+r')'
 FIXED={'create.page','create.entry','create.host','create.import-host','create.resource','create.new-shape',
        'create.new-model','create.new-voxel','create.refresh','create.name','create.apply','create.delete',
        'create.undo','create.redo','create.import-url','create.import-submit','create.import-browse',
-       'create.apply-typed','create.export','create.shape','create.filter','create.textures','create.scrollbar'}
+       'create.apply-typed','create.export','create.shape','create.filter','create.textures','create.scrollbar',
+       'create.edit-mode','create.voxel-shape','create.voxel-remove','create.voxel-dynamics','create.voxel-pointer',
+       'create.voxel-diameter','create.voxel-reach','create.voxel-apply','create.property-filter',
+       'create-file.name','create-file.accept','create-file.cancel'}
 
 
 def nonce(value):
@@ -34,10 +38,26 @@ def control_id(identifier):
 
 
 def field(identifier):
-    return identifier in {'create.name','create.resource','create.import-url','create.filter','create.textures'} or identifier.startswith('create.field.')
+    return identifier in {'create.name','create.resource','create.import-url','create.filter','create.textures',
+                          'create.voxel-diameter','create.voxel-reach','create-file.name','create.property-filter'} or identifier.startswith('create.field.')
 
 
-def choice(identifier):return identifier in {'create.host','create.import-host','create.shape'}
+CHOICES={'create.host':2,'create.import-host':2,'create.shape':6,'create.edit-mode':2,
+         'create.voxel-shape':3,'create.voxel-dynamics':2,'create.voxel-pointer':2}
+
+def choice(identifier):return identifier in CHOICES
+
+
+def picker(value):
+    exact(value,{'caption','save','directory','error','closing','pendingDocuments'})
+    need(value['caption'] in ('Select .json to Import','Select Where to Save')
+         and type(value['save']) is bool and value['save']==(value['caption']=='Select Where to Save')
+         and type(value['closing']) is bool and type(value['pendingDocuments']) is bool
+         and type(value['directory']) is str and len(value['directory'])<=4096
+         and type(value['error']) is str and len(value['error'])<=4096)
+    from adapters.token_script_file_ui import file_url
+    file_url(value['directory'])
+    return value
 
 
 def ascii_text(value):
@@ -75,10 +95,16 @@ def metadata(row):
         exact(row,base|{'position','size'})
         need(all(type(row[k]) in (int,float) and math.isfinite(row[k]) for k in ('position','size'))
              and 0<=row['position']<=1 and 0<row['size']<=1 and row['position']+row['size']<=1.000001)
+    elif identifier.startswith('create-file.'):
+        exact(row,base|{'picker'}|({'text'} if identifier=='create-file.name' else set()))
+        picker(row['picker'])
+        if identifier=='create-file.name':ascii_text(row['text'])
+    elif identifier=='create.voxel-remove':
+        exact(row,base|{'checked'});need(type(row['checked']) is bool)
     elif field(identifier):exact(row,base|{'text'});ascii_text(row['text'])
     elif choice(identifier):
         exact(row,base|{'currentIndex','count'})
-        need(integer(row['currentIndex']) and type(row['count']) is int and row['count']==(6 if identifier=='create.shape' else 2)
+        need(integer(row['currentIndex']) and type(row['count']) is int and row['count']==CHOICES[identifier]
              and row['currentIndex']<row['count'])
     elif identifier.startswith('create.entity.'):
         exact(row,base|{'entityId'});need(row['entityId']==identifier[len('create.entity.'):])
@@ -244,3 +270,84 @@ class TokenCreateUI:
         from create_observation import owned_url
         owned_url(url,{'entities.json'});self.tab(4);self.choose('create.import-host',1)
         self.replace('create.import-url',url);self.reveal('create.import-submit');self.input('create.import-submit')
+
+
+    def new_entity(self,kind,*,host='domain',resource=None):
+        """Deliver an ordinary creation click; return its original UI selection.
+
+        The owner must record the native pre-input ID inventory before calling
+        this method and independently acquire/own the actual new entity.
+        """
+        need(kind in ('model','voxel','cube') and host in ('domain','avatar'))
+        if kind=='model':
+            need(type(resource) is str and bool(resource));ascii_text(resource)
+        else:need(resource is None)
+        self.tab(0);self.choose('create.host',0 if host=='domain' else 1)
+        if kind=='cube':self.choose('create.shape',0)
+        if resource is not None:self.replace('create.resource',resource)
+        identifier={'cube':'create.new-shape','model':'create.new-model','voxel':'create.new-voxel'}[kind]
+        before=set(self.page(self.capture())['selectedIds']);self.reveal(identifier);self.input(identifier)
+        value=self.wait(lambda current:self.page(current)['tab']==2 and len(self.page(current)['selectedIds'])==1
+                        and self.page(current)['selectedIds'][0] not in before)
+        return list(self.page(value)['selectedIds'])
+
+    def edit_transform(self,*,position=None,dimensions=None):
+        need(position is not None or dimensions is not None)
+        for group,values in (('position',position),('dimensions',dimensions)):
+            if values is None:continue
+            need(type(values) is dict and set(values)=={'x','y','z'} and all(type(v) in (int,float)
+                 and math.isfinite(v) and (-1000000<=v<=1000000 if group=='position' else .01<=v<=10) for v in values.values()))
+            for component,value in values.items():self.replace('create.field.'+group+'.'+component,str(value))
+        self.reveal('create.apply');self.input('create.apply')
+
+    def texture(self,url):
+        need(type(url) is str and bool(url));ascii_text(url)
+        self.replace('create.property-filter','textures')
+        self.replace('create.textures',json.dumps({'checker.png':url},separators=(',',':')))
+        self.reveal('create.apply-typed');self.input('create.apply-typed')
+
+    @staticmethod
+    def file_picker(value):
+        rows=[row['picker'] for row in value['controls'] if row['id'].startswith('create-file.')]
+        need(not rows or all(item==rows[0] for item in rows))
+        return rows[0] if rows else None
+
+    def open_import_picker(self):
+        need(self.file_picker(self.capture()) is None)
+        self.tab(4);self.choose('create.import-host',0);self.reveal('create.import-browse');self.input('create.import-browse')
+        return self.wait(lambda value:bool(self.file_picker(value) and not self.file_picker(value)['save']))
+
+    def cancel_import_picker(self):
+        original=self.file_picker(self.capture());need(original is not None and not original['save'])
+        self.input('create-file.cancel');return self.wait(lambda value:self.file_picker(value) is None)
+
+    def accept_import_picker(self,path):
+        leaf=path.rsplit('/',1)[-1] if type(path) is str else None
+        need(leaf in ('entity-import.json','voxel-import.json'))
+        self._owned_file_path(path,leaf)
+        original=self.file_picker(self.capture());need(original is not None and not original['save'])
+        self.replace('create-file.name',path);self.input('create-file.accept')
+        return self.wait(lambda value:self.file_picker(value) is None)
+
+    @staticmethod
+    def _owned_file_path(path,leaf):
+        ascii_text(path)
+        need(type(path) is str and re.fullmatch(r'/(?:[^/]+/)*feature-create-[0-9a-f]{32}/'+re.escape(leaf),path)
+             and not any(part in ('.','..') for part in path.split('/')))
+
+    def export_selection(self,path):
+        self._owned_file_path(path,'selection.json')
+        need(len(self.page(self.capture())['selectedIds'])==1 and self.file_picker(self.capture()) is None)
+        self.tab(3);self.reveal('create.export');self.input('create.export')
+        self.wait(lambda value:bool(self.file_picker(value) and self.file_picker(value)['save']))
+        self.replace('create-file.name',path);self.input('create-file.accept')
+        return self.wait(lambda value:self.file_picker(value) is None)
+
+    def configure_voxel_remove(self):
+        """Configure actual ordinary controls; caller owns the world click/effect."""
+        self.tab(3);self.choose('create.edit-mode',1);self.choose('create.voxel-shape',2)
+        self.choose('create.voxel-dynamics',0);self.choose('create.voxel-pointer',0)
+        value=self.capture();self.reveal('create.voxel-remove');value=self.capture()
+        if not self.row(value,'create.voxel-remove')['checked']:self.input('create.voxel-remove')
+        self.wait(lambda value:bool(self.row(value,'create.voxel-remove') and self.row(value,'create.voxel-remove')['checked']))
+        self.replace('create.voxel-diameter','0.5');self.reveal('create.voxel-apply');self.input('create.voxel-apply')

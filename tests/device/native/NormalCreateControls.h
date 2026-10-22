@@ -52,9 +52,52 @@ inline QString createEntityId(const QString& raw) {
     return value.isNull() ? QString() : value.toString(QUuid::WithoutBraces);
 }
 
+inline QQuickItem* createFileBrowser(QQuickItem* item) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PHONE_INTERFACE)
+    if (!audioGuiItem(item) || !QCoreApplication::arguments().contains("--testScript")) { return nullptr; }
+    int depth {0};
+    for (auto parent=item;parent && ++depth<=128;parent=parent->parentItem()) {
+        if (parent->objectName()!="nativeFileBrowser") { continue; }
+        bool original=false;
+        int contextDepth {0};
+        for (auto context=qmlContext(parent);context && ++contextDepth<=128;context=context->parentContext()) {
+            const auto source=context->baseUrl();
+            if (context->nameForObject(parent)=="root" && (source.scheme()=="file" || source.scheme()=="qrc")
+                    && source.authority().isEmpty() && !source.hasQuery() && !source.hasFragment()
+                    && source.path().endsWith("/dialogs/NativeFileBrowser.qml")) { original=true;break; }
+        }
+        const auto caption=parent->property("caption").toString();
+        const bool save=parent->property("saveDialog").toBool();
+        if (original && (save ? caption=="Select Where to Save" : caption=="Select .json to Import")
+                && parent->property("saveDialog").userType()==QMetaType::Bool
+                && parent->property("filter").toString()=="*.json"
+                && !parent->property("bundleMode").toBool() && !parent->property("multiSelect").toBool()
+                && !parent->property("selectDirectory").toBool()) { return parent; }
+    }
+#else
+    Q_UNUSED(item)
+#endif
+    return nullptr;
+}
+
+inline QJsonObject createFileObservation(QQuickItem* root) {
+    if (!root) { return {}; }
+    return {{"caption",root->property("caption").toString()},{"save",root->property("saveDialog").toBool()},
+        {"directory",root->property("dir").toUrl().toString()},{"error",root->property("error").toString()},
+        {"closing",root->property("closing").toBool()},{"pendingDocuments",!root->property("requestId").toString().isEmpty()}};
+}
+
 inline QString createControlId(QQuickItem* item) {
     if (!audioGuiItem(item)) { return {}; }
     auto page=createPage(item);const auto name=item->objectName();
+    if (auto browser=createFileBrowser(item)) {
+        if (name=="fileNameInput" && item->inherits("QQuickTextInput")) { return "create-file.name"; }
+        if (item->metaObject()->indexOfSignal("clicked()")>=0) {
+            if (name=="fileAccept") { return "create-file.accept"; }
+            if (name=="fileCancel") { return "create-file.cancel"; }
+        }
+        return {};
+    }
     if (!page) {
         const auto nav=scriptControlId(item);
         if (nav=="tablet.home" || nav.startsWith("tablet.page.")) { return nav; }
@@ -78,7 +121,12 @@ inline QString createControlId(QQuickItem* item) {
         {"NativeCreateUndo","create.undo"},{"NativeCreateRedo","create.redo"},
         {"NativeCreateImportUrl","create.import-url"},{"NativeCreateImport","create.import-submit"},
         {"NativeCreateBrowse","create.import-browse"},{"NativeCreateApplyTyped","create.apply-typed"},
-        {"NativeCreateTool_export","create.export"}};
+        {"NativeCreateTool_export","create.export"},
+        {"NativeCreateEditMode","create.edit-mode"},{"NativeCreateVoxelShape","create.voxel-shape"},
+        {"NativeCreateVoxelRemove","create.voxel-remove"},{"NativeCreateVoxelDynamics","create.voxel-dynamics"},
+        {"NativeCreateVoxelPointer","create.voxel-pointer"},{"NativeCreateVoxelDiameter","create.voxel-diameter"},
+        {"NativeCreateVoxelReach","create.voxel-reach"},{"NativeCreateVoxelApply","create.voxel-apply"},
+        {"NativeCreatePropertySearch","create.property-filter"}};
     if (fixed.contains(name)) { return fixed.value(name); }
     const auto tab=QRegularExpression("\\ANativeCreateTab_([0-4])\\z").match(name);
     if (tab.hasMatch()) { return "create.tab."+tab.captured(1); }
@@ -98,10 +146,12 @@ inline QString createControlId(QQuickItem* item) {
 
 inline bool createField(const QString& id) {
     return id=="create.name" || id=="create.resource" || id=="create.import-url" || id=="create.filter"
-        || id=="create.textures" || id.startsWith("create.field.");
+        || id=="create.textures" || id=="create.voxel-diameter" || id=="create.voxel-reach"
+        || id=="create-file.name" || id=="create.property-filter" || id.startsWith("create.field.");
 }
 inline bool createChoice(const QString& id) {
-    return id=="create.host" || id=="create.import-host" || id=="create.shape";
+    return id=="create.host" || id=="create.import-host" || id=="create.shape" || id=="create.edit-mode"
+        || id=="create.voxel-shape" || id=="create.voxel-dynamics" || id=="create.voxel-pointer";
 }
 inline bool createText(const QString& text) {
     if (text.size()>4096) { return false; }
@@ -132,8 +182,15 @@ inline void appendCreateControlObservation(QJsonObject& row,QQuickItem* item,con
             row["statusError"]=page->property("statusError").toBool();row["statusText"]=status;
             row["componentSourceSha256"]=QString::fromLatin1(QCryptographicHash::hash(createComponentSource(page).toUtf8(),QCryptographicHash::Sha256).toHex());
         }
+    } else if (auto browser=createFileBrowser(item)) {
+        row["picker"]=createFileObservation(browser);
+        ready=ready && !browser->property("closing").toBool() && browser->property("requestId").toString().isEmpty();
     } else { ready=ready && (id=="create.entry" || id=="tablet.home" || id.startsWith("tablet.page.")); }
-    if (id=="create.scrollbar") {
+    if (id=="create.voxel-remove") {
+        const auto checked=item->property("checked");
+        if (checked.userType()!=QMetaType::Bool) { row["inputReady"]=false;return; }
+        row["checked"]=checked.toBool();
+    } else if (id=="create.scrollbar") {
         const auto position=item->property("position"),size=item->property("size");
         bool positionOkay {false},sizeOkay {false};
         const auto p=position.toDouble(&positionOkay),s=size.toDouble(&sizeOkay);
@@ -149,7 +206,7 @@ inline void appendCreateControlObservation(QJsonObject& row,QQuickItem* item,con
     } else if (createChoice(id)) {
         const auto index=item->property("currentIndex"),count=item->property("count");
         const bool valid=index.userType()==QMetaType::Int && count.userType()==QMetaType::Int
-            && index.toInt()>=0 && index.toInt()<count.toInt() && count.toInt()==(id=="create.shape" ? 6 : 2);
+            && index.toInt()>=0 && index.toInt()<count.toInt() && count.toInt()==(id=="create.shape" ? 6 : id=="create.voxel-shape" ? 3 : 2);
         if (valid) { row["currentIndex"]=index.toInt();row["count"]=count.toInt(); }
         ready=ready && valid;
     } else if (id.startsWith("create.entity.")) {
@@ -180,6 +237,7 @@ inline QString createControlSource(QQuickItem* item,const QString& id) {
         value["selection"]=actualPage.value("selectedIds");
         value["component"]=createComponentSource(page);
     }
+    if (auto browser=createFileBrowser(item)) { value["picker"]=createFileObservation(browser); }
     if (item && item->window()) {
         const auto center=item->mapToScene(QPointF(item->width()/2,item->height()/2));
         value["sceneX"]=center.x();value["sceneY"]=center.y();

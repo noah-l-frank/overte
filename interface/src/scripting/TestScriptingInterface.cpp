@@ -58,6 +58,7 @@
 #include "../../../tests/device/native/ScriptFileUi.h"
 #include "../../../tests/device/native/PhoneAvatarConfiguration.h"
 #include "../../../tests/device/native/PhoneEmoteFixture.h"
+#include "../../../tests/device/native/PhoneCreateObservation.h"
 #include <SettingHandle.h>
 #include "../../../tests/device/adapters/android-phone/PendingCommitOwner.h"
 #include "../../../tests/device/native/PrivateFeatureCommand.h"
@@ -1059,6 +1060,24 @@ QVariantMap TestScriptingInterface::featureGraphicsSubjectObservation(const QVar
         {"capturedEpochMs",QDateTime::currentMSecsSinceEpoch()},{"source",source}};
 }
 #if defined(ANDROID_APP_PHONE_INTERFACE)
+QVariantMap TestScriptingInterface::phoneCreateObservation(const QVariantMap& command) {
+    if (QThread::currentThread()!=thread()) {
+        QVariantMap result;
+        if (!QMetaObject::invokeMethod(this,[&] { result=phoneCreateObservation(command); },Qt::BlockingQueuedConnection)) { return {}; }
+        return result;
+    }
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()) { return {}; }
+    const auto requested=QDateTime::currentMSecsSinceEpoch();
+    const auto avatar=DependencyManager::get<AvatarManager>()->getMyAvatar();
+    if (!avatar) { return {}; }
+    const auto source=overte::e2e::phoneCreateObservationSource(command,avatar->getWorldFeetPosition());
+    if (source.isEmpty() || QJsonDocument::fromVariant(source).toJson(QJsonDocument::Compact).size()>200000) { return {}; }
+    return {{"schemaVersion",1},{"requestId",command.value("commandId")},{"runId",command.value("runId")},
+        {"instance",_featureObservationInstance},{"sequence",static_cast<qulonglong>(++_phoneCreateObservationSequence)},
+        {"processId",QCoreApplication::applicationPid()},{"requestedEpochMs",requested},
+        {"capturedEpochMs",QDateTime::currentMSecsSinceEpoch()},{"source",source}};
+}
+
 QVariantMap TestScriptingInterface::phoneReadFeatureCommand() {
     if (QThread::currentThread()!=thread()) {
         QVariantMap result;
@@ -1572,7 +1591,7 @@ void TestScriptingInterface::saveObject(QVariant variant, const QString& filenam
             || filename == "recorded-preview-observation.json" || filename == "feature-script-observation.json"
             || filename == "phone-script-file-ui.json" || filename == "phone-audio-ui.json" || filename == "phone-graphics-ui.json"
             || filename == "feature-script-files.json" || filename == "world-render-observation.json"
-            || filename == "feature-graphics-subject.json"
+            || filename == "feature-graphics-subject.json" || filename == "phone-create-observation.json"
             || filename == "feature-scene-load.json"
             || filename == "world-render-receipt-result.json"
             || filename == "world-render-receipts-result.json"
