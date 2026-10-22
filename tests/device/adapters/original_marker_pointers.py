@@ -19,6 +19,7 @@ from feature_journeys.contract import identifier
 from ios.adapters import pointer_state
 from ios.adapters.emote_native_prefix import follow
 from ios.adapters.graphics_history import restore_native
+from adapters.native_clock_source_history import restore as restore_clock_source
 
 VERSION=1
 
@@ -168,7 +169,8 @@ class OriginalMarkerPointers:
         prior=None if not self.state['records'] else self.original(self.state['records'][-1])
         if prior is not None:
             last=prior['clockJoin']['nativeAfter']
-            if self.native.sequence==0:restore_native(self.native,last)
+            if self.native.sequence==0:
+                (restore_native if self.PROFILE=='emote' else restore_clock_source)(self.native,last)
             else:need(self.native.instance==last['instance'] and self.native.sequence>=last['sequence'] and self.native.captured_epoch>=last['capturedEpochMs'])
             self.pointer.last=deepcopy(prior['packet'])
         self.state['pending']=dict(priorRecords=len(self.state['records']),nativeStart=None,query=None,raw=None,original=None)

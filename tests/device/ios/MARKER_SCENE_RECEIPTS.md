@@ -44,3 +44,11 @@ Avatar contracts write/read version 1: `ios-avatar-file-receipts`,
 `ios-avatar-native-file-receipt`, `ios-avatar-abandoned-file-read`,
 `ios-avatar-pointers`, `ios-avatar-pointer-receipt`,
 `ios-avatar-pointer-original`, and `ios-avatar-pointer-abandoned`.
+
+A reconstructed new-profile owner restores a pristine unbound native clock
+reader through `native_clock_source_history.restore`. That helper validates the
+actual original PID and all present account/voice/animation histories before
+restoring only the recorded source cursors. It changes no binding flag, original
+clock or transport. Bound readers and already used readers are refused. Literal
+Emote v1 continues to use its existing bound-reader restore path. Host regressions
+construct a new reader instance between consecutive file and pointer samples.

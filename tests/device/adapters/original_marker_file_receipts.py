@@ -14,6 +14,7 @@ from adapters.script_feature.lock import ScriptSourceLock
 from feature_journeys.contract import identifier
 from ios.adapters.emote_native_prefix import follow as native_prefix
 from ios.adapters.graphics_history import restore_native
+from adapters.native_clock_source_history import restore as restore_clock_source
 
 VERSION=1
 
@@ -196,7 +197,8 @@ class OriginalMarkerFileReceipts:
         self.bound();need(kind in ('bytes','absent') and self.resolve() and len(self.state['records'])<128)
         if self.state['records']:
             prior=self.original(self.state['records'][-1]);last=prior['clockJoin']['nativeAfter']
-            if self.native.sequence==0:restore_native(self.native,last)
+            if self.native.sequence==0:
+                (restore_native if self.PROFILE=='emote' else restore_clock_source)(self.native,last)
             else:need(self.native.instance==last['instance'] and self.native.sequence>=last['sequence'] and self.native.captured_epoch>=last['capturedEpochMs'])
         else:prior=None
         self.state['pending']=dict(kind=kind,ownership=deepcopy(ownership),query=None,nativeStart=None,packet=None,original=None)
