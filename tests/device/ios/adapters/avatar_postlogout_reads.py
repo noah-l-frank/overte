@@ -12,18 +12,20 @@ from adapters.native_clock_join import digest
 from adapters.native_feature_observation import NativeFeatureObservation,decode,exact,integer,need,number,validate as native
 from adapters.normal_feature_state import PrivateFeatureState,context
 from adapters.original_frame_store import OriginalFrameStore
-from adapters.script_feature.history import pack,unpack,same
+from adapters.script_feature.history import pack,unpack,same,canonical
 from adapters.script_feature.lock import ScriptSourceLock
 from feature_journeys.contract import identifier
 from ios.adapters import avatar_state,avatar_postlogout
 from ios.adapters.avatar_account_reads import IOSAvatarAccountReads
+from ios.adapters.avatar_postlogout_parts import AvatarPostLogoutParts
 from ios.adapters.authentication_causality import check as account_causality
 from ios.adapters.emote_native_prefix import follow as native_prefix
 
-VERSION=1
+VERSION=2
+READS=(1,2)
 
 
-class IOSAvatarPostLogoutReads:
+class IOSAvatarPostLogoutReads(AvatarPostLogoutParts):
     def __init__(self,store,root,binding,run,role,subject,lock,guard,accounts_factory,model_factory,*,
                  child_run,fixture_url,ticket,baseline,logout_before,epoch_ms=lambda:time.time()*1000,monotonic=time.monotonic,historical=False):
         need(isinstance(store,PrivateFeatureState) and isinstance(lock,ScriptSourceLock) and role in ('primary','actor') and subject in ('primary','actor')
@@ -36,11 +38,14 @@ class IOSAvatarPostLogoutReads:
         avatar_state.original(baseline);need(baseline['runId']==run and baseline['processId']==int(binding['processIdentity']))
         self.originals=OriginalFrameStore(root,binding,run,role,guard,self.storage,namespace='avatar-'+subject+'-postlogout',
             schema_prefix='avatar'+subject.title()+'PostLogout',monotonic=monotonic)
-        self.previous=store.read();self.state=dict(rows=[],pending=None)
+        self.parts_init();self.previous=store.read();self.state=dict(rows=[],pending=None,nextSegment=1)
         if self.previous is not None:self.state=self.parse(self.previous)
 
-    def envelope(self,state):return dict(iosAvatarPostLogoutReadsVersion=VERSION,runId=self.run,role=self.role,subject=self.subject,
-        binding=self.binding,artifactRoot=str(self.root),inputs=deepcopy(self.inputs),payload=pack([state]))
+    def envelope(self,state,version=VERSION):
+        state=deepcopy(state)
+        if version>=2:state.setdefault('nextSegment',1)
+        return dict(iosAvatarPostLogoutReadsVersion=version,runId=self.run,role=self.role,subject=self.subject,
+            binding=self.binding,artifactRoot=str(self.root),inputs=deepcopy(self.inputs),payload=pack([state]))
 
     def bound(self):self.lock.assert_held();need(not self.historical and self.guard() is not False and same(self.store.read(),self.previous))
 
@@ -50,6 +55,13 @@ class IOSAvatarPostLogoutReads:
             and owner.store.path.parent==self.store.path.parent and str(owner.root)==str(self.root));return owner
 
     def account(self,value):
+        from ios.adapters.avatar_record_cache import AvatarRecordCache
+        if not hasattr(self,'account_cache'):self.account_cache=AvatarRecordCache()
+        key=dict(context=digest(dict(binding=self.binding,runId=self.run,role=self.role,subject=self.subject,
+            root=str(self.root),store=str(self.store.path),inputs=self.inputs)),boundary=value)
+        return self.account_cache.read(key,lambda:self.account_original(value))
+
+    def account_original(self,value):
         exact(value,{'owner','row'});raw=value['owner'];row=value['row']
         path=self.store.path.with_name('ios-avatar-'+self.role+'-'+self.subject+'-account-reads.json')
         class Frozen(PrivateFeatureState):
@@ -61,14 +73,15 @@ class IOSAvatarPostLogoutReads:
 
     def part(self,value,previous=None):
         need(type(value) is dict and set(value)<={'before','modelQuery','model','modelAcquisition','clocks','after'})
+        before=None
         if 'before' in value:
-            packet=self.account(value['before']);account_causality(dict(contractVersion=16,runId=self.inputs['childRunId'],fixtureUrl=self.inputs['fixtureUrl'],
-                ticket=self.inputs['ticket'],verb='logout',inputs={}),self.inputs['logoutBefore'],packet,packet['capturedEpochMs'])
+            before=self.account(value['before']);account_causality(dict(contractVersion=16,runId=self.inputs['childRunId'],fixtureUrl=self.inputs['fixtureUrl'],
+                ticket=self.inputs['ticket'],verb='logout',inputs={}),self.inputs['logoutBefore'],before,before['capturedEpochMs'])
         if 'modelQuery' in value:avatar_state.command(value['modelQuery']);need(value['modelQuery']['runId']==self.run and 'before' in value)
         if 'model' in value:
             need('modelQuery' in value);avatar_state._validate(value['model'],value['modelQuery'],int(self.binding['processIdentity']),previous=previous,postlogout=True)
         if 'clocks' in value:
-            clocks=value['clocks'];need(type(clocks) is list and len(clocks)<=64);last=self.account(value['before'])
+            clocks=value['clocks'];need(type(clocks) is list and len(clocks)<=64 and before is not None);last=before
             for row in clocks:
                 exact(row,{'query','packet'});IOSAvatarAccountReads.command(row['query'])
                 if row['packet'] is not None:
@@ -94,18 +107,40 @@ class IOSAvatarPostLogoutReads:
 
     def parse(self,value):
         exact(value,{'iosAvatarPostLogoutReadsVersion','runId','role','subject','binding','artifactRoot','inputs','payload'})
-        rows=unpack(value['payload']);need(len(rows)==1 and same(value,self.envelope(rows[0])));state=rows[0];exact(state,{'rows','pending'})
-        need(type(state['rows']) is list and len(state['rows'])<=64);previous=None
+        version=value['iosAvatarPostLogoutReadsVersion'];need(type(version) is int and version in READS)
+        rows=unpack(value['payload']);need(len(rows)==1 and same(value,self.envelope(rows[0],version)));state=rows[0]
+        exact(state,{'rows','pending'}|({'nextSegment'} if version>=2 else set()))
+        need(type(state['rows']) is list and len(state['rows'])<=64);previous=None;materials={}
         for index,row in enumerate(state['rows'],1):
-            exact(row,{'index','status','parts','original','acquisition'});need(integer(row['index'],1,64) and row['index']==index and row['status'] in ('observed','abandoned'))
-            previous=self.part(row['parts'],previous)
+            exact(row,{'index','status','original','acquisition','partsCarrier' if 'partsCarrier' in row else 'parts'})
+            need(integer(row['index'],1,64) and row['index']==index and row['status'] in ('observed','abandoned'))
+            if 'partsCarrier' in row:need(version>=2)
+            material=self.row_material(row) if 'partsCarrier' in row else dict(partial=row,parts=row['parts'])
+            materials[index]=material;previous=self.part(material['parts'],previous)
             if row['original'] is not None:self.originals.original(row['original']);need(row['original']['index']==index)
             if row['acquisition'] is not None:self.acquisition(row['acquisition'])
-            if row['status']=='observed':self.record(row)
+            if row['status']=='observed':self._record_fields(row,material)
         if state['pending'] is not None:
-            row=state['pending'];exact(row,{'index','parts','original','acquisition'});need(integer(row['index'],1,64) and row['index']==len(state['rows'])+1);self.part(row['parts'],previous)
+            row=state['pending'];fields={'index','parts','original','acquisition'}
+            if 'partsStorageVersion' in row:
+                need(version>=2 and type(row['partsStorageVersion']) is int and row['partsStorageVersion']==1)
+                fields|={'partsStorageVersion','partialOriginal','orphanPartials'}
+                need(type(row['orphanPartials']) is list and len(row['orphanPartials'])<=64)
+                for orphan in row['orphanPartials']:
+                    exact(orphan,{'parent','snapshots'});need(orphan['parent']['label']=='partial' and orphan['parent']['tag']==self.part_tag(row['index'],'partial'))
+                    self.segments.retained(orphan['parent'],orphan['snapshots'])
+                if row['partialOriginal'] is not None:
+                    self.segments.parent(row['partialOriginal']);need(row['partialOriginal']['label']=='partial' and row['partialOriginal']['tag']==self.part_tag(row['index'],'partial'))
+            exact(row,fields);need(integer(row['index'],1,64) and row['index']==len(state['rows'])+1);self.part(self.row_parts(row),previous)
             if row['original'] is not None:self.originals.original(row['original']);need(row['original']['index']==row['index'])
             if row['acquisition'] is not None:self.acquisition(row['acquisition'])
+        if version>=2:
+            self.parts_inventory(state,materials)
+            # The local material is used only inside this synchronous parse.
+            # Recheck its complete actual read/absence inventory at the end;
+            # no derived model/account/history verdict is reused.
+            for row in state['rows']:
+                if 'partsCarrier' in row:self.row_material(row)
         return deepcopy(state)
 
     def save(self):
@@ -119,13 +154,21 @@ class IOSAvatarPostLogoutReads:
         p['original']=deepcopy(value);self.save()
 
     def record(self,row):
-        self.lock.assert_held()
-        need(row['original'] is not None and row['original']['phase']=='saved')
+        material=self.row_material(row) if 'partsCarrier' in row else dict(partial=row,parts=row['parts'])
+        self.part(material['parts']);p=self._record_fields(row,material)
+        if 'partsCarrier' in row:self.row_material(row)
+        return p
+
+    def _record_fields(self,row,material):
+        self.lock.assert_held();need(row['original'] is not None)
+        current='partsCarrier' in row
+        if current:need(self.native_file(row['original'])['complete'])
+        else:need(row['original']['phase']=='saved')
         record=self.originals.read(row['original']);exact(record,{'iosAvatarPostLogoutRecordVersion','index','parts','acquisition'})
-        need(type(record['iosAvatarPostLogoutRecordVersion']) is int and record['iosAvatarPostLogoutRecordVersion']==VERSION
-            and all(same(record[key],row[key]) for key in ('index','parts','acquisition')))
-        p=row['parts'];exact(p,{'before','modelQuery','model','modelAcquisition','clocks','after'})
-        self.part(p);a=self.acquisition(row['acquisition'])
+        version=record['iosAvatarPostLogoutRecordVersion'];need(type(version) is int and version in READS and version==(2 if current else 1))
+        raw=material['partial']['parts'];need(record['index']==row['index'] and same(record['parts'],raw) and same(record['acquisition'],row['acquisition']))
+        p=material['parts'];exact(p,{'before','modelQuery','model','modelAcquisition','clocks','after'})
+        a=self.acquisition(row['acquisition'])
         for boundary in ('before','after'):
             inner=p[boundary]['row']['acquisition']
             for first,last in (('hostBeforeEpochMs','hostAfterEpochMs'),('hostBeforeMonotonic','hostAfterMonotonic')):
@@ -151,41 +194,53 @@ class IOSAvatarPostLogoutReads:
     def recover(self):
         self.bound();p=self.state['pending']
         if p is None:return None
-        status='observed' if p['original'] is not None and p['original']['phase']=='saved' and p['acquisition'] is not None else 'abandoned'
-        if p['original'] is not None:need(p['original']['phase']=='saved') # Keep an incomplete writer owned; never overwrite it.
-        row=dict(deepcopy(p),status=status)
+        if 'partsStorageVersion' not in p:
+            status='observed' if p['original'] is not None and p['original']['phase']=='saved' and p['acquisition'] is not None else 'abandoned'
+            if p['original'] is not None:need(p['original']['phase']=='saved')
+            row=dict(deepcopy(p),status=status)
+        else:
+            original=self.native_file(p['original'])
+            status='observed' if original is not None and original['complete'] and p['acquisition'] is not None else 'abandoned'
+            if p['partialOriginal'] is not None and not self.part_complete(p['partialOriginal']):
+                old=deepcopy(p['partialOriginal']);p['orphanPartials'].append(dict(parent=old,snapshots=self.segments.inspect(old)))
+                p['partialOriginal']=None;self.save()
+            partial=self.part_partial(p)
+            if p['partialOriginal'] is None:self.remember_part('partial',partial)
+            else:need(self.segments.read(p['partialOriginal'])==canonical(partial))
+            row=dict(index=p['index'],status=status,partsCarrier=deepcopy(p['partialOriginal']),original=deepcopy(p['original']),acquisition=deepcopy(p['acquisition']))
         self.state['rows'].append(row);self.state['pending']=None;self.save();return deepcopy(row)
 
     def capture(self):
-        self.bound();self.recover();need(len(self.state['rows'])<64)
-        p=dict(index=len(self.state['rows'])+1,parts={},original=None,acquisition=None);self.state['pending']=p;self.save()
+        self.bound();self.recover();self.state.setdefault('nextSegment',1);need(len(self.state['rows'])<64 and self.state['nextSegment']+72<=1024)
+        p=dict(index=len(self.state['rows'])+1,parts={},original=None,acquisition=None,partsStorageVersion=1,partialOriginal=None,orphanPartials=[]);self.state['pending']=p;self.save()
         started,mono=self.epoch_ms(),self.monotonic();accounts=self.accounts()
-        before=accounts.read();p['parts']['before']=dict(owner=deepcopy(accounts.previous),row=before);self.save();self.part(p['parts'])
+        before=accounts.read();self.remember_part('before',dict(owner=deepcopy(accounts.previous),row=before));self.part(self.row_parts(p))
         model,clock=self.model_factory();need(isinstance(model,avatar_state.IOSAvatarState) and isinstance(clock,NativeFeatureObservation)
             and clock.ios and clock.pid==int(self.binding['processIdentity']))
-        previous=next((row['parts']['model'] for row in reversed(self.state['rows']) if 'model' in row['parts']),None);model.last=deepcopy(previous)
+        previous=next((self.row_parts(row)['model'] for row in reversed(self.state['rows']) if 'model' in self.row_parts(row)),None);model.last=deepcopy(previous)
         model._validate=lambda value,query,pid,epoch=None,previous=None:avatar_state._validate(value,query,pid,epoch,previous,postlogout=True)
         send,original,clock_send,clock_original=model.send,model.original,clock.send,clock.original;p['parts']['clocks']=[];self.save()
         def owned_send(query):
-            need('modelQuery' not in p['parts']);p['parts']['modelQuery']=deepcopy(avatar_state.command(query));self.save();return send(query)
+            need(self.state['nextSegment']+8<=1024 and 'modelQuery' not in p['parts']);p['parts']['modelQuery']=deepcopy(avatar_state.command(query));self.save();return send(query)
         def owned_original():
-            raw=original();value=decode(raw) if raw else None
+            need(self.state['nextSegment']+8<=1024);raw=original();value=decode(raw) if raw else None
             if type(value) is dict and 'modelQuery' in p['parts'] and value.get('requestId')==p['parts']['modelQuery']['commandId']:
-                need('model' not in p['parts']);p['parts']['model']=deepcopy(value);self.save()
+                need('model' not in p['parts']);self.remember_part('model',value)
             return raw
         def owned_clock_send(query):
+            need(len(p['parts']['clocks'])<64 and self.state['nextSegment']+8<=1024)
             p['parts']['clocks'].append(dict(query=deepcopy(IOSAvatarAccountReads.command(query)),packet=None));self.save();return clock_send(query)
         def owned_clock_original():
-            raw=clock_original();value=decode(raw) if raw else None;row=p['parts']['clocks'][-1]
+            need(self.state['nextSegment']+8<=1024);raw=clock_original();value=decode(raw) if raw else None;row=p['parts']['clocks'][-1]
             if type(value) is dict and value.get('requestId')==row['query']['commandId']:
-                if row['packet'] is None:row['packet']=deepcopy(value);self.save()
-                else:need(same(row['packet'],value))
+                if row['packet'] is None:self.remember_part('clock',value,len(p['parts']['clocks'])-1)
+                else:need(same(self.part_value(row['packet'],p['index'],'clock-'+str(len(p['parts']['clocks'])-1),required=True),value))
             return raw
         model.send,model.original,clock.send,clock.original=owned_send,owned_original,owned_clock_send,owned_clock_original
         try:
             model.read(self.run);p['parts']['modelAcquisition']=deepcopy(model.acquisition);self.save()
         finally:model.send,model.original,clock.send,clock.original=send,original,clock_send,clock_original
-        accounts=self.accounts();after=accounts.read();p['parts']['after']=dict(owner=deepcopy(accounts.previous),row=after);self.save()
+        accounts=self.accounts();after=accounts.read();self.remember_part('after',dict(owner=deepcopy(accounts.previous),row=after))
         p['acquisition']=dict(hostBeforeEpochMs=started,hostAfterEpochMs=self.epoch_ms(),hostBeforeMonotonic=mono,hostAfterMonotonic=self.monotonic());self.save()
         self.originals.write(p['index'],dict(iosAvatarPostLogoutRecordVersion=VERSION,index=p['index'],parts=deepcopy(p['parts']),acquisition=deepcopy(p['acquisition'])))
         row=self.recover();self.proof(row);epoch,last=self.epoch_ms(),self.monotonic()

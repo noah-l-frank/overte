@@ -88,8 +88,8 @@ class AvatarPostLogoutReadsTests(unittest.TestCase):
             monotonic=lambda:self.f.clock,sleep=self.f.sleep)
         return reader,clock
 
-    def owner(self):
-        return IOSAvatarPostLogoutReads(self.store,self.artifacts,BINDING,self.f.run,'actor','primary',self.lock,lambda:True,self.accounts,self.model,
+    def owner(self,kind=IOSAvatarPostLogoutReads):
+        return kind(self.store,self.artifacts,BINDING,self.f.run,'actor','primary',self.lock,lambda:True,self.accounts,self.model,
             child_run=self.child,fixture_url='https://controlled.invalid/feature-fixture/v1/runs/'+self.child+'/',ticket=self.ticket,
             baseline=self.baseline,logout_before=self.logout_before,epoch_ms=self.f.host,monotonic=lambda:self.f.clock)
 
@@ -110,7 +110,7 @@ class AvatarPostLogoutReadsTests(unittest.TestCase):
         with self.assertRaises(NativeUIError):owner.capture()
         original=deepcopy(owner.state['pending']);calls=deepcopy(self.calls);self.lost_model=False;again=self.owner();old=again.recover()
         self.assertEqual('abandoned',old['status']);self.assertEqual(calls,self.calls)
-        row=again.capture();self.assertNotEqual(original['parts']['modelQuery'],row['parts']['modelQuery'])
+        row=again.capture();self.assertNotEqual(original['parts']['modelQuery'],again.row_parts(row)['modelQuery'])
         self.assertEqual(1,sum(query==original['parts']['modelQuery'] for query in self.calls))
 
     def test_lost_saved_record_return_is_adopted_without_query_or_rewriting_any_original(self):
@@ -137,9 +137,9 @@ class AvatarPostLogoutReadsTests(unittest.TestCase):
         row=deepcopy(owner.state['rows'][0]);path=owner.originals.path(row['original']);raw=path.read_bytes();self.assertEqual(2.,owner.record(row)['model']['source']['modelScale'])
         self.scale=1.;again=self.owner();current=again.capture();self.assertEqual(1.,again.proof(current)['source']['modelScale'])
         with self.assertRaises(NativeUIError):again.proof(again.state['rows'][0])
-        self.assertEqual(raw,path.read_bytes());self.assertNotEqual(row['parts']['modelQuery'],current['parts']['modelQuery'])
+        self.assertEqual(raw,path.read_bytes());self.assertNotEqual(again.row_parts(row)['modelQuery'],again.row_parts(current)['modelQuery'])
 
-    def test_partial_record_writer_keeps_its_inode_and_blocks_new_queries(self):
+    def test_partial_record_writer_keeps_its_inode_and_abandons_before_distinct_queries(self):
         owner=self.owner();storage=owner.originals.intent
         def lost(kind,value):
             storage(kind,value)
@@ -147,10 +147,19 @@ class AvatarPostLogoutReadsTests(unittest.TestCase):
         owner.originals.intent=lost
         with self.assertRaises(OSError):owner.capture()
         original=owner.state['pending']['original'];path=owner.originals.path(original);inode=path.stat().st_ino;calls=deepcopy(self.calls)
-        again=self.owner()
-        for operation in (again.capture,again.recover):
-            with self.assertRaises(NativeUIError):operation()
+        again=self.owner();abandoned=again.recover();self.assertEqual('abandoned',abandoned['status'])
         self.assertEqual(calls,self.calls);self.assertEqual(inode,path.stat().st_ino)
+        current=again.capture();again.proof(current);self.assertEqual(inode,path.stat().st_ino)
+        with path.open('ab') as stream:stream.write(b'{')
+        with self.assertRaises(NativeUIError):self.archive(again)
+
+    def test_frozen_reads1_and_record1_stay_exact_after_private_parts2_continuation(self):
+        from ios.self_tests.avatar_postlogout_reads_v1_producer import LegacyAvatarPostLogoutReads1
+        legacy=self.owner(LegacyAvatarPostLogoutReads1);first=legacy.capture();metadata=self.store.path.read_bytes()
+        path=legacy.originals.path(first['original']);original=path.read_bytes()
+        proof=self.archive(legacy).proof(first);self.assertEqual(metadata,self.store.path.read_bytes());self.assertEqual(original,path.read_bytes())
+        current=self.owner();second=current.capture();self.assertEqual(2,current.previous['iosAvatarPostLogoutReadsVersion'])
+        self.assertEqual(proof,current.proof(first));self.assertFalse(current.proof(second)['sessionPresent']);self.assertEqual(original,path.read_bytes())
 
     def test_wrong_factory_subject_cannot_send_a_native_or_model_query(self):
         owner=self.owner();calls=deepcopy(self.calls);factory=owner.accounts_factory
@@ -161,7 +170,7 @@ class AvatarPostLogoutReadsTests(unittest.TestCase):
         self.assertEqual(calls,self.calls)
 
     def test_historical_model_must_remain_inside_its_actual_native_clock_bracket(self):
-        owner=self.owner();row=owner.capture();parts=deepcopy(row['parts'])
+        owner=self.owner();row=owner.capture();parts=deepcopy(owner.record(row))
         for edge in ('nativeRequestedEpochMs','nativeAfterEpochMs'):
             changed=deepcopy(parts);changed['modelAcquisition'][edge]=True
             with self.assertRaises(NativeUIError):owner.part(changed)
