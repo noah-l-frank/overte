@@ -214,6 +214,7 @@ REQUIRED = {
     "ios-world-web-dom-native": 1,
     "ios-world-web-geometry": 1,
     "ios-world-web-files": 1,
+    "ios-world-web-keys": 1,
     "ios-world-web-work": 1,
     "ios-world-web-marker-scope": 1,
     "ios-world-web-marker-measurements": 1,

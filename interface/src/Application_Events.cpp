@@ -17,6 +17,7 @@
 #include "ApplicationLifecycle.h"
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
 #include "../../tests/device/native/IOSPointerObservation.h"
+#include "../../tests/device/native/IOSWorldWebKeysObservation.h"
 #endif
 
 #include <QtCore/QMimeData>
@@ -112,18 +113,21 @@ public:
 bool Application::notify(QObject* object, QEvent* event) {
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
     overte::e2e::IOSPointerDispatch pointerOriginal(object,event);
+    overte::e2e::IOSWorldWebKeyDispatch keyboardOriginal(object,event);
 #endif
     if (thread() == QThread::currentThread()) {
         PROFILE_RANGE_IF_LONGER(app, "notify", 2)
         const bool result=QApplication::notify(object,event);
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
         pointerOriginal.returned(result);
+        keyboardOriginal.returned(result);
 #endif
         return result;
     }
     const bool result=QApplication::notify(object,event);
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
     pointerOriginal.returned(result);
+    keyboardOriginal.returned(result);
 #endif
     return result;
 }

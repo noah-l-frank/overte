@@ -37,9 +37,9 @@ applyClientCommand(query);applyClientCommand(query);assert.equal(dom,2);
 assert.equal(files.at(-2).value.status,'pending');assert.equal(files.at(-1).value.status,'ready');
 assert.equal(files.at(-1).name,'feature-ios-world-web-dom.json');
 const count=files.length;applyClientCommand({...query,expected:true});assert.equal(files.length,count);assert.equal(dom,2);
-for (const kind of ['Work','Geometry']) {
+for (const kind of ['Work','Geometry','Keys']) {
  let calls=0;Test['featureIOSWorldWeb'+kind]=c=>{calls++;return {requestId:c.commandId,actual:true};};
- const q={schemaVersion:1,commandId:'ios-'+(kind==='Work'?'d':'e').repeat(32),action:'feature-ios-world-web-'+kind.toLowerCase(),runId:base.runId};
+ const q={schemaVersion:1,commandId:'ios-'+({Work:'d',Geometry:'e',Keys:'6'}[kind]).repeat(32),action:'feature-ios-world-web-'+kind.toLowerCase(),runId:base.runId};
  applyClientCommand(q);applyClientCommand(q);assert.equal(calls,1);assert.equal(files.at(-1).value.actual,true);
  assert.equal(files.at(-1).name,q.action+'.json');
  applyClientCommand({...q,commandId:'ios-'+'f'.repeat(32),expected:true});assert.equal(calls,1);

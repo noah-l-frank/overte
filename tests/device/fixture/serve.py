@@ -545,6 +545,12 @@ class FixtureState:
             try:pending_owner_command(command,ios=True)
             except (ValueError,RuntimeError):raise ValueError("invalid native pending input owner request") from None
             valid=True
+        elif action == "feature-ios-world-web-keys":
+            sys.path.insert(0,str(ROOT.parent))
+            from ios.adapters.world_web_keys import command as world_web_keys_command
+            try:world_web_keys_command(command)
+            except (ValueError,RuntimeError):raise ValueError("invalid iOS world Web keyboard source request") from None
+            valid=True
         elif action in ("feature-ios-world-web-work", "feature-ios-world-web-geometry"):
             sys.path.insert(0,str(ROOT.parent))
             from ios.adapters import world_web_work,world_web_geometry

@@ -44,6 +44,7 @@ from ios.adapters.world_web_source import IOSWorldWebSource,FILE as WORLD_WEB_FI
 from ios.adapters.world_web_dom import IOSWorldWebDOM,FILE as WORLD_WEB_DOM_FILE,LIMIT as WORLD_WEB_DOM_LIMIT,command as world_web_dom_command
 from ios.adapters.world_web_geometry import IOSWorldWebGeometry,FILE as WORLD_WEB_GEOMETRY_FILE,LIMIT as WORLD_WEB_GEOMETRY_LIMIT,command as world_web_geometry_command
 from ios.adapters.world_web_work import IOSWorldWebWork,FILE as WORLD_WEB_WORK_FILE,LIMIT as WORLD_WEB_WORK_LIMIT,command as world_web_work_command
+from ios.adapters.world_web_keys import IOSWorldWebKeys,FILE as WORLD_WEB_KEYS_FILE,LIMIT as WORLD_WEB_KEYS_LIMIT,command as world_web_keys_command
 from ios.adapters.bundle_observation import NativeBundleObservation, FILE as BUNDLE_FILE, command as bundle_command
 from ios.adapters.location_bookmarks import (IOSLocationBookmarks,FILE as BOOKMARKS_FILE,LIMIT as BOOKMARKS_LIMIT,
     command as bookmarks_command)
@@ -156,6 +157,7 @@ class FeatureObservation:
         elif command.get('action')=='feature-ios-world-web-dom':world_web_dom_command(command)
         elif command.get('action')=='feature-ios-world-web-geometry':world_web_geometry_command(command)
         elif command.get('action')=='feature-ios-world-web-work':world_web_work_command(command)
+        elif command.get('action')=='feature-ios-world-web-keys':world_web_keys_command(command)
         elif command.get('action')=='feature-ios-location-bookmarks':bookmarks_command(command)
         elif command.get('action')=='feature-ios-places-model':places_model_command(command)
         elif command.get('action')=='feature-ios-places-http':places_http_command(command)
@@ -517,6 +519,15 @@ class FeatureObservation:
         def clock():return clock_source.read(clock_source.sequence)['capturedEpochMs']
         return IOSWorldWebGeometry(self.send,lambda:self.original(remote=remote,limit=WORLD_WEB_GEOMETRY_LIMIT),
             clock,self.guard,self.process['pid'],monotonic=self.monotonic,sleep=self.sleep)
+
+
+    def world_web_keys(self,clock_source=None):
+        self.guard();remote=self.remote.rsplit('/',1)[0]+'/'+WORLD_WEB_KEYS_FILE
+        if clock_source is None:clock_source=self.native_observer()
+        def clock():return clock_source.read(clock_source.sequence)['capturedEpochMs']
+        return IOSWorldWebKeys(self.send,lambda:self.original(remote=remote,limit=WORLD_WEB_KEYS_LIMIT),
+            clock,self.guard,self.process['pid'],monotonic=self.monotonic,sleep=self.sleep)
+
 
 
     def chat_view(self):
