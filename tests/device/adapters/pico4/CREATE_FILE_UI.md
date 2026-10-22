@@ -25,7 +25,12 @@ eviction that could qualify false cleanup. No JS callback retirement is inferred
 from a missing view; native callback sources must still join the whole feature.
 
 Control tokens include the original browser identity, role, folder, closing and
-system-document request state. Normal pointer activation and the existing
+system-document request state, actual finite scene center/bounds and dimensions,
+and a weak original native-window identity and metrics. Moving/resizing a picker,
+changing its mapped geometry or moving it to another window changes the token
+source; invalid geometry makes acquisition unavailable. Native window identities
+are never reused after destruction and have a finite sixteen-generation budget.
+Normal pointer activation and the existing
 `replaceFocusedField`/`submitFocusedField` provide all input; no field setter,
 `accept`/`finish` invocation, selected-file signal injection or Clipboard call
 is used. Native admission checks the original hit target and focus. Replacement
@@ -44,7 +49,9 @@ cannot be reissued by that recipe. Only an ordinary Cancel for another pending
 input may recover; an uncertain Cancel is never repeated.
 
 Retirement requires actual original root destruction and a full three seconds
-of fresh complete native inventories. Hidden/closing roots, frozen queries,
+on both the host monotonic clock and the original native elapsed clock, with
+fresh complete native inventories. Host time and increasing native counters
+cannot qualify a frozen native clock. Hidden/closing roots, frozen queries,
 missing retired identity or unexpected additional roots cannot pass. The
 recipe establishes dialog input and original Qt lifetime only. A selected URL
 does not establish an imported domain Model or exported file: those effects
@@ -56,14 +63,15 @@ PID/start, OpenXR nonce and original UI-source guards. It performs no automatic
 entry, staging, source load or resource retirement. Public full-feature routing
 remains disabled until the complete coordinator exists.
 
-Nine bound Pico Python counterexamples verify actual wrapper serialization,
+Ten bound Pico Python counterexamples verify actual wrapper serialization,
 original references, distinct role paths, ignored input, incomplete/frozen
 source, retained closing roots, failed intent and no-resend behavior using substituted
 native effects. The separate Qt5 harness compiles the original browser QML,
 real FileDialogHelper and NativeFieldInput, plus the original extracted Create
 input branch and geometry admission. It verifies real normal Import/Save paths,
 Cancel, hidden and detached roots, actual selected-file signals and QObject
-destruction. Keyboard-platform presentation is stubbed for that isolated host
+destruction, changed actual picker geometry/window and invalid source bounds.
+Keyboard-platform presentation is stubbed for that isolated host
 test, and no actual Clipboard export, domain entity or device is claimed.
 
 Pico's catalog adds `create-file-ui` (pure Python), `create-file-native-ui`
