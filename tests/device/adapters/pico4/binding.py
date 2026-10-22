@@ -1711,6 +1711,24 @@ def create_adapter(args, base_class):
             state,_ui=self._script_paths(target)
             return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-','chat-normal-input-')))
 
+        def _chat_composition_store(self,target):
+            state,_ui=self._script_paths(target)
+            return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-','chat-composition-')))
+
+        def _chat_peer_state_retained(self,target):
+            from adapters.pico4.chat_composition import peer_retained
+            return peer_retained(self,target)
+
+        @_private
+        def _chat_composition(self,target,source,peer_config,domain_ready):
+            from adapters.pico4.chat_composition import PicoChatComposition
+            return PicoChatComposition(self,target,source,peer_config,domain_ready)
+
+        @_private
+        def _chat_witness_composition(self,target,source,peer_config):
+            from adapters.pico4.chat_composition import PicoChatWitness
+            return PicoChatWitness(self,target,source,peer_config)
+
         def _chat_dispatcher_store(self,target):
             state,_ui=self._script_paths(target)
             return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-','chat-dispatcher-')))
@@ -2258,6 +2276,7 @@ def create_adapter(args, base_class):
                     if self._chat_mixer_store(target).read() is not None:chat_error=True
                     if self._chat_chunk_store_retained(self._chat_normal_input_store(target)):chat_error=True
                     if self._chat_chunk_store_retained(self._chat_dispatcher_store(target)):chat_error=True
+                    if self._chat_composition_store(target).read() is not None or self._chat_peer_state_retained(target):chat_error=True
                     if self._chat_background_store(target).read() is not None:chat_error=True
                     if self._chat_flow_inputs_store(target).read() is not None or self._chat_witness_store(target).read() is not None:chat_error=True
                     if self._chat_peer_input_store(target).read() is not None or self._chat_peer_send_store(target).read() is not None:chat_error=True
@@ -2329,6 +2348,7 @@ def create_adapter(args, base_class):
                       and self._chat_mixer_store(target).read() is None
                       and not self._chat_chunk_store_retained(self._chat_normal_input_store(target))
                       and not self._chat_chunk_store_retained(self._chat_dispatcher_store(target))
+                      and self._chat_composition_store(target).read() is None and not self._chat_peer_state_retained(target)
                       and self._chat_background_store(target).read() is None
                       and self._chat_flow_inputs_store(target).read() is None and self._chat_witness_store(target).read() is None
                       and self._chat_peer_input_store(target).read() is None and self._chat_peer_send_store(target).read() is None
