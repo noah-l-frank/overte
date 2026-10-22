@@ -27,6 +27,7 @@ DEPENDENCY_INPUTS = (
     "android/common/cmake/overte-android-toolchain.cmake",
     "android/common/native-ci/target.conanfile.py",
     "android/common/native-ci/android-arm64-ci",
+    "android/common/native-ci/qt-host-tools.cmake",
 )
 
 

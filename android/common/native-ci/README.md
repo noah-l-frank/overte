@@ -43,6 +43,10 @@ Add these options to the verified toolchain's normal CMake configuration:
 -DHIFI_ANDROID_HOST_TOOLS=<verified-host-tools>
 -DCMAKE_BUILD_TYPE=RelWithDebInfo
 -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+-DOVERTE_ANDROID_CI_MOC=<verified-Linux-moc>
+-DOVERTE_ANDROID_CI_RCC=<verified-Linux-rcc>
+-DOVERTE_ANDROID_CI_UIC=<verified-Linux-uic>
+-DOVERTE_ANDROID_CI_QMAKE=<verified-Linux-qmake>
 ```
 
 The caller may instead use the qualified source graph's existing

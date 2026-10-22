@@ -21,6 +21,9 @@ endforeach()
 if(USE_BREAKPAD OR HIFI_ANDROID_PRECOMPILED)
     message(FATAL_ERROR "Common native acceptance does not use legacy precompiled inputs")
 endif()
+find_package(Qt5 COMPONENTS Core Widgets QUIET REQUIRED)
+include("${CMAKE_CURRENT_LIST_DIR}/qt-host-tools.cmake")
+overte_common_bind_qt_tools()
 # Interface is a real shared library on Android. This brings its production
 # library closure, generated entities/shaders and resources into the build.
 # Neither product's CMake wrapper nor Java/Gradle/APK shell is configured here.
@@ -71,6 +74,10 @@ add_custom_target(overte-android-common-native)
 foreach(_target IN LISTS _overte_targets)
     get_target_property(_type "${_target}" TYPE)
     if(_type STREQUAL "SHARED_LIBRARY" OR _type STREQUAL "MODULE_LIBRARY")
+        set_target_properties("${_target}" PROPERTIES
+            AUTOMOC_EXECUTABLE "${OVERTE_ANDROID_CI_MOC}"
+            AUTORCC_EXECUTABLE "${OVERTE_ANDROID_CI_RCC}"
+            AUTOUIC_EXECUTABLE "${OVERTE_ANDROID_CI_UIC}")
         # A successful empty wrapper link is not acceptance of the real DSOs.
         # Apply the strict link contract to each production shared target.
         target_link_options("${_target}" PRIVATE "-Wl,--no-undefined")

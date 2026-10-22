@@ -56,6 +56,37 @@ class EntryContracts(unittest.TestCase):
                 self.assertNotEqual(result.returncode, 0)
                 self.assertIn(message, result.stderr)
 
+    def test_actual_qt_binding_all_configurations_and_missing_tool(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            tools = root / "host-tool"
+            tools.write_text("fixture; never executed")
+            write(root / "CMakeLists.txt", '''cmake_minimum_required(VERSION 3.24)
+project(qt_binding NONE)
+foreach(tool moc rcc uic qmake)
+add_executable(Qt5::${tool} IMPORTED GLOBAL)
+string(TOUPPER "${tool}" upper)
+set(OVERTE_ANDROID_CI_${upper} "${BOUND_TOOL}")
+endforeach()
+include("''' + str(HERE / "qt-host-tools.cmake") + '''")
+overte_common_bind_qt_tools()
+foreach(tool moc rcc uic qmake)
+foreach(config IMPORTED_LOCATION IMPORTED_LOCATION_DEBUG IMPORTED_LOCATION_RELEASE IMPORTED_LOCATION_RELWITHDEBINFO)
+get_target_property(actual Qt5::${tool} ${config})
+if(NOT actual STREQUAL BOUND_TOOL)
+message(FATAL_ERROR "wrong host tool")
+endif()
+endforeach()
+endforeach()
+''')
+            args = ("cmake", "-S", str(root), "-B", str(root / "out"), "-DBOUND_TOOL=" + str(tools))
+            result = run(*args)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            tools.unlink()
+            result = run(*args)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("Missing bound Android CI Qt host tool", result.stderr)
+
     def test_actual_harness_production_targets_get_strict_links(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp) / "source"
@@ -67,6 +98,10 @@ set(ANDROID_ABI arm64-v8a)
 set(OVERTE_ANDROID_COMMON_NATIVE ON)
 set(HIFI_ANDROID_APP commonNative)
 set(BUILD_SHARED_LIBS ON)
+list(PREPEND CMAKE_PREFIX_PATH "${CMAKE_SOURCE_DIR}/qt")
+foreach(tool MOC RCC UIC QMAKE)
+set(OVERTE_ANDROID_CI_${tool} "${CMAKE_SOURCE_DIR}/host/${tool}")
+endforeach()
 '''+f'add_subdirectory("{HERE}" "${{CMAKE_BINARY_DIR}}/harness")\n')
             # Fixture dependencies isolate the actual harness wiring. They are
             # not replacement production sources or an Android qualification.
@@ -76,7 +111,13 @@ endforeach()
 foreach(dependency draco::draco glad::glad etc2comp::etc2comp nvidia-texture-tools::nvidia-texture-tools)
 add_library(${dependency} INTERFACE IMPORTED GLOBAL)
 endforeach()
+foreach(tool moc rcc uic qmake)
+add_executable(Qt5::${tool} IMPORTED GLOBAL)
+endforeach()
 ''')
+            write(root / "qt/Qt5Config.cmake", "set(Qt5_FOUND TRUE)\n")
+            for tool in ("MOC", "RCC", "UIC", "QMAKE"):
+                write(root / "host" / tool, "fixture tool bytes; not executed\n")
             names = sorted((VERIFY.REQUIRED | {"gpu-gl"}) - {"overte-android-common-runtime"})
             write(root / "interface/CMakeLists.txt", ''.join(
                 f'add_library({name} SHARED "${{CMAKE_SOURCE_DIR}}/libraries/fixture.cpp")\n' for name in names)
