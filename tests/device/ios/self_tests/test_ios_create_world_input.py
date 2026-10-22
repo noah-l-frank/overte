@@ -94,6 +94,9 @@ class WorldInputTests(unittest.TestCase):
             self.assertEqual('e'*64, b.state['source']['entities'][0]['voxels']['sha256'])
             self.assertNotIn('voxelValue', owner.state)
             self.assertEqual(1, sum(row[0] == 'DELETE' for row in b.calls))
+            self.assertEqual([512.,364.],owner.qt_position())
+            changed=deepcopy(owner.state);changed['originals']['geometry']['observation']['window']['height']=700
+            with self.assertRaises((NativeUIError,ValueError)):owner.qt_position(changed)
 
     def test_uncertain_post_is_never_replayed_after_reconstruction(self):
         b = self.boundary; b.lost = True

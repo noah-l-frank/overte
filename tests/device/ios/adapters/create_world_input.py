@@ -176,3 +176,17 @@ class CreateWorldInput:
         # Keep issued after an unknown POST. Only separate original effects can
         # later resolve its responsibility; this method never emits touch again.
         self.save()
+
+    def qt_position(self,state=None):
+        """Original safe UIKit viewport into the independently measured Qt size.
+
+        This locates a delivered event; the input ACK still establishes neither
+        Qt delivery nor an entity/voxel effect.
+        """
+        state=self.state if state is None else state;self.proof(state)
+        document,viewport=geometry_document(state['originals']['geometry'],state['originals']['geometry']['commandId'],
+            native_epoch_ms=state['originals']['create']['clockAfter']['epochMs'])
+        view=state['originals']['create']['source']['view'];window=document['window']
+        need(abs(view['uiWidth']-window['width'])<=1 and abs(view['uiHeight']-window['height'])<=1)
+        return [(state['point']['x']-viewport['x'])*window['width']/viewport['width'],
+            (state['point']['y']-viewport['y'])*window['height']/viewport['height']]

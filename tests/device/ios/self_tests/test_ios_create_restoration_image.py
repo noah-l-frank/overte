@@ -59,5 +59,17 @@ class RestorationImageTests(unittest.TestCase):
             (self.h.root/current.frame_owner.name).write_bytes(self.stale)
             with self.assertRaises(NativeUIError):restored(before,current,admission,self.marker['id'],after_native=barrier)
 
+    def test_unknown_former_marker_geometry_requires_the_entire_actual_viewport_unchanged(self):
+        with self.h.held():
+            before,current,admission,barrier=self.pair()
+            value=restored(before,current,admission,None,after_native=barrier)
+            self.assertIsNone(value['markerId']);self.assertEqual([0,0,640,400],value['roi']);self.assertEqual(0,value['changedPixels'])
+        self.doCleanups();self.setUp()
+        image=Image.open(BytesIO(self.background)).convert('RGBA');image.putpixel((639,399),(255,0,255,255))
+        raw=BytesIO();image.save(raw,format='PNG');self.stale=raw.getvalue()
+        with self.h.held():
+            before,current,admission,barrier=self.pair(stale=True)
+            with self.assertRaises(NativeUIError):restored(before,current,admission,None,after_native=barrier)
+
 
 if __name__=='__main__':unittest.main()

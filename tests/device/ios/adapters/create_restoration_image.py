@@ -71,15 +71,20 @@ def restored(baseline,current,admission,marker_id,*,after_native):
         and a['capture']['capturedEpochMs']<=b['capture']['requestedEpochMs']
         and same(semantic_map(before),semantic_map(after)))
     rows=[row for row in admission['source']['entities'] if row['id']==marker_id]
-    need(len(rows)==1 and rows[0]['type']=='Web' and rows[0]['hostType']=='local' and rows[0]['visible']
-        and marker_id not in semantic_map(before) and marker_id not in semantic_map(after))
+    if marker_id is not None:
+        need(len(rows)==1 and rows[0]['type']=='Web' and rows[0]['hostType']=='local' and rows[0]['visible']
+            and marker_id not in semantic_map(before) and marker_id not in semantic_map(after))
     for state in (before,admission,after):
         need(all(state['source']['view'][key]==before['source']['view'][key] for key in ('perspective','uiWidth','uiHeight'))
             and state['source']['domainId']==before['source']['domainId'] and state['source']['localSessionId']==before['source']['localSessionId']
             and all(near(state['source']['view'][key],before['source']['view'][key],.001)
                 for key in ('position','rotation','fieldOfViewDegrees','aspectRatio')))
     left,right=a['capture']['source'],b['capture']['source'];need(left['targetExtent']==right['targetExtent'])
-    roi=projected_box(rows[0],right['renderTrace']['recordedView'],right['targetExtent'])
+    # A partial Script may have returned an entity UUID before any original
+    # rendered geometry was acquired. Its Scope still proves actual returned
+    # UUID/tree birth/weak expiry. Compare the entire original viewport rather
+    # than inventing a box or omitting those potentially rendered pixels.
+    roi=projected_box(rows[0],right['renderTrace']['recordedView'],right['targetExtent']) if marker_id is not None else (0,0,*right['targetExtent'])
     width,height=right['targetExtent'];x0,y0,x1,y1=roi
     need(0<=x0<x1<=width and 0<=y0<y1<=height)
     # Include every pixel covered by the actual projected marker, rather than
@@ -90,7 +95,7 @@ def restored(baseline,current,admission,marker_id,*,after_native):
     need(old.size==new.size==(width,height));delta=ImageChops.difference(old.crop(bounds),new.crop(bounds))
     red,green,blue=delta.split();maximum=ImageChops.lighter(ImageChops.lighter(red,green),blue)
     changed=sum(maximum.histogram()[11:]);pixels=delta.width*delta.height;mean=sum(ImageStat.Stat(delta).mean)/3
-    need(changed/pixels<=.01 and mean<=2.)
+    need(changed/pixels<=.01 and mean<=2. if marker_id is not None else changed==0 and mean<=.1)
     return dict(iosCreateRestorationImageVersion=VERSION,runId=current.run,binding=deepcopy(current.binding),baselineRequest=baseline.request,
         currentRequest=current.request,baselineSha256=hashlib.sha256(old_raw).hexdigest(),currentSha256=hashlib.sha256(new_raw).hexdigest(),
         markerId=marker_id,roi=list(bounds),changedPixels=changed,pixels=pixels,meanChannelDelta=mean,afterNativeEpochMs=after_native)

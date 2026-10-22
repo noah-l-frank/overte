@@ -1,6 +1,11 @@
 {
   "schemaVersion": 1,
   "contracts": {
+    "ios-create-retirement": {"current": 1, "reads": [1]},
+    "ios-create-retirement-record": {"current": 1, "reads": [1]},
+    "ios-create-retirement-original": {"current": 1, "reads": [1]},
+    "ios-create-retirement-component": {"current": 1, "reads": [1]},
+    "ios-create-retirement-components": {"current": 1, "reads": [1]},
     "ios-create-restoration-image": {"current": 1, "reads": [1]},
     "ios-pointer-state": {"current": 1, "reads": [1]},
     "native-ios-pointer-source": {"current": 1, "reads": [1]},

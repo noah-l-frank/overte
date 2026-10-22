@@ -9,6 +9,11 @@ from pathlib import Path
 
 
 REQUIRED = {
+    "ios-create-retirement": 1,
+    "ios-create-retirement-record": 1,
+    "ios-create-retirement-original": 1,
+    "ios-create-retirement-component": 1,
+    "ios-create-retirement-components": 1,
     "ios-create-restoration-image": 1,
     "ios-pointer-state": 1,
     "native-ios-pointer-source": 1,
