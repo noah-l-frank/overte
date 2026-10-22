@@ -21,6 +21,28 @@ APK verification. It does not alter the existing Pico release-consumer contracts
 The Android parent branches use the parent-owned common native harness and do
 not select a child application's APK merely because its files are present.
 
+## Runner selection
+
+Only an Android owner with a nonempty authenticated `android_native_products`
+selection requests `[self-hosted, Linux, X64, overte-native-large-disk]` plus
+`overte-native-<run_id>-<run_attempt>`. The attempt-specific label prevents a
+fresh runner from accepting another normally queued run with the same platform
+labels. Labels are routing hints, not authorization: a sealed guest pre-job
+hook separately verifies the assigned repository, run, attempt, PR merge source
+and workflow identity against the host-supplied expectation before job steps.
+Java/resource compilation and Groovy-only contracts stay on `ubuntu-24.04`, as
+do the other central workflow jobs. The job still requires the shared plan and
+protected policy; runner selection grants no execution or merge authority.
+An unavailable matching runner leaves the native job queued rather than moving
+it to a smaller hosted worker.
+
+The custom label must belong to an isolated, ephemeral Ubuntu VM. It must not
+expose workstation files, credentials, host container sockets or device-lab
+services. Candidate native execution retains its separate offline, nonroot
+container boundary and all protected capacity and payload checks. Registering
+the runner and enabling Actions are separate operations; this workflow change
+does not perform either operation.
+
 ## Immutable payload transport
 
 `tools/repository-checks/pr_ci_android_runtime.py` records every payload file's
@@ -124,6 +146,21 @@ separate from native payloads and is prepared only when that fixture's exact
 input closure is selected. Missing Groovy is a CI prerequisite failure rather
 than a skipped check. These host fixtures do not download an SDK or start a
 native build.
+
+## Build evidence and VM cleanup
+
+Selected native executions export their protected receipt, logs and owning
+outputs to a source/run-bound artifact manifest before removing build scratch.
+Phone and Pico require their verified unsigned APK; the common harness retains
+its ELF outputs. The workflow also saves the platform result and uploads only
+these known paths, including available failure diagnostics. An upload failure
+fails the Android owner and therefore the final merge gate.
+
+The ephemeral VM controller must download the run artifacts and job logs into a
+verified durable workstation archive before reclaiming the VM overlay. Missing
+or damaged backup retains the overlay and blocks the next build. A successful
+GitHub upload alone does not authorize overlay deletion; local rescue remains
+possible if upload or durable download fails.
 
 ## Offline execution boundary
 
