@@ -269,6 +269,18 @@ linearly while retaining complete passes and each current-copy/manifest read.
 Counterexamples cover own/other copies, both manifest levels, extra paths,
 original-directory replacement, in-memory bytes/digest/stamp mutation, inner
 RestartInputs CAS corruption, late final physical inventory and lost or
-identical-byte replaced copies during the final receipt. The full smaller
-application-owner composition and full warm v4 measurement still need reruns;
-these focused checks do not qualify either missing result.
+identical-byte replaced copies during the final receipt. The actual smaller
+application-owner v4 composition subsequently passed its single restart/birth/
+profile/two-quiet-window/IPC/archive/RestartInputs/cold-byte positive in 73.717
+seconds. Its native/V8/SDK production remains an explicit seam. The full
+2623-original warm v4 measurement is still outstanding.
+
+Host descriptor detachment now returns an explicit result at each original
+owner. A lost/recycled transport or executable FD retains its exact original
+owner and descriptor identity instead of discarding the reference or setting
+it to `None`/`-1`. The actual original kernel alias still decides closure;
+neither same-inode replacement nor a second detach closes a foreign FD.
+The parent reports false when any host owner is unresolved while still
+checking its independent remaining owners. This only reports host detachment;
+it does not retire source journals, stop the actor or prove feature cleanup.
+Durable whole-parent host-finalization admission remains a separate open join.

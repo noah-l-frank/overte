@@ -165,6 +165,12 @@ class OwnedChatPeer:
 
     def close_host(self):
         """Detach only owned host handles; never retire native state/journals."""
-        if self.retirement_files is not None:self.retirement_files.detach();self.retirement_files=None
-        if self.files is not None:self.files.detach();self.files=None
-        if self.process is not None:self.process.close();self.process=None
+        okay=True
+        for member,method in (('retirement_files','detach'),('files','detach'),('process','close')):
+            owner=getattr(self,member)
+            if owner is None:continue
+            try:closed=getattr(owner,method)() is True
+            except Exception:closed=False
+            if closed:setattr(self,member,None)
+            else:okay=False # Preserve the exact uncertain original owner.
+        return okay

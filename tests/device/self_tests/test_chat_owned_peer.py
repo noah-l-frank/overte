@@ -64,7 +64,9 @@ class OwnedPeerTests(unittest.TestCase):
         self.assertTrue(peer.guard());self.assertEqual({SOURCE},set(path.name for path in self.actor.iterdir()))
         original=self.store.path.read_bytes();reader=peer.reader();self.assertEqual(self.worker.pid,reader.pid)
         self.assertEqual(original,self.store.path.read_bytes());self.assertFalse((self.state/'chat-capture-owner.json').exists())
-        peer.close_host();self.assertIsNone(self.worker.poll());self.assertEqual(original,self.store.path.read_bytes())
+        self.assertTrue(peer.close_host());self.assertTrue(peer.close_host())
+        self.assertIsNone(peer.process);self.assertIsNone(peer.files)
+        self.assertIsNone(self.worker.poll());self.assertEqual(original,self.store.path.read_bytes())
     def test_unknown_compiled_origin_and_foreign_config_owner_executable_script_are_not_adopted(self):
         original=self.config.read()
         for key,value in (('ownerToken','f'*64),('expectedExecutableSha256','f'*64),('expectedScriptSha256','f'*64)):
@@ -100,8 +102,20 @@ class OwnedPeerTests(unittest.TestCase):
         try:
             self.assertEqual(descriptor,foreign)
             with self.assertRaises(NativeUIError):peer.guard()
-            peer.close_host();self.assertEqual(Path(f'/proc/{self.worker.pid}/exe').stat().st_ino,os.fstat(foreign).st_ino)
+            self.assertFalse(peer.close_host());self.assertIs(process,peer.process);self.assertEqual(descriptor,process.fd)
+            self.assertIsNone(peer.files);self.assertFalse(peer.close_host())
+            self.assertEqual(Path(f'/proc/{self.worker.pid}/exe').stat().st_ino,os.fstat(foreign).st_ino)
             self.assertIsNotNone(self.store.read());self.assertIsNone(self.worker.poll())
+        finally:os.close(foreign);os.close(anchor)
+
+    def test_lost_original_directory_owner_remains_attached_without_closing_recycled_same_directory_fd(self):
+        peer=self.acquire();files=peer.files;descriptor,anchor=files.fd,files.fd_owner.anchor
+        os.close(descriptor);foreign=os.open(self.actor,os.O_RDONLY|os.O_DIRECTORY|os.O_CLOEXEC)
+        try:
+            self.assertEqual(descriptor,foreign)
+            self.assertFalse(peer.close_host());self.assertIs(files,peer.files);self.assertEqual(descriptor,files.fd)
+            self.assertIsNone(peer.process);self.assertFalse(peer.close_host())
+            self.assertEqual(self.actor.stat().st_ino,os.fstat(foreign).st_ino);self.assertIsNotNone(self.store.read())
         finally:os.close(foreign);os.close(anchor)
 
     def test_replaced_kernel_release_or_process_owner_callback_cannot_supply_peer_facts(self):
