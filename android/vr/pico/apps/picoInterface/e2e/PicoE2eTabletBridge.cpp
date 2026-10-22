@@ -5,6 +5,7 @@
 #include "PicoGraphicsComposition.h"
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #include "../../../../../../tests/device/native/PendingFieldCommitOwner.h"
+#include "../../../../../../tests/device/native/PicoBrowserInputBridge.h"
 #include "../../../../../../tests/device/native/LifecycleUiObservation.h"
 #include "../../../../../../tests/device/native/LifecycleBackgroundHistory.h"
 #include <PathUtils.h>
@@ -18,6 +19,7 @@
 #include <avatar/AvatarManager.h>
 #include <scripting/HMDScriptingInterface.h>
 #include <QElapsedTimer>
+#include <QInputMethodEvent>
 #include <QUuid>
 #endif
 
@@ -345,6 +347,59 @@ QUrl lifecycleScriptSource(const QString& relative) {
     return base.resolved(QUrl(relative));
 }
 
+void installBrowserInputProvider() {
+    using namespace overte::e2e;
+    if (!qApp || QThread::currentThread()!=qApp->thread() || !bridgeEnabled()
+            || !previewDirectory(BRIDGE_DIRECTORY) || qApp->property(picoBrowserInputProperty()).isValid()) { return; }
+    const auto admitted=[](QQuickItem* item) {
+        if (!bridgeEnabled() || !previewDirectory(BRIDGE_DIRECTORY) || !item || !effectiveVisible(item)
+                || QGuiApplication::applicationState()!=Qt::ApplicationActive
+                || !DependencyManager::isSet<TabletScriptingInterface>()) { return false; }
+        const auto tablet=DependencyManager::get<TabletScriptingInterface>()->getTablet(SYSTEM_TABLET);
+        auto root=tablet ? tablet->getTabletRoot() : nullptr;auto surface=tablet ? tablet->getTabletSurface() : nullptr;
+        auto window=surface ? surface->getWindow() : nullptr;
+        if (!tablet || !tablet->property("tabletShown").toBool() || !root || !window || root->window()!=window
+                || item->window()!=window || item->thread()!=qApp->thread() || root->thread()!=qApp->thread()
+                || window->thread()!=qApp->thread()) { return false; }
+        int depth=0;for (auto parent=item;parent && depth++<128;parent=parent->parentItem()) { if (parent==root) { return true; } }
+        return false;
+    };
+    PicoBrowserInputProvider provider;
+    provider.pointer=[admitted](QQuickItem* item,const QPointF& local,qint64 originalEpoch) {
+        if (!admitted(item)) { return false; }const auto scene=item->mapToScene(local);
+        if (!NormalControlUi::ownsPoint(item,item->window(),scene)) { return false; }
+        const auto tablet=DependencyManager::get<TabletScriptingInterface>()->getTablet(SYSTEM_TABLET);
+        auto surface=tablet ? tablet->getTabletSurface() : nullptr;
+        const auto now=QDateTime::currentMSecsSinceEpoch();
+        return surface && surface->getWindow()==item->window() && originalEpoch>0 && now>=originalEpoch && now-originalEpoch<=1500
+            && sendPointerAt(item,surface,scene);
+    };
+    provider.text=[admitted](QQuickItem* item,const QString& text,qint64 originalEpoch) {
+        if (!admitted(item) || item->window()->activeFocusItem()!=item || text.size()>512) { return false; }
+        for (int i=0;i<text.size();++i) {
+            const auto c=text.at(i);
+            if (c.unicode()<32 || c.unicode()==127 || c.isLowSurrogate()) { return false; }
+            if (c.isHighSurrogate() && (++i>=text.size() || !text.at(i).isLowSurrogate())) { return false; }
+        }
+        const auto old=item->inputMethodQuery(Qt::ImSurroundingText);
+        bool cursorOkay=false,anchorOkay=false;
+        const auto cursor=item->inputMethodQuery(Qt::ImCursorPosition).toInt(&cursorOkay),
+            anchor=item->inputMethodQuery(Qt::ImAnchorPosition).toInt(&anchorOkay);
+        if (!item->inputMethodQuery(Qt::ImEnabled).toBool() || old.userType()!=QMetaType::QString || old.toString().size()>512
+                || !cursorOkay || !anchorOkay || cursor<0 || anchor<0 || cursor>old.toString().size() || anchor>old.toString().size()
+                || item->inputMethodQuery(Qt::ImAbsolutePosition).toInt()!=cursor
+                || (item->inputMethodQuery(Qt::ImHints).toInt() & (Qt::ImhHiddenText | Qt::ImhSensitiveData))) { return false; }
+        // Native WebView editor updates arrive asynchronously. The normal IME
+        // replacement describes the actual whole surrounding range; a delivery
+        // ACK cannot stand in for subsequent independent DOM/model observation.
+        QInputMethodEvent commit;
+        commit.setCommitString(text,-std::min(cursor,anchor),old.toString().size()-std::abs(cursor-anchor));
+        const auto now=QDateTime::currentMSecsSinceEpoch();
+        return originalEpoch>0 && now>=originalEpoch && now-originalEpoch<=1500 && QCoreApplication::sendEvent(item->window(),&commit);
+    };
+    qApp->setProperty(picoBrowserInputProperty(),QVariant::fromValue(provider));
+}
+
 void installPendingCommitOwner() {
     using namespace overte::e2e;
     if (!qApp || QThread::currentThread() != qApp->thread() || !bridgeEnabled()
@@ -394,6 +449,7 @@ private:
         }
 #if defined(OVERTE_E2E_FEATURE_TESTS)
         installPendingCommitOwner();
+        installBrowserInputProvider();
 #endif
         const Observation observation = observeTablet();
         writeJson(OBSERVATION_PATH, {

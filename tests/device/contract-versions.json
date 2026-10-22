@@ -1,6 +1,8 @@
 {
   "schemaVersion": 1,
   "contracts": {
+    "pico-browser-originals": {"current": 1, "reads": [1]},
+    "pico-browser-geometry": {"current": 1, "reads": [1]},
     "pico-emote-scene-source": {"current": 1, "reads": [1]},
     "pico-emote-scene-input": {"current": 1, "reads": [1]},
     "pico-emote-scene-owner": {"current": 1, "reads": [1]},

@@ -1268,6 +1268,20 @@
             }
             return true;
         }
+        if (command && (command.action === "pico-world-web" || command.action === "pico-tablet-web"
+                || command.action === "pico-web-reference")) {
+            var picoBrowser={picoBrowserVersion:1,commandId:command.commandId,status:"unavailable"};
+            try {
+                // The native provider validates the complete closed protocol
+                // and original owner. Polling an original pending nonce never
+                // retries pointer/IME delivery or retimes a completed source.
+                if (typeof Test.featurePicoBrowser === "function") {
+                    var originalPicoBrowser=Test.featurePicoBrowser(command);
+                    if (originalPicoBrowser && originalPicoBrowser.commandId === command.commandId) { picoBrowser=originalPicoBrowser; }
+                }
+            } catch (_picoBrowserError) {}
+            Test.saveObject(picoBrowser,"feature-pico-browser.json");return true;
+        }
         if (command && command.action === "feature-web-dom-observe") {
             if (command.schemaVersion === 1 && typeof command.commandId === "string"
                     && /^(?:ios-)?[0-9a-f]{32}$/.test(command.commandId)
@@ -2086,7 +2100,7 @@
 
     function applyAndroidControlCommand(command) {
         if (command && (command.action === "normal-feature-observe" || command.action === "feature-native-observe"
-                || command.action === "feature-chat-observe" || command.action === "feature-chat-view-observe" || command.action === "feature-chat-peer-position" || command.action === "feature-chat-profile" || command.action === "feature-web-dom-observe" || command.action === "feature-account-probe" || command.action === "feature-account-origin"
+                || command.action === "feature-chat-observe" || command.action === "feature-chat-view-observe" || command.action === "feature-chat-peer-position" || command.action === "feature-chat-profile" || command.action === "feature-web-dom-observe" || command.action === "pico-world-web" || command.action === "pico-tablet-web" || command.action === "pico-web-reference" || command.action === "feature-account-probe" || command.action === "feature-account-origin"
                 || command.action === "feature-pending-commit-owner" || command.action === "feature-navigation-replies"
                 || command.action === "feature-location-bookmarks"
                 || command.action === "feature-navigation-modals"

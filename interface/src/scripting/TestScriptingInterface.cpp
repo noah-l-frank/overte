@@ -37,6 +37,7 @@
 #include "../../../tests/device/native/ChatPeerPosition.h"
 #include "../../../tests/device/native/WebDOMObservationBridge.h"
 #include "../../../tests/device/native/WebRuntimeBridge.h"
+#include "../../../tests/device/native/PicoBrowserFeatureBridge.h"
 #if defined(ANDROID_APP_PICO_INTERFACE)
 #include "../../../tests/device/native/PicoEmoteSceneFixture.h"
 #include "Audio.h"
@@ -936,6 +937,21 @@ QVariantMap TestScriptingInterface::featureWebDOMObservation(const QVariantMap& 
     if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
             || !QCoreApplication::arguments().contains("--testScript") || !overte::e2e::webDOMCommand(command)) { return {}; }
     const auto original=qApp->property(overte::e2e::webDOMProviderProperty());
+    if (original.userType()!=qMetaTypeId<overte::e2e::WebDOMProvider>()) { return {}; }
+    const auto provider=original.value<overte::e2e::WebDOMProvider>();
+    return provider ? provider(command) : QVariantMap();
+}
+
+QVariantMap TestScriptingInterface::featurePicoBrowser(const QVariantMap& command) {
+    if (QThread::currentThread()!=thread()) {
+        if (!thread() || !thread()->isRunning()) { return {}; }
+        QVariantMap result;
+        if (!QMetaObject::invokeMethod(this,[&] { result=featurePicoBrowser(command); },Qt::BlockingQueuedConnection)) { return {}; }
+        return result;
+    }
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript") || !overte::e2e::picoBrowserCommand(command)) { return {}; }
+    const auto original=qApp->property(overte::e2e::picoBrowserProperty());
     if (original.userType()!=qMetaTypeId<overte::e2e::WebDOMProvider>()) { return {}; }
     const auto provider=original.value<overte::e2e::WebDOMProvider>();
     return provider ? provider(command) : QVariantMap();

@@ -125,6 +125,14 @@ public:
     void acceptInputFocus(quint64 revision, quint64 birth, bool focused);
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     static QVariantMap featureWebDOMObservation(const QVariantMap& command);
+    static QVariantMap featurePicoBrowser(const QVariantMap& command);
+    static void acceptFeaturePicoBrowserGeometry(qint64 handle,quint64 grant,quint64 page,const QString& document,
+        const QString& request,const QByteArray& result,bool focused=false);
+    bool featurePicoTabletOwned(const QString& run,const QString& root) const;
+    QVariantMap featurePicoTabletInline() const;
+    bool featurePicoTabletIntercept(quint64 grant,quint64 page,const QUrl& document,const QUrl& origin,
+        bool mainFrame,const QByteArray& payload,const QJsonObject& object);
+    void featurePicoBrowserRecord(const QString& kind,const QVariant& value=QVariant());
     static QVariantMap featureWebRuntimeObservation(const QVariantMap& command);
     static void acceptFeatureWebRuntime(const QString& request,const QByteArray& json);
     void acceptFeatureWebDOM(quint64 grant, quint64 page, const QUrl& document, const QString& request, const QByteArray& result);

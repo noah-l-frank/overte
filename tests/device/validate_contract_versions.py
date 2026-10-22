@@ -9,6 +9,8 @@ from pathlib import Path
 
 
 REQUIRED = {
+    "pico-browser-originals": 1,
+    "pico-browser-geometry": 1,
     "chat-compiled-script-source": 1,
     "pico-emote-scene-source": 1,
     "pico-emote-scene-input": 1,

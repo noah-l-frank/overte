@@ -16,7 +16,7 @@ Current isolated continuation: [2026-10-21 coverage and handoff](FEATURE_HANDOFF
 Scripts, Authentication and Graphics have complete source-level, host-verified v16 triples
 on that local branch, using the actual Pico VR input composition. The other eleven complete
 areas remain unavailable. The full native application has not been compiled;
-selected original native fragments pass host compiler checks. Every device is
+selected native translation units and original fragments pass host compiler checks. Every device is
 untested. See the [Scripts contract](SCRIPT_FEATURE.md) and
 [machine matrix](FEATURE_COVERAGE_20261021.json).
 

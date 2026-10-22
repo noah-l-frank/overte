@@ -654,7 +654,17 @@
         "tests/device/feature_journeys/WEB_SOURCE.md",
         "tests/device/adapters/native_web_runtime.py",
         "tests/device/native/WEB_RUNTIME_OBSERVATION.md",
-        "android/common/web/java/org/overte/web/WebTextureObservation.java"
+        "android/common/web/java/org/overte/web/WebTextureObservation.java",
+        "tests/device/adapters/pico4/BROWSER_ORIGINALS.md",
+        "tests/device/adapters/pico4/browser_source.py",
+        "tests/device/adapters/pico4/tablet_browser_source.py",
+        "tests/device/adapters/pico4/tablet_browser_dom.py",
+        "tests/device/native/PicoBrowserFeatureBridge.h",
+        "tests/device/native/PicoBrowserInputBridge.h",
+        "android/common/web/src/PicoBrowserFeatureE2E.inc",
+        "tests/device/self_tests/test_pico_browser_geometry.py",
+        "tests/device/self_tests/test_pico_browser_io.py",
+        "android/vr/pico/tests/device/test_pico_browser_originals.py"
       ],
       "declaredCheckpoints": 26,
       "inputVerbs": [
@@ -693,9 +703,9 @@
         "open"
       ],
       "missingOperationsOrEvidence": [
-        "Normal actual VR Web DOM input and all document transitions",
-        "Original inline data-HTML lease and retained old callback delivery (v1 source rejects inline)",
-        "Independent original DOM/bridge/image/publisher and cleanup coordination"
+        "Complete normal VR tablet fixture-app opening, wheel scrolling, keyboard and document-transition flow",
+        "Normal inline-app entry, original held-callback delivery and whole-owner recovery",
+        "Independent DOM/bridge/stereo-image publisher and complete original Script/resource retirement"
       ],
       "requiredOriginalEvidence": [
         "Original VR tablet Web view and current document admission",
@@ -708,8 +718,8 @@
         "Revoke leases and retire callback/grant authority",
         "Observe actual source destruction and closed quiet baseline"
       ],
-      "nextExecutableStep": "Extend the existing native Web DOM source with a versioned original inline carrier/retained dispatch owner, then route ordinary pointer input through the bound VR surface and compose the existing shared browser journey.",
-      "nativeCompilation": "unverified",
+      "nextExecutableStep": "Compose the frozen Phone whole browser flow around the Pico originals factory; implement ordinary surface wheel input for offscreen controls, then actual Pico stereo acquisition and independent final closure.",
+      "nativeCompilation": "Selected native backend translation unit and original Pico pointer/provider bodies host-compiled; full application unverified",
       "deviceQualification": "untested"
     },
     {

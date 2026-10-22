@@ -85,8 +85,7 @@ function overteWebDOMSource(global) {
     // bridge grant, invoke a page handler, send a packet or edit an element.
     const timer = global.setInterval(() => { if (alive && !failed) { try { acquire(); } catch (_) { failed = true; } } }, 50);
     acquire();
-    return Object.freeze({
-        read(requestId) {
+    function read(requestId) {
             need(typeof requestId === 'string' && [32,36].includes(requestId.length)
                  && /^(?:ios-)?[0-9a-f]{32}$/.test(requestId));
             const actual = original();acquire();settle();need(!failed && sequence < Number.MAX_SAFE_INTEGER);
@@ -95,6 +94,41 @@ function overteWebDOMSource(global) {
                 document:{runId:actual.runId,href:actual.href,responseId:actual.responseId,readyState:doc.readyState},
                 editor:{text:actual.editor.value,focused:doc.activeElement === actual.editor},
                 attempts:attempts.map(v => ({...v})),echoes:echoes.map(v => ({...v}))};
+    }
+    return Object.freeze({
+        read,
+        // Separate owned-browser profile. The original HTTP-only read packet
+        // remains v1; title is an original document property, not a verdict.
+        readOwned(requestId) {
+            const result = read(requestId);
+            need(typeof doc.title === 'string' && doc.title.length > 0 && doc.title.length <= 512);
+            result.document.title = doc.title;return result;
+        },
+        // This reads only a fixed fixture control. Geometry is consumed inside
+        // the native input producer, never accepted as caller coordinates.
+        readGeometry(requestId, control) {
+            need(['text','bridge','reference','second','recovery','back','reload','foreign','navigate',
+                  'play','pause','seekStart','seek'].includes(control));
+            const actual = read(requestId), item = node(control);
+            need(item && typeof item.getBoundingClientRect === 'function');
+            const rect = item.getBoundingClientRect(), x = rect.left + rect.width / 2,
+                y = rect.top + rect.height / 2, hit = doc.elementFromPoint(x, y), viewport = global.visualViewport;
+            need([rect.left,rect.top,rect.width,rect.height,x,y,global.innerWidth,global.innerHeight].every(Number.isFinite)
+                 && rect.width > 0 && rect.height > 0 && global.innerWidth > 0 && global.innerHeight > 0);
+            const editable = control === 'text' || control === 'foreign';
+            need(editable ? item.tagName === 'INPUT' && ['text','url'].includes(item.type)
+                          : ['BUTTON','A','INPUT'].includes(item.tagName));
+            return {webGeometryVersion:1,requestId,instance:actual.instance,sequence:actual.sequence,capturedEpochMs:actual.capturedEpochMs,
+                document:actual.document,control,
+                editor:{focused:doc.activeElement === item,text:editable ? item.value : null,
+                    cursor:editable ? (item.selectionDirection === 'backward' ? item.selectionStart : item.selectionEnd) : null,
+                    anchor:editable ? (item.selectionDirection === 'backward' ? item.selectionEnd : item.selectionStart) : null},
+                viewport:{width:global.innerWidth,height:global.innerHeight,
+                    scale:viewport ? viewport.scale : 1,offsetLeft:viewport ? viewport.offsetLeft : 0,
+                    offsetTop:viewport ? viewport.offsetTop : 0},
+                rect:{x:rect.left,y:rect.top,width:rect.width,height:rect.height},center:{x,y},
+                hit:hit === item || !!(hit && item.contains(hit)),
+                enabled:!item.disabled && !item.readOnly,connected:item.isConnected === true};
         },
         retire() {
             if (retired) return;alive = false;

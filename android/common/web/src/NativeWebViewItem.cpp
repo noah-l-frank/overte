@@ -9,6 +9,7 @@
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #include "../../../../tests/device/native/WebDOMObservationBridge.h"
 #include "../../../../tests/device/native/WebRuntimeBridge.h"
+#include "../../../../tests/device/native/PicoBrowserFeatureBridge.h"
 #endif
 #include <QFile>
 #include <QFocusEvent>
@@ -96,6 +97,8 @@ void registerType() {
         overte::e2e::WebDOMProvider provider=[](const QVariantMap& command) { return NativeWebViewItem::featureWebDOMObservation(command); };
         QCoreApplication::instance()->setProperty(overte::e2e::webDOMProviderProperty(),QVariant::fromValue(provider));
 #if defined(ANDROID_APP_PICO_INTERFACE)
+        overte::e2e::WebDOMProvider browser=[](const QVariantMap& command) { return NativeWebViewItem::featurePicoBrowser(command); };
+        QCoreApplication::instance()->setProperty(overte::e2e::picoBrowserProperty(),QVariant::fromValue(browser));
         overte::e2e::WebRuntimeProvider runtime{[](const QVariantMap& command) { return NativeWebViewItem::featureWebRuntimeObservation(command); }};
         QCoreApplication::instance()->setProperty(overte::e2e::webRuntimeProperty(),QVariant::fromValue(runtime));
 #endif
@@ -115,6 +118,9 @@ NativeWebViewItem::NativeWebViewItem(QQuickItem* parent) : QQuickItem(parent),
     _channel->registerObject("eventBridgeWrapper", new NativeBridgeWrapper(_bridge, this));
     _channel->connectTo(_transport);
     connect(_bridge, &NativeSurfaceBridge::webEvent, this, &NativeWebViewItem::webEventReceived);
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+    connect(_bridge,&NativeSurfaceBridge::webEvent,this,[this](const QVariant& message) { featurePicoBrowserRecord("requests",message); });
+#endif
     connect(_transport, &NativeWebTransport::outbound, this, [this](const QJsonObject& message) {
         quint64 grant, page; { QMutexLocker guard(&_mutex); grant = _session.generation(); page = _page; }
         const auto payload = QJsonDocument(message).toJson(QJsonDocument::Compact);
@@ -359,10 +365,17 @@ bool NativeWebViewItem::acceptMessage(quint64 grant, quint64 page, const QUrl& d
                 || object.value("signal").toInt(-1) != _bridge->metaObject()->indexOfSignal("scriptEventReceived(QVariant)")) return false;
         } else if (messageType != 3 && messageType != 4) return false;
     }
-    QPointer<NativeWebViewItem> self(this); QMetaObject::invokeMethod(this, [self, grant, page, document, type, inputEpoch, object = parsed.object()] {
+    QPointer<NativeWebViewItem> self(this); QMetaObject::invokeMethod(this, [self, grant, page, document, type, inputEpoch,
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+        origin,mainFrame,payload,
+#endif
+        object = parsed.object()] {
         if (!self) return;
         if (type == "editor" ? !self->allowsEditorDocument(grant, page, document) : !self->allowsBridgeDocument(grant, page, document)) return;
         if (type == "editor") { QMutexLocker guard(&self->_mutex); if (!self->_inputFocused || self->_inputEpoch != inputEpoch) return; }
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+        if (type=="channel" && self->featurePicoTabletIntercept(grant,page,document,origin,mainFrame,payload,object)) { return; }
+#endif
         if (type == "channel") self->_transport->receive(object); else self->updateEditor(object);
     }, Qt::QueuedConnection); return true;
 }
@@ -529,6 +542,9 @@ bool NativeWebViewItem::evaluate(const QString& script, quint64 grant, quint64 p
 bool NativeWebViewItem::emitScriptEvent(const QVariant& message) {
     const auto bytes = QJsonDocument(QJsonArray { QJsonValue::fromVariant(message) }).toJson(QJsonDocument::Compact).size();
     { QMutexLocker guard(&_mutex); if (!_session.allowsBridge(_session.generation(), sourceURL(_document), true, bytes)) return false; }
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+    featurePicoBrowserRecord("replies",message);
+#endif
     _bridge->forwardScriptEvent(message); return true;
 }
 bool NativeWebViewItem::runJavaScript(const QString& source, const QJSValue& callback) {
@@ -886,7 +902,9 @@ QVariantMap NativeWebViewItem::featureWebSnapshot(const QVariantMap& command) {
           document=item->_document.toString(QUrl::FullyEncoded);grant=item->_session.generation();page=item->_page;
           active=item->_session.active();authorized=item->_sourceAuthorized;suspended=item->_suspendedDocument; }
         const auto creation=item->_creationSource.toString(QUrl::FullyEncoded),handle=QString::number(item->_handle);
-        const bool sourceOwned=runtimeOwned(source,root),documentOwned=runtimeOwned(document,root),creationOwned=runtimeOwned(creation,root);
+        const bool inlineOwned=item->featurePicoTabletOwned(run,root);
+        const bool sourceOwned=runtimeOwned(source,root) || inlineOwned,documentOwned=runtimeOwned(document,root) || inlineOwned,
+            creationOwned=runtimeOwned(creation,root) || inlineOwned;
         int callbacks=0;
         if (!item->_featureCallbackSourcesComplete) { webRuntime.complete=false; }
         for (auto found=item->_featureCallbackSources.cbegin();found!=item->_featureCallbackSources.cend();++found) {
@@ -994,7 +1012,8 @@ QVariantMap NativeWebViewItem::featureWebDOMObservation(const QVariantMap& comma
     return selected ? selected->featureWebDOMRequest(command) : QVariantMap();
 }
 QVariantMap NativeWebViewItem::featureWebDOMRequest(const QVariantMap& command) {
-    if (!featureEnabled() || !overte::e2e::webDOMCommand(command) || thread()!=QThread::currentThread()) { return {}; }
+    if (!featureEnabled() || (!overte::e2e::webDOMCommand(command) && !overte::e2e::picoTabletDOMCommand(command))
+            || thread()!=QThread::currentThread()) { return {}; }
     quint64 grant,page;QUrl document;
     { QMutexLocker guard(&_mutex);grant=_session.generation();page=_page;document=_document; }
     if (!grant || !page || !allowsEditorDocument(grant,page,document)) { return {}; }
@@ -1017,7 +1036,8 @@ QVariantMap NativeWebViewItem::featureWebDOMRequest(const QVariantMap& command) 
         Jni jni;if (!jni.env) { _featureWebPacket=featureWebPacket(command,"unavailable");return _featureWebPacket; }
         const auto nonce=jni.string(id);if (!nonce) { _featureWebPacket=featureWebPacket(command,"unavailable");return _featureWebPacket; }
         jvalue args[4];args[0].j=_handle;args[1].j=grant;args[2].j=page;args[3].l=nonce;
-        const bool posted=call("featureRead", "(JJJLjava/lang/String;)V",args);jni.env->DeleteLocalRef(nonce);
+        const bool posted=call(command.value("action")=="feature-pico-tablet-dom-observe" ? "featurePicoReadOwned" : "featureRead",
+            "(JJJLjava/lang/String;)V",args);jni.env->DeleteLocalRef(nonce);
         if (!posted) { _featureWebPacket=featureWebPacket(command,"unavailable"); }
     }
     return _featureWebPacket;
@@ -1028,6 +1048,9 @@ void NativeWebViewItem::acceptFeatureWebFinished(quint64 grant, quint64 page, co
         if (!self || !featureEnabled() || !self->allowsEditorDocument(grant,page,document)) { return; }
         { QMutexLocker guard(&self->_mutex);if (!self->current(grant,page) || self->_document!=document) { return; } }
         self->_featureWebFinishedGrant=grant;self->_featureWebFinishedPage=page;self->_featureWebFinishedDocument=document;
+#if defined(ANDROID_APP_PICO_INTERFACE)
+        self->featurePicoBrowserRecord("documents");
+#endif
     },Qt::QueuedConnection);
 }
 void NativeWebViewItem::acceptFeatureWebHTTPError(quint64 grant, quint64 page, const QUrl& document, int status) {
@@ -1059,7 +1082,9 @@ void NativeWebViewItem::acceptFeatureWebDOM(quint64 grant, quint64 page, const Q
         const auto actualDocument=dom.value("document").toMap();
         if (QJsonObject::fromVariantMap(dom).value("webDOMVersion")!=QJsonValue(1)
                 || dom.value("requestId")!=request || actualDocument.value("runId")!=self->_featureWebCommand.value("runId")
-                || actualDocument.value("href")!=document.toString(QUrl::FullyEncoded) || inlineLease
+                || actualDocument.value("href")!=document.toString(QUrl::FullyEncoded)
+                || (inlineLease && (self->_featureWebCommand.value("action")!="feature-pico-tablet-dom-observe"
+                    || !self->featurePicoTabletOwned(self->_featureWebCommand.value("runId").toString(),self->_featureWebCommand.value("fixtureUrl").toString())))
                 || self->_featureWebFinishedGrant!=grant || self->_featureWebFinishedPage!=page || self->_featureWebFinishedDocument!=document) {
             self->_featureWebPacket=self->featureWebPacket(self->_featureWebCommand,"unavailable");return;
         }
@@ -1067,7 +1092,14 @@ void NativeWebViewItem::acceptFeatureWebDOM(quint64 grant, quint64 page, const Q
             {"grant",static_cast<qulonglong>(grant)},{"page",static_cast<qulonglong>(page)},{"url",document.toString(QUrl::FullyEncoded)},
             {"nativeFinished",true},{"httpErrorStatus",self->_featureWebHTTPGrant==grant && self->_featureWebHTTPPage==page ? self->_featureWebHTTPStatus : 0},
             {"inlineLease",inlineLease},{"sourceUrl",source},{"sourceIdentity",self->_sourceIdentity}};
-        self->_featureWebPacket=self->featureWebPacket(self->_featureWebCommand,"ready",{{"nativeView",view},{"dom",dom}});
+        QVariantMap sources{{"nativeView",view},{"dom",dom}};
+#if defined(ANDROID_APP_PICO_INTERFACE)
+        if (inlineLease) { sources.insert("inline",self->featurePicoTabletInline()); }
+#endif
+        self->_featureWebPacket=self->featureWebPacket(self->_featureWebCommand,"ready",sources);
+#if defined(ANDROID_APP_PICO_INTERFACE)
+        self->featurePicoBrowserRecord("dom",self->_featureWebPacket);
+#endif
     },Qt::QueuedConnection);
 }
 #endif
@@ -1108,3 +1140,5 @@ extern "C" JNIEXPORT void JNICALL Java_org_overte_web_EmbeddedWebView_nativeFeat
 extern "C" JNIEXPORT void JNICALL Java_org_overte_web_EmbeddedWebView_nativeResult(JNIEnv* env, jclass, jlong handle, jlong grant, jlong page, jlong request, jstring result) {
     auto json = string(env, result).toUtf8(); QMutexLocker guard(&registryMutex); if (auto* item = registry.value(handle)) item->acceptResult(grant, page, request, json);
 }
+
+#include "PicoBrowserFeatureE2E.inc"

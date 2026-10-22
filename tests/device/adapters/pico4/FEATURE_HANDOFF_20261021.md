@@ -1303,3 +1303,22 @@ Chat source, Chat composition, Still owner, Create Rez controller and Create
 Rez parent. Four repository suites pass in 2.83s. These checks include original
 native host fragments; they do not qualify a full application, APK or device.
 The 102 count denotes test groups; completed feature areas remain 3/14.
+
+## Frozen Phone browser reuse on the actual Pico tablet surface
+
+[BROWSER_ORIGINALS.md](BROWSER_ORIGINALS.md) records the fixed Phone source
+selection and actual Pico pointer/Qt IME adaptation. The private factory and
+original observer retain complete document/bridge/inline histories and raw
+geometry/focus/input originals. The original HTTP-only DOM reader and stronger
+runtime v2 remain separate. This is a partial browser source/input component;
+it does not activate a complete Web capability or qualify mono pixels as stereo.
+
+The final owning 30 host cases and coverage pass 2/103 selectors in 14.50s.
+The earlier combined selection also passes the existing selected native Pico
+backend test (3/103 in 20.47s). Tests compile the actual selected native backend
+translation unit and original Pico pointer/provider bodies with Qt5, and actual
+production Java against existing Android/WebKit APIs. DOM, Android scheduling
+and the Tablet singleton are explicit host boundaries. Four repository suites
+pass in 3.27s; completed areas remain Scripts, Authentication and Graphics (3/14).
+Normal whole opening/scrolling/keyboard, independent stereo/publication and
+complete final resource closure remain required. No APK or device was tested.

@@ -505,6 +505,85 @@ public final class EmbeddedWebView {
             });
         });
     }
+    public static void featurePicoReadOwned(long handle, long grant, long page, String requestId) {
+        if (!nativeFeatureEnabled() || requestId == null || requestId.length() > 36
+                || !requestId.matches("(?:ios-)?[0-9a-f]{32}")) return;
+        post(handle, instance -> {
+            EmbeddedWebHost owner = host.get();
+            String document = instance.view.getUrl();
+            if (!instance.featureInstrumentation || instance.destroyedDocument || owner == null || owner != instance.owner
+                    || owner.activity() != instance.activity || !owner.isForeground() || !instance.activity.hasWindowFocus()
+                    || !instance.document.admits(grant, page, true, 1)
+                    || !nativeEditorAllowed(handle, grant, page, document)) return;
+            String script = "window.__overteFeatureWebDOM?JSON.stringify(window.__overteFeatureWebDOM.readOwned("
+                + JSONObject.quote(requestId) + ")):null";
+            instance.view.evaluateJavascript(script, result -> {
+                if (VIEWS.get(handle) != instance || instance.destroyedDocument || !instance.active
+                        || host.get() != owner || owner.activity() != instance.activity || !owner.isForeground()
+                        || !instance.activity.hasWindowFocus() || !instance.document.admits(grant, page, true, 1)
+                        || document == null || !document.equals(instance.view.getUrl())
+                        || !nativeEditorAllowed(handle, grant, page, document)) return;
+                nativeFeatureDOMResult(handle, grant, page, document, requestId, result);
+            });
+        });
+    }
+
+    private static native void nativeFeaturePicoGeometry(long handle,long grant,long page,String document,String requestId,String result);
+    private static native void nativeFeaturePicoFocus(long handle,long grant,long page,String document,String requestId,String result);
+    public static void featurePicoGeometry(long handle,long grant,long page,String requestId,String control) {
+        featurePicoGeometryRead(handle,grant,page,requestId,control,false,SystemClock.elapsedRealtime());
+    }
+    public static void featurePicoFocus(long handle,long grant,long page,String requestId,String control) {
+        if (!"text".equals(control) && !"foreign".equals(control)) return;
+        featurePicoGeometryRead(handle,grant,page,requestId,control,true,SystemClock.elapsedRealtime());
+    }
+    private static void featurePicoGeometryRead(long handle,long grant,long page,String requestId,String control,boolean focused,long started) {
+        if (!nativeFeatureEnabled() || requestId == null || !requestId.matches("[0-9a-f]{32}")
+                || control == null || !control.matches("text|bridge|reference|second|recovery|back|reload|foreign|navigate|play|pause|seekStart|seek")) return;
+        MAIN.post(() -> {
+            Instance instance=VIEWS.get(handle);
+            if (instance==null) { featurePicoReadResult(handle,grant,page,"",requestId,"null",focused);return; }
+            EmbeddedWebHost owner = host.get();String document = instance.view.getUrl();
+            long elapsed=SystemClock.elapsedRealtime()-started;
+            if (elapsed<0 || elapsed>=4000 || !instance.featureInstrumentation || instance.destroyedDocument || !instance.active || owner == null || owner != instance.owner
+                    || owner.activity() != instance.activity || !owner.isForeground() || !instance.activity.hasWindowFocus()
+                    || !instance.document.admits(grant,page,true,1) || !nativeEditorAllowed(handle,grant,page,document)) {
+                featurePicoReadResult(handle,grant,page,document,requestId,"null",focused);return;
+            }
+            String script = "window.__overteFeatureWebDOM?JSON.stringify(window.__overteFeatureWebDOM.readGeometry("
+                + JSONObject.quote(requestId) + "," + JSONObject.quote(control) + ")):null";
+            instance.view.evaluateJavascript(script,result -> {
+                long age=SystemClock.elapsedRealtime()-started;
+                if (age<0 || age>=4000 || VIEWS.get(handle) != instance || instance.destroyedDocument || !instance.active || host.get() != owner
+                        || owner.activity() != instance.activity || !owner.isForeground() || !instance.activity.hasWindowFocus()
+                        || !instance.document.admits(grant,page,true,1) || document == null || !document.equals(instance.view.getUrl())
+                        || !nativeEditorAllowed(handle,grant,page,document)) {
+                    featurePicoReadResult(handle,grant,page,document,requestId,"null",focused);return;
+                }
+                if (focused) {
+                    try {
+                        Object decoded=new JSONArray("["+result+"]").get(0);
+                        JSONObject original=new JSONObject((String)decoded);
+                        if (!original.getJSONObject("editor").getBoolean("focused")) {
+                            // Read-only focus retries stay tied to the original
+                            // owner/activity/instance/document and a fixed deadline.
+                            MAIN.postDelayed(() -> {
+                                if (VIEWS.get(handle)==instance && host.get()==owner && owner.activity()==instance.activity
+                                        && document.equals(instance.view.getUrl())) {
+                                    featurePicoGeometryRead(handle,grant,page,requestId,control,true,started);
+                                } else featurePicoReadResult(handle,grant,page,document,requestId,"null",true);
+                            },20);return;
+                        }
+                    } catch (Exception unavailable) { featurePicoReadResult(handle,grant,page,document,requestId,"null",true);return; }
+                    featurePicoReadResult(handle,grant,page,document,requestId,result,true);
+                } else featurePicoReadResult(handle,grant,page,document,requestId,result,false);
+            });
+        });
+    }
+    private static void featurePicoReadResult(long handle,long grant,long page,String document,String requestId,String result,boolean focused) {
+        if (focused) nativeFeaturePicoFocus(handle,grant,page,document==null ? "" : document,requestId,result);
+        else nativeFeaturePicoGeometry(handle,grant,page,document==null ? "" : document,requestId,result);
+    }
     public static void evaluate(long handle, long grant, long page, String javascript) {
         post(handle, instance -> {
             if (instance.destroyedDocument || !instance.document.admits(grant, page, true, 1)) return;

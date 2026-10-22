@@ -1665,6 +1665,20 @@ def create_adapter(args, base_class):
                 native.clock_ms,native.guard,native.pid,intent=intent,monotonic=native.monotonic,sleep=native.sleep)
 
         @_private
+        def _browser_originals(self,target,*,source_lock,tablet=True,read_only=True):
+            from adapters.pico4.browser_source import PicoBrowserIO,FILE
+            from adapters.pico4.tablet_browser_source import PicoTabletBrowserIO
+            source_lock=self._script_journey()._lock(target,source_lock)
+            _need(type(tablet) is bool and type(read_only) is bool)
+            native=self._native_feature_observer(target)
+            def guard():
+                source_lock.assert_held();native.guard();return True
+            return (PicoTabletBrowserIO if tablet else PicoBrowserIO)(native.send,
+                lambda:self.adb.read_debug_app_file(target,'org.overte.pico','files/overte-e2e/'+FILE,attempts=1),
+                native.clock_ms,guard,native.pid,source_lock=source_lock,read_only=read_only,
+                monotonic=native.monotonic,sleep=native.sleep)
+
+        @_private
         def _web_dom(self,target):
             manager=self._scripts(target);native=self._native_feature_observer(target)
             native.guard();_need(native.pid==int(manager.binding['processIdentity'].split(':')[0]))
