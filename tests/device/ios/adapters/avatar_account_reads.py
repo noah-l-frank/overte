@@ -78,6 +78,10 @@ class IOSAvatarAccountReads:
         return value
 
     def pending(self,row,index):
+        packet=self.packet(row) if row['acquisition'] is not None else None
+        return self._pending(row,index,packet)
+
+    def _pending(self,row,index,packet):
         need(type(row['index']) is int and row['index']==index)
         need(type(row['clocks']) is list and len(row['clocks'])<=64);previous=None
         for clock in row['clocks']:
@@ -92,7 +96,7 @@ class IOSAvatarAccountReads:
         if row['original'] is not None:self.originals.original(row['original']);need(row['original']['index']==index and row['query'] is not None)
         if row['acquisition'] is not None:
             need(len(row['clocks'])>=3 and all(clock['packet'] is not None for clock in row['clocks']))
-            packet=self.packet(row);first,last=row['clocks'][0]['packet'],row['clocks'][-1]['packet']
+            need(packet is not None);first,last=row['clocks'][0]['packet'],row['clocks'][-1]['packet']
             need(first['instance']==packet['instance']==last['instance'] and first['sequence']<packet['sequence']<last['sequence']
                 and first['capturedEpochMs']<=packet['capturedEpochMs']<=last['capturedEpochMs']
                 and last['capturedEpochMs']-first['capturedEpochMs']<1500)
@@ -100,27 +104,32 @@ class IOSAvatarAccountReads:
             start,end=a['hostBeforeEpochMs'],a['hostAfterEpochMs'];before,after=a['hostBeforeMonotonic'],a['hostAfterMonotonic']
             need(number(start,1,1e15) and number(end,start,start+1500) and end-start<1500
                 and number(before,0,1e15) and number(after,before,before+1.5) and after-before<1.5
-                and abs(end-start-(after-before)*1000)<=250 and digest(self.packet(row))==a['originalSha256'])
+                and abs(end-start-(after-before)*1000)<=250 and digest(packet)==a['originalSha256'])
 
     def parse(self,value):
         exact(value,{'iosAvatarAccountReadsVersion','binding','runId','role','subject','artifactRoot','payload'})
         rows=unpack(value['payload']);need(len(rows)==1 and same(value,self.envelope(rows[0])))
         state=rows[0];exact(state,{'rows','pending'});need(type(state['rows']) is list and len(state['rows'])<=128);previous=None;prefix=None;native=None
         for index,row in enumerate(state['rows'],1):
-            exact(row,{'index','query','original','acquisition','status','partialFile','clocks'});self.pending(row,index)
+            exact(row,{'index','query','original','acquisition','status','partialFile','clocks'})
+            packet=self.packet(row,previous) if row['original'] is not None and row['original']['phase']=='saved' else None
+            self._pending(row,index,packet)
             need(row['status'] in ('observed','abandoned'))
             if row['original'] is not None:
                 need(same(row['partialFile'],self.partial_file(row['original'])))
-                if row['original']['phase']=='saved':previous=self.packet(row,previous)
+                if row['original']['phase']=='saved':previous=packet
             else:need(row['partialFile'] is None)
             if row['status']=='observed':need(row['original'] is not None and row['original']['phase']=='saved' and row['acquisition'] is not None)
             packets=[clock['packet'] for clock in row['clocks'] if clock['packet'] is not None]
-            if row['original'] is not None and row['original']['phase']=='saved':packets.append(self.packet(row))
+            if packet is not None:packets.append(packet)
             from adapters.native_account_observation import accept
             for packet in sorted(packets,key=lambda value:value['sequence']):
                 if native is not None:need(packet['instance']==native['instance'] and packet['sequence']>native['sequence']
                     and packet['capturedEpochMs']>=native['capturedEpochMs'])
                 prefix=accept(prefix,packet['account']);native=packet
+            # The actual local packet supplies all derivations in this row;
+            # read the immutable original again before accepting the round.
+            if row['original'] is not None and row['original']['phase']=='saved':need(same(previous,self.packet(row)))
         if state['pending'] is not None:
             exact(state['pending'],{'index','query','original','acquisition','clocks'});self.pending(state['pending'],len(state['rows'])+1)
         return deepcopy(state)

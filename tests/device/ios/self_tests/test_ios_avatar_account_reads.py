@@ -64,6 +64,22 @@ class AvatarAccountReadsTests(unittest.TestCase):
             self.assertEqual(commands,self.commands);self.assertEqual(0o600,self.store.path.stat().st_mode&0o777)
             self.assertTrue(all(row['clocks'] for row in archive.state['rows']))
 
+    def test_native_original_change_after_local_derivation_cannot_pass_the_round(self):
+        with self.lock.held():
+            owner=self.owner();row=owner.read();path=owner.originals.path(row['original']);original=owner.partial_file;changed=[]
+            def actual(value):
+                result=original(value)
+                if not changed:
+                    # The real immutable source has already been read for this
+                    # round. Mutate that same inode after its partial-file
+                    # qualification, before the round's final source read.
+                    with path.open('ab') as stream:stream.write(b' ')
+                    changed.append(True)
+                return result
+            before=deepcopy(self.commands)
+            with patch.object(owner,'partial_file',side_effect=actual),self.assertRaises(NativeUIError):owner.parse(owner.previous)
+            self.assertEqual([True],changed);self.assertEqual(before,self.commands)
+
     def test_actual_runtime_factory_passes_its_bound_original_clock_without_avatar_query(self):
         reader,clock=self.readers();seen=[]
         def bound(actual_clock):self.assertIs(clock,actual_clock);seen.append(True);return reader
