@@ -17,7 +17,7 @@ from adapters.native_vulkan_world_frame import validate as frame_packet,storage,
 from adapters.normal_feature_state import PrivateFeatureState,context
 from adapters.normal_ui import NativeUIError
 from adapters.original_marker_scope import OriginalMarkerScope,_components
-from adapters.owned_vulkan_world_frame import VulkanWorldFrameOwner
+from adapters.owned_vulkan_world_frame import VulkanWorldFrameOwner,owns_slot
 from adapters.script_feature.history import pack,unpack,same
 from adapters.script_feature.lock import ScriptSourceLock
 from feature_journeys.contract import identifier
@@ -29,15 +29,6 @@ from ios.adapters.script_runtime import IOSScriptRuntime
 
 VERSION=1
 FRAME={'worldBefore','renderersBefore','capture','retirement','renderersAfter','worldAfter','clockJoin'}
-
-
-def owns_slot(value):
-    """Only this request's original proven-empty slot grants release authority."""
-    if value is None:return False
-    rows=unpack(value['transcript'])
-    return bool(rows and rows[0]['command']['operation']=='inspect' and rows[0]['receipt'] is not None
-        and rows[0]['receipt']['source']==dict(retired=False,present=False,callbacks=0,gpuPending=False,
-            metadataBytes=0,pngBytes=0,gpuBufferBytes=0))
 
 
 def frame_original(value,*,profile,root,binding,run,role,lock):

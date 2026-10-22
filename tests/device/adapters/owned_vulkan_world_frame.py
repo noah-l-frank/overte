@@ -29,6 +29,19 @@ VERSION=1
 CHUNK_VERSION=1
 
 
+def owns_slot(value):
+    """Original proven-empty inspection required before a read or release.
+
+    This prefix predicate does not replace full owner/receipt validation.
+    An occupied, retired or unknown first inspection grants no authority.
+    """
+    if value is None:return False
+    rows=unpack(value['transcript'])
+    return bool(rows and rows[0]['command']['operation']=='inspect' and rows[0]['receipt'] is not None
+        and rows[0]['receipt']['source']==dict(retired=False,present=False,callbacks=0,gpuPending=False,
+            metadataBytes=0,pngBytes=0,gpuBufferBytes=0))
+
+
 def chunk_summary(packet,query,pid):
     storage(packet,query,pid,packet['capturedEpochMs'])
     raw=base64.b64decode(packet['source']['data'],validate=True)
@@ -110,6 +123,7 @@ class VulkanWorldFrameOwner:
             exact(row,{'command','receipt'});query=command(row['command']);receipt=row['receipt']
             need(query['requestId']==self.request_id and query['commandId'] not in seen);seen.add(query['commandId'])
             op=query['operation']
+            if op in ('read','release'):need(owns_slot(self.state))
             if op=='read':need(not read and cursor is not None);read=True
             if op=='release':need(not release);release=True
             if op in ('read','read-bytes'):need(not release)
@@ -132,6 +146,7 @@ class VulkanWorldFrameOwner:
         if self.state['phase'] in ('captured','released','removed') and frame is not None:
             need(offset==frame['source']['image']['bytes'] or self.state['phase'] in ('released','removed'))
         if self.state['phase']=='captured':need(frame is not None and identity is not None)
+        if self.state['phase'] in ('captured','released','removed'):need(owns_slot(self.state))
         if self.state['phase'] in ('released','removed'):need(proof is not None)
 
     def _write(self,value=None):
@@ -238,7 +253,7 @@ class VulkanWorldFrameOwner:
         try:
             started=previous=self.monotonic();need(number(started,0,1e15))
             with self.lock.held():
-                self._load();need(self.state is not None);reader=self._reader()
+                self._load();need(self.state is not None and owns_slot(self.state));reader=self._reader()
                 if not any(row['command']['operation']=='release' for row in self.events):
                     proof=reader.perform(self._query('release'))
                 else:proof=reader.perform(self._query('inspect'))

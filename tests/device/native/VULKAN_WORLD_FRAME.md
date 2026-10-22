@@ -72,6 +72,14 @@ acquisition, each command before delivery and its validated receipt before the
 next chunk. It first pins the actual native GPU-context birth through a fresh
 inspection, before arming any capture. A lost read followed by a replaced Context
 cannot use the replacement's empty counters as the old source's cleanup.
+The first original inspection must also establish a live, wholly empty slot.
+An occupied, already retired or unknown first slot grants no read/release
+authority. This is enforced inside the shared owner, including historical
+transcript validation and artifact removal, as well as higher-level failure
+cleanup. The same prefix predicate is reexported by restoration-frame owners.
+A failed initial inspection preserves its original journal and partial inode;
+it cannot release a foreign resource or manufacture a qualified empty slot.
+Valid version-1 owner shapes and original clocks remain unchanged.
 The metadata-only completed-frame lease now has the same preflight guarantee;
 complete legacy transcripts remain readable, while a lost unbound legacy read
 is retained rather than adopted without an original source birth.

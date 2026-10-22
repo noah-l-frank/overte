@@ -29,6 +29,37 @@ def owner(b,store,root,*,binding=BINDING,role='primary'):
 
 
 class OwnerTests(unittest.TestCase):
+    def test_a_complete_owner_cannot_replace_its_empty_preflight_with_an_occupied_original(self):
+        with tempfile.TemporaryDirectory() as root:
+            root=Path(root);store=PrivateFeatureState(root/'owner.json');b=World();current=owner(b,store,root)
+            current.capture(TICKET);current.release();before=store.read();changed=deepcopy(before)
+            rows=unpack(changed['transcript']);rows[0]['receipt']['source'].update(present=True,metadataBytes=1)
+            changed['transcript']=pack(rows);store.write(changed,before);calls=deepcopy(b.commands)
+            for operation in ('archive','release','verify_owned_artifact','remove_image'):
+                with self.assertRaises(NativeUIError):getattr(owner(b,store,root),operation)()
+            self.assertEqual(calls,b.commands);self.assertTrue((root/current.name).exists())
+
+    def test_occupied_or_unknown_initial_slot_never_grants_read_release_or_removal_authority(self):
+        for fault in ('occupied','unknown'):
+            with self.subTest(fault=fault),tempfile.TemporaryDirectory() as root:
+                root=Path(root);store=PrivateFeatureState(root/'owner.json');b=World();send=b.send
+                if fault=='occupied':
+                    b.request=dict(commandId='ios-'+'f'*32);b.started=b.clock;b.metadata=True
+                else:
+                    def lost(query):
+                        send(query)
+                        if query['operation']=='inspect':raise OSError('Lost initial inspection return')
+                    b.send=lost
+                native=deepcopy((b.request,b.png,b.metadata,b.retired,b.gpu_pending))
+                current=owner(b,store,root)
+                with self.assertRaises(NativeUIError):current.capture(TICKET)
+                b.send=send;original=deepcopy(store.read());path=root/current.name;inode=path.stat().st_ino
+                for operation in ('release','remove_image'):
+                    with self.assertRaises(NativeUIError):getattr(owner(b,store,root),operation)()
+                self.assertEqual(['inspect'],[query['operation'] for query in b.commands])
+                self.assertEqual(native,(b.request,b.png,b.metadata,b.retired,b.gpu_pending))
+                self.assertEqual(original,store.read());self.assertEqual(inode,path.stat().st_ino)
+
     def test_immutable_original_archive_needs_actual_unchanged_png_and_no_live_native_factory(self):
         with tempfile.TemporaryDirectory() as root:
             root=Path(root);store=PrivateFeatureState(root/'owner.json');b=World();current=owner(b,store,root)
