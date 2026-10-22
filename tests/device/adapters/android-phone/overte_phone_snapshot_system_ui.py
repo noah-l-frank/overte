@@ -19,10 +19,11 @@ from overte_phone_snapshot_consumer import PACKAGE as RECEIVER,COMPONENT as RECE
 PRIMARY='io.github.noah_be.overte.phone'
 LABEL='Overte Snapshot Evidence'
 NAME=re.compile(r'[A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z0-9_]+)+')
+PACKAGE_NAME=re.compile(r'(?:android|[A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z0-9_]+)+)')
 
 
 def component(package,activity):
-    need(type(package) is str and NAME.fullmatch(package) and type(activity) is str)
+    need(type(package) is str and PACKAGE_NAME.fullmatch(package) and type(activity) is str)
     if activity.startswith('.'):activity=package+activity
     need(NAME.fullmatch(activity))
     return package+'/'+activity

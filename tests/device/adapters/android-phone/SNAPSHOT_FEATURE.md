@@ -406,3 +406,14 @@ A returned UI transition never proves receiver consumption. The facade must
 separately acquire the receiver's actual original bytes/URI/UID/close evidence,
 then return normally from that owned Activity before further native reads.
 This internal component does not by itself enable the public Snapshot triple.
+
+The original chooser resolution reader queries the selected target's real
+PackageManager for ACTION_CHOOSER, reads the exact resolved package UID, and
+resolves again within the existing 1.5-second wall/monotonic budget. Both the
+framework `android` chooser and separate resolver-package layout are admitted
+from original OS results. It launches nothing. Its result must additionally
+match the actual native Intent's independently recorded chooser component and
+UID; the preflight OS query alone proves neither actual routing nor a grant.
+Missing/ambiguous results, a changed resolver, a foreign UID and a stale or
+slow query cannot default to a configured chooser. Actual Android PackageManager
+execution remains untested; host tests exercise explicit OS transport seams.

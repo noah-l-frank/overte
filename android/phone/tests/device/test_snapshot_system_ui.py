@@ -50,6 +50,11 @@ class SnapshotSystemUiTests(unittest.TestCase):
         self.assertEqual(RECEIVER_COMPONENT,result['component']);self.assertEqual(1,len(b.inputs()))
         self.assertEqual('share-select-owned',b.intents[0]['action']);self.assertNotIn('shares',result)
         self.assertEqual('DELETE',b.calls[next(i for i,r in enumerate(b.calls) if r[0]=='POST')+1][0])
+    def test_older_android_framework_chooser_uses_same_original_sdk_window_guards(self):
+        b=Boundary();b.component='android/com.android.internal.app.ChooserActivity'
+        flow=PhoneSnapshotSystemUI(b.ui,b.intent,lambda:b.epoch,b.component)
+        self.assertEqual(RECEIVER_COMPONENT,flow.select_receiver(IDENTITY)['component'])
+
     def test_normal_cancel_and_return_from_owned_receiver_observe_actual_app_window(self):
         b=Boundary();self.assertTrue(b.flow.back()['component'].startswith(PRIMARY+'/'))
         b=Boundary();b.component=RECEIVER_COMPONENT;self.assertTrue(b.flow.back(receiver=True)['component'].startswith(PRIMARY+'/'))
