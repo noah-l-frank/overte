@@ -58,6 +58,23 @@ class CreateEntitySourceTests(unittest.TestCase):
             native.identity='124:replacement'
             with self.assertRaises(NativeUIError):reader.read()
             self.assertEqual(1,len(sent))
+    def test_v3_weak_original_birth_and_death_are_append_only_and_incomplete_lifetimes_refuse(self):
+        first=self.b.reader('entities').read();value=deepcopy(first);value['sequence']+=1
+        value['source']['absentIds']=['33333333-3333-3333-3333-333333333333']
+        row=dict(id=value['source']['absentIds'][0],instance='6'*32,firstObservedEpochMs=20000,alive=True,inTree=False)
+        value['source']['entityLifetimes']=[row]
+        validate(value,value['requestId'],123,20000,'a'*32);continuity(first,value)
+        dead=deepcopy(value);dead['sequence']+=1;dead['source']['entityLifetimes'][0]['alive']=False;continuity(value,dead)
+        for change in (lambda p:p['source']['entityLifetimes'][0].update(alive=True),lambda p:p['source']['entityLifetimes'][0].update(instance='5'*32),
+                lambda p:p['source']['entityLifetimes'][0].update(firstObservedEpochMs=19999)):
+            wrong=deepcopy(dead);wrong['sequence']+=1;change(wrong)
+            with self.subTest(change=change),self.assertRaises(NativeUIError):continuity(dead,wrong)
+        for change in (lambda p:p['source'].update(entityLifetimes=[]),lambda p:p['source']['entityLifetimes'][0].update(inTree=True)):
+            wrong=deepcopy(value);change(wrong)
+            with self.subTest(change=change),self.assertRaises(NativeUIError):validate(wrong,wrong['requestId'],123,20000,'a'*32)
+        legacy=deepcopy(first);legacy['source']['createEntitySourceVersion']=2;legacy['source'].pop('entityLifetimes')
+        validate(legacy,legacy['requestId'],123,20000,'a'*32)
+
     def test_closed_probe_only_preserves_original_native_source(self):
         program='''const assert=require('assert');let calls=[],saved=[];
 const Uuid={generate:()=>'{aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa}'};

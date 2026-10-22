@@ -10,12 +10,14 @@ from pathlib import Path
 
 REQUIRED = {
     "native-script-work": 2,
+    "pico-create-model-owner": 1,
+    "pico-create-model-work-originals": 1,
     "pico-create-management": 1,
     "pico-create-json-files": 1,
     "pico-create-file-controls": 1,
     "pico-create-callbacks": 1,
     "pico-create-picker-owner": 2,
-    "pico-create-entities": 2,
+    "pico-create-entities": 3,
     "pico-create-dialogs": 3,
     "pico-create-browse-setting": 3,
     "pico-graphics-feature-binding": 1,

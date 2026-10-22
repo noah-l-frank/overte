@@ -20,7 +20,7 @@
 #include <QSet>
 #include <QHash>
 #include <memory>
-namespace overte::e2e { class ChatViewObservation; }
+namespace overte::e2e { class ChatViewObservation; class CreateEntityLifetimes; }
 #include <QUuid>
 namespace overte::e2e { class FeatureLifecycle; class AccountOriginLease; }
 #endif
@@ -273,6 +273,7 @@ private:
     quint64 _featureCreateEntitiesSequence {0};
     QHash<QString,QVariantMap> _featureCreateEntitiesCommands, _featureCreateEntitiesResults;
     QHash<QString,QSet<QUuid>> _featureCreateEntityIds;
+    std::shared_ptr<overte::e2e::CreateEntityLifetimes> _featureCreateEntityLifetimes;
 #endif
     quint64 _featureGraphicsSubjectSequence {0};
     QSet<QString> _featureGraphicsSubjectRequests;

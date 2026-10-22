@@ -68,6 +68,11 @@ radius never proves deletion. The independent property scope is explicitly
 `create-domain-v1`, with actual position/dimensions/rotation/name/type/host/model
 URL/textures/parent/visibility/lock fields. Unowned scanned entities retain
 original property digests and the owner's baseline must remain unchanged.
+Source v3 additionally tracks initial unnamed/invisible run-ticket Models and
+original weak EntityItem lifetimes, actual native readiness/geometry and texture
+slots; see the [Model owner](CREATE_MODEL_OWNER.md). A removed tree entry with an
+original holder remains alive and prevents Delete/retirement. Legacy v1/v2 reads
+remain passive and cannot authorize new input or full cleanup.
 This is local entity-tree evidence, not independent server/peer/render evidence.
 
 The native source retains 32 owned UUIDs for each of four run namespaces and 512
