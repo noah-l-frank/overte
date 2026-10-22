@@ -22,7 +22,10 @@ LIMIT=4*1024*1024
 AVATAR_LABELS=frozenset({'scripts','http','people','uikit','geometry','partial','record'})
 TABLET_COMPONENTS=frozenset({'native','sources','trace','dom','buttons','state','uikit','keys','pointer','closures','deferred',
     'scripts','work','terminal','dialogs','widgets','geometry','http','phase','record','partial'})
-PROFILES={'avatar-tail':dict(parent='avatarTailSegmentsVersion',body='avatarTailSegmentBodyVersion',schema='avatarTailSegment',
+POSTLOGOUT_LABELS=frozenset({'parts','record','partial'})
+PROFILES={'avatar-postlogout':dict(parent='avatarPostLogoutSegmentsVersion',body='avatarPostLogoutSegmentBodyVersion',schema='avatarPostLogoutSegment',
+        labels=POSTLOGOUT_LABELS,subjects=frozenset({'primary','actor'})),
+    'avatar-tail':dict(parent='avatarTailSegmentsVersion',body='avatarTailSegmentBodyVersion',schema='avatarTailSegment',
         labels=AVATAR_LABELS,subjects=frozenset({'primary','actor'})),
     'tabletweb-sources':dict(parent='tabletWebSourceSegmentsVersion',body='tabletWebSourceSegmentBodyVersion',schema='tabletWebSourceSegment',
         labels=TABLET_COMPONENTS,subjects=TABLET_COMPONENTS)}
@@ -37,7 +40,8 @@ class OriginalPacketSegments:
         need(type(self).PROFILE in PROFILES);profile=PROFILES[type(self).PROFILE]
         need(subject in profile['subjects'] and callable(intent));self.subject,self.intent=subject,intent
         self.parent_key,self.body_key,self.labels=profile['parent'],profile['body'],profile['labels']
-        namespace='avatar-'+subject+'-tail-parts' if type(self).PROFILE=='avatar-tail' else 'tabletweb-'+subject+'-source-parts'
+        namespace=('avatar-'+subject+'-tail-parts' if type(self).PROFILE=='avatar-tail' else
+            'avatar-'+subject+'-postlogout-parts' if type(self).PROFILE=='avatar-postlogout' else 'tabletweb-'+subject+'-source-parts')
         self.store=OriginalFrameStore(root,binding,run,role,guard,self.transition,
             namespace=namespace,schema_prefix=profile['schema'],monotonic=monotonic)
         self.writing=None
