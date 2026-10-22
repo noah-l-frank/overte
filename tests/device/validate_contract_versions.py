@@ -11,6 +11,8 @@ from pathlib import Path
 REQUIRED = {
     "ios-create-actor-facts": 1,
     "ios-create-actor-original": 1,
+    "ios-create-export": 1,
+    "ios-create-export-artifact": 1,
     "ios-create-sample": 1,
     "ios-avatar-peer": 1,
     "ios-avatar-actions": 1,

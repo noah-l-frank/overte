@@ -3,6 +3,8 @@
   "contracts": {
     "ios-create-actor-facts": {"current": 1, "reads": [1]},
     "ios-create-actor-original": {"current": 1, "reads": [1]},
+    "ios-create-export": {"current": 1, "reads": [1]},
+    "ios-create-export-artifact": {"current": 1, "reads": [1]},
     "ios-create-sample": {"current": 1, "reads": [1]},
     "ios-avatar-peer": {"current": 1, "reads": [1]},
     "ios-avatar-actions": {"current": 1, "reads": [1]},
