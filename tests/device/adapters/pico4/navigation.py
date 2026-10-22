@@ -728,7 +728,7 @@ class NativeNavigationIO:
         if self._before_controller is None:result = self._controller(operation)
         else:
             self.adapter.require(self.target)
-            self.guard();need(self.adapter.require_pico_session_identity(self.target)==self.identity)
+            self.bind_input();need(self.adapter.require_pico_session_identity(self.target)==self.identity)
             session=self.adapter.pico_input_session(self.target)
             self._before_controller(operation)
             result=session.stage(self.identity,operation,dict(holdMilliseconds=1000),intent=self._controller_intent)

@@ -37,6 +37,15 @@ class ControllerHookTests(unittest.TestCase):
         self.assertTrue(self.h.flow.io.original.navigation.path.exists())
         self.assertEqual([],self.h.native.inputs);self.assertFalse(self.h.widget.tablet)
 
+    def test_direct_controller_changed_candidate_refuses_before_callback_and_native_stage(self):
+        seen=[];self.io.bind_controller_admission(seen.append,intent=lambda _envelope:None)
+        self.h.native.digest='f'*64
+        with patch.object(self.h.native,'stage') as stage:
+            with self.assertRaises((ValueError,RuntimeError)):self.io.controller('tablet.open')
+            stage.assert_not_called()
+        self.assertEqual([],seen);self.assertEqual([],self.h.native.inputs)
+        self.assertFalse(self.h.widget.tablet)
+
     def test_controller_owner_pair_cannot_be_partially_replaced_or_cleared(self):
         before=lambda _operation:None;intent=lambda _envelope:None
         self.io.bind_controller_admission(before,intent=intent)
