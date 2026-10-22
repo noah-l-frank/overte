@@ -23,6 +23,7 @@ MAX_ORIGINALS=128
 
 
 class OwnedCreateFiles:
+    INPUT_NAMES=NAMES
     def __init__(self,native,store,binding,run,ticket,fixture_url):
         need(isinstance(native,PhoneCreateFiles) and isinstance(store,PrivateFeatureState))
         self.native,self.store,self.binding=native,store,deepcopy(context(binding))
@@ -81,6 +82,9 @@ class OwnedCreateFiles:
         if self.previous is None:self.save()
         need(self.state['phase']=='reserved')
 
+    def validate_input_row(self,row):
+        need(base64.b64decode(row['base64'],validate=True)==self.inputs[row['name']])
+
     def read(self,operation='observe',files=None):
         need(self.previous is not None and same(self.store.read(),self.previous) and len(self.frames)<MAX_ORIGINALS)
         value=self.native.request(operation,self.run,self.state['ownerToken'],files)
@@ -94,8 +98,8 @@ class OwnedCreateFiles:
             prior=next((frame['source']['rootIdentity'] for frame in self.frames if frame['source']['exists']),None)
             if prior is not None:need(all(prior[key]==actual['rootIdentity'][key] for key in ('device','inode')))
             for row in actual['files']:
-                if row['name'] in NAMES and row['exists']:
-                    need(base64.b64decode(row['base64'],validate=True)==self.inputs[row['name']])
+                if row['name'] in self.INPUT_NAMES and row['exists']:
+                    self.validate_input_row(row)
                     previous=next((old for frame in self.frames if frame['source']['exists'] for old in frame['source']['files']
                                    if old['name']==row['name'] and old['exists']),None)
                     if previous is not None:need(same(previous,row))

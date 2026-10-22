@@ -23,7 +23,7 @@
 namespace overte::e2e { class ChatViewObservation; }
 namespace overte::e2e { class PhoneAudioFixtureHTTP; }
 #include <QUuid>
-namespace overte::e2e { class FeatureLifecycle; class AccountOriginLease; class ScriptFileUi; class AudioUi; class GraphicsUi; class LoginUi; class CreateUi; class ChatUi; class EmoteUi; class PhoneEmoteFixture; class PrivateCreateFiles; class PhoneCreateFixture; class PhoneNavigationMarker; class NavigationUi; class NavigationViewObservation; class AvatarPeopleUi; class AvatarPeopleViewObservation; class PhoneAssetsReadJob; class SnapshotUi; }
+namespace overte::e2e { class FeatureLifecycle; class AccountOriginLease; class ScriptFileUi; class AudioUi; class GraphicsUi; class LoginUi; class CreateUi; class ChatUi; class EmoteUi; class PhoneEmoteFixture; class PrivateCreateFiles; class PhoneCreateFixture; class PhoneNavigationMarker; class NavigationUi; class NavigationViewObservation; class AvatarPeopleUi; class AvatarPeopleViewObservation; class PhoneAssetsReadJob; class SnapshotUi; class PrivateAssetsFiles; }
 #endif
 
 class TestScriptingInterface : public QObject {
@@ -181,6 +181,7 @@ public slots:
     Q_INVOKABLE QVariantMap phoneGraphicsUi(const QVariantMap& command);
     Q_INVOKABLE QVariantMap phoneEmoteUi(const QVariantMap& command);
     Q_INVOKABLE QVariantMap phoneCreateUi(const QVariantMap& command);
+    Q_INVOKABLE QVariantMap phoneAssetsFiles(const QVariantMap& command);
     Q_INVOKABLE QVariantMap phoneAssetsRead(const QVariantMap& command, bool abort=false);
     Q_INVOKABLE QVariantMap phoneCreateObservation(const QVariantMap& command);
     Q_INVOKABLE QVariantMap phoneSnapshotObservation(const QVariantMap& command);
@@ -286,6 +287,8 @@ private:
     std::shared_ptr<overte::e2e::EmoteUi> _phoneEmoteUi;
     std::shared_ptr<overte::e2e::LoginUi> _phoneLoginUi;
     std::shared_ptr<overte::e2e::CreateUi> _phoneCreateUi;
+    quint64 _phoneAssetsFilesSequence {0};
+    std::shared_ptr<overte::e2e::PrivateAssetsFiles> _phoneAssetsFiles;
     quint64 _phoneAssetsReadSequence {0};
     std::shared_ptr<overte::e2e::PhoneAssetsReadJob> _phoneAssetsRead;
     quint64 _phoneCreateObservationSequence {0};

@@ -172,6 +172,10 @@ def readonly_feature_command(command):
     elif action=='feature-world-model-draws-observe':
         from adapters.native_world_model_draws import command as validate_model_draws
         validate_model_draws(command)
+    elif action=='phone-assets-files':
+        from overte_phone_assets_files import command as validate_assets_files
+        validate_assets_files(command)
+        require(command['operation']=='observe','PHONE_READ_ONLY_COMMAND_REJECTED')
     elif action=='phone-create-files':
         from overte_phone_create_files import command as validate_create_files
         validate_create_files(command)
@@ -1239,6 +1243,14 @@ class PhoneAppiumAdapter(AppiumAdapter):
         return PhoneCreateFiles(native.send,
             lambda:transport.read_debug_app_file(device,target['appId'],
                 'files/overte-e2e/'+CREATE_FILES_FILE,attempts=1),
+            native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep)
+
+    def _assets_files(self,selector,*,read_only=True):
+        from overte_phone_assets_files import PhoneAssetsFiles,FILE
+        native=self._native_feature_observer(selector,read_only=read_only)
+        target=self.target(selector);device=target['capabilities']['appium:udid'];transport=PhoneAdapter(self.candidate).adb
+        return PhoneAssetsFiles(native.send,
+            lambda:transport.read_debug_app_file(device,target['appId'],'files/overte-e2e/'+FILE,attempts=1),
             native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep)
 
     def _assets_source(self,selector,*,download=False,read_only=True):

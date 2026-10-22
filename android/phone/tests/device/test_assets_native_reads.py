@@ -1,7 +1,7 @@
-"""Compile the actual Test Assets method/job with explicit network endpoints.
+"""Compile the actual Test Assets methods/jobs with explicit network endpoints.
 
 Only AssetClient/NodeList endpoints are synthetic. Qt thread delivery, request
-lifetimes and the unchanged native source method/header execute on this host.
+lifetimes and the unchanged native source methods/headers execute on this host.
 This does not compile an Android client or run an Asset Server.
 """
 # Copyright 2026 Overte contributors.
@@ -22,6 +22,7 @@ STUB=r'''
 #include <QObject>
 #include <QThread>
 #include <QTimer>
+#include <QTemporaryDir>
 #include <QUuid>
 #include <QVariantMap>
 #include <QCryptographicHash>
@@ -30,6 +31,7 @@ STUB=r'''
 #include <memory>
 #include <cassert>
 #include "tests/device/native/PhoneAssetsReadJob.h"
+#include "tests/device/native/PrivateAssetsFiles.h"
 using overte::e2e::PhoneAssetsReadJob;
 static std::atomic<int> live{0};
 static const QByteArray bytes("actual network-owned asset bytes");
@@ -78,6 +80,8 @@ class TestScriptingInterface:public QObject {Q_OBJECT
 public:
  QString _testResultsLocation="actual-private-root",_featureObservationInstance=QString(32,'d');
  std::shared_ptr<Lifecycle>_featureLifecycle=std::make_shared<Lifecycle>();
+ quint64 _phoneAssetsFilesSequence{0};std::shared_ptr<overte::e2e::PrivateAssetsFiles>_phoneAssetsFiles;
+ Q_INVOKABLE QVariantMap phoneAssetsFiles(const QVariantMap& command);
  quint64 _phoneAssetsReadSequence{0};std::shared_ptr<PhoneAssetsReadJob>_phoneAssetsRead;
  Q_INVOKABLE QVariantMap phoneAssetsRead(const QVariantMap& command,bool abort=false);
 };
@@ -129,6 +133,15 @@ int main(int argc,char**argv){QCoreApplication app(argc,argv);TestScriptingInter
  // Canonical byte identities are reduced, never trusted from the requested hash.
  if(!overte::e2e::assetsDownloadOriginal(QString(64,'0'),bytes,false).isEmpty())return 14;
  auto invalid=query('5');invalid["schemaVersion"]=true;if(!test.phoneAssetsRead(invalid).isEmpty())return 15;
+ // Compile/execute the actual file-service wrapper against its real private filesystem.
+ QTemporaryDir privateFiles;if(!privateFiles.isValid())return 17;test._testResultsLocation=privateFiles.path();
+ QVariantMap fileInputs;for(const auto& name:overte::e2e::PrivateAssetsFiles::inputs())fileInputs[name]=QString::fromLatin1(bytes.toBase64());
+ QVariantMap fileCall{{"schemaVersion",1},{"commandId",QString(32,'6')},{"action","phone-assets-files"},{"operation","stage"},
+  {"runId",QString(32,'a')},{"ownerToken",QString(64,'c')},{"files",fileInputs}};
+ auto fileResult=test.phoneAssetsFiles(fileCall);
+ if(fileResult.value("source").toMap().value("exists")!=true||fileResult.value("sequence")!=1)return 18;
+ fileCall.remove("files");fileCall["operation"]="release";fileCall["commandId"]=QString(32,'7');fileResult=test.phoneAssetsFiles(fileCall);
+ if(fileResult.value("source").toMap().value("exists")!=false||fileResult.value("source").toMap().value("retired")!=true||fileResult.value("sequence")!=2)return 19;
  return 0;
 }
 '''
@@ -141,8 +154,11 @@ class AssetsNativeReadTests(unittest.TestCase):
         moc=Path('/usr/lib64/qt6/libexec/moc');self.assertTrue(moc.is_file())
         text=(ROOT/'interface/src/scripting/TestScriptingInterface.cpp').read_text()
         start=text.index('QVariantMap TestScriptingInterface::phoneAssetsRead(')
-        end=text.index('QVariantMap TestScriptingInterface::phoneCreateObservation(',start)
+        end=text.index('\nQVariantMap TestScriptingInterface::',start+1)
         method=text[start:end]
+        file_start=text.index('QVariantMap TestScriptingInterface::phoneAssetsFiles(')
+        file_end=text.index('\nQVariantMap TestScriptingInterface::',file_start+1)
+        method=text[file_start:file_end]+method
         build=ROOT/'build/assets-native-contract';build.mkdir(parents=True,exist_ok=True)
         with tempfile.TemporaryDirectory(prefix='read-',dir=build) as temporary:
             stage=Path(temporary);source=stage/'source.cpp'

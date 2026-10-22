@@ -75,6 +75,7 @@
 #include "../../../tests/device/native/PhoneEmoteFixture.h"
 #include "../../../tests/device/native/PhoneCreateFixture.h"
 #include "../../../tests/device/native/PhoneAssetsReadJob.h"
+#include "../../../tests/device/native/PrivateAssetsFiles.h"
 #include <AssetClient.h>
 #include <AssetRequest.h>
 #include <MappingRequest.h>
@@ -1332,6 +1333,25 @@ QVariantMap TestScriptingInterface::phoneCreateFiles(const QVariantMap& command)
     return {{"schemaVersion",1},{"requestId",command.value("commandId")},{"runId",command.value("runId")},
         {"operation",command.value("operation")},{"instance",_featureObservationInstance},
         {"sequence",static_cast<qulonglong>(++_phoneCreateFilesSequence)},
+        {"processId",QCoreApplication::applicationPid()},{"requestedEpochMs",requested},
+        {"capturedEpochMs",QDateTime::currentMSecsSinceEpoch()},{"source",source}};
+}
+
+QVariantMap TestScriptingInterface::phoneAssetsFiles(const QVariantMap& command) {
+    if (QThread::currentThread()!=thread()) {
+        QVariantMap result;
+        if (!QMetaObject::invokeMethod(this,[&] { result=phoneAssetsFiles(command); },Qt::BlockingQueuedConnection)) { return {}; }
+        return result;
+    }
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript") || _phoneAssetsFilesSequence>=1000000000) { return {}; }
+    const auto requested=QDateTime::currentMSecsSinceEpoch();
+    if (!_phoneAssetsFiles) { _phoneAssetsFiles=std::make_shared<overte::e2e::PrivateAssetsFiles>(); }
+    const auto source=_phoneAssetsFiles->request(_testResultsLocation,command);
+    if (source.isEmpty()) { return {}; }
+    return {{"schemaVersion",1},{"requestId",command.value("commandId")},{"runId",command.value("runId")},
+        {"operation",command.value("operation")},{"instance",_featureObservationInstance},
+        {"sequence",static_cast<qulonglong>(++_phoneAssetsFilesSequence)},
         {"processId",QCoreApplication::applicationPid()},{"requestedEpochMs",requested},
         {"capturedEpochMs",QDateTime::currentMSecsSinceEpoch()},{"source",source}};
 }

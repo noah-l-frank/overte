@@ -393,6 +393,7 @@
     var scriptWorkTimer = null;
     var lastProcessPresenceRequest = "";
     var lastGraphicsSubjectRequest = "";
+    var lastPhoneAssetsFilesRequest = "";
     var lastPhoneAssetsReadRequest = "";
     var lastPhoneCreateObservationRequest = "";
     var lastPhoneSnapshotObservationRequest = "";
@@ -2014,6 +2015,23 @@
             return;
         }
         if (command && command.schemaVersion === 1 && /^[0-9a-f]{32}$/.test(String(command.commandId))
+                && /^[0-9a-f]{32}$/.test(String(command.runId)) && /^[0-9a-f]{64}$/.test(String(command.ownerToken))
+                && command.action === "phone-assets-files" && ["stage","observe","retire-primary","release"].indexOf(command.operation) !== -1
+                && objectKeysMatch(command,command.operation === "stage"
+                    ? ["schemaVersion","commandId","action","operation","runId","ownerToken","files"]
+                    : ["schemaVersion","commandId","action","operation","runId","ownerToken"])) {
+            if (command.commandId === lastPhoneAssetsFilesRequest) { return; }
+            lastPhoneAssetsFilesRequest=command.commandId;
+            var assetsFilesOriginal={schemaVersion:1,requestId:command.commandId,available:false};
+            try {
+                if (typeof Test.phoneAssetsFiles === "function") {
+                    var actualAssetsFiles=Test.phoneAssetsFiles(command);
+                    if (actualAssetsFiles && actualAssetsFiles.requestId === command.commandId) { assetsFilesOriginal=actualAssetsFiles; }
+                }
+            } catch (_assetsFilesError) { /* Only actual private inodes and bytes prove staging/retirement. */ }
+            Test.saveObject(assetsFilesOriginal,"phone-assets-files.json");return;
+        }
+        if (command && command.schemaVersion === 1 && /^[0-9a-f]{32}$/.test(String(command.commandId))
                 && /^[0-9a-f]{32}$/.test(String(command.runId))
                 && (command.action === "phone-assets-observe" || command.action === "phone-assets-download")
                 && objectKeysMatch(command,command.action === "phone-assets-download"
@@ -2438,7 +2456,7 @@
                 || command.action === "phone-create-fixture-observe" || command.action === "phone-create-fixture-input"
                 || command.action === "feature-avatar-render-observe" || command.action === "feature-world-model-draws-observe"
                 || command.action === "feature-scene-load-observe"
-                || command.action === "feature-script-files" || command.action === "phone-create-files")) {
+                || command.action === "feature-script-files" || command.action === "phone-create-files" || command.action === "phone-assets-files")) {
             // Android's existing private channel is separate from the HTTP
             // fixture command endpoint. Reuse the closed native feature path.
             applyClientCommand(command);

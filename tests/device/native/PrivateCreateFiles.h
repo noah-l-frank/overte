@@ -149,6 +149,7 @@ public:
             {"rootIdentity",actualRoot},{"files",files},{"exportSealed",!lease.output.isEmpty()}};
     }
 private:
+    friend class PrivateAssetsFiles; // Reuse the same private inode/read primitives.
     struct Lease { QString ownerHash;QVariantMap root,output,manifest;QJsonObject hashes;bool retiring=false,retired=false; };
     QMap<QString,Lease> _leases;
     struct Handle { int fd;explicit Handle(int value):fd(value) {} ~Handle() { if(fd>=0) { ::close(fd); } } };
