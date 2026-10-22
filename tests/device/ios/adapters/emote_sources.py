@@ -35,30 +35,32 @@ class EmotePhaseChanged(NativeUIError):pass
 
 class IOSEmoteSources:
     def __init__(self,store,root,binding,run,role,lock,guard,phase,*,readers=None,
-                 historical=False,monotonic=time.monotonic,epoch_ms=lambda:time.time()*1000):
+                 historical=False,ownership_only=False,monotonic=time.monotonic,epoch_ms=lambda:time.time()*1000):
         need(isinstance(store,PrivateFeatureState) and isinstance(lock,ScriptSourceLock)
-            and type(historical) is bool and role in ('primary','actor')
+            and type(historical) is bool and type(ownership_only) is bool and not (historical and ownership_only) and role in ('primary','actor')
             and all(callable(fn) for fn in (guard,monotonic,epoch_ms)))
         self.store,self.root,self.binding=store,Path(root),deepcopy(context(binding))
         self.run,self.role,self.lock,self.guard=identifier(run),role,lock,guard
         self.historical,self.monotonic,self.epoch_ms=historical,monotonic,epoch_ms
+        self.ownership_only=ownership_only
         need(store.path.name=='ios-emote-'+role+'-sources.json'
             and lock.path==store.path.with_name('script-feature-sources.lock'))
         self.pid=int(binding['processIdentity']);need(self.pid>0 and str(self.pid)==binding['processIdentity'])
         self.phase,self.readers=phase,readers
-        if not historical:
+        if not historical and not ownership_only:
             need(isinstance(phase,PhaseFixtureReader) and phase.area=='emotes' and phase.run==run)
             need(set(readers) in ({'roots','scripts','native','ui'},{'roots','scripts','native','ui','world'}))
             need(isinstance(readers['roots'],NativeScriptRoots) and readers['roots'].ios
                 and isinstance(readers['scripts'],NativeScriptObservation) and readers['scripts'].ios
                 and isinstance(readers['ui'],IOSEmoteIO))
             need(readers['roots'].pid==readers['scripts'].pid==readers['native'].pid==self.pid)
+        if ownership_only:need(readers is None)
         self.frames=[];self.previous=None;self.failed=False
         self.state=dict(phase='ready',revision=0,manifests=[],pending=None)
         self.originals=IOSEmoteOriginals(root,binding,run,role,guard,self.storage_intent,monotonic=monotonic)
-        lock.assert_held();self.previous=store.read()
+        lock.assert_held();self.previous=store.read();need(not ownership_only or self.previous is not None)
         if self.previous is not None:self.state,self.frames=self.decode(self.previous)
-        if not historical and self.frames:self.restore_readers()
+        if not historical and not ownership_only and self.frames:self.restore_readers()
 
     def envelope(self,state,version=VERSION):
         return dict(iosEmoteSourcesVersion=version,runId=self.run,role=self.role,binding=self.binding,
@@ -94,16 +96,25 @@ class IOSEmoteSources:
 
     def save(self):
         need(not self.historical);self.bound();value=self.envelope(self.state)
+        if self.ownership_only:
+            prior,_frames=self.decode(self.previous);target=deepcopy(prior);target.update(phase='ready',pending=None)
+            need(same(self.state,prior) or (prior['phase']=='reading' and same(self.state,target)))
+            if not same(self.state,prior):
+                from ios.adapters.emote_source_recovery import IOSEmoteSourceRecovery
+                recovery=IOSEmoteSourceRecovery(self);pending=recovery.state['pending']
+                need(pending is not None and pending['reference'] is not None and same(pending['targetOwner'],value)
+                    and same(pending['attempt']['priorOwner'],self.previous))
+                need(same(recovery.record(pending['reference']),pending['attempt']))
         try:
             self.store.write(value,self.previous);need(same(self.store.read(),value));self.previous=deepcopy(value)
         except Exception:self.failed=True;raise
 
     def remember(self,name,value):
-        need(self.state['phase']=='reading' and name not in self.state['pending']['partial'])
+        need(not self.ownership_only);need(self.state['phase']=='reading' and name not in self.state['pending']['partial'])
         self.state['pending']['partial'][name]=deepcopy(value);self.save()
 
     def storage_intent(self,kind,value):
-        need(self.state['phase']=='reading' and kind in ('original','manifest'))
+        need(not self.ownership_only);need(self.state['phase']=='reading' and kind in ('original','manifest'))
         pending=self.state['pending'];old=pending[kind]
         if kind=='original':
             self.originals.original(value);need(value['index']==len(self.frames)+1)
@@ -173,6 +184,7 @@ class IOSEmoteSources:
         return first['activations'][-1]['ticket']==last['activations'][-1]['ticket']
 
     def restore_readers(self):
+        need(not self.ownership_only)
         old=self.frames[-1]['group'];r=self.readers
         r['roots'].restore(old['rootsAfter'])
         scripts=r['scripts'];scripts.restore_history([])
@@ -194,7 +206,7 @@ class IOSEmoteSources:
         r['native'].rig=last_native['animation']['rigId'];r['native'].rig_sequence=last_native['animation']['evaluationSequence']
 
     def read(self):
-        need(not self.historical);self.bound();need(self.state['phase']=='ready' and len(self.frames)<MAX_FRAMES)
+        need(not self.historical and not self.ownership_only);self.bound();need(self.state['phase']=='ready' and len(self.frames)<MAX_FRAMES)
         self.state.update(phase='reading',pending=dict(original=None,manifest=None,partial={}));self.save()
         previous=self.frames[-1] if self.frames else None;r=self.readers
         phase=self.phase.read(previous['phaseAfter'] if previous else None);self.remember('phaseBefore',phase['status'])

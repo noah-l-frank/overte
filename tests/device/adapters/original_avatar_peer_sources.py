@@ -29,9 +29,9 @@ VERSION=1
 
 class OriginalAvatarPeerSources:
     def __init__(self,store,root,binding,run,phase,lock,guard,*,runtime=None,selector=None,
-                 profile,phase_changed,role='actor',historical=False,monotonic=time.monotonic,epoch_ms=lambda:time.time()*1000):
+                 profile,phase_changed,role='actor',historical=False,ownership_only=False,monotonic=time.monotonic,epoch_ms=lambda:time.time()*1000):
         need(isinstance(store,PrivateFeatureState) and isinstance(lock,ScriptSourceLock)
-            and type(historical) is bool and all(callable(fn) for fn in (guard,monotonic,epoch_ms)))
+            and type(historical) is bool and type(ownership_only) is bool and not (historical and ownership_only) and all(callable(fn) for fn in (guard,monotonic,epoch_ms)))
         need(profile in ('emote','avatar') and isinstance(phase_changed,type) and issubclass(phase_changed,NativeUIError))
         need(role in ('primary','actor') and (profile=='avatar' or role=='actor'))
         self.profile,self.phase_changed=profile,phase_changed
@@ -42,17 +42,19 @@ class OriginalAvatarPeerSources:
         self.store,self.root,self.binding=store,Path(root),deepcopy(context(binding))
         self.run,self.phase,self.lock,self.guard=identifier(run),phase,lock,guard
         self.runtime,self.selector,self.historical=runtime,selector,historical
+        self.ownership_only=ownership_only
         self.monotonic,self.epoch_ms=monotonic,epoch_ms
         self.pid=int(binding['processIdentity']);need(self.pid>0 and str(self.pid)==binding['processIdentity'])
         need(store.path.name=='ios-'+profile+'-'+role+'-peer-sources.json' and lock.path==store.path.with_name('script-feature-sources.lock'))
-        if not historical:
+        if not historical and not ownership_only:
             need(isinstance(runtime,IOSScriptRuntime) and isinstance(phase,PhaseFixtureReader)
                 and phase.run==run and phase.area==self.area)
+        if ownership_only:need(runtime is None and selector is None)
         self.originals=OriginalFrameStore(root,binding,run,role,guard,self.storage_intent,
             namespace=profile+'-peer',schema_prefix=self.schema_prefix,monotonic=monotonic)
         self.frames=[];self.previous=None;self.failed=False
         self.state=dict(revision=0,manifests=[],pending=None)
-        lock.assert_held();self.previous=store.read()
+        lock.assert_held();self.previous=store.read();need(not ownership_only or self.previous is not None)
         if self.previous is not None:self.state,self.frames=self.decode(self.previous)
 
     def envelope(self,state):
@@ -85,16 +87,25 @@ class OriginalAvatarPeerSources:
 
     def save(self):
         need(not self.historical);self.bound();value=self.envelope(self.state)
+        if self.ownership_only:
+            prior,_frames=self.decode(self.previous);target=deepcopy(prior);target['pending']=None
+            need(same(self.state,prior) or (prior['pending'] is not None and same(self.state,target)))
+            if not same(self.state,prior):
+                from adapters.original_avatar_peer_recovery import OriginalAvatarPeerRecovery
+                recovery=OriginalAvatarPeerRecovery(self);pending=recovery.state['pending']
+                need(pending is not None and pending['reference'] is not None and same(pending['targetOwner'],value)
+                    and same(pending['attempt']['priorOwner'],self.previous))
+                need(same(recovery.record(pending['reference']),pending['attempt']))
         try:
             self.store.write(value,self.previous);need(same(self.store.read(),value));self.previous=deepcopy(value)
         except Exception:self.failed=True;raise
 
     def remember(self,name,value):
-        self.bound();need(self.state['pending'] is not None and name not in self.state['pending']['partial'])
+        need(not self.ownership_only);self.bound();need(self.state['pending'] is not None and name not in self.state['pending']['partial'])
         self.state['pending']['partial'][name]=deepcopy(value);self.save()
 
     def storage_intent(self,kind,value):
-        self.bound();pending=self.state['pending'];need(pending is not None and kind in ('original','manifest'))
+        need(not self.ownership_only);self.bound();pending=self.state['pending'];need(pending is not None and kind in ('original','manifest'))
         old=pending[kind]
         if kind=='original':
             self.originals.original(value);need(value['index']==len(self.frames)+1)
@@ -132,7 +143,7 @@ class OriginalAvatarPeerSources:
         return first['activations'][-1]['ticket']==last['activations'][-1]['ticket']
 
     def read(self):
-        need(not self.historical);self.bound();need(self.state['pending'] is None and len(self.frames)<MAX_FRAMES)
+        need(not self.historical and not self.ownership_only);self.bound();need(self.state['pending'] is None and len(self.frames)<MAX_FRAMES)
         live=self.runtime._sources(self.selector);need(same(live['binding'],self.binding))
         observer=live['observer'];clock=live['clock_source'];native=observer.bound_native_observer(clock)
         world=observer.emote_world(clock);renderer=observer.avatar_renderers(clock);receiver=self.runtime._avatar_receive(self.selector)
