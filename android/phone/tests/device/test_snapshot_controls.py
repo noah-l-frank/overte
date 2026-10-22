@@ -50,6 +50,19 @@ class SnapshotControlsTests(unittest.TestCase):
         self.assertEqual(original,b.intents[0]['original']);self.assertNotIn('files',after);self.assertNotIn('captured',after)
         self.assertEqual(1,len(b.intents))
 
+    def test_capture_plan_persists_exact_original_intent_but_delivers_no_input(self):
+        b=Boundary();io=b.io();reference=io.capture();request=io.plan_capture(reference=reference)
+        self.assertEqual(1,len(b.intents));self.assertEqual(request,b.intents[0]['request'])
+        self.assertEqual(reference,b.intents[0]['original']);self.assertEqual(0,b.commands)
+        self.assertTrue(all(row['request']['action']=='observe' for row in b.calls))
+        self.assertEqual('snapshot.capture',request['controlId']);self.assertEqual(reference['lastCommandSequence']+1,request['sequence'])
+
+    def test_failed_intent_persistence_cannot_deliver_or_authorize_a_capture_plan(self):
+        b=Boundary();io=b.io();io.intent=lambda *_:False
+        with self.assertRaises(NativeUIError):io.plan_capture(reference=io.capture())
+        self.assertEqual(0,b.commands)
+        self.assertTrue(all(row['request']['action']=='observe' for row in b.calls))
+
     def test_old_foreign_missing_or_changed_widget_cannot_be_activated(self):
         for fault in ('stale','token','missing','generation','instance','disabled','input-ready','consumed'):
             with self.subTest(fault=fault):

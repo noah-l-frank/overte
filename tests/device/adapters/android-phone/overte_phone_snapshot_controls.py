@@ -82,7 +82,7 @@ class PhoneSnapshotIO(PhoneScriptFileIO):
     def __init__(self,*args,intent,**kwargs):
         need(callable(intent));self.intent=intent;super().__init__(*args,**kwargs)
 
-    def input(self,id,action,*,reference,value=None):
+    def _prepare(self,id,action,*,reference,value=None):
         try:
             need(control_id(id) and id!='snapshot.page' and action in ('activate','replace','select-index','scroll'))
             if action=='replace':need(id=='snapshot.name' and type(value) is str and len(value)<=48 and all(32<=ord(ch)<=126 for ch in value))
@@ -103,8 +103,21 @@ class PhoneSnapshotIO(PhoneScriptFileIO):
             elif action=='select-index':request['index']=value
             elif action=='scroll':request['direction']=value
             need(self.intent(dict(request=deepcopy(request),original=deepcopy(reference))) is not False)
-            self.deliver(request,reference)
+            return request
         except Exception:raise NativeUIError('Phone original Snapshot input delivery failed') from None
+
+    def input(self,id,action,*,reference,value=None):
+        request=self._prepare(id,action,reference=reference,value=value)
+        try:self.deliver(request,reference)
+        except Exception:raise NativeUIError('Phone original Snapshot input delivery failed') from None
+
+    def plan_capture(self,*,reference):
+        """Persist the exact normal Capture intent without delivering it.
+
+        The existing native bounded recipe will deliver this original command
+        once, then independently observe pending work before normal Cancel.
+        """
+        return self._prepare('snapshot.capture','activate',reference=reference)
 
     def activate(self,id,*,reference):return self.input(id,'activate',reference=reference)
     def replace(self,id,value,*,reference):return self.input(id,'replace',reference=reference,value=value)

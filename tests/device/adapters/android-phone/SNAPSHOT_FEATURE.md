@@ -335,3 +335,22 @@ actual helper, normal QML, physical Qt input, clocks and timers. Explicit
 DependencyManager/lifecycle/OffscreenUi and VM/script producer seams remain;
 these are not a complete TestScriptingInterface translation-unit, Android
 runtime, product rendering or device acceptance check.
+
+
+## Normal review input composition v1
+
+`PhoneSnapshotControls` uses the existing candidate/PID-bound `PhoneSnapshotIO`
+and normal SDK tablet controls. It records SDK intent before input, opens the
+actual SNAP entry, checks fresh original name/choice transitions and selects
+Save/Share/Upload by the exact current original image path's hashed control ID.
+An acknowledgment never supplies a file, save, receiver or HTTP result. Missing
+or ignored transitions, foreign paths and failed durable intent remain red;
+uncertain mutations are never automatically replayed. Reads and scroll steps
+are bounded and use fresh original controls each time.
+
+`PhoneSnapshotIO.plan_capture` persists the exact next normal Capture command
+without delivering it. The bounded native Cancel recipe can consume that
+original command once; the source command's nonce/token/generation/sequence
+and durable intent remain distinct from actual pending/cancelled observations.
+A plan is rejected for a non-animated normal choice. These controls still do not
+advertise the public Snapshot feature triple or retire OS results.
