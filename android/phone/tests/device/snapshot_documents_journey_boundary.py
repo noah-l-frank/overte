@@ -11,15 +11,18 @@ trigger. This helper does not establish any Android/device acceptance.
 from copy import deepcopy
 import base64
 import hashlib
+from http.client import HTTPConnection
 import json
 from pathlib import Path
 import select
 import shlex
+import socket
 import subprocess
 import threading
 import time
 from types import SimpleNamespace
 import uuid
+from urllib.parse import urlsplit
 from xml.sax.saxutils import quoteattr
 
 from adapters.normal_ui import NativeUI,NativeUIError
@@ -382,3 +385,59 @@ def install_documents(model,proxy=None):
     boundary=DocumentsJourneyBoundary(model)
     if proxy is not None:install_proxy_documents(proxy if isinstance(proxy,type) else type(proxy))
     return boundary
+
+
+def keepalive_handler(original):
+    """Real HTTP/1.1 framing, with a separate handler per TCP connection."""
+    class Handler(original):
+        protocol_version='HTTP/1.1'
+        def setup(self):
+            super().setup()
+            self.connection.setsockopt(socket.IPPROTO_TCP,socket.TCP_NODELAY,1)
+    return Handler
+
+
+def close_snapshot_rpc(proxy):
+    lock=proxy.__dict__.setdefault('_snapshot_rpc_lock',threading.Lock())
+    with lock:
+        connection=proxy.__dict__.pop('_snapshot_rpc_connection',None)
+        if connection is not None:connection.close()
+
+
+def install_keepalive_snapshot_rpc(proxy_type):
+    """Use the same actual JSON SDK boundary without connection setup per read.
+
+    This is transport-only host scheduling, never Android latency acceptance.
+    A failed request closes its connection and raises; no command is retried.
+    Primary and separately constructed actor own independent connection/locks.
+    """
+    def call(self,kind,value):
+        lock=self.__dict__.setdefault('_snapshot_rpc_lock',threading.Lock())
+        with lock:
+            url=urlsplit(self.url)
+            if (url.scheme!='http' or url.hostname not in ('127.0.0.1','localhost','::1') or not url.port
+                or url.username or url.password or url.path not in ('','/') or url.query or url.fragment):
+                raise RuntimeError('Explicit loopback Snapshot SDK endpoint required')
+            connection=self.__dict__.get('_snapshot_rpc_connection')
+            if connection is None:
+                connection=HTTPConnection(url.hostname,url.port,timeout=10)
+                self.__dict__['_snapshot_rpc_connection']=connection
+            try:
+                started=time.monotonic()
+                raw=json.dumps(dict(kind=kind,value=value),allow_nan=False).encode()
+                if len(raw)>MAX_BYTES:raise RuntimeError('Snapshot SDK request bound')
+                connection.request('POST','/rpc',raw,{'Content-Type':'application/json'})
+                response=connection.getresponse()
+                sizes=response.headers.get_all('Content-Length',[])
+                if len(sizes)!=1 or not sizes[0].isdecimal() or not 0<int(sizes[0])<=2*MAX_BYTES or response.headers.get('Transfer-Encoding') is not None:
+                    raise RuntimeError('Original Snapshot SDK Content-Length framing required')
+                reply=response.read(int(sizes[0])+1)
+                if len(reply)!=int(sizes[0]) or response.status!=200:raise RuntimeError('Original Snapshot SDK reply failed')
+                value=json.loads(reply)
+                if time.monotonic()-started>=10:raise TimeoutError('Original Snapshot SDK request deadline')
+                if response.will_close:
+                    connection.close();self.__dict__.pop('_snapshot_rpc_connection',None)
+                return value
+            except Exception:
+                connection.close();self.__dict__.pop('_snapshot_rpc_connection',None);raise
+    proxy_type.call=call

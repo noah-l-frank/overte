@@ -19,7 +19,8 @@ import uuid
 ROOT=Path(__file__).resolve().parents[4]
 sys.path[:0]=[str(ROOT/'tests/device'),str(ROOT/'tests/device/adapters/android-phone'),str(Path(__file__).parent)]
 from adapters.normal_ui import NativeUIError
-from snapshot_documents_journey_boundary import (install_documents,OriginalDocumentsProcess,PICKER,PHONE_UID,APK_SHA256,PACKAGE,NativeUI,PhoneSnapshotDocumentsUI)
+from snapshot_documents_journey_boundary import (install_documents,OriginalDocumentsProcess,PICKER,PHONE_UID,APK_SHA256,PACKAGE,NativeUI,PhoneSnapshotDocumentsUI,
+    keepalive_handler,install_keepalive_snapshot_rpc,close_snapshot_rpc)
 from test_snapshot_capture_files import Producer
 from test_snapshot_os_retirement_source import boundary as readback_seed
 from test_snapshot_system_context import BINDING
@@ -279,6 +280,71 @@ class SnapshotDocumentsJourneyTests(unittest.TestCase):
         self.assertEqual([],self.owner.observe()['documents'])
 
 
+class SnapshotKeepaliveBoundaryTests(unittest.TestCase):
+    """Actual TCP/HTTP framing and one-send failure semantics, no RPC stubs."""
+    def setUp(self):
+        self.records=[];self.peers=set();self.framing='valid';self.lost=False;self.counter=0
+        owner=self
+        class Source(BaseHTTPRequestHandler):
+            def handle(self):
+                try:super().handle()
+                except ConnectionResetError:
+                    if owner.framing=='valid':raise
+            def do_POST(self):
+                value=json.loads(self.rfile.read(int(self.headers['Content-Length'])))
+                owner.records.append(value);owner.peers.add(self.client_address)
+                if owner.lost:
+                    owner.lost=False;self.connection.shutdown(__import__('socket').SHUT_RDWR);self.connection.close();return
+                owner.counter+=1;raw=json.dumps(dict(sequence=owner.counter,inputs=len(owner.records))).encode()
+                self.send_response(200)
+                if owner.framing!='missing':self.send_header('Content-Length',str(len(raw) if owner.framing!='oversize' else 64*1024*1024+1))
+                if owner.framing=='duplicate':self.send_header('Content-Length',str(len(raw)))
+                self.end_headers();self.wfile.write(raw)
+            def log_message(self,*_):pass
+        self.server=ThreadingHTTPServer(('127.0.0.1',0),keepalive_handler(Source));self.thread=threading.Thread(target=self.server.serve_forever,daemon=True);self.thread.start()
+        self.proxies=[]
+        class Client:pass
+        install_keepalive_snapshot_rpc(Client);self.proxy_type=Client
+    def proxy(self):
+        value=self.proxy_type();value.url='http://127.0.0.1:'+str(self.server.server_port);self.proxies.append(value);return value
+    def tearDown(self):
+        for value in self.proxies:close_snapshot_rpc(value)
+        self.server.shutdown();self.server.server_close();self.thread.join(timeout=2)
+    def test_actual_connection_reuse_and_independent_actor_connection(self):
+        primary=self.proxy();actor=self.proxy()
+        self.assertEqual(1,primary.call('observe',None)['sequence']);self.assertEqual(2,primary.call('observe',None)['sequence'])
+        self.assertEqual(1,len(self.peers));self.assertEqual(3,actor.call('observe',None)['sequence']);self.assertEqual(2,len(self.peers))
+        self.assertIsNot(primary._snapshot_rpc_lock,actor._snapshot_rpc_lock)
+    def test_lost_input_reply_is_never_retried_or_cached(self):
+        proxy=self.proxy();self.lost=True
+        with self.assertRaises(Exception):proxy.call('ordinary-input',dict(controlId='save'))
+        self.assertEqual(1,len(self.records));self.assertNotIn('_snapshot_rpc_connection',proxy.__dict__)
+        actual=proxy.call('observe',None)
+        self.assertEqual(2,actual['inputs']);self.assertEqual(1,len([row for row in self.records if row['kind']=='ordinary-input']))
+        self.assertEqual(2,len(self.peers))
+    def test_unqualified_missing_duplicate_and_oversize_content_length_are_red(self):
+        for framing in ('missing','duplicate','oversize'):
+            with self.subTest(framing=framing):
+                self.framing=framing;proxy=self.proxy();before=len(self.records)
+                with self.assertRaises(RuntimeError):proxy.call('observe',None)
+                self.assertEqual(before+1,len(self.records));self.assertNotIn('_snapshot_rpc_connection',proxy.__dict__)
+    def test_same_proxy_serializes_concurrent_original_requests(self):
+        proxy=self.proxy();results=[];failures=[]
+        def read():
+            try:
+                for index in range(4):results.append(proxy.call('observe',None)['sequence'])
+            except Exception as error:failures.append(error)
+        threads=[threading.Thread(target=read) for index in range(2)]
+        for thread in threads:thread.start()
+        for thread in threads:thread.join(timeout=5)
+        self.assertEqual([],failures);self.assertEqual(list(range(1,9)),sorted(results));self.assertEqual(1,len(self.peers))
+    def test_nonloopback_credentials_or_other_scheme_never_reaches_transport(self):
+        for url in ('http://example.invalid:123','https://127.0.0.1:123','http://user:secret@127.0.0.1:123','http://127.0.0.1:123/foreign'):
+            proxy=self.proxy();proxy.url=url
+            with self.subTest(url=url),self.assertRaises(RuntimeError):proxy.call('observe',None)
+        self.assertEqual([],self.records)
+
+
 class SnapshotDocumentsCommonJourneyTests(unittest.TestCase):
     """Reuse the guarded public harness; select only the actual SDK26 profile."""
     SDK=26
@@ -292,14 +358,21 @@ class SnapshotDocumentsCommonJourneyTests(unittest.TestCase):
     def setUp(self):
         from unittest.mock import patch
         shared=self.shared;original=shared.SnapshotTarget
+        install_keepalive_snapshot_rpc(shared.SnapshotProxy)
+        p=patch.object(shared,'Handler',keepalive_handler(shared.Handler));p.start();self.addCleanup(p.stop)
+        # Use the existing host RAM filesystem for this IO-heavy transport
+        # replay. Real files/inodes/bytes and every fsync still execute; this
+        # establishes no Android storage or power-loss durability claim.
+        p=patch('tempfile.tempdir','/tmp');p.start();self.addCleanup(p.stop)
         def target(*args,**kwargs):
             model=original(*args,**kwargs);boundary=install_documents(model,shared.SnapshotProxy)
             self.addCleanup(boundary.close);return model
         p=patch.object(shared,'SnapshotTarget',side_effect=target);p.start();self.addCleanup(p.stop)
-        script=shared.ACTOR.replace("configuration=PrivateFeatureState", "from snapshot_documents_journey_boundary import install_proxy_documents\nfrom snapshots_journey_producers import SnapshotProxy\ninstall_proxy_documents(SnapshotProxy)\nconfiguration=PrivateFeatureState")
+        script=shared.ACTOR.replace("configuration=PrivateFeatureState", "from snapshot_documents_journey_boundary import install_proxy_documents,install_keepalive_snapshot_rpc\nfrom snapshots_journey_producers import SnapshotProxy\ninstall_proxy_documents(SnapshotProxy)\ninstall_keepalive_snapshot_rpc(SnapshotProxy)\nconfiguration=PrivateFeatureState")
         if script==shared.ACTOR:raise AssertionError('Original guarded actor insertion point changed')
         p=patch.object(shared,'ACTOR',script);p.start();self.addCleanup(p.stop)
         shared.SnapshotJourneyTests.setUp(self)
+        self.addCleanup(close_snapshot_rpc,self.proxy)
         # urllib retains its original HTTPS context after earlier HTTP-only
         # unit tests. Acquire a fresh context under the actual fixture CA;
         # certificate and hostname checks remain enabled.
@@ -318,6 +391,7 @@ class SnapshotDocumentsCommonJourneyTests(unittest.TestCase):
         self.act('save-picker-open');self.act('save-picker-cancel');self.act('save-picker-open');self.act('save')
         result=self.invoke('feature.snapshots.observe',dict(contractVersion=VERSION,runId=self.shared.RUN,afterSequence=1))
         self.assertEqual('document-picker',result['state']['saveBackend']);self.assertEqual(1,result['state']['saved'])
+
 
 
 # Used by the public normal-toolbar mutation counterprobe above.
