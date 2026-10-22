@@ -71,6 +71,21 @@
       "name": "android-common-native-ci",
       "entrypoint": "android/common/native-ci/tests.py",
       "interpreter": "python"
+    },
+    {
+      "name": "pico-native-ci-graph",
+      "entrypoint": "android/vr/pico/native-ci/tests.py",
+      "interpreter": "python"
+    },
+    {
+      "name": "pico-native-ci-inputs",
+      "entrypoint": "android/vr/pico/native-ci/inputs_test.py",
+      "interpreter": "python"
+    },
+    {
+      "name": "pico-native-ci-unsigned-apk",
+      "entrypoint": "android/vr/pico/native-ci/verify_apk_test.py",
+      "interpreter": "python"
     }
   ]
 }
