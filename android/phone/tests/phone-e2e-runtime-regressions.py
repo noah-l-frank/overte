@@ -62,6 +62,7 @@ PREPARED_HOST_CHECKS = (
 )
 COMMON_HOST_CHECKS = (
     "android/phone/tests/device/test_create_collaboration_foundation.py",
+    "android/phone/tests/device/test_navigation_scene.py",
     "android/phone/tests/device/test_snapshot_handoff_audit.py",
     "android/phone/tests/device/test_snapshot_system_files.py",
     "android/phone/tests/device/test_snapshots_measurements.py",

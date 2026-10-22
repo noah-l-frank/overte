@@ -123,6 +123,25 @@ class PhoneNavigation:
         # A history endpoint disables its unavailable direction. The selected
         # Back/Forward click below resolves one visible enabled control itself.
 
+    def load_scene(self, url):
+        """Submit precisely the approved base scene through the ordinary dialog.
+
+        This internal foundation path supplies an input receipt only. Existing
+        session/modules must independently observe actual departure/arrival.
+        """
+        from navigation_observation import owned_scene
+        parsed=owned_scene(url)
+        if parsed.query or url!=self.profile['sceneUrl']:
+            raise NativeUIError('Normal Phone scene input differs from its approved base scene')
+        self.open_address()
+        self.ui.replace_text(self.address,url)
+        if self.ui.text(self.address)!=url:
+            raise NativeUIError('Normal Phone scene address did not retain the original input')
+        self.ui.click(self.go)
+        self.ui.wait_absent(self.address)
+        self.mark('addressOwned',False)
+        return {'requested':True}
+
     def invoke(self, operation, arguments):
         if operation not in OPERATIONS:
             raise ValueError('Unknown normal Phone navigation operation')

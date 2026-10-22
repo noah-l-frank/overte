@@ -2801,6 +2801,11 @@ class PhoneAppiumAdapter(AppiumAdapter):
         arguments = validate_operation_arguments(operation, values)
         target = self.target(selector)
         require(operation in self.advertised_capabilities(target), 'PHONE_NORMAL_NAVIGATION_NOT_ENABLED')
+        if operation=='scene.load':
+            from overte_phone_navigation_scene import configuration,provider as validate_provider
+            configuration(target.get('controls',{}).get('normalNavigation'),arguments['url'],os.environ.get('OVERTE_E2E_SCENE_URL',''))
+            require(self.candidate is not None and self.controlled_android_client(target) and target.get('scene',{}).get('kind')=='android-debug-e2e',
+                'PHONE_NORMAL_SCENE_BOUND_DEBUG_TARGET_REQUIRED')
         client, session, state = self.ensure_session(selector)
         installed = self.installed_identity(selector)
         process = self.process_state(selector, client, session, state, target)
@@ -2815,7 +2820,19 @@ class PhoneAppiumAdapter(AppiumAdapter):
         ui = NativeUI(client, session, check)
         flow = PhoneNavigation(ui, target['controls']['normalNavigation'], state,
             installed, process['identity'], lambda: self.save_session(selector, state))
-        result = flow.invoke(operation, arguments)
+        if operation=='scene.load':
+            if os.environ.get('OVERTE_PHONE_FEATURE_WORLD_NAVIGATION','0')=='1':
+                import time
+                from urllib.parse import urlsplit
+                source=self._feature_fixture_client();run=uuid.uuid4().hex
+                reader=self._navigation_view(selector,read_only=True)
+                before=reader.read(run);provider=source.request('/navigation-provider');after=reader.read(run)
+                validate_provider(provider,arguments['url'],installed['sourceRevision'],int(time.time()*1000))
+                origin=urlsplit(source.url);origin=origin.scheme+'://'+origin.netloc
+                require(all(row['source']['endpoint'].rstrip('/')==origin and row['source']['protocolSignature']==provider['inputs']['protocolSignature']
+                    for row in (before,after)),'PHONE_NORMAL_SCENE_ORIGINAL_PROVIDER_MISMATCH')
+            result=flow.load_scene(arguments['url'])
+        else:result = flow.invoke(operation, arguments)
         check()
         require(self.installed_identity(selector) == installed, 'PHONE_NORMAL_NAVIGATION_INSTALL_CHANGED')
         return result
@@ -2850,6 +2867,8 @@ class PhoneAppiumAdapter(AppiumAdapter):
             return self._invoke_feature(selector,operation,values,lambda retired:self._lifecycle_input_feature(selector,values['runId'],**({'retirement':True} if retired else {})))
         if operation in ('app.launch','scene.load'):
             self.account_fixture_configuration(self.target(selector))
+        if operation=='scene.load' and values.get('url')!='overte-e2e://fixture/scene' and self.target(selector).get('controls',{}).get('normalNavigation') is not None:
+            return self.normal_navigation(selector,operation,values)
         if operation in AVATAR_PEOPLE_FEATURE_OPERATIONS:
             from feature_journeys.contract import arguments
             arguments(operation,values)

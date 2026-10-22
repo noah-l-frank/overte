@@ -55,3 +55,24 @@ Phone candidate wrapper must additionally be verified against a composed in-tree
 Phone verifier source. Main alone does not contain that native verifier; an
 external reference tree or stub import cannot qualify the wrapper. Keep this
 pending distinction until the Phone-layer verification receipt is recorded.
+
+
+The `scene.load` foundation can also submit precisely that configured HTTP(S)
+base scene through the same normal Go To UI. Its URL must exactly match both
+`controls.normalNavigation.sceneUrl` and `OVERTE_E2E_SCENE_URL`, without a
+viewpoint query. The bound controlled debug Phone, verified installed candidate,
+original foreground process and persisted normal-panel ownership remain
+mandatory. The existing embedded-fixture path and Places viewpoint grammar are
+unchanged. When the full Navigation extension is enabled, fresh provider inputs
+must also match the actual source revision, scene URL, native endpoint and
+native protocol signature before any UI input.
+
+The result is only `requested: true`. It deliberately supplies no marker-only
+verification hint: `OverteSession` must independently observe the actual HTTP
+scene URL and native readiness. The unmodified domain-roundtrip module must
+observe real domain departure and reconnection in the original process; the
+Places module must then observe the same controlled HTTP scene and viewpoints.
+An ignored normal Go input may return an ACK but cannot establish arrival.
+The original private panel lease supports partial cleanup after an interrupted
+input. Host SDK/kernel/provider producers are explicit seams; no Android or
+physical acceptance is implied.
