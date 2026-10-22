@@ -216,7 +216,9 @@ class SnapshotDocumentsTests(unittest.TestCase):
         sdk=SimpleNamespace(epoch_milliseconds=lambda _device:b.epoch)
         with patch('appium_adapter.PhoneAdapter',return_value=SimpleNamespace(adb=sdk)),patch('overte_phone_snapshot_documents.SnapshotDocumentsTransport',return_value=b) as transport:
             observer=adapter._snapshot_system_documents('own',RUN,ARM,'d'*64,application,share,authority,binding=binding)
-            observer.observe();self.assertIs(scopes[0][2],share);self.assertEqual(binding,observer.binding())
+            observed=observer.observe();self.assertIs(scopes[0][2],share)
+            self.assertEqual(binding['floor'],observer.floor);self.assertEqual(observed,observer.binding()['floor'])
+            self.assertEqual({key:value for key,value in binding.items() if key!='floor'},{key:value for key,value in observer.binding().items() if key!='floor'})
             self.assertTrue(transport.call_args.kwargs['read_only'])
             for operation in ('arm','retire'):
                 with self.subTest(operation=operation),self.assertRaises(NativeUIError):observer.control(operation)

@@ -23,7 +23,7 @@ from overte_phone_snapshot_platform import profile
 from overte_phone_snapshot_resolution import original as chooser_source,join_grant
 from overte_phone_snapshot_system_ui import PRIMARY,tree
 from feature_journeys.contract import state as contract_state
-from overte_phone_snapshot_documents import source as documents_source,join as documents_join
+from overte_phone_snapshot_documents import source as documents_source,join as documents_join,continuity as documents_continuity,installed as documents_installed
 from overte_phone_snapshot_documents_ui import resolution as documents_resolution
 
 
@@ -33,6 +33,16 @@ class SnapshotPending(Exception):
 
 def one(rows,predicate):
     selected=[row for row in rows if predicate(row)];need(len(selected)==1);return selected[0]
+
+
+def document_binding(value,provider,*,run,epoch):
+    exact(value,{'snapshotDocumentsBindingVersion','installed','instance','runId','armId','root','floor'})
+    need(type(value['snapshotDocumentsBindingVersion']) is int and value['snapshotDocumentsBindingVersion']==2 and value['runId']==run)
+    documents_installed(value['installed']);floor=value['floor']
+    documents_source(floor,run,value['armId'],floor['observationId'],value['installed'],floor['capturedEpochMs'])
+    need(floor['instance']==value['instance'] and {key:floor['root'][key] for key in ('rootId','path','device','inode')}==value['root'])
+    documents_source(provider,run,value['armId'],provider['observationId'],value['installed'],epoch)
+    documents_continuity(floor,provider);return value
 
 
 def capture(group,baseline,files,acquisition,*,run,pid,epoch):
@@ -164,8 +174,7 @@ def inventory(value,native,*,run,epoch):
 
 def document(readbacks,provider,binding,acquisition,captured,phone_uid,resolution,*,run,epoch):
     """Independent actual DocumentsProvider creator, writer, FD and bytes."""
-    exact(binding,{'installed','instance','runId','armId','root'})
-    documents_source(provider,run,binding['armId'],provider['observationId'],binding['installed'],epoch)
+    document_binding(binding,provider,run=run,epoch=epoch)
     need(provider['complete'] and provider['instance']==binding['instance'] and binding['runId']==run
         and not provider['retired'] and all(provider['root'][key]==binding['root'][key] for key in ('rootId','path','device','inode')))
     exact(phone_uid,{'snapshotPhoneUidVersion','uid','requestedEpochMs','capturedEpochMs'})
@@ -208,7 +217,7 @@ def retired(group,native_files,actual_inventory,readbacks,upload,settings,*,run,
     else:need(consumer_binding is None and not any(row['component'] for row in grants['rows']))
     if documents is not None:
         need(documents_binding is not None)
-        documents_source(documents,run,documents_binding['armId'],documents['observationId'],documents_binding['installed'],epoch)
+        document_binding(documents_binding,documents,run=run,epoch=epoch)
         need(documents['complete'] and documents['instance']==documents_binding['instance'] and documents['retired']
             and documents['workersTerminated'] and not documents['root']['present']
             and all(row['absent'] for row in documents['documents']) and all(row['closed'] and not row['error'] for row in documents['fdLifetimes']))
@@ -260,8 +269,7 @@ def state(frame,baseline,*,run,pid,epoch):
         need(all(frame[key] is None for key in ('documents','documentsBinding','phoneUid','documentResolution')))
     else:
         documents=frame['documents'];binding=frame['documentsBinding'];need(documents is not None and binding is not None)
-        exact(binding,{'installed','instance','runId','armId','root'})
-        documents_source(documents,run,binding['armId'],documents['observationId'],binding['installed'],epoch)
+        document_binding(binding,documents,run=run,epoch=epoch)
         need(documents['complete'] and documents['instance']==binding['instance'] and binding['runId']==run
             and all(documents['root'][key]==binding['root'][key] for key in ('rootId','path','device','inode')))
         documents_resolution(frame['documentResolution'])
