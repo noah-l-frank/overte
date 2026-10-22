@@ -283,6 +283,33 @@ class DockerCommandTests(unittest.TestCase):
             with self.assertRaisesRegex(R.RunError, "socket"):
                 self.command(prepared_roots=[self.tools])
 
+    def test_guard_internal_version_pointer_is_preserved_without_allowing_git_aliases(self):
+        guard = self.candidate / ".git/overte-branch-name-guard"
+        version = "a" * 64
+        destination = guard / "versions" / version
+        destination.mkdir(parents=True)
+        current = guard / "current"
+        current.symlink_to("versions/" + version)
+        self.command()
+        current.unlink()
+        for target in (str(destination), "../objects", "versions/missing", "../../../../outside"):
+            with self.subTest(target=target):
+                current.symlink_to(target)
+                with self.assertRaisesRegex(R.RunError, "external alias"):
+                    self.command()
+                current.unlink()
+        destination.rmdir()
+        destination.symlink_to(self.tools, target_is_directory=True)
+        current.symlink_to("versions/" + version)
+        with self.assertRaisesRegex(R.RunError, "external alias"):
+            self.command()
+        current.unlink()
+        destination.unlink()
+        alias = self.candidate / ".git/refs/internal-alias"
+        alias.symlink_to("../objects", target_is_directory=True)
+        with self.assertRaisesRegex(R.RunError, "external alias"):
+            self.command()
+
     def test_fully_enumerated_private_npm_hardlinks_are_allowed_but_external_links_are_not(self):
         original = self.candidate / "private-package-binary"
         original.write_text("private binary fixture")

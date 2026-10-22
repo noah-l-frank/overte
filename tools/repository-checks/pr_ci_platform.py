@@ -163,7 +163,7 @@ def android_compile_commands(target, plan, runtime, prepared_roots):
 
 
 def execute(candidate, context, plan, lane, prepared_roots, *, recompute, android_runtime=None,
-            android_native_runtime=None):
+            android_native_runtime=None, android_groovy_runtime=None):
     candidate = authenticate(candidate, context, plan, recompute)
     C.require(lane in {"android", "ios"} and plan[lane + "_required"] is True,
               "unselected platform execution")
@@ -174,10 +174,25 @@ def execute(candidate, context, plan, lane, prepared_roots, *, recompute, androi
         root = Path(android_native_runtime).resolve(strict=True)
         C.require(any(root == Path(path).resolve(strict=True) or Path(path).resolve(strict=True) in root.parents
                       for path in prepared_roots), 'Android native runtime is outside explicit prepared inputs')
+    selected_commands = commands(candidate, context["target"], lane, plan)
+    groovy_script = 'android/vr/pico/native-ci/inputs_test.py'
+    needs_groovy = lane == 'android' and any(arguments[1:] == [groovy_script] for arguments in selected_commands)
+    C.require(needs_groovy == bool(plan.get('android_groovy_contracts', False)),
+              'Pico Groovy runtime selection differs from its actual owning suite')
+    classpath = None
+    if needs_groovy:
+        import pr_ci_android_native as native
+        C.require(android_groovy_runtime is not None, 'Selected Pico Groovy contracts require their prepared runtime')
+        root = Path(android_groovy_runtime).resolve(strict=True)
+        C.require(any(root == Path(path).resolve(strict=True) or Path(path).resolve(strict=True) in root.parents
+                      for path in prepared_roots), 'Groovy runtime is outside explicit prepared inputs')
+        classpath = native.groovy_classpath(root)
     results = []
-    for arguments in commands(candidate, context["target"], lane, plan):
+    for arguments in selected_commands:
         command = [sys.executable if item == "python" and index == 0 else item
                    for index, item in enumerate(arguments)]
+        if arguments[1:] == [groovy_script]:
+            command = ['/usr/bin/env', 'PICO_TEST_GROOVY_CLASSPATH=' + classpath, *command]
         if lane == "ios":
             qml = qml_runner()
             C.require(qml is not None, "required iOS host QML tool is unavailable")

@@ -106,6 +106,13 @@ dependency closure. These checks establish build/package acceptance, not device
 journey acceptance. Infrastructure fixture suites follow their reviewed exact
 input closures; changing a fixture alone does not request an application build.
 
+The Pico input-loader fixture executes real Groovy with two checksum-bound JARs
+from the existing pinned Gradle distribution. Its small transport cache is
+separate from native payloads and is prepared only when that fixture's exact
+input closure is selected. Missing Groovy is a CI prerequisite failure rather
+than a skipped check. These host fixtures do not download an SDK or start a
+native build.
+
 ## Offline execution boundary
 
 `tools/repository-checks/pr_ci_android_boundary.py` constructs the isolated
