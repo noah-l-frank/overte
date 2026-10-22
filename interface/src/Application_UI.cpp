@@ -62,6 +62,10 @@
 #include <SandboxUtils.h>
 #include <SceneScriptingInterface.h>
 #include <ScriptEngines.h>
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+#include "../../tests/device/native/IOSScriptDialogObservation.h"
+#include <ScriptManager.h>
+#endif
 #include <scripting/AccountServicesScriptingInterface.h>
 #include <scripting/AssetMappingsScriptingInterface.h>
 #include <scripting/ControllerScriptingInterface.h>
@@ -524,13 +528,36 @@ void Application::loadDialog() {
     ModalDialogListener* dlg = OffscreenUi::getOpenFileBundleAsync(tr("Open Script and Companion Files"),
                                                                   getPreviousScriptLocation(), QStringLiteral("\\.js$"));
     if (!dlg) return;
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    const auto featureDialog=QCoreApplication::arguments().contains("--testScript")
+        ? overte::e2e::IOSScriptDialogObservation::process().born() : QString();
+    if (!featureDialog.isEmpty()) {
+        connect(dlg,&QObject::destroyed,[featureDialog] { overte::e2e::IOSScriptDialogObservation::process().listenerDestroyed(featureDialog); });
+    }
+#endif
     connect(dlg, &ModalDialogListener::response, this, [=, this] (QVariant answer) {
         disconnect(dlg, &ModalDialogListener::response, this, nullptr);
         const QString& response = answer.toString();
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+        if (!featureDialog.isEmpty()) {
+            const bool featureSelected=!response.isEmpty() && QFile(response).exists();
+            auto& featureDialogs=overte::e2e::IOSScriptDialogObservation::process();
+            featureDialogs.responseStarted(featureDialog,response,featureSelected);
+            QVariantMap featureManager;
+            if (featureSelected) {
+                setPreviousScriptLocation(QFileInfo(response).absolutePath());
+                const auto loaded=DependencyManager::get<ScriptEngines>()->loadScript(response,true,false,false,true);
+                if (loaded) { featureManager=loaded->featureLoadMembership(); }
+            }
+            featureDialogs.responseFinished(featureDialog,featureManager);
+            return;
+        }
+#endif
         if (!response.isEmpty() && QFile(response).exists()) {
             setPreviousScriptLocation(QFileInfo(response).absolutePath());
             DependencyManager::get<ScriptEngines>()->loadScript(response, true, false, false, true);  // Don't load from cache
         }
+
     });
 }
 

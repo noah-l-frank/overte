@@ -575,6 +575,12 @@ class FixtureState:
             try:scene_inventory_command(command)
             except (ValueError,RuntimeError):raise ValueError("invalid iOS scene inventory request") from None
             valid=True
+        elif action == "feature-ios-script-dialogs":
+            sys.path.insert(0,str(ROOT.parent))
+            from ios.adapters.script_dialogs import command as validate_ios_source
+            try:validate_ios_source(command)
+            except (ValueError,RuntimeError):raise ValueError("invalid iOS script dialogs request") from None
+            valid=True
         elif action == "feature-ios-emote-world":
             sys.path.insert(0,str(ROOT.parent))
             from ios.adapters.emote_world import command as validate_ios_source

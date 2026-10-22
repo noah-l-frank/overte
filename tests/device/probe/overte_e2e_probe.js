@@ -1114,6 +1114,26 @@
             }
             return;
         }
+        if (command && command.action === "feature-ios-script-dialogs") {
+            if (command.schemaVersion === 1 && typeof command.commandId === "string"
+                    && /^ios-[0-9a-f]{32}$/.test(command.commandId) && command.commandId.length === 36
+                    && typeof command.runId === "string" && /^[0-9a-f]{32}$/.test(command.runId) && command.runId.length === 32
+                    && objectKeysMatch(command,["schemaVersion","commandId","action","runId"])) {
+                // Keep every nonce consumed, including unavailable reads and
+                // storage mutations with a lost return. No reissue on polling.
+                if (iosNewSourceRequests[command.commandId] || iosNewSourceRequestCount >= 4096) { return; }
+                iosNewSourceRequests[command.commandId]=true;iosNewSourceRequestCount+=1;
+                var sourceScriptDialogs={iosScriptDialogVersion:1,requestId:command.commandId,status:"unavailable"};
+                try {
+                    if (typeof Test.featureIOSScriptDialogs === "function") {
+                        var originalScriptDialogs=Test.featureIOSScriptDialogs(command);
+                        if (originalScriptDialogs && originalScriptDialogs.requestId === command.commandId) { sourceScriptDialogs=originalScriptDialogs; }
+                    }
+                } catch (_ScriptDialogsError) { /* Retain unavailable; never retry an uncertain input. */ }
+                Test.saveObject(sourceScriptDialogs,"feature-ios-script-dialogs.json");
+            }
+            return;
+        }
         if (command && command.action === "feature-ios-emote-world") {
             if (command.schemaVersion === 1 && typeof command.commandId === "string"
                     && /^ios-[0-9a-f]{32}$/.test(command.commandId) && command.commandId.length === 36

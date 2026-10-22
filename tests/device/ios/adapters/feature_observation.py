@@ -56,6 +56,7 @@ from ios.adapters.avatar_entities import IOSAvatarEntities,FILE as AVATAR_ENTITI
 from ios.adapters.avatar_state import IOSAvatarState,FILE as AVATAR_STATE_FILE,LIMIT as AVATAR_STATE_LIMIT,command as avatar_state_command
 from ios.adapters.avatar_renderers import IOSAvatarRenderers,FILE as AVATAR_RENDERERS_FILE,LIMIT as AVATAR_RENDERERS_LIMIT,command as avatar_renderers_command
 from ios.adapters.emote_world import IOSEmoteWorld,FILE as EMOTE_WORLD_FILE,LIMIT as EMOTE_WORLD_LIMIT,command as emote_world_command
+from ios.adapters.script_dialogs import IOSScriptDialogs,FILE as SCRIPT_DIALOGS_FILE,LIMIT as SCRIPT_DIALOGS_LIMIT,command as script_dialogs_command
 from ios.adapters.create_state import IOSCreateState,FILE as CREATE_STATE_FILE,LIMIT as CREATE_STATE_LIMIT,command as create_state_command
 from ios.adapters.create_files import IOSCreateFiles,FILE as CREATE_FILES_FILE,LIMIT as CREATE_FILES_LIMIT,command as create_files_command
 from adapters.private_login_input import command as private_input_command
@@ -153,6 +154,7 @@ class FeatureObservation:
         elif command.get('action')=='feature-ios-avatar-entities':avatar_entities_command(command)
         elif command.get('action')=='feature-ios-avatar-state':avatar_state_command(command)
         elif command.get('action')=='feature-ios-avatar-renderers':avatar_renderers_command(command)
+        elif command.get('action')=='feature-ios-script-dialogs':script_dialogs_command(command)
         elif command.get('action')=='feature-ios-emote-world':emote_world_command(command)
         elif command.get('action')=='feature-script-terminal-observe':script_terminal_command(command,ios=True)
         elif command.get('action')=='feature-script-work-observe':script_work_command(command,ios=True)
@@ -360,6 +362,13 @@ class FeatureObservation:
         def clock():return clock_source.read(clock_source.sequence)['capturedEpochMs']
         return NativeScriptTerminal(self.send,lambda:self.original(remote=remote,limit=SCRIPT_TERMINAL_LIMIT),
             clock,self.guard,self.process['pid'],ios=True,monotonic=self.monotonic,sleep=self.sleep)
+
+    def script_dialogs(self,clock_source=None):
+        self.guard();remote=self.remote.rsplit('/',1)[0]+'/'+SCRIPT_DIALOGS_FILE
+        if clock_source is None:clock_source=self.native_observer()
+        def clock():return clock_source.read(clock_source.sequence)['capturedEpochMs']
+        return IOSScriptDialogs(self.send,lambda:self.original(remote=remote,limit=SCRIPT_DIALOGS_LIMIT),
+            clock,self.guard,self.process['pid'],monotonic=self.monotonic,sleep=self.sleep)
 
     def emote_world(self,clock_source=None):
         self.guard();remote=self.remote.rsplit('/',1)[0]+'/'+EMOTE_WORLD_FILE
