@@ -1022,12 +1022,55 @@ borrow a valid before packet. Diagnostic frames and their complete original
 groups remain in the archive. These historical floors never replace new target
 observations.
 
-The actor lifecycle journal is now version 2, with a bounded, versioned history
-of unpublished fixture-phase transitions. Exact process-bound version-1 state
-can be read losslessly and upgraded only by its next own compare-and-swap save;
-unknown legacy fields or a rollback of a retained actor's known save fail.
+The actor lifecycle journal is now version 3. Its exact typed grammar preserves
+version 1's original fields and version 2's bounded unpublished fixture-phase
+transition history. Exact process-bound versions 1 and 2 can be read losslessly
+and upgraded only by their next own compare-and-swap save. Version 1 contributes
+no invented transition history; neither legacy version supplies an invented
+consumed Primary cue. Unknown fields, boolean/unknown versions and a rollback
+of a retained actor's known save fail. Completed archived legacy controls retain
+their original version and are not rewritten by repeated finalization.
 A role header cannot drop an already archived transition frame: its actual
 manifest block must retain that frame's complete original prefix.
+
+Version 3 adds `primaryCue`, either null or the closed version-1 value
+`{snapshotPrimaryCueVersion:1,header:<actual Primary ready-role header>}`.
+Before a new ordinary Actor acquisition, the actor reads the actual typed
+Primary journal, checks the complete prior manifest prefix and reads its latest
+actual completed frame. That frame must belong to the current active fixture
+phase and ticket. An unchanged consumed sequence or a reading/pending Primary
+owner admits no new Actor Role constructor, current measurement or publication.
+A greater valid ready sequence admits one independent acquisition. Missing,
+foreign or rolled-back known owners remain red; an unrelated empty journal
+cannot discard original ownership.
+
+This is scheduling only. No Primary fact, timestamp, observation sequence,
+expected result or receipt becomes an Actor fact. The actor still obtains its
+own fresh native/VM/UI/file/provider originals and its own Role sequence, and
+publishes through its separate credential. Only after that read completes are
+the actual cue and original pending sample committed together by the actor's
+own durable CAS. The actual Primary header is checked after the final native
+guard before this save and again after the CAS. A changed owner can leave a
+durable pending obligation but cannot authorize POST. Cold resume validates the
+saved cue's full original prefix before delivering that exact pending sample;
+the issued-save guard retains the same actual Primary pin. Lost accepted POST
+returns resolve through the original service receipt, without another sample
+or POST. Existing pending delivery precedes the advance gate. Cleanup quiet
+acquisitions and strict closed-phase retirement do not wait for a new Primary
+sequence, and retain all existing current-source and ownership checks.
+
+Six actual TLS/private-file/separate-process scheduling counters and fifteen
+existing Actor checks passed together in 47.168 seconds against Actor source
+SHA-256 `c0924e8d93c8ba2e010a7bbcb589fbd026d8cee81b3e57be74973aa759f8dfea`.
+The counters cover unchanged and cold-resumed frontiers, actual forward reads,
+missing/foreign/rollback owners, accepted-POST lost returns, owner changes after
+pending CAS and during the first cold issued-save guard, and missing independent
+capture bytes despite a completed Primary capture. The existing fixture now
+produces a real Primary Role original instead of bypassing this prerequisite.
+See [`test_snapshots_actor_primary_cue.py`](../../../../android/phone/tests/device/test_snapshots_actor_primary_cue.py)
+and [`test_snapshots_actor.py`](../../../../android/phone/tests/device/test_snapshots_actor.py).
+The subsequent cleanup-only source adjustment retains the same ordinary cue
+methods; these results are not relabelled as a run of its new close-race cases.
 
 An ordinary actor acquisition admits its actual phase before reading native,
 avatar or measurement sources. One proven owned activation advance can defer
@@ -1169,6 +1212,19 @@ completion gap was 1.424 seconds. The separate actor acquired the actual shared
 source lock once during each unlocked history pass. This scheduling check does
 not qualify either complete SDK29+ or SDK26–28 common replay, which remain
 pending, including strict ordinary-phase transition recovery.
+
+Closure may race an already completed cleanup batch. A narrow deferral requires
+the actor's own durably completed quiet interval and its actual issued cleanup
+sample's matching service receipt, unchanged cleanup activation and exact
+feature/actor/role owners. It produces no new witness, closure proof or retired
+state. An actual partial Role read remains pinned as a recovery obligation;
+the warm reader is discarded while its trusted Role header is retained. The
+next normal step reconstructs from that exact header, recovers the partial
+original and obtains fresh closed-phase sources and restoration proof before
+retirement. Incomplete quiet, missing receipt, changed phase/owner or unresolved
+source work cannot qualify this path. New dedicated close-race counters are
+still awaiting their recorded result at this handoff; no pass is inferred from
+the ordinary scheduling tests.
 
 The durable owner is written before setup can acquire settings, capture-file or
 document leases. Baseline preparation takes readonly originals before ordinary

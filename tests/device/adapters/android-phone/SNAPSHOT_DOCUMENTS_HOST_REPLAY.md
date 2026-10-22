@@ -124,11 +124,40 @@ correctly rejected the older unseen row; the newer row cannot erase it.
 During that Primary observation, a second Actor acquisition overtook the
 unlocked historical replay. The measured second lock wait was 806.136 ms,
 followed by an 836.316 ms Primary lock hold. This is a scheduling failure;
-no individual hash or GC cause is inferred. A revision of ordinary Actor
-scheduling is being prepared. It must preserve independent actual reads,
-every journal row, strict freshness and unchanged cleanup quiet checks.
+no individual hash or GC cause is inferred. Ordinary Actor scheduling has since
+been revised as described below. This failed result remains red; the revision
+must qualify a new unchanged full run while preserving every journal row,
+independent actual reads, strict freshness and unchanged cleanup quiet checks.
 The preceding targeted join passed 91 tests; neither that result nor this
 failed replay qualifies the full backend.
+
+The Actor journal is version 3, with exact typed migration from original
+process-bound versions 1 and 2. It retains `primaryCue`, null or a version-1 cue
+holding the actual Primary ready-role header. The gate validates the original
+manifest prefix and latest completed Primary frame's active phase/ticket before
+admitting a new ordinary measurement. An unchanged frontier waits. A greater
+ready sequence is only a scheduling cue: the Actor still reads its own current
+native/VM/files/provider originals, supplies its own time and Role sequence and
+uses its independent publication credential. No Primary expected state, source
+fact or receipt is copied. Actual cue and independently acquired pending sample
+share one own CAS, with Primary-owner checks after the native guard and after
+the write. Cold pending/receipt recovery retains that pin and precedes the gate.
+Cleanup quiet and closed-fixture proof remain ungated by Primary advancement.
+
+The six new
+[`actual scheduling counters`](../../../../android/phone/tests/device/test_snapshots_actor_primary_cue.py)
+and fifteen existing Actor tests passed in 47.168 seconds on Actor source
+`c0924e8d93c8ba2e010a7bbcb589fbd026d8cee81b3e57be74973aa759f8dfea`.
+The separately reported eight phase/migration checks passed in 43.836 seconds
+on the earlier `5dce` source; they are historical targeted evidence, not a run
+of the subsequent cleanup-only adjustment. That adjustment retains the same
+ordinary scheduling methods. Its close deferral requires already durable own
+quiet completion and a matching actual cleanup receipt, keeps any partial Role
+read's exact owner for fresh closed reconstruction, and supplies no success or
+retirement itself. The new dedicated close-race test result remains pending in
+this handoff. No complete SDK26/SDK29 host result, final integrated-source audit,
+complete Android APK build or physical-device acceptance follows from these
+component checks. The source-qualified count remains thirteen of fourteen.
 
 The current [source coverage review](SOURCE_STATUS.md) distinguishes source and
 component checks from complete common qualification. The
