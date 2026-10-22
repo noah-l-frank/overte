@@ -58,6 +58,7 @@ COMMON_HOST_CHECKS = (
     "android/phone/tests/device/test_create_measurements.py",
     "android/phone/tests/device/test_create_registration.py",
     "tests/device/self_tests/test_create_permissions.py",
+    "tests/device/self_tests/test_assets_permissions.py",
     "tests/device/self_tests/test_phone_control_poll.py",
     "android/phone/tests/device/test_installed_identity.py",
     "android/phone/tests/device/test_feature_adapters.py",

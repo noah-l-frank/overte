@@ -1368,18 +1368,26 @@ QVariantMap TestScriptingInterface::phoneAssetsRead(const QVariantMap& command,b
             || !DependencyManager::isSet<NodeList>() || _phoneAssetsReadSequence>=1000000000) { return {}; }
     if (!_phoneAssetsRead) { _phoneAssetsRead=std::make_shared<overte::e2e::PhoneAssetsReadJob>(); }
     const auto job=_phoneAssetsRead;
-    if (job->same(command)) { if (abort) { job->abort(); }return job->poll(command); }
-    if (abort || !job->canBegin(command)) { return {}; }
     const auto nodes=DependencyManager::get<NodeList>();
     const auto domain=nodes->getDomainHandler().getUUID(),session=nodes->getSessionUUID();
-    if (!nodes->getDomainHandler().isConnected() || domain.isNull() || session.isNull()) { return {}; }
+    const auto server=nodes->soloNodeOfType(NodeType::AssetServer);
+    const auto serverId=server ? server->getUUID() : QUuid();
+    const QVariantMap context{{"domainId",domain.toString(QUuid::WithoutBraces)},
+        {"sessionId",session.toString(QUuid::WithoutBraces)},{"assetServerId",serverId.toString(QUuid::WithoutBraces)}};
+    const bool connected=nodes->getDomainHandler().isConnected() && !domain.isNull() && !session.isNull() && !serverId.isNull();
+    if (job->same(command)) {
+        if (!connected || job->context()!=context) { job->reject(); }
+        if (abort) { job->abort(); }return job->poll(command);
+    }
+    if (abort || !job->canBegin(command) || !connected) { return {}; }
     const auto assets=DependencyManager::get<AssetClient>();
-    const auto finish=[this,job,domain,session](QObject* request,QVariantMap source,qint64 captured) {
+    const auto finish=[this,job,domain,session,serverId](QObject* request,QVariantMap source,qint64 captured) {
         // AssetClient requests belong to its network thread. Only immutable
         // copied originals cross into this GUI-side source owner.
-        QMetaObject::invokeMethod(this,[this,job,domain,session,request,source,captured]() mutable {
+        QMetaObject::invokeMethod(this,[this,job,domain,session,serverId,request,source,captured]() mutable {
             const auto actual=DependencyManager::get<NodeList>();
-            if (!actual || !actual->getDomainHandler().isConnected() || actual->getDomainHandler().getUUID()!=domain
+            const auto currentServer=actual ? actual->soloNodeOfType(NodeType::AssetServer) : nullptr;
+            if (!actual || !currentServer || currentServer->getUUID()!=serverId || !actual->getDomainHandler().isConnected() || actual->getDomainHandler().getUUID()!=domain
                     || actual->getSessionUUID()!=session) { source.clear(); }
             else if (source.contains("canWrite")) { source["canWrite"]=actual->getThisNodeCanWriteAssets(); }
             job->finish(request,source,captured);
@@ -1389,13 +1397,13 @@ QVariantMap TestScriptingInterface::phoneAssetsRead(const QVariantMap& command,b
         auto request=assets->createGetAllMappingsRequest();
         auto cancellation=new QObject(this);
         QObject::connect(cancellation,&QObject::destroyed,request,&QObject::deleteLater,Qt::QueuedConnection);
-        if (!job->begin(command,request,cancellation,_featureObservationInstance,++_phoneAssetsReadSequence)) { delete cancellation;return {}; }
+        if (!job->begin(command,request,cancellation,_featureObservationInstance,++_phoneAssetsReadSequence,context)) { delete cancellation;return {}; }
         const bool canWrite=nodes->getThisNodeCanWriteAssets();
-        QObject::connect(request,&GetAllMappingsRequest::finished,request,[finish,domain,session,canWrite](GetAllMappingsRequest* actual) {
+        QObject::connect(request,&GetAllMappingsRequest::finished,request,[finish,domain,session,serverId,canWrite](GetAllMappingsRequest* actual) {
             // This callback runs on the request's actual owner thread.
             const auto source=actual->getError()==MappingRequest::NoError
-                ? overte::e2e::assetsMappingsOriginal(actual->getMappings(),canWrite,domain.toString(QUuid::WithoutBraces),session.toString(QUuid::WithoutBraces))
-                : QVariantMap{{"phoneAssetsObservationVersion",1},{"complete",false},{"errorCode",int(actual->getError())}};
+                ? overte::e2e::assetsMappingsOriginal(actual->getMappings(),canWrite,domain.toString(QUuid::WithoutBraces),session.toString(QUuid::WithoutBraces),serverId.toString(QUuid::WithoutBraces))
+                : QVariantMap{{"phoneAssetsObservationVersion",2},{"complete",false},{"errorCode",int(actual->getError())}};
             finish(actual,source,QDateTime::currentMSecsSinceEpoch());actual->deleteLater();
         },Qt::DirectConnection);
         QObject::connect(request,&QObject::destroyed,this,[job,request] { job->destroyed(request); },Qt::QueuedConnection);
@@ -1404,11 +1412,11 @@ QVariantMap TestScriptingInterface::phoneAssetsRead(const QVariantMap& command,b
         auto request=assets->createRequest(command.value("hash").toString());
         auto cancellation=new QObject(this);
         QObject::connect(cancellation,&QObject::destroyed,request,&QObject::deleteLater,Qt::QueuedConnection);
-        if (!job->begin(command,request,cancellation,_featureObservationInstance,++_phoneAssetsReadSequence)) { delete cancellation;return {}; }
-        QObject::connect(request,&AssetRequest::finished,request,[finish](AssetRequest* actual) {
+        if (!job->begin(command,request,cancellation,_featureObservationInstance,++_phoneAssetsReadSequence,context)) { delete cancellation;return {}; }
+        QObject::connect(request,&AssetRequest::finished,request,[finish,domain,session,serverId](AssetRequest* actual) {
             const auto source=actual->getError()==AssetRequest::NoError && actual->getState()==AssetRequest::Finished
-                ? overte::e2e::assetsDownloadOriginal(actual->getHash(),actual->getData(),actual->loadedFromCache())
-                : QVariantMap{{"phoneAssetsDownloadVersion",1},{"complete",false},{"errorCode",int(actual->getError())}};
+                ? overte::e2e::assetsDownloadOriginal(actual->getHash(),actual->getData(),actual->loadedFromCache(),domain.toString(QUuid::WithoutBraces),session.toString(QUuid::WithoutBraces),serverId.toString(QUuid::WithoutBraces))
+                : QVariantMap{{"phoneAssetsDownloadVersion",2},{"complete",false},{"errorCode",int(actual->getError())}};
             finish(actual,source,QDateTime::currentMSecsSinceEpoch());actual->deleteLater();
         },Qt::DirectConnection);
         QObject::connect(request,&QObject::destroyed,this,[job,request] { job->destroyed(request); },Qt::QueuedConnection);

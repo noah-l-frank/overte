@@ -42,7 +42,20 @@ class NoRedirect(HTTPRedirectHandler):
     def redirect_request(self,*_args,**_kwargs):return None
 
 
+def permission_request(controller, other, command):
+    """Serialize this call under the fixture transition lock.
+
+    A different controller's durable lease is never our baseline, even if that
+    lease has only observed Settings and has not changed permissions yet.
+    """
+    need(controller is not None and (other is None or other.previous is None))
+    return controller.request(command)
+
+
 class CreatePermissions:
+    VERSION_FIELD='createPermissionsVersion'
+    CHANGED_FIELDS=REZ
+    validate_rows=staticmethod(standard)
     def __init__(self,process,owned,port,domain,store):
         need(callable(owned) and integer(port,1,65535) and str(uuid.UUID(domain))==domain
             and isinstance(store,PrivateFeatureState))
@@ -52,15 +65,15 @@ class CreatePermissions:
         self.previous=store.read();self.state=None;self.sequence=0
         if self.previous is not None:
             value=self.previous
-            exact(value,{'createPermissionsVersion','domainId','processId','processStart','runId','ownerSha256',
+            exact(value,{self.VERSION_FIELD,'domainId','processId','processStart','runId','ownerSha256',
                 'phase','original','last','outsideSha256','pending'})
-            need(type(value['createPermissionsVersion']) is int and value['createPermissionsVersion']==1
+            need(type(value[self.VERSION_FIELD]) is int and value[self.VERSION_FIELD]==1
                 and value['domainId']==domain and value['processId']==process.pid and value['processStart']==self.start
                 and value['phase'] in ('ready','changing','restored'))
             identifier(value['runId']);need(re.fullmatch('[0-9a-f]{64}',value['ownerSha256'])
                 and re.fullmatch('[0-9a-f]{64}',value['outsideSha256']))
-            standard(value['original']);standard(value['last'])
-            if value['pending'] is not None:standard(value['pending'])
+            self.validate_rows(value['original']);self.validate_rows(value['last'])
+            if value['pending'] is not None:self.validate_rows(value['pending'])
             need((value['phase']=='changing')==(value['pending'] is not None))
             self.state=deepcopy(value)
         self.guard()
@@ -83,7 +96,7 @@ class CreatePermissions:
         value=json_document(self.http('/settings.json'));need(type(value) is dict and type(value.get('values')) is dict)
         security=value['values'].get('security');need(type(security) is dict
             and all(security.get(key)==[] for key in OVERRIDES))
-        rows=standard(security.get('standard_permissions'))
+        rows=self.validate_rows(security.get('standard_permissions'))
         outside=digest({key:item for key,item in security.items() if key!='standard_permissions'})
         need(self.http('/id').decode('ascii').strip()==self.domain)
         return rows,outside
@@ -97,9 +110,10 @@ class CreatePermissions:
         owner_hash=hashlib.sha256(owner.encode()).hexdigest()
         if self.state is None:
             rows,outside=self.original()
-            self.state=dict(createPermissionsVersion=1,domainId=self.domain,processId=self.process.pid,
+            self.state=dict(domainId=self.domain,processId=self.process.pid,
                 processStart=self.start,runId=run,ownerSha256=owner_hash,phase='ready',original=rows,
                 last=rows,outsideSha256=outside,pending=None)
+            self.state[self.VERSION_FIELD]=1
             self.save()
         need(self.state['runId']==run and self.state['ownerSha256']==owner_hash)
 
@@ -112,12 +126,12 @@ class CreatePermissions:
             self.save(phase='ready',last=rows,pending=None)
         else:need(rows==self.state['last'])
         self.sequence+=1
-        return dict(createPermissionsVersion=1,domainId=self.domain,sequence=self.sequence,
-            capturedEpochMs=int(time.time()*1000),restored=self.state['phase']=='restored',standard=rows)
+        return {self.VERSION_FIELD:1,**dict(domainId=self.domain,sequence=self.sequence,
+            capturedEpochMs=int(time.time()*1000),restored=self.state['phase']=='restored',standard=rows)}
 
     def change(self,rows,*,restoring=False):
         self.observe();need(self.state['phase']!='restored')
-        rows=standard(rows)
+        rows=self.validate_rows(rows)
         if rows!=self.state['last']:
             self.save(phase='changing',pending=rows)
             result=json_document(self.http('/settings.json',{'security':{'standard_permissions':rows}}))
@@ -137,7 +151,7 @@ class CreatePermissions:
             need(type(command['allowed']) is bool)
             rows=deepcopy(self.state['original'])
             for row in rows:
-                for key in REZ:row[key]=command['allowed']
+                for key in self.CHANGED_FIELDS:row[key]=command['allowed']
             return self.change(rows)
         if command['operation']=='restore':
             if self.state['phase']=='restored':return self.observe()

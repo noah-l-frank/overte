@@ -72,7 +72,9 @@ public:
 };
 struct Domain {QUuid id=QUuid("12345678-1234-4234-8234-123456789abc");bool connected=true;
  QUuid getUUID()const{return id;}bool isConnected()const{return connected;}};
-struct NodeList {Domain domain;bool write=true;Domain&getDomainHandler(){return domain;}QUuid getSessionUUID()const{return domain.id;}bool getThisNodeCanWriteAssets()const{return write;}};
+namespace NodeType {enum Type {AssetServer};}
+struct AssetNode {QUuid id=QUuid::createUuid();QUuid getUUID()const{return id;}};
+struct NodeList {std::shared_ptr<AssetNode>server=std::make_shared<AssetNode>();std::shared_ptr<AssetNode>soloNodeOfType(NodeType::Type){return server;} Domain domain;bool write=true;Domain&getDomainHandler(){return domain;}QUuid getSessionUUID()const{return domain.id;}bool getThisNodeCanWriteAssets()const{return write;}};
 struct DependencyManager {template<typename T>static std::shared_ptr<T>get(){static auto value=std::make_shared<T>();return value;}
  template<typename T>static bool isSet(){return true;}};
 struct Lifecycle {QVariantMap snapshot(){return {{"launches",1}};}};
@@ -125,13 +127,24 @@ int main(int argc,char**argv){QCoreApplication app(argc,argv);TestScriptingInter
   QCoreApplication::processEvents();test.phoneAssetsRead(pending,true);QThread::msleep(1);}
  if(live!=0||test._phoneAssetsRead->same(pending))return 10;client->block=false;
  auto resumed=query('3');test.phoneAssetsRead(resumed);if(finished(test,resumed).isEmpty())return 11;
+ // A replaced Asset Server within the same domain cannot supply an old reply.
+ auto serverChanged=query('8');test.phoneAssetsRead(serverChanged);nodes->server=std::make_shared<AssetNode>();
+ QElapsedTimer serverClock;serverClock.start();while(serverClock.elapsed()<1200&&test._phoneAssetsRead->same(serverChanged)){
+  QCoreApplication::processEvents();auto packet=test.phoneAssetsRead(serverChanged);if(packet.contains("source"))return 20;QThread::msleep(1);}
+ if(live!=0||test._phoneAssetsRead->same(serverChanged))return 21;
+ // Even an already copied but unconsumed reply is fenced at final delivery.
+ auto afterCopy=query('9');test.phoneAssetsRead(afterCopy);serverClock.restart();
+ while(serverClock.elapsed()<1200&&live){QCoreApplication::processEvents();QThread::msleep(1);}
+ QCoreApplication::processEvents();nodes->server=std::make_shared<AssetNode>();
+ if(test.phoneAssetsRead(afterCopy).contains("source")||test._phoneAssetsRead->same(afterCopy))return 22;
+ auto missingServer=nodes->server;nodes->server.reset();if(!test.phoneAssetsRead(query('a')).isEmpty())return 23;nodes->server=missingServer;
  // A changed domain cannot adopt the original reply from a prior connection.
  auto changed=query('4');test.phoneAssetsRead(changed);nodes->domain.id=QUuid::createUuid();
  clock.restart();while(clock.elapsed()<1200&&test._phoneAssetsRead->same(changed)){
   QCoreApplication::processEvents();auto packet=test.phoneAssetsRead(changed);if(packet.contains("source"))return 12;QThread::msleep(1);}
  if(live!=0||test._phoneAssetsRead->same(changed))return 13;
  // Canonical byte identities are reduced, never trusted from the requested hash.
- if(!overte::e2e::assetsDownloadOriginal(QString(64,'0'),bytes,false).isEmpty())return 14;
+ if(!overte::e2e::assetsDownloadOriginal(QString(64,'0'),bytes,false,"domain","session","server").isEmpty())return 14;
  auto invalid=query('5');invalid["schemaVersion"]=true;if(!test.phoneAssetsRead(invalid).isEmpty())return 15;
  // Compile/execute the actual file-service wrapper against its real private filesystem.
  QTemporaryDir privateFiles;if(!privateFiles.isValid())return 17;test._testResultsLocation=privateFiles.path();

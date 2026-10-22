@@ -33,9 +33,9 @@ def mapping_path(value):
 
 
 def mappings(value):
-    exact(value,{'phoneAssetsObservationVersion','domainId','sessionId','canWrite','complete','mappings'})
-    need(type(value['phoneAssetsObservationVersion']) is int and value['phoneAssetsObservationVersion']==1 and value['complete'] is True
-        and entity_id(value['domainId']) and entity_id(value['sessionId']) and type(value['canWrite']) is bool
+    exact(value,{'phoneAssetsObservationVersion','domainId','sessionId','assetServerId','canWrite','complete','mappings'})
+    need(type(value['phoneAssetsObservationVersion']) is int and value['phoneAssetsObservationVersion']==2 and value['complete'] is True
+        and entity_id(value['domainId']) and entity_id(value['sessionId']) and entity_id(value['assetServerId']) and type(value['canWrite']) is bool
         and type(value['mappings']) is list and len(value['mappings'])<=4096)
     previous=None
     for row in value['mappings']:
@@ -47,8 +47,9 @@ def mappings(value):
 
 
 def download(value,request):
-    exact(value,{'phoneAssetsDownloadVersion','hash','bytes','base64','loadedFromCache'})
-    need(type(value['phoneAssetsDownloadVersion']) is int and value['phoneAssetsDownloadVersion']==1 and value['hash']==request['hash']
+    exact(value,{'phoneAssetsDownloadVersion','domainId','sessionId','assetServerId','hash','bytes','base64','loadedFromCache'})
+    need(type(value['phoneAssetsDownloadVersion']) is int and value['phoneAssetsDownloadVersion']==2
+        and all(entity_id(value[key]) for key in ('domainId','sessionId','assetServerId')) and value['hash']==request['hash']
         and integer(value['bytes'],1,1024*1024) and type(value['base64']) is str and type(value['loadedFromCache']) is bool)
     data=base64.b64decode(value['base64'],validate=True)
     need(len(data)==value['bytes'] and base64.b64encode(data).decode()==value['base64'] and hashlib.sha256(data).hexdigest()==value['hash'])
@@ -92,7 +93,8 @@ class PhoneAssetsSource:
                     epoch=self.clock_ms();need(integer(epoch,requested));validate(value,request,self.pid,epoch);need(value['requestedEpochMs']>=requested)
                     if self.last is not None:
                         need(value['runId']==self.last['runId'] and value['instance']==self.last['instance'] and value['sequence']>self.last['sequence']
-                            and value['capturedEpochMs']>=self.last['capturedEpochMs'])
+                            and value['capturedEpochMs']>=self.last['capturedEpochMs']
+                            and all(value['source'][key]==self.last['source'][key] for key in ('domainId','sessionId','assetServerId')))
                     need(self.guard() is not False);fresh(value['capturedEpochMs'],self.clock_ms())
                     current=self.monotonic();need(number(current,previous,1e15) and current-started<5)
                     self.last=deepcopy(value);return deepcopy(value)

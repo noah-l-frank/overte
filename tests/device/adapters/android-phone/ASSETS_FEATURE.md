@@ -9,15 +9,15 @@ normal Asset Browser mutations. Physical acceptance is untested.
 
 `phone-assets-observe` obtains a new actual AssetClient GetAllMappingsRequest.
 The source retains original mapping paths, SHA-256 hashes, all six native bake
-statuses and original errors, including hidden bake mappings. Native domain and
-session identities and actual Asset Server write permission accompany the
-reply. No expected mappings or current action enters the source. Full server
+statuses and original errors, including hidden bake mappings. Native domain, session and actual Asset Server node UUID identities and actual Asset Server write permission accompany the
+reply. All three identities are rechecked on completion and final delivery;
+a server replacement inside the same domain invalidates an old reply. No expected mappings or current action enters the source. Full server
 inventory allows the eventual owner to preserve outside mappings independently.
 
 `phone-assets-download` obtains bytes from an actual hash-addressed AssetRequest,
 checks its real finished/error state, and records its original hash, byte count,
 canonical Base64 and actual cache-origin flag. The native reducer recomputes the
-SHA-256 of the bytes. A matching requested hash alone cannot supply content.
+SHA-256 of the bytes. Domain/session/server identities also accompany downloads. A matching requested hash alone cannot supply content.
 
 AssetClient creates these QObjects on its network thread. The actual request
 callback copies original data on that thread and queues an immutable value to
@@ -67,9 +67,29 @@ Native release is fenced and idempotent; host journal retirement requires a new
 actual native absence and exact retained final transcript. An unknown preexisting
 root cannot be adopted by a different native lifetime, even for the same run.
 
+## Process-owned write permission fixture
+
+`fixture/domain.py --feature-assets-permissions` is off by default. It exposes
+only the separately token-bound `/v1/assets-permissions` control for its actual
+owned ephemeral Domain Server process and Domain UUID. It reuses Create's exact
+Settings readback, private original journal, pending-intent recovery and restore
+fence. The Assets subtype changes only `id_can_write_to_asset_server` in the four
+original standard permission rows. All rez, connection and unrelated fields
+remain actual originals. Missing write fields, overrides, changed outside
+Settings, process/domain changes and foreign run/token journals fail closed.
+
+Both optional controls can exist in the same fixture, but their calls share the
+existing transition lock and reject any other controller's active durable
+Settings lease. They never capture each other's temporary state as an original.
+The first owner must restore exact Settings and retire its actual journal before
+the other can bind. An HTTP success acknowledgement does not establish an
+Interface permission or a disabled Asset Browser control; the public composition
+must independently read those actual effects.
+
 ## Host verification and remaining composition
 
 ```sh
+python3 tests/device/self_tests/test_assets_permissions.py
 python3 android/phone/tests/device/test_assets_files.py
 python3 android/phone/tests/device/test_assets_source.py
 python3 android/phone/tests/device/test_assets_native_reads.py

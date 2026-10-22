@@ -23,11 +23,11 @@ HASH=hashlib.sha256(DATA).hexdigest()
 class Boundary:
     def __init__(self):
         self.clock=0.;self.epoch=1700000000000;self.sequence=0;self.request=None;self.value=None;self.fault=None;self.guarded=True
-        self.source=dict(phoneAssetsObservationVersion=1,domainId=DOMAIN,sessionId=DOMAIN,canWrite=True,complete=True,
+        self.source=dict(phoneAssetsObservationVersion=2,domainId=DOMAIN,sessionId=DOMAIN,assetServerId=DOMAIN,canWrite=True,complete=True,
             mappings=[dict(path='/original/main.fbx',hash=HASH,bakeStatus=4,bakeError='')])
     def send(self,request):
         self.request=deepcopy(request);self.sequence+=1
-        source=deepcopy(self.source) if request['action']=='phone-assets-observe' else dict(phoneAssetsDownloadVersion=1,hash=HASH,bytes=len(DATA),base64=base64.b64encode(DATA).decode(),loadedFromCache=False)
+        source=deepcopy(self.source) if request['action']=='phone-assets-observe' else dict(phoneAssetsDownloadVersion=2,domainId=DOMAIN,sessionId=DOMAIN,assetServerId=DOMAIN,hash=HASH,bytes=len(DATA),base64=base64.b64encode(DATA).decode(),loadedFromCache=False)
         self.value=dict(schemaVersion=1,requestId=request['commandId'],runId=RUN,instance='b'*32,sequence=self.sequence,processId=321,
             requestedEpochMs=self.epoch,capturedEpochMs=self.epoch,source=source,activeRequests=0,retainedResults=0)
         if self.fault:self.fault(self.value)
@@ -52,7 +52,7 @@ class AssetsSourceTests(unittest.TestCase):
                 b=Boundary();b.fault=lambda value:value.update(change)
                 with self.assertRaises(NativeUIError):b.reader().read(RUN)
     def test_wrong_domain_type_missing_original_hash_duplicate_and_unsorted_paths_are_red(self):
-        for change in (lambda s:s.update(domainId='foreign'),lambda s:s['mappings'][0].pop('hash'),lambda s:s['mappings'].append(deepcopy(s['mappings'][0])),lambda s:s['mappings'].insert(0,s['mappings'][0]|dict(path='/zzz')),
+        for change in (lambda s:s.update(domainId='foreign'),lambda s:s.pop('assetServerId'),lambda s:s.update(assetServerId='foreign'),lambda s:s['mappings'][0].pop('hash'),lambda s:s['mappings'].append(deepcopy(s['mappings'][0])),lambda s:s['mappings'].insert(0,s['mappings'][0]|dict(path='/zzz')),
                        lambda s:s['mappings'][0].update(bakeStatus=True),lambda s:s.update(complete=False)):
             b=Boundary();b.fault=lambda value:change(value['source'])
             with self.subTest(change=change),self.assertRaises(NativeUIError):b.reader().read(RUN)
@@ -70,6 +70,11 @@ class AssetsSourceTests(unittest.TestCase):
         def slow():b.clock+=5.1;return original()
         reader.original=slow
         with self.assertRaises(NativeUIError):reader.read(RUN)
+    def test_domain_session_or_asset_server_replacement_cannot_continue_a_bound_reader(self):
+        for field in ('domainId','sessionId','assetServerId'):
+            b=Boundary();reader=b.reader();reader.read(RUN)
+            b.source[field]='ffffffff-ffff-4fff-8fff-ffffffffffff'
+            with self.subTest(field=field),self.assertRaises(NativeUIError):reader.read(RUN)
     def test_source_advancing_clock_after_payload_parse_is_rechecked(self):
         b=Boundary();reader=b.reader();calls=[0]
         def guard():
