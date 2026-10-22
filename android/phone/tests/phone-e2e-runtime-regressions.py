@@ -61,6 +61,7 @@ PREPARED_HOST_CHECKS = (
     "android/phone/tests/phone-voice-clock-test.py",
 )
 COMMON_HOST_CHECKS = (
+    "android/phone/tests/device/test_snapshots_observer.py",
     "android/phone/tests/device/test_create_collaboration_foundation.py",
     "android/phone/tests/device/test_navigation_scene.py",
     "android/phone/tests/device/test_snapshot_handoff_audit.py",
