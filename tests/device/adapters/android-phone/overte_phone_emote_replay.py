@@ -7,14 +7,13 @@ Every caller first reopens all original manifests/files and checks their hashes.
 # SPDX-License-Identifier: Apache-2.0
 from collections import OrderedDict
 import hashlib
-from weakref import WeakKeyDictionary
 
 from adapters.emote_admission import PINS as ADMISSION_PINS
 from adapters.emote_source_profile import PINS as SOURCE_PINS,MANAGER_PINS
 from overte_phone_script_history import canonical
 
 LIMIT=128
-_verified=WeakKeyDictionary()
+_verified=OrderedDict()
 
 
 def history(phase,header,state,validate):
@@ -26,9 +25,12 @@ def history(phase,header,state,validate):
     identity['reviewedCatalogs']=[hashlib.sha256(path.read_bytes()).hexdigest()
         for path in (ADMISSION_PINS,SOURCE_PINS,MANAGER_PINS)]
     key=hashlib.sha256(canonical(identity)).digest()
-    rows=_verified.setdefault(phase,OrderedDict())
-    if key in rows:
-        rows.move_to_end(key);return
+    # Public calls reconstruct their PhaseFixtureReader. Only the digest of a
+    # fully qualified immutable history may survive that reconstruction. The
+    # caller still reopens/verifies every original file before reaching here;
+    # neither phase authority nor any fresh/native result is reused.
+    if key in _verified:
+        _verified.move_to_end(key);return
     validate() # Failed or partial replay never enters the memo.
-    rows[key]=None
-    if len(rows)>LIMIT:rows.popitem(last=False)
+    _verified[key]=None
+    if len(_verified)>LIMIT:_verified.popitem(last=False)

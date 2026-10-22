@@ -16,7 +16,7 @@ class EmoteReplayTests(unittest.TestCase):
     setUp=test_emote_sources.PhoneEmoteSourcesTests.setUp
 
     def source(self):
-        source=self.model.source();source.read();replay._verified.pop(source.phase,None)
+        source=self.model.source();source.read();replay._verified.clear()
         return source
 
     def test_repeat_reopens_and_hashes_original_files_but_does_not_repeat_pure_history_validation(self):
@@ -73,15 +73,26 @@ class EmoteReplayTests(unittest.TestCase):
             with patch.object(replay,'ADMISSION_PINS',catalog),patch.object(source,'validate_frame',wraps=source.validate_frame) as validate:
                 source.decode(source.previous);self.assertEqual(1,validate.call_count)
 
-    def test_pure_validation_memo_is_bounded_and_separate_for_each_reader(self):
+    def test_pure_validation_memo_is_bounded_and_scoped_by_exact_immutable_context(self):
         with self.model.lock.held():
-            first=self.model.source();second=self.model.source();calls=[]
+            first=self.model.source();second=self.model.source();calls=[];replay._verified.clear()
             state=dict(revision=0,manifests=[])
             for index in range(replay.LIMIT+1):replay.history(first.phase,dict(context=index),state,lambda:calls.append(1))
-            self.assertEqual(replay.LIMIT,len(replay._verified[first.phase]))
+            self.assertEqual(replay.LIMIT,len(replay._verified))
             replay.history(first.phase,dict(context=0),state,lambda:calls.append(1))
             replay.history(second.phase,dict(context=0),state,lambda:calls.append(1))
+            self.assertEqual(replay.LIMIT+2,len(calls))
+            replay.history(second.phase,dict(context=0,binding=dict(processIdentity='foreign')),state,lambda:calls.append(1))
             self.assertEqual(replay.LIMIT+3,len(calls))
+
+    def test_reconstruction_reuses_only_verified_pure_history_and_still_reopens_original_files(self):
+        with self.model.lock.held():
+            source=self.source();source.decode(source.previous)
+            with patch.object(PhoneEmoteSources,'validate_frame',side_effect=NativeUIError('Pure replay should already be verified')) as validate:
+                reconstructed=self.model.source();self.assertEqual(source.frames,reconstructed.frames);validate.assert_not_called()
+            reference=source.originals.manifest(source.state['manifests'][0])[0]
+            source.originals.path(source.originals.expand(reference)).unlink()
+            with self.assertRaises((NativeUIError,OSError)):self.model.source()
 
 
 if __name__=='__main__':unittest.main()

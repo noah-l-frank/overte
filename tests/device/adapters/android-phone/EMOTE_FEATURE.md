@@ -109,3 +109,16 @@ cancellation still requires its original native transition and changed pixels.
 Repeated idle Stop and a foreign retained play reference have focused public
 composition counterexamples. The full common journey remains pending after its
 first composed run exposed this defect.
+
+## Reconstructed historical replay
+
+After reopening and verifying every original manifest and source file, pure
+historical replay may reuse a bounded process-local set of at most 128 successful
+digests. The digest binds the complete header context, manifest hashes and raw
+bytes of all three reviewed source catalogs. Reconstructing a fixture reader
+does not invalidate the same immutable proof; a different binding, role, run,
+artifact path, history or catalog does. No reader, credential, frame, timestamp,
+input result or native fact is cached. Failed validation is never entered.
+Counterexamples cover changed/missing originals after reconstruction and
+context/catalog isolation. Every new measurement still requires its actual
+source read, fresh native/fixture state and original evidence.
