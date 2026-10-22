@@ -1,8 +1,7 @@
 {
   "schema": 1,
   "control_inputs": [
-    "tests/requirements-host.txt",
-    ".github/pr-ci-platforms.json"
+    "tests/requirements-host.txt"
   ],
   "suites": {
     "documentation-contracts": {

@@ -720,6 +720,12 @@
     "docs/PR_CI.md",
     "tools/repository-checks/pr_ci_transport.py",
     "tests/pr-ci-cli-test.py",
-    "tests/pr-ci-transport-test.py"
+    "tests/pr-ci-transport-test.py",
+    ".github/pr-ci-platforms.json",
+    "tools/repository-checks/pr_ci_platform.py",
+    "tests/pr-ci-platform-test.py",
+    ".github/workflows/pr-ci-ios.yml",
+    ".github/workflows/ios-integrated.yml",
+    ".github/workflows/ios-qt-source.yml"
   ]
 }
