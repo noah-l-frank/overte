@@ -1,7 +1,7 @@
 # Original once-only Chat restart IO v1
 
-`PicoChatRestartIO` is a narrow transport for the pending whole Chat application
-retirement owner. It executes no input during construction. The private Pico
+`PicoChatRestartIO` is a narrow transport for the private [Chat application
+retirement owner](CHAT_APPLICATION_CLOSE.md). It executes no input during construction. The private Pico
 `_chat_restart_io(target, binding)` factory first verifies the existing original
 script/UI binding, candidate and exact target. Construction captures the
 original held host session cursor through
@@ -66,7 +66,8 @@ synthetic installed/device IO. No actual app/device/ADB/OpenXR command is run.
 
 This component alone does not run the process retirement/recovery journey,
 compare old/new native births or profiles, close final peer IPC, archive original
-scopes or complete Chat. Those actual joins are pending whole-parent work. No
+scopes or complete Chat. The private enclosing joins are described in [application closure](CHAT_APPLICATION_CLOSE.md);
+the transport alone supplies none of their effect or release verdicts. No
 public Chat capability or hermetic peer build receipt is added.
 
 ```sh

@@ -138,6 +138,24 @@ class OwnedChatPeer:
             PrivateFeatureState(self.files_store.path.with_name('chat-cache-lifetime.json')),self.lock,monotonic=self.monotonic)
         need(cache.base['phase'] in ('active','retirement-issued','retired'));return cache
 
+    def retirement_reader(self):
+        """A NEW Inspect-only reader; never clone the lifetime input wrapper."""
+        from adapters.chat_journey.peer_retirement import ChatPeerRetirementFiles
+        self.lock.assert_held();self.guard();files=self.retirement_files
+        need(type(files) is ChatPeerRetirementFiles and files.original is self.files and files.lock is self.lock
+            and getattr(self.files,'_chat_retirement_transport',None) is files)
+        files.authority()
+        def guard():
+            self.guard();need(files.guard==self.process_guard and files.released==self.process.released)
+            files.authority();files._check_source();return True
+        def send(request):
+            from adapters.native_chat_observation import command
+            self.lock.assert_held();command(request);need(request['operation']=='inspect' and request['runId']==files.run_id)
+            guard();files.send(request)
+        def read():self.lock.assert_held();guard();return files.read()
+        reader=NativeChatObservation(send,read,self.clock_ms,guard,self.process.pid,monotonic=self.monotonic,sleep=self.sleep)
+        reader._chat_transport=files;return reader
+
     def input_close(self,input_owner,*,distant=None):
         from adapters.chat_journey.peer_input_close import ChatPeerInputClose
         self.lock.assert_held();self.guard();need(input_owner.files is self.files)
