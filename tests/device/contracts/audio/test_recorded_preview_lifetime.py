@@ -32,14 +32,14 @@ def methods(text,owner,names):
     return '\n\n'.join(result)
 state=header[header.index('    PhoneVoiceTestBuffer _recordedVoiceTest;'):header.index('    AudioRingBuffer _inputRingBuffer')]
 actual=methods(source,'AudioClient',('recordedVoiceTestInputAvailable','publishRecordedVoiceTestStatus','finishRecordedVoiceTest',
-    'cancelRecordedVoiceTest','setLocalEcho','startRecordedVoiceTest','handleLocalEchoAndReverb','featureRecordedVoiceLifetime','releaseFeatureRecordedVoiceEvidence'))
+    'cancelRecordedVoiceTest','setLocalEcho','setAudioPaused','startRecordedVoiceTest','handleLocalEchoAndReverb','featureRecordedVoiceLifetime','releaseFeatureRecordedVoiceEvidence'))
 scripting=methods((ROOT/'libraries/audio/src/AudioScriptingInterface.cpp').read_text(),'AudioScriptingInterface',
     ('setLocalAudioInterface','startRecordedVoiceTest','cancelRecordedVoiceTest','getRecordedVoiceTestStatus','updateRecordedVoiceTestStatus'))
 template=Path(__file__).with_name('recorded-voice-native-fixture.cpp').read_text()
 fixture=template.replace('@STATE@',state).replace('@METHODS@',actual).replace('@SCRIPTING@',scripting)
 fixture=fixture.replace('#include <QCoreApplication>','#include <QCoreApplication>\n#include <QJsonDocument>\n#include <cstdio>\n#include "libraries/audio-client/src/RecordedPreviewDeferred.h"\n#include "libraries/audio-client/src/RecordedPreviewObservation.h"')
 fixture=fixture.replace('struct Format {','struct Format : QAudioFormat {')
-fixture=fixture.replace('    AudioClient() {','    QVariantMap featureRecordedVoiceLifetime();\n    void releaseFeatureRecordedVoiceEvidence();\n    AudioClient() {')
+fixture=fixture.replace('    AudioClient() {','    QVariantMap featureRecordedVoiceLifetime();\n    void releaseFeatureRecordedVoiceEvidence();\n    void setAudioPaused(bool);\n    void negotiateAudioFormat() {} // Explicit format renegotiation seam; no device.\n    AudioClient() {')
 helper=fixture.index('static QByteArray pcm(');main=fixture.index('int main(int argc, char** argv) {',helper)
 fixture=fixture[:helper]+fixture[main:]
 start=fixture.index('int main(int argc, char** argv) {');end=fixture.index('#include "voice.moc"',start)
@@ -93,6 +93,18 @@ int main(int argc,char** argv) {
     assert(timer.value("created").toBool()&&timer.value("alive").toBool()&&timer.value("active").toBool());
     audio.cancelRecordedVoiceTest();const auto stopped=audio.featureRecordedVoiceLifetime().value("previewTimer").toMap();
     assert(stopped.value("id")==timer.value("id")&&stopped.value("alive").toBool()&&!stopped.value("active").toBool());publish(audio.featureRecordedVoiceLifetime());
+    // Entire original pause body publishes its actual cancellation; this is
+    // an explicit pause boundary, not an OS HOME or microphone-device proof.
+    audio.startRecordedVoiceTest();audio.setAudioPaused(true);
+    assert(!audio._recordedVoiceTestActive&&audio.status.value("phase")=="cancelled"&&audio.status.value("error")=="backgrounded");
+    publish(audio.featureRecordedVoiceLifetime());audio.setAudioPaused(false);
+    // The original 250ms polling functor independently observes actual input
+    // availability loss. No native result is supplied by a requested outcome.
+    audio.startRecordedVoiceTest();assert(audio._recordedVoiceTestActive);
+    audio._androidAudioInputActive=false;audio._audioInput=nullptr;audio._inputDevice=nullptr;
+    QElapsedTimer unavailable;unavailable.start();while(audio._recordedVoiceTestActive&&unavailable.elapsed()<1500){pump(20);}
+    assert(!audio._recordedVoiceTestActive&&audio.status.value("phase")=="cancelled"&&audio.status.value("error")=="input-or-lifecycle-changed");
+    assert(!audio.featureRecordedVoiceLifetime().value("previewTimer").toMap().value("active").toBool());publish(audio.featureRecordedVoiceLifetime());
     const auto originalTimer=audio._recordedVoiceTestTimer;audio._recordedVoiceTestTimer=nullptr;
     assert(audio.featureRecordedVoiceLifetime().isEmpty());audio._recordedVoiceTestTimer=originalTimer;
     qInfo("PASS original AudioClient30s cleanup callback invocation/functor release and actual preview timer; explicit audio seams, no devices");
