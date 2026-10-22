@@ -142,6 +142,7 @@ REQUIRED = {
     "pico-lifecycle-back-owner": 1,
     "pico-lifecycle-drive-observation": 1,
     "pico-lifecycle-gesture-observation": 1,
+    "pico-lifecycle-world-owner": 1,
     "native-navigation-replies": 2,
     "native-navigation-modals": 1,
     "native-navigation-error-controls": 1,

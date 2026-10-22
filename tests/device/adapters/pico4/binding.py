@@ -850,6 +850,21 @@ def create_adapter(args, base_class):
             from adapters.pico4.lifecycle_source import bind_source
             return bind_source(self, target, self._native_feature_observer(target))
 
+        def _lifecycle_world_store(self,target,*,create=True):
+            journey=self._script_journey()
+            path=journey.state_path(target) if create else journey.existing_state_path(target)
+            return None if path is None else PrivateFeatureState(path.with_name('lifecycle-world-owner.json'))
+
+        @_private
+        def _lifecycle_world(self,target,run):
+            from adapters.pico4.lifecycle_world import PicoLifecycleWorld
+            manager=self._scripts(target);native=self._native_feature_observer(target)
+            native.guard();identity=self.require_pico_session_identity(target)
+            _need(identity==manager.binding['processIdentity'] and native.pid==int(identity.split(':')[0]))
+            return PicoLifecycleWorld(self._lifecycle_ui_source(target),self._lifecycle_gesture_source(target),
+                self._lifecycle_drive_source(target),self.pico_input_session(target),self._lifecycle_world_store(target).path,
+                run,manager.binding,native.guard,self._script_journey()._lock(target),monotonic=native.monotonic,sleep=native.sleep)
+
         def _lifecycle_back_store(self,target):
             state,_ui=self._script_paths(target)
             return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-','lifecycle-back-owner-')))
@@ -1136,6 +1151,7 @@ def create_adapter(args, base_class):
                 _need(not create_error and not self._create_management(target).owned()
                       and not feature_error and not script_error and not probe_error and not origin_error and not chat_error and PrivateFeatureState(state).read() is None
                       and self._lifecycle_back_store(target).read() is None
+                      and (self._lifecycle_world_store(target,create=False) is None or self._lifecycle_world_store(target,create=False).read() is None)
                       and self._script_restart_inputs_store(target).read() is None
                       and self._script_restart_store(target).read() is None
                       and self._script_files_store(target).read() is None and self._account_probe_store(target).read() is None
