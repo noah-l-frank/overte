@@ -25,8 +25,12 @@
 #include "actual-pointer-route.inc"
 #include "tests/device/native/NormalControlUi.h"
 #include "actual-avatar-input.inc"
+#include "avatar-navigation-observation-seams.h"
+#define ANDROID_APP_PICO_INTERFACE
+#include "actual-avatar-observe.inc"
+#undef ANDROID_APP_PICO_INTERFACE
 int main(int argc,char**argv) {
-    QGuiApplication app(argc,argv);using namespace overte::e2e;
+    HostApplication app(argc,argv);using namespace overte::e2e;
     NormalControlUi ui(NormalControlUi::Surface::AvatarPeople);
     if(!app.arguments().contains("--testScript")){assert(ui.observe(nullptr,nullptr).isEmpty());return 0;}
     const auto path=app.arguments().at(app.arguments().size()-2),imports=app.arguments().last();
@@ -46,7 +50,9 @@ int main(int argc,char**argv) {
     QQmlComponent wrongType(&engine);wrongType.setData("import QtQuick 2.7;Item {id:root;width:640;height:1000}",PathUtils::qmlUrl("hifi/AvatarApp.qml"));
     QScopedPointer<QObject> wrongObject(wrongType.create());assert(wrongObject);assert(avatarPeopleControlId(qobject_cast<QQuickItem*>(wrongObject.data())).isEmpty());
     QSignalSpy messages(page,SIGNAL(sendToScript(QVariant)));
+    overte::pico::e2e::NavigationUi actualObserver;
     auto capture=[&]{return ui.observe(root,&window);};
+    auto originalCapture=[&]{return actualObserver.observe(root,&window,true);};
     const auto before=capture();for(const auto& raw:before.value("controls").toArray()){assert(!raw.toObject().value("inputReady").toBool());}
     QProcess backend;backend.setProcessChannelMode(QProcess::ForwardedErrorChannel);
     backend.start("node",QStringList{path+"/android/vr/pico/tests/device/avatar-original-backend.js",path});assert(backend.waitForStarted(2000));
@@ -73,10 +79,19 @@ int main(int argc,char**argv) {
     auto input=[&](const QString& id,const QString& action,const QJsonValue& arg=QJsonValue()){
         const auto result=ui.apply(root,&window,command(id,action,arg),click,{},pointerAt);if(!result.value("performed").toBool()){qFatal("refused %s/%s",qPrintable(id),qPrintable(action));}drain();QTest::qWait(40);renderControl.polishItems();QCoreApplication::processEvents();};
     assert(row("avatar.page").value("inputReady")==QJsonValue(false));
-    QJsonArray urls,snapshots;snapshots.append(capture());
+    auto actualObserved=originalCapture();assert(actualObserved.value("ready").toBool());
+    assert(actualObserved.value("avatarPeopleControlsVersion")==QJsonValue(1));
+    auto actualRow=[&](const QString& id){const auto value=originalCapture();assert(value.value("ready").toBool());
+        for(const auto& raw:value.value("controls").toArray()){if(raw.toObject().value("id")==id){return raw.toObject();}}
+        qFatal("Original observer missing %s",qPrintable(id));return QJsonObject();};
+    assert(actualRow("avatar.url").value("inputReady")==QJsonValue(true));
+    const auto actualToken=actualRow("avatar.url").value("token");page->setX(2);
+    assert(actualRow("avatar.url").value("token")!=actualToken);page->setX(0);
+    QJsonArray urls,snapshots,originalSnapshots;snapshots.append(capture());originalSnapshots.append(originalCapture());
     for(const auto& url:QStringList{"https://controlled.invalid/owned/avatar-a.fst","qrc:/meshes/defaultAvatar_full.fst"}) {
         input("avatar.url","activate");input("avatar.dialog.input","activate");input("avatar.dialog.input","replace",url);
-        snapshots.append(capture());assert(row("avatar.dialog.input").value("text")==QJsonValue(url));input("avatar.dialog.confirm","activate");
+        snapshots.append(capture());originalSnapshots.append(originalCapture());
+        assert(row("avatar.dialog.input").value("text")==QJsonValue(url));assert(actualRow("avatar.dialog.input").value("text")==QJsonValue(url));input("avatar.dialog.confirm","activate");
         bool found=false;for(const auto& args:messages){const auto m=createVariant(args.first()).toMap();if(m.value("method")=="applyExternalAvatar" && m.value("avatarURL")==url){found=true;}}
         assert(found);urls.append(url);
     }
@@ -116,5 +131,5 @@ int main(int argc,char**argv) {
     assert(originalAvatarInput(actualUrl,&window,"avatar.url","activate",{},pointerAt).value("performed").toBool());QTest::qWait(40);
     input("avatar.dialog.cancel","activate");
     backend.closeWriteChannel();assert(backend.waitForFinished(2000));assert(backend.exitStatus()==QProcess::NormalExit && backend.exitCode()==0);
-    QTextStream(stdout)<<QJsonDocument(QJsonObject{{"normalUrlMessages",urls},{"originalScriptAvatarCalls",backendResult.value("avatarCalls")},{"snapshots",snapshots},{"counterexamples",QJsonArray{"uninitialized","wrong-root","moved-token","window-source","disabled","higher-overlay","outside-child","hidden-child","disabled-painted-child","clipped","negative-z"}},{"pointerCalls",pointers},{"hmdActive",true}}).toJson(QJsonDocument::Compact)<<'\n';
+    QTextStream(stdout)<<QJsonDocument(QJsonObject{{"normalUrlMessages",urls},{"originalScriptAvatarCalls",backendResult.value("avatarCalls")},{"snapshots",snapshots},{"originalSnapshots",originalSnapshots},{"counterexamples",QJsonArray{"uninitialized","wrong-root","moved-token","window-source","disabled","higher-overlay","outside-child","hidden-child","disabled-painted-child","clipped","negative-z"}},{"pointerCalls",pointers},{"hmdActive",true},{"wholeOriginalObserver",true}}).toJson(QJsonDocument::Compact)<<'\n';
 }

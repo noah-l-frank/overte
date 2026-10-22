@@ -13,6 +13,7 @@ HERE=Path(__file__).resolve().parent
 ROOT=HERE.parents[4]
 sys.path.insert(0,str(HERE))
 from test_create_polyvox_controls_native import pointer_source,original
+from test_emote_ui_native import function
 
 class AvatarPeopleControlsNativeTests(unittest.TestCase):
     def test_original_avatar_loader_url_restore_and_actual_hit_ownership(self):
@@ -30,6 +31,16 @@ class AvatarPeopleControlsNativeTests(unittest.TestCase):
             (imports/'Tablet.qml').write_text('pragma Singleton\nimport QtQuick 2.7\nQtObject { function playSound(value) {} }\n')
             (imports/'TabletEnums.qml').write_text('pragma Singleton\nimport QtQuick 2.7\nQtObject { readonly property int buttonClick: 1; readonly property int buttonHover: 2 }\n')
             native=(ROOT/'android/vr/pico/apps/picoInterface/e2e/PicoE2eNavigationUi.cpp').read_text()
+            self.assertIn('#include "../../../../../../tests/device/native/NormalAvatarPeopleControls.h"',native)
+            # Compile the entire actual observer, not just isolated Avatar
+            # branch fragments. Unrelated platform services are explicit seams;
+            # Both the E2E and Pico observer branches compile. This does not
+            # compile the full Android application or qualify other services.
+            observer='\n'.join(function(native,signature) for signature in (
+                'QString token()', 'bool visible(', 'bool enabled(', 'QString controlId('))
+            observer+='\nNavigationUi::NavigationUi() : _bridgeId(token()), _generation(token()) { _clock.start(); }\n'
+            observer+='\n'+function(native,'QJsonObject NavigationUi::observe(')
+            (stage/'actual-avatar-observe.inc').write_text('namespace overte::pico::e2e {\n'+observer+'\n}\n')
             start=native.index('    } else if (controlId.startsWith("avatar.") || controlId.startsWith("people.")) {')
             end=native.index('\n    } else if (',start+10)
             branch=native[start:end].split('{',1)[1]
@@ -52,12 +63,13 @@ class AvatarPeopleControlsNativeTests(unittest.TestCase):
             value=json.loads(result)
             sys.path.insert(0,str(ROOT/'tests/device'))
             from adapters.pico4.avatar_people_ui import metadata
-            for snapshot in value['snapshots']:
+            for snapshot in value['snapshots']+value['originalSnapshots']:
                 for row in snapshot['controls']:metadata(row)
             self.assertEqual(['https://controlled.invalid/owned/avatar-a.fst','qrc:/meshes/defaultAvatar_full.fst'],value['normalUrlMessages'])
             self.assertEqual(value['normalUrlMessages'],value['originalScriptAvatarCalls'])
             self.assertEqual(['uninitialized','wrong-root','moved-token','window-source','disabled','higher-overlay','outside-child','hidden-child','disabled-painted-child','clipped','negative-z'],value['counterexamples'])
             self.assertGreater(value['pointerCalls'],5)
             self.assertTrue(value['hmdActive'])
+            self.assertTrue(value['wholeOriginalObserver'])
 
 if __name__=='__main__':unittest.main()
