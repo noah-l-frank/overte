@@ -848,14 +848,32 @@ def create_adapter(args, base_class):
             state,_ui=self._script_paths(target)
             return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-','chat-capture-owner-')))
 
-        def _chat_samples_store(self,target,role):
-            _need(role in ('primary','actor'))
+        def _chat_samples_store(self,target,role,*,erased=False):
+            _need(role in ('primary','actor') and type(erased) is bool)
             state,_ui=self._script_paths(target)
-            return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-','chat-'+role+'-samples-')))
+            return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-',
+                'chat-'+('erased-' if erased else '')+role+'-samples-')))
 
         def _chat_no_replay_store(self,target):
             state,_ui=self._script_paths(target)
             return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-','chat-no-replay-')))
+
+        def _chat_erase_restore_store(self,target):
+            state,_ui=self._script_paths(target)
+            return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-','chat-erase-restore-')))
+
+        @_private
+        def _chat_erase_restore(self,target,profile,before,after):
+            from adapters.chat_journey.erase_restore import ChatEraseRestore
+            manager=self._scripts(target);native=self._native_feature_observer(target);native.guard()
+            _need(profile.binding==manager.binding and profile.store.path==self._chat_profile_store(target).path)
+            for pair,erased in ((before,False),(after,True)):
+                _need(type(pair) is tuple and len(pair)==2)
+                for role,name in zip(pair,('primary','actor')):
+                    _need(role.binding==manager.binding and role.role==name
+                        and role.store.path==self._chat_samples_store(target,name,erased=erased).path)
+            return ChatEraseRestore(profile,before,after,lambda intent:self._chat_controls(target,intent,profile.run),
+                self._chat_erase_restore_store(target),monotonic=native.monotonic,sleep=native.sleep)
 
         def _chat_profile_store(self,target):
             state,_ui=self._script_paths(target)
@@ -927,10 +945,10 @@ def create_adapter(args, base_class):
             return ChatNoReplay(primary,actor,self._chat_no_replay_store(target),monotonic=native.monotonic,sleep=native.sleep)
 
         @_private
-        def _chat_samples(self,target,run,peer,peer_binding,*,role,source_lock,peer_lock):
+        def _chat_samples(self,target,run,peer,peer_binding,*,role,source_lock,peer_lock,erased=False):
             from adapters.chat_journey.samples import ChatSamples
             from adapters.script_journey.lock import ScriptSourceLock
-            store=self._chat_samples_store(target,role)
+            store=self._chat_samples_store(target,role,erased=erased)
             _need(isinstance(source_lock,ScriptSourceLock) and source_lock.path==store.path.with_name('script-sources.lock'))
             with source_lock.held():
                 manager=self._scripts(target);native=self._native_feature_observer(target)
@@ -1129,12 +1147,14 @@ def create_adapter(args, base_class):
                 if self.pico_configuration is not None:
                     # Source transcripts contain original unresolved role
                     # ownership. Process teardown cannot qualify their removal.
-                    if any(self._chat_samples_store(target,role).read() is not None for role in ('primary','actor')):
+                    if any(self._chat_samples_store(target,role,erased=erased).read() is not None
+                           for erased in (False,True) for role in ('primary','actor')):
                         chat_error=True
                     if self._chat_no_replay_store(target).read() is not None:chat_error=True
                     if self._chat_peer_input_store(target).read() is not None or self._chat_peer_send_store(target).read() is not None:chat_error=True
                     if self._chat_peer_distant_store(target).read() is not None:chat_error=True
                     if self._chat_profile_store(target).read() is not None:chat_error=True
+                    if self._chat_erase_restore_store(target).read() is not None:chat_error=True
                     owned=self._chat_capture_store(target).read()
                     if owned is not None:
                         if cleanup_only:self._recover_cleanup_candidate()
@@ -1189,7 +1209,9 @@ def create_adapter(args, base_class):
                       and self._chat_peer_input_store(target).read() is None and self._chat_peer_send_store(target).read() is None
                       and self._chat_peer_distant_store(target).read() is None
                       and self._chat_profile_store(target).read() is None
-                      and all(self._chat_samples_store(target,role).read() is None for role in ('primary','actor')))
+                      and self._chat_erase_restore_store(target).read() is None
+                      and all(self._chat_samples_store(target,role,erased=erased).read() is None
+                              for erased in (False,True) for role in ('primary','actor')))
             else:
                 _need(not feature_error and not script_error and not probe_error and not origin_error and not chat_error)
             return result
