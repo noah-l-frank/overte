@@ -73,7 +73,8 @@ and original `assignedUrl`, generation and assignment time separately. Submitted
 UTF16 code identity must match one reviewed source pin. Wrong code, foreign paths with a
 recognized filename, missing packets/nonces, old reads or mixed processes fail.
 Returned metadata selects input semantics only; it contains no measured pose.
-The [v3 Emote selection](EMOTE_SOURCE_PROFILE.md) separately joins original
+The v3 Emote selection (fixed integration reference `154b0ca8ce`,
+`tests/device/native/EMOTE_SOURCE_PROFILE.md`) separately joins original
 compiled code inside the shared Phone default VM. A top-level default-script
 assignment alone cannot identify included Emote bytes or caller origin.
 Each role's later full measurement owner must independently acquire and persist
@@ -87,3 +88,13 @@ and exact owner-journal retirement. No complete Emote capability is advertised.
 Selected root/profile/Rig and actual Pico wrapper tests exercise the real
 Python and probe JavaScript with explicit synthetic native boundaries. The new
 native getter remains uncompiled; no device qualification is claimed.
+
+
+Successful read copies are prepared before the final original guard and both
+actual clocks. The final native epoch cannot regress from the prior clock read;
+the entire acquisition additionally has a strict monotonic 1.5-second floor.
+Native age accounts for time after the final epoch read, even when the native
+clock freezes during another slow host operation. A late copy or final guard
+cannot return an aged packet or advance the accepted original cursor. Targeted
+frozen-host/native copy and last-guard clock-jump counterexamples demonstrate
+this boundary; no polling deadline or freshness limit is increased.
