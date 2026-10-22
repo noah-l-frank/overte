@@ -89,7 +89,8 @@ phase reader, private CAS journals, source lock, token UI and original packet
 readers with declared native/domain/UI/renderer actors. These host checks do not
 claim a complete Interface, V8, server, Pico, OpenXR or GPU run.
 
-Remaining full Create work includes the normal controller voxel brush effect,
+The [normal controller voxel edit extension](CREATE_VOXEL_PARENT.md) adds the
+brush/settings/weak-render-copy flow. Remaining full Create work includes
 actual denied/rez authority and exact restore, independent peer/current state,
 actual completed stereo draw/texture/pixels and artifacts, and complete original
 lifetime closure. Existing cached resources, retained QQmlContexts and original

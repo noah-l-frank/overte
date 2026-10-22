@@ -9,6 +9,7 @@
 #include "NormalLoginControls.h"
 #include "NormalCreateControls.h"
 #include "NormalCreateExtraControls.h"
+#include "NormalCreateVoxelControls.h"
 #include "NormalChatControls.h"
 #include <ui/NativeFieldInput.h>
 #include <QCoreApplication>
@@ -30,7 +31,7 @@ namespace overte::e2e {
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 class NormalControlUi {
 public:
-    enum class Surface { ScriptFiles, Audio, Graphics, Login, Create, CreateExtra, Chat };
+    enum class Surface { ScriptFiles, Audio, Graphics, Login, Create, CreateExtra, CreateVoxel, Chat };
     explicit NormalControlUi(Surface surface = Surface::ScriptFiles) : _surface(surface), _instance(nonce()), _generation(nonce()) { _clock.start(); }
 
     QJsonObject observe(QQuickItem* root, QQuickWindow* window, const AudioUiContext& audio = {}, const GraphicsUiContext& graphics = {}, const LoginUiContext& login = {}) {
@@ -57,6 +58,7 @@ public:
                     : _surface == Surface::Login ? loginControlId(item)
                     : _surface == Surface::Create ? createControlId(item)
                     : _surface == Surface::CreateExtra ? createExtraControlId(item)
+                    : _surface == Surface::CreateVoxel ? createVoxelControlId(item)
                     : _surface == Surface::Chat ? chatControlId(item) : scriptFileControlId(item);
                 if (!id.isEmpty()) {
                     if (controls.contains(id)) { ambiguous = true; return; }
@@ -66,8 +68,9 @@ public:
                         : _surface == Surface::Login ? loginControlSource(item, id, login)
                         : _surface == Surface::Create ? createControlSource(item,id)
                         : _surface == Surface::CreateExtra ? createExtraControlSource(item,id)
+                        : _surface == Surface::CreateVoxel ? createVoxelControlSource(item,id)
                         : _surface == Surface::Chat ? chatControlSource(item,id) : scriptFileControlSource(item);
-                    if ((_surface==Surface::Chat || _surface==Surface::CreateExtra) && source.isEmpty()) { ambiguous=true;return; }
+                    if ((_surface==Surface::Chat || _surface==Surface::CreateExtra || _surface==Surface::CreateVoxel) && source.isEmpty()) { ambiguous=true;return; }
                     controls.insert(id, {item, previous.item == item && previous.source == source ? previous.token : nonce(), source});
                 }
             }
@@ -97,6 +100,7 @@ public:
             else if (_surface == Surface::Login) { appendLoginControlObservation(row, control.item, id, login); }
             else if (_surface == Surface::Create) { appendCreateControlObservation(row,control.item,id); }
             else if (_surface == Surface::CreateExtra) { appendCreateExtraObservation(row,control.item,id); }
+            else if (_surface == Surface::CreateVoxel) { appendCreateVoxelObservation(row,control.item,id); }
             else if (_surface == Surface::Chat) { appendChatControlObservation(row,control.item,id); }
             else { appendScriptFileObservation(row, control.item, id); }
             rows.append(row);
@@ -112,6 +116,7 @@ public:
             : _surface == Surface::Login ? "loginControlsVersion"
             : _surface == Surface::Create ? "createControlsVersion"
             : _surface == Surface::CreateExtra ? "createExtraControlsVersion"
+            : _surface == Surface::CreateVoxel ? "createVoxelControlsVersion"
             : _surface == Surface::Chat ? "chatControlsVersion" : "fileControlsVersion"] = _surface==Surface::Login ? 2 : 1;
         if (_surface==Surface::CreateExtra) {result["createExtraUiInventory"]=createExtraUiLifetimes().snapshot();}
         if (_surface==Surface::ScriptFiles) { result["scriptInventory"]=scriptInventory.observation(ready); }
@@ -149,6 +154,7 @@ public:
                     : _surface == Surface::Graphics ? action != "activate" && action != "scroll" && action != "set-value"
                     : _surface == Surface::Login ? action != "activate" && action != "replace" && action != "submit"
                     : _surface == Surface::CreateExtra ? action != "activate" && action != "replace" && action != "select-index"
+                    : _surface == Surface::CreateVoxel ? action != "activate" && action != "replace" && action != "select-index"
                     : _surface == Surface::Create ? action != "activate" && action != "replace" && action != "select-index" && action != "scroll"
                     : _surface == Surface::Chat ? action != "activate" && action != "replace" && action != "submit"
                     : action != "activate" && action != "replace" && action != "submit" && action != "select-index")) { return result; }
@@ -198,6 +204,17 @@ public:
                 delivered=overte::ui::replaceFocusedField(control.item,window,command.value("text").toString());
             } else if (action=="select-index" && createExtraCount(id)) {
                 qint64 index{0};if (integer(command.value("index"),index)) { delivered=selectCreateChoice(control.item,window,index,createExtraCount(id)); }
+            }
+        } else if (_surface == Surface::CreateVoxel) {
+            QJsonObject row;appendCreateVoxelObservation(row,control.item,id);
+            const auto point=control.item->mapToScene(QPointF(control.item->width()/2,control.item->height()/2));
+            if (!row.value("inputReady").toBool()) {return result;}
+            if (action=="activate" && pointerClick && ownsPoint(control.item,window,point)) {delivered=pointerClick(control.item);}
+            else if (action=="replace" && command.value("text").isString()
+                    && createVoxelText(id,command.value("text").toString()) && ownsPoint(control.item,window,point)) {
+                delivered=overte::ui::replaceFocusedField(control.item,window,command.value("text").toString());
+            } else if (action=="select-index" && createVoxelCount(id)) {
+                qint64 index{0};if (integer(command.value("index"),index)) {delivered=selectCreateChoice(control.item,window,index,createVoxelCount(id));}
             }
         } else if (_surface == Surface::Login) {
             QJsonObject row;
@@ -290,7 +307,7 @@ public:
 
     static bool selectCreateChoice(QQuickItem* item,QQuickWindow* window,qint64 index,int extraCount=0) {
         if (!item || !window || visibleRect(item,window).isEmpty() || !item->isEnabled()
-                || (extraCount ? createExtraCount(createExtraControlId(item))!=extraCount || item->property("count").toInt()!=extraCount
+                || (extraCount ? (createExtraCount(createExtraControlId(item))!=extraCount && createVoxelCount(createVoxelControlId(item))!=extraCount) || item->property("count").toInt()!=extraCount
                     : !createChoice(createControlId(item))) || !item->inherits("QQuickComboBox")
                 || index<0 || index>=32 || index>=item->property("count").toInt()) { return false; }
         const auto focused=[&] {

@@ -90,7 +90,7 @@ public:
 
     bool isVoxelDataReady() const override;
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
-    QVariantMap featureCreateVoxels() const override;
+    QVariantMap featureCreateVoxels(const std::function<void(const std::shared_ptr<void>&)>& observed=std::function<void(const std::shared_ptr<void>&)>()) const override;
 #endif
     virtual void setVoxelData(const QByteArray& voxelData) override;
     virtual void setVoxelVolumeSize(const glm::vec3& voxelVolumeSize) override;

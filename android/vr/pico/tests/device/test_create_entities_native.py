@@ -74,4 +74,32 @@ class CreateEntitiesNativeTests(unittest.TestCase):
                 for z in range(8) for y in range(8) for x in range(8)),values)
 
 
+    def test_original_render_update_weak_mesh_copy_texture_and_deferred_renderer_death(self):
+        environment=dict(os.environ);major=environment.get('OVERTE_NATIVE_QT_MAJOR','6');libraries=[]
+        self.assertIn(major,('5','6'))
+        if major=='5':
+            prefix=Path(environment['OVERTE_QT5_HOST_ROOT']).resolve(strict=True)
+            environment.update(PKG_CONFIG_SYSROOT_DIR=str(prefix),PKG_CONFIG_LIBDIR=str(prefix/'usr/lib64/pkgconfig'),LD_LIBRARY_PATH=str(prefix/'usr/lib64'))
+            libraries=['-L'+str(prefix/'usr/lib64')]
+        flags=shlex.split(subprocess.check_output(['pkg-config','--cflags','--libs','Qt'+major+'Core'],text=True,env=environment))
+        with tempfile.TemporaryDirectory(prefix='create-polyvox-resources-') as directory:
+            stage=Path(directory);binary=stage/'test'
+            source=(ROOT/'libraries/entities-renderer/src/RenderablePolyVoxEntityItem.cpp').read_text()
+            (stage/'OriginalPolyvoxRenderUpdate.inc').write_text(function(source,'void PolyVoxEntityRenderer::doRenderUpdateAsynchronousTyped('))
+            subprocess.run(['c++','-std=c++17','-fPIC','-UNDEBUG','-pthread','-I'+directory,'-I'+str(ROOT/'tests/device/native'),
+                '-isystem',str(Path(environment['OVERTE_TEST_GLM_INCLUDE']).resolve(strict=True)),str(HERE/'create-polyvox-resources.cpp'),
+                '-o',str(binary),*libraries,*flags],check=True,timeout=60,env=environment)
+            subprocess.run([str(binary)],check=True,timeout=10,env=environment)
+            packets=[json.loads(line) for line in subprocess.check_output([str(binary),'--testScript'],text=True,timeout=10,env=environment).splitlines()]
+            self.assertEqual(6,len(packets))
+            from adapters.pico4.create_polyvox_resources import validate as validate_resources,continuity as resources_continuity,joined,retired
+            previous=None
+            for packet in packets:
+                validate_resources(packet,2**53-1)
+                if previous is not None:resources_continuity(previous,packet)
+                previous=packet
+            self.assertFalse(retired(packets[4]));self.assertTrue(retired(packets[5]))
+            self.assertTrue(joined(packets[1],packets[1]['bindings'][0]['entityId']))
+
+
 if __name__=='__main__':unittest.main()

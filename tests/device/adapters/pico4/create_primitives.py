@@ -22,7 +22,7 @@ def validate_steps(value):
     for step in value:
         exact(step,{'ticket','before','position','attempted','entityId','lifetime','outcome','configured','pageId','deleteTicket','createOriginal','creationProof'})
         packet=step['before'];validate_entities(packet,packet['requestId'],packet['processId'],packet['capturedEpochMs'],packet['source']['runId'])
-        need(nonce(step['ticket']) and packet['source']['createEntitySourceVersion']==4 and retired(packet['source'])
+        need(nonce(step['ticket']) and packet['source']['createEntitySourceVersion'] in (4,5) and retired(packet['source'])
             and type(step['position']) is list and len(step['position'])==3 and all(type(v) in (float,int) and math.isfinite(v) and abs(v)<=1e6 for v in step['position'])
             and type(step['attempted']) is list and len(set(step['attempted']))==len(step['attempted']) and set(step['attempted'])<=ATTEMPTS
             and type(step['configured']) is bool and (step['pageId'] is None or nonce(step['pageId']))
@@ -72,7 +72,7 @@ class CreatePrimitives:
     def primitive_row(self,actual,*,absent=False):
         step=self.primitive_step();before=step['before'];packet=actual['entities'];a,b=before['source'],packet['source']
         from adapters.pico4.create_picker_owner import OwnedCreatePicker
-        OwnedCreatePicker.same_scene(before,packet);need(b['createEntitySourceVersion']==4)
+        OwnedCreatePicker.same_scene(before,packet);need(b['createEntitySourceVersion'] in (4,5))
         old=a['localCreations'];new=b['localCreations'];need(old['armedAfterSequence']==new['armedAfterSequence']
             and new['events'][:len(old['events'])]==old['events'])
         events=new['events'][len(old['events']):];rows=b['entities']
@@ -142,7 +142,7 @@ class CreatePrimitives:
         extra=self.primitive_extra();extra.wait(lambda v:extra.row(v,'create-extra.polyvox.page',ready=False) is None)
         self.controls().wait_create()
     def primitive_create(self):
-        actual=self.sample();before=actual['entities'];source=before['source'];need(source['createEntitySourceVersion']==4 and retired(source))
+        actual=self.sample();before=actual['entities'];source=before['source'];need(source['createEntitySourceVersion'] in (4,5) and retired(source))
         ui=actual['ui'];need(ui.get('createExtraControlsVersion')==1 and self.state()['baselineExtra'] is not None)
         steps=self.state()['primitives'];need(not steps or steps[-1]['outcome']=='deleted')
         q=source['avatarRotation'];x,y,z,w=q

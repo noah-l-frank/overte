@@ -13,6 +13,9 @@
 
 #include "RenderablePolyVoxEntityItem.h"
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+#include "../../../tests/device/native/CreatePolyvoxResources.h"
+#endif
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
 #include <QCoreApplication>
 #endif
 
@@ -1141,10 +1144,11 @@ bool RenderablePolyVoxEntityItem::isVoxelDataReady() const {
 }
 
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
-QVariantMap RenderablePolyVoxEntityItem::featureCreateVoxels() const {
+QVariantMap RenderablePolyVoxEntityItem::featureCreateVoxels(const std::function<void(const std::shared_ptr<void>&)>& observed) const {
     if (!QCoreApplication::instance() || !QCoreApplication::arguments().contains("--testScript")) {return {};}
     QVariantMap result;
     withReadLock([&] {
+        if (observed) {observed(_mesh);}
         // One original volume/state/data lock, not 512 independent reads that
         // could combine values from different asynchronous volume revisions.
         const bool canonical=_voxelVolumeSize==glm::vec3(8.0f);
@@ -2700,6 +2704,14 @@ void PolyVoxEntityRenderer::doRenderUpdateAsynchronousTyped(const TypedEntityPoi
     }
 
     updateMaterials();
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+    // Read these original renderer-owned copies only on this render update
+    // thread. The collector stores weak references, without a GUI data race.
+    if (QCoreApplication::instance() && QCoreApplication::arguments().contains("--testScript")) {
+        overte::e2e::CreatePolyvoxResources::get().rendered(entity->getID(),shared_from_this(),this,_mesh,
+            {qSharedPointerCast<QObject>(_xyzTextures[0]),qSharedPointerCast<QObject>(_xyzTextures[1]),qSharedPointerCast<QObject>(_xyzTextures[2])});
+    }
+#endif
 }
 
 bool PolyVoxEntityRenderer::isTransparent() const {

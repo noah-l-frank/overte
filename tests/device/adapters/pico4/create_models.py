@@ -196,7 +196,7 @@ class OwnedCreateModels:
         entities=self.entities.read();work=self.work.read(manager['instance']);measured=work_scope(work,compilation)
         need(work['source']['manager']==manager and entities['instance']==work['instance']
             and entities['processId']==work['processId']==int(self.binding['processIdentity'].split(':')[0])
-            and entities['source']['createEntitySourceVersion'] in (3,4))
+            and entities['source']['createEntitySourceVersion'] in (3,4,5))
         epoch=self.work.native.clock_ms()
         for frame in [entities,work]+([callback] if callback is not None else []):
             fresh(frame['capturedEpochMs'],epoch);need(frame['instance']==work['instance'] and frame['processId']==work['processId'])

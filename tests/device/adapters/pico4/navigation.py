@@ -15,6 +15,7 @@ from contracts import validate_operation_arguments
 from navigation_observation import OPERATIONS, viewpoint_urls
 from adapters.token_chat_ui import metadata as chat_metadata,control_id as chat_control,text as chat_text,same_reference as chat_same_reference
 from adapters.pico4.create_extra_ui import IDS as CREATE_EXTRA_IDS, metadata as create_extra_metadata, FIELDS as CREATE_EXTRA_FIELDS, COUNTS as CREATE_EXTRA_COUNTS, text as create_extra_text
+from adapters.pico4.create_voxel_ui import IDS as CREATE_VOXEL_IDS,metadata as create_voxel_metadata,FIELDS as CREATE_VOXEL_FIELDS,COUNTS as CREATE_VOXEL_COUNTS,text as create_voxel_text
 from adapters.token_create_ui import metadata as create_metadata,control_id as create_control,field as create_field,choice as create_choice,ascii_text,same_reference
 from adapters.pico4.create_file_ui import (metadata as create_file_metadata, inventory as create_inventory,
     IDS as CREATE_FILE_IDS, same_reference as create_file_same_reference, owned_path as create_file_path)
@@ -98,6 +99,8 @@ def validate_snapshot(value, process_id, epoch_ms):
         fields|={'createExtraControlsVersion','createExtraUiInventory'};need(type(value['createExtraControlsVersion']) is int and value['createExtraControlsVersion']==1)
         from adapters.pico4.create_extra_ui import inventory as extra_inventory
         extra_inventory(value['createExtraUiInventory'])
+    if type(value) is dict and 'createVoxelControlsVersion' in value:
+        fields.add('createVoxelControlsVersion');need(type(value['createVoxelControlsVersion']) is int and value['createVoxelControlsVersion']==1)
     if type(value) is dict and 'createControlsVersion' in value:
         fields.add('createControlsVersion')
         need(type(value['createControlsVersion']) is int and value['createControlsVersion']==1)
@@ -150,6 +153,7 @@ def validate_snapshot(value, process_id, epoch_ms):
         is_graphics=graphics_control(control['id']) and value.get('graphicsControlsVersion')==1
         is_create=control['id'].startswith('create.')
         is_create_extra=control['id'] in CREATE_EXTRA_IDS
+        is_create_voxel=control['id'] in CREATE_VOXEL_IDS
         is_create_file=control['id'] in CREATE_FILE_IDS
         is_chat=control['id'].startswith('chat.')
         is_places=control['id'].startswith('places.')
@@ -164,6 +168,8 @@ def validate_snapshot(value, process_id, epoch_ms):
             need(value.get('chatControlsVersion')==1);chat_metadata(control);fields=set(control)
         elif is_create_extra:
             need(value.get('createExtraControlsVersion')==1);create_extra_metadata(control);fields=set(control)
+        elif is_create_voxel:
+            need(value.get('createVoxelControlsVersion')==1);create_voxel_metadata(control);fields=set(control)
         elif is_create:
             need(value.get('createControlsVersion')==1);create_metadata(control);fields=set(control)
         elif control['id'] in ACCOUNT_MENU_IDS:
@@ -187,7 +193,7 @@ def validate_snapshot(value, process_id, epoch_ms):
              and isinstance(control['id'], str) and (control['id'] in CONTROL_IDS
                  or script_control(control['id']) or file_control(control['id']) or audio_control(control['id'])
                  or graphics_control(control['id']) or control['id'] in LOGIN_IDS or control['id'] in ACCOUNT_MENU_IDS
-                 or is_create_extra or is_create and create_control(control['id']) or is_chat and chat_control(control['id'])
+                 or is_create_voxel or is_create_extra or is_create and create_control(control['id']) or is_chat and chat_control(control['id'])
                  or is_places and places_control(control['id']) or is_error and error_control(control['id']) or is_create_file)
              and identifier(control['token']) and control['id'] not in ids
              and control['token'] not in tokens and type(control['enabled']) is bool
@@ -204,6 +210,7 @@ def validate_snapshot(value, process_id, epoch_ms):
         elif is_places:places_metadata(control)
         elif is_chat:chat_metadata(control)
         elif is_create_extra:create_extra_metadata(control)
+        elif is_create_voxel:create_voxel_metadata(control)
         elif is_create:create_metadata(control)
         elif control['id'] in ACCOUNT_MENU_IDS:validate_account_menu_metadata(control)
         elif control['id'] in LOGIN_IDS:validate_login_metadata(control)
@@ -343,13 +350,17 @@ class PicoNavigation:
             need(self.address_authority(expected_address) is True if self.address_authority is not None else expected_address in self.urls)
         is_create=control_id.startswith('create.')
         is_create_extra=control_id in CREATE_EXTRA_IDS
+        is_create_voxel=control_id in CREATE_VOXEL_IDS
         is_create_file=control_id in CREATE_FILE_IDS
         is_chat=control_id.startswith('chat.')
         is_places=control_id.startswith('places.')
         is_error=control_id.startswith('navigation.error.ok.')
         if reference is not None:
             need(type(reference) is dict)
-            if 'createExtraControlsVersion' in reference:
+            if 'createVoxelControlsVersion' in reference:
+                from adapters.pico4.create_voxel_ui import same_reference as voxel_same_reference,project as voxel_project
+                original=voxel_same_reference(reference,voxel_project(snapshot),control_id)
+            elif 'createExtraControlsVersion' in reference:
                 from adapters.pico4.create_extra_ui import same_reference as extra_same_reference, project as extra_project
                 original=extra_same_reference(reference,extra_project(snapshot),control_id)
             elif 'createFileControlsVersion' in reference:
@@ -395,6 +406,12 @@ class PicoNavigation:
             if action in ('replace','submit'):need(control_id=='chat.input' and control['focused'])
             if action=='replace':chat_text(text)
             else:need(text is None)
+        elif is_create_voxel:
+            need(reference is not None and snapshot.get('createVoxelControlsVersion')==1 and control['inputReady']
+                and value is None and direction is None and source is None and action in ('activate','replace','select-index'))
+            if action=='replace':need(control_id in CREATE_VOXEL_FIELDS and control['focused'] and index is None);create_voxel_text(control_id,text)
+            elif action=='select-index':need(control_id in CREATE_VOXEL_COUNTS and type(index) is int and 0<=index<control['count'] and text is None)
+            else:need(index is None and text is None)
         elif is_create_extra:
             need(reference is not None and snapshot.get('createExtraControlsVersion')==1 and control['inputReady']
                 and control_id!='create-extra.polyvox.page' and value is None and direction is None

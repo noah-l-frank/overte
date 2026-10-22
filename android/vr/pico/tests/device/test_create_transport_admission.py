@@ -61,6 +61,33 @@ class CreateTransportAdmissionTests(unittest.TestCase):
             value=original();value['controls']=[deepcopy(self.generic_row)];return value
         self.snapshot=snapshot
 
+    def voxel(self):
+        from adapters.pico4.create_voxel_ui import TokenCreateVoxelUI,PicoCreateVoxelIO
+        from test_create_voxel_owner import ORIGINAL
+        original=self.snapshot
+        def snapshot():
+            value=original();value['createVoxelControlsVersion']=1
+            value['controls'].append(dict(id='create-voxel.mode',token='12345678-1234-1234-1234-123456789abc',
+                enabled=True,focused=False,inputReady=True,count=2,currentIndex=0,settings=deepcopy(ORIGINAL)));return value
+        self.snapshot=snapshot
+        self.flow=TokenCreateVoxelUI(PicoCreateVoxelIO(PicoScriptIO(self.navigation)),lambda value:self.root.record_input('voxel',value),
+            monotonic=self.b.now,sleep=self.b.ui.sleep)
+
+    def test_original_voxel_dto_token_and_durable_intent_reach_the_original_writer(self):
+        self.voxel();self.send('create-voxel.mode');self.assertEqual(1,len(self.published))
+        self.assertEqual('voxel',self.root.state()['lastInput']['kind']);self.assertEqual('create-voxel.mode',self.published[0]['controlId'])
+        self.assertEqual(self.pending,self.root.state()['pending'])
+
+    def test_voxel_phase_advance_in_actual_last_native_guard_refuses_publication(self):
+        self.voxel();original=self.native.guard;advanced=False
+        def guard():
+            nonlocal advanced
+            original()
+            if inspect.currentframe().f_back.f_code.co_name=='send' and not advanced:
+                advanced=True;self.h.journal.activate(self.root.run,uuid.uuid4().hex,'cleanup',{})
+        with patch.object(self.native,'guard',guard),self.assertRaises(NativeUIError):self.send('create-voxel.mode')
+        self.assertTrue(advanced);self.assertEqual([],self.published);self.assertEqual(self.pending,self.root.state()['pending'])
+
     def test_exact_original_intent_reaches_single_original_writer(self):
         self.send();self.assertEqual(1,len(self.published));original=self.root.state()['lastInput']['original']
         self.assertEqual(original['controlToken'],self.published[0]['controlToken'])

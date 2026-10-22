@@ -44,6 +44,7 @@
 #include "../../../tests/device/native/PrivateCreateFiles.h"
 #include "../../../tests/device/native/CreateBrowseSettingOwner.h"
 #include "../../../tests/device/native/CreateEntityLifetimes.h"
+#include "../../../tests/device/native/CreatePolyvoxResources.h"
 #include "../../../tests/device/native/CreateModelResources.h"
 #include <RenderableModelEntityItem.h>
 #include <QPointer>
@@ -1056,6 +1057,7 @@ QVariantMap TestScriptingInterface::featureCreateEntities(const QVariantMap& com
     }
     if (owned.size()>32) {return {};}
     QStringList ordered;for (const auto& entityId:owned) {ordered.append(entityId.toString(QUuid::WithoutBraces));}ordered.sort();
+    if (!overte::e2e::CreatePolyvoxResources::get().arm(run)) {return {};}
     QVariantList present,absent,lifetimes;
     if (!_featureCreateEntityLifetimes) {_featureCreateEntityLifetimes=std::make_shared<overte::e2e::CreateEntityLifetimes>();}
     for (const auto& text:ordered) {
@@ -1082,7 +1084,9 @@ QVariantMap TestScriptingInterface::featureCreateEntities(const QVariantMap& com
         QVariant voxels;
         if (p.getType()==EntityTypes::PolyVox) {
             const auto polyvox=std::dynamic_pointer_cast<PolyVoxEntityItem>(original);
-            const auto actual=polyvox ? polyvox->featureCreateVoxels() : QVariantMap{};if (actual.isEmpty()) {return {};}
+            bool observed=true;const auto actual=polyvox ? polyvox->featureCreateVoxels([&](const std::shared_ptr<void>& mesh) {
+                if (!overte::e2e::CreatePolyvoxResources::get().entity(run,entityId,mesh)) {observed=false;}
+            }) : QVariantMap{};if (!observed || actual.isEmpty()) {return {};}
             voxels=actual;
         }
         row.insert("voxels",voxels);present.append(row);
@@ -1090,7 +1094,8 @@ QVariantMap TestScriptingInterface::featureCreateEntities(const QVariantMap& com
     std::sort(unowned.begin(),unowned.end(),[](const QVariant& a,const QVariant& b) {return a.toMap().value("id").toString()<b.toMap().value("id").toString();});
     auto& domain=nodes->getDomainHandler();
     if (domain.featureChatSession(run)!=domainSession || entities->featureCreateLocalCreations(run)!=localCreations) {return {};}
-    const QVariantMap source{{"createEntitySourceVersion",4},{"domainSession",domainSession},{"localCreations",localCreations},{"avatarRotation",rotation(avatar->getWorldOrientation())},{"runId",run},{"domainConnected",domain.isConnected()},
+    const auto polyvoxResources=overte::e2e::CreatePolyvoxResources::get().snapshot(run);if (polyvoxResources.isEmpty()) {return {};}
+    const QVariantMap source{{"createEntitySourceVersion",5},{"polyvoxResources",polyvoxResources},{"domainSession",domainSession},{"localCreations",localCreations},{"avatarRotation",rotation(avatar->getWorldOrientation())},{"runId",run},{"domainConnected",domain.isConnected()},
         {"domainId",domain.getUUID().isNull() ? QVariant() : QVariant(domain.getUUID().toString(QUuid::WithoutBraces))},
         {"sessionId",nodes->getSessionUUID().isNull() ? QVariant() : QVariant(nodes->getSessionUUID().toString(QUuid::WithoutBraces))},
         {"canRez",nodes->getThisNodeCanRez()},{"canRezTmp",nodes->getThisNodeCanRezTmp()},

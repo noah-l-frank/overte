@@ -1,13 +1,14 @@
-# Pico Create original parent owner v2
+# Pico Create original parent owner v3
 
 Feature 4/14 remains **partial**. The private `_create_journey(target, run)`
 factory now connects the normal owners through the first twelve original v16
 steps: Open, actual JSON picker Cancel, NEW glTF, normal texture application,
 actual Save/export of that same Model, Delete, NEW OBJ/Delete, and actual JSON
 picker Import/Delete. It accepts the original closed v16 input envelopes but
-also composes canonical normal PolyVox creation and Delete on independent v4
-local-insertion and atomic original volume sources, documented in
-[the PolyVox parent packet](CREATE_POLYVOX_PARENT.md). Remaining verbs refuse
+also composes canonical normal PolyVox creation, a normal controller remove
+stroke, original settings restoration and Delete on independent native sources,
+documented in [the PolyVox parent packet](CREATE_POLYVOX_PARENT.md) and
+[the voxel edit packet](CREATE_VOXEL_PARENT.md). Remaining verbs refuse
 before reserving or sending input.
 It does not advertise the incomplete `feature.create.*` capability trio.
 
@@ -152,7 +153,7 @@ enabled/visible survey semantics. Feature controls still require their explicit
 original `inputReady` field. Actual disabled generic controls, foreign references
 and stale original scopes refuse final publication.
 
-Remaining full-flow work includes the normal PolyVox world brush stroke, denied/rez authority plus exact authority restoration,
+Remaining full-flow work includes denied/rez authority plus exact authority restoration,
 independent actor and current state, completed actual stereo draw/texture/pixels
 and artifacts, complete allocation/assignment histories, and final complete
 original lifetime closure. No requested checkpoint or ACK substitutes for any
@@ -161,3 +162,8 @@ Parent v2 reads v1 histories without rewriting their source originals; a
 candidate-guarded upgrade adds empty primitive history. V3 entity sources
 remain readable but cannot authorize primitive input. The PolyVox extension
 registers two additional selectors, without advertising full Create capability.
+
+Parent v3 reads v1/v2 and adds the empty voxel edit owner under the candidate
+guard. The normal stroke requires v5 entity/weak render-copy sources; old
+source clocks and IDs remain original. See [the voxel extension](CREATE_VOXEL_PARENT.md)
+for exact stream publication, recovery, settings and lifetime boundaries.
