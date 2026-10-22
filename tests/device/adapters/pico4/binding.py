@@ -858,11 +858,39 @@ def create_adapter(args, base_class):
             state,_ui=self._script_paths(target)
             return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-','chat-capture-owner-')))
 
-        def _chat_samples_store(self,target,role,*,erased=False):
-            _need(role in ('primary','actor') and type(erased) is bool)
+        def _chat_samples_store(self,target,role,*,erased=False,witness=False):
+            _need(role in ('primary','actor') and type(erased) is bool and type(witness) is bool and (not witness or role=='actor'))
             state,_ui=self._script_paths(target)
             return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-',
-                'chat-'+('erased-' if erased else '')+role+'-samples-')))
+                'chat-'+('erased-' if erased else '')+('witness' if witness else role)+'-samples-')))
+
+        def _chat_flow_inputs_store(self,target):
+            state,_ui=self._script_paths(target)
+            return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-','chat-flow-inputs-')))
+
+        def _chat_witness_store(self,target):
+            state,_ui=self._script_paths(target)
+            return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-','chat-witness-publisher-')))
+
+        @_private
+        def _chat_flow_inputs(self,target,source,primary,actor):
+            from adapters.chat_journey.flow_inputs import ChatFlowInputs
+            from adapters.feature_fixture_access import AdapterFixtureClient
+            manager=self._scripts(target);native=self._native_feature_observer(target);native.guard()
+            _need(isinstance(source.client,AdapterFixtureClient) and primary.binding==actor.binding==manager.binding
+                and primary.store.path==self._chat_samples_store(target,'primary').path
+                and actor.store.path==self._chat_samples_store(target,'actor').path)
+            return ChatFlowInputs(source,(primary,actor),self._chat_flow_inputs_store(target),
+                self._chat_samples_store(target,'actor',witness=True),monotonic=native.monotonic)
+
+        @_private
+        def _chat_witness(self,target,source,samples):
+            from adapters.chat_journey.witness import ChatWitness
+            from adapters.feature_fixture_access import AdapterFixtureClient
+            manager=self._scripts(target);native=self._native_feature_observer(target);native.guard()
+            _need(not isinstance(source.client,AdapterFixtureClient) and samples.binding==manager.binding
+                and samples.store.path==self._chat_samples_store(target,'actor',witness=True).path)
+            return ChatWitness(source,samples,self._chat_flow_inputs_store(target),self._chat_witness_store(target),monotonic=native.monotonic)
 
         def _chat_normal_input_store(self,target):
             state,_ui=self._script_paths(target)
@@ -1048,10 +1076,10 @@ def create_adapter(args, base_class):
             return ChatNoReplay(primary,actor,self._chat_no_replay_store(target),monotonic=native.monotonic,sleep=native.sleep)
 
         @_private
-        def _chat_samples(self,target,run,peer,peer_binding,*,role,source_lock,peer_lock,erased=False):
+        def _chat_samples(self,target,run,peer,peer_binding,*,role,source_lock,peer_lock,erased=False,witness=False):
             from adapters.chat_journey.samples import ChatSamples
             from adapters.script_journey.lock import ScriptSourceLock
-            store=self._chat_samples_store(target,role,erased=erased)
+            store=self._chat_samples_store(target,role,erased=erased,witness=witness)
             _need(isinstance(source_lock,ScriptSourceLock) and source_lock.path==store.path.with_name('script-sources.lock'))
             with source_lock.held():
                 manager=self._scripts(target);native=self._native_feature_observer(target)
@@ -1250,13 +1278,14 @@ def create_adapter(args, base_class):
                 if self.pico_configuration is not None:
                     # Source transcripts contain original unresolved role
                     # ownership. Process teardown cannot qualify their removal.
-                    if any(self._chat_samples_store(target,role,erased=erased).read() is not None
-                           for erased in (False,True) for role in ('primary','actor')):
+                    if any(self._chat_samples_store(target,role,erased=erased,witness=witness).read() is not None
+                           for erased in (False,True) for role,witness in (('primary',False),('actor',False),('actor',True))):
                         chat_error=True
                     if self._chat_no_replay_store(target).read() is not None:chat_error=True
                     if self._chat_mixer_store(target).read() is not None:chat_error=True
                     if self._chat_normal_input_store(target).read() is not None:chat_error=True
                     if self._chat_background_store(target).read() is not None:chat_error=True
+                    if self._chat_flow_inputs_store(target).read() is not None or self._chat_witness_store(target).read() is not None:chat_error=True
                     if self._chat_peer_input_store(target).read() is not None or self._chat_peer_send_store(target).read() is not None:chat_error=True
                     if self._chat_peer_distant_store(target).read() is not None:chat_error=True
                     if self._chat_profile_store(target).read() is not None:chat_error=True
@@ -1315,12 +1344,13 @@ def create_adapter(args, base_class):
                       and self._chat_mixer_store(target).read() is None
                       and self._chat_normal_input_store(target).read() is None
                       and self._chat_background_store(target).read() is None
+                      and self._chat_flow_inputs_store(target).read() is None and self._chat_witness_store(target).read() is None
                       and self._chat_peer_input_store(target).read() is None and self._chat_peer_send_store(target).read() is None
                       and self._chat_peer_distant_store(target).read() is None
                       and self._chat_profile_store(target).read() is None
                       and self._chat_erase_restore_store(target).read() is None
-                      and all(self._chat_samples_store(target,role,erased=erased).read() is None
-                              for erased in (False,True) for role in ('primary','actor')))
+                      and all(self._chat_samples_store(target,role,erased=erased,witness=witness).read() is None
+                              for erased in (False,True) for role,witness in (('primary',False),('actor',False),('actor',True))))
             else:
                 _need(not feature_error and not script_error and not probe_error and not origin_error and not chat_error)
             return result

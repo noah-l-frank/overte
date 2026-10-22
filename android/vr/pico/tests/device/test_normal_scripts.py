@@ -633,6 +633,42 @@ class PicoNormalScriptsTests(unittest.TestCase):
         with self.assertRaises(ValueError):self.instance._chat_normal_input(self.native.target,primary,actor)
         self.assertEqual([],self.native.inputs);self.assertIsNone(owner.store.read())
 
+    def test_pico_chat_witness_samples_and_factories_keep_a_third_original_journal_and_private_roles(self):
+        from adapters.feature_fixture_access import AdapterFixtureClient
+        from feature_journeys.phase_fixture import PhaseFixtureReader
+        from feature_journeys.witness import Client
+        from adapters.chat_journey.witness import ChatWitness
+        from adapters.chat_journey.flow_inputs import ChatFlowInputs
+        source,peer,create=self.chat_samples();primary=create()
+        def role(witness=False):
+            reader=peer.reader();reader.pid=456
+            return self.instance._chat_samples(self.native.target,CHAT_RUN,reader,primary.peer_binding,
+                role='actor',source_lock=primary.locks[0],peer_lock=primary.locks[1],witness=witness)
+        actor=role();witness=role(True)
+        self.assertEqual(3,len({row.store.path for row in (primary,actor,witness)}))
+        self.assertIs(primary.locks[0],witness.locks[0]);self.assertIs(primary.locks[1],witness.locks[1])
+        self.assertEqual('actor',witness.role);self.assertEqual([],peer.commands)
+        parent=PhaseFixtureReader(AdapterFixtureClient('http://controlled.test/feature-fixture/v1','r'*64),CHAT_RUN,'chat')
+        observer=PhaseFixtureReader(Client('http://controlled.test/feature-fixture/v1','p'*64),CHAT_RUN,'chat')
+        owner=self.instance._chat_flow_inputs(self.native.target,parent,primary,actor)
+        publisher=self.instance._chat_witness(self.native.target,observer,witness)
+        self.assertIsInstance(owner,ChatFlowInputs);self.assertIsInstance(publisher,ChatWitness)
+        self.assertEqual(owner.scope['transcripts'][2],witness.store.path.name)
+        with self.assertRaises(ValueError):self.instance._chat_flow_inputs(self.native.target,observer,primary,actor)
+        with self.assertRaises(ValueError):self.instance._chat_witness(self.native.target,parent,witness)
+        with self.assertRaises(ValueError):self.instance._chat_witness(self.native.target,observer,actor)
+        self.assertEqual([],peer.commands);self.assertEqual([],self.native.inputs)
+        self.native.digest='f'*64
+        with self.assertRaises(ValueError):self.instance._chat_witness(self.native.target,observer,witness)
+
+    def test_pico_chat_process_teardown_preserves_third_witness_source_and_publication_intents(self):
+        stores=[self.instance._chat_samples_store(self.native.target,'actor',witness=True),
+            self.instance._chat_flow_inputs_store(self.native.target),self.instance._chat_witness_store(self.native.target)]
+        for store in stores:store.write({'unresolved':'original-independent-source-or-publication'},None)
+        with self.assertRaises(ValueError):self.cleanup_instance().cleanup(self.native.target)
+        self.assertFalse(self.native.running)
+        for store in stores:self.assertIsNotNone(store.read())
+
     def test_pico_chat_background_factory_shares_exact_chat_parent_lock_and_candidate_without_input(self):
         from adapters.chat_journey.background import ChatBackground
         source,peer,create=self.chat_samples();primary=create();reader=peer.reader();reader.pid=456
