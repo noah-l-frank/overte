@@ -33,7 +33,8 @@ from overte_phone_snapshot_upload_source import require_retired as upload_retire
 from overte_phone_snapshot_capture_facts import capture_facts
 from overte_phone_snapshots_measurements import SnapshotPending
 from overte_phone_script_history import canonical
-from adapters.native_script_work import scope as script_scope
+from adapters.native_script_work import scope as script_scope,validate as validate_work
+from overte_phone_snapshot_measurements import validate as validate_group
 from adapters.native_account_observation import accept as account_advance
 from adapters.native_phone_touch_state import released as touch_released
 
@@ -72,7 +73,12 @@ class PhoneSnapshotsFeature(PhoneCreateFeature):
             need(type(header['snapshotsFeatureVersion']) is int and header['snapshotsFeatureVersion']==1 and header['runId']==self.run
                 and header['fixtureUrl']==self.fixture_url and same(header['configuration'],self.config))
             rows=unpack(header['payload']);need(len(rows)==1);self._initial_state=rows[0]
-        if self._initial_state is not None and self._initial_state.get('handoff') is not None:
+        pending=(self._initial_state or {}).get('current')
+        pending=pending.get('pending') if type(pending) is dict else None
+        if type(pending) is dict and pending.get('kind')=='background':
+            self.binding=deepcopy(context(self._initial_header['binding']));self.pid=int(self.binding['processIdentity'].split(':')[0])
+            self.guard=self.background_guard
+        elif self._initial_state is not None and self._initial_state.get('handoff') is not None:
             self.binding=deepcopy(context(self._initial_header['binding']));self.pid=int(self.binding['processIdentity'].split(':')[0])
             # Before the normal foreground guard is available, only verified
             # immutable host originals may establish this exact OS authority.
@@ -117,6 +123,7 @@ class PhoneSnapshotsFeature(PhoneCreateFeature):
         exact(self.state,{'phase','original','inputTicket','domainId','nativeSessionId','objects','current','actions','leases','hostProcess',
             'marker','markerSource','inputs','inputSequence','inputStorage','retained','settingsIndex','filesBinding','docArm','docBinding',
             'consumerArm','consumerBinding','cancelJobs','handoff','handoffs','captureTicket','restoreId','restoreSha256','quiet','cleanupStages','capturePath','settingsIntent','filesIndex','partial'})
+        need(type(self.state['partial']) is bool and self.state['domainId']==self.config['domainId'])
         need(self.state['phase'] in ('preparing','baseline','acting','active','cleaning','cleaned','partial-cleaned','retiring')
             and self.state['objects']==[] and integer(self.state['inputSequence'],0,1024)
             and type(self.state['actions']) is list and len(self.state['actions'])<=32
@@ -133,7 +140,39 @@ class PhoneSnapshotsFeature(PhoneCreateFeature):
                 need(same(self.state['filesBinding'],originals[self.state['filesIndex']-1]['snapshotsFilesPlanned']))
         else:need(self.state['phase'] in ('preparing','partial-cleaned') and self.state['partial'])
         if self.state['handoff'] is not None:self.check_handoff(self.state['handoff'],originals)
+        self.check_pending(originals)
         self.bound()
+
+    def check_pending(self,originals):
+        from overte_phone_snapshot_handoff_input import plan as check_plan
+        current=self.state['current']
+        if current is None:return
+        exact(current,{'call','pending','phase'});call=current['call']
+        exact(call,{'contractVersion','runId','fixtureUrl','ticket','verb','inputs'})
+        need(type(call['contractVersion']) is int and call['contractVersion']==VERSION and call['runId']==self.run
+            and call['fixtureUrl']==self.fixture_url and type(call['inputs']) is dict)
+        identifier(call['ticket']);pending=current['pending']
+        if pending is None:return
+        need(type(pending) is dict)
+        if pending.get('kind')=='background':
+            exact(pending,{'kind','stage','before','startedMonotonic'})
+            need(call['verb']=='background-resume' and pending['stage'] in ('background-issued','resume-issued')
+                and number(pending['startedMonotonic'],0,1e15) and self.state['handoff'] is None)
+            from adapters.native_feature_observation import validate as native_packet
+            before=pending['before'];native_packet(before,before['requestId'],self.pid,before['capturedEpochMs'])
+            return
+        if pending.get('kind')=='handoff-start':
+            exact(pending,{'kind','id','mode','plan'});identifier(pending['id'])
+            need(self.state['handoff'] is None and pending['mode'] in ('share','document')
+                and call['verb']==('share-open' if pending['mode']=='share' else 'save-picker-open'))
+        else:
+            exact(pending,{'kind','plan','binding','issued'});handoff=self.state['handoff']
+            need(pending['kind']=='handoff-input' and pending['issued'] is True and handoff is not None
+                and same(pending['binding'],handoff['binding'])
+                and same(pending['plan'],originals[handoff['sourceIndex']-1]['handoffPlan']))
+        value=pending['plan'];check_plan(value,self.pid,value['original']['capturedEpochMs'])
+        inputs=[row['snapshotInput'] for row in originals if row.get('snapshotInput',{}).get('request',{}).get('commandId')==value['request']['commandId']]
+        need(len(inputs)==1 and same(inputs[0],value))
 
     def check_handoff(self,handoff,originals):
         exact(handoff,{'id','kind','resolution','binding','sourceIndex'})
@@ -142,6 +181,9 @@ class PhoneSnapshotsFeature(PhoneCreateFeature):
         request=dict(schemaVersion=1,commandId=original['requestId'],action='phone-snapshot-handoff',runId=self.run,handoffId=handoff['id'],operation='start')
         handoff_control(original,request,self.pid,original['capturedEpochMs'])
         need(same(handoff_binding(original),handoff['binding']))
+        from overte_phone_snapshot_handoff_input import plan as check_plan
+        planned=originals[handoff['sourceIndex']-1]['handoffPlan'];check_plan(planned,self.pid,planned['original']['capturedEpochMs'])
+        need(planned['request']['controlId'].startswith('snapshot.'+('share' if handoff['kind']=='share' else 'save')+'.'))
 
     def original(self):
         frames=self.inputs.restore(self.state['inputs'],self.state['inputSequence']);need(frames and 'snapshotsBaseline' in frames[0])
@@ -216,7 +258,9 @@ class PhoneSnapshotsFeature(PhoneCreateFeature):
         need(entities['source']['connected'] and entities['source']['domainId']==self.config['domainId'] and entities['source']['canRez']
             and not entities['source']['entities'] and entities['source']['sessionId'] is not None)
         native=self.adapter._native_feature_observer(self.selector,read_only=True).read(0,require_account=True)
-        need(not native['account']['loggedIn'] and not any(native['account']['observation'][key] for key in ('credentialActive','loginPending','refreshPending','tokenPresent','refreshPresent'))
+        need(not native['account']['loggedIn'] and native['account']['observation']['credentialActive']
+            and native['account']['principalSha256']==hashlib.sha256(b'').hexdigest()
+            and not any(native['account']['observation'][key] for key in ('loginPending','refreshPending','tokenPresent','tokenValid','refreshPresent'))
             and native['account']['observation']['endpointSha256'] in {hashlib.sha256(value.encode()).hexdigest() for value in (self.phase.provider()['origin'],self.phase.provider()['origin']+'/')})
         avatar=self.adapter._avatar_render_observer(self.selector,read_only=True).read();need(avatar['source']['cameraMode'] in MODES)
         touch=self.adapter._touch_state_observer(self.selector,read_only=True).read();touch_released(touch)
@@ -279,7 +323,7 @@ class PhoneSnapshotsFeature(PhoneCreateFeature):
             and not observation['loginPending'] and not observation['refreshPending'])
         if logged_in:
             need(value['principalSha256']==hashlib.sha256(('e2e-'+self.run).encode()).hexdigest() and observation['credentialActive'] and observation['tokenValid'])
-        else:need(value['principalSha256']==baseline['principalSha256'] and not any(observation[key] for key in ('credentialActive','tokenPresent','tokenValid','refreshPresent')))
+        else:need(value['principalSha256']==baseline['principalSha256'] and observation['credentialActive'] and not any(observation[key] for key in ('tokenPresent','tokenValid','refreshPresent')))
         return packet
 
     def login(self):
@@ -315,7 +359,7 @@ class PhoneSnapshotsFeature(PhoneCreateFeature):
         # archived before the fixed ordinary command may leave the foreground.
         self.state['current']['pending']=dict(kind='handoff-start',id=id,mode=kind,plan=deepcopy(plan));self.save()
         original=self.adapter._snapshot_handoff_control(self.selector).request(self.run,'start',id)
-        index=self.archive_input(dict(handoffStart=original))
+        index=self.archive_input(dict(handoffStart=original,handoffPlan=deepcopy(plan)))
         self.state['handoff']=dict(id=id,kind=kind,resolution=deepcopy(resolution),binding=handoff_binding(original),sourceIndex=index)
         self.state['current']['pending']=None;self.save()
         self._system_scope=self.adapter._snapshot_system_context(self.selector,self.binding,resolution,self.header_authority)
@@ -428,28 +472,47 @@ class PhoneSnapshotsFeature(PhoneCreateFeature):
                 try:return role.read(call['afterSequence'])
                 except SnapshotPending:need(attempt<50);self.sleep(.1)
             need(False)
-    def background(self):
-        need(self.state['handoff'] is None)
-        before=self.adapter._native_feature_observer(self.selector,read_only=True).read(0,require_account=True)
-        current=self.state['current'];need(current['pending'] is None)
-        current['pending']=dict(kind='background',stage='background-issued',before=deepcopy(before),startedMonotonic=self.monotonic())
-        self.save()
-        original_guard=self.guard
-        def process_guard():
-            need(self.header_authority() is True)
+    def background_guard(self):
+        self.header_authority()
+        state=self.state if self.state is not None else self._initial_state
+        pending=state['current']['pending'];need(pending['kind']=='background')
+        status=self.adapter._graphics_lifecycle_status(self.selector,self.binding)
+        exact(status,{'binding','foreground','running','appState'})
+        need(same(status['binding'],self.binding) and status['running'] and status['appState'] in (2,3,4)
+            and status['foreground']==(status['appState']==4))
+        now=self.monotonic();need(number(now,pending['startedMonotonic'],1e15) and now-pending['startedMonotonic']<20)
+        return True
+
+    def foreground(self):
+        _ui,_service,binding,guard,_installed=self.adapter.normal_feature_runtime(self.selector,read_only=True)
+        need(same(binding,self.binding));self.guard=guard;self.bound()
+
+    def background(self,*,cleanup=False):
+        need(self.state['handoff'] is None);current=self.state['current'];pending=current['pending']
+        if pending is None:
+            need(not cleanup)
+            before=self.adapter._native_feature_observer(self.selector,read_only=True).read(0,require_account=True)
+            current['pending']=dict(kind='background',stage='background-issued',before=deepcopy(before),startedMonotonic=self.monotonic())
+            self.save();self.guard=self.background_guard
+            self.adapter.invoke(self.selector,'lifecycle.background',{})
+        else:need(pending['kind']=='background');self.guard=self.background_guard
+        pending=current['pending'];before=pending['before']
+        if pending['stage']=='background-issued':
             status=self.adapter._graphics_lifecycle_status(self.selector,self.binding)
-            exact(status,{'binding','foreground','running','appState'})
-            need(same(status['binding'],self.binding) and status['running'] and status['appState'] in (2,3,4)
-                and status['foreground']==(status['appState']==4))
-            now=self.monotonic();need(number(now,current['pending']['startedMonotonic'],1e15) and now-current['pending']['startedMonotonic']<20)
-            return True
-        self.guard=process_guard
-        self.adapter.invoke(self.selector,'lifecycle.background',{})
-        status=self.wait_original(lambda:self.adapter._graphics_lifecycle_status(self.selector,self.binding),lambda row:row['foreground'] is False)
-        self.archive_input(dict(snapshotBackground=status,nativeBefore=before));current['pending']['stage']='resume-issued';self.save()
-        self.adapter.invoke(self.selector,'app.launch',{})
+            if cleanup and status['foreground']:
+                self.foreground()
+                actual=self.adapter._native_feature_observer(self.selector,read_only=True).read(0,require_account=True)
+                need(actual['instance']==before['instance'] and actual['processId']==before['processId']
+                    and all(actual['lifecycle'][key]>=value for key,value in before['lifecycle'].items()))
+                self.archive_input(dict(snapshotBackgroundUncertain=deepcopy(pending),actual=actual))
+                current['pending']=None;self.save();return
+            status=self.wait_original(lambda:self.adapter._graphics_lifecycle_status(self.selector,self.binding),lambda row:row['foreground'] is False)
+            self.archive_input(dict(snapshotBackground=status,nativeBefore=before))
+            pending['stage']='resume-issued';self.save()
+            self.adapter.invoke(self.selector,'app.launch',{})
+        need(pending['stage']=='resume-issued')
         self.wait_original(lambda:self.adapter._graphics_lifecycle_status(self.selector,self.binding),lambda row:row['foreground'] is True)
-        self.guard=original_guard;self.bound()
+        self.foreground()
         after=self.adapter._native_feature_observer(self.selector,read_only=True).read(0,require_account=True)
         need(after['instance']==before['instance'] and after['processId']==before['processId']
             and after['lifecycle']['launches']==before['lifecycle']['launches']
@@ -457,16 +520,34 @@ class PhoneSnapshotsFeature(PhoneCreateFeature):
             and after['lifecycle']['activations']>before['lifecycle']['activations'])
         self.archive_input(dict(snapshotResumed=after));current['pending']=None;self.save()
 
+    def queued_idle(self,group,packet,*,previous=None):
+        epoch=self.adapter._native_feature_observer(self.selector,read_only=True).clock_ms()
+        selected=validate_group(group,run=self.run,pid=self.pid,epoch=epoch)
+        initial=self.original()['group']
+        baseline=validate_group(initial,run=self.run,pid=self.pid,epoch=initial['rootsAfter']['capturedEpochMs'])
+        need(same(selected,baseline) and packet['instance']==group['script']['instance'])
+        request=dict(schemaVersion=1,commandId=packet['requestId'],action='feature-script-work-observe',managerInstance=selected['manager']['instance'])
+        validate_work(packet,request,self.pid,epoch,previous=previous)
+        need(same(packet['source']['manager'],selected['manager']) and same(packet['source']['code'],selected['code']))
+        selected_work=script_scope(packet,selected['compilation'])
+        need(not selected_work['evaluating'] and not selected_work['timers'] and not selected_work['unknownTimers']
+            and all(selected_work[key]==0 for key in ('signalCallbacks','timerCallbacks','unknownSignalCallbacks','unknownTimerCallbacks')))
+        return packet
+
+    def quiet_work_floor(self):
+        if not self.state['quiet']:return None
+        proof=self.state['quiet'][-1];need(proof['sources'])
+        originals=self.inputs.restore(self.state['inputs'],self.state['inputSequence'])
+        return originals[proof['sources'][-1]-1]['snapshotQuiet']['work']
+
     def quiet(self,label):
         need(label in ('before-restoration','after-restoration') and self.state['handoff'] is None)
         reader=self.adapter._snapshot_measurements(self.selector)
-        started=previous=self.monotonic();need(number(started,0,1e15));first=last=None;digest=None;indices=[]
+        started=previous=self.monotonic();need(number(started,0,1e15));first=last=None;digest=None;indices=[];previous_work=self.quiet_work_floor()
         for attempt in range(201):
             group,selected=reader.read(self.run);need(PhoneSnapshotFoundation.idle(group['snapshot']))
             manager=selected['manager']['instance'];work=self.adapter._script_work(self.selector,read_only=True).read(manager)
-            scope=script_scope(work,selected['compilation'])
-            need(not scope['evaluating'] and not scope['timers'] and not scope['unknownTimers']
-                and all(scope[key]==0 for key in ('signalCallbacks','timerCallbacks','unknownSignalCallbacks','unknownTimerCallbacks')))
+            self.queued_idle(group,work,previous=previous_work);previous_work=deepcopy(work)
             upload=self.adapter._snapshot_upload_source(self.selector).read(self.run);upload_retired(upload['source'])
             provider=self.phase.provider();need(provider['inflight']==0 and not provider['held'] and provider['stories']==0)
             source=group['snapshot']['source'];fingerprint=hashlib.sha256(canonical(dict(history=source['history'],script=source['scriptHistory'],
@@ -490,10 +571,26 @@ class PhoneSnapshotsFeature(PhoneCreateFeature):
         raise NativeUIError('Original Snapshot work never reached a contiguous quiet window')
 
     def recover_handoff_input(self):
+        from overte_phone_snapshot_handoff_input import plan as check_plan
         pending=self.state['current']['pending']
         if pending is None:return
-        need(pending['kind']=='handoff-input' and self.state['handoff'] is not None and pending['issued'])
+        if pending['kind']=='background':self.background(cleanup=True);return
+        if pending['kind']=='handoff-start':
+            exact(pending,{'kind','id','mode','plan'});need(self.state['handoff'] is None and pending['mode'] in ('share','document'))
+            check_plan(pending['plan'],self.pid,pending['plan']['original']['capturedEpochMs'])
+            # Observe an already created original job. Never replay start or the
+            # unadmitted Save/Share click after an uncertain start return.
+            original=self.adapter._snapshot_handoff_control(self.selector,read_only=True).request(self.run,'observe',pending['id'])
+            index=self.archive_input(dict(handoffStart=original,handoffPlan=pending['plan'],recoveredStart=True))
+            resolution=self.original()['resolution' if pending['mode']=='share' else 'documentResolution']
+            self.state['handoff']=dict(id=pending['id'],kind=pending['mode'],resolution=resolution,binding=handoff_binding(original),sourceIndex=index)
+            self.state['current']['pending']=None;self.save();return
+        exact(pending,{'kind','plan','binding','issued'})
+        need(pending['kind']=='handoff-input' and self.state['handoff'] is not None and pending['issued'] is True)
         handoff=self.state['handoff'];need(same(pending['binding'],handoff['binding']))
+        originals=self.inputs.restore(self.state['inputs'],self.state['inputSequence'])
+        need(same(pending['plan'],originals[handoff['sourceIndex']-1]['handoffPlan']))
+        check_plan(pending['plan'],self.pid,pending['plan']['original']['capturedEpochMs'])
         reader=self.adapter._snapshot_handoff_input(self.selector,self.binding,handoff['resolution'],self.header_authority,
             handoff['binding'],lambda *_:need(False),read_only=True)
         original=reader.observe(pending['plan']);self.archive_input(dict(snapshotHandoffRecovered=original,plan=pending['plan']))
@@ -630,24 +727,31 @@ class PhoneSnapshotsFeature(PhoneCreateFeature):
             touch=self.adapter._touch_state_observer(self.selector,read_only=True).read()
             world=self.adapter._graphics_subject_observer(self.selector,read_only=True).read(self.run,require_avatar=True)
             native=self.account(logged_in=False)
+            selected=validate_group(group,run=self.run,pid=self.pid,epoch=group['rootsAfter']['capturedEpochMs'])
+            script_work=self.adapter._script_work(self.selector,read_only=True).read(selected['manager']['instance'])
         else:
             frame=snapshot['measurement'];group=frame['group'];files=frame['captureFiles'];inventory=frame['inventory'];readback=frame['readbacks']
             upload,settings,consumer,documents=(frame[key] for key in ('upload','settings','consumer','documents'))
             avatar=snapshot['avatarAfter'];touch=snapshot['touch'];world=snapshot['world'];native=snapshot['nativeAfter']
             need(native is not None and native['account']['loggedIn'] is False)
+            script_work=snapshot['scriptWork']
         epoch=self.adapter._native_feature_observer(self.selector,read_only=True).clock_ms()
+        self.queued_idle(group,script_work,previous=self.quiet_work_floor())
+        capture_facts(self.original()['group'],group,run=self.run,pid=self.pid,epoch=epoch)
         retired(group,files,inventory,readback,upload,settings,run=self.run,epoch=epoch,consumer=consumer,
             consumer_binding=self.state['consumerBinding'],documents=documents,documents_binding=self.state['docBinding'])
         touch_released(touch);need(avatar['source']['cameraMode']==self.original()['avatar']['source']['cameraMode'])
         a={row['id']:row['sha256'] for row in self.original()['world']['source']['scan']['unowned']}
         b={row['id']:row['sha256'] for row in world['source']['scan']['unowned']};need(same(a,b))
-        need(not native['account']['loggedIn'] and not any(native['account']['observation'][key] for key in ('credentialActive','loginPending','refreshPending','tokenPresent','refreshPresent')))
+        need(not native['account']['loggedIn'] and native['account']['observation']['credentialActive']
+            and native['account']['principalSha256']==hashlib.sha256(b'').hexdigest()
+            and not any(native['account']['observation'][key] for key in ('loginPending','refreshPending','tokenPresent','tokenValid','refreshPresent')))
         need(all(row['retirementIndex'] for row in self.state['cancelJobs']))
         if self.state['marker'] is not None:
             marker=self.adapter._create_fixture_observer(self.selector,read_only=True).read(self.run) if snapshot is None else snapshot['marker']
             need(marker['source']['phase']=='drained' and not marker['source']['entities'] and marker['source']['retainedObjects']==0)
         return dict(group=group,captureFiles=files,inventory=inventory,readbacks=readback,upload=upload,settings=settings,
-            consumer=consumer,documents=documents,avatar=avatar,touch=touch,world=world,native=native)
+            consumer=consumer,documents=documents,avatar=avatar,touch=touch,world=world,native=native,scriptWork=script_work)
 
     def partial_leases_retired(self,*,file_owners=None):
         from overte_phone_snapshot_settings import validate as settings_packet
@@ -670,10 +774,13 @@ class PhoneSnapshotsFeature(PhoneCreateFeature):
         if readbacks['source']['source'].get('initialized') is not False:
             source=readbacks['source']['source'];need(source['copiesRetired'] and source['workersTerminated'] and not source['files'])
         current=self.adapter._native_feature_observer(self.selector,read_only=True).read(0,require_account=True)
+        selected=validate_group(group,run=self.run,pid=self.pid,epoch=group['rootsAfter']['capturedEpochMs'])
+        work=self.adapter._script_work(self.selector,read_only=True).read(selected['manager']['instance'])
+        self.queued_idle(group,work,previous=self.quiet_work_floor())
         need(same(current['account']['principalSha256'],self.original()['native']['account']['principalSha256']) and not current['account']['loggedIn'])
         epoch=self.adapter._native_feature_observer(self.selector,read_only=True).clock_ms()
         for row in (group['rootsBefore'],group['rootsAfter'],group['script'],group['snapshot'],packet,settings,readbacks,current):fresh(row['capturedEpochMs'],epoch)
-        return dict(group=group,captureFiles=packet,inventory=actual,settings=settings,documents=documents,readbacks=readbacks,native=current)
+        return dict(group=group,captureFiles=packet,inventory=actual,settings=settings,documents=documents,readbacks=readbacks,native=current,scriptWork=work)
 
     def partial_restored(self,*,file_owners=None):
         need(self.state['partial'] and self.state['phase']=='partial-cleaned' and self.state['current'] is None
