@@ -163,7 +163,12 @@ class SnapshotUploadServiceTests(unittest.TestCase):
         worker=threading.Thread(target=lambda:values.append(self.upload()),daemon=True);worker.start()
         with self.accounts.changed:self.assertTrue(self.accounts.changed.wait_for(lambda:self.service.runs[self.run]['held'],timeout=2))
         with self.assertRaises(ValueError):self.service.retire(self.run)
-        self.service.control(self.run,'release');worker.join(3);self.assertFalse(worker.is_alive());self.assertEqual(200,values[0][0]);self.service.retire(self.run)
+        self.service.control(self.run,'release');worker.join(3);self.assertFalse(worker.is_alive());self.assertEqual(200,values[0][0])
+        # A client receiving 200 does not imply that the server's actual
+        # response/ingress finally blocks have retired yet. Wait for their
+        # original condition notification; never relax the live-work refusal.
+        with self.accounts.changed:self.assertTrue(self.accounts.changed.wait_for(lambda:not self.service.runs[self.run]['inflight'] and not self.service.runs[self.run]['ingress'],timeout=2))
+        self.service.retire(self.run)
         self.assertEqual(410,self.upload()[0])
         with self.assertRaises(ValueError):self.service.retire(self.run)
 

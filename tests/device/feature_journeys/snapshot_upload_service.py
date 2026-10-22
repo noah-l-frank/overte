@@ -210,6 +210,32 @@ class SnapshotUploadService:
         suffix={'image/png':'.png','image/jpeg':'.jpg','image/gif':'.gif','image/webp':'.webp'}[image['mime']]
         return self.origin+'/snapshot-media/'+snapshot+suffix
 
+    def image_original(self,run,request,nonce):
+        """Read only a successful original multipart body, never a capture path.
+
+        The query carries existing identities only. Both owned-file checks and
+        actual parsing precede the new acquisition epoch; historical upload
+        completion is retained separately. Retirement never recreates bytes.
+        """
+        identifier(run);identifier(request);identifier(nonce)
+        with self.accounts.changed:
+            row=self.runs.get(run)
+            if row is None or not row['active']:raise ValueError('Original Snapshot upload scope is unavailable')
+            matches=[item for item in row['requests'] if item['requestId']==request]
+            if len(matches)!=1:raise ValueError('Original Snapshot image request is unavailable')
+            original=matches[0]
+            if (original['method']!='POST' or original['target']!=SNAPSHOTS or not original['authenticated']
+                    or original['state']!='written' or original['response'] is None or original['response']['status']!=200
+                    or original['image'] is None):raise ValueError('Original Snapshot image is not a successful delivered upload')
+            self._owned(original['body']);wire=self.original(original['body'])
+            image,payload=multipart(original['contentType'],wire)
+            self._owned(original['body'])
+            if image!=original['image']:raise ValueError('Original uploaded image no longer matches its wire receipt')
+            metadata=dict(snapshotUploadOriginalVersion=1,instance=self.instance,runId=run,requestId=request,readId=nonce,
+                ticket=original['ticket'],capturedEpochMs=self.accounts.now(),originalCompletedEpochMs=original['completedEpochMs'],
+                domainId=self.domain_id,origin=self.origin,body=deepcopy(original['body']),image=deepcopy(image))
+            return metadata,payload
+
     @contextmanager
     def response(self,authorization,method,target,content_type,raw):
         parsed=urlsplit(target)

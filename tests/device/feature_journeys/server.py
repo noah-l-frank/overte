@@ -3,6 +3,7 @@
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 import argparse
+import base64
 from contextlib import ExitStack
 import hmac
 import hashlib
@@ -258,6 +259,21 @@ class Handler(BaseHTTPRequestHandler):
                 else:self.send(response[0],response[1],response_id=response[2],observe_write=response[3])
         return True
 
+    def send_snapshot_original(self,metadata,body):
+        # A distinct binary route preserves the existing 1 MiB JSON Client
+        # limit. The service measured these bytes from its retained multipart.
+        encoded=base64.b64encode(json.dumps(metadata,sort_keys=True,separators=(',',':')).encode()).decode('ascii')
+        if len(encoded)>8192 or type(body) is not bytes or not 0<len(body)<=SNAPSHOT_MAX_BODY:
+            raise ValueError('Original Snapshot binary response exceeds its bound')
+        self.send_response(200)
+        self.send_header('Content-Type',metadata['image']['mime'])
+        self.send_header('Content-Length',str(len(body)))
+        self.send_header('Cache-Control','no-store')
+        self.send_header('X-Content-Type-Options','nosniff')
+        self.send_header('X-Overte-Snapshot-Original',encoded)
+        self.end_headers()
+        if self.wfile.write(body)!=len(body):raise ValueError('Incomplete original Snapshot binary response')
+
     def handle_request(self):
         try:
             parsed = urlsplit(self.path)
@@ -401,6 +417,13 @@ class Handler(BaseHTTPRequestHandler):
                 nonces=self.headers.get_all('X-Overte-Snapshot-Upload-Read',[])
                 if len(nonces)!=1:raise ValueError('Fresh original Snapshot upload nonce is required')
                 return self.send(200,provider.snapshot(run,identifier(nonces[0])))
+            if len(parts)==6 and parts[2:4]==['snapshot-upload','original']:
+                if (self.command!='GET' or self.server.snapshot_upload_service is None or len(self.headers.get_all('Authorization',[]))!=1
+                        or not isinstance(self.connection,ssl.SSLSocket) or self.connection.version() not in ('TLSv1.2','TLSv1.3')):return self.send(403,{'error':'forbidden'})
+                if parsed.query or self.headers.get('Content-Length') not in (None,'0') or self.headers.get('Transfer-Encoding'):
+                    raise ValueError('Unexpected original Snapshot binary query body')
+                metadata,payload=self.server.snapshot_upload_service.image_original(run,identifier(parts[4]),identifier(parts[5]))
+                return self.send_snapshot_original(metadata,payload)
             if parts[2:]==['snapshot-upload','credentials']:
                 if self.command!='GET' or not reader or self.server.snapshot_upload_service is None:return self.send(403,{'error':'forbidden'})
                 return self.send(200,self.server.snapshot_upload_service.credentials(run))

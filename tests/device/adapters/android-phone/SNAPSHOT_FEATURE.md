@@ -518,3 +518,12 @@ native/UI producers and simulated clocks. The existing normal W3C five-format
 and byte-decoder tests remain separate checks of their documented boundary.
 These simulations do not establish Android rendering, original OS behavior or
 product/device acceptance. Public extended Snapshot composition remains open.
+
+
+## Independently retained uploaded bytes
+
+The readonly `/runs/<run>/snapshot-upload/original/<request>/<nonce>` route reads only the original successful, delivered image POST from the existing HTTPS Snapshot provider. It checks the original private body journal, device/inode, mode/link/owner and complete SHA-256 before parsing that actual retained multipart again. It returns that payload with original request/ticket/provider/body/image identity and a separate current acquisition epoch. Original upload completion is never retimed. Missing, modified, replaced, retired, failed or foreign requests cannot supply bytes. No native capture path or caller-provided body/hash is accepted.
+
+`PhoneSnapshotUploadBytes` brackets binary acquisition with its own fresh provider reads using the existing role credential. It checks the fresh nonce and exact provider/run/request/ticket/domain/HTTPS-origin identities, original multipart receipt and payload metadata, actual decoded bytes, immutable completion time and real five-second acquisition/freshness guards. This separate binary route retains the existing 32 MiB original multipart ceiling and leaves the generic Client's 1 MiB JSON ceiling unchanged. The resulting file source is `snapshot-upload-original`; private capture bytes cannot be relabeled as upload evidence. Both actor and adapter reader credentials can acquire originals, while the product access token and mutation requests cannot use this route. This supplies component evidence only; the complete public composition remains unadvertised.
+
+The dedicated host check uses real loopback TLS, actual multipart uploads, private original inodes and image decoding. It includes an original PNG larger than 1 MiB, changed wire bytes/inodes/permissions/links, missing/retired sources, foreign roles/run/request/ticket/nonces, stale metadata, changed payload and an advanced five-second acquisition clock. SDK/native request producers remain explicit synthetic seams; no live product upload or device acceptance is claimed.
