@@ -250,6 +250,11 @@ class OwnedCreateModels:
             self.update(entityId=row['id'],lifetime=life[0])
         else:need(row['id']==step['entityId'] and all(life[0][k]==step['lifetime'][k] for k in ('id','instance','firstObservedEpochMs')))
         return row
+    def extra_ready(self,actual,operation,row):return True
+    def extra_clocks(self,actual):return ()
+    def extra_stable(self,actual):return None
+    def extra_release_ready(self,actual):return True
+    def original_readers(self):return (self.entities,self.callbacks,self.work)
     def quiet(self,operation,*,created=False):
         start=self.now();quiet=None;clocks=None;stable=None;previous_ui=None
         for attempt in range(103):
@@ -274,8 +279,9 @@ class OwnedCreateModels:
                         ready=ready and texture['submitted'] and row['textures']==self.texture_text(texture)
                         ready=ready and row['lastEditedEpochUs']>=texture['before']['capturedEpochMs']*1000
             else:ready=ready and entities_retired(actual['entities']['source']) and page['selectedIds']==[]
-            now=self.now();epochs=(actual['entities']['capturedEpochMs'],actual['work']['source']['work']['capturedEpochMs'],ui['scope']['elapsedMs'])
-            observed=(deepcopy(row),current['timerInvocations'],current['timerRegistrations'])
+            extra=self.extra_ready(actual,operation,row);ready=ready and extra
+            now=self.now();epochs=(actual['entities']['capturedEpochMs'],actual['work']['source']['work']['capturedEpochMs'],ui['scope']['elapsedMs'])+self.extra_clocks(actual)
+            observed=(deepcopy(row),current['timerInvocations'],current['timerRegistrations'],self.extra_stable(actual))
             if ready and (stable is None or stable==observed):
                 quiet=now if quiet is None else quiet;clocks=epochs if clocks is None else clocks;stable=observed
                 if now-quiet>=3 and all(b-a>=3000 for a,b in zip(clocks,epochs)):return actual
@@ -322,8 +328,8 @@ class OwnedCreateModels:
         controls=self.controls(self.intent);controls.select_entity(row['id']);controls.delete_entity();return self.reconcile()
     def release(self):
         value=self.state();need(value['pending'] is None and all(s['outcome']=='deleted' for s in value['steps']))
-        self.quiet('delete');self.store.discard(value);self.previous=None
-        for reader in (self.entities,self.callbacks,self.work):reader.retire()
+        actual=self.quiet('delete');need(self.extra_release_ready(actual));self.store.discard(value);self.previous=None
+        for reader in self.original_readers():reader.retire()
         return {'performed':True}
 
     def release_observations(self):
@@ -338,12 +344,12 @@ class OwnedCreateModels:
                     and ui['scope']['elapsedMs']>=previous_ui['elapsedMs'])
             previous_ui=deepcopy(ui['scope'])
             ready=(entities_retired(actual['entities']['source']) and idle(actual['scope'])
-                and not active_callbacks(actual['callbacks']) and not page['selectedIds'] and not page['statusError'])
-            now=self.now();clocks=(actual['entities']['capturedEpochMs'],actual['work']['source']['work']['capturedEpochMs'],ui['scope']['elapsedMs'])
+                and not active_callbacks(actual['callbacks']) and not page['selectedIds'] and not page['statusError'] and self.extra_release_ready(actual))
+            now=self.now();clocks=(actual['entities']['capturedEpochMs'],actual['work']['source']['work']['capturedEpochMs'],ui['scope']['elapsedMs'])+self.extra_clocks(actual)
             if ready:
                 quiet=now if quiet is None else quiet;epochs=clocks if epochs is None else epochs
                 if now-quiet>=3 and all(b-a>=3000 for a,b in zip(epochs,clocks)):
-                    for reader in (self.entities,self.callbacks,self.work):reader.retire()
+                    for reader in self.original_readers():reader.retire()
                     return {'performed':True}
             else:quiet=None;epochs=None
             need(now-started<13 and attempt<67);self.sleep(.2)
@@ -370,16 +376,16 @@ class PicoCreateModels:
         parent=adapter.pico_configuration[1];key=hashlib.sha256(('org.overte.pico\0'+target).encode()).hexdigest()[:32]
         PrivateFeatureState(parent/'create-models-parent-check.json')._parent();found=[]
         for path in parent.glob('create-models-*-'+key+'-*.json'):
-            need(re.fullmatch(r'create-models-(?:owner|callbacks|entities|work)-'+key+r'-[0-9a-f]{32}\.json',path.name))
+            need(re.fullmatch(r'create-models-(?:owner|callbacks|entities|work|resources|resource-join)-'+key+r'-[0-9a-f]{32}\.json',path.name))
             if PrivateFeatureState(path).read() is not None:found.append(path)
         return found
     @staticmethod
     def owned_target(adapter,target):return bool(PicoCreateModels.journals(adapter,target))
-    def owned(self):return any(self.store(role).read() is not None for role in ('owner','callbacks','entities','work'))
+    def owned(self):return any(self.store(role).read() is not None for role in ('owner','callbacks','entities','work','resources','resource-join'))
     def flow(self):
         from adapters.normal_feature_state import PrivateFeatureState
         self.lock.assert_held()
-        allowed={self.store(role).path for role in ('owner','callbacks','entities','work')}
+        allowed={self.store(role).path for role in ('owner','callbacks','entities','work','resources','resource-join')}
         need(set(self.journals(self.adapter,self.target))<=allowed)
         need(not self.adapter._create_management(self.target).owned()
             and not self.adapter._create_picker_owned(self.target))
@@ -388,8 +394,11 @@ class PicoCreateModels:
         entities=OriginalReader(self.adapter._create_entity_observer(self.target,self.run),self.store('entities'),binding)
         callbacks=OriginalReader(self.adapter._create_callback_observer(self.target),self.store('callbacks'),binding)
         work=WorkJournal(self.adapter._script_work(self.target),self.store('work'),binding)
-        return OwnedCreateModels(self.store('owner'),binding,lambda intent:self.adapter._create_controls(self.target,intent),
-            entities,callbacks,work,monotonic=ui.monotonic,sleep=ui.sleep)
+        from adapters.pico4.create_model_resource_join import ResourceJoinedCreateModels
+        resources=OriginalReader(self.adapter._create_model_resources_observer(self.target,self.run),self.store('resources'),binding)
+        return ResourceJoinedCreateModels(self.store('owner'),binding,lambda intent:self.adapter._create_controls(self.target,intent),
+            entities,callbacks,work,resources=resources,join_store=self.store('resource-join'),
+            monotonic=ui.monotonic,sleep=ui.sleep)
     def invoke(self,operation,*,ticket=None,fixture_url=None,resource=None):
         need(operation in ('create','texture','delete','reconcile','release'))
         with self.lock.held():

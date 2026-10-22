@@ -3,9 +3,10 @@
 Feature 4/14 remains **partial**. The private
 `_create_model_resources_observer(target, run)` supplies passive original
 Model, loaded Geometry, current material/channel bindings and NetworkTexture
-state. It does not load a model or request a texture. The durable Model owner
-currently proves the actual `textures` entity property separately; joining
-these resource originals into that owner is the next composition step.
+state. It does not load a model or request a texture. The durable production Model
+owner now joins this source through [the resource-binding owner](CREATE_MODEL_RESOURCE_JOIN.md);
+its v2 property component remains separately limited to the actual `textures`
+entity property.
 
 ## Original path and admission
 
