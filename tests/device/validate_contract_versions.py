@@ -48,6 +48,7 @@ REQUIRED = {
     "ios-navigation-process-context": 2,
     "ios-navigation-process-source-basis": 2,
     "ios-navigation-process-return": 1,
+    "ios-navigation-before-restart": 1,
     "ios-navigation-process-owner": 1,
     "ios-script-dialogs": 1,
     "ios-script-dialog-ledger": 1,

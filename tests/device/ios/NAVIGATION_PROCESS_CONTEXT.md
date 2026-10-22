@@ -85,6 +85,18 @@ including their source basis and exact original shape. They cannot adopt a
 retained root. The compatible process-owner version-1 envelope retains its
 versioned context as an explicit nested original, including archived v1 data.
 
+`NavigationBeforeRestart` now durably acquires the pre-stop group. It retains
+the actual eight originals, independent provider reads, native clock bracket
+and actual process-qualified address input carrier before validating the owned
+scene. It shares the original admission's candidate, lock and fixed private
+directory; it never stops an app. Partial reads stay owned and cannot restart
+under a fresh clock window. A fully retained lost result can be reconstructed
+without SDK or HTTP calls, but cannot renew the original input deadline.
+Its runtime factory verifies the existing selector's full binding and directory.
+Host tests cover original-only recovery, retained prefix, foreign scene/root,
+changed preferences, archive tampering and the expired input deadline. Native
+and process behavior remain explicitly modeled in these tests.
+
 The ordinary restart controller and pre-stop input/image drainage still need
 whole-journey integration. This transfer accepts only a reloaded owned run
 scene. A default/foreign startup world requires a fresh, explicitly owned

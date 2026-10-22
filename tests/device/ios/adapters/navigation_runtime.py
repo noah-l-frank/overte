@@ -31,6 +31,14 @@ from ios.adapters.script_runtime import IOSScriptRuntime
 
 
 class IOSNavigationRuntime(IOSScriptRuntime):
+    def _navigation_before_restart(self,selector,admission):
+        from ios.adapters.navigation_before_restart import NavigationBeforeRestart
+        need(isinstance(admission,NavigationAdmissionOwner));admission.bound()
+        source=self._sources(selector);need(same(source['binding'],admission.binding)
+            and admission.store.path.parent==self.state_path(selector).parent)
+        return NavigationBeforeRestart(PrivateFeatureState(admission.store.path.with_name(
+            'ios-navigation-before-restart.json')),admission)
+
     def _navigation_process_scope(self,owner):
         return NavigationProcessScope(owner)
 
