@@ -12,6 +12,7 @@ from ios.adapters.snapshot_artifact import SnapshotArtifact
 from ios.adapters.snapshot_input_owner import SnapshotInputOwner
 from ios.adapters.snapshot_manifest import SnapshotManifest,absent
 from ios.adapters import snapshot_work as work,snapshot_captures as native
+from snapshot_observation import inspect_snapshot
 
 
 def completed(inputs,index,before_work,after_work,before_native,after_native,before_files,artifact,scripts_root):
@@ -80,3 +81,16 @@ def completed(inputs,index,before_work,after_work,before_native,after_native,bef
         processId=inputs.pid,inputIndex=index,captureId=request,captureInstance=capture['instance'],mode='still',format=row['snapshotFormat'],
         file=deepcopy(fact['file']),artifactIndex=artifact.index,completedNativeEpochMs=terminal[0]['capturedEpochMs'],
         decodedImageRequired=True,destinationOutcomeRequired=True,independentWitnessRequired=True,quietWindowRequired=True)
+
+
+def decoded(inputs,index,before_work,after_work,before_native,after_native,before_files,artifact,scripts_root):
+    """Decode the same original file after the complete capture/source join.
+
+    The common decoder verifies encoding and complete nonuniform pixels. Scene
+    fidelity, system destinations and independent witness evidence stay open.
+    """
+    capture=completed(inputs,index,before_work,after_work,before_native,after_native,before_files,artifact,scripts_root)
+    raw=artifact.read();image=inspect_snapshot(raw,mode=capture['mode'],file_format=capture['format'])
+    need(image['sha256']==capture['file']['sha256'] and image['bytes']==capture['file']['size'])
+    return dict(iosSnapshotDecodedCaptureVersion=1,capture=capture,image=image,sceneFidelityRequired=True,
+        destinationOutcomeRequired=True,independentWitnessRequired=True,quietWindowRequired=True)

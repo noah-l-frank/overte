@@ -481,6 +481,7 @@ REQUIRED = {
     "ios-snapshot-chunk-original": 1,
     "ios-snapshot-original-file": 1,
     "ios-snapshot-completed-capture": 1,
+    "ios-snapshot-decoded-capture": 1,
     "ios-snapshot-artifact": 1,
     "ios-snapshot-artifact-work-frame": 1,
     "ios-snapshot-artifact-work-original": 1,

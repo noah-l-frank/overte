@@ -24,7 +24,7 @@ RUN=work_fixture.RUN
 class SnapshotCompletionTests(unittest.TestCase):
     def setUp(self):
         self.f=files_fixture.SnapshotOriginalFileTests();self.f.setUp();self.addCleanup(self.f.doCleanups)
-        self.ctx=self.f.f;self.now=BASE-50;self.bytes=self.f.h.path.read_bytes();self.f.h.path.unlink()
+        self.ctx=self.f.f;self.now=BASE-50;self.format='png';self.bytes=self.f.h.path.read_bytes();self.f.h.path.unlink()
         self.request='snap_'+str(BASE+20)+'_1'
         self.f.h.path=self.f.h.path.with_name(self.f.h.prefix+'-'+self.request+'.png')
         self.f.h.epoch_ms=lambda:self.now
@@ -43,7 +43,7 @@ class SnapshotCompletionTests(unittest.TestCase):
         actual_time=patch('time.time',lambda:self.now/1000);actual_time.start();self.addCleanup(actual_time.stop)
         self.input_native=InputNative();self.input_native.name=self.f.h.prefix;observed=self.input_native.observed
         def observation():
-            value=observed();value['controls'][0].update(snapshotMode=0,snapshotFormat='png');return value
+            value=observed();value['controls'][0].update(snapshotMode=0,snapshotFormat=self.format);return value
         self.input_native.observed=observation
         actual_input=patch.object(normal_input,'urlopen',self.input_native.post);actual_input.start();self.addCleanup(actual_input.stop)
 
@@ -56,7 +56,7 @@ class SnapshotCompletionTests(unittest.TestCase):
     def manifest(self,index):
         owner=SnapshotManifest(PrivateFeatureState(self.ctx.root/('ios-snapshot-primary-manifest-'+format(index,'04d')+'.json')),
             self.ctx.lock,self.ctx.binding,RUN,'primary',index,self.ctx.feature,self.clock(),lambda:True)
-        owner.reserve('still-png');owner.send(self.now);owner.recover();return owner
+        owner.reserve('still-'+self.format);owner.send(self.now);owner.recover();return owner
 
     def work(self):
         before=work_fixture.packet();after=deepcopy(before);after.update(requestId='ios-'+'e'*32,sequence=2)
@@ -84,6 +84,9 @@ class SnapshotCompletionTests(unittest.TestCase):
         return before,after
 
     def prepared(self):
+        self.f.h.prefix='parity-'+RUN[:16]+'-still-'+self.format
+        self.f.h.path=self.f.h.path.with_name(self.f.h.prefix+'-'+self.request+'.'+self.format)
+        self.input_native.name=self.f.h.prefix
         first=self.manifest(1);native=capture_fixture.Native();native.tick=lambda:self.now
         native.clock=lambda:dict(epochMs=self.now,monotonicMs=self.now-BASE+1000)
         self.now=BASE-40;before_native=native.read();before_work,after_work=self.work()

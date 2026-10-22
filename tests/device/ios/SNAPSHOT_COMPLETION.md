@@ -37,3 +37,21 @@ request identifiers, missing callback returns, timeout execution and missing
 actual artifact bytes. Existing production JavaScript semantics have their
 separate real Node test entrypoint. Native compilation and devices remain
 unverified.
+
+## Actual image decoding
+
+`snapshot_completion.decoded` reuses that complete capture/source/file join and
+passes the same private artifact bytes to the existing shared
+`snapshot_observation.inspect_snapshot` decoder. Mode and format come from the
+actual ordinary controls. The decoded full-file hash and byte count must match
+the retained native file manifest. The existing decoder checks actual encoding,
+dimensions, complete frame data, stream termination/checksums and nonuniform
+pixels. It is not replaced with an iOS-specific expected-image encoder.
+
+The version-1 result retains both the original capture fact and actual decoded
+image observation. Scene fidelity, independent witness agreement, destination
+outcomes and whole-feature quiet remain explicit obligations. Five further
+composed host cases decode actual PNG/JPEG private files and reject uniform,
+truncated or differently encoded native output, even when its native status,
+manifest hash and durable artifact agree. Image creation occurs only in the
+explicitly modeled test producer; the adapter only reads original bytes.
