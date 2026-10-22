@@ -383,6 +383,8 @@ REQUIRED = {
     "ios-navigation-scene-admission": 1,
     "ios-scene-inventory-acquisition": 1,
     "ios-navigation-sample-owner": 1,
+    "ios-navigation-baseline-image": 1,
+    "ios-navigation-baseline-original": 1,
     "ios-navigation-fixture-reader": 1,
     "ios-navigation-challenge": 1,
     "ios-navigation-rendered-state": 1,

@@ -109,3 +109,18 @@ their modeled host clock from regressing behind an earlier fixture reply.
 Native timestamps and production freshness checks remain unchanged. Initial
 static PNG ownership, full restored originals and paired final retirement still
 gate complete Worlds capability admission.
+
+`NavigationBaselineImage` now owns a distinct untouched static PNG per role.
+The existing candidate-qualified runtime supplies actual native clocks, all
+eight source readers and the original Vulkan frame owner. Each passive query
+is reserved before delivery; raw components remain immutable private files with
+exact hashes instead of enlarging packed-metadata limits. The complete native
+bracket joins the independently observed static import/map, settled original
+pose and recorded Vulkan view to unmodified PNG pixels and actual GPU release.
+Historical replay sends no source or SDK command and cannot renew freshness.
+A later run scene, blank image, changed component/candidate, partial source,
+lost final write or lost GPU read cannot become a fresh untouched baseline.
+Seventeen host tests cover this owner and the runtime factories. Native code
+remains uncompiled and devices untested. Whole preparation must still retain
+both role baselines before entry and acquire a new actual admission cut just
+before its first ordinary input; this image owner alone grants no capability.

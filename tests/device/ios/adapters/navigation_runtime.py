@@ -31,6 +31,23 @@ from ios.adapters.script_runtime import IOSScriptRuntime
 
 
 class IOSNavigationRuntime(IOSScriptRuntime):
+    def _navigation_baseline_image(self,selector,client,run,role,request,root,lock):
+        """Untouched static pixels on this existing installed candidate only."""
+        from ios.adapters.navigation_baseline_image import NavigationBaselineImage
+        identifier(run);need(role in ('primary','actor') and isinstance(lock,ScriptSourceLock));lock.assert_held()
+        source=self._sources(selector);directory=self.state_path(selector).parent
+        need(lock.path==directory/'script-feature-sources.lock')
+        fixture=NavigationFixtureReader(client,run);fixture.attach()
+        need(fixture.inputs['sourceRevision']==source['binding']['sourceRevision'])
+        observer,clock=source['observer'],source['clock_source']
+        readers=dict(inventory=observer.scene_inventory(clock),navigation=observer.navigation_state(clock),
+            bookmarks=observer.location_bookmarks(clock),model=observer.places_model(clock),http=observer.places_http(clock),
+            dialogs=observer.navigation_dialogs(clock),replies=observer.navigation_replies(),ui=source['native'])
+        source['check']()
+        return NavigationBaselineImage(PrivateFeatureState(directory/('ios-navigation-baseline-'+role+'-'+request[4:]+'.json')),
+            root,source['binding'],run,role,request,lock,source['check'],native=observer.bound_native_observer(clock),
+            sources=readers,fixture=fixture,frame_factory=lambda intent,receipt:observer.vulkan_world_frame(intent,receipt))
+
     def _navigation_observer(self,selector,client,run,role,stage,root,lock):
         """Role-owned original acquisition/publication on the existing session."""
         import uuid

@@ -61,6 +61,20 @@ class NavigationRuntimeTests(unittest.TestCase):
         self.assertEqual((sessions,launches),(self.f.sessions,self.f.launches))
         self.assertFalse(any(operation in ('mobile: terminateApp','mobile: backgroundApp') for operation,_values in self.f.commands))
 
+    def test_untouched_baseline_factory_keeps_actual_candidate_ports_without_input_or_capture(self):
+        sessions,launches=self.f.sessions,self.f.launches
+        with self.lock.held():
+            owner=self.runtime._navigation_baseline_image('test-only',self.scene.client,self.run,'actor',
+                'ios-'+uuid.uuid4().hex,self.root,self.lock)
+            self.assertEqual('42',owner.binding['processIdentity']);self.assertEqual('actor',owner.role)
+            self.assertIsNone(owner.store.read());self.assertEqual(8,len(owner.sources))
+            self.assertTrue(owner.native.native_clock_bound)
+            self.assertEqual(20000,owner.native.read(0)['capturedEpochMs'])
+            self.f.process['pid']=43
+            with self.assertRaises((NativeUIError,ValueError)):owner.bound()
+        self.assertEqual((sessions,launches),(self.f.sessions,self.f.launches))
+        self.assertFalse(any(operation in ('mobile: terminateApp','mobile: backgroundApp') for operation,_values in self.f.commands))
+
     def test_independent_observer_factory_keeps_existing_candidate_and_original_owner_ports(self):
         sessions,launches=self.f.sessions,self.f.launches
         with self.lock.held():
