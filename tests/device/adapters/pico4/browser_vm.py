@@ -9,7 +9,7 @@ from copy import deepcopy
 import hashlib
 import math
 import re
-from adapters.chat_journey.source_chunks import ChatSourceChunks
+from adapters.chat_journey.source_chunks import ChatSourceChunks,digest
 from adapters.native_feature_observation import exact,fresh,integer,need,number
 from adapters.native_script_observation import NativeScriptObservation,validate as script_packet
 from adapters.native_script_object_lifetimes import NativeScriptObjectLifetimes,validate as object_packet,selected,ACTION
@@ -115,6 +115,13 @@ class PicoBrowserVm:
                 exact(window,{'first','last','afterEpochMs'});need(self.window(window['first'],window['last'],window['afterEpochMs']))
             scripts.restore_history([row['scripts'] for row in self.frames])
             if self.frames:objects.restore(self.frames[-1]['objectsAfter'])
+        self.cached_digest=self.cache_digest()
+
+    def cache_digest(self):return digest(dict(scope=self.scope,frames=self.frames,origin=self.origin,quiet=self.windows))
+
+    def verify(self):
+        self.lock.assert_held();need(not self.failed and same(self.store.read(),self.previous)
+            and self.cache_digest()==self.cached_digest);self.chunks.verify()
 
     def validate(self,frame,previous):
         origin,facts=join(frame,self.scope['scriptUrl'],self.scripts.pid,origin=self.origin)
@@ -142,7 +149,7 @@ class PicoBrowserVm:
             need(number(measured,started,started+1.5) and number(ended,measured,started+1.5) and integer(epoch,barrier))
             fresh(earliest,epoch);need(max(epoch-earliest+math.ceil((ended-measured)*1000),barrier-earliest+math.ceil((ended-started)*1000))<=1500)
         try:
-            self.chunks.verify();manifest=[] if self.previous is None else self.previous['chunks']
+            self.verify();manifest=[] if self.previous is None else self.previous['chunks']
             self.write('reading',manifest);final(barrier)
             before=self.objects.read(0 if self.objects.last is None else self.objects.last['sequence'])
             scripts=self.scripts.read(self.scripts.sequence,require_effects=True,require_code_identity=True,require_load_history=True,require_membership=True)
@@ -150,7 +157,7 @@ class PicoBrowserVm:
             frame=dict(objectsBefore=before,scripts=scripts,objectsAfter=after,http=http,hostMonotonic=self.objects.monotonic())
             facts=self.validate(frame,self.frames);candidate=deepcopy(frame);result=deepcopy(facts)
             self.write('ready',self.chunks.append(frame,manifest));self.chunks.verify();final(before['requestedEpochMs'])
-            self.frames.append(candidate);return result
+            self.frames.append(candidate);self.cached_digest=self.cache_digest();return result
         except Exception:
             self.failed=True;raise NativeUIError('Original browser VM ownership is retained; source transaction did not complete') from None
 
@@ -171,7 +178,7 @@ class PicoBrowserVm:
 
     def quiet(self,after_epoch):
         """Record an exact complete suffix once; later reads retain its originals."""
-        self.lock.assert_held();self.chunks.verify();need(integer(after_epoch,1) and not self.failed)
+        self.verify();need(integer(after_epoch,1))
         for window in self.windows:
             if window['afterEpochMs']==after_epoch:return self.window(window['first'],window['last'],after_epoch)
         rows=[]
@@ -186,6 +193,7 @@ class PicoBrowserVm:
         need(len(self.windows)<16);started=self.objects.monotonic()
         windows=self.windows+[dict(first=first,last=last,afterEpochMs=after_epoch)]
         self.write('ready',self.previous['chunks'],windows=windows);self.windows=deepcopy(windows)
+        self.cached_digest=self.cache_digest()
         need(self.scripts.guard() is not False and self.objects.guard() is not False)
         measured=self.objects.monotonic();epoch=self.objects.clock_ms();ended=self.objects.monotonic()
         captured=self.frames[-1]['objectsBefore']['source']['capturedEpochMs']

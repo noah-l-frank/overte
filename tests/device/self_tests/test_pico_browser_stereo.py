@@ -180,6 +180,20 @@ class PicoBrowserStereoTests(unittest.TestCase):
         self.assertEqual('',facts['state']['text']);self.assertEqual(2,len(owner.artifacts(1)))
         self.assertIsNone(model.owner_store('primary').read());self.assertEqual([],list(model.native_root.iterdir()))
         model.browser_stereo().acquire(TICKET);self.assertEqual(1,len(model.gpu.commands))
+
+    def test_retirement_reuses_only_immutable_validated_sources_and_rechecks_every_original_file(self):
+        import adapters.pico4.browser_stereo as source
+        model=self.model();owner=model.browser_stereo()
+        with patch.object(source,'stereo_frame',wraps=source.stereo_frame) as validate:
+            state=owner.acquire(TICKET);count=validate.call_count
+            self.assertLess(count,4);owner.image_bytes();self.assertEqual(count,validate.call_count)
+            # A fresh reader must validate the complete original source again.
+            model.browser_stereo();self.assertGreater(validate.call_count,count)
+        frame=deepcopy(owner.state);frame['frame']['browserBefore']['source']['current']['source']['dom']['editor']['text']='foreign'
+        with model.lock.held(),self.assertRaises(NativeUIError):owner.save(frame)
+        path=model.artifacts/state['image']['name'];raw=path.read_bytes();path.write_bytes(raw)
+        with self.assertRaises(NativeUIError):owner.image_bytes()
+        self.assertEqual(1,len(model.gpu.commands));self.assertEqual(raw,path.read_bytes())
     def test_independent_roles_use_separate_original_capture_and_artifact_journals(self):
         model=self.model();a=model.browser_stereo();first=a.acquire(TICKET)
         b=model.browser_stereo(role='actor');second=b.acquire(TICKET)

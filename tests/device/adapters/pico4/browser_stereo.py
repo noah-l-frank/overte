@@ -19,6 +19,8 @@ from adapters.graphics_journey.originals import GraphicsOriginals,record as imag
 from adapters.graphics_journey.samples import retirement
 from adapters.owned_world_render import OwnedWorldRenderCapture
 from adapters.script_journey.history import pack,unpack
+from adapters.chat_journey.source_chunks import digest
+from adapters.chat_journey.archive_file import signature
 from adapters.script_journey.lock import ScriptSourceLock
 from feature_journeys.contract import identifier
 
@@ -54,6 +56,7 @@ class PicoBrowserStereo(OriginalStereoRetirement):
         self.journal_id=journal_id
         self.role,self.monotonic=role,monotonic;self.store=PrivateFeatureState(path);self.disk=self.store.read();self.state=None
         self.images=GraphicsOriginals(artifact_root,binding,run,role,0,guard,self.image_intent,monotonic=monotonic)
+        self.validated_image=None
         if self.disk is not None:
             version=self.disk.get('picoBrowserStereoOwnerVersion')
             exact(self.disk,{'picoBrowserStereoOwnerVersion','runId','binding','role','artifactRoot','payload','journalId','scope'})
@@ -83,7 +86,7 @@ class PicoBrowserStereo(OriginalStereoRetirement):
             need(image['binding']==self.binding and image['runId']==self.run and image['role']==self.role
                  and image['stage']==0 and image['ticket']==value['ticket'] and image['kind']=='image'
                  and value['frame'] is not None and image['capture']==value['frame']['capture'])
-            if image['phase']=='saved':stereo_frame(value['frame'],GraphicsOriginals.archive(self.images.root,image),self.run,self.binding,self.arrival.scene_url)
+            if image['phase']=='saved':self.image_content(value['frame'],image,historical=True)
         if value['proof'] is not None:
             retirement(value['proof'],value['proof']['owner'],int(self.binding['processIdentity'].split(':',1)[0]),self.binding,self.role)
             need(value['proof']['memory']['instance']==value['frame']['capture']['instance']
@@ -102,7 +105,23 @@ class PicoBrowserStereo(OriginalStereoRetirement):
         image_transition(self.state['image'],image);current=deepcopy(self.state);current['image']=image;self.save(current)
     def image_bytes(self):
         need(self.state is not None and self.state['image'] is not None and self.state['image']['phase']=='saved')
-        return self.images.read(self.state['image'])
+        return self.image_content(self.state['frame'],self.state['image'],historical=False)
+
+    def image_content(self,frame,image,*,historical):
+        # Each retirement CAS retains the same immutable capture, not a new
+        # product observation. Recheck every original PNG byte and physical
+        # stamp; decode its unchanged complete source semantics once per owner.
+        image_record(image);path=self.images.root/image['name'];before=signature(path.lstat())
+        key=digest(dict(frame=frame,image=image,runId=self.run,binding=self.binding,role=self.role,
+            scope=self.scope,sceneUrl=self.arrival.scene_url,artifactRoot=str(self.images.root)))
+        expected=(key,tuple(before))
+        need(self.validated_image is None or self.validated_image==expected)
+        raw=GraphicsOriginals.archive(self.images.root,image) if historical else self.images.read(image)
+        need(signature(path.lstat())==before)
+        if self.validated_image is None:
+            stereo_frame(frame,raw,self.run,self.binding,self.arrival.scene_url)
+            need(signature(path.lstat())==before);self.validated_image=expected
+        return raw
     def artifacts(self,sequence):
         """Original complete source journal plus PNG; no fresh sample is implied."""
         from adapters.native_feature_observation import integer

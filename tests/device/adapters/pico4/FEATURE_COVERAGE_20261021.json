@@ -704,7 +704,14 @@
         "tests/device/adapters/pico4/browser_vm.py",
         "tests/device/self_tests/test_pico_browser_vm.py",
         "tests/device/adapters/pico4/browser_quiet_journal.py",
-        "tests/device/adapters/pico4/TABLET_WEB_COMPOSITION.md"
+        "tests/device/adapters/pico4/TABLET_WEB_COMPOSITION.md",
+        "tests/device/adapters/retired_world_capture.py",
+        "tests/device/self_tests/pico_browser_fixture.py",
+        "tests/device/self_tests/pico_browser_render_fixture.py",
+        "tests/device/self_tests/test_pico_tablet_web_images.py",
+        "tests/device/self_tests/test_pico_tablet_web_flow.py",
+        "tests/device/self_tests/test_pico_tablet_web_stereo_flow.py",
+        "tests/device/self_tests/test_pico_browser_quiet_journal.py"
       ],
       "declaredCheckpoints": 26,
       "inputVerbs": [
@@ -743,9 +750,9 @@
         "open"
       ],
       "missingOperationsOrEvidence": [
-        "Complete 26-stage Journey image/actor qualification: all26 private normal input/state stages, original HTTP/DOM/source measurement and normal browser/VM quiet cleanup are host verified with explicit synthetic target producers; original product execution remains unqualified",
-        "Complete independent actor/state/stereo publication and inline/held-callback qualification across all shared steps; private baseline actor, once-only durable publication and post-CAS original clock fences are host verified",
-        "Whole final Script/native/Java/renderer/capture quiet retirement and immutable archive: original compiled HTTP client, actual manager/engine/worker death and retained three-clock VM quiet are now joined to the private owner; complete phase/capture/actor originals and final capture absence remain outstanding"
+        "Original product/HMD qualification: the complete26-action shared host Journey now passes with separate primary/independent actor stereo originals, normal cleanup and the final3s empty observation window; GPU/Qt/DOM/Java/OS producers remain explicit host seams",
+        "Complete durable original phase, primary/actor publication and source-frame archive across the whole Journey; current role state and original VM/stereo/quiet journals must be joined without losing earlier observations",
+        "Whole final Script/native/Java/renderer/capture quiet retirement and immutable archive: the fresh read-only capture-absence source is present, but complete historical capture traversal, original final source ownership, host closure and public capability admission remain outstanding"
       ],
       "requiredOriginalEvidence": [
         "Original VR tablet Web view and current document admission",
@@ -758,7 +765,7 @@
         "Revoke leases and retire callback/grant authority",
         "Observe actual source destruction and closed quiet baseline"
       ],
-      "nextExecutableStep": "Connect the full26 input/state lane to original primary/independent actor stereo acquisition and the common Journey verifier; then join current final capture absence, complete original phase histories and immutable archive before enabling finalization/public capabilities.",
+      "nextExecutableStep": "Join complete original phase/actor/source histories and freshly inspect every historical primary/actor capture before immutable archive retirement and public operation/actor admission. The full26-action host Journey now passes82.390s with unchanged120s timeout; complete source areas remain3/14.",
       "nativeCompilation": "Selected native backend translation unit and original Pico pointer/provider bodies host-compiled; full application unverified",
       "deviceQualification": "untested"
     },

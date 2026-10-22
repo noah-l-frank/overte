@@ -10,6 +10,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 from adapters.native_feature_observation import NativeFeatureObservation
+from adapters.normal_feature_state import PrivateFeatureState
 from adapters.native_web_runtime import NativeWebRuntime
 from adapters.normal_ui import NativeUIError
 from adapters.pico4.tablet_browser_source import PicoTabletBrowserIO
@@ -36,6 +37,9 @@ class Original:
         self.installed={key:self.binding[key] for key in ('sourceRevision','artifactSha256')}
         self.adb=SimpleNamespace(foreground_package=lambda target:'org.overte.pico')
     def _script_journey(self):return SimpleNamespace(_lock=self.source_lock)
+    def _world_render_store(self,target):return PrivateFeatureState(self.root/('capture-default-'+target+'.json'))
+    def _browser_world_render_store(self,target,role):return PrivateFeatureState(self.root/('capture-browser-'+role+'-'+target+'.json'))
+    def _emote_world_render_store(self,target,role):return PrivateFeatureState(self.root/('capture-emote-'+role+'-'+target+'.json'))
     def source_lock(self,target,provided=None):
         if provided is not None:need(provided is self.lock)
         return self.lock
@@ -135,6 +139,30 @@ class PicoTabletWebFeatureTests(unittest.TestCase):
             before=len(self.original.commands)
             with self.subTest(name=name),self.assertRaises((ValueError,RuntimeError)):flow.prepare()
             self.assertEqual(before,len(self.original.commands));self.assertEqual(dict(original='unresolved'),child.read())
+
+    def test_original_capture_owners_refuse_before_reservation_and_late_owner_retains_unissued_intent(self):
+        for index in range(7):
+            source=PhaseFixtureReader(self.client(),RUN,'tablet-web',epoch_ms=lambda:self.original.epoch,monotonic=lambda:self.original.host)
+            flow=self.binding.feature('capture-orphan-'+str(index),source,self.artifacts,FOREIGN)
+            with flow.lock.held():store=self.binding._tablet_web_capture_stores(flow.selector,flow.lock)[index]
+            store.write(dict(original='unresolved'),None);before=len(self.original.commands)
+            with self.subTest(index=index),self.assertRaises((ValueError,RuntimeError)):flow.prepare()
+            self.assertEqual(before,len(self.original.commands));self.assertIsNone(flow.store.read())
+            self.assertEqual(dict(original='unresolved'),store.read())
+        # An owner appearing while the durable reserve intent is being saved
+        # must block the original send too. Reconstructing cannot resend it.
+        flow=self.flow();write=flow.store.write
+        store=self.original._browser_world_render_store(flow.selector,'actor')
+        def late(value,previous):
+            write(value,previous)
+            if value['kind']=='owner':
+                from adapters.script_journey.history import unpack
+                if unpack(value['payload'])[0]['inputs'] and store.read() is None:store.write(dict(original='late'),None)
+        before=len(self.original.commands)
+        with patch.object(flow.store,'write',side_effect=late),self.assertRaises((ValueError,RuntimeError)):flow.prepare()
+        self.assertEqual(before,len(self.original.commands));self.assertEqual(dict(original='late'),store.read())
+        with self.assertRaises((ValueError,RuntimeError)):self.flow().prepare()
+        self.assertEqual(before,len(self.original.commands))
     def test_lost_original_publication_is_durable_and_not_resent_after_reconstruction(self):
         primary=self.flow();primary.prepare();self.lose_pub=True
         with self.assertRaises((ValueError,RuntimeError)):self.flow(actor=True).publish()

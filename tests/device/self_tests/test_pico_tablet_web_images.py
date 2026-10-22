@@ -95,5 +95,32 @@ class PicoTabletWebImageTests(unittest.TestCase):
         state['images']=legacy
         with self.assertRaises((ValueError,RuntimeError)):pack([state])
 
+    def test_warm_validation_reuses_only_original_semantics_and_cold_reads_revalidate_every_source(self):
+        self.capture()
+        from feature_journeys.stereo_browser_evidence import archive_sources
+        with self.flow.lock.held(),patch('feature_journeys.stereo_browser_evidence.archive_sources',wraps=archive_sources) as validate:
+            self.flow.role_state();self.assertEqual(1,validate.call_count)
+            self.flow.role_state();self.assertEqual(1,validate.call_count)
+            cold=self.fixture.binding.feature('owned',self.fixture.flow().source,self.model.artifacts,feature_seams.FOREIGN)
+            cold.role_state();self.assertEqual(2,validate.call_count)
+        self.assertEqual(1,len(self.model.gpu.commands))
+
+    def test_warm_png_replacement_cached_value_or_missing_reference_cannot_renew_original_semantics(self):
+        artifacts,_facts=self.capture()
+        with self.flow.lock.held():self.flow.role_state()
+        key=next(iter(self.flow.image_cache));cached=deepcopy(self.flow.image_cache[key])
+        for fault in ('cached-scope','cached-png','reference'):
+            with self.subTest(fault=fault),self.flow.lock.held():
+                if fault=='cached-scope':self.flow.image_cache[key]['scope']['ownerToken']='f'*32
+                elif fault=='cached-png':self.flow.image_cache[key]['png']['capture']['instance']='f'*32
+                else:
+                    empty=deepcopy(self.state);empty['images']=[];self.flow.write(self.flow.role_store,'primary',empty)
+                with self.assertRaises((ValueError,RuntimeError)):self.flow.role_state()
+                self.flow.image_cache[key]=deepcopy(cached);self.flow.write(self.flow.role_store,'primary',self.state)
+        name=next(row['name'] for row in artifacts if row['kind']=='image');path=self.model.artifacts/name
+        raw=path.read_bytes();path.write_bytes(raw)
+        with self.flow.lock.held(),self.assertRaises((ValueError,RuntimeError)):self.flow.role_state()
+        self.assertEqual(1,len(self.model.gpu.commands));self.assertEqual(raw,path.read_bytes())
+
 
 if __name__=='__main__':unittest.main()

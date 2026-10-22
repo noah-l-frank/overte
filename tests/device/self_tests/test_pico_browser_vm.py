@@ -104,6 +104,19 @@ class PicoBrowserVmTests(unittest.TestCase):
         with self.assertRaises((ValueError,RuntimeError)):self.b.owner()
         self.assertEqual(count,self.b.count());self.assertEqual(raw,child.path.read_bytes())
 
+    def test_changed_warm_original_frame_or_origin_refuses_before_next_native_query(self):
+        for fault in ('frame','origin','quiet','scope'):
+            with tempfile.TemporaryDirectory() as directory:
+                b=Boundary(Path(directory));owner=b.owner()
+                with b.lock.held():
+                    owner.capture();owner.capture();count=b.count()
+                    if fault=='frame':owner.frames[0]['hostMonotonic']+=.001
+                    elif fault=='origin':owner.origin['manager']='f'*32
+                    elif fault=='scope':owner.scope['binding']['sessionId']='foreign'
+                    else:owner.windows.append(dict(first=0,last=1,afterEpochMs=1))
+                    with self.subTest(fault=fault),self.assertRaises((ValueError,RuntimeError)):owner.capture()
+                    self.assertEqual(count,b.count());self.assertEqual('ready',owner.store.read()['phase'])
+
     def retired(self,b):
         b.stopped=True
         for kind in ('manager','engine','worker'):

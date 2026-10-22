@@ -261,7 +261,7 @@ class PicoTarget(OriginalTabletTarget):
     scene_url='http://controlled.invalid/scene.json'
     def __init__(self,*args):
         super().__init__(*args);self.lock=ScriptSourceLock(self.path/'script-sources.lock')
-        self.vm=VmBoundary(self.path);self.vm_epoch=None;self.geometry_sequence=0;self.scroll=0
+        self.vm=VmBoundary(self.path);self.vm_epoch=None;self.geometry_sequence=0;self.scroll=0;self.capture_stores=[]
         self.runtime_sequence=0;self.runtime_raw=None;self.renderer_rows={};self.inputs=[];self.command_log=[];self.service_sequence=0
         original=self.vm.objects.send
         def objects(request):
@@ -269,6 +269,12 @@ class PicoTarget(OriginalTabletTarget):
         self.vm.objects.send=objects
 
     def _lock(self,target):return self.lock
+    def _tablet_web_capture_guard(self,target,lock):
+        if lock is not self.lock:raise NativeUIError('Foreign host source lock')
+        lock.assert_held()
+        for store in self.capture_stores:
+            if store.read() is not None:raise NativeUIError('Original host capture remains owned')
+        return True
     def normal_feature_runtime(self,target,**kwargs):
         def observe(after):
             self.service_sequence=max(after+1,self.service_sequence+1)

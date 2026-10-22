@@ -41,12 +41,13 @@ class PicoBrowserQuietJournal:
             a=frame(first,run,url,token,self.pid,retired=False);b=frame(last,run,url,token,self.pid,retired=False)
             self.value['complete']=len(rows)>=3 and last['host']-first['host']>=3 and all(y-x>=3000 for x,y in zip(a,b))
             validate(self.value,run,url,token,self.pid,retired=False)
-        self.value_digest=digest(self.value)
+        self.value_digest=self.cache_digest()
+    def cache_digest(self):return digest(dict(scope=self.scope,value=self.value))
     def migrate(self):
         """Explicitly copy validated legacy originals; never a device query/input."""
         self.lock.assert_held()
         if not self.legacy:return
-        need(self.disk is None);original=deepcopy(self.value);self.value=None;self.value_digest=digest(None);self.legacy=False
+        need(self.disk is None);original=deepcopy(self.value);self.value=None;self.value_digest=self.cache_digest();self.legacy=False
         for row in original['frames']:
             self.begin();self.finish(row['browser'],row['runtime'],row['host'])
         need(same(self.value,original))
@@ -57,7 +58,7 @@ class PicoBrowserQuietJournal:
 
     def verify(self):
         self.lock.assert_held();need(not self.failed and same(self.store.read(),self.disk)
-            and digest(self.value)==self.value_digest);self.chunks.verify()
+            and self.cache_digest()==self.value_digest);self.chunks.verify()
 
     def write(self,phase,chunks):
         self.verify();value={**self.scope,'phase':phase,'revision':1 if self.disk is None else self.disk['revision']+1,'chunks':deepcopy(chunks)}
@@ -83,5 +84,5 @@ class PicoBrowserQuietJournal:
             value=dict(browserQuietVersion=1,frames=rows,complete=len(rows)>=3 and host-first['host']>=3
                 and all(b-x>=3000 for x,b in zip(a,clocks)))
             manifest=self.chunks.append(row,self.disk['chunks']);self.write('ready',manifest)
-            self.value=deepcopy(value);self.value_digest=digest(self.value);return self.reference()
+            self.value=deepcopy(value);self.value_digest=self.cache_digest();return self.reference()
         except Exception:self.failed=True;raise

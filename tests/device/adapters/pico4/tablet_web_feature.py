@@ -77,6 +77,9 @@ class PicoTabletWebFeature:
         self.retirement_store=PrivateFeatureState(path.with_name('pico-'+self.area+'-retirement.json'))
         self.lock=adapter._lock(selector)
         self.originals={};self.live_owner=None;self.fence=None
+        self.image_cache={};self.image_cache_digests={}
+        self.vm_cache=None;self.vm_cache_scope=None
+        self.quiet_cache=None;self.quiet_cache_scope=None
         self.completed_store=PrivateFeatureState(self.artifact_root/(self.area+'-'+self.run+'-retirement.json'))
 
     def manager_store(self):
@@ -84,6 +87,15 @@ class PicoTabletWebFeature:
 
     def manager(self):
         return self.adapter._tablet_web_manager(self.selector,self)
+
+    def vm_reader(self,owner):
+        from adapters.pico4.browser_vm import PicoBrowserVm
+        self.lock.assert_held();need(owner['scriptUrl'] is not None)
+        scope=dict(binding=owner['binding'],scriptUrl=owner['scriptUrl'],role=self.role,runId=self.run,fixtureUrl=self.fixture_url)
+        if self.vm_cache is None:
+            reader=self.adapter._tablet_web_vm(self.selector,self);need(isinstance(reader,PicoBrowserVm))
+            self.vm_cache,self.vm_cache_scope=reader,deepcopy(scope)
+        need(same(self.vm_cache_scope,scope));return self.vm_cache
 
     def check_released(self,runtime):
         return released(runtime,require_renderers=True)
@@ -180,6 +192,7 @@ class PicoTabletWebFeature:
                 need(self.retirement_store.read() is None and self.role_store.read() is None and self.completed_store.read() is None
                     and self.manager_store().read() is None)
                 need(not any(path.name.startswith('pico-'+self.area+'-') for path in self.store.path.parent.iterdir()))
+                self.adapter._tablet_web_capture_guard(self.selector,self.lock)
                 phase=self.source.read();need(phase['verb']=='baseline')
                 _ui,_observe,binding,guard,_installed=self.adapter.normal_feature_runtime(self.selector,read_only=True)
                 guard();owner=dict(binding=deepcopy(binding),ownerToken=uuid.uuid4().hex,phase='preparing',reserved=False,scriptUrl=None,
@@ -215,7 +228,7 @@ class PicoTabletWebFeature:
             manager.open();manager.load_source(owner['scriptUrl'])
             manager.wait_rows(lambda rows:any(row['url']==owner['scriptUrl'] for row in rows));manager.close_tablet()
             self.adapter._tablet_web_entry(self.selector,self,'browser-app.web',initial=True)
-            self.adapter._tablet_web_vm(self.selector,self).capture()
+            self.vm_reader(owner).capture()
         elif verb in ('open-inline-app','return-from-inline'):
             need(bool(self.sample_native(owner)['source']['current']))
             self.adapter._tablet_web_entry(self.selector,self,'browser-app.inline' if verb=='open-inline-app' else 'browser-app.web',initial=False)
@@ -341,7 +354,6 @@ class PicoTabletWebFeature:
 
     def verify_images(self,value,role,*,legacy=False):
         from adapters.pico4.browser_stereo import original_name
-        from adapters.graphics_journey.originals import GraphicsOriginals
         from feature_journeys.stereo_browser_evidence import archive_sources
         owner=self.owner() if value['images'] else None
         need(not value['images'] or owner is not None)
@@ -353,17 +365,59 @@ class PicoTabletWebFeature:
             if image['phase']=='planned':
                 need(image['metadata'] is None and (not legacy or image['record'] is None));continue
             name=original_name(self.run,role,image['journalId']);raw=self.metadata(name,image['metadata'])
+            cache_key=(role,image['journalId']);cached=None if legacy else self.image_cache.get(cache_key)
+            scope=dict(binding=owner['binding'],runId=self.run,fixtureUrl=self.fixture_url,foreignFixtureUrl=self.foreign_url,
+                artifactRoot=str(self.artifact_root),scriptUrl=owner['scriptUrl'],ownerToken=owner['ownerToken'],sceneUrl=self.adapter.scene_url)
+            if cached is not None:
+                need(self.image_cache_digests[cache_key]==self.image_digest(cached)
+                    and same(cached['image'],image) and same(cached['scope'],scope))
+                self.original_image(cached['png'],expected=cached['stamp'])
+                key=tuple(cached['capture']);png_name=cached['png']['name']
+                need(key not in captures and png_name not in pngs);captures.add(key);pngs.add(png_name)
+                continue
             body=json.loads(raw);need((not legacy or same(body,image['record'])) and body['role']==role and body['runId']==self.run)
             rows=unpack(body['payload']);need(len(rows)==1 and rows[0]['phase']=='complete' and rows[0]['ticket']==image['ticket'])
             capture=rows[0]['frame']['capture'];key=(capture['instance'],capture['requestId'])
             need(key not in captures and rows[0]['image']['name'] not in pngs)
             captures.add(key);pngs.add(rows[0]['image']['name'])
-            png=GraphicsOriginals.archive(self.artifact_root,rows[0]['image'])
+            png,stamp=self.original_image(rows[0]['image'])
             original,_state,_facts=archive_sources(raw,png,self.run,image['ticket'],self.adapter.scene_url,role=role)
             need(original['binding']==owner['binding'] and original['journalId']==image['journalId']
                 and original['artifactRoot']==str(self.artifact_root)
                 and original['scope']==dict(fixtureUrl=self.fixture_url,foreignFixtureUrl=self.foreign_url,
                     ownerToken=owner['ownerToken'],scriptUrl=owner['scriptUrl']))
+            if not legacy:
+                need(len(self.image_cache)<512)
+                cached=dict(image=deepcopy(image),scope=deepcopy(scope),png=deepcopy(rows[0]['image']),stamp=stamp,capture=list(key))
+                self.image_cache[cache_key]=cached;self.image_cache_digests[cache_key]=self.image_digest(cached)
+        need(all(key[1] in journals for key in self.image_cache if key[0]==role))
+
+    @staticmethod
+    def image_digest(value):
+        return hashlib.sha256(json.dumps(value,sort_keys=True,separators=(',',':'),allow_nan=False).encode()).hexdigest()
+
+    def original_image(self,value,*,expected=None):
+        """Read all original PNG bytes; reuse only validated immutable semantics.
+
+        Warm reads still check the complete file stamp and SHA256. A cache hit
+        cannot admit new bytes, a replaced inode or a changed original source.
+        Cold callers always run the complete common stereo/source validator.
+        """
+        from adapters.graphics_journey.originals import record
+        from adapters.chat_journey.archive_file import signature
+        record(value);need(value['kind']=='image' and value['phase']=='saved')
+        path=self.artifact_root/value['name'];PrivateFeatureState(path)._parent()
+        descriptor=os.open(path,os.O_RDONLY|getattr(os,'O_NOFOLLOW',0)|getattr(os,'O_NONBLOCK',0))
+        with os.fdopen(descriptor,'rb') as stream:
+            first=os.fstat(stream.fileno());original=signature(first)
+            need(stat.S_ISREG(first.st_mode) and first.st_nlink==1 and first.st_uid==os.geteuid()
+                and stat.S_IMODE(first.st_mode)==0o600 and first.st_size==value['bytes']
+                and (first.st_dev,first.st_ino)==(value['file']['device'],value['file']['inode'])
+                and signature(path.lstat())==original and (expected is None or original==expected))
+            raw=stream.read(value['bytes']+1)
+            need(len(raw)==value['bytes'] and hashlib.sha256(raw).hexdigest()==value['sha256']
+                and signature(os.fstat(stream.fileno()))==signature(path.lstat())==original)
+            return raw,original
 
     def metadata(self,name,expected=None):
         need(type(name) is str and '/' not in name and '\\' not in name)
@@ -408,7 +462,7 @@ class PicoTabletWebFeature:
         self.runtime(owner)
         vm=None;vm_facts=None
         if owner['scriptUrl'] is not None:
-            vm=self.adapter._tablet_web_vm(self.selector,self);vm_facts=vm.capture()
+            vm=self.vm_reader(owner);vm_facts=vm.capture()
         native=self.sample_native(owner,state['native'])
         if native['source']['retired']:need(owner['phase']=='cleaned')
         before=self.adapter._native_feature_observer(self.selector,read_only=True).read(0)
@@ -510,8 +564,15 @@ class PicoTabletWebFeature:
 
     def cleanup_window(self,owner):
         from adapters.pico4.browser_quiet_journal import PicoBrowserQuietJournal
-        return PicoBrowserQuietJournal(PrivateFeatureState(self.store.path.with_name('pico-tablet-web-cleanup-quiet.json')),
-            self.lock,self.run,self.fixture_url,owner['ownerToken'],owner['binding'],owner['cleanupProof'])
+        self.lock.assert_held()
+        scope=dict(runId=self.run,fixtureUrl=self.fixture_url,ownerToken=owner['ownerToken'],binding=owner['binding'])
+        if self.quiet_cache is None:
+            self.quiet_cache=PicoBrowserQuietJournal(PrivateFeatureState(self.store.path.with_name('pico-tablet-web-cleanup-quiet.json')),
+                self.lock,self.run,self.fixture_url,owner['ownerToken'],owner['binding'],owner['cleanupProof'])
+            self.quiet_cache_scope=deepcopy(scope)
+        journal=self.quiet_cache;need(same(scope,self.quiet_cache_scope));journal.verify()
+        reference=journal.value if journal.legacy else (None if journal.disk is None else journal.reference())
+        need(same(owner['cleanupProof'],reference));return journal
 
     def cleanup(self,value):
         call=arguments('feature.'+self.area+'.cleanup',value);need(self.role=='primary' and call['runId']==self.run)
@@ -521,13 +582,13 @@ class PicoTabletWebFeature:
             phase=self.source.read(owner['phaseSource']);need(phase['verb']=='cleanup')
             if owner['phase']=='cleaned':
                 if owner['scriptUrl'] is not None:
-                    vm=self.adapter._tablet_web_vm(self.selector,self);need(vm.capture()['retired'] and vm.quiet(phase['afterEpochMs']))
+                    vm=self.vm_reader(owner);need(vm.capture()['retired'] and vm.quiet(phase['afterEpochMs']))
                 return {'performed':True}
             owner.update(phase='cleaning',phaseSource=phase['status']);self.save(owner);self.close_source(owner)
             quiet=self.cleanup_window(owner)
             if quiet.legacy:
                 quiet.migrate();owner['cleanupProof']=quiet.reference();self.save(owner)
-            vm=None if owner['scriptUrl'] is None else self.adapter._tablet_web_vm(self.selector,self)
+            vm=None if owner['scriptUrl'] is None else self.vm_reader(owner)
             start=previous=self.monotonic();runtime_reader=self.adapter._web_runtime_observer(self.selector,read_only=True)
             if quiet.value is not None:runtime_reader.last=deepcopy(quiet.value['frames'][-1]['runtime'])
             for attempt in range(81):

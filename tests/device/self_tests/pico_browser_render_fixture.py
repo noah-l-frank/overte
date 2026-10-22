@@ -9,7 +9,7 @@ retimed. No physical browser, renderer, HMD or device is qualified here.
 from copy import deepcopy
 import hashlib
 import io
-from PIL import Image
+from PIL import Image,ImageDraw
 from adapters.navigation_arrival import NavigationArrival
 from adapters.pico4.browser_stereo import PicoBrowserStereo,original_name
 from feature_journeys.fixtures import marker_bytes
@@ -21,6 +21,7 @@ class RenderModel(Model):
     def __init__(self,target,artifacts):
         super().__init__();self.target=target;self.artifacts=artifacts;self.binding=deepcopy(target.binding)
         self.lock=target.lock;self.run_id=target.run
+        target.capture_stores=[self.owner_store(role) for role in ('primary','actor')]
         self.source['absentIds']=list(subject_ids(target.run).values())
         native=self.features.mutate
         def feature(value):
@@ -55,6 +56,15 @@ class RenderModel(Model):
             with Image.open(io.BytesIO(marker_bytes(target.run,self.active))) as marker:
                 card=marker.resize((320,80),Image.Resampling.NEAREST).convert('RGBA')
                 image.paste(card,(288,248));image.paste(card,(992,248))
+            # Analytical page raster derives only from consumed original bytes,
+            # independently of scenario expectations or the measured state.
+            body=target.current.get('body',target.assert_consumption)
+            bits=hashlib.sha256(body).digest();draw=ImageDraw.Draw(image)
+            for offset in (0,800):
+                for y in range(345,500,15):
+                    for x in range(300,500,20):
+                        index=((x-300)//20+(y-345)//15*10)%len(bits)
+                        draw.rectangle((x+offset,y,x+offset+19,y+14),fill=(bits[index],bits[(index+7)%32],bits[(index+15)%32],255))
             output=io.BytesIO();image.save(output,format='PNG');self.gpu.raw=output.getvalue()
             self.gpu.pixels=hashlib.sha256(image.tobytes()).hexdigest();self.storage.raw=self.gpu.raw
             return send(command)

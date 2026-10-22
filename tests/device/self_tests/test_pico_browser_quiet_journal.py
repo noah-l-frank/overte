@@ -2,6 +2,7 @@
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 import unittest
+from copy import deepcopy
 from adapters.chat_journey.source_chunks import digest
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.pico4.browser_quiet_journal import PicoBrowserQuietJournal
@@ -41,3 +42,15 @@ class PicoBrowserQuietJournalTests(unittest.TestCase):
             cold=self.journal(dict(browserQuietReferenceVersion=1,sha256=digest(self.store.read())))
             cold.value['frames'][0]['host']+=.001
             with self.assertRaises((ValueError,RuntimeError)):cold.reference()
+
+    def test_parent_reuses_only_matching_original_reference_and_rejects_changed_cached_scope(self):
+        with self.lock.held():
+            owner=self.flow.owner();owner['cleanupProof']=deepcopy(self.original);self.flow.save(owner)
+            journal=self.flow.cleanup_window(owner);journal.migrate();owner['cleanupProof']=journal.reference();self.flow.save(owner)
+            count=len(self.fixture.original.commands)
+            self.assertIs(journal,self.flow.cleanup_window(self.flow.owner()))
+            wrong=deepcopy(owner);wrong['cleanupProof']['sha256']='f'*64
+            with self.assertRaises((ValueError,RuntimeError)):self.flow.cleanup_window(wrong)
+            journal.scope['ownerToken']='f'*32
+            with self.assertRaises((ValueError,RuntimeError)):self.flow.owner()
+            self.assertEqual(count,len(self.fixture.original.commands))

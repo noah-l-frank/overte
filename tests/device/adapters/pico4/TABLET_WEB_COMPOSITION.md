@@ -45,8 +45,9 @@ rootless VM/quiet/actor originals before reserving another native scope.
 V2 image references remain in use: complete separate original stereo journals
 and PNGs are checked by exact file stamps/hash and the independent common
 artifact grammar. V1 embedded bodies must exactly match those original files
-before migration. Whole26-stage image/actor integration, fresh final capture
-absence, complete phase/retirement archive and public binding remain open.
+before migration. The whole26-stage host Journey now passes with separate
+primary/actor stereo originals and normal cleanup. Fresh final capture absence,
+complete phase/retirement archive and public binding remain open.
 `finalize()` continues to refuse. Complete source feature count remains3/14.
 
 ## Frozen Phone test-fixture reuse
@@ -76,8 +77,11 @@ The analytical GPU/Qt/OS producers remain explicit seams in
 fixture's clock at original production; retained originals are not retimed.
 A generated challenge card is an analytical fixture image, not an actual HMD
 frame. No monoscopic fallback or public capability is added. Five stereo-prefix
-and input/state/cleanup flow cases pass8.643s. Full26 Journey/actor/stereo
-execution and final archive remain the next work.
+and input/state/cleanup flow cases originally passed8.643s. The complete shared
+Journey subsequently passed82.390s under the unchanged120s selector limit.
+All28 baseline/action/cleanup checkpoints completed. Analytical page pixels
+derive from consumed original HTML bytes; expected scenario values do not draw
+the subject. The final archive remains the next work.
 
 
 Generic canonical cleanup now also checks the separate primary/actor browser
@@ -107,3 +111,52 @@ archive coordinator: all-role capture traversal, phase/actor retirement history,
 host handle closure and public complete-feature binding remain open.
 The owning Browser stereo and existing Graphics lifetime modules pass all
 26 cases in 88.433s; four repository suites and the contract registry also pass.
+
+## Measured complete Journey and immutable validation reuse
+
+The first whole run timed out at120s after16 action tickets and34 saved images
+per role. Revalidating that retained34-image role took2.141s under cProfile;
+unchanged historical PNG decoding dominated. Each warm image-reference read now
+still reads every PNG byte, checks its SHA256 and full original physical stamp,
+and checks the complete metadata stamp/hash, admitted source context and cached
+value digest. Only unchanged previously validated semantics are reused. Cold
+reads validate all source packets and pixels again. Plain retained-journal
+measurements were0.986s cold and0.046s warm; profiling and plain timings are
+recorded separately and do not establish a device sampling rate.
+
+Later120s attempts reached all26 actions,40 saved images per role and normal
+cleanup, but did not complete the final empty observation window. Recreating
+the VM reader and cleanup journal repeatedly decoded their entire original
+prefix. The private coordinator now keeps its original per-role readers, while
+checking every child inode/stamp, complete manifest, original scope and cached
+value digest on reuse. A different parent reference or lost CAS refuses instead
+of adopting a new prefix. Existing512-frame/16MiB,64-frame quiet and3s cadence
+bounds remain unchanged; no source, clock or quiet sample is removed.
+
+A full120s diagnostic retained196 million profiled calls. Of1092 capture-owner
+CAS writes, repeated complete frame validation consumed30.871s. Each immutable
+capture now validates those exact source semantics once per owner; every later
+CAS still reads all original PNG bytes, validates the unchanged image capture,
+checks its full physical stamp and exact frame/context digest, and validates
+each new memory/file retirement proof. Cold owners perform full validation.
+Changed frames, contexts, cache contents, file rewrites, missing references and
+foreign capture owners refuse without recapture or a repeated input.
+
+The resulting full Journey passes82.390s, including all26 actions, independent
+actor publication, common original two-eye verification, real normal cleanup,
+idempotence and the final3s empty primary/actor observation window. The fixture
+retains explicit GPU/Qt/DOM/Java/OS seams and reports deviceAcceptance=false.
+Complete phase/actor/source archival, fresh final absence of every historical
+capture, host resource closure and public capability admission are still
+required; finalize() continues to refuse.
+
+New preparation also checks all seven default/browser/emote/graphics capture
+owners before reserving a native scope and again at the original reserve send.
+A late foreign owner leaves the durable unissued intent retained. The admission
+counterexample passes0.097s; VM/input/prefix checks pass16 cases/16.169s;
+parent/quiet/input checks pass27 cases/11.513s; stereo/image/prefix checks pass
+16 cases/23.774s. These are host logic results, not product qualification.
+The regular owning selector, including the complete Journey and all existing
+parent/image/input/quiet counterexamples, passes98.796s under its unchanged120s
+limit. Together with coverage the owning run is2/139 green98.85s; the four
+repository suites pass2.92s and the contract registry/whitespace checks pass.
