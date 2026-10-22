@@ -48,7 +48,9 @@ Host tests execute the real editor/World/X/Chat owners, token readers, source
 lock, private storage and input session over explicit widget, native input,
 keyboard and physics boundaries. Actual Qt normal input has separate focused
 compiler checks; this packet changes no native source and establishes no device
-run. Background keyboard/focus release, Scripts/pending/stale generations,
+run. The separate [native background history source](LIFECYCLE_BACKGROUND_SOURCE.md)
+now captures bounded original Qt/field/keyboard facts. Complete normal background
+keyboard/focus release, Scripts/pending/stale generations,
 second movement, independent peer/image proof, normal original-state restore
 and complete resource/process closure remain unfinished. The current reader's
 foreground guard is preserved; no background VR keyboard fact is inferred from

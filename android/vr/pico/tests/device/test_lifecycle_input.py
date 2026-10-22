@@ -24,6 +24,7 @@ from self_tests.test_pico_lifecycle_process import LifecycleProcessTests
 from self_tests.test_token_lifecycle_ui import LifecycleControlTests
 from self_tests.test_pico_lifecycle_editor import LifecycleEditorTests
 from self_tests.test_pico_lifecycle_chat import LifecycleChatTests
+from self_tests.test_pico_lifecycle_background_source import LifecycleBackgroundSourceTests
 from self_tests.test_pico_openxr_adapter_session import FakeTransport
 
 
@@ -161,11 +162,32 @@ class PicoLifecycleBindingTests(unittest.TestCase):
         self.assertEqual(owner.binding['sessionId'],owner.route.io.original.bridge)
         self.assertEqual(owner.binding['processIdentity'],owner.route.io.original.navigation.context['processIdentity'])
         self.assertIsNone(owner.state);self.assertIsNone(owner.joined.state)
+        with owner.lock.held():
+            nested=self.adapter._lifecycle_chat_editor(self.native.target,RUN,source_lock=owner.lock,joined=owner.joined)
+            self.assertIs(nested.lock,owner.lock);self.assertIs(nested.joined,owner.joined)
         with self.assertRaises((ValueError,RuntimeError)):owner.prepare()
         self.assertIsNone(owner.store.read());self.assertEqual([],self.native.inputs)
         self.native.digest='f'*64
         with self.assertRaises((ValueError,RuntimeError)):owner.prepare()
         self.assertIsNone(owner.store.read());self.assertEqual([],self.native.inputs)
+
+    def test_actual_background_history_factory_preserves_parent_source_lock_and_candidate_guards(self):
+        from adapters.pico4.lifecycle_background_source import COMMAND,FILE
+        from self_tests.test_pico_lifecycle_background_source import Native
+        boundary=Native();write_original=self.native.write_debug_app_file;read_original=self.native.read_debug_app_file
+        def write(target,package,path,raw):
+            if path!=COMMAND:return write_original(target,package,path,raw)
+            boundary.epoch=self.native.epoch_milliseconds(target);boundary.send(json.loads(raw))
+        def read(target,package,path,**options):
+            if path!='files/overte-e2e/'+FILE:return read_original(target,package,path,**options)
+            self.assertEqual({'attempts':1},options);return boundary.raw
+        lock=self.adapter._script_journey()._lock(self.native.target)
+        with patch.object(self.native,'write_debug_app_file',side_effect=write),patch.object(self.native,'read_debug_app_file',side_effect=read):
+            reader=self.adapter._lifecycle_background_source(self.native.target,source_lock=lock)
+            self.assertIs(reader.source_lock,lock);value=reader.read(RUN);self.assertFalse(value['active']);self.assertTrue(value['available'])
+            self.native.digest='f'*64
+            with self.assertRaises((ValueError,RuntimeError)):reader.read(RUN)
+            self.assertEqual(1,len(boundary.commands));self.assertEqual([],self.native.inputs)
 
     def test_actual_draft_factory_uses_original_normal_bridge_and_rejects_changed_field_before_transport(self):
         import uuid
