@@ -17,7 +17,7 @@ from adapters.pico4.audio_capture_owner import PicoAudioCaptureOwner
 from adapters.pico4 import lifecycle_source as ui
 from adapters.script_journey.history import canonical,pack,unpack
 from adapters.script_journey.lock import ScriptSourceLock
-from feature_journeys.phase_fixture import validate as phase_packet
+from feature_journeys.phase_fixture import PhaseFixtureReader,validate as phase_packet
 
 VERSION=1
 PHASES=('prepared','home-issued','background-observed','resume-issued','returned','quiet')
@@ -28,11 +28,13 @@ def sha(value):return hashlib.sha256(canonical(value)).hexdigest()
 
 
 class PicoAudioBackground:
-    def __init__(self,path,run,binding,lock,os_status,os_input,runtime,*,monotonic=time.monotonic,sleep=time.sleep):
+    def __init__(self,path,run,binding,lock,os_status,os_input,runtime,phase_source,*,monotonic=time.monotonic,sleep=time.sleep):
         need(ui.nonce(run) and isinstance(lock,ScriptSourceLock) and all(callable(f) for f in (os_status,os_input,runtime,monotonic,sleep)))
         self.store,self.run,self.binding,self.lock=PrivateFeatureState(path),run,deepcopy(context(binding)),lock
         need(self.store.path.parent==lock.path.parent and lock.path.name=='script-sources.lock')
         self.os_status,self.os_input,self.runtime_factory=os_status,os_input,runtime;self.monotonic,self.sleep=monotonic,sleep
+        need(isinstance(phase_source,PhaseFixtureReader) and phase_source.run==run and phase_source.area=='audio')
+        self.source=phase_source
         self.owner=None;self.disk=self.state=self.last_clock=None
         with lock.held():self.disk=self.store.read();self.load()
     def bound(self):
@@ -53,6 +55,22 @@ class PicoAudioBackground:
         return value
     def status(self):
         self.bound();packet=self.os_status(deepcopy(self.binding));self.os_packet(packet,self.binding);self.bound();return deepcopy(packet)
+    def phase_anchor(self):
+        return self.bound(),self.source.epoch_ms()
+    def phase_fence(self,anchor,*,owner=None):
+        # This HTTP source is independent of Qt and remains available in the
+        # background. Recheck the exact original ticket after durable intent,
+        # never reconstruct a live UI owner just to read fixture metadata.
+        started,requested=anchor;original=self.state['fixturePhase']
+        current=self.source.status(original)
+        need(current['active'] and all(current[key]==original[key] for key in
+            ('instance','createdEpochMs','activations')))
+        if owner is not None:owner.parent.fresh()
+        epoch=self.source.epoch_ms();completed=self.bound()
+        need(number(requested,1,1e15) and number(epoch,requested,1e15) and completed>=started
+            and -250<=epoch-current['capturedEpochMs']
+            and max(epoch-current['capturedEpochMs'],requested-current['capturedEpochMs']+(completed-started)*1000)<=1500)
+        return current
     def load(self):
         self.bound();disk=self.store.read()
         if disk is None:need(self.state is None);return
@@ -115,7 +133,7 @@ class PicoAudioBackground:
         need(self.status()['foreground'])
         if self.owner is None:
             actual=self.runtime_factory();need(isinstance(actual,PicoAudioCaptureOwner) and actual.binding==self.binding and actual.run==self.run
-                and actual.lock is self.lock and actual.store.path.parent==self.store.path.parent)
+                and actual.lock is self.lock and actual.source is self.source and actual.store.path.parent==self.store.path.parent)
             self.owner=actual
         return self.owner
     def capture_store(self):return PrivateFeatureState(self.store.path.with_name(f'audio-capture-cycle-{self.state["cycle"]:02d}.json'))
@@ -137,7 +155,9 @@ class PicoAudioBackground:
             self.load();need(self.state['phase']=='prepared');self.archives();owner=self.live();phase=owner.phase('background-resume')
             need(phase['activations']==self.state['fixturePhase']['activations']);owner.observe();row=deepcopy(owner.state['frames'][-1]);packet=owner.frame(row)
             need(packet['audio']['recordedVoice']['active'] and packet['audio']['recordedVoice']['event']['phase']=='capturing')
-            state=deepcopy(self.state);state.update(phase='home-issued',captureArchive=owner.store.read(),before=row,fixturePhase=phase);self.save(state);owner.parent.fresh()
+            anchor=self.phase_anchor()
+            state=deepcopy(self.state);state.update(phase='home-issued',captureArchive=owner.store.read(),before=row,fixturePhase=phase);self.save(state)
+            self.phase_fence(anchor,owner=owner)
             self.os_input('lifecycle.background',deepcopy(self.binding));return self.observe_background()
     def observe_background(self):
         with self.lock.held():
@@ -156,7 +176,8 @@ class PicoAudioBackground:
         with self.lock.held():
             self.load();need(self.state['phase']=='background-observed');self.archives();need(not self.status()['foreground'])
             need(self.state['background'][-1]['hostMonotonic']-self.state['background'][self.state['backgroundFirst']]['hostMonotonic']>=.25)
-            state=deepcopy(self.state);state['phase']='resume-issued';self.save(state)
+            anchor=self.phase_anchor()
+            state=deepcopy(self.state);state['phase']='resume-issued';self.save(state);self.phase_fence(anchor)
             self.os_input('app.launch',deepcopy(self.binding));return self.reconcile()
     def adopt_observation(self,owner,original):
         # A crash after the owned read-only observation may leave a longer
@@ -187,21 +208,23 @@ class PicoAudioBackground:
     def returned(self,owner,row):return self.returned_frame(self.state,row)
     def reconcile(self):
         with self.lock.held():
-            self.load();need(self.state['phase']=='resume-issued');status=self.status();need(status['foreground']);owner=self.live()
+            self.load();need(self.state['phase']=='resume-issued');anchor=self.phase_anchor();self.phase_fence(anchor)
+            status=self.status();need(status['foreground']);owner=self.live()
             self.adopt_observation(owner,self.state['captureArchive']);owner.observe();row=deepcopy(owner.state['frames'][-1]);self.returned(owner,row)
             state=deepcopy(self.state);state.update(phase='returned',foreground=status,after=row,captureArchive=owner.store.read());self.save(state)
-            result=self.report();owner.parent.fresh();return result
+            result=self.report();self.phase_fence(anchor,owner=owner);return result
     def quiet(self):
         with self.lock.held():
             self.load();need(self.state['phase'] in ('returned','quiet'));self.archives();owner=self.live();origin=previous=None;started=self.bound()
             for attempt in range(25):
+                anchor=self.phase_anchor();self.phase_fence(anchor)
                 owner.observe();row=deepcopy(owner.state['frames'][-1]);self.returned(owner,row);clocks=owner.clocks(row)
                 state=deepcopy(self.state)
                 if previous is None or any(now-old>.5*1000 for now,old in zip(clocks,previous)):origin=clocks;state['quiet']=[]
                 previous=clocks;state['quiet'].append(row);state['captureArchive']=owner.store.read();state['phase']='returned';self.save(state)
-                result=self.report();owner.parent.fresh()
+                result=self.report();self.phase_fence(anchor,owner=owner)
                 if all(now-old>=3000 for now,old in zip(clocks,origin)):
-                    state=deepcopy(self.state);state['phase']='quiet';self.save(state);result=self.report();owner.parent.fresh();return result
+                    state=deepcopy(self.state);state['phase']='quiet';self.save(state);result=self.report();self.phase_fence(anchor,owner=owner);return result
                 need(self.bound()-started<6 and attempt<24);self.sleep(.25)
             need(False)
     def report(self):
