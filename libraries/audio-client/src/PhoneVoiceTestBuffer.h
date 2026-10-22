@@ -15,6 +15,9 @@ public:
     bool playing() const { return _playing; }
     bool finished() const { return _playing && _position == _recording.size(); }
     bool hasSignal() const { return _hasSignal; }
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    std::size_t retainedCapacityBytes() const { return _recording.capacity(); }
+#endif
     void reset() { _recording.clear(); _limit = 0; _position = 0; _playing = false; _hasSignal = false; }
 
     std::vector<char> process(const char* input, std::size_t size, std::size_t limit,

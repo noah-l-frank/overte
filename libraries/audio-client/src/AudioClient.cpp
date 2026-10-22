@@ -1805,6 +1805,21 @@ QVariantMap AudioClient::featureRecordedVoiceObservation() const {
         {"events", _e2eRecordedVoiceHistory}};
 }
 
+QVariantMap AudioClient::featureRecordedVoiceLifetime() {
+    if(QThread::currentThread()!=thread() || !QCoreApplication::arguments().contains("--testScript")) {return {};}
+    if((_recordedVoiceTestTimer && _e2eRecordedPreviewTimerId.isEmpty())
+            || _recordedVoiceTestTimer!=_e2eRecordedPreviewTimer.data()) {return {};}
+    const auto deferred=_e2eRecordedPreviewDeferred.snapshot(this);if(deferred.isEmpty()) {return {};}
+    const QVariantMap timer{{"created",!_e2eRecordedPreviewTimerId.isEmpty()},{"id",_e2eRecordedPreviewTimerId},
+        {"createdEpochMs",_e2eRecordedPreviewTimerCreated},{"alive",!_e2eRecordedPreviewTimer.isNull()},
+        {"active",_e2eRecordedPreviewTimer && _e2eRecordedPreviewTimer->isActive()}};
+    return {{"audioPreviewLifetimeVersion",1},{"deferred",deferred},{"previewTimer",timer},
+        {"pendingLoopbackBytes",_loopbackPendingAudio.size()},{"pendingLoopbackCapacityBytes",_loopbackPendingAudio.capacity()},{"loopbackDeviceAssigned",_loopbackOutputDevice!=nullptr},
+        {"retainedPreviewBytes",static_cast<qint64>(_recordedVoiceTest.capturedBytes())},
+        {"previewBufferCapacityBytes",static_cast<qulonglong>(_recordedVoiceTest.retainedCapacityBytes())},
+        {"previewTapStateEmpty",_e2eRecordedPreview.tapStateEmpty()}};
+}
+
 QVariantMap AudioClient::featureRecordedVoiceEvidence() const {
     if (QThread::currentThread() != thread() || !QCoreApplication::arguments().contains("--testScript")) { return {}; }
     return _e2eRecordedPreview.snapshot();
@@ -1870,7 +1885,9 @@ void AudioClient::startRecordedVoiceTest() {
         _e2eRecordedVoiceHistory.clear();
         _e2eRecordedVoiceHistoryComplete = true;
         const auto cycle = _e2eRecordedPreview.begin(_outputFormat, _e2eRecordedVoiceStarted);
-        QTimer::singleShot(30000, this, [this, cycle] {
+        const auto originalCleanup=_e2eRecordedPreviewDeferred.registerCallback(this,cycle,30000);
+        QTimer::singleShot(30000, this, [this, cycle, originalCleanup] {
+            const auto invocation=overte::e2e::RecordedPreviewDeferred::enter(originalCleanup);
             if (_e2eRecordedPreview.cycle() == cycle) { _e2eRecordedPreview.clear(); }
         });
     }
@@ -1898,6 +1915,13 @@ void AudioClient::startRecordedVoiceTest() {
     _recordedVoiceTestDrainElapsed.invalidate();
     if (!_recordedVoiceTestTimer) {
         _recordedVoiceTestTimer = new QTimer(this);
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        if(QCoreApplication::arguments().contains("--testScript")) {
+            _e2eRecordedPreviewTimer=_recordedVoiceTestTimer;
+            _e2eRecordedPreviewTimerId=QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-');
+            _e2eRecordedPreviewTimerCreated=QDateTime::currentMSecsSinceEpoch();
+        }
+#endif
         _recordedVoiceTestTimer->setInterval(250);
         connect(_recordedVoiceTestTimer, &QTimer::timeout, this, [this] {
             if (!_recordedVoiceTestActive) { return; }

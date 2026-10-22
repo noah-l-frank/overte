@@ -22,6 +22,7 @@
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #include <QVariantMap>
 #include "RecordedPreviewObservation.h"
+#include "RecordedPreviewDeferred.h"
 #endif
 
 #include <fstream>
@@ -270,6 +271,7 @@ public slots:
     void cancelRecordedVoiceTest() override;
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     QVariantMap featureRecordedVoiceObservation() const;
+    QVariantMap featureRecordedVoiceLifetime();
     QVariantMap featureRecordedVoiceEvidence() const;
     void releaseFeatureRecordedVoiceEvidence();
 #endif
@@ -439,6 +441,10 @@ private:
     bool _e2eRecordedVoiceHistoryComplete {true};
     QVariantList _e2eRecordedVoiceHistory;
     overte::e2e::RecordedPreviewObservation _e2eRecordedPreview;
+    overte::e2e::RecordedPreviewDeferred _e2eRecordedPreviewDeferred;
+    QPointer<QTimer> _e2eRecordedPreviewTimer;
+    QString _e2eRecordedPreviewTimerId;
+    qint64 _e2eRecordedPreviewTimerCreated{0};
 #endif
     void finishRecordedVoiceTest(const QString& phase, const QString& error = QString());
     void publishRecordedVoiceTestStatus(const QString& phase, const QString& error = QString());

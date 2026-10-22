@@ -31,6 +31,9 @@ public:
         _events.clear();
         _started = _inputEpoch = _sinkEpoch = 0;
     }
+    bool tapStateEmpty() const {
+        return !_valid && _input.isEmpty() && _sink.isEmpty() && _input.capacity()==0 && _sink.capacity()==0 && _events.isEmpty();
+    }
     quint64 cycle() const { return _cycle; }
     void input(const char* data, qint64 count) { append(_input, _inputEpoch, data, count, 16 * 1024 * 1024); }
     void sink(const char* data, qint64 count) { append(_sink, _sinkEpoch, data, count, 32 * 1024 * 1024); }
