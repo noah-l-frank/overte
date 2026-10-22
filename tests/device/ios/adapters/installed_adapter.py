@@ -8,6 +8,7 @@ from pathlib import Path
 import stat
 
 from contracts import validate_operation_arguments
+from ios.adapters.create_api_clock import installed_entry as create_api_entry
 from adapters.normal_feature_state import PrivateFeatureState
 from ios.adapters.adapter import IOSNativeMixin
 from ios.adapters.feature_observation import FeatureObservation
@@ -304,6 +305,7 @@ def create_physical_adapter(args, base_class, preflight, *, cleanup_only=False):
                 return result
             finally:self._operation = None
 
+        @create_api_entry
         def invoke(self, selector, operation, values):
             validate_operation_arguments(operation,values)
             need(operation not in ('app.install','app.upgrade'))
@@ -319,6 +321,10 @@ def create_physical_adapter(args, base_class, preflight, *, cleanup_only=False):
                         from ios.adapters.graphics_runtime import IOSGraphicsRuntime
                         config=configuration();runtime=IOSGraphicsRuntime(self)
                         flow=runtime._graphics_feature(selector,values['runId'],role='primary',client=reader(config),settings=config['graphics'])
+                    elif operation.split('.')[1]=='create':
+                        from ios.adapters.create_runtime import IOSCreateRuntime
+                        config=configuration();runtime=IOSCreateRuntime(self)
+                        flow=runtime._create_feature(selector,values['runId'],role='primary',client=reader(config),settings=config['create'])
                     elif operation.split('.')[1]=='authentication':
                         from ios.adapters.authentication_runtime import IOSAuthenticationRuntime
                         runtime=IOSAuthenticationRuntime(self,reader(configuration()),values['runId'])
@@ -363,6 +369,10 @@ def create_physical_adapter(args, base_class, preflight, *, cleanup_only=False):
             # DELETE return. Never fall through to another terminate on error.
             from ios.adapters.feature_configuration import configuration,reader
             def state(name):return PrivateFeatureState(self.state_path(selector).with_name(name)).read()
+            from ios.adapters.create_runtime import IOSCreateRuntime
+            from ios.adapters.create_finalization import finalize_existing
+            config=configuration()
+            finalize_existing(IOSCreateRuntime(self),selector,config,None if config is None else reader(config))
             graphics=state('ios-graphics-feature.json')
             graphics_retirement=state('ios-graphics-retirement.json')
             graphics_session=state('ios-feature-session-retirement.json')
@@ -379,7 +389,7 @@ def create_physical_adapter(args, base_class, preflight, *, cleanup_only=False):
                     need(self.component_owners_absent(selector))
                     transaction=IOSGraphicsSessionRetirement.from_receipt(IOSGraphicsRuntime(self),selector,graphics_receipt)
                     return transaction.historical(graphics_receipt)
-                config=configuration();need(config is not None and config['iosFeatureAdapterVersion']==2 and 'graphics' in config['areas'])
+                config=configuration();need(config is not None and config['iosFeatureAdapterVersion'] in (2,3) and 'graphics' in config['areas'])
                 transaction=IOSGraphicsSessionRetirement(IOSGraphicsRuntime(self),selector,reader(config),config['graphics'],original)
                 need(self.cleanup_components(selector) and self.component_owners_absent(selector))
                 return transaction.finalize()

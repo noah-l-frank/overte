@@ -79,7 +79,8 @@ class CreatePrimaryImagesTests(unittest.TestCase):
         native_read=self.h.sdk.original
         def original(name):
             value=json.loads(native_read(name));actual=self.product.read(RUN)
-            if name=='create':value['source']=deepcopy(actual['source'])
+            if name=='create':
+                value['source']=deepcopy(actual['source']);value['iosCreateStateVersion']=actual['iosCreateStateVersion']
             elif name=='domain':
                 value['source']['tree']=deepcopy(actual['source']['tree'])
                 if self.scripts is not None:

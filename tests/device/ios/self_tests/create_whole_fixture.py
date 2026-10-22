@@ -44,10 +44,11 @@ class Item:pass
 
 
 class ComposedCreate:
-    def __init__(self,case,*,baseline_image=True):
+    def __init__(self,case,*,baseline_image=True,property_search=None):
         self.case=case;self.h=images.CreatePrimaryImagesTests();self.h.setUp();case.addCleanup(self.h.doCleanups)
         self.held=self.h.h.held();self.held.__enter__();case.addCleanup(self.held.__exit__,None,None,None)
         self.root,self.lock,self.product=self.h.h.root,self.h.h.lock,self.h.product
+        if property_search is not None:self.product.search_original=property_search
         original_read=self.product.read;self.tree_revision=0;self.tree_rows=None
         def product_read(run):
             result=original_read(run);tree=result['source']['tree']

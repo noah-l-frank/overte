@@ -54,6 +54,11 @@ class Product:
     def page(self):
         return next(row for row in self.value['source']['roots'] if not row['destroyed'] and row['kind']=='editor')
     def read(self,run):
+        if hasattr(self,'search_original'):
+            self.value['iosCreateStateVersion']=4
+            for root in self.value['source']['roots']:
+                if not root['destroyed'] and root.get('kind')=='editor':
+                    root['propertySearch']=dict(rootId=root['id'],objectName='NativeCreatePropertySearch',text=self.search_original(root))
         self.cursor+=1; self.clock+=.001; self.value['sequence']=self.cursor
         self.value['requestId']='ios-'+uuid.uuid4().hex
         self.value['clockBefore']=dict(epochMs=EPOCH+self.cursor*2,monotonicMs=self.cursor*2)
@@ -177,6 +182,35 @@ class CreateActionsTests(unittest.TestCase):
         step=SCENARIOS['create']['steps'][index];ticket=hashlib.sha256(str(index).encode()).hexdigest()[:32]
         self.active=dict(ticket=ticket,afterEpochMs=EPOCH,verb=step['verb'],inputs=step['inputs'])
         return dict(contractVersion=16,runId=RUN,ticket=ticket,fixtureUrl=URL,verb=step['verb'],inputs=deepcopy(step['inputs']))
+    def test_normal_owned_position_uses_original_camera_and_ignored_edit_stays_owned(self):
+        self.product.value['source']['view']['position']=[1,2,3]
+        with self.held():
+            owner=self.owner();owner.prepare();owner.act(self.query(0));owner.act(self.query(3))
+            owned=owner.state['owned'][0]
+            self.assertEqual([0,0,-4],next(row['position'] for row in owned['after']['source']['entities'] if row['id']==owned['id']))
+            self.assertEqual([1,2,0],self.product.selected()['position'])
+            owner.act(self.query(6));self.ui.position=lambda *_args:None
+            with self.assertRaises(NativeUIError):owner.act(self.query(7))
+            self.assertIsNotNone(owner.active_owned());self.assertEqual('acting',owner.state['calls'][-1]['phase'])
+
+    def test_state4_restores_original_search_before_owned_delete_and_never_writes_hidden_field(self):
+        draft=[''];self.product.search_original=lambda root:draft[0]
+        writes=[]
+        def replace(id_,value):
+            self.assertTrue(self.product.page()['page']['selectedIds'],'A hidden search cannot receive ordinary input')
+            self.assertEqual('create.property-search',id_);writes.append(value);draft[0]=value
+        self.ui.replace=replace
+        with self.held():
+            owner=self.owner();owner.prepare();owner.act(self.query(0))
+            owner.act(self.query(3));draft[0]='textures'
+            owner.act(self.query(6))
+            self.assertEqual([''],writes);self.assertEqual('',draft[0])
+            self.assertEqual([],self.product.page()['page']['selectedIds'])
+            owner.restore_editor();self.assertEqual([''],writes)
+            draft[0]='actual surviving hidden draft'
+            with self.assertRaises(NativeUIError):owner.restore_editor()
+            self.assertEqual([''],writes)
+
     def test_all_21_actions_observe_actual_product_rows_and_original_file_io_then_restore(self):
         with self.held():
             owner=self.owner();owner.prepare();first_ticket=None

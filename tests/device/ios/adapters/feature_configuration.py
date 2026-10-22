@@ -8,10 +8,10 @@ from adapters.normal_feature_state import PrivateFeatureState
 from adapters.feature_fixture_access import client as fixture_client
 from ios.adapters.normal_scripts import configuration as scripts_configuration
 
-VERSION=2
-READS=(1,2)
-AREAS=frozenset(('scripts','authentication','graphics'))
-COMPLETE_AREAS=frozenset(('scripts','authentication','graphics'))
+VERSION=3
+READS=(1,2,3)
+AREAS=frozenset(('scripts','authentication','graphics','create'))
+COMPLETE_AREAS=frozenset(('scripts','authentication','graphics','create'))
 OPERATIONS=frozenset('feature.'+area+'.'+kind for area in AREAS for kind in ('act','observe','cleanup'))
 
 
@@ -27,18 +27,23 @@ def configuration(path=None):
 def validate(value):
     need(type(value) is dict and type(value.get('iosFeatureAdapterVersion')) is int and value['iosFeatureAdapterVersion'] in READS)
     version=value['iosFeatureAdapterVersion']
-    exact(value,{'iosFeatureAdapterVersion','areas','fixtureConfig'}|({'graphics'} if version==2 else set()))
-    allowed=AREAS if version==2 else AREAS-{'graphics'}
+    exact(value,{'iosFeatureAdapterVersion','areas','fixtureConfig'}|({'graphics'} if version>=2 else set())|({'create'} if version>=3 else set()))
+    allowed=AREAS if version>=3 else AREAS-{'create'} if version==2 else AREAS-{'graphics','create'}
     need(type(value['iosFeatureAdapterVersion']) is int
          and type(value['areas']) is list and 1<=len(value['areas'])<=len(AREAS)
          and all(type(area) is str and area in allowed for area in value['areas'])
          and len(set(value['areas']))==len(value['areas']) and type(value['fixtureConfig']) is str
          and Path(value['fixtureConfig']).is_absolute())
-    if version==2:
+    if version>=2:
         if 'graphics' in value['areas']:
             from ios.adapters.graphics_configuration import settings
             settings(value['graphics'])
         else:need(value['graphics'] is None)
+    if version>=3:
+        if 'create' in value['areas']:
+            from ios.adapters.create_configuration import settings
+            settings(value['create'])
+        else:need(value['create'] is None)
     return value
 
 

@@ -26,6 +26,8 @@ from ios.adapters.create_lifecycle import worker
 from ios.adapters.emote_world import IOSEmoteWorld,actual_domain,validate as domain_packet,ACTION as DOMAIN_ACTION
 from ios.adapters.graphics_history import restore_native,follow_native
 
+from ios.adapters.create_api_clock import check as api_check
+
 VERSION=1
 MAX_FRAMES=256
 
@@ -131,7 +133,7 @@ class CreateSources:
             need(extra is None or state['pending'] is not None)
         return (deepcopy(state),deepcopy(frames)) if materialize else None
     def bound(self):
-        self.lock.assert_held();need(not self.historical and self.guard() is not False and same(self.store.read(),self.previous))
+        api_check();self.lock.assert_held();need(not self.historical and self.guard() is not False and same(self.store.read(),self.previous))
     def save(self):
         self.bound();value=self.envelope(self.state);self.decode(value,materialize=False);self.store.write(value,self.previous);need(same(self.store.read(),value));self.previous=deepcopy(value)
     def capture(self,label):

@@ -22,6 +22,8 @@ from ios.adapters import create_state
 from ios.adapters.native_geometry import OriginalGeometry, validate as geometry_document
 from ios.adapters.normal_input import NativeInput, observation as ui_observation
 
+from ios.adapters.create_api_clock import check as api_check
+
 VERSION = 1
 
 
@@ -96,7 +98,7 @@ class CreateWorldInput:
         return state
 
     def save(self):
-        self.lock.assert_held(); need(self.guard() is not False and same(self.store.read(), self.previous))
+        api_check();self.lock.assert_held(); need(self.guard() is not False and same(self.store.read(), self.previous))
         value = self.envelope(); self.decode(value); self.store.write(value, self.previous)
         need(same(self.store.read(), value)); self.previous = deepcopy(value)
 
@@ -165,7 +167,7 @@ class CreateWorldInput:
         try:
             self.ui._check()
             need(self.epoch_ms() < deadline and self.monotonic() < self.state['clockJoin']['hostBeforeMonotonic']+1.5)
-            self.ui._request('POST', '/actions', self.state['body']); self.ui._check()
+            api_check();self.ui._request('POST', '/actions', self.state['body']); self.ui._check()
         finally:
             self.ui.release_actions(); self.state['releaseObserved'] = True; self.save()
         self.state['phase'] = 'released'; self.save()

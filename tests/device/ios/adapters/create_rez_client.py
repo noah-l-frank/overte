@@ -21,6 +21,8 @@ from adapters.script_feature.lock import ScriptSourceLock
 from feature_journeys.contract import identifier
 from fixture.create_rez_authority import CreateRezControl, NoRedirect, process, rows
 
+from ios.adapters.create_api_clock import check as api_check
+
 VERSION = 1
 
 
@@ -75,7 +77,7 @@ class CreateRezClient:
         return state
 
     def save(self):
-        self.lock.assert_held(); need(self.guard() is not False and same(self.store.read(), self.previous))
+        api_check();self.lock.assert_held(); need(self.guard() is not False and same(self.store.read(), self.previous))
         value = self.envelope(); self.decode(value); self.store.write(value, self.previous)
         need(same(self.store.read(), value)); self.previous = deepcopy(value)
 
@@ -85,7 +87,9 @@ class CreateRezClient:
         request = Request(self.config['controlUrl'], data=body, method='POST', headers={
             'Content-Type':'application/json', 'X-Overte-E2E-Token':self.config['token']})
         before = self.epoch_ms()
-        with build_opener(NoRedirect()).open(request, timeout=5) as response:
+        opener=build_opener(NoRedirect())
+        api_check()
+        with opener.open(request, timeout=5) as response:
             raw = response.read(16385); need(response.status == 200 and len(raw) <= 16384)
         def pairs(entries):
             value = {}

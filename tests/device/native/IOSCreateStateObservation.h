@@ -118,6 +118,20 @@ public:
                         QJsonObject page;appendCreateControlObservation(page,item,"create.page");
                         if (!page.contains("profile")) { complete=false;return {}; }
                         row["kind"]="editor";row["page"]=page.toVariantMap();
+                        // The original search draft survives selection loss and can be
+                        // hidden. Read only the unique child of this actual editor root.
+                        const auto children=item->findChildren<QQuickItem*>();
+                        if (children.size()>4096) { return {}; }
+                        QQuickItem* search=nullptr;
+                        for (auto child:children) {
+                            if (child->objectName()=="NativeCreatePropertySearch" && createPage(child)==item) {
+                                if (search) { return {}; }search=child;
+                            }
+                        }
+                        if (!search || search->thread()!=QCoreApplication::instance()->thread()) { return {}; }
+                        const auto draft=search->property("text");
+                        if (draft.userType()!=QMetaType::QString || draft.toString().size()>4096) { return {}; }
+                        row["propertySearch"]=QVariantMap{{"rootId",id},{"objectName",search->objectName()},{"text",draft}};
                         row["changed"]=createVariant(item->property("changed"));
                         row["voxelSettings"]=createVariant(item->property("voxelSettings"));
                         const auto numeric=item->property("focusedNumber");
@@ -143,7 +157,7 @@ public:
                     {"fieldOfViewDegrees",frustum.getFieldOfView()},{"aspectRatio",frustum.getAspectRatio()},
                     {"perspective",frustum.isPerspective()},{"uiWidth",ui.x},{"uiHeight",ui.y}}}};
         });
-        if (!result.isEmpty()) { result.insert("iosCreateStateVersion",3); }
+        if (!result.isEmpty()) { result.insert("iosCreateStateVersion",4); }
         return result;
     }
 private:

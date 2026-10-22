@@ -58,7 +58,7 @@ class CreateActionOwnerTests(unittest.TestCase):
     def test_lost_delivery_stays_issued_and_never_resends_recipe_or_input(self):
         with self.lock.held():
             owner = self.owner(); owner.begin(QUERY); ui = self.ui(owner); deliver = self.native.deliver
-            def lose(command): deliver(command); raise NativeUIError('Lost delivery return')
+            def lose(command,*,before_send=None): deliver(command,before_send=before_send); raise NativeUIError('Lost delivery return')
             with patch.object(self.native,'deliver',side_effect=lose):
                 with self.assertRaises(NativeUIError): ui.input('create.tab.4')
             self.assertEqual(4,self.harness.widget.tab)

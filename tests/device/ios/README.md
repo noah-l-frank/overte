@@ -7,9 +7,11 @@ SPDX-License-Identifier: Apache-2.0
 
 Current iOS source coverage and remaining whole-area prerequisites are recorded
 in [the 2026-10-21 audit](FEATURE_ADAPTER_COVERAGE_20261021.md). Earlier checkpoint
-claims below are historical. Scripts, Authentication and Graphics now have
+claims below are historical. Scripts, Authentication, Graphics and Create now have
 complete source-level triples; compilation and device qualification remain
 unexecuted. Component counts below do not establish device results.
+The [Create operation handoff](adapters/CREATE_FEATURE.md) covers all 21 normal
+steps, independent actor originals, paired repeated cleanup and final archive.
 
 This directory is the Fedora half of the protected iOS device-lab boundary.
 Fedora never builds or signs an IPA. It consumes only the two age-encrypted

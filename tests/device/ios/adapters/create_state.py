@@ -17,8 +17,8 @@ from ios.adapters import create_controls_v2 as controls
 from ios.adapters.places_model import IOSPlacesModel, tree as json_tree
 from ios.adapters.scene_inventory import tree, uint64
 
-VERSION = 3
-READS = (1, 2, 3)
+VERSION = 4
+READS = (1, 2, 3, 4)
 ACTION = 'feature-ios-create-state'
 FILE = ACTION+'.json'
 LIMIT = 262144
@@ -103,7 +103,12 @@ def root(row, version=VERSION):
          and all(type(row.get(key)) is bool for key in ('active', 'visible')) and (not row['active'] or row['visible']))
     fields = {'id', 'destroyed', 'kind', 'visible', 'active'}
     if row['kind'] == 'editor':
-        exact(row, fields | {'page', 'changed', 'voxelSettings', 'numericFocus'})
+        exact(row, fields | {'page', 'changed', 'voxelSettings', 'numericFocus'}
+              | ({'propertySearch'} if version >= 4 else set()))
+        if version >= 4:
+            draft = row['propertySearch']; exact(draft, {'rootId', 'objectName', 'text'})
+            need(draft['rootId'] == row['id'] and draft['objectName'] == 'NativeCreatePropertySearch')
+            text(draft['text'])
         page = row['page']; exact(page, {'profile', 'tab', 'selectedIds', 'statusError', 'statusText', 'componentSourceSha256', 'inputReady'})
         need(page['inputReady'] is False)
         controls.base.metadata(dict(page, id='create.page', token=row['id'], enabled=True, focused=False))

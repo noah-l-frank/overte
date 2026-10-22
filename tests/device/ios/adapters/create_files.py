@@ -22,6 +22,8 @@ from feature_journeys.contract import identifier
 from feature_journeys.fixtures import import_document
 from ios.adapters.create_controls_v2 import local_url, owned_path
 
+from ios.adapters.create_api_clock import check as api_check
+
 VERSION = 1
 ACTION = 'feature-ios-create-files'
 FILE = ACTION+'.json'
@@ -120,7 +122,7 @@ class IOSCreateFiles:
         command(query); need(retain is None or callable(retain))
         need(self.guard() is not False); started = last = self.monotonic(); requested = self.clock_ms()
         need(number(started, 0, 1e15) and integer(requested, 1))
-        self.send(query)  # No retransmission after any uncertain result.
+        api_check();self.send(query)  # No retransmission after any uncertain result.
         for attempt in range(61):
             need(self.guard() is not False); raw = self.original()
             need(type(raw) is str and len(raw.encode()) <= LIMIT)
@@ -185,14 +187,14 @@ class OwnedCreateFiles:
         self.state['originals'].append(dict(query=deepcopy(query), packet=deepcopy(packet))); self.save()
 
     def reserve(self, ticket):
-        self.lock.assert_held(); need(self.state is None); identifier(ticket)
+        api_check();self.lock.assert_held(); need(self.state is None); identifier(ticket)
         raw = json.dumps(import_document(self.run, ticket, self.fixture_url), separators=(',', ':')).encode()
         self.state = dict(phase='reserved', token=secrets.token_hex(32), ticket=ticket,
                          inputBase64=base64.b64encode(raw).decode(), directory=None, originals=[]); self.save()
 
     def stage(self):
         need(self.state is not None and self.state['phase'] == 'reserved')
-        self.state['phase'] = 'staging'; self.save()
+        api_check();self.state['phase'] = 'staging'; self.save()
         self.native.request('stage', self.run, self.state['token'],
             content=original_bytes(self.state['inputBase64'], 8192), retain=self.retain)
         return self.recover_stage()

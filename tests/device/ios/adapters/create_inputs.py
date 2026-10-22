@@ -91,6 +91,7 @@ class IOSCreateUI(TokenCreateUI):
         return dict(selectionBefore=sorted(before))
 
     def name_and_size(self, entity_id, name):
+        need(self.selected() == [entity_id]); self.tab(2)
         need(self.selected() == [entity_id]); self.name_entity(ascii_text(name))
         for axis in ('x', 'y', 'z'): self.replace('create.field.dimensions.'+axis, '1')
         self.reveal('create.apply'); self.input('create.apply')

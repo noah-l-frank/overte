@@ -65,6 +65,27 @@ def remap(row):
 
 
 class CreateStateTests(unittest.TestCase):
+    def test_state4_retains_actual_hidden_search_draft_and_original_root(self):
+        value=version2(packet());value['iosCreateStateVersion']=4;add_editor(value)
+        row=value['source']['roots'][0];row.update(visible=False,active=False)
+        draft=dict(rootId=ROOT,objectName='NativeCreatePropertySearch',text='actual hidden draft')
+        row['propertySearch']=deepcopy(draft)
+        self.assertEqual(draft,source.live(value)['roots'][0]['propertySearch'])
+        for fault in ('missing','foreign-root','other-object','not-string','oversize','unknown'):
+            bad=deepcopy(value);field=bad['source']['roots'][0]['propertySearch']
+            if fault=='missing':del bad['source']['roots'][0]['propertySearch']
+            elif fault=='foreign-root':field['rootId']=ID
+            elif fault=='other-object':field['objectName']='NativeCreateName'
+            elif fault=='not-string':field['text']=False
+            elif fault=='oversize':field['text']='x'*4097
+            else:field['requested']=''
+            with self.subTest(fault=fault),self.assertRaises(NativeUIError):source.original(bad)
+        for version in (2,3):
+            legacy=deepcopy(value);legacy['iosCreateStateVersion']=version
+            with self.assertRaises(NativeUIError):source.original(legacy)
+            del legacy['source']['roots'][0]['propertySearch'];source.original(legacy)
+        row.clear();row.update(id=ROOT,destroyed=True);source.original(value)
+
     def test_state3_adds_original_marker_properties_without_changing_legacy_state2(self):
         value = version2(packet()); row = add_model(value); version2(value)
         source.original(value); value['iosCreateStateVersion'] = 3

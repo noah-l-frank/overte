@@ -27,6 +27,8 @@ from ios.adapters.create_rez_client import CreateRezClient
 from ios.adapters.create_world_input import CreateWorldInput
 from ios.adapters.native_geometry import OriginalGeometry
 
+from ios.adapters.create_api_clock import check as api_check
+
 VERSION = 1
 
 
@@ -39,6 +41,12 @@ def semantic_map(packet, exclude=()):
 def editor(packet):
     roots = [row for row in create_state.live(packet)['roots'] if not row['destroyed'] and row['kind'] == 'editor']
     need(len(roots) <= 1); return None if not roots else deepcopy(roots[0])
+
+
+def editor_source_search(source, original):
+    rows = [row for row in source['roots'] if not row['destroyed'] and row.get('kind') == 'editor']
+    return (len(rows) == 1 and rows[0]['id'] == original['id']
+            and same(rows[0].get('propertySearch'), original.get('propertySearch')))
 
 
 class CreateActions:
@@ -120,7 +128,7 @@ class CreateActions:
         return state
 
     def bound(self):
-        self.lock.assert_held(); need(self.guard() is not False and same(self.store.read(),self.previous))
+        api_check();self.lock.assert_held(); need(self.guard() is not False and same(self.store.read(),self.previous))
 
     def save(self):
         self.bound(); value = self.envelope(); self.decode(value); self.store.write(value,self.previous)
@@ -173,7 +181,7 @@ class CreateActions:
         if packet['source']['tabletShown'] == shown: return packet
         call = self.current_call(); event = dict(kind='tablet',shown=shown,before=packet,after=None)
         call['auxInputs'].append(event); self.save()
-        self.normal.click(Locator('accessibility id','OverteTabletOpen' if shown else 'OverteTabletClose'))
+        api_check();self.normal.click(Locator('accessibility id','OverteTabletOpen' if shown else 'OverteTabletClose'))
         after = self.wait(lambda source:source['tabletShown'] == shown); event['after'] = after; self.save(); return after
 
     def active_owned(self,role=None):
@@ -191,14 +199,15 @@ class CreateActions:
         record = dict(id=owned['id'],role=role,ticket=ticket,before=before,after=after,deleted=False)
         self.state['owned'].append(record); self.save()  # Ownership precedes the next edit.
         self.ui.name_and_size(owned['id'],'e2e-'+self.run+'-'+role)
-        if role == 'voxel':
-            # The real detailed dialog initially places its 8-voxel volume
-            # 12.8m ahead of the avatar. Move only this admitted owned UUID via
-            # ordinary position fields into the measured current camera view.
-            view = self.read()['source']['view']; offset = rotate([0,0,-3],view['rotation'])
-            self.ui.position(owned['id'],[a+b for a,b in zip(view['position'],offset)])
+        # Normal creation follows the avatar/grid, which can put even a unit
+        # model outside the current camera. Edit only this admitted owned UUID
+        # through ordinary position fields; body and camera remain unchanged.
+        view = self.read()['source']['view']; offset = rotate([0,0,-3],view['rotation'])
+        position = [a+b for a,b in zip(view['position'],offset)]
+        self.ui.position(owned['id'],position)
         self.wait(lambda source:any(row['id'] == owned['id'] and row['name'] == 'e2e-'+self.run+'-'+role
-            and all(abs(size-1)<.0001 for size in row['dimensions']) for row in source['entities']))
+            and all(abs(size-1)<.0001 for size in row['dimensions'])
+            and all(abs(a-b)<.0001 for a,b in zip(row['position'],position)) for row in source['entities']))
         if role == 'model':
             self.wait(lambda source:any(row['id'] == owned['id'] and row['model']['loaded']
                 and row['model']['addedToScene'] and not row['model']['failed'] for row in source['entities']))
@@ -213,7 +222,14 @@ class CreateActions:
         packet = self.read(); rows = [row for row in packet['source']['entities'] if row['id'] == owned['id']]
         if rows:
             need(rows[0]['lastEditedBy'] == packet['source']['localSessionId'] and rows[0]['hostType'] == 'domain' and not rows[0]['locked'])
-            self.ui.select_entity(owned['id']); self.ui.delete_entity()
+            self.ui.select_entity(owned['id'])
+            original = self.state['editorBaseline']
+            if original is not None and 'propertySearch' in original:
+                # Only an admitted owned selection exposes the ordinary search
+                # control. Restore its original draft before deleting that UUID.
+                self.ui.tab(2); self.ui.replace('create.property-search',original['propertySearch']['text'])
+                self.wait(lambda source: editor_source_search(source,original))
+            self.ui.delete_entity()
         self.wait(lambda source:not any(row['id'] == owned['id'] for row in source['entities']))
         owned['deleted'] = True; self.save()
 
@@ -281,7 +297,13 @@ class CreateActions:
         self.ui.voxel_settings(mode=maps['createAppMode'].index(settings['createAppMode']),shape=maps['voxelEditMode'].index(settings['voxelEditMode']),
             remove=settings['voxelRemove'],dynamics=maps['voxelEditDynamics'].index(settings['voxelEditDynamics']),
             pointer=maps['voxelPointerMode'].index(settings['voxelPointerMode']),diameter=settings['voxelSphereSize'],reach=settings['voxelBrushLength'])
-        self.ui.replace('create.property-search',''); self.ui.tab(original['page']['tab'])
+        if 'propertySearch' in original:
+            need(editor_source_search(self.read()['source'],original))
+        else:
+            # Legacy originals remain readable; their transport predates the
+            # passive hidden-draft source and cannot qualify the new whole run.
+            self.ui.tab(2); self.ui.replace('create.property-search','')
+        self.ui.tab(original['page']['tab'])
 
     def cleanup(self,cleanup_ticket):
         """Normal cleanup inputs only; final paired original retirement is separate.
@@ -391,4 +413,5 @@ class CreateActions:
                  and not current['numericFocus'] and not current['changed']
                  and same(current['voxelSettings'],original['voxelSettings'])
                  and current['page']['tab'] == original['page']['tab'])
+            if 'propertySearch' in original: need(editor_source_search(source,original))
         return True

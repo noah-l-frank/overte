@@ -6,6 +6,7 @@ before delivery. Lost input may only be observed and cleaned up, never replayed.
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
+from adapters.native_clock_join import digest
 import re
 import uuid
 
@@ -18,7 +19,10 @@ from feature_journeys.contract import arguments, identifier
 from ios.adapters import create_controls_v2 as controls
 from ios.adapters.normal_input import NativeInput, observation as native_ui_packet
 
-VERSION = 1
+from ios.adapters.create_api_clock import check as api_check
+
+VERSION = 2
+READS = (1,2)
 
 
 class CreateInputPending(NativeUIError):
@@ -68,15 +72,55 @@ class CreateActionOwner:
         self.pid = int(binding['processIdentity']); need(self.pid > 0 and store.path.parent == lock.path.parent)
         self.previous = self.state = None
 
-    def envelope(self, state):
-        return dict(iosCreateActionOwnerVersion=VERSION, binding=self.binding, runId=self.run,
-                    fixtureUrl=self.fixture_url, payload=pack([state]))
+    def event_packet(self,event):
+        return dict(iosCreateActionEventVersion=1,binding=self.binding,runId=self.run,fixtureUrl=self.fixture_url,
+            owner=self.store.path.name,payload=pack([event]))
+
+    def event_store(self,sha):
+        need(type(sha) is str and re.fullmatch('[a-f0-9]{64}',sha))
+        return PrivateFeatureState(self.store.path.with_name('ios-create-event-'+self.store.path.stem+'-'+sha+'.json'))
+
+    def compact(self,state,*,retain=False):
+        compact=deepcopy(state)
+        for call in compact['calls']:
+            references=[]
+            for event in call['events']:
+                packet=self.event_packet(event);sha=digest(packet);store=self.event_store(sha)
+                if retain:
+                    api_check();previous=store.read()
+                    if previous is None:api_check();store.write(packet,None)
+                    need(same(store.read(),packet))
+                references.append(dict(sha256=sha))
+            call['events']=references
+        return compact
+
+    def expand(self,state):
+        expanded=deepcopy(state)
+        for call in expanded['calls']:
+            exact(call,{'arguments','phase','events'});need(type(call['events']) is list and len(call['events'])<=512)
+            events=[]
+            for reference in call['events']:
+                exact(reference,{'sha256'});packet=self.event_store(reference['sha256']).read()
+                need(packet is not None and digest(packet)==reference['sha256'])
+                exact(packet,{'iosCreateActionEventVersion','binding','runId','fixtureUrl','owner','payload'})
+                rows=unpack(packet['payload']);need(len(rows)==1 and same(packet,self.event_packet(rows[0])));events.append(rows[0])
+            call['events']=events
+        return expanded
+
+    def envelope(self, state, *, version=VERSION,retain=False):
+        need(type(version) is int and version in READS)
+        stored=state if version==1 else self.compact(state,retain=retain)
+        return dict(iosCreateActionOwnerVersion=version, binding=self.binding, runId=self.run,
+                    fixtureUrl=self.fixture_url, payload=pack([stored]))
 
     def decode(self, value):
         exact(value, {'iosCreateActionOwnerVersion', 'binding', 'runId', 'fixtureUrl', 'payload'})
-        entries = unpack(value['payload']); need(len(entries) == 1 and same(value, self.envelope(entries[0]))
-            and type(value['iosCreateActionOwnerVersion']) is int and value['iosCreateActionOwnerVersion'] == VERSION)
-        state = entries[0]; exact(state, {'calls'}); need(type(state['calls']) is list and len(state['calls']) <= 128)
+        version=value['iosCreateActionOwnerVersion'];need(type(version) is int and version in READS)
+        entries = unpack(value['payload']); need(len(entries)==1)
+        exact(entries[0],{'calls'});need(type(entries[0]['calls']) is list and len(entries[0]['calls'])<=128)
+        state=entries[0] if version==1 else self.expand(entries[0])
+        need(same(value,self.envelope(state,version=version)))
+        exact(state, {'calls'}); need(type(state['calls']) is list and len(state['calls']) <= 128)
         tickets = set(); previous_scope = None
         for index, call in enumerate(state['calls']):
             exact(call, {'arguments', 'phase', 'events'}); query = call['arguments']
@@ -112,11 +156,11 @@ class CreateActionOwner:
         return deepcopy(self.state)
 
     def bound(self):
-        self.lock.assert_held(); need(self.guard() is not False and same(self.store.read(), self.previous))
+        api_check();self.lock.assert_held(); need(self.guard() is not False and same(self.store.read(), self.previous))
 
     def save(self):
-        self.bound(); value = self.envelope(self.state); self.decode(value)
-        self.store.write(value, self.previous); need(same(self.store.read(), value)); self.previous = deepcopy(value)
+        self.bound(); value = self.envelope(self.state,retain=True); self.decode(value);api_check()
+        self.store.write(value, self.previous); need(same(self.store.read(), value)); self.previous = deepcopy(value);api_check()
 
     def begin(self, query):
         self.bound(); need(self.state is not None)
@@ -164,7 +208,7 @@ class CreateBoundIO:
         elif action == 'scroll': command['direction'] = value
         intended = dict(reference=deepcopy(reference), admission=deepcopy(self.last_original),controlId=identifier, action=action, value=value, command=command)
         self.owner.before(intended)
-        self.native.deliver(command)  # Exactly one delivery; exceptions preserve issued intent.
+        self.native.deliver(command,before_send=api_check)  # Exactly one delivery; exceptions preserve issued intent.
         self.owner.delivered(deepcopy(self.native.last_receipt)); return {'performed': True}
     def activate(self, identifier, *, reference): return self.input(identifier, 'activate', reference)
     def replace(self, identifier, value, *, reference): return self.input(identifier, 'replace', reference, value)

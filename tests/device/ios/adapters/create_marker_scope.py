@@ -41,6 +41,8 @@ import hashlib
 import uuid
 from ios.adapters.script_dialogs import validate as dialogs_packet,completed as dialog_completed,ACTION as DIALOG_ACTION
 
+from ios.adapters.create_api_clock import check as api_check
+
 VERSION=2
 PHASES=('new','preparing','aborting-unused','ready','closing','stopping-marker','quiet','releasing-files','released')
 
@@ -200,7 +202,7 @@ class CreateMarkerScope:
         return deepcopy(state)
 
     def bound(self):
-        self.lock.assert_held();need(not self.failed and same(self.store.read(),self.previous) and self.guard() is not False)
+        api_check();self.lock.assert_held();need(not self.failed and same(self.store.read(),self.previous) and self.guard() is not False)
 
     def save(self):
         self.bound();value=self.envelope(self.state)
@@ -296,7 +298,7 @@ class CreateMarkerScope:
         self.bound();rows=[r for r in self.state['operations'] if r['label']==label]
         if rows:need(rows[0]['phase']=='returned');return deepcopy(rows[0]['result'])
         need(len(self.state['operations'])<64);row=dict(label=label,phase='issued',result=None)
-        self.state['operations'].append(row);self.save();result=function()
+        self.state['operations'].append(row);self.save();api_check();result=function()
         self.bound();row.update(phase='returned',result=deepcopy(result));self.save();return result
 
     def manager(self):
