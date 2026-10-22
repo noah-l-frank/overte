@@ -85,6 +85,35 @@ class FeatureObservationTests(unittest.TestCase):
         boundary.start(); self.addCleanup(boundary.stop)
         self.observer = self.native.observer()
 
+    def test_final_send_guard_runs_after_actual_process_read_without_changing_originals(self):
+        cuts=[]
+        def guard():
+            cuts.append((deepcopy(self.observer.process),len(self.native.commands)))
+            return True
+        self.observer.before_send=guard
+        value=self.observer.read(0)
+        self.assertEqual([(self.native.process(),0)],cuts)
+        self.assertEqual(1,len(self.native.commands));self.assertEqual(10000,value['sampleEpochMs'])
+        self.assertEqual(self.native.value,value)
+
+    def test_slow_actual_process_verification_cannot_send_after_final_guard_expires(self):
+        process=self.native.process
+        def slow():self.native.clock+=2;return process()
+        self.observer.observe_process=slow;cuts=[]
+        def deadline():cuts.append(self.native.clock);return self.native.clock<1
+        self.observer.before_send=deadline
+        with self.assertRaises(NativeUIError):self.observer.read(0)
+        self.assertEqual([4],cuts);self.assertEqual([],self.native.commands)
+        self.assertEqual([],self.native.reads);self.assertEqual(0,self.observer.sequence)
+
+    def test_refused_invalid_or_failed_send_guard_never_reaches_http_or_afc(self):
+        def failed():raise NativeUIError('Original operation expired')
+        for guard in (False,lambda:False,failed):
+            with self.subTest(guard=type(guard).__name__):
+                self.observer.before_send=guard
+                with self.assertRaises(NativeUIError):self.observer.read(0)
+                self.assertEqual([],self.native.commands);self.assertEqual([],self.native.reads)
+
     def test_bound_native_clock_factory_uses_distinct_original_nonces_and_keeps_native_time(self):
         source=self.native_feature_boundaries();self.observer.epoch_ms=lambda:9000000
         reader=self.observer.bound_native_observer();value=reader.read(0)

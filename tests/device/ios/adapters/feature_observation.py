@@ -185,6 +185,9 @@ class FeatureObservation:
         payload = json.dumps(command).encode()
         if len(payload) > limit:
             raise NativeUIError("Native iOS feature command exceeds its transport bound")
+        before_send=getattr(self,'before_send',None)
+        if before_send is not None and (not callable(before_send) or before_send() is False):
+            raise NativeUIError('Native iOS feature transport guard refused delivery')
         with post_request(Request(self.origin + '/e2e-client-command.json', data=payload,
                 method='POST', headers={'Content-Type': 'application/json'}), timeout=5) as response:
             content = response.read(limit + 1)

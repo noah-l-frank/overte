@@ -370,6 +370,13 @@ regressions in `self_tests/`. The shared Appium CLI delegates iOS requests to
 `adapters/appium_adapter.py`; generic imports retain the parent implementation.
 The parent-owned `../adapters/ios/binding.py` remains the candidate handoff loader.
 
+`FeatureObservation.send` supports an optional callable `before_send` guard
+after actual process verification and command serialization, immediately before
+the existing HTTP transport. Feature owners can enforce their enclosing
+operation deadline at this final boundary. A false, invalid or failing guard
+sends nothing. The default path, original commands and serialized schemas are
+unchanged; this callback is not a native freshness or product-effect source.
+
 The [internal output test](AUDIO_OUTPUT.md) verifies physical output PCM at
 system volume zero. The [acoustic loopback](ACOUSTIC_LOOPBACK.md) checks the
 built-in speaker and microphone with dedicated test builds. Host fixtures do
