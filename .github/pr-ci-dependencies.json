@@ -729,6 +729,7 @@
     ".github/workflows/ios-qt-source.yml",
     ".github/workflows/android-tests.yml",
     ".github/workflows/android-vr-tests.yml",
-    ".github/workflows/ios-build-qualification.yml"
+    ".github/workflows/ios-build-qualification.yml",
+    ".github/workflows/ios-bootstrap.yml"
   ]
 }

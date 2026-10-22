@@ -348,7 +348,7 @@ class WorkflowContracts(unittest.TestCase):
                 self.assertNotIn("push", load(name).get("on", {}))
 
     def test_retired_product_workflows_cannot_restart_parallel_automatic_owners(self):
-        for name in ("android-tests.yml", "android-vr-tests.yml", "ios-build-qualification.yml"):
+        for name in ("android-tests.yml", "android-vr-tests.yml", "ios-build-qualification.yml", "ios-bootstrap.yml"):
             if not (WORKFLOWS / name).exists():
                 continue
             events = load(name)["on"]
