@@ -53,7 +53,11 @@ struct JniScope {
         JavaVM* vm = webViewJavaVm.load(std::memory_order_acquire);
         if (!vm) { return; }
         if (vm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION_1_6) != JNI_OK) {
-            attached = vm->functions->AttachCurrentThread(vm, reinterpret_cast<void**>(&env), nullptr) == JNI_OK;
+#ifdef __ANDROID__
+            attached = vm->AttachCurrentThread(&env, nullptr) == JNI_OK;
+#else
+            attached = vm->AttachCurrentThread(reinterpret_cast<void**>(&env), nullptr) == JNI_OK;
+#endif
         }
     }
     ~JniScope() {
