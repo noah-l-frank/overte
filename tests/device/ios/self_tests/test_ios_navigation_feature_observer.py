@@ -124,5 +124,34 @@ class NavigationFeatureObserverTests(unittest.TestCase):
             with self.assertRaises(NativeUIError):surface.directory(owner)
             self.assertEqual(before,owner.store.read());self.assertEqual(commands,h.gpu.commands)
 
+    def test_coordinator_round_revalidates_every_original_after_cached_prefix_use(self):
+        h=self.h;h.flow.prepare();first=h.flow.observe_active(0)
+        with h.flow.held():
+            owner=h.observer().owners()[0]
+            sample=h.observer().images.frozen_child(owner.state['imageRow'],
+                unpack(owner.state['imageArchive']['payload'])[0])
+            original_path=h.root/sample.state['frameOwner']['name']
+        h.open_directory();current=h.flow.current;changed=[]
+        def final_candidate():
+            value=current()
+            if h.gpu.frames>=3 and not changed:
+                changed.append(True);original_path.write_bytes(original_path.read_bytes()+b'changed after prefix validation')
+            return value
+        h.flow.current=final_candidate
+        with self.assertRaises(NativeUIError):h.flow.observe_active(first['sequence'])
+        self.assertTrue(changed);self.assertEqual(3,h.gpu.frames)
+
+    def test_one_coordinator_round_validates_each_unchanged_owner_once_and_next_round_checks_again(self):
+        from ios.adapters.navigation_observation_owner import NavigationObservationOwner
+        h=self.h;h.flow.prepare();h.flow.observe_active(0);h.open_directory();h.flow.observe_active(1)
+        validate=NavigationObservationOwner.validate;calls=[]
+        def counted(owner):calls.append(owner.request);return validate(owner)
+        with patch.object(NavigationObservationOwner,'validate',counted):
+            for _ in range(2):
+                calls.clear()
+                with h.flow.held():
+                    observer=h.observer();observer.owners();observer.owners()
+                self.assertEqual(3,len(calls));self.assertEqual(3,len(set(calls)))
+
 
 if __name__=='__main__':unittest.main()

@@ -18,7 +18,7 @@ from adapters.script_feature.history import pack,unpack,same
 from feature_journeys.contract import identifier,result as public_result
 from feature_journeys.phase_fixture import PhaseFixtureReader
 from feature_journeys.witness import Client
-from ios.adapters.navigation_observation_owner import NavigationObservationOwner
+from ios.adapters.navigation_observation_owner import NavigationObservationOwner,validation_round
 from ios.adapters.navigation_samples import NavigationSamples
 from ios.adapters.navigation_sample import NavigationMarkerPending
 from navigation_observation import same_viewpoint,viewpoint_urls
@@ -53,6 +53,9 @@ class NavigationObserver:
         return self.store.path.with_name('ios-navigation-'+self.role+'-'+str(self.stage)+'-'+request+'-observation.json')
 
     def owners(self,rows=None):
+        with validation_round():return self._owners(rows)
+
+    def _owners(self,rows=None):
         """Reopen actual immutable carriers/PNGs, without any live factory."""
         rows=self.state['rows'] if rows is None else rows
         images=NavigationSamples(self.images.store,self.images.root,self.binding,self.run,self.role,self.stage,

@@ -7,6 +7,7 @@ retire a run. Reconstruction resolves an old return without repeating a read.
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
 from contextvars import ContextVar
+from contextlib import contextmanager
 import time
 
 from adapters.native_clock_join import NativeClockAcquisition,digest,validate_join
@@ -32,6 +33,20 @@ from ios.adapters import navigation_source_prefix as source_prefix
 
 VERSION=1
 _ARCHIVE_ROUND=ContextVar('ios_navigation_original_archive_round',default=None)
+
+
+@contextmanager
+def validation_round():
+    """Share pure validation within one synchronous call, then recheck files."""
+    if _ARCHIVE_ROUND.get() is not None:
+        yield;return
+    token=_ARCHIVE_ROUND.set({})
+    try:
+        yield
+        for owner,carrier,_result in _ARCHIVE_ROUND.get().values():
+            owner.bound();need(same(owner.previous,carrier) and same(owner.envelope(owner.state),carrier))
+            owner.image()
+    finally:_ARCHIVE_ROUND.reset(token)
 SOURCES=dict(bookmarks=location_bookmarks.IOSLocationBookmarks,model=places_model.IOSPlacesModel,
     http=places_http.IOSPlacesHttp,dialogs=navigation_dialogs.IOSNavigationDialogs,replies=NativeNavigationReplies,ui=NativeInput)
 
@@ -294,14 +309,7 @@ class NavigationObservationOwner:
         # Every participating carrier/state/PNG is rechecked before returning.
         cache=_ARCHIVE_ROUND.get()
         if cache is None:
-            token=_ARCHIVE_ROUND.set({})
-            try:
-                result=self.archive()
-                for owner,carrier,_result in _ARCHIVE_ROUND.get().values():
-                    owner.bound();need(same(owner.previous,carrier) and same(owner.envelope(owner.state),carrier))
-                    owner.image()
-                return result
-            finally:_ARCHIVE_ROUND.reset(token)
+            with validation_round():return self.archive()
         self.bound();need(self.state is not None and self.state['phase'] in ('observed','marker-pending','failed'))
         need(same(self.envelope(self.state),self.previous));key=(str(self.store.path),digest(self.previous))
         if key in cache:return deepcopy(cache[key][2])

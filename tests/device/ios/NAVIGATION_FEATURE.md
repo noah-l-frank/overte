@@ -45,6 +45,12 @@ stays owned; it is not abandoned or replayed automatically. Later observations
 re-derive the retained directory barriers from the actual original surface
 journal. A final host epoch/monotonic check includes original revalidation and
 candidate continuity inside the original 1.5-second acquisition budget.
+One synchronous locked call shares pure historical validation by actual owner
+path and carrier digest. Before returning, it rechecks every participating
+carrier, in-memory envelope and original PNG. The next call checks the history
+again; no cross-call cache supplies source facts or extends freshness. This
+avoids repeatedly decoding the same immutable predecessor chain while keeping
+late file replacement and changed state visible to the final deadline.
 This remains an internal measurement; global actor sequence across restart,
 the full public operation and paired final restoration remain required.
 

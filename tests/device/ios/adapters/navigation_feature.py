@@ -27,6 +27,7 @@ from ios.adapters.navigation_fixture import NavigationFixtureReader
 from ios.adapters.navigation_places_actions import VERBS as PLACE_VERBS
 from ios.adapters.navigation_runtime import IOSNavigationRuntime
 from ios.adapters.navigation_observer import NavigationObserver
+from ios.adapters.navigation_observation_owner import validation_round
 from ios.adapters import navigation_source_prefix as source_prefix
 from ios.adapters.graphics_history import follow_native
 from navigation_observation import same_viewpoint,viewpoint_urls
@@ -69,7 +70,9 @@ class IOSNavigationFeature:
             # Retain exceptions across ScriptSourceLock's context manager.
             with self.lock.held():
                 try:
-                    with transport_scope(self.clock):yield;self.clock()
+                    with transport_scope(self.clock):
+                        with validation_round():yield
+                        self.clock()
                 except BaseException as caught:error=caught
             if error is not None:raise error
         finally:self.deadline=outer
