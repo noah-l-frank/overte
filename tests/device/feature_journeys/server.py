@@ -22,6 +22,7 @@ if __package__ in (None, ''):
 from feature_journeys.contract import exact, identifier, json_document
 from feature_journeys.fixtures import check, companion, payload
 from feature_journeys.witness import Journal
+from feature_journeys.retirement_receipts import PhaseRetirementJournal
 from feature_journeys.account_provider import AccountProvider,form,TOKEN_PATH,PROFILE_PATH,REQUEST_HEADER,RUN_HEADER,TICKET_HEADER
 from feature_journeys.browser_fixture import BrowserResources
 from feature_journeys.navigation_fixture import NavigationResources,DIRECTORY
@@ -444,6 +445,15 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send(200, {})
             if self.command == 'GET' and parts[2:] == ['active']:
                 return self.send(200, self.server.journal.active(run))
+            if parts[2:]==['retirements']:
+                if self.command=='POST' and actor:
+                    self.server.phase_retirements.publish(run,body)
+                    return self.send(200,{}) # Receipt is read independently; this ACK proves no native cleanup.
+                if self.command=='GET' and (reader or actor or adapter_reader):
+                    # Closed retirement summary has no feature state, facts
+                    # or artifacts; the full cleanup original stays private.
+                    return self.send(200,self.server.phase_retirements.snapshot(run))
+                return self.send(403,{'error':'forbidden'})
             if self.command == 'POST' and parts[2:] == ['samples'] and actor:
                 self.server.journal.publish(run, body)
                 return self.send(200, {})
@@ -552,6 +562,7 @@ def make_server(reader_token, actor_token, address=('127.0.0.1', 0),*,account_pr
     server.reader_token, server.actor_token = reader_token, actor_token
     server.adapter_token=adapter_token
     server.journal = Journal() if browser_peer_of is None else browser_peer_of.journal
+    server.phase_retirements=PhaseRetirementJournal(server.journal) if browser_peer_of is None else browser_peer_of.phase_retirements
     server.browser_resources = BrowserResources() if browser_peer_of is None else browser_peer_of.browser_resources
     server.browser_peer = browser_peer_of is not None
     server.daemon_threads = True
