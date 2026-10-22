@@ -481,7 +481,7 @@ class FixtureState:
                      and re.fullmatch(r"ios-[0-9a-f]{32}", command["commandId"]) is not None
                      and command.get("operation") in {"prepare", "restore"})
         elif action in {"native-crash", "native-ui-snapshot", "native-geometry-snapshot", "native-probe-snapshot", "feature-native-observe",
-                        "feature-recorded-audio-observe", "feature-recorded-audio-release", "feature-recorded-audio-files", "feature-script-observe", "feature-script-roots-observe", "feature-avatar-receive-observe", "feature-world-render-observe"}:
+                        "feature-recorded-audio-observe", "feature-recorded-audio-release", "feature-recorded-audio-files", "feature-script-observe", "feature-script-roots-observe", "feature-script-terminal-observe", "feature-avatar-receive-observe", "feature-world-render-observe"}:
             valid = (set(command) == {"schemaVersion", "commandId", "action"}
                      and type(command["schemaVersion"]) is int
                      and re.fullmatch(r"ios-[0-9a-f]{32}", command["commandId"]) is not None)
@@ -574,6 +574,18 @@ class FixtureState:
             from ios.adapters.scene_inventory import command as scene_inventory_command
             try:scene_inventory_command(command)
             except (ValueError,RuntimeError):raise ValueError("invalid iOS scene inventory request") from None
+            valid=True
+        elif action == "feature-ios-emote-world":
+            sys.path.insert(0,str(ROOT.parent))
+            from ios.adapters.emote_world import command as validate_ios_source
+            try:validate_ios_source(command)
+            except (ValueError,RuntimeError):raise ValueError("invalid iOS emote world request") from None
+            valid=True
+        elif action == "feature-script-work-observe":
+            sys.path.insert(0,str(ROOT.parent))
+            from adapters.native_script_work import command as script_work_command
+            try:script_work_command(command,ios=True)
+            except (ValueError,RuntimeError):raise ValueError("invalid original Script work request") from None
             valid=True
         elif action == "feature-ios-avatar-renderers":
             sys.path.insert(0,str(ROOT.parent))

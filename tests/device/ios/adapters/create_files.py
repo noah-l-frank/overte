@@ -218,5 +218,10 @@ class OwnedCreateFiles:
         value = self.observe(); need(value['source']['exists'] and same(value['source']['files'], originals))
         self.state['phase'] = 'releasing'; self.save()
         self.native.request('release', self.run, self.state['token'], originals=originals, retain=self.retain)
+        return self.recover_release()
+
+    def recover_release(self):
+        """Only read after an uncertain release; never repeat the unlink input."""
+        need(self.state is not None and self.state['phase'] in ('releasing', 'retired'))
         after = self.observe(); need(after['source'] == {'exists': False, 'files': []})
         self.state['phase'] = 'retired'; self.save(); return after

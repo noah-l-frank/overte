@@ -13,7 +13,8 @@ from urllib.parse import urlsplit
 from adapters.native_feature_observation import exact, fresh, integer, need, number
 from ios.adapters.places_model import IOSPlacesModel, tree
 
-VERSION = 1
+VERSION = 2
+READS = (1, 2)
 ACTION = 'feature-ios-avatar-state'
 FILE = ACTION+'.json'
 LIMIT = 262144
@@ -45,7 +46,7 @@ def command(value):
 def history(value, pid, epoch, previous=None):
     exact(value, {'avatarModelHistoryVersion', 'instance', 'processId', 'currentGeneration',
                   'eventSequence', 'complete', 'events'})
-    need(type(value['avatarModelHistoryVersion']) is int and value['avatarModelHistoryVersion'] == VERSION
+    need(type(value['avatarModelHistoryVersion']) is int and value['avatarModelHistoryVersion'] == 1
          and identity(value['instance']) and type(value['processId']) is int and value['processId'] == pid
          and integer(value['currentGeneration'], 0, 256) and integer(value['eventSequence'], 0, 512)
          and type(value['complete']) is bool and type(value['events']) is list
@@ -96,7 +97,7 @@ def validate(value, query, pid, epoch=None, previous=None):
     command(query)
     exact(value, {'iosAvatarStateVersion', 'requestId', 'runId', 'instance', 'sequence', 'processId',
                   'clockDomain', 'clockBefore', 'clockAfter', 'source'})
-    need(type(value['iosAvatarStateVersion']) is int and value['iosAvatarStateVersion'] == VERSION
+    need(type(value['iosAvatarStateVersion']) is int and value['iosAvatarStateVersion'] in READS
          and value['requestId'] == query['commandId'] and value['runId'] == query['runId']
          and integer(pid, 1) and type(value['processId']) is int and value['processId'] == pid
          and identity(value['instance']) and integer(value['sequence'], 1, 1000000000)
@@ -110,7 +111,8 @@ def validate(value, query, pid, epoch=None, previous=None):
     if epoch is not None: fresh(after['epochMs'], epoch)
     source = value['source']
     exact(source, {'sessionId', 'requestedUrl', 'resourceUrl', 'defaultResourceUrl', 'geometryLoaded',
-                   'rigReady', 'shouldRender', 'targetScale', 'modelScale', 'jointNames', 'bookmarks', 'modelHistory'})
+                   'rigReady', 'shouldRender', 'targetScale', 'modelScale', 'jointNames', 'bookmarks', 'modelHistory'}
+          | ({'bookmarkFile'} if value['iosAvatarStateVersion'] >= 2 else set()))
     session(source['sessionId'])
     for field in ('requestedUrl', 'resourceUrl', 'defaultResourceUrl'): text(source[field])
     need(source['requestedUrl'] and source['defaultResourceUrl'])
@@ -126,6 +128,9 @@ def validate(value, query, pid, epoch=None, previous=None):
     need(bookmarks['source'] == 'AvatarBookmarks.getBookmarks' and type(bookmarks['entries']) is dict
          and type(bookmarks['loadError']) is bool)
     tree(bookmarks['entries'])
+    if value['iosAvatarStateVersion'] >= 2:
+        from ios.adapters.avatar_bookmarks import original_bytes
+        original_bytes(source['bookmarkFile'])
     native_history = history(source['modelHistory'], pid, after['epochMs'])
     if native_history['currentGeneration']:
         wanted = [event for event in native_history['events'] if event['kind'] == 'requested'][-1]
@@ -133,7 +138,8 @@ def validate(value, query, pid, epoch=None, previous=None):
     need(len(json.dumps(value, allow_nan=False).encode()) <= LIMIT)
     if previous is not None:
         validate(previous, dict(query, commandId=previous['requestId']), pid)
-        need(value['instance'] == previous['instance'] and value['sequence'] > previous['sequence']
+        need(value['iosAvatarStateVersion'] >= previous['iosAvatarStateVersion']
+             and value['instance'] == previous['instance'] and value['sequence'] > previous['sequence']
              and value['requestId'] != previous['requestId'] and value['runId'] == previous['runId']
              and source['sessionId'] == previous['source']['sessionId']
              and before['epochMs'] >= previous['clockAfter']['epochMs']

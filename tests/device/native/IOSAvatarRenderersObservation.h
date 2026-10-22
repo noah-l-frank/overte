@@ -14,7 +14,7 @@ namespace overte::e2e {
 class IOSAvatarRenderersObservation {
 public:
     QVariantMap read(const QString& request,const QString& run,AvatarManager* avatars,const EntityTreePointer& tree) {
-        return _bracket.read("iosAvatarRenderersVersion","native-main-avatar-renderers",request,run,[&]() -> QVariantMap {
+        auto result=_bracket.read("iosAvatarRenderersVersion","native-main-avatar-renderers",request,run,[&]() -> QVariantMap {
             if (!avatars || !tree) { return {}; }
             const auto before=tree->featureEntityInventory();
             if (before.isEmpty() || !before.value("complete").toBool()) { return {}; }
@@ -28,6 +28,7 @@ public:
                 const auto model=avatar->getSkeletonModel();if (!model) { return {}; }
                 const bool geometry=model->isLoaded();const auto joints=avatar->getJointNames();
                 if (joints.size()>1024) { return {}; }
+                QVariantMap jointIndices;for (const auto& name:joints) { jointIndices.insert(name,avatar->getJointIndex(name)); }
                 const auto rigOriginal=model->getRig().e2eAnimationObservation();QVariantMap rigPose;
                 if (!rigOriginal.isEmpty()) {
                     for (const auto& key:QStringList {"rigId","capturedEpochMs","evaluationSequence","animationsEnabled",
@@ -42,7 +43,7 @@ public:
                     {"geometryLoaded",geometry},{"rigReady",geometry && model->getRig().getAnimNode()!=nullptr && !joints.isEmpty()},
                     {"shouldRender",avatar->shouldRender()},{"addedToScene",model->isAddedToScene()},
                     {"targetScale",avatar->getTargetScale()},{"modelScale",avatar->getModelScale()},
-                    {"jointNames",joints},{"hipsIndex",avatar->getJointIndex("Hips")},
+                    {"jointNames",joints},{"jointIndices",jointIndices},{"hipsIndex",avatar->getJointIndex("Hips")},
                     {"rigPose",rigPose.isEmpty() ? QVariant() : QVariant(rigPose)}});
             }
             QVariantList attachments;
@@ -74,6 +75,8 @@ public:
             QVariantList rows;for (auto it=originalAvatars.constBegin();it!=originalAvatars.constEnd();++it) { rows.append(it.value()); }
             return {{"complete",true},{"avatars",rows},{"avatarEntities",attachments},{"tree",before}};
         });
+        if (!result.isEmpty()) { result["iosAvatarRenderersVersion"]=2; }
+        return result;
     }
 private:
     NativeReadBracket _bracket;

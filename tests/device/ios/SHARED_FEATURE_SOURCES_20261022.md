@@ -39,3 +39,45 @@ Whole user flows, current image/peer evidence, interruptions/restarts, and
 verified repeated quiet cleanup are still required for the three areas. This
 packet also registers the separately committed durable Places action owner;
 its ownership journal does not complete Worlds/navigation.
+
+## Second source packet
+
+The next local packet adds ordinary Avatar/People controls with native source
+birth independent of tablet visibility, a durable per-input owner, original
+AvatarBookmarks file bytes and separate loaded-map comparison. Its optional
+social HTTPS fixture uses the actual attached AccountProvider authenticator;
+foreign callbacks/providers and rejected factory inputs cannot bind that
+account authority. Both normal participants must make actual POST requests.
+
+Create state v2 retains actual selected PolyVox dialog/settings, entity transforms,
+local session and camera originals. Its world stroke uses normal W3C input over
+independently acquired geometry. The opt-in domain-fixture rez authority uses the
+owned DomainServer's normal settings API, exact process/domain binding and
+read-only recovery after uncertain POST delivery. It never substitutes for
+native canRez/canRezTmp, retry, peer or resource-lifetime evidence. No server was
+started to test these source additions.
+
+Emote controls v2 retain hidden and detached actual QML roots independently of
+hit-testing. Separate marker-only normal Script file ownership preserves the real
+domain and AvatarMixer; the optional serverless scene provider is not a complete
+peer setup. World reads join actual marker UUIDs, editable maps, current camera,
+model bounds and original Script effects without injecting avatar state.
+
+The frozen Phone ScriptWork closure is selected from
+`fe4684bf46585088370b3a328a738f147e670b97`: actual owner-thread timer inventory,
+V8/timer callback scopes, queued reads and original response validation. Current
+Qt/iOS source changes remain intact. Its running-only source cannot prove a
+stopped Script. A separate terminal ledger records original shutdown drainage
+after scriptEnding/proxy disconnect/final event processing, and then actual
+QThread::finished. The thread hook retains a token only, so instrumentation does
+not keep the product manager or worker alive. Known-worker and terminal histories
+remain separate obligations for the full cleanup owner.
+
+Both sources use closed existing probe/fixture/HTTP/AFC routes and original native
+clocks. ScriptWork caches every consumed completed nonce, including unavailable,
+and polls only the same pending native worker query; old results are not retimed.
+The terminal and other new routes use the shared bounded consumed-nonce ledger.
+Native source remains uncompiled, all devices untested, and all three areas
+partial. The packet's combined 151 host tests and 10 additional bookmark/terminal
+transport tests passed, as did five project suites, contract, Node syntax and
+whitespace checks. These are source/adapter tests, not product qualification.

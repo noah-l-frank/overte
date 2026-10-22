@@ -53,7 +53,9 @@
 #include "EntityScriptConsent.h"
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #include <QCoreApplication>
+#include <mutex>
 #include "RequiredModuleObservation.h"
+#include "ScriptTerminalObservation.h"
 #endif
 
 static const QString NO_SCRIPT("");
@@ -1048,6 +1050,8 @@ public:
     QVariantMap featureSourceIdentity() const { return _e2eRequiredModules.sourceIdentity(); }
     QVariantMap featureLoadMembership() const { return _e2eRequiredModules.loadMembership(); }
     static QVariantMap featureLoadHistory();
+    // Queued observation on the actual manager thread; no JavaScript evaluation.
+    QVariantMap featureWorkObservation(const QString& requestId);
     // Native-only call provenance. Never accepts a script-supplied manager ID.
     static QVariantMap featureNativeCallContext();
     class FeatureNativeCallScope {
@@ -1060,7 +1064,20 @@ public:
     private:
         QVariantMap _previous;
     };
-
+    class FeatureCallbackScope {
+    public:
+        FeatureCallbackScope(ScriptManager* manager, bool timer) : _manager(nullptr), _timer(timer) {
+            if (manager && manager->_featureWorkEnabled) {
+                _manager=manager;_manager->featureCallbackBoundary(_timer,true);
+            }
+        }
+        ~FeatureCallbackScope() { if (_manager) { _manager->featureCallbackBoundary(_timer,false); } }
+        FeatureCallbackScope(const FeatureCallbackScope&)=delete;
+        FeatureCallbackScope& operator=(const FeatureCallbackScope&)=delete;
+    private:
+        ScriptManager* _manager;
+        bool _timer;
+    };
 #endif
 
     // this is used by code in ScriptEngines.cpp during the "reload all" operation
@@ -1696,7 +1713,16 @@ protected:
     const Context _context;
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     overte::e2e::RequiredModuleObservation _e2eRequiredModules;
+    void featureCallbackBoundary(bool timer, bool entering);
     const bool _featureWorkEnabled {QCoreApplication::arguments().contains("--testScript")};
+    QString _featureTerminalThread;
+    std::atomic<bool> _featureWorkValid {true};
+    quint64 _featureSignalCallbacks {0}, _featureTimerCallbacks {0}; // Manager thread only.
+    std::mutex _featureWorkMutex;
+    QString _featureWorkRequest;
+    QVariantMap _featureWorkResult;
+    bool _featureWorkPending {false};
+    quint64 _featureWorkSequence {0};
     quint64 _featureNativeCallSequence {0};
     static thread_local QVariantMap _featureNativeCallContext;
 #endif

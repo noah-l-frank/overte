@@ -9,6 +9,8 @@
 #include <EntityTree.h>
 #include <RenderableModelEntityItem.h>
 #include <PolyVoxEntityItem.h>
+#include <ViewFrustum.h>
+#include <NodeList.h>
 #include <QPointer>
 #include <QSet>
 #include <algorithm>
@@ -18,7 +20,7 @@ class IOSCreateStateObservation {
 public:
     QVariantMap read(const QString& request,const QString& run,const QList<QQuickItem*>& inputs,
             bool shown,EntityScriptingInterface* entities,const QString& domainId) {
-        return _bracket.read("iosCreateStateVersion","native-main-create",request,run,[&]() -> QVariantMap {
+        auto result=_bracket.read("iosCreateStateVersion","native-main-create",request,run,[&]() -> QVariantMap {
             if (!entities || !entities->getEntityTree() || inputs.isEmpty()) { return {}; }
             auto tree=entities->getEntityTree();
             const auto first=tree->featureEntityInventory();
@@ -30,6 +32,7 @@ public:
                 const auto p=item->getProperties();
                 if (p.getName().size()>256 || p.getModelURL().size()>4096 || p.getTextures().size()>8192) { return {}; }
                 const auto host=p.getEntityHostType();const auto dimensions=p.getDimensions();
+                const auto position=p.getPosition();const auto rotation=p.getRotation();
                 QVariantMap model,voxels;
                 if (auto original=std::dynamic_pointer_cast<ModelEntityWrapper>(item)) {
                     const auto actual=original->featureCreateModel();
@@ -47,7 +50,10 @@ public:
                 }
                 rows.append(QVariantMap{{"id",id},{"name",p.getName()},{"type",EntityTypes::getEntityTypeName(p.getType())},
                     {"hostType",host==entity::HostType::LOCAL ? "local" : host==entity::HostType::AVATAR ? "avatar" : "domain"},
-                    {"dimensions",QVariantList{dimensions.x,dimensions.y,dimensions.z}},{"shape",p.getShape()},{"modelURL",p.getModelURL()},
+                    {"dimensions",QVariantList{dimensions.x,dimensions.y,dimensions.z}},
+                    {"position",QVariantList{position.x,position.y,position.z}},
+                    {"rotation",QVariantList{rotation.x,rotation.y,rotation.z,rotation.w}},
+                    {"shape",p.getShapeAsString()},{"modelURL",p.getModelURL()},
                     {"textures",p.getTextures()},{"lastEditedBy",p.getLastEditedBy().toString(QUuid::WithoutBraces)},
                     {"createdEpochUs",QString::number(p.getCreated())},{"lastEditedEpochUs",QString::number(p.getLastEdited())},
                     {"locked",p.getLocked()},{"visible",p.getVisible()},{"model",model},{"voxels",voxels}});
@@ -59,7 +65,7 @@ public:
                 if (!item || !complete || visited.contains(item)) { return; }
                 if (depth>128 || visited.size()>=8192 || item->thread()!=QCoreApplication::instance()->thread()) { complete=false;return; }
                 visited.insert(item);
-                if (!createComponentSource(item).isEmpty() || createFileBrowser(item)==item) {
+                if (!createComponentSource(item).isEmpty() || createFileBrowser(item)==item || createPolyVoxDialog(item)==item) {
                     auto id=item->property("_overteE2ECreateRootId").toString();
                     if (id.isEmpty()) {
                         id=QUuid::createUuid().toString(QUuid::WithoutBraces);
@@ -85,6 +91,25 @@ public:
                     row["visible"]=visible;row["active"]=shown && visible;
                     if (auto file=createFileBrowser(item)) {
                         row["kind"]=createFileRole(file);row["picker"]=createFileObservation(file).toVariantMap();
+                    } else if (createPolyVoxDialog(item)==item) {
+                        row["kind"]="polyvox";QVariantMap original{{"componentSource",createPolyVoxSource(item)}};
+                        const auto objects=item->findChildren<QQuickItem*>();
+                        if (objects.size()>4096) { return {}; }
+                        for (const auto& name:QStringList{"initialShape","surfaceStyle","texturePreset","volumeSizeX","volumeSizeY","volumeSizeZ",
+                                "xTextureURL","yTextureURL","zTextureURL","button1"}) {
+                            QQuickItem* found=nullptr;
+                            for (auto object:objects) {
+                                if (loginQmlId(object,name)) {
+                                    if (found) { return {}; }found=object;
+                                }
+                            }
+                            if (!found) { return {}; }
+                            const auto property=name=="button1" ? "enabled" :
+                                (name=="initialShape" || name=="surfaceStyle" || name=="texturePreset") ? "currentIndex" : "text";
+                            const auto value=found->property(property);
+                            if (!value.isValid()) { return {}; }original[name]=value;
+                        }
+                        row["dialog"]=original;
                     } else {
                         QJsonObject page;appendCreateControlObservation(page,item,"create.page");
                         if (!page.contains("profile")) { complete=false;return {}; }
@@ -102,15 +127,26 @@ public:
                 }
                 roots.append(row);
             }
-            return {{"complete",complete},{"tabletShown",shown},{"domainId",domainId},
+            if (!complete) { _complete=false; }
+            const auto& camera=qApp->getCamera();ViewFrustum frustum;camera.loadViewFrustum(frustum);
+            const auto position=frustum.getPosition();const auto orientation=frustum.getOrientation();const auto ui=qApp->getUiSize();
+            return {{"complete",complete && _complete},{"tabletShown",shown},{"domainId",domainId},
+                {"localSessionId",DependencyManager::get<NodeList>()->getSessionUUID().toString(QUuid::WithoutBraces)},
                 {"canRez",entities->canRez()},{"canRezTmp",entities->canRezTmp()},
-                {"tree",first},{"entities",rows},{"roots",roots}};
+                {"tree",first},{"entities",rows},{"roots",roots},
+                {"view",QVariantMap{{"position",QVariantList{position.x,position.y,position.z}},
+                    {"rotation",QVariantList{orientation.x,orientation.y,orientation.z,orientation.w}},
+                    {"fieldOfViewDegrees",frustum.getFieldOfView()},{"aspectRatio",frustum.getAspectRatio()},
+                    {"perspective",frustum.isPerspective()},{"uiWidth",ui.x},{"uiHeight",ui.y}}}};
         });
+        if (!result.isEmpty()) { result.insert("iosCreateStateVersion",2); }
+        return result;
     }
 private:
     NativeReadBracket _bracket;
     QHash<QString,QPointer<QQuickItem>> _roots;
     QStringList _births;
+    bool _complete {true};
 };
 } // namespace overte::e2e
 #endif

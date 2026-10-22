@@ -22,6 +22,7 @@ from ios.adapters.appium_adapter import AppiumAdapter
 from adapters.token_script_ui import script_control, metadata_fields, validate_metadata
 from adapters.token_graphics_ui import graphics_control,metadata_fields as graphics_metadata_fields,validate_metadata as validate_graphics_metadata,on_grid
 from adapters.token_emote_ui import metadata as emote_metadata,control_id as emote_control
+from ios.adapters.avatar_controls import metadata as avatar_metadata,control_id as avatar_control
 from adapters.token_chat_ui import metadata as chat_metadata,control_id as chat_control,text as chat_text,same_reference as chat_same_reference
 from adapters.token_create_ui import ascii_text,control_id as legacy_create_control
 from ios.adapters.create_controls_v2 import metadata as create_metadata,control_id as create_control,field as create_field,choice as create_choice,same_reference
@@ -124,11 +125,19 @@ def observation(value, pid, now_ms=None):
         if type(value['chatControlsVersion']) is not int or value['chatControlsVersion']!=1 or not _uuid(value.get('chatGeneration')):
             raise NativeUIError('Native iOS Chat control version/context is invalid')
         fields |= {'chatControlsVersion','chatGeneration'}
+    if type(value) is dict and 'avatarControlsVersion' in value:
+        if (type(value['avatarControlsVersion']) is not int or value['avatarControlsVersion']!=1
+                or not _uuid(value.get('avatarGeneration')) or not _integer(value.get('avatarSourceSequence'),1)):
+            raise NativeUIError('Native iOS Avatar control version/context is invalid')
+        fields |= {'avatarControlsVersion','avatarGeneration','avatarSourceSequence'}
     if type(value) is dict and 'emoteControlsVersion' in value:
-        if (type(value['emoteControlsVersion']) is not int or value['emoteControlsVersion']!=1
+        if (type(value['emoteControlsVersion']) is not int or value['emoteControlsVersion'] not in (1,2)
                 or not _uuid(value.get('emoteGeneration')) or not _integer(value.get('emoteSourceSequence'),1)):
             raise NativeUIError('Native iOS Emote source version or context is invalid')
         fields |= {'emoteControlsVersion','emoteGeneration','emoteSourceSequence'}
+        if value['emoteControlsVersion']==2:
+            from ios.adapters.emote_ui_inventory import validate as emote_inventory
+            emote_inventory(value['emoteInventory']);fields.add('emoteInventory')
     if type(value) is dict and 'createControlsVersion' in value:
         if type(value['createControlsVersion']) is not int or value['createControlsVersion'] not in (1,2) or not _uuid(value.get('createGeneration')):
             raise NativeUIError('Native iOS Create control version/context is invalid')
@@ -153,6 +162,7 @@ def observation(value, pid, now_ms=None):
         if type(control) is dict and type(control.get('id')) is str and control['id'].startswith('graphics.') and not is_graphics:
             raise NativeUIError('Native iOS Graphics controls lack their source extension')
         is_create=type(control) is dict and type(control.get('id')) is str and control['id'].startswith('create.')
+        is_avatar=type(control) is dict and type(control.get('id')) is str and control['id'].startswith(('avatar.','people.'))
         is_emote=type(control) is dict and type(control.get('id')) is str and control['id'].startswith('emote.')
         is_chat=type(control) is dict and type(control.get('id')) is str and control['id'].startswith('chat.')
         is_places=type(control) is dict and control.get('profile') in PLACES_PROFILES.values()
@@ -163,8 +173,11 @@ def observation(value, pid, now_ms=None):
         elif is_places:
             if control['profile']!=PLACES_PROFILES.get(value.get('placesControlsVersion')):raise NativeUIError('Native iOS Places controls lack their source extension')
             original=dict(control);original.pop('frame',None);places_metadata(original);fields=set(control)
+        elif is_avatar:
+            if value.get('avatarControlsVersion')!=1:raise NativeUIError('Native iOS Avatar source is missing')
+            original=dict(control);original.pop('frame',None);avatar_metadata(original);fields=set(control)
         elif is_emote:
-            if value.get('emoteControlsVersion')!=1:raise NativeUIError('Native iOS Emote source is missing')
+            if value.get('emoteControlsVersion') not in (1,2):raise NativeUIError('Native iOS Emote source is missing')
             original=dict(control);original.pop('frame',None);emote_metadata(original);fields=set(control)
         elif is_chat:
             if value.get('chatControlsVersion')!=1:raise NativeUIError('Native iOS Chat controls lack their source extension')
@@ -205,7 +218,7 @@ def observation(value, pid, now_ms=None):
             fields.add('checked')
         if (not isinstance(control, dict) or set(control) != fields
                 or not isinstance(control['id'], str)
-                or not (control['id'] in CONTROLS or script_control(control['id']) or file_control(control['id']) or audio_control(control['id']) or graphics_control(control['id']) or control['id'] in LOGIN_IDS or control['id'] in ACCOUNT_IDS or control['id'] in VIEW_IDS or control['id']==REMEMBER_ID or is_create and create_control(control['id']) or is_chat and chat_control(control['id']) or is_places and places_control(control['id']) or is_error or is_emote and emote_control(control['id'])) or control['id'] in seen
+                or not (control['id'] in CONTROLS or script_control(control['id']) or file_control(control['id']) or audio_control(control['id']) or graphics_control(control['id']) or control['id'] in LOGIN_IDS or control['id'] in ACCOUNT_IDS or control['id'] in VIEW_IDS or control['id']==REMEMBER_ID or is_create and create_control(control['id']) or is_chat and chat_control(control['id']) or is_places and places_control(control['id']) or is_error or is_avatar and avatar_control(control['id']) or is_emote and emote_control(control['id'])) or control['id'] in seen
                 or not _uuid(control['token']) or control['token'] in tokens
                 or type(control['enabled']) is not bool or type(control['focused']) is not bool):
             raise NativeUIError('Native iOS input controls are invalid')

@@ -28,6 +28,7 @@ namespace overte::e2e { class IOSLocationBookmarksObservation; }
 namespace overte::e2e { class IOSPlacesModelObservation; }
 namespace overte::e2e { class IOSNavigationStateObservation; }
 namespace overte::e2e { class IOSAvatarRenderersObservation; }
+namespace overte::e2e { class IOSEmoteWorldObservation; }
 namespace overte::e2e { class IOSCreateStateObservation; }
 namespace overte::e2e { class IOSAvatarStateObservation; }
 namespace overte::e2e { class NativeReadBracket; }
@@ -179,6 +180,7 @@ public slots:
     Q_INVOKABLE QVariantMap featureIOSPlacesHttp(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureIOSNavigationDialogs(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureIOSNavigationState(const QVariantMap& command);
+    Q_INVOKABLE QVariantMap featureIOSEmoteWorld(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureIOSAvatarRenderers(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureIOSCreateState(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureIOSCreateFiles(const QVariantMap& command);
@@ -196,7 +198,9 @@ public slots:
     Q_INVOKABLE QVariantMap releaseFeatureRecordedVoiceEvidence(const QString& requestId);
     Q_INVOKABLE QVariantMap featureRecordedVoiceFiles(const QString& requestId);
     Q_INVOKABLE QVariantMap featureAvatarReceive(const QVariantMap& command);
+    Q_INVOKABLE QVariantMap featureScriptTerminal(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureScriptRoots(const QVariantMap& command);
+    Q_INVOKABLE QVariantMap featureScriptWork(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureScriptObservation(const QString& requestId);
     Q_INVOKABLE QVariantMap featureScriptFiles(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureCompletedFrameObservation(const QVariantMap& command);
@@ -271,6 +275,7 @@ private:
     std::shared_ptr<overte::e2e::IOSLocationBookmarksObservation> _featureIOSLocationBookmarks;
     std::shared_ptr<overte::e2e::IOSPlacesModelObservation> _featureIOSPlacesModel;
     std::shared_ptr<overte::e2e::IOSNavigationStateObservation> _featureIOSNavigationState;
+    std::shared_ptr<overte::e2e::IOSEmoteWorldObservation> _featureIOSEmoteWorld;
     std::shared_ptr<overte::e2e::IOSAvatarRenderersObservation> _featureIOSAvatarRenderers;
     std::shared_ptr<overte::e2e::IOSCreateStateObservation> _featureIOSCreateState;
     std::shared_ptr<overte::e2e::IOSAvatarStateObservation> _featureIOSAvatarState;
@@ -293,7 +298,10 @@ private:
     quint64 _featurePreviewSequence {0}, _featurePreviewLease {0};
     quint64 _featureScriptSequence {0};
     quint64 _featureAvatarReceiveSequence {0};
+    quint64 _featureScriptTerminalSequence {0};
     quint64 _featureScriptRootsSequence {0};
+    quint64 _featureScriptWorkSequence {0};
+    QMap<QString,QVariantMap> _featureScriptWorkCommands, _featureScriptWorkResults;
     quint64 _featureGraphicsSubjectSequence {0};
     QSet<QUuid> _featureScriptEffectIds;
     quint64 _featureScriptFilesSequence {0};

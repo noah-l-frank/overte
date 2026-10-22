@@ -78,6 +78,8 @@ class IOSCreateUI(TokenCreateUI):
 
     def create_domain(self, kind, *, resource=None):
         need(kind in ('model', 'cube', 'voxel') and (resource is None) == (kind != 'model'))
+        if kind == 'voxel':
+            raise NativeUIError('Use the real filled-volume PolyVox dialog instead of empty NEW PolyVox')
         self.tab(0); self.choose('create.host', 0)
         if kind == 'model': self.replace('create.resource', ascii_text(resource))
         if kind == 'cube': self.choose('create.shape', 0)
@@ -93,8 +95,22 @@ class IOSCreateUI(TokenCreateUI):
         for axis in ('x', 'y', 'z'): self.replace('create.field.dimensions.'+axis, '1')
         self.reveal('create.apply'); self.input('create.apply')
 
+    def create_polyvox(self):
+        """Existing detailed Box path; no direct voxel filling or setter."""
+        self.tab(0); self.choose('create.host', 0); self.choose('create.detailed-type', 3)
+        self.reveal('create.detailed-open'); self.input('create.detailed-open')
+        current = self.wait(lambda value: bool(self.row(value, 'create.polyvox.initialShape')))
+        root = self.row(current, 'create.polyvox.initialShape')['dialogRootId']
+        self.choose('create.polyvox.texturePreset', 1)  # Existing bundled Grass+ground preset.
+        for axis in ('X', 'Y', 'Z'): self.replace('create.polyvox.volumeSize'+axis, '8')
+        self.choose('create.polyvox.surfaceStyle', 2); self.choose('create.polyvox.initialShape', 0)
+        self.reveal('create.polyvox.accept')
+        need(self.row(self.capture(), 'create.polyvox.accept')['dialogRootId'] == root)
+        self.input('create.polyvox.accept')
+
     def texture(self, entity_id, url):
         need(self.selected() == [entity_id]); ascii_text(url)
+        self.replace('create.property-search', 'textures')
         self.reveal('create.textures')
         self.replace('create.textures', json.dumps({'checker.png': url}, separators=(',', ':')))
         # The ordinary generated typed field uses Apply typed properties.
@@ -139,7 +155,10 @@ class IOSCreateUI(TokenCreateUI):
     def voxel_settings(self, *, mode, shape, remove, dynamics, pointer, diameter, reach):
         need(type(remove) is bool)
         self.tab(3)
-        for identifier, value in (('mode', mode), ('shape', shape), ('dynamics', dynamics), ('pointer', pointer)):
+        # Subcontrols are hidden in object mode. Restore their real values in
+        # voxel mode before restoring the original mode last.
+        self.choose('create.voxel.mode', 1)
+        for identifier, value in (('shape', shape), ('dynamics', dynamics), ('pointer', pointer)):
             self.choose('create.voxel.'+identifier, value)
         self.reveal('create.voxel.remove'); row = self.row(self.capture(), 'create.voxel.remove')
         need(row is not None)
@@ -150,6 +169,7 @@ class IOSCreateUI(TokenCreateUI):
         for key, value in (('diameter', diameter), ('reach', reach)):
             self.replace('create.voxel.'+key, ascii_text(str(value)))
         self.reveal('create.voxel.apply'); self.input('create.voxel.apply')
+        if mode != 1: self.choose('create.voxel.mode', mode)
 
     def close(self):
         need(not any(row['id'].startswith(('create.import.', 'create.export.')) for row in self.capture()['controls']))

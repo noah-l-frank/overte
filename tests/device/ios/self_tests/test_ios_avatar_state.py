@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
 import base64
+import hashlib
 import json
 import subprocess
 import unittest
@@ -50,10 +51,13 @@ def model(value):
 
 
 class Boundary(Clocks):
-    def __init__(self): super().__init__(None)
+    def __init__(self):
+        super().__init__(None); self.version = 1; self.bookmark_file = None
     def original(self):
         self.clock += .001; value = packet(); self.sequence += 1
         value.update(requestId=self.requests[-1]['commandId'], sequence=self.sequence)
+        value['iosAvatarStateVersion'] = self.version
+        if self.version >= 2: value['source']['bookmarkFile'] = deepcopy(self.bookmark_file)
         value['clockBefore'] = self.clocks(); self.clock += .001; value['clockAfter'] = self.clocks()
         self.last = deepcopy(value); return json.dumps(value)
 
@@ -61,6 +65,10 @@ class Boundary(Clocks):
 class AvatarStateTests(unittest.TestCase):
     def test_existing_HTTP_AFC_factory_uses_actual_native_clock_and_original_fixed_file(self):
         native = Native(); clock = ClockBoundary(); source = Boundary(); observer = native.observer()
+        source.version = 2
+        source.bookmark_file = dict(source='avatar-bookmarks-persistence', status='ready', reason='', bytes=2,
+            sha256=hashlib.sha256(b'{}').hexdigest(), contentBase64=base64.b64encode(b'{}').decode(),
+            identity=dict(device='1', inode='1'))
         observer.monotonic = lambda: source.clock; observer.sleep = source.sleep; observer.epoch_ms = lambda: 9000
         def stamp(value):
             source.native_clock(); epoch = source.epoch()
@@ -83,6 +91,7 @@ class AvatarStateTests(unittest.TestCase):
         self.assertEqual(['feature-native-observe', avatar.ACTION, 'feature-native-observe'],
                          [row['action'] for row in native.commands])
         self.assertNotEqual(9000, value['clockAfter']['epochMs'])
+        self.assertEqual(2, value['iosAvatarStateVersion']); self.assertEqual(source.bookmark_file, value['source']['bookmarkFile'])
 
     def test_existing_probe_dispatch_retains_actual_original_once_and_unavailable_never_means_loaded(self):
         program = r'''

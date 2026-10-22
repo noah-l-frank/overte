@@ -179,6 +179,28 @@
     }
     var lastScriptSourceRequest = "";
     var lastScriptRootsRequest = "";
+    var lastScriptWorkRequest = "";
+    var scriptWorkTimer = null;
+    function saveScriptWorkObservation(command, remaining) {
+        if (command.commandId !== lastScriptWorkRequest) { return; }
+        if (remaining === undefined) { remaining = 50; }
+        var value = {schemaVersion:1,requestId:command.commandId,available:false};
+        try {
+            if (typeof Test.featureScriptWork === "function") {
+                var original = Test.featureScriptWork(command);
+                if (original && original.requestId === command.commandId && original.pending === true && remaining > 0) {
+                    scriptWorkTimer = Script.setTimeout(function () {
+                        if (command.commandId !== lastScriptWorkRequest) { return; }
+                        scriptWorkTimer = null; saveScriptWorkObservation(command,remaining-1);
+                    },50);
+                    return;
+                }
+                if (original && original.requestId === command.commandId && original.pending !== true
+                        && original.schemaVersion === 1 && original.source) { value = original; }
+            }
+        } catch (_scriptWorkError) { /* Missing owner-thread work is never an empty inventory. */ }
+        Test.saveObject(value,"feature-script-work.json");
+    }
     var lastAvatarReceiveRequest = "";
     var lastProcessPresenceRequest = "";
     var lastScriptFilesRequest = "";
@@ -1092,6 +1114,26 @@
             }
             return;
         }
+        if (command && command.action === "feature-ios-emote-world") {
+            if (command.schemaVersion === 1 && typeof command.commandId === "string"
+                    && /^ios-[0-9a-f]{32}$/.test(command.commandId) && command.commandId.length === 36
+                    && typeof command.runId === "string" && /^[0-9a-f]{32}$/.test(command.runId) && command.runId.length === 32
+                    && objectKeysMatch(command,["schemaVersion","commandId","action","runId"])) {
+                // Keep every nonce consumed, including unavailable reads and
+                // storage mutations with a lost return. No reissue on polling.
+                if (iosNewSourceRequests[command.commandId] || iosNewSourceRequestCount >= 4096) { return; }
+                iosNewSourceRequests[command.commandId]=true;iosNewSourceRequestCount+=1;
+                var sourceEmoteWorld={iosEmoteWorldVersion:1,requestId:command.commandId,status:"unavailable"};
+                try {
+                    if (typeof Test.featureIOSEmoteWorld === "function") {
+                        var originalEmoteWorld=Test.featureIOSEmoteWorld(command);
+                        if (originalEmoteWorld && originalEmoteWorld.requestId === command.commandId) { sourceEmoteWorld=originalEmoteWorld; }
+                    }
+                } catch (_EmoteWorldError) { /* Retain unavailable; never retry an uncertain input. */ }
+                Test.saveObject(sourceEmoteWorld,"feature-ios-emote-world.json");
+            }
+            return;
+        }
         if (command && command.action === "feature-ios-avatar-renderers") {
             if (command.schemaVersion === 1 && typeof command.commandId === "string"
                     && /^ios-[0-9a-f]{32}$/.test(command.commandId) && command.commandId.length === 36
@@ -1436,6 +1478,39 @@
                     }
                 } catch (_avatarReceiveError) { /* Missing native source remains unavailable. */ }
                 Test.saveObject(receivedAvatar,"feature-avatar-receive.json");
+            }
+            return;
+        }
+        if (command && command.action === "feature-script-work-observe") {
+            if (command.schemaVersion === 1 && typeof command.commandId === "string"
+                    && /^(?:ios-)?[0-9a-f]{32}$/.test(command.commandId)
+                    && command.commandId.length === (command.commandId.indexOf("ios-") === 0 ? 36 : 32)
+                    && typeof command.managerInstance === "string" && /^[0-9a-f]{32}$/.test(command.managerInstance)
+                    && command.managerInstance.length === 32
+                    && objectKeysMatch(command,["schemaVersion","commandId","action","managerInstance"])
+                    && command.commandId !== lastScriptWorkRequest) {
+                if (scriptWorkTimer !== null) { Script.clearTimeout(scriptWorkTimer); scriptWorkTimer = null; }
+                if (iosNewSourceRequests[command.commandId] || iosNewSourceRequestCount >= 4096) { return; }
+                iosNewSourceRequests[command.commandId]=true;iosNewSourceRequestCount+=1;
+                lastScriptWorkRequest=command.commandId;saveScriptWorkObservation(command);
+            }
+            return;
+        }
+        if (command && command.action === "feature-script-terminal-observe") {
+            if (command.schemaVersion === 1 && typeof command.commandId === "string"
+                    && /^(?:ios-)?[0-9a-f]{32}$/.test(command.commandId)
+                    && command.commandId.length === (command.commandId.indexOf("ios-") === 0 ? 36 : 32)
+                    && objectKeysMatch(command,["schemaVersion","commandId","action"])) {
+                if (iosNewSourceRequests[command.commandId] || iosNewSourceRequestCount >= 4096) { return; }
+                iosNewSourceRequests[command.commandId]=true;iosNewSourceRequestCount+=1;
+                var scriptTerminal={scriptTerminalObservationVersion:1,commandId:command.commandId,available:false};
+                try {
+                    if (typeof Test.featureScriptTerminal === "function") {
+                        var originalTerminal=Test.featureScriptTerminal(command);
+                        if (originalTerminal && originalTerminal.commandId === command.commandId) { scriptTerminal=originalTerminal; }
+                    }
+                } catch (_scriptTerminalError) { /* No original terminal source proves no drainage. */ }
+                Test.saveObject(scriptTerminal,"feature-script-terminal.json");
             }
             return;
         }
@@ -2620,6 +2695,8 @@
         if (accountProbeTimer !== null) { Script.clearTimeout(accountProbeTimer); accountProbeTimer = null; }
         if (worldRenderTimer !== null) { Script.clearTimeout(worldRenderTimer); worldRenderTimer = null; }
         lastNativeFeatureRequest = "";
+        lastScriptWorkRequest = "";
+        if (scriptWorkTimer !== null) { Script.clearTimeout(scriptWorkTimer); scriptWorkTimer = null; }
         if (nativeFeatureTimer !== null) { Script.clearTimeout(nativeFeatureTimer); nativeFeatureTimer = null; }
         Script.update.disconnect(updateProbe);
         Script.clearInterval(interactionPointerDiscovery);

@@ -23,10 +23,12 @@
 #include "../../tests/device/native/ScriptFileUi.h"
 #include "../../tests/device/native/ScriptUiInventory.h"
 #include "../../tests/device/native/IOSNavigationUiInventory.h"
+#include "../../tests/device/native/IOSEmoteUiInventory.h"
 #include "../../tests/device/native/NormalAccountMenuControls.h"
 #include "../../tests/device/native/NormalViewMenuControls.h"
 #include "../../tests/device/native/NormalPlacesControls.h"
 #include "../../tests/device/native/NormalEmoteControls.h"
+#include "../../tests/device/native/NormalAvatarControls.h"
 #include "../../tests/device/native/NormalNavigationErrorControls.h"
 #include "../../tests/device/native/AccountPreferenceObservation.h"
 #endif
@@ -67,6 +69,8 @@ QString identify(QQuickItem* item, bool hud, bool fileAllowed) {
         if (!error.isEmpty()) { return error; }
         const auto places=overte::e2e::placesControlId(item);
         if (!places.isEmpty()) { return places; }
+        const auto avatar=overte::e2e::avatarControlId(item);
+        if (!avatar.isEmpty() && (avatar.startsWith("avatar.") || avatar.startsWith("people."))) { return avatar; }
         const auto emote=overte::e2e::emoteControlId(item);
         if (!emote.isEmpty() && emote.startsWith("emote.")) { return emote; }
         const auto chat=overte::e2e::chatControlId(item);
@@ -151,7 +155,12 @@ bool integer(const QJsonValue& value, qint64& result) {
 
 } // namespace
 
-NormalUiInput::NormalUiInput() : _instance(nonce()) { _clock.start(); }
+NormalUiInput::NormalUiInput() : _instance(nonce()) {
+    _clock.start();
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    _emoteGeneration=nonce();
+#endif
+}
 
 bool NormalUiInput::guiThread() const { return qApp && QThread::currentThread() == qApp->thread(); }
 
@@ -173,6 +182,7 @@ QJsonObject NormalUiInput::observe(QQuickItem* hud, QQuickItem* tablet, bool tab
     // objects. Input eligibility/modal suppression cannot manufacture absence.
     overte::e2e::ScriptUiInventory scriptInventory;
     overte::e2e::IOSNavigationUiInventory navigationInventory;
+    overte::e2e::IOSEmoteUiInventory emoteInventory;
     QSet<QQuickItem*> surveyed;
     bool inventoryComplete {hud != nullptr && hud->window() != nullptr};
     std::function<void(QQuickItem*, int)> survey = [&](QQuickItem* node, int depth) {
@@ -183,6 +193,8 @@ QJsonObject NormalUiInput::observe(QQuickItem* hud, QQuickItem* tablet, bool tab
         surveyed.insert(node);
         scriptInventory.visit(node);
         navigationInventory.visit(node);
+        emoteInventory.visit(node);
+        if (!overte::e2e::emoteComponentSource(node).isEmpty()) { _emoteRoots.insert(node,node); }
         if (!overte::e2e::IOSNavigationUiInventory::source(node).isEmpty()) { _navigationRoots.insert(node,node); }
         if (node->objectName()=="RunningScripts"
                 || (node->objectName()=="nativeFileBrowser"
@@ -208,6 +220,12 @@ QJsonObject NormalUiInput::observe(QQuickItem* hud, QQuickItem* tablet, bool tab
     }
     const auto retainedNavigationRoots=_navigationRoots.values();
     for (const auto& root:retainedNavigationRoots) { if (root) { survey(root,0); } }
+    for (auto it=_emoteRoots.begin();it!=_emoteRoots.end();) {
+        if (!it.value()) { it=_emoteRoots.erase(it);continue; }++it;
+    }
+    const auto retainedEmoteRoots=_emoteRoots.values();
+    for (const auto& root:retainedEmoteRoots) { if (root) { survey(root,0); } }
+    if (_emoteRoots.size()>16) { inventoryComplete=false; }
     if (_navigationRoots.size()>16) { inventoryComplete=false; }
     if (_scriptRoots.size()>32 || _scriptObservationSequence>=9007199254740991LL) { inventoryComplete=false; }
     auto scriptState=scriptInventory.observation(inventoryComplete);
@@ -251,6 +269,9 @@ QJsonObject NormalUiInput::observe(QQuickItem* hud, QQuickItem* tablet, bool tab
                 } else if (id.startsWith("account.")) {
                     source=id=="account.remember" ? overte::e2e::accountPreferenceControlSource(node,loginContext)
                         : overte::e2e::accountMenuControlSource(node);
+                    if (source.isEmpty()) { ambiguous=true;return; }
+                } else if (id.startsWith("avatar.") || id.startsWith("people.")) {
+                    source=overte::e2e::avatarControlSource(node,id);
                     if (source.isEmpty()) { ambiguous=true;return; }
                 } else if (id.startsWith("emote.")) {
                     source=overte::e2e::emoteControlSource(node,id);
@@ -352,6 +373,8 @@ QJsonObject NormalUiInput::observe(QQuickItem* hud, QQuickItem* tablet, bool tab
                 const auto metadata=overte::e2e::accountPreferenceControlObservation(control.item,loginContext);
                 for (auto it=metadata.begin();it!=metadata.end();++it) { row[it.key()]=it.value(); }
             } else { overte::e2e::appendAccountMenuObservation(row,control.item); }
+        } else if (id.startsWith("avatar.") || id.startsWith("people.")) {
+            overte::e2e::appendAvatarControlObservation(row,control.item,id);
         } else if (id.startsWith("emote.")) {
             overte::e2e::appendEmoteControlObservation(row,control.item,id);
         } else if (id.startsWith("chat.")) {
@@ -388,7 +411,10 @@ QJsonObject NormalUiInput::observe(QQuickItem* hud, QQuickItem* tablet, bool tab
     result["scriptSourceSequence"]=++_scriptObservationSequence;
     result["scriptInventory"]=scriptState;
     result["navigationInventory"]=navigationInventory.observation(inventoryComplete);
-    result["emoteControlsVersion"]=1;result["emoteGeneration"]=_loginGeneration;
+    result["avatarControlsVersion"]=1;result["avatarGeneration"]=_instance;
+    result["avatarSourceSequence"]=static_cast<double>(++_avatarObservationSequence);
+    result["emoteControlsVersion"]=2;result["emoteGeneration"]=_emoteGeneration;
+    result["emoteInventory"]=emoteInventory.observation(inventoryComplete);
     result["emoteSourceSequence"]=static_cast<double>(++_emoteObservationSequence);
     result["createControlsVersion"]=2;result["createGeneration"]=_loginGeneration;
     result["chatControlsVersion"]=1;result["chatGeneration"]=_loginGeneration;
@@ -457,6 +483,13 @@ bool NormalUiInput::press(const QString& controlId, const QString& token) {
         const auto source=controlId=="account.remember" ? overte::e2e::accountPreferenceControlSource(control,context)
             : overte::e2e::accountMenuControlSource(control);
         if (source.isEmpty() || source!=_controls.value(controlId).source
+                || !overte::e2e::NormalControlUi::ownsPoint(control,control->window(),point)) { return false; }
+    } else if (controlId.startsWith("avatar.") || controlId.startsWith("people.")) {
+        QJsonObject row;overte::e2e::appendAvatarControlObservation(row,control,controlId);
+        const auto point=control->mapToScene(QPointF(control->width()/2,control->height()/2));
+        if (controlId=="avatar.page" || controlId=="people.page" || controlId=="avatar.scale"
+                || !row.value("inputReady").toBool()
+                || overte::e2e::avatarControlSource(control,controlId)!=_controls.value(controlId).source
                 || !overte::e2e::NormalControlUi::ownsPoint(control,control->window(),point)) { return false; }
     } else if (controlId.startsWith("chat.")) {
         QJsonObject row;overte::e2e::appendChatControlObservation(row,control,controlId);
@@ -575,6 +608,44 @@ QJsonObject NormalUiInput::edit(const QJsonObject& command) {
                 result["performed"]=press(it.key(),fieldToken);return result;
             }
         }
+    }
+    QString avatarId;
+    for (auto it=_controls.cbegin();it!=_controls.cend();++it) {
+        if (it.value().token==fieldToken && (it.key().startsWith("avatar.") || it.key().startsWith("people."))) {
+            if (!avatarId.isEmpty()) { return result; }avatarId=it.key();
+        }
+    }
+    if (!avatarId.isEmpty()) {
+        auto target=item(avatarId,fieldToken);
+        if (!target || !enabled(target)) { return result; }
+        QJsonObject row;overte::e2e::appendAvatarControlObservation(row,target,avatarId);
+        if (avatarId=="avatar.page" || avatarId=="people.page" || !row.value("inputReady").toBool()
+                || overte::e2e::avatarControlSource(target,avatarId)!=_controls.value(avatarId).source) { return result; }
+        auto point=target->mapToScene(QPointF(target->width()/2,target->height()/2));
+        if (action=="set-value" && avatarId=="avatar.scale") {
+            if (!command.value("value").isDouble()
+                    || !overte::e2e::avatarSliderPoint(target,command.value("value").toDouble(),point)
+                    || !overte::e2e::NormalControlUi::ownsPoint(target,target->window(),point)) { return result; }
+            QPointer<QQuickWindow> window(target->window());
+            QMouseEvent down(QEvent::MouseButtonPress,point,point,point,Qt::LeftButton,Qt::LeftButton,Qt::NoModifier);
+            const bool delivered=QCoreApplication::sendEvent(window,&down);bool released{false};
+            if (window) {
+                QMouseEvent up(QEvent::MouseButtonRelease,point,point,point,Qt::LeftButton,Qt::NoButton,Qt::NoModifier);
+                released=QCoreApplication::sendEvent(window,&up);
+            }
+            result["performed"]=delivered && released;
+        } else if (action=="select-index" && avatarId=="avatar.wearable-choice") {
+            qint64 index {0};if (integer(command.value("index"),index)) {
+                result["performed"]=overte::e2e::avatarSelectChoice(target,target->window(),index);
+            }
+        } else if (overte::e2e::NormalControlUi::ownsPoint(target,target->window(),point)) {
+            if (action=="activate" && avatarId!="avatar.scale") { result["performed"]=press(avatarId,fieldToken); }
+            else if (action=="replace" && overte::e2e::avatarField(avatarId) && command.value("text").isString()
+                    && overte::e2e::avatarText(command.value("text").toString())) {
+                result["performed"]=overte::ui::replaceFocusedField(target,target->window(),command.value("text").toString());
+            }
+        }
+        return result;
     }
     QString emoteId;
     for (auto it=_controls.cbegin();it!=_controls.cend();++it) {

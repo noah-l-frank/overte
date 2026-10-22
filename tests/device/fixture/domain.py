@@ -23,6 +23,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from fixture.collaboration_broker import CollaborationBroker
 from fixture.owned_processes import OwnedProcesses
 from fixture.messages_mixer import MessagesMixer
+from fixture.create_rez_authority import CreateRezAuthority, CreateRezControl, fixture_permissions
 from adapters.normal_feature_state import PrivateFeatureState, need
 
 
@@ -96,6 +97,7 @@ class DomainControlHandler(BaseHTTPRequestHandler):
     transition = None
     collaboration = None
     mixer = None
+    create_rez = None
 
     def do_GET(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler API
         if self.path not in {"/v1/collaboration-state", "/v1/messages-mixer-state"} or self.headers.get("X-Overte-E2E-Token") != self.token:
@@ -113,7 +115,7 @@ class DomainControlHandler(BaseHTTPRequestHandler):
             self.send_error(503, "independent actor is not ready")
 
     def do_POST(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler API
-        if self.path not in {"/v1/domain-state", "/v1/collaboration-edit", "/v1/messages-mixer-state"} or self.headers.get(
+        if self.path not in {"/v1/domain-state", "/v1/collaboration-edit", "/v1/messages-mixer-state", "/v1/create-rez"} or self.headers.get(
                 "X-Overte-E2E-Token") != self.token:
             self.send_error(404)
             return
@@ -122,6 +124,17 @@ class DomainControlHandler(BaseHTTPRequestHandler):
             if not 0 < length <= 256:
                 raise ValueError("invalid request length")
             command = json.loads(self.rfile.read(length))
+            if self.path == "/v1/create-rez":
+                if self.create_rez is None:
+                    raise RuntimeError("Create rez control is not enabled")
+                result = self.create_rez(command)
+                payload = (json.dumps(result, sort_keys=True) + "\n").encode("utf-8")
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(payload)))
+                self.end_headers()
+                self.wfile.write(payload)
+                return
             if self.path == "/v1/collaboration-edit":
                 result = self.collaboration.submit(command)
                 payload = (json.dumps(result, sort_keys=True) + "\n").encode("utf-8")
@@ -360,6 +373,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--assignment-warmup-seconds", type=float, default=2.0)
     parser.add_argument("--feature-chat-receiver", action="store_true",
                         help="Opt in the dedicated peer to native E2E private Chat IPC; requires an instrumented Assignment Client.")
+    parser.add_argument("--feature-create-rez", action="store_true",
+                        help="Opt in isolated Create rez permission control through the normal owned domain settings API.")
     parser.add_argument("--check", action="store_true")
     args = parser.parse_args()
     for name in ("domain_port", "http_port"):
@@ -427,6 +442,9 @@ def main() -> int:
             {"url": peer_script_url, "num_instances": 1, "pool": "overte-e2e-peer"},
         ]},
     }
+    if getattr(args, "feature_create_rez", False):
+        description = json.loads((REPOSITORY / "domain-server/resources/describe-settings.json").read_text())
+        config["security"] = {"standard_permissions": fixture_permissions(description)}
     config_path = output / "domain-config.json"
     atomic_json(config_path, config)
     runtime = output / "runtime"
@@ -616,6 +634,13 @@ def main() -> int:
                 assignment_processes.remove(original)
             return actual
 
+    create_rez = None
+
+    def create_rez_control(command):
+        with transition_lock:
+            need(stack_state == "online" and create_rez is not None)
+            return create_rez.handle(command)
+
     def request_stop(_signal=None, _frame=None) -> None:
         stopping.set()
 
@@ -625,6 +650,26 @@ def main() -> int:
     control = control_thread = None
     try:
         start_stack()
+        DomainControlHandler.create_rez = None
+        if getattr(args, "feature_create_rez", False):
+            def owned_create_domain():
+                need(stack_state == "online" and domain_process is not None
+                     and domain_process.poll() is None and owned_processes.matches(domain_process.pid))
+                actual = Path("/proc") / str(domain_process.pid)
+                fields = (actual / "stat").read_text().rsplit(")", 1)[1].split()
+                need(len(fields) > 19 and fields[0] not in ("Z", "X") and fields[19].isdecimal()
+                     and (actual / "exe").resolve() == domain_server.resolve())
+                command = (actual / "cmdline").read_bytes().split(b"\0")
+                need(command.count(b"--user-config") == 1
+                     and command[command.index(b"--user-config") + 1] == os.fsencode(config_path))
+                env = (actual / "environ").read_bytes().split(b"\0")
+                need(f"HIFI_DOMAIN_SERVER_HTTP_PORT={args.http_port}".encode() in env)
+                return {"processId": domain_process.pid, "startIdentity": fields[19], "domainId": domain_id}
+            authority = CreateRezAuthority(f"http://127.0.0.1:{args.http_port}",
+                PrivateFeatureState(output / "create-rez-settings.json"), owned_create_domain)
+            authority.prepare()
+            create_rez = CreateRezControl(authority, PrivateFeatureState(output / "create-rez-control.json"))
+            DomainControlHandler.create_rez = staticmethod(create_rez_control)
         control_token = secrets.token_urlsafe(32)
         DomainControlHandler.token = control_token
         DomainControlHandler.transition = staticmethod(transition)
@@ -647,6 +692,8 @@ def main() -> int:
             "collaborationEditUrl": f"http://127.0.0.1:{control.server_address[1]}/v1/collaboration-edit",
             "collaborationStateUrl": f"http://127.0.0.1:{control.server_address[1]}/v1/collaboration-state",
         }
+        if getattr(args, "feature_create_rez", False):
+            ready["createRezControlUrl"] = f"http://127.0.0.1:{control.server_address[1]}/v1/create-rez"
         if args.feature_chat_receiver and mixer is not None:
             ready["messagesMixerControlUrl"] = f"http://127.0.0.1:{control.server_address[1]}/v1/messages-mixer-state"
         if args.ready_file:

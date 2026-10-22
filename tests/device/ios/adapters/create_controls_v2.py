@@ -14,13 +14,18 @@ from adapters.native_feature_observation import exact, integer, need
 
 VERSION = 2
 CHOICES = {'create.voxel.mode': 2, 'create.voxel.shape': 3,
-           'create.voxel.dynamics': 2, 'create.voxel.pointer': 2}
+           'create.voxel.dynamics': 2, 'create.voxel.pointer': 2, 'create.detailed-type': 6,
+           'create.polyvox.texturePreset': 6, 'create.polyvox.surfaceStyle': 4, 'create.polyvox.initialShape': 4}
 FIELDS = frozenset(('create.voxel.diameter', 'create.voxel.reach',
+                    'create.property-search',
                     'create.import.folder', 'create.import.filename',
-                    'create.export.folder', 'create.export.filename'))
+                    'create.export.folder', 'create.export.filename', 'create.polyvox.volumeSizeX',
+                    'create.polyvox.volumeSizeY', 'create.polyvox.volumeSizeZ', 'create.polyvox.xTextureURL',
+                    'create.polyvox.yTextureURL', 'create.polyvox.zTextureURL'))
 BUTTONS = frozenset(('create.voxel.remove', 'create.voxel.apply',
                      'create.import.cancel', 'create.import.accept',
-                     'create.export.cancel', 'create.export.accept'))
+                     'create.export.cancel', 'create.export.accept', 'create.detailed-open',
+                     'create.polyvox.accept', 'create.polyvox.cancel'))
 
 
 def control_id(identifier):
@@ -88,6 +93,11 @@ def metadata(row):
         fields.add('checked'); need(type(row.get('checked')) is bool)
     if identifier.startswith(('create.import.', 'create.export.')):
         fields.add('picker'); picker(row.get('picker'), identifier.split('.')[1])
+    if identifier.startswith('create.polyvox.'):
+        fields |= {'dialogRootId', 'dialogSource'}
+        need(base.nonce(row.get('dialogRootId')) and type(row.get('dialogSource')) is str
+             and row['dialogSource'].endswith('/system/create/qml/NewPolyVoxDialog.qml')
+             and urlsplit(row['dialogSource']).scheme in ('file', 'qrc'))
     exact(row, fields)
     return row
 

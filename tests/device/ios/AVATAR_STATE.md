@@ -23,8 +23,12 @@ passive bounded history. The source is compiled only for
 binding this source. It neither exposes the watcher object nor invokes it.
 
 The four derived model fields and scale are prerequisites only. Bookmarks are
-enumerated independently and unrelated rows must remain unchanged; persistence
-bytes need a separately validated original file source. A requested wearable
+enumerated independently and unrelated rows must remain unchanged. Version 2
+also retains strict original file bytes from the actual AvatarBookmarks service
+filename, read by `IOSAvatarBookmarkFile.h` and validated in `avatar_bookmarks.py`.
+The actual path uses PathUtils app data; AppLocalDataLocation is a legacy
+migration input. Reads 1 and 2 are compatible, but version 1 cannot supply this
+new persistence proof and downgrade after version 2 is rejected. A requested wearable
 URL, model response, HTTP receipt or Add button cannot supply wearable geometry.
 
 ## Shared native integration manifest
@@ -103,7 +107,10 @@ The additions below must be applied together before the source is callable.
    the untouched original as `feature-ios-avatar-state.json`. Missing API must
    return unavailable. Add the existing candidate-bound HTTP/AFC reader factory
    returning `IOSAvatarState`, using the actual native clock and process guard.
-   Register `ios-avatar-state` version 1 only when this wiring is complete.
+   The current `ios-avatar-state` producer is version 2, with reads 1 and 2.
+   Its callback also reads `bookmarkFile` using the guarded actual native
+   `AvatarBookmarks::featurePersistenceFileName()` and `IOSAvatarBookmarkFile`.
+   The separate original-file grammar is `ios-avatar-bookmarks` version 1.
 
 ## Controlled social backend
 

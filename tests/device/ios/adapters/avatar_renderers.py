@@ -14,7 +14,8 @@ from ios.adapters.avatar_state import identity, session, text
 from ios.adapters.places_model import IOSPlacesModel
 from ios.adapters.scene_inventory import tree, uint64
 
-VERSION = 1
+VERSION = 2
+READS = (1, 2)
 ACTION = 'feature-ios-avatar-renderers'
 FILE = ACTION+'.json'
 LIMIT = 262144
@@ -33,7 +34,8 @@ def validate(value, query, pid, epoch=None, previous=None):
     command(query)
     exact(value, {'iosAvatarRenderersVersion', 'requestId', 'runId', 'instance', 'sequence', 'processId',
                   'clockDomain', 'clockBefore', 'clockAfter', 'source'})
-    need(type(value['iosAvatarRenderersVersion']) is int and value['iosAvatarRenderersVersion'] == VERSION
+    version = value['iosAvatarRenderersVersion']
+    need(type(version) is int and version in READS
          and value['requestId'] == query['commandId'] and value['runId'] == query['runId']
          and integer(pid, 1) and type(value['processId']) is int and value['processId'] == pid
          and identity(value['instance']) and integer(value['sequence'], 1, 1000000000)
@@ -51,7 +53,8 @@ def validate(value, query, pid, epoch=None, previous=None):
     original_tree = tree(source['tree']); ids = []; self_count = 0
     for row in source['avatars']:
         exact(row, {'sessionId', 'self', 'replicated', 'requestedUrl', 'resourceUrl', 'geometryLoaded',
-                    'rigReady', 'shouldRender', 'addedToScene', 'targetScale', 'modelScale', 'jointNames', 'hipsIndex', 'rigPose'})
+                    'rigReady', 'shouldRender', 'addedToScene', 'targetScale', 'modelScale', 'jointNames', 'hipsIndex', 'rigPose'}
+              | ({'jointIndices'} if version == 2 else set()))
         session(row['sessionId']); ids.append(row['sessionId'])
         for key in ('self', 'replicated', 'geometryLoaded', 'rigReady', 'shouldRender', 'addedToScene'):
             need(type(row[key]) is bool)
@@ -60,8 +63,12 @@ def validate(value, query, pid, epoch=None, previous=None):
         for key in ('targetScale', 'modelScale'): need(number(row[key], .0001, 1000))
         names = row['jointNames']; need(type(names) is list and len(names) <= 1024)
         for name in names: text(name, 256)
-        need(len(set(names)) == len(names) and integer(row['hipsIndex'], -1, 1023))
-        need(row['hipsIndex'] == (names.index('Hips') if 'Hips' in names else -1))
+        need(len(set(names)) == len(names) and integer(row['hipsIndex'], -1, 65535))
+        if version == 2:
+            need(type(row['jointIndices']) is dict and set(row['jointIndices']) == set(names))
+            for index in row['jointIndices'].values(): need(integer(index, 0, 65535))
+            need(len(set(row['jointIndices'].values())) == len(names)
+                 and row['hipsIndex'] == row['jointIndices'].get('Hips', -1))
         need(not row['rigReady'] or row['geometryLoaded'] and names)
         pose = row['rigPose']
         if pose is not None:
@@ -96,7 +103,8 @@ def validate(value, query, pid, epoch=None, previous=None):
     need(len(json.dumps(value, allow_nan=False).encode()) <= LIMIT)
     if previous is not None:
         validate(previous, dict(query, commandId=previous['requestId']), pid)
-        need(value['instance'] == previous['instance'] and value['sequence'] > previous['sequence']
+        need(version >= previous['iosAvatarRenderersVersion']
+             and value['instance'] == previous['instance'] and value['sequence'] > previous['sequence']
              and value['requestId'] != previous['requestId'] and value['runId'] == previous['runId']
              and before['epochMs'] >= previous['clockAfter']['epochMs']
              and before['monotonicMs'] >= previous['clockAfter']['monotonicMs'])
@@ -128,7 +136,7 @@ def original(value):
 
 def avatar(value, avatar_id, *, remote=False):
     original(value); session(avatar_id)
-    need(type(remote) is bool and value['source']['complete'])
+    need(type(remote) is bool and value['source']['complete'] and value['iosAvatarRenderersVersion'] == VERSION)
     rows = [row for row in value['source']['avatars'] if row['sessionId'] == avatar_id]
     need(len(rows) == 1 and rows[0]['self'] is (not remote) and not rows[0]['replicated'])
     return deepcopy(rows[0])

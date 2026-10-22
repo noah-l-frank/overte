@@ -23,6 +23,8 @@ from adapters.native_feature_observation import (NativeFeatureObservation,
 from adapters.recorded_preview_evidence import (RecordedPreviewEvidence, FILE as RECORDED_PREVIEW_FILE,
     INPUT as PREVIEW_INPUT, SINK as PREVIEW_SINK, MAX_BYTES as PREVIEW_LIMIT)
 from adapters.native_script_observation import NativeScriptObservation, FILE as SCRIPT_EXECUTION_FILE
+from adapters.native_script_terminal import NativeScriptTerminal,FILE as SCRIPT_TERMINAL_FILE,LIMIT as SCRIPT_TERMINAL_LIMIT,command as script_terminal_command
+from adapters.native_script_work import NativeScriptWork, FILE as SCRIPT_WORK_FILE, command as script_work_command
 from ios.adapters.appium_adapter import AppiumAdapter, WebDriverRequestError
 from adapters.native_script_files import NativeScriptFiles, FILE as SCRIPT_FIXTURE_FILE, command as script_files_command
 from adapters.world_render_evidence import NativeWorldRenderCapture, FILE as WORLD_RENDER_FILE
@@ -48,6 +50,7 @@ from ios.adapters.navigation_state import IOSNavigationState,FILE as NAVIGATION_
 from ios.adapters.scene_inventory import IOSSceneInventory,FILE as SCENE_INVENTORY_FILE,LIMIT as SCENE_INVENTORY_LIMIT,command as scene_inventory_command
 from ios.adapters.avatar_state import IOSAvatarState,FILE as AVATAR_STATE_FILE,LIMIT as AVATAR_STATE_LIMIT,command as avatar_state_command
 from ios.adapters.avatar_renderers import IOSAvatarRenderers,FILE as AVATAR_RENDERERS_FILE,LIMIT as AVATAR_RENDERERS_LIMIT,command as avatar_renderers_command
+from ios.adapters.emote_world import IOSEmoteWorld,FILE as EMOTE_WORLD_FILE,LIMIT as EMOTE_WORLD_LIMIT,command as emote_world_command
 from ios.adapters.create_state import IOSCreateState,FILE as CREATE_STATE_FILE,LIMIT as CREATE_STATE_LIMIT,command as create_state_command
 from ios.adapters.create_files import IOSCreateFiles,FILE as CREATE_FILES_FILE,LIMIT as CREATE_FILES_LIMIT,command as create_files_command
 from adapters.private_login_input import command as private_input_command
@@ -140,6 +143,9 @@ class FeatureObservation:
         elif command.get('action')=='feature-ios-scene-inventory':scene_inventory_command(command)
         elif command.get('action')=='feature-ios-avatar-state':avatar_state_command(command)
         elif command.get('action')=='feature-ios-avatar-renderers':avatar_renderers_command(command)
+        elif command.get('action')=='feature-ios-emote-world':emote_world_command(command)
+        elif command.get('action')=='feature-script-terminal-observe':script_terminal_command(command,ios=True)
+        elif command.get('action')=='feature-script-work-observe':script_work_command(command,ios=True)
         elif command.get('action')=='feature-ios-create-state':create_state_command(command)
         elif command.get('action')=='feature-ios-create-files':
             create_files_command(command);limit=131072
@@ -294,6 +300,27 @@ class FeatureObservation:
         if clock_source is None:clock_source=self.native_observer()
         def clock():return clock_source.read(clock_source.sequence)['capturedEpochMs']
         return IOSAvatarState(self.send,lambda:self.original(remote=remote,limit=AVATAR_STATE_LIMIT),
+            clock,self.guard,self.process['pid'],monotonic=self.monotonic,sleep=self.sleep)
+
+    def script_work(self,clock_source=None):
+        self.guard();remote=self.remote.rsplit('/',1)[0]+'/'+SCRIPT_WORK_FILE
+        if clock_source is None:clock_source=self.native_observer()
+        def clock():return clock_source.read(clock_source.sequence)['capturedEpochMs']
+        return NativeScriptWork(self.send,lambda:self.original(remote=remote,limit=262144),
+            clock,self.guard,self.process['pid'],ios=True,monotonic=self.monotonic,sleep=self.sleep)
+
+    def script_terminal(self,clock_source=None):
+        self.guard();remote=self.remote.rsplit('/',1)[0]+'/'+SCRIPT_TERMINAL_FILE
+        if clock_source is None:clock_source=self.native_observer()
+        def clock():return clock_source.read(clock_source.sequence)['capturedEpochMs']
+        return NativeScriptTerminal(self.send,lambda:self.original(remote=remote,limit=SCRIPT_TERMINAL_LIMIT),
+            clock,self.guard,self.process['pid'],ios=True,monotonic=self.monotonic,sleep=self.sleep)
+
+    def emote_world(self,clock_source=None):
+        self.guard();remote=self.remote.rsplit('/',1)[0]+'/'+EMOTE_WORLD_FILE
+        if clock_source is None:clock_source=self.native_observer()
+        def clock():return clock_source.read(clock_source.sequence)['capturedEpochMs']
+        return IOSEmoteWorld(self.send,lambda:self.original(remote=remote,limit=EMOTE_WORLD_LIMIT),
             clock,self.guard,self.process['pid'],monotonic=self.monotonic,sleep=self.sleep)
 
     def avatar_renderers(self,clock_source=None):

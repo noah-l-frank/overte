@@ -11,13 +11,14 @@ import hashlib
 import re
 
 from adapters.native_feature_observation import exact, fresh, integer, need
-from adapters.native_graphics_subject import entity_id, vector
+from adapters.native_graphics_subject import entity_id, vector, rotation
 from adapters.script_feature.history import same
 from ios.adapters import create_controls_v2 as controls
 from ios.adapters.places_model import IOSPlacesModel, tree as json_tree
 from ios.adapters.scene_inventory import tree, uint64
 
-VERSION = 1
+VERSION = 2
+READS = (1, 2)
 ACTION = 'feature-ios-create-state'
 FILE = ACTION+'.json'
 LIMIT = 262144
@@ -58,9 +59,11 @@ def texture_original(value, url, epoch):
     return value
 
 
-def entity(row, original, epoch):
+def entity(row, original, epoch, version=VERSION):
     exact(row, {'id', 'name', 'type', 'hostType', 'dimensions', 'modelURL', 'textures', 'lastEditedBy',
-                'createdEpochUs', 'lastEditedEpochUs', 'shape', 'locked', 'visible', 'model', 'voxels'})
+                'createdEpochUs', 'lastEditedEpochUs', 'shape', 'locked', 'visible', 'model', 'voxels'}
+          | ({'position', 'rotation'} if version >= 2 else set()))
+    if version >= 2: vector(row['position'], 3, -1000000, 1000000); rotation(row['rotation'])
     need(entity_id(row['id']) and row['id'] == original['id'] and row['hostType'] == original['hostType']
          and type(row['locked']) is bool and type(row['visible']) is bool)
     for key in ('createdEpochUs', 'lastEditedEpochUs'):
@@ -90,10 +93,10 @@ def entity(row, original, epoch):
     else: need(row['voxels'] == {})
 
 
-def root(row):
+def root(row, version=VERSION):
     need(type(row) is dict and type(row.get('destroyed')) is bool); uuid(row['id'])
     if row['destroyed']: exact(row, {'id', 'destroyed'}); return
-    need(row.get('kind') in ('editor', 'import', 'export')
+    need(row.get('kind') in ('editor', 'import', 'export', 'polyvox')
          and all(type(row.get(key)) is bool for key in ('active', 'visible')) and (not row['active'] or row['visible']))
     fields = {'id', 'destroyed', 'kind', 'visible', 'active'}
     if row['kind'] == 'editor':
@@ -102,6 +105,15 @@ def root(row):
         need(page['inputReady'] is False)
         controls.base.metadata(dict(page, id='create.page', token=row['id'], enabled=True, focused=False))
         json_tree(row['changed']); json_tree(row['voxelSettings']); need(type(row['numericFocus']) is bool)
+    elif row['kind'] == 'polyvox':
+        need(version >= 2); exact(row, fields | {'dialog'})
+        dialog = row['dialog']; exact(dialog, {'componentSource', 'initialShape', 'surfaceStyle', 'texturePreset',
+            'volumeSizeX', 'volumeSizeY', 'volumeSizeZ', 'xTextureURL', 'yTextureURL', 'zTextureURL', 'button1'})
+        need(type(dialog['componentSource']) is str
+             and dialog['componentSource'].endswith('/system/create/qml/NewPolyVoxDialog.qml')
+             and integer(dialog['initialShape'], 0, 3) and integer(dialog['surfaceStyle'], 0, 3)
+             and integer(dialog['texturePreset'], 0, 5) and type(dialog['button1']) is bool)
+        for key in ('volumeSizeX', 'volumeSizeY', 'volumeSizeZ', 'xTextureURL', 'yTextureURL', 'zTextureURL'): text(dialog[key])
     else:
         exact(row, fields | {'picker'}); controls.picker(row['picker'], row['kind'])
         need(row['picker']['rootId'] == row['id'])
@@ -111,7 +123,7 @@ def validate(value, query, pid, epoch=None, previous=None):
     command(query)
     exact(value, {'iosCreateStateVersion', 'requestId', 'runId', 'instance', 'sequence', 'processId',
                   'clockDomain', 'clockBefore', 'clockAfter', 'source'})
-    need(type(value['iosCreateStateVersion']) is int and value['iosCreateStateVersion'] == VERSION
+    need(type(value['iosCreateStateVersion']) is int and value['iosCreateStateVersion'] in READS
          and value['requestId'] == query['commandId'] and value['runId'] == query['runId']
          and integer(pid, 1) and type(value['processId']) is int and value['processId'] == pid
          and re.fullmatch('[a-f0-9]{32}', text(value['instance'], 32)) and integer(value['sequence'], 1, 1000000000)
@@ -122,18 +134,28 @@ def validate(value, query, pid, epoch=None, previous=None):
     utc = after['epochMs']-before['epochMs']; mono = after['monotonicMs']-before['monotonicMs']
     need(0 <= utc < 1500 and 0 <= mono < 1500 and abs(utc-mono) <= 250)
     if epoch is not None: fresh(after['epochMs'], epoch)
-    source = value['source']; exact(source, {'complete', 'tabletShown', 'domainId', 'canRez', 'canRezTmp', 'tree', 'entities', 'roots'})
+    source = value['source']; exact(source, {'complete', 'tabletShown', 'domainId', 'canRez', 'canRezTmp', 'tree', 'entities', 'roots'}
+                                   | ({'view', 'localSessionId'} if value['iosCreateStateVersion'] >= 2 else set()))
+    if value['iosCreateStateVersion'] >= 2:
+        from adapters.native_feature_observation import number
+        uuid(source['localSessionId']); need(source['localSessionId'] != '00000000-0000-0000-0000-000000000000')
+        view = source['view']; exact(view, {'position', 'rotation', 'fieldOfViewDegrees', 'aspectRatio', 'perspective', 'uiWidth', 'uiHeight'})
+        vector(view['position'], 3, -1000000, 1000000); rotation(view['rotation'])
+        need(number(view['fieldOfViewDegrees'], 1, 179) and number(view['aspectRatio'], .01, 100)
+             and type(view['perspective']) is bool and integer(view['uiWidth'], 1, 16384) and integer(view['uiHeight'], 1, 16384))
     need(all(type(source[key]) is bool for key in ('complete', 'tabletShown', 'canRez', 'canRezTmp')))
     uuid(source['domainId']); tree(source['tree'])
     need(source['tree']['complete'] and type(source['entities']) is list
          and len(source['entities']) == len(source['tree']['entities']) and type(source['roots']) is list and len(source['roots']) <= 64)
-    for row, original in zip(source['entities'], source['tree']['entities']): entity(row, original, after['epochMs'])
+    for row, original in zip(source['entities'], source['tree']['entities']): entity(row, original, after['epochMs'], value['iosCreateStateVersion'])
     ids = []
-    for row in source['roots']: root(row); ids.append(row['id'])
+    for row in source['roots']: root(row, value['iosCreateStateVersion']); ids.append(row['id'])
     need(len(set(ids)) == len(ids) and sum(row.get('active', False) and row.get('kind') == 'editor' for row in source['roots']) <= 1)
     if previous is not None:
         validate(previous, dict(query, commandId=previous['requestId']), pid)
-        old = previous['source']; need(value['instance'] == previous['instance'] and value['sequence'] > previous['sequence']
+        old = previous['source']; need(value['iosCreateStateVersion'] >= previous['iosCreateStateVersion']
+            and value['instance'] == previous['instance'] and value['sequence'] > previous['sequence']
+            and (old['complete'] or not source['complete'])
             and value['requestId'] != previous['requestId'] and source['domainId'] == old['domainId']
             and before['epochMs'] >= previous['clockAfter']['epochMs']
             and before['monotonicMs'] >= previous['clockAfter']['monotonicMs']
@@ -142,6 +164,19 @@ def validate(value, query, pid, epoch=None, previous=None):
             and ids[:len(old['roots'])] == [row['id'] for row in old['roots']])
         for first, last in zip(old['roots'], source['roots']):
             need(not first['destroyed'] or same(first, last))
+        if previous['iosCreateStateVersion'] >= 2: need(source['localSessionId'] == old['localSessionId'])
+        for first in old['entities']:
+            matches = [row for row in source['entities'] if row['id'] == first['id']]
+            if not matches or first['type'] != 'Model' or matches[0]['type'] != 'Model': continue
+            last = matches[0]
+            for a in first['model']['textures']:
+                matching = [b for b in last['model']['textures'] if all(b[key] == a[key] for key in ('material', 'channel', 'slot', 'url'))]
+                if not matching: continue
+                b = matching[0]; previous_original, current_original = a['original'], b['original']
+                need(current_original['instance'] == previous_original['instance']
+                     and (previous_original['complete'] or not current_original['complete'])
+                     and len(current_original['consumptions']) >= len(previous_original['consumptions'])
+                     and same(current_original['consumptions'][:len(previous_original['consumptions'])], previous_original['consumptions']))
     return value
 
 

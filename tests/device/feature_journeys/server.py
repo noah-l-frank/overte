@@ -27,6 +27,9 @@ from feature_journeys.browser_fixture import BrowserResources
 from feature_journeys.navigation_fixture import NavigationResources,DIRECTORY
 from feature_journeys.script_fixture import ScriptResources
 from feature_journeys.graphics_resources import GraphicsResources, RESOURCE as GRAPHICS_SCENE,viewpoint_query
+from feature_journeys.emote_resources import EmoteResources,RESOURCE as EMOTE_SCENE
+from feature_journeys.avatar_social_provider import AvatarSocialProvider
+from feature_journeys.avatar_social_http import AccountAuthenticator, handle as avatar_social_request
 
 PREFIX = '/feature-fixture/v1'
 
@@ -82,6 +85,19 @@ class Handler(BaseHTTPRequestHandler):
             observe_write(dict(status=actual_status,responseId=actual_id,bytes=written,sha256=hashlib.sha256(body).hexdigest()))
 
     def resource(self,run,ticket,name):
+        if name==EMOTE_SCENE:
+            provider=self.server.emote_resources
+            if provider is None:return self.send(503,{'error':'emote-provider-unavailable'})
+            with self.server.journal.lock:
+                if run not in self.server.journal.runs or not self.server.journal.has_ticket(run,ticket):
+                    return self.send(404,{'error':'not-found'})
+            self.connection.settimeout(2)
+            authorities=self.headers.get_all('Host',[])
+            if len(authorities)!=1:raise ValueError('One original Emote request authority is required')
+            with provider.response(run,ticket,request_authority=authorities[0],
+                    request_scheme='https' if isinstance(self.connection,ssl.SSLSocket) else 'http') as response:
+                if response is None:return self.send(404,{'error':'not-found'})
+                return self.send(response[0],response[1],response_id=response[2],observe_write=response[3])
         if name==GRAPHICS_SCENE:
             provider=self.server.graphics_resources
             if provider is None:return self.send(503,{'error':'graphics-provider-unavailable'})
@@ -202,11 +218,15 @@ class Handler(BaseHTTPRequestHandler):
             adapter_markers=self.headers.get_all('X-Overte-Fixture-Adapter-Read',[])
             if adapter_markers and (adapter_markers!=['1'] or not adapter_reader):return self.send(403,{'error':'forbidden'})
             if adapter_reader and self.command!='GET':return self.send(403,{'error':'forbidden'})
+            if avatar_social_request(self,parsed):return
             if self.account_request(parsed):return
             if self.navigation_request(parsed):return
             if self.navigation_scene_request(parsed):return
             if parsed.query and not parsed.fragment and self.command=='GET' and parsed.path.startswith(PREFIX+'/'):
                 pieces=parsed.path[len(PREFIX)+1:].split('/')
+                if (len(pieces)==6 and pieces[0]=='runs' and pieces[2]=='tickets' and '/'.join(pieces[4:])==EMOTE_SCENE
+                        and viewpoint_query(parsed.query)):
+                    return self.resource(identifier(pieces[1]),identifier(pieces[3]),EMOTE_SCENE)
                 if (len(pieces)==5 and pieces[0]=='runs' and pieces[2]=='tickets' and pieces[4]==GRAPHICS_SCENE
                         and viewpoint_query(parsed.query)):
                     return self.resource(identifier(pieces[1]),identifier(pieces[3]),GRAPHICS_SCENE)
@@ -279,6 +299,11 @@ class Handler(BaseHTTPRequestHandler):
                 if body['area']=='scripts' and self.server.script_resources is None:
                     return self.send(503,{'error':'script-provider-unavailable'})
                 run=self.server.journal.register(body['area'])
+                if body['area']=='emotes' and self.server.emote_resources is not None:
+                    try:self.server.emote_resources.provision(run)
+                    except Exception:
+                        self.server.journal.close(run)
+                        raise
                 if body['area']=='graphics' and self.server.graphics_resources is not None:
                     try:self.server.graphics_resources.provision(run)
                     except Exception:
@@ -309,6 +334,17 @@ class Handler(BaseHTTPRequestHandler):
                 requests=self.headers.get_all('X-Overte-Phase-Read',[])
                 if len(requests)!=1:raise ValueError('Original phase snapshot nonce is required')
                 return self.send(200,self.server.journal.phase(run,identifier(requests[0])))
+            if parts[2:]==['emotes']:
+                if self.command=='GET' and self.server.emote_resources is not None:
+                    requests=self.headers.get_all('X-Overte-Emote-Read',[])
+                    if len(requests)!=1:raise ValueError('Original Emote snapshot nonce is required')
+                    nonce=identifier(requests[0])
+                    with self.server.journal.lock:
+                        source=self.server.emote_resources.snapshot(run,nonce)
+                        if source['active'] and (run not in self.server.journal.runs or source['ticket']!=self.server.journal.runs[run]['ticket']):
+                            return self.send(503,{'error':'emote-provider-ownership-inconsistent'})
+                    return self.send(200,source)
+                return self.send(503,{'error':'emote-provider-unavailable'})
             if parts[2:]==['graphics']:
                 if self.command=='GET' and self.server.graphics_resources is not None:
                     requests=self.headers.get_all('X-Overte-Graphics-Read',[])
@@ -365,7 +401,11 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send(403,{'error':'forbidden'})
             if self.command == 'POST' and parts[2:] == ['active'] and reader:
                 exact(body, {'ticket', 'verb', 'inputs'}, 'fixture challenge')
-                if (self.server.journal.runs[run]['area']=='graphics' and self.server.graphics_resources is not None):
+                if self.server.journal.runs[run]['area']=='emotes' and self.server.emote_resources is not None:
+                    with self.server.journal.lock:
+                        self.server.journal.activate(run,body['ticket'],body['verb'],body['inputs'])
+                        self.server.emote_resources.activate(run,body['ticket'])
+                elif (self.server.journal.runs[run]['area']=='graphics' and self.server.graphics_resources is not None):
                     with self.server.journal.lock:
                         self.server.journal.activate(run,body['ticket'],body['verb'],body['inputs'])
                         self.server.graphics_resources.activate(run,body['ticket'])
@@ -398,6 +438,11 @@ class Handler(BaseHTTPRequestHandler):
                 if adapter_reader:original['entries']=[] # Only the original phase/read clock, never independent peer facts.
                 return self.send(200,original)
             if self.command == 'DELETE' and len(parts) == 2 and reader:
+                if self.server.emote_resources is not None and self.server.emote_resources.has_run(run):
+                    with self.server.journal.lock:
+                        self.server.emote_resources.retire(run)
+                        if run in self.server.journal.runs:self.server.journal.close(run)
+                    return self.send(200,{})
                 if self.server.graphics_resources is not None and self.server.graphics_resources.has_run(run):
                     with self.server.journal.lock:
                         self.server.graphics_resources.retire(run)
@@ -446,7 +491,7 @@ class FixtureServer(ThreadingHTTPServer):
         super().server_close()
 
 
-def make_server(reader_token, actor_token, address=('127.0.0.1', 0),*,account_provider=None,tls_context=None,browser_peer_of=None,navigation_resources=None,graphics_resources=None,adapter_token=None):
+def make_server(reader_token, actor_token, address=('127.0.0.1', 0),*,account_provider=None,tls_context=None,browser_peer_of=None,navigation_resources=None,graphics_resources=None,emote_resources=None,avatar_social_provider=None,adapter_token=None):
     if adapter_token is not None and (type(adapter_token) is not str or not 32<=len(adapter_token)<=256
             or not adapter_token.isascii() or any(not 33<=ord(c)<=126 for c in adapter_token)
             or adapter_token in (reader_token,actor_token)):
@@ -466,13 +511,22 @@ def make_server(reader_token, actor_token, address=('127.0.0.1', 0),*,account_pr
             or account_provider is not None):raise ValueError('Browser second listener needs the original primary owner')
     if navigation_resources is not None and (not isinstance(navigation_resources,NavigationResources) or browser_peer_of is not None):
         raise ValueError('Navigation provider requires its original primary owner')
-    if account_provider is not None:account_provider._attach(reader_token,actor_token)
     if graphics_resources is not None and (not isinstance(graphics_resources,GraphicsResources) or browser_peer_of is not None):
         raise ValueError('Graphics provider requires its original primary owner')
+    if emote_resources is not None and (not isinstance(emote_resources,EmoteResources) or browser_peer_of is not None):
+        raise ValueError("Emote provider requires its original primary owner")
+    if avatar_social_provider is not None and (not isinstance(avatar_social_provider,AvatarSocialProvider)
+            or account_provider is None or tls_context is None or browser_peer_of is not None
+            or type(avatar_social_provider.authenticate) is not AccountAuthenticator
+            or avatar_social_provider.authenticate.provider is not account_provider):
+        raise ValueError('Social provider requires its original trusted account HTTPS primary owner')
+    if account_provider is not None:account_provider._attach(reader_token,actor_token)
     server = FixtureServer(address, Handler)
     server.account_provider,server.tls_context=account_provider,tls_context
     server.navigation_resources=navigation_resources
     server.graphics_resources=graphics_resources
+    server.emote_resources=emote_resources
+    server.avatar_social_provider=avatar_social_provider
     server.script_resources=ScriptResources() if browser_peer_of is None else browser_peer_of.script_resources
     server.internal_errors=0
     server.reader_token, server.actor_token = reader_token, actor_token

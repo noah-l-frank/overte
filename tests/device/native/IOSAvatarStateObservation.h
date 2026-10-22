@@ -79,11 +79,13 @@ private:
 class IOSAvatarStateObservation {
 public:
     QVariantMap read(const QString& request,const QString& run,const std::function<QVariantMap()>& reader) {
-        return _bracket.read("iosAvatarStateVersion","native-main-avatar",request,run,[&]() -> QVariantMap {
+        auto value=_bracket.read("iosAvatarStateVersion","native-main-avatar",request,run,[&]() -> QVariantMap {
             const auto source=reader();const auto history=IOSAvatarModelHistory::instance().snapshot();
             if (source.isEmpty() || history.isEmpty()) { return {}; }
             auto result=source;result["modelHistory"]=history;return result;
         });
+        if (!value.isEmpty() && value.value("source").toMap().contains("bookmarkFile")) { value["iosAvatarStateVersion"]=2; }
+        return value;
     }
 private:
     NativeReadBracket _bracket;

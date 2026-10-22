@@ -463,6 +463,17 @@ void ScriptManager::runInThread() {
     connect(this, &QObject::destroyed, workerThread, &QThread::quit, Qt::DirectConnection);
     connect(workerThread, &QThread::finished, workerThread, &QObject::deleteLater);
 
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    if (_featureWorkEnabled) {
+        _featureTerminalThread=overte::e2e::ScriptTerminalObservation::process().bind(featureLoadMembership());
+        const auto terminalThread=_featureTerminalThread;
+        // No receiver/context/manager capture: receiver destruction is the
+        // ordinary cause of worker quit, and must not remove this receipt.
+        QObject::connect(workerThread,&QThread::finished,workerThread,[terminalThread] {
+            overte::e2e::ScriptTerminalObservation::process().threadFinished(terminalThread);
+        },Qt::DirectConnection);
+    }
+#endif
     workerThread->start();
 }
 
@@ -1081,6 +1092,15 @@ void ScriptManager::run() {
             loop.processEvents();
         }
         _isDoneRunning = true;
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        if (_featureWorkEnabled && _featureWorkValid.load()) {
+            // Owner thread, after scriptEnding returned, proxy disconnect and
+            // final queued-event processing. Worker exit is a separate event.
+            overte::e2e::ScriptTerminalObservation::process().shutdownDrained(
+                _featureTerminalThread,featureLoadMembership(),featureSourceIdentity(),
+                _featureSignalCallbacks,_featureTimerCallbacks,_engine->isEvaluating(),_timerFunctionMap.size());
+        }
+#endif
     });
     if (isStopping() || isStopped()) { return; }
     if (QThread::currentThread() != qApp->thread() && _context == Context::CLIENT_SCRIPT) {
@@ -1310,6 +1330,60 @@ ScriptManager::FeatureNativeCallScope::FeatureNativeCallScope(ScriptManager* man
 
 ScriptManager::FeatureNativeCallScope::~FeatureNativeCallScope() { _featureNativeCallContext=_previous; }
 
+void ScriptManager::featureCallbackBoundary(bool timer, bool entering) {
+    if (QThread::currentThread()!=thread()) { _featureWorkValid=false;return; }
+    auto& count=timer ? _featureTimerCallbacks : _featureSignalCallbacks;
+    if ((entering && count>=1000000000) || (!entering && count==0)) { _featureWorkValid=false;return; }
+    if (entering) { ++count; } else { --count; }
+}
+
+QVariantMap ScriptManager::featureWorkObservation(const QString& requestId) {
+    if (!_featureWorkEnabled || !_featureWorkValid || !thread() || !thread()->isRunning()
+            || !isRunning() || isStopping() || isFinished() || _isDoneRunning) { return {}; }
+    std::lock_guard<std::mutex> lock(_featureWorkMutex);
+    if (requestId==_featureWorkRequest) {
+        return _featureWorkPending ? QVariantMap{{"pending",true}} : _featureWorkResult;
+    }
+    if (_featureWorkPending || _featureWorkSequence>=1000000000) { return {}; }
+    _featureWorkRequest=requestId;_featureWorkResult.clear();_featureWorkPending=true;
+    const auto sequence=++_featureWorkSequence;
+    const auto requested=QDateTime::currentMSecsSinceEpoch();
+    // This normal-priority owner-thread barrier follows already posted Qt
+    // input deliveries. It never blocks the GUI or forwards a product input.
+    const bool posted=QMetaObject::invokeMethod(this,[this,requestId,sequence,requested] {
+        QVariantMap result;
+        if (QThread::currentThread()==thread() && _featureWorkValid && isRunning()
+                && !isStopping() && !isFinished() && !_isDoneRunning && _timerFunctionMap.size()<=256) {
+            const auto membership=featureLoadMembership();const auto code=featureSourceIdentity();
+            QVariantList timers;
+            bool complete=!membership.isEmpty() && !code.isEmpty() && _engine;
+            for (const auto& entry:_timerFunctionMap) {
+                const auto& timer=entry.second.first;
+                if (!timer || timer->thread()!=QThread::currentThread() || entry.first<=0) { complete=false;break; }
+                timers.append(QVariantMap{{"handle",entry.first},{"active",timer->isActive()},
+                    {"singleShot",timer->isSingleShot()},{"intervalMs",timer->interval()},{"remainingMs",timer->remainingTime()}});
+            }
+            if (complete) {
+                const auto captured=QDateTime::currentMSecsSinceEpoch();
+                if (captured>=requested) {
+                    result={{"manager",membership},{"code",code},{"work",QVariantMap{
+                        {"scriptWorkVersion",1},{"requestId",requestId},{"sequence",static_cast<qulonglong>(sequence)},
+                        {"requestedEpochMs",requested},{"capturedEpochMs",captured},
+                        {"signalCallbacks",static_cast<qulonglong>(_featureSignalCallbacks)},
+                        {"timerCallbacks",static_cast<qulonglong>(_featureTimerCallbacks)},
+                        {"evaluating",_engine->isEvaluating()},{"timers",timers}}}};
+                }
+            }
+        }
+        std::lock_guard<std::mutex> completed(_featureWorkMutex);
+        if (_featureWorkRequest==requestId && _featureWorkPending) {
+            _featureWorkResult=result;_featureWorkPending=false;
+        }
+    },Qt::QueuedConnection);
+    if (!posted) { _featureWorkPending=false;_featureWorkValid=false;return {}; }
+    return {{"pending",true}};
+}
+
 #endif
 
 // NOTE: This is private because it must be called on the same thread that created the timers, which is why
@@ -1392,6 +1466,9 @@ void ScriptManager::timerFired(int handle) {
 
     // call the associated JS function, if it exists
     if (data.function.isValid()) {
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        FeatureCallbackScope featureCallback(this,true);
+#endif
         PROFILE_RANGE(script, __FUNCTION__);
         auto preTimer = p_high_resolution_clock::now();
         callWithEnvironment(data.definingEntityIdentifier, data.definingSandboxURL, data.function, data.function, ScriptValueList(), data.consentRequest);

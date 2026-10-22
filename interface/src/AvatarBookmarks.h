@@ -38,6 +38,10 @@ class AvatarBookmarks: public Bookmarks, public  Dependency {
 
 public:
     AvatarBookmarks();
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    // Read the real service's persistence binding, including its migration.
+    const QString& featurePersistenceFileName() const { return _bookmarksFilename; }
+#endif
     void setupMenus(Menu* menubar, MenuWrapper* menu) override {};
 
     /*@jsdoc

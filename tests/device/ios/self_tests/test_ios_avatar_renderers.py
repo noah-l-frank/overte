@@ -17,13 +17,13 @@ WEARABLE = 'https://controlled.invalid/gltf-bundle/main.gltf'
 def packet():
     row = dict(sessionId=SELF, self=True, replicated=False, requestedUrl=RESOURCE, resourceUrl=RESOURCE,
         geometryLoaded=True, rigReady=True, shouldRender=True, addedToScene=True, targetScale=1., modelScale=1.,
-        jointNames=['Root', 'Head', 'Hips'], hipsIndex=2,
+        jointNames=['Root', 'Head', 'Hips'], jointIndices=dict(Root=0, Head=1, Hips=2), hipsIndex=2,
         rigPose=dict(rigId=123, capturedEpochMs=1700000000100, evaluationSequence=100,
                      animationsEnabled=True, graphLoaded=True, overrideActive=False, joints=[[0, 0, 0, 1, 0, 0, 0]]))
     peer = deepcopy(row); peer.update(sessionId=PEER, self=False)
     inventory = dict(entityInventoryVersion=1, profile='native-entity-edit-wire-v1', treeInstance='f'*32,
         revisionBefore=1, revisionAfter=1, totalEntities=0, complete=True, entities=[])
-    return dict(iosAvatarRenderersVersion=1, requestId='ios-'+'b'*32, runId='a'*32, instance='c'*32, sequence=1,
+    return dict(iosAvatarRenderersVersion=2, requestId='ios-'+'b'*32, runId='a'*32, instance='c'*32, sequence=1,
         processId=42, clockDomain='native-main-avatar-renderers', clockBefore=dict(epochMs=1700000000100, monotonicMs=100),
         clockAfter=dict(epochMs=1700000000110, monotonicMs=110),
         source=dict(complete=True, avatars=[row, peer], avatarEntities=[], tree=inventory))
@@ -40,6 +40,21 @@ def attach(value, parent=SELF):
 
 
 class RendererTests(unittest.TestCase):
+    def test_legacy_v1_is_read_without_invented_joint_indices_and_cannot_satisfy_current_peer_join(self):
+        legacy = packet(); legacy['iosAvatarRenderersVersion'] = 1
+        for row in legacy['source']['avatars']:
+            del row['jointIndices']; row['hipsIndex'] = 63
+        renderers.original(legacy)
+        self.assertNotIn('jointIndices', legacy['source']['avatars'][1])
+        with self.assertRaises(NativeUIError): renderers.loaded(legacy, PEER, RESOURCE, 1., remote=True)
+        with self.assertRaises(NativeUIError): renderers.evaluated(legacy, PEER, after_epoch=1700000000100, remote=True)
+        current = packet(); attach(current)
+        downgraded = deepcopy(current); downgraded['iosAvatarRenderersVersion'] = 1
+        for row in downgraded['source']['avatars']: del row['jointIndices']
+        downgraded.update(requestId='ios-'+'d'*32, sequence=2)
+        query = dict(schemaVersion=1, commandId=downgraded['requestId'], runId=downgraded['runId'], action=renderers.ACTION)
+        with self.assertRaises(NativeUIError): renderers.validate(downgraded, query, 42, previous=current)
+
     def test_actual_remote_model_and_scale_require_loaded_rig_scene_and_render_state(self):
         value = packet()
         self.assertEqual(PEER, renderers.loaded(value, PEER, RESOURCE, 1., remote=True)['sessionId'])

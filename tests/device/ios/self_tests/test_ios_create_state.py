@@ -16,6 +16,7 @@ ID = '11111111-1111-4111-8111-111111111111'
 ROOT = '22222222-2222-4222-8222-222222222222'
 DOMAIN = '33333333-3333-4333-8333-333333333333'
 EPOCH = 1700000000000
+SESSION = '44444444-4444-4444-8444-444444444444'
 
 
 def packet():
@@ -44,6 +45,14 @@ def add_model(value):
         textures='', lastEditedBy='44444444-4444-4444-8444-444444444444', locked=False, visible=True, voxels={},
         model=dict(present=True, loaded=True, addedToScene=True, failed=False, textures=[]))
     value['source']['entities'].append(entity); return entity
+
+
+def version2(value):
+    value['iosCreateStateVersion'] = 2; value['source']['localSessionId'] = SESSION
+    value['source']['view'] = dict(position=[0, 0, 0], rotation=[0, 0, 0, 1], fieldOfViewDegrees=60,
+                                   aspectRatio=1, perspective=True, uiWidth=768, uiHeight=768)
+    for row in value['source']['entities']: row.update(position=[0, 0, -4], rotation=[0, 0, 0, 1])
+    return value
 
 
 def remap(row):
@@ -84,15 +93,15 @@ class CreateStateTests(unittest.TestCase):
             with self.subTest(fault=fault), self.assertRaises((NativeUIError, ValueError)): product.project(value, RUN, [ID])
 
     def test_matching_old_basename_is_not_adopted_as_an_owned_creation(self):
-        before = packet(); add_model(before); after = deepcopy(before)
+        before = packet(); add_model(before); version2(before); after = deepcopy(before)
         after.update(requestId='ios-'+'f'*32, sequence=2); add_editor(after, selected=[ID])
         with self.assertRaises(NativeUIError): product.adopt_created(before, after, [], RUN)
-        before = packet(); created = product.adopt_created(before, after, [], RUN)
+        before = version2(packet()); created = product.adopt_created(before, after, [], RUN)
         self.assertEqual(ID, created['id']); self.assertEqual([], before['source']['entities'])
 
     def test_foreign_actor_entity_or_actual_non_domain_host_cannot_establish_ownership(self):
-        before = packet(); after = packet(); after.update(requestId='ios-'+'f'*32, sequence=2)
-        add_model(after); add_editor(after, selected=[ID]); actor = deepcopy(after)
+        before = version2(packet()); after = packet(); after.update(requestId='ios-'+'f'*32, sequence=2)
+        add_model(after); version2(after); add_editor(after, selected=[ID]); actor = deepcopy(after)
         actor['source']['domainId'] = '55555555-5555-4555-8555-555555555555'
         with self.assertRaises(NativeUIError): product.adopt_created(before, after, [], RUN, actor=actor)
         after['source']['entities'][0]['hostType'] = 'avatar'; after['source']['tree']['entities'][0]['hostType'] = 'avatar'

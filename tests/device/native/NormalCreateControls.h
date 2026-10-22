@@ -87,6 +87,8 @@ inline QString createControlId(QQuickItem* item) {
         {"NativeCreateVoxelRemove","create.voxel.remove"},{"NativeCreateVoxelDynamics","create.voxel.dynamics"},
         {"NativeCreateVoxelPointer","create.voxel.pointer"},{"NativeCreateVoxelDiameter","create.voxel.diameter"},
         {"NativeCreateVoxelReach","create.voxel.reach"},{"NativeCreateVoxelApply","create.voxel.apply"}
+        ,{"NativeCreateDetailedType","create.detailed-type"},{"NativeCreateDetailed","create.detailed-open"}
+        ,{"NativeCreatePropertySearch","create.property-search"}
 #endif
     };
     if (fixed.contains(name)) { return fixed.value(name); }
@@ -144,9 +146,12 @@ inline void appendCreateControlObservation(QJsonObject& row,QQuickItem* item,con
         }
     } else {
         const auto file=createFileBrowser(item);
+        const auto polyvox=createPolyVoxDialog(item);
         ready=ready && (id=="create.entry" || id=="tablet.home" || id.startsWith("tablet.page.")
+            || polyvox
             || (file && !file->property("closing").toBool() && file->property("requestId").toString().isEmpty()));
         if (file) { row["picker"]=createFileObservation(file); }
+        if (polyvox) { row["dialogRootId"]=createOriginalRootId(polyvox);row["dialogSource"]=createPolyVoxSource(polyvox); }
     }
     if (id=="create.voxel.remove") {
         const auto checked=item->property("checked");

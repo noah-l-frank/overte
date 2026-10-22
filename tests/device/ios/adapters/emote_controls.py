@@ -12,12 +12,16 @@ from adapters.native_feature_observation import need,integer
 from adapters.normal_ui import NativeUIError
 from adapters.token_emote_ui import control_id,metadata,snapshot,same_reference
 
-VERSION=1
+VERSION=2
+READS=(1,2)
 
 
 def project(original):
     need(type(original) is dict and type(original.get('emoteControlsVersion')) is int
-        and original['emoteControlsVersion']==VERSION and integer(original.get('emoteSourceSequence'),1))
+        and original['emoteControlsVersion'] in READS and integer(original.get('emoteSourceSequence'),1))
+    if original['emoteControlsVersion']==2:
+        from ios.adapters.emote_ui_inventory import validate
+        validate(original['emoteInventory'])
     rows=deepcopy([row for row in original['controls'] if control_id(row['id'])])
     for row in rows:
         frame=row.pop('frame')
@@ -25,7 +29,7 @@ def project(original):
             need(type(frame) is dict and frame['width']>0 and frame['height']>0)
             row['inputReady']=row['enabled']
         metadata(row)
-    return snapshot(dict(emoteControlsVersion=VERSION,open=original['tabletShown'],ready=original['ready'],
+    return snapshot(dict(emoteControlsVersion=1,open=original['tabletShown'],ready=original['ready'],
         scope=dict(instance=original['instance'],generation=original['emoteGeneration'],sequence=original['lastSequence'],
             sourceSequence=original['emoteSourceSequence'],elapsedMs=original['elapsedMs'],
             capturedEpochMs=original['sampleEpochMs'],processId=original['processId']),controls=rows))
