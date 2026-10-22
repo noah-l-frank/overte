@@ -193,6 +193,19 @@ def protected21_workflow_fixtures():
         result[oid] = raw
     return result
 
+def retained_workflow_fixture(name):
+    """Authenticate a complete historical fixture without certifying live CI."""
+    packages=gate.packages()
+    row=next(item for item in packages.workflow_generations() if item['name']==name)
+    contents={gate._blob(path.read_bytes())['sha']:path.read_bytes()
+              for path in (ROOT/'tools/repository-checks/workflows').rglob('*.yml')}
+    files={path:contents[entry['sha']] for path,entry in row['workflows'].items()}
+    for path,raw in files.items():
+        if gate._blob(raw)!=row['workflows'][path]:
+            raise AssertionError('retained workflow fixture identity differs: '+path)
+    return row,files
+
+
 class RequiredAndroidTests(unittest.TestCase):
     def setUp(self):
         # Every test supplies its own runner context, never the enclosing CI job's.
@@ -1006,20 +1019,26 @@ class CanonicalCIInputOwnershipTests(unittest.TestCase):
         f=RequiredAndroidTests();f.setUp();self.addCleanup(f.doCleanups)
         f.workflow_files()
         packages=gate.packages()
-        generation=packages.validate_wiring(ROOT)
-        row=next(row for row in packages.workflow_generations()if row['name']==generation)
+        # These are the enrolled29 B/M/D contracts, not the newer central caller.
+        row,workflow_bytes=retained_workflow_fixture('protected-producer-exact-parent-command-owners-v1')
+        generation=row['name']
         self.assertIn(generation,gate.CURRENT_SOURCE_GENERATIONS)
         for relative,entry in row['workflows'].items():
             for root in (f.candidate,f.policy_root):
                 path=root/relative;path.parent.mkdir(parents=True,exist_ok=True)
-                path.write_bytes((ROOT/relative).read_bytes());path.chmod(0o644)
+                path.write_bytes(workflow_bytes[relative]);path.chmod(0o644)
             self.assertEqual(gate._blob((f.candidate/relative).read_bytes()),entry)
+        self.assertEqual(packages.validate_wiring(f.candidate),generation)
         callee=f.policy_root/gate.WORKFLOW;callee.parent.mkdir(parents=True,exist_ok=True)
         callee.write_bytes((ROOT/gate.WORKFLOW).read_bytes())
         fixed={}
         for relative in gate.REVIEWED_CI_INPUTS|set(gate.android().EXECUTION_FILES)|{'.github/test-suites.json'}:
             if relative==gate.POLICY:continue
-            raw=(ROOT/relative).read_bytes();mode=0o755 if (ROOT/relative).stat().st_mode&0o111 else 0o644
+            raw=workflow_bytes.get(relative,(ROOT/relative).read_bytes())
+            if relative=='.github/workflows/codeql.yml':
+                raw=(ROOT/'tools/repository-checks/workflows/metadata-edits/codeql-upload-provenance.yml').read_bytes()
+                self.assertEqual(gate._blob(raw)['sha'],'b29e0558dc69bc9dd6fc6b47bd6024382be4079d')
+            mode=0o755 if (ROOT/relative).stat().st_mode&0o111 else 0o644
             fixed[relative]=(raw,mode)
             for root in (f.candidate,f.policy_root):
                 path=root/relative;path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(raw);path.chmod(mode)
@@ -1813,6 +1832,15 @@ class PreregisteredCallerCliTests(unittest.TestCase):
         historical = ROOT / 'tools/repository-checks/workflows/producers/repository-checks.yml'
         self.assertEqual(gate._blob(historical.read_bytes())['sha'], '22fe0d6d39d120f800099136d7d1ab5280d80b41')
         (trusted / caller).write_bytes(historical.read_bytes())
+        # Keep every other member of default28's exact retained tuple too.
+        # A new live browser/project caller cannot impersonate historical28.
+        enrolled,workflow_bytes=retained_workflow_fixture('protected-producer-optional-leaf-common-v1')
+        for relative,raw in workflow_bytes.items():
+            path=trusted/relative;path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(raw)
+        self.assertEqual((trusted/caller).read_bytes(),historical.read_bytes())
+        codeql='.github/workflows/codeql.yml'
+        (trusted/codeql).write_bytes((ROOT/'tools/repository-checks/workflows/metadata-edits/codeql-upload-provenance.yml').read_bytes())
+        self.git(trusted,'add','--sparse','--',*workflow_bytes,codeql)
         # The default source includes the subject under test, even when this
         # suite itself runs on an uncommitted source correction or active29.
         subject = 'tools/repository-checks/android_gate.py'
