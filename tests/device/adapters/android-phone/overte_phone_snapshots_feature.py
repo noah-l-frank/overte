@@ -6,6 +6,7 @@ complete common journey, independent actor and strict finalizer are verified.
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
+from contextlib import ExitStack
 import hashlib
 import os
 from pathlib import Path
@@ -532,16 +533,89 @@ class PhoneSnapshotsFeature(PhoneCreateFeature):
     def observe(self,value):
         from overte_phone_snapshots_role import PhoneSnapshotsRole
         call=arguments('feature.snapshots.observe',value);need(call['runId']==self.run)
-        with self.lock.held(),self.adapter.existing_input_session(self.selector):
-            self.load()
-            if self.state is None or self.state['phase']=='preparing':self.initialize()
-            need(self.state['phase'] in ('baseline','active','cleaned'))
-            for attempt in range(51):
-                role=PhoneSnapshotsRole(self,self.role)
-                if role.state['phase']=='reading':role.recover()
-                try:return role.read(call['afterSequence'])
-                except SnapshotPending:need(attempt<50);self.sleep(.1)
-            need(False)
+        with ExitStack() as session:
+            with self.lock.held():
+                session.enter_context(self.adapter.existing_input_session(self.selector))
+                try:
+                    self.load()
+                    if self.state is None or self.state['phase']=='preparing':self.initialize()
+                    need(self.state['phase'] in ('baseline','active','cleaned'))
+                    if self.state['phase']=='cleaned':
+                        role=PhoneSnapshotsRole(self,self.role)
+                        if role.state['phase']=='reading':role.recover()
+                        prepared=self.cleanup_observe_pin(role)
+                    else:
+                        try:
+                            for attempt in range(51):
+                                role=PhoneSnapshotsRole(self,self.role)
+                                if role.state['phase']=='reading':role.recover()
+                                try:return role.read(call['afterSequence'])
+                                except SnapshotPending:need(attempt<50);self.sleep(.1)
+                            need(False)
+                        finally:session.close()
+                except BaseException:
+                    session.close();raise
+            return self.observe_cleaned(call,role,prepared,session)
+
+    @staticmethod
+    def cleanup_observe_phase(status,previous=None):
+        need(status['active'] and status['activations'] and status['activations'][-1]['stimulus']['verb']=='cleanup')
+        if previous is not None:
+            for key in ('fixturePhaseVersion','instance','runId','area','createdEpochMs','retiredEpochMs','activations'):
+                need(same(status[key],previous[key]))
+
+    def cleanup_observe_owners(self,role,prepared,*,loaded=False):
+        need(same(role.state,prepared['state']) and hashlib.sha256(canonical(role.frames)).hexdigest()==prepared['framesSha256'])
+        need(same(self.store.read() if not loaded else self.previous,prepared['feature'])
+            and same(role.store.read(),prepared['role']) and same(role.previous,prepared['role'])
+            and same(self.binding,prepared['binding']))
+
+    def cleanup_observe_pin(self,role,previous=None):
+        self.lock.assert_held();self.bound();role.bound();role.history_authority()
+        need(self.state['phase']=='cleaned' and self.state['current'] is None and self.state['handoff'] is None
+            and role.state['phase']=='ready' and role.state['pending'] is None and not role._host_publication)
+        if role.previous is not None:
+            rows=unpack(role.previous['payload']);need(len(rows)==1 and same(rows[0],role.state))
+        else:need(same(role.state,dict(phase='ready',sequence=0,manifests=[],pending=None)) and role.frames==[])
+        status=self.phase.status();self.cleanup_observe_phase(status,previous)
+        prepared=dict(feature=deepcopy(self.previous),role=deepcopy(role.previous),binding=deepcopy(self.binding),phase=deepcopy(status),
+            state=deepcopy(role.state),framesSha256=hashlib.sha256(canonical(role.frames)).hexdigest())
+        self.cleanup_observe_owners(role,prepared);return prepared
+
+    def observe_cleaned(self,call,role,prepared,session):
+        from overte_phone_snapshots_role import PhoneSnapshotsRole
+        for attempt in range(51):
+            if attempt:
+                with self.lock.held():
+                    try:
+                        self.cleanup_observe_owners(role,prepared)
+                        self.load();self.cleanup_observe_owners(role,prepared,loaded=True)
+                        role=PhoneSnapshotsRole(self,self.role,expected_previous=prepared['role'])
+                        if role.state['phase']=='reading':role.recover()
+                        prepared=self.cleanup_observe_pin(role,prepared['phase'])
+                    except BaseException:
+                        session.close();raise
+            # Only history preparation survives this yield. All publication
+            # facts and every historical file are acquired again below.
+            self.sleep(.1)
+            with self.lock.held():
+                try:
+                    self.cleanup_observe_owners(role,prepared)
+                    self.load();self.cleanup_observe_owners(role,prepared,loaded=True)
+                    self.bound();role.bound();role.history_authority()
+                    need(self.state['phase']=='cleaned' and self.state['current'] is None and self.state['handoff'] is None)
+                    self.cleanup_observe_phase(self.phase.status(),prepared['phase'])
+                    need(hashlib.sha256(canonical(role.restore_originals())).hexdigest()==prepared['framesSha256'])
+                    try:value=role.read(call['afterSequence'])
+                    except SnapshotPending:
+                        need(attempt<50);prepared=self.cleanup_observe_pin(role,prepared['phase']);continue
+                    self.cleanup_observe_phase(role.frames[-1]['phaseBefore'],prepared['phase'])
+                    self.cleanup_observe_phase(role.frames[-1]['phaseAfter'],prepared['phase'])
+                    session.close();return value
+                except BaseException:
+                    session.close();raise
+        need(False)
+
     def background_guard(self):
         self.header_authority()
         state=self.state if self.state is not None else self._initial_state
