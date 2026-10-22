@@ -897,6 +897,16 @@ an unavailable mandatory capability stays red even in exploratory execution.
 The legacy standalone decoder profile cannot substitute for the owned
 five-format foundation.
 
+The native E2E hooks require an explicitly prepared debug build. From
+`android/phone`, use
+`ORG_GRADLE_PROJECT_overteFeatureTests=ON ORG_GRADLE_PROJECT_overteVoiceTests=true ./build.sh build`
+in the existing prepared build environment. The feature property defaults OFF,
+accepts exact ON/OFF and leaves non-debug types OFF. Setting only the raw
+`OVERTE_E2E_FEATURE_TESTS` environment variable does not activate Gradle
+forwarding. See the [debug build contract](../../../../android/phone/docs/BUILD.md#dedicated-feature-e2e-debug-build).
+This documents activation; a complete feature-enabled APK build remains
+unverified.
+
 `OVERTE_PHONE_SNAPSHOTS_CONFIGURATION` names the private configuration file. Its
 closed schema is `snapshotsFeatureVersion:1`, `artifactRoot`, `imageExtent`,
 `markerRoi`, `imagePolicy`, `fileImagePolicy`, `domainId` and
