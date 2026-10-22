@@ -47,6 +47,7 @@ TESTS = (
     test("chat-cache-release-admission", "interaction", PYTHON, "pico-chat-cache-release-test.py", "admission"),
     test("chat-cache-release-quiet", "interaction", PYTHON, "pico-chat-cache-release-test.py", "quiet"),
     test("chat-cache-release-final-clock", "interaction", PYTHON, "pico-chat-cache-release-test.py", "final-clock"),
+    test("chat-cache-release-deferred", "interaction", PYTHON, "pico-chat-cache-release-test.py", "deferred"),
     test("chat-actor-source", "interaction", PYTHON, "pico-chat-actor-source-test.py", requires=("cmake", "git", "c++", "pkg-config")),
     test("shell-syntax", "infrastructure", "bash", "pico-shell-syntax-test.sh"),
     test("source-inputs-v1", "android", PYTHON, "test_source_inputs.py"),

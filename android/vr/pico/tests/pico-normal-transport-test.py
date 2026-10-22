@@ -11,6 +11,7 @@ sys.path[:0]=[str(ROOT),str(ROOT/'android/vr/pico/tests/device'),str(ROOT/'tests
 suite=unittest.defaultTestLoader.loadTestsFromNames([
     'test_navigation_transport_hook',
     'self_tests.test_native_process_presence',
+    'self_tests.test_pico_binding_transfer',
     'test_controller_transport_hook',
     'test_lifecycle_transport_once',
     'tests.device.self_tests.test_openxr_android_transport',

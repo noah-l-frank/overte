@@ -1439,3 +1439,21 @@ The integrated selection passes7/115 groups in231.74s: current/restore Chat
 72.665s/native6.345s and native-budget counterexample65.884s, plus coverage.
 The current-profile source/Probe/private-factory/native cases are included in
 the existing Erase/restore owner group. Completed source/host areas remain3/14.
+
+
+## Original binding, deferred Chat release and Snapshot file integration
+
+Selections `ddb99d7e6b`, `2d1981b51e` and `db4a73fe1a` are integrated with
+their owning transport, composition and Snapshot selectors. Deferred Chat
+release retains the original peer query channel until new post-restart sources
+are established; it does not reopen a retired channel. Original host binding
+transfer retains its held file identities and write intent through uncertain
+replacement. Snapshot observes actual capture descriptors without changing
+product file opening behavior. Whole restart and Snapshot finalization remain
+partial.
+
+The seven selected groups pass in63.54s: transport2.767s, composition16.047s,
+deferred cache release16.389s, Snapshot file originals9.993s, fast cancellation
+12.159s and native originals6.124s, plus coverage. The catalog has117 owning
+groups; completed source/host feature areas remain3/14. Devices and the full
+application are untested.
