@@ -500,6 +500,13 @@ class NativeExecutionBindingTest(unittest.TestCase):
             with self.assertRaises(ValueError):bound.describe(self.fake.target)
             self.assertEqual(1,verify.call_count)
 
+    def test_unsupported_ofd_query_retains_original_full_verifier_on_every_guard(self):
+        from adapters.pico4 import candidate_read_seal
+        args,pico=adapter.cli([*self.prefix,'describe','--target',self.fake.target]);original=pico.verifier.verify_candidate
+        with patch.object(candidate_read_seal,'DUPFD_QUERY',None),patch.object(pico.verifier,'verify_candidate',wraps=original) as verify:
+            bound=pico.create_adapter(args,adapter.AndroidAdapter);self.assertEqual(1,verify.call_count)
+            bound.describe(self.fake.target);self.assertGreaterEqual(verify.call_count,2)
+
     def test_original_candidate_seal_refuses_all_changed_argument_values_and_types(self):
         from adapters.pico4 import binding as pico
         for name,value in (('source_revision','b'*40),('minimum_version',5),
@@ -856,7 +863,39 @@ class CandidateReadSealTests(unittest.TestCase):
             self.assertEqual(b'foreign original',os.read(replacement,64))
             seal.close();os.fstat(replacement)
             with self.assertRaises(ValueError):seal.check()
-        finally:os.close(replacement)
+        finally:
+            os.close(replacement);os.close(seal.rows[0][4])
+
+    def test_reopened_same_inode_under_original_number_is_foreign_and_left_open(self):
+        seal=self.create();fd=seal.rows[0][2];anchor=seal.rows[0][4];os.close(fd)
+        replacement=os.open(self.path,os.O_RDONLY|os.O_CLOEXEC)
+        try:
+            self.assertEqual(fd,replacement)
+            with self.assertRaises(ValueError):seal.check()
+            self.assertEqual(b'original verified bytes',os.read(replacement,64))
+            seal.close();os.fstat(replacement);os.fstat(anchor)
+        finally:os.close(replacement);os.close(anchor)
+
+    def test_lost_anchor_cannot_adopt_a_new_same_inode_open_description(self):
+        seal=self.create();fd=seal.rows[0][2];anchor=seal.rows[0][4];os.close(anchor)
+        replacement=os.open(self.path,os.O_RDONLY|os.O_CLOEXEC)
+        try:
+            self.assertEqual(anchor,replacement)
+            with self.assertRaises(ValueError):seal.check()
+            seal.close();os.fstat(replacement);os.fstat(fd)
+        finally:os.close(replacement);os.close(fd)
+
+    def test_unsupported_kernel_ofd_query_never_leaks_initial_unexposed_handles(self):
+        import errno
+        from adapters.pico4 import candidate_read_seal as module
+        original=module.fcntl.fcntl
+        def unavailable(fd,operation,*values):
+            if operation==module.DUPFD_QUERY:raise OSError(errno.EINVAL,'explicit unsupported kernel seam')
+            return original(fd,operation,*values)
+        before={int(row.name) for row in Path('/proc/self/fd').iterdir()}
+        with patch.object(module.fcntl,'fcntl',side_effect=unavailable):
+            with self.assertRaises(module.CandidateReadSealUnavailable):self.create()
+        self.assertEqual(before,{int(row.name) for row in Path('/proc/self/fd').iterdir()})
 
     def test_object_finalization_releases_original_descriptor(self):
         import gc
