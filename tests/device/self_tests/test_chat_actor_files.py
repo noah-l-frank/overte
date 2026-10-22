@@ -80,6 +80,18 @@ class ActorFileTests(unittest.TestCase):
         self.assertIsNone(self.store.read());self.assertFalse((self.root/COMMAND).exists());self.assertFalse((self.root/RESULT).exists())
         self.assertTrue((self.root/SOURCE).exists());self.assertEqual(-1,self.actor.fd)
 
+    def test_strict_root_descriptor_recycling_cannot_publish_or_close_foreign_original_directory_handle(self):
+        transport=ChatActorFiles(self.root,self.store,BINDING,self.sha,lambda:self.alive,self.actor.released,
+            component_only=True,clock_ms=lambda:20000,monotonic=lambda:self.clock,sleep=self.sleep,require_original_fd=True)
+        descriptor,anchor=transport.fd,transport.fd_owner.anchor
+        os.close(descriptor);foreign=os.open(self.root,os.O_RDONLY|os.O_DIRECTORY|os.O_CLOEXEC)
+        try:
+            self.assertEqual(descriptor,foreign)
+            with self.assertRaises(NativeUIError):transport.send(self.request())
+            transport.detach();self.assertEqual(self.root.stat().st_ino,os.fstat(foreign).st_ino)
+            self.assertFalse((self.root/COMMAND).exists());self.assertIsNone(self.store.read()['pending'])
+        finally:os.close(foreign);os.close(anchor)
+
     def test_stale_original_reply_is_preserved_while_waiting_never_relabelled(self):
         original=self.produce();request=self.request(nonce='e'*32);self.transport.send(request)
         self.assertEqual(original,json.loads(self.transport.read()))
