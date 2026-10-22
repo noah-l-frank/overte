@@ -753,3 +753,14 @@ closure, strict finalization additionally requires the independent provider's
 fresh `active=false`, zero uploads/stories/inflight, retired request rows and
 its passive real body/sidecar absence checks. No retained raw history is erased
 or relabeled to implement the live public projection.
+
+Background recovery retains the original native lifecycle and durable input
+stage. An observed background with no issued resume permits one ordinary
+`app.launch`; a saved `resume-issued` stage only waits for the original
+foreground return. Cleanup of an uncertain Home write already found in the
+foreground archives the actual lifecycle without issuing Home or launch again.
+Reconstruction requires the same actual process/session binding and the
+original monotonic twenty-second bound. Expiry or a changed process preserves
+the pending journal and fails. The host recovery counterprobes use actual
+private journals and the original native packet reader with explicit synthetic
+SDK/lifecycle producers; they do not qualify device execution or latency.

@@ -123,6 +123,20 @@ class LeasedAdapter(Adapter):
         return SimpleNamespace(input=forbidden,close=forbidden,release=forbidden)
 
 
+class BackgroundAdapter(LeasedAdapter):
+    """Explicit SDK/lifecycle producer; recovery may only send an owed resume."""
+    def __init__(self,root):
+        super().__init__(root);self.app_state=3;self.lifecycle=dict(backgrounds=1,activations=1,launches=1)
+        original=self.native.mutate
+        def mutate(value):original(value);value['lifecycle']=deepcopy(self.lifecycle)
+        self.native.mutate=mutate
+    def _graphics_lifecycle_status(self,*_):
+        return dict(binding=deepcopy(self.binding),foreground=self.app_state==4,running=self.alive,appState=self.app_state)
+    def invoke(self,_selector,operation,value):
+        need(operation=='app.launch' and value=={} and self.app_state in (2,3))
+        self.calls.append(operation);self.app_state=4;self.lifecycle['activations']+=1
+
+
 class SnapshotsFeatureTests(unittest.TestCase):
     def setUp(self):
         self.temp=tempfile.TemporaryDirectory(prefix='snapshots-feature-');self.addCleanup(self.temp.cleanup)
@@ -226,5 +240,54 @@ class SnapshotsFeatureTests(unittest.TestCase):
         f=self.failed_preflight();header=f.store.read();changed=deepcopy(header);changed['configuration']['receiverApkSha256']='b'*64
         f.store.write(changed,header)
         with self.assertRaises(NativeUIError):self.feature()
+
+    def background_journal(self,stage,*,foreground=False):
+        self.failed_preflight();self.adapter=BackgroundAdapter(self.root);f=self.feature()
+        with f.lock.held():
+            self.adapter.lifecycle['backgrounds']=0
+            f.load();before=self.adapter._native_feature_observer(None,read_only=True).read(0,require_account=True)
+            self.adapter.lifecycle['backgrounds']=1
+            f.state['original']=dict(avatar=dict(source=dict(cameraMode='selfie')))
+            f.archive_input(dict(snapshotsBaseline=dict(avatar=deepcopy(f.state['original']['avatar']))))
+            call=dict(contractVersion=VERSION,runId=self.run,fixtureUrl=f.fixture_url,ticket=uuid.uuid4().hex,verb='background-resume',inputs={})
+            f.state.update(phase='acting',current=dict(call=call,phase='issuing',pending=dict(kind='background',stage=stage,before=before,startedMonotonic=100.)))
+            f.save()
+        self.adapter.app_state=4 if foreground else 3
+        if foreground:self.adapter.lifecycle['activations']=2
+        return PhoneSnapshotsFeature(self.adapter,'synthetic',self.phase,self.config,monotonic=lambda:101.)
+
+    def test_background_recovery_sends_only_the_not_yet_issued_resume(self):
+        f=self.background_journal('background-issued')
+        with f.lock.held():
+            f.load();f.recover_handoff_input()
+            self.assertIsNone(f.state['current']['pending']);self.assertEqual(['app.launch'],self.adapter.calls)
+            originals=f.inputs.restore(f.state['inputs'],f.state['inputSequence'])
+            self.assertIn('snapshotBackground',originals[-2]);self.assertIn('snapshotResumed',originals[-1])
+        # A subsequent instance cannot replay either Home or launch.
+        again=self.feature()
+        with again.lock.held():again.load();again.recover_handoff_input()
+        self.assertEqual(['app.launch'],self.adapter.calls)
+
+    def test_saved_resume_is_recovered_without_repeating_input(self):
+        f=self.background_journal('resume-issued',foreground=True)
+        with f.lock.held():f.load();f.recover_handoff_input();self.assertIsNone(f.state['current']['pending'])
+        self.assertEqual([],self.adapter.calls)
+
+    def test_uncertain_home_return_is_recovered_without_repeating_input(self):
+        f=self.background_journal('background-issued',foreground=True)
+        with f.lock.held():
+            f.load();f.recover_handoff_input();self.assertIsNone(f.state['current']['pending'])
+            originals=f.inputs.restore(f.state['inputs'],f.state['inputSequence'])
+            self.assertIn('snapshotBackgroundUncertain',originals[-1])
+        self.assertEqual([],self.adapter.calls)
+
+    def test_expired_background_recovery_preserves_pending_journal_and_sends_nothing(self):
+        f=self.background_journal('resume-issued');original=f.store.read()
+        f.monotonic=lambda:120.
+        with f.lock.held(),self.assertRaises(NativeUIError):f.load()
+        self.assertEqual(original,f.store.read());self.assertEqual([],self.adapter.calls)
+        self.adapter.binding['processIdentity']='99:1';f.monotonic=lambda:101.
+        with f.lock.held(),self.assertRaises(NativeUIError):f.load()
+        self.assertEqual(original,f.store.read());self.assertEqual([],self.adapter.calls)
 
 if __name__=='__main__':unittest.main()
