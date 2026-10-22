@@ -30,6 +30,9 @@
 #include "../../tests/device/native/NormalEmoteControls.h"
 #include "../../tests/device/native/NormalAvatarControls.h"
 #include "../../tests/device/native/IOSAvatarUiInventory.h"
+#if defined(Q_OS_IOS)
+#include "../../tests/device/native/IOSNormalInputObservation.h"
+#endif
 #include "../../tests/device/native/NormalNavigationErrorControls.h"
 #include "../../tests/device/native/AccountPreferenceObservation.h"
 #endif
@@ -950,7 +953,40 @@ QJsonObject NormalUiInput::request(const QJsonObject& command) {
     const auto operation = command.value("operation").toString();
     QJsonObject result { { "schemaVersion", 1 }, { "commandId", command.value("commandId") } };
     if (operation == QStringLiteral("observe")) { result["observation"] = observe(_hud, _tablet, _tabletShown); }
-    else { result["status"] = edit(command.value("input").toObject()); }
+    else {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+        const auto input=command.value("input").toObject();const auto token=input.value("fieldToken").toString();
+        QString avatarControl;QJsonObject avatarRoot;
+        for (auto it=_controls.cbegin();it!=_controls.cend();++it) {
+            if (it.value().token!=token) { continue; }
+            const auto control=it.key();
+            if (control.startsWith("avatar.") || control.startsWith("people.")
+                    || control=="tablet.home" || control.startsWith("tablet.page.")) {
+                if (!avatarControl.isEmpty()) { avatarControl.clear();break; }avatarControl=control;
+                QJsonObject row;overte::e2e::appendAvatarControlObservation(row,it.value().item,control);
+                if (row.contains("rootId") && row.contains("qmlSource")) {
+                    avatarRoot=QJsonObject{{"rootId",row.value("rootId")},{"qmlSource",row.value("qmlSource")}};
+                }
+            }
+        }
+        if (avatarControl=="tablet.home" || avatarControl.startsWith("tablet.page.")) {
+            for (const auto& page:{QStringLiteral("avatar.page"),QStringLiteral("people.page")}) {
+                if (!_controls.contains(page)) { continue; }QJsonObject row;
+                overte::e2e::appendAvatarControlObservation(row,_controls.value(page).item,page);
+                if (row.contains("rootId") && row.contains("qmlSource")) {
+                    if (!avatarRoot.isEmpty()) { avatarControl.clear();break; }
+                    avatarRoot=QJsonObject{{"rootId",row.value("rootId")},{"qmlSource",row.value("qmlSource")}};
+                }
+            }
+        }
+        auto& originals=overte::e2e::IOSNormalInputObservation::shared();
+        const auto inputId=originals.received(overte::e2e::IOSNormalInputObservation::Profile::Avatar,command,avatarControl,avatarRoot);
+        result["status"]=edit(input);
+        originals.returned(inputId,result);
+#else
+        result["status"]=edit(command.value("input").toObject());
+#endif
+    }
     return result;
 }
 

@@ -593,6 +593,12 @@ class FixtureState:
             try:validate_ios_source(command)
             except (ValueError,RuntimeError):raise ValueError("invalid iOS avatar world request") from None
             valid=True
+        elif action == "feature-ios-avatar-inputs":
+            sys.path.insert(0,str(ROOT.parent))
+            from ios.adapters.avatar_inputs import command as validate_ios_source
+            try:validate_ios_source(command)
+            except (ValueError,RuntimeError):raise ValueError("invalid iOS avatar inputs request") from None
+            valid=True
         elif action == "feature-script-work-observe":
             sys.path.insert(0,str(ROOT.parent))
             from adapters.native_script_work import command as script_work_command
