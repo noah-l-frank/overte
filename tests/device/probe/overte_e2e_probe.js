@@ -146,6 +146,7 @@
     var lastGraphicsSubjectRequest = "";
     var lastSceneLoadRequest = "";
     var lastTabletHttpRequest = "";
+    var lastLifecycleDriveRequest = "";
     var lastProcessPresenceRequest = "";
     var lastScriptFilesRequest = "";
     function saveScriptSourceObservation(requestId) {
@@ -1341,6 +1342,23 @@
         if (command && command.schemaVersion === 1
                 && typeof command.commandId === "string" && /^[0-9a-f]{32}$/.test(command.commandId)
                 && typeof command.runId === "string" && /^[0-9a-f]{32}$/.test(command.runId)
+                && command.action === "feature-lifecycle-drive-observe"
+                && objectKeysMatch(command, ["schemaVersion", "commandId", "action", "runId"])) {
+            if (command.commandId === lastLifecycleDriveRequest) { return; }
+            lastLifecycleDriveRequest = command.commandId;
+            var lifecycleDrive = {lifecycleDriveVersion: 1, commandId: command.commandId, available: false};
+            try {
+                if (typeof Test.featureLifecycleDriveObservation === "function") {
+                    var originalLifecycleDrive = Test.featureLifecycleDriveObservation(command);
+                    if (originalLifecycleDrive && originalLifecycleDrive.commandId === command.commandId) { lifecycleDrive = originalLifecycleDrive; }
+                }
+            } catch (_lifecycleDriveError) { /* Missing original drive/feet/tracking remain unavailable. */ }
+            Test.saveObject(lifecycleDrive, "feature-lifecycle-drive.json");
+            return;
+        }
+        if (command && command.schemaVersion === 1
+                && typeof command.commandId === "string" && /^[0-9a-f]{32}$/.test(command.commandId)
+                && typeof command.runId === "string" && /^[0-9a-f]{32}$/.test(command.runId)
                 && command.action === "feature-tablet-http-observe"
                 && objectKeysMatch(command, ["schemaVersion", "commandId", "action", "runId"])) {
             if (command.commandId === lastTabletHttpRequest) { return; }
@@ -1730,6 +1748,7 @@
                 || command.action === "feature-graphics-subject-observe"
                 || command.action === "feature-scene-load-observe"
                 || command.action === "feature-tablet-http-observe"
+                || command.action === "feature-lifecycle-drive-observe"
                 || command.action === "feature-web-runtime-observe"
                 || command.action === "feature-world-render-storage"
                 || command.action === "feature-world-render-receipt"

@@ -40,6 +40,10 @@
 #include "MyCharacterController.h"
 #include "RingBufferHistory.h"
 
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+namespace overte::e2e { class LifecycleDriveObservation; }
+#endif
+
 class AvatarActionHold;
 class ModelItemID;
 class MyHead;
@@ -1066,6 +1070,10 @@ public:
     Q_INVOKABLE float getRawDriveKey(DriveKeys key) const;
 
     void relayDriveKeysToCharacterController();
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    // Passive native-only actual frame; never a script-visible input setter.
+    QVariantMap featureLifecycleDriveObservation() const;
+#endif
 
     /*@jsdoc
      * Disables the action associated with a drive key.
@@ -2590,6 +2598,9 @@ private:
 
     std::array<float, MAX_DRIVE_KEYS> _driveKeys;
     std::bitset<MAX_DRIVE_KEYS> _disabledDriveKeys;
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    mutable std::shared_ptr<overte::e2e::LifecycleDriveObservation> _featureLifecycleDrive;
+#endif
 
     bool _enableFlying { false };
     bool _flyingPrefDesktop { true };

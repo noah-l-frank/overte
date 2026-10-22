@@ -14,6 +14,9 @@
 
 #include "MyAvatar.h"
 #if defined(OVERTE_E2E_FEATURE_TESTS)
+#include "../../../tests/device/native/LifecycleDriveObservation.h"
+#endif
+#if defined(OVERTE_E2E_FEATURE_TESTS)
 #include <ScriptManager.h>
 #endif
 
@@ -4466,6 +4469,41 @@ float MyAvatar::getRawDriveKey(DriveKeys key) const {
         return 0.0f;
     }
 }
+
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+QVariantMap MyAvatar::featureLifecycleDriveObservation() const {
+    if (!qApp || QThread::currentThread()!=thread() || !qApp->isHMDMode()
+            || !QCoreApplication::arguments().contains("--testScript")) { return {}; }
+    static_assert(MAX_DRIVE_KEYS==12 && TRANSLATE_X==0 && TRANSLATE_Y==1 && TRANSLATE_Z==2 && YAW==3
+        && STEP_TRANSLATE_X==4 && STEP_TRANSLATE_Y==5 && STEP_TRANSLATE_Z==6 && STEP_YAW==7
+        && PITCH==8 && ZOOM==9 && DELTA_YAW==10 && DELTA_PITCH==11,"Original native drive inventory changed");
+    overte::e2e::LifecycleDriveSample sample;
+    for (int index=0;index<MAX_DRIVE_KEYS;++index) {
+        const auto key=static_cast<DriveKeys>(index);
+        sample.drive[index]=getDriveKey(key);sample.raw[index]=getRawDriveKey(key);
+        sample.disabled[index]=isDriveKeyDisabled(key);
+    }
+    sample.feet=getWorldFeetPosition();sample.body=getWorldPosition();sample.orientation=getWorldOrientation();
+    sample.scale=getModelScale();sample.sensorToWorld=getSensorToWorldMatrix();
+    sample.sceneUrl=DependencyManager::get<AddressManager>()->currentAddress().toString(QUrl::FullyEncoded);
+    sample.controllerState=static_cast<int>(_characterController.getState());
+    sample.physicsReady=_characterController.isEnabledAndReady();sample.seated=_characterController.getSeated();
+    sample.stuck=_characterController.isStuck();sample.velocity=_characterController.getLinearVelocity();
+    sample.advancedMovement=useAdvancedMovementControls();
+    sample.actionEnabled=(_motionBehaviors & AVATAR_MOTION_ACTION_MOTOR_ENABLED)!=0;
+    sample.scriptedEnabled=(_motionBehaviors & AVATAR_MOTION_SCRIPTED_MOTOR_ENABLED)!=0;
+    sample.actionMotor=_actionMotorVelocity;sample.scriptedMotor=_scriptedMotorVelocity;
+    sample.scriptedMotorTimescale=_scriptedMotorTimescale;sample.thrust=_thrust;
+    sample.pushing=_isPushing;sample.braking=_isBraking;sample.beingPushed=_isBeingPushed;
+    const std::array<controller::Action,3> actions{controller::Action::HEAD,controller::Action::LEFT_HAND,controller::Action::RIGHT_HAND};
+    for (int index=0;index<3;++index) {
+        const auto original=getControllerPoseInSensorFrame(actions[index]);
+        sample.tracking[index]={original.isValid(),original.translation,original.rotation};
+    }
+    if (!_featureLifecycleDrive) { _featureLifecycleDrive=std::make_shared<overte::e2e::LifecycleDriveObservation>(); }
+    return _featureLifecycleDrive->observe(sample);
+}
+#endif
 
 void MyAvatar::relayDriveKeysToCharacterController() {
     if (_endSitKeyPressComplete) {

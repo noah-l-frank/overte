@@ -140,6 +140,7 @@ REQUIRED = {
     "pico-lifecycle-ui-observation": 1,
     "lifecycle-ui-source-state": 1,
     "pico-lifecycle-back-owner": 1,
+    "pico-lifecycle-drive-observation": 1,
     "native-navigation-replies": 2,
     "native-navigation-modals": 1,
     "native-navigation-error-controls": 1,
