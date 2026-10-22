@@ -83,3 +83,8 @@ PYTHONDONTWRITEBYTECODE=1 TMPDIR=<private-directory> \
   --test coverage-matrix
 PYTHONDONTWRITEBYTECODE=1 python3 tests/device/validate_contract_versions.py
 ```
+
+Base cleanup also refuses an orphan original manifest or any original chunk
+without a parent owner journal. Those paths retain responsibility independently;
+process stop cannot silently retire unknown original storage. Two actual Pico
+factory/teardown counterexamples cover both cases without issuing new input.
