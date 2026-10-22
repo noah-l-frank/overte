@@ -48,6 +48,10 @@ class NavigationRuntimeTests(unittest.TestCase):
             self.assertIsNone(inputs.store.read());self.assertIs(owner,inputs.admission)
             missing=self.runtime._navigation_missing_actions('test-only',owner)
             self.assertIsNone(missing.store.read());self.assertIs(owner,missing.admission)
+            composite=self.runtime._navigation_composite_actions('test-only',owner)
+            self.assertIsNone(composite.store.read());self.assertIs(owner,composite.admission)
+            self.assertIs(owner.fixture,composite.places.fixture)
+            self.assertEqual(42,composite.navigation.pid)
             self.assertEqual(20000,owner.native.read(0)['capturedEpochMs'])
             self.f.process['pid']=43
             with self.assertRaises((NativeUIError,ValueError)):owner.bound()

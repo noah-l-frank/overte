@@ -20,6 +20,7 @@ from ios.adapters.navigation_places_inputs import IOSPlacesFlow
 from ios.adapters.navigation_places_actions import NavigationPlacesActions
 from ios.adapters.navigation_surface_actions import NavigationSurfaceActions
 from ios.adapters.navigation_missing_actions import NavigationMissingActions
+from ios.adapters.navigation_composite_actions import NavigationCompositeActions
 from ios.adapters.places_controls import IOSPlacesIO
 from ios.adapters.navigation_sample import NavigationSampleOwner
 from ios.adapters.navigation_samples import NavigationSamples
@@ -27,6 +28,16 @@ from ios.adapters.script_runtime import IOSScriptRuntime
 
 
 class IOSNavigationRuntime(IOSScriptRuntime):
+    def _navigation_composite_actions(self,selector,admission,*,floor=None):
+        surfaces=self._navigation_surface_actions(selector,admission)
+        places=self._navigation_places_actions(selector,admission,floor=floor)
+        source=self._sources(selector)
+        need(same(source['binding'],admission.binding))
+        navigation=source['observer'].navigation_state(source['clock_source'])
+        return NavigationCompositeActions(
+            PrivateFeatureState(admission.store.path.with_name('ios-navigation-composite-actions.json')),
+            surfaces,places,navigation)
+
     def _navigation_missing_actions(self,selector,admission):
         need(isinstance(admission,NavigationAdmissionOwner));admission.bound()
         source=self._sources(selector);need(same(source['binding'],admission.binding)

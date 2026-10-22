@@ -57,6 +57,14 @@ class NavigationSurfaceActionsTests(unittest.TestCase):
             self.assertEqual('DELETE',owner.state['actions'][-1]['intents'][-1]['method'])
             self.assertIsNotNone(owner.store.read());self.assertIsNotNone(self.admission.store.read())
 
+    def test_a_normally_closed_page_retains_its_archive_without_blocking_a_later_owned_open(self):
+        with self.h.h.lock.held():
+            self.owner().act(self.call('open'));self.owner().act(self.call('close'))
+            self.root_id=str(uuid.UUID(int=502));owner=self.owner();owner.act(self.call('open'))
+            self.assertEqual(self.root_id,owner.state['actions'][-1]['page']['rootId'])
+            owner=self.owner();owner.act(self.call('close'))
+            self.assertEqual(4,len(owner.state['actions']));self.assertIsNone(self.b.screen)
+
     def test_foreign_preexisting_tablet_is_not_adopted_or_closed(self):
         with self.h.h.lock.held():
             self.b.screen='settings';owner=self.owner()

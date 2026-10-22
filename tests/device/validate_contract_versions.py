@@ -9,6 +9,7 @@ from pathlib import Path
 
 
 REQUIRED = {
+    "ios-navigation-composite-actions": 1,
     "ios-avatar-social-http": 1,
     "ios-avatar-social-http-acquisition": 1,
     "ios-people-model": 1,

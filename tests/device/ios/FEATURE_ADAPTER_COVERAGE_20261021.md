@@ -66,6 +66,12 @@ An [ordinary missing-name/OK owner](NAVIGATION_MISSING_ACTIONS.md) now retains t
 actual input barrier, 404/modal proof and exact OK reference. Lost results cannot
 replay input; partial lifetime deletion remains unresolved. Address-root closure,
 whole operation publication, restart and repeated quiet cleanup remain open.
+A [composite action coordinator](NAVIGATION_COMPOSITE_ACTIONS.md) now connects
+normal directory/bookmark selection to independent fresh native scene/pose and
+owned page reads before normal close. Lost selections never replay; retained
+arrival recovery requires another fresh read before close, and lost close
+results recover only an actual existing child acknowledgment. Missing-address
+closure, restart transfer, publication and whole repeated cleanup remain open.
 
 The canonical physical source binding and explicit lost-launch recovery have
 host-tested implementations. The native byte observer and SDK plugin remain

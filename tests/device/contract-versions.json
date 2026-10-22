@@ -1,6 +1,7 @@
 {
   "schemaVersion": 1,
   "contracts": {
+    "ios-navigation-composite-actions": {"current": 1, "reads": [1]},
     "ios-avatar-social-http": {"current": 1, "reads": [1]},
     "ios-avatar-social-http-acquisition": {"current": 1, "reads": [1]},
     "ios-people-model": {"current": 1, "reads": [1]},

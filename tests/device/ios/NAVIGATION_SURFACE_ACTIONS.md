@@ -38,5 +38,7 @@ callbacks and repeated quiet cleanup remain duties of the whole Worlds owner.
 The candidate-qualified factory is IOSNavigationRuntime._navigation_surface_actions.
 Native compilation and devices remain unverified.
 
-Fifteen host counterexamples exercise genuine fixture phases, actual private
+Sixteen host counterexamples exercise genuine fixture phases, actual private
 journals, and real Python W3C/native-input codecs with modeled SDK/Qt state.
+Reopening after a completed normal close retains the old page archive while
+acquiring ownership of the newly observed root.

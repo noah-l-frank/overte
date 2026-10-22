@@ -199,7 +199,7 @@ class NavigationSurfaceActions:
             rows.append(row); self.save()
             row['fixture'] = self.admission.fixture.read(); self.save()
             row['before'] = self.capture(); self.save()
-            owned_page = rows[-2]['page'] if len(rows) > 1 else None
+            owned_page = rows[-2]['page'] if len(rows) > 1 and rows[-2]['surface'] == 'open' else None
             if surface == 'open': need(owned_page is None and not row['before']['tabletShown'])
             else: need(owned_page is not None and self.page(row['before']) == owned_page)
             row['phase'] = 'issued'; self.save()
