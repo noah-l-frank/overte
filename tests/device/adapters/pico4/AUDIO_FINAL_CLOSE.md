@@ -44,6 +44,9 @@ A lost acknowledgement after the controller's original cursor commit can read
 its native neutral/effect without resending. A lost grant-commit reply before
 that host cursor commit remains unresolved even if a page effect is visible.
 The owner never adopts an uncertain cursor, repairs a process or repeats X.
+Cold validation preserves exact lifetime/resource equality across each deferred
+quiet window. Both final streams must continue the original tablet-open nonce
+and consecutive sequence, with distinct commands and advancing pre-input fences.
 Orphan final journals block base cleanup and competing Preview release.
 
 The optional read-only deferred wait requires actual native callback retirement,
