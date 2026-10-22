@@ -46,8 +46,30 @@ It explicitly still requires a fresh independently clocked empty manifest and
 paired quiet observations. A successful ACK, an empty modeled ledger or a
 successful unlink alone cannot retire the feature's ownership.
 
-Remaining integration includes a durable one-send removal owner with original
-native reply carriers, candidate/source admission, actual independent post-unlink
-absence and quiet observations, error/partial-output recovery, and the complete
-capture/export/destination/observer/lifecycle flow. This component does not
-supply these results.
+`SnapshotOwnedPacket` now retains each native source query before send and its
+exact raw AFC reply in private original frames, preserving whitespace. Original
+native getter brackets, independent NativeDiag before/after packets and actual
+host acquisition times remain separate. A late reply can be retained as historical
+evidence; it cannot pass the unchanged 1.5-second native/host qualification. An
+opened complete original after a lost flush is adopted without another query,
+AFC read or file rewrite. Partial/unrecorded output remains owned.
+
+`SnapshotRemoveOwner` pins the admission packet's actual owner-journal hash,
+file ID and original manifest nonce before its sole send. Candidate verification
+and a final age/transport guard run after the issued journal write. An unknown
+return leaves the command issued; no input is resent. Its original passive queue
+receipt must be retained before another probe command can replace the pending
+input. A false queue receipt makes no failure/success claim about native work.
+Only later native job originals can establish the result.
+
+Each subsequent source original is linked durably before interpreting continuity
+or success. Wrong source births, failed unlinks and still-retained functors remain
+owned observations. A later retired job can resolve an old unlink even when that
+result original is too late for fresh input admission. Historical reconstruction
+reads only original local files; altered admission/result files or journal hashes
+fail closed. No source/file owner is deleted by this component.
+
+Remaining integration includes independently clocked post-unlink empty manifests,
+paired quiet, final file/archive retirement, and the complete capture/export,
+destination/observer/lifecycle flow. The removal proof explicitly retains these
+requirements. This component does not supply complete-feature results.
