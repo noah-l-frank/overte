@@ -51,6 +51,14 @@ intent even if the path is already absent. Completed evidence also remains
 retained for the enclosing whole-feature finalizer. `OwnedChatPeer.input_close`
 constructs the owner with its exact original reader and lock.
 
+When the enclosing parent binds its independently admitted actual cleanup fence,
+each unlink marks that original phase before the durable removal intent. After
+all original file/FD/source guards and the final CAS, the actual current cleanup
+ticket/prefix is queried again immediately before unlink. A changed phase leaves
+the original command/receipt present and the issued journal retained; no removal
+is retried. This optional input-publication boundary preserves legacy standalone
+component behavior.
+
 Focused verification:
 
 ```sh

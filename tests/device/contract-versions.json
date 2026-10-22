@@ -111,7 +111,7 @@
     "native-chat-actor-source": {"current": 2, "reads": [1, 2]},
     "native-chat-input-lifetime": {"current": 1, "reads": [1]},
     "chat-peer-input-close": {"current": 1, "reads": [1]},
-    "pico-chat-composition": {"current": 2, "reads": [1, 2]},
+    "pico-chat-composition": {"current": 3, "reads": [1, 2, 3]},
     "chat-compiled-script-source": {"current": 1, "reads": [1]},
     "chat-compiled-model-samples": {"current": 1, "reads": [1]},
     "chat-compiled-cache-absence": {"current": 1, "reads": [1]},

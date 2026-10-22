@@ -139,7 +139,7 @@ class PicoChatCompositionTests(unittest.TestCase):
             self.assertIs(owner.roles[index].script_source,owner.code_sources[index])
             self.assertIs(owner.initial[index].script_source,owner.code_sources[index])
             self.assertIs(owner.code_sources[index].lock,owner.lock)
-        self.assertEqual(2,owner.previous['picoChatCompositionVersion'])
+        self.assertEqual(3,owner.previous['picoChatCompositionVersion'])
         self.assertEqual([],self.native.inputs)
         with self.assertRaises(NativeUIError):owner.prepare()
         self.assertEqual(['acquire'],[request['operation'] for request in profile.requests])
@@ -192,10 +192,26 @@ class PicoChatCompositionTests(unittest.TestCase):
     def test_legacy_parent_manifest_is_retained_but_cannot_qualify_compiled_source_witness(self):
         from feature_journeys.witness import Client
         owner=self.compose();self.prepare_sources(owner);owner.prepare()
-        original=owner.store.read();legacy=dict(original,picoChatCompositionVersion=1);owner.store.write(legacy,original)
+        original=owner.store.read()
         source=PhaseFixtureReader(Client(self.source.client.url,'w'*48),RUN,'chat')
-        with self.assertRaises(ValueError):self.instance._chat_witness_composition(self.native.target,source,self.peer.config)
-        self.assertEqual(legacy,owner.store.read());self.assertEqual([],self.native.inputs)
+        for version in (1,2):
+            legacy=dict(original,picoChatCompositionVersion=version);owner.store.write(legacy,owner.store.read())
+            with self.subTest(version=version),self.assertRaises(ValueError):self.instance._chat_witness_composition(self.native.target,source,self.peer.config)
+            self.assertEqual(legacy,owner.store.read());self.assertEqual([],self.native.inputs)
+
+    def test_premature_parent_cleanup_never_admits_phase_or_creates_peer_release_input(self):
+        owner=self.compose();self.prepare_sources(owner);owner.prepare()
+        with self.assertRaises(NativeUIError):owner.admit_cleanup(self.native.epoch_milliseconds(self.native.target))
+        self.assertIsNone(self.instance._chat_cleanup_admission_store(self.native.target).read())
+        self.assertEqual('prepared',owner.store.read()['phase']);self.assertEqual([],self.native.inputs)
+        self.assertIs(owner.profile.reader.send,owner.profile.reader._chat_transport.send)
+        self.assertFalse((self.peer.actor/'chat-peer-input.v1.json').exists())
+
+    def test_original_cleanup_admission_without_parent_root_still_prevents_generic_cleanup_success(self):
+        store=self.instance._chat_cleanup_admission_store(self.native.target)
+        original={'original':'unresolved-final-cleanup-phase'};store.write(original,None)
+        with self.assertRaises(ValueError):self.pico.cleanup_instance().cleanup(self.native.target)
+        self.assertEqual(original,store.read());self.assertFalse(self.native.running)
 
     def test_lost_parent_profile_receipt_keeps_original_native_acquire_without_replay(self):
         owner=self.compose();profile,chat=self.prepare_sources(owner);original=owner.store.write

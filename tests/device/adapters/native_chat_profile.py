@@ -148,6 +148,11 @@ class OwnedChatProfile:
             started=self.reader.monotonic();need(number(started,0,1e15))
             with self.lock.held():
                 self._allowed(operation);need(self.reader.guard() is not False)
+                fence=getattr(self,'phase_fence',None)
+                if fence is not None and operation=='restore':
+                    need(fence.flow.source.run==self.run and same(fence.flow.scope['binding'],self.binding)
+                        and fence.flow.roles[0].locks[0] is self.lock)
+                    fence.mark()
                 request=command(dict(schemaVersion=1,commandId=uuid.uuid4().hex,runId=self.run,action='feature-chat-profile',operation=operation))
                 self.attempts.append(dict(request=request,result=None));self.write()
                 value=self.reader.perform(request)

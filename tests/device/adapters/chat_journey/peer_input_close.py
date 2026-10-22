@@ -129,11 +129,14 @@ class ChatPeerInputClose:
         need(False)
 
     def unlink_original(self,name,original,phase):
+        fence=getattr(self,'phase_fence',None)
+        if fence is not None:fence.mark()
         self.save(phase+'-issued')
         raw,info=self.files._read(name,4096);need(stamp(info)==original)
         if name==COMMAND:need(raw==encode(self.input.previous['intents'][-1]['command']))
         else:need(hashlib.sha256(raw).hexdigest()==self.receipt_sha and self.files.released(node(info)) is False)
         self.fresh(self.latest,self.sample_started)
+        if fence is not None:fence.check()
         # Exactly one unlink after the original durable admission. Any exception
         # poisons this owner; a missing or surviving path is never retried here.
         os.unlink(name,dir_fd=self.files.fd);os.fsync(self.files.fd)

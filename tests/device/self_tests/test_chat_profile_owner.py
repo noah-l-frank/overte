@@ -70,6 +70,28 @@ class ProfileOwnerTests(unittest.TestCase):
         self.assertEqual(['acquire','restore'],[row['operation'] for row in self.native.requests])
         self.native.ignore=False;self.assertTrue(self.make().perform('inspect')['restored'])
         self.assertEqual(['acquire','restore','inspect'],[row['operation'] for row in self.native.requests])
+
+    def test_original_cleanup_phase_change_after_restore_cas_prevents_native_restore_dispatch(self):
+        import uuid
+        from self_tests import test_chat_cleanup_admission as phase_seams
+        from adapters.chat_journey.phase_fence import ChatPhaseFence,bind_phase_fence
+        phase=phase_seams.ChatCleanupAdmissionTests();phase.setUp();self.addCleanup(phase.doCleanups)
+        store=PrivateFeatureState(phase.h.h.h.root/'cleanup-profile.json')
+        owner=OwnedChatProfile(self.native.reader(),store,phase.flow.scope['binding'],RUN,phase.flow.roles[0].locks[0])
+        owner.perform('acquire');phase.activate()
+        with phase.flow.session():phase.owner.admit()
+        fence=ChatPhaseFence(phase.flow,cleanup=phase.owner);bind_phase_fence(owner,fence)
+        def send(request):fence.check();self.native.send(request)
+        owner.reader.send=send;write=store.write
+        def changed(value,previous):
+            write(value,previous)
+            if unpack(value['transcript'])[-1]['request']['operation']=='restore':phase.h.journal.activate(RUN,uuid.uuid4().hex,'cleanup',{})
+        store.write=changed
+        with self.assertRaises(NativeUIError),phase.flow.session():owner.perform('restore')
+        self.assertEqual(['acquire'],[row['operation'] for row in self.native.requests])
+        self.assertIsNone(unpack(store.read()['transcript'])[-1]['result'])
+        with self.assertRaises(NativeUIError),phase.flow.session():owner.perform('restore')
+        self.assertEqual(['acquire'],[row['operation'] for row in self.native.requests])
     def test_changed_originals_native_sources_false_success_and_private_payload_remain_unresolved(self):
         for fault in ('original','writer','view','process','success','private','stale'):
             with self.subTest(fault=fault):
