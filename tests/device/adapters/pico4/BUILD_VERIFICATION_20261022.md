@@ -525,3 +525,23 @@ Final original Qt6 normal-menu/camera owning case also passes11.388s. The
 final67-case original stereo/reader/owner selection and coverage pass2/74
 groups14.39s (stereo14.316s,coverage.072s); all4 repository suites pass3.48s.
 Registry and whitespace pass. No complete feature count changes.
+
+
+## Integrated original initial/active Chat and normal muted Audio segment
+
+645817c457 selects234117b153's separate original cache-absent baseline and
+active source v2 flow/witness. Global original query uniqueness and actual native
+cache birth/activation fences remain required. Old v1 owners are retained. All41
+background/witness/absence cases pass51.701s and5 actual Pico admission/birth/
+absence/teardown cases pass21.467s. A complete positive quartet at the original
+1.5s real-clock limit remains separately unresolved before a reviewed immutable
+candidate-admission optimization; no timeout was enlarged or failure hidden.
+
+61c9259de6 selects e58aaeed0c's normal Audio open/muted-start rejection/restore/
+PCM-release/Home/closed segment. The actual native error start time, original
+controller streams/neutral facts, input peaks and two independent3s nine-clock
+quiet windows are composed; all original journals stay retained. An original30s
+AudioClient callback and alive QML context are not retired by memory/PCM release.
+Full acoustic/peer/whole Audio qualification remains missing. Integrated owner/
+preview/coverage pass3/75 groups28.30s (owner16.398s,preview11.817s,coverage.083s).
+All4 repository suites pass4.18s; registry/whitespace pass.

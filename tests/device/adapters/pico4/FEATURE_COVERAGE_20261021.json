@@ -840,7 +840,9 @@
         "tests/device/native/AudioSettingsQueue.h",
         "tests/device/adapters/pico4/AUDIO_PAGE_ORIGINALS.md",
         "tests/device/adapters/pico4/audio_pages.py",
-        "tests/device/native/AudioPageObservation.h"
+        "tests/device/native/AudioPageObservation.h",
+        "tests/device/adapters/pico4/AUDIO_PAGE_OWNER.md",
+        "tests/device/adapters/pico4/audio_page_owner.py"
       ],
       "declaredCheckpoints": 14,
       "inputVerbs": [
