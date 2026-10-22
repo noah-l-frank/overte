@@ -672,6 +672,40 @@ class PicoNormalScriptsTests(unittest.TestCase):
         with self.assertRaises(NativeUIError):pending.read('b'*32,1)
         self.assertEqual(before,len(source.commands));self.assertEqual([],peer.commands);self.assertIsNone(pending.store.read())
 
+    def test_pico_chat_active_original_owner_guard_still_allows_a_fresh_complete_query_bundle(self):
+        from self_tests.test_pico_chat_keyboard import keyboard
+        source,capture=self.chat_capture();capture.observe();view,_reader=self.chat_view()
+        view.source.update(ui={'present':False},editorFocused=False,editorHasDraft=False,keyboard=keyboard(False))
+        view.source['storage'].update(kind='unset',count=0,unowned=0,events=[])
+        lifecycle=NativeFeatureBoundary()
+        def measured(value):
+            epoch=self.native.epoch_milliseconds(self.native.target)
+            value.update(capturedEpochMs=epoch,requestedEpochMs=epoch)
+            value['animationFence']['requestedEpochMs']=epoch;value['animation']['capturedEpochMs']=epoch
+            value['animation']['clip']['evaluatedEpochMs']=epoch
+        lifecycle.mutate=measured
+        old_write=self.native.write_debug_app_file;old_read=self.native.read_debug_app_file
+        def write(target,package,path,raw):
+            request=json.loads(raw)
+            if request['action']=='feature-native-observe':lifecycle.send(request)
+            else:return old_write(target,package,path,raw)
+        def read(target,package,path,**kwargs):
+            if path.endswith('/feature-native-observation.json'):return lifecycle.original()
+            return old_read(target,package,path,**kwargs)
+        peer=ChatBoundary();peer.present=True;peer.opened=20000
+        def original_peer(value):
+            value.update(processId=456,instance='e'*32);value['source']['selfSha256']=CHAT_PEER
+        peer.mutate=original_peer;peer_reader=peer.reader();peer_reader.pid=456
+        state=self.instance._chat_samples_store(self.native.target,'primary');lock=ScriptSourceLock(state.path.with_name('script-sources.lock'))
+        root=self.fixture.state_root/'fresh-peer';root.mkdir(mode=0o700);peer_lock=ScriptSourceLock(root/'script-sources.lock')
+        binding=capture.owner.binding|dict(processIdentity='456',targetFingerprint='d'*64)
+        with patch.object(self.native,'write_debug_app_file',side_effect=write),patch.object(self.native,'read_debug_app_file',side_effect=read):
+            samples=self.instance._chat_samples(self.native.target,CHAT_RUN,peer_reader,binding,role='primary',source_lock=lock,peer_lock=peer_lock)
+            value=samples.read('b'*32,1)
+        self.assertFalse(value['state']['open']);self.assertEqual(['connection:chat-peer-cache','connection:chat-primary-cache'],value['resources'])
+        self.assertEqual(['inspect'],[row['operation'] for row in peer.commands]);self.assertEqual(1,len(lifecycle.commands))
+        self.assertEqual([],self.native.inputs);self.assertEqual('ready',samples.store.read()['phase'])
+
     def test_pico_chat_source_cannot_borrow_a_replacement_cache_birth_at_the_same_pid(self):
         from adapters.normal_ui import NativeUIError
         source,peer,create=self.chat_samples();samples=create();original=source.mutate

@@ -73,11 +73,11 @@ require an actually active cache. Even a pending reader's first read refuses
 absence, so it cannot manufacture active observations before the whole owner
 performs its original once-only cache activation at the first normal Open.
 
-A separate positive Pico source experiment keeps the original host candidate
-verifier and real monotonic clock. It currently exceeds the unchanged 1.5 s
-bundle limit: the profiled synthetic-transport case invokes 93 full candidate
-verifications and 465 tool subprocesses across setup and the failed query.
-This remains an explicit live-factory qualification gap. The component stage
-proofs and negative Pico admission/birth tests do not establish that the
-unoptimized complete live query fits its freshness window. No timeout is
-relaxed and no complete capability is advertised.
+The original positive Pico source experiment exposed repeated full candidate
+verification exceeding the unchanged 1.5 s bound (93 verifications and 465 tool
+subprocesses across setup and the failed read). The separate
+[Pico host-input read seal](../pico4/CANDIDATE_READ_SEAL.md) now lets this actual
+Pico factory/reader quartet complete with the real monotonic clock and unchanged
+native freshness checks. This is synthetic-transport host evidence only; no
+real SDK signing, live installed Android APK, network peer or device performance
+is qualified by it.
