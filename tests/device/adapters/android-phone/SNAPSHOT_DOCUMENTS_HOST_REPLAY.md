@@ -58,10 +58,28 @@ At this packet's handoff, 103 selected source/host tests passed. Four bounded
 actual first-Share cycles also returned original primary sources and three new
 actor receipts aged 1156/1196/1250 ms, below the unchanged 1500 ms limit. This
 bounded diagnostic does not qualify the full common journey. Earlier complete
-runs failed that strict freshness limit; the next full replay awaits the
-independent actor's separate cleanup quiet-batch implementation. Normal
-operation deadlines, original clocks and the three-second quiet contract are
-unchanged.
+runs failed the unchanged strict freshness limit:
+
+| Complete SDK26 host replay | Result |
+| --- | --- |
+| 68.963 seconds | First Share witness exceeded the original freshness bound. |
+| 74.591 seconds | First Share witness age reached 1689 ms. |
+| 71.077 seconds | First Share witness age reached 1624 ms. |
+| 73.513 seconds | Two valid first-Share witnesses preceded a 1616 ms witness. |
+
+The guarded two-stage actor is implemented: it prepares immutable history,
+releases the owner lock, then rechecks the original actor/feature/role headers
+and target binding before acquiring its own fresh quiet-batch originals. Every
+sample retains complete original-file validation and current restoration proof.
+The subsequent retained-reader/warm-CAS implementation is undergoing bounded
+qualification; its integration is not claimed here. Complete SDK26 replay remains
+pending that qualification and a new unchanged common run. Normal operation
+deadlines, original clocks and the three-second quiet contract are unchanged.
+
+The current [source coverage review](SOURCE_STATUS.md) distinguishes source and
+component checks from complete common qualification. The
+[Snapshot guide](SNAPSHOT_FEATURE.md#bounds-failure-recovery-and-complete-retirement)
+describes the shared ownership, quiet and v18 closed-fixture retirement contract.
 
 No feature flag, shared capability count, admission source pin or cross-platform
 status was updated by this handoff. Pico and iOS remain separate sessions.
