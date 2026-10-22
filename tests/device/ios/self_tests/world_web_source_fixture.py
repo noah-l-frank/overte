@@ -13,7 +13,8 @@ URL='http://127.0.0.1:43210/feature-fixture/v1/runs/'+RUN+'/'
 
 
 class OriginalSources:
-    def __init__(self,resource='reference.html',status_origin='primary'):
+    def __init__(self,resource='reference.html',status_origin='primary',*,dom_version=2):
+        self.dom_version=dom_version
         self.epoch=100000;self.events=[];self.inputs=[];self.sequence=0;self.dom_sequence=0
         self.browser=BrowserResources(clock_ms=self.clock);self.browser.open(RUN)
         self.origins=dict(primary='http://127.0.0.1:43210',foreign='http://127.0.0.1:43211')
@@ -23,12 +24,12 @@ class OriginalSources:
             sourceUrl=URL+'tickets/'+TICKET+'/reference.html',sourceIdentity='actual-native-owner',surface='world-entity')
         self.event('view-created',{},identity=self.identity|dict(page=0,nonce=''))
         self.event('document-began',dict(frame=self.url))
-        self.event('dom-observer-installed',dict(sourceSha256=dom.SOURCE_SHA256,wrapperSha256='a'*64))
+        self.event('dom-observer-installed',dict(sourceSha256=dom.SOURCE_PINS[dom_version],wrapperSha256='a'*64))
         self.event('main-response',dict(url=self.url,status=status,responseId=response,mimeType='text/html'))
         self.finished=self.event('native-finished',{})['clock']['epochMs'];self.event('document-verified',{})
         self.view={key:deepcopy(value) for key,value in self.identity.items() if key!='surface'}
         self.view.update(nativeFinished=True,httpErrorStatus=404 if status==404 else 0,inlineLease=False,
-            httpStatus=status,responseId=response,finishedEpochMs=self.finished,observerSha256=dom.SOURCE_SHA256)
+            httpStatus=status,responseId=response,finishedEpochMs=self.finished,observerSha256=dom.SOURCE_PINS[dom_version])
     def clock(self):self.epoch+=1;return self.epoch
     def stamp(self):return dict(epochMs=self.clock(),monotonicMs=self.epoch-100000)
     def event(self,kind,detail,*,identity=None):
@@ -45,7 +46,9 @@ class OriginalSources:
         elements=[dict(id=key,birth=index,tag='INPUT' if key in ('text','foreign') else 'IMG' if key=='feature-marker' else 'BUTTON',
             type='text' if key=='text' else 'url' if key=='foreign' else '',rect=[10,10,90,90],enabled=True,visible=True,href=None)
             for index,key in enumerate(sorted(dom.IDS),1)]
-        body=dict(iosWorldWebDOMVersion=1,requestId=query,instance='d'*32,sequence=self.dom_sequence,capturedEpochMs=stamp,
+        if self.dom_version>=2:
+            for row in elements:row.update(focused=False,value='' if row['id'] in ('text','foreign') else None)
+        body=dict(iosWorldWebDOMVersion=self.dom_version,requestId=query,instance='d'*32,sequence=self.dom_sequence,capturedEpochMs=stamp,
             document=dict(runId=RUN,href=self.url,responseId=self.view['responseId'],readyState='complete',title='Actual fixture title',width=100,height=100),
             editor=dict(text='',focused=False),elements=elements,events=deepcopy(self.inputs),echoes=[])
         return dict(iosWorldWebDOMNativeVersion=1,commandId=query,runId=RUN,surface='world',instance='e'*32,sequence=self.dom_sequence,

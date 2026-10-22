@@ -93,6 +93,11 @@ function page({bridge = true} = {}) {
     const up=original.events[click.ordinal-2];assert.equal(up.kind,'mouseup');assert.deepEqual(up.target,click.target);assert(up.x>0);
     original.events[0].target.id='poison';assert.notEqual(p.read().events[0].target.id,'poison');
     p.nodes.get('text').readOnly=true;p.touch('text','press');p.execute(key,['ignored',0,false]);assert.equal(p.read().editor.text,'Überte 🙂');
+    p.touch('foreign','press');p.touch('foreign','release');p.execute(key,['http://127.0.0.1:43211/reference.html',0,false]);
+    const foreignField=p.read().elements.find(row => row.id === 'foreign');
+    assert.equal(foreignField.focused,true);assert.equal(foreignField.value,'http://127.0.0.1:43211/reference.html');assert.equal(p.read().editor.focused,false);
+    p.execute(key,['',16777233,false]);p.execute(key,['',16777232,true]);p.execute(key,['',16777219,false]);
+    assert.equal(p.read().elements.find(row => row.id === 'foreign').value,'');assert.equal(p.read().iosWorldWebDOMVersion,2);
     const foreign=page({bridge:false});foreign.touch('bridge','press');foreign.touch('bridge','release');
     assert.equal(foreign.outbound.length,0);assert.equal(foreign.read().echoes.length,0);
     assert.equal(foreign.read().events.filter(row => row.kind === 'click' && row.target.id === 'bridge').length,1);

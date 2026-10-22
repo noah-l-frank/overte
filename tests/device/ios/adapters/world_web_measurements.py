@@ -50,7 +50,8 @@ def current_document(ledger,document,browser,origins):
         and actual['finished']['clock']['epochMs']<=view['finishedEpochMs']<=actual['verified']['clock']['epochMs'])
     installed=[row for row in ledger['events'] if row['kind']=='dom-observer-installed'
         and native.document_key(row['identity'])==key and row['sequence']<actual['verified']['sequence']]
-    need(len(installed)==1 and installed[0]['detail']['sourceSha256']==view['observerSha256']==dom.SOURCE_SHA256)
+    need(len(installed)==1 and installed[0]['detail']['sourceSha256']==view['observerSha256']
+        ==dom.SOURCE_PINS[document['source']['dom']['iosWorldWebDOMVersion']])
     rows=[row for row in browser['responses'] if row['responseId']==response['responseId']]
     need(len(rows)==1);receipt=rows[0];need(receipt['resource'] in ('index.html','reference.html','page-b.html','recovery.html')
         and receipt['status']==response['status'])

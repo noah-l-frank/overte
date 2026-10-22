@@ -101,6 +101,7 @@ function overteIOSWorldWebDOM(global) {
             need([rect.left,rect.top,rect.right,rect.bottom].every(Number.isFinite));
             const style = global.getComputedStyle(node);
             elements.push({id,birth:birth(node),tag:node.tagName,type:typeof node.type === 'string' ? node.type : '',
+                focused:doc.activeElement === node,value:typeof node.value === 'string' ? node.value : null,
                 rect:[rect.left,rect.top,rect.right,rect.bottom],enabled:!node.disabled,
                 visible:node.isConnected && style.visibility !== 'hidden' && style.display !== 'none'
                     && rect.right > rect.left && rect.bottom > rect.top && rect.left >= 0 && rect.top >= 0
@@ -108,7 +109,7 @@ function overteIOSWorldWebDOM(global) {
                 href:typeof node.href === 'string' ? node.href : null});
         }
         acquire();settle();need(!failed && sequence < Number.MAX_SAFE_INTEGER);
-        return {iosWorldWebDOMVersion:1,requestId,instance,sequence:++sequence,capturedEpochMs:now(),
+        return {iosWorldWebDOMVersion:2,requestId,instance,sequence:++sequence,capturedEpochMs:now(),
             document:{runId:owners[0].content,href:String(global.location.href),responseId:responses[0].content,
                 readyState:doc.readyState,title:String(doc.title),width:global.innerWidth,height:global.innerHeight},
             editor:{text:nodes.text.value,focused:doc.activeElement === nodes.text},elements,

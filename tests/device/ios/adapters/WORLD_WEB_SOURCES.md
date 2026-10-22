@@ -21,7 +21,12 @@ file `feature-ios-world-web-dom.json`, limit 262144. It invokes the registered
 `iosWorldWebDOMNativeVersion=1`, containing the actual WK view, native document,
 successful or failed HTTP status, consumed response header ID, original native
 finish time, observer source digest and current original DOM acquisition.
-The DOM result is `iosWorldWebDOMVersion=1`.
+The current DOM body is `iosWorldWebDOMVersion=2`, with original DOM1 history
+still readable against its actual frozen source pin. Native envelope remains
+`iosWorldWebDOMNativeVersion=1`. Each actual element now also reports its own
+`focused` bool and original `value` string/null. In particular the ordinary
+foreign-URL input can be qualified before the normal Navigate button; the
+requested URL never becomes an observed value by implication.
 
 The separately packaged `ios_world_web_dom.js` source is pinned by actual bytes.
 It only reads the original DOM, geometry, focus, original input events and actual

@@ -13,10 +13,13 @@ from ios.adapters.places_model import text
 from ios.adapters import world_web_source as native
 
 VERSION=1
+DOM_VERSION=2
+DOM_READS=(1,2)
 ACTION='feature-ios-world-web-dom'
 FILE=ACTION+'.json'
 LIMIT=262144
-SOURCE_SHA256='5737bc97d9bfaffb10a6f0a574e5ab92d5b9492a2cb99fe8802fe041cc906ae1'
+SOURCE_SHA256='4d639f5d53ddfe8d5db0e70f49d7d654491097b720cf3fb90ff221786d9d2221'
+SOURCE_PINS={1:'5737bc97d9bfaffb10a6f0a574e5ab92d5b9492a2cb99fe8802fe041cc906ae1',2:SOURCE_SHA256}
 IDS={'text','bridge','back','reload','foreign','navigate','recovery','reference','feature-marker','same-origin'}
 
 
@@ -27,7 +30,7 @@ def command(value):
 
 def dom(value,query,epoch):
     exact(value,{'iosWorldWebDOMVersion','requestId','instance','sequence','capturedEpochMs','document','editor','elements','events','echoes'})
-    need(type(value['iosWorldWebDOMVersion']) is int and value['iosWorldWebDOMVersion']==1
+    need(type(value['iosWorldWebDOMVersion']) is int and value['iosWorldWebDOMVersion'] in DOM_READS
         and value['requestId']==query['commandId'] and type(value['instance']) is str and re.fullmatch(native.HEX,value['instance'])
         and integer(value['sequence'],1));fresh(value['capturedEpochMs'],epoch)
     document=value['document'];exact(document,{'runId','href','responseId','readyState','title','width','height'})
@@ -38,7 +41,10 @@ def dom(value,query,epoch):
     need(len(editor['text'].encode('utf-16-le'))//2<=512 and type(editor['focused']) is bool)
     need(type(value['elements']) is list and len(value['elements'])==len(IDS));ids=set();births=set()
     for row in value['elements']:
-        exact(row,{'id','birth','tag','type','rect','enabled','visible','href'})
+        exact(row,{'id','birth','tag','type','rect','enabled','visible','href'}|({'focused','value'} if value['iosWorldWebDOMVersion']>=2 else set()))
+        if value['iosWorldWebDOMVersion']>=2:
+            need(type(row['focused']) is bool and (row['value'] is None or type(row['value']) is str))
+            if row['value'] is not None:text(row['value'],32768);need(len(row['value'].encode('utf-16-le'))//2<=8192)
         need(row['id'] in IDS and row['id'] not in ids and integer(row['birth'],1,1024) and row['birth'] not in births)
         ids.add(row['id']);births.add(row['birth']);text(row['tag'],32);text(row['type'],32)
         need(type(row['rect']) is list and len(row['rect'])==4 and all(number(v,-1e6,1e6) for v in row['rect'])
@@ -66,6 +72,10 @@ def dom(value,query,epoch):
         capturedEpochMs=value['capturedEpochMs'],document={key:document[key] for key in ('runId','href','responseId','readyState')},
         editor=deepcopy(editor),attempts=[],echoes=deepcopy(value['echoes']))
     legacy_dom(old,dict(commandId=query['commandId'],runId=query['runId'],surface='world'),epoch)
+    if value['iosWorldWebDOMVersion']>=2:
+        fields=[row for row in value['elements'] if row['id']=='text'];need(len(fields)==1)
+        need(fields[0]['focused']==editor['focused'] and fields[0]['value']==editor['text']
+            and sum(row['focused'] for row in value['elements'])<=1)
     return value
 
 
@@ -86,7 +96,8 @@ def validate(value,query,pid,epoch=None,previous=None):
     need(all(view[key] for key in ('creation','grant','page','nonce')) and view['nativeFinished'] is True and view['inlineLease'] is False
         and type(view['httpStatus']) is int and view['httpStatus'] in (200,404)
         and type(view['httpErrorStatus']) is int and view['httpErrorStatus']==(404 if view['httpStatus']==404 else 0)
-        and re.fullmatch(native.HEX,text(view['responseId'],32)) and view['observerSha256']==SOURCE_SHA256
+        and re.fullmatch(native.HEX,text(view['responseId'],32))
+        and view['observerSha256']==SOURCE_PINS.get(observed.get('iosWorldWebDOMVersion'))
         and integer(view['finishedEpochMs'],1,value['capturedEpochMs']))
     dom(observed,query,value['capturedEpochMs'])
     need(view['url']==observed['document']['href'] and view['responseId']==observed['document']['responseId'])
@@ -98,7 +109,8 @@ def validate(value,query,pid,epoch=None,previous=None):
         else:need(view['handle']!=old['handle'])
         if native.document_key(view)==native.document_key(old):
             need(view==old and observed['instance']==old_dom['instance'] and observed['sequence']>old_dom['sequence']
-                and observed['capturedEpochMs']>=old_dom['capturedEpochMs'] and observed['document']==old_dom['document'])
+                and observed['capturedEpochMs']>=old_dom['capturedEpochMs'] and observed['document']==old_dom['document']
+                and observed['iosWorldWebDOMVersion']==old_dom['iosWorldWebDOMVersion'])
             for key in ('events','echoes'):need(observed[key][:len(old_dom[key])]==old_dom[key])
         else:need(observed['instance']!=old_dom['instance'] and view['nonce']!=old['nonce'])
     return value
