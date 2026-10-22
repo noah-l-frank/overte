@@ -13,6 +13,7 @@
 #include <QTextStream>
 #include <cassert>
 #include <memory>
+#include <thread>
 #include <sys/stat.h>
 // Only the application-wide dependency registry's lifetime is supplied here.
 // Setting::Manager, its actual worker, locks, map, signals and persistence are
@@ -50,6 +51,7 @@ public:
     static void removeHandle(Setting::Manager* manager){manager->removeHandle("LastBrowseLocation");}
     static void destroy(Setting::Manager* manager){delete manager;}
     static QPointer<Setting::WriteWorker> worker(Setting::Manager* manager){return manager->_featureBrowseWriteWorker;}
+    static QVariant writerValue(Setting::WriteWorker* worker){assert(QThread::currentThread()==worker->thread() && worker->_qSettings);return worker->_qSettings->value("LastBrowseLocation");}
     static void requestQuit(Setting::Manager* manager){manager->_workerThread.quit();}
     static void quit(Setting::Manager* manager){manager->_workerThread.quit();assert(manager->_workerThread.wait(1500));}
     static void stop(Setting::Manager* manager){manager->terminateThread();assert(manager->_workerThread.wait(2000));}
@@ -171,6 +173,28 @@ int main(int argc,char** argv) {
         nested.insert("unrelated",17);writeCounter(QJsonDocument(nested).toJson(QJsonDocument::Indented));assert(overte::e2e::createBrowsePhysicalOriginal(originalNested,readCounter()));
     }
     assert(counter.remove());assert(!readCounter().isEmpty() && !readCounter().value("file").toMap().value("exists").toBool());
+    // Deterministic dirty original cache: the first gate keeps the event
+    // queue ordered before reserve. Its real setValue appends Qt autosync
+    // behind the already queued cache/physical check and reserve barrier.
+    struct DirtyGate {QSemaphore firstEntered,firstLeave,dirtyEntered,dirtyLeave;};
+    const auto dirtyGate=std::make_shared<DirtyGate>();const auto dirtyWorker=SettingsTests::worker(actual);assert(dirtyWorker);
+    const auto beforeDirty=overte::e2e::createBrowseSettingsFile(manager->fileName(),format);assert(!beforeDirty.isEmpty());
+    assert(QMetaObject::invokeMethod(dirtyWorker.data(),[dirtyGate]{dirtyGate->firstEntered.release();dirtyGate->firstLeave.acquire();},Qt::QueuedConnection));
+    assert(dirtyGate->firstEntered.tryAcquire(1,1000));manager->setValue("LastBrowseLocation",QString("/actual-dirty-starting-value"));
+    const auto settingsPath=manager->fileName();
+    assert(QMetaObject::invokeMethod(dirtyWorker.data(),[dirtyGate,settingsPath,format,beforeDirty,dirtyWorker]{
+        assert(dirtyWorker && SettingsTests::writerValue(dirtyWorker.data())==QVariant("/actual-dirty-starting-value"));
+        const auto physical=overte::e2e::createBrowseSettingsFile(settingsPath,format);
+        assert(overte::e2e::createBrowsePhysicalOriginal(beforeDirty,physical));
+        dirtyGate->dirtyEntered.release();dirtyGate->dirtyLeave.acquire();
+    },Qt::QueuedConnection));
+    overte::e2e::CreateBrowseSettingOwner dirtyOwner;const QString dirtyRun(32,'f');
+    std::thread releaseDirty([dirtyGate]{QThread::msleep(5);dirtyGate->firstLeave.release();assert(dirtyGate->dirtyEntered.tryAcquire(1,1000));dirtyGate->dirtyLeave.release();});
+    const auto dirtyReserved=dirtyOwner.request(root,call("reserve",dirtyRun),{});releaseDirty.join();assert(!dirtyReserved.isEmpty());
+    assert(dirtyReserved.value("writer").toMap().value("raw")==dirtyReserved.value("original"));
+    assert(!overte::e2e::createBrowsePhysicalOriginal(beforeDirty,dirtyReserved.value("originalPhysical").toMap()));
+    assert(overte::e2e::createBrowsePhysicalOriginal(dirtyReserved.value("originalPhysical").toMap(),overte::e2e::createBrowseSettingsFile(settingsPath,format)));
+    assert(dirtyOwner.request(root,call("release",dirtyRun),originalDialog).value("released").toBool());
     const QString secondRun(32,'2'),secondTicket(32,'3');manager->setValue("LastBrowseLocation",QString("/original/selected-location"));SettingsTests::barrier(actual);
     assert(!owner.request(root,call("reserve",secondRun),{}).isEmpty());const auto secondPath=QUrl(stage(root,secondRun,secondTicket).value("directory").toString()).toLocalFile();
     const auto secondDialog=acquireRead(owner,root,secondRun,secondTicket,secondPath,"export");manager->setValue("LastBrowseLocation",secondPath);

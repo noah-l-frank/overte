@@ -151,3 +151,24 @@ blocked worker or unsupported physical file leaves its owned lease unresolved.
 There were no application, headset, device, domain-server or peer runs. Feature
 4/14 remains partial, including the original retained Context/Cancel boundaries
 and the remaining full Model/render/peer/PolyVox/rez-authority contract.
+
+
+Reservation queues the original Manager forceSave signal before the bounded
+writer barrier, so an actual dirty worker cache is flushed through the original
+sync implementation before physical baseline admission. A deterministic Qt
+counterexample gates the original worker, proves its shared QSettings cache has
+the new original while direct physical bytes still have the old row, then
+requires the reserve source to capture the newly persisted original. Ordinary
+observations do not sync or replace a foreign physical row; the independent
+cache-agrees/file-differs refusal remains in both original formats.
+
+The dirty-start follow-up passed ten focused Python/Qt5 cases in 8.144 seconds,
+including both original formats. A separate owned negative fixture omitted
+only the reserve sync: both INI and JSON failed exactly at the new physical
+baseline assertion, as expected. That proves this counterexample detects the
+missing original barrier instead of passing through Qt autosync. This negative
+fixture changed only private temporary header bytes and never the product
+worktree. The documentation and whitespace checks passed again. The existing
+SettingsTests friend gains one declaration inside both dedicated native test
+gates to read the actual worker cache without constructing a second QSettings
+object, whose own construction can itself flush shared dirty state.
