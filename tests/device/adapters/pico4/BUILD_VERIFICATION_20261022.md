@@ -155,3 +155,20 @@ The subsequently added final post-copy candidate-loss/native-clock guard has
 16 original reader/probe/fixture cases passing (.166s), including a countercase
 that fails without that guard. Four final project checks pass (12.24s). No additional
 whole-feature capability or application/APK/device qualification is claimed.
+
+## Shared native-branch integration and normal input checks
+
+Chat commits bd3becac18/e79fdee648/3abd9ac8fc and Lifecycle
+b239273d85/846853d65b pass 108 affected component cases (89.386s),
+four actual Pico Chat factory/recovery/teardown cases (13.144s) and one actual
+Pico editor factory case (.829s). The normal editor's generation follows its
+original current context, including when unfocused; final native clocks cover
+result construction. Whole Chat/Lifecycle capabilities remain unavailable.
+
+The actual Qt5 Emote pointer/scroll harness initially failed compilation after
+Lifecycle was added between the Emote and Chat branches. Its extraction had
+incorrectly used the following Chat branch as a delimiter. Extracting the
+Emote branch by its own original braces fixes this harness without changing
+native input behavior. The repeated actual Qt5 run passes (1 case, 4.056s),
+including the ten-button trace and delivered Scroll events. Actual contentY
+stays zero; this still does not qualify a real scroll effect or a device.

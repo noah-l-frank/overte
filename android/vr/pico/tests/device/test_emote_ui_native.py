@@ -58,9 +58,9 @@ STATE
             'bool sendPointerAt(','bool sendPointerClick(','bool sendPointerScroll(')]
         geometry=function(controls,'    static QRectF visibleRect(')+'\n'+function(controls,'    static bool ownsPoint(')
         original.append('namespace overte::e2e {class NormalControlUi {public:\n'+geometry+'\n};}\n')
-        start=native.index('    } else if (controlId.startsWith("emote.")) {')
-        end=native.index('    } else if (controlId.startsWith("chat.")) {',start)
-        branch=native[start:end].split('{',1)[1]
+        # Select this original branch by its own braces. Other feature branches
+        # may be inserted before Chat without becoming part of this harness.
+        branch=function(native,'    } else if (controlId.startsWith("emote.")) {').split('{',1)[1].rsplit('}',1)[0]
         original.append('''QJsonObject originalEmoteInput(QQuickItem* item,QQuickWindow* window,const QString& controlId,
 const QString& action,const QJsonObject& command,const std::function<bool(QQuickItem*)>& pointerClick,
 const std::function<bool(QQuickItem*,const QPointF&,int)>& pointerScroll){
