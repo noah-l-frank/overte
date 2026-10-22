@@ -88,10 +88,16 @@ class PicoAudioFinalClose:
         self.check(state['frames'][0],'audio')
         expected=0 if PHASES.index(state['phase'])<3 else 1 if PHASES.index(state['phase'])<5 else 2
         need(len(state['streams'])==expected)
+        previous=self.parent.state['streams'][0]['envelope'];previous_fence=-1
         for index,stream in enumerate(state['streams']):
-            exact(stream,{'envelope','neutral','fence'});need(integer(stream['fence'],0,len(state['frames'])-1))
+            exact(stream,{'envelope','neutral','fence'});need(integer(stream['fence'],previous_fence+1,len(state['frames'])-1))
+            self.check(state['frames'][stream['fence']],'audio' if index==0 else 'home',released=True);previous_fence=stream['fence']
             if stream['envelope'] is not None:
                 envelope(stream['envelope'],self.parent.session.profile)
+                need(previous is not None and stream['envelope']['sessionNonce']==previous['sessionNonce']
+                    and stream['envelope']['sequence']==previous['sequence']+1
+                    and stream['envelope']['commands'][0]['id']!=previous['commands'][0]['id'])
+                previous=stream['envelope']
                 if stream['neutral'] is not None:PicoLifecycleBack.neutral(stream['neutral'],stream['envelope'],self.packets(state['frames'][stream['fence']])[2]['capturedEpochMs'])
             else:need(stream['neutral'] is None)
             if index<len(state['streams'])-1 or state['phase'] in ('home','closed'):need(stream['envelope'] is not None and stream['neutral'] is not None)
@@ -102,10 +108,13 @@ class PicoAudioFinalClose:
         for window in state['quiet']:
             exact(window,{'where','first','last','deferred'});need(window['where'] in ('home','closed') and type(window['deferred']) is bool
                 and integer(window['first'],0,len(state['frames'])-1) and integer(window['last'],window['first']+1,len(state['frames'])-1))
-            rows=state['frames'][window['first']:window['last']+1];clocks=[self.clocks(row) for row in rows]
+            rows=state['frames'][window['first']:window['last']+1];clocks=[self.clocks(row) for row in rows];resources=None
             for row in rows:
                 self.check(row,window['where'],released=True)
-                if window['deferred']:need(lifetime.deferred_retired(self.packets(row)[2]['source']['previewLifetime']))
+                if window['deferred']:
+                    current=self.packets(row)[2]['source']['previewLifetime'];need(lifetime.deferred_retired(current))
+                    if resources is None:resources=deepcopy(current)
+                    need(current==resources)
             need(all(all(0<=b-a<=500 for a,b in zip(old,new)) for old,new in zip(clocks,clocks[1:]))
                 and all(b-a>=3000 for a,b in zip(clocks[0],clocks[-1])))
     def load(self):

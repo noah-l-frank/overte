@@ -9,6 +9,8 @@ from unittest.mock import patch
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 from adapters.normal_ui import NativeUIError
 from adapters.pico4.audio_final_close import PicoAudioFinalClose
+from adapters.script_journey.history import pack,unpack,canonical
+from adapters.pico4.lifecycle_back import frame
 from self_tests import test_pico_audio_capture_owner as source_fixture
 
 
@@ -147,6 +149,25 @@ class AudioFinalRetirementTests(unittest.TestCase):
         with self.assertRaises(NativeUIError):self.final.await_deferred()
         self.assertFalse(any(window['deferred'] for window in self.final.state['quiet']))
         self.assertTrue(self.final.store.path.exists())
+
+    def test_cold_archive_rejects_changed_capacity_inside_retired_quiet_and_reused_streams(self):
+        self.close();self.native.complete_callback();self.final.await_deferred();original=deepcopy(self.final.disk)
+        state=unpack(original['payload'])[0];window=state['quiet'][-1]
+        self.assertTrue(window['deferred']);row=state['frames'][window['first']+1]['page']
+        packet=self.final.parent.raw(row['settings']);packet['source']['previewLifetime']['previewBufferCapacityBytes']+=1024
+        row['settings']=frame(canonical(packet).decode())
+        changed=deepcopy(original);changed['payload']=pack([state]);self.final.store.write(changed,self.final.disk)
+        with self.assertRaises(NativeUIError):self.owner()
+        self.final.store.write(original,changed)
+        state=unpack(original['payload'])[0];state['streams'][1]=deepcopy(state['streams'][0])
+        changed=deepcopy(original);changed['payload']=pack([state]);self.final.store.write(changed,original)
+        with self.assertRaises(NativeUIError):self.owner()
+        self.final.store.write(original,changed)
+        state=unpack(original['payload'])[0];nonce=state['streams'][1]['envelope']['sessionNonce']
+        state['streams'][1]['envelope']['sessionNonce']=('f' if nonce[0]!='f' else 'e')*len(nonce)
+        changed=deepcopy(original);changed['payload']=pack([state]);self.final.store.write(changed,original)
+        with self.assertRaises(NativeUIError):self.owner()
+        self.assertTrue(self.final.store.path.exists());self.assertEqual(3,len(self.native.transport.envelopes))
 
 
 if __name__=='__main__':unittest.main()
