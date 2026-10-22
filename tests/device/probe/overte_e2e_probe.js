@@ -99,6 +99,7 @@
     var normalFeatureInstance = String(Uuid.generate()).replace(/[{}-]/g, "").toLowerCase();
     var normalFeatureSequence = 0;
     var lastChatObservationCommand="";
+    var lastChatPeerPositionCommand="";
     function validChatObservationCommand(command) {
         return command && command.schemaVersion===1 && command.action==="feature-chat-observe"
             && /^(?:ios-)?[0-9a-f]{32}$/.test(String(command.commandId))
@@ -1236,6 +1237,8 @@
                     && /^[0-9a-f]{32}$/.test(command.runId) && typeof command.peerSha256 === "string" && command.peerSha256.length === 64
                     && /^[0-9a-f]{64}$/.test(command.peerSha256)
                     && objectKeysMatch(command,["schemaVersion","commandId","action","runId","peerSha256"])) {
+                if (command.commandId === lastChatPeerPositionCommand) return;
+                lastChatPeerPositionCommand = String(command.commandId);
                 var chatPosition={commandId:command.commandId,available:false};
                 try {
                     if (typeof Test.featureChatPeerPosition === "function") {

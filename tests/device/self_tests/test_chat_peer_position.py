@@ -71,13 +71,40 @@ SOURCE
 const c={schemaVersion:1,commandId:'a'.repeat(32),runId:'b'.repeat(32),action:'feature-chat-peer-position',peerSha256:'c'.repeat(64)};
 applyAndroidControlCommand(c);
 if(calls!==1||files[0].v.source.peerPosition.x!==37||files[0].name!=='feature-chat-peer-position.json')throw Error('native source changed');
+applyAndroidControlCommand(c);applyClientCommand(c);
+if(calls!==1||files.length!==1||files[0].v.available===false)throw Error('repeated poll destroyed successful original');
 for(const edit of [{position:{x:50,y:0,z:0}},{expected:[]},{commandId:c.commandId+'\n'},{peerSha256:c.peerSha256+'\n'},{schemaVersion:true}])applyClientCommand({...c,...edit});
 if(calls!==1)throw Error('desired or malformed accepted');
 delete Test.featureChatPeerPosition;applyClientCommand({...c,commandId:'d'.repeat(32)});
 if(files[1].v.available!==false)throw Error('missing hook green');
+applyClientCommand({...c,commandId:'d'.repeat(32)});if(files.length!==2)throw Error('failed nonce repeated');
 '''.replace('SOURCE',probe_source())
         result=subprocess.run(['node','-e',program],capture_output=True,text=True,timeout=5)
         self.assertEqual(0,result.returncode,result.stderr[:2000])
+
+    def test_frozen_target_clock_does_not_freeze_original_age_during_final_guard(self):
+        n=Boundary();reader=n.reader();epochs=iter([20000,21000,21500]);reader.clock_ms=lambda:next(epochs)
+        guards=0
+        def guard():
+            nonlocal guards
+            guards+=1
+            if guards==4:n.clock+=.1
+            return True
+        reader.guard=guard
+        with self.assertRaises(NativeUIError):reader.read(RUN,SELF,PEER)
+        self.assertEqual(4,guards);self.assertEqual(0,reader.sequence)
+
+    def test_current_nonce_cannot_adopt_an_original_from_before_the_request(self):
+        n=Boundary();reader=n.reader();reader.clock_ms=lambda:21000
+        with self.assertRaises(NativeUIError):reader.read(RUN,SELF,PEER)
+        self.assertEqual(1,len(n.commands))
+
+    def test_position_output_uses_the_original_private_save_branch(self):
+        source=(Path(__file__).resolve().parents[3]/'interface/src/scripting/TestScriptingInterface.cpp').read_text()
+        start=source.index('void TestScriptingInterface::saveObject(')
+        private=source.index('QSaveFile output(filepath);',start)
+        self.assertIn('filename == "feature-chat-peer-position.json"',source[start:private])
+        self.assertIn('output.setPermissions(QFile::ReadOwner | QFile::WriteOwner)',source[private:private+400])
 
 
 if __name__=='__main__':unittest.main()
