@@ -1462,6 +1462,50 @@
           "tests/pr-ci-android-preflight-test.py"
         ]
       }
+    },
+    "pr-ci-android-runtime": {
+      "command": [
+        "python",
+        "tests/pr-ci-android-runtime-test.py"
+      ],
+      "layer": "quick",
+      "scope": "content",
+      "environment": "python",
+      "closure": {
+        "kind": "patterns",
+        "inputs": [
+          "tools/repository-checks/pr_ci_android_runtime.py",
+          "tests/pr-ci-android-runtime-test.py",
+          "tools/repository-checks/pr_ci_android_export.py"
+        ],
+        "required": [
+          "tests/pr-ci-android-runtime-test.py",
+          "tools/repository-checks/pr_ci_android_runtime.py",
+          "tools/repository-checks/pr_ci_android_export.py"
+        ]
+      }
+    },
+    "pr-ci-android-boundary": {
+      "command": [
+        "python",
+        "tests/pr-ci-android-boundary-test.py"
+      ],
+      "layer": "quick",
+      "scope": "content",
+      "environment": "python",
+      "closure": {
+        "kind": "patterns",
+        "inputs": [
+          "tools/repository-checks/pr_ci_android_boundary.py",
+          "tools/repository-checks/pr_ci_run.py",
+          "tests/pr-ci-android-boundary-test.py"
+        ],
+        "required": [
+          "tests/pr-ci-android-boundary-test.py",
+          "tools/repository-checks/pr_ci_android_boundary.py",
+          "tools/repository-checks/pr_ci_run.py"
+        ]
+      }
     }
   }
 }

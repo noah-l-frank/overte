@@ -64,6 +64,7 @@ jobs:
       setup_json: ${{ steps.plan.outputs.setup_json }}
       browser_projects: ${{ steps.plan.outputs.browser_projects }}
       android_compile_products: ${{ steps.plan.outputs.android_compile_products }}
+      android_native_products: ${{ steps.plan.outputs.android_native_products }}
     steps:
       - name: Check out the trusted controller
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1

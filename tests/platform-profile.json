@@ -96,6 +96,11 @@
       "name": "phone-parity-packet",
       "entrypoint": "android/phone/device-tests/parity/test_packet.py",
       "interpreter": "python"
+    },
+    {
+      "name": "android-common-native-ci",
+      "entrypoint": "android/common/native-ci/tests.py",
+      "interpreter": "python"
     }
   ]
 }

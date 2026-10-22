@@ -682,6 +682,7 @@ def main():
                   "browser_projects": json.dumps([t['id'][4:] for t in plan['tasks']
                       if t['kind'] == 'npm' and 'browser' in t['setup']]),
                   "android_compile_products": json.dumps(plan.get('android_compile_products', [])),
+                  "android_native_products": json.dumps(plan.get('android_native_products', [])),
                   "ios_build": plan["ios_build_required"]}
         outputs(args.output, values)
         print(json.dumps({"target": context["target"], "tasks": [t["id"] for t in plan["tasks"]],
