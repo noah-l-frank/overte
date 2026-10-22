@@ -1736,6 +1736,20 @@ def create_adapter(args, base_class):
                 return ChatSamples(run,role,manager.binding,peer_binding,capture.reader,peer,self._chat_view(target),native,
                     store,source_lock,peer_lock,vr=True,monotonic=native.monotonic)
 
+        def _chat_cache_lifetime_store(self,target):
+            state,_ui=self._script_paths(target)
+            return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-','chat-cache-lifetime-')))
+
+        @_private
+        def _chat_cache_lifetime(self,target,run,*,source_lock):
+            from adapters.chat_journey.cache_lifetime import ChatCacheLifetime
+            from adapters.script_journey.lock import ScriptSourceLock
+            store=self._chat_cache_lifetime_store(target)
+            _need(isinstance(source_lock,ScriptSourceLock) and source_lock.path==store.path.with_name('script-sources.lock'))
+            with source_lock.held():
+                capture=self._chat_capture(target,run)
+                return ChatCacheLifetime(capture,store,source_lock,monotonic=capture.reader.monotonic)
+
         @_private
         def _chat_admit_capture(self,target,run,*,source_lock):
             from adapters.script_journey.lock import ScriptSourceLock
@@ -2020,8 +2034,10 @@ def create_adapter(args, base_class):
                     if self._chat_peer_distant_store(target).read() is not None:chat_error=True
                     if self._chat_profile_store(target).read() is not None:chat_error=True
                     if self._chat_erase_restore_store(target).read() is not None:chat_error=True
+                    lifetime=self._chat_cache_lifetime_store(target).read()
+                    if lifetime is not None:chat_error=True
                     owned=self._chat_capture_store(target).read()
-                    if owned is not None:
+                    if owned is not None and lifetime is None:
                         if cleanup_only:self._recover_cleanup_candidate()
                         self._chat_capture(target,owned['runId']).retire()
             except Exception:chat_error=True
@@ -2075,6 +2091,7 @@ def create_adapter(args, base_class):
                       and self._script_restart_store(target).read() is None
                       and self._script_files_store(target).read() is None and self._account_probe_store(target).read() is None
                       and self._account_origin_store(target).read() is None and self._chat_capture_store(target).read() is None
+                      and self._chat_cache_lifetime_store(target).read() is None
                       and all(self._chat_cache_absence_store(target,role,stage=stage,witness=witness).read() is None
                               for stage in ('initial','final') for role,witness in (('primary',False),('actor',False),('actor',True)))
                       and self._chat_no_replay_store(target).read() is None
