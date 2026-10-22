@@ -19,6 +19,14 @@ from feature_journeys.fixtures import context,import_document
 NAMES=('entity-import.json','voxel-import.json')
 
 
+def voxel_cells():
+    data=bytearray(8**3)
+    for z in range(2,6):
+        for y in range(2,6):
+            for x in range(2,6):data[z*64+y*8+x]=255
+    return bytes(data)
+
+
 def voxel_data():
     """Existing QDataStream/quint16 + qCompress byte format, fixed 8³ cube.
 
@@ -27,10 +35,7 @@ def voxel_data():
     These bytes are fixture input only. The created native saved-data baseline
     and post-click readiness must be independently acquired afterwards.
     """
-    data=bytearray(8**3)
-    for z in range(2,6):
-        for y in range(2,6):
-            for x in range(2,6):data[z*64+y*8+x]=255
+    data=voxel_cells()
     compressed=struct.pack('>I',len(data))+zlib.compress(bytes(data),9)
     return base64.b64encode(struct.pack('>HHHI',8,8,8,len(compressed))+compressed).decode('ascii')
 

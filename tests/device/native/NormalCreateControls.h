@@ -180,7 +180,10 @@ inline void appendCreateControlObservation(QJsonObject& row,QQuickItem* item,con
             if (status.size()>256) { row.remove("profile");row["inputReady"]=false;return; }
             for (auto ch:status) { if (ch.unicode()<32 || ch.unicode()==127) { row.remove("profile");row["inputReady"]=false;return; } }
             row["statusError"]=page->property("statusError").toBool();row["statusText"]=status;
-            row["toolSettings"]=QJsonObject::fromVariantMap(createVariant(page->property("voxelSettings")).toMap());
+            // QML defaults are not an original edit-settings response.
+            if (page->property("e2eSettingsReceived").toBool()) {
+                row["toolSettings"]=QJsonObject::fromVariantMap(createVariant(page->property("voxelSettings")).toMap());
+            }
             row["componentSourceSha256"]=QString::fromLatin1(QCryptographicHash::hash(createComponentSource(page).toUtf8(),QCryptographicHash::Sha256).toHex());
         }
     } else if (auto browser=createFileBrowser(item)) {

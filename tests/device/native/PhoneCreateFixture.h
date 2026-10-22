@@ -23,7 +23,7 @@
 
 namespace overte::e2e {
 // Fixture inputs only. Create object observations, pixels and Browser retirement are
-// separate sources. Only the exact two local objects created here may be removed.
+// separate sources. Only the exact three local objects created here may be removed.
 class PhoneCreateFixture {
 public:
     QVariantMap input(const QVariantMap& command, const ViewFrustum& view, const QString& mode,
@@ -85,9 +85,10 @@ public:
             const auto forward=view.getOrientation()*glm::vec3(0,0,-1);
             const auto depth=glm::dot(feet-view.getPosition(),forward)+4*scale;
             if (!std::isfinite(depth) || depth<=view.getNearClip()*4) { return {}; }
-            glm::vec3 markerTop,markerBottom,backTop,backBottom;
+            glm::vec3 markerTop,markerBottom,backTop,backBottom,accentTop,accentBottom;
             const double near=std::max(.25,double(view.getNearClip())*2);
             if (!at(x0,y0,near,markerTop) || !at(x1,y1,near,markerBottom)
+                    || !at(-.05*width,-.05*height,depth-.02,accentTop) || !at(.5*width,1.05*height,depth-.02,accentBottom)
                     || !at(-.05*width,-.05*height,depth,backTop) || !at(1.05*width,1.05*height,depth,backBottom)) { return {}; }
             const auto unrotate=glm::inverse(view.getOrientation());
             const auto markerSize=unrotate*(markerBottom-markerTop),backSize=unrotate*(backBottom-backTop);
@@ -108,7 +109,7 @@ public:
                 properties.setPosition(position);properties.setRotation(view.getOrientation());properties.setDimensions(size);
                 properties.setVisible(true);properties.setCollisionless(true);properties.setCanCastShadow(false);properties.setLocked(false);
                 if (role=="marker") { properties.setSourceUrl(url);properties.setDpi(100); }
-                else { properties.setColor(glm::u8vec3(128)); }
+                else { properties.setColor(role=="accent" ? glm::u8vec3(40,70,100) : glm::u8vec3(128)); }
                 const auto entity=entities->addEntity(properties,QStringLiteral("local"));
                 _objects.back().id=entity;
                 if (entity.isNull()) { return false; }
@@ -116,8 +117,9 @@ public:
                 return !_objects.back().object.expired();
             };
             const bool back=add("backdrop",EntityTypes::Box,(backTop+backBottom)*.5f,dimensions(backSize));
-            const bool marker=back && add("marker",EntityTypes::Web,(markerTop+markerBottom)*.5f,dimensions(markerSize));
-            _phase=back&&marker ? "active" : "failed";
+            const bool accent=back && add("accent",EntityTypes::Box,(accentTop+accentBottom)*.5f,dimensions(unrotate*(accentBottom-accentTop)));
+            const bool marker=accent && add("marker",EntityTypes::Web,(markerTop+markerBottom)*.5f,dimensions(markerSize));
+            _phase=back&&accent&&marker ? "active" : "failed";
             receipt={{"phoneCreateFixtureInputVersion",1},{"commandId",id},{"runId",run},{"fixtureInstance",_instance},
                 {"operation",operation},{"recorded",true}};
         } else {
@@ -178,7 +180,7 @@ public:
                 {"dpi",p.getDpi()},{"lastEditedEpochUs",static_cast<qulonglong>(p.getLastEdited())}});
         }
         if (_phase=="releasing" && present.isEmpty() && retained==0) { _phase="drained"; }
-        return {{"phoneCreateFixtureVersion",1},{"fixtureInstance",_instance},{"runId",_run},{"phase",_phase},
+        return {{"phoneCreateFixtureVersion",2},{"fixtureInstance",_instance},{"runId",_run},{"phase",_phase},
             {"createdEpochMs",_created},{"originalInput",_originalInput},{"originalView",_view},{"objects",objects},
             {"entities",present},{"absentIds",absent},{"retainedObjects",retained}};
     }

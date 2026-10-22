@@ -20,6 +20,11 @@ PREPARED_HOST_CHECKS = (
     "android/phone/tests/phone-snapshot-export-native-test.py",
     "android/phone/tests/phone-snapshot-readback-contract-test.py",
     "android/phone/tests/device/test_create_native_ui.py",
+    "android/phone/tests/device/test_create_files.py",
+    "android/phone/tests/device/test_create_native_measurements.py",
+    "android/phone/tests/device/test_create_texture_state.py",
+    "android/phone/tests/device/test_create_native_fixture.py",
+    "android/phone/tests/device/test_create_feature.py",
     "android/phone/tests/phone-snapshot-journey-test.py",
     "android/phone/tests/phone-snapshot-ui-test.py",
     "android/phone/tests/test_phone_voice_signal.py",
@@ -36,6 +41,10 @@ COMMON_HOST_CHECKS = (
     "android/phone/tests/device/test_snapshot_readback_source.py",
     "android/phone/tests/device/test_create_source.py",
     "android/phone/tests/device/test_create_workflows.py",
+    "android/phone/tests/device/test_create_marker.py",
+    "android/phone/tests/device/test_create_measurements.py",
+    "android/phone/tests/device/test_create_registration.py",
+    "tests/device/self_tests/test_create_permissions.py",
     "tests/device/self_tests/test_phone_control_poll.py",
     "android/phone/tests/device/test_installed_identity.py",
     "android/phone/tests/device/test_feature_adapters.py",
@@ -135,7 +144,8 @@ for name in selected + COMMON_HOST_CHECKS:
     arguments = [sys.executable, str(path)]
     if name.endswith("phone-test-inventory-test.py"):
         arguments.append(str(ROOT))
-    # The complete Graphics composition also runs the fifteen-step common
-    # journey; its host-only file/image checks need a larger aggregate budget.
+    # The complete Graphics/Create compositions execute the unchanged common
+    # journeys; their file/image/actor checks need a larger aggregate budget.
+    # Per-source freshness and common checkpoint deadlines remain unchanged.
     subprocess.run(arguments, cwd=ROOT, check=True,
-                   timeout=240 if name.endswith("test_graphics_feature.py") else 90)
+                   timeout=240 if name.endswith(("test_graphics_feature.py","test_create_feature.py")) else 90)

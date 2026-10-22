@@ -17,7 +17,7 @@ VERSION=1
 
 
 def _image_record(value,kind):
-    need(kind in ('graphics','emote','navigation'));version=kind+'ImageVersion'
+    need(kind in ('graphics','emote','navigation','create'));version=kind+'ImageVersion'
     exact(value,{version,'binding','runId','role','stage','ticket','capture','name','phase','file'})
     need(type(value[version]) is int and value[version]==VERSION
          and value['role'] in ('primary','actor') and type(value['stage']) is int
@@ -51,7 +51,7 @@ class PhoneGraphicsImages:
 
     @classmethod
     def valid_stage(cls,stage):
-        return type(stage) is int and (stage in (0,1) if cls.KIND=='graphics' else cls.KIND in ('emote','navigation') and 1<=stage<=256)
+        return type(stage) is int and (stage in (0,1) if cls.KIND=='graphics' else cls.KIND in ('emote','navigation','create') and 1<=stage<=256)
 
     def __init__(self,root,binding,run,role,stage,guard,intent,*,monotonic=time.monotonic,timeout=5):
         context(binding);identifier(run)

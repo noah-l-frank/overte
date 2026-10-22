@@ -2,6 +2,7 @@
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 import uuid
+from copy import deepcopy
 from adapters.native_feature_observation import exact,fresh,integer,need
 from adapters.normal_ui import NativeUIError
 from adapters.token_create_ui import snapshot,same_reference,metadata,control_id,field,choice,ascii_text
@@ -41,6 +42,8 @@ class PhoneCreateIO(PhoneScriptFileIO):
         try:
             original=super().capture()
             opened=self.tablet_shown();need(type(opened) is bool and self.guard() is not False)
+            fresh(original['capturedEpochMs'],self.clock_ms())
+            self.last_original=deepcopy(original)
             return snapshot(dict(createControlsVersion=original['createControlsVersion'],open=opened,ready=original['ready'],
                 scope=dict(instance=original['instance'],generation=original['generation'],sequence=original['lastCommandSequence'],
                            elapsedMs=original['elapsedMs'],processId=original['processId']),controls=original['controls']))

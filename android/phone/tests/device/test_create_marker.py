@@ -28,18 +28,22 @@ class Boundary(AvatarBoundary):
     def __init__(self):
         super().__init__();self.avatar=avatar_source();self.avatar['cameraMode']='first person look at'
         view=deepcopy(self.avatar['view'])|dict(feetPosition=deepcopy(self.avatar['pose']['feetPosition']),modelScale=1.,boomLength=4.,mode='first person look at')
-        self.fixture=dict(phoneCreateFixtureVersion=1,fixtureInstance='e'*32,runId=RUN,phase='active',createdEpochMs=19999,
+        self.fixture=dict(phoneCreateFixtureVersion=2,fixtureInstance='e'*32,runId=RUN,phase='active',createdEpochMs=19999,
             originalInput=prepare(),originalView=view,objects=[dict(role='backdrop',id='11111111-1111-4111-8111-111111111111'),
-                dict(role='marker',id='22222222-2222-4222-8222-222222222222')],entities=[],absentIds=[],retainedObjects=2)
+                dict(role='accent',id='33333333-3333-4333-8333-333333333333'),
+                dict(role='marker',id='22222222-2222-4222-8222-222222222222')],entities=[],absentIds=[],retainedObjects=3)
         f=1/math.tan(math.radians(30));depth=6.
         # Independent simple-FOV reference, rather than echoing layout().
         for item in self.fixture['objects']:
             marker=item['role']=='marker'
             position=[-.8*.25*(4/3)/f,1.6+(1-2*40/750)*.25/f,-.25] if marker else [0,1.6,-depth]
+            if item['role']=='accent':
+                depth2=depth-.02;position=[-.275*2*depth2*(4/3)/f,1.6,-depth2]
             dimensions=[160/1000*2*.25*(4/3)/f,40/750*2*.25/f,.01] if marker else [2*depth*1.1*(4/3)/f,2*depth*1.1/f,.01]
+            if item['role']=='accent':dimensions=[.55*2*(depth-.02)*(4/3)/f,2*(depth-.02)*1.1/f,.01]
             self.fixture['entities'].append(dict(id=item['id'],role=item['role'],originalObject=True,name='e2e-'+RUN+'-create-'+item['role'],
                 type='Web' if marker else 'Box',parentId=NULL_ID,hostType='local',position=position,rotation=[0,0,0,1],dimensions=dimensions,
-                color=[255,255,255] if marker else [128,128,128],visible=True,sourceUrl=ROOT+'tickets/'+'c'*32+'/graphics-marker.v1.html' if marker else '',
+                color=[255,255,255] if marker else [40,70,100] if item['role']=='accent' else [128,128,128],visible=True,sourceUrl=ROOT+'tickets/'+'c'*32+'/graphics-marker.v1.html' if marker else '',
                 locked=False,collisionless=True,canCastShadow=False,dpi=100 if marker else 0,lastEditedEpochUs=19999000))
 
     def send(self,request):
@@ -133,7 +137,7 @@ class PhoneCreateFixtureTests(unittest.TestCase):
             elif kind=='nan':rows[0]['position'][0]=float('nan')
             elif kind=='missing':rows.pop()
             elif kind=='mixed':b.fixture['absentIds'].append(rows[0]['id'])
-            else:b.fixture['retainedObjects']=3
+            else:b.fixture['retainedObjects']=4
             with self.subTest(kind=kind),self.assertRaises(NativeUIError):b.reader().read(RUN)
 
     def test_entity_absence_or_release_ack_cannot_hide_retained_original_objects(self):

@@ -150,9 +150,10 @@ def same_reference(original,current,identifier):
 
 
 class TokenCreateUI:
-    def __init__(self,io,intent,*,monotonic=time.monotonic,sleep=time.sleep):
-        need(callable(intent) and callable(monotonic) and callable(sleep))
+    def __init__(self,io,intent,*,monotonic=time.monotonic,sleep=time.sleep,audit=None):
+        need(callable(intent) and callable(monotonic) and callable(sleep) and (audit is None or callable(audit)))
         self.io,self.intent,self.monotonic,self.sleep=io,intent,monotonic,sleep
+        self.audit=audit
         self.last_clock=None;self.instance=None;self.pid=None;self.elapsed=0;self.sequence=0;self.generation=None
 
     def now(self):
@@ -194,6 +195,8 @@ class TokenCreateUI:
         before=self.capture();row=self.row(before,identifier);need(row is not None and before['open'] and before['ready'])
         if action=='replace':need(row['focused'])
         if action=='select-index':need(value<row['count'])
+        original=dict(controlId=identifier,action=action,value=deepcopy(value),original=deepcopy(before))
+        if self.audit is not None:need(self.audit('intent',deepcopy(original)) is not False)
         self.intent(dict(createInputVersion=VERSION,action=action,controlId=identifier,controlToken=row['token'],scope=deepcopy(before['scope'])))
         if action=='activate':self.io.activate(identifier,reference=before)
         elif action=='replace':self.io.replace(identifier,value,reference=before)
@@ -201,6 +204,7 @@ class TokenCreateUI:
         else:self.io.scroll(identifier,value,reference=before)
         after=self.capture()
         need(after['scope']['sequence']>before['scope']['sequence']) # Actual consumed native input, never an ACK cursor.
+        if self.audit is not None:need(self.audit('receipt',dict(intent=original,after=deepcopy(after))) is not False)
         return after
 
     def reveal(self,identifier):
@@ -255,6 +259,10 @@ class TokenCreateUI:
         raise NativeUIError('Normal Create entry is unavailable')
 
     def wait_create(self):self.wait(lambda value:value['open'] and value['ready'] and bool(self.row(value,'create.page',enabled=False)))
+    def actual_tools(self):
+        value=self.wait(lambda value:self.page(value).get('toolSettings') is not None)
+        return deepcopy(tool_settings(self.page(value)['toolSettings']))
+
     def tab(self,index):
         need(integer(index,0,4));self.input('create.tab.'+str(index))
         self.wait(lambda value:self.page(value)['tab']==index)
@@ -366,12 +374,13 @@ class TokenCreateUI:
         if not self.row(value,'create.voxel-remove')['checked']:self.input('create.voxel-remove')
         self.wait(lambda value:bool(self.row(value,'create.voxel-remove') and self.row(value,'create.voxel-remove')['checked']))
         self.replace('create.voxel-diameter','0.5');self.reveal('create.voxel-apply');self.input('create.voxel-apply')
+        required=dict(createAppMode='voxel',voxelEditMode='cube',voxelEditDynamics='click',voxelPointerMode='laser',voxelRemove=True,voxelSphereSize=.5)
+        self.wait(lambda value:all(self.page(value).get('toolSettings',{}).get(key)==actual for key,actual in required.items()))
 
     def restore_tools(self,original):
         """Restore actual original tool preferences through the existing widgets."""
-        tool_settings(original);self.tab(3)
-        for control,key,choices in (('create.edit-mode','createAppMode',('object','voxel')),
-            ('create.voxel-shape','voxelEditMode',('single','sphere','cube')),
+        tool_settings(original);self.tab(3);self.choose('create.edit-mode',1)
+        for control,key,choices in (('create.voxel-shape','voxelEditMode',('single','sphere','cube')),
             ('create.voxel-dynamics','voxelEditDynamics',('click','continuous')),
             ('create.voxel-pointer','voxelPointerMode',('laser','brush'))):
             self.choose(control,choices.index(original[key]))
@@ -382,4 +391,5 @@ class TokenCreateUI:
         self.replace('create.voxel-diameter',str(original['voxelSphereSize']))
         self.replace('create.voxel-reach',str(original['voxelBrushLength']))
         self.reveal('create.voxel-apply');self.input('create.voxel-apply')
+        self.choose('create.edit-mode',('object','voxel').index(original['createAppMode']))
         self.wait(lambda value:self.page(value).get('toolSettings')==original)

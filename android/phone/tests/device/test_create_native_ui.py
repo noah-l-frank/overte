@@ -55,6 +55,13 @@ QtObject {
     if (!root || createControlId(root)!="create.page") { return 3; }
     QJsonObject page;appendCreateControlObservation(page,root,"create.page");
     if (page.value("profile")!="native-create-v1" || !page.value("selectedIds").toArray().isEmpty()) { return 4; }
+    if (page.contains("toolSettings")) { return 19; }
+    const QVariantMap settings{{"createAppMode","voxel"},{"voxelEditMode","cube"},{"voxelSphereSize",2.0},
+        {"voxelEditDynamics","click"},{"voxelRemove",true},{"voxelPointerMode","laser"},{"voxelBrushLength",3.0}};
+    const QVariant message=QVariantMap{{"method","nativeCreate.settings"},{"params",settings}};
+    if (!QMetaObject::invokeMethod(root,"fromScript",Q_ARG(QVariant,message))) { return 20; }
+    page={};appendCreateControlObservation(page,root,"create.page");
+    if (page.value("toolSettings").toObject()!=QJsonObject::fromVariantMap(settings)) { return 21; }
     const QHash<QString,QString> ids{{"NativeCreateEditMode","create.edit-mode"},{"NativeCreateVoxelShape","create.voxel-shape"},
       {"NativeCreateVoxelDynamics","create.voxel-dynamics"},{"NativeCreateVoxelPointer","create.voxel-pointer"},
       {"NativeCreateVoxelDiameter","create.voxel-diameter"},{"NativeCreateVoxelReach","create.voxel-reach"},

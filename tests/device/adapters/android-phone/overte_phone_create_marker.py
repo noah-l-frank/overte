@@ -11,7 +11,7 @@ from adapters.native_phone_web_runtime import command as web_command
 from adapters.world_render_evidence import recorded_view
 from feature_journeys.contract import identifier
 
-VERSION=1
+VERSION=2
 FILE='phone-create-fixture.json'
 INPUT_FILE='phone-create-fixture-input.json'
 NULL_ID='00000000-0000-0000-0000-000000000000'
@@ -46,7 +46,7 @@ def input_command(value):
 def input_receipt(value,request):
     input_command(request)
     exact(value,{'phoneCreateFixtureInputVersion','commandId','runId','fixtureInstance','operation','recorded'})
-    need(type(value['phoneCreateFixtureInputVersion']) is int and value['phoneCreateFixtureInputVersion']==VERSION
+    need(type(value['phoneCreateFixtureInputVersion']) is int and value['phoneCreateFixtureInputVersion']==1
         and value['commandId']==request['commandId'] and value['runId']==request['runId']
         and nonce(value['fixtureInstance']) and value['operation']==request['operation'] and value['recorded'] is True
         and (request['operation']=='prepare' or value['fixtureInstance']==request['fixtureInstance']))
@@ -71,15 +71,15 @@ def validate(value,request,pid,epoch):
         and source['originalInput']['runId']==source['runId'])
     original_view(source['originalView']);need(abs(source['originalInput']['imageExtent'][0]/source['originalInput']['imageExtent'][1]
         -source['originalView']['aspectRatio'])<=.005)
-    objects=source['objects'];need(type(objects) is list and 0<len(objects)<=2)
+    objects=source['objects'];need(type(objects) is list and 0<len(objects)<=3)
     ids=[]
     for index,item in enumerate(objects):
-        exact(item,{'role','id'});need(item['role']==('backdrop','marker')[index]
+        exact(item,{'role','id'});need(item['role']==('backdrop','accent','marker')[index]
             and (item['id'] is None or entity_id(item['id']) and item['id']!=NULL_ID))
         if item['id'] is not None:ids.append(item['id'])
     need(len(set(ids))==len(ids) and integer(source['retainedObjects'],0,len(ids)))
     rows=source['entities'];absent=source['absentIds']
-    need(type(rows) is list and len(rows)<=2 and type(absent) is list and len(absent)<=2)
+    need(type(rows) is list and len(rows)<=3 and type(absent) is list and len(absent)<=3)
     seen=[]
     for row in rows:
         exact(row,{'id','role','originalObject','name','type','parentId','hostType','position','rotation','dimensions','color','visible',
@@ -95,7 +95,7 @@ def validate(value,request,pid,epoch):
         need(type(row['color']) is list and len(row['color'])==3 and all(integer(c,0,255) for c in row['color']))
         seen.append(row['id'])
     need(all(id in ids and id not in seen for id in absent) and len(set(absent))==len(absent) and set(seen+absent)==set(ids))
-    if source['phase']=='active':need(len(ids)==len(objects)==2)
+    if source['phase']=='active':need(len(ids)==len(objects)==3)
     if source['phase']=='drained':need(not rows and source['retainedObjects']==0)
     return value
 
@@ -132,6 +132,7 @@ def layout(source):
     need(number(depth,v['nearClip']*4+1e-9,1e6))
     result={}
     for name,left,top,right,bottom,distance in (('backdrop',-.05*w,-.05*h,1.05*w,1.05*h,depth),
+            ('accent',-.05*w,-.05*h,.5*w,1.05*h,depth-.02),
             ('marker',x0,y0,x1,y1,max(.25,v['nearClip']*2))):
         a,la=point(left,top,distance);b,lb=point(right,bottom,distance)
         result[name]=dict(position=[(x+y)/2 for x,y in zip(a,b)],dimensions=[abs(lb[0]-la[0]),abs(lb[1]-la[1]),.01],rotation=deepcopy(v['rotation']))
@@ -162,8 +163,8 @@ def ready(value,avatar):
     avatar_packet(avatar,dict(schemaVersion=1,commandId=avatar.get('requestId'),action='feature-avatar-render-observe'),
         value['processId'],avatar.get('capturedEpochMs'))
     source=value['source'];view=source['originalView'];current=avatar['source'];wanted=layout(source)
-    need(source['phase']=='active' and value['instance']==avatar['instance'] and source['retainedObjects']==2
-        and len(source['entities'])==2 and not source['absentIds'] and current['cameraMode']==view['mode']
+    need(source['phase']=='active' and value['instance']==avatar['instance'] and source['retainedObjects']==3
+        and len(source['entities'])==3 and not source['absentIds'] and current['cameraMode']==view['mode']
         and near(current['pose']['feetPosition'],view['feetPosition'],.01) and near(current['pose']['modelScale'],view['modelScale'],.0001))
     for key in VIEW:need(near(current['view'][key],view[key],.0001))
     for row in source['entities']:
@@ -175,7 +176,7 @@ def ready(value,avatar):
             and rotation_equal(row['rotation'],expected['rotation'],.0001))
         if name=='marker':need(row['dpi']==100 and row['sourceUrl']==source['originalInput']['fixtureUrl']+'tickets/'
             +source['originalInput']['ticket']+'/graphics-marker.v1.html')
-        else:need(row['color']==[128,128,128] and not row['sourceUrl'])
+        else:need(row['color']==([40,70,100] if name=='accent' else [128,128,128]) and not row['sourceUrl'])
     return deepcopy(source['entities'])
 
 

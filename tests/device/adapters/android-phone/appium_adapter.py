@@ -103,6 +103,7 @@ from overte_phone_account_menu import PhoneAccountMenu
 SCRIPT_FEATURE_OPERATIONS={'feature.scripts.'+kind for kind in ('act','observe','cleanup')}
 AUTHENTICATION_FEATURE_OPERATIONS={'feature.authentication.'+kind for kind in ('act','observe','cleanup')}
 GRAPHICS_FEATURE_OPERATIONS={'feature.graphics.'+kind for kind in ('act','observe','cleanup')}
+CREATE_FEATURE_OPERATIONS={'feature.create.'+kind for kind in ('act','observe','cleanup')}
 EMOTE_FEATURE_OPERATIONS={'feature.emotes.'+kind for kind in ('act','observe','cleanup')}
 WORLD_WEB_FEATURE_OPERATIONS={'feature.world-web.'+kind for kind in ('act','observe','cleanup')}
 TABLET_WEB_FEATURE_OPERATIONS={'feature.tablet-web.'+kind for kind in ('act','observe','cleanup')}
@@ -354,6 +355,13 @@ class PhoneAppiumAdapter(AppiumAdapter):
             require(getattr(self,'candidate',None) is not None and target.get('appId')=='io.github.noah_be.overte.phone'
                 and self.controlled_android_client(target),'PHONE_WEB_REFERENCE_REQUIRES_BOUND_DEBUG_TARGET')
             values=sorted(set(values)|WEB_REFERENCE_OPERATIONS)
+        full_create=os.environ.get('OVERTE_PHONE_FEATURE_CREATE','0')
+        require(full_create in ('0','1'),'PHONE_FEATURE_CREATE_CONFIGURATION_INVALID')
+        if full_create=='1':
+            require(getattr(self,'candidate',None) is not None and target.get('appId')=='io.github.noah_be.overte.phone'
+                    and self.controlled_android_client(target),'PHONE_FEATURE_CREATE_REQUIRES_BOUND_DEBUG_TARGET')
+            self._create_configuration();self._feature_fixture_client()
+            values=sorted(set(values)|CREATE_FEATURE_OPERATIONS)
         create_enabled = os.environ.get('OVERTE_PHONE_NORMAL_CREATE', '0')
         require(create_enabled in ('0', '1'), 'PHONE_NORMAL_CREATE_CONFIGURATION_INVALID')
         if create_enabled == '1':
@@ -584,6 +592,50 @@ class PhoneAppiumAdapter(AppiumAdapter):
             return root,deepcopy(policy)
         except (OSError,RuntimeError,ValueError,TypeError,KeyError):
             raise ValueError('PHONE_FEATURE_GRAPHICS_CONFIGURATION_INVALID') from None
+
+    def create_feature_store(self,selector):
+        return PrivateFeatureState(self.state_path(selector).with_name('phone-create-feature.json'))
+
+    @staticmethod
+    def _create_configuration():
+        try:
+            from overte_phone_create_feature import configuration
+            value=PrivateFeatureState(Path(os.environ.get('OVERTE_PHONE_CREATE_CONFIGURATION',''))).read()
+            return configuration(value)
+        except (OSError,RuntimeError,ValueError,TypeError,KeyError):
+            raise ValueError('PHONE_FEATURE_CREATE_CONFIGURATION_INVALID') from None
+
+    def _create_feature(self,selector,run,*,retirement=False):
+        from feature_journeys.phase_fixture import PhaseFixtureReader
+        from overte_phone_create_feature import PhoneCreateFeature
+        target=self.target(selector)
+        require(getattr(self,'candidate',None) is not None and target.get('appId')=='io.github.noah_be.overte.phone'
+            and self.controlled_android_client(target),'PHONE_FEATURE_CREATE_REQUIRES_BOUND_DEBUG_TARGET')
+        require(type(retirement) is bool,'PHONE_CREATE_ORIGINAL_CONFIGURATION_REQUIRED')
+        client=self._feature_fixture_client();metadata=self.create_feature_store(selector).read()
+        parent=PrivateFeatureState(self.state_path(selector).with_name('phone-create-retirement.json')).read()
+        if parent is not None:
+            from overte_phone_script_history import unpack
+            require(retirement,'PHONE_CREATE_RETIREMENT_ALREADY_STARTED')
+            original=unpack(parent['payload'])[0]['owner']
+            require(metadata is None or metadata==original,'PHONE_CREATE_ORIGINAL_CONFIGURATION_REQUIRED');metadata=original
+        if retirement:require(metadata is not None,'PHONE_CREATE_ORIGINAL_CONFIGURATION_REQUIRED')
+        if metadata is not None:require(metadata.get('runId')==run and metadata.get('fixtureUrl')==client.url+'/runs/'+run+'/',
+            'PHONE_CREATE_ORIGINAL_CONFIGURATION_REQUIRED')
+        return PhoneCreateFeature(self,selector,PhaseFixtureReader(client,run,'create'),metadata['configuration'] if retirement else self._create_configuration(),original_configuration=retirement)
+
+    def _create_actor(self,selector,run,*,client):
+        from feature_journeys.witness import Client
+        from feature_journeys.phase_fixture import PhaseFixtureReader
+        from overte_phone_create_feature import PhoneCreateFeature
+        from overte_phone_create_actor import PhoneCreateActor
+        target=self.target(selector)
+        require(getattr(self,'candidate',None) is not None and target.get('appId')=='io.github.noah_be.overte.phone'
+            and self.controlled_android_client(target) and isinstance(client,Client),'PHONE_CREATE_ACTOR_REQUIRES_BOUND_TARGET')
+        metadata=self.create_feature_store(selector).read()
+        require(type(metadata) is dict and metadata.get('runId')==run and metadata.get('fixtureUrl')==client.url+'/runs/'+run+'/',
+            'PHONE_CREATE_ACTOR_ORIGINAL_RUN_REQUIRED')
+        return PhoneCreateActor(PhoneCreateFeature(self,selector,PhaseFixtureReader(client,run,'create'),metadata['configuration'],role='actor'))
 
     def emote_feature_store(self,selector):
         return PrivateFeatureState(self.state_path(selector).with_name('phone-emote-run.json'))
@@ -1826,6 +1878,11 @@ class PhoneAppiumAdapter(AppiumAdapter):
             feature=self.navigation_feature_store(selector).read() or self.navigation_retirement_store(selector).read()
             if feature is not None:self._navigation_feature(selector,feature['runId'],retirement=True).finalize()
         except Exception:navigation_error=True
+        create_error=False
+        try:
+            feature=self.create_feature_store(selector).read() or PrivateFeatureState(self.state_path(selector).with_name('phone-create-retirement.json')).read()
+            if feature is not None:self._create_feature(selector,feature['runId'],retirement=True).finalize()
+        except Exception:create_error=True # Preserve unresolved originals and attempt base teardown.
         emote_error=False
         try:
             feature=self.emote_feature_store(selector).read() or PrivateFeatureState(self.state_path(selector).with_name('phone-emote-retirement.json')).read()
@@ -2020,6 +2077,9 @@ class PhoneAppiumAdapter(AppiumAdapter):
             'PHONE_NAVIGATION_FEATURE_CLEANUP_INCOMPLETE')
         require(not graphics_error and self.graphics_feature_store(selector).read() is None
                 and self.graphics_retirement_store(selector).read() is None,'PHONE_GRAPHICS_FEATURE_CLEANUP_INCOMPLETE')
+        require(not create_error and self.create_feature_store(selector).read() is None
+            and PrivateFeatureState(self.state_path(selector).with_name('phone-create-retirement.json')).read() is None
+            and all(PrivateFeatureState(self.state_path(selector).with_name('phone-create-'+kind+'.json')).read() is None for kind in ('primary-originals','actor-originals','actor-lifecycle','files-owner')),'PHONE_CREATE_FEATURE_CLEANUP_INCOMPLETE')
         require(not emote_error,'PHONE_EMOTE_FEATURE_CLEANUP_INCOMPLETE')
         return result
 
@@ -2105,6 +2165,11 @@ class PhoneAppiumAdapter(AppiumAdapter):
             arguments(operation,values)
             require(operation in self.advertised_capabilities(self.target(selector)),'PHONE_TABLET_WEB_FEATURE_NOT_ENABLED')
             return getattr(self._tablet_web_feature(selector,values['runId']),operation.rsplit('.',1)[1])(values)
+        if operation in CREATE_FEATURE_OPERATIONS:
+            from feature_journeys.contract import arguments
+            arguments(operation,values)
+            require(operation in self.advertised_capabilities(self.target(selector)),'PHONE_CREATE_FEATURE_NOT_ENABLED')
+            return getattr(self._create_feature(selector,values['runId']),operation.rsplit('.',1)[1])(values)
         if operation in EMOTE_FEATURE_OPERATIONS:
             from feature_journeys.contract import arguments
             arguments(operation,values)

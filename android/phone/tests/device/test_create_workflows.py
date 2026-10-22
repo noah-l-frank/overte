@@ -24,9 +24,15 @@ PATH='/private/feature-create-'+RUN+'/'
 
 class Widgets:
     def __init__(self):
+        self.settings_received=True;self.applied_diameter=1.;self.applied_reach=1.
         self.clock=0.;self.tab=0;self.selected=[];self.sequence=0;self.focus=None;self.dialog=None
         self.texts={};self.choices={key:0 for key in CHOICES};self.checked=False
         self.inputs=[];self.intents=[];self.ignore=set();self.no_counter=False;self.before=None
+    def actual_tools(self):
+        return dict(createAppMode=('object','voxel')[self.choices['create.edit-mode']],
+            voxelEditMode=('single','sphere','cube')[self.choices['create.voxel-shape']],
+            voxelSphereSize=self.applied_diameter,voxelEditDynamics=('click','continuous')[self.choices['create.voxel-dynamics']],
+            voxelRemove=self.checked,voxelPointerMode=('laser','brush')[self.choices['create.voxel-pointer']],voxelBrushLength=self.applied_reach)
     def capture(self):
         rows=[]
         def row(identifier,**extra):
@@ -47,6 +53,7 @@ class Widgets:
             elif identifier=='create.voxel-remove':row(identifier,checked=self.checked)
             elif field(identifier):row(identifier,text=self.texts.get(identifier,''))
             else:row(identifier)
+        if self.settings_received:rows[0]['toolSettings']=self.actual_tools()
         if self.dialog is not None:
             for identifier in ('create-file.name','create-file.accept','create-file.cancel'):
                 if identifier=='create-file.name':row(identifier,text=self.texts.get(identifier,''),picker=deepcopy(self.dialog))
@@ -71,6 +78,8 @@ class Widgets:
                              directory='file:///private',error='',closing=False,pendingDocuments=False)
         elif identifier in ('create-file.cancel','create-file.accept'):self.dialog=None
         elif identifier=='create.voxel-remove':self.checked=not self.checked
+        elif identifier=='create.voxel-apply':
+            self.applied_diameter=float(self.texts['create.voxel-diameter']);self.applied_reach=float(self.texts.get('create.voxel-reach',self.applied_reach))
     def activate(self,identifier,*,reference):self.input(identifier,'activate',reference)
     def replace(self,identifier,value,*,reference):self.input(identifier,'replace',reference,value)
     def select_index(self,identifier,value,*,reference):self.input(identifier,'select-index',reference,value)
@@ -79,6 +88,26 @@ class Widgets:
 
 
 class CreateWorkflowTests(unittest.TestCase):
+    def test_tool_baseline_waits_for_actual_settings_response(self):
+        widgets=Widgets();widgets.settings_received=False;ui=widgets.recipe()
+        original_sleep=ui.sleep
+        def deliver(delay):
+            original_sleep(delay);widgets.applied_diameter=2.;widgets.settings_received=True
+        ui.sleep=deliver
+        self.assertEqual(2.,ui.actual_tools()['voxelSphereSize']);self.assertGreater(widgets.clock,0)
+        self.assertEqual([],widgets.inputs)
+
+    def test_missing_settings_response_never_becomes_default_tool_baseline(self):
+        widgets=Widgets();widgets.settings_received=False
+        with self.assertRaises(NativeUIError):widgets.recipe().actual_tools()
+        self.assertEqual([],widgets.inputs)
+
+    def test_acknowledged_voxel_apply_requires_actual_settings_readback(self):
+        widgets=Widgets();widgets.ignore.add('create.voxel-apply')
+        with self.assertRaises(NativeUIError):widgets.recipe().configure_voxel_remove()
+        self.assertEqual('0.5',widgets.texts['create.voxel-diameter'])
+        self.assertEqual(1.,widgets.actual_tools()['voxelSphereSize'])
+
     def test_model_creation_uses_resource_and_normal_host_choices_and_returns_only_ui_id(self):
         widgets=Widgets();ui=widgets.recipe();url='http://controlled.invalid/gltf-bundle/main.gltf'
         self.assertEqual([ID],ui.new_entity('model',resource=url))
