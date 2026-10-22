@@ -22,11 +22,13 @@ untested. See the [Scripts contract](SCRIPT_FEATURE.md) and
 ## Current Worlds/navigation continuation
 
 The [native bookmark source](../../native/LOCATION_BOOKMARK_OBSERVATION.md)
-now reads actual protected storage and the original backing-file revision
-through the existing private Pico binding. Host reader/probe/factory
-counterexamples pass; native code remains uncompiled. Actual Places input/model,
-normal endpoint restoration, modal, arrival/images and independent whole-area
-coordination remain incomplete. This component adds no complete feature area.
+now joins [normal Places controls and durable bookmark operations](PLACES_BOOKMARKS.md)
+through the existing private Pico input/router and native binding. The complete
+five-operation bookmark flow, cancellation/quiet storage, lost-input recovery
+and original source counterexamples pass on the host. Native code is uncompiled.
+Normal endpoint restoration, original response/model/arrival joins, modal,
+restart and independent whole-area retirement remain incomplete. These
+components add no complete feature area.
 
 ## Historical component checkpoints
 

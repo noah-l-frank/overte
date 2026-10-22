@@ -52,5 +52,49 @@ p.portalList=[];row.domain.protocol_version='foreign';p.processData({});assert.e
 row.domain={};p.processData({});assert.equal(p.portalList.length,0);
 ''')
 
+    def test_original_bookmark_handlers_use_actual_location_preserve_unowned_and_guard_rapid_commands(self):
+        self.run_case(r'''
+let clock=1000;const native={Private:'hifi://unowned.invalid'},published=[];
+const source={Date:class{getTime(){return clock;}},channel:'com.overte.places',timestamp:0,INTERCALL_DELAY:200,
+ location:{href:'http://controlled.invalid/scene.json?location=/2,0,4'},
+ LocationBookmarks:{getBookmarks:()=>({...native}),addBookmark:(name,url)=>native[name]=url,removeBookmark:name=>delete native[name]},
+ sendToPlacesUi:value=>published.push(JSON.parse(JSON.stringify(value)))};
+vm.createContext(source);
+vm.runInContext(section(script,'    function onAppWebEventReceived(', '    function savePinnedMetaverseSetting(')
+ +section(script,'    function getLocationBookmarks(', '    function processData('),source);
+function send(action,fields={}){source.onAppWebEventReceived({channel:source.channel,action,...fields});}
+send('ADD_BOOKMARK',{name:'owned',url:'http://requested.invalid'});
+assert.equal(native.owned,source.location.href);assert.equal(native.Private,'hifi://unowned.invalid');
+send('RENAME_BOOKMARK',{originalName:'owned',name:'renamed',url:native.owned});assert.equal(native.renamed,undefined);
+clock+=230;send('RENAME_BOOKMARK',{originalName:'owned',name:'renamed',url:native.owned});
+assert.equal(native.owned,undefined);assert.equal(native.renamed,source.location.href);
+clock+=230;send('DELETE_BOOKMARK',{name:'renamed'});assert.deepEqual(native,{Private:'hifi://unowned.invalid'});
+assert.equal(published.length,3);assert.equal(published.at(-1).action,'BOOKMARKS_DATA');
+assert.deepEqual(published.at(-1).data,native);
+''')
+
+    def test_original_bookmark_dialog_cancel_dispatches_nothing_and_rename_keeps_original_address(self):
+        self.run_case(r'''
+const calls=[];let closed=0;
+const source={bookmarkName:{text:' renamed '},bookmarkDialog:{originalName:'owned',address:'http://original.invalid/scene.json',close:()=>closed++},
+ root:{dispatch:(action,fields)=>calls.push({action,...fields})}};
+vm.createContext(source);
+const accepted=section(qml,'            onAccepted: {','            onRejected:').slice('            onAccepted: '.length).trim();
+vm.runInContext('function accept() '+accepted,source);
+const rejected=qml.split('\n').find(line=>line.trim().startsWith('onRejected:')).split('onRejected:')[1];
+vm.runInContext(rejected,source);assert.equal(closed,1);assert.equal(calls.length,0);
+source.accept();assert.equal(closed,2);assert.deepEqual(calls,[{action:'RENAME_BOOKMARK',originalName:'owned',name:'renamed',url:source.bookmarkDialog.address}]);
+''')
+
+    def test_original_ready_refresh_discards_cached_portals_and_starts_current_generation_fetch(self):
+        self.run_case(r'''
+const calls=[];const source={requestGeneration:3,metaverseServers:['old'],portalList:['old'],
+ nbrPlacesNoProtocolMatch:10,nbrPlaceProtocolKnown:20,abortActiveRequest:()=>calls.push('abort'),
+ buildMetaverseServerList:()=>calls.push('servers'),fetchMetaverse:(index,generation)=>calls.push([index,generation])};
+vm.createContext(source);vm.runInContext(section(script,'    function transmitPortalList(', '    function finishPortalList('),source);
+source.transmitPortalList();assert.deepEqual(calls,['abort','servers',[0,4]]);assert.equal(source.portalList.length,0);
+assert.equal(source.metaverseServers.length,0);assert.equal(source.nbrPlaceProtocolKnown,0);
+''')
+
 
 if __name__=='__main__':unittest.main()

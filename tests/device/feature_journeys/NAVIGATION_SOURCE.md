@@ -38,10 +38,12 @@ never read a retired page or infer a live page from cached text.
 `open` normally opens Places from the actual Home/app control and waits for the
 actual source/page and original directory model. During the first entry, ensure
 the owned selected metaverse directory has actually refreshed via its ordinary
-UI before accepting the model; READY_FOR_CONTENT can transmit a cached script
-portal list and is not itself a network refresh. Later page reopens may use the
-same original run's genuine fetched directory response, with a freshly created
-page/empty field and current model observation. Respect the original 200ms script
+UI before accepting the model. In the current original source,
+READY_FOR_CONTENT calls `transmitPortalList`, which aborts the previous request,
+advances its generation, clears cached portals and starts a current directory
+fetch. Its ACK alone does not establish a completed response or consumed model.
+Later page reopens require a freshly created page/empty field, current model and
+the actual original directory response belonging to that refresh. Respect the original 200ms script
 command guard and normal queued UI behavior; never invoke dispatch handlers.
 
 The bookmark recipes use the actual Bookmark current location/add dialog,

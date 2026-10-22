@@ -475,6 +475,22 @@ def create_adapter(args, base_class):
             manager=self._scripts(target)
             return TokenChatUI(PicoChatIO(manager.ui.io),intent,run)
 
+        @_private
+        def _places_controls(self, target, intent, run):
+            from adapters.token_places_ui import TokenPlacesUI
+            from adapters.pico4.normal_places import PicoPlacesIO
+            manager = self._scripts(target)
+            return TokenPlacesUI(PicoPlacesIO(manager.ui.io), intent, run)
+
+        @_private
+        def _bookmark_operations(self, target, path, run):
+            from adapters.navigation_bookmarks import NavigationBookmarks
+            from adapters.token_places_ui import TokenPlacesUI
+            from adapters.pico4.normal_places import PicoPlacesIO
+            manager = self._scripts(target)
+            return NavigationBookmarks(lambda intent: TokenPlacesUI(PicoPlacesIO(manager.ui.io), intent, run),
+                self._location_bookmarks(target), path, run, manager.binding)
+
         def _login_controls(self, target, intent, run, origin):
             from adapters.token_login_ui import TokenLoginUI
             from adapters.pico4.normal_login import PicoLoginIO

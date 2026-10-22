@@ -17,6 +17,7 @@
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #include "../../../../../../tests/device/native/ScriptFileUi.h"
 #include "../../../../../../tests/device/native/NormalAccountMenuControls.h"
+#include "../../../../../../tests/device/native/NormalPlacesControls.h"
 #include "../../../../../../tests/device/native/FeatureUiInventory.h"
 #include "../../../../../../tests/device/native/NormalNavigationAddress.h"
 #include "../../../../../../tests/device/native/TabletHttpObservation.h"
@@ -61,6 +62,10 @@ bool enabled(QQuickItem* item) {
 
 QString controlId(QQuickItem* item) {
 #if defined(OVERTE_E2E_FEATURE_TESTS)
+#if defined(ANDROID_APP_PICO_INTERFACE)
+    const auto places = overte::e2e::placesControlId(item);
+    if (!places.isEmpty()) { return places; }
+#endif
     const auto chat=overte::e2e::chatControlId(item);
     if (!chat.isEmpty()) { return chat; }
     const auto create=overte::e2e::createControlId(item);
@@ -204,6 +209,12 @@ QJsonObject NavigationUi::observe(QQuickItem* root, QQuickWindow* window, bool o
                 const auto fileSource = overte::e2e::scriptFileControlSource(item);
                 auto source = fileSource.isEmpty() ? overte::e2e::scriptRowSource(item) : fileSource;
 #if defined(OVERTE_E2E_FEATURE_TESTS)
+#if defined(ANDROID_APP_PICO_INTERFACE)
+                if (id.startsWith("places.")) {
+                    source=overte::e2e::placesControlSource(item,id);
+                    if (source.isEmpty()) { ambiguous=true;return; }
+                } else
+#endif
                 if (id=="navigation.address") {
                     source=overte::e2e::navigationAddressSource(item);
                     if (source.isEmpty()) { ambiguous=true;return; }
@@ -269,6 +280,11 @@ QJsonObject NavigationUi::observe(QQuickItem* root, QQuickWindow* window, bool o
         overte::e2e::appendScriptControlObservation(row, control.item, id);
         overte::e2e::appendScriptFileObservation(row, control.item, id);
 #if defined(OVERTE_E2E_FEATURE_TESTS)
+#if defined(ANDROID_APP_PICO_INTERFACE)
+        if (id.startsWith("places.")) {
+            overte::e2e::appendPlacesObservation(row,control.item,id);
+        } else
+#endif
         if (id=="navigation.address") {
             const auto original=overte::e2e::navigationAddressObservation(control.item);
             for (auto item=original.begin();item!=original.end();++item) { row[item.key()]=item.value(); }
@@ -304,6 +320,9 @@ QJsonObject NavigationUi::observe(QQuickItem* root, QQuickWindow* window, bool o
     if (loginContext.valid) { result["loginControlsVersion"]=2; }
     if (accountMenuContext.login.valid) { result["accountMenuControlsVersion"]=1; }
     result["navigationAddressVersion"]=1;
+#if defined(ANDROID_APP_PICO_INTERFACE)
+    result["placesControlsVersion"]=1;
+#endif
 #endif
     return result;
 }
@@ -357,6 +376,24 @@ QJsonObject NavigationUi::apply(QQuickItem* root, QQuickWindow* window, bool ope
     }
     bool delivered { false };
 #if defined(OVERTE_E2E_FEATURE_TESTS)
+#if defined(ANDROID_APP_PICO_INTERFACE)
+    if (controlId.startsWith("places.")) {
+        QJsonObject row;overte::e2e::appendPlacesObservation(row,control.item,controlId);
+        if (current.value("placesControlsVersion")!=QJsonValue(1) || !row.value("inputReady").toBool()) { return result; }
+        const auto point=control.item->mapToScene(QPointF(control.item->width()/2,control.item->height()/2));
+        if (!overte::e2e::NormalControlUi::ownsPoint(control.item,window,point)) { return result; }
+        if (action=="activate" && controlId!="places.page" && !controlId.startsWith("places.scroll.") && pointerClick) {
+            delivered=pointerClick(control.item);
+        } else if (action=="replace" && overte::e2e::placesField(controlId) && command.value("text").isString()
+                && overte::e2e::placesText(command.value("text").toString())) {
+            delivered=overte::ui::replaceFocusedField(control.item,window,command.value("text").toString());
+        } else if (action=="scroll" && controlId.startsWith("places.scroll.") && pointerAt) {
+            QPointF scrollPoint;
+            if (overte::e2e::placesScrollPoint(control.item,command.value("direction").toString(),scrollPoint)
+                    && overte::e2e::NormalControlUi::ownsPoint(control.item,window,scrollPoint)) { delivered=pointerAt(control.item,scrollPoint); }
+        }
+    } else
+#endif
     if (controlId.startsWith("account-menu.")) {
         const auto rows=current.value("controls").toArray();bool ready {false};
         for (const auto& value:rows) {

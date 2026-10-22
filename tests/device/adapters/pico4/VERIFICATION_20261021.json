@@ -1359,5 +1359,50 @@
     ],
     "details": "Actual original JavaScript probe and Android dispatcher, actual private Pico factory with mock APK/package/transport, and synthetic native storage counterexamples. Closed nonce/run command, original actual protected map and backing-file source, private unowned count/digests, original file-byte/revision hashes, stable descriptor/path read, true disk/map consistency, bounded one-send read, cursor/birth/time/guard and privacy rejection. Normal Login directory-server field was inspected: switching can log out an account, requiring explicit preservation/refusal in the unfinished coordinator.",
     "limits": "Native Qt/POSIX source is uncompiled and has not been exercised against a native filesystem or product process. No build, compiler, device, installation, service, remote write or physical rendering qualification. No new complete capability; three complete areas and eleven partial/missing remain."
+  },
+  "navigationPlacesBookmarks": {
+    "status": "partial-source-host-verified",
+    "contracts": [
+      "native-places-controls v1",
+      "navigation-bookmark-operations v1"
+    ],
+    "checks": [
+      {
+        "command": "python3 -m unittest self_tests.test_navigation_bookmarks self_tests.test_token_places_ui self_tests.test_native_location_bookmarks self_tests.test_navigation_source_semantics",
+        "tests": 31,
+        "status": "passed",
+        "durationSeconds": 8.168
+      },
+      {
+        "command": "python3 tests/device/validate_contract_versions.py",
+        "status": "passed"
+      },
+      {
+        "command": "python3 android/vr/pico/tests/pico4-test-suite.py --test normal-scripts --test normal-create --test normal-chat --test normal-login --test suite-runner --test coverage-matrix --timeout 240",
+        "groups": 6,
+        "passed": 5,
+        "status": "incomplete-normal-scripts-host-timeout",
+        "durationSeconds": 315.94,
+        "junit": "navigation-places-bookmarks-owning.xml",
+        "detail": "normal-scripts reached the host group timeout at 240.031 seconds; the other five groups passed. This is not a full-catalog pass."
+      },
+      {
+        "command": "python3 android/vr/pico/tests/pico4-test-suite.py --test normal-scripts --timeout 600",
+        "groups": 1,
+        "status": "passed",
+        "durationSeconds": 433.4,
+        "junit": "navigation-places-normal-scripts-retry.xml",
+        "detail": "The same existing normal-Scripts group completed under the longer host runner allowance. Product/adapter operation, reference and native-source deadlines were not relaxed."
+      },
+      {
+        "command": "python3 tests/run-project-tests.py --suite documentation --suite documentation-contracts --suite source-layout --suite project-coverage",
+        "suites": 4,
+        "status": "passed",
+        "durationSeconds": 2.56,
+        "junit": "navigation-places-bookmarks-final-project.xml"
+      }
+    ],
+    "details": "Normal Pico Places controls and original QML models on the existing NavigationUi/PicoNavigation route, including real component/root identities, original popup RejectRole, closed hashed UI/model fields, focus/reference/geometry/source checks and normal pointer/key/scroll input. Actual private Pico factories join the independent native bookmark map/file reader. A durable five-operation bookmark flow retains original native and UI-clock quiet headers, unowned native/UI baselines, exact pending input and source cursors across adapter recreation; applied lost replies are resolved without resending. Cancellation and positive persistence require three seconds of unchanged original storage and advancing original UI/native clocks. Original product QML dialog/script bookmark/rate-guard/refresh functions execute under Node with synthetic native boundaries. READY_FOR_CONTENT was verified to clear cached portals and start a current-generation fetch, correcting the earlier source guide.",
+    "limits": "Native Qt/QML/controller/model/POSIX sources remain uncompiled. Package/OS/Qt/device inputs and native storage boundary are simulated; a private host file is real, not a native product backing-file qualification. No builds, compilers, real devices, installations, device services, remote writes or physical rendering qualification. Whole Navigation lacks origin/account/federation restoration, consumed response/model/arrival/stereo joins, matching failed-lookup modal, actual restart/ownership transfer and independent final retirement. No complete Navigation capability is advertised; three areas remain complete source/host and eleven partial/missing."
   }
 }

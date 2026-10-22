@@ -21,6 +21,7 @@ from adapters.token_graphics_ui import graphics_control,metadata_fields as graph
 from adapters.token_audio_ui import audio_control, metadata_fields as audio_metadata_fields, validate_metadata as validate_audio_metadata
 from adapters.token_script_file_ui import (file_control, metadata_fields as file_metadata_fields,
     validate_metadata as validate_file_metadata, folder_text)
+from adapters.token_places_ui import control_id as places_control, metadata as places_metadata, same_reference as places_same_reference
 
 UUID = re.compile(r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}')
 CONTROL_IDS = {'navigation.goto', 'navigation.address', 'navigation.back',
@@ -97,6 +98,9 @@ def validate_snapshot(value, process_id, epoch_ms):
     if type(value) is dict and 'accountMenuControlsVersion' in value:
         fields.add('accountMenuControlsVersion')
         need(type(value['accountMenuControlsVersion']) is int and value['accountMenuControlsVersion']==1)
+    if type(value) is dict and 'placesControlsVersion' in value:
+        fields.add('placesControlsVersion')
+        need(type(value['placesControlsVersion']) is int and value['placesControlsVersion']==1)
     need(type(value) is dict and set(value) == fields
          and type(value['schemaVersion']) is int and value['schemaVersion'] == 1
          and identifier(value['bridgeId']) and identifier(value['generation'])
@@ -117,7 +121,10 @@ def validate_snapshot(value, process_id, epoch_ms):
         is_graphics=graphics_control(control['id']) and value.get('graphicsControlsVersion')==1
         is_create=control['id'].startswith('create.')
         is_chat=control['id'].startswith('chat.')
-        if is_chat:
+        is_places=control['id'].startswith('places.')
+        if is_places:
+            need(value.get('placesControlsVersion')==1);places_metadata(control);fields=set(control)
+        elif is_chat:
             need(value.get('chatControlsVersion')==1);chat_metadata(control);fields=set(control)
         elif is_create:
             need(value.get('createControlsVersion')==1);create_metadata(control);fields=set(control)
@@ -139,7 +146,11 @@ def validate_snapshot(value, process_id, epoch_ms):
         if control['id'] in SNAPSHOT_CHOICES:
             fields.add('checked')
         need(set(control) == fields
-             and isinstance(control['id'], str) and (control['id'] in CONTROL_IDS or script_control(control['id']) or file_control(control['id']) or audio_control(control['id']) or graphics_control(control['id']) or control['id'] in LOGIN_IDS or control['id'] in ACCOUNT_MENU_IDS or is_create and create_control(control['id']) or is_chat and chat_control(control['id']))
+             and isinstance(control['id'], str) and (control['id'] in CONTROL_IDS
+                 or script_control(control['id']) or file_control(control['id']) or audio_control(control['id'])
+                 or graphics_control(control['id']) or control['id'] in LOGIN_IDS or control['id'] in ACCOUNT_MENU_IDS
+                 or is_create and create_control(control['id']) or is_chat and chat_control(control['id'])
+                 or is_places and places_control(control['id']))
              and identifier(control['token']) and control['id'] not in ids
              and control['token'] not in tokens and type(control['enabled']) is bool
              and type(control['focused']) is bool)
@@ -150,7 +161,8 @@ def validate_snapshot(value, process_id, epoch_ms):
                 and (not control['inputReady'] or control['enabled'] and control['focused']))
         if control['id'] in SNAPSHOT_CHOICES:
             need(type(control['checked']) is bool)
-        if is_chat:chat_metadata(control)
+        if is_places:places_metadata(control)
+        elif is_chat:chat_metadata(control)
         elif is_create:create_metadata(control)
         elif control['id'] in ACCOUNT_MENU_IDS:validate_account_menu_metadata(control)
         elif control['id'] in LOGIN_IDS:validate_login_metadata(control)
@@ -280,16 +292,27 @@ class PicoNavigation:
             need(self.address_authority(expected_address) is True if self.address_authority is not None else expected_address in self.urls)
         is_create=control_id.startswith('create.')
         is_chat=control_id.startswith('chat.')
+        is_places=control_id.startswith('places.')
         if reference is not None:
             need(type(reference) is dict)
-            if 'chatControlsVersion' in reference:
+            if 'placesControlsVersion' in reference:
+                from adapters.pico4.normal_places import project as places_project
+                original=places_same_reference(reference,places_project(snapshot),control_id)
+            elif 'chatControlsVersion' in reference:
                 from adapters.pico4.normal_chat import project as chat_project
                 original=chat_same_reference(reference,chat_project(snapshot),control_id)
             else:
                 from adapters.pico4.normal_create import project
                 original=same_reference(reference,project(snapshot),control_id)
             need(original['token']==control['token'])
-        if control_id in ACCOUNT_MENU_IDS:
+        if is_places:
+            need(reference is not None and snapshot.get('placesControlsVersion')==1 and control['inputReady']
+                 and control_id!='places.page' and index is None and source is None and value is None
+                 and action in ('activate','replace','scroll'))
+            if action=='replace':need(control_id in ('places.search','places.bookmark.name','places.server.url') and control['focused']);ascii_text(text)
+            elif action=='scroll':need(control_id.startswith('places.scroll.') and direction in ('up','down') and text is None)
+            else:need(not control_id.startswith('places.scroll.') and direction is None and text is None)
+        elif control_id in ACCOUNT_MENU_IDS:
             need(snapshot.get('accountMenuControlsVersion')==1 and control['inputReady'] and token is not None
                  and action=='activate' and all(v is None for v in (text,source,index,direction,value,reference)))
         elif is_chat:
@@ -356,6 +379,8 @@ class PicoNavigation:
                     missing_script_url(text)
                 else:
                     owned_url(text, {'observer.js'})
+            elif is_places:
+                need(control_id in ('places.search','places.bookmark.name','places.server.url'));ascii_text(text)
             elif is_chat:
                 need(control_id=='chat.input');chat_text(text)
             elif is_create:

@@ -10,7 +10,7 @@ device qualification. Native code is uncompiled; no device is tested.
 
 | Area | Current Pico implementation | Concrete next boundary |
 | --- | --- | --- |
-| Worlds/navigation | Partial Go To/history, original replies and native bookmark map/backing-file reader | Actual Places/bookmark inputs/model, selected-origin restoration, failure modal, arrival/image and independent observer join |
+| Worlds/navigation | Partial Go To/history, normal Places/model and durable native-storage bookmark flow | Selected-origin restoration, directory receipt/model/arrival joins, failure modal, restart and independent retirement |
 | Authentication | Complete source; 17-step shared flow and counterexamples host verified | Compile and qualify actual VR Home ray, IME, HTTPS provider and account lifetime on Proxmox |
 | Avatar/contacts | Complete adapter missing | Source-bound Avatar/People inputs and independent model/bookmark/wearable/consent observations |
 | Create | Partial token controls and entity foundations | Actual JSON picker/export, model/texture/PolyVox, permission actor and original file/image/peer joins |
@@ -62,6 +62,12 @@ actual sources determine this matrix. The frozen main reference lacks these
 later complete adapters and was not used to fabricate integration.
 
 ## Shared changes for later Phone reconciliation
+
+The new `native-places-controls` v1 and `navigation-bookmark-operations` v1
+components currently bind Pico only. Their shared registry declarations and
+source-guide refresh correction must be reconciled explicitly; no Phone/iOS
+binding, complete Navigation triple, native compilation or device qualification
+is implied. See the [Places/bookmark contract](PLACES_BOOKMARKS.md).
 
 The [selected-source manifest](STABLE_PHONE_SELECTION.json) records original
 paths/hashes and narrower dependency commits. The

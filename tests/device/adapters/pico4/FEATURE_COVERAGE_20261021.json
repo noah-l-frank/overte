@@ -47,7 +47,14 @@
         "tests/device/adapters/native_location_bookmarks.py",
         "tests/device/native/LocationBookmarkObservation.h",
         "tests/device/native/LOCATION_BOOKMARK_OBSERVATION.md",
-        "tests/device/self_tests/test_native_location_bookmarks.py"
+        "tests/device/self_tests/test_native_location_bookmarks.py",
+        "tests/device/adapters/token_places_ui.py",
+        "tests/device/adapters/navigation_bookmarks.py",
+        "tests/device/adapters/pico4/normal_places.py",
+        "tests/device/native/NormalPlacesControls.h",
+        "tests/device/adapters/pico4/PLACES_BOOKMARKS.md",
+        "tests/device/self_tests/test_token_places_ui.py",
+        "tests/device/self_tests/test_navigation_bookmarks.py"
       ],
       "declaredCheckpoints": 15,
       "inputVerbs": [
@@ -76,9 +83,9 @@
         "addressDialog"
       ],
       "missingOperationsOrEvidence": [
-        "Normal bookmark cancel/create/rename/delete inputs and complete storage/restart/cleanup joins; passive native map/backing-file reader is present",
-        "Actual Places query/model and directory selection",
-        "Whole-area arrival/error/modal/restart coordination and independent publisher"
+        "Whole-area integration of the present normal Places/bookmark input and durable five-operation storage flow with original response, modal, arrival and actual restart",
+        "Selected normal metaverse origin/account/federation/maturity setup and restoration; current directory response/model/normal selection/arrival composition",
+        "Whole-area independent publisher and complete original callback/resource retirement"
       ],
       "requiredOriginalEvidence": [
         "Original directory response and native consumed response ID",
@@ -92,7 +99,7 @@
         "Restore original location and closed owned dialogs",
         "Prove pending reply/callback retirement and a three-second quiet baseline"
       ],
-      "nextExecutableStep": "Join actual Pico Places/bookmark controls and current model to the native bookmark map/file reader, normal selected-origin/account restoration, named-lookup modal, original stereo arrival and independent whole-area publisher before registering a complete triple.",
+      "nextExecutableStep": "Compose the present normal Places/model and durable bookmark input/storage flow with the original selected-origin/account source, provider response/model/native arrival/stereo join, matching failed-lookup modal, actual restart and independent final quiet/resource observer before registering the complete area triple.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     },

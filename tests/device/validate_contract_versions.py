@@ -87,6 +87,8 @@ REQUIRED = {
     "asset-input-bundle": 1,
     "native-feature-observation": 1,
     "native-location-bookmarks": 1,
+    "native-places-controls": 1,
+    "navigation-bookmark-operations": 1,
     "native-chat-observation": 1,
     "native-chat-view": 1,
     "native-chat-actor-files": 1,
