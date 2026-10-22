@@ -3,10 +3,6 @@ name: CodeQL
 run-name: ${{ (github.event_name == 'pull_request' && ((github.event.action == 'edited' && !github.event.changes.base && (github.event.changes.title || github.event.changes.body)) || ((github.event.action == 'labeled' || github.event.action == 'unlabeled') && github.event.label.name != 'android-long-diagnostics'))) && 'Overte native metadata nonproducer v2' || 'Overte native ordinary qualification v2' }}
 
 on:
-  push:
-    branches: [apple-main, apple-ios, android-main, android-phone, android-vr, android-vr-pico]
-    paths-ignore:
-      - "**/*.md"
   schedule:
     - cron: "17 3 * * 4"
 
