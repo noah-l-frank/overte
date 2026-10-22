@@ -1001,25 +1001,102 @@ def create_adapter(args, base_class):
             return None if path is None else PrivateFeatureState(path.with_name('lifecycle-world-owner.json'))
 
         @_private
-        def _lifecycle_world(self,target,run):
+        def _lifecycle_world(self,target,run,*,source_lock=None):
             from adapters.pico4.lifecycle_world import PicoLifecycleWorld
             manager=self._scripts(target);native=self._native_feature_observer(target)
             native.guard();identity=self.require_pico_session_identity(target)
             _need(identity==manager.binding['processIdentity'] and native.pid==int(identity.split(':')[0]))
-            source_lock=self._script_journey()._lock(target)
+            source_lock=self._script_journey()._lock(target,source_lock)
             return PicoLifecycleWorld(self._lifecycle_ui_source(target,source_lock=source_lock),self._lifecycle_gesture_source(target,source_lock=source_lock),
                 self._lifecycle_drive_source(target,source_lock=source_lock),self.pico_input_session(target),self._lifecycle_world_store(target).path,
                 run,manager.binding,native.guard,source_lock,monotonic=native.monotonic,sleep=native.sleep)
 
         @_private
-        def _lifecycle_x_join(self,target,run):
+        def _lifecycle_x_join(self,target,run,*,source_lock=None):
             from adapters.pico4.lifecycle_join import PicoLifecycleXJoin
             from adapters.pico4.lifecycle_back import PicoLifecycleBack
             from adapters.pico4.lifecycle_source import bind_source
-            world=self._lifecycle_world(target,run);native=self._native_feature_observer(target)
+            world=self._lifecycle_world(target,run,source_lock=source_lock);native=self._native_feature_observer(target)
             back=PicoLifecycleBack(bind_source(self,target,native,source_lock=world.lock),world.session,world.store.path.with_name('lifecycle-x-back-owner.json'),
                 run,world.binding,native.guard,monotonic=native.monotonic,sleep=native.sleep,source_lock=world.lock)
             return PicoLifecycleXJoin(world,back,world.store.path.with_name('lifecycle-x-join.json'))
+
+        @_private
+        def _lifecycle_domain_source(self,target,*,source_lock=None):
+            from adapters.pico4.lifecycle_process import PicoLifecycleDomain
+            native=self._native_feature_observer(target);source_lock=self._script_journey()._lock(target,source_lock)
+            reader=NativeChatObservation(native.send,
+                lambda:self.adb.read_debug_app_file(target,'org.overte.pico','files/overte-e2e/'+CHAT_FILE,attempts=1),
+                native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep)
+            return PicoLifecycleDomain(reader,source_lock)
+
+        @_private
+        def _lifecycle_process_retirement(self,target,run,*,source_lock=None):
+            from adapters.pico4.lifecycle_process import PicoLifecycleProcessRetirement
+            installed=self._installation(target);configuration=self.pico_configuration
+            fingerprint=hashlib.sha256((target+'\0'+str(configuration)).encode()).hexdigest()
+            def guard():
+                _need(self.pico_configuration==configuration and self._installation(target)==installed)
+            source_lock=self._script_journey()._lock(target,source_lock)
+            path=self._lifecycle_world_store(target).path.with_name('lifecycle-process-owner.json')
+            result=PicoLifecycleProcessRetirement(path,run,self.pico_input_session(target).profile,guard,source_lock)
+            if result.state is not None:
+                _need(result.state['binding']['targetFingerprint']==fingerprint
+                    and all(result.state['binding'][key]==installed[key] for key in ('sourceRevision','artifactSha256')))
+            return result
+
+        @_private
+        def _lifecycle_process_begin(self,target,run):
+            world=self._lifecycle_world(target,run)
+            if world.state is None:world.prepare()
+            owner=self._lifecycle_process_retirement(target,run,source_lock=world.lock)
+            return owner.begin(world,self._native_feature_observer(target),self._lifecycle_domain_source(target,source_lock=world.lock))
+
+        @_private
+        def _lifecycle_process_prepare(self,target,run):
+            joined=self._lifecycle_x_join(target,run)
+            owner=self._lifecycle_process_retirement(target,run,source_lock=joined.world.lock)
+            return owner.prepare(joined,self._native_feature_observer(target),self._lifecycle_domain_source(target,source_lock=joined.world.lock))
+
+        @_private
+        def _lifecycle_process_new_binding(self,target,owner):
+            # Read the original new-process bridge without constructing the
+            # original process's still-owned normal Script manager journal.
+            from adapters.pico4.navigation import validate_snapshot
+            installed=self._installation(target);identity=self.require_controlled_debug_identity(target)
+            _need(identity==self.require_pico_session_identity(target))
+            native=NativeNavigationIO(self,target,identity,lambda _operation:_need(False))
+            started=owner.now();value,epoch=native.read();validate_snapshot(value,int(identity.split(':')[0]),epoch)
+            native.guard();elapsed=owner.now()-started
+            _need(max(epoch-value['updatedEpochMs'],elapsed*1000)<=1500)
+            binding={key:installed[key] for key in ('sourceRevision','artifactSha256')}
+            binding.update(processIdentity=identity,sessionId=value['bridgeId'],generation=0,
+                targetFingerprint=hashlib.sha256((target+'\0'+str(self.pico_configuration)).encode()).hexdigest())
+            return binding
+
+        @_private
+        def _lifecycle_process_observe(self,target,run,*,owner=None):
+            if owner is None:owner=self._lifecycle_process_retirement(target,run)
+            binding=self._lifecycle_process_new_binding(target,owner)
+            return owner.observe(binding,self._native_feature_observer(target),self._process_presence(target),
+                self._lifecycle_domain_source(target,source_lock=owner.lock),self._lifecycle_ui_source(target,source_lock=owner.lock),
+                self._lifecycle_gesture_source(target,source_lock=owner.lock),self._lifecycle_drive_source(target,source_lock=owner.lock))
+
+        @_private
+        def _lifecycle_process_restart(self,target,run):
+            from adapters.pico4.lifecycle_process import run_lifecycle_restart
+            owner=self._lifecycle_process_retirement(target,run)
+            def prepare():
+                joined=self._lifecycle_x_join(target,run,source_lock=owner.lock)
+                owner.prepare(joined,self._native_feature_observer(target),self._lifecycle_domain_source(target,source_lock=owner.lock))
+            def stopped():
+                origin=owner.inputs.read()['oldBinding'];owner.guard()
+                receipt=AndroidProcessQuery(self.adb,'org.overte.pico',owner.guard).read(target,int(origin['processIdentity'].split(':')[0]))
+                return dict(running=bool(receipt['processIds']),identity=origin['processIdentity'] if receipt['processIds'] else None)
+            return run_lifecycle_restart(owner,prepare,lambda:self._native_feature_observer(target),
+                lambda:self.invoke(target,'app.stop',{}),stopped,lambda:self.invoke(target,'app.launch',{}),
+                lambda:self._script_restart_recover_binding(target,restart_inputs=owner.inputs,owner_check=lambda:owner.store.read()),
+                lambda:self._lifecycle_process_observe(target,run,owner=owner))
 
         def _lifecycle_back_store(self,target):
             state,_ui=self._script_paths(target)

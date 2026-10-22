@@ -20,6 +20,7 @@ from self_tests.test_pico_lifecycle_drive import LifecycleDriveTests,LifecycleDr
 from self_tests.test_pico_lifecycle_gesture import LifecycleGestureTests,LifecycleGestureProbeTests
 from self_tests.test_pico_lifecycle_world import LifecycleWorldTests
 from self_tests.test_pico_lifecycle_join import LifecycleJoinTests
+from self_tests.test_pico_lifecycle_process import LifecycleProcessTests
 from self_tests.test_pico_openxr_adapter_session import FakeTransport
 
 
@@ -128,6 +129,35 @@ class PicoLifecycleBindingTests(unittest.TestCase):
         with self.assertRaises((ValueError,RuntimeError)):self.adapter.cleanup(self.native.target)
         self.assertEqual(original,store.read())
         self.assertIn(('am','force-stop','org.overte.pico'),self.native.events)
+
+    def test_actual_process_factory_keeps_existing_three_original_owners_and_candidate_pins(self):
+        from adapters.pico4.lifecycle_process import PicoLifecycleProcessRetirement,PicoLifecycleDomain
+        from adapters.script_journey.lock import ScriptSourceLock
+        directory=self.fixture.fixture.state_root
+        session=PicoOpenXrAdapterSession(FakeTransport(),'explicit-process-target',directory);session.begin(self.native.identity)
+        lock=self.adapter._script_journey()._lock(self.native.target)
+        with patch.object(self.adapter,'pico_input_session',return_value=session):
+            owner=self.adapter._lifecycle_process_retirement(self.native.target,RUN,source_lock=lock)
+            self.assertIsInstance(owner,PicoLifecycleProcessRetirement);self.assertIs(owner.lock,lock)
+            self.assertEqual(['lifecycle-world-owner.json','lifecycle-x-back-owner.json','lifecycle-x-join.json'],
+                [store.path.name for store in owner.inputs.owners])
+            domain=self.adapter._lifecycle_domain_source(self.native.target,source_lock=lock)
+            self.assertIsInstance(domain,PicoLifecycleDomain);self.assertIs(domain.source_lock,lock)
+            self.native.digest='f'*64
+            with self.assertRaises((ValueError,RuntimeError)):owner.now()
+            self.assertIsNone(owner.store.read());self.assertIsNone(owner.inputs.store.read())
+        self.assertEqual([],self.native.inputs)
+    def test_new_process_binding_reads_original_bridge_without_reopening_original_script_owner(self):
+        directory=self.fixture.fixture.state_root
+        session=PicoOpenXrAdapterSession(FakeTransport(),'explicit-process-target',directory);session.begin(self.native.identity)
+        with patch.object(self.adapter,'pico_input_session',return_value=session):
+            owner=self.adapter._lifecycle_process_retirement(self.native.target,RUN)
+            with patch.object(self.adapter,'_scripts',side_effect=AssertionError('Original manager cannot be reopened')):
+                binding=self.adapter._lifecycle_process_new_binding(self.native.target,owner)
+            self.assertEqual(self.native.identity,binding['processIdentity']);self.assertEqual(0,binding['generation'])
+            self.assertEqual(self.native.bridge_id,binding['sessionId'])
+            self.assertEqual([],session.transport.envelopes)
+        self.assertEqual([],self.native.inputs)
 
     def test_actual_back_factory_shares_original_process_session_and_private_candidate_binding(self):
         directory=self.fixture.fixture.state_root

@@ -179,6 +179,7 @@ REQUIRED = {
     "pico-lifecycle-gesture-observation": 1,
     "pico-lifecycle-world-owner": 1,
     "pico-lifecycle-x-join": 1,
+    "pico-lifecycle-process-owner": 1,
     "native-navigation-replies": 2,
     "native-navigation-modals": 1,
     "native-navigation-error-controls": 1,
