@@ -21,6 +21,7 @@ class CapacityTests(unittest.TestCase):
         self.paths = {"/": 1, "/workspace": 1, "/workspace/cache": 1, "/docker": 1}
         self.space = {"/workspace": (1000, 100, 80), "/workspace/cache": (1000, 100, 80),
                       "/docker": (1000, 100, 80)}
+        self.mounts = None
         self.documents = {"/proc/meminfo": "MemTotal: 999999 kB\nMemAvailable: 2 kB\n",
                           "/proc/self/cgroup": "0::/job\n",
                           "/proc/self/mountinfo": "21 20 0:1 / /sys/fs/cgroup rw - cgroup2 cgroup rw\n",
@@ -29,9 +30,15 @@ class CapacityTests(unittest.TestCase):
 
     def read(self, path):
         try:
-            return self.documents[str(path)]
+            value = self.documents[str(path)]
         except KeyError as error:
             raise FileNotFoundError(str(path)) from error
+        if str(path) == "/proc/self/mountinfo":
+            mounts = self.mounts if self.mounts is not None else "".join(
+                f"{index} 0 0:{device} / {name} rw - ext4 /dev/example rw\n"
+                for index, (name, device) in enumerate(self.paths.items(), 1))
+            return mounts + value
+        return value
 
     def st(self, path):
         path = str(path)
@@ -70,6 +77,44 @@ class CapacityTests(unittest.TestCase):
     def test_separate_workspace_cache_is_explicitly_unsupported(self):
         self.paths["/workspace/cache"] = 3
         with self.assertRaisesRegex(C.CapacityError, "cache on separate filesystems"):
+            self.admit()
+
+    def btrfs(self, same_source=True, kind="btrfs"):
+        # Actual workstation observation: /home st_dev53, Docker st_dev37,
+        # both kernel mounts report the same /dev/nvme0n1p6 Btrfs source.
+        self.paths["/workspace"] = self.paths["/workspace/cache"] = 53
+        self.paths["/docker"] = 37
+        self.mounts = (f"1 0 0:{35 if kind == 'btrfs' else 53} /home /workspace rw - {kind} /dev/nvme0n1p6 rw\n"
+                       f"2 0 0:{35 if kind == 'btrfs' else 37} /docker /docker rw - {kind} " +
+                       ("/dev/nvme0n1p6" if same_source else "/dev/nvme1n1p6") + " rw\n")
+
+    def test_btrfs_same_backing_source_combines_distinct_subvolume_devices(self):
+        self.btrfs()
+        self.assertTrue(self.admit()["workspace_and_docker_share_filesystem"])
+        self.space = {key: (799, 100, 80) for key in self.space}
+        with self.assertRaisesRegex(C.CapacityError, "free bytes"):
+            self.admit()
+
+    def test_btrfs_distinct_backing_sources_remain_separate_even_with_equal_counters(self):
+        self.btrfs(same_source=False)
+        self.space = {key: (600, 100, 80) for key in self.space}
+        self.assertFalse(self.admit()["workspace_and_docker_share_filesystem"])
+
+    def test_equal_counters_or_source_do_not_conflate_other_filesystem_types(self):
+        for kind in ("ext4", "tmpfs"):
+            with self.subTest(kind=kind):
+                self.btrfs(kind=kind)
+                self.space = {key: (600, 100, 80) for key in self.space}
+                self.assertFalse(self.admit()["workspace_and_docker_share_filesystem"])
+
+    def test_unknown_btrfs_source_or_device_mount_mismatch_rejects(self):
+        self.btrfs()
+        self.mounts = self.mounts.replace("/dev/nvme0n1p6", "none")
+        with self.assertRaisesRegex(C.CapacityError, "canonical device"):
+            self.admit()
+        self.btrfs(kind="ext4")
+        self.mounts = self.mounts.replace("0:53", "0:54")
+        with self.assertRaisesRegex(C.CapacityError, "device differ"):
             self.admit()
 
     def test_inode_exhaustion_and_insufficient_inodes_reject(self):

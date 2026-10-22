@@ -59,7 +59,45 @@ def nearest_directory(value, stat_path=os.lstat):
     return current, info.st_dev
 
 
-def filesystem(value, stat_path=os.lstat, statvfs_path=os.statvfs):
+def storage_pool(root, device, mountinfo):
+    """Group Btrfs subvolumes only by an exact kernel-reported block source.
+
+    Btrfs gives subvolumes distinct st_dev values despite one shared free-space
+    pool. Equal counters, other filesystem types and different mount sources
+    never establish a shared pool.
+    """
+    require(type(mountinfo) is str and 0 < len(mountinfo) <= MAX_TEXT,
+            "filesystem mount measurement is unavailable or exceeds its bound")
+    matches = []
+    for line in mountinfo.splitlines():
+        before, separator, after = line.partition(" - ")
+        fields, system = before.split(), after.split()
+        require(separator and len(fields) >= 6 and len(system) >= 3,
+                "invalid filesystem mount measurement")
+        mount = Path(mount_path(fields[4]))
+        require(mount.is_absolute() and ".." not in mount.parts,
+                "invalid filesystem mount path")
+        if root.is_relative_to(mount):
+            matches.append((len(mount.parts), fields[2], system[0], mount_path(system[1])))
+    require(bool(matches), "capacity filesystem mount is unavailable")
+    deepest = max(row[0] for row in matches)
+    selected = {row[1:] for row in matches if row[0] == deepest}
+    require(len(selected) == 1, "capacity filesystem mount is ambiguous")
+    number, kind, source = selected.pop()
+    if kind == "btrfs":
+        # A nested Btrfs subvolume can report a synthetic st_dev different
+        # from even its covering mountinfo entry. The canonical block source,
+        # rather than that synthetic number, identifies its backing pool.
+        path = PurePosixPath(source)
+        require(source.startswith("/dev/") and path.is_absolute() and ".." not in path.parts
+                and str(path) == source, "Btrfs backing source is not a canonical device path")
+        return ("btrfs", source)
+    require(number == str(os.major(device)) + ":" + str(os.minor(device)),
+            "capacity filesystem mount and device differ")
+    return ("device", device)
+
+
+def filesystem(value, stat_path=os.lstat, statvfs_path=os.statvfs, *, mountinfo):
     root, device = nearest_directory(value, stat_path)
     measured = statvfs_path(root)
     values = (measured.f_frsize, measured.f_bavail, measured.f_files, measured.f_favail)
@@ -68,7 +106,8 @@ def filesystem(value, stat_path=os.lstat, statvfs_path=os.statvfs):
     closing = stat_path(root)
     require(stat.S_ISDIR(closing.st_mode) and closing.st_dev == device,
             "capacity filesystem changed during measurement")
-    return {"device": device, "available_bytes": measured.f_frsize * measured.f_bavail,
+    return {"pool": storage_pool(root, device, mountinfo),
+            "available_bytes": measured.f_frsize * measured.f_bavail,
             "available_inodes": measured.f_favail if measured.f_files else None}
 
 
@@ -154,22 +193,23 @@ def admit(policy_capacity, destination, cache, docker_root, *, stat_path=os.lsta
     """Reject unavailable capacity before downloading or executing anything."""
     required = budget(policy_capacity)
     try:
-        workspace = filesystem(destination, stat_path, statvfs_path)
-        cached = filesystem(cache, stat_path, statvfs_path)
-        docker = filesystem(docker_root, stat_path, statvfs_path)
-        require(workspace["device"] == cached["device"],
+        mountinfo = read_text("/proc/self/mountinfo")
+        workspace = filesystem(destination, stat_path, statvfs_path, mountinfo=mountinfo)
+        cached = filesystem(cache, stat_path, statvfs_path, mountinfo=mountinfo)
+        docker = filesystem(docker_root, stat_path, statvfs_path, mountinfo=mountinfo)
+        require(workspace["pool"] == cached["pool"],
                 "Android workspace and cache on separate filesystems are unsupported")
         groups = {}
         for row in (workspace, cached, docker):
-            group = groups.setdefault(row["device"], {"available_bytes": row["available_bytes"],
+            group = groups.setdefault(row["pool"], {"available_bytes": row["available_bytes"],
                                                        "available_inodes": row["available_inodes"]})
             group["available_bytes"] = min(group["available_bytes"], row["available_bytes"])
             if row["available_inodes"] is not None:
                 prior = group["available_inodes"]
                 group["available_inodes"] = min(prior, row["available_inodes"]) if prior is not None else row["available_inodes"]
-        for device, row in groups.items():
-            need = (required["workspace_free_bytes"] if device == workspace["device"] else 0)
-            need += required["docker_free_bytes"] if device == docker["device"] else 0
+        for pool, row in groups.items():
+            need = (required["workspace_free_bytes"] if pool == workspace["pool"] else 0)
+            need += required["docker_free_bytes"] if pool == docker["pool"] else 0
             require(row["available_bytes"] >= need, "insufficient Android filesystem free bytes")
             require(row["available_inodes"] is None or row["available_inodes"] >= required["free_inodes"],
                     "insufficient Android filesystem free inodes")
@@ -181,7 +221,7 @@ def admit(policy_capacity, destination, cache, docker_root, *, stat_path=os.lsta
             available = min(available, remaining)
         require(available >= required["memory_available_bytes"], "insufficient Android available memory")
         return {"kind": "overte-android-capacity-admission-v1", "result": "admitted",
-                "budget": required, "workspace_and_docker_share_filesystem": workspace["device"] == docker["device"],
+                "budget": required, "workspace_and_docker_share_filesystem": workspace["pool"] == docker["pool"],
                 "filesystems": list(groups.values()), "memory_available_bytes": available}
     except (OSError, ValueError, TypeError, AttributeError) as error:
         if isinstance(error, CapacityError):
