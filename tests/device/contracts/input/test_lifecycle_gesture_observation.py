@@ -33,6 +33,10 @@ with tempfile.TemporaryDirectory(prefix='lifecycle-gesture-') as directory:
     start=source.index('    std::vector<std::tuple<std::string, StandardAxisChannel, StandardAxisChannel>> axesToUpdate = {')
     end=source.index('    std::vector<std::pair<std::string, StandardButtonChannel>> buttonsToUpdate = {',start)
     (private/'original-pico-gesture-axis.inc').write_text(source[start:end])
+    begin=source.index('XrActionStateVector2f OpenXrInputPlugin::Action::getVector2f() {')
+    end=source.index('XrActionStateBoolean OpenXrInputPlugin::Action::getBool()',begin)
+    body=source[begin:end];body=body[body.index('{')+1:body.rfind('}')]
+    (private/'original-pico-vector-query.inc').write_text(body)
     binary=private/'test'
     subprocess.run(['c++','-std=c++17','-fPIC','-UNDEBUG','-DOVERTE_E2E_FEATURE_TESTS','-DOVERTE_E2E_OPENXR_INPUT_V1=1',
         '-I'+str(ROOT),'-I'+str(private),str(Path(__file__).with_name('lifecycle-gesture-observation-test.cpp')),

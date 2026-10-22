@@ -82,7 +82,7 @@ public:
     void unavailable(const QString& cause) {
         if (!enabled() || !_frame || !_known) { return; }
         if (cause!="focus-out" && cause!="deactivated" && cause!="display-inactive" && cause!="not-registered"
-                && cause!="no-session" && cause!="init-failed" && cause!="sync-failed") { _valid=false;return; }
+                && cause!="no-session" && cause!="init-failed" && cause!="sync-failed" && cause!="vector-query-failed") { _valid=false;return; }
         _known=false;if (frame()) { append("unavailable",_active,cause); }
         // Never clear an original active gesture merely because its source
         // stopped. Only a later real published neutral sample can close it.
@@ -110,6 +110,26 @@ private:
         if (epoch<=0 || epoch<_lastEpoch || elapsed<_lastElapsed || _frame>=9007199254740991ULL) { _valid=false;return false; }
         _lastEpoch=epoch;_lastElapsed=elapsed;++_frame;return true;
     }
+#if defined(Q_OS_UNIX)
+    static bool stableStatus(const struct stat& before,const struct stat& after) {
+        // The layer publishes a mode0600 temporary through rename. An original
+        // descriptor and its current pathname must still name the same complete
+        // file, including nanosecond metadata; reject in-place writes as well.
+        bool times=false;
+#if defined(Q_OS_DARWIN)
+        times=before.st_mtimespec.tv_sec==after.st_mtimespec.tv_sec && before.st_mtimespec.tv_nsec==after.st_mtimespec.tv_nsec
+            && before.st_ctimespec.tv_sec==after.st_ctimespec.tv_sec && before.st_ctimespec.tv_nsec==after.st_ctimespec.tv_nsec;
+#else
+        times=before.st_mtim.tv_sec==after.st_mtim.tv_sec && before.st_mtim.tv_nsec==after.st_mtim.tv_nsec
+            && before.st_ctim.tv_sec==after.st_ctim.tv_sec && before.st_ctim.tv_nsec==after.st_ctim.tv_nsec;
+#endif
+        return times && S_ISREG(before.st_mode) && S_ISREG(after.st_mode) && before.st_mode==after.st_mode
+            && (after.st_mode&0777)==0600 && before.st_uid==after.st_uid && after.st_uid==::geteuid()
+            && before.st_gid==after.st_gid && before.st_nlink==1 && after.st_nlink==1
+            && before.st_dev==after.st_dev && before.st_ino==after.st_ino && before.st_size==after.st_size;
+    }
+    friend struct LifecycleGestureHostBoundary;
+#endif
     QVariantMap stream() const {
         // Original private layer output was written at the actual intercepted
         // OpenXR query. Read its descriptor identity; never grant/ack input here.
@@ -125,10 +145,8 @@ private:
         if (valid) {
             raw.resize(static_cast<int>(before.st_size));qint64 offset{0};
             while (offset<raw.size()) { const auto count=::read(descriptor,raw.data()+offset,raw.size()-offset);if(count<=0){valid=false;break;}offset+=count; }
-            valid=valid && ::fstat(descriptor,&after)==0 && before.st_dev==after.st_dev && before.st_ino==after.st_ino
-                && before.st_size==after.st_size;
-            struct stat current{};valid=valid && ::lstat(path.constData(),&current)==0 && S_ISREG(current.st_mode)
-                && current.st_nlink==1 && current.st_dev==before.st_dev && current.st_ino==before.st_ino;
+            valid=valid && ::fstat(descriptor,&after)==0 && stableStatus(before,after);
+            struct stat current{};valid=valid && ::lstat(path.constData(),&current)==0 && stableStatus(before,current);
         }
         ::close(descriptor);if (!valid) { return {}; }
         QJsonParseError error;const auto document=QJsonDocument::fromJson(raw,&error);

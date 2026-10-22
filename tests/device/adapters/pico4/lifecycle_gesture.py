@@ -19,7 +19,7 @@ VERSION=1
 FILE='feature-lifecycle-gesture.json'
 ACTION='feature-lifecycle-gesture-observe'
 CAUSES={'axis-transition','first-observed-active','action-published','axis-change','action-not-published',
-    'focus-out','deactivated','display-inactive','not-registered','no-session','init-failed','sync-failed'}
+    'focus-out','deactivated','display-inactive','not-registered','no-session','init-failed','sync-failed','vector-query-failed'}
 KINDS={'started','changed','neutral','unavailable','resumed'}
 
 

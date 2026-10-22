@@ -24,7 +24,15 @@ must be fresh independently of a fresh observation query; host monotonic time
 bounds final acceptance even with a frozen device clock.
 
 Overflow, modified/truncated history, replaced plugin lifetime, foreign stream,
-unsafe status file or stale current frame fail closed. Unavailability is never
+unsafe status file or stale current frame fail closed.
+The original Pico `getVector2f()` failure returns `isActive=false`, so it already
+invalidates publication; the dedicated success flag additionally preserves the
+explicit `vector-query-failed` cause without normalizing failure into neutral.
+The native host fixture executes that original function body, including its
+actual unsuccessful-result branch. Status admission compares descriptor and
+pathname device/inode, full mode, UID/GID, link count, size and original
+mtime/ctime nanoseconds before/after reading. The actual layer writer uses a
+private temporary plus rename; in-place changes are rejected too. Unavailability is never
 neutral. Native status retains its original last applied vector through neutral
 windows; neutral comes from the client's published axes, not a rewritten receipt.
 
