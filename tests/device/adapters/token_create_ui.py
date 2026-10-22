@@ -242,5 +242,5 @@ class TokenCreateUI:
         need(action in {'undo','redo'});self.input('create.'+action)
     def import_entities(self,url):
         from create_observation import owned_url
-        owned_url(url,{'entities.json'});self.tab(4);self.choose('create.import-host',1)
+        owned_url(url,{'entities.json','missing.json'});self.tab(4);self.choose('create.import-host',1)
         self.replace('create.import-url',url);self.reveal('create.import-submit');self.input('create.import-submit')

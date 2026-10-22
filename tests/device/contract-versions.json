@@ -1,6 +1,7 @@
 {
   "schemaVersion": 1,
   "contracts": {
+    "pico-create-management": {"current": 1, "reads": [1]},
     "pico-graphics-feature-binding": {"current": 1, "reads": [1]},
     "graphics-journey-feature": {"current": 1, "reads": [1]},
     "graphics-journey-lifetime": {"current": 1, "reads": [1]},
