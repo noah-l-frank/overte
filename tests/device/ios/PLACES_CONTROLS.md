@@ -43,7 +43,8 @@ ignored ACKs and root replacement at delivery. Native code is uncompiled and
 devices are untested. These simulations qualify component logic only.
 
 The passive [bookmark source](LOCATION_BOOKMARKS.md) now supplies independent
-loaded entries and original persistence bytes. The full area still needs their
+loaded entries and original persistence bytes. The [model source](PLACES_MODEL.md)
+separately reads the actual lists and retained QML queues. The full area still needs their
 whole-journey owner, actual directory-response consumer/protocol proof, actual arrival/pose/images,
 an independent publisher, restart and retained-callback/quiet retirement. The
 existing named-lookup error reply reader and server delivery receipts cannot

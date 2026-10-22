@@ -555,6 +555,12 @@ class FixtureState:
             try:bookmarks_command(command)
             except (ValueError,RuntimeError):raise ValueError("invalid iOS location bookmarks request") from None
             valid=True
+        elif action == "feature-ios-places-model":
+            sys.path.insert(0,str(ROOT.parent))
+            from ios.adapters.places_model import command as places_model_command
+            try:places_model_command(command)
+            except (ValueError,RuntimeError):raise ValueError("invalid iOS Places model request") from None
+            valid=True
         elif action == "feature-web-dom-observe":
             sys.path.insert(0,str(ROOT.parent))
             from adapters.native_web_dom import command as web_dom_command

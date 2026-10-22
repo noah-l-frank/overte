@@ -41,6 +41,7 @@ from ios.adapters.web_closures import IOSWebClosures, FILE as WEB_CLOSURES_FILE,
 from ios.adapters.bundle_observation import NativeBundleObservation, FILE as BUNDLE_FILE, command as bundle_command
 from ios.adapters.location_bookmarks import (IOSLocationBookmarks,FILE as BOOKMARKS_FILE,LIMIT as BOOKMARKS_LIMIT,
     command as bookmarks_command)
+from ios.adapters.places_model import IOSPlacesModel,FILE as PLACES_MODEL_FILE,LIMIT as PLACES_MODEL_LIMIT,command as places_model_command
 from adapters.private_login_input import command as private_input_command
 from adapters.native_account_origin import (NativeAccountOrigin, OwnedAccountOrigin, FILE as ACCOUNT_ORIGIN_FILE,
     command as account_origin_command)
@@ -124,6 +125,7 @@ class FeatureObservation:
         elif command.get('action')=='feature-chat-view-observe':chat_view_command(command,ios=True)
         elif command.get('action')=='feature-ios-web-closures':web_closures_command(command)
         elif command.get('action')=='feature-ios-location-bookmarks':bookmarks_command(command)
+        elif command.get('action')=='feature-ios-places-model':places_model_command(command)
         elif command.get('action')=='feature-web-dom-observe':web_dom_command(command,ios=True)
         elif command.get('action')=='feature-pending-commit-owner':pending_owner_command(command,ios=True)
         elif command.get('action')=='feature-navigation-replies':navigation_replies_command(command,ios=True)
@@ -247,6 +249,13 @@ class FeatureObservation:
         if clock_source is None:clock_source=self.native_observer()
         def clock():return clock_source.read(clock_source.sequence)['capturedEpochMs']
         return IOSLocationBookmarks(self.send,lambda:self.original(remote=remote,limit=BOOKMARKS_LIMIT),
+            clock,self.guard,self.process['pid'],monotonic=self.monotonic,sleep=self.sleep)
+
+    def places_model(self,clock_source=None):
+        self.guard();remote=self.remote.rsplit('/',1)[0]+'/'+PLACES_MODEL_FILE
+        if clock_source is None:clock_source=self.native_observer()
+        def clock():return clock_source.read(clock_source.sequence)['capturedEpochMs']
+        return IOSPlacesModel(self.send,lambda:self.original(remote=remote,limit=PLACES_MODEL_LIMIT),
             clock,self.guard,self.process['pid'],monotonic=self.monotonic,sleep=self.sleep)
 
     def navigation_replies(self):

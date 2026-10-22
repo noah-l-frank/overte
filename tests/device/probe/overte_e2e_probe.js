@@ -144,6 +144,7 @@
     var lastWorldRenderRequest = "";
     var lastGraphicsSubjectRequest = "";
     var lastIOSLocationBookmarksRequest = "";
+    var lastIOSPlacesModelRequest = "";
     var lastSceneLoadRequest = "";
     var lastWorldRenderStorageCommand = "";
     var lastWorldRenderReceiptCommand = "";
@@ -1061,6 +1062,24 @@
                 } catch (_bundleReadError) { /* No paths or archive expectations are exported. */ }
                 if (installedBundle.status !== "pending") { lastIOSBundleDone=command.commandId; }
                 Test.saveObject(installedBundle,"ios-installed-bundle-observation.json");
+            }
+            return;
+        }
+        if (command && command.action === "feature-ios-places-model") {
+            if (command.schemaVersion === 1 && typeof command.commandId === "string"
+                    && /^ios-[0-9a-f]{32}$/.test(command.commandId) && command.commandId.length === 36
+                    && typeof command.runId === "string" && /^[0-9a-f]{32}$/.test(command.runId) && command.runId.length === 32
+                    && objectKeysMatch(command,["schemaVersion","commandId","action","runId"])) {
+                if (command.commandId === lastIOSPlacesModelRequest) { return; }
+                lastIOSPlacesModelRequest=command.commandId;
+                var placesModel={iosPlacesModelVersion:1,requestId:command.commandId,status:"unavailable"};
+                try {
+                    if (typeof Test.featureIOSPlacesModel === "function") {
+                        var originalModel=Test.featureIOSPlacesModel(command);
+                        if (originalModel && originalModel.requestId === command.commandId) { placesModel=originalModel; }
+                    }
+                } catch (_placesModelError) { /* Missing model is not an empty list or a drained queue. */ }
+                Test.saveObject(placesModel,"feature-ios-places-model.json");
             }
             return;
         }
