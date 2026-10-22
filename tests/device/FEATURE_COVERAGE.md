@@ -86,26 +86,38 @@ Version 8 corrects Create model creation versus JSON import, adds real picker
 observations/rez retry and requires actual export-tree DataVersion 0 plus the
 pinned `checker.png` texture slot.
 The shared original-token Create input recipe now has Phone/Pico/iOS component
-transports on their separate local branches; see the [current handoff](FEATURE_ADAPTER_HANDOFF.md#original-create-input-components-v1). Full-area statuses below remain unchanged.
-Existing adapters may cover portions of the reused foundations; none is claimed
-to implement the new complete area contract.
+transports on their separate local branches; see the [current handoff](FEATURE_ADAPTER_HANDOFF.md#original-create-input-components-v1).
+The table records this checkout's current source status. Other platform sessions
+and their branches are outside this Android Phone continuation.
 
 | Area | Existing common modules retained | Added shared user flows | Required additional evidence | Status |
 | --- | --- | --- | --- | --- |
 | world-navigation | `domain-enter`, `domain-roundtrip`, `places-navigation`, `look`, `move`, `input-neutral`, `collision`, `jump`, `fly`, `scene-reload` | Cancelled bookmark add/rename, CRUD/restart durability, actual empty/unmatched/owned query models, recreated pages and original named-404/native-modal recovery. | changed, image, peer | Phone adapter source implemented; full host composition and partial Qt6 native check; Android/device untested. [Details](adapters/android-phone/WORLD_NAVIGATION_FEATURE.md) |
 | authentication | No prior feature journey | Invalid login; close/reopen a pending view; real restart before valid old-grant release; successful login/restart and native logout; separate fixture revocation. | peer | Logic present; Phone adapter implemented (native uncompiled); Pico/iOS adapter missing; all devices untested |
 | avatar-people | `multi-user` | Actual loaded/requested avatar, Model wearable, native load failure and bookmark recovery; mutual contact consent/cancel/reject/removal. | changed, image, peer | Logic present; adapter missing; device untested |
-| create | `create-management`, `entity-sync`, `world-interaction` | Model URL/texture/voxel creation/edit, real entity-JSON picker cancellation/import, exact-slot original export and rez denial/retry. | changed, file, image, peer | Logic present; adapter missing; device untested |
+| create | `create-management`, `entity-sync`, `world-interaction` | Model URL/texture/voxel creation/edit, real entity-JSON picker cancellation/import, exact-slot original export and rez denial/retry. | changed, file, image, peer | Logic present; Phone original sources/files/rez fixture implemented; complete public adapter in progress; device untested. [Details](adapters/android-phone/CREATE_FEATURE.md) |
 | emotes | No prior feature journey | Ten actual native overrides, nine automatic completions, all observed Sit variants, chooser lifetime, early restoration and resume. | changed, image, file, peer | Logic present; Phone public paths composed; full normal-journey verification pending; native uncompiled; device untested |
-| world-web | `world-web-video` | Real text/bridge, foreign origin rejection, navigation/Back, 404/reload and background resume. | changed, image, peer | Logic present; adapter missing; device untested |
+| world-web | `world-web-video` | Real text/bridge, foreign origin rejection, navigation/Back, 404/reload and background resume. | changed, image, peer | Phone adapter source implemented including mandatory video foundation; common journey and partial native/Java/JNI checks pass; complete Android build/device untested. [Details](adapters/android-phone/WORLD_WEB_FEATURE.md) |
 | graphics | `render-health` | Immediate resolution/Haze/Mirrors, actual completed-frame/pass effects, close/restart durability and measured original restoration. | changed, image | Logic present; Phone adapter implemented (native uncompiled); Pico/iOS adapter missing; all devices untested |
 | audio | `audio-controls`, `permission-recovery`, `sound-playback`, `voice-roundtrip` | Automatic memory capture/play/drain/completion, real cancel, muted rejection/cancel and background cancellation; OS permissions remain in the composed foundation. | audio, file, peer, silence | Logic present; adapter missing; device untested |
 | chat | `text-input` | Unicode send/receive, cancelled draft, actual Local/Domain histories, distant Local rejection, history reopen, no-mixer local echo and explicit retyped resend. | peer | Logic present; adapter missing; device untested |
-| snapshots | `snapshot-output-parity` | Actual pending-cancel history; Photos Save denial with successful private capture; measured Save backend, original Save/share/upload bytes, system-sheet cancellation and resume. | file, image, peer | Logic present; adapter missing; device untested |
+| snapshots | `snapshot-output-parity` | Actual pending-cancel history; Photos Save denial with successful private capture; measured Save backend, original Save/share/upload bytes, system-sheet cancellation and resume. | file, image, peer | Logic present; Phone original native/Review sources implemented; complete public adapter missing; device untested. [Details](adapters/android-phone/SNAPSHOT_FEATURE.md) |
 | scripts | `scripts-management`, `scripted-entity` | File-bundle execution; actual mobile restart/three-second absence; separate normal reopen/cancel/reimport; current native/UI URL failure and complete cleanup. Separate existing entity-script consent remains. | peer | Logic present; Phone adapter implemented (native uncompiled); Pico/iOS adapter missing; all devices untested |
 | assets | `asset-load` | glTF/OBJ bundle paths and folder rename, real FBX bake disable/enable, Add to World, disabled Delete, vanished selected file and picker cancellation. | changed, file, image, peer | Logic present; adapter missing; device untested |
 | lifecycle-input | `lifecycle-under-load`, `tablet-input-isolation`, `text-input` | Distinct editor contexts/drafts, actual page Back/resume, original pending stale input rejection, held world input, stationary release and immutable counters. | changed, image, peer | Logic present; adapter missing; device untested |
 | tablet-web | `tablet-web-video`, `tablet` | Same browser flows plus ordinary inline app routing and input ownership. | changed, image, peer | Logic present; adapter missing; device untested |
+
+Current Android Phone source integration (2026-10-22): **5/14** complete area
+compositions are implemented and host-verified: world-navigation, authentication,
+graphics, scripts and world-web. The source-only boundary includes the mandatory
+foundations. Emotes remains incomplete after the full common journey exposed an
+idle Stop after automatic completion; its correction is undergoing targeted
+verification. Create, Avatar/People, Tablet Web and Snapshots are in progress.
+Audio, Chat, Assets and Lifecycle/Input still need their complete public owners.
+Missing mandatory capabilities continue to block the aggregate fourteen-area
+suite. Host simulation establishes test logic only. Some native components have
+real host compiler checks; the complete Android client and all devices remain
+unverified. Final shared-Probe source pin regeneration is still pending.
 
 All areas also require fresh product samples, independent baseline/cleanup
 observations, native lifecycle counters and empty owned-resource inventories

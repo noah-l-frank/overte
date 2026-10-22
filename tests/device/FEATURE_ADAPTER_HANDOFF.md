@@ -828,3 +828,29 @@ Unknown/partial ownership, late work, changed phase/candidate and failed parent
 proof retention stay red. Existing source/input original kinds remain closed.
 Independent current input/Rig/image/actor and whole-feature coordination remain
 required; the complete Phone count stays 3/14 and native source is uncompiled.
+
+## Android Phone integration continuation (2026-10-22)
+
+The current [coverage matrix](FEATURE_COVERAGE.md) supersedes the historical
+three-area progress counts above: five complete Phone source/host compositions
+are now integrated. [World Navigation](adapters/android-phone/WORLD_NAVIGATION_FEATURE.md)
+includes the common 17-checkpoint journey, real native Places/modal boundaries,
+independent publication and guarded cleanup. [World Web](adapters/android-phone/WORLD_WEB_FEATURE.md)
+includes its complete common journey and [mandatory reference-video foundation](adapters/android-phone/WEB_REFERENCE.md),
+normal pointer/IME input, independent original pixels and native/Java retirement.
+
+[Create](adapters/android-phone/CREATE_FEATURE.md) now has owned input/output
+files, controlled actual domain rez settings/restoration and original model,
+texture, entity lifetime and voxel sources. Cross-thread observations use
+dedicated mutex-protected snapshots from their original producer boundaries.
+Its full public composition is still in progress. [Snapshots](adapters/android-phone/SNAPSHOT_FEATURE.md)
+has a versioned original capture/upload and native-review source, alongside the
+existing five-mode output foundation; external destination/receiver/upload
+evidence and the extended public owner are still missing. Emotes is not complete:
+the full common test found an idle-Stop composition defect after automatic
+completion, and targeted correction is in progress.
+
+Native Qt, Java and JNI checks cover the documented component boundaries only.
+No complete Android client build or device acceptance is claimed. Shared Probe
+changes require centrally regenerating the Emote admission catalog from the
+final integrated source commit before its actual admission can be enabled.
