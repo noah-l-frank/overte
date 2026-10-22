@@ -60,7 +60,13 @@ public:
     std::function<void()>onSelf,onMixer;
 };
 QSharedPointer<NodeList> nodes;
-class DependencyManager{public:template<class T>static QSharedPointer<T>get(){return nodes;}};
+class DependencyManager {
+public:
+    static int reads;
+    template<class T>static bool isSet(){return !nodes.isNull();}
+    template<class T>static QSharedPointer<T>get(){++reads;return nodes;}
+};
+int DependencyManager::reads{0};
 class MessagesClient:public QObject {
 public:QVariantMap featureChatObservation(const QVariantMap& command);overte::e2e::ChatObservation _featureChat;
 };
@@ -88,8 +94,10 @@ int main(int argc,char** argv) {
     assert(disconnected.value("connected")==false && disconnected.value("domainSha256")==QString()
         && disconnected.value("connectionBirth")==QString() && disconnected.value("connectedEpochMs").toLongLong()==0);
 
+    MessagesClient messages;
+    assert(!nodes && messages.featureChatObservation({}).isEmpty() && !nodes && DependencyManager::reads==0);
     nodes.reset(new NodeList);nodes->domain.setUUID(original);nodes->domain.setIsConnected(true);
-    MessagesClient messages;auto command=[&](QString operation){return QVariantMap{{"schemaVersion",1},
+    auto command=[&](QString operation){return QVariantMap{{"schemaVersion",1},
         {"commandId",QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-')},{"runId",run},{"action","feature-chat-observe"},{"operation",operation}};};
     const auto received=messages.featureChatObservation(command("observe"));assert(received.value("chatVersion")==2);
     const auto session=received.value("source").toMap().value("session").toMap();assert(session.value("domainSha256")==expected);
@@ -103,7 +111,9 @@ int main(int argc,char** argv) {
     nodes->mixer.reset(new FakeNode);int lookups{0};nodes->onMixer=[&]{if(++lookups==2)nodes->mixer.reset(new FakeNode);};
     assert(messages.featureChatObservation(command("inspect")).isEmpty());nodes->onMixer={};
     overte::e2e::ChatDomainSession badThread;badThread.changed(original,true,false);assert(badThread.snapshot(run).isEmpty());
-    nodes.clear();
+    nodes.clear();const auto reads=DependencyManager::reads;
+    assert(messages.featureChatObservation(command("inspect")).isEmpty());
+    assert(!nodes && DependencyManager::reads==reads);
 }
 #include "test.moc"
 '''
