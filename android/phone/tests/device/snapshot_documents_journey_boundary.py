@@ -269,7 +269,7 @@ class DocumentsJourneyBoundary:
         rb['jobs'].append(dict(id=job,request=request,phase='complete',startedEpochMs=doc['writeClosedEpochMs'],completedEpochMs=self.model.now(),original=deepcopy(original)));rb['jobs'].sort(key=lambda row:row['id'])
         rb['destinations'].append(dict(request=request,uri=doc['uri'],inserted=False,published=True));rb['destinations'].sort(key=lambda row:row['request'])
         identity={key:doc[key] for key in ('uri','displayName','device','inode','documentId','createUid','createdEpochMs')}
-        identity.update(providerUid=PROVIDER_UID,ownerPackage=PACKAGE,providerPackage=PACKAGE,storage='documents',runId=self.provider.run,armId=self.provider.arm,providerInstance=self.provider.observe(self.provider.run,uuid.uuid4().hex)['instance'])
+        identity.update(providerUid=PROVIDER_UID,ownerPackage=PACKAGE,providerPackage=PACKAGE,storage='documents',runId=doc['runId'],armId=doc['armId'],providerInstance=doc['providerInstance'])
         row=dict(request=request,inserted=False,phase='qualified',identity=identity,original={key:original[key] for key in ('bytes','sha256')},acquiredEpochMs=self.model.now(),deleteId='',deleteIssued=False,deleteCount=-1,checkedEpochMs=0,absent=False)
         rb['osDestinations']['rows'].append(row);rb['osDestinations']['rows'].sort(key=lambda row:row['request']);self.os_rows[request]=row
 

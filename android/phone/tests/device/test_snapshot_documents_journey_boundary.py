@@ -250,6 +250,23 @@ class SnapshotDocumentsJourneyTests(unittest.TestCase):
                     boundary.provider.control('retire',RUN);self.assertTrue(boundary.provider.observe(RUN,uuid.uuid4().hex)['workersTerminated'])
                 finally:boundary.close()
 
+    def test_lost_delete_reply_recovers_from_original_absence_without_second_delete(self):
+        doc=self.save();row=self.model.readbacks['osDestinations']['rows'][-1];id=uuid.uuid4().hex
+        request=dict(operation='remove-destination',exportRequest=row['request'],resourceId=id)
+        original=self.boundary.provider.call;lost=[True]
+        def interrupted(operation,*args):
+            result=original(operation,*args)
+            if operation=='delete' and lost[0]:lost[0]=False;raise RuntimeError('Explicit lost reply after actual original unlink')
+            return result
+        self.boundary.provider.call=interrupted
+        with self.assertRaises(RuntimeError):self.model.readback_source(request)
+        self.assertTrue(row['deleteIssued']);self.assertFalse(row['absent'])
+        reply=self.model.readback_source(request);validate_readbacks(reply)
+        actual=self.owner.observe()['documents'][-1]
+        self.assertTrue(actual['absent']);self.assertEqual(1,actual['deleteCalls']);self.assertEqual(1,len([call for call in self.boundary.provider.calls if call[0]=='delete']))
+        with self.assertRaises(RuntimeError):self.model.readback_source(dict(request,resourceId=uuid.uuid4().hex))
+        self.model.readback_source(dict(operation='retire-copies',exportRequest='',resourceId=''));self.owner.control('retire');self.owner.require_retired()
+
     def test_actual_provider_exit_prevents_fresh_original_acquisition(self):
         self.save();self.boundary.close();self.assertIsNotNone(self.boundary.provider.process.returncode)
         with self.assertRaises(NativeUIError):self.owner.observe()
