@@ -926,7 +926,8 @@ class FeatureJourneys(unittest.TestCase):
             boundary=Boundary('snapshots',snapshot_backend=backend);boundary.state['savePermission']=permission
             with self.subTest(backend=backend),self.assertRaises((ValueError,AssertionError)):boundary.execute()
             self.assertFalse(any(op.endswith('.act') for op,_ in boundary.actions))
-            self.assertFalse(boundary.reports[-1]['cleanupEnabled'])
+            self.assertTrue(boundary.reports[-1]['cleanupEnabled'])
+            self.assertFalse(boundary.reports[-1]['cleanupSucceeded'])
 
     def test_snapshot_system_ui_uses_real_monotonic_settled_counters_without_restarts(self):
         boundary=Boundary('snapshots');original=boundary.reduce
@@ -1116,6 +1117,41 @@ class FeatureJourneys(unittest.TestCase):
                 boundary.observe = observe
                 with self.assertRaises(AssertionError): boundary.execute()
                 self.assertFalse(boundary.reports[0]['sequenceCompleted'])
+
+    def test_failed_snapshot_bootstrap_restores_only_owned_setup_before_fixture_close(self):
+        for ignored in (False,True):
+            with self.subTest(ignored=ignored),tempfile.TemporaryDirectory(prefix='snapshot-bootstrap-owner-') as folder:
+                owned=Path(folder)/'owned-lease';boundary=Boundary('snapshots',snapshot_backend='media-store')
+                invoke=boundary.invoke;reads=[];calls=[]
+                def failed(operation,fields):
+                    if operation.endswith('.observe'):
+                        reads.append(operation);owned.write_bytes(b'original owned bootstrap lease')
+                        raise ValueError('Original Snapshot bootstrap acquisition failed')
+                    if operation.endswith('.cleanup'):
+                        calls.append(operation)
+                        self.assertTrue(boundary.journal.phase(RUN,secrets.token_hex(16))['active'])
+                        if not ignored:owned.unlink(missing_ok=True)
+                    return invoke(operation,fields)
+                boundary.invoke=failed
+                with self.assertRaisesRegex(ValueError,'Original Snapshot bootstrap acquisition failed'):boundary.execute()
+                self.assertEqual(1,len(reads));self.assertEqual(2,len(calls));self.assertEqual(ignored,owned.exists())
+                self.assertFalse(any(operation.endswith('.act') for operation,_ in boundary.actions))
+                report=boundary.reports[-1];self.assertTrue(report['cleanupEnabled'])
+                # Even actual host restoration cannot manufacture a qualified
+                # baseline or a passing verdict after the initial source failed.
+                self.assertFalse(report['cleanupSucceeded']);self.assertFalse(report['sequenceCompleted'])
+
+    def test_failed_snapshot_bootstrap_keeps_original_error_when_restoration_is_incomplete(self):
+        boundary=Boundary('snapshots',snapshot_backend='document-picker');calls=[]
+        def failed(operation,fields):
+            if operation.endswith('.observe'):raise ValueError('Original Snapshot bootstrap error')
+            if operation.endswith('.cleanup'):
+                calls.append(operation);raise RuntimeError('Original owned lease still unresolved')
+            self.fail('A failed bootstrap must issue no product action')
+        boundary.invoke=failed
+        with self.assertRaisesRegex(ValueError,'Original Snapshot bootstrap error'):boundary.execute()
+        self.assertEqual(1,len(calls));self.assertTrue(boundary.reports[-1]['cleanupEnabled'])
+        self.assertFalse(boundary.reports[-1]['cleanupSucceeded']);self.assertFalse(boundary.reports[-1]['sequenceCompleted'])
 
     def test_failed_emote_bootstrap_attempts_owned_cleanup_without_inventing_a_baseline_verdict(self):
         boundary=Boundary('emotes');invoke=boundary.invoke;observations=[]

@@ -335,12 +335,12 @@ class Journey:
             initial = secrets.token_hex(16)
             self.activate(initial)
             barrier = number(self.epoch_ms(), 1)
-            # Phone Emote and Navigation baseline acquisition own normal setup.
+            # Some baselines acquire original owned resources before qualification.
             # Even a failed first observation can leave partial owned resources.
-            # Its cleanup operation distinguishes issued/unissued ownership and
+            # Their cleanup operations distinguish issued/unissued ownership and
             # never dismisses an unowned initial tablet. Attempt restoration
             # while fixture authority is still active, preserving the failure.
-            if self.area in ('emotes','world-navigation','avatar-people'):cleanup_enabled=True
+            if self.area in ('emotes','world-navigation','avatar-people','snapshots'):cleanup_enabled=True
             if measured:
                 candidate = self.observe(initial, barrier)
                 if not matches({key: candidate['state'][key] for key in expected_baseline if key not in measured},

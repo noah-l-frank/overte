@@ -56,6 +56,16 @@ restart the application; the module retains its independently read process
 identity and foreground guards. Audio retains its one documented normal cleanup
 restart before fixture closure; no second restart is allowed afterwards.
 
+Snapshot bootstrap may acquire original settings, private files or a provider
+arm before its first observation qualifies. Like the other setup-owning areas,
+it attempts normal cleanup while the original fixture is still active even
+when that first observation fails. The adapter must distinguish durable issued
+ownership from an untouched or foreign initial UI; it may restore only its
+proven resources. No new baseline observation follows a failed bootstrap, and
+restoration acknowledgments cannot set `cleanupSucceeded` or qualify a product
+result without an independently established original baseline. A failed cleanup
+retains its unresolved owner and never replaces the original bootstrap error.
+
 Failure during the original journey remains a failure even if retirement
 succeeds. Failed closure/retirement remains red and retains unresolved owners.
 An unused owner is not created after preparation failure. Historical v17
