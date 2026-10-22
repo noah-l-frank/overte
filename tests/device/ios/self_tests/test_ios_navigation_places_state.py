@@ -66,6 +66,7 @@ class Harness:
         model['tabletShown']=panel;page=model['roots'][0]
         page.update(search=query,bookmarkAddresses=deepcopy(self.bookmarks.loaded),active=panel,visible=panel,popup='none',serverDraft='')
         page['lists']['places'].update(visible=panel,rows=filter_rows(page['records'],query))
+        page['lists']['bookmarks']['visible']=False
         self.bookmarks.clock=self.http.clock+.001
         saved=self.bookmarks.reader().read(RUN);self.http.clock=self.bookmarks.clock+.001
         native=self.http.reader().read(RUN);self.http.clock+=.001
@@ -120,6 +121,17 @@ class NavigationPlacesStateTests(unittest.TestCase):
             self.assertTrue(fields['bookmark']);self.assertEqual(name,fields['bookmarkName'])
         h.save({'saved':'hifi://unowned'});self.assertFalse(h.project(h.read())['fields']['bookmark'])
         self.assertEqual({'saved':'hifi://unowned'},json.loads(h.bookmarks.path.read_text()))
+
+    def test_bookmark_tab_retains_actual_hidden_directory_model_without_an_input_token(self):
+        h=self.harness();originals,_clock=h.read(query=h.ctx['hidden']);page=originals['model']['roots'][0]
+        page['tab']=1;page['lists']['places']['visible']=False;page['lists']['bookmarks']['visible']=True
+        originals['ui']['controls']=originals['ui']['controls'][:1]
+        actual=h.project((originals,join(originals)))['fields']
+        self.assertEqual(h.ctx['hidden'],actual['searchQuery']);self.assertEqual([],actual['searchResults'])
+        page['lists']['places']['rows']=deepcopy(h.proof['originals']['model']['roots'][0]['lists']['places']['rows'])
+        self.assertEqual([h.ctx['destination']],h.project((originals,join(originals)))['fields']['searchResults'])
+        originals['ui']['controls'].append(dict(row('places.search'),frame=dict(x=10,y=20,width=300,height=40)))
+        with self.assertRaises(NativeUIError):h.project((originals,join(originals)))
 
     def test_cancelled_or_ignored_input_uses_unchanged_storage_and_not_the_draft(self):
         h=self.harness();self.assertFalse(h.project(h.read())['fields']['bookmark'])

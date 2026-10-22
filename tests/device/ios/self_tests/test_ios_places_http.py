@@ -65,7 +65,7 @@ class Boundary(Clocks):
         self.last=deepcopy(value);return json.dumps(value)
     def reader(self):return http.IOSPlacesHttp(self.send,self.original,self.native_clock,lambda:self.live,42,
         monotonic=lambda:self.clock,sleep=self.sleep)
-    def model(self,raw,*,origin=ORIGIN,run=RUN):
+    def model(self,raw,*,origin=ORIGIN,run=RUN,query=''):
         # Execute untouched original JS filtering and QML materialization.
         script=ROOT/'scripts/system/places/places.js';qml=ROOT/'scripts/system/places/PicoPlaces.qml'
         program=r'''
@@ -77,12 +77,12 @@ const p={Window:{protocolSignature:()=>process.argv[5]},placesData:input,portalL
  getListFromArray:a=>a.join(','),zeroPad:n=>String(n),aplphabetize:n=>n};
 vm.createContext(p);vm.runInContext(section(fs.readFileSync(process.argv[1],'utf8'),'    function processData(', '    function getPositionFromPath('),p);
 p.processData({order:0,url:process.argv[4],region:'owned'});
-const q={records:p.portalList,search:{text:''},maturityFilter:['everyone'],qsTr:s=>s,
+const q={records:p.portalList,search:{text:process.argv[6]},maturityFilter:['everyone'],qsTr:s=>s,
  placesModel:{clear:()=>rows=[],append:r=>rows.push(r)}};
 vm.createContext(q);vm.runInContext(section(fs.readFileSync(process.argv[2],'utf8'),'    function rebuildPlaces(', '    function toggleMaturity('),q);q.rebuildPlaces();
 process.stdout.write(JSON.stringify({records:p.portalList,rows}));
 '''
-        result=subprocess.run(['node','-e',program,str(script),str(qml),raw.decode(),origin,INPUTS['protocolSignature']],capture_output=True,text=True,timeout=5)
+        result=subprocess.run(['node','-e',program,str(script),str(qml),raw.decode(),origin,INPUTS['protocolSignature'],query],capture_output=True,text=True,timeout=5)
         if result.returncode:raise AssertionError(result.stderr)
         materialized=json.loads(result.stdout);root=page();root['records']=materialized['records'];root['lists']['places']['rows']=materialized['rows']
         self.clock+=.001;before=self.clocks();self.clock+=.001

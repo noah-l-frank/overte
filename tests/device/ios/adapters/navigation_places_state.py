@@ -133,11 +133,19 @@ def compose(run,binding,originals,clock_join,*,baseline,provider_inputs,director
     if fields['panel']:
         need(materialized is not None)
         page=models.join_controls(model,selected)
-        need(page['tab']==0 and page['lists']['places']['visible'] and 'everyone' in page['maturityFilter']
+        need(page['tab'] in (0,1) and page['lists']['places']['visible']==(page['tab']==0)
+             and page['lists']['bookmarks']['visible']==(page['tab']==1) and 'everyone' in page['maturityFilter']
              and same(page['bookmarkAddresses'],actual))
         editors=[row for row in selected['controls'] if row['id']=='places.search']
-        need(len(editors)==1 and editors[0]['rootId']==page['rootId'] and editors[0]['qmlSource']==page['qmlSource']
-             and editors[0]['value']==page['search'] and page['search'] in ('',ctx['name'],ctx['hidden']))
+        need(page['search'] in ('',ctx['name'],ctx['hidden']))
+        if page['tab']==0:
+            need(len(editors)==1 and editors[0]['rootId']==page['rootId'] and editors[0]['qmlSource']==page['qmlSource']
+                 and editors[0]['value']==page['search'])
+        else:
+            # Switching to bookmarks retains the actual QML search buffer and
+            # materialized directory model. The hidden editor has no input
+            # token; its native model original still supplies those facts.
+            need(not editors)
         # A retained genuine response may populate a fresh page. Its original
         # text-read time stays old; current native model/field observations must
         # independently retain that response's exact materialized record.

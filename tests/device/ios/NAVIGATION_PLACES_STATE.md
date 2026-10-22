@@ -40,6 +40,12 @@ incorrect product filtering outcome for the shared checkpoint to reject. Python
 does not implement the filter or substitute expected rows. Closed Places projects
 empty query/results while retaining hidden original roots and text privately.
 
+The open bookmark tab retains its actual native QML search buffer and directory
+model. Those unchanged model fields still supply query/results while the search
+editor has no input token. The directory tab requires matching visible editor
+text; both tabs require their actual list visibility to agree with the selected
+tab. An incorrect retained filtering result stays visible to the checkpoint.
+
 The first normal directory refresh creates an
 `iosNavigationDirectoryProofVersion: 1` record through `directory_proof`. Its
 original server body receipt, native actual text-read/callback and materialized

@@ -74,3 +74,12 @@ clock. Ignored opening cannot trigger a directory request or image; a genuine
 response predating the actual open and a changed in-memory action original
 cannot establish first-refresh ownership. These tests do not admit a whole
 Worlds capability or claim device execution.
+
+The connected fixture also routes real Places token commands through the same
+native input counter and actual loaded/persisted bookmark producer. Complete
+cancel, add, rename and search steps now run through the coordinator and fresh
+source/image owners. Search materialization executes the unchanged original
+JavaScript/QML against the actual retained HTTP body. An ignored tab input
+retains its issued journal across reconstruction without saving a bookmark or
+repeating delivery. No frozen admission/source packet is rewritten to connect
+these paths. Restart, missing-lookup and final restoration joins remain partial.

@@ -49,22 +49,15 @@ class Whole:
         self.sdk.native_boundary.sequence=f.f.admission.native.sequence
         self.fetch_directory=True
         inventory=f.h.fixture.inventory
+        self.inventory,self.run_source=inventory,run_source
         def loads(value):
             value['source']['sceneLoads'].update(currentGeneration=inventory.generation,requests=deepcopy(inventory.loads))
         self.sdk.navigation.mutate=loads
         original_call=f.b.call
         def ordinary(method,path,body=None):
-            was=f.b.screen;url_before=f.b.current
+            was=f.b.screen
             result=original_call(method,path,body)
-            if f.b.current.startswith(self.harness.inputs['sceneUrl']):
-                if f.b.current!=url_before:
-                    _status,raw,_response=self.harness.get('/navigation/scene.json')
-                    inventory.clock=self.sdk.gpu.clock;inventory.url=f.b.current;inventory.body=raw
-                    inventory.raw={row['id'].strip('{}'):json.dumps(row,sort_keys=True).encode() for row in json.loads(raw)['Entities']}
-                    inventory.revision=inventory.after_revision=3;inventory.commit()
-                self.sdk.navigation.url=f.b.current
-                self.sdk.navigation.source=deepcopy(run_source)
-                self.sdk.navigation.source['sceneUrl']=f.b.current
+            self.sync_navigation()
             if was!='places' and f.b.screen=='places' and not f.f.ignore_places and self.fetch_directory:
                 self.materialize()
             return result
@@ -100,6 +93,20 @@ class Whole:
         f.b.observed=ui
         self.native=self.sdk.native();self.navigation=self.sdk.navigation.reader()
         f.runtime._navigation_observer=lambda _selector,_client,_run,role,_stage,_root,_lock:self.observer(role,lock=_lock)
+        from ios.self_tests.navigation_feature_places_fixture import PlacesWidget
+        self.widget=PlacesWidget(self,test)
+
+    def sync_navigation(self):
+        current=self.flow_fixture.b.current
+        if not current.startswith(self.harness.inputs['sceneUrl']):return
+        inventory=self.inventory
+        if inventory.url!=current:
+            _status,raw,_response=self.harness.get('/navigation/scene.json')
+            inventory.clock=self.sdk.gpu.clock;inventory.url=current;inventory.body=raw
+            inventory.raw={row['id'].strip('{}'):json.dumps(row,sort_keys=True).encode() for row in json.loads(raw)['Entities']}
+            inventory.revision=inventory.after_revision=3;inventory.commit()
+        self.sdk.navigation.url=current;self.sdk.navigation.source=deepcopy(self.run_source)
+        self.sdk.navigation.source['sceneUrl']=current
 
     def observer(self,role='primary',*,lock=None):
         lock=self.lock if lock is None else lock
@@ -132,3 +139,4 @@ class Whole:
         page.update(bookmarkAddresses={},popup='none',serverDraft='')
         page['lists']['bookmarks']['rows']=[]
         self.model.pages=[page];self.model.shown=True
+        if hasattr(self,'widget'):self.widget.materialized(raw,page)
