@@ -1,0 +1,262 @@
+"""Durable ownership of actual Tablet source queries and immutable raw replies.
+
+Each existing reader still owns its native grammar and freshness checks. This
+owner retains actual matching replies, including accepted pending originals,
+before interpretation. An unknown query return is never resent.
+"""
+# Copyright 2026 Overte contributors.
+# SPDX-License-Identifier: Apache-2.0
+from copy import deepcopy
+import json
+import os
+from pathlib import Path
+import time
+from adapters.native_feature_observation import decode,exact,integer,need,number
+from adapters.normal_feature_state import PrivateFeatureState,context
+from adapters.normal_ui import NativeUIError
+from adapters.original_frame_store import OriginalFrameStore,MAX_FRAMES
+from adapters.script_feature.history import same,canonical
+from adapters.operation_transport_guard import scope as transport_scope
+from adapters.original_file_reads import record as original_read
+from ios.adapters import tablet_web_source,tablet_web_sources,tablet_web_dom,tablet_web_buttons,tablet_web_state,tablet_web_closures,uikit_input
+from ios.adapters.tablet_web_segments import TabletWebSourceSegments,CHUNK_BYTES,sha
+
+VERSION=1
+COMPONENTS={'trace':tablet_web_source,'sources':tablet_web_sources,'dom':tablet_web_dom,
+    'buttons':tablet_web_buttons,'state':tablet_web_state,'closures':tablet_web_closures,'uikit':uikit_input}
+CAPTURES=128
+
+
+class TabletWebPackets:
+    def __init__(self,root,binding,run,role,fixture_url,pid,component,guard,*,monotonic=time.monotonic,epoch_ms=lambda:int(time.time()*1000),historical=False):
+        need(type(component) is str and component in COMPONENTS and integer(pid,1)
+            and type(historical) is bool and all(callable(value) for value in (guard,monotonic,epoch_ms)))
+        self.root=Path(root);self.binding=deepcopy(context(binding));self.run,self.role,self.fixture,self.pid=run,role,fixture_url,pid
+        need(self.binding['processIdentity']==str(pid))
+        self.component,self.module,self.guard,self.monotonic,self.epoch_ms=component,COMPONENTS[component],guard,monotonic,epoch_ms
+        self.historical=historical
+        self.module.command(dict(schemaVersion=1,action=self.module.ACTION,commandId='ios-'+'0'*32,runId=run,fixtureUrl=fixture_url))
+        need(role in ('primary','actor'));self.clock=None
+        self.store=PrivateFeatureState(self.root/('tabletweb-'+component+'-queries-'+run+'-'+role+'.json'))
+        self.segments=TabletWebSourceSegments(root,binding,run,role,component,guard,self.segment_intent,monotonic=monotonic)
+        self.originals=OriginalFrameStore(root,binding,run,role,guard,self.record_intent,
+            namespace='tabletweb-'+component+'-packets',schema_prefix='tabletWebSourcePacket',monotonic=monotonic)
+        self.state=self.store.read()
+        if self.state is None:
+            need(not self.historical)
+            self.state=dict(tabletWebPacketsVersion=VERSION,binding=self.binding,runId=run,role=role,fixtureUrl=fixture_url,
+                processId=pid,component=component,nextRaw=1,records=[],pending=None,recordIntent=None,recordInspection=None)
+            self.store.write(self.state,None)
+        self.saved=deepcopy(self.state);self.history()
+
+    def save(self):
+        need(not self.historical)
+        self.store.write(self.state,self.saved);self.saved=deepcopy(self.state)
+
+    def stamp(self):
+        epoch,mono=self.epoch_ms(),self.monotonic();need(integer(epoch,1) and number(mono,0,1e15))
+        if self.clock is not None:need(epoch>=self.clock['epochMs'] and mono>=self.clock['monotonic'])
+        self.clock=dict(epochMs=epoch,monotonic=mono);return deepcopy(self.clock)
+
+    def segment_intent(self,value):
+        need(not self.historical)
+        pending=self.state['pending'];need(pending is not None and pending['raws'])
+        pending['raws'][-1]['segments']=deepcopy(value);self.save()
+
+    def record_intent(self,kind,value):
+        need(not self.historical)
+        need(kind=='original' and self.state['pending'] is not None)
+        self.state['recordIntent']=deepcopy(value);self.state['recordInspection']=None;self.save()
+
+    def inspect_record(self):
+        ref=self.originals.original(self.state['recordIntent']);path=self.originals.path(ref)
+        if ref['phase']=='planned':need(not os.path.lexists(path));return None
+        descriptor=os.open(path,os.O_RDONLY|getattr(os,'O_NOFOLLOW',0)|getattr(os,'O_NONBLOCK',0))
+        with os.fdopen(descriptor,'rb') as stream:
+            self.originals.file(path,stream.fileno(),ref);raw=stream.read(ref['bytes']+1);self.originals.file(path,stream.fileno(),ref)
+        need(len(raw)<=ref['bytes']);original_read(path)
+        result=dict(bytes=len(raw),sha256=sha(raw),complete=len(raw)==ref['bytes'] and sha(raw)==ref['sha256'])
+        if ref['phase']=='saved':need(result['complete'])
+        return result
+
+    def check_value(self,value,query,previous):
+        self.module.validate(value,query,self.pid)
+        if self.component=='uikit':need(value['iosUIKitInputVersion']==uikit_input.VERSION)
+        if previous is not None:
+            if value['commandId']==previous['commandId']:
+                if self.component=='dom':self.module.continuity(previous,value)
+                else:need(same(previous,value))
+            else:self.module.validate(value,query,self.pid,previous=previous)
+        return value
+
+    def record(self,value,index,previous):
+        exact(value,{'tabletWebSourcePacketVersion','index','before','after','query','sendReturned','status','raws','unsafe','resultSha256'})
+        need(type(value['tabletWebSourcePacketVersion']) is int and value['tabletWebSourcePacketVersion']==VERSION
+            and type(value['index']) is int and value['index']==index and type(value['sendReturned']) is bool
+            and value['status'] in ('preparing','issued','returned','failed','abandoned')
+            and type(value['raws']) is list and len(value['raws'])<=16 and type(value['unsafe']) is list and len(value['unsafe'])<=16)
+        for rejected in value['unsafe']:
+            exact(rejected,{'bytes','sha256'});need(integer(rejected['bytes'],1,self.module.LIMIT)
+                and type(rejected['sha256']) is str and len(rejected['sha256'])==64
+                and all(char in '0123456789abcdef' for char in rejected['sha256']))
+        if value['unsafe']:self.blocked=True
+        def clock(row):
+            exact(row,{'epochMs','monotonic'});need(integer(row['epochMs'],1) and number(row['monotonic'],0,1e15))
+        clock(value['before'])
+        if value['after'] is not None:
+            clock(value['after']);need(value['after']['epochMs']>=value['before']['epochMs'] and value['after']['monotonic']>=value['before']['monotonic'])
+        if value['query'] is None:need(value['status'] in ('preparing','failed','abandoned') and not value['sendReturned'] and not value['raws'] and not value['unsafe'])
+        else:
+            query=self.module.command(value['query']);need(query['runId']==self.run and query['fixtureUrl']==self.fixture)
+        values=[]
+        last_clock=value['before']
+        for row in value['raws']:
+            exact(row,{'before','after','segments','inspection','outcome'});clock(row['before']);clock(row['after'])
+            need(row['outcome'] in ('unchecked','accepted','rejected'))
+            need(last_clock['epochMs']<=row['before']['epochMs']<=row['after']['epochMs']
+                and last_clock['monotonic']<=row['before']['monotonic']<=row['after']['monotonic'])
+            if value['after'] is not None:need(row['after']['epochMs']<=value['after']['epochMs'] and row['after']['monotonic']<=value['after']['monotonic'])
+            last_clock=row['after']
+            self.segments.parent(row['segments']);need(row['segments']['label']==self.component
+                and row['segments']['tag']==sha(canonical(value['query'])))
+            inspection=self.segments.inspect(row['segments'])
+            if row['inspection'] is not None:need(same(self.segments.retained(row['segments'],row['inspection']),inspection))
+            if value['status'] in ('returned','failed','abandoned'):need(row['inspection'] is not None)
+            if len(inspection)!=max(1,(row['segments']['bytes']+CHUNK_BYTES-1)//CHUNK_BYTES) or not all(part is not None and part['complete'] for part in inspection):
+                need(value['status']!='returned' and row['outcome']=='unchecked');continue
+            raw=self.segments.read(row['segments']);need(len(raw)<=self.module.LIMIT)
+            packet=decode(raw.decode('utf-8'),limit=self.module.LIMIT);self.module.original(packet)
+            if self.component=='uikit':need(packet['iosUIKitInputVersion']==uikit_input.VERSION)
+            try:self.check_value(packet,value['query'],previous)
+            except NativeUIError:
+                need(row['outcome']!='accepted');self.blocked=True
+            else:
+                need(row['outcome']!='rejected');previous=packet;values.append(packet)
+        if value['status']=='returned':
+            need(value['after'] is not None and value['sendReturned'] and values
+                and not value['unsafe'] and all(row['outcome']=='accepted' for row in value['raws'])
+                and value['resultSha256']==sha(canonical(values[-1])))
+        else:need(value['resultSha256'] is None)
+        return previous,values
+
+    def history(self):
+        value=self.state
+        exact(value,{'tabletWebPacketsVersion','binding','runId','role','fixtureUrl','processId','component','nextRaw','records','pending','recordIntent','recordInspection'})
+        need(type(value['tabletWebPacketsVersion']) is int and value['tabletWebPacketsVersion']==VERSION and same(value['binding'],self.binding)
+            and value['runId']==self.run and value['role']==self.role and value['fixtureUrl']==self.fixture and type(value['processId']) is int
+            and value['processId']==self.pid and value['component']==self.component and integer(value['nextRaw'],1,MAX_FRAMES+1)
+            and type(value['records']) is list and len(value['records'])<=CAPTURES)
+        self.blocked=False;previous=None;result=[];raw_floor=1;queries=set();capture_clock=None
+        def floor(row):
+            nonlocal raw_floor,capture_clock
+            if capture_clock is not None:need(row['before']['epochMs']>=capture_clock['epochMs'] and row['before']['monotonic']>=capture_clock['monotonic'])
+            capture_clock=row['after'] or (row['raws'][-1]['after'] if row['raws'] else row['before'])
+            if row['query'] is not None:
+                query=row['query']['commandId'];need(query not in queries);queries.add(query)
+            for part in row['raws']:
+                parent=part['segments'];need(parent['first']==raw_floor)
+                raw_floor+=max(1,(parent['bytes']+CHUNK_BYTES-1)//CHUNK_BYTES)
+        for index,ref in enumerate(value['records'],1):
+            original=self.originals.expand(ref);need(original['index']==index)
+            row=self.originals.read(original);need(row['status'] in ('returned','failed','abandoned'))
+            previous,packets=self.record(row,index,previous);result.extend(packets);floor(row)
+        if value['pending'] is not None:
+            need(len(value['records'])<CAPTURES)
+            previous,packets=self.record(value['pending'],len(value['records'])+1,previous);result.extend(packets);floor(value['pending'])
+        need(value['nextRaw']==raw_floor)
+        if value['recordIntent'] is not None:
+            ref=self.originals.original(value['recordIntent']);need(value['pending'] is not None and ref['index']==len(value['records'])+1)
+            inspection=self.inspect_record()
+            if value['recordInspection'] is not None:need(same(inspection,value['recordInspection']))
+        else:need(value['recordInspection'] is None)
+        if capture_clock is not None:
+            self.clock={key:max(capture_clock[key],self.clock[key] if self.clock is not None else capture_clock[key]) for key in capture_clock}
+        return deepcopy(result)
+
+    def archive_pending(self,*,abandon=False):
+        need(not self.historical)
+        self.history();pending=self.state['pending'];need(pending is not None and self.state['recordIntent'] is None)
+        if abandon:
+            need(pending['status']!='returned')
+            for row in pending['raws']:
+                if row['inspection'] is None:row['inspection']=self.segments.inspect(row['segments'])
+            pending.update(status='abandoned',resultSha256=None);self.save()
+        else:need(pending['status'] in ('returned','failed'))
+        ref=self.originals.write(pending['index'],deepcopy(pending))
+        self.state['records'].append(ref);self.state['pending']=self.state['recordIntent']=self.state['recordInspection']=None;self.save();return deepcopy(ref)
+
+    def recover_record(self):
+        need(not self.historical)
+        self.history();ref=self.state['recordIntent'];need(ref is not None and ref['phase'] in ('opened','saved'))
+        row=self.originals.read(ref);need(same(row,self.state['pending']) and row['status'] in ('returned','failed','abandoned'))
+        # Actual complete opened bytes are retained without repeating a write.
+        committed=dict(ref,phase='saved');self.state['records'].append(self.originals.compact(committed))
+        self.state['pending']=self.state['recordIntent']=self.state['recordInspection']=None;self.save();return deepcopy(self.state['records'][-1])
+
+    def capture(self,reader):
+        need(not self.historical)
+        previous=self.history();need(not self.blocked and self.state['pending'] is self.state['recordIntent'] is None and len(self.state['records'])<CAPTURES
+            and reader.pid==self.pid and reader._action==self.module.ACTION and self.guard() is not False)
+        # A fresh reader cannot discard earlier accepted pending/source floors.
+        if previous:
+            need(reader.last is None or same(reader.last,previous[-1]))
+            reader.last=deepcopy(previous[-1])
+            if self.component=='dom':
+                need(reader.accepted is None or same(reader.accepted,previous[-1]));reader.accepted=deepcopy(previous[-1])
+        else:need(reader.last is None and getattr(reader,'accepted',None) is None)
+        pending=dict(tabletWebSourcePacketVersion=VERSION,index=len(self.state['records'])+1,before=self.stamp(),after=None,
+            query=None,sendReturned=False,status='preparing',raws=[],unsafe=[],resultSha256=None)
+        self.state['pending']=pending;self.save();send,original=reader.send,reader.original
+        last=deepcopy(previous[-1]) if previous else None
+        def issued(query):
+            self.module.command(query);need(pending['query'] is None and query['runId']==self.run and query['fixtureUrl']==self.fixture)
+            pending.update(query=deepcopy(query),status='issued');self.save();result=send(query)
+            pending['sendReturned']=True;self.save();return result
+        def received():
+            nonlocal last
+            before=self.stamp();raw=original();after=self.stamp()
+            if not raw:return raw
+            need(type(raw) is str and len(raw.encode())<=self.module.LIMIT)
+            packet=decode(raw,limit=self.module.LIMIT)
+            if type(packet) is not dict or packet.get('commandId')!=pending['query']['commandId']:return raw
+            # Unknown/private grammar must not become a new host artifact.
+            # Standalone typed originals are safe to retain before semantic
+            # process/query/prefix interpretation, including actual rejection.
+            try:
+                self.module.original(packet)
+                if self.component=='uikit':need(packet['iosUIKitInputVersion']==uikit_input.VERSION)
+            except Exception:
+                pending['unsafe'].append(dict(bytes=len(raw.encode()),sha256=sha(raw.encode())));self.save();raise
+            if pending['raws'] and sha(raw.encode())==pending['raws'][-1]['segments']['sha256']:return raw
+            first=self.state['nextRaw'];count=max(1,(len(raw.encode())+CHUNK_BYTES-1)//CHUNK_BYTES)
+            need(first+count-1<=MAX_FRAMES and len(pending['raws'])<16);self.state['nextRaw']+=count
+            pending['raws'].append(dict(before=before,after=after,segments=None,inspection=None,outcome='unchecked'))
+            # segments.write durably reports its planned parent before opening.
+            self.segments.write(self.component,sha(canonical(pending['query'])),raw.encode(),first)
+            pending['raws'][-1]['inspection']=self.segments.inspect(pending['raws'][-1]['segments']);self.save()
+            try:self.check_value(packet,pending['query'],last)
+            except NativeUIError:
+                pending['raws'][-1]['outcome']='rejected';self.save();raise
+            pending['raws'][-1]['outcome']='accepted';self.save()
+            last=deepcopy(packet);return raw
+        reader.send,reader.original=issued,received
+        started=self.monotonic();last_transport=started
+        def transport_guard():
+            nonlocal last_transport
+            now=self.monotonic();need(number(now,last_transport,1e15) and now-started<1.5)
+            last_transport=now;return True
+        try:
+            with transport_scope(transport_guard):value=reader.read(self.run,self.fixture)
+            need(last is not None and same(value,last))
+            pending.update(after=self.stamp(),status='returned',resultSha256=sha(canonical(value)));self.save()
+            self.archive_pending();return deepcopy(value)
+        except Exception:
+            # Do not overwrite an interrupted immutable record-write intent.
+            if self.state['recordIntent'] is None:
+                for row in pending['raws']:
+                    if row['inspection'] is None:row['inspection']=self.segments.inspect(row['segments'])
+                pending.update(after=self.stamp(),status='failed',resultSha256=None);self.save()
+            else:
+                self.state['recordInspection']=self.inspect_record();self.save()
+            raise
+        finally:reader.send,reader.original=send,original
