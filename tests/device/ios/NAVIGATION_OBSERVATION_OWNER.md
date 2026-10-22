@@ -6,6 +6,19 @@ normal UI observation and [original-state composition](NAVIGATION_PRODUCT_STATE.
 It does not send normal user input, publish independent actor facts, admit a
 scene/process replacement or retire a whole run. Worlds remains partial.
 
+`IOSNavigationRuntime._navigation_observation_owner` now constructs this owner
+through the existing `IOSScriptRuntime` candidate/session gate and actual
+HTTP/AFC components. It checks the attached original provider's source revision
+before creating navigation metadata. The outer observer and nested image
+attempt share the same bound native clock reader, navigation reader, private
+source lock and fixture attachment. Typed field readers use independent native
+clock acquisitions; UI snapshots use the original native clock transport.
+Changed artifact bytes, PID, session or provider context prevent further reads.
+The factory cannot create a session, launch/install the app or send an input.
+Role/stage separation names private ownership only; a stage number does not
+establish an actual restart. Whole-run admission must prove that replacement.
+This factory does not expose a complete feature operation or capability.
+
 The private version-1 record is bound to the complete installed candidate,
 run, primary/actor role, process stage, unique request, existing source lock and
 the image index's private directory. It reserves the observation before reading

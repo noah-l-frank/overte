@@ -29,6 +29,9 @@ original outer clock and all eleven accepted sources, links immutable image
 archives and checks the immediate predecessor across field/source histories.
 It resolves only fully retained lost returns without rereading sources. Input,
 runtime admission, publication, restart and whole-run cleanup remain partial.
+Its runtime factory now uses the existing candidate-qualified iOS session,
+original native clocks and typed HTTP/AFC readers without launching or sending
+input. This is source wiring; complete operation dispatch is still required.
 
 The canonical physical source binding and explicit lost-launch recovery have
 host-tested implementations. The native byte observer and SDK plugin remain
