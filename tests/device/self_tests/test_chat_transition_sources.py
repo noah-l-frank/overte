@@ -37,6 +37,20 @@ class TransitionTests(unittest.TestCase):
         self.read(2);self.assertFalse(transition_ready(self.h.samples));self.assertNotIn('state',self.read(3))
         self.h.open('domain');self.read(4);self.assertTrue(transition_ready(self.h.samples))
         self.assertEqual([context(RUN)['reply']],self.h.samples.read('e'*32,20000)['state']['domainMessages'])
+    def test_final_durable_source_write_guard_cannot_hide_native_clock_jump_with_frozen_host(self):
+        delta=0;original=self.h.samples._write
+        def written(value):
+            nonlocal delta
+            original(value)
+            if value['phase']=='ready':delta=2000
+        self.h.samples._write=written
+        self.h.samples.primary.clock_ms=lambda:20000+delta
+        with self.assertRaises(NativeUIError):self.read(1)
+        self.assertEqual(0,self.h.clock);self.assertEqual('ready',self.h.store.read()['phase'])
+        # The original actual frame remains preserved but was never returned as
+        # a fresh current verdict. No old sample is retimed or erased.
+        self.assertEqual(1,len(self.h.samples.frames))
+
     def test_old_mixer_reappearance_and_hidden_storage_shrink_still_fail_and_retain_intent(self):
         self.read(1);self.h.primary.mixer=self.h.peer.mixer=False;self.read(2)
         self.h.primary.mixer=True

@@ -168,6 +168,19 @@ class MixerOwnerTests(unittest.TestCase):
         self.assertEqual(before,self.store.read()['transcript']);self.assertEqual(2,len(self.store.read()['recoverySources']))
         rebuilt=self.make();rebuilt.recover(20000);self.assertEqual(2,len(self.controller.posts))
 
+    def test_last_controller_guard_cannot_age_native_clock_under_frozen_host_time(self):
+        controls=self.owner.controls;calls=0;delta=0
+        def guarded():
+            nonlocal calls,delta
+            calls+=1
+            if calls>=3:delta=2000
+            return True
+        controls[1].guard=guarded
+        for role in self.roles:role.primary.clock_ms=lambda:self.epoch()+delta
+        self.owner.deadline=20
+        with self.assertRaises(NativeUIError):self.owner.measure(20000,transition=False)
+        self.assertEqual(0,self.clock);self.assertEqual([],self.controller.posts)
+
     def test_journal_tampering_and_foreign_controller_cannot_be_adopted_or_send(self):
         self.owner.remove(20000);old=self.store.read();bad=deepcopy(old);bad['commands'][0]['commandId']='0'*32
         self.store.write(bad,old)
@@ -197,6 +210,18 @@ class ControlTests(unittest.TestCase):
         self.controller.mutate=lambda value:value.update(capturedEpochMs=19999)
         with self.assertRaises(NativeUIError) as error:self.make().state()
         self.assertNotIn(TOKEN,str(error.exception))
+    def test_final_guard_wall_clock_jump_is_stale_even_when_host_monotonic_is_frozen(self):
+        source=self.make();wall=20000;calls=0
+        source.clock_ms=lambda:wall
+        def guarded():
+            nonlocal wall,calls
+            calls+=1
+            if calls==2:wall+=2000
+            return True
+        source.guard=guarded
+        with self.assertRaises(NativeUIError):source.state()
+        self.assertIsNone(source.previous);self.assertEqual(0,self.clock)
+
     def test_original_ledger_cannot_regress_rewrite_terminal_or_falsify_fence(self):
         source=self.make();source.state();self.controller.effect=self.controller.apply
         self.controller.apply(dict(commandId='a'*32,runId=RUN,observedGeneration=1,action='online'))
