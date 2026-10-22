@@ -156,6 +156,7 @@ REQUIRED = {
     "ios-places-input": 1,
     "ios-navigation-places-actions": 1,
     "ios-navigation-surface-actions": 1,
+    "ios-navigation-missing-actions": 1,
     "ios-navigation-scene-admission": 1,
     "ios-scene-inventory-acquisition": 1,
     "ios-navigation-sample-owner": 1,

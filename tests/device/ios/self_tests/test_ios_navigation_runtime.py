@@ -46,6 +46,8 @@ class NavigationRuntimeTests(unittest.TestCase):
             self.assertEqual(8,len(owner.sources));self.assertTrue(owner.native.native_clock_bound)
             inputs=self.runtime._navigation_scene_inputs('test-only',owner)
             self.assertIsNone(inputs.store.read());self.assertIs(owner,inputs.admission)
+            missing=self.runtime._navigation_missing_actions('test-only',owner)
+            self.assertIsNone(missing.store.read());self.assertIs(owner,missing.admission)
             self.assertEqual(20000,owner.native.read(0)['capturedEpochMs'])
             self.f.process['pid']=43
             with self.assertRaises((NativeUIError,ValueError)):owner.bound()

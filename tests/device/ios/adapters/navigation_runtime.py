@@ -19,6 +19,7 @@ from ios.adapters.navigation_scene_inputs import NavigationSceneInputs
 from ios.adapters.navigation_places_inputs import IOSPlacesFlow
 from ios.adapters.navigation_places_actions import NavigationPlacesActions
 from ios.adapters.navigation_surface_actions import NavigationSurfaceActions
+from ios.adapters.navigation_missing_actions import NavigationMissingActions
 from ios.adapters.places_controls import IOSPlacesIO
 from ios.adapters.navigation_sample import NavigationSampleOwner
 from ios.adapters.navigation_samples import NavigationSamples
@@ -26,6 +27,14 @@ from ios.adapters.script_runtime import IOSScriptRuntime
 
 
 class IOSNavigationRuntime(IOSScriptRuntime):
+    def _navigation_missing_actions(self,selector,admission):
+        need(isinstance(admission,NavigationAdmissionOwner));admission.bound()
+        source=self._sources(selector);need(same(source['binding'],admission.binding)
+            and admission.store.path.parent==self.state_path(selector).parent)
+        ui=NativeUI(source['client'],source['session'],source['check'])
+        return NavigationMissingActions(PrivateFeatureState(admission.store.path.with_name('ios-navigation-missing-actions.json')),
+            admission,ui,source['native'])
+
     def _navigation_surface_actions(self,selector,admission):
         need(isinstance(admission,NavigationAdmissionOwner));admission.bound()
         source=self._sources(selector);need(same(source['binding'],admission.binding)

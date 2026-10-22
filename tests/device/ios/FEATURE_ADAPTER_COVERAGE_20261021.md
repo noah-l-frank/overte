@@ -62,6 +62,10 @@ An [ordinary surface owner](NAVIGATION_SURFACE_ACTIONS.md) now checkpoints actua
 Open/Home/Places/Close inputs and retains the observed page root. Replaced or
 pre-existing surfaces and lost returns cannot authorize new input or cleanup.
 Whole composite arrival/close, error, restart and repeated quiet cleanup remain open.
+An [ordinary missing-name/OK owner](NAVIGATION_MISSING_ACTIONS.md) now retains the
+actual input barrier, 404/modal proof and exact OK reference. Lost results cannot
+replay input; partial lifetime deletion remains unresolved. Address-root closure,
+whole operation publication, restart and repeated quiet cleanup remain open.
 
 The canonical physical source binding and explicit lost-launch recovery have
 host-tested implementations. The native byte observer and SDK plugin remain
