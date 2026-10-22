@@ -15,6 +15,7 @@ sys.path.insert(0, str(ROOT / "tools/repository-checks"))
 import pr_ci_platform as P
 import pr_ci_transport as T
 import pr_ci_context as C
+import pr_ci_android_native as N
 
 
 class ProductOwnershipTests(unittest.TestCase):
@@ -75,6 +76,36 @@ class ProductOwnershipTests(unittest.TestCase):
         with patch.object(P.subprocess, "check_output", return_value=json.dumps(profile).encode()):
             with self.assertRaisesRegex(C.ContextError, "mandatory suites"):
                 P.commands(ROOT, "android-phone", "android")
+
+    def test_selected_native_owner_is_executed_once_and_cannot_omit_its_runtime(self):
+        context = {'target': 'android-phone', 'original_merge': '1' * 40, 'tree': '2' * 40}
+        plan = {'android_required': True, 'android_native_products': ['phone']}
+        with tempfile.TemporaryDirectory() as scratch:
+            runtime = Path(scratch)
+            with patch.object(P, 'authenticate', return_value=ROOT), \
+                 patch.object(P, 'commands', return_value=[['python', 'owning-host-fixture.py']]), \
+                 patch.object(P.R, 'run', return_value=0) as host, \
+                 patch.object(N, 'prerequisites'), \
+                 patch.object(N, 'execute', return_value={'product': 'phone', 'result': 'success'}) as native:
+                result = P.execute(ROOT, context, plan, 'android', [runtime], recompute=lambda *_: plan,
+                                   android_native_runtime=runtime)
+                native.assert_called_once()
+                self.assertEqual(host.call_count, 1)
+                self.assertEqual(result['commands'][-1]['scope'], 'production-native-product')
+                native.reset_mock(); host.reset_mock()
+                with self.assertRaisesRegex(C.ContextError, 'requires its immutable runtime'):
+                    P.execute(ROOT, context, plan, 'android', [], recompute=lambda *_: plan)
+                native.assert_not_called(); host.assert_not_called()
+
+    def test_unselected_native_owner_does_not_prepare_or_build_it(self):
+        context = {'target': 'android-phone', 'original_merge': '1' * 40, 'tree': '2' * 40}
+        plan = {'android_required': True, 'android_native_products': []}
+        with patch.object(P, 'authenticate', return_value=ROOT), \
+             patch.object(P, 'commands', return_value=[['python', 'owning-host-fixture.py']]), \
+             patch.object(P.R, 'run', return_value=0), patch.object(N, 'prerequisites') as preflight, \
+             patch.object(N, 'execute') as native:
+            P.execute(ROOT, context, plan, 'android', [], recompute=lambda *_: plan)
+            preflight.assert_not_called(); native.assert_not_called()
 
     def test_platforms_cannot_execute_on_another_target(self):
         for target, lane in (("main", "android"), ("apple-ios", "android"), ("android-phone", "ios")):
