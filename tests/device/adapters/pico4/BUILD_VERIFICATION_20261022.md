@@ -226,3 +226,18 @@ Create c92ac6ba9b passes the twelve host cases (3.587s) and original native
 INI/JSON case (9.455s). The first native invocation omitted the already available
 GLM include and failed compilation; the repeated invocation supplied that explicit
 existing path, without installation or product changes.
+
+
+## Integrated bounded original Chat chunks and exact native types
+
+b78264ceca compares the original cache/worker/file snapshot through exact
+QDataStream bytes before conditional restoration. The original worker-only
+Int-to-Double change with identical physical JSON tokens cannot borrow Qt's
+conversion equality. All six original Qt5 Manager/worker/physical/profile cases
+pass (39.791s) after integration, retaining the actual full Manager/MOC/helpers.
+48f838a55c retains complete numbered original bundles and root SHA manifests
+under the existing 512-frame/16MiB bounds, without truncation or old-journal
+migration. All 24 focused sample/chunk cases pass (26.812s), including 355
+original frames each with 256 changing joint poses, full query-free historical
+reconstruction and late native-guard file mutation. Both components remain
+partial Chat support; no whole-flow/device qualification is added.
