@@ -2,6 +2,7 @@
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 import re
+import math
 import time
 import uuid
 from adapters.native_feature_observation import decode, exact, fresh, integer, need, number
@@ -50,16 +51,24 @@ class NativeChatPeerPosition:
                 action='feature-chat-peer-position',peerSha256=peer_sha))
             need(self.run in (None,run) and self.self_sha in (None,self_sha) and self.peer_sha in (None,peer_sha)
                 and self.guard() is not False)
-            started=previous=self.monotonic();need(number(started,0,1e15));self.send(request)
+            started=previous=self.monotonic();need(number(started,0,1e15))
+            issued=self.monotonic();need(number(issued,previous,1e15));previous=issued
+            requested=self.clock_ms();need(integer(requested,1));self.send(request)
             for attempt in range(31):
                 need(self.guard() is not False);raw=self.original()
                 if raw:
                     value=decode(raw);need(type(value) is dict)
                     if value.get('commandId')==request['commandId']:
-                        validate(value,request,self.pid,self.clock_ms(),self_sha)
+                        epoch=self.clock_ms();need(integer(epoch,requested))
+                        validate(value,request,self.pid,epoch,self_sha)
                         need(self.instance in (None,value['instance']) and value['sequence']>self.sequence
-                            and value['capturedEpochMs']>=self.captured and self.guard() is not False)
-                        now=self.monotonic();need(number(now,previous,started+1.5))
+                            and value['capturedEpochMs']>=max(self.captured,requested) and self.guard() is not False)
+                        freshness_started=self.monotonic();need(number(freshness_started,previous,started+1.5))
+                        final_epoch=self.clock_ms();need(integer(final_epoch,epoch));fresh(value['capturedEpochMs'],final_epoch)
+                        need(self.guard() is not False)
+                        now=self.monotonic();need(number(now,freshness_started,started+1.5)
+                            and max(final_epoch-value['capturedEpochMs']+math.ceil((now-freshness_started)*1000),
+                                requested-value['capturedEpochMs']+math.ceil((now-issued)*1000))<=1500)
                         self.run,self.self_sha,self.peer_sha=run,self_sha,peer_sha
                         self.instance,self.sequence,self.captured=(value[key] for key in ('instance','sequence','capturedEpochMs'))
                         return value
