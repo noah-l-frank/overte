@@ -480,3 +480,41 @@ presence/type, ignored-cache counterexample, foreign-key refusal and interrupted
 CAS recovery pass. This does not compile the complete Android product or prove
 native GUI closure/device behavior. No public Snapshot capability follows from
 this prerequisite alone.
+
+
+The existing five-format `snapshot-output-parity` flow has an original ownership
+composition for the complete-feature profile. `OVERTE_PHONE_FEATURE_SNAPSHOTS=1`
+selects it inside the existing normal Snapshot operations; this prerequisite does
+not yet advertise a public feature triple. The standalone legacy format decoder
+profile retains its narrower existing scope. Complete-feature preparation must
+require the owned foundation and cannot substitute the legacy profile.
+
+The foundation persists a fresh explicit 32-hex scope before native or ordinary
+input, captures the actual native settings lease before opening SNAP, and plans
+each original `parity-<nonce>-<mode>` namespace before normal Capture. All five
+formats use the existing PhoneSnapshot flow. No extended run adopts this scope.
+A pending descriptor/capture can project no *qualified completed* output set to
+the existing bounded decoder poll, while its actual original files and partial
+rows remain durable cleanup obligations. Preflight still requires the actual
+namespace to be empty. Failed, foreign, missing or changed originals never use
+this pending projection; extended file acquire remains strict.
+
+Normal Close first requires an independent three-second original no-work window,
+then retires all native/host capture files, restores and retires the typed native
+settings lease, and verifies another original three-second quiet window. It
+then removes both private ownership journals after fresh native/OS absence,
+sealed-prefix, original instance and host-file checks. An uncertain journal
+unlink resumes from retained archival intent and original source identities.
+Lost target delete replies reuse the same durable operation; ignored input,
+unfinished capture, missing settings restore, same-byte foreign inodes, changed
+candidate/process/root, or late original activity keep closure red. Existing
+adapter cleanup also recovers a retained foundation even after the activation
+flag is removed, before normal shared process teardown. Stable source-lock files
+retain their existing shared lock-domain behavior.
+
+The dedicated composition checks execute real private filesystem scripts,
+original inodes/bytes, journal CAS, target/host unlink and recovery with explicit
+native/UI producers and simulated clocks. The existing normal W3C five-format
+and byte-decoder tests remain separate checks of their documented boundary.
+These simulations do not establish Android rendering, original OS behavior or
+product/device acceptance. Public extended Snapshot composition remains open.

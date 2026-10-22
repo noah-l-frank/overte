@@ -5,6 +5,7 @@ import importlib.util
 import os
 from pathlib import Path
 import unittest
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[3]
 
@@ -144,6 +145,30 @@ class BoundPhoneSnapshotJourney(unittest.TestCase):
         self.assertFalse(native.reports[0]['outputSequenceCompleted'])
         self.assertIsNotNone(instance.snapshot_store(identity.snapshot_boundary.SELECTOR).read())
         self.assertEqual(1, native.releases)
+
+    def test_complete_profile_requires_original_ownership_before_any_normal_input(self):
+        instance,native=self.native();native.artifacts.mkdir(mode=0o700)
+        with patch.dict(os.environ,{'OVERTE_PHONE_FEATURE_SNAPSHOTS':'1'}),patch.object(instance,'_snapshot_settings',side_effect=RuntimeError('Explicit missing native source seam')):
+            with self.assertRaisesRegex(RuntimeError,'foundation input or complete handback'):native.invoke('snapshot.open')
+        self.assertEqual([],native.inputs);self.assertEqual(0,native.captures)
+        from adapters.normal_feature_state import PrivateFeatureState
+        retained=PrivateFeatureState(instance.state_path(identity.snapshot_boundary.SELECTOR).with_name('phone-snapshot-foundation.json')).read()
+        self.assertEqual('preparing',retained['phase']);self.assertIsNone(retained['settings'])
+
+    def test_retained_handback_keeps_original_root_after_configuration_flags_are_removed(self):
+        instance,native=self.native();native.artifacts.mkdir(mode=0o700)
+        from adapters.normal_feature_state import PrivateFeatureState
+        path=instance.state_path(identity.snapshot_boundary.SELECTOR).with_name('phone-snapshot-foundation.json')
+        store=PrivateFeatureState(path);store.write({'artifactRoot':str(native.artifacts),'explicitRoutingSeam':True},None)
+        class CloseRoutingSeam:
+            def invoke(self,flow,operation,arguments):
+                assert operation=='snapshot.close' and arguments=={}
+                return {'performed':True}
+        # Only the dispatch boundary is substituted here. Dedicated foundation
+        # tests execute real retirement and reject malformed retained journals.
+        with patch.dict(os.environ,{'OVERTE_PHONE_FEATURE_SNAPSHOTS':'0','OVERTE_PHONE_NORMAL_SNAPSHOT':'0','OVERTE_DEVICE_ARTIFACT_DIR':str(native.root/'foreign')}),patch.object(instance,'_snapshot_foundation',return_value=CloseRoutingSeam()) as factory:
+            self.assertEqual({'performed':True},native.invoke('snapshot.close'))
+        self.assertEqual(str(native.artifacts),factory.call_args.args[1]);self.assertEqual([],native.inputs)
 
 
 if __name__ == '__main__':

@@ -161,6 +161,18 @@ class CaptureFilesTests(unittest.TestCase):
     def test_open_failed_absence_requires_actual_native_error_history(self):
         self.owner.plan(RUN,PREFIX);row,path=self.producer.capture(open_failed=True);self.owner.retire()
         self.assertFalse(path.exists());self.assertEqual(0,self.producer.unlinks)
+    def test_pending_foundation_projection_retains_original_obligations_and_never_qualifies_partial_bytes(self):
+        self.owner.plan(RUN,PREFIX);row,path=self.producer.capture(pending=True)
+        self.assertEqual({'files':[]},self.owner.files(PREFIX,allow_pending=True))
+        self.assertEqual(1,len(self.owner.inventory()['files']));self.assertFalse(self.owner.inventory()['rows'][0]['closed'])
+        with self.assertRaises(NativeUIError):self.owner.files(PREFIX)
+        with self.assertRaises(NativeUIError):self.owner.retire()
+        self.assertTrue(path.exists());self.assertEqual(0,self.producer.unlinks)
+    def test_pending_projection_does_not_hide_failed_or_foreign_closed_output(self):
+        self.owner.plan(RUN,PREFIX);row,path=self.producer.capture(failed=True)
+        with self.assertRaises(NativeUIError):self.owner.files(PREFIX,allow_pending=True)
+        self.owner.retire();self.assertFalse(path.exists())
+
     def test_actual_pending_producer_or_close_cannot_retire(self):
         self.owner.plan(RUN,PREFIX);row,path=self.producer.capture(pending=True)
         self.assertEqual(1,len(self.owner.inventory()['files']))

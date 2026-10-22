@@ -285,10 +285,18 @@ class PhoneSnapshotCaptureFiles:
             return dict(path=path,captureId=captureId,bytes=len(content),sha256=hashlib.sha256(content).hexdigest(),device=meta['device'],inode=meta['inode'],
                 artifact=artifact,capturedEpochMs=epoch,nativeClosedEpochMs=row['closedEpochMs'],fileId=id,source='snapshot-capture-original')
 
-    def files(self,name):
+    def files(self,name,*,allow_pending=False):
         with self.held():
-            need(self.state is not None and name in self.state['plans']);packet=self.observe();scan=self.inventories(packet)[name]
+            need(type(allow_pending) is bool and self.state is not None and name in self.state['plans']);packet=self.observe();scan=self.inventories(packet)[name]
             rows=[row for row in packet['source']['rows'] if row['planId']==self.state['plans'][name]['id'] and Path(row['path']).name in scan['files']]
+            # The existing foundation polls for a complete output set. A
+            # genuinely pending original descriptor/capture may yield no yet
+            # qualified outputs, while its full original inventory remains in
+            # this durable owner. This option is never used for preflight or
+            # strict extended acquire, and errors/foreign originals stay red.
+            if allow_pending:
+                captures={row['captureId']:row for row in packet['source']['captures']}
+                if any(not row['closed'] or captures[row['captureId']]['terminal']=='' for row in rows):return dict(files=[])
             return dict(files=[dict(basename=Path(row['path']).name,artifact=self.acquire(row['path'],row['captureId'])['artifact']) for row in rows])
 
     def binding(self):

@@ -118,7 +118,8 @@ class SnapshotCaptureFilesNativeTests(unittest.TestCase):
         save=raw[raw.index('QString Snapshot::saveSnapshot('):raw.index('\n\nstatic const float CUBEMAP_SIDE',raw.index('QString Snapshot::saveSnapshot('))]
         original=raw[raw.index('QFile* Snapshot::savedFileForSnapshot('):raw.index('\nvoid Snapshot::uploadSnapshot(',raw.index('QFile* Snapshot::savedFileForSnapshot('))]
         test=(ROOT/'interface/src/scripting/TestScriptingInterface.cpp').read_text()
-        method=test[test.index('QVariantMap TestScriptingInterface::phoneSnapshotCaptureFiles('):test.index('\nQVariantMap TestScriptingInterface::phoneSnapshotReadback(',test.index('QVariantMap TestScriptingInterface::phoneSnapshotCaptureFiles('))]
+        start=test.index('QVariantMap TestScriptingInterface::phoneSnapshotCaptureFiles(')
+        method=test[start:test.index('\n}',start)+2]
         bridge='''
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PHONE_INTERFACE)
 #include <QObject>

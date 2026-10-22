@@ -58,6 +58,7 @@ public:
         const auto now=QDateTime::currentMSecsSinceEpoch();
         if (now<=0 || now<_epoch || _sequence>=9007199254740991ULL) { _available=false;return {}; }_epoch=now;
         auto actual=read();if (!valid(actual)) { return {}; }
+        if (_retired && Values::digest(actual)!=_originalSha) { return {}; }
         if (operation=="capture") {
             if (!closed || _retired || _restoreStarted || (!_run.isEmpty() && !same(actual,_original))) { return {}; }
             if (_run.isEmpty()) { _run=run;_original=actual;_opened=now;_originalSha=Values::digest(actual); }
@@ -77,10 +78,10 @@ public:
                 _restored=true;
             } else if (!same(actual,_original)) { return {}; }
         } else if (operation=="retire") {
-            if (_run!=run || !closed || !_restored || !same(actual,_original)) { return {}; }
-            _retired=true;
+            if (_run!=run || !closed || !_restored || Values::digest(actual)!=_originalSha) { return {}; }
+            _retired=true;_original.clear();_basis.clear(); // Release private typed originals; never revive this scope.
         }
-        if (_restoreStarted && !partial(actual,_basis,_original)) { _available=false;return {}; }
+        if (_restoreStarted && !_retired && !partial(actual,_basis,_original)) { _available=false;return {}; }
         const auto captured=QDateTime::currentMSecsSinceEpoch();
         if (captured<now || captured-now>=1500) { _available=false;return {}; }_epoch=captured;
         return {{"snapshotSettingsLeaseVersion",1},{"instance",_instance},{"runId",run},{"commandId",id},

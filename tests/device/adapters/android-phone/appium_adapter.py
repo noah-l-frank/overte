@@ -2147,6 +2147,10 @@ class PhoneAppiumAdapter(AppiumAdapter):
     def snapshot_store(self, selector):
         return PrivateSnapshotState(self.state_path(selector).with_name('phone-snapshot-session.json'))
 
+    def _snapshot_foundation(self,selector,root,binding,guard):
+        from overte_phone_snapshot_foundation import PhoneSnapshotFoundation
+        return PhoneSnapshotFoundation(self,selector,root,binding,guard)
+
     @staticmethod
     def snapshot_fingerprint(target):
         return hashlib.sha256(json.dumps(target, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
@@ -2154,7 +2158,8 @@ class PhoneAppiumAdapter(AppiumAdapter):
     def normal_snapshot(self, selector, operation, values):
         arguments = validate_operation_arguments(operation, values)
         target = self.target(selector)
-        require(operation in self.advertised_capabilities(target), 'PHONE_NORMAL_SNAPSHOT_NOT_ENABLED')
+        retained=PrivateFeatureState(self.state_path(selector).with_name('phone-snapshot-foundation.json')).read()
+        require(operation=='snapshot.close' and retained is not None or operation in self.advertised_capabilities(target), 'PHONE_NORMAL_SNAPSHOT_NOT_ENABLED')
         client, session, state = self.ensure_session(selector)
         installed = self.installed_identity(selector)
         process = self.process_state(selector, client, session, state, target)
@@ -2177,12 +2182,21 @@ class PhoneAppiumAdapter(AppiumAdapter):
         check()
         context = {key: installed[key] for key in ('sourceRevision', 'artifactSha256')}
         context.update(processIdentity=process['identity'])
-        binding = PhoneAdapter(self.candidate)
-        files = AndroidSnapshotFiles(binding.adb, target['capabilities']['appium:udid'],
-            target['appId'], context, check, os.environ.get('OVERTE_DEVICE_ARTIFACT_DIR', ''))
-        flow = PhoneSnapshot(PhoneSnapshotUI(client, session, check), files, self.snapshot_store(selector),
-            context | {'sessionId': session, 'generation': state['generation'], 'targetFingerprint': fingerprint})
-        result = flow.invoke(operation, arguments)
+        full_context=context | {'sessionId': session, 'generation': state['generation'], 'targetFingerprint': fingerprint}
+        # One separate foundation scope owns original files and settings. It is
+        # never reused as the extended Journey's run or detached file authority.
+        mode='1' if operation=='snapshot.close' and retained is not None else os.environ.get('OVERTE_PHONE_FEATURE_SNAPSHOTS','0')
+        require(mode in ('0','1'),'PHONE_FEATURE_SNAPSHOTS_CONFIGURATION_INVALID')
+        foundation=None
+        if mode=='1' or retained is not None:
+            root=retained['artifactRoot'] if retained is not None else os.environ.get('OVERTE_DEVICE_ARTIFACT_DIR','')
+            foundation=self._snapshot_foundation(selector,root,full_context,check);files=foundation
+        else:
+            binding=PhoneAdapter(self.candidate)
+            files=AndroidSnapshotFiles(binding.adb,target['capabilities']['appium:udid'],target['appId'],context,check,
+                os.environ.get('OVERTE_DEVICE_ARTIFACT_DIR',''))
+        flow = PhoneSnapshot(PhoneSnapshotUI(client, session, check), files, self.snapshot_store(selector),full_context)
+        result = foundation.invoke(flow,operation,arguments) if foundation is not None else flow.invoke(operation,arguments)
         check()
         require(self.installed_identity(selector) == installed, 'PHONE_NORMAL_SNAPSHOT_INSTALL_CHANGED')
         return result
@@ -2299,6 +2313,11 @@ class PhoneAppiumAdapter(AppiumAdapter):
                 self.normal_scripts(selector, 'scripts.manager.close', {})
             except Exception:
                 script_error = True
+        foundation_error=False
+        foundation_store=PrivateFeatureState(self.state_path(selector).with_name('phone-snapshot-foundation.json'))
+        if foundation_store.read() is not None:
+            try:self.normal_snapshot(selector,'snapshot.close',{})
+            except Exception:foundation_error=True
         store = self.snapshot_store(selector)
         owned = store.read()
         if owned is not None:
@@ -2319,6 +2338,7 @@ class PhoneAppiumAdapter(AppiumAdapter):
             binding.adb.shell(device, 'am', 'force-stop', target['appId'])
             binding.wait_for_process_stopped(device)
         result = super().cleanup(selector)
+        require(not foundation_error and foundation_store.read() is None,'PHONE_SNAPSHOT_FOUNDATION_CLEANUP_INCOMPLETE')
         require(not feature_error and self.script_feature_store(selector).read() is None
                 and self.script_retirement_store(selector).read() is None
                 and all(PrivateFeatureState(self.state_path(selector).with_name('phone-script-'+role+'-feature.json')).read() is None
