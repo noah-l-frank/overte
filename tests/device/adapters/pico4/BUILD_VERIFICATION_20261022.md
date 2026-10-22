@@ -1000,3 +1000,15 @@ These are device-free source/host and selected native-fragment qualifications;
 no whole new feature, full application or physical/device result is claimed.
 
 All four final repository suites pass3.26s; contract registry and whitespace checks pass.
+
+
+## Current full-build input boundary
+
+On the integrated local branch, `bash android/vr/pico/build.sh prepare` exits2
+with `PICO_SOURCE_INPUTS_REJECTED: PICO_EXPLICIT_INPUTS_REQUIRED`. The actual
+consumer requires explicit immutable Pico graph/binding inputs with producer
+provenance and a separate current application source identity. Available host
+compilers and Android SDK tools do not supply that graph. No input was invented,
+no historical Phone/other-commit payload was relabeled, and no dependency
+installation or bootstrap was attempted. Selected original native host checks
+remain distinct from a complete application or APK build.

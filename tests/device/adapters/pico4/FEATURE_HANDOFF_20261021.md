@@ -1489,3 +1489,24 @@ The owning entry, complete Chat phase group and coverage pass3/118 in15.85s
 app-only tablet and exposed invalid closed producer DTOs; only that synthetic
 source was corrected. Production admission was retained. Browser whole owner,
 independent actor and final quiet archive remain unfinished.
+
+
+## Original Snapshot host file owner integration
+
+Selection `5e48caf2ead959c648caf5a3fbf9a347c79956ca` is integrated with
+only its new Snapshot owning selector; Root's existing NativeScriptWork factory
+and test registration remain unique. Existing Browser/Chat/Create/Navigation
+additions are retained. Original native plans and descriptor IDs join actual
+SCAN V1, binary bytes, private host inode/CAS and once-only retirement under
+the exact root source lock. A slow final host CAS cannot reach the native writer.
+The native producer in the host owner tests remains an explicit seam; actual
+QFile/GIF instrumentation is qualified separately by the earlier file-originals
+selection. This does not complete Snapshot Save/Share/Upload/Resume or finalization.
+
+The integrated owning selection passes4/119 groups in16.01s: original file owner
+4.992s, browser entry1.888s, complete Chat phase9.069s and coverage. Feature
+completion stays3/14. The original build consumer was also executed through
+`bash android/vr/pico/build.sh prepare`: it refuses with
+`PICO_SOURCE_INPUTS_REJECTED: PICO_EXPLICIT_INPUTS_REQUIRED`. No immutable
+qualified Pico source graph/binding was supplied; no dependency bootstrap,
+installation, guessed graph, old APK relabeling or device fallback was performed.
