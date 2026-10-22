@@ -1047,7 +1047,16 @@
         "tests/device/adapters/chat_journey/COMPILED_CHAT_SOURCE.md",
         "tests/device/feature_journeys/chat-script-source.v1.json",
         "tests/device/self_tests/test_chat_script_source.py",
-        "android/vr/pico/tests/device/test_chat_script_source.py"
+        "android/vr/pico/tests/device/test_chat_script_source.py",
+        "tests/device/adapters/chat_journey/CLEANUP_ADMISSION.md",
+        "tests/device/adapters/chat_journey/cleanup_admission.py",
+        "tests/device/adapters/chat_journey/compiled_samples.py",
+        "tests/device/adapters/native_fd_owner.py",
+        "tests/device/native/HOST_DESCRIPTOR_OWNER.md",
+        "tests/device/native/CHAT_ACTOR_IPC_CLOSE.md",
+        "tests/device/self_tests/test_chat_cleanup_admission.py",
+        "tests/device/self_tests/test_native_fd_owner.py",
+        "tests/device/self_tests/test_chat_compiled_samples.py"
       ],
       "declaredCheckpoints": 25,
       "inputVerbs": [
@@ -1091,7 +1100,7 @@
         "Restore peer position and owned mixer service",
         "Close view and observe keyboard, peer work and capture ownership fully retired"
       ],
-      "nextExecutableStep": "Extend the private PicoChatComposition with exact primary/peer locks, all six original child factories, independent witness, input-resource close and normal Erase/profile restoration through cache/observation IPC retirement, controlled actual Android restart/ESRCH, independent final absence and journal finalization. Admit a separate cleanup activation and cold partial recovery before a public complete capability. Native configured actor revision is metadata only, not a hermetic AC build receipt.",
+      "nextExecutableStep": "Complete the original two cache-lifetime tombstone/absence and retained peer IPC join in the parent, then normal Qt/app/process closure and durable original archive verification.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     },
@@ -1116,7 +1125,16 @@
         "android/vr/pico/tests/device/test_snapshot_originals.py",
         "tests/device/adapters/pico4/snapshot_still_owner.py",
         "tests/device/adapters/pico4/SNAPSHOT_STILL_OWNER.md",
-        "android/vr/pico/tests/device/test_snapshot_still_owner.py"
+        "android/vr/pico/tests/device/test_snapshot_still_owner.py",
+        "tests/device/adapters/pico4/SNAPSHOT_SCRIPT_ORIGINALS.md",
+        "tests/device/adapters/pico4/SNAPSHOT_REVIEW_ORIGINALS.md",
+        "tests/device/adapters/pico4/snapshot_script_history.py",
+        "tests/device/adapters/pico4/snapshot_script_originals.py",
+        "tests/device/adapters/pico4/snapshot_review.py",
+        "tests/device/native/SnapshotScriptHistory.h",
+        "tests/device/native/SnapshotReviewObservation.h",
+        "android/vr/pico/tests/device/test_snapshot_script_originals.py",
+        "android/vr/pico/tests/device/test_snapshot_review.py"
       ],
       "declaredCheckpoints": 18,
       "inputVerbs": [
@@ -1166,7 +1184,7 @@
         "Delete only actual owned private/saved/received/uploaded originals",
         "Restore permissions/preferences and observe quiet absent leases"
       ],
-      "nextExecutableStep": "Extend the normal Still-PNG capture/native Complete/request/fullpath/physical file join and native quiet/normal preference restore/close owner with original Script pending/cancel history, all settings and Qt/observer retirement, original OS Save/permission/picker/receiver/upload and full file/resource retirement. Review fixed Phone5527d540e99cc6dba4204a5e904a854e6e1cd2b4 before duplicating its OS/Documents/retirement owners; retain v16 and actual Pico input/render evidence.",
+      "nextExecutableStep": "Compose the fixed Phone fast-cancel flow with actual Pico normal controls, original VM/timer/work/review/upload sources; then complete review/save/OS-file and independent final retirement.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     },

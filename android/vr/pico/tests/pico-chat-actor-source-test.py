@@ -20,6 +20,7 @@ def main():
     commands=[
         [sys.executable,'-Werror::ResourceWarning','-m','unittest',
             'self_tests.test_chat_configured_source','self_tests.test_chat_owned_peer',
+            'self_tests.test_chat_actor_files','self_tests.test_native_fd_owner',
             'self_tests.test_chat_input_lifetime_source','self_tests.test_chat_peer_input_close','-v'],
         [sys.executable,str(ROOT/'tests/device/contracts/chat/test_chat_actor_source_native.py')],
         [sys.executable,str(ROOT/'tests/device/contracts/chat/test_chat_actor_pending_native.py')],

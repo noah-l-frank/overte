@@ -23,6 +23,7 @@ def selected(part):
     if part=='journey':return loader.loadTestsFromName(JOURNEY)
     if part=='phase':return loader.loadTestsFromNames([
         'self_tests.test_chat_phase_fence','self_tests.test_chat_phase_transports',
+        'self_tests.test_chat_cleanup_admission',
         'test_chat_lifecycle_phase_transport'])
     suite=loader.loadTestsFromName('self_tests.test_chat_dispatcher')
     return unittest.TestSuite(case for case in cases(suite) if case.id()!=JOURNEY)

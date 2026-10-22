@@ -12,5 +12,6 @@ sys.path[:0] = [str(ROOT / 'tests/device'), str(Path(__file__).resolve().parent 
 if __name__ == '__main__':
     suite = unittest.defaultTestLoader.loadTestsFromNames([
         'self_tests.test_chat_script_source', 'test_chat_script_source',
+        'self_tests.test_chat_compiled_samples',
     ])
     raise SystemExit(not unittest.TextTestRunner(verbosity=2).run(suite).wasSuccessful())

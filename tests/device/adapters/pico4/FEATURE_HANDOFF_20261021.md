@@ -1322,3 +1322,30 @@ and the Tablet singleton are explicit host boundaries. Four repository suites
 pass in 3.27s; completed areas remain Scripts, Authentication and Graphics (3/14).
 Normal whole opening/scrolling/keyboard, independent stereo/publication and
 complete final resource closure remain required. No APK or device was tested.
+
+## Original Chat cleanup admission and Snapshot VM/Review sources
+
+Chat selections `588c396f34`, `90c61e390c`, `50bfe6d6ee`, `abfed9d8e1` and
+`8ad994a48a` are integrated locally. [Original cleanup admission](../chat_journey/CLEANUP_ADMISSION.md)
+uses the actual final fixture phase. [Erase/restore](../chat_journey/ERASE_RESTORE.md)
+reopens the original closed Chat normally; original profile/input resource
+writers share the final phase fence. The owned peer requires actual Linux open
+file descriptions, and [IPC closure](../../native/CHAT_ACTOR_IPC_CLOSE.md) retains
+its complete journal after verified native result-FD absence. These are partial
+parent closures; full two-cache/peer/app/process/archive retirement is pending.
+
+Snapshot selections `421f9f0597`, `76f02e3b03` and `958740d183` add actual
+VM/native-call/timer originals, original Review at the Pico tablet root and
+actual upload-map occupancy. The fast-cancel composition is still required; a
+native accepted request alone does not prove the earlier JavaScript interval.
+
+The integrated selection passes seven of eight groups (81.88s), including
+compiled Chat source/model, original cleanup/input phases, composition, normal
+Erase/profile restoration and Snapshot Script/Review. All 59 Actor/FD cases and
+two actual native Actor cases also pass. The third native Actor case correctly
+refused a gap outside its unchanged 500-ms quiet ceiling; that exact original
+Qt/FD test passes unchanged in isolation in 8.244s. Its strict scheduling
+sensitivity is retained, not relabeled as product or device qualification.
+The owning groups now include the new cleanup, compiled-model and kernel-FD
+checks, plus a separate bounded Erase/restore group. Catalog count: 106 groups;
+completed areas remain 3/14.
