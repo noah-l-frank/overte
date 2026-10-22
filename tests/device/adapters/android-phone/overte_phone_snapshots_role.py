@@ -200,10 +200,19 @@ class PhoneSnapshotsRole(PhoneCreateRole):
         self.store.write(value,self.previous);need(same(self.store.read(),value));self.previous=deepcopy(value)
 
     def storage_intent(self,kind,value):
-        super().storage_intent(kind,value)
+        self.publication_bound();need(self.state['phase']=='reading' and kind in ('original','manifest'))
+        old=self.state['pending'][kind]
+        if old is not None:
+            need(value['phase']=={'planned':'opened','opened':'saved'}.get(old['phase']) if kind=='original' else value['phase']=='saved' and old['phase']=='planned')
+        # A manifest commits a complete frame. Keep the actual target check at
+        # that boundary; other callbacks persist only private host metadata.
+        if self._host_publication and kind=='manifest' and value['phase']=='planned':self.bound()
+        self.state['pending'][kind]=deepcopy(value)
         if kind=='original' and value['phase']=='saved':
-            self.state['pending']['frame']=None;self.state['pending']['work']={};self.save()
-        return True
+            # The immutable engine has fsynced and verified the complete body.
+            # Commit its saved receipt and retire the fallback graph atomically.
+            self.state['pending']['frame']=None;self.state['pending']['work']={}
+        self.save();return True
 
     def image_engine(self,index=None):
         f=self.feature
