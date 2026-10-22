@@ -297,7 +297,7 @@ class SnapshotTarget(CreateTarget):
     def share_image(self):
         self.initialize_readbacks();self.component='com.android.intentresolver/com.android.intentresolver.ChooserActivity';self.app_state=3;request=uuid.uuid4().hex
         uri='content://'+PRIMARY+'.snapshot.files/snapshots/'+Path(self.current_path).name
-        row=dict(request=request,uri=uri,ownerUid=10001,component=RECEIVER_COMPONENT,receiverUid=10002,chooserComponent=self.component,chooserUid=10038,
+        row=dict(request=request,uri=uri,ownerUid=10001,component='',receiverUid=0,chooserComponent=self.component,chooserUid=10038,
             revokeId='',revokeIssued=False,granted=True,chooserGranted=True,checkedEpochMs=self.now())
         self.readbacks['shareGrants']['rows'].append(row);self.readbacks['shareGrants']['rows'].sort(key=lambda row:row['request'])
         self.export_event('request-active',request=request,action='share');self.export_event('share-uri',uri,request=request,action='share')
@@ -311,7 +311,8 @@ class SnapshotTarget(CreateTarget):
             self.consumer.source.update(retired=True,workersTerminated=True,grantPresent=False,files=[])
         return {'accepted':True}
     def select_consumer(self):
-        row=self.readbacks['shareGrants']['rows'][-1];b=self.consumer
+        row=next(row for row in self.readbacks['shareGrants']['rows'] if row['request']==self.vm.snapshot.export_active);b=self.consumer
+        row.update(component=RECEIVER_COMPONENT,receiverUid=10002)
         root=self.root/'receiver';root.mkdir(mode=0o700,exist_ok=True);b.path=root/(b.original['id']+'.bin');b.path.write_bytes(self.raw_png);b.path.chmod(0o600)
         b.raw=b.path.read_bytes();b.original.update(request=b.source['armId'],bytes=b.path.stat().st_size,sha256=hashlib.sha256(b.raw).hexdigest(),capturedEpochMs=self.now())
         b.source.update(phase='complete',original=deepcopy(b.original),files=[deepcopy(b.original)],identity=dict(uri=row['uri'],providerPackage=PRIMARY,providerUid=10001,
@@ -328,7 +329,7 @@ class SnapshotTarget(CreateTarget):
         if method=='DELETE' and path.endswith('/actions'):return None
         if method=='POST' and path.endswith('/back'):
             if self.component!=RECEIVER_COMPONENT:
-                row=self.readbacks['shareGrants']['rows'][-1];self.export_event('cancelled','cancelled',request=row['request'],action='share')
+                row=next(row for row in self.readbacks['shareGrants']['rows'] if row['request']==self.vm.snapshot.export_active);self.export_event('cancelled','cancelled',request=row['request'],action='share')
             self.component=PRIMARY+'/'+PRIMARY+'.MainActivity';self.app_state=4;return None
         raise AssertionError('Unrecognized original OS input')
     def group(self):

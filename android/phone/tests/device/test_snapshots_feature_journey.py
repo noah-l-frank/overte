@@ -319,6 +319,18 @@ class SnapshotJourneyTests(unittest.TestCase):
     def test_complete_media_store_common_journey_and_closed_repeated_cleanup(self):
         self.assertEqual('media-store',self.common()['sourceProfile'])
 
+    def test_cancelled_share_grant_cannot_be_adopted_by_the_next_normal_choice(self):
+        self.client.activate('c'*32);self.invoke('feature.snapshots.observe',dict(contractVersion=VERSION,runId=RUN,afterSequence=0))
+        self.act('open');self.act('capture',dict(mode='still',format='png'))
+        self.act('share-open');cancelled=self.model.vm.snapshot.export_active;self.act('share-cancel')
+        self.act('share-open');selected=self.model.vm.snapshot.export_active
+        self.assertNotEqual(cancelled,selected);self.act('share-select-owned')
+        result=self.invoke('feature.snapshots.observe',dict(contractVersion=VERSION,runId=RUN,afterSequence=1))
+        self.assertEqual(1,result['state']['shares'])
+        grants={row['request']:row for row in self.model.readbacks['shareGrants']['rows']}
+        self.assertEqual('',grants[cancelled]['component']);self.assertEqual(0,grants[cancelled]['receiverUid'])
+        self.assertTrue(grants[selected]['component']);self.assertEqual(10002,grants[selected]['receiverUid'])
+
     def test_normal_share_handoff_requires_separate_receiver_original_bytes(self):
         self.client.activate('c'*32);self.invoke('feature.snapshots.observe',dict(contractVersion=VERSION,runId=RUN,afterSequence=0))
         self.act('open');self.act('capture',dict(mode='still',format='png'));self.act('share-open')
