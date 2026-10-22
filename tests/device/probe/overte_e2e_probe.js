@@ -147,6 +147,7 @@
     var lastSceneLoadRequest = "";
     var lastTabletHttpRequest = "";
     var lastLifecycleDriveRequest = "";
+    var lastLifecycleGestureRequest = "";
     var lastProcessPresenceRequest = "";
     var lastScriptFilesRequest = "";
     function saveScriptSourceObservation(requestId) {
@@ -1342,6 +1343,23 @@
         if (command && command.schemaVersion === 1
                 && typeof command.commandId === "string" && /^[0-9a-f]{32}$/.test(command.commandId)
                 && typeof command.runId === "string" && /^[0-9a-f]{32}$/.test(command.runId)
+                && command.action === "feature-lifecycle-gesture-observe"
+                && objectKeysMatch(command, ["schemaVersion", "commandId", "action", "runId"])) {
+            if (command.commandId === lastLifecycleGestureRequest) { return; }
+            lastLifecycleGestureRequest = command.commandId;
+            var lifecycleGesture = {gestureObservationVersion: 1, commandId: command.commandId, available: false};
+            try {
+                if (typeof Test.featureLifecycleGestureObservation === "function") {
+                    var originalLifecycleGesture = Test.featureLifecycleGestureObservation(command);
+                    if (originalLifecycleGesture && originalLifecycleGesture.commandId === command.commandId) { lifecycleGesture = originalLifecycleGesture; }
+                }
+            } catch (_lifecycleGestureError) { /* Missing original gesture consumption remain unavailable. */ }
+            Test.saveObject(lifecycleGesture, "feature-lifecycle-gesture.json");
+            return;
+        }
+        if (command && command.schemaVersion === 1
+                && typeof command.commandId === "string" && /^[0-9a-f]{32}$/.test(command.commandId)
+                && typeof command.runId === "string" && /^[0-9a-f]{32}$/.test(command.runId)
                 && command.action === "feature-lifecycle-drive-observe"
                 && objectKeysMatch(command, ["schemaVersion", "commandId", "action", "runId"])) {
             if (command.commandId === lastLifecycleDriveRequest) { return; }
@@ -1748,7 +1766,7 @@
                 || command.action === "feature-graphics-subject-observe"
                 || command.action === "feature-scene-load-observe"
                 || command.action === "feature-tablet-http-observe"
-                || command.action === "feature-lifecycle-drive-observe"
+                || command.action === "feature-lifecycle-drive-observe" || command.action === "feature-lifecycle-gesture-observe"
                 || command.action === "feature-web-runtime-observe"
                 || command.action === "feature-world-render-storage"
                 || command.action === "feature-world-render-receipt"

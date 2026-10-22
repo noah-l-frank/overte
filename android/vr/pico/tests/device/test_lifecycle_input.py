@@ -17,6 +17,7 @@ from self_tests.test_pico_lifecycle_source import Boundary,RUN,LifecycleSourceTe
 from self_tests.test_pico_lifecycle_back import LifecycleBackTests
 from self_tests.test_pico_lifecycle_x_mapping import PicoLifecycleXMappingTests
 from self_tests.test_pico_lifecycle_drive import LifecycleDriveTests,LifecycleDriveProbeTests
+from self_tests.test_pico_lifecycle_gesture import LifecycleGestureTests,LifecycleGestureProbeTests
 from self_tests.test_pico_openxr_adapter_session import FakeTransport
 
 
@@ -56,6 +57,26 @@ class PicoLifecycleBindingTests(unittest.TestCase):
         with patch.object(self.native,'write_debug_app_file',side_effect=write),patch.object(self.native,'read_debug_app_file',side_effect=read):
             source=self.adapter._lifecycle_drive_source(self.native.target);packet=source.capture(RUN)
             self.assertEqual([1,2,3],packet['source']['feetPosition']);self.assertEqual(1,len(boundary.commands))
+            self.native.digest='f'*64
+            with self.assertRaises((ValueError,RuntimeError)):source.capture(RUN)
+            self.assertEqual(1,len(boundary.commands));self.assertEqual([],self.native.inputs)
+
+    def test_actual_gesture_factory_keeps_native_originals_under_installed_candidate_guard(self):
+        from self_tests.test_pico_lifecycle_gesture import Boundary as GestureBoundary
+        from adapters.pico4.lifecycle_gesture import ACTION,FILE
+        boundary=GestureBoundary();write_original=self.native.write_debug_app_file;read_original=self.native.read_debug_app_file
+        def write(target,package,path,raw):
+            command=json.loads(raw)
+            if command.get('action')!=ACTION:return write_original(target,package,path,raw)
+            boundary.send(command);epoch=self.native.epoch_milliseconds(target);boundary.value['capturedEpochMs']=epoch
+            boundary.value['source'].update(createdEpochMs=epoch,frameEpochMs=epoch)
+            for event in boundary.value['source']['events']:event['occurredEpochMs']=epoch
+        def read(target,package,path,**options):
+            if path=='files/overte-e2e/'+FILE:return boundary.read()
+            return read_original(target,package,path,**options)
+        with patch.object(self.native,'write_debug_app_file',side_effect=write),patch.object(self.native,'read_debug_app_file',side_effect=read):
+            source=self.adapter._lifecycle_gesture_source(self.native.target);packet=source.capture(RUN)
+            self.assertTrue(packet['source']['known']);self.assertEqual(1,len(boundary.commands))
             self.native.digest='f'*64
             with self.assertRaises((ValueError,RuntimeError)):source.capture(RUN)
             self.assertEqual(1,len(boundary.commands));self.assertEqual([],self.native.inputs)

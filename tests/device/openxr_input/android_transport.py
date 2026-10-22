@@ -44,6 +44,87 @@ def profile_fingerprint(profile: dict[str, Any]) -> str:
     return hashlib.sha256(_canonical(profile)).hexdigest()
 
 
+def validate_native_status(status: Any, *, expected_nonce: str | None = None,
+                           expected_sequence: int | None = None) -> dict[str, Any]:
+    """Validate an original native status without transport or nonce rewriting."""
+    required = {
+        "schemaVersion", "buildMarker", "consumer", "profileId",
+        "bindingProfileSha256", "enabled", "acceptedSequence", "acceptedNonce",
+        "activeCommandId", "state", "detail", "updatedEpochMs",
+        "viewAppliedSequence", "viewAppliedYawDegrees", "viewAppliedPitchDegrees",
+        "vectorAppliedSequence", "leftThumbstickAppliedX", "leftThumbstickAppliedY",
+        "booleanAppliedSequence", "leftSecondaryApplied",
+        "rightSecondaryApplied",
+    }
+    if not isinstance(status, dict) or set(status) != required:
+        raise TransportError("native OpenXR input status contract is invalid")
+    if (status["schemaVersion"] != 1 or status["buildMarker"] != BUILD_MARKER
+            or status["consumer"] != CONSUMER
+            or status["profileId"] != PROFILE_ID
+            or status["bindingProfileSha256"] != PROFILE_SHA256):
+        raise TransportError("native OpenXR input status identity mismatch")
+    if (not isinstance(status["enabled"], bool)
+            or isinstance(status["acceptedSequence"], bool)
+            or not isinstance(status["acceptedSequence"], int)
+            or not 0 <= status["acceptedSequence"] <= 0xFFFFFFFF
+            or isinstance(status["viewAppliedSequence"], bool)
+            or not isinstance(status["viewAppliedSequence"], int)
+            or not 0 <= status["viewAppliedSequence"] <= status["acceptedSequence"]
+            or isinstance(status["viewAppliedYawDegrees"], bool)
+            or not isinstance(status["viewAppliedYawDegrees"], (int, float))
+            or not math.isfinite(status["viewAppliedYawDegrees"])
+            or not -45.0 <= status["viewAppliedYawDegrees"] <= 45.0
+            or isinstance(status["viewAppliedPitchDegrees"], bool)
+            or not isinstance(status["viewAppliedPitchDegrees"], (int, float))
+            or not math.isfinite(status["viewAppliedPitchDegrees"])
+            or not -45.0 <= status["viewAppliedPitchDegrees"] <= 45.0
+            or (status["viewAppliedSequence"] == 0 and
+                (status["viewAppliedYawDegrees"] != 0 or
+                 status["viewAppliedPitchDegrees"] != 0))
+            or isinstance(status["vectorAppliedSequence"], bool)
+            or not isinstance(status["vectorAppliedSequence"], int)
+            or not 0 <= status["vectorAppliedSequence"] <= status["acceptedSequence"]
+            or isinstance(status["leftThumbstickAppliedX"], bool)
+            or not isinstance(status["leftThumbstickAppliedX"], (int, float))
+            or not math.isfinite(status["leftThumbstickAppliedX"])
+            or not -1.0 <= status["leftThumbstickAppliedX"] <= 1.0
+            or isinstance(status["leftThumbstickAppliedY"], bool)
+            or not isinstance(status["leftThumbstickAppliedY"], (int, float))
+            or not math.isfinite(status["leftThumbstickAppliedY"])
+            or not -1.0 <= status["leftThumbstickAppliedY"] <= 1.0
+            or (status["vectorAppliedSequence"] == 0 and
+                (status["leftThumbstickAppliedX"] != 0 or
+                 status["leftThumbstickAppliedY"] != 0))
+            or isinstance(status["booleanAppliedSequence"], bool)
+            or not isinstance(status["booleanAppliedSequence"], int)
+            or not 0 <= status["booleanAppliedSequence"] <= status["acceptedSequence"]
+            or not isinstance(status["leftSecondaryApplied"], bool)
+            or not isinstance(status["rightSecondaryApplied"], bool)
+            or (status["booleanAppliedSequence"] == 0 and
+                (status["leftSecondaryApplied"] is not False or
+                 status["rightSecondaryApplied"] is not False))
+            or not isinstance(status["acceptedNonce"], str)
+            or (status["acceptedNonce"] != ""
+                and re.fullmatch(r"[0-9a-f]{32,128}", status["acceptedNonce"]) is None)
+            or not isinstance(status["activeCommandId"], str)
+            or (status["activeCommandId"] != ""
+                and re.fullmatch(r"[a-z][a-z0-9-]{0,63}",
+                                 status["activeCommandId"]) is None)
+            or status["state"] not in {"accepted", "active", "neutral", "error"}
+            or not isinstance(status["detail"], str)
+            or not 1 <= len(status["detail"]) <= 64
+            or isinstance(status["updatedEpochMs"], bool)
+            or not isinstance(status["updatedEpochMs"], (int, float))
+            or not math.isfinite(status["updatedEpochMs"])
+            or status["updatedEpochMs"] < 1):
+        raise TransportError("native OpenXR input status values are invalid")
+    if expected_nonce is not None and status["acceptedNonce"] != expected_nonce:
+        raise TransportError("native OpenXR input status nonce mismatch")
+    if expected_sequence is not None and status["acceptedSequence"] != expected_sequence:
+        raise TransportError("native OpenXR input status sequence mismatch")
+    return dict(status)
+
+
 class AndroidOpenXrTransport:
     def __init__(self, adb: str | Path, selector: str, *, server_port: int = 5038,
                  runner: Runner = subprocess.run) -> None:
@@ -200,81 +281,7 @@ class AndroidOpenXrTransport:
             status = json.loads(raw)
         except (UnicodeDecodeError, json.JSONDecodeError) as error:
             raise TransportError("native OpenXR input status is invalid") from error
-        required = {
-            "schemaVersion", "buildMarker", "consumer", "profileId",
-            "bindingProfileSha256", "enabled", "acceptedSequence", "acceptedNonce",
-            "activeCommandId", "state", "detail", "updatedEpochMs",
-            "viewAppliedSequence", "viewAppliedYawDegrees", "viewAppliedPitchDegrees",
-            "vectorAppliedSequence", "leftThumbstickAppliedX", "leftThumbstickAppliedY",
-            "booleanAppliedSequence", "leftSecondaryApplied",
-            "rightSecondaryApplied",
-        }
-        if not isinstance(status, dict) or set(status) != required:
-            raise TransportError("native OpenXR input status contract is invalid")
-        if (status["schemaVersion"] != 1 or status["buildMarker"] != BUILD_MARKER
-                or status["consumer"] != CONSUMER
-                or status["profileId"] != PROFILE_ID
-                or status["bindingProfileSha256"] != PROFILE_SHA256):
-            raise TransportError("native OpenXR input status identity mismatch")
-        if (not isinstance(status["enabled"], bool)
-                or isinstance(status["acceptedSequence"], bool)
-                or not isinstance(status["acceptedSequence"], int)
-                or not 0 <= status["acceptedSequence"] <= 0xFFFFFFFF
-                or isinstance(status["viewAppliedSequence"], bool)
-                or not isinstance(status["viewAppliedSequence"], int)
-                or not 0 <= status["viewAppliedSequence"] <= status["acceptedSequence"]
-                or isinstance(status["viewAppliedYawDegrees"], bool)
-                or not isinstance(status["viewAppliedYawDegrees"], (int, float))
-                or not math.isfinite(status["viewAppliedYawDegrees"])
-                or not -45.0 <= status["viewAppliedYawDegrees"] <= 45.0
-                or isinstance(status["viewAppliedPitchDegrees"], bool)
-                or not isinstance(status["viewAppliedPitchDegrees"], (int, float))
-                or not math.isfinite(status["viewAppliedPitchDegrees"])
-                or not -45.0 <= status["viewAppliedPitchDegrees"] <= 45.0
-                or (status["viewAppliedSequence"] == 0 and
-                    (status["viewAppliedYawDegrees"] != 0 or
-                     status["viewAppliedPitchDegrees"] != 0))
-                or isinstance(status["vectorAppliedSequence"], bool)
-                or not isinstance(status["vectorAppliedSequence"], int)
-                or not 0 <= status["vectorAppliedSequence"] <= status["acceptedSequence"]
-                or isinstance(status["leftThumbstickAppliedX"], bool)
-                or not isinstance(status["leftThumbstickAppliedX"], (int, float))
-                or not math.isfinite(status["leftThumbstickAppliedX"])
-                or not -1.0 <= status["leftThumbstickAppliedX"] <= 1.0
-                or isinstance(status["leftThumbstickAppliedY"], bool)
-                or not isinstance(status["leftThumbstickAppliedY"], (int, float))
-                or not math.isfinite(status["leftThumbstickAppliedY"])
-                or not -1.0 <= status["leftThumbstickAppliedY"] <= 1.0
-                or (status["vectorAppliedSequence"] == 0 and
-                    (status["leftThumbstickAppliedX"] != 0 or
-                     status["leftThumbstickAppliedY"] != 0))
-                or isinstance(status["booleanAppliedSequence"], bool)
-                or not isinstance(status["booleanAppliedSequence"], int)
-                or not 0 <= status["booleanAppliedSequence"] <= status["acceptedSequence"]
-                or not isinstance(status["leftSecondaryApplied"], bool)
-                or not isinstance(status["rightSecondaryApplied"], bool)
-                or (status["booleanAppliedSequence"] == 0 and
-                    (status["leftSecondaryApplied"] is not False or
-                     status["rightSecondaryApplied"] is not False))
-                or not isinstance(status["acceptedNonce"], str)
-                or (status["acceptedNonce"] != ""
-                    and re.fullmatch(r"[0-9a-f]{32,128}", status["acceptedNonce"]) is None)
-                or not isinstance(status["activeCommandId"], str)
-                or (status["activeCommandId"] != ""
-                    and re.fullmatch(r"[a-z][a-z0-9-]{0,63}",
-                                     status["activeCommandId"]) is None)
-                or status["state"] not in {"accepted", "active", "neutral", "error"}
-                or not isinstance(status["detail"], str)
-                or not 1 <= len(status["detail"]) <= 64
-                or isinstance(status["updatedEpochMs"], bool)
-                or not isinstance(status["updatedEpochMs"], (int, float))
-                or not math.isfinite(status["updatedEpochMs"])
-                or status["updatedEpochMs"] < 1):
-            raise TransportError("native OpenXR input status values are invalid")
-        if expected_nonce is not None and status["acceptedNonce"] != expected_nonce:
-            raise TransportError("native OpenXR input status nonce mismatch")
-        if expected_sequence is not None and status["acceptedSequence"] != expected_sequence:
-            raise TransportError("native OpenXR input status sequence mismatch")
+        status = validate_native_status(status, expected_nonce=expected_nonce, expected_sequence=expected_sequence)
         status["acceptedNonce"] = "[redacted]"
         artifact = os.environ.get("OVERTE_DEVICE_ARTIFACT_DIR")
         if artifact:

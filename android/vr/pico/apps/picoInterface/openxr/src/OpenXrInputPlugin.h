@@ -19,6 +19,10 @@
 // SlimeVR report xdev trackers for the joints of a simulated skeleton
 #define MAX_TRACKER_COUNT 64
 
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(OVERTE_E2E_OPENXR_INPUT_V1)
+namespace overte::e2e { class LifecycleGestureObservation; }
+#endif
+
 class OpenXrInputPlugin : public InputPlugin {
     Q_OBJECT
 public:
@@ -118,6 +122,9 @@ private:
         std::map<std::string, std::shared_ptr<Action>> _actions;
         std::shared_ptr<OpenXrContext> _context;
         bool _actionsInitialized = false;
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(OVERTE_E2E_OPENXR_INPUT_V1)
+        std::shared_ptr<overte::e2e::LifecycleGestureObservation> _featureGesture;
+#endif
 
         std::unordered_map<XrXDevIdMNDX, XDevTracker> _xdev;
         std::unordered_map<controller::StandardPoseChannel, controller::Pose> _trackerCalibrations;

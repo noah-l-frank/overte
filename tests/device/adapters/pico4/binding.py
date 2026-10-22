@@ -838,6 +838,14 @@ def create_adapter(args, base_class):
                 native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep)
 
         @_private
+        def _lifecycle_gesture_source(self,target):
+            from adapters.pico4.lifecycle_gesture import PicoLifecycleGesture,FILE
+            native=self._native_feature_observer(target)
+            return PicoLifecycleGesture(native.send,
+                lambda:self.adb.read_debug_app_file(target,'org.overte.pico','files/overte-e2e/'+FILE,attempts=1),
+                native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep)
+
+        @_private
         def _lifecycle_ui_source(self, target):
             from adapters.pico4.lifecycle_source import bind_source
             return bind_source(self, target, self._native_feature_observer(target))
