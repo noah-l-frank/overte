@@ -20,6 +20,7 @@
 #include "../../../../../../tests/device/native/NormalLifecycleControls.h"
 #include "../../../../../../tests/device/native/AudioPageObservation.h"
 #include "../../../../../../tests/device/native/ViewMenuLifetimes.h"
+#include "../../../../../../tests/device/native/SnapshotReviewObservation.h"
 #include <PathUtils.h>
 #include "../../../../../../tests/device/native/NormalAccountMenuControls.h"
 #if defined(ANDROID_APP_PICO_INTERFACE)
@@ -424,6 +425,8 @@ QJsonObject NavigationUi::observe(QQuickItem* root, QQuickWindow* window, bool o
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     if (!audioPages.isEmpty()) { result["picoAudioPageVersion"]=1;result["picoAudioPages"]=audioPages; }
     if (!viewMenuLifetimes.isEmpty()) { result["picoViewMenuLifetimeVersion"]=1;result["picoViewMenuLifetimes"]=viewMenuLifetimes; }
+    const auto snapshotReview=overte::e2e::picoSnapshotReviewObservation(root,window);
+    if (!snapshotReview.isEmpty()) {result["picoSnapshotReview"]=snapshotReview;}
     result["featureControlsVersion"] = 1;
     result["createFileControlsVersion"]=1;
     result["createUiInventory"]=createInventory;

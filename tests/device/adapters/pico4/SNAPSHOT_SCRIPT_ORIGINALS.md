@@ -78,9 +78,9 @@ Pico/non-Pico TSI getter bodies with real private lifecycle and queue behavior.
 The production Snapshot JS tests exercise the actual ordinary capture/cancel
 handlers with explicit fake Script/native service boundaries.
 
-Next, reuse the fixed passive original Review source on the actual Pico 3D
-TabletRoot and bind the existing fixed Phone FastCancel recipe to the current
-Pico normal controls. No second cancel/timer system is introduced. Actual
+The fixed passive original Review source is now selected on the actual Pico
+3D TabletRoot in [its separate packet](SNAPSHOT_REVIEW_ORIGINALS.md). Next, bind
+the existing fixed Phone FastCancel recipe to the current Pico normal controls. No second cancel/timer system is introduced. Actual
 pre-render normal cancellation, immutable original file scope/FD retirement,
 all thirteen typed settings, three-second Script/Qt/native cleanup,
 permission/Documents/receiver/upload operations, stereo and panorama fidelity

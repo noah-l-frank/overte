@@ -89,6 +89,9 @@ def validate_snapshot(value, process_id, epoch_ms):
     if type(value) is dict and 'fileControlsVersion' in value:
         fields.add('fileControlsVersion')
         need(type(value['fileControlsVersion']) is int and value['fileControlsVersion'] == 1)
+    if type(value) is dict and 'picoSnapshotReview' in value:
+        from adapters.pico4.snapshot_review import validate as snapshot_review
+        fields.add('picoSnapshotReview');snapshot_review(value['picoSnapshotReview'])
     if type(value) is dict and ('picoAudioPageVersion' in value or 'picoAudioPages' in value):
         from adapters.pico4.audio_pages import validate as audio_pages
         fields|={'picoAudioPageVersion','picoAudioPages'}
