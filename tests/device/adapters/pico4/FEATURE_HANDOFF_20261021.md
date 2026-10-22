@@ -10,7 +10,7 @@ device qualification. Native code is uncompiled; no device is tested.
 
 | Area | Current Pico implementation | Concrete next boundary |
 | --- | --- | --- |
-| Worlds/navigation | Partial Go To/history, normal Places/model and durable native-storage bookmark flow | Selected-origin restoration, directory receipt/model/arrival joins, failure modal, restart and independent retirement |
+| Worlds/navigation | Partial normal Places/bookmark/origin/directory/error and measured B/A transit with original stereo-source retirement | Fresh Navigation challenge/changed-world pixels, maturity composition, remaining Go To closure, restart and independent final retirement |
 | Authentication | Complete source; 17-step shared flow and counterexamples host verified | Compile and qualify actual VR Home ray, IME, HTTPS provider and account lifetime on Proxmox |
 | Avatar/contacts | Complete adapter missing | Source-bound Avatar/People inputs and independent model/bookmark/wearable/consent observations |
 | Create | Partial token controls and entity foundations | Actual JSON picker/export, model/texture/PolyVox, permission actor and original file/image/peer joins |
@@ -622,3 +622,29 @@ Quick pointer so script-engine keeps its original Core/Network/Qml dependencies.
 The parent must provide original qualified code/profile inputs and compose the
 existing provider, normal controls and source lock. No Phone/iOS branch or
 reference worktree was edited and no full catalog group was added or removed.
+
+
+## Original arrival, normal row transit and stereo source
+
+The [normal transit owner](NAVIGATION_TRANSIT.md) now joins real normal Pico
+selection and consumed directory/bookmark provenance to independent actual
+probe/native avatar B/A arrival. Ordinary Home requires both absent page and
+actual original weak-root destruction. The existing two-eye GPU/OpenXR source
+is joined to original before/after HMD/feet observations, the original PNG is
+saved and native image/callback/complete issuer files are independently retired.
+Three seconds of native/UI/storage quiet follow. Lost tab/scroll/visit/Home
+answers resolve saved original intent without replay. The actual private Pico
+factory requires the parent's same source/input lock and shares its arrival
+reader with the child capture. Completed source records remain historical.
+
+Four additive v1 contracts use existing bounded original-history envelopes and
+private CAS files. Generic world-render role ownership/image storage retain the
+existing Graphics implementation namespace, foreign-owner guards and old readers.
+No new native instrumentation or product behavior is changed by this packet.
+The new no-build tests run actual Python/input/private-file/receipt components
+with synthetic Qt/native/HMD/GPU/OS boundaries. Native compilation and devices
+remain unverified. This is original source acquisition, not fresh Navigation
+challenge or changed-world raster proof. Whole-area maturity/origin composition,
+remaining Go To closure, normal opening/restart/bookmark transfer, independent
+publication and final resource/metadata retirement remain unfinished. Complete
+source/host feature areas remain three of fourteen.

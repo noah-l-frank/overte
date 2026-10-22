@@ -34,8 +34,12 @@ the actual original path-bearing endpoint, preserves unrelated settings and
 requires a credential-free original state. The [directory refresh/search owner](NAVIGATION_DIRECTORY.md)
 now joins actual original responseText consumption, outgoing message and
 original QML records notification to the normal refreshed/search-filtered model.
-Actual row selection/arrival/stereo, maturity composition, remaining Go To
-closure, restart and independent whole-area retirement remain incomplete. These components add
+The [normal transit owner](NAVIGATION_TRANSIT.md) now joins owned directory or
+bookmark selection to independently measured B/A arrival, normal Home, original
+weak Places-root destruction, retained stereo source and native image/receipt
+retirement, followed by three seconds of original quiet. Current Navigation
+challenge/changed-world pixels, maturity composition, remaining Go To closure,
+restart and independent whole-area retirement remain incomplete. These components add
 no complete feature area.
 
 ## Historical component checkpoints

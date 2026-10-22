@@ -1536,5 +1536,51 @@
     ],
     "details": "Normal refresh -> hidden query with three-second quiet -> owned query recovery uses original Pico Python controls and durable one-send ownership. Original completed provider write/header/body digest joins original first responseText read, actual qualified Places manager/load/UTF-16 source, original script-thread outgoing array and actual original QML records notify/revision plus current independent model. Exact frameRevision rejects an older UI frame even at identical millisecond timestamps. Actual private Pico factories and original probe/dispatcher execute; an owned short-lived loopback fixture supplies real HTTP bytes/header/completed-write receipts. Actual Places fetch JavaScript under Node rejects obsolete/closed/duplicate callbacks before response consumption. Existing shared compressed original-history envelope retains complete baseline/current/quiet packets with source/cursor/birth/query and final quiet/current continuity. All C++/Qt data-flow boundaries are explicitly simulated.",
     "limitations": "No builds, compilers, devices, installation, device services, remote or protected writes. Native response getter, cross-thread Qt ordering, actual QML records notify/model conversion and VR inputs are uncompiled and unqualified. Parent still owns open page, selected origin, source/input lock and final lifetime. This is data provenance, not full Script/XHR/timer/callback release. Actual row selection, B/A native arrival/stereo, maturity restoration composition, remaining Go To closure, process restart/bookmark transfer, independent publication and whole final resource/metadata retirement remain unfinished. No complete Navigation capability; three source/host-complete areas and eleven incomplete remain."
+  },
+  "navigationArrivalTransit": {
+    "status": "partial-source-host-verified",
+    "contracts": [
+      "navigation-pose v1",
+      "navigation-stereo-source v1",
+      "navigation-stereo-owner v1",
+      "navigation-transit-operations v1"
+    ],
+    "checks": [
+      {
+        "command": "python3 -m unittest self_tests.test_navigation_arrival self_tests.test_navigation_transit self_tests.test_navigation_directory self_tests.test_navigation_origin self_tests.test_navigation_error_dismissal self_tests.test_navigation_bookmarks self_tests.test_native_location_bookmarks self_tests.test_token_places_ui self_tests.test_native_navigation_replies self_tests.test_native_tablet_http self_tests.test_stereo_camera_uniforms self_tests.test_owned_world_render self_tests.test_world_render_storage self_tests.test_world_render_receipt_inventory",
+        "tests": 154,
+        "status": "passed",
+        "durationSeconds": 52.006,
+        "detail": "Broad original-source/input/file/receipt regression selection before final two additional original camera/head/changed-arrival and changed-image counterexamples."
+      },
+      {
+        "command": "python3 -m unittest self_tests.test_navigation_arrival self_tests.test_navigation_transit self_tests.test_navigation_directory",
+        "tests": 33,
+        "status": "passed",
+        "durationSeconds": 43.876,
+        "detail": "Final focused arrival/transit/directory tests including actual private Pico factory/shared lock, normal scroll and lost tab/scroll/visit/Home, original consumed directory witness under later parent ticket, original camera/head and changed-arrival counterexamples, image tampering and incomplete root/storage/native resource retirement."
+      },
+      {
+        "command": "python3 tests/device/validate_contract_versions.py",
+        "status": "passed"
+      },
+      {
+        "command": "python3 android/vr/pico/tests/pico4-test-suite.py --test normal-create --test normal-chat --test normal-login --test suite-runner --test coverage-matrix --timeout 240",
+        "groups": 5,
+        "catalogGroups": 52,
+        "status": "passed",
+        "durationSeconds": 65.18,
+        "junit": "navigation-transit-pico.xml"
+      },
+      {
+        "command": "python3 tests/run-project-tests.py --suite documentation --suite documentation-contracts --suite source-layout --suite project-coverage",
+        "suites": 4,
+        "status": "passed",
+        "durationSeconds": 2.56,
+        "junit": "navigation-transit-project.xml"
+      }
+    ],
+    "details": "Normal owned directory/bookmark tab/scroll/row selection joins independently measured actual probe/native avatar B/A arrival. Normal Home requires absent page plus independently destroyed original weak Places root. Exact original stereo PNG/capture v4/executed GPU cameras/same-frame OpenXR is bracketed by original HMD/avatar poses; original native image buffer, callbacks and complete issuer receipt-file absence precede native owner discard. Three seconds of actual native/UI/storage/input quiet and bounded original private histories follow. Applied lost replies resolve without resends. Existing Graphics role/image implementation namespace and foreign owner exclusions are retained for generic capture infrastructure only. The actual private Pico factory enforces the parent shared source lock. Python/input parsers, original host image files, native receipt files and journals execute; Qt/native/probe/HMD/GPU/OpenXR/OS boundaries are synthetic.",
+    "limitations": "No builds, compilers, devices, installations, device services, remote or protected writes. No new native instrumentation in this packet; the reused native sources remain uncompiled and devices unqualified. Original source acquisition does not prove current Navigation challenge/changed-world raster pixels. Whole feature still needs parent normal opening/maturity/origin composition, remaining Go To closure, original process restart/bookmark transfer, independent publisher and full Script/XHR/timer/callback/resource/metadata retirement. Uncertain acquisition/partial image/retirement retain ownership for the enclosing finalizer. No complete Navigation capability; three source/host-complete areas and eleven incomplete remain."
   }
 }

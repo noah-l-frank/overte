@@ -117,6 +117,16 @@ class NavigationDirectoryTests(unittest.TestCase):
         self.assertEqual(5,len(self.model.calls));self.assertEqual(1,len(self.model.reads))
         self.assertEqual(proof,self.owner().state['proof']);before=deepcopy(self.model.calls)
         self.owner().act(OWNED,'owned');self.assertEqual(before,self.model.calls)
+    def test_later_parent_ticket_can_read_original_owned_data_without_another_input_or_refresh(self):
+        self.act(TICKET,'refresh');self.act(OWNED,'owned');owner=self.owner()
+        proof=deepcopy(owner.state['proof']);calls=deepcopy(self.model.calls);ticket='9'*32
+        self.model.provider.activate(RUN,ticket);group=owner.observe_current(ticket)
+        self.assertEqual(ticket,group['provider']['ticket']);self.assertEqual(calls,self.model.calls)
+        self.assertEqual(proof,self.owner().state['proof']);self.assertEqual(1,len(self.model.reads))
+        self.model.skip_read=True;self.model.reads=[]
+        with self.assertRaises(NativeUIError):owner.observe_current(ticket)
+        self.assertEqual(calls,self.model.calls)
+
     def test_applied_lost_refresh_focus_and_query_replies_are_never_resent(self):
         for control in (('places.refresh','activate'),('places.search','activate'),('places.search','replace')):
             self.setUp()

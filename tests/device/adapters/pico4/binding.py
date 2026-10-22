@@ -495,6 +495,49 @@ def create_adapter(args, base_class):
                 self._location_bookmarks(target), path, run, manager.binding)
 
         @_private
+        def _navigation_arrival(self, target, run, scene_url):
+            from adapters.navigation_arrival import NavigationArrival
+            manager=self._scripts(target);native=self._native_feature_observer(target)
+            def probe(after):
+                native.guard()
+                result=self.read_probe_snapshot(target,'org.overte.pico',after)
+                native.guard();return result
+            return NavigationArrival(probe,self._graphics_subject_observer(target),native.clock_ms,native.guard,
+                run,manager.binding,scene_url,monotonic=native.monotonic)
+
+        @_private
+        def _navigation_stereo(self, target, path, artifact_root, run, scene_url, *, role='primary', source_lock=None, arrival=None):
+            from adapters.navigation_stereo import NavigationStereo
+            from adapters.pico4.graphics_binding import PicoGraphicsBinding
+            facade=PicoGraphicsBinding(self);lock=facade._lock(target,source_lock)
+            manager=self._scripts(target);native=self._native_feature_observer(target)
+            arrival=self._navigation_arrival(target,run,scene_url) if arrival is None else arrival
+            return NavigationStereo(arrival,
+                lambda:self._world_render_capture(target,read_only=True,role=role,require_frame_view=True,source_lock=lock),
+                path,artifact_root,run,manager.binding,lock,native.guard,role=role,monotonic=native.monotonic)
+
+        @_private
+        def _navigation_transit(self, target, path, artifact_root, run, scene_url, *, source_lock, directory=None, role='primary'):
+            from adapters.navigation_transit import NavigationTransit
+            from adapters.pico4.graphics_binding import PicoGraphicsBinding
+            from adapters.pico4.normal_places import PicoPlacesIO
+            from adapters.token_places_ui import TokenPlacesUI
+            from feature_journeys.contract import identifier
+            from pathlib import Path
+            manager=self._scripts(target);native=self._native_feature_observer(target)
+            lock=PicoGraphicsBinding(self)._lock(target,source_lock);arrival=self._navigation_arrival(target,run,scene_url)
+            def guard():
+                lock.assert_held();return native.guard()
+            def stereo(ticket):
+                identifier(ticket)
+                return self._navigation_stereo(target,Path(path).parent/('navigation-stereo-'+ticket+'.json'),
+                    artifact_root,run,scene_url,role=role,source_lock=lock,arrival=arrival)
+            return NavigationTransit(lambda intent:TokenPlacesUI(PicoPlacesIO(manager.ui.io),intent,run,
+                    monotonic=native.monotonic,sleep=native.sleep),
+                arrival,self._navigation_directory_source(target),self._location_bookmarks(target),stereo,
+                path,run,manager.binding,scene_url,guard,directory=directory,monotonic=native.monotonic,sleep=native.sleep)
+
+        @_private
         def _navigation_directory(self, target, path, run, status, provider_instance, inputs, origin, source_profile, guard):
             from adapters.navigation_directory import NavigationDirectory
             from adapters.pico4.normal_places import PicoPlacesIO

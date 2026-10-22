@@ -76,7 +76,13 @@
         "tests/device/adapters/native_navigation_directory.py",
         "tests/device/adapters/navigation_directory.py",
         "tests/device/adapters/pico4/NAVIGATION_DIRECTORY.md",
-        "tests/device/self_tests/test_navigation_directory.py"
+        "tests/device/self_tests/test_navigation_directory.py",
+        "tests/device/adapters/navigation_arrival.py",
+        "tests/device/adapters/navigation_stereo.py",
+        "tests/device/adapters/navigation_transit.py",
+        "tests/device/self_tests/test_navigation_arrival.py",
+        "tests/device/self_tests/test_navigation_transit.py",
+        "tests/device/adapters/pico4/NAVIGATION_TRANSIT.md"
       ],
       "declaredCheckpoints": 15,
       "inputVerbs": [
@@ -105,9 +111,9 @@
         "addressDialog"
       ],
       "missingOperationsOrEvidence": [
-        "Whole-area integration of normal Places/bookmark, directory origin and original consumed-response/normal-search owners with actual arrival/stereo, matching lookup error and process restart",
-        "Whole-area composition of present original selected-origin and actual refreshed-directory/model/search joins with maturity preservation, normal B/A row selection/arrival and restart; absent original endpoint settings or unowned credentials/draft are refused before input",
-        "Whole-area independent publisher and complete original callback/resource retirement"
+        "Whole-area composition of normal Places/bookmark, origin, consumed directory/search, original error and measured B/A transit owners with fresh Navigation challenge/changed-world stereo pixels, remaining Go To closure and restart",
+        "Parent maturity preparation/restoration, normal page reopening and actual process/bookmark transfer with original candidate/PID/lifecycle evidence",
+        "Whole-area independent publisher and complete original Script/XHR/timer/callback/resource and metadata retirement; original stereo-source acquisition alone does not satisfy feature image evidence"
       ],
       "requiredOriginalEvidence": [
         "Original directory response and native consumed response ID",
@@ -121,7 +127,7 @@
         "Restore original location and closed owned dialogs",
         "Prove pending reply/callback retirement and a three-second quiet baseline"
       ],
-      "nextExecutableStep": "Compose the original normal directory refresh/search, selected-origin restoration, bookmark and lookup-error owners with actual B/A row selection/native arrival/stereo, remaining Go To closure, actual restart/bookmark transfer and independent final resource retirement before registering the complete area triple.",
+      "nextExecutableStep": "Compose fresh Navigation challenge/changed-world stereo evidence using the existing scene/journey infrastructure, then join normal Go To closure, original restart/bookmark transfer, maturity/origin restoration and independent final retirement. The measured B/A transit owner now verifies normal selection/Home, original weak Places-root destruction, original stereo capture/native receipt retirement and three-second storage/input quiet; it remains internal and cannot enable the full area triple.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     },

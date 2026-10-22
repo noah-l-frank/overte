@@ -139,6 +139,12 @@ class NavigationDirectory:
     def quiet_advance(old,new):
         need(new['ui']['scope']['sequence']==old['ui']['scope']['sequence']
              and new['native']['capturedEpochMs']-old['native']['capturedEpochMs']<=1500)
+    def observe_current(self,ticket):
+        """Read current original data under a later parent action, without input."""
+        need(self.state is not None and self.state['active']['verb']=='owned' and self.state['active']['quiet'])
+        group=self.sample();state=deepcopy(self.state);state['active']['ticket']=ticket
+        self.effect(group,state);return group
+
     def act(self,ticket,verb):
         need(type(ticket) is str and re.fullmatch('[0-9a-f]{32}',ticket) and verb in ('refresh','hidden','owned') and self.deadline is None)
         self.deadline=self.now()+20
