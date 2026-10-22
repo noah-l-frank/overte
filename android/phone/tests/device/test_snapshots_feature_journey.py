@@ -71,7 +71,9 @@ raise RuntimeError('Explicit synthetic actor lifetime exceeded')
 class SnapshotJourneyTests(unittest.TestCase):
     SDK=29
     @classmethod
-    def setUpClass(cls):wire.SnapshotUploadServiceTests.setUpClass.__func__(cls)
+    def setUpClass(cls):
+        boundary=HostOnlyBoundary();boundary.__enter__();cls.addClassCleanup(boundary.close)
+        wire.SnapshotUploadServiceTests.setUpClass.__func__(cls)
     @classmethod
     def tearDownClass(cls):wire.SnapshotUploadServiceTests.tearDownClass.__func__(cls)
     def setUp(self):
@@ -287,8 +289,9 @@ class SnapshotJourneyTests(unittest.TestCase):
         from feature_journeys.engine import Journey
         reports=[];initialized=[False];timings=[]
         def invoke(operation,fields):
-            started=time.monotonic();result=self.invoke(operation,fields)
-            timings.append((operation.rsplit('.',1)[1],fields.get('verb'),round(time.monotonic()-started,3)))
+            started=time.monotonic();before=self.model.rpc_counts.copy();result=self.invoke(operation,fields)
+            counts=self.model.rpc_counts-before
+            timings.append((operation.rsplit('.',1)[1],fields.get('verb'),round(time.monotonic()-started,3),dict(counts)))
             if operation.endswith('.observe') and not initialized[0]:initialized[0]=True;self.start_actor()
             return result
         witness_clocks=[]

@@ -7,6 +7,7 @@ files and real TLS replies independently supply effect-source observations.
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
+from collections import Counter
 from contextlib import nullcontext, ExitStack
 import os
 import re
@@ -112,7 +113,7 @@ class SnapshotProduct(Product):
 
 class SnapshotTarget(CreateTarget):
     def __init__(self,root,sdk=29):
-        self.query_epoch=now()
+        self.query_epoch=now();self.rpc_counts=Counter()
         super().__init__(root,SimpleNamespace(process=SimpleNamespace(pid=31,poll=lambda:None)))
         # Reuse only the raw original-source/capture producers, never its
         # pre-completed feature or the reducer's already projected state.
@@ -419,6 +420,7 @@ class SnapshotTarget(CreateTarget):
         return super().source(key,request)
     def rpc(self,kind,value):
         with self.lock:
+            self.rpc_counts[kind]+=1
             if kind!='clock':self.query_epoch+=1
             if kind=='binding':return deepcopy(self.model_binding)
             if kind=='clock':return self.now()
