@@ -123,6 +123,8 @@ public:
     void acceptForeground(bool active);
     void acceptInputFocus(quint64 revision, quint64 birth, bool focused);
 #if defined(OVERTE_E2E_FEATURE_TESTS)
+    static QVariantMap featurePhoneWorldWeb(const QVariantMap& command);
+    static void acceptFeatureWorldWebInput(const QString& request, bool delivered);
     static QVariantMap featureWebDOMObservation(const QVariantMap& command);
     static QVariantMap featurePhoneWebRuntimeObservation(const QVariantMap& command);
     static void acceptFeaturePhoneWebRuntime(const QString& request,const QByteArray& json);
@@ -202,6 +204,7 @@ private:
     QHash<quint64, QJSValue> _callbacks;
     QVector<QMetaObject::Connection> _geometryConnections;
 #if defined(OVERTE_E2E_FEATURE_TESTS)
+    void featureWorldWebRecord(const QString& kind, const QVariant& value = {});
     QVariantMap featureWebDOMRequest(const QVariantMap& command);
     QVariantMap featureWebPacket(const QVariantMap& command, const QString& status, const QVariantMap& source = {});
     const QString _featureWebInstance { QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-') };

@@ -159,6 +159,7 @@ public slots:
     Q_INVOKABLE QVariantMap featureChatObservation(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureChatViewObservation(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureWebDOMObservation(const QVariantMap& command);
+    Q_INVOKABLE QVariantMap featurePhoneWorldWeb(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featurePhoneWebRuntimeObservation(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureNavigationReplies(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureProcessPresence(const QVariantMap& command);

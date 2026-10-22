@@ -13,6 +13,9 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
 import android.view.MotionEvent;
+import android.view.KeyEvent;
+import android.view.inputmethod.EditorInfo;
+import android.view.inputmethod.InputConnection;
 import android.view.InputDevice;
 import android.view.View;
 import android.view.ViewConfiguration;
@@ -109,6 +112,7 @@ public final class EmbeddedWebView {
     private static native void nativeFeatureDOMResult(long handle,long grant,long page,String document,String requestId,String result);
     private static native void nativeFeatureFinished(long handle,long grant,long page,String document);
     private static native void nativeFeatureHTTPError(long handle,long grant,long page,String document,int status);
+    private static native void nativeFeatureWorldInput(String requestId, boolean delivered);
     private static native void nativeFeatureRuntimeResult(String requestId,String result);
     private static native void nativeForeground(boolean active);
     private static native long nativeGeneration(long handle);
@@ -499,6 +503,69 @@ public final class EmbeddedWebView {
                         || !nativeEditorAllowed(handle, grant, page, document)) return;
                 nativeFeatureDOMResult(handle, grant, page, document, requestId, result);
             });
+        });
+    }
+    /** E2E-only normal native pointer/IME input, using measured original DOM geometry.
+     * No page handler, DOM value assignment or synthetic JavaScript click is used.
+     */
+    public static void featureWorldInput(long handle,long grant,long page,String requestId,String control,String text) {
+        if (!nativeFeatureEnabled() || requestId==null || !requestId.matches("[0-9a-f]{32}")
+                || control==null || !control.matches("text|bridge|reference|second|recovery|back|reload|foreign|navigate")
+                || text==null || text.length()>512 || (!control.equals("text") && !control.equals("foreign") && !text.isEmpty())) return;
+        post(handle, instance -> featureWorldControl(instance,grant,page,requestId,control,text,SystemClock.uptimeMillis(),0));
+    }
+    private static boolean featureWorldCurrent(Instance instance,long grant,long page) {
+        EmbeddedWebHost owner=host.get();
+        return instance.featureInstrumentation && VIEWS.get(instance.handle)==instance && !instance.destroyedDocument && instance.active
+            && owner!=null && owner==instance.owner && owner.activity()==instance.activity && owner.isForeground()
+            && instance.activity.hasWindowFocus() && instance.document.admits(grant,page,true,1)
+            && nativeEditorAllowed(instance.handle,grant,page,instance.view.getUrl());
+    }
+    private static void featureWorldControl(Instance instance,long grant,long page,String id,String control,String text,long started,int attempts) {
+        if (!featureWorldCurrent(instance,grant,page) || SystemClock.uptimeMillis()-started>=3500 || attempts>=24) {
+            nativeFeatureWorldInput(id,false);return;
+        }
+        // Closed original selectors. The result is geometry only, never an input
+        // effect. elementFromPoint prevents clicking a covered/replaced control.
+        String script="(function(){let e=document.getElementById("+JSONObject.quote(control)+");if(!e||e.disabled)return null;"
+            +"let r=e.getBoundingClientRect(),x=r.x+r.width/2,y=r.y+r.height/2,h=document.elementFromPoint(x,y);"
+            +"return [x,y,r.width,r.height,innerWidth,innerHeight,!!h&&(h===e||e.contains(h))];})()";
+        instance.view.evaluateJavascript(script,result -> {
+            try {
+                if (!featureWorldCurrent(instance,grant,page) || SystemClock.uptimeMillis()-started>=3500) throw new IllegalStateException();
+                JSONArray geometry=new JSONArray(result);
+                if (geometry.length()!=7) throw new IllegalStateException();
+                double x=geometry.getDouble(0),y=geometry.getDouble(1),width=geometry.getDouble(2),height=geometry.getDouble(3);
+                double viewportWidth=geometry.getDouble(4),viewportHeight=geometry.getDouble(5);
+                if (!Double.isFinite(x)||!Double.isFinite(y)||!Double.isFinite(width)||!Double.isFinite(height)
+                        ||!Double.isFinite(viewportWidth)||!Double.isFinite(viewportHeight)||width<=0||height<=0||viewportWidth<=0||viewportHeight<=0) throw new IllegalStateException();
+                if (y<1 || y>=viewportHeight-1) {
+                    // Ordinary native keyboard scroll, bounded independently of
+                    // DOM readiness. Never repeat a Send/navigation click.
+                    int key=y<1 ? KeyEvent.KEYCODE_PAGE_UP : KeyEvent.KEYCODE_PAGE_DOWN;
+                    instance.view.dispatchKeyEvent(new KeyEvent(KeyEvent.ACTION_DOWN,key));
+                    instance.view.dispatchKeyEvent(new KeyEvent(KeyEvent.ACTION_UP,key));
+                    instance.view.postDelayed(() -> featureWorldControl(instance,grant,page,id,control,text,started,attempts+1),75);return;
+                }
+                if (x<1 || x>=viewportWidth-1 || !geometry.getBoolean(6)) throw new IllegalStateException();
+                float px=(float)(x*instance.view.getWidth()/viewportWidth),py=(float)(y*instance.view.getHeight()/viewportHeight);
+                instance.view.requestFocus();
+                long down=SystemClock.uptimeMillis();
+                MotionEvent press=MotionEvent.obtain(down,down,MotionEvent.ACTION_DOWN,px,py,0);
+                MotionEvent release=MotionEvent.obtain(down,down+20,MotionEvent.ACTION_UP,px,py,0);
+                boolean delivered;
+                try { delivered=instance.view.dispatchTouchEvent(press);delivered=instance.view.dispatchTouchEvent(release)&&delivered; }
+                finally { press.recycle();release.recycle(); }
+                if (control.equals("text") || control.equals("foreign")) {
+                    if (!featureWorldCurrent(instance,grant,page)) throw new IllegalStateException();
+                    InputConnection editor=instance.view.onCreateInputConnection(new EditorInfo());
+                    if (editor==null) throw new IllegalStateException();
+                    delivered=editor.performContextMenuAction(android.R.id.selectAll)&&delivered;
+                    delivered=editor.commitText(text,1)&&delivered;
+                    editor.finishComposingText();
+                }
+                nativeFeatureWorldInput(id,delivered);
+            } catch (Exception unavailable) { nativeFeatureWorldInput(id,false); }
         });
     }
     public static void evaluate(long handle, long grant, long page, String javascript) {

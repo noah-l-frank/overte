@@ -1463,6 +1463,18 @@
             }
             return true;
         }
+        if (command && command.action === "phone-world-web") {
+            // The typed native provider validates the complete closed grammar.
+            var worldWeb={phoneWorldWebVersion:1,commandId:command.commandId,status:"unavailable"};
+            try {
+                if (typeof Test.featurePhoneWorldWeb === "function") {
+                    var originalWorldWeb=Test.featurePhoneWorldWeb(command);
+                    if (originalWorldWeb && originalWorldWeb.commandId===command.commandId) worldWeb=originalWorldWeb;
+                }
+            } catch (_worldWebUnavailable) {}
+            Test.saveObject(worldWeb,"phone-world-web.json");
+            return true;
+        }
         if (command && command.action === "feature-web-dom-observe") {
             if (command.schemaVersion === 1 && typeof command.commandId === "string"
                     && /^(?:ios-)?[0-9a-f]{32}$/.test(command.commandId)
@@ -2127,7 +2139,7 @@
     function applyAndroidControlCommand(command) {
         if (command && (command.action === "normal-feature-observe" || command.action === "feature-native-observe"
                 || command.action === "feature-chat-observe" || command.action === "feature-chat-view-observe" || command.action === "feature-web-dom-observe" || command.action === "feature-account-probe" || command.action === "feature-account-origin"
-                || command.action === "feature-phone-web-runtime-observe"
+                || command.action === "feature-phone-web-runtime-observe" || command.action === "phone-world-web"
                 || command.action === "feature-pending-commit-owner" || command.action === "feature-navigation-replies"
                 || command.action === "feature-process-presence" || command.action === "feature-script-roots-observe"
                 || command.action === "feature-script-work-observe" || command.action === "feature-animation-inventory-observe"

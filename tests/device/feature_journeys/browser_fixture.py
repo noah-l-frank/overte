@@ -98,10 +98,11 @@ class BrowserResources:
                 # fixture never fills echo output or cooperatively rejects an
                 # untrusted origin; native authority must reject it.
                 body = pinned_resource('web-source/index.html').decode('utf-8')
-                title = 'Overte web parity ' + ('second' if name == 'page-b.html' else
+                title = 'Overte web parity ' + ('foreign ' if origin=='foreign' else '') + ('second' if name == 'page-b.html' else
                     'recovery unavailable' if status == 404 else 'recovery available' if name == 'recovery.html' else 'reference')
                 body = body.replace('Overte web parity reference', title)
-                body = body.replace('href="index.html?page=second"', 'href="page-b.html"')
+                body = body.replace('href="index.html?page=second"', 'id="second" href="page-b.html"')
+                body = body.replace('<button id="back">', '<a id="reference" href="reference.html">Reference document</a><button id="back">')
                 # A real ordinary link exposes the failing/recovered resource.
                 body = body.replace('<button id="back">', '<a id="recovery" href="recovery.html">Recovery document</a><button id="back">')
                 marker = '/feature-fixture/v1/runs/' + run + '/tickets/' + ticket + '/marker.png'

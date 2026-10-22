@@ -31,6 +31,7 @@
 #include "../../../tests/device/native/ChatViewObservation.h"
 #include "../../../tests/device/native/WebDOMObservationBridge.h"
 #include "../../../tests/device/native/PhoneWebRuntimeBridge.h"
+#include "../../../tests/device/native/PhoneWorldWebBridge.h"
 #include "../../../tests/device/native/PendingFieldCommitBridge.h"
 #include "../../../tests/device/native/ProcessPresence.h"
 #include <ui/TabletScriptingInterface.h>
@@ -374,6 +375,21 @@ QVariantMap TestScriptingInterface::featurePhoneWebRuntimeObservation(const QVar
     const auto original=qApp->property(overte::e2e::phoneWebRuntimeProperty());
     if (original.userType()!=qMetaTypeId<overte::e2e::PhoneWebRuntimeProvider>()) { return {}; }
     const auto provider=original.value<overte::e2e::PhoneWebRuntimeProvider>();
+    return provider ? provider(command) : QVariantMap();
+}
+
+QVariantMap TestScriptingInterface::featurePhoneWorldWeb(const QVariantMap& command) {
+    if (QThread::currentThread()!=thread()) {
+        if (!thread() || !thread()->isRunning()) { return {}; }
+        QVariantMap result;
+        if (!QMetaObject::invokeMethod(this,[&] { result=featurePhoneWorldWeb(command); },Qt::BlockingQueuedConnection)) { return {}; }
+        return result;
+    }
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript") || !overte::e2e::phoneWorldWebCommand(command)) { return {}; }
+    const auto original=qApp->property(overte::e2e::phoneWorldWebProperty());
+    if (original.userType()!=qMetaTypeId<overte::e2e::WebDOMProvider>()) { return {}; }
+    const auto provider=original.value<overte::e2e::WebDOMProvider>();
     return provider ? provider(command) : QVariantMap();
 }
 

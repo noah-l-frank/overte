@@ -39,7 +39,7 @@ def configuration(path):
         exact(value,{'featureObserverVersion','area','target','candidateArguments','fixtureUrl','actorToken','durationSeconds'}
             |({'imagePolicy'} if value.get('featureObserverVersion')==3 and value.get('area')=='emotes' else set()))
         need(type(value['featureObserverVersion']) is int and value['featureObserverVersion'] in (2,VERSION)
-             and value['area'] in (('scripts','authentication','graphics') if value['featureObserverVersion']==2 else ('scripts','authentication','graphics','emotes')))
+             and value['area'] in (('scripts','authentication','graphics') if value['featureObserverVersion']==2 else ('scripts','authentication','graphics','emotes','world-web')))
         if value['area']=='emotes':image_policy(value['imagePolicy'])
         if value['area']=='authentication':account_origin(value['fixtureUrl'])
     need(type(value['target']) is str and bool(value['target'])
@@ -54,7 +54,8 @@ def run(adapter,config,*,monotonic=time.monotonic,sleep=time.sleep):
     """One owned run; no session repair, child launch or device discovery."""
     started=previous=monotonic();need(number(started,0,1e15))
     client=Client(config['fixtureUrl'],config['actorToken']);flow=None
-    area=config.get('area','scripts');need(area in ('scripts','authentication','graphics','emotes'))
+    area=config.get('area','scripts');need(area in ('scripts','authentication','graphics','emotes','world-web'))
+    if area=='world-web':return run_world_web(adapter,config,client,monotonic=monotonic,sleep=sleep)
     if area=='emotes':return run_emote(adapter,config,client,monotonic=monotonic,sleep=sleep)
     if area=='authentication':account_origin(config['fixtureUrl'])
     owner_store=getattr(adapter,'script_feature_store' if area=='scripts' else area+'_feature_store')
@@ -81,6 +82,23 @@ def run(adapter,config,*,monotonic=time.monotonic,sleep=time.sleep):
             try:flow.publish()
             except (ScriptRunRetired,AuthenticationRunRetired,GraphicsRunRetired):return 0
             except (ScriptPhasePending,AuthenticationPhasePending,GraphicsPhasePending,PhoneScriptSourceBusy):pass
+        sleep(.25)
+
+
+def run_world_web(adapter,config,client,*,monotonic=time.monotonic,sleep=time.sleep):
+    from feature_journeys.phase_fixture import PhasePending,PhaseRetired
+    started=previous=monotonic();flow=None
+    while True:
+        now=monotonic();need(number(now,previous,started+config['durationSeconds']));previous=now
+        if flow is None:
+            metadata=adapter.world_web_feature_store(config['target']).read()
+            if metadata is not None:
+                need(metadata.get('fixtureUrl')==client.url+'/runs/'+metadata['runId']+'/')
+                flow=adapter._world_web_feature(config['target'],metadata['runId'],role='actor',client=client)
+        if flow is not None:
+            try:flow.publish()
+            except PhaseRetired:return 0
+            except (PhasePending,PhoneScriptSourceBusy):pass
         sleep(.25)
 
 

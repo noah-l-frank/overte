@@ -99,6 +99,7 @@ SCRIPT_FEATURE_OPERATIONS={'feature.scripts.'+kind for kind in ('act','observe',
 AUTHENTICATION_FEATURE_OPERATIONS={'feature.authentication.'+kind for kind in ('act','observe','cleanup')}
 GRAPHICS_FEATURE_OPERATIONS={'feature.graphics.'+kind for kind in ('act','observe','cleanup')}
 EMOTE_FEATURE_OPERATIONS={'feature.emotes.'+kind for kind in ('act','observe','cleanup')}
+WORLD_WEB_FEATURE_OPERATIONS={'feature.world-web.'+kind for kind in ('act','observe','cleanup')}
 
 
 def readonly_feature_command(command):
@@ -146,6 +147,10 @@ def readonly_feature_command(command):
     elif action=='feature-scene-load-observe':
         from adapters.native_phone_scene_loads import command as validate_scene_load
         validate_scene_load(command)
+    elif action=='phone-world-web':
+        from overte_phone_world_web_source import command as validate_world_web
+        validate_world_web(command)
+        require(command['operation']=='observe','PHONE_READ_ONLY_COMMAND_REJECTED')
     elif action=='feature-phone-web-runtime-observe':
         from adapters.native_phone_web_runtime import command as validate_web_runtime
         validate_web_runtime(command)
@@ -285,6 +290,13 @@ class PhoneAppiumAdapter(AppiumAdapter):
             self._emote_configuration()
             self._feature_fixture_client()
             values=sorted(set(values)|EMOTE_FEATURE_OPERATIONS)
+        full_world_web=os.environ.get('OVERTE_PHONE_FEATURE_WORLD_WEB','0')
+        require(full_world_web in ('0','1'),'PHONE_FEATURE_WORLD_WEB_CONFIGURATION_INVALID')
+        if full_world_web=='1':
+            require(getattr(self,'candidate',None) is not None and target.get('appId')=='io.github.noah_be.overte.phone'
+                and self.controlled_android_client(target),'PHONE_FEATURE_WORLD_WEB_REQUIRES_BOUND_DEBUG_TARGET')
+            self._world_web_configuration();self._feature_fixture_client()
+            values=sorted(set(values)|WORLD_WEB_FEATURE_OPERATIONS)
         create_enabled = os.environ.get('OVERTE_PHONE_NORMAL_CREATE', '0')
         require(create_enabled in ('0', '1'), 'PHONE_NORMAL_CREATE_CONFIGURATION_INVALID')
         if create_enabled == '1':
@@ -667,6 +679,61 @@ class PhoneAppiumAdapter(AppiumAdapter):
     def graphics_observer_store(self, selector, role):
         require(role in ('primary','actor'),'PHONE_GRAPHICS_OBSERVER_SCOPE_REQUIRED')
         return PrivateFeatureState(self.state_path(selector).with_name('phone-graphics-'+role+'-observer.json'))
+
+    def world_web_feature_store(self,selector):
+        return PrivateFeatureState(self.state_path(selector).with_name('phone-world-web-feature.json'))
+
+    def world_web_retirement_store(self,selector):
+        return PrivateFeatureState(self.state_path(selector).with_name('phone-world-web-retirement.json'))
+
+    def world_web_manager_store(self,selector):
+        return PrivateFeatureState(self.state_path(selector).with_name('phone-world-web-manager.json'))
+
+    def _world_web_configuration(self,metadata=None):
+        from overte_phone_world_web_source import fixture
+        if metadata is None:
+            path=os.environ.get('OVERTE_PHONE_WORLD_WEB_CONFIGURATION')
+            require(type(path) is str and bool(path),'PHONE_WORLD_WEB_CONFIGURATION_REQUIRED')
+            value=PrivateFeatureState(Path(path)).read()
+            require(type(value) is dict and set(value)=={'worldWebConfigurationVersion','artifactRoot','foreignFixtureUrl'}
+                and type(value['worldWebConfigurationVersion']) is int and value['worldWebConfigurationVersion']==1,
+                'PHONE_WORLD_WEB_CONFIGURATION_INVALID')
+        else:value=metadata
+        root=Path(value['artifactRoot']);PrivateFeatureState(root/'world-web-configuration-boundary.json')._parent()
+        foreign=value['foreignFixtureUrl'];fixture('a'*32,foreign+'/runs/'+'a'*32+'/')
+        return root,foreign
+
+    def _world_web_feature(self,selector,run,*,role='primary',client=None,retirement=False):
+        from feature_journeys.phase_fixture import PhaseFixtureReader
+        from overte_phone_world_web_feature import PhoneWorldWebFeature
+        target=self.target(selector)
+        require(getattr(self,'candidate',None) is not None and target.get('appId')=='io.github.noah_be.overte.phone'
+            and self.controlled_android_client(target),'PHONE_WORLD_WEB_REQUIRES_BOUND_DEBUG_TARGET')
+        if client is None:
+            require(role=='primary','PHONE_WORLD_WEB_ACTOR_REQUIRES_SEPARATE_CLIENT');client=self._feature_fixture_client()
+        metadata=self.world_web_feature_store(selector).read() or self.world_web_retirement_store(selector).read()
+        if metadata is not None:
+            require(metadata.get('runId')==run and metadata.get('fixtureUrl')==client.url+'/runs/'+run+'/',
+                'PHONE_WORLD_WEB_ORIGINAL_CONFIGURATION_REQUIRED')
+        elif role=='actor' or retirement:require(False,'PHONE_WORLD_WEB_ORIGINAL_CONFIGURATION_REQUIRED')
+        root,foreign=self._world_web_configuration(metadata)
+        return PhoneWorldWebFeature(self,selector,PhaseFixtureReader(client,run,'world-web'),root,foreign,role=role)
+
+    def _world_web_io(self,selector,*,read_only=True):
+        from overte_phone_world_web_source import PhoneWorldWebIO,FILE
+        native=self._native_feature_observer(selector,read_only=read_only)
+        target=self.target(selector);device=target['capabilities']['appium:udid'];transport=PhoneAdapter(self.candidate).adb
+        return PhoneWorldWebIO(native.send,
+            lambda:transport.read_debug_app_file(device,target['appId'],'files/overte-e2e/'+FILE,attempts=1),
+            native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep)
+
+    def _world_web_clock(self,selector):
+        return self._native_feature_observer(selector,read_only=True).clock_ms()
+
+    def _world_web_manager(self,selector):
+        native,observe,binding,_guard,_installed=self.normal_feature_runtime(selector,read_only=True)
+        return NormalScriptManager(PhoneScriptUI(native,'io.github.noah_be.overte.phone'),observe,
+            self.world_web_manager_store(selector),binding,source_kind='feature-world-web')
 
     def _web_runtime_observer(self, selector, *, read_only=True):
         require(read_only is True,'PHONE_WEB_RUNTIME_REQUIRES_EXISTING_READ_ONLY_SESSION')
@@ -1399,6 +1466,11 @@ class PhoneAppiumAdapter(AppiumAdapter):
         return result
 
     def cleanup(self, selector):
+        world_web_error=False
+        try:
+            feature=self.world_web_feature_store(selector).read() or self.world_web_retirement_store(selector).read()
+            if feature is not None:self._world_web_feature(selector,feature['runId'],retirement=True).finalize()
+        except Exception:world_web_error=True
         emote_error=False
         try:
             feature=self.emote_feature_store(selector).read() or PrivateFeatureState(self.state_path(selector).with_name('phone-emote-retirement.json')).read()
@@ -1574,6 +1646,10 @@ class PhoneAppiumAdapter(AppiumAdapter):
         require(self.authentication_actions_store(selector).read() is None
                 and all(self.authentication_restart_store(selector,stage).read() is None for stage in range(1,4)),
                 'PHONE_AUTHENTICATION_INPUT_CLEANUP_INCOMPLETE')
+        require(not world_web_error and self.world_web_feature_store(selector).read() is None
+                and self.world_web_retirement_store(selector).read() is None and self.world_web_manager_store(selector).read() is None
+                and all(PrivateFeatureState(self.state_path(selector).with_name('phone-world-web-'+role+'.json')).read() is None
+                    for role in ('primary','actor')),'PHONE_WORLD_WEB_FEATURE_CLEANUP_INCOMPLETE')
         require(not authentication_error and self.authentication_feature_store(selector).read() is None and self.authentication_retirement_store(selector).read() is None
                 and all(PrivateFeatureState(self.state_path(selector).with_name('phone-authentication-'+role+'-feature.json')).read() is None
                         for role in ('primary','actor')),'PHONE_AUTHENTICATION_FEATURE_CLEANUP_INCOMPLETE')
@@ -1641,6 +1717,11 @@ class PhoneAppiumAdapter(AppiumAdapter):
             require(operation in self.advertised_capabilities(self.target(selector)),
                     'PHONE_GRAPHICS_FEATURE_NOT_ENABLED')
             return getattr(self._graphics_feature(selector,values['runId']),operation.rsplit('.',1)[1])(values)
+        if operation in WORLD_WEB_FEATURE_OPERATIONS:
+            from feature_journeys.contract import arguments
+            arguments(operation,values)
+            require(operation in self.advertised_capabilities(self.target(selector)),'PHONE_WORLD_WEB_FEATURE_NOT_ENABLED')
+            return getattr(self._world_web_feature(selector,values['runId']),operation.rsplit('.',1)[1])(values)
         if operation in EMOTE_FEATURE_OPERATIONS:
             from feature_journeys.contract import arguments
             arguments(operation,values)

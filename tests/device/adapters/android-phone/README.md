@@ -6,6 +6,10 @@ adapter file transport. The Phone feature adapter group passes 97 host cases.
 Native compilation/devices and complete browser feature adapters remain open.
 
 
+The [world Web feature handoff](WORLD_WEB_FEATURE.md) documents the new
+default-off public v17 composition, original native histories, normal Android
+pointer/IME input and remaining catalog video prerequisite.
+
 This Phone-owned entry delegates device behavior to the original Shared Android
 adapter. Its manifest retains `android-phone-adb`. The Shared Android and Appium
 adapters are not modified and gain no installation claim from this wrapper.

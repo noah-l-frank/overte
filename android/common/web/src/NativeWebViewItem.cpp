@@ -9,6 +9,7 @@
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #include "../../../../tests/device/native/WebDOMObservationBridge.h"
 #include "../../../../tests/device/native/PhoneWebRuntimeBridge.h"
+#include "../../../../tests/device/native/PhoneWorldWebBridge.h"
 #endif
 #include <QFile>
 #include <QFocusEvent>
@@ -96,6 +97,8 @@ void registerType() {
         overte::e2e::WebDOMProvider provider=[](const QVariantMap& command) { return NativeWebViewItem::featureWebDOMObservation(command); };
         QCoreApplication::instance()->setProperty(overte::e2e::webDOMProviderProperty(),QVariant::fromValue(provider));
 #if defined(ANDROID_APP_PHONE_INTERFACE)
+        overte::e2e::WebDOMProvider world=[](const QVariantMap& command) { return NativeWebViewItem::featurePhoneWorldWeb(command); };
+        QCoreApplication::instance()->setProperty(overte::e2e::phoneWorldWebProperty(),QVariant::fromValue(world));
         overte::e2e::PhoneWebRuntimeProvider runtime{[](const QVariantMap& command) { return NativeWebViewItem::featurePhoneWebRuntimeObservation(command); }};
         QCoreApplication::instance()->setProperty(overte::e2e::phoneWebRuntimeProperty(),QVariant::fromValue(runtime));
 #endif
@@ -115,6 +118,9 @@ NativeWebViewItem::NativeWebViewItem(QQuickItem* parent) : QQuickItem(parent),
     _channel->registerObject("eventBridgeWrapper", new NativeBridgeWrapper(_bridge, this));
     _channel->connectTo(_transport);
     connect(_bridge, &NativeSurfaceBridge::webEvent, this, &NativeWebViewItem::webEventReceived);
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PHONE_INTERFACE)
+    connect(_bridge, &NativeSurfaceBridge::webEvent, this, [this](const QVariant& message) { featureWorldWebRecord("requests",message); });
+#endif
     connect(_transport, &NativeWebTransport::outbound, this, [this](const QJsonObject& message) {
         quint64 grant, page; { QMutexLocker guard(&_mutex); grant = _session.generation(); page = _page; }
         const auto payload = QJsonDocument(message).toJson(QJsonDocument::Compact);
@@ -529,6 +535,9 @@ bool NativeWebViewItem::evaluate(const QString& script, quint64 grant, quint64 p
 bool NativeWebViewItem::emitScriptEvent(const QVariant& message) {
     const auto bytes = QJsonDocument(QJsonArray { QJsonValue::fromVariant(message) }).toJson(QJsonDocument::Compact).size();
     { QMutexLocker guard(&_mutex); if (!_session.allowsBridge(_session.generation(), sourceURL(_document), true, bytes)) return false; }
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PHONE_INTERFACE)
+    featureWorldWebRecord("replies",message);
+#endif
     _bridge->forwardScriptEvent(message); return true;
 }
 bool NativeWebViewItem::runJavaScript(const QString& source, const QJSValue& callback) {
@@ -1012,6 +1021,9 @@ void NativeWebViewItem::acceptFeatureWebFinished(quint64 grant, quint64 page, co
         if (!self || !featureEnabled() || !self->allowsEditorDocument(grant,page,document)) { return; }
         { QMutexLocker guard(&self->_mutex);if (!self->current(grant,page) || self->_document!=document) { return; } }
         self->_featureWebFinishedGrant=grant;self->_featureWebFinishedPage=page;self->_featureWebFinishedDocument=document;
+#if defined(ANDROID_APP_PHONE_INTERFACE)
+        self->featureWorldWebRecord("documents");
+#endif
     },Qt::QueuedConnection);
 }
 void NativeWebViewItem::acceptFeatureWebHTTPError(quint64 grant, quint64 page, const QUrl& document, int status) {
@@ -1052,6 +1064,9 @@ void NativeWebViewItem::acceptFeatureWebDOM(quint64 grant, quint64 page, const Q
             {"nativeFinished",true},{"httpErrorStatus",self->_featureWebHTTPGrant==grant && self->_featureWebHTTPPage==page ? self->_featureWebHTTPStatus : 0},
             {"inlineLease",inlineLease},{"sourceUrl",source},{"sourceIdentity",self->_sourceIdentity}};
         self->_featureWebPacket=self->featureWebPacket(self->_featureWebCommand,"ready",{{"nativeView",view},{"dom",dom}});
+#if defined(ANDROID_APP_PHONE_INTERFACE)
+        self->featureWorldWebRecord("dom",self->_featureWebPacket);
+#endif
     },Qt::QueuedConnection);
 }
 #endif
@@ -1092,3 +1107,5 @@ extern "C" JNIEXPORT void JNICALL Java_org_overte_web_EmbeddedWebView_nativeFeat
 extern "C" JNIEXPORT void JNICALL Java_org_overte_web_EmbeddedWebView_nativeResult(JNIEnv* env, jclass, jlong handle, jlong grant, jlong page, jlong request, jstring result) {
     auto json = string(env, result).toUtf8(); QMutexLocker guard(&registryMutex); if (auto* item = registry.value(handle)) item->acceptResult(grant, page, request, json);
 }
+
+#include "PhoneWorldWebE2E.inc"
