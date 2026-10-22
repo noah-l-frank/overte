@@ -53,6 +53,7 @@
     "ios-avatar-scripts": {"current": 1, "reads": [1]},
     "ios-avatar-scripts-acquisition": {"current": 1, "reads": [1]},
     "native-avatar-script-observation": {"current": 1, "reads": [1]},
+    "ios-avatar-social": {"current": 1, "reads": [1]},
     "ios-avatar-social-http": {"current": 1, "reads": [1]},
     "ios-avatar-social-http-acquisition": {"current": 1, "reads": [1]},
     "ios-people-model": {"current": 1, "reads": [1]},

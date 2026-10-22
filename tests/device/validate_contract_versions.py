@@ -61,6 +61,7 @@ REQUIRED = {
     "ios-avatar-scripts": 1,
     "ios-avatar-scripts-acquisition": 1,
     "native-avatar-script-observation": 1,
+    "ios-avatar-social": 1,
     "ios-avatar-social-http": 1,
     "ios-avatar-social-http-acquisition": 1,
     "ios-people-model": 1,

@@ -229,7 +229,7 @@ def provider_status(value, *, instance, run, previous=None):
     return value
 
 
-def consumed_response(value, status, *, provider_instance, owned_origin, run, ticket, role,
+def consumed_responses(value, status, *, provider_instance, owned_origin, run, ticket, role,
                       after_native_epoch, after_provider_epoch, after_event):
     """Join written provider bytes to the real request.js responseText read.
 
@@ -263,7 +263,12 @@ def consumed_response(value, status, *, provider_instance, owned_origin, run, ti
                     or receipt['responseBytes']!=data['body']['bytes'] or receipt['responseSha256']!=data['body']['sha256']):continue
             found.append(dict(xhrId=xhr,nativeCreated=deepcopy(created),nativeSent=deepcopy(reply['sent']),
                 nativeReply=deepcopy(finished),nativeRead=deepcopy(read),http=deepcopy(receipt)))
-    need(bool(found));return found[-1]
+    return found
+
+
+def consumed_response(value, status, **kwargs):
+    """Compatible latest-response facade over untouched original candidates."""
+    found=consumed_responses(value,status,**kwargs);need(bool(found));return found[-1]
 
 
 class IOSAvatarSocialHttp(IOSPlacesModel):
