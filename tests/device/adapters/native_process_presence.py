@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
 import json
+import math
 import re
 import time
 import uuid
@@ -74,6 +75,7 @@ class NativeProcessPresence:
             self.send(deepcopy(request))
             for attempt in range(51):
                 need(self.guard() is not False)
+                sample_started = self.monotonic(); need(number(sample_started,previous,started+5))
                 raw = self.original(); need(type(raw) is str and len(raw.encode()) <= LIMIT)
                 try: value = decode(raw) if raw else None
                 except json.JSONDecodeError: value = None
@@ -87,9 +89,17 @@ class NativeProcessPresence:
                     if self.last is not None:
                         need(value['instance'] == self.last['instance'] and value['sequence'] > self.last['sequence']
                              and value['capturedEpochMs'] >= self.last['capturedEpochMs'])
-                    now = self.monotonic()
-                    need(number(now, 0, 1e15) and now >= previous and now - started < 5 and self.guard() is not False)
-                    self.last = deepcopy(value); return value
+                    # Both detached originals precede every final source guard
+                    # and clock. A frozen other clock cannot hide slow copies,
+                    # physical acquisition, validation or ownership checks.
+                    result,next_last=deepcopy(value),deepcopy(value)
+                    need(self.guard() is not False)
+                    measured=self.monotonic();final_epoch=self.clock_ms();ended=self.monotonic()
+                    need(number(measured,previous,started+5) and number(ended,measured,started+5)
+                        and ended-started<5 and ended-sample_started<=1.5 and integer(final_epoch,epoch))
+                    fresh(value['capturedEpochMs'],final_epoch)
+                    need(final_epoch-value['capturedEpochMs']+math.ceil((ended-measured)*1000)<=1500)
+                    self.last=next_last;return result
                 if attempt < 50: self.sleep(0.1)
         except Exception:
             raise NativeUIError('Original native process presence is unavailable or invalid') from None
