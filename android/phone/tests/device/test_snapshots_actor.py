@@ -33,7 +33,7 @@ def actor_once(boundary,url,token,queue):
     except Exception as error:queue.put(dict(error=type(error).__name__,message=str(error)))
 
 
-def actor_until_closed(boundary,url,queue,command):
+def actor_until_closed(boundary,url,queue,command,report_progress=False):
     try:
         f=boundary.feature;f.role='actor';f.load=lambda:None
         phase=PhaseFixtureReader(Client(url,'a'*64),RUN,'snapshots',epoch_ms=lambda:boundary.epoch)
@@ -42,9 +42,15 @@ def actor_until_closed(boundary,url,queue,command):
         # Exercise the production quiet window with real elapsed host time.
         f.monotonic,f.sleep=time.monotonic,time.sleep
         actor=PhoneSnapshotsActor(f)
-        for _attempt in range(4):
+        deadline=time.monotonic()+15
+        for _attempt in range(100):
+            if time.monotonic()>=deadline:raise RuntimeError('Independent quiet deadline exceeded')
             result=actor.step()
+            if report_progress and _attempt==0:
+                queue.put(dict(progress=True,quiet=deepcopy(actor.state['quiet'])))
+                if not command.poll(5) or command.recv()!='continue':raise RuntimeError('Quiet progress handoff missing')
             if actor.state['quiet'] is not None and actor.state['quiet']['complete']:break
+            time.sleep(.1)
         else:raise RuntimeError('Independent original actor quiet never completed')
         queue.put(dict(ready=True,pid=os.getpid(),start=start_identity(os.getpid()),quiet=deepcopy(actor.state['quiet'])))
         if not command.poll(10):raise RuntimeError('Explicit host close seam timed out')
@@ -107,6 +113,30 @@ class SnapshotsActorTests(unittest.TestCase):
             if process.is_alive():process.terminate();process.join(3)
         state=unpack(PrivateFeatureState(self.root/'phone-snapshots-actor-lifecycle.json').read()['payload'])[0]
         self.assertEqual('retired',state['phase']);self.assertIsNone(state['partialClosure']);self.assertIsNone(state['pending'])
+    def test_incomplete_actual_quiet_sample_releases_lock_before_another_role_read(self):
+        from overte_phone_script_lock import PhoneScriptSourceLock
+        b=self.boundary;b.clean();self.reader.activate('d'*32,'cleanup',{});b.feature.state['actions']=[dict(ticket='d'*32,phase='acknowledged')]
+        b.provider.update(ticket='d'*32,activations=[dict(ticket=TICKET,verb='capture',capturedEpochMs=19000),dict(ticket='d'*32,verb='cleanup',capturedEpochMs=20000)])
+        self.server.shutdown();self.thread.join(3)
+        ctx=multiprocessing.get_context('fork');queue=ctx.Queue();receive,send=ctx.Pipe(duplex=False)
+        process=ctx.Process(target=actor_until_closed,args=(b,self.url,queue,receive,True));process.start()
+        self.thread=threading.Thread(target=self.server.serve_forever,daemon=True);self.thread.start()
+        try:
+            progress=queue.get(timeout=15);self.assertNotIn('error',progress);self.assertTrue(progress['progress'])
+            self.assertFalse(progress['quiet']['complete']);self.assertEqual(1,len(progress['quiet']['sequences']))
+            self.assertFalse(self.reader.request('/runs/'+RUN)['entries'])
+            # A genuinely separate process remains alive with unfinished quiet
+            # work while the primary can acquire the original OS source lock.
+            self.assertTrue(process.is_alive())
+            with PhoneScriptSourceLock(b.feature.lock.path,timeout=.1).held():pass
+            send.send('continue');ready=queue.get(timeout=25);self.assertNotIn('error',ready)
+            self.assertGreaterEqual(ready['quiet']['last']-ready['quiet']['started'],3)
+            self.assertGreaterEqual(len(ready['quiet']['sequences']),3)
+            self.reader.close();send.send('closed');final=queue.get(timeout=15);self.assertNotIn('error',final)
+            self.assertTrue(final['result']);send.send('exit');process.join(3);self.assertEqual(0,process.exitcode)
+        finally:
+            if process.is_alive():process.terminate();process.join(3)
+
     def test_partial_cleanup_records_only_the_owner_proof_after_actual_close(self):
         b=self.boundary;f=b.feature;f.role='actor';f.load=lambda:None;f.state.update(phase='partial-cleaned',partial=True)
         f.state['hostProcess']=dict(pid=os.getpid()+100,start='explicit-host-identity-seam')

@@ -88,18 +88,18 @@ class PhoneSnapshotsActor(PhoneAssetsActor):
             if verb!='cleanup' and f.state['phase']=='cleaned':return False
             role=PhoneSnapshotsRole(f,'actor')
             if role.state['phase']=='reading':role.recover()
-            held_started=f.monotonic()
-            while True:
-                try:measured=role.read(role.state['sequence'])
-                except SnapshotPending:return False
-                sample=dict(ticket=current['ticket'],actor='owned-observer',actorSequence=measured['sequence'],capturedEpochMs=measured['capturedEpochMs'],
-                    facts={key:deepcopy(measured['state'][key]) for key in WITNESS_KEYS['snapshots']})
-                need(role.frames[-1]['ticket']==current['ticket'])
-                if verb=='cleanup':
-                    proof=f.restored(snapshot=role.frames[-1]);now=f.monotonic();need(measured['resources']==[])
-                    quiet=quiet_window(self.state['quiet'],now,measured['sequence']);quiet['final']=proof;self.state['quiet']=quiet
-                    if not quiet['complete']:
-                        self.save()
-                        if f.monotonic()-held_started>=3.5:return False
-                        f.sleep(.1);continue
-                self.state['pending']=dict(sample=sample,issued=False);self.save();self.deliver();return False
+            try:measured=role.read(role.state['sequence'])
+            except SnapshotPending:return False
+            sample=dict(ticket=current['ticket'],actor='owned-observer',actorSequence=measured['sequence'],capturedEpochMs=measured['capturedEpochMs'],
+                facts={key:deepcopy(measured['state'][key]) for key in WITNESS_KEYS['snapshots']})
+            need(role.frames[-1]['ticket']==current['ticket'])
+            if verb=='cleanup':
+                proof=f.restored(snapshot=role.frames[-1]);now=f.monotonic();need(measured['resources']==[])
+                quiet=quiet_window(self.state['quiet'],now,measured['sequence']);quiet['final']=proof;self.state['quiet']=quiet
+                if not quiet['complete']:
+                    self.save()
+                    # Release between actual quiet samples. Multiple full
+                    # acquisitions can exceed the primary's existing lock
+                    # deadline even when each source read is timely.
+                    return False
+            self.state['pending']=dict(sample=sample,issued=False);self.save();self.deliver();return False
