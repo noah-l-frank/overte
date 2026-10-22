@@ -19,7 +19,7 @@
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #include <QSet>
 #include <memory>
-namespace overte::e2e { class ChatViewObservation; class AudioSettingsObservation; }
+namespace overte::e2e { class ChatViewObservation; class AudioSettingsObservation; class AudioSettingsQueue; }
 #include <QUuid>
 namespace overte::e2e { class FeatureLifecycle; class AccountOriginLease; }
 #endif
@@ -235,6 +235,7 @@ private:
     overte::e2e::AccountOriginLease* _featureAccountOriginLease {nullptr};
     std::shared_ptr<overte::e2e::ChatViewObservation> _featureChatView;
     std::shared_ptr<overte::e2e::AudioSettingsObservation> _featureAudioSettings;
+    std::shared_ptr<overte::e2e::AudioSettingsQueue> _featureAudioSettingsQueue;
     QString _featureObservationInstance;
     quint64 _featureObservationSequence {0};
     QString _featurePendingRequest;

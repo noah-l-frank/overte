@@ -3,6 +3,8 @@
 // Compile the whole original getter with explicit AudioClient/Audio/NodeList
 // boundaries. The audio engine, microphone and mixer are not run here.
 #include <QCoreApplication>
+#include <QElapsedTimer>
+#include <QSemaphore>
 #include <QJsonDocument>
 #include <QSharedPointer>
 #include <QTemporaryDir>
@@ -25,8 +27,8 @@ class DevicesBoundary:public QObject {
     Q_OBJECT
     Q_PROPERTY(InputBoundary* input READ input)
 public:
-    InputBoundary* original{nullptr};
-    InputBoundary* input(){assert(thread()==QThread::currentThread());return original;}
+    QPointer<InputBoundary> original;bool destroyInput{false};
+    InputBoundary* input(){assert(thread()==QThread::currentThread());if(destroyInput){delete original.data();return nullptr;}return original.data();}
 };
 class AudioScriptingInterface:public QObject {};
 namespace scripting {
@@ -70,6 +72,7 @@ public:
     QString _testResultsLocation;
     std::shared_ptr<LifecycleBoundary> _featureLifecycle{std::make_shared<LifecycleBoundary>()};
     std::shared_ptr<overte::e2e::AudioSettingsObservation> _featureAudioSettings;
+    std::shared_ptr<overte::e2e::AudioSettingsQueue> _featureAudioSettingsQueue{std::make_shared<overte::e2e::AudioSettingsQueue>()};
     QVariantMap featureAudioSettingsObservation(const QVariantMap& command);
 };
 #include "original-audio-settings-getter.inc"
@@ -101,6 +104,16 @@ int main(int argc,char** argv){
     assert(DependencyManager::gets==0);source._testResultsLocation=directory.path();
     auto malformed=command();malformed.insert("schemaVersion",true);assert(source.featureAudioSettingsObservation(malformed).isEmpty());
     QThread worker;worker.start();client->moveToThread(&worker);nodes->moveToThread(&worker);
+    // A live blocked worker is bounded. Its canceled original callback is
+    // retained until Qt actually destroys the original queued functor.
+    QSemaphore entered,release;
+    assert(QMetaObject::invokeMethod(client.data(),[&]{entered.release();release.acquire();},Qt::QueuedConnection));
+    assert(entered.tryAcquire(1,1000));QElapsedTimer bounded;bounded.start();
+    assert(source.featureAudioSettingsObservation(command()).isEmpty());assert(bounded.elapsed()<1000);
+    assert(client->reads==0&&!source._featureAudioSettingsQueue->settled());
+    assert(source.featureAudioSettingsObservation(command()).isEmpty());assert(client->reads==0);
+    release.release();assert(QMetaObject::invokeMethod(client.data(),[]{},Qt::BlockingQueuedConnection));
+    assert(source._featureAudioSettingsQueue->settled());assert(client->reads==0); // No late read/result adoption.
     auto request=command();auto packet=source.featureAudioSettingsObservation(request);assert(!packet.isEmpty());
     assert(client->reads==1&&nodes->reads==1&&input.reads==1);
     auto original=packet.value("source").toMap();assert(!original.value("inputPeakValuesEnabled").toBool());
@@ -123,9 +136,44 @@ int main(int argc,char** argv){
     InputBoundary replacement;devices.original=&replacement;
     assert(source.featureAudioSettingsObservation(command()).isEmpty());devices.original=&input;
     assert(source.featureAudioSettingsObservation(command()).isEmpty()); // No re-adoption after replacement.
+    // Actual child death occurs inside its owning script-thread getter,
+    // between devices discovery and input read. No dangling child is used.
+    TestScriptingInterface childDeath;childDeath._testResultsLocation=directory.path();DevicesBoundary doomedDevices;auto doomedInput=new InputBoundary;
+    doomedDevices.original=doomedInput;doomedDevices.destroyInput=true;script->original=&doomedDevices;
+    assert(childDeath.featureAudioSettingsObservation(command()).isEmpty());assert(doomedDevices.original.isNull());script->original=&devices;
+    // A queued context destroyed before dispatch retires its original functor;
+    // neither a dangling receiver nor any late successful fact is adopted.
+    overte::e2e::AudioSettingsQueue queue;auto doomed=new QObject;doomed->moveToThread(&worker);
+    QPointer<QObject> doomedWeak(doomed);int lateReads{0};
+    assert(QMetaObject::invokeMethod(client.data(),[&]{entered.release();release.acquire();},Qt::QueuedConnection));
+    assert(entered.tryAcquire(1,1000));
+    assert(QMetaObject::invokeMethod(doomed,[doomed]{delete doomed;},Qt::QueuedConnection));
+    assert(queue.read("client",doomed,[&](QObject*){++lateReads;return overte::e2e::AudioSettingsPart{{{"late",true}},{}};}).values.isEmpty());
+    assert(!queue.settled());release.release();
+    assert(QMetaObject::invokeMethod(client.data(),[]{},Qt::BlockingQueuedConnection));
+    assert(doomedWeak.isNull()&&queue.settled()&&lateReads==0);
+    // Original TSI dispatch is independently bounded if its live GUI queue is
+    // blocked by this host test. Returning to the GUI may only retire it.
+    TestScriptingInterface dispatch;dispatch._testResultsLocation=directory.path();int delivered{0};QThread caller;
+    QObject calling;calling.moveToThread(&caller);caller.start();
+    const auto originalGets=DependencyManager::gets;
+    assert(QMetaObject::invokeMethod(&calling,[&]{assert(dispatch.featureAudioSettingsObservation(command()).isEmpty());++delivered;},Qt::QueuedConnection));
+    bounded.restart();while(!dispatch._featureAudioSettingsQueue->settled()){QThread::msleep(1);if(bounded.elapsed()>1500)break;}
+    // Ensure caller completed its bounded wait without pumping the GUI queue.
+    assert(QMetaObject::invokeMethod(&calling,[]{},Qt::BlockingQueuedConnection));
+    assert(delivered==1&&DependencyManager::gets==originalGets);
+    assert(dispatch.featureAudioSettingsObservation(command()).isEmpty());assert(DependencyManager::gets==originalGets);
+    QCoreApplication::processEvents();assert(dispatch._featureAudioSettingsQueue->settled());
+    assert(DependencyManager::gets==originalGets);
+    TestScriptingInterface liveDispatch;liveDispatch._testResultsLocation=directory.path();QSemaphore completed;
+    QVariantMap dispatched;
+    assert(QMetaObject::invokeMethod(&calling,[&]{dispatched=liveDispatch.featureAudioSettingsObservation(command());completed.release();},Qt::QueuedConnection));
+    bounded.restart();while(!completed.tryAcquire(1,0) && bounded.elapsed()<2000){QCoreApplication::processEvents();QThread::msleep(1);}
+    assert(!dispatched.isEmpty()&&liveDispatch._featureAudioSettingsQueue->settled());
+    assert(QMetaObject::invokeMethod(&calling,[&]{calling.moveToThread(app.thread());},Qt::BlockingQueuedConnection));caller.quit();assert(caller.wait(3000));
     // The weak originals also detect actual QObject death independently.
     overte::e2e::AudioSettingsObservation weak;QObject a,b,c,d;auto dying=std::make_unique<QObject>();
-    auto req=command();assert(weak.admit(req));const QMap<QString,QObject*> roles{{"client",&a},{"devices",&b},
+    auto req=command();assert(weak.admit(req));const QMap<QString,QPointer<QObject>> roles{{"client",&a},{"devices",&b},
         {"input",dying.get()},{"nodes",&c},{"script",&d}};
     assert(!weak.snapshot(req,roles,{{"original",true}}).isEmpty());dying.reset();req=command();assert(weak.admit(req));
     auto replaced=roles;replaced["input"]=&replacement;assert(weak.snapshot(req,replaced,{{"original",true}}).isEmpty());

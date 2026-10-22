@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 #pragma once
 #if defined(OVERTE_E2E_FEATURE_TESTS)
+#include "AudioSettingsQueue.h"
 #include <QCoreApplication>
 #include <QDateTime>
 #include <QHash>
@@ -62,13 +63,13 @@ public:
                 || (!_run.isEmpty() && _run!=command.value("runId").toString())) { return false; }
         _run=command.value("runId").toString();_requests.insert(command.value("commandId").toString());return true;
     }
-    QVariantMap snapshot(const QVariantMap& command,const QMap<QString,QObject*>& roles,const QVariantMap& source) {
+    QVariantMap snapshot(const QVariantMap& command,const QMap<QString,QPointer<QObject>>& roles,const QVariantMap& source) {
         if (!enabled() || !_valid || !audioSettingsCommand(command) || command.value("runId")!=_run
                 || !_requests.contains(command.value("commandId").toString()) || _published.contains(command.value("commandId").toString())
                 || _sequence>=9007199254740991ULL || roles.keys()!=QStringList{"client","devices","input","nodes","script"}) { return {}; }
         QSet<QObject*> distinct;QVariantMap ids;
         for (auto role=roles.begin();role!=roles.end();++role) {
-            if (!role.value() || distinct.contains(role.value())) { _valid=false;return {}; } distinct.insert(role.value());
+            if (!role.value() || distinct.contains(role.value().data())) { _valid=false;return {}; } distinct.insert(role.value().data());
             if (_objects.contains(role.key())) {
                 if (!_objects.value(role.key()) || _objects.value(role.key())!=role.value()) { _valid=false;return {}; }
             } else { _objects.insert(role.key(),role.value());_ids.insert(role.key(),nonce()); }

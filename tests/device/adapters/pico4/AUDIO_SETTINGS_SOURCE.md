@@ -19,6 +19,24 @@ injector gain is read directly from the already present NodeList; the scripting
 gain getters can acquire that dependency. Five weak object identities are fixed
 for the observer's run. Actual replacement or destruction makes subsequent
 publication unavailable, without adopting a new object or claiming retirement.
+The script, devices and input objects are read together on their actual common
+owner thread. Those device/input getters return embedded members of the held
+original Audio dependency; no raw child association crosses a queue boundary.
+The published role map carries QPointer originals acquired on those actual
+threads, so death before publication is unavailable.
+
+Cross-thread reads use four closed, bounded queued channels. Worker reads wait
+at most 200 ms; original TSI dispatch waits at most one second. Heap-owned
+results outlive a timeout, callbacks capture weak original receivers, and no
+callback captures caller stack references or an unheld child. A timed-out
+callback is canceled and stays owned until Qt actually destroys its original
+functor, including original receiver destruction. Later queries discard its
+result and require original queue retirement before fresh publication. Only
+the actual currently executing TSI dispatch is excluded from that pending
+check. A live blocked worker cannot grow new queued observations or supply a
+late fresh value. The host checks cover blocked worker/GUI queues, destruction
+before delivery and child destruction between original script/device reads.
+
 Each component has its own timestamp recorded before its first getter. A later
 envelope cannot refresh an earlier component value.
 
