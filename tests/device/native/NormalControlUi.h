@@ -13,6 +13,7 @@
 #include "NormalCreateVoxelControls.h"
 #include "NormalChatControls.h"
 #include "NormalLifecycleControls.h"
+#include "NormalAvatarPeopleControls.h"
 #include <ui/NativeFieldInput.h>
 #include <QCoreApplication>
 #include <QDateTime>
@@ -33,7 +34,7 @@ namespace overte::e2e {
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 class NormalControlUi {
 public:
-    enum class Surface { ScriptFiles, Audio, Graphics, Login, Create, CreateExtra, CreateVoxel, Chat, Lifecycle };
+    enum class Surface { ScriptFiles, Audio, Graphics, Login, Create, CreateExtra, CreateVoxel, Chat, Lifecycle, AvatarPeople };
     explicit NormalControlUi(Surface surface = Surface::ScriptFiles) : _surface(surface), _instance(nonce()), _generation(nonce()) { _clock.start(); }
 
     QJsonObject observe(QQuickItem* root, QQuickWindow* window, const AudioUiContext& audio = {}, const GraphicsUiContext& graphics = {}, const LoginUiContext& login = {}) {
@@ -62,7 +63,8 @@ public:
                     : _surface == Surface::CreateExtra ? createExtraControlId(item)
                     : _surface == Surface::CreateVoxel ? createVoxelControlId(item)
                     : _surface == Surface::Chat ? chatControlId(item)
-                    : _surface == Surface::Lifecycle ? lifecycleControlId(item) : scriptFileControlId(item);
+                    : _surface == Surface::Lifecycle ? lifecycleControlId(item)
+                    : _surface == Surface::AvatarPeople ? avatarPeopleControlId(item) : scriptFileControlId(item);
                 if (!id.isEmpty()) {
                     if (controls.contains(id)) { ambiguous = true; return; }
                     const auto previous = _controls.value(id);
@@ -73,8 +75,9 @@ public:
                         : _surface == Surface::CreateExtra ? createExtraControlSource(item,id)
                         : _surface == Surface::CreateVoxel ? createVoxelControlSource(item,id)
                         : _surface == Surface::Chat ? chatControlSource(item,id)
-                        : _surface == Surface::Lifecycle ? lifecycleControlSource(item,id) : scriptFileControlSource(item);
-                    if ((_surface==Surface::Chat || _surface==Surface::Lifecycle || _surface==Surface::CreateExtra || _surface==Surface::CreateVoxel) && source.isEmpty()) { ambiguous=true;return; }
+                        : _surface == Surface::Lifecycle ? lifecycleControlSource(item,id)
+                        : _surface == Surface::AvatarPeople ? avatarPeopleControlSource(item,id) : scriptFileControlSource(item);
+                    if ((_surface==Surface::AvatarPeople || _surface==Surface::Chat || _surface==Surface::Lifecycle || _surface==Surface::CreateExtra || _surface==Surface::CreateVoxel) && source.isEmpty()) { ambiguous=true;return; }
                     controls.insert(id, {item, previous.item == item && previous.source == source ? previous.token : nonce(), source});
                 }
             }
@@ -107,6 +110,7 @@ public:
             else if (_surface == Surface::CreateVoxel) { appendCreateVoxelObservation(row,control.item,id); }
             else if (_surface == Surface::Chat) { appendChatControlObservation(row,control.item,id); }
             else if (_surface == Surface::Lifecycle) { appendLifecycleControlObservation(row,control.item,id); }
+            else if (_surface == Surface::AvatarPeople) { appendAvatarPeopleControl(row,control.item,id); }
             else { appendScriptFileObservation(row, control.item, id); }
             rows.append(row);
         }
@@ -123,7 +127,8 @@ public:
             : _surface == Surface::CreateExtra ? "createExtraControlsVersion"
             : _surface == Surface::CreateVoxel ? "createVoxelControlsVersion"
             : _surface == Surface::Chat ? "chatControlsVersion"
-            : _surface == Surface::Lifecycle ? "lifecycleControlsVersion" : "fileControlsVersion"] = (_surface==Surface::Login || _surface==Surface::Chat) ? 2 : 1;
+            : _surface == Surface::Lifecycle ? "lifecycleControlsVersion"
+            : _surface == Surface::AvatarPeople ? "avatarPeopleControlsVersion" : "fileControlsVersion"] = (_surface==Surface::Login || _surface==Surface::Chat) ? 2 : 1;
         if (_surface==Surface::CreateExtra) {result["createExtraUiInventory"]=createExtraUiLifetimes().snapshot();}
         if (_surface==Surface::ScriptFiles) { result["scriptInventory"]=scriptInventory.observation(ready); }
         return result;
@@ -163,6 +168,7 @@ public:
                     : _surface == Surface::CreateVoxel ? action != "activate" && action != "replace" && action != "select-index"
                     : _surface == Surface::Create ? action != "activate" && action != "replace" && action != "select-index" && action != "scroll"
                     : _surface == Surface::Chat ? action != "activate" && action != "replace" && action != "submit"
+                    : _surface == Surface::AvatarPeople ? action != "activate" && action != "replace" && action != "scroll" && action != "set-value"
                     : _surface == Surface::Lifecycle ? action != "activate" && action != "replace"
                     : action != "activate" && action != "replace" && action != "submit" && action != "select-index")) { return result; }
         // Consume intent before dispatch; never replay uncertain native input.
@@ -172,7 +178,9 @@ public:
         if (!control.item || !control.item->isEnabled() || command.value("controlToken") != QJsonValue(control.token)
                 || visibleRect(control.item, window).isEmpty()) { return result; }
         bool delivered {false};
-        if (_surface == Surface::Lifecycle) {
+        if (_surface == Surface::AvatarPeople) {
+            delivered=applyAvatarPeopleInput(control.item,window,id,action,command,pointerAt);
+        } else if (_surface == Surface::Lifecycle) {
             QJsonObject row;appendLifecycleControlObservation(row,control.item,id);
             const auto point=control.item->mapToScene(QPointF(control.item->width()/2,control.item->height()/2));
             if (!row.value("inputReady").toBool() || !ownsPoint(control.item,window,point)) { return result; }

@@ -98,6 +98,8 @@ QString controlId(QQuickItem* item) {
 #endif
     const auto emote=overte::e2e::emoteControlId(item);
     if (!emote.isEmpty()) { return emote; }
+    const auto avatarPeople=overte::e2e::avatarPeopleControlId(item);
+    if (!avatarPeople.isEmpty()) {return avatarPeople;}
     const auto lifecycle=overte::e2e::lifecycleControlId(item);
     if (!lifecycle.isEmpty()) { return lifecycle; }
     const auto chat=overte::e2e::chatControlId(item);
@@ -286,7 +288,12 @@ QJsonObject NavigationUi::observe(QQuickItem* root, QQuickWindow* window, bool o
                 } else if (id.startsWith("emote.")) {
                     source=overte::e2e::emoteControlSource(item,id);
                     if (source.isEmpty()) { ambiguous=true;return; }
-                } else if (id.startsWith("lifecycle.")) {
+                } else if (id.startsWith("avatar.") || id.startsWith("people.")) {
+                    source=overte::e2e::avatarPeopleControlSource(item,id);
+                    if (source.isEmpty()) {ambiguous=true;return;}
+                } else if (id.startsWith("avatar.") || id.startsWith("people.")) {
+            overte::e2e::appendAvatarPeopleControl(row,control.item,id);
+        } else if (id.startsWith("lifecycle.")) {
                     source=overte::e2e::lifecycleControlSource(item,id);
                     if (source.isEmpty()) { ambiguous=true;return; }
                 } else if (id.startsWith("chat.")) {
@@ -435,6 +442,7 @@ QJsonObject NavigationUi::observe(QQuickItem* root, QQuickWindow* window, bool o
     result["chatControlsVersion"] = 2;
     result["emoteControlsVersion"] = 2;
     result["emoteSourceSequence"] = static_cast<double>(++_emoteSourceSequence);
+    result["avatarPeopleControlsVersion"]=1;
     result["lifecycleControlsVersion"] = 1;
     result["createExtraControlsVersion"]=1;
     result["createVoxelControlsVersion"]=1;
@@ -562,6 +570,9 @@ QJsonObject NavigationUi::apply(QQuickItem* root, QQuickWindow* window, bool ope
             const auto direction=command.value("direction").toString();
             if (direction=="up" || direction=="down") { delivered=pointerScroll(control.item,point,direction=="up" ? 120 : -120); }
         }
+    } else if (controlId.startsWith("avatar.") || controlId.startsWith("people.")) {
+        if (current.value("avatarPeopleControlsVersion")!=QJsonValue(1)) {return result;}
+        delivered=overte::e2e::applyAvatarPeopleInput(control.item,window,controlId,action,command,pointerAt);
     } else if (controlId.startsWith("lifecycle.")) {
         QJsonObject row;overte::e2e::appendLifecycleControlObservation(row,control.item,controlId);
         const auto point=control.item->mapToScene(QPointF(control.item->width()/2,control.item->height()/2));

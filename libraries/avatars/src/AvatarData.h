@@ -1267,6 +1267,9 @@ public:
      */
      // Get avatar entity data with all property values. Used in API.
      Q_INVOKABLE virtual AvatarEntityMap getAvatarEntityData() const;
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    QVariantMap e2eAvatarEntityStorage() const;
+#endif
 
     // Get avatar entity data with non-default property values. Used internally.
     virtual AvatarEntityMap getAvatarEntityDataNonDefault() const;

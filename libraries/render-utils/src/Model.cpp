@@ -1319,6 +1319,9 @@ void Model::setURL(const QUrl& url) {
     }
 
     _url = url;
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    _e2eModelLoads.requested(url);
+#endif
 
     {
         render::Transaction transaction;
@@ -1349,6 +1352,9 @@ void Model::setURL(const QUrl& url) {
 }
 
 void Model::loadURLFinished(bool success) {
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    _e2eModelLoads.finished(success,_renderWatcher.getURL());
+#endif
     if (!success) {
         _visualGeometryRequestFailed = true;
     } else if (!_pendingTextures.empty()) {

@@ -123,6 +123,7 @@ void TestScriptingInterface::setTestResultsLocation(const QString path) {
         _featureLifecycle->start(path); // Failure leaves an unavailable observer.
 #if defined(ANDROID_APP_PICO_INTERFACE)
         _featureEmoteSceneQueue=std::make_shared<overte::e2e::AudioSettingsQueue>();
+        _featureAvatarStateQueue=std::make_shared<overte::e2e::AudioSettingsQueue>();
         overte::e2e::ensureNavigationDirectoryProvider(this);
 #endif
     }
@@ -221,6 +222,44 @@ QVariantMap TestScriptingInterface::featureAvatarRenderObservation(const QVarian
 }
 
 #if defined(ANDROID_APP_PICO_INTERFACE)
+QVariantMap TestScriptingInterface::featurePicoAvatarState(const QVariantMap& command) {
+    const auto queue=_featureAvatarStateQueue;if (!queue) {return {};}
+    if (QThread::currentThread()!=thread()) {
+        return queue->read("dispatch",this,[command](QObject* original) {
+            return overte::e2e::AudioSettingsPart{static_cast<TestScriptingInterface*>(original)->featurePicoAvatarState(command),{}};
+        }).values;
+    }
+    const auto json=QJsonObject::fromVariantMap(command);const auto request=command.value("commandId").toString();
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript") || !qApp || thread()!=qApp->thread()
+            || command.keys()!=QStringList{"action","commandId","schemaVersion"}
+            || !json.value("schemaVersion").isDouble() || json.value("schemaVersion").toDouble()!=1
+            || !json.value("commandId").isString() || !QRegularExpression("\\A[0-9a-f]{32}\\z").match(request).hasMatch()
+            || command.value("action").toString()!="feature-pico-avatar-state-observe"
+            || _featureAvatarStateRequests.contains(request) || _featureAvatarStateRequests.size()>=512
+            || !queue->settled(overte::e2e::AudioSettingsQueue::dispatching(this) ? "dispatch" : QString())
+            || !DependencyManager::isSet<AvatarManager>()) {return {};}
+    const auto requested=QDateTime::currentMSecsSinceEpoch();
+    const auto avatar=DependencyManager::get<AvatarManager>()->getMyAvatar();if (!avatar || avatar->thread()!=QThread::currentThread()) {return {};}
+    const auto model=avatar->getSkeletonModel();if (!model || model->thread()!=QThread::currentThread()) {return {};}
+    const auto storage=avatar->e2eAvatarEntityStorage();if (storage.isEmpty()) {return {};}
+    _featureAvatarStateRequests.insert(request);
+    const auto geometry=model->getGeometry();QVariant loadedGeometry;
+    if (geometry && geometry->isHFMModelLoaded()) {
+        loadedGeometry=QVariantMap{{"instance",geometry->e2eGeometryInstance()},{"url",geometry->getHFMModel().originalURL}};
+    }
+    const QVariantMap source{{"picoAvatarStateVersion",1},{"sessionId",avatar->getSessionUUID().toString(QUuid::WithoutBraces)},
+        {"preferenceUrl",avatar->getFullAvatarURLFromPreferences().toString()},{"modelName",avatar->getFullAvatarModelName()},{"avatarEntityStorage",storage},
+        {"requestedUrl",avatar->getSkeletonModelURL().toString()},{"avatarLoads",avatar->e2eAvatarLoads()},
+        {"modelInstance",model->e2eModelInstance()},{"modelUrl",model->getURL().toString()},{"modelLoads",model->e2eModelLoads()},
+        {"rigId",model->getRig().e2eRigId()},{"loaded",model->isLoaded()},{"geometry",loadedGeometry},
+        {"scale",avatar->getModelScale()},{"targetScale",avatar->getTargetScale()},
+        {"hipsJoint",avatar->getJointIndex("Hips")},{"localRenderingEnabled",avatar->getShouldRenderLocally()}};
+    return {{"schemaVersion",1},{"requestId",request},{"instance",_featureObservationInstance},
+        {"sequence",static_cast<qulonglong>(++_featureAvatarStateSequence)},{"processId",QCoreApplication::applicationPid()},
+        {"requestedEpochMs",requested},{"capturedEpochMs",QDateTime::currentMSecsSinceEpoch()},{"source",source}};
+}
+
 QVariantMap TestScriptingInterface::featurePicoEmoteScene(const QVariantMap& command) {
     // Reuse the existing bounded original dispatcher with a dedicated queue.
     // Only its generic dispatch mechanics are shared; no Audio state is read.
