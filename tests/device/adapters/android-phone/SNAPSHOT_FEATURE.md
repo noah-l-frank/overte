@@ -1005,6 +1005,23 @@ Within the bounded current batch, each sample reopens and validates every old
 original, acquires new current sources, and proves `restored()` from those
 originals. The restoration metadata proof brackets its pure joins with two
 complete input-history passes; it retains no metadata authority across calls.
+After verified cleanup acquisition, the same actual actor may retain its reader
+continuity between steps. Every step still checks all three original owner
+headers before and after loading, reopens all old originals, and acquires a new
+complete current sample. Reader lifetime is separate from trusted owner anchors:
+`SnapshotPending` discards the reader but keeps only its own verified header
+anchors for checked reconstruction. A known role header must match at the
+constructor's first read; disappearance cannot create a new owner. Unexpected
+failure or lock contention after qualified cleanup stops further use of that
+flow. Contention before lock acquisition may retry with the same anchors.
+
+Actual partial reads also retain their original native/avatar before packets as
+continuity floors when no after packet was acquired. A present after packet
+keeps priority and must validate; an empty or malformed after packet cannot
+borrow a valid before packet. Diagnostic frames and their complete original
+groups remain in the archive. These historical floors never replace new target
+observations.
+
 The unchanged `quiet_window` requires at least three advancing samples spanning
 three real seconds and resets after any gap greater than 1.5 seconds. An
 incomplete batch saves its history and returns without a successful witness.
@@ -1021,7 +1038,12 @@ it does not qualify this batch mechanism. The current parent integration
 passed 72 source/host cases in 57.846 seconds, including owner-CAS and late
 original/header changes during restoration. A late-history primary prototype
 also proved a real quiet interval, but does not publish independent actor
-facts. Both complete SDK29+ and SDK26–28 common replays remain pending.
+facts. Seventeen resident-reader host counterexamples additionally pass at the
+parent integration, with explicit native/header-load seams. The separate
+[partial-read cases](../../../../android/phone/tests/device/test_snapshots_partial_read_resume.py)
+execute actual acquisition, diagnostic archive and reconstruction. The bounded
+late-history alternating replay still fails to maintain continuous quiet;
+both complete SDK29+ and SDK26–28 common replays remain pending.
 
 The durable owner is written before setup can acquire settings, capture-file or
 document leases. Baseline preparation takes readonly originals before ordinary
