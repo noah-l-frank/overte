@@ -309,3 +309,13 @@ Pico root/orphan guard passed 10 cases in 1.689 seconds. They include real kerne
 FD reuse, fake close ACK, replaced wrapper callback/parent, unknown marker and
 lost initial/closed/final-unlink receipts. The full warm v4 composition through
 this final host owner remains to be measured; public Chat stays partial.
+
+Host intent, closed record and final marker unlink additionally fsync the actual
+original parent directory. The initial fsync uses its still-held original FD
+before the first captured close. Later metadata-only fsyncs use at most three
+explicit new directory windows of the same original physical node, each with
+its real kernel alias and checked closure. They never extend target/native
+freshness or claim the former OFD survived. An uncertain final directory pair
+is retained and prevents host completion; a landed final unlink gets a new
+CAS-from-absence failure marker. Normal success reports both actual closed
+metadata windows independently of the original captured pair count.
