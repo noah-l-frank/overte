@@ -940,6 +940,23 @@ def create_adapter(args, base_class):
             return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-',
                 'chat-'+('erased-' if erased else '')+('witness' if witness else role)+'-samples-')))
 
+        def _chat_script_source_store(self,target,role,*,witness=False):
+            _need(role in ('primary','actor') and type(witness) is bool and (not witness or role=='actor'))
+            state,_ui=self._script_paths(target)
+            return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-',
+                'chat-'+('witness' if witness else role)+'-script-source-')))
+
+        @_private
+        def _chat_script_source(self,target,run,*,role,source_lock,witness=False):
+            from adapters.chat_journey.script_source import ChatScriptSource
+            from adapters.script_journey.lock import ScriptSourceLock
+            store=self._chat_script_source_store(target,role,witness=witness)
+            _need(isinstance(source_lock,ScriptSourceLock) and source_lock.path==store.path.with_name('script-sources.lock'))
+            with source_lock.held():
+                manager=self._scripts(target);native=self._native_feature_observer(target);native.guard()
+                return ChatScriptSource(run,role,manager.binding,self._script_roots_observer(target),
+                    self._script_execution_observer(target),store,source_lock,monotonic=native.monotonic)
+
         def _chat_flow_inputs_store(self,target):
             state,_ui=self._script_paths(target)
             return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-','chat-flow-inputs-')))
@@ -1477,6 +1494,8 @@ def create_adapter(args, base_class):
                     if self._chat_chunk_store_retained(self._chat_normal_input_store(target)):chat_error=True
                     if self._chat_chunk_store_retained(self._chat_dispatcher_store(target)):chat_error=True
                     if self._chat_composition_store(target).read() is not None or self._chat_peer_state_retained(target):chat_error=True
+                    if any(self._chat_chunk_store_retained(self._chat_script_source_store(target,role,witness=witness))
+                           for role,witness in (('primary',False),('actor',False),('actor',True))):chat_error=True
                     if self._chat_background_store(target).read() is not None:chat_error=True
                     if self._chat_flow_inputs_store(target).read() is not None or self._chat_witness_store(target).read() is not None:chat_error=True
                     if self._chat_peer_input_store(target).read() is not None or self._chat_peer_send_store(target).read() is not None:chat_error=True
@@ -1543,6 +1562,8 @@ def create_adapter(args, base_class):
                       and not self._chat_chunk_store_retained(self._chat_normal_input_store(target))
                       and not self._chat_chunk_store_retained(self._chat_dispatcher_store(target))
                       and self._chat_composition_store(target).read() is None and not self._chat_peer_state_retained(target)
+                      and not any(self._chat_chunk_store_retained(self._chat_script_source_store(target,role,witness=witness))
+                                  for role,witness in (('primary',False),('actor',False),('actor',True)))
                       and self._chat_background_store(target).read() is None
                       and self._chat_flow_inputs_store(target).read() is None and self._chat_witness_store(target).read() is None
                       and self._chat_peer_input_store(target).read() is None and self._chat_peer_send_store(target).read() is None
