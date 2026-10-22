@@ -28,7 +28,7 @@ class OwnedChatPeer:
     """
     def __init__(self,config_store,files_store,*,source_lock=None,clock_ms=lambda:int(time.time()*1000),
                  monotonic=time.monotonic,sleep=time.sleep):
-        self.process=self.files=None
+        self.process=self.files=None;self.retirement_files=None
         try:
             need(isinstance(config_store,PrivateFeatureState) and isinstance(files_store,PrivateFeatureState)
                 and config_store.path!=files_store.path and all(callable(value) for value in (clock_ms,monotonic,sleep)))
@@ -118,6 +118,26 @@ class OwnedChatPeer:
         return ChatCacheLifetime(self.capture(run),PrivateFeatureState(self.files_store.path.with_name('chat-cache-lifetime.json')),
             self.lock,monotonic=self.monotonic)
 
+    def retirement_cache(self,run,input_close):
+        from adapters.chat_journey.cache_lifetime import ChatCacheLifetime
+        from adapters.chat_journey.peer_retirement import ChatPeerRetirementFiles
+        self.lock.assert_held();self.guard();need(self.retirement_files is None and input_close.lock is self.lock
+            and input_close.input.run==run)
+        files=ChatPeerRetirementFiles(self.files,input_close);self.retirement_files=files
+        def guard():
+            self.guard();need(files.guard==self.process_guard and files.released==self.process.released)
+            files._check_source();return True
+        def send(request):self.lock.assert_held();guard();files.send(request)
+        def read():self.lock.assert_held();guard();return files.read()
+        reader=NativeChatObservation(send,read,self.clock_ms,guard,self.process.pid,
+            monotonic=self.monotonic,sleep=self.sleep)
+        reader._chat_transport=files
+        owner=ChatCaptureOwner(PrivateFeatureState(self.files_store.path.with_name('chat-capture-owner.json')),
+            self.binding,self.guard_callback)
+        cache=ChatCacheLifetime(OwnedChatCapture(reader,owner,run),
+            PrivateFeatureState(self.files_store.path.with_name('chat-cache-lifetime.json')),self.lock,monotonic=self.monotonic)
+        need(cache.base['phase'] in ('active','retirement-issued','retired'));return cache
+
     def input_close(self,input_owner,*,distant=None):
         from adapters.chat_journey.peer_input_close import ChatPeerInputClose
         self.lock.assert_held();self.guard();need(input_owner.files is self.files)
@@ -127,5 +147,6 @@ class OwnedChatPeer:
 
     def close_host(self):
         """Detach only owned host handles; never retire native state/journals."""
+        if self.retirement_files is not None:self.retirement_files.detach();self.retirement_files=None
         if self.files is not None:self.files.detach();self.files=None
         if self.process is not None:self.process.close();self.process=None
