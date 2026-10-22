@@ -534,7 +534,10 @@ class PhoneSnapshotsFeature(PhoneCreateFeature):
         from overte_phone_snapshots_role import PhoneSnapshotsRole
         from overte_phone_snapshots_history_pass import SnapshotHistoryReadPass
         call=arguments('feature.snapshots.observe',value);need(call['runId']==self.run)
-        with ExitStack() as session:
+        # The inner session closes history callbacks, scope and source locks
+        # before this operation releases its ephemeral readers' host graphs.
+        # Retried readers remain usable for their final owner comparisons.
+        with ExitStack() as observations, ExitStack() as session:
             with self.lock.held():
                 session.enter_context(self.adapter.existing_input_session(self.selector))
                 try:
@@ -542,7 +545,7 @@ class PhoneSnapshotsFeature(PhoneCreateFeature):
                     if self.state is None or self.state['phase']=='preparing':self.initialize()
                     need(self.state['phase'] in ('baseline','active','cleaned'))
                     if self.state['phase']=='cleaned':
-                        role=PhoneSnapshotsRole(self,self.role)
+                        role=PhoneSnapshotsRole(self,self.role,_observe_disposals=observations)
                         if role.state['phase']=='reading':role.recover()
                         prepared=self.cleanup_observe_pin(role)
                         history=SnapshotHistoryReadPass(role,prepared)
@@ -550,7 +553,7 @@ class PhoneSnapshotsFeature(PhoneCreateFeature):
                     else:
                         try:
                             for attempt in range(51):
-                                role=PhoneSnapshotsRole(self,self.role)
+                                role=PhoneSnapshotsRole(self,self.role,_observe_disposals=observations)
                                 if role.state['phase']=='reading':role.recover()
                                 try:return role.read(call['afterSequence'])
                                 except SnapshotPending:need(attempt<50);self.sleep(.1)
@@ -558,7 +561,7 @@ class PhoneSnapshotsFeature(PhoneCreateFeature):
                         finally:session.close()
                 except BaseException:
                     session.close();raise
-            try:return self.observe_cleaned(call,role,prepared,session,history)
+            try:return self.observe_cleaned(call,role,prepared,session,history,observations)
             finally:history.close()
 
     @staticmethod
@@ -593,7 +596,7 @@ class PhoneSnapshotsFeature(PhoneCreateFeature):
         # intervenes here; the pass checks it again after its own preparation.
         self.cleanup_observe_headers(role,prepared);return prepared
 
-    def observe_cleaned(self,call,role,prepared,session,history):
+    def observe_cleaned(self,call,role,prepared,session,history,observations):
         from overte_phone_snapshots_role import PhoneSnapshotsRole
         from overte_phone_snapshots_history_pass import SnapshotHistoryReadPass
         try:
@@ -603,7 +606,7 @@ class PhoneSnapshotsFeature(PhoneCreateFeature):
                         try:
                             self.cleanup_observe_owners(role,prepared)
                             self.load();self.cleanup_observe_owners(role,prepared,loaded=True)
-                            role=PhoneSnapshotsRole(self,self.role,expected_previous=prepared['role'])
+                            role=PhoneSnapshotsRole(self,self.role,expected_previous=prepared['role'],_observe_disposals=observations)
                             if role.state['phase']=='reading':role.recover()
                             prepared=self.cleanup_observe_pin(role,prepared['phase'])
                             history=SnapshotHistoryReadPass(role,prepared)

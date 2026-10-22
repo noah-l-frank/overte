@@ -19,6 +19,7 @@ from adapters.normal_ui import NativeUIError
 from overte_phone_script_history import pack,unpack
 from overte_phone_snapshots_measurements import SnapshotPending
 from overte_phone_snapshots_history_pass import SnapshotHistoryReadPass
+from overte_phone_snapshots_role import PhoneSnapshotsRole
 
 
 LOCK_READER=r"""
@@ -43,7 +44,14 @@ class SnapshotPrimaryCleanupStagesTests(unittest.TestCase):
     def exercise(self,mutation):
         h=probe.harness;f=self.fixture;prepared=probe.prepared_role(f);sequence=prepared['role'].state['sequence']
         factory=f.adapter._snapshots_feature;observed=[];foreign=[];yielded=[];roles=[]
-        calls=len(f.model.product.calls)
+        calls=len(f.model.product.calls);disposed={}
+        release=PhoneSnapshotsRole._dispose_observation_graph
+        def snapshot_and_release(role):
+            # Observe the actual reader after all source/session guards, just
+            # before its operation-owned references are intentionally released.
+            # Files and headers are still re-read independently below.
+            disposed[id(role)]=dict(state=deepcopy(role.state),frames=deepcopy(role.frames))
+            return release(role)
         def create(*args,**kwargs):
             feature=factory(*args,**kwargs);sleep=feature.sleep;pin=feature.cleanup_observe_pin
             def pinned(role,previous=None):
@@ -126,7 +134,7 @@ class SnapshotPrimaryCleanupStagesTests(unittest.TestCase):
                         # its subsequent real native guard causes corruption;
                         # the final memory check must prevent current IO.
                         token.finish=finish_with_original_guard
-                    graph_checks.append((token,state,headers,bodies,changed))
+                    graph_checks.append((token,state,headers,bodies,changed,token.role.store.path))
                 elif kind in ('feature-aba','role-aba'):
                     store=token.feature.store if kind=='feature-aba' else token.role.store
                     value=deepcopy(store.read());store.write(value,value);foreign.append((store.path,value))
@@ -139,12 +147,13 @@ class SnapshotPrimaryCleanupStagesTests(unittest.TestCase):
                     elif kind=='missing':path.unlink()
                     else:path.write_bytes(path.read_bytes()+b' ')
             return result
-        with patch.object(f.adapter,'_snapshots_feature',side_effect=create),patch.object(SnapshotHistoryReadPass,'read',historical):
+        with patch.object(f.adapter,'_snapshots_feature',side_effect=create),patch.object(SnapshotHistoryReadPass,'read',historical),\
+                patch.object(PhoneSnapshotsRole,'_dispose_observation_graph',snapshot_and_release):
             if mutation in ('continue','pending'):
                 value=f.invoke('feature.snapshots.observe',dict(contractVersion=h.VERSION,runId=h.RUN,afterSequence=sequence))
                 self.assertEqual([],value['resources']);self.assertEqual(0,value['state']['files']);self.assertGreater(value['sequence'],sequence)
                 if mutation=='pending':
-                    self.assertGreaterEqual(len(roles),3);self.assertTrue(any(row.get('diagnostic') for row in roles[-1].frames))
+                    self.assertGreaterEqual(len(roles),3);self.assertTrue(any(row.get('diagnostic') for row in disposed[id(roles[-1])]['frames']))
             else:
                 with self.assertRaises((NativeUIError,FileNotFoundError)):
                     f.invoke('feature.snapshots.observe',dict(contractVersion=h.VERSION,runId=h.RUN,afterSequence=sequence))
@@ -153,10 +162,10 @@ class SnapshotPrimaryCleanupStagesTests(unittest.TestCase):
         # cannot prove that an invalid pass never reached a current reader.
         self.assertEqual([],invalid_current_reads)
         self.assertTrue(all(token.closed for token in passes))
-        for token,state,headers,bodies,changed in graph_checks:
+        for token,state,headers,bodies,changed,role_path in graph_checks:
             self.assertEqual([True],changed)
-            self.assertEqual(state,token.role.state)
-            self.assertEqual(headers,(token.feature.store.read(),token.role.store.read()))
+            self.assertEqual(state,disposed[id(token.role)]['state'])
+            self.assertEqual(headers,(token.feature.store.read(),PrivateFeatureState(role_path).read()))
             for path,digest in bodies.items():
                 if digest is None:self.assertFalse(path.exists())
                 else:self.assertEqual(digest,hashlib.sha256(path.read_bytes()).hexdigest())

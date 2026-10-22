@@ -6,7 +6,7 @@ closed source reducer; immutable receipts retain their original timestamps.
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
-from contextlib import nullcontext
+from contextlib import ExitStack,nullcontext
 import hashlib
 from pathlib import Path
 import os
@@ -69,9 +69,12 @@ class SnapshotPhaseDeferred(SnapshotPending):
 
 
 class PhoneSnapshotsRole(PhoneCreateRole):
-    def __init__(self,feature,role,*,expected_previous=_UNPINNED):
+    def __init__(self,feature,role,*,expected_previous=_UNPINNED,_observe_disposals=None):
         need(role in ('primary','actor'));feature.lock.assert_held()
+        need(_observe_disposals is None or isinstance(_observe_disposals,ExitStack) and role==feature.role=='primary')
         self.feature,self.role=feature,role;self._host_publication=False
+        self._ephemeral_observation=_observe_disposals is not None
+        if self._ephemeral_observation:_observe_disposals.callback(self._dispose_observation_graph)
         self.store=PrivateFeatureState(feature.store.path.with_name('phone-snapshots-'+role+'-originals.json'))
         self.previous=self.store.read()
         if expected_previous is not _UNPINNED:need(same(self.previous,expected_previous))
@@ -173,6 +176,17 @@ class PhoneSnapshotsRole(PhoneCreateRole):
             if previous is not None:self.consumer.last=deepcopy(previous)
             self.track(self.consumer,'observe','consumerOriginals')
         if self.previous is None:self.save()
+
+    def _dispose_observation_graph(self):
+        """Drop only this facade operation's references after every guard exits.
+
+        Stored originals and returned DTOs retain their own graphs. Never
+        mutate their nested objects, invoke target retirement, or dispose a
+        reader retained by the independent actor.
+        """
+        if not self.__dict__:return
+        need(self.role=='primary' and self._ephemeral_observation)
+        self.__dict__.clear()
 
     def track(self,reader,method,key):
         original=getattr(reader,method)
