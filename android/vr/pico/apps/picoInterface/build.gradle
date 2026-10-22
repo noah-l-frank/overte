@@ -13,7 +13,13 @@ if (picoDebugApkVersionName != null && (
     throw new GradleException('picoDebugApkVersionName requires an explicit Debug build and a bounded package version')
 }
 def picoRoot = file('../..')
-def loadPicoSourceInputs = new GroovyShell().evaluate(new File(picoRoot, 'release/source-inputs.groovy'))
+def picoCiInputs = System.getenv('PICO_CI_INPUTS_SHA256')
+if (picoCiInputs != null && (!picoUnsigned || gradle.startParameter.taskNames.isEmpty() ||
+        !gradle.startParameter.taskNames.every { it.toLowerCase().contains('release') })) {
+    throw new GradleException('Pico CI inputs require an explicit unsigned Release task')
+}
+def loadPicoSourceInputs = new GroovyShell().evaluate(new File(picoRoot,
+    picoCiInputs != null ? 'native-ci/source-inputs.groovy' : 'release/source-inputs.groovy'))
 def picoInputs = loadPicoSourceInputs(picoRoot)
 def qtPackageDir = file(picoInputs.qtPackage)
 def picoQtRuntimeDir = layout.buildDirectory.dir('generated/picoQtRuntime')

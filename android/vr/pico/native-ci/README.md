@@ -60,6 +60,53 @@ python3 android/vr/pico/native-ci/tests.py
 ```
 
 These tests use synthetic graph fixtures and do not resolve Conan dependencies,
-build Qt, produce an APK or qualify a hosted runner. The existing Gradle adapter
-has intentionally not been switched to this pending contract. It must remain
-unusable for acceptance until the real producer proof and runtime are available.
+build Qt, produce an APK or qualify a hosted runner.
+
+## Immutable runtime consumer
+
+An explicit unsigned Release Gradle invocation with `PICO_CI_INPUTS_SHA256`
+selects the new `source-inputs.groovy` / `inputs.py` consumer. Without that variable
+the existing V1/V2/V3 consumer remains selected. The new path requires the pinned
+map at `/qualification/product-inputs-pico.json`, independently verified original
+completion/package-origin/target-graph proof references, and the immutable runtime
+inventory under the separate `/qualification` proof mount. References declare
+fixed kinds; these describe what the protected publisher must authenticate, not
+self-declared proof of completion.
+
+The dependency payload is mounted read-only at both `/prepared` and `/attempt`;
+the exact candidate overlays `/attempt/source`. Every selected canonical runtime
+file must match the frozen inventory and the same underlying unshadowed file at
+`/prepared`. Writable candidate paths, changed declarations, missing proof/tool
+identities, incomplete target graphs, Qt/Draco/shader-package mismatches,
+unbound runtime selections, legacy OpenSSL and incorrectly aligned OpenXR fail
+before native compilation. `PICO_EXPECTED_SOURCE_SHA` binds the candidate HEAD;
+it is deliberately independent of the original dependency producer revision.
+
+Use direct offline Gradle invocation with the pinned common wrapper/settings,
+`--offline --no-daemon`, `-PPICO_UNSIGNED=1` and explicit
+`:picoInterface:assembleRelease`. The legacy `build.sh` invokes its legacy source
+consumer before Gradle and is not the new CI entry point. This new consumer never
+installs/resolves/repairs dependencies. A separate preflight-admitted producer
+must build any distinct OpenXR node before the runtime is frozen.
+
+After the actual build, `verify_apk.py` verifies the bounded unsigned archive,
+required Pico/OpenXR/Interface outputs, no E2E payload, actual ELF64/AArch64/16 KiB
+LOAD segments, filename/SONAME equality and the complete packaged DT_NEEDED closure
+against explicit Android platform libraries. It checks actual v1 signature
+entries and the APK v2/v3 signing-block location. Package/version/API/release
+identity and packaged network policy use the existing signed verifier's bounded
+helpers without weakening or changing its signing requirements. The resulting
+APK digest and actual candidate SHA/tree still require the trusted outer consumer
+to join the successful native invocation and independently qualified runtime
+provenance. No device coverage is implied.
+
+Additional focused tests:
+
+```sh
+python3 android/vr/pico/native-ci/inputs_test.py
+python3 android/vr/pico/native-ci/verify_apk_test.py
+```
+
+No real Android/APK qualification is claimed by these fixtures. Until an actual
+completed producer, protected map and successful candidate build exist, the new
+consumer remains unusable for acceptance.
