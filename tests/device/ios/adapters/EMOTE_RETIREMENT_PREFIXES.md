@@ -6,11 +6,15 @@ acquisition appends new immutable originals. It does not invalidate the older
 proof or change its original timestamp, native counters, bytes or SHA.
 
 `OriginalMarkerEntities.archive`, `IOSEmoteFileReceipts.archive` and
-`IOSEmotePointers.archive` are explicitly historical and read only. They replay
+`IOSEmotePointers.archive` and `OriginalMarkerRestorationFrames.archive` are
+explicitly historical and read only. They replay
 every referenced original, its digest and closed grammar, native/host ordering
 and accepted partial-source floors. They do not require absence of the next
 original file: a later live prefix may legitimately own it. An archive cannot
 save, capture, resolve, abandon or directly retain new ownership.
+Raw-frame archives also refuse native query wrappers, live frame owners and
+partial-source journaling. Later original PNG acquisitions leave the earlier
+frame prefix intact; every referenced original PNG and carrier is still checked.
 
 Live constructors retain the next-file orphan checks. Rolling live metadata
 back to an older prefix while a later original exists is refused. An altered

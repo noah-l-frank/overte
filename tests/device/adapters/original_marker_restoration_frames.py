@@ -82,7 +82,7 @@ class OriginalMarkerRestorationFrames:
     def archive(cls,value,*,store,root,binding,run,role,lock):
         need(isinstance(store,PrivateFeatureState) and isinstance(lock,ScriptSourceLock));lock.assert_held()
         result=object.__new__(cls);result.store,result.root,result.binding,result.run,result.role,result.lock=store,Path(root),deepcopy(context(binding)),identifier(run),role,lock
-        need(type(result).PROFILE in ('emote','avatar'));result.previous=store.read();result.state=result.decode(value);return result
+        need(type(result).PROFILE in ('emote','avatar'));result.historical=True;result.previous=store.read();result.state=result.decode(value);return result
     def __init__(self,runtime,selector,scope,root,lock,*,epoch_ms=lambda:time.time()*1000,monotonic=time.monotonic,sleep=time.sleep):
         need(isinstance(runtime,IOSScriptRuntime) and isinstance(scope,OriginalMarkerScope) and isinstance(lock,ScriptSourceLock)
             and type(self).PROFILE in ('emote','avatar') and scope.PROFILE==type(self).PROFILE and all(callable(fn) for fn in (epoch_ms,monotonic,sleep)))
@@ -92,7 +92,7 @@ class OriginalMarkerRestorationFrames:
         need(self.root.is_absolute() and self.root.resolve()==self.root and self.root.is_dir() and role_valid(self.role))
         self.store=PrivateFeatureState(runtime.state_path(selector).with_name('ios-'+self.PROFILE+'-'+self.role+'-restoration-frames.json'))
         need(lock.path==self.store.path.with_name('script-feature-sources.lock'));lock.assert_held()
-        self.previous=self.store.read();self.state=dict(records=[],pending=None,cursors=dict(native=None,world=None,renderers=None))
+        self.historical=False;self.previous=self.store.read();self.state=dict(records=[],pending=None,cursors=dict(native=None,world=None,renderers=None))
         if self.previous is not None:self.state=self.decode(self.previous)
     def envelope(self,state):return dict(markerRestorationFramesVersion=1,profile=self.PROFILE,runId=self.run,role=self.role,binding=self.binding,
         artifactRoot=str(self.root),payload=pack([state]))
@@ -238,9 +238,10 @@ class OriginalMarkerRestorationFrames:
         need(type(state['records']) is list and len(state['records'])<=128);values=[]
         for index,ref in enumerate(state['records'],1):need(ref['index']==index);values.append(self.original(ref))
         self.timeline(values,state['pending'],state['cursors'])
-        if state['pending'] is None:need(len(state['records'])==128 or self.file(len(state['records'])+1).read() is None)
+        if state['pending'] is None and not getattr(self,'historical',False):need(len(state['records'])==128 or self.file(len(state['records'])+1).read() is None)
         return deepcopy(state)
     def journal_native(self,native):
+        need(not getattr(self,'historical',False))
         read=native.read
         def observed(after):
             packet=read(after);parts=self.state['pending']['parts']
@@ -250,6 +251,7 @@ class OriginalMarkerRestorationFrames:
         self._native_wrappers.append((native,read,observed))
 
     def journaled(self,operation,*args):
+        need(not getattr(self,'historical',False))
         self._native_wrappers=[]
         try:return operation(*args)
         finally:
@@ -259,10 +261,12 @@ class OriginalMarkerRestorationFrames:
                 need(native.read is observed);native.read=read
             self._native_wrappers=[]
 
-    def bound(self):self.lock.assert_held();self.scope.bound();need(same(self.store.read(),self.previous))
+    def bound(self):
+        need(not getattr(self,'historical',False));self.lock.assert_held();self.scope.bound();need(same(self.store.read(),self.previous))
     def save(self):
         self.bound();value=self.envelope(self.state);self.store.write(value,self.previous);need(same(self.store.read(),value));self.previous=deepcopy(value)
     def remember(self,key,value):
+        need(not getattr(self,'historical',False))
         p=self.state['pending'];need(p is not None and key not in p['parts']);p['parts'][key]=deepcopy(value)
         field={'worldBefore':'world','worldAfter':'world','renderersBefore':'renderers','renderersAfter':'renderers'}.get(key)
         if field:self.state['cursors'][field]=deepcopy(value)
@@ -270,6 +274,7 @@ class OriginalMarkerRestorationFrames:
         if key=='clockJoin':self.state['cursors']['native']=deepcopy(value['nativeAfter'])
         self.save()
     def owner(self,request):
+        need(not getattr(self,'historical',False))
         live=self.runtime._sources(self.selector);need(same(live['binding'],self.binding));observer=live['observer']
         store=PrivateFeatureState(self.store.path.with_name('graphics-world-frame-'+self.role+'-0-'+request[4:]+'.json'))
         return VulkanWorldFrameOwner(store,self.root,self.binding,self.run,self.role,0,request,lambda intent,receipt:observer.vulkan_world_frame(intent,receipt),
