@@ -28,17 +28,18 @@ from feature_journeys.contract import arguments,identifier,typed_equal
 from feature_journeys.phase_fixture import PhaseFixtureReader
 from feature_journeys.scenarios import VERSION as CONTRACT
 
-VERSION=3
+VERSION=4
 MEMBERS={'models':PicoCreateModels,'picker':PicoCreatePicker}
-ROLES=('owner','entities','callbacks','dialogs','resources','work','lifecycle','completion','rez')
+ROLES=('owner','entities','callbacks','dialogs','resources','work','lifecycle','completion','rez','recovery')
 
 
 from adapters.pico4.create_primitives import CreatePrimitives,validate_steps
 from adapters.pico4.create_voxel_edit import CreateVoxelEdit,validate_edit
 from adapters.pico4.create_rez import CreateRez
+from adapters.pico4.create_recovery import CreateRecovery
 
 
-class PicoCreateJourney(CreatePrimitives,CreateVoxelEdit,CreateRez):
+class PicoCreateJourney(CreatePrimitives,CreateVoxelEdit,CreateRez,CreateRecovery):
     """One candidate/run and real source lock shared by its normal owners."""
     def __init__(self,adapter,target,run,source):
         identifier(run);need(isinstance(source,PhaseFixtureReader) and source.area=='create' and source.run==run
@@ -56,14 +57,14 @@ class PicoCreateJourney(CreatePrimitives,CreateVoxelEdit,CreateRez):
         if self.previous is not None:self.validate(self.previous)
         if self.completion_previous is not None:self.validate_completion(self.completion_previous)
     def validate(self,value):
-        version=value.get('createFeatureVersion');extra={'primitives','baselineExtra','extraLast'} if version in (2,3) else set()
-        if version==3:extra.add('voxelEdit')
+        version=value.get('createFeatureVersion');extra={'primitives','baselineExtra','extraLast'} if version in (2,3,4) else set()
+        if version in (3,4):extra.add('voxelEdit')
         exact(value,{'createFeatureVersion','binding','runId','fixtureUrl','phase','calls','pending','members','subject','lastInput','inputCount','baselineUi','baselineEntities','sourcePin','manager','compilation','cleanupStarted','cleanupAttempted','baselineLifecycle','editorIds'}|extra)
-        need(type(value['createFeatureVersion']) is int and value['createFeatureVersion'] in (1,2,VERSION)
+        need(type(value['createFeatureVersion']) is int and value['createFeatureVersion'] in (1,2,3,VERSION)
             and value['runId']==self.run and value['fixtureUrl']==self.source.fixture_url
             and value['members']==sorted(set(value['members'])) and set(value['members'])<={'models','picker'}
             and type(value['calls']) is list and len(value['calls'])<=32 and integer(value['inputCount'],0,4096)
-            and value['subject'] in (None,'models','picker','primitive') and (value['lastInput'] is None)==(value['inputCount']==0))
+            and value['subject'] in (None,'models','picker','primitive','recovery') and (value['lastInput'] is None)==(value['inputCount']==0))
         context(value['binding']);tickets=[]
         need(type(value['cleanupStarted']) is bool and type(value['cleanupAttempted']) is list
             and value['cleanupAttempted']==list(dict.fromkeys(value['cleanupAttempted']))
@@ -83,12 +84,12 @@ class PicoCreateJourney(CreatePrimitives,CreateVoxelEdit,CreateRez):
             rows=[(i,r) for i,r in enumerate(phase['activations']) if r['ticket']==call['ticket']]
             need(len(rows)==1 and rows[0][1]['stimulus']['verb']==call['verb'] and typed_equal(rows[0][1]['stimulus']['inputs'],call['inputs']))
             positions.append(rows[0][0])
-        need(positions==sorted(set(positions)) and (value['subject'] in (None,'primitive') or value['subject'] in value['members']))
+        need(positions==sorted(set(positions)) and (value['subject'] in (None,'primitive','recovery') or value['subject'] in value['members']))
         from adapters.pico4.lifecycle_source import validate as life_validate
         baseline_life=value['baselineLifecycle'];life_validate(baseline_life,dict(commandId=baseline_life['commandId'],runId=self.run),
             int(value['binding']['processIdentity'].split(':')[0]),baseline_life['capturedEpochMs'])
         need(type(value['editorIds']) is list and value['editorIds']==sorted(set(value['editorIds'])) and all(nonce(x) for x in value['editorIds']))
-        if version in (2,3):
+        if version in (2,3,4):
             from adapters.pico4.create_extra_ui import inventory
             validate_steps(value['primitives'])
             for step in value['primitives']:
@@ -101,7 +102,7 @@ class PicoCreateJourney(CreatePrimitives,CreateVoxelEdit,CreateRez):
                 need(value['baselineExtra']['instance']==value['extraLast']['instance']
                     and value['extraLast']['sourceSequence']>=value['baselineExtra']['sourceSequence'])
             need(value['subject']!='primitive' or bool(value['primitives']))
-            if version==3:
+            if version in (3,4):
                 validate_edit(value['voxelEdit'],value['binding'],self.run)
                 if value['voxelEdit'] is not None:
                     edit=value['voxelEdit'];need(bool(value['primitives'])
@@ -159,7 +160,7 @@ class PicoCreateJourney(CreatePrimitives,CreateVoxelEdit,CreateRez):
         key=hashlib.sha256(('org.overte.pico\0'+target).encode()).hexdigest()[:32];parent=adapter.pico_configuration[1];found=False
         PrivateFeatureState(parent/'create-feature-parent-check.json')._parent()
         for path in parent.glob('create-feature-*-'+key+'-*.json'):
-            need(re.fullmatch(r'create-feature-(?:owner|entities|callbacks|dialogs|resources|work|lifecycle|completion|rez)-'+key+r'-[0-9a-f]{32}\.json',path.name))
+            need(re.fullmatch(r'create-feature-(?:owner|entities|callbacks|dialogs|resources|work|lifecycle|completion|rez|recovery)-'+key+r'-[0-9a-f]{32}\.json',path.name))
             found=PrivateFeatureState(path).read() is not None or found
         return found
     def source_store(self,role):
@@ -243,7 +244,7 @@ class PicoCreateJourney(CreatePrimitives,CreateVoxelEdit,CreateRez):
             value=self.state();need(value['manager']==manager and value['compilation']==compilation)
             from adapters.pico4.create_picker_owner import OwnedCreatePicker
             result['rez']=self.rez_scene(value['baselineEntities'],result['entities']);self.editor_sample(result['lifecycle'],result['ui'])
-            if value['createFeatureVersion'] in (2,3) and result['ui'].get('createExtraControlsVersion')==1:
+            if value['createFeatureVersion'] in (2,3,4) and result['ui'].get('createExtraControlsVersion')==1:
                 from adapters.pico4.create_extra_ui import inventory_continuity
                 current=result['ui']['createExtraUiInventory']
                 if value['extraLast'] is not None:inventory_continuity(value['extraLast'],current)
@@ -259,7 +260,7 @@ class PicoCreateJourney(CreatePrimitives,CreateVoxelEdit,CreateRez):
         if self.previous is not None:
             need(context(binding)==context(self.state()['binding']));self.check_children(self.state())
         for path in self.parent.glob('create-feature-*-'+self.key+'-*.json'):
-            need(re.fullmatch(r'create-feature-(?:owner|entities|callbacks|dialogs|resources|work|lifecycle|completion|rez)-'+self.key+'-'+self.run+r'\.json',path.name))
+            need(re.fullmatch(r'create-feature-(?:owner|entities|callbacks|dialogs|resources|work|lifecycle|completion|rez|recovery)-'+self.key+'-'+self.run+r'\.json',path.name))
             journal=PrivateFeatureState(path).read()
             if journal is not None:need(context(journal.get('binding'))==context(binding))
         return ui,binding
@@ -359,7 +360,7 @@ class PicoCreateJourney(CreatePrimitives,CreateVoxelEdit,CreateRez):
             self.runtime() # Candidate/process guard before any recovery write.
             if self.state()['pending'] is None:self.mark(pending=value['call']['ticket'])
     def complete_call(self):
-        actual=self.sample();self.primitive_final(actual);self.voxel_final(actual);self.rez_final(actual);phase=self.phase_fence();self.fresh_sample(actual);original=self.state()
+        actual=self.sample();self.primitive_final(actual);self.voxel_final(actual);self.rez_final(actual);self.recovery_final(actual);phase=self.phase_fence();self.fresh_sample(actual);original=self.state()
         transition=dict(schemaVersion=1,binding=deepcopy(original['binding']),runId=self.run,call=deepcopy(original['calls'][-1]))
         self.validate_completion(transition);previous=self.completion()
         need(previous is None or previous==transition)
@@ -381,7 +382,7 @@ class PicoCreateJourney(CreatePrimitives,CreateVoxelEdit,CreateRez):
     def record_input(self,kind,original):
         value=self.state();need(value['pending'] is not None or value['cleanupStarted'])
         item=dict(kind=kind,original=deepcopy(original));self.validate_input(item,value['binding'])
-        self.rez_before_input()
+        self.rez_before_input();self.recovery_input(kind,original)
         phase=self.phase_fence()
         changes=dict(phase=phase,lastInput=item,inputCount=value['inputCount']+1)
         if kind=='primitive' and original['controlId']=='create-extra.polyvox.add':
@@ -456,11 +457,13 @@ class PicoCreateJourney(CreatePrimitives,CreateVoxelEdit,CreateRez):
             self.resume_completion()
             value=self.state();need(value['pending'] is None and not value['cleanupStarted'] and values['runId']==self.run and values['fixtureUrl']==self.source.fixture_url
                 and values['ticket'] not in [r['ticket'] for r in value['calls']])
-            need(values['verb'] in ('open','close','import-picker-open','import-picker-cancel','import-picker-accept','model-create','apply-texture','export-selection','delete-owned','voxel-create','voxel-edit','set-rez-permission'))
+            need(values['verb'] in ('open','close','import-picker-open','import-picker-cancel','import-picker-accept','model-create','apply-texture','export-selection','delete-owned','voxel-create','voxel-edit','set-rez-permission','create-denied','create-retry'))
             if value['createFeatureVersion']==1:
                 self.runtime();self.mark(createFeatureVersion=2,primitives=[],baselineExtra=None,extraLast=None);value=self.state()
             if value['createFeatureVersion']==2:
                 self.runtime();self.mark(createFeatureVersion=3,voxelEdit=None);value=self.state()
+            if value['createFeatureVersion']==3:
+                self.runtime();self.mark(createFeatureVersion=4);value=self.state()
             if values['verb']=='set-rez-permission':
                 # The Runner may already have changed actual Settings. Retain
                 # this original call before any unavailable readback can fail.
@@ -468,7 +471,7 @@ class PicoCreateJourney(CreatePrimitives,CreateVoxelEdit,CreateRez):
                 need(active['ticket']==values['ticket'] and active['verb']==values['verb'] and typed_equal(active['inputs'],values['inputs']))
                 value['calls'].append(deepcopy(values));value.update(pending=values['ticket'],phase=active['status']);self.write(value)
                 self.rez_admit(values)
-            if values['verb']=='voxel-create':need(self.sample()['entities']['source']['createEntitySourceVersion'] in (4,5))
+            if values['verb']=='voxel-create':need(self.sample()['entities']['source']['createEntitySourceVersion'] in (4,5,6))
             self.sample();value=self.state()
             active=self.source.read(value['phase']);need(active['ticket']==values['ticket'] and active['verb']==values['verb'] and typed_equal(active['inputs'],values['inputs']))
             if values['verb']!='set-rez-permission':
@@ -487,8 +490,10 @@ class PicoCreateJourney(CreatePrimitives,CreateVoxelEdit,CreateRez):
             elif verb=='export-selection':
                 picker=self.component('picker');picker.open_export(self.run,values['ticket'],values['fixtureUrl']);picker.export_file()
             elif verb=='set-rez-permission':self.rez_settle()
+            elif verb in ('create-denied','create-retry'):self.recovery_create('denied' if verb=='create-denied' else 'cube')
             elif verb=='voxel-create':self.primitive_create()
             elif verb=='voxel-edit':self.voxel_edit()
+            elif verb=='delete-owned' and value['subject']=='recovery':self.recovery_delete()
             elif verb=='delete-owned' and value['subject']=='primitive':self.primitive_delete()
             elif verb=='delete-owned':
                 need(value['subject'] in ('models','picker'));member=self.component(value['subject'])
@@ -503,6 +508,8 @@ class PicoCreateJourney(CreatePrimitives,CreateVoxelEdit,CreateRez):
         self.lock.assert_held();self.resume_completion();value=self.state();need(value['pending'] is not None and not value['cleanupStarted']);self.phase_fence()
         verb=value['calls'][-1]['verb'];subject=value['subject']
         if verb=='set-rez-permission':self.rez_admit(value['calls'][-1]);self.rez_settle()
+        elif verb in ('create-denied','create-retry'):self.recovery_reconcile('denied' if verb=='create-denied' else 'create')
+        elif verb=='delete-owned' and (subject=='recovery' or self.recovery_state() is not None and self.recovery_step()['deleteTicket']==value['pending']):self.recovery_reconcile('delete')
         elif verb=='voxel-edit':self.voxel_reconcile()
         elif verb=='voxel-create' or verb=='delete-owned' and (subject=='primitive' or value.get('primitives') and value['primitives'][-1]['deleteTicket']==value['pending']):
             self.primitive_reconcile('create' if verb=='voxel-create' else 'delete')
@@ -565,7 +572,7 @@ class PicoCreateJourney(CreatePrimitives,CreateVoxelEdit,CreateRez):
                         else:picker.reconcile()
                     else:picker.reconcile()
                 elif step['outcome']=='open':picker.finish_choice('cancel')
-        self.voxel_cleanup()
+        self.voxel_cleanup();self.recovery_cleanup()
         # Actual member sources decide which object exists. Subject metadata
         # cannot hide a consumed create/import whose root reply was lost.
         actual=self.sample();rows=actual['entities']['source']['entities']
@@ -612,11 +619,11 @@ class PicoCreateJourney(CreatePrimitives,CreateVoxelEdit,CreateRez):
                 raise NativeUIError('Original Create editor or Qt context remains retained')
             ready=(entities_retired(packet['source']) and idle(actual['scope']) and not active_callbacks(actual['callbacks'])
                 and not active_dialogs(actual['dialogs']) and resources_retired(actual['resources']['source']) and page is None
-                and actual['ui']['open']==self.state()['baselineUi']['open'] and self.editors_retired(actual['lifecycle']) and self.extra_retired())
+                and actual['ui']['open']==self.state()['baselineUi']['open'] and self.editors_retired(actual['lifecycle']) and self.extra_retired() and self.recovery_retired())
             epoch=(packet['capturedEpochMs'],actual['dialogs']['source']['elapsedMs'],actual['resources']['capturedEpochMs'],
                 actual['work']['source']['work']['capturedEpochMs'],actual['ui']['elapsedMs'],actual['lifecycle']['capturedEpochMs'])+((self.state()['extraLast']['elapsedMs'],) if self.state().get('extraLast') is not None else ())
             entity_signature=deepcopy(actual['entities']['source'])
-            if entity_signature['createEntitySourceVersion']==5:
+            if entity_signature['createEntitySourceVersion'] in (5,6):
                 from adapters.pico4.create_polyvox_resources import stable as resource_stable
                 entity_signature['polyvoxResources']=resource_stable(entity_signature['polyvoxResources'])
             signature=(entity_signature,actual['resources']['source'],actual['lifecycle']['source']['editors'],actual['scope']['timerRegistrations'],actual['scope']['timerInvocations'],deepcopy(self.state().get('extraLast',{}).get('pages',[]) if self.state().get('extraLast') else []))
@@ -627,6 +634,8 @@ class PicoCreateJourney(CreatePrimitives,CreateVoxelEdit,CreateRez):
                     if self.completion() is not None:
                         self.completion_store.discard(self.completion_previous);self.completion_previous=None
                     for reader in self.readers.values():reader.retire()
+                    recovery=self.recovery_state()
+                    if recovery is not None:self.source_store('recovery').discard(recovery)
                     rez=self.rez_state()
                     if rez is not None:self.rez_final(actual);self.source_store('rez').discard(rez)
                     self.source_store('lifecycle').discard(self.lifecycle_previous);self.lifecycle_previous=None

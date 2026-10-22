@@ -29,18 +29,33 @@ class CreateEntitiesNativeTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix='pico-create-entities-') as directory:
             stage=Path(directory);(stage/'EntityItem.h').write_text('#pragma once\n');source=(ROOT/'interface/src/scripting/TestScriptingInterface.cpp').read_text()
             (stage/'OriginalCreateEntities.inc').write_text(function(source,'QVariantMap TestScriptingInterface::featureCreateEntities('))
+            shape=(ROOT/'libraries/entities/src/ShapeEntityItem.cpp.in').read_text()
+            properties=(ROOT/'libraries/entities/src/EntityItemProperties.cpp.in').read_text()
+            (stage/'OriginalShapeSource.inc').write_text('\n'.join([function(shape,'void ShapeEntityItem::setShape('),
+                function(shape,'EntityShape ShapeEntityItem::getShape('),function(properties,'QString EntityItemProperties::getShapeAsString(')]))
             factory=(ROOT/'libraries/entities-renderer/src/RenderableModelEntityItem.cpp').read_text()
             (stage/'OriginalEntityDeleter.inc').write_text(function(factory,'[](RenderableModelEntityItem* ptr)'))
             binary=stage/'entity-test'
-            subprocess.run(['c++','-std=c++17','-fPIC','-pthread','-I'+directory,'-I'+str(ROOT/'tests/device/native'),str(HERE/'create-entities-native.cpp'),
+            subprocess.run(['c++','-std=c++17','-fPIC','-pthread','-I'+directory,'-I'+str(ROOT/'tests/device/native'),'-I'+str(ROOT/'libraries/shared/src'),str(HERE/'create-entities-native.cpp'),str(ROOT/'libraries/shared/src/EntityShape.cpp'),
                 '-o',str(binary),*libraries,*flags],check=True,timeout=60,env=environment)
             subprocess.run([str(binary)],check=True,timeout=10,env=environment)
             output=subprocess.check_output([str(binary),'--testScript'],timeout=10,env=environment,text=True)
-            packets=[json.loads(line) for line in output.splitlines()];self.assertEqual(7,len(packets));previous=None
+            packets=[json.loads(line) for line in output.splitlines()];self.assertEqual(8,len(packets));previous=None
             for packet in packets[:5]:
                 validate(packet,packet['requestId'],packet['processId'],packet['capturedEpochMs'],'a'*32);continuity(previous,packet);previous=packet
             validate(packets[5],packets[5]['requestId'],packets[5]['processId'],packets[5]['capturedEpochMs'],'a'*32)
             validate(packets[6],packets[6]['requestId'],packets[6]['processId'],packets[6]['capturedEpochMs'],'a'*32)
+            validate(packets[7],packets[7]['requestId'],packets[7]['processId'],packets[7]['capturedEpochMs'],'a'*32)
+            self.assertEqual(('Box','Cube'),tuple(packets[7]['source']['entities'][0][k] for k in ('type','shape')))
+            from copy import deepcopy
+            for invalid in ('Sphere',None,[],True):
+                wrong=deepcopy(packets[7]);wrong['source']['entities'][0]['shape']=invalid
+                if invalid=='Sphere':validate(wrong,wrong['requestId'],wrong['processId'],wrong['capturedEpochMs'],'a'*32)
+                else:
+                    with self.assertRaises(NativeUIError):validate(wrong,wrong['requestId'],wrong['processId'],wrong['capturedEpochMs'],'a'*32)
+            legacy=deepcopy(packets[7]);legacy['source']['createEntitySourceVersion']=5
+            for row in legacy['source']['entities']:del row['shape']
+            validate(legacy,legacy['requestId'],legacy['processId'],legacy['capturedEpochMs'],'a'*32)
             self.assertEqual('terrain',packets[6]['source']['entities'][0]['name'])
             self.assertEqual(2,len(packets[6]['source']['localCreations']['events']))
             with self.assertRaises(NativeUIError):continuity(packets[4],packets[5])

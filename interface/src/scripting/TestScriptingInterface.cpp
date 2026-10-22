@@ -1022,6 +1022,8 @@ QVariantMap TestScriptingInterface::featureCreateEntities(const QVariantMap& com
         return {{"name",p.getName()},{"type",EntityTypes::getEntityTypeName(p.getType())},
             {"hostType",host==entity::HostType::DOMAIN ? "domain" : host==entity::HostType::AVATAR ? "avatar" : "local"},
             {"modelUrl",p.getModelURL()},{"textures",p.getTextures()},
+            {"shape",p.getType()==EntityTypes::Shape || p.getType()==EntityTypes::Box || p.getType()==EntityTypes::Sphere
+                ? QVariant(p.getShapeAsString()) : QVariant()},
             {"position",vector(p.getPosition())},{"dimensions",vector(p.getDimensions())},{"rotation",rotation(p.getRotation())},
             {"parentId",p.getParentID().isNull() ? QVariant() : QVariant(p.getParentID().toString(QUuid::WithoutBraces))},
             {"visible",p.getVisible()},{"locked",p.getLocked()}};
@@ -1048,7 +1050,7 @@ QVariantMap TestScriptingInterface::featureCreateEntities(const QVariantMap& com
             && creation.value("sessionId").toString()==nodes->getSessionUUID().toString(QUuid::WithoutBraces)
             && creation.value("createdEpochUs").toULongLong()==p.getCreated()
             && creation.value("type").toString()==EntityTypes::getEntityTypeName(p.getType())
-            && (p.getType()==EntityTypes::PolyVox || p.getType()==EntityTypes::Shape || p.getType()==EntityTypes::Box);
+            && (p.getType()==EntityTypes::PolyVox || p.getType()==EntityTypes::Shape || p.getType()==EntityTypes::Box || p.getType()==EntityTypes::Sphere);
         if (p.getName().startsWith(prefix) || runModel(p) || localPrimitive) {owned.insert(entityId);}
         else if (!owned.contains(entityId)) {
             const auto hash=QCryptographicHash::hash(QJsonDocument::fromVariant(properties(p)).toJson(QJsonDocument::Compact),QCryptographicHash::Sha256).toHex();
@@ -1095,7 +1097,7 @@ QVariantMap TestScriptingInterface::featureCreateEntities(const QVariantMap& com
     auto& domain=nodes->getDomainHandler();
     if (domain.featureChatSession(run)!=domainSession || entities->featureCreateLocalCreations(run)!=localCreations) {return {};}
     const auto polyvoxResources=overte::e2e::CreatePolyvoxResources::get().snapshot(run);if (polyvoxResources.isEmpty()) {return {};}
-    const QVariantMap source{{"createEntitySourceVersion",5},{"polyvoxResources",polyvoxResources},{"domainSession",domainSession},{"localCreations",localCreations},{"avatarRotation",rotation(avatar->getWorldOrientation())},{"runId",run},{"domainConnected",domain.isConnected()},
+    const QVariantMap source{{"createEntitySourceVersion",6},{"polyvoxResources",polyvoxResources},{"domainSession",domainSession},{"localCreations",localCreations},{"avatarRotation",rotation(avatar->getWorldOrientation())},{"runId",run},{"domainConnected",domain.isConnected()},
         {"domainId",domain.getUUID().isNull() ? QVariant() : QVariant(domain.getUUID().toString(QUuid::WithoutBraces))},
         {"sessionId",nodes->getSessionUUID().isNull() ? QVariant() : QVariant(nodes->getSessionUUID().toString(QUuid::WithoutBraces))},
         {"canRez",nodes->getThisNodeCanRez()},{"canRezTmp",nodes->getThisNodeCanRezTmp()},

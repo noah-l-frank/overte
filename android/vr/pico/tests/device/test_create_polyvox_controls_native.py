@@ -83,9 +83,24 @@ class CreatePolyvoxControlsNativeTests(unittest.TestCase):
                 'QJsonObject originalCreateVoxelInput(QQuickItem* item,QQuickWindow* window,const QString& controlId,const QString& action,const QJsonObject& command, const std::function<bool(QQuickItem*)>& pointerClick){\n'
                 'QJsonObject result{{"performed",false}},current{{"createVoxelControlsVersion",1}};bool delivered=false;struct {QQuickItem* item;} control{item};\n'
                 +branch+'\nresult["performed"]=delivered;return result;}\n')
+            start=native.index('    } else if (controlId.startsWith("create.")) {')
+            end=native.index('\n    } else if (',start+10)
+            branch=native[start:end].split('{',1)[1]
+            (stage/'actual-create-base-input.inc').write_text(admission+'\n'
+                'QJsonObject originalCreateInput(QQuickItem* item,QQuickWindow* window,const QString& controlId,const QString& action,const QJsonObject& command, const std::function<bool(QQuickItem*)>& pointerClick,const std::function<bool(QQuickItem*,QPointF)>& pointerAt={}){\n'
+                'QJsonObject result{{"performed",false}},current{{"createControlsVersion",1}};bool delivered=false;struct {QQuickItem* item;} control{item};\n'
+                +branch+'\nresult["performed"]=delivered;return result;}\n')
             (stage/'PathUtils.h').write_text('#pragma once\n#include <QUrl>\nclass PathUtils {public:\n'
                 'inline static QUrl scripts,qml; static QUrl defaultScriptsLocation(){return scripts;}\n'
                 'static QUrl qmlUrl(const QString& value){return qml.resolved(QUrl(value));}};\n')
+            if cpp=='create-recovery-controls.cpp':
+                edit=(ROOT/'scripts/system/create/edit.js').read_text()
+                code=edit[edit.index('    function copyProperties(a, b) {'):edit.index('    var fcreateNewEntity;')]
+                code+='\n'+original(edit,'function createNewEntity(')
+                code+='\n'+original(edit,'function fromQml(')
+                code+='\n'+original(edit,'function sortSelectedEntities(')+'\n'+original(edit,'function recursiveDelete(')
+                code+='\n'+original(edit,'createApp.deleteSelectedEntities = function()')+';\n'
+                (stage/'original-recovery.js').write_text(code)
             subprocess.run(['c++','-std=c++17','-fPIC','-UNDEBUG','-DOVERTE_E2E_FEATURE_TESTS','-I'+directory,'-I'+str(ROOT),
                 '-I'+str(ROOT/'libraries/ui/src'),'-I'+str(ROOT/'libraries/script-engine/src'),
                 '-isystem',str(Path(environment['OVERTE_TEST_GLM_INCLUDE']).resolve(strict=True)),str(HERE/cpp),str(ROOT/'libraries/ui/src/ui/NativeFieldInput.cpp'),

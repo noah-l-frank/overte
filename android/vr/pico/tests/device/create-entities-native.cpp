@@ -25,6 +25,7 @@
 #include <cassert>
 #include <memory>
 #include <functional>
+#include <EntityShape.h>
 #include <type_traits>
 #define OVERTE_E2E_FEATURE_TESTS 1
 #include "CreatePolyvoxResources.h"
@@ -48,8 +49,9 @@ struct PolyVoxEntityItem:EntityItem {
 #include "ChatDomainSession.h"
 namespace glm {struct vec3 {float x=0,y=0,z=0;};struct quat {float x=0,y=0,z=0,w=1;};}
 namespace entity {enum class HostType {DOMAIN,AVATAR,LOCAL};}
-namespace EntityTypes {enum Type {Unknown,Model,PolyVox,Shape,Box};QString getEntityTypeName(Type t){return t==Model ? "Model" : t==PolyVox ? "PolyVox" : t==Shape ? "Shape" : t==Box ? "Box" : "Unknown";}}
+namespace EntityTypes {enum Type {Unknown,Model,PolyVox,Shape,Box,Sphere};QString getEntityTypeName(Type t){return t==Model ? "Model" : t==PolyVox ? "PolyVox" : t==Shape ? "Shape" : t==Box ? "Box" : t==Sphere ? "Sphere" : "Unknown";}}
 struct EntityItemProperties {
+    EntityShape _shape{EntityShape::Sphere};QString getShapeAsString() const;
     QString name,model,textures;EntityTypes::Type type=EntityTypes::Model;entity::HostType host=entity::HostType::DOMAIN;
     glm::vec3 position {0,1,-2},dimensions {1,1,1},natural {1,1,1};bool ready=true,visible=true;glm::quat orientation;QUuid parent;
     qulonglong edited=static_cast<qulonglong>(QDateTime::currentMSecsSinceEpoch())*1000;
@@ -61,6 +63,17 @@ struct EntityItemProperties {
     bool getVisible() const{return visible;}bool getLocked() const{return false;}auto getLastEdited() const{return edited;}auto getCreated() const{return edited-1;}
     auto getLastEditedBy() const{return QUuid("22222222-2222-2222-2222-222222222222");}
 };
+// Full original set/get and name serialization; only lock/dirty storage are
+// explicit host seams. Cube must acquire its original Box native type.
+namespace Simulation {constexpr int DIRTY_SHAPE=1;}
+struct ShapeEntityItem {
+    EntityTypes::Type _type{EntityTypes::Shape};EntityShape _shape{EntityShape::Sphere};bool _needsRenderUpdate{false};int dirty{0};
+    void setShape(EntityShape shape);EntityShape getShape() const;
+    void markDirtyFlags(int flags){dirty|=flags;}glm::vec3 getUnscaledDimensions(){return {1,1,1};}void setUnscaledDimensions(glm::vec3){}
+    template<typename F>void withWriteLock(F&& fn){fn();}
+    template<typename T,typename F>T resultWithReadLock(F&& fn) const{return fn();}
+};
+#include "OriginalShapeSource.inc"
 struct PickFilter {enum class FlagBit {DOMAIN_ENTITIES,COARSE};static int getBitMask(FlagBit b){return b==FlagBit::DOMAIN_ENTITIES ? 1 : 2;}};
 struct EntityTree {QHash<QUuid,EntityItemProperties>* values;QHash<QUuid,EntityItemPointer> objects;
     template<typename F>void withReadLock(F&& fn){fn();}
@@ -214,5 +227,16 @@ int main(int argc,char** argv) {
     assert(entityRow(originalVoxel).value("name")==QVariant("terrain") && entityRow(originalVoxel).value("voxels").toMap().value("nonzero").toInt()==64);
     assert(source(originalVoxel).value("scan").toMap().value("unowned").toList().size()==1);
     QTextStream(stdout)<<QJsonDocument::fromVariant(originalVoxel).toJson(QJsonDocument::Compact)<<'\n';
+    entities->values.clear();entities->scan.clear();entities->tree.objects.clear();
+    TestScriptingInterface cube;ShapeEntityItem actualShape;actualShape.setShape(EntityShape::Cube);
+    assert(actualShape._type==EntityTypes::Box && actualShape.getShape()==EntityShape::Cube
+        && actualShape._needsRenderUpdate && actualShape.dirty==Simulation::DIRTY_SHAPE);
+    EntityItemProperties box;box.type=actualShape._type;box._shape=actualShape.getShape();box.name="Shape";box.model.clear();
+    const QUuid cubeId("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");entities->values[cubeId]=box;entities->scan={cubeId};
+    entities->local.inserted(cubeId,"Box",box.getCreated(),nodes->getSessionUUID(),"domain");
+    const auto actualCube=cube.featureCreateEntities(command(1));
+    assert(entityRow(actualCube).value("type")==QVariant("Box") && entityRow(actualCube).value("shape")==QVariant("Cube"));
+    actualShape.setShape(EntityShape::Sphere);assert(actualShape._type==EntityTypes::Sphere && actualShape.getShape()==EntityShape::Sphere);
+    QTextStream(stdout)<<QJsonDocument::fromVariant(actualCube).toJson(QJsonDocument::Compact)<<'\n';
     return 0;
 }

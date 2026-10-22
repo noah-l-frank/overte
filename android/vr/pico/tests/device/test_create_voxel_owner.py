@@ -72,7 +72,6 @@ class ControllerActor:
     def stage(self,envelope,profile,*,before_publish=None):
         b=self.b;initialize(b);b.ui.sleep(b.delay_publication)
         if before_publish:before_publish(deepcopy(envelope))
-        if before_publish:before_publish(deepcopy(envelope))
         command=envelope['commands'][0];operation=command['operation'];self.sequence=envelope['sequence'];b.streams.append(deepcopy(envelope))
         if operation=='tablet.close':b.opened=False
         elif operation=='tablet.open':b.opened=True
@@ -177,6 +176,7 @@ class CreateVoxelJourneyTests(unittest.TestCase):
         self.create();self.act('voxel-edit',dict(mode='remove',brushMeters=.5));self.assertEqual(ORIGINAL,self.b.tools)
         self.assertEqual(1,self.b.stroke_count);self.assertEqual(16,sum(v!=0 for v in self.b.voxel_values))
         self.assertEqual('edited',self.root.state()['voxelEdit']['outcome']);self.make();self.act('delete-owned');self.assertFalse(self.b.rows)
+        self.act('close');self.assertFalse(self.b.editor);self.make()
         self.journal.activate(self.root.run,uuid.uuid4().hex,'cleanup',{});self.root.invoke('cleanup');self.assertIsNone(self.root.store.read())
         self.assertEqual(1,self.b.stroke_count)
     def test_lost_restore_readonly_reconciles_without_controller_or_ui_replay(self):

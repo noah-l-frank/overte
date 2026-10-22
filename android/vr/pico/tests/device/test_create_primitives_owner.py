@@ -172,7 +172,7 @@ class CreatePrimitiveJourneyTests(unittest.TestCase):
         with self.root.lock.held():
             legacy=self.root.state();legacy.pop('voxelEdit');legacy['createFeatureVersion']=2;self.root.write(legacy)
         original_proof=deepcopy(step['creationProof']);self.make();self.assertEqual(2,self.root.state()['createFeatureVersion'])
-        self.act('delete-owned');self.assertEqual(3,self.root.state()['createFeatureVersion'])
+        self.act('delete-owned');self.assertEqual(4,self.root.state()['createFeatureVersion'])
         self.assertEqual(original_proof,self.root.state()['primitives'][-1]['creationProof']);self.assertEqual('deleted',self.root.state()['primitives'][-1]['outcome']);self.assertFalse(self.b.rows)
         from adapters.script_journey.history import unpack
         proof=self.root.state()['primitives'][-1]['creationProof'];frames=unpack(proof['native']);actual=json.loads(frames[0]['raw'])
