@@ -904,7 +904,14 @@
           "tests/pr-ci-transport-test.py",
           "tools/repository-checks/pr_ci_reuse.py",
           "tests/pr-ci-reuse-test.py",
-          "tests/pr-ci-native-test.py"
+          "tests/pr-ci-native-test.py",
+          "tools/repository-checks/pr_ci_android.py",
+          "tools/repository-checks/pr_ci_android_preflight.py",
+          "tools/repository-checks/pr_ci_platform.py",
+          ".github/pr-ci-platform-inputs.json",
+          ".github/pr-ci-platforms.json",
+          "tests/pr-ci-android-test.py",
+          "tests/pr-ci-android-preflight-test.py"
         ],
         "required": [
           "tests/pr-ci-plan-test.py"
@@ -945,7 +952,14 @@
           "tests/pr-ci-transport-test.py",
           "tools/repository-checks/pr_ci_reuse.py",
           "tests/pr-ci-reuse-test.py",
-          "tests/pr-ci-native-test.py"
+          "tests/pr-ci-native-test.py",
+          "tools/repository-checks/pr_ci_android.py",
+          "tools/repository-checks/pr_ci_android_preflight.py",
+          "tools/repository-checks/pr_ci_platform.py",
+          ".github/pr-ci-platform-inputs.json",
+          ".github/pr-ci-platforms.json",
+          "tests/pr-ci-android-test.py",
+          "tests/pr-ci-android-preflight-test.py"
         ],
         "required": [
           "tests/pr-ci-context-test.py"
@@ -986,7 +1000,14 @@
           "tests/pr-ci-transport-test.py",
           "tools/repository-checks/pr_ci_reuse.py",
           "tests/pr-ci-reuse-test.py",
-          "tests/pr-ci-native-test.py"
+          "tests/pr-ci-native-test.py",
+          "tools/repository-checks/pr_ci_android.py",
+          "tools/repository-checks/pr_ci_android_preflight.py",
+          "tools/repository-checks/pr_ci_platform.py",
+          ".github/pr-ci-platform-inputs.json",
+          ".github/pr-ci-platforms.json",
+          "tests/pr-ci-android-test.py",
+          "tests/pr-ci-android-preflight-test.py"
         ],
         "required": [
           "tests/pr-ci-run-test.py"
@@ -1027,7 +1048,14 @@
           "tests/pr-ci-transport-test.py",
           "tools/repository-checks/pr_ci_reuse.py",
           "tests/pr-ci-reuse-test.py",
-          "tests/pr-ci-native-test.py"
+          "tests/pr-ci-native-test.py",
+          "tools/repository-checks/pr_ci_android.py",
+          "tools/repository-checks/pr_ci_android_preflight.py",
+          "tools/repository-checks/pr_ci_platform.py",
+          ".github/pr-ci-platform-inputs.json",
+          ".github/pr-ci-platforms.json",
+          "tests/pr-ci-android-test.py",
+          "tests/pr-ci-android-preflight-test.py"
         ],
         "required": [
           "tests/pr-ci-observer-test.py"
@@ -1068,7 +1096,14 @@
           "tests/pr-ci-transport-test.py",
           "tools/repository-checks/pr_ci_reuse.py",
           "tests/pr-ci-reuse-test.py",
-          "tests/pr-ci-native-test.py"
+          "tests/pr-ci-native-test.py",
+          "tools/repository-checks/pr_ci_android.py",
+          "tools/repository-checks/pr_ci_android_preflight.py",
+          "tools/repository-checks/pr_ci_platform.py",
+          ".github/pr-ci-platform-inputs.json",
+          ".github/pr-ci-platforms.json",
+          "tests/pr-ci-android-test.py",
+          "tests/pr-ci-android-preflight-test.py"
         ],
         "required": [
           "tests/pr-ci-workflow-test.py"
@@ -1109,7 +1144,14 @@
           "tests/pr-ci-transport-test.py",
           "tools/repository-checks/pr_ci_reuse.py",
           "tests/pr-ci-reuse-test.py",
-          "tests/pr-ci-native-test.py"
+          "tests/pr-ci-native-test.py",
+          "tools/repository-checks/pr_ci_android.py",
+          "tools/repository-checks/pr_ci_android_preflight.py",
+          "tools/repository-checks/pr_ci_platform.py",
+          ".github/pr-ci-platform-inputs.json",
+          ".github/pr-ci-platforms.json",
+          "tests/pr-ci-android-test.py",
+          "tests/pr-ci-android-preflight-test.py"
         ],
         "required": [
           "tests/pr-ci-cli-test.py"
@@ -1150,7 +1192,14 @@
           "tests/pr-ci-transport-test.py",
           "tools/repository-checks/pr_ci_reuse.py",
           "tests/pr-ci-reuse-test.py",
-          "tests/pr-ci-native-test.py"
+          "tests/pr-ci-native-test.py",
+          "tools/repository-checks/pr_ci_android.py",
+          "tools/repository-checks/pr_ci_android_preflight.py",
+          "tools/repository-checks/pr_ci_platform.py",
+          ".github/pr-ci-platform-inputs.json",
+          ".github/pr-ci-platforms.json",
+          "tests/pr-ci-android-test.py",
+          "tests/pr-ci-android-preflight-test.py"
         ],
         "required": [
           "tests/pr-ci-transport-test.py"
@@ -1252,7 +1301,12 @@
           ".github/pr-ci-platforms.json",
           "tools/repository-checks/pr_ci_reuse.py",
           "tests/pr-ci-reuse-test.py",
-          "tests/pr-ci-native-test.py"
+          "tests/pr-ci-native-test.py",
+          "tools/repository-checks/pr_ci_android.py",
+          "tools/repository-checks/pr_ci_android_preflight.py",
+          ".github/pr-ci-platform-inputs.json",
+          "tests/pr-ci-android-test.py",
+          "tests/pr-ci-android-preflight-test.py"
         ],
         "required": [
           "tests/pr-ci-platform-test.py"
@@ -1293,7 +1347,14 @@
           "tests/pr-ci-transport-test.py",
           "tools/repository-checks/pr_ci_reuse.py",
           "tests/pr-ci-reuse-test.py",
-          "tests/pr-ci-native-test.py"
+          "tests/pr-ci-native-test.py",
+          "tools/repository-checks/pr_ci_android.py",
+          "tools/repository-checks/pr_ci_android_preflight.py",
+          "tools/repository-checks/pr_ci_platform.py",
+          ".github/pr-ci-platform-inputs.json",
+          ".github/pr-ci-platforms.json",
+          "tests/pr-ci-android-test.py",
+          "tests/pr-ci-android-preflight-test.py"
         ],
         "required": [
           "tests/pr-ci-reuse-test.py"
@@ -1334,10 +1395,71 @@
           "tests/pr-ci-transport-test.py",
           "tools/repository-checks/pr_ci_reuse.py",
           "tests/pr-ci-reuse-test.py",
-          "tests/pr-ci-native-test.py"
+          "tests/pr-ci-native-test.py",
+          "tools/repository-checks/pr_ci_android.py",
+          "tools/repository-checks/pr_ci_android_preflight.py",
+          "tools/repository-checks/pr_ci_platform.py",
+          ".github/pr-ci-platform-inputs.json",
+          ".github/pr-ci-platforms.json",
+          "tests/pr-ci-android-test.py",
+          "tests/pr-ci-android-preflight-test.py"
         ],
         "required": [
           "tests/pr-ci-native-test.py"
+        ]
+      }
+    },
+    "pr-ci-android": {
+      "command": [
+        "python",
+        "tests/pr-ci-android-test.py"
+      ],
+      "layer": "quick",
+      "scope": "content",
+      "environment": "python",
+      "closure": {
+        "kind": "patterns",
+        "inputs": [
+          "tools/repository-checks/pr_ci_android.py",
+          "tools/repository-checks/pr_ci_android_preflight.py",
+          "tools/repository-checks/pr_ci_platform.py",
+          ".github/pr-ci-platform-inputs.json",
+          ".github/pr-ci-platforms.json",
+          "tests/pr-ci-android-test.py",
+          "tests/pr-ci-android-preflight-test.py",
+          "tools/repository-checks/pr_ci.py",
+          ".github/pr-ci-suites.json",
+          ".github/pr-ci-dependencies.json"
+        ],
+        "required": [
+          "tests/pr-ci-android-test.py"
+        ]
+      }
+    },
+    "pr-ci-android-preflight": {
+      "command": [
+        "python",
+        "tests/pr-ci-android-preflight-test.py"
+      ],
+      "layer": "quick",
+      "scope": "content",
+      "environment": "python",
+      "closure": {
+        "kind": "patterns",
+        "inputs": [
+          "tools/repository-checks/pr_ci_android.py",
+          "tools/repository-checks/pr_ci_android_preflight.py",
+          "tools/repository-checks/pr_ci_platform.py",
+          ".github/pr-ci-platform-inputs.json",
+          ".github/pr-ci-platforms.json",
+          "tests/pr-ci-android-test.py",
+          "tests/pr-ci-android-preflight-test.py",
+          "tools/repository-checks/pr_ci.py",
+          ".github/pr-ci-suites.json",
+          ".github/pr-ci-dependencies.json"
+        ],
+        "required": [
+          "tests/pr-ci-android-preflight-test.py"
         ]
       }
     }

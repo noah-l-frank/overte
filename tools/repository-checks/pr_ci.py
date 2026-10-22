@@ -59,6 +59,8 @@ class API(C.GitHub):
     max_calls = 96
     extra_endpoints = (
         r"(?:git/trees/[0-9a-f]{40}\?recursive=1|git/blobs/[0-9a-f]{40}"
+        r"|commits/[0-9a-f]{40}/pulls\?per_page=100&page=[1-5]"
+        r"|compare/[0-9a-f]{40}\.\.\.[0-9a-f]{40}"
         r"|actions/workflows/repository-checks\.yml(?:/runs\?event=pull_request&head_sha=[0-9a-f]{40}&per_page=100&page=[1-5])?"
         r"|check-suites/[1-9][0-9]*"
         r"|actions/runs/[1-9][0-9]*(?:/attempts/[1-9][0-9]*(?:/jobs\?per_page=100&page=[1-5])?"
@@ -145,6 +147,12 @@ def source_context(event, event_name, number, controller):
 
 
 def policy(candidate, context, plan):
+    import pr_ci_android_preflight
+    prerequisites = pr_ci_android_preflight.classify(plan['paths'], target=context['target'])
+    C.require(not prerequisites['native_qualification_required'],
+              'Android native/app qualification unavailable: complete the source-only dependency '
+              'producer and qualify its hosted offline consumer before publishing these changes. '
+              'Run the local preflight for exact inputs and prerequisites.')
     # These programs are loaded from the protected controller, and inspect only
     # supplied branch metadata and candidate files. They never import candidate code.
     pr = API().get("pulls/" + str(context["number"]))
@@ -162,7 +170,7 @@ def policy(candidate, context, plan):
     C.bookend(API(), context)
 
 
-def execute(candidate, plan, lane, project, prepared_roots):
+def execute(candidate, plan, lane, project, prepared_roots, *, context=None, browser_executable=None):
     import pr_ci_run
     candidate = Path(candidate).resolve(strict=True)
     tasks = [task for task in plan["tasks"] if task["kind"] == lane]
@@ -170,11 +178,27 @@ def execute(candidate, plan, lane, project, prepared_roots):
         tasks = [task for task in tasks if task["id"] == "npm:" + project]
     C.require(bool(tasks), "unselected or empty execution owner")
     receipts = []
+    runtime, reusable = None, {}
+    if context is not None:
+        native_identity(context)
+        C.require(C.canonical(selection(candidate, context)) == C.canonical(plan),
+                  "command execution plan differs from its authenticated source")
+        C.bookend(API(), context)
+        import pr_ci_reuse
+        try:
+            runtime = pr_ci_reuse.observed_runtime(prepared_roots)
+            evidence = pr_ci_reuse.Evidence(API(deadline=time.monotonic() + 30), context, remote_selection)
+            reusable = evidence.discover(tasks, runtime, lane, project)
+        except (OSError, ValueError, KeyError, TypeError, AttributeError, subprocess.SubprocessError) as error:
+            # Optional stale/missing parent evidence never causes a failing PR
+            # or a false successful test. Run the selected commands instead.
+            print("Parent task evidence unavailable; executing selected commands (" + type(error).__name__ + ")", flush=True)
     original = git(candidate, "rev-parse", "HEAD").decode().strip()
     C.require(not git(candidate, "diff", "HEAD", "--"), "candidate tracked inputs were changed before execution")
     for task in tasks:
         C.require(not task["missing_inputs"], "selected test has missing inputs: " + task["id"])
         commands = task["command"] if lane == "npm" else [task["command"]]
+        origin = reusable.get(task['id'])
         for index, arguments in enumerate(commands):
             command = list(arguments)
             if command[0] == "python":
@@ -184,17 +208,38 @@ def execute(candidate, plan, lane, project, prepared_roots):
             # The dependency owner may fetch public packages. Test/build commands
             # execute without a network, credentials, or runner control files.
             fetch = lane == "npm" and command[:2] in (["npm", "ci"], ["npm", "audit"])
+            if origin and not fetch:
+                continue
+            browser = (lane == 'npm' and 'browser' in task.get('setup', [])
+                       and (command == ['npm', 'run', 'test:browser']
+                            or command == ['node', 'node_modules/@playwright/test/cli.js',
+                                           'test', '--config', 'playwright.config.ts']))
+            if browser:
+                executable = Path(browser_executable or '').resolve(strict=True)
+                C.require(browser_executable and executable.is_file()
+                          and any(executable.is_relative_to(Path(root).resolve(strict=True))
+                                  for root in prepared_roots),
+                          'selected browser journey has no prepared browser runtime')
+                command = ['/usr/bin/env', 'OVERTE_BROWSER_CI_ISOLATED=1',
+                           'OVERTE_BROWSER_CHROME_EXECUTABLE=' + str(executable), *command]
             if lane == "npm":
                 command = ["/usr/bin/env", "--chdir=/work/" + project, *command]
             status = pr_ci_run.run(candidate, command, prepared_roots=prepared_roots,
                 network=fetch, timeout=1200,
-                boundary="user-namespace")
+                boundary="docker" if browser else "user-namespace")
             C.require(status == 0, f"selected command failed: {task['id']} [{index}] exit={status}")
             C.require(git(candidate, "rev-parse", "HEAD").decode().strip() == original
                       and not git(candidate, "diff", "HEAD", "--"),
                       "selected command changed its immutable tracked source")
-        receipts.append({"task": task["id"], "input_key": task["reuse_key"], "result": "success"})
-    return receipts
+        receipt = {"task": task["id"], "input_key": task["reuse_key"], "result": "success"}
+        if context is not None:
+            receipt.update(command=task['command'], runtime=runtime, executed=not bool(origin), origin=origin)
+        receipts.append(receipt)
+    if context is None:
+        return receipts
+    C.bookend(API(), context)
+    return {"kind": "pr-ci-task-results-v1", "context": context, "lane": lane,
+            "project": project, "results": receipts}
 
 
 def native_identity(context):
@@ -220,6 +265,11 @@ def upload_proof(context, language, sarif):
 
 
 def verify_native(candidate, context, plan):
+    native_identity(context)
+    C.require(context.get("execution_event") == "pull_request"
+              and git(ROOT, "rev-parse", "HEAD").decode().strip() == context.get("controller")
+              and os.environ.get("GITHUB_SHA") == context.get("original_merge"),
+              "native controller or execution source differs from its authenticated invocation")
     C.require(os.environ.get("PR_CI_SOURCE_REF") == f"refs/pull/{context['number']}/merge",
               "native candidate source reference changed")
     C.require(plan["native"]["mode"] in {"core", "full"}
@@ -227,7 +277,7 @@ def verify_native(candidate, context, plan):
               "native execution does not match the selected owner")
     C.require(C.canonical(selection(candidate, context)) == C.canonical(plan),
               "native selection differs from the independently recomputed plan")
-    return plan["native"]
+    return {**plan["native"], 'sha': context['original_merge']}
 
 
 def complete(context, plan, needs):
@@ -239,7 +289,8 @@ def complete(context, plan, needs):
     current = C.bookend(API(), context)
     return {"kind": "pr-ci-execution-v1", "result": "success", "context": context,
             "plan": plan, "owners": owners, "run_id": context["run_id"],
-            "run_attempt": context["run_attempt"], "observed_context": current}
+            "run_attempt": context["run_attempt"], "observed_context": current,
+            "task_results": "required"}
 
 
 def remote_tree(api, tree):
@@ -453,6 +504,9 @@ def gate(event, event_name, number, controller, *, timeout=5700, pause=time.slee
                 else:
                     observer.validate_record(record, plan, context,
                         run_id=identity["id"], run_attempt=identity["run_attempt"])
+                    if record.get('task_results') == 'required':
+                        import pr_ci_reuse
+                        pr_ci_reuse.verify_current(api, context, plan, artifacts, remote_selection)
                     uploads = {}
                     for language in plan["codeql_languages"]:
                         upload_name = f"codeql-upload-{identity['id']}-{identity['run_attempt']}-{language}"
@@ -499,6 +553,14 @@ def gate(event, event_name, number, controller, *, timeout=5700, pause=time.slee
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
+    local_cli = sub.add_parser('preflight', help='Inspect local immutable inputs; never issue execution evidence')
+    local_cli.add_argument('--candidate', type=Path, default=ROOT)
+    local_cli.add_argument('--base', required=True)
+    local_cli.add_argument('--revision', default='HEAD')
+    local_cli.add_argument('--target', choices=P.TARGETS, required=True)
+    local_cli.add_argument('--out', type=Path)
+    local_cli.add_argument('--allow-controller-transition', action='store_true',
+        help='Report an explicitly reviewed local controller rollout; never bypass a GitHub gate')
     context_cli = sub.add_parser("context")
     context_cli.add_argument("--event", type=Path, required=True)
     context_cli.add_argument("--event-name", required=True)
@@ -532,13 +594,45 @@ def main():
             command.add_argument("--lane", choices=("host", "npm") if name == "execute" else ("android", "ios"), required=True)
             command.add_argument("--project", default="")
             command.add_argument("--prepared-root", action="append", default=[])
+            if name == 'execute':
+                command.add_argument('--output', type=Path)
+                command.add_argument('--browser-executable', type=Path)
+            else:
+                command.add_argument('--android-runtime', type=Path)
         if name == "complete":
             command.add_argument("--needs-json", required=True)
         if name == "verify-ios":
             command.add_argument("--needs-json", required=True)
             command.add_argument("--artifacts", type=Path, required=True)
     args = parser.parse_args()
-    if args.command == "context":
+    if args.command == 'preflight':
+        import pr_ci_android_preflight
+        before = P._INPUTS.full_tree(args.candidate, args.base)
+        after = P._INPUTS.full_tree(args.candidate, args.revision)
+        trusted = P._INPUTS.full_tree(ROOT, 'HEAD')
+        def blob(oid):
+            try:
+                return git(ROOT, 'cat-file', 'blob', oid)
+            except subprocess.CalledProcessError:
+                return git(args.candidate, 'cat-file', 'blob', oid)
+        plan = P.plan(before, after, trusted, read_blob=blob, target=args.target)
+        prerequisites = pr_ci_android_preflight.classify(plan['paths'], target=args.target)
+        import pr_ci_transport
+        source_policy = 'compatible'
+        try:
+            pr_ci_transport.validate_sources(after, trusted,
+                protected_base=before if args.target != 'main' else None)
+        except pr_ci_transport.TransportError:
+            source_policy = 'requires-reviewed-controller-transition'
+        result = {'kind': 'pr-ci-local-preflight-v1', 'execution': False, 'plan': plan,
+                  'platform_prerequisites': prerequisites, 'source_policy': source_policy}
+        if args.out:
+            write_json(args.out, result)
+        print(json.dumps({'target': args.target, 'tasks': [t['id'] for t in plan['tasks']],
+                          'platform_prerequisites': prerequisites, 'source_policy': source_policy}, sort_keys=True))
+        return 2 if prerequisites['native_qualification_required'] or (
+            source_policy != 'compatible' and not args.allow_controller_transition) else 0
+    elif args.command == "context":
         context = source_context(read_json(args.event.read_text()), args.event_name, args.number, args.controller)
         write_json(args.out, context)
         outputs(args.output, {**{k: context[k] for k in ("number", "base", "head", "target", "tree", "controller")},
@@ -559,6 +653,9 @@ def main():
                   "codeql_languages": json.dumps(plan["codeql_languages"]),
                   "full_host": "host-full" in plan["setup"],
                   "setup_json": json.dumps(plan["setup"]),
+                  "browser_projects": json.dumps([t['id'][4:] for t in plan['tasks']
+                      if t['kind'] == 'npm' and 'browser' in t['setup']]),
+                  "android_compile_products": json.dumps(plan.get('android_compile_products', [])),
                   "ios_build": plan["ios_build_required"]}
         outputs(args.output, values)
         print(json.dumps({"target": context["target"], "tasks": [t["id"] for t in plan["tasks"]],
@@ -568,9 +665,12 @@ def main():
         if args.command == "policy":
             policy(args.candidate, context, plan)
         elif args.command == "execute":
-            receipt = execute(args.candidate, plan, args.lane, args.project, args.prepared_root)
+            receipt = execute(args.candidate, plan, args.lane, args.project, args.prepared_root,
+                              context=context, browser_executable=args.browser_executable)
             if args.out:
                 write_json(args.out, receipt)
+            import pr_ci_reuse
+            outputs(args.output, {'artifact_name': pr_ci_reuse.artifact_name(context, args.lane, args.project)})
         elif args.command == "complete":
             write_json(args.out, complete(context, plan, read_json(args.needs_json)))
         elif args.command == "verify-native":
@@ -580,7 +680,7 @@ def main():
         elif args.command == "platform":
             import pr_ci_platform
             receipt = pr_ci_platform.execute(args.candidate, context, plan, args.lane,
-                args.prepared_root, recompute=selection)
+                args.prepared_root, recompute=selection, android_runtime=args.android_runtime)
             if args.out:
                 write_json(args.out, receipt)
         elif args.command == "verify-ios":

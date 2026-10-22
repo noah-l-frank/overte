@@ -6,6 +6,7 @@ GitHub, qualify a candidate, or replace the first genuine manual bootstrap.
 """
 from copy import deepcopy
 import hashlib
+import json
 from pathlib import Path
 import re
 import unittest
@@ -190,7 +191,8 @@ class WorkflowContracts(unittest.TestCase):
         for name in ("host", "npm"):
             steps = [step for step in self.jobs[name]["steps"] if "pr_ci.py execute" in step.get("run", "")]
             self.assertEqual(1, len(steps))
-            self.assertNotIn("GH_TOKEN", steps[0].get("env", {}))
+            self.assertEqual("${{ github.token }}", steps[0].get("env", {}).get("GH_TOKEN"))
+            self.assertTrue(all(value == 'read' for value in self.jobs[name]['permissions'].values()))
             self.assertIn("--candidate candidate", steps[0]["run"])
             self.assertNotIn("GITHUB_TOKEN", steps[0].get("env", {}))
             self.assertFalse(any("actions/cache" in step.get("uses", "") for step in self.jobs[name]["steps"]))
@@ -201,7 +203,14 @@ class WorkflowContracts(unittest.TestCase):
             command = scripts(job)
             self.assertIn("sudo apt-get install --no-install-recommends -y bubblewrap", command)
             self.assertIn("unshare --user --map-root-user --net /usr/bin/true", command)
-            self.assertNotIn("docker ", command)
+            if name == 'host':
+                self.assertNotIn("docker ", command)
+            else:
+                browser = next(step for step in job['steps'] if step.get('id') == 'browser')
+                self.assertIn('needs.plan.outputs.browser_projects', browser['if'])
+                self.assertIn('matrix.project', browser['if'])
+                self.assertIn('docker pull ' + IMAGE, browser['run'])
+                self.assertNotIn('candidate/', browser['run'])
             python = next(step for step in job["steps"] if step.get("uses", "").startswith("actions/setup-python@"))
             node = next(step for step in job["steps"] if step.get("uses", "").startswith("actions/setup-node@"))
             self.assertEqual("3.12.15", python["with"]["python-version"])
@@ -367,6 +376,41 @@ class WorkflowContracts(unittest.TestCase):
                     reference = item.get("uses")
                     if reference and not reference.startswith("./"):
                         self.assertRegex(reference, r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_./-]+@[0-9a-f]{40}$")
+
+    def test_required_rule_templates_match_the_active_central_context_contract(self):
+        expected = {'permanent-branches.json': {'source-policy', 'required-ci'},
+                    'apple-target-branches.json': {'Enforce apple-main sync path'},
+                    'android-target-branches.json': {'Enforce Android parent sync path'}}
+        for filename, contexts in expected.items():
+            manifest = json.loads((ROOT / '.github/rulesets' / filename).read_text())
+            rules = [r['parameters'] for r in manifest['rules'] if r['type'] == 'required_status_checks']
+            self.assertEqual(1, len(rules))
+            self.assertEqual(contexts, {r['context'] for r in rules[0]['required_status_checks']})
+            self.assertTrue(rules[0]['strict_required_status_checks_policy'])
+            self.assertTrue(all(r['integration_id'] == 15368 for r in rules[0]['required_status_checks']))
+
+    def test_selected_task_receipts_are_uploaded_and_bound_to_the_current_attempt(self):
+        for owner in ('host', 'npm'):
+            job = self.jobs[owner]
+            execution = next(s for s in job['steps'] if 'pr_ci.py execute' in s.get('run', ''))
+            self.assertIn('--out tasks.json', execution['run'])
+            upload = next(s for s in job['steps'] if s.get('uses') == UPLOAD)
+            self.assertEqual('tasks.json', upload['with']['path'])
+            self.assertFalse(upload['with']['overwrite'])
+            self.assertEqual(14, upload['with']['retention-days'])
+        self.assertIn('github.run_attempt', next(s for s in self.jobs['host']['steps']
+            if s.get('uses') == UPLOAD)['with']['name'])
+
+    def test_android_runtime_is_prepared_only_for_selected_real_api_compilation(self):
+        job = self.jobs['android']
+        prepare = next(s for s in job['steps'] if 'pr_ci_android.py prepare' in s.get('run', ''))
+        self.assertEqual("needs.plan.outputs.android_compile_products != '[]'", prepare['if'])
+        self.assertIn('trusted/tools/repository-checks/pr_ci_android.py', prepare['run'])
+        self.assertIn('platforms;android-36', prepare['run'])
+        self.assertIn('build-tools;36.0.0', prepare['run'])
+        execute = next(s for s in job['steps'] if 'pr_ci.py platform' in s.get('run', ''))
+        self.assertIn('--android-runtime', execute['run'])
+        self.assertIn('COMPILE_PRODUCTS', execute['env'])
 
 
 if __name__ == "__main__":
