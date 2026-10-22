@@ -8,6 +8,7 @@ may use these actual new-process sources without assigning new clocks to it.
 from copy import deepcopy
 
 from adapters.native_feature_observation import need
+from adapters.native_clock_join import digest
 from adapters.script_feature.history import same
 from ios.adapters.navigation_admission_owner import NavigationAdmissionOwner
 from ios.adapters.navigation_process_context import source_basis
@@ -24,20 +25,28 @@ class NavigationProcessScope:
         self.owner=owner;self.store,self.lock=owner.store,owner.lock
         self.binding,self.run=deepcopy(owner.binding),owner.run
         self.native,self.sources,self.fixture=owner.native,owner.sources,owner.fixture
-        self.historical=False;self.bound()
+        self.historical=False
+        # Validate complete immutable originals once. Every later use checks
+        # the actual private carrier and in-memory owner against this seal.
+        context=owner.archive();self._carrier=deepcopy(owner.previous)
+        self._basis=source_basis(context,owner.owner_files);self._basis_sha=digest(self._basis)
+        self._initial=deepcopy(context['initialAdmission']);self._initial_sha=digest(self._initial)
+        self.bound()
 
     def bound(self):
         self.owner.bound();need(not self.owner.historical and self.owner.state is not None
             and self.owner.state['phase']=='transferred' and same(self.owner.binding,self.binding)
             and self.owner.run==self.run and self.owner.native is self.native and self.owner.sources is self.sources
-            and self.owner.fixture is self.fixture)
+            and self.owner.fixture is self.fixture and self.owner.store is self.store and self.owner.lock is self.lock
+            and same(self.owner.previous,self._carrier) and same(self.owner.envelope(self.owner.state),self._carrier)
+            and digest(self._basis)==self._basis_sha and digest(self._initial)==self._initial_sha)
 
     def archive(self):
         """An explicitly typed current source basis, never a static admission."""
-        self.bound();return source_basis(self.owner.archive(),self.owner.owner_files)
+        self.bound();return deepcopy(self._basis)
 
     def original_admission(self):
-        self.bound();return deepcopy(self.owner.archive()['initialAdmission'])
+        self.bound();return deepcopy(self._initial)
 
     def ui_original(self,value):
         from ios.adapters.normal_input import observation

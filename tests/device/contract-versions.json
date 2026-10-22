@@ -24,6 +24,7 @@
     "ios-navigation-restart-proof": {"current": 1, "reads": [1]},
     "ios-navigation-process-context": {"current": 2, "reads": [1, 2]},
     "ios-navigation-process-source-basis": {"current": 2, "reads": [1, 2]},
+    "ios-navigation-process-return": {"current": 1, "reads": [1]},
     "ios-navigation-process-owner": {"current": 1, "reads": [1]},
     "ios-script-dialogs": {"current": 1, "reads": [1]},
     "ios-script-dialog-ledger": {"current": 1, "reads": [1]},

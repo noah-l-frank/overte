@@ -95,8 +95,15 @@ surface, Places, missing-destination and composite owners. It validates the
 actual new process and source floors before each action. Their private journal
 filenames include that actual PID, so earlier input journals remain unchanged.
 The scope exposes the original admission separately and cannot substitute the
-new source basis for it. Scene entry and static return still require their
-separate ordinary ownership integration. Fifty-four host tests cover these
+new source basis for it. `NavigationProcessReturn` now owns an ordinary return to the unchanged first
+static resource. It acquires fresh actual current-process inventory/navigation/UI
+and provider originals, validates the owned scene and original camera/scale, then
+journals a single normal Go To recipe in that process's retained-root owner. A
+lost final parent result adopts only the complete actual child original without
+an SDK read or replay. Interrupted source reads and incomplete native receipts
+remain owned. Slow journaling cannot send an expired scene gate. Ignored Go To
+still establishes only delivery. The independent restored scene, pixels and
+whole cleanup must be proved separately. Fifty-four host tests cover these
 owners, runtime factories and process scope, including stale PID and source
 counters; they do not demonstrate product restart behavior.
 
@@ -107,3 +114,11 @@ Source inspection confirms that normal iOS Go To close retains its QML root.
 The separate [address-root ownership validator](NAVIGATION_ADDRESS_ROOTS.md)
 distinguishes that actual hidden object from destruction. Its durable ordinary
 scene entry/return journal now supplies the explicit version-2 root handoff.
+
+The live process scope seals the fully validated immutable context once. Every
+use still compares its actual private carrier, current owner state and source
+binding against that seal; callers receive copies. Original archive validation
+remains unchanged. A local modeled timing check measured about 267 ms per full
+archive reconstruction and about 4 ms per sealed use. The seal changes no
+original clock, deadline, source version or historical bytes. Changed cached
+basis, in-memory owner or private journal fails closed.

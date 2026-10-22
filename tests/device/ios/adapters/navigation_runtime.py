@@ -34,6 +34,15 @@ class IOSNavigationRuntime(IOSScriptRuntime):
     def _navigation_process_scope(self,owner):
         return NavigationProcessScope(owner)
 
+    def _navigation_process_return(self,selector,scope):
+        from ios.adapters.navigation_process_return import NavigationProcessReturn
+        need(isinstance(scope,NavigationProcessScope));scope.bound()
+        source=self._sources(selector);need(same(source['binding'],scope.binding)
+            and scope.store.path.parent==self.state_path(selector).parent)
+        ui=NativeUI(source['client'],source['session'],source['check'])
+        return NavigationProcessReturn(PrivateFeatureState(scope.store.path.with_name(
+            'ios-navigation-process-return-'+scope.binding['processIdentity']+'.json')),scope,ui,source['native'])
+
     def _navigation_process_owner(self,selector,client,initial,before,receipt,lock):
         """Acquire on the existing new candidate; never launch or infer a restart."""
         from ios.adapters.graphics_history import restore_native

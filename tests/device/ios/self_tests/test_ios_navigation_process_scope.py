@@ -36,6 +36,15 @@ class NavigationProcessScopeTests(unittest.TestCase):
     def sdk(self,scope):
         basis=scope.archive();floor=basis['originals']['ui'];b=RetainedBoundary()
         b.native_boundary.pid=43;b.native_boundary.instance=floor['instance']
+        # The old shared test boundary hardcodes PID 42 in edit receipts.
+        # This explicitly modeled second SDK reports its actual current PID.
+        original_post=b.native_boundary.post
+        def native_post(request,timeout):
+            result=original_post(request,timeout)
+            if 'status' in b.native_boundary.receipt:
+                b.native_boundary.receipt['status']['processId']=b.native_boundary.pid
+            return result
+        b.native_boundary.post=native_post
         b.source_sequence=floor['navigationDialogSourceSequence']
         b.sequence_native=b.native_boundary.sequence=floor['lastSequence']
         b.native_epoch=lambda:floor['sampleEpochMs']+100+round(b.clock*1000)
@@ -96,6 +105,19 @@ class NavigationProcessScopeTests(unittest.TestCase):
                     with self.subTest(source=key),self.assertRaises(NativeUIError):current.packet(bad)
             self.assertEqual(old_bytes,old_path.read_bytes());self.assertEqual(initial,scope.original_admission())
 
+    def test_sealed_basis_keeps_live_original_checks_and_cannot_hide_mutated_owner_or_cache(self):
+        with self.held():
+            scope=self.scope();original=scope.archive();initial=scope.original_admission()
+            # Callers receive copies, while the exact source carrier remains
+            # checked on every cache use without refreshing any old clock.
+            changed=scope.archive();changed['originals']['ui']['processId']=42
+            self.assertEqual(original,scope.archive());self.assertEqual(initial,scope.original_admission())
+            saved=deepcopy(scope.owner.state);scope.owner.state['context']['currentScope']['originalsSha256']='0'*64
+            with self.assertRaises(NativeUIError):scope.archive()
+            scope.owner.state=saved
+            scope._basis['binding']['processIdentity']='42'
+            with self.assertRaises(NativeUIError):scope.archive()
+
     def test_runtime_factories_share_actual_new_process_context_and_refuse_foreign_candidate(self):
         with self.held():
             scope=self.scope();b,native=self.sdk(scope)
@@ -107,6 +129,8 @@ class NavigationProcessScopeTests(unittest.TestCase):
             runtime=object.__new__(Runtime)
             composite=runtime._navigation_composite_actions('actual-existing',scope)
             missing=runtime._navigation_missing_actions('actual-existing',scope)
+            original_return=runtime._navigation_process_return('actual-existing',scope)
+            self.assertIs(scope,original_return.scope);self.assertIsNone(original_return.store.read())
             self.assertIs(scope,composite.admission);self.assertIs(scope,composite.places.scope)
             self.assertIs(scope,missing.admission);self.assertTrue(composite.store.path.name.endswith('-43.json'))
             self.assertEqual(43,composite.navigation.pid);self.assertIsNone(composite.store.read());self.assertIsNone(missing.store.read())
