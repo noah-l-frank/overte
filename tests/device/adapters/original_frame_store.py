@@ -9,6 +9,7 @@ from copy import deepcopy
 import hashlib
 import json
 import os
+from adapters.original_file_reads import record as record_original_read
 from pathlib import Path
 import re
 import stat
@@ -80,7 +81,7 @@ class OriginalFrameStore:
         need(type(body[self.key('FrameVersion')]) is int and body[self.key('FrameVersion')]==VERSION and same(body['binding'],self.binding)
             and body['kind']==self.kind and body['runId']==self.run and body['role']==self.role and type(body['index']) is int and body['index']==value['index']
             and type(body['frame']) is dict)
-        self.bound(started);return deepcopy(body['frame'])
+        self.bound(started);record_original_read(path);return deepcopy(body['frame'])
 
     def write(self,index,frame):
         started=self.now();self.bound(started);need(integer(index,1,MAX_FRAMES) and type(frame) is dict)

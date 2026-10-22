@@ -9,6 +9,7 @@ import base64
 from copy import deepcopy
 import hashlib
 import os
+from adapters.original_file_reads import record as record_original_read
 from pathlib import Path
 import re
 import stat
@@ -222,6 +223,7 @@ class VulkanWorldFrameOwner:
         for event in self.events:
             if event['command']['operation']=='read-bytes' and event['receipt'] is not None:
                 validate_summary(event['receipt'],event['command'],self.pid,raw)
+        record_original_read(self.root/self.name)
         return raw
 
     def archive(self):
