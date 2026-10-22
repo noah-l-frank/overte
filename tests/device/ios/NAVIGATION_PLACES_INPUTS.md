@@ -23,7 +23,8 @@ changed address cannot be recaptured and accepted as the selected owned row.
 
 Every low-level input first invokes the required private `intent` callback with
 its unchanged original UI packet, selected reference and actual action call.
-The owning coordinator must durably save it before returning. Failure prevents
+The [scoped action owner](NAVIGATION_PLACES_ACTIONS.md) now durably saves it before
+returning and retains whole-call responsibility. Failure prevents
 delivery. The native transport separately recaptures and validates that exact
 reference, then sends once. A subsequent original verifies the consumed input
 sequence. Only read waits repeat; no failed or uncertain input is retried.
@@ -33,7 +34,7 @@ bookmarks/files, loaded models, HTTP consumption and actual rendered arrival
 still determine feature state. Tablet/address ownership, initial open/close,
 named lookup/error handling, restart transfer and whole-run failure/recovery,
 independent publication and repeated cleanup remain with the unfinished Worlds
-coordinator. The callback alone is not that complete durable coordinator.
+coordinator. This open-page owner is not the complete Worlds coordinator.
 
 Host tests execute real Python HTTP/AFC codecs, private atomic intent journals
 and temporary bookmark files with modeled native Qt controls/models. They check

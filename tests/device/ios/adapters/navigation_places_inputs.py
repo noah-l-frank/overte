@@ -25,7 +25,7 @@ VERSION=1
 
 class IOSPlacesFlow:
     def __init__(self,io,model,binding,run,inputs,instance,lock,guard,intent,*,previous=None,
-                 monotonic=time.monotonic,sleep=time.sleep):
+                 floor=None,monotonic=time.monotonic,sleep=time.sleep):
         need(isinstance(io,controls.IOSPlacesIO) and isinstance(model,models.IOSPlacesModel)
              and isinstance(lock,ScriptSourceLock) and all(callable(fn) for fn in (guard,intent,monotonic,sleep)))
         context(binding);identifier(run);controls.identity(instance)
@@ -35,6 +35,11 @@ class IOSPlacesFlow:
         self.lock,self.guard,self.intent,self.monotonic,self.sleep=lock,guard,intent,monotonic,sleep
         self.ctx=run_context(run);self.last=deepcopy(previous);self.started=self.last_clock=None
         self.root=self.call=None
+        self.floor=deepcopy(floor)
+        if floor is not None:
+            from ios.adapters.normal_input import observation
+            observation(floor,int(binding['processIdentity']),floor.get('sampleEpochMs'))
+            need(floor['instance']==instance and floor.get('placesControlsVersion')==2)
         if previous is not None:
             controls.snapshot(previous);self.root=self.page(previous)['rootId']
         self.bound()
@@ -57,6 +62,10 @@ class IOSPlacesFlow:
     def capture(self):
         self.bound();value=self.io.capture();page=self.page(value);scope=value['scope']
         need(scope['instance']==self.instance and scope['processId']==int(self.binding['processIdentity']))
+        if self.floor is not None:
+            need(scope['sequence']>=self.floor['lastSequence'] and scope['sampleEpochMs']>=self.floor['sampleEpochMs']
+                 and scope['elapsedMs']>=self.floor['elapsedMs']
+                 and scope['observationSequence']>self.floor['placesSourceSequence'])
         if self.last is not None:
             old=self.last['scope']
             need(scope['instance']==old['instance'] and scope['processId']==old['processId']

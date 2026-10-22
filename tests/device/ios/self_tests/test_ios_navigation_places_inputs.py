@@ -27,8 +27,9 @@ from navigation_observation import viewpoint_urls
 
 
 class SDK(Transport):
-    def __init__(self,path):
+    def __init__(self,path,inputs=INPUTS):
         super().__init__();self.path=path;self.ctx=context(RUN);self.urls=viewpoint_urls(INPUTS['sceneUrl'])
+        self.inputs=deepcopy(inputs);self.urls=viewpoint_urls(inputs['sceneUrl'])
         self.model=model_tests.Boundary();self.focus='';self.bookmarks={'unowned':'hifi://unowned'}
         self.page=self.model.pages[0];self.page.update(currentAddress=self.urls['A'],popup='none',serverDraft='',
             bookmarkAddresses=deepcopy(self.bookmarks),records=[],search='')
@@ -110,13 +111,13 @@ class NavigationPlacesInputsTests(unittest.TestCase):
         old=self.store.read();rows=[] if old is None else unpack(old['payload']);rows.append(deepcopy(value))
         self.store.write(dict(payload=pack(rows)),old);self.intents.append(deepcopy(value))
     def flow(self,**changes):
-        options=dict(io=self.io,model=self.sdk.model_reader,binding=BINDING,run=RUN,inputs=INPUTS,
+        options=dict(io=self.io,model=self.sdk.model_reader,binding=BINDING,run=RUN,inputs=self.sdk.inputs,
             instance=self.sdk.instance,lock=self.lock,guard=lambda:self.sdk.model.live,intent=self.intent,
             monotonic=lambda:self.sdk.model.clock,sleep=self.sdk.model.sleep);options.update(changes)
         return IOSPlacesFlow(**options)
     def call(self,verb,**inputs):
         from urllib.parse import urlsplit
-        source=urlsplit(INPUTS['sceneUrl'])
+        source=urlsplit(self.sdk.inputs['sceneUrl'])
         return dict(contractVersion=16,runId=RUN,ticket='b'*32,
             fixtureUrl=source.scheme+'://'+source.netloc+'/feature-fixture/v1/runs/'+RUN+'/',verb=verb,inputs=inputs)
     def act(self,verb,**inputs):return self.flow().invoke(self.call(verb,**inputs))
@@ -203,3 +204,9 @@ class NavigationPlacesInputsTests(unittest.TestCase):
         self.sdk.page['search']='user draft'
         with self.lock.held(),self.assertRaises(NativeUIError):self.act('directory-search',query=self.ctx['name'])
         self.assertEqual('user draft',self.sdk.page['search']);self.assertEqual([],self.intents)
+
+    def test_original_native_input_floor_survives_new_page_flow_without_relabeling_a_reset_counter(self):
+        with self.lock.held():
+            self.sdk.sequence=4;floor=self.sdk.observed();self.sdk.sequence=0
+            with self.assertRaises(NativeUIError):self.flow(floor=floor).capture()
+            self.assertEqual([],self.intents)
