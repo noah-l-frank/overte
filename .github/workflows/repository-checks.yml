@@ -1,8 +1,8 @@
 name: Repository checks
 
-# PR jobs execute with read-only permissions. The default-branch PR-target job
-# observes their native results and never checks out or executes a candidate.
-on: # zizmor: ignore[dangerous-triggers] PR-target runs only the read-only protected observer; it never checks out candidate code.
+# PR jobs execute with read-only permissions. The protected PR-target job
+# authenticates workflow sources without checking out or executing a candidate.
+on: # zizmor: ignore[dangerous-triggers] PR-target runs only the read-only protected source policy; it never checks out candidate code.
   pull_request:
     branches: [main, apple-main, apple-ios, android-main, android-phone, android-vr, android-vr-pico]
     types: [opened, reopened, synchronize, ready_for_review, edited]
@@ -574,10 +574,35 @@ jobs:
           retention-days: 14
           overwrite: false
 
+  source-policy:
+    name: ${{ github.event_name == 'pull_request_target' && 'source-policy' || 'Source policy not applicable' }}
+    if: github.event_name == 'pull_request_target' && !github.event.pull_request.draft
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Check out the protected source policy
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: trusted
+          persist-credentials: false
+      - name: Authenticate workflow sources without executing candidate code
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          controller=$(git -C trusted rev-parse HEAD)
+          python3 -I -S -B trusted/tools/repository-checks/pr_ci.py source-policy \
+            --event "$GITHUB_EVENT_PATH" --event-name "$GITHUB_EVENT_NAME" \
+            --number "$PR_NUMBER" --controller "$controller"
+
   required-ci:
-    name: ${{ github.event_name == 'pull_request' && 'Execution observer has no acceptance authority' || 'required-ci' }}
-    needs: ci-execution
-    if: always() && (github.event_name == 'pull_request_target' || github.event_name == 'workflow_dispatch') && !github.event.pull_request.draft
+    name: ${{ needs.plan.outputs.active == 'true' && 'required-ci' || 'Execution observer has no acceptance authority' }}
+    needs: [plan, ci-execution]
+    if: always() && needs.plan.outputs.active == 'true' && (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch') && !github.event.pull_request.draft
     runs-on: ubuntu-24.04
     timeout-minutes: 100
     permissions:
@@ -590,7 +615,7 @@ jobs:
       - name: Check out only the protected observer
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && github.sha || github.workflow_sha }}
+          ref: ${{ needs.plan.outputs.controller }}
           path: trusted
           persist-credentials: false
       - name: Observe genuine native owners without executing candidate code

@@ -23,9 +23,12 @@ candidate execution from acceptance:
    commands run in an isolated boundary without GitHub credentials, trusted
    controller mounts, or the host Docker socket. Dependency fetching is an
    explicit setup operation, not a fallback after a failed test.
-4. The protected `pull_request_target` observer authenticates native jobs and the
-   digest-bound execution record, rechecks the current PR, and reports
-   `required-ci`. It never checks out or executes candidate code.
+4. A short protected `pull_request_target` job reports `source-policy` after
+   authenticating the complete workflow and controller inventory. It never
+   checks out or executes candidate code. The native `required-ci` job starts
+   after selected execution owners finish, authenticates their native jobs and
+   digest-bound execution record, and rechecks the current PR. Both contexts
+   are required. Metadata-only runs cannot publish a replacement `required-ci`.
 
 The original execution merge remains recorded even if GitHub later regenerates
 an equivalent merge commit. Equivalence requires the same base, head, parent
@@ -81,7 +84,7 @@ result, reusable evidence, or permission to skip a required owner.
 
 ## Platform ownership and merge gates
 
-All seven targets use the same `required-ci` observer. Branch-path guards retain
+All seven targets require the same `source-policy` and `required-ci` contexts. Branch-path guards retain
 their separate topology checks. The previous shared PR, synchronization and
 post-merge push producers are retired so an integrated PR does not repeat its
 host, package or CodeQL work. Explicit diagnostics, release jobs and maintenance

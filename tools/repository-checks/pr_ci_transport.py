@@ -274,6 +274,7 @@ def validate_jobs(jobs, expected_owners, *, plan=None, context=None):
                         if name.startswith(placeholder + " / "):
                             expected.pop(name)
                     expected[placeholder] = (role, False)
+    expected["Source policy not applicable"] = ("source-policy", False)
     observers = {"required-ci", "Execution observer has no acceptance authority"}
     require(len(set(named) & observers) <= 1, "native observer inventory is ambiguous")
     allowed = {*expected, *observers}

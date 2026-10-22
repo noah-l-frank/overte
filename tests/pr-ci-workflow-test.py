@@ -39,16 +39,16 @@ def scripts(job):
 
 
 def observer_contract(job):
-    assert job["name"] == "${{ github.event_name == 'pull_request' && 'Execution observer has no acceptance authority' || 'required-ci' }}"
-    assert job["needs"] == "ci-execution"
+    assert job["name"] == "${{ needs.plan.outputs.active == 'true' && 'required-ci' || 'Execution observer has no acceptance authority' }}"
+    assert job["needs"] == ["plan", "ci-execution"]
     condition = job["if"]
-    assert "always()" in condition and "pull_request_target" in condition
+    assert "always()" in condition and "pull_request'" in condition and "needs.plan.outputs.active == 'true'" in condition
     assert "workflow_dispatch" in condition and "!github.event.pull_request.draft" in condition
     assert all(permission == "read" for permission in job["permissions"].values())
     assert len(checkouts(job)) == 1
     checkout = checkouts(job)[0]
     assert checkout["path"] == "trusted" and checkout["persist-credentials"] is False
-    assert checkout["ref"] == "${{ github.event_name == 'workflow_dispatch' && github.sha || github.workflow_sha }}"
+    assert checkout["ref"] == "${{ needs.plan.outputs.controller }}"
     command = scripts(job)
     assert "trusted/tools/repository-checks/pr_ci.py gate" in command
     assert not re.search(r"\b(?:candidate|execute|platform|verify-native)\b", command)
@@ -239,6 +239,16 @@ class WorkflowContracts(unittest.TestCase):
                 changed["steps"][-1]["run"] += "\npython3 candidate/tests/check.py"
             with self.subTest(mutation=mutation), self.assertRaises(AssertionError):
                 observer_contract(changed)
+
+    def test_fast_source_policy_uses_only_protected_source_and_no_dependencies(self):
+        job = self.jobs["source-policy"]
+        self.assertNotIn("needs", job)
+        self.assertEqual("github.event_name == 'pull_request_target' && !github.event.pull_request.draft", job["if"])
+        self.assertEqual("${{ github.event_name == 'pull_request_target' && 'source-policy' || 'Source policy not applicable' }}", job["name"])
+        self.assertEqual([{"ref": "${{ github.workflow_sha }}", "path": "trusted", "persist-credentials": False}], checkouts(job))
+        self.assertTrue(all(value == "read" for value in job["permissions"].values()))
+        self.assertIn("pr_ci.py source-policy", scripts(job))
+        self.assertNotIn(" candidate/", scripts(job))
 
     def test_codeql_analyzes_original_merge_and_publishes_native_upload_identity(self):
         job = self.jobs["codeql"]

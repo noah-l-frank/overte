@@ -291,26 +291,73 @@ def remote_selection(api, context):
     return plan, after, trusted
 
 
+def current_controller(api, controller):
+    """Allow a newer protected main only when its complete CI program is unchanged."""
+    import pr_ci_transport as transport
+    default = api.get("branches/main")
+    C.require(default.get("protected") is True, "default controller is not protected")
+    revision = C.sha(default.get("commit", {}).get("sha"))
+    if revision == controller:
+        return
+    commit = api.get("git/commits/" + revision)
+    C.require(commit.get("sha") == revision, "default controller metadata changed")
+    current = remote_tree(api, commit["tree"]["sha"])
+    loaded = P._INPUTS.full_tree(ROOT, "HEAD")
+    transport.validate_sources(current, loaded)
+    C.require(all(current.get(path) == loaded.get(path) for path in P.RUNTIME_INPUTS),
+              "protected controller runtime inputs changed")
+
+
+def source_policy(event, event_name, number, controller):
+    """Authenticate candidate workflow sources early without executing them."""
+    import pr_ci_transport as transport
+    C.require(event_name == "pull_request_target", "source policy requires the protected event")
+    C.require(os.environ.get("GITHUB_REPOSITORY") == C.REPOSITORY
+              and os.environ.get("GITHUB_REPOSITORY_ID") == str(C.REPOSITORY_ID)
+              and controller == os.environ.get("GITHUB_WORKFLOW_SHA")
+              and git(ROOT, "rev-parse", "HEAD").decode().strip() == C.sha(controller),
+              "source policy repository or protected controller differs")
+    api = API()
+    current_controller(api, controller)
+    context = C.capture(api, int(number or event.get("number", 0)), event_pr=event.get("pull_request"))
+    context["controller"] = controller
+    _, actual, trusted = remote_selection(api, context)
+    if context["target"] == "main":
+        transport.validate_sources(actual, trusted)
+    else:
+        base = api.get("git/commits/" + context["base"])
+        C.require(base.get("sha") == context["base"], "protected base metadata changed")
+        transport.validate_sources(actual, trusted, protected_base=remote_tree(api, base["tree"]["sha"]))
+    C.bookend(api, context)
+    current_controller(API(), controller)
+    print(json.dumps({"result": "success", "head": context["head"], "tree": context["tree"]}))
+
+
 def gate(event, event_name, number, controller, *, timeout=5700, pause=time.sleep):
     import pr_ci_observer as observer
     import pr_ci_transport as transport
-    C.require(event_name in {"pull_request_target", "workflow_dispatch"},
-              "only the protected observer or reviewed manual bootstrap can accept CI")
+    C.require(event_name in {"pull_request", "pull_request_target", "workflow_dispatch"},
+              "only an authenticated native final job or protected observer can accept CI")
     C.require(os.environ.get("GITHUB_REPOSITORY") == C.REPOSITORY
               and os.environ.get("GITHUB_REPOSITORY_ID") == str(C.REPOSITORY_ID)
               and git(ROOT, "rev-parse", "HEAD").decode().strip() == C.sha(controller),
               "observer repository or loaded controller differs")
     number = int(number or event.get("number", 0))
     first = C.capture(API(), number,
-        event_pr=event.get("pull_request") if event_name == "pull_request_target" else None)
+        event_pr=event.get("pull_request") if event_name != "workflow_dispatch" else None,
+        original_merge=os.environ.get("GITHUB_SHA") if event_name == "pull_request" else None)
     if event_name == "workflow_dispatch":
         C.require(controller == first["head"] and controller == os.environ.get("GITHUB_WORKFLOW_SHA"),
                   "manual bootstrap must use the exact reviewed PR head")
     else:
-        default = API().get("branches/main")
-        C.require(default.get("protected") is True and default.get("commit", {}).get("sha") == controller
-                  and controller == os.environ.get("GITHUB_WORKFLOW_SHA"),
-                  "observer is not the current protected default controller")
+        if event_name == "pull_request_target":
+            C.require(controller == os.environ.get("GITHUB_WORKFLOW_SHA"),
+                      "observer does not use the protected event controller")
+        else:
+            C.require(first["original_merge"] == os.environ.get("GITHUB_WORKFLOW_SHA")
+                      and os.environ.get("GITHUB_REF") == f"refs/pull/{number}/merge",
+                      "native final job differs from its original PR caller")
+        current_controller(API(), controller)
     workflow = API().get("actions/workflows/repository-checks.yml")
     C.require(type(workflow.get("id")) is int
               and workflow.get("path") == ".github/workflows/repository-checks.yml",
@@ -319,7 +366,7 @@ def gate(event, event_name, number, controller, *, timeout=5700, pause=time.slee
     while time.monotonic() < deadline:
         api = API()
         if run is None:
-            if event_name == "workflow_dispatch":
+            if event_name in {"workflow_dispatch", "pull_request"}:
                 run = api.get("actions/runs/" + str(int(os.environ["GITHUB_RUN_ID"])))
             else:
                 listing = api.pages("actions/workflows/repository-checks.yml/runs?event=pull_request&head_sha="
@@ -435,6 +482,8 @@ def gate(event, event_name, number, controller, *, timeout=5700, pause=time.slee
                             f"actions/runs/{identity['id']}/attempts/{identity['run_attempt']}/jobs", field="jobs")
                         transport.validate_jobs(final_jobs, expected_owners(plan), plan=plan, context=context)
                         C.bookend(API(), context)
+                        if event_name != "workflow_dispatch":
+                            current_controller(API(), controller)
                         print(json.dumps({"result": "success", "run_id": identity["id"],
                             "run_attempt": identity["run_attempt"], "source": original,
                             "tree": context["tree"], "owners": expected_owners(plan)}, sort_keys=True))
@@ -457,11 +506,12 @@ def main():
     context_cli.add_argument("--controller", required=True)
     context_cli.add_argument("--out", type=Path, required=True)
     context_cli.add_argument("--output", type=Path)
-    gate_cli = sub.add_parser("gate")
-    gate_cli.add_argument("--event", type=Path, required=True)
-    gate_cli.add_argument("--event-name", required=True)
-    gate_cli.add_argument("--number", default="")
-    gate_cli.add_argument("--controller", required=True)
+    for name in ("gate", "source-policy"):
+        gate_cli = sub.add_parser(name)
+        gate_cli.add_argument("--event", type=Path, required=True)
+        gate_cli.add_argument("--event-name", required=True)
+        gate_cli.add_argument("--number", default="")
+        gate_cli.add_argument("--controller", required=True)
     upload_cli = sub.add_parser("upload-proof")
     upload_cli.add_argument("--context-json", required=True)
     upload_cli.add_argument("--language", required=True)
@@ -493,8 +543,8 @@ def main():
         write_json(args.out, context)
         outputs(args.output, {**{k: context[k] for k in ("number", "base", "head", "target", "tree", "controller")},
                              "source": context["original_merge"], "context_json": C.canonical(context).decode().strip()})
-    elif args.command == "gate":
-        gate(read_json(args.event.read_text()), args.event_name, args.number, args.controller)
+    elif args.command in {"gate", "source-policy"}:
+        (gate if args.command == "gate" else source_policy)(read_json(args.event.read_text()), args.event_name, args.number, args.controller)
     elif args.command == "upload-proof":
         write_json(args.out, upload_proof(read_json(args.context_json), args.language, args.sarif))
     elif args.command == "plan":
