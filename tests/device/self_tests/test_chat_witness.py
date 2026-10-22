@@ -9,6 +9,8 @@ from unittest.mock import patch
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 from adapters.chat_journey.flow_inputs import ChatFlowInputs,validate_flow
 from adapters.chat_journey.witness import ChatWitness
+from adapters.chat_journey.samples import ChatCacheAbsence
+from self_tests.test_chat_domain_session import session
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.normal_ui import NativeUIError
 from adapters.script_journey.history import pack,unpack
@@ -22,6 +24,11 @@ from self_tests.test_native_chat_observation import RUN
 class WitnessTests(unittest.TestCase):
     def setUp(self):
         self.h=background_seams.BackgroundTests();self.h.setUp();self.addCleanup(self.h.doCleanups);self.h.h.close()
+        for name,instance in (('primary','1'*32),('peer','3'*32)):
+            boundary=getattr(self.h.h,name);original=boundary.mutate
+            def mutate(value,original=original,instance=instance):
+                original(value);session(value,instance=instance)
+            boundary.mutate=mutate;boundary.present=False;boundary.opened=0
         self.journal=Journal(lambda:self.h.native.epoch)
         with patch('feature_journeys.witness.secrets.token_hex',return_value=RUN):self.journal.register('chat')
         self.ticket='b'*32;self.journal.activate(RUN,self.ticket);self.posted=[];self.lose=False
@@ -29,8 +36,11 @@ class WitnessTests(unittest.TestCase):
         self.parent_source=self.source(self.primary);self.actor_source=self.source(self.actor)
         self.flow_store=PrivateFeatureState(self.h.h.root/'flow.json');self.witness_store=PrivateFeatureState(self.h.h.root/'witness-source.json')
         self.publisher_store=PrivateFeatureState(self.h.h.root/'witness-publisher.json')
-        self.flow=ChatFlowInputs(self.parent_source,self.h.roles,self.flow_store,self.witness_store,monotonic=lambda:self.h.native.host)
-        self.samples=self.h.samples('actor',self.witness_store);self.publisher=self.create()
+        self.initial_witness_store=PrivateFeatureState(self.h.h.root/'initial-witness.json')
+        self.initial_roles=tuple(self.h.samples(role,PrivateFeatureState(self.h.h.root/('initial-'+role+'.json')),kind=ChatCacheAbsence) for role in ('primary','actor'))
+        self.initial_samples=self.h.samples('actor',self.initial_witness_store,kind=ChatCacheAbsence)
+        self.flow=ChatFlowInputs(self.parent_source,self.h.roles,self.flow_store,self.witness_store,initial_roles=self.initial_roles,initial_witness_store=self.initial_witness_store,monotonic=lambda:self.h.native.host)
+        self.samples=self.h.samples('actor',self.witness_store);self.initial_samples=self.h.samples('actor',self.initial_witness_store,kind=ChatCacheAbsence);self.publisher=self.create()
     def client(self,token):
         client=Client('http://controlled.test/feature-fixture/v1',token)
         def request(path,value=None,method=None,**kwargs):
@@ -42,19 +52,24 @@ class WitnessTests(unittest.TestCase):
             return {'accepted':True}
         client.request=request;return client
     def source(self,client):return PhaseFixtureReader(client,RUN,'chat',epoch_ms=lambda:self.h.native.epoch,monotonic=lambda:self.h.native.host)
-    def create(self):return ChatWitness(self.actor_source,self.samples,self.flow_store,self.publisher_store,monotonic=lambda:self.h.native.host)
+    def create(self):return ChatWitness(self.actor_source,self.samples,self.flow_store,self.publisher_store,initial_samples=self.initial_samples,monotonic=lambda:self.h.native.host)
     def baseline(self):
         with self.flow.session():self.flow.begin(self.parent_source.read());return self.flow.finish()
     def test_independent_new_originals_publish_actual_changes_never_parent_or_checkpoint_state(self):
-        before=self.baseline();self.assertFalse(before[0]['state']['open'])
+        before=self.baseline();self.assertFalse(before[0]['state']['open']);self.assertEqual([],before[0]['resources'])
+        self.assertEqual(1,self.publisher.publish());self.assertEqual(0,len(self.samples.frames));self.assertEqual(1,len(self.initial_samples.frames))
+        self.h.sleep(.01);self.ticket='c'*32;self.journal.activate(RUN,self.ticket,'open',{})
+        for boundary in (self.h.h.primary,self.h.h.peer):boundary.present=True;boundary.opened=self.h.native.epoch
+        with self.flow.session():
+            self.flow.begin(self.parent_source.read());self.h.h.open('local');before=self.flow.finish()
         self.h.h.open('domain',context(RUN)['unicode'])
-        count=len(self.h.h.primary.commands);self.assertEqual(1,self.publisher.publish())
+        count=len(self.h.h.primary.commands);self.assertEqual(2,self.publisher.publish())
         self.assertGreater(len(self.h.h.primary.commands),count);actual=self.journal.snapshot(RUN)['entries'][-1]['facts']
         self.assertTrue(actual['open']);self.assertEqual(context(RUN)['unicode'],actual['draft']);self.assertTrue(actual['keyboard'])
         self.assertNotEqual(actual,before[0]['state']);self.assertEqual(self.ticket,self.samples.frames[-1]['ticket'])
         self.assertEqual(1,len(self.samples.frames));self.assertEqual('actor',self.witness_store.read()['role'])
         self.assertNotIn(self.witness_store.path.name,[role.store.path.name for role in self.h.roles])
-        count=len(self.h.h.primary.commands);self.assertIsNone(self.publisher.publish());self.assertEqual(count,len(self.h.h.primary.commands));self.assertEqual(1,len(self.posted))
+        count=len(self.h.h.primary.commands);self.assertIsNone(self.publisher.publish());self.assertEqual(count,len(self.h.h.primary.commands));self.assertEqual(2,len(self.posted))
     def test_no_source_queries_or_publication_before_original_input_completion(self):
         before=len(self.h.h.primary.commands)
         with self.assertRaises(PhasePending):self.publisher.publish()
@@ -70,16 +85,16 @@ class WitnessTests(unittest.TestCase):
         self.baseline();self.lose=True
         with self.assertRaises(NativeUIError):self.publisher.publish()
         self.assertEqual(1,len(self.posted));self.assertEqual('publishing',self.publisher.rows[-1]['phase'])
-        count=len(self.h.h.primary.commands);self.samples=self.h.samples('actor',self.witness_store);self.publisher=self.create()
+        count=len(self.h.h.primary.commands);self.samples=self.h.samples('actor',self.witness_store);self.initial_samples=self.h.samples('actor',self.initial_witness_store,kind=ChatCacheAbsence);self.publisher=self.create()
         with self.assertRaises(NativeUIError):self.publisher.publish()
         self.assertEqual(count,len(self.h.h.primary.commands));self.assertEqual(1,len(self.posted));self.assertTrue(self.publisher_store.path.exists())
     def test_changed_original_phase_retains_its_frame_without_relabelling_or_publication(self):
-        self.baseline();original=self.samples.lifecycle.read
+        self.baseline();original=self.initial_samples.lifecycle.read
         def read(*args):
             value=original(*args);self.journal.activate(RUN,'c'*32,'open',{});return value
-        self.samples.lifecycle.read=read
+        self.initial_samples.lifecycle.read=read
         with self.assertRaises(PhasePending):self.publisher.publish()
-        self.assertEqual('retired',self.publisher.rows[-1]['phase']);self.assertEqual(self.ticket,self.samples.frames[-1]['ticket']);self.assertEqual([],self.posted)
+        self.assertEqual('retired',self.publisher.rows[-1]['phase']);self.assertEqual(self.ticket,self.initial_samples.frames[-1]['ticket']);self.assertEqual([],self.posted)
         self.assertEqual('c'*32,self.publisher.rows[-1]['after']['activations'][-1]['ticket'])
     def test_parent_component_transcript_cannot_be_the_independent_witness(self):
         self.baseline();self.samples=self.h.roles[1];self.publisher=self.create();count=len(self.h.h.primary.commands)
@@ -87,27 +102,30 @@ class WitnessTests(unittest.TestCase):
         self.assertEqual(count,len(self.h.h.primary.commands));self.assertEqual([],self.posted)
     def test_original_flow_and_witness_reconstruct_without_any_query_or_publication(self):
         self.baseline();self.publisher.publish();count=len(self.h.h.primary.commands)
-        self.flow=ChatFlowInputs(self.parent_source,self.h.roles,self.flow_store,self.witness_store,monotonic=lambda:self.h.native.host)
-        self.samples=self.h.samples('actor',self.witness_store);self.publisher=self.create()
+        self.flow=ChatFlowInputs(self.parent_source,self.h.roles,self.flow_store,self.witness_store,initial_roles=self.initial_roles,initial_witness_store=self.initial_witness_store,monotonic=lambda:self.h.native.host)
+        self.samples=self.h.samples('actor',self.witness_store);self.initial_samples=self.h.samples('actor',self.initial_witness_store,kind=ChatCacheAbsence);self.publisher=self.create()
         self.assertEqual(count,len(self.h.h.primary.commands));self.assertEqual(1,len(self.posted));self.assertIsNone(self.publisher.publish())
     def test_all_original_input_tickets_keep_independent_actual_facts_and_reconstruct_full_histories(self):
         from adapters.chat_journey.flow_inputs import recipe
         for index,action in enumerate(recipe(RUN)):
             if index:
                 self.h.sleep(.01);self.ticket=('%032x'%(index+100))
+                if index==1:
+                    for boundary in (self.h.h.primary,self.h.h.peer):boundary.present=True;boundary.opened=self.h.native.epoch
                 self.journal.activate(RUN,self.ticket,action['verb'],action['inputs'])
             with self.flow.session():self.flow.begin(self.parent_source.read());self.flow.finish()
             self.assertEqual(index+1,self.publisher.publish())
             # No ordinary product-input seam runs in this metadata test. Every
             # independently acquired product state must therefore stay closed.
             self.assertFalse(self.posted[-1]['facts']['open']);self.assertEqual([],self.posted[-1]['facts']['messages'])
-            self.flow=ChatFlowInputs(self.parent_source,self.h.roles,self.flow_store,self.witness_store,monotonic=lambda:self.h.native.host)
-        self.assertEqual(26,len(self.posted));self.assertEqual(26,len(self.samples.frames));self.assertEqual(26,len(validate_flow(self.flow_store.read())))
-        before=len(self.h.h.primary.commands);self.samples=self.h.samples('actor',self.witness_store);self.publisher=self.create()
+            self.flow=ChatFlowInputs(self.parent_source,self.h.roles,self.flow_store,self.witness_store,initial_roles=self.initial_roles,initial_witness_store=self.initial_witness_store,monotonic=lambda:self.h.native.host)
+        self.assertEqual(26,len(self.posted));self.assertEqual(25,len(self.samples.frames));self.assertEqual(1,len(self.initial_samples.frames));self.assertEqual(26,len(validate_flow(self.flow_store.read())))
+        before=len(self.h.h.primary.commands);self.samples=self.h.samples('actor',self.witness_store);self.initial_samples=self.h.samples('actor',self.initial_witness_store,kind=ChatCacheAbsence);self.publisher=self.create()
         self.assertEqual(before,len(self.h.h.primary.commands));self.assertEqual(26,len(self.publisher.rows));self.assertIsNone(self.publisher.publish())
 
     def test_old_parent_source_reference_cannot_complete_a_later_original_input(self):
         self.baseline();self.journal.activate(RUN,'c'*32,'open',{})
+        for boundary in (self.h.h.primary,self.h.h.peer):boundary.present=True;boundary.opened=self.h.native.epoch
         with self.flow.session():self.flow.begin(self.parent_source.read());self.flow.finish()
         original=self.flow_store.read();rows=unpack(original['payload']);rows[-1]['references']=deepcopy(rows[0]['references'])
         with self.assertRaises(NativeUIError):validate_flow({**original,'payload':pack(rows)})
@@ -142,10 +160,44 @@ class WitnessTests(unittest.TestCase):
     def test_interrupted_input_admission_is_reconstructed_passively_and_never_repeated(self):
         with self.flow.session():self.flow.begin(self.parent_source.read())
         before=len(self.h.h.primary.commands)
-        self.flow=ChatFlowInputs(self.parent_source,self.h.roles,self.flow_store,self.witness_store,monotonic=lambda:self.h.native.host)
+        self.flow=ChatFlowInputs(self.parent_source,self.h.roles,self.flow_store,self.witness_store,initial_roles=self.initial_roles,initial_witness_store=self.initial_witness_store,monotonic=lambda:self.h.native.host)
         with self.flow.session(),self.assertRaises(NativeUIError):self.flow.begin(self.parent_source.read())
         self.assertEqual(before,len(self.h.h.primary.commands));self.assertEqual('issued',self.flow.rows[-1]['phase'])
         with self.assertRaises(PhasePending):self.publisher.publish()
+        self.assertEqual([],self.posted)
+
+    def test_live_cache_before_input_or_independent_baseline_is_never_zero_resource_success(self):
+        self.h.h.primary.present=True;self.h.h.primary.opened=20000
+        with self.flow.session():
+            self.flow.begin(self.parent_source.read())
+            with self.assertRaises(NativeUIError):self.flow.finish()
+        self.assertEqual('issued',self.flow.rows[-1]['phase']);self.assertEqual([],self.posted)
+        self.assertTrue(self.h.h.primary.present)
+
+    def test_independent_baseline_rechecks_cache_absence_after_parent_completion(self):
+        self.baseline();self.h.h.peer.present=True;self.h.h.peer.opened=20000
+        with self.assertRaises(NativeUIError):self.publisher.publish()
+        self.assertEqual('reading',self.publisher.rows[-1]['phase']);self.assertEqual([],self.posted)
+        self.assertTrue(self.h.h.peer.present)
+
+    def test_v1_active_baseline_journals_remain_without_adoption_or_new_queries(self):
+        self.baseline();self.publisher.publish();before=len(self.h.h.primary.commands)
+        previous=self.flow_store.read();old={**previous,'chatFlowInputsVersion':1};self.flow_store.write(old,previous)
+        with self.assertRaises(NativeUIError):ChatFlowInputs(self.parent_source,self.h.roles,self.flow_store,self.witness_store,
+            initial_roles=self.initial_roles,initial_witness_store=self.initial_witness_store,monotonic=lambda:self.h.native.host)
+        self.assertEqual(old,self.flow_store.read())
+        previous=self.publisher_store.read();old_publisher={**previous,'chatWitnessVersion':1};self.publisher_store.write(old_publisher,previous)
+        with self.assertRaises(NativeUIError):self.create()
+        self.assertEqual(old_publisher,self.publisher_store.read());self.assertEqual(before,len(self.h.h.primary.commands));self.assertEqual(1,len(self.posted))
+
+    def test_initial_and_active_stages_must_share_the_exact_original_lock_instances(self):
+        from adapters.script_journey.lock import ScriptSourceLock
+        original=self.initial_roles[0].locks
+        self.initial_roles[0].locks=(ScriptSourceLock(original[0].path),original[1])
+        with self.assertRaises(NativeUIError):ChatFlowInputs(self.parent_source,self.h.roles,self.flow_store,self.witness_store,
+            initial_roles=self.initial_roles,initial_witness_store=self.initial_witness_store)
+        self.initial_samples.locks=(ScriptSourceLock(original[0].path),original[1])
+        with self.assertRaises(NativeUIError):self.create()
         self.assertEqual([],self.posted)
 
     def test_changed_original_fixture_prefix_or_desired_fact_field_is_not_adopted(self):

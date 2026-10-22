@@ -8,7 +8,7 @@ from pathlib import Path
 import time
 import uuid
 
-from adapters.chat_journey.samples import ChatSamples,compose
+from adapters.chat_journey.samples import ChatSamples,ChatCacheAbsence
 from adapters.chat_journey.erase_restore import references
 from adapters.native_feature_observation import exact,fresh,integer,need,number
 from adapters.normal_feature_state import context
@@ -18,7 +18,7 @@ from feature_journeys.fixtures import context as texts
 from feature_journeys.phase_fixture import PhaseFixtureReader,validate as phase
 from feature_journeys.scenarios import SCENARIOS,expand,VERSION as CONTRACT_VERSION
 
-VERSION=1
+VERSION=2
 
 
 def recipe(run):
@@ -28,13 +28,15 @@ def recipe(run):
 
 
 def validate_flow(value):
-    exact(value,{'chatFlowInputsVersion','contractVersion','runId','fixtureUrl','binding','peerBinding','transcripts','payload'})
+    exact(value,{'chatFlowInputsVersion','contractVersion','runId','fixtureUrl','binding','peerBinding','transcripts','baselineTranscripts','payload'})
     need(type(value['chatFlowInputsVersion']) is int and value['chatFlowInputsVersion']==VERSION
         and type(value['contractVersion']) is int and value['contractVersion']==CONTRACT_VERSION)
     identifier(value['runId']);context(value['binding']);context(value['peerBinding'])
     need(type(value['fixtureUrl']) is str and type(value['transcripts']) is list and len(value['transcripts'])==3
-        and len(set(value['transcripts']))==3 and all(type(name) is str and Path(name).name==name and name not in ('','.','..') for name in value['transcripts']))
-    rows=unpack(value['payload']);need(1<=len(rows)<=26);original=None;tickets=set();previous_refs=None
+        and type(value['baselineTranscripts']) is list and len(value['baselineTranscripts'])==3
+        and len(set(value['transcripts']+value['baselineTranscripts']))==6
+        and all(type(name) is str and Path(name).name==name and name not in ('','.','..') for name in value['transcripts']+value['baselineTranscripts']))
+    rows=unpack(value['payload']);need(1<=len(rows)<=26);original=None;tickets=set();previous_refs=None;queries=set()
     for index,row in enumerate(rows):
         exact(row,{'ticket','verb','inputs','phase','before','after','references'})
         identifier(row['ticket']);need(row['ticket'] not in tickets);tickets.add(row['ticket'])
@@ -52,14 +54,15 @@ def validate_flow(value):
         if row['phase']=='issued':need(row['after'] is None and refs is None)
         else:
             need(row['after'] is not None and type(refs) is list and len(refs)==2)
-            if previous_refs is not None:need(all(old['index']<new['index'] for old,new in zip(previous_refs,refs)))
+            if previous_refs is not None and index>1:need(all(old['index']<new['index'] for old,new in zip(previous_refs,refs)))
             previous_refs=refs
             for ref in refs:
                 exact(ref,{'index','ticket','queries','epochs'});identifier(ref['ticket'])
                 need(integer(ref['index']) and type(ref['queries']) is list and len(ref['queries'])==4
                     and type(ref['epochs']) is list and len(ref['epochs'])==4 and all(integer(epoch,1) for epoch in ref['epochs']))
                 need(min(ref['epochs'][index] for index in (0,2,3))>=math.ceil(row['before']['capturedEpochMs']))
-                for nonce in ref['queries']:identifier(nonce)
+                for nonce in ref['queries']:
+                    identifier(nonce);need(nonce not in queries);queries.add(nonce)
     return rows
 
 
@@ -74,22 +77,28 @@ def fresh_roles(roles,started,now):
 
 
 class ChatFlowInputs:
-    def __init__(self,source,roles,store,witness_store,*,monotonic=time.monotonic):
+    def __init__(self,source,roles,store,witness_store,*,initial_roles,initial_witness_store,monotonic=time.monotonic):
         need(isinstance(source,PhaseFixtureReader) and source.area=='chat' and type(roles) is tuple and len(roles)==2
             and all(isinstance(role,ChatSamples) and role.vr and not role.component_only and role.run==source.run for role in roles)
             and roles[0].role=='primary' and roles[1].role=='actor' and roles[0].binding==roles[1].binding
             and roles[0].peer_binding==roles[1].peer_binding and all(a is b for a,b in zip(roles[0].locks,roles[1].locks))
-            and len({store.path,witness_store.path,*[role.store.path for role in roles]})==4
-            and all(path.parent==store.path.parent for path in (witness_store.path,*[role.store.path for role in roles]))
+            and type(initial_roles) is tuple and len(initial_roles)==2
+            and all(isinstance(role,ChatCacheAbsence) and role.vr and not role.component_only and role.run==source.run
+                and role.binding==roles[0].binding and role.peer_binding==roles[0].peer_binding for role in initial_roles)
+            and initial_roles[0].role=='primary' and initial_roles[1].role=='actor'
+            and all(a is b for role in initial_roles for a,b in zip(roles[0].locks,role.locks))
+            and len({store.path,witness_store.path,initial_witness_store.path,*[role.store.path for role in roles+initial_roles]})==7
+            and all(path.parent==store.path.parent for path in (witness_store.path,initial_witness_store.path,*[role.store.path for role in roles+initial_roles]))
             and callable(monotonic))
-        self.source,self.roles,self.store=source,roles,store;self.monotonic=monotonic;self.last_clock=None
+        self.source,self.roles,self.initial_roles,self.store=source,roles,initial_roles,store;self.monotonic=monotonic;self.last_clock=None
         self.scope=dict(chatFlowInputsVersion=VERSION,contractVersion=CONTRACT_VERSION,runId=source.run,fixtureUrl=source.fixture_url,binding=roles[0].binding,
-            peerBinding=roles[0].peer_binding,transcripts=[*[role.store.path.name for role in roles],witness_store.path.name])
+            peerBinding=roles[0].peer_binding,transcripts=[*[role.store.path.name for role in roles],witness_store.path.name],
+            baselineTranscripts=[*[role.store.path.name for role in initial_roles],initial_witness_store.path.name])
         self.previous=store.read();self.rows=[]
         if self.previous is not None:
             need(all(same(self.previous.get(key),value) for key,value in self.scope.items()));self.rows=validate_flow(self.previous)
-            for row in self.rows:
-                if row['references'] is not None:self.originals(row['references'])
+            for index,row in enumerate(self.rows):
+                if row['references'] is not None:self.originals(row['references'],initial=index==0)
 
     def now(self):
         value=self.monotonic();need(number(value,0,1e15) and (self.last_clock is None or value>=self.last_clock));self.last_clock=value;return value
@@ -100,13 +109,13 @@ class ChatFlowInputs:
             for lock in sorted(self.roles[0].locks,key=lambda value:str(value.path)):held.enter_context(lock.held())
             yield
 
-    def originals(self,refs):
-        for role,reference in zip(self.roles,refs):
+    def originals(self,refs,*,initial=False):
+        for role,reference in zip(self.initial_roles if initial else self.roles,refs):
             need(integer(reference['index'],0,len(role.frames)-1));frame=role.frames[reference['index']]
             need(reference==dict(index=reference['index'],ticket=frame['ticket'],
                 queries=[frame[key].get('commandId',frame[key].get('requestId')) for key in ('primary','peer','view','lifecycle')],
                 epochs=[frame[key]['capturedEpochMs'] for key in ('primary','peer','view','lifecycle')])
-                and 'state' in compose(role.run,frame,role.primary.pid,role.peer.pid,vr=True))
+                and 'state' in role._compose(frame))
 
     def save(self):
         self.roles[0].locks[0].assert_held();need(same(self.store.read(),self.previous))
@@ -124,8 +133,10 @@ class ChatFlowInputs:
     def finish(self):
         self.roles[0].locks[0].assert_held();need(self.rows and self.rows[-1]['phase']=='issued')
         row=self.rows[-1];started=self.now();barrier=math.ceil(row['before']['capturedEpochMs'])
-        measured=[role.read(uuid.uuid4().hex,barrier) for role in self.roles];need(measured[0]['state']==measured[1]['state'])
+        roles=self.initial_roles if len(self.rows)==1 else self.roles
+        measured=[role.read(uuid.uuid4().hex,barrier) for role in roles];need(measured[0]['state']==measured[1]['state'])
+        if len(self.rows)==1:need(all(value['resources']==[] for value in measured))
         confirmed=self.source.read(row['before']);need(confirmed['ticket']==row['ticket']
             and same(dict(verb=confirmed['verb'],inputs=confirmed['inputs']),dict(verb=row['verb'],inputs=row['inputs'])))
-        row.update(phase='completed',after=deepcopy(confirmed['status']),references=references(self.roles));self.save()
-        result=deepcopy(measured);fresh_roles(self.roles,started,self.now);return result
+        row.update(phase='completed',after=deepcopy(confirmed['status']),references=references(roles));self.save()
+        result=deepcopy(measured);fresh_roles(roles,started,self.now);return result

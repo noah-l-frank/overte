@@ -10,21 +10,27 @@ The same exact source-lock instances are shared inside each parent; separate
 processes serialize on the original OS lock inode. The existing independently
 qualified fixture actor supplies the peer transport and kernel/executable guard.
 
-`ChatFlowInputs` v1 records input metadata and original source references only.
+`ChatFlowInputs` v2 records input metadata and original source references only.
 It reads the existing common `PhaseFixtureReader` and admits baseline followed
 by the 25 original common Chat inputs in order. It selects only `verb` and
 `inputs` from the common inventory. It never consults checkpoint states or
 evidence requirements. A ticket, interrupted admission, skipped input or
 changed immutable fixture activation prefix cannot be replayed/adopted.
-Completion requires a NEW full source bundle from both component roles and an
-unchanged original fixture phase. Parent references are retained for audit,
+Baseline completion requires NEW full `ChatCacheAbsence` bundles from both
+separate initial roles, with actual absent caches, closed Chat and zero scoped
+resources. Other steps require NEW full active `ChatSamples` bundles. Six fixed
+initial/active source paths and their distinct references stay in the owner
+scope, and original query nonces cannot be reused across these stages. Both
+paths require an unchanged original fixture phase. Parent references are retained for audit,
 without becoming independent observations. This journal alone is neither a
 product effect nor a completed Chat journey.
 
-Run `ChatWitness` v1 only in the separate observer process with its own private
+Run `ChatWitness` v2 only in the separate observer process with its own private
 publisher `Client`. Pico's input-owner factory requires the restricted
 `AdapterFixtureClient`; its witness factory refuses that client and requires
-the fixed third journal. The existing coordinator independently restricts
+the fixed initial and active third journals. Baseline publication separately
+rechecks its original cache absence; a cache that opened after the parent
+capture fails rather than borrowing that earlier zero-resource sample. The existing coordinator independently restricts
 publication to the separate actor credential. The publisher waits for the
 current input metadata to complete, then independently queries primary native
 reception, peer reception, actual VR keyboard/QML/storage and lifecycle. All
@@ -46,7 +52,9 @@ Original source chunks, input metadata and publisher intents survive failure
 and base process teardown. The normal source factory supports separate
 post-Erase witness journals, preserving the real storage discontinuity. Full
 resource retirement, post-Erase publication and actual OS process closure still
-belong to the whole-journey owner. No complete Chat capability is advertised.
+belong to the whole-journey owner. Old v1 input/publisher owners used active-cache baseline samples and cannot
+supply this absent-cache proof; they remain without adoption or replay.
+No complete Chat capability is advertised.
 
 Focused host tests use the actual original coordinator, phase protocol, strict
 native Chat joins and original Pico factories, with explicit synthetic native,
@@ -55,3 +63,21 @@ new actual-state publication, phase races, no replay after lost publication,
 query-free reconstruction and final native clock checks. These component tests
 run in one test process; no external credentialed observer, native Assignment
 Client, networking product, application or device was started or qualified.
+
+Pico's `_chat_admit_capture` writes the existing original capture admission only
+after a fresh passive native v2 inspect proves no scope or prior retirement. It
+does not send observe/retire. The explicit `pending_capture` source factory
+requires that same original admitted binding; it creates unqueried active
+readers without opening a cache. Ordinary default source admission continues to
+require an actually active cache. Even a pending reader's first read refuses
+absence, so it cannot manufacture active observations before the whole owner
+performs its original once-only cache activation at the first normal Open.
+
+A separate positive Pico source experiment keeps the original host candidate
+verifier and real monotonic clock. It currently exceeds the unchanged 1.5 s
+bundle limit: the profiled synthetic-transport case invokes 93 full candidate
+verifications and 465 tool subprocesses across setup and the failed query.
+This remains an explicit live-factory qualification gap. The component stage
+proofs and negative Pico admission/birth tests do not establish that the
+unoptimized complete live query fits its freshness window. No timeout is
+relaxed and no complete capability is advertised.
