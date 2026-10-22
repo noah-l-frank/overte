@@ -1,9 +1,10 @@
 # Android native CI infrastructure
 
-This infrastructure is being qualified locally. GitHub Actions remain disabled;
-transport checks and small contract fixtures do not establish Android build or
-APK acceptance. The existing prerequisite gate remains closed until the actual
-producer, owning application outputs and protected offline consumer are qualified.
+Local qualification covers the parent-owned common Android native harness and
+separate owning Phone and Pico unsigned APKs. Protected policy binds their actual
+source, build, verification and dependency receipts to the sealed public payloads.
+GitHub Actions remain disabled pending separate runner and activation decisions;
+local build/package acceptance does not establish hosted or device acceptance.
 
 The source-only producer's completed bootstrap and host-tool phases are retained
 as original evidence. A separate guarded continuation may reuse only packages
@@ -72,7 +73,7 @@ python3 -I -S -B tests/pr-ci-android-runtime-test.py
 The executing consumer runs candidate CMake/Gradle only inside its
 credential-free, network-disabled boundary, with a checksum-bound SDK/NDK,
 prepared host tools and target dependency graph. PR execution must never build
-missing Conan dependencies or run a cold source producer. Package locks, docs,
+missing Conan dependencies or run a cold source producer. npm lockfiles, docs,
 unrelated JavaScript and owning Java/resource-only changes retain their narrower
 existing checks rather than triggering the Android native consumer.
 
@@ -84,14 +85,16 @@ requires all three owning baseline executions, sealed public release assets and
 exact source/configuration, SDK, runtime and toolchain image identities. Updating
 payload bytes cannot reuse an older baseline receipt for those different inputs.
 
-Qualified policy also supplies separately measured preparation and execution
-capacity budgets. Before dependency setup, the controller checks available RAM,
-applicable cgroup limits, filesystem space and inodes. Workspace and Docker space
-requirements are added when they share a filesystem. Preparation repeats this
-check before downloading native assets; execution checks its remaining build
-budget before starting the worker. A transport-only Groovy fixture does not
-request native capacity or its image/SDK setup. Missing measurements or budgets
-cannot authorize a native run.
+Qualified policy supplies capacity budgets derived from completed payloads and
+actual retained build outputs, with explicit reserves for transient work. These
+reserves are modeled bounds, not measured disk high-water marks. The cold
+`bootstrap` check runs before host setup and cache restore. The `prepare` check
+then covers remaining materialization, and `execute` covers the remaining build
+budget, without charging completed setup twice. Each check verifies available
+RAM, applicable cgroup limits, filesystem space and inodes; workspace and Docker
+space requirements are added when they share a filesystem. A transport-only
+Groovy fixture does not request native capacity or image/SDK setup. Missing
+measurements or budgets cannot authorize a native run.
 
 `pr_ci_android_assets.py` checks public fork release URLs, exact byte counts and
 SHA256 digests. A damaged optional transport-cache leaf is discarded without
@@ -129,7 +132,9 @@ consumer invocation using the exact prepared image ID, the fixed local Docker
 daemon and an empty temporary Docker client configuration. Candidate programs
 receive no host credentials, Docker socket or host system mounts. The container
 runs as a nonroot user with no capabilities, no network, a read-only filesystem,
-the default Docker security policy, and explicit CPU, memory and process limits.
+the default Docker security policy, four CPU cores, an 8 GiB memory limit
+without container swap, and a bounded process count. Android and Java preferences
+use private writable homes; protected output verification uses a fresh home.
 
 The dependency payload and SDK are mounted read-only. Only the private candidate
 and build scratch are writable; candidate Git metadata stays read-only. The
