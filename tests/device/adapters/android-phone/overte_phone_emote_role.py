@@ -402,7 +402,7 @@ class PhoneEmoteRole:
         provider='phase' if phase_only else 'cleanup'
         exact(value,{field,'segment','header','inputHeader','inputSourceHeader','sourceHeader',
             'scope','originalDiagnostic','manifestDiagnostic','motionDiagnostic',provider})
-        need(type(value[field]) is int and value[field] in ((1,2) if phase_only else (1,))
+        need(type(value[field]) is int and value[field] in (1,2)
             and integer(value['segment'],0,15))
         self.source.lock.assert_held();started=self.source.monotonic();need(number(started,0,1e15))
         frozen=deepcopy(value['header'])
@@ -421,6 +421,9 @@ class PhoneEmoteRole:
             if value[field]==1:
                 need(state['phase']=='acquiring' and pending['image'] is False
                     and all(pending[key] is None for key in ('scopeId','motion','original','manifest')))
+        if not phase_only and value[field]==2:
+            need(self.role=='actor' and pending['ticket']==value['cleanup']['activations'][-1]['ticket']
+                and pending['image'] is False and pending['scopeId'] is None and pending['motion'] is None)
         # Retain exact immutable historical bytes; replay dependencies actually
         # used by restoration separately instead of issuing replacement reads.
         references=scope.references(state['manifests'],state['sequence'])
@@ -468,11 +471,12 @@ class PhoneEmoteRole:
         cleanup=value[provider]
         from feature_journeys.phase_fixture import validate as phase_packet
         phase_packet(cleanup,run=self.source.run,area='emotes',request=cleanup['requestId'],epoch=cleanup['capturedEpochMs'])
-        need(cleanup['active'] and cleanup['activations'])
+        need(type(cleanup['active']) is bool and cleanup['activations'])
         if phase_only:
+            need(cleanup['active'])
             need(cleanup['activations'][-1]['ticket']!=pending['ticket']
                 and any(row['ticket']==pending['ticket'] for row in cleanup['activations'][:-1]))
-        else:need(cleanup['activations'][-1]['stimulus']==dict(verb='cleanup',inputs={}))
+        else:need(cleanup['active'] is (value[field]==1) and cleanup['activations'][-1]['stimulus']==dict(verb='cleanup',inputs={}))
         if context.source.frames:
             prior=context.source.frames[-1]['phaseAfter'];rows=prior['activations']
             need(prior['instance']==cleanup['instance'] and prior['createdEpochMs']==cleanup['createdEpochMs']
@@ -542,10 +546,11 @@ class PhoneEmoteRole:
             check();return deepcopy(proof)
         finally:self.started=None
 
-    def transfer_failed(self,retain,*,retained=None):
-        return self._transfer_pending(retain,retained=retained,phase_only=False)
+    def transfer_failed(self,retain,*,retained=None,provider_retired=False):
+        need(type(provider_retired) is bool)
+        return self._transfer_pending(retain,retained=retained,phase_only=False,provider_retired=provider_retired)
 
-    def _transfer_pending(self,retain,*,retained,phase_only):
+    def _transfer_pending(self,retain,*,retained,phase_only,provider_retired=False):
         """Retain exact child retirement before clearing an owned attempt."""
         need(self.started is None and callable(retain));self.started=self.source.monotonic()
         try:
@@ -554,8 +559,8 @@ class PhoneEmoteRole:
                 need(self.role=='actor' and self.source.state['phase']=='ready' and self.source.state['pending'] is None)
                 cleanup=self.phase_intent() if retained is None else self.source.phase.status()
             else:
-                need(self.run.state['phase']=='cleaning-inputs');cleanup=self.source.phase.status()
-                need(cleanup['active'] and cleanup['activations'][-1]['stimulus']==dict(verb='cleanup',inputs={}))
+                need(self.run.state['phase']==('resources-restored' if provider_retired else 'cleaning-inputs'));cleanup=self.source.phase.status()
+                need(cleanup['active'] is (not provider_retired) and cleanup['activations'][-1]['stimulus']==dict(verb='cleanup',inputs={}))
             self.bound();archive=self.phase_archive if phase_only else self.failure_archive
             field='emoteRolePhaseRetirementVersion' if phase_only else 'emoteRoleFailureArchiveVersion'
             provider='phase' if phase_only else 'cleanup'
@@ -581,7 +586,7 @@ class PhoneEmoteRole:
                     manifestDiagnostic=None if pending['manifest'] is None else dict(present=PrivateFeatureState(
                         self.originals.manifest_path(pending['manifest']['reference'])).read() is not None),
                     motionDiagnostic=self.motion_diagnostic(pending))
-                value[field]=2 if phase_only else 1
+                value[field]=(2 if phase_only or provider_retired else 1) if retained is None else retained[field]
                 value[provider]=cleanup if retained is None else deepcopy(retained[provider])
                 if retained is not None:need(same(value,retained))
                 archive(value);need(retain(deepcopy(value)) is not False);self.bound();archive(value);results.append(value)
@@ -590,7 +595,7 @@ class PhoneEmoteRole:
             owned=self.source.adapter._world_render_capture(self.source.selector,read_only=True,role=self.role,require_frame_view=True)
             need(isinstance(owned,OwnedWorldRenderCapture) and same(owned.owner.binding,self.binding) and owned.owner.role==self.role)
             if pending['scopeId'] is None:
-                if phase_only:PhoneEmoteNamespaces(self.source).no_scopes(self.role);need(owned.owner.store.read() is None)
+                if phase_only or provider_retired:PhoneEmoteNamespaces(self.source).no_scopes(self.role);need(owned.owner.store.read() is None)
                 hold(None)
             elif PrivateFeatureState(path).read() is not None:
                 scope=PhoneEmoteObservation(self.effects,index,self.policy);need(scope.scope_id==pending['scopeId'])
@@ -607,7 +612,7 @@ class PhoneEmoteRole:
                     hold(dict(kind='complete',archive=row['archive']))
                 else:hold(dict(kind='absent',archive=None))
             need(len(results)==1 and PrivateFeatureState(path).read() is None and owned.owner.store.read() is None)
-            final=self.source.phase.status(cleanup);self.bound();need(final['active'])
+            final=self.source.phase.status(cleanup);self.bound();need(final['active'] is (not provider_retired))
             if phase_only:
                 need(final['activations'][-1]['ticket']!=pending['ticket']);PhoneEmoteNamespaces(self.source).no_scopes(self.role)
             else:need(final['activations'][-1]['ticket']==cleanup['activations'][-1]['ticket'])

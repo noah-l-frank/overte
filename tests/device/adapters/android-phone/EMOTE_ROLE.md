@@ -205,7 +205,7 @@ phase changes, stale ownership, partial-file mutation and ignored commits remain
 errors. Whole-operation bounds remain 20 seconds with existing five-second child
 limits. `failure_archive` is historical replay only and returns no new facts.
 
-Failure-owner/record versions 3/4/5/6 integrate this path for both roles after source
+Failure-owner/record versions 3/4/5/6/7 integrate this path for both roles after source
 failure recovery and before admission/input restoration. Versions 1/2 remain
 readable, preserving their old source/admission record bytes and original inodes.
 Role journals and all diagnostic originals still require final whole-run
@@ -342,3 +342,14 @@ failure-original/index writes, lost parent completion, same-phase denial,
 changed/foreign native retirement, old v5 recovery, changed provider birth and
 strict version selection. These confirm Python logic only, not compiled native
 code, device behavior or a complete common Emote journey.
+
+
+## Resource-free cleanup read after fixture retirement
+
+`transfer_failed(..., provider_retired=True)` adds failure archive v2 for an
+actor cleanup observation only: actual closed cleanup ticket, image=false,
+null scopeId/motion and original ready Source after its own failure transfer.
+Original/manifest diagnostics and successful sequence/index stay intact. It
+cannot retire a normal action or image scope. Live cleanup keeps archive v1;
+normal obsolete image phase transfer remains its separately gated v2 format.
+See the [closed cleanup handoff](EMOTE_FAILURES.md#closed-cleanup-read-transfer-version-7).

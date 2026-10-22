@@ -1,4 +1,4 @@
-# Independent Phone Emote actor, version 1
+# Independent Phone Emote actor, version 2
 
 `PhoneEmoteActor` connects the real Run/Role/Source/Namespace/Lifetime components
 to the existing separately credentialed `script_observer.py` process. It is an
@@ -39,9 +39,9 @@ actor retirement, retain its originals and remove all owned journals.
 ## Closed lifecycle ownership
 
 `phone-emote-actor-lifecycle.json` is exactly
-`{emoteActorVersion:1,runId,fixtureUrl,artifactRoot,imagePolicy,payload}`.
-Payload contains one exact `{phase,binding,pending,last,quiet,dropped}` record.
-Phase is watching, publishing, quiet or retired. Binding is the unchanged
+`{emoteActorVersion:2,runId,fixtureUrl,artifactRoot,imagePolicy,payload}`.
+Payload contains one exact `{phase,binding,pending,last,quiet,dropped,providerRetirement}` record.
+Phase is watching, publishing, quiet, drained or retired. Binding is the unchanged
 expected Run authority, independently verified by every real role/source factory.
 The existing packed 64 KiB metadata bound is unchanged. At most 1024 dropped
 publication references are retained; no truncation or higher limit is allowed.
@@ -68,7 +68,7 @@ ownership and prevent retirement. Backend read timestamps never replace the
 sample's original capturedEpochMs.
 
 Dropped is a strictly increasing list of `{sequence,ticket,reason}` references to
-original role records. Reason is phase-changed or expired-before-send. These
+original role records. Reason is phase-changed, expired-before-send or fixture-retired. These
 entries describe obsolete publication intent only; they do not erase the
 immutable role original, add actor samples or report successful product effects.
 An already-issued missing/unknown result in the same phase is not replayed.
@@ -113,16 +113,17 @@ The enclosing whole-run finalizer still owes fresh selected-work/native/resource
 verification and its own primary quiet proof.
 
 Only then does the actor acquire and publish a fresh cleanup role sample.
-Retired requires the same actual cleanup ticket in parent, quiet proof and
+Drained requires the same actual cleanup ticket in parent, quiet proof and
 acknowledged sample; actual ready role/source state, no pending read, no remaining
 actor observation/capture/world ownership, and original window/file replay.
 A stale acknowledged cleanup sample stays watching and needs a later fresh
 acquisition before this transition. Late final journal IO cannot publish current
-retirement. An old baseline peer entry cannot stand in for cleanup. Reconstructing
+drained state. An old baseline peer entry cannot stand in for cleanup. Reconstructing
 an already-terminal record reopens original files and rejects unresolved scopes;
 it supplies no new product observation or refreshed timestamps.
 
-The actor exits successfully only at this private terminal handoff. Its lifecycle,
+The actor exits successfully only after the actual fixture retirement described
+below and this private terminal handoff. Its lifecycle,
 role, source, failure records and original files deliberately remain owned for
 whole-run retention. General Phone teardown now explicitly refuses green while
 actor, failure or either role journal remains, even if base teardown succeeds.
@@ -131,3 +132,45 @@ capability registration. Device-free tests compose real Python/native packet
 validators and credentialed loopback HTTP over explicit synthetic target producers;
 View/Scene completion boundaries remain doubled in the Run fixture. They qualify
 logic/orchestration only.
+
+
+## Keep the caller's cleanup observation window alive
+
+The common Engine invokes cleanup twice and then requires at least three fresh
+primary/peer observations spanning three seconds. Therefore drained is not a
+worker exit condition. While the actual fixture remains active the actor keeps
+acquiring new original cleanup role samples and verifying their backend entries.
+It reuses its historical quiet proof only as historical work evidence; no epoch
+is refreshed and no new current/global work-absence verdict is inferred. The
+whole-run finalizer still owes independent fresh native/work/resource checks.
+
+Only an actual original phase packet with active=false, the same provider birth,
+complete immutable activation history, and the same cleanup ticket can end the
+worker. ProviderRetirement freezes that exact packet. The final actual role
+sample must also prove inactive/idle animation, a closed panel and no resources;
+old baseline entries cannot substitute for cleanup. A pending extra publication
+at retirement is recorded as fixture-retired with its immutable original role
+reference. This acknowledges no missing sample and performs no duplicate POST.
+Retirement before an accepted cleanup entry and original quiet proof remains an
+error. Reconstructing terminal ownership validates the original packet/files and
+current retired authority without rewriting the old provider packet or epochs.
+
+A read can be interrupted by the caller's actual DELETE/retirement. Existing
+failure-owner/record v7 first retains that passive Source attempt, then its
+resource-free cleanup Role attempt, through closed-cleanup failure archives v2.
+All complete/partial original/index files and native prefixes remain unchanged;
+no new source frame or successful role sequence is created. Only after durable
+retention may pending be cleared. Normal active cleanup and normal image phase
+retirement keep their existing gates and formats. Unknown/foreign retired
+provider data, a missing last cleanup entry, ignored writes and unaccounted
+scope/world metadata remain errors. No image/GPU lease can use the new narrow
+closed Role format.
+
+Version 1 actor controls remain readable. Their former retired state is
+normalized to drained in memory, because v1 contains no provider-retirement
+proof. Reconstruction alone does not rewrite the original. A later real
+transition writes v2; it must observe actual fixture retirement before claiming
+terminal handoff. Observer configuration stays v3, role/source controls and the
+shared common journey contract remain unchanged. This corrects composition with
+the real caller window; it supplies no complete Emote capability or device
+qualification.

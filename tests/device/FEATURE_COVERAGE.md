@@ -32,7 +32,9 @@ The [per-role observation owner](adapters/android-phone/EMOTE_ROLE.md) now retai
 original native/image/motion evidence and derives common v17 samples. Complete
 The [independent Phone actor](adapters/android-phone/EMOTE_ACTOR.md) now publishes
 its own originals through the existing observer and retains its own quiet-window
-retirement. Emotes still lacks its public facade and whole-run retirement; it is
+retirement. Actor v2 keeps new cleanup samples alive through the caller's
+three-second observation window and stops only after actual fixture retirement.
+Emotes still lacks its public facade and whole-run retirement; it is
 not counted as an implemented full triple.
 The [Phone failure owner](adapters/android-phone/EMOTE_FAILURES.md) now retains
 both roles' interrupted readonly source, role/image/motion and lifetime-work attempts, then
@@ -42,7 +44,7 @@ resources plus ownership-only input cleanup before the first baseline. Native
 quiet/current-state checks and final whole-run retirement remain required.
 The Lifetime child now requires original retirement retention; its failure path
 retains interrupted work before a later new measurement, without refreshing
-old quiet/idle evidence. Failure-owner/record v6 reads all prior versions and retains obsolete actor
+old quiet/idle evidence. Failure-owner/record v7 reads all prior versions and retains obsolete actor
 reads, including allocated image scopes after actual GPU-buffer/receipt retirement.
 Failed attempts never add a public sequence or a fresh product verdict.
 These are implementation statuses, not complete product-feature acceptance.

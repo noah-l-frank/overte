@@ -249,7 +249,7 @@ class PhoneEmoteSources:
         """Verify retained failed-read originals; never a completed measurement."""
         exact(value,{'emoteSourceFailureArchiveVersion','segment','header','predecessorHeader',
             'originalDiagnostic','manifestDiagnostic','cleanup'})
-        need(type(value['emoteSourceFailureArchiveVersion']) is int and value['emoteSourceFailureArchiveVersion']==1
+        need(type(value['emoteSourceFailureArchiveVersion']) is int and value['emoteSourceFailureArchiveVersion'] in (1,2)
             and integer(value['segment'],0,MAX_SEGMENTS-1))
         self.lock.assert_held();started=self.monotonic();need(number(started,0,1e15) and self.guard() is not False)
         state,frames=self.archive(value['header'],phase=self.phase,artifact_root=self.artifact_root,
@@ -269,7 +269,8 @@ class PhoneEmoteSources:
             historical.predecessor=previous[-1]
             if frames:historical.validate_frame(frames[0],previous[-1]);historical.segment_start(frames[0]['group']['native'])
         cleanup=value['cleanup'];phase_packet(cleanup,run=self.run,area='emotes',request=cleanup['requestId'],epoch=cleanup['capturedEpochMs'])
-        need(cleanup['active'] and cleanup['activations'] and cleanup['activations'][-1]['stimulus']==dict(verb='cleanup',inputs={}))
+        need(cleanup['active'] is (value['emoteSourceFailureArchiveVersion']==1) and cleanup['activations']
+            and cleanup['activations'][-1]['stimulus']==dict(verb='cleanup',inputs={}))
         if frames:
             old=frames[-1]['phaseAfter'];rows=cleanup['activations'];prior_rows=old['activations']
             need(cleanup['instance']==old['instance'] and cleanup['createdEpochMs']==old['createdEpochMs']
@@ -298,13 +299,13 @@ class PhoneEmoteSources:
         end=self.monotonic();need(number(end,started,1e15) and end-started<5)
         return deepcopy(value)
 
-    def transfer_failed(self,retain,*,retained=None):
+    def transfer_failed(self,retain,*,retained=None,provider_retired=False):
         """Transfer a readonly failed acquisition during actual cleanup only.
 
         Retention preserves all complete/partial files and the original reading
         header. Clearing pending does not add a source frame or report success.
         """
-        need(getattr(self,'historical',False) is False and not self.failed and callable(retain))
+        need(getattr(self,'historical',False) is False and not self.failed and callable(retain) and type(provider_retired) is bool)
         started=self.monotonic();need(number(started,0,1e15));clock=started
         def bound():
             nonlocal clock
@@ -313,7 +314,8 @@ class PhoneEmoteSources:
         bound();need(self.previous is not None and (self.state['phase']=='reading' or retained is not None and self.state['phase']=='ready'))
         state,frames=self.decode(self.previous);need(same(state,self.state) and same(frames,self.frames))
         cleanup=self.phase.status();bound()
-        need(cleanup['active'] and cleanup['activations'] and cleanup['activations'][-1]['stimulus']==dict(verb='cleanup',inputs={}))
+        need(cleanup['active'] is (not provider_retired) and cleanup['activations']
+            and cleanup['activations'][-1]['stimulus']==dict(verb='cleanup',inputs={}))
         if retained is None:
             pending=self.state['pending'];original=pending['original'];manifest=pending['manifest']
             original_diagnostic=None if original is None else self.originals.diagnostic(original)
@@ -321,7 +323,7 @@ class PhoneEmoteSources:
             if manifest is not None:
                 present=PrivateFeatureState(self.originals.manifest_path(manifest['reference'])).read() is not None
                 manifest_diagnostic=dict(present=present)
-            value=dict(emoteSourceFailureArchiveVersion=1,segment=self.segment,header=deepcopy(self.previous),
+            value=dict(emoteSourceFailureArchiveVersion=2 if provider_retired else 1,segment=self.segment,header=deepcopy(self.previous),
                 predecessorHeader=deepcopy(self.prior_header),originalDiagnostic=original_diagnostic,
                 manifestDiagnostic=manifest_diagnostic,cleanup=cleanup)
         else:
@@ -335,7 +337,7 @@ class PhoneEmoteSources:
                 and same(prior['activations'],cleanup['activations']))
         self.failure_archive(value);bound();need(retain(deepcopy(value)) is not False);bound()
         self.failure_archive(value);bound();final=self.phase.status();bound()
-        need(final['active'] and final['activations'][-1]['ticket']==cleanup['activations'][-1]['ticket']
+        need(final['active'] is (not provider_retired) and final['activations'][-1]['ticket']==cleanup['activations'][-1]['ticket']
             and final['activations'][-1]['stimulus']==dict(verb='cleanup',inputs={}))
         if self.state['phase']=='reading':
             self.state.update(phase='ready',pending=None);self.save();bound()

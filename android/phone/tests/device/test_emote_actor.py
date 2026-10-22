@@ -127,14 +127,15 @@ class EmoteActorTests(unittest.TestCase):
     def test_cleanup_requires_own_three_second_work_window_then_fresh_actor_entry(self):
         flow=self.start();m=self.model;self.assertFalse(flow.step());m.journal.activate(RUN,'a'*32,'cleanup',{})
         self.primary.cleanup_resources(dict(contractVersion=17,runId=RUN));before=len(m.work_commands)
-        self.assertTrue(flow.step());self.assertEqual('retired',flow.state['phase']);self.assertIsNotNone(flow.state['quiet'])
+        self.assertFalse(flow.step());self.assertEqual('drained',flow.state['phase']);self.assertIsNotNone(flow.state['quiet'])
         self.assertIsNone(flow.state['pending']);self.assertGreater(len(m.work_commands),before)
         quiet=unpack(flow.state['quiet']['header']['payload'])[0];self.assertEqual('complete',quiet['phase'])
         self.assertGreaterEqual(quiet['window']['elapsedMs'],3000)
         self.assertEqual('actor',flow.state['quiet']['header']['role']);self.assertEqual('a'*32,flow.state['last']['sample']['ticket'])
         self.assertFalse((m.root/'phone-emote-actor-lifetime.json').exists());self.assertIsNotNone(flow.store.read())
         self.assertEqual(flow.state['last']['receipt']['body'],self.reader.request('/runs/'+RUN)['entries'][-1])
-        before=len(m.work_commands);self.assertTrue(PhoneEmoteActor(self.actor_run(self.client),POLICY).step())
+        before=len(m.work_commands);self.reader.request('/runs/'+RUN,method='DELETE')
+        self.assertTrue(PhoneEmoteActor(self.actor_run(self.client),POLICY).step())
         self.assertEqual(before,len(m.work_commands));self.assertIsNotNone(self.primary.store.read())
 
     def test_slow_pending_commit_cannot_publish_an_old_sample_with_frozen_external_clocks(self):
@@ -182,6 +183,7 @@ class EmoteActorTests(unittest.TestCase):
     def test_old_backend_sample_cannot_be_relabelled_as_actor_cleanup_retirement(self):
         flow=self.start();m=self.model;flow.step();baseline=deepcopy(flow.state['last'])
         m.journal.activate(RUN,'a'*32,'cleanup',{});self.primary.cleanup_resources(dict(contractVersion=17,runId=RUN));flow.step()
+        self.reader.request('/runs/'+RUN,method='DELETE');self.assertTrue(flow.step())
         header=deepcopy(flow.previous);state=unpack(header['payload'])[0];state['last']=baseline;header['payload']=pack([state])
         flow.store.write(header,flow.previous)
         with self.assertRaises(NativeUIError):PhoneEmoteActor(self.actor_run(self.client),POLICY).step()
@@ -189,7 +191,8 @@ class EmoteActorTests(unittest.TestCase):
 
     def test_retired_actor_still_rejects_unaccounted_scope_metadata(self):
         flow=self.start();m=self.model;m.journal.activate(RUN,'a'*32,'cleanup',{})
-        self.primary.cleanup_resources(dict(contractVersion=17,runId=RUN));self.assertTrue(flow.step())
+        self.primary.cleanup_resources(dict(contractVersion=17,runId=RUN));self.assertFalse(flow.step())
+        self.reader.request('/runs/'+RUN,method='DELETE');self.assertTrue(flow.step())
         unknown=PrivateFeatureState(m.root/'phone-emote-actor-observation-777.json');unknown.write(dict(unaccounted=True),None)
         with self.assertRaises(NativeUIError):PhoneEmoteActor(self.actor_run(self.client),POLICY).step()
         self.assertEqual(dict(unaccounted=True),unknown.read())
@@ -202,7 +205,7 @@ class EmoteActorTests(unittest.TestCase):
             if flow.state['quiet'] is not None:raise NativeUIError('Synthetic lost durable quiet retention return')
         with patch.object(flow,'save',side_effect=lost),self.assertRaises(NativeUIError):flow.step()
         header=flow.store.read();quiet=unpack(header['payload'])[0]['quiet'];self.assertIsNotNone(quiet)
-        before=len(m.work_commands);flow=PhoneEmoteActor(self.actor_run(self.client),POLICY);self.assertTrue(flow.step())
+        before=len(m.work_commands);flow=PhoneEmoteActor(self.actor_run(self.client),POLICY);self.assertFalse(flow.step())
         self.assertEqual(before,len(m.work_commands));self.assertEqual(quiet,flow.state['quiet'])
         self.assertFalse((m.root/'phone-emote-actor-lifetime.json').exists())
 
@@ -298,9 +301,130 @@ class EmoteActorTests(unittest.TestCase):
         original=unpack(flow.store.read()['payload'])[0]['pending']['sample'];m.sleep(2)
         flow=PhoneEmoteActor(self.actor_run(self.client),POLICY);self.assertFalse(flow.step())
         self.assertEqual(original,flow.state['last']['sample']);self.assertEqual('watching',flow.state['phase'])
-        self.assertTrue(flow.step());current=flow.state['last']['sample']
+        self.assertFalse(flow.step());self.assertEqual('drained',flow.state['phase']);current=flow.state['last']['sample']
         self.assertGreater(current['actorSequence'],original['actorSequence']);self.assertGreater(current['capturedEpochMs'],original['capturedEpochMs'])
         self.assertEqual(2,len(self.reader.request('/runs/'+RUN)['entries']))
+
+    def test_closing_fixture_during_source_read_retains_failed_source_and_role_before_terminal(self):
+        flow=self.start();m=self.model;flow.step();m.journal.activate(RUN,'a'*32,'cleanup',{})
+        self.primary.cleanup_resources(dict(contractVersion=17,runId=RUN));self.assertFalse(flow.step())
+        send=m.native_send;closed=False
+        def close(request):
+            nonlocal closed
+            result=send(request)
+            if not closed:self.reader.request('/runs/'+RUN,method='DELETE');closed=True
+            return result
+        with patch.object(m,'native_send',side_effect=close):self.assertTrue(flow.step())
+        self.assertTrue(closed);self.assertEqual('retired',flow.state['phase'])
+        self.assertFalse(flow.state['providerRetirement']['active'])
+        with flow.run.lock.held():
+            flow.run.load();owner=PhoneEmoteFailures(flow.run);rows=owner.originals.restore(owner.state['manifests'],owner.state['count'])
+            self.assertEqual(['admission','source','role'],[row['kind'] for row in rows])
+            self.assertEqual([2,2],[row['archive'][key] for row,key in zip(rows[1:],('emoteSourceFailureArchiveVersion','emoteRoleFailureArchiveVersion'))])
+            self.assertEqual('ready',PhoneEmoteRole(flow.run,'actor',POLICY).state['phase'])
+            for row in rows:owner.record(row,row['index'])
+
+    def test_legacy_terminal_actor_is_only_drained_until_actual_fixture_retirement(self):
+        flow=self.start();m=self.model;m.journal.activate(RUN,'a'*32,'cleanup',{})
+        self.primary.cleanup_resources(dict(contractVersion=17,runId=RUN));flow.step()
+        header=deepcopy(flow.previous);header['emoteActorVersion']=1;state=unpack(header['payload'])[0]
+        state.pop('providerRetirement');state['phase']='retired';header['payload']=pack([state]);flow.store.write(header,flow.previous)
+        flow=PhoneEmoteActor(self.actor_run(self.client),POLICY)
+        with flow.run.lock.held():
+            flow.run.load();flow.load();self.assertEqual('drained',flow.state['phase']);self.assertEqual(header,flow.store.read())
+        self.assertFalse(flow.step());self.assertEqual(2,flow.previous['emoteActorVersion'])
+        self.reader.request('/runs/'+RUN,method='DELETE');self.assertTrue(flow.step())
+
+    def test_closing_fixture_during_each_role_original_stage_retains_partial_attempt(self):
+        for boundary in ('original-planned','original-opened','original-saved','manifest-planned','manifest-saved'):
+            with self.subTest(boundary=boundary):
+                self.setUp();flow=self.start();m=self.model;flow.step();m.journal.activate(RUN,'a'*32,'cleanup',{})
+                self.primary.cleanup_resources(dict(contractVersion=17,runId=RUN));flow.step()
+                intent=PhoneEmoteRole.storage_intent;closed=False
+                def close(role,kind,value):
+                    nonlocal closed
+                    intent(role,kind,value)
+                    if not closed and kind+'-'+value['phase']==boundary:
+                        closed=True;self.reader.request('/runs/'+RUN,method='DELETE')
+                        raise NativeUIError('Synthetic lost role write at actual fixture retirement')
+                with patch.object(PhoneEmoteRole,'storage_intent',close):self.assertTrue(flow.step())
+                self.assertTrue(closed);self.assertEqual('retired',flow.state['phase'])
+                with flow.run.lock.held():
+                    flow.run.load();owner=PhoneEmoteFailures(flow.run)
+                    rows=owner.originals.restore(owner.state['manifests'],owner.state['count']);failed=rows[-1]
+                    self.assertEqual('role',failed['kind']);self.assertEqual(2,failed['archive']['emoteRoleFailureArchiveVersion'])
+                    self.assertIsNone(failed['archive']['scope']);self.assertFalse(failed['archive']['cleanup']['active'])
+                    self.assertEqual(2,PhoneEmoteRole(flow.run,'actor',POLICY).state['sequence']);owner.record(failed,failed['index'])
+
+    def test_closed_transfer_mode_cannot_release_a_source_while_fixture_is_active(self):
+        flow=self.start();m=self.model;m.journal.activate(RUN,'a'*32,'cleanup',{})
+        self.primary.cleanup_resources(dict(contractVersion=17,runId=RUN));flow.step()
+        with flow.run.lock.held():
+            flow.run.load();source=flow.run.source('actor')
+            with patch.object(source.phase,'read',side_effect=ValueError('Synthetic lost phase read')),self.assertRaises(ValueError):source.read()
+            header=deepcopy(source.previous)
+            with self.assertRaises(NativeUIError):source.transfer_failed(lambda proof:None,provider_retired=True)
+            self.assertEqual(header,source.store.read());self.assertEqual('reading',source.state['phase'])
+
+    def test_terminal_reconstruction_keeps_original_provider_packet_and_all_journal_bytes(self):
+        flow=self.start();m=self.model;m.journal.activate(RUN,'a'*32,'cleanup',{})
+        self.primary.cleanup_resources(dict(contractVersion=17,runId=RUN));flow.step()
+        self.reader.request('/runs/'+RUN,method='DELETE');self.assertTrue(flow.step());header=deepcopy(flow.previous)
+        flow=PhoneEmoteActor(self.actor_run(self.client),POLICY);self.assertTrue(flow.step())
+        self.assertEqual(header,flow.store.read());self.assertEqual(header,flow.previous)
+
+    def test_missing_cleanup_peer_and_quiet_proof_cannot_end_when_fixture_closes(self):
+        flow=self.start();m=self.model;flow.step();m.journal.activate(RUN,'a'*32,'cleanup',{})
+        self.primary.cleanup_resources(dict(contractVersion=17,runId=RUN));self.reader.request('/runs/'+RUN,method='DELETE')
+        with self.assertRaises(NativeUIError):flow.step()
+        self.assertIsNone(flow.state['providerRetirement']);self.assertEqual('watching',flow.state['phase'])
+        self.assertNotEqual('a'*32,flow.state['last']['sample']['ticket'])
+
+    def test_closed_failure_archive_and_parent_completion_resume_without_new_native_reads(self):
+        for boundary in ('original-opened','manifest-saved','final'):
+            with self.subTest(boundary=boundary):
+                self.setUp();flow=self.start();m=self.model;flow.step();m.journal.activate(RUN,'a'*32,'cleanup',{})
+                self.primary.cleanup_resources(dict(contractVersion=17,runId=RUN));flow.step()
+                native=m.native_send;closed=False;intent=PhoneEmoteFailures.storage_intent;save=PhoneEmoteFailures.save
+                def close(request):
+                    nonlocal closed
+                    result=native(request)
+                    if not closed:self.reader.request('/runs/'+RUN,method='DELETE');closed=True
+                    return result
+                def interrupted(owner,kind,value):
+                    intent(owner,kind,value)
+                    if closed and kind+'-'+value['phase']==boundary:raise NativeUIError('Synthetic lost closed failure archive write')
+                def final(owner):
+                    if closed and boundary=='final' and owner.state['pending'] is None:raise NativeUIError('Synthetic lost closed failure completion')
+                    return save(owner)
+                with patch.object(m,'native_send',side_effect=close),patch.object(PhoneEmoteFailures,'storage_intent',interrupted),patch.object(PhoneEmoteFailures,'save',final),self.assertRaises(NativeUIError):flow.step()
+                self.assertTrue(closed);before=m.calls[:];flow=PhoneEmoteActor(self.actor_run(self.client),POLICY)
+                self.assertTrue(flow.step());self.assertTrue(all(call=='phase-read' for call in m.calls[len(before):]))
+                with flow.run.lock.held():
+                    flow.run.load();owner=PhoneEmoteFailures(flow.run);rows=owner.originals.restore(owner.state['manifests'],owner.state['count'])
+                    self.assertEqual(['admission','source','role'],[row['kind'] for row in rows]);self.assertIsNone(owner.state['pending'])
+                    for row in rows:owner.record(row,row['index'])
+
+    def test_foreign_closed_provider_or_old_record_version_cannot_adopt_closed_read_proof(self):
+        flow=self.start();m=self.model;flow.step();m.journal.activate(RUN,'a'*32,'cleanup',{})
+        self.primary.cleanup_resources(dict(contractVersion=17,runId=RUN));flow.step();send=m.native_send;closed=False
+        def close(request):
+            nonlocal closed
+            value=send(request)
+            if not closed:self.reader.request('/runs/'+RUN,method='DELETE');closed=True
+            return value
+        with patch.object(m,'native_send',side_effect=close):self.assertTrue(flow.step())
+        with flow.run.lock.held():
+            flow.run.load();owner=PhoneEmoteFailures(flow.run);rows=owner.originals.restore(owner.state['manifests'],owner.state['count'])
+            for row in rows[1:]:
+                old=deepcopy(row);old['emoteFailureRecordVersion']=6
+                with self.assertRaises(NativeUIError):owner.record(old,old['index'])
+                for fault in ('active','birth','ticket'):
+                    changed=deepcopy(row);status=changed['archive']['cleanup']
+                    if fault=='active':status['active']=True;status['retiredEpochMs']=None
+                    elif fault=='birth':status['instance']='e'*32
+                    else:status['activations'][-1]['ticket']='e'*32
+                    with self.subTest(kind=row['kind'],fault=fault),self.assertRaises((NativeUIError,ValueError)):owner.record(changed,changed['index'])
 
     def test_actor_configuration_and_existing_observer_entry_point_preserve_separate_client(self):
         import script_observer
@@ -321,7 +445,17 @@ class EmoteActorTests(unittest.TestCase):
             self.assertEqual(('owned',RUN,self.client.token),(selector,run,client.token));self.assertEqual(POLICY,image_policy)
             made.append(PhoneEmoteActor(self.actor_run(client),image_policy));return made[-1]
         adapter=SimpleNamespace(emote_feature_store=lambda _:self.primary.store,_emote_actor=factory)
-        self.assertEqual(0,script_observer.run(adapter,value,monotonic=lambda:m.clock,sleep=m.sleep))
+        published=[];closed=False
+        def caller_window(seconds):
+            nonlocal closed
+            m.sleep(seconds)
+            if not made or made[0].state is None or made[0].state['phase']!='drained' or closed:return
+            rows=self.reader.request('/runs/'+RUN)['entries'];published[:]=rows
+            if len(rows)>=3 and rows[-1]['capturedEpochMs']-rows[0]['capturedEpochMs']>=3000:
+                self.reader.request('/runs/'+RUN,method='DELETE');closed=True
+        self.assertEqual(0,script_observer.run(adapter,value,monotonic=lambda:m.clock,sleep=caller_window))
+        self.assertTrue(closed);self.assertGreaterEqual(len(published),3)
+        self.assertGreaterEqual(published[-1]['capturedEpochMs']-published[0]['capturedEpochMs'],3000)
         self.assertEqual(1,len(made));self.assertEqual('retired',made[0].state['phase'])
 
 

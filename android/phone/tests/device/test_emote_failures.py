@@ -120,7 +120,7 @@ class EmoteFailureOwnerTests(unittest.TestCase):
                     recovered=PhoneEmoteFailures(run);retained=deepcopy(recovered.state['pending']['archive']);calls=deepcopy(m.calls)
                     recovered.collect_admissions();rows=self.records(recovered)
                     self.assertEqual(1,len(rows));self.assertEqual(retained,rows[0]['archive']);self.assertEqual('admission',rows[0]['kind'])
-                    self.assertEqual(6,rows[0]['emoteFailureRecordVersion']);self.assertTrue(all(call=='phase-read' for call in m.calls[len(calls):]))
+                    self.assertEqual(7,rows[0]['emoteFailureRecordVersion']);self.assertTrue(all(call=='phase-read' for call in m.calls[len(calls):]))
                     self.assertFalse((m.root/'phone-emote-primary-admission.json').exists());self.assertIsNone(recovered.state['pending'])
 
     def test_version_one_pending_source_archive_keeps_original_record_bytes_during_upgrade(self):
@@ -144,7 +144,7 @@ class EmoteFailureOwnerTests(unittest.TestCase):
             recovered=PhoneEmoteFailures(run);self.assertEqual(legacy,recovered.previous);self.assertEqual(legacy,recovered.store.read())
             recovered.collect_sources();rows=self.records(recovered)
             self.assertEqual(1,rows[0]['emoteFailureRecordVersion']);self.assertEqual(raw,path.read_bytes());self.assertEqual(inode,path.stat().st_ino)
-            self.assertEqual(6,recovered.previous['emoteFailureOwnerVersion']);self.assertEqual(1,recovered.state['count'])
+            self.assertEqual(7,recovered.previous['emoteFailureOwnerVersion']);self.assertEqual(1,recovered.state['count'])
 
     def test_changed_parent_pinned_admission_header_does_not_retire_as_the_original_approval(self):
         from overte_phone_emote_admission import PhoneEmoteAdmission
@@ -191,7 +191,7 @@ class EmoteFailureOwnerTests(unittest.TestCase):
             recovered=PhoneEmoteFailures(run);self.assertEqual(legacy,recovered.previous);self.assertEqual(legacy,recovered.store.read())
             recovered.collect_admissions();rows=self.records(recovered)
             self.assertEqual(2,rows[0]['emoteFailureRecordVersion']);self.assertEqual(raw,path.read_bytes());self.assertEqual(inode,path.stat().st_ino)
-            self.assertEqual(6,recovered.previous['emoteFailureOwnerVersion']);self.assertEqual(1,recovered.state['count'])
+            self.assertEqual(7,recovered.previous['emoteFailureOwnerVersion']);self.assertEqual(1,recovered.state['count'])
 
 
 if __name__=='__main__':unittest.main()

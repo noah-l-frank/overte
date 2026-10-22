@@ -167,3 +167,16 @@ Host counterexamples cover saved original/manifest callback loss, a complete
 opened file after lost verification, absent/partial/changed originals, late
 replay and checked version 4 recovery without policy downgrade or redating.
 They acquire no replacement sources and do not qualify devices.
+
+
+## Closed cleanup failure archive, version 2
+
+Explicit `transfer_failed(..., provider_retired=True)` retains a passive read
+interrupted by actual cleanup-fixture retirement. The v1 field set is unchanged,
+but cleanup must be an original active=false packet with its real retired epoch
+and matching run/provider/history. Active mode still requires active cleanup.
+No source frame, native result or replacement timestamp is added. All original/
+manifest diagnostics, predecessor proof, callback, five-second bound and exact
+ready transition semantics remain. Enclosing record v7 retains these packets
+before clearing Source, then the actor's resource-free Role attempt. This is
+historical failure retention, not product cleanup or full journal retirement.

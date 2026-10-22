@@ -51,7 +51,7 @@ class PhaseRetirementTests(unittest.TestCase):
         m=self.model;run=self.prepared()
         with run.lock.held():
             header=self.raced(run);failure=PhoneEmoteFailures(run);failure.collect_phase()
-            rows=failure.originals.restore(failure.state['manifests'],1);self.assertEqual('phase',rows[0]['kind']);self.assertEqual(6,rows[0]['emoteFailureRecordVersion'])
+            rows=failure.originals.restore(failure.state['manifests'],1);self.assertEqual('phase',rows[0]['kind']);self.assertEqual(7,rows[0]['emoteFailureRecordVersion'])
             self.assertEqual(header,rows[0]['archive']['header']);failure.record(rows[0],1);self.assertEqual(0,PhoneEmoteRole(run,'actor',POLICY).state['sequence'])
         run.act(m.call('open'))
         with run.lock.held():
@@ -162,7 +162,7 @@ class PhaseRetirementTests(unittest.TestCase):
             pending=unpack(old['payload'])[0]['pending'];self.assertEqual(1,pending['archive']['emoteRolePhaseRetirementVersion'])
             descriptor=pending['original'];path=owner.originals.path(descriptor);raw=path.read_bytes();inode=path.stat().st_ino
             owner=PhoneEmoteFailures(run);self.assertEqual(old,owner.previous);owner.collect_phase()
-            self.assertEqual(6,owner.previous['emoteFailureOwnerVersion']);self.assertEqual(1,owner.state['count'])
+            self.assertEqual(7,owner.previous['emoteFailureOwnerVersion']);self.assertEqual(1,owner.state['count'])
             rows=owner.originals.restore(owner.state['manifests'],1)
             self.assertEqual(5,rows[0]['emoteFailureRecordVersion']);self.assertEqual(header,rows[0]['archive']['header'])
             self.assertEqual(raw,path.read_bytes());self.assertEqual(inode,path.stat().st_ino);owner.record(rows[0],1)

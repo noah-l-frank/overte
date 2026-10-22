@@ -9,13 +9,14 @@ from adapters.normal_ui import NativeUIError
 from feature_journeys.contract import identifier
 from feature_journeys.evidence import rectangle
 from feature_journeys.witness import Client,projection,WITNESS_KEYS
+from feature_journeys.phase_fixture import PhaseRetired,validate as phase_packet
 from overte_phone_emote_failures import PhoneEmoteFailures
 from overte_phone_emote_lifetime import PhoneEmoteLifetime
 from overte_phone_emote_role import PhoneEmoteRole
 from overte_phone_emote_run import PhoneEmoteRun
 from overte_phone_script_history import pack,unpack,same
 
-VERSION=1
+VERSION=2
 LIMIT=1024
 
 
@@ -46,23 +47,27 @@ class PhoneEmoteActor:
     def load(self):
         self.run.lock.assert_held();need(not self.failed and self.run.state is not None)
         self.previous=self.store.read()
-        self.state=dict(phase='watching',binding=deepcopy(context(self.run.state['binding'])),pending=None,last=None,quiet=None,dropped=[])
+        self.state=dict(phase='watching',binding=deepcopy(context(self.run.state['binding'])),pending=None,last=None,quiet=None,dropped=[],providerRetirement=None)
         if self.previous is not None:self.state=self.decode(self.previous)
         self.bound()
 
     def decode(self,value):
         exact(value,{'emoteActorVersion','runId','fixtureUrl','artifactRoot','imagePolicy','payload'})
-        need(type(value['emoteActorVersion']) is int and value['emoteActorVersion']==VERSION
+        need(type(value['emoteActorVersion']) is int and value['emoteActorVersion'] in (1,VERSION)
             and value['runId']==self.run.run and value['fixtureUrl']==self.run.fixture_url
             and value['artifactRoot']==str(self.run.root) and same(value['imagePolicy'],self.policy))
         rows=unpack(value['payload']);need(len(rows)==1);state=rows[0]
-        exact(state,{'phase','binding','pending','last','quiet','dropped'})
-        need(same(context(state['binding']),self.run.state['binding']) and state['phase'] in ('watching','publishing','quiet','retired')
+        exact(state,{'phase','binding','pending','last','quiet','dropped'}|({'providerRetirement'} if value['emoteActorVersion']==2 else set()))
+        if value['emoteActorVersion']==1:
+            need(state['phase'] in ('watching','publishing','quiet','retired'))
+            state=deepcopy(state);state['providerRetirement']=None
+            if state['phase']=='retired':state['phase']='drained'
+        need(same(context(state['binding']),self.run.state['binding']) and state['phase'] in ('watching','publishing','quiet','drained','retired')
             and type(state['dropped']) is list and len(state['dropped'])<=LIMIT)
         cursor=0
         for row in state['dropped']:
             exact(row,{'sequence','ticket','reason'});identifier(row['ticket'])
-            need(integer(row['sequence'],cursor+1,LIMIT) and row['reason'] in ('phase-changed','expired-before-send'));cursor=row['sequence']
+            need(integer(row['sequence'],cursor+1,LIMIT) and row['reason'] in ('phase-changed','expired-before-send','fixture-retired'));cursor=row['sequence']
         if state['pending'] is not None:
             pending=state['pending'];exact(pending,{'sample','startedMonotonicMs','hostEpochMs','provider','issued'})
             self.sample(pending['sample']);need(type(pending['issued']) is bool and number(pending['startedMonotonicMs'],0,1e15)
@@ -78,7 +83,12 @@ class PhoneEmoteActor:
             if state['pending'] is not None:need(state['pending']['sample']['actorSequence']>state['last']['sample']['actorSequence'])
         if state['quiet'] is not None:need(type(state['quiet']) is dict
             and type(state['quiet'].get('emoteLifetimeRetirementVersion')) is int and state['quiet']['emoteLifetimeRetirementVersion']==1)
-        if state['phase']=='retired':need(state['quiet'] is not None and state['last'] is not None)
+        if state['phase'] in ('drained','retired'):need(state['quiet'] is not None and state['last'] is not None)
+        need((state['providerRetirement'] is not None)==(state['phase']=='retired'))
+        if state['providerRetirement'] is not None:
+            status=state['providerRetirement'];phase_packet(status,run=self.run.run,area='emotes',request=status.get('requestId'),epoch=status.get('capturedEpochMs'))
+            need(status['active'] is False and status['activations'][-1]['ticket']==state['last']['sample']['ticket']
+                and status['activations'][-1]['stimulus']==dict(verb='cleanup',inputs={}))
         return deepcopy(state)
 
     def bound(self):
@@ -101,7 +111,8 @@ class PhoneEmoteActor:
         need(same(expected,sample));return role,row
 
     def current(self,previous=None):
-        status=self.run.phase.status(previous);need(status['active'] and status['activations'])
+        status=self.run.phase.status(previous);need(status['activations'])
+        if not status['active']:raise PhaseRetired(status)
         return status,status['activations'][-1]
 
     def fresh(self,pending):
@@ -118,7 +129,9 @@ class PhoneEmoteActor:
     def retired_role(self,sample):
         quiet=self.state['quiet'];need(quiet is not None and self.run.state['phase']=='resources-restored'
             and sample['ticket']==self.run.state['cleanupTicket']==quiet['cleanup']['activations'][-1]['ticket'])
-        role,_row=self.original(sample)
+        role,row=self.original(sample)
+        need(row['public']['resources']==[] and row['public']['state']['panel'] is False
+            and row['public']['state']['animation']=='idle' and row['public']['state']['override'] is False)
         need(role.state['phase']=='ready' and role.source.state['phase']=='ready' and role.source.state['pending'] is None)
         PhoneEmoteLifetime.retirement_archive(quiet,role.source)
         from overte_phone_emote_namespaces import PhoneEmoteNamespaces
@@ -133,14 +146,16 @@ class PhoneEmoteActor:
         with self.run.lock.held():
             self.run.load();self.load();need(same(self.state['pending'],pending))
             if self.run.state['phase'] not in ('prepared','active','switching','resources-restored'):return False
+            status=self.run.phase.status()
+            if not status['active']:return self.finish(status)
             self.original(pending['sample'])
             self.state.update(phase='watching',pending=None,last=dict(sample=deepcopy(pending['sample']),receipt=deepcopy(receipt)))
             quiet=self.state['quiet']
             if quiet is not None and self.fresh(pending):
-                self.retired_role(pending['sample']);self.state['phase']='retired'
+                self.retired_role(pending['sample']);self.state['phase']='drained'
             self.save()
-            if self.state['phase']=='retired' and not self.fresh(pending):self.state['phase']='watching';self.save()
-            return self.state['phase']=='retired'
+            if self.state['phase']=='drained' and not self.fresh(pending):self.state['phase']='watching';self.save()
+            return False # Cleanup observations continue until actual fixture retirement.
 
     def receipt(self,pending):
         started=self.run.monotonic();host=self.run.phase.epoch_ms()
@@ -162,11 +177,38 @@ class PhoneEmoteActor:
         need(len(matches)<=1)
         return None if not matches else dict(kind='journal',receivedEpochMs=epoch,body=deepcopy(matches[0]))
 
+    def finish(self,status):
+        """Retain closed input authority; never acquire a new product sample."""
+        self.bound();need(self.run.state['phase']=='resources-restored' and status['active'] is False
+            and self.state['quiet'] is not None and self.state['last'] is not None)
+        phase_packet(status,run=self.run.run,area='emotes',request=status['requestId'],epoch=status['capturedEpochMs'])
+        sample=self.state['last']['sample'];need(sample['ticket']==self.run.state['cleanupTicket']==status['activations'][-1]['ticket'])
+        if self.state['phase']=='retired':
+            phase_packet(status,run=self.run.run,area='emotes',request=status['requestId'],epoch=status['capturedEpochMs'],previous=self.state['providerRetirement'])
+            self.retired_role(sample);return True
+        failure=PhoneEmoteFailures(self.run);failure.collect_sources();failure.collect_roles()
+        role=self.retired_role(sample);row=role.stored(sample['actorSequence'])
+        previous=role.effects.current_original(row['frame'])['phaseAfter']
+        phase_packet(status,run=self.run.run,area='emotes',request=status['requestId'],epoch=status['capturedEpochMs'],previous=previous)
+        if self.state['pending'] is not None:
+            self.dropped(deepcopy(self.state['pending']),'fixture-retired')
+        self.state.update(phase='retired',providerRetirement=deepcopy(status));self.save();return True
+
     def deliver(self):
+        try:return self._deliver()
+        except (ValueError,PhaseRetired):
+            with self.run.lock.held():
+                self.run.load();self.load();status=self.run.phase.status()
+                if not status['active']:return self.finish(status)
+            raise
+
+    def _deliver(self):
         # Every transport operation below is outside the native source lock.
         with self.run.lock.held():
             self.run.load();self.load();pending=deepcopy(self.state['pending']);need(pending is not None)
             if self.run.state['phase'] not in ('prepared','active','switching','resources-restored'):return False
+            status=self.run.phase.status()
+            if not status['active']:return self.finish(status)
             self.original(pending['sample'])
         if pending['issued']:
             receipt=self.receipt(pending)
@@ -211,11 +253,12 @@ class PhoneEmoteActor:
             parent=self.run.state['phase']
             # No foreground-only factory while setup/input/OS recovery is pending.
             if parent not in ('prepared','active','switching','resources-restored'):return False
-            if self.state['phase']=='retired':
-                self.retired_role(self.state['last']['sample']);return True
+            status=self.run.phase.status(self.state['providerRetirement'])
+            if not status['active']:return self.finish(status)
+            need(self.state['phase']!='retired')
             if self.state['pending'] is not None:ready=True
             else:
-                status,current=self.current()
+                need(status['activations']);current=status['activations'][-1]
                 if parent=='switching':
                     role_path=PrivateFeatureState(self.store.path.with_name('phone-emote-actor-role.json')).read()
                     if role_path is not None:
@@ -238,8 +281,10 @@ class PhoneEmoteActor:
                 elif self.state['phase']=='quiet':self.cleanup_quiet();role=PhoneEmoteRole(self.run,'actor',self.policy)
                 started,host=self.run.monotonic(),self.run.phase.epoch_ms()
                 try:sample=role.publication()
-                except NativeUIError:
-                    _status,latest=self.current(status)
+                except (NativeUIError,PhaseRetired):
+                    _status=self.run.phase.status(status)
+                    if not _status['active']:return self.finish(_status)
+                    latest=_status['activations'][-1]
                     if latest['ticket']==current['ticket']:raise
                     if role.state['phase']!='ready':PhoneEmoteFailures(self.run).collect_phase()
                     return False

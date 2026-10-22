@@ -72,7 +72,7 @@ class ImagePhaseRetirementTests(unittest.TestCase):
             self.assertTrue((m.world_root/'world-actor.json').exists());self.assertEqual(0,failure.state['count'])
             m.world.storage.ignore_release=False;failure=PhoneEmoteFailures(run);failure.collect_phase()
             rows=failure.originals.restore(failure.state['manifests'],1);proof=rows[0]['archive']
-            self.assertEqual(header,proof['header']);self.assertEqual(6,rows[0]['emoteFailureRecordVersion'])
+            self.assertEqual(header,proof['header']);self.assertEqual(7,rows[0]['emoteFailureRecordVersion'])
             self.assertFalse(proof['scope']['archive']['childRetirement']['cleanup']['retirement']['memory']['present'])
             self.assertFalse((m.world_root/'world-actor.json').exists());self.assertEqual(before,m.world.counters['capture'])
             self.assertEqual(2,PhoneEmoteRole(run,'actor',POLICY).state['sequence']);failure.record(rows[0],1)
