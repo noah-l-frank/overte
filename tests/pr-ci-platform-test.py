@@ -18,6 +18,48 @@ import pr_ci_context as C
 
 
 class ProductOwnershipTests(unittest.TestCase):
+    def selected(self, target, paths, regular=True):
+        profile = P.policy()["android"][target]
+        return {suite["name"] for suite in P.android_suites(ROOT, target, profile,
+                {"paths": paths, "regular": regular})}
+
+    def test_native_infrastructure_suites_follow_their_actual_inputs(self):
+        for target in P.policy()["android"]:
+            with self.subTest(target=target):
+                for paths in (["browser-client/package-lock.json"], ["docs/README.md"],
+                              ["libraries/shared/src/UUID.cpp"],
+                              ["android/phone/apps/phoneInterface/src/main/java/Main.java"]):
+                    selected = self.selected(target, paths)
+                    self.assertNotIn("android-common-native-ci", selected)
+                    self.assertFalse(any(name.startswith("pico-native-ci-") for name in selected))
+                selected = self.selected(target, ["android/common/native-ci/verify.py"])
+                self.assertIn("android-common-native-ci", selected)
+                self.assertEqual("pico-native-ci-inputs" in selected, target == "android-vr-pico")
+                self.assertEqual("pico-native-ci-unsigned-apk" in selected, target == "android-vr-pico")
+
+    def test_mixed_or_deleted_infrastructure_input_still_selects_owner(self):
+        selected = self.selected("android-vr-pico", ["docs/README.md",
+            "android/vr/pico/native-ci/graph_contract.py"])
+        self.assertIn("pico-native-ci-graph", selected)
+        self.assertIn("pico-native-ci-inputs", selected)
+        self.assertNotIn("pico-native-ci-unsigned-apk", selected)
+        self.assertNotIn("android-common-native-ci", selected)
+
+    def test_unknown_or_nonregular_context_keeps_all_owned_suites(self):
+        for target, profile in P.policy()["android"].items():
+            expected = {suite["name"] for suite in profile["suites"]}
+            for paths, regular in (([], True), (["docs/README.md"], False)):
+                with self.subTest(target=target, regular=regular):
+                    self.assertEqual(self.selected(target, paths, regular), expected)
+
+    def test_every_declared_infrastructure_input_selects_its_owned_suite(self):
+        inputs = json.loads((ROOT / ".github/pr-ci-platform-inputs.json").read_text())
+        for closure in inputs["infrastructure"]:
+            for target in closure["targets"]:
+                for path in closure["inputs"]:
+                    with self.subTest(suite=closure["name"], target=target, path=path):
+                        self.assertIn(closure["name"], self.selected(target, [path]))
+
     def test_every_android_target_retains_its_reviewed_inventory(self):
         policy = P.policy()
         for target, profile in policy["android"].items():

@@ -66,6 +66,11 @@
       "name": "android-documents",
       "entrypoint": "android/common/documents/tests/run.py",
       "interpreter": "python"
+    },
+    {
+      "name": "android-common-native-ci",
+      "entrypoint": "android/common/native-ci/tests.py",
+      "interpreter": "python"
     }
   ]
 }
