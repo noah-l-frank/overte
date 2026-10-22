@@ -17,6 +17,7 @@ RUN='a'*32
 def editor(index=1,kind='create'):
     return dict(id=f'{index:032x}',kind=kind,fieldId=f'{index+100:032x}',pageId=f'{index+200:032x}',
         contextId=f'{index+300:032x}',windowId='1'*32,loaderId='2'*32,firstObservedEpochMs=19000,
+        fieldAlive=True,pageAlive=True,contextAlive=True,windowAlive=True,loaderAlive=True,
         alive=True,attached=True,visible=True,focused=True,current=True,text='')
 
 
@@ -40,7 +41,7 @@ class Boundary:
     def source(self):return PicoLifecycleSource(self.send,self.read,lambda:20000,lambda:self.alive,123,
         monotonic=lambda:self.clock,sleep=self.sleep)
     def retire(self):
-        self.rows[0].update(alive=False,attached=False,visible=False,focused=False,current=False,text='')
+        self.rows[0].update(fieldAlive=False,pageAlive=False,contextAlive=False,alive=False,attached=False,visible=False,focused=False,current=False,text='')
         self.home,self.raised=True,False
 
 
@@ -82,6 +83,33 @@ class LifecycleSourceTests(unittest.TestCase):
                         else:row['fieldId']='f'*32
                     native.mutate=mutate
                 with self.assertRaises(NativeUIError):source.capture(RUN)
+
+    def test_partial_objects_and_hidden_detached_pages_remain_retained(self):
+        for flag in ('fieldAlive','contextAlive','hidden','detached'):
+            with self.subTest(flag=flag):
+                native=Boundary();source=native.source();source.capture(RUN)
+                row=native.rows[0];row.update(current=False,text='')
+                if flag=='fieldAlive':row.update(fieldAlive=False,attached=False,visible=False,focused=False)
+                elif flag=='contextAlive':row['contextAlive']=False
+                elif flag=='hidden':row.update(visible=False,focused=False)
+                else:row.update(attached=False,visible=False,focused=False)
+                native.home=True;retained=source.capture(RUN)['source']['editors'][0]
+                self.assertTrue(retained['alive']);self.assertTrue(retained['pageAlive'])
+                self.assertTrue(retained['windowAlive']);self.assertTrue(retained['loaderAlive'])
+                self.assertIsNone(current_editor(source.capture(RUN)))
+                if flag in ('fieldAlive','contextAlive'):
+                    row[flag]=True
+                    with self.assertRaises(NativeUIError):source.capture(RUN)
+
+    def test_missing_liveness_and_partial_or_shared_owner_resurrection_fail(self):
+        for flag in ('fieldAlive','pageAlive','contextAlive','windowAlive','loaderAlive'):
+            native=Boundary();native.mutate=lambda v:v['source']['editors'][0].pop(flag)
+            with self.subTest(missing=flag),self.assertRaises(NativeUIError):native.source().capture(RUN)
+            native=Boundary();source=native.source();source.capture(RUN)
+            native.retire();native.rows[0][flag]=False;source.capture(RUN)
+            native.rows[0][flag]=True
+            if flag in ('fieldAlive','pageAlive','contextAlive'):native.rows[0]['alive']=True
+            with self.subTest(resurrected=flag),self.assertRaises(NativeUIError):source.capture(RUN)
 
     def test_foreign_or_stale_packet_and_malformed_current_source_never_become_none(self):
         edits=(lambda v:v.update(processId=8),lambda v:v.update(runId='b'*32),

@@ -32,11 +32,16 @@ int main(int argc,char** argv) {
     QTest::mouseClick(&window,Qt::LeftButton,Qt::NoModifier,field->mapToScene(QPointF(5,5)).toPoint());
     QCoreApplication::processEvents();assert(field->hasActiveFocus());
     auto focused=capture();assert(focused["source"].toMap()["editors"].toList().first().toMap()["focused"].toBool());
+    const QPointer<QQmlContext> firstContext(qmlContext(field));assert(firstContext);
     delete page;QCoreApplication::processEvents();
-    auto retired=capture(true,true);assert(!retired.isEmpty());
-    auto old=retired["source"].toMap()["editors"].toList().first().toMap();
-    assert(!old["alive"].toBool() && !old["attached"].toBool() && !old["focused"].toBool());
-    assert(retired["source"].toMap()["current"].toString().isEmpty());
+    auto partial=capture(true,true)["source"].toMap()["editors"].toList().first().toMap();
+    assert(!partial["fieldAlive"].toBool() && !partial["pageAlive"].toBool());
+    // Qt can retain the original QQmlContext wrapper after its QML page dies.
+    // It must remain retained until that original QObject itself is gone.
+    assert(partial["contextAlive"].toBool()==!firstContext.isNull());
+    assert(partial["alive"].toBool()==!firstContext.isNull());
+    assert(partial["windowAlive"].toBool() && partial["loaderAlive"].toBool());
+    assert(capture(true,true)["source"].toMap()["current"].toString().isEmpty());
     page=load();auto replacement=capture();rows=replacement["source"].toMap()["editors"].toList();assert(rows.size()==2);
     const auto fresh=rows.last().toMap();assert(fresh["id"]!=row["id"] && fresh["fieldId"]!=row["fieldId"]);
     assert(fresh["contextId"]!=row["contextId"] && fresh["pageId"]!=row["pageId"]);
@@ -45,8 +50,50 @@ int main(int argc,char** argv) {
     assert(capture(true,true).isEmpty()); // Home cannot coexist with a real current editor.
     auto foreign=new QQuickItem(&loader);foreign->setObjectName("NativeCreateText");foreign->setSize(QSizeF(50,50));
     assert(capture()["source"].toMap()["editors"].toList().size()==2); // A name alone cannot qualify source.
-    delete foreign;delete page;
+    delete foreign;
+    page->setVisible(false);
+    auto hidden=capture(true,true)["source"].toMap()["editors"].toList().last().toMap();
+    assert(hidden["alive"].toBool() && hidden["pageAlive"].toBool() && hidden["attached"].toBool());
+    assert(!hidden["visible"].toBool() && !hidden["current"].toBool());
+    page->setVisible(true);page->setParentItem(nullptr);QCoreApplication::processEvents();
+    auto detached=capture(true,true)["source"].toMap()["editors"].toList().last().toMap();
+    assert(detached["alive"].toBool() && detached["pageAlive"].toBool());
+    assert(!detached["attached"].toBool() && !detached["visible"].toBool() && !detached["current"].toBool());
+    page->setParentItem(&loader);QCoreApplication::processEvents();
+    field=page->findChild<QQuickItem*>("NativeCreateText");assert(field);
+    delete field;QCoreApplication::processEvents();
+    auto fieldGone=capture(true,true)["source"].toMap()["editors"].toList().last().toMap();
+    assert(!fieldGone["fieldAlive"].toBool() && fieldGone["pageAlive"].toBool());
+    assert(fieldGone["contextAlive"].toBool() && fieldGone["alive"].toBool());
+    assert(!fieldGone["current"].toBool() && !fieldGone["visible"].toBool());
+    delete page;
+    // Leave original page/field alive while retiring their engine and context.
+    // Qt may retain an invalid context wrapper after engine destruction. Only
+    // then delete that orphan wrapper; never delete an engine-owned context.
+    auto contextEngine=new QQmlEngine;
+    auto contextComponent=new QQmlComponent(contextEngine,source);
+    page=qobject_cast<QQuickItem*>(contextComponent->create());assert(page);
+    page->setParentItem(&loader);page->setSize(loader.size());capture();
+    field=page->findChild<QQuickItem*>("NativeCreateText");assert(field);
+    const QPointer<QQmlContext> originalContext(qmlContext(field));assert(originalContext);
+    const QPointer<QQuickItem> originalPage(page),originalField(field);
+    delete contextComponent;delete contextEngine;QCoreApplication::processEvents();
+    if (originalContext) {
+        assert(!originalContext->isValid());
+        auto invalid=capture(true,true)["source"].toMap()["editors"].toList().last().toMap();
+        assert(invalid["alive"].toBool() && invalid["contextAlive"].toBool() && !invalid["current"].toBool());
+        delete originalContext.data();QCoreApplication::processEvents();
+    }
+    assert(originalContext.isNull() && originalPage && originalField);
+    auto contextGone=capture(true,true)["source"].toMap()["editors"].toList().last().toMap();
+    assert(!contextGone["contextAlive"].toBool() && contextGone["pageAlive"].toBool());
+    assert(contextGone["fieldAlive"].toBool() && contextGone["alive"].toBool());
+    assert(!contextGone["current"].toBool());
+    delete page;
+    auto last=capture(true,true)["source"].toMap()["editors"].toList().last().toMap();
+    assert(!last["alive"].toBool() && !last["fieldAlive"].toBool() && !last["pageAlive"].toBool()
+        && !last["contextAlive"].toBool() && last["windowAlive"].toBool() && last["loaderAlive"].toBool());
     assert(reader.observe(nullptr,nullptr,false,false,run,keyboard)["source"].toMap()["current"].toString().isEmpty());
     Q_UNUSED(rootPath)
-    qInfo("PASS actual NativeCreate Qt identities/focus/destruction/replacement; keyboard is an explicit host boundary");
+    qInfo("PASS actual NativeCreate Qt identities/focus/partial/hidden/detached/destruction/replacement; keyboard is an explicit host boundary");
 }

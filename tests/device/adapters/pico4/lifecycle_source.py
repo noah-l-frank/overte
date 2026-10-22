@@ -14,6 +14,7 @@ from feature_journeys.fixtures import context
 VERSION=1
 FILE='lifecycle-ui-observation.json'
 COMMAND='files/overte-e2e/lifecycle-ui-command.json'
+LIVENESS=('fieldAlive','pageAlive','contextAlive','windowAlive','loaderAlive')
 IDENTITIES=('id','kind','fieldId','pageId','contextId','windowId','loaderId','firstObservedEpochMs')
 
 
@@ -24,15 +25,18 @@ def editors(rows,run,epoch):
     need(type(rows) is list and len(rows)<=64)
     ids=set();current=[]
     for row in rows:
-        exact(row,set(IDENTITIES)|{'alive','attached','visible','focused','current','text'})
+        exact(row,set(IDENTITIES)|set(LIVENESS)|{'alive','attached','visible','focused','current','text'})
         need(row['kind'] in ('create','chat','scripts') and row['id'] not in ids
             and all(nonce(row[key]) for key in ('id','fieldId','pageId','contextId','windowId','loaderId'))
             and integer(row['firstObservedEpochMs'],1,epoch)
-            and all(type(row[key]) is bool for key in ('alive','attached','visible','focused','current'))
+            and all(type(row[key]) is bool for key in (*LIVENESS,'alive','attached','visible','focused','current'))
             and type(row['text']) is str and row['text'] in ('',*(context(run)[key] for key in ('unicode','reply','retry'))))
         ids.add(row['id'])
-        if not row['alive']:need(not any(row[key] for key in ('attached','visible','focused','current')))
-        if row['current']:need(row['alive'] and row['attached']);current.append(row['id'])
+        need(row['alive']==any(row[key] for key in LIVENESS[:3]))
+        if not row['fieldAlive']:need(not any(row[key] for key in ('attached','visible','focused','current')))
+        if not row['pageAlive'] or not row['loaderAlive']:need(not row['attached'])
+        if not row['windowAlive']:need(not row['visible'])
+        if row['current']:need(all(row[key] for key in LIVENESS) and row['attached']);current.append(row['id'])
         else:need(row['text']=='')
     need(len(current)<=1)
     return current[0] if current else ''
@@ -81,7 +85,8 @@ def accept(previous,current):
             and current['keyboardSequence']>previous['keyboardSequence']
             and len(current['editors'])>=len(previous['editors']))
         for old,new in zip(previous['editors'],current['editors']):
-            need(all(new[key]==old[key] for key in IDENTITIES) and (old['alive'] or not new['alive']))
+            need(all(new[key]==old[key] for key in IDENTITIES)
+                and all(old[key] or not new[key] for key in LIVENESS))
     return deepcopy(current)
 
 

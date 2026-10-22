@@ -42,7 +42,13 @@ reuse cannot resurrect an old token. The complete append-only editor inventory
 retains original kind, tokens and `firstObservedEpochMs`. That timestamp denotes
 actual first observation, never a fabricated QObject creation time. Every read
 independently measures actual liveness, ancestry, clipped field visibility,
-focus, current page and closed owned fixture text. Only the current editor can
+focus, current page and closed owned fixture text. `fieldAlive`, `pageAlive`
+and `contextAlive` measure each original separately; `alive` means at least one
+of those editor objects remains. Complete retirement requires all three false.
+A hidden, detached or partially destroyed original remains retained. The shared
+`windowAlive` and `loaderAlive` flags are independent; their expected survival
+cannot establish editor retirement. A current editor requires all five objects.
+Each object's retirement is irreversible for its original token. Only the current editor can
 expose empty or the run's Unicode/reply/retry draft. There are at most 64 editor
 records, 256 object identities, 4096 visited items and 128 ancestry levels.
 Overflow or an ambiguous current editor is unavailable.
@@ -58,7 +64,8 @@ The private `lifecycle-ui-observation.json` packet has exactly
 `lifecycleUiVersion,commandId,runId,instance,sequence,processId,capturedEpochMs,source`.
 Its source has exactly `complete,tabletShown,onHomeScreen,current,editors,keyboard`.
 Each editor has exactly `id,kind,fieldId,pageId,contextId,windowId,loaderId,
-firstObservedEpochMs,alive,attached,visible,focused,current,text`.
+firstObservedEpochMs,fieldAlive,pageAlive,contextAlive,windowAlive,loaderAlive,
+alive,attached,visible,focused,current,text`.
 
 The guarded internal factory `_lifecycle_ui_source(target)` supplies the existing
 Pico transport. `capture(run)` retains the original JSON and its actual SHA-256,
@@ -81,11 +88,17 @@ python3 tests/check-documentation.py --all
 git diff --check
 ```
 
-The eight Python cases use explicit synthetic original native/keyboard
+The ten Python cases use explicit synthetic original native/keyboard
 boundaries. The compiled Qt5 check loads the real NativeCreate.qml, sends a real
-normal Qt pointer focus, destroys the actual page and reconstructs it. It proves
+normal Qt pointer focus, hides and detaches the original page, deletes only
+the field or context while retaining the original page, destroys the actual page and reconstructs it. It proves
 real context/page/field retirement and new identity, with the same actual window
-and loader. Keyboard and TabletRoot hosting are explicit host boundaries; no
+and loader. The context-only case first destroys the owning engine while its original
+page/field survive, then deletes the orphan invalid context wrapper; deleting
+engine-owned internal contexts directly would violate Qt ownership. An invalid
+but living context wrapper correctly remains retained and cannot be current.
+Qt5 can also retain a context after page destruction. Host destruction does not
+prove normal device Back retires its context. Keyboard and TabletRoot hosting are explicit host boundaries; no
 real VR keyboard, OpenXR input, headset, independent peer or device result is
 claimed. The Pico TabletBridge binding itself remains uncompiled by this narrow
 header/QML check. Full tracking/effective-held-input/original-displacement and
