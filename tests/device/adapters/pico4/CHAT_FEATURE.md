@@ -217,3 +217,15 @@ startup, and authenticated control still affects only the owned `-t 4` process.
 Focused host checks run owned synthetic workers and the original controller
 function; Overte services/devices remain unrun. Native domain/source joins and
 the durable whole network owner must still be composed before full registration.
+
+
+The [original mixer join](../chat_journey/MIXER.md) now composes two separately
+queried fixture sources and both actual native domain/mixer caches, fenced
+once-only removal/restoration, fresh kernel/native identities and both complete
+three-second quiet windows. `ChatSamples` v3 adds explicit historical transition
+frames without a shared state/resource projection; converged checkpoints always
+issue new strict original queries. The old v1/v2 journals are retained and not
+adopted. `_chat_mixer` pins the actual Pico candidate and original role paths;
+its owner survives application teardown. This remains a component: normal
+fallback/retry, independent publication, lifecycle and whole resource/process
+retirement still need composition before complete Chat admission.
