@@ -19,7 +19,7 @@ class EarlyCleanupTests(unittest.TestCase):
     prepared=test_emote_run.EmoteRunTests.prepared
     cleanup_phase=test_emote_run.EmoteRunTests.cleanup_phase
 
-    def call(self):return dict(contractVersion=17,runId=RUN)
+    def call(self):return dict(contractVersion=18,runId=RUN)
 
     def test_failed_cache_admission_can_finish_resource_cleanup_without_creating_view_or_scene(self):
         m=self.model;m.inventory.resources[0]['model']['sha256']='f'*64;run=self.owner()

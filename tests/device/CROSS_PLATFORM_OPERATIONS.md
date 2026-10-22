@@ -123,3 +123,11 @@ Each area has a mandatory capability gate even for exploratory runs. The fixture
 coordinator owns challenge data and an independent actor journal; it does not
 substitute for a real account, domain, asset service, peer or native observer.
 No acceptance policy or physical evidence is promoted by the device-free tests.
+
+
+The current [feature contract v18](FEATURE_JOURNEYS.md#contract-v18-complete-per-feature-retirement)
+requires one further existing cleanup operation after actual fixture closure.
+Original measurement responsibilities must retire within the feature module,
+before another module changes world/process identity. Adapter-global cleanup
+remains the final recovery boundary. No acceptance policy, CI gate or runner
+reservation/timeout is relaxed by this contract change.

@@ -10,7 +10,7 @@ import sys
 import time
 from feature_journeys.engine import Journey
 from feature_journeys.evidence import read_private_artifact
-from feature_journeys.scenarios import SCENARIOS
+from feature_journeys.scenarios import SCENARIOS,VERSION as CONTRACT_VERSION
 from feature_journeys.session import prepare
 from feature_journeys.audio_cleanup import identity as audio_cleanup_identity
 from feature_journeys.witness import Client
@@ -29,6 +29,7 @@ def main():
     session = OverteSession()
     identity = old_identity = None
     audio_cleanup_restarted=False
+    used_adapter=False
     try:
         prepare(session, args.area)
         identity = process_identity()
@@ -47,7 +48,8 @@ def main():
             assert_foreground('normal feature observation')
 
         def invoke(operation, fields):
-            nonlocal identity,audio_cleanup_restarted
+            nonlocal identity,audio_cleanup_restarted,used_adapter
+            used_adapter=True
             prefix, area, kind = operation.split('.')
             value=session.feature_operation(area, kind, fields)
             if area=='audio' and kind=='cleanup':
@@ -70,10 +72,24 @@ def main():
         already_failing = sys.exc_info()[0] is not None
         try:
             client.close()
-        except (ValueError, OSError):
-            write_json('feature-fixture-cleanup.json', {'cleanupSucceeded': False})
+            if used_adapter:
+                # The preceding common quiet checkpoint still needed the live
+                # peer/provider. Now retire their original measurement journals
+                # before another feature can change the world or process. This
+                # uses the same idempotent v18 cleanup operation and run scope.
+                session.feature_operation(args.area,'cleanup',dict(contractVersion=CONTRACT_VERSION,runId=run))
+                if identity is not None:
+                    assert_process(identity,'after owned feature journal retirement')
+                    assert_foreground('after owned feature journal retirement')
+        except Exception:
+            try:
+                write_json('feature-fixture-cleanup.json', {'cleanupSucceeded': False})
+            except (OSError,ValueError):
+                # Preserve an earlier product failure even if diagnostics fail.
+                if not already_failing:
+                    raise InfrastructureError('Owned feature retirement diagnostics failed') from None
             if not already_failing:
-                raise InfrastructureError('Owned feature fixture cleanup failed')
+                raise InfrastructureError('Owned feature fixture or measurement retirement failed') from None
     print('Common feature journey completed; physical acceptance requires separate governed evidence.')
 
 

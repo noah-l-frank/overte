@@ -35,8 +35,8 @@ class EmoteFeatureTests(unittest.TestCase):
             admission=run.policy,image_policy=POLICY,monotonic=run.monotonic,sleep=run.sleep)
 
     def feature(self,run=None):return PhoneEmoteFeature(self.owner() if run is None else run,POLICY)
-    def observation(self,after=0):return dict(contractVersion=17,runId=RUN,afterSequence=after)
-    def cleanup_call(self):return dict(contractVersion=17,runId=RUN)
+    def observation(self,after=0):return dict(contractVersion=18,runId=RUN,afterSequence=after)
+    def cleanup_call(self):return dict(contractVersion=18,runId=RUN)
 
     def test_baseline_prepares_and_each_public_observation_has_a_new_actual_source(self):
         feature=self.feature();first=feature.observe(self.observation())

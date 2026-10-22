@@ -56,7 +56,7 @@ class Model(scene_fixture.Model):
 class GraphicsPreferenceTests(unittest.TestCase):
     def setUp(self):self.model=Model();self.addCleanup(self.model.close)
     def call(self,verb,**inputs):
-        return dict(contractVersion=17,runId=RUN,ticket=uuid.uuid4().hex,
+        return dict(contractVersion=18,runId=RUN,ticket=uuid.uuid4().hex,
             fixtureUrl=self.model.client.url+'/runs/'+RUN+'/',verb=verb,inputs=inputs)
     def ready(self):
         m=self.model;scene=m.factory();scene.prepare();owner=m.preferences(scene);owner.prepare();return scene,owner

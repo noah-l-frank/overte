@@ -35,7 +35,7 @@ class UnissuedRetirementTests(unittest.TestCase):
         with self.assertRaises(NativeUIError):self.primary.prepare()
         self.assertEqual(dict(view='unissued',scene='unissued'),self.primary.state['setup'])
         self.model.journal.activate(RUN,'a'*32,'cleanup',{})
-        self.primary.cleanup_resources(dict(contractVersion=17,runId=RUN))
+        self.primary.cleanup_resources(dict(contractVersion=18,runId=RUN))
         return PhoneEmoteActor(self.actor_run(self.client),POLICY)
 
     def closed(self,fault='world'):

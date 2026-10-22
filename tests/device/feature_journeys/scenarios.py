@@ -7,7 +7,7 @@ owned fixture context. Each checkpoint is a complete state, not an adapter verdi
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
 
-VERSION = 17
+VERSION = 18
 
 
 def emote_rows():

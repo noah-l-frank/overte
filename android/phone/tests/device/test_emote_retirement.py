@@ -31,7 +31,7 @@ class EmoteRetirementTests(unittest.TestCase):
         flow=self.start();self.assertFalse(flow.step())
         with self.primary.lock.held():PhoneEmoteRole(self.primary,'primary',POLICY).read(0)
         self.model.journal.activate(RUN,'a'*32,'cleanup',{})
-        self.primary.cleanup_resources(dict(contractVersion=17,runId=RUN));self.primary.cleanup_quiet('primary')
+        self.primary.cleanup_resources(dict(contractVersion=18,runId=RUN));self.primary.cleanup_quiet('primary')
         self.assertFalse(flow.step());self.assertEqual('drained',flow.state['phase'])
         with self.primary.lock.held():
             role=PhoneEmoteRole(self.primary,'primary',POLICY);role.read(role.state['sequence'])

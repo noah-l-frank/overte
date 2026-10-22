@@ -1,7 +1,7 @@
 # Overte physical-device E2E harness
 
 The [Phone World Navigation adapter](adapters/android-phone/WORLD_NAVIGATION_FEATURE.md)
-now connects the complete public triple and common v17 Journey. Host composition
+now connects the complete public triple and common v18 Journey. Host composition
 and a partial native Qt6 check are verified; Android product compilation and
 all device acceptance remain unverified.
 
@@ -41,7 +41,7 @@ modules with missing feature workflows. See the [coverage matrix](FEATURE_COVERA
 and [adapter handoff](FEATURE_ADAPTER_HANDOFF.md): shared logic is implemented;
 nine Phone area compositions are source implemented and host verified: Navigation,
 Authentication, Create, Emotes, World Web, Tablet Web, Graphics, Audio and Scripts, including
-their mandatory foundations. Other Phone areas remain in progress. Component
+their mandatory foundations. Other Phone areas remain in progress. The shared v18 cleanup lifecycle now requires complete measurement retirement after actual fixture closure; see [the lifecycle contract](FEATURE_JOURNEYS.md#contract-v18-complete-per-feature-retirement). Component
 Qt/Java/JNI builds cover only their documented boundaries; complete Android
 compilation and every device acceptance remain unverified. See the current
 [coverage matrix](FEATURE_COVERAGE.md) for the exact integration status and

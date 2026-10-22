@@ -92,8 +92,8 @@ class CreateFeatureHarness:
     def call(self,verb,inputs=None):
         ticket=os.urandom(16).hex();inputs={} if inputs is None else inputs;self.client.activate(ticket,verb,inputs)
         self.target.ticket=ticket
-        return dict(contractVersion=17,runId=RUN,fixtureUrl=self.context['fixtureUrl'],ticket=ticket,verb=verb,inputs=inputs)
-    def observe(self,after=0):return self.feature().observe(dict(contractVersion=17,runId=RUN,afterSequence=after))
+        return dict(contractVersion=18,runId=RUN,fixtureUrl=self.context['fixtureUrl'],ticket=ticket,verb=verb,inputs=inputs)
+    def observe(self,after=0):return self.feature().observe(dict(contractVersion=18,runId=RUN,afterSequence=after))
     def start_actor(self):
         path=self.root/'actor-test-configuration.json';PrivateFeatureState(path).write(dict(targetUrl=self.url,root=str(self.root),fixtureUrl=self.base,actorToken='a'*64),None)
         self.actor=subprocess.Popen([sys.executable,'-c',ACTOR,json.dumps(sys.path),str(path)],stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
@@ -125,7 +125,7 @@ class CreateFeatureTests(CreateFeatureHarness,unittest.TestCase):
         owner=self.feature()
         with owner.lock.held():
             owner.load();role=PhoneCreateRole(owner,'primary');self.assertEqual('reading',role.state['phase'])
-        self.call('cleanup');self.feature().cleanup(dict(contractVersion=17,runId=RUN))
+        self.call('cleanup');self.feature().cleanup(dict(contractVersion=18,runId=RUN))
         self.assertEqual([],self.target.rows);self.assertFalse(self.files.root.exists())
         self.assertIsNotNone(self.feature().store.read()) # No invented actor retirement.
 
@@ -134,14 +134,14 @@ class CreateFeatureTests(CreateFeatureHarness,unittest.TestCase):
         with self.assertRaises(NativeUIError):self.feature().act(self.call('model-create',dict(resource='gltf-bundle/main.gltf')))
         owner=self.feature()
         with owner.lock.held():owner.load();self.assertEqual(self.target.rows[0]['id'],owner.state['objects'][0]['id'])
-        self.call('cleanup');self.feature().cleanup(dict(contractVersion=17,runId=RUN));self.assertEqual([],self.target.rows)
+        self.call('cleanup');self.feature().cleanup(dict(contractVersion=18,runId=RUN));self.assertEqual([],self.target.rows)
 
     def test_cleanup_cancels_only_owned_actual_picker_before_restoring_tools_and_files(self):
         self.prepared();self.feature().act(self.call('import-picker-open',dict(resource='entity-import.json')))
         self.assertIsNotNone(self.target.widgets.dialog);self.call('cleanup')
-        self.assertEqual({'performed':True},self.feature().cleanup(dict(contractVersion=17,runId=RUN)))
+        self.assertEqual({'performed':True},self.feature().cleanup(dict(contractVersion=18,runId=RUN)))
         self.assertIsNone(self.target.widgets.dialog);self.assertFalse(self.files.root.exists())
-        self.assertEqual({'performed':True},self.feature().cleanup(dict(contractVersion=17,runId=RUN)))
+        self.assertEqual({'performed':True},self.feature().cleanup(dict(contractVersion=18,runId=RUN)))
 
     def test_lost_original_and_manifest_callbacks_recover_archival_only_then_acquire_new_sources(self):
         self.call('baseline');self.observe()
@@ -171,7 +171,7 @@ class CreateFeatureTests(CreateFeatureHarness,unittest.TestCase):
                 lost[0]=True;raise NativeUIError('Synthetic lost opened archive return')
         with patch.object(feature,'save',side_effect=lose),self.assertRaises(NativeUIError):feature.act(self.call('export-selection'))
         self.assertEqual(b'',(self.root/('create-export-'+RUN+'.json')).read_bytes())
-        self.call('cleanup');self.feature().cleanup(dict(contractVersion=17,runId=RUN))
+        self.call('cleanup');self.feature().cleanup(dict(contractVersion=18,runId=RUN))
         self.assertEqual(0,json.loads((self.root/('create-export-'+RUN+'.json')).read_bytes())['DataVersion'])
         self.assertFalse(self.files.root.exists())
 
@@ -181,7 +181,7 @@ class CreateFeatureTests(CreateFeatureHarness,unittest.TestCase):
         path.rename(path.with_suffix('.retained'));path.write_bytes(b'foreign output');path.chmod(0o600)
         with self.assertRaises(NativeUIError):self.observe()
         self.call('cleanup')
-        with self.assertRaises(NativeUIError):self.feature().cleanup(dict(contractVersion=17,runId=RUN))
+        with self.assertRaises(NativeUIError):self.feature().cleanup(dict(contractVersion=18,runId=RUN))
         self.assertEqual(b'foreign output',path.read_bytes());self.assertIsNotNone(self.feature().store.read())
 
 
@@ -251,7 +251,7 @@ class CreateFeatureTests(CreateFeatureHarness,unittest.TestCase):
             header=PrivateFeatureState(self.root/'phone-create-actor-lifecycle.json').read()
             if header is not None and unpack(header['payload'])[0]['last'] is not None:break
             self.actor_ok();self.assertLess(time.monotonic(),deadline);time.sleep(.05)
-        self.call('cleanup');self.feature().cleanup(dict(contractVersion=17,runId=RUN));started=time.monotonic()
+        self.call('cleanup');self.feature().cleanup(dict(contractVersion=18,runId=RUN));started=time.monotonic()
         while True:
             self.observe();header=PrivateFeatureState(self.root/'phone-create-actor-lifecycle.json').read();state=unpack(header['payload'])[0]
             if state['quiet'] is not None and state['quiet']['complete'] and state['last'] is not None and state['last']['original']['sample']['ticket']==self.client.observe()['ticket'] and time.monotonic()-started>=3:break

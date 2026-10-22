@@ -29,7 +29,7 @@ class SetupRetirementTests(unittest.TestCase):
         with self.assertRaises(NativeUIError):self.primary.prepare()
         self.assertFalse(self.primary.state['prepared']);self.assertIsNotNone(self.primary.state['admissionSha256'])
         self.setup_fault=None;m.journal.activate(RUN,'a'*32,'cleanup',{})
-        self.primary.cleanup_resources(dict(contractVersion=17,runId=RUN));self.primary.cleanup_quiet('primary')
+        self.primary.cleanup_resources(dict(contractVersion=18,runId=RUN));self.primary.cleanup_quiet('primary')
         self.assertFalse(self.primary.state['prepared']);flow=PhoneEmoteActor(self.actor_run(self.client),POLICY)
         self.assertFalse(flow.step());self.reader.request('/runs/'+RUN,method='DELETE');self.assertTrue(flow.step())
         self.assertEqual('unadmitted',flow.state['phase']);return self.primary

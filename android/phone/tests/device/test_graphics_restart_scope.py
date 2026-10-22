@@ -81,7 +81,7 @@ class Model(background_fixture.Model):
 class GraphicsRestartScopeTests(unittest.TestCase):
     def setUp(self):self.model=Model();self.addCleanup(self.model.close)
     def call(self,verb,**inputs):
-        return dict(contractVersion=17,runId=RUN,ticket=uuid.uuid4().hex,
+        return dict(contractVersion=18,runId=RUN,ticket=uuid.uuid4().hex,
             fixtureUrl=self.model.client.url+'/runs/'+RUN+'/',verb=verb,inputs=inputs)
     def ready(self):
         m=self.model;scene=m.factory();scene.prepare();preferences=m.preferences(scene);preferences.prepare()

@@ -25,18 +25,25 @@ class FeatureModuleAudioCleanupTests(unittest.TestCase):
         return module
 
     def execute(self,area,fault=None):
-        module=self.module();state=dict(actual='123:456',reads=0,cleanups=0,guards=[])
+        module=self.module();state=dict(actual='123:456',reads=0,cleanups=0,guards=[],closed=False)
+        self.last_state=state;state['reports']=[]
         class Session:
             def feature_operation(self,_area,kind,fields):
                 if kind=='cleanup':
                     state['cleanups']+=1
-                    if area=='audio' and fault!='ignored' or fault=='other-area-switch':
+                    if state['closed']:
+                        assert fields==dict(contractVersion=18,runId='a'*32)
+                        if fault in ('retirement','journey+retirement','diagnostic'):raise OSError('Original retirement failed')
+                        if fault=='retire-pid':state['actual']='789:123'
+                    elif area=='audio' and fault!='ignored' or fault=='other-area-switch':
                         state['actual']='456:789' if state['cleanups']==1 or fault!='second' else '789:123'
                 return {'performed':True}
         class Client:
             def __init__(self,*_):pass
             def register(self,_):return 'a'*32,'http://127.0.0.1:1/feature-fixture/v1/runs/'+'a'*32+'/'
-            def close(self):pass
+            def close(self):
+                if fault=='close':raise OSError('Actual fixture closure failed')
+                state['closed']=True
             def observe(self):raise AssertionError('Unexpected journal request in the module wiring check')
             def activate(self,*_):pass
             def navigation_status(self):raise AssertionError('Unexpected navigation source read in the module wiring check')
@@ -52,9 +59,15 @@ class FeatureModuleAudioCleanupTests(unittest.TestCase):
             def execute(self):
                 for _ in range(2):
                     self.invoke('feature.'+area+'.cleanup',{});self.continuity('observe',None)
+                if fault in ('journey','journey+retirement','diagnostic'):raise module.AssertionFailure('Original user behavior failed')
+        def report(name,value):
+            if fault=='diagnostic':raise OSError('Actual diagnostic write failure')
+            state['reports'].append((name,value))
+        def prepare(*_):
+            if fault=='prepare':raise ValueError('Preparation failed before any feature operation')
         with tempfile.TemporaryDirectory() as temporary:
             policy=Path(temporary)/'policy.json';policy.write_text(json.dumps({key:{} for key in SCENARIOS}))
-            with patch.multiple(module,Client=Client,OverteSession=Session,Journey=Journey,prepare=lambda *_:None,
+            with patch.multiple(module,Client=Client,OverteSession=Session,Journey=Journey,prepare=prepare,write_json=report,
                     process_identity=process,assert_process=guard,assert_foreground=lambda *_:None),patch.dict(os.environ,{'OVERTE_E2E_FEATURE_IMAGE_POLICY':str(policy)}),patch.object(sys,'argv',['feature_journey.py','--area',area]):
                 module.main()
         return state
@@ -63,8 +76,8 @@ class FeatureModuleAudioCleanupTests(unittest.TestCase):
         self.assertEqual(14,len(SCENARIOS))
         for area in SCENARIOS:
             with self.subTest(area=area):
-                state=self.execute(area);self.assertEqual(2,state['cleanups'])
-                self.assertEqual(['456:789']*2 if area=='audio' else ['123:456']*2,state['guards'])
+                state=self.execute(area);self.assertEqual(3,state['cleanups'])
+                self.assertEqual(['456:789']*3 if area=='audio' else ['123:456']*3,state['guards'])
 
     def test_other_13_areas_reject_replacement_process_during_cleanup(self):
         for area in set(SCENARIOS)-{'audio'}:
@@ -73,6 +86,24 @@ class FeatureModuleAudioCleanupTests(unittest.TestCase):
     def test_audio_ignored_restart_second_restart_and_foreign_identity_stay_red(self):
         for fault in ('ignored','second','foreign'):
             with self.subTest(fault=fault),self.assertRaises(module_support.AssertionFailure):self.execute('audio',fault)
+
+    def test_closed_fixture_finalization_failure_or_new_process_cannot_produce_a_green_module(self):
+        for area in SCENARIOS:
+            for fault in ('retirement','retire-pid','close'):
+                with self.subTest(area=area,fault=fault),self.assertRaises(module_support.InfrastructureError):self.execute(area,fault)
+                state=self.last_state;self.assertEqual(fault!='close',state['closed'])
+                self.assertIn(('feature-fixture-cleanup.json',{'cleanupSucceeded':False}),state['reports'])
+                self.assertEqual(2 if fault=='close' else 3,state['cleanups'])
+
+    def test_original_failure_is_preserved_and_finalization_still_runs(self):
+        for fault in ('journey','journey+retirement','diagnostic'):
+            with self.subTest(fault=fault),self.assertRaisesRegex(module_support.AssertionFailure,'Original user behavior failed'):
+                self.execute('snapshots',fault)
+            self.assertTrue(self.last_state['closed']);self.assertEqual(3,self.last_state['cleanups'])
+
+    def test_preparation_failure_closes_fixture_without_constructing_or_retiring_an_unused_owner(self):
+        with self.assertRaises(module_support.InfrastructureError):self.execute('snapshots','prepare')
+        self.assertTrue(self.last_state['closed']);self.assertEqual(0,self.last_state['cleanups'])
 
     def test_missing_boolean_or_unbounded_os_identity_cannot_be_used(self):
         for value in (None,123,True,'','x'*161,'123\n456'):

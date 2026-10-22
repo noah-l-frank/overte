@@ -67,7 +67,7 @@ class LifetimeFailureTests(unittest.TestCase):
     def test_real_run_cleanup_collects_both_roles_without_copying_primary_work(self):
         m=self.model;run=self.prepared();self.cleaning(run)
         with run.lock.held():headers={role:self.failed(run,role,completed=1) for role in ('primary','actor')}
-        result=run.cleanup_inputs(dict(contractVersion=17,runId=RUN));self.assertEqual(1,result['emoteCleanupInputsVersion'])
+        result=run.cleanup_inputs(dict(contractVersion=18,runId=RUN));self.assertEqual(1,result['emoteCleanupInputsVersion'])
         with run.lock.held():
             failure=PhoneEmoteFailures(run);rows=failure.originals.restore(failure.state['manifests'],failure.state['count'])
             self.assertEqual(['lifetime','lifetime','admission'],[row['kind'] for row in rows])

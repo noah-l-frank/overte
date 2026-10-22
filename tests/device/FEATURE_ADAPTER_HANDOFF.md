@@ -1,3 +1,22 @@
+# Current cleanup lifecycle: v18
+
+The current shared contract is [v18](feature_journeys/adapter-contract.v18.json).
+Its [per-feature retirement phase](FEATURE_JOURNEYS.md#contract-v18-complete-per-feature-retirement)
+closes the original fixture only after normal cleanup and the independent quiet
+checkpoint, then invokes the same cleanup operation again. Implementations must
+join actual provider closure, terminated owned actor, fresh native/file absence,
+retired original host journals and unchanged application process before returning.
+A local phase, cleanup ACK or disappearance of one owner file is insufficient.
+Missing/stale/foreign evidence, pending work, interrupted deletion or a returned
+late file remains a failure. No automatic replay of uncertain input is added.
+
+The Phone dispatcher selects its existing strong finalize methods from an
+independent nonce-bound provider observation. It does not infer any product
+result from provider metadata. Pico/iOS implementations must adopt v18 in their
+own branches before advertising these flows. Historical v17 files below are
+retained; v17 observations are rejected by the v18 runner. This source contract
+change carries no physical-device acceptance.
+
 # Feature adapter handoff, contract v17
 
 The [Phone World Navigation adapter](adapters/android-phone/WORLD_NAVIGATION_FEATURE.md)

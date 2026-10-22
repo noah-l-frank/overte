@@ -9,6 +9,11 @@ from .witness import WITNESS_KEYS
 def inventory():
     return dict(schemaVersion=1, contractVersion=VERSION,
         operationPattern='feature.<area>.act|observe|cleanup',
+        cleanupLifecycle=dict(version=1,normalSuccessCleanupCalls=2,postFixtureCloseCleanupCalls=1,
+            order=['restore-owned-product-resources','independent-three-second-quiet-checkpoint',
+                   'close-original-fixture-run','retire-original-measurement-responsibilities'],
+            retirementRequires=['original-provider-closed','original-actor-terminated','fresh-native-file-absence',
+                                'owned-host-journals-retired','unchanged-application-process']),
         qualification='Shared test logic only. Product adapters and independent target observers are not implemented by this inventory.',
         areas={area:dict(inputVerbs=actions(area),
                         observationFields={key:type(value).__name__ for key,value in scenario['baseline'].items()},

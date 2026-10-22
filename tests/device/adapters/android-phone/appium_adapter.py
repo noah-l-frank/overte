@@ -2264,6 +2264,10 @@ class PhoneAppiumAdapter(AppiumAdapter):
             self.installed_identity(selector)
         return result
 
+    def _invoke_feature(self,selector,operation,values,factory):
+        from overte_phone_feature_dispatch import invoke
+        return invoke(operation,values,factory,self._feature_fixture_client)
+
     def invoke(self, selector, operation, values):
         PhoneAdapter.require_bound_operation(self, operation, values)
         if operation in ('app.launch','scene.load'):
@@ -2272,11 +2276,11 @@ class PhoneAppiumAdapter(AppiumAdapter):
             from feature_journeys.contract import arguments
             arguments(operation,values)
             require(operation in self.advertised_capabilities(self.target(selector)),'PHONE_NAVIGATION_FEATURE_NOT_ENABLED')
-            return getattr(self._navigation_feature(selector,values['runId']),operation.rsplit('.',1)[1])(values)
+            return self._invoke_feature(selector,operation,values,lambda retired:self._navigation_feature(selector,values['runId'],**({'retirement':True} if retired else {})))
         if operation in AUDIO_FEATURE_OPERATIONS:
             from feature_journeys.contract import arguments
             arguments(operation,values);require(operation in self.advertised_capabilities(self.target(selector)),'PHONE_AUDIO_FEATURE_NOT_ENABLED')
-            return getattr(self._audio_feature(selector,values['runId']),operation.rsplit('.',1)[1])(values)
+            return self._invoke_feature(selector,operation,values,lambda retired:self._audio_feature(selector,values['runId'],**({'retirement':True} if retired else {})))
         if operation=='audio.mute' and os.environ.get('OVERTE_PHONE_FEATURE_AUDIO','0')=='1':
             from overte_phone_audio_mute import PhoneAudioMute
             arguments=validate_operation_arguments(operation,values);require(operation in self.advertised_capabilities(self.target(selector)),'PHONE_AUDIO_CONTROLS_NOT_ENABLED')
@@ -2286,19 +2290,19 @@ class PhoneAppiumAdapter(AppiumAdapter):
             arguments(operation,values)
             require(operation in self.advertised_capabilities(self.target(selector)),
                     'PHONE_SCRIPT_FEATURE_NOT_ENABLED')
-            return getattr(self._script_feature(selector,values['runId']),operation.rsplit('.',1)[1])(values)
+            return self._invoke_feature(selector,operation,values,lambda retired:self._script_feature(selector,values['runId']))
         if operation in AUTHENTICATION_FEATURE_OPERATIONS:
             from feature_journeys.contract import arguments
             arguments(operation,values)
             require(operation in self.advertised_capabilities(self.target(selector)),
                     'PHONE_AUTHENTICATION_FEATURE_NOT_ENABLED')
-            return getattr(self._authentication_feature(selector,values['runId']),operation.rsplit('.',1)[1])(values)
+            return self._invoke_feature(selector,operation,values,lambda retired:self._authentication_feature(selector,values['runId']))
         if operation in GRAPHICS_FEATURE_OPERATIONS:
             from feature_journeys.contract import arguments
             arguments(operation,values)
             require(operation in self.advertised_capabilities(self.target(selector)),
                     'PHONE_GRAPHICS_FEATURE_NOT_ENABLED')
-            return getattr(self._graphics_feature(selector,values['runId']),operation.rsplit('.',1)[1])(values)
+            return self._invoke_feature(selector,operation,values,lambda retired:self._graphics_feature(selector,values['runId'],**({'retirement':True} if retired else {})))
         if operation in WEB_REFERENCE_OPERATIONS:
             values=validate_operation_arguments(operation,values)
             require(operation in self.advertised_capabilities(self.target(selector)),'PHONE_WEB_REFERENCE_NOT_ENABLED')
@@ -2307,7 +2311,7 @@ class PhoneAppiumAdapter(AppiumAdapter):
             from feature_journeys.contract import arguments
             arguments(operation,values)
             require(operation in self.advertised_capabilities(self.target(selector)),'PHONE_WORLD_WEB_FEATURE_NOT_ENABLED')
-            return getattr(self._world_web_feature(selector,values['runId']),operation.rsplit('.',1)[1])(values)
+            return self._invoke_feature(selector,operation,values,lambda retired:self._world_web_feature(selector,values['runId'],**({'retirement':True} if retired else {})))
         if operation in TABLET_FOUNDATION_OPERATIONS and os.environ.get('OVERTE_PHONE_FEATURE_TABLET_WEB','0')=='1':
             validate_operation_arguments(operation,values)
             require(operation in self.advertised_capabilities(self.target(selector)),'PHONE_TABLET_CONTROLS_NOT_ENABLED')
@@ -2316,18 +2320,18 @@ class PhoneAppiumAdapter(AppiumAdapter):
             from feature_journeys.contract import arguments
             arguments(operation,values)
             require(operation in self.advertised_capabilities(self.target(selector)),'PHONE_TABLET_WEB_FEATURE_NOT_ENABLED')
-            return getattr(self._tablet_web_feature(selector,values['runId']),operation.rsplit('.',1)[1])(values)
+            return self._invoke_feature(selector,operation,values,lambda retired:self._tablet_web_feature(selector,values['runId'],**({'retirement':True} if retired else {})))
         if operation in CREATE_FEATURE_OPERATIONS:
             from feature_journeys.contract import arguments
             arguments(operation,values)
             require(operation in self.advertised_capabilities(self.target(selector)),'PHONE_CREATE_FEATURE_NOT_ENABLED')
-            return getattr(self._create_feature(selector,values['runId']),operation.rsplit('.',1)[1])(values)
+            return self._invoke_feature(selector,operation,values,lambda retired:self._create_feature(selector,values['runId'],**({'retirement':True} if retired else {})))
         if operation in EMOTE_FEATURE_OPERATIONS:
             from feature_journeys.contract import arguments
             arguments(operation,values)
             require(operation in self.advertised_capabilities(self.target(selector)),
                     'PHONE_EMOTE_FEATURE_NOT_ENABLED')
-            return getattr(self._emote_feature(selector,values['runId']),operation.rsplit('.',1)[1])(values)
+            return self._invoke_feature(selector,operation,values,lambda retired:self._emote_feature(selector,values['runId'],**({'retirement':True} if retired else {})))
         if operation.startswith('places.'):
             return self.normal_navigation(selector, operation, values)
         if operation in SNAPSHOT_OPERATIONS:

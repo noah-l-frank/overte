@@ -33,7 +33,7 @@ class EmoteFailureOwnerTests(unittest.TestCase):
 
     def test_real_run_cleanup_transfers_both_pending_streams_before_ordinary_input_restoration(self):
         run=self.prepared();primary=self.failed_source(run);actor=self.failed_source(run,'actor');self.cleanup_phase()
-        proof=run.cleanup_inputs(dict(contractVersion=17,runId=RUN));self.assertEqual(1,proof['emoteCleanupInputsVersion'])
+        proof=run.cleanup_inputs(dict(contractVersion=18,runId=RUN));self.assertEqual(1,proof['emoteCleanupInputsVersion'])
         with run.lock.held():
             failures=PhoneEmoteFailures(run);rows=self.records(failures)
             self.assertEqual(3,len(rows));self.assertIsNone(failures.state['pending'])
@@ -162,7 +162,7 @@ class EmoteFailureOwnerTests(unittest.TestCase):
         m=self.model;m.inventory.resources[0]['model']['sha256']='f'*64;run=self.owner()
         with self.assertRaises(NativeUIError):run.prepare()
         self.assertEqual([],self.setup_calls);self.assertIsNone(run.state['admissionSha256']);self.assertIsNone(run.state['call'])
-        self.cleanup_phase();proof=run.cleanup_inputs(dict(contractVersion=17,runId=RUN))
+        self.cleanup_phase();proof=run.cleanup_inputs(dict(contractVersion=18,runId=RUN))
         self.assertEqual(1,proof['emoteCleanupInputsVersion']);self.assertEqual([],self.setup_calls)
         with run.lock.held():
             owner=PhoneEmoteFailures(run);rows=self.records(owner);self.assertEqual(1,len(rows));row=rows[0]

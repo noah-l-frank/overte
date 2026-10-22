@@ -126,7 +126,7 @@ class EmoteActorTests(unittest.TestCase):
 
     def test_cleanup_requires_own_three_second_work_window_then_fresh_actor_entry(self):
         flow=self.start();m=self.model;self.assertFalse(flow.step());m.journal.activate(RUN,'a'*32,'cleanup',{})
-        self.primary.cleanup_resources(dict(contractVersion=17,runId=RUN));before=len(m.work_commands)
+        self.primary.cleanup_resources(dict(contractVersion=18,runId=RUN));before=len(m.work_commands)
         self.assertFalse(flow.step());self.assertEqual('drained',flow.state['phase']);self.assertIsNotNone(flow.state['quiet'])
         self.assertIsNone(flow.state['pending']);self.assertGreater(len(m.work_commands),before)
         quiet=unpack(flow.state['quiet']['header']['payload'])[0];self.assertEqual('complete',quiet['phase'])
@@ -182,7 +182,7 @@ class EmoteActorTests(unittest.TestCase):
 
     def test_old_backend_sample_cannot_be_relabelled_as_actor_cleanup_retirement(self):
         flow=self.start();m=self.model;flow.step();baseline=deepcopy(flow.state['last'])
-        m.journal.activate(RUN,'a'*32,'cleanup',{});self.primary.cleanup_resources(dict(contractVersion=17,runId=RUN));flow.step()
+        m.journal.activate(RUN,'a'*32,'cleanup',{});self.primary.cleanup_resources(dict(contractVersion=18,runId=RUN));flow.step()
         self.reader.request('/runs/'+RUN,method='DELETE');self.assertTrue(flow.step())
         header=deepcopy(flow.previous);state=unpack(header['payload'])[0];state['last']=baseline;header['payload']=pack([state])
         flow.store.write(header,flow.previous)
@@ -191,7 +191,7 @@ class EmoteActorTests(unittest.TestCase):
 
     def test_retired_actor_still_rejects_unaccounted_scope_metadata(self):
         flow=self.start();m=self.model;m.journal.activate(RUN,'a'*32,'cleanup',{})
-        self.primary.cleanup_resources(dict(contractVersion=17,runId=RUN));self.assertFalse(flow.step())
+        self.primary.cleanup_resources(dict(contractVersion=18,runId=RUN));self.assertFalse(flow.step())
         self.reader.request('/runs/'+RUN,method='DELETE');self.assertTrue(flow.step())
         unknown=PrivateFeatureState(m.root/'phone-emote-actor-observation-777.json');unknown.write(dict(unaccounted=True),None)
         with self.assertRaises(NativeUIError):PhoneEmoteActor(self.actor_run(self.client),POLICY).step()
@@ -199,7 +199,7 @@ class EmoteActorTests(unittest.TestCase):
 
     def test_lost_quiet_retention_return_reuses_original_window_without_work_query_or_redating(self):
         flow=self.start();m=self.model;m.journal.activate(RUN,'a'*32,'cleanup',{})
-        self.primary.cleanup_resources(dict(contractVersion=17,runId=RUN));save=flow.save
+        self.primary.cleanup_resources(dict(contractVersion=18,runId=RUN));save=flow.save
         def lost():
             save()
             if flow.state['quiet'] is not None:raise NativeUIError('Synthetic lost durable quiet retention return')
@@ -235,7 +235,7 @@ class EmoteActorTests(unittest.TestCase):
 
     def test_missing_cleanup_peer_entry_cannot_finish_even_with_real_quiet_window(self):
         flow=self.start();m=self.model;m.journal.activate(RUN,'a'*32,'cleanup',{})
-        self.primary.cleanup_resources(dict(contractVersion=17,runId=RUN));request=self.client.request
+        self.primary.cleanup_resources(dict(contractVersion=18,runId=RUN));request=self.client.request
         def ignored(path,*args,**kwargs):return {} if path.endswith('/samples') else request(path,*args,**kwargs)
         with patch.object(self.client,'request',side_effect=ignored),self.assertRaises(NativeUIError):flow.step()
         self.assertIsNotNone(flow.state['quiet']);self.assertNotEqual('retired',flow.state['phase'])
@@ -293,7 +293,7 @@ class EmoteActorTests(unittest.TestCase):
 
     def test_aged_cleanup_ack_requires_a_new_fresh_sample_before_worker_retirement(self):
         flow=self.start();m=self.model;m.journal.activate(RUN,'a'*32,'cleanup',{})
-        self.primary.cleanup_resources(dict(contractVersion=17,runId=RUN));save=flow.save
+        self.primary.cleanup_resources(dict(contractVersion=18,runId=RUN));save=flow.save
         def lost():
             if flow.state['last'] is not None:raise NativeUIError('Synthetic lost cleanup ack commit')
             return save()
@@ -307,7 +307,7 @@ class EmoteActorTests(unittest.TestCase):
 
     def test_closing_fixture_during_source_read_retains_failed_source_and_role_before_terminal(self):
         flow=self.start();m=self.model;flow.step();m.journal.activate(RUN,'a'*32,'cleanup',{})
-        self.primary.cleanup_resources(dict(contractVersion=17,runId=RUN));self.assertFalse(flow.step())
+        self.primary.cleanup_resources(dict(contractVersion=18,runId=RUN));self.assertFalse(flow.step())
         send=m.native_send;closed=False
         def close(request):
             nonlocal closed
@@ -326,7 +326,7 @@ class EmoteActorTests(unittest.TestCase):
 
     def test_legacy_terminal_actor_is_only_drained_until_actual_fixture_retirement(self):
         flow=self.start();m=self.model;m.journal.activate(RUN,'a'*32,'cleanup',{})
-        self.primary.cleanup_resources(dict(contractVersion=17,runId=RUN));flow.step()
+        self.primary.cleanup_resources(dict(contractVersion=18,runId=RUN));flow.step()
         header=deepcopy(flow.previous);header['emoteActorVersion']=1;state=unpack(header['payload'])[0]
         state.pop('providerRetirement');state['phase']='retired';header['payload']=pack([state]);flow.store.write(header,flow.previous)
         flow=PhoneEmoteActor(self.actor_run(self.client),POLICY)
@@ -339,7 +339,7 @@ class EmoteActorTests(unittest.TestCase):
         for boundary in ('original-planned','original-opened','original-saved','manifest-planned','manifest-saved'):
             with self.subTest(boundary=boundary):
                 self.setUp();flow=self.start();m=self.model;flow.step();m.journal.activate(RUN,'a'*32,'cleanup',{})
-                self.primary.cleanup_resources(dict(contractVersion=17,runId=RUN));flow.step()
+                self.primary.cleanup_resources(dict(contractVersion=18,runId=RUN));flow.step()
                 intent=PhoneEmoteRole.storage_intent;closed=False
                 def close(role,kind,value):
                     nonlocal closed
@@ -358,7 +358,7 @@ class EmoteActorTests(unittest.TestCase):
 
     def test_closed_transfer_mode_cannot_release_a_source_while_fixture_is_active(self):
         flow=self.start();m=self.model;m.journal.activate(RUN,'a'*32,'cleanup',{})
-        self.primary.cleanup_resources(dict(contractVersion=17,runId=RUN));flow.step()
+        self.primary.cleanup_resources(dict(contractVersion=18,runId=RUN));flow.step()
         with flow.run.lock.held():
             flow.run.load();source=flow.run.source('actor')
             with patch.object(source.phase,'read',side_effect=ValueError('Synthetic lost phase read')),self.assertRaises(ValueError):source.read()
@@ -368,14 +368,14 @@ class EmoteActorTests(unittest.TestCase):
 
     def test_terminal_reconstruction_keeps_original_provider_packet_and_all_journal_bytes(self):
         flow=self.start();m=self.model;m.journal.activate(RUN,'a'*32,'cleanup',{})
-        self.primary.cleanup_resources(dict(contractVersion=17,runId=RUN));flow.step()
+        self.primary.cleanup_resources(dict(contractVersion=18,runId=RUN));flow.step()
         self.reader.request('/runs/'+RUN,method='DELETE');self.assertTrue(flow.step());header=deepcopy(flow.previous)
         flow=PhoneEmoteActor(self.actor_run(self.client),POLICY);self.assertTrue(flow.step())
         self.assertEqual(header,flow.store.read());self.assertEqual(header,flow.previous)
 
     def test_missing_cleanup_peer_and_quiet_proof_cannot_end_when_fixture_closes(self):
         flow=self.start();m=self.model;flow.step();m.journal.activate(RUN,'a'*32,'cleanup',{})
-        self.primary.cleanup_resources(dict(contractVersion=17,runId=RUN));self.reader.request('/runs/'+RUN,method='DELETE')
+        self.primary.cleanup_resources(dict(contractVersion=18,runId=RUN));self.reader.request('/runs/'+RUN,method='DELETE')
         with self.assertRaises(NativeUIError):flow.step()
         self.assertIsNone(flow.state['providerRetirement']);self.assertEqual('watching',flow.state['phase'])
         self.assertNotEqual('a'*32,flow.state['last']['sample']['ticket'])
@@ -384,7 +384,7 @@ class EmoteActorTests(unittest.TestCase):
         for boundary in ('original-opened','manifest-saved','final'):
             with self.subTest(boundary=boundary):
                 self.setUp();flow=self.start();m=self.model;flow.step();m.journal.activate(RUN,'a'*32,'cleanup',{})
-                self.primary.cleanup_resources(dict(contractVersion=17,runId=RUN));flow.step()
+                self.primary.cleanup_resources(dict(contractVersion=18,runId=RUN));flow.step()
                 native=m.native_send;closed=False;intent=PhoneEmoteFailures.storage_intent;save=PhoneEmoteFailures.save
                 def close(request):
                     nonlocal closed
@@ -407,7 +407,7 @@ class EmoteActorTests(unittest.TestCase):
 
     def test_foreign_closed_provider_or_old_record_version_cannot_adopt_closed_read_proof(self):
         flow=self.start();m=self.model;flow.step();m.journal.activate(RUN,'a'*32,'cleanup',{})
-        self.primary.cleanup_resources(dict(contractVersion=17,runId=RUN));flow.step();send=m.native_send;closed=False
+        self.primary.cleanup_resources(dict(contractVersion=18,runId=RUN));flow.step();send=m.native_send;closed=False
         def close(request):
             nonlocal closed
             value=send(request)
@@ -439,7 +439,7 @@ class EmoteActorTests(unittest.TestCase):
             legacy={key:item for key,item in value.items() if key!='imagePolicy'}
             legacy.update(area=area,fixtureUrl='https://accounts.overte.test/feature-fixture/v1')
             store.write(legacy,store.read());self.assertEqual(legacy,script_observer.configuration(path))
-        m.journal.activate(RUN,'a'*32,'cleanup',{});self.primary.cleanup_resources(dict(contractVersion=17,runId=RUN))
+        m.journal.activate(RUN,'a'*32,'cleanup',{});self.primary.cleanup_resources(dict(contractVersion=18,runId=RUN))
         made=[]
         def factory(selector,run,*,client,image_policy):
             self.assertEqual(('owned',RUN,self.client.token),(selector,run,client.token));self.assertEqual(POLICY,image_policy)

@@ -1,0 +1,299 @@
+{
+  "schemaVersion": 1,
+  "sourceBase": "7636452f2124029798948aafae70ecff5c5fa7d0",
+  "historicalOverviewUsedAsAuthority": false,
+  "repositoryWrites": "local-only",
+  "physicalRuns": 0,
+  "qualification": "Device-free simulation proves common test logic only; v18 additionally requires measurement retirement after fixture closure.",
+  "rows": [
+    {
+      "area": "world-navigation",
+      "existingModules": [
+        "domain-enter",
+        "domain-roundtrip",
+        "places-navigation",
+        "look",
+        "move",
+        "input-neutral",
+        "collision",
+        "jump",
+        "fly",
+        "scene-reload"
+      ],
+      "commonModule": "feature-world-navigation",
+      "addedFlow": "Actual Places query/model and page lifecycle; bookmark cancel/add/rename/delete/restart durability; actual directory and named 404 inputs, native modal dismissal and arrival recovery.",
+      "declaredCheckpoints": 15,
+      "requiredEvidence": [
+        "changed",
+        "image",
+        "peer"
+      ],
+      "testLogic": "implemented",
+      "adapter": "missing",
+      "device": "untested",
+      "executionDependency": "Qualified product adapter and independent target observer required. Owned navigation provider v1 with source-bound original protocol signature/scene inputs is mandatory. Native loaded-row/arrival, current named-lookup 404/modal and bookmark persistence sources remain unimplemented in full adapters.",
+      "sourceCorrectionRequired": false
+    },
+    {
+      "area": "authentication",
+      "existingModules": [],
+      "commonModule": "feature-authentication",
+      "addedFlow": "Invalid login; pending view close/reopen; real restart before valid old grant issuance; owned login persistence; native logout and separate fixture revocation.",
+      "declaredCheckpoints": 17,
+      "requiredEvidence": [
+        "peer"
+      ],
+      "testLogic": "implemented",
+      "adapter": "missing",
+      "device": "untested",
+      "executionDependency": "Qualified product adapter and independently measuring fixture observer required; no production backend or peer is simulated as acceptance.",
+      "sourceCorrectionRequired": false
+    },
+    {
+      "area": "avatar-people",
+      "existingModules": [
+        "multi-user"
+      ],
+      "commonModule": "feature-avatar-people",
+      "addedFlow": "Actual loaded versus requested avatar, pinned Model wearable, native failed-load history and bookmark recovery; mutual contact consent/cancel/reject/removal.",
+      "declaredCheckpoints": 15,
+      "requiredEvidence": [
+        "changed",
+        "image",
+        "peer"
+      ],
+      "testLogic": "implemented",
+      "adapter": "missing",
+      "device": "untested",
+      "executionDependency": "Qualified product adapter and independently measuring fixture observer required; no production backend or peer is simulated as acceptance.",
+      "sourceCorrectionRequired": false
+    },
+    {
+      "area": "create",
+      "existingModules": [
+        "create-management",
+        "entity-sync",
+        "world-interaction"
+      ],
+      "commonModule": "feature-create",
+      "addedFlow": "Ordinary glTF/OBJ Model URL creation; real entity-JSON picker cancel/accept; exact-slot texture/export, voxel and actual rez-denial/retry.",
+      "declaredCheckpoints": 21,
+      "requiredEvidence": [
+        "changed",
+        "file",
+        "image",
+        "peer"
+      ],
+      "testLogic": "implemented",
+      "adapter": "missing",
+      "device": "untested",
+      "executionDependency": "Qualified product adapter and independently measuring fixture observer required; no production backend or peer is simulated as acceptance.",
+      "sourceCorrectionRequired": false
+    },
+    {
+      "area": "emotes",
+      "existingModules": [],
+      "commonModule": "feature-emotes",
+      "addedFlow": "Ten normal Emotes and three actual randomized Sit variants; original compiled caller/loaded native moving-frame evidence for short active clips, original PNG and independent facts; natural completion and longer Crying override with actual early cancellation, resume and cleanup.",
+      "declaredCheckpoints": 28,
+      "requiredEvidence": [
+        "changed",
+        "file",
+        "image",
+        "peer"
+      ],
+      "testLogic": "implemented",
+      "adapter": "missing",
+      "device": "untested",
+      "executionDependency": "Qualified product adapter and independently measuring fixture observer required; no production backend or peer is simulated as acceptance.",
+      "sourceCorrectionRequired": false
+    },
+    {
+      "area": "world-web",
+      "existingModules": [
+        "world-web-video"
+      ],
+      "commonModule": "feature-world-web",
+      "addedFlow": "Actual document replacement, normal foreign Send attempt, separate 404/server restoration/Reload, recreated blank resume and fresh echo.",
+      "declaredCheckpoints": 19,
+      "requiredEvidence": [
+        "changed",
+        "image",
+        "peer"
+      ],
+      "testLogic": "implemented",
+      "adapter": "missing",
+      "device": "untested",
+      "executionDependency": "Qualified product adapter and independently measuring fixture observer required; no production backend or peer is simulated as acceptance.",
+      "sourceCorrectionRequired": false
+    },
+    {
+      "area": "graphics",
+      "existingModules": [
+        "render-health"
+      ],
+      "commonModule": "feature-graphics",
+      "addedFlow": "Immediate resolution/haze/mirror controls, close/background/restart durability, original measured preference restoration and actual render effects.",
+      "declaredCheckpoints": 15,
+      "requiredEvidence": [
+        "changed",
+        "image"
+      ],
+      "testLogic": "implemented",
+      "adapter": "missing",
+      "device": "untested",
+      "executionDependency": "Qualified product adapter and independently measuring fixture observer required; no production backend or peer is simulated as acceptance.",
+      "sourceCorrectionRequired": false
+    },
+    {
+      "area": "audio",
+      "existingModules": [
+        "audio-controls",
+        "permission-recovery",
+        "sound-playback",
+        "voice-roundtrip"
+      ],
+      "commonModule": "feature-audio",
+      "addedFlow": "Automatic three-second memory capture/play/drain/completion, real cancel, muted rejection/cancel and background cancellation. OS permission recovery remains in its existing foundation.",
+      "declaredCheckpoints": 14,
+      "requiredEvidence": [
+        "audio",
+        "file",
+        "peer",
+        "silence"
+      ],
+      "testLogic": "implemented",
+      "adapter": "missing",
+      "device": "untested",
+      "executionDependency": "Qualified product adapter and independently measuring fixture observer required; no production backend or peer is simulated as acceptance.",
+      "sourceCorrectionRequired": false
+    },
+    {
+      "area": "chat",
+      "existingModules": [
+        "text-input"
+      ],
+      "commonModule": "feature-chat",
+      "addedFlow": "Actual Local/Domain histories, cancelled draft, distant Local rejection, no-mixer local fallback and explicit retyped resend; independent peer delivery. Actual closed-page absence; resumed channel/history and independently measured draft/focus/keyboard.",
+      "declaredCheckpoints": 25,
+      "requiredEvidence": [
+        "peer"
+      ],
+      "testLogic": "implemented",
+      "adapter": "missing",
+      "device": "untested",
+      "executionDependency": "Qualified product adapter and independently measuring fixture observer required; no production backend or peer is simulated as acceptance.",
+      "sourceCorrectionRequired": false
+    },
+    {
+      "area": "snapshots",
+      "existingModules": [
+        "snapshot-output-parity"
+      ],
+      "commonModule": "feature-snapshots",
+      "addedFlow": "Observed pending capture cancellation; private capture despite denied Photos Save; actual Photos/MediaStore/document-picker Save; observed share sheet cancellation/owned delivery; original upload bytes, retry and resume.",
+      "declaredCheckpoints": 18,
+      "requiredEvidence": [
+        "file",
+        "image",
+        "peer"
+      ],
+      "testLogic": "implemented",
+      "adapter": "missing",
+      "device": "untested",
+      "executionDependency": "Qualified product adapter and independently measuring fixture observer required; no production backend or peer is simulated as acceptance.",
+      "sourceProfiles": [
+        "photos-add-only",
+        "media-store",
+        "document-picker"
+      ],
+      "profileCheckpoints": {
+        "photos-add-only": 15,
+        "media-store": 12,
+        "document-picker": 15
+      },
+      "sourceCorrectionRequired": false
+    },
+    {
+      "area": "scripts",
+      "existingModules": [
+        "scripts-management",
+        "scripted-entity"
+      ],
+      "commonModule": "feature-scripts",
+      "addedFlow": "Mobile default-only startup: actual old-process exit, stopped owned execution/companions/effects and closed manager; explicit normal reopen, cancelled picker and reimport of the same controlled bundle; normal stop and real missing-URL/native UI error.",
+      "declaredCheckpoints": 19,
+      "requiredEvidence": [
+        "peer"
+      ],
+      "testLogic": "implemented",
+      "adapter": "missing",
+      "device": "untested",
+      "executionDependency": "Full v16 adapter and independent observer required. Verify original old-PID exit, distinct new native process/source, original staged-file ownership/bytes and actual empty new owned engine/effect state; no automatic replay or staged-file replacement inside restart. Reopen and reimport only through normal UI; all six Script state fields need independent evidence.",
+      "sourceCorrectionRequired": false
+    },
+    {
+      "area": "assets",
+      "existingModules": [
+        "asset-load"
+      ],
+      "commonModule": "feature-assets",
+      "addedFlow": "Original glTF/OBJ bundle filenames/companions, folder rename, actual FBX bake disable/enable, import, disabled Delete, original selected-file disappearance and picker cancellation.",
+      "declaredCheckpoints": 29,
+      "requiredEvidence": [
+        "changed",
+        "file",
+        "image",
+        "peer"
+      ],
+      "testLogic": "implemented",
+      "adapter": "missing",
+      "device": "untested",
+      "executionDependency": "Qualified product adapter, actual asset-server/oven backend and independently measuring fixture observer required; no production backend or peer is simulated as acceptance.",
+      "sourceCorrectionRequired": false
+    },
+    {
+      "area": "lifecycle-input",
+      "existingModules": [
+        "lifecycle-under-load",
+        "tablet-input-isolation",
+        "text-input"
+      ],
+      "commonModule": "feature-lifecycle-input",
+      "addedFlow": "Distinct Create/Chat/Scripts native editor contexts and drafts, actual page Back, retained pending old-context input and real rejected dispatch, held world input/release with stationary proof, preserved original input counters and cleanup.",
+      "declaredCheckpoints": 16,
+      "requiredEvidence": [
+        "changed",
+        "image",
+        "peer"
+      ],
+      "testLogic": "implemented",
+      "adapter": "missing",
+      "device": "untested",
+      "executionDependency": "Qualified normal editor/Back/keyboard/controller routes, original pending-commit capture/rejection history and independently measuring observer required. Pico Create page Back is not established by the reviewed actual 3D tablet source; do not substitute Home or a direct handler call.",
+      "sourceCorrectionRequired": false
+    },
+    {
+      "area": "tablet-web",
+      "existingModules": [
+        "tablet-web-video",
+        "tablet"
+      ],
+      "commonModule": "feature-tablet-web",
+      "addedFlow": "Actual document replacement, normal foreign Send attempt, separate 404/server restoration/Reload, recreated blank resume and fresh echo; real native inline carrier and retired original callback.",
+      "declaredCheckpoints": 26,
+      "requiredEvidence": [
+        "changed",
+        "image",
+        "peer"
+      ],
+      "testLogic": "implemented",
+      "adapter": "missing",
+      "device": "untested",
+      "executionDependency": "Qualified product adapter and independently measuring fixture observer required; no production backend or peer is simulated as acceptance.",
+      "sourceCorrectionRequired": false
+    }
+  ],
+  "contractVersion": 18,
+  "cleanupLifecycleVersion": 1
+}

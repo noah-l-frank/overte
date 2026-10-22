@@ -37,7 +37,7 @@ class CreateRegistrationTests(unittest.TestCase):
                 if flag=='0':
                     self.assertFalse(any(value.startswith('feature.create.') for value in self.f.adapter.advertised_capabilities(self.f.target)))
                     with self.assertRaisesRegex(ValueError,'PHONE_CREATE_FEATURE_NOT_ENABLED'):
-                        self.f.adapter.invoke(bound.SELECTOR,'feature.create.observe',dict(contractVersion=17,runId='a'*32,afterSequence=0))
+                        self.f.adapter.invoke(bound.SELECTOR,'feature.create.observe',dict(contractVersion=18,runId='a'*32,afterSequence=0))
                 else:
                     with self.assertRaises(ValueError):self.f.adapter.advertised_capabilities(self.f.target)
                 owner.assert_not_called()

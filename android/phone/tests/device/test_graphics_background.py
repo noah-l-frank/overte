@@ -53,7 +53,7 @@ class Model(preferences_fixture.Model):
 class GraphicsBackgroundTests(unittest.TestCase):
     def setUp(self):self.model=Model();self.addCleanup(self.model.close)
     def call(self):
-        return dict(contractVersion=17,runId=preferences_fixture.RUN,ticket=uuid.uuid4().hex,
+        return dict(contractVersion=18,runId=preferences_fixture.RUN,ticket=uuid.uuid4().hex,
             fixtureUrl=self.model.client.url+'/runs/'+preferences_fixture.RUN+'/',verb='background-resume',inputs={})
     def ready(self):
         m=self.model;scene=m.factory();scene.prepare();preferences=m.preferences(scene);preferences.prepare()

@@ -102,7 +102,7 @@ class EmoteRoleFailureTests(unittest.TestCase):
             with self.assertRaises((NativeUIError,RuntimeError)):role.read(0)
             header=deepcopy(role.previous)
         m.capture_fault=None;m.journal.activate(RUN,'a'*32,'cleanup',{})
-        result=run.cleanup_inputs(dict(contractVersion=17,runId=RUN));self.assertEqual(1,result['emoteCleanupInputsVersion'])
+        result=run.cleanup_inputs(dict(contractVersion=18,runId=RUN));self.assertEqual(1,result['emoteCleanupInputsVersion'])
         self.assertIsNone(m.actual_name);self.assertFalse(m.widgets.tablet)
         with run.lock.held():
             failure=PhoneEmoteFailures(run);rows=failure.originals.restore(failure.state['manifests'],failure.state['count'])
@@ -228,7 +228,7 @@ class EmoteRoleFailureTests(unittest.TestCase):
             with patch.object(role,'commit',side_effect=NativeUIError('Synthetic lost final role write')),self.assertRaises(NativeUIError):role.read(0)
             old=role.originals.read(role.state['pending']['original'])['public'];self.assertEqual(0,role.state['sequence'])
             self.assertFalse((m.root/'phone-emote-primary-observation-1.json').exists())
-        m.journal.activate(RUN,'a'*32,'cleanup',{});run.cleanup_resources(dict(contractVersion=17,runId=RUN))
+        m.journal.activate(RUN,'a'*32,'cleanup',{});run.cleanup_resources(dict(contractVersion=18,runId=RUN))
         with run.lock.held():
             role=PhoneEmoteRole(run,'primary',POLICY);value=role.read(0)
             self.assertEqual(1,value['sequence']);self.assertFalse(value['state']['override']);self.assertEqual('idle',value['state']['animation'])

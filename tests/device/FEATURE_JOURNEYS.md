@@ -24,8 +24,8 @@ The source of truth for actions and checkpoints is
 is in [`contract.py`](feature_journeys/contract.py), execution in
 [`engine.py`](feature_journeys/engine.py), and byte inspection in
 [`evidence.py`](feature_journeys/evidence.py). The checked
-[adapter inventory](feature_journeys/adapter-contract.v17.json) contains input
-vocabularies, observation field types and independent witness fields. Its v17
+[adapter inventory](feature_journeys/adapter-contract.v18.json) contains input
+vocabularies, observation field types and independent witness fields. Its v18
 contract is registered in `contract-versions.json`; breaking changes require a
 new version and explicit compatibility policy for still-supported producers.
 
@@ -34,6 +34,35 @@ In v17 active Emotes additionally require an original
 frames over the measured-duration-based window qualify brief one-shot clips;
 reports distinguish this from repeated public RPC sampling. Images, independent
 facts, freshness and complete cleanup remain mandatory.
+
+## Contract v18: complete per-feature retirement
+
+The successful module performs both normal cleanup calls and the unchanged
+three-second independent quiet checkpoint while the original fixture/peer is
+still live. It then closes its original fixture run and invokes the same
+`feature.<area>.cleanup` operation once more, with contractVersion 18 and the
+same runId. No new transport verb, test runner or target selection is introduced.
+The final call must finish original actor termination, native/file absence and
+owned measurement-journal retirement before the module succeeds. A later
+feature must not invalidate an earlier feature's world/PID-bound originals.
+
+Adapters distinguish the live and retired phases through fresh independent
+original provider observations. Neither a local cleaned flag nor the caller's
+cleanup request proves closure or absence. The Phone dispatcher only selects
+its existing strict owner finalizer; that finalizer still verifies its retained
+provider, actor, native and file evidence and recovers interrupted retirement.
+A cleanup acknowledgment by itself is never sufficient. Finalization must not
+restart the application; the module retains its independently read process
+identity and foreground guards. Audio retains its one documented normal cleanup
+restart before fixture closure; no second restart is allowed afterwards.
+
+Failure during the original journey remains a failure even if retirement
+succeeds. Failed closure/retirement remains red and retains unresolved owners.
+An unused owner is not created after preparation failure. Historical v17
+inventory/coverage files remain unchanged for source history; v17 observations
+are not accepted by the v18 runner. Recompile/propagate the common contract and
+implement this cleanup lifecycle before enabling a platform's v18 capability.
+Finish any existing v17 run and its retained retirement with its original matching owner before selecting v18; journals are never rewritten or deleted to manufacture compatibility. There is no physical-evidence migration or acceptance promotion.
 
 ## Device-free verification
 
