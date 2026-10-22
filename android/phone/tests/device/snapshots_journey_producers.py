@@ -97,7 +97,15 @@ class SnapshotProduct(Product):
     def send(self,command):
         self.epoch=self.model.now()
         request=command['request']
-        if request['action']!='observe':self.intents.append(dict(request=deepcopy(request)))
+        if request['action']!='observe':
+            self.refresh();rows=[row for row in self.controls if row['id']==request['controlId']]
+            if (request['instance']!=self.instance or request['generation']!=self.generation
+                    or request['sequence']!=self.commands+1 or len(rows)!=1
+                    or rows[0]['token']!=request['controlToken'] or not rows[0]['enabled'] or not rows[0]['inputReady']):
+                raise RuntimeError('Original live Snapshot widget admission rejected the input')
+            if request['action']=='replace' and not rows[0]['focused']:
+                raise RuntimeError('Original Snapshot text field is not focused')
+            self.intents.append(dict(request=deepcopy(request)))
         super().send(command)
         request=command['request']
         if request['action']!='observe' and request['controlId'] not in self.ignored:

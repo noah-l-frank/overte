@@ -275,6 +275,21 @@ class SnapshotJourneyTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError,'cannot be prepared twice'):self.model.marker_input(replacement)
         self.assertEqual(retired,self.model.marker)
 
+    def test_native_widget_producer_cannot_turn_foreign_or_stale_inputs_into_save_effects(self):
+        self.client.activate('c'*32);self.invoke('feature.snapshots.observe',dict(contractVersion=VERSION,runId=RUN,afterSequence=0))
+        self.act('open');self.act('capture',dict(mode='still',format='png'))
+        io=self.proxy._snapshot_normal_controls(None,lambda _:True).io
+        actual=io.capture();id=next(row['id'] for row in actual['controls'] if row['id'].startswith('snapshot.save.'))
+        planned=io._prepare(id,'activate',reference=actual)
+        for mutation in (dict(instance='0'*32),dict(generation='0'*32),dict(sequence=planned['sequence']-1),
+                         dict(controlToken='0'*32),dict(controlId='snapshot.save.'+'0'*64)):
+            before=self.model.product.commands
+            with self.subTest(mutation=tuple(mutation)),self.assertRaisesRegex(RuntimeError,'widget admission'):
+                self.model.product.send(dict(schemaVersion=1,commandId=planned['commandId'],action='phone-snapshot-ui',request=planned|mutation))
+            self.assertEqual(before,self.model.product.commands);self.assertEqual({},self.model.os_files)
+        self.model.product.send(dict(schemaVersion=1,commandId=planned['commandId'],action='phone-snapshot-ui',request=planned))
+        self.assertEqual(1,len(self.model.os_files))
+
     def test_actual_offline_reply_then_new_normal_upload_clears_error_and_publishes(self):
         self.client.activate('c'*32);self.invoke('feature.snapshots.observe',dict(contractVersion=VERSION,runId=RUN,afterSequence=0))
         self.act('open');self.act('capture',dict(mode='still',format='png'));self.act('save')
