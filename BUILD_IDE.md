@@ -1,10 +1,17 @@
-# CLion
-While CLion is proprietary, it is free for non-commercial use. It supports pretty much everything,
-is used by multiple team members, and runs on Linux, Windows, macOS. It is pretty much the same as Android Studio as well,
-so it supports development for every Overte target platform.
-You may want to use [Jetbrain's Toolbox app](https://www.jetbrains.com/toolbox-app/) to get automatic updates for CLion.
+# IDE setup
 
-1. Generate the relevant CMake files for the platform you are on. E.g.: `conan install . -s build_type=Release -b missing -pr:b=tools/conan-profiles/linux -of build -c tools.cmake.cmaketoolchain:generator="Ninja Multi-Config"`
+Prepare the owning branch and its dependencies using [BUILD.md](BUILD.md) and
+the platform build guide first. An IDE uses that toolchain; it does not provide
+the maintainer's private runners or establish support for every platform.
+The screenshots below illustrate IDE configuration and may differ from the
+installed IDE version.
+
+## CLion
+
+CLion can import the generated CMake project. Select the same build directory,
+generator, Conan profiles, and configuration as the command-line build.
+
+1. Generate the relevant CMake files for the platform you are on. E.g.: `conan install . -s build_type=Release -b missing -pr:a=tools/conan-profiles/linux -of build -c tools.cmake.cmaketoolchain:generator="Ninja Multi-Config"`
    See the relevant BUILD_*.md for more details.
 
 2. To work with different build types, run the `conan install` command again, replacing the `-s build_type=Release` with the relevant build type.
@@ -24,20 +31,20 @@ You may want to use [Jetbrain's Toolbox app](https://www.jetbrains.com/toolbox-a
 
    ![Enable CMake profile compatibility](docs/CLion_CMake_3.png "Compatibility of default profiles.")
 
-3. Choose whatever target you want in the top right. Usually this is going to be "interface", which is Overte's client application.
+4. Choose whatever target you want in the top right. Usually this is going to be "interface", which is Overte's client application.
    Keep in mind that the "interface" target is named "Overte" on macOS.
 
-4. Now you at all set for building, running, and debugging.
+5. The selected target is ready for building, running, and debugging.
 
-## Tips
+### Tips
 - `Enable QML language server` in CLion's settings to get warnings from qmllint. The binary is called `qmlls`.
   On Debian this is available in the `qt6-declarative-dev-tools` package and lives in `/usr/lib/qt6/bin/qmlls`.
 
 
-# KDevelop
+## KDevelop
 [KDevelop](https://kdevelop.org/) is a very powerful C++ IDE. While it suffers from some bugs, it is still one of the better IDEs for Overte development on Linux. It also has good QML support.
 
-1. Generate the relevant CMake files for the platform you are on. E.g.: `conan install . -s build_type=Release -b missing -pr:b=tools/conan-profiles/linux -of build -c tools.cmake.cmaketoolchain:generator="Ninja Multi-Config"`
+1. Generate the relevant CMake files for the platform you are on. E.g.: `conan install . -s build_type=Release -b missing -pr:a=tools/conan-profiles/linux -of build -c tools.cmake.cmaketoolchain:generator="Ninja Multi-Config"`
    See the relevant BUILD_*.md for more details.
 2. To work different build types, run the `conan install` command again, replacing the `-s build_type=Release` with the relevant build type.
    E.g. `-s build_type=Debug`. Valid build types are `Release`, `Debug`, and `RelWithDebInfo`.
@@ -58,7 +65,7 @@ You may want to use [Jetbrain's Toolbox app](https://www.jetbrains.com/toolbox-a
 > [!WARNING]
 > ***Any time you change your `CMAKE_BUILD_TYPE` you also need to change your launch configuration using "Run" → "Current Launch Configuration", otherwise you will run the wrong binary!***
 
-## Tips
+### Tips
 - Keep in mind that KDevelop may show incorrect warnings while it is still parsing code in the background.
 - Make sure to have the `kdevelop-python` plugin installed when dealing with Conan recipes.
   The KDevelop Python plugin is developed separately from KDevelop itself, so it is not usually bundled with KDevelop.

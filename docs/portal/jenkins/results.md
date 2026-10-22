@@ -1,6 +1,6 @@
 ---
-last-reviewed: "2026-10-07"
-scope: "Common harness result interpretation and local laboratory diagnosis"
+last-reviewed: "2026-10-20"
+scope: "Common harness results and diagnosis of the maintainer's private Proxmox laboratory"
 ---
 
 # Results and troubleshooting
@@ -8,7 +8,9 @@ scope: "Common harness result interpretation and local laboratory diagnosis"
 Start with the exact Jenkins job and build number. Read the failed stage,
 selected suite's JSON/JUnit, source identity, and cleanup result together.
 The [result contract](../../../tests/device/schema/RESULT_CONTRACT.md) owns the
-machine-readable fields and validation rules.
+common harness fields and validation rules. Inspect the live private job's
+actual command and artifact contract before applying this interpretation to a
+separately configured inline pipeline.
 
 ## Interpret the outcome
 
@@ -27,9 +29,9 @@ artifact verification, publication and cleanup can also fail the Jenkins build.
 
 | Symptom | First checks |
 | --- | --- |
-| Authentication or controller unavailable | `overte-jenkins who-am-i`; local controller availability; the prepared wrapper installation. |
-| Build waiting in the queue | Agent availability and the target resource lock in the local UI. |
-| Configuration rejected before a session | Current product-branch Jenkinsfile and all mandatory external inputs. |
+| Authentication or controller unavailable | `overte-jenkins who-am-i`; prepared wrapper configuration; Proxmox controller availability. Diagnose the Proxmox service without starting the retired workstation lab. |
+| Build waiting in the queue | Actual Proxmox agent availability and the configured target resource lock. |
+| Configuration rejected before a session | Actual job definition, selected source, and mandatory external inputs; do not assume the reference Jenkinsfile is deployed. |
 | Appium or WebDriverAgent cannot create a session | Adapter/toolchain versions, trust and signing prerequisites, profile validity, and the platform transport. |
 | Installed candidate cannot be verified | Exact artifact bytes, producer receipt, installation receipt, and installed-app identity. |
 | Scene/input command succeeds but behavior fails | Fresh advancing probe samples, controlled scene markers, and observed movement/tablet state. |
@@ -42,13 +44,14 @@ an Overte behavior failure.
 
 ## Preserve useful evidence
 
-The pipeline publishes only its explicit allowlist of selector-free results.
+The checked-in shared pipeline publishes only its explicit allowlist of selector-free results.
 Raw screenshots, private target configuration, receipts and build artifacts are
 not generic publishable diagnostics. See
 [isolation and publication](../../../tests/device/jenkins/README.md#isolation-and-publication).
 
-A public test summary contains the job/build, source revision, suite, platform,
-outcome and limitations. Private installation evidence remains private. A run
+A public test summary contains a reviewed job/build reference, source revision,
+suite, platform, outcome and limitations. Private endpoints, target selectors,
+agent paths, and installation evidence remain private. A run
 that passed against an old source does not qualify a newer one.
 
 Document a result separately from completing a tracked issue. The maintainer

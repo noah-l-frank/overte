@@ -13,9 +13,9 @@ The current parity work has one milestone per client in the authorized fork:
 
 | Client | Milestone |
 | --- | --- |
-| iOS / iPadOS | [IOS-P2: Genuine Cross-Client Feature Parity](https://github.com/noah-be/overte/milestone/6) |
-| Android Phone | [PHONE-P2: Genuine Cross-Client Feature Parity](https://github.com/noah-be/overte/milestone/4) |
-| Pico VR | [PICO-P2: Genuine Cross-Client Feature Parity](https://github.com/noah-be/overte/milestone/5) |
+| iOS / iPadOS | [IOS-P2: Genuine Cross-Client Feature Parity](https://github.com/noah-l-frank/overte/milestone/6) |
+| Android Phone | [PHONE-P2: Genuine Cross-Client Feature Parity](https://github.com/noah-l-frank/overte/milestone/4) |
+| Pico VR | [PICO-P2: Genuine Cross-Client Feature Parity](https://github.com/noah-l-frank/overte/milestone/5) |
 
 Each milestone records completed source/host implementation separately from
 open native builds, remaining integration and fourteen current-artifact device

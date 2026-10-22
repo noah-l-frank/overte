@@ -120,6 +120,19 @@ def _roots(prepared_roots):
     return result
 
 
+def _guard_version_pointer(path, git):
+    # The reviewed local guard installs one internal version pointer. Preserve
+    # it in private clones without allowing arbitrary Git metadata aliases.
+    if path != git / "overte-branch-name-guard/current":
+        return False
+    target = os.readlink(path)
+    if re.fullmatch(r"versions/[0-9a-f]{64}", target) is None:
+        return False
+    destination = path.parent / target
+    return (destination.is_dir() and not destination.is_symlink()
+            and destination.resolve(strict=True) == destination)
+
+
 def _ordinary_tree(root, *, snapshot):
     count = 0
     linked = {}
@@ -141,7 +154,9 @@ def _ordinary_tree(root, *, snapshot):
                         require(expected == info.st_nlink, "candidate hardlink inventory changed")
                         linked[key] = (seen + 1, expected)
                 if snapshot and _inside(path, root / ".git"):
-                    require(not stat.S_ISLNK(info.st_mode), "candidate Git metadata contains an external alias")
+                    require(not stat.S_ISLNK(info.st_mode)
+                            or _guard_version_pointer(path, root / ".git"),
+                            "candidate Git metadata contains an external alias")
         require(all(seen == expected for seen, expected in linked.values()),
                 "candidate snapshot has external hardlinks; clone with --no-hardlinks")
     except OSError as error:

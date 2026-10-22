@@ -1,9 +1,12 @@
 # Isolated build and runtime laboratory
 
-This AI-assisted laboratory prepares this worktree's own domain-server and
-assignment-client binaries. The gateway session at
-`/home/user/Documents/github/overte-browser-client` is read-only: none of its
-services, mutable caches, profiles, files, branches, or test resources are changed.
+This AI-assisted software laboratory prepares its worktree's own domain-server
+and assignment-client binaries. It records the maintainer's private research
+setup and dated observations, not a public service or contributor prerequisite.
+The separate gateway worktree and its services, caches, profiles, files, and test
+resources are outside this laboratory's ownership. Host-only browser and
+synthetic-audio fixtures are distinct from the maintainer's physical-device runs,
+which use the [private Proxmox Jenkins laboratory](../portal/jenkins/index.md).
 
 Software and synthetic-audio qualification below is separate from the proposed
 [manual hardware and physical speech check](MANUAL_ACCEPTANCE.md). That check
@@ -12,14 +15,18 @@ its hardware launch and human acceptance remain unqualified.
 
 ## Native dependency and compiler environment
 
-The Fedora 44 host has CMake 4.3.0, Ninja 1.13.2, GCC 16.2.1, Conan 2.25.2,
+The recorded Fedora 44 host environment had CMake 4.3.0, Ninja 1.13.2, GCC 16.2.1, Conan 2.25.2,
 Node.js 24.21.0, Python 3.14.7 and Firefox 156.0. Qt 5 development files are
 absent from the host. Native compilation therefore uses the locally available
 qualified fork-owned image:
 
 ```text
-ghcr.io/noah-be/overte/native-dependencies@sha256:a692b477cd2efdfc1f3d0f059a8eebba4852d37509a2efa945937ef2fe073373
+ghcr.io/noah-l-frank/overte/native-dependencies@sha256:a692b477cd2efdfc1f3d0f059a8eebba4852d37509a2efa945937ef2fe073373
 ```
+
+The current download namespace above matches `browser-direct-client/lab/build-native.py`;
+the immutable digest and original producer metadata are unchanged by the account
+rename. The host versions in this section are dated observations, not universal prerequisites.
 
 `tools/native-tests/packages.py` verified that all three dependency input hashes
 match this image's metadata. Its baseline is

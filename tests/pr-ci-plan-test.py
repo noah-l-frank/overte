@@ -37,6 +37,40 @@ class Objects:
 
 
 class CentralPlannerTests(unittest.TestCase):
+    def test_android_native_owner_is_target_specific_and_excludes_npm_docs_and_java(self):
+        owners = {"android-main": "common", "android-vr": "common",
+                  "android-phone": "phone", "android-vr-pico": "pico"}
+        cases = (("libraries/shared/item.cpp", "int changed = 2;", True),
+                 ("android/common/src/Shared.cpp", "int shared = 2;", True),
+                 ("browser-client/package-lock.json", '{"lockfileVersion":3,"changed":true}', False),
+                 ("script-archive/marketplace/S3Server/package-lock.json", '{"lockfileVersion":3,"changed":true}', False),
+                 ("docs/native.md", "Documentation only", False),
+                 ("android/common/web/java/org/overte/Shared.java", "class Shared {}", False))
+        for target in PLANNER.TARGETS:
+            for path, raw, native in cases:
+                with self.subTest(target=target, path=path):
+                    result = self.plan(self.candidate(path, raw), target)
+                    expected = [owners[target]] if native and target in owners else []
+                    self.assertEqual(result["android_native_products"], expected)
+                    self.assertFalse(result['android_groovy_contracts'])
+                    if expected:
+                        owner = next(task for task in result["tasks"] if task["id"] == "platform:android")
+                        self.assertEqual(owner["command"][-2:], ["--native-product", expected[0]])
+
+    def test_groovy_fixture_selects_only_small_owning_runtime_and_no_native_build(self):
+        result = self.plan(self.candidate('android/vr/pico/native-ci/inputs_test.py', 'pass\n'), 'android-vr-pico')
+        self.assertTrue(result['android_required'])
+        self.assertTrue(result['android_groovy_contracts'])
+        self.assertEqual(result['android_native_products'], [])
+        closure = json.loads((ROOT / '.github/pr-ci-platform-inputs.json').read_text())
+        inputs = next(item['inputs'] for item in closure['infrastructure'] if item['name'] == 'pico-native-ci-inputs')
+        for path in inputs:
+            with self.subTest(path=path):
+                self.assertTrue(PLANNER._android_groovy_required([path], True, 'android-vr-pico',
+                                                               self.trusted, self.objects.read))
+        self.assertFalse(PLANNER._android_groovy_required(['browser-client/package-lock.json'], True,
+                                                        'android-vr-pico', self.trusted, self.objects.read))
+
     def setUp(self):
         self.objects = Objects()
         self.registry = {"schema": 1, "control_inputs": [
@@ -67,6 +101,8 @@ class CentralPlannerTests(unittest.TestCase):
         for project in ("browser-client", "script-archive/marketplace/S3Server", "tools/jsdoc"):
             self.base[project + "/package.json"] = self.objects.entry('{"name":"fixture"}')
             self.base[project + "/package-lock.json"] = self.objects.entry('{"lockfileVersion":3}')
+        self.base['.github/pr-ci-platform-inputs.json'] = self.objects.entry(
+            (ROOT / '.github/pr-ci-platform-inputs.json').read_bytes())
         # The language selector receives the real protected extractor controls;
         # these entries are not a workflow admission or a fabricated run record.
         for path in PLANNER._CODEQL._REVIEWED_CONTROLS:
