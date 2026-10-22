@@ -1,11 +1,9 @@
 # Android Phone source coverage
 
-The original matrix assessment is pinned to
-`4b6ad2974cc85549aafa30f8ef9530bba404f568` (2026-10-22). This supplemental
-source/handoff review covers `462552ea34282c3b1536669abd4fda4c094ad790`,
-including the integrated owned-marker refresh. The versioned
-[JSON matrix](phone-source-coverage.v1.json) retains its original assessed
-revision and records
+This source assessment is pinned to `8112c717643b76d3d4682057f29a0f485fd32efe`
+(2026-10-22) and supersedes the earlier matrix assessment at
+`4b6ad2974cc85549aafa30f8ef9530bba404f568`. The versioned
+[JSON matrix](phone-source-coverage.v1.json) records
 all 14 common v18 areas, their actual Phone Appium declarations/dispatch,
 default-off flags, every catalog foundation and its required capabilities,
 and existing test/handoff paths. It is documentation, not another runner or
@@ -104,15 +102,23 @@ translation units, exercise a real Android renderer/IME/OS, prove live
 network/peer/AssetServer/oven behavior, or establish microphone/camera/device
 acceptance. Assets additionally documents an unresolved product upload callback
 lifetime risk and missing host GLM for a full HFM syntax check; those are not
-resolved by its synthetic composition test. Central source/admission pins and
-global count/profile reconciliation remain integration-owned.
+resolved by its synthetic composition test. Fixed executable-source admission pins reproduce the current Probe and script
+bytes at source `90f659091b92bcb1ee85aeb0053c737193d1fa9a`; they do not
+qualify a compiled APK. Final full-composition/count reconciliation remains open.
 
-The original matrix was checked directly against catalog/scenario membership, actual
+The [dedicated debug build](../../../../android/phone/docs/BUILD.md#dedicated-feature-e2e-debug-build)
+requires explicit `overteFeatureTests=ON` and the separate foundation hooks.
+The option is default OFF and forced OFF for non-debug types. Seven actual
+Gradle-loader/Groovy/CMake component checks and the existing release checks pass.
+Own prepared dependency graphs, the verified 16 KiB sentinel, runtime/host tools
+and AGP cache are absent; the SDK/NDK/JDK exist. No full Android build is claimed.
+
+The matrix was checked directly against catalog/scenario membership, actual
 operation sets and invoke branches, current default-off flags/observer grammar,
 all repository-relative evidence paths and documentation links. The supplemental
 review confirms the 14 declared triples, default-off admission, original catalog
 foundations and v18 cleanup dispatch in source; it runs no tests or builds and
-changes no JSON row or aggregate qualification. After the pending joins integrate,
+preserves the pending Snapshot aggregate qualification. After the pending joins integrate,
 reassess affected rows and
 record the new exact source revision; do not replace a historical assessment
 with an unversioned claim of completion.

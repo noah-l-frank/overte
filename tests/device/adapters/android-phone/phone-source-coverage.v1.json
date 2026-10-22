@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "documentKind": "android-phone-source-coverage",
-  "assessedRevision": "4b6ad2974cc85549aafa30f8ef9530bba404f568",
+  "assessedRevision": "8112c717643b76d3d4682057f29a0f485fd32efe",
   "assessedDate": "2026-10-22",
   "scope": {
     "platform": "android-phone",
@@ -426,7 +426,7 @@
       "id": "snapshot-public-composition-pending",
       "area": "snapshots",
       "status": "pending-full-common-replay-and-interrupted-recovery",
-      "finding": "Public facade/guarded default-off dispatch, independent original role/actor, v8 observer and strict retirement source now exist. Parent67 targeted component/dispatch/original/Qt/TLS cases passed88.631s, but whole common MediaStore and document-picker replays, passive OS history and interrupted bootstrap/background/handoff/finalization recovery are still being completed. This is not full-area or device qualification.",
+      "finding": "Public facade, original independent actor, passive histories, targeted partial/bootstrap/background/handoff/retirement recovery, original-owned marker refresh and strict publication are integrated and host/component checked. Actual whole MediaStore and SDK26-28 Documents replays remain red on independent source freshness and continuous actor quiet scheduling. No timeout, source time, old witness or missing result is normalized into success. Full Android build and all devices remain unverified.",
       "evidence": [
         {
           "path": "tests/device/adapters/android-phone/appium_adapter.py"
@@ -1249,9 +1249,9 @@
         "completeCatalogComposition": false
       },
       "hostVerified": {
-        "publicFacadeReported": false,
+        "publicFacadeReported": true,
         "componentChecksReported": true,
-        "wholeCatalogSuiteRun": "not-claimed-by-this-audit"
+        "wholeCatalogSuiteRun": "both-backends-attempted-not-yet-passing"
       },
       "nativePartial": {
         "status": "component-checks-reported",
@@ -1316,7 +1316,7 @@
         "snapshot.files",
         "snapshot.open"
       ],
-      "originalEvidence": "Component sources for original capture/review/VM timers, SDK/normal controls, OS Save/Share byte readbacks and consumer, multipart HTTPS originals, exact capture-file retirement.",
+      "originalEvidence": "Integrated original capture/review/VM and normal inputs; independent role/actor originals, actual host file/inode/byte retirement, SDK26 original Java Documents writer, OS Save/Share/readback/receiver and actual controlled TLS/OAuth/multipart bodies. Full common backend qualification remains pending on strict actor freshness/continuous quiet scheduling.",
       "hostTestPaths": [
         "android/phone/tests/device/test_snapshot_foundation.py",
         "android/phone/tests/device/test_snapshot_handoff_audit.py",
@@ -1330,13 +1330,24 @@
         "android/phone/tests/device/test_snapshots_role.py",
         "android/phone/tests/device/test_snapshots_actor.py",
         "android/phone/tests/device/test_snapshot_handoff_admission_audit.py",
-        "android/phone/tests/device/test_snapshot_cancel_followfloor_audit.py"
+        "android/phone/tests/device/test_snapshot_cancel_followfloor_audit.py",
+        "android/phone/tests/device/test_snapshots_feature_journey.py",
+        "android/phone/tests/device/test_snapshot_documents_journey_boundary.py",
+        "android/phone/tests/device/test_snapshots_full_retirement_audit.py",
+        "android/phone/tests/device/test_snapshots_retirement_audit.py",
+        "android/phone/tests/device/test_snapshot_retired_inspections.py",
+        "android/phone/tests/device/test_snapshots_publication_guard.py",
+        "android/phone/tests/device/test_snapshot_documents_acquisition_lease.py",
+        "android/phone/tests/device/test_snapshots_historical_png.py",
+        "android/phone/tests/device/test_snapshots_original_clone.py",
+        "android/phone/tests/device/test_snapshot_catalog_pass.py"
       ],
       "nativeCheckPaths": [
         "android/phone/tests/device/test_snapshot_capture_files_native.py",
         "android/phone/tests/device/test_snapshot_handoff_audit_native.py",
         "android/phone/tests/snapshot-upload-source-contract-test.py",
-        "android/phone/tests/phone-snapshot-export-native-test.py"
+        "android/phone/tests/phone-snapshot-export-native-test.py",
+        "android/phone/tests/device/test_create_marker_refresh.py"
       ],
       "handoffPaths": [
         "tests/device/adapters/android-phone/SNAPSHOT_FEATURE.md",
@@ -1345,7 +1356,8 @@
         "tests/device/adapters/android-phone/SNAPSHOT_CAPTURE_FILES.md",
         "tests/device/adapters/android-phone/SNAPSHOT_HANDOFF_AUDIT.md",
         "tests/device/adapters/android-phone/SNAPSHOT_OBSERVER.md",
-        "tests/device/adapters/android-phone/SNAPSHOT_PUBLIC_COMPOSITION_AUDIT.md"
+        "tests/device/adapters/android-phone/SNAPSHOT_PUBLIC_COMPOSITION_AUDIT.md",
+        "tests/device/adapters/android-phone/SNAPSHOT_DOCUMENTS_HOST_REPLAY.md"
       ],
       "gapIds": [
         "snapshot-public-composition-pending"
@@ -1710,5 +1722,21 @@
       ],
       "gapIds": []
     }
-  ]
+  ],
+  "nativeBuildEnablement": {
+    "property": "overteFeatureTests",
+    "values": [
+      "ON",
+      "OFF"
+    ],
+    "default": "OFF",
+    "enabledBuildType": "debug",
+    "otherBuildTypes": "OFF",
+    "cmakeOption": "OVERTE_E2E_FEATURE_TESTS",
+    "separateFoundationProperty": "overteVoiceTests=true",
+    "source": "android/phone/apps/phoneInterface/build.gradle",
+    "handoff": "android/phone/docs/BUILD.md",
+    "componentCheck": "android/phone/tests/phone-feature-build-flag-test.py",
+    "qualification": "Original Gradle environment loader, Groovy DSL blocks and CMake option checked on the host. No complete Android build, native application compilation or device acceptance."
+  }
 }

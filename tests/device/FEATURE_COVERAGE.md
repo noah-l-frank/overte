@@ -120,8 +120,8 @@ capabilities, prerequisites, evidence paths and unresolved joins.
 Missing mandatory capabilities continue to block the aggregate fourteen-area
 suite. Host simulations establish source/test logic only. Native component
 compiler checks qualify only their recorded boundaries; the complete Android
-client and all devices remain unverified. Final shared-Probe source pin
-regeneration remains pending.
+client and all devices remain unverified. Fixed shared-Probe/script admission pins reproduce current executable bytes;
+full Android compilation and device acceptance remain separate.
 
 All areas also require fresh product samples, independent baseline/cleanup
 observations, native lifecycle counters and empty owned-resource inventories
