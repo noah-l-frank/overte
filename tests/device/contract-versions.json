@@ -202,6 +202,8 @@
     "ios-avatar-world": {"current": 1, "reads": [1]},
     "ios-avatar-world-acquisition": {"current": 1, "reads": [1]},
     "ios-avatar-postlogout": {"current": 1, "reads": [1]},
+    "ios-avatar-postlogout-reads": {"current": 1, "reads": [1]},
+    "ios-avatar-postlogout-record": {"current": 1, "reads": [1]},
     "ios-avatar-state": {"current": 3, "reads": [1, 2, 3]},
     "ios-emote-actions": {"current": 1, "reads": [1]},
     "native-avatar-receive-observation": {"current": 1, "reads": [1]},

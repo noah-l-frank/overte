@@ -208,6 +208,8 @@ REQUIRED = {
     "ios-avatar-world": 1,
     "ios-avatar-world-acquisition": 1,
     "ios-avatar-postlogout": 1,
+    "ios-avatar-postlogout-reads": 1,
+    "ios-avatar-postlogout-record": 1,
     "ios-avatar-state": 3,
     "ios-emote-actions": 1,
     "native-avatar-receive-observation": 1,

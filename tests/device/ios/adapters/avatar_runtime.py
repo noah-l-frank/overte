@@ -50,7 +50,22 @@ class IOSAvatarLoginRuntime(IOSAuthenticationRuntime):
 
 
 class IOSAvatarRuntime(IOSScriptRuntime):
-    def _avatar_account_reads(self,selector,client,run,role,subject,root,lock):
+    def _avatar_postlogout_reads(self,selector,client,run,role,subject,root,lock,*,child_run,ticket,baseline,logout_before,epoch_ms=None,monotonic=None):
+        from ios.adapters.avatar_postlogout_reads import IOSAvatarPostLogoutReads
+        identifier(run);identifier(child_run);identifier(ticket);lock.assert_held()
+        source=self._sources(selector);binding=source['binding'];need(lock.path==self.state_path(selector).with_name('script-feature-sources.lock'))
+        epoch_ms=(lambda:time.time()*1000) if epoch_ms is None else epoch_ms
+        monotonic=time.monotonic if monotonic is None else monotonic
+        need(callable(epoch_ms) and callable(monotonic))
+        def accounts():return self._avatar_account_reads(selector,client,run,role,subject,root,lock,epoch_ms=epoch_ms,monotonic=monotonic)
+        def model():
+            current=self._sources(selector);need(current['binding']==binding)
+            return current['observer'].avatar_state(current['clock_source']),current['clock_source']
+        return IOSAvatarPostLogoutReads(PrivateFeatureState(self.state_path(selector).with_name('ios-avatar-'+role+'-'+subject+'-postlogout.json')),
+            root,binding,run,role,subject,lock,source['check'],accounts,model,child_run=child_run,fixture_url=client.url+'/runs/'+child_run+'/',
+            ticket=ticket,baseline=baseline,logout_before=logout_before,epoch_ms=epoch_ms,monotonic=monotonic)
+
+    def _avatar_account_reads(self,selector,client,run,role,subject,root,lock,*,epoch_ms=None,monotonic=None):
         from ios.adapters.avatar_account_reads import IOSAvatarAccountReads
         identifier(run);need(isinstance(client,Client) and role in ('primary','actor') and subject in ('primary','actor')
             and isinstance(lock,ScriptSourceLock))
@@ -58,8 +73,10 @@ class IOSAvatarRuntime(IOSScriptRuntime):
         source=self._sources(selector);observer,clock=source['observer'],source['clock_source']
         # This observes the original account on an existing SDK session. It
         # deliberately does not require an Avatar UUID or joined Domain.
+        epoch_ms=(lambda:time.time()*1000) if epoch_ms is None else epoch_ms
+        monotonic=time.monotonic if monotonic is None else monotonic
         return IOSAvatarAccountReads(PrivateFeatureState(self.state_path(selector).with_name('ios-avatar-'+role+'-'+subject+'-account-reads.json')),
-            root,source['binding'],run,role,subject,lock,source['check'],observer.bound_native_observer(clock),clock_source=clock)
+            root,source['binding'],run,role,subject,lock,source['check'],observer.bound_native_observer(clock),clock_source=clock,epoch_ms=epoch_ms,monotonic=monotonic)
 
     def _avatar_marker_scope(self,selector,client,run,role,root,ticket,lock):
         from ios.adapters.avatar_marker_scope import IOSAvatarMarkerScope
