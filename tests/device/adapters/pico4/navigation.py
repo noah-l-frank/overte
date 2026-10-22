@@ -546,7 +546,7 @@ class NativeNavigationIO:
         self.adapter, self.target, self.identity = adapter, target, process_identity
         self._controller = controller
         self._before_send = None
-        self._before_controller = self._controller_intent = None
+        self._before_controller = self._controller_intent = self._controller_publish = None
         if before_send is not None:
             self.bind_before_send(before_send)
 
@@ -555,12 +555,12 @@ class NativeNavigationIO:
         need(callable(callback) and (self._before_send is None or self._before_send is callback))
         self._before_send = callback
 
-    def bind_controller_admission(self, callback, *, intent):
+    def bind_controller_admission(self, callback, *, intent, before_publish=None):
         """Keep phase/SDK reads outside the original locked host-only intent."""
-        need(callable(callback) and callable(intent)
-             and (self._before_controller is None or self._before_controller is callback)
-             and (self._controller_intent is None or self._controller_intent is intent))
-        self._before_controller, self._controller_intent = callback, intent
+        need(callable(callback) and callable(intent) and (before_publish is None or callable(before_publish))
+             and (self._before_controller is None or self._before_controller is callback
+                  and self._controller_intent is intent and self._controller_publish is before_publish))
+        self._before_controller, self._controller_intent, self._controller_publish = callback, intent, before_publish
 
     def guard(self):
         self.adapter.require_same_process(self.target, self.identity, 'normal navigation input')
@@ -624,5 +624,9 @@ class NativeNavigationIO:
             self.bind_input();need(self.adapter.require_pico_session_identity(self.target)==self.identity)
             session=self.adapter.pico_input_session(self.target)
             self._before_controller(operation)
-            result=session.stage(self.identity,operation,dict(holdMilliseconds=1000),intent=self._controller_intent)
+            if self._controller_publish is None:
+                result=session.stage(self.identity,operation,dict(holdMilliseconds=1000),intent=self._controller_intent)
+            else:
+                result=session.stage(self.identity,operation,dict(holdMilliseconds=1000),
+                    intent=self._controller_intent,before_publish=self._controller_publish)
         need(type(result) is dict and result.get('performed') is True)

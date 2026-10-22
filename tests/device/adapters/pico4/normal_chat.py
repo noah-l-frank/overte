@@ -19,7 +19,7 @@ class PicoChatIO:
     def bind_input_fence(self,fence):
         native=self.original.navigation.io
         native.bind_before_send(fence.before_send)
-        native.bind_controller_admission(fence.before_controller,intent=fence.stage_intent)
+        native.bind_controller_admission(fence.before_controller,intent=fence.stage_intent,before_publish=fence.before_publish)
     def capture(self):return project(self.original.capture())
     def activate(self,identifier,*,reference):self.original.navigation.input(identifier,reference=reference)
     def replace(self,identifier,value,*,reference):self.original.navigation.input(identifier,'replace',value,reference=reference)
