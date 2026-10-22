@@ -70,7 +70,7 @@ struct DependencyManager {template<typename T>static bool isSet(){return offscre
 class WindowScriptingInterface:public QObject {
  Q_OBJECT
 public:
- void browseAsync(const QString&,const QString&,const QString&);void saveAsync(const QString&,const QString&,const QString&);
+ Q_INVOKABLE void browseAsync(const QString&,const QString&,const QString&);Q_INVOKABLE void saveAsync(const QString&,const QString&,const QString&);
  void ensureReticleVisible(){}QString previous;QString getPreviousBrowseLocation() const{return previous;}
  void setPreviousBrowseLocation(const QString& value){previous=value;}
 signals:
