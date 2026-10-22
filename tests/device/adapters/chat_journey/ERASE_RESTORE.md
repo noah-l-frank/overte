@@ -1,4 +1,4 @@
-# Original normal Chat Erase and profile restoration
+# Original normal Chat Erase and profile restoration v2
 
 `ChatEraseRestore` composes normal Settings/Erase input, two independent original
 source roles, original page destruction/reconstruction and native private profile
@@ -13,6 +13,20 @@ the exact whole-model native digest, all run-owned stored rows and saved origina
 configuration. Nonempty actual owned history is required. Neither row counts nor
 a Send/Erase acknowledgement supply this authority. A changed digest refuses the
 one input; an uncertain Erase is never sent again.
+
+V2 first uses the original normal Open route when the complete journey's final
+Close has destroyed the Chat page. An already open page produces no extra input.
+If the tablet is closed, the normal token owner records its one controller-open
+intent before the existing Pico/OpenXR route. `controller_intent(envelope)` is a
+pure host-only CAS for the exact original tablet-open stream envelope; the
+enclosing phase fence supplies the original native/host anchors and final grant
+checks. No expected sequence/envelope is manufactured for transport. The stream
+can be recorded once, and a lost gesture is never replayed. V1 journals remain
+retained and cannot be reconstructed or upgraded by a new Erase owner.
+
+Every pair's final freshness check also covers any attached original compiled
+Chat sources and their independent current clocks. The complete source/model
+transaction keeps its original 1.5-second bound.
 
 Settings is an internal observation purpose in ChatSamples journal v2. It stores
 the original native/UI/storage/lifecycle/peer frames and returns source metadata,
@@ -55,6 +69,12 @@ component. Neither set executes a headset or establishes linked Android/native
 application behavior. Complete Chat still needs ordinary Send/Return/lifecycle,
 owned mixer removal/recovery, authenticated independent publication and verified
 whole-run actor/callback/file/world-input retirement.
+
+Two focused v2 component methods passed in 21.204 seconds: normal reopen after
+the final closed Chat, and the closed-tablet original stream intent plus lost
+gesture/no-resend path. Native/V8/widgets/controller effects in these tests are
+explicit synthetic seams; the original owner/token/source/CAS code executes.
+These checks do not claim actual headset input or whole-feature cleanup.
 
 The native storage proof selects the actual original worker's QSettings format.
 It supports INI and the product's registered JSON format without guessing from

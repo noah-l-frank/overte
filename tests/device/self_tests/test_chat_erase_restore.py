@@ -104,6 +104,35 @@ class EraseRestoreTests(unittest.TestCase):
         self.assertGreaterEqual(self.clock,9);self.assertTrue(self.store.path.exists())
         with self.assertRaises(NativeUIError):self.owner.run(20000)
 
+    def test_final_closed_chat_is_reopened_normally_before_original_settings_erase(self):
+        self.widgets.panel=False;self.widgets.page_life+=1;self.sync()
+        result=self.owner.run(20000)
+        self.assertEqual('complete',result['phase']);self.assertEqual(2,result['chatEraseRestoreVersion'])
+        self.assertEqual(['chat.entry','chat.settings','chat.erase','chat.close','chat.entry','chat.close'],
+            [row[0] for row in self.widgets.calls])
+        self.assertEqual([],result['controllerEnvelopes']);self.assertEqual(1,self.widgets.erased)
+
+    def test_closed_tablet_keeps_exact_original_controller_envelope_before_one_gesture_and_never_replays_loss(self):
+        for lost in (False,True):
+            if lost:self.setUp()
+            self.widgets.panel=self.widgets.tablet=False;self.sync();gestures=[]
+            envelope=dict(schemaVersion=1,sessionNonce='d'*64,sequence=7,
+                commands=[dict(id='tablet-open-7',operation='tablet.open',arguments=dict(holdMilliseconds=1000))])
+            def open_tablet(*,reference):
+                self.assertFalse(reference['open']);self.assertEqual('controller-open',self.store.read()['inputs'][-1]['action'])
+                self.owner.controller_intent(envelope);self.assertEqual([envelope],self.store.read()['controllerEnvelopes'])
+                gestures.append(deepcopy(reference))
+                if lost:raise NativeUIError('Explicit lost original controller receipt')
+                self.widgets.tablet=True
+            self.widgets.open_tablet=open_tablet
+            if lost:
+                with self.assertRaises(NativeUIError):self.owner.run(20000)
+                with self.assertRaises(NativeUIError):self.owner.run(20000)
+                self.assertEqual(0,self.widgets.erased);self.assertNotEqual('complete',self.store.read()['phase'])
+            else:
+                self.assertEqual('complete',self.owner.run(20000)['phase']);self.assertEqual(1,self.widgets.erased)
+            self.assertEqual(1,len(gestures));self.assertEqual([envelope],self.store.read()['controllerEnvelopes'])
+
     def test_retained_script_array_is_discovered_only_after_ordinary_new_page_reconstruction(self):
         self.fault='retained-script'
         with self.assertRaises(NativeUIError):self.owner.run(20000)
