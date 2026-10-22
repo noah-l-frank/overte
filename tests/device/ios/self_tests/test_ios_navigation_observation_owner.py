@@ -120,6 +120,38 @@ class NavigationObservationOwnerTests(unittest.TestCase):
             self.assertGreater(second.state['originals']['ui']['placesSourceSequence'],first.state['originals']['ui']['placesSourceSequence'])
             self.assertEqual(result,second.archive())
 
+    def test_one_archive_round_validates_each_actual_predecessor_once(self):
+        with self.lock.held():
+            chain=[]
+            for _ in range(4):
+                owner=self.owner(previous=None if not chain else chain[-1]);self.take(owner);chain.append(owner)
+            calls=[]
+            for owner in chain:
+                validate=owner.validate
+                def counted(owner=owner,validate=validate):calls.append(owner.request);return validate()
+                owner.validate=counted
+            self.assertEqual(chain[-1].state['result'],chain[-1].archive())
+            self.assertEqual(4,len(calls));self.assertEqual({owner.request for owner in chain},set(calls))
+            calls.clear();chain[-1].archive();self.assertEqual(4,len(calls))
+
+    def test_round_rechecks_original_png_and_state_after_a_predecessor_was_validated(self):
+        for fault in ('png','state'):
+            with self.subTest(fault=fault):
+                self.doCleanups();self.setUp()
+                with self.lock.held():
+                    first=self.owner();self.take(first);last=self.owner(previous=first);self.take(last)
+                    validate=last.validate
+                    def changed():
+                        result=validate()
+                        if fault=='png':
+                            sample,_=first.image();path=self.root/first.images.frozen_child(first.state['imageRow'],
+                                unpack(first.state['imageArchive']['payload'])[0]).state['frameOwner']['name']
+                            path.write_bytes(sample['raw']+b'changed')
+                        else:first.state['originals']['ui']['sampleEpochMs']+=1
+                        return result
+                    last.validate=changed
+                    with self.assertRaises(NativeUIError):last.archive()
+
     def test_pending_marker_retains_all_originals_and_next_acquisition_uses_a_new_image(self):
         with self.lock.held():
             self.gpu.marker='c'*32;first=self.owner()

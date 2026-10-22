@@ -80,3 +80,15 @@ endpoints, predecessor selection and historical no-SDK reconstruction. Native
 compilation and device timing/behavior remain unverified. Runtime factories,
 scene admission/restoration, ordinary input, independent publication, restart,
 repeated quiet cleanup and final metadata retirement remain required.
+
+One historical archive round validates each predecessor's composition once.
+Repeated use in that same synchronous round reuses only the checked original
+result, scoped by exact path and carrier digest. Before returning, the round
+rechecks every participant's actual private carrier, in-memory state and
+original PNG/owner. A changed predecessor file or state cannot borrow the
+earlier result. The cache is local to the current context and discarded after
+every call; another archive call performs a new complete validation. This
+avoids exponential duplicate predecessor work without changing source clocks,
+schema, input deadlines or original bytes. Host counterexamples cover a real
+four-owner chain, a PNG changed after predecessor validation and a mutated
+predecessor original in memory.
