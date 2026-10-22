@@ -830,6 +830,24 @@ def create_adapter(args, base_class):
                     'files/overte-e2e/' + NAVIGATION_MODALS_FILE, attempts=1),
                 native.clock_ms, native.guard, native.pid, monotonic=native.monotonic, sleep=native.sleep)
 
+        def _audio_page_store(self,target,*,create=True):
+            store=self._lifecycle_world_store(target,create=create)
+            return None if store is None else PrivateFeatureState(store.path.with_name('audio-page-owner.json'))
+
+        @_private
+        def _audio_page_owner(self,target,run,*,source_lock=None):
+            from adapters.pico4.audio_page_owner import PicoAudioPageOwner
+            from adapters.pico4.normal_audio import PicoAudioIO
+            from adapters.token_audio_ui import TokenAudioUI
+            source_lock=self._script_journey()._lock(target,source_lock)
+            with source_lock.held():
+                manager=self._scripts(target);native=self._native_feature_observer(target)
+                return PicoAudioPageOwner(self._audio_page_store(target).path,run,manager.binding,
+                    self._audio_pages_source(target,source_lock=source_lock),self._audio_settings_source(target,source_lock=source_lock),
+                    self._lifecycle_ui_source(target,source_lock=source_lock),self._audio_preview(target,run,source_lock=source_lock),
+                    self.pico_input_session(target),TokenAudioUI(PicoAudioIO(manager.ui.io),lambda *_:None,
+                        monotonic=native.monotonic,sleep=native.sleep),source_lock)
+
         @_private
         def _audio_pages_source(self,target,*,source_lock=None):
             from adapters.pico4.audio_pages import PicoAudioPages,FILE
@@ -1161,7 +1179,7 @@ def create_adapter(args, base_class):
             return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-', 'audio-preview-owner-')))
 
         @_private
-        def _audio_preview(self, target, run):
+        def _audio_preview(self, target, run, *, source_lock=None):
             # Internal cycle component only: no full-area capability, page
             # navigation, acoustic provider or journal retirement is inferred.
             from adapters.audio_preview import AudioPreview
@@ -1173,7 +1191,8 @@ def create_adapter(args, base_class):
             native.guard()
             _need(native.pid == int(manager.binding['processIdentity'].split(':')[0]))
             store = self._audio_preview_store(target)
-            lock = ScriptSourceLock(store.path.with_suffix('.lock'))
+            lock = (ScriptSourceLock(store.path.with_suffix('.lock')) if source_lock is None
+                else self._script_journey()._lock(target,source_lock))
             def guard():
                 lock.assert_held()
                 native.guard()
@@ -1396,6 +1415,7 @@ def create_adapter(args, base_class):
                       and self._lifecycle_back_store(target).read() is None
                       and (self._lifecycle_world_store(target,create=False) is None or self._lifecycle_world_store(target,create=False).read() is None)
                       and not self._lifecycle_background_owned(target)
+                      and (self._audio_page_store(target,create=False) is None or self._audio_page_store(target,create=False).read() is None)
                       and self._script_restart_inputs_store(target).read() is None
                       and self._script_restart_store(target).read() is None
                       and self._script_files_store(target).read() is None and self._account_probe_store(target).read() is None
