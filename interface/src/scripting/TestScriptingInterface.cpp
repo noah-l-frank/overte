@@ -113,6 +113,7 @@ void TestScriptingInterface::setTestResultsLocation(const QString path) {
             && QThread::currentThread() == qApp->thread()) {
         _featureObservationInstance = QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-');
         _featureLifecycle = new overte::e2e::FeatureLifecycle(this);
+        _featureAudioSettingsQueue=std::make_shared<overte::e2e::AudioSettingsQueue>();
         _featureLifecycle->start(path); // Failure leaves an unavailable observer.
 #if defined(ANDROID_APP_PICO_INTERFACE)
         overte::e2e::ensureNavigationDirectoryProvider(this);
@@ -722,58 +723,66 @@ QVariantMap TestScriptingInterface::featureLifecycleDriveObservation(const QVari
 
 QVariantMap TestScriptingInterface::featureAudioSettingsObservation(const QVariantMap& command) {
 #if defined(ANDROID_APP_PICO_INTERFACE)
-    // This narrow observer does not initialize audio, enumerate devices or
-    // change a setting. Every source read runs on its actual owner thread.
+    // Dedicated runtime-owned queue; every timed-out original callback remains
+    // bounded and owned until Qt actually releases its original functor.
+    if (!_featureAudioSettingsQueue) {return {};}
+    const auto queue=_featureAudioSettingsQueue;
     if (QThread::currentThread()!=thread()) {
-        if (!thread() || !thread()->isRunning()) { return {}; }
-        QVariantMap result;
-        if (!QMetaObject::invokeMethod(this,[&] { result=featureAudioSettingsObservation(command); },Qt::BlockingQueuedConnection)) { return {}; }
-        return result;
+        return queue->read("dispatch",this,[command](QObject* original) {
+            auto owner=static_cast<TestScriptingInterface*>(original);
+            return overte::e2e::AudioSettingsPart{owner->featureAudioSettingsObservation(command),{}};
+        }).values;
     }
     if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
             || !QCoreApplication::arguments().contains("--testScript") || !qApp || !qApp->isHMDMode()
             || !overte::e2e::previewDirectory(_testResultsLocation) || !overte::e2e::audioSettingsCommand(command)
             || !DependencyManager::isSet<AudioClient>() || !DependencyManager::isSet<AudioScriptingInterface>()
-            || !DependencyManager::isSet<NodeList>()) { return {}; }
+            || !DependencyManager::isSet<NodeList>() || !queue->settled(overte::e2e::AudioSettingsQueue::dispatching(this) ? "dispatch" : QString())) { return {}; }
     if (!_featureAudioSettings) { _featureAudioSettings=std::make_shared<overte::e2e::AudioSettingsObservation>(); }
     if (!_featureAudioSettings->admit(command)) { return {}; }
     const auto client=DependencyManager::get<AudioClient>();
     const auto script=qSharedPointerDynamicCast<scripting::Audio>(DependencyManager::get<AudioScriptingInterface>());
     const auto nodes=DependencyManager::get<NodeList>();
     if (!client || !script || !nodes) { return {}; }
-    const auto readOn=[](QObject* object,const std::function<void()>& read) {
-        if (!object || !object->thread() || !object->thread()->isRunning()) { return false; }
-        if (object->thread()==QThread::currentThread()) { read();return true; }
-        return QMetaObject::invokeMethod(object,read,Qt::BlockingQueuedConnection);
-    };
-    QVariantMap native,properties,gains;QObject* devices{nullptr};QObject* input{nullptr};
-    QVariant peak;qint64 clientEpoch{0},scriptEpoch{0},inputEpoch{0},nodesEpoch{0};
-    if (!readOn(client.data(),[&] {
-        clientEpoch=QDateTime::currentMSecsSinceEpoch();
-        const auto preview=client->featureRecordedVoiceObservation();
-        if (preview.value("active").userType()!=QMetaType::Bool || preview.value("cycle").userType()!=QMetaType::ULongLong) { return; }
-        native={{"recording",client->getRecording()},{"muted",client->isMuted()},
-            {"localEcho",client->getLocalEcho()},{"serverEcho",client->getServerEcho()},
+    const auto clientPart=queue->read("client",client.data(),[](QObject* owner) {
+        auto original=static_cast<AudioClient*>(owner);const auto epoch=QDateTime::currentMSecsSinceEpoch();
+        const auto preview=original->featureRecordedVoiceObservation();
+        if (preview.value("active").userType()!=QMetaType::Bool || preview.value("cycle").userType()!=QMetaType::ULongLong) {return overte::e2e::AudioSettingsPart{};}
+        const QVariantMap native{{"recording",original->getRecording()},{"muted",original->isMuted()},
+            {"localEcho",original->getLocalEcho()},{"serverEcho",original->getServerEcho()},
             {"previewActive",preview.value("active")},{"previewCycle",preview.value("cycle")}};
-    }) || native.isEmpty()) { return {}; }
-    if (!readOn(script.data(),[&] {
-        scriptEpoch=QDateTime::currentMSecsSinceEpoch();
-        properties=overte::e2e::audioSettingsProperties(script.data());
-        devices=script->property("devices").value<QObject*>();
-    }) || properties.isEmpty() || !devices) { return {}; }
-    if (!readOn(devices,[&] { input=devices->property("input").value<QObject*>(); }) || !input
-            || !readOn(input,[&] { inputEpoch=QDateTime::currentMSecsSinceEpoch();peak=input->property("peakValuesEnabled"); })
-            || peak.userType()!=QMetaType::Bool) { return {}; }
-    if (!readOn(nodes.data(),[&] {
-        nodesEpoch=QDateTime::currentMSecsSinceEpoch();
-        gains={{"avatarGain",nodes->getAvatarGain(QUuid())},{"injectorGain",nodes->getInjectorGain()}};
-    })) { return {}; }
-    const QVariantMap source{{"complete",true},{"hmd",qApp->isHMDMode()},
-        {"clientCapturedEpochMs",clientEpoch},{"scriptCapturedEpochMs",scriptEpoch},
-        {"inputCapturedEpochMs",inputEpoch},{"nodesCapturedEpochMs",nodesEpoch},
-        {"native",native},{"properties",properties},{"mixerGains",gains},{"inputPeakValuesEnabled",peak}};
-    return _featureAudioSettings->snapshot(command,{{"client",client.data()},{"script",script.data()},
-        {"devices",devices},{"input",input},{"nodes",nodes.data()}},source);
+        return overte::e2e::AudioSettingsPart{{{"clientCapturedEpochMs",epoch},{"native",native}},{{"client",original}}};
+    });
+    if(clientPart.values.isEmpty()) {return {};}
+    const auto scriptPart=queue->read("script",script.data(),[](QObject* owner) {
+        const QPointer<QObject> original(owner);const auto epoch=QDateTime::currentMSecsSinceEpoch();
+        const auto properties=overte::e2e::audioSettingsProperties(owner);
+        if(!original || properties.isEmpty()) {return overte::e2e::AudioSettingsPart{};}
+        const QPointer<QObject> devices(original->property("devices").value<QObject*>());
+        // Both getters return embedded members of the held actual Audio
+        // dependency. Verify/read them together on their actual owner thread;
+        // no raw child association is carried between queued operations.
+        if(!original || !devices || devices->thread()!=QThread::currentThread()) {return overte::e2e::AudioSettingsPart{};}
+        const QPointer<QObject> input(devices->property("input").value<QObject*>());
+        if(!original || !devices || !input || input->thread()!=QThread::currentThread()) {return overte::e2e::AudioSettingsPart{};}
+        const auto inputEpoch=QDateTime::currentMSecsSinceEpoch();const auto peak=input->property("peakValuesEnabled");
+        if(!original || !devices || !input || peak.userType()!=QMetaType::Bool) {return overte::e2e::AudioSettingsPart{};}
+        return overte::e2e::AudioSettingsPart{{{"scriptCapturedEpochMs",epoch},{"inputCapturedEpochMs",inputEpoch},
+            {"properties",properties},{"inputPeakValuesEnabled",peak}},{{"script",original},{"devices",devices},{"input",input}}};
+    });
+    if(scriptPart.values.isEmpty()) {return {};}
+    const auto nodePart=queue->read("nodes",nodes.data(),[](QObject* owner) {
+        auto original=static_cast<NodeList*>(owner);const auto epoch=QDateTime::currentMSecsSinceEpoch();
+        const QVariantMap gains{{"avatarGain",original->getAvatarGain(QUuid())},{"injectorGain",original->getInjectorGain()}};
+        return overte::e2e::AudioSettingsPart{{{"nodesCapturedEpochMs",epoch},{"mixerGains",gains}},{{"nodes",original}}};
+    });
+    if(nodePart.values.isEmpty() || !queue->settled(overte::e2e::AudioSettingsQueue::dispatching(this) ? "dispatch" : QString())) {return {};}
+    QVariantMap source{{"complete",true},{"hmd",qApp->isHMDMode()}};QMap<QString,QPointer<QObject>> objects;
+    for(const auto& part:{clientPart,scriptPart,nodePart}) {
+        for(auto it=part.values.begin();it!=part.values.end();++it) {source.insert(it.key(),it.value());}
+        for(auto it=part.objects.begin();it!=part.objects.end();++it) {objects.insert(it.key(),it.value());}
+    }
+    return _featureAudioSettings->snapshot(command,objects,source);
 #else
     Q_UNUSED(command) return {};
 #endif

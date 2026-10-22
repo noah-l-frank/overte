@@ -20,7 +20,7 @@
 #include <QSet>
 #include <QHash>
 #include <memory>
-namespace overte::e2e { class ChatViewObservation; class ChatProfileOwner; class CreateEntityLifetimes; class CreateModelResources; class AudioSettingsObservation; }
+namespace overte::e2e { class ChatViewObservation; class ChatProfileOwner; class CreateEntityLifetimes; class CreateModelResources; class AudioSettingsObservation; class AudioSettingsQueue; }
 namespace overte::e2e { class ChatPeerPosition; }
 #include <QUuid>
 namespace overte::e2e { class FeatureLifecycle; class AccountOriginLease; }
@@ -252,6 +252,7 @@ private:
     std::shared_ptr<overte::e2e::ChatPeerPosition> _featureChatPeerPosition;
     std::shared_ptr<overte::e2e::ChatProfileOwner> _featureChatProfile;
     std::shared_ptr<overte::e2e::AudioSettingsObservation> _featureAudioSettings;
+    std::shared_ptr<overte::e2e::AudioSettingsQueue> _featureAudioSettingsQueue;
     QString _featureObservationInstance;
     quint64 _featureObservationSequence {0};
     QString _featurePendingRequest;
