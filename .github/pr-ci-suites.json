@@ -1551,7 +1551,8 @@
           "tools/repository-checks/pr_ci_android_runtime.py",
           "tools/repository-checks/pr_ci_context.py",
           "tools/repository-checks/pr_ci_run.py",
-          "tools/repository-checks/pr_ci_android_capacity.py"
+          "tools/repository-checks/pr_ci_android_capacity.py",
+          "tools/repository-checks/pr_ci_android_artifacts.py"
         ],
         "required": [
           "tests/pr-ci-android-native-test.py",
@@ -1561,7 +1562,42 @@
           "tools/repository-checks/pr_ci_android_runtime.py",
           "tools/repository-checks/pr_ci_context.py",
           "tools/repository-checks/pr_ci_run.py",
-          "tools/repository-checks/pr_ci_android_capacity.py"
+          "tools/repository-checks/pr_ci_android_capacity.py",
+          "tools/repository-checks/pr_ci_android_artifacts.py"
+        ]
+      }
+    },
+    "pr-ci-android-artifacts": {
+      "command": [
+        "python",
+        "tests/pr-ci-android-artifacts-test.py"
+      ],
+      "layer": "quick",
+      "scope": "content",
+      "environment": "python",
+      "closure": {
+        "kind": "patterns",
+        "inputs": [
+          "tests/pr-ci-android-artifacts-test.py",
+          "tools/repository-checks/pr_ci_android_native.py",
+          "tools/repository-checks/pr_ci_android_assets.py",
+          "tools/repository-checks/pr_ci_android_boundary.py",
+          "tools/repository-checks/pr_ci_android_runtime.py",
+          "tools/repository-checks/pr_ci_context.py",
+          "tools/repository-checks/pr_ci_run.py",
+          "tools/repository-checks/pr_ci_android_capacity.py",
+          "tools/repository-checks/pr_ci_android_artifacts.py"
+        ],
+        "required": [
+          "tests/pr-ci-android-artifacts-test.py",
+          "tools/repository-checks/pr_ci_android_native.py",
+          "tools/repository-checks/pr_ci_android_assets.py",
+          "tools/repository-checks/pr_ci_android_boundary.py",
+          "tools/repository-checks/pr_ci_android_runtime.py",
+          "tools/repository-checks/pr_ci_context.py",
+          "tools/repository-checks/pr_ci_run.py",
+          "tools/repository-checks/pr_ci_android_capacity.py",
+          "tools/repository-checks/pr_ci_android_artifacts.py"
         ]
       }
     },
