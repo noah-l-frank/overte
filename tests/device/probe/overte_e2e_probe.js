@@ -151,6 +151,7 @@
     var lastScriptRootRequest = "";
     var lastPicoWorldModelDrawsRequest = null;
     var lastAvatarRenderRequest = "";
+    var lastPicoEmoteSceneRequest = "";
     var lastGraphicsSubjectRequest = "";
     var lastSceneLoadRequest = "";
     var lastTabletHttpRequest = "";
@@ -1076,6 +1077,28 @@
                 }
             } catch (_picoWorldModelDrawsError) { /* Missing submitted original draw evidence stays unavailable. */ }
             Test.saveObject(picoWorldModelDraws, "feature-pico-world-model-draws.json");
+            return;
+        }
+
+        if (command && command.schemaVersion === 1
+                && typeof command.commandId === "string" && /^[0-9a-f]{32}$/.test(command.commandId)
+                && typeof command.runId === "string" && /^[0-9a-f]{32}$/.test(command.runId)
+                && (command.action === "feature-pico-emote-scene-observe" || command.action === "feature-pico-emote-scene-input")) {
+            var picoEmoteSceneKeys = command.action === "feature-pico-emote-scene-observe"
+                ? ["schemaVersion", "commandId", "action", "runId"]
+                : command.operation === "prepare"
+                    ? ["schemaVersion", "commandId", "action", "operation", "runId", "ticket", "fixtureUrl", "imageExtent", "markerRoi"]
+                    : ["schemaVersion", "commandId", "action", "operation", "runId", "fixtureInstance"];
+            if (!objectKeysMatch(command, picoEmoteSceneKeys) || command.commandId === lastPicoEmoteSceneRequest) { return; }
+            lastPicoEmoteSceneRequest = command.commandId;
+            var picoEmoteScene = {schemaVersion: 1, requestId: command.commandId, available: false};
+            try {
+                if (typeof Test.featurePicoEmoteScene === "function") {
+                    var originalPicoEmoteScene = Test.featurePicoEmoteScene(command);
+                    if (originalPicoEmoteScene && originalPicoEmoteScene.requestId === command.commandId) { picoEmoteScene = originalPicoEmoteScene; }
+                }
+            } catch (_picoEmoteSceneError) { /* Original ownership and missing scene facts remain unresolved. */ }
+            Test.saveObject(picoEmoteScene, "feature-pico-emote-scene.json");
             return;
         }
 
@@ -2063,6 +2086,7 @@
                 || command.action === "feature-create-browse-setting"
                 || command.action === "feature-world-render-observe"
                 || command.action === "feature-avatar-render-observe"
+                || command.action === "feature-pico-emote-scene-observe" || command.action === "feature-pico-emote-scene-input"
                 || command.action === "feature-pico-world-model-draws-observe"
                 || command.action === "feature-graphics-subject-observe"
                 || command.action === "feature-scene-load-observe"

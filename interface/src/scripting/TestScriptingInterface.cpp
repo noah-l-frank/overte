@@ -38,6 +38,7 @@
 #include "../../../tests/device/native/WebDOMObservationBridge.h"
 #include "../../../tests/device/native/WebRuntimeBridge.h"
 #if defined(ANDROID_APP_PICO_INTERFACE)
+#include "../../../tests/device/native/PicoEmoteSceneFixture.h"
 #include "Audio.h"
 #include <NodeList.h>
 #include "../../../tests/device/native/TabletHttpObservationBridge.h"
@@ -117,6 +118,7 @@ void TestScriptingInterface::setTestResultsLocation(const QString path) {
         _featureAudioSettingsQueue=std::make_shared<overte::e2e::AudioSettingsQueue>();
         _featureLifecycle->start(path); // Failure leaves an unavailable observer.
 #if defined(ANDROID_APP_PICO_INTERFACE)
+        _featureEmoteSceneQueue=std::make_shared<overte::e2e::AudioSettingsQueue>();
         overte::e2e::ensureNavigationDirectoryProvider(this);
 #endif
     }
@@ -213,6 +215,48 @@ QVariantMap TestScriptingInterface::featureAvatarRenderObservation(const QVarian
         {"processId",QCoreApplication::applicationPid()},{"requestedEpochMs",requested},
         {"capturedEpochMs",QDateTime::currentMSecsSinceEpoch()},{"source",source}};
 }
+
+#if defined(ANDROID_APP_PICO_INTERFACE)
+QVariantMap TestScriptingInterface::featurePicoEmoteScene(const QVariantMap& command) {
+    // Reuse the existing bounded original dispatcher with a dedicated queue.
+    // Only its generic dispatch mechanics are shared; no Audio state is read.
+    const auto queue=_featureEmoteSceneQueue;if (!queue) {return {};}
+    if (QThread::currentThread()!=thread()) {
+        return queue->read("dispatch",this,[command](QObject* original) {
+            return overte::e2e::AudioSettingsPart{static_cast<TestScriptingInterface*>(original)->featurePicoEmoteScene(command),{}};
+        }).values;
+    }
+    const auto json=QJsonObject::fromVariantMap(command);const auto request=command.value("commandId").toString();
+    const auto run=command.value("runId").toString(),action=command.value("action").toString();
+    const bool input=action=="feature-pico-emote-scene-input";
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript") || !qApp || thread()!=qApp->thread()
+            || !json.value("schemaVersion").isDouble() || json.value("schemaVersion").toDouble()!=1
+            || !json.value("commandId").isString() || !json.value("runId").isString()
+            || !QRegularExpression("\\A[0-9a-f]{32}\\z").match(request).hasMatch()
+            || !QRegularExpression("\\A[0-9a-f]{32}\\z").match(run).hasMatch()
+            || (!input && (action!="feature-pico-emote-scene-observe" || command.keys()!=QStringList{"action","commandId","runId","schemaVersion"}))
+            || !queue->settled(overte::e2e::AudioSettingsQueue::dispatching(this) ? "dispatch" : QString())) {return {};}
+    if (_featureEmoteSceneCommands.contains(request)) {
+        return _featureEmoteSceneCommands.value(request)==command ? _featureEmoteSceneResults.value(request) : QVariantMap{};
+    }
+    if (_featureEmoteSceneCommands.size()>=4096 || !DependencyManager::isSet<AvatarManager>()) {return {};}
+    const auto avatar=DependencyManager::get<AvatarManager>()->getMyAvatar();if (!avatar) {return {};}
+    _featureEmoteSceneCommands.insert(request,command);const auto requested=QDateTime::currentMSecsSinceEpoch();
+    if (!_featureEmoteScene) {_featureEmoteScene=std::make_shared<overte::e2e::PicoEmoteSceneFixture>();}
+    QVariantMap source;
+    if (input) {
+        const auto& camera=qApp->getCamera();ViewFrustum view;camera.loadViewFrustum(view);
+        source=_featureEmoteScene->input(command,view,camera.getModeString(),avatar->getWorldFeetPosition(),
+            avatar->getModelScale(),avatar->getBoomLength(),qApp->isHMDMode());
+    } else {source=_featureEmoteScene->observe(run);}
+    if (source.isEmpty()) {return {};}
+    const QVariantMap result{{"schemaVersion",1},{"requestId",request},{"instance",_featureObservationInstance},
+        {"sequence",static_cast<qulonglong>(++_featureEmoteSceneSequence)},{"processId",QCoreApplication::applicationPid()},
+        {"requestedEpochMs",requested},{"capturedEpochMs",QDateTime::currentMSecsSinceEpoch()},{"source",source}};
+    _featureEmoteSceneResults.insert(request,result);return result;
+}
+#endif
 
 QVariantMap TestScriptingInterface::featureGraphicsSubjectObservation(const QVariantMap& command) {
     if (QThread::currentThread() != thread()) {

@@ -742,3 +742,14 @@ keyboard/lifecycle source continuity for both input roles and the independent
 witness. Native opening IDs are distinct original mutations, not receipts or
 requested identities. Old v1/v2 flow owners remain retained. The actual complete
 Chat dispatcher and whole retirement are still under construction.
+
+
+## Current original Emote scene continuation (2026-10-22)
+
+The [Pico scene owner](EMOTE_SCENE.md) provides two owned original local
+objects and retains their actual weak/QObject lifetime proof after cleanup.
+Native scene/getter/queue fragments compile and execute with real Qt5 and Qt6
+at explicit host Entity/Model/camera seams. This supersedes uncompiled status
+only for those selected fragments; full native application, browser/rendering
+and device qualification remain unavailable. Central-camera authoring supplies
+no stereo pixels. Emotes remain partial; complete source/host areas stay3/14.

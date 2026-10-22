@@ -1553,6 +1553,29 @@ class PicoNormalScriptsTests(unittest.TestCase):
         self.assertEqual([], self.qt.rows)
         self.assertEqual([], list(self.fixture.state_root.glob('normal-script-state-*.json')))
 
+    def test_pico_emote_scene_factory_preserves_candidate_and_shared_lock_without_input(self):
+        from adapters.pico4.emote_scene_owner import PicoEmoteScene
+        from adapters.pico4.emote_scene_source import NativePicoEmoteScene
+        from feature_journeys.phase_fixture import PhaseFixtureReader
+        from feature_journeys.witness import Client
+        target=self.native.target;lock=self.instance._script_journey()._lock(target,None)
+        phase=PhaseFixtureReader(Client('http://controlled.test/feature-fixture/v1','p'*64),'d'*32,'emotes')
+        with lock.held():
+            owner=self.instance._emote_scene(target,phase,lock)
+            self.assertIsInstance(owner,PicoEmoteScene);self.assertIs(lock,owner.lock)
+            reader=owner.reader();self.assertIsInstance(reader,NativePicoEmoteScene);self.assertEqual(123,reader.pid)
+            self.assertEqual(self.instance._emote_scene_store(target).path,owner.store.path)
+            self.assertNotEqual(self.instance._emote_view_store(target).path,owner.store.path)
+            self.assertEqual([],self.native.inputs);self.assertEqual([],self.native.controllers)
+            self.native.digest='f'*64
+            with self.assertRaises((ValueError,RuntimeError)):owner.bound()
+        self.assertEqual([],self.native.inputs)
+
+    def test_pico_emote_scene_originals_block_general_cleanup_after_other_owners_retire(self):
+        store=self.instance._emote_scene_store(self.native.target);store.write({'unresolved':'owned-original-scene'},None)
+        with self.assertRaises(ValueError):self.cleanup_instance().cleanup(self.native.target)
+        self.assertIsNotNone(store.read())
+
     def test_ignored_native_stop_fails_cleanup_and_retains_persisted_source_intent(self):
         self.load(); self.qt.ignore_stop = True
         with self.assertRaises(ValueError): self.cleanup_instance().cleanup(self.native.target)

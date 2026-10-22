@@ -743,3 +743,40 @@ remain unchanged; source-complete count remains3/14.
 
 All4 final repository suites pass3.16s; registry, probe JavaScript syntax and
 whitespace pass. The original candidate environment guard remains unchanged.
+
+
+## Original Pico Emote scene and Create completion fences
+
+Create phase/freshness follow-ups abdbf202e9 and7f164702d2 are integrated as
+58bc6ddbe9 and1ccaeeaf07. Every input and completion rechecks the original
+fixture phase; combined native/host age includes final Root CAS and candidate
+guards. A private completion companion retains the exact original call through
+a lost final pending-clear/rollback. No timeout or original capture clock is
+changed. The integrated create-feature-owner group passes88.721s (1/77).
+
+The full original new Pico scene header and complete native Scene/Avatar getter
+bodies pass actual Qt5 (4.671s) and Qt6 (9.016s) native cases. Real qrc contains
+the repository FST/FBX. EntityTree, Model/Rig/camera and dependency storage are
+explicit seams. Original actual Web/Shape factory deleteLater lambdas prove
+that absent IDs and shared-pointer expiry do not imply original QObject death.
+A timed-out queued prepare is never dispatched later; actual pending functor
+death is required before a subsequent request. No full native TU/app, browser,
+GL, Pico/OpenXR or device qualification follows.
+
+The first owner run had two test expectation errors: corruption correctly
+failed via the shared phase ValueError, and a native clock jump correctly
+failed contiguous-window validation. Expectations now require those refusals.
+An imported TestCase also accidentally duplicated nine existing source tests;
+module import now preserves the intended owning selection. The next14 owner
+cases pass15.116s. Both actual Pico factory/cleanup cases pass2.075s. Further
+phase-race and frozen-native quiet-window cases are included in final regression
+below. No production behavior or evidence threshold was weakened.
+
+Final integrated regression passes3/78 catalog groups86.77s: coverage.110s,
+original scene native5.316s, expanded stereo/Emote owners81.346s (including
+all16 new scene owner/source cases). All4 repository suites pass5.55s; registry,
+probe JavaScript syntax and whitespace pass. The new scene native selector
+is the only catalog addition (77 to78); no timeout increased. Actual factory
+and common-cleanup cases separately pass2.075s. Originals/journals remain
+retained, full Emote/public/actor composition stays open and complete source
+feature count remains3/14.

@@ -93,6 +93,7 @@ TESTS = (
     test("normal-chat", "interaction", PYTHON, "device/test_normal_chat.py"),
     test("normal-emote", "interaction", PYTHON, "device/test_normal_emote.py"),
     test("emote-view-native-ui", "interaction", PYTHON, "pico-view-menu-native-test.py", requires=("c++", "pkg-config")),
+    test("emote-scene-native", "interaction", PYTHON, "pico-emote-scene-native-test.py", requires=("c++", "pkg-config")),
     test("emote-original-sources", "interaction", PYTHON, "pico-emote-sources-test.py"),
     test("emote-stereo-capture", "interaction", PYTHON, "pico-emote-stereo-capture-test.py"),
     test("emote-background-effects", "interaction", PYTHON, "pico-emote-background-test.py"),

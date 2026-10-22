@@ -974,3 +974,24 @@ keyboard/lifecycle source continuity for both input roles and the independent
 witness. Native opening IDs are distinct original mutations, not receipts or
 requested identities. Old v1/v2 flow owners remain retained. The actual complete
 Chat dispatcher and whole retirement are still under construction.
+
+
+## Pico Emote local scene continuation, 2026-10-22
+
+[The durable two-object stimulus owner](EMOTE_SCENE.md) now supplies the
+controlled bundled-avatar scene through the existing Pico candidate/channel
+and shared Script lock. Original prepare/release intent precedes input; lost
+responses only permit original read-only reconciliation. Actual tree absence,
+original shared/QObject deaths and a three-second host/native quiet window are
+required. The retained scene journal blocks common cleanup and remains for the
+future parent join. Central-camera layout is stimulus only. Model-specific
+original two-eye images and independent actor evidence remain mandatory.
+Qt5/Qt6 native fragment checks pass at the documented explicit host seams;
+application, renderer/browser, headset/device qualification is still open.
+The full Emote dispatcher/actor/resource-retirement composition remains partial.
+The complete source/host feature count stays3/14.
+
+The Create parent now freshly fences every actual child input/completion and
+cleanup against its original phase. A monotonic admission bound includes the
+final CAS/guard, and a durable completion companion blocks a later input after
+a lost pending-clear or rollback. No phase or input is automatically replayed.

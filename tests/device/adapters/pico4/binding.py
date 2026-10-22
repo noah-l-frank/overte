@@ -577,6 +577,28 @@ def create_adapter(args, base_class):
             source=self._emote_source_store(target,'primary')
             return PrivateFeatureState(source.path.with_name(source.path.stem+'-view.json'))
 
+        def _emote_scene_store(self,target):
+            source=self._emote_source_store(target,'primary')
+            return PrivateFeatureState(source.path.with_name(source.path.stem+'-scene.json'))
+
+        @_private
+        def _emote_scene_observer(self,target):
+            from adapters.pico4.emote_scene_source import NativePicoEmoteScene,FILE
+            native=self._native_feature_observer(target)
+            return NativePicoEmoteScene(native.send,
+                lambda:self.adb.read_debug_app_file(target,'org.overte.pico','files/overte-e2e/'+FILE,attempts=1),
+                native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep)
+
+        @_private
+        def _emote_scene(self,target,phase,source_lock):
+            from adapters.pico4.emote_scene_owner import PicoEmoteScene
+            lock=self._script_journey()._lock(target,source_lock);lock.assert_held()
+            _ui,_observe,binding=self._script_runtime(target);native=self._native_feature_observer(target)
+            native.guard();_need(native.pid==int(binding['processIdentity'].split(':')[0]))
+            return PicoEmoteScene(self._emote_scene_store(target),binding,phase,lock,
+                lambda:self._emote_scene_observer(target),lambda:self._avatar_render_observer(target),native.guard,
+                monotonic=native.monotonic,sleep=native.sleep)
+
         @_private
         def _emote_view(self,target,phase,source_lock):
             from adapters.pico4.emote_view import PicoEmoteView
@@ -2146,6 +2168,7 @@ def create_adapter(args, base_class):
                       and self._chat_peer_distant_store(target).read() is None
                       and not self._emote_image_journals(target)
                       and self._emote_view_store(target).read() is None
+                      and self._emote_scene_store(target).read() is None
                       and all(self._emote_world_render_store(target, role).read() is None for role in ('primary','actor'))
                       and self._emote_input_store(target).read() is None
                       and all(self._emote_source_store(target, role).read() is None for role in ('primary', 'actor'))

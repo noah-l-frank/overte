@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "reference": "abb7f6b60d97daf17752aadf94e2b5df099bb7ba",
+  "selectedFiles": {
+    "tests/device/native/PhoneEmoteFixture.h": "c30e268ede0fa846c75f10841e63c536ccd798156e58eeb62f3a5212d0f6db35",
+    "tests/device/adapters/native_phone_emote_fixture.py": "bfa3525b985f3a1083197925d770bf94cf6e7782e380b86dea91b173ea753ed9"
+  },
+  "uncommittedPhoneWorkExcluded": true,
+  "modifications": [
+    "Pico-only E2E fixture gate and explicit HMD look-at admission; no Phone inputs or view setters.",
+    "Central-camera geometry is authored stimulus only; separate actual two-eye model/capture/pixel validation remains mandatory.",
+    "Original weak EntityItem identity plus QPointer QObject retirement, including actual deleteLater lifetimes.",
+    "Existing generic Web runtime request validator; original owned EntityTree deletion preflight retained.",
+    "Pure original inverse projection/quaternion/layout math reused for central-camera authored stimulus only, never per-eye evidence."
+  ],
+  "qualification": "Actual original native scene header and getter compile and execute with Qt5 and Qt6 at explicit host Entity/Camera/Model seams. Host owner regression is recorded separately. No new complete capability, full application or device qualification."
+}

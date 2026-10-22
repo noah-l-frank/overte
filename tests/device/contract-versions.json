@@ -1,6 +1,9 @@
 {
   "schemaVersion": 1,
   "contracts": {
+    "pico-emote-scene-source": {"current": 1, "reads": [1]},
+    "pico-emote-scene-input": {"current": 1, "reads": [1]},
+    "pico-emote-scene-owner": {"current": 1, "reads": [1]},
     "pico-create-feature-completion": {"current": 1, "reads": [1]},
     "pico-create-feature-owner": {"current": 1, "reads": [1]},
     "pico-create-model-resource-join": {"current": 1, "reads": [1]},

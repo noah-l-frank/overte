@@ -496,7 +496,14 @@
         "tests/device/adapters/pico4/view_menu_lifetimes.py",
         "tests/device/self_tests/test_pico_view_menu_lifetimes.py",
         "tests/device/native/AvatarResourceIdentity.h",
-        "tests/device/adapters/pico4/PHONE_SHARED_AVATAR_RESOURCES_20261022.json"
+        "tests/device/adapters/pico4/PHONE_SHARED_AVATAR_RESOURCES_20261022.json",
+        "tests/device/native/PicoEmoteSceneFixture.h",
+        "tests/device/adapters/pico4/emote_scene_source.py",
+        "tests/device/adapters/pico4/emote_scene_owner.py",
+        "tests/device/self_tests/test_pico_emote_scene.py",
+        "tests/device/contracts/emote/test_emote_scene_native.py",
+        "tests/device/adapters/pico4/EMOTE_SCENE.md",
+        "tests/device/adapters/pico4/PHONE_SHARED_EMOTE_SCENE_20261022.json"
       ],
       "declaredCheckpoints": 28,
       "inputVerbs": [

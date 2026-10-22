@@ -9,6 +9,9 @@ from pathlib import Path
 
 
 REQUIRED = {
+    "pico-emote-scene-source": 1,
+    "pico-emote-scene-input": 1,
+    "pico-emote-scene-owner": 1,
     "pico-create-feature-completion": 1,
     "pico-create-feature-owner": 1,
     "pico-create-model-resource-join": 1,
