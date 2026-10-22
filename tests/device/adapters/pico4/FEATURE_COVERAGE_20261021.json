@@ -466,7 +466,10 @@
         "libraries/gpu/src/gpu/FeatureWorldRender.h",
         "libraries/render-utils/src/MeshPartPayload.cpp",
         "tests/device/adapters/pico4/emote_model_draws.py",
-        "tests/device/self_tests/test_pico_emote_model_draws.py"
+        "tests/device/self_tests/test_pico_emote_model_draws.py",
+        "tests/device/adapters/pico4/emote_pixels.py",
+        "tests/device/self_tests/test_pico_emote_pixels.py",
+        "tests/device/adapters/pico4/EMOTE_STEREO_PIXELS.md"
       ],
       "declaredCheckpoints": 28,
       "inputVerbs": [
@@ -503,7 +506,7 @@
         "Observe original pose/mapping/timer/resource retirement",
         "Restore captured prior override and closed panel"
       ],
-      "nextExecutableStep": "Measure original current-challenge stereo avatar/body pixels using only the executed model-specific eye cameras, retain actual capture ownership through release, then compose independent actor/public flow and verified original resource retirement. Loaded model/geometry/Rig, indexed draw and same-frame submitted PNG provenance are present as a partial source component; Emotes remains unavailable as a whole feature.",
+      "nextExecutableStep": "Compose durable model-bound original stereo acquisition/archive/release with current per-eye challenge/body pixels and the existing independent Rig effect source. Establish an actual normal VR scene/avatar/view setup, independent actor/public flow and complete original resource retirement; pixel measurements alone do not make Emotes complete.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     },

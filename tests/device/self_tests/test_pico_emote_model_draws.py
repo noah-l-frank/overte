@@ -15,8 +15,8 @@ from self_tests.test_stereo_camera_uniforms import CameraBoundary
 
 
 class ModelBoundary:
-    def __init__(self,epoch=20000):
-        capture=CameraBoundary();produce=capture.mutate
+    def __init__(self,epoch=20000,capture_boundary=None):
+        capture=capture_boundary or CameraBoundary();produce=capture.mutate
         def timestamps(value):
             if type(value) is dict:
                 for key,item in value.items():

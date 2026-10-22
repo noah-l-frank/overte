@@ -159,6 +159,8 @@ REQUIRED = {
     "native-avatar-render": 1,
     "pico-model-draw-trace": 1,
     "pico-model-draw-capture": 1,
+    "pico-emote-pixel-policy": 1,
+    "pico-emote-pixels": 1,
     "native-animation-inventory": 1,
     "emote-animation-readiness": 1,
     "emote-originals": 1,

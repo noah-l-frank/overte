@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "reference": "abb7f6b60d97daf17752aadf94e2b5df099bb7ba",
+  "sourcePath": "tests/device/adapters/android-phone/overte_phone_emote_pixels.py",
+  "sourceSha256": "658955ccc180eb451904c99193a57456ed7e749a5426e5d2e04a4a0e54f4f129",
+  "uncommittedPhoneWorkExcluded": true,
+  "adapted": [
+    "Bounded original body/control sampling and historical original comparison.",
+    "Shared original PNG/challenge verifier and final native/host age budgets."
+  ],
+  "excluded": [
+    "Mono projection and recorded central camera as eye evidence.",
+    "Phone platform, scene, touch and camera setters."
+  ],
+  "pico": [
+    "Only actual model-specific used eye cameras.",
+    "Two independent original viewport/marker/body/control checks.",
+    "Measured bounded actual late-pose changes without a fixed Phone head pose."
+  ],
+  "qualification": "Internal partial Emote pixel measurements; no renderer/device, full capture owner or whole feature qualification."
+}

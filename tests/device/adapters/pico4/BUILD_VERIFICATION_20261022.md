@@ -286,3 +286,24 @@ explicit seams. Both integrated actual factory/parent-lock cases pass (2.348s).
 All four project checks pass (3.17s), and registry/Node/whitespace checks pass.
 Whole Chat and Lifecycle remain partial; no source/journal retirement or device
 qualification is inferred from these components.
+
+
+## Original per-eye Emote body and challenge measurements
+
+Ten new stereo pixel cases and eight model provenance cases pass (18/18,
+4.065s). Each eye decodes the current challenge and independently measures
+original projected body versus quiet control pixels, retaining actual used-camera
+changes. Both eyes must pass. Native source times, original PNG/pixel hashes,
+loaded geometry/Rig and actual frame/submission cursors remain required.
+A synthetic fixture initially put its subject top at15 while the actual
+projection began at13; the check correctly refused it. Its producer policy and
+painted body were corrected to cover the actual original projection. No
+production bound or threshold was relaxed. Freshness tests include native time
+advancing behind a frozen host and repeated PNG decode cost behind a frozen
+native clock. Source logic only; scene/view setup, durable whole capture flow,
+independent effects/actor and complete Emote retirement remain unfinished.
+
+The final expanded Pico source group and coverage checks pass (2/65, 70.20s):
+emote-original-sources 70.125s and coverage-matrix .080s. The source group now
+contains 126 cases. All four project checks pass (3.32s); registry/whitespace
+checks pass. No native files changed in this pixel-only packet.

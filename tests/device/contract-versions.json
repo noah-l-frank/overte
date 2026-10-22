@@ -128,6 +128,8 @@
     "native-avatar-render": {"current": 1, "reads": [1]},
     "pico-model-draw-trace": {"current": 1, "reads": [1]},
     "pico-model-draw-capture": {"current": 1, "reads": [1]},
+    "pico-emote-pixel-policy": {"current": 1, "reads": [1]},
+    "pico-emote-pixels": {"current": 1, "reads": [1]},
     "native-animation-inventory": {"current": 1, "reads": [1]},
     "emote-animation-readiness": {"current": 1, "reads": [1]},
     "emote-originals": {"current": 1, "reads": [1]},
