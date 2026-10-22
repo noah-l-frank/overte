@@ -4,9 +4,10 @@
 constructs `PicoChatComposition` from the existing original candidate/process
 binding, an adapter-only `PhaseFixtureReader`, the original private actor config
 and the original private domain-ready file. It neither discovers nor starts a
-fixture. No public `feature.chat.*` capability or operation is added. Whole Chat
-remains partial until original Android process/QML
-retirement and dedicated final evidence/journal closure are joined and verified.
+fixture. No public `feature.chat.*` capability or operation is added. The private process/archive continuation is described in
+[application closure](CHAT_APPLICATION_CLOSE.md). Whole Chat remains partial: its
+complete target journey, original peer binary provenance and full device closure
+have not been qualified. Component host seams never supply those facts.
 
 Before acquiring the peer, the parent journals admission. The real
 `OwnedChatPeer` independently qualifies its actual Linux PID/start/boot,
@@ -116,7 +117,8 @@ actual peer observation IPC and original result FD, returning `caches-retired`.
 New post-restart peer originals must be acquired through this existing channel
 before the enclosing owner closes it. The immediate component path is not
 promoted to a post-restart proof and a closed channel is never reopened. The
-process/post-restart/final-IPC/archive composition remains pending.
+private process/post-restart/final-IPC/archive continuation is described below;
+its complete target qualification remains unavailable.
 
 `_chat_witness_composition(target, independent_phase_source, peer_config)`
 constructs a separate `PicoChatWitness` with its own publisher Client/credential,
@@ -144,3 +146,28 @@ qualifies native file/source serialization. The full shared 25-step dispatcher
 and independent 26-frame witness already have their own fixed selection; this
 factory selection does not substitute for a whole Pico journey or device run.
 No network listener, product service, device or OpenXR runtime is executed.
+
+
+`restart_and_close_application(after_epoch)` now continues only the deferred
+`caches-retired` path. Before the actual once-only restart it constructs the
+complete warm archive catalog, requiring all six consumed child kinds and all
+26 separately published original Witness stages. It preserves the actual old
+Script/UI host contexts and never calls `_scripts()` after stopping the old PID.
+The new process must independently prove birth/counters, original old-PID ESRCH
+and actual current cache/worker/physical settings equal to the retained original
+profile before the original held host cursor is replaced once. New private
+source namespaces carry two independent compiled code/cache/View/native roles.
+Three seconds of original quiet precede final peer IPC closure; a second full
+three seconds follows it with original primary sources and independent kernel
+FD absence. No peer observation channel is recreated after its closure.
+
+`finalize_application()` then joins the admitted old source descriptions and
+new fully consumed source histories to the original immutable evidence archive.
+Unknown roots/chunks or replaced source descriptions refuse retirement. The
+existing `RestartInputs.retire` is used only after its three original owners are
+archived and absent. Fresh actual code, cache, View, physical profile, native
+birth/ESRCH and unchanged independent cleanup phase are retained after the last
+unlink. The final packet's unchanged age remains bounded after receipt writes,
+marker unlink and archive sealing. Failure retains an explicit retirement marker
+without overwriting any landed or foreign journal. No public operation or
+capability is added by this private continuation.

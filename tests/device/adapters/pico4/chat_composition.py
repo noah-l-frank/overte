@@ -42,6 +42,7 @@ def record(value):
     context(value['binding'])
     if value['picoChatCompositionVersion']<3:need(value['phase'] not in ('cleanup-admission-issued','cleanup-admitted'))
     if value['picoChatCompositionVersion']<4:need(value['phase'] not in ('cache-release-issued','caches-ipc-released','caches-retired'))
+    if value['picoChatCompositionVersion']<5:need(value['phase']!='caches-retired')
     if value['phase']=='admitted':need(value['peerBinding'] is None and value['peerOriginBasis']=='unavailable')
     else:context(value['peerBinding']);need(value['peerOriginBasis']=='native-configured-metadata-only')
     if value['phase'] in PHASES[:5]:need(value['completedSteps']==0)
@@ -267,9 +268,44 @@ class PicoChatComposition:
             self.failed=True
             raise NativeUIError('Pico Chat cache/IPC release is unresolved; original journals remain without replay') from None
 
+    def restart_and_close_application(self,after_epoch):
+        """Actual once-only restart, independent new originals and final IPC."""
+        from adapters.pico4.chat_application_close import PicoChatApplicationClose
+        try:
+            need(not self.failed and integer(after_epoch,1) and self.previous['phase']=='caches-retired'
+                and self.cache_release is not None and self.cache_release.defer_ipc
+                and getattr(self,'application_close',None) is None)
+            with self.held():
+                self.guard();io=self.adapter._chat_restart_io(self.target,self.binding)
+                self.restart_io=io
+                from adapters.pico4.chat_archive import PicoChatArchivePlan
+                self.archive_plan=PicoChatArchivePlan(self)
+                def successor(identity):
+                    return self.adapter._chat_postrestart_sources(self.target,self.source.run,identity,
+                        self.peer.retirement_reader(),self.peer.binding,source_lock=self.lock,peer_lock=self.peer.lock)
+                self.application_close=PicoChatApplicationClose(self.cache_release,io,self.store,self.previous,
+                    self.adapter._chat_application_store(self.target),self.adapter._chat_restart_inputs_store(self.target),
+                    successor,monotonic=self.native.monotonic,sleep=self.native.sleep)
+                return self.application_close.run(after_epoch)
+        except Exception:
+            self.failed=True
+            raise NativeUIError('Pico Chat application close is unresolved; original process and source journals remain') from None
+
+    def finalize_application(self):
+        """Archive exact original sources before retiring consumed journals."""
+        try:
+            need(not self.failed and getattr(self,'application_close',None) is not None
+                and self.application_close.previous['phase']=='released' and getattr(self,'archive_plan',None) is not None)
+            with self.held():return self.archive_plan.finish(self.application_close)
+        except Exception:
+            self.failed=True
+            raise NativeUIError('Pico Chat final archive is unresolved; all unknown originals and retirement intents remain') from None
+
     def detach(self):
         """Host handles only; never a native, journal or feature cleanup claim."""
         if self.peer is not None:self.peer.close_host()
+        if getattr(self,'restart_io',None) is not None:self.restart_io.close_host()
+        if getattr(self,'archive_plan',None) is not None:self.archive_plan.close_host()
 
 
 class PicoChatWitness:

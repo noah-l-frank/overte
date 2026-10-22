@@ -1887,6 +1887,83 @@ def create_adapter(args, base_class):
             from adapters.pico4.chat_composition import peer_retained
             return peer_retained(self,target)
 
+        def _chat_archive_retirement_store(self,target):
+            state,_ui=self._script_paths(target)
+            return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-','chat-archive-retirement-')))
+
+        def _chat_application_retained(self,target):
+            # Rootless successor/retirement chunks must not disappear behind
+            # a missing parent root or ordinary application force-stop.
+            stores=[self._chat_application_store(target),self._chat_restart_inputs_store(target),self._chat_archive_retirement_store(target)]
+            stores.extend(self._chat_postrestart_store(target,kind) for kind in ('ui','primary-code','actor-code','primary-absence','actor-absence'))
+            retained=any(self._chat_chunk_store_retained(store) for store in stores)
+            state,_ui=self._script_paths(target);key=state.stem.removeprefix('normal-script-state-')
+            from adapters.chat_journey.evidence_archive import completed_archive
+            for path in state.parent.iterdir():
+                if not path.name.startswith('chat-evidence-'+key+'-'):continue
+                run=path.name.removeprefix('chat-evidence-'+key+'-')
+                _need(re.fullmatch('[0-9a-f]{32}',run))
+                evidence=completed_archive(path);metadata=evidence['metadata']
+                _need(type(metadata.get('picoChatArchivePlanVersion')) is int and metadata['picoChatArchivePlanVersion']==1 and metadata.get('runId')==run
+                    and metadata['oldBinding']['targetFingerprint']==metadata['newBinding']['targetFingerprint']
+                    ==hashlib.sha256((target+'\0'+str(self.pico_configuration)).encode()).hexdigest())
+            return retained
+
+        def _chat_application_store(self,target):
+            state,_ui=self._script_paths(target)
+            return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-','chat-application-close-')))
+
+        def _chat_restart_inputs_store(self,target):
+            state,_ui=self._script_paths(target)
+            return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-','chat-restart-inputs-')))
+
+        def _chat_postrestart_store(self,target,kind):
+            _need(kind in ('ui','primary-code','actor-code','primary-absence','actor-absence'))
+            state,_ui=self._script_paths(target)
+            return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-','chat-postrestart-'+kind+'-')))
+
+        @_private
+        def _chat_postrestart_sources(self,target,run,identity,peer,peer_binding,*,source_lock,peer_lock):
+            # Never call _scripts/_script_runtime: their original old-PID
+            # journals stay intact until actual ESRCH and immutable archival.
+            from adapters.chat_journey.compiled_samples import CompiledChatCacheAbsence
+            from adapters.chat_journey.script_source import ChatScriptSource
+            from adapters.script_journey.lock import ScriptSourceLock
+            from adapters.native_chat_observation import NativeChatObservation,FILE as CHAT_FILE
+            from adapters.native_chat_view import NativeChatView,FILE as VIEW_FILE
+            _need(isinstance(source_lock,ScriptSourceLock) and isinstance(peer_lock,ScriptSourceLock))
+            source_lock.assert_held();peer_lock.assert_held()
+            _need(isinstance(peer,NativeChatObservation) and not peer.ios and not getattr(peer,'_chat_cache_lifetime_owned',False)
+                and self.require_controlled_debug_identity(target)==identity and peer.pid==int(peer_binding['processIdentity'].split(':')[0]))
+            scene=normal_scripts.configuration(os.environ);_need(scene is not None)
+            ui_store=self._chat_postrestart_store(target,'ui');_need(ui_store.read() is None)
+            def no_input(_operation):raise ValueError('Post-restart Chat sources cannot deliver controller input')
+            _ui,_observe,binding=normal_scripts.runtime(self,target,scene,self._installation(target),identity,ui_store.path,no_input)
+            roles=[]
+            for role in ('primary','actor'):
+                native=self._native_feature_observer(target);native.guard()
+                code_store=self._chat_postrestart_store(target,role+'-code')
+                store=self._chat_postrestart_store(target,role+'-absence')
+                _need(source_lock.path==store.path.with_name('script-sources.lock') and code_store.read() is None and store.read() is None)
+                code=ChatScriptSource(run,role,binding,self._script_roots_observer(target),self._script_execution_observer(target),
+                    code_store,source_lock,monotonic=native.monotonic)
+                def send(command,native=native):
+                    _need(command.get('operation')=='inspect');native.send(command)
+                primary=NativeChatObservation(send,
+                    lambda:self.adb.read_debug_app_file(target,'org.overte.pico','files/overte-e2e/'+CHAT_FILE,attempts=1),
+                    native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep)
+                view=NativeChatView(native.send,
+                    lambda:self.adb.read_debug_app_file(target,'org.overte.pico','files/overte-e2e/'+VIEW_FILE,attempts=1),
+                    native.clock_ms,native.guard,native.pid,vr=True,monotonic=native.monotonic,sleep=native.sleep)
+                # Every independent role gets a new original peer reader on
+                # the still-open restricted transport, never a copied packet.
+                from adapters.native_chat_observation import NativeChatObservation as PeerReader
+                remote=PeerReader(peer.send,peer.original,peer.clock_ms,peer.guard,peer.pid,monotonic=peer.monotonic,sleep=peer.sleep)
+                remote._chat_transport=peer._chat_transport
+                roles.append(CompiledChatCacheAbsence(run,role,binding,peer_binding,primary,remote,view,native,
+                    store,source_lock,peer_lock,vr=True,script_source=code,monotonic=native.monotonic))
+            return binding,tuple(roles)
+
         @_private
         def _chat_composition(self,target,source,peer_config,domain_ready):
             from adapters.pico4.chat_composition import PicoChatComposition
@@ -2478,7 +2555,7 @@ def create_adapter(args, base_class):
                     if self._chat_mixer_store(target).read() is not None:chat_error=True
                     if self._chat_chunk_store_retained(self._chat_normal_input_store(target)):chat_error=True
                     if self._chat_chunk_store_retained(self._chat_dispatcher_store(target)):chat_error=True
-                    if self._chat_composition_store(target).read() is not None or self._chat_peer_state_retained(target):chat_error=True
+                    if self._chat_composition_store(target).read() is not None or self._chat_peer_state_retained(target) or self._chat_application_retained(target):chat_error=True
                     if self._chat_cleanup_admission_store(target).read() is not None:chat_error=True
                     if self._chat_chunk_store_retained(self._chat_cache_release_store(target)):chat_error=True
                     if any(self._chat_chunk_store_retained(self._chat_script_source_store(target,role,witness=witness))
@@ -2555,7 +2632,7 @@ def create_adapter(args, base_class):
                       and self._chat_mixer_store(target).read() is None
                       and not self._chat_chunk_store_retained(self._chat_normal_input_store(target))
                       and not self._chat_chunk_store_retained(self._chat_dispatcher_store(target))
-                      and self._chat_composition_store(target).read() is None and not self._chat_peer_state_retained(target)
+                      and self._chat_composition_store(target).read() is None and not self._chat_peer_state_retained(target) and not self._chat_application_retained(target)
                       and self._chat_cleanup_admission_store(target).read() is None
                       and not self._chat_chunk_store_retained(self._chat_cache_release_store(target))
                       and not any(self._chat_chunk_store_retained(self._chat_script_source_store(target,role,witness=witness))
