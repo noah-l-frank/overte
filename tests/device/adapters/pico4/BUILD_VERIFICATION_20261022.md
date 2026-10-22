@@ -894,3 +894,34 @@ catalog gains exactly audio-final-close and audio-final-retirement (81 to83),
 preserving the root background partition and all newer feature guards. Root
 final-owner regression is pending. Audio/Emote remain partial; no application,
 OpenXR, physical audio, stereo or device qualification is asserted here.
+
+## Selected final-owner and PolyVox regression
+
+At af20152d2d, the frozen root selection passes8/85 catalog groups264.53s:
+coverage.084s, AudioFinalClose71.013s, AudioFinalRetirement42.831s, original
+PolyVoxQt5UI7.562s, originalEntitiesQt5native7.247s, normalEmote11.538s,
+EmoteInputEffects69.856s and stereo/View/scene owners54.393s. No timeout or
+operation bound changed; every required case ran. Before that selection all
+four repository suites pass3.09s. Those native harnesses retain explicit
+model/renderer/SDK seams and do not establish full TUs/application or devices.
+
+Subsequent root3cb3ad8f2c/2580202a4f/a9a9c0e3b2 select the generic controller
+owner pair, its direct candidate-check review fix, and once-only OS transport.
+The new controller path explicitly preserves original installation admission
+before its final callback. a89b96b88c/8d73e9ce3d select Create's actual final
+QML intent/current-UI/phase admission and narrow original generic Home/pager
+compatibility fix. Agent focused results are recorded in their packets; root
+combined followup verification is pending.
+
+One new normal-input-transport selector owns the shared13 original transport
+cases; the five QML cases move there from normal-emote without duplication.
+This changes the catalog85 to86, retaining all previous feature assertions and
+the same120s group timeout. No new complete feature capability is advertised.
+
+Root followup selection is3/4 green89.33s: coverage.068s, all13 actual
+transport-boundary cases2.370s, complete existing CreateFeatureOwner52.251s.
+CreatePrimitiveOwner runs all8 cases34.053s with one unresolved cold recovery
+error in test_lost_final_apply_reconciles_without_repeating_original_input;
+the other7 pass. The selection is not green. Original pending Apply ownership
+is retained; no input replay or bounds change is used. A targeted source fix
+and rerun are required before that primitive packet is considered verified.

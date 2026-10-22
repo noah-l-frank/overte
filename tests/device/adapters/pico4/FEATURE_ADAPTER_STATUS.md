@@ -15,7 +15,8 @@ Stereo source follow-up: world-render acquisition v2 now joins original two-eye 
 Current isolated continuation: [2026-10-21 coverage and handoff](FEATURE_HANDOFF_20261021.md).
 Scripts, Authentication and Graphics have complete source-level, host-verified v16 triples
 on that local branch, using the actual Pico VR input composition. The other eleven complete
-areas remain unavailable; native source is uncompiled and every device is
+areas remain unavailable. The full native application has not been compiled;
+selected original native fragments pass host compiler checks. Every device is
 untested. See the [Scripts contract](SCRIPT_FEATURE.md) and
 [machine matrix](FEATURE_COVERAGE_20261021.json).
 
@@ -753,3 +754,33 @@ at explicit host Entity/Model/camera seams. This supersedes uncompiled status
 only for those selected fragments; full native application, browser/rendering
 and device qualification remain unavailable. Central-camera authoring supplies
 no stereo pixels. Emotes remain partial; complete source/host areas stay3/14.
+
+
+## Normal PolyVox, Audio final closure and final transport admission
+
+The Create parent now joins normal More/PolyVox dialog configuration, actual
+local domain insertion, canonical8-cubed volume/mesh, normal Properties and
+Delete, preserving original effect bytes after deletion. Extra original QML
+page/context inventory and actual Entity QObject death remain independent.
+Normal brush edits, rez authority, current stereo/actor and whole cleanup are
+still open. Final QML guards compare the durable intent to the actual command
+and current native UI before checking the unchanged exact fixture phase; normal
+generic Home/paging retain their original native enabled/visibility semantics.
+
+Audio now has a normal final double-X owner: original terminal history, private
+tap absence, actual Audio page death, original peak restoration, Home/tablet
+quiet and separately measured deferred callback retirement. Retained capacity,
+Qt contexts, native history, acoustic/peer and journals are still owned. Cold
+validation preserves exact resources across deferred quiet and rejects reused
+or foreign controller streams. Common v16 cleanup requires the same process
+and original idle/empty history; it cannot silently restart or clear that
+actual terminal history. The whole adapter remains partial.
+
+The shared owned QML callback, separate outside-lock controller admission and
+inside-lock host-only intent preserve original candidate/process/session guards.
+The private OS route issues exactly one normal HOME or activity launch after
+final admission, with no retry/bootstrap. These APIs are admission boundaries,
+not effects. The normal-input-transport catalog group owns their13 targeted
+host cases; its SDK/Qt/native seams remain explicit. Final Emote inputs/View
+use the original QML boundary while retaining all actual source and effect
+requirements. Complete source/host areas remain3/14; devices remain untested.

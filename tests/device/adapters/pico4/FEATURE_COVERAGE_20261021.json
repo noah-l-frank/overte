@@ -323,7 +323,15 @@
         "tests/device/adapters/pico4/create_model_resource_join.py",
         "tests/device/adapters/pico4/create_journey.py",
         "tests/device/adapters/pico4/CREATE_FEATURE_OWNER.md",
-        "android/vr/pico/tests/device/test_create_journey.py"
+        "android/vr/pico/tests/device/test_create_journey.py",
+        "tests/device/adapters/pico4/create_primitives.py",
+        "tests/device/adapters/pico4/create_extra_ui.py",
+        "tests/device/adapters/pico4/CREATE_POLYVOX_PARENT.md",
+        "tests/device/native/CreateLocalCreations.h",
+        "tests/device/native/NormalCreateExtraControls.h",
+        "android/vr/pico/tests/device/test_create_primitives_owner.py",
+        "android/vr/pico/tests/device/test_create_transport_admission.py",
+        "android/vr/pico/tests/device/test_create_polyvox_controls_native.py"
       ],
       "declaredCheckpoints": 21,
       "inputVerbs": [
@@ -368,10 +376,11 @@
         "Drain original model/texture/picker/export callbacks and files",
         "Restore rez permission, view and actual unowned scene inventory"
       ],
-      "nextExecutableStep": "Extend the durable normal v16 first-twelve-step parent (picker cancel, original Model/material texture, normal Save of that actual Model, Delete, OBJ and JSON import/Delete with original lifecycle context retirement) with canonical PolyVox dialog/brush, exact owned rez authority restoration, independent actor/current stereo state and full allocation/history/quiet retirement. Tighten fresh phase admission at every root input before broader composition.",
+      "nextExecutableStep": "Extend the real first-twelve-step parent plus normal PolyVox dialog/Create/Properties/Delete (actual Source4 insertion, atomic 8 cubed voxels and mesh, retained original proof) with normal controller voxel brush edits, exact rez authority denial/restoration, independent actor/current stereo and whole allocation/history/quiet retirement. Final QML admission checks actual intent/token, original current UI and exact fixture phase; generic Home/paging retains its native survey semantics.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested",
-      "nativeDialogIntegrationStatus": "Focused original Qt5 dialog pipeline passed after restoring actual GUI Window receiver affinity and original worker DirectConnection call. Full application/V8 TUs and devices unqualified; earlier unsupported moved-receiver diagnostic crash documented."
+      "nativeDialogIntegrationStatus": "Focused original Qt5 dialog pipeline passed after restoring actual GUI Window receiver affinity and original worker DirectConnection call. Full application/V8 TUs and devices unqualified; earlier unsupported moved-receiver diagnostic crash documented.",
+      "nativeComponentCompilation": "Selected unchanged real Qt5 PolyVox UI/Offscreen/Pico pointer and native entity/volume getter fragments pass; full application/TUs, renderer, network and devices remain unqualified."
     },
     {
       "area": "emotes",
@@ -503,7 +512,9 @@
         "tests/device/self_tests/test_pico_emote_scene.py",
         "tests/device/contracts/emote/test_emote_scene_native.py",
         "tests/device/adapters/pico4/EMOTE_SCENE.md",
-        "tests/device/adapters/pico4/PHONE_SHARED_EMOTE_SCENE_20261022.json"
+        "tests/device/adapters/pico4/PHONE_SHARED_EMOTE_SCENE_20261022.json",
+        "tests/device/adapters/pico4/NAVIGATION_TRANSPORT_HOOK.md",
+        "android/vr/pico/tests/device/test_navigation_transport_hook.py"
       ],
       "declaredCheckpoints": 28,
       "inputVerbs": [
@@ -540,7 +551,7 @@
         "Observe original pose/mapping/timer/resource retirement",
         "Restore captured prior override and closed panel"
       ],
-      "nextExecutableStep": "Join the normal controlled-avatar View v4 route (actual pinned configured/loaded qrc bytes, original controller envelopes and neutralization) to controlled stereo scene/current full-body pixels and independent actor effects. Complete common quiet windows and actual Qt/native/journal retirement before enabling the full feature.",
+      "nextExecutableStep": "Join real controlled-avatar View4, durable original two-object scene, Input2/effect/background and stereo owners into the whole parent/independent actor. Exact QML command and current phase/ages are admitted after internal navigation guards; input and callback/resource/journal retirement remain independently required.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     },
@@ -866,7 +877,11 @@
         "android/vr/pico/tests/device/test_audio_capture_owner.py",
         "tests/device/adapters/pico4/audio_background_owner.py",
         "tests/device/adapters/pico4/AUDIO_BACKGROUND_OWNER.md",
-        "tests/device/self_tests/test_pico_audio_background.py"
+        "tests/device/self_tests/test_pico_audio_background.py",
+        "tests/device/adapters/pico4/audio_final_close.py",
+        "tests/device/adapters/pico4/AUDIO_FINAL_CLOSE.md",
+        "tests/device/self_tests/test_pico_audio_final_close.py",
+        "android/vr/pico/tests/device/test_audio_final_close.py"
       ],
       "declaredCheckpoints": 14,
       "inputVerbs": [
@@ -891,9 +906,9 @@
         "open"
       ],
       "missingOperationsOrEvidence": [
-        "Whole normal page/lifecycle/restart coordinator; durable one-send native cycle/PCM/quiet owner is now present",
-        "Controlled microphone stimulus and independent actual acoustic capture/publisher binding",
-        "Original capture/sink/history artifact, lifecycle interruption and cleanup joins"
+        "Whole normal recipe/public coordinator over Page/Capture/Background/FinalClose owners; complete peer/acoustic original publication",
+        "Actual controlled microphone stimulus and independent acoustic capture, distinct from original digital input/sink PCM",
+        "Whole retained Qt/native capacity/history/resource and host-original retirement; common v16 same-process cleanup cannot silently restart or clear history"
       ],
       "requiredOriginalEvidence": [
         "Actual native cycle/phase/frame counts, original immutable history",
@@ -906,9 +921,10 @@
         "Release native E2E PCM/history files after product quiet state",
         "Independently inspect actual memory/files and restore original mute/echo/permission"
       ],
-      "nextExecutableStep": "Join normal capture/cancel/completion and v2 mute interruption/unmute original PCM owners to actual normal OS background/return and final page/peak restoration. Independent Pico acoustic/peer originals and same-process retained timer/capacity retirement remain required; no physical route is inferred from digital sink PCM.",
+      "nextExecutableStep": "Compose actual normal Page/Capture/Background/FinalClose through the whole unchanged Audio recipe, retaining original source/PCM and actual deferred-resource observations. Bind background to the once-only final OS writer; add independent acoustic/peer originals. Explicitly reconcile the common v16 same-process/empty-history cleanup contract with actual retained native history; never synthesize idle/absence or hide a restart.",
       "nativeCompilation": "unverified",
-      "deviceQualification": "untested"
+      "deviceQualification": "untested",
+      "nativeComponentCompilation": "Original AudioClient recorded preview/pause/poll/deferred callback lifetime bodies pass real Qt5 fragment checks; full application/TUs, physical capture/playback and devices remain unqualified."
     },
     {
       "area": "chat",

@@ -34,6 +34,7 @@ PYTHON = sys.executable
 TESTS = (
     test("suite-runner", "infrastructure", PYTHON, "pico4-test-suite-self-test.py"),
     test("coverage-matrix", "infrastructure", PYTHON, "pico4-coverage-test.py"),
+    test("normal-input-transport", "interaction", PYTHON, "pico-normal-transport-test.py"),
     test("shell-syntax", "infrastructure", "bash", "pico-shell-syntax-test.sh"),
     test("source-inputs-v1", "android", PYTHON, "test_source_inputs.py"),
     test("source-inputs-v2", "android", PYTHON, "test_qualified_reuse.py"),

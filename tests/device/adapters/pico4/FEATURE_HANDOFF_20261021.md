@@ -1013,3 +1013,33 @@ three-second quiet window after return. Independent exact fixture phase/host
 age fences follow durable intent; background checks never construct a Qt owner.
 Old uncertain inputs are never replayed. The entire Acoustic/peer and final
 PCM/Qt/native allocation retirement remain partial. See AUDIO_BACKGROUND_OWNER.md.
+
+
+## Normal PolyVox, Audio final closure and final transport admission
+
+The Create parent now joins normal More/PolyVox dialog configuration, actual
+local domain insertion, canonical8-cubed volume/mesh, normal Properties and
+Delete, preserving original effect bytes after deletion. Extra original QML
+page/context inventory and actual Entity QObject death remain independent.
+Normal brush edits, rez authority, current stereo/actor and whole cleanup are
+still open. Final QML guards compare the durable intent to the actual command
+and current native UI before checking the unchanged exact fixture phase; normal
+generic Home/paging retain their original native enabled/visibility semantics.
+
+Audio now has a normal final double-X owner: original terminal history, private
+tap absence, actual Audio page death, original peak restoration, Home/tablet
+quiet and separately measured deferred callback retirement. Retained capacity,
+Qt contexts, native history, acoustic/peer and journals are still owned. Cold
+validation preserves exact resources across deferred quiet and rejects reused
+or foreign controller streams. Common v16 cleanup requires the same process
+and original idle/empty history; it cannot silently restart or clear that
+actual terminal history. The whole adapter remains partial.
+
+The shared owned QML callback, separate outside-lock controller admission and
+inside-lock host-only intent preserve original candidate/process/session guards.
+The private OS route issues exactly one normal HOME or activity launch after
+final admission, with no retry/bootstrap. These APIs are admission boundaries,
+not effects. The normal-input-transport catalog group owns their13 targeted
+host cases; its SDK/Qt/native seams remain explicit. Final Emote inputs/View
+use the original QML boundary while retaining all actual source and effect
+requirements. Complete source/host areas remain3/14; devices remain untested.
