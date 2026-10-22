@@ -5,6 +5,7 @@ import os
 from copy import deepcopy
 import hashlib
 import json
+import re
 from pathlib import Path
 import signal
 import subprocess
@@ -21,6 +22,15 @@ def start_identity(pid):
     fields=(Path('/proc')/str(pid)/'stat').read_text().rsplit(')',1)[1].split()
     need(fields[0] not in ('Z','X') and len(fields)>19 and fields[19].isdecimal())
     return fields[19]
+
+
+def valid_control_command(command):
+    return (type(command) is dict and set(command)=={'schemaVersion','commandId','runId','instance','observedGeneration','action'}
+        and type(command['schemaVersion']) is int and command['schemaVersion']==2
+        and all(type(command[key]) is str and re.fullmatch('[0-9a-f]{32}',command[key])
+                for key in ('commandId','runId','instance'))
+        and type(command['observedGeneration']) is int and command['observedGeneration']>0
+        and command['action'] in ('offline','online'))
 
 
 class MessagesMixer:
@@ -128,6 +138,7 @@ class MessagesMixerObservation:
         self.boot=Path('/proc/sys/kernel/random/boot_id').read_text().strip()
         need(str(uuid.UUID(self.boot))==self.boot)
         self.original={role:self._process(process) for role,process in self.processes.items()}
+        self.run=None;self.offline_fenced=False;self.commands=[]
 
     def _process(self,process):
         need(process.poll() is None and self.owned(process.pid) is True)
@@ -144,6 +155,34 @@ class MessagesMixerObservation:
     def _hash(self,value):
         return hashlib.sha256(json.dumps([self.instance,self.boot,value],sort_keys=True,separators=(',',':')).encode()).hexdigest()
 
+    def admit(self,command):
+        """Called only under the existing fixture transition lock.
+
+        Consume the original nonce before any process input. The online fence
+        is irrevocable for this controller/run, even if that input fails or its
+        response is lost. A delayed offline request cannot undo recovery.
+        """
+        need(valid_control_command(command)
+            and command['instance']==self.instance and command['action'] in ('offline','online')
+            and type(command['observedGeneration']) is int
+            and command['observedGeneration']==self.mixer.state()['generation']
+            and (self.run is None or self.run==command['runId'])
+            and not any(row['commandId']==command['commandId'] or row['action']==command['action'] for row in self.commands)
+            and not any(row['status']=='pending' for row in self.commands)
+            and (command['action']=='online' or not self.offline_fenced))
+        epoch=int(time.time()*1000);need(epoch>0 and epoch>=self.epoch
+            and all(epoch>=row['completedEpochMs'] for row in self.commands))
+        self.run=command['runId']
+        if command['action']=='online':self.offline_fenced=True
+        self.commands.append(dict(commandId=command['commandId'],action=command['action'],
+            observedGeneration=command['observedGeneration'],admittedEpochMs=epoch,completedEpochMs=None,status='pending'))
+
+    def complete(self,command,*,failed=False):
+        need(type(failed) is bool and self.run==command['runId'] and self.commands
+            and self.commands[-1]['commandId']==command['commandId'] and self.commands[-1]['status']=='pending')
+        row=self.commands[-1];epoch=int(time.time()*1000);need(epoch>=row['admittedEpochMs'] and epoch>=self.epoch)
+        row.update(completedEpochMs=epoch,status='failed' if failed else 'completed')
+
     def state(self):
         started=time.monotonic();epoch=int(time.time()*1000)
         need(epoch>0 and epoch>=self.epoch and Path('/proc/sys/kernel/random/boot_id').read_text().strip()==self.boot)
@@ -155,13 +194,14 @@ class MessagesMixerObservation:
         # Requalify original non-mixer processes after the mixer read as well.
         need({role:self._process(process) for role,process in self.processes.items()}==actual)
         finished=int(time.time()*1000)
-        need(epoch<=finished<=epoch+1500 and 0<=time.monotonic()-started<=1.5 and self.sequence<9007199254740991)
+        need(epoch<=finished<=epoch+1500 and 0<=time.monotonic()-started<=1.5 and self.sequence<9007199254740991
+            and all(finished>=row['admittedEpochMs'] and (row['completedEpochMs'] is None or finished>=row['completedEpochMs']) for row in self.commands))
         if self.last is not None:
             need(before['generation']>=self.last['mixer']['generation'])
             if before['generation']==self.last['mixer']['generation']:
                 need(before['running']==self.last['mixer']['running'] and mixer_identity==self.last['mixerIdentity'])
         self.sequence+=1;self.epoch=finished
-        value=dict(mixerControlVersion=1,instance=self.instance,sequence=self.sequence,capturedEpochMs=finished,
+        value=dict(mixerControlVersion=2,runId=self.run,offlineFenced=self.offline_fenced,commands=deepcopy(self.commands),instance=self.instance,sequence=self.sequence,capturedEpochMs=finished,
             domainId=self.domain_id,stackGeneration=self.stack_generation,
             processes={role:self._hash(row) for role,row in actual.items()},mixer=before,mixerIdentity=mixer_identity)
         self.last=deepcopy(value);return value

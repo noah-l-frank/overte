@@ -22,7 +22,7 @@ import uuid
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from fixture.collaboration_broker import CollaborationBroker
 from fixture.owned_processes import OwnedProcesses
-from fixture.messages_mixer import MessagesMixer, MessagesMixerObservation
+from fixture.messages_mixer import MessagesMixer, MessagesMixerObservation, valid_control_command
 from adapters.normal_feature_state import PrivateFeatureState, need
 
 
@@ -119,7 +119,7 @@ class DomainControlHandler(BaseHTTPRequestHandler):
             return
         try:
             length = int(self.headers.get("Content-Length", "0"))
-            if not 0 < length <= 256:
+            if not 0 < length <= 512:
                 raise ValueError("invalid request length")
             command = json.loads(self.rfile.read(length))
             if self.path == "/v1/collaboration-edit":
@@ -131,16 +131,17 @@ class DomainControlHandler(BaseHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(payload)
                 return
-            if (not isinstance(command, dict)
-                    or set(command) != {"action", "schemaVersion"}
-                    or command.get("schemaVersion") != 1
-                    or command.get("action") not in {"offline", "online"}):
-                raise ValueError("invalid domain control command")
             if self.path == "/v1/messages-mixer-state":
-                if type(command["schemaVersion"]) is not int:
-                    raise ValueError("invalid mixer control version")
-                result = self.mixer(command["action"])
+                if not valid_control_command(command):
+                    raise ValueError("invalid mixer control command")
+                result = self.mixer(command)
             else:
+                if (not isinstance(command, dict)
+                        or set(command) != {"action", "schemaVersion"}
+                        or type(command.get("schemaVersion")) is not int
+                        or command.get("schemaVersion") != 1
+                        or command.get("action") not in {"offline", "online"}):
+                    raise ValueError("invalid domain control command")
                 result = self.transition(command["action"])
             payload = (json.dumps(result, sort_keys=True) + "\n").encode("utf-8")
             self.send_response(200)
@@ -616,18 +617,28 @@ def main() -> int:
             return {"schemaVersion": 1, "state": stack_state,
                     "generation": generation}
 
-    def mixer_control(action):
+    def mixer_control(command):
         with transition_lock:
             if stack_state != "online" or mixer is None:
                 raise RuntimeError("owned MessagesMixer control is unavailable")
-            if action is None:
+            if command is None:
                 return mixer_observation.state() if mixer_observation is not None else mixer.state()
+            # Feature Chat exposes only fenced, original-controller admission.
+            # This consumes the nonce before the existing -t4 process input.
+            if mixer_observation is None:
+                raise RuntimeError("owned MessagesMixer input is unavailable")
+            mixer_observation.admit(command)
             original = mixer.process
-            actual = mixer.transition(action)
-            if original is not None and mixer.process is not original:
-                need(original.poll() is not None and original in assignment_processes)
-                assignment_processes.remove(original)
-            return mixer_observation.state() if mixer_observation is not None else actual
+            try:
+                mixer.transition(command['action'])
+                if original is not None and mixer.process is not original:
+                    need(original.poll() is not None and original in assignment_processes)
+                    assignment_processes.remove(original)
+            except Exception:
+                mixer_observation.complete(command, failed=True)
+                raise
+            mixer_observation.complete(command)
+            return mixer_observation.state()
 
     def request_stop(_signal=None, _frame=None) -> None:
         stopping.set()

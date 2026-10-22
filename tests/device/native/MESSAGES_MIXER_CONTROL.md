@@ -33,10 +33,12 @@ ready file adds `messagesMixerControlUrl`, an owned loopback
 `X-Overte-E2E-Token`; no credential is printed or exposed to public scripts.
 Unsupported hosts or an unavailable/offline owning domain return unavailable.
 
-POST accepts exactly `{schemaVersion:1, action:"offline"|"online"}`. The integer
-version is not a boolean; extra expected-node/result fields and unrelated service
-or whole-stack commands are rejected. GET applies no input. Each successful
-response has exactly:
+For Chat opt-in, POST now uses the [original fenced schema-2 controller](../fixture/CHAT_MIXER_SOURCE.md).
+It requires the captured controller instance, observed actual generation, run
+and one original command nonce alongside the offline/online action. Old unfenced
+schema-1 Chat inputs are refused. GET applies no input and returns
+mixerControlVersion 2 with the actual controller/domain/eight other process
+identities, command admission history and nested unchanged process observation:
 
 ```
 {mixerProcessVersion:1, running:<boolean>, generation:<positive integer>,

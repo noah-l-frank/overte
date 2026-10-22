@@ -88,7 +88,7 @@
     "native-chat-actor-files": {"current": 1, "reads": [1]},
     "native-chat-observation": {"current": 2, "reads": [1, 2]},
     "native-chat-domain-session": {"current": 1, "reads": [1]},
-    "fixture-chat-mixer-control": {"current": 1, "reads": [1]},
+    "fixture-chat-mixer-control": {"current": 2, "reads": [1, 2]},
     "native-chat-view": {"current": 2, "reads": [1, 2]},
     "chat-journey-samples": {"current": 1, "reads": [1]},
     "chat-journey-no-replay": {"current": 2, "reads": [2]},
