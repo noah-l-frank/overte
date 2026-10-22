@@ -137,6 +137,7 @@ COMMON_HOST_CHECKS = (
     "android/phone/tests/device/test_snapshot_system_ui.py",
     "android/phone/tests/device/test_snapshot_resolution.py",
     "android/phone/tests/device/test_snapshot_system_context.py",
+    "android/phone/tests/device/test_snapshot_scope_status_boundary.py",
     "android/phone/tests/device/test_snapshot_script_native.py",
     "android/phone/tests/device/test_snapshot_readback_source.py",
     "android/phone/tests/device/test_snapshot_saved_files.py",
