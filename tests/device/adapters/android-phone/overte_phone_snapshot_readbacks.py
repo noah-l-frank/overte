@@ -197,14 +197,14 @@ class PhoneSnapshotReadbacks:
         need(all(callable(fn) for fn in (send,read,clock_ms,guard,monotonic,sleep)) and integer(pid,1))
         self.send,self.original,self.clock_ms,self.guard,self.pid=send,read,clock_ms,guard,pid
         self.monotonic,self.sleep,self.last=monotonic,sleep,None
-        self.inspections={}
+        self.inspections={};self.last_command=None
 
     def request(self,run,operation='observe',export_request='',resource_id='',*,_started=None):
         try:
             request=command(dict(schemaVersion=1,commandId=uuid.uuid4().hex,action='phone-snapshot-readback',runId=run,
                 operation=operation,exportRequest=export_request,resourceId=resource_id))
             need(self.guard() is not False);previous=self.monotonic();start=previous if _started is None else _started;requested=self.clock_ms()
-            need(number(start,0,1e15) and integer(requested,1));self.send(request)
+            need(number(start,0,1e15) and integer(requested,1));self.last_command=deepcopy(request);self.send(request)
             for attempt in range(51):
                 need(self.guard() is not False);raw=self.original();need(type(raw) is str and len(raw.encode())<=262144)
                 try:value=decode(raw) if raw else None
@@ -222,7 +222,7 @@ class PhoneSnapshotReadbacks:
 
     def require_os_retired(self,run):
         start=self.monotonic();id=uuid.uuid4().hex
-        inspection=self.request(run,'inspect-destinations',resource_id=id,_started=start)
+        inspection=self.request(run,'inspect-destinations',resource_id=id,_started=start);issued=deepcopy(self.last_command)
         for attempt in range(51):
             value=self.request(run,_started=start);row=value['source']['source'];need(row.get('snapshotExportReadbacksVersion')==2)
             os=row['osDestinations']
@@ -230,21 +230,21 @@ class PhoneSnapshotReadbacks:
                 fresh(os['checkedEpochMs'],self.clock_ms())
                 need(all(one['phase']=='retired' and one['deleteIssued'] and one['absent'] and one['checkedEpochMs']>=max(inspection['requestedEpochMs'],os['checkedEpochMs']-1500) for one in os['rows']))
                 if row['copiesRetired']:need(row['workersTerminated'])
-                self.inspections['destinations']=dict(request=deepcopy(inspection),observation=deepcopy(value))
+                self.inspections['destinations']=dict(command=issued,request=deepcopy(inspection),observation=deepcopy(value))
                 return value
             need(attempt<50 and self.monotonic()-start<5);self.sleep(.1)
         raise NativeUIError('Original OS destination retirement did not produce fresh absence')
 
     def require_share_retired(self,run):
         start=self.monotonic();id=uuid.uuid4().hex
-        inspection=self.request(run,'inspect-shares',resource_id=id,_started=start)
+        inspection=self.request(run,'inspect-shares',resource_id=id,_started=start);issued=deepcopy(self.last_command)
         for attempt in range(51):
             value=self.request(run,_started=start);row=value['source']['source'];need(row.get('snapshotExportReadbacksVersion')==2)
             grants=row['shareGrants']
             if grants['checkId']==id and grants['checkedEpochMs']>=inspection['requestedEpochMs'] and row['osDestinations']['pending']==0 and (not row['copiesRetired'] or row['workersTerminated']):
                 fresh(grants['checkedEpochMs'],self.clock_ms())
                 need(all(one['revokeIssued'] and not one['granted'] and not one['chooserGranted'] and one['checkedEpochMs']>=max(inspection['requestedEpochMs'],grants['checkedEpochMs']-1500) for one in grants['rows']))
-                self.inspections['shares']=dict(request=deepcopy(inspection),observation=deepcopy(value))
+                self.inspections['shares']=dict(command=issued,request=deepcopy(inspection),observation=deepcopy(value))
                 return value
             need(attempt<50 and self.monotonic()-start<5);self.sleep(.1)
         raise NativeUIError('Original Share grants did not produce fresh absence')

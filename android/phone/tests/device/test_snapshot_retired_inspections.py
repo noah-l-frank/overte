@@ -44,6 +44,8 @@ class SnapshotRetiredInspectionTests(unittest.TestCase):
         for name,key in (('destinations','osDestinations'),('shares','shareGrants')):
             query=reader.inspections[name]
             self.assertNotEqual(old_queries[name]['request']['requestId'],query['request']['requestId'])
+            self.assertEqual(query['command']['commandId'],query['request']['requestId'])
+            self.assertEqual(query['command']['resourceId'],query['observation']['source']['source'][key]['checkId'])
             self.assertGreater(second['source']['source'][key]['checkedEpochMs'],old['source']['source'][key]['checkedEpochMs'])
             self.assertGreaterEqual(query['observation']['source']['source'][key]['checkedEpochMs'],query['request']['requestedEpochMs'])
         self.assertEqual(old['source']['source']['jobs'],second['source']['source']['jobs'])

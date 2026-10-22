@@ -162,6 +162,7 @@ class SnapshotRolesBoundary:
             value=native.frame();batch=value['source']['source']
             account_frame=dict(capturedEpochMs=batch['context']['capturedEpochMs']);self.native_source.mutate(account_frame)
             batch['context']['account']=account_frame['account']
+            batch['readbacks']=self.readback()
             self.producer.sequence+=1;self.producer.body.update(sequence=self.producer.sequence,capturedEpochMs=self.epoch)
             batch['captureFiles']=dict(schemaVersion=1,requestId=uuid.uuid4().hex,runId=RUN,instance='a'*32,sequence=self.producer.sequence,processId=31,requestedEpochMs=self.epoch,capturedEpochMs=self.epoch,accepted=True,source=deepcopy(self.producer.body))
             self.vm.scripts.sequence=batch['group']['script']['sequence'];self.vm.roots.sequence=batch['group']['rootsAfter']['sequence'];self.vm.snapshot.sequence=batch['group']['snapshot']['sequence']
@@ -182,10 +183,26 @@ class SnapshotRolesBoundary:
     def _touch_state_observer(self,*_,**kwargs):self.calls.append('touch');assert kwargs==dict(read_only=True);return self.touch_source.reader()
     def _create_fixture_observer(self,*_,**kwargs):return SimpleNamespace(read=lambda *_:None)
     def _snapshot_readbacks(self,*_,**kwargs):
-        assert kwargs==dict(read_only=True);return SimpleNamespace(last=None,request=lambda *_:self.readback())
-    def readback(self):
+        from overte_phone_snapshot_readbacks import PhoneSnapshotReadbacks
+        from appium_adapter import readonly_feature_command
+        assert kwargs==dict(read_only=True);original=[None]
+        def send(request):
+            readonly_feature_command(request)
+            original[0]=self.readback(request)
+        return PhoneSnapshotReadbacks(send,lambda:json.dumps(original[0]),lambda:self.epoch,lambda:True,31,
+            monotonic=lambda:self.clock,sleep=lambda seconds:setattr(self,'clock',self.clock+seconds))
+    def readback(self,request=None):
         self.readback_sequence+=1
-        return dict(schemaVersion=1,requestId=uuid.uuid4().hex,runId=RUN,instance='a'*32,sequence=self.readback_sequence,processId=31,requestedEpochMs=self.epoch,capturedEpochMs=self.epoch,source=dict(accepted=False,source=deepcopy(self.readbacks_body)))
+        body=self.readbacks_body
+        if body.get('initialized') is not False:
+            body.update(sequence=self.readback_sequence,capturedEpochMs=self.epoch)
+            operation=request['operation'] if request is not None else 'observe'
+            key={'inspect-destinations':'osDestinations','inspect-shares':'shareGrants'}.get(operation)
+            if key:
+                body[key].update(checkId=request['resourceId'],checkedEpochMs=self.epoch)
+                for row in body[key]['rows']:row['checkedEpochMs']=self.epoch
+        return dict(schemaVersion=1,requestId=request['commandId'] if request else uuid.uuid4().hex,runId=RUN,instance='a'*32,
+            sequence=self.readback_sequence,processId=31,requestedEpochMs=self.epoch,capturedEpochMs=self.epoch,source=dict(accepted=False,source=deepcopy(body)))
     def _snapshot_upload_source(self,*_):return SimpleNamespace(last=None,read=lambda *_:self.upload())
     def upload(self):
         self.upload_sequence+=1
