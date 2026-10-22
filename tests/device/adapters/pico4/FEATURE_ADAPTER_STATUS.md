@@ -780,7 +780,29 @@ The shared owned QML callback, separate outside-lock controller admission and
 inside-lock host-only intent preserve original candidate/process/session guards.
 The private OS route issues exactly one normal HOME or activity launch after
 final admission, with no retry/bootstrap. These APIs are admission boundaries,
-not effects. The normal-input-transport catalog group owns their13 targeted
-host cases; its SDK/Qt/native seams remain explicit. Final Emote inputs/View
+not effects. The normal-input-transport catalog group owns these targeted
+host cases and the original session/SDK transport regressions; its SDK/Qt/native seams remain explicit. Final Emote inputs/View
 use the original QML boundary while retaining all actual source and effect
 requirements. Complete source/host areas remain3/14; devices remain untested.
+
+
+## Fixed Chat dispatcher with original phase admission
+
+Dispatcher2 composes the unchanged baseline plus25 ordinary steps through the
+real normal/peer/distant/background/mixer/no-replay owners. Initial real cache
+births and all child intent/source snapshots remain in immutable private
+chunks. An independent original HTTP phase source admits final QML, controller,
+peer-link, native cache/background and OS publication. Controller callbacks
+under the original session lock perform private host IO and saved-anchor
+checks only. Lost child/parent returns retain ownership without replay; cold
+dispatchers audit original history and cannot resume inputs. Orphan immutable
+chunks block base cleanup even if their root is missing.
+
+The agent frozen v2 rerun passes50 tests147.248s, including all25 real child
+steps with26 independent Witness publications. Root registry validation passes
+after selection. Three additive bounded Pico selectors separate the whole
+journey, remaining original recovery cases and phase/actual OS boundary cases;
+no assertion is dropped or default120s group timeout changed. Complete Pico
+factory/peer source-build admission, Erase/profile/native-input restoration,
+Qt/process/independent final absence and recovery authority remain unfinished.
+Chat is partial and no new public complete feature capability is advertised.

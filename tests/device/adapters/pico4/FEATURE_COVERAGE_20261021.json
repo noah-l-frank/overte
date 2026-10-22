@@ -986,7 +986,15 @@
         "tests/device/adapters/chat_journey/cache_lifetime.py",
         "tests/device/adapters/chat_journey/CACHE_LIFETIME.md",
         "tests/device/self_tests/test_chat_cache_lifetime.py",
-        "tests/device/adapters/chat_journey/stage_join.py"
+        "tests/device/adapters/chat_journey/stage_join.py",
+        "tests/device/adapters/chat_journey/dispatcher.py",
+        "tests/device/adapters/chat_journey/phase_fence.py",
+        "tests/device/adapters/chat_journey/DISPATCHER.md",
+        "tests/device/adapters/chat_journey/PHASE_FENCE.md",
+        "tests/device/self_tests/test_chat_dispatcher.py",
+        "tests/device/self_tests/test_chat_phase_fence.py",
+        "tests/device/self_tests/test_chat_phase_transports.py",
+        "android/vr/pico/tests/device/test_chat_lifecycle_phase_transport.py"
       ],
       "declaredCheckpoints": 25,
       "inputVerbs": [
@@ -1030,7 +1038,7 @@
         "Restore peer position and owned mixer service",
         "Close view and observe keyboard, peer work and capture ownership fully retired"
       ],
-      "nextExecutableStep": "Compose actual full 25-step dispatcher over original v3 initial-to-active source join, cache mutation lifetime, normal input, private peer IPC recovery, mixer/no-replay/background and independent witness. Retain journals until actual common retirement; complete public triple remains unavailable.",
+      "nextExecutableStep": "Bind the fixed full25-step Dispatcher2 to the actual Pico whole-factory and independently admitted passive peer build/process originals. Compose Erase/profile restoration, native input release, original Qt/process and independent final cache/domain/FD absence, plus explicit passive recovery authority. Dispatcher owns every original child intent/source and final phase admission but adds no complete public capability.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     },

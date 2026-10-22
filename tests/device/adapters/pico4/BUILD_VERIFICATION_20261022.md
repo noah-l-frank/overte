@@ -925,3 +925,78 @@ error in test_lost_final_apply_reconciles_without_repeating_original_input;
 the other7 pass. The selection is not green. Original pending Apply ownership
 is retained; no input replay or bounds change is used. A targeted source fix
 and rerun are required before that primitive packet is considered verified.
+
+## Fixed Chat2, actual once-only Audio and PolyVox lost-result seam
+
+Root c1ffad313f/f58aa6f258/2bb604eb67 select f300dcc971/7b69fbf8de/97a67fcd12.
+Prior dependencies are already selected as1cfa873679(9d3c232a98) and
+ce54cbe311(480a756dca); they were not duplicated. Dispatcher2 and PhaseFence1
+retain whole original child/fixture histories and final actual transport
+admission. The frozen agent rerun is50/50 green147.248s including all25 steps
+and26 independent Witness publications. This supplies no actual Pico whole
+factory/Erase/final process/resource/FD qualification. Earlier152-case run was
+151 green and one red old expected phase; its stricture correction was included
+in the successful rerun. No individual timing is inferred from that aggregate.
+
+Three additive Pico selectors (whole journey, remaining recovery, phase) and
+the shared selected control-plane patterns now register the previously
+unlisted narrow dispatcher modules. Full control-plane discovery already
+included them. This changes catalog86 to89 without duplicating assertions
+or increasing the default120s per-group timeout. Root catalog rerun is pending.
+
+4a52324b6d selects d18b957acf: actual Audio background now forwards its exact
+final phase admission to the original once-only OS writer; final SDK guard
+races cannot reach HOME/resume, and resume does not construct Qt. The shared
+normal-input-transport selector now has14 cases including the actual Audio
+factory-to-SDK forwarding check. Original owners/manifests remain unchanged.
+
+ed25775caf selects1541b758f5's test-actor correction for the prior single
+PolyVox recovery failure. The synthetic Model actor had raised its declared
+lost Apply reply after dimensions but before PrimitiveIO's added position
+effect. The original owner correctly refused that unchanged actual position.
+Only the test seam now loses the reply after all actual actor properties; an
+additional counterexample keeps position unchanged and requires readonly cold
+refusal without replay. Agent two targeted cases pass14.453s. Production
+validation, original effects and operation deadlines were not weakened.
+Root followup regression is pending.
+
+## Original controller grant-publication admission
+
+f3726ed306 selects b7ffebf38b's optional original before_publish API. One
+pure host validator checks the already durable exact envelope/anchors after
+actual exclusive-target/profile checks before commands.json and again directly
+before the native grant marker. Prepared validated wire bytes are isolated from
+callback mutation. A slow first writer can leave only an unpublished command;
+no grant, second intent CAS, native/phase/SDK read or resend is added. Existing
+default paths and all protocol/cursor/deadline bounds remain unchanged.
+
+84bea1a154 connects Emote Inputs/View and the ordinary Home-ray to this shared
+API. Five root narrow owner cases pass3.992s, including late transport refusal
+under frozen native time, host-only callbacks, ordinary input sequence and
+six setup/restore streams plus original neutralization. a8b0cdfd0e selects
+175fa35ac5's same pure-host Chat connection and unchanged generic owner tuple.
+All original SDK/session tests are now owned by normal-input-transport alongside
+its actual Pico QML/controller/OS cases. Root combined regression is pending.
+
+## Final integrated source regression through original publication hooks
+
+The frozen integrated root selection passes10/89 groups324.48s with no skips:
+coverage6cases.059s; normal-input-transport42cases2.763s; complete Chat
+journey1case70.339s; remaining Chat recovery13cases24.000s; Chat phase10cases
+2.311s; Audio background24cases24.035s; corrected Create primitive9cases
+88.594s; actual normal Pico Chat14cases6.163s; Emote input/effects30cases
+55.140s; stereo/View/scene/source104cases51.074s. Each group keeps the original
+120s deadline. The journey/recovery split retains every14 Dispatcher case
+once. Root's transport/session inventory retains42 actual cases, including
+root-only pre-existing regressions that were absent in the agent's older
+25-case source selection. No assertion was replaced by an aggregate claim.
+
+The former PolyVox lost-Apply recovery is now green with unchanged production
+validation; its new unchanged-position counterexample also passes. New
+Emote/controller late-publication refusals and all normal setup/restoration
+streams pass their full owning groups. The native PolyVox/entity fragments and
+Audio FinalClose/Retirement retain their separate earlier green results.
+These are device-free source/host and selected native-fragment qualifications;
+no whole new feature, full application or physical/device result is claimed.
+
+All four final repository suites pass3.26s; contract registry and whitespace checks pass.
