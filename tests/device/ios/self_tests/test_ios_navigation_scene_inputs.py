@@ -13,7 +13,7 @@ from adapters.script_feature.history import pack,unpack
 from ios.adapters import normal_input
 from ios.adapters.navigation_scene_inputs import NavigationSceneInputs
 from ios.self_tests import test_ios_navigation_admission_owner as admission_tests
-from ios.self_tests.test_ios_normal_navigation import IOSBoundary
+from ios.self_tests.test_ios_navigation_address_inputs import RetainedBoundary as IOSBoundary
 from ios.self_tests.test_ios_navigation_sample import Navigation as MarkerNavigation
 from ios.self_tests.test_ios_navigation_world_measurements import global_packet
 from navigation_observation import viewpoint_urls
@@ -76,6 +76,11 @@ class NavigationSceneInputsTests(unittest.TestCase):
         observed=navigation.reader().read(self.h.provider.run)
         ui=deepcopy(fixture.originals['ui']);ui.update(sampleEpochMs=observed['clockAfter']['epochMs']+1,
             elapsedMs=observed['clockAfter']['monotonicMs']+1,lastSequence=self.b.sequence_native)
+        # This SDK seam models the actual same retained QML root after ordinary
+        # Go To. Hidden controls do not become object destruction in the gate.
+        actual_ui=self.b.observed()
+        for key in ('navigationInventory','navigationDialogControlsVersion','navigationDialogSourceSequence'):
+            ui[key]=deepcopy(actual_ui[key])
         first=current['clockBefore']['epochMs']-1;last=ui['sampleEpochMs']+1
         fixture.originals.update(inventory=current,navigation=observed,ui=ui)
         self.h.ms=first-self.h.native_first;self.admission.native=NativeReturn(self.h,first,last)

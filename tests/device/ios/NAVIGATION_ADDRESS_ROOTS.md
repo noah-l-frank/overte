@@ -22,14 +22,38 @@ native inventory with no root and no address control reports `absent`. The
 validator neither hides nor destroys any object, and it makes no statement
 about unrelated callbacks or whole-run cleanup.
 
-This is a prerequisite for the normal scene/missing-input owners to journal
-their actual opening originals and transfer the retained root through restart.
-Those input hooks and whole cleanup are still required. The existing process
-context remains conservative and refuses retained roots until that explicit
-handoff is connected. No feature capability or whole-area completion is enabled.
+`NavigationAddressInputs` version 1 now wraps the existing `IOSNavigation`
+ordinary recipe for scene entry and original-scene return. Its separate
+process-qualified private journal retains the actual HUD lookup, each matching
+UIKit click intent, focused Qt field original, exact native command UUID and
+original transport receipt before advancing. Every mutation is recorded before
+delivery and checked against both host freshness deadlines after journaling. The
+selected original QML root is retained across both recipes. Returning to a
+hidden root with foreign text is refused before reopening.
+
+Lost HUD, native-edit and completion responses remain issued and are never
+resent. `observe_pending` may make a distinct passive read to retain the actual
+root after an uncertain opening; it cannot acknowledge or resume the recipe.
+Repeated acknowledged calls return their saved input result without issuing a
+new command. The original scene-input version-1 carrier stays readable. Older
+acknowledgments without the new root journal do not authorize adoption of a
+preexisting root.
+
+The process context remains conservative and refuses retained roots until its
+explicit ownership handoff is connected. The missing-destination input owner,
+restart handoff and whole cleanup still require integration. No feature
+capability or whole-area completion is enabled.
 
 Thirteen explicit host tests cover root UI inventory and this ownership join,
 including hidden versus absent, incomplete inventory, foreign SDK lookup,
 preexisting/replaced roots, focused hidden fields, source rollback and historical
 tampering. Qt/SDK boundaries are modeled; native compilation and devices remain
 unverified.
+
+Seven additional host tests exercise the real ordinary Python recipe, private
+journal, HTTP dispatch and AFC receipt boundary with modeled native UI. They
+cover the retained root across entry/return, original nested command nonces,
+lost mutation/completion returns, read-only pending-root acquisition, preexisting
+objects, foreign retained text, ignored edits and Go To, expired input intent,
+changed candidate and original-root tampering. Ten existing scene-entry/return
+tests now model the actual retained root rather than silently dropping it.

@@ -19,6 +19,7 @@ REQUIRED = {
     "ios-avatar-code-pins": 1,
     "ios-navigation-address-root": 1,
     "ios-navigation-address-root-state": 1,
+    "ios-navigation-address-inputs": 1,
     "ios-navigation-restart-proof": 1,
     "ios-navigation-process-context": 1,
     "ios-navigation-process-source-basis": 1,

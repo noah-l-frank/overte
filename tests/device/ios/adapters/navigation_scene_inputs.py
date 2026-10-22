@@ -12,7 +12,8 @@ from adapters.normal_ui import NativeUI
 from adapters.script_feature.history import pack,unpack,same
 from ios.adapters.navigation_admission_owner import NavigationAdmissionOwner
 from ios.adapters.normal_input import NativeInput,observation as ui_packet
-from ios.adapters.normal_navigation import IOSNavigation,PROFILE
+from ios.adapters.normal_navigation import PROFILE
+from ios.adapters.navigation_address_inputs import NavigationAddressInputs
 from navigation_observation import viewpoint_urls
 
 VERSION=1
@@ -86,15 +87,14 @@ class NavigationSceneInputs:
              and packet['lastSequence']>=proof['originals']['ui']['lastSequence'])
         if self.state['phase']=='enter-issued' and self.state['enterUi'] is None:
             self.state['enterUi']=deepcopy(packet);self.save();self.admission.for_input()
-        ui=NativeUI(self.ui.client,self.binding['sessionId'],check,timeout=self.ui.timeout,
-            monotonic=self.ui.monotonic,sleep=self.ui.sleep)
-        flow=IOSNavigation(ui,self.native,profile,self.state['component'],self.save)
-        # Both routes are closed inputs on the same admitted provider. Preserve
-        # the existing component's original context while allowing the static
-        # return route; no arbitrary URL or product setter enters this scope.
-        flow.urls=set(viewpoint_urls(profile['sceneUrl']).values())|set(viewpoint_urls(proof['base']['url']).values())
-        need(url in flow.urls);flow.invoke('places.goto',dict(url=url));check()
-        last=self.native.capture();check()
+        address=NavigationAddressInputs(PrivateFeatureState(self.store.path.with_name(
+            'ios-navigation-address-'+self.binding['processIdentity']+'-inputs.json')),
+            self.binding,self.run,self.lock,check,self.ui,self.native,epoch_ms=self.epoch_ms,monotonic=self.monotonic)
+        # The existing ordinary recipe now retains each actual lookup, click,
+        # field command and selected QML root in its own process-bound journal.
+        allowed=set(viewpoint_urls(profile['sceneUrl']).values())|set(viewpoint_urls(proof['base']['url']).values())
+        key='enter' if self.state['phase']=='enter-issued' else 'return'
+        last=address.goto(key,url,profile,allowed)['original'];check()
         need(last['instance']==packet['instance'] and last['lastSequence']==packet['lastSequence']+1
              and last['sampleEpochMs']>=packet['sampleEpochMs'])
         return last
