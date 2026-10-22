@@ -104,7 +104,7 @@ def _candidate_arguments(args):
 
 def _candidate_seal(args,frozen,candidate,admission):
     """Freeze only an original complete verifier result, never partial evidence."""
-    from adapters.pico4.candidate_read_seal import CandidateReadSeal,bounded_decoder_tree
+    from adapters.pico4.candidate_read_seal import CandidateReadSeal,CandidateReadSealUnavailable,bounded_decoder_tree
     from schema.terminal_evidence import read_document,relative_file
     network=candidate.get('network_capability')
     if not isinstance(network,dict) or not all(isinstance(network.get(key),dict)
@@ -158,7 +158,8 @@ def _candidate_seal(args,frozen,candidate,admission):
             path=Path(verifier.resolve_tool(getattr(args,name),name))
             _need(path.resolve(strict=True)==Path(getattr(args,name)).resolve(strict=True))
         return dict(files)
-    return CandidateReadSeal(inventory,metadata,candidate,directories=directories)
+    try:return CandidateReadSeal(inventory,metadata,candidate,directories=directories)
+    except CandidateReadSealUnavailable:return None
 
 
 @_private

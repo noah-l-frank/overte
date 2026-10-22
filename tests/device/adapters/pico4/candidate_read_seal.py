@@ -4,6 +4,7 @@
 from copy import deepcopy
 import hashlib
 import fcntl
+import errno
 import os
 from pathlib import Path
 import stat
@@ -14,6 +15,11 @@ MAX_DIRECTORIES=128
 MAX_ENTRIES=4096
 MAX_DEPTH=16
 MAX_FILES=256
+DUPFD_QUERY=getattr(fcntl,'F_DUPFD_QUERY',None)
+
+
+class CandidateReadSealUnavailable(ValueError):
+    pass
 
 
 def need(value):
@@ -25,13 +31,37 @@ def stamp(value):
         'st_size','st_mtime_ns','st_ctime_ns','st_nlink'))
 
 
+def same_description(descriptor,anchor):
+    return DUPFD_QUERY is not None and fcntl.fcntl(descriptor,DUPFD_QUERY,anchor)==1
+
+
+def owned_open(path,flags):
+    if DUPFD_QUERY is None:raise CandidateReadSealUnavailable('Original OFD query unavailable')
+    descriptor=os.open(path,flags);anchor=None
+    try:
+        anchor=fcntl.fcntl(descriptor,fcntl.F_DUPFD_CLOEXEC,0)
+        try:need(same_description(descriptor,anchor))
+        except OSError as error:
+            if error.errno in (errno.EINVAL,errno.ENOSYS):raise CandidateReadSealUnavailable('Original OFD query unavailable') from None
+            raise
+        return descriptor,anchor,os.fstat(descriptor)
+    except BaseException:
+        # Neither freshly created handle has escaped this function yet.
+        os.close(descriptor)
+        if anchor is not None:os.close(anchor)
+        raise
+
+
 def close_all(descriptors):
-    for descriptor,original in descriptors:
+    for descriptor,anchor,original in descriptors:
         try:
             value=os.fstat(descriptor)
-            # A lost descriptor number may already name an unrelated caller's
-            # file. Never close that foreign replacement during failure/GC.
-            if (value.st_dev,value.st_ino)==original:os.close(descriptor)
+            # Kernel OFD identity is essential: even the same original inode
+            # opened again under this number is a foreign descriptor lifetime.
+            if (value.st_dev,value.st_ino)==original and same_description(descriptor,anchor):
+                os.close(descriptor);os.close(anchor)
+            # If either half was lost, deliberately retain the uncertain pair.
+            # Process finalization owns its eventual release, never this GC.
         except OSError:pass
 
 
@@ -72,21 +102,21 @@ class CandidateReadSeal:
         try:
             for name,digest in sorted(self.original_inventory.items()):
                 path=Path(name);need(path.is_absolute());resolved=path.resolve(strict=True)
-                descriptor=os.open(resolved,os.O_RDONLY|os.O_CLOEXEC|os.O_NOFOLLOW)
-                before=os.fstat(descriptor);descriptors.append((descriptor,(before.st_dev,before.st_ino)));need(stat.S_ISREG(before.st_mode) and before.st_nlink>0)
+                descriptor,anchor,before=owned_open(resolved,os.O_RDONLY|os.O_CLOEXEC|os.O_NOFOLLOW)
+                descriptors.append((descriptor,anchor,(before.st_dev,before.st_ino)));need(stat.S_ISREG(before.st_mode) and before.st_nlink>0)
                 checksum=hashlib.sha256()
                 for block in iter(lambda:os.read(descriptor,1024*1024),b''):checksum.update(block)
                 original=stamp(before)
                 need(checksum.hexdigest()==digest and stamp(os.fstat(descriptor))==original
                     and path.resolve(strict=True)==resolved and stamp(path.stat())==original)
-                self.rows.append((path,resolved,descriptor,original))
+                self.rows.append((path,resolved,descriptor,original,anchor))
             for name,original in sorted(directories.items()):
                 path=Path(name);need(path.is_absolute() and not path.is_symlink());resolved=path.resolve(strict=True)
-                descriptor=os.open(resolved,os.O_RDONLY|os.O_CLOEXEC|os.O_NOFOLLOW|os.O_DIRECTORY)
-                before=os.fstat(descriptor);descriptors.append((descriptor,(before.st_dev,before.st_ino)))
+                descriptor,anchor,before=owned_open(resolved,os.O_RDONLY|os.O_CLOEXEC|os.O_NOFOLLOW|os.O_DIRECTORY)
+                descriptors.append((descriptor,anchor,(before.st_dev,before.st_ino)))
                 need(stat.S_ISDIR(before.st_mode) and stamp(os.fstat(descriptor))==original
                     and stamp(path.stat())==original)
-                self.rows.append((path,resolved,descriptor,original))
+                self.rows.append((path,resolved,descriptor,original,anchor))
             self.result=deepcopy(result);self.closed=False
             self.check()
             self.finalizer=weakref.finalize(self,close_all,tuple(descriptors))
@@ -107,8 +137,11 @@ class CandidateReadSeal:
         result=deepcopy(self.result)
         need(not self.closed and self.metadata()==self.original_metadata
             and self.inventory()==self.original_inventory)
-        for path,resolved,descriptor,original in self.rows:
-            need(fcntl.fcntl(descriptor,fcntl.F_GETFL)&os.O_ACCMODE==os.O_RDONLY
+        for path,resolved,descriptor,original,anchor in self.rows:
+            need(same_description(descriptor,anchor)
+                and stamp(os.fstat(anchor))==original
+                and fcntl.fcntl(anchor,fcntl.F_GETFD)&fcntl.FD_CLOEXEC
+                and fcntl.fcntl(descriptor,fcntl.F_GETFL)&os.O_ACCMODE==os.O_RDONLY
                 and fcntl.fcntl(descriptor,fcntl.F_GETFD)&fcntl.FD_CLOEXEC
                 and path.resolve(strict=True)==resolved and stamp(os.fstat(descriptor))==original
                 and stamp(path.stat())==original)
