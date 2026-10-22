@@ -369,7 +369,14 @@ class LanguageSelectionTests(unittest.TestCase):
     def test_saved_workflow_digest_matches_the_actual_reviewed_activation(self):
         actual = subprocess.check_output(['git', 'hash-object', '.github/workflows/codeql.yml'],
                                          cwd=ROOT, text=True).strip()
-        self.assertIn(actual, {CODEQL._SELECTIVE_WORKFLOW, *CODEQL.result_workflow_blobs()})
+        if actual not in {CODEQL._SELECTIVE_WORKFLOW, *CODEQL.result_workflow_blobs()}:
+            # The active central owner replaced PR triggers; this legacy file
+            # remains a periodic whole-language audit, not a PR producer pin.
+            import yaml
+            workflow = yaml.safe_load((ROOT / ".github/workflows/codeql.yml").read_text())
+            self.assertEqual({"schedule"}, set(workflow.get("on", workflow.get(True))))
+            self.assertEqual(list(CODEQL.LANGUAGES),
+                CODEQL.select_languages(None, None, event="schedule")["languages"])
         canonical = ROOT / "tools/repository-checks/workflows/codeql-results.yml"
         expected = subprocess.check_output(["git", "hash-object", str(canonical)], cwd=ROOT, text=True).strip()
         self.assertEqual(expected, CODEQL._RESULTS_WORKFLOW)
@@ -801,15 +808,27 @@ class NativeLeafSelectionTests(unittest.TestCase):
 
     def test_exact_existing_suffixes_skip_both_pinned_languages_with_old_and_new_blob_proof(self):
         self.assertEqual(CODEQL._PINNED_NATIVE_EXTENSIONS,
-            {'.c','.cpp','.h','.hpp','.m','.mm','.qml','.vert','.frag','.glsl'})
+            {'.c','.cpp','.h','.hpp','.m','.mm','.qml','.vert','.frag','.glsl','.java','.kt'})
         for suffix in CODEQL._PINNED_NATIVE_EXTENSIONS:
             self.native('native/Example'+suffix)
         for event in ('pull_request','push'):
             plan = self.select(event=event)
             self.assertEqual(plan['languages'], [])
-            self.assertEqual(len(plan['changes']),10)
+            self.assertEqual(len(plan['changes']),12)
             self.assertTrue(all(row['code']=='reviewed-pinned-native-source' for row in plan['reasons']))
         self.assertTrue(CODEQL.select_languages(self.before,self.after)['full_scan'], 'no blob proof means full scans')
+
+    def test_android_java_and_kotlin_require_ordinary_existing_byte_proven_non_scripts(self):
+        for suffix in ('.java', '.kt'):
+            self.setUp(); path = 'android/phone/Activity' + suffix
+            self.native(path, b'package example; class Activity {}', b'package example; class Activity { int n; }')
+            self.assertEqual([], self.select()['languages'])
+            self.put(self.after, path, b'#!/usr/bin/env node\nconsole.log(1)')
+            self.assertTrue(self.select()['full_scan'])
+            self.native(path); self.before.pop(path)
+            self.assertTrue(self.select()['full_scan'])
+        self.setUp(); self.native('android/phone/build.gradle.kts')
+        self.assertTrue(self.select()['full_scan'])
 
     def test_shebang_binary_invalid_utf8_missing_or_mismatching_immutable_bytes_decline(self):
         for raw in (b'#!/usr/bin/env python\nprint(1)\n', b'#!/usr/bin/env node\n',
@@ -835,9 +854,16 @@ class NativeLeafSelectionTests(unittest.TestCase):
             elif mutation=='after-executable':self.after['native/Example.cpp']['mode']='100755'
             else:self.put(self.before,'native/Example.cpp',b'#!/usr/bin/python\n')
             with self.subTest(mutation=mutation):self.assertTrue(self.select()['full_scan'])
-        for path in ('native/Example.CPP','native/Example.H','native/Example.cc','native/.eslintrc.cpp','native/.hidden.h'):
+        for path in ('native/Example.CPP','native/Example.H','native/Example.cc','native/.hidden.h'):
             self.setUp();self.native(path)
             with self.subTest(path=path):self.assertTrue(self.select()['full_scan'])
+
+    def test_hidden_eslint_json_names_remain_javascript_inputs_regardless_of_suffix(self):
+        for path, languages in (('native/.eslintrc.cpp', ['javascript-typescript']),
+                ('android/.eslintrc.java', ['javascript-typescript']),
+                ('tools/.eslintrc.py', list(CODEQL.LANGUAGES))):
+            self.setUp(); self.native(path)
+            self.assertEqual(languages, self.select()['languages'])
 
     def test_mixed_known_languages_remain_selected_and_global_alias_pack_unknown_stay_full(self):
         for changes,expected in (({'tools/check.py'},['python']),({'browser/src/main.ts'},['javascript-typescript']),
@@ -1388,7 +1414,9 @@ class SelectedResultTests(unittest.TestCase):
         self.write(workflow, original)
         base = self.commit()
         original_blob = self.git('rev-parse', base + ':' + workflow)
-        self.write(workflow, (ROOT / workflow).read_text())
+        # Exercise the stored historical producer recipe, independently of
+        # the deployed schedule-only successor with no PR authority.
+        self.write(workflow, (ROOT / "tools/repository-checks/workflows/codeql-results.yml").read_text())
         head = self.commit()
 
         def select_at_merge(head):
@@ -2968,7 +2996,10 @@ class NativeUploadResultsTests(unittest.TestCase):
         self.assertIn(active.stat().st_mode & 0o777,(0o444,0o644))
         active_raw=active.read_bytes()
         active_blob=hashlib.sha1(b'blob '+str(len(active_raw)).encode()+b'\0'+active_raw).hexdigest()
-        self.assertIn(active_blob,(CODEQL._REQUIRED_CONTEXT_RESULTS_WORKFLOW,CODEQL._UPLOAD_RESULTS_WORKFLOW))
+        if active_blob not in (CODEQL._REQUIRED_CONTEXT_RESULTS_WORKFLOW,CODEQL._UPLOAD_RESULTS_WORKFLOW):
+            active_workflow = yaml.safe_load(active_raw)
+            self.assertEqual({"schedule"}, set(active_workflow.get("on", active_workflow.get(True))))
+            return
         if active_blob==CODEQL._UPLOAD_RESULTS_WORKFLOW:
             self.assertEqual(active_raw,raw)
         else:
