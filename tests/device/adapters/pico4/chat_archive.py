@@ -78,7 +78,7 @@ class PicoChatArchivePlan:
                     and all(value[key]==parent.binding[key] for key in ('sourceRevision','artifactSha256')))
                 self.add(ui,value)
             self.add(parent.store,parent.previous);self.catalog.verify_all()
-            self.inventory({row['store'].path for row in self.catalog.rows.values()})
+            self.pre_stop_inventory()
         except BaseException:self.catalog.close_host();raise
 
     def add(self,store,expected):
@@ -117,6 +117,18 @@ class PicoChatArchivePlan:
         need(len(witness.rows)==26 and all(row['phase']=='published' and row['ticket']==original['ticket']
             for row,original in zip(witness.rows,p.flow.rows)))
         return witness
+
+    def pre_stop_inventory(self):
+        # This exact known reader root must remain mutable for the new
+        # process's independent peer queries. Admit only the original consumed
+        # owner here; finish() catalogs its actual final closed original bytes.
+        p=self.parent;files=p.cache_release.files;value=files._owned()
+        need(files.original is p.peer.files and files.store.path==p.peer.files_store.path
+            and value['pending'] is None and not value['closing'] and not value['removed']
+            and value['request'] is not None and value['request']['operation']=='inspect'
+            and value['result'] is not None and value['result']['retired']
+            and value['request']['commandId']==value['result']['commandId'])
+        self.inventory({row['store'].path for row in self.catalog.rows.values()}|{files.store.path})
 
     def inventory(self,expected):
         actual=set()

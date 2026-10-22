@@ -137,3 +137,7 @@ namespace inventory runs before the original process stops, in addition to the
 final inventory, so unknown roots/rootless chunks prevent process retirement and
 remain untouched. The new narrow regression uses actual private files, original
 OFD catalogs and immutable chunks, with no target input.
+The pre-stop inventory includes the exact already-owned, fully consumed retired
+peer reader journal as a known mutable source. It must still serve independent
+post-restart queries. Its original closed bytes are admitted into the archive
+only at `finish()`; a pending transaction or different original owner is refused.

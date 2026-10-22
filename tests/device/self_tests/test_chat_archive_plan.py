@@ -45,6 +45,22 @@ class ChatArchivePlanTests(unittest.TestCase):
         self.assertEqual(before,orphan.path.read_bytes());self.assertEqual(dict(original=True),owned.read())
         self.assertIsNone(ledger.read())
 
+    def test_pre_stop_inventory_keeps_only_exact_known_consumed_mutable_peer_reader_root(self):
+        key='a'*32;self.plan.key=key;self.plan.state=self.root/('normal-script-state-'+key+'.json')
+        self.plan.ui=self.root/('normal-script-ui-'+key+'.json')
+        ledger=PrivateFeatureState(self.root/('chat-archive-retirement-'+key+'.json'))
+        self.plan.adapter=SimpleNamespace(_chat_archive_retirement_store=lambda target:ledger);self.plan.target='synthetic-target'
+        reader=PrivateFeatureState(self.peer/'actor-files.json')
+        original=dict(pending=None,closing=False,removed=False,request=dict(operation='inspect',commandId='b'*32),
+            result=dict(commandId='b'*32,retired=True))
+        reader.write(original,None);bound_original=object()
+        files=SimpleNamespace(store=reader,original=bound_original,_owned=reader.read)
+        self.plan.parent=SimpleNamespace(cache_release=SimpleNamespace(files=files),peer=SimpleNamespace(files=bound_original,files_store=reader))
+        self.plan.pre_stop_inventory();self.assertEqual({},self.plan.catalog.rows);self.assertEqual(original,reader.read())
+        current=reader.read();reader.write({**current,'pending':dict(operation='retire')},current)
+        with self.assertRaises(NativeUIError):self.plan.pre_stop_inventory()
+        self.assertIsNone(ledger.read());self.assertTrue(reader.path.exists())
+
     def test_embedded_background_history_does_not_invoke_method_or_hide_an_unknown_file_owner(self):
         value=self.store.read();owner=SimpleNamespace(store=self.store,previous=value,history=self.do_not_call)
         self.plan.add_owner(owner);self.plan.catalog.verify_all();self.assertEqual(1,len(self.plan.catalog.rows))
