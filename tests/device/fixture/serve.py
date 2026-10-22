@@ -557,6 +557,12 @@ class FixtureState:
             try:tablet_web_command(command)
             except (ValueError,RuntimeError):raise ValueError("invalid iOS tablet Web transcript request") from None
             valid=True
+        elif action == "feature-ios-tablet-web-closures":
+            sys.path.insert(0,str(ROOT.parent))
+            from ios.adapters.tablet_web_closures import command as tablet_closures_command
+            try:tablet_closures_command(command)
+            except (ValueError,RuntimeError):raise ValueError("invalid iOS tablet Web closure request") from None
+            valid=True
         elif action == "feature-ios-tablet-web-dom":
             sys.path.insert(0,str(ROOT.parent))
             from ios.adapters.tablet_web_dom import command as tablet_web_dom_command

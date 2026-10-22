@@ -42,6 +42,7 @@ from adapters.native_process_presence import NativeProcessPresence, FILE as PROC
 from ios.adapters.web_closures import IOSWebClosures, FILE as WEB_CLOSURES_FILE, LIMIT as WEB_CLOSURES_LIMIT, command as web_closures_command
 from ios.adapters.tablet_web_sources import IOSTabletSources,FILE as TABLET_SOURCES_FILE,LIMIT as TABLET_SOURCES_LIMIT,command as tablet_sources_command
 from ios.adapters.tablet_web_source import IOSTabletWebSource,FILE as TABLET_WEB_FILE,LIMIT as TABLET_WEB_LIMIT,command as tablet_web_command
+from ios.adapters.tablet_web_closures import IOSTabletWebClosures,FILE as TABLET_CLOSURES_FILE,LIMIT as TABLET_CLOSURES_LIMIT,command as tablet_closures_command
 from ios.adapters.tablet_web_dom import IOSTabletWebDOM,FILE as TABLET_WEB_DOM_FILE,LIMIT as TABLET_WEB_DOM_LIMIT,command as tablet_web_dom_command
 from ios.adapters.world_web_source import IOSWorldWebSource,FILE as WORLD_WEB_FILE,LIMIT as WORLD_WEB_LIMIT,command as world_web_command
 from ios.adapters.world_web_dom import IOSWorldWebDOM,FILE as WORLD_WEB_DOM_FILE,LIMIT as WORLD_WEB_DOM_LIMIT,command as world_web_dom_command
@@ -158,6 +159,7 @@ class FeatureObservation:
         elif command.get('action')=='feature-ios-web-closures':web_closures_command(command)
         elif command.get('action')=='feature-ios-tablet-sources':tablet_sources_command(command)
         elif command.get('action')=='feature-ios-tablet-web':tablet_web_command(command)
+        elif command.get('action')=='feature-ios-tablet-web-closures':tablet_closures_command(command)
         elif command.get('action')=='feature-ios-tablet-web-dom':tablet_web_dom_command(command)
         elif command.get('action')=='feature-ios-world-web':world_web_command(command)
         elif command.get('action')=='feature-ios-world-web-dom':world_web_dom_command(command)
@@ -517,6 +519,13 @@ class FeatureObservation:
         if clock_source is None:clock_source=self.native_observer()
         def clock():return clock_source.read(clock_source.sequence)['capturedEpochMs']
         return IOSTabletWebSource(self.send,lambda:self.original(remote=remote,limit=TABLET_WEB_LIMIT),
+            clock,self.guard,self.process['pid'],monotonic=self.monotonic,sleep=self.sleep)
+
+    def tablet_web_closures(self,clock_source=None):
+        self.guard();remote=self.remote.rsplit('/',1)[0]+'/'+TABLET_CLOSURES_FILE
+        if clock_source is None:clock_source=self.native_observer()
+        def clock():return clock_source.read(clock_source.sequence)['capturedEpochMs']
+        return IOSTabletWebClosures(self.send,lambda:self.original(remote=remote,limit=TABLET_CLOSURES_LIMIT),
             clock,self.guard,self.process['pid'],monotonic=self.monotonic,sleep=self.sleep)
 
     def tablet_web_dom(self,clock_source=None):

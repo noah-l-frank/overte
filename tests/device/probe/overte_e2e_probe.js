@@ -1736,6 +1736,26 @@
             }
             return;
         }
+        if (command && command.action === "feature-ios-tablet-web-closures") {
+            if (command.schemaVersion === 1 && typeof command.commandId === "string"
+                    && /^ios-[0-9a-f]{32}$/.test(command.commandId) && command.commandId.length === 36
+                    && typeof command.runId === "string" && command.runId.length === 32 && /^[0-9a-f]{32}$/.test(command.runId)
+                    && typeof command.fixtureUrl === "string" && command.fixtureUrl.length <= 512
+                    && new RegExp("^https?://[^/?#@\\s]+/feature-fixture/v1/runs/"+command.runId+"/$").test(command.fixtureUrl)
+                    && objectKeysMatch(command,["schemaVersion","commandId","action","runId","fixtureUrl"])) {
+                if (iosNewSourceRequests[command.commandId] || iosNewSourceRequestCount >= 4096) { return; }
+                iosNewSourceRequests[command.commandId]=true;iosNewSourceRequestCount+=1;
+                var tabletWeb={iosTabletWebClosuresVersion:1,commandId:command.commandId,complete:false};
+                try {
+                    if (typeof Test.featureIOSTabletWebClosures === "function") {
+                        var originalTabletWeb=Test.featureIOSTabletWebClosures(command);
+                        if (originalTabletWeb && originalTabletWeb.commandId === command.commandId) { tabletWeb=originalTabletWeb; }
+                    }
+                } catch (_tabletWebError) { /* Missing native originals cannot provide an empty inventory. */ }
+                Test.saveObject(tabletWeb,"feature-ios-tablet-web-closures.json");
+            }
+            return;
+        }
         if (command && command.action === "feature-ios-tablet-web-dom") {
             if (command.schemaVersion === 1 && typeof command.commandId === "string"
                     && /^ios-[0-9a-f]{32}$/.test(command.commandId) && command.commandId.length === 36

@@ -17,6 +17,7 @@
 #include "../../tests/device/native/WebDOMObservationBridge.h"
 #include "IOSTabletWebPresentation.h"
 #include "IOSTabletWebDOMState.h"
+#include "IOSTabletWebClosures.h"
 #endif
 #include <QFile>
 #include <QFileInfo>
@@ -158,19 +159,19 @@ namespace overte::ios::feature_closures {
 void nativeObject(void* object, const ContextPointer& context, Kind kind) {
     if (!context || !object) { return; }
     if (!NSThread.isMainThread || (kind != Kind::NativeView && kind != Kind::NativeDelegate
-            && kind != Kind::NativePresentation && kind != Kind::NativeSnapshotObject)) { auto& data = state(); std::lock_guard<std::mutex> guard(data.mutex); data.complete = false; return; }
+            && kind != Kind::NativePresentation && kind != Kind::NativeSnapshotObject)) { auto& data = contextState(context); std::lock_guard<std::mutex> guard(data.mutex); data.complete = false; return; }
     id actual = (__bridge id)object;
     OverteIOSWebResourceLifetime* lifetime = objc_getAssociatedObject(actual, &overteIOSWebResourceLifetimeKey);
     if (!lifetime) {
         lifetime = [OverteIOSWebResourceLifetime new];
         objc_setAssociatedObject(actual, &overteIOSWebResourceLifetimeKey, lifetime, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     }
-    const auto key = QString::number(context->id) + ":" + QString::number(static_cast<qulonglong>(kind));
+    const auto key = contextState(context).instance + ":" + QString::number(context->id) + ":" + QString::number(static_cast<qulonglong>(kind));
     // Reusing a framework object across callbacks must retain every original
     // scope, rather than replacing a previous context's lifetime token.
     if (!lifetime->leases.count(key)) {
         if (lifetime->leases.size() >= MAX_CONTEXTS * 4) {
-            auto& data = state(); std::lock_guard<std::mutex> guard(data.mutex); data.complete = false; return;
+            auto& data = contextState(context); std::lock_guard<std::mutex> guard(data.mutex); data.complete = false; return;
         }
         lifetime->leases.emplace(key, retain(context, kind));
     }
@@ -1342,6 +1343,10 @@ QSGNode* IOSWebView::updatePaintNode(QSGNode* oldNode, UpdatePaintNodeData* data
 }
 feature_closures::ContextPointer IOSWebView::featureClosureContext() const {
     const auto& value = *_private;
+    if (value.policy.surface()==web::Surface::Tablet && !value.featureTabletSource.isEmpty()) {
+        return tablet_web_closures::context(value.featureHandle,value.featureCreation,value.generation,value.document.epoch(),
+            value.policy.sourceIdentity(),value.policy.url().toString(QUrl::FullyEncoded),value.featureTabletSource);
+    }
     return feature_closures::context(value.featureHandle, value.featureCreation, value.generation,
         value.document.epoch(), value.surface, value.identity, value.policy.url().toString(QUrl::FullyEncoded));
 }
@@ -1635,6 +1640,10 @@ void registerIOSWebView() {
             return overte::ios::feature_closures::observe(command);
         };
         QCoreApplication::instance()->setProperty(overte::ios::feature_closures::providerProperty(),QVariant::fromValue(closures));
+        overte::ios::tablet_web_closures::Provider tabletClosures=[](const QVariantMap& command) {
+            return overte::ios::tablet_web_closures::observe(command);
+        };
+        QCoreApplication::instance()->setProperty(overte::ios::tablet_web_closures::providerProperty(),QVariant::fromValue(tabletClosures));
         overte::ios::world_web_trace::Provider worldWeb=[](const QVariantMap& command) {
             return overte::ios::world_web_trace::observe(command);
         };

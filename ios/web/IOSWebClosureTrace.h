@@ -69,8 +69,12 @@ inline bool ownedURL(const QString& source) {
         && QRegularExpression("\\A/feature-fixture/v1/runs/[0-9a-f]{32}/tickets/[0-9a-f]{32}/(?:graphics-marker\\.v1|index|reference)\\.html\\z")
             .match(url.path()).hasMatch();
 }
-struct Context { quint64 id { 0 }; };
+struct Context { quint64 id { 0 };State* source { nullptr }; };
 using ContextPointer = std::shared_ptr<const Context>;
+// Only native source factories choose their own static metadata history. The
+// pointer is never serialized or read from a query. Default context/HTTP source
+// retains its original State and unchanged writer1-5 grammar.
+inline State& contextState(const ContextPointer& context) { return context && context->source ? *context->source : state(); }
 inline ContextPointer context(quint64 handle, quint64 creation, quint64 grant, quint64 page,
         const QString& surface, const QString& identity, const QString& source) {
     if (!enabled() || !ownedURL(source)) { return {}; }
@@ -98,7 +102,7 @@ public:
     Lease(const Lease&) = delete;
     Lease& operator=(const Lease&) = delete;
     Lease(ContextPointer context, Kind kind) : _context(std::move(context)), _kind(kind) {
-        auto& data = state(); std::lock_guard<std::mutex> guard(data.mutex);
+        auto& data = contextState(_context); std::lock_guard<std::mutex> guard(data.mutex);
         const auto found = data.rows.find(_context->id); const auto index = static_cast<std::size_t>(_kind);
         const auto now = QDateTime::currentMSecsSinceEpoch();
         if (found == data.rows.end() || index >= NAMES.size() || now <= 0 || now < data.epoch) { data.complete = false; return; }
@@ -108,7 +112,7 @@ public:
     }
     ~Lease() {
         if (!_registered) { return; }
-        auto& data = state(); std::lock_guard<std::mutex> guard(data.mutex);
+        auto& data = contextState(_context); std::lock_guard<std::mutex> guard(data.mutex);
         auto& row = data.rows.at(_context->id); auto& counter = row.counters[static_cast<std::size_t>(_kind)];
         const auto now = QDateTime::currentMSecsSinceEpoch();
         if (counter.retired >= counter.created || now <= 0 || now < data.epoch) { data.complete = false; return; }
@@ -125,13 +129,13 @@ inline std::shared_ptr<Lease> retain(const ContextPointer& context, Kind kind) {
 }
 inline feature_images::Scope imageScope(const ContextPointer& context) {
     if (!context) { return {}; }
-    const auto id = state().instance + ":" + QString::number(context->id);
+    const auto id = contextState(context).instance + ":" + QString::number(context->id);
     return { id, [context](const QString& kind) -> std::shared_ptr<void> {
         for (std::size_t i = CALLBACK_KINDS; i < NAMES.size(); ++i) {
             if (kind == QLatin1String(NAMES[i])) { return retain(context, static_cast<Kind>(i)); }
         }
-        auto& data = state(); std::lock_guard<std::mutex> guard(data.mutex); data.complete = false; return {};
-    }, [] { auto& data = state(); std::lock_guard<std::mutex> guard(data.mutex); data.complete = false; } };
+        auto& data = contextState(context); std::lock_guard<std::mutex> guard(data.mutex); data.complete = false; return {};
+    }, [context] { auto& data = contextState(context); std::lock_guard<std::mutex> guard(data.mutex); data.complete = false; } };
 }
 // A read-only QImage carrier retains the original allocation and a lease until
 // the last implicit copy is destroyed. Independently painted/converted images
@@ -158,7 +162,7 @@ inline QImage nativeBitmap(const QImage& image, const ContextPointer& context) {
     // Handle a failed carrier constructor regardless of whether Qt invoked its
     // external-data cleanup. The failed QImage is already destroyed here.
     if (!cleaned->load()) { delete owner; }
-    auto& data = state(); std::lock_guard<std::mutex> guard(data.mutex); data.complete = false;
+    auto& data = contextState(context); std::lock_guard<std::mutex> guard(data.mutex); data.complete = false;
     return image;
 }
 inline QVariantMap observe(const QVariantMap& request) {
