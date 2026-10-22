@@ -873,6 +873,20 @@ def create_adapter(args, base_class):
             state,_ui=self._script_paths(target)
             return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-','chat-peer-send-')))
 
+        def _chat_peer_distant_store(self,target):
+            state,_ui=self._script_paths(target)
+            return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-','chat-peer-distant-')))
+
+        @_private
+        def _chat_peer_distant(self,target,sender):
+            from adapters.chat_journey.peer_distant import ChatPeerDistant
+            manager=self._scripts(target);native=self._native_feature_observer(target);native.guard()
+            _need(sender.roles[0].binding==sender.roles[1].binding==manager.binding
+                and sender.store.path==self._chat_peer_send_store(target).path
+                and sender.input.store.path==self._chat_peer_input_store(target).path)
+            return ChatPeerDistant(sender,(self._chat_peer_position(target),self._chat_peer_position(target)),
+                self._chat_peer_distant_store(target),monotonic=native.monotonic,sleep=native.sleep)
+
         @_private
         def _chat_peer_input(self,target,files,run):
             from adapters.chat_peer_input import ChatPeerInput
@@ -1106,6 +1120,7 @@ def create_adapter(args, base_class):
                         chat_error=True
                     if self._chat_no_replay_store(target).read() is not None:chat_error=True
                     if self._chat_peer_input_store(target).read() is not None or self._chat_peer_send_store(target).read() is not None:chat_error=True
+                    if self._chat_peer_distant_store(target).read() is not None:chat_error=True
                     owned=self._chat_capture_store(target).read()
                     if owned is not None:
                         if cleanup_only:self._recover_cleanup_candidate()
@@ -1158,6 +1173,7 @@ def create_adapter(args, base_class):
                       and self._account_origin_store(target).read() is None and self._chat_capture_store(target).read() is None
                       and self._chat_no_replay_store(target).read() is None
                       and self._chat_peer_input_store(target).read() is None and self._chat_peer_send_store(target).read() is None
+                      and self._chat_peer_distant_store(target).read() is None
                       and all(self._chat_samples_store(target,role).read() is None for role in ('primary','actor')))
             else:
                 _need(not feature_error and not script_error and not probe_error and not origin_error and not chat_error)

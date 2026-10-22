@@ -1,4 +1,4 @@
-# Owned Chat peer input v2
+# Owned Chat peer input v3
 
 This is a fixture input component and an independent reception join. Chat stays
 partial; no complete operation triple is registered. Devices have not run.
@@ -12,18 +12,18 @@ FD guard. It cannot launch/adopt a process or qualify one by display name.
 The separate private `chat-peer-input.v1.json` command is exactly
 `{schemaVersion:1,commandId,runId,operation,...}`. Closed operations are `hold`
 with bounded finite `position:{x,y,z}`, `send` with Local/Domain `channel` and
-`textKey:"reply"|"hidden"`, `restore` and `release`. There are no arbitrary
+`textKey:"reply"|"hidden"`, `restore`, `release` and passive `inspect`. There are no arbitrary
 message bodies, expected positions, delivery flags or observation fields.
 Commands retain schema v1 and use unique run-scoped nonces and canonical JSON. Actual native code
-retains all admitted IDs (bounded to 128), pins one run and refuses any replay,
+retains all admitted IDs (bounded to 4096), pins one run and refuses any replay,
 including a previously consumed command reintroduced after another command.
 
 The E2E-only `Messages.featureChatActorInput` dispatches to the original
 MessagesClient thread. It reads the original private inode and admits input once
 before returning it to the original fixture script. A separate native-held
 `chat-peer-input-receipt.v1.json` names both original command and result nodes,
-native birth/sequence/PID/time and consumed operation. It contains no position,
-delivery or restoration result. Version 2 additionally reads the actual original
+native birth/sequence/PID/time and consumed operation. It contains no requested
+position or delivery/restoration verdict. Version 2 additionally reads the actual original
 ScriptableAvatar position and run-scoped actual session hash before returning
 input to the script. `Agent::executeScript` installs a native `QWeakPointer`
 provider, taking a temporary strong reference only for the original locked
@@ -33,7 +33,13 @@ if DependencyManager still retains the Avatar. Requested positions
 never enter this read. `inspect` performs that original read without a fixture
 mutation; it does not send chat or change position. Explicit v1 receipts remain
 readable for input consumption, but cannot qualify actual Avatar position, and
-v2 cannot downgrade in an owner. Copying its bytes or rewriting an envelope inode
+an acquired version cannot downgrade in an owner. Version 3 also exports the
+actual native count of Script calls into this input route. Its passive native
+timer can consume only `inspect` and never advances that Script-call count.
+This read remains available after Release disables the script's polling, with
+fresh native Avatar position/time/sequence. `releaseConsumed` preserves native
+input admission only; actual stable poll counts through a measured quiet window
+must independently establish that polling stopped. Copying its bytes or rewriting an envelope inode
 cannot replace the actual actor's open FD. Read-only Chat cache queries remain
 on their original separate command/result paths.
 
@@ -43,8 +49,9 @@ updates and assigns ordinary `Avatar.position`. Normal Send calls ordinary
 `Messages.sendMessage("chat",...)` using the actual current `Avatar.position`,
 display name and controlled run text. A refused position write therefore never
 becomes the requested position in the message. Restore assigns the captured
-original position and phase, preserves that position for the restoration tick,
-then resumes normal motion. Release stops further input polling. Script ending
+original position and phase and keeps that exact point paused for independent
+measurement. Release resumes the saved original motion on the next update and
+stops further input polling. Script ending
 also restores its locally held original before disconnecting its update and
 disabling the owned avatar. Neither branch is independent restoration evidence.
 
@@ -68,7 +75,7 @@ Missing reception times out without resend, retaining source/input/action
 journals. Private Pico factories bind these owners to the actual installed
 candidate, and process teardown refuses to hide any retained peer journal.
 
-Seven host input cases execute real private-file ownership and the original JS
+Eight host input cases execute real private-file ownership and the original JS
 body against explicit synthetic product seams. Five reception cases use the
 real source/input join with synthetic native effects. A focused real Qt5/POSIX
 compiler check includes and executes the complete original `ChatActorFiles.h`
@@ -77,9 +84,24 @@ inventory rejection, original receipts and native receipt-FD closure after
 release. MessagesClient dispatch, full Assignment Client/QML/application linking,
 actual network transmission, OpenXR and devices remain unqualified.
 
-Remaining whole-feature work includes independently measured distant position
-and restoration, three seconds of its actual rejected Local reception window,
-normal lifecycle effects, owned mixer service recovery, exact private profile
+`ChatPeerDistant` now composes both actual independent Chat roles, their new
+native remote/local transforms and independently acquired native actor positions.
+It holds the actual peer at least 30 metres from the measured primary, issues
+ordinary Local hidden Send once, requires new actual remote native reception
+without an accepted history/model row, then checks three seconds of advancing
+fresh originals with unchanged Chat state. A forged position, accepted distant
+row or missing actual reception cannot pass. Return requires the exact original
+native actor point and its independently received remote transform before
+Release resumes motion. A further three-second window requires stable actual
+native Script-poll counters, advancing original timestamps and actual motion
+observed in both the actor and remote transforms. Mutating-command admission,
+Script-source freshness and failed restoration keep all journals. On a failed
+flow it attempts original Restore/Release at most once without claiming recovery.
+Five focused cases exercise this owner on explicit synthetic Avatar/network/
+clock seams, including retained multi-channel histories and actual poll leakage.
+
+Remaining whole-feature work includes normal lifecycle effects,
+owned mixer service recovery, exact private profile
 and settings-writer/file durability, reconstructed Script history and final
 callback/file/cache/actor resource release. A receipt or local fixture heartbeat
 cannot supply these observations. The full owner must retain journals until

@@ -631,6 +631,12 @@ class PicoNormalScriptsTests(unittest.TestCase):
         self.assertFalse(self.native.running)
         for store in stores:self.assertEqual('original-peer-owner',store.read()['unreleased'])
 
+    def test_pico_chat_process_teardown_preserves_completed_distant_peer_owner(self):
+        store=self.instance._chat_peer_distant_store(self.native.target)
+        original={'phase':'complete','unreleased':'original-distant-peer-owner'};store.write(original,None)
+        with self.assertRaises(ValueError):self.cleanup_instance().cleanup(self.native.target)
+        self.assertFalse(self.native.running);self.assertEqual(original,store.read())
+
     def account_probe(self):
         source=AccountProbeBoundary()
         def captured(value):

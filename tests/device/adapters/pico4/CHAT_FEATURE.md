@@ -89,8 +89,8 @@ wrong UI/storage binding, missing original arrivals and retained teardown
 ownership. The source boundaries are synthetic; this is neither a full normal
 Chat input journey nor an actual product/network/keyboard qualification.
 
-Next executable joins are normal independently bound peer Send and measured distant position/return;
-owned mixer remove/restore with fresh native-node association and a full
+Next executable joins are whole-journey composition of the implemented normal
+peer Send/distant return components, owned mixer remove/restore with fresh native-node association and a full
 three-second no-replay window; actual background/resume effects; original
 private profile/config/history restoration; actual callback/file/cache/actor
 quiet release and durable uncertain-input recovery. The existing actor
@@ -163,3 +163,17 @@ bound remote Avatar transforms; its private Pico reader pins process, self/peer
 run hashes, birth, advancing sequence and freshness. No display name or input
 coordinate becomes position evidence. These original position sources still
 need the complete distant-Send/rejection/return owner and cleanup composition.
+
+`ChatPeerDistant` now owns the actual >=30-metre hold, normal distant Local
+hidden Send, independent new native reception without accepted rows, full
+three-second unchanged Chat window, exact original actor position/received
+remote return, then original motion and a further three seconds of actual
+native Script-poll quiet. Input v3 passive inspection remains available from
+the original timer after the script stops its input route; passive reads do not
+advance actual Script call counts. Both windows use advancing original source
+timestamps and host time, and retain every original source in private bounded
+transcripts. Five host source/control cases and the real Qt5/POSIX whole-header
+check cover these boundaries; full native application/device execution remains
+unperformed. The private `_chat_peer_distant` factory and base teardown retain
+its ownership even after this component succeeds. Complete Chat still requires
+the remaining lifecycle/mixer/profile/whole-resource/publisher composition.

@@ -33,7 +33,7 @@ int main(int argc,char** argv) {
     auto original=QJsonDocument::fromJson(receipt.readAll()).object();receipt.close();
     assert(original.value("native").toObject().value("operation")=="hold");
     assert(original.value("native").toObject().value("sequence")==1);
-    assert(original.value("native").toObject().value("peerInputVersion")==2);
+    assert(original.value("native").toObject().value("peerInputVersion")==3);
     assert(original.value("native").toObject().value("avatarPosition").toObject().value("x")==2.0); // Actual provider, never requested 40.
     QJsonObject send{{"schemaVersion",1},{"commandId",QString(32,'e')},{"runId",QString(32,'d')},{"operation","send"},
         {"channel","domain"},{"textKey","reply"}};
@@ -46,6 +46,15 @@ int main(int argc,char** argv) {
     QJsonObject release{{"schemaVersion",1},{"commandId",QString(32,'1')},{"runId",QString(32,'d')},{"operation","release"}};
     write(release);assert(files.takeInput()==release.toVariantMap());
     send.insert("commandId",QString(32,'2'));write(send);assert(files.takeInput().isEmpty());
+    QJsonObject inspect{{"schemaVersion",1},{"commandId",QString(32,'3')},{"runId",QString(32,'d')},{"operation","inspect"}};
+    write(inspect);files.tick([](const QVariantMap&){return QVariantMap();});
+    assert(receipt.open(QIODevice::ReadOnly));const auto passive=QJsonDocument::fromJson(receipt.readAll()).object().value("native").toObject();receipt.close();
+    assert(passive.value("operation")=="inspect" && passive.value("releaseConsumed")==true);
+    const auto polls=passive.value("scriptPolls");
+    inspect.insert("commandId",QString(32,'6'));write(inspect);files.tick([](const QVariantMap&){return QVariantMap();});
+    assert(receipt.open(QIODevice::ReadOnly));const auto later=QJsonDocument::fromJson(receipt.readAll()).object().value("native").toObject();receipt.close();
+    assert(later.value("scriptPolls")==polls); // Passive timer does not manufacture script calls.
+    QFile::remove(directory.path()+"/chat-peer-input.v1.json");
     assert(QFile::remove(directory.path()+"/chat-peer-input-receipt.v1.json"));
     files.tick([](const QVariantMap&){return QVariantMap();});assert(files.available());
     overte::e2e::ChatPeerPosition positions;
