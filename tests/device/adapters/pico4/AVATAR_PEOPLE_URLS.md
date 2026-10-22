@@ -335,6 +335,22 @@ before a lost first root CAS remains owned and blocks base cleanup; its target
 key remains in the private name. All leaves remain retained while whole
 Avatar/People retirement is unresolved.
 
+An additional warm-owner review found that a parsed-frame cache could reuse
+an original leaf without rereading its file. The cache now saves only parsing
+and decompression: every cached-reference admission and final input/completion
+fence inventories every original through a fresh bounded, no-follow descriptor
+read. Device/inode/owner/mode/link count/size/mtime/ctime and the complete raw
+file digest must still match the first admitted file. Identical bytes on a new
+inode are refused. Missing or changed originals are retained as a failure; the
+owner neither recreates nor adopts them. The final phase read, inventory and
+retained copy all remain within the original combined host/native age fence.
+Three actual warm-file counterexamples (delete, identical replacement and
+content change at the last NativeNavigationIO guard) and the normal three-URL
+flow passed together in 34.580 seconds. The new case belongs to the existing
+fences partition, bringing the disjoint owning inventory to 16 cases without
+another selector or timeout change. The earlier 90.56-second measurement
+describes the original 15-case selection before this follow-up.
+
 The `pico-avatar-urls-owner` registry now writes version 2 and reads versions 1
 and 2. Version 1 files retain their original inline frames and can still be
 sampled or reconciled read-only. They cannot prepare, activate or clean up via

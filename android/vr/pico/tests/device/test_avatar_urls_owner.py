@@ -241,6 +241,32 @@ class AvatarUrlsTests(unittest.TestCase):
             with self.assertRaises(RuntimeError):self.invoke('prepare')
         self.assertIsNone(self.store.read());self.assertFalse(self.native.inputs)
         self.assertTrue(list(self.root.glob('avatar-urls-frame-*.json')));self.assertTrue(self.instance._avatar_urls_owned(self.target))
+    def test_warm_leaf_delete_replace_or_change_at_last_native_guard_prevents_input(self):
+        for fault in ('delete','replace','change'):
+            with self.subTest(original_leaf=fault):
+                if fault!='delete':self.doCleanups();self.setUp()
+                self.invoke('prepare');self.activate('avatar-url',dict(resource='avatar-a.fst'))
+                reference=unpack(self.store.read()['payload'])[0]['frames'][0];path=self.root/reference['name'];original_bytes=path.read_bytes()
+                original_guard=NativeNavigationIO.guard;fired=[];mutated=[]
+                def guard(io):
+                    original_guard(io)
+                    if inspect.currentframe().f_back.f_code.co_name=='send' and not fired:
+                        fired.append(True)
+                        if fault=='delete':path.unlink()
+                        elif fault=='replace':
+                            replacement=path.with_suffix('.replacement');replacement.write_bytes(original_bytes);replacement.chmod(0o600)
+                            self.assertNotEqual(path.stat().st_ino,replacement.stat().st_ino);replacement.replace(path)
+                        else:
+                            value=PrivateFeatureState(path).read();value['fixtureUrl']='http://foreign.invalid/feature-fixture/v1/'
+                            PrivateFeatureState(path).write(value,PrivateFeatureState(path).read())
+                        mutated.append(None if not path.exists() else path.read_bytes())
+                with self.lock.held():
+                    owner=self.make() # Admit and cache original leaf before the last SDK guard.
+                    with patch.object(NativeNavigationIO,'guard',guard),self.assertRaises((RuntimeError,OSError)):owner.act()
+                self.assertEqual([True],fired);self.assertFalse(self.native.inputs)
+                self.assertIsNotNone(unpack(self.store.read()['payload'])[0]['pending'])
+                self.assertEqual(mutated[0],None if not path.exists() else path.read_bytes())
+                self.assertTrue(self.instance._avatar_urls_owned(self.target))
     def test_legacy_pending_owner_is_read_only_reconciled_without_new_preference_baseline(self):
         self.invoke('prepare');self.activate('avatar-url',dict(resource='avatar-a.fst'));self.lost=True
         with self.assertRaises(RuntimeError):self.invoke('act')
