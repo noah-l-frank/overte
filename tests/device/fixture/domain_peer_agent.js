@@ -31,10 +31,12 @@
             if (chatHeld === null) return false;
             Avatar.position = chatHeld.position;
             elapsed = chatHeld.elapsed;
+            chatHeld.restored = true;
+            return true; // Keep the original point measurable until release.
+        } else if (command.operation === "release" && (chatHeld === null || chatHeld.restored === true)) {
             chatHeld = null;
-            return true; // Preserve the exact original position for this tick.
-        } else if (command.operation === "release" && chatHeld === null) {
             chatInputEnabled = false;
+            return true; // Resume the original motion on its next ordinary tick.
         }
         return false;
     }

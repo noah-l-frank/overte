@@ -63,9 +63,10 @@ public:
     // A separate opt-in fixture INPUT path. Consumption is never a position,
     // delivery or restoration observation. The original peer script performs
     // ordinary Avatar/ Messages operations after this call returns.
-    QVariantMap takeInput() {
+    QVariantMap takeInput(bool scriptPoll=true) {
 #if defined(Q_OS_UNIX)
         if (!_available || !root() || !same(_sourceNode,"chat-actor-source.v1.json")) { return {}; }
+        if (scriptPoll) { if (_scriptPolls>=9007199254740991LL) { closeAll();return {}; }++_scriptPolls; }
         const auto raw=readCommand("chat-peer-input.v1.json");
         QJsonParseError error;const auto document=QJsonDocument::fromJson(raw,&error);
         const auto value=document.object();const auto operation=value.value("operation").toString();
@@ -73,12 +74,14 @@ public:
         if (operation=="hold") { required.insert("position"); }
         else if (operation=="send") { required.insert("channel");required.insert("textKey"); }
         else if (operation!="restore" && operation!="release" && operation!="inspect") { return {}; }
+        if (!scriptPoll && operation!="inspect") { return {}; }
         const auto keys=value.keys();const auto id=value.value("commandId").toString();const auto run=value.value("runId").toString();
         if (error.error!=QJsonParseError::NoError || !document.isObject() || raw!=document.toJson(QJsonDocument::Compact)+'\n'
                 || QSet<QString>(keys.begin(),keys.end())!=required || value.value("schemaVersion")!=QJsonValue(1)
                 || !QRegularExpression("\\A[0-9a-f]{32}\\z").match(id).hasMatch()
                 || !QRegularExpression("\\A[0-9a-f]{32}\\z").match(run).hasMatch()
-                || (!_inputRun.isEmpty() && _inputRun!=run) || _inputs.contains(id) || _inputs.size()>=128 || _inputReleased) { return {}; }
+                || (!_inputRun.isEmpty() && _inputRun!=run) || _inputs.contains(id) || _inputs.size()>=4096
+                || (_inputReleased && operation!="inspect")) { return {}; }
         if (operation=="hold") {
             const auto position=value.value("position").toObject();const auto coordinates=position.keys();
             if (QSet<QString>(coordinates.begin(),coordinates.end())!=QSet<QString>{"x","y","z"}) { return {}; }
@@ -95,10 +98,11 @@ public:
         // Admit once before publishing consumption or returning to script.
         _inputs.insert(id);_inputRun=run;
         if (operation=="release") { _inputReleased=true; }
-        const QVariantMap receipt{{"peerInputVersion",2},{"commandId",id},{"runId",run},{"operation",operation},
+        const QVariantMap receipt{{"peerInputVersion",3},{"commandId",id},{"runId",run},{"operation",operation},
             {"instance",_inputInstance},{"sequence",_inputs.size()},{"processId",QCoreApplication::applicationPid()},
             {"capturedEpochMs",QDateTime::currentMSecsSinceEpoch()},
-            {"avatarSha256",ChatPeerPosition::identity(run,session.toUuid())},{"avatarPosition",position}};
+            {"avatarSha256",ChatPeerPosition::identity(run,session.toUuid())},{"avatarPosition",position},
+            {"scriptPolls",_scriptPolls},{"releaseConsumed",_inputReleased}};
         if (!writeResult(receipt,"chat-peer-input-receipt.v1.json",_inputResult,_inputResultNode,_commandNode)) { closeAll();return {}; }
         return value.toVariantMap();
 #else
@@ -109,6 +113,10 @@ public:
 #if defined(Q_OS_UNIX)
         if (!_available || !observe) { return; }
         if (!root() || !same(_sourceNode,"chat-actor-source.v1.json")) { closeAll();return; }
+        // Passive inspect remains available after the original script stops
+        // polling its input route. Timer reads never advance that actual poll
+        // counter and can never consume a mutating command.
+        takeInput(false);if (!_available) { return; }
         if (_inputResult>=0 && !same(_inputResultNode,"chat-peer-input-receipt.v1.json")) {
             struct stat current{};
             if (_inputReleased && ::fstatat(_root,"chat-peer-input-receipt.v1.json",&current,AT_SYMLINK_NOFOLLOW)!=0 && errno==ENOENT) {
@@ -151,6 +159,7 @@ private:
     QString _path,_lastCommand;
     QString _inputRun,_inputInstance{QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-')};
     QSet<QString> _inputs;
+    qint64 _scriptPolls{0};
     std::function<QVariantMap()> _avatarPosition;
     bool _inputReleased{false};
     bool _available{false},_lastRetired{false};

@@ -131,8 +131,10 @@ if(point.x!==40)throw Error('actual hold overwritten by normal motion');
 queue.push({operation:'send',runId:'a'.repeat(32),channel:'local',textKey:'hidden'});update(.5);
 if(sent.length!==1||sent[0].channel!=='chat'||sent[0].body.position.x!==40||sent[0].body.message!=='hidden-'+'a'.repeat(32))throw Error('normal actual-position send missing');
 queue.push({operation:'restore'});update(.5);if(JSON.stringify(point)!==JSON.stringify(original))throw Error('exact original not restored');
-update(.25);if(Math.abs(point.x-(2+.75*Math.sin(.5)))>1e-8)throw Error('saved original motion phase not resumed');
-queue.push({operation:'release'});update(.1);const released=polls;update(.1);if(polls!==released)throw Error('input poll remains active');ending();
+update(.25);if(JSON.stringify(point)!==JSON.stringify(original))throw Error('restored point not independently measurable');
+queue.push({operation:'release'});update(.1);const released=polls;update(.25);
+if(Math.abs(point.x-(2+.75*Math.sin(.5)))>1e-8)throw Error('saved original motion phase not resumed');
+if(polls!==released)throw Error('input poll remains active');ending();
 // A refused position write must never copy requested coordinates into Send.
 vm.runInNewContext(SOURCE,context);ignore=true;const actual=clone(point);
 queue.push({operation:'hold',position:{x:100,y:0,z:0}});update(.1);

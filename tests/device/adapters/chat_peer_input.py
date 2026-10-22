@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
 import hashlib
+import math
 import os
 import re
 import uuid
@@ -11,7 +12,7 @@ from adapters.chat_actor_files import ChatActorFiles, encode, node, stamp, ident
 from adapters.native_feature_observation import decode, exact, fresh, integer, need, number
 from adapters.normal_ui import NativeUIError
 
-VERSION = 2
+VERSION = 3
 COMMAND = 'chat-peer-input.v1.json'
 RECEIPT = 'chat-peer-input-receipt.v1.json'
 
@@ -66,7 +67,7 @@ class ChatPeerInput:
             request = command(dict(schemaVersion=1, commandId=uuid.uuid4().hex,
                 runId=self.run, operation=operation, **inputs))
             old = self.previous['intents']
-            need(not any(row['command']['operation'] == 'release' for row in old))
+            need(operation=='inspect' or not any(row['command']['operation'] == 'release' for row in old))
             need(not old or old[-1]['phase'] == 'consumed' or operation == 'restore')
             if operation in ('hold', 'restore'):
                 need(not any(row['command']['operation'] == operation for row in old))
@@ -80,6 +81,8 @@ class ChatPeerInput:
             if self.previous['commandStamp'] is not None: self.check_command()
             else: need(not files._exists(COMMAND))
             intent = dict(command=request, phase='uncertain')
+            issued=files.monotonic();need(number(issued,0,1e15))
+            requested=files.clock_ms();need(integer(requested,1))
             self.write({**self.previous, 'intents': old + [intent]})
             temporary = '.chat-peer-input-' + uuid.uuid4().hex
             descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC,
@@ -112,29 +115,41 @@ class ChatPeerInput:
                         and identity(envelope['resultNode']) == node(info))
                     receipt = envelope['native']
                     if receipt.get('commandId') == request['commandId']:
-                        optional = {'avatarSha256','avatarPosition'} if receipt.get('peerInputVersion') == 2 else set()
+                        optional = {'avatarSha256','avatarPosition'} if receipt.get('peerInputVersion') in (2,3) else set()
+                        if receipt.get('peerInputVersion')==3:optional|={'scriptPolls','releaseConsumed'}
                         exact(receipt, {'peerInputVersion', 'commandId', 'runId', 'operation', 'instance',
                             'sequence', 'processId', 'capturedEpochMs'} | optional)
-                        need(type(receipt['peerInputVersion']) is int and receipt['peerInputVersion'] in (1,VERSION)
+                        need(type(receipt['peerInputVersion']) is int and receipt['peerInputVersion'] in (1,2,VERSION)
                             and all(receipt[key] == request[key] for key in ('commandId', 'runId', 'operation'))
                             and integer(receipt['processId'], 1) and receipt['processId'] == files.pid
                             and type(receipt['instance']) is str and re.fullmatch('[0-9a-f]{32}', receipt['instance'])
-                            and integer(receipt['sequence'], 1, 128) and receipt['sequence'] == len(self.previous['intents'])
+                            and integer(receipt['sequence'], 1, 4096) and receipt['sequence'] == len(self.previous['intents'])
                             and envelope['commandNode'] == {key: self.previous['commandStamp'][key] for key in ('device', 'inode')}
                             and files.released(node(info)) is False)
                         fresh(receipt['capturedEpochMs'], files.clock_ms())
-                        need(receipt['capturedEpochMs'] >= files.source['configuredEpochMs'])
+                        need(receipt['capturedEpochMs'] >= max(files.source['configuredEpochMs'],requested))
                         if optional:
                             need(type(receipt['avatarSha256']) is str and re.fullmatch('[0-9a-f]{64}',receipt['avatarSha256']))
                             exact(receipt['avatarPosition'],{'x','y','z'})
                             need(all(number(value,-100000,100000) for value in receipt['avatarPosition'].values()))
+                        if receipt['peerInputVersion']==3:
+                            need(integer(receipt['scriptPolls'],0) and type(receipt['releaseConsumed']) is bool)
                         before = self.previous['receipt']
                         need(before is None or receipt['instance'] == before['native']['instance']
                             and receipt['peerInputVersion'] >= before['native']['peerInputVersion']
                             and receipt['capturedEpochMs'] >= before['native']['capturedEpochMs'])
+                        if receipt['peerInputVersion']==3 and before is not None and before['native']['peerInputVersion']==3:
+                            need(receipt['scriptPolls']>=before['native']['scriptPolls']
+                                and (not before['native']['releaseConsumed'] or receipt['releaseConsumed']))
                         intents = deepcopy(self.previous['intents']); intents[-1]['phase'] = 'consumed'
                         self.write({**self.previous, 'intents': intents, 'receipt': dict(native=receipt,
                             stamp=stamp(info), sha256=hashlib.sha256(raw).hexdigest())})
+                        final_started=files.monotonic();need(number(final_started,started,started+1.5))
+                        final_epoch=files.clock_ms();fresh(receipt['capturedEpochMs'],final_epoch)
+                        files._check_source();finished=files.monotonic()
+                        need(number(finished,final_started,started+1.5)
+                            and max(final_epoch-receipt['capturedEpochMs']+math.ceil((finished-final_started)*1000),
+                                requested-receipt['capturedEpochMs']+math.ceil((finished-issued)*1000))<=1500)
                         return deepcopy(receipt)
                     old_receipt = self.previous['receipt']
                     need(old_receipt is not None and old_receipt['stamp'] == stamp(info)
