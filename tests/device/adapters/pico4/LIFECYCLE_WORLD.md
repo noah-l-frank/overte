@@ -16,7 +16,9 @@ or keyboard may own focus. Original raw JSON/SHA and cursors remain private.
 through the existing OpenXR session. It persists the exact original envelope
 before the first possible transport write. The first operation requires actual
 Create focus and the real VR keyboard; a subsequent operation requires no
-current editor/focus/keyboard and the previous observed neutral quiet window.
+current editor/focus/keyboard, an actually closed owned tablet, and the previous
+observed neutral quiet window. Reaching Home via the first normal X is distinct
+from closing the tablet before post-editor movement.
 The existing two-second lease at strength0.2 does not change native watchdogs.
 The original input ID/nonce/sequence must join an original actual `started`
 event and intercepted-query vector receipt after this owner's frozen native

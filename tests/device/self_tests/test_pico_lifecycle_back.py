@@ -67,6 +67,11 @@ class LifecycleBackTests(unittest.TestCase):
     def owner(self,**kwargs):
         return PicoLifecycleBack(self.native.source(),self.session,self.path,RUN,kwargs.get('binding',BINDING),
             lambda:self.native.alive,monotonic=lambda:self.native.clock,sleep=self.native.sleep)
+    def test_expected_original_create_identity_is_checked_before_any_input_or_journal(self):
+        owner=self.owner()
+        with self.assertRaises(NativeUIError):owner.back(original_id='f'*32)
+        self.assertEqual([],self.transport.envelopes);self.assertFalse(self.path.exists())
+
     def test_real_route_source_and_keyboard_quiet_release_original_objects(self):
         owner=self.owner();result=owner.back()
         self.assertEqual('released',result['phase']);self.assertTrue(result['routeObserved']);self.assertTrue(result['editorRetired'])
