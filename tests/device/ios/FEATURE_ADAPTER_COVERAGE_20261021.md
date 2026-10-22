@@ -6,6 +6,10 @@ input/observation/cleanup coordinators. Native compilation is unverified and
 devices are untested. Host results do not represent product acceptance,
 installation, build or laboratory execution.
 
+Worlds also has a passive [original Go To visibility inventory](NAVIGATION_UI.md).
+It preserves hidden retained roots independently of input hit testing; it is a
+state-projection prerequisite and does not change the partial area count.
+
 The canonical physical source binding and explicit lost-launch recovery have
 host-tested implementations. The native byte observer and SDK plugin remain
 uninstalled/uncompiled and unqualified here. See the [Script handoff](SCRIPT_FEATURE.md)

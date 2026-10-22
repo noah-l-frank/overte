@@ -49,6 +49,7 @@ private:
     QString _loginGeneration;
     qint64 _scriptObservationSequence {0};
     QHash<QQuickItem*, QPointer<QQuickItem>> _scriptRoots;
+    QHash<QQuickItem*, QPointer<QQuickItem>> _navigationRoots;
     std::function<overte::e2e::AudioUiContext()> _audioReader;
     std::function<overte::e2e::GraphicsUiContext()> _graphicsReader;
     quint64 _placesObservationSequence {0};

@@ -21,6 +21,7 @@
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #include "../../tests/device/native/ScriptFileUi.h"
 #include "../../tests/device/native/ScriptUiInventory.h"
+#include "../../tests/device/native/IOSNavigationUiInventory.h"
 #include "../../tests/device/native/NormalAccountMenuControls.h"
 #include "../../tests/device/native/NormalViewMenuControls.h"
 #include "../../tests/device/native/NormalPlacesControls.h"
@@ -167,6 +168,7 @@ QJsonObject NormalUiInput::observe(QQuickItem* hud, QQuickItem* tablet, bool tab
     // This separate passive walk includes hidden roots and actual retained
     // objects. Input eligibility/modal suppression cannot manufacture absence.
     overte::e2e::ScriptUiInventory scriptInventory;
+    overte::e2e::IOSNavigationUiInventory navigationInventory;
     QSet<QQuickItem*> surveyed;
     bool inventoryComplete {hud != nullptr && hud->window() != nullptr};
     std::function<void(QQuickItem*, int)> survey = [&](QQuickItem* node, int depth) {
@@ -176,6 +178,8 @@ QJsonObject NormalUiInput::observe(QQuickItem* hud, QQuickItem* tablet, bool tab
         }
         surveyed.insert(node);
         scriptInventory.visit(node);
+        navigationInventory.visit(node);
+        if (!overte::e2e::IOSNavigationUiInventory::source(node).isEmpty()) { _navigationRoots.insert(node,node); }
         if (node->objectName()=="RunningScripts"
                 || (node->objectName()=="nativeFileBrowser"
                     && node->property("caption").toString()=="Open Script and Companion Files")) {
@@ -195,6 +199,12 @@ QJsonObject NormalUiInput::observe(QQuickItem* hud, QQuickItem* tablet, bool tab
     }
     const auto retainedRoots=_scriptRoots.values();
     for (const auto& root:retainedRoots) { if (root) { survey(root,0); } }
+    for (auto it=_navigationRoots.begin();it!=_navigationRoots.end();) {
+        if (!it.value()) { it=_navigationRoots.erase(it);continue; }++it;
+    }
+    const auto retainedNavigationRoots=_navigationRoots.values();
+    for (const auto& root:retainedNavigationRoots) { if (root) { survey(root,0); } }
+    if (_navigationRoots.size()>16) { inventoryComplete=false; }
     if (_scriptRoots.size()>32 || _scriptObservationSequence>=9007199254740991LL) { inventoryComplete=false; }
     auto scriptState=scriptInventory.observation(inventoryComplete);
     scriptState["tabletPresent"]=tablet!=nullptr;
@@ -368,6 +378,7 @@ QJsonObject NormalUiInput::observe(QQuickItem* hud, QQuickItem* tablet, bool tab
     result["scriptObservationVersion"]=1;
     result["scriptSourceSequence"]=++_scriptObservationSequence;
     result["scriptInventory"]=scriptState;
+    result["navigationInventory"]=navigationInventory.observation(inventoryComplete);
     result["createControlsVersion"]=1;result["createGeneration"]=_loginGeneration;
     result["chatControlsVersion"]=1;result["chatGeneration"]=_loginGeneration;
     result["fileControlsVersion"] = 1;

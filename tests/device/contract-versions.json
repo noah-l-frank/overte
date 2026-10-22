@@ -125,6 +125,7 @@
     "ios-places-http": {"current": 1, "reads": [1]},
     "ios-places-http-acquisition": {"current": 1, "reads": [1]},
     "ios-navigation-error-context": {"current": 1, "reads": [1]},
+    "ios-navigation-ui-inventory": {"current": 1, "reads": [1]},
     "native-entity-edit-inventory": {"current": 1, "reads": [1]},
     "ios-scene-inventory": {"current": 1, "reads": [1]},
     "ios-scene-inventory-acquisition": {"current": 1, "reads": [1]},

@@ -122,6 +122,7 @@ REQUIRED = {
     "ios-places-http": 1,
     "ios-places-http-acquisition": 1,
     "ios-navigation-error-context": 1,
+    "ios-navigation-ui-inventory": 1,
     "native-entity-edit-inventory": 1,
     "ios-scene-inventory": 1,
     "ios-scene-inventory-acquisition": 1,

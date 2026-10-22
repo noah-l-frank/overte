@@ -65,6 +65,9 @@ def observation(value, pid, now_ms=None):
     now_ms = time.time() * 1000 if now_ms is None else now_ms
     fields = {'schemaVersion', 'instance', 'frameSpace', 'processId', 'sampleEpochMs',
               'elapsedMs', 'lastSequence', 'tabletShown', 'ready', 'controls'}
+    if type(value) is dict and 'navigationInventory' in value:
+        from ios.adapters.navigation_ui import validate as navigation_inventory
+        navigation_inventory(value['navigationInventory']);fields.add('navigationInventory')
     if type(value) is dict and 'navigationDialogControlsVersion' in value:
         if (type(value['navigationDialogControlsVersion']) is not int or value['navigationDialogControlsVersion']!=1
                 or not _integer(value.get('navigationDialogSourceSequence'),1)):
