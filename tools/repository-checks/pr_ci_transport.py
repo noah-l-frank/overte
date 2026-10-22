@@ -65,6 +65,7 @@ SOURCE_PREFIXES = (".github/workflows/", ".github/codeql/", "tools/repository-ch
     "tools/native-tests/", "tools/workflow-security/", "tools/ios-build-qualification/")
 SOURCE_FILES = frozenset((".github/pr-ci-suites.json", ".github/pr-ci-dependencies.json",
     ".github/pr-ci-platforms.json", ".github/pr-ci-platform-inputs.json",
+    ".github/pr-ci-android-native.json",
     ".github/branch-policy.json", ".github/dependency-releases.json",
     ".github/native-tests.json", ".github/actionlint.yaml"))
 

@@ -325,6 +325,27 @@
         "python",
         "git"
       ]
+    },
+    "pr-ci-android-assets": {
+      "kind": "patterns",
+      "setup": [
+        "python",
+        "git"
+      ]
+    },
+    "pr-ci-android-native": {
+      "kind": "patterns",
+      "setup": [
+        "python",
+        "git"
+      ]
+    },
+    "pr-ci-android-worker": {
+      "kind": "patterns",
+      "setup": [
+        "python",
+        "git"
+      ]
     }
   },
   "product_independent_paths": [
