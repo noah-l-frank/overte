@@ -25,7 +25,8 @@ fi
 readonly qt_conan_dir=$1
 readonly nonqt_conan_dir=$2
 readonly sentinel=$3
-readonly script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+readonly script_dir
 readonly alignment_check="$script_dir/check-phone-elf-alignment.sh"
 readonly sentinel_version='overte-phone-16k-dependencies-v3'
 readonly temp_root="${PHONE_VERIFY_TMPDIR:-$script_dir/../build/verification-tmp}"
@@ -35,10 +36,24 @@ if [[ ! "$lock_timeout" =~ ^[0-9]+([.][0-9]+)?$ ]]; then
     echo "ERROR: invalid Phone dependency sentinel lock timeout: $lock_timeout" >&2
     exit 2
 fi
-mkdir -p -- "$(dirname -- "$sentinel")"
-exec {sentinel_lock_fd}>>"${sentinel}.lock"
-lock_mode=-s
-$write_sentinel && lock_mode=-x
+if [[ -L "${sentinel}.lock" || ( -e "${sentinel}.lock" && ! -f "${sentinel}.lock" ) ]]; then
+    echo "ERROR: Phone dependency sentinel lock must be a regular non-symlink file" >&2
+    exit 2
+fi
+if $write_sentinel; then
+    mkdir -p -- "$(dirname -- "$sentinel")"
+    exec {sentinel_lock_fd}>>"${sentinel}.lock"
+    lock_mode=-x
+else
+    # A prepared immutable runtime already contains the producer's lockfile.
+    # Shared verification must not create or open it for writing on an RO mount.
+    if [[ ! -f "${sentinel}.lock" ]]; then
+        echo "ERROR: Phone dependency sentinel lock is missing; prepare the dependencies first" >&2
+        exit 1
+    fi
+    exec {sentinel_lock_fd}<"${sentinel}.lock"
+    lock_mode=-s
+fi
 if ! flock "$lock_mode" -w "$lock_timeout" "$sentinel_lock_fd"; then
     echo "ERROR: timed out waiting for Phone dependency sentinel lock" >&2
     exit 1

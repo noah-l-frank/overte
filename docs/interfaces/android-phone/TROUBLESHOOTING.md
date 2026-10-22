@@ -1,5 +1,10 @@
 # Troubleshoot the Android Phone port
 
+Build/host diagnosis can run locally. ADB, installation, and physical test
+examples are for a prepared lab agent. For maintainer devices use the private
+Proxmox Jenkins job and its actual agent state, not the retained workstation
+lab or stale local installation receipts. See [Testing](TESTING.md).
+
 Start with:
 
 ```bash

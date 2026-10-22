@@ -1,5 +1,10 @@
 # Cross-platform E2E operations
 
+These are portable control-plane contracts. Local mock commands below do not
+contact a device. The maintainer's physical runs use the private Proxmox Jenkins
+laboratory; direct runner examples are agent-side references, not a workstation
+fallback. See [execution environments](README.md#execution-environments).
+
 This directory is the target-neutral control plane. Integrated desktop and
 shared Appium adapters translate the closed capability vocabulary into their
 transport operations; common modules never import those tools. The Appium

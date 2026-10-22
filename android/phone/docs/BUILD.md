@@ -12,9 +12,9 @@ The `phoneInterface` module packages Overte's normal mono 2D renderer and
 touchscreen input for 64-bit Android phones. It deliberately has its own
 application ID (`io.github.noah_be.overte.phone`) and does not package the Pico OpenXR
 runtime. The port currently targets ARM64 devices running Android 8 (API 26)
-or newer and targets Android 16 (API 36). Landscape is the primary qualified
-layout; the manifest's `fullSensor` policy also permits portrait as an
-experimental, not-yet-qualified layout. The normative classification is in
+or newer and targets Android 16 (API 36). Both Phone Activities request
+`android:screenOrientation="landscape"`; the current manifest does not declare
+portrait support. The normative classification is in
 [`docs/interfaces/android-phone/ORIENTATION.md`](../../../docs/interfaces/android-phone/ORIENTATION.md).
 
 For the device-free Actions checks and trusted build-runner architecture, see

@@ -1,5 +1,11 @@
 # Visible Linux Wayland input
 
+The commands below belong to a separately prepared device-lab agent. They are
+not a setup step for contributors or a way to reactivate the maintainer's
+retired workstation automation. See the
+[desktop adapter boundary](README.md) and the
+[private Proxmox operator guide](../../../../docs/portal/jenkins/index.md).
+
 `wayland_libei_daemon.c` is the native, GPU-visible Linux input path for a
 logged-in GNOME/Wayland device-lab session. It does not capture or share the
 screen. It asks XDG RemoteDesktop portal v2 for keyboard and pointer control,

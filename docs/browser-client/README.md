@@ -1,5 +1,11 @@
 # Overte browser client
 
+This is an experimental component of a personal hobby fork. Private gateway,
+browser-profile, audio, and laboratory settings in the linked research notes
+belong to the maintainer's setup; a clone does not provide them or a hosted
+service. Local software fixtures are separate from physical-device tests,
+which use the [private Proxmox laboratory](../portal/jenkins/index.md).
+
 The [status](STATUS.md) records implementation and verification progress.
 Material implementation assistance: OpenAI Codex.
 

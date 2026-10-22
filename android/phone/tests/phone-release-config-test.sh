@@ -25,6 +25,8 @@ require_absent() {
 }
 
 require_text "$module_gradle" 'compileSdk 36' 'phone compileSdk must remain API 36'
+require_text "$module_gradle" "buildToolsVersion '36[.]0[.]0'" \
+    'phone must select the sealed API 36 build tools instead of the AGP default'
 compile_sdk_line="$(grep -n -m1 'compileSdk 36' "$module_gradle" | cut -d: -f1)"
 dependency_gate_line="$(grep -n -m1 'if (!usePhone16kDependencies' "$module_gradle" | cut -d: -f1)"
 if (( compile_sdk_line >= dependency_gate_line )); then
