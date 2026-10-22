@@ -38,7 +38,7 @@ class PicoChatHostClose:
         need(type(plan) is PicoChatArchivePlan and plan.parent is parent and type(plan.archive) is ChatEvidenceArchive
             and plan.archive.complete and plan.archive.version==4
             and type(peer) is OwnedChatPeer and type(io) is PicoChatRestartIO and type(io.transfer) is OriginalBindingTransfer)
-        self.archive=plan.archive;self.pairs=[];self.windows=[]
+        self.archive=plan.archive;self.pairs=[];self.windows=[];self.journal_pairs=[]
         need(store.path.parent==self.archive.directory.parent and store.path.parent in self.archive.catalog.parents)
         self.directory_owner=self.archive.catalog.parents[store.path.parent]
         self.directory_owner.require(self.directory_owner.fd);self.parent_node=self.directory_owner.node
@@ -83,11 +83,29 @@ class PicoChatHostClose:
         self.parent_current()
         need(digest(self.scope)==self.scope_digest and host_identity()==self.host and same(self.store.read(),self.previous))
         value={**self.scope,'phase':phase};self.store.write(value,self.previous)
-        self.parent_current();need(digest(self.scope)==self.scope_digest and same(self.store.read(),value));self.previous=deepcopy(value)
+        self.sync_parent();self.parent_current()
+        need(digest(self.scope)==self.scope_digest and same(self.store.read(),value));self.previous=deepcopy(value)
 
     def parent_current(self):
         self.store._parent();info=self.store.path.parent.lstat()
         need((info.st_dev,info.st_ino)==self.parent_node)
+
+    def sync_parent(self):
+        """Durable metadata, with bounded windows of the SAME original node.
+
+        These windows carry no target/source facts. A lost alias is retained,
+        never replaced or closed as though its historical OFD had survived.
+        """
+        self.parent_current();owner=self.directory_owner;temporary=False
+        if owner.closed:
+            need(len(self.journal_pairs)<3)
+            owner=OriginalDescriptor(self.store.path.parent,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW|os.O_CLOEXEC)
+            self.journal_pairs.append(owner);temporary=True
+        try:
+            owner.require(owner.fd);need(owner.node==self.parent_node)
+            os.fsync(owner.fd);owner.require(owner.fd);self.parent_current()
+        finally:
+            if temporary:need(OriginalDescriptor.close(owner) and owner.closed and owner.fd==owner.anchor==-1)
 
     def run(self):
         need(not self.started);self.started=True
@@ -114,11 +132,15 @@ class PicoChatHostClose:
         try:
             self.parent_current()
             self.store.discard(self.previous)
+            self.sync_parent()
             self.parent_current();need(self.store.read() is None and host_identity()==self.host)
         except Exception:
             self.parent_current()
             if self.store.read() is None:
+                need(digest(self.scope)==self.scope_digest)
                 failed={**self.scope,'phase':'final-unavailable'}
-                self.store.write(failed,None);self.previous=deepcopy(failed)
+                self.store.write(failed,None);self.sync_parent();self.previous=deepcopy(failed)
             raise
+        need(all(owner.closed and not owner.lost and owner.fd==owner.anchor==-1 for owner in self.journal_pairs))
+        result['closedJournalWindows']=len(self.journal_pairs)
         self.complete=True;return result

@@ -326,6 +326,8 @@ class PicoChatComposition:
             if owner is not None:
                 try:okay=owner.close_host() is True and okay
                 except Exception:okay=False
+        finalizer=getattr(self,'host_close',None)
+        if finalizer is not None:okay=all(owner.closed and not owner.lost for owner in finalizer.journal_pairs) and okay
         return okay
 
 

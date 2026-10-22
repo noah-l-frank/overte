@@ -59,6 +59,7 @@ class ChatHostCloseTests(unittest.TestCase):
         self.assertEqual('original-host-chat-handles',result['sourceScope']);self.assertTrue(owner.complete)
         self.assertTrue(all(pair.closed and pair.fd==pair.anchor==-1 for pair,_row in owner.pairs))
         self.assertEqual(len(owner.pairs),result['closedPairs']);self.assertIsNone(self.store.read())
+        self.assertEqual(2,result['closedJournalWindows'])
         self.assertIsNone(self.parent.peer.files);self.assertIsNone(self.parent.peer.process)
         self.assertTrue(self.archive.complete)
         with self.assertRaises(NativeUIError):self.parent.finalize_host()
@@ -96,7 +97,12 @@ class ChatHostCloseTests(unittest.TestCase):
             os.close(anchor)
 
     def test_success_ack_without_actual_descriptor_close_cannot_retire_host_intent(self):
-        with patch.object(OriginalDescriptor,'close',return_value=True),self.assertRaises(NativeUIError):self.parent.finalize_host()
+        close=OriginalDescriptor.close
+        def ack(owner):
+            finalizer=getattr(self.parent,'host_close',None)
+            if finalizer is not None and any(owner is pair for pair,_row in finalizer.pairs):return True
+            return close(owner) # Transient byte-read windows still close for real.
+        with patch.object(OriginalDescriptor,'close',ack),self.assertRaises(NativeUIError):self.parent.finalize_host()
         self.assertEqual('unresolved',self.store.read()['phase'])
         self.assertTrue(all(not pair.closed for pair,_row in self.parent.host_close.pairs))
         self.assertGreaterEqual(self.parent.peer.files.fd,0)
@@ -141,6 +147,34 @@ class ChatHostCloseTests(unittest.TestCase):
         with self.assertRaises(NativeUIError):self.parent.finalize_host()
         self.assertEqual('final-unavailable',self.store.read()['phase']);self.assertFalse(self.parent.host_close.complete)
         self.assertTrue(all(pair.closed for pair,_row in self.parent.host_close.pairs))
+
+    def test_actual_parent_fsync_precedes_any_original_pair_close(self):
+        fsync=os.fsync;close=OriginalDescriptor.close;events=[]
+        def recorded(fd):
+            if fd==self.archive.catalog.parents[self.h.root].fd:events.append('initial-parent-sync')
+            return fsync(fd)
+        def closed(owner):
+            finalizer=getattr(self.parent,'host_close',None)
+            if finalizer is not None and any(owner is pair for pair,_row in finalizer.pairs):events.append('captured-close')
+            return close(owner)
+        with patch('adapters.pico4.chat_host_close.os.fsync',recorded),patch.object(OriginalDescriptor,'close',closed):self.parent.finalize_host()
+        self.assertLess(events.index('initial-parent-sync'),events.index('captured-close'));self.assertTrue(self.parent.host_close.complete)
+
+    def test_recycled_final_directory_window_is_not_closed_or_hidden_by_landed_marker_unlink(self):
+        fsync=os.fsync;foreign=[];anchors=[]
+        def recycle(fd):
+            owner=getattr(self.parent,'host_close',None)
+            if owner is not None and len(owner.journal_pairs)==2 and fd==owner.journal_pairs[-1].fd and not foreign:
+                original=owner.journal_pairs[-1];anchors.append(original.anchor);os.close(fd)
+                foreign.append(os.open(self.h.root,os.O_RDONLY|os.O_DIRECTORY|os.O_CLOEXEC));self.assertEqual(fd,foreign[0])
+            return fsync(fd)
+        try:
+            with patch('adapters.pico4.chat_host_close.os.fsync',recycle),self.assertRaises(NativeUIError):self.parent.finalize_host()
+            self.assertEqual('final-unavailable',self.store.read()['phase']);self.assertFalse(self.parent.host_close.complete)
+            self.assertFalse(self.parent.detach());self.assertFalse(self.parent.host_close.journal_pairs[1].closed)
+            self.assertEqual(self.h.root.stat().st_ino,os.fstat(foreign[0]).st_ino)
+        finally:
+            for fd in foreign+anchors:os.close(fd)
 
 
 if __name__=='__main__':unittest.main()
