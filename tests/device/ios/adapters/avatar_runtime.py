@@ -191,9 +191,14 @@ class IOSAvatarRuntime(IOSScriptRuntime):
         return IOSAvatarSources(PrivateFeatureState(self.state_path(selector).with_name('ios-avatar-'+role+'-sources.json')),
             root,source['binding'],run,role,lock,source['check'],PhaseFixtureReader(client,run,'avatar-people'),readers=readers)
 
-    def _avatar_login(self,selector,authority,role,*,initial=True):
+    def _avatar_login(self,selector,authority,role,*,initial=True,lock=None):
         from ios.adapters.avatar_authority import AvatarAuthorityReader
         need(isinstance(authority,AvatarAuthorityReader) and role in ('primary','actor') and type(initial) is bool)
+        # A whole coordinator already owns this exact SDK lock. Reuse only
+        # the explicitly supplied, path/process/thread-validated instance; a
+        # second instance would contend with the caller's own OS flock.
+        need(lock is None or isinstance(lock,ScriptSourceLock) and lock.path==self.state_path(selector).with_name('script-feature-sources.lock'))
+        if lock is not None:lock.assert_held()
         actual=authority.read();need(actual['phase'] in ('allocated','ready'))
         child=actual['accounts'][role]['runId']
         result=IOSAvatarLoginRuntime(self.adapter,authority.client,authority.run,role,child)
@@ -202,7 +207,7 @@ class IOSAvatarRuntime(IOSScriptRuntime):
         if initial:result._preference_admission(selector,initial=True)
         else:
             from ios.adapters.avatar_login_owner import IOSAvatarLoginOwner
-            lock=ScriptSourceLock(self.state_path(selector).with_name('script-feature-sources.lock'))
+            lock=ScriptSourceLock(self.state_path(selector).with_name('script-feature-sources.lock')) if lock is None else lock
             with lock.held():
                 need(IOSAvatarLoginOwner(result,selector,authority,lock).load() is not None)
         return result

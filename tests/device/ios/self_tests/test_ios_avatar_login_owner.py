@@ -80,7 +80,10 @@ class AvatarLoginOwnerTests(unittest.TestCase):
         account=owner.login('1'*32);self.assertTrue(account['account']['loggedIn'])
         self.assertNotEqual(self.run,self.runtime.run)
         self.assertEqual('e2e-'+self.runtime.run,self.native.saved)
-        self.runtime=IOSAvatarRuntime(self.native.base())._avatar_login('owned',self.authority,'primary',initial=False)
+        before_inputs=list(self.native.input_log)
+        with self.lock.held():
+            self.runtime=IOSAvatarRuntime(self.native.base())._avatar_login('owned',self.authority,'primary',initial=False,lock=self.lock)
+        self.assertEqual(before_inputs,self.native.input_log)
         owner=self.owner()
         evidence=owner.protected('1'*32);self.assertEqual('complete',evidence['phase'])
         native=evidence['probe'];proof_client=witness.Client(self.client.url,self.actor_token)
@@ -116,6 +119,16 @@ class AvatarLoginOwnerTests(unittest.TestCase):
             with self.assertRaises(NativeUIError):self.owner().login(ticket)
         self.assertEqual(inputs,self.native.input_log)
         with self.lock.held():self.assertEqual('login-issued',self.owner().load()['phase'])
+
+    def test_existing_runtime_requires_the_actual_held_lock_before_any_authority_or_sdk_read(self):
+        runtime=IOSAvatarRuntime(self.native.base());commands=list(self.native.commands)
+        wrong=ScriptSourceLock(self.root/'unrelated-source.lock')
+        with patch.object(self.authority,'read',wraps=self.authority.read) as reading:
+            with self.assertRaises(NativeUIError):runtime._avatar_login('owned',self.authority,'primary',initial=False,lock=self.lock)
+            with wrong.held():
+                with self.assertRaises(NativeUIError):runtime._avatar_login('owned',self.authority,'primary',initial=False,lock=wrong)
+            reading.assert_not_called()
+        self.assertEqual(commands,self.native.commands);self.assertEqual([],self.native.input_log)
 
     def test_foreign_original_saved_username_prevents_preparation_and_all_native_input(self):
         self.native.saved='unowned-person'

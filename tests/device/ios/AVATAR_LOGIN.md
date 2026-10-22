@@ -22,6 +22,11 @@ transitions. Delivery acknowledgments cannot complete an ignored submit.
 Interrupted input remains owned and is never replayed on reconstruction.
 Reopening a login runtime with `initial=False` requires its existing validated
 role owner and candidate binding; it does not admit an unrelated saved username.
+A coordinator may explicitly supply its already held source lock when reopening.
+The runtime verifies the exact SDK lock path and its process/thread ownership
+before reading authority or SDK state. Reentry preserves the original login
+journal and sends no duplicate input; callers without a supplied lock retain
+the existing acquisition path.
 
 Protected access uses a separate actual native GET with the original child
 run, active ticket and `ios-<nonce>` identity. Its response must join a later
