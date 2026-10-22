@@ -130,3 +130,13 @@ MessagesClient reception and local-only fallback in explicitly owned bounded
 run scopes. Original sender/order/time history is separate from send intent,
 rendered Chat rows and actual independently bound peer delivery. Its typed
 reader and durable cache retirement remain prerequisites, not a full Chat adapter.
+
+The dedicated iOS `saveObject` writer preserves compact JSON for the Snapshot
+work/export and five World Web source files. These observers bound compact bytes
+before publication; indentation can otherwise make a valid source exceed its
+existing AFC reader limit. The World Web host producer reached 1,164 real-flow
+modeled callback events at step seven: 788,613 compact bytes versus 1,227,355
+indented bytes. This changes only JSON whitespace in those E2E files. Schemas,
+source counters, clocks, nonce ownership, private atomic publication and all
+other writers remain unchanged. It does not increase native event/byte limits
+or establish a device result; native compilation remains unverified.

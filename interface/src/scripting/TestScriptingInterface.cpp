@@ -2372,10 +2372,13 @@ void TestScriptingInterface::saveObject(QVariant variant, const QString& filenam
 
     QByteArray jsonData = jsonDocument.toJson();
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
-    // These new bounded sources use NativeReadBracket's compact-byte bound.
-    // Preserve that encoding through AFC rather than exceeding the reader's
-    // limit solely by adding indentation. Existing source writers stay intact.
-    if (filename=="feature-ios-snapshot-work.json" || filename=="feature-ios-snapshot-exports.json") {
+    // Preserve these passive sources' native compact-byte bounds through AFC.
+    // Adding whitespace can exceed the existing reader limit with no new data.
+    // Other source writers keep their original encoding.
+    if (filename=="feature-ios-snapshot-work.json" || filename=="feature-ios-snapshot-exports.json"
+            || filename=="feature-ios-world-web.json" || filename=="feature-ios-world-web-dom.json"
+            || filename=="feature-ios-world-web-work.json" || filename=="feature-ios-world-web-geometry.json"
+            || filename=="feature-ios-world-web-keys.json") {
         jsonData=jsonDocument.toJson(QJsonDocument::Compact);
     }
 #endif
