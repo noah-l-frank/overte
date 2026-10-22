@@ -1165,6 +1165,12 @@ def create_adapter(args, base_class):
             return OwnedChatProfile(reader,self._chat_profile_store(target),manager.binding,run,source_lock)
 
         @_private
+        def _chat_restart_io(self,target,binding):
+            from adapters.pico4.chat_restart_io import PicoChatRestartIO
+            manager=self._scripts(target);_need(manager.binding==binding)
+            return PicoChatRestartIO(self,target,binding)
+
+        @_private
         def _chat_profile_current(self,target):
             from adapters.native_chat_profile_current import NativeChatProfileCurrent,FILE
             native=self._native_feature_observer(target);native.guard()
