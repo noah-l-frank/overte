@@ -20,6 +20,13 @@ class Boundary:
         self.epoch=10000;self.clock=0.;self.sequence=0;self.okay=True;self.ignore=False;self.fault=None;self.raw=''
         self.events=[];self.captures=[];self.uploads=[];self.calls=[]
         self.review=dict(snapshotReviewObservationVersion=1,present=False,review=None)
+        self.export_events=[];self.export_active=''
+    def export_event(self,kind,value='',auxiliary='',*,request='e'*32,action='save',ticket='1'):
+        self.export_events.append(dict(request=request,handle='1',ticket=ticket,generation='1',action=action,
+            source=STORAGE+'/owned.png',sequence=len(self.export_events)+1,kind=kind,value=value,auxiliary=auxiliary,
+            capturedEpochMs=self.epoch,elapsedMs=int(self.clock*1000)))
+        if kind=='request-active':self.export_active=request
+        elif kind in ('delivered','cancelled'):self.export_active=''
     def event(self,kind,id,phase='',path='',error=''):
         self.events.append(dict(sequence=len(self.events)+1,kind=kind,id=id,phase=phase,path=path,error=error,
             capturedEpochMs=self.epoch,elapsedMs=int(self.clock*1000)))
@@ -29,7 +36,10 @@ class Boundary:
         self.sequence+=1;self.epoch+=10
         value=dict(schemaVersion=1,requestId=request['commandId'],runId=request['runId'],instance='b'*32,
             sequence=self.sequence,processId=31,requestedEpochMs=self.epoch,capturedEpochMs=self.epoch,
-            source=dict(phoneSnapshotObservationVersion=2,nativeReview=True,storageRoot=STORAGE,
+            source=dict(phoneSnapshotObservationVersion=3,nativeReview=True,storageRoot=STORAGE,
+                androidExport=dict(snapshotExportObservationVersion=1,instance='d'*32,complete=True,capturedEpochMs=self.epoch,
+                    elapsedMs=int(self.clock*1000),sequence=len(self.export_events),activeRequest=self.export_active,
+                    events=deepcopy(self.export_events)),
                 review=deepcopy(self.review),
                 captures=deepcopy(self.captures),uploads=self.uploads[:],history=dict(snapshotHistoryVersion=1,
                 instance='c'*32,complete=True,sequence=len(self.events),events=deepcopy(self.events))))
@@ -42,6 +52,66 @@ class Boundary:
 
 
 class SnapshotSourceTests(unittest.TestCase):
+    def test_android_callback_originals_keep_actual_file_identity_and_retirement(self):
+        b=Boundary();b.export_event('request-active');reader=b.reader();pending=reader.read(RUN)
+        self.assertEqual('e'*32,pending['source']['androidExport']['activeRequest'])
+        b.export_event('destination-copied','content://media/external/images/media/418')
+        b.export_event('destination-published','content://media/external/images/media/418','1')
+        b.export_event('result-ready','success');b.export_event('delivered','success')
+        result=reader.read(RUN)['source']['androidExport']
+        self.assertEqual('',result['activeRequest']);self.assertEqual(5,result['sequence'])
+        self.assertNotIn('savedBytes',result)
+
+    def test_android_export_missing_foreign_incomplete_or_stale_source_remains_red(self):
+        for fault in ('missing','version','incomplete','stale','future','path','ticket','request','kind','active','uri'):
+            with self.subTest(fault=fault):
+                b=Boundary();b.export_event('request-active');b.export_event('destination-copied','content://media/owned/418')
+                def mutate(v):
+                    e=v['source']['androidExport']
+                    if fault=='missing':v['source'].pop('androidExport')
+                    elif fault=='version':e['snapshotExportObservationVersion']=2
+                    elif fault=='incomplete':e['complete']=False
+                    elif fault=='stale':e['capturedEpochMs']=1
+                    elif fault=='future':e['events'][0]['capturedEpochMs']=v['capturedEpochMs']+1
+                    elif fault=='path':e['events'][1]['source']='/tmp/foreign.png'
+                    elif fault=='ticket':e['events'][1]['ticket']='2'
+                    elif fault=='request':e['events'][1]['request']='f'*32
+                    elif fault=='kind':e['events'][1]['kind']='expected-success'
+                    elif fault=='active':e['activeRequest']=''
+                    else:e['events'][1]['value']='file:///tmp/foreign.png'
+                b.fault=mutate
+                with self.assertRaises(NativeUIError):b.reader().read(RUN)
+
+    def test_android_export_reconstructed_or_rewritten_original_prefix_cannot_be_reused(self):
+        for fault in ('instance','sequence','row','lost'):
+            with self.subTest(fault=fault):
+                b=Boundary();b.export_event('request-active');reader=b.reader();reader.read(RUN)
+                def mutate(v):
+                    e=v['source']['androidExport']
+                    if fault=='instance':e['instance']='f'*32
+                    elif fault=='sequence':e['sequence']=0
+                    elif fault=='row':e['events'][0]['ticket']='2'
+                    else:e.update(sequence=0,events=[],activeRequest='')
+                b.fault=mutate
+                with self.assertRaises(NativeUIError):reader.read(RUN)
+
+    def test_android_export_chosen_component_is_only_an_original_acknowledgement(self):
+        b=Boundary();b.export_event('request-active',action='share')
+        b.export_event('share-uri','content://io.github.noah_be.overte.phone.snapshot.files/snapshot/owned.png',action='share')
+        b.export_event('share-chosen','org.example.receiver/.Receive',action='share')
+        result=b.reader().read(RUN)['source']['androidExport']
+        self.assertEqual('e'*32,result['activeRequest'])
+        self.assertNotIn('destination-copied',[row['kind'] for row in result['events']])
+
+    def test_android_export_delivery_requires_its_original_result_and_cannot_borrow_a_retired_ticket(self):
+        for fault in ('missing-ready','mismatched-ready','duplicate-ticket'):
+            with self.subTest(fault=fault):
+                b=Boundary();b.export_event('request-active')
+                if fault!='missing-ready':b.export_event('result-ready','error' if fault=='mismatched-ready' else 'success')
+                b.export_event('delivered','success')
+                if fault=='duplicate-ticket':b.export_event('request-active',request='f'*32)
+                with self.assertRaises(NativeUIError):b.reader().read(RUN)
+
     @staticmethod
     def review_state():
         return dict(componentUrl='qrc:/system/snapshot/NativeSnapshotReview.qml',visible=True,

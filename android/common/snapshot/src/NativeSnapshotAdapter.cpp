@@ -57,6 +57,13 @@ qint64 allocate(jlong& counter) {
     counter = value == std::numeric_limits<jlong>::max() ? 0 : value + 1;
     return value;
 }
+bool featureEnabled() {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PHONE_INTERFACE)
+    return QCoreApplication::instance() && QCoreApplication::arguments().contains("--testScript");
+#else
+    return false;
+#endif
+}
 void registerType() { qmlRegisterType<NativeSnapshotAdapter>("Overte.Android", 1, 0, "NativeSnapshotAdapter"); }
 }
 Q_COREAPP_STARTUP_FUNCTION(registerType)
@@ -113,6 +120,20 @@ void NativeSnapshotAdapter::complete(qint64 ticket, const QString& status, const
     _request = 0; _error = outcome == "error" ? error.left(256) : QString();
     if (outcome == "error" && _error.isEmpty()) _error = tr("The snapshot could not be exported.");
     emit stateChanged(); emit completed(QString::number(ticket), outcome, _error);
+}
+QString NativeSnapshotAdapter::featureExportObservation() {
+    if (!featureEnabled()) return {};
+    Jni jni; if (!jni.env || !backend.load()) return {};
+    const auto id = jni.env->GetStaticMethodID(backend.load(), "featureObservation", "()Ljava/lang/String;");
+    auto result = id ? static_cast<jstring>(jni.env->CallStaticObjectMethod(backend.load(), id)) : nullptr;
+    const bool valid = id && !jni.env->ExceptionCheck() && result && jni.env->GetStringLength(result) <= 262144;
+    const auto value = valid ? string(jni.env, result) : QString();
+    if (jni.env->ExceptionCheck()) jni.env->ExceptionClear();
+    if (result) jni.env->DeleteLocalRef(result);
+    return value;
+}
+extern "C" JNIEXPORT jboolean JNICALL Java_org_overte_snapshot_SnapshotAdapter_nativeFeatureEnabled(JNIEnv*, jclass) {
+    return featureEnabled() ? JNI_TRUE : JNI_FALSE;
 }
 extern "C" JNIEXPORT void JNICALL Java_org_overte_snapshot_SnapshotAdapter_nativeInitialize(JNIEnv* env, jclass type) {
     JavaVM* vm = nullptr; if (env->GetJavaVM(&vm) != JNI_OK) return;

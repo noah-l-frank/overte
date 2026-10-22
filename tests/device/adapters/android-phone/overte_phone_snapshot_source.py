@@ -13,6 +13,7 @@ import uuid
 
 from adapters.native_feature_observation import decode,exact,fresh,integer,need,number
 from adapters.normal_ui import NativeUIError
+from overte_phone_snapshot_exports import exports,continuity as export_continuity
 
 FILE='phone-snapshot-observation.json'
 ROOTS={'/data/'+base+'/io.github.noah_be.overte.phone/files/Snapshots' for base in ('user/0','data')}
@@ -57,8 +58,8 @@ def review(value,valid_path):
 
 
 def source(value):
-    exact(value,{'phoneSnapshotObservationVersion','nativeReview','storageRoot','captures','uploads','history','review'})
-    need(type(value['phoneSnapshotObservationVersion']) is int and value['phoneSnapshotObservationVersion']==2
+    exact(value,{'phoneSnapshotObservationVersion','nativeReview','storageRoot','captures','uploads','history','review','androidExport'})
+    need(type(value['phoneSnapshotObservationVersion']) is int and value['phoneSnapshotObservationVersion']==3
         and value['nativeReview'] is True and value['storageRoot'] in ROOTS)
     root=value['storageRoot']
     def path(raw):
@@ -90,6 +91,7 @@ def source(value):
     need(ids==sorted(set(ids)))
     uploads=value['uploads'];need(type(uploads) is list and len(uploads)<=64 and all(path(raw) for raw in uploads) and uploads==sorted(set(uploads)))
     review(value['review'],path)
+    exports(value['androidExport'],path)
     return value
 
 
@@ -102,6 +104,7 @@ def validate(value,request,pid,epoch):
         and integer(value['capturedEpochMs'],value['requestedEpochMs']) and value['capturedEpochMs']-value['requestedEpochMs']<1500)
     fresh(value['capturedEpochMs'],epoch);source(value['source'])
     need(all(row['capturedEpochMs']<=value['capturedEpochMs'] for row in value['source']['history']['events']))
+    need(integer(value['source']['androidExport']['capturedEpochMs'],value['requestedEpochMs'],value['capturedEpochMs']))
     return value
 
 
@@ -111,6 +114,7 @@ def continuity(before,after):
         and after['source']['storageRoot']==before['source']['storageRoot'])
     a,b=before['source']['history'],after['source']['history']
     need(b['instance']==a['instance'] and b['sequence']>=a['sequence'] and b['events'][:len(a['events'])]==a['events'])
+    export_continuity(before['source']['androidExport'],after['source']['androidExport'])
 
 
 class PhoneSnapshotSource:

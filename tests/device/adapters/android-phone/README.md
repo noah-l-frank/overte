@@ -13,7 +13,7 @@ with independent common pixel checks. Complete Android C++/device qualification
 remains separate.
 
 The [Snapshot continuation](SNAPSHOT_FEATURE.md) adds a versioned passive
-capture/upload source and compiled recorder checks. The extended Snapshot
+capture/upload/review/Android-export source and compiled recorder checks. The extended Snapshot
 feature triple remains unavailable until its complete evidence and cleanup
 composition is implemented.
 

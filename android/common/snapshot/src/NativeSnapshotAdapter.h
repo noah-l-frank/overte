@@ -19,6 +19,8 @@ public:
     Q_INVOKABLE QString request(const QString& canonicalPath, const QString& action);
     Q_INVOKABLE void cancel(const QString& ticket);
     void acceptCompletion(qint64 ticket, const QString& status, const QString& error);
+    // Private read-only source; empty outside the guarded Phone test process.
+    static QString featureExportObservation();
 signals:
     void stateChanged();
     void completed(const QString& ticket, const QString& status, const QString& error);

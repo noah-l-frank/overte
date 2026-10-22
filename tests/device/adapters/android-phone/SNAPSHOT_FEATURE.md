@@ -6,12 +6,12 @@ original files independently of input delivery. The common v17 extended
 `feature.snapshots.*` triple is **not yet advertised** by the Phone adapter.
 Devices and the complete Android client build remain unverified.
 
-## Passive native source v2
+## Passive native source v3
 
 `phone-snapshot-observe` accepts exactly `schemaVersion:1`, a fresh 32-character
 hexadecimal `commandId`, `action`, and the 32-character hexadecimal `runId`.
 There are no capture, export, expected result, filename or state inputs.
-Version 2 adds the source-bound original native review observation (review
+Version 2 added the source-bound original native review observation (review
 component contract v1). Review absence is distinct from a missing window,
 ambiguous original component or an unqualified similarly named item. Hidden
 reviews remain observable during capture. Capturing/processing, actual images,
@@ -35,11 +35,29 @@ Successive reads require the same native/history instances and the unchanged
 full event prefix. Original paths remain in private source files and must never
 be copied to public result JSON. Public resources need opaque owned labels.
 
-All hooks require `OVERTE_E2E_FEATURE_TESTS`, `ANDROID_APP_PHONE_INTERFACE`,
-`--testScript`, and the existing native test lifecycle gate. Ordinary builds
-contain neither the recorder member nor the observation method. Capture and
-upload behavior is unchanged. An observed terminal callback alone does not
-prove image content, successful system saving, receiver consumption or upload.
+Version 3 additionally requires the original Android export source (export
+component contract v1). The real Java adapter records its actual native handle,
+ticket, Activity generation, original validated source path, original document
+or MediaStore URI and callback values. Each request has a new opaque identity.
+Insertion, completed copy, successful publication, actual deletion return
+count, chooser selection, deferred result and native delivery are distinct
+events. A read observes a deep copy under the recorder's lock; it cannot mutate
+or reset any callback history. The bound is 256 original events; overflow,
+unknown values, foreign/overlapping responsibility or clock regression leave
+the source permanently incomplete. Source replays require the exact immutable
+prefix. URI and source-path originals stay in the private evidence file.
+
+The capture/review hooks require `OVERTE_E2E_FEATURE_TESTS`,
+`ANDROID_APP_PHONE_INTERFACE`, `--testScript`, and the existing native test
+lifecycle gate. The Java export recorder is instantiated only when its native
+gate confirms that same Phone build and test-script process. The shared Java
+source does not enable recording in other Android clients or ordinary builds.
+The native read-only export method returns empty outside that gate or before a
+real backend has initialized; an absent backend never becomes observed absence.
+Capture, upload and export behavior is unchanged. In particular, a chosen
+component and even the existing product `success` callback do not prove
+successful system saving or receiver consumption. There is no destination byte
+reader or receiver acknowledgement in this source contract.
 
 ## Remaining composition
 
@@ -52,7 +70,7 @@ Do not infer capture completion from a button click or filename existence.
 Android Save is `media-store` on API 29+ and `document-picker` on earlier
 supported APIs; these require `savePermission:not-required`. Use the common
 backend profile: do not simulate iOS Photos permission denial on Android.
-Record original Android request/URI identity, actual destination byte readback,
+Join the retained original Android request/URI identity to actual destination byte readback,
 chooser cancellation and an explicitly owned receiver's independently read
 consumed bytes. A chosen component ACK is insufficient. Upload failure/recovery
 needs the controlled account service and independently retained multipart bytes
@@ -79,3 +97,17 @@ reader and loads unchanged product QML with a synthetic Snapshot script service
 and the actual desktop unavailable-export backend. It checks real pending and
 cancelled message handling, hidden reviews, qualified absence and rejection of
 foreign or duplicated components. It proves no Android saving or sharing.
+
+`test_snapshot_export_originals.py` compiles the actual passive Java recorder
+and checks immutable callback identity, original clocks, concurrent snapshots,
+foreign callbacks, late success after retirement, missing consumption proof,
+overlap and permanent overflow. `phone-snapshot-export-native-test.py` compiles
+and links the actual `NativeSnapshotAdapter.cpp`, its generated Qt metaobject
+and the original `SnapshotStorage.h` against prepared host Qt6 and JDK JNI
+headers. Six runtime checks cover Phone, other-Android and ordinary build gates
+with and without `--testScript`, plus the unavailable-backend boundary. No JNI,
+storage or registry implementation is replaced by a synthetic seam. This host
+build establishes neither Qt5/Android ABI compatibility nor a complete client
+build. The actual Snapshot Java sources also compile with the prepared Android
+34 SDK and AndroidX Core; neither that compile nor the host contracts execute
+MediaStore, a document provider, a chooser or a physical device.

@@ -69,6 +69,7 @@
 #include "../../../tests/device/native/PrivateCreateFiles.h"
 #include "ui/Snapshot.h"
 #include "../../../tests/device/native/PhoneSnapshotReviewObservation.h"
+#include "NativeSnapshotAdapter.h"
 #include "../../../tests/device/native/PhoneNavigationMarker.h"
 #include <SettingHandle.h>
 #include "../../../tests/device/adapters/android-phone/PendingCommitOwner.h"
@@ -1208,7 +1209,10 @@ QVariantMap TestScriptingInterface::phoneSnapshotObservation(const QVariantMap& 
     if (!DependencyManager::isSet<OffscreenUi>()) { return {}; }
     const auto review=overte::e2e::phoneSnapshotReviewObservation(DependencyManager::get<OffscreenUi>()->getRootItem());
     if (review.isEmpty()) { return {}; }
-    source.insert("phoneSnapshotObservationVersion",2);source.insert("review",review);
+    const auto androidExport=QJsonDocument::fromJson(NativeSnapshotAdapter::featureExportObservation().toUtf8());
+    if (!androidExport.isObject()) { return {}; }
+    source.insert("phoneSnapshotObservationVersion",3);source.insert("review",review);
+    source.insert("androidExport",androidExport.object().toVariantMap());
     if (source.isEmpty() || QJsonDocument::fromVariant(source).toJson(QJsonDocument::Compact).size()>200000) { return {}; }
     return {{"schemaVersion",1},{"requestId",command.value("commandId")},{"runId",command.value("runId")},
         {"instance",_featureObservationInstance},{"sequence",static_cast<qulonglong>(++_phoneSnapshotObservationSequence)},

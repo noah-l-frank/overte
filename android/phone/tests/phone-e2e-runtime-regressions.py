@@ -15,6 +15,8 @@ PREPARED_HOST_CHECKS = (
     "android/phone/tests/phone-navigation-native-test.py",
     "android/phone/tests/device/test_snapshot_native_history.py",
     "android/phone/tests/device/test_snapshot_native_review.py",
+    "android/phone/tests/device/test_snapshot_export_originals.py",
+    "android/phone/tests/phone-snapshot-export-native-test.py",
     "android/phone/tests/device/test_create_native_ui.py",
     "android/phone/tests/phone-snapshot-journey-test.py",
     "android/phone/tests/phone-snapshot-ui-test.py",
