@@ -84,6 +84,15 @@ requires all three owning baseline executions, sealed public release assets and
 exact source/configuration, SDK, runtime and toolchain image identities. Updating
 payload bytes cannot reuse an older baseline receipt for those different inputs.
 
+Qualified policy also supplies separately measured preparation and execution
+capacity budgets. Before dependency setup, the controller checks available RAM,
+applicable cgroup limits, filesystem space and inodes. Workspace and Docker space
+requirements are added when they share a filesystem. Preparation repeats this
+check before downloading native assets; execution checks its remaining build
+budget before starting the worker. A transport-only Groovy fixture does not
+request native capacity or its image/SDK setup. Missing measurements or budgets
+cannot authorize a native run.
+
 `pr_ci_android_assets.py` checks public fork release URLs, exact byte counts and
 SHA256 digests. A damaged optional transport-cache leaf is discarded without
 following its target; only newly verified bytes replace it. Archive extraction
