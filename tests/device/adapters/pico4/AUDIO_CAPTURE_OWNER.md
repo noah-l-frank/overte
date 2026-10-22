@@ -7,13 +7,25 @@ rejection and original unmute restoration, before tap release. Each next cycle
 gets its own bounded journal and preserves every preceding native cycle and PCM
 file before another normal Start. It delivers
 only the existing `AudioPreview` / `TokenAudioUI` normal Record input. It supports
-an unmuted capture followed by ordinary Record cancellation, or observation of
-the actual automatic capture/play/drain/completion. No device or actor is
+an unmuted capture followed by ordinary Record cancellation, normal mute interruption, or observation of
+the actual automatic capture/play/drain/completion. Normal mute interruption requires the actual same-cycle
+`cancelled/microphone-muted` event and empty live buffers, then restores the
+original unmuted state through its own durable normal operation. Lost mute and
+restore responses reconcile the original Preview action without toggling again.
+Version 2 adds a distinct restore operation and these closed phases. Historical
+version 1 remains readable and can finish its existing capture/cancel/completion
+path; it cannot acquire mute authority or manufacture a restore operation.
+Journals retain their original version without live migration.
+
+No device or actor is
 started by constructing this component. No complete Audio capability is exposed.
 
 The caller supplies the existing `PhaseFixtureReader` for its actual Audio run.
 The immutable original activation journal binds the recording-start ticket and
-actual activation time, independently of product results. A different current
+actual activation time, independently of product results. Cancel/mute also retain
+their own original fixture phase and final pre-input frame; a terminal event
+older than either cannot borrow that ordinary input. These originals survive
+subsequent normal mute restoration. A different current
 ticket or verb prevents Start. The actual new native cycle must follow both
 that original activation and the final pre-input native/UI/settings fence.
 The original normal action operation ID is durable before delivery; cold
@@ -51,7 +63,7 @@ original source objects; it does not manufacture a new parent lock alias.
 
 This is a bounded positive capture continuation. The caller must retain this
 cycle before starting another and compose the remaining common recipe stages,
-actual independent acoustic captures/peer projections, mute and background
+actual independent acoustic captures/peer projections, background
 interruption, normal final X/peak/settings restoration and original resource
 closure. Empty product buffers and terminal events leave the real polling timer,
 recording-buffer allocations, contexts and evidence originals owned. There is

@@ -34,8 +34,8 @@ class AudioCaptureOwnerTests(unittest.TestCase):
         self.owner=self.capture_owner()
     def capture_owner(self,cycle=1):
         return PicoAudioCaptureOwner(self.path/f'audio-capture-cycle-{cycle:02d}.json',self.parent,self.source)
-    def activate(self,verb):
-        ticket=uuid.uuid4().hex;self.journal.activate(self.parent.run,ticket,verb,{});return ticket
+    def activate(self,verb,inputs=None):
+        ticket=uuid.uuid4().hex;self.journal.activate(self.parent.run,ticket,verb,{} if inputs is None else inputs);return ticket
     def start(self):self.owner.prepare();return self.owner.start()
     def cancel(self):self.activate('record-cancel');return self.owner.cancel()
     def test_normal_cancel_and_original_pcm_are_retained_with_original_start_ticket(self):
@@ -59,6 +59,47 @@ class AudioCaptureOwnerTests(unittest.TestCase):
         with self.assertRaises(NativeUIError):self.parent.release()
         self.assertEqual(2,self.native.actions.count('audio.mute'))
         self.assertEqual([1,2],[value['history']['cycle'] for value in self.parent.preview.owned()['cycles']])
+
+    def test_normal_mute_interrupt_and_unmute_recovery_preserve_actual_cancelled_cycle(self):
+        self.start();self.activate('mute',dict(enabled=True));result=self.owner.mute_interrupt()
+        self.assertEqual('cancelled',result['state']['phase']);self.assertEqual('microphone-muted',result['state']['error']);self.assertTrue(result['state']['muted'])
+        self.activate('mute',dict(enabled=False));result=self.owner.restore_mute();self.assertFalse(result['state']['muted'])
+        result=self.owner.retain_originals();self.assertTrue(result['originalPcmRetained']);self.assertEqual(1,self.native.actions.count('audio.record'))
+        self.assertEqual(2,self.native.actions.count('audio.mute'));self.assertFalse(result['fullAudioQualified'])
+    def test_lost_unmute_restore_recovers_original_action_once(self):
+        self.start();self.activate('mute',dict(enabled=True));self.owner.mute_interrupt()
+        self.activate('mute',dict(enabled=False));self.native.input_fault='lost-result'
+        with self.assertRaises(NativeUIError):self.owner.restore_mute()
+        self.native.input_fault='';self.native.transform=lambda value:value
+        recovered=self.capture_owner();result=recovered.reconcile();self.assertFalse(result['state']['muted'])
+        self.assertEqual('terminal',result['phase']);self.assertEqual(2,self.native.actions.count('audio.mute'))
+    def test_historical_v1_continues_its_original_cancel_without_acquiring_new_mute_authority(self):
+        from adapters.script_journey.history import pack,unpack
+        self.owner.prepare();disk=deepcopy(self.owner.disk);value=unpack(disk['payload'])[0];value.pop('restoreOperation');value.pop('terminalSource')
+        disk.update(audioCaptureOwnerVersion=1,payload=pack([value]));self.owner.store.write(disk,self.owner.disk)
+        legacy=self.capture_owner();self.assertEqual(1,legacy.version);legacy.start()
+        self.activate('mute',dict(enabled=True))
+        with self.assertRaises(NativeUIError):legacy.mute_interrupt()
+        self.assertEqual(0,self.native.actions.count('audio.mute'))
+        self.activate('record-cancel');legacy.cancel();legacy.retain_originals()
+        self.assertEqual(1,legacy.store.read()['audioCaptureOwnerVersion']);self.assertTrue(legacy.report()['originalPcmRetained'])
+
+    def test_terminal_event_before_actual_cancel_fence_cannot_borrow_ordinary_input(self):
+        self.start();self.activate('record-cancel');original=self.native.publish
+        def stale(phase,*args,**kwargs):
+            original(phase,*args,**kwargs)
+            if phase=='cancelled':self.native.events[-1]['publishedEpochMs']=self.native.started()+1
+        self.native.publish=stale
+        with self.assertRaises(NativeUIError):self.owner.cancel()
+        with self.assertRaises(NativeUIError):self.owner.reconcile()
+        self.assertEqual('cancel-issued',self.owner.state['phase']);self.assertEqual(2,self.native.actions.count('audio.record'))
+
+    def test_lost_mute_interruption_is_read_back_without_a_second_toggle(self):
+        self.start();self.activate('mute',dict(enabled=True));self.native.input_fault='lost-result'
+        with self.assertRaises(NativeUIError):self.owner.mute_interrupt()
+        self.native.input_fault='';self.native.transform=lambda value:value
+        recovered=self.capture_owner();result=recovered.reconcile();self.assertTrue(result['state']['muted'])
+        self.assertEqual('microphone-muted',result['state']['error']);self.assertEqual(1,self.native.actions.count('audio.mute'))
 
     def test_actual_completion_keeps_distinct_original_input_and_sink_without_synthetic_wav(self):
         self.start();self.activate('await-completion');self.native.auto_complete=True
