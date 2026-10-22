@@ -21,6 +21,7 @@ from feature_journeys.phase_fixture import PhaseFixtureReader
 from fixture.messages_mixer import start_identity
 from overte_phone_script_history import unpack,pack
 from overte_phone_snapshots_actor import PhoneSnapshotsActor
+from overte_phone_snapshots_role import PhoneSnapshotsRole
 from test_snapshots_role import SnapshotRolesBoundary,RUN,TICKET
 
 
@@ -95,6 +96,12 @@ class SnapshotsActorTests(unittest.TestCase):
         self.addCleanup(stop);self.url='http://127.0.0.1:'+str(self.server.server_port)+'/feature-fixture/v1';self.reader=Client(self.url,'r'*64)
         with patch('feature_journeys.witness.secrets.token_hex',return_value=RUN):self.reader.register('snapshots')
         self.reader.activate(TICKET,'capture',dict(mode='still',format='png'))
+        # The ordinary actor's scheduling prerequisite is a genuinely ready
+        # Primary original, never an assumed sequence or a primary fact copy.
+        phase=PhaseFixtureReader(self.reader,RUN,'snapshots',epoch_ms=lambda:self.boundary.epoch)
+        f.role='primary';f.phase.client=phase.client;f.phase.status=phase.status
+        with f.lock.held():
+            primary=PhoneSnapshotsRole(f,'primary');primary.read(primary.state['sequence'])
     def run_actor(self,token='a'*64):
         # Fork only after stopping the loopback server thread; restart that
         # same listener immediately in the parent before any actor I/O.
@@ -108,7 +115,8 @@ class SnapshotsActorTests(unittest.TestCase):
         value=self.reader.request('/runs/'+RUN);self.assertEqual(1,len(value['entries']));self.assertEqual(1,value['entries'][0]['facts']['files'])
         header=PrivateFeatureState(self.root/'phone-snapshots-actor-lifecycle.json').read();state=unpack(header['payload'])[0]
         self.assertEqual(dict(pid=result['pid'],start=result['start']),state['process']);self.assertIsNone(state['pending']);self.assertEqual('watching',state['phase'])
-        self.assertFalse(PrivateFeatureState(self.root/'phone-snapshots-primary-originals.json').read())
+        primary=PrivateFeatureState(self.root/'phone-snapshots-primary-originals.json').read()
+        self.assertIsNotNone(primary);self.assertEqual(primary,state['primaryCue']['header'])
         self.assertTrue(list(self.root.glob('snapshots-file-'+RUN+'-actor-*.bin')))
     def test_reader_credentials_cannot_publish_even_after_actual_independent_measurement(self):
         result=self.run_actor('r'*64);self.assertIn('error',result);self.assertFalse(self.reader.request('/runs/'+RUN)['entries'])
