@@ -59,6 +59,15 @@ class PicoLifecycleWorld:
         need(self.fresh_anchor is not None);start,requested,captured=self.fresh_anchor;now=self.monotonic()
         need(number(now,0,1e15) and self.last_clock<=now and requested-captured+(now-start)*1000<=1500)
 
+    def final_result(self,result):
+        # Result construction and the final process guard precede this last
+        # native-clock read. Keep pre-transport callbacks host-only above.
+        self.now();self.fresh_current();epoch=self.axes.clock_ms();completed=self.monotonic()
+        start,requested,captured=self.fresh_anchor
+        need(integer(epoch,1) and number(completed,0,1e15) and completed>=self.last_clock
+            and -250<=epoch-captured and max(epoch-captured,requested-captured+(completed-start)*1000)<=1500)
+        self.last_clock=completed;return result
+
     def originals(self,row):
         exact(row,{'ui','gesture','drive','hostMonotonic'})
         need(number(row['hostMonotonic'],0,1e15));result={}
@@ -138,7 +147,7 @@ class PicoLifecycleWorld:
         actual=self.anchor.measure(packets['drive'])
         result=dict(worldAttempts=count,heldInputs=actual['heldInputs'],worldDisplacement=actual['worldDisplacement'],
             positionDelta=dict(zip(('x','y','z'),actual['positionDelta'])),originals=deepcopy(packets))
-        self.now();self.fresh_current();return result
+        return self.final_result(result)
 
     def world_input(self,*,editor_id=None):
         try:
