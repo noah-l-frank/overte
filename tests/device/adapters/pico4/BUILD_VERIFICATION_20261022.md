@@ -667,3 +667,19 @@ real host code; native transport/HMD effects are explicit synthetic boundaries.
 
 All4 final repository suites pass2.85s; contract registry, probe JavaScript
 syntax and whitespace pass. No complete feature count change.
+
+
+## Original Chat actor pending-publication recovery
+
+1cfa873679 selects9d3c232a98. Only unchanged actual source/command/result
+inodes, original bytes, nativev3 first-mutation IDs and the live original
+PID/start/kernel-held FD can reconcile a pending IPC manifest. No command is
+rewritten, resent or retimed. All47 original actor-file/cache-lifetime/Linux
+process cases pass3.205s. The actual Qt5 C++ headers through Linux PID/FD and
+Python cache owner pass1case2.325s; original Observe/Retire counters are1/1
+and the unlinked original result FD is actually gone. The actual Pico cache
+factory/retained cleanup case passes1.551s. The worker is an ephemeral owned
+stdin fixture, not an Overte Agent, device lab or service. Network/NodeList/
+assigned-script are explicit seams. Full Chat composition remains partial.
+
+All4 final repository suites pass5.39s; registry and whitespace pass.
