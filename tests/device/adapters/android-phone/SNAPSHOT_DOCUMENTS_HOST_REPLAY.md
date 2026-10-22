@@ -71,10 +71,64 @@ The guarded two-stage actor is implemented: it prepares immutable history,
 releases the owner lock, then rechecks the original actor/feature/role headers
 and target binding before acquiring its own fresh quiet-batch originals. Every
 sample retains complete original-file validation and current restoration proof.
-The subsequent retained-reader/warm-CAS implementation is undergoing bounded
-qualification; its integration is not claimed here. Complete SDK26 replay remains
-pending that qualification and a new unchanged common run. Normal operation
-deadlines, original clocks and the three-second quiet contract are unchanged.
+The subsequent retained-reader/warm-CAS implementation is integrated with
+targeted ownership and recovery counters. It rechecks actual trusted headers,
+reopens all historical originals and reads fresh complete samples; retained
+reader continuity never authorizes header adoption or old current facts.
+Complete SDK26 replay still needs a new successful unchanged common run. Normal
+operation deadlines, original clocks and the three-second quiet contract are
+unchanged.
+
+Later complete runs with the storage-intent, distinct-history and ephemeral
+Role-lifetime packets still failed the original strict freshness limit: one
+stopped at Upload with a 1527 ms peer age after 92.419 seconds; the next qualified
+Upload but stopped at background/resume with a 1522 ms peer age after 104.793
+seconds. These failed results remain failures. The earlier isolated 203.682 ms
+distinct-call charge was not reproduced as a persistent history-size regression
+and is not attributed to GC without original causal measurements.
+
+The new `SnapshotConstructorHistoryPass` moves complete immutable Primary
+constructor file replay between two source-lock stages. Admission is limited
+to known nonempty ready Primary history in baseline/active state without a
+pending action or OS handoff. Original owner headers, manifest prefix, exact
+SDK scope/configuration/binding and fixture phase are pinned while locked.
+Unlocked replay retains every actual file/hash/schema/image/metadata check and
+its five-second bound, but grants no native, input, recovery or publication
+authority. The ordinary constructor runs all source factories and continuity
+floors after reacquisition; exact first-header validation, full native/phase
+requalification, sealed file receipts and historical graph checks precede any
+normal current read. Actor, pending, OS and cleaned paths retain their existing
+guards. Lost known journals or remaining unframed PNG/binary/observer ownership
+cannot silently become a new baseline.
+
+Fourteen direct
+[`constructor-pass counters`](../../../../android/phone/tests/device/test_snapshots_constructor_history_pass.py)
+passed together in 52.707 seconds. They exercise actual files and metadata,
+owner/scope/phase/graph failures and a real separate lock-owning process during
+an original-file read. Eight
+[`ephemeral-reader lifetime cases`](../../../../android/phone/tests/device/test_snapshots_ephemeral_role_disposal.py)
+also passed in 50.175 seconds. The latter release only the operation-owned
+reader's own references after all guards and finalizers; stored files, returned
+DTOs, durable journals and retained Actor readers are unchanged. Production GC
+policy is unchanged. These targeted host results do not establish the new
+pass's full-journey timing or qualify SDK26/SDK29. Both complete host backend
+qualifications, the final integrated-source audit, the Android APK build and
+physical device acceptance remain separate and unverified here.
+
+The first complete constructor-pass replay also remains red: the unchanged
+SDK26 method failed at `12-share-cancel` after 58.683 seconds. Two unseen
+same-ticket Actor rows were already in the journal: sequence 33 was 2145 ms
+old and sequence 34 was 1075 ms old at the recorded reader boundary. Both had
+been fresh at actual publication receipt (206/202 ms). The common engine
+correctly rejected the older unseen row; the newer row cannot erase it.
+During that Primary observation, a second Actor acquisition overtook the
+unlocked historical replay. The measured second lock wait was 806.136 ms,
+followed by an 836.316 ms Primary lock hold. This is a scheduling failure;
+no individual hash or GC cause is inferred. A revision of ordinary Actor
+scheduling is being prepared. It must preserve independent actual reads,
+every journal row, strict freshness and unchanged cleanup quiet checks.
+The preceding targeted join passed 91 tests; neither that result nor this
+failed replay qualifies the full backend.
 
 The current [source coverage review](SOURCE_STATUS.md) distinguishes source and
 component checks from complete common qualification. The

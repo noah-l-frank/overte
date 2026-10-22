@@ -1059,11 +1059,67 @@ mode, link count and modification/change metadata reject equal-payload header
 replacement. Every original file and absence receipt is rechecked before and
 after current native/phase authority, so a file changed after replay cannot be
 hidden by the digest. The pass closes on success or failure before a new normal
-role acquisition. The ordinary role history path retains its original locked
-authority. Eight host test methods exercise this helper. The public observation
+role acquisition. Paths outside an explicitly admitted historical pass retain
+their original locked authority. Eight host test methods exercise this helper. The public observation
 path is integrated with eleven stage/ownership cases and seven late-after-read
 file/owner counterexamples. Both complete common replay qualifications remain
 pending; these tests alone do not qualify the whole Snapshot composition.
+
+Ordinary Primary observation has a separate constructor pass,
+`SnapshotConstructorHistoryPass`. Under the first source lock, `prepare()`
+requires a baseline/active feature with no current action or OS handoff and an
+existing nonempty ready Primary role journal. It pins the actual feature/role
+headers, typed role state and manifest references, active fixture phase,
+configuration, binding, process/thread and the same existing SDK-session scope.
+There is no already trusted in-memory frame graph before this constructor:
+the starting authority is the independently checked original journal prefix.
+
+Between locks, single-use `read()` runs the unchanged complete historical
+JSON/manifest/PNG/binary readers under host-only authority. Actual opens,
+inode/owner/mode/link checks, bytes/hash/schema/PNG checks and per-file
+five-second deadlines remain. Every actual read and planned absence receives a
+sealed metadata receipt. No target reader factory, native observation, input,
+recovery, publication or source clock query is permitted in this unlocked pass.
+Its graph digest describes historical bytes, never a current measured effect.
+
+After reacquisition, `before_load()` checks the pinned owners before `load()`
+can adopt state; `after_load()` checks the newly parsed state again. The normal
+Role constructor independently checks its first actual role-header read with
+`constructor_header()` before parsing state or creating readers. `frames_for()`
+consumes only the sealed original graph for that exact constructor. All usual
+continuity-floor reconstruction and reader factories execute under the source
+lock. `finish_constructor()` then requalifies current native/phase authority,
+headers, file receipts and the held graph. Finally `before_read()` repeats those
+checks after the constructor returns, before normal current acquisition. A
+callback that changes a file, header or graph during a final guard remains red.
+Equal-payload header replacement is rejected through the original inode and
+modification/change metadata. No historical check substitutes for the new
+current sources acquired by `Role.read()`.
+
+Actor, generic, OS-handoff, pending, preparing, cleaned and empty-bootstrap paths
+retain their existing guarded behavior; cleanup continues to use its separate
+history pass. A missing known role journal is not an empty bootstrap. Actual
+remaining frame/index originals, run-owned PNG/binary outputs, private transfer
+directories or the observer-file owner journal make that fallback fail closed.
+An actual partial read retains its durable diagnostic and owner. Retry pins the
+previous exact role header and fixture phase, creates a new pass and cannot
+fall back to an unpinned owner. `close()` is idempotent and drops only the token's
+own graph reference; the Role graph remains usable through final comparisons
+and its outer operation-owned disposal. Failure never deletes original files
+or resets an owner to obtain admission.
+
+[`test_snapshots_constructor_history_pass.py`](../../../../android/phone/tests/device/test_snapshots_constructor_history_pass.py)
+passed fourteen direct host cases together in 52.707 seconds. They include a
+separate process acquiring the actual source lock while the historical engine
+has a real original-file descriptor open, actual JSON/manifest/PNG/binary
+mutations, header replacement, changed scope/configuration/PID/phase, graph
+corruption during a final native guard, single-use/thread checks and genuinely
+unframed capture/observer ownership. Rejection cases explicitly forbid current
+Role read/batch entry. This establishes source boundaries, not an end-to-end
+timing improvement. Moving historical filesystem work outside the critical
+section changes no 1.5-second freshness limit, five-second exchange/lock limit,
+three-second quiet interval or common checkpoint deadline. Both complete
+backend replays on the new integrated source still require qualification.
 
 The unchanged `quiet_window` requires at least three advancing samples spanning
 three real seconds and resets after any gap greater than 1.5 seconds. An
@@ -1255,3 +1311,12 @@ exclusion. Those seven cases, the twenty-two facade cases and the eleven plus
 nine existing cleanup/history counterprobes passed on the integrated packet.
 This proves local reader lifetime and source invariants; it does not establish
 the cause of an earlier scheduling pause or a complete common-backend result.
+
+The constructor-pass join subsequently passed eight disposal cases in 50.175
+seconds, retaining failure release for both the ordinary and qualified
+constructors. The separate Feature facade still has smaller ordinary
+GC-managed Python reference cycles; no Feature/adapter disposal or GC-policy
+change is introduced. This is not evidence of a product resource leak, nor a
+claim that every Python object becomes immediately unreachable. Immutable
+originals, pending recovery journals, actual native resources and retained
+independent Actor readers keep their existing owners and retirement rules.
