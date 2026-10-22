@@ -61,6 +61,15 @@ def catalog(path=PINS):
     return _catalog_text(Path(path).read_text())
 
 
+def script_pin(path,runtime_path):
+    """Return one reviewed script expectation, never a caller-supplied DTO."""
+    if type(path) is _VerifiedCatalogPass:return path.script_pin(runtime_path)
+    pins=catalog() if path is None else catalog(path)
+    matches=[row for row in pins['files'] if row['runtimePath']==runtime_path]
+    need(type(runtime_path) is str and len(matches)==1 and matches[0]['kind']=='script')
+    return deepcopy(matches[0])
+
+
 class _VerifiedCatalogPass:
     """One pure-history parse of trusted expectations, never observed sources.
 
@@ -91,6 +100,11 @@ class _VerifiedCatalogPass:
         need(identity==self._identity and digest==self._sha256 and raw==self._raw)
     def read(self):
         self._check();return deepcopy(self._value)
+    def script_pin(self,runtime_path):
+        self._check()
+        matches=[row for row in self._value['files'] if row['runtimePath']==runtime_path]
+        need(type(runtime_path) is str and len(matches)==1 and matches[0]['kind']=='script')
+        return deepcopy(matches[0])
     def close(self):
         try:self._check()
         finally:

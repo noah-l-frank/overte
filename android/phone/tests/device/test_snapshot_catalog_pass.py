@@ -37,6 +37,44 @@ class SnapshotCatalogPassTests(unittest.TestCase):
             with self.assertRaises(NativeUIError):admission.catalog(reader)
             with admission.verified_catalog_pass(self.path) as second:self.assertEqual(self.expected,admission.catalog(second))
             self.assertEqual(2,parses.call_count)
+    def test_single_script_lookup_keeps_actual_file_checks_without_copying_all_440_rows(self):
+        expected=next(row for row in self.expected['files'] if row['runtimePath']=='system/snapshot.js')
+        parse=admission._catalog_text;copy=admission.deepcopy;digest=hashlib.sha256
+        with patch.object(admission,'_catalog_text',wraps=parse) as parses,patch.object(admission,'deepcopy',wraps=copy) as copies,patch.object(admission.hashlib,'sha256',wraps=digest) as hashes:
+            with admission.verified_catalog_pass(self.path) as reader:
+                first=admission.script_pin(reader,'system/snapshot.js');self.assertEqual(expected,first)
+                first['sha256']='0'*64;first['runtimePath']='foreign.js'
+                for index in range(136):self.assertEqual(expected,admission.script_pin(reader,'system/snapshot.js'))
+                self.assertEqual(1,parses.call_count);self.assertEqual(138,hashes.call_count)
+                # One complete defensive copy for initial schema qualification;
+                # all later consumers copy only their own required original pin.
+                whole=[call for call in copies.call_args_list if 'files' in call.args[0]]
+                self.assertEqual(1,len(whole));self.assertEqual(138,copies.call_count)
+            self.assertEqual(139,hashes.call_count)
+        with self.assertRaises(NativeUIError):admission.script_pin(reader,'system/snapshot.js')
+        self.assertEqual(expected,admission.script_pin(self.path,'system/snapshot.js'))
+        self.assertEqual(expected,admission.script_pin(None,'system/snapshot.js'))
+    def test_single_pin_lookup_cannot_adopt_missing_ambiguous_foreign_or_caller_expected_data(self):
+        for path in (self.path,None):
+            for runtime_path in ('unknown.js','../system/snapshot.js',{},'system/snapshot.js?foreign'):
+                with self.subTest(path=path,runtime_path=runtime_path),self.assertRaises((NativeUIError,TypeError)):
+                    admission.script_pin(path,runtime_path)
+        with admission.verified_catalog_pass(self.path) as reader:
+            with self.assertRaises(NativeUIError):admission.script_pin(reader,'foreign.js')
+            # Deliberately corrupt internal implementation state: even this
+            # cannot silently choose one of two identical runtime paths.
+            row=next(row for row in reader._value['files'] if row['runtimePath']=='system/snapshot.js')
+            reader._value['files'].append(deepcopy(row))
+            with self.assertRaises(NativeUIError):admission.script_pin(reader,'system/snapshot.js')
+        for value in (self.expected,{'sha256':'0'*64}):
+            with self.assertRaises(TypeError):admission.script_pin(value,'system/snapshot.js')
+    def test_single_pin_lookup_still_reads_original_file_and_rejects_same_bytes_replacement(self):
+        with self.assertRaises(NativeUIError):
+            with admission.verified_catalog_pass(self.path) as reader:
+                admission.script_pin(reader,'system/snapshot.js')
+                self.path.rename(self.path.with_suffix('.retained'));self.path.write_bytes(self.raw)
+                admission.script_pin(reader,'system/snapshot.js')
+        self.assertTrue(self.path.with_suffix('.retained').exists())
     def test_arbitrary_caller_dto_foreign_reader_and_previous_pass_cannot_supply_pins(self):
         with admission.verified_catalog_pass(self.path) as reader:self.assertEqual(self.expected,admission.catalog(reader))
         for value in (self.expected,deepcopy(self.expected),object(),reader):

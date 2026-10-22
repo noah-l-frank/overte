@@ -8,7 +8,7 @@ normal input, native lifetime, original file/pixels and independent witnesses.
 from copy import deepcopy
 import time
 
-from adapters.emote_admission import catalog,KEYS,relative,same_pin
+from adapters.emote_admission import script_pin,KEYS,relative,same_pin
 from adapters.native_feature_observation import exact,fresh,integer,need,number
 from adapters.native_script_observation import validate as scripts_packet
 from adapters.native_script_roots import validate as roots_packet,root_url
@@ -21,8 +21,7 @@ PATH='system/snapshot.js'
 
 def executable(script,root,*,pins_path=None):
     """Select the unique running, actually assigned Snapshot manager."""
-    pins=catalog() if pins_path is None else catalog(pins_path)
-    expected=next(row for row in pins['files'] if row['runtimePath']==PATH)
+    expected=script_pin(pins_path,PATH)
     source=script['source']
     need(source.get('sourceIdentityVersion')==1 and source.get('membershipSourceVersion')==1
         and source.get('compiledSourceVersion')==1 and source['membership']['complete'])
