@@ -23,6 +23,8 @@ from adapters.chat_actor_files import ChatActorFiles
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.normal_ui import NativeUIError
 from fixture.chat_actor_process import LinuxChatActorProcess
+from fixture.owned_processes import OwnedProcesses
+from adapters.chat_journey.owned_peer import OwnedChatPeer
 
 HARNESS=r'''
 #include "tests/device/native/ChatActorFiles.h"
@@ -50,9 +52,11 @@ class NativeActorSourceTests(unittest.TestCase):
                     '-L'+library,'-Wl,-rpath,'+library,*flags],capture_output=True,text=True,timeout=45)
                 self.assertEqual(0,compiled.returncode,compiled.stderr[:6000])
                 actor=root/'actor';actor.mkdir(mode=0o700)
+                home=root/'config-home';home.mkdir(mode=0o700);environment=os.environ.copy();environment['XDG_CONFIG_HOME']=str(home)
+                owner=OwnedProcesses(environment)
                 worker=subprocess.Popen([str(binary),'--testScript','--e2eChatActorDir',str(actor)],stdin=subprocess.PIPE,
-                    stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
-                process=transport=None
+                    stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,env=environment)
+                process=transport=owned_peer=None
                 try:
                     self.assertTrue(select.select([worker.stdout],[],[],3)[0]);self.assertEqual('ready',worker.stdout.readline().strip())
                     process=LinuxChatActorProcess(worker.pid,actor,hashlib.sha256(binary.read_bytes()).hexdigest(),
@@ -67,11 +71,26 @@ class NativeActorSourceTests(unittest.TestCase):
                     else:
                         self.assertEqual('',transport.source['build']['compiledSourceRevision'])
                         with self.assertRaises(NativeUIError):transport.require_compiled_source()
+                    config=PrivateFeatureState(root/'actor-config.json')
+                    config.write(dict(actorFilesVersion=1,directory=str(actor),expectedScriptSha256='a'*64,
+                        expectedExecutableSha256=hashlib.sha256(binary.read_bytes()).hexdigest(),ownerToken=owner.owner,
+                        configHome=owner.config_home),None)
+                    peer_state=root/'peer-state';peer_state.mkdir(mode=0o700);peer_store=PrivateFeatureState(peer_state/'files.json')
+                    if known:
+                        owned_peer=OwnedChatPeer(config,peer_store)
+                        self.assertEqual(revision,owned_peer.binding['sourceRevision']);self.assertTrue(owned_peer.guard())
+                        self.assertEqual(process.process_identity,owned_peer.binding['processIdentity'])
+                        reader=owned_peer.reader();self.assertIs(reader._chat_transport,owned_peer.files)
+                        self.assertIsNone(peer_store.read()['request'])
+                    else:
+                        with self.assertRaises(NativeUIError):OwnedChatPeer(config,peer_store)
+                        self.assertIsNone(peer_store.read())
                     original=(actor/'chat-actor-source.v1.json').read_bytes()
                     transport.source['build']['compiledSourceRevision']='f'*40
                     with self.assertRaises(NativeUIError):transport.require_compiled_source()
                     self.assertEqual(original,(actor/'chat-actor-source.v1.json').read_bytes())
                 finally:
+                    if owned_peer is not None:owned_peer.close_host()
                     if transport is not None:transport.detach()
                     if process is not None:process.close()
                     if worker.poll() is None:worker.stdin.write('quit\n');worker.stdin.flush()
