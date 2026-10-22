@@ -5,6 +5,7 @@ bytes are native captures, not synthesized WAVs, expectations or verdicts.
 """
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
+from copy import deepcopy
 import hashlib
 import re
 import shlex
@@ -14,6 +15,7 @@ import uuid
 from adb_transport import AdbTransport
 from adapters.native_feature_observation import decode, exact, fresh, integer, need, number
 from adapters.normal_ui import NativeUIError
+from adapters.recorded_preview_history import NEXT, phases
 
 FILE = 'recorded-preview-observation.json'
 INPUT = 'recorded-preview-input.pcm16le'
@@ -52,6 +54,7 @@ def validate(value, request, pid, epoch):
              source['startedEpochMs'] <= captured <= value['capturedEpochMs']))
     need(type(source['events']) is list and 1 <= len(source['events']) <= 64)
     previous, terminal, event_epoch = 0, False, source['startedEpochMs']
+    previous_phase = None
     previous_captured = previous_played = 0
     for event in source['events']:
         exact(event, {'schemaVersion', 'eventSequence', 'publishedEpochMs', 'phase', 'error',
@@ -68,6 +71,14 @@ def validate(value, request, pid, epoch):
              and integer(event['totalBytes']) and event['totalBytes'] in (0, limit)
              and event['capturedBytes'] <= event['totalBytes']
              and event['capturedBytes'] <= source['input']['bytes'] and not terminal)
+        need(event['capturedBytes'] % frame == event['playedBytes'] % frame == event['totalBytes'] % frame == 0)
+        if previous_phase is None:
+            need(event['phase'] in {'capturing', 'error'})
+        else:
+            need(event['eventSequence'] == previous + 1 and event['phase'] in NEXT.get(previous_phase, set()))
+        if event['phase'] in {'capturing', 'playing', 'draining', 'completed'}: need(event['error'] == '')
+        if event['phase'] == 'error': need(bool(event['error']))
+        previous_phase = event['phase']
         previous, previous_captured, previous_played = event['eventSequence'], event['capturedBytes'], event['playedBytes']
         event_epoch = event['publishedEpochMs']
         terminal = event['phase'] in {'completed', 'cancelled', 'error'}
@@ -75,7 +86,8 @@ def validate(value, request, pid, epoch):
     if terminal:
         need(last['capturedBytes'] == source['input']['bytes'])
     if last['phase'] == 'completed':
-        need(last['capturedBytes'] == last['playedBytes'] == limit
+        need(phases(source['events']) == ['capturing', 'playing', 'draining', 'completed']
+             and last['capturedBytes'] == last['playedBytes'] == limit
              and source['sink']['bytes'] >= limit)
     return value
 
@@ -89,6 +101,7 @@ class RecordedPreviewEvidence:
         self.clock_ms, self.guard, self.pid, self.ios = clock_ms, guard, pid, ios
         self.monotonic, self.sleep = monotonic, sleep
         self.instance, self.sequence, self.cycle, self.event_sequence = None, 0, 0, 0
+        self.last_source, self.last_original = None, None
 
     def _request(self, action):
         need(self.guard() is not False)
@@ -141,8 +154,22 @@ class RecordedPreviewEvidence:
                      and hashlib.sha256(raw).hexdigest() == item['sha256']
                      and self.guard() is not False)
                 original[kind] = raw
+            if self.last_source is not None:
+                before = self.last_source
+                if source['cycle'] == before['cycle']:
+                    need(all(source[key] == before[key] for key in ('startedEpochMs', 'sampleRate', 'channels'))
+                         and source['events'][:len(before['events'])] == before['events'])
+                    for kind in ('input', 'sink'):
+                        need(original[kind].startswith(self.last_original[kind])
+                             and source[kind + 'LastEpochMs'] >= before[kind + 'LastEpochMs'])
+                        if len(original[kind]) == len(self.last_original[kind]):
+                            need(source[kind + 'LastEpochMs'] == before[kind + 'LastEpochMs'])
+                else:
+                    need(source['startedEpochMs'] >= before['events'][-1]['publishedEpochMs']
+                         and source['events'][0]['eventSequence'] > before['events'][-1]['eventSequence'])
             completed = self.monotonic()
             need(number(completed, 0, 1e15) and started <= completed and completed - started < 5)
+            self.last_source, self.last_original = deepcopy(source), dict(original)
             self.instance, self.sequence, self.cycle = value['instance'], value['sequence'], source['cycle']
             self.event_sequence = source['events'][-1]['eventSequence']
             return value, original
