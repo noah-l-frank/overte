@@ -180,3 +180,55 @@ manifest diagnostics, predecessor proof, callback, five-second bound and exact
 ready transition semantics remain. Enclosing record v7 retains these packets
 before clearing Source, then the actor's resource-free Role attempt. This is
 historical failure retention, not product cleanup or full journal retirement.
+
+
+## Fresh source observation after provider closure, version 1
+
+`read_closed(retain)` uses the same existing guarded readonly root/Script/native/
+Qt/SDK/probe acquisition path after actual fixture retirement. The active-only
+source controls and their original files/manifests stay at versions 3/4. No
+inactive packet is appended to them. This operation sends no Emote input,
+returns no public sample or peer verdict, and does not establish complete cleanup.
+The enclosing owner still needs independent Script-work, Scene/View, image,
+actor and resource/host-journal retirement checks.
+
+The mandatory parent callback first retains exactly
+`{emoteClosedSourceVersion:1, role, segment, phase:"reading", sourceHeader,
+predecessorHeader, frame:null}` before any native source request. `sourceHeader`
+is the current original ready control and `predecessorHeader` is null only in
+segment zero. The current original must already show cleanup, inactive Rig and
+closed UI; actual closed provider birth, original retirement time and unchanged
+cleanup input history must be observed independently before acquisition.
+
+After actual new source reads, the callback retains the same envelope with
+`phase:"complete"` and its exact new `frame`. Native root, Script, Rig/evaluation,
+widget nonce/cursors and submitted/compiled/load/member histories must advance
+from the original source context. Executable/world/cache admission remains
+mandatory for version-4 sources. Both new phase packets must be inactive under
+the same original cleanup history. Actual current Rig override or an open UI
+rejects the observation. An input ACK or cached cleanup frame supplies no result.
+
+`closed_archive(value, phase=..., role=..., segment=..., artifact_root=...,
+binding=..., guard=..., monotonic=...)` reopens the original source dependency
+files, validates immediate predecessor and original policy continuity, and
+replays the new actual Script and animation history. Role and segment are bound
+to the enclosing owner's original context, never selected from the packet being
+validated. It returns the exact pending or complete historical data only, with
+no live owner, query, timestamp refresh or source control mutation.
+
+`closed_delivery(frame)` rechecks the actual bound source/predecessor controls,
+candidate and retired provider, plus native and provider 1.5-second age floors
+using independent monotonic elapsed time. The five-second whole operation
+includes initial historical replay, both parent callbacks, copies and final
+guards. A rejected pending callback sends no native request; a lost native query
+leaves the retained pending packet without a completed result. Lost/rejected or
+late final retention cannot produce a fresh successful return. The unchanged
+source controls remain owned. A later readonly retry uses new native requests;
+it preserves the earlier pending diagnostic rather than replaying any input.
+
+Ten new host counterexamples cover unchanged active originals, original replay,
+actual closure and UI/Rig inactivity, independently acquired role packets,
+ignored/stale native data, foreign provider/context, altered original files,
+failed handoff, elapsed/frozen/backward clocks and candidate/control changes.
+They establish test logic only. No native compilation or device acceptance is
+claimed, and no new complete Phone feature capability is registered.

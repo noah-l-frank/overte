@@ -29,8 +29,11 @@ The per-role observation owner retains original native/image/motion records and
 the independent actor publishes its own measured samples through the existing
 observer entrypoint. Closed-provider View/Scene retirement now retains fresh
 original native groups; namespace retirement v2 replays all original source/input
-dependencies without re-dating them. The public facade and whole-run resource/
-host-journal retirement still remain open; complete Emotes is missing and
+dependencies without re-dating them. Closed-source observation v1 additionally
+obtains new root/Script/Rig/UI/probe originals after actual provider closure,
+retaining pending responsibility before queries and exact measured completion
+before fresh delivery. Final Script-work/resource verification, the public facade
+and whole-run host-journal retirement remain open; complete Emotes is missing and
 unregistered.
 The [consumed animation data source](../../native/ANIMATION_SOURCE.md) now joins
 actual parser bytes and original retargeted model/resource identity to compiled

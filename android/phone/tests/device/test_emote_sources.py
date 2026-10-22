@@ -480,4 +480,131 @@ class PhoneEmoteSourcesTests(unittest.TestCase):
         self.assertEqual(before,len(m.calls));self.assertTrue(source.failed)
 
 
+    def cleanup_original(self,role='primary',*,closed=True):
+        m=self.model;m.idle=True;m.widgets.tablet=False;m.widgets.page=False
+        m.journal.activate(RUN,'a'*32,'cleanup',{});source=m.source(role);source.read()
+        if closed:m.journal.close(RUN)
+        return source
+
+    def closed_archive(self,value,source):
+        return PhoneEmoteSources.closed_archive(value,phase=source.phase,role=source.role,segment=source.segment,artifact_root=self.model.root,
+            binding=source.binding,guard=source.guard,monotonic=source.monotonic)
+
+    def test_closed_source_acquires_new_independent_originals_without_altering_active_journal(self):
+        m=self.model
+        with m.lock.held():
+            source=self.cleanup_original();header=deepcopy(source.previous);frames=deepcopy(source.frames)
+            files=set(m.root.iterdir());retained=[];proof=source.read_closed(lambda value:retained.append(deepcopy(value)))
+            self.assertEqual(['reading','complete'],[value['phase'] for value in retained])
+            self.assertIsNone(retained[0]['frame']);self.assertEqual(proof,retained[1])
+            self.assertEqual(header,source.store.read());self.assertEqual(frames,source.frames);self.assertEqual(files,set(m.root.iterdir()))
+            frame=proof['frame'];self.assertFalse(frame['phaseBefore']['active']);self.assertFalse(frame['group']['native']['animation']['overrideActive'])
+            self.assertGreater(frame['group']['native']['sequence'],frames[-1]['group']['native']['sequence'])
+            before=len(m.calls);self.assertEqual(proof,self.closed_archive(proof,source));self.assertEqual(before,len(m.calls))
+            with self.assertRaises(ValueError):source.read()
+
+    def test_closed_source_requires_real_retirement_and_no_current_emote_activity(self):
+        m=self.model
+        with m.lock.held():
+            source=self.cleanup_original(closed=False);retained=[]
+            with self.assertRaises(NativeUIError):source.read_closed(lambda value:retained.append(value))
+            self.assertEqual([],retained);m.journal.close(RUN);m.widgets.tablet=True
+            with self.assertRaises(NativeUIError):source.read_closed(lambda value:retained.append(deepcopy(value)))
+            self.assertEqual(['reading'],[value['phase'] for value in retained]);self.assertIsNotNone(source.store.read())
+            self.assertEqual('ready',source.state['phase'])
+
+    def test_closed_source_rejected_pending_handoff_sends_no_native_request(self):
+        m=self.model
+        with m.lock.held():
+            source=self.cleanup_original();calls=deepcopy(m.calls)
+            with self.assertRaises(NativeUIError):source.read_closed(lambda _:False)
+            self.assertEqual([call for call in calls if call!='phase-read'],[call for call in m.calls if call!='phase-read'])
+            self.assertEqual(1,len(source.frames))
+
+    def test_closed_source_lost_query_keeps_pending_proof_without_fresh_success(self):
+        m=self.model
+        with m.lock.held():
+            source=self.cleanup_original();retained=[];m.fault='lost-return'
+            with self.assertRaises(NativeUIError):source.read_closed(lambda value:retained.append(deepcopy(value)))
+            self.assertEqual(['reading'],[value['phase'] for value in retained])
+            self.assertEqual(retained[0],self.closed_archive(retained[0],source));m.fault=None
+            later=source.read_closed(lambda value:retained.append(deepcopy(value)))
+            self.assertEqual('complete',later['phase']);self.assertIsNone(retained[0]['frame'])
+
+    def test_closed_source_rejects_stale_foreign_or_changed_original_evidence(self):
+        m=self.model
+        with m.lock.held():
+            source=self.cleanup_original();proof=source.read_closed(lambda _:None)
+            for fault in ('version','provider','old-native','role','segment','state','input-phase'):
+                bad=deepcopy(proof)
+                if fault=='version':bad['emoteClosedSourceVersion']=True
+                elif fault=='provider':bad['frame']['phaseBefore']['instance']='9'*32
+                elif fault=='old-native':bad['frame']['group']['native']=deepcopy(source.frames[-1]['group']['native'])
+                elif fault=='role':bad['role']='actor'
+                elif fault=='segment':bad['segment']+=1
+                elif fault=='state':bad['phase']='reading'
+                else:bad['frame']['phaseBefore']['activations'][-1]['stimulus']['verb']='baseline'
+                with self.subTest(fault=fault),self.assertRaises((NativeUIError,ValueError)):self.closed_archive(bad,source)
+            path=next(m.root.glob('emote-frame-sources-*.json'));path.write_bytes(b'{}')
+            with self.assertRaises(NativeUIError):self.closed_archive(proof,source)
+
+    def test_closed_source_rejects_stale_packets_and_slow_or_foreign_retention(self):
+        m=self.model
+        with m.lock.held():
+            source=self.cleanup_original();header=deepcopy(source.previous)
+            def late(value):
+                if value['phase']=='complete':m.clock+=2
+            with self.assertRaises(NativeUIError):source.read_closed(late)
+            self.assertEqual(header,source.store.read());m.fault='old-native'
+            with self.assertRaises(NativeUIError):source.read_closed(lambda _:None)
+            m.fault=None
+            def replace(value):
+                if value['phase']=='complete':
+                    bad=source.store.read();bad['runId']='9'*32;source.store.write(bad,source.previous)
+            with self.assertRaises(NativeUIError):source.read_closed(replace)
+            self.assertNotEqual(header,source.store.read())
+
+    def test_closed_source_roles_acquire_their_own_packets_and_keep_actual_cursors(self):
+        m=self.model
+        with m.lock.held():
+            primary=self.cleanup_original(closed=False);actor=m.source('actor');actor.read();m.journal.close(RUN)
+            left=primary.read_closed(lambda _:None);right=actor.read_closed(lambda _:None)
+            self.assertNotEqual(left['frame']['group']['native']['requestId'],right['frame']['group']['native']['requestId'])
+            self.assertNotEqual(left['frame']['widgets']['commandId'],right['frame']['widgets']['commandId'])
+            self.assertEqual(left,self.closed_archive(left,primary));self.assertEqual(right,self.closed_archive(right,actor))
+
+    def test_closed_source_failed_complete_retention_preserves_original_controls(self):
+        m=self.model
+        with m.lock.held():
+            source=self.cleanup_original();header=deepcopy(source.previous);retained=[]
+            def fail(value):
+                retained.append(deepcopy(value))
+                if value['phase']=='complete':raise OSError('Synthetic lost final original retention')
+            with self.assertRaises(OSError):source.read_closed(fail)
+            self.assertEqual(header,source.store.read());self.assertEqual(1,len(source.frames))
+            self.assertEqual('complete',retained[-1]['phase']);self.assertEqual(retained[-1],self.closed_archive(retained[-1],source))
+
+
+    def test_closed_source_rejects_actual_native_activity_after_original_cleanup(self):
+        m=self.model
+        with m.lock.held():
+            source=self.cleanup_original();m.idle=False;retained=[]
+            with self.assertRaises(NativeUIError):source.read_closed(lambda value:retained.append(value))
+            self.assertEqual(['reading'],[value['phase'] for value in retained]);self.assertEqual(1,len(source.frames))
+            self.assertEqual('ready',source.state['phase'])
+
+    def test_closed_source_rejects_backward_clock_and_candidate_change_during_handoff(self):
+        m=self.model;m.clock=100
+        with m.lock.held():
+            source=self.cleanup_original();calls=m.calls.count('native-read')
+            def backward(value):
+                if value['phase']=='reading':m.clock-=.1
+            with self.assertRaises(NativeUIError):source.read_closed(backward)
+            self.assertEqual(calls,m.calls.count('native-read'))
+            def changed(value):
+                if value['phase']=='complete':m.okay=False
+            with self.assertRaises(NativeUIError):source.read_closed(changed)
+            self.assertIsNotNone(source.store.read());self.assertEqual(1,len(source.frames))
+
+
 if __name__=='__main__':unittest.main()

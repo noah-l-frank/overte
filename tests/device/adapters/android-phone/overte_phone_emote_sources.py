@@ -164,12 +164,15 @@ class PhoneEmoteSources:
         # No transport, callback, expected facts or clock replacement is involved.
         need(isinstance(reader,NativeScriptObservation) and reader.ios is False and len(frames)<=LIMIT)
         reader.restore_history([])
-        for frame in frames:
-            value=frame['group']['script'];script_packet(value,identifier(value.get('requestId')),reader.pid,value.get('capturedEpochMs'))
-            need(reader.instance in (None,value['instance']) and value['sequence']>reader.sequence
-                and value['capturedEpochMs']>=reader.captured_epoch)
-            transition=reader._history_transition(value,require_effects=True,require_code_identity=True,require_load_history=True,require_membership=True)
-            reader._commit_history(value,transition)
+        for frame in frames:PhoneEmoteSources.advance_script(reader,frame)
+
+    @staticmethod
+    def advance_script(reader,frame):
+        value=frame['group']['script'];script_packet(value,identifier(value.get('requestId')),reader.pid,value.get('capturedEpochMs'))
+        need(reader.instance in (None,value['instance']) and value['sequence']>reader.sequence
+            and value['capturedEpochMs']>=reader.captured_epoch)
+        transition=reader._history_transition(value,require_effects=True,require_code_identity=True,require_load_history=True,require_membership=True)
+        reader._commit_history(value,transition)
 
     def replay_animation(self,frames):
         previous=None
@@ -201,7 +204,7 @@ class PhoneEmoteSources:
                 and same(old['reference'],value['reference']))
         pending[kind]=deepcopy(value);self.save()
 
-    def validate_frame(self,frame,previous=None):
+    def validate_frame(self,frame,previous=None,*,closed=False):
         exact(frame,{'group','ui','widgets','phaseBefore','phaseAfter','hostEpochMs','epochMs'}|({'probe'} if self.admission is not None else set()))
         need(integer(frame['epochMs'],1) and number(frame['hostEpochMs'],1,1e15))
         selected,current,_urls=source(frame['group'],self.pid,frame['epochMs'])
@@ -224,7 +227,12 @@ class PhoneEmoteSources:
         phase_packet(before,run=self.run,area='emotes',request=before['requestId'],epoch=frame['hostEpochMs'],
             previous=previous['phaseAfter'] if previous else None)
         phase_packet(after,run=self.run,area='emotes',request=after['requestId'],epoch=frame['hostEpochMs'],previous=before)
-        need(before['active'] and before['activations'] and after['active'] and after['activations'])
+        need(before['active'] is (not closed) and before['activations']
+            and after['active'] is (not closed) and after['activations'])
+        if closed:
+            need(before['activations'][-1]['stimulus']==dict(verb='cleanup',inputs={})
+                and same(before['activations'],after['activations'])
+                and current['animation']['overrideActive'] is False and ui['open'] is False and not ui['controls'])
         activation=before['activations'][-1]
         need(frame['group']['rootsBefore']['requestedEpochMs']>=activation['activatedEpochMs'])
         if previous is not None:
@@ -392,8 +400,11 @@ class PhoneEmoteSources:
         self.save();bound()
 
     def read(self):
-        need(getattr(self,'historical',False) is False)
-        self.lock.assert_held();need(not self.failed and self.state['phase']=='ready' and len(self.frames)<LIMIT and self.guard() is not False)
+        return self._read()
+
+    def _read(self,*,closed=False):
+        need(getattr(self,'historical',False) is False and type(closed) is bool)
+        self.lock.assert_held();need(not self.failed and self.state['phase']=='ready' and (closed or len(self.frames)<LIMIT) and self.guard() is not False)
         self.configuration_bound()
         started=previous=self.monotonic();need(number(started,0,1e15))
         def bound():
@@ -410,7 +421,11 @@ class PhoneEmoteSources:
         need(roots.pid==scripts.pid==native.pid==ui.pid==self.pid and native.ios is False and scripts.ios is False)
         if old:
             history=([self.predecessor] if self.predecessor is not None else [])+self.frames
-            roots.restore(old['rootsAfter']);self.replay_scripts(scripts,history)
+            roots.restore(old['rootsAfter'])
+            if self.predecessor is None:self.replay_scripts(scripts,self.frames)
+            else:
+                self.replay_scripts(scripts,[self.predecessor])
+                for original in self.frames:self.advance_script(scripts,original)
             restore_native(native,old['native']);native.animation_history=self.replay_animation(history)
             native.rig=old['native']['animation']['rigId']
             native.rig_sequence=old['native']['animation']['evaluationSequence']
@@ -418,10 +433,19 @@ class PhoneEmoteSources:
         # Persist responsibility before any actual observation request. A lost
         # dispatch/result may not disappear through object reconstruction.
         epoch_local=self.monotonic();epoch=native.clock_ms();need(integer(epoch,1))
-        self.state.update(phase='reading',pending=dict(startedEpochMs=epoch,role=self.role,revision=len(self.frames),original=None,manifest=None));self.save();bound()
+        if not closed:
+            self.state.update(phase='reading',pending=dict(startedEpochMs=epoch,role=self.role,revision=len(self.frames),original=None,manifest=None));self.save()
+        bound()
         host_started=self.phase.epoch_ms();need(number(host_started,1,1e15))
         phase_started=self.monotonic();bound()
-        phase=self.phase.read(last['phaseAfter'] if last else None);bound()
+        if closed:
+            need(last is not None)
+            status=self.phase.status(last['phaseAfter'])
+            need(not status['active'] and same(status['activations'],last['phaseAfter']['activations'])
+                and status['activations'][-1]['stimulus']==dict(verb='cleanup',inputs={}))
+            phase=dict(status=status)
+        else:phase=self.phase.read(last['phaseAfter'] if last else None)
+        bound()
         before=roots.read(roots.last['sequence'] if roots.last else 0);bound()
         script=scripts.read(scripts.sequence,require_effects=True,require_code_identity=True,require_load_history=True,require_membership=True);bound()
         packet=native.read(native.sequence,require_animation=True,require_animation_history=True);bound()
@@ -437,15 +461,16 @@ class PhoneEmoteSources:
         frame=dict(group=dict(rootsBefore=before,script=script,native=packet,rootsAfter=after),ui=visual,widgets=widgets,
             phaseBefore=phase['status'],phaseAfter=final,hostEpochMs=host_epoch,epochMs=device_epoch)
         if self.admission is not None:frame['probe']=deepcopy(probe)
-        stable=self.validate_frame(frame,last);bound()
+        stable=self.validate_frame(frame,last,closed=closed);bound()
         fresh(before['requestedEpochMs'],device_epoch)
         # Frozen external clocks cannot conceal late sequential acquisition.
         need(max(device_epoch-before['requestedEpochMs'],epoch-before['requestedEpochMs']+(previous-epoch_local)*1000)<=1500
             and max(host_epoch-phase['status']['capturedEpochMs'],
                 host_started-phase['status']['capturedEpochMs']+(previous-phase_started)*1000)<=1500)
-        original=self.originals.write(len(self.frames)+1,frame);bound()
-        manifests=self.originals.append(self.state['manifests'],original);bound()
-        self.frames.append(deepcopy(frame));self.state.update(phase='ready',manifests=manifests,pending=None);self.save();bound()
+        if not closed:
+            original=self.originals.write(len(self.frames)+1,frame);bound()
+            manifests=self.originals.append(self.state['manifests'],original);bound()
+            self.frames.append(deepcopy(frame));self.state.update(phase='ready',manifests=manifests,pending=None);self.save();bound()
         # Durability/guard work is part of delivery time, too. Accepted packets
         # remain historical if a slow final write prevents a fresh return.
         delivered_epoch=native.clock_ms();delivered_host=self.phase.epoch_ms();bound()
@@ -455,4 +480,78 @@ class PhoneEmoteSources:
             and max(delivered_host-phase['status']['capturedEpochMs'],
                 host_started-phase['status']['capturedEpochMs']+(previous-phase_started)*1000)<=1500)
         if not stable:raise EmotePhaseChanged('Original Emote sources crossed the active input phase; no current facts returned')
+        if closed:self.closed_anchor=(epoch_local,epoch,host_started,phase_started,native.clock_ms)
         return deepcopy(frame)
+
+
+    @classmethod
+    def closed_archive(cls,value,*,phase,role,segment,artifact_root,binding,guard,monotonic=time.monotonic):
+        """Validate retained pending/complete originals, never produce facts."""
+        started=monotonic();need(number(started,0,1e15));clock=started
+        def bound():
+            nonlocal clock
+            need(guard() is not False);now=monotonic();need(number(now,clock,1e15) and now-started<5);clock=now
+        bound();exact(value,{'emoteClosedSourceVersion','role','segment','phase','sourceHeader','predecessorHeader','frame'})
+        need(type(value['emoteClosedSourceVersion']) is int and value['emoteClosedSourceVersion']==1
+            and role in ('primary','actor') and value['role']==role and integer(segment,0,MAX_SEGMENTS-1)
+            and type(value['segment']) is int and value['segment']==segment
+            and value['phase'] in ('reading','complete') and (value['frame'] is None)==(value['phase']=='reading')
+            and (value['predecessorHeader'] is None)==(value['segment']==0))
+        header=value['sourceHeader'];need(type(header) is dict and header.get('role')==value['role'])
+        state,frames=cls.archive(header,phase=phase,artifact_root=artifact_root,binding=binding,guard=bound,
+            monotonic=monotonic,predecessor=value['predecessorHeader'])
+        need(state['phase']=='ready' and state['pending'] is None and frames)
+        previous=frames[-1]
+        need(previous['ui']['open'] is False and not previous['ui']['controls']
+            and previous['group']['native']['animation']['overrideActive'] is False)
+        for key in ('phaseBefore','phaseAfter'):
+            need(previous[key]['activations'][-1]['stimulus']==dict(verb='cleanup',inputs={}))
+        if value['frame'] is not None:
+            scope=object.__new__(cls);scope.phase,scope.run,scope.role=phase,phase.run,value['role']
+            scope.binding=deepcopy(context(binding));scope.pid=int(scope.binding['processIdentity'].split(':')[0])
+            scope.admission=None if header['emoteSourcesVersion']==3 else admission_policy(header['admissionPolicy'])
+            need(scope.validate_frame(value['frame'],previous,closed=True)
+                and same(value['frame']['phaseBefore']['activations'],previous['phaseAfter']['activations']))
+            # Replaying the current Script/animation packet restores and checks
+            # the actual prior managers, load histories, roots and Rig cursors.
+            replay=NativeScriptObservation(lambda *_:need(False),lambda:need(False),lambda:need(False),lambda:need(False),scope.pid)
+            cls.replay_scripts(replay,frames);cls.advance_script(replay,value['frame']);scope.replay_animation(frames+[value['frame']])
+        bound();return deepcopy(value)
+
+    def closed_delivery(self,value):
+        need(getattr(self,'historical',False) is False and hasattr(self,'closed_anchor'))
+        self.lock.assert_held();need(self.guard() is not False);self.configuration_bound();self.predecessor_bound()
+        started,epoch,host,phase_started,clock=self.closed_anchor
+        current=self.phase.status(value['phaseAfter']);need(not current['active'])
+        now,host_now,end=clock(),self.phase.epoch_ms(),self.monotonic()
+        floor=value['group']['rootsBefore']['requestedEpochMs'];provider=value['phaseBefore']['capturedEpochMs']
+        need(number(end,started,1e15) and end-started<5 and integer(now,value['epochMs']) and number(host_now,value['hostEpochMs'],1e15)
+            and max(now-floor,epoch-floor+(end-started)*1000)<=1500
+            and max(host_now-provider,host-provider+(end-phase_started)*1000)<=1500)
+
+    def read_closed(self,retain):
+        """Acquire new readonly facts after closure into the parent's archive.
+
+        The mandatory callback retains a pending packet before native requests,
+        then the exact completed packet. Existing active-only source controls,
+        original files, manifests and timestamps are never changed.
+        """
+        need(getattr(self,'historical',False) is False and callable(retain));self.lock.assert_held()
+        need(not self.failed and self.previous is not None and self.state['phase']=='ready')
+        started=previous=self.monotonic();need(number(started,0,1e15))
+        def bound():
+            nonlocal previous
+            need(self.guard() is not False);self.configuration_bound();self.predecessor_bound()
+            now=self.monotonic();need(number(now,previous,1e15) and now-started<5);previous=now
+        bound()
+        value=dict(emoteClosedSourceVersion=1,role=self.role,segment=self.segment,phase='reading',
+            sourceHeader=deepcopy(self.previous),predecessorHeader=deepcopy(self.prior_header),frame=None)
+        def archive():return self.closed_archive(value,phase=self.phase,role=self.role,segment=self.segment,
+            artifact_root=self.artifact_root,binding=self.binding,guard=bound,monotonic=self.monotonic)
+        archive();bound()
+        status=self.phase.status(self.frames[-1]['phaseAfter']);need(not status['active']
+            and same(status['activations'],self.frames[-1]['phaseAfter']['activations']))
+        need(retain(deepcopy(value)) is not False);bound()
+        frame=self._read(closed=True);value.update(phase='complete',frame=frame)
+        archive();need(retain(deepcopy(value)) is not False);bound();result=deepcopy(value)
+        self.closed_delivery(frame);bound();return result
