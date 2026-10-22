@@ -69,6 +69,8 @@ COMMON_HOST_CHECKS = (
     "android/phone/tests/device/test_snapshots_marker_phase.py",
     "android/phone/tests/device/test_snapshots_retirement_audit.py",
     "android/phone/tests/device/test_snapshot_retired_inspections.py",
+    "android/phone/tests/device/test_snapshots_publication_guard.py",
+    "android/phone/tests/device/test_snapshots_full_retirement_audit.py",
     "android/phone/tests/device/test_snapshots_actor.py",
     "android/phone/tests/device/test_snapshot_handoff_admission_audit.py",
     "android/phone/tests/device/test_navigation_foundations.py",
@@ -258,5 +260,7 @@ for name in selected + COMMON_HOST_CHECKS + (EXTENDED_HOST_CHECKS if args.extend
     # Chat measured 139.197s for 20 source/host cases at the parent integration;
     # its aggregate must not inherit the 90s single-component deadline.
     # Per-source freshness and common checkpoint deadlines remain unchanged.
+    # Five complete Snapshot retirement/recovery cases measured 90.218s;
+    # use the existing complete-composition aggregate, not a component budget.
     subprocess.run(arguments, cwd=ROOT, check=True,
-                   timeout=10800 if name in EXTENDED_HOST_CHECKS else 600 if name.endswith("test_assets_feature.py") else 180 if name.endswith(("phone-chat-native-test.py","phone-chat-peer-native-test.py","phone-chat-history-native-test.py","phone-snapshot-settings-native-test.py")) else 240 if name.endswith(("test_graphics_feature.py","test_create_feature.py","test_avatar_people_feature.py","test_chat_feature.py")) else 90)
+                   timeout=10800 if name in EXTENDED_HOST_CHECKS else 600 if name.endswith("test_assets_feature.py") else 180 if name.endswith(("phone-chat-native-test.py","phone-chat-peer-native-test.py","phone-chat-history-native-test.py","phone-snapshot-settings-native-test.py")) else 240 if name.endswith(("test_graphics_feature.py","test_create_feature.py","test_avatar_people_feature.py","test_chat_feature.py","test_snapshots_full_retirement_audit.py")) else 90)
