@@ -112,6 +112,32 @@ class ApiRuntimeTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, 'provider changed'):
                     A.verify_qt_api_reference(scratch)
 
+    def test_corrupt_optional_cache_is_refreshed_without_authorizing_its_bytes(self):
+        for kind in ('changed-file', 'symlink', 'directory'):
+            with self.subTest(kind=kind), tempfile.TemporaryDirectory() as scratch:
+                root = Path(scratch); sdk = root / 'sdk'; destination = root / 'runtime'; destination.mkdir()
+                for name in ('webkit.jar', 'core.jar', 'guava.jar'):
+                    (destination / name).write_bytes(b'fixture-api')
+                for name, payload in [('platforms/android-36/android.jar', b'sdk'),
+                        ('build-tools/36.0.0/aapt2', b'aapt2'),
+                        ('build-tools/36.0.0/source.properties', b'Pkg.Revision=36.0.0\n')]:
+                    path = sdk / name; path.parent.mkdir(parents=True, exist_ok=True); path.write_bytes(payload)
+                cache = root / 'QtAndroid.jar'; sentinel = root / 'sentinel'; sentinel.write_bytes(b'not-an-api')
+                if kind == 'symlink': cache.symlink_to(sentinel)
+                elif kind == 'directory': cache.mkdir()
+                else: cache.write_bytes(b'corrupt-cache')
+                verified = b'reviewed-qt-api'; locked = {'QtAndroid.jar': hashlib.sha256(verified).hexdigest()}
+                with patch.object(A, 'qt_jar', return_value=verified) as fetch, \
+                        patch.object(A, 'MAVEN', ()), patch.object(A, 'FIXED_JARS', locked):
+                    A.prepare(destination, sdk, cache)
+                    A.verify_runtime(destination)
+                    fetch.assert_called_once()
+                self.assertEqual((destination / 'QtAndroid.jar').read_bytes(), verified)
+                self.assertEqual(sentinel.read_bytes(), b'not-an-api')
+                if kind != 'directory':
+                    self.assertFalse(cache.is_symlink())
+                    self.assertEqual(cache.read_bytes(), verified)
+
     def test_phone_java_selects_only_proven_related_suites(self):
         profile = P.policy()['android']['android-phone']
         inputs = json.loads((ROOT / '.github/pr-ci-platform-inputs.json').read_text())['android'][0]

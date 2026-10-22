@@ -106,18 +106,34 @@ def prepare(destination, sdk, qt_api_cache=None):
         shutil.copyfile(source, destination / name)
     (destination / 'aapt2').chmod(0o755)
     cached = Path(qt_api_cache) if qt_api_cache else None
-    if cached is not None and cached.exists():
-        require(cached.is_file() and not cached.is_symlink()
-                and sha(cached) == FIXED_JARS['QtAndroid.jar'], 'cached Qt Android API checksum mismatch')
-        payload = cached.read_bytes()
-    else:
+    payload = None
+    if cached is not None:
+        try:
+            if cached.parent.resolve(strict=True) == cached.parent and cached.is_file() and not cached.is_symlink() \
+                    and sha(cached) == FIXED_JARS['QtAndroid.jar']:
+                payload = cached.read_bytes()
+        except OSError:
+            pass
+    if payload is None:
         payload = qt_jar()
         require(hashlib.sha256(payload).hexdigest() == FIXED_JARS['QtAndroid.jar'],
                 'extracted Qt Android API checksum mismatch')
         if cached is not None:
-            cached.parent.mkdir(parents=True, exist_ok=True)
-            with cached.open('xb') as output:
-                output.write(payload)
+            # A dependency cache is optional acceleration, never authority or a
+            # reason to reject a correctly fetched runtime. Replace only our
+            # fixed cache leaf atomically; never follow a restored symlink.
+            try:
+                cached.parent.mkdir(parents=True, exist_ok=True)
+                if cached.parent.resolve(strict=True) == cached.parent and not cached.is_dir():
+                    with tempfile.NamedTemporaryFile(dir=cached.parent, prefix='.qt-api-', delete=False) as output:
+                        temporary = Path(output.name)
+                        output.write(payload)
+                    try:
+                        temporary.replace(cached)
+                    finally:
+                        temporary.unlink(missing_ok=True)
+            except OSError:
+                pass
     (destination / 'QtAndroid.jar').write_bytes(payload)
     for name, url, digest in MAVEN:
         with urllib.request.urlopen(url, timeout=60) as response:
