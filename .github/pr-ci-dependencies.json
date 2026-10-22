@@ -346,6 +346,13 @@
         "python",
         "git"
       ]
+    },
+    "pr-ci-android-capacity": {
+      "kind": "patterns",
+      "setup": [
+        "python",
+        "git"
+      ]
     }
   },
   "product_independent_paths": [

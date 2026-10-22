@@ -169,6 +169,7 @@ class WorkflowContracts(unittest.TestCase):
                 assert save['with']['key'] == key
                 assert save['if'].startswith(flag + ' && ')
                 preparations = [step for step in steps if 'pr_ci_android_native.py' in step.get('run', '')
+                                and '--capacity-only' not in step['run']
                                 and '--cache "$RUNNER_TEMP/pr-ci-android-' + name + '-cache"' in step['run']]
                 assert len(preparations) == 1
                 assert preparations[0]['if'] == flag
@@ -189,6 +190,42 @@ class WorkflowContracts(unittest.TestCase):
                 prepare['if'] = 'always()'
             else:
                 prepare['run'] = prepare['run'].replace('--groovy-only ', '')
+            with self.subTest(mutation=mutation), self.assertRaises(AssertionError):
+                contract(changed)
+
+    def test_native_capacity_precedes_every_dependency_setup_and_is_native_only(self):
+        def contract(workflow):
+            steps = workflow['jobs']['android']['steps']
+            admissions = [(index, step) for index, step in enumerate(steps)
+                          if '--capacity-only' in step.get('run', '')]
+            assert len(admissions) == 1
+            index, admission = admissions[0]
+            assert admission['if'] == "needs.plan.outputs.android_native_products != '[]'"
+            assert 'trusted/tools/repository-checks/pr_ci_android_native.py' in admission['run']
+            assert '--groovy-only' not in admission['run']
+            assert 'candidate/' not in admission['run']
+            trusted = next(position for position, step in enumerate(steps)
+                           if step.get('with', {}).get('path') == 'trusted')
+            assert trusted < index
+            expensive = [position for position, step in enumerate(steps)
+                         if position != index and (
+                             step.get('uses', '').startswith(('actions/setup-', 'actions/cache/'))
+                             or re.search(r'\bapt-get\b|\s-m pip\s|pr_ci_android_native\.py',
+                                          step.get('run', '')))]
+            assert expensive and all(index < position for position in expensive)
+        contract(self.workflow)
+        for mutation in ('after-apt', 'unconditional', 'groovy-only'):
+            changed = deepcopy(self.workflow)
+            steps = changed['jobs']['android']['steps']
+            admission = next(step for step in steps if '--capacity-only' in step.get('run', ''))
+            if mutation == 'after-apt':
+                steps.remove(admission)
+                apt = next(index for index, step in enumerate(steps) if 'apt-get install' in step.get('run', ''))
+                steps.insert(apt + 1, admission)
+            elif mutation == 'unconditional':
+                admission['if'] = 'always()'
+            else:
+                admission['if'] = "needs.plan.outputs.android_groovy_contracts == 'true'"
             with self.subTest(mutation=mutation), self.assertRaises(AssertionError):
                 contract(changed)
 
