@@ -54,8 +54,9 @@ One counterexample deliberately leaves the synthetic native Rig on its older
 Waving override after consuming a Crying click. Input acknowledgement contains
 no effect state and cannot satisfy the independent playback measurement.
 
-The complete Emote owner still needs measured playback/natural completion/early
-cancel/replacement, interruption/background recovery, all Sit variants, current
+The [original effect join](EMOTE_EFFECTS.md) now supplies measured playback,
+natural completion, early cancel and replacement. The complete owner still
+needs interruption/background recovery, all Sit variants, current
 two-eye images, independent actor and actual callback/timer/Qt/native-resource
 retirement. General teardown retains both source and input journals and refuses
 success while they remain. No application build or device qualification is

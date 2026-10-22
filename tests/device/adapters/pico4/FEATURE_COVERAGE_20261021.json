@@ -427,7 +427,11 @@
         "tests/device/self_tests/test_pico_emote_sources.py",
         "tests/device/adapters/pico4/emote_inputs.py",
         "tests/device/adapters/pico4/EMOTE_INPUTS.md",
-        "tests/device/self_tests/test_pico_emote_inputs.py"
+        "tests/device/self_tests/test_pico_emote_inputs.py",
+        "tests/device/adapters/pico4/emote_effects.py",
+        "tests/device/adapters/pico4/EMOTE_EFFECTS.md",
+        "tests/device/self_tests/test_pico_emote_effects.py",
+        "tests/device/adapters/pico4/PHONE_SHARED_EMOTE_EFFECTS_20261022.json"
       ],
       "declaredCheckpoints": 28,
       "inputVerbs": [
@@ -449,9 +453,9 @@
         "restoredBeforeNominalEnd"
       ],
       "missingOperationsOrEvidence": [
-        "Whole-run owned Pico normal chooser composition; actual offscreen Scroll effects remain required when the target viewport clips Buttons",
-        "Durable Pico roots/profile/Rig original groups, actual timer/restoration source composition and durable cache admission",
-        "Original stereo avatar images and independent actor publication"
+        "Whole-run normal chooser, all Sit variants and original offscreen Scroll effects when the actual viewport clips buttons",
+        "Interruption/background continuation, original callback/timer/Qt/native ownership retirement and final journal release",
+        "Current original stereo avatar images and independent actor publication"
       ],
       "requiredOriginalEvidence": [
         "Actual configured Script roots and submitted UTF16 code",

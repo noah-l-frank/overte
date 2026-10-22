@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "abb7f6b60d97daf17752aadf94e2b5df099bb7ba",
+  "targetBase": "52b0b2c662e000380e03d66004c19b10f3a35ffd",
+  "uncommittedPhoneWorkExcluded": true,
+  "files": [
+    {
+      "sourcePath": "tests/device/adapters/android-phone/overte_phone_emote_effects.py",
+      "targetPath": "tests/device/adapters/pico4/emote_effects.py",
+      "sourceSha256": "76ea84b57ff893714656b11b07a49eb3fe9e13de8badf495282e0d2ee3413350",
+      "targetSha256": "6c313f9836b59a24ef74cd1ccf6f1ba988759bc5de3739a59c1bcb4accadd260",
+      "selection": "reviewed-original-effect-join-with-actual-Pico-source-and-input-ownership"
+    }
+  ],
+  "changes": [
+    "Actual Pico source/raw UI projection, input journal and compiled separate Emote manager replace Phone source/admission assumptions.",
+    "Actual controller visibility generation transitions remain bound to the latest original input receipt.",
+    "Current publication freshness checks include both actual clocks, original phase and final guards; archival replay cannot acquire current authority.",
+    "Phone background behavior excluded pending actual Pico lifecycle composition. No image, actor publication, whole capability or cleanup verdict added."
+  ]
+}

@@ -2592,5 +2592,34 @@
     "details": "Native Chat profile keeps exact original private QVariant values and physical rows, refuses original live type mismatches/unowned history, preserves Config, admits one exact conditional restoration and retains uncertain native/host intent. World input uses actual Session.stage with saved original envelope; attempts come from matched actual gesture-start events, and release joins real neutral history plus native/host three-second 3D-feet quiet. Neither component retires its original journal or advertises a full feature.",
     "testSelectionCorrection": "An initial combined command named a nonexistent wrapper method; its52 actual component cases passed but the command failed. Corrected explicit52-component run passed; both actual wrapper method names then passed separately.",
     "qualification": "Original Qt5 SettingsManager translation unit/worker/profile helper tested; ChatView is an explicit seam for the owner check and TSI/Android application remains unlinked. Pico World OpenXR/Avatar/Qt boundaries are explicit host fixtures. No devices, APK, full native application or complete Chat/Lifecycle coverage."
+  },
+  "emoteEffects20261022": {
+    "status": "passed",
+    "sourceProtocol": 2,
+    "inputProtocol": 1,
+    "effectProtocol": 1,
+    "componentTests": 11,
+    "componentSeconds": 8.659,
+    "picoSelectedGroups": 3,
+    "picoCatalogGroups": 61,
+    "picoSelectionSeconds": 60.68,
+    "picoOwningGroups": [
+      "coverage-matrix",
+      "normal-emote",
+      "emote-original-sources"
+    ],
+    "requiredProjectSuites": 4,
+    "requiredProjectSeconds": 3.01,
+    "boundaries": "Explicit synthetic Qt/OpenXR/VM/Rig seams around actual Pico owners, immutable originals and native-effect validators. No full application or device qualification.",
+    "initialCorrections": [
+      "Counterexample override input corrected to unchanged closed scenario Waving; no contract relaxation.",
+      "First selection used nonexistent coverage selector and was rejected before running; exact coverage-matrix selection passed."
+    ],
+    "remaining": [
+      "Actual Pico background/interruption",
+      "Whole-run all three Sit variants",
+      "Current original stereo and independent actor publication",
+      "Native callback/timer/Qt/resource retirement and complete feature binding"
+    ]
   }
 }

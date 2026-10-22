@@ -153,9 +153,13 @@ class PicoEmoteTests(unittest.TestCase):
             source=self.instance._emote_sources(self.native.target,seam.phase,'primary',seam.root,lock)
             owner=self.instance._emote_inputs(self.native.target,source)
             self.assertIsInstance(owner,PicoEmoteInputs);self.assertIs(source,owner.source)
+            effects=self.instance._emote_effects(self.native.target,owner)
+            self.assertIs(effects.inputs,owner);self.assertIs(effects.source,source)
             owner.save();original=owner.store.read()
             actor=self.instance._emote_sources(self.native.target,seam.phase,'actor',seam.root,lock)
             with self.assertRaises(ValueError):self.instance._emote_inputs(self.native.target,actor)
+            actor_effects=self.instance._emote_effects(self.native.target,owner,current_source=actor)
+            self.assertIs(actor_effects.source,actor);self.assertIs(actor_effects.input_source,source)
         with self.assertRaises(ValueError):self.instance.cleanup(self.native.target)
         self.assertFalse(self.native.running);self.assertEqual(original,owner.store.read())
 

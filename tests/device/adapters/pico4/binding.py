@@ -510,6 +510,20 @@ def create_adapter(args, base_class):
                 lambda: self._script_journey().existing_input_session(target))
 
         @_private
+        def _emote_effects(self, target, inputs, *, current_source=None):
+            from adapters.pico4.emote_effects import PicoEmoteEffects
+            from adapters.pico4.emote_inputs import PicoEmoteInputs
+            _need(isinstance(inputs, PicoEmoteInputs)
+                and inputs.store.path == self._emote_input_store(target).path
+                and inputs.source.store.path == self._emote_source_store(target, 'primary').path)
+            source = inputs.source if current_source is None else current_source
+            _need(source.store.path == self._emote_source_store(target, source.role).path)
+            source.lock.assert_held(); source.guard()
+            _ui, _observe, binding = self._script_runtime(target)
+            _need(binding == source.binding)
+            return PicoEmoteEffects(inputs, current_source=source)
+
+        @_private
         def _emote_sources(self, target, phase, role, artifact_root, source_lock):
             from adapters.pico4.emote_sources import PicoEmoteSources
             from adapters.script_journey.lock import ScriptSourceLock

@@ -77,6 +77,11 @@ v3 and pure Rig measurements now join the actual separate Pico Emote manager,
 original compiled caller, consumed FBX bytes, changing final poses and original
 restoration without borrowing Phone included-VM behavior. Cache admission,
 durable role groups and whole normal input/actor/stereo/finalization stay open.
+The [durable input/effect join](EMOTE_EFFECTS.md) now derives actual playback,
+replacement, natural completion and early cancellation from retained Pico
+originals. It checks the compiled caller, consumed FBX, advancing clip and final
+pose, independent of input acknowledgement. Interruption, current stereo/actor
+and whole resource retirement remain open.
 This adds no complete feature area and keeps shared journey v16 unchanged.
 
 ## Historical component checkpoints
