@@ -171,6 +171,7 @@ public slots:
     Q_INVOKABLE QVariantMap featureIOSLocationBookmarks(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureIOSPlacesModel(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureIOSPlacesHttp(const QVariantMap& command);
+    Q_INVOKABLE QVariantMap featureIOSNavigationDialogs(const QVariantMap& command);
 #endif
 
     Q_INVOKABLE QVariantMap featureWebDOMObservation(const QVariantMap& command);

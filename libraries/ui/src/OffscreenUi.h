@@ -62,6 +62,12 @@ class OffscreenUi : public OffscreenQmlSurface, public Dependency {
     friend class VrMenu;
 public:
     OffscreenUi();
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    // Native-only passive provenance, never callable as a script setter.
+    static void featureRecordNavigationDialog(ModalDialogListener* listener,QQuickItem* creator,const QVariantMap& originalError);
+    static QVariantMap featureNavigationDialogs(const QVariantMap& command);
+    static QVariantMap featureNavigationDialogControl(QQuickItem* item);
+#endif
     void createDesktop(const QUrl& url);
     void show(const QUrl& url, const QString& name, std::function<void(QQmlContext*, QObject*)> f = [](QQmlContext*, QObject*) {});
     void hide(const QString& name);

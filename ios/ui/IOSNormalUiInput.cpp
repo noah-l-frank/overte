@@ -24,6 +24,7 @@
 #include "../../tests/device/native/NormalAccountMenuControls.h"
 #include "../../tests/device/native/NormalViewMenuControls.h"
 #include "../../tests/device/native/NormalPlacesControls.h"
+#include "../../tests/device/native/NormalNavigationErrorControls.h"
 #include "../../tests/device/native/AccountPreferenceObservation.h"
 #endif
 
@@ -59,6 +60,8 @@ QString identify(QQuickItem* item, bool hud, bool fileAllowed) {
     }
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     if (fileAllowed) {
+        const auto error=overte::e2e::navigationErrorControlId(item);
+        if (!error.isEmpty()) { return error; }
         const auto places=overte::e2e::placesControlId(item);
         if (!places.isEmpty()) { return places; }
         const auto chat=overte::e2e::chatControlId(item);
@@ -222,7 +225,10 @@ QJsonObject NormalUiInput::observe(QQuickItem* hud, QQuickItem* tablet, bool tab
                 auto source = overte::e2e::scriptFileControlSource(node);
                 if (source.isEmpty()) { source = overte::e2e::scriptRowSource(node); }
 #if defined(OVERTE_E2E_FEATURE_TESTS)
-                if (overte::e2e::placesControlId(node)==id) {
+                if (id.startsWith("navigation.error.")) {
+                    source=overte::e2e::navigationErrorControlSource(node);
+                    if (source.isEmpty()) { ambiguous=true;return; }
+                } else if (overte::e2e::placesControlId(node)==id) {
                     source=overte::e2e::placesControlSource(node,id);
                     if (source.isEmpty()) { ambiguous=true;return; }
                 } else if (id.startsWith("view.")) {
@@ -317,7 +323,9 @@ QJsonObject NormalUiInput::observe(QQuickItem* hud, QQuickItem* tablet, bool tab
         overte::e2e::appendScriptControlObservation(row, control.item, id);
         overte::e2e::appendScriptFileObservation(row, control.item, id);
 #if defined(OVERTE_E2E_FEATURE_TESTS)
-        if (overte::e2e::placesControlId(control.item)==id) {
+        if (id.startsWith("navigation.error.")) {
+            overte::e2e::appendNavigationErrorControl(row,control.item);
+        } else if (overte::e2e::placesControlId(control.item)==id) {
             overte::e2e::appendPlacesControlObservation(row,control.item,id);
         } else if (id.startsWith("view.")) {
             const auto metadata=overte::e2e::viewMenuControlObservation(control.item);
@@ -351,6 +359,8 @@ QJsonObject NormalUiInput::observe(QQuickItem* hud, QQuickItem* tablet, bool tab
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     result["featureControlsVersion"] = 1;
     result["placesControlsVersion"]=2;result["placesSourceSequence"]=static_cast<double>(++_placesObservationSequence);
+    result["navigationDialogControlsVersion"]=1;
+    result["navigationDialogSourceSequence"]=static_cast<double>(++_navigationDialogSequence);
     result["accountMenuControlsVersion"]=1;
     result["viewMenuControlsVersion"]=1;
     result["loginClearInputVersion"]=1;
@@ -399,7 +409,14 @@ bool NormalUiInput::press(const QString& controlId, const QString& token) {
     if (!control || !enabled(control)) { return false; }
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     const auto graphicsContext = _graphicsReader ? _graphicsReader() : overte::e2e::GraphicsUiContext();
-    if (overte::e2e::placesControlId(control)==controlId) {
+    if (controlId.startsWith("navigation.error.")) {
+        const auto original=OffscreenUi::featureNavigationDialogControl(control);
+        if (controlId!="navigation.error.ok" || original.value("id").toString()!=controlId
+                || original.value("inputReady")!=QVariant(true)
+                || overte::e2e::navigationErrorControlSource(control)!=_controls.value(controlId).source
+                || !overte::e2e::NormalControlUi::ownsPoint(control,control->window(),
+                    control->mapToScene(QPointF(control->width()/2,control->height()/2)))) { return false; }
+    } else if (overte::e2e::placesControlId(control)==controlId) {
         const auto source=overte::e2e::placesControlSource(control,controlId);
         QJsonObject row;overte::e2e::appendPlacesControlObservation(row,control,controlId);
         if (source.isEmpty() || controlId=="places.page" || !row.value("inputReady").toBool()
@@ -495,6 +512,16 @@ QJsonObject NormalUiInput::edit(const QJsonObject& command) {
     // One native sequence covers normal Places/Create/Chat pointer/key/IME input. The
     // original token resolves the item; no desired entity state is accepted.
     observe(_hud,_tablet,_tabletShown);
+    QString errorId;
+    for (auto it=_controls.cbegin();it!=_controls.cend();++it) {
+        if (it.value().token==fieldToken && it.key().startsWith("navigation.error.")) {
+            if (!errorId.isEmpty()) { return result; }errorId=it.key();
+        }
+    }
+    if (!errorId.isEmpty()) {
+        if (action=="activate" && errorId=="navigation.error.ok") { result["performed"]=press(errorId,fieldToken); }
+        return result;
+    }
     QString placesId;
     for (auto it=_controls.cbegin();it!=_controls.cend();++it) {
         if (it.value().token==fieldToken && overte::e2e::placesControlId(it.value().item)==it.key()) {

@@ -695,6 +695,12 @@ QVariantMap AddressManager::featureNavigationReplies(const QVariantMap& command)
     if (QThread::currentThread()!=thread()) { return {}; }
     return _featureNavigationReplies.snapshot(command,_lookupRequests.snapshot());
 }
+#if defined(Q_OS_IOS)
+QVariantMap AddressManager::featureCurrentNavigationError() const {
+    if (QThread::currentThread()!=thread()) { return {}; }
+    return _featureNavigationReplies.latestCurrentError(_lookupRequests.snapshot());
+}
+#endif
 #endif
 
 void AddressManager::handleAPIError(QNetworkReply* errorReply) {

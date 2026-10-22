@@ -52,6 +52,7 @@ private:
     std::function<overte::e2e::AudioUiContext()> _audioReader;
     std::function<overte::e2e::GraphicsUiContext()> _graphicsReader;
     quint64 _placesObservationSequence {0};
+    quint64 _navigationDialogSequence {0};
 #endif
     QPointer<QQuickItem> _hud;
     QPointer<QQuickItem> _tablet;

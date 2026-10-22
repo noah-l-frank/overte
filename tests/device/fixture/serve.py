@@ -567,6 +567,12 @@ class FixtureState:
             try:places_http_command(command)
             except (ValueError,RuntimeError):raise ValueError("invalid iOS Places HTTP request") from None
             valid=True
+        elif action == "feature-ios-navigation-dialogs":
+            sys.path.insert(0,str(ROOT.parent))
+            from ios.adapters.navigation_dialogs import command as navigation_dialog_command
+            try:navigation_dialog_command(command)
+            except (ValueError,RuntimeError):raise ValueError("invalid iOS navigation modal request") from None
+            valid=True
         elif action == "feature-web-dom-observe":
             sys.path.insert(0,str(ROOT.parent))
             from adapters.native_web_dom import command as web_dom_command

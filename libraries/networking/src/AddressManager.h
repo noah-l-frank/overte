@@ -147,6 +147,9 @@ class AddressManager : public QObject, public Dependency {
 public:
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     QVariantMap featureNavigationReplies(const QVariantMap& command);
+#if defined(Q_OS_IOS)
+    QVariantMap featureCurrentNavigationError() const;
+#endif
 #endif
     using PositionGetter = std::function<glm::vec3()>;
     using OrientationGetter = std::function<glm::quat()>;

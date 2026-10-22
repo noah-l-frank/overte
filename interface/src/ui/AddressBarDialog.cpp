@@ -79,7 +79,14 @@ void AddressBarDialog::displayAddressOfflineMessage() {
 }
 
 void AddressBarDialog::displayAddressNotFoundMessage() {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    // Capture actual callback provenance before the unchanged normal creation.
+    const auto original=DependencyManager::get<AddressManager>()->featureCurrentNavigationError();
+    auto listener=OffscreenUi::asyncCritical("", "There is no address information for that user or place");
+    OffscreenUi::featureRecordNavigationDialog(listener,this,original);
+#else
     OffscreenUi::asyncCritical("", "There is no address information for that user or place");
+#endif
 }
 
 void AddressBarDialog::observeShownChanged(bool visible) {

@@ -75,6 +75,20 @@ public:
             {"capturedEpochMs",now},{"currentLookupGeneration",static_cast<qulonglong>(lookup.featureGeneration())},
             {"currentLookupActive",lookup.featureActive()},{"events",events}};
     }
+#if defined(Q_OS_IOS)
+    QVariantMap latestCurrentError(const overte::network::RequestTicket& lookup) const {
+        if (!enabled() || !_valid || !lookup.current() || !lookup.featureActive()) { return {}; }
+        for (int index=_events.size()-1;index>=0;--index) {
+            const auto event=_events[index].toMap();
+            if (event.value("lookupGeneration").toULongLong()==lookup.featureGeneration()) {
+                if (!event.value("contentNotFound").toBool()) { return {}; }
+                return {{"navigationErrorContextVersion",1},{"instance",_instance},
+                    {"processId",QCoreApplication::applicationPid()},{"event",event}};
+            }
+        }
+        return {};
+    }
+#endif
 private:
     static bool identifier(const QString& value,bool request=false) {
         return QRegularExpression(request?"\\A(?:ios-)?[0-9a-f]{32}\\z":"\\A[0-9a-f]{32}\\z").match(value).hasMatch();

@@ -275,6 +275,26 @@ QObject* OffscreenUi::getFlags() {
     return offscreenFlags;
 }
 
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+#include "NativeNavigationDialogs.h"
+namespace {
+overte::e2e::NativeNavigationDialogs& navigationDialogs() {
+    static overte::e2e::NativeNavigationDialogs source;return source;
+}
+}
+void OffscreenUi::featureRecordNavigationDialog(ModalDialogListener* listener,QQuickItem* creator,const QVariantMap& originalError) {
+    navigationDialogs().record(listener,creator,originalError);
+}
+QVariantMap OffscreenUi::featureNavigationDialogs(const QVariantMap& command) {
+    if (!overte::e2e::NativeNavigationDialogs::enabled() || !DependencyManager::isSet<OffscreenUi>()) { return {}; }
+    const auto ui=DependencyManager::get<OffscreenUi>();return navigationDialogs().snapshot(command,ui->_modalDialogListeners);
+}
+QVariantMap OffscreenUi::featureNavigationDialogControl(QQuickItem* item) {
+    if (!overte::e2e::NativeNavigationDialogs::enabled() || !DependencyManager::isSet<OffscreenUi>()) { return {}; }
+    const auto ui=DependencyManager::get<OffscreenUi>();return navigationDialogs().control(item,ui->_modalDialogListeners);
+}
+#endif
+
 void OffscreenUi::removeModalDialog(QObject* modal) {
     // Synchronous listeners live on the stack and must never be scheduled
     // for deletion by this asynchronous-owner path.

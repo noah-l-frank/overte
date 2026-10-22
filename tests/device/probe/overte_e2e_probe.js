@@ -146,6 +146,7 @@
     var lastIOSLocationBookmarksRequest = "";
     var lastIOSPlacesModelRequest = "";
     var lastIOSPlacesHttpRequest = "";
+    var lastIOSNavigationDialogRequest = "";
     var lastSceneLoadRequest = "";
     var lastWorldRenderStorageCommand = "";
     var lastWorldRenderReceiptCommand = "";
@@ -1063,6 +1064,24 @@
                 } catch (_bundleReadError) { /* No paths or archive expectations are exported. */ }
                 if (installedBundle.status !== "pending") { lastIOSBundleDone=command.commandId; }
                 Test.saveObject(installedBundle,"ios-installed-bundle-observation.json");
+            }
+            return;
+        }
+        if (command && command.action === "feature-ios-navigation-dialogs") {
+            if (command.schemaVersion === 1 && typeof command.commandId === "string"
+                    && /^ios-[0-9a-f]{32}$/.test(command.commandId) && command.commandId.length === 36
+                    && typeof command.runId === "string" && /^[0-9a-f]{32}$/.test(command.runId) && command.runId.length === 32
+                    && objectKeysMatch(command,["schemaVersion","commandId","action","runId"])) {
+                if (command.commandId === lastIOSNavigationDialogRequest) { return; }
+                lastIOSNavigationDialogRequest=command.commandId;
+                var navigationDialogs={iosNavigationDialogsVersion:1,requestId:command.commandId,status:"unavailable"};
+                try {
+                    if (typeof Test.featureIOSNavigationDialogs === "function") {
+                        var originalDialogs=Test.featureIOSNavigationDialogs(command);
+                        if (originalDialogs && originalDialogs.requestId === command.commandId) { navigationDialogs=originalDialogs; }
+                    }
+                } catch (_navigationDialogsError) { /* Unknown modal/lifetime is not empty successful absence. */ }
+                Test.saveObject(navigationDialogs,"feature-ios-navigation-dialogs.json");
             }
             return;
         }

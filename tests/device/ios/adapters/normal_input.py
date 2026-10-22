@@ -33,6 +33,7 @@ from adapters.token_script_file_ui import (file_control, folder_text,
     metadata_fields as file_metadata_fields, validate_metadata as validate_file_metadata)
 from ios.adapters.places_controls import (PROFILES as PLACES_PROFILES,metadata as places_metadata,
     control_id as places_control,text as places_text,FIELDS as PLACES_FIELDS)
+from ios.adapters.navigation_dialog_controls import IDS as ERROR_IDS,metadata as error_metadata
 
 CONTROLS = frozenset({'hud.goto', 'hud.tablet', 'address.field', 'address.go',
     'address.cancel', 'address.back', 'tablet.home', 'tablet.close', 'tablet.places',
@@ -64,6 +65,11 @@ def observation(value, pid, now_ms=None):
     now_ms = time.time() * 1000 if now_ms is None else now_ms
     fields = {'schemaVersion', 'instance', 'frameSpace', 'processId', 'sampleEpochMs',
               'elapsedMs', 'lastSequence', 'tabletShown', 'ready', 'controls'}
+    if type(value) is dict and 'navigationDialogControlsVersion' in value:
+        if (type(value['navigationDialogControlsVersion']) is not int or value['navigationDialogControlsVersion']!=1
+                or not _integer(value.get('navigationDialogSourceSequence'),1)):
+            raise NativeUIError('Native iOS navigation modal source version is invalid')
+        fields |= {'navigationDialogControlsVersion','navigationDialogSourceSequence'}
     if type(value) is dict and 'featureControlsVersion' in value:
         if type(value['featureControlsVersion']) is not int or value['featureControlsVersion'] != 1:
             raise NativeUIError('Native iOS feature control version is invalid')
@@ -139,7 +145,11 @@ def observation(value, pid, now_ms=None):
         is_create=type(control) is dict and type(control.get('id')) is str and control['id'].startswith('create.')
         is_chat=type(control) is dict and type(control.get('id')) is str and control['id'].startswith('chat.')
         is_places=type(control) is dict and control.get('profile') in PLACES_PROFILES.values()
-        if is_places:
+        is_error=type(control) is dict and control.get('id') in ERROR_IDS
+        if is_error:
+            if value.get('navigationDialogControlsVersion')!=1:raise NativeUIError('Native iOS navigation modal source is missing')
+            original=dict(control);original.pop('frame',None);error_metadata(original);fields=set(control)
+        elif is_places:
             if control['profile']!=PLACES_PROFILES.get(value.get('placesControlsVersion')):raise NativeUIError('Native iOS Places controls lack their source extension')
             original=dict(control);original.pop('frame',None);places_metadata(original);fields=set(control)
         elif is_chat:
@@ -179,7 +189,7 @@ def observation(value, pid, now_ms=None):
             fields.add('checked')
         if (not isinstance(control, dict) or set(control) != fields
                 or not isinstance(control['id'], str)
-                or not (control['id'] in CONTROLS or script_control(control['id']) or file_control(control['id']) or audio_control(control['id']) or graphics_control(control['id']) or control['id'] in LOGIN_IDS or control['id'] in ACCOUNT_IDS or control['id'] in VIEW_IDS or control['id']==REMEMBER_ID or is_create and create_control(control['id']) or is_chat and chat_control(control['id']) or is_places and places_control(control['id'])) or control['id'] in seen
+                or not (control['id'] in CONTROLS or script_control(control['id']) or file_control(control['id']) or audio_control(control['id']) or graphics_control(control['id']) or control['id'] in LOGIN_IDS or control['id'] in ACCOUNT_IDS or control['id'] in VIEW_IDS or control['id']==REMEMBER_ID or is_create and create_control(control['id']) or is_chat and chat_control(control['id']) or is_places and places_control(control['id']) or is_error) or control['id'] in seen
                 or not _uuid(control['token']) or control['token'] in tokens
                 or type(control['enabled']) is not bool or type(control['focused']) is not bool):
             raise NativeUIError('Native iOS input controls are invalid')
@@ -356,6 +366,14 @@ class NativeInput:
         if operation == 'select-index':
             command['index'] = index
         return self.deliver(command)
+
+    def navigation_error_input(self,*,reference):
+        from ios.adapters.navigation_dialog_controls import project,same_reference
+        row=same_reference(reference,project(self.capture()))
+        if not row['enabled'] or not row['inputReady']:raise NativeUIError('Native iOS navigation modal input is unavailable')
+        original=reference['scope']
+        return self.deliver(dict(schemaVersion=1,commandId=str(uuid.uuid4()),instance=original['instance'],
+            sequence=original['sequence']+1,observedElapsedMs=original['elapsedMs'],fieldToken=row['token'],operation='activate'))
 
     def places_input(self,identifier,action,*,reference,value=None):
         from ios.adapters.places_controls import project,same_reference
