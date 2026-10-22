@@ -390,3 +390,19 @@ requires the separately retained original provider bytes and OS destination.
 The Appium composition factories now expose the original platform/VM readers
 and the normal SDK-tablet/Qt Snapshot controls. No public feature capability
 is enabled by these internal factories.
+
+`PhoneSnapshotSystemUI` provides ordinary SDK selection/Back for the original
+resolved Android share chooser and the separately pinned consuming Activity.
+Its owning composition must supply the original OS component resolution and
+an explicit candidate/kernel/session guard for this one handoff; existing
+foreground-only native command guards are unchanged. Each read brackets a
+bounded actual accessibility tree with actual package/Activity queries and
+checks both wall and monotonic freshness. Selection requires one displayed,
+enabled fixture label inside its actual clickable original bounds, a private
+durable input intent and a fresh identical tree before one ordinary W3C touch.
+Back similarly records intent before one ordinary SDK action. Ignored input,
+changed windows, duplicate or disabled labels and slow intent writes stay red.
+A returned UI transition never proves receiver consumption. The facade must
+separately acquire the receiver's actual original bytes/URI/UID/close evidence,
+then return normally from that owned Activity before further native reads.
+This internal component does not by itself enable the public Snapshot triple.
