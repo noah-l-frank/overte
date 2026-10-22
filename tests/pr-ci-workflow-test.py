@@ -84,7 +84,8 @@ def android_runner_contract(workflow):
     jobs = workflow['jobs']
     expression = jobs['android']['runs-on']
     expected = ("${{ needs.plan.outputs.android_native_products != '[]' && "
-                "fromJSON('[\"self-hosted\",\"Linux\",\"X64\",\"overte-native-large-disk\"]') || 'ubuntu-24.04' }}")
+                "fromJSON(format('[\"self-hosted\",\"Linux\",\"X64\",\"overte-native-large-disk\",\"overte-native-{0}-{1}\"]', "
+                "github.run_id, github.run_attempt)) || 'ubuntu-24.04' }}")
     assert expression == expected
     # Route from the authenticated plan only after protected policy succeeds.
     assert set(jobs['android']['needs']) == {'plan', 'policy'}
@@ -94,8 +95,8 @@ def android_runner_contract(workflow):
     for name, job in jobs.items():
         if name != 'android' and 'runs-on' in job:
             assert job['runs-on'] == 'ubuntu-24.04'
-    labels = json.loads(re.search(r"fromJSON\('([^']+)'\)", expression)[1])
-    return lambda products: labels if products != '[]' else 'ubuntu-24.04'
+    template = re.search(r"fromJSON\(format\('([^']+)'", expression)[1]
+    return lambda products, run_id=123, attempt=2: json.loads(template.format(run_id, attempt)) if products != '[]' else 'ubuntu-24.04'
 
 
 def native_recipe_contract(caller, workflow):
@@ -175,12 +176,15 @@ class WorkflowContracts(unittest.TestCase):
         select = android_runner_contract(self.workflow)
         labels = yaml.safe_load((ROOT / '.github/actionlint.yaml').read_text())['self-hosted-runner']['labels']
         self.assertIn('overte-native-large-disk', labels)
+        self.assertIn('overte-native-*-*', labels)
         for products in ('["common"]', '["phone"]', '["pico"]', '["common","phone"]'):
             with self.subTest(products=products):
-                self.assertEqual(select(products), ['self-hosted', 'Linux', 'X64', 'overte-native-large-disk'])
+                self.assertEqual(select(products), ['self-hosted', 'Linux', 'X64', 'overte-native-large-disk', 'overte-native-123-2'])
+        self.assertNotEqual(select('["phone"]', 123, 2), select('["phone"]', 123, 3))
+        self.assertNotEqual(select('["phone"]', 123, 2), select('["phone"]', 124, 2))
         # Java/resource and Groovy-only plans both have no native products.
         self.assertEqual(select('[]'), 'ubuntu-24.04')
-        for mutation in ('java-routing', 'unconditional', 'missing-label', 'other-job', 'no-policy', 'pr-target'):
+        for mutation in ('java-routing', 'unconditional', 'missing-label', 'other-job', 'no-policy', 'pr-target', 'unbound-attempt'):
             changed = deepcopy(self.workflow)
             job = changed['jobs']['android']
             if mutation == 'java-routing':
@@ -193,6 +197,8 @@ class WorkflowContracts(unittest.TestCase):
                 changed['jobs']['host']['runs-on'] = ['self-hosted', 'overte-native-large-disk']
             elif mutation == 'no-policy':
                 job['needs'] = ['plan']
+            elif mutation == 'unbound-attempt':
+                job['runs-on'] = job['runs-on'].replace('github.run_attempt', '1')
             else:
                 changed['jobs']['plan']['if'] = 'always()'
             with self.subTest(mutation=mutation), self.assertRaises(AssertionError):

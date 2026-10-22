@@ -503,7 +503,7 @@ jobs:
     needs: [plan, policy]
     if: needs.plan.outputs.active == 'true' && needs.plan.outputs.android == 'true'
     # Only the native consumer needs the isolated, ephemeral large-disk runner.
-    runs-on: ${{ needs.plan.outputs.android_native_products != '[]' && fromJSON('["self-hosted","Linux","X64","overte-native-large-disk"]') || 'ubuntu-24.04' }}
+    runs-on: ${{ needs.plan.outputs.android_native_products != '[]' && fromJSON(format('["self-hosted","Linux","X64","overte-native-large-disk","overte-native-{0}-{1}"]', github.run_id, github.run_attempt)) || 'ubuntu-24.04' }}
     timeout-minutes: ${{ needs.plan.outputs.android_native_products != '[]' && 150 || 45 }}
     steps:
       - name: Check out the immutable trusted controller

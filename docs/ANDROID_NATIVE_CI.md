@@ -24,7 +24,12 @@ not select a child application's APK merely because its files are present.
 ## Runner selection
 
 Only an Android owner with a nonempty authenticated `android_native_products`
-selection requests `[self-hosted, Linux, X64, overte-native-large-disk]`.
+selection requests `[self-hosted, Linux, X64, overte-native-large-disk]` plus
+`overte-native-<run_id>-<run_attempt>`. The attempt-specific label prevents a
+fresh runner from accepting another normally queued run with the same platform
+labels. Labels are routing hints, not authorization: a sealed guest pre-job
+hook separately verifies the assigned repository, run, attempt, PR merge source
+and workflow identity against the host-supplied expectation before job steps.
 Java/resource compilation and Groovy-only contracts stay on `ubuntu-24.04`, as
 do the other central workflow jobs. The job still requires the shared plan and
 protected policy; runner selection grants no execution or merge authority.
