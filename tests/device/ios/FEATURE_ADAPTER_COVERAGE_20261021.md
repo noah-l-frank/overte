@@ -129,6 +129,16 @@ host checks). Durable normal input and owned-file absence must still join that
 proof; whole capture/image, OS permission/sheet, destination/receiver, upload and
 paired cleanup integration remain open. No complete capability is enabled.
 
+The [durable Snapshot input owner](SNAPSHOT_INPUTS.md) now retains exact ordinary
+command/root originals before delivery and resolves lost native returns without
+another input (seventeen source/owner host checks). The separate
+[owned manifest reader](SNAPSHOT_MANIFEST.md) retains one actual file-list query,
+independent native before/after clocks and immutable response originals (nine
+host checks). It rejects uncertain query replay and incomplete evidence, and
+supports file-only historical reading. Joining these owners with pending
+cancellation, repeated fresh absence, all image/export journeys and paired
+retirement remains required; this does not enable whole Snapshot support.
+
 Actual Save/Share/Upload inputs also have a [closed row-token route](SNAPSHOT_EXPORT_CONTROLS.md)
 with real UIKit presentation gating and unchanged ordinary QML handlers. This
 does not provide independent destination bytes or a system permission recipe.
