@@ -1527,6 +1527,9 @@ void Avatar::setSkeletonModelURL(const QUrl& skeletonModelURL) {
     }
 
     AvatarData::setSkeletonModelURL(skeletonModelURL);
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    _e2eAvatarLoads.requested(skeletonModelURL);
+#endif
 
     if (!isMyAvatar() && !DependencyManager::get<NodeList>()->isIgnoringNode(getSessionUUID())) {
         createOrb();
@@ -1537,6 +1540,9 @@ void Avatar::setSkeletonModelURL(const QUrl& skeletonModelURL) {
 }
 
 void Avatar::setModelURLFinished(bool success) {
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    _e2eAvatarLoads.finished(success,_skeletonModel->getURL());
+#endif
     invalidateJointIndicesCache();
 
     _isAnimatingScale = true;

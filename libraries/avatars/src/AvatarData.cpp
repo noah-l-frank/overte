@@ -13,6 +13,10 @@
 
 
 #include "AvatarData.h"
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+#include <QCoreApplication>
+#include <QCryptographicHash>
+#endif
 
 #include <algorithm>
 #include <cstdio>
@@ -2988,6 +2992,26 @@ QList<QUuid> AvatarData::getAvatarEntityIDs() const {
     });
     return avatarEntityIDs;
 }
+
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+QVariantMap AvatarData::e2eAvatarEntityStorage() const {
+    if (!QCoreApplication::instance() || !QCoreApplication::arguments().contains("--testScript")) {return {};}
+    QVariantList rows;bool complete=true;qint64 total=0;
+    const bool locked=_avatarEntitiesLock.withTryReadLock([&] {
+        if (_packedAvatarEntityData.size()>128) {complete=false;return;}
+        for (auto it=_packedAvatarEntityData.cbegin();it!=_packedAvatarEntityData.cend();++it) {
+            if (it.key().isNull() || it.value().size()>65536 || total+it.value().size()>65536) {complete=false;return;}
+            total+=it.value().size();
+            rows.append(QVariantMap{{"id",it.key().toString(QUuid::WithoutBraces)},{"bytes",it.value().size()},
+                {"sha256",QString::fromLatin1(QCryptographicHash::hash(it.value(),QCryptographicHash::Sha256).toHex())},
+                {"base64",QString::fromLatin1(it.value().toBase64())}});
+        }
+    });
+    // A busy/unknown inventory is unavailable, never an empty original scope.
+    if (!locked || !complete) {return {};}
+    return {{"avatarEntityStorageVersion",1},{"rows",rows}};
+}
+#endif
 
 AvatarEntityMap AvatarData::getAvatarEntityData() const {
     // overridden where needed

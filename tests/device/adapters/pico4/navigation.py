@@ -11,6 +11,7 @@ import stat
 import time
 import uuid
 
+from adapters.pico4.avatar_people_ui import control_id as avatar_people_control,metadata as avatar_people_metadata,text as avatar_people_text
 from adapters.token_emote_ui import metadata as emote_metadata,control_id as emote_control,same_reference as emote_same_reference
 from contracts import validate_operation_arguments
 from navigation_observation import OPERATIONS, viewpoint_urls
@@ -121,6 +122,8 @@ def validate_snapshot(value, process_id, epoch_ms):
     if type(value) is dict and 'chatControlsVersion' in value:
         fields.add('chatControlsVersion')
         need(type(value['chatControlsVersion']) is int and value['chatControlsVersion'] in (1,2))
+    if type(value) is dict and 'avatarPeopleControlsVersion' in value:
+        fields.add('avatarPeopleControlsVersion');need(type(value['avatarPeopleControlsVersion']) is int and value['avatarPeopleControlsVersion']==1)
     if type(value) is dict and 'lifecycleControlsVersion' in value:
         fields.add('lifecycleControlsVersion')
         need(type(value['lifecycleControlsVersion']) is int and value['lifecycleControlsVersion']==1)
@@ -185,12 +188,15 @@ def validate_snapshot(value, process_id, epoch_ms):
         is_create_voxel=control['id'] in CREATE_VOXEL_IDS
         is_create_file=control['id'] in CREATE_FILE_IDS
         is_browser_app=control['id'] in BROWSER_APP_IDS
+        is_avatar_people=control['id'].startswith(('avatar.','people.'))
         is_chat=control['id'].startswith('chat.')
         is_emote=control['id'].startswith('emote.')
         is_places=control['id'].startswith('places.')
         is_error=control['id'].startswith('navigation.error.ok.')
         if is_browser_app:
             need(value.get('picoBrowserAppControlsVersion')==1);browser_app_metadata(control);fields=set(control)
+        elif is_avatar_people:
+            need(value.get('avatarPeopleControlsVersion')==1);avatar_people_metadata(control);fields=set(control)
         elif is_create_file:
             need(value.get('createFileControlsVersion')==1);create_file_metadata(control);fields=set(control)
         elif control['id'].startswith('lifecycle.'):
@@ -235,7 +241,7 @@ def validate_snapshot(value, process_id, epoch_ms):
              and isinstance(control['id'], str) and (control['id'] in CONTROL_IDS
                  or script_control(control['id']) or file_control(control['id']) or audio_control(control['id'])
                  or graphics_control(control['id']) or control['id'] in LOGIN_IDS or control['id'] in ACCOUNT_MENU_IDS or control['id'] in VIEW_MENU_IDS
-                 or is_browser_app or is_create_voxel or is_create_extra or is_create and create_control(control['id']) or is_chat and chat_control(control['id'])
+                 or is_browser_app or is_avatar_people or is_create_voxel or is_create_extra or is_create and create_control(control['id']) or is_chat and chat_control(control['id'])
                  or is_emote and emote_control(control['id'])
                  or is_places and places_control(control['id']) or is_error and error_control(control['id']) or is_create_file or control['id']==LIFECYCLE_ID)
              and identifier(control['token']) and control['id'] not in ids
@@ -397,6 +403,7 @@ class PicoNavigation:
         is_create_voxel=control_id in CREATE_VOXEL_IDS
         is_create_file=control_id in CREATE_FILE_IDS
         is_browser_app=control_id in BROWSER_APP_IDS
+        is_avatar_people=control_id.startswith(('avatar.','people.'))
         is_chat=control_id.startswith('chat.')
         is_emote=control_id.startswith('emote.')
         is_places=control_id.startswith('places.')
@@ -406,6 +413,9 @@ class PicoNavigation:
             if 'picoBrowserAppControlsVersion' in reference:
                 from adapters.pico4.browser_apps import same_reference as browser_same_reference,project as browser_project
                 original=browser_same_reference(reference,browser_project(snapshot),control_id)
+            elif 'avatarPeopleControlsVersion' in reference:
+                from adapters.pico4.avatar_people_ui import same_reference as avatar_same_reference,project as avatar_project
+                original=avatar_same_reference(reference,avatar_project(snapshot),control_id)
             elif 'createVoxelControlsVersion' in reference:
                 from adapters.pico4.create_voxel_ui import same_reference as voxel_same_reference,project as voxel_project
                 original=voxel_same_reference(reference,voxel_project(snapshot),control_id)
@@ -437,6 +447,16 @@ class PicoNavigation:
         if is_browser_app:
             need(reference is not None and snapshot.get('picoBrowserAppControlsVersion')==1 and control['inputReady']
                 and action=='activate' and all(v is None for v in (text,source,index,direction,value)))
+        elif is_avatar_people:
+            need(reference is not None and snapshot.get('avatarPeopleControlsVersion')==1 and control['inputReady']
+                and not control_id.endswith('.page') and source is None and index is None
+                and action in ('activate','replace','scroll','set-value'))
+            if action=='replace':need(control_id=='avatar.dialog.input' and control['focused'] and value is None and direction is None);avatar_people_text(text)
+            elif action=='scroll':need(control_id=='avatar.settings.scrollbar' and direction in ('up','down') and text is None and value is None)
+            elif action=='set-value':
+                import math
+                need(control_id=='avatar.scale' and type(value) in (int,float) and math.isfinite(value) and 1<=value<=40 and text is None and direction is None)
+            else:need(all(v is None for v in (text,value,direction)))
         elif is_create_file:
             need(reference is not None and snapshot.get('createFileControlsVersion')==1 and control['inputReady']
                  and control_id!='create-file.page' and all(v is None for v in (source,index,direction,value))
@@ -554,6 +574,8 @@ class PicoNavigation:
                 create_file_path(text,control_id,control['role'])
             elif is_places:
                 need(control_id in ('places.search','places.bookmark.name','places.server.url'));ascii_text(text)
+            elif is_avatar_people:
+                need(control_id=='avatar.dialog.input');avatar_people_text(text)
             elif control_id==LIFECYCLE_ID:
                 lifecycle_text(text)
             elif is_chat:

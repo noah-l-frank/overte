@@ -153,6 +153,7 @@
     var lastPicoWorldModelDrawsRequest = null;
     var lastAvatarRenderRequest = "";
     var lastPicoEmoteSceneRequest = "";
+    var lastPicoAvatarStateRequest = "";
     var lastGraphicsSubjectRequest = "";
     var lastSceneLoadRequest = "";
     var lastTabletHttpRequest = "";
@@ -1103,6 +1104,23 @@
                 }
             } catch (_picoEmoteSceneError) { /* Original ownership and missing scene facts remain unresolved. */ }
             Test.saveObject(picoEmoteScene, "feature-pico-emote-scene.json");
+            return;
+        }
+
+        if (command && command.schemaVersion === 1
+                && typeof command.commandId === "string" && /^[0-9a-f]{32}$/.test(command.commandId)
+                && command.action === "feature-pico-avatar-state-observe"
+                && objectKeysMatch(command, ["schemaVersion", "commandId", "action"])) {
+            if (command.commandId === lastPicoAvatarStateRequest) {return;}
+            lastPicoAvatarStateRequest = command.commandId;
+            var picoAvatarState = {schemaVersion:1,requestId:command.commandId,available:false};
+            try {
+                if (typeof Test.featurePicoAvatarState === "function") {
+                    var originalPicoAvatarState = Test.featurePicoAvatarState(command);
+                    if (originalPicoAvatarState && originalPicoAvatarState.requestId === command.commandId) {picoAvatarState = originalPicoAvatarState;}
+                }
+            } catch (_picoAvatarStateError) { /* Actual model generations remain unavailable. */ }
+            Test.saveObject(picoAvatarState, "feature-pico-avatar-state.json");
             return;
         }
 
@@ -2175,6 +2193,7 @@
                 || command.action === "feature-create-models-observe"
                 || command.action === "feature-create-browse-setting"
                 || command.action === "feature-world-render-observe"
+                || command.action === "feature-pico-avatar-state-observe"
                 || command.action === "feature-avatar-render-observe"
                 || command.action === "feature-pico-emote-scene-observe" || command.action === "feature-pico-emote-scene-input"
                 || command.action === "feature-pico-world-model-draws-observe"
