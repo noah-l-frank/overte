@@ -27,6 +27,9 @@ class NavigationFeatureTransferTests(unittest.TestCase):
                 if lost_bookmark:self.new.books.loaded={}
             return self.new.owner(*args)
         h.runtime._navigation_process_owner=owner
+        previous=h.runtime._navigation_observer
+        h.runtime._navigation_observer=lambda selector,client,run,role,stage,root,lock:(
+            previous(selector,client,run,role,stage,root,lock) if stage==0 else self.new.observer(role,lock=lock))
 
     def test_actual_new_source_group_advances_once_without_rewriting_old_admission_or_restart(self):
         self.ready();h=self.h;self.install();initial=deepcopy(h.flow_fixture.f.admission.store.read())
@@ -43,6 +46,17 @@ class NavigationFeatureTransferTests(unittest.TestCase):
         self.assertEqual(commands,h.lifecycle.calls);self.assertEqual(['app.stop','app.launch'],commands)
         self.assertEqual(requests,{n:p.requests for n,p in self.new.producers.items()})
         self.assertEqual(original,PrivateFeatureState(h.root/'ios-navigation-process-context.json').read())
+
+    def test_both_roles_capture_fresh_current_process_originals_after_actual_transfer(self):
+        self.ready();h=self.h;self.install();h.flow.act(self.restart_call())
+        first=deepcopy(h.flow.state['observerOffsets'])
+        measured=h.flow.observe_active(first['primary'])
+        self.assertEqual(first['primary']+1,measured['sequence']);self.assertEqual(1,measured['stage'])
+        self.assertEqual('43',measured['binding']['processIdentity']);self.assertEqual('A',measured['state']['location'])
+        self.assertEqual(43,measured['nativeAfter']['processId'])
+        actor=h.flow_fixture.flow('actor');peer=actor.observe_active(first['actor'])
+        self.assertEqual(first['actor']+1,peer['sequence']);self.assertEqual(1,peer['stage'])
+        self.assertNotEqual(measured['requestId'],peer['requestId']);self.assertEqual(2,self.new.gpu.frames)
 
     def test_real_persistence_bytes_with_ignored_new_startup_load_keep_transfer_owned_and_no_restart_replay(self):
         self.ready();h=self.h;self.install(lost_bookmark=True);call=self.restart_call()

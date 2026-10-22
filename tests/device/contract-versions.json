@@ -69,6 +69,7 @@
     "ios-avatar-code-pins": {"current": 1, "reads": [1]},
     "ios-navigation-address-root": {"current": 1, "reads": [1]},
     "ios-navigation-feature": {"current": 2, "reads": [1, 2]},
+    "ios-navigation-publication-reference": {"current": 1, "reads": [1]},
     "ios-navigation-address-root-state": {"current": 1, "reads": [1]},
     "ios-navigation-address-inputs": {"current": 2, "reads": [1, 2]},
     "ios-navigation-address-dismiss": {"current": 1, "reads": [1]},

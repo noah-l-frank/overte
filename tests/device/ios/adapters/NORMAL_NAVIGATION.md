@@ -74,3 +74,18 @@ bookmark loading leaves the transfer unresolved and never repeats stop/launch.
 These two host tests prove source ownership and process-stage coordination.
 They do not establish actual iOS restart behavior, whole paired restoration,
 compilation or device acceptance. The complete Worlds capability remains gated.
+
+After this transfer, both role-owned observers acquire independent fresh
+current-process source groups and immutable rendered PNGs. Their local stage-one
+cursors remain original; the whole coordinator derives the public cursor by
+adding the actual completed stage-zero observation count. `NavigationPublications`
+reopens those original owners and validates both source-floor joins against the
+immutable admission and actual typed process context. Its canonical witness
+journal keeps the original candidate binding, while each new original reference
+explicitly identifies its stage. Existing literal two-field stage-zero references
+retain their original interpretation and are never rewritten. A lost accepted
+Actor POST is resolved from the actual canonical journal without another POST or
+GPU capture; a pending publication blocks the next Actor acquisition. Primary
+public reads post no Actor sample. Twenty-four host tests cover the connected
+active/restart/publication paths and counterexamples. Paired final restoration
+and complete Worlds dispatch remain required before capability advertisement.

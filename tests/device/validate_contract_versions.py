@@ -75,6 +75,7 @@ REQUIRED = {
     "ios-avatar-code-pins": 1,
     "ios-navigation-address-root": 1,
     "ios-navigation-feature": 2,
+    "ios-navigation-publication-reference": 1,
     "ios-navigation-address-root-state": 1,
     "ios-navigation-address-inputs": 2,
     "ios-navigation-address-dismiss": 1,

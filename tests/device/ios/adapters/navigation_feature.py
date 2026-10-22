@@ -138,12 +138,23 @@ class IOSNavigationFeature:
             need(digest(owner.store.read())==self.state['admissionSha256']);owner.archive()
         return self.limited(owner)
 
-    def initial_admission(self):
-        """Read the actual old carrier without consulting the ended process."""
+    def initial_owner(self):
+        """Actual immutable admission carrier, independent of current SDK PID."""
         owner=NavigationAdmissionOwner(PrivateFeatureState(self.store.path.with_name('ios-navigation-scene-admission.json')),
             self.state['initialBinding'],self.run,self.lock,lambda:True,historical=True)
-        need(digest(owner.store.read())==self.state['admissionSha256'])
-        return owner.archive()
+        need(digest(owner.store.read())==self.state['admissionSha256']);owner.archive();return owner
+
+    def initial_admission(self):
+        """Read the actual old carrier without consulting the ended process."""
+        return self.initial_owner().archive()
+
+    def publications(self,observer):
+        from ios.adapters.navigation_publications import NavigationPublications
+        need(isinstance(observer,NavigationObserver) and observer.stage==self.state['stage'] and observer.role==self.role)
+        observers={0:observer} if self.state['stage']==0 else {0:self.prior_observers()[self.role],1:observer}
+        return NavigationPublications(self.initial_owner(),observers,
+            transfer=None if self.state['stage']==0 else self.transferred_owner(),guard=self.clock,
+            epoch_ms=self.epoch_ms,monotonic=self.monotonic)
 
     def prior_observers(self):
         """Old-process originals stay frozen after the actual lifecycle input."""
@@ -370,6 +381,9 @@ class IOSNavigationFeature:
         self.prepare()
         with self.held():
             self.load();admission=self.admission();observer=self.observer()
+            publications=self.publications(observer)
+            publication=publications.for_observer(observer)
+            need(publication is None or publication['pending'] is None)
             offset=self.state['observerOffsets'][self.role]
             need(type(after_sequence) is int and 0<=after_sequence<=offset+observer.state['sequence'])
             self.settle_directory(observer,admission)
@@ -384,7 +398,7 @@ class IOSNavigationFeature:
             need(len(labels)==1);label=labels[0];phase=self.fixture.read()
             options=dict(baseline=admission.archive()['bookmarkBaseline'],provider_inputs=self.fixture.inputs,directory=directory)
             options['missing']=self.missing(admission)
-            try:measured=observer.read(phase['ticket'],urls[label],label,epoch,**options)
+            try:measured=observer.read(phase['ticket'],urls[label],label,epoch,publication_owner=publications,**options)
             except NativeUIError:
                 # Only the retained complete first-open join can be resolved
                 # here. Any partial, unrelated or invalid source remains owned.
@@ -392,7 +406,7 @@ class IOSNavigationFeature:
                 self.settle_directory(observer,admission)
                 directory=self.directory(observer,admission);need(directory is not None)
                 options['directory']=directory
-                measured=observer.read(phase['ticket'],urls[label],label,self.epoch_ms(),**options)
+                measured=observer.read(phase['ticket'],urls[label],label,self.epoch_ms(),publication_owner=publications,**options)
             initial=admission.archive();first=observer.owners()[0]
             follow_native(initial['clockJoin']['nativeAfter'],first.state['nativeStart']['nativeBefore'])
             before=deepcopy(initial['originals']);before['currentNavigation']=before.pop('navigation')
@@ -403,3 +417,16 @@ class IOSNavigationFeature:
                 and number(now,epoch,epoch+1500) and now-epoch<1500
                 and abs(now-epoch-(ended-started)*1000)<=250)
             return deepcopy(measured)
+
+    def observe(self,after_sequence):
+        """Public active originals with one original acquisition deadline."""
+        started,epoch=self.monotonic(),self.epoch_ms();measured=self.observe_active(after_sequence)
+        with self.held():
+            self.deadline=min(self.deadline,started+1.5);self.clock();self.load()
+            observer=self.observer();public=self.publications(observer).latest()
+            need(public['sequence']==measured['sequence'] and public['sequence']>after_sequence
+                and public['capturedEpochMs']==measured['capturedEpochMs'])
+            self.current();self.clock();ended,now=self.monotonic(),self.epoch_ms()
+            need(ended-started<1.5 and number(now,epoch,epoch+1500) and now-epoch<1500
+                and abs(now-epoch-(ended-started)*1000)<=250)
+            return deepcopy(public)

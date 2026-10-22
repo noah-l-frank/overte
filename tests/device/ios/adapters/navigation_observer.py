@@ -130,11 +130,14 @@ class NavigationObserver:
         self.images=owner.images;self.save()
         return None if status!='observed' else self.measurement(owner,row)
 
-    def read(self,ticket,url,label,host_barrier,**options):
+    def read(self,ticket,url,label,host_barrier,*,publication_owner=None,**options):
         need(not self.historical);self.bound();identifier(ticket)
         need(same(self.envelope(self.state),self.previous))
         need(not self.state['rows'] or self.state['rows'][-1]['status']!='reserved')
-        publication=self.publication_state()
+        if publication_owner is None:publication=self.publication_state()
+        else:
+            from ios.adapters.navigation_publications import NavigationPublications
+            need(isinstance(publication_owner,NavigationPublications));publication=publication_owner.for_observer(self)
         need(publication is None or publication['pending'] is None)
         need(len(self.state['rows'])<512 and type(label) is str and label in ('A','B')
             and same_viewpoint(url,viewpoint_urls(options['provider_inputs']['sceneUrl'])[label]))
