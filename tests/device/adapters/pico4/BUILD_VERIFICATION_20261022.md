@@ -545,3 +545,25 @@ AudioClient callback and alive QML context are not retired by memory/PCM release
 Full acoustic/peer/whole Audio qualification remains missing. Integrated owner/
 preview/coverage pass3/75 groups28.30s (owner16.398s,preview11.817s,coverage.083s).
 All4 repository suites pass4.18s; registry/whitespace pass.
+
+
+## Actual Home transition before closing Emote view preparation
+
+Actual TabletProxy/TabletRoot inspection confirms physical hiding does not
+reset a retained menu to Home. The initial host tablet fixture had incorrectly
+reset that state on open. PicoEmoteView v3 now composes the existing original
+Home entity observation and calibrated normal PicoTabletHome controller ray
+before each close. Initial closed Home, actual Menu/not-Home phase, original
+Home/tablet entity IDs, advancing source cursors/times and actual closed Home
+are all required. Unknown Home delivery is only re-observed; ignored input
+never closes or sends another gesture. Both original setup/restore routes
+now have six steps; v1/v2 journals remain retained without inventing Home proof.
+
+The fixture now keeps the underlying menu during physical hide/open. All13
+ownership cases pass6.461s before the final foreign-Home/source tightening; the
+final68-case stereo/owner/reader/capture group plus coverage pass2/75 groups
+15.10s (stereo15.040s,coverage.061s). Both actual Pico view factory/teardown
+cases pass1.851s, all4 final repository suites3.05s, registry/whitespace pass.
+No new native C++ or product changes in this packet. Independent original menu
+Timer/QQmlContext, controller envelope/neutral retirement, scene/avatar/actor
+and whole public coordination remain open; source-complete count is3/14.

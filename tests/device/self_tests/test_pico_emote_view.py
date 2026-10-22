@@ -10,8 +10,10 @@ import uuid
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.normal_ui import NativeUIError
 from adapters.pico4.emote_view import PicoEmoteView
+from adapters.pico4.tablet_home import PicoTabletHome
 from self_tests.test_native_avatar_render import Boundary as AvatarBoundary
 from self_tests import test_pico_emote_sources as source_fixture
+from self_tests import test_pico_tablet_home as home_fixture
 RUN,BINDING=source_fixture.RUN,source_fixture.BINDING
 
 
@@ -24,6 +26,20 @@ class ViewBoundary:
         self.open=False;self.page='home';self.sequence=0;self.inputs=[];self.ignored=None;self.lost=None;self.mutate=None
         self.generation=str(uuid.uuid4());self.menu=str(uuid.uuid4());self.loaded=True
         self.io=SimpleNamespace(capture=self.capture,tablet=self.tablet,navigation=SimpleNamespace(input=self.input))
+        self.home_sequence=0;self.home_value=home_fixture.original()
+        source=SimpleNamespace(capture=self.capture_home,pid=31,clock_ms=lambda:self.sources.epoch,
+            monotonic=lambda:self.sources.clock,sleep=self.sleep,guard=self.sources.guard)
+        self.home=PicoTabletHome(source,self.home_stage)
+    def capture_home(self):
+        self.home_sequence+=1
+        value=deepcopy(self.home_value);value.update(commandId=uuid.uuid4().hex,sourceSequence=self.home_sequence,
+            processId=31,capturedEpochMs=self.sources.epoch,elapsedMs=int(self.sources.clock*1000),
+            tabletShown=self.open,onHomeScreen=self.page=='home',visible=self.open)
+        return value
+    def home_stage(self,pose):
+        self.before_input('tablet.home-ray')
+        if self.ignored!='tablet.home-ray':self.page='home'
+        if self.lost=='tablet.home-ray':raise NativeUIError('Synthetic lost actual Home ray result')
     def capture(self):
         rows=[]
         if self.open:
@@ -49,7 +65,7 @@ class ViewBoundary:
     def tablet(self,opened):
         control='tablet.open' if opened else 'tablet.close';self.before_input(control)
         self.sequence+=1
-        if control!=self.ignored:self.open=opened;self.page='home';self.generation=str(uuid.uuid4())
+        if control!=self.ignored:self.open=opened;self.generation=str(uuid.uuid4())
         if control==self.lost:raise NativeUIError('Synthetic lost controller reply')
     def input(self,control,**options):
         row=next(row for row in self.capture()['controls'] if row['id']==control)
@@ -70,7 +86,7 @@ class ViewBoundary:
     def sleep(self,seconds):self.sources.sleep(seconds)
     def owner(self,**options):
         return PicoEmoteView(self.store,BINDING,self.sources.phase,self.lock,lambda:self.io,self.avatar.reader,
-            self.sources.guard,nullcontext,monotonic=lambda:self.sources.clock,sleep=self.sleep,**options)
+            self.sources.guard,nullcontext,lambda:self.home,monotonic=lambda:self.sources.clock,sleep=self.sleep,**options)
     def cleanup_phase(self):self.sources.journal.activate(RUN,'a'*32,verb='cleanup')
 
 
@@ -80,7 +96,7 @@ class PicoEmoteViewTests(unittest.TestCase):
         with b.lock.held():
             owner=b.owner();self.assertEqual({'performed':True},owner.prepare())
             self.assertEqual('ready',owner.state['phase']);self.assertFalse(b.open)
-            self.assertEqual(['tablet.open','scripts.menu','view-menu.view','view-menu.third','tablet.close'],b.inputs)
+            self.assertEqual(['tablet.open','scripts.menu','view-menu.view','view-menu.third','tablet.home-ray','tablet.close'],b.inputs)
             before=deepcopy(b.inputs);self.assertEqual({'performed':True},b.owner().prepare());self.assertEqual(before,b.inputs)
             b.cleanup_phase();self.assertEqual({'performed':True},b.owner().restore())
             self.assertEqual('first person look at',b.avatar.avatar['cameraMode']);self.assertFalse(b.open)
@@ -95,7 +111,7 @@ class PicoEmoteViewTests(unittest.TestCase):
             b.owner().prepare();b.cleanup_phase();b.owner().restore()
             self.assertEqual('look at',b.avatar.avatar['cameraMode']);self.assertNotIn('view-menu.first',b.inputs)
             self.assertEqual(4.25,b.avatar.avatar['cameraState']['boomLength'])
-            self.assertEqual(10,len(b.inputs))
+            self.assertEqual(12,len(b.inputs))
 
     def test_ignored_pointer_ack_cannot_become_camera_success_or_be_replayed(self):
         b=ViewBoundary(self);b.ignored='view-menu.third'
@@ -109,13 +125,13 @@ class PicoEmoteViewTests(unittest.TestCase):
             self.assertIsNotNone(b.store.read())
 
     def test_lost_pointer_result_reconciles_actual_effect_without_another_pointer(self):
-        for lost in ('tablet.open','scripts.menu','view-menu.view','view-menu.third','tablet.close'):
+        for lost in ('tablet.open','scripts.menu','view-menu.view','view-menu.third','tablet.home-ray','tablet.close'):
             with self.subTest(lost=lost):
                 b=ViewBoundary(self);b.lost=lost
                 with b.lock.held():
                     with self.assertRaises(NativeUIError):b.owner().prepare()
                     b.lost=None;self.assertEqual({'performed':True},b.owner().prepare())
-                    self.assertEqual(1,b.inputs.count(lost));self.assertEqual(5,len(b.inputs))
+                    self.assertEqual(1,b.inputs.count(lost));self.assertEqual(6,len(b.inputs))
 
     def test_failed_durable_intent_before_input_stays_owned_without_replay(self):
         b=ViewBoundary(self)
@@ -130,14 +146,14 @@ class PicoEmoteViewTests(unittest.TestCase):
             self.assertEqual([],b.inputs);self.assertIsNotNone(b.store.read())
 
     def test_lost_restore_results_reconcile_only_original_effect_and_never_repeat_input(self):
-        for lost in ('tablet.open','scripts.menu','view-menu.view','view-menu.first','tablet.close'):
+        for lost in ('tablet.open','scripts.menu','view-menu.view','view-menu.first','tablet.home-ray','tablet.close'):
             with self.subTest(lost=lost):
                 b=ViewBoundary(self)
                 with b.lock.held():
                     b.owner().prepare();b.cleanup_phase();b.lost=lost
                     with self.assertRaises(NativeUIError):b.owner().restore()
                     before=b.inputs.count(lost);b.lost=None;b.owner().restore()
-                    self.assertEqual(before,b.inputs.count(lost));self.assertEqual(10,len(b.inputs))
+                    self.assertEqual(before,b.inputs.count(lost));self.assertEqual(12,len(b.inputs))
                     self.assertEqual('first person look at',b.avatar.avatar['cameraMode'])
 
     def test_later_baseline_ticket_cannot_adopt_a_lost_input_from_original_ticket(self):
@@ -149,7 +165,7 @@ class PicoEmoteViewTests(unittest.TestCase):
             self.assertEqual(before,b.inputs);self.assertIsNotNone(b.store.read())
 
     def test_unsupported_mode_unloaded_avatar_and_existing_open_tablet_fail_before_input(self):
-        for fault in ('selfie','legacy-third','unloaded','open','custom-first-boom','legacy-source','desktop'):
+        for fault in ('selfie','legacy-third','unloaded','open','hidden-menu','custom-first-boom','legacy-source','desktop'):
             b=ViewBoundary(self)
             if fault=='selfie':b.avatar.avatar['cameraMode']='selfie'
             elif fault=='legacy-third':b.avatar.avatar['cameraMode']='third person'
@@ -157,12 +173,13 @@ class PicoEmoteViewTests(unittest.TestCase):
             elif fault=='custom-first-boom':b.avatar.avatar['cameraState']['boomLength']=5
             elif fault=='legacy-source':b.avatar.avatar.pop('cameraState');b.avatar.avatar.pop('cameraStateVersion')
             elif fault=='desktop':b.avatar.avatar['cameraState']['hmd']=False
+            elif fault=='hidden-menu':b.page='view'
             else:b.open=True
             with b.lock.held(),self.subTest(fault=fault),self.assertRaises(NativeUIError):b.owner().prepare()
             self.assertEqual([],b.inputs)
 
     def test_foreign_candidate_or_changed_original_avatar_cannot_restore_or_adopt_history(self):
-        for fault in ('candidate','geometry','pose','model','camera','boom'):
+        for fault in ('candidate','geometry','pose','model','camera','boom','home'):
             b=ViewBoundary(self)
             with b.lock.held():
                 b.owner().prepare();before=deepcopy(b.inputs);b.cleanup_phase()
@@ -171,7 +188,8 @@ class PicoEmoteViewTests(unittest.TestCase):
                 elif fault=='pose':b.avatar.avatar['pose']['feetPosition'][0]+=1
                 elif fault=='model':b.avatar.avatar['modelInstance']='1'*32
                 elif fault=='camera':b.avatar.avatar['cameraMode']='selfie'
-                else:b.avatar.avatar['cameraState']['boomLength']+=1
+                elif fault=='boom':b.avatar.avatar['cameraState']['boomLength']+=1
+                else:b.home_value['homeId']='3'*32
                 with self.subTest(fault=fault),self.assertRaises(NativeUIError):b.owner().restore()
                 self.assertEqual(before,b.inputs);self.assertIsNotNone(b.store.read())
 
@@ -197,15 +215,25 @@ class PicoEmoteViewTests(unittest.TestCase):
         with b.lock.held():
             owner=b.owner();owner.prepare();self.assertGreaterEqual(b.sources.clock,.1)
             self.assertEqual(b.avatar.epoch,owner.state['original']['widgets']['updatedEpochMs'])
-            self.assertEqual(5,len(b.inputs))
+            self.assertEqual(6,len(b.inputs))
 
-    def test_legacy_v1_owner_remains_retained_without_interpreting_its_old_mode_semantics(self):
-        b=ViewBoundary(self)
+    def test_legacy_v1_v2_owner_remains_retained_without_inventing_mode_or_home_semantics(self):
+        for version in (1,2):
+            b=ViewBoundary(self)
+            with b.lock.held():
+                b.owner().prepare();value=b.store.read();value['picoEmoteViewVersion']=version;b.store.write(value,b.store.read())
+                before=deepcopy(b.inputs)
+                with self.subTest(version=version),self.assertRaises(NativeUIError):b.owner()
+                self.assertEqual(before,b.inputs);self.assertEqual(value,b.store.read())
+
+    def test_ignored_actual_home_ray_cannot_claim_closed_home_or_repeat_the_gesture(self):
+        b=ViewBoundary(self);b.ignored='tablet.home-ray'
         with b.lock.held():
-            b.owner().prepare();value=b.store.read();value['picoEmoteViewVersion']=1;b.store.write(value,b.store.read())
+            with self.assertRaises(NativeUIError):b.owner().prepare()
             before=deepcopy(b.inputs)
-            with self.assertRaises(NativeUIError):b.owner()
-            self.assertEqual(before,b.inputs);self.assertEqual(value,b.store.read())
+            with self.assertRaises(NativeUIError):b.owner().prepare()
+            self.assertEqual(before,b.inputs);self.assertEqual(1,b.inputs.count('tablet.home-ray'))
+            self.assertTrue(b.open);self.assertEqual('view',b.page);self.assertIsNotNone(b.store.read())
 
 
 if __name__=='__main__':unittest.main()

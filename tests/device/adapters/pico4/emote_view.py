@@ -14,23 +14,26 @@ from adapters.native_feature_observation import exact,fresh,integer,need,number
 from adapters.normal_feature_state import context
 from adapters.pico4.navigation import validate_snapshot
 from adapters.pico4.normal_view_menu import PicoViewMenu,project
+from adapters.pico4.tablet_home import PicoTabletHome,validate as home_packet,validate_input as home_input
 from adapters.script_journey.history import pack,unpack,same
 from adapters.script_journey.lock import ScriptSourceLock
 from feature_journeys.phase_fixture import PhaseFixtureReader,validate as phase_packet
 
-VERSION=2
+VERSION=3
 MODES={'first person look at':'view-menu.first','look at':'view-menu.third'}
-KINDS={prefix+'-'+part for prefix in ('prepare','restore') for part in ('open','menu','view','mode','close')}
+PARTS=('open','menu','view','mode','home','close')
+KINDS={prefix+'-'+part for prefix in ('prepare','restore') for part in PARTS}
 
 
 class PicoEmoteView:
-    def __init__(self,store,binding,phase,lock,original,avatar,guard,input_session,
+    def __init__(self,store,binding,phase,lock,original,avatar,guard,input_session,home,
                  *,monotonic=time.monotonic,sleep=time.sleep):
         need(isinstance(phase,PhaseFixtureReader) and phase.area=='emotes' and isinstance(lock,ScriptSourceLock)
-            and all(callable(v) for v in (original,avatar,guard,input_session,monotonic,sleep)))
+            and all(callable(v) for v in (original,avatar,guard,input_session,home,monotonic,sleep)))
         lock.assert_held()
         self.store,self.binding,self.phase,self.lock=store,deepcopy(context(binding)),phase,lock
         self.original,self.avatar,self.guard,self.input_session=original,avatar,guard,input_session
+        self.home=home
         self.monotonic,self.sleep=monotonic,sleep
         self.run,self.pid=phase.run,int(binding['processIdentity'].split(':')[0]);need(integer(self.pid,1))
         self.started=self.clock=None;self.failed=False;self.anchor=None
@@ -45,11 +48,13 @@ class PicoEmoteView:
             and (self.started is None or now-self.started<60));self.clock=now
 
     def packet(self,value,previous=None):
-        exact(value,{'avatar','widgets','phaseBefore','phaseAfter'})
+        exact(value,{'avatar','widgets','home','phaseBefore','phaseAfter'})
         a=value['avatar'];avatar_packet(a,dict(schemaVersion=1,commandId=a.get('requestId'),action='feature-avatar-render-observe'),self.pid,a.get('capturedEpochMs'))
         need(a['source'].get('cameraStateVersion')==1 and a['source']['cameraState']['hmd'])
         widgets=value['widgets'];validate_snapshot(widgets,self.pid,widgets.get('updatedEpochMs'));project(widgets)
         need(widgets['bridgeId']==self.binding['sessionId'] and a['capturedEpochMs']<=widgets['updatedEpochMs'])
+        home=value['home'];home_packet(home,home.get('commandId'),self.pid,home.get('capturedEpochMs'))
+        need(home['tabletShown']==widgets['open'])
         before,after=value['phaseBefore'],value['phaseAfter']
         phase_packet(before,run=self.run,area='emotes',request=before.get('requestId'),epoch=before.get('capturedEpochMs'),
             previous=None if previous is None else previous['phaseAfter'])
@@ -61,6 +66,9 @@ class PicoEmoteView:
             left=previous['widgets'];need(widgets['lastCommandSequence']>=left['lastCommandSequence']
                 and widgets['elapsedMs']>=left['elapsedMs'] and widgets['updatedEpochMs']>=left['updatedEpochMs']
                 and (widgets['generation']==left['generation'] or widgets['open']!=left['open']))
+            old=previous['home'];need(all(home[k]==old[k] for k in ('instance','generation','tabletId','homeId','parentId'))
+                and home['sourceSequence']>old['sourceSequence'] and home['commandId']!=old['commandId']
+                and home['elapsedMs']>=old['elapsedMs'] and home['capturedEpochMs']>=old['capturedEpochMs'])
             self.unchanged(previous,value)
 
     @staticmethod
@@ -82,19 +90,20 @@ class PicoEmoteView:
             and value['runId']==self.run and value['fixtureUrl']==self.phase.fixture_url and same(value['binding'],self.binding))
         records=unpack(value['payload']);need(len(records)==1);state=records[0]
         exact(state,{'phase','original','current','steps'});need(state['phase'] in ('reserved','preparing','ready','restoring','restored'))
-        need(type(state['steps']) is list and len(state['steps'])<=10)
+        need(type(state['steps']) is list and len(state['steps'])<=12)
         if state['original'] is None:need(state['phase']=='reserved' and state['current'] is None and not state['steps']);return state
-        self.packet(state['original']);need(not state['original']['widgets']['open'] and state['original']['avatar']['source']['cameraMode'] in MODES)
+        self.packet(state['original']);need(not state['original']['widgets']['open'] and state['original']['home']['onHomeScreen']
+            and state['original']['avatar']['source']['cameraMode'] in MODES)
         original=state['original']['avatar']['source'];need(original['cameraMode']!='first person look at'
             or original['cameraState']['boomLength']==original['cameraState']['zoomMin'])
         self.packet(state['current']);self.unchanged(state['original'],state['current'])
         kinds=set();pending=0;chain=state['original'];order=[]
         for prefix in ('prepare','restore'):
-            order.extend(prefix+'-'+part for part in ('open','menu','view','mode','close'))
+            order.extend(prefix+'-'+part for part in PARTS)
         for index,row in enumerate(state['steps']):
             exact(row,{'kind','control','before','intent','after'})
             need(row['kind'] in KINDS and row['kind'] not in kinds and row['kind']==order[index]);kinds.add(row['kind'])
-            expected={'open':'tablet.open','menu':'scripts.menu','view':'view-menu.view','close':'tablet.close'}
+            expected={'open':'tablet.open','menu':'scripts.menu','view':'view-menu.view','home':'tablet.home-ray','close':'tablet.close'}
             part=row['kind'].split('-')[1]
             need(row['control']==(MODES['look at' if row['kind'].startswith('prepare') else state['original']['avatar']['source']['cameraMode']]
                 if part=='mode' else expected[part]))
@@ -111,7 +120,8 @@ class PicoEmoteView:
         if not same(chain,state['current']):self.packet(state['current'],chain)
         need(pending<=1)
         if state['phase'] in ('ready','restored'):
-            need(not pending and len(state['steps'])==(5 if state['phase']=='ready' else 10) and not state['current']['widgets']['open'])
+            need(not pending and len(state['steps'])==(6 if state['phase']=='ready' else 12)
+                and not state['current']['widgets']['open'] and state['current']['home']['onHomeScreen'])
             need(state['current']['avatar']['source']['cameraMode']==('look at' if state['phase']=='ready' else state['original']['avatar']['source']['cameraMode']))
             if state['phase']=='restored':need(state['current']['avatar']['source']['cameraState']['boomLength']==original['cameraState']['boomLength'])
         return deepcopy(state)
@@ -134,7 +144,8 @@ class PicoEmoteView:
             widgets=self.original().capture()
             if widgets['updatedEpochMs']>=avatar['capturedEpochMs']:break
             need(attempt<15 and self.monotonic()-started<1.5);self.sleep(.05)
-        value=dict(avatar=avatar,widgets=widgets,phaseBefore=before,phaseAfter=self.phase.status(before))
+        route=self.home();need(isinstance(route,PicoTabletHome) and route.source.pid==self.pid)
+        value=dict(avatar=avatar,widgets=widgets,home=route.source.capture(),phaseBefore=before,phaseAfter=self.phase.status(before))
         self.packet(value,previous);need(before['activations'][-1]['stimulus']['verb']==verb and (before['active'] or verb=='cleanup'))
         self.anchor=(started,epoch,host,reader.clock_ms);self.delivery(value)
         return value
@@ -147,11 +158,12 @@ class PicoEmoteView:
         need(number(finished,started,started+5) and integer(native_now,epoch) and number(host_now,host,1e15))
         fresh(value['avatar']['requestedEpochMs'],max(native_now,epoch+math.ceil((finished-started)*1000)))
         fresh(value['widgets']['updatedEpochMs'],max(native_now,epoch+math.ceil((finished-started)*1000)))
+        fresh(value['home']['capturedEpochMs'],max(native_now,epoch+math.ceil((finished-started)*1000)))
         fresh(value['phaseBefore']['capturedEpochMs'],max(host_now,host+math.ceil((finished-started)*1000)))
 
     @staticmethod
     def intent_packet(value,row):
-        exact(value,{'control','widgets','view'})
+        exact(value,{'control','widgets','view','home'})
         need(value['control']==row['control']);widgets=value['widgets']
         validate_snapshot(widgets,widgets.get('processId'),widgets.get('updatedEpochMs'))
         before=row['before']['widgets']
@@ -163,10 +175,15 @@ class PicoEmoteView:
             need(len(rows)==1 and request==dict(viewMenuInputVersion=1,action='activate',controlId=row['control'],
                 controlToken=rows[0]['token'],menuInstance=rows[0]['menuInstance'],checkedBefore=rows[0]['checked'],scope=p['scope']))
         else:need(value['view'] is None)
+        if row['control']=='tablet.home-ray':
+            home=value['home'];home_input(home,widgets['processId'],home.get('capturedEpochMs'),'tablet.home-ray')
+            old=row['before']['home'];need(all(home[k]==old[k] for k in ('instance','tabletId','homeId','parentId'))
+                and home['sourceSequence']>old['sourceSequence'] and home['capturedEpochMs']>=old['capturedEpochMs'])
+        else:need(value['home'] is None)
 
-    def intent(self,row,widgets,view=None):
+    def intent(self,row,widgets,view=None,home=None):
         self.bound();need(not row['intent'] and row['after'] is None)
-        value=dict(control=row['control'],widgets=deepcopy(widgets),view=deepcopy(view));self.intent_packet(value,row)
+        value=dict(control=row['control'],widgets=deepcopy(widgets),view=deepcopy(view),home=deepcopy(home));self.intent_packet(value,row)
         row['intent'].append(value);self.save();self.delivery(row['before'])
 
     @staticmethod
@@ -174,9 +191,11 @@ class PicoEmoteView:
         control=row['control'];widgets=current['widgets']
         need(same(row['before']['phaseAfter']['activations'],current['phaseBefore']['activations'])
             and row['before']['phaseAfter']['active']==current['phaseBefore']['active'])
-        if control in ('tablet.open','tablet.close'):need(widgets['open']==(control=='tablet.open') and (not widgets['open'] or widgets['ready']))
+        if control in ('tablet.open','tablet.close'):
+            need(widgets['open']==(control=='tablet.open') and (not widgets['open'] or widgets['ready']) and current['home']['onHomeScreen'])
+        elif control=='tablet.home-ray':need(widgets['open'] and widgets['ready'] and current['home']['onHomeScreen'])
         else:
-            need(widgets['open'] and widgets['ready'])
+            need(widgets['open'] and widgets['ready'] and not current['home']['onHomeScreen'])
             need(widgets['lastCommandSequence']==row['before']['widgets']['lastCommandSequence']+1)
             target='view-menu.view' if control=='scripts.menu' else 'view-menu.third' if control=='view-menu.view' else control
             rows=[r for r in widgets['controls'] if r['id']==target]
@@ -204,7 +223,11 @@ class PicoEmoteView:
             row=dict(kind=kind,control=control,before=before,intent=[],after=None)
             self.state['steps'].append(row);self.save()
             io=self.original()
-            if control.startswith('view-menu.'):
+            if control=='tablet.home-ray':
+                need(not before['home']['onHomeScreen'])
+                route=self.home();need(isinstance(route,PicoTabletHome) and route.source.pid==self.pid)
+                route.ensure(lambda _stage,original,_control:self.intent(row,io.capture(),home=original))
+            elif control.startswith('view-menu.'):
                 widgets=io.capture();flow=PicoViewMenu(io,lambda request:self.intent(row,widgets,request),monotonic=self.monotonic,sleep=self.sleep)
                 flow.activate(control,project(widgets))
             else:
@@ -213,6 +236,7 @@ class PicoEmoteView:
                 else:
                     rows=[r for r in widgets['controls'] if r['id']==control];need(len(rows)==1 and rows[0]['enabled'])
                     io.navigation.input(control,token=rows[0]['token'])
+            need(len(row['intent'])==1)
         started=self.monotonic()
         for attempt in range(51):
             current=self.read(verb)
@@ -230,7 +254,7 @@ class PicoEmoteView:
                 if self.state['phase']=='reserved':
                     need(not restore);original=self.read(verb)
                     need(not original['widgets']['open'] and original['avatar']['source']['cameraMode'] in MODES
-                        and original['avatar']['source']['loaded'])
+                        and original['avatar']['source']['loaded'] and original['home']['onHomeScreen'])
                     source=original['avatar']['source'];need(source['cameraMode']!='first person look at'
                         or source['cameraState']['boomLength']==source['cameraState']['zoomMin'])
                     self.state.update(phase='preparing',original=deepcopy(original),current=original);self.save()
@@ -244,10 +268,11 @@ class PicoEmoteView:
                 if self.state['phase']!=terminal:
                     if restore:self.state['phase']='restoring';self.save()
                     mode=self.state['original']['avatar']['source']['cameraMode'] if restore else 'look at'
-                    for part,control in (('open','tablet.open'),('menu','scripts.menu'),('view','view-menu.view'),('mode',MODES[mode]),('close','tablet.close')):
+                    for part,control in (('open','tablet.open'),('menu','scripts.menu'),('view','view-menu.view'),('mode',MODES[mode]),
+                            ('home','tablet.home-ray'),('close','tablet.close')):
                         self.step(prefix+'-'+part,control,verb)
                     self.state['phase']=terminal;self.save()
-                current=self.read(verb);need(not current['widgets']['open']
+                current=self.read(verb);need(not current['widgets']['open'] and current['home']['onHomeScreen']
                     and current['avatar']['source']['cameraMode']==(self.state['original']['avatar']['source']['cameraMode'] if restore else 'look at'))
                 need(current['avatar']['source']['cameraState']['boomLength']==
                     (self.state['original'] if restore else self.state['current'])['avatar']['source']['cameraState']['boomLength'])

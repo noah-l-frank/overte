@@ -57,16 +57,16 @@ qualified by this harness. The existing original surface pointer route has its
 separate compiled checks. Qt source fixtures wait for real menu transition/frame
 settling; they do not bypass input by invoking selection handlers.
 
-PicoEmoteView v2 now journals the actual prior supported HMD mode and native
+PicoEmoteView v3 now journals the actual prior supported HMD mode and native
 loaded Model/Geometry/Rig/pose before any mutation. It uses the original
 controller tablet open, existing normal menu button, View pointer, Third Person
-pointer and tablet close. Restoration uses the same normal route and the actual
+pointer ordinary original Home-ray return and tablet close. Restoration uses the same normal route and the actual
 captured First Person or Third Person mode. A separately queried original
 NativeAvatarRender cameraMode and original native checked QAction are required;
 an input acknowledgement is never camera proof. Unsupported original modes,
 unloaded avatars and a pre-existing open tablet fail before mutation.
 
-Each of the ten bounded setup/restore steps reserves a private record, then
+Each of the twelve bounded setup/restore steps reserves a private record, then
 retains the actual original token/menu/native phase before one input. Lost
 controller/pointer results are re-observed after cold reconstruction without
 another input. A missing effect retains the unresolved step; original setup
@@ -80,7 +80,7 @@ stays within the existing 60s outer bound and each effect wait within5s.
 The owner keeps its journal even after mode restoration. Closing the tablet
 and unchanged camera state do not prove actual menu timer/context retirement.
 Base cleanup independently refuses an unresolved view journal after stopping
-the app. Twelve explicit source/input/clock boundary cases cover the positive
+the app. Thirteen explicit source/input/clock boundary cases cover the positive
 normal route and ignored/lost/foreign/stale/cold recovery cases; two actual Pico
 factory/teardown cases check the existing parent lock and candidate association.
 
@@ -98,7 +98,7 @@ camera result is accepted. Controlled scene/avatar identity, independent actor
 and whole Emote cleanup remain required before a complete capability.
 
 The Pico catalog keeps emote-original-sources (81 cases),
-emote-stereo-capture (67 cases) and emote-background-effects (11 cases)
+emote-stereo-capture (68 cases) and emote-background-effects (11 cases)
 separate, preserving every case under the existing default per-group timeout.
 The native menu check is emote-view-native-ui. These selector counts are test
 groups, not completed feature areas; no adapter operation budget was enlarged.
@@ -114,7 +114,7 @@ constants now execute behind the original QML/QAction path in the native test.
 The exact normal mode and boom changes are asserted independently of labels.
 
 The optional native cameraStateVersion1 extension observes actual HMD mode and
-original Avatar boom length/minimum/default without setters. V2 requires it.
+original Avatar boom length/minimum/default without setters. V3 requires it.
 A pre-existing first-person profile with a custom boom fails before input,
 because normal first-person restoration would reset it. A pre-existing look-at
 profile retains its exact original boom. Subsequent foreign boom changes stop
@@ -122,3 +122,22 @@ input, and actual mode transitions require their original expected native boom
 effect. A restored mode alone cannot qualify restored view parameters. Old
 Avatar v1 packets remain readable by existing clients without supplying this
 missing observation. Full camera pose/render/Qt retirement remains separate.
+
+
+V3 composes the existing actual PicoTabletHome input before both physical
+tablet closes. Initial closed Home must be independently measured; an existing
+hidden foreign app/menu is refused. Actual TabletProxy onHomeScreen reflects
+State::Home; gotoMenuScreen changes it to State::Menu. Hiding a tablet is not
+that state transition. The existing Home geometry source and normal calibrated
+controller ray perform the transition, with its original packet and input
+reservation persisted before the gesture. Original tablet/Home entity births,
+new query nonces/cursors, PID and all clocks stay bound. The following closed
+observation must still be original Home. Lost Home replies are only re-observed,
+and ignored Home gestures cannot authorize close or another gesture.
+
+The earlier host fixture incorrectly treated every physical tablet open as a
+Home reset. It now retains the original underlying menu across close/open,
+matching the product lifetime boundary. V1/v2 view owners remain retained and
+are not relabeled with missing Home originals. Restored mode/boom/Home remains
+an intermediate proof; original menu Timer/QQmlContext retirement and original
+OpenXR controller stream retirement must still be joined by the full parent.

@@ -507,11 +507,13 @@ def create_adapter(args, base_class):
         @_private
         def _emote_view(self,target,phase,source_lock):
             from adapters.pico4.emote_view import PicoEmoteView
+            from adapters.pico4.tablet_home import bind_home
             journey=self._script_journey();lock=journey._lock(target,source_lock);lock.assert_held()
             ui,_observe,binding=self._script_runtime(target);native=self._native_feature_observer(target)
             native.guard();_need(native.pid==int(binding['processIdentity'].split(':')[0]))
             return PicoEmoteView(self._emote_view_store(target),binding,phase,lock,lambda:ui.io,
                 lambda:self._avatar_render_observer(target),native.guard,lambda:journey.existing_input_session(target),
+                lambda:bind_home(self,target,native),
                 monotonic=native.monotonic,sleep=native.sleep)
 
         def _emote_world_render_store(self, target, role):
