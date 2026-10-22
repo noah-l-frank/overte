@@ -101,6 +101,9 @@ class PicoInputContracts(unittest.TestCase):
             original.update(binary="Build", context="host", package_folder="/original/unchanged/raw/package")
             host_graph[key] = original
             node.update(binary="Skip", package_folder=None)
+        duplicate = copy.deepcopy(graph["12"])
+        duplicate.update(id="13", binary="Cache")
+        graph["13"] = duplicate
         self.host_graph = host_graph
         xml = self.repo / "android/vr/pico/apps/picoInterface/src/main/res/values/qt_dependencies.xml"
         names = {item.text.split(":", 1)[0] for item in ET.parse(xml).findall("./string-array[@name='bundled_in_lib']/item")}
@@ -201,6 +204,13 @@ class PicoInputContracts(unittest.TestCase):
         with self.assertRaises((ValueError, OSError)): self.resolve()
         bindings[identity] = saved
         self.assertFalse(self.resolve()["pico_qualified"])
+
+    def test_duplicate_skip_and_consumed_tool_identity_cannot_hide_changed_metadata(self):
+        self.graph["13"]["options"]["changed"] = True
+        ref = self.data["target_graph"]
+        write(Path(ref["path"]), json.dumps({"graph": {"nodes": self.graph}}))
+        ref["sha256"] = INPUTS.sha(Path(ref["path"]))
+        with self.assertRaisesRegex(ValueError, "inconsistent metadata"): self.resolve()
 
     def test_changed_modes_bytes_unmapped_tools_and_unshadowed_copy_fail(self):
         path = Path(self.data["tools"]["moc"])

@@ -164,7 +164,23 @@ def resolve(expected_map_sha, expected_head, *, repo=ROOT, attempt=ATTEMPT, prep
     require(isinstance(host_bindings, dict), "Missing protected host package aliases")
 
     def package_ref(node):
+        require(graph.hexdigest(node.get("prev"), 32), "Host tool package revision missing")
         return node["ref"] + ":" + node["package_id"] + "#" + node["prev"]
+
+    def selected_host_nodes(package):
+        unique = {}
+        for node in nodes.values():
+            if (node.get("ref") or "").split("/")[0] != package or node.get("settings", {}).get("os") != "Linux":
+                continue
+            identity = package_ref(node)
+            previous = unique.get(identity)
+            require(previous is None or all(previous.get(field) == node.get(field) for field in graph.IDENTITY),
+                    "Duplicate host package identity has inconsistent metadata")
+            # A tool may appear as both a skipped dependency and a consumed
+            # tool-requirement. Keep the raw graph untouched; identical package
+            # identities point to one separately authenticated original Build.
+            unique[identity] = node
+        return list(unique.values())
 
     def host_package(node):
         require(node.get("settings", {}).get("os") == "Linux" and
@@ -215,8 +231,7 @@ def resolve(expected_map_sha, expected_head, *, repo=ROOT, attempt=ATTEMPT, prep
     tools = data.get("tools")
     require(isinstance(tools, dict) and set(tools) == TOOLS, "Missing bound Pico host tools")
     tools = {key: host_elf(value) for key, value in tools.items()}
-    host_qt = [node for node in nodes.values() if (node.get("ref") or "").startswith("qt/") and
-               node.get("settings", {}).get("os") == "Linux"]
+    host_qt = selected_host_nodes("qt")
     require(len(host_qt) == 1 and host_qt[0]["ref"] == target_qt[0]["ref"], "Host/target Qt recipe differs")
     host_qt_root = host_package(host_qt[0])
     for name in ("moc", "rcc", "qmake"):
@@ -227,14 +242,10 @@ def resolve(expected_map_sha, expected_head, *, repo=ROOT, attempt=ATTEMPT, prep
     shader_packages = {"scribe": ("scribe", "tools/scribe"), "glslangValidator": ("glslang", "bin/glslangValidator"),
                        "spirv-cross": ("spirv-cross", "bin/spirv-cross"), "spirv-opt": ("spirv-tools", "bin/spirv-opt")}
     for tool, (package, relative) in shader_packages.items():
-        matches = [node for node in nodes.values() if (node.get("ref") or "").split("/")[0] == package and
-                   node.get("settings", {}).get("os") == "Linux"]
+        matches = selected_host_nodes(package)
         require(len(matches) == 1 and confined(str(host_package(matches[0]) / relative)) == Path(tools[tool]),
                 "Shader host tool package differs")
-    selected_hosts = host_qt + [node for node in nodes.values()
-                               if (node.get("ref") or "").split("/")[0] in
-                               {package for package, _ in shader_packages.values()} and
-                               node.get("settings", {}).get("os") == "Linux"]
+    selected_hosts = host_qt + [node for package, _ in shader_packages.values() for node in selected_host_nodes(package)]
     require(set(host_bindings) == {package_ref(node) for node in selected_hosts},
             "Unexpected or missing host package alias identity")
     runtime = data.get("runtime")
