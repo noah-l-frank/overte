@@ -161,6 +161,8 @@ REQUIRED = {
     "ios-avatar-marker-abandoned-read": 1,
     "ios-avatar-appearance": 1,
     "ios-avatar-facts-original": 1,
+    "ios-avatar-observer": 1,
+    "ios-avatar-observation-record": 1,
     "ios-avatar-surface": 1,
     "ios-avatar-ui-inventory": 1,
     "ios-avatar-samples": 1,

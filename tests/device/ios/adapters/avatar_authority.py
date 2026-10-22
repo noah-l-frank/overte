@@ -16,7 +16,7 @@ ROLES=('primary','actor')
 
 
 class AvatarAuthorityReader:
-    def __init__(self,client,run,*,epoch_ms=lambda:time.time()*1000,monotonic=time.monotonic):
+    def __init__(self,client,run,*,epoch_ms=lambda:int(time.time()*1000),monotonic=time.monotonic):
         need(isinstance(client,Client) and callable(epoch_ms) and callable(monotonic));identifier(run);origin(client.url)
         self.client,self.run,self.epoch_ms,self.monotonic=client,run,epoch_ms,monotonic
         self.last=None;self.last_epoch=self.last_mono=None
