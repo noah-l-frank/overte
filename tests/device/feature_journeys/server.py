@@ -370,6 +370,9 @@ class Handler(BaseHTTPRequestHandler):
                     return self.send(200,{}) # Read status independently; ACK is not client recovery.
                 return self.send(403,{'error':'forbidden'})
             if len(parts)>=3 and parts[2]=='account':
+                social=self.server.avatar_people_service
+                if social is not None and social.owns_account(run) and not reader:
+                    return self.send(403,{'error':'forbidden'})
                 provider=self.server.account_provider
                 if provider is None:return self.send(503,{'error':'account-provider-unavailable'})
                 if self.command=='GET' and parts[3:]==['status']:

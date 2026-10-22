@@ -131,6 +131,18 @@ class AvatarPeopleServiceTests(unittest.TestCase):
         for token in (self.reader,self.actor,self.adapter):
             self.assertEqual(401 if token!=self.adapter else 403,self.request(REQUEST,method='POST',body=dict(user_connection_request=dict(node_id=PRIMARY,proposed_node_id=PEER)),headers={'Authorization':'Bearer '+token})[0])
         self.assertFalse(any(self.client.avatar_people_status()['relationships'].values()))
+    def test_generic_auth_routes_cannot_bypass_primary_peer_credential_separation(self):
+        scopes=self.social.runs[self.run]['accounts']
+        for auth_run in scopes.values():
+            self.assertTrue(self.social.owns_account(auth_run))
+            for token in (self.adapter,self.actor):
+                for suffix in ('credentials/owned','credentials/rejected','status'):
+                    with self.subTest(role='distinct fixture credential',suffix=suffix):
+                        path='/feature-fixture/v1/runs/'+auth_run+'/account/'+suffix
+                        self.assertEqual(403,self.request(path,headers={'Authorization':'Bearer '+token})[0])
+        # The separately authorized fixture controller can still retire both.
+        self.client.close();self.assertTrue(all(self.social.owns_account(auth) for auth in scopes.values()))
+
     def test_original_history_replay_drop_rewrite_and_wrong_request_cannot_validate(self):
         self.submit('primary');first=self.client.avatar_people_status();self.submit('peer');second=self.client.avatar_people_status()
         for changed in (second|dict(requestId=first['requestId']),second|dict(responses=[]),second|dict(avatarPeopleServiceVersion=True)):

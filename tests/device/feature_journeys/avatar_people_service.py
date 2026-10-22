@@ -47,6 +47,13 @@ class AvatarPeopleService:
 
     def has_run(self,run):return run in self.runs or run in self.retired
 
+    def owns_account(self,auth_run):
+        # The generic Authentication route must not bypass the distinct
+        # primary/peer credential routes, even when an auth ID is known.
+        identifier(auth_run)
+        with self.accounts.changed:
+            return any(auth_run in row['accounts'].values() for scopes in (self.runs,self.retired) for row in scopes.values())
+
     def provision(self,run):
         identifier(run)
         with self.accounts.changed:
