@@ -25,7 +25,8 @@ from ios.adapters.navigation_samples import NavigationSamples
 from ios.adapters.navigation_scene_admission import validate as initial_original
 from ios.adapters.pointer_state import drained
 
-VERSION=1
+VERSION=2
+READS=(1,2)
 
 
 class NavigationRestart:
@@ -48,11 +49,56 @@ class NavigationRestart:
                 and source.store.path==self.store.path.with_name('ios-navigation-'+role+'-0-samples.json'))
         self.inputs=RestartInputs(PrivateFeatureState(self.store.path.with_name('ios-navigation-restart-inputs.json')),
             [PrivateFeatureState(self.store.path.with_name(name)) for name in OWNERS],monotonic=monotonic)
-        self.previous=self.store.read();self.state=None if self.previous is None else self.decode(self.previous)
+        self.previous=self.store.read();self.version=VERSION if self.previous is None else self.previous.get('iosNavigationRestartVersion')
+        if self.previous is None:need(not any(self.store.path.parent.glob('ios-navigation-restart-original-*.json')))
+        self.state=None if self.previous is None else self.decode(self.previous)
 
-    def envelope(self,state):
-        return dict(iosNavigationRestartVersion=VERSION,binding=self.binding,runId=self.run,
-            initialAdmissionSha256=digest(self.initial),payload=pack([state]))
+    def original_store(self,kind,ordinal):
+        need(kind in ('before','primary','actor') and type(ordinal) is int
+            and (ordinal==0 if kind=='before' else 1<=ordinal<=512))
+        return PrivateFeatureState(self.store.path.with_name('ios-navigation-restart-original-'+kind+'-'+str(ordinal)+'.json'))
+
+    def original_envelope(self,kind,ordinal,original):
+        return dict(iosNavigationRestartOriginalVersion=1,binding=self.binding,runId=self.run,
+            kind=kind,ordinal=ordinal,payload=pack([original]))
+
+    def original(self,reference):
+        exact(reference,{'kind','ordinal','sha256'});store=self.original_store(reference['kind'],reference['ordinal'])
+        value=store.read();need(value is not None and digest(value)==reference['sha256'])
+        exact(value,{'iosNavigationRestartOriginalVersion','binding','runId','kind','ordinal','payload'})
+        rows=unpack(value['payload']);need(len(rows)==1
+            and same(value,self.original_envelope(reference['kind'],reference['ordinal'],rows[0])))
+        return rows[0]
+
+    def original_reference(self,kind,ordinal,original,*,write=False):
+        store=self.original_store(kind,ordinal);value=self.original_envelope(kind,ordinal,original);old=store.read()
+        if write and old is None:store.write(value,None);old=store.read()
+        need(same(old,value));return dict(kind=kind,ordinal=ordinal,sha256=digest(value))
+
+    def compact(self,state,*,write=False):
+        value=deepcopy(state)
+        value['before']=self.original_reference('before',0,state['before'],write=write)
+        for role,drain in state['drains'].items():
+            value['drains'][role]['rows']=[self.original_reference(role,index,row,write=write)
+                for index,row in enumerate(drain['rows'],1)]
+        return value
+
+    def expand(self,state):
+        value=deepcopy(state);need(value['before'].get('kind')=='before' and value['before'].get('ordinal')==0)
+        value['before']=self.original(value['before'])
+        exact(value['drains'],{'primary','actor'})
+        for role,drain in value['drains'].items():
+            need(type(drain.get('rows')) is list and 1<=len(drain['rows'])<=512)
+            rows=[]
+            for index,reference in enumerate(drain['rows'],1):
+                need(reference.get('kind')==role and reference.get('ordinal')==index);rows.append(self.original(reference))
+            drain['rows']=rows
+        return value
+
+    def envelope(self,state,version=None):
+        version=self.version if version is None else version
+        return dict(iosNavigationRestartVersion=version,binding=self.binding,runId=self.run,
+            initialAdmissionSha256=digest(self.initial),payload=pack([self.compact(state) if version>=2 else state]))
 
     def frozen_samples(self,role):
         source=self.samples[role]
@@ -84,9 +130,11 @@ class NavigationRestart:
 
     def decode(self,value):
         exact(value,{'iosNavigationRestartVersion','binding','runId','initialAdmissionSha256','payload'})
-        rows=unpack(value['payload']);need(type(value['iosNavigationRestartVersion']) is int
-            and value['iosNavigationRestartVersion']==VERSION and len(rows)==1 and same(value,self.envelope(rows[0])))
-        state=rows[0];exact(state,{'arguments','status','before','drains','pointerBefore','pointerAfter','oldNative','phase','newNative','exit','receipt'})
+        version=value['iosNavigationRestartVersion'];rows=unpack(value['payload'])
+        need(type(version) is int and version in READS and len(rows)==1)
+        state=self.expand(rows[0]) if version>=2 else rows[0]
+        need(same(value,self.envelope(state,version)))
+        exact(state,{'arguments','status','before','drains','pointerBefore','pointerAfter','oldNative','phase','newNative','exit','receipt'})
         call=arguments('feature.world-navigation.act',state['arguments'])
         origin=urlsplit(self.initial['providerInputs']['sceneUrl'])
         fixture_url=origin.scheme+'://'+origin.netloc+'/feature-fixture/v1/runs/'+self.run+'/'
@@ -143,6 +191,7 @@ class NavigationRestart:
         phase=self.fixture.phase.status()
         self.state=dict(arguments=call,status='prepared',before=deepcopy(before.previous),drains=deepcopy(drains),
             pointerBefore=deepcopy(pointer_before),pointerAfter=deepcopy(pointer_after),oldNative=deepcopy(old),phase=phase,newNative=None,exit=None,receipt=None)
+        if self.version>=2:self.compact(self.state,write=True)
         self.save();before.for_input()
         # Only a passive capture is repeated when the parent exists but no
         # child intent was ever stored. Stop/launch delivery remains one-send.

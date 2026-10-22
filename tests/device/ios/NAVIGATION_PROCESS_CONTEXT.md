@@ -160,3 +160,39 @@ remains unchanged. A local modeled timing check measured about 267 ms per full
 archive reconstruction and about 4 ms per sealed use. The seal changes no
 original clock, deadline, source version or historical bytes. Changed cached
 basis, in-memory owner or private journal fails closed.
+
+Version 3 adds explicit original ownership for retained hidden Places roots.
+The passive native model actually retains live QML roots after ordinary tablet
+close. A pre-stop group may retain these roots only through its exact original
+surface journal: every current root must be a page opened by acknowledged normal
+inputs, the last action must be an acknowledged close, and the later native
+model/UI sources must show it hidden without foreign dialogs or pending commands.
+The returned `iosNavigationPlacesRootScopeVersion: 1` marks each as `retained`
+and `drained: false`. It never turns hiding into object death. Actual old-process
+ESRCH in the separately validated restart receipt ends that process lifetime;
+the new-process group must still independently contain no old QML roots.
+Unowned roots block restart. Versions 1 and 2 keep their original shape and
+cannot adopt this new responsibility field. Source basis writes 3/reads 1,2,3.
+
+`NavigationBeforeRestart` writes version 2 with the actual original surface
+carrier alongside its address owner and fresh sources. Genuine version-1
+carriers remain readable; no source, PID, root, counter or clock is rewritten.
+The parent writes version 2/reads 1,2; the static admission stays unchanged.
+Native instrumentation and actual device behavior are not compiled or tested
+by these host-only changes.
+
+The restart owner now writes version 2 and retains version 1 unchanged. Its
+original before group and each per-image drain row live in bounded immutable
+`ios-navigation-restart-original-<kind>-<ordinal>.json` records. The main journal
+retains their exact digest references, checked against the actual private files
+on every reconstruction and before lifecycle delivery. This avoids nesting an
+ever-growing complete image history inside one 48 KiB coordinator carrier.
+The existing size limits are unchanged. Missing/replaced originals and partial
+orphan component records block a new restart. A genuine version-1 producer
+remains version 1 through recovery; its sources and clocks are not migrated.
+
+Host source fixtures install their deterministic host clock before the first
+server response exists, so filesystem latency does not mix actual wall time
+with a separately advanced native model. No retained response is retimed and no
+production freshness limit is relaxed. New parent and old parent writers are
+checked separately, including continuation through normal open/close inputs.

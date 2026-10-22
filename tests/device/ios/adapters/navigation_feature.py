@@ -32,7 +32,8 @@ from ios.adapters import navigation_source_prefix as source_prefix
 from ios.adapters.graphics_history import follow_native
 from navigation_observation import same_viewpoint,viewpoint_urls
 
-VERSION=1
+VERSION=2
+READS=(1,2)
 
 
 class NavigationFeaturePending(NativeUIError):pass
@@ -77,16 +78,18 @@ class IOSNavigationFeature:
             if error is not None:raise error
         finally:self.deadline=outer
 
-    def envelope(self,state):
-        return dict(iosNavigationFeatureVersion=VERSION,runId=self.run,artifactRoot=str(self.root),payload=pack([state]))
+    def envelope(self,state,version=VERSION):
+        return dict(iosNavigationFeatureVersion=version,runId=self.run,artifactRoot=str(self.root),payload=pack([state]))
 
     def load(self):
         self.lock.assert_held();self.previous=self.store.read()
         if self.previous is None:self.state=None;return
         exact(self.previous,{'iosNavigationFeatureVersion','runId','artifactRoot','payload'})
-        rows=unpack(self.previous['payload']);need(len(rows)==1 and type(self.previous['iosNavigationFeatureVersion']) is int
-            and self.previous['iosNavigationFeatureVersion']==VERSION and same(self.previous,self.envelope(rows[0])))
-        state=rows[0];exact(state,{'phase','binding','providerInstance','providerInputs','admissionSha256','entry','lastCall'})
+        version=self.previous['iosNavigationFeatureVersion']
+        rows=unpack(self.previous['payload']);need(len(rows)==1 and type(version) is int
+            and version in READS and same(self.previous,self.envelope(rows[0],version)))
+        state=rows[0];exact(state,{'phase','binding','providerInstance','providerInputs','admissionSha256','entry','lastCall'}
+            |({'initialBinding','stage','transferSha256','observerOffsets'} if version>=2 else set()))
         need(state['phase'] in ('preparing','ready','acting') and state['entry'] in ('pending','entered'))
         context(state['binding']);identifier(state['providerInstance'])
         need(state['admissionSha256'] is None or type(state['admissionSha256']) is str and len(state['admissionSha256'])==64)
@@ -97,6 +100,20 @@ class IOSNavigationFeature:
                 and row['phase'] in ('issued','acknowledged'))
             exact(row['started'],{'epochMs','monotonic'})
             need(number(row['started']['epochMs'],1,1e15) and number(row['started']['monotonic'],0,1e15))
+        if version==1:
+            # Legacy originals describe only the first process. No transfer
+            # or global cursor is inferred from a legacy ready/ACK flag.
+            state=deepcopy(state)|dict(initialBinding=deepcopy(state['binding']),stage=0,transferSha256=None,
+                observerOffsets=dict(primary=0,actor=0))
+        context(state['initialBinding']);need(type(state['stage']) is int and state['stage'] in (0,1))
+        exact(state['observerOffsets'],{'primary','actor'})
+        need(all(type(value) is int and 0<=value<=512 for value in state['observerOffsets'].values()))
+        if state['stage']==0:
+            need(same(state['binding'],state['initialBinding']) and state['transferSha256'] is None
+                and all(value==0 for value in state['observerOffsets'].values()))
+        else:need(type(state['transferSha256']) is str and len(state['transferSha256'])==64
+            and state['binding']['processIdentity']!=state['initialBinding']['processIdentity']
+            and all(value>0 for value in state['observerOffsets'].values()))
         self.state=deepcopy(state)
 
     def save(self):
@@ -111,12 +128,95 @@ class IOSNavigationFeature:
         return source
 
     def admission(self):
+        if self.state['stage']==1:
+            owner=self.transferred_owner();scope=self.runtime._navigation_process_scope(owner)
+            need(same(scope.binding,self.state['binding']));return scope
         owner=self.runtime._navigation_admission_owner(self.selector,self.client,self.run,self.lock)
         need(isinstance(owner,NavigationAdmissionOwner) and owner.lock is self.lock
             and same(owner.binding,self.state['binding']))
         if self.state['admissionSha256'] is not None:
             need(digest(owner.store.read())==self.state['admissionSha256']);owner.archive()
         return self.limited(owner)
+
+    def initial_admission(self):
+        """Read the actual old carrier without consulting the ended process."""
+        owner=NavigationAdmissionOwner(PrivateFeatureState(self.store.path.with_name('ios-navigation-scene-admission.json')),
+            self.state['initialBinding'],self.run,self.lock,lambda:True,historical=True)
+        need(digest(owner.store.read())==self.state['admissionSha256'])
+        return owner.archive()
+
+    def prior_observers(self):
+        """Old-process originals stay frozen after the actual lifecycle input."""
+        from ios.adapters.navigation_samples import NavigationSamples
+        result={}
+        for role in ('primary','actor'):
+            images=NavigationSamples(PrivateFeatureState(self.store.path.with_name('ios-navigation-'+role+'-0-samples.json')),
+                self.root,self.state['initialBinding'],self.run,role,0,self.lock,lambda:True,historical=True)
+            result[role]=NavigationObserver(PrivateFeatureState(self.store.path.with_name('ios-navigation-'+role+'-0-observer.json')),
+                images,historical=True)
+            need(result[role].state['sequence']>0 and result[role].state['rows'][-1]['status']=='observed')
+        return result
+
+    def restarter(self):
+        prior=self.prior_observers()
+        child=self.runtime._navigation_restart(self.selector,self.initial_admission(),
+            {role:owner.images for role,owner in prior.items()},self.lock,self.fixture)
+        if child.state is not None:self.validate_pre_stop(child,prior)
+        return child
+
+    def validate_pre_stop(self,child,observers):
+        from ios.adapters.navigation_before_restart import NavigationBeforeRestart
+        before=NavigationBeforeRestart.archive(child.state['before'],child.initial)
+        current=deepcopy(before['originals']);current['navigationBefore']=current.pop('navigation')
+        for owner in observers.values():
+            last=owner.owners()[-1]
+            follow_native(last.state['clockJoin']['nativeAfter'],before['clockJoin']['nativeBefore'])
+            source_prefix.follow(last.state['originals'],current,self.run,int(self.state['initialBinding']['processIdentity']))
+
+    def transferred_owner(self):
+        from ios.adapters.navigation_process_owner import NavigationProcessOwner
+        from ios.adapters.navigation_before_restart import NavigationBeforeRestart
+        child=self.restarter();need(child.state is not None and child.state['status']=='observed')
+        before=NavigationBeforeRestart.archive(child.state['before'],child.initial)
+        owner=self.runtime._navigation_process_owner(self.selector,self.client,child.initial,before,child.state['receipt'],self.lock)
+        need(isinstance(owner,NavigationProcessOwner))
+        if self.state['transferSha256'] is not None:
+            need(digest(owner.store.read())==self.state['transferSha256'])
+            value=owner.archive();need(same(value['restart'],child.state['receipt']))
+            for role,prior in self.prior_observers().items():need(self.state['observerOffsets'][role]==prior.state['sequence'])
+        return self.limited(owner)
+
+    def restart(self,call,admission=None):
+        """Only actual child receipts can advance the process stage/cursors."""
+        from ios.adapters.navigation_restart import NavigationRestart
+        self.lock.assert_held();need(self.role=='primary' and call['verb']=='restart-app')
+        store=PrivateFeatureState(self.store.path.with_name('ios-navigation-restart.json'))
+        if store.read() is None:
+            need(admission is not None and self.state['stage']==0)
+            observers={role:self.runtime._navigation_observer(self.selector,self.client,self.run,role,0,self.root,self.lock)
+                for role in ('primary','actor')}
+            for owner in observers.values():
+                need(owner.state['sequence']>0 and owner.state['rows'][-1]['status']=='observed')
+            samples={role:owner.images for role,owner in observers.items()}
+            drains={role:source.drain() for role,source in samples.items()}
+            source=self.current();pointer=source['observer'].pointer_state(source['clock_source'])
+            first=pointer.read(self.run)
+            before=self.runtime._navigation_before_restart(self.selector,admission,missing=self.missing(admission))
+            if before.state is None:before.acquire()
+            else:before.recover()
+            last=pointer.read(self.run)
+            child=self.runtime._navigation_restart(self.selector,self.initial_admission(),samples,self.lock,admission.fixture)
+            need(isinstance(child,NavigationRestart));child.prepare(call,before,drains,first,last)
+            self.validate_pre_stop(child,observers)
+        else:child=self.restarter()
+        need(same(child.state['arguments'],call));child.restart()
+        owner=self.transferred_owner()
+        if owner.state is None:owner.acquire(self.epoch_ms())
+        elif owner.state['phase']=='reading':owner.recover()
+        owner.archive();prior=self.prior_observers()
+        self.state.update(stage=1,binding=deepcopy(owner.binding),transferSha256=digest(owner.store.read()),
+            observerOffsets={role:observer.state['sequence'] for role,observer in prior.items()})
+        self.current();self.save()
 
     def limited(self,owner):
         """Keep the enclosing deadline in every child's before-input guard."""
@@ -127,12 +227,23 @@ class IOSNavigationFeature:
 
     def prepare(self):
         with self.held():
-            self.load();self.fixture.attach();source=self.current()
+            self.load();self.fixture.attach()
+            if (self.state is not None and self.state['phase']=='acting' and self.state['lastCall'] is not None
+                    and self.state['lastCall']['phase']=='issued' and self.state['lastCall']['call']['verb']=='restart-app'):
+                if self.role!='primary':raise NavigationFeaturePending('Primary actual Worlds process transfer is pending')
+                original_clock=self.operation_clock
+                try:
+                    self.operation_clock=deepcopy(self.state['lastCall']['started']);self.clock()
+                    self.restart(self.state['lastCall']['call'])
+                    self.state['phase']='ready';self.state['lastCall']['phase']='acknowledged';self.save()
+                finally:self.operation_clock=original_clock
+            source=self.current()
             if self.state is None:
                 if self.role!='primary':raise NavigationFeaturePending('Primary original Worlds admission is pending')
                 phase=self.fixture.read();need(phase['verb']=='baseline')
                 self.state=dict(phase='preparing',binding=deepcopy(source['binding']),providerInstance=self.fixture.instance,
-                    providerInputs=deepcopy(self.fixture.inputs),admissionSha256=None,entry='pending',lastCall=None);self.save()
+                    providerInputs=deepcopy(self.fixture.inputs),admissionSha256=None,entry='pending',lastCall=None,
+                    initialBinding=deepcopy(source['binding']),stage=0,transferSha256=None,observerOffsets=dict(primary=0,actor=0));self.save()
             need(self.fixture.instance==self.state['providerInstance'] and same(self.fixture.inputs,self.state['providerInputs']))
             if self.state['phase']!='preparing':return
             if self.role!='primary':raise NavigationFeaturePending('Primary ordinary Worlds scene entry is pending')
@@ -169,7 +280,10 @@ class IOSNavigationFeature:
                 self.state.update(phase='acting',lastCall=dict(call=call,phase='issued',started=deepcopy(self.operation_clock)));self.save()
             verb=call['verb']
             with self.runtime.existing_input_session(self.selector):
-                if verb in ('open','close'):
+                if verb=='restart-app':
+                    if self.state['stage']==0:self.restart(call,admission)
+                    else:need(prior is not None and same(prior['call'],call) and prior['phase']=='acknowledged')
+                elif verb in ('open','close'):
                     self.runtime._navigation_surface_actions(self.selector,admission).act(call)
                 elif verb in ('directory-select','bookmark-visit'):
                     child=self.runtime._navigation_composite_actions(self.selector,admission)
@@ -200,12 +314,13 @@ class IOSNavigationFeature:
             return {'performed':True}
 
     def observer(self):
-        """First-process role-owned acquisition on the current candidate."""
+        """Role-owned acquisition on the independently qualified current stage."""
         self.current()
-        owner=self.runtime._navigation_observer(self.selector,self.client,self.run,self.role,0,self.root,self.lock)
+        stage=self.state['stage']
+        owner=self.runtime._navigation_observer(self.selector,self.client,self.run,self.role,stage,self.root,self.lock)
         need(isinstance(owner,NavigationObserver) and same(owner.binding,self.state['binding'])
             and owner.lock.path==self.lock.path and owner.images.root==self.root
-            and owner.role==self.role and owner.stage==0)
+            and owner.role==self.role and owner.stage==stage)
         return owner
 
     def directory(self,observer,admission):
@@ -255,7 +370,8 @@ class IOSNavigationFeature:
         self.prepare()
         with self.held():
             self.load();admission=self.admission();observer=self.observer()
-            need(type(after_sequence) is int and 0<=after_sequence<=observer.state['sequence'])
+            offset=self.state['observerOffsets'][self.role]
+            need(type(after_sequence) is int and 0<=after_sequence<=offset+observer.state['sequence'])
             self.settle_directory(observer,admission)
             directory=self.directory(observer,admission)
             owners=observer.owners();previous=owners[-1] if owners else None
@@ -282,6 +398,7 @@ class IOSNavigationFeature:
             before=deepcopy(initial['originals']);before['currentNavigation']=before.pop('navigation')
             source_prefix.follow(before,first.state['originals'],self.run,int(self.state['binding']['processIdentity']))
             self.current();ended,now=self.monotonic(),self.epoch_ms()
+            measured['sequence']+=offset
             need(measured['sequence']>after_sequence and number(ended,started,started+1.5) and ended-started<1.5
                 and number(now,epoch,epoch+1500) and now-epoch<1500
                 and abs(now-epoch-(ended-started)*1000)<=250)

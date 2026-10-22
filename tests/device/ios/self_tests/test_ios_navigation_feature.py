@@ -73,6 +73,23 @@ class NavigationFeatureTests(unittest.TestCase):
         self.assertEqual('entered',unpack(original['payload'])[0]['phase'])
         self.assertIsNotNone(flow.store.read());self.assertIsNotNone(self.f.admission.store.read())
 
+    def test_genuine_writer1_parent_stays_first_process_and_can_continue_without_rewriting_sources(self):
+        class Legacy(IOSNavigationFeature):
+            def envelope(owner,state,version=1):
+                value={key:deepcopy(item) for key,item in state.items()
+                    if key not in ('initialBinding','stage','transferSha256','observerOffsets')}
+                return super().envelope(value,1)
+        old=Legacy(self.runtime,'owned',self.h.fixture.harness.client,self.fixture.run,self.root,
+            epoch_ms=self.epoch,monotonic=self.mono,sleep=self.b.sleep)
+        old.prepare();old.act(self.f.call('open'))
+        self.assertEqual(1,old.store.read()['iosNavigationFeatureVersion'])
+        original=deepcopy(self.f.admission.store.read());current=self.flow()
+        current.act(self.f.call('close'))
+        self.assertEqual(2,current.store.read()['iosNavigationFeatureVersion'])
+        self.assertEqual(0,current.state['stage']);self.assertIsNone(current.state['transferSha256'])
+        self.assertEqual(dict(primary=0,actor=0),current.state['observerOffsets'])
+        self.assertEqual(original,self.f.admission.store.read());self.assertIsNone(self.b.screen)
+
     def test_lost_parent_ack_adopts_existing_real_surface_ack_without_replaying_any_input(self):
         flow=self.flow();flow.prepare();call=self.f.call('open');write=flow.store.write
         def lost(value,previous):

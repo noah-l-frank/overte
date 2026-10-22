@@ -18,7 +18,8 @@ from ios.adapters.navigation_admission_owner import NavigationAdmissionOwner,SOU
 from ios.adapters.navigation_process_context import snapshot
 from ios.adapters.navigation_scene_admission import validate as admission_original
 
-VERSION=1
+VERSION=2
+READS=(1,2)
 
 
 class NavigationBeforeRestart:
@@ -45,14 +46,15 @@ class NavigationBeforeRestart:
         self.previous=store.read()
         self.state=None if self.previous is None else self.decode(self.previous)
 
-    def envelope(self,state):
-        return dict(iosNavigationBeforeRestartVersion=VERSION,binding=self.binding,runId=self.run,
+    def envelope(self,state,version=VERSION):
+        return dict(iosNavigationBeforeRestartVersion=version,binding=self.binding,runId=self.run,
             initialAdmissionSha256=digest(self.initial),fixtureUrl=self.fixture_url,missing=deepcopy(self.missing),payload=pack([state]))
 
     def group(self,state):
         value=dict(originals=deepcopy(state['originals']),clockJoin=deepcopy(state['clockJoin']),
             provider=deepcopy(state['providerAfter']),missing=deepcopy(self.missing))
         if state['addressOwner'] is not None:value['addressOwner']=deepcopy(state['addressOwner'])
+        if state.get('surfaceOwner') is not None:value['surfaceOwner']=deepcopy(state['surfaceOwner'])
         return value
 
     def validate(self,state):
@@ -79,13 +81,15 @@ class NavigationBeforeRestart:
 
     def decode(self,value):
         exact(value,{'iosNavigationBeforeRestartVersion','binding','runId','initialAdmissionSha256','fixtureUrl','missing','payload'})
-        rows=unpack(value['payload']);need(type(value['iosNavigationBeforeRestartVersion']) is int
-            and value['iosNavigationBeforeRestartVersion']==VERSION and len(rows)==1 and same(value,self.envelope(rows[0])))
+        version=value['iosNavigationBeforeRestartVersion']
+        rows=unpack(value['payload']);need(type(version) is int
+            and version in READS and len(rows)==1 and same(value,self.envelope(rows[0],version)))
         state=rows[0];exact(state,{'phase','started','providerBefore','providerAfter','providerRead','nativeStart','nativeEnd',
-            'originals','clockJoin','addressOwner','result'})
+            'originals','clockJoin','addressOwner','result'}|({'surfaceOwner'} if version>=2 else set()))
         need(state['phase'] in ('reading','observed') and type(state['originals']) is dict and set(state['originals'])<=set(SOURCES))
         if state['phase']=='observed':need(same(state['result'],self.validate(state)))
         else:need(state['result'] is None)
+        if version==1:state=dict(state,surfaceOwner=None)
         return deepcopy(state)
 
     def bound(self):
@@ -103,7 +107,7 @@ class NavigationBeforeRestart:
         self.bound();need(self.state is None)
         self.state=dict(phase='reading',started=dict(epoch=self.epoch_ms(),monotonic=self.monotonic()),
             providerBefore=None,providerAfter=None,providerRead=None,nativeStart=None,nativeEnd=None,
-            originals={},clockJoin=None,addressOwner=None,result=None);self.save()
+            originals={},clockJoin=None,addressOwner=None,surfaceOwner=None,result=None);self.save()
         state=self.state;state['providerBefore']=self.admission.fixture.scene();self.save()
         window=NativeClockAcquisition(self.admission.native,epoch_ms=self.epoch_ms,monotonic=self.monotonic)
         window.begin(state['started']['epoch']);state['nativeStart']=deepcopy(window.started);self.save()
@@ -117,6 +121,8 @@ class NavigationBeforeRestart:
             for field in ('capturedEpochMs','sampleEpochMs') if field in packet]);self.save()
         address=PrivateFeatureState(self.store.path.with_name('ios-navigation-address-'+self.binding['processIdentity']+'-inputs.json'))
         state['addressOwner']=deepcopy(address.read());self.save()
+        surface=PrivateFeatureState(self.store.path.with_name('ios-navigation-surface-actions.json'))
+        state['surfaceOwner']=deepcopy(surface.read());self.save()
         state['providerAfter']=self.admission.fixture.scene()
         state['providerRead']=dict(epoch=self.epoch_ms(),monotonic=self.monotonic());self.save()
         return self.recover()

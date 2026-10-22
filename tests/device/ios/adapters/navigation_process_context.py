@@ -23,13 +23,14 @@ from ios.adapters.navigation_scene_scope import owned as owned_scene
 from ios.adapters.navigation_address_inputs import transfer_original as address_original
 from navigation_observation import same_viewpoint
 
-VERSION=2
+VERSION=3
+READS=(1,2,3)
 
 
 def snapshot(initial,binding,value,fixture_url,*,floor=None):
     """Validate one retained read group; the provider supplies no product fact."""
-    need(type(value) is dict and set(value) in ({'originals','clockJoin','provider','missing'},
-        {'originals','clockJoin','provider','missing','addressOwner'}))
+    need(type(value) is dict and {'originals','clockJoin','provider','missing'}<=set(value)
+        <={'originals','clockJoin','provider','missing','addressOwner','surfaceOwner'})
     raw=value['originals'];exact(raw,admission.ORIGINALS);clock=validate_join(value['clockJoin'],raw)
     need(raw['navigation']['source']['view']['mode']==initial['originals']['navigation']['source']['view']['mode'])
     basis=dict(binding=binding,runId=initial['runId'],providerInstance=initial['providerInstance'],
@@ -41,8 +42,14 @@ def snapshot(initial,binding,value,fixture_url,*,floor=None):
     actual=places.compose(initial['runId'],binding,selected,view,baseline=initial['bookmarkBaseline'],
         provider_inputs=initial['providerInputs'])
     need(actual['fields']['panel'] is False and actual['fields']['addressDialog'] is False
-         and not raw['model']['roots'] and raw['model']['complete']
+         and raw['model']['complete']
          and same(raw['model']['preferences'],initial['originals']['model']['preferences']))
+    places_roots=None
+    if 'surfaceOwner' in value:
+        from ios.adapters.navigation_surface_actions import NavigationSurfaceActions
+        need(floor is not None)
+        places_roots=NavigationSurfaceActions.retained_roots(value['surfaceOwner'],initial,raw['model'],raw['ui'],fixture_url)
+    else:need(not raw['model']['roots'])
     selected,view=product.validation_view(clock,raw,errors.ORIGINALS)
     error=errors.compose(initial['runId'],binding,selected,view,missing=value['missing'])
     need(error['fields']==dict(error='none',addressDialog=False) and not raw['replies']['currentLookupActive'])
@@ -59,7 +66,8 @@ def snapshot(initial,binding,value,fixture_url,*,floor=None):
                 int(binding['processIdentity']),clock['nativeAfter']['capturedEpochMs'],floor['originals'][name])
         errors.continuation(raw,floor['originals'],initial['runId'],int(binding['processIdentity']),clock['nativeAfter']['capturedEpochMs'])
     return dict(scene=scene,bookmark=places.bookmark_entries(raw['bookmarks'],initial['runId'],int(binding['processIdentity'])),
-        originalsSha256=digest(raw),clockJoinSha256=digest(clock),**({} if address is None else dict(addressRoot=address)))
+        originalsSha256=digest(raw),clockJoinSha256=digest(clock),**({} if address is None else dict(addressRoot=address)),
+        **({} if places_roots is None else dict(placesRoots=places_roots)))
 
 
 def transfer(initial,before,receipt,after,owner_files,fixture_url,*,version=VERSION):
@@ -69,8 +77,9 @@ def transfer(initial,before,receipt,after,owner_files,fixture_url,*,version=VERS
     foreign startup world requires separate fresh admission and normal entry;
     a restart acknowledgment cannot make it an owned run scene.
     """
-    need(type(version) is int and version in (1,VERSION))
+    need(type(version) is int and version in READS)
     if version==1:need('addressOwner' not in before and 'addressOwner' not in after)
+    if version<3:need('surfaceOwner' not in before and 'surfaceOwner' not in after)
     initial=admission.validate(initial);resource_root(fixture_url,initial['runId'])
     origin=urlsplit(initial['providerInputs']['sceneUrl'])
     need(fixture_url==origin.scheme+'://'+origin.netloc+'/feature-fixture/v1/runs/'+initial['runId']+'/')
@@ -108,7 +117,7 @@ def validate(value,owner_files):
     exact(value,{'iosNavigationProcessContextVersion','initialAdmission','before','restart','after','ownerFiles',
         'fixtureUrl','oldScope','currentScope'})
     version=value['iosNavigationProcessContextVersion']
-    need(type(version) is int and version in (1,VERSION)
+    need(type(version) is int and version in READS
          and same(value['ownerFiles'],list(owner_files)))
     expected=transfer(value['initialAdmission'],value['before'],value['restart'],value['after'],owner_files,value['fixtureUrl'],version=version)
     need(same(value,expected));return deepcopy(expected)

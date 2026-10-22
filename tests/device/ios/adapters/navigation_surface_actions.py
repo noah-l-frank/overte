@@ -44,6 +44,31 @@ class _SurfaceUI(NativeUI):
 
 
 class NavigationSurfaceActions:
+    @classmethod
+    def retained_roots(cls,value,initial,model,ui,fixture_url):
+        """Original owned hidden roots; retention never means destruction."""
+        from types import SimpleNamespace
+        from adapters.native_clock_join import digest
+        from ios.adapters.places_model import original as model_original
+        from ios.adapters.navigation_scene_admission import validate as admission_original
+        initial=admission_original(initial);model_original(model);need(model['iosPlacesModelVersion']==2)
+        checker=object.__new__(cls);checker.binding=initial['binding'];checker.run=initial['runId']
+        checker.admission=SimpleNamespace(archive=lambda:initial,fixture=SimpleNamespace(fixture_url=fixture_url,
+            inputs=initial['providerInputs'],instance=initial['providerInstance']))
+        state=checker.decode(deepcopy(value));checker.packet(ui)
+        rows=state['actions'];need(rows[-1]['phase']=='acknowledged'
+            and rows[-1]['surface']=='close' and not ui['tabletShown']
+            and model['clockBefore']['epochMs']>=rows[-1]['after']['sampleEpochMs'])
+        checker.follow(rows[-1]['after'],ui)
+        pages=[row['page'] for row in rows if row['phase']=='acknowledged' and row['surface']=='open']
+        roots=[]
+        for root in model['roots']:
+            page={key:root[key] for key in ('rootId','qmlSource')}
+            need(page in pages and not root['active'] and not root['visible'] and root['popup']=='none'
+                and not root['dialog']['visible'] and not root['pendingCommands'])
+            roots.append(dict(page,status='retained',drained=False))
+        return dict(iosNavigationPlacesRootScopeVersion=1,surfaceSha256=digest(value),modelSha256=digest(model),roots=roots)
+
     def __init__(self, store, admission, ui, native, *, monotonic=time.monotonic):
         need(isinstance(store, PrivateFeatureState) and isinstance(admission, (NavigationAdmissionOwner,NavigationProcessScope))
              and not admission.historical and isinstance(ui, NativeUI) and isinstance(native, NativeInput)

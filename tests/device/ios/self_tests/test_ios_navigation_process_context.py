@@ -8,8 +8,10 @@ launch, kill or access any actual app or device and proves no product restart.
 from copy import deepcopy
 import hashlib
 import json
+import time
 import unittest
 import uuid
+from unittest.mock import patch
 
 from adapters.native_clock_join import digest
 from adapters.normal_ui import NativeUIError
@@ -27,7 +29,14 @@ from ios.self_tests.test_ios_navigation_dialogs import Boundary as Dialogs
 
 class NavigationProcessContextTests(unittest.TestCase):
     def setUp(self):
-        self.h=scene_inputs_tests.NavigationSceneInputsTests();self.h.setUp();self.addCleanup(self.h.doCleanups)
+        # Fix the modeled host clock before the first server response exists.
+        # Real filesystem latency must not turn this deterministic native seam
+        # into a mixture of wall time and its independently advanced timeline.
+        start=time.time()
+        def host_time():
+            return start+getattr(getattr(getattr(self,'h',None),'h',None),'ms',0)/1000
+        clock=patch('time.time',side_effect=host_time);clock.start();self.addCleanup(clock.stop)
+        self.h=scene_inputs_tests.NavigationSceneInputsTests();self.addCleanup(self.h.doCleanups);self.h.setUp()
         self.lock=self.h.h.lock
         with self.lock.held():
             owner=self.h.owner();owner.enter();self.h.owned_scene()
@@ -114,6 +123,16 @@ class NavigationProcessContextTests(unittest.TestCase):
 
     def transfer(self):return process.transfer(self.initial,self.before,self.receipt,self.after,self.owners,self.url)
 
+    def test_original_writer2_context_keeps_its_shape_and_cannot_adopt_new_surface_responsibility(self):
+        original=deepcopy((self.initial,self.before,self.receipt,self.after))
+        value=process.transfer(self.initial,self.before,self.receipt,self.after,self.owners,self.url,version=2)
+        self.assertEqual(2,value['iosNavigationProcessContextVersion'])
+        self.assertEqual(value,process.validate(value,self.owners))
+        self.assertEqual(2,process.source_basis(value,self.owners)['iosNavigationProcessSourceBasisVersion'])
+        self.assertNotIn('placesRoots',value['oldScope']);self.assertEqual(original,(self.initial,self.before,self.receipt,self.after))
+        before=deepcopy(self.before);before['surfaceOwner']={}
+        with self.assertRaises(NativeUIError):process.transfer(self.initial,before,self.receipt,self.after,self.owners,self.url,version=2)
+
     def rehash(self,group):group['clockJoin']['originalsSha256']=digest(group['originals'])
 
     def test_new_source_floor_preserves_original_admission_and_actual_persisted_bookmark_without_retiming(self):
@@ -124,7 +143,7 @@ class NavigationProcessContextTests(unittest.TestCase):
         self.assertEqual(self.initial['bookmarkBaseline'],basis['bookmarkBaseline']);self.assertEqual(self.after['originals'],basis['originals'])
         self.assertEqual(self.before['originals']['bookmarks']['file'],self.after['originals']['bookmarks']['file'])
         self.assertNotIn('passed',value);self.assertNotIn('restored',basis)
-        self.assertEqual(2,value['iosNavigationProcessContextVersion']);self.assertEqual(2,basis['iosNavigationProcessSourceBasisVersion'])
+        self.assertEqual(3,value['iosNavigationProcessContextVersion']);self.assertEqual(3,basis['iosNavigationProcessSourceBasisVersion'])
         self.assertEqual('retained',value['oldScope']['addressRoot']['root']['status'])
         self.assertFalse(value['oldScope']['addressRoot']['root']['drained'])
         self.assertEqual([],value['after']['originals']['ui']['navigationInventory']['roots'])

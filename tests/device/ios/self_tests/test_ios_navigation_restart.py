@@ -28,6 +28,14 @@ from navigation_observation import viewpoint_urls
 from self_tests.test_native_feature_observation import Boundary as NativeBoundary
 from self_tests.test_native_process_presence import Boundary as PresenceBoundary
 from adapters.restart_inputs import RestartDeliveryUncertain
+from ios.adapters.navigation_before_restart import NavigationBeforeRestart
+
+
+class LegacyBeforeRestart(NavigationBeforeRestart):
+    """The original writer-1 shape is emitted before any carrier is stored."""
+    def envelope(self,state,version=1):
+        state=deepcopy(state);state.pop('surfaceOwner',None)
+        return super().envelope(state,1)
 
 
 class OldNative(NativeFeatureObservation):
@@ -150,7 +158,10 @@ class NavigationRestartTests(unittest.TestCase):
             pointer_reader=pointer.reader();self.pointer_before=pointer_reader.read(self.run)
             self.h.host=time.time()*1000-self.h.ms
             self.h.fixture.harness.provider.clock_ms=lambda:int(self.h.epoch())
-            self.before=self.fixture.owner();self.before.acquire()
+            self.before=(LegacyBeforeRestart(PrivateFeatureState(self.root/'ios-navigation-before-restart.json'),
+                self.fixture.admission,epoch_ms=self.h.epoch,monotonic=self.h.mono)
+                if getattr(self,'legacy',False) else self.fixture.owner())
+            self.before.acquire()
             pointer.now=self.last;self.pointer_after=pointer_reader.read(self.run)
         self.ticket='9'*32;self.h.fixture.harness.client.activate(self.ticket,'restart-app',{})
         self.call=dict(contractVersion=16,runId=self.run,ticket=self.ticket,
@@ -158,8 +169,21 @@ class NavigationRestartTests(unittest.TestCase):
         self.lifecycle=LifecycleBoundary(self);self.runtime.adapter=self.lifecycle
         self.runtime.existing_input_session=self.lifecycle.session;self.runtime._sources=self.lifecycle.sources
 
-    def owner(self):return NavigationRestart(self.runtime,'existing',self.initial,self.sample_sources,self.lock,self.fixture.admission.fixture,
-        epoch_ms=self.h.epoch,monotonic=self.h.mono)
+    def owner(self):
+        owner=NavigationRestart(self.runtime,'existing',self.initial,self.sample_sources,self.lock,self.fixture.admission.fixture,
+            epoch_ms=self.h.epoch,monotonic=self.h.mono)
+        if getattr(self,'legacy',False) and owner.previous is None:owner.version=1
+        return owner
+
+    def test_genuine_legacy_before_and_restart_writers_remain_readable_without_relabelling_originals(self):
+        self.doCleanups();self.legacy=True;self.setUp()
+        with self.fixture.held():
+            self.assertEqual(1,self.before.previous['iosNavigationBeforeRestartVersion'])
+            owner=self.prepare();receipt=owner.restart();raw=deepcopy(owner.store.read())
+            self.assertEqual(1,raw['iosNavigationRestartVersion'])
+            self.assertFalse(list(self.root.glob('ios-navigation-restart-original-*.json')))
+            self.assertEqual(receipt,self.owner().restart());self.assertEqual(raw,owner.store.read())
+            self.assertEqual(['app.stop','app.launch'],self.lifecycle.calls)
 
     def test_preparation_preserves_scene_and_image_originals_before_any_normal_lifecycle_input(self):
         with self.fixture.held():
@@ -167,6 +191,16 @@ class NavigationRestartTests(unittest.TestCase):
             self.assertEqual('prepared',owner.state['status']);self.assertEqual('prepared',owner.inputs.read()['phase'])
             self.assertIsNone(owner.state['receipt']);self.assertEqual(self.drains,owner.state['drains'])
             self.assertEqual(owner.state,self.owner().state)
+
+    def test_immutable_drain_original_replacement_cannot_authorize_normal_stop(self):
+        with self.fixture.held():
+            owner=self.prepare();parent=deepcopy(owner.store.read())
+            self.assertEqual(2,parent['iosNavigationRestartVersion'])
+            row=unpack(parent['payload'])[0]['drains']['primary']['rows'][0]
+            store=owner.original_store(row['kind'],row['ordinal']);actual=store.read();changed=deepcopy(actual)
+            changed['runId']='f'*32;store.write(changed,actual)
+            with self.assertRaises(NativeUIError):owner.restart()
+            self.assertEqual([],self.lifecycle.calls);self.assertEqual(parent,owner.store.read())
 
     def prepare(self):
         owner=self.owner();owner.prepare(self.call,self.before,self.drains,self.pointer_before,self.pointer_after);return owner

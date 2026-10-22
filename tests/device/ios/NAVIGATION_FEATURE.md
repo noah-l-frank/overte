@@ -26,8 +26,9 @@ reads; child scopes cannot grant a new deadline.
 Native original observations, first-open directory recovery, independent actor
 publication, actual restart transfer and final static restoration are existing
 separate primitives. Their complete whole-run joining remains required; this
-coordinator currently refuses restart rather than reporting an acknowledged
-process replacement. It provides no whole public observation/cleanup operation
+coordinator retains ordinary restart and process-source transfer separately.
+A lifecycle acknowledgment alone cannot advance its stage. It provides no whole
+public observation/cleanup operation
 or capability advertisement. The role may read existing admission but only the
 primary can send scene entry/action input.
 
@@ -117,3 +118,24 @@ surface journal. New physical HTTP requests have distinct XHR/reply identities;
 earlier received originals remain untouched. Its final fenced image must differ
 from the immediately preceding original. A replaced page without a new owned
 open cannot send a token. Restart and paired restoration remain separate work.
+
+The version-2 parent keeps the initial binding separate from its current binding
+and per-role global observation offsets. Legacy version-1 carriers remain
+first-process-only originals. Restart admission requires complete observed
+Primary and Actor indices, actual per-image native drainage, original pointer
+quiescence and a fresh complete old-process source group. That group must extend
+both participants' actual last observations. Only the normal one-send restart
+receipt, actual old-PID absence and independently acquired typed new-process
+source owner can change the current stage and offsets. The original static
+admission and its bookmark baseline remain unchanged. A lost parent return
+reuses actual child journals; missing new-process originals leave the parent
+issued and never repeat stop/launch. This remains an internal coordinator, with
+whole public publication/restoration/finalization still required.
+
+The connected restart host seam runs genuine normal bookmark creation/rename,
+closure, independent observations, retained image drainage and the normal
+lifecycle input journal. Its explicit OS/native model reports the new PID and
+ESRCH for the old PID. A deliberately unavailable new source group must leave
+the old parent binding and null transfer hash intact, including reconstruction.
+An absent Actor original or unowned hidden Places root blocks stop entirely.
+No test here launches a real app or qualifies a device.

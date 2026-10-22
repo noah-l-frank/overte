@@ -81,13 +81,13 @@ class IOSNavigationRuntime(IOSScriptRuntime):
             need(inputs.read()['phase']=='launch-issued')
             self.adapter._recover_script_restart_launch(selector,inputs=inputs)
 
-    def _navigation_before_restart(self,selector,admission):
+    def _navigation_before_restart(self,selector,admission,*,missing=None):
         from ios.adapters.navigation_before_restart import NavigationBeforeRestart
         need(isinstance(admission,NavigationAdmissionOwner));admission.bound()
         source=self._sources(selector);need(same(source['binding'],admission.binding)
             and admission.store.path.parent==self.state_path(selector).parent)
         return NavigationBeforeRestart(PrivateFeatureState(admission.store.path.with_name(
-            'ios-navigation-before-restart.json')),admission)
+            'ios-navigation-before-restart.json')),admission,missing=missing)
 
     def _navigation_process_scope(self,owner):
         return NavigationProcessScope(owner)
