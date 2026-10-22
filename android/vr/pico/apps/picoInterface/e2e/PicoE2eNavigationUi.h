@@ -22,7 +22,8 @@ public:
     QJsonObject apply(QQuickItem* root, QQuickWindow* window, bool open,
                       const QJsonObject& command,
                       const std::function<bool(QQuickItem*)>& pointerClick,
-                      const std::function<bool(QQuickItem*, const QPointF&)>& pointerAt = {});
+                      const std::function<bool(QQuickItem*, const QPointF&)>& pointerAt = {},
+                      const std::function<bool(QQuickItem*, const QPointF&, int)>& pointerScroll = {});
 private:
     struct Control {
         QPointer<QQuickItem> item;
@@ -36,6 +37,9 @@ private:
     QString _generation;
     QElapsedTimer _clock;
     qint64 _lastCommandSequence { 0 };
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    quint64 _emoteSourceSequence { 0 };
+#endif
     bool _open { false };
 };
 

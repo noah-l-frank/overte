@@ -16,6 +16,7 @@
 #include "../../../../../../tests/device/native/NormalScriptFileControls.h"
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #include "../../../../../../tests/device/native/ScriptFileUi.h"
+#include "../../../../../../tests/device/native/NormalEmoteControls.h"
 #include "../../../../../../tests/device/native/NormalAccountMenuControls.h"
 #include "../../../../../../tests/device/native/NormalPlacesControls.h"
 #include "../../../../../../tests/device/native/NavigationFailureModals.h"
@@ -72,6 +73,8 @@ QString controlId(QQuickItem* item) {
     const auto places = overte::e2e::placesControlId(item);
     if (!places.isEmpty()) { return places; }
 #endif
+    const auto emote=overte::e2e::emoteControlId(item);
+    if (!emote.isEmpty()) { return emote; }
     const auto chat=overte::e2e::chatControlId(item);
     if (!chat.isEmpty()) { return chat; }
     const auto create=overte::e2e::createControlId(item);
@@ -152,6 +155,7 @@ QJsonObject NavigationUi::observe(QQuickItem* root, QQuickWindow* window, bool o
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     // Observe roots at the original normal-control read before a possible
     // close/replacement, even if no passive publisher has polled yet.
+    if (_emoteSourceSequence>=9007199254740991ULL) { return {}; }
     overte::e2e::graphicsUiInventory().observe(root,window);
     overte::e2e::ensureTabletHttpProvider(root);
 #endif
@@ -233,6 +237,9 @@ QJsonObject NavigationUi::observe(QQuickItem* root, QQuickWindow* window, bool o
                 } else if (id=="navigation.goto" || id.startsWith("tablet.page.")) {
                     source=overte::e2e::navigationLookupControlSource(item,id);
                     if (source.isEmpty()) { ambiguous=true;return; }
+                } else if (id.startsWith("emote.")) {
+                    source=overte::e2e::emoteControlSource(item,id);
+                    if (source.isEmpty()) { ambiguous=true;return; }
                 } else if (id.startsWith("chat.")) {
                     source=overte::e2e::chatControlSource(item,id);
                     if (source.isEmpty()) { ambiguous=true;return; }
@@ -305,6 +312,8 @@ QJsonObject NavigationUi::observe(QQuickItem* root, QQuickWindow* window, bool o
         if (id=="navigation.address") {
             const auto original=overte::e2e::navigationAddressObservation(control.item);
             for (auto item=original.begin();item!=original.end();++item) { row[item.key()]=item.value(); }
+        } else if (id.startsWith("emote.")) {
+            overte::e2e::appendEmoteControlObservation(row,control.item,id);
         } else if (id.startsWith("chat.")) {
             overte::e2e::appendChatControlObservation(row,control.item,id);
         } else if (id.startsWith("create.")) {
@@ -331,6 +340,8 @@ QJsonObject NavigationUi::observe(QQuickItem* root, QQuickWindow* window, bool o
     result["featureControlsVersion"] = 1;
     result["createControlsVersion"] = 1;
     result["chatControlsVersion"] = 2;
+    result["emoteControlsVersion"] = 2;
+    result["emoteSourceSequence"] = static_cast<double>(++_emoteSourceSequence);
     result["fileControlsVersion"] = 1;
     if (audioContext.valid) { result["audioControlsVersion"] = 1; }
     if (graphicsContext.valid) { result["graphicsControlsVersion"] = 1; }
@@ -354,7 +365,8 @@ QJsonObject NavigationUi::observe(QQuickItem* root, QQuickWindow* window, bool o
 QJsonObject NavigationUi::apply(QQuickItem* root, QQuickWindow* window, bool open,
                                const QJsonObject& command,
                                const std::function<bool(QQuickItem*)>& pointerClick,
-                               const std::function<bool(QQuickItem*, const QPointF&)>& pointerAt) {
+                               const std::function<bool(QQuickItem*, const QPointF&)>& pointerAt,
+                               const std::function<bool(QQuickItem*, const QPointF&, int)>& pointerScroll) {
     if (!qApp || QThread::currentThread() != qApp->thread()) { return {}; }
     const auto current = observe(root, window, open);
     const auto id = command.value("commandId").toString();
@@ -434,6 +446,17 @@ QJsonObject NavigationUi::apply(QQuickItem* root, QQuickWindow* window, bool ope
         const auto point=control.item->mapToScene(QPointF(control.item->width()/2,control.item->height()/2));
         if (current.value("accountMenuControlsVersion")==QJsonValue(1) && ready && action=="activate"
                 && pointerClick && overte::e2e::NormalControlUi::ownsPoint(control.item,window,point)) { delivered=pointerClick(control.item); }
+    } else if (controlId.startsWith("emote.")) {
+        QJsonObject row;overte::e2e::appendEmoteControlObservation(row,control.item,controlId);
+        if (current.value("emoteControlsVersion")!=QJsonValue(2) || !row.value("inputReady").toBool()) { return result; }
+        const auto rect=overte::e2e::emoteVisibleRect(control.item);const auto point=rect.center();
+        if (rect.isEmpty() || !overte::e2e::NormalControlUi::ownsPoint(control.item,window,point)) { return result; }
+        if (action=="activate" && controlId!="emote.page" && controlId!="emote.grid" && pointerClick) {
+            delivered=pointerClick(control.item);
+        } else if (action=="scroll" && controlId=="emote.grid" && pointerScroll) {
+            const auto direction=command.value("direction").toString();
+            if (direction=="up" || direction=="down") { delivered=pointerScroll(control.item,point,direction=="up" ? 120 : -120); }
+        }
     } else if (controlId.startsWith("chat.")) {
         QJsonObject row;overte::e2e::appendChatControlObservation(row,control.item,controlId);
         if (current.value("chatControlsVersion")!=QJsonValue(2) || !row.value("inputReady").toBool()) { return result; }

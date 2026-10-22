@@ -72,6 +72,7 @@ TESTS = (
     test("tablet-home-ray", "interaction", PYTHON, "device/test_tablet_home.py"),
     test("normal-create", "interaction", PYTHON, "device/test_normal_create.py"),
     test("normal-chat", "interaction", PYTHON, "device/test_normal_chat.py"),
+    test("normal-emote", "interaction", PYTHON, "device/test_normal_emote.py"),
     test("normal-login", "interaction", PYTHON, "device/test_normal_login.py"),
     test("create-qml", "interaction", PYTHON, "pico-create-qml-test.py"),
     test("create-properties", "interaction", "node", "pico-create-properties-validation-test.js", requires=("node",)),

@@ -308,6 +308,36 @@ bool sendPointerClick(QQuickItem* item, OffscreenQmlSurface* surface) {
 }
 
 #if defined(OVERTE_E2E_FEATURE_TESTS)
+bool sendPointerScroll(QQuickItem* item, OffscreenQmlSurface* surface, const QPointF& position, int delta) {
+    auto window=surface ? surface->getWindow() : nullptr;
+    if (!effectiveVisible(item) || !item->isEnabled() || !surface || !window || item->window()!=window
+            || (delta!=120 && delta!=-120) || !item->contains(item->mapFromScene(position))
+            || !std::isfinite(position.x()) || !std::isfinite(position.y())
+            || position.x()<0 || position.y()<0 || position.x()>=window->width() || position.y()>=window->height()) { return false; }
+    for (auto parent=item->parentItem();parent;parent=parent->parentItem()) {
+        if (parent->clip() && !parent->clipRect().contains(parent->mapFromScene(position))) { return false; }
+    }
+    constexpr uint32_t POINTER_ID { 0xE2E00001u };
+    const glm::vec2 point{static_cast<float>(position.x()),static_cast<float>(position.y())};
+    PointerEvent move(PointerEvent::Move,POINTER_ID,point,PointerEvent::NoButtons,PointerEvent::NoButtons,Qt::NoModifier);
+    PointerEvent scroll(PointerEvent::Scroll,POINTER_ID,point,PointerEvent::NoButtons,PointerEvent::NoButtons,Qt::NoModifier);
+    scroll.setScroll(glm::vec2(0.0f,static_cast<float>(delta)/POINTEREVENT_SCROLL_SENSITIVITY));
+    // The original surface combines mouse/touch/wheel acceptance. An ignored
+    // auxiliary touch event is not proof that the real wheel was not delivered.
+    // Observe actual delivery without consuming the event or claiming movement.
+    struct WheelDelivery : QObject {
+        bool seen{false};
+        bool eventFilter(QObject*,QEvent* event) override { if (event->type()==QEvent::Wheel) { seen=true; } return false; }
+    } delivery;
+    window->installEventFilter(&delivery);
+    auto& device=bridgeTouchDevice();surface->hoverBeginEvent(move,device);
+    surface->handlePointerEvent(scroll,device);
+    surface->hoverEndEvent(move,device);window->removeEventFilter(&delivery);
+    return delivery.seen;
+}
+#endif
+
+#if defined(OVERTE_E2E_FEATURE_TESTS)
 QUrl lifecycleScriptSource(const QString& relative) {
     auto base=PathUtils::defaultScriptsLocation();
     if (!base.path().endsWith('/')) { base.setPath(base.path()+'/'); }
@@ -603,7 +633,14 @@ private:
         // navigation resolver itself cannot call AddressManager or QML slots.
         const auto status = _navigation.apply(root, window, open, command,
             [surface](QQuickItem* item) { return sendPointerClick(item, surface); },
-            [surface](QQuickItem* item, const QPointF& point) { return sendPointerAt(item, surface, point); });
+            [surface](QQuickItem* item, const QPointF& point) { return sendPointerAt(item, surface, point); },
+            [surface](QQuickItem* item, const QPointF& point, int delta) {
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+                return sendPointerScroll(item,surface,point,delta);
+#else
+                Q_UNUSED(item) Q_UNUSED(point) Q_UNUSED(delta) return false;
+#endif
+            });
         writeJson(BRIDGE_DIRECTORY + "/navigation-ui-status.json", status);
     }
 

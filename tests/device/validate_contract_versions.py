@@ -113,6 +113,7 @@ REQUIRED = {
     "native-login-controls": 2,
     "native-create-controls": 1,
     "native-chat-controls": 2,
+    "native-emote-controls": 2,
     "native-audio-controls": 1,
     "native-graphics-controls": 1,
     "world-render-acquisition": 4,

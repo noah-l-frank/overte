@@ -481,6 +481,12 @@ def create_adapter(args, base_class):
         def _create_management(self, target):
             return create_management.PicoCreateManagement(self, target)
 
+        def _emote_controls(self, target, intent, receipt=None):
+            from adapters.token_emote_ui import TokenEmoteUI
+            from adapters.pico4.normal_emote import PicoEmoteIO
+            manager = self._scripts(target)
+            return TokenEmoteUI(PicoEmoteIO(manager.ui.io), intent, receipt=receipt)
+
         def _chat_controls(self, target, intent, run):
             from adapters.token_chat_ui import TokenChatUI
             from adapters.pico4.normal_chat import PicoChatIO

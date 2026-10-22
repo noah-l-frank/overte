@@ -124,3 +124,14 @@ method compile and its Qt keyword fix. Complete original roots, compiled Pico
 source and all twelve actual loaded models must agree. Nothing is prefetched
 or repaired. Cache readiness is a prerequisite; durable whole-feature input,
 actor/stereo and final retirement remain unfinished.
+
+## Actual normal VR chooser input
+
+The [original controls contract](../../native/NORMAL_EMOTE_CONTROLS.md) selects
+the common token recipe and actual shared QML widget identities from the same
+fixed committed Phone reference. Pico supplies its own UUIDs, advancing original
+source counter and actual native PointerEvent route. Normal input remains
+separate from animation/cache/Rig/image/actor evidence. The real Qt5 original
+GridView exposed and now tests the corrected visual-stacking hit-test. Delivered
+Scroll with unchanged original contentY remains a documented refusal to infer
+effect, not a completed viewport-scroll verdict.

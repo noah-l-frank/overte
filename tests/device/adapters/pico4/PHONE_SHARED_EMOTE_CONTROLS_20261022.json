@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "abb7f6b60d97daf17752aadf94e2b5df099bb7ba",
+  "targetBase": "4b5eeeb5a1",
+  "uncommittedPhoneWorkExcluded": true,
+  "files": [
+    {
+      "sourcePath": "tests/device/adapters/token_emote_ui.py",
+      "targetPath": "tests/device/adapters/token_emote_ui.py",
+      "sourceSha256": "4d09ea62be0afdc5e6859ea65496030ec3c0a58a83a0fd1ff01338c868f5370a",
+      "targetSha256": "48d1136d7337dee0a4c0ca9500f2a5304b46dc79e840818d6a0e592ca416b837",
+      "selection": "narrow-reviewed-Pico-compatible-selection"
+    },
+    {
+      "sourcePath": "tests/device/self_tests/test_token_emote_ui.py",
+      "targetPath": "tests/device/self_tests/test_token_emote_ui.py",
+      "sourceSha256": "4fcdd098e3ebbf7a9d84792e4c9a317d347645bcbd4e70fce2ef96d05de40700",
+      "targetSha256": "4fcdd098e3ebbf7a9d84792e4c9a317d347645bcbd4e70fce2ef96d05de40700",
+      "selection": "exact"
+    },
+    {
+      "sourcePath": "tests/device/native/NormalEmoteControls.h",
+      "targetPath": "tests/device/native/NormalEmoteControls.h",
+      "sourceSha256": "90bad65543148a1f9d299c98ad627bb45996090a06533d41108817e7390dcc7a",
+      "targetSha256": "c5d5ae0ee64a974b247c0de61ecca74beb087393068d20b7d311dae1f60ebef9",
+      "selection": "narrow-reviewed-Pico-compatible-selection"
+    },
+    {
+      "sourcePath": "tests/device/native/NormalControlUi.h",
+      "targetPath": "tests/device/native/NormalControlUi.h",
+      "sourceSha256": "e794ceb5bc3e3b4bfa2b2e1a8ce5bb77eef32120165b2b950c3f432ca1b76a24",
+      "targetSha256": "c5449f6b83633f09b15c8617dc28e7d405e28ba0b331a8048fd8fccabf0b00af",
+      "selection": "narrow-reviewed-Pico-compatible-selection"
+    }
+  ],
+  "sharedContracts": [
+    "native-emote-controls v2 reads v1/v2"
+  ],
+  "details": [
+    "Original QML lexical emoteGrid identity; no product QML changes",
+    "Actual Pico UUID scope and advancing native source counter",
+    "Original Pico surface PointerEvent Scroll, never Phone wheel/touch transport",
+    "Visual stacking hit-test fix with actual original Qt5 GridView and foreign overlay check"
+  ],
+  "qualification": "Narrow actual widget/helper/branch/geometry/pointer compilation with explicit surface hosting seam. Shrunken-window Scroll delivered but ignored; no effect/device/full-app qualification."
+}

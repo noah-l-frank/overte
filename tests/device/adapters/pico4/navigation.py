@@ -10,6 +10,7 @@ import stat
 import time
 import uuid
 
+from adapters.token_emote_ui import metadata as emote_metadata,control_id as emote_control,same_reference as emote_same_reference
 from contracts import validate_operation_arguments
 from navigation_observation import OPERATIONS, viewpoint_urls
 from adapters.token_chat_ui import metadata as chat_metadata,control_id as chat_control,text as chat_text,same_reference as chat_same_reference
@@ -87,6 +88,10 @@ def validate_snapshot(value, process_id, epoch_ms):
     if type(value) is dict and 'graphicsControlsVersion' in value:
         fields.add('graphicsControlsVersion')
         need(type(value['graphicsControlsVersion']) is int and value['graphicsControlsVersion']==1)
+    if type(value) is dict and 'emoteControlsVersion' in value:
+        fields|={'emoteControlsVersion','emoteSourceSequence'}
+        need(type(value['emoteControlsVersion']) is int and value['emoteControlsVersion']==2
+            and integer(value['emoteSourceSequence']) and value['emoteSourceSequence']>0)
     if type(value) is dict and 'chatControlsVersion' in value:
         fields.add('chatControlsVersion')
         need(type(value['chatControlsVersion']) is int and value['chatControlsVersion'] in (1,2))
@@ -131,12 +136,15 @@ def validate_snapshot(value, process_id, epoch_ms):
         is_graphics=graphics_control(control['id']) and value.get('graphicsControlsVersion')==1
         is_create=control['id'].startswith('create.')
         is_chat=control['id'].startswith('chat.')
+        is_emote=control['id'].startswith('emote.')
         is_places=control['id'].startswith('places.')
         is_error=control['id'].startswith('navigation.error.ok.')
         if is_error:
             need(value.get('navigationErrorControlsVersion')==1);error_metadata(control);fields=set(control)
         elif is_places:
             need(value.get('placesControlsVersion')==1);places_metadata(control);fields=set(control)
+        elif is_emote:
+            need(value.get('emoteControlsVersion')==2);emote_metadata(control,2);fields=set(control)
         elif is_chat:
             need(value.get('chatControlsVersion') in (1,2));chat_metadata(control);fields=set(control)
             if control['id'] in ('chat.settings','chat.erase'):need(value['chatControlsVersion']==2)
@@ -164,6 +172,7 @@ def validate_snapshot(value, process_id, epoch_ms):
                  or script_control(control['id']) or file_control(control['id']) or audio_control(control['id'])
                  or graphics_control(control['id']) or control['id'] in LOGIN_IDS or control['id'] in ACCOUNT_MENU_IDS
                  or is_create and create_control(control['id']) or is_chat and chat_control(control['id'])
+                 or is_emote and emote_control(control['id'])
                  or is_places and places_control(control['id']) or is_error and error_control(control['id']))
              and identifier(control['token']) and control['id'] not in ids
              and control['token'] not in tokens and type(control['enabled']) is bool
@@ -317,6 +326,7 @@ class PicoNavigation:
             need(self.address_authority(expected_address) is True if self.address_authority is not None else expected_address in self.urls)
         is_create=control_id.startswith('create.')
         is_chat=control_id.startswith('chat.')
+        is_emote=control_id.startswith('emote.')
         is_places=control_id.startswith('places.')
         is_error=control_id.startswith('navigation.error.ok.')
         if reference is not None:
@@ -327,6 +337,9 @@ class PicoNavigation:
             elif 'placesControlsVersion' in reference:
                 from adapters.pico4.normal_places import project as places_project
                 original=places_same_reference(reference,places_project(snapshot),control_id)
+            elif 'emoteControlsVersion' in reference:
+                from adapters.pico4.normal_emote import project as emote_project
+                original=emote_same_reference(reference,emote_project(snapshot),control_id)
             elif 'chatControlsVersion' in reference:
                 from adapters.pico4.normal_chat import project as chat_project
                 original=chat_same_reference(reference,chat_project(snapshot),control_id)
@@ -347,6 +360,12 @@ class PicoNavigation:
         elif control_id in ACCOUNT_MENU_IDS:
             need(snapshot.get('accountMenuControlsVersion')==1 and control['inputReady'] and token is not None
                  and action=='activate' and all(v is None for v in (text,source,index,direction,value,reference)))
+        elif is_emote:
+            need(reference is not None and snapshot.get('emoteControlsVersion')==2 and control['inputReady']
+                and control_id!='emote.page' and all(v is None for v in (text,source,index,value))
+                and action in ('activate','scroll'))
+            if action=='scroll':need(control_id=='emote.grid' and direction in ('up','down'))
+            else:need(control_id!='emote.grid' and direction is None)
         elif is_chat:
             need(reference is not None and snapshot.get('chatControlsVersion') in (1,2) and control['inputReady']
                  and control_id!='chat.page' and value is None and direction is None and index is None and source is None

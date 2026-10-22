@@ -2222,5 +2222,65 @@
       "Standalone catalog exposed plain import in shared test helper; package-qualified/lazy test imports fixed"
     ],
     "limitations": "No whole Emote input, durable original role group, actor/stereo or complete retirement; full native app/APK unverified and devices0."
+  },
+  "normalEmoteControls": {
+    "status": "source-host-and-focused-original-Qt5-input-verified",
+    "contracts": [
+      "native-emote-controls v2 reads1/2"
+    ],
+    "componentSelection": {
+      "tests": 88,
+      "durationSeconds": 2.59
+    },
+    "actualPicoWrapper": {
+      "tests": 6,
+      "durationSeconds": 26.459
+    },
+    "nativeOriginalUI": {
+      "tests": 1,
+      "durationSeconds": 3.746,
+      "qt": "5.15.18",
+      "buttonInputs": 10,
+      "surfaceScrollEvents": 2,
+      "measuredDownContentYBefore": 0,
+      "measuredDownContentYAfter": 0,
+      "boundary": "Entire actual helper plus original branch, visual geometry, PointerEvent/OffscreenQmlSurface bodies; explicit surface hosting. No full app/device qualification; Down delivery without movement is not success."
+    },
+    "manifest": "PHONE_SHARED_EMOTE_CONTROLS_20261022.json",
+    "limitations": "Whole Emote capability unregistered; durable original source/role, actor/stereo, actual work/timer retirement, interruption/final cleanup unfinished.",
+    "pico": {
+      "selectedGroups": 5,
+      "catalogGroups": 54,
+      "durationSeconds": 87.98,
+      "junit": "emote-normal-controls-pico.xml"
+    },
+    "project": {
+      "suites": 4,
+      "durationSeconds": 2.83,
+      "junit": "emote-normal-controls-project.xml"
+    }
+  },
+  "lifecycleOriginalUIIntegration": {
+    "sourceCommits": [
+      "a34a684d8bfb484053e382befcc99a86c2302f52",
+      "ae6f42e4a8cd01fcdcb02d06a8baa3e0d9f0909a",
+      "975bac18a882656e7669481e36bc05f04281d5ed",
+      "0b718fd0d1e54c81fc3066c62ea8f3aa274b4957"
+    ],
+    "localCommits": [
+      "4690d2b6df",
+      "f61e5902f5",
+      "ec7fd7c5f1",
+      "4b5eeeb5a1"
+    ],
+    "status": "selected-host-and-focused-original-Qt5-source-pass",
+    "combinedComponents": {
+      "tests": 93,
+      "durationSeconds": 1.485
+    },
+    "sourceCases": 12,
+    "nativeQt5": "Original NativeCreate source and weak editor helper compile/run passed after safe harness fix",
+    "initialFailure": "Original integrated native run segfaulted; not reproduced by agent. Risky manual internal QQmlContext/engine ownership manipulation removed. Corrected integrated real Qt5 run exit0. Exact cause not proven.",
+    "boundary": "Hidden/detached or surviving original field/page/context remains retained. Context-only lifetime uses explicit application-owned objects. Full original QML context retirement, native app and devices unqualified."
   }
 }

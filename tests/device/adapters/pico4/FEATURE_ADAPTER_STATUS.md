@@ -558,3 +558,12 @@ compile/execution with weak-map/resource-row seams; full native application
 compilation remains unverified. Normal whole Emote input, durable role evidence,
 independent actor/stereo and full retirement remain open. No complete feature
 capability is added.
+
+
+The actual normal Emote chooser now has a version-2 Pico input binding on the
+existing native VR pointer route, preserving strict shared v1 readers. Real
+Qt5 tests reach all ten original Buttons and retain an actually ignored Scroll
+as a missing effect. Source/role/actor/stereo/final ownership composition is
+still required. The focused Lifecycle source also passes its corrected real
+Qt5 harness after removal of unsafe test-only context ownership manipulation;
+surviving original contexts remain retained. Complete areas remain three.

@@ -80,3 +80,23 @@ selection passes; `feature-observation`, `suite-runner`, `coverage-matrix` pass
 (3/53 groups, 29.41 seconds). Standalone catalog execution also exposed a test
 helper import that had been masked by a broader PYTHONPATH; fixed package/lazy
 imports preserve the same tests. Full whole-feature/device qualification is open.
+
+## Actual Pico Emote pointer route and Lifecycle source
+
+The original Emote helper, visual ownership, actual native input branch and
+extracted production surface/PointerEvent bodies compile and execute with real
+Qt5: ten actual Button messages and two delivered Scroll events (1 test,
+3.746 seconds). Explicit hosting seams remain. The shrunken window's original
+contentY stays zero after Down: event delivery is explicitly not scrolling
+qualification. Source-token geometry changes and a foreign higher-z overlay
+are tested. The 88-case affected component selection and six actual Pico
+wrapper cases pass; shared version-1 controls remain readable.
+
+The integrated original Lifecycle source initially segfaulted in its native
+harness. That cause was not conclusively reproduced. The harness no longer
+manually destroys Qt-internal QML contexts or their engine before live pages.
+The corrected real Qt5 run exits zero; context-only weak lifetime now uses
+explicit application-owned objects. Original hidden/detached QML and surviving
+context wrappers remain retained. The shared 93-case Lifecycle/Chat/Emote
+selection passes. These narrow checks do not qualify complete Lifecycle,
+whole original QML retirement or a native application/device.

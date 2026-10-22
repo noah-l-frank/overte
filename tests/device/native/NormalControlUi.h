@@ -297,8 +297,18 @@ public:
         if (visibleRect(item, window).isEmpty() || !visibleRect(item, window).contains(point)) { return false; }
         QQuickItem* hit = window->contentItem();
         for (int depth = 0; hit && depth < 128; ++depth) {
-            auto child = hit->childAt(hit->mapFromScene(point).x(), hit->mapFromScene(point).y());
-            if (!child) { break; } hit = child;
+            // Qt5 GridView can expose a later empty focus item via childAt
+            // despite its actual delegates having higher visual z. Inspect
+            // the original stacking order and retain foreign occlusion.
+            auto children=hit->childItems();
+            for (auto child:children) { if (!std::isfinite(child->z())) { return false; } }
+            std::stable_sort(children.begin(),children.end(),[](QQuickItem* a,QQuickItem* b) { return a->z()<b->z(); });
+            QQuickItem* next{nullptr};
+            for (auto child=children.crbegin();child!=children.crend();++child) {
+                if ((*child)->isVisible() && std::isfinite((*child)->opacity()) && (*child)->opacity()>.01
+                        && (*child)->contains((*child)->mapFromScene(point))) { next=*child;break; }
+            }
+            if (!next) { break; } hit=next;
         }
         for (auto parent = hit; parent; parent = parent->parentItem()) { if (parent == item) { return true; } }
         return false;

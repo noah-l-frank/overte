@@ -17,7 +17,7 @@
   "deviceQualifiedAreas": [],
   "physicalRuns": 0,
   "historicalOverviewUsedAsAuthority": false,
-  "qualification": "Host simulations and uncompiled source only. Eleven complete Pico areas remain unavailable; missing required capabilities must fail the full run.",
+  "qualification": "Selected host logic and narrow native components verified; eleven whole Pico areas remain unavailable. Full native application/APK and all devices remain unqualified.",
   "rows": [
     {
       "area": "world-navigation",
@@ -399,7 +399,14 @@
         "tests/device/self_tests/test_native_animation_inventory.py",
         "tests/device/contracts/emote/test_animation_inventory_native.py",
         "tests/device/native/ANIMATION_INVENTORY.md",
-        "tests/device/adapters/pico4/PHONE_SHARED_ANIMATION_INVENTORY_20261022.json"
+        "tests/device/adapters/pico4/PHONE_SHARED_ANIMATION_INVENTORY_20261022.json",
+        "tests/device/adapters/token_emote_ui.py",
+        "tests/device/adapters/pico4/normal_emote.py",
+        "tests/device/native/NormalEmoteControls.h",
+        "tests/device/native/NORMAL_EMOTE_CONTROLS.md",
+        "tests/device/adapters/pico4/PHONE_SHARED_EMOTE_CONTROLS_20261022.json",
+        "android/vr/pico/tests/device/test_normal_emote.py",
+        "android/vr/pico/tests/device/test_emote_ui_native.py"
       ],
       "declaredCheckpoints": 28,
       "inputVerbs": [
@@ -421,7 +428,7 @@
         "restoredBeforeNominalEnd"
       ],
       "missingOperationsOrEvidence": [
-        "Complete normal VR recipe for the actual retained QML chooser selected from original Pico source bytes",
+        "Whole-run owned Pico normal chooser composition; actual offscreen Scroll effects remain required when the target viewport clips Buttons",
         "Durable Pico roots/profile/Rig original groups, actual timer/restoration source composition and durable cache admission",
         "Original stereo avatar images and independent actor publication"
       ],
