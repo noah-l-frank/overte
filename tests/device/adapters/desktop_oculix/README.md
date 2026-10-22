@@ -1,5 +1,12 @@
 # Desktop adapter
 
+These are adapter capabilities and prepared-agent setup contracts, not an
+instruction to automate the maintainer's workstation desktop. That device
+laboratory is retired; hardware runs belong to the private Proxmox Jenkins
+setup. A checked-in Windows/macOS backend does not establish an enabled lab
+job or active macOS product support. See
+[execution environments](../../README.md#execution-environments).
+
 The directory name is historical. One adapter exposes the common Overte
 desktop behavior contract, but it deliberately uses three automation
 boundaries:

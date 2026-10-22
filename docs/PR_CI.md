@@ -108,13 +108,17 @@ python3 -I -S -B tools/repository-checks/pr_ci.py preflight \
 ```
 
 Use the actual target and its base ref. This reports selection and known
-platform prerequisites; it never issues execution or merge authority. Android
-production native/build changes currently require the separately qualified
-source-only dependency graph and hosted target consumer described in
-[platform coverage](PR_CI_PLATFORM_COVERAGE.md). Their prerequisite check runs
-before expensive selected owners and blocks acceptance when that environment
-is unavailable. Java/resource compilation is a distinct verified tier, not an
-APK or native-build claim.
+platform prerequisites; it never issues execution or merge authority. Relevant
+Android native/build changes select the locally qualified parent common-native
+harness or the owning Phone/Pico unsigned-APK consumer described in
+[platform coverage](PR_CI_PLATFORM_COVERAGE.md). Protected policy binds the exact
+SDK/NDK, runtime, image, controller and qualification asset cohort by digest and
+size. Changed dependency intent fails before assets; missing proof or derived
+capacity blocks expensive setup. Selected execution stays offline, nonroot and
+bounded to four CPUs and 8 GiB, with read-only dependencies and private Java and
+Android homes. Java/resource compilation remains a distinct tier. Local native
+qualification grants neither a hosted success nor device acceptance, and Actions
+remain disabled pending separate maintainer activation.
 
 The preflight also reports incompatible workflow/controller sources before a PR
 is published. `--allow-controller-transition` is only for the explicitly

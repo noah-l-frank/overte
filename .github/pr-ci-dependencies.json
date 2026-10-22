@@ -312,6 +312,47 @@
         "python",
         "git"
       ]
+    },
+    "pr-ci-android-runtime": {
+      "kind": "patterns",
+      "setup": [
+        "python"
+      ]
+    },
+    "pr-ci-android-boundary": {
+      "kind": "patterns",
+      "setup": [
+        "python",
+        "git"
+      ]
+    },
+    "pr-ci-android-assets": {
+      "kind": "patterns",
+      "setup": [
+        "python",
+        "git"
+      ]
+    },
+    "pr-ci-android-native": {
+      "kind": "patterns",
+      "setup": [
+        "python",
+        "git"
+      ]
+    },
+    "pr-ci-android-worker": {
+      "kind": "patterns",
+      "setup": [
+        "python",
+        "git"
+      ]
+    },
+    "pr-ci-android-capacity": {
+      "kind": "patterns",
+      "setup": [
+        "python",
+        "git"
+      ]
     }
   },
   "product_independent_paths": [
