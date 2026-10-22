@@ -39,8 +39,8 @@ assertion failure.
 The fourteen-area [feature journeys](FEATURE_JOURNEYS.md) compose the existing
 modules with missing feature workflows. See the [coverage matrix](FEATURE_COVERAGE.md)
 and [adapter handoff](FEATURE_ADAPTER_HANDOFF.md): shared logic is implemented;
-seven Phone area compositions are source implemented and host verified: Navigation,
-Authentication, Create, World Web, Tablet Web, Graphics and Scripts, including
+eight Phone area compositions are source implemented and host verified: Navigation,
+Authentication, Create, World Web, Tablet Web, Graphics, Audio and Scripts, including
 their mandatory foundations. Other Phone areas remain in progress. Component
 Qt/Java/JNI builds cover only their documented boundaries; complete Android
 compilation and every device acceptance remain unverified. See the current

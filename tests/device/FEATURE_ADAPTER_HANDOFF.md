@@ -832,7 +832,7 @@ required; the complete Phone count stays 3/14 and native source is uncompiled.
 ## Android Phone integration continuation (2026-10-22)
 
 The current [coverage matrix](FEATURE_COVERAGE.md) supersedes the historical
-three-area progress counts above: seven complete Phone source/host compositions
+three-area progress counts above: eight complete Phone source/host compositions
 are now integrated. [World Navigation](adapters/android-phone/WORLD_NAVIGATION_FEATURE.md)
 includes the common 17-checkpoint journey, real native Places/modal boundaries,
 independent publication and guarded cleanup. [World Web](adapters/android-phone/WORLD_WEB_FEATURE.md)
@@ -858,7 +858,15 @@ the full common test found an idle-Stop composition defect after automatic
 completion. Its targeted corrections pass; the complete common test is still
 running and has not been counted as successful. Avatar/People has real controlled
 reciprocal HTTPS and original model/resource sources; its full public owner is
-still being implemented. Audio is now in progress in its own isolated worktree.
+still being implemented. [Audio](adapters/android-phone/AUDIO_FEATURE.md) now supplies the complete common
+v17 composition, all four mandatory foundations, independently read microphone/
+preview/codec/PC originals and separately credentialed actor publication. Its
+documented cleanup performs exactly one owned real restart; repeated cleanup
+and other areas cannot adopt an extra or foreign PID change. Parent integration
+passes 89 selected tests, including all fourteen module PID counterexamples.
+The finalizer reads fresh absence and preserves unexpected late PCM files as
+failed cleanup. Actual Android microphone/OS/codec/PC-process acceptance remains
+unverified.
 
 Native Qt, Java and JNI checks cover the documented component boundaries only.
 No complete Android client build or device acceptance is claimed. Shared Probe
