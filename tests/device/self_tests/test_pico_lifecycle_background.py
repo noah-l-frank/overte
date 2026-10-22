@@ -51,8 +51,9 @@ class LifecycleBackgroundEvidenceTests(unittest.TestCase):
     def change(self,key,callback):
         packet=json.loads(self.value[key]['raw']);callback(packet);self.value[key]=frame(json.dumps(packet))
     def test_original_os_native_hidden_and_returned_sources_join_same_reply_context_without_input(self):
-        result=self.check();self.assertEqual(('chat',context(RUN)['reply'],2,False,False),
-            tuple(result[key] for key in ('editor','text','generation','focused','keyboard')))
+        result=self.check();self.assertEqual(('chat',context(RUN)['reply'],False,False),
+            tuple(result[key] for key in ('editor','text','focused','keyboard')))
+        self.assertNotIn('generation',result) # Earlier Create/X originals are outside this component.
         self.assertTrue(result['journalRetained']);self.assertEqual(1,result['nativeBackgroundFrames'])
         self.assertEqual(result,self.check()) # Pure archived validation has no client or clock.
     def test_resumed_only_false_focus_keyboard_and_os_ack_cannot_replace_original_background(self):

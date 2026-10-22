@@ -121,3 +121,5 @@ resumed-only false keyboard values and input acknowledgements cannot qualify it.
 This pure historical verifier sends no input and establishes no current age,
 three-second quiet, observer release or complete feature verdict. The durable
 normal OS coordinator and final original-source acquisition remain separate.
+It reports no editor generation: the earlier original Create/X/Chat history
+must independently establish that ordering in the whole Lifecycle composition.

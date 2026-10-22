@@ -124,5 +124,5 @@ def validate_return(value,run,binding):
         and after['source']['keyboard']['instance']==final['keyboard']['instance']
         and after['source']['keyboard']['sequence']>final['keyboard']['sequence']
         and last['requestedEpochMs']>=after['capturedEpochMs'])
-    return dict(editor='chat',text=current['text'],generation=2,focused=False,keyboard=False,
+    return dict(editor='chat',text=current['text'],focused=False,keyboard=False,
         originalId=current['id'],nativeBackgroundFrames=len(hidden),nativeReturnFrames=len(resumed),journalRetained=True)
