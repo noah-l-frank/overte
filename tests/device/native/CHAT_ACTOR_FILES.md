@@ -233,3 +233,57 @@ Native macro tests explicitly declare their compiler-input seam and run only
 owned stdin workers. Separate tests run the real configure helper against a
 private clean/dirty Git fixture. No Assignment Client, domain, service, OpenXR
 runtime or device is executed by these checks.
+
+## Optional original input lifetime extension
+
+The existing observation envelope version 1 may additionally contain the closed
+`inputLifetime` extension, `inputLifetimeVersion:1`. Input receipt envelopes
+remain version 1 with native peer input version 3. Older observation envelopes
+remain readable; they provide no input resource release evidence. This extension
+never changes the common Chat source, issues an input, restarts script polling,
+creates another observer or reopens a removed input command/receipt.
+
+The extension contains the actual observation `commandId`/`runId`, actual PID
+and capture epoch, original input `instance`, actual `ownerRunId` (empty before
+any consumption), admitted `sequence`, actual `scriptPolls`, and actual
+`releaseConsumed` tombstone. The requested observation run does not replace the
+original input owner run. Resource rows are `command:{present,node}`,
+`receipt:{present,node}`, and `receiptHandle:{open,node}`. Each node is the actual
+decimal device/inode pair or an empty object when absent/closed. Path absence
+requires original-directory `fstatat` to return ENOENT; other errors, foreign
+modes/owners, symlinks and shared files fail publication. The handle row comes
+from the native retained receipt descriptor, not the path or requested release.
+An open handle must still match its actual original private receipt inode.
+
+All state and descriptor operations are serialized by the actor's recursive
+mutex. Public input/timer/query methods additionally require the original native
+owner thread. Production MessagesClient already marshals to that thread before
+calling the file owner; no BlockingQueued invocation is introduced under this
+mutex. The observer callback and original weak Avatar getter execute on that
+same thread. A foreign-thread call cannot increment polls or publish resources.
+The timer closes an actually removed released receipt before taking the resource
+snapshot. Fixture-owned source/root/timer/subscription and retained replay
+markers remain baseline resources; their existence is not reported as zero.
+
+`ChatActorFiles.read_input_lifetime(original_inspect_request)` acquires only the
+already consumed current original Inspect envelope. It publishes no command.
+It requires the exact durable request, original command/result inodes and bytes,
+original live PID/start/source and held result descriptor, validates the unchanged
+native Chat packet, and retains original envelope bytes in
+`last_input_lifetime_raw`. Extension copying and final guards remain within
+original native and monotonic 1.5-second bounds. Missing/legacy/unacquired/old or
+foreign replies cannot qualify release. A close owner must still prove actual
+restoration, one-time original-file removal, independent kernel FD absence and
+fresh quiet observations before and after removal; this source alone is not a
+complete release owner or Chat capability.
+
+The focused actual Qt5/POSIX producer test is
+[`test_chat_actor_input_lifetime_native.py`](../contracts/chat/test_chat_actor_input_lifetime_native.py).
+It runs only an owned stdin worker with explicit Avatar/NodeList/script seams.
+Actual original C++ files flow through the Python validator and Linux process/FD
+inventory. It verifies release consumption, unchanged input receipt format,
+actual descriptor closure after original unlink, passive post-removal sampling,
+foreign-thread refusal and a detectable real late script poll. Closed-schema,
+legacy, original-query and frozen-clock final-copy countercases live in
+[`test_chat_input_lifetime_source.py`](../self_tests/test_chat_input_lifetime_source.py).
+No Agent, service, device, OpenXR session or network is executed.

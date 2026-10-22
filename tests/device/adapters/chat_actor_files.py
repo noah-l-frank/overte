@@ -59,6 +59,40 @@ def validate_actor_source(source,pid,script_sha256,epoch):
     return source
 
 
+def validate_input_lifetime(value,frame):
+    """Optional original actor resource extension; absence has no zero default."""
+    exact(value,{'inputLifetimeVersion','commandId','runId','instance','ownerRunId','sequence','scriptPolls',
+        'releaseConsumed','processId','capturedEpochMs','command','receipt','receiptHandle'})
+    need(type(value['inputLifetimeVersion']) is int and value['inputLifetimeVersion']==1
+        and value['commandId']==frame['commandId'] and value['runId']==frame['runId']
+        and integer(value['processId'],1) and value['processId']==frame['processId']
+        and type(value['instance']) is str and re.fullmatch('[0-9a-f]{32}',value['instance'])
+        and type(value['ownerRunId']) is str
+        and (value['ownerRunId']=='' or re.fullmatch('[0-9a-f]{32}',value['ownerRunId']))
+        and integer(value['sequence'],0,4096) and integer(value['scriptPolls'])
+        and type(value['releaseConsumed']) is bool
+        and integer(value['capturedEpochMs'],frame['capturedEpochMs'],frame['capturedEpochMs']+1500)
+        and bool(value['sequence'])==bool(value['ownerRunId'])
+        and (not value['releaseConsumed'] or value['sequence']>0))
+    for key,flag in (('command','present'),('receipt','present'),('receiptHandle','open')):
+        row=value[key];exact(row,{flag,'node'});need(type(row[flag]) is bool)
+        if row[flag]:identity(row['node'])
+        else:exact(row['node'],set())
+    need(not value['receiptHandle']['open'] or value['receipt']['present']
+        and value['receiptHandle']['node']==value['receipt']['node'])
+    return value
+
+
+def observation_envelope(raw,info):
+    envelope=decode(raw.decode('utf-8'));need(type(envelope) is dict)
+    exact(envelope,{'actorFileVersion','commandNode','resultNode','native'}|({'inputLifetime'}&set(envelope)))
+    need(type(envelope['actorFileVersion']) is int and envelope['actorFileVersion']==VERSION
+        and identity(envelope['resultNode'])==node(info))
+    identity(envelope['commandNode']);need(type(envelope['native']) is dict)
+    if 'inputLifetime' in envelope:validate_input_lifetime(envelope['inputLifetime'],envelope['native'])
+    return envelope
+
+
 class ChatActorFiles:
     """One owned native actor and one run; uncertain writes remain journalled.
 
@@ -204,10 +238,7 @@ class ChatActorFiles:
         self._check_source();previous=self._owned();need(previous['pending'] is None and not previous['closing'])
         if not self._exists(RESULT):
             need(previous['result'] is None);return None
-        raw,info=self._read(RESULT,131072);envelope=decode(raw.decode('utf-8'))
-        exact(envelope,{'actorFileVersion','commandNode','resultNode','native'})
-        need(type(envelope['actorFileVersion']) is int and envelope['actorFileVersion']==VERSION
-             and identity(envelope['resultNode'])==node(info));identity(envelope['commandNode'])
+        raw,info=self._read(RESULT,131072);envelope=observation_envelope(raw,info)
         frame=envelope['native'];need(type(frame) is dict and previous['request'] is not None)
         if frame.get('commandId')!=previous['request']['commandId']:
             # Only the original, previously acquired reply may remain while the
@@ -225,6 +256,35 @@ class ChatActorFiles:
         if previous['result']!=result:self.store.write({**previous,'result':result},previous)
         return encode(frame).decode('utf-8')
 
+    def read_input_lifetime(self,request):
+        """Read one already acquired original Inspect extension; never publish.
+
+        The owner must obtain a fresh ordinary Chat Inspect first. Legacy replies
+        remain valid Chat observations but cannot establish resource release.
+        """
+        command(request);need(request['operation']=='inspect')
+        started=self.monotonic();need(number(started,0,1e15));self._check_source()
+        previous=self._owned();need(previous['pending'] is None and not previous['closing']
+            and previous['request']==request and previous['result'] is not None)
+        self._check_command(previous)
+        raw,info=self._read(RESULT,131072);envelope=observation_envelope(raw,info)
+        need('inputLifetime' in envelope and envelope['commandNode']=={key:previous['commandStamp'][key] for key in ('device','inode')}
+            and stamp(info)==previous['result']['stamp'] and hashlib.sha256(raw).hexdigest()==previous['result']['sha256']
+            and previous['result']['commandId']==request['commandId'] and self.released(node(info)) is False)
+        frame=envelope['native'];validate(frame,request,self.pid,self.clock_ms())
+        need(frame['instance']==self.source['instance'] and frame['capturedEpochMs']>=self.source['configuredEpochMs'])
+        value=deepcopy(envelope['inputLifetime']);original=bytes(raw);original_stamp=stamp(info)
+        self._check_source();current,current_info=self._read(RESULT,131072);self._check_command(previous)
+        need(current==raw and stamp(current_info)==stamp(info) and self.store.read()==previous
+            and self.released(node(info)) is False)
+        measured=self.monotonic();need(number(measured,started,started+1.5));epoch=self.clock_ms()
+        fresh(value['capturedEpochMs'],epoch);fresh(frame['capturedEpochMs'],epoch)
+        ended=self.monotonic();need(number(ended,measured,started+1.5)
+            and epoch-min(value['capturedEpochMs'],frame['capturedEpochMs'])+math.ceil((ended-measured)*1000)<=1500)
+        self.last_input_lifetime_raw=original
+        self.last_input_lifetime_stamp=original_stamp
+        return value
+
     def reconcile_pending(self,request):
         """Consume only the original actually processed pending transaction.
 
@@ -236,10 +296,8 @@ class ChatActorFiles:
         self._check_source();previous=self._owned()
         need(not previous['closing'] and previous['pending']==request and previous['runId']==request['runId'])
         command_raw,command_info=self._read(COMMAND,2048);need(command_raw==encode(request))
-        raw,info=self._read(RESULT,131072);envelope=decode(raw.decode('utf-8'))
-        exact(envelope,{'actorFileVersion','commandNode','resultNode','native'})
-        need(type(envelope['actorFileVersion']) is int and envelope['actorFileVersion']==VERSION
-            and identity(envelope['commandNode'])==node(command_info) and identity(envelope['resultNode'])==node(info))
+        raw,info=self._read(RESULT,131072);envelope=observation_envelope(raw,info)
+        need(envelope['commandNode']==node(command_info))
         frame=envelope['native'];validate(frame,request,self.pid,self.clock_ms())
         need(frame['chatVersion']==3 and frame['instance']==self.source['instance']
             and frame['capturedEpochMs']>=self.source['configuredEpochMs'] and self.released(node(info)) is False)

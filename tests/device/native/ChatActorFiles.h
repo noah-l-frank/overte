@@ -14,6 +14,8 @@
 #include <QJsonObject>
 #include <QRegularExpression>
 #include <QSet>
+#include <QThread>
+#include <mutex>
 #include <QVariantMap>
 #include <functional>
 #include <cmath>
@@ -65,12 +67,16 @@ public:
         Q_UNUSED(scriptSha) Q_UNUSED(instance)
 #endif
     }
-    ~ChatActorFiles() { closeAll(); }
-    bool available() const { return _available; }
+    ~ChatActorFiles() { std::lock_guard<std::recursive_mutex> lock(_mutex);closeAll(); }
+    bool available() const {
+        std::lock_guard<std::recursive_mutex> lock(_mutex);return QThread::currentThread()==_ownerThread && _available;
+    }
     // A separate opt-in fixture INPUT path. Consumption is never a position,
     // delivery or restoration observation. The original peer script performs
     // ordinary Avatar/ Messages operations after this call returns.
     QVariantMap takeInput(bool scriptPoll=true) {
+        std::lock_guard<std::recursive_mutex> lock(_mutex);
+        if (QThread::currentThread()!=_ownerThread) { return {}; }
 #if defined(Q_OS_UNIX)
         if (!_available || !root() || !same(_sourceNode,"chat-actor-source.v1.json")) { return {}; }
         if (scriptPoll) { if (_scriptPolls>=9007199254740991LL) { closeAll();return {}; }++_scriptPolls; }
@@ -117,6 +123,8 @@ public:
 #endif
     }
     void tick(const std::function<QVariantMap(const QVariantMap&)>& observe) {
+        std::lock_guard<std::recursive_mutex> lock(_mutex);
+        if (QThread::currentThread()!=_ownerThread) { return; }
 #if defined(Q_OS_UNIX)
         if (!_available || !observe) { return; }
         if (!root() || !same(_sourceNode,"chat-actor-source.v1.json")) { closeAll();return; }
@@ -163,6 +171,8 @@ public:
 #endif
     }
 private:
+    mutable std::recursive_mutex _mutex;
+    QThread* const _ownerThread{QThread::currentThread()};
     QString _path,_lastCommand;
     QString _inputRun,_inputInstance{QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-')};
     QSet<QString> _inputs;
@@ -239,17 +249,50 @@ private:
             && done==bytes.size() && same(before,name);
         ::close(fd);if (valid) { _commandNode=before; }return valid?bytes:QByteArray();
     }
-    bool writeResult(const QVariantMap& originalFrame) {
-        return writeResult(originalFrame,"feature-chat-observation.json",_result,_resultNode,_commandNode);
+    // Called only under the original owner's mutex, after timer-driven FD
+    // retirement. No input command, poll, observer or resource is created here.
+    bool inputLifetime(const QVariantMap& frame,QJsonObject& result) const {
+        const auto pathState=[&](const char* name,QJsonObject& state) {
+            struct stat current{};
+            if (::fstatat(_root,name,&current,AT_SYMLINK_NOFOLLOW)!=0) {
+                if (errno!=ENOENT) { return false; }
+                state={{"present",false},{"node",QJsonObject()}};return true;
+            }
+            if (!S_ISREG(current.st_mode) || current.st_uid!=::geteuid()
+                    || (current.st_mode&0777)!=0600 || current.st_nlink!=1) { return false; }
+            state={{"present",true},{"node",identity(current)}};return true;
+        };
+        QJsonObject command,receipt,handle;
+        if (!root() || !pathState("chat-peer-input.v1.json",command)
+                || !pathState("chat-peer-input-receipt.v1.json",receipt)) { return false; }
+        if (_inputResult>=0) {
+            struct stat current{};
+            if (!node(_inputResult,false,&current) || current.st_dev!=_inputResultNode.st_dev
+                    || current.st_ino!=_inputResultNode.st_ino || !same(_inputResultNode,"chat-peer-input-receipt.v1.json")) { return false; }
+            handle={{"open",true},{"node",identity(current)}};
+        } else { handle={{"open",false},{"node",QJsonObject()}}; }
+        result={{"inputLifetimeVersion",1},{"commandId",frame.value("commandId").toString()},
+            {"runId",frame.value("runId").toString()},{"instance",_inputInstance},{"ownerRunId",_inputRun},
+            {"sequence",_inputs.size()},{"scriptPolls",static_cast<double>(_scriptPolls)},{"releaseConsumed",_inputReleased},
+            {"processId",static_cast<double>(QCoreApplication::applicationPid())},
+            {"capturedEpochMs",static_cast<double>(QDateTime::currentMSecsSinceEpoch())},
+            {"command",command},{"receipt",receipt},{"receiptHandle",handle}};
+        return root();
     }
-    bool writeResult(const QVariantMap& originalFrame,const char* name,int& result,struct stat& resultNode,const struct stat& commandNode) {
+    bool writeResult(const QVariantMap& originalFrame) {
+        QJsonObject lifetime;
+        if (!inputLifetime(originalFrame,lifetime)) { return false; }
+        return writeResult(originalFrame,"feature-chat-observation.json",_result,_resultNode,_commandNode,lifetime);
+    }
+    bool writeResult(const QVariantMap& originalFrame,const char* name,int& result,struct stat& resultNode,const struct stat& commandNode,const QJsonObject& lifetime={}) {
         if (!root() || (result>=0 && !same(resultNode,name))) { return false; }
         const auto temporary=(".chat-result-"+QUuid::createUuid().toString(QUuid::WithoutBraces)).toLatin1();
         const int fd=::openat(_root,temporary.constData(),O_RDWR|O_CREAT|O_EXCL|O_NOFOLLOW|O_CLOEXEC,0600);
         struct stat original{};
         bool okay=node(fd,false,&original);
-        const QJsonObject envelope{{"actorFileVersion",1},{"commandNode",identity(commandNode)},
+        QJsonObject envelope{{"actorFileVersion",1},{"commandNode",identity(commandNode)},
             {"resultNode",identity(original)},{"native",QJsonObject::fromVariantMap(originalFrame)}};
+        if (!lifetime.isEmpty()) { envelope.insert("inputLifetime",lifetime); }
         const auto bytes=QJsonDocument(envelope).toJson(QJsonDocument::Compact)+'\n';
         okay=okay && bytes.size()<=131072 && writeAll(fd,bytes) && ::fsync(fd)==0 && node(fd,false,&original) && root();
         if (okay) {
