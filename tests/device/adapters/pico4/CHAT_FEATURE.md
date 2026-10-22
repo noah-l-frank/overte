@@ -105,3 +105,14 @@ with this packet and require reconciliation with concurrent local additions.
 The second packet also registers `chat-journey-samples` v1. Existing shared
 Script source locks/history codec and native lifecycle restoration are reused;
 the common journey remains v16 and no complete Chat operation is registered.
+
+The third packet supplies [normal Chat controls v2](../../native/NORMAL_CHAT_CONTROLS.md):
+ordinary Settings/Erase input with exact original whole-model digest, independent
+pre-click owner authority and no recapture/replay after uncertainty. It does not
+restore settings through a setter or adopt unowned history. Eight focused host
+cases, all nine registered normal-Chat Pico wrapper cases (six retained and
+three new), and one real Qt5 original-helper compilation pass. Complete cleanup still
+requires the independent current storage and reconstructed original Script
+history, exact original profile presence/value and actual pending settings
+writer/file/resource retirement. A cache read or ordinary Erase ACK cannot
+establish that persistent storage boundary.

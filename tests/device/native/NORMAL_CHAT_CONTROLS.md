@@ -1,4 +1,4 @@
-# Original normal Chat controls v1
+# Original normal Chat controls v2
 
 `NormalChatControls.h`, `NormalControlUi::Surface::Chat` and `TokenChatUI` add an
 input component for the actual mobile `armored_chat.qml` page. Native code is
@@ -13,7 +13,9 @@ No complete `feature.chat.*` capability is enabled by these helpers.
 The source is the original local/qrc `armored-chat/armored_chat.qml` context,
 actual root/tablet mode, typed channel/keyboard request, original TextArea and
 normal Send/BACK buttons. Local/Domain inputs resolve the actual original QML-id
-MouseAreas; labels alone do not select those tabs. Unsupported original QML,
+MouseAreas; labels alone do not select those tabs. Version 2 also resolves the
+original `settings_page` MouseArea and its actual normal **Erase** button in the
+same qualified original QML page. Unsupported original QML,
 missing model aliases, ambiguous control IDs or private/nonfixture editor text
 make acquisition unavailable, never a fabricated default page. Home/entry input
 uses the existing original tablet control survey; the caller must qualify the
@@ -48,7 +50,7 @@ input effect, never message acceptance/rendering/delivery.
 The normalized input snapshot is exactly:
 
 ```
-{chatControlsVersion:1, open:<boolean>, ready:<boolean>,
+{chatControlsVersion:2, open:<boolean>, ready:<boolean>,
  scope:{instance,generation,sequence,elapsedMs,processId}, controls:[...]}
 ```
 
@@ -58,9 +60,21 @@ full-feature `open` verdict. Scope is the existing normal-control source context
 `sequence` is the actual consumed input counter, not poll count. Closed/hidden
 container snapshots cannot contain controls. No duplicate IDs/tokens, boolean
 integer fields, unsupported versions or invented keyboard facts are accepted.
+The shared Python/Pico readers retain explicit v1 input compatibility and refuse
+new Settings/Erase controls relabeled as v1; v2 cannot downgrade in one reader.
+The generic native and Pico producers now emit v2. Frozen Phone/iOS component
+wrappers must adopt their corresponding v2 producer reader explicitly before
+selecting this new native packet; no complete Chat capability exists there.
 
 Every Chat row has actual `id`, opaque `token`, `enabled`, `focused` and
 `inputReady`. `chat.input` additionally carries actual controlled `text`.
+`chat.erase` additionally carries `historySha256`, computed from all original
+Local and Domain model rows, their original order/multiplicity and channel.
+It hashes the bounded original QDataStream representation and never exports
+private row text. Missing roles/models, non-string/oversized values and a
+serialized inventory above 256 KiB refuse the source. The native control token
+retains that digest, so even a same-count history replacement cannot retarget
+an admitted Erase click.
 `chat.page` is noninteractive and additionally carries:
 `profile:"armored-chat-native-v1"`, actual `channel:"local"|"domain"|"settings"`,
 `keyboardRequested`, actual `localRowCount`/`domainRowCount` (0..1000) and
@@ -92,6 +106,26 @@ Normal tab pointer focus/keyboard aftermath also must be measured on the actual
 Qt/platform route, rather than inferred from the requested channel.
 
 ## Host checks and remaining work
+
+`TokenChatUI.erase_history(authorize)` selects Settings normally and requires
+the whole owner's independent authority on the exact original Erase snapshot.
+The ordinary generic `input` method refuses Erase. The captured snapshot remains
+unchanged through post-authority/backend admission; changed history, scope or
+digest fails instead of being recaptured. Erase is issued at most once per UI
+owner, and its ordinary persisted input intent survives a lost result. An input
+ACK or zero model rows does not prove actual stored/closure history restoration:
+the complete owner must separately read original storage, ordinarily close and
+reopen Chat, prove empty reconstructed history, restore exact original setting
+presence/value and verify the actual pending writer/resource/quiet window.
+
+Eight new no-build counterexamples cover the normal Settings/Erase recipe,
+independent refusal, same-count foreign replacement, changed backend admission,
+ignored effects, lost result without replay, private draft/old producer and
+closed metadata. One separate focused Qt5 compiler check executes the original
+digest body against actual QAbstractListModels, with page/model association as
+an explicit seam. It checks actual order/multiplicity/channel/replacement,
+roles/types and byte bounds. This compiles that helper only; the native app,
+actual QML input, settings writer and devices remain unqualified.
 
 Fifteen cases cover normal Unicode/channel/Send/BACK, actual Return input,
 no invented receive rows, native-consumed-counter freshness, ignored effects,

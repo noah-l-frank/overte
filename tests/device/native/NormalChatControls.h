@@ -3,6 +3,7 @@
 #pragma once
 #include "NormalCreateControls.h"
 #include <QAbstractItemModel>
+#include <QDataStream>
 
 namespace overte::e2e {
 #if defined(OVERTE_E2E_FEATURE_TESTS)
@@ -34,6 +35,24 @@ inline QQuickItem* chatPage(QQuickItem* item) {
 }
 inline bool chatText(const QString& value) {
     return value.isEmpty() || QRegularExpression(QStringLiteral("\\A(?:Overte ä Ω 東京 |(?:reply|hidden|retry)-)[0-9a-f]{32}\\z")).match(value).hasMatch();
+}
+inline QAbstractItemModel* chatModel(QQuickItem* page,const char* name);
+inline QString chatEraseHistoryDigest(QQuickItem* page) {
+    QByteArray original;QDataStream stream(&original,QIODevice::WriteOnly);
+    for (const auto& channel:QStringList{"local","domain"}) {
+        const auto name=(channel+"History").toLatin1();auto model=chatModel(page,name.constData());
+        if (!model) { return {}; }
+        const auto role=model->roleNames().key(QByteArray("text"),-1);
+        if (role<0 && model->rowCount()) { return {}; }
+        stream<<channel<<model->rowCount();
+        for (int index=0;index<model->rowCount();++index) {
+            const auto value=model->data(model->index(index,0),role);
+            if (value.userType()!=QMetaType::QString || value.toString().size()>4096) { return {}; }
+            stream<<value.toString();if (original.size()>262144) { return {}; }
+        }
+    }
+    if (stream.status()!=QDataStream::Ok) { return {}; }
+    return QString::fromLatin1(QCryptographicHash::hash(original,QCryptographicHash::Sha256).toHex());
 }
 inline QAbstractItemModel* chatModel(QQuickItem* page,const char* name) {
     if (!page || chatPage(page)!=page) { return nullptr; }
@@ -76,9 +95,12 @@ inline QString chatControlId(QQuickItem* item) {
     if (name=="chatMessageInput" && item->inherits("QQuickTextEdit")) { return "chat.input"; }
     if (name=="chatSend" && item->metaObject()->indexOfSignal("clicked()")>=0) { return "chat.send"; }
     if (name=="chatClose" && item->metaObject()->indexOfSignal("clicked()")>=0) { return "chat.close"; }
+    if (page->property("pageVal")==QVariant("settings") && item->metaObject()->indexOfSignal("clicked()")>=0
+            && item->property("text")==QVariant("Erase")) { return "chat.erase"; }
     if (item->inherits("QQuickMouseArea") && item->parentItem()) {
         if (loginQmlId(item->parentItem(),"local_page")) { return "chat.local"; }
         if (loginQmlId(item->parentItem(),"domain_page")) { return "chat.domain"; }
+        if (loginQmlId(item->parentItem(),"settings_page")) { return "chat.settings"; }
     }
     return {};
 }
@@ -99,6 +121,10 @@ inline void appendChatControlObservation(QJsonObject& row,QQuickItem* item,const
         const auto actual=item->property("text");
         if (actual.userType()!=QMetaType::QString || !chatText(actual.toString())) { row["inputReady"]=false;return; }
         row["text"]=actual.toString();
+    } else if (id=="chat.erase") {
+        const auto digest=chatEraseHistoryDigest(page);
+        if (digest.isEmpty()) { row["inputReady"]=false;return; }
+        row["historySha256"]=digest;
     } else if (!page) { ready=ready && (id=="chat.entry" || id=="tablet.home" || id.startsWith("tablet.page.")); }
     row["inputReady"]=ready;
 }

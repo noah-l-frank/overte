@@ -107,7 +107,7 @@ public:
             : _surface == Surface::Graphics ? "graphicsControlsVersion"
             : _surface == Surface::Login ? "loginControlsVersion"
             : _surface == Surface::Create ? "createControlsVersion"
-            : _surface == Surface::Chat ? "chatControlsVersion" : "fileControlsVersion"] = _surface==Surface::Login ? 2 : 1;
+            : _surface == Surface::Chat ? "chatControlsVersion" : "fileControlsVersion"] = (_surface==Surface::Login || _surface==Surface::Chat) ? 2 : 1;
         if (_surface==Surface::ScriptFiles) { result["scriptInventory"]=scriptInventory.observation(ready); }
         return result;
     }
