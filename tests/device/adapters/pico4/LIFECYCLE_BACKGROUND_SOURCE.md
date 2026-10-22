@@ -107,3 +107,17 @@ raised state and pressed-key count to be clear; a disabled or missing keyboard
 cannot borrow a false visibility flag as whole-journey proof.
 Neither a resumed-only keyboard read nor a historical frame without that actual
 OS/lifecycle join establishes the journey. No journals or histories retire here.
+
+`lifecycle_background.validate_return` now provides the pure original-evidence
+join for the Lifecycle Reply checkpoint. It verifies the original PID/start and
+candidate binding in both independent OS states, native background/activation
+advancement without another launch, unchanged graphics/audio/account settings,
+the exact native arm request and immutable prefix, and original Hidden/Suspended
+then Active signal history after the last pre-HOME boundary. Actual enabled,
+created keyboard absence and zero pressed keys are required during background
+and after return. The fresh full normal UI must follow the last history cursor
+with the same original field/page/context and Reply. Retained partial identities,
+resumed-only false keyboard values and input acknowledgements cannot qualify it.
+This pure historical verifier sends no input and establishes no current age,
+three-second quiet, observer release or complete feature verdict. The durable
+normal OS coordinator and final original-source acquisition remain separate.

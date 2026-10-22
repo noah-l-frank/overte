@@ -25,6 +25,7 @@ from self_tests.test_token_lifecycle_ui import LifecycleControlTests
 from self_tests.test_pico_lifecycle_editor import LifecycleEditorTests
 from self_tests.test_pico_lifecycle_chat import LifecycleChatTests
 from self_tests.test_pico_lifecycle_background_source import LifecycleBackgroundSourceTests
+from self_tests.test_pico_lifecycle_background import LifecycleBackgroundEvidenceTests
 from self_tests.test_pico_openxr_adapter_session import FakeTransport
 
 
