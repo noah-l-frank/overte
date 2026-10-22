@@ -1,6 +1,22 @@
 # iOS continuous integration
 
-The current workflows are:
+The central selective PR controller in `repository-checks.yml` selects shared
+and iOS consumers and reports `source-policy` and `required-ci`.
+`Enforce apple-main sync path` remains a separate topology result. These are
+the live required names read on October 22, 2026; `ios-device-build` is no longer
+a separate required context. Actions was disabled at that inspection. See the
+[shared CI overview](https://github.com/noah-l-frank/overte/blob/main/docs/portal/testing/github-actions.md)
+and [selective CI guide](https://github.com/noah-l-frank/overte/blob/main/docs/PR_CI.md)
+for selection and acceptance. Host-only changes do not provision Qt or produce
+an IPA; selected application inputs retain the exact-source Qt/client handoff.
+
+This is a personal hobby fork. Private signing/build configuration and Proxmox
+Jenkins hardware jobs belong to the maintainer; host checks do not require that
+setup. The retired workstation device lab is not a runtime-test fallback.
+
+The retained platform recipes below describe build and diagnostic capabilities.
+Their standalone routing and former qualification results do not replace the
+central owner or establish that a hosted run occurred. Platform recipes include:
 
 - `iOS bootstrap` (`.github/workflows/ios-bootstrap.yml`): Linux contracts,
   with explicitly selected simulator, device-SDK or integrated-client builds;
@@ -22,7 +38,7 @@ restored through their validation paths; they do not substitute an older IPA.
 
 ## Build and installation evidence
 
-The qualification workflow requires successful build jobs and compiler,
+The retained qualification recipe requires successful build jobs and compiler,
 packaging and upload steps, then verifies the IPA against its exact source
 revision, producing build number and SHA-256. Ordinary Markdown-only PRs take
 an explicit lightweight route reporting `ipa: not-required`. That result does

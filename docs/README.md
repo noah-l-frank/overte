@@ -5,7 +5,9 @@ This is the entry point for work on the experimental fork. The
 to find the code and verify a focused change.
 
 The [documentation portal](portal/index.md) provides a searchable Sphinx site,
-starting with automated tests and the local Jenkins laboratory. See
+starting with automated tests and the maintainer's private Proxmox Jenkins
+laboratory. This is personal infrastructure for a hobby project, not a shared
+service or a prerequisite for running the host checks. See
 [building and maintaining the portal](portal/maintaining.md) for a local preview.
 
 ## Choose the right checkout
@@ -19,7 +21,7 @@ not present on `main`.
 
 Use the [branch governance guide](BRANCH_GOVERNANCE.md) for topic names and the
 [contribution guide](../CONTRIBUTING.md) before preparing a pull request. Keep
-fork contributions in `noah-be/overte`; the upstream project has a different
+fork contributions in `noah-l-frank/overte`; the upstream project has a different
 contribution policy.
 
 ## Run the first local check
@@ -56,7 +58,9 @@ needs a native build, cache preparation, and staged gate activation.
 | Understand components and source entry points | [Architecture](ARCHITECTURE.md) |
 | Build and host the browser client | [Browser client](browser-client/README.md) |
 | Select and run the relevant verification layer | [Project testing](../tests/PROJECT_TESTING.md) |
+| Understand current CI workflows and required PR results | [GitHub Actions](portal/testing/github-actions.md) |
 | Review dormant Android APK source selection | [Android build inputs](ANDROID_BUILD_INPUTS.md) |
+| Review Android native CI qualification and payload transport | [Android native CI](ANDROID_NATIVE_CI.md) |
 | Review dormant Browser CPU-history CI selection | [Browser CPU selection](BROWSER_CPU_SELECTION.md) |
 | Review dormant authenticated producer evidence | [Producer API proof](PRODUCER_API_PROOF.md) |
 | Review dormant shared reuse without consumer setup | [Attested runtime reuse](ATTESTED_RUNTIME_REUSE.md) |

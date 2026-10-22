@@ -5,6 +5,13 @@ SPDX-License-Identifier: Apache-2.0
 
 # iOS port preparation status
 
+This is the historical bootstrap/preparation baseline and its recorded gates.
+It is not the current integrated-client status: the maintainer completed the
+iPad personal-alpha milestone on October 10, 2026, and current work is IOS-P2.
+Use the [current product roadmap](../interfaces/ios/ROADMAP.md) and
+[development status](../interfaces/ios/DEVELOPMENT_STATUS.md). The older source
+observations and evidence below remain unchanged.
+
 ## Implemented
 
 - iOS 17 deployment and Xcode/iOS SDK 26 version contract;

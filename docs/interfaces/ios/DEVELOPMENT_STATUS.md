@@ -1,30 +1,40 @@
 # iOS development status
 
-The detailed implementation inventory remains in
-[`docs/ios/PORT_STATUS.md`](../../ios/PORT_STATUS.md). This page summarizes the
-boundary a new developer must understand.
+## Current product boundary
 
-## Validated bootstrap
+The integrated Qt/Overte client is the active product path. The maintainer's
+[iPad personal-alpha milestone](https://github.com/noah-l-frank/overte/milestone/3)
+was completed on October 10, 2026 with eleven closed acceptance issues. That
+record does not qualify an arbitrary newer IPA or every iPhone/iPad model.
 
-- native UIKit and Metal application;
-- iPhone and iPad simulator launch;
-- unsigned arm64 device-SDK compilation and packaging;
-- lifecycle, deep-link, place-resolution, bundle, privacy, and architecture
-  contracts; and
-- machine-readable physical-device acceptance definitions.
+Current work is [IOS-P2 cross-client feature parity](https://github.com/noah-l-frank/overte/milestone/6).
+Its open acceptance issues and the
+[shared feature contract](https://github.com/noah-l-frank/overte/blob/main/docs/interfaces/FEATURE_PARITY.md)
+define the remaining scope. Use the
+[build qualification guide](../../IOS_BUILD_QUALIFICATION.md) to inspect actual
+build results and bind an IPA to its source, producing run, and installation.
+A successful host test or a historical milestone alone does not establish that
+binding for today's installed app.
 
-## Experimental integrated client
+## Bootstrap and historical preparation
 
-- Qt 6.11.1 and Conan graph boundaries exist;
-- desktop-only modules and unsupported dynamic plug-ins fail closed; and
-- V8, MoltenVK, rendering, Qt Multimedia, and dependency recipes still have open
-  integration work.
+The separate UIKit/Metal bootstrap still tests bundle, lifecycle, deep-link,
+place-resolution, simulator, and device-SDK contracts. It is a diagnostic target,
+not the complete networked Interface. The early
+[port preparation inventory](../../ios/PORT_STATUS.md) and
+[preparation iteration plan](../../ios/ITERATION_PLAN.md) record that earlier
+stage; their Qt, V8, MoltenVK, and recipe blocker lists are not a current
+qualification dashboard.
 
-## External gates
+## Physical-device work
 
-Physical-device rendering, audio, microphone, touch, thermal, memory, signing,
-and privacy aggregation require explicitly authorized iPhone and iPad access.
-App Store submission is outside the current developer-artifact milestone.
+The maintainer's hardware tests use the private Proxmox Jenkins laboratory.
+The workstation device lab is retired. Separately authorized manual IPA signing
+and installation remains a distinct path; it is not device acceptance. This
+personal infrastructure is not required for local host-contract tests. Current
+artifacts still need their selected rendering, audio, microphone, touch,
+lifecycle, and other acceptance journeys. Broad hardware coverage and App Store
+submission remain separate from the personal alpha.
 
 ## Touch acceptance paired with the next rendering build
 

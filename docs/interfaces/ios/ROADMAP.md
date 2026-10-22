@@ -1,64 +1,52 @@
 # iPad and iOS roadmap
 
-- **Priority:** NEXT 2, after `PICO-P1`
-- **Maturity:** Simulator-verified bootstrap; integrated client experimental;
-  physical-device acceptance incomplete
-- **Last verified:** Bootstrap and simulator evidence at `92c21c3b13`,
-  2026-08-24, macOS/Xcode CI; integrated physical-iPad evidence is still
-  required
+- **Priority:** NOW, alongside Android Phone and Pico under `CLIENT-PARITY`.
+- **Maturity:** iPad personal alpha completed; current-artifact cross-client
+  acceptance and wider iPhone coverage remain separate.
+- **Status reviewed:** 2026-10-20 against the fork's shared roadmap and live
+  milestones. This is not a new device-test result.
 
 ## Current milestone
 
-`IOS-P1` — iPad Personal Alpha: a repeatable private build of the integrated
-Overte client that completes the core journey on one named physical iPad
-without a critical failure.
+[IOS-P2 — Genuine Cross-Client Feature Parity](https://github.com/noah-l-frank/overte/milestone/6).
+The [shared roadmap](https://github.com/noah-l-frank/overte/blob/main/docs/ROADMAP.md)
+and [feature contract](https://github.com/noah-l-frank/overte/blob/main/docs/interfaces/FEATURE_PARITY.md)
+own product order and the required outcomes. Preserve working iOS behavior
+while bringing the useful feature set to parity with Phone and Pico.
 
 ## Exit criteria
 
-- [ ] At a named source revision, the integrated client—not only the
-  bootstrap—builds, signs, installs, and launches on one named iPad.
-- [ ] One representative world connects, loads, and renders usefully on that
-  iPad.
-- [ ] Touch movement, camera control, selection, and one representative object
-  interaction work in the intended iPad layout and safe areas.
-- [ ] Tablet controls, text entry, and the iPadOS system keyboard remain usable
-  through focus, resize, and supported orientation transitions.
-- [ ] Playback, mute, microphone permission allowed, and microphone permission
-  denied each behave safely and predictably.
-- [ ] Background/foreground, deep-link entry, application restart, and clean
-  exit do not leave the app in an unusable state.
-- [ ] A documented 30-minute iPad session completes without a crash, critical
-  thermal behavior, or uncontrolled memory growth; known limitations are
-  recorded.
+- The selected shared feature outcomes are usable through normal integrated
+  client startup and platform-appropriate controls, as defined by IOS-P2 and
+  the shared contract.
+- Exact integrated source, producing IPA, signing/installation identity, and
+  the required runtime journeys are bound to the same candidate.
+- Negative, lifecycle, privacy, and remaining platform limitations are recorded;
+  host or simulator success is not substituted for required device evidence.
 
 ## Single next action
 
-After `PICO-P1` is complete or explicitly paused, name one available iPad and
-attempt a signed integrated-client build, installation, and launch from an
-exact `apple-ios` revision, recording the first blocking failure.
+Qualify the integrated iOS candidate through the regular parent hierarchy and
+perform the remaining IOS-P2 acceptance journeys on its exact installed IPA,
+recording the first blocking failure and the artifact/source binding.
 
-## Blockers
+## Completed baseline
 
-- `PHONE-P1` and then `PICO-P1` have priority before iPad becomes the primary
-  product track.
-- The integrated client still has open Qt, V8, MoltenVK, rendering, multimedia,
-  and native-dependency gates.
-- Runtime evidence requires an authorized physical iPad plus a Mac/Xcode and
-  signing environment; simulator or bootstrap evidence cannot satisfy
-  `IOS-P1`.
+The maintainer completed [IOS-P1 — iPad Personal Alpha](https://github.com/noah-l-frank/overte/milestone/3)
+on October 10, 2026. Its eleven acceptance issues are closed. Retain that
+historical baseline; it does not reopen IOS-P1 or certify a newer build.
 
-## Non-goals
+## Execution boundary and non-goals
 
-- iPhone acceptance or a broad iPhone/iPad hardware matrix;
-- App Store submission, public distribution, and release support;
-- treating the UIKit/Metal bootstrap as the complete Overte client; and
-- macOS or Quest development while those targets are paused for lack of
-  physical test hardware.
+The maintainer's physical tests use the private Proxmox Jenkins laboratory;
+local host tests do not require access to it. Separately authorized manual IPA
+installation is distinct from acceptance. Broad iPhone/iPad coverage, App Store
+submission, macOS desktop, and Quest work are not implied by this milestone.
 
-## Evidence
+## References
 
 - [Development status](DEVELOPMENT_STATUS.md)
-- [Testing and physical-device boundary](TESTING.md)
+- [Testing](TESTING.md)
 - [Build and signing](BUILD.md)
 - [Touch UI validation](TOUCH_UI.md)
 - [Security and privacy](SECURITY_AND_PRIVACY.md)

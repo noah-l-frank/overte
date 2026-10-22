@@ -2,9 +2,11 @@
 
 ## The host check fails
 
-Confirm that the command runs on macOS, Xcode is selected, and the reported
-Xcode, SDK, CMake, Python, and Conan versions satisfy the build contract. Run
-`bootstrap` before dependency resolution.
+For the device-free host contracts in [TESTING.md](TESTING.md), Linux and macOS
+are supported; start with the failing command and its listed prerequisites.
+A Linux host check does not need Xcode. Native iOS configure/build and simulator
+commands require the macOS/Xcode environment in [BUILD.md](BUILD.md); for those,
+check the selected Xcode, SDK, CMake, Python, Conan, and matching Qt roots.
 
 ## Qt validation fails
 

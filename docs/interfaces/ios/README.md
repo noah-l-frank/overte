@@ -8,15 +8,22 @@
 
 ## Current status
 
-The product goal is the complete Overte Interface on iPhone and iPad. The
-currently validated developer path is a smaller native UIKit and Metal bootstrap
-that tests the Apple toolchain, bundle, lifecycle, deep links, place resolution,
-and basic platform integration. It is not the complete Overte client and does
-not yet connect to a domain protocol endpoint.
+The product path is the integrated Qt/Overte Interface on `apple-ios`. The
+maintainer completed the [iPad personal-alpha milestone](https://github.com/noah-l-frank/overte/milestone/3)
+on October 10, 2026. That is evidence for its recorded iPad source/artifact,
+not acceptance of every later IPA or broad iPhone support. Current work follows
+[IOS-P2 cross-client feature parity](https://github.com/noah-l-frank/overte/milestone/6)
+and the [shared feature contract](https://github.com/noah-l-frank/overte/blob/main/docs/interfaces/FEATURE_PARITY.md).
 
-The integrated Qt/Overte client is an explicit experimental porting path. Its
-Qt 6 migration and native dependency graph still have open build gates and it is
-not an accepted device build.
+The smaller UIKit/Metal bootstrap remains a separate toolchain and simulator
+diagnostic. It resolves places but does not implement the full domain protocol;
+its limitations must not be presented as the integrated client's current status.
+See [Development status](DEVELOPMENT_STATUS.md) for the distinction.
+
+This is a personal hobby port. Build hosts, signing, Sideloadly configuration,
+and the Proxmox Jenkins laboratory are the maintainer's private infrastructure,
+not services or access supplied to contributors. Local host contracts do not
+require that setup.
 
 ## Support matrix
 
@@ -25,13 +32,13 @@ not an accepted device build.
 | Build host | macOS with Xcode 26 or newer |
 | Target OS | iOS 17 deployment target |
 | Architecture | arm64 simulator and arm64 device profiles |
-| Virtual target | iPhone and iPad Simulator bootstrap |
-| Physical target | iPhone and iPad; explicit signing and acceptance required |
+| Virtual target | Simulator profiles; bootstrap diagnostics and separately selected Full Client paths |
+| Physical target | iPad personal-alpha evidence; current-artifact acceptance and wider iPhone coverage remain separate |
 
 Linux can run repository contracts but cannot establish an iOS build, launch,
 signing result, or native ABI compatibility.
 
-## Validated bootstrap path
+## Bootstrap diagnostic path
 
 ```bash
 ./ios/build-ios.sh bootstrap
@@ -43,7 +50,7 @@ signing result, or native ABI compatibility.
 This path keeps `OVERTE_IOS_BOOTSTRAP_ONLY=ON` and prevents unfinished desktop
 dependencies and dynamic plug-ins from entering the build.
 
-## Experimental integrated-client path
+## Integrated-client development path
 
 The integrated client requires audited iOS Qt and Conan packages. Follow
 [BUILD.md](BUILD.md) and opt into the client graph only in a separate build
@@ -61,8 +68,8 @@ using the separately authorized Sideloadly signing and installation path. See
 ## Known limitations
 
 - The bootstrap resolves places but does not send Overte domain protocol packets.
-- The integrated client has not completed Qt, V8, MoltenVK, rendering, or native
-  dependency integration.
+- Current cross-client parity and exact-artifact acceptance remain open in
+  IOS-P2; historical preparation blockers are not a live status inventory.
 - Physical iPhone and iPad acceptance evidence remains external.
 - App Store submission is not part of the current milestone.
 

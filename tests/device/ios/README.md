@@ -5,6 +5,14 @@ SPDX-License-Identifier: Apache-2.0
 
 # Fedora iOS E2E handoff and immutable runtime
 
+The Fedora/macOS roles below define the portable build-to-test handoff.
+They do not identify the maintainer's current machines or imply that a local
+Fedora workstation should run a device session. In the maintainer's setup,
+hardware operations use the private Proxmox Jenkins laboratory; the former
+workstation lab is retired. Agent provisioning and signing prerequisites are
+personal infrastructure, not requirements for local host-contract tests. See
+[execution environments](../README.md#execution-environments).
+
 This directory is the Fedora half of the protected iOS device-lab boundary.
 Fedora never builds or signs an IPA. It consumes only the two age-encrypted
 artifacts produced by the protected `apple-ios` workflow, verifies their exact

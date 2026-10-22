@@ -147,17 +147,26 @@ No hardware result is implied by the device-free tests in this directory.
 
 ## Shared control plane
 
-For operation of the existing local laboratory, start with the
+For operation of the maintainer's private Proxmox laboratory, start with the
 [Jenkins operator guide](../../../docs/portal/jenkins/index.md) and its dated
-job inventory. This page owns the shared pipeline implementation contracts.
+status. That personal setup is not a public service or a contributor prerequisite
+for this hobby fork. This page owns the checked-in shared pipeline contracts;
+the current private jobs use separately configured inline pipelines. Verify the
+actual deployment before assuming this Jenkinsfile or migration inventory is live.
+
+The former workstation laboratory was retired on October 19, 2026. The retained
+bootstrap code and mocked host tests do not authorize starting it again. All
+maintainer hardware/device runs use the prepared `overte-jenkins` wrapper against
+Proxmox; an unavailable controller is not a reason to run device automation on
+the workstation. Local source builds and device-free self-tests remain separate.
 
 This directory provides the portable Jenkins wrapper for the device-control
 plane. Jenkins supplies scheduling, an exclusive target lock, credential
 binding, time limits, and quarantined result publication. Test scenarios and
 adapter behavior remain in the shared `tests/device` contracts.
 
-R10 does not configure a real laboratory. Agent labels, lockable-resource
-names, credential identifiers, fixture ports, target selectors, and populated
+This reference implementation does not configure a real laboratory. Agent
+labels, lockable-resource names, credential identifiers, fixture ports, target selectors, and populated
 target files are private deployment inputs. They must be supplied by the
 Jenkins job and must not be committed, logged, or archived. The example target
 generator creates disabled templates only.

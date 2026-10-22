@@ -1,5 +1,12 @@
 # Test Overte for iOS
 
+Local host contracts and macOS simulator checks are separate from real-device
+acceptance. The maintainer's hardware runs use private Proxmox Jenkins jobs;
+the former workstation device lab is retired. A contributor does not need that
+personal setup for the host commands below. Current physical evidence must bind
+the exact IPA, source, installation, and selected journey. See the
+[shared operator boundary](https://github.com/noah-l-frank/overte/blob/main/docs/portal/jenkins/index.md).
+
 ## Host contracts
 
 Linux and macOS can run:

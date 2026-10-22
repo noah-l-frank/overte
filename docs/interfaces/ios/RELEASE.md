@@ -3,6 +3,11 @@
 The current goal is to create verifiable applications that a developer can sign,
 install, and test. App Store publication is out of scope.
 
+For the active integrated client, use [BUILD.md](BUILD.md) and the
+[build qualification guide](../../IOS_BUILD_QUALIFICATION.md) to select the
+Full Client path and verify its exact IPA provenance. The locally signed
+bootstrap example below is a separate diagnostic, not the product artifact.
+
 Simulator output is unsigned and can be launched by the simulator smoke script.
 The device path can package an unsigned IPA plus a JSON manifest and SHA-256
 metadata. It never installs the application automatically.

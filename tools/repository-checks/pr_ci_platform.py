@@ -70,9 +70,32 @@ def android_suites(candidate, target, profile, plan):
     if not plan or not plan.get("paths") or plan.get("regular") is not True:
         return suites
     inputs = json.loads((ROOT / ".github/pr-ci-platform-inputs.json").read_text(), object_pairs_hook=C.unique)
-    C.require(type(inputs) is dict and set(inputs) == {"schema", "android", "fallback"}
-              and inputs["schema"] == 1 and inputs["fallback"] == "complete-reviewed-profile"
-              and type(inputs["android"]) is list, "invalid platform input closure policy")
+    C.require(type(inputs) is dict and set(inputs) == {"schema", "android", "infrastructure", "fallback"}
+              and inputs["schema"] == 2 and inputs["fallback"] == "complete-reviewed-profile"
+              and type(inputs["android"]) is list and type(inputs["infrastructure"]) is list,
+              "invalid platform input closure policy")
+    C.require(type(plan["paths"]) is list and all(type(path) is str and path
+              and not Path(path).is_absolute() and ".." not in Path(path).parts
+              for path in plan["paths"]), "invalid platform change paths")
+    known = {suite["name"] for suite in suites}
+    conditional = {}
+    owners = policy()["android"]
+    for closure in inputs["infrastructure"]:
+        C.require(type(closure) is dict and set(closure) == {"name", "targets", "inputs"}
+                  and type(closure["name"]) is str and closure["name"] not in conditional
+                  and type(closure["targets"]) is list and bool(closure["targets"])
+                  and len(set(closure["targets"])) == len(closure["targets"])
+                  and set(closure["targets"]).issubset(owners)
+                  and type(closure["inputs"]) is list and bool(closure["inputs"])
+                  and all(type(path) is str and path and not Path(path).is_absolute()
+                          and ".." not in Path(path).parts for path in closure["inputs"]),
+                  "invalid infrastructure suite input closure")
+        for owner in closure["targets"]:
+            C.require(closure["name"] in {suite["name"] for suite in owners[owner]["suites"]},
+                      "infrastructure closure names an unowned suite")
+        conditional[closure["name"]] = closure
+    selected = [suite for suite in suites if suite["name"] not in conditional
+                or bool(set(plan["paths"]) & set(conditional[suite["name"]]["inputs"]))]
     for case in inputs["android"]:
         C.require(type(case) is dict and set(case) == {"target", "paths_under", "suffix", "inventory", "omit"}
                   and type(case["paths_under"]) is str and case["paths_under"].startswith("android/")
@@ -91,13 +114,12 @@ def android_suites(candidate, target, profile, plan):
                 actual = subprocess.check_output(["git", "--no-replace-objects", "rev-parse", "HEAD:" + path],
                                                  cwd=candidate, stderr=subprocess.DEVNULL).decode().strip()
             except subprocess.CalledProcessError:
-                return suites
+                return selected
             if actual != expected:
-                return suites
-        known = {suite["name"] for suite in suites}
+                return selected
         C.require(set(case["omit"]).issubset(known), "Android input closure names an unowned suite")
-        return [suite for suite in suites if suite["name"] not in case["omit"]]
-    return suites
+        return [suite for suite in selected if suite["name"] not in case["omit"]]
+    return selected
 
 
 def commands(candidate, target, lane, plan=None):
@@ -140,14 +162,37 @@ def android_compile_commands(target, plan, runtime, prepared_roots):
              "--runtime", str(runtime), "--product", product] for product in products]
 
 
-def execute(candidate, context, plan, lane, prepared_roots, *, recompute, android_runtime=None):
+def execute(candidate, context, plan, lane, prepared_roots, *, recompute, android_runtime=None,
+            android_native_runtime=None, android_groovy_runtime=None):
     candidate = authenticate(candidate, context, plan, recompute)
     C.require(lane in {"android", "ios"} and plan[lane + "_required"] is True,
               "unselected platform execution")
+    if lane == 'android' and plan.get('android_native_products'):
+        import pr_ci_android_native as native
+        native.prerequisites(candidate, plan, context['target'])
+        C.require(android_native_runtime is not None, 'Selected Android native build requires its immutable runtime')
+        root = Path(android_native_runtime).resolve(strict=True)
+        C.require(any(root == Path(path).resolve(strict=True) or Path(path).resolve(strict=True) in root.parents
+                      for path in prepared_roots), 'Android native runtime is outside explicit prepared inputs')
+    selected_commands = commands(candidate, context["target"], lane, plan)
+    groovy_script = 'android/vr/pico/native-ci/inputs_test.py'
+    needs_groovy = lane == 'android' and any(arguments[1:] == [groovy_script] for arguments in selected_commands)
+    C.require(needs_groovy == bool(plan.get('android_groovy_contracts', False)),
+              'Pico Groovy runtime selection differs from its actual owning suite')
+    classpath = None
+    if needs_groovy:
+        import pr_ci_android_native as native
+        C.require(android_groovy_runtime is not None, 'Selected Pico Groovy contracts require their prepared runtime')
+        root = Path(android_groovy_runtime).resolve(strict=True)
+        C.require(any(root == Path(path).resolve(strict=True) or Path(path).resolve(strict=True) in root.parents
+                      for path in prepared_roots), 'Groovy runtime is outside explicit prepared inputs')
+        classpath = native.groovy_classpath(root)
     results = []
-    for arguments in commands(candidate, context["target"], lane, plan):
+    for arguments in selected_commands:
         command = [sys.executable if item == "python" and index == 0 else item
                    for index, item in enumerate(arguments)]
+        if arguments[1:] == [groovy_script]:
+            command = ['/usr/bin/env', 'PICO_TEST_GROOVY_CLASSPATH=' + classpath, *command]
         if lane == "ios":
             qml = qml_runner()
             C.require(qml is not None, "required iOS host QML tool is unavailable")
@@ -167,6 +212,12 @@ def execute(candidate, context, plan, lane, prepared_roots, *, recompute, androi
             authenticate(candidate, context, plan, recompute)
             results.append({"command": ["android-production-compile", "--product", command[-1]],
                             "scope": "production-java-and-resources", "result": "success"})
+        if plan.get('android_native_products'):
+            import pr_ci_android_native as native
+            result = native.execute(candidate, context, plan, android_native_runtime,
+                authenticate=lambda: authenticate(candidate, context, plan, recompute))
+            results.append({'command': ['android-native-offline', '--product', result['product']],
+                            'scope': 'production-native-product', 'result': 'success', 'qualification': result})
     C.require(bool(results), "selected product owner executed no contracts")
     return {"kind": "pr-ci-product-execution-v1", "source": context["original_merge"],
             "tree": context["tree"], "target": context["target"], "result": "success", "commands": results}
