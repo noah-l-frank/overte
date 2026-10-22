@@ -34,3 +34,33 @@ and partial files across interrupted writes, join independent native clock
 brackets, recheck the final native manifest, and observe actual native file-job
 and artifact retirement. No new complete capability is enabled by this source
 prerequisite. The old UI-component Snapshot reader remains scoped as before.
+
+## Durable chunk query owner
+
+`SnapshotChunk` now extends the existing manifest query owner with a closed
+byte-chunk profile. Default manifest JSON, paths, bounds and version-1 files
+remain unchanged. The new profile has separate chunk journal/frame namespaces,
+a distinct version-1 owner and an explicit bounded version-2 native query.
+It selects the filename and revision from an actual retained manifest row;
+missing filenames, unaligned offsets, extra EOF reads and foreign manifest
+bindings cannot reserve or send a query. Full-file coordination must retain
+that originating manifest alongside every chunk.
+
+The owner persists the actual query and independent native before-clock before
+one send. Reconstruction never repeats issued work. A lost native return can
+read its actual AFC original; the unchanged native clock join and full raw
+packet are retained in a private inode/hash-bound `OriginalFrameStore` file.
+The original-frame 1 MiB ceiling remains strict, including clock originals; an
+oversized source fails and stays owned. Lost saved-file returns adopt the same
+original locally without another AFC/clock request or file rewrite. Incomplete
+opened files stay owned and block replay. A file-only historical constructor
+requires no SDK and preserves original native timestamps.
+
+Seven composed host checks exercise real private multichunk originals, actual
+HTTP/AFC transport over native boundary models, durable pre-send queries,
+native/saved-file return loss, interrupted files, exact real manifest row/offset
+selection, unchanged default manifest profiles, separate namespaces and
+file-only revalidation. As with the source checks, modeled native clocks do not
+qualify physical deadlines. Artifact assembly, final manifest verification,
+image/outcome proofs, native file-job joins and whole paired cleanup remain
+the next integration work.
