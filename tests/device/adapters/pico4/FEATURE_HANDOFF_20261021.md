@@ -1791,3 +1791,24 @@ would require5438 native queries, above the unchanged4096 source bound.
 No original was deleted by that measured attempt. A bounded opt-in original
 source fence is being implemented separately; it is not part of the selected
 v2 package, and whole Chat/archive completion remains unqualified.
+
+
+## Passive original Avatar preferences
+
+Fixed selection `278d09f36be80ff5424d6661948cdbfd928676eb` adds the private
+original Avatar preference source. It separately retains actual lazy Handle
+flags/raw typed values, original Manager cache/writer rows and independently
+read raw physical JSON tokens. No get()/maybeInit(), sync/reload or restoration
+is invoked by the source. The original Manager-member mutation barrier and
+bounded weak source queue prevent cross-DSO singleton duplication and concurrent
+mutation from producing an invented baseline. JSON float/QUrl round-trip types
+and the actual Avatar/ head-pitch key normalization remain explicit evidence.
+
+The source is not yet persisted by the complete URL/Favorites/Scale coordinator
+before first input; exact restoration, whole Avatar/People/peer/stereo and final
+resources remain open. No public capability or complete-feature claim is added.
+Root4/139 groups pass26.04s: Avatar source/Bookmarks/preferences13.779s, original
+Create browse-setting7.884s, Chat compiled source4.318s, coverage0.061s.
+The new source includes the actual original Manager/WriteWorker/JSON codec and
+new getter in a narrow Qt harness; this does not qualify the full application,
+MyAvatar/V8/Android build or a physical device.

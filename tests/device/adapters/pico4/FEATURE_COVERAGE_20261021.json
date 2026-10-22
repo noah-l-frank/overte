@@ -240,7 +240,12 @@
         "libraries/render-utils/src/FeatureModelLoads.h",
         "tests/device/contracts/avatar/test_avatar_state_native.py",
         "android/vr/pico/tests/device/test_avatar_people_controls_native.py",
-        "android/vr/pico/tests/device/test_avatar_urls_owner.py"
+        "android/vr/pico/tests/device/test_avatar_urls_owner.py",
+        "tests/device/adapters/pico4/avatar_bookmarks.py",
+        "tests/device/adapters/pico4/avatar_preferences.py",
+        "tests/device/native/AvatarPreferenceSnapshot.h",
+        "tests/device/native/AvatarPreferenceFile.h",
+        "tests/device/native/AvatarPreferenceBarrier.h"
       ],
       "declaredCheckpoints": 15,
       "inputVerbs": [
@@ -284,8 +289,8 @@
         "Delete only owned wearable/bookmark/connection",
         "Confirm both participants have no pending request and observe quiet restoration"
       ],
-      "nextExecutableStep": "Complete original normal Home/app entry, physical preference and HTTP consumption, Bookmarks/Scale/Wearables and People consent; join independent peer/stereo and actual Qt/V8/resource destruction before final retirement.",
-      "nativeCompilation": "unverified",
+      "nextExecutableStep": "Persist the actual passive lazy Handle/cache/writer/physical preference baseline before the first URL input, then join normal Favorites/Scale and exact restore. Continue existing Wearables/People, independent peer/stereo and final Qt/V8 ownership. Component source qualification does not advertise a complete feature.",
+      "nativeCompilation": "Selected original NavigationUi/Avatar UI, Bookmarks writer, Model/Avatar load history, raw entity storage and Setting Manager/WriteWorker/JSON codec preference-source fragments host-compiled; complete application/MyAvatar/V8/Android unverified",
       "deviceQualification": "untested"
     },
     {
