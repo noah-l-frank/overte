@@ -123,3 +123,19 @@ clock at return. It is immutable after success. Later ordinary camera input
 never revives lease authority or causes another camera write. The current view
 remains independently observable; final owner cleanup must verify its own
 initial view separately. Lost ownership before return still prevents restoration.
+
+`overte_phone_avatar_people_pixels` joins a selected actual local or remote
+AvatarManager model to its original loaded geometry identity, texture readiness,
+executed skinned geometry draw, camera bracket and exact GPU PNG. The remote
+path does not fabricate a local AvatarRender source. Script/native observation
+instances and the GPU service instance remain independently pinned; they are
+different real sources in one verified PID. Owned wearable Models must also
+have actual executed original geometry draws. Projected body/wearable bounds
+constrain the sampled image region. Current challenge pixels, a changed body
+and quiet control pixels are all required for change qualification. A static
+body with a new marker, a moving camera or a changed background stays red.
+
+Six new host PNG tests use explicit synthetic native/GPU source producers and
+real PNG decoding/projection. They qualify the source joins, not a real rendered
+avatar or second Phone. Actual two-Phone composition and the full public facade
+remain outstanding.

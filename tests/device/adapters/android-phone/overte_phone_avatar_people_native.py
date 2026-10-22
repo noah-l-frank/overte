@@ -204,10 +204,10 @@ def validate(value,request,pid,epoch,*,previous=None):
         and type(source['attachments']) is list and len(source['attachments'])<=128 and all(type(row) is dict for row in source['attachments']))
     session(source['domainId']);account_observation(source['auth'],value['capturedEpochMs'],value['requestedEpochMs'])
     model(source['avatar'],value['capturedEpochMs'],previous=before['avatar'] if before else None)
-    need(type(source['peers']) is list and len(source['peers'])<=128);seen={source['avatar']['sessionId']}
+    need(type(source['peers']) is list and len(source['peers'])<=128);seen={source['avatar']['sessionId']};models={source['avatar']['modelInstance']}
     for peer in source['peers']:
         old=next((row for row in before['peers'] if row['sessionId']==peer.get('sessionId')),None) if before else None
-        model(peer,value['capturedEpochMs'],previous=old);need(peer['sessionId'] not in seen);seen.add(peer['sessionId'])
+        model(peer,value['capturedEpochMs'],previous=old);need(peer['sessionId'] not in seen and peer['modelInstance'] not in models);seen.add(peer['sessionId']);models.add(peer['modelInstance'])
     storage=source['bookmarks'];exact(storage,{'present','sha256','bytes','bookmarks'})
     need(type(storage['present']) is bool and type(storage['sha256']) is str and HASH.fullmatch(storage['sha256']) and integer(storage['bytes'],0,262144)
         and type(storage['bookmarks']) is dict and len(storage['bookmarks'])<=1000 and all(text(k,256) and type(v) is dict for k,v in storage['bookmarks'].items())

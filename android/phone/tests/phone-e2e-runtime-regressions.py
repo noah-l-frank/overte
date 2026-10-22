@@ -108,6 +108,7 @@ COMMON_HOST_CHECKS = (
     "android/phone/tests/device/test_emote_lifetime.py",
     "android/phone/tests/device/test_emote_lifetime_failure.py",
     "android/phone/tests/device/test_emote_pixels.py",
+    "android/phone/tests/device/test_avatar_people_pixels.py",
     "android/phone/tests/device/test_emote_images.py",
     "android/phone/tests/device/test_emote_capture.py",
     "android/phone/tests/device/test_emote_observation.py",

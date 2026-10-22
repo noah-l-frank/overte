@@ -88,7 +88,7 @@ class AvatarPeopleNativeTests(unittest.TestCase):
             b=Boundary();r=b.reader();r.read(RUN);b.edit=edit
             with self.subTest(edit=edit),self.assertRaises(NativeUIError):r.read(RUN)
     def test_foreign_duplicate_peer_and_unbound_native_requested_model_fail(self):
-        for edit in (lambda s:s['avatar'].update(requestedUrl=URL+'-foreign'),lambda s:s['peers'].append(deepcopy(s['avatar'])),lambda s:s.update(domainId='00000000-0000-0000-0000-000000000000')):
+        for edit in (lambda s:s['avatar'].update(requestedUrl=URL+'-foreign'),lambda s:s['peers'].append(deepcopy(s['avatar'])),lambda s:s['peers'].append(deepcopy(s['avatar'])|dict(sessionId='33333333-3333-4333-8333-333333333333')),lambda s:s.update(domainId='00000000-0000-0000-0000-000000000000')):
             b=Boundary();edit(b.state)
             with self.subTest(edit=edit),self.assertRaises(NativeUIError):b.reader().read(RUN)
     def test_stale_future_and_slow_native_acquisitions_fail(self):
