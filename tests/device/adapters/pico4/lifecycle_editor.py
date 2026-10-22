@@ -187,7 +187,7 @@ class PicoLifecycleEditor:
                         need(current['text']==field['text']==expected);state['phase']='typed' if phase=='typing' else 'focused'
                     state['frames'].append(row)
                 else:need(False)
-                self.save(state);self.fresh();return self.report()
+                self.save(state);result=self.report();self.fresh();return result
         except Exception:raise NativeUIError('Lifecycle editor effects unresolved; original inputs retained, none repeated') from None
     def open_create(self):
         with self.lock.held():
@@ -210,10 +210,11 @@ class PicoLifecycleEditor:
             normal=self.field.row(self.field.capture());need(all(normal[key]==self.state['fieldObjects'][key] for key in OBJECTS))
             row,value=self.capture();current=ui.current_editor(value);need(current is not None and current['id']==self.state['originalId']
                 and current['text']==normal['text'] and current['focused']==normal['focused'])
-            state=deepcopy(self.state);state['frames'].append(row);self.save(state);self.fresh();return self.report()
+            state=deepcopy(self.state);state['frames'].append(row);self.save(state);result=self.report();self.fresh();return result
     def report(self):
-        current=ui.current_editor(self.packet(self.state['frames'][-1]));active=self.state['phase'] in ('focused','typed')
-        return dict(editor='create' if current else 'none',text=current['text'] if current else '',generation=1 if active else 0,
+        current=ui.current_editor(self.packet(self.state['frames'][-1]))
+        if current is not None:need(current['kind']=='create' and current['id']==self.state['originalId'])
+        return dict(editor='create' if current else 'none',text=current['text'] if current else '',generation=1 if current else 0,
             focused=bool(current and current['focused']),keyboard=measured_keyboard(self.packet(self.state['frames'][-1])['source']['keyboard']),
             originalId=self.state['originalId'],journalRetained=True)
 
@@ -268,4 +269,4 @@ def run_create_world_back(editor,joined):
         # These values come from that original current UI/World observation;
         # the editor's typed snapshot remains historical, never current proof.
         result.update(editor='none',text='',generation=0,focused=False,keyboard=False,editorJournalRetained=True)
-        return result
+        return world.final_result(result)

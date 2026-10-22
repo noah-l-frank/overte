@@ -36,6 +36,9 @@ The independent client history must show actual known neutral publication, and
 the avatar source must show three seconds of original 3D stability on both native
 and host clocks. Movement/gaps reset the window. Monotonic final freshness also
 covers parsing, persistence and guards when the device wall clock freezes.
+The final result also rechecks the native clock after its last process guard
+and after result construction. A late native-clock jump cannot escape by
+freezing the host clock; pre-transport intent callbacks remain host-only.
 
 The owner remains partial. Its journal is deliberately preserved even after
 quiet; base teardown cannot retire it. Full Lifecycle still needs normal editor

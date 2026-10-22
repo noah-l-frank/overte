@@ -20,7 +20,9 @@ normal input reference and subsequent consumed bridge cursor is retained before
 another input can be issued. The original empty Create editor and separate
 normal-control field/page/context/window identities are frozen. `focus_create()`
 uses normal pointer input and requires actual focus plus the separate native
-VRKeyboard observation. Only then is generation 1 reported. `type_create()` uses
+VRKeyboard observation. Generation 1 describes the actual original current
+Create identity, including its opened but unfocused state; focus never creates
+or retires a context. `type_create()` uses
 the existing original native IME route for this run's closed Unicode fixture.
 Actual field text must agree across the normal control and independent original
 Lifecycle source on the same objects. No entity creation or Submit is exposed.

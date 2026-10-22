@@ -97,6 +97,20 @@ class LifecycleEditorTests(unittest.TestCase):
         self.assertEqual([],self.model.entities);self.assertEqual(1,len(self.transport.envelopes))
         self.assertTrue(all(row['consumed'] is not None for row in self.owner.state['inputs']))
         restored=self.make();self.assertEqual(typed,restored.observe());self.assertTrue(self.path.exists())
+    def test_opened_unfocused_original_context_already_has_generation_one(self):
+        self.owner.tablet();opened=self.owner.open_create()
+        self.assertEqual(('create','',1,False,False),(opened['editor'],opened['text'],opened['generation'],opened['focused'],opened['keyboard']))
+        self.assertEqual('opened',self.owner.state['phase']);self.assertEqual(opened,self.owner.observe())
+    def test_late_report_copy_native_clock_jump_is_rejected_after_final_result_build_in_reconcile_and_observe(self):
+        self.owner.tablet();self.owner.open_create();report=self.owner.report;clock=self.owner.source.clock_ms
+        def late():
+            result=report();self.owner.source.clock_ms=lambda:clock()+2000;return result
+        before=self.native.clock
+        with patch.object(self.owner,'report',side_effect=late),self.assertRaises(NativeUIError):self.owner.focus_create()
+        self.assertEqual(before,self.native.clock);self.assertEqual('focused',self.owner.state['phase']);self.assertEqual(1,len(self.field.calls))
+        self.owner.source.clock_ms=clock
+        with patch.object(self.owner,'report',side_effect=late),self.assertRaises(NativeUIError):self.owner.observe()
+        self.assertEqual(before,self.native.clock);self.assertEqual(1,len(self.field.calls));self.assertTrue(self.path.exists())
     def test_lost_tablet_ack_only_reconciles_original_grant_and_source_without_toggling_again(self):
         self.lost_tablet=True
         with self.assertRaises(NativeUIError):self.owner.tablet()
@@ -189,6 +203,15 @@ class LifecycleEditorTests(unittest.TestCase):
         self.native.ui.rows[0]['text']='';joined.world.world_input();self.native.ui.rows[0]['text']=context(RUN)['unicode']
         with self.assertRaises(NativeUIError):run_create_world_back(self.make(),joined)
         self.assertEqual(0,self.composed_transport.back_count);self.assertEqual(2,len(self.composed_transport.envelopes))
+    def test_composed_result_final_copy_native_jump_cannot_escape_final_freshness(self):
+        joined=self.joined();report=joined.world.report;clock=joined.world.axes.clock_ms
+        class LateCopy(dict):
+            def update(self,*args,**options):
+                result=super().update(*args,**options);joined.world.axes.clock_ms=lambda:clock()+2000;return result
+        def wrapped(*args):return LateCopy(report(*args))
+        with patch.object(joined.world,'report',side_effect=wrapped),self.assertRaises(NativeUIError):run_create_world_back(self.owner,joined)
+        self.assertEqual('observed',joined.state['phase']);self.assertEqual(3,len(self.composed_transport.envelopes))
+        self.assertTrue(self.path.exists());self.assertTrue(joined.store.path.exists())
 
 
 if __name__=='__main__':unittest.main()
