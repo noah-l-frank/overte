@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
 import hashlib
+import json
 import math
 import os
 import re
@@ -21,7 +22,8 @@ from adapters.token_create_ui import control_id,nonce,scope
 from feature_journeys.contract import arguments,identifier
 from feature_journeys.scenarios import VERSION as CONTRACT
 
-VERSION=1
+VERSION=2
+WORK_VERSION=1
 RESOURCES=('gltf-bundle/main.gltf','obj-bundle/main.obj')
 
 
@@ -73,7 +75,7 @@ class WorkJournal:
             rows=self.check(self.previous);native.restore([decode(row['raw']) for row in rows])
     def check(self,value):
         exact(value,{'schemaVersion','binding','frames','lastPinned'})
-        need(type(value['schemaVersion']) is int and value['schemaVersion']==VERSION and context(value['binding'])==self.binding
+        need(type(value['schemaVersion']) is int and value['schemaVersion']==WORK_VERSION and context(value['binding'])==self.binding
             and type(value['lastPinned']) is bool)
         rows=unpack(value['frames']);need(1<=len(rows)<=64)
         for row in rows:
@@ -92,7 +94,7 @@ class WorkJournal:
             retain=before['lastPinned'] or self.membership(old)!=self.membership(value)
             if not retain:rows.pop()
         rows.append(record);need(len(rows)<=64)
-        state=dict(schemaVersion=VERSION,binding=self.binding,frames=pack(rows),lastPinned=False);self.check(state)
+        state=dict(schemaVersion=WORK_VERSION,binding=self.binding,frames=pack(rows),lastPinned=False);self.check(state)
         self.store.write(state,before);self.previous=state;return value
     @staticmethod
     def membership(packet):
@@ -117,12 +119,13 @@ class OwnedCreateModels:
         if self.previous is not None:self.validate(self.previous)
     def validate(self,value):
         exact(value,{'schemaVersion','binding','runId','fixtureUrl','sourcePin','manager','compilation','steps','pending','lastInput','inputCount'})
-        need(type(value['schemaVersion']) is int and value['schemaVersion']==VERSION and context(value['binding'])==self.binding
+        version=value['schemaVersion']
+        need(type(version) is int and version in (1,VERSION) and context(value['binding'])==self.binding
             and value['sourcePin']==self.pin and type(value['steps']) is list and 1<=len(value['steps'])<=2
             and integer(value['inputCount'],0,4096))
         identifier(value['runId']);tickets=[]
         for step in value['steps']:
-            exact(step,{'ticket','resource','url','before','beforeWork','submitted','configureAttempted','attempted','entityId','lifetime','outcome'})
+            exact(step,{'ticket','resource','url','before','beforeWork','submitted','configureAttempted','attempted','entityId','lifetime','outcome'}|({'texture'} if version==2 else set()))
             arguments('feature.create.act',dict(contractVersion=CONTRACT,runId=value['runId'],ticket=step['ticket'],
                 fixtureUrl=value['fixtureUrl'],verb='model-create',inputs={'resource':step['resource']}))
             if step['lifetime'] is not None:
@@ -131,21 +134,45 @@ class OwnedCreateModels:
                     and integer(step['lifetime']['firstObservedEpochMs'],1) and step['lifetime']['alive'] is True and step['lifetime']['inTree'] is True)
             need(step['resource'] in RESOURCES and step['url']==value['fixtureUrl']+'tickets/'+step['ticket']+'/'+step['resource']
                 and type(step['submitted']) is bool and type(step['configureAttempted']) is bool
-                and (not step['configureAttempted'] or step['submitted']) and step['attempted'] in (['create'],['create','delete'])
-                and step['outcome'] in ('reserved','created','deleted')
+                and (not step['configureAttempted'] or step['submitted'])
+                and step['attempted'] in (['create'],['create','delete'],['create','texture'],['create','texture','delete'])
+                and step['outcome'] in ('reserved','created','texture-property-applied','deleted')
                 and (step['entityId'] is None)==(step['lifetime'] is None)
                 and (step['entityId'] is None or nonce(step['entityId'])))
             self.entities.reader.validate(step['before'],step['before']['requestId'],self.entities.reader.pid,step['before']['capturedEpochMs'])
             baseline=self.work.lookup(step['beforeWork']);work_scope(baseline,value['compilation'])
             need(baseline['source']['manager']==value['manager']);tickets.append(step['ticket'])
+            texture=step.get('texture')
+            if version==1:need(step['attempted'] in (['create'],['create','delete']) and step['outcome'] in ('reserved','created','deleted'))
+            if texture is None:need('texture' not in step['attempted'] and step['outcome']!='texture-property-applied')
+            if texture is not None:
+                exact(texture,{'ticket','url','slot','before','beforeWork','submitted','applied'})
+                arguments('feature.create.act',dict(contractVersion=CONTRACT,runId=value['runId'],ticket=texture['ticket'],
+                    fixtureUrl=value['fixtureUrl'],verb='apply-texture',inputs={'resource':'checker.png'}))
+                need(texture['slot']=='checker.png' and texture['url']==value['fixtureUrl']+'tickets/'+texture['ticket']+'/checker.png'
+                    and type(texture['submitted']) is bool and type(texture['applied']) is bool
+                    and ('texture' in step['attempted']) and step['resource']=='gltf-bundle/main.gltf'
+                    and step['entityId'] is not None and step['configureAttempted']
+                    and (not texture['applied'] or texture['submitted']))
+                self.entities.reader.validate(texture['before'],texture['before']['requestId'],self.entities.reader.pid,texture['before']['capturedEpochMs'])
+                originals=texture['before']['source']['entities'];need(len(originals)==1 and originals[0]['id']==step['entityId']
+                    and texture['before']['capturedEpochMs']>=step['before']['capturedEpochMs']
+                    and texture['before']['requestId']!=step['before']['requestId']
+                    and originals[0]['textures']!=self.texture_text(texture))
+                work_scope(self.work.lookup(texture['beforeWork']),value['compilation']);tickets.append(texture['ticket'])
         need(tickets==list(dict.fromkeys(tickets)) and value['manager']['assigned']
-            and (value['pending'] is None or value['pending']==dict(ticket=tickets[-1],operation='create')
-                or value['pending']==dict(ticket=tickets[-1],operation='delete'))
+            and (value['pending'] is None or value['pending']==dict(ticket=value['steps'][-1]['ticket'],operation='create')
+                or value['pending']==dict(ticket=value['steps'][-1]['ticket'],operation='delete')
+                or value['pending']==dict(ticket=value['steps'][-1]['ticket'],operation='texture') and value['steps'][-1].get('texture') is not None)
             and (value['lastInput'] is None)==(value['inputCount']==0))
         if value['lastInput'] is not None:input_original(value['lastInput'],self.binding)
     def state(self):
         value=self.store.read();need(value is not None and value==self.previous);self.validate(value);return value
     def write(self,value):
+        value=deepcopy(value)
+        if value['schemaVersion']==1:
+            value['schemaVersion']=VERSION
+            for step in value['steps']:step.setdefault('texture',None)
         self.validate(value);self.store.write(value,self.previous);self.previous=deepcopy(value)
     def update(self,**changes):
         value=self.state();value['steps'][-1].update(deepcopy(changes));self.write(value)
@@ -158,6 +185,9 @@ class OwnedCreateModels:
         if original['controlId']=='create.new-model':
             need(value['pending']['operation']=='create' and not value['steps'][-1]['submitted'])
             value['steps'][-1]['submitted']=True
+        if original['controlId']=='create.apply-typed':
+            need(value['pending']['operation']=='texture' and not value['steps'][-1]['texture']['submitted'])
+            value['steps'][-1]['texture']['submitted']=True
         value.update(lastInput=deepcopy(original),inputCount=value['inputCount']+1);self.write(value)
     def capture(self,initial=False):
         callback=self.callbacks.read();manager,compilation=selected(callback,self.pin)
@@ -194,7 +224,7 @@ class OwnedCreateModels:
                 and value['pending'] is None and value['steps'][-1]['outcome']=='deleted' and ticket not in [s['ticket'] for s in value['steps']])
             for step in value['steps']:OwnedCreatePicker.same_scene(step['before'],actual['entities'])
         step=dict(ticket=ticket,resource=resource,url=fixture_url+'tickets/'+ticket+'/'+resource,before=actual['entities'],
-            beforeWork=self.work.pin(),submitted=False,configureAttempted=False,attempted=['create'],entityId=None,lifetime=None,outcome='reserved')
+            beforeWork=self.work.pin(),submitted=False,configureAttempted=False,attempted=['create'],entityId=None,lifetime=None,outcome='reserved',texture=None)
         value['steps'].append(step);value['pending']=dict(ticket=ticket,operation='create');self.write(value)
         controls.tab(0);controls.choose('create.host',0);controls.replace('create.resource',step['url'])
         controls.reveal('create.new-model');controls.input('create.new-model')
@@ -232,11 +262,17 @@ class OwnedCreateModels:
             previous_ui=deepcopy(ui['scope'])
             baseline=work_scope(self.work.lookup(step['beforeWork']),value['compilation']);current=actual['scope']
             ready=idle(current) and not active_callbacks(actual['callbacks'])
-            if operation=='create':
+            if operation in ('create','texture'):
                 ready=ready and row is not None and row['visible'] and row['visuallyReady'] and row['renderInfo']['vertices']>0
                 ready=ready and current['timerRegistrations']>baseline['timerRegistrations'] and current['timerInvocations']>baseline['timerInvocations']
                 if row is not None:ready=ready and page['selectedIds']==[row['id']]
-                if created:ready=ready and row['name']=='e2e-'+value['runId']+'-model' and row['dimensions']==[1,1,1]
+                if created or operation=='texture':ready=ready and row['name']=='e2e-'+value['runId']+'-model' and row['dimensions']==[1,1,1]
+                if operation=='texture':
+                    texture=step['texture'];before=texture['before']['source']['entities'][0]
+                    if row is not None:
+                        need(all(row[k]==before[k] for k in ('id','name','type','hostType','modelUrl','parentId','locked','position','rotation','dimensions','textureNames','naturalDimensions')))
+                        ready=ready and texture['submitted'] and row['textures']==self.texture_text(texture)
+                        ready=ready and row['lastEditedEpochUs']>=texture['before']['capturedEpochMs']*1000
             else:ready=ready and entities_retired(actual['entities']['source']) and page['selectedIds']==[]
             now=self.now();epochs=(actual['entities']['capturedEpochMs'],actual['work']['source']['work']['capturedEpochMs'],ui['scope']['elapsedMs'])
             observed=(deepcopy(row),current['timerInvocations'],current['timerRegistrations'])
@@ -250,13 +286,37 @@ class OwnedCreateModels:
         value=self.state();need(value['pending'] is not None);operation=value['pending']['operation'];step=value['steps'][-1]
         if operation=='create':
             need(step['configureAttempted']);self.quiet('create',created=True)
+        elif operation=='texture':
+            need(step['texture']['submitted']);self.quiet('texture')
         else:self.quiet('delete')
-        value=self.state();value['steps'][-1]['outcome']='created' if operation=='create' else 'deleted';value['pending']=None;self.write(value)
+        value=self.state();value['steps'][-1]['outcome']={'create':'created','texture':'texture-property-applied','delete':'deleted'}[operation]
+        if operation=='texture':value['steps'][-1]['texture']['applied']=True
+        value['pending']=None;self.write(value)
         return {'performed':True}
+    @staticmethod
+    def texture_text(texture):return json.dumps({texture['slot']:texture['url']},sort_keys=True,separators=(',',':'))
+    def apply_texture(self,run,ticket,fixture_url,resource):
+        arguments('feature.create.act',dict(contractVersion=CONTRACT,runId=run,ticket=ticket,fixtureUrl=fixture_url,
+            verb='apply-texture',inputs={'resource':resource}))
+        value=self.state();step=value['steps'][-1]
+        need(run==value['runId'] and fixture_url==value['fixtureUrl'] and value['pending'] is None and step['outcome']=='created'
+            and step.get('texture') is None and step['resource']=='gltf-bundle/main.gltf'
+            and ticket not in [s['ticket'] for s in value['steps']]
+            and not any(s.get('texture') is not None and s['texture']['ticket']==ticket for s in value['steps']))
+        actual=self.quiet('create',created=True);row=self.actual_entity(actual);need(row is not None)
+        need('checker.png' in row['textureNames'] and row['textureNames']['checker.png']==step['url'].rsplit('/',1)[0]+'/textures/checker.png')
+        texture=dict(ticket=ticket,url=fixture_url+'tickets/'+ticket+'/checker.png',slot='checker.png',before=actual['entities'],
+            beforeWork=self.work.pin(),submitted=False,applied=False)
+        need(row['textures']!=self.texture_text(texture))
+        value=self.state();value['steps'][-1].update(texture=texture,attempted=step['attempted']+['texture'])
+        value['pending']=dict(ticket=step['ticket'],operation='texture');self.write(value)
+        controls=self.controls(self.intent);controls.tab(2);controls.replace('create.filter','textures')
+        controls.replace('create.textures',self.texture_text(texture));controls.reveal('create.apply-typed');controls.input('create.apply-typed')
+        return self.reconcile()
     def delete(self):
         value=self.state();step=value['steps'][-1]
-        need('delete' not in step['attempted'] and (value['pending'] is None and step['outcome']=='created'
-            or value['pending']==dict(ticket=step['ticket'],operation='create')))
+        need('delete' not in step['attempted'] and (value['pending'] is None and step['outcome'] in ('created','texture-property-applied')
+            or value['pending'] in (dict(ticket=step['ticket'],operation='create'),dict(ticket=step['ticket'],operation='texture'))))
         actual=self.capture();row=self.actual_entity(actual);need(row is not None)
         value=self.state();value['steps'][-1]['attempted'].append('delete');value['pending']=dict(ticket=step['ticket'],operation='delete');self.write(value)
         controls=self.controls(self.intent);controls.select_entity(row['id']);controls.delete_entity();return self.reconcile()
@@ -331,10 +391,11 @@ class PicoCreateModels:
         return OwnedCreateModels(self.store('owner'),binding,lambda intent:self.adapter._create_controls(self.target,intent),
             entities,callbacks,work,monotonic=ui.monotonic,sleep=ui.sleep)
     def invoke(self,operation,*,ticket=None,fixture_url=None,resource=None):
-        need(operation in ('create','delete','reconcile','release'))
+        need(operation in ('create','texture','delete','reconcile','release'))
         with self.lock.held():
             flow=self.flow()
             if operation=='create':return flow.create(self.run,ticket,fixture_url,resource)
+            if operation=='texture':return flow.apply_texture(self.run,ticket,fixture_url,resource)
             need(ticket is None and fixture_url is None and resource is None)
             if operation=='release' and flow.previous is None:return flow.release_observations()
             return getattr(flow,operation)()

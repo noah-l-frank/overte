@@ -30,7 +30,7 @@ class ModelBackend(OriginalBackend):
     def __init__(self,path):
         super().__init__(path);self.tab=0;self.resource='';self.name='';self.dimensions=dict(x='',y='',z='')
         self.sequence['work']=0;self.registrations=0;self.invocations=0;self.submitted=None;self.loaded=False
-        self.block_work=False;self.bad_load=False;self.work_raw='';self.unknown=False;self.extra_workers=[];self.revision=1;self.freeze_ui=False
+        self.property_filter='';self.texture_draft='';self.ignore_texture=False;self.block_work=False;self.bad_load=False;self.work_raw='';self.unknown=False;self.extra_workers=[];self.revision=1;self.freeze_ui=False
         self.foreign_timer=dict(handle=99,active=True,singleShot=False,intervalMs=1000,remainingMs=950,functionScriptId=99)
         compiled=self.callback['source']['managers'][0]['compiled']['compilations']
         compiled.append(dict(scriptId=99,resourceName='file:///original/scripts/foreign.js',encoding='utf-16le-code-units',
@@ -94,6 +94,9 @@ class ModelIO:
         add('create.host',currentIndex=b.index,count=2);add('create.resource',text=b.resource);add('create.new-model')
         for row in b.rows:add('create.entity.'+row['id'],entityId=row['id'])
         add('create.name',text=b.name);add('create.refresh');add('create.apply');add('create.delete')
+        if b.tab==2:
+            add('create.filter',text=b.property_filter);add('create.apply-typed')
+            if b.property_filter=='textures':add('create.textures',text=b.texture_draft)
         for axis in 'xyz':add('create.field.dimensions.'+axis,text=b.dimensions[axis])
         actual_scope=b.scope()
         if b.freeze_ui:actual_scope['elapsedMs']=0
@@ -111,13 +114,18 @@ class ModelIO:
                 naturalDimensions=[0,0,0],textureNames={'checker.png':b.resource.rsplit('/',1)[0]+'/textures/checker.png'},
                 renderInfo=dict(vertices=0,textures=0,textureBytes=0,drawCalls=0))]
             b.selected=[entity];b.tab=2;b.submitted=b.now();b.loaded=False;b.registrations+=1
+        elif identifier=='create.filter' and action=='replace':b.property_filter=value
+        elif identifier=='create.textures' and action=='replace':b.texture_draft=value
+        elif identifier=='create.apply-typed':
+            if not b.ignore_texture:
+                b.rows[0]['textures']=b.texture_draft;b.rows[0]['lastEditedEpochUs']=b.epoch()*1000
         elif identifier=='create.name' and action=='replace':b.name=value
         elif identifier.startswith('create.field.dimensions.') and action=='replace':b.dimensions[identifier[-1]]=value
         elif identifier=='create.apply':
             b.rows[0]['name']=b.name
             if all(b.dimensions.values()):b.rows[0]['dimensions']=[float(b.dimensions[a]) for a in 'xyz']
             b.rows[0]['lastEditedEpochUs']=b.epoch()*1000
-        elif identifier.startswith('create.entity.'):b.selected=[identifier[len('create.entity.'):]]
+        elif identifier.startswith('create.entity.'):b.selected=[identifier[len('create.entity.'):]];b.tab=2
         elif identifier=='create.delete':
             b.absent=sorted(set(b.absent)|{r['id'] for r in b.rows});b.rows=[];b.selected=[]
         else:b.focus=identifier
@@ -249,6 +257,60 @@ class CreateModelOwnerTests(unittest.TestCase):
         def unavailable(*args):raise OSError('synthetic private intent storage failure')
         with patch.object(self.flow.store,'write',side_effect=unavailable),self.assertRaises(OSError):self.flow.delete()
         self.assertEqual(count,len(self.b.inputs));self.assertEqual(before,self.flow.store.read())
+    def test_distinct_texture_ticket_uses_normal_original_slot_and_actual_property_effect(self):
+        self.create();created=deepcopy(self.b.rows[0]);self.flow.apply_texture(RUN,SECOND,URL,'checker.png')
+        value=self.flow.state();texture=value['steps'][0]['texture']
+        self.assertEqual('texture-property-applied',value['steps'][0]['outcome']);self.assertTrue(texture['submitted'] and texture['applied'])
+        self.assertEqual({'checker.png':URL+'tickets/'+SECOND+'/checker.png'},json.loads(self.b.rows[0]['textures']))
+        self.assertEqual(created['textureNames'],self.b.rows[0]['textureNames']);self.assertNotEqual(TICKET,texture['ticket'])
+        self.assertTrue(any(r['controlId']=='create.filter' and r['value']=='textures' for r in self.b.inputs))
+        self.flow=self.b.make();self.flow.delete();self.flow.release();self.assertFalse(list(self.path.glob('*.json')))
+    def test_lost_texture_apply_reconciles_actual_effect_without_resending(self):
+        self.create();self.b.lose='create.apply-typed'
+        with self.assertRaises(NativeUIError):self.flow.apply_texture(RUN,SECOND,URL,'checker.png')
+        self.b.lose=None;count=len(self.b.inputs);self.flow=self.b.make();self.flow.reconcile()
+        self.assertEqual(count,len(self.b.inputs));self.assertTrue(self.flow.state()['steps'][0]['texture']['applied'])
+        self.flow.delete();self.flow.release()
+    def test_ignored_texture_receipt_and_field_text_do_not_prove_native_entity_effect(self):
+        self.create();self.b.ignore_texture=True
+        with self.assertRaises(NativeUIError):self.flow.apply_texture(RUN,SECOND,URL,'checker.png')
+        count=len(self.b.inputs);self.assertTrue(self.b.texture_draft);self.assertEqual('',self.b.rows[0]['textures'])
+        self.flow=self.b.make()
+        with self.assertRaises(NativeUIError):self.flow.reconcile()
+        self.assertEqual(count,len(self.b.inputs));self.flow.delete();self.flow.release()
+    def test_lost_texture_filter_keeps_partial_attempt_and_only_distinct_delete_can_mutate(self):
+        self.create();self.b.lose='create.filter'
+        with self.assertRaises(NativeUIError):self.flow.apply_texture(RUN,SECOND,URL,'checker.png')
+        self.b.lose=None;count=len(self.b.inputs);self.flow=self.b.make()
+        with self.assertRaises(NativeUIError):self.flow.reconcile()
+        with self.assertRaises(NativeUIError):self.flow.apply_texture(RUN,SECOND,URL,'checker.png')
+        self.assertEqual(count,len(self.b.inputs));self.flow.delete();self.flow.release()
+    def test_missing_or_foreign_original_texture_slot_prevents_normal_input(self):
+        self.create();self.b.rows[0]['textureNames']={'foreign.png':'http://foreign.test/texture.png'};count=len(self.b.inputs)
+        with self.assertRaises(NativeUIError):self.flow.apply_texture(RUN,SECOND,URL,'checker.png')
+        self.assertEqual(count,len(self.b.inputs));self.assertIsNone(self.flow.state()['steps'][0]['texture'])
+        self.flow.delete();self.flow.release()
+    def test_v1_model_owner_migrates_without_retiming_originals_before_first_texture_intent(self):
+        self.create();before=self.flow.state();legacy=deepcopy(before);legacy['schemaVersion']=1
+        for step in legacy['steps']:step.pop('texture')
+        self.flow.store.write(legacy,before);self.flow=self.b.make();self.assertEqual(1,self.flow.state()['schemaVersion'])
+        self.flow.apply_texture(RUN,SECOND,URL,'checker.png');current=self.flow.state()
+        self.assertEqual(2,current['schemaVersion']);self.assertEqual(legacy['steps'][0]['before'],current['steps'][0]['before'])
+        self.assertEqual(legacy['steps'][0]['beforeWork'],current['steps'][0]['beforeWork'])
+        self.assertEqual(1,self.flow.work.state()['schemaVersion']);self.flow.delete();self.flow.release()
+    def test_v1_pending_delete_migrates_only_after_actual_readonly_retirement(self):
+        self.create();self.b.lose='create.delete'
+        with self.assertRaises(NativeUIError):self.flow.delete()
+        self.b.lose=None;before=self.flow.state();legacy=deepcopy(before);legacy['schemaVersion']=1
+        for step in legacy['steps']:step.pop('texture')
+        self.flow.store.write(legacy,before);count=len(self.b.inputs);self.flow=self.b.make();self.flow.reconcile()
+        self.assertEqual(count,len(self.b.inputs));self.assertEqual(2,self.flow.state()['schemaVersion']);self.flow.release()
+    def test_texture_ticket_alias_or_invalid_resource_refuses_before_input(self):
+        self.create();count=len(self.b.inputs)
+        for ticket,resource in ((TICKET,'checker.png'),(SECOND,'foreign.png'),(SECOND,'../checker.png')):
+            with self.subTest(ticket=ticket,resource=resource),self.assertRaises((NativeUIError,ValueError)):
+                self.flow.apply_texture(RUN,ticket,URL,resource)
+        self.assertEqual(count,len(self.b.inputs));self.flow.delete();self.flow.release()
     def test_normal_model_requests_are_closed_before_any_input(self):
         for resource in ('../foreign.gltf','gltf-bundle/main.gltf?expected=true','other.obj'):
             with self.subTest(resource=resource),self.assertRaises((NativeUIError,ValueError)):self.create(resource=resource)

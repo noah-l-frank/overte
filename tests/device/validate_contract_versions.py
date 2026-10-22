@@ -10,7 +10,7 @@ from pathlib import Path
 
 REQUIRED = {
     "native-script-work": 2,
-    "pico-create-model-owner": 1,
+    "pico-create-model-owner": 2,
     "pico-create-model-work-originals": 1,
     "pico-create-management": 1,
     "pico-create-json-files": 1,
