@@ -2368,6 +2368,8 @@ void TestScriptingInterface::saveObject(QVariant variant, const QString& filenam
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     if (filename == "feature-chat-observation.json" || filename == "feature-native-observation.json" || filename == "normal-feature-observation.json"
             || filename == "phone-snapshot-handoff.json" || filename == "phone-snapshot-handoff-result.json"
+            || filename == "phone-snapshot-ui.json" || filename == "phone-snapshot-cancel.json"
+            || filename == "phone-snapshot-readback.json" || filename == "phone-snapshot-upload-observation.json"
             || filename == "phone-snapshot-files-observation.json" || filename == "phone-snapshot-settings.json" || filename == "feature-chat-history.json" || filename == "feature-chat-view-observation.json" || filename == "feature-web-dom-observation.json"
             || filename == "feature-phone-web-runtime.json" || filename == "phone-lifecycle-editor.json" || filename == "phone-lifecycle-world-input.json"
             || filename == "feature-pending-commit-owner.json" || filename == "feature-navigation-replies.json"

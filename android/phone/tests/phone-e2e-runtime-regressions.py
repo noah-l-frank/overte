@@ -16,6 +16,7 @@ PREPARED_HOST_CHECKS = (
     "android/phone/tests/device/test_snapshot_documents_journey_boundary.py",
     "android/phone/tests/device/test_snapshot_cancel_followfloor_audit.py",
     "android/phone/tests/device/test_snapshot_handoff_audit_native.py",
+    "android/phone/tests/device/test_snapshot_private_publication.py",
     "android/phone/tests/device/test_snapshot_handoff_native.py",
     "android/phone/tests/device/test_lifecycle_editor_native.py",
     "android/phone/tests/device/test_lifecycle_world_native.py",
