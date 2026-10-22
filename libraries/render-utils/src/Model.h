@@ -18,6 +18,9 @@
 #include <QObject>
 #include <QUrl>
 #include <QMutex>
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+#include <QUuid>
+#endif
 
 #include <unordered_map>
 #include <unordered_set>
@@ -86,6 +89,10 @@ class Model : public QObject, public std::enable_shared_from_this<Model>, public
     Q_OBJECT
 
 public:
+
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    QString e2eModelInstance() const { return _e2eModelInstance; }
+#endif
 
     typedef RenderArgs::RenderMode RenderMode;
 
@@ -384,6 +391,9 @@ signals:
     void rigReset();
 
 protected:
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    const QString _e2eModelInstance {QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-')};
+#endif
 
     std::unordered_map<unsigned int, quint16> _priorityMap; // only used for materialMapping
     std::unordered_map<unsigned int, std::vector<graphics::MaterialLayer>> _materialMapping; // generated during applyMaterialMapping

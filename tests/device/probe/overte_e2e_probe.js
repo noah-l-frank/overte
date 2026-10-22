@@ -149,6 +149,7 @@
     var lastScriptSourceRequest = "";
     var lastAnimationInventoryRequest = null;
     var lastScriptRootRequest = "";
+    var lastAvatarRenderRequest = "";
     var lastGraphicsSubjectRequest = "";
     var lastSceneLoadRequest = "";
     var lastTabletHttpRequest = "";
@@ -1056,6 +1057,23 @@
     }
 
     function applyClientCommand(command) {
+        if (command && command.schemaVersion === 1
+                && typeof command.commandId === "string" && /^(?:ios-)?[0-9a-f]{32}$/.test(command.commandId)
+                && command.action === "feature-avatar-render-observe"
+                && objectKeysMatch(command, ["schemaVersion", "commandId", "action"])) {
+            if (command.commandId === lastAvatarRenderRequest) { return; }
+            lastAvatarRenderRequest = command.commandId;
+            var avatarRender = {schemaVersion: 1, requestId: command.commandId, available: false};
+            try {
+                if (typeof Test.featureAvatarRenderObservation === "function") {
+                    var originalAvatarRender = Test.featureAvatarRenderObservation(command);
+                    if (originalAvatarRender && originalAvatarRender.requestId === command.commandId) { avatarRender = originalAvatarRender; }
+                }
+            } catch (_avatarRenderError) { /* Missing original model/view metadata stays unavailable. */ }
+            Test.saveObject(avatarRender, "feature-avatar-render.json");
+            return;
+        }
+
         if (command && command.action === "feature-navigation-panels") {
             if (command.schemaVersion === 1 && typeof command.commandId === "string"
                     && command.commandId.length === 32 && /^[0-9a-f]{32}$/.test(command.commandId)
@@ -1970,6 +1988,7 @@
                 || command.action === "feature-create-dialogs-observe"
                 || command.action === "feature-create-entities-observe"
                 || command.action === "feature-world-render-observe"
+                || command.action === "feature-avatar-render-observe"
                 || command.action === "feature-graphics-subject-observe"
                 || command.action === "feature-scene-load-observe"
                 || command.action === "feature-tablet-http-observe"

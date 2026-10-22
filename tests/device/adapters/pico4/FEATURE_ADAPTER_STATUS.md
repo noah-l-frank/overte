@@ -91,6 +91,12 @@ one-send foreground recovery and retained unresolved ownership. Current
 background effect/actor/stereo and final release remain incomplete.
 This adds no complete feature area and keeps shared journey v16 unchanged.
 
+The [original avatar source](EMOTE_AVATAR_SOURCE.md) now reads the existing
+loaded SkeletonModel/geometry and Rig identity through the private Pico
+transport. Its actual getter and identity fragments pass a focused Qt5 check;
+full native translation units, actual model-draw/stereo/actor joins and whole
+Emote retirement remain open. No new complete feature is advertised.
+
 ## Historical component checkpoints
 
 The entries below describe the earlier reference branch and do not override

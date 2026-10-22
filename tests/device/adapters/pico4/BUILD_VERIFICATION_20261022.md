@@ -136,3 +136,22 @@ individual freshness and quiet-window limits are unchanged. Four project
 checks pass (documentation, documentation-contracts, source-layout and
 project-coverage; 5.04 seconds). No complete additional feature or device
 qualification is claimed.
+
+## Original loaded-avatar source and expanded factory regression
+
+The shared original loaded-avatar getter and model/geometry/Rig identity
+fragments compile and execute with Qt5 5.15.18 (1 case, 1.676s) and Qt6 6.11.2
+(1 case, 2.158s). Actual cross-thread Qt delivery and runtime gates are covered;
+AvatarManager, loaded model/geometry, Rig and camera implementations remain
+explicit seams. Full original translation units and all GPU/device behavior
+remain unqualified. See [the original source](EMOTE_AVATAR_SOURCE.md).
+
+The actual Pico candidate-bound factory passes (1 case, 2.498s). All four
+selected catalog groups pass (4/63, 670.11s): normal-scripts 89 cases/492.950s,
+normal-emote 15/51.061s, emote-original-sources 107/126.032s and coverage-matrix
+6/.061s. A 600-second outer process limit resolves the earlier broad Scripts
+150-second timeout; semantic operation and freshness limits were not changed.
+The subsequently added final post-copy candidate-loss/native-clock guard has
+16 original reader/probe/fixture cases passing (.166s), including a countercase
+that fails without that guard. Four final project checks pass (12.24s). No additional
+whole-feature capability or application/APK/device qualification is claimed.

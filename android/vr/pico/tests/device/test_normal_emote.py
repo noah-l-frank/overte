@@ -237,6 +237,26 @@ if(calls!==51||files.length!==1||files[0].available!==false||"source" in files[0
             self.assertEqual(1,len(source.commands))
 
 
+    def test_actual_avatar_factory_preserves_originals_and_refuses_changed_candidate(self):
+        from self_tests.test_native_avatar_render import Boundary
+        source=Boundary();native_send=source.send
+        def send(target,identity,description,command):
+            self.assertEqual(self.native.target,target);self.assertEqual('123:synthetic-start',identity)
+            source.epoch=self.native.epoch_milliseconds(target)
+            native_send(command);source.sample['processId']=123
+        original_read=self.native.read_debug_app_file
+        def original(target,package,path,**options):
+            if path!='files/overte-e2e/feature-avatar-render.json':return original_read(target,package,path,**options)
+            self.assertEqual('org.overte.pico',package);self.assertEqual({'attempts':1},options)
+            return source.original()
+        with patch.object(self.instance,'write_control_command',side_effect=send),patch.object(self.native,'read_debug_app_file',side_effect=original):
+            reader=self.instance._avatar_render_observer(self.native.target);value=reader.read()
+            self.assertEqual(source.sample,value);self.assertEqual([],self.native.inputs)
+            before=len(source.commands)
+            changed={**self.instance._installation(self.native.target),'artifactSha256':'f'*64}
+            with patch.object(self.instance,'_installation',return_value=changed),self.assertRaises(RuntimeError):reader.read()
+            self.assertEqual(before,len(source.commands));self.assertEqual(value,reader.last)
+
     def test_orphaned_lifetime_journal_remains_owned_after_base_cleanup(self):
         from adapters.script_journey.lock import ScriptSourceLock
         from self_tests.test_pico_emote_sources import SourcesTests

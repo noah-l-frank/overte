@@ -450,7 +450,10 @@
         "tests/device/self_tests/test_pico_emote_background.py",
         "tests/device/adapters/pico4/PHONE_SHARED_EMOTE_BACKGROUND_20261022.json",
         "tests/device/self_tests/test_pico_emote_background_effects.py",
-        "tests/device/adapters/pico4/PHONE_SHARED_EMOTE_BACKGROUND_EFFECTS_20261022.json"
+        "tests/device/adapters/pico4/PHONE_SHARED_EMOTE_BACKGROUND_EFFECTS_20261022.json",
+        "tests/device/adapters/native_avatar_render.py",
+        "tests/device/adapters/pico4/EMOTE_AVATAR_SOURCE.md",
+        "tests/device/contracts/emote/test_avatar_render_native.py"
       ],
       "declaredCheckpoints": 28,
       "inputVerbs": [
@@ -487,7 +490,7 @@
         "Observe original pose/mapping/timer/resource retirement",
         "Restore captured prior override and closed panel"
       ],
-      "nextExecutableStep": "Compose independent current playback/natural completion/early cancel/replacement measurements around the now durable one-send ordinary Pico input owner and original per-role source journals. Then join all Sit variants, interruption/background behavior, independent actor/current stereo evidence and actual callback/timer/Qt/native-resource retirement. Retain all uncertain input/source journals; do not advertise a complete Emote triple.",
+      "nextExecutableStep": "Bind original loaded model/geometry/Rig to actual executed model draws and both original Pico eye cameras/PNG/same-frame OpenXR submission; then compose independent actor/public flow and verified resource retirement. Source/effect/work/background components remain partial.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     },
@@ -770,7 +773,7 @@
         "Restore original scene/view and independently observe complete owned UUID absence",
         "Restore original avatar feet/orientation/scale and framework configuration while checking the current physical HMD/camera relation; never demand a fixed Phone head pose or ignore arbitrary local/custom-pointer entities"
       ],
-      "nextExecutableStep": "Source implementation and host verification are complete. Native compilation and later exact-candidate VR/device qualification remain explicitly outside this no-build/no-device session; continue implementing the other eleven areas locally.",
+      "nextExecutableStep": "Source implementation and host verification are complete. Native compilation and later exact-candidate VR/device qualification remain subject to the current local-build authorization and exact supplied Pico source-graph admission; devices remain outside scope; continue implementing the other eleven areas locally.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     },
@@ -879,7 +882,11 @@
         "tests/device/adapters/chat_journey/erase_restore.py",
         "tests/device/adapters/chat_journey/ERASE_RESTORE.md",
         "tests/device/native/ChatDomainSession.h",
-        "tests/device/native/CHAT_DOMAIN_SESSION.md"
+        "tests/device/native/CHAT_DOMAIN_SESSION.md",
+        "tests/device/adapters/chat_journey/mixer.py",
+        "tests/device/adapters/chat_journey/mixer_control.py",
+        "tests/device/adapters/chat_journey/mixer_recovery.py",
+        "tests/device/adapters/chat_journey/MIXER.md"
       ],
       "declaredCheckpoints": 25,
       "inputVerbs": [
@@ -1153,7 +1160,11 @@
         "tests/device/adapters/pico4/lifecycle_join.py",
         "tests/device/adapters/pico4/LIFECYCLE_X_JOIN.md",
         "tests/device/adapters/pico4/lifecycle_process.py",
-        "tests/device/adapters/pico4/LIFECYCLE_PROCESS.md"
+        "tests/device/adapters/pico4/LIFECYCLE_PROCESS.md",
+        "tests/device/adapters/token_lifecycle_ui.py",
+        "tests/device/adapters/pico4/normal_lifecycle.py",
+        "tests/device/native/NormalLifecycleControls.h",
+        "tests/device/adapters/pico4/LIFECYCLE_DRAFT.md"
       ],
       "declaredCheckpoints": 16,
       "inputVerbs": [

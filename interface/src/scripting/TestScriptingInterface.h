@@ -194,6 +194,7 @@ public slots:
     Q_INVOKABLE QVariantMap featureTabletHttpObservation(const QVariantMap& command);
 #endif
     Q_INVOKABLE QVariantMap featureSceneLoadObservation(const QVariantMap& command);
+    Q_INVOKABLE QVariantMap featureAvatarRenderObservation(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureGraphicsSubjectObservation(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureWorldRenderCapture(const QString& requestId);
     Q_INVOKABLE QVariantMap featureWorldRenderStorage(const QVariantMap& command);
@@ -285,6 +286,7 @@ private:
     QHash<QString,QVariantMap> _featureCreateEntitiesCommands, _featureCreateEntitiesResults;
     QHash<QString,QSet<QUuid>> _featureCreateEntityIds;
 #endif
+    quint64 _featureAvatarRenderSequence {0};
     quint64 _featureGraphicsSubjectSequence {0};
     QSet<QString> _featureGraphicsSubjectRequests;
     QSet<QString> _featureSceneLoadRequests;

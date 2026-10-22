@@ -1,0 +1,68 @@
+{
+  "reference": "abb7f6b60d97daf17752aadf94e2b5df099bb7ba",
+  "originCommit": "f84dd87eb66f7fd2652710f1fef31f4e006b7890",
+  "selectedFiles": {
+    "tests/device/adapters/native_avatar_render.py": "3a410685f0a6618f0f246097d79adf018357e3810dc9ed37404795f60402bbd7",
+    "tests/device/self_tests/test_native_avatar_render.py": "7a3ea324a325d8da8ae14a0bd64283dc7bff8318de5de78288f5d294dd388307",
+    "interface/src/scripting/TestScriptingInterface.cpp": "4f5e525a6e3ab547a7de6002db29c8a71c6afd1d124db1cf5520a45d15c4e0cd",
+    "libraries/animation/src/Rig.h": "9f873bb64bcb209eca5bf69aa4be9d88e3cabaab9b93b31748fa51bf472d70f9",
+    "libraries/render-utils/src/Model.h": "6ecc9ba544b6d8616160c5d90da96550636233b63f02da5e2d0153006071c90c",
+    "libraries/model-networking/src/model-networking/ModelCache.h": "336d045cda9e75114e61fa83debe25cce79b4f4eed13f3a495adfd6e71a2d47d"
+  },
+  "notes": [
+    "Selected avatar provenance only; no Phone mono GPU or platform adapter source.",
+    "Native getter adds passive isSet guard.",
+    "Common reader and selected counterexamples preserved with original identities."
+  ],
+  "schemaVersion": 1,
+  "targetBase": "5eae2e8234407741e459e513ade783b3da31196e",
+  "uncommittedPhoneWorkExcluded": true,
+  "modifications": [
+    "Passive native isSet guard before AvatarManager get.",
+    "Final candidate guard and original device clock check after retained reader copy.",
+    "Pico factory using existing candidate/process transport and private writer."
+  ],
+  "nativeVerification": {
+    "qt": "5.15.18",
+    "focusedTests": 1,
+    "elapsedSeconds": 1.676,
+    "boundary": "Original getter body and identity fragments; AvatarManager/Model/Geometry/Rig/camera seams; full translation units uncompiled.",
+    "additionalQt6": {
+      "qt": "6.11.2",
+      "focusedTests": 1,
+      "elapsedSeconds": 2.158
+    }
+  },
+  "qualification": "Partial Emote source only; no model draw, stereo pixel, actor, whole-resource or device qualification.",
+  "targetFiles": {
+    "tests/device/adapters/native_avatar_render.py": "499ffcb7cb593a0dfe95944795644609f565fc415eb300f716e154a162bd915d",
+    "tests/device/self_tests/test_native_avatar_render.py": "244e87c51d48cd22c629096bd7d7265f6b587a3c48d234fe303de794c1316812",
+    "interface/src/scripting/TestScriptingInterface.cpp": "f36bdaffdce41781a22ee78361c526728bf35cca6473be2b442cf157f8dfeff1",
+    "libraries/animation/src/Rig.h": "9f873bb64bcb209eca5bf69aa4be9d88e3cabaab9b93b31748fa51bf472d70f9",
+    "libraries/render-utils/src/Model.h": "6ecc9ba544b6d8616160c5d90da96550636233b63f02da5e2d0153006071c90c",
+    "libraries/model-networking/src/model-networking/ModelCache.h": "336d045cda9e75114e61fa83debe25cce79b4f4eed13f3a495adfd6e71a2d47d"
+  },
+  "hostVerification": {
+    "originalReaderProbeFixtureCases": 16,
+    "elapsedSeconds": 0.166,
+    "actualPicoFactoryCases": 1,
+    "factoryElapsedSeconds": 2.498,
+    "broadSelection": {
+      "catalogSelected": 4,
+      "catalogTotal": 63,
+      "elapsedSeconds": 670.11,
+      "passed": true,
+      "groups": {
+        "normal-scripts": 89,
+        "normal-emote": 15,
+        "emote-original-sources": 107,
+        "coverage-matrix": 6
+      }
+    },
+    "finalGuard": "An added candidate-loss/frozen-host native-clock counterexample failed before the final post-copy guard and passes after it.",
+    "finalProjectSuites": {
+      "passed": 4,
+      "elapsedSeconds": 12.24
+    }
+  }
+}
