@@ -5,6 +5,9 @@
 #include <QQmlContext>
 #include <QQmlEngine>
 #include <QThread>
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+#include "../../../../tests/device/native/IOSTabletSourcesObservation.h"
+#endif
 
 NativeInlineHtmlSource::NativeInlineHtmlSource(QQuickItem* nativeRoot, const QString& tabletName,
         const QString& originalSource, const QString& sourceScriptURL, QObject* parent) :
@@ -12,6 +15,9 @@ NativeInlineHtmlSource::NativeInlineHtmlSource(QQuickItem* nativeRoot, const QSt
     _identity("tablet:" + tabletName + ":" + QUuid::createUuid().toString(QUuid::WithoutBraces)),
     _source(originalSource), _script(sourceScriptURL) {
     if (_root) { connect(_root, &QObject::destroyed, this, &NativeInlineHtmlSource::retire); }
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    if (overte::e2e::tablet_sources::enabled()) { overte::e2e::tablet_sources::born(this,_root,_identity,_source,_script); }
+#endif
 }
 
 bool NativeInlineHtmlSource::contains(QQuickItem* page) const {
@@ -61,7 +67,16 @@ bool NativeInlineHtmlSource::bind(QObject* page) {
             if (!contains(_page)) { clearBinding(); }
         }));
     }
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    QString featureTabletDocumentToken;
+    if (overte::e2e::tablet_sources::enabled()) {
+        featureTabletDocumentToken=_document.token();overte::e2e::tablet_sources::bound(this,item,_document);
+    }
+#endif
     emit documentChanged();
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    if (!featureTabletDocumentToken.isEmpty()) { overte::e2e::tablet_sources::bindReturned(this,featureTabletDocumentToken); }
+#endif
     return true;
 }
 
@@ -72,6 +87,12 @@ void NativeInlineHtmlSource::suspend() {
 void NativeInlineHtmlSource::retire() {
     if (_retired) { return; }
     _retired = true;
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    overte::e2e::tablet_sources::retiring(this);
+#endif
     clearBinding();
     deleteLater();
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    overte::e2e::tablet_sources::retireReturned(this);
+#endif
 }

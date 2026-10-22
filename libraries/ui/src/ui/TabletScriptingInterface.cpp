@@ -34,6 +34,9 @@
 #include "ToolbarScriptingInterface.h"
 #include "Logging.h"
 #include "NativeInlineHtmlSource.h"
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+#include "../../../../tests/device/native/IOSTabletSourcesObservation.h"
+#endif
 
 #include <AudioInjectorManager.h>
 
@@ -1117,6 +1120,10 @@ void TabletProxy::loadHTMLSourceOnTopImpl(const QString& url, const QString& inj
         if (localSafeContext) {
             hifi::scripting::setLocalAccessSafeThread(true);
         }
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+        const auto featureTabletNavigation=overte::e2e::tablet_sources::enabled()
+            ? overte::e2e::tablet_sources::navigation(qobject_cast<QQuickItem*>(root),_name,url,injectedJavaScriptUrl) : QString();
+#endif
         // Only this native source-navigation request can approve these exact
         // HTML/script bytes. QML attaches the existing request to its real page.
         auto* inlineSource = url.startsWith("data:", Qt::CaseInsensitive)
@@ -1131,6 +1138,9 @@ void TabletProxy::loadHTMLSourceOnTopImpl(const QString& url, const QString& inj
             loaded = QMetaObject::invokeMethod(root, "loadWebBase", Q_ARG(const QVariant&, QVariant(url)),
                 Q_ARG(const QVariant&, QVariant(injectedJavaScriptUrl)), Q_ARG(const QVariant&, nativeSource));
         }
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+        overte::e2e::tablet_sources::returned(featureTabletNavigation,loaded);
+#endif
         if (!loaded && inlineSource) { inlineSource->retire(); }
         QMetaObject::invokeMethod(root, "setShown", Q_ARG(const QVariant&, QVariant(true)));
         if (_toolbarMode && _desktopWindow) {

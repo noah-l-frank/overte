@@ -206,6 +206,7 @@ public slots:
     Q_INVOKABLE QVariantMap featureIOSWorldWebWork(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureIOSWorldWebKeys(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureIOSWorldWebGeometry(const QVariantMap& command);
+    Q_INVOKABLE QVariantMap featureIOSTabletSources(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureIOSWorldWeb(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureIOSWorldWebDOM(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureIOSSceneInventory(const QVariantMap& command);
