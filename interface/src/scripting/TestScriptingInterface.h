@@ -19,11 +19,12 @@
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #include <memory>
 #include <QSet>
+#include <QMap>
 #include <memory>
 namespace overte::e2e { class ChatViewObservation; }
 namespace overte::e2e { class PhoneAudioFixtureHTTP; }
 #include <QUuid>
-namespace overte::e2e { class FeatureLifecycle; class AccountOriginLease; class ScriptFileUi; class AudioUi; class GraphicsUi; class LoginUi; class CreateUi; class ChatUi; class EmoteUi; class PhoneEmoteFixture; class PrivateCreateFiles; class PhoneCreateFixture; class PhoneNavigationMarker; class NavigationUi; class NavigationViewObservation; class AvatarPeopleUi; class AvatarPeopleViewObservation; class PhoneAssetsReadJob; class SnapshotUi; class PrivateAssetsFiles; }
+namespace overte::e2e { class FeatureLifecycle; class AccountOriginLease; class ScriptFileUi; class AudioUi; class GraphicsUi; class LoginUi; class CreateUi; class ChatUi; class EmoteUi; class PhoneEmoteFixture; class PrivateCreateFiles; class PhoneCreateFixture; class PhoneNavigationMarker; class NavigationUi; class NavigationViewObservation; class AvatarPeopleUi; class AvatarPeopleViewObservation; class PhoneAssetsReadJob; class SnapshotUi; class PhoneSnapshotFastCancel; class PrivateAssetsFiles; }
 #endif
 
 class TestScriptingInterface : public QObject {
@@ -188,6 +189,7 @@ public slots:
     Q_INVOKABLE QVariantMap phoneSnapshotUi(const QVariantMap& command);
     Q_INVOKABLE QVariantMap phoneSnapshotUploadObservation(const QVariantMap& command);
     Q_INVOKABLE QVariantMap phoneSnapshotReadback(const QVariantMap& command);
+    Q_INVOKABLE QVariantMap phoneSnapshotCancel(const QVariantMap& command);
     Q_INVOKABLE QVariantMap phoneCreateFiles(const QVariantMap& command);
     Q_INVOKABLE QVariantMap phoneNavigationMarkerInput(const QVariantMap& command);
     Q_INVOKABLE QVariantMap phoneNavigationMarkerObservation(const QVariantMap& command);
@@ -296,6 +298,8 @@ private:
     quint64 _phoneSnapshotObservationSequence {0};
     quint64 _phoneSnapshotUploadObservationSequence {0};
     quint64 _phoneSnapshotReadbackSequence {0};
+    quint64 _phoneSnapshotCancelSequence {0};
+    QMap<QString,std::shared_ptr<overte::e2e::PhoneSnapshotFastCancel>> _phoneSnapshotCancelJobs;
     quint64 _phoneCreateFilesSequence {0};
     std::shared_ptr<overte::e2e::PrivateCreateFiles> _phoneCreateFiles;
     quint64 _phoneCreateFixtureSequence {0};

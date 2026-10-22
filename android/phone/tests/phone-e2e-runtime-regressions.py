@@ -50,6 +50,7 @@ COMMON_HOST_CHECKS = (
     "android/phone/tests/device/test_navigation_feature.py",
     "android/phone/tests/device/test_snapshot_source.py",
     "android/phone/tests/device/test_snapshot_controls.py",
+    "android/phone/tests/device/test_snapshot_cancel.py",
     "android/phone/tests/device/test_snapshot_script_history.py",
     "android/phone/tests/device/test_snapshot_script_native.py",
     "android/phone/tests/device/test_snapshot_readback_source.py",

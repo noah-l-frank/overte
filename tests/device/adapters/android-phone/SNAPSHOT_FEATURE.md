@@ -286,3 +286,52 @@ and a real obstructing overlay remain red. The four native cases pass; the
 no Android backend, successful OS export, fast pre-render cancel or device
 acceptance. `test_snapshot_controls.py` separately checks missing/stale/foreign
 packets, ACK-only inputs, exact paths, closed Probe grammar and read-only refusal.
+
+
+## Bounded normal Capture/Cancel recipe v1
+
+`phone-snapshot-cancel` accepts only schemaVersion 1, commandId, action, runId,
+jobId, operation and request. IDs are opaque 32-character hex values. Start
+carries the existing exact normal Snapshot Capture activation, whose commandId
+must equal jobId. Observe/retire require an empty request. Neither expected
+state, caller delay, path, timer ID nor script handler is accepted. The existing
+native launch/lifecycle/candidate/PID gates apply. Read-only actors can observe
+only; they cannot start or retire a job. Up to eight original jobs are retained
+without resetting or replacing history. Repeating the same start returns the
+original job and never replays input. A foreign run/input cannot borrow a job.
+
+The target recipe uses the same physical Qt mouse events as normal controls.
+After actual Capture delivery, a precise two-millisecond local observer waits
+for an actual new VM-bound animated pending event, both original active
+single-shot timers (350 and 60000 milliseconds), capturing review, unchanged
+normal input context and unchanged native capture history. It then delivers
+the actual normal Cancel control before a conservative 300-millisecond bound.
+The existing product delays and event loop remain unchanged. Missing/ignored
+input, stale or foreign events, replaced history, timer expiry and native
+render submission fail the original job. No handler, native cancel function,
+timer removal or alternate capture implementation supplies these inputs.
+
+Completion retains original before/pending/cancelled native-core and review
+copies, actual input receipts, original event times, unchanged native history,
+matching cancelled script context and observed empty original timer map.
+Historical sources use their actual native-core v1 schema; they are not relabeled
+as an outer Snapshot-v5 observation with invented Java/export fields. Each
+transport response independently includes native instance/sequence/PID, fresh
+request/capture times, current original source and the complete bounded job
+inventory. The Python reader enforces the five-second operation deadline,
+1.5-second freshness window, immutable original prefixes and same-run identities.
+It retains historical times instead of refreshing them at acquisition.
+
+Retirement stops no product work and deletes no product files. It requires a
+terminal recipe, inactive local timer and a new original idle observation.
+The first retirement original remains immutable. Repeated retirement checks
+current state again; late actual work refuses retirement and remains visible.
+A completed recipe supplies no whole Snapshot verdict: the public owner still
+needs reviewed compiled-source pins, independent fresh native/UI/file/peer
+observations and the existing three-second no-late-results window.
+
+Host checks compile the unchanged Test.phoneSnapshotCancel method and the
+actual helper, normal QML, physical Qt input, clocks and timers. Explicit
+DependencyManager/lifecycle/OffscreenUi and VM/script producer seams remain;
+these are not a complete TestScriptingInterface translation-unit, Android
+runtime, product rendering or device acceptance check.

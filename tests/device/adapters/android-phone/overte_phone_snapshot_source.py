@@ -58,9 +58,11 @@ def review(value,valid_path):
     return value
 
 
-def source(value,captured_epoch=2**63-1):
-    exact(value,{'phoneSnapshotObservationVersion','nativeReview','storageRoot','captures','uploads','history','review','androidExport','scriptHistory'})
-    need(type(value['phoneSnapshotObservationVersion']) is int and value['phoneSnapshotObservationVersion']==5
+def source(value,captured_epoch=2**63-1,*,native_core=False):
+    need(type(native_core) is bool)
+    exact(value,{'phoneSnapshotObservationVersion','nativeReview','storageRoot','captures','uploads','history','scriptHistory'}
+        | (set() if native_core else {'review','androidExport'}))
+    need(type(value['phoneSnapshotObservationVersion']) is int and value['phoneSnapshotObservationVersion']==(1 if native_core else 5)
         and value['nativeReview'] is True and value['storageRoot'] in ROOTS)
     root=value['storageRoot']
     def path(raw):
@@ -91,8 +93,10 @@ def source(value,captured_epoch=2**63-1):
         ids.append(row['id'])
     need(ids==sorted(set(ids)))
     uploads=value['uploads'];need(type(uploads) is list and len(uploads)<=64 and all(path(raw) for raw in uploads) and uploads==sorted(set(uploads)))
-    review(value['review'],path)
-    exports(value['androidExport'],path)
+    if not native_core:
+        review(value['review'],path)
+        exports(value['androidExport'],path)
+    need(all(row['capturedEpochMs']<=captured_epoch for row in history['events']))
     script_history(value['scriptHistory'],captured_epoch)
     return value
 

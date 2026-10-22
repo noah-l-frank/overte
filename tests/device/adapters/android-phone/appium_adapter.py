@@ -128,6 +128,10 @@ def readonly_feature_command(command):
         request=command.get('request')
         require(set(command)=={'schemaVersion','commandId','action','request'} and type(request) is dict and type(request.get('schemaVersion')) is int
             and request==dict(schemaVersion=1,commandId=command['commandId'],action='observe'),'PHONE_READ_ONLY_COMMAND_REJECTED')
+    elif action=='phone-snapshot-cancel':
+        from overte_phone_snapshot_cancel import command as validate_snapshot_cancel
+        validate_snapshot_cancel(command)
+        require(command['operation']=='observe','PHONE_READ_ONLY_COMMAND_REJECTED')
     elif action=='phone-navigation-view-observe':
         from overte_phone_navigation_native import command as validate_navigation
         validate_navigation(command)
@@ -1298,6 +1302,15 @@ class PhoneAppiumAdapter(AppiumAdapter):
         target=self.target(selector);device=target['capabilities']['appium:udid']
         transport=PhoneAdapter(self.candidate).adb
         return PhoneSnapshotReadbacks(native.send,
+            lambda:transport.read_debug_app_file(device,target['appId'],'files/overte-e2e/'+FILE,attempts=1),
+            native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep)
+
+    def _snapshot_cancel(self,selector,*,read_only=True):
+        from overte_phone_snapshot_cancel import PhoneSnapshotCancel,FILE
+        native=self._native_feature_observer(selector,read_only=read_only)
+        target=self.target(selector);device=target['capabilities']['appium:udid']
+        transport=PhoneAdapter(self.candidate).adb
+        return PhoneSnapshotCancel(native.send,
             lambda:transport.read_debug_app_file(device,target['appId'],'files/overte-e2e/'+FILE,attempts=1),
             native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep)
 

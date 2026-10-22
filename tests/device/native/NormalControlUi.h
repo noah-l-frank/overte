@@ -21,6 +21,7 @@
 #include <QGuiApplication>
 #include <QHash>
 #include <QKeyEvent>
+#include <QMouseEvent>
 #include <QPointer>
 #include <QQuickWindow>
 #include <QSet>
@@ -330,6 +331,24 @@ public:
         }
         result["performed"] = delivered; // Input delivery only; read real state separately.
         return result;
+    }
+
+    // Shared physical event primitive for normal controls and bounded local
+    // recipes. It supplies input delivery only, never a product verdict.
+    static bool pointerEvent(QQuickItem* item,QQuickWindow* window,const QPointF& position,bool move=false) {
+        if (visibleRect(item,window).isEmpty() || !visibleRect(item,window).contains(position)) { return false; }
+        QPointer<QQuickItem> original=item;QPointer<QQuickWindow> surface=window;
+        if (move) {
+            QMouseEvent event(QEvent::MouseMove,position,Qt::NoButton,Qt::NoButton,Qt::NoModifier);
+            QCoreApplication::sendEvent(surface,&event);if (!original || !surface) { return false; }
+        }
+        QMouseEvent press(QEvent::MouseButtonPress,position,Qt::LeftButton,Qt::LeftButton,Qt::NoModifier);
+        const bool pressed=QCoreApplication::sendEvent(surface,&press);bool released=false;
+        if (surface) {
+            QMouseEvent release(QEvent::MouseButtonRelease,position,Qt::LeftButton,Qt::NoButton,Qt::NoModifier);
+            released=QCoreApplication::sendEvent(surface,&release);
+        }
+        return pressed && released && original && surface;
     }
 
     static QRectF visibleRect(QQuickItem* item, QQuickWindow* window) {

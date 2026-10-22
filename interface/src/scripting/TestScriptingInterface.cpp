@@ -84,6 +84,7 @@
 #include "../../../tests/device/native/PrivateCreateFiles.h"
 #include "ui/Snapshot.h"
 #include "../../../tests/device/native/PhoneSnapshotReviewObservation.h"
+#include "../../../tests/device/native/PhoneSnapshotFastCancel.h"
 #include "NativeSnapshotAdapter.h"
 #include "../../../tests/device/native/PhoneNavigationMarker.h"
 #include <SettingHandle.h>
@@ -1329,6 +1330,55 @@ QVariantMap TestScriptingInterface::phoneSnapshotReadback(const QVariantMap& com
         {"capturedEpochMs",QDateTime::currentMSecsSinceEpoch()},{"source",actual.object().toVariantMap()}};
 }
 
+QVariantMap TestScriptingInterface::phoneSnapshotCancel(const QVariantMap& command) {
+    if (QThread::currentThread()!=thread()) {
+        QVariantMap result;
+        if (!QMetaObject::invokeMethod(this,[&] { result=phoneSnapshotCancel(command); },Qt::BlockingQueuedConnection)) { return {}; }
+        return result;
+    }
+    const auto json=QJsonObject::fromVariantMap(command);
+    QStringList keys{"schemaVersion","commandId","action","runId","jobId","operation","request"};keys.sort();
+    const QRegularExpression nonce("\\A[0-9a-f]{32}\\z");
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript") || command.keys()!=keys
+            || json.value("schemaVersion")!=QJsonValue(1) || json.value("action")!=QJsonValue("phone-snapshot-cancel")
+            || !json.value("commandId").isString() || !nonce.match(json.value("commandId").toString()).hasMatch()
+            || !json.value("runId").isString() || !nonce.match(json.value("runId").toString()).hasMatch()
+            || !json.value("jobId").isString() || !nonce.match(json.value("jobId").toString()).hasMatch()
+            || !json.value("operation").isString() || !json.value("request").isObject()
+            || !DependencyManager::isSet<Snapshot>() || !DependencyManager::isSet<OffscreenUi>() || !_phoneSnapshotUi) { return {}; }
+    const auto operation=json.value("operation").toString(),job=json.value("jobId").toString();
+    if (!QStringList{"start","observe","retire"}.contains(operation)
+            || (operation!="start" && !json.value("request").toObject().isEmpty())) { return {}; }
+    const auto requested=QDateTime::currentMSecsSinceEpoch();
+    auto owner=_phoneSnapshotCancelJobs.value(job);
+    if (!owner) {
+        if (operation!="start" || _phoneSnapshotCancelJobs.size()>=8) { return {}; }
+        owner=std::make_shared<overte::e2e::PhoneSnapshotFastCancel>();
+    }
+    const auto ui=DependencyManager::get<OffscreenUi>();
+    QPointer<Snapshot> snapshot=DependencyManager::get<Snapshot>().data();
+    const auto read=[snapshot]() -> QVariantMap {
+        if (!snapshot || QThread::currentThread()!=snapshot->thread()) { return {}; }
+        return snapshot->featureSnapshotObservation();
+    };
+    QPointer<QQuickWindow> window=ui->getWindow();
+    const auto click=[window](QQuickItem* item) {
+        return window && item && overte::e2e::NormalControlUi::pointerEvent(item,window,
+            item->mapToScene(QPointF(item->width()/2,item->height()/2)));
+    };
+    const auto source=owner->request(json.value("runId").toString(),job,operation,
+        json.value("request").toObject(),ui->getRootItem(),window,_phoneSnapshotUi,read,click);
+    if (source.isEmpty() || QJsonDocument::fromVariant(source).toJson(QJsonDocument::Compact).size()>200000) { return {}; }
+    _phoneSnapshotCancelJobs.insert(job,owner);
+    QVariantList jobs;
+    for (const auto& original:_phoneSnapshotCancelJobs) { jobs.append(original->summary()); }
+    return {{"schemaVersion",1},{"requestId",command.value("commandId")},{"runId",command.value("runId")},{"jobs",jobs},
+        {"instance",_featureObservationInstance},{"sequence",static_cast<qulonglong>(++_phoneSnapshotCancelSequence)},
+        {"processId",QCoreApplication::applicationPid()},{"requestedEpochMs",requested},
+        {"capturedEpochMs",QDateTime::currentMSecsSinceEpoch()},{"source",source}};
+}
+
 QVariantMap TestScriptingInterface::phoneCreateFiles(const QVariantMap& command) {
     if (QThread::currentThread()!=thread()) {
         QVariantMap result;
@@ -1695,23 +1745,7 @@ QVariantMap TestScriptingInterface::phoneControlUi(const QVariantMap& command, i
     // Events enter the actual rendered Qt window. No QML clicked/accepted
     // handler, file helper or script service is invoked as an input shortcut.
     const auto pointClick = [window, surfaceKind](QQuickItem* item, const QPointF& position) {
-        if (overte::e2e::ScriptFileUi::visibleRect(item, window).isEmpty()) { return false; }
-        QPointer<QQuickItem> original = item;
-        QPointer<QQuickWindow> surface = window;
-        if (!overte::e2e::ScriptFileUi::visibleRect(item, window).contains(position)) { return false; }
-        if (surfaceKind == 0) {
-            QMouseEvent move(QEvent::MouseMove, position, Qt::NoButton, Qt::NoButton, Qt::NoModifier);
-            QCoreApplication::sendEvent(surface, &move);
-            if (!original || !surface) { return false; }
-        }
-        QMouseEvent press(QEvent::MouseButtonPress, position, Qt::LeftButton, Qt::LeftButton, Qt::NoModifier);
-        const bool pressed = QCoreApplication::sendEvent(surface, &press);
-        bool released {false};
-        if (surface) {
-            QMouseEvent release(QEvent::MouseButtonRelease, position, Qt::LeftButton, Qt::NoButton, Qt::NoModifier);
-            released = QCoreApplication::sendEvent(surface, &release);
-        }
-        return pressed && released && original && surface;
+        return overte::e2e::NormalControlUi::pointerEvent(item,window,position,surfaceKind==0);
     };
     const auto click = [pointClick](QQuickItem* item) {
         return pointClick(item, item->mapToScene(QPointF(item->width()/2, item->height()/2)));
