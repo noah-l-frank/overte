@@ -15,6 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import pr_ci_android_assets as A
 import pr_ci_android_boundary as B
 import pr_ci_android_runtime as R
+import pr_ci_android_capacity as CAP
 import pr_ci_context as C
 
 OWNER = {'android-main': 'common', 'android-vr': 'common',
@@ -132,8 +133,29 @@ def load_image(archive, descriptor):
         B.image_identity(environment, client)
 
 
+def capacity_admission(definition, destination, cache, phase):
+    """Check the actual workspace and daemon filesystem before costly work."""
+    C.require(definition.get('status') == 'qualified' and phase in {'prepare', 'execute'},
+              'Android capacity requires qualified protected policy')
+    capacity = definition.get('capacity')
+    C.require(type(capacity) is dict and set(capacity) == {'prepare', 'execute'},
+              'Android capacity requires both measured phase budgets')
+    limit = CAP.budget(capacity[phase])
+    with tempfile.TemporaryDirectory(prefix='overte-android-capacity-') as client:
+        environment = {'PATH': '/usr/bin:/bin', 'HOME': client, 'DOCKER_CONFIG': client,
+                       'LANG': 'C.UTF-8', 'LC_ALL': 'C.UTF-8'}
+        result = subprocess.run(['/usr/bin/docker', '--host=unix:///var/run/docker.sock', 'info',
+                                 '--format', '{{json .DockerRootDir}}'], env=environment, cwd=client,
+                                timeout=30, check=True, capture_output=True)
+    C.require(len(result.stdout) <= 16_384, 'Android Docker root response exceeds its bound')
+    docker_root = json.loads(result.stdout)
+    C.require(type(docker_root) is str, 'Android Docker root is unavailable')
+    return CAP.admit(limit, destination, cache, docker_root)
+
+
 def prepare(destination, cache):
     definition = A.policy()
+    capacity_admission(definition, destination, cache, 'prepare')
     cache = Path(cache)
     cache.mkdir(parents=True, exist_ok=True)
     B.R._private_path(cache.resolve(strict=True), 'Android public asset cache')
@@ -180,6 +202,9 @@ def execute(candidate, context, plan, prepared, *, authenticate):
     root = validate_prepared(prepared, definition)
     template = load_template(root, definition, product)
     check_intent(candidate, template['dependency_intent'])
+    C.require(os.stat(candidate).st_dev == os.stat(root).st_dev,
+              'Android source and scratch on separate filesystems are unsupported')
+    capacity_admission(definition, root, root, 'execute')
     # Copy only already authenticated public proof data. The run-specific
     # candidate binding is separate from the immutable baseline definition.
     with tempfile.TemporaryDirectory(prefix='android-native-execution-', dir=root) as session:
@@ -229,9 +254,15 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--destination', type=Path, required=True)
     parser.add_argument('--cache', type=Path, required=True)
-    parser.add_argument('--groovy-only', action='store_true')
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument('--groovy-only', action='store_true')
+    mode.add_argument('--capacity-only', action='store_true')
     args = parser.parse_args()
-    print(json.dumps((prepare_groovy if args.groovy_only else prepare)(args.destination, args.cache), sort_keys=True))
+    if args.capacity_only:
+        result = capacity_admission(A.policy(), args.destination, args.cache, 'prepare')
+    else:
+        result = (prepare_groovy if args.groovy_only else prepare)(args.destination, args.cache)
+    print(json.dumps(result, sort_keys=True))
 
 
 if __name__ == '__main__':

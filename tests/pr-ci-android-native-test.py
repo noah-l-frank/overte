@@ -71,6 +71,31 @@ class NativeHostTests(unittest.TestCase):
             N.check_intent(self.candidate, self.intent)
         with self.assertRaises(ValueError):
             N.check_intent(self.candidate, {})
+
+    def test_insufficient_capacity_stops_before_any_native_asset_preparation(self):
+        with patch.object(N.A, 'policy', return_value={'status': 'qualified'}), \
+             patch.object(N, 'capacity_admission', side_effect=ValueError('insufficient capacity')), \
+             patch.object(N.A, 'prepare') as prepare, self.assertRaisesRegex(ValueError, 'capacity'):
+            N.prepare(self.root / 'new-native', self.root / 'cache')
+        prepare.assert_not_called()
+        self.assertFalse((self.root / 'cache').exists())
+
+    def test_capacity_uses_fixed_tokenless_daemon_and_protected_phase_budget(self):
+        limit = {name: 1 for name in N.CAP.KEYS}
+        policy = {'status': 'qualified', 'capacity': {'prepare': limit, 'execute': limit}}
+        with patch.object(N.subprocess, 'run') as docker, patch.object(N.CAP, 'admit', return_value={'result': 'admitted'}) as admit:
+            docker.return_value.stdout = b'"/var/lib/docker"\n'
+            self.assertEqual(N.capacity_admission(policy, self.prepared, self.root, 'prepare')['result'], 'admitted')
+            argv = docker.call_args.args[0]
+            self.assertEqual(argv[:4], ['/usr/bin/docker', '--host=unix:///var/run/docker.sock', 'info', '--format'])
+            self.assertEqual(set(docker.call_args.kwargs['env']), {'PATH', 'HOME', 'DOCKER_CONFIG', 'LANG', 'LC_ALL'})
+            admit.assert_called_once_with(limit, self.prepared, self.root, '/var/lib/docker')
+        with patch.object(N.subprocess, 'run') as docker:
+            for value in ({'status': 'awaiting-local-qualification'}, {'status': 'qualified'},
+                          {'status': 'qualified', 'capacity': {'prepare': limit}}):
+                with self.subTest(value=value), self.assertRaises(ValueError):
+                    N.capacity_admission(value, self.prepared, self.root, 'prepare')
+            docker.assert_not_called()
     def test_protected_template_and_baseline_are_digest_bound(self):
         path = self.prepared / 'qualification' / 'proof.json'; path.write_text('{"actual":"bytes"}')
         reference = {'path': 'proof.json', 'sha256': N.R.digest(path)}
@@ -121,6 +146,7 @@ class NativeHostTests(unittest.TestCase):
             (options['scratch'] / 'android-native-execution.json').write_text(json.dumps(receipt))
             return status
         with patch.object(N.A, 'policy', return_value=self.definition), \
+             patch.object(N, 'capacity_admission'), \
              patch.object(N, 'validate_prepared', return_value=self.prepared), \
              patch.object(N, 'load_template', return_value=template), \
              patch.object(N.B, 'run', side_effect=boundary) as run:

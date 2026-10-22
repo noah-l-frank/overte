@@ -518,6 +518,12 @@ jobs:
           path: candidate
           fetch-depth: 2
           persist-credentials: false
+      - name: Require native runner capacity before dependency setup
+        if: needs.plan.outputs.android_native_products != '[]'
+        run: |
+          python3 -I -S -B trusted/tools/repository-checks/pr_ci_android_native.py \
+            --capacity-only --destination "$RUNNER_TEMP/pr-ci-android-native" \
+            --cache "$RUNNER_TEMP/pr-ci-android-native-cache"
       - name: Set up Python
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
         with:

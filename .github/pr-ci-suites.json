@@ -1521,13 +1521,15 @@
           "tests/pr-ci-android-assets-test.py",
           "tools/repository-checks/pr_ci_android_assets.py",
           "tools/repository-checks/pr_ci_android_runtime.py",
-          ".github/pr-ci-android-native.json"
+          ".github/pr-ci-android-native.json",
+          "tools/repository-checks/pr_ci_android_capacity.py"
         ],
         "required": [
           "tests/pr-ci-android-assets-test.py",
           "tools/repository-checks/pr_ci_android_assets.py",
           "tools/repository-checks/pr_ci_android_runtime.py",
-          ".github/pr-ci-android-native.json"
+          ".github/pr-ci-android-native.json",
+          "tools/repository-checks/pr_ci_android_capacity.py"
         ]
       }
     },
@@ -1548,7 +1550,8 @@
           "tools/repository-checks/pr_ci_android_boundary.py",
           "tools/repository-checks/pr_ci_android_runtime.py",
           "tools/repository-checks/pr_ci_context.py",
-          "tools/repository-checks/pr_ci_run.py"
+          "tools/repository-checks/pr_ci_run.py",
+          "tools/repository-checks/pr_ci_android_capacity.py"
         ],
         "required": [
           "tests/pr-ci-android-native-test.py",
@@ -1557,7 +1560,8 @@
           "tools/repository-checks/pr_ci_android_boundary.py",
           "tools/repository-checks/pr_ci_android_runtime.py",
           "tools/repository-checks/pr_ci_context.py",
-          "tools/repository-checks/pr_ci_run.py"
+          "tools/repository-checks/pr_ci_run.py",
+          "tools/repository-checks/pr_ci_android_capacity.py"
         ]
       }
     },
@@ -1580,6 +1584,26 @@
           "tests/pr-ci-android-worker-test.py",
           "tools/repository-checks/pr_ci_android_worker.py",
           "tools/repository-checks/pr_ci_android_runtime.py"
+        ]
+      }
+    },
+    "pr-ci-android-capacity": {
+      "command": [
+        "python",
+        "tests/pr-ci-android-capacity-test.py"
+      ],
+      "layer": "quick",
+      "scope": "content",
+      "environment": "python",
+      "closure": {
+        "kind": "patterns",
+        "inputs": [
+          "tests/pr-ci-android-capacity-test.py",
+          "tools/repository-checks/pr_ci_android_capacity.py"
+        ],
+        "required": [
+          "tests/pr-ci-android-capacity-test.py",
+          "tools/repository-checks/pr_ci_android_capacity.py"
         ]
       }
     }

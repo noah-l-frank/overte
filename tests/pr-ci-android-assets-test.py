@@ -103,6 +103,31 @@ class AssetTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'partial authority'):
             A.policy(root, qualified=False)
 
+    def test_qualified_policy_requires_both_measured_resource_budgets(self):
+        (self.root / '.github').mkdir()
+        descriptor = self.descriptor
+        value = {'schema': 1, 'kind': 'overte-android-native-runtime-v1', 'status': 'qualified',
+                 'assets': {name: ({'archive': descriptor} if name == 'image' else
+                                  {'archive': descriptor, 'inventory': descriptor}) for name in A.KINDS},
+                 'products': {name: {'dependency_intent': {'conanfile.py': 'a' * 64},
+                                    'template': {'path': name + '.json', 'sha256': 'b' * 64},
+                                    'baseline': {'source': '1' * 40, 'tree': '2' * 40,
+                                                 'receipt_path': name + '-result.json', 'receipt_sha256': 'c' * 64}}
+                              for name in ('common', 'phone', 'pico')}}
+        path = self.root / A.POLICY
+        path.write_text(json.dumps(value))
+        with self.assertRaises(ValueError):
+            A.policy(self.root)
+        limit = {name: 1 for name in A.CAP.KEYS}
+        value['capacity'] = {'prepare': limit, 'execute': limit}
+        path.write_text(json.dumps(value))
+        self.assertEqual(A.policy(self.root)['capacity'], value['capacity'])
+        for capacity in ({'prepare': limit}, {'prepare': limit, 'execute': {}},
+                         {'prepare': limit, 'execute': dict(limit, memory_available_bytes=True)}):
+            path.write_text(json.dumps(value | {'capacity': capacity}))
+            with self.subTest(capacity=capacity), self.assertRaises(ValueError):
+                A.policy(self.root)
+
     def test_actual_sealed_readonly_payloads_prepare_without_overwriting_a_destination(self):
         payload = self.root / 'payload'; (payload / 'sealed').mkdir(parents=True)
         (payload / 'sealed/data').write_bytes(b'fixture transport data')
