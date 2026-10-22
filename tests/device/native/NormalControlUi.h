@@ -318,10 +318,18 @@ public:
             if (!node->isVisible()) { return nullptr; }
             const auto opacity=node->opacity(),z=node->z();
             const auto local=node->mapFromScene(point);
-            if (!std::isfinite(opacity) || !std::isfinite(z) || !std::isfinite(local.x()) || !std::isfinite(local.y())) {
+            if (!std::isfinite(opacity) || !std::isfinite(z) || !std::isfinite(local.x()) || !std::isfinite(local.y())
+                    || !std::isfinite(node->width()) || !std::isfinite(node->height())) {
                 complete=false;return nullptr;
             }
-            if (opacity<=.01 || (node->clip() && !node->clipRect().contains(local))) { return nullptr; }
+            if (node->clip()) {
+                const auto clip=node->clipRect();
+                if (!std::isfinite(clip.x()) || !std::isfinite(clip.y()) || !std::isfinite(clip.width()) || !std::isfinite(clip.height())) {
+                    complete=false;return nullptr;
+                }
+                if (!clip.contains(local)) { return nullptr; }
+            }
+            if (opacity<=.01) { return nullptr; }
             // Non-clipping Flickable content items can have zero geometry while
             // their original Layout/TextInput children paint and accept input
             // outside it. Do not stop at that container's contains() result.
@@ -330,9 +338,19 @@ public:
             for (auto child:children) { if (!std::isfinite(child->z())) { complete=false;return nullptr; } }
             std::stable_sort(children.begin(),children.end(),[](QQuickItem* a,QQuickItem* b) { return a->z()<b->z(); });
             for (auto child=children.crbegin();child!=children.crend();++child) {
+                if ((*child)->z()<0) { continue; }
                 const auto found=top(*child,depth+1);if (!complete || found) { return found; }
             }
-            return node->contains(local) ? node : nullptr;
+            // Negative-z children paint behind their parent's own content.
+            // Without pixel-level transparency proof, its geometry conservatively
+            // blocks an underlying child. Outside a non-clipping parent, that
+            // child may still be the actual highest painted/interactive item.
+            if (node->contains(local)) { return node; }
+            for (auto child=children.crbegin();child!=children.crend();++child) {
+                if ((*child)->z()>=0) { continue; }
+                const auto found=top(*child,depth+1);if (!complete || found) { return found; }
+            }
+            return nullptr;
         };
         const auto hit=top(window->contentItem(),0);if (!complete) { return false; }
         for (auto parent=hit;parent;parent=parent->parentItem()) { if (parent==item) { return true; } }
