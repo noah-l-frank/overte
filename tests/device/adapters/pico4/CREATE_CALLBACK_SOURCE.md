@@ -37,7 +37,9 @@ the v1 admission currently includes only the two Window signals.
 The separate Pico getter/probe command `feature-create-callbacks-observe` accepts
 only schema, action and a fresh request nonce. The getter requires the existing
 private test-results/lifecycle launch boundary, records actual native process
-and acquisition clocks, and retains up to 512 original nonce results. Replaying
+and acquisition clocks, refuses a foreign thread with no running event loop,
+and reads only an already registered ScriptEngines dependency. A passive read
+cannot instantiate a missing engine manager. It retains up to 512 original nonce results. Replaying
 a nonce returns its original packet and times. Exhaustion returns unavailable;
 it never evicts or retimes a prior acquisition. The probe only saves the original
 native result to private `feature-create-callbacks.json`.
@@ -58,6 +60,7 @@ case. The separate `create-callback-native` QtCore case compiles the actual nati
 collector and extracts the original ScriptEngines/TSI getter implementations.
 Its native original packets pass through the real Python reader validators.
 It tests nested/self-disconnected dispatch accounting, all-known membership,
-thread-safe reads, disabled gates, bounded histories and immutable replay.
+thread-safe reads, disabled gates, stopped target threads, missing dependencies,
+bounded histories and immutable replay.
 The actual V8 signal proxy and complete application have not been compiled by
 this isolated harness, and no device behavior is qualified.
