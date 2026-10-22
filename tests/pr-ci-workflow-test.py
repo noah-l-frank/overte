@@ -78,23 +78,29 @@ def source_contract(job):
 
 
 def native_recipe_contract(caller, workflow):
-    assert caller["with"] == {"mode": "${{ needs.plan.outputs.native_mode }}"}
+    fields = {"mode": "native_mode", "context_json": "context_json",
+              "plan_json": "plan_json", "controller": "controller", "source": "source"}
+    assert caller["with"] == {name: "${{ needs.plan.outputs." + output + " }}"
+                              for name, output in fields.items()}
     assert "github.event_name == 'pull_request'" in caller["if"]
-    assert workflow["on"]["workflow_call"]["inputs"] == {"mode": {"type": "string", "required": True}}
+    assert workflow["on"]["workflow_call"]["inputs"] == {
+        name: {"type": "string", "required": True} for name in fields}
     job = workflow["jobs"]["build"]
     candidate, trusted = checkouts(job)
-    # Ordinary PR checkout remains GitHub's original merge source. A manual
-    # workflow's H is different, so that execution path is deliberately excluded.
-    assert "ref" not in candidate and "path" not in candidate
+    assert candidate["ref"] == "${{ inputs.source }}" and "path" not in candidate
     assert candidate["fetch-depth"] == 2 and candidate["persist-credentials"] is False
-    assert trusted["ref"] == "${{ github.event.repository.default_branch }}"
+    assert trusted["ref"] == "${{ inputs.controller }}"
     assert trusted["path"] == "trusted" and trusted["persist-credentials"] is False
+    assert set(trusted["sparse-checkout"].splitlines()) == {".github", "tools"}
     recheck = next(step for step in job["steps"] if step["name"] == "Recheck exact candidate selection")
     assert "if" not in recheck
-    assert recheck["env"]["EXPECTED_MODE"] == "${{ inputs.mode }}"
-    assert 'trusted/tools/native-tests/check.py plan --candidate .' in recheck["run"]
-    assert '--event "$GITHUB_EVENT_PATH" --sha "$GITHUB_SHA"' in recheck["run"]
-    assert 'in ("core", "full")' in recheck["run"]
+    assert recheck["env"] == {"EXPECTED_MODE": "${{ inputs.mode }}",
+        "PR_CI_SOURCE_REF": "${{ github.ref }}", "CONTEXT_JSON": "${{ inputs.context_json }}",
+        "PLAN_JSON": "${{ inputs.plan_json }}"}
+    assert 'trusted/tools/repository-checks/pr_ci.py verify-native' in recheck["run"]
+    assert '--candidate . --context-json "$CONTEXT_JSON" --plan-json "$PLAN_JSON"' in recheck["run"]
+    assert '--out build/native-plan.json' in recheck["run"]
+    assert 'tools/native-tests/check.py plan' not in recheck["run"]
 
 
 class WorkflowContracts(unittest.TestCase):
@@ -280,12 +286,10 @@ class WorkflowContracts(unittest.TestCase):
         self.assertEqual("error", upload["with"]["if-no-files-found"])
         self.assertIs(upload["with"]["overwrite"], False)
 
-    def test_original_native_recipe_continues_only_for_ordinary_pr_source(self):
-        self.assertEqual("c277ebda3ce3d972ffce0c3849bf817c664feef90a0b6b90df9ee428a5e576b1",
-            hashlib.sha256((WORKFLOWS / "native-tests.yml").read_bytes()).hexdigest())
+    def test_native_recipe_recomputes_central_contract_only_for_ordinary_pr_source(self):
         native_recipe_contract(self.jobs["native"], self.native)
         job = self.native["jobs"]["build"]
-        self.assertNotIn("pr_ci.py verify-native", scripts(job))
+        self.assertIn("pr_ci.py verify-native", scripts(job))
         command = scripts(job)
         for required in ("conan install .", "--build=never --no-remote",
                 "bash tools/native-tests/configure.sh", "trusted/tools/native-tests/select.py",
