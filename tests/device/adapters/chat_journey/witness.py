@@ -8,6 +8,7 @@ import re
 import time
 
 from adapters.chat_journey.samples import ChatSamples,ChatCacheAbsence
+from adapters.chat_journey.stage_join import initial as initial_stage,opened as opened_stage
 from adapters.chat_journey.flow_inputs import validate_flow,fresh_roles
 from adapters.chat_journey.erase_restore import references
 from adapters.native_feature_observation import exact,integer,need,number
@@ -17,7 +18,7 @@ from feature_journeys.phase_fixture import PhaseFixtureReader,PhasePending,valid
 from feature_journeys.witness import projection
 from feature_journeys.scenarios import VERSION as CONTRACT_VERSION
 
-VERSION=2
+VERSION=3
 
 
 class ChatWitness:
@@ -45,13 +46,13 @@ class ChatWitness:
                 exact(row,{'ticket','sequence','phase','control','before','after','reference','stage'})
                 need(row['sequence']==index+1 and integer(row['sequence'],1) and row['ticket'] not in tickets
                     and row['phase'] in ('reading','publishing','published','retired')
-                    and (index==len(self.rows)-1 or row['phase'] in ('published','retired')) and row['stage'] in ('initial','active'));tickets.add(row['ticket'])
+                    and (index==len(self.rows)-1 or row['phase'] in ('published','retired')) and row['stage']==('initial' if index==0 else 'active'));tickets.add(row['ticket'])
                 need(type(row['control']) is str and re.fullmatch('[0-9a-f]{64}',row['control']))
                 for key in ('before','after'):
                     value=row[key]
                     if value is None:need(key=='after' and row['phase']=='reading');continue
                     phase(value,run=source.run,area='chat',request=value['requestId'],epoch=value['capturedEpochMs'],previous=previous);previous=value
-                need((row['before']['activations'][-1]['stimulus']['verb']=='baseline')==(row['stage']=='initial'))
+                need(len(row['before']['activations'])==index+1 and (row['before']['activations'][-1]['stimulus']['verb']=='baseline')==(row['stage']=='initial'))
                 if row['phase']=='reading':need(row['reference'] is None)
                 else:
                     self.original(row);need(row['before']['active'] and row['before']['activations'][-1]['ticket']==row['ticket'])
@@ -67,7 +68,12 @@ class ChatWitness:
         frame=samples.frames[ref['index']]
         need(ref==dict(index=ref['index'],ticket=frame['ticket'],queries=[frame[key].get('commandId',frame[key].get('requestId')) for key in ('primary','peer','view','lifecycle')],
             epochs=[frame[key]['capturedEpochMs'] for key in ('primary','peer','view','lifecycle')]) and frame['ticket']==row['ticket'])
-        return samples._compose(frame)
+        measured=samples._compose(frame)
+        if row['stage']=='initial':initial_stage(frame)
+        elif row['sequence']==2:
+            need(self.rows and self.rows[0]['reference'] is not None)
+            opened_stage(self.initial_samples.frames[self.rows[0]['reference'][0]['index']],frame)
+        return measured
 
     def save(self):
         self.samples.locks[0].assert_held();need(same(self.store.read(),self.previous))
@@ -106,13 +112,15 @@ class ChatWitness:
         need(not self.rows or self.rows[-1]['phase'] in ('published','retired'))
         active=self.source.read();digest=self.control(active)
         if self.rows and self.rows[-1]['ticket']==active['ticket']:return None
-        need(len(self.rows)<26)
+        need(len(self.rows)<26 and len(active['status']['activations'])==len(self.rows)+1
+            and (active['verb']=='baseline')==(not self.rows))
         samples=self.initial_samples if active['verb']=='baseline' else self.samples
         row=dict(stage='initial' if active['verb']=='baseline' else 'active',ticket=active['ticket'],sequence=len(self.rows)+1,phase='reading',control=digest,
             before=deepcopy(active['status']),after=None,reference=None)
         self.rows.append(row);self.save();started=self.now()
         measured=samples.read(active['ticket'],math.ceil(active['status']['capturedEpochMs']))
         confirmed=self.source.read(active['status']);row.update(after=deepcopy(confirmed['status']),reference=references((samples,)))
+        self.original(row)
         if confirmed['ticket']!=active['ticket']:
             row['phase']='retired';self.save();raise PhasePending('Original Chat frame retained under its retired input ticket')
         need(self.control(confirmed)==digest);row['phase']='publishing';self.save()

@@ -27,7 +27,8 @@ class WitnessTests(unittest.TestCase):
         for name,instance in (('primary','1'*32),('peer','3'*32)):
             boundary=getattr(self.h.h,name);original=boundary.mutate
             def mutate(value,original=original,instance=instance):
-                original(value);session(value,instance=instance)
+                original(value);session(value,instance=instance);value['chatVersion']=3
+                value['source'].update(openedCommandId=('8' if instance=='1'*32 else '9')*32 if value['source']['scopePresent'] else '',retiredCommandId='')
             boundary.mutate=mutate;boundary.present=False;boundary.opened=0
         self.journal=Journal(lambda:self.h.native.epoch)
         with patch('feature_journeys.witness.secrets.token_hex',return_value=RUN):self.journal.register('chat')
@@ -180,13 +181,13 @@ class WitnessTests(unittest.TestCase):
         self.assertEqual('reading',self.publisher.rows[-1]['phase']);self.assertEqual([],self.posted)
         self.assertTrue(self.h.h.peer.present)
 
-    def test_v1_active_baseline_journals_remain_without_adoption_or_new_queries(self):
+    def test_v2_unjoined_baseline_journals_remain_without_adoption_or_new_queries(self):
         self.baseline();self.publisher.publish();before=len(self.h.h.primary.commands)
-        previous=self.flow_store.read();old={**previous,'chatFlowInputsVersion':1};self.flow_store.write(old,previous)
+        previous=self.flow_store.read();old={**previous,'chatFlowInputsVersion':2};self.flow_store.write(old,previous)
         with self.assertRaises(NativeUIError):ChatFlowInputs(self.parent_source,self.h.roles,self.flow_store,self.witness_store,
             initial_roles=self.initial_roles,initial_witness_store=self.initial_witness_store,monotonic=lambda:self.h.native.host)
         self.assertEqual(old,self.flow_store.read())
-        previous=self.publisher_store.read();old_publisher={**previous,'chatWitnessVersion':1};self.publisher_store.write(old_publisher,previous)
+        previous=self.publisher_store.read();old_publisher={**previous,'chatWitnessVersion':2};self.publisher_store.write(old_publisher,previous)
         with self.assertRaises(NativeUIError):self.create()
         self.assertEqual(old_publisher,self.publisher_store.read());self.assertEqual(before,len(self.h.h.primary.commands));self.assertEqual(1,len(self.posted))
 
@@ -199,6 +200,72 @@ class WitnessTests(unittest.TestCase):
         self.initial_samples.locks=(ScriptSourceLock(original[0].path),original[1])
         with self.assertRaises(NativeUIError):self.create()
         self.assertEqual([],self.posted)
+
+    def activate_open(self,*,publish_baseline=True):
+        self.baseline()
+        if publish_baseline:self.publisher.publish()
+        self.h.sleep(.01);self.ticket='c'*32;self.journal.activate(RUN,self.ticket,'open',{})
+        for boundary in (self.h.h.primary,self.h.h.peer):boundary.present=True;boundary.opened=self.h.native.epoch
+        with self.flow.session():self.flow.begin(self.parent_source.read());self.flow.finish()
+
+    def test_stage_join_refuses_original_native_domain_view_keyboard_or_counter_replacement(self):
+        from adapters.chat_journey.stage_join import opened
+        self.activate_open();before=self.initial_roles[0].frames[0];after=self.h.roles[0].frames[-1];opened(before,after)
+        for fault in ('native-instance','peer-pid','native-sequence','view-instance','keyboard-instance','keyboard-sequence',
+                'domain-birth','domain-revision','self','mixer','lifecycle-instance','lifecycle-counter','cache-past','cache-id-collision','settings'):
+            changed=deepcopy(after)
+            if fault=='native-instance':changed['primary']['instance']='f'*32
+            elif fault=='peer-pid':changed['peer']['processId']=457
+            elif fault=='native-sequence':changed['primary']['sequence']=before['primary']['sequence']
+            elif fault=='view-instance':changed['view']['instance']='f'*32
+            elif fault=='keyboard-instance':changed['view']['source']['keyboard']['instance']='f'*32
+            elif fault=='keyboard-sequence':changed['view']['source']['keyboard']['sequence']=before['view']['source']['keyboard']['sequence']
+            elif fault=='domain-birth':changed['primary']['source']['session']['connectionBirth']='f'*32
+            elif fault=='domain-revision':changed['primary']['source']['session']['revision']+=2
+            elif fault=='self':changed['primary']['source']['selfSha256']='f'*64
+            elif fault=='mixer':changed['primary']['source']['mixerSha256']='f'*64
+            elif fault=='lifecycle-instance':changed['lifecycle']['instance']='f'*32
+            elif fault=='lifecycle-counter':changed['lifecycle']['lifecycle']['activations']=before['lifecycle']['lifecycle']['activations']-1
+            elif fault=='cache-past':changed['primary']['source']['openedEpochMs']=before['primary']['capturedEpochMs']-1
+            elif fault=='cache-id-collision':changed['peer']['source']['openedCommandId']=changed['primary']['source']['openedCommandId']
+            else:changed['view']['source']['storage']['configSha256']='f'*64
+            with self.subTest(fault=fault),self.assertRaises(NativeUIError):opened(before,changed)
+
+    def test_observer_cannot_skip_its_original_initial_stage(self):
+        self.activate_open(publish_baseline=False);before=len(self.h.h.primary.commands)
+        with self.assertRaises(NativeUIError):self.publisher.publish()
+        self.assertEqual(before,len(self.h.h.primary.commands));self.assertEqual([],self.posted)
+        self.assertIsNone(self.publisher_store.read())
+
+    def test_first_active_input_cannot_replace_original_native_source_within_same_pid(self):
+        self.baseline();self.publisher.publish();self.h.sleep(.01);self.ticket='c'*32;self.journal.activate(RUN,self.ticket,'open',{})
+        for boundary in (self.h.h.primary,self.h.h.peer):boundary.present=True;boundary.opened=self.h.native.epoch
+        original=self.h.h.primary.mutate
+        def replacement(value):original(value);value['instance']='f'*32
+        self.h.h.primary.mutate=replacement
+        with self.flow.session():
+            self.flow.begin(self.parent_source.read())
+            with self.assertRaises(NativeUIError):self.flow.finish()
+        self.assertEqual('issued',self.flow.rows[-1]['phase']);self.assertEqual(1,len(self.posted))
+        self.assertTrue(self.h.roles[0].store.path.exists())
+
+    def test_independent_first_active_observer_cannot_replace_its_initial_native_source(self):
+        self.activate_open();original=self.h.h.primary.mutate
+        def replacement(value):original(value);value['instance']='f'*32
+        self.h.h.primary.mutate=replacement
+        with self.assertRaises(NativeUIError):self.publisher.publish()
+        self.assertEqual(1,len(self.posted));self.assertEqual('reading',unpack(self.publisher_store.read()['payload'])[-1]['phase'])
+        self.assertEqual(1,len(self.samples.frames));self.assertTrue(self.witness_store.path.exists())
+
+    def test_legacy_domain_packet_cannot_supply_new_initial_lifetime_admission(self):
+        original=self.h.h.primary.mutate
+        def legacy(value):
+            original(value);value['chatVersion']=2;value['source'].pop('openedCommandId');value['source'].pop('retiredCommandId')
+        self.h.h.primary.mutate=legacy
+        with self.flow.session():
+            self.flow.begin(self.parent_source.read())
+            with self.assertRaises(NativeUIError):self.flow.finish()
+        self.assertEqual('issued',self.flow.rows[-1]['phase']);self.assertEqual([],self.posted)
 
     def test_changed_original_fixture_prefix_or_desired_fact_field_is_not_adopted(self):
         self.baseline();original=self.flow_store.read();rows=unpack(original['payload']);rows[0]['before']['activations'][0]['expected']={}

@@ -9,6 +9,7 @@ import time
 import uuid
 
 from adapters.chat_journey.samples import ChatSamples,ChatCacheAbsence
+from adapters.chat_journey.stage_join import initial as initial_stage,opened as opened_stage
 from adapters.chat_journey.erase_restore import references
 from adapters.native_feature_observation import exact,fresh,integer,need,number
 from adapters.normal_feature_state import context
@@ -18,7 +19,7 @@ from feature_journeys.fixtures import context as texts
 from feature_journeys.phase_fixture import PhaseFixtureReader,validate as phase
 from feature_journeys.scenarios import SCENARIOS,expand,VERSION as CONTRACT_VERSION
 
-VERSION=2
+VERSION=3
 
 
 def recipe(run):
@@ -98,7 +99,9 @@ class ChatFlowInputs:
         if self.previous is not None:
             need(all(same(self.previous.get(key),value) for key,value in self.scope.items()));self.rows=validate_flow(self.previous)
             for index,row in enumerate(self.rows):
-                if row['references'] is not None:self.originals(row['references'],initial=index==0)
+                if row['references'] is not None:
+                    self.originals(row['references'],initial=index==0)
+                    if index==1:self.stage(row['references'])
 
     def now(self):
         value=self.monotonic();need(number(value,0,1e15) and (self.last_clock is None or value>=self.last_clock));self.last_clock=value;return value
@@ -116,6 +119,11 @@ class ChatFlowInputs:
                 queries=[frame[key].get('commandId',frame[key].get('requestId')) for key in ('primary','peer','view','lifecycle')],
                 epochs=[frame[key]['capturedEpochMs'] for key in ('primary','peer','view','lifecycle')])
                 and 'state' in role._compose(frame))
+
+    def stage(self,refs):
+        need(self.rows and self.rows[0]['phase']=='completed')
+        for initial,active,before,after in zip(self.initial_roles,self.roles,self.rows[0]['references'],refs):
+            opened_stage(initial.frames[before['index']],active.frames[after['index']])
 
     def save(self):
         self.roles[0].locks[0].assert_held();need(same(self.store.read(),self.previous))
@@ -135,7 +143,10 @@ class ChatFlowInputs:
         row=self.rows[-1];started=self.now();barrier=math.ceil(row['before']['capturedEpochMs'])
         roles=self.initial_roles if len(self.rows)==1 else self.roles
         measured=[role.read(uuid.uuid4().hex,barrier) for role in roles];need(measured[0]['state']==measured[1]['state'])
-        if len(self.rows)==1:need(all(value['resources']==[] for value in measured))
+        if len(self.rows)==1:
+            need(all(value['resources']==[] for value in measured))
+            for role in roles:initial_stage(role.frames[-1])
+        elif len(self.rows)==2:self.stage(references(roles))
         confirmed=self.source.read(row['before']);need(confirmed['ticket']==row['ticket']
             and same(dict(verb=confirmed['verb'],inputs=confirmed['inputs']),dict(verb=row['verb'],inputs=row['inputs'])))
         row.update(phase='completed',after=deepcopy(confirmed['status']),references=references(roles));self.save()
