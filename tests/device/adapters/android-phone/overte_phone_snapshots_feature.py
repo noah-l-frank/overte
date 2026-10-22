@@ -73,25 +73,17 @@ class PhoneSnapshotsFeature(PhoneCreateFeature):
             need(type(header['snapshotsFeatureVersion']) is int and header['snapshotsFeatureVersion']==1 and header['runId']==self.run
                 and header['fixtureUrl']==self.fixture_url and same(header['configuration'],self.config))
             rows=unpack(header['payload']);need(len(rows)==1);self._initial_state=rows[0]
-        pending=(self._initial_state or {}).get('current')
-        pending=pending.get('pending') if type(pending) is dict else None
-        if type(pending) is dict and pending.get('kind')=='background':
+        self._scope_ready=False
+        if self._initial_header is not None:
+            # Construction can precede another role's normal OS transition.
+            # Retain host ownership only; select measured authority from the
+            # fresh exact header under the shared source lock in load().
             self.binding=deepcopy(context(self._initial_header['binding']));self.pid=int(self.binding['processIdentity'].split(':')[0])
-            self.guard=self.background_guard
-        elif self._initial_state is not None and self._initial_state.get('handoff') is not None:
-            self.binding=deepcopy(context(self._initial_header['binding']));self.pid=int(self.binding['processIdentity'].split(':')[0])
-            # Before the normal foreground guard is available, only verified
-            # immutable host originals may establish this exact OS authority.
-            raw=SnapshotsOriginals(self.root,self.binding,self.run,'primary',self.header_authority,lambda *_:need(False),kind='snapshots-input')
-            frames=raw.restore(self._initial_state['inputs'],self._initial_state['inputSequence'])
-            self.check_handoff(self._initial_state['handoff'],frames)
-            handoff=self._initial_state['handoff']
-            self._system_scope=adapter._snapshot_system_context(selector,self.binding,handoff['resolution'],self.header_authority)
-            self.guard=self._system_scope.guard
+            self.guard=self.header_authority
         else:
             _ui,_service,binding,self._runtime_guard,_installed=adapter.normal_feature_runtime(selector,read_only=True)
             self.binding=deepcopy(context(binding));self.pid=int(self.binding['processIdentity'].split(':')[0]);self.guard=self._runtime_guard
-            if self._initial_header is not None:need(same(self._initial_header['binding'],self.binding))
+            self._scope_ready=True
         self.inputs=SnapshotsOriginals(self.root,self.binding,self.run,'primary',self.bound,self.storage_intent,kind='snapshots-input')
 
     def header_authority(self):
@@ -105,7 +97,7 @@ class PhoneSnapshotsFeature(PhoneCreateFeature):
     def public_configuration(self):return deepcopy(self.config)
 
     def bound(self):
-        self.lock.assert_held();need(same(self.store.read(),self.previous))
+        self.lock.assert_held();need(self._scope_ready and same(self.store.read(),self.previous))
         need(self.guard() is not False);return True
 
     def save(self):
@@ -129,7 +121,12 @@ class PhoneSnapshotsFeature(PhoneCreateFeature):
             and type(self.state['actions']) is list and len(self.state['actions'])<=32
             and type(self.state['handoffs']) is list and len(self.state['handoffs'])<=4
             and type(self.state['cancelJobs']) is list and len(self.state['cancelJobs'])<=2)
-        originals=self.inputs.restore(self.state['inputs'],self.state['inputSequence'])
+        # Replaying immutable host originals grants no native/UI authority.
+        # It establishes the exact pending/handoff floor before any runtime or
+        # system-context factory can be selected from this fresh locked state.
+        self._scope_ready=False
+        host=SnapshotsOriginals(self.root,self.binding,self.run,'primary',self.header_authority,lambda *_:need(False),kind='snapshots-input')
+        originals=host.restore(self.state['inputs'],self.state['inputSequence'])
         if originals:
             first=originals[0]['snapshotsBaseline']
             need(same(self.state['original'],dict(avatar=dict(source=dict(cameraMode=first['avatar']['source']['cameraMode'])))))
@@ -141,6 +138,15 @@ class PhoneSnapshotsFeature(PhoneCreateFeature):
         else:need(self.state['phase'] in ('preparing','partial-cleaned') and self.state['partial'])
         if self.state['handoff'] is not None:self.check_handoff(self.state['handoff'],originals)
         self.check_pending(originals)
+        pending=self.state['current']['pending'] if self.state['current'] is not None else None
+        self._system_scope=None
+        if pending is not None and pending['kind']=='background':
+            self.guard=self.background_guard;self._scope_ready=True
+        elif self.state['handoff'] is not None:
+            handoff=self.state['handoff']
+            self._system_scope=self.adapter._snapshot_system_context(self.selector,self.binding,handoff['resolution'],self.header_authority)
+            self.guard=self._system_scope.guard;self._scope_ready=True
+        else:self.foreground()
         self.bound()
 
     def check_pending(self,originals):
@@ -500,7 +506,7 @@ class PhoneSnapshotsFeature(PhoneCreateFeature):
 
     def foreground(self):
         _ui,_service,binding,guard,_installed=self.adapter.normal_feature_runtime(self.selector,read_only=True)
-        need(same(binding,self.binding));self.guard=guard;self.bound()
+        need(same(binding,self.binding));self.guard=guard;self._scope_ready=True;self.bound()
 
     def background(self,*,cleanup=False):
         need(self.state['handoff'] is None);current=self.state['current'];pending=current['pending']

@@ -783,6 +783,16 @@ archived before the pending-clear write can be rechecked without admission or
 another input. These native/UI producers are explicit transport seams; actual
 OS-scope admission and independent Save/Share effects remain separate checks.
 
+An already owned facade constructor establishes only immutable host-header
+identity. Every `load()` selects actual foreground, background-recovery or
+original OS-handoff authority again under the shared source lock, after checking
+the fresh exact owner and immutable pending/handoff originals. A constructor
+that waited while the primary opened or closed a chooser cannot retain a stale
+foreground/system guard. Missing or foreign current OS context fails without
+trying a foreground source. This selection neither delivers input nor retries
+an uncertain action. Deterministic actual-journal counterprobes cover both
+foreground-to-OS and OS-to-foreground transitions and unavailable OS authority.
+
 ## Current v18 public composition and configuration
 
 The adapter's three public operations are `feature.snapshots.act`,

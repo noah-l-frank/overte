@@ -146,7 +146,7 @@ class HandoffAdapter(Adapter):
         self.run=run;self.native=NativeHandoff();self.input=Handoff();self.input.epoch=20000
         io=self.input.io();original=io.capture();request=io._prepare(self.input.controls[0]['id'],'activate',reference=original)
         self.input.plan=dict(request=request,original=original);self.input.epoch=20020
-        self.control_calls=[];self.absent=False
+        self.control_calls=[];self.absent=False;self.runtime_calls=0;self.system_calls=[];self.system=True
         original_frame=self.native.frame
         def frame(retired=False):
             value=original_frame(retired);source=value['source'];source['runId']=run
@@ -154,6 +154,9 @@ class HandoffAdapter(Adapter):
             for key in ('readbacks','captureFiles','upload'):source['source'][key]['runId']=run
             value['jobs'][0]['runId']=run;return value
         self.native.frame=frame
+    def normal_feature_runtime(self,*args,**kwargs):
+        self.runtime_calls+=1;need(self.input.foreground)
+        return None,None,deepcopy(self.binding),lambda:self.input.foreground,dict(sha256='a'*64)
     def _snapshot_handoff_control(self,_,*,read_only=False):
         from overte_phone_snapshot_handoff import PhoneSnapshotHandoffControl
         def send(request):
@@ -162,7 +165,10 @@ class HandoffAdapter(Adapter):
             self.native.send(request);self.native.result['runId']=self.run
         return PhoneSnapshotHandoffControl(send,lambda:json.dumps(self.native.result),lambda:self.native.epoch,lambda:True,31,
             monotonic=lambda:self.native.time,sleep=self.native.sleep)
-    def _snapshot_system_context(self,*_):return SimpleNamespace(guard=lambda:True)
+    def _snapshot_system_context(self,_selector,binding,resolution,authority):
+        self.system_calls.append(deepcopy((binding,resolution)))
+        def guard():authority();return self.system
+        return SimpleNamespace(guard=guard)
     def _snapshot_handoff_input(self,_selector,_binding,_resolution,_authority,owner,admit,*,read_only=False):
         need(read_only);self.input.owner=deepcopy(owner);reader=self.input.reader()
         reader.send=lambda *_:(_ for _ in ()).throw(AssertionError('Recovery may not repeat a write'))
@@ -323,7 +329,7 @@ class SnapshotsFeatureTests(unittest.TestCase):
         with f.lock.held(),self.assertRaises(NativeUIError):f.load()
         self.assertEqual(original,f.store.read());self.assertEqual([],self.adapter.calls)
 
-    def handoff_journal(self,stage):
+    def handoff_journal(self,stage,*,stale_constructor=False):
         self.failed_preflight();self.adapter=HandoffAdapter(self.root,self.run);f=self.feature()
         with f.lock.held():
             f.load();resolution=dict(component='android/ExplicitSyntheticChooser')
@@ -332,6 +338,7 @@ class SnapshotsFeatureTests(unittest.TestCase):
             call=dict(contractVersion=VERSION,runId=self.run,fixtureUrl=f.fixture_url,ticket=uuid.uuid4().hex,verb='share-open',inputs={})
             f.state.update(phase='acting',current=dict(call=call,phase='issuing',pending=None))
             f.archive_input(dict(snapshotInput=self.adapter.input.plan))
+            stale=self.feature() if stale_constructor else None
             identifier='b'*32;start=self.adapter._snapshot_handoff_control(None).request(self.run,'start',identifier)
             from overte_phone_snapshot_handoff import bound
             self.adapter.input.owner=bound(start)
@@ -340,9 +347,10 @@ class SnapshotsFeatureTests(unittest.TestCase):
                 index=f.archive_input(dict(handoffStart=start,handoffPlan=self.adapter.input.plan))
                 f.state['handoff']=dict(id=identifier,kind='share',resolution=resolution,binding=bound(start),sourceIndex=index)
                 f.state['current']['pending']=dict(kind='handoff-input',issued=True,binding=bound(start),plan=self.adapter.input.plan)
+                f.guard=self.adapter._snapshot_system_context('synthetic',f.binding,resolution,f.header_authority).guard
                 self.adapter.input.reader().deliver(self.adapter.input.plan)
             f.save()
-        return f
+        return stale if stale_constructor else f
 
     def test_lost_native_start_return_observes_owned_job_without_restarting_or_delivering(self):
         self.handoff_journal('start');f=self.feature()
@@ -390,5 +398,31 @@ class SnapshotsFeatureTests(unittest.TestCase):
         rebuilt=self.feature()
         with rebuilt.lock.held(),self.assertRaises(NativeUIError):rebuilt.load()
         self.assertEqual(changed,f.store.read());self.assertEqual(1,len(self.adapter.input.sent))
+
+    def test_foreground_constructed_owner_selects_current_original_os_authority_under_lock(self):
+        f=self.handoff_journal('issued',stale_constructor=True);calls=self.adapter.runtime_calls
+        self.assertFalse(self.adapter.input.foreground)
+        with f.lock.held():
+            f.load();f.recover_handoff_input();self.assertIsNone(f.state['current']['pending'])
+        self.assertEqual(calls,self.adapter.runtime_calls);self.assertEqual(1,len(self.adapter.input.sent))
+        self.assertEqual(f.binding,self.adapter.system_calls[-1][0])
+
+    def test_os_constructed_owner_selects_fresh_foreground_after_actual_scope_closure(self):
+        self.handoff_journal('issued');stale=self.feature();current=self.feature()
+        with current.lock.held():
+            current.load();current.recover_handoff_input()
+            # Explicit SDK producer returns to the primary Activity; the exact
+            # owner then persists the end of its scope. No new input is sent.
+            self.adapter.input.foreground=True
+            current.state['handoff']=None;current.state['current']=None;current.save()
+        calls=self.adapter.runtime_calls;systems=len(self.adapter.system_calls)
+        with stale.lock.held():stale.load();stale.bound()
+        self.assertEqual(calls+1,self.adapter.runtime_calls);self.assertEqual(systems,len(self.adapter.system_calls))
+
+    def test_foreign_or_unavailable_current_os_scope_has_no_foreground_fallback(self):
+        f=self.handoff_journal('issued',stale_constructor=True);header=f.store.read();calls=self.adapter.runtime_calls
+        self.adapter.system=False
+        with f.lock.held(),self.assertRaises(NativeUIError):f.load()
+        self.assertEqual(calls,self.adapter.runtime_calls);self.assertEqual(header,f.store.read());self.assertEqual(1,len(self.adapter.input.sent))
 
 if __name__=='__main__':unittest.main()
