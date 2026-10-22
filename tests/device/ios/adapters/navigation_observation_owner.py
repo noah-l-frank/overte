@@ -10,7 +10,7 @@ from contextvars import ContextVar
 import time
 
 from adapters.native_clock_join import NativeClockAcquisition,digest,validate_join
-from adapters.native_feature_observation import NativeFeatureObservation,exact,need,number
+from adapters.native_feature_observation import NativeFeatureObservation,exact,need,number,validate as native_packet
 from adapters.native_navigation_replies import NativeNavigationReplies
 from adapters.normal_feature_state import PrivateFeatureState,context
 from adapters.script_feature.history import pack,unpack,same
@@ -20,14 +20,15 @@ from feature_journeys.evidence import MarkerNotReady
 from feature_journeys.navigation_fixture import configuration,validate_status
 from feature_journeys.navigation_scene import validate_status as scene_status
 from feature_journeys.phase_fixture import validate as phase_packet
-from ios.adapters import navigation_product_state as product,navigation_error_state as errors
+from ios.adapters import navigation_product_state as product
 from ios.adapters import location_bookmarks,places_model,places_http,navigation_dialogs
 from ios.adapters.graphics_history import follow_native
 from ios.adapters.navigation_fixture import NavigationFixtureReader,NavigationPhasePending
 from ios.adapters.navigation_sample import NavigationMarkerPending
 from ios.adapters.navigation_samples import NavigationSamples
-from ios.adapters.navigation_state import IOSNavigationState,validate as navigation_packet,ACTION
+from ios.adapters.navigation_state import IOSNavigationState
 from ios.adapters.normal_input import NativeInput
+from ios.adapters import navigation_source_prefix as source_prefix
 
 VERSION=1
 _ARCHIVE_ROUND=ContextVar('ios_navigation_original_archive_round',default=None)
@@ -151,26 +152,95 @@ class NavigationObservationOwner:
         need(same(state['nativeStart'],{name:clock[name] for name in ('clockJoinVersion','hostBeforeEpochMs','hostBeforeMonotonic','nativeBefore')})
              and same(state['nativeEnd'],{name:clock[name] for name in ('nativeAfter','hostAfterEpochMs','hostAfterMonotonic')})
              and clock['hostBeforeEpochMs']>=state['hostBarrier'] and sample['url']==state['url'] and sample['label']==state['label'])
-        if self.previous_owner is not None:
-            old=self.previous_owner.state;self.previous_owner.archive()
-            follow_native(old['clockJoin']['nativeAfter'],clock['nativeBefore'])
-            need(old['clockJoin']['hostAfterMonotonic']<=clock['hostBeforeMonotonic'])
-            prior=old['originals']
-            for name,module in (('bookmarks',location_bookmarks),('model',places_model),('http',places_http),('dialogs',navigation_dialogs)):
-                packet=originals[name]
-                action='feature-ios-location-bookmarks' if name=='bookmarks' else module.ACTION
-                module.validate(packet,dict(schemaVersion=1,commandId=packet['requestId'],action=action,runId=self.run),
-                    self.pid,clock['nativeAfter']['capturedEpochMs'],prior[name])
-            errors.continuation(originals,prior,self.run,self.pid,clock['nativeAfter']['capturedEpochMs'])
-            for counter in ('placesSourceSequence','navigationDialogSourceSequence'):
-                need(originals['ui'][counter]>prior['ui'][counter])
-            packet=originals['navigationBefore']
-            navigation_packet(packet,dict(schemaVersion=1,commandId=packet['requestId'],action=ACTION,runId=self.run),
-                self.pid,clock['nativeAfter']['capturedEpochMs'],prior['currentNavigation'])
+        self.continue_previous()
         # Marker-pending originals are retained, never converted into public
         # success. Every accepted source remains owned for the next validator.
         try:return product.compose(self.run,self.binding,originals,clock,sample,**options)
         except MarkerNotReady:return None
+
+    def continue_previous(self):
+        """A partial predecessor cannot erase earlier accepted source floors."""
+        previous=self.previous_owner;first=self.state['nativeStart']
+        while previous is not None:
+            previous.archive();old=previous.state;sample,_result=previous.image()
+            floor=sample['frame']['clockJoin']['nativeAfter']
+            host_floor=sample['frame']['clockJoin']['hostAfterMonotonic']
+            if old['nativeEnd'] is not None:
+                floor=old['nativeEnd']['nativeAfter'];host_floor=old['nativeEnd']['hostAfterMonotonic']
+            follow_native(floor,first['nativeBefore'])
+            need(host_floor<=first['hostBeforeMonotonic'])
+            for row in old['originals'].values():
+                epoch=row['clockAfter']['epochMs'] if 'clockAfter' in row else row.get('capturedEpochMs',row.get('sampleEpochMs'))
+                need(epoch<=first['nativeBefore']['capturedEpochMs'])
+            source_prefix.follow(old['originals'],self.state['originals'],self.run,self.pid)
+            # A complete predecessor already carries every channel's floor.
+            if old['phase'] in ('observed','marker-pending'):break
+            previous=previous.previous_owner
+
+    def interrupted(self):
+        """Check a retained partial source group, without a fresh/public result.
+
+        An incomplete GPU attempt remains the image owner's responsibility.
+        This path only admits an already sealed image and its accepted field
+        prefix. Overlong original windows remain overlong and historical.
+        """
+        state=self.state;need(state is not None and state['phase'] in ('reading','failed') and state['result'] is None)
+        sample,_result=self.image();originals=state['originals']
+        need(product.IMAGE<=set(originals)
+            and same({name:originals[name] for name in product.IMAGE},
+                     {name:sample['frame'][name] for name in product.IMAGE}))
+        fields=[name for name in source_prefix.ORDER if name in originals]
+        need(fields==list(source_prefix.ORDER[:len(fields)]))
+        source_prefix.validate(originals,self.run,self.pid)
+        options=state['options'];exact(options,{'baseline','provider_inputs','fixture_url','provider_instance','directory','missing'})
+        inputs,_urls=configuration(options['provider_inputs'])
+        phase=fixture_original(state['phaseBefore'],self.run,inputs,options['provider_instance'])
+        need(phase['ticket']==sample['ticket']==state['ticket'] and sample['url']==state['url'] and sample['label']==state['label']
+            and sample['providerInstance']==options['provider_instance'] and sample['fixtureUrl']==options['fixture_url'])
+        first=state['nativeStart'];exact(first,{'clockJoinVersion','hostBeforeEpochMs','hostBeforeMonotonic','nativeBefore'})
+        need(type(first['clockJoinVersion']) is int and first['clockJoinVersion']==1
+            and number(first['hostBeforeEpochMs'],state['hostBarrier'],1e15) and number(first['hostBeforeMonotonic'],0,1e15))
+        packet=first['nativeBefore'];native_packet(packet,packet['requestId'],self.pid,packet['capturedEpochMs'])
+        inner=sample['frame']['clockJoin'];follow_native(packet,inner['nativeBefore'])
+        need(first['hostBeforeEpochMs']<=inner['hostBeforeEpochMs'] and first['hostBeforeMonotonic']<=inner['hostBeforeMonotonic'])
+        floor=inner['nativeAfter']['capturedEpochMs']
+        for name in fields:
+            row=originals[name]
+            if 'clockBefore' in row:begin,end=row['clockBefore']['epochMs'],row['clockAfter']['epochMs']
+            else:begin=end=row.get('capturedEpochMs',row.get('sampleEpochMs'))
+            need(number(begin,floor,1e15) and number(end,begin,1e15));floor=end
+        ending=state['nativeEnd']
+        if ending is not None:
+            exact(ending,{'nativeAfter','hostAfterEpochMs','hostAfterMonotonic'})
+            follow_native(inner['nativeAfter'],ending['nativeAfter'])
+            need(ending['nativeAfter']['capturedEpochMs']>=floor
+                and number(ending['hostAfterEpochMs'],inner['hostAfterEpochMs'],1e15)
+                and number(ending['hostAfterMonotonic'],inner['hostAfterMonotonic'],1e15))
+        if state['clockJoin'] is not None:
+            need(ending is not None)
+            times=[dict(source=name,field=field,epochMs=row[field]) for name,row in originals.items()
+                for field in ('capturedEpochMs','sampleEpochMs') if field in row]
+            clock=state['clockJoin'];exact(clock,set(first)|set(ending)|{'sourceTimes','originalsSha256'})
+            need(same({key:item for key,item in clock.items() if key!='sourceTimes'},
+                      dict(first,**ending,originalsSha256=digest(originals))) and type(clock['sourceTimes']) is list)
+            need(same(sorted(clock['sourceTimes'],key=lambda row:(row['source'],row['field'])),
+                      sorted(times,key=lambda row:(row['source'],row['field']))))
+        if state['phaseAfter'] is not None:
+            later=fixture_original(state['phaseAfter'],self.run,inputs,options['provider_instance'])
+            phase_packet(later['originals']['phaseBefore'],run=self.run,area='world-navigation',
+                request=later['originals']['phaseBefore']['requestId'],epoch=later['originals']['phaseBefore']['capturedEpochMs'],
+                previous=phase['originals']['phaseAfter'])
+        self.continue_previous();return None
+
+    def abandon_sources(self):
+        """Explicit local retirement of a failed read, preserving all originals.
+
+        This performs no source read, capture, input, GPU release or deletion.
+        A later observation has a new identity and must extend every prefix.
+        """
+        need(not self.historical);self.bound()
+        need(self.state is not None and self.state['phase']=='reading');self.interrupted()
+        self.state['phase']='failed';self.save();return None
 
     def acquire(self,ticket,url,label,host_barrier,*,baseline,provider_inputs,directory=None,missing=None):
         need(not self.historical);self.bound();need(self.state is None);identifier(ticket);self.images.bound()
@@ -231,10 +301,12 @@ class NavigationObservationOwner:
                     owner.image()
                 return result
             finally:_ARCHIVE_ROUND.reset(token)
-        self.bound();need(self.state is not None and self.state['phase'] in ('observed','marker-pending'))
+        self.bound();need(self.state is not None and self.state['phase'] in ('observed','marker-pending','failed'))
         need(same(self.envelope(self.state),self.previous));key=(str(self.store.path),digest(self.previous))
         if key in cache:return deepcopy(cache[key][2])
-        result=self.validate();need(same(result,self.state['result']) and (result is None)==(self.state['phase']=='marker-pending'))
+        if self.state['phase']=='failed':result=self.interrupted()
+        else:
+            result=self.validate();need(same(result,self.state['result']) and (result is None)==(self.state['phase']=='marker-pending'))
         self.bound();cache[key]=(self,deepcopy(self.previous),deepcopy(result));return deepcopy(result)
 
     def recover(self):

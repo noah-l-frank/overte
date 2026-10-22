@@ -59,9 +59,26 @@ public state. A later owner may acquire another original image under the same
 source continuity. All field and current scene checks run before accepting a
 marker-pending composition; a bad field cannot hide behind a pending marker.
 Uncertain source delivery or an incomplete image remains owned and cannot be
-replayed by reconstructing the observation. Partial attempts are unresolved,
-not evidence of absence or successful cleanup. Their image index still owns
-any explicit GPU drainage; the whole-run finalizer must reconcile both owners.
+replayed by reconstructing the observation. Partial attempts are not evidence
+of absence or successful cleanup. Their image index still owns explicit GPU
+drainage; the whole-run finalizer must reconcile both owners.
+
+When the image is already sealed, explicit `abandon_sources()` can retain a
+failed field read in the existing version-1 `failed` phase. It validates the
+actual PNG/owner, original phase and native beginning, and the exact accepted
+field prefix, including independent original clocks and histories. It sends no
+source query or normal input and deletes no image, owner or original. The
+record differs only in its terminal phase and yields no public state. An
+overlong original join or an actual phase crossing stays historical; it never
+receives a replacement deadline. An unresolved image cannot use this path.
+
+A distinct successor must name that exact failed owner as its predecessor.
+It extends every accepted field counter/history and starts after all accepted
+native endpoints. If the partial predecessor lacks a channel, validation also
+retains the earlier predecessor's floor for that channel. Thus, for example,
+a lost UI read cannot conceal a UI counter reset relative to the last complete
+observation. All partial carriers and original files remain in the chain.
+Historical reconstruction performs no SDK query, source retry or capture.
 
 `recover()` only resolves a complete retained old record whose final return was
 lost. It reads no SDK/native/provider source and cannot issue another capture.
@@ -80,6 +97,12 @@ endpoints, predecessor selection and historical no-SDK reconstruction. Native
 compilation and device timing/behavior remain unverified. Runtime factories,
 scene admission/restoration, ordinary input, independent publication, restart,
 repeated quiet cleanup and final metadata retirement remain required.
+
+Additional host counterexamples exercise explicit source abandonment, a lost
+abandonment return, source reset through a newly constructed reader, a missing
+channel hiding an earlier complete floor, changed original PNGs, original phase
+crossings and overlong windows. These use real private PNGs/archives and the
+existing loopback provider, with modeled native/GPU/SDK boundaries.
 
 One historical archive round validates each predecessor's composition once.
 Repeated use in that same synchronous round reuses only the checked original
