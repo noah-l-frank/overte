@@ -1,6 +1,7 @@
 """Normal Pico VR-tablet Go To/history; input acknowledgements are not verdicts."""
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
+from copy import deepcopy
 import hashlib
 import json
 import os
@@ -589,9 +590,17 @@ class NativeNavigationIO:
     """Only the original candidate-bound Pico adapter may construct this IO."""
     DIRECTORY = 'files/overte-e2e/navigation-ui-'
 
-    def __init__(self, adapter, target, process_identity, controller):
+    def __init__(self, adapter, target, process_identity, controller, *, before_send=None):
         self.adapter, self.target, self.identity = adapter, target, process_identity
         self._controller = controller
+        self._before_send = None
+        if before_send is not None:
+            self.bind_before_send(before_send)
+
+    def bind_before_send(self, callback):
+        """Bind one owner to the final validated QML command before publication."""
+        need(callable(callback) and (self._before_send is None or self._before_send is callback))
+        self._before_send = callback
 
     def guard(self):
         self.adapter.require_same_process(self.target, self.identity, 'normal navigation input')
@@ -619,6 +628,8 @@ class NativeNavigationIO:
 
     def send(self, command):
         self.guard()
+        if self._before_send is not None:
+            self._before_send(deepcopy(command))
         self.adapter.adb.write_debug_app_file(self.target, 'org.overte.pico',
             self.DIRECTORY + 'command.json', json.dumps(command, sort_keys=True, separators=(',', ':')) + '\n')
         attempts, interval = self.adapter.probe_retry_policy()
