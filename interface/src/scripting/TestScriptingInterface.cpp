@@ -62,6 +62,7 @@
 #include "../../../tests/device/native/PhoneCreateObservation.h"
 #include "../../../tests/device/native/PrivateCreateFiles.h"
 #include "ui/Snapshot.h"
+#include "../../../tests/device/native/PhoneSnapshotReviewObservation.h"
 #include <SettingHandle.h>
 #include "../../../tests/device/adapters/android-phone/PendingCommitOwner.h"
 #include "../../../tests/device/native/PrivateFeatureCommand.h"
@@ -1098,6 +1099,10 @@ QVariantMap TestScriptingInterface::phoneSnapshotObservation(const QVariantMap& 
     const auto read=[&] { source=snapshot->featureSnapshotObservation(); };
     if (QThread::currentThread()==snapshot->thread()) { read(); }
     else if (!QMetaObject::invokeMethod(snapshot.data(),read,Qt::BlockingQueuedConnection)) { return {}; }
+    if (!DependencyManager::isSet<OffscreenUi>()) { return {}; }
+    const auto review=overte::e2e::phoneSnapshotReviewObservation(DependencyManager::get<OffscreenUi>()->getRootItem());
+    if (review.isEmpty()) { return {}; }
+    source.insert("phoneSnapshotObservationVersion",2);source.insert("review",review);
     if (source.isEmpty() || QJsonDocument::fromVariant(source).toJson(QJsonDocument::Compact).size()>200000) { return {}; }
     return {{"schemaVersion",1},{"requestId",command.value("commandId")},{"runId",command.value("runId")},
         {"instance",_featureObservationInstance},{"sequence",static_cast<qulonglong>(++_phoneSnapshotObservationSequence)},

@@ -30,9 +30,35 @@ def command(value):
     return value
 
 
+def review(value,valid_path):
+    exact(value,{'snapshotReviewObservationVersion','present','review'})
+    need(type(value['snapshotReviewObservationVersion']) is int and value['snapshotReviewObservationVersion']==1
+        and type(value['present']) is bool)
+    if not value['present']:need(value['review'] is None);return value
+    row=value['review']
+    exact(row,{'componentUrl','visible','capturing','processing','loggedIn','canShare','canBlast','statusError',
+        'captureSettingsLoaded','statusText','uploadPath','exportTicket','mode','format','capabilities','exportBusy','exportError','images'})
+    from urllib.parse import urlsplit
+    component=urlsplit(row['componentUrl'])
+    need(component.scheme in ('file','qrc') and not component.netloc and not component.query and not component.fragment
+        and component.path.endswith('/system/snapshot/NativeSnapshotReview.qml')
+        and all(type(row[key]) is bool for key in ('visible','capturing','processing','loggedIn','canShare','canBlast',
+            'statusError','captureSettingsLoaded','exportBusy')) and (not row['processing'] or row['capturing'])
+        and text(row['statusText'],2048) and text(row['exportError'],256) and text(row['exportTicket'],64)
+        and (row['uploadPath']=='' or valid_path(row['uploadPath'])) and integer(row['mode'],0,3)
+        and row['format'] in ('png','jpg','jpeg','webp') and type(row['capabilities']) is list
+        and len(row['capabilities'])<=2 and len(set(row['capabilities']))==len(row['capabilities'])
+        and all(raw in ('save','share') for raw in row['capabilities']) and type(row['images']) is list and len(row['images'])<=8)
+    seen=set()
+    for image in row['images']:
+        exact(image,{'path','storyPresent'})
+        need(valid_path(image['path']) and image['path'] not in seen and type(image['storyPresent']) is bool);seen.add(image['path'])
+    return value
+
+
 def source(value):
-    exact(value,{'phoneSnapshotObservationVersion','nativeReview','storageRoot','captures','uploads','history'})
-    need(type(value['phoneSnapshotObservationVersion']) is int and value['phoneSnapshotObservationVersion']==1
+    exact(value,{'phoneSnapshotObservationVersion','nativeReview','storageRoot','captures','uploads','history','review'})
+    need(type(value['phoneSnapshotObservationVersion']) is int and value['phoneSnapshotObservationVersion']==2
         and value['nativeReview'] is True and value['storageRoot'] in ROOTS)
     root=value['storageRoot']
     def path(raw):
@@ -63,6 +89,7 @@ def source(value):
         ids.append(row['id'])
     need(ids==sorted(set(ids)))
     uploads=value['uploads'];need(type(uploads) is list and len(uploads)<=64 and all(path(raw) for raw in uploads) and uploads==sorted(set(uploads)))
+    review(value['review'],path)
     return value
 
 

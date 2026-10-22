@@ -19,6 +19,7 @@ class Boundary:
     def __init__(self):
         self.epoch=10000;self.clock=0.;self.sequence=0;self.okay=True;self.ignore=False;self.fault=None;self.raw=''
         self.events=[];self.captures=[];self.uploads=[];self.calls=[]
+        self.review=dict(snapshotReviewObservationVersion=1,present=False,review=None)
     def event(self,kind,id,phase='',path='',error=''):
         self.events.append(dict(sequence=len(self.events)+1,kind=kind,id=id,phase=phase,path=path,error=error,
             capturedEpochMs=self.epoch,elapsedMs=int(self.clock*1000)))
@@ -28,7 +29,8 @@ class Boundary:
         self.sequence+=1;self.epoch+=10
         value=dict(schemaVersion=1,requestId=request['commandId'],runId=request['runId'],instance='b'*32,
             sequence=self.sequence,processId=31,requestedEpochMs=self.epoch,capturedEpochMs=self.epoch,
-            source=dict(phoneSnapshotObservationVersion=1,nativeReview=True,storageRoot=STORAGE,
+            source=dict(phoneSnapshotObservationVersion=2,nativeReview=True,storageRoot=STORAGE,
+                review=deepcopy(self.review),
                 captures=deepcopy(self.captures),uploads=self.uploads[:],history=dict(snapshotHistoryVersion=1,
                 instance='c'*32,complete=True,sequence=len(self.events),events=deepcopy(self.events))))
         if self.fault:self.fault(value)
@@ -40,6 +42,36 @@ class Boundary:
 
 
 class SnapshotSourceTests(unittest.TestCase):
+    @staticmethod
+    def review_state():
+        return dict(componentUrl='qrc:/system/snapshot/NativeSnapshotReview.qml',visible=True,
+            capturing=False,processing=False,loggedIn=False,canShare=False,canBlast=False,statusError=False,
+            captureSettingsLoaded=True,statusText='',uploadPath='',exportTicket='',mode=0,format='png',
+            capabilities=['save','share'],exportBusy=False,exportError='',images=[])
+
+    def test_actual_pending_and_cancelled_review_samples_are_distinct_from_native_capture_allocation(self):
+        b=Boundary();row=self.review_state();row['capturing']=True
+        b.review.update(present=True,review=row);reader=b.reader();pending=reader.read(RUN)
+        self.assertTrue(pending['source']['review']['review']['capturing']);self.assertEqual([],pending['source']['captures'])
+        row['capturing']=False;cancelled=reader.read(RUN)
+        self.assertFalse(cancelled['source']['review']['review']['capturing'])
+        self.assertGreater(cancelled['sequence'],pending['sequence'])
+
+    def test_missing_foreign_or_inconsistent_review_source_is_not_observed_absence(self):
+        for fault in ('missing','foreign','processing','image','duplicate','busy-type','capability','absence','version'):
+            with self.subTest(fault=fault):
+                b=Boundary();row=self.review_state();b.review.update(present=True,review=row)
+                if fault=='missing':row.pop('capturing')
+                elif fault=='foreign':row['componentUrl']='https://foreign.invalid/system/snapshot/NativeSnapshotReview.qml'
+                elif fault=='processing':row['processing']=True
+                elif fault=='image':row['images']=[dict(path='/tmp/foreign.png',storyPresent=False)]
+                elif fault=='duplicate':row['images']=[dict(path=STORAGE+'/x.png',storyPresent=False)]*2
+                elif fault=='busy-type':row['exportBusy']=1
+                elif fault=='capability':row['capabilities']=['capture']
+                elif fault=='absence':b.review['present']=False
+                else:b.review['snapshotReviewObservationVersion']=2
+                with self.assertRaises(NativeUIError):b.reader().read(RUN)
+
     def test_fresh_reads_reopen_actual_source_and_keep_history_separate_from_commands(self):
         b=Boundary();reader=b.reader();first=reader.read(RUN)
         b.event('capture-begin','snap_10010_1');b.captures=[dict(id='snap_10010_1',state='active',announced=False)]

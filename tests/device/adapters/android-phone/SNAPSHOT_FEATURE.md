@@ -6,11 +6,18 @@ original files independently of input delivery. The common v17 extended
 `feature.snapshots.*` triple is **not yet advertised** by the Phone adapter.
 Devices and the complete Android client build remain unverified.
 
-## Passive native source v1
+## Passive native source v2
 
 `phone-snapshot-observe` accepts exactly `schemaVersion:1`, a fresh 32-character
 hexadecimal `commandId`, `action`, and the 32-character hexadecimal `runId`.
 There are no capture, export, expected result, filename or state inputs.
+Version 2 adds the source-bound original native review observation (review
+component contract v1). Review absence is distinct from a missing window,
+ambiguous original component or an unqualified similarly named item. Hidden
+reviews remain observable during capture. Capturing/processing, actual images,
+export ticket/busy state, upload path, format and mode are read from the real
+component; they are never inferred from delivered input. The current capture
+inventory and its history are copied under the same native capture lock.
 The existing candidate/process-bound private source transport writes
 `phone-snapshot-observation.json`; observations require an existing session.
 The source has its own request nonce, native instance/sequence, process ID,
@@ -36,9 +43,9 @@ prove image content, successful system saving, receiver consumption or upload.
 
 ## Remaining composition
 
-Implement normal review controls with original component identity, actual
-pending/cancelled UI history (including cancellation before native capture
-allocation), and immutable process/run ownership. Join native capture IDs with
+Implement normal review inputs, retain actual pending/cancelled UI observations
+(including cancellation before native capture allocation), and establish
+immutable process/run ownership. Join native capture IDs with
 the actual unique capture filename, original bytes and a fresh fixture marker.
 Do not infer capture completion from a button click or filename existence.
 
@@ -67,3 +74,8 @@ and exercises actual clocks, disabled instrumentation, immutable returned
 copies, overflow and unknown phases. It does not compile `Snapshot.cpp`, its
 renderer/upload dependencies, or the Android APK. These checks establish test
 logic and recorder contracts only; they establish no device acceptance.
+`test_snapshot_native_review.py` additionally compiles the real passive review
+reader and loads unchanged product QML with a synthetic Snapshot script service
+and the actual desktop unavailable-export backend. It checks real pending and
+cancelled message handling, hidden reviews, qualified absence and rejection of
+foreign or duplicated components. It proves no Android saving or sharing.

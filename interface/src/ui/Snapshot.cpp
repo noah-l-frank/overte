@@ -134,7 +134,7 @@ SnapshotCapture Snapshot::beginCapture(const QString& requestId) {
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PHONE_INTERFACE)
 QVariantMap Snapshot::featureSnapshotObservation() {
     if (QThread::currentThread()!=thread() || !QCoreApplication::arguments().contains("--testScript")) { return {}; }
-    QVariantList captures;QStringList uploads;
+    QVariantList captures;QStringList uploads;QVariantMap history;
     {
         QMutexLocker lock(&_captureMutex);
         auto ids=_captures.keys();std::sort(ids.begin(),ids.end());
@@ -145,11 +145,14 @@ QVariantMap Snapshot::featureSnapshotObservation() {
             captures.append(QVariantMap{{"id",id},{"state",state==SnapshotCaptureRequest::State::Active ? "active"
                 : state==SnapshotCaptureRequest::State::Cancelled ? "cancelled" : "completed"},{"announced",capture->announced.load()}});
         }
+        // beginCapture records under this same lock, so a concurrent insertion
+        // cannot fall between the current inventory and its original history.
+        history=_featureSnapshotHistory->snapshot();
     }
     if (_uploads.size()>64) { return {}; }
     for (auto it=_uploads.begin();it!=_uploads.end();++it) { if (it.value()) { uploads.append(it.key()); } }
     std::sort(uploads.begin(),uploads.end());
-    const auto history=_featureSnapshotHistory->snapshot();if (history.isEmpty()) { return {}; }
+    if (history.isEmpty()) { return {}; }
     return {{"phoneSnapshotObservationVersion",1},{"nativeReview",nativeReviewEnabled()},
         {"storageRoot",overte::snapshot::storageRoot()},{"captures",captures},{"uploads",uploads},{"history",history}};
 }
