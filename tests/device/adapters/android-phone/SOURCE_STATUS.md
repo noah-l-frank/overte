@@ -110,8 +110,15 @@ The [dedicated debug build](../../../../android/phone/docs/BUILD.md#dedicated-fe
 requires explicit `overteFeatureTests=ON` and the separate foundation hooks.
 The option is default OFF and forced OFF for non-debug types. Seven actual
 Gradle-loader/Groovy/CMake component checks and the existing release checks pass.
-Own prepared dependency graphs, the verified 16 KiB sentinel, runtime/host tools
-and AGP cache are absent; the SDK/NDK/JDK exist. No full Android build is claimed.
+The earlier missing-own-graph and standard-cache finding is not a dependency
+availability result. A subsequent local inventory verified all eleven sealed
+dependency archives, including the Qt 5.15.18 Android Debug runtime, host tools,
+16 KiB sentinel, SDK and AGP 8.13.2 payload. These dependency originals are not
+an APK or a build receipt for this branch. An own writable dependency graph,
+verified generated lock, offline Gradle cache and isolated toolchain execution
+still have to be prepared without reusing another session's product outputs.
+The last recorded full-build resource admission failed its original RAM floor.
+Builds and compiler checks are authorized; no complete Android build is claimed.
 
 The matrix was checked directly against catalog/scenario membership, actual
 operation sets and invoke branches, current default-off flags/observer grammar,
