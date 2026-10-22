@@ -1221,3 +1221,20 @@ real OS latency or complete common/actor qualification.
 The same bracketed immutable input replay is used by lease preparation,
 FastCancel observation/retirement, quiet-work floors and issued-input recovery;
 none of those paths bypasses the final actual target check.
+
+During a guarded current read, original-file intent callbacks use the private
+host publication authority. The manifest-planned callback retains a fresh target
+check before a complete frame can be committed; the acquisition also retains
+its target checks around the archive. The saved original receipt and removal of
+the fallback frame/work graph share one durable journal write. Outside that
+guarded read, every callback still uses the complete current target guard.
+`test_snapshots_storage_intent.py` covers actual save failures, lost replies,
+ignored saves, original inode replacement, reconstruction and target changes.
+
+Adjacent historical-floor comparison retains the previous canonical bytes
+within one call. It preserves deep copies, full-row comparison and transitions
+such as A→B→A; no history is pruned and no validation verdict is cached.
+`test_snapshots_distinct.py` checks ordering, independent graphs, nested aliases
+and the original comparison behavior. The parent join of these tests, role
+recovery, publication guards and original cloning passed 44 tests in 10.401
+seconds. This scoped result does not qualify the complete SDK26 common journey.
