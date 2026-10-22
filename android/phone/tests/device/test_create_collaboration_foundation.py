@@ -25,6 +25,7 @@ from contextlib import redirect_stdout
 import test_create_registration
 import test_feature_adapters as bound
 from adapters.normal_ui import NativeUIError
+from adapters.normal_feature_state import PrivateFeatureState
 from fixture.collaboration_broker import CollaborationBroker
 from feature_journeys.scenarios import FOUNDATIONS
 import overte_phone_collaboration as source
@@ -223,6 +224,105 @@ class CreateCollaborationFoundationTests(unittest.TestCase):
                 dict(entityName=source.ENTITY,value='orange',expectedRevision=1)):
             with self.subTest(values=values),self.assertRaises((ValueError,RuntimeError)):self.invoke('collaboration.edit',values)
         self.assertEqual([],self.edits)
+
+    def collaboration_store(self):
+        return PrivateFeatureState(self.f.adapter.state_path(bound.SELECTOR).with_name('phone-collaboration.json'))
+    def archives(self):return list(self.collaboration_store().path.parent.glob('phone-collaboration-retired-*.json'))
+    def cleanup_with_base(self):
+        from adapters.shared_appium.adapter import AppiumAdapter
+        with patch.object(AppiumAdapter,'cleanup',return_value={'cleaned':True}) as base:
+            try:return self.f.adapter.cleanup(bound.SELECTOR)
+            finally:base.assert_called_once()
+
+    def test_cleanup_retires_original_history_offline_and_new_sdk_session_can_reuse_selector(self):
+        self.invoke('collaboration.edit',dict(entityName=source.ENTITY,value='orange'))
+        original=self.collaboration_store().read()
+        self.f.native.identity='45:20'  # A later regular feature changed process.
+        with patch.dict(os.environ,{'OVERTE_ANDROID_E2E_COLLABORATION':'0'}):
+            self.assertEqual({'cleaned':True},self.cleanup_with_base())
+            self.assertEqual({'cleaned':True},self.cleanup_with_base())
+        self.assertIsNone(self.collaboration_store().read());self.assertEqual(1,len(self.archives()))
+        self.assertEqual(original,PrivateFeatureState(self.archives()[0]).read())
+        state=self.f.adapter.read_session(bound.SELECTOR);state.update(sessionId='next-native-session',generation=state['generation']+1)
+        call=self.f.native.call
+        def sdk(method,path,body=None):
+            if method=='GET' and path=='/session/next-native-session':return {'capabilities':{'syntheticOnly':True}}
+            return call(method,path,body)
+        with patch.object(self.f.native,'call',side_effect=sdk):
+            observed=self.invoke('collaboration.snapshot');self.assertEqual(1,observed['revision'])
+        current=self.collaboration_store().read();self.assertEqual('next-native-session',current['binding']['sessionId'])
+        self.assertNotEqual(original['binding'],current['binding']);self.assertEqual(1,len(self.edits))
+
+    def test_cleanup_resumes_lost_archive_or_unlink_return_without_overwriting_original(self):
+        for stage in ('archive','unlink'):
+            self.invoke('collaboration.snapshot');original=self.collaboration_store().read()
+            if stage=='archive':
+                write=PrivateFeatureState.write
+                def lose(store,value,previous):
+                    result=write(store,value,previous)
+                    if store.path.name.startswith('phone-collaboration-retired-'):raise NativeUIError('Synthetic lost durable archive return')
+                    return result
+                boundary=patch.object(PrivateFeatureState,'write',lose)
+            else:
+                discard=PrivateFeatureState.discard
+                def lose(store,previous):
+                    result=discard(store,previous)
+                    if store.path==self.collaboration_store().path:raise NativeUIError('Synthetic lost active unlink return')
+                    return result
+                boundary=patch.object(PrivateFeatureState,'discard',lose)
+            with self.subTest(stage=stage),boundary,self.assertRaisesRegex(ValueError,'PHONE_COLLABORATION_CLEANUP_INCOMPLETE'):
+                self.cleanup_with_base()
+            self.assertEqual({'cleaned':True},self.cleanup_with_base())
+            self.assertIsNone(self.collaboration_store().read())
+            self.assertIn(original,[PrivateFeatureState(path).read() for path in self.archives()])
+
+    def test_cleanup_preserves_changed_active_or_foreign_archive_and_still_attempts_base(self):
+        self.invoke('collaboration.snapshot');active=self.collaboration_store();original=active.read();write=PrivateFeatureState.write
+        replacement=deepcopy(original);replacement['controlIdentity']='0'*64
+        def replace(store,value,previous):
+            result=write(store,value,previous)
+            if store.path.name.startswith('phone-collaboration-retired-'):write(active,replacement,original)
+            return result
+        with patch.object(PrivateFeatureState,'write',replace),self.assertRaisesRegex(ValueError,'PHONE_COLLABORATION_CLEANUP_INCOMPLETE'):
+            self.cleanup_with_base()
+        self.assertEqual(replacement,active.read());self.assertEqual(original,PrivateFeatureState(self.archives()[0]).read())
+        # Another file occupying the exact content-derived archive path is never
+        # overwritten or used as proof that the original active file retired.
+        write(active,original,replacement);archive=PrivateFeatureState(self.archives()[0]);write(archive,{'foreign':True},original)
+        with self.assertRaisesRegex(ValueError,'PHONE_COLLABORATION_CLEANUP_INCOMPLETE'):self.cleanup_with_base()
+        self.assertEqual(original,active.read());self.assertEqual({'foreign':True},archive.read())
+
+    def test_unresolved_no_effect_cleanup_keeps_journal_red_even_when_optin_disabled(self):
+        self.ignore_submit=True
+        with self.assertRaises(NativeUIError):self.invoke('collaboration.edit',dict(entityName=source.ENTITY,value='orange'))
+        original=self.collaboration_store().read();self.assertEqual('issued',original['pending']['phase'])
+        with patch.dict(os.environ,{'OVERTE_ANDROID_E2E_COLLABORATION':'0'}),self.assertRaisesRegex(ValueError,'PHONE_COLLABORATION_CLEANUP_INCOMPLETE'):
+            self.cleanup_with_base()
+        self.assertEqual(original,self.collaboration_store().read());self.assertEqual([],self.archives());self.assertEqual(1,len(self.edits))
+
+    def test_cleanup_resolves_only_actual_lost_return_under_original_live_context(self):
+        actual=source.CollaborationControl.__call__
+        def lose(control,kind,payload=None):
+            value=actual(control,kind,payload)
+            if kind=='edit':raise NativeUIError('Synthetic lost actor return')
+            return value
+        with patch.object(source.CollaborationControl,'__call__',lose),self.assertRaises(NativeUIError):
+            self.invoke('collaboration.edit',dict(entityName=source.ENTITY,value='orange'))
+        with patch.dict(os.environ,{'OVERTE_ANDROID_E2E_COLLABORATION':'0'}):self.assertEqual({'cleaned':True},self.cleanup_with_base())
+        self.assertEqual(1,len(self.edits));self.assertIsNone(self.collaboration_store().read())
+        retired=PrivateFeatureState(self.archives()[0]).read();self.assertEqual(1,retired['receipt']['revision']);self.assertIsNone(retired['pending'])
+
+    def test_unconfirmed_cleanup_cannot_adopt_a_replacement_process_after_actual_actor_effect(self):
+        actual=source.CollaborationControl.__call__
+        def lose(control,kind,payload=None):
+            result=actual(control,kind,payload)
+            if kind=='edit':raise NativeUIError('Synthetic lost return before client acquisition')
+            return result
+        with patch.object(source.CollaborationControl,'__call__',lose),self.assertRaises(NativeUIError):
+            self.invoke('collaboration.edit',dict(entityName=source.ENTITY,value='orange'))
+        original=self.collaboration_store().read();self.assertEqual(1,self.broker.state()['revision']);self.f.native.identity='45:20'
+        with self.assertRaisesRegex(ValueError,'PHONE_COLLABORATION_CLEANUP_INCOMPLETE'):self.cleanup_with_base()
+        self.assertEqual(original,self.collaboration_store().read());self.assertEqual([],self.archives());self.assertEqual(1,len(self.edits))
 
     def test_foreign_author_domain_duplicate_or_stale_received_source_is_rejected(self):
         faults=(lambda row:row.update(sampleEpochMs=4000),lambda row:row.update(entityCount=2),

@@ -17,7 +17,7 @@ from urllib.request import Request, build_opener, HTTPRedirectHandler, ProxyHand
 
 from adapters.collaboration_observation import actor_receipt, portable_observation, ENTITY
 from adapters.native_feature_observation import exact, integer, need, number
-from adapters.normal_feature_state import context
+from adapters.normal_feature_state import PrivateFeatureState,context
 from adapters.normal_ui import NativeUIError
 from contracts import validate_operation_arguments, validate_operation_result
 from overte_phone_script_lock import PhoneScriptSourceLock
@@ -74,6 +74,52 @@ class CollaborationControl:
             raise NativeUIError('Original controlled collaboration service rejected the request') from None
 
 
+def edit_values(values):
+    validate_operation_arguments('collaboration.edit',values)
+    need(values['entityName']==ENTITY and values['value'] in ('blue','orange'))
+
+
+def owner(value):
+    exact(value,{'phoneCollaborationVersion','binding','domainId','controlIdentity','receipt','sample','pending'})
+    need(type(value['phoneCollaborationVersion']) is int and value['phoneCollaborationVersion']==1)
+    context(value['binding'])
+    need(re.fullmatch(r'[1-9][0-9]{0,9}:[0-9]{1,20}',value['binding']['processIdentity'])
+        and type(value['domainId']) is str and re.fullmatch(r'[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}',value['domainId'])
+        and value['domainId']!='00000000-0000-0000-0000-000000000000'
+        and type(value['controlIdentity']) is str and re.fullmatch('[0-9a-f]{64}',value['controlIdentity']))
+    actor_receipt(value['receipt']);sample=value['sample'];need(type(sample) is dict)
+    portable_observation(sample,value['receipt'],sample['sampleEpochMs'],sample)
+    pending=value['pending']
+    if pending is not None:
+        exact(pending,{'values','before','phase'})
+        need(pending['phase'] in ('issued','confirmed'));edit_values(pending['values']);actor_receipt(pending['before'])
+        need(pending['before']['actorSessionId']==value['receipt']['actorSessionId'])
+        if pending['phase']=='issued':need(value['receipt']==pending['before'])
+        else:
+            need(value['receipt']['revision']==pending['before']['revision']+1
+                and value['receipt']['value']==pending['values']['value']
+                and value['receipt']['commandId']!=pending['before']['commandId'])
+    return value
+
+
+def retire_journal(store):
+    """Retire only already original-confirmed host history, never actor work.
+
+    Historical validation uses its original epoch. This archive is diagnostic
+    and cannot establish a new client/actor measurement or a new owner.
+    """
+    with PhoneScriptSourceLock(store.path.with_suffix('.lock')).held():
+        value=store.read()
+        if value is None:return
+        owner(value);need(value['pending'] is None or value['pending']['phase']=='confirmed')
+        digest=hashlib.sha256(json.dumps(value,sort_keys=True,separators=(',',':'),allow_nan=False).encode()).hexdigest()
+        archive=PrivateFeatureState(store.path.with_name('phone-collaboration-retired-'+digest+'.json'))
+        retained=archive.read()
+        if retained is None:archive.write(value,None)
+        need(archive.read()==value and store.read()==value)
+        store.discard(value);need(store.read() is None)
+
+
 class PhoneCollaboration:
     def __init__(self,store,binding,domain,guard,read_probe,read_native,clock_ms,control,enter,*,monotonic=time.monotonic,sleep=time.sleep):
         context(binding);need(type(domain) is str and all(callable(fn) for fn in (guard,read_probe,read_native,clock_ms,control,enter,monotonic,sleep)))
@@ -89,25 +135,13 @@ class PhoneCollaboration:
     def load(self):
         self.state=self.store.read()
         if self.state is None:return
-        exact(self.state,{'phoneCollaborationVersion','binding','domainId','controlIdentity','receipt','sample','pending'})
-        need(type(self.state['phoneCollaborationVersion']) is int and self.state['phoneCollaborationVersion']==1
-            and self.state['binding']==self.binding and self.state['domainId']==self.domain and self.state['controlIdentity']==self.control_identity)
-        actor_receipt(self.state['receipt'])
-        sample=self.state['sample'];need(type(sample) is dict)
-        portable_observation(sample,self.state['receipt'],sample['sampleEpochMs'],sample)
-        pending=self.state['pending']
-        if pending is not None:
-            exact(pending,{'values','before','phase'})
-            need(pending['phase'] in ('issued','confirmed'));self.edit_values(pending['values']);actor_receipt(pending['before'])
-            need(pending['before']['actorSessionId']==self.state['receipt']['actorSessionId'])
+        owner(self.state)
+        need(self.state['binding']==self.binding and self.state['domainId']==self.domain and self.state['controlIdentity']==self.control_identity)
 
     def save(self,value):
         self.guard();self.store.write(value,self.state);self.state=deepcopy(value)
 
-    @staticmethod
-    def edit_values(values):
-        validate_operation_arguments('collaboration.edit',values)
-        need(values['entityName']==ENTITY and values['value'] in ('blue','orange'))
+    edit_values=staticmethod(edit_values)
 
     def domain_probe(self,value):
         need(type(value) is dict and value.get('domain',{}).get('connected') is True

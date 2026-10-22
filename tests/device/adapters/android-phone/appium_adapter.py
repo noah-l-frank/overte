@@ -2519,6 +2519,18 @@ class PhoneAppiumAdapter(AppiumAdapter):
         return result
 
     def cleanup(self, selector):
+        collaboration_error=False
+        try:
+            from overte_phone_collaboration import retire_journal
+            collaboration_store=PrivateFeatureState(self.state_path(selector).with_name('phone-collaboration.json'))
+            collaboration=collaboration_store.read()
+            if collaboration is not None:
+                # Unconfirmed sends need the original live actor/client join.
+                # Confirmed history can close after later normal PID changes.
+                if collaboration.get('pending') is not None and collaboration['pending'].get('phase')=='issued':
+                    self._collaboration(selector).invoke('collaboration.snapshot',{})
+                retire_journal(collaboration_store)
+        except Exception:collaboration_error=True
         chat_feature_error=False
         try:
             metadata=self.chat_feature_store(selector).read() or self.chat_retirement_store(selector).read()
@@ -2670,6 +2682,8 @@ class PhoneAppiumAdapter(AppiumAdapter):
             binding.adb.shell(device, 'am', 'force-stop', target['appId'])
             binding.wait_for_process_stopped(device)
         result = super().cleanup(selector)
+        require(not collaboration_error and PrivateFeatureState(self.state_path(selector).with_name('phone-collaboration.json')).read() is None,
+            'PHONE_COLLABORATION_CLEANUP_INCOMPLETE')
         require(not foundation_error and foundation_store.read() is None,'PHONE_SNAPSHOT_FOUNDATION_CLEANUP_INCOMPLETE')
         require(not feature_error and self.script_feature_store(selector).read() is None
                 and self.script_retirement_store(selector).read() is None

@@ -42,12 +42,25 @@ Repeating an unresolved or confirmed edit cannot send it twice; a fresh public
 snapshot consumes its confirmed intent. Uncertain edits remain recorded and
 red. The existing domain fixture owns the shared entity and actor, including
 their eventual teardown; this foundation creates no extra target resources.
-The private journal and stable lock inode remain diagnostic/coordination files
-in the runner's private state root, and are not public portable observations.
+Normal adapter cleanup, also when the opt-in is off, closes confirmed/consumed
+history under that stable lock. It validates the full original sample at its
+historical epoch, writes and reads back an immutable digest-named diagnostic
+archive, and removes only the matching active journal. This host-only closure
+can follow a later regular process change; no archived source qualifies a new
+measurement or is used to bootstrap a later session. The stable lock inode
+remains for coordination. A later SDK session can establish a fresh owner.
+
+An issued/unconfirmed edit first requires a fresh actor/client acquisition
+under the exact original candidate/process/session/control/peer. Ignored input,
+lost original context, changed active files or archive collisions preserve the
+active journal and fail cleanup; base SDK cleanup is still attempted. A lost
+archive or unlink return can be retried without overwriting the original or
+resending input. All files remain private; no native identity enters portable
+observations.
 
 Validation on the isolated source branch:
 
-* 12 Phone foundation tests passed in 28.884 seconds. They run the actual
+* 18 Phone foundation tests passed in 31.852 seconds. They run the actual
   `feature_capability_gate.py --area create` and unchanged `entity_sync.py`
   from a serverless initial world through real Phone Appium dispatch, the original JavaScript assignment and
   probe-property function, and the real collaboration broker over controlled
@@ -57,6 +70,12 @@ Validation on the isolated source branch:
   observations, missing sequence progress, replaced controls/credentials,
   changed candidate/PID/session/target, ignored domain-entry acknowledgements
   without SDK session repair, and a lost edit return without replay.
+  Lifetime counterexamples additionally cover disabled-opt-in cleanup, an
+  actual new SDK session after closure, repeated cleanup, lost archive/unlink
+  returns, foreign active/archive replacement and unresolved or replaced
+  original process contexts without forgetting one-send intent.
+* Existing Phone feature cleanup regression selection: 54 tests passed in
+  13.227 seconds, retaining all other owners and base teardown behavior.
 * Existing Create registration: five tests passed (0.115 seconds).
 * Existing collaboration actor/broker/observation: eight tests passed (0.098
   seconds), including execution of the actual original JavaScript readers.
