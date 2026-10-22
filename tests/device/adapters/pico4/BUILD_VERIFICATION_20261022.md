@@ -172,3 +172,30 @@ Emote branch by its own original braces fixes this harness without changing
 native input behavior. The repeated actual Qt5 run passes (1 case, 4.056s),
 including the ten-button trace and delivered Scroll events. Actual contentY
 stays zero; this still does not qualify a real scroll effect or a device.
+
+## Integrated physical Create and actual JSON Chat settings
+
+Create 1488d98770/c0670a97c4/9c352313b6 preserves the existing Chat barrier,
+worker and all Emote/Audio coverage mappings. The catalog is 65 after exactly
+two added Create selectors. All six selected groups pass (6/65, 107.95s):
+create-browse-setting 2.103s, its actual Qt5 native test 9.938s,
+create-picker-owner 85.487s, create-entities-native 1.772s,
+create-dialog-native 8.578s and coverage-matrix .073s. The real original
+Manager/writer/Handle/JSON helpers and private physical INI/JSON acquisitions
+are exercised. Blocked/late/dead workers stay unresolved; a final memory
+value alone cannot establish persisted restoration. The actual non-string
+Browse/Cancel failure remains retained; no functional product fix was made.
+A further pre-restore physical ownership fence is under review, so this record
+is not whole Create cleanup qualification.
+
+Chat 0aa3a88c5d corrects the physical reader for the actual registered JSON
+format and fences conditional restoration against a fresh original worker/file
+snapshot. All six focused Qt5 cases pass (40.288s), compiling the entire actual
+SettingManager.cpp with MOC, SettingHelpers.cpp and SharedLogging.cpp. Both
+INI/JSON, raw empty types, parser aliases, original queue fences and physical
+cache/file disagreement are covered. These original source checks do not
+qualify the whole application, complete Chat or any device. Four project
+checks pass (4.47s). Lifecycle 9abd6fccb9 adds the next ordinary Chat draft
+component. Its 11 post-integration component cases pass (17.611s), and the
+actual Pico factory/source-lock case passes (1.578s). All four final project
+checks pass (4.52s). These are component checks; Lifecycle remains partial.

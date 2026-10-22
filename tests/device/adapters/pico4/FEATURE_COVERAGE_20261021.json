@@ -306,7 +306,11 @@
         "android/vr/pico/tests/device/test_create_dialogs_native.py",
         "tests/device/adapters/pico4/create_picker_owner.py",
         "tests/device/adapters/pico4/CREATE_PICKER_OWNER.md",
-        "tests/device/adapters/pico4/create_entities.py"
+        "tests/device/adapters/pico4/create_entities.py",
+        "tests/device/adapters/pico4/create_browse_setting.py",
+        "tests/device/native/CreateBrowseSettingOwner.h",
+        "tests/device/native/CreateBrowseSettingFile.h",
+        "tests/device/adapters/pico4/CREATE_BROWSE_SETTING.md"
       ],
       "declaredCheckpoints": 21,
       "inputVerbs": [
@@ -351,7 +355,7 @@
         "Drain original model/texture/picker/export callbacks and files",
         "Restore rez permission, view and actual unowned scene inventory"
       ],
-      "nextExecutableStep": "Join existing original normal picker/export storage, native weak roots and original Window/V8 callback observations into whole model/texture/import/export ownership; continue actual queued ModalDialogListener delivery retirement, PolyVox, domain authority actor, stereo and final cleanup.",
+      "nextExecutableStep": "Compose actual normal glTF/OBJ Model and texture inputs with original domain effects, Script timer/callback retirement, rendered stereo/peer evidence and PolyVox/permission ownership. Existing ordinary picker Import/Save/export/Delete and fixed physical Browse settings components remain partial; retain the original typed Cancel and any unowned physical restoration boundary.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested",
       "nativeDialogIntegrationStatus": "Focused original Qt5 dialog pipeline passed after restoring actual GUI Window receiver affinity and original worker DirectConnection call. Full application/V8 TUs and devices unqualified; earlier unsupported moved-receiver diagnostic crash documented."
@@ -886,7 +890,10 @@
         "tests/device/adapters/chat_journey/mixer.py",
         "tests/device/adapters/chat_journey/mixer_control.py",
         "tests/device/adapters/chat_journey/mixer_recovery.py",
-        "tests/device/adapters/chat_journey/MIXER.md"
+        "tests/device/adapters/chat_journey/MIXER.md",
+        "tests/device/adapters/chat_journey/normal_input.py",
+        "tests/device/adapters/chat_journey/NORMAL_INPUT.md",
+        "tests/device/native/ChatSettingsJson.h"
       ],
       "declaredCheckpoints": 25,
       "inputVerbs": [
@@ -930,7 +937,7 @@
         "Restore peer position and owned mixer service",
         "Close view and observe keyboard, peer work and capture ownership fully retired"
       ],
-      "nextExecutableStep": "Compose native and durable original-profile owners with normal Erase, two independently acquired fresh post-Erase Script/UI histories, close/reopen, original Config preservation and three-source restoration quiet. Join existing remote/distant/no-replay owners, original stereo/actor evidence and actual callback/Qt/native/file retirement; no complete Chat triple.",
+      "nextExecutableStep": "Compose the 25-step normal input, original JSON/INI profile/Erase, independent peer/distance, mixer/no-replay and recovery owners. Retain complete bounded original source history without truncation, then bind original stereo/actor publication and real callback/Qt/process/file retirement. No complete Chat triple.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     },
@@ -1164,7 +1171,11 @@
         "tests/device/adapters/token_lifecycle_ui.py",
         "tests/device/adapters/pico4/normal_lifecycle.py",
         "tests/device/native/NormalLifecycleControls.h",
-        "tests/device/adapters/pico4/LIFECYCLE_DRAFT.md"
+        "tests/device/adapters/pico4/LIFECYCLE_DRAFT.md",
+        "tests/device/adapters/pico4/lifecycle_editor.py",
+        "tests/device/adapters/pico4/LIFECYCLE_EDITOR.md",
+        "tests/device/adapters/pico4/lifecycle_chat.py",
+        "tests/device/adapters/pico4/LIFECYCLE_CHAT.md"
       ],
       "declaredCheckpoints": 16,
       "inputVerbs": [
@@ -1209,7 +1220,7 @@
         "Observe real old context retirement and new empty editor",
         "Restore original position/focus and sustain zero deferred/held input for three seconds"
       ],
-      "nextExecutableStep": "Compose actual X with the durable consumed-gesture/world-input and independent native-neutral/3D-feet quiet owner, using the same actual source-lock instance and retained original context IDs. Then verify held-action interruption, original settings/avatar restoration and strong OS PID/start absence plus controlled restart for process-owned final retirement. No complete Lifecycle triple or force-stop-ACK cleanup claim.",
+      "nextExecutableStep": "Extend the actual normal Create/Unicode -> consumed world gesture/neutral -> X/Home -> new original Chat/reply generation sequence with native background UI/keyboard history, second world attempt, Scripts/pending/stale contexts, independent peer and exact restoration/process-owned final retirement. Reuse one actual source-lock instance through each whole owner. No complete Lifecycle triple.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     }

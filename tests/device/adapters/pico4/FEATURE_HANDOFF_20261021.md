@@ -6,24 +6,27 @@ with concrete missing operations, original evidence, cleanup obligations and
 next executable source steps in the
 [machine coverage matrix](FEATURE_COVERAGE_20261021.json). Every row separately
 records shared v16 test logic, adapter implementation, native compilation and
-device qualification. Native code is uncompiled; no device is tested.
+device qualification. Local builds were authorized on 2026-10-22. Selected
+native components and original production bodies now compile and pass host
+checks; the full application/APK and every device remain unqualified. See the
+[current build and integration record](BUILD_VERIFICATION_20261022.md).
 
 | Area | Current Pico implementation | Concrete next boundary |
 | --- | --- | --- |
 | Worlds/navigation | Partial normal Places/bookmark/origin/directory/error and measured B/A transit with original stereo-source retirement | Fresh v2 image/actor publication, normal tablet and Go To closure, maturity composition, restart and independent final retirement |
 | Authentication | Complete source; 17-step shared flow and counterexamples host verified | Compile and qualify actual VR Home ray, IME, HTTPS provider and account lifetime on Proxmox |
 | Avatar/contacts | Complete adapter missing | Source-bound Avatar/People inputs and independent model/bookmark/wearable/consent observations |
-| Create | Partial token controls and entity foundations | Actual JSON picker/export, model/texture/PolyVox, permission actor and original file/image/peer joins |
-| Emotes | Partial submitted-code/Rig observations | Actual running source/profile, VR normal controls, timer/caller/pose and stereo avatar evidence |
+| Create | Partial normal management and domain Import/Save/export/Delete with original callbacks, files and fixed raw/physical Browse setting ownership | Full Model/texture/PolyVox/permission actor, stereo and final cleanup composition |
+| Emotes | Partial actual normal inputs, compiled caller/consumed FBX/Rig effects, work/quiet/background and loaded-avatar originals | Executed avatar draw/two-eye camera/PNG joins, independent actor and whole resource retirement |
 | Web in world | Partial native DOM source | Actual controller-ray hit/DOM input, original document/echo journals, response receipt and stereo image join |
 | Web in tablet | Partial native DOM source | VR DOM input plus original inline carrier/retained callback and complete document/cleanup owner |
 | Graphics | Complete source; actual public/session/common-engine route, original stereo/effects and independent final retirement host verified | Later compile and qualify the exact E2E candidate on Proxmox; no device work in this session |
 | Audio | Partial normal controls/cycle/history/PCM sources | Whole cycle owner, microphone stimulus, independent acoustic capture/publisher and lifecycle/cleanup join |
-| Chat | Partial normal controls, current native view/cache and peer IPC prerequisites | Independent primary/peer UI/storage/keyboard/delivery ledger and owned mixer/distance/recovery coordinator |
+| Chat | Partial ordinary Send/Return/Retry, original JSON/INI profile/Erase, peer/distance/no-replay and mixer recovery owners | Complete bounded source histories, 25-step coordinator, stereo/publisher and original final retirement |
 | Snapshots | Partial private original-output foundation | Actual OS Save backend/authorization, independently acquired receiver/save/upload originals and callback cleanup |
 | Scripts | Complete source; host verified | Review/compile test-gated native source and later qualify the exact installed candidate through Proxmox |
 | Assets | Complete adapter missing | Actual Assets UI/bundle picker, original server mapping/oven/permission/model sources and independent actor |
-| Lifecycle/input | Partial current token/pending-event owner | A demonstrated normal Create Back route on 3D TabletRoot, actual VR keyboard/tracking/context and full stale-input join |
+| Lifecycle/input | Partial normal Create/Unicode/world/X and subsequent new Chat draft, original VR keyboard/context and process retirement components | Native background history, second world/Scripts/pending/stale flow, independent peer and full restoration/retirement |
 
 These are implementation gaps, not successful skips. `--require-complete` must
 continue rejecting a full selected run when required capabilities are missing.
