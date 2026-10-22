@@ -40,12 +40,14 @@ class ViewBoundary:
         self.life=False;self.life_sequence=0;self.life_rows=[]
         self.neutral_fault=None;outer=self
         self.transport_guard=None
+        self.transport_stage_guard=None
         class Transport(FakeTransport):
-            def stage(self,envelope,profile):
+            def stage(self,envelope,profile,*,before_publish=None):
                 from adapters.script_journey.history import unpack
                 state=unpack(outer.store.read()['payload'])[0];row=state['steps'][-1]
                 unittest.TestCase().assertEqual(envelope,row['stream']['envelope'])
-                value=super().stage(envelope,profile)
+                if outer.transport_stage_guard:outer.transport_stage_guard()
+                value=super().stage(envelope,profile,before_publish=before_publish)
                 operation=envelope['commands'][0]['operation']
                 lost=outer.lost;outer.lost=None
                 try:
@@ -74,8 +76,8 @@ class ViewBoundary:
             processId=31,capturedEpochMs=self.sources.epoch,elapsedMs=int(self.sources.clock*1000),
             tabletShown=self.open,onHomeScreen=self.page=='home',visible=self.open)
         return value
-    def home_stage(self,pose,*,intent=None):
-        return self.session.stage(BINDING['processIdentity'],'input.primary',pose,intent=intent)
+    def home_stage(self,pose,*,intent=None,before_publish=None):
+        return self.session.stage(BINDING['processIdentity'],'input.primary',pose,intent=intent,before_publish=before_publish)
     def home_effect(self):
         self.before_input('tablet.home-ray')
         if self.ignored!='tablet.home-ray':self.page='home'
@@ -444,6 +446,17 @@ class PicoEmoteViewTests(unittest.TestCase):
         with b.lock.held():
             b.owner().prepare();b.cleanup_phase();owner=b.owner();owner.restore();b.life=False
             with self.assertRaises(NativeUIError):owner.menu_retirement()
+
+    def test_late_transport_guard_cannot_publish_old_durable_view_envelope(self):
+        from adapters.script_journey.history import unpack
+        b=ViewBoundary(self)
+        def delayed():b.sources.clock+=2
+        b.transport_stage_guard=delayed
+        with b.lock.held():
+            with self.assertRaises(RuntimeError):b.owner().prepare()
+            self.assertEqual([],b.transport.envelopes);self.assertEqual([],b.inputs)
+            state=unpack(b.store.read()['payload'])[0]
+            self.assertIsNotNone(state['steps'][0]['stream']['envelope']);self.assertIsNone(state['steps'][0]['after'])
             self.assertIsNotNone(b.store.read())
 
 

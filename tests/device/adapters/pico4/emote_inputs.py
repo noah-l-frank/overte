@@ -134,7 +134,8 @@ class PicoEmoteInputTransport:
         def intent(envelope):
             need(item['stream']['envelope'] is None);self.stream_packet(item,envelope)
             item['stream']['envelope']=deepcopy(envelope);self.persist(host_only=True)
-        self.controller_session.stage(self.binding['processIdentity'],identifier,dict(holdMilliseconds=1000),intent=intent)
+        self.controller_session.stage(self.binding['processIdentity'],identifier,dict(holdMilliseconds=1000),intent=intent,
+            before_publish=lambda value:self.controller_publication(item,value))
         neutral=self.controller_session.require_owned_neutral(self.binding['processIdentity'],item['stream']['envelope'])
         PicoLifecycleBack.neutral(neutral,item['stream']['envelope'],self.ui(self.original(before))['scope']['capturedEpochMs'])
         fresh(neutral['updatedEpochMs'],self.source.clock_ms())
@@ -142,6 +143,14 @@ class PicoEmoteInputTransport:
         after=self.capture();need(self.ui(self.original(after))['open']==(identifier=='tablet.open'))
         need(neutral['updatedEpochMs']<=self.ui(self.original(after))['scope']['capturedEpochMs']+250)
         item['after']=after;current['phase']='acting';self.save()
+
+    def controller_publication(self,item,value):
+        # Called after real transport SDK checks and before each command/grant
+        # writer while the original sequence lock remains held. No new intent,
+        # guard, phase/native query or controller/session reentry is permitted.
+        self.lock.assert_held();need(not self.failed and same(item['stream']['envelope'],value)
+            and same(self.store.read(),self.previous) and same(self.source.store.read(),self.source.previous))
+        self.host_fresh()
 
     def input_chain(self,row,call):
         if row['before'] is not None:

@@ -194,6 +194,11 @@ class PicoEmoteView:
         need(row['stream'] is not None and row['stream']['envelope'] is None and row['after'] is None and len(row['intent'])==1)
         self.stream_packet(row,value);row['stream']['envelope']=deepcopy(value);self.save(host_only=True)
 
+    def stream_publication(self,row,value):
+        self.lock.assert_held();need(not self.failed and row['after'] is None and row['stream'] is not None
+            and same(row['stream']['envelope'],value) and same(self.store.read(),self.previous))
+        self.host_fresh()
+
     def neutral(self,row):
         if row['stream'] is None:return
         stream=row['stream'];need(stream['envelope'] is not None)
@@ -311,7 +316,8 @@ class PicoEmoteView:
                 need(not before['home']['onHomeScreen'])
                 route=self.home();need(isinstance(route,PicoTabletHome) and route.source.pid==self.pid)
                 route.ensure(lambda _stage,original,_control:self.intent(row,io.capture(),home=original),
-                    stream_intent=lambda value:self.stream_intent(row,value))
+                    stream_intent=lambda value:self.stream_intent(row,value),
+                    stream_publish=lambda value:self.stream_publication(row,value))
             elif control.startswith('view-menu.'):
                 widgets=io.capture();flow=PicoViewMenu(io,lambda request:self.intent(row,widgets,request),monotonic=self.monotonic,sleep=self.sleep)
                 flow.activate(control,project(widgets))
@@ -319,7 +325,7 @@ class PicoEmoteView:
                 widgets=io.capture();self.intent(row,widgets)
                 if control in ('tablet.open','tablet.close'):
                     self.session.stage(self.binding['processIdentity'],control,dict(holdMilliseconds=1000),
-                        intent=lambda value:self.stream_intent(row,value))
+                        intent=lambda value:self.stream_intent(row,value),before_publish=lambda value:self.stream_publication(row,value))
                 else:
                     rows=[r for r in widgets['controls'] if r['id']==control];need(len(rows)==1 and rows[0]['enabled'])
                     io.navigation.input(control,token=rows[0]['token'])

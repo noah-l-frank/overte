@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import os
+from copy import deepcopy
 from pathlib import Path
 import tempfile
 import unittest
@@ -20,7 +21,8 @@ class FakeTransport:
         self.envelopes: list[dict] = []
         self.cleanup_count = 0
 
-    def stage(self, envelope, profile):
+    def stage(self, envelope, profile, *, before_publish=None):
+        if before_publish is not None:before_publish(deepcopy(envelope))
         self.envelopes.append(envelope)
         return {"sequence": envelope["sequence"]}
 

@@ -108,3 +108,19 @@ native-age change at this boundary leaves the original issuing record owned
 without publishing or replaying the input. The canonical controller intent
 callback remains host-only. These are admission checks; actual Rig, pixels,
 actor and resource effects still require independent observations.
+
+## Actual controller publication admission
+
+The normal Emote controller operations now pass a pure host `before_publish`
+validator to the original canonical Session/Android transport. It compares the
+already durable exact envelope and original host journals, then checks the saved
+native/host anchor age after the original SDK guards and again before native
+grant commit. It performs no second intent CAS, phase/native/SDK query, guard
+or session reentry. Late SDK work cannot publish an expired input. An uncertain
+original remains owned without resend. View's ordinary Home-ray uses the same
+optional forwarding; the default shared Home/controller paths are preserved.
+Five focused owner checks pass3.992s, including late transport refusal under a
+frozen native clock, host-only callbacks, ordinary open/play/cancel/close and
+all six setup/restoration streams with independent neutralization. Synthetic
+transport boundaries remain explicit; original SDK serialization/publication
+checks are separately covered by the real transport's device-free tests.

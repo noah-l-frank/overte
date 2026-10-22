@@ -67,8 +67,8 @@ class PicoTabletHome:
     def __init__(self,source,stage):
         need(callable(stage));self.source,self.stage=source,stage
 
-    def ensure(self,intent,*,stream_intent=None):
-        need(stream_intent is None or callable(stream_intent))
+    def ensure(self,intent,*,stream_intent=None,stream_publish=None):
+        need((stream_intent is None or callable(stream_intent)) and (stream_publish is None or callable(stream_publish)))
         before=self.source.capture()
         need(before['tabletShown'])
         if before['onHomeScreen']:return before
@@ -79,7 +79,8 @@ class PicoTabletHome:
         intent('tablet-home-ray',before,'tablet.home-ray')
         need(self.source.guard() is not False)
         validate_input(before,self.source.pid,self.source.clock_ms(),'tablet.home-ray')
-        if stream_intent is None:self.stage(pose)
+        if stream_publish is not None:self.stage(pose,intent=stream_intent,before_publish=stream_publish)
+        elif stream_intent is None:self.stage(pose)
         else:self.stage(pose,intent=stream_intent)
         started=self.source.monotonic()
         for attempt in range(81):
@@ -95,7 +96,9 @@ def bind_home(adapter,target,native):
     """One shared existing-session binding for normal Pico Home gestures."""
     source=PicoHomeSource(adapter,target,native)
     identity=adapter.require_pico_session_identity(target)
-    def stage(pose,*,intent=None):
+    def stage(pose,*,intent=None,before_publish=None):
         need(adapter.require_pico_session_identity(target)==identity)
-        return adapter.pico_input_session(target).stage(identity,'input.primary',pose,intent=intent)
+        session=adapter.pico_input_session(target)
+        if before_publish is None:return session.stage(identity,'input.primary',pose,intent=intent)
+        return session.stage(identity,'input.primary',pose,intent=intent,before_publish=before_publish)
     return PicoTabletHome(source,stage)
