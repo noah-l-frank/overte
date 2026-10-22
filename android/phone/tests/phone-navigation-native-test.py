@@ -11,12 +11,16 @@ import os
 from pathlib import Path
 import shlex
 import subprocess
+import tempfile
 
 ROOT=Path(__file__).resolve().parents[3]
 parser=argparse.ArgumentParser(description=__doc__)
-parser.add_argument('--build-dir',required=True,type=Path)
+parser.add_argument('--build-dir',type=Path)
 args=parser.parse_args()
-build=args.build_dir.resolve()
+if args.build_dir is None:
+    parent=ROOT/'build';parent.mkdir(parents=True,exist_ok=True)
+    build=Path(tempfile.mkdtemp(prefix='phone-navigation-native-',dir=parent))/'check'
+else:build=args.build_dir.resolve()
 if ROOT not in build.parents:parser.error('Build directory must be inside this checkout')
 build.mkdir(parents=True,exist_ok=False)
 modules=['Qt6Quick','Qt6Qml','Qt6Gui','Qt6Core','Qt6Test','Qt6Network']

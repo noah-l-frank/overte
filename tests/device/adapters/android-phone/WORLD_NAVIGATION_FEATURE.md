@@ -93,6 +93,11 @@ PYTHONPATH=tests/device python3 -m unittest self_tests.test_navigation_resources
 python3 android/phone/tests/phone-navigation-native-test.py --build-dir build/phone-navigation-native-review
 ```
 
+The feature tests are also registered in the existing mandatory Phone runtime
+regression entrypoint. Its prepared-host mode includes the native check;
+without `--build-dir` that check allocates a new unique checkout-local build
+directory and never reuses a previous or frozen build.
+
 The native host check compiles the original controls/reply/modal sources and
 passive navigation-view header against installed Qt6, then runs unmodified
 `PicoPlaces.qml` with real ordinary Qt inputs and foreign-overlay refusal. It
