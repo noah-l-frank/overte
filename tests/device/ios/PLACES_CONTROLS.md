@@ -42,8 +42,9 @@ foreign QML sources, stale/retimed packets, another accepted input, changed focu
 ignored ACKs and root replacement at delivery. Native code is uncompiled and
 devices are untested. These simulations qualify component logic only.
 
-The full area still needs original in-memory and persisted bookmark evidence,
-actual directory-response consumer/protocol proof, actual arrival/pose/images,
+The passive [bookmark source](LOCATION_BOOKMARKS.md) now supplies independent
+loaded entries and original persistence bytes. The full area still needs their
+whole-journey owner, actual directory-response consumer/protocol proof, actual arrival/pose/images,
 an independent publisher, restart and retained-callback/quiet retirement. The
 existing named-lookup error reply reader and server delivery receipts cannot
 substitute for those sources. No full Worlds operation is admitted by this work.

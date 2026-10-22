@@ -143,6 +143,7 @@
     }
     var lastWorldRenderRequest = "";
     var lastGraphicsSubjectRequest = "";
+    var lastIOSLocationBookmarksRequest = "";
     var lastSceneLoadRequest = "";
     var lastWorldRenderStorageCommand = "";
     var lastWorldRenderReceiptCommand = "";
@@ -1060,6 +1061,24 @@
                 } catch (_bundleReadError) { /* No paths or archive expectations are exported. */ }
                 if (installedBundle.status !== "pending") { lastIOSBundleDone=command.commandId; }
                 Test.saveObject(installedBundle,"ios-installed-bundle-observation.json");
+            }
+            return;
+        }
+        if (command && command.action === "feature-ios-location-bookmarks") {
+            if (command.schemaVersion === 1 && typeof command.commandId === "string"
+                    && /^ios-[0-9a-f]{32}$/.test(command.commandId) && command.commandId.length === 36
+                    && typeof command.runId === "string" && /^[0-9a-f]{32}$/.test(command.runId) && command.runId.length === 32
+                    && objectKeysMatch(command,["schemaVersion","commandId","action","runId"])) {
+                if (command.commandId === lastIOSLocationBookmarksRequest) { return; }
+                lastIOSLocationBookmarksRequest=command.commandId;
+                var locationBookmarks={iosLocationBookmarksVersion:1,requestId:command.commandId,status:"unavailable"};
+                try {
+                    if (typeof Test.featureIOSLocationBookmarks === "function") {
+                        var originalBookmarks=Test.featureIOSLocationBookmarks(command);
+                        if (originalBookmarks && originalBookmarks.requestId === command.commandId) { locationBookmarks=originalBookmarks; }
+                    }
+                } catch (_locationBookmarksError) { /* Unknown loaded/disk state is not an empty successful map. */ }
+                Test.saveObject(locationBookmarks,"feature-ios-location-bookmarks.json");
             }
             return;
         }

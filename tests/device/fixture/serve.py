@@ -549,6 +549,12 @@ class FixtureState:
             try:web_closures_command(command)
             except (ValueError,RuntimeError):raise ValueError("invalid iOS Web closure request") from None
             valid=True
+        elif action == "feature-ios-location-bookmarks":
+            sys.path.insert(0,str(ROOT.parent))
+            from ios.adapters.location_bookmarks import command as bookmarks_command
+            try:bookmarks_command(command)
+            except (ValueError,RuntimeError):raise ValueError("invalid iOS location bookmarks request") from None
+            valid=True
         elif action == "feature-web-dom-observe":
             sys.path.insert(0,str(ROOT.parent))
             from adapters.native_web_dom import command as web_dom_command

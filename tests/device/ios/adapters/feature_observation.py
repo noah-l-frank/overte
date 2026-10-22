@@ -39,6 +39,8 @@ from adapters.native_navigation_replies import NativeNavigationReplies, FILE as 
 from adapters.native_process_presence import NativeProcessPresence, FILE as PROCESS_PRESENCE_FILE, LIMIT as PROCESS_PRESENCE_LIMIT, command as process_presence_command
 from ios.adapters.web_closures import IOSWebClosures, FILE as WEB_CLOSURES_FILE, LIMIT as WEB_CLOSURES_LIMIT, command as web_closures_command
 from ios.adapters.bundle_observation import NativeBundleObservation, FILE as BUNDLE_FILE, command as bundle_command
+from ios.adapters.location_bookmarks import (IOSLocationBookmarks,FILE as BOOKMARKS_FILE,LIMIT as BOOKMARKS_LIMIT,
+    command as bookmarks_command)
 from adapters.private_login_input import command as private_input_command
 from adapters.native_account_origin import (NativeAccountOrigin, OwnedAccountOrigin, FILE as ACCOUNT_ORIGIN_FILE,
     command as account_origin_command)
@@ -121,6 +123,7 @@ class FeatureObservation:
         elif command.get('action')=='feature-chat-observe':chat_command(command,ios=True)
         elif command.get('action')=='feature-chat-view-observe':chat_view_command(command,ios=True)
         elif command.get('action')=='feature-ios-web-closures':web_closures_command(command)
+        elif command.get('action')=='feature-ios-location-bookmarks':bookmarks_command(command)
         elif command.get('action')=='feature-web-dom-observe':web_dom_command(command,ios=True)
         elif command.get('action')=='feature-pending-commit-owner':pending_owner_command(command,ios=True)
         elif command.get('action')=='feature-navigation-replies':navigation_replies_command(command,ios=True)
@@ -238,6 +241,13 @@ class FeatureObservation:
         def clock(): return self.native_observer().read(0)['capturedEpochMs']
         return NativeProcessPresence(self.send, lambda: self.original(remote=remote, limit=PROCESS_PRESENCE_LIMIT),
             clock, self.guard, self.process['pid'], ios=True, monotonic=self.monotonic, sleep=self.sleep)
+
+    def location_bookmarks(self,clock_source=None):
+        self.guard();remote=self.remote.rsplit('/',1)[0]+'/'+BOOKMARKS_FILE
+        if clock_source is None:clock_source=self.native_observer()
+        def clock():return clock_source.read(clock_source.sequence)['capturedEpochMs']
+        return IOSLocationBookmarks(self.send,lambda:self.original(remote=remote,limit=BOOKMARKS_LIMIT),
+            clock,self.guard,self.process['pid'],monotonic=self.monotonic,sleep=self.sleep)
 
     def navigation_replies(self):
         self.guard();remote=self.remote.rsplit('/',1)[0]+'/'+NAVIGATION_REPLIES_FILE

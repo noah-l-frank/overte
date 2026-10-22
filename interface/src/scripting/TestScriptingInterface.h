@@ -23,6 +23,7 @@
 namespace overte::e2e { class ChatViewObservation; }
 #if defined(Q_OS_IOS)
 namespace overte::e2e { class InstalledBundleIdentity; }
+namespace overte::e2e { class IOSLocationBookmarksObservation; }
 #endif
 #include <QUuid>
 namespace overte::e2e { class FeatureLifecycle; class AccountOriginLease; class PrivateLoginInput; }
@@ -166,6 +167,7 @@ public slots:
 #if defined(Q_OS_IOS)
     Q_INVOKABLE QVariantMap featureIOSBundleObservation(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureIOSWebClosures(const QVariantMap& command);
+    Q_INVOKABLE QVariantMap featureIOSLocationBookmarks(const QVariantMap& command);
 #endif
 
     Q_INVOKABLE QVariantMap featureWebDOMObservation(const QVariantMap& command);
@@ -248,6 +250,7 @@ private:
     std::shared_ptr<overte::e2e::ChatViewObservation> _featureChatView;
 #if defined(Q_OS_IOS)
     std::shared_ptr<overte::e2e::InstalledBundleIdentity> _featureIOSBundle;
+    std::shared_ptr<overte::e2e::IOSLocationBookmarksObservation> _featureIOSLocationBookmarks;
 #endif
     QString _featureObservationInstance;
     quint64 _featureObservationSequence {0};

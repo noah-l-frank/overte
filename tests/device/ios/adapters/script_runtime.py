@@ -155,6 +155,10 @@ class IOSScriptRuntime:
         else:need(client is not None)
         return IOSScriptFeature(self,selector,ScriptFixtureReader(client,run),role=role)
 
+    def _location_bookmarks_observer(self,selector):
+        source=self._sources(selector)
+        return source['observer'].location_bookmarks(source['clock_source'])
+
     def _clock_acquisition(self,selector,host_barrier):
         s=self._sources(selector)
         window=NativeClockAcquisition(s['clock_source']);window.begin(host_barrier)
