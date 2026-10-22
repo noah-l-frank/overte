@@ -26,6 +26,7 @@ sys.path[:0]=[str(ROOT/'tests/device'),str(ROOT/'tests/device/self_tests'),str(R
 import test_account_fixture_launch
 from create_feature_target import Handler,RUN,DOMAIN,POLICY
 from snapshots_journey_producers import SnapshotTarget,SnapshotProxy,HostOnlyBoundary
+from snapshot_documents_journey_boundary import install_keepalive_snapshot_rpc,keepalive_handler,close_snapshot_rpc
 from adapters.normal_feature_state import PrivateFeatureState
 from self_tests.test_phone_navigation import NativePhone
 from self_tests import test_snapshot_upload_service as wire
@@ -42,8 +43,10 @@ from pathlib import Path
 sys.path[:0]=json.loads(sys.argv[1])
 from adapters.normal_feature_state import PrivateFeatureState
 from feature_journeys.witness import Client
-from snapshots_journey_producers import SnapshotActorProxy,RUN,HostOnlyBoundary
+from snapshots_journey_producers import SnapshotActorProxy,SnapshotProxy,RUN,HostOnlyBoundary
 host_only=HostOnlyBoundary();host_only.__enter__()
+from snapshot_documents_journey_boundary import install_keepalive_snapshot_rpc
+install_keepalive_snapshot_rpc(SnapshotProxy)
 from overte_phone_script_lock import PhoneScriptSourceBusy
 from overte_phone_snapshot_upload_fixture import SnapshotUploadFixtureReader
 import overte_phone_snapshot_upload_fixture
@@ -80,7 +83,7 @@ class SnapshotJourneyTests(unittest.TestCase):
         host_only=HostOnlyBoundary();host_only.__enter__();self.addCleanup(host_only.close)
         temporary=tempfile.TemporaryDirectory(prefix='snapshots-common-');self.addCleanup(temporary.cleanup);self.root=Path(temporary.name);self.root.chmod(0o700)
         self.model=SnapshotTarget(self.root,sdk=self.SDK);self.addCleanup(self.model.close)
-        self.rpc=ThreadingHTTPServer(('127.0.0.1',0),Handler);self.rpc.target=self.model;self.rpc.errors=[]
+        self.rpc=ThreadingHTTPServer(('127.0.0.1',0),keepalive_handler(Handler));self.rpc.target=self.model;self.rpc.errors=[]
         thread=threading.Thread(target=self.rpc.serve_forever,daemon=True);thread.start()
         def stop_rpc():self.rpc.shutdown();self.rpc.server_close();thread.join(3)
         self.addCleanup(stop_rpc)
@@ -94,6 +97,8 @@ class SnapshotJourneyTests(unittest.TestCase):
         def stop_server():self.server.shutdown();self.server.server_close();thread2.join(3)
         self.addCleanup(stop_server)
         env=patch.dict(os.environ,dict(SSL_CERT_FILE=str(self.cert)));env.start();self.addCleanup(env.stop)
+        import urllib.request
+        urllib.request._opener=None
         self.client=Client(self.base,'r'*64)
         with patch('feature_journeys.witness.secrets.token_hex',return_value=RUN):run,self.fixture_url=self.client.register('snapshots')
         self.assertEqual(RUN,run)
@@ -104,7 +109,8 @@ class SnapshotJourneyTests(unittest.TestCase):
         target['controls']={'normalNavigation':deepcopy(NativePhone().profile)}
         self.adapter.read_session('test-only-appium')['targetFingerprint']=self.adapter.snapshot_fingerprint(target)
         self.model.model_binding=deepcopy(self.adapter.normal_feature_runtime('test-only-appium',read_only=True)[2])
-        self.proxy=SnapshotProxy('http://127.0.0.1:'+str(self.rpc.server_port),self.root)
+        install_keepalive_snapshot_rpc(SnapshotProxy)
+        self.proxy=SnapshotProxy('http://127.0.0.1:'+str(self.rpc.server_port),self.root);self.addCleanup(close_snapshot_rpc,self.proxy)
         # Only the explicit external target epoch source is synthetic. Actual
         # readers, host monotonic bounds and quiet windows remain unchanged.
         from overte_phone_snapshot_upload_fixture import SnapshotUploadFixtureReader
@@ -303,6 +309,7 @@ class SnapshotJourneyTests(unittest.TestCase):
             started=time.monotonic();before=self.model.rpc_counts.copy();result=self.invoke(operation,fields)
             counts=self.model.rpc_counts-before
             timings.append((operation.rsplit('.',1)[1],fields.get('verb'),round(time.monotonic()-started,3),dict(counts)))
+            if os.environ.get('OVERTE_SNAPSHOT_HOST_TRACE')=='1':print('Host Snapshot call '+repr(timings[-1][:3])+' RPCs='+str(sum(counts.values())),file=sys.stderr,flush=True)
             if operation.endswith('.observe') and not initialized[0]:initialized[0]=True;self.start_actor()
             return result
         witness_clocks=[]
@@ -316,7 +323,7 @@ class SnapshotJourneyTests(unittest.TestCase):
             continuity=lambda *_:None,monotonic=time.monotonic,epoch_ms=self.model.now,sleep=sleep,report=reports.append)
         try:journey.execute()
         except BaseException:
-            print('Explicit Snapshot producer replay stopped; recent source calls '+repr(timings[-8:])+'; original witness age/transport/receipt ages '+repr(witness_clocks)+'; actual final measured samples '+repr([(row['phase'],row['state']) for row in journey.samples[-4:]]),file=sys.stderr)
+            print('Explicit Snapshot producer replay stopped; recent source calls '+repr(timings[-8:])+'; original witness age/transport/receipt ages '+repr(witness_clocks)+'; actual final measured samples '+repr([(row['phase'],row['state']) for row in journey.samples if row['phase']=='16-upload']),file=sys.stderr)
             if initialized[0]:self.actor_ok()
             raise
         self.assertTrue(reports[-1]['sequenceCompleted']);self.assertTrue(reports[-1]['cleanupSucceeded'])
