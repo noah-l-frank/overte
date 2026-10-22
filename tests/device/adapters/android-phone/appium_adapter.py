@@ -120,6 +120,7 @@ NAVIGATION_FEATURE_OPERATIONS={'feature.world-navigation.'+kind for kind in ('ac
 WEB_REFERENCE_OPERATIONS={'web.reference.'+kind for kind in ('open','close','play','pause','seek')}
 AVATAR_PEOPLE_FEATURE_OPERATIONS={'feature.avatar-people.'+kind for kind in ('act','observe','cleanup')}
 LIFECYCLE_INPUT_FEATURE_OPERATIONS={'feature.lifecycle-input.'+kind for kind in ('act','observe','cleanup')}
+COLLABORATION_OPERATIONS={'collaboration.edit','collaboration.snapshot'}
 
 
 def readonly_feature_command(command):
@@ -348,6 +349,11 @@ class PhoneAppiumAdapter(AppiumAdapter):
 
     def advertised_capabilities(self, target):
         values = super().advertised_capabilities(target)
+        collaboration=os.environ.get('OVERTE_ANDROID_E2E_COLLABORATION','0')
+        require(collaboration in ('0','1'),'PHONE_COLLABORATION_CONFIGURATION_INVALID')
+        if collaboration=='1':
+            self._collaboration_configuration(target)
+            values=sorted(set(values)|COLLABORATION_OPERATIONS)
         if (getattr(self, 'candidate', None) is not None
                 and self.controlled_android_client(target)
                 and target.get('controls', {}).get('normalNavigation') is not None):
@@ -482,6 +488,29 @@ class PhoneAppiumAdapter(AppiumAdapter):
                     'PHONE_NORMAL_CREATE_REQUIRES_BOUND_DEBUG_TARGET')
             values = sorted(set(values) | CREATE_OPERATIONS)
         return values
+
+    def _collaboration_configuration(self,target):
+        from overte_phone_collaboration import configuration
+        require(self.candidate is not None and target.get('appId')=='io.github.noah_be.overte.phone'
+            and self.controlled_android_client(target),'PHONE_COLLABORATION_BOUND_DEBUG_TARGET_REQUIRED')
+        return configuration(os.environ)
+
+    def _collaboration(self,selector):
+        from overte_phone_collaboration import PhoneCollaboration,CollaborationControl,FILE
+        target=self.target(selector);config=self._collaboration_configuration(target)
+        _ui,_observe,context,check,installed=self.normal_feature_runtime(selector,read_only=True)
+        client,session,_state=self.existing_session(selector)
+        device=target['capabilities']['appium:udid'];adb=PhoneAdapter(self.candidate).adb
+        def guard():
+            check();require(self.installed_identity(selector)==installed,'PHONE_COLLABORATION_INSTALL_CHANGED')
+        def enter():
+            guard()
+            with self.existing_input_session(selector):self.invoke(selector,'navigation.enter-domain',dict(url=config['domainUrl']))
+            guard()
+        return PhoneCollaboration(PrivateFeatureState(self.state_path(selector).with_name('phone-collaboration.json')),
+            context,config['domainId'],guard,lambda:self.probe_snapshot(client,session,target),
+            lambda:adb.read_debug_app_file(device,target['appId'],'files/overte-e2e/'+FILE,attempts=1),
+            lambda:adb.epoch_milliseconds(device),CollaborationControl(config),enter)
 
     def script_store(self, selector):
         return PrivateFeatureState(self.state_path(selector).with_name('phone-script-session.json'))
@@ -2811,6 +2840,10 @@ class PhoneAppiumAdapter(AppiumAdapter):
 
     def invoke(self, selector, operation, values):
         PhoneAdapter.require_bound_operation(self, operation, values)
+        if operation in COLLABORATION_OPERATIONS:
+            validate_operation_arguments(operation,values)
+            require(os.environ.get('OVERTE_ANDROID_E2E_COLLABORATION','0')=='1','PHONE_COLLABORATION_NOT_ENABLED')
+            return self._collaboration(selector).invoke(operation,values)
         if operation in LIFECYCLE_INPUT_FEATURE_OPERATIONS:
             from feature_journeys.contract import arguments
             arguments(operation,values);require(operation in self.advertised_capabilities(self.target(selector)),'PHONE_LIFECYCLE_INPUT_FEATURE_NOT_ENABLED')
