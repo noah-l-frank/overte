@@ -386,7 +386,8 @@ class SnapshotTarget(CreateTarget):
     def work_source(self,request):
         b=ScopedWorkBoundary();b.member=deepcopy(self.vm.manager);b.code=deepcopy(self.vm.code)
         b.compiled=dict(compiledSourcesVersion=1,complete=True,compilations=[deepcopy(self.vm.compilation)])
-        b.activity=[activity(5,signal_calls=len(self.script_events),registrations=2*len(self.job_sources))]
+        b.activity=([activity(self.vm.compilation['scriptId'],signal_calls=len(self.script_events),registrations=2*len(self.job_sources))]
+            if self.script_events or self.job_sources else [])
         epoch=self.now();b.epoch=epoch;b.sequence=self.count('work')-1;b.work_sequence=b.sequence
         b.send(request);value=deepcopy(b.value)
         self.work_packets[request['commandId']]=deepcopy(value);return value
@@ -433,6 +434,7 @@ class SnapshotTarget(CreateTarget):
                 return None
             if kind=='logout':
                 self.account.update(loggedIn=False,principalSha256=hashlib.sha256(b'').hexdigest());self.account['observation'].update(tokenPresent=False,tokenValid=False,refreshPresent=False);self.token=None
+                append(self.account,event(len(self.account['observation']['events'])+1,'logout-complete',self.now(),self.account['observation']['credentialGeneration']+1))
                 return None
             if kind=='os-sdk':return self.os_sdk(*value)
             if kind=='consumer-control':return self.consumer_control(value)
@@ -471,6 +473,7 @@ class SnapshotProxy(CreateProxy):
             open_tablet=lambda:self.call('tablet-input','tablet.open'),close_tablet=lambda:self.call('tablet-input','tablet.close'),
             release=lambda:self.call('tablet-input','input.release'))
         return PhoneSnapshotControls(io,tablet,intent)
+    def _snapshot_capture_file_source(self,_s,*,read_only=True):return self.reader('snapshot-files',PhoneSnapshotCaptureFileSource,read_only=read_only)
     def _snapshot_capture_files(self,_s,artifact,owner,*,read_only=False):
         Path(artifact).mkdir(mode=0o700,exist_ok=True)
         source=self.reader('snapshot-files',PhoneSnapshotCaptureFileSource,read_only=read_only)
@@ -510,7 +513,7 @@ class SnapshotProxy(CreateProxy):
             lambda *args:bytes.fromhex(self.call('consumer-binary',args)),lambda *args:self.call('consumer-control',args),
             lambda:self.call('consumer-installed',None),self.clock_ms,lambda:True,run,arm,read_only=read_only,binding=binding)
     def _snapshot_system_consumer(self,_s,run,arm,sha,*_args,**kwargs):return self._snapshot_consumer(_s,run,arm,sha,read_only=kwargs.get('read_only',True),binding=kwargs.get('binding'))
-    def _snapshot_handoff_control(self,_):return self.reader('handoff-control',PhoneSnapshotHandoffControl)
+    def _snapshot_handoff_control(self,_,*,read_only=False):return self.reader('handoff-control',PhoneSnapshotHandoffControl)
     def _snapshot_handoff_source(self,_s,binding,resolution,authority,owner):
         scope=self._snapshot_system_context(_s,binding,resolution,authority)
         return PhoneSnapshotHandoff(lambda:json.dumps(self.call('handoff-read',None)),self.clock_ms,scope.guard,owner)

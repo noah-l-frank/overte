@@ -119,7 +119,7 @@ class SnapshotJourneyTests(unittest.TestCase):
         env=patch.dict(os.environ,dict(OVERTE_PHONE_FEATURE_SNAPSHOTS='1',OVERTE_PHONE_NORMAL_SNAPSHOT='1',OVERTE_PHONE_ACCOUNT_FIXTURE='1',
             OVERTE_PHONE_SNAPSHOTS_CONFIGURATION=str(self.config_path),OVERTE_E2E_FEATURE_FIXTURE_URL=self.base,OVERTE_PHONE_FEATURE_FIXTURE_CONFIG=str(self.access_path)))
         env.start();self.addCleanup(env.stop)
-        for name in ('_snapshot_source','_snapshot_measurements','_snapshot_normal_controls','_snapshot_capture_files','_snapshot_settings','_snapshot_platform',
+        for name in ('_snapshot_source','_snapshot_measurements','_snapshot_normal_controls','_snapshot_capture_file_source','_snapshot_capture_files','_snapshot_settings','_snapshot_platform',
                      '_snapshot_share_resolution','_snapshot_share_ui','_snapshot_saved_files','_snapshot_consumer','_snapshot_system_consumer','_snapshot_system_context','_snapshot_handoff_control','_snapshot_handoff_source','_snapshot_system_files','_snapshot_system_platform','_graphics_surface','_create_fixture_input','_create_fixture_observer','_world_render_capture','_web_runtime_observer','_snapshot_cancel','_script_work','_login_controls','_account_menu','_snapshot_readbacks','_snapshot_upload_source','_native_feature_observer','_create_source','_avatar_render_observer',
                      '_graphics_subject_observer','_touch_state_observer'):
             p=patch.object(self.adapter,name,getattr(self.proxy,name));p.start();self.addCleanup(p.stop)
@@ -208,6 +208,13 @@ class SnapshotJourneyTests(unittest.TestCase):
         result=self.invoke('feature.snapshots.observe',dict(contractVersion=VERSION,runId=RUN,afterSequence=1))
         self.assertEqual(1,result['state']['saved']);self.assertEqual(1,len(self.model.os_files))
         self.assertTrue(all(path.read_bytes()==self.model.raw_png for path in self.model.os_files.values()))
+
+    def test_inactive_work_source_has_no_invented_zero_activity_row(self):
+        from adapters.native_script_work import scope
+        reader=self.proxy._script_work(None)
+        packet=reader.read(self.model.vm.manager['instance'])
+        self.assertEqual([],packet['source']['work']['activity'])
+        self.assertEqual(0,scope(packet,self.model.vm.compilation)['signalInvocations'])
 
     def test_saved_original_remains_independently_readable_inside_share_scope(self):
         self.client.activate('c'*32);self.invoke('feature.snapshots.observe',dict(contractVersion=VERSION,runId=RUN,afterSequence=0))
