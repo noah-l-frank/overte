@@ -5,6 +5,7 @@ is provided here. The whole navigation coordinator must own admission/cleanup.
 """
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
+from types import SimpleNamespace
 from adapters.native_feature_observation import need
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.normal_ui import NativeUI
@@ -15,12 +16,23 @@ from ios.adapters.navigation_fixture import NavigationFixtureReader
 from ios.adapters.navigation_observation_owner import NavigationObservationOwner
 from ios.adapters.navigation_admission_owner import NavigationAdmissionOwner
 from ios.adapters.navigation_scene_inputs import NavigationSceneInputs
+from ios.adapters.navigation_places_inputs import IOSPlacesFlow
+from ios.adapters.places_controls import IOSPlacesIO
 from ios.adapters.navigation_sample import NavigationSampleOwner
 from ios.adapters.navigation_samples import NavigationSamples
 from ios.adapters.script_runtime import IOSScriptRuntime
 
 
 class IOSNavigationRuntime(IOSScriptRuntime):
+    def _navigation_places_flow(self,selector,admission,intent,*,previous=None):
+        need(isinstance(admission,NavigationAdmissionOwner));admission.bound()
+        source=self._sources(selector);need(same(source['binding'],admission.binding)
+            and admission.store.path.parent==self.state_path(selector).parent)
+        proof=admission.archive();native=source['native']
+        io=IOSPlacesIO(SimpleNamespace(native=native,capture=native.capture))
+        return IOSPlacesFlow(io,source['observer'].places_model(source['clock_source']),source['binding'],admission.run,
+            proof['providerInputs'],proof['originals']['ui']['instance'],admission.lock,source['check'],intent,previous=previous)
+
     def _navigation_scene_inputs(self,selector,admission):
         need(isinstance(admission,NavigationAdmissionOwner));admission.bound()
         source=self._sources(selector);need(same(source['binding'],admission.binding)

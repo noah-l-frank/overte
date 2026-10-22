@@ -50,6 +50,11 @@ A [one-send ordinary scene input owner](NAVIGATION_SCENE_INPUTS.md) now journals
 entry and static return over existing Go To input, checking the actual unchanged
 owned scene before return. Its delivery acknowledgments do not prove arrival or
 restoration; complete Places/restart/publication/quiet cleanup remain partial.
+The [normal Places recipes](NAVIGATION_PLACES_INPUTS.md) now cover native
+bookmark add/rename cancellation, visit/delete, search and directory selection
+using original tokens/model joins and a mandatory per-input intent callback.
+Their full durable operation owner, open/close, error/restart and independent
+whole-run publication/cleanup remain to be connected.
 
 The canonical physical source binding and explicit lost-launch recovery have
 host-tested implementations. The native byte observer and SDK plugin remain

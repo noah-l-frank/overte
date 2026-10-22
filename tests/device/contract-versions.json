@@ -140,6 +140,7 @@
     "ios-scene-commit-origin": {"current": 1, "reads": [1]},
     "ios-navigation-admission-owner": {"current": 1, "reads": [1]},
     "ios-navigation-scene-inputs": {"current": 1, "reads": [1]},
+    "ios-places-input": {"current": 1, "reads": [1]},
     "ios-navigation-scene-admission": {"current": 1, "reads": [1]},
     "ios-scene-inventory-acquisition": {"current": 1, "reads": [1]},
     "ios-navigation-sample-owner": {"current": 1, "reads": [1]},
