@@ -1780,6 +1780,10 @@ def create_adapter(args, base_class):
             state,_ui=self._script_paths(target)
             return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-','chat-cleanup-admission-')))
 
+        def _chat_cache_release_store(self,target):
+            state,_ui=self._script_paths(target)
+            return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-','chat-cache-release-')))
+
         def _chat_peer_state_retained(self,target):
             from adapters.pico4.chat_composition import peer_retained
             return peer_retained(self,target)
@@ -2363,6 +2367,7 @@ def create_adapter(args, base_class):
                     if self._chat_chunk_store_retained(self._chat_dispatcher_store(target)):chat_error=True
                     if self._chat_composition_store(target).read() is not None or self._chat_peer_state_retained(target):chat_error=True
                     if self._chat_cleanup_admission_store(target).read() is not None:chat_error=True
+                    if self._chat_chunk_store_retained(self._chat_cache_release_store(target)):chat_error=True
                     if any(self._chat_chunk_store_retained(self._chat_script_source_store(target,role,witness=witness))
                            for role,witness in (('primary',False),('actor',False),('actor',True))):chat_error=True
                     if self._chat_background_store(target).read() is not None:chat_error=True
@@ -2439,6 +2444,7 @@ def create_adapter(args, base_class):
                       and not self._chat_chunk_store_retained(self._chat_dispatcher_store(target))
                       and self._chat_composition_store(target).read() is None and not self._chat_peer_state_retained(target)
                       and self._chat_cleanup_admission_store(target).read() is None
+                      and not self._chat_chunk_store_retained(self._chat_cache_release_store(target))
                       and not any(self._chat_chunk_store_retained(self._chat_script_source_store(target,role,witness=witness))
                                   for role,witness in (('primary',False),('actor',False),('actor',True)))
                       and self._chat_background_store(target).read() is None

@@ -1,11 +1,11 @@
-# Private Pico Chat composition v3
+# Private Pico Chat composition v4
 
 `PicoBoundAdapter._chat_composition(target, phase_source, peer_config, domain_ready)`
 constructs `PicoChatComposition` from the existing original candidate/process
 binding, an adapter-only `PhaseFixtureReader`, the original private actor config
 and the original private domain-ready file. It neither discovers nor starts a
 fixture. No public `feature.chat.*` capability or operation is added. Whole Chat
-remains partial until cache/observation IPC, original Android process/QML
+remains partial until original Android process/QML
 retirement and dedicated final evidence/journal closure are joined and verified.
 
 Before acquiring the peer, the parent journals admission. The real
@@ -56,7 +56,9 @@ and Erase readers share each role's exact original code-source owner and lock;
 the independent witness owns separate readers and its own source journal.
 Every actual model read obtains fresh configured-root/Script/V8/root originals
 before the four existing native sources, with one unchanged 1.5-second bound.
-Legacy v1/v2 parent manifests remain retained and cannot qualify the v3 witness.
+Legacy v1/v2 parent manifests remain retained and cannot qualify compiled-source
+v3/v4 witness admission. V3 remains readable for its unchanged compiled input
+scope, but cannot acquire v4 cache-release phases.
 Active roles cannot read before original cache activation. Cache creation stays
 lazy until the first Open. All six child kinds use the existing actual Pico
 factories: ordinary Chat UI/keyboard, original peer Send/distance, passive native
@@ -95,6 +97,17 @@ native writer checks the same cleanup fence after its final native guard.
 Original run, binding and exact lock must match the profile owner. A changed or
 retired cleanup ticket fails closed. This method does not yet claim native cache,
 observation IPC, process, QML-context or full-feature resource release.
+
+`close_caches_and_ipc(after_epoch)` then joins the two original cache lifetimes
+and two new compiled final-absence roles through
+[the original cache/IPC release owner](../chat_journey/CACHE_RELEASE.md).
+Its retained chunks and rootless cleanup guard preserve every original source.
+The new peer transport has its own strict original host descriptor and cleanup
+fence; the old action writer is unchanged. Only actual original native3
+retirement IDs, a full independent three-second source quiet interval and actual
+kernel observation-FD absence permit `caches-ipc-released`. The final parent
+CAS/copy is followed by original guards/clocks and another kernel FD check.
+No journal is retired and no Qt/process or complete feature release is inferred.
 
 `_chat_witness_composition(target, independent_phase_source, peer_config)`
 constructs a separate `PicoChatWitness` with its own publisher Client/credential,

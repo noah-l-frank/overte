@@ -139,7 +139,7 @@ class PicoChatCompositionTests(unittest.TestCase):
             self.assertIs(owner.roles[index].script_source,owner.code_sources[index])
             self.assertIs(owner.initial[index].script_source,owner.code_sources[index])
             self.assertIs(owner.code_sources[index].lock,owner.lock)
-        self.assertEqual(3,owner.previous['picoChatCompositionVersion'])
+        self.assertEqual(4,owner.previous['picoChatCompositionVersion'])
         self.assertEqual([],self.native.inputs)
         with self.assertRaises(NativeUIError):owner.prepare()
         self.assertEqual(['acquire'],[request['operation'] for request in profile.requests])
@@ -212,6 +212,19 @@ class PicoChatCompositionTests(unittest.TestCase):
         original={'original':'unresolved-final-cleanup-phase'};store.write(original,None)
         with self.assertRaises(ValueError):self.pico.cleanup_instance().cleanup(self.native.target)
         self.assertEqual(original,store.read());self.assertFalse(self.native.running)
+
+    def test_cache_release_orphan_without_parent_root_still_refuses_generic_cleanup(self):
+        store=self.instance._chat_cache_release_store(self.native.target)
+        orphan=PrivateFeatureState(store.path.with_name(store.path.name+'.frame-000.json'))
+        original={'original':'unresolved-cache-release-frame'};orphan.write(original,None)
+        with self.assertRaises(ValueError):self.pico.cleanup_instance().cleanup(self.native.target)
+        self.assertEqual(original,orphan.read());self.assertFalse(self.native.running);self.assertIsNone(store.read())
+
+    def test_parent_cannot_retire_cache_or_construct_final_sources_before_original_erase_restore(self):
+        owner=self.compose();before=owner.store.read()
+        with self.assertRaises(NativeUIError):owner.close_caches_and_ipc(20000)
+        self.assertEqual(before,owner.store.read());self.assertIsNone(owner.cache_release)
+        self.assertIsNone(owner.peer.retirement_files);self.assertEqual([],self.native.inputs)
 
     def test_lost_parent_profile_receipt_keeps_original_native_acquire_without_replay(self):
         owner=self.compose();profile,chat=self.prepare_sources(owner);original=owner.store.write
