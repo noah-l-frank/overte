@@ -1,6 +1,8 @@
 {
   "schemaVersion": 1,
   "contracts": {
+    "feature-avatar-accounts": {"current": 1, "reads": [1]},
+    "ios-avatar-sources": {"current": 1, "reads": [1]},
     "phase-witness-publisher": {"current": 1, "reads": [1]},
     "phase-witness-publication-record": {"current": 1, "reads": [1]},
     "ios-navigation-composite-actions": {"current": 1, "reads": [1]},

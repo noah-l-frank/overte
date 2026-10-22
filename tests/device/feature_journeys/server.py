@@ -29,6 +29,8 @@ from feature_journeys.script_fixture import ScriptResources
 from feature_journeys.graphics_resources import GraphicsResources, RESOURCE as GRAPHICS_SCENE,viewpoint_query
 from feature_journeys.emote_resources import EmoteResources,RESOURCE as EMOTE_SCENE
 from feature_journeys.avatar_social_provider import AvatarSocialProvider
+from feature_journeys.avatar_accounts import AvatarAccountScopes
+from feature_journeys.avatar_account_http import handle as avatar_account_request
 from feature_journeys.avatar_social_http import AccountAuthenticator, handle as avatar_social_request
 
 PREFIX = '/feature-fixture/v1'
@@ -299,6 +301,13 @@ class Handler(BaseHTTPRequestHandler):
                 if body['area']=='scripts' and self.server.script_resources is None:
                     return self.send(503,{'error':'script-provider-unavailable'})
                 run=self.server.journal.register(body['area'])
+                if body['area']=='avatar-people' and self.server.avatar_accounts is not None:
+                    try:self.server.avatar_accounts.provision(run)
+                    except Exception:
+                        # Unexposed allocations roll back inside their owner.
+                        # A genuinely unresolved authority keeps its run alive.
+                        if run not in self.server.avatar_accounts.runs:self.server.journal.close(run)
+                        raise
                 if body['area']=='emotes' and self.server.emote_resources is not None:
                     try:self.server.emote_resources.provision(run)
                     except Exception:
@@ -329,6 +338,7 @@ class Handler(BaseHTTPRequestHandler):
             if len(parts) < 2 or parts[0] != 'runs':
                 return self.send(404, {'error': 'not-found'})
             run = identifier(parts[1])
+            if avatar_account_request(self,parts,body,reader=reader,actor=actor,adapter_reader=adapter_reader):return
             if parts[2:]==['phase']:
                 if self.command!='GET':return self.send(403,{'error':'forbidden'})
                 requests=self.headers.get_all('X-Overte-Phase-Read',[])
@@ -401,7 +411,11 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send(403,{'error':'forbidden'})
             if self.command == 'POST' and parts[2:] == ['active'] and reader:
                 exact(body, {'ticket', 'verb', 'inputs'}, 'fixture challenge')
-                if self.server.journal.runs[run]['area']=='emotes' and self.server.emote_resources is not None:
+                if self.server.journal.runs[run]['area']=='avatar-people' and self.server.avatar_accounts is not None:
+                    with self.server.journal.lock:
+                        self.server.journal.activate(run,body['ticket'],body['verb'],body['inputs'])
+                        self.server.avatar_accounts.activate(run,body['ticket'])
+                elif self.server.journal.runs[run]['area']=='emotes' and self.server.emote_resources is not None:
                     with self.server.journal.lock:
                         self.server.journal.activate(run,body['ticket'],body['verb'],body['inputs'])
                         self.server.emote_resources.activate(run,body['ticket'])
@@ -438,6 +452,11 @@ class Handler(BaseHTTPRequestHandler):
                 if adapter_reader:original['entries']=[] # Only the original phase/read clock, never independent peer facts.
                 return self.send(200,original)
             if self.command == 'DELETE' and len(parts) == 2 and reader:
+                if self.server.avatar_accounts is not None and run in self.server.avatar_accounts.runs:
+                    with self.server.journal.lock:
+                        self.server.avatar_accounts.retire(run)
+                        self.server.journal.close(run)
+                    return self.send(200,{})
                 if self.server.emote_resources is not None and self.server.emote_resources.has_run(run):
                     with self.server.journal.lock:
                         self.server.emote_resources.retire(run)
@@ -527,6 +546,7 @@ def make_server(reader_token, actor_token, address=('127.0.0.1', 0),*,account_pr
     server.graphics_resources=graphics_resources
     server.emote_resources=emote_resources
     server.avatar_social_provider=avatar_social_provider
+    server.avatar_accounts=AvatarAccountScopes(account_provider,avatar_social_provider) if avatar_social_provider is not None else None
     server.script_resources=ScriptResources() if browser_peer_of is None else browser_peer_of.script_resources
     server.internal_errors=0
     server.reader_token, server.actor_token = reader_token, actor_token
