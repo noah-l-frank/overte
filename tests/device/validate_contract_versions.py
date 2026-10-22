@@ -137,6 +137,8 @@ REQUIRED = {
     "recorded-preview-signal": 1,
     "recorded-preview-evidence": 1,
     "recorded-preview-history": 1,
+    "pico-lifecycle-ui-observation": 1,
+    "lifecycle-ui-source-state": 1,
     "native-navigation-replies": 2,
     "native-navigation-modals": 1,
     "native-navigation-error-controls": 1,
