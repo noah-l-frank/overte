@@ -618,6 +618,12 @@ class PicoNormalScriptsTests(unittest.TestCase):
         with self.assertRaises(ValueError):self.cleanup_instance().cleanup(self.native.target)
         self.assertFalse(self.native.running);self.assertEqual(original,store.read())
 
+    def test_pico_chat_process_teardown_preserves_completed_no_replay_owner_until_full_release(self):
+        store=self.instance._chat_no_replay_store(self.native.target)
+        original={'phase':'complete','unreleased':'original-no-replay-owner'};store.write(original,None)
+        with self.assertRaises(ValueError):self.cleanup_instance().cleanup(self.native.target)
+        self.assertFalse(self.native.running);self.assertEqual(original,store.read())
+
     def account_probe(self):
         source=AccountProbeBoundary()
         def captured(value):

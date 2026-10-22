@@ -124,3 +124,17 @@ Same-count A-to-B-to-A replacements cannot borrow an older authority snapshot.
 Earlier passive v2 packets without the additive digest remain readable but
 cannot authorize Erase. This pure join does not establish file durability,
 Script reconstruction or final resource release.
+
+`ChatNoReplay`, composed by the private Pico `_chat_no_replay` factory, now
+acquires both distinct original source roles repeatedly without issuing product
+or peer input. Each role must have witnessed actual native mixer absence and a
+fresh replacement beforehand. All ten measured fields, original model/storage,
+cache identities and native receive counters remain unchanged throughout three
+seconds measured by both the real host clock and all eight original native
+source clocks. New query IDs and advancing captures are mandatory; each pair
+and observation gap is bounded to 1.5 seconds. A cached empty ledger or a long
+unobserved sleep cannot pass. The journal records uncertainty before every
+transaction and remains after success or failure; teardown cannot discard it.
+Seven focused host cases cover this timing and source logic on synthetic native
+boundaries. This window does not establish final callback/resource quiet release
+or independently prove that the intended original service was restarted.
