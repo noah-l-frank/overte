@@ -221,7 +221,7 @@ REQUIRED = {
     "ios-avatar-facts-original": 1,
     "ios-avatar-observer": 1,
     "ios-avatar-observation-record": 1,
-    "ios-avatar-surface": 1,
+    "ios-avatar-surface": 2,
     "ios-avatar-ui-inventory": 1,
     "ios-avatar-samples": 1,
     "ios-avatar-sample": 1,

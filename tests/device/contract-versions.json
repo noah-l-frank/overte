@@ -215,7 +215,7 @@
     "ios-avatar-facts-original": {"current": 1, "reads": [1]},
     "ios-avatar-observer": {"current": 1, "reads": [1]},
     "ios-avatar-observation-record": {"current": 1, "reads": [1]},
-    "ios-avatar-surface": {"current": 1, "reads": [1]},
+    "ios-avatar-surface": {"current": 2, "reads": [1, 2]},
     "ios-avatar-ui-inventory": {"current": 1, "reads": [1]},
     "ios-avatar-samples": {"current": 1, "reads": [1]},
     "ios-avatar-sample": {"current": 1, "reads": [1]},
