@@ -1497,6 +1497,42 @@
             }
             return;
         }
+        if (command && (command.action === "feature-ios-snapshot-owned-files" || command.action === "feature-ios-snapshot-file-remove")) {
+            var removeSnapshotFile=command.action === "feature-ios-snapshot-file-remove";
+            var snapshotOwnedFields=["schemaVersion","commandId","action","runId"];
+            if (removeSnapshotFile) { snapshotOwnedFields.push("fileId","manifestCommandId"); }
+            if (command.schemaVersion === 1 && typeof command.commandId === "string"
+                    && /^ios-[0-9a-f]{32}$/.test(command.commandId) && command.commandId.length === 36
+                    && typeof command.runId === "string" && /^[0-9a-f]{32}$/.test(command.runId) && command.runId.length === 32
+                    && (!removeSnapshotFile || typeof command.fileId === "string" && /^[0-9a-f]{32}$/.test(command.fileId)
+                        && command.fileId.length === 32 && typeof command.manifestCommandId === "string"
+                        && /^ios-[0-9a-f]{32}$/.test(command.manifestCommandId) && command.manifestCommandId.length === 36)
+                    && objectKeysMatch(command,snapshotOwnedFields)) {
+                if (iosNewSourceRequests[command.commandId] || iosNewSourceRequestCount >= 4096) { return; }
+                // Consume before entering native code, including busy, thrown
+                // or missing hooks. An uncertain removal is never resent.
+                iosNewSourceRequests[command.commandId]=true;iosNewSourceRequestCount+=1;
+                if (removeSnapshotFile) {
+                    var snapshotRemoveReceipt={iosSnapshotFileRemoveReceiptVersion:1,requestId:command.commandId,accepted:false};
+                    try {
+                        if (typeof Test.iosSnapshotRemoveFileRequest === "function") {
+                            snapshotRemoveReceipt.accepted=Test.iosSnapshotRemoveFileRequest(command) === true;
+                        }
+                    } catch (_snapshotRemoveError) { /* Original job/source must resolve an uncertain queue outcome. */ }
+                    Test.saveObject(snapshotRemoveReceipt,"feature-ios-snapshot-file-remove.json");
+                } else {
+                    var snapshotOwned={iosSnapshotOwnedFilesVersion:1,requestId:command.commandId,status:"unavailable"};
+                    try {
+                        if (typeof Test.featureIOSSnapshotOwnedFiles === "function") {
+                            var originalSnapshotOwned=Test.featureIOSSnapshotOwnedFiles(command);
+                            if (originalSnapshotOwned && originalSnapshotOwned.requestId === command.commandId) { snapshotOwned=originalSnapshotOwned; }
+                        }
+                    } catch (_snapshotOwnedError) { /* An unavailable original source cannot establish file ownership. */ }
+                    Test.saveObject(snapshotOwned,"feature-ios-snapshot-owned-files.json");
+                }
+            }
+            return;
+        }
         if (command && command.action === "feature-ios-snapshot-file-work") {
             if (command.schemaVersion === 1 && typeof command.commandId === "string"
                     && /^ios-[0-9a-f]{32}$/.test(command.commandId) && command.commandId.length === 36

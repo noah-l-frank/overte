@@ -721,6 +721,12 @@ class FixtureState:
             try:validate_ios_source(command)
             except (ValueError,RuntimeError):raise ValueError("invalid iOS create_work request") from None
             valid=True
+        elif action in {"feature-ios-snapshot-owned-files", "feature-ios-snapshot-file-remove"}:
+            sys.path.insert(0,str(ROOT.parent))
+            from ios.adapters.snapshot_owned_files import command as observe_command,remove_command
+            try:(remove_command if action=="feature-ios-snapshot-file-remove" else observe_command)(command)
+            except (ValueError,RuntimeError):raise ValueError("invalid iOS snapshot owned-file request") from None
+            valid=True
         elif action in {"feature-ios-snapshot-work", "feature-ios-snapshot-file-work", "feature-ios-snapshot-exports", "feature-ios-snapshot-captures", "feature-ios-snapshot-inputs"}:
             sys.path.insert(0,str(ROOT.parent))
             if action == "feature-ios-snapshot-work":

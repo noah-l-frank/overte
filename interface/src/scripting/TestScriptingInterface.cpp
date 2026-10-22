@@ -82,6 +82,9 @@
 #include "../../../ios/snapshot/IOSSnapshotObservation.h"
 #include "../../../tests/device/native/IOSSnapshotWorkObservation.h"
 #include "../../../tests/device/native/IOSSnapshotFileWorkObservation.h"
+#if defined(OVERTE_IOS_E2E_TEST_BUILD)
+#include "../../../tests/device/native/IOSSnapshotOwnedFilesObservation.h"
+#endif
 #include "../../../tests/device/native/IOSSnapshotCaptureObservation.h"
 #include "../ui/Snapshot.h"
 #include "../../../tests/device/native/IOSLocationBookmarksObservation.h"
@@ -293,6 +296,11 @@ bool TestScriptingInterface::iosNormalUiRequest(const QVariantMap& command) {
     }, Qt::QueuedConnection);
 }
 
+static QSemaphore& snapshotFileTasks() {
+    static QSemaphore tasks(1);
+    return tasks;
+}
+
 bool TestScriptingInterface::iosSnapshotFilesRequest(const QVariantMap& command) {
     const QString directory = _testResultsLocation;
     const auto storage = overte::snapshot::storageRoot();
@@ -302,7 +310,7 @@ bool TestScriptingInterface::iosSnapshotFilesRequest(const QVariantMap& command)
     // One bounded read job at a time. Hashing original captures must not block
     // the GUI/render thread. Legacy v1 retries unaccepted requests; the bounded
     // v2 owner retains an uncertain nonce and never asks the probe to resample.
-    static QSemaphore fileReads(1);
+    auto& fileReads=snapshotFileTasks();
     if (!fileReads.tryAcquire()) { return false; }
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     const auto nativeFileResponsibility=overte::e2e::IOSSnapshotFileWorkObservation::instance().queued(command);
@@ -312,12 +320,15 @@ bool TestScriptingInterface::iosSnapshotFilesRequest(const QVariantMap& command)
             , nativeFileResponsibility
 #endif
             ] {
-        const QSemaphoreReleaser release(&fileReads);
+        const QSemaphoreReleaser release(&snapshotFileTasks());
 #if defined(OVERTE_E2E_FEATURE_TESTS)
         const overte::e2e::IOSSnapshotFileWorkObservation::Body originalNativeFileJob(nativeFileResponsibility);
 #endif
         const auto result = overte::ios::readSnapshotFiles(request, storage);
         if (result.isEmpty()) { return; }
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        overte::e2e::IOSSnapshotOwnedFilesObservation::instance().observed(request,result,storage);
+#endif
         QSaveFile output(QDir(directory).absoluteFilePath("ios-snapshot-file-result.json"));
         output.setDirectWriteFallback(false);
         const auto bytes = QJsonDocument(result).toJson(QJsonDocument::Compact);
@@ -333,6 +344,23 @@ bool TestScriptingInterface::iosSnapshotFilesRequest(const QVariantMap& command)
     });
     return true;
 }
+
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+bool TestScriptingInterface::iosSnapshotRemoveFileRequest(const QVariantMap& command) {
+    if (_testResultsLocation.isEmpty() || !overte::e2e::IOSSnapshotOwnedFilesObservation::command(command,true)
+            || !snapshotFileTasks().tryAcquire()) {return false;}
+    const auto responsibility=overte::e2e::IOSSnapshotOwnedFilesObservation::instance().queued(command);
+    if (!responsibility) {snapshotFileTasks().release();return false;}
+    // This acknowledges queuing only. The original native job, its weak expiry
+    // and a fresh independent list establish the outcome after a lost return.
+    QThreadPool::globalInstance()->start([responsibility] {
+        const QSemaphoreReleaser release(&snapshotFileTasks());
+        const overte::e2e::IOSSnapshotOwnedFilesObservation::Body body(responsibility);
+        overte::e2e::IOSSnapshotOwnedFilesObservation::instance().perform(responsibility);
+    });
+    return true;
+}
+#endif
 
 bool TestScriptingInterface::iosTextTest(const QVariantMap& command) {
     const QString id = command.value("commandId").toString();
@@ -1086,6 +1114,21 @@ QVariantMap TestScriptingInterface::featureIOSSnapshotFileWork(const QVariantMap
             || !QRegularExpression("\\A[0-9a-f]{32}\\z").match(run).hasMatch()) {return {};}
     return overte::e2e::IOSSnapshotFileWorkObservation::instance().read(request,run);
 }
+
+#if defined(OVERTE_IOS_E2E_TEST_BUILD)
+QVariantMap TestScriptingInterface::featureIOSSnapshotOwnedFiles(const QVariantMap& command) {
+    if (QThread::currentThread()!=thread()) {
+        if (!thread() || !thread()->isRunning()) {return {};}
+        QVariantMap result;
+        if (!QMetaObject::invokeMethod(this,[&] {result=featureIOSSnapshotOwnedFiles(command);},Qt::BlockingQueuedConnection)) {return {};}
+        return result;
+    }
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !overte::e2e::IOSSnapshotOwnedFilesObservation::command(command)) {return {};}
+    return overte::e2e::IOSSnapshotOwnedFilesObservation::instance().read(
+        command.value("commandId").toString(),command.value("runId").toString());
+}
+#endif
 
 QVariantMap TestScriptingInterface::featureIOSSnapshotCaptures(const QVariantMap& command) {
     if (QThread::currentThread()!=thread()) {
@@ -2636,7 +2679,7 @@ void TestScriptingInterface::saveObject(QVariant variant, const QString& filenam
     // Preserve these passive sources' native compact-byte bounds through AFC.
     // Adding whitespace can exceed the existing reader limit with no new data.
     // Other source writers keep their original encoding.
-    if (filename=="feature-ios-snapshot-file-work.json" || filename=="feature-ios-snapshot-inputs.json" || filename=="feature-ios-snapshot-work.json" || filename=="feature-ios-snapshot-exports.json" || filename=="feature-ios-snapshot-captures.json"
+    if (filename=="feature-ios-snapshot-owned-files.json" || filename=="feature-ios-snapshot-file-remove.json" || filename=="feature-ios-snapshot-file-work.json" || filename=="feature-ios-snapshot-inputs.json" || filename=="feature-ios-snapshot-work.json" || filename=="feature-ios-snapshot-exports.json" || filename=="feature-ios-snapshot-captures.json"
             || filename=="feature-ios-tablet-web-dom.json" || filename=="feature-ios-tablet-web-deferred.json" || filename=="feature-ios-tablet-web-defer.json" || filename=="feature-ios-tablet-app-buttons.json" || filename=="feature-ios-uikit-input.json" || filename=="feature-ios-tablet-web-closures.json" || filename=="feature-ios-tablet-web-state.json" || filename=="feature-ios-tablet-web.json" || filename=="feature-ios-tablet-sources.json" || filename=="feature-ios-world-web.json" || filename=="feature-ios-world-web-dom.json"
             || filename=="feature-ios-world-web-work.json" || filename=="feature-ios-world-web-geometry.json" || filename=="feature-ios-world-web-surfaces.json"
             || filename=="feature-ios-world-web-keys.json" || filename=="feature-ios-world-web-snapshot.json") {
@@ -2651,7 +2694,7 @@ void TestScriptingInterface::saveObject(QVariant variant, const QString& filenam
 
     QString filepath = QDir::cleanPath(_testResultsLocation + filename);
 #if defined(OVERTE_E2E_FEATURE_TESTS)
-    if (filename == "feature-ios-snapshot-file-work.json" || filename == "feature-ios-snapshot-inputs.json" || filename == "feature-chat-observation.json" || filename == "feature-native-observation.json" || filename == "normal-feature-observation.json"
+    if (filename == "feature-ios-snapshot-owned-files.json" || filename == "feature-ios-snapshot-file-remove.json" || filename == "feature-ios-snapshot-file-work.json" || filename == "feature-ios-snapshot-inputs.json" || filename == "feature-chat-observation.json" || filename == "feature-native-observation.json" || filename == "normal-feature-observation.json"
             || filename == "feature-ios-world-web-snapshot.json" || filename == "feature-ios-world-web-keys.json" || filename == "feature-ios-world-web-work.json" || filename == "feature-ios-world-web-geometry.json" || filename == "feature-ios-world-web-surfaces.json"
             || filename == "feature-ios-tablet-web-dom.json" || filename == "feature-ios-tablet-web-deferred.json" || filename == "feature-ios-tablet-web-defer.json" || filename == "feature-ios-tablet-app-buttons.json" || filename == "feature-ios-uikit-input.json" || filename == "feature-ios-tablet-web-closures.json" || filename == "feature-ios-tablet-web-state.json" || filename == "feature-ios-tablet-web.json" || filename == "feature-ios-tablet-sources.json" || filename == "feature-ios-world-web.json" || filename == "feature-ios-world-web-dom.json"
             || filename == "feature-ios-web-closures.json" || filename == "feature-ios-location-bookmarks.json" || filename == "feature-ios-places-model.json" || filename == "feature-ios-places-http.json" || filename == "feature-ios-navigation-dialogs.json" || filename == "feature-ios-navigation-state.json" || filename == "feature-ios-scene-inventory.json" || filename == "feature-chat-view-observation.json" || filename == "feature-web-dom-observation.json"

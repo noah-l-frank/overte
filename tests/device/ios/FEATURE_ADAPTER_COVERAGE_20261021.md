@@ -118,6 +118,13 @@ session Stop and its independent process-absence proof must be joined without
 turning an ended renderer into a fresh live-world reading. No hidden root is
 reported as destroyed and no unresolved owner is discarded.
 
+Snapshots now also has [native owned-file responsibility](SNAPSHOT_OWNED_FILES.md).
+It joins the actual empty-prefix/list/status or write-path originals, rejects
+pre-existing/changed output, and observes one exact native unlink plus the actual
+worker functor's separate weak expiry. It is a source prerequisite: durable
+removal ownership, independent fresh absence and paired quiet remain required.
+Host models do not compile or qualify the native implementation.
+
 Snapshots also has [original pending-work observations](SNAPSHOT_WORK.md):
 actual private closure state, native submitted main/helper code and separate
 native timer/dispatch/QObject histories, with unchanged Avatar/Create defaults.

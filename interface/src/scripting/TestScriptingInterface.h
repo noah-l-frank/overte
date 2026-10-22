@@ -204,6 +204,9 @@ public slots:
     Q_INVOKABLE QVariantMap featureIOSSnapshotWork(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureIOSSnapshotCaptures(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureIOSSnapshotFileWork(const QVariantMap& command);
+#if defined(OVERTE_IOS_E2E_TEST_BUILD)
+    Q_INVOKABLE QVariantMap featureIOSSnapshotOwnedFiles(const QVariantMap& command);
+#endif
     Q_INVOKABLE void featureIOSWorldWebEvent(const QVariantMap& value);
     Q_INVOKABLE QVariantMap featureIOSWorldWebWork(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureIOSWorldWebKeys(const QVariantMap& command);
@@ -258,6 +261,9 @@ public slots:
     Q_INVOKABLE QVariantMap iosPrivateLoginInput(const QVariantMap& command);
 #endif
     Q_INVOKABLE bool iosSnapshotFilesRequest(const QVariantMap& command);
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    Q_INVOKABLE bool iosSnapshotRemoveFileRequest(const QVariantMap& command);
+#endif
     Q_INVOKABLE bool iosTextTest(const QVariantMap& command);
     Q_INVOKABLE bool iosEntityScriptConsentTest(const QVariantMap& command);
     Q_INVOKABLE bool iosCrashTest(const QVariantMap& command);

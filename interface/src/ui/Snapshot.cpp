@@ -138,6 +138,9 @@ void Snapshot::captureStatus(const SnapshotCapture& capture, const QString& phas
     if (terminal && !capture->finish()) { return; }
     if (terminal) { capture->announced.store(true); }
     snapshotObserved(capture,"status",(QVariantMap{{"phase",phase},{"hasPath",!path.isEmpty()},{"hasError",!error.isEmpty()}}));
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    if (error.isEmpty()) {overte::e2e::IOSSnapshotCaptureObservation::instance().filePublished(capture,phase,path);}
+#endif
     if (!capture->id.isEmpty()) {
         if (terminal) { QMutexLocker lock(&_captureMutex); if (_captures.value(capture->id) == capture) { _captures.remove(capture->id); } }
         emit captureStatusChanged(capture->id, phase, path, error);
@@ -605,6 +608,9 @@ QFile* Snapshot::savedFileForSnapshot(QImage& shot,
             snapshotFullPath.append(filename);
 
             if (nativeReviewEnabled() && QFileInfo(snapshotFullPath).isSymLink()) { return nullptr; }
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+            overte::e2e::IOSSnapshotCaptureObservation::instance().fileAttempted(snapshotFullPath);
+#endif
             QFile* imageFile = new QFile(snapshotFullPath);
             while (!imageFile->open(QIODevice::WriteOnly)) {
                 delete imageFile;
@@ -629,6 +635,9 @@ QFile* Snapshot::savedFileForSnapshot(QImage& shot,
                 }
                 snapshotFullPath.append(filename);
 
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+                overte::e2e::IOSSnapshotCaptureObservation::instance().fileAttempted(snapshotFullPath);
+#endif
                 imageFile = new QFile(snapshotFullPath);
             }
 

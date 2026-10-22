@@ -220,5 +220,60 @@ QJsonObject readSnapshotFiles(const QJsonObject& command, const QString& root) {
     result["sampleEpochMs"] = static_cast<double>(QDateTime::currentMSecsSinceEpoch());
     return result;
 }
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+QJsonObject removeObservedSnapshotFile(const QJsonObject& original,const QString& observedRoot) {
+    QJsonObject result{{"ok",false},{"unlinkIssued",false}};
+    try {
+        QStringList fields{"name","revision","sha256","size"};fields.sort();
+        const auto name=original.value("name").toString();
+        const auto prefix=name.left(name.indexOf("-snap_"));
+        const auto size=original.value("size").toDouble(-1);
+        if (!QCoreApplication::arguments().contains("--testScript") || original.keys()!=fields
+                || !matches(PREFIX,prefix) || !filename(prefix,name)
+                || !matches("[0-9a-f]{64}",original.value("revision")) || !matches("[0-9a-f]{64}",original.value("sha256"))
+                || !original.value("size").isDouble() || !std::isfinite(size) || size<0 || size>MAX_BYTES || std::floor(size)!=size) {
+            throw "snapshot-cleanup-invalid-original";
+        }
+        const auto path=overte::snapshot::storageRoot();
+        if (path!=observedRoot || path.isEmpty() || !QDir::isAbsolutePath(path) || QFileInfo(path).isSymLink()) {
+            throw "snapshot-cleanup-root-changed";
+        }
+        Descriptor directory(::open(QFile::encodeName(path).constData(),O_RDONLY|O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC));
+        if (directory.value<0) {throw "snapshot-cleanup-directory-unavailable";}
+        struct stat initial{};
+        if (::fstat(directory.value,&initial)!=0 || !S_ISDIR(initial.st_mode)) {throw "snapshot-cleanup-directory-invalid";}
+        const auto encoded=name.toUtf8();
+        Descriptor opened(::openat(directory.value,encoded.constData(),O_RDONLY|O_NONBLOCK|O_NOFOLLOW|O_CLOEXEC));
+        if (opened.value<0) {throw "snapshot-cleanup-original-unavailable";}
+        const auto before=metadata(directory.value,encoded,opened.value);
+        if (revision(before)!=original.value("revision").toString() || inspect(directory.value,name)!=original) {
+            throw "snapshot-cleanup-original-changed";
+        }
+        // Hashing/validation is a scheduling boundary. Re-admit the original
+        // descriptor, exact directory inode and current source-owned root
+        // immediately before this single unlinkat. No recursion or wildcard.
+        struct stat current{};
+        if (revision(metadata(directory.value,encoded,opened.value))!=revision(before)
+                || overte::snapshot::storageRoot()!=observedRoot || QFileInfo(path).isSymLink()
+                || ::stat(QFile::encodeName(path).constData(),&current)!=0 || !S_ISDIR(current.st_mode)
+                || current.st_dev!=initial.st_dev || current.st_ino!=initial.st_ino) {
+            throw "snapshot-cleanup-original-or-directory-changed";
+        }
+        result["unlinkIssued"]=true;
+        if (::unlinkat(directory.value,encoded.constData(),0)!=0) {throw "snapshot-cleanup-unlink-failed";}
+        struct stat remaining{};
+        if (::fstatat(directory.value,encoded.constData(),&remaining,AT_SYMLINK_NOFOLLOW)==0 || errno!=ENOENT) {
+            throw "snapshot-cleanup-absence-unresolved";
+        }
+        if (overte::snapshot::storageRoot()!=observedRoot || QFileInfo(path).isSymLink()
+                || ::stat(QFile::encodeName(path).constData(),&current)!=0 || current.st_dev!=initial.st_dev || current.st_ino!=initial.st_ino) {
+            throw "snapshot-cleanup-directory-changed-after-unlink";
+        }
+        result["ok"]=true;
+    } catch (const char* error) {result["error"]=QString::fromLatin1(error);}
+    result["sampleEpochMs"]=static_cast<double>(QDateTime::currentMSecsSinceEpoch());
+    return result;
+}
+#endif
 }
 #endif

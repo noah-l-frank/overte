@@ -153,6 +153,9 @@ bool SnapshotAnimated::processFrames(QVector<QImage> frames, QVector<qint64> del
     if (!request->current()) { return false; }
     bool success = !frames.isEmpty() && frames.size() == delays.size();
     GifWriter writer {};
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    if (success) {overte::e2e::IOSSnapshotCaptureObservation::instance().fileAttempted(path);}
+#endif
     if (success) { success = GifBegin(&writer, qPrintable(path), frames[0].width(), frames[0].height(), 1); }
     if (success) {
         for (int i = 0; i < frames.size(); ++i) {

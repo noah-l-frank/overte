@@ -46,6 +46,11 @@ public:
     private:
         Responsibility _actual;int _exceptions;
     };
+    bool allReadJobsRetired() {
+        QMutexLocker guard(&_mutex);if (!_complete) {return false;}
+        for (const auto& job:_jobs) {if (!job.actual.expired() || !job.finished) {return false;}}
+        return true;
+    }
     QVariantMap read(const QString& request,const QString& run) {
         const auto app=QCoreApplication::instance();
         if (!app || QThread::currentThread()!=app->thread() || _sequence>=1000000000

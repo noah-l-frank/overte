@@ -196,6 +196,9 @@ class FeatureObservation:
         elif command.get('action')=='feature-ios-avatar-social-http':avatar_social_http_command(command)
         elif command.get('action')=='feature-ios-people-model':people_model_command(command)
         elif command.get('action')=='feature-ios-create-work':create_work_command(command)
+        elif command.get('action') in ('feature-ios-snapshot-owned-files','feature-ios-snapshot-file-remove'):
+            from ios.adapters.snapshot_owned_files import command as observe_command,remove_command
+            (remove_command if command['action']=='feature-ios-snapshot-file-remove' else observe_command)(command)
         elif command.get('action') in ('feature-ios-snapshot-work','feature-ios-snapshot-file-work','feature-ios-snapshot-exports','feature-ios-snapshot-captures','feature-ios-snapshot-inputs'):
             if command['action']=='feature-ios-snapshot-work':
                 from ios.adapters.snapshot_work import command as snapshot_command
@@ -693,6 +696,14 @@ class FeatureObservation:
         if clock_source is None:clock_source=self.native_observer()
         def clock():return clock_source.read(clock_source.sequence)['capturedEpochMs']
         return IOSSnapshotFileWork(self.send,lambda:self.original(remote=remote,limit=LIMIT),
+            clock,self.guard,self.process['pid'],monotonic=self.monotonic,sleep=self.sleep)
+
+    def snapshot_owned_files(self,clock_source=None):
+        from ios.adapters.snapshot_owned_files import IOSSnapshotOwnedFiles,FILE,LIMIT
+        self.guard();remote=self.remote.rsplit('/',1)[0]+'/'+FILE
+        if clock_source is None:clock_source=self.native_observer()
+        def clock():return clock_source.read(clock_source.sequence)['capturedEpochMs']
+        return IOSSnapshotOwnedFiles(self.send,lambda:self.original(remote=remote,limit=LIMIT),
             clock,self.guard,self.process['pid'],monotonic=self.monotonic,sleep=self.sleep)
 
     def chat_view(self):

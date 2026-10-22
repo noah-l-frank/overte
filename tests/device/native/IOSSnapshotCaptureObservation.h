@@ -9,6 +9,8 @@
 #include <QMutexLocker>
 #include <QPointer>
 #include <QRegularExpression>
+#include <QDir>
+#include <QFileInfo>
 
 namespace overte::e2e {
 // Weak observers never extend a renderer, worker, timer or Qt callback owner.
@@ -40,6 +42,65 @@ public:
             QMutexLocker lock(&_mutex);_resources[id].original["destroyedEpochMs"]=QDateTime::currentMSecsSinceEpoch();
         });
     }
+    // This private association is taken only from the actual native status
+    // operand. A read/cleanup request cannot supply or create an output path.
+    // Existing version-1 capture packets keep their original fields unchanged.
+    void filePublished(const SnapshotCapture& capture,const QString& phase,const QString& path) {
+        if (!enabled() || !capture || path.isEmpty() || (phase!="processing" && phase!="complete" && phase!="save-attempt")) {return;}
+        const QFileInfo info(path);const auto name=info.fileName();
+        const auto pattern=QStringLiteral("\\Aparity-[0-9a-f]{16}-(?:still-png|still-jpg|animated|panorama|cubemap)-")
+            +QRegularExpression::escape(capture->id)+QStringLiteral("\\.(?:png|jpg|jpeg|gif|webp)\\z");
+        if (!info.isAbsolute() || !QRegularExpression(pattern).match(name).hasMatch()) {return;}
+        QMutexLocker guard(&_mutex);const auto id=_byPointer.value(capture.get());
+        if (!_complete || id.isEmpty() || _captures.value(id).weak.lock()!=capture) {_complete=false;return;}
+        auto& outputs=_captures[id].outputs;const auto actual=QDir::cleanPath(info.absoluteFilePath());
+        if (outputs.contains(actual)) {return;} // Keep the first actual publication time.
+        if (outputs.size()>=8) {_complete=false;return;}
+        const auto epoch=QDateTime::currentMSecsSinceEpoch();
+        if (epoch<=0 || epoch<_epoch) {_complete=false;return;}_epoch=epoch;
+        outputs.insert(actual,QVariantMap{{"pathObservedEpochMs",epoch},{"phase",phase},{"fileName",name}});
+    }
+    void fileAttempted(const QString& actualPath) {
+        if (!enabled() || !QFileInfo(actualPath).isAbsolute()) {return;}
+        const auto name=QFileInfo(actualPath).fileName();SnapshotCapture matched;
+        {
+            QMutexLocker guard(&_mutex);if (!_complete) {return;}
+            for (const auto& entry:_captures) {
+                const auto requestId=entry.original.value("requestId").toString();
+                if (requestId.isEmpty() || !name.contains("-"+requestId+".")) {continue;}
+                const auto actual=entry.weak.lock();if (!actual) {continue;}
+                if (matched) {_complete=false;return;}matched=actual;
+            }
+        }
+        // Association is taken from the actual native QFile/GifBegin operand,
+        // including a failed open/write. It makes no successful-save claim.
+        if (matched) {filePublished(matched,"save-attempt",actualPath);}
+    }
+    QVariantMap fileWitness(const QString& actualPath,qint64 bornAfter) {
+        if (!enabled() || bornAfter<=0 || !QFileInfo(actualPath).isAbsolute()) {return {};}
+        QMutexLocker guard(&_mutex);if (!_complete) {return {};}
+        const auto path=QDir::cleanPath(QFileInfo(actualPath).absoluteFilePath());QVariantMap result;
+        for (auto it=_captures.cbegin();it!=_captures.cend();++it) {
+            const auto& capture=it.value();const auto born=capture.original.value("bornEpochMs").toLongLong();
+            if (born<bornAfter || !capture.outputs.contains(path)) {continue;}
+            if (!result.isEmpty()) {return {};} // Ambiguous same-path capture ownership stays unresolved.
+            bool drained=capture.weak.expired();QString terminal;
+            for (const auto& original:_events) {
+                const auto row=original.toMap();if (row.value("capture")!=it.key()) {continue;}
+                const auto kind=row.value("kind").toString(),phase=row.value("detail").toMap().value("phase").toString();
+                if (kind=="status" && (phase=="complete" || phase=="error")) {terminal=phase;}
+                if (kind=="cancel-delivered") {terminal="cancelled";}
+            }
+            for (const auto& resource:_resources) {
+                if (resource.original.value("capture")==it.key()
+                        && (resource.weak || !resource.original.value("destroyedEpochMs").isValid())) {drained=false;}
+            }
+            result=capture.outputs.value(path).toMap();result["captureInstance"]=it.key();
+            result["requestId"]=capture.original.value("requestId");result["bornEpochMs"]=born;
+            result["terminal"]=terminal;result["nativeDrained"]=drained;
+        }
+        return result;
+    }
     QVariantMap read(const QString& nonce,const QString& run,const std::function<QVariantMap()>& activity) {
         return _bracket.read("iosSnapshotCapturesVersion","native-main-snapshot-captures",nonce,run,[&]() -> QVariantMap {
             const auto active=activity();if (active.isEmpty()) {return {};}
@@ -66,7 +127,7 @@ private:
         if (!_complete || _events.size()>=1024 || epoch<_epoch) {_complete=false;return;}_epoch=epoch;
         _events.append(QVariantMap{{"sequence",_events.size()+1},{"capture",id},{"kind",kind},{"capturedEpochMs",epoch},{"detail",detail}});
     }
-    struct Capture {std::weak_ptr<SnapshotCaptureRequest> weak;QVariantMap original;};
+    struct Capture {std::weak_ptr<SnapshotCaptureRequest> weak;QVariantMap original;QVariantMap outputs;};
     struct Resource {QPointer<QObject> weak;QVariantMap original;};
     NativeReadBracket _bracket;QMutex _mutex;bool _complete{true};qint64 _epoch{0};
     QMap<QString,Capture> _captures;QHash<const SnapshotCaptureRequest*,QString> _byPointer;
