@@ -25,6 +25,23 @@ VERSION=1
 ORDER=('hud.goto','address.field','replace','address.go')
 
 
+def transfer_original(value,binding,run,ui):
+    """Validate a retained owner and its actual pre-stop root, with no SDK IO.
+
+    The enclosing restart owner must retain this original private carrier and
+    independently prove old kernel-process death. This alone retires nothing.
+    """
+    context(binding);identifier(run)
+    owner=object.__new__(NavigationAddressInputs);owner.binding=deepcopy(binding);owner.run=run
+    state=owner.decode(value);need(state['lease'] is not None and state['rows']
+        and all(row['phase']=='acknowledged' for row in state['rows']))
+    last=state['rows'][-1];roots.follow(last['captures'][-1],ui)
+    actual=roots.current(state['lease'],ui,closed=True)
+    need(all(root['field']['text']==last['url'] for root in roots.packet(binding,ui)['roots']))
+    from adapters.native_clock_join import digest
+    return dict(ownerSha256=digest(value),root=actual)
+
+
 class NavigationAddressInputs:
     def __init__(self,store,binding,run,lock,guard,ui,native,*,epoch_ms=lambda:time.time()*1000,monotonic=time.monotonic):
         context(binding);identifier(run)

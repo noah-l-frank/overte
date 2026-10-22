@@ -13,6 +13,8 @@ import uuid
 
 from adapters.native_clock_join import digest
 from adapters.normal_ui import NativeUIError
+from adapters.normal_feature_state import PrivateFeatureState
+from adapters.script_feature.history import pack,unpack
 from feature_journeys.fixtures import context as run_context
 from ios.adapters import navigation_process_context as process
 from ios.adapters.navigation_restart_proof import OWNERS
@@ -74,9 +76,10 @@ class NavigationProcessContextTests(unittest.TestCase):
         dialogs=Dialogs();dialogs.clock=http.clock+.002;dialogs.sequence=1;raw['dialogs']=dialogs.reader().read(self.run)
         raw['replies']=dict(raw['replies'],commandId='ios-'+'a'*32,sequence=2,capturedEpochMs=dialogs.epoch()+1)
         raw['ui']=dict(raw['ui'],sampleEpochMs=dialogs.epoch()+2,elapsedMs=round(dialogs.clock*1000)+2,
-            placesSourceSequence=2,navigationDialogSourceSequence=2)
+            placesSourceSequence=2,navigationDialogSourceSequence=self.h.b.source_sequence+1)
+        address=PrivateFeatureState(self.h.h.root/'ios-navigation-address-42-inputs.json').read()
         return dict(originals=raw,clockJoin=self.join(raw,42,self.initial['clockJoin']['nativeAfter']['instance'],3),
-            provider=self.h.h.provider.scene(),missing=None)
+            provider=self.h.h.provider.scene(),missing=None,addressOwner=address)
 
     def new_group(self,start):
         # Build a second SDK's original DTOs from its own modeled startup state.
@@ -98,6 +101,9 @@ class NavigationProcessContextTests(unittest.TestCase):
                 result[key]=emit(item)
             return result
         raw=emit(raw)
+        # A genuinely new process has no old QML root. Do not carry its UUID or
+        # field into the modeled startup inventory, even under new source IDs.
+        raw['ui']['navigationInventory']['roots']=[]
         # Native import history and current independent read refer to the same
         # actual startup load rather than separate fabricated request identities.
         a,b=raw['inventory']['source']['sceneLoads'],raw['navigation']['source']['sceneLoads']
@@ -118,12 +124,46 @@ class NavigationProcessContextTests(unittest.TestCase):
         self.assertEqual(self.initial['bookmarkBaseline'],basis['bookmarkBaseline']);self.assertEqual(self.after['originals'],basis['originals'])
         self.assertEqual(self.before['originals']['bookmarks']['file'],self.after['originals']['bookmarks']['file'])
         self.assertNotIn('passed',value);self.assertNotIn('restored',basis)
+        self.assertEqual(2,value['iosNavigationProcessContextVersion']);self.assertEqual(2,basis['iosNavigationProcessSourceBasisVersion'])
+        self.assertEqual('retained',value['oldScope']['addressRoot']['root']['status'])
+        self.assertFalse(value['oldScope']['addressRoot']['root']['drained'])
+        self.assertEqual([],value['after']['originals']['ui']['navigationInventory']['roots'])
 
     def test_old_source_reused_under_new_join_or_new_source_births_cannot_authorize_transfer(self):
         for name in self.after['originals']:
             original=deepcopy(self.after);self.after['originals'][name]=deepcopy(self.before['originals'][name]);self.rehash(self.after)
             with self.subTest(source=name),self.assertRaises((NativeUIError,ValueError)):self.transfer()
             self.after=original
+
+    def test_retained_root_requires_the_actual_acknowledged_original_owner_and_closed_owned_text(self):
+        original=deepcopy(self.before)
+        for fault in ('missing','foreign-root','foreign-text','unresolved','foreign-owner','rewound-source'):
+            self.before=deepcopy(original);ui=self.before['originals']['ui']
+            if fault=='missing':self.before.pop('addressOwner')
+            elif fault=='foreign-root':ui['navigationInventory']['roots'][0]['rootId']=str(uuid.uuid4())
+            elif fault=='foreign-text':ui['navigationInventory']['roots'][0]['field']['text']='unowned edit'
+            elif fault=='rewound-source':ui['navigationDialogSourceSequence']=1
+            else:
+                carrier=self.before['addressOwner']
+                if fault=='foreign-owner':carrier['binding']['artifactSha256']='0'*64
+                else:
+                    state=unpack(carrier['payload'])[0];state['rows'][-1].update(phase='issued',closed=None)
+                    carrier['payload']=pack([state])
+            self.rehash(self.before)
+            with self.subTest(fault=fault),self.assertRaises((NativeUIError,ValueError)):self.transfer()
+        self.before=original
+
+    def test_root_free_version1_history_stays_version1_and_cannot_adopt_retained_roots(self):
+        # Explicit legacy SDK source: no root existed in this version-1 case.
+        # This is separate from the current normal Go To retained-root case.
+        before=deepcopy(self.before);before.pop('addressOwner');before['originals']['ui']['navigationInventory']['roots']=[]
+        self.rehash(before);originals=deepcopy((before,self.after))
+        value=process.transfer(self.initial,before,self.receipt,self.after,self.owners,self.url,version=1)
+        self.assertEqual(1,value['iosNavigationProcessContextVersion']);self.assertNotIn('addressRoot',value['oldScope'])
+        self.assertEqual(value,process.validate(value,self.owners));basis=process.source_basis(value,self.owners)
+        self.assertEqual(1,basis['iosNavigationProcessSourceBasisVersion']);self.assertEqual(originals,(before,self.after))
+        with self.assertRaises(NativeUIError):
+            process.transfer(self.initial,self.before,self.receipt,self.after,self.owners,self.url,version=1)
 
     def test_actual_kernel_death_and_full_candidate_are_required_even_with_new_scene_and_bookmarks(self):
         original=deepcopy(self.receipt)

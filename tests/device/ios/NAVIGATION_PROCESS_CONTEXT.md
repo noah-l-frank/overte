@@ -63,15 +63,36 @@ death, unsaved edits, changed UI/preferences, original history tampering, lost
 middle reads, lost final writes, expired input and SDK-free reconstruction.
 They do not establish real product restart behavior.
 
+Context and source basis now write version 2 and read versions 1 and 2.
+Version 2 can retain the actual process-qualified `NavigationAddressInputs`
+private carrier as `before.addressOwner`. Its complete original recipe journal
+must bind the same old candidate/process/run, the actual normal opening and
+acknowledged native input history. The pre-stop source must extend that journal,
+retain the same closed QML root and preserve its actual owned field text.
+Unresolved input, foreign text/root, changed ownership or reused source counters
+refuse transfer. This adds no SDK query or input to historical validation.
+
+The old scope keeps its genuine `retained`, `drained=false` root observation.
+The separate actual ESRCH receipt proves the old process ended; a new-process
+complete native inventory must independently contain no address root. No old
+root UUID, clock or input sequence is carried into that process. The three
+restart input companion files remain fixed; they are not an exhaustive list
+of feature resources. The complete address carrier is separately retained
+inside the pre-stop group and original process-owner journal.
+
+Original version-1 root-free contexts remain version 1 when reconstructed,
+including their source basis and exact original shape. They cannot adopt a
+retained root. The compatible process-owner version-1 envelope retains its
+versioned context as an explicit nested original, including archived v1 data.
+
 The ordinary restart controller and pre-stop input/image drainage still need
-whole-journey integration. This transfer currently accepts only a reloaded
-owned run scene and a root-free closed UI. A default/foreign startup world or
-retained address root requires an explicitly owned normal-entry/root handoff;
-neither is silently adopted. Source bases still need connection to the later
-normal action owners. Full independent publication, static restoration,
-callback/resource drainage and repeated quiet finalization remain open.
+whole-journey integration. This transfer accepts only a reloaded owned run
+scene. A default/foreign startup world requires a fresh, explicitly owned
+normal entry. Source bases still need connection to later normal action owners.
+Full independent publication, static restoration, callback/resource drainage
+and repeated quiet finalization remain open.
 
 Source inspection confirms that normal iOS Go To close retains its QML root.
 The separate [address-root ownership validator](NAVIGATION_ADDRESS_ROOTS.md)
 distinguishes that actual hidden object from destruction. Its durable ordinary
-input hooks still need connection before a retained root can cross this gate.
+scene entry/return journal now supplies the explicit version-2 root handoff.

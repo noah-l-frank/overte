@@ -39,10 +39,11 @@ new command. The original scene-input version-1 carrier stays readable. Older
 acknowledgments without the new root journal do not authorize adoption of a
 preexisting root.
 
-The process context remains conservative and refuses retained roots until its
-explicit ownership handoff is connected. The missing-destination input owner,
-restart handoff and whole cleanup still require integration. No feature
-capability or whole-area completion is enabled.
+The version-2 process context now accepts this original closed ownership only
+alongside independent old-process death and new-process root absence. The
+missing-destination input owner, ordinary restart controller and whole cleanup
+still require integration. No feature capability or whole-area completion is
+enabled.
 
 Thirteen explicit host tests cover root UI inventory and this ownership join,
 including hidden versus absent, incomplete inventory, foreign SDK lookup,

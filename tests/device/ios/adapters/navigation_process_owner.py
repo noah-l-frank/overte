@@ -104,7 +104,10 @@ class NavigationProcessOwner:
              and abs(epoch-start['epoch']-(read['monotonic']-start['monotonic'])*1000)<=250)
         fresh(before['capturedEpochMs'],int(state['started']['epoch']));fresh(after['capturedEpochMs'],int(epoch))
         after=dict(originals=state['originals'],clockJoin=clock,provider=after,missing=None)
-        return process.transfer(self.initial,self.before,self.receipt,after,self.owner_files,self.fixture_url)
+        # Historical context-v1 originals keep their original version and shape.
+        # Fresh acquisitions write v2; the owner envelope remains compatible.
+        version=state['context']['iosNavigationProcessContextVersion'] if state['context'] is not None else process.VERSION
+        return process.transfer(self.initial,self.before,self.receipt,after,self.owner_files,self.fixture_url,version=version)
 
     def acquire(self,host_barrier):
         need(not self.historical);self.bound();need(self.state is None and number(host_barrier,1,1e15))
