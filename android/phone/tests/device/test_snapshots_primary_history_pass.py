@@ -29,5 +29,8 @@ class SnapshotPrimaryHistoryPassTests(unittest.TestCase):
     def test_identical_feature_header_rewritten_after_unlocked_read_is_red(self):self.exercise('after-feature-aba')
     def test_identical_role_header_rewritten_after_unlocked_read_is_red(self):self.exercise('after-role-aba')
 
+    def test_only_memory_graph_changed_after_replay_cannot_reach_current_measurement(self):self.exercise('after-memory-graph')
+    def test_only_memory_graph_changed_during_final_native_guard_cannot_reach_current_measurement(self):self.exercise('after-final-guard-memory-graph')
+
 
 if __name__=='__main__':unittest.main()

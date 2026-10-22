@@ -4,6 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
 import json
+import hashlib
 import subprocess
 import os
 from pathlib import Path
@@ -87,7 +88,7 @@ class SnapshotPrimaryCleanupStagesTests(unittest.TestCase):
                     else:raise RuntimeError('Unknown controlled stage mutation')
                 return sleep(seconds)
             feature.sleep=between;observed.append(feature);return feature
-        read_history=SnapshotHistoryReadPass.read;passes=[];invalid_current_reads=[]
+        read_history=SnapshotHistoryReadPass.read;passes=[];invalid_current_reads=[];graph_checks=[]
         def historical(token):
             result=read_history(token);passes.append(token)
             if mutation.startswith('after-'):
@@ -97,7 +98,36 @@ class SnapshotPrimaryCleanupStagesTests(unittest.TestCase):
                     raise AssertionError('Current facts acquired after invalid historical pass')
                 token.role.read=forbidden
                 kind=mutation.removeprefix('after-')
-                if kind in ('feature-aba','role-aba'):
+                if kind in ('memory-graph','final-guard-memory-graph'):
+                    # Preserve the actual owner/state/file identities. Only
+                    # the reader's independently held graph is corrupted.
+                    state=deepcopy(token.role.state)
+                    headers=(deepcopy(token.feature.store.read()),deepcopy(token.role.store.read()))
+                    bodies={path:None if signature is None else hashlib.sha256(path.read_bytes()).hexdigest()
+                        for path,signature in token.files.items()}
+                    changed=[]
+                    def change_graph():
+                        self.assertFalse(changed)
+                        frames=deepcopy(token.role.frames);self.assertTrue(frames)
+                        frames[-1]['unqualifiedMemoryGraphMutation']=True
+                        token.role.frames=frames;changed.append(True)
+                    if kind=='memory-graph':change_graph()
+                    else:
+                        finish=token.finish
+                        def finish_with_original_guard():
+                            bound=token.feature.bound
+                            def actual_then_changed():
+                                value=bound()
+                                if not changed:change_graph()
+                                return value
+                            with patch.object(token.feature,'bound',side_effect=actual_then_changed):
+                                return finish()
+                        # The first finish memory check runs unchanged. Only
+                        # its subsequent real native guard causes corruption;
+                        # the final memory check must prevent current IO.
+                        token.finish=finish_with_original_guard
+                    graph_checks.append((token,state,headers,bodies,changed))
+                elif kind in ('feature-aba','role-aba'):
                     store=token.feature.store if kind=='feature-aba' else token.role.store
                     value=deepcopy(store.read());store.write(value,value);foreign.append((store.path,value))
                 else:
@@ -123,6 +153,13 @@ class SnapshotPrimaryCleanupStagesTests(unittest.TestCase):
         # cannot prove that an invalid pass never reached a current reader.
         self.assertEqual([],invalid_current_reads)
         self.assertTrue(all(token.closed for token in passes))
+        for token,state,headers,bodies,changed in graph_checks:
+            self.assertEqual([True],changed)
+            self.assertEqual(state,token.role.state)
+            self.assertEqual(headers,(token.feature.store.read(),token.role.store.read()))
+            for path,digest in bodies.items():
+                if digest is None:self.assertFalse(path.exists())
+                else:self.assertEqual(digest,hashlib.sha256(path.read_bytes()).hexdigest())
         self.assertEqual([True],yielded);self.assertIsNone(f.adapter._existing_input_scope)
         for path,value in foreign:self.assertEqual(value,PrivateFeatureState(path).read())
         self.assertEqual(calls,len(f.model.product.calls))
