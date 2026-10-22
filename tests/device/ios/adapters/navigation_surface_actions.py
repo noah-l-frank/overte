@@ -21,7 +21,10 @@ from ios.adapters.normal_input import NativeInput, observation
 from ios.adapters.normal_navigation import IOSNavigation, PROFILE
 from ios.adapters import places_controls as controls
 
-VERSION = 1
+VERSION = 2
+READS = (1, 2)
+SURFACES = {'open': ('open',), 'close': ('close',),
+            'directory-select': ('close',), 'bookmark-visit': ('open', 'close')}
 
 
 class _SurfaceUI(NativeUI):
@@ -53,12 +56,12 @@ class NavigationSurfaceActions:
         self.state = None if self.previous is None else self.decode(self.previous)
         self.bound()
 
-    def envelope(self, state):
-        return dict(iosNavigationSurfaceActionsVersion=VERSION, binding=self.binding, runId=self.run, payload=pack([state]))
+    def envelope(self, state, version=VERSION):
+        return dict(iosNavigationSurfaceActionsVersion=version, binding=self.binding, runId=self.run, payload=pack([state]))
 
     def call(self, value):
         arguments('feature.world-navigation.act', value)
-        need(value['runId'] == self.run and value['verb'] in ('open', 'close')
+        need(value['runId'] == self.run and value['verb'] in SURFACES
              and value['fixtureUrl'] == self.admission.fixture.fixture_url)
         return value
 
@@ -87,16 +90,24 @@ class NavigationSurfaceActions:
     def decode(self, value):
         exact(value, {'iosNavigationSurfaceActionsVersion', 'binding', 'runId', 'payload'})
         rows = unpack(value['payload'])
-        need(type(value['iosNavigationSurfaceActionsVersion']) is int and value['iosNavigationSurfaceActionsVersion'] == VERSION
-             and len(rows) == 1 and same(value, self.envelope(rows[0])))
+        version = value['iosNavigationSurfaceActionsVersion']
+        need(type(version) is int and version in READS
+             and len(rows) == 1 and same(value, self.envelope(rows[0], version)))
         state = rows[0]; exact(state, {'component', 'actions'})
         need(type(state['component']) is dict and set(state['component']) <= {'iosNormalNavigation'}
-             and type(state['actions']) is list and 1 <= len(state['actions']) <= 8)
-        tickets = set(); previous = None; owned_page = None; previous_phase = None
+             and type(state['actions']) is list and 1 <= len(state['actions']) <= (8 if version == 1 else 12))
+        tickets = set(); calls = {}; previous = None; owned_page = None; previous_phase = None
         for index, row in enumerate(state['actions']):
-            exact(row, {'call', 'phase', 'fixture', 'before', 'intents', 'after', 'page'})
+            exact(row, {'call', 'phase', 'fixture', 'before', 'intents', 'after', 'page'}
+                  | ({'surface'} if version == 2 else set()))
             call = self.call(row['call']); ticket = call['ticket']
-            need(ticket not in tickets); tickets.add(ticket)
+            surface = row['surface'] if version == 2 else call['verb']
+            need(surface in SURFACES[call['verb']] and (ticket, surface) not in tickets)
+            if ticket in calls: need(same(calls[ticket], call))
+            calls[ticket] = call
+            if version == 1: need(call['verb'] in ('open', 'close'))
+            if index: need(surface != state['actions'][index-1].get('surface', state['actions'][index-1]['call']['verb']))
+            tickets.add((ticket, surface))
             need(row['phase'] in ('checking', 'issued', 'acknowledged')
                  and (index == len(state['actions'])-1 or row['phase'] == 'acknowledged')
                  and type(row['intents']) is list and len(row['intents']) <= 32)
@@ -111,12 +122,17 @@ class NavigationSurfaceActions:
                     need(row['fixture']['ticket'] == ticket and row['fixture']['verb'] == call['verb']
                          and same(row['fixture']['inputs'], call['inputs']))
             if row['phase'] != 'checking': need(row['fixture'] is not None and row['before'] is not None)
+            if row['phase'] != 'checking':
+                if surface == 'open': need(owned_page is None and not row['before']['tabletShown'])
+                else: need(owned_page is not None and self.page(row['before']) == owned_page)
             packets = ([row['before']] if row['before'] is not None else [])
-            for event in row['intents']:
+            for event_index, event in enumerate(row['intents']):
                 exact(event, {'method', 'path', 'body', 'original'})
                 need(event['method'] == 'POST' and re.fullmatch(r'/element/[A-Za-z0-9_.:%-]{1,480}/click', event['path'])
                      and event['body'] == {} or event['method'] == 'DELETE' and event['path'] == '/actions' and event['body'] is None)
                 packets.append(event['original'])
+                if surface == 'close' and version == 2:
+                    self.close_intent(event, owned_page, row['intents'][:event_index])
             if row['after'] is not None: packets.append(row['after'])
             for packet in packets:
                 self.packet(packet)
@@ -124,13 +140,24 @@ class NavigationSurfaceActions:
                 previous = packet
             if row['phase'] == 'acknowledged':
                 need(row['after'] is not None and row['intents'])
-                if call['verb'] == 'open':
+                if surface == 'open':
                     need(owned_page is None and row['page'] == self.page(row['after'])); owned_page = row['page']
                 else:
                     need(owned_page is not None and row['page'] == owned_page
                          and not row['after']['tabletShown']); owned_page = None
             else: need(row['after'] is None and row['page'] is None)
+        # Version one has no composite calls. Normalize only its explicit
+        # surface label; retain every original clock, packet and input verb.
+        if version == 1:
+            for row in state['actions']: row['surface'] = row['call']['verb']
         return state
+
+    def close_intent(self, event, owned_page, prior):
+        packet = event['original']
+        if packet['tabletShown']:
+            need(self.page(packet) == owned_page)
+        else:
+            need(event['method'] == 'DELETE' and any(item['method'] == 'POST' for item in prior))
 
     def bound(self):
         self.admission.bound(); need(same(self.store.read(), self.previous))
@@ -148,35 +175,41 @@ class NavigationSurfaceActions:
 
     def input_intent(self, method, path, body):
         self.bound(); row = self.state['actions'][-1]; need(row['phase'] == 'issued' and len(row['intents']) < 32)
-        row['intents'].append(dict(method=method, path=path, body=deepcopy(body), original=self.capture())); self.save()
+        event = dict(method=method, path=path, body=deepcopy(body), original=self.capture())
+        if row['surface'] == 'close':
+            self.close_intent(event, self.state['actions'][-2]['page'], row['intents'])
+        row['intents'].append(event); self.save()
 
-    def act(self, call):
-        call = deepcopy(self.call(call)); self.bound(); need(self.started is None); self.started = self.bound()
+    def act(self, call, *, surface=None):
+        call = deepcopy(self.call(call)); surface = call['verb'] if surface is None else surface
+        need(surface in SURFACES[call['verb']]); self.bound(); need(self.started is None); self.started = self.bound()
         try:
             if self.state is None: self.state = dict(component={}, actions=[])
             rows = self.state['actions']
             if rows:
                 last = rows[-1]
-                if call['ticket'] in [row['call']['ticket'] for row in rows]:
-                    need(last['phase'] == 'acknowledged' and same(last['call'], call)); self.decode(self.previous)
+                for prior in rows:
+                    if prior['call']['ticket'] == call['ticket']: need(same(prior['call'], call))
+                if (call['ticket'], surface) in [(row['call']['ticket'], row['surface']) for row in rows]:
+                    need(last['phase'] == 'acknowledged' and last['surface'] == surface and same(last['call'], call)); self.decode(self.previous)
                     return {'performed': True}
                 need(last['phase'] == 'acknowledged')
-            need(len(rows) < 8 and (not rows or rows[-1]['call']['verb'] != call['verb']))
-            row = dict(call=call, phase='checking', fixture=None, before=None, intents=[], after=None, page=None)
+            need(len(rows) < 12 and (not rows or rows[-1]['surface'] != surface))
+            row = dict(call=call, surface=surface, phase='checking', fixture=None, before=None, intents=[], after=None, page=None)
             rows.append(row); self.save()
             row['fixture'] = self.admission.fixture.read(); self.save()
             row['before'] = self.capture(); self.save()
             owned_page = rows[-2]['page'] if len(rows) > 1 else None
-            if call['verb'] == 'open': need(owned_page is None and not row['before']['tabletShown'])
+            if surface == 'open': need(owned_page is None and not row['before']['tabletShown'])
             else: need(owned_page is not None and self.page(row['before']) == owned_page)
             row['phase'] = 'issued'; self.save()
             profile = dict(contractVersion=1, profile=PROFILE, sceneUrl=self.admission.fixture.inputs['sceneUrl'])
             flow = IOSNavigation(_SurfaceUI(self), self.native, profile, self.state['component'], self.save)
-            if call['verb'] == 'open': flow.open_places()
+            if surface == 'open': flow.open_places()
             else: flow.invoke('places.close', {})
             final = self.capture()
-            page = self.page(final) if call['verb'] == 'open' else owned_page
-            if call['verb'] == 'close': need(not final['tabletShown'])
+            page = self.page(final) if surface == 'open' else owned_page
+            if surface == 'close': need(not final['tabletShown'])
             row.update(phase='acknowledged', after=final, page=page); self.save()
             return {'performed': True}
         finally: self.started = None
