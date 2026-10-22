@@ -251,6 +251,9 @@ private:  // storage
         V8ScriptValue thisValue;
         V8ScriptValue callback;
         std::function<void(std::function<void()>)> invokeInEnvironment;
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        QString featureCreateCallbackId;
+#endif
         Connection(const V8ScriptValue &v8ThisValue, const V8ScriptValue &v8Callback) : 
             thisValue(v8ThisValue), callback(v8Callback) {};
     };
@@ -290,6 +293,9 @@ private:  // storage
     const QMetaMethod _meta;
     const int _metaCallId;
     ConnectionList _connections;
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    QString _featureCreateCallbackProxy;
+#endif
     bool _isConnected{ false };
 
     // This allows skipping qobject check during disconnect, which is needed during cleanup because qobject is already deleted

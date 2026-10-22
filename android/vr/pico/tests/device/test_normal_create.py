@@ -20,6 +20,7 @@ from self_tests.test_normal_create_adapter import URL
 # Register the owner cases in the existing named Pico normal-create suite.
 from test_create_management import PicoCreateManagementTests
 from test_create_files import CreateFilesTests
+from test_create_callbacks import CreateCallbackTests
 
 
 class PicoCreateTests(unittest.TestCase):

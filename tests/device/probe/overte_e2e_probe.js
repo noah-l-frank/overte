@@ -149,6 +149,7 @@
     var lastProcessPresenceRequest = "";
     var lastScriptFilesRequest = "";
     var lastCreateFilesRequest = "";
+    var lastCreateCallbacksRequest = "";
     function saveScriptSourceObservation(requestId) {
         var value = {schemaVersion: 1, requestId: requestId, available: false};
         try {
@@ -1448,6 +1449,21 @@
             }
             return;
         }
+        if (command && command.schemaVersion === 1 && command.action === "feature-create-callbacks-observe"
+                && typeof command.commandId === "string" && /^[0-9a-f]{32}$/.test(command.commandId)
+                && objectKeysMatch(command, ["schemaVersion", "commandId", "action"])) {
+            if (command.commandId === lastCreateCallbacksRequest) { return; }
+            lastCreateCallbacksRequest = command.commandId;
+            var createCallbacks = {schemaVersion: 1, requestId: command.commandId, available: false};
+            try {
+                if (typeof Test.featureCreateCallbacks === "function") {
+                    var originalCreateCallbacks = Test.featureCreateCallbacks(command.commandId);
+                    if (originalCreateCallbacks && originalCreateCallbacks.requestId === command.commandId) { createCallbacks = originalCreateCallbacks; }
+                }
+            } catch (_createCallbackError) { /* Original native callback resources remain unavailable. */ }
+            Test.saveObject(createCallbacks, "feature-create-callbacks.json");
+            return;
+        }
         if (command && command.schemaVersion === 1
                 && /^(?:ios-)?[0-9a-f]{32}$/.test(String(command.commandId))
                 && command.action === "feature-script-observe"
@@ -1749,6 +1765,7 @@
                 || command.action === "feature-process-presence"
                 || command.action === "feature-recorded-audio-observe" || command.action === "feature-recorded-audio-release"
                 || command.action === "feature-recorded-audio-files" || command.action === "feature-script-observe"
+                || command.action === "feature-create-callbacks-observe"
                 || command.action === "feature-world-render-observe"
                 || command.action === "feature-graphics-subject-observe"
                 || command.action === "feature-scene-load-observe"

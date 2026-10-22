@@ -80,6 +80,7 @@ public:
     ScriptManagerPointer getScriptEngine(const QUrl& scriptHash);
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     QVariantMap featureScriptObservation();
+    QVariantMap featureCreateCallbackObservation();
 #endif
 
     ScriptsModel* scriptsModel() { return &_scriptsModel; };
