@@ -15,7 +15,7 @@ checks; the full application/APK and every device remain unqualified. See the
 | --- | --- | --- |
 | Worlds/navigation | Partial normal Places/bookmark/origin/directory/error and measured B/A transit with original stereo-source retirement | Fresh v2 image/actor publication, normal tablet and Go To closure, maturity composition, restart and independent final retirement |
 | Authentication | Complete source; 17-step shared flow and counterexamples host verified | Compile and qualify actual VR Home ray, IME, HTTPS provider and account lifetime on Proxmox |
-| Avatar/contacts | Complete adapter missing | Source-bound Avatar/People inputs and independent model/bookmark/wearable/consent observations |
+| Avatar/contacts | Partial private normal URL/failure/recovery owner and independent model/raw entity originals | Normal initial Home entry, physical Prefs/HTTP, bookmark/scale/wearables, People/peer/stereo and complete final retirement |
 | Create | Partial normal management and domain Import/Save/export/Delete with original callbacks, files and fixed raw/physical Browse setting ownership | Full Model/texture/PolyVox/permission actor, stereo and final cleanup composition |
 | Emotes | Partial actual normal inputs, compiled caller/consumed FBX/Rig effects, work/quiet/background and loaded-avatar originals | Executed avatar draw/two-eye camera/PNG joins, independent actor and whole resource retirement |
 | Web in world | Partial native DOM source | Actual controller-ray hit/DOM input, original document/echo journals, response receipt and stereo image join |
@@ -1601,3 +1601,30 @@ recovery21.157s, archive/prefix4.533s and coverage0.069s. The unchanged120-secon
 per-group bound holds. Required repository checks pass2.85s. This strengthens
 host source qualification; a complete warm Parent-to-archive execution, hermetic
 peer build receipt and real target qualification remain outstanding.
+
+
+## Normal Avatar URL/source owner integration
+
+Fixed selection `6ba1f9ff758553410afa81910c786c8cd1bdc24e` adds the
+[private Avatar URL owner](AVATAR_PEOPLE_URLS.md), actual QML/Pico pointer/IME
+through the whole original avatarapp.js and normal MyAvatar useFullAvatarURL,
+independent native Model/Avatar failure/load history and raw nonblocking
+AvatarEntity storage. The owner preserves uncertain input and original
+preferences/restoration obligations under the canonical lock. It starts on an
+already-open tablet and remains retained: HTTP consumption, physical preference
+bytes, Bookmarks/Scale/Wearables, People/peer/stereo and actual final resource
+release are not complete. No public capability is advertised.
+
+Root retained its newer Browser/Chat/Snapshot/Create registrations during
+selection and corrected a reviewed original placement error: Avatar metadata
+append belongs in NavigationUi's row loop, not the control-source traversal.
+The missing explicit gated Avatar-controls include was also added. The earlier
+component harness compiled Apply but not the complete observe body; that
+additional source compilation is being added separately. Full application/APK
+qualification remains unavailable; complete source areas stay3/14.
+
+Integrated Avatar validation:6/133 selected groups pass57.38s: native Avatar
+UI8.560s, independent native state3.003s, URL owner39.247s, original transport
+4.018s, Browser entry2.482s and coverage0.069s. Required repository suites
+pass4.38s; Node syntax, registry and whitespace pass. The complete native
+NavigationUi observe-body regression remains a separate pending selection.

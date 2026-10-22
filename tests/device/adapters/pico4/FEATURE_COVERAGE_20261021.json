@@ -222,7 +222,7 @@
     {
       "area": "avatar-people",
       "sharedTestLogic": "present-v16",
-      "picoAdapter": "missing",
+      "picoAdapter": "partial",
       "completeOperations": [],
       "existingModules": [
         "multi-user"
@@ -230,7 +230,17 @@
       "sources": [
         "scripts/system/avatarapp.js",
         "tests/device/feature_journeys/AVATAR_SOURCE.md",
-        "tests/device/adapters/pico4/feature_observation.py"
+        "tests/device/adapters/pico4/feature_observation.py",
+        "tests/device/adapters/pico4/avatar_people_ui.py",
+        "tests/device/adapters/pico4/avatar_state.py",
+        "tests/device/adapters/pico4/avatar_urls.py",
+        "tests/device/adapters/pico4/AVATAR_PEOPLE_URLS.md",
+        "tests/device/native/NormalAvatarPeopleControls.h",
+        "tests/device/native/PicoAvatarInputHit.h",
+        "libraries/render-utils/src/FeatureModelLoads.h",
+        "tests/device/contracts/avatar/test_avatar_state_native.py",
+        "android/vr/pico/tests/device/test_avatar_people_controls_native.py",
+        "android/vr/pico/tests/device/test_avatar_urls_owner.py"
       ],
       "declaredCheckpoints": 15,
       "inputVerbs": [
@@ -259,7 +269,7 @@
         "dialog"
       ],
       "missingOperationsOrEvidence": [
-        "All complete Avatar URL/bookmark/scale/wearable and mutual People-consent input recipes",
+        "Complete Avatar bookmark/scale/wearable and mutual People-consent input recipes; the private normal URL owner/source/failure/recovery/restoration is present and host verified on the already-open tablet",
         "Original bookmark/model-load/wearable and both-party contact journals",
         "Independent consent actor and original avatar images"
       ],
@@ -274,7 +284,7 @@
         "Delete only owned wearable/bookmark/connection",
         "Confirm both participants have no pending request and observe quiet restoration"
       ],
-      "nextExecutableStep": "Add source-bound Avatar and People native controls on the actual VR tablet, starting with URL -> independently loaded model -> failure/recovery -> exact original restoration; extend the existing multi-user fixture with real contact observations.",
+      "nextExecutableStep": "Complete original normal Home/app entry, physical preference and HTTP consumption, Bookmarks/Scale/Wearables and People consent; join independent peer/stereo and actual Qt/V8/resource destruction before final retirement.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     },
