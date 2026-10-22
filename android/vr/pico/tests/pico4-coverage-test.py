@@ -10,7 +10,7 @@ import unittest
 TEST_DIR = Path(__file__).resolve().parent
 MATRIX = json.loads((TEST_DIR / "pico4-coverage.json").read_text(encoding="utf-8"))
 RUNNER_TREE = ast.parse((TEST_DIR / "pico4-test-suite.py").read_text(encoding="utf-8"))
-EXPECTED_CATALOG_CASES = 139
+EXPECTED_CATALOG_CASES = 142
 
 
 def catalog_entries() -> list[str]:
@@ -31,6 +31,16 @@ def result_exit_code(result: unittest.TestResult) -> int:
 
 
 class CoverageMatrixTests(unittest.TestCase):
+    def test_avatar_owner_partitions_retain_every_original_case_once(self):
+        path=TEST_DIR/'device/test_avatar_urls_owner.py';tree=ast.parse(path.read_text())
+        expected={'AvatarUrlsTests.'+node.name for owner in tree.body if isinstance(owner,ast.ClassDef) and owner.name=='AvatarUrlsTests'
+            for node in owner.body if isinstance(node,ast.FunctionDef) and node.name.startswith('test_')}
+        selected=[]
+        for node in ast.walk(RUNNER_TREE):
+            if isinstance(node,ast.Call) and isinstance(node.func,ast.Name) and node.func.id=='test' and isinstance(node.args[0],ast.Constant) and node.args[0].value.startswith('avatar-urls-'):
+                selected.extend(arg.value for arg in node.args[4:] if isinstance(arg,ast.Constant))
+        self.assertEqual(len(expected),len(selected));self.assertEqual(expected,set(selected))
+
     def test_process_exit_code_reflects_test_result(self):
         class Result:
             def __init__(self, successful):

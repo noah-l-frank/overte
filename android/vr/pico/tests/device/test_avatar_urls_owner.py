@@ -12,6 +12,7 @@ import hashlib
 import os
 from functools import partial
 import base64
+import struct
 import json
 from pathlib import Path
 import sys
@@ -26,6 +27,7 @@ from adapters.pico4.avatar_urls import PicoAvatarUrls
 from adapters.pico4 import normal_scripts
 from adapters.token_script_ui import TokenScriptUI
 from adapters.pico4.avatar_state import NativePicoAvatarState,ACTION,FILE,sha
+from adapters.pico4 import avatar_preferences as preferences
 from adapters.pico4.avatar_people_ui import TokenAvatarPeopleUI,PicoAvatarPeopleIO
 from adapters.pico4.navigation import NativeNavigationIO
 from adapters.normal_feature_state import PrivateFeatureState
@@ -46,6 +48,7 @@ class AvatarUrlsTests(unittest.TestCase):
         self.store=PrivateFeatureState(self.root/('avatar-urls-owner-'+key+'-'+RUN+'.json'))
         self.clock=0.;self.epoch=int(time.time()*1000);self.page='home1';self.dialog=False;self.focus=False;self.entered=''
         self.lost=False;self.ignore=False;self.freeze=False;self.native_queries=0;self.packet=None;self.guard_delay=None
+        self.preferences_queries=0;self.preferences_packet=None;self.preference_conflict=False;self.preference_missing=False;self.preference_reads_hook=None
         self.journal=Journal(lambda:self.epoch)
         with patch('feature_journeys.witness.secrets.token_hex',return_value=RUN):self.journal.register('avatar-people')
         self.activate('baseline')
@@ -59,6 +62,7 @@ class AvatarUrlsTests(unittest.TestCase):
         old_read=self.native.read_debug_app_file
         def read(target,package,path,**kw):
             if path=='files/overte-e2e/'+FILE:return '' if self.packet is None else json.dumps(self.packet)
+            if path=='files/overte-e2e/'+preferences.FILE:return '' if self.preferences_packet is None else json.dumps(self.preferences_packet)
             return old_read(target,package,path,**kw)
         def write(target,package,path,raw):
             if path!='files/overte-e2e/navigation-ui-command.json':raise AssertionError('Unexpected actor write')
@@ -132,12 +136,54 @@ class AvatarUrlsTests(unittest.TestCase):
             updatedEpochMs=self.epoch,lastCommandSequence=self.native.sequence,open=True,ready=True,controls=controls,featureControlsVersion=1,avatarPeopleControlsVersion=1)
     def reader(self):
         def send(request):
+            if request['action']==preferences.ACTION:return self.preference_send(request)
             self.native_queries+=1;value=deepcopy(self.source)
             for name in ('avatarLoads','modelLoads'):
                 self.source[name]['sequence']+=1;value[name]['sequence']=self.source[name]['sequence'];value[name]['capturedEpochMs']=self.epoch
             self.packet=dict(schemaVersion=1,requestId=request['commandId'],instance='c'*32,sequence=self.native_queries,processId=123,
                 requestedEpochMs=self.epoch,capturedEpochMs=self.epoch,source=value)
         return NativePicoAvatarState(send,lambda:json.dumps(self.packet),lambda:self.epoch,lambda:True,123,monotonic=lambda:self.clock,sleep=self.sleep)
+    def preference_send(self,request):
+        # Explicit native Handle/cache/writer/physical DTO actor. Only the
+        # independent original Qt test qualifies the actual storage source.
+        self.preferences_queries+=1
+        if self.preference_reads_hook:self.preference_reads_hook()
+        if self.preference_missing:
+            self.preferences_packet=dict(schemaVersion=1,requestId=request['commandId'],available=False);return
+        def raw(type_id,type_name,value):
+            prefix=struct.pack('>IB',type_id,0)
+            if type_id==38:payload=struct.pack('>d',float(value))
+            elif type_id==1:payload=bytes([bool(value)])
+            elif type_id==2:payload=struct.pack('>i',value)
+            elif type_id in (10,17,12):
+                data=str(value).encode('utf-16be' if type_id==10 else 'utf-8');payload=struct.pack('>I',len(data))+data
+            else:payload=bytes(16)
+            data=prefix+payload
+            return dict(present=True,typeId=type_id,typeName=type_name,base64=base64.b64encode(data).decode(),sha256=hashlib.sha256(data).hexdigest())
+        live=dict(preferenceUrl=self.source['preferenceUrl'],modelName=self.source['modelName'],scale=self.source['scale'],targetScale=self.source['targetScale'],
+            dominantHand='right',hmdAvatarAlignmentType='head',collisionsEnabled=True,otherAvatarsCollisionsEnabled=True,collisionSoundUrl='',animGraphOverrideUrl='')
+        handles={}
+        for field in preferences.FIELDS:
+            type_id,type_name=preferences.handle_type(field);value=0 if type_id in (1,2,38) else ''
+            if field=='scale':value=live['scale']
+            if field=='fullAvatarURL':value=live['preferenceUrl']
+            key='Avatar/' if field=='headPitch' else 'fullPrivate/Avatar/fullAvatarURL' if field=='fullAvatarURL' else 'Avatar/avatarEntityData/size' if field=='avatarEntityCount' else 'Avatar/'+field
+            active=field in ('scale','fullAvatarURL')
+            handles[field]=dict(nativePreferenceHandleVersion=1,key=key,isSet=active,initialized=active,managerBound=active,value=raw(type_id,type_name,value),default=raw(type_id,type_name,0 if type_id in (1,2,38) else ''),deprecated=False)
+        rows={handles[field]['key']:deepcopy(handles[field]['value']) for field in ('scale','fullAvatarURL')}
+        values={}
+        for key,value in (('Avatar/scale',live['scale']),('fullPrivate/Avatar/fullAvatarURL',live['preferenceUrl'])):
+            encoded=json.dumps(value,separators=(',',':'),ensure_ascii=False).encode();values[key]=dict(base64=base64.b64encode(encoded).decode(),sha256=hashlib.sha256(encoded).hexdigest())
+        encoded=dict(count=len(values),values=values);physical_rows=deepcopy(encoded)
+        if self.preference_conflict:
+            data=b'"actual-foreign-physical-actor"';physical_rows['values']['fullPrivate/Avatar/fullAvatarURL']=dict(base64=base64.b64encode(data).decode(),sha256=hashlib.sha256(data).hexdigest())
+        physical=dict(avatarPreferenceFileVersion=1,capturedEpochMs=self.epoch,format='json',pathSha256='1'*64,file=dict(exists=True,device='1',inode='2',bytes=100,mode=0o600,modified='1.0',changed='1.0'),fileSha256='2'*64,rows=physical_rows)
+        native=dict(handles=dict(nativeAvatarPreferenceHandlesVersion=1,handles=handles,avatarEntityIDCount=0,avatarEntityDataCount=0),
+            modelInstance=self.source['modelInstance'],sessionId=self.source['sessionId'],live=live)
+        snapshot=dict(avatarPreferenceBarrierVersion=1,instance='3'*32,mutationSequence=len(self.source['avatarLoads']['events']),capturedEpochMs=self.epoch,elapsedMs=0,
+            cache=dict(rows=rows,encodedRows=deepcopy(encoded),native=native),writer=dict(instance='4'*32,capturedEpochMs=self.epoch,rows=deepcopy(rows),encodedRows=encoded,physical=physical,matchesPhysical=not self.preference_conflict),cacheMatchesWriter=True)
+        self.preferences_packet=dict(schemaVersion=1,requestId=request['commandId'],instance='c'*32,sequence=self.preferences_queries,processId=123,
+            requestedEpochMs=self.epoch,capturedEpochMs=self.epoch,source=dict(picoAvatarPreferencesVersion=1,instance='5'*32,snapshot=snapshot))
     def make(self):
         return self.instance._avatar_urls(self.target,RUN,source_lock=self.lock)
     def invoke(self,verb):
@@ -151,6 +197,65 @@ class AvatarUrlsTests(unittest.TestCase):
         self.assertTrue(state['restored']);self.assertEqual(ORIGINAL,self.source['requestedUrl']);self.assertIsNotNone(self.store.read());self.assertTrue(self.instance._avatar_urls_owned(self.target))
         # A second cleanup is its own real phase, preserving all original inputs.
         count=len(self.native.inputs);self.activate('cleanup');self.invoke('cleanup');self.assertEqual(count,len(self.native.inputs))
+    def test_preferences_baseline_waits_for_real_agreement_and_preserves_each_original_leaf(self):
+        self.preference_conflict=True
+        def settle_original():
+            if self.preferences_queries>=3:self.preference_conflict=False
+        self.preference_reads_hook=settle_original
+        self.invoke('prepare');root=self.store.read();self.assertEqual(2,root['picoAvatarUrlsOwnerVersion']);self.assertFalse(self.native.inputs)
+        state=unpack(root['payload'])[0];self.assertEqual(3,state['baselineIndex']);self.assertEqual(state['frames'][2],state['baseline'])
+        with self.lock.held():
+            owner=self.make();self.assertFalse(owner.preference_packet(owner.state['frames'][0]['preferences'])['source']['snapshot']['writer']['matchesPhysical'])
+            self.assertTrue(owner.preference_packet(owner.state['baseline']['preferences'])['source']['snapshot']['writer']['matchesPhysical'])
+        self.assertLessEqual(len(state['frames']),128)
+        for reference in state['frames']:
+            path=self.root/reference['name'];self.assertTrue(path.is_file());self.assertEqual(0o600,path.stat().st_mode&0o777)
+    def test_missing_original_preferences_never_creates_a_default_baseline_or_sends_input(self):
+        self.preference_missing=True
+        with self.assertRaises(RuntimeError):self.invoke('prepare')
+        self.assertFalse(self.native.inputs);self.assertIsNone(self.store.read())
+    def test_foreign_original_leaf_binding_refuses_cold_reconstruction_and_preserves_owner(self):
+        self.invoke('prepare');root=self.store.read();state=unpack(root['payload'])[0];reference=state['frames'][0]
+        leaf=PrivateFeatureState(self.root/reference['name']);original=leaf.read();foreign=deepcopy(original);foreign['binding']['targetFingerprint']='0'*64;leaf.write(foreign,original)
+        before=self.native_queries
+        with self.assertRaises(RuntimeError):self.invoke('sample')
+        self.assertEqual(before,self.native_queries);self.assertFalse(self.native.inputs);self.assertEqual(root,self.store.read());self.assertEqual(foreign,leaf.read())
+    def test_preference_acquisition_phase_advance_or_host_age_prevents_first_input(self):
+        for fault in ('phase','slow'):
+            with self.subTest(original_boundary=fault):
+                if fault=='slow':self.doCleanups();self.setUp()
+                self.invoke('prepare');self.activate('avatar-url',dict(resource='avatar-a.fst'));saved=self.store.read()
+                def changed_original():
+                    self.preference_reads_hook=None
+                    if fault=='phase':self.activate('cleanup')
+                    else:self.clock+=2
+                self.preference_reads_hook=changed_original
+                with self.assertRaises(RuntimeError):self.invoke('act')
+                self.assertFalse(self.native.inputs);self.assertEqual(saved,self.store.read())
+    def test_leaf_written_before_lost_first_root_cas_stays_owned_without_input(self):
+        original=PrivateFeatureState.write
+        def lost_root(store,value,previous):
+            if store.path==self.store.path:raise OSError('Declared lost first root CAS before publication')
+            return original(store,value,previous)
+        with patch.object(PrivateFeatureState,'write',lost_root):
+            with self.assertRaises(RuntimeError):self.invoke('prepare')
+        self.assertIsNone(self.store.read());self.assertFalse(self.native.inputs)
+        self.assertTrue(list(self.root.glob('avatar-urls-frame-*.json')));self.assertTrue(self.instance._avatar_urls_owned(self.target))
+    def test_legacy_pending_owner_is_read_only_reconciled_without_new_preference_baseline(self):
+        self.invoke('prepare');self.activate('avatar-url',dict(resource='avatar-a.fst'));self.lost=True
+        with self.assertRaises(RuntimeError):self.invoke('act')
+        self.lost=False
+        with self.lock.held():state=deepcopy(self.make().state)
+        state.pop('baselineIndex')
+        for frame in state['frames']:frame.pop('preferences')
+        state['baseline'].pop('preferences')
+        from adapters.script_journey.history import pack
+        current=self.store.read();legacy=deepcopy(current);legacy['picoAvatarUrlsOwnerVersion']=1;legacy['payload']=pack([state]);self.store.write(legacy,current)
+        count=len(self.native.inputs);preferences_before=self.preferences_queries;self.invoke('reconcile')
+        self.assertEqual(count,len(self.native.inputs));self.assertEqual(preferences_before,self.preferences_queries);self.assertEqual(1,self.store.read()['picoAvatarUrlsOwnerVersion'])
+        self.activate('cleanup')
+        with self.assertRaises(RuntimeError):self.invoke('cleanup')
+        self.assertEqual(count,len(self.native.inputs));self.assertIsNotNone(self.store.read());self.assertTrue(self.instance._avatar_urls_owned(self.target))
     def test_lost_confirm_is_only_observed_after_cold_reconstruction(self):
         self.invoke('prepare');self.activate('avatar-url',dict(resource='avatar-a.fst'));self.lost=True
         with self.assertRaises(RuntimeError):self.invoke('act')

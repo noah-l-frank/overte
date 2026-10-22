@@ -14,6 +14,20 @@ FILE='feature-pico-avatar-preferences.json'
 FIELDS=('dominantHand','strafeEnabled','hmdAvatarAlignmentType','headPitch','scale','yawSpeed','hmdYawSpeed','cameraSensitivity','pitchSpeed',
     'fullAvatarURL','fullAvatarModelName','animGraphURL','displayName','collisionSoundURL','useSnapTurn','hoverWhenUnsupported','userHeight',
     'flyingHMD','movementReference','avatarEntityCount','vrWalkSpeed','allowAvatarStandingPreference','allowAvatarLeaningPreference')
+FLOAT_FIELDS={'headPitch','scale','yawSpeed','hmdYawSpeed','cameraSensitivity','pitchSpeed','userHeight','vrWalkSpeed'}
+BOOL_FIELDS={'strafeEnabled','useSnapTurn','hoverWhenUnsupported','flyingHMD'}
+URL_FIELDS={'fullAvatarURL','fullAvatarModelName','animGraphURL','collisionSoundURL'}
+
+
+def handle_type(field):
+    if field.startswith('avatarEntityID/'):return 30,'QUuid'
+    if field.startswith('avatarEntityData/'):return 12,'QByteArray'
+    if field in FLOAT_FIELDS:return 38,'float'
+    if field in BOOL_FIELDS:return 1,'bool'
+    if field in URL_FIELDS:return 17,'QUrl'
+    if field in ('movementReference','avatarEntityCount'):return 2,'int'
+    return 10,'QString'
+
 
 
 def normalized(key):return '/'.join(piece for piece in key.split('/') if piece)
@@ -58,7 +72,8 @@ def handles(value):
             'Avatar/avatarEntityData/size' if field=='avatarEntityCount' else
             'Avatar/avatarEntityData/'+str(int(field.split('/')[1])+1)+('/id' if field.startswith('avatarEntityID/') else '/properties') if '/' in field else 'Avatar/'+field)
         need(item['key']==expected_key)
-        raw(item['value']);raw(item['default']);need(item['value']['typeId']==item['default']['typeId'] and item['value']['typeName']==item['default']['typeName'])
+        raw(item['value']);raw(item['default']);need((item['value']['typeId'],item['value']['typeName'])==handle_type(field)
+            and (item['default']['typeId'],item['default']['typeName'])==handle_type(field))
 
 
 

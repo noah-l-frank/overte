@@ -293,8 +293,73 @@ browse-setting/Handle/worker regression passed unchanged assertions in 7.830 s.
 The two new registry entries are `native-avatar-preference-storage` and
 `pico-avatar-preferences-source`, both current/read version 1.
 
-This is a passive source and admission boundary. The current durable URL owner
-has not yet stored this preference baseline before its first normal input.
-A joined Bookmark/Scale owner, exact typed Handle/cache/physical restoration,
+The passive source is now included in the v2 durable URL admission described
+below. A joined Bookmark/Scale owner, exact typed Handle/cache/physical restoration,
 original bookmark-load callback retirement and the full fifteen-step parent
 remain open. No restore operation or full settings-cleanup claim is provided.
+
+
+## URL owner v2: pre-input preferences and immutable originals
+
+New private URL owners capture the actual preference source before any normal
+input and retain it alongside each independent native Avatar and original UI
+sample. Native subject/session and live values must agree across that bracket.
+Preparation can resume its read-only pending settling phase: cache/writer and
+physical rows must actually agree and remain unchanged for three host seconds
+and three original native seconds, with no gap above 500 ms. Earlier unsettled
+originals are retained; they never become an absent/default starting value.
+The prepared baseline index belongs to the original baseline fixture phase.
+
+Every subsequent URL effect also requires actual cache/writer/physical
+agreement and a quiet original preference source. The normal input intent and
+final existing NativeNavigationIO before-send callback still recheck the exact
+fixture activation, source anchors and root CAS. Retained final copy and CAS
+work remain inside the combined native/host age fence. Expired sources or phase
+advances cannot publish input, and uncertain input is never sent again.
+The parser additionally requires the actual fixed C++ Handle types and names.
+Native raw acquisition preflights a bounded closed tree of built-in values;
+custom QVariant serializers and excessive depth/nodes/bytes are refused before
+QDataStream can execute them. Unknown originals never become a default baseline.
+
+Including these independent raw originals inline reached the unchanged 48-KiB
+compressed root limit at frame 70 in a measured normal three-URL host flow.
+Owner v2 therefore reuses the immutable content-addressed private blob pattern
+from fixed Phone5527: every original frame has its own bounded private record,
+while the root stores exact SHA-256 references. Each leaf carries the full
+candidate/process/target binding, run and fixture URL. Cold reconstruction
+verifies all original payload hashes and owner contexts before reading current
+sources. The root 48-KiB pack limit, 64-KiB private-record limit, 128 frames,
+512 native requests, finite callbacks and all original freshness limits remain
+unchanged. A leaf is never overwritten or truncated to fit. A leaf written
+before a lost first root CAS remains owned and blocks base cleanup; its target
+key remains in the private name. All leaves remain retained while whole
+Avatar/People retirement is unresolved.
+
+The `pico-avatar-urls-owner` registry now writes version 2 and reads versions 1
+and 2. Version 1 files retain their original inline frames and can still be
+sampled or reconciled read-only. They cannot prepare, activate or clean up via
+new normal input because an original pre-input preference baseline cannot be
+recovered retrospectively. Their exact version, source IDs/times, pending
+ownership and retained cleanup boundary remain intact.
+
+The enlarged owner regression is divided into `avatar-urls-owner`,
+`avatar-urls-recovery`, `avatar-urls-fences` and `avatar-urls-cleanup`. Coverage
+checks require every owning case to appear exactly once in those partitions;
+no case or assertion is dropped and the normal 120-second per-group timeout is
+unchanged. The local catalog has 112 groups. Normal-pointer/native effects,
+private persistence and phase races still have explicit SDK/Qt/model actors in
+the host owner test; the separate native Qt test remains the storage authority.
+
+Validation on 2026-10-23: the four disjoint groups passed all 15 cases in
+90.56 seconds (owner 25.079, recovery 16.270, fences 18.677, cleanup 30.533).
+The original Manager/worker/Handle/JSON native test, including the custom
+serializer and nested/deep/oversized-value counterexamples, passed with Qt5
+in 8.305 seconds and Qt6 in 13.040 seconds. These are host proofs with the
+declared application/model seams; no physical device was run.
+
+The URL restored flag describes the observed URL/model subflow. It does not
+mean the original persisted preference presence/types or lazy Handle state has
+been restored. Exact native-owned CAS restoration, joined Favorites/Scale,
+wearables, mutual contact/actor facts, resource consumption, actual remote
+stereo evidence and full native/context/callback cleanup remain unfinished.
+No full Feature 3 capability is enabled.
