@@ -8,7 +8,7 @@ import unittest
 import uuid
 from unittest.mock import patch
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
-from adapters.chat_journey.normal_input import ChatNormalInput
+from adapters.chat_journey.normal_input import ChatNormalInput,stored_attempts
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.normal_ui import NativeUIError
 from adapters.token_chat_ui import TokenChatUI
@@ -69,7 +69,7 @@ class NormalInputTests(unittest.TestCase):
     def make(self):
         return ChatNormalInput(self.roles,lambda intent:TokenChatUI(self.widgets,intent,RUN,
             monotonic=lambda:self.clock,sleep=self.sleep),self.store,enter=self.enter,monotonic=lambda:self.clock,sleep=self.sleep)
-    def attempts(self):return unpack(self.store.read()['attempts'])
+    def attempts(self):return stored_attempts(self.store,self.owner.scope)[0]
     def act(self,verb,**inputs):return self.owner.perform(uuid.uuid4().hex,verb,inputs,20000)
     def prepared(self):
         self.act('open');self.act('select-channel',channel='domain');self.act('type',text=context(RUN)['unicode'])
@@ -191,6 +191,43 @@ class NormalInputTests(unittest.TestCase):
         self.widgets.open_tablet=open_tablet;observed=self.act('open')
         self.assertTrue(observed[0]['state']['open']);self.assertEqual(1,len(gestures))
         self.assertEqual(['controller-open','activate'],[value['action'] for value in self.attempts()[0]['inputIntents']])
+
+    def test_completed_attempts_are_original_immutable_chunks_and_reconstruction_is_passive(self):
+        self.prepared();before=[len(source.commands) for source in (self.h.primary,self.h.peer,self.h.view,self.h.native)]
+        original=self.attempts();disk=self.store.read();self.assertEqual(3,len(disk['chunks']))
+        self.assertEqual([original[-1]],unpack(disk['attempts']))
+        rebuilt=self.make();self.assertEqual(original,rebuilt.base['attempts'])
+        self.assertEqual(before,[len(source.commands) for source in (self.h.primary,self.h.peer,self.h.view,self.h.native)])
+        self.assertEqual(original,rebuilt.chunks.load(disk['chunks']))
+
+    def test_lost_original_archive_or_reading_write_stays_unknown_without_new_input(self):
+        for fault in ('reading-write','archive'):
+            with self.subTest(fault=fault):
+                self.setUp();write=self.store.write;append=self.owner.chunks.append
+                def lost_write(value,previous):
+                    write(value,previous)
+                    if value['phase']=='reading':raise OSError('Original reading intent landed; receipt lost')
+                def lost_archive(frame,manifest):
+                    append(frame,manifest);raise OSError('Original immutable child landed; receipt lost')
+                if fault=='reading-write':self.store.write=lost_write
+                else:self.owner.chunks.append=lost_archive
+                with self.assertRaises(NativeUIError):self.act('open')
+                self.assertEqual(1,len(self.widgets.calls));self.assertEqual('reading',self.store.read()['phase'])
+                original=self.store.path.read_bytes()
+                with self.assertRaises(NativeUIError):self.make()
+                with self.assertRaises(NativeUIError):self.act('open')
+                self.assertEqual(1,len(self.widgets.calls));self.assertEqual(original,self.store.path.read_bytes())
+
+    def test_replaced_completed_chunk_and_old_v1_root_cannot_be_adopted_or_dispatch(self):
+        self.act('open');chunk=self.owner.chunks.store(0);old=chunk.read();chunk.write({**old,'scopeSha256':'f'*64},old)
+        before=len(self.widgets.calls)
+        with self.assertRaises(NativeUIError):self.make()
+        with self.assertRaises(NativeUIError):self.act('type',text=context(RUN)['unicode'])
+        self.assertEqual(before,len(self.widgets.calls))
+        self.setUp();self.act('open');old=self.store.read();self.store.write({**old,'chatNormalInputVersion':1},old)
+        original=self.store.path.read_bytes();before=len(self.widgets.calls)
+        with self.assertRaises(NativeUIError):self.make()
+        self.assertEqual(original,self.store.path.read_bytes());self.assertEqual(before,len(self.widgets.calls))
 
 
 if __name__=='__main__':unittest.main()

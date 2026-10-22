@@ -98,7 +98,7 @@ REQUIRED = {
     "chat-journey-source-chunks": 1,
     "chat-cache-absence-samples": 1,
     "chat-mixer-owner": 1,
-    "chat-normal-input": 1,
+    "chat-normal-input": 2,
     "chat-background-owner": 2,
     "chat-flow-inputs": 3,
     "chat-independent-witness": 3,
