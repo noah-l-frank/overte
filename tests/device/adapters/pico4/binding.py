@@ -1194,6 +1194,11 @@ def create_adapter(args, base_class):
             return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-','chat-capture-owner-')))
 
         @_private
+        def _pico_lifecycle_input_once(self,target,operation,binding,*,before_input):
+            from adapters.pico4.lifecycle_input import issue_once
+            return issue_once(self,target,operation,binding,before_input=before_input)
+
+        @_private
         def _chat_capture(self,target,run):
             manager=self._scripts(target);native=self._native_feature_observer(target)
             owner=ChatCaptureOwner(self._chat_capture_store(target),manager.binding,native.guard)
