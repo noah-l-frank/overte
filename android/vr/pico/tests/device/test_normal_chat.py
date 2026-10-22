@@ -110,4 +110,6 @@ class PicoChatTests(unittest.TestCase):
         self.assertTrue(self.widget.panel);self.assertTrue(self.intents)
 
 
+from test_chat_erase_binding import PicoChatControlsTests
+
 if __name__=='__main__':unittest.main()

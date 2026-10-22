@@ -7,8 +7,8 @@ from adapters.token_chat_ui import control_id,snapshot
 
 
 def project(original):
-    need(type(original.get('chatControlsVersion')) is int and original['chatControlsVersion']==1)
-    return snapshot(dict(chatControlsVersion=1,open=original['open'],ready=original['ready'],
+    need(type(original.get('chatControlsVersion')) is int and original['chatControlsVersion'] in (1,2))
+    return snapshot(dict(chatControlsVersion=original['chatControlsVersion'],open=original['open'],ready=original['ready'],
         scope=dict(instance=original['bridgeId'],generation=original['generation'],sequence=original['lastCommandSequence'],
                    elapsedMs=original['elapsedMs'],processId=original['processId']),
         controls=deepcopy([row for row in original['controls'] if control_id(row['id'])])))

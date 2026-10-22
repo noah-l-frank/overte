@@ -89,7 +89,7 @@ def validate_snapshot(value, process_id, epoch_ms):
         need(type(value['graphicsControlsVersion']) is int and value['graphicsControlsVersion']==1)
     if type(value) is dict and 'chatControlsVersion' in value:
         fields.add('chatControlsVersion')
-        need(type(value['chatControlsVersion']) is int and value['chatControlsVersion']==1)
+        need(type(value['chatControlsVersion']) is int and value['chatControlsVersion'] in (1,2))
     if type(value) is dict and 'createControlsVersion' in value:
         fields.add('createControlsVersion')
         need(type(value['createControlsVersion']) is int and value['createControlsVersion']==1)
@@ -138,7 +138,8 @@ def validate_snapshot(value, process_id, epoch_ms):
         elif is_places:
             need(value.get('placesControlsVersion')==1);places_metadata(control);fields=set(control)
         elif is_chat:
-            need(value.get('chatControlsVersion')==1);chat_metadata(control);fields=set(control)
+            need(value.get('chatControlsVersion') in (1,2));chat_metadata(control);fields=set(control)
+            if control['id'] in ('chat.settings','chat.erase'):need(value['chatControlsVersion']==2)
         elif is_create:
             need(value.get('createControlsVersion')==1);create_metadata(control);fields=set(control)
         elif control['id'] in ACCOUNT_MENU_IDS:
@@ -347,7 +348,7 @@ class PicoNavigation:
             need(snapshot.get('accountMenuControlsVersion')==1 and control['inputReady'] and token is not None
                  and action=='activate' and all(v is None for v in (text,source,index,direction,value,reference)))
         elif is_chat:
-            need(reference is not None and snapshot.get('chatControlsVersion')==1 and control['inputReady']
+            need(reference is not None and snapshot.get('chatControlsVersion') in (1,2) and control['inputReady']
                  and control_id!='chat.page' and value is None and direction is None and index is None and source is None
                  and action in ('activate','replace','submit'))
             if action in ('replace','submit'):need(control_id=='chat.input' and control['focused'])

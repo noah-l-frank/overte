@@ -330,7 +330,7 @@ QJsonObject NavigationUi::observe(QQuickItem* root, QQuickWindow* window, bool o
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     result["featureControlsVersion"] = 1;
     result["createControlsVersion"] = 1;
-    result["chatControlsVersion"] = 1;
+    result["chatControlsVersion"] = 2;
     result["fileControlsVersion"] = 1;
     if (audioContext.valid) { result["audioControlsVersion"] = 1; }
     if (graphicsContext.valid) { result["graphicsControlsVersion"] = 1; }
@@ -436,7 +436,7 @@ QJsonObject NavigationUi::apply(QQuickItem* root, QQuickWindow* window, bool ope
                 && pointerClick && overte::e2e::NormalControlUi::ownsPoint(control.item,window,point)) { delivered=pointerClick(control.item); }
     } else if (controlId.startsWith("chat.")) {
         QJsonObject row;overte::e2e::appendChatControlObservation(row,control.item,controlId);
-        if (current.value("chatControlsVersion")!=QJsonValue(1) || !row.value("inputReady").toBool()) { return result; }
+        if (current.value("chatControlsVersion")!=QJsonValue(2) || !row.value("inputReady").toBool()) { return result; }
         const auto point=control.item->mapToScene(QPointF(control.item->width()/2,control.item->height()/2));
         if (action=="activate" && controlId!="chat.page" && pointerClick
                 && overte::e2e::NormalControlUi::ownsPoint(control.item,window,point)) { delivered=pointerClick(control.item); }
