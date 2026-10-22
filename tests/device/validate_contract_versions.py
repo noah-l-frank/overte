@@ -25,6 +25,7 @@ REQUIRED = {
     "ios-pointer-state": 1,
     "native-ios-pointer-source": 1,
     "ios-pointer-drain": 1,
+    "native-keys-raw": 1,
     "ios-emote-pointers": 1,
     "ios-emote-pointer-receipt": 1,
     "ios-emote-pointer-original": 1,

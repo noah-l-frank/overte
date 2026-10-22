@@ -17,6 +17,7 @@
     "ios-pointer-state": {"current": 1, "reads": [1]},
     "native-ios-pointer-source": {"current": 1, "reads": [1]},
     "ios-pointer-drain": {"current": 1, "reads": [1]},
+    "native-keys-raw": {"current": 1, "reads": [1]},
 
     "ios-emote-pointers": {"current": 1, "reads": [1]},
     "ios-emote-pointer-receipt": {"current": 1, "reads": [1]},
