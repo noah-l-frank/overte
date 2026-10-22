@@ -24,7 +24,20 @@ activation prefix must still equal the original pending call, or the recorded
 cleanup activation. Advancing or retired phases retain the original pending
 owner without dispatch or replay. Act/reconciliation completion and final
 retirement freshly check the phase again, then all acquired source/UI capture
-ages, before changing completion or removing originals.
+ages, before changing completion or removing originals. A combined sample
+anchor retains original native epoch plus host monotonic start before source
+acquisition. Admission uses the maximum of actual native now and the initial
+epoch plus rounded-up elapsed host milliseconds, including final phase reads,
+retained copies, Root CAS and candidate guards. Frozen native time cannot hide
+a slow host. Original packet clocks are never changed.
+
+The bounded `pico-create-feature-completion` v1 companion retains the exact
+original call through the pending-clear CAS and its subsequent checks. A
+failed post-write check restores pending; if that restoration itself fails or
+the process stops mid-transition, the companion blocks later input and
+restores the original ticket before read-only reconciliation. It grants no
+effect, retry or fixture mutation. Retirement retains it until original joint
+proof; no marker is interpreted as a successful input receipt.
 
 Stored calls must exist with their exact typed stimulus and order in the
 original fixture phase history. No requested state is accepted.
