@@ -12,6 +12,7 @@ import uuid
 
 from contracts import validate_operation_arguments
 from navigation_observation import OPERATIONS, viewpoint_urls
+from adapters.token_lifecycle_ui import ID as LIFECYCLE_ID,text as lifecycle_text,metadata as lifecycle_metadata,same_reference as lifecycle_same_reference
 from adapters.token_chat_ui import metadata as chat_metadata,control_id as chat_control,text as chat_text,same_reference as chat_same_reference
 from adapters.token_create_ui import metadata as create_metadata,control_id as create_control,field as create_field,choice as create_choice,ascii_text,same_reference
 from adapters.token_login_ui import IDS as LOGIN_IDS,VERSION as LOGIN_VERSION,metadata_fields as login_metadata_fields,validate_metadata as validate_login_metadata
@@ -90,6 +91,9 @@ def validate_snapshot(value, process_id, epoch_ms):
     if type(value) is dict and 'chatControlsVersion' in value:
         fields.add('chatControlsVersion')
         need(type(value['chatControlsVersion']) is int and value['chatControlsVersion']==1)
+    if type(value) is dict and 'lifecycleControlsVersion' in value:
+        fields.add('lifecycleControlsVersion')
+        need(type(value['lifecycleControlsVersion']) is int and value['lifecycleControlsVersion']==1)
     if type(value) is dict and 'createControlsVersion' in value:
         fields.add('createControlsVersion')
         need(type(value['createControlsVersion']) is int and value['createControlsVersion']==1)
@@ -133,7 +137,9 @@ def validate_snapshot(value, process_id, epoch_ms):
         is_chat=control['id'].startswith('chat.')
         is_places=control['id'].startswith('places.')
         is_error=control['id'].startswith('navigation.error.ok.')
-        if is_error:
+        if control['id'].startswith('lifecycle.'):
+            need(control['id']==LIFECYCLE_ID and value.get('lifecycleControlsVersion')==1);lifecycle_metadata(control);fields=set(control)
+        elif is_error:
             need(value.get('navigationErrorControlsVersion')==1);error_metadata(control);fields=set(control)
         elif is_places:
             need(value.get('placesControlsVersion')==1);places_metadata(control);fields=set(control)
@@ -163,7 +169,7 @@ def validate_snapshot(value, process_id, epoch_ms):
                  or script_control(control['id']) or file_control(control['id']) or audio_control(control['id'])
                  or graphics_control(control['id']) or control['id'] in LOGIN_IDS or control['id'] in ACCOUNT_MENU_IDS
                  or is_create and create_control(control['id']) or is_chat and chat_control(control['id'])
-                 or is_places and places_control(control['id']) or is_error and error_control(control['id']))
+                 or is_places and places_control(control['id']) or is_error and error_control(control['id']) or control['id']==LIFECYCLE_ID)
              and identifier(control['token']) and control['id'] not in ids
              and control['token'] not in tokens and type(control['enabled']) is bool
              and type(control['focused']) is bool)
@@ -320,7 +326,10 @@ class PicoNavigation:
         is_error=control_id.startswith('navigation.error.ok.')
         if reference is not None:
             need(type(reference) is dict)
-            if 'navigationErrorControlsVersion' in reference:
+            if 'lifecycleControlsVersion' in reference:
+                from adapters.pico4.normal_lifecycle import project as lifecycle_project
+                original=lifecycle_same_reference(reference,lifecycle_project(snapshot),control_id)
+            elif 'navigationErrorControlsVersion' in reference:
                 from adapters.pico4.normal_navigation_error import project as error_project
                 original=error_same_reference(reference,error_project(snapshot),control_id)
             elif 'placesControlsVersion' in reference:
@@ -333,7 +342,13 @@ class PicoNavigation:
                 from adapters.pico4.normal_create import project
                 original=same_reference(reference,project(snapshot),control_id)
             need(original['token']==control['token'])
-        if is_error:
+        if control_id.startswith('lifecycle.'):
+            need(control_id==LIFECYCLE_ID and reference is not None and snapshot.get('lifecycleControlsVersion')==1
+                and control['inputReady'] and action in ('activate','replace')
+                and all(v is None for v in (source,index,direction,value)))
+            if action=='replace':need(control['focused']);lifecycle_text(text)
+            else:need(text is None)
+        elif is_error:
             need(reference is not None and snapshot.get('navigationErrorControlsVersion')==1 and control['inputReady']
                  and action=='activate' and all(v is None for v in (text,source,index,direction,value)))
         elif is_places:
@@ -414,6 +429,8 @@ class PicoNavigation:
                     owned_url(text, {'observer.js'})
             elif is_places:
                 need(control_id in ('places.search','places.bookmark.name','places.server.url'));ascii_text(text)
+            elif control_id==LIFECYCLE_ID:
+                lifecycle_text(text)
             elif is_chat:
                 need(control_id=='chat.input');chat_text(text)
             elif is_create:

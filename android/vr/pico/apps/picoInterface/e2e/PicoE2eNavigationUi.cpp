@@ -16,6 +16,7 @@
 #include "../../../../../../tests/device/native/NormalScriptFileControls.h"
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #include "../../../../../../tests/device/native/ScriptFileUi.h"
+#include "../../../../../../tests/device/native/NormalLifecycleControls.h"
 #include "../../../../../../tests/device/native/NormalAccountMenuControls.h"
 #include "../../../../../../tests/device/native/NormalPlacesControls.h"
 #include "../../../../../../tests/device/native/NavigationFailureModals.h"
@@ -72,6 +73,8 @@ QString controlId(QQuickItem* item) {
     const auto places = overte::e2e::placesControlId(item);
     if (!places.isEmpty()) { return places; }
 #endif
+    const auto lifecycle=overte::e2e::lifecycleControlId(item);
+    if (!lifecycle.isEmpty()) { return lifecycle; }
     const auto chat=overte::e2e::chatControlId(item);
     if (!chat.isEmpty()) { return chat; }
     const auto create=overte::e2e::createControlId(item);
@@ -233,6 +236,9 @@ QJsonObject NavigationUi::observe(QQuickItem* root, QQuickWindow* window, bool o
                 } else if (id=="navigation.goto" || id.startsWith("tablet.page.")) {
                     source=overte::e2e::navigationLookupControlSource(item,id);
                     if (source.isEmpty()) { ambiguous=true;return; }
+                } else if (id.startsWith("lifecycle.")) {
+                    source=overte::e2e::lifecycleControlSource(item,id);
+                    if (source.isEmpty()) { ambiguous=true;return; }
                 } else if (id.startsWith("chat.")) {
                     source=overte::e2e::chatControlSource(item,id);
                     if (source.isEmpty()) { ambiguous=true;return; }
@@ -305,6 +311,8 @@ QJsonObject NavigationUi::observe(QQuickItem* root, QQuickWindow* window, bool o
         if (id=="navigation.address") {
             const auto original=overte::e2e::navigationAddressObservation(control.item);
             for (auto item=original.begin();item!=original.end();++item) { row[item.key()]=item.value(); }
+        } else if (id.startsWith("lifecycle.")) {
+            overte::e2e::appendLifecycleControlObservation(row,control.item,id);
         } else if (id.startsWith("chat.")) {
             overte::e2e::appendChatControlObservation(row,control.item,id);
         } else if (id.startsWith("create.")) {
@@ -330,6 +338,7 @@ QJsonObject NavigationUi::observe(QQuickItem* root, QQuickWindow* window, bool o
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     result["featureControlsVersion"] = 1;
     result["createControlsVersion"] = 1;
+    result["lifecycleControlsVersion"] = 1;
     result["chatControlsVersion"] = 1;
     result["fileControlsVersion"] = 1;
     if (audioContext.valid) { result["audioControlsVersion"] = 1; }
@@ -434,6 +443,16 @@ QJsonObject NavigationUi::apply(QQuickItem* root, QQuickWindow* window, bool ope
         const auto point=control.item->mapToScene(QPointF(control.item->width()/2,control.item->height()/2));
         if (current.value("accountMenuControlsVersion")==QJsonValue(1) && ready && action=="activate"
                 && pointerClick && overte::e2e::NormalControlUi::ownsPoint(control.item,window,point)) { delivered=pointerClick(control.item); }
+    } else if (controlId.startsWith("lifecycle.")) {
+        QJsonObject row;overte::e2e::appendLifecycleControlObservation(row,control.item,controlId);
+        const auto point=control.item->mapToScene(QPointF(control.item->width()/2,control.item->height()/2));
+        if (current.value("lifecycleControlsVersion")!=QJsonValue(1) || !row.value("inputReady").toBool()
+                || !overte::e2e::NormalControlUi::ownsPoint(control.item,window,point)) { return result; }
+        if (action=="activate" && pointerClick) { delivered=pointerClick(control.item); }
+        else if (action=="replace" && command.value("text").isString()
+                && overte::e2e::lifecycleControlText(command.value("text").toString())) {
+            delivered=overte::ui::replaceFocusedField(control.item,window,command.value("text").toString());
+        }
     } else if (controlId.startsWith("chat.")) {
         QJsonObject row;overte::e2e::appendChatControlObservation(row,control.item,controlId);
         if (current.value("chatControlsVersion")!=QJsonValue(1) || !row.value("inputReady").toBool()) { return result; }

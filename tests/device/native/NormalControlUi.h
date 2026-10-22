@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 #pragma once
 
+#include "NormalScriptControls.h"
 #include "NormalScriptFileControls.h"
 #include "ScriptUiInventory.h"
 #include "NormalAudioControls.h"
@@ -9,6 +10,7 @@
 #include "NormalLoginControls.h"
 #include "NormalCreateControls.h"
 #include "NormalChatControls.h"
+#include "NormalLifecycleControls.h"
 #include <ui/NativeFieldInput.h>
 #include <QCoreApplication>
 #include <QDateTime>
@@ -29,7 +31,7 @@ namespace overte::e2e {
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 class NormalControlUi {
 public:
-    enum class Surface { ScriptFiles, Audio, Graphics, Login, Create, Chat };
+    enum class Surface { ScriptFiles, Audio, Graphics, Login, Create, Chat, Lifecycle };
     explicit NormalControlUi(Surface surface = Surface::ScriptFiles) : _surface(surface), _instance(nonce()), _generation(nonce()) { _clock.start(); }
 
     QJsonObject observe(QQuickItem* root, QQuickWindow* window, const AudioUiContext& audio = {}, const GraphicsUiContext& graphics = {}, const LoginUiContext& login = {}) {
@@ -55,7 +57,8 @@ public:
                     : _surface == Surface::Graphics ? graphicsControlId(item)
                     : _surface == Surface::Login ? loginControlId(item)
                     : _surface == Surface::Create ? createControlId(item)
-                    : _surface == Surface::Chat ? chatControlId(item) : scriptFileControlId(item);
+                    : _surface == Surface::Chat ? chatControlId(item)
+                    : _surface == Surface::Lifecycle ? lifecycleControlId(item) : scriptFileControlId(item);
                 if (!id.isEmpty()) {
                     if (controls.contains(id)) { ambiguous = true; return; }
                     const auto previous = _controls.value(id);
@@ -63,8 +66,9 @@ public:
                         : _surface == Surface::Graphics ? graphicsControlSource(item, id, graphics)
                         : _surface == Surface::Login ? loginControlSource(item, id, login)
                         : _surface == Surface::Create ? createControlSource(item,id)
-                        : _surface == Surface::Chat ? chatControlSource(item,id) : scriptFileControlSource(item);
-                    if (_surface==Surface::Chat && source.isEmpty()) { ambiguous=true;return; }
+                        : _surface == Surface::Chat ? chatControlSource(item,id)
+                        : _surface == Surface::Lifecycle ? lifecycleControlSource(item,id) : scriptFileControlSource(item);
+                    if ((_surface==Surface::Chat || _surface==Surface::Lifecycle) && source.isEmpty()) { ambiguous=true;return; }
                     controls.insert(id, {item, previous.item == item && previous.source == source ? previous.token : nonce(), source});
                 }
             }
@@ -94,6 +98,7 @@ public:
             else if (_surface == Surface::Login) { appendLoginControlObservation(row, control.item, id, login); }
             else if (_surface == Surface::Create) { appendCreateControlObservation(row,control.item,id); }
             else if (_surface == Surface::Chat) { appendChatControlObservation(row,control.item,id); }
+            else if (_surface == Surface::Lifecycle) { appendLifecycleControlObservation(row,control.item,id); }
             else { appendScriptFileObservation(row, control.item, id); }
             rows.append(row);
         }
@@ -107,7 +112,8 @@ public:
             : _surface == Surface::Graphics ? "graphicsControlsVersion"
             : _surface == Surface::Login ? "loginControlsVersion"
             : _surface == Surface::Create ? "createControlsVersion"
-            : _surface == Surface::Chat ? "chatControlsVersion" : "fileControlsVersion"] = _surface==Surface::Login ? 2 : 1;
+            : _surface == Surface::Chat ? "chatControlsVersion"
+            : _surface == Surface::Lifecycle ? "lifecycleControlsVersion" : "fileControlsVersion"] = _surface==Surface::Login ? 2 : 1;
         if (_surface==Surface::ScriptFiles) { result["scriptInventory"]=scriptInventory.observation(ready); }
         return result;
     }
@@ -144,6 +150,7 @@ public:
                     : _surface == Surface::Login ? action != "activate" && action != "replace" && action != "submit"
                     : _surface == Surface::Create ? action != "activate" && action != "replace" && action != "select-index" && action != "scroll"
                     : _surface == Surface::Chat ? action != "activate" && action != "replace" && action != "submit"
+                    : _surface == Surface::Lifecycle ? action != "activate" && action != "replace"
                     : action != "activate" && action != "replace" && action != "submit" && action != "select-index")) { return result; }
         // Consume intent before dispatch; never replay uncertain native input.
         _lastCommandSequence = sequence;
@@ -152,7 +159,15 @@ public:
         if (!control.item || !control.item->isEnabled() || command.value("controlToken") != QJsonValue(control.token)
                 || visibleRect(control.item, window).isEmpty()) { return result; }
         bool delivered {false};
-        if (_surface == Surface::Chat) {
+        if (_surface == Surface::Lifecycle) {
+            QJsonObject row;appendLifecycleControlObservation(row,control.item,id);
+            const auto point=control.item->mapToScene(QPointF(control.item->width()/2,control.item->height()/2));
+            if (!row.value("inputReady").toBool() || !ownsPoint(control.item,window,point)) { return result; }
+            if (action=="activate" && pointerClick) { delivered=pointerClick(control.item); }
+            else if (action=="replace" && command.value("text").isString() && lifecycleControlText(command.value("text").toString())) {
+                delivered=overte::ui::replaceFocusedField(control.item,window,command.value("text").toString());
+            }
+        } else if (_surface == Surface::Chat) {
             QJsonObject row;appendChatControlObservation(row,control.item,id);
             if (!row.value("inputReady").toBool()) { return result; }
             const auto point=control.item->mapToScene(QPointF(control.item->width()/2,control.item->height()/2));
