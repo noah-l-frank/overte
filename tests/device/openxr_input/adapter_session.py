@@ -332,11 +332,13 @@ class PicoOpenXrAdapterSession:
             "native Pico OpenXR controller override was not consumed by an action query"
         ) from last_error
 
-    def stage(self, process_identity: str, operation: str, arguments: dict, *, intent=None) -> dict:
+    def stage(self, process_identity: str, operation: str, arguments: dict, *, intent=None, before_publish=None) -> dict:
         if not isinstance(process_identity, str) or not process_identity:
             raise AdapterSessionError("Pico application process identity is unavailable")
         if intent is not None and not callable(intent):
             raise AdapterSessionError("Pico OpenXR input intent writer is invalid")
+        if before_publish is not None and not callable(before_publish):
+            raise AdapterSessionError("Pico final publication admission is invalid")
         with self._lock():
             state = self._load()
             if state is None:
@@ -363,7 +365,14 @@ class PicoOpenXrAdapterSession:
                 # This pure host CAS/fsync callback runs while the exact input
                 # sequence is locked. It must not reenter this session/ADB.
                 intent(deepcopy(envelope))
-            staged = self.transport.stage(envelope, self.profile)
+            if before_publish is None:
+                staged = self.transport.stage(envelope, self.profile)
+            else:
+                # Transport invokes this only after its original SDK/profile
+                # validation, immediately before each original writer and the
+                # final native grant publication marker.
+                # Like intent(), it must not reenter this locked session/ADB.
+                staged = self.transport.stage(envelope, self.profile, before_publish=before_publish)
             state["nextSequence"] = sequence + 1
             # Persist immediately after the device-side grant commit. A later
             # acknowledgement timeout must never replay the committed sequence.

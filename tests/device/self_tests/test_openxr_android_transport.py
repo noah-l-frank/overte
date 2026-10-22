@@ -4,11 +4,14 @@
 from __future__ import annotations
 
 import json
+import math
 from copy import deepcopy
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from tests.device.openxr_input.android_transport import (
     AndroidOpenXrTransport, BUILD_MARKER, CONSUMER, TransportError,
@@ -17,6 +20,7 @@ from tests.device.openxr_input.android_transport import (
 
 
 ROOT = Path(__file__).resolve().parents[1] / "openxr_input"
+sys.path.insert(0,str(ROOT.parent))
 PROFILE = json.loads(
     (ROOT / "profiles/pico4-overte-controller.json").read_text(encoding="utf-8"))
 NONCE = "d" * 64
@@ -115,6 +119,80 @@ class OpenXrAndroidTransportTests(unittest.TestCase):
             self.transport.stage(self.envelope(), changed,
                                  now_ms=2_000_000_000_000)
         self.assertFalse(any(payload for _, payload in self.runner.calls))
+
+    def test_final_callback_is_after_original_sdk_validation_and_cannot_change_wire_bytes(self):
+        envelope=self.envelope();original=deepcopy(envelope);seen=[]
+        def final(value):
+            if not seen:self.assertEqual(['devices','get-state'],[command[-1] for command,_ in self.runner.calls])
+            self.assertEqual(len(seen),sum(bool(payload) for _,payload in self.runner.calls));seen.append(deepcopy(value))
+            value['commands'][0]['arguments']['durationSeconds']=.9
+            envelope['sequence']=999;envelope['commands'][0]['arguments']['durationSeconds']=.8
+        self.transport.stage(envelope,PROFILE,now_ms=2_000_000_000_000,before_publish=final)
+        self.assertEqual([original,original],seen);writes=[json.loads(payload) for _,payload in self.runner.calls if payload]
+        self.assertEqual(original,writes[0]);self.assertEqual(original['sequence'],writes[1]['sequence'])
+
+    def test_final_callback_failure_and_invalid_callback_never_publish_or_retry(self):
+        seen=[]
+        def refuse(value):seen.append(deepcopy(value));raise RuntimeError('original admission refused')
+        with self.assertRaisesRegex(RuntimeError,'original admission refused'):
+            self.transport.stage(self.envelope(),PROFILE,before_publish=refuse)
+        self.assertEqual(1,len(seen));self.assertFalse(any(payload for _,payload in self.runner.calls))
+        before=len(self.runner.calls)
+        with self.assertRaises(TransportError):self.transport.stage(self.envelope(),PROFILE,before_publish=False)
+        self.assertEqual(before,len(self.runner.calls))
+        changed=deepcopy(PROFILE);changed['viewInjection']['maxYawDegrees']=44
+        with self.assertRaises(TransportError):self.transport.stage(self.envelope(),changed,before_publish=seen.append)
+        self.assertEqual(1,len(seen));self.assertFalse(any(payload for _,payload in self.runner.calls))
+
+    def test_session_final_callback_rejects_slow_sdk_and_command_writer_after_single_durable_intent(self):
+        from tests.device.openxr_input.adapter_session import PicoOpenXrAdapterSession,AdapterSessionError
+        from adapters.normal_feature_state import PrivateFeatureState
+        from adapters.normal_ui import NativeUIError
+        root=Path(self.temporary.name);root.chmod(0o700)
+        for delayed in ('SDK','commands'):
+            with self.subTest(delayed=delayed):
+                directory=root/delayed;directory.mkdir(mode=0o700)
+                runner=FakeRunner(self.selector);transport=AndroidOpenXrTransport(self.adb,self.selector,runner=runner)
+                session=PicoOpenXrAdapterSession(transport,self.selector,directory);session.begin('42:original')
+                store=PrivateFeatureState(directory/'owned-original.json');clock=[10.0];writes=[];finals=[]
+                anchor=dict(hostStarted=clock[0],nativeEpochMs=10000)
+                def intent(value):
+                    # The original owner never replaces or resends a consumed intent.
+                    self.assertIsNone(store.read());original=dict(envelope=deepcopy(value),anchor=deepcopy(anchor))
+                    store.write(original,None);writes.append(original)
+                original_guard=transport.require_exclusive_target;original_write=transport._atomic_write
+                def guard():
+                    original_guard()
+                    if delayed=='SDK':clock[0]+=2
+                def written(name,payload):
+                    original_write(name,payload)
+                    if delayed=='commands' and name=='commands.json':clock[0]+=2
+                def final(value):
+                    finals.append(deepcopy(value));calls=len(runner.calls)
+                    # No live IO or session reentry while the actual session lock
+                    # is held. Only original private CAS and host-clock reads.
+                    with patch.object(transport,'_run',side_effect=AssertionError('callback attempted SDK IO')),\
+                            patch.object(session,'_lock',side_effect=AssertionError('callback reentered session')):
+                        original=store.read();self.assertEqual(value,original['envelope']);self.assertEqual(anchor,original['anchor'])
+                        # Original native epoch stays frozen despite the slow
+                        # real SDK guard/command writer. Host age still refuses.
+                        effective=max(10000,anchor['nativeEpochMs']+math.ceil((clock[0]-anchor['hostStarted'])*1000))
+                        if effective-original['anchor']['nativeEpochMs']>1500:raise NativeUIError('original input anchor aged')
+                    self.assertEqual(calls,len(runner.calls))
+                with patch.object(transport,'require_exclusive_target',guard),patch.object(transport,'_atomic_write',written),\
+                        patch.object(session,'_wait_for_ack',side_effect=AssertionError('unexpected grant/ACK')),self.assertRaises(NativeUIError):
+                    session.stage('42:original','input.primary',dict(positionMeters=[0,1,0],orientation=[0,0,0,1]),
+                        intent=intent,before_publish=final)
+                self.assertEqual(1,len(writes));self.assertEqual(1 if delayed=='SDK' else 2,len(finals));self.assertIsNotNone(store.read())
+                payloads=[payload for _,payload in runner.calls if payload]
+                self.assertEqual(0 if delayed=='SDK' else 1,len(payloads))
+                self.assertFalse(any(payload and 'grant.json' in command[-1] for command,payload in runner.calls))
+                self.assertEqual(1,session._load()['nextSequence'])
+                before=len(runner.calls)
+                with self.assertRaises(AssertionError):
+                    session.stage('42:original','input.primary',dict(positionMeters=[0,1,0],orientation=[0,0,0,1]),intent=intent,before_publish=final)
+                self.assertEqual(before,len(runner.calls));self.assertEqual(1,len(writes))
+                with self.assertRaises(AdapterSessionError):session.stage('42:original','input.primary',{},before_publish=False)
 
     def test_exclusivity_is_checked_before_any_write(self) -> None:
         class TwoDeviceRunner(FakeRunner):
