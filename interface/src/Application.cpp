@@ -1193,6 +1193,16 @@ bool Application::prepareServerlessDomainContents(const QUrl& domainURL, const Q
     return true;
 }
 
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+void Application::recordFeatureSceneCommitOrigin(quint64 generation,const QUrl& url,const QByteArray& body) {
+    if (!QCoreApplication::arguments().contains("--testScript")) { return; }
+    _featureSceneCommitOrigin.committed(generation,url,body,[&]() -> QVariantMap {
+        const auto entities=getEntities();
+        return entities && entities->getTree() ? entities->getTree()->featureEntityInventory() : QVariantMap();
+    });
+}
+#endif
+
 void Application::loadServerlessDomain(QUrl domainURL) {
     if (QThread::currentThread() != thread()) {
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
@@ -1356,6 +1366,7 @@ void Application::loadServerlessDomain(QUrl domainURL) {
         logIOSRuntimeEntityEvidence(commitIOSRuntimeEntityEvidence());
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
         if (featureLoad) { featureLoad->phase("committed"); }
+        recordFeatureSceneCommitOrigin(requestGeneration,domainURL,domainData);
 #endif
 
         return;
@@ -1500,6 +1511,7 @@ void Application::loadServerlessDomain(QUrl domainURL) {
             logIOSRuntimeEntityEvidence(commitIOSRuntimeEntityEvidence());
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
             if (featureLoad) { featureLoad->phase("committed"); }
+            recordFeatureSceneCommitOrigin(requestGeneration,domainURL,request->getData());
 #endif
 
 #endif

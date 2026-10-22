@@ -18,6 +18,7 @@
 #include <QtWidgets/QApplication>
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
 #include "../../tests/device/native/SceneLoadObservation.h"
+#include "../../tests/device/native/SceneCommitOrigin.h"
 #endif
 #include <deque>
 #include <functional>
@@ -100,6 +101,7 @@ class Application : public QApplication,
 public:
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
     QVariantMap featureSceneLoadObservation() { return _featureSceneLoads->snapshot(_serverlessDomainRequestGeneration); }
+    QVariantMap featureSceneCommitOrigin() const { return _featureSceneCommitOrigin.snapshot(_serverlessDomainRequestGeneration); }
 #endif
     Application(
         int& argc, char** argv,
@@ -1045,6 +1047,8 @@ private:
     quint64 _serverlessDomainRequestGeneration { 0 };
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
     std::shared_ptr<overte::e2e::FeatureSceneLoads> _featureSceneLoads { std::make_shared<overte::e2e::FeatureSceneLoads>() };
+    overte::e2e::SceneCommitOrigin _featureSceneCommitOrigin;
+    void recordFeatureSceneCommitOrigin(quint64 generation,const QUrl& url,const QByteArray& body);
 #endif
 #if defined(ANDROID_APP_PICO_INTERFACE)
     bool _picoServerlessLoadFailed { false };

@@ -6,6 +6,44 @@ entities outside the camera or any spatial radius. It does not publish a feature
 capability, import/delete entities, establish a pristine original fixture or
 prove renderer/Web/GPU consumer retirement.
 
+Version 2 additionally retains the actual most recent successful import's
+[commit origin](../native/SceneCommitOrigin.h). Version-1 originals remain
+readable, with no implied origin. The original request's byte count/SHA-256 and
+resource hash are captured at the actual local-file or remote import commit,
+together with a bounded whole-tree editable-wire snapshot and native UTC and
+monotonic brackets. No later query may select or replace that baseline. This
+instrumentation is gated by `OVERTE_E2E_FEATURE_TESTS`, iOS and `--testScript`.
+It invokes no entity setter, navigation, load, reload or callback cancellation.
+
+The origin records process/source birth, observed current request generation,
+successful import count, completeness and its latest original. It is a snapshot
+of the latest successful commit, not a full import-history ledger. The separate
+scene-load source retains request and delivery lifetime history. Failed/stale
+later requests cannot make the old origin current. The original record remains
+immutable while its import count stays unchanged. Counter/source rollback,
+completeness resurrection or a future/foreign commit clock is rejected. Import
+overflow or an incomplete native anchor fails closed until a separately admitted
+source cohort. Both current and anchor inventories must fit the existing total
+packet limit; oversized combined evidence is unavailable, never truncated.
+
+`unchanged_since_commit(original, actual_scene_url)` requires a current genuinely
+committed generation and no live scene-load leases. The actual resource, original
+byte count and commit clocks must match that same native request. It compares
+every current entity ID/host/editable-wire hash to the independently frozen
+commit map. An unsaved edit, addition, deletion or replacement is rejected
+before a scene may be left. Notification revisions and creation/edit clocks
+remain original and separate from the declared editable semantics. Legacy,
+missing or incomplete origins cannot establish this condition. Historical
+comparison stays historical; it cannot refresh the original or reset an anchor.
+
+This is one necessary admission condition. The whole coordinator still needs
+actual stable original resource-byte availability and matching restored body
+hash, original pose/camera/settings/panels, absence of pending work, ordinary
+input and independent repeated cleanup. The generic fixture's script may make
+real edits after commit; those edits are not silently approved as reloadable.
+A separately chosen static base-scene input remains to be supplied. No source
+packet alone establishes a pristine whole product or grants a feature capability.
+
 The native `feature-ios-scene-inventory` command is closed: schemaVersion 1,
 a new iOS nonce, action and run ID. No expected entities, ID filter, radius,
 output digest or requested state is accepted. The existing HTTP/probe/AFC

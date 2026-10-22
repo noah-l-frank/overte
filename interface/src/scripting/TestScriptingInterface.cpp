@@ -528,12 +528,15 @@ QVariantMap TestScriptingInterface::featureIOSSceneInventory(const QVariantMap& 
     const auto entities=DependencyManager::get<EntityScriptingInterface>();
     if (!entities || !entities->getEntityTree()) { return {}; }
     if (!_featureIOSSceneInventory) { _featureIOSSceneInventory=std::make_shared<overte::e2e::NativeReadBracket>(); }
-    return _featureIOSSceneInventory->read("iosSceneInventoryVersion","native-main-scene-inventory",request,run,[&]() -> QVariantMap {
+    auto result=_featureIOSSceneInventory->read("iosSceneInventoryVersion","native-main-scene-inventory",request,run,[&]() -> QVariantMap {
         const auto tree=entities->getEntityTree()->featureEntityInventory();if (tree.isEmpty()) { return {}; }
         auto sceneCommand=command;sceneCommand["action"]="feature-scene-load-observe";
         const auto scene=featureSceneLoadObservation(sceneCommand);if (scene.isEmpty()) { return {}; }
-        return {{"tree",tree},{"sceneLoads",scene}};
+        const auto origin=qApp->featureSceneCommitOrigin();if (origin.isEmpty()) { return {}; }
+        return {{"tree",tree},{"sceneLoads",scene},{"commitOrigin",origin}};
     });
+    if (!result.isEmpty()) { result.insert("iosSceneInventoryVersion",2); }
+    return result;
 }
 
 QVariantMap TestScriptingInterface::featureIOSNavigationState(const QVariantMap& command) {

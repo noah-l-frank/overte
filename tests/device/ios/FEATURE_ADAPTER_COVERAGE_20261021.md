@@ -32,6 +32,10 @@ runtime admission, publication, restart and whole-run cleanup remain partial.
 Its runtime factory now uses the existing candidate-qualified iOS session,
 original native clocks and typed HTTP/AFC readers without launching or sending
 input. This is source wiring; complete operation dispatch is still required.
+Version-2 [whole-tree inventory](SCENE_INVENTORY.md) also freezes actual imported
+body hashes and editable maps at native commit, so a later admission can reject
+unsaved edits before leaving. Stable base-scene inputs and the scene owner are
+still required; native changes remain uncompiled.
 
 The canonical physical source binding and explicit lost-launch recovery have
 host-tested implementations. The native byte observer and SDK plugin remain
