@@ -9,6 +9,9 @@ from pathlib import Path
 
 
 REQUIRED = {
+    "ios-emote-native-prefix": 1,
+    "ios-emote-source-recovery": 1,
+    "ios-emote-abandoned-source": 1,
     "ios-create-action-owner": 1,
     "ios-create-actions": 1,
     "ios-create-rez-client": 1,

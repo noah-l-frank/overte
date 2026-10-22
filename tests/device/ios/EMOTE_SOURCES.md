@@ -153,3 +153,23 @@ Shared reconciliation manifest: `native-animation-history` writes2/reads1,2;
 `emote-source-profile` remains v1. The reusable
 frozen Phone provenance is `fe4684bf46585088370b3a328a738f147e670b97`; Android
 transport, package and host/native clock assumptions were not ported as iOS facts.
+
+The native-prefix validator now checks complete original animation, account and
+recorded-voice histories before and after the actual source sample and across
+successive acquisition windows. Restored readers start at the last original
+closing native sample, preserving every intervening history entry. Historical
+unprefixed v1 nonces remain readable without rewriting them into iOS nonces.
+
+`emote_source_recovery.py` retains an interrupted passive owner and each actually
+opened artifact inode in immutable private records, including honestly empty or
+partial files. Its recoverable CAS changes only acquisition responsibility;
+it does not finish a native read, publish a result, delete a file or resend a
+request. A subsequent distinct read must extend every actually returned native,
+script, root, UI, World and fixture-phase prefix. Historical reconstruction reads
+only these retained files. Foreign hardlinks, changed inodes and orphan or changed
+records refuse recovery. This does not establish whole-run resource retirement.
+
+The source/recovery packet passed 35 explicit host tests, including the original
+frame facade, input and independent peer regressions. Native-prefix,
+source-recovery and abandoned-source record contracts are each v1. Whole Emote
+observation/publication and paired repeated quiet cleanup remain unfinished.

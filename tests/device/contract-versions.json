@@ -1,6 +1,9 @@
 {
   "schemaVersion": 1,
   "contracts": {
+    "ios-emote-native-prefix": {"current": 1, "reads": [1]},
+    "ios-emote-source-recovery": {"current": 1, "reads": [1]},
+    "ios-emote-abandoned-source": {"current": 1, "reads": [1]},
     "ios-create-action-owner": {"current": 1, "reads": [1]},
     "ios-create-actions": {"current": 1, "reads": [1]},
     "ios-create-rez-client": {"current": 1, "reads": [1]},

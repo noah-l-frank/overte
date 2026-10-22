@@ -73,6 +73,15 @@ class IOSEmoteSourcesTests(unittest.TestCase):
                        lambda v:v['widgets'].update(processId=99)):
             value=frame();mutate(value)
             with self.assertRaises(NativeUIError):self.owner().validate_frame(value)
+    def test_clock_boundary_cannot_rewrite_original_animation_caller_prefix(self):
+        value=frame();value['clockJoin']['nativeAfter']['animation']['history']['events'][0]['caller']['sequence']=3
+        with self.assertRaises(NativeUIError):self.owner().validate_frame(value)
+    def test_next_acquisition_cannot_reuse_a_counter_before_last_original_native_end(self):
+        from ios.self_tests.emote_original_fixtures import Originals
+        fixture=Originals(self.root,self.lock);fixture.append(18800,baseline=True);fixture.append(20000,active=True)
+        before,after=deepcopy(fixture.owner.frames)
+        after['clockJoin']['nativeBefore']['sequence']=before['group']['native']['sequence']
+        with self.assertRaises(NativeUIError):fixture.owner.validate_frame(after,before)
     def test_real_qml_component_url_must_match_original_submitted_engine_assignment(self):
         value=frame();row=[r for r in value['widgets']['controls'] if r['id']=='emote.page'][0]
         row['componentSourceSha256']='0'*64;value['ui']=project(value['widgets'])

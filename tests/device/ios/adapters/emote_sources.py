@@ -23,6 +23,7 @@ from feature_journeys.phase_fixture import PhaseFixtureReader,validate as phase_
 from ios.adapters.emote_controls import IOSEmoteIO,project
 from ios.adapters.emote_originals import IOSEmoteOriginals,MAX_FRAMES,BLOCK
 from ios.adapters.graphics_history import restore_native
+from ios.adapters.emote_native_prefix import follow as follow_native
 from ios.adapters.emote_world import original as world_original,actual_domain,validate as world_packet,ACTION as WORLD_ACTION
 
 VERSION=2
@@ -127,6 +128,7 @@ class IOSEmoteSources:
         if 'world' in frame:originals['world']=frame['world']
         clock=validate_join(frame['clockJoin'],originals)
         selected,current,_=source(group,self.pid,clock['nativeAfter']['capturedEpochMs'])
+        follow_native(clock['nativeBefore'],current);follow_native(current,clock['nativeAfter'])
         need(selected['profile']['ui']=='native-qml'
             and selected['profile']['id'] in ('touch-one-shot-chooser-v1','phone-one-shot-hide-v1'))
         need(same(project(frame['widgets']),frame['ui']) and frame['widgets']['processId']==self.pid
@@ -153,6 +155,7 @@ class IOSEmoteSources:
             actual='qrc:'+path if assigned.scheme=='qrc' else urlunsplit((assigned.scheme,'',path,'',''))
             need(pages[0]['componentSourceSha256']==hashlib.sha256(actual.encode()).hexdigest())
         if old:
+            follow_native(old['clockJoin']['nativeAfter'],clock['nativeBefore'])
             if 'world' in old:
                 need('world' in frame)
                 world_packet(frame['world'],dict(schemaVersion=1,commandId=frame['world']['requestId'],action=WORLD_ACTION,runId=self.run),
@@ -181,13 +184,14 @@ class IOSEmoteSources:
             transition=scripts._history_transition(packet,require_effects=True,require_code_identity=True,
                 require_load_history=True,require_membership=True)
             scripts._commit_history(packet,transition)
-        restore_native(r['native'],old['native'])
+        last_native=self.frames[-1]['clockJoin']['nativeAfter'];restore_native(r['native'],last_native)
         if 'world' in self.frames[-1] and 'world' in r:r['world'].last=deepcopy(self.frames[-1]['world'])
         previous=None
         for frame in self.frames:
-            packet=frame['group']['native'];previous=animation_history(previous,packet['animation']['rigId'],packet['animation']['history'])
+            for packet in (frame['clockJoin']['nativeBefore'],frame['group']['native'],frame['clockJoin']['nativeAfter']):
+                previous=animation_history(previous,packet['animation']['rigId'],packet['animation']['history'])
         r['native'].animation_history=previous
-        r['native'].rig=old['native']['animation']['rigId'];r['native'].rig_sequence=old['native']['animation']['evaluationSequence']
+        r['native'].rig=last_native['animation']['rigId'];r['native'].rig_sequence=last_native['animation']['evaluationSequence']
 
     def read(self):
         need(not self.historical);self.bound();need(self.state['phase']=='ready' and len(self.frames)<MAX_FRAMES)
