@@ -1,6 +1,7 @@
 {
   "schemaVersion": 1,
   "contracts": {
+    "ios-avatar-login-owner": {"current": 1, "reads": [1]},
     "ios-emote-marker-measurements": {"current": 1, "reads": [1]},
     "ios-emote-peer": {"current": 1, "reads": [1]},
     "ios-emote-peer-sources": {"current": 1, "reads": [1]},

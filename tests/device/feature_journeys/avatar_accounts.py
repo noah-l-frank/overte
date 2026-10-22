@@ -9,7 +9,7 @@ from copy import deepcopy
 import secrets
 import threading
 
-from feature_journeys.account_provider import AccountProvider
+from feature_journeys.account_provider import AccountProvider, request_id
 from feature_journeys.avatar_social_http import AccountAuthenticator
 from feature_journeys.avatar_social_provider import AvatarSocialProvider, session
 from feature_journeys.contract import identifier
@@ -85,7 +85,7 @@ class AvatarAccountScopes:
             self.social.activate(run,row['ticket']);row['phase']='ready'
 
     def profile_proof(self,run,role,ticket,nonce):
-        identifier(run);identifier(ticket);identifier(nonce)
+        identifier(run);identifier(ticket);request_id(nonce)
         with self.lock:
             row=self.runs[run]
             if role not in ROLES or row['ticket']!=ticket:raise ValueError('Avatar account proof scope is unavailable')

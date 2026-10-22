@@ -67,7 +67,7 @@ class AvatarAccountHTTPTests(unittest.TestCase):
     def test_each_actual_password_grant_and_profile_proof_is_separately_bound_and_not_exposed_as_input_credentials(self):
         before=self.status();self.assertEqual('allocated',before['phase']);self.assertIsNone(before['social'])
         self.assertNotEqual(before['accounts']['primary']['runId'],before['accounts']['actor']['runId'])
-        for role,nonce in (('primary','d'*32),('actor','e'*32)):
+        for role,nonce in (('primary','ios-'+'d'*32),('actor','ios-'+'e'*32)):
             auth=self.grant(role);self.assertEqual(200,self.profile(role,auth,nonce)[0])
             path=self.base+'/avatar/proof/'+role+'/'+TICKET+'/'+nonce
             status,proof=self.call(path,role='actor');self.assertEqual(200,status);self.assertTrue(proof['protectedAccess'])

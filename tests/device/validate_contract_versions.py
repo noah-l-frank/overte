@@ -9,6 +9,7 @@ from pathlib import Path
 
 
 REQUIRED = {
+    "ios-avatar-login-owner": 1,
     "ios-emote-marker-measurements": 1,
     "ios-emote-peer": 1,
     "ios-emote-peer-sources": 1,
