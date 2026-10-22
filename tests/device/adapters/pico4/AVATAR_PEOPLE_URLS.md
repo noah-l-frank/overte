@@ -229,3 +229,72 @@ these effects must enter that owner before full cleanup can be qualified. The
 original bookmark writer can reformat otherwise unchanged unrelated data:
 actual native tests preserve this raw-byte difference instead of claiming exact
 physical restoration. This continuation does not enable a capability triple.
+
+## Passive original avatar-preference baseline
+
+The separate private `_avatar_preferences_observer` now reaches the original
+`featurePicoAvatarPreferences` getter. It records the actual fixed Avatar and
+fullPrivate/Avatar settings, all 23 original MyAvatar preference Handles and
+bounded original avatar-entity Handle vectors, actual native live settings,
+Manager identity/mutation sequence, original writer birth, and independently
+acquired physical JSON row tokens. The existing URL and state source contracts
+are unchanged. No capability or additional catalog selector is enabled; the
+owning `avatar-state-native` wrapper now includes this third native case.
+
+A baseline never calls a Handle getter: its original `get()`/`maybeInit()` can
+initialize the Handle and insert an invalid Manager row for an absent key.
+The native-only method reads original initialized/isSet/default/value/deprecated
+fields under a barrier stored in the actual existing Manager. Gated mutations
+cover Handle set/remove/deprecate/init/deinit and the original Manager mutations;
+there is no inline process singleton that could split across shared libraries.
+The original headPitch Handle really uses `Avatar/`, while original QSettings
+can persist it as `Avatar`. Both original keys remain in their separate sources.
+An invalid lazy cache row is excluded from the encoded absence comparison only
+with its real initialized, manager-bound, unset Handle evidence.
+
+The source never syncs, reloads, creates or repairs a QSettings object. It reads
+the existing original worker on its actual thread through the bounded weak
+QObject queue, without a Manager/preference mutex across that queue. A blocked
+worker returns within the existing 200-ms queue budget; unfinished original
+callbacks stay owned, and their late results are discarded. A worker that has
+not actually initialized its original QSettings is unavailable. Runtime
+`--testScript`, dedicated E2E/Pico gates, original object affinity, private
+lifecycle readiness, finite histories and the unchanged 512-query limit apply.
+
+Original JSON encoding intentionally changes some QVariant types: float and
+QUrl can round-trip as double and QString. The source retains every raw typed
+cache, writer and Handle QVariant separately and runs the complete original
+`writeJSONFile` encoder for the comparison. It independently opens the actual
+original JSON path with stable file/parent/private-ancestor checks, refuses
+symlinks, hardlinks, unsafe modes, duplicate/alternate canonical JSON, excessive
+rows/bytes and unsupported custom serializers, and retains the exact fixed-row
+raw tokens, physical file/path hashes and acquisition identity. It never
+substitutes a second cached QSettings reader or deserializes a foreign
+`@Variant`. Cache-to-writer and writer-to-physical agreement are separate flags;
+the strict host `baseline()` refuses either disagreement. Raw originals are
+never truncated; the combined private source stays within 245760 bytes.
+
+The complete original native Handle initialization, Manager, WriteWorker,
+SettingHelpers/SharedLogging implementation, MyAvatar Handle declarations and
+initializer keys, passive MyAvatar method and complete TSI getter run in the
+new narrow host test. Application/dependency registry and native avatar/model
+live getters are explicit host actors. The test proves real lazy absence,
+normal scale persistence, original headPitch normalization, a dirty unsynced
+original writer during its own turn, cache-only and physical-only conflicts,
+file permission/link/duplicate/size refusal, mutation during acquisition,
+blocked/late original work, actual avatar replacement and the actual query cap.
+Qt6's standalone translation units explicitly preinclude QIODevice, which the
+original SettingHelpers otherwise receives through the application build's
+headers; no product source or codec behavior is changed.
+
+Validation: the updated owning Qt5 wrapper passed all three cases in 13.887 s;
+the new case also passed Qt6 in 12.557 s. The existing actual native Create
+browse-setting/Handle/worker regression passed unchanged assertions in 7.830 s.
+The two new registry entries are `native-avatar-preference-storage` and
+`pico-avatar-preferences-source`, both current/read version 1.
+
+This is a passive source and admission boundary. The current durable URL owner
+has not yet stored this preference baseline before its first normal input.
+A joined Bookmark/Scale owner, exact typed Handle/cache/physical restoration,
+original bookmark-load callback retirement and the full fifteen-step parent
+remain open. No restore operation or full settings-cleanup claim is provided.

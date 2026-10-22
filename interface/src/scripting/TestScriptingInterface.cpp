@@ -51,6 +51,8 @@
 #include "../../../tests/device/native/NavigationPanelsObservation.h"
 #include "LocationBookmarks.h"
 #include "AvatarBookmarks.h"
+#include "../../../tests/device/native/AvatarPreferenceSnapshot.h"
+#include <cmath>
 #include <XMLHttpRequestClass.h>
 #include "../../../tests/device/native/PrivateWorldRenderReceipts.h"
 #include "../../../tests/device/native/PrivateCreateFiles.h"
@@ -126,6 +128,8 @@ void TestScriptingInterface::setTestResultsLocation(const QString path) {
         _featureEmoteSceneQueue=std::make_shared<overte::e2e::AudioSettingsQueue>();
         _featureAvatarStateQueue=std::make_shared<overte::e2e::AudioSettingsQueue>();
         _featureAvatarBookmarksQueue=std::make_shared<overte::e2e::AudioSettingsQueue>();
+        _featureAvatarPreferencesQueue=std::make_shared<overte::e2e::AudioSettingsQueue>();
+        _featureAvatarPreferences=std::make_shared<overte::e2e::AvatarPreferenceSnapshot>();
         overte::e2e::ensureNavigationDirectoryProvider(this);
 #endif
     }
@@ -224,6 +228,51 @@ QVariantMap TestScriptingInterface::featureAvatarRenderObservation(const QVarian
 }
 
 #if defined(ANDROID_APP_PICO_INTERFACE)
+QVariantMap TestScriptingInterface::featurePicoAvatarPreferences(const QVariantMap& command) {
+    const auto queue=_featureAvatarPreferencesQueue;if(!queue || !_featureAvatarPreferences) {return {};}
+    if(QThread::currentThread()!=thread()) {
+        return queue->read("dispatch",this,[command](QObject* original) {
+            return overte::e2e::AudioSettingsPart{static_cast<TestScriptingInterface*>(original)->featurePicoAvatarPreferences(command),{}};
+        }).values;
+    }
+    const auto json=QJsonObject::fromVariantMap(command);const auto request=command.value("commandId").toString();
+    if(_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript") || !qApp || thread()!=qApp->thread()
+            || command.keys()!=QStringList{"action","commandId","schemaVersion"} || !json.value("schemaVersion").isDouble()
+            || json.value("schemaVersion").toDouble()!=1 || !json.value("commandId").isString()
+            || !QRegularExpression("\\A[0-9a-f]{32}\\z").match(request).hasMatch()
+            || command.value("action").toString()!="feature-pico-avatar-preferences-observe"
+            || _featureAvatarPreferencesRequests.contains(request) || _featureAvatarPreferencesRequests.size()>=512
+            || !queue->settled(overte::e2e::AudioSettingsQueue::dispatching(this) ? "dispatch" : QString())
+            || !DependencyManager::isSet<AvatarManager>()) {return {};}
+    const auto avatar=DependencyManager::get<AvatarManager>()->getMyAvatar();
+    if(!avatar || avatar->thread()!=QThread::currentThread()) {return {};}
+    const auto model=avatar->getSkeletonModel();if(!model || model->thread()!=QThread::currentThread()) {return {};}
+    if(_featureAvatarPreferenceObject!=avatar.get()) {
+        _featureAvatarPreferenceObject=avatar.get();_featureAvatarPreferenceBirth=QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-');
+    }
+    const auto requested=QDateTime::currentMSecsSinceEpoch();_featureAvatarPreferencesRequests.insert(request);
+    const auto source=_featureAvatarPreferences->capture([avatar,model] {
+        const auto handles=avatar->e2ePreferenceHandles();if(handles.isEmpty()) {return QVariantMap{};}
+        const auto scale=avatar->getModelScale(),target=avatar->getTargetScale();
+        if(!std::isfinite(scale) || !std::isfinite(target)) {return QVariantMap{};}
+        return QVariantMap{{"handles",handles},{"modelInstance",model->e2eModelInstance()},
+            {"sessionId",avatar->getSessionUUID().toString(QUuid::WithoutBraces)},
+            {"live",QVariantMap{{"preferenceUrl",avatar->getFullAvatarURLFromPreferences().toString()},
+                {"modelName",avatar->getFullAvatarModelName()},{"scale",scale},{"targetScale",target},
+                {"dominantHand",avatar->getDominantHand()},{"hmdAvatarAlignmentType",avatar->getHmdAvatarAlignmentType()},
+                {"collisionsEnabled",avatar->getCollisionsEnabled()},{"otherAvatarsCollisionsEnabled",avatar->getOtherAvatarsCollisionsEnabled()},
+                {"collisionSoundUrl",avatar->getCollisionSoundURL()},{"animGraphOverrideUrl",avatar->getAnimGraphOverrideUrl()}}}};
+    });
+    if(source.isEmpty() || _featureAvatarPreferenceObject.isNull() || _featureAvatarPreferenceObject!=avatar.get()
+            || !DependencyManager::isSet<AvatarManager>() || DependencyManager::get<AvatarManager>()->getMyAvatar()!=avatar
+            || avatar->getSkeletonModel()!=model) {return {};}
+    return {{"schemaVersion",1},{"requestId",request},{"instance",_featureObservationInstance},
+        {"sequence",static_cast<qulonglong>(++_featureAvatarPreferencesSequence)},{"processId",QCoreApplication::applicationPid()},
+        {"requestedEpochMs",requested},{"capturedEpochMs",QDateTime::currentMSecsSinceEpoch()},
+        {"source",QVariantMap{{"picoAvatarPreferencesVersion",1},{"instance",_featureAvatarPreferenceBirth},{"snapshot",source}}}};
+}
+
 QVariantMap TestScriptingInterface::featurePicoAvatarBookmarks(const QVariantMap& command) {
     const auto queue=_featureAvatarBookmarksQueue;if(!queue) {return {};}
     if(QThread::currentThread()!=thread()) {

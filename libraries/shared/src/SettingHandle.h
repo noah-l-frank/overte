@@ -288,6 +288,9 @@ namespace Setting {
          * @param value Value to set the setting to.
          */
         void set(const T& value) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+            AvatarPreferenceMutation avatarMutation(this);
+#endif
             maybeInit();
 
             // qCDebug(settings_handle) << "Setting" << this->getKey() << "to" << value;
@@ -309,6 +312,9 @@ namespace Setting {
          *
          */
         void remove() {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+            AvatarPreferenceMutation avatarMutation(this);
+#endif
             maybeInit();
             if (_isSet) {
                 _isSet = false;
@@ -316,12 +322,25 @@ namespace Setting {
             }
         }
 
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+        QVariantMap e2ePreferenceSnapshot() const {
+            auto result=e2ePreferenceInterface();if(result.isEmpty()) {return {};}
+            const auto value=overte::e2e::avatarPreferenceRaw(true,QVariant::fromValue(_value));
+            const auto fallback=overte::e2e::avatarPreferenceRaw(true,QVariant::fromValue(_defaultValue));
+            if(value.isEmpty() || fallback.isEmpty()) {return {};}
+            result["nativePreferenceHandleVersion"]=1;result["value"]=value;result["default"]=fallback;result["deprecated"]=_isDeprecated;return result;
+        }
+#endif
+
     protected:
         virtual void setVariant(const QVariant& variant) override;
         virtual QVariant getVariant() override { return QVariant::fromValue(get()); }
 
     private:
         void deprecate() {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+            AvatarPreferenceMutation avatarMutation(this);
+#endif
             if (_isSet) {
                 if (get() != getDefault()) {
                     qCInfo(settings_handle).nospace() << "[DEPRECATION NOTICE] " << _key << "(" << get() << ") has been deprecated, and has no effect";

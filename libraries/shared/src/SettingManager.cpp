@@ -227,6 +227,9 @@ namespace Setting {
 
     void Manager::loadSetting(Interface* handle) {
         const auto& key = handle->getKey();
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+        overte::e2e::AvatarPreferenceBarrier::Mutation avatarMutation(_featureAvatarPreferencesBarrier,key);
+#endif
 #if defined(OVERTE_E2E_FEATURE_TESTS)
         overte::e2e::ChatSettingsBarrier::Mutation chatMutation(_featureChatSettings,key);
 #endif
@@ -243,6 +246,9 @@ namespace Setting {
 
     void Manager::saveSetting(Interface* handle) {
         const auto& key = handle->getKey();
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+        overte::e2e::AvatarPreferenceBarrier::Mutation avatarMutation(_featureAvatarPreferencesBarrier,key);
+#endif
 #if defined(OVERTE_E2E_FEATURE_TESTS)
         overte::e2e::ChatSettingsBarrier::Mutation chatMutation(_featureChatSettings,key);
 #endif
@@ -270,6 +276,9 @@ namespace Setting {
     }
 
     void Manager::terminateThread() {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+        overte::e2e::AvatarPreferenceBarrier::Mutation avatarMutation(_featureAvatarPreferencesBarrier,QString());
+#endif
 #if defined(OVERTE_E2E_FEATURE_TESTS)
         overte::e2e::ChatSettingsBarrier::Mutation chatMutation(_featureChatSettings,QString());
 #endif
@@ -289,6 +298,9 @@ namespace Setting {
     }
 
     void Manager::remove(const QString &key) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+        overte::e2e::AvatarPreferenceBarrier::Mutation avatarMutation(_featureAvatarPreferencesBarrier,key);
+#endif
 #if defined(OVERTE_E2E_FEATURE_TESTS)
         overte::e2e::ChatSettingsBarrier::Mutation chatMutation(_featureChatSettings,key);
 #endif
@@ -312,6 +324,9 @@ namespace Setting {
     }
 
     void Manager::setValue(const QString &key, const QVariant &value) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+        overte::e2e::AvatarPreferenceBarrier::Mutation avatarMutation(_featureAvatarPreferencesBarrier,key);
+#endif
 #if defined(OVERTE_E2E_FEATURE_TESTS)
         overte::e2e::ChatSettingsBarrier::Mutation chatMutation(_featureChatSettings,key);
 #endif
@@ -329,6 +344,9 @@ namespace Setting {
     }
 
     void Manager::clearAllSettings() {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+        overte::e2e::AvatarPreferenceBarrier::Mutation avatarMutation(_featureAvatarPreferencesBarrier,QString());
+#endif
 #if defined(OVERTE_E2E_FEATURE_TESTS)
         overte::e2e::ChatSettingsBarrier::Mutation chatMutation(_featureChatSettings,QString());
 #endif

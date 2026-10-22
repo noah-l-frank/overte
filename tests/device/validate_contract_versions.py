@@ -9,6 +9,8 @@ from pathlib import Path
 
 
 REQUIRED = {
+    "native-avatar-preference-storage": 1,
+    "pico-avatar-preferences-source": 1,
     "native-avatar-bookmark-storage": 1,
     "pico-avatar-bookmarks-source": 1,
     "native-avatar-entity-storage": 1,

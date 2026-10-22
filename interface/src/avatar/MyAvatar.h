@@ -1070,6 +1070,10 @@ public:
     Q_INVOKABLE float getRawDriveKey(DriveKeys key) const;
 
     void relayDriveKeysToCharacterController();
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+    // Native-only passive lazy Handle fields, read under the actual Manager barrier.
+    QVariantMap e2ePreferenceHandles() const;
+#endif
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     // Passive native-only actual frame; never a script-visible input setter.
     QVariantMap featureLifecycleDriveObservation() const;
