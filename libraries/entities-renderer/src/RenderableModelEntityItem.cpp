@@ -1355,6 +1355,9 @@ void RenderableModelEntityItem::e2eRecordOriginalModel() {
             loaded=QVariantMap{{"instance",geometry->e2eGeometryInstance()},{"sourcePresent",!source.isEmpty()},
                 {"sourceSha256",QString::fromLatin1(QCryptographicHash::hash(source,QCryptographicHash::Sha256).toHex())},
                 {"textures",geometry->e2eCreateTextures()}};
+            const auto input=geometry->getHFMModel().e2eGeometryInput;
+            // Copy into the same render-thread original, never a later GUI traversal.
+            auto record=loaded.toMap();record["reader"]=input ? QVariant(input->snapshot()) : QVariant();loaded=record;
         }
         original={{"recordedEpochMs",QDateTime::currentMSecsSinceEpoch()},{"modelInstance",model->e2eModelInstance()},
             {"loaded",model->isLoaded()},{"visible",model->isVisible()},{"addedToScene",model->isAddedToScene()},{"geometry",loaded}};

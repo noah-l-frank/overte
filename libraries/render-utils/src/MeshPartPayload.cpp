@@ -40,9 +40,11 @@ ModelMeshPartPayload::ModelMeshPartPayload(ModelPointer model, int meshIndex, in
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     const auto& geometry = model->getGeometry();
     const auto source = geometry->getHFMModel().originalURL.toUtf8();
+    const auto reader=geometry->getHFMModel().e2eGeometryInput;
+    const auto input=reader ? reader->snapshot() : QVariantMap();
     _e2eOriginalModel = {{"modelInstance",model->e2eModelInstance()},
-        {"geometryInstance",geometry->e2eGeometryInstance()},{"loadedSourcePresent",!source.isEmpty()},
-        {"loadedSourceSha256",QString::fromLatin1(QCryptographicHash::hash(source,QCryptographicHash::Sha256).toHex())}};
+        {"geometryInstance",geometry->e2eGeometryInstance()},{"loadedSourcePresent",!input.isEmpty() || !source.isEmpty()},
+        {"loadedSourceSha256",!source.isEmpty() || input.isEmpty() ? QString::fromLatin1(QCryptographicHash::hash(source,QCryptographicHash::Sha256).toHex()) : input.value("sourceSha256").toString()}};
 #endif
 
     auto& modelMesh = model->getGeometry()->getMeshes().at(_meshIndex);

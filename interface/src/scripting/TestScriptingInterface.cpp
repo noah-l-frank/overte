@@ -1424,8 +1424,9 @@ QVariantMap TestScriptingInterface::phoneAssetsRead(const QVariantMap& command,b
         return result;
     }
     const bool download=command.value("action").toString()=="phone-assets-download";
+    const bool resolve=command.value("action").toString()=="phone-assets-resolve";
     if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
-            || !overte::e2e::assetsReadCommand(command,download) || !DependencyManager::isSet<AssetClient>()
+            || !overte::e2e::assetsReadCommand(command,download,resolve) || !DependencyManager::isSet<AssetClient>()
             || !DependencyManager::isSet<NodeList>() || _phoneAssetsReadSequence>=1000000000) { return {}; }
     if (!_phoneAssetsRead) { _phoneAssetsRead=std::make_shared<overte::e2e::PhoneAssetsReadJob>(); }
     const auto job=_phoneAssetsRead;
@@ -1454,7 +1455,7 @@ QVariantMap TestScriptingInterface::phoneAssetsRead(const QVariantMap& command,b
             job->finish(request,source,captured);
         },Qt::QueuedConnection);
     };
-    if (!download) {
+    if (!download && !resolve) {
         auto request=assets->createGetAllMappingsRequest();
         auto cancellation=new QObject(this);
         QObject::connect(cancellation,&QObject::destroyed,request,&QObject::deleteLater,Qt::QueuedConnection);
@@ -1465,6 +1466,20 @@ QVariantMap TestScriptingInterface::phoneAssetsRead(const QVariantMap& command,b
             const auto source=actual->getError()==MappingRequest::NoError
                 ? overte::e2e::assetsMappingsOriginal(actual->getMappings(),canWrite,domain.toString(QUuid::WithoutBraces),session.toString(QUuid::WithoutBraces),serverId.toString(QUuid::WithoutBraces))
                 : QVariantMap{{"phoneAssetsObservationVersion",2},{"complete",false},{"errorCode",int(actual->getError())}};
+            finish(actual,source,QDateTime::currentMSecsSinceEpoch());actual->deleteLater();
+        },Qt::DirectConnection);
+        QObject::connect(request,&QObject::destroyed,this,[job,request] { job->destroyed(request); },Qt::QueuedConnection);
+        request->start();
+    } else if (resolve) {
+        auto request=assets->createGetMappingRequest(command.value("path").toString());
+        auto cancellation=new QObject(this);
+        QObject::connect(cancellation,&QObject::destroyed,request,&QObject::deleteLater,Qt::QueuedConnection);
+        if (!job->begin(command,request,cancellation,_featureObservationInstance,++_phoneAssetsReadSequence,context)) { delete cancellation;return {}; }
+        QObject::connect(request,&GetMappingRequest::finished,request,[finish,domain,session,serverId](GetMappingRequest* actual) {
+            const auto source=actual->getError()==MappingRequest::NoError
+                ? overte::e2e::assetsResolveOriginal(actual->e2eRequestedPath(),actual->getHash(),actual->wasRedirected(),actual->getRedirectedPath(),
+                    domain.toString(QUuid::WithoutBraces),session.toString(QUuid::WithoutBraces),serverId.toString(QUuid::WithoutBraces))
+                : QVariantMap{{"phoneAssetsResolveVersion",1},{"complete",false},{"errorCode",int(actual->getError())}};
             finish(actual,source,QDateTime::currentMSecsSinceEpoch());actual->deleteLater();
         },Qt::DirectConnection);
         QObject::connect(request,&QObject::destroyed,this,[job,request] { job->destroyed(request); },Qt::QueuedConnection);

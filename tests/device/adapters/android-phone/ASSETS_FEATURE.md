@@ -40,6 +40,31 @@ The existing private command path and read-only admission now carry these two
 closed queries. Missing/partial sources, ACKs, still-live requests, retained
 buffers, replayed cursors, stale epochs and mismatched bytes stay red.
 
+`phone-assets-resolve` performs a separate real GetMappingRequest for only this
+run's fixed public fixture paths. Its owner-thread callback reads the actual
+request path, resulting hash, redirect flag and redirect path. Domain/session/
+server binding, cancellation and actual QObject retirement use the same bounded
+read job. No expected path/hash/bake outcome is accepted as source input. The
+requested path is query identity; only the actual reply supplies its resolution.
+
+## Immutable original GeometryReader input
+
+OBJ's serializer leaves `HFM.originalURL` empty, and server-baked FBX loads its
+actual redirected path. Neither is rewritten for the test. After the normal
+baker finishes, GeometryReader seals one immutable E2E-only record of its actual
+input URL digest, original body SHA-256/length, generation and creation epoch
+before publishing the processed HFM. It retains no body buffer. The render-thread
+model copy includes that original. Original mesh draw traces use its actual
+loaded URL digest only when the serializer has no original URL. Existing
+serializer/trace semantics (including compression normalization) remain unchanged.
+
+The public reducer still needs to join original server mappings/resolution,
+actual reader content, entity/model/geometry identity, original draw commands
+and a fresh owned PNG. Static immutable metadata is not retimed or rejected for
+being older than 1.5 seconds. A fresh capture alone cannot qualify an old reader
+from a different URL/hash/generation. Missing reader originals remain red for
+Assets, even though existing Create readers can still read their legacy schema.
+
 ## Actual private inputs
 
 `phone-assets-files` exclusively stages the seven original glTF/OBJ/FBX bundle
@@ -115,6 +140,7 @@ native dispatch range to 0 through 10; this isolated base has only 0 through 9.
 ## Host verification and remaining composition
 
 ```sh
+python3 android/phone/tests/device/test_assets_geometry_input.py
 python3 android/phone/tests/device/test_assets_native_ui.py
 python3 android/phone/tests/device/test_assets_controls.py
 python3 tests/device/self_tests/test_assets_permissions.py
@@ -141,6 +167,14 @@ Import/Rename/Delete dialog events, rejects disabled Delete and foreign overlays
 and observes the actual unavailable-file error after a real main-file unlink.
 Every native UI snapshot is also checked by the Python metadata validator.
 Its Asset Server/entity service endpoints are explicit synthetic seams.
+
+The geometry contract compiles the actual reader-publication, render-copy and
+mesh-trace source blocks with the real immutable Qt metadata class and explicit
+synthetic model/geometry/baker endpoints. It checks empty OBJ serializer URLs,
+new reader generations, byte identities, non-retiming and concurrent complete
+renderer snapshots. It is not a full HFM/renderer build. A direct actual HFM
+header syntax attempt is currently blocked by missing host `glm/glm.hpp`; no
+installation/fetch was attempted and no complete Android/client PASS is claimed.
 
 Next are independent role/actor observations, actual model/render joins and the complete 29-action journey with
 its mandatory asset-load foundation, ownership, interruption and retirement.

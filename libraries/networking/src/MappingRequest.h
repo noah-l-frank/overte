@@ -55,6 +55,9 @@ public:
     AssetUtils::AssetHash getHash() const { return _hash;  }
     AssetUtils::AssetPath getRedirectedPath() const { return _redirectedPath; }
     bool wasRedirected() const { return _wasRedirected; }
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    AssetUtils::AssetPath e2eRequestedPath() const { return _path; }
+#endif
 
 signals:
     void finished(GetMappingRequest* thisRequest);

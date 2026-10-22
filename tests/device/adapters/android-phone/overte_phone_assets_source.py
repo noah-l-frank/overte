@@ -5,6 +5,7 @@ from copy import deepcopy
 import base64
 import hashlib
 import json
+import re
 import time
 import uuid
 
@@ -15,14 +16,18 @@ from overte_phone_create_source import nonce,digest,text
 
 FILE='phone-assets-observation.json'
 DOWNLOAD_FILE='phone-assets-download.json'
+RESOLVE_FILE='phone-assets-resolve.json'
 LIMIT=4*1024*1024
 
 
 def command(value):
     download=value.get('action')=='phone-assets-download' if type(value) is dict else False
-    exact(value,{'schemaVersion','commandId','action','runId'}|({'hash'} if download else set()))
+    resolve=value.get('action')=='phone-assets-resolve' if type(value) is dict else False
+    exact(value,{'schemaVersion','commandId','action','runId'}|({'hash'} if download else set())|({'path'} if resolve else set()))
     need(type(value['schemaVersion']) is int and value['schemaVersion']==1 and nonce(value['commandId']) and nonce(value['runId'])
-        and value['action'] in ('phone-assets-observe','phone-assets-download') and (not download or digest(value['hash'])))
+        and value['action'] in ('phone-assets-observe','phone-assets-download','phone-assets-resolve') and (not download or digest(value['hash'])))
+    if resolve:
+        need(type(value['path']) is str and re.fullmatch(r'/(?:e2e-|renamed-)'+value['runId']+r'/(?:main\.gltf|main\.obj|stand\.fbx|mesh/triangle\.bin|textures/checker\.png|materials/palette\.mtl)',value['path']))
     return value
 
 
@@ -56,6 +61,17 @@ def download(value,request):
     return value
 
 
+def resolve(value,request):
+    exact(value,{'phoneAssetsResolveVersion','domainId','sessionId','assetServerId','requestedPath','hash','redirected','redirectedPath'})
+    need(type(value['phoneAssetsResolveVersion']) is int and value['phoneAssetsResolveVersion']==1
+        and all(entity_id(value[key]) for key in ('domainId','sessionId','assetServerId'))
+        and value['requestedPath']==request['path'] and digest(value['hash']) and type(value['redirected']) is bool)
+    mapping_path(value['requestedPath'])
+    if value['redirected']:mapping_path(value['redirectedPath'])
+    else:need(value['redirectedPath']=='')
+    return value
+
+
 def validate(value,request,pid,epoch):
     command(request)
     exact(value,{'schemaVersion','requestId','runId','instance','sequence','processId','requestedEpochMs','capturedEpochMs','source','activeRequests','retainedResults'})
@@ -66,21 +82,24 @@ def validate(value,request,pid,epoch):
         and type(value['activeRequests']) is int and value['activeRequests']==0 and type(value['retainedResults']) is int and value['retainedResults']==0)
     fresh(value['capturedEpochMs'],epoch)
     if request['action']=='phone-assets-download':download(value['source'],request)
+    elif request['action']=='phone-assets-resolve':resolve(value['source'],request)
     else:mappings(value['source'])
     return value
 
 
 class PhoneAssetsSource:
-    def __init__(self,send,read,clock_ms,guard,pid,*,download=False,monotonic=time.monotonic,sleep=time.sleep):
-        need(all(callable(fn) for fn in (send,read,clock_ms,guard,monotonic,sleep)) and integer(pid,1) and type(download) is bool)
+    def __init__(self,send,read,clock_ms,guard,pid,*,download=False,resolve=False,monotonic=time.monotonic,sleep=time.sleep):
+        need(all(callable(fn) for fn in (send,read,clock_ms,guard,monotonic,sleep)) and integer(pid,1) and type(download) is bool and type(resolve) is bool and not(download and resolve))
         self.send,self.original,self.clock_ms,self.guard,self.pid=send,read,clock_ms,guard,pid
-        self.is_download,self.monotonic,self.sleep,self.last=download,monotonic,sleep,None
+        self.is_download,self.is_resolve,self.monotonic,self.sleep,self.last=download,resolve,monotonic,sleep,None
 
-    def read(self,run,hash=None):
+    def read(self,run,hash=None,*,path=None):
         try:
-            request=dict(schemaVersion=1,commandId=uuid.uuid4().hex,action='phone-assets-download' if self.is_download else 'phone-assets-observe',runId=run)
+            request=dict(schemaVersion=1,commandId=uuid.uuid4().hex,action='phone-assets-download' if self.is_download else 'phone-assets-resolve' if self.is_resolve else 'phone-assets-observe',runId=run)
             if self.is_download:request['hash']=hash
             else:need(hash is None)
+            if self.is_resolve:request['path']=path
+            else:need(path is None)
             command(request);need(self.guard() is not False)
             started=previous=self.monotonic();need(number(started,0,1e15))
             requested=self.clock_ms();need(integer(requested,1));self.send(request)

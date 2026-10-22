@@ -15,19 +15,21 @@
 #include <QCryptographicHash>
 
 namespace overte::e2e {
-inline bool assetsReadCommand(const QVariantMap& command,bool download=false) {
+inline bool assetsReadCommand(const QVariantMap& command,bool download=false,bool resolve=false) {
     const auto json=QJsonObject::fromVariantMap(command);
-    QStringList keys{"schemaVersion","commandId","action","runId"};if (download) { keys.append("hash"); }keys.sort();
+    QStringList keys{"schemaVersion","commandId","action","runId"};if (download) { keys.append("hash"); }if (resolve) { keys.append("path"); }keys.sort();
     const QRegularExpression nonce("\\A[0-9a-f]{32}\\z"),hash("\\A[0-9a-f]{64}\\z");
-    return QCoreApplication::instance() && QThread::currentThread()==QCoreApplication::instance()->thread()
+    return !(download && resolve) && QCoreApplication::instance() && QThread::currentThread()==QCoreApplication::instance()->thread()
         && QCoreApplication::arguments().contains("--testScript") && command.keys()==keys
         && json.value("schemaVersion").isDouble() && json.value("schemaVersion").toDouble()==1
         && json.value("commandId").isString() && nonce.match(command.value("commandId").toString()).hasMatch()
         && command.value("commandId").toString()!=QString(32,'0')
         && json.value("runId").isString() && nonce.match(command.value("runId").toString()).hasMatch()
         && command.value("runId").toString()!=QString(32,'0')
-        && command.value("action").toString()==(download ? "phone-assets-download" : "phone-assets-observe")
-        && (!download || (json.value("hash").isString() && hash.match(command.value("hash").toString()).hasMatch()));
+        && command.value("action").toString()==(download ? "phone-assets-download" : resolve ? "phone-assets-resolve" : "phone-assets-observe")
+        && (!download || (json.value("hash").isString() && hash.match(command.value("hash").toString()).hasMatch()))
+        && (!resolve || (json.value("path").isString() && QRegularExpression("\\A/(?:e2e-|renamed-)"+command.value("runId").toString()+
+            "/(?:main\\.gltf|main\\.obj|stand\\.fbx|mesh/triangle\\.bin|textures/checker\\.png|materials/palette\\.mtl)\\z").match(command.value("path").toString()).hasMatch()));
 }
 inline bool assetsPath(const QString& path) {
     if (!path.startsWith('/') || path.size()<2 || path.size()>1024 || path.endsWith('/') || path.contains('\\')) { return false; }
@@ -53,6 +55,13 @@ template<class Mappings> QVariantMap assetsMappingsOriginal(const Mappings& mapp
 inline QVariantMap assetsDownloadOriginal(const QString& hash,const QByteArray& data,bool cached,const QString& domain,const QString& session,const QString& server) {
     if (domain.isEmpty() || session.isEmpty() || server.isEmpty() || data.isEmpty() || data.size()>1024*1024 || QString::fromLatin1(QCryptographicHash::hash(data,QCryptographicHash::Sha256).toHex())!=hash) { return {}; }
     return {{"phoneAssetsDownloadVersion",2},{"domainId",domain},{"sessionId",session},{"assetServerId",server},{"hash",hash},{"bytes",data.size()},{"base64",QString::fromLatin1(data.toBase64())},{"loadedFromCache",cached}};
+}
+inline QVariantMap assetsResolveOriginal(const QString& path,const QString& hash,bool redirected,const QString& target,
+        const QString& domain,const QString& session,const QString& server) {
+    if (!assetsPath(path) || !QRegularExpression("\\A[0-9a-f]{64}\\z").match(hash).hasMatch()
+            || (redirected ? !assetsPath(target) : !target.isEmpty()) || domain.isEmpty() || session.isEmpty() || server.isEmpty()) { return {}; }
+    return {{"phoneAssetsResolveVersion",1},{"domainId",domain},{"sessionId",session},{"assetServerId",server},
+        {"requestedPath",path},{"hash",hash},{"redirected",redirected},{"redirectedPath",target}};
 }
 // One bounded, original read request. Completion does not become observable
 // until the actual QObject has been destroyed; a new command cannot replace an

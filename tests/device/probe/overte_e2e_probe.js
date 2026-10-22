@@ -2108,10 +2108,12 @@
         }
         if (command && command.schemaVersion === 1 && /^[0-9a-f]{32}$/.test(String(command.commandId))
                 && /^[0-9a-f]{32}$/.test(String(command.runId))
-                && (command.action === "phone-assets-observe" || command.action === "phone-assets-download")
+                && (command.action === "phone-assets-observe" || command.action === "phone-assets-download" || command.action === "phone-assets-resolve")
                 && objectKeysMatch(command,command.action === "phone-assets-download"
-                    ? ["schemaVersion","commandId","action","runId","hash"] : ["schemaVersion","commandId","action","runId"])
-                && (command.action !== "phone-assets-download" || /^[0-9a-f]{64}$/.test(String(command.hash)))) {
+                    ? ["schemaVersion","commandId","action","runId","hash"] : command.action === "phone-assets-resolve"
+                        ? ["schemaVersion","commandId","action","runId","path"] : ["schemaVersion","commandId","action","runId"])
+                && (command.action !== "phone-assets-download" || /^[0-9a-f]{64}$/.test(String(command.hash)))
+                && (command.action !== "phone-assets-resolve" || (typeof command.path === "string" && new RegExp("^/(?:e2e-|renamed-)"+command.runId+"/(?:main\\.gltf|main\\.obj|stand\\.fbx|mesh/triangle\\.bin|textures/checker\\.png|materials/palette\\.mtl)$").test(command.path)))) {
             if (command.commandId === lastPhoneAssetsReadRequest) { return; }
             lastPhoneAssetsReadRequest = command.commandId;
             var assetsReadStarted = Date.now();
@@ -2128,7 +2130,7 @@
                         }
                     }
                 } catch (_assetsOriginalError) { /* No ACK, pending read or failed source supplies mappings/bytes. */ }
-                Test.saveObject(assetsOriginal,command.action === "phone-assets-download" ? "phone-assets-download.json" : "phone-assets-observation.json");
+                Test.saveObject(assetsOriginal,command.action === "phone-assets-download" ? "phone-assets-download.json" : command.action === "phone-assets-resolve" ? "phone-assets-resolve.json" : "phone-assets-observation.json");
             }
             readOriginalAssets();return;
         }
@@ -2525,7 +2527,7 @@
                 || command.action === "feature-world-render-observe" || command.action === "feature-world-render-storage"
                 || command.action === "feature-world-render-receipt"
                 || command.action === "feature-world-render-receipts"
-                || command.action === "feature-graphics-subject-observe" || command.action === "phone-create-observe" || command.action === "phone-assets-observe" || command.action === "phone-assets-download" || command.action === "phone-snapshot-observe" || command.action === "phone-snapshot-readback" || command.action === "phone-snapshot-upload-observe" || command.action === "phone-snapshot-cancel"
+                || command.action === "feature-graphics-subject-observe" || command.action === "phone-create-observe" || command.action === "phone-assets-observe" || command.action === "phone-assets-download" || command.action === "phone-assets-resolve" || command.action === "phone-snapshot-observe" || command.action === "phone-snapshot-readback" || command.action === "phone-snapshot-upload-observe" || command.action === "phone-snapshot-cancel"
                 || command.action === "phone-avatar-configuration-observe" || command.action === "phone-touch-state-observe"
                 || command.action === "phone-emote-fixture-observe" || command.action === "phone-emote-fixture-input"
                 || command.action === "phone-create-fixture-observe" || command.action === "phone-create-fixture-input"

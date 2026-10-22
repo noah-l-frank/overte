@@ -198,6 +198,13 @@ void GeometryReader::run() {
 
         auto processedHFMModel = modelBaker.getHFMModel();
         auto materialMapping = modelBaker.getMaterialMapping();
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        // Bind OBJ (whose serializer has no originalURL) and baked redirects
+        // to the actual immutable reader URL/body, before owner publication.
+        if (processedHFMModel && !processedHFMModel->e2eGeometryInput) {
+            processedHFMModel->e2eGeometryInput=std::make_shared<const overte::e2e::GeometryInputOriginal>(_url,_data);
+        }
+#endif
 
         QMetaObject::invokeMethod(resource.data(), "setGeometryDefinition",
                 Q_ARG(HFMModel::Pointer, processedHFMModel), Q_ARG(MaterialMapping, materialMapping));

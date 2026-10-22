@@ -7,6 +7,7 @@ import hashlib
 import json
 from pathlib import Path
 import sys
+import subprocess
 import unittest
 
 ROOT=Path(__file__).resolve().parents[4]
@@ -27,7 +28,9 @@ class Boundary:
             mappings=[dict(path='/original/main.fbx',hash=HASH,bakeStatus=4,bakeError='')])
     def send(self,request):
         self.request=deepcopy(request);self.sequence+=1
-        source=deepcopy(self.source) if request['action']=='phone-assets-observe' else dict(phoneAssetsDownloadVersion=2,domainId=DOMAIN,sessionId=DOMAIN,assetServerId=DOMAIN,hash=HASH,bytes=len(DATA),base64=base64.b64encode(DATA).decode(),loadedFromCache=False)
+        source=deepcopy(self.source) if request['action']=='phone-assets-observe' else (dict(phoneAssetsDownloadVersion=2,domainId=DOMAIN,sessionId=DOMAIN,assetServerId=DOMAIN,hash=HASH,bytes=len(DATA),base64=base64.b64encode(DATA).decode(),loadedFromCache=False)
+            if request['action']=='phone-assets-download' else dict(phoneAssetsResolveVersion=1,domainId=DOMAIN,sessionId=DOMAIN,assetServerId=DOMAIN,
+                requestedPath=request['path'],hash=HASH,redirected=False,redirectedPath=''))
         self.value=dict(schemaVersion=1,requestId=request['commandId'],runId=RUN,instance='b'*32,sequence=self.sequence,processId=321,
             requestedEpochMs=self.epoch,capturedEpochMs=self.epoch,source=source,activeRequests=0,retainedResults=0)
         if self.fault:self.fault(self.value)
@@ -91,6 +94,38 @@ class AssetsSourceTests(unittest.TestCase):
         for addition in (dict(action='phone-assets-delete'),dict(expectedMappings=[]),dict(path='/private/owned'),dict(hash=HASH)):
             with self.subTest(addition=addition),self.assertRaises((ValueError,NativeUIError)):readonly_feature_command(request|addition)
 
+    def test_resolve_retains_actual_request_and_redirect_hash_without_adopting_input_as_result(self):
+        b=Boundary();reader=b.reader(resolve=True);path='/e2e-'+RUN+'/stand.fbx'
+        direct=reader.read(RUN,path=path)['source'];self.assertEqual(path,direct['requestedPath']);self.assertFalse(direct['redirected'])
+        b.fault=lambda value:value['source'].update(redirected=True,redirectedPath='/.baked/'+HASH+'/asset.fbx')
+        redirected=reader.read(RUN,path=path)['source'];self.assertEqual('/.baked/'+HASH+'/asset.fbx',redirected['redirectedPath']);self.assertEqual(HASH,redirected['hash'])
+    def test_resolve_missing_changed_or_malformed_actual_reply_is_red(self):
+        for change in (dict(redirected=True),dict(redirected=1),dict(hash='ack'),dict(requestedPath='/foreign/main.gltf'),dict(redirectedPath='/not-a-redirect')):
+            b=Boundary();b.fault=lambda packet:packet['source'].update(change)
+            with self.subTest(change=change),self.assertRaises(NativeUIError):b.reader(resolve=True).read(RUN,path='/e2e-'+RUN+'/main.gltf')
+    def test_resolve_queries_are_closed_to_this_run_and_real_fixture_paths(self):
+        for path in ('/foreign/main.gltf','/e2e-'+RUN+'/../main.gltf','/e2e-'+RUN+'/stand.fbx?skybox','/.baked/'+HASH+'/asset.fbx'):
+            b=Boundary()
+            with self.subTest(path=path),self.assertRaises(NativeUIError):b.reader(resolve=True).read(RUN,path=path)
+            self.assertIsNone(b.request)
+        from appium_adapter import readonly_feature_command
+        readonly_feature_command(dict(schemaVersion=1,commandId='d'*32,action='phone-assets-resolve',runId=RUN,path='/e2e-'+RUN+'/stand.fbx'))
+    def test_resolve_probe_admits_only_actual_mapping_query_and_keeps_missing_native_red(self):
+        from self_tests.test_native_feature_observation import probe_source
+        program=r'''const Uuid={generate:()=>"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"};
+const objectKeysMatch=(v,k)=>JSON.stringify(Object.keys(v).sort())===JSON.stringify(k.sort());
+let calls=[],files=[];const Test={phoneAssetsRead:r=>{calls.push(r);return {requestId:r.commandId,source:{original:true}};},saveObject:(v,n)=>files.push({v,n})};
+SOURCE
+let request={schemaVersion:1,commandId:"b".repeat(32),action:"phone-assets-resolve",runId:"a".repeat(32),path:"/e2e-"+"a".repeat(32)+"/stand.fbx"};
+applyAndroidControlCommand(request);if(calls.length!==1||files[0].n!=="phone-assets-resolve.json")throw Error("resolve routing");
+applyAndroidControlCommand({...request,commandId:"c".repeat(32),path:"/foreign/stand.fbx"});
+applyAndroidControlCommand({...request,commandId:"d".repeat(32),expectedHash:"0".repeat(64)});
+if(calls.length!==1)throw Error("foreign/expected mapping admitted");
+delete Test.phoneAssetsRead;applyAndroidControlCommand({...request,commandId:"e".repeat(32)});
+if(files.at(-1).v.available!==false)throw Error("missing native resolve green");
+'''.replace('SOURCE',probe_source())
+        result=subprocess.run(['node','-e',program],capture_output=True,text=True,timeout=5)
+        self.assertEqual(0,result.returncode,result.stderr)
     def test_readonly_commands_admit_no_mutations_expectations_url_or_private_path(self):
         request=dict(schemaVersion=1,commandId='c'*32,action='phone-assets-observe',runId=RUN)
         for addition in (dict(expectedMappings=[]),dict(path='/tmp/file'),dict(url='http://fixture.invalid'),dict(action='phone-assets-delete'),dict(schemaVersion=True)):

@@ -34,7 +34,12 @@ def render_source(value):
         and all(type(value[key]) is bool for key in ('loaded','visible','addedToScene')))
     geometry=value['geometry'];need(value['loaded']==(geometry is not None))
     if geometry is None:return value
-    exact(geometry,{'instance','sourcePresent','sourceSha256','textures'})
+    exact(geometry,{'instance','sourcePresent','sourceSha256','textures'}|({'reader'} if 'reader' in geometry else set()))
+    if geometry.get('reader') is not None:
+        reader=geometry['reader'];exact(reader,{'geometryInputVersion','instance','sourceSha256','originalSha256','originalBytes','recordedEpochMs'})
+        need(type(reader['geometryInputVersion']) is int and reader['geometryInputVersion']==1 and nonce(reader['instance'])
+            and digest(reader['sourceSha256']) and digest(reader['originalSha256']) and integer(reader['originalBytes'],1,2**31-1)
+            and integer(reader['recordedEpochMs'],1,value['recordedEpochMs']))
     need(nonce(geometry['instance']) and type(geometry['sourcePresent']) is bool and digest(geometry['sourceSha256'])
         and type(geometry['textures']) is dict)
     exact(geometry['textures'],{'complete','rows'})

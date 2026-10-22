@@ -12,6 +12,10 @@
 #ifndef hifi_HFM_h_
 #define hifi_HFM_h_
 
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+#include <E2EGeometryInput.h>
+#include <memory>
+#endif
 #include <QMetaType>
 #include <QSet>
 #include <QVector>
@@ -315,6 +319,10 @@ public:
     using ConstPointer = std::shared_ptr<const Model>;
 
     QString originalURL;
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    // Written once by GeometryReader before this processed model is published.
+    std::shared_ptr<const overte::e2e::GeometryInputOriginal> e2eGeometryInput;
+#endif
     QString author;
     QString applicationName; ///< the name of the application that generated the model
 

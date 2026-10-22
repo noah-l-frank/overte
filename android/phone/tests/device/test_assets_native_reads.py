@@ -49,6 +49,18 @@ public:
   if(!blocked)QTimer::singleShot(10,this,[this]{emit finished(this);});}
 signals:void finished(GetAllMappingsRequest*);
 };
+class GetMappingRequest:public MappingRequest {Q_OBJECT
+public:
+ QString path;bool redirected=false;
+ GetMappingRequest(QString path,bool redirect):path(path),redirected(redirect){++live;}~GetMappingRequest(){--live;}
+ QString e2eRequestedPath()const{assert(QThread::currentThread()==thread());return path;}
+ QString getHash()const{assert(QThread::currentThread()==thread());return hash;}
+ bool wasRedirected()const{assert(QThread::currentThread()==thread());return redirected;}
+ QString getRedirectedPath()const{assert(QThread::currentThread()==thread());return redirected?"/.baked/"+hash+"/asset.fbx":QString();}
+ void start(){if(QThread::currentThread()!=thread()){QMetaObject::invokeMethod(this,[this]{start();},Qt::QueuedConnection);return;}
+  QTimer::singleShot(10,this,[this]{emit finished(this);});}
+signals:void finished(GetMappingRequest*);
+};
 class AssetRequest:public QObject {Q_OBJECT
 public:
  enum State{NotStarted,WaitingForData,Finished};enum Error{NoError,NetworkError};
@@ -65,9 +77,10 @@ signals:void finished(AssetRequest*);
 };
 class AssetClient:public QObject {
 public:
- QThread network;bool block{false},fail{false};
+ QThread network;bool block{false},fail{false},redirect{false};
  AssetClient(){network.start();}~AssetClient(){network.quit();network.wait();}
  GetAllMappingsRequest*createGetAllMappingsRequest(){auto request=new GetAllMappingsRequest();request->blocked=block;request->error=fail?1:0;request->moveToThread(&network);return request;}
+ GetMappingRequest*createGetMappingRequest(const QString&path){auto request=new GetMappingRequest(path,redirect);request->error=fail?1:0;request->moveToThread(&network);return request;}
  AssetRequest*createRequest(const QString&requested){auto request=new AssetRequest(requested);request->moveToThread(&network);return request;}
 };
 struct Domain {QUuid id=QUuid("12345678-1234-4234-8234-123456789abc");bool connected=true;
@@ -113,6 +126,14 @@ int main(int argc,char**argv){QCoreApplication app(argc,argv);TestScriptingInter
  result=finished(test,download);source=result.value("source").toMap();
  if(QByteArray::fromBase64(source.value("base64").toString().toLatin1())!=bytes||source.value("hash")!=hash||live!=0)return 6;
  if(!test.phoneAssetsRead(request).isEmpty()||live!=0)return 16;
+ // Resolve the actual GetMapping request path/hash/redirect on its owner thread.
+ auto resolve=query('d');resolve["action"]="phone-assets-resolve";resolve["path"]="/e2e-"+QString(32,'a')+"/stand.fbx";
+ test.phoneAssetsRead(resolve);auto resolved=finished(test,resolve).value("source").toMap();
+ if(resolved.value("requestedPath")!=resolve.value("path")||resolved.value("hash")!=hash||resolved.value("redirected")!=false||live!=0)return 25;
+ client->redirect=true;resolve["commandId"]=QString(32,'0'); // All-zero command IDs remain forbidden.
+ if(!test.phoneAssetsRead(resolve).isEmpty())return 26;resolve["commandId"]=QString(32,'6');test.phoneAssetsRead(resolve);
+ resolved=finished(test,resolve).value("source").toMap();if(resolved.value("redirected")!=true||resolved.value("redirectedPath")!="/.baked/"+hash+"/asset.fbx"||live!=0)return 27;
+ resolve["commandId"]=QString(32,'7');resolve["path"]="/foreign/stand.fbx";if(!test.phoneAssetsRead(resolve).isEmpty())return 28;
  // Permission is read again on the actual GUI owner after network data was copied.
  auto permission=query('f');test.phoneAssetsRead(permission);nodes->write=false;
  result=finished(test,permission);if(result.value("source").toMap().value("canWrite")!=false)return 7;
