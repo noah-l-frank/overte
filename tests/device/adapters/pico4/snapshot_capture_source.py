@@ -169,13 +169,21 @@ class PicoSnapshotCaptureFileSource:
             and integer(pid,1) and type(read_only) is bool and (read_only or callable(io._before_send))
             and all(callable(fn) for fn in (clock_ms,monotonic,sleep)))
         self.io,self.clock_ms,self.pid,self.lock=io,clock_ms,pid,source_lock
-        self.read_only,self.monotonic,self.sleep=read_only,monotonic,sleep;self.last=self.raw=self.last_request=None
+        self.read_only,self.monotonic,self.sleep=read_only,monotonic,sleep;self.last=self.raw=self.last_request=None;self.publication=None
     @staticmethod
     def envelope(run,operation='observe',*,prefix='',file_id='',operation_id=''):
         request=dict(schemaVersion=1,commandId=uuid.uuid4().hex,action='pico-snapshot-files-observe',runId=run)
         if operation!='observe':request.update(action='pico-snapshot-files-control',operation=operation,prefix=prefix,fileId=file_id,operationId=operation_id)
         else:need(prefix==file_id==operation_id=='')
         command(request);return request
+    def before_publish(self,request):
+        # This final callback follows parent/child private CAS and phase fences.
+        # It performs no SDK/native/source read and cannot reenter a session.
+        command(request);self.lock.assert_held()
+        need(self.publication is not None and self.publication['request']==request and self.publication['published'] is False)
+        elapsed=self.monotonic()-self.publication['started']
+        need(number(elapsed,0,1.5));self.publication['published']=True
+
     def restore(self,value,request):
         validate(value,request,self.pid,value['capturedEpochMs']);need(self.last is None)
         self.last=deepcopy(value) # Historical prefix only; subsequent reads need a new actual native nonce.
@@ -184,6 +192,7 @@ class PicoSnapshotCaptureFileSource:
         need(not self.read_only or operation=='observe')
         with self.lock.held():
             started=self.monotonic();requested=self.clock_ms();need(number(started,0,1e15) and integer(requested,1))
+            self.publication=dict(request=deepcopy(request),started=started,published=False)
             self.io.bind_input();self.io.send(deepcopy(request))
             previous=started
             for attempt in range(31):
