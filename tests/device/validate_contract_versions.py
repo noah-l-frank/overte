@@ -166,6 +166,8 @@ REQUIRED = {
     "ios-normal-inputs": 1,
     "ios-avatar-inputs-acquisition": 1,
     "ios-avatar-input-reads": 1,
+    "ios-avatar-account-reads": 1,
+    "ios-avatar-account-read-record": 1,
     "ios-avatar-input-read-record": 1,
     "ios-avatar-controls": 1,
     "ios-avatar-bookmarks": 1,

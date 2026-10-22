@@ -159,6 +159,8 @@
     "ios-avatar-input-owner": {"current": 1, "reads": [1]},
     "ios-normal-inputs": {"current": 1, "reads": [1]},
     "ios-avatar-inputs-acquisition": {"current": 1, "reads": [1]},
+    "ios-avatar-account-reads": {"current": 1, "reads": [1]},
+    "ios-avatar-account-read-record": {"current": 1, "reads": [1]},
     "ios-avatar-input-reads": {"current": 1, "reads": [1]},
     "ios-avatar-input-read-record": {"current": 1, "reads": [1]},
     "ios-avatar-controls": {"current": 1, "reads": [1]},

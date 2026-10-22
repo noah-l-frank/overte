@@ -50,6 +50,17 @@ class IOSAvatarLoginRuntime(IOSAuthenticationRuntime):
 
 
 class IOSAvatarRuntime(IOSScriptRuntime):
+    def _avatar_account_reads(self,selector,client,run,role,subject,root,lock):
+        from ios.adapters.avatar_account_reads import IOSAvatarAccountReads
+        identifier(run);need(isinstance(client,Client) and role in ('primary','actor') and subject in ('primary','actor')
+            and isinstance(lock,ScriptSourceLock))
+        lock.assert_held();need(lock.path==self.state_path(selector).with_name('script-feature-sources.lock'))
+        source=self._sources(selector);observer,clock=source['observer'],source['clock_source']
+        # This observes the original account on an existing SDK session. It
+        # deliberately does not require an Avatar UUID or joined Domain.
+        return IOSAvatarAccountReads(PrivateFeatureState(self.state_path(selector).with_name('ios-avatar-'+role+'-'+subject+'-account-reads.json')),
+            root,source['binding'],run,role,subject,lock,source['check'],observer.bound_native_observer(clock),clock_source=clock)
+
     def _avatar_marker_scope(self,selector,client,run,role,root,ticket,lock):
         from ios.adapters.avatar_marker_scope import IOSAvatarMarkerScope
         identifier(run);identifier(ticket)
