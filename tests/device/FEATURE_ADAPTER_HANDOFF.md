@@ -943,3 +943,24 @@ actual OS behavior and device acceptance remain unverified. Pico/iOS work belong
 to its separate sessions. Final shared source admission pins and aggregate
 verification await the remaining source packets; no green device or global
 acceptance result is inferred from this status.
+## Controlled SDK26–28 Documents destination component
+
+The separate fixture APK's [DocumentsProvider/source contract](fixture/android-snapshot-receiver/DOCUMENTS.md)
+now supplies normal original create/open/close/delete callbacks, actual UID and
+file identity/hash, independent DUMP source/binary transfers, and strict original
+root/FD/thread retirement. Docs-only dispatch does not initialize Consumer.
+The native fixed-fixture SAF branch retains original `inserted=false`, proves
+new creation and actual closed Phone writer, uses normal one-send
+DocumentsContract deletion, and independently queries/opens for absence.
+MediaStore identity/version-1 semantics remain unchanged; Docs use native OS
+source v2 with the separately measured storage owner package. The strict
+`os_destinations` reader joins that closed identity without accepting general SAF.
+
+Host verification includes 5 actual file-owner tests (21 scenarios), 4 actual
+Provider/native Access tests, 4 closed v2-source tests, 4 existing OS retirement
+tests, 1 existing destination-owner test (11 scenarios), 1 unchanged Consumer
+owner test (11 scenarios), 9 readback-source tests and 5 asynchronous-job tests.
+Prepared API34 javac/d8/aapt2 creates an unsigned/uninstalled fixture; native SAF
+Java also compiles against API34. Android API producers remain explicit host
+seams. No Android runtime/device acceptance, normal SDK picker/host reader
+composition or complete Snapshot capability is claimed by this component.

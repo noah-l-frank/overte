@@ -1,5 +1,9 @@
 # Separate Android Snapshot consumer fixture
 
+The disjoint [controlled DocumentsProvider](DOCUMENTS.md) supports the normal
+SDK26–28 Save picker and independent original file/FD/UID evidence. Its DUMP
+protocol and retirement do not initialize or change the Consumer owner.
+
 This is a standalone debug-only lab APK (`org.overte.e2e.snapshotreceiver`),
 not a product source set or manifest fragment. It has no shared user ID. Its
 normal exported image ACTION_SEND Activity is labelled **Overte Snapshot

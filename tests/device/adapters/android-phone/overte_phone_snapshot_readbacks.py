@@ -91,7 +91,7 @@ def source(value):
 
 def os_destinations(value,destinations,epoch):
     exact(value,{'snapshotOsDestinationsVersion','complete','pending','checkId','checkedEpochMs','rows'})
-    need(type(value['snapshotOsDestinationsVersion']) is int and value['snapshotOsDestinationsVersion']==1 and value['complete'] is True
+    need(type(value['snapshotOsDestinationsVersion']) is int and value['snapshotOsDestinationsVersion'] in (1,2) and value['complete'] is True
         and integer(value['pending'],0,64) and (value['checkId']=='' or nonce(value['checkId'])) and integer(value['checkedEpochMs'],0,epoch)
         and type(value['rows']) is list and len(value['rows'])<=64)
     seen=set()
@@ -103,16 +103,24 @@ def os_destinations(value,destinations,epoch):
             and integer(row['acquiredEpochMs'],0,epoch) and integer(row['checkedEpochMs'],0,epoch) and (row['deleteId']=='' or nonce(row['deleteId'])))
         seen.add(request)
         if row['identity'] is not None:
-            identity=row['identity'];exact(identity,{'uri','providerUid','ownerPackage','displayName','device','inode'})
-            parsed=uri(identity['uri']);need(parsed.netloc=='media' and identity['uri']==destinations[request]['uri'] and integer(identity['providerUid'],1)
-                and identity['ownerPackage']=='io.github.noah_be.overte.phone' and type(identity['displayName']) is str and 0<len(identity['displayName'])<=255
-                and '/' not in identity['displayName'] and integer(identity['device']) and integer(identity['inode'],1))
+            identity=row['identity'];documents=identity.get('storage')=='documents'
+            exact(identity,{'uri','providerUid','ownerPackage','displayName','device','inode'} | ({'providerPackage','storage','runId','armId','providerInstance','documentId','createUid','createdEpochMs'} if documents else set()))
+            parsed=uri(identity['uri']);need(identity['uri']==destinations[request]['uri'] and integer(identity['providerUid'],1)
+                and type(identity['displayName']) is str and 0<len(identity['displayName'])<=255 and '/' not in identity['displayName'] and integer(identity['device']) and integer(identity['inode'],1))
+            if documents:
+                need(value['snapshotOsDestinationsVersion']==2 and not row['inserted'] and parsed.netloc=='org.overte.e2e.snapshotreceiver.documents'
+                    and identity['ownerPackage']==identity['providerPackage']=='org.overte.e2e.snapshotreceiver'
+                    and all(nonce(identity[key]) for key in ('runId','armId','providerInstance')) and type(identity['documentId']) is str
+                    and re.fullmatch('doc-'+identity['runId']+'-'+identity['armId']+'-[0-9a-f]{32}',identity['documentId'])
+                    and parsed.path=='/document/'+identity['documentId'] and integer(identity['createUid'],1) and integer(identity['createdEpochMs'],1,epoch)
+                    and re.fullmatch('e2e-'+identity['runId']+r'-[A-Za-z0-9_-]{1,160}\.png',identity['displayName']))
+            else:need(parsed.netloc=='media' and identity['ownerPackage']=='io.github.noah_be.overte.phone')
         if row['original'] is not None:
-            original=row['original'];exact(original,{'bytes','sha256'});need(integer(original['bytes'],1,256*1024*1024) and type(original['sha256']) is str and re.fullmatch('[0-9a-f]{64}',original['sha256']) and row['acquiredEpochMs']>0 and row['identity'] is not None)
+            original=row['original'];exact(original,{'bytes','sha256'});need(integer(original['bytes'],1,(32 if row['identity'] is not None and row['identity'].get('storage')=='documents' else 256)*1024*1024) and type(original['sha256']) is str and re.fullmatch('[0-9a-f]{64}',original['sha256']) and row['acquiredEpochMs']>0 and row['identity'] is not None)
         if row['phase']=='planned':need(row['identity'] is row['original'] is None and row['acquiredEpochMs']==0)
         elif row['phase']=='created':need(row['identity'] is not None and row['original'] is None)
         else:need(row['identity'] is not None and row['original'] is not None)
-        if row['deleteIssued']:need(row['inserted'] and nonce(row['deleteId']))
+        if row['deleteIssued']:need((row['inserted'] or value['snapshotOsDestinationsVersion']==2 and row['identity'] is not None and row['identity'].get('storage')=='documents') and nonce(row['deleteId']))
         else:need(row['deleteId']=='' and row['deleteCount']==-1 and not row['absent'])
         if row['phase']=='retired':need(row['deleteIssued'] and row['absent'] and row['checkedEpochMs']>0)
     need(seen==set(destinations))

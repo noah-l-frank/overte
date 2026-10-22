@@ -10,6 +10,7 @@ import android.database.Cursor;
 import android.net.Uri;
 import android.os.CancellationSignal;
 import android.provider.MediaStore;
+import android.provider.DocumentsContract;
 import android.system.Os;
 import android.system.OsConstants;
 import android.system.StructStat;
@@ -92,7 +93,7 @@ final class SnapshotOsDestinations {
         } catch(RuntimeException failure) { --pending;complete=false;if(afterRetirement)timer.shutdown();throw new IOException("OS destination work rejected"); }
     }
     synchronized Map<String,Object> observation() {
-        Map<String,Object> result=new LinkedHashMap<>();result.put("snapshotOsDestinationsVersion",1);result.put("complete",complete);
+        Map<String,Object> result=new LinkedHashMap<>();result.put("snapshotOsDestinationsVersion",access.values().stream().anyMatch(Access::documents) ? 2 : 1);result.put("complete",complete);
         result.put("pending",pending);result.put("checkId",checkId);result.put("checkedEpochMs",checked);result.put("rows",owner.snapshot());return result;
     }
     synchronized boolean retired() { return complete && pending==0 && owner.retired(); }
@@ -104,16 +105,50 @@ final class SnapshotOsDestinations {
 
     private static final class Access implements SnapshotDestinationOwner.Access {
         final Context context;final ContentResolver resolver;final Uri uri;final String name;
-        Integer providerUid;
+        Integer providerUid;final long registered=System.currentTimeMillis();
+        static final String DOCUMENT_AUTHORITY="org.overte.e2e.snapshotreceiver.documents",DOCUMENT_PACKAGE="org.overte.e2e.snapshotreceiver";
+        boolean documents() { return DOCUMENT_AUTHORITY.equals(uri.getAuthority()); }
         final CancellationSignal cancelled=new CancellationSignal();final AtomicReference<InputStream> opened=new AtomicReference<>();
         Access(Context context,ContentResolver resolver,Uri uri,String name) { this.context=context;this.resolver=resolver;this.uri=uri;this.name=name; }
         ProviderInfo provider() throws IOException {
             ProviderInfo value=context.getPackageManager().resolveContentProvider(uri.getAuthority(),0);
             if(value==null || value.applicationInfo==null || providerUid!=null && providerUid!=value.applicationInfo.uid)throw new IOException("Original OS provider changed");
+            if(documents() && (!DOCUMENT_PACKAGE.equals(value.packageName) || value.applicationInfo.uid==context.getApplicationInfo().uid))throw new IOException("Independent document provider changed");
             if(providerUid==null)providerUid=value.applicationInfo.uid;return value;
         }
         void cancel() { cancelled.cancel();InputStream value=opened.get();if(value!=null)try { value.close(); }catch(IOException ignored) { /* Worker retains any failure. */ } }
+        private Map<String,Object> document(boolean writer) throws IOException {
+            if(!documents() || !"content".equals(uri.getScheme()) || uri.getQuery()!=null || uri.getFragment()!=null || uri.getPathSegments().size()!=2 || !"document".equals(uri.getPathSegments().get(0)))throw new IOException("Fixed fixture document required");
+            String id=DocumentsContract.getDocumentId(uri);if(!id.matches("doc-[0-9a-f]{32}-[0-9a-f]{32}-[0-9a-f]{32}"))throw new IOException("Closed document ID required");
+            String[] fields={DocumentsContract.Document.COLUMN_DOCUMENT_ID,DocumentsContract.Document.COLUMN_DISPLAY_NAME,DocumentsContract.Document.COLUMN_MIME_TYPE,
+                "overte_run_id","overte_arm_id","overte_provider_instance","overte_create_uid","overte_created_epoch_ms","overte_writer_uid","overte_write_opened_epoch_ms","overte_write_closed_epoch_ms",
+                "overte_device","overte_inode","overte_sha256","overte_delete_calls","overte_open_descriptors",DocumentsContract.Document.COLUMN_SIZE};
+            ProviderInfo provider=provider();if(!DOCUMENT_PACKAGE.equals(provider.packageName) || provider.applicationInfo.uid==context.getApplicationInfo().uid)throw new IOException("Independent document storage owner required");
+            try(Cursor row=resolver.query(uri,fields,null,null,null,cancelled)) {
+                if(row==null || row.getCount()!=1 || !row.moveToFirst())throw new IOException("Original document creation row missing");
+                String run=row.getString(3),arm=row.getString(4),instance=row.getString(5),display=row.getString(1);long created=row.getLong(7);
+                if(!id.equals(row.getString(0)) || !run.matches("[0-9a-f]{32}") || !arm.matches("[0-9a-f]{32}") || !instance.matches("[0-9a-f]{32}")
+                    || !id.startsWith("doc-"+run+"-"+arm+"-") || !"image/png".equals(row.getString(2)) || !name.equals(display)
+                    || !display.matches("e2e-"+run+"-[A-Za-z0-9_-]{1,160}\\.png") || row.getInt(6)<=0 || created<=0 || created<registered-5000 || created>registered+1000 || row.getInt(14)!=0
+                    || row.getInt(8)!=0 && row.getInt(8)!=context.getApplicationInfo().uid)throw new IOException("Foreign or pre-existing document");
+                if(writer && (row.getInt(8)!=context.getApplicationInfo().uid || row.getLong(9)<=0 || row.getLong(10)<row.getLong(9) || row.getLong(16)<=0 || row.getLong(16)>32L*1024*1024 || !row.getString(13).matches("[0-9a-f]{64}")))throw new IOException("Original Phone writer has not closed");
+                Map<String,Object> result=new LinkedHashMap<>();result.put("uri",uri.toString());result.put("providerUid",provider.applicationInfo.uid);result.put("providerPackage",provider.packageName);
+                result.put("ownerPackage",provider.packageName);result.put("displayName",display);result.put("device",row.getLong(11));result.put("inode",row.getLong(12));result.put("storage","documents");
+                result.put("runId",run);result.put("armId",arm);result.put("providerInstance",instance);result.put("documentId",id);result.put("createUid",row.getInt(6));result.put("createdEpochMs",created);
+                result.put("activeDescriptors",row.getInt(15));return result;
+            }
+        }
+        @Override public boolean createdHere() throws IOException { if(!documents())return false;document(true);return true; }
         @Override public Map<String,Object> identity() throws IOException {
+            if(documents()) {
+                Map<String,Object> actual=document(false);actual.remove("activeDescriptors");
+                try(AssetFileDescriptor descriptor=resolver.openAssetFileDescriptor(uri,"r",cancelled)) {
+                    if(descriptor==null || descriptor.getStartOffset()!=0)throw new IOException("Original document descriptor missing");
+                    StructStat stat=Os.fstat(descriptor.getParcelFileDescriptor().getFileDescriptor());
+                    if(!OsConstants.S_ISREG(stat.st_mode) || stat.st_nlink!=1 || stat.st_uid!=providerUid || stat.st_dev!=((Number)actual.get("device")).longValue() || stat.st_ino!=((Number)actual.get("inode")).longValue())throw new IOException("Original document inode changed");
+                } catch(android.system.ErrnoException failure) { throw new IOException("Original document fstat unavailable"); }
+                return actual;
+            }
             if(!"content".equals(uri.getScheme()) || !"media".equals(uri.getAuthority()) || uri.getQuery()!=null || uri.getFragment()!=null
                     || !uri.getPath().matches("/external(?:_primary)?/images/media/[1-9][0-9]*"))throw new IOException("New MediaStore ownership is unproved");
             ProviderInfo provider=provider();
@@ -147,10 +182,18 @@ final class SnapshotOsDestinations {
             };
             opened.set(result);if(cancelled.isCanceled()) { result.close();throw new IOException("OS destination read expired"); }return result;
         }
-        @Override public int delete() { return resolver.delete(uri,null,null); }
+        @Override public int delete() throws IOException {
+            if(!documents())return resolver.delete(uri,null,null);
+            long started=System.nanoTime();
+            while(((Number)document(true).get("activeDescriptors")).intValue()!=0) {
+                cancelled.throwIfCanceled();if(System.nanoTime()-started>=5000000000L)throw new IOException("Original document descriptors remain open");
+                try { Thread.sleep(25); }catch(InterruptedException failure) { Thread.currentThread().interrupt();throw new IOException("Document close wait interrupted"); }
+            }
+            return DocumentsContract.deleteDocument(resolver,uri) ? 1 : 0;
+        }
         @Override public boolean absent() throws IOException {
             provider();
-            try(Cursor cursor=resolver.query(uri,new String[]{MediaStore.Images.Media._ID},null,null,null,cancelled)) {
+            try(Cursor cursor=resolver.query(uri,new String[]{documents() ? DocumentsContract.Document.COLUMN_DOCUMENT_ID : MediaStore.Images.Media._ID},null,null,null,cancelled)) {
                 if(cursor==null)throw new IOException("OS absence query is unavailable");if(cursor.getCount()!=0)return false;
             }
             try(AssetFileDescriptor descriptor=resolver.openAssetFileDescriptor(uri,"r",cancelled)) {

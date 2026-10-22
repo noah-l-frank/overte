@@ -21,6 +21,7 @@ final class SnapshotDestinationOwner {
         InputStream open() throws IOException;
         int delete() throws IOException;
         boolean absent() throws IOException;
+        default boolean createdHere() throws IOException { return false; }
     }
     private static final class Entry {
         final String request;final Access access;final boolean inserted;
@@ -61,7 +62,7 @@ final class SnapshotDestinationOwner {
         synchronized(this) {
             entry=owned(request);replay=!entry.deleteId.isEmpty();
             if(replay && !entry.deleteId.equals(id))throw new IOException("Second destination deletion is forbidden");
-            if(!replay && (!entry.inserted || !"qualified".equals(entry.phase) || entry.original==null))throw new IOException("New OS destination ownership is unproved");
+            if(!replay && (!(entry.inserted || entry.access.createdHere()) || !"qualified".equals(entry.phase) || entry.original==null))throw new IOException("New OS destination ownership is unproved");
             if(!replay)entry.phase="checking-delete";
         }
         if(replay) { inspect(entry);return; }

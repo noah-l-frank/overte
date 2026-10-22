@@ -74,6 +74,9 @@ COMMON_HOST_CHECKS = (
     "android/phone/tests/device/test_chat_foundation.py",
 
     "android/phone/tests/device/test_snapshot_os_retirement_source.py",
+    "android/phone/tests/device/test_snapshot_documents_native.py",
+    "android/phone/tests/device/test_snapshot_documents_access.py",
+    "android/phone/tests/device/test_snapshot_documents_os_source.py",
     "android/phone/tests/device/test_snapshot_share_grants_source.py",
     "android/phone/tests/device/test_snapshot_consumer_source.py",
     "android/phone/tests/device/test_snapshot_upload_source.py",
