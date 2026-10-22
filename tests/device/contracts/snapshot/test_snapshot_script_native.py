@@ -24,6 +24,8 @@ PREFIX=r'''
 #include <QTimer>
 #include <QMap>
 #include <QSet>
+#include <QHash>
+#include <QPointer>
 #include <QVariantMap>
 #include <memory>
 #include <map>
@@ -63,6 +65,7 @@ public:
 class Snapshot : public QObject {
 public:
     overte::e2e::SnapshotScriptHistory _featureCaptureScriptHistory;
+    QHash<QString,QPointer<QObject>> _uploads;
     QSet<QString> _featureCaptureScriptQueries;QString _featureCaptureScriptRun;quint64 _featureCaptureScriptSequence{0};
     bool nativeReviewEnabled() const {return true;}
     QVariantMap featureSnapshotScriptOriginals(const QVariantMap& command);
@@ -76,15 +79,16 @@ int main(int argc,char** argv) {
     if(mode=="query") {
         QVariantMap command{{"schemaVersion",1},{"commandId",QString(32,'a')},{"runId",QString(32,'b')}};
         const auto first=snapshot.featureSnapshotScriptOriginals(command);
-        if(first.value("snapshotScriptOriginalsVersion")!=1 || first.value("sequence")!=1
+        if(first.value("snapshotScriptOriginalsVersion")!=2 || first.value("activeUploads")!=0 || first.value("sequence")!=1
                 || first.value("pid").toLongLong()!=app.applicationPid() || first.value("history").toMap().value("sequence")!=0
                 || !snapshot.featureSnapshotScriptOriginals(command).isEmpty()) {return 14;}
         command["commandId"]=QString(32,'c');command["runId"]=QString(32,'d');
         if(!snapshot.featureSnapshotScriptOriginals(command).isEmpty()) {return 15;}
         command["runId"]=QString(32,'b');command["expectedPending"]=true;
         if(!snapshot.featureSnapshotScriptOriginals(command).isEmpty()) {return 16;}
-        command.remove("expectedPending");const auto next=snapshot.featureSnapshotScriptOriginals(command);
-        return next.value("sequence")==2 && next.value("history")==first.value("history") ? 0 : 17;
+        command.remove("expectedPending");snapshot._uploads.insert("original-retained-map-entry",nullptr);
+        const auto next=snapshot.featureSnapshotScriptOriginals(command);
+        return next.value("sequence")==2 && next.value("activeUploads")==1 && next.value("history")==first.value("history") ? 0 : 17;
     }
     if(mode=="timer-work") {
         for(int index=1;index<=3;++index) {

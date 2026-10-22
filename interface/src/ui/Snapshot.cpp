@@ -183,10 +183,10 @@ QVariantMap Snapshot::featureSnapshotScriptOriginals(const QVariantMap& command)
     _featureCaptureScriptQueries.insert(command.value("commandId").toString());
     const auto history=_featureCaptureScriptHistory.snapshot();
     if (history.isEmpty() || history.value("complete")!=true) {return {};}
-    const QVariantMap result{{"snapshotScriptOriginalsVersion",1},{"commandId",command.value("commandId")},
+    const QVariantMap result{{"snapshotScriptOriginalsVersion",2},{"commandId",command.value("commandId")},
         {"runId",_featureCaptureScriptRun},{"pid",QCoreApplication::applicationPid()},
         {"sequence",++_featureCaptureScriptSequence},{"capturedEpochMs",QDateTime::currentMSecsSinceEpoch()},
-        {"history",history}};
+        {"history",history},{"activeUploads",_uploads.size()}};
     return QJsonDocument::fromVariant(result).toJson(QJsonDocument::Compact).size()<=65536 ? result : QVariantMap{};
 }
 

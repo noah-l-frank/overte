@@ -44,6 +44,7 @@ public:
     std::array<QImage,6> _imageArray;
     overte::e2e::SnapshotCaptureOriginals _featureCaptureOriginals;
     overte::e2e::SnapshotScriptHistory _featureCaptureScriptHistory;
+    QHash<QString,QPointer<QObject>> _uploads;
     QSet<QString> _featureCaptureScriptQueries;QString _featureCaptureScriptRun;quint64 _featureCaptureScriptSequence{0};
 signals:
     void captureStatusChanged(const QString&,const QString&,const QString&,const QString&);
@@ -158,7 +159,7 @@ int main(int argc,char** argv) {
     DependencyManager::original->reviewEnabled=true;
 #if defined(ANDROID_APP_PICO_INTERFACE)
     const auto scriptActual=test.featureSnapshotScriptOriginals(scriptQuery);
-    assert(scriptActual.value("snapshotScriptOriginalsVersion")==1 && scriptActual.value("history").toMap().value("sequence")==0);
+    assert(scriptActual.value("snapshotScriptOriginalsVersion")==2 && scriptActual.value("activeUploads")==0 && scriptActual.value("history").toMap().value("sequence")==0);
     assert(test.featureSnapshotScriptOriginals(scriptQuery).isEmpty());
     scriptQuery["commandId"]=QString(32,'f');scriptQuery["expectedPending"]=true;
     assert(test.featureSnapshotScriptOriginals(scriptQuery).isEmpty());

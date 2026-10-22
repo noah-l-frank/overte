@@ -10,18 +10,22 @@ from adapters.script_journey.lock import ScriptSourceLock
 from adapters.pico4.snapshot_originals import nonce
 from adapters.pico4.snapshot_script_history import validate as history,continuity
 
-VERSION=1
+VERSION=2
+READS=(1,2)
 FILE='feature-snapshot-script-originals.json'
 ACTION='feature-snapshot-script-originals'
 LIMIT=65536
 
 
 def validate(value,run,request,pid,epoch):
-    exact(value,{'snapshotScriptOriginalsVersion','commandId','runId','sequence','pid','capturedEpochMs','history'})
-    need(type(value['snapshotScriptOriginalsVersion']) is int and value['snapshotScriptOriginalsVersion']==VERSION
+    need(type(value) is dict)
+    exact(value,{'snapshotScriptOriginalsVersion','commandId','runId','sequence','pid','capturedEpochMs','history'}
+        | ({'activeUploads'} if value.get('snapshotScriptOriginalsVersion')==2 else set()))
+    need(type(value['snapshotScriptOriginalsVersion']) is int and value['snapshotScriptOriginalsVersion'] in READS
         and nonce(run) and value['runId']==run and nonce(request) and value['commandId']==request
         and integer(value['pid'],1) and value['pid']==pid and integer(value['sequence'],1)
         and integer(value['capturedEpochMs'],1) and number(epoch,1,1e15) and -250<=epoch-value['capturedEpochMs']<=1500)
+    if value['snapshotScriptOriginalsVersion']==2:need(integer(value['activeUploads'],0,256))
     history(value['history'],value['capturedEpochMs'])
     return value
 
@@ -30,7 +34,8 @@ def accept(previous,current):
     validate(current,current['runId'],current['commandId'],current['pid'],current['capturedEpochMs'])
     if previous is not None:
         validate(previous,previous['runId'],previous['commandId'],previous['pid'],previous['capturedEpochMs'])
-        need(current['runId']==previous['runId'] and current['pid']==previous['pid']
+        need(current['snapshotScriptOriginalsVersion']==previous['snapshotScriptOriginalsVersion']
+            and current['runId']==previous['runId'] and current['pid']==previous['pid']
             and current['sequence']>previous['sequence'] and current['commandId']!=previous['commandId']
             and current['capturedEpochMs']>=previous['capturedEpochMs'])
         continuity(previous['history'],current['history'])

@@ -144,7 +144,7 @@ REQUIRED = {
     "native-audio-preview-lifetime": 1,
     "pico-audio-page-owner": 1,
     "snapshot-review-observation": 1,
-    "pico-snapshot-script-originals": 1,
+    "pico-snapshot-script-originals": 2,
     "snapshot-script-history": 1,
     "pico-snapshot-native-originals": 2,
     "pico-snapshot-still-owner": 1,
