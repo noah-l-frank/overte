@@ -31,6 +31,13 @@ def document_id(value,run,arm):
 def sha(value):return type(value) is str and re.fullmatch('[0-9a-f]{64}',value) is not None
 
 
+def installed(value):
+    exact(value,{'package','apkSha256','uid','processId','processIdentity'})
+    need(value['package']==PACKAGE and sha(value['apkSha256']) and integer(value['uid'],1) and integer(value['processId'],1)
+        and type(value['processIdentity']) is str and re.fullmatch(str(value['processId'])+':[0-9]+',value['processIdentity']))
+    return value
+
+
 def decode(raw):
     need(type(raw) is bytes and 0<len(raw)<=MAX_SOURCE)
     def pairs(items):
@@ -165,19 +172,41 @@ class PhoneSnapshotDocuments:
         need(nonce(run) and nonce(arm) and type(read_only) is bool and all(callable(fn) for fn in (clock_ms,guard,monotonic,sleep)))
         self.transport,self.clock_ms,self.guard,self.run,self.arm,self.read_only=transport,clock_ms,guard,run,arm,read_only
         self.monotonic,self.sleep,self.last,self.bound,self.instance,self.root,self.last_clock=monotonic,sleep,None,None,None,None,None
+        self.floor=None
         if binding is not None:
-            exact(binding,{'installed','instance','runId','armId','root'})
-            need(binding['runId']==run and binding['armId']==arm and nonce(binding['instance']))
-            self.bound,self.instance,self.root=deepcopy(binding['installed']),binding['instance'],deepcopy(binding['root'])
+            exact(binding,{'snapshotDocumentsBindingVersion','installed','instance','runId','armId','root','floor'})
+            need(type(binding['snapshotDocumentsBindingVersion']) is int and binding['snapshotDocumentsBindingVersion']==2
+                and binding['runId']==run and binding['armId']==arm and nonce(binding['instance']))
+            self.bound,self.instance,self.root=deepcopy(installed(binding['installed'])),binding['instance'],deepcopy(binding['root'])
+            self.floor=self._historical(binding['floor'])
         need(not read_only or binding is not None)
     def binding(self):
-        need(self.bound is not None and self.instance is not None and self.root is not None)
-        return dict(installed=deepcopy(self.bound),instance=self.instance,runId=self.run,armId=self.arm,root=deepcopy(self.root))
+        floor=self.last if self.last is not None else self.floor
+        need(self.bound is not None and self.instance is not None and self.root is not None and floor is not None)
+        return dict(snapshotDocumentsBindingVersion=2,installed=deepcopy(self.bound),instance=self.instance,
+            runId=self.run,armId=self.arm,root=deepcopy(self.root),floor=deepcopy(floor))
+    def _historical(self,row):
+        try:
+            value=deepcopy(row)
+            source(value,self.run,self.arm,value['observationId'],installed(self.bound),value['capturedEpochMs'])
+            need(value['instance']==self.instance
+                and {key:value['root'][key] for key in ('rootId','path','device','inode')}==self.root)
+            return value
+        except Exception:raise NativeUIError('Original Snapshot Documents ownership floor is invalid') from None
+    def restore_history(self,original_rows):
+        try:
+            need(self.last is None and self.floor is not None and type(original_rows) is list and 0<len(original_rows)<=512)
+            previous=None;found_floor=False
+            for row in original_rows:
+                value=self._historical(row)
+                if previous is not None:continuity(previous,value)
+                found_floor=found_floor or value==self.floor
+                previous=value
+            need(found_floor);self.last=deepcopy(previous)
+        except Exception:raise NativeUIError('Original Snapshot Documents history cannot be restored') from None
     def _identity(self):
         need(self.guard() is not False);value=self.transport.identity()
-        exact(value,{'package','apkSha256','uid','processId','processIdentity'})
-        need(value['package']==PACKAGE and sha(value['apkSha256']) and integer(value['uid'],1) and integer(value['processId'],1)
-            and type(value['processIdentity']) is str and re.fullmatch(str(value['processId'])+':[0-9]+',value['processIdentity']))
+        installed(value)
         if self.bound is None:self.bound=deepcopy(value)
         else:need(self.bound==value)
         return value
@@ -194,11 +223,14 @@ class PhoneSnapshotDocuments:
                 root={key:value['root'][key] for key in ('rootId','path','device','inode')}
                 if self.root is None:self.root=deepcopy(root)
                 else:need(root==self.root)
-                if self.last is not None:continuity(self.last,value)
+                original=self.last if self.last is not None else self.floor
+                if original is not None:continuity(original,value)
                 need(self.guard() is not False);now=self.monotonic();need(number(now,previous,1e15) and now-start<5);previous=now
                 self.last=deepcopy(value)
                 if value['complete']:
-                    fresh(value['capturedEpochMs'],self.clock_ms());self.last_clock=now;return deepcopy(value)
+                    fresh(value['capturedEpochMs'],self.clock_ms());need(self.guard() is not False)
+                    final=self.monotonic();need(number(final,now,1e15) and final-start<5)
+                    self.last_clock=final;return deepcopy(value)
                 need(attempt<50);self.sleep(.1)
         except Exception:raise NativeUIError('Original Snapshot Documents provider is unavailable, foreign or incomplete') from None
         raise NativeUIError('Original Snapshot Documents provider did not complete')
@@ -220,11 +252,14 @@ class PhoneSnapshotDocuments:
             from snapshot_observation import inspect_snapshot
             inspect_snapshot(raw,mode='still',file_format='png')
             after=self.observe();need(not after['retired'] and next(row for row in after['documents'] if row['documentId']==document_id)==document)
-            need(number(self.monotonic(),start,1e15) and self.monotonic()-start<5 and self.guard() is not False)
+            need(self.guard() is not False);now=self.monotonic();need(number(now,start,1e15) and now-start<5)
             return dict(source='snapshot-document-original',documentId=document_id,uri=document['uri'],bytes=len(raw),sha256=document['sha256'],
                 capturedEpochMs=document['writeClosedEpochMs'],acquiredEpochMs=after['capturedEpochMs']),raw
         except Exception:raise NativeUIError('Original Snapshot document bytes or independent writer join is invalid') from None
     def require_retired(self):
+        start=self.monotonic()
         value=self.observe();need(value['retired'] and value['workersTerminated'] and not value['root']['present']
             and all(row['absent'] for row in value['documents']) and all(row['closed'] for row in value['fdLifetimes']))
-        fresh(value['root']['checkedEpochMs'],self.clock_ms());return value
+        fresh(value['root']['checkedEpochMs'],self.clock_ms());need(self.guard() is not False)
+        now=self.monotonic();need(number(now,self.last_clock,1e15) and now-start<5)
+        self.last_clock=now;return value

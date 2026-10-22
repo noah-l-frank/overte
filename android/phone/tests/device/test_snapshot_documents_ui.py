@@ -64,6 +64,42 @@ class Boundary:
 
 
 class SnapshotDocumentsUiTests(unittest.TestCase):
+    def test_drawer_label_is_not_current_directory_and_cannot_authorize_foreign_save(self):
+        b=Boundary();b.stage='drawer'
+        b.fault=lambda raw:raw.replace('text="'+LABEL+'"','resource-id="android:id/title" text="'+LABEL+'"') if b.stage=='drawer' else raw
+        b.flow.select_root();self.assertEqual('root',b.stage);self.assertEqual(1,len(b.inputs))
+        b=Boundary();b.stage='root'
+        b.fault=lambda raw:raw.replace('text="'+LABEL+'"','text="Foreign directory"').replace('</hierarchy>',
+            b.node(text=LABEL,**{'resource-id':'android:id/title'})+'</hierarchy>')
+        with self.assertRaises(NativeUIError):b.flow.save(NAME)
+        self.assertEqual([],b.inputs)
+
+    def test_only_one_original_toolbar_title_can_authorize_save(self):
+        for fault in ('duplicate','foreign-toolbar','disabled','drawer'):
+            b=Boundary();b.stage='root'
+            def mutate(raw):
+                if fault=='disabled':return raw.replace('text="'+LABEL+'"','enabled="false" text="'+LABEL+'"').replace('enabled="true" enabled="false"','enabled="false"')
+                if fault=='drawer':return raw.replace('</hierarchy>',b.node(**{'resource-id':PACKAGE+':id/roots_list'})+'</hierarchy>')
+                return raw.replace('</hierarchy>',b.node(text=LABEL if fault=='duplicate' else 'Foreign directory',
+                    **{'resource-id':PACKAGE+':id/toolbar_title'})+'</hierarchy>')
+            b.fault=mutate
+            with self.subTest(fault=fault),self.assertRaises(NativeUIError):b.flow.save(NAME)
+            self.assertEqual([],b.inputs)
+
+    def test_android_title_needs_original_toolbar_ancestor(self):
+        for toolbar in (True,False):
+            b=Boundary();b.stage='root'
+            def mutate(raw):
+                label=b.node(text=LABEL,**{'resource-id':'android:id/title'})
+                parent=b.node(**{'class':'android.widget.Toolbar' if toolbar else 'android.widget.LinearLayout'})
+                title=b.node(text=LABEL,**{'resource-id':PACKAGE+':id/toolbar_title'})
+                return raw.replace(title,parent[:-2]+'>'+label+'</node>')
+            b.fault=mutate
+            if toolbar:self.assertTrue(b.flow.save(NAME)['component'].startswith(PRIMARY+'/'))
+            else:
+                with self.assertRaises(NativeUIError):b.flow.save(NAME)
+                self.assertEqual([],b.inputs)
+
     def test_actual_resolution_uses_create_document_openable_png_and_no_launch(self):
         b=Boundary();value=b.resolve();self.assertEqual(COMPONENT,value['component']);self.assertEqual(10042,value['uid'])
         self.assertEqual(RESOLVE,tuple(shlex.split(b.calls[0][0][1])));self.assertEqual(3,len(b.calls));self.assertEqual([],b.inputs)

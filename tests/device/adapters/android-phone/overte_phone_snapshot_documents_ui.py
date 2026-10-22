@@ -103,9 +103,22 @@ class PhoneSnapshotDocumentsUI(PhoneSnapshotSystemUI):
     def _selected_root(self,value):
         if value['component']!=self.chooser:return False
         root=tree(value['xml'])
-        return any(node.get('package')==self.package and node.get('text')==LABEL
-            and node.get('resource-id') in (self.package+':id/toolbar_title','android:id/title')
-            and node.get('displayed','true')=='true' for node in root.iter())
+        parents={child:parent for parent in root.iter() for child in parent}
+        titles=[]
+        for node in root.iter():
+            if node.get('package')!=self.package or node.get('displayed','true')!='true':continue
+            if node.get('resource-id') in {self.package+':id/'+name for name in ('roots_list','roots_list_container','roots_drawer')}:
+                return False
+            title=node.get('resource-id')==self.package+':id/toolbar_title'
+            if node.get('resource-id')=='android:id/title':
+                ancestor=parents.get(node)
+                while ancestor is not None:
+                    if ancestor.get('package')==self.package and (ancestor.get('class') in ('android.widget.Toolbar','androidx.appcompat.widget.Toolbar')
+                            or ancestor.get('resource-id') in (self.package+':id/toolbar',self.package+':id/action_bar','android:id/action_bar')):
+                        title=True;break
+                    ancestor=parents.get(ancestor)
+            if title:titles.append(node)
+        return len(titles)==1 and titles[0].get('text')==LABEL and titles[0].get('enabled')=='true'
     def save(self,display_name):
         try:
             need(type(display_name) is str and re.fullmatch(r'e2e-[0-9a-f]{32}-[A-Za-z0-9_-]{1,160}\.png',display_name))

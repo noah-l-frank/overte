@@ -43,6 +43,78 @@ class Boundary:
 
 
 class SnapshotDocumentsTests(unittest.TestCase):
+    def test_versioned_original_floor_rejects_metadata_only_binding_and_missing_retirement_history(self):
+        b=Boundary();owner=b.reader();first=owner.observe();binding=owner.binding()
+        self.assertEqual(2,binding['snapshotDocumentsBindingVersion']);self.assertEqual(first,binding['floor'])
+        for fault in ('old','floor','provider','instance','root'):
+            value=deepcopy(binding)
+            if fault=='old':value.pop('snapshotDocumentsBindingVersion');value.pop('floor')
+            elif fault=='floor':value['floor']={}
+            elif fault=='provider':value['floor']['providerUid']+=1
+            elif fault=='instance':value['floor']['instance']='9'*32
+            else:value['floor']['root']['inode']+=1
+            with self.subTest(fault=fault),self.assertRaises(NativeUIError):b.reader(True,value)
+        actor=b.reader(True,binding)
+        b.row.update(plans=[],documents=[],fdLifetimes=[],retired=True,workersTerminated=True);b.root['present']=False
+        # The imported original floor protects even the first current read.
+        with self.assertRaises(NativeUIError):actor.require_retired()
+
+    def test_actor_history_preserves_primary_floor_and_own_independent_rows_without_transport(self):
+        b=Boundary();owner=b.reader();first=owner.observe();binding=owner.binding();actor=b.reader(True,binding)
+        own=actor.observe();later=actor.observe();calls=deepcopy(b.calls)
+        reconstructed=b.reader(True,binding);reconstructed.restore_history([binding['floor'],own,later])
+        self.assertEqual(calls,b.calls);self.assertEqual(later,reconstructed.last)
+        result=reconstructed.observe();self.assertGreater(result['sequence'],later['sequence'])
+        self.assertNotEqual(result['observationId'],later['observationId'])
+        self.assertEqual(result,reconstructed.binding()['floor'])
+        missing=b.reader(True,binding)
+        with self.assertRaises(NativeUIError):missing.restore_history([own,later])
+
+    def test_reconstructed_reader_requires_original_history_before_retirement(self):
+        b=Boundary();owner=b.reader();first=owner.observe();binding=owner.binding()
+        actor=b.reader(True,binding);actor.restore_history([first])
+        self.assertEqual(1,b.seq)  # Historical restoration sends no request.
+        b.row.update(plans=[],documents=[],fdLifetimes=[],retired=True,workersTerminated=True);b.root['present']=False
+        with self.assertRaises(NativeUIError):actor.require_retired()
+        b=Boundary();owner=b.reader();first=owner.observe();actor=b.reader(True,owner.binding());actor.restore_history([first])
+        b.retire_source();self.assertTrue(actor.require_retired()['workersTerminated'])
+        with self.assertRaises(NativeUIError):actor.restore_history([first])
+
+    def test_historical_rows_cannot_retime_replace_drop_or_replay_originals(self):
+        for fault in ('sequence','instance','root','identity','nonce','drop'):
+            b=Boundary();owner=b.reader();first=owner.observe();second=owner.observe();binding=owner.binding()
+            if fault=='sequence':second['sequence']=first['sequence']
+            elif fault=='instance':second['instance']='9'*32
+            elif fault=='root':second['root']['inode']+=1
+            elif fault=='identity':second['providerUid']+=1
+            elif fault=='nonce':second['observationId']='invalid'
+            else:second.update(plans=[],documents=[],fdLifetimes=[])
+            actor=b.reader(True,binding)
+            with self.subTest(fault=fault),self.assertRaises(NativeUIError):actor.restore_history([first,second])
+            self.assertIsNone(actor.last)
+        b=Boundary();owner=b.reader();first=owner.observe();actor=b.reader(True,owner.binding());actor.restore_history([first])
+        b.seq=0
+        with self.assertRaises(NativeUIError):actor.observe()
+        # Historical clock is used for validation only; a fresh read still needs
+        # the real current epoch and a new provider sequence.
+        b.epoch=30000
+        with self.assertRaises(NativeUIError):actor.observe()
+
+    def test_final_clock_cannot_hide_guard_loss_deadline_or_clock_regression(self):
+        for operation in ('observe','retired'):
+            for fault in ('guard','slow','regression'):
+                b=Boundary();reader=b.reader();calls=[0]
+                if operation=='retired':b.retire_source()
+                def clock():
+                    calls[0]+=1
+                    if calls[0]==(3 if operation=='observe' else 4):
+                        if fault=='guard':b.okay=False
+                        else:b.clock=10 if fault=='slow' else -1
+                    return b.epoch
+                reader.clock_ms=clock
+                with self.subTest(operation=operation,fault=fault),self.assertRaises(NativeUIError):
+                    reader.observe() if operation=='observe' else reader.require_retired()
+
     def test_primary_and_independent_bound_actor_acquire_actual_decoded_bytes_and_original_completion(self):
         b=Boundary();primary=b.reader();first=primary.observe();actor=b.reader(True,primary.binding())
         for reader in (primary,actor):
