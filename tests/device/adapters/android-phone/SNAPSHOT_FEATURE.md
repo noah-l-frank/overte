@@ -363,3 +363,18 @@ only the extended feature suite adds the explicit domain-enter prerequisite.
 Missing navigation.enter-domain must fail the mandatory capability gate before
 any device discovery or feature input. A successful input acknowledgement does
 not establish domain connection, account authentication or upload success.
+
+`PhoneSnapshotMeasurements` acquires original configured Script roots, original
+ScriptManager inventory, original Snapshot history and a second original root
+read in that order. All four packets must belong to the same native instance
+and PID and fit the existing 1.5-second freshness interval, including an
+independent monotonic acquisition budget. The unique assigned, running
+`system/snapshot.js` manager must have submitted and actually compiled the
+reviewed UTF-16 source from the existing fixed admission catalog. Every
+retained capture/cancel VM caller must match that original manager, code and
+compilation exactly. Historical event timestamps remain unchanged. The join
+produces source provenance, not a capture, cancellation, export or cleanup
+verdict. Those still require normal input, original lifetimes/files/pixels and
+separate actor facts. Counterprobes substitute consistent foreign code, caller
+compilations, manager identities, pending duplicate managers and old/out-of-order
+reads; matching filenames or fresh request IDs cannot qualify those sources.
