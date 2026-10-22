@@ -99,6 +99,14 @@ class AudioRecipeFixture(unittest.TestCase):
 
 
 class AudioRecipeTests(AudioRecipeFixture):
+    def test_completed_private_prepare_recovers_original_absent_before_root(self):
+        with patch.object(self.owner,'finish',side_effect=NativeUIError('Explicit lost parent CAS after private source preparation')):
+            with self.assertRaises(NativeUIError):self.owner.prepare()
+        self.assertIsNone(self.owner.state['baseline']);self.assertEqual('page.prepare',self.owner.report()['pending'])
+        cold=self.recipe();result=cold.reconcile()
+        self.assertIsNotNone(cold.state['baseline']);self.assertIsNone(result['pending'])
+        self.assertEqual([],self.native.actions);self.assertEqual([],self.native.transport.envelopes)
+
     def test_original_cancel_and_complete_link_prior_pcm_into_immutable_parent(self):
         self.completed();self.assertEqual(8,self.owner.state['cursor']);self.assertEqual(3,self.native.cycle)
         self.assertEqual(4,self.native.actions.count('audio.record'))
@@ -214,6 +222,44 @@ class AudioRecipeTests(AudioRecipeFixture):
 
 
 class AudioRecipeFlowTests(AudioRecipeFixture):
+    def test_interrupted_final_read_only_quiet_recovers_without_any_repeated_input(self):
+        self.background_ready();self.act('background-resume');original=self.owner.invoke_child
+        def interrupted(name):
+            if name=='final5.quiet':raise NativeUIError('Explicit lost first read-only quiet observation')
+            return original(name)
+        with patch.object(self.owner,'invoke_child',side_effect=interrupted):
+            with self.assertRaises(NativeUIError):self.act('close')
+        self.assertEqual('final5.quiet',self.owner.report()['pending']);actions=deepcopy(self.native.actions)
+        streams=len(self.native.transport.envelopes);inputs=deepcopy(self.os_inputs)
+        final_store=self.owner.child('final5.quiet').store;original_root=final_store.read();changed=deepcopy(original_root)
+        changed_state=unpack(changed['payload'])[0];changed_state['frames'][0]['page']['hostMonotonic']-=.001
+        changed['payload']=pack([changed_state]);final_store.write(changed,original_root)
+        invalid=self.recipe()
+        # The altered clock is still a syntactically valid native final journal;
+        # the parent's immutable original prefix must independently reject it.
+        with invalid.lock.held():invalid.child('final5.quiet')
+        with self.assertRaises(NativeUIError):invalid.act(self.last_call)
+        self.assertEqual(actions,self.native.actions);self.assertEqual(streams,len(self.native.transport.envelopes));self.assertEqual(inputs,self.os_inputs)
+        final_store.write(original_root,changed);cold=self.recipe();result=cold.act(self.last_call)
+        self.assertIsNone(result['pending']);self.assertEqual(13,result['normalStagesDispatched'])
+        self.assertEqual(actions,self.native.actions);self.assertEqual(streams,len(self.native.transport.envelopes));self.assertEqual(inputs,self.os_inputs)
+        self.assertEqual('closed',cold.child('final5.quiet').state['quiet'][-1]['where']);self.assertFalse(result['fullAudioQualified'])
+        original=cold.invoke_child
+        def unavailable(name):
+            if name=='final5.deferred':raise NativeUIError('Explicit lost first deferred observation')
+            return original(name)
+        with patch.object(cold,'invoke_child',side_effect=unavailable):
+            with self.assertRaises(NativeUIError):cold.act(self.last_call)
+        self.assertEqual('final5.deferred',cold.report()['pending'])
+        self.native.sleep(31)
+        for cycle in self.native.record_starts:
+            if cycle not in self.native.callback_events:
+                self.native.callback_events[cycle]=dict(enteredEpochMs=self.native.epoch(),completedEpochMs=self.native.epoch(),retiredEpochMs=self.native.epoch(),retired=True)
+        retired=self.recipe();result=retired.act(self.last_call)
+        self.assertEqual(14,result['normalStagesDispatched']);self.assertIsNone(result['pending'])
+        self.assertTrue(retired.child('final5.deferred').state['quiet'][-1]['deferred'])
+        self.assertEqual(actions,self.native.actions);self.assertEqual(streams,len(self.native.transport.envelopes));self.assertEqual(inputs,self.os_inputs)
+
     def test_all_fourteen_shared_normal_stages_keep_originals_and_partial_verdict(self):
         self.background_ready();self.act('background-resume')
         def callbacks(seconds):

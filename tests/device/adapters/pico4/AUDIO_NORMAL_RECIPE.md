@@ -55,7 +55,10 @@ progress, a changed ticket, an uncertain stream cursor or missing original input
 remains unavailable. Cold background recovery reads private metadata, phase and
 original OS process/foreground sources until foreground is independently observed;
 it never reconstructs Qt while hidden. Recovery finishes only the already issued
-child. A later explicit call for the same current stage can issue its next,
+child. An interrupted final quiet/deferred wait can acquire new read-only originals
+with the exact same immutable child fields and retained frame/window prefixes;
+it cannot resend X, HOME, a mute toggle or a PCM writer. A later explicit call
+for the same current stage can issue its next,
 previously unissued child. Completed tickets return metadata through reads and
 never replay their input.
 
@@ -68,7 +71,8 @@ all original PCM files and all journals remain accurately retained. This is
 The exact remaining [original acquisition and cleanup gaps](AUDIO_ORIGINAL_GAPS.md)
 are documented separately.
 
-The `audio-normal-recipe-flow` selector runs one complete device-free composition.
+The `audio-normal-recipe-flow` selector runs a complete device-free composition
+and interrupted final read-only quiet/deferred recovery.
 `audio-normal-recipe-fences` checks recovery, final delivery/publication refusal,
 immutable originals and the actual bound factory. SDK/controller/OS/native audio
 are declared host seams; these checks execute no device, microphone, loudspeaker,

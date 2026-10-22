@@ -370,8 +370,22 @@ class PicoAudioRecipe:
             need(pending['before'] is not None);self.resources();name=pending['name'];self.current=name
             try:
                 self.fence(self.anchor(),pending['source'],native=False);child=self.child(name);child.load()
-                need(child.store.read()!=self.frames[pending['before']]['original'])
                 kind,_cycle,operation=parts(name);phase=child.state['phase']
+                observational=kind=='final' and operation in ('quiet','deferred')
+                original=self.frames[pending['before']]['original']
+                need(child.store.read()!=original or observational)
+                if observational:
+                    need(original is not None)
+                    # Retrying an already issued read-only wait cannot deliver
+                    # another normal input. Preserve every original frame/window
+                    # and all immutable close/process/source ownership fields.
+                    before=unpack(original['payload'])[0];after=child.state
+                    need(phase==before['phase']=='closed' and all(after[key]==value for key,value in before.items() if key not in ('frames','quiet'))
+                        and after['frames'][:len(before['frames'])]==before['frames'] and after['quiet'][:len(before['quiet'])]==before['quiet'])
+                    completed=after['quiet'] and after['quiet'][-1]['where']=='closed' and after['quiet'][-1]['deferred']==(operation=='deferred')
+                    if not completed:
+                        if operation=='quiet':child.quiet('closed')
+                        else:child.await_deferred()
                 if kind in ('page','capture','final') and (phase.endswith('-issued') or phase in ('opening','awaiting')):child.reconcile()
                 elif kind=='background':
                     if operation=='home' and phase in ('home-issued','background-observed'):child.observe_background()
