@@ -120,6 +120,7 @@ REQUIRED = {
     "chat-normal-input": 2,
     "chat-background-owner": 2,
     "chat-flow-inputs": 3,
+    "chat-input-dispatcher": 1,
     "chat-independent-witness": 3,
     "chat-journey-no-replay": 2,
     "chat-peer-input": 4,
