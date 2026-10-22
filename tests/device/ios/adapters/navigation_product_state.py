@@ -45,7 +45,6 @@ def compose(run,binding,originals,clock_join,image,*,baseline,provider_inputs,fi
     need(image['label'] in ('A','B') and same_viewpoint(image['url'],urls[image['label']])
          and image['fixtureUrl']==fixture_url and image['providerInstance']==provider_instance
          and same(image_originals(image['frame']),{name:originals[name] for name in IMAGE}))
-    rendered,_subject=challenge(run,binding,image)
     if directory is not None:need(directory['originals']['provider']['instance']==provider_instance)
     if missing is not None:need(missing['provider']['instance']==provider_instance)
     inner=image['frame']['clockJoin']
@@ -84,6 +83,7 @@ def compose(run,binding,originals,clock_join,image,*,baseline,provider_inputs,fi
     place=places.compose(run,binding,place_sources,place_clock,baseline=baseline,provider_inputs=inputs,directory=directory)
     error=errors.compose(run,binding,error_sources,error_clock,missing=missing)
     need(place['fields']['addressDialog']==error['fields']['addressDialog'])
+    rendered,_subject=challenge(run,binding,image)
     actual=dict(place['fields'],location=rendered['rendered']['location'],error=error['fields']['error'])
     public_state('world-navigation',actual,run)
     return dict(iosNavigationProductStateVersion=VERSION,runId=run,ticket=image['ticket'],binding=deepcopy(binding),state=actual,

@@ -130,6 +130,7 @@ REQUIRED = {
     "ios-navigation-product-state": 1,
     "ios-navigation-samples": 1,
     "ios-navigation-image-archive": 1,
+    "ios-navigation-observation-owner": 1,
     "native-entity-edit-inventory": 1,
     "ios-scene-inventory": 1,
     "ios-scene-inventory-acquisition": 1,

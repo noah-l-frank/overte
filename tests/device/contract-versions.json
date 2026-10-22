@@ -133,6 +133,7 @@
     "ios-navigation-product-state": {"current": 1, "reads": [1]},
     "ios-navigation-samples": {"current": 1, "reads": [1]},
     "ios-navigation-image-archive": {"current": 1, "reads": [1]},
+    "ios-navigation-observation-owner": {"current": 1, "reads": [1]},
     "native-entity-edit-inventory": {"current": 1, "reads": [1]},
     "ios-scene-inventory": {"current": 1, "reads": [1]},
     "ios-scene-inventory-acquisition": {"current": 1, "reads": [1]},

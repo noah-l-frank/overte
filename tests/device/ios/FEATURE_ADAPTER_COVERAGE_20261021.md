@@ -24,6 +24,11 @@ A [durable per-role image index](NAVIGATION_SAMPLES.md) now reserves each reques
 seals immutable child originals, rejects reused frames/source rollback and chooses
 the preceding actual observed image for changed evidence. Failed partial attempts
 remain terminal or unresolved; the whole coordinator still needs to own them.
+A [whole-observation owner](NAVIGATION_OBSERVATION_OWNER.md) now checkpoints the
+original outer clock and all eleven accepted sources, links immutable image
+archives and checks the immediate predecessor across field/source histories.
+It resolves only fully retained lost returns without rereading sources. Input,
+runtime admission, publication, restart and whole-run cleanup remain partial.
 
 The canonical physical source binding and explicit lost-launch recovery have
 host-tested implementations. The native byte observer and SDK plugin remain
