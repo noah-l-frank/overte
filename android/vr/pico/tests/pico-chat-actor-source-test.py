@@ -18,7 +18,8 @@ def main():
         environment.update(PKG_CONFIG_SYSROOT_DIR=str(prefix),
             PKG_CONFIG_LIBDIR=str(prefix/'usr/lib64/pkgconfig'),LD_LIBRARY_PATH=str(prefix/'usr/lib64'))
     commands=[
-        [sys.executable,'-m','unittest','self_tests.test_chat_configured_source','-v'],
+        [sys.executable,'-Werror::ResourceWarning','-m','unittest',
+            'self_tests.test_chat_configured_source','self_tests.test_chat_owned_peer','-v'],
         [sys.executable,str(ROOT/'tests/device/contracts/chat/test_chat_actor_source_native.py')],
         [sys.executable,str(ROOT/'tests/device/contracts/chat/test_chat_actor_pending_native.py')]]
     for command in commands:

@@ -1103,3 +1103,17 @@ explicit native/Qt/OS/PCM host seams, not physical acoustic or device evidence.
 The [original evidence gaps](AUDIO_ORIGINAL_GAPS.md) retain the concrete missing
 physical acoustic/independent peer producers and executed same-PID v16 cleanup
 incompatibility. Original journals and PCM remain retained; full areas stay 3/14.
+
+
+The passive [owned Chat peer factory](../chat_journey/OWNED_PEER.md) now derives
+its binding from that peer's actual native SOURCE2 and kernel executable,
+process birth, owner environment and original held source descriptor. It takes
+no caller-supplied Pico revision and performs no process discovery, launch or
+cache mutation. Inspect admission cannot create a cache. Original private
+configuration/inode changes and unknown compiled revisions refuse. Host detach
+leaves native release and journals owned. The existing `chat-actor-source` group
+now also covers five owned-peer worker countercases with ResourceWarnings as
+errors and actual Qt5 original SOURCE to kernel/factory admission. Integrated
+source and coverage groups pass 2/92 in 5.90s. Actual peer lifecycle/input-file
+retirement, fixed Pico coordinator, independent publication and whole cleanup
+remain incomplete; Chat remains partial.
