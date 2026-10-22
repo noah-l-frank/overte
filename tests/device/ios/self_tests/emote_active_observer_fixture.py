@@ -28,7 +28,7 @@ from ios.self_tests.test_ios_emote_sources import BINDING,RUN
 
 
 class ActiveObserverFixture:
-    def __init__(self,test):
+    def __init__(self,test,*,defer_setup=False):
         f=native_fixture.RestorationJourneyTests();f.setUp();test.addCleanup(f.doCleanups)
         self.f=f;self.scope,self.domain,self.root,self.lock=f.scope,f.domain,f.root,f.lock
         d=self.domain;self.vm,self.native,self.ui=normal_ui(test,clock=d);self.native.tablet=False
@@ -51,7 +51,7 @@ class ActiveObserverFixture:
         f.pixels=self.pixels;f.renderers=self.renderers
         d.world_template['source']['avatar']['bounds']=dict(corner=[-.6,0,3.7],dimensions=[1.2,1.8,.6])
         f.template['source']['avatars'][1]['externalPose']=None
-        self.scope.prepare();d.paint();self.scope.admit_rendered()
+        if not defer_setup:self.scope.prepare();d.paint();self.scope.admit_rendered()
         self.phase=PhaseFixtureReader(self.client,RUN,'emotes',epoch_ms=self.scope.epoch_ms,monotonic=self.scope.monotonic);self.phase.status()
         readers=dict(roots=self.rig.root_reader,scripts=self.rig.code_reader,native=self.rig.reader(),ui=IOSEmoteIO(self.native),
             world=SimpleNamespace(last=None,read=d.world))
