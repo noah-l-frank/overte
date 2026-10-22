@@ -5,6 +5,8 @@ import base64
 from copy import deepcopy
 import json
 import subprocess
+import hashlib
+import uuid
 import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -41,6 +43,40 @@ def packet(pid=31):
 
 
 class AvatarWorldTests(unittest.TestCase):
+    def physical(self):
+        value=packet();identity='00000000-0000-4000-8000-000000000001'
+        value['source']['domain']['selfSha256']=hashlib.sha256(uuid.UUID(identity).bytes).hexdigest()
+        value['source']['bodies']=dict(avatarBodyCollectionVersion=1,instance='e'*32,sequence=1,capturedEpochMs=20000,
+            complete=True,avatars=[dict(sessionId=identity,self=True,replicated=False,position=[1,2,3],orientation=[0,0,0,1],velocity=[0,0,0])])
+        return value,identity
+    def test_optional_actual_body_collection_preserves_legacy_v1_without_inventing_geometry(self):
+        legacy=packet();world.original(legacy);self.assertNotIn('bodies',legacy['source'])
+        with self.assertRaises(NativeUIError):world.body(legacy,'00000000-0000-4000-8000-000000000001')
+        value,identity=self.physical();value['source']['avatar'].update(boundsReady=False,bounds=None)
+        self.assertEqual([1,2,3],world.body(value,identity)['position']);self.assertIsNone(value['source']['avatar']['bounds'])
+        self.assertEqual(1,value['iosAvatarWorldVersion'])
+    def test_actual_body_collection_cannot_substitute_other_self_or_replicated_or_unknown_rows(self):
+        for fault in ('identity','replicated','duplicate','epoch','version','quaternion'):
+            value,identity=self.physical();body=value['source']['bodies'];row=body['avatars'][0]
+            if fault=='identity':row['sessionId']='00000000-0000-4000-8000-000000000002'
+            elif fault=='replicated':row['replicated']=True
+            elif fault=='duplicate':body['avatars'].append(deepcopy(row))
+            elif fault=='epoch':body['capturedEpochMs']=19999
+            elif fault=='version':body['avatarBodyCollectionVersion']=True
+            else:row['orientation']=[0,0,0,0]
+            with self.subTest(fault=fault),self.assertRaises(NativeUIError):world.body(value,identity)
+    def test_once_returned_actual_body_birth_and_sequence_cannot_disappear_or_reset(self):
+        before,identity=self.physical();after=deepcopy(before)
+        after.update(requestId='ios-'+'b'*32,sequence=2)
+        after['source']['bodies']['sequence']=2
+        query=dict(schemaVersion=1,commandId=after['requestId'],action=world.ACTION,runId=RUN)
+        world.validate(after,query,31,previous=before)
+        for fault in ('missing','birth','sequence'):
+            value=deepcopy(after)
+            if fault=='missing':del value['source']['bodies']
+            elif fault=='birth':value['source']['bodies']['instance']='0'*32
+            else:value['source']['bodies']['sequence']=1
+            with self.subTest(fault=fault),self.assertRaises(NativeUIError):world.validate(value,query,31,previous=before)
     def test_avatar_original_marker_profile_and_source_type_cannot_adopt_emote_facts(self):
         from ios.adapters import emote_world
         value=packet()

@@ -47,7 +47,8 @@ def validate(value,query,pid,epoch=None,previous=None):
     utc,mono=after['epochMs']-before['epochMs'],after['monotonicMs']-before['monotonicMs']
     need(0<=utc<1500 and 0<=mono<1500 and abs(utc-mono)<=250)
     if epoch is not None:fresh(after['epochMs'],epoch)
-    source=value['source'];exact(source,{'complete','tree','scriptOriginal','markers','sceneUrl','domain','avatar','view','cameraOrbit'})
+    source=value['source'];exact(source,{'complete','tree','scriptOriginal','markers','sceneUrl','domain','avatar','view','cameraOrbit'}
+        | ({'bodies'} if 'bodies' in source else set()))
     need(source['complete'] is True);inventory=tree(source['tree']);need(inventory['complete']);text(source['sceneUrl'],4096)
     script=source['scriptOriginal'];script_packet(script,script['requestId'],pid,after['epochMs'])
     need(before['epochMs']<=script['requestedEpochMs']<=script['capturedEpochMs']<=after['epochMs']
@@ -89,6 +90,7 @@ def validate(value,query,pid,epoch=None,previous=None):
     orbit=source['cameraOrbit'];exact(orbit,{'lookAtRotation','boomLength','minimumBoomLength','defaultBoomLength'})
     vector(orbit['lookAtRotation'],4)
     for field in ('boomLength','minimumBoomLength','defaultBoomLength'):need(number(orbit[field],0,10000))
+    if 'bodies' in source:body_collection(source['bodies'],value)
     if previous is not None:
         validate(previous,dict(query,commandId=previous['requestId']),pid)
         need(value['instance']==previous['instance'] and value['sequence']>previous['sequence']
@@ -97,7 +99,38 @@ def validate(value,query,pid,epoch=None,previous=None):
         old=previous['source']['tree'];need(inventory['treeInstance']==old['treeInstance']
             and inventory['revisionBefore']>=old['revisionAfter'])
         if inventory['revisionBefore']==old['revisionAfter']:need(inventory==old)
+        if 'bodies' in previous['source']:
+            need('bodies' in source);left,right=previous['source']['bodies'],source['bodies']
+            need(right['instance']==left['instance'] and right['sequence']>left['sequence']
+                and right['capturedEpochMs']>=left['capturedEpochMs'])
     return value
+
+
+def body_collection(value,world):
+    exact(value,{'avatarBodyCollectionVersion','instance','sequence','capturedEpochMs','complete','avatars'})
+    need(type(value['avatarBodyCollectionVersion']) is int and value['avatarBodyCollectionVersion']==1
+        and type(value['instance']) is str and re.fullmatch('[0-9a-f]{32}',value['instance'])
+        and integer(value['sequence'],1,1000000000) and value['complete'] is True
+        and integer(value['capturedEpochMs'],world['clockBefore']['epochMs'],world['clockAfter']['epochMs'])
+        and type(value['avatars']) is list and len(value['avatars'])<=64)
+    ids=[];own=[]
+    for row in value['avatars']:
+        exact(row,{'sessionId','self','replicated','position','orientation','velocity'});session(row['sessionId']);ids.append(row['sessionId'])
+        need(type(row['self']) is bool and type(row['replicated']) is bool)
+        vector(row['position'],3);vector(row['orientation'],4);vector(row['velocity'],3)
+        if row['self']:own.append(row)
+    need(ids==sorted(set(ids)) and len(own)==1 and not own[0]['replicated'])
+    import hashlib,uuid
+    need(hashlib.sha256(uuid.UUID(own[0]['sessionId']).bytes).hexdigest()==world['source']['domain']['selfSha256'])
+    return value
+
+
+def body(value,avatar_id,*,remote=False):
+    """Actual root transform even when no render model or bounds are ready."""
+    original(value);session(avatar_id);need(type(remote) is bool and 'bodies' in value['source'])
+    rows=[row for row in value['source']['bodies']['avatars'] if row['sessionId']==avatar_id]
+    need(len(rows)==1 and rows[0]['self'] is (not remote) and not rows[0]['replicated'])
+    return deepcopy(rows[0])
 
 
 def original(value):

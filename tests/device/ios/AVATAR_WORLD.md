@@ -27,3 +27,15 @@ foreign marker properties, unowned entity changes and missing real Domain or
 mixer fail closed. Native code is source-only and has not been compiled or
 qualified on a device under the current task boundary. GPU sample ownership,
 ordinary marker setup and complete feature cleanup remain separate work.
+
+Avatar World v1 also accepts the optional typed `bodies` component,
+`native-avatar-body-collection` version 1. It records the actual complete
+AvatarManager collection with original session/self/replica identity and actual
+world root position, orientation and velocity, even without loaded geometry.
+The collection is captured inside the Avatar native bracket, with its own
+original instance, monotonic sequence and native epoch. Legacy v1 originals
+without this component remain unchanged and cannot supply unavailable-subject
+physical continuity. A returned body collection cannot disappear or reset its
+birth/sequence in a later original. The separate Emote native getter and source
+shape remain unchanged. These transforms are not mesh bounds or expected
+avatar geometry.
