@@ -18,6 +18,14 @@ root call and actual normal input original is durably written before granting
 input. The child then persists its own original intent. Failure at either write
 prevents that input. All private histories remain candidate, process/launch,
 run, source, domain connection generation and real script compilation bound.
+Every parent intent freshly rereads the original fixture phase after UI/native
+acquisition, before granting child/Qt dispatch. The current ticket and exact
+activation prefix must still equal the original pending call, or the recorded
+cleanup activation. Advancing or retired phases retain the original pending
+owner without dispatch or replay. Act/reconciliation completion and final
+retirement freshly check the phase again, then all acquired source/UI capture
+ages, before changing completion or removing originals.
+
 Stored calls must exist with their exact typed stimulus and order in the
 original fixture phase history. No requested state is accepted.
 
@@ -98,7 +106,13 @@ every step, actual Model export, retained cache, retained file-dialog context, t
 context cleanup,
 lost texture response without replay, lost NEW response with separate Delete,
 failed root persistence before input, foreign phase/binding rejection,
-standalone bypass refusal and same-UUID domain reconnect refusal.
+standalone bypass refusal and same-UUID domain reconnect refusal. Phase
+counterexamples advance the original fixture during UI acquisition, retire it
+during native child acquisition, advance it after consumed input, advance its
+cleanup ticket before Home, and advance it before final retirement. A delayed
+final phase read that ages otherwise valid native packets also refuses
+completion. None of these failures dispatches/replays the rejected input or
+retires the pending root originals.
 
 Remaining full-flow work includes original canonical PolyVox dialog creation
 and world brush stroke, denied/rez authority plus exact authority restoration,

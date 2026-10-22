@@ -255,6 +255,77 @@ class CreateJourneyTests(unittest.TestCase):
                 with self.assertRaises(NativeUIError):manager.flow()
             self.assertEqual([],native.inputs)
 
+    def test_phase_advance_during_actual_ui_acquisition_refuses_dispatch_and_replay(self):
+        capture=RuntimeIO.capture;advanced=[]
+        def changed(io):
+            if self.root.state()['pending'] is not None and not advanced:
+                advanced.append(True);self.journal.activate(RUN,uuid.uuid4().hex,'close',{})
+            return capture(io)
+        with patch.object(RuntimeIO,'capture',changed):
+            with self.assertRaises(NativeUIError):self.act('open')
+        self.assertTrue(advanced);self.assertEqual([],self.b.inputs);original=deepcopy(self.root.state()['calls'])
+        self.make()
+        with self.assertRaises(NativeUIError):self.root.invoke('reconcile')
+        self.assertEqual([],self.b.inputs);self.assertEqual(original,self.root.state()['calls']);self.assertIsNotNone(self.root.state()['pending'])
+    def test_phase_retirement_during_native_acquisition_before_child_input_keeps_original_owner(self):
+        self.act('open');reader=self.adapter._create_entity_observer;retired=[]
+        def original(target,run):
+            native=reader(target,run);send=native.send
+            def acquire(command):
+                send(command)
+                if self.root.state()['pending'] is not None and not retired:
+                    retired.append(True);self.journal.close(RUN)
+            native.send=acquire;return native
+        count=len(self.b.inputs)
+        with patch.object(self.adapter,'_create_entity_observer',side_effect=original):
+            with self.assertRaises(NativeUIError):self.act('model-create',{'resource':'gltf-bundle/main.gltf'})
+        self.assertTrue(retired);self.assertEqual(count,len(self.b.inputs));self.assertIsNotNone(self.root.state()['pending'])
+    def test_phase_advance_after_consumed_input_refuses_completion_and_readonly_relabel(self):
+        original=self.root.lifecycle_packet;advanced=[]
+        def capture(binding):
+            packet=original(binding)
+            if self.b.editor and not advanced:
+                advanced.append(True);self.journal.activate(RUN,uuid.uuid4().hex,'close',{})
+            return packet
+        with patch.object(self.root,'lifecycle_packet',side_effect=capture):
+            with self.assertRaises(NativeUIError):self.act('open')
+        count=len(self.b.inputs);self.assertGreater(count,0);self.assertTrue(self.b.editor);self.assertIsNotNone(self.root.state()['pending'])
+        self.make()
+        with self.assertRaises(NativeUIError):self.root.invoke('reconcile')
+        self.assertEqual(count,len(self.b.inputs));self.assertIsNotNone(self.root.state()['pending'])
+    def test_cleanup_activation_advance_before_actual_home_input_refuses_dispatch(self):
+        self.act('open');self.journal.activate(RUN,uuid.uuid4().hex,'cleanup',{});capture=HomeActor.capture;advanced=[]
+        def changed(actor):
+            packet=capture(actor)
+            if not advanced:advanced.append(True);self.journal.activate(RUN,uuid.uuid4().hex,'open',{})
+            return packet
+        count=len(self.b.inputs)
+        with patch.object(HomeActor,'capture',changed):
+            with self.assertRaises(NativeUIError):self.root.invoke('cleanup')
+        self.assertEqual(count,len(self.b.inputs));self.assertTrue(self.b.editor);self.assertTrue(self.root.state()['cleanupStarted'])
+
+    def test_final_fixture_read_cannot_age_native_sources_into_completed_call(self):
+        read=self.root.source.read;delayed=[]
+        def original(previous=None):
+            actual=read(previous)
+            if self.b.editor and not delayed:delayed.append(True);self.b.ui.sleep(2)
+            return actual
+        with patch.object(self.root.source,'read',side_effect=original):
+            with self.assertRaises(NativeUIError):self.act('open')
+        self.assertTrue(delayed);self.assertTrue(self.b.editor);self.assertIsNotNone(self.root.state()['pending'])
+    def test_final_cleanup_phase_advance_keeps_all_root_originals_after_normal_close(self):
+        self.act('open');self.journal.activate(RUN,uuid.uuid4().hex,'cleanup',{});read=self.root.source.read;advanced=[]
+        def original(previous=None):
+            if self.root.state()['cleanupStarted'] and not self.b.editor and not self.b.opened and not advanced:
+                advanced.append(True);self.journal.activate(RUN,uuid.uuid4().hex,'open',{})
+            return read(previous)
+        with patch.object(self.root.source,'read',side_effect=original):
+            with self.assertRaises(NativeUIError):self.root.invoke('cleanup')
+        self.assertTrue(advanced);self.assertIsNotNone(self.root.store.read());self.assertIsNotNone(self.root.source_store('lifecycle').read())
+        count=len(self.b.inputs);self.make()
+        with self.assertRaises(NativeUIError):self.root.invoke('cleanup')
+        self.assertEqual(count,len(self.b.inputs));self.assertIsNotNone(self.root.source_store('entities').read())
+
     def test_foreign_phase_refuses_before_normal_input(self):
         self.journal.activate(RUN,uuid.uuid4().hex,'open',{});before=len(self.b.inputs)
         with self.assertRaises(NativeUIError):self.root.invoke('act',dict(contractVersion=VERSION,runId=RUN,ticket=uuid.uuid4().hex,fixtureUrl=URL,verb='open',inputs={}))
