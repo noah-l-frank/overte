@@ -35,8 +35,15 @@ Each distinct operation gets a bounded 20-second budget. Each source pair and
 final guard/persistence stays within 1.5 seconds, including original wall clocks
 read after final guards. Captured raw transition frames never become current
 facts; convergence always requires NEW strict full queries from both roles.
-The owner stores only original source references and actual input intents in
-the existing bounded private compressed-history codec,
+Version 2 stores each completed original attempt once in the existing private
+`ChatSourceChunks`; the root keeps its immutable manifest and only the current
+attempt in the existing compressed-history codec. This bounds each packet
+without dropping any original quiet captures or increasing the 48 KiB limit.
+Before sealing an attempt the root durably enters `reading`; lost root/child
+writes and orphan chunks refuse reconstruction and further input. No original
+chunk is overwritten, retimed, replayed or removed. Version 1 is retained
+without adoption. The owner stores only original source references and actual
+input intents,
 validates the historical closure/quiet proofs on reconstruction, and never
 queries or inputs during reconstruction. A repeated ticket or any interrupted
 attempt refuses further inputs. There is no resend, transcript reset or owner

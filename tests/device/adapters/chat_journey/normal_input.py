@@ -7,6 +7,7 @@ import math
 import uuid
 from adapters.chat_journey.samples import ChatSamples,compose,transition_ready
 from adapters.chat_journey.erase_restore import references
+from adapters.chat_journey.source_chunks import ChatSourceChunks
 from adapters.native_feature_observation import exact,fresh,integer,need,number
 from adapters.normal_ui import NativeUIError
 from adapters.token_chat_ui import TokenChatUI
@@ -16,7 +17,7 @@ from adapters.native_chat_view import measured_keyboard
 from feature_journeys.contract import identifier
 from feature_journeys.fixtures import context
 
-VERSION=1
+VERSION=2
 VERBS=('open','type','select-channel','send','close')
 
 
@@ -25,6 +26,17 @@ def arguments(verb,inputs,run):
     if verb=='type':exact(inputs,{'text'});need(inputs['text'] in (context(run)['unicode'],context(run)['retry']))
     elif verb=='select-channel':exact(inputs,{'channel'});need(inputs['channel'] in ('local','domain'))
     else:exact(inputs,set())
+
+
+def stored_attempts(store,scope):
+    """Original completed chunks plus the one current attempt; no adoption."""
+    value=store.read();need(value is not None and value.get('phase')=='ready')
+    exact(value,set(scope)|{'phase','chunks','attempts'});need(all(value[key]==item for key,item in scope.items()))
+    chunks=ChatSourceChunks(store,scope);completed=chunks.load(value['chunks']);current=unpack(value['attempts'])
+    need(len(current)==1 and len(completed)<=32 and all(row['phase']=='observed' for row in completed))
+    if current[0]['phase']=='observed':need(completed and current[0]==completed[-1]);attempts=completed
+    else:attempts=completed+current
+    need(0<len(attempts)<=32);return attempts,chunks
 
 
 class ChatNormalInput:
@@ -42,11 +54,12 @@ class ChatNormalInput:
             and type(enter) is bool and all(callable(callback) for callback in (controls,monotonic,sleep)))
         self.roles,self.store,self.run,self.enter=roles,store,roles[0].run,enter
         self.monotonic,self.sleep=monotonic,sleep;self.last_clock=None;self.deadline=None
-        self.previous=store.read();self.base=dict(chatNormalInputVersion=VERSION,runId=self.run,binding=roles[0].binding,
-            peerBinding=roles[0].peer_binding,transcripts=[role.store.path.name for role in roles],enter=enter,attempts=[])
+        self.scope=dict(chatNormalInputVersion=VERSION,runId=self.run,binding=roles[0].binding,
+            peerBinding=roles[0].peer_binding,transcripts=[role.store.path.name for role in roles],enter=enter)
+        self.previous=store.read();self.base={**self.scope,'phase':'ready','chunks':[],'attempts':[]}
+        self.chunks=ChatSourceChunks(store,self.scope)
         if self.previous is not None:
-            exact(self.previous,set(self.base));need(all(self.previous[key]==self.base[key] for key in set(self.base)-{'attempts'}))
-            attempts=unpack(self.previous['attempts']);need(0<len(attempts)<=32)
+            attempts,self.chunks=stored_attempts(store,self.scope)
             tickets=set()
             for attempt in attempts:
                 exact(attempt,{'ticket','verb','inputs','afterEpochMs','phase','before','after','inputIntents','quiet'})
@@ -66,6 +79,7 @@ class ChatNormalInput:
                     need(self.reached(attempt,self.sources(attempt['before']),self.sources(attempt['after'])))
                     self.check_quiet(attempt)
             self.base={**deepcopy(self.previous),'attempts':attempts}
+        else:self.chunks.inventory(0)
         self.ui=controls(self.intent);need(isinstance(self.ui,TokenChatUI) and self.ui.run==self.run)
         # This source only captures actual controls; no input occurs here.
         # Old controls are requalified against the candidate and original bridge
@@ -89,13 +103,20 @@ class ChatNormalInput:
         return frames
 
     def write(self,attempt):
-        need(self.store.read()==self.previous)
+        need(self.base['phase']=='ready' and self.store.read()==self.previous);self.chunks.verify()
         attempts=deepcopy(self.base['attempts'])
         if attempts and attempts[-1]['ticket']==attempt['ticket']:attempts[-1]=deepcopy(attempt)
         else:need(len(attempts)<32);attempts.append(deepcopy(attempt))
-        value={**self.base,'attempts':attempts};disk={**value,'attempts':pack(attempts)}
+        value={**self.base,'attempts':attempts};disk={**value,'attempts':pack([attempts[-1]])}
+        if attempt['phase']=='observed':
+            need(len(self.chunks.identities)==len(attempts)-1);disk['phase']='reading';value['phase']='reading'
         self.store.write(disk,self.previous);need(self.store.read()==disk)
         self.previous=deepcopy(disk);self.base=deepcopy(value)
+        if attempt['phase']=='observed':
+            manifest=self.chunks.append(attempt,self.base['chunks'])
+            value={**self.base,'phase':'ready','chunks':manifest};disk={**value,'attempts':pack([attempts[-1]])}
+            self.store.write(disk,self.previous);need(self.store.read()==disk)
+            self.previous=deepcopy(disk);self.base=deepcopy(value)
 
     @staticmethod
     def input_shape(value,verb):
@@ -231,7 +252,7 @@ class ChatNormalInput:
     def perform(self,ticket,verb,inputs,after_epoch):
         try:
             identifier(ticket);arguments(verb,inputs,self.run);need(integer(after_epoch,1))
-            need(not self.base['attempts'] or self.base['attempts'][-1]['phase']=='observed')
+            need(self.base['phase']=='ready' and (not self.base['attempts'] or self.base['attempts'][-1]['phase']=='observed'))
             need(all(row['ticket']!=ticket for row in self.base['attempts']))
             self.deadline=None;self.deadline=self.now()+20
             attempt=dict(ticket=ticket,verb=verb,inputs=deepcopy(inputs),afterEpochMs=after_epoch,phase='sampling',
