@@ -1,6 +1,7 @@
 {
   "schemaVersion": 1,
   "contracts": {
+    "ios-create-restoration-image": {"current": 1, "reads": [1]},
     "ios-pointer-state": {"current": 1, "reads": [1]},
     "native-ios-pointer-source": {"current": 1, "reads": [1]},
     "ios-pointer-drain": {"current": 1, "reads": [1]},

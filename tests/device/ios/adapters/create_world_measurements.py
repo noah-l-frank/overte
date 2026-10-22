@@ -59,6 +59,12 @@ def compose(run,ticket,binding,frame,raw,policy,owned_ids,marker_original,*,voxe
     marker_box = projected_box(observed_marker,recorded,actual['targetExtent']); roi = policy['marker']
     need(type(policy) is dict and policy.get('source') == 'world-render-target' and marker_box[0] <= roi[0] < roi[2] <= marker_box[2]
          and marker_box[1] <= roi[1] < roi[3] <= marker_box[3])
+    subject = policy['subject']
+    # Ticket content can change anywhere on the actual Web entity surface,
+    # including outside the chosen challenge crop. None of those pixels may
+    # be credited as an ordinary Create subject effect.
+    need(subject[2]<=marker_box[0] or marker_box[2]<=subject[0]
+         or subject[3]<=marker_box[1] or marker_box[3]<=subject[1])
     measured = project(after,run,owned_ids,voxel_baseline=voxel_baseline)
     live = [row for row in last['entities'] if row['id'] in owned_ids]
     if live:

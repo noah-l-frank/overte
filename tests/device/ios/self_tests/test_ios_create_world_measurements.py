@@ -78,6 +78,15 @@ class CreateWorldMeasurementsTests(unittest.TestCase):
         image.paste((128,128,128,255),tuple(policy['marker']));stream=BytesIO();image.save(stream,format='PNG');raw=stream.getvalue()
         frame['capture']['source']['image'].update(bytes=len(raw),sha256=hashlib.sha256(raw).hexdigest(),pixelSha256=hashlib.sha256(image.tobytes()).hexdigest());rebind(frame)
         with self.assertRaises(MarkerNotReady):self.measure((frame,raw,policy,marker))
+    def test_subject_crop_outside_marker_bits_must_also_exclude_the_actual_web_entity_surface(self):
+        frame,raw,policy,marker=bundle();policy['subject']=[0,135,640,400]
+        self.assertLess(policy['marker'][3],policy['subject'][1])
+        from adapters.graphics_subject_geometry import projected_box
+        row=next(row for row in frame['createAfter']['source']['entities'] if row['id']==marker['id'])
+        actual=projected_box(row,frame['capture']['source']['renderTrace']['recordedView'],frame['capture']['source']['targetExtent'])
+        self.assertLess(policy['subject'][1],actual[3])
+        with self.assertRaises(NativeUIError):self.measure((frame,raw,policy,marker))
+
     def test_external_marker_and_subject_regions_must_correspond_to_actual_original_geometry(self):
         for field,rectangle in (('marker',[0,0,128,32]),('subject',[600,0,640,40]),('marker',[-1,0,128,32])):
             frame,raw,policy,marker=bundle();policy[field]=rectangle
