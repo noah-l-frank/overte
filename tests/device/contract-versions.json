@@ -171,6 +171,7 @@
     "native-lifecycle-controls": {"current": 1, "reads": [1]},
     "pico-lifecycle-draft-controls": {"current": 1, "reads": [1]},
     "pico-lifecycle-editor-owner": {"current": 1, "reads": [1]},
+    "pico-lifecycle-chat-owner": {"current": 1, "reads": [1]},
     "fixture-environment": {"current": 1, "reads": [1]},
     "matrix-summary": {"current": 1, "reads": [1]},
     "probe-snapshot": {"current": 2, "reads": [2]},

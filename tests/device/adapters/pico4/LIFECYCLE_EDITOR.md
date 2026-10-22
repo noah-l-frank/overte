@@ -58,8 +58,9 @@ The device-free owner tests execute the actual token readers, owners, private
 stores, lock, input session, gesture/drive/UI validators and recovery over
 explicit UI, native input and physics boundaries. Separate actual Qt5 checks in
 [the draft packet](LIFECYCLE_DRAFT.md) verify the real normal pointer/IME path.
-Neither establishes a hardware run. The full journey still needs Chat/Scripts
-generations, original pending/stale dispatch, background/resume, second world
+Neither establishes a hardware run. The separate [Chat draft owner](LIFECYCLE_CHAT.md)
+continues through actual Chat generation 2 and Reply without sending. The full
+journey still needs Scripts generations, original pending/stale dispatch, background/resume, second world
 motion, independent peer/image proof, normal original-state restoration and
 complete final owner/process/file/lease closure. No journal is retired here.
 

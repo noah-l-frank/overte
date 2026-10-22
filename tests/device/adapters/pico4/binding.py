@@ -1146,6 +1146,19 @@ def create_adapter(args, base_class):
             joined=self._lifecycle_x_join(target,run)
             return run_create_world_back(self._lifecycle_editor(target,run,source_lock=joined.world.lock),joined)
 
+        @_private
+        def _lifecycle_chat_editor(self,target,run):
+            from adapters.pico4.lifecycle_chat import PicoLifecycleChatDraft
+            joined=self._lifecycle_x_join(target,run)
+            def unavailable(_value):_need(False)
+            return PicoLifecycleChatDraft(joined,self._lifecycle_ui_source(target,source_lock=joined.world.lock),
+                self._chat_controls(target,unavailable,run),joined.world.store.path.with_name('lifecycle-chat-owner.json'))
+
+        @_private
+        def _lifecycle_chat_draft(self,target,run):
+            from adapters.pico4.lifecycle_chat import run_chat_draft
+            return run_chat_draft(self._lifecycle_chat_editor(target,run))
+
         def _lifecycle_back_store(self,target):
             state,_ui=self._script_paths(target)
             return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-','lifecycle-back-owner-')))
