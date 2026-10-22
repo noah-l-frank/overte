@@ -15,6 +15,9 @@
 
 #include "Application.h"
 #include "ApplicationLifecycle.h"
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+#include "../../tests/device/native/IOSPointerObservation.h"
+#endif
 
 #include <QtCore/QMimeData>
 #include <QtCore/QCoreApplication>
@@ -107,12 +110,22 @@ public:
 };
 
 bool Application::notify(QObject* object, QEvent* event) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    overte::e2e::IOSPointerDispatch pointerOriginal(object,event);
+#endif
     if (thread() == QThread::currentThread()) {
         PROFILE_RANGE_IF_LONGER(app, "notify", 2)
-        return QApplication::notify(object, event);
+        const bool result=QApplication::notify(object,event);
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+        pointerOriginal.returned(result);
+#endif
+        return result;
     }
-
-    return QApplication::notify(object, event);
+    const bool result=QApplication::notify(object,event);
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    pointerOriginal.returned(result);
+#endif
+    return result;
 }
 
 static inline bool isKeyEvent(QEvent::Type type) {

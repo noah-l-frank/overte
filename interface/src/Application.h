@@ -301,6 +301,9 @@ public:
 
     // Events
     bool notify(QObject*, QEvent*) override;
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    bool featureIOSWorldTapActive() const { return _iosWorldTap.featureActive(); }
+#endif
     bool event(QEvent* event) override;
     bool eventFilter(QObject* object, QEvent* event) override;
 

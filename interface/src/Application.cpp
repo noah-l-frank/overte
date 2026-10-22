@@ -14,6 +14,9 @@
 
 #include "Application.h"
 #include "ApplicationLifecycle.h"
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+#include "../../tests/device/native/IOSPointerObservation.h"
+#endif
 
 overte::lifecycle::Gate& overte::lifecycle::applicationGate() {
     static Gate gate;
@@ -285,10 +288,18 @@ Application::Application(
 #if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
     _window(new MainWindow(desktop())),
 #else
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    _window((overte::e2e::IOSPointerObservation::startup(),new MainWindow())),
+#else
     _window(new MainWindow()),
 #endif
+#endif
+#else
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    _vkWindow((overte::e2e::IOSPointerObservation::startup(),new VKWindow())),
 #else
     _vkWindow(new VKWindow()),
+#endif
 #if defined(Q_OS_IOS)
     // The render container is attached once, in Application::initialize.
     // A parent container here leaves an extra native top-level window behind

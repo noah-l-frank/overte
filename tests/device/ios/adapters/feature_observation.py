@@ -54,6 +54,7 @@ from ios.adapters.create_work import IOSCreateWork,FILE as CREATE_WORK_FILE,LIMI
 from ios.adapters.avatar_scripts import IOSAvatarScripts,FILE as AVATAR_SCRIPTS_FILE,LIMIT as AVATAR_SCRIPTS_LIMIT,command as avatar_scripts_command
 from ios.adapters.avatar_entities import IOSAvatarEntities,FILE as AVATAR_ENTITIES_FILE,LIMIT as AVATAR_ENTITIES_LIMIT,command as avatar_entities_command
 from ios.adapters.create_entities import IOSCreateEntities,FILE as CREATE_ENTITIES_FILE,LIMIT as CREATE_ENTITIES_LIMIT,command as create_entities_command
+from ios.adapters.pointer_state import IOSPointerState,FILE as POINTER_STATE_FILE,LIMIT as POINTER_STATE_LIMIT,command as pointer_state_command
 from ios.adapters.avatar_state import IOSAvatarState,FILE as AVATAR_STATE_FILE,LIMIT as AVATAR_STATE_LIMIT,command as avatar_state_command
 from ios.adapters.avatar_renderers import IOSAvatarRenderers,FILE as AVATAR_RENDERERS_FILE,LIMIT as AVATAR_RENDERERS_LIMIT,command as avatar_renderers_command
 from ios.adapters.emote_world import IOSEmoteWorld,FILE as EMOTE_WORLD_FILE,LIMIT as EMOTE_WORLD_LIMIT,command as emote_world_command
@@ -155,6 +156,7 @@ class FeatureObservation:
         elif command.get('action')=='feature-ios-avatar-scripts':avatar_scripts_command(command)
         elif command.get('action')=='feature-ios-avatar-entities':avatar_entities_command(command)
         elif command.get('action')=='feature-ios-create-entities':create_entities_command(command)
+        elif command.get('action')=='feature-ios-pointer-state':pointer_state_command(command)
         elif command.get('action')=='feature-ios-avatar-state':avatar_state_command(command)
         elif command.get('action')=='feature-ios-avatar-renderers':avatar_renderers_command(command)
         elif command.get('action')=='feature-ios-script-dialogs':script_dialogs_command(command)
@@ -351,6 +353,13 @@ class FeatureObservation:
         if clock_source is None:clock_source=self.native_observer()
         def clock():return clock_source.read(clock_source.sequence)['capturedEpochMs']
         return IOSCreateEntities(self.send,lambda:self.original(remote=remote,limit=CREATE_ENTITIES_LIMIT),
+            clock,self.guard,self.process['pid'],monotonic=self.monotonic,sleep=self.sleep)
+
+    def pointer_state(self,clock_source=None):
+        self.guard();remote=self.remote.rsplit('/',1)[0]+'/'+POINTER_STATE_FILE
+        if clock_source is None:clock_source=self.native_observer()
+        def clock():return clock_source.read(clock_source.sequence)['capturedEpochMs']
+        return IOSPointerState(self.send,lambda:self.original(remote=remote,limit=POINTER_STATE_LIMIT),
             clock,self.guard,self.process['pid'],monotonic=self.monotonic,sleep=self.sleep)
 
     def avatar_state(self,clock_source=None):

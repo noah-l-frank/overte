@@ -9,6 +9,9 @@ from pathlib import Path
 
 
 REQUIRED = {
+    "ios-pointer-state": 1,
+    "native-ios-pointer-source": 1,
+    "ios-pointer-drain": 1,
     "ios-emote-samples": 1,
     "ios-emote-sample": 1,
     "ios-emote-sample-recovery": 1,

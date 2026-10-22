@@ -1274,6 +1274,26 @@
             }
             return;
         }
+        if (command && command.action === "feature-ios-pointer-state") {
+            if (command.schemaVersion === 1 && typeof command.commandId === "string"
+                    && /^ios-[0-9a-f]{32}$/.test(command.commandId) && command.commandId.length === 36
+                    && typeof command.runId === "string" && /^[0-9a-f]{32}$/.test(command.runId) && command.runId.length === 32
+                    && objectKeysMatch(command,["schemaVersion","commandId","action","runId"])) {
+                // Consume even an unavailable/lost read once. A getter cannot
+                // reset actual startup, contact or dispatch history.
+                if (iosNewSourceRequests[command.commandId] || iosNewSourceRequestCount >= 4096) { return; }
+                iosNewSourceRequests[command.commandId]=true;iosNewSourceRequestCount+=1;
+                var sourcePointerState={iosPointerStateVersion:1,requestId:command.commandId,status:"unavailable"};
+                try {
+                    if (typeof Test.featureIOSPointerState === "function") {
+                        var originalPointerState=Test.featureIOSPointerState(command);
+                        if (originalPointerState && originalPointerState.requestId === command.commandId) { sourcePointerState=originalPointerState; }
+                    }
+                } catch (_PointerStateError) { /* Keep unavailable and consumed. */ }
+                Test.saveObject(sourcePointerState,"feature-ios-pointer-state.json");
+            }
+            return;
+        }
         if (command && command.action === "feature-ios-create-entities") {
             if (command.schemaVersion === 1 && typeof command.commandId === "string"
                     && /^ios-[0-9a-f]{32}$/.test(command.commandId) && command.commandId.length === 36

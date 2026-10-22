@@ -1,6 +1,10 @@
 {
   "schemaVersion": 1,
   "contracts": {
+    "ios-pointer-state": {"current": 1, "reads": [1]},
+    "native-ios-pointer-source": {"current": 1, "reads": [1]},
+    "ios-pointer-drain": {"current": 1, "reads": [1]},
+
     "ios-emote-samples": {"current": 1, "reads": [1]},
     "ios-emote-sample": {"current": 1, "reads": [1]},
     "ios-emote-sample-recovery": {"current": 1, "reads": [1]},

@@ -9,6 +9,9 @@
 // contacts and touches owned by UI/locomotion controls cannot become clicks.
 class MobileWorldTap {
 public:
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    bool featureActive() const { return _active; }
+#endif
     void cancel() { _active = false; }
     void begin(int id, double x, double y, uint64_t timestamp, bool eligible) {
         _active = eligible && std::isfinite(x) && std::isfinite(y);
