@@ -25,7 +25,7 @@ class AvatarObserverTests(unittest.TestCase):
             surface.sources,surface.subject_role,surface.observer_role=source,role,'primary'
             surface.previous=dict(explicitSyntheticQtSurface=True,subjectRole=role)
             def prepare(ticket,subject=role):
-                self.assertEqual(fixture.TICKET,ticket);self.calls.append('surface-'+subject)
+                self.assertEqual(self.f.journal.runs[fixture.RUN]['ticket'],ticket);self.calls.append('surface-'+subject)
                 old=len(self.f.logic.http[subject]['events'])
                 self.f.logic.response(subject,'GET','/api/v1/users/connections','page=1&per_page=1000&sort=username%2CASC')
                 for event in self.f.logic.http[subject]['events'][old:]:
@@ -50,6 +50,21 @@ class AvatarObserverTests(unittest.TestCase):
         self.f.client.request=forbidden
         self.assertEqual(actual,restored.validate_original(row)['public']);self.assertEqual(before,len(self.calls))
         self.assertEqual(0o600,self.path.stat().st_mode&0o777)
+
+    def test_cleanup_checkpoint_keeps_own_fresh_bilateral_originals_live_resources_and_continuing_sequence(self):
+        from ios.self_tests.test_ios_avatar_images import bundle
+        owner=self.owner();first=owner.observe();ticket='c'*32
+        self.f.journal.activate(fixture.RUN,ticket,'cleanup');self.f.scopes.activate(fixture.RUN,ticket)
+        self.f.g.ticket=ticket;self.f.g.activations=deepcopy(self.f.journal.runs[fixture.RUN]['phaseActivations'])
+        _frame,raw,_policy=bundle(ticket=ticket);self.f.g.gpu.png=raw
+        self.f.g.gpu.raw_pixels=Image.open(BytesIO(raw)).convert('RGBA').tobytes()
+        with self.assertRaises(NativeUIError):self.owner().observe(first['sequence'])
+        restored=self.owner();actual=restored.checkpoint(first['sequence'])
+        self.assertEqual(2,actual['sequence']);self.assertEqual(first['state'],actual['state'])
+        self.assertTrue(actual['resources']);self.assertIn('panel:people',actual['resources'])
+        row=deepcopy(restored.state['rows'][-1]);before=list(self.calls)
+        self.assertEqual(ticket,row['ticket']);self.assertEqual(actual,self.owner().validate_original(row)['public'])
+        self.assertEqual(before,self.calls)
 
     def test_lost_passive_peer_return_retains_complete_actual_prefix_and_uses_distinct_new_reads(self):
         owner=self.owner();peer=self.f.peers['primary'];read=peer.read

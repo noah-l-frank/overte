@@ -25,6 +25,9 @@ received-only command, changed operands, expired original step or incomplete
 native read remains owned. A new step cannot replace an unfinished earlier
 step. Private copies of the normal UIKit helper and the final native send
 guard enforce the original deadline through slow storage and continuity reads.
+The whole owner may supply its original persisted cleanup clock. Every step
+then retains that exact clock; a later step or reconstruction cannot replace
+it with a new start. This check precedes another native source read or input.
 
 These controls report input completion. The whole owner must separately choose
 steps from actual source ownership and verify restored model/bookmark state,

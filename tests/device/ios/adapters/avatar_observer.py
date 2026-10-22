@@ -241,8 +241,16 @@ class IOSAvatarObserver:
         PhaseWitnessPublisher.acquisition(clock);return dict(status=status,acquisition=clock)
 
     def observe(self,after_sequence=0):
+        return self._observe(after_sequence,cleanup_checkpoint=False)
+
+    def checkpoint(self,after_sequence=0):
+        """Fresh live-resource cleanup admission, never final retirement."""
+        return self._observe(after_sequence,cleanup_checkpoint=True)
+
+    def _observe(self,after_sequence,*,cleanup_checkpoint):
         self.bound();need(integer(after_sequence,0,2**53-1));self.recover();phase=self.phase.read();ticket=phase['ticket']
-        need(phase['verb']!='cleanup' and len(self.state['rows'])<512)
+        need((phase['verb']=='cleanup' if cleanup_checkpoint else phase['verb']!='cleanup') and len(self.state['rows'])<512
+            and (not cleanup_checkpoint or self.state['baseline'] is not None))
         p=dict(index=len(self.state['rows'])+1,ticket=ticket,partial={},original=None,record=None,abandonedOriginal=None)
         self.state['pending']=p;self.save();started=self.monotonic();before=self.epoch_ms()
         self.remember('started',dict(hostBeforeEpochMs=before,hostBeforeMonotonic=started))

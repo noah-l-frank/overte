@@ -128,6 +128,16 @@ class IOSAvatarRuntime(IOSScriptRuntime):
         return IOSAvatarInputReads(PrivateFeatureState(self.state_path(selector).with_name('ios-avatar-'+sources.role+'-input-reads.json')),
             sources.root,sources.binding,sources.run,sources.role,sources.lock,actual['check'],reader)
 
+    def _avatar_cleanup_controls(self,selector,sources):
+        from ios.adapters.avatar_cleanup_inputs import AvatarCleanupInputOwner
+        from ios.adapters.avatar_cleanup_controls import IOSAvatarCleanupControls
+        need(isinstance(sources,IOSAvatarSources) and not sources.historical);sources.bound();actual=self._sources(selector)
+        need(actual['binding']==sources.binding)
+        inputs=AvatarCleanupInputOwner(PrivateFeatureState(self.state_path(selector).with_name('ios-avatar-'+sources.role+'-cleanup-inputs.json')),
+            sources.lock,sources.binding,sources.run,sources.role,sources.phase.fixture_url,actual['check'])
+        return IOSAvatarCleanupControls(PrivateFeatureState(self.state_path(selector).with_name('ios-avatar-'+sources.role+'-cleanup-controls.json')),
+            sources,inputs,NativeUI(actual['client'],actual['session'],actual['check']),self._avatar_input_reads(selector,sources))
+
     def _avatar_sources(self,selector,client,run,role,root,lock):
         identifier(run);need(isinstance(client,Client) and role in ('primary','actor') and isinstance(lock,ScriptSourceLock))
         expected_origin=origin(client.url);lock.assert_held()

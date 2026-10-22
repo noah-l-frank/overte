@@ -101,8 +101,12 @@ class IOSAvatarCleanupControls:
         if event['phase']!='observed':
             current=self.sources.readers['ui'].capture();self.deadline();self.inputs.observed(original,current)
         return deepcopy(events)
-    def run(self,query,*,index,step,inputs):
+    def run(self,query,*,index,step,inputs,whole_clock=None):
         arguments('feature.avatar-people.cleanup',query);need(query['runId']==self.sources.run);self.bound()
+        if whole_clock is not None:
+            operation_clock.validate(whole_clock)
+            need(all(same(row['operationClock'],whole_clock) for row in self.state['calls']))
+            operation_clock.check(whole_clock,self.sources.epoch_ms(),self.sources.monotonic())
         phase=self.sources.phase.read();need(phase['verb']=='cleanup')
         actual=cleanup_call(dict(avatarCleanupInputCallVersion=1,contractVersion=CONTRACT_VERSION,runId=self.sources.run,
             fixtureUrl=self.sources.phase.fixture_url,ticket=phase['ticket'],index=index,step=step,inputs=deepcopy(inputs)))
@@ -112,7 +116,8 @@ class IOSAvatarCleanupControls:
             need(index==len(self.state['calls']));prefix=self.prefix()
         else:
             need(index==len(self.state['calls'])+1 and (not self.state['calls'] or self.state['calls'][-1]['phase']=='acknowledged'))
-            clock=operation_clock.begin(self.sources.epoch_ms(),self.sources.monotonic())
+            clock=deepcopy(whole_clock) if whole_clock is not None else operation_clock.begin(self.sources.epoch_ms(),self.sources.monotonic())
+            operation_clock.check(clock,self.sources.epoch_ms(),self.sources.monotonic())
             IOSAvatarSourceRecovery(self.sources).recover();before=self.sources.read()
             operation_clock.check(clock,self.sources.epoch_ms(),self.sources.monotonic())
             row=dict(query=actual,phase='acting',operationClock=clock,before=self.reference(before),after=None,inputStarted=False,sdk=[])

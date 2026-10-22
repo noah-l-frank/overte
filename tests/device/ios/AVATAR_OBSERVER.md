@@ -27,6 +27,13 @@ with unknown delivery is resolved by reading the original bound journal; it
 is never sent again. Publication proves receipt of independently validated
 facts and does not establish product cleanup.
 
+`checkpoint()` permits the same original nine-fact acquisition under the actual
+cleanup ticket, after an admitted active baseline. Its sequence continues the
+existing observation history. The checkpoint deliberately retains its live
+panel, script, entity and file resources. It can establish bilateral contact
+absence before account logout; it cannot establish scene retirement or complete
+cleanup. The ordinary `observe()` entrypoint still refuses cleanup tickets.
+
 Host coverage includes a complete acquisition, reconstruction and historical
 callback; distinct actor-owned reads of the primary SDK and its own remote
 PNG; actual journal commit followed by synthetic delivery loss and no second

@@ -97,6 +97,18 @@ class AvatarCleanupControlsTests(unittest.TestCase):
             elif fault=='owned-name':value.update(step='delete-bookmark',inputs=dict(name='unowned-bookmark'))
             else:value.update(step='remove-connection',inputs=dict(username='unowned-account'))
             with self.subTest(fault=fault),self.assertRaises(NativeUIError):call(value)
+    def test_supplied_original_whole_cleanup_clock_cannot_be_renewed_between_steps(self):
+        from ios.adapters import avatar_operation_clock
+        self.setup_case();owner=self.owner();f=self.f.fixture
+        original=avatar_operation_clock.begin(f.host(),f.clock)
+        owner.run(self.query,index=1,step='restore-model',inputs=dict(url=URL),whole_clock=original)
+        changed=avatar_operation_clock.begin(f.host(),f.clock)
+        with self.assertRaises(NativeUIError):owner.run(self.query,index=2,step='restore-scale',inputs=dict(value=1.5),whole_clock=changed)
+        owner.run(self.query,index=2,step='restore-scale',inputs=dict(value=1.5),whole_clock=original)
+        self.assertTrue(all(row['operationClock']==original for row in owner.state['calls']))
+        f.clock+=26;commands=deepcopy(self.boundary.edits);requests=len(f.widget.requests)
+        with self.assertRaises(NativeUIError):self.owner().run(self.query,index=3,step='restore-model',inputs=dict(url=URL),whole_clock=original)
+        self.assertEqual(commands,self.boundary.edits);self.assertEqual(requests,len(f.widget.requests))
 
 
 if __name__=='__main__':unittest.main()
