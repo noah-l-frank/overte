@@ -419,6 +419,7 @@ class SettingsBarrierTests(unittest.TestCase):
             self.assertEqual(0,compiled.returncode,compiled.stderr[:6000])
             executed=subprocess.run([str(binary),'--testScript'],capture_output=True,text=True,timeout=10)
             self.assertEqual(0,executed.returncode,executed.stderr[:2500])
+            return executed.stdout
 
     def test_actual_worker_queue_fence_and_physical_ini_read(self):
         source=(ROOT/'libraries/shared/src/SettingManager.cpp').read_text()

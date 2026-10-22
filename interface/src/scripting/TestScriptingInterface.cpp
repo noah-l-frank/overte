@@ -717,6 +717,29 @@ QVariantMap TestScriptingInterface::featureChatProfile(const QVariantMap& comman
     return _featureChatProfile->request(command);
 }
 
+QVariantMap TestScriptingInterface::featureChatProfileCurrent(const QVariantMap& command) {
+    if (QThread::currentThread()!=thread()) {
+        if (!thread() || !thread()->isRunning()) { return {}; }
+        QVariantMap result;
+        if (!QMetaObject::invokeMethod(this,[&] { result=featureChatProfileCurrent(command); },Qt::BlockingQueuedConnection)) { return {}; }
+        return result;
+    }
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript") || !DependencyManager::isSet<Setting::Manager>()) { return {}; }
+    const auto manager=DependencyManager::get<Setting::Manager>();
+    if (!manager || manager->thread()!=thread()) { return {}; }
+    if (!_featureChatProfile) {
+        const QPointer<TestScriptingInterface> original(this);
+        _featureChatProfile=std::make_shared<overte::e2e::ChatProfileOwner>(manager.data(),[original](const QString& run) {
+            if (!original) { return QVariantMap(); }
+            return original->featureChatViewObservation({{"schemaVersion",1},{"action","feature-chat-view-observe"},
+                {"commandId",QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-')},{"runId",run}});
+        });
+    }
+    if (!_featureChatProfile->ownsManager(manager.data())) { return {}; }
+    return _featureChatProfile->current(command);
+}
+
 QVariantMap TestScriptingInterface::featureChatViewObservation(const QVariantMap& command) {
     if (QThread::currentThread()!=thread()) {
         if (!thread() || !thread()->isRunning()) { return {}; }
@@ -1324,6 +1347,7 @@ void TestScriptingInterface::saveObject(QVariant variant, const QString& filenam
     if (filename == "feature-chat-observation.json" || filename == "feature-native-observation.json" || filename == "normal-feature-observation.json"
             || filename == "feature-chat-view-observation.json" || filename == "feature-web-dom-observation.json"
             || filename == "feature-chat-peer-position.json" || filename == "feature-chat-profile.json"
+            || filename == "feature-chat-profile-current.json"
             || filename == "feature-pending-commit-owner.json" || filename == "feature-navigation-replies.json"
             || filename == "feature-location-bookmarks.json"
             || filename == "feature-navigation-modals.json" || filename == "feature-navigation-environment.json" || filename == "feature-navigation-directory.json"

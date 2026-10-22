@@ -63,6 +63,34 @@ public:
                 {"mutationSequence",actual.value("mutationSequence")},{"capturedEpochMs",actual.value("capturedEpochMs")}}},
             {"view",QVariantMap{{"instance",view.value("instance")},{"sequence",view.value("sequence")},{"capturedEpochMs",view.value("capturedEpochMs")}}}};
     }
+    // Passive current settings only. A new process has no authority to claim
+    // an old native owner's original/restore state. Expected hashes never enter
+    // this source; the host independently compares these actual fingerprints.
+    QVariantMap current(const QVariantMap& input) {
+        if (!_manager || !_view || QThread::currentThread()!=_manager->thread()
+                || !QCoreApplication::arguments().contains("--testScript") || !_currentValid) { return {}; }
+        const auto object=QJsonObject::fromVariantMap(input);const auto keys=object.keys();
+        const auto run=object.value("runId").toString(),id=object.value("commandId").toString();
+        const QRegularExpression hex("\\A[0-9a-f]{32}\\z");
+        if (QSet<QString>(keys.begin(),keys.end())!=QSet<QString>{"schemaVersion","commandId","runId","action"}
+                || object.value("schemaVersion")!=QJsonValue(1) || object.value("action")!=QJsonValue("feature-chat-profile-current")
+                || !hex.match(run).hasMatch() || !hex.match(id).hasMatch() || (!_run.isEmpty() && _run!=run)
+                || (!_currentRun.isEmpty() && _currentRun!=run) || _currentRequests.contains(id) || _currentRequests.size()>=4096) { return {}; }
+        _currentRequests.insert(id);_currentRun=run;
+        QElapsedTimer elapsed;elapsed.start();const auto started=QDateTime::currentMSecsSinceEpoch();
+        const auto view=_view(run);if (!closed(view,run,started)) { return {}; }
+        const auto actual=_manager->featureChatSnapshot(),hashes=fingerprint(actual);
+        if (hashes.isEmpty() || !empty(actual) || hashes.value("cache")!=hashes.value("worker")) { return {}; }
+        const auto finished=QDateTime::currentMSecsSinceEpoch();
+        if (finished<started || finished<_currentEpoch) { _currentValid=false;return {}; }
+        if (elapsed.elapsed()>1500 || finished-started>1500 || _currentSequence>=9007199254740991LL) { return {}; }
+        _currentEpoch=finished;
+        return {{"chatProfileCurrentVersion",1},{"commandId",id},{"runId",run},{"instance",_instance},{"sequence",++_currentSequence},
+            {"processId",QCoreApplication::applicationPid()},{"capturedEpochMs",finished},{"current",hashes},
+            {"settings",QVariantMap{{"instance",actual.value("instance")},{"writerInstance",actual.value("writer").toMap().value("instance")},
+                {"mutationSequence",actual.value("mutationSequence")},{"capturedEpochMs",actual.value("capturedEpochMs")}}},
+            {"view",QVariantMap{{"instance",view.value("instance")},{"sequence",view.value("sequence")},{"capturedEpochMs",view.value("capturedEpochMs")}}}};
+    }
 private:
     static bool scalar(const QVariant& value) {
         if (!value.isValid() || value.isNull() || value.userType()==QMetaType::Bool) { return true; }
@@ -133,7 +161,8 @@ private:
     }
     QPointer<Setting::Manager> _manager;View _view;QSet<QString> _requests;QString _run;
     QVariantMap _original,_originalHashes;bool _owned{false},_restoreAttempted{false},_restored{false},_valid{true};
-    qint64 _sequence{0},_epoch{0};
+    qint64 _sequence{0},_epoch{0},_currentSequence{0},_currentEpoch{0};
+    QSet<QString> _currentRequests;QString _currentRun;bool _currentValid{true};
     const QString _instance{QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-')};
 };
 }
