@@ -298,7 +298,9 @@ def _platform_inputs(paths, native_mode, target):
     android = target.startswith("android-") and (product or any(
         path.startswith("android/") and not path.endswith(".md") for path in paths))
     ios = target == "apple-ios" and (product or any(
-        path.startswith("ios/") and not path.endswith(".md") for path in paths))
+        (path.startswith("ios/") and not path.endswith(".md"))
+        or path in {".github/workflows/ios-integrated.yml", ".github/workflows/ios-qt-source.yml"}
+        for path in paths))
     return android, ios
 
 
@@ -522,8 +524,10 @@ def plan(base_tree, candidate_tree, trusted_tree, *, read_blob, target="main"):
                 selected.append(name)
     android, ios = _platform_inputs(paths, native["mode"], target)
     ios_build = ios and (native["mode"] != "skip" or any(
-        path.startswith("ios/") and not path.startswith(("ios/tests/", "ios/release-check/"))
-        and not path.endswith(".md") for path in paths))
+        (path.startswith("ios/") and not path.startswith(("ios/tests/", "ios/release-check/"))
+         and not path.endswith(".md"))
+        or path in {".github/workflows/ios-integrated.yml", ".github/workflows/ios-qt-source.yml"}
+        for path in paths))
     covered = {}
     if ("server-console" in npm_projects and "server-console-behavior" in selected
             and _server_console_coverage(candidate_tree, registry,

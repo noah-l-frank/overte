@@ -726,6 +726,9 @@
     "tests/pr-ci-platform-test.py",
     ".github/workflows/pr-ci-ios.yml",
     ".github/workflows/ios-integrated.yml",
-    ".github/workflows/ios-qt-source.yml"
+    ".github/workflows/ios-qt-source.yml",
+    ".github/workflows/android-tests.yml",
+    ".github/workflows/android-vr-tests.yml",
+    ".github/workflows/ios-build-qualification.yml"
   ]
 }

@@ -337,6 +337,15 @@ class WorkflowContracts(unittest.TestCase):
             with self.subTest(retired_main_push=name):
                 self.assertNotIn("push", load(name).get("on", {}))
 
+    def test_retired_product_workflows_cannot_restart_parallel_automatic_owners(self):
+        for name in ("android-tests.yml", "android-vr-tests.yml", "ios-build-qualification.yml"):
+            if not (WORKFLOWS / name).exists():
+                continue
+            events = load(name)["on"]
+            with self.subTest(workflow=name):
+                self.assertFalse({"pull_request", "pull_request_target", "push"} & set(events))
+                self.assertIn("workflow_dispatch", events)
+
     def test_every_external_action_is_pinned_to_an_immutable_commit(self):
         for workflow in (self.workflow, self.native):
             for job in workflow["jobs"].values():

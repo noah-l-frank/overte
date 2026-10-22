@@ -305,6 +305,34 @@ class CentralPlannerTests(unittest.TestCase):
         self.assertEqual({"pr-ci-plan", "pr-ci-context", "pr-ci-run", "pr-ci-observer", "pr-ci-workflow", "pr-ci-cli", "pr-ci-transport", "pr-ci-platform", "documentation"}, selected)
         self.assertFalse({"host-full", "qt", "compiler", "qt5-qml", "qt6-qml"} & set(result["setup"]))
 
+    def test_platform_ci_metadata_selects_its_own_consumers_without_product_work(self):
+        self.active_policy()
+        product = {"device-control-plane-full", "web-entity-visibility", "lod-preferences",
+                   "goto-dialog-script", "recorded-voice-native", "shared-script-behavior"}
+        for path in (".github/pr-ci-platforms.json", "tools/repository-checks/pr_ci_platform.py",
+                "tests/pr-ci-platform-test.py", ".github/workflows/pr-ci-ios.yml",
+                ".github/workflows/android-tests.yml", ".github/workflows/android-vr-tests.yml",
+                ".github/workflows/ios-build-qualification.yml"):
+            for target in PLANNER.TARGETS:
+                with self.subTest(path=path, target=target):
+                    result = self.plan(self.candidate(path, "changed CI input"), target)
+                    self.assertFalse(product & set(result["host_suites"]))
+                    self.assertEqual("skip", result["native"]["mode"])
+                    self.assertFalse(result["android_required"] or result["ios_required"])
+                    self.assertFalse(result["browser_required"])
+
+    def test_ios_build_recipes_and_host_tests_have_distinct_owners(self):
+        self.active_policy()
+        for path in (".github/workflows/ios-integrated.yml", ".github/workflows/ios-qt-source.yml"):
+            with self.subTest(path=path):
+                result = self.plan(self.candidate(path, "changed build recipe"), "apple-ios")
+                self.assertTrue(result["ios_required"] and result["ios_build_required"])
+                self.assertFalse(self.plan(self.candidate(path, "changed build recipe"), "main")["ios_required"])
+        self.base["ios/tests/existing-host-test.py"] = self.objects.entry("original host test")
+        result = self.plan(self.candidate("ios/tests/existing-host-test.py", "changed host test"), "apple-ios")
+        self.assertTrue(result["ios_required"])
+        self.assertFalse(result["ios_build_required"])
+
     def test_active_registry_preserves_all_product_suites_and_nonlegacy_direct_tests(self):
         active = json.loads((ROOT / PLANNER.ACTIVE_REGISTRY).read_text())
         old = json.loads((ROOT / PLANNER.REGISTRY).read_text())
