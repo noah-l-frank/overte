@@ -27,6 +27,8 @@ from ios.adapters.emote_source_recovery import IOSEmoteSourceRecovery
 from ios.adapters.emote_sample_recovery import IOSEmoteSampleRecovery
 
 VERSION=1
+OWNER_VERSION=2
+OWNER_READS=(1,2)
 
 
 class EmoteObservationPending(NativeUIError):pass
@@ -55,8 +57,8 @@ class IOSEmoteObserver:
         if self.previous is None:self.save()
         else:self.state=self.decode(self.previous)
 
-    def envelope(self,state):
-        return dict(iosEmoteObserverVersion=VERSION,runId=self.run,role=self.role,binding=self.binding,
+    def envelope(self,state,version=OWNER_VERSION):
+        return dict(iosEmoteObserverVersion=version,runId=self.run,role=self.role,binding=self.binding,
             primaryBinding=self.sources.binding,fixtureUrl=self.phase.fixture_url,phaseInstance=self.decoder.phase_instance,
             artifactRoot=str(self.root),imagePolicy=self.policy,payload=pack([state]))
 
@@ -93,7 +95,8 @@ class IOSEmoteObserver:
 
     def decode(self,value):
         exact(value,{'iosEmoteObserverVersion','runId','role','binding','primaryBinding','fixtureUrl','phaseInstance','artifactRoot','imagePolicy','payload'})
-        rows=unpack(value['payload']);need(len(rows)==1 and same(value,self.envelope(rows[0])));state=rows[0]
+        version=value['iosEmoteObserverVersion'];need(type(version) is int and version in OWNER_READS)
+        rows=unpack(value['payload']);need(len(rows)==1 and same(value,self.envelope(rows[0],version)));state=rows[0]
         exact(state,{'records','pending','baseline','phaseTicket','phaseBarrier','peerBarrier','imageBarrier','lastSource','lastPeer','lastImage','episode','abandoned'})
         need(type(state['records']) is list and len(state['records'])<=512 and type(state['abandoned']) is list and len(state['abandoned'])<=512)
         last=None
@@ -114,7 +117,7 @@ class IOSEmoteObserver:
             if state[name] is not None:
                 need(self.peers is not None);self.decoder.retained(self.peers,state[name])
         for name in ('imageBarrier','lastImage'):
-            if state[name] is not None:need(self.samples is not None)
+            if state[name] is not None:self.sample(state[name],legacy=version==1)
         pending=state['pending']
         if pending is not None:
             exact(pending,{'ticket','started','source','peer','sample','original','reference'})
@@ -122,6 +125,7 @@ class IOSEmoteObserver:
             need(number(pending['started']['hostBeforeEpochMs'],1,1e15) and number(pending['started']['hostBeforeMonotonic'],0,1e15))
             if pending['source'] is not None:self.decoder.source(pending['source'])
             if pending['peer'] is not None:self.decoder.retained(self.peers,pending['peer'])
+            if pending['sample'] is not None:self.sample(pending['sample'],legacy=version==1)
             if pending['original'] is not None:
                 original=unpack(pending['original']);need(len(original)==1);self.decoder.derive(original[0])
             if pending['reference'] is not None:
@@ -134,7 +138,27 @@ class IOSEmoteObserver:
                 and number(row['afterEpochMs'],row['pending']['started']['hostBeforeEpochMs'],1e15)
                 and number(row['afterMonotonic'],row['pending']['started']['hostBeforeMonotonic'],1e15)
                 and type(row['gpuRetirements']) is list)
+        if version==1:
+            for name in ('imageBarrier','lastImage'):
+                if state[name] is not None:state[name]=self.sample_reference(state[name])
+            if pending is not None and pending['sample'] is not None:pending['sample']=self.sample_reference(pending['sample'])
         return deepcopy(state)
+
+    def sample_reference(self,value):
+        need(self.samples is not None)
+        rows=[row for row in self.samples.state['rows'] if row['requestId']==value['requestId']]
+        need(len(rows)==1 and same(self.samples.record(rows[0]),value))
+        return dict(iosEmoteSampleReferenceVersion=1,requestId=value['requestId'],sha256=digest(value))
+
+    def sample(self,value,*,legacy=False):
+        need(self.samples is not None)
+        if legacy:
+            self.sample_reference(value);return deepcopy(value)
+        exact(value,{'iosEmoteSampleReferenceVersion','requestId','sha256'})
+        need(type(value['iosEmoteSampleReferenceVersion']) is int and value['iosEmoteSampleReferenceVersion']==1)
+        rows=[row for row in self.samples.state['rows'] if row['requestId']==value['requestId']]
+        need(len(rows)==1);original=self.samples.record(rows[0]);need(digest(original)==value['sha256'])
+        return original
 
     def source_reference(self):
         need(bool(self.sources.frames));return dict(index=len(self.sources.frames),sha256=digest(self.sources.frames[-1]))
@@ -203,6 +227,21 @@ class IOSEmoteObserver:
             if kind=='playback':proof['inputBarrier']=None
         self.decoder.state(current,proof,ticket);return proof
 
+    def episode_comparison(self,proof):
+        """Retain the episode's actual active image/peer through quiet reads.
+
+        A later close/reopen or repeated idle observation must compare restored
+        pixels to that same episode's original playback, rather than requiring
+        an already restored body to move again. All current sources and fenced
+        images are still independently acquired and validated.
+        """
+        if proof['kind']=='restoration':
+            for reference in reversed(self.state['records']):
+                original=self.original(reference)
+                if original['proof']['kind']=='playback' and same(original['proof']['played'],proof['played']):
+                    return original['peerAfter'],original['image']
+        return self.state['peerBarrier'],self.state['imageBarrier']
+
     def observe(self,after_sequence,*,input_barrier=None,retired=False):
         self.bound();need(integer(after_sequence,0,len(self.state['records'])) and type(retired) is bool)
         if not self.resolve():raise EmoteObservationPending('A prior original acquisition still owns its unresolved reads')
@@ -232,15 +271,18 @@ class IOSEmoteObserver:
                 rows=[r for r in self.peers.frames[-1]['peer']['renderers']['source']['avatars'] if session_sha(r['sessionId'])==primary]
                 need(len(rows)==1);avatar=rows[0]['sessionId']
             self.samples.capture(ticket,avatar_id=avatar)
-            pending['sample']=self.samples.record(self.samples.state['rows'][-1]);self.save()
+            pending['sample']=self.sample_reference(self.samples.record(self.samples.state['rows'][-1]));self.save()
             scope=self.samples.scope;marker=dict(nonce=scope.state['fileOwnership']['nonce'],url=scope.state['admission']['marker']['sourceUrl'],scope=scope.snapshot())
         final=self.phase.read(status['status']);need(final['ticket']==ticket)
+        peer_before,image_before=self.episode_comparison(proof)
+        if image_before is not None and 'iosEmoteSampleReferenceVersion' in image_before:image_before=self.sample(image_before)
         acquisition=dict(pending['started'],hostAfterEpochMs=self.epoch_ms(),hostAfterMonotonic=self.monotonic())
         original=dict(iosEmoteObservationOriginalVersion=ORIGINAL_VERSION,runId=self.run,role=self.role,binding=self.binding,
             primaryBinding=self.sources.binding,sequence=len(self.state['records'])+1,ticket=ticket,source=pending['source'],
             sourceRecovery=self.recovery.store.read(),peerRecovery=None if self.peer_recovery is None else self.peer_recovery.store.read(),proof=proof,
-            peerBefore=self.state['peerBarrier'],peerAfter=pending['peer'],marker=marker,
-            imageBefore=self.state['imageBarrier'] if marker is not None else None,image=pending['sample'],acquisition=acquisition)
+            peerBefore=peer_before,peerAfter=pending['peer'],marker=marker,
+            imageBefore=image_before if marker is not None else None,
+            image=None if pending['sample'] is None else self.sample(pending['sample']),acquisition=acquisition)
         derived=self.decoder.derive(original);pending['original']=pack([original]);self.save();self.resolve()
         self.bound();now,mono=self.epoch_ms(),self.monotonic()
         need(number(now,acquisition['hostAfterEpochMs'],acquisition['hostBeforeEpochMs']+1500)
