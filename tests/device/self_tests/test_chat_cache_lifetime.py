@@ -55,6 +55,46 @@ class CacheLifetimeTests(unittest.TestCase):
         self.assertEqual('retired',self.store.read()['phase']);self.assertIsNotNone(self.owner.store.read())
         self.create().retire();self.assertEqual(['observe','retire'],[row['operation'] for row in self.mutations()])
 
+    def test_lifetime_owner_pins_original_retirement_and_generic_cleanup_cannot_resend_or_discard(self):
+        self.flow.activate();self.flow.retire();owned=self.owner.owned();original=deepcopy(owned)
+        self.assertEqual(2,owned['ownershipVersion']);self.assertEqual('lifetime.json',owned['lifetimeOwner'])
+        self.assertFalse(owned['active']);self.assertEqual(self.flow.base['retirement']['request']['commandId'],
+            owned['retirement']['retiredCommandId'])
+        self.assertEqual([row['packet']['commandId'] for row in self.flow.base['frames'][-2:]],
+            [row['commandId'] for row in owned['retirement']['inspections']])
+        commands=deepcopy(self.native.commands)
+        for action in ('observe','retire'):
+            with self.subTest(action=action),self.assertRaises(NativeUIError):
+                getattr(OwnedChatCapture(self.native.reader(),self.owner,RUN),action)()
+            self.assertEqual(commands,self.native.commands);self.assertEqual(original,self.owner.owned())
+        self.create().retire();self.assertEqual(original,self.owner.owned())
+        self.assertEqual(['observe','retire'],[row['operation'] for row in self.mutations()])
+
+    def test_active_lifetime_also_blocks_generic_retirement_before_any_source_or_mutation(self):
+        self.flow.activate();commands=deepcopy(self.native.commands)
+        with self.assertRaises(NativeUIError):OwnedChatCapture(self.native.reader(),self.owner,RUN).retire()
+        self.assertEqual(commands,self.native.commands);self.assertTrue(self.owner.owned()['active'])
+        self.assertEqual('active',self.store.read()['phase'])
+
+    def test_lost_capture_retirement_receipt_recovers_only_passively_and_preserves_original_proof(self):
+        self.flow.activate();original=self.owner.store.write
+        def lost(value,previous):
+            original(value,previous)
+            if value.get('retirement') is not None:raise OSError('Original retirement owner receipt lost')
+        self.owner.store.write=lost
+        with self.assertRaises(NativeUIError):self.flow.retire()
+        proof=deepcopy(self.owner.store.read());self.assertFalse(proof['active'])
+        self.assertEqual('retired',self.store.read()['phase']);self.owner.store.write=original
+        self.create().retire();self.assertEqual(proof,self.owner.owned())
+        self.assertEqual(['observe','retire'],[row['operation'] for row in self.mutations()])
+
+    def test_original_lifetime_store_cannot_be_rebound_even_before_activation(self):
+        other=PrivateFeatureState(self.store.path.with_name('other.json'));before=deepcopy(self.owner.owned())
+        with self.assertRaises(NativeUIError):
+            ChatCacheLifetime(OwnedChatCapture(self.native.reader(),self.owner,RUN),other,self.lock,
+                monotonic=lambda:self.native.clock)
+        self.assertEqual(before,self.owner.owned());self.assertEqual([],self.mutations());self.assertIsNone(other.read())
+
     def test_lost_observe_result_uses_only_matching_original_native_open_id(self):
         self.native.lose='observe'
         with self.assertRaises(NativeUIError):self.flow.activate()

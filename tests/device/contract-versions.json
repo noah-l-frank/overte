@@ -90,6 +90,7 @@
     "chat-cleanup-admission": {"current": 1, "reads": [1]},
     "native-host-descriptor-owner": {"current": 1, "reads": [1]},
     "native-chat-actor-ipc-close": {"current": 1, "reads": [1]},
+    "native-chat-capture-owner": {"current": 2, "reads": [1, 2]},
     "chat-cache-lifetime": {"current": 1, "reads": [1]},
     "native-chat-observation": {"current": 3, "reads": [1, 2, 3]},
     "native-chat-domain-session": {"current": 1, "reads": [1]},
