@@ -941,6 +941,7 @@ QVariantMap TestScriptingInterface::featureCreateFiles(const QVariantMap& comman
 #if defined(ANDROID_APP_PICO_INTERFACE)
 QVariantMap TestScriptingInterface::featureCreateCallbacks(const QString& requestId) {
     if (QThread::currentThread()!=thread()) {
+        if (!thread() || !thread()->isRunning()) { return {}; }
         QVariantMap result;
         QMetaObject::invokeMethod(this,[&]{result=featureCreateCallbacks(requestId);},Qt::BlockingQueuedConnection);return result;
     }
@@ -949,6 +950,7 @@ QVariantMap TestScriptingInterface::featureCreateCallbacks(const QString& reques
             || !QRegularExpression("\\A[0-9a-f]{32}\\z").match(requestId).hasMatch()) { return {}; }
     if (_featureCreateCallbacksResults.contains(requestId)) { return _featureCreateCallbacksResults.value(requestId); }
     if (_featureCreateCallbacksResults.size()>=512 || _featureCreateCallbacksSequence>=9007199254740991ULL) { return {}; }
+    if (!DependencyManager::isSet<ScriptEngines>()) { return {}; }
     const auto requested=QDateTime::currentMSecsSinceEpoch();
     const auto source=DependencyManager::get<ScriptEngines>()->featureCreateCallbackObservation();
     if (source.isEmpty()) { return {}; }

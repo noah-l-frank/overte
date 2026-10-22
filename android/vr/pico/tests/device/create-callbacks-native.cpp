@@ -30,7 +30,11 @@ struct ScriptEngines {
     QVariantMap featureCreateCallbackObservation();
 };
 std::shared_ptr<ScriptEngines> engines;
-struct DependencyManager {template<typename T> static std::shared_ptr<T> get(){return engines;}};
+bool enginesAvailable=true;int engineGets=0;
+struct DependencyManager {
+    template<typename T> static bool isSet(){return enginesAvailable;}
+    template<typename T> static std::shared_ptr<T> get(){++engineGets;return engines;}
+};
 struct Lifecycle {QVariantMap snapshot() const {return {{"launches",1}};}};
 class TestScriptingInterface:public QObject {
 public:
@@ -55,6 +59,11 @@ int main(int argc,char** argv) {
     engines->_allKnownScriptManagers.insert(manager);engines->_featureKnownScriptRevision=1;
     const auto proxy=manager->callbacks->born("WindowScriptingInterface","browseChanged(QString)");assert(proxy.size()==32);
     const auto callback=manager->callbacks->connected(proxy,17);assert(callback.size()==32);
+    enginesAvailable=false;assert(target.featureCreateCallbacks(QString(32,'a')).isEmpty());assert(engineGets==0);enginesAvailable=true;
+    QThread idle;auto foreign=new TestScriptingInterface;foreign->moveToThread(&idle);
+    assert(foreign->featureCreateCallbacks(QString(32,'a')).isEmpty());assert(engineGets==0);
+    idle.start();assert(QMetaObject::invokeMethod(foreign,[&]{foreign->moveToThread(app.thread());},Qt::BlockingQueuedConnection));
+    idle.quit();assert(idle.wait(1000));delete foreign;
     const auto first=target.featureCreateCallbacks(QString(32,'a'));
     assert(first["processId"].toLongLong()==app.applicationPid());assert(first["sequence"].toULongLong()==1);
     auto dispatch=manager->callbacks->dispatch(proxy);assert(dispatches(source(manager->callbacks))==1);
