@@ -2,10 +2,15 @@
 
 set -euo pipefail
 
-readonly script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+readonly script_dir
 readonly verifier="$script_dir/verify-phone-16k-dependencies.sh"
 fixture=$(mktemp -d "${TMPDIR:-/tmp}/overte-phone-16k-sentinel-test.XXXXXXXX")
-trap 'rm -rf -- "$fixture"' EXIT INT TERM
+cleanup_fixture() {
+    find "$fixture" -type d -exec chmod u+rwx {} +
+    rm -rf -- "$fixture"
+}
+trap cleanup_fixture EXIT INT TERM
 
 test_root="$fixture/test-root"
 mkdir -p -- "$test_root/tests"
@@ -63,6 +68,24 @@ expect_failure() {
     "$qt" "$nonqt" "$sentinel"
 verify
 [[ -z "$(find "$nonqt" -maxdepth 1 -name '.*.staging.*' -print -quit)" ]]
+
+# Consumers of an immutable runtime can acquire a shared lock without opening
+# either the lockfile or sentinel directory for writing.
+chmod 0444 "${sentinel}.lock"
+chmod 0555 "$nonqt"
+verify
+chmod 0755 "$nonqt"
+chmod 0644 "${sentinel}.lock"
+mv -- "${sentinel}.lock" "${sentinel}.lock.saved"
+expect_failure 'missing read-only sentinel lock' verify
+[[ ! -e "${sentinel}.lock" ]]
+ln -s -- "${sentinel}.lock.saved" "${sentinel}.lock"
+expect_failure 'symlinked read-only sentinel lock' verify
+expect_failure 'symlinked writer sentinel lock' \
+    "$test_root/tests/verify-phone-16k-dependencies.sh" --write-sentinel \
+    "$qt" "$nonqt" "$sentinel"
+rm -- "${sentinel}.lock"
+mv -- "${sentinel}.lock.saved" "${sentinel}.lock"
 
 # A failed refresh must invalidate the previously verified readiness result.
 mv -- "$nonqt/generators/TBB-debug-armv8-data.cmake" \
