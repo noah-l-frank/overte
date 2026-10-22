@@ -124,6 +124,36 @@ class CreateSourcesTests(unittest.TestCase):
                 with self.subTest(fault=fault),self.assertRaises(NativeUIError):owner.validate_frame(value)
             altered=deepcopy(owner.previous);altered['binding']['artifactSha256']='0'*64
             with self.assertRaises(NativeUIError):owner.decode(altered)
+    def test_historical_validation_cache_never_survives_changed_actual_carrier_bytes(self):
+        with self.held():
+            owner=self.owner();frame=owner.capture('baseline');owner.decode(owner.previous)
+            self.assertTrue(owner._record_cache)
+            store=owner.record_store(frame['index']);original=store.read();changed=deepcopy(original)
+            from adapters.script_feature.history import pack,unpack
+            payload=unpack(changed['payload']);payload[0]['label']='changed-original';changed['payload']=pack(payload)
+            store.write(changed,original)
+            with self.assertRaises(NativeUIError):owner.decode(owner.previous)
+            self.assertNotEqual(original,store.read())
+    def test_original_open_picker_and_pending_browse_are_observable_but_cannot_prove_cleanup(self):
+        from ios.self_tests.test_ios_create_actions import Product
+        from ios.adapters.create_lifecycle import worker
+        product=Product();product.value['source']['entities']=[];product.open();product.picker('import')
+        original=self.sdk.original
+        def read(name):
+            value=json.loads(original(name))
+            if name=='create':value['source']=product.read(RUN)['source']
+            elif name=='work':
+                for row in value['source']['roles']:
+                    if row['role']=='bridge':row['state'].update(browsing=True,browseGeneration=1)
+                    elif row['role']=='edit':row['state'].update(browseCallback=True,active=True)
+                    row['latest']['state']=deepcopy(row['state']);row['events'][0]['state']=deepcopy(row['state'])
+            return json.dumps(value)
+        self.sdk.original=read
+        with self.held():
+            owner=self.owner();frame=owner.capture('pending-picker');native=frame['originals']
+            self.assertTrue(any(row.get('kind')=='import' and row.get('active') for row in native['createAfter']['source']['roots']))
+            self.assertTrue(next(row for row in native['work']['source']['roles'] if row['role']=='bridge')['state']['browsing'])
+            with self.assertRaises(NativeUIError):worker(native['worker'],native['work'],ROOT)
 
 
 if __name__=='__main__':unittest.main()

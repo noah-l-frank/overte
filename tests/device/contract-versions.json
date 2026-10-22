@@ -1,6 +1,9 @@
 {
   "schemaVersion": 1,
   "contracts": {
+    "ios-create-actor-facts": {"current": 1, "reads": [1]},
+    "ios-create-actor-original": {"current": 1, "reads": [1]},
+    "ios-create-sample": {"current": 1, "reads": [1]},
     "ios-avatar-actions": {"current": 1, "reads": [1]},
     "ios-avatar-code-pins": {"current": 1, "reads": [1]},
     "ios-navigation-address-root": {"current": 1, "reads": [1]},

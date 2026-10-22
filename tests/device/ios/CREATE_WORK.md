@@ -73,3 +73,8 @@ recovery, late/wrong peer effects, image/geometry failures and incomplete native
 retirement. SDK and native events remain modeled. Whole observer/publication,
 marker acquisition recovery, paired quiet cleanup and final dispatch remain
 unfinished, so Feature 4/14 is still partial and no complete capability is enabled.
+
+The next [independent actor and durable sample packet](CREATE_ACTOR_SAMPLES.md)
+now derives and publishes the full action sequence from its own original UI/peer
+records and retains actual Vulkan captures through failure. Whole primary
+observation, export integration and paired finalization remain separate work.

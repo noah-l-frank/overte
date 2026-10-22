@@ -20,8 +20,9 @@ from ios.adapters.create_product_state import selected
 VERSION=1
 
 
-def worker(value, work, scripts_root):
-    source=create_work.admit(work,scripts_root,quiet=True)
+def worker(value, work, scripts_root, *, quiet=True):
+    need(type(quiet) is bool)
+    source=create_work.admit(work,scripts_root,quiet=quiet)
     manager=next(row for row in source['roles'] if row['role']=='edit')
     query=dict(schemaVersion=1,commandId=value['requestId'],action='feature-script-work-observe',managerInstance=manager['manager']['instance'])
     worker_packet(value,query,work['processId'],value['capturedEpochMs'])

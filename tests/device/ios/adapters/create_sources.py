@@ -50,7 +50,7 @@ class CreateSources:
                 and isinstance(readers['work'],create_work.IOSCreateWork) and isinstance(readers['worker'],NativeScriptWork)
                 and isinstance(readers['native'],NativeFeatureObservation) and readers['native'].ios
                 and all(reader.pid==self.pid for reader in readers.values()))
-        lock.assert_held();self.previous=store.read();self.frames=[]
+        lock.assert_held();self.previous=store.read();self.frames=[];self._record_cache={}
         self.state=dict(records=[],pending=None,interrupted=[])
         if self.previous is not None:self.state,self.frames=self.decode(self.previous)
         if not historical and self.frames:
@@ -82,7 +82,9 @@ class CreateSources:
             and same(before['source']['tree']['entities'],after['source']['tree']['entities']))
         work=originals['work'];create_work.validate(work,dict(schemaVersion=1,action=create_work.ACTION,commandId=work['requestId'],runId=self.run),self.pid,epoch,
                                                    None if previous_raw is None else previous_raw['work'])
-        worker(originals['worker'],work,self.scripts_root)
+        # An ordinary open picker intentionally owns its pending original
+        # browse closure. Observe that state without calling it drained.
+        worker(originals['worker'],work,self.scripts_root,quiet=False)
         if previous_raw is not None:
             current=originals['worker'];worker_packet(current,dict(schemaVersion=1,commandId=current['requestId'],action='feature-script-work-observe',
                 managerInstance=current['source']['manager']['instance']),self.pid,epoch,previous=previous_raw['worker'])
@@ -99,7 +101,7 @@ class CreateSources:
              and clock['hostAfterEpochMs']-250<=last['capturedEpochMs']<=clock['hostAfterEpochMs']+1500)
         if previous is not None:need(frame['index']==previous['index']+1 and clock['hostBeforeEpochMs']>=previous['clockJoin']['hostAfterEpochMs'])
         return last['active'] and last['activations'][-1]['ticket']==frame['ticket']
-    def decode(self,value):
+    def decode(self,value,*,materialize=True):
         exact(value,{'iosCreateSourcesVersion','binding','runId','role','scriptsRoot','payload'});rows=unpack(value['payload'])
         need(len(rows)==1 and type(value['iosCreateSourcesVersion']) is int and value['iosCreateSourcesVersion']==VERSION and same(value,self.envelope(rows[0])))
         state=rows[0];exact(state,{'records','pending','interrupted'});need(type(state['records']) is list and len(state['records'])<=MAX_FRAMES
@@ -110,8 +112,14 @@ class CreateSources:
             need(packet is not None and digest(packet)==ref['sha256']);exact(packet,{'iosCreateSourceRecordVersion','binding','runId','role','payload'})
             need(type(packet['iosCreateSourceRecordVersion']) is int and packet['iosCreateSourceRecordVersion']==VERSION and same(packet['binding'],self.binding)
                 and packet['runId']==self.run and packet['role']==self.role)
-            originals=unpack(packet['payload']);need(len(originals)==1);frame=originals[0];need(frame['index']==index)
-            self.validate_frame(frame,None if not frames else frames[-1]);frames.append(frame)
+            key=(index,ref['sha256'],None if index==1 else state['records'][index-2]['sha256'])
+            if key not in self._record_cache:
+                originals=unpack(packet['payload']);need(len(originals)==1);frame=originals[0];need(frame['index']==index)
+                self.validate_frame(frame,None if not frames else frames[-1]);self._record_cache[key]=deepcopy(frame)
+            # Every reference still reads and hashes the actual immutable file.
+            # Native schema/prefix validation is reusable only for identical
+            # bytes with the identical previously validated predecessor.
+            frames.append(self._record_cache[key])
         for pending in state['interrupted']+([] if state['pending'] is None else [state['pending']]):
             exact(pending,{'label','phaseBefore','start','originals'});need(type(pending['originals']) is dict and set(pending['originals'])<={'createBefore','domain','work','worker','createAfter'})
             if 'createBefore' in pending['originals']:create_state.original(pending['originals']['createBefore'])
@@ -121,11 +129,11 @@ class CreateSources:
             # never an unused index. Recovery below may only validate/adopt it.
             extra=self.record_store(len(frames)+1).read()
             need(extra is None or state['pending'] is not None)
-        return deepcopy(state),deepcopy(frames)
+        return (deepcopy(state),deepcopy(frames)) if materialize else None
     def bound(self):
         self.lock.assert_held();need(not self.historical and self.guard() is not False and same(self.store.read(),self.previous))
     def save(self):
-        self.bound();value=self.envelope(self.state);self.decode(value);self.store.write(value,self.previous);need(same(self.store.read(),value));self.previous=deepcopy(value)
+        self.bound();value=self.envelope(self.state);self.decode(value,materialize=False);self.store.write(value,self.previous);need(same(self.store.read(),value));self.previous=deepcopy(value)
     def capture(self,label):
         self.bound();need(len(self.frames)<MAX_FRAMES)
         if self.state['pending'] is not None:
