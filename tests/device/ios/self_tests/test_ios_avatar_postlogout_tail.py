@@ -12,7 +12,9 @@ import unittest
 from unittest.mock import patch
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.normal_ui import NativeUIError
-from ios.adapters import avatar_scripts,avatar_social_http,people_model,normal_input
+from ios.adapters import avatar_scripts,avatar_social_http,people_model,normal_input,world_web_keys
+from ios.adapters.native_geometry import OriginalGeometry
+from ios.self_tests.test_ios_world_web_keys import QtKeys
 from ios.adapters.avatar_code import pins
 from ios.adapters.avatar_postlogout_tail import IOSAvatarPostLogoutTail
 from ios.adapters.avatar_runtime import IOSAvatarRuntime
@@ -24,7 +26,7 @@ from ios.self_tests.test_ios_avatar_ui_inventory import row as root_row
 class AvatarPostLogoutTailTests(unittest.TestCase):
     def setUp(self):
         self.f=fixture.AvatarPostLogoutReadsTests();self.f.setUp();self.addCleanup(self.f.doCleanups)
-        self.store=PrivateFeatureState(self.f.root/'ios-avatar-actor-primary-postlogout-tail.json');self.roots=[];self.channel_calls=[];self.lost=False
+        self.store=PrivateFeatureState(self.f.root/'ios-avatar-actor-primary-postlogout-tail.json');self.roots=[];self.channel_calls=[];self.lost=False;self.keys=QtKeys();self.geometry_sequence=0;self.geometry_value=None;self.keyboard=False;self.inset=0
         f=self.f.f;worker=f.prototypes['scripts']['source']['workers'][0];worker['avatar']['events']=[]
         worker['avatar']['code']=[dict(sequence=index,url='qrc:/scripts'+suffix,submittedEpochMs=1700000000000+index,
             encoding='utf-16le-code-units',**pin) for index,(suffix,pin) in enumerate(pins().items(),1)]
@@ -57,16 +59,40 @@ class AvatarPostLogoutTailTests(unittest.TestCase):
                 self.channel_calls.append(deepcopy(q));send(q)
                 if self.lost:raise OSError('Lost original passive Pal/Avatar source return')
             r.send=sending;return r
-        observer=SimpleNamespace(avatar_scripts=lambda given:reader('scripts',avatar_scripts.IOSAvatarScripts,given),
+        def key_source(given):
+            self.assertIs(clock,given)
+            def tick():f.tick();self.keys.epoch=100000+round(f.clock*1000);return self.keys.epoch
+            self.keys.tick=tick
+            def send(q):
+                p=__import__('adapters.script_feature.history',fromlist=['unpack']).unpack(self.store.read()['payload'])[0]['pending']
+                self.assertEqual(q,p['queries']['keys']);self.channel_calls.append(deepcopy(q));packet=self.keys.packet()
+                def actual(value):
+                    if type(value) is dict:return {k:v+1699999900000 if (k.endswith('EpochMs') or k=='epochMs') and type(v) is int and v else actual(v) for k,v in value.items()}
+                    if type(value) is list:return [actual(v) for v in value]
+                    return value
+                packet=actual(packet)
+                packet.update(requestId=q['commandId'],runId=q['runId']);self.keys_value=packet
+            return world_web_keys.IOSWorldWebKeys(send,lambda:json.dumps(self.keys_value),lambda:clock.read(clock.sequence)['capturedEpochMs'],lambda:True,42,
+                monotonic=lambda:f.clock,sleep=f.sleep)
+        def geometry_source():
+            def send(q):
+                p=__import__('adapters.script_feature.history',fromlist=['unpack']).unpack(self.store.read()['payload'])[0]['pending']
+                self.assertEqual(q,p['geometryQuery']);f.tick();self.geometry_sequence+=1
+                self.geometry_value=dict(schemaVersion=1,commandId=q['commandId'],observation=dict(schemaVersion=1,sampleEpochMs=f.now(),sampleSequence=self.geometry_sequence,
+                    nativeUi=dict(valid=True,surfaceWidth=1024,surfaceHeight=768,safeInsetLeft=0,safeInsetTop=20,safeInsetRight=0,safeInsetBottom=20,
+                        keyboardVisible=self.keyboard,imeInsetBottom=self.inset),window=dict(width=1024,height=728)))
+            return OriginalGeometry(send,lambda:json.dumps(self.geometry_value),lambda:clock.read(clock.sequence)['capturedEpochMs'],lambda:True,
+                monotonic=lambda:f.clock,sleep=f.sleep)
+        observer=SimpleNamespace(world_web_keys=key_source,geometry=geometry_source,avatar_scripts=lambda given:reader('scripts',avatar_scripts.IOSAvatarScripts,given),
             avatar_social_http=lambda given:reader('http',avatar_social_http.IOSAvatarSocialHttp,given),
             people_model=lambda given:reader('people',people_model.IOSPeopleModel,given))
         widgets=normal_input.NativeInput(f.widget,'owned-session',f.widget.target,f.widget.process,
             native_epoch_ms=lambda:clock.read(clock.sequence)['capturedEpochMs'],monotonic=lambda:f.clock,sleep=f.sleep)
         return dict(binding=fixture.BINDING,clock_source=clock,observer=observer,native=widgets)
 
-    def owner(self):
+    def owner(self,kind=IOSAvatarPostLogoutTail):
         f=self.f
-        return IOSAvatarPostLogoutTail(self.store,f.artifacts,fixture.BINDING,f.f.run,'actor','primary',f.lock,lambda:True,self.factory,
+        return kind(self.store,f.artifacts,fixture.BINDING,f.f.run,'actor','primary',f.lock,lambda:True,self.factory,
             child_run=f.child,fixture_url='https://controlled.invalid/feature-fixture/v1/runs/'+f.child+'/',ticket=f.ticket,
             baseline=self.baseline,logout_before=f.logout_before,epoch_ms=f.f.host,monotonic=lambda:f.f.clock)
 
@@ -124,6 +150,73 @@ class AvatarPostLogoutTailTests(unittest.TestCase):
         for key in ('elapsedMs','lastSequence','avatarSourceSequence'):
             altered=deepcopy(current);altered['widgetsReceipt']['observation'][key]=prior['widgetsReceipt']['observation'][key]-(1 if key in ('elapsedMs','lastSequence') else 0)
             with self.subTest(completed=key),self.assertRaises(NativeUIError):again.widget_prefix(prior['widgetsReceipt']['observation'],altered['widgetsReceipt']['observation'])
+
+    def test_writer2_actual_held_key_and_unreturned_release_block_until_original_finally(self):
+        owner=self.owner();first=owner.capture();self.assertEqual(2,owner.proof(first)['iosAvatarPostLogoutTailProofVersion'])
+        self.keys.finish(self.keys.enter('key-press'))
+        with self.assertRaises(NativeUIError):owner.capture()
+        held=deepcopy(owner.state['rows'][-1]);release=self.keys.enter('key-release')
+        with self.assertRaises(NativeUIError):owner.capture()
+        self.keys.finish(release);row=owner.capture();self.assertEqual([],owner.proof(row)['keys']['down'])
+        with self.assertRaises(NativeUIError):owner.proof(held)
+
+    def test_actual_uikit_keyboard_visibility_and_ime_inset_are_separate_from_empty_key_arguments(self):
+        owner=self.owner();self.keyboard=True
+        with self.assertRaises(NativeUIError):owner.capture()
+        old=deepcopy(owner.state['rows'][-1]);self.keyboard=False;self.inset=200
+        with self.assertRaises(NativeUIError):owner.capture()
+        self.inset=0;row=owner.capture();owner.proof(row)
+        with self.assertRaises(NativeUIError):owner.proof(old)
+
+    def test_large_original_key_carrier_is_private_raw_file_without_raising_metadata_limits(self):
+        actual=self.factory();actual['observer'].world_web_keys(actual['clock_source'])
+        for _ in range(240):self.keys.finish(self.keys.enter('key-press'));self.keys.finish(self.keys.enter('key-release'))
+        owner=self.owner();row=owner.capture();record=owner.record(row['reference']);raw=owner.key_raw(record['keys'])
+        self.assertGreater(len(raw['raw'].encode()),400000);self.assertEqual(480,len(owner.proof(row)['keys']['dispatches']))
+        self.assertLess(self.store.path.stat().st_size,65536);self.assertLess(owner.file(row['index']).path.stat().st_size,65536)
+
+    def test_actual_three_channel_legacy_original_stays_byte_exact_and_never_claims_keyboard(self):
+        from ios.self_tests.avatar_postlogout_tail_v1_producer import Tail1Producer
+        legacy=self.owner(Tail1Producer);first=legacy.capture();metadata=self.store.path.read_bytes();original=legacy.file(1).path.read_bytes()
+        self.assertEqual(1,legacy.previous['iosAvatarPostLogoutTailVersion'])
+        archived=self.archive(legacy);proof=archived.proof(archived.state['rows'][0])
+        self.assertEqual(1,proof['iosAvatarPostLogoutTailProofVersion']);self.assertNotIn('keys',proof)
+        self.assertEqual(metadata,self.store.path.read_bytes());self.assertEqual(original,legacy.file(1).path.read_bytes())
+        current=self.owner();second=current.capture();self.assertEqual(2,current.previous['iosAvatarPostLogoutTailVersion'])
+        self.assertEqual(2,current.proof(second)['iosAvatarPostLogoutTailProofVersion'])
+        self.assertEqual(1,current.proof(first)['iosAvatarPostLogoutTailProofVersion'])
+        self.assertEqual(original,legacy.file(1).path.read_bytes())
+
+    def test_exhausted_raw_carrier_capacity_fails_before_any_next_native_query(self):
+        owner=self.owner();queries=deepcopy(self.f.calls)
+        with patch.object(owner,'next_key_index',return_value=1024),self.assertRaises(NativeUIError):owner.capture()
+        self.assertIsNone(owner.state['pending']);self.assertEqual(queries,self.f.calls);self.assertEqual([],self.channel_calls)
+
+    def test_unsafe_legacy_fixed_file_never_creates_a_host_raw_artifact_or_resends(self):
+        from ios.self_tests.test_ios_world_web_keys import LegacyQtKeys
+        self.keys=LegacyQtKeys();self.keys.finish(self.keys.enter('input-method',commit='fixture-private-login-example'))
+        owner=self.owner()
+        with self.assertRaises(NativeUIError):owner.capture()
+        original=deepcopy(owner.state['pending']['queries']['keys'])
+        self.assertEqual([],owner.state['pending']['keyRaws']);self.assertEqual([],list(self.f.artifacts.glob('avatar-primary-keys-frame-*.json')))
+        self.assertNotIn('fixture-private-login-example',self.store.path.read_text())
+        self.keys=QtKeys();again=self.owner();before=deepcopy(self.channel_calls);again.recover();self.assertEqual(before,self.channel_calls)
+        row=again.capture();self.assertEqual(2,again.proof(row)['keys']['iosWorldWebKeySourceVersion'])
+        self.assertEqual(1,self.channel_calls.count(original));self.assertNotEqual(original['commandId'],again.record(row['reference'])['queries']['keys']['commandId'])
+
+    def test_lost_saved_key_original_never_resends_and_remains_an_actual_source_floor(self):
+        owner=self.owner();callback=owner.key_originals.originals.intent;lost=[]
+        def saved(kind,value):
+            callback(kind,value)
+            if value['phase']=='saved' and not lost:lost.append(True);raise OSError('Lost immutable key carrier return')
+        owner.key_originals.originals.intent=saved
+        with self.assertRaises(NativeUIError):owner.capture()
+        before=deepcopy(self.channel_calls);again=self.owner();again.recover();self.assertEqual(before,self.channel_calls)
+        self.keys.sequence=0
+        with self.assertRaises(NativeUIError):again.capture()
+        again=self.owner();again.recover();self.keys.sequence=max(1,self.keys.sequence);row=again.capture();again.proof(row)
+        original=before[-1];self.assertEqual(world_web_keys.ACTION,original['action']);self.assertEqual(1,self.channel_calls.count(original))
+        self.assertNotEqual(original['commandId'],again.record(row['reference'])['queries']['keys']['commandId'])
 
     def test_actual_runtime_factory_keeps_sdk_binding_and_existing_passive_transports(self):
         fixture=self
