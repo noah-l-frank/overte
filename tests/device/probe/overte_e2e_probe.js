@@ -147,6 +147,7 @@
     var lastSceneLoadRequest = "";
     var lastTabletHttpRequest = "";
     var lastLifecycleDriveRequest = "";
+    var lastAudioSettingsRequest = "";
     var lastLifecycleGestureRequest = "";
     var lastProcessPresenceRequest = "";
     var lastScriptFilesRequest = "";
@@ -1360,6 +1361,23 @@
         if (command && command.schemaVersion === 1
                 && typeof command.commandId === "string" && /^[0-9a-f]{32}$/.test(command.commandId)
                 && typeof command.runId === "string" && /^[0-9a-f]{32}$/.test(command.runId)
+                && command.action === "feature-audio-settings-observe"
+                && objectKeysMatch(command, ["schemaVersion", "commandId", "action", "runId"])) {
+            if (command.commandId === lastAudioSettingsRequest) { return; }
+            lastAudioSettingsRequest = command.commandId;
+            var audioSettings = {audioSettingsVersion: 1, commandId: command.commandId, available: false};
+            try {
+                if (typeof Test.featureAudioSettingsObservation === "function") {
+                    var originalAudioSettings = Test.featureAudioSettingsObservation(command);
+                    if (originalAudioSettings && originalAudioSettings.commandId === command.commandId) { audioSettings = originalAudioSettings; }
+                }
+            } catch (_audioSettingsError) { /* Original audio/device properties remain unavailable. */ }
+            Test.saveObject(audioSettings, "feature-audio-settings.json");
+            return;
+        }
+        if (command && command.schemaVersion === 1
+                && typeof command.commandId === "string" && /^[0-9a-f]{32}$/.test(command.commandId)
+                && typeof command.runId === "string" && /^[0-9a-f]{32}$/.test(command.runId)
                 && command.action === "feature-lifecycle-drive-observe"
                 && objectKeysMatch(command, ["schemaVersion", "commandId", "action", "runId"])) {
             if (command.commandId === lastLifecycleDriveRequest) { return; }
@@ -1767,6 +1785,7 @@
                 || command.action === "feature-scene-load-observe"
                 || command.action === "feature-tablet-http-observe"
                 || command.action === "feature-lifecycle-drive-observe" || command.action === "feature-lifecycle-gesture-observe"
+                || command.action === "feature-audio-settings-observe"
                 || command.action === "feature-web-runtime-observe"
                 || command.action === "feature-world-render-storage"
                 || command.action === "feature-world-render-receipt"

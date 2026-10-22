@@ -19,7 +19,7 @@
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #include <QSet>
 #include <memory>
-namespace overte::e2e { class ChatViewObservation; }
+namespace overte::e2e { class ChatViewObservation; class AudioSettingsObservation; }
 #include <QUuid>
 namespace overte::e2e { class FeatureLifecycle; class AccountOriginLease; }
 #endif
@@ -163,6 +163,7 @@ public slots:
     Q_INVOKABLE QVariantMap featureProcessPresence(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featurePendingCommitOwner(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureLifecycleDriveObservation(const QVariantMap& command);
+    Q_INVOKABLE QVariantMap featureAudioSettingsObservation(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureLifecycleGestureObservation(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureAccountProbe(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureAccountOrigin(const QVariantMap& command);
@@ -233,6 +234,7 @@ private:
     overte::e2e::FeatureLifecycle* _featureLifecycle {nullptr};
     overte::e2e::AccountOriginLease* _featureAccountOriginLease {nullptr};
     std::shared_ptr<overte::e2e::ChatViewObservation> _featureChatView;
+    std::shared_ptr<overte::e2e::AudioSettingsObservation> _featureAudioSettings;
     QString _featureObservationInstance;
     quint64 _featureObservationSequence {0};
     QString _featurePendingRequest;

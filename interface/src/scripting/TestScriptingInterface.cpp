@@ -28,12 +28,15 @@
 
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #include "../../../tests/device/native/FeatureLifecycle.h"
+#include "../../../tests/device/native/AudioSettingsObservation.h"
 #include "../../../tests/device/native/LifecycleDriveObservation.h"
 #include "../../../tests/device/native/LifecycleGestureObservation.h"
 #include "../../../tests/device/native/ChatViewObservation.h"
 #include "../../../tests/device/native/WebDOMObservationBridge.h"
 #include "../../../tests/device/native/WebRuntimeBridge.h"
 #if defined(ANDROID_APP_PICO_INTERFACE)
+#include "Audio.h"
+#include <NodeList.h>
 #include "../../../tests/device/native/TabletHttpObservationBridge.h"
 #include "../../../tests/device/native/LocationBookmarkObservation.h"
 #include "../../../tests/device/native/NavigationFailureModals.h"
@@ -636,6 +639,65 @@ QVariantMap TestScriptingInterface::featureLifecycleDriveObservation(const QVari
     auto original=avatar->featureLifecycleDriveObservation();
     if (original.isEmpty()) { return {}; }
     original.insert("commandId",request);original.insert("runId",run);return original;
+}
+
+QVariantMap TestScriptingInterface::featureAudioSettingsObservation(const QVariantMap& command) {
+#if defined(ANDROID_APP_PICO_INTERFACE)
+    // This narrow observer does not initialize audio, enumerate devices or
+    // change a setting. Every source read runs on its actual owner thread.
+    if (QThread::currentThread()!=thread()) {
+        if (!thread() || !thread()->isRunning()) { return {}; }
+        QVariantMap result;
+        if (!QMetaObject::invokeMethod(this,[&] { result=featureAudioSettingsObservation(command); },Qt::BlockingQueuedConnection)) { return {}; }
+        return result;
+    }
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript") || !qApp || !qApp->isHMDMode()
+            || !overte::e2e::previewDirectory(_testResultsLocation) || !overte::e2e::audioSettingsCommand(command)
+            || !DependencyManager::isSet<AudioClient>() || !DependencyManager::isSet<AudioScriptingInterface>()
+            || !DependencyManager::isSet<NodeList>()) { return {}; }
+    if (!_featureAudioSettings) { _featureAudioSettings=std::make_shared<overte::e2e::AudioSettingsObservation>(); }
+    if (!_featureAudioSettings->admit(command)) { return {}; }
+    const auto client=DependencyManager::get<AudioClient>();
+    const auto script=qSharedPointerDynamicCast<scripting::Audio>(DependencyManager::get<AudioScriptingInterface>());
+    const auto nodes=DependencyManager::get<NodeList>();
+    if (!client || !script || !nodes) { return {}; }
+    const auto readOn=[](QObject* object,const std::function<void()>& read) {
+        if (!object || !object->thread() || !object->thread()->isRunning()) { return false; }
+        if (object->thread()==QThread::currentThread()) { read();return true; }
+        return QMetaObject::invokeMethod(object,read,Qt::BlockingQueuedConnection);
+    };
+    QVariantMap native,properties,gains;QObject* devices{nullptr};QObject* input{nullptr};
+    QVariant peak;qint64 clientEpoch{0},scriptEpoch{0},inputEpoch{0},nodesEpoch{0};
+    if (!readOn(client.data(),[&] {
+        clientEpoch=QDateTime::currentMSecsSinceEpoch();
+        const auto preview=client->featureRecordedVoiceObservation();
+        if (preview.value("active").userType()!=QMetaType::Bool || preview.value("cycle").userType()!=QMetaType::ULongLong) { return; }
+        native={{"recording",client->getRecording()},{"muted",client->isMuted()},
+            {"localEcho",client->getLocalEcho()},{"serverEcho",client->getServerEcho()},
+            {"previewActive",preview.value("active")},{"previewCycle",preview.value("cycle")}};
+    }) || native.isEmpty()) { return {}; }
+    if (!readOn(script.data(),[&] {
+        scriptEpoch=QDateTime::currentMSecsSinceEpoch();
+        properties=overte::e2e::audioSettingsProperties(script.data());
+        devices=script->property("devices").value<QObject*>();
+    }) || properties.isEmpty() || !devices) { return {}; }
+    if (!readOn(devices,[&] { input=devices->property("input").value<QObject*>(); }) || !input
+            || !readOn(input,[&] { inputEpoch=QDateTime::currentMSecsSinceEpoch();peak=input->property("peakValuesEnabled"); })
+            || peak.userType()!=QMetaType::Bool) { return {}; }
+    if (!readOn(nodes.data(),[&] {
+        nodesEpoch=QDateTime::currentMSecsSinceEpoch();
+        gains={{"avatarGain",nodes->getAvatarGain(QUuid())},{"injectorGain",nodes->getInjectorGain()}};
+    })) { return {}; }
+    const QVariantMap source{{"complete",true},{"hmd",qApp->isHMDMode()},
+        {"clientCapturedEpochMs",clientEpoch},{"scriptCapturedEpochMs",scriptEpoch},
+        {"inputCapturedEpochMs",inputEpoch},{"nodesCapturedEpochMs",nodesEpoch},
+        {"native",native},{"properties",properties},{"mixerGains",gains},{"inputPeakValuesEnabled",peak}};
+    return _featureAudioSettings->snapshot(command,{{"client",client.data()},{"script",script.data()},
+        {"devices",devices},{"input",input},{"nodes",nodes.data()}},source);
+#else
+    Q_UNUSED(command) return {};
+#endif
 }
 
 QVariantMap TestScriptingInterface::featurePendingCommitOwner(const QVariantMap& command) {
@@ -1291,7 +1353,7 @@ void TestScriptingInterface::saveObject(QVariant variant, const QString& filenam
             || filename == "feature-navigation-modals.json" || filename == "feature-navigation-environment.json" || filename == "feature-navigation-directory.json"
             || filename == "feature-process-presence.json"
             || filename == "feature-graphics-subject.json" || filename == "feature-scene-load.json"
-            || filename == "feature-lifecycle-drive.json" || filename == "feature-lifecycle-gesture.json"
+            || filename == "feature-lifecycle-drive.json" || filename == "feature-lifecycle-gesture.json" || filename == "feature-audio-settings.json"
             || filename == "feature-web-runtime.json" || filename == "feature-tablet-http.json"
             || filename == "recorded-preview-observation.json" || filename == "feature-script-observation.json"
             || filename == "feature-script-files.json" || filename == "world-render-observation.json"
