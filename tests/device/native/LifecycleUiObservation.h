@@ -46,7 +46,7 @@ public:
                 QQmlContext* context{nullptr}; int contexts{0};
                 for (auto candidate=qmlContext(item);candidate && ++contexts<=128;candidate=candidate->parentContext()) {
                     if (candidate->thread()!=QThread::currentThread()) { _valid=false;return; }
-                    if (candidate->baseUrl()==_sources.value(kind) && candidate->nameForObject(item)==fieldName) { context=candidate;break; }
+                    if (candidate->isValid() && candidate->baseUrl()==_sources.value(kind) && candidate->nameForObject(item)==fieldName) { context=candidate;break; }
                 }
                 if (context && item->window()==window) {
                     QQuickItem* page{nullptr}; QQuickItem* loader{nullptr}; int ancestors{0};
@@ -78,10 +78,16 @@ public:
         if (!_valid || activeCount>1 || (home && activeCount)) { return {}; }
         QVariantList rows;QString current;
         for (auto& entry:_entries) {
-            const bool alive=entry.field && entry.page && entry.context && entry.window && entry.loader;
-            const bool attached=alive && descendant(entry.field,root) && descendant(entry.page,entry.loader);
-            const bool visible=alive && visibleField(entry.field,entry.window);
-            const bool focused=alive && entry.field->hasActiveFocus();
+            const bool fieldAlive=entry.field, pageAlive=entry.page, contextAlive=entry.context;
+            const bool windowAlive=entry.window, loaderAlive=entry.loader;
+            // Editor retirement requires all three original editor objects gone.
+            // Shared window/loader survival is measured separately, never retired
+            // merely because a field/context disappeared or a page was hidden.
+            const bool alive=fieldAlive || pageAlive || contextAlive;
+            const bool attached=fieldAlive && pageAlive && loaderAlive
+                && descendant(entry.field,root) && descendant(entry.page,entry.loader);
+            const bool visible=fieldAlive && windowAlive && visibleField(entry.field,entry.window);
+            const bool focused=fieldAlive && entry.field->hasActiveFocus();
             const bool selected=active.contains(entry.id);
             QString text;
             if (selected) {
@@ -93,7 +99,9 @@ public:
             }
             rows.append(QVariantMap{{"id",entry.id},{"kind",entry.kind},{"fieldId",entry.fieldId},{"pageId",entry.pageId},
                 {"contextId",entry.contextId},{"windowId",entry.windowId},{"loaderId",entry.loaderId},
-                {"firstObservedEpochMs",entry.firstObserved},{"alive",alive},{"attached",attached},{"visible",visible},
+                {"firstObservedEpochMs",entry.firstObserved},{"fieldAlive",fieldAlive},{"pageAlive",pageAlive},
+                {"contextAlive",contextAlive},{"windowAlive",windowAlive},{"loaderAlive",loaderAlive},
+                {"alive",alive},{"attached",attached},{"visible",visible},
                 {"focused",focused},{"current",selected},{"text",text}});
         }
         if (!_valid) { return {}; }
@@ -120,7 +128,7 @@ private:
         return false;
     }
     static bool visibleField(QQuickItem* field,QQuickWindow* window) {
-        if (!field || !window || !field->isVisible() || !field->isEnabled()) { return false; }
+        if (!field || !window || field->window()!=window || !field->isVisible() || !field->isEnabled()) { return false; }
         auto rect=field->mapRectToScene(field->boundingRect()).intersected(QRectF(0,0,window->width(),window->height()));
         int depth{0};
         for (auto parent=field->parentItem();parent && ++depth<=128;parent=parent->parentItem()) {
