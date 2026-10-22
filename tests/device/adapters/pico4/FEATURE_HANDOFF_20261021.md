@@ -1286,3 +1286,20 @@ optional original Create-permissions URL only at the same owned controller's
 exact `/v1/create-permissions` path. Its twelve-case actual composition selector
 passes in 10.34s. Foreign ports/paths and same-byte replaced ready inodes fail.
 The source count is a test catalog count, not completed feature areas.
+
+## Original Create rights, compiled Chat frame and Snapshot paths
+
+Selections `d63fc68a25`, `db3c17c8e5` and `5102ae2407` are integrated locally.
+The [Create Rez parent](CREATE_REZ_PARENT.md) joins actual runner-owned original
+settings to separately observed client rights and exact restoration. The
+[Chat composition](CHAT_COMPOSITION.md) now joins each original compiled role
+source to actual model frames; the independent witness keeps its own sources.
+[Snapshot originals](SNAPSHOT_ORIGINALS.md) v2 retain raw callback paths and
+actual canonical paths separately, allowing genuine Android aliases without
+normalizing an unobserved path into evidence. Whole areas remain partial.
+
+The integrated six-selector selection passes 6/102 in 70.98s: coverage, compiled
+Chat source, Chat composition, Still owner, Create Rez controller and Create
+Rez parent. Four repository suites pass in 2.83s. These checks include original
+native host fragments; they do not qualify a full application, APK or device.
+The 102 count denotes test groups; completed feature areas remain 3/14.
