@@ -89,7 +89,8 @@ class PhoneSnapshotsActor(PhoneAssetsActor):
             role=PhoneSnapshotsRole(f,'actor')
             if role.state['phase']=='reading':role.recover()
             if verb=='cleanup':
-                prepared=dict(feature=deepcopy(f.store.read()),actor=deepcopy(self.previous),role=deepcopy(role.previous),
+                need(same(f.store.read(),f.previous))
+                prepared=dict(feature=deepcopy(f.previous),actor=deepcopy(self.previous),role=deepcopy(role.previous),
                     binding=deepcopy(f.binding),phase=deepcopy(status))
             else:
                 try:measured=role.read(role.state['sequence'])
@@ -111,7 +112,10 @@ class PhoneSnapshotsActor(PhoneAssetsActor):
             # Pin all three actual owners before loading any changed state.
             need(same(f.store.read(),prepared['feature']) and same(self.store.read(),prepared['actor'])
                 and same(role.store.read(),prepared['role']) and same(f.binding,prepared['binding']))
-            f.load();self.load();f.bound();role.bound();role.history_authority()
+            f.load();self.load()
+            need(same(f.previous,prepared['feature']) and same(self.previous,prepared['actor'])
+                and same(role.previous,prepared['role']) and same(f.binding,prepared['binding']))
+            f.bound();role.bound();role.history_authority()
             need(f.state['phase']=='cleaned' and self.state['phase']=='watching' and self.state['pending'] is None
                 and self.state['closure'] is None and self.state['partialClosure'] is None)
             status=f.phase.status();self.cleanup_phase(status,prepared['phase'])

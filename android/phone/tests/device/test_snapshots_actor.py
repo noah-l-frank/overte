@@ -26,7 +26,7 @@ from test_snapshots_role import SnapshotRolesBoundary,RUN,TICKET
 
 def actor_once(boundary,url,token,queue):
     try:
-        f=boundary.feature;f.role='actor';f.load=lambda:None
+        f=boundary.feature;f.role='actor';f.load=lambda:setattr(f,'previous',f.store.read())
         phase=PhaseFixtureReader(Client(url,token),RUN,'snapshots',epoch_ms=lambda:boundary.epoch)
         f.phase.client=phase.client;f.phase.status=phase.status
         result=PhoneSnapshotsActor(f).step();queue.put(dict(result=result,pid=os.getpid(),start=start_identity(os.getpid())))
@@ -35,7 +35,7 @@ def actor_once(boundary,url,token,queue):
 
 def actor_until_closed(boundary,url,queue,command,report_progress=False):
     try:
-        f=boundary.feature;f.role='actor';f.load=lambda:None
+        f=boundary.feature;f.role='actor';f.load=lambda:setattr(f,'previous',f.store.read())
         phase=PhaseFixtureReader(Client(url,'a'*64),RUN,'snapshots',epoch_ms=lambda:boundary.epoch)
         f.phase.client=phase.client;f.phase.status=phase.status
         f.phase.provider=lambda:dict(boundary.provider,active=phase.status()['active'])
@@ -49,6 +49,19 @@ def actor_until_closed(boundary,url,queue,command,report_progress=False):
                 if not command.poll(5):raise RuntimeError('Quiet progress handoff missing')
                 instruction=command.recv()
                 if instruction=='foreign-binding':f.binding['processIdentity']='32:foreign-start'
+                elif instruction in ('feature-load','actor-load'):
+                    store=f.store if instruction=='feature-load' else actor.store;read=store.read;changed=[False]
+                    def switched_read():
+                        original=read()
+                        if not changed[0]:
+                            changed[0]=True
+                            if instruction=='feature-load':foreign=dict(foreignFeatureDuringLoad=True)
+                            else:
+                                state=unpack(original['payload'])[0];state['dropped'].append(dict(foreignLoad=True))
+                                foreign=dict(original,payload=pack([state]))
+                            PrivateFeatureState(store.path).write(foreign,original)
+                        return original
+                    store.read=switched_read
                 elif instruction!='continue':raise RuntimeError('Quiet progress handoff missing')
             time.sleep(seconds)
         f.sleep=sleep
@@ -165,12 +178,19 @@ class SnapshotsActorTests(unittest.TestCase):
                 foreign_store=PrivateFeatureState(b.root/'phone-snapshots-actor-lifecycle.json');previous=foreign_store.read()
                 state=unpack(previous['payload'])[0];state['dropped'].append(dict(foreign=True));foreign=dict(previous,payload=pack([state]))
                 foreign_store.write(foreign,previous)
+            elif mutation in ('feature-load','actor-load'):
+                # The first second-stage comparison sees the original owner;
+                # replace the actual file after that read returns, so only
+                # the post-load exact previous pin can reject its adoption.
+                foreign_store=b.feature.store if mutation=='feature-load' else PrivateFeatureState(b.root/'phone-snapshots-actor-lifecycle.json')
             else:self.assertEqual('pid',mutation)
-            send.send('foreign-binding' if mutation=='pid' else 'continue')
+            send.send('foreign-binding' if mutation=='pid' else mutation if mutation in ('feature-load','actor-load') else 'continue')
             rejected=queue.get(timeout=15);self.assertEqual('NativeUIError',rejected.get('error'),rejected)
             process.join(3);self.assertEqual(0,process.exitcode)
             if mutation!='closed':self.assertFalse(self.reader.request('/runs/'+RUN)['entries'])
-            if foreign_store is not None:self.assertEqual(foreign,foreign_store.read())
+            if mutation=='feature-load':self.assertEqual(dict(foreignFeatureDuringLoad=True),foreign_store.read())
+            elif mutation=='actor-load':self.assertEqual([dict(foreignLoad=True)],unpack(foreign_store.read()['payload'])[0]['dropped'])
+            elif foreign_store is not None:self.assertEqual(foreign,foreign_store.read())
             if mutation=='late-file':self.assertEqual(b.raw,late.read_bytes())
         finally:
             if process.is_alive():process.terminate();process.join(3)
@@ -182,6 +202,8 @@ class SnapshotsActorTests(unittest.TestCase):
     def test_changed_role_journal_cannot_be_loaded_as_the_prepared_floor(self):self.between_lock_counter('role')
     def test_changed_original_process_binding_between_locks_is_red(self):self.between_lock_counter('pid')
     def test_late_actual_owned_file_between_preparation_and_quiet_is_red(self):self.between_lock_counter('late-file')
+    def test_feature_load_cannot_adopt_changed_owner_after_first_comparison(self):self.between_lock_counter('feature-load')
+    def test_actor_load_cannot_adopt_valid_changed_journal_after_first_comparison(self):self.between_lock_counter('actor-load')
 
     def test_partial_cleanup_records_only_the_owner_proof_after_actual_close(self):
         b=self.boundary;f=b.feature;f.role='actor';f.load=lambda:None;f.state.update(phase='partial-cleaned',partial=True)

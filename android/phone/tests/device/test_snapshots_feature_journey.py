@@ -71,6 +71,38 @@ while time.monotonic()-started<240:
 raise RuntimeError('Explicit synthetic actor lifetime exceeded')
 '''
 
+ACTOR_PREPARATION_RACE=ACTOR[:ACTOR.index('started=time.monotonic()')]+r'''
+from copy import deepcopy
+import overte_phone_snapshots_actor as source
+from overte_phone_script_history import pack,unpack
+from adapters.normal_ui import NativeUIError
+original_role=source.PhoneSnapshotsRole
+roles=[]
+def replaced(*args,**kwargs):
+    role=original_role(*args,**kwargs);roles.append(role);f=role.feature
+    previous=deepcopy(f.previous);state=unpack(previous['payload'])[0]
+    state['cleanupStages']['foreign-after-constructor']='e'*32
+    foreign=dict(previous,payload=pack([state]));read=f.store.read;changed=[False]
+    def late_read():
+        if not changed[0]:
+            changed[0]=True;PrivateFeatureState(f.store.path).write(foreign,previous)
+        return read()
+    f.store.read=late_read
+    return role
+source.PhoneSnapshotsRole=replaced
+actor=adapter.actor('synthetic',RUN,client)
+try:actor.step()
+except NativeUIError:pass
+else:raise AssertionError('Changed actual owner was adopted after preparation')
+f=roles[-1].feature
+with f.lock.held():
+    f.load()
+    assert f.state['cleanupStages']['foreign-after-constructor']=='e'*32
+assert actor.state['quiet'] is None and actor.state['pending'] is None
+assert not client.request('/runs/'+RUN)['entries']
+print(json.dumps(dict(rejected=True,formalFacadeLoad=True,quiet=None,published=0)),flush=True)
+'''
+
 
 class SnapshotJourneyTests(unittest.TestCase):
     SDK=29
@@ -388,6 +420,15 @@ class SnapshotJourneyTests(unittest.TestCase):
         from overte_phone_script_history import unpack
         owner=PrivateFeatureState(self.adapter.state_path('test-only-appium').with_name('phone-snapshots-actor-lifecycle.json')).read()
         self.assertNotEqual(os.getpid(),unpack(owner['payload'])[0]['process']['pid'])
+
+    def test_actor_never_adopts_valid_feature_header_changed_after_last_constructor_guard(self):
+        self.client.activate('c'*32);self.invoke('feature.snapshots.observe',dict(contractVersion=VERSION,runId=RUN,afterSequence=0))
+        self.act('open');self.act('capture',dict(mode='still',format='png'))
+        self.client.activate('f'*32,'cleanup');self.invoke('feature.snapshots.cleanup',dict(contractVersion=VERSION,runId=RUN))
+        with patch.object(sys.modules[__name__],'ACTOR',ACTOR_PREPARATION_RACE):self.start_actor()
+        out,err=self.actor.communicate(timeout=20);self.assertEqual(0,self.actor.returncode,err[-5000:])
+        self.assertEqual(dict(rejected=True,formalFacadeLoad=True,quiet=None,published=0),json.loads(out))
+        self.assertFalse(self.client.request('/runs/'+RUN)['entries'])
 
     def common(self):
         from feature_journeys.engine import Journey

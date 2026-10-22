@@ -40,15 +40,20 @@ def prepared_role(fixture,*,history=0,full=False):
         feature.load();header=deepcopy(feature.previous);phase=feature.phase.status();started=time.monotonic()
         role=PhoneSnapshotsRole(feature,'primary');constructor=time.monotonic()-started
         need(feature.state['phase']=='cleaned' and phase['active'] and phase['activations'][-1]['stimulus']['verb']=='cleanup')
-    return dict(feature=feature,role=role,header=header,phase=phase,constructor=constructor)
+        need(same(feature.store.read(),feature.previous) and same(feature.previous,header))
+    return dict(feature=feature,role=role,header=header,roleHeader=deepcopy(role.previous),binding=deepcopy(feature.binding),phase=phase,constructor=constructor)
 
 
 def quiet_batch(prepared):
     feature,role=prepared['feature'],prepared['role'];quiet=None;durations=[];started=time.monotonic()
     with feature.lock.held():
         # Check the pinned owner before load can adopt any foreign header.
-        need(same(feature.store.read(),prepared['header']))
-        feature.load();feature.bound();role.bound();role.history_authority()
+        need(same(feature.store.read(),prepared['header']) and same(role.store.read(),prepared['roleHeader'])
+            and same(feature.binding,prepared['binding']))
+        feature.load()
+        need(same(feature.previous,prepared['header']) and same(role.previous,prepared['roleHeader'])
+            and same(feature.binding,prepared['binding']))
+        feature.bound();role.bound();role.history_authority()
         current=feature.phase.status()
         need(feature.state['phase']=='cleaned' and current['active'] and same(current['activations'],prepared['phase']['activations']))
         while True:
@@ -84,13 +89,13 @@ class SnapshotQuietRoleReuseTests(unittest.TestCase):
         with PhoneScriptSourceLock(prepared['feature'].lock.path,timeout=.1).held():pass
         measured=quiet_batch(prepared)
         with PhoneScriptSourceLock(prepared['feature'].lock.path,timeout=.1).held():pass
-        self.assertLess(measured['lockedSeconds'],5);self.assertTrue(measured['quiet']['complete'])
-        self.assertGreaterEqual(measured['quiet']['last']-measured['quiet']['started'],3)
-        self.assertGreaterEqual(len(measured['quiet']['sequences']),3)
         summary=dict(constructorSeconds=round(prepared['constructor'],3),lockedSeconds=round(measured['lockedSeconds'],3),
             sampleSeconds=[round(value,3) for value in measured['sampleSeconds']],quietSpan=round(measured['quiet']['last']-measured['quiet']['started'],3),
             samples=len(measured['quiet']['sequences']),complete=measured['quiet']['complete'],retainedFrames=len(prepared['role'].frames),deviceAcceptance=False)
         print('Actual same-role quiet prototype '+json.dumps(summary,sort_keys=True),flush=True)
+        self.assertLess(measured['lockedSeconds'],5);self.assertTrue(measured['quiet']['complete'])
+        self.assertGreaterEqual(measured['quiet']['last']-measured['quiet']['started'],3)
+        self.assertGreaterEqual(len(measured['quiet']['sequences']),3)
 
     def test_closed_provider_between_locks_cannot_adopt_prepared_role(self):
         prepared=prepared_role(self.fixture);self.fixture.client.close()
