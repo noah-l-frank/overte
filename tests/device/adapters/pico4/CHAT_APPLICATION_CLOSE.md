@@ -111,3 +111,18 @@ PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=tests/device python3 -m unittest self_tests
 PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=tests/device python3 -m unittest self_tests.test_pico_chat_application_close.application_close_post_ipc_tests self_tests.test_chat_evidence_archive -v
 PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=tests/device:android/vr/pico/tests/device python3 -m unittest test_chat_application_close -v
 ```
+
+
+The complete shared 25-action Dispatcher/26-stage Witness positive also runs in
+`self_tests.test_chat_compiled_dispatcher.CompiledDispatcherTests.test_all_original_25_steps_and_26_independent_compiled_witness_stages`.
+It reuses every existing positive assertion and child owner, while selecting
+closed Compiled model/absence roles for primary, actor and independent witness.
+Each role owns its original root/Script/V8/root source transactions; initial and
+active histories share only that role's exact code owner and source lock. The
+three-stage prefix separately proves distinct witness source ownership. Native,
+widget, network and peer production remain declared seams. This supplies the
+complete compiled source/effect history required by the warm catalog; it does
+not qualify a complete Pico parent, peer executable or device. Integration uses
+this positive in the existing journey selector instead of duplicating its older
+uncompiled-model positive, keeping the unchanged 120-second budget and existing
+legacy/recovery counterexamples.
