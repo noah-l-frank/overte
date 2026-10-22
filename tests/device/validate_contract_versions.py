@@ -95,6 +95,7 @@ REQUIRED = {
     "native-location-bookmarks": 1,
     "native-places-controls": 1,
     "navigation-bookmark-operations": 1,
+    "chat-peer-retirement-transport": 1,
     "native-chat-capture-owner": 2,
     "chat-cache-lifetime": 1,
     "native-chat-observation": 3,

@@ -66,3 +66,7 @@ resources does not retire the observation cache or stop the fixture. The native
 input run and release/nonces remain replay tombstones; a different run cannot
 reuse this actor's closed input route without an independently owned fixture
 restart. No automatic restart or process discovery is supplied here.
+
+The [restricted retirement transport](PEER_RETIREMENT_TRANSPORT.md) preserves the
+original action-channel callback and lifetime journals while a completed original
+input close admits a separate Inspect/Retire-only host writer.
