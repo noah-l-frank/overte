@@ -36,6 +36,7 @@
 #include "../../../tests/device/native/WebRuntimeBridge.h"
 #if defined(ANDROID_APP_PICO_INTERFACE)
 #include "Audio.h"
+#include <ui/Snapshot.h>
 #include <NodeList.h>
 #include "../../../tests/device/native/TabletHttpObservationBridge.h"
 #include "../../../tests/device/native/LocationBookmarkObservation.h"
@@ -101,6 +102,7 @@ void TestScriptingInterface::setTestResultsLocation(const QString path) {
         _featureObservationInstance = QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-');
         _featureLifecycle = new overte::e2e::FeatureLifecycle(this);
         _featureAudioSettingsQueue=std::make_shared<overte::e2e::AudioSettingsQueue>();
+        _featureSnapshotQueue=std::make_shared<overte::e2e::AudioSettingsQueue>();
         _featureLifecycle->start(path); // Failure leaves an unavailable observer.
 #if defined(ANDROID_APP_PICO_INTERFACE)
         overte::e2e::ensureNavigationDirectoryProvider(this);
@@ -640,6 +642,34 @@ QVariantMap TestScriptingInterface::featureLifecycleDriveObservation(const QVari
     auto original=avatar->featureLifecycleDriveObservation();
     if (original.isEmpty()) { return {}; }
     original.insert("commandId",request);original.insert("runId",run);return original;
+}
+
+QVariantMap TestScriptingInterface::featureSnapshotCaptureOriginals(const QVariantMap& command) {
+#if defined(ANDROID_APP_PICO_INTERFACE)
+    const auto queue=_featureSnapshotQueue;if(!queue) {return {};}
+    if(QThread::currentThread()!=thread()) {
+        return queue->read("dispatch",this,[command](QObject* original) {
+            auto owner=static_cast<TestScriptingInterface*>(original);
+            return overte::e2e::AudioSettingsPart{owner->featureSnapshotCaptureOriginals(command),{}};
+        }).values;
+    }
+    const auto keys=command.keys();
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript") || !qApp || !qApp->isHMDMode()
+            || !overte::e2e::previewDirectory(_testResultsLocation) || !DependencyManager::isSet<Snapshot>()
+            || QSet<QString>(keys.begin(),keys.end())!=QSet<QString>{"schemaVersion","action","commandId","runId","operation"}
+            || command.value("action").userType()!=QMetaType::QString || command.value("action").toString()!="feature-snapshot-capture-originals"
+            || !queue->settled(overte::e2e::AudioSettingsQueue::dispatching(this) ? "dispatch" : QString())) {return {};}
+    const auto original=DependencyManager::get<Snapshot>();if(!original) {return {};}
+    auto request=command;request.remove("action");
+    const auto result=queue->read("client",original.data(),[request](QObject* owner) {
+        return overte::e2e::AudioSettingsPart{static_cast<Snapshot*>(owner)->featureSnapshotCaptureOriginals(request),{}};
+    });
+    if(!queue->settled(overte::e2e::AudioSettingsQueue::dispatching(this) ? "dispatch" : QString())) {return {};}
+    return result.values;
+#else
+    Q_UNUSED(command) return {};
+#endif
 }
 
 QVariantMap TestScriptingInterface::featureAudioSettingsObservation(const QVariantMap& command) {
@@ -1363,7 +1393,7 @@ void TestScriptingInterface::saveObject(QVariant variant, const QString& filenam
             || filename == "feature-navigation-modals.json" || filename == "feature-navigation-environment.json" || filename == "feature-navigation-directory.json"
             || filename == "feature-process-presence.json"
             || filename == "feature-graphics-subject.json" || filename == "feature-scene-load.json"
-            || filename == "feature-lifecycle-drive.json" || filename == "feature-lifecycle-gesture.json" || filename == "feature-audio-settings.json"
+            || filename == "feature-lifecycle-drive.json" || filename == "feature-lifecycle-gesture.json" || filename == "feature-audio-settings.json" || filename == "feature-snapshot-capture-originals.json"
             || filename == "feature-web-runtime.json" || filename == "feature-tablet-http.json"
             || filename == "recorded-preview-observation.json" || filename == "feature-script-observation.json"
             || filename == "feature-script-files.json" || filename == "world-render-observation.json"

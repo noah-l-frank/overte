@@ -25,6 +25,9 @@
 #include <QPointer>
 #include <array>
 #include "SnapshotCapture.h"
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+#include "../../../tests/device/native/SnapshotCaptureOriginals.h"
+#endif
 
 #include <SettingHandle.h>
 #include <DependencyManager.h>
@@ -77,6 +80,9 @@ public:
     Setting::Handle<QString> _animatedSnapshotFormat{ "animatedSnapshotFormat" };
     void uploadSnapshot(const QString& filename, const QUrl& href = QUrl(""));
     SnapshotCapture beginCapture(const QString& requestId);
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    QVariantMap featureSnapshotCaptureOriginals(const QVariantMap& command);
+#endif
     void captureStatus(const SnapshotCapture&, const QString& phase, const QString& path = {}, const QString& error = {});
 
 signals:
@@ -249,6 +255,9 @@ private:
     SnapshotCapture _capture360;
     QMutex _captureMutex;
     QHash<QString, SnapshotCapture> _captures;
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    overte::e2e::SnapshotCaptureOriginals _featureCaptureOriginals;
+#endif
     QHash<QString, QPointer<SnapshotUploader>> _uploads;
     bool _uploadContextConnected { false };
     void cancelUploads();

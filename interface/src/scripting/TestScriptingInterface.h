@@ -164,6 +164,7 @@ public slots:
     Q_INVOKABLE QVariantMap featurePendingCommitOwner(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureLifecycleDriveObservation(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureAudioSettingsObservation(const QVariantMap& command);
+    Q_INVOKABLE QVariantMap featureSnapshotCaptureOriginals(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureLifecycleGestureObservation(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureAccountProbe(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureAccountOrigin(const QVariantMap& command);
@@ -236,6 +237,7 @@ private:
     std::shared_ptr<overte::e2e::ChatViewObservation> _featureChatView;
     std::shared_ptr<overte::e2e::AudioSettingsObservation> _featureAudioSettings;
     std::shared_ptr<overte::e2e::AudioSettingsQueue> _featureAudioSettingsQueue;
+    std::shared_ptr<overte::e2e::AudioSettingsQueue> _featureSnapshotQueue;
     QString _featureObservationInstance;
     quint64 _featureObservationSequence {0};
     QString _featurePendingRequest;

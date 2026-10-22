@@ -848,6 +848,15 @@ def create_adapter(args, base_class):
                 ('audio-capture-cycle-*','audio-capture-original-*','audio-background-cycle-*','audio-final-*','audio-recipe-*'))
 
         @_private
+        def _snapshot_native_originals(self,target,*,source_lock=None):
+            from adapters.pico4.snapshot_originals import PicoSnapshotOriginals,FILE
+            source_lock=self._script_journey()._lock(target,source_lock)
+            native=self._native_feature_observer(target)
+            return PicoSnapshotOriginals(native.send,
+                lambda:self.adb.read_debug_app_file(target,'org.overte.pico','files/overte-e2e/'+FILE,attempts=1),
+                native.clock_ms,native.guard,native.pid,source_lock,monotonic=native.monotonic,sleep=native.sleep)
+
+        @_private
         def _audio_recipe(self,target,run,phase_source,*,source_lock=None):
             from adapters.pico4.audio_recipe import PicoAudioRecipe
             from adapters.pico4.graphics_binding import PicoGraphicsBinding
