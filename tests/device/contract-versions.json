@@ -79,6 +79,7 @@
     "independent-chat-receiver": {"current": 1, "reads": [1]},
     "owned-messages-mixer": {"current": 1, "reads": [1]},
     "native-chat-actor-files": {"current": 1, "reads": [1]},
+    "native-chat-actor-source": {"current": 2, "reads": [1, 2]},
     "chat-cache-lifetime": {"current": 1, "reads": [1]},
     "native-chat-observation": {"current": 3, "reads": [1, 2, 3]},
     "native-chat-domain-session": {"current": 1, "reads": [1]},

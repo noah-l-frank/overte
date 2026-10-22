@@ -47,8 +47,15 @@ public:
         if (::fstatat(_root,"chat-actor-source.v1.json",&existing,AT_SYMLINK_NOFOLLOW)==0 || errno!=ENOENT
                 || ::fstatat(_root,"feature-chat-observation.json",&existing,AT_SYMLINK_NOFOLLOW)==0 || errno!=ENOENT
                 || ::fstatat(_root,"chat-peer-input-receipt.v1.json",&existing,AT_SYMLINK_NOFOLLOW)==0 || errno!=ENOENT) { closeAll();return; }
-        QJsonObject source{{"actorVersion",1},{"instance",instance},{"processId",static_cast<double>(QCoreApplication::applicationPid())},
-            {"configuredEpochMs",static_cast<double>(QDateTime::currentMSecsSinceEpoch())},{"scriptSha256",scriptSha}};
+        QString configuredRevision;
+#if defined(OVERTE_E2E_CONFIGURED_SOURCE_REVISION)
+        configuredRevision=QString::fromLatin1(OVERTE_E2E_CONFIGURED_SOURCE_REVISION);
+#endif
+        const bool knownRevision=QRegularExpression("\\A[0-9a-f]{40}\\z").match(configuredRevision).hasMatch();
+        if (!knownRevision) { configuredRevision.clear(); }
+        const QJsonObject build{{"cleanConfiguredSource",knownRevision},{"compiledSourceRevision",configuredRevision}};
+        QJsonObject source{{"actorVersion",2},{"instance",instance},{"processId",static_cast<double>(QCoreApplication::applicationPid())},
+            {"configuredEpochMs",static_cast<double>(QDateTime::currentMSecsSinceEpoch())},{"scriptSha256",scriptSha},{"build",build}};
         const auto bytes=QJsonDocument(source).toJson(QJsonDocument::Compact)+'\n';
         _source=::openat(_root,"chat-actor-source.v1.json",O_RDWR|O_CREAT|O_EXCL|O_NOFOLLOW|O_CLOEXEC,0600);
         if (!writeAll(_source,bytes) || ::fsync(_source)!=0 || !node(_source,false,&_sourceNode)

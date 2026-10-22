@@ -64,8 +64,8 @@ and in-place changes to immutable source metadata. POSIX native support is
 required; unsupported hosts remain unavailable.
 
 * `chat-actor-source.v1.json` is created exclusively by the native actor and held
-  open for its fixture lifetime: `{actorVersion:1, instance, processId,
-  configuredEpochMs, scriptSha256}`. `instance` is the actual native Chat cache
+  open for its fixture lifetime: `{actorVersion:2, instance, processId,
+  configuredEpochMs, scriptSha256, build}` (version 1 lacks `build`). `instance` is the actual native Chat cache
   birth nonce. The timestamp is the original configuration epoch, **not** a new
   measurement time on each read. A new actor refuses previous source/output
   names. The host pins original inode, nanosecond metadata and content digest.
@@ -199,3 +199,37 @@ pkg-config/library environment):
 ```sh
 PYTHONDONTWRITEBYTECODE=1 python3 -m unittest test_chat_actor_pending_native -v
 ```
+
+
+## Native configured source identity
+
+Actor source version 2 retains the fixed `chat-actor-source.v1.json` IPC name
+and adds `build: {cleanConfiguredSource, compiledSourceRevision}`. These are
+original native producer fields in the source inode held by the actual actor.
+They do not come from the Pico APK, a caller, an ACK or a sampled first-seen time.
+The host still accepts source version 1 for existing component observations;
+`ChatActorFiles.require_compiled_source()` requires version 2 with a known full
+40-character revision and rechecks the original source bytes/inode, actual
+process guard and held native descriptor before returning static metadata.
+Unknown or old sources cannot acquire a revision by refreshing or reconstruction.
+
+Only the dedicated `OVERTE_E2E_FEATURE_TESTS` CMake gate includes
+`cmake/e2e/FeatureSourceIdentity.cmake`. The helper measures the current full Git
+HEAD at the actual source root when tracked, staged, untracked and submodule
+status is clean. Missing Git, exported sources, a dirty tree or unavailable
+metadata leave the compiled identity unknown. Tracked source paths and original
+Git metadata are configure dependencies. A clean reconfiguration is required to
+acquire a previously unknown identity. Normal product builds do not use this
+helper or gain the macro. Runtime `--testScript` and existing private source
+ownership remain required.
+
+This field describes the source revision compiled from configure metadata. It
+is not a hermetic build receipt, a current whole-tree measurement, a signature,
+a dependency/toolchain qualification or evidence that the native observation
+was built from the Pico APK. Whole-peer admission still independently qualifies
+the actual Linux executable digest, original PID/start/boot identity, owner
+credentials, script digest, original native birth and held source descriptor.
+Native macro tests explicitly declare their compiler-input seam and run only
+owned stdin workers. Separate tests run the real configure helper against a
+private clean/dirty Git fixture. No Assignment Client, domain, service, OpenXR
+runtime or device is executed by these checks.
