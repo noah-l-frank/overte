@@ -39,6 +39,13 @@ provides credentials/config authority, never process readiness, a current mixer
 state or a native domain observation. Existing original mixer GETs/native joins
 still provide those observations.
 
+The ready schema also accepts the optional original
+`createPermissionsControlUrl`, only at the same controller origin and exact
+`/v1/create-permissions` path. This permits the existing Create owner to share
+the fixture without authorizing another service or weakening either file stamp
+guard. Two focused actual-factory tests cover this extension, foreign ports and
+paths, and replacement of the original ready inode.
+
 `prepare()` first acquires the actual original profile through its existing
 durable native owner, then admits both genuinely absent native caches. It builds
 two initial absence roles and two separate active roles, using the existing
