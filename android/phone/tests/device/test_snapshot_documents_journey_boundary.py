@@ -279,6 +279,47 @@ class SnapshotDocumentsJourneyTests(unittest.TestCase):
         self.assertEqual([],self.owner.observe()['documents'])
 
 
+class SnapshotDocumentsCommonJourneyTests(unittest.TestCase):
+    """Reuse the guarded public harness; select only the actual SDK26 profile."""
+    SDK=26
+    @classmethod
+    def setUpClass(cls):
+        import test_snapshots_feature_journey as shared
+        cls.shared=shared
+        shared.SnapshotJourneyTests.setUpClass.__func__(cls)
+    @classmethod
+    def tearDownClass(cls):cls.shared.SnapshotJourneyTests.tearDownClass.__func__(cls)
+    def setUp(self):
+        from unittest.mock import patch
+        shared=self.shared;original=shared.SnapshotTarget
+        def target(*args,**kwargs):
+            model=original(*args,**kwargs);boundary=install_documents(model,shared.SnapshotProxy)
+            self.addCleanup(boundary.close);return model
+        p=patch.object(shared,'SnapshotTarget',side_effect=target);p.start();self.addCleanup(p.stop)
+        script=shared.ACTOR.replace("configuration=PrivateFeatureState", "from snapshot_documents_journey_boundary import install_proxy_documents\nfrom snapshots_journey_producers import SnapshotProxy\ninstall_proxy_documents(SnapshotProxy)\nconfiguration=PrivateFeatureState")
+        if script==shared.ACTOR:raise AssertionError('Original guarded actor insertion point changed')
+        p=patch.object(shared,'ACTOR',script);p.start();self.addCleanup(p.stop)
+        shared.SnapshotJourneyTests.setUp(self)
+        # urllib retains its original HTTPS context after earlier HTTP-only
+        # unit tests. Acquire a fresh context under the actual fixture CA;
+        # certificate and hostname checks remain enabled.
+        p=patch('urllib.request._opener',None);p.start();self.addCleanup(p.stop)
+        for name in ('_snapshot_document_resolution','_snapshot_document_ui','_snapshot_documents','_snapshot_system_documents','_snapshot_phone_uid'):
+            p=patch.object(self.adapter,name,getattr(self.proxy,name));p.start();self.addCleanup(p.stop)
+    def invoke(self,*args,**kwargs):return self.shared.SnapshotJourneyTests.invoke(self,*args,**kwargs)
+    def act(self,*args,**kwargs):return self.shared.SnapshotJourneyTests.act(self,*args,**kwargs)
+    def start_actor(self,*args,**kwargs):return self.shared.SnapshotJourneyTests.start_actor(self,*args,**kwargs)
+    def actor_ok(self,*args,**kwargs):return self.shared.SnapshotJourneyTests.actor_ok(self,*args,**kwargs)
+    def test_normal_public_document_picker_open_cancel_and_success_acquires_original(self):
+        from feature_journeys.scenarios import VERSION
+        self.client.activate('c'*32)
+        self.invoke('feature.snapshots.observe',dict(contractVersion=VERSION,runId=self.shared.RUN,afterSequence=0))
+        self.act('open');self.act('capture',dict(mode='still',format='png'))
+        self.act('save-picker-open');self.act('save-picker-cancel');self.act('save-picker-open');self.act('save')
+        result=self.invoke('feature.snapshots.observe',dict(contractVersion=VERSION,runId=self.shared.RUN,afterSequence=1))
+        self.assertEqual('document-picker',result['state']['saveBackend']);self.assertEqual(1,result['state']['saved'])
+
+
 # Used by the public normal-toolbar mutation counterprobe above.
 from overte_phone_snapshot_system_ui import LABEL
 if __name__=='__main__':unittest.main()

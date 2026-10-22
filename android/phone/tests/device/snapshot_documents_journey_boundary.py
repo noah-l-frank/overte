@@ -173,12 +173,18 @@ class DocumentsJourneyBoundary:
         self.pm_calls=[];self.picker=PICKER;self.picker_uid=PICKER_UID;self.phone_uid=PHONE_UID;self.writer_uid=PHONE_UID
         self.xml_filter=lambda raw:raw;self.os_rows={};self.pending_descriptor=None
         self._rpc=model.rpc;self._os_sdk=model.os_sdk;self._readback=model.readback_source
-        self._now=model.now
+        self._now=model.now;self.batch_epoch=None
         # Source time remains actual Java System.currentTimeMillis; sample the
         # host clock independently, rather than copying timestamps from a DTO.
-        model.now=lambda:time.time_ns()//1000000
+        model.now=self.now
         model.save_image=self.launch;model.os_sdk=self.os_sdk;model.readback_source=self.readback_source;model.rpc=self.rpc
         model.documents_boundary=self
+
+    def now(self):
+        return self.batch_epoch if self.batch_epoch is not None else time.time_ns()//1000000
+
+    def tick(self):
+        if self.batch_epoch is not None:self.batch_epoch=max(self.batch_epoch,time.time_ns()//1000000)
 
     def launch(self):
         if self.request is not None:raise RuntimeError('Document request already active')
@@ -188,7 +194,7 @@ class DocumentsJourneyBoundary:
         self.event('request-active');self.event('document-launched')
 
     def event(self,kind,value='',aux=''):
-        self.model.export_event(kind,value,aux,request=self.request,action='save')
+        self.tick();self.model.export_event(kind,value,aux,request=self.request,action='save')
 
     def node(self,**attrs):
         row=dict(package=self.picker.split('/')[0],enabled='true',displayed='true',clickable='true',bounds='[10,10][200,80]')|attrs
@@ -250,7 +256,7 @@ class DocumentsJourneyBoundary:
         if not doc['writeClosedEpochMs'] or self.close_mode=='failed':
             self.event('result-ready','error','The snapshot could not be saved.');self.event('delivered','error','The snapshot could not be saved.');self.finish();return
         raw=self.provider.binary(self.provider.run,doc['documentId'],uuid.uuid4().hex)
-        self.add_readback(doc,raw)
+        self.tick();self.add_readback(doc,raw)
         self.event('destination-copied',doc['uri']);self.event('result-ready','success');self.event('delivered','success');self.finish()
 
     def finish(self):
@@ -283,16 +289,33 @@ class DocumentsJourneyBoundary:
             current=self.provider.observe(self.provider.run,uuid.uuid4().hex)
             original=next(doc for doc in current['documents'] if doc['documentId']==row['identity']['documentId'])
             row.update(phase='retired',deleteCount=original['deleteCalls'],absent=original['absent'],checkedEpochMs=original['checkedEpochMs'])
-            return self._readback(dict(request,operation='observe'))
+            self.tick();return self._readback(dict(request,operation='observe'))
         if request['operation']=='inspect-destinations':
             current=self.provider.observe(self.provider.run,uuid.uuid4().hex)
             for owned in self.os_rows.values():
                 doc=next(doc for doc in current['documents'] if doc['documentId']==owned['identity']['documentId'])
                 if owned['deleteIssued'] and not doc['absent']:raise RuntimeError('Original Documents absence lost')
+            self.tick()
         return self._readback(request)
 
     def rpc(self,kind,value):
         with self.model.lock:
+            previous=self.batch_epoch
+            # One independently sampled synthetic native query batch. Java
+            # observations keep their actual acquisition times unchanged.
+            self.batch_epoch=time.time_ns()//1000000
+            try:return self.dispatch(kind,value)
+            finally:self.batch_epoch=previous
+
+    def dispatch(self,kind,value):
+        with self.model.lock:
+            if kind=='documents-scope':
+                state=self._rpc('snapshot-state',None)
+                # A single SDK query transports the originally acquired status
+                # and session together. Context still reads before/after and
+                # current component independently; it never adopts an owner.
+                return dict(binding=self.model.rpc('binding',None),foreground=state['foreground'],running=True,
+                    appState=4 if state['foreground'] else 3,component=state['component'])
             if kind=='documents-pm':
                 args=tuple(value);self.pm_calls.append(args)
                 if args==RESOLVE:return self.picker
@@ -315,9 +338,8 @@ def install_proxy_documents(proxy_type):
     def context(self,selector,binding,resolution,authority):
         if 'snapshotDocumentResolutionVersion' not in resolution:return original_context(self,selector,binding,resolution,authority)
         def status():
-            row=self.call('snapshot-state',None)
-            return dict(binding=self.call('binding',None),foreground=row['foreground'],running=True,appState=4 if row['foreground'] else 3)
-        return SnapshotDocumentContext(binding,resolution,status,lambda:self.call('snapshot-state',None)['component'],authority)
+            row=self.call('documents-scope',None);row.pop('component');return row
+        return SnapshotDocumentContext(binding,resolution,status,lambda:self.call('documents-scope',None)['component'],authority)
     def resolution(self,selector):
         class PM:
             def execute(_self,args,*,target,timeout):
