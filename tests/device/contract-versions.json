@@ -1,6 +1,10 @@
 {
   "schemaVersion": 1,
   "contracts": {
+    "pico-tablet-web-binding": {"current": 1, "reads": [1]},
+    "pico-tablet-web-feature": {"current": 1, "reads": [1]},
+    "pico-browser-quiet": {"current": 1, "reads": [1]},
+
     "normal-input-phase-fence": {"current": 1, "reads": [1]},
     "pico-browser-entry": {"current": 1, "reads": [1]},
     "pico-browser-stereo-source": {"current": 1, "reads": [1]},

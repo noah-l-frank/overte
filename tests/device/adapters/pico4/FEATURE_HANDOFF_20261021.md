@@ -19,7 +19,7 @@ checks; the full application/APK and every device remain unqualified. See the
 | Create | Partial normal management and domain Import/Save/export/Delete with original callbacks, files and fixed raw/physical Browse setting ownership | Full Model/texture/PolyVox/permission actor, stereo and final cleanup composition |
 | Emotes | Partial actual normal inputs, compiled caller/consumed FBX/Rig effects, work/quiet/background and loaded-avatar originals | Executed avatar draw/two-eye camera/PNG joins, independent actor and whole resource retirement |
 | Web in world | Partial native DOM source | Actual controller-ray hit/DOM input, original document/echo journals, response receipt and stereo image join |
-| Web in tablet | Partial native DOM source | VR DOM input plus original inline carrier/retained callback and complete document/cleanup owner |
+| Web in tablet | Partial private normal input/source/actor coordinator with original stereo and continuous native/Java quiet | Complete 26-step effect qualification, original VM/capture finalization and public operation/actor binding |
 | Graphics | Complete source; actual public/session/common-engine route, original stereo/effects and independent final retirement host verified | Later compile and qualify the exact E2E candidate on Proxmox; no device work in this session |
 | Audio | Partial normal controls/cycle/history/PCM sources | Whole cycle owner, microphone stimulus, independent acoustic capture/publisher and lifecycle/cleanup join |
 | Chat | Partial ordinary Send/Return/Retry, original JSON/INI profile/Erase, peer/distance/no-replay and mixer recovery owners | Complete bounded source histories, 25-step coordinator, stereo/publisher and original final retirement |
@@ -1510,3 +1510,42 @@ completion stays3/14. The original build consumer was also executed through
 `PICO_SOURCE_INPUTS_REJECTED: PICO_EXPLICIT_INPUTS_REQUIRED`. No immutable
 qualified Pico source graph/binding was supplied; no dependency bootstrap,
 installation, guessed graph, old APK relabeling or device fallback was performed.
+
+
+## Private Tablet Web coordinator and original continuous quiet
+
+PicoTabletWebBinding1 / PicoTabletWebFeature1 reuse the reviewed frozen Phone
+`5527d540e99cc6dba4204a5e904a854e6e1cd2b4` coordinator and the existing shared
+v16 scenarios. Actual input binds Pico Script manager, original Home/app UUID,
+controller/DOM wheel, pointer and IME, lifecycle once-input and original two-eye
+capture factories. No Phone touch coordinates, package or mono capture are used.
+The original canonical Script source lock is retained; browser files have a
+separate target-specific namespace. Inputs retain original fixture anchors and
+controller envelopes before delivery. A lost reserve, input or actor publication
+is never resent after reconstruction. Actor publication is journaled as issued
+before HTTP; an unresolved reply retains ownership. No new public capability is
+advertised.
+
+BrowserQuiet1 retains every original native browser and complete native/Java
+runtime frame. Three seconds must advance on host and all four original source
+clocks, with each actual gap at most500 ms. Frozen native clocks, a long gap or
+an owned Java renderer behind an empty native handle inventory cannot retire.
+Final sample/publication copies and host CAS precede fresh original phase,
+candidate and both-clock fences. A new phase response cannot renew stale product
+facts. Retained PNG metadata is checked against original inode, timestamps,
+bytes and hash and the complete shared original stereo/proof grammar.
+
+The host owner tests exercise the real private coordinator, lock, journals,
+original source readers and phase journal. SDK, DOM, Java and lifecycle producers
+are explicitly synthetic; this packet does not run the whole26-step normal
+input/effect journey or qualify pixels on a device. Original VM destruction and
+fresh complete capture absence remain unjoined. Therefore finalize() refuses
+unconditionally and retains all original owner/role/artifact journals. The next
+executable step is the full normal flow plus original VM/work/membership and
+capture retirement join, followed by public dispatch and independent actor
+binding. Complete source areas remain3/14. No application/APK or device claim.
+
+Validation:28 selected owner/original-stereo/common-evidence cases pass18.466s.
+The owning Tablet-Web, normal Browser entry, complete Chat phase and coverage
+selection passes4/120 groups in11.97s (0.759s/1.851s/9.292s respectively).
+The four required repository suites pass3.38s; registry and whitespace pass.

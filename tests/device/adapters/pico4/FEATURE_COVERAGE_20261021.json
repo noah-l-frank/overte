@@ -675,7 +675,12 @@
         "tests/device/feature_journeys/stereo_browser_evidence.py",
         "android/vr/pico/tests/device/test_pico_browser_entry.py",
         "tests/device/self_tests/test_pico_browser_stereo.py",
-        "tests/device/self_tests/test_stereo_browser_evidence.py"
+        "tests/device/self_tests/test_stereo_browser_evidence.py",
+        "tests/device/adapters/pico4/tablet_web_binding.py",
+        "tests/device/adapters/pico4/tablet_web_feature.py",
+        "tests/device/adapters/pico4/browser_quiet.py",
+        "tests/device/self_tests/test_pico_tablet_web_feature.py",
+        "android/vr/pico/tests/pico-tablet-web-owner-test.py"
       ],
       "declaredCheckpoints": 26,
       "inputVerbs": [
@@ -714,8 +719,8 @@
         "open"
       ],
       "missingOperationsOrEvidence": [
-        "Whole normal Script/app/Home/wheel/keyboard/document-transition coordinator with durable original input and recovery ownership",
-        "Independent actor publication and complete joined inline/held-callback flow across all shared steps",
+        "Complete 26-step qualification of the private normal Script/app/Home/wheel/keyboard/document-transition coordinator, including actual joined input effects and lost-input cleanup; source composition is present but only baseline and counterexamples are host verified",
+        "Complete independent actor/state/stereo publication and inline/held-callback qualification across all shared steps; private baseline actor, once-only durable publication and post-CAS original clock fences are host verified",
         "Whole final Script/native/Java/renderer/capture quiet retirement and immutable archive"
       ],
       "requiredOriginalEvidence": [

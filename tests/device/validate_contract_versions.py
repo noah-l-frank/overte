@@ -9,6 +9,9 @@ from pathlib import Path
 
 
 REQUIRED = {
+    "pico-tablet-web-binding": 1,
+    "pico-tablet-web-feature": 1,
+    "pico-browser-quiet": 1,
     "pico-browser-stereo-source": 1,
     "pico-browser-stereo-owner": 1,
     "stereo-browser-evidence": 1,

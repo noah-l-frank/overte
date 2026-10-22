@@ -38,7 +38,13 @@ def policy(value):
 
 
 def archive(metadata,raw,run,ticket,external_policy,*,role='primary'):
-    policy(external_policy);identifier(run);identifier(ticket)
+    policy(external_policy)
+    return archive_sources(metadata,raw,run,ticket,external_policy['sceneUrl'],role=role)
+
+
+def archive_sources(metadata,raw,run,ticket,scene_url,*,role='primary'):
+    """Validate retained original provenance independently of pixel ROI policy."""
+    identifier(run);identifier(ticket);viewpoint_urls(scene_url)
     need(type(metadata) is bytes and 0<len(metadata)<=LIMIT and role in ('primary','actor'))
     body=json_document(metadata)
     exact(body,{'picoBrowserStereoOwnerVersion','runId','binding','role','artifactRoot','journalId','scope','payload'})
@@ -48,7 +54,7 @@ def archive(metadata,raw,run,ticket,external_policy,*,role='primary'):
     identifier(body['journalId']);context(body['binding']);rows=unpack(body['payload']);need(len(rows)==1);state=rows[0]
     exact(state,{'ticket','phase','before','captureIntent','frame','image','memory','files','owner','proof'})
     need(state['ticket']==ticket and state['phase']=='complete' and type(state['frame']) is dict)
-    frame=state['frame'];facts=frame_packet(frame,raw,run,body['binding'],external_policy['sceneUrl'])
+    frame=state['frame'];facts=frame_packet(frame,raw,run,body['binding'],scene_url)
     exact(body['scope'],{'fixtureUrl','foreignFixtureUrl','ownerToken','scriptUrl'})
     need(all(frame[key]==value for key,value in body['scope'].items()) and state['before']==frame['before'])
     WorldRenderOwner.acquisition(state['captureIntent']);need(state['captureIntent']['commandId']==frame['capture']['requestId'])
