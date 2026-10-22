@@ -18,6 +18,11 @@
       "kind": "product-inventory",
       "setup": [
         "python"
+      ],
+      "content_inputs": [
+        "tests/project-coverage-test.py",
+        "tests/project-coverage.json",
+        "tests/*/CMakeLists.txt"
       ]
     },
     "codeql-remediation": {
@@ -36,6 +41,19 @@
       "kind": "product-inventory",
       "setup": [
         "host-full"
+      ],
+      "content_inputs": [
+        "tests/**",
+        "libraries/**",
+        "interface/**",
+        "scripts/**",
+        "tools/**",
+        ".github/**",
+        "CMakeLists.txt",
+        "cmake/**",
+        "android/**/tests/**",
+        "ios/audio/**",
+        "ios/ci/evidence/**"
       ]
     },
     "safe-landing-lifecycle": {
@@ -59,7 +77,7 @@
       ]
     },
     "web-entity-visibility": {
-      "kind": "product-inventory",
+      "kind": "patterns",
       "setup": [
         "host-full"
       ]
@@ -79,19 +97,19 @@
       ]
     },
     "lod-preferences": {
-      "kind": "product-inventory",
+      "kind": "patterns",
       "setup": [
         "host-full"
       ]
     },
     "goto-dialog-script": {
-      "kind": "product-inventory",
+      "kind": "patterns",
       "setup": [
         "host-full"
       ]
     },
     "recorded-voice-native": {
-      "kind": "product-inventory",
+      "kind": "patterns",
       "setup": [
         "host-full"
       ]
@@ -170,7 +188,7 @@
       ]
     },
     "shared-script-behavior": {
-      "kind": "product-inventory",
+      "kind": "patterns",
       "setup": [
         "node"
       ]
@@ -261,6 +279,34 @@
       ]
     },
     "pr-ci-platform": {
+      "kind": "patterns",
+      "setup": [
+        "python",
+        "git"
+      ]
+    },
+    "pr-ci-reuse": {
+      "kind": "patterns",
+      "setup": [
+        "python",
+        "git"
+      ]
+    },
+    "pr-ci-native": {
+      "kind": "patterns",
+      "setup": [
+        "python",
+        "git"
+      ]
+    },
+    "pr-ci-android": {
+      "kind": "patterns",
+      "setup": [
+        "python",
+        "git"
+      ]
+    },
+    "pr-ci-android-preflight": {
       "kind": "patterns",
       "setup": [
         "python",

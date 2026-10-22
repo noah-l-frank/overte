@@ -6,8 +6,11 @@ GitHub, qualify a candidate, or replace the first genuine manual bootstrap.
 """
 from copy import deepcopy
 import hashlib
+import json
 from pathlib import Path
 import re
+import subprocess
+import tempfile
 import unittest
 
 import yaml
@@ -78,23 +81,29 @@ def source_contract(job):
 
 
 def native_recipe_contract(caller, workflow):
-    assert caller["with"] == {"mode": "${{ needs.plan.outputs.native_mode }}"}
+    fields = {"mode": "native_mode", "context_json": "context_json",
+              "plan_json": "plan_json", "controller": "controller", "source": "source"}
+    assert caller["with"] == {name: "${{ needs.plan.outputs." + output + " }}"
+                              for name, output in fields.items()}
     assert "github.event_name == 'pull_request'" in caller["if"]
-    assert workflow["on"]["workflow_call"]["inputs"] == {"mode": {"type": "string", "required": True}}
+    assert workflow["on"]["workflow_call"]["inputs"] == {
+        name: {"type": "string", "required": True} for name in fields}
     job = workflow["jobs"]["build"]
     candidate, trusted = checkouts(job)
-    # Ordinary PR checkout remains GitHub's original merge source. A manual
-    # workflow's H is different, so that execution path is deliberately excluded.
-    assert "ref" not in candidate and "path" not in candidate
+    assert candidate["ref"] == "${{ inputs.source }}" and "path" not in candidate
     assert candidate["fetch-depth"] == 2 and candidate["persist-credentials"] is False
-    assert trusted["ref"] == "${{ github.event.repository.default_branch }}"
+    assert trusted["ref"] == "${{ inputs.controller }}"
     assert trusted["path"] == "trusted" and trusted["persist-credentials"] is False
+    assert set(trusted["sparse-checkout"].splitlines()) == {".github", "tools"}
     recheck = next(step for step in job["steps"] if step["name"] == "Recheck exact candidate selection")
     assert "if" not in recheck
-    assert recheck["env"]["EXPECTED_MODE"] == "${{ inputs.mode }}"
-    assert 'trusted/tools/native-tests/check.py plan --candidate .' in recheck["run"]
-    assert '--event "$GITHUB_EVENT_PATH" --sha "$GITHUB_SHA"' in recheck["run"]
-    assert 'in ("core", "full")' in recheck["run"]
+    assert recheck["env"] == {"EXPECTED_MODE": "${{ inputs.mode }}",
+        "PR_CI_SOURCE_REF": "${{ github.ref }}", "CONTEXT_JSON": "${{ inputs.context_json }}",
+        "PLAN_JSON": "${{ inputs.plan_json }}"}
+    assert 'trusted/tools/repository-checks/pr_ci.py verify-native' in recheck["run"]
+    assert '--candidate . --context-json "$CONTEXT_JSON" --plan-json "$PLAN_JSON"' in recheck["run"]
+    assert '--out build/native-plan.json' in recheck["run"]
+    assert 'tools/native-tests/check.py plan' not in recheck["run"]
 
 
 class WorkflowContracts(unittest.TestCase):
@@ -184,7 +193,8 @@ class WorkflowContracts(unittest.TestCase):
         for name in ("host", "npm"):
             steps = [step for step in self.jobs[name]["steps"] if "pr_ci.py execute" in step.get("run", "")]
             self.assertEqual(1, len(steps))
-            self.assertNotIn("GH_TOKEN", steps[0].get("env", {}))
+            self.assertEqual("${{ github.token }}", steps[0].get("env", {}).get("GH_TOKEN"))
+            self.assertTrue(all(value == 'read' for value in self.jobs[name]['permissions'].values()))
             self.assertIn("--candidate candidate", steps[0]["run"])
             self.assertNotIn("GITHUB_TOKEN", steps[0].get("env", {}))
             self.assertFalse(any("actions/cache" in step.get("uses", "") for step in self.jobs[name]["steps"]))
@@ -195,7 +205,14 @@ class WorkflowContracts(unittest.TestCase):
             command = scripts(job)
             self.assertIn("sudo apt-get install --no-install-recommends -y bubblewrap", command)
             self.assertIn("unshare --user --map-root-user --net /usr/bin/true", command)
-            self.assertNotIn("docker ", command)
+            if name == 'host':
+                self.assertNotIn("docker ", command)
+            else:
+                browser = next(step for step in job['steps'] if step.get('id') == 'browser')
+                self.assertIn('needs.plan.outputs.browser_projects', browser['if'])
+                self.assertIn('matrix.project', browser['if'])
+                self.assertIn('docker pull ' + IMAGE, browser['run'])
+                self.assertNotIn('candidate/', browser['run'])
             python = next(step for step in job["steps"] if step.get("uses", "").startswith("actions/setup-python@"))
             node = next(step for step in job["steps"] if step.get("uses", "").startswith("actions/setup-node@"))
             self.assertEqual("3.12.15", python["with"]["python-version"])
@@ -280,12 +297,10 @@ class WorkflowContracts(unittest.TestCase):
         self.assertEqual("error", upload["with"]["if-no-files-found"])
         self.assertIs(upload["with"]["overwrite"], False)
 
-    def test_original_native_recipe_continues_only_for_ordinary_pr_source(self):
-        self.assertEqual("c277ebda3ce3d972ffce0c3849bf817c664feef90a0b6b90df9ee428a5e576b1",
-            hashlib.sha256((WORKFLOWS / "native-tests.yml").read_bytes()).hexdigest())
+    def test_native_recipe_recomputes_central_contract_only_for_ordinary_pr_source(self):
         native_recipe_contract(self.jobs["native"], self.native)
         job = self.native["jobs"]["build"]
-        self.assertNotIn("pr_ci.py verify-native", scripts(job))
+        self.assertIn("pr_ci.py verify-native", scripts(job))
         command = scripts(job)
         for required in ("conan install .", "--build=never --no-remote",
                 "bash tools/native-tests/configure.sh", "trusted/tools/native-tests/select.py",
@@ -363,6 +378,97 @@ class WorkflowContracts(unittest.TestCase):
                     reference = item.get("uses")
                     if reference and not reference.startswith("./"):
                         self.assertRegex(reference, r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_./-]+@[0-9a-f]{40}$")
+
+    def test_required_rule_templates_match_the_active_central_context_contract(self):
+        expected = {'permanent-branches.json': {'source-policy', 'required-ci'},
+                    'apple-target-branches.json': {'Enforce apple-main sync path'},
+                    'android-target-branches.json': {'Enforce Android parent sync path'}}
+        for filename, contexts in expected.items():
+            manifest = json.loads((ROOT / '.github/rulesets' / filename).read_text())
+            rules = [r['parameters'] for r in manifest['rules'] if r['type'] == 'required_status_checks']
+            self.assertEqual(1, len(rules))
+            self.assertEqual(contexts, {r['context'] for r in rules[0]['required_status_checks']})
+            self.assertTrue(rules[0]['strict_required_status_checks_policy'])
+            self.assertTrue(all(r['integration_id'] == 15368 for r in rules[0]['required_status_checks']))
+
+    def test_selected_task_receipts_are_uploaded_and_bound_to_the_current_attempt(self):
+        for owner in ('host', 'npm'):
+            job = self.jobs[owner]
+            execution = next(s for s in job['steps'] if 'pr_ci.py execute' in s.get('run', ''))
+            self.assertIn('--out tasks.json', execution['run'])
+            upload = next(s for s in job['steps'] if s.get('uses') == UPLOAD)
+            self.assertEqual('tasks.json', upload['with']['path'])
+            self.assertFalse(upload['with']['overwrite'])
+            self.assertEqual(14, upload['with']['retention-days'])
+        self.assertIn('github.run_attempt', next(s for s in self.jobs['host']['steps']
+            if s.get('uses') == UPLOAD)['with']['name'])
+
+    def test_android_runtime_is_prepared_only_for_selected_real_api_compilation(self):
+        job = self.jobs['android']
+        prepare = next(s for s in job['steps'] if 'pr_ci_android.py prepare' in s.get('run', ''))
+        self.assertEqual("needs.plan.outputs.android_compile_products != '[]'", prepare['if'])
+        self.assertIn('trusted/tools/repository-checks/pr_ci_android.py', prepare['run'])
+        self.assertIn('platforms;android-36', prepare['run'])
+        self.assertIn('build-tools;36.0.0', prepare['run'])
+        execute = next(s for s in job['steps'] if 'pr_ci.py platform' in s.get('run', ''))
+        self.assertIn('--android-runtime', execute['run'])
+        self.assertIn('COMPILE_PRODUCTS', execute['env'])
+
+    def test_optional_android_api_cache_has_no_alias_following_copy_or_duplicate_save(self):
+        job = self.jobs['android']
+        restore = next(s for s in job['steps'] if s.get('id') == 'android-qt-api-cache')
+        prepare = next(s for s in job['steps'] if s.get('id') == 'android-api')
+        save = next(s for s in job['steps'] if s['name'] == 'Save only the verified small Android Java API cache')
+        self.assertEqual(restore['with']['key'], save['with']['key'])
+        self.assertEqual(restore['with']['path'], save['with']['path'])
+        self.assertNotRegex(prepare['run'], r'(?m)^\s*cp\s')
+        self.assertIn('test ! -L "$qt_api_cache"', prepare['run'])
+        self.assertIn('realpath -- "$qt_api_cache"', prepare['run'])
+        self.assertIn('sha256sum --check --strict', prepare['run'])
+        self.assertIn("steps.android-api.outputs.cache_ready == 'true'", save['if'])
+        self.assertIn("steps.android-qt-api-cache.outputs.cache-hit != 'true'", save['if'])
+        self.assertNotIn('restore-keys', restore['with'])
+
+    def test_browser_worker_installs_only_trusted_runtime_then_passes_exact_executable(self):
+        job = self.jobs['npm']
+        prepare = next(s for s in job['steps'] if s.get('id') == 'browser')
+        self.assertIn('--package=playwright@1.63.0', prepare['run'])
+        self.assertIn('test -f /opt/google/chrome/chrome', prepare['run'])
+        self.assertIn('ldd /opt/google/chrome/chrome', prepare['run'])
+        self.assertIn('executable=/opt/google/chrome/chrome', prepare['run'])
+        self.assertNotIn('candidate', prepare['run'].replace('candidate-provided', ''))
+        execute = next(s for s in job['steps'] if 'pr_ci.py execute' in s.get('run', ''))
+        self.assertEqual('${{ steps.browser.outputs.executable }}', execute['env']['BROWSER_EXECUTABLE'])
+        self.assertIn('--browser-executable "$BROWSER_EXECUTABLE"', execute['run'])
+        self.assertIn('--prepared-root "$(dirname "$BROWSER_EXECUTABLE")"', execute['run'])
+        self.assertIn('browser_projects', str(job['timeout-minutes']))
+
+    def test_actual_optional_cache_save_script_rejects_changed_bytes_and_aliases(self):
+        prepare = next(s for s in self.jobs['android']['steps'] if s.get('id') == 'android-api')
+        marker = 'qt_api_cache="$RUNNER_TEMP/pr-ci-android-qt-api/QtAndroid.jar"'
+        code = prepare['run'][prepare['run'].index(marker):]
+        published_hash = 'a9f64f066766e3908d64183a49c0722aff09495c5f17768213a2989a73edf893'
+        self.assertIn(published_hash, code)
+        artifact = b'reviewed dependency fixture'
+        # Substitute only the fixed public artifact identity; execute the real
+        # workflow cache conditions, realpath and checksum pipeline unchanged.
+        code = code.replace(published_hash, hashlib.sha256(artifact).hexdigest())
+        for kind in ('regular', 'changed', 'leaf-alias', 'parent-alias', 'directory'):
+            with self.subTest(kind=kind), tempfile.TemporaryDirectory(prefix='pr-ci-cache-script-') as scratch:
+                root = Path(scratch); cache = root / 'pr-ci-android-qt-api'; output = root / 'output'
+                output.touch(); target = root / 'target'; target.mkdir()
+                if kind == 'parent-alias': cache.symlink_to(target, target_is_directory=True)
+                else: cache.mkdir()
+                leaf = cache / 'QtAndroid.jar'
+                if kind == 'leaf-alias':
+                    valid = target / 'api.jar'; valid.write_bytes(artifact); leaf.symlink_to(valid)
+                elif kind == 'directory': leaf.mkdir()
+                else: leaf.write_bytes(b'changed dependency' if kind == 'changed' else artifact)
+                result = subprocess.run(['bash', '-euo', 'pipefail', '-c', code],
+                    env={'PATH': '/usr/bin:/bin', 'RUNNER_TEMP': str(root), 'GITHUB_OUTPUT': str(output)},
+                    capture_output=True, text=True, timeout=10)
+                self.assertEqual(0, result.returncode, result.stderr)
+                self.assertEqual('cache_ready=true\n' if kind == 'regular' else '', output.read_text())
 
 
 if __name__ == "__main__":
