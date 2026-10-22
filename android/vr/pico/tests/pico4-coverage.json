@@ -9,6 +9,7 @@
     {"id": "microphone-lifecycle-and-transport", "risk": "critical", "tests": ["audio-capture-state", "audio-native-transport", "audio-preview-owner", "audio-settings-source", "audio-page-owner", "audio-capture-owner", "audio-final-close", "audio-final-retirement", "audio-normal-recipe-flow", "audio-normal-recipe-fences", "microphone-runner"]},
     {"id": "tablet-and-create-ui", "risk": "high", "tests": ["tablet-lifecycle", "snapshot-native-originals", "tablet-settings", "tablet-e2e-adapter", "create-qml", "create-properties", "create-message", "normal-create", "normal-chat", "normal-login", "script-feature-journey", "script-feature-engine", "authentication-feature-journey", "authentication-feature-engine", "tablet-home-ray", "lifecycle-input-owner", "lifecycle-background-owner"]},
     {"id": "avatar-and-object-interaction", "risk": "high", "tests": ["avatar-hotpath", "interaction-diagnostics", "emote"]},
+    {"id": "snapshot-originals-and-normal-input", "risk": "high", "tests": ["snapshot-native-originals", "snapshot-normal-still-owner"]},
     {"id": "serverless-world-loading", "risk": "critical", "tests": ["world-state", "serverless-fixtures"]},
     {"id": "unattended-device-tooling", "risk": "medium", "tests": ["unattended-runner", "device-lock", "microphone-runner", "feature-observation", "normal-scripts", "script-feature-journey", "script-feature-engine"]},
     {"id": "power-and-performance-analysis", "risk": "medium", "tests": ["power-analyzer", "avatar-hotpath", "shadergen-jobs"]},

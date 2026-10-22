@@ -8,6 +8,7 @@ digests match their transferred bytes and nonempty originals remain unchanged.
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 import hashlib
+from copy import deepcopy
 import json
 import os
 from pathlib import Path
@@ -43,14 +44,19 @@ for snapshot_path in "$snapshot_root"/"$1"-*; do
     case "$snapshot_path" in *.png|*.jpg|*.gif) ;; *) continue ;; esac
     [ -f "$snapshot_path" ] && [ ! -L "$snapshot_path" ] || exit 1
     [ "$(stat -c %h "$snapshot_path")" = 1 ] || exit 1
+    snapshot_before=$(stat -c '%d %i %f %u %h %s %y %z' "$snapshot_path") || exit 1
     snapshot_count=$((snapshot_count + 1))
     [ "$snapshot_count" -le 8 ] || exit 1
     snapshot_size=$(stat -c %s "$snapshot_path") || exit 1
     [ "$snapshot_size" -ge 0 ] && [ "$snapshot_size" -le "$2" ] || exit 1
     snapshot_hash=$(sha256sum "$snapshot_path") || exit 1
     snapshot_hash=${snapshot_hash%% *}
+    snapshot_absolute=$(readlink -f "$snapshot_path") || exit 1
+    snapshot_path_hash=$(printf '%s\000%s' "$3" "$snapshot_absolute" | sha256sum) || exit 1
+    snapshot_path_hash=${snapshot_path_hash%% *}
+    [ ! -L "$snapshot_path" ] && [ "$snapshot_before" = "$(stat -c '%d %i %f %u %h %s %y %z' "$snapshot_path")" ] || exit 1
     snapshot_name=${snapshot_path##*/}
-    printf '%s\t%s\t%s\n' "$snapshot_name" "$snapshot_size" "$snapshot_hash"
+    printf '%s\t%s\t%s\t%s\t%s\n' "$snapshot_name" "$snapshot_size" "$snapshot_hash" "$snapshot_before" "$snapshot_path_hash"
 done
 printf 'OVT_SNAPSHOT_FILES_END_V1\n'
 '''.strip()
@@ -66,6 +72,13 @@ printf '\nOVT_SNAPSHOT_BYTES_END_V1\n'
 '''.strip()
 
 
+def original_stat(value,size):
+    return (type(value) is str and type(size) is int and size>=0 and re.fullmatch(
+        r'[0-9]+ [0-9]+ [0-9a-fA-F]+ [0-9]+ 1 '+str(size)
+        +r' \d{4}-\d\d-\d\d \d\d:\d\d:\d\d\.\d{9} [+-]\d{4}'
+        +r' \d{4}-\d\d-\d\d \d\d:\d\d:\d\d\.\d{9} [+-]\d{4}',value) is not None)
+
+
 class AndroidSnapshotFiles:
     def __init__(self, adb, selector, package, context, check_continuity, artifact_directory):
         AdbTransport._validate_debug_app_file(package, ROOT)
@@ -77,6 +90,7 @@ class AndroidSnapshotFiles:
                 or any(ord(character) < 33 or ord(character) == 127 for character in context['processIdentity'])):
             raise SnapshotFileError('Native Snapshot file context is invalid')
         self.adb, self.selector, self.package = adb, selector, package
+        self.last_original = None
         self.context = dict(context)
         self.check_continuity = check_continuity
         self.artifacts = Path(artifact_directory)
@@ -108,9 +122,11 @@ class AndroidSnapshotFiles:
         self._check()
         return result
 
-    def _list(self, prefix):
+    def _list(self, prefix, run=''):
         validate_operation_arguments('snapshot.files', {'prefix': prefix})
-        raw = self._execute(LIST_SCRIPT, prefix, str(MAX_BYTES))
+        if type(run) is not str or run and re.fullmatch('[0-9a-f]{32}',run) is None:
+            raise SnapshotFileError('Native Snapshot original run is invalid')
+        raw = self._execute(LIST_SCRIPT, prefix, str(MAX_BYTES),run)
         if not isinstance(raw, bytes) or len(raw) > 4096:
             raise SnapshotFileError('Native Snapshot file list exceeds its bound')
         try:
@@ -127,14 +143,16 @@ class AndroidSnapshotFiles:
         observed = {}
         for line in lines:
             fields = line.split('\t')
-            if len(fields) != 3:
+            if len(fields) != 5:
                 raise SnapshotFileError('Native Snapshot file list is malformed')
-            name, size, digest = fields
+            name, size, digest, original, path_digest = fields
             if (re.fullmatch(re.escape(prefix) + r'-[A-Za-z0-9_-]{1,64}\.(png|jpg|gif)', name) is None
                     or name in observed or not size.isascii() or not size.isdigit()
-                    or not 0 <= int(size) <= MAX_BYTES or re.fullmatch('[0-9a-f]{64}', digest) is None):
+                    or not 0 <= int(size) <= MAX_BYTES or re.fullmatch('[0-9a-f]{64}', digest) is None
+                    or re.fullmatch('[0-9a-f]{64}',path_digest) is None
+                    or not original_stat(original,int(size))):
                 raise SnapshotFileError('Native Snapshot file observation is invalid')
-            observed[name] = {'bytes': int(size), 'sha256': digest}
+            observed[name] = {'bytes': int(size), 'sha256': digest, 'originalStat': original, 'pathSha256':path_digest}
         return observed
 
     def _read(self, basename):
@@ -168,8 +186,13 @@ class AndroidSnapshotFiles:
                     or metadata.st_size != len(content) or os.name != 'nt'
                     and (metadata.st_uid != os.geteuid() or metadata.st_mode & 0o077)):
                 raise SnapshotFileError('Native Snapshot artifact collision') from None
-            with destination.open('rb') as stream:
-                if hashlib.sha256(stream.read(MAX_BYTES + 1)).hexdigest() != digest:
+            descriptor = os.open(destination,os.O_RDONLY | getattr(os,'O_NOFOLLOW',0) | getattr(os,'O_NONBLOCK',0))
+            with os.fdopen(descriptor,'rb') as stream:
+                signature=lambda v:(v.st_dev,v.st_ino,v.st_size,v.st_mode,v.st_uid,v.st_nlink,v.st_mtime_ns,v.st_ctime_ns)
+                if (signature(os.fstat(stream.fileno()))!=signature(metadata)
+                        or hashlib.sha256(stream.read(MAX_BYTES + 1)).hexdigest() != digest
+                        or signature(os.fstat(stream.fileno()))!=signature(metadata)
+                        or signature(destination.lstat())!=signature(metadata)):
                     raise SnapshotFileError('Native Snapshot artifact collision')
         else:
             try:
@@ -182,8 +205,9 @@ class AndroidSnapshotFiles:
                 raise
         return filename
 
-    def files(self, prefix):
-        before = self._list(prefix)
+    def files(self, prefix, *, run=''):
+        self.last_original = None
+        before = self._list(prefix,run)
         copied = {}
         for basename, metadata in sorted(before.items()):
             # head imposes the byte ceiling inside the trusted OS file command,
@@ -192,7 +216,7 @@ class AndroidSnapshotFiles:
             if metadata['bytes'] > 0 and not self._matches(metadata, content):
                 raise SnapshotFileError('Native Snapshot original bytes changed during transfer')
             copied[basename] = content
-        after = self._list(prefix)
+        after = self._list(prefix,run)
         # Animated capture publishes its still/GIF companions separately. New
         # entries, or an empty reservation completing, are legitimate progress;
         # already copied nonempty bytes must remain identical. Empty originals
@@ -206,7 +230,7 @@ class AndroidSnapshotFiles:
                 if current is None:
                     raise SnapshotFileError('Native Snapshot reservation disappeared')
                 copied[name] = self._read(name)
-                after = self._list(prefix)
+                after = self._list(prefix,run)
                 if after.get(name) != current or not self._matches(current, copied[name]):
                     raise SnapshotFileError('Native Snapshot reservation did not settle')
         if (any(metadata['bytes'] > 0 and after.get(name) != metadata for name, metadata in before.items())
@@ -216,4 +240,6 @@ class AndroidSnapshotFiles:
         result = [{'basename': name, 'artifact': self._publish(name, content, after[name]['sha256'])}
                   for name, content in sorted(copied.items())]
         self._check()
+        self.last_original=deepcopy({'prefix':prefix,'context':self.context,'files':[
+            {'basename':row['basename'],'artifact':row['artifact'],**after[row['basename']]} for row in result]})
         return {'files': result}

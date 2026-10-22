@@ -60,6 +60,7 @@ TESTS = (
     test("audio-page-owner", "audio", PYTHON, "device/test_audio_page_owner.py"),
     test("audio-settings-source", "audio", PYTHON, "device/test_audio_settings.py", requires=("node", "c++", "pkg-config")),
     test("snapshot-native-originals", "interaction", PYTHON, "device/test_snapshot_originals.py", requires=("node", "c++", "pkg-config")),
+    test("snapshot-normal-still-owner", "interaction", PYTHON, "device/test_snapshot_still_owner.py"),
     test("openxr-loader", "openxr", PYTHON, "pico-openxr-loader-test.py"),
     test("openxr-input", "openxr", PYTHON, "pico-openxr-input-test.py"),
     test("openxr-display", "openxr", PYTHON, "pico-openxr-display-test.py"),
