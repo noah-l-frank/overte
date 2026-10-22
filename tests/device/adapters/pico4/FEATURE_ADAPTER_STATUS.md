@@ -580,3 +580,15 @@ observations additionally pass their narrow serializer/coordinate checks. The
 full app/APK, V8 proxy additions and MyAvatar/TSI bodies remain uncompiled where
 not explicitly covered. Devices remain untested. Complete feature areas remain
 three; no partial helper or successful input receipt advertises another triple.
+
+## Durable Pico Emote original acquisition
+
+The [original-source owner](EMOTE_SOURCES.md) now retains the actual compiled
+Pico Emote source, configured roots, passive twelve-animation cache inventory,
+Rig and VR chooser originals under the existing shared source lock. Interrupted
+reads cannot be replayed; exact complete archival bytes can be recovered without
+querying native sources or returning historical facts as fresh. Both roles retain
+private journals and general teardown refuses success while they remain. The
+common immutable original store was extracted from a fixed reviewed Phone commit;
+its transport and Phone UI were excluded. This is source/host progress within
+Emotes; the complete area, application build and device qualification remain open.

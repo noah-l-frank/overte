@@ -78,6 +78,7 @@ TESTS = (
     test("create-callback-native", "interaction", PYTHON, "device/test_create_callbacks_native.py", requires=("c++", "pkg-config")),
     test("normal-chat", "interaction", PYTHON, "device/test_normal_chat.py"),
     test("normal-emote", "interaction", PYTHON, "device/test_normal_emote.py"),
+    test("emote-original-sources", "interaction", PYTHON, "pico-emote-sources-test.py"),
     test("normal-login", "interaction", PYTHON, "device/test_normal_login.py"),
     test("create-qml", "interaction", PYTHON, "pico-create-qml-test.py"),
     test("create-properties", "interaction", "node", "pico-create-properties-validation-test.js", requires=("node",)),

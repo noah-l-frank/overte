@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "status": "local-packets-verified-scope-in-progress",
-  "qualification": "Source implementation, selected device-free host checks and focused original native component compilation; not a complete 59-group catalog or native application/device qualification.",
+  "qualification": "Source implementation, selected device-free host checks and focused original native component compilation; not a complete 60-group catalog or native application/device qualification.",
   "sourceCompleteAreas": [
     "scripts",
     "authentication",
@@ -2375,5 +2375,65 @@
     },
     "native": "Original serializer/command validator, shared OpenXR axes block and actual Application DriveZ assignment compile/execute with existing Qt5/GLM; original result admission tested separately from actual writer. Correct Pico forward sign is positive DriveZ. Actual Pico override consumption history is next work. Full MyAvatar/TSI/application not compiled.",
     "initialFailure": "First invocation supplied the GLM path under the tablet-test variable rather than this harness OVERTE_HOST_GLM_INCLUDE; corrected invocation uses existing same read-only headers, no dependency change."
+  },
+  "emoteOriginalSources20261022": {
+    "status": "source-and-focused-host-verified-component-only",
+    "sourceSelection": "PHONE_SHARED_EMOTE_ORIGINALS_20261022.json",
+    "protocols": {
+      "emote-originals": 1,
+      "pico-emote-sources": 1
+    },
+    "checks": [
+      {
+        "command": "Pico emote-original-sources group",
+        "tests": 28,
+        "durationSeconds": 17.386,
+        "status": "passed"
+      },
+      {
+        "command": "Pico normal-emote group after independent-runner import-path correction",
+        "tests": 8,
+        "durationSeconds": 28.64,
+        "status": "passed"
+      },
+      {
+        "command": "Pico suite-runner and coverage-matrix",
+        "groups": 2,
+        "status": "passed",
+        "catalogGroups": 60
+      },
+      {
+        "command": "Required documentation/documentation-contracts/source-layout/project-coverage",
+        "suites": 4,
+        "durationSeconds": 3.15,
+        "status": "passed"
+      }
+    ],
+    "counterexamples": [
+      "Each missing original root/code/cache/Rig response remains reading across reconstruction, without resend",
+      "Original phase crossing retains archival frame and returns no current facts",
+      "Frozen target and host clocks cannot hide monotonic acquisition or archival delay",
+      "Foreign role/candidate, replaced original inode, mutated model birth, unknown compilation and regressed UI cursor fail",
+      "Original private Pico factory uses actual shared Script lock and VR bridge; base process stop retains journal and refuses success"
+    ],
+    "failuresAndCorrections": [
+      "Initial synthetic UI carried non-Pico tokens and a tablet-only unsupported field; original navigation parser rejected it. Corrected explicit synthetic boundary to actual UUID tokens/schema.",
+      "Initial synthetic second Rig frame skipped its original intervening history row; strict native history reader rejected it. Fixed synthetic immutable timeline.",
+      "Private wrapper sanitizes to ValueError; corrected two test expectations without changing adapter behavior.",
+      "Pico standalone wrapper initially lacked historical self-test fixture module path; added the test-only path. Selected normal-emote retest passed."
+    ],
+    "nativeApplicationBuild": "not-built",
+    "deviceQualification": "untested",
+    "remaining": "Whole one-send input/effect/actor/current-stereo composition, interruption and actual timer/callback/native-resource retirement. No full Emote capability or source journal retirement."
+  },
+  "chatDistantPeer20261022": {
+    "sourceCommit": "f6564bdca64f5dae695be9ee8aa8b9e906edef07",
+    "primaryCommit": "0a6d25a132",
+    "status": "focused-host-verified-partial",
+    "componentTests": 25,
+    "componentDurationSeconds": 22.883,
+    "actualQt5ActorFilesPositionTests": 1,
+    "nativeDurationSeconds": 1.455,
+    "qualification": "Original actor IPC/position helpers compiled and run; full MessagesClient/Agent/TSI/native application and devices unqualified. Journals retained."
   }
 }

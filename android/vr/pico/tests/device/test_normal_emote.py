@@ -111,5 +111,36 @@ class PicoEmoteTests(unittest.TestCase):
         self.widget.capture=lambda:dict(original(),scope=self.flow.previous['scope'])
         with self.assertRaises(RuntimeError):self.flow.capture()
 
+    def test_durable_source_factory_uses_existing_lock_candidate_and_actual_vr_binding(self):
+        from adapters.pico4.emote_sources import PicoEmoteSources
+        from adapters.script_journey.lock import ScriptSourceLock
+        from self_tests.test_pico_emote_sources import SourcesTests
+        seam=SourcesTests();seam.setUp();self.addCleanup(seam.doCleanups)
+        path=self.instance._script_journey().state_path(self.native.target)
+        lock=ScriptSourceLock(path.with_name('script-sources.lock'))
+        before=len(self.native.inputs)
+        with lock.held():
+            owner=self.instance._emote_sources(self.native.target,seam.phase,'primary',seam.root,lock)
+            self.assertIsInstance(owner,PicoEmoteSources)
+            self.assertEqual(self.native.bridge_id,owner.binding['sessionId']);self.assertEqual(123,owner.pid)
+            self.assertEqual(lock,owner.lock);self.assertEqual([],owner.frames)
+        self.assertEqual(before,len(self.native.inputs))
+        foreign=ScriptSourceLock(seam.root/'foreign.lock')
+        with foreign.held(),self.assertRaises(ValueError):
+            self.instance._emote_sources(self.native.target,seam.phase,'primary',seam.root,foreign)
+
+    def test_source_transcript_survives_base_cleanup_and_prevents_success(self):
+        from adapters.script_journey.lock import ScriptSourceLock
+        from self_tests.test_pico_emote_sources import SourcesTests
+        seam=SourcesTests();seam.setUp();self.addCleanup(seam.doCleanups)
+        path=self.instance._script_journey().state_path(self.native.target)
+        lock=ScriptSourceLock(path.with_name('script-sources.lock'))
+        with lock.held():
+            owner=self.instance._emote_sources(self.native.target,seam.phase,'primary',seam.root,lock)
+            owner.save();original=owner.store.read()
+        with self.assertRaises(ValueError):self.instance.cleanup(self.native.target)
+        self.assertFalse(self.native.running)
+        self.assertEqual(original,owner.store.read())
+
 
 if __name__=='__main__':unittest.main()

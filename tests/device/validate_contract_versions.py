@@ -144,6 +144,8 @@ REQUIRED = {
     "native-script-roots": 1,
     "native-animation-inventory": 1,
     "emote-animation-readiness": 1,
+    "emote-originals": 1,
+    "pico-emote-sources": 1,
     "phone-emote-manager-pins": 1,
     "emote-rig-measurement": 2,
     "native-script-file-controls": 1,

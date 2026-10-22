@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "abb7f6b60d97daf17752aadf94e2b5df099bb7ba",
+  "targetBase": "0a6d25a1324c016bff32eafe12b83389bcaf5dc0",
+  "uncommittedPhoneWorkExcluded": true,
+  "files": [
+    {
+      "sourcePath": "tests/device/adapters/android-phone/overte_phone_emote_originals.py",
+      "targetPath": "tests/device/adapters/emote_originals.py",
+      "sourceSha256": "a96888979d3398b9b4c92a6e65b76d5f498beef3b65818f0ac73e45ed66cb5ee",
+      "targetSha256": "e7edd3cac8a5f76d57b7a17598fcf112cd0256695a4dd2f453062038431c6caa",
+      "selection": "reviewed-platform-independent-storage-extraction"
+    },
+    {
+      "sourcePath": "android/phone/tests/device/test_emote_originals.py",
+      "targetPath": "tests/device/self_tests/test_emote_originals.py",
+      "sourceSha256": "00c3e16e83c7e16caccc754a79b5c6c3b5024ebda79a4c41290b331fe525ab45",
+      "targetSha256": "ce51491b5d9ad956f639f488a431f6a0943992b07006d293fa4694e79eda4bd0",
+      "selection": "reviewed-platform-independent-storage-extraction"
+    }
+  ],
+  "notes": [
+    "Only private canonical original storage/manifests are extracted; shared Script history imports and public class name replace Phone-only names.",
+    "The companion PicoEmoteSources owner uses actual native Pico VR navigation snapshots, retained chooser semantics, shared original readers and the existing source lock. Phone touch transport, mono evidence and whole Phone Sources/admission are not copied."
+  ]
+}

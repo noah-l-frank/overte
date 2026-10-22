@@ -487,6 +487,28 @@ def create_adapter(args, base_class):
             manager = self._scripts(target)
             return TokenEmoteUI(PicoEmoteIO(manager.ui.io), intent, receipt=receipt)
 
+        def _emote_source_store(self, target, role):
+            _need(role in ('primary', 'actor'))
+            state, _ui = self._script_paths(target)
+            return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-', 'emote-' + role + '-sources-')))
+
+        @_private
+        def _emote_sources(self, target, phase, role, artifact_root, source_lock):
+            from adapters.pico4.emote_sources import PicoEmoteSources
+            from adapters.script_journey.lock import ScriptSourceLock
+            _need(isinstance(source_lock, ScriptSourceLock)
+                and source_lock.path == self._script_journey().state_path(target).with_name('script-sources.lock'))
+            source_lock.assert_held()
+            ui, _observe, binding = self._script_runtime(target)
+            native = self._native_feature_observer(target)
+            _need(native.pid == int(binding['processIdentity'].split(':')[0]))
+            def readers():
+                source_lock.assert_held(); native.guard()
+                return (self._script_roots_observer(target), self._script_execution_observer(target),
+                    self._animation_inventory_observer(target), self._native_feature_observer(target), ui.io)
+            return PicoEmoteSources(self._emote_source_store(target, role), binding, phase, role,
+                source_lock, artifact_root, readers, native.guard, native.clock_ms, monotonic=native.monotonic)
+
         def _create_file_controls(self, target, intent, directory, run, ticket, role, before):
             from adapters.pico4.create_file_ui import CreateFileUI, PicoCreateFileIO
             ui, _observe, _binding = self._script_runtime(target)
@@ -1305,6 +1327,7 @@ def create_adapter(args, base_class):
                       and self._chat_no_replay_store(target).read() is None
                       and self._chat_peer_input_store(target).read() is None and self._chat_peer_send_store(target).read() is None
                       and self._chat_peer_distant_store(target).read() is None
+                      and all(self._emote_source_store(target, role).read() is None for role in ('primary', 'actor'))
                       and all(self._chat_samples_store(target,role).read() is None for role in ('primary','actor')))
             else:
                 _need(not audio_error and not create_error and not feature_error and not script_error and not probe_error and not origin_error and not chat_error)

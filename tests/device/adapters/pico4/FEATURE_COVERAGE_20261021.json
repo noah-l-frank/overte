@@ -414,7 +414,12 @@
         "tests/device/native/NORMAL_EMOTE_CONTROLS.md",
         "tests/device/adapters/pico4/PHONE_SHARED_EMOTE_CONTROLS_20261022.json",
         "android/vr/pico/tests/device/test_normal_emote.py",
-        "android/vr/pico/tests/device/test_emote_ui_native.py"
+        "android/vr/pico/tests/device/test_emote_ui_native.py",
+        "tests/device/adapters/emote_originals.py",
+        "tests/device/adapters/pico4/emote_sources.py",
+        "tests/device/adapters/pico4/EMOTE_SOURCES.md",
+        "tests/device/self_tests/test_emote_originals.py",
+        "tests/device/self_tests/test_pico_emote_sources.py"
       ],
       "declaredCheckpoints": 28,
       "inputVerbs": [
@@ -451,7 +456,7 @@
         "Observe original pose/mapping/timer/resource retirement",
         "Restore captured prior override and closed panel"
       ],
-      "nextExecutableStep": "Compose passive actual loaded-cache admission and durable Pico roots/script/native source groups around normal VR QML Emote input; current v3 selector now distinguishes actual Pico separate VM/retained chooser from Phone included VM/hidden chooser, and pure Rig joins original caller/content/pose/restore. Add stereo avatar evidence, independent actor and whole interruption/resource retirement. Common journey v16 unchanged; no complete Emote triple.",
+      "nextExecutableStep": "Compose durable one-send Emote input ownership and current measured playback/cancel/replacement flows around the retained original source owner. Then join independent actor/current stereo evidence and actual callback/timer/native-resource retirement. Missing/partial source reads and both role journals remain unresolved until the whole independent owner proves release; do not advertise a complete Emote triple.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     },
