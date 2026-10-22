@@ -1475,11 +1475,13 @@
         "kind": "patterns",
         "inputs": [
           "tools/repository-checks/pr_ci_android_runtime.py",
-          "tests/pr-ci-android-runtime-test.py"
+          "tests/pr-ci-android-runtime-test.py",
+          "tools/repository-checks/pr_ci_android_export.py"
         ],
         "required": [
           "tests/pr-ci-android-runtime-test.py",
-          "tools/repository-checks/pr_ci_android_runtime.py"
+          "tools/repository-checks/pr_ci_android_runtime.py",
+          "tools/repository-checks/pr_ci_android_export.py"
         ]
       }
     },

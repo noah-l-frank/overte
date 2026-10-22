@@ -70,9 +70,32 @@ def android_suites(candidate, target, profile, plan):
     if not plan or not plan.get("paths") or plan.get("regular") is not True:
         return suites
     inputs = json.loads((ROOT / ".github/pr-ci-platform-inputs.json").read_text(), object_pairs_hook=C.unique)
-    C.require(type(inputs) is dict and set(inputs) == {"schema", "android", "fallback"}
-              and inputs["schema"] == 1 and inputs["fallback"] == "complete-reviewed-profile"
-              and type(inputs["android"]) is list, "invalid platform input closure policy")
+    C.require(type(inputs) is dict and set(inputs) == {"schema", "android", "infrastructure", "fallback"}
+              and inputs["schema"] == 2 and inputs["fallback"] == "complete-reviewed-profile"
+              and type(inputs["android"]) is list and type(inputs["infrastructure"]) is list,
+              "invalid platform input closure policy")
+    C.require(type(plan["paths"]) is list and all(type(path) is str and path
+              and not Path(path).is_absolute() and ".." not in Path(path).parts
+              for path in plan["paths"]), "invalid platform change paths")
+    known = {suite["name"] for suite in suites}
+    conditional = {}
+    owners = policy()["android"]
+    for closure in inputs["infrastructure"]:
+        C.require(type(closure) is dict and set(closure) == {"name", "targets", "inputs"}
+                  and type(closure["name"]) is str and closure["name"] not in conditional
+                  and type(closure["targets"]) is list and bool(closure["targets"])
+                  and len(set(closure["targets"])) == len(closure["targets"])
+                  and set(closure["targets"]).issubset(owners)
+                  and type(closure["inputs"]) is list and bool(closure["inputs"])
+                  and all(type(path) is str and path and not Path(path).is_absolute()
+                          and ".." not in Path(path).parts for path in closure["inputs"]),
+                  "invalid infrastructure suite input closure")
+        for owner in closure["targets"]:
+            C.require(closure["name"] in {suite["name"] for suite in owners[owner]["suites"]},
+                      "infrastructure closure names an unowned suite")
+        conditional[closure["name"]] = closure
+    selected = [suite for suite in suites if suite["name"] not in conditional
+                or bool(set(plan["paths"]) & set(conditional[suite["name"]]["inputs"]))]
     for case in inputs["android"]:
         C.require(type(case) is dict and set(case) == {"target", "paths_under", "suffix", "inventory", "omit"}
                   and type(case["paths_under"]) is str and case["paths_under"].startswith("android/")
@@ -91,13 +114,12 @@ def android_suites(candidate, target, profile, plan):
                 actual = subprocess.check_output(["git", "--no-replace-objects", "rev-parse", "HEAD:" + path],
                                                  cwd=candidate, stderr=subprocess.DEVNULL).decode().strip()
             except subprocess.CalledProcessError:
-                return suites
+                return selected
             if actual != expected:
-                return suites
-        known = {suite["name"] for suite in suites}
+                return selected
         C.require(set(case["omit"]).issubset(known), "Android input closure names an unowned suite")
-        return [suite for suite in suites if suite["name"] not in case["omit"]]
-    return suites
+        return [suite for suite in selected if suite["name"] not in case["omit"]]
+    return selected
 
 
 def commands(candidate, target, lane, plan=None):

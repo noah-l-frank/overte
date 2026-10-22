@@ -43,6 +43,18 @@ python3 -I -S -B tools/repository-checks/pr_ci_android_runtime.py inventory \
   --root "$PAYLOAD" --output "$INVENTORY"
 ```
 
+Export the sealed payload without executing it:
+
+```sh
+python3 -I -S -B tools/repository-checks/pr_ci_android_export.py \
+  --root "$PAYLOAD" --inventory "$INVENTORY" \
+  --inventory-sha256 "$PROTECTED_INVENTORY_SHA256" --out "$ARCHIVE"
+```
+
+The export preserves the inventory's file and directory permissions and confined
+symlinks, normalizes timestamps and ownership, and emits regular archive entries
+for filesystem hardlinks. Publication never overwrites an existing archive.
+
 Before consuming a locally prepared or restored payload:
 
 ```sh
@@ -81,6 +93,11 @@ adapter requires its distinct graph. On interruption or timeout, the launcher
 removes only its own unique container and does not retry the build. Failure to
 confirm cleanup is reported separately. Constructing this boundary does not
 verify payload provenance or establish product acceptance.
+
+The Phone dependency sentinel's writer creates its lock and takes an exclusive
+lock before replacing evidence. Its consumer requires that existing regular lock
+file and takes a shared lock through a read-only descriptor. Missing or symlinked
+locks fail; verification never creates state inside the immutable payload.
 
 The same immutable payload also appears at `/prepared`, where candidate source
 cannot shadow its inventory. Proof documents live separately at `/qualification`
