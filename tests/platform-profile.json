@@ -106,6 +106,11 @@
       "name": "android-native-apk-structure",
       "entrypoint": "android/common/native-ci/apk_native_test.py",
       "interpreter": "python"
+    },
+    {
+      "name": "phone-native-ci-unsigned-apk",
+      "entrypoint": "android/phone/native-ci/verify_apk_test.py",
+      "interpreter": "python"
     }
   ]
 }
