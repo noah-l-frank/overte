@@ -126,3 +126,14 @@ not qualify a complete Pico parent, peer executable or device. Integration uses
 this positive in the existing journey selector instead of duplicating its older
 uncompiled-model positive, keeping the unchanged 120-second budget and existing
 legacy/recovery counterexamples.
+
+The warm whole-parent join additionally exposed two different `history` APIs.
+`ChatBackground.history` decodes embedded original packets; `ChatDispatcher.history`
+is an audit method. Neither is a `ChatSourceChunks` owner. The archive plan now
+admits only actual typed immutable history/chunks, retains the Dispatcher's
+separate original chunks, and never invokes either method to invent an archive
+source. Unknown non-callable history/chunk owners remain errors. An exact private
+namespace inventory runs before the original process stops, in addition to the
+final inventory, so unknown roots/rootless chunks prevent process retirement and
+remain untouched. The new narrow regression uses actual private files, original
+OFD catalogs and immutable chunks, with no target input.

@@ -78,6 +78,7 @@ class PicoChatArchivePlan:
                     and all(value[key]==parent.binding[key] for key in ('sourceRevision','artifactSha256')))
                 self.add(ui,value)
             self.add(parent.store,parent.previous);self.catalog.verify_all()
+            self.inventory({row['store'].path for row in self.catalog.rows.values()})
         except BaseException:self.catalog.close_host();raise
 
     def add(self,store,expected):
@@ -87,7 +88,11 @@ class PicoChatArchivePlan:
 
     def add_owner(self,owner):
         need(same(owner.store.read(),owner.previous));self.add(owner.store,owner.previous)
-        history=getattr(owner,'history',None) or getattr(owner,'chunks',None)
+        history=getattr(owner,'history',None)
+        # Background/Dispatcher.history are validated decoding methods, not
+        # immutable files. Dispatcher still owns its separate actual chunks.
+        if callable(history):history=None
+        if history is None:history=getattr(owner,'chunks',None)
         if history is not None:
             need(type(history) is ChatSourceChunks);history.verify()
             for index in range(len(history.identities)):
