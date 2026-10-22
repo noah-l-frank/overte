@@ -41,7 +41,8 @@ class OwnedChatMixer:
         need(stamp(ready_store.path.lstat())==self.stamp)
         exact(self.config,{'schemaVersion','domainUrl','domainHost','domainId','requiredMarkers','expectedEntityCount',
             'bootstrapScriptUrl','peerScriptUrl','peerDisplayName','controlUrl','controlToken',
-            'collaborationEditUrl','collaborationStateUrl','messagesMixerControlUrl'})
+            'collaborationEditUrl','collaborationStateUrl','messagesMixerControlUrl'}
+            | ({'createPermissionsControlUrl'} if 'createPermissionsControlUrl' in self.config else set()))
         need(type(self.config['schemaVersion']) is int and self.config['schemaVersion']==1
             and type(self.config['domainId']) is str and str(uuid.UUID(self.config['domainId']))==self.config['domainId']
             and uuid.UUID(self.config['domainId']).int)
@@ -53,6 +54,7 @@ class OwnedChatMixer:
         need(self.config['controlUrl']==base+'domain-state' and self.config['collaborationEditUrl']==base+'collaboration-edit'
             and self.config['collaborationStateUrl']==base+'collaboration-state'
             and type(self.config['controlToken']) is str and re.fullmatch('[A-Za-z0-9_-]{40,128}',self.config['controlToken']))
+        need('createPermissionsControlUrl' not in self.config or self.config['createPermissionsControlUrl']==base+'create-permissions')
         self.guard_callback=self.guard;self.guard()
         self.controls=tuple(_OwnedMixerControl(self,readonly=readonly) for readonly in (False,True))
 

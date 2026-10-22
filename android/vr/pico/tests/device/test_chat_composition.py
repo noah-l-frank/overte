@@ -73,6 +73,23 @@ class PicoChatCompositionTests(unittest.TestCase):
         owner=self.instance._chat_composition(self.native.target,self.source,self.peer.config,self.ready)
         self.owners.append(owner);return owner
 
+    def test_owned_mixer_accepts_same_original_controller_permissions_extension_and_pins_its_stamp(self):
+        from adapters.chat_journey.owned_mixer import OwnedChatMixer
+        owner=self.compose();value=ready();value['createPermissionsControlUrl']='http://127.0.0.1:48308/v1/create-permissions'
+        store=PrivateFeatureState(self.peer.root/'permissions-ready.json');store.write(value,None)
+        mixer=OwnedChatMixer(owner.peer,store);self.assertTrue(mixer.guard())
+        store.write(value,value)
+        with self.assertRaises(NativeUIError):mixer.guard()
+
+    def test_owned_mixer_refuses_permissions_extension_from_foreign_controller_or_path(self):
+        from adapters.chat_journey.owned_mixer import OwnedChatMixer
+        owner=self.compose()
+        for index,url in enumerate(('http://127.0.0.1:48310/v1/create-permissions',
+            'http://127.0.0.1:48308/v1/foreign-permissions')):
+            value=ready();value['createPermissionsControlUrl']=url
+            store=PrivateFeatureState(self.peer.root/f'foreign-permissions-ready-{index}.json');store.write(value,None)
+            with self.subTest(url=url),self.assertRaises(NativeUIError):OwnedChatMixer(owner.peer,store)
+
     def prepare_sources(self,owner):
         profile=pico_seams.ProfileBoundary()
         from self_tests.test_chat_cache_lifetime import NativeBoundary
