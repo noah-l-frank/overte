@@ -35,6 +35,7 @@ CONTROL_IDS = {'navigation.goto', 'navigation.address', 'navigation.back',
 SNAPSHOT_CHOICES = {'snapshot.mode.' + mode for mode in ('still', 'animated', 'panorama', 'cubemap')} | {
     'snapshot.format.' + value for value in ('png', 'jpg', 'webp')}
 CONTROL_IDS |= SNAPSHOT_CHOICES
+VIEW_MENU_IDS={'view-menu.view','view-menu.first','view-menu.third'}
 MAX_INTEGER = 9007199254740991
 
 
@@ -91,6 +92,9 @@ def validate_snapshot(value, process_id, epoch_ms):
     if type(value) is dict and 'graphicsControlsVersion' in value:
         fields.add('graphicsControlsVersion')
         need(type(value['graphicsControlsVersion']) is int and value['graphicsControlsVersion']==1)
+    if type(value) is dict and 'viewMenuControlsVersion' in value:
+        fields.add('viewMenuControlsVersion')
+        need(type(value['viewMenuControlsVersion']) is int and value['viewMenuControlsVersion']==1)
     if type(value) is dict and 'emoteControlsVersion' in value:
         fields|={'emoteControlsVersion','emoteSourceSequence'}
         need(type(value['emoteControlsVersion']) is int and value['emoteControlsVersion']==2
@@ -172,6 +176,10 @@ def validate_snapshot(value, process_id, epoch_ms):
             if control['id'] in ('chat.settings','chat.erase'):need(value['chatControlsVersion']==2)
         elif is_create:
             need(value.get('createControlsVersion')==1);create_metadata(control);fields=set(control)
+        elif control['id'] in VIEW_MENU_IDS:
+            need(value.get('viewMenuControlsVersion')==1);fields|={'menuInstance','checked','inputReady'}
+            need(identifier(control.get('menuInstance')) and type(control.get('checked')) is bool
+                and type(control.get('inputReady')) is bool and (not control['inputReady'] or control.get('enabled') is True))
         elif control['id'] in ACCOUNT_MENU_IDS:
             need(value.get('accountMenuControlsVersion')==1);fields |= ACCOUNT_MENU_FIELDS
         elif control['id'] in LOGIN_IDS:
@@ -192,7 +200,7 @@ def validate_snapshot(value, process_id, epoch_ms):
         need(set(control) == fields
              and isinstance(control['id'], str) and (control['id'] in CONTROL_IDS
                  or script_control(control['id']) or file_control(control['id']) or audio_control(control['id'])
-                 or graphics_control(control['id']) or control['id'] in LOGIN_IDS or control['id'] in ACCOUNT_MENU_IDS
+                 or graphics_control(control['id']) or control['id'] in LOGIN_IDS or control['id'] in ACCOUNT_MENU_IDS or control['id'] in VIEW_MENU_IDS
                  or is_create and create_control(control['id']) or is_chat and chat_control(control['id'])
                  or is_emote and emote_control(control['id'])
                  or is_places and places_control(control['id']) or is_error and error_control(control['id']) or is_create_file or control['id']==LIFECYCLE_ID)
@@ -401,6 +409,9 @@ class PicoNavigation:
             if action=='replace':need(control_id in ('places.search','places.bookmark.name','places.server.url') and control['focused']);ascii_text(text)
             elif action=='scroll':need(control_id.startswith('places.scroll.') and direction in ('up','down') and text is None)
             else:need(not control_id.startswith('places.scroll.') and direction is None and text is None)
+        elif control_id in VIEW_MENU_IDS:
+            need(snapshot.get('viewMenuControlsVersion')==1 and control['inputReady'] and token is not None
+                and action=='activate' and all(v is None for v in (text,source,index,direction,value,reference)))
         elif control_id in ACCOUNT_MENU_IDS:
             need(snapshot.get('accountMenuControlsVersion')==1 and control['inputReady'] and token is not None
                  and action=='activate' and all(v is None for v in (text,source,index,direction,value,reference)))

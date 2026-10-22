@@ -477,7 +477,11 @@
         "tests/device/adapters/pico4/EMOTE_STEREO_PIXELS.md",
         "tests/device/adapters/pico4/emote_capture.py",
         "tests/device/self_tests/test_pico_emote_capture.py",
-        "tests/device/adapters/pico4/EMOTE_CAPTURE.md"
+        "tests/device/adapters/pico4/EMOTE_CAPTURE.md",
+        "tests/device/adapters/pico4/normal_view_menu.py",
+        "tests/device/native/NormalViewMenuControls.h",
+        "tests/device/contracts/emote/test_view_menu_native.py",
+        "tests/device/adapters/pico4/EMOTE_VIEW_MENU.md"
       ],
       "declaredCheckpoints": 28,
       "inputVerbs": [
@@ -514,7 +518,7 @@
         "Observe original pose/mapping/timer/resource retirement",
         "Restore captured prior override and closed panel"
       ],
-      "nextExecutableStep": "Join the durable original stereo capture owner and current per-eye pixels to existing Rig/input effects, establish actual normal VR scene/avatar/view setup, then independent actor/public flow and complete original resource retirement. Indexed image/native cleanup does not make the whole Emote adapter complete.",
+      "nextExecutableStep": "Compose durable normal View-menu setup/restore with independently observed original avatar/camera/model and eligible full-body stereo capture. Continue controlled scene/avatar setup, independent effects/actor and full Qt/native/journal retirement; native QAction checks are not actual camera or whole Emote verdicts.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     },

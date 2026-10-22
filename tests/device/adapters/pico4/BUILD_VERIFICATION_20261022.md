@@ -388,3 +388,41 @@ actual Pico teardown cases plus all28 current Chat background/witness cases pass
 (30/30,46.621s). No native source, device or physical publisher process runs in
 this selected host check. Whole Chat/Lifecycle and the total3/14 source-complete
 count remain unchanged.
+
+
+## Actual unclipped Qt hit order and normal Pico View menu
+
+5c1beab00b anddd1564c04c integrate3f459cbc79/4a6543a26f while preserving the
+newer Lifecycle/Chat/Emote surfaces. Original Qt software-rendered pixels and
+the same actual QObject trees verify negative-z parent occlusion, higher foreign
+children outside non-clipping parents, real clips and hidden/disabled overlays.
+The actual NativeCreate Properties filter/textures/ApplyTyped input and two
+private-header mutants pass; final Qt5 selector17.511s plus coverage.067s
+(2/68,17.58s). Original Emote pointer/Scroll4.045s, actual Lifecycle field/IME/
+Unicode program and7 actual Chat QML checks also pass. No product UI was changed.
+
+The new gated normal View-menu path binds original VrMenu MenuUserData/QAction
+identity, exclusive native group and actual QML checked/visibility/platform
+facts. Only normal original pointer activation is dispatched. The complete
+original native MenuUserData bodies, bindActionToQmlAction and new Pico apply
+branch execute with actual TabletMenu/Stack/View/Item and WrappedMenu/MenuItem
+under Qt5 andQt6. Original exclusive QAction toggles follow deferred actual QML
+input. The host window/HMD/action registry/sound/pointer-callback boundaries are
+explicit; the camera application slot, whole translation unit, app and HMD are
+not qualified. No camera setter or selected expected camera state is returned.
+Qt5 native selector9.369s plus coverage.080s pass (2/69,9.45s); Qt6 native owning
+case passes13.422s. Initial native fixtures searched QObject ancestry rather than
+actual visual children, then clicked before the menu transition settled; visual
+traversal and real event/frame settling corrected the host fixture, without
+invoking product input handlers. Eight host original-reference cases and one
+actual Pico candidate/token/input factory case are covered by final groups.
+
+The final expanded source/normal groups pass (3/69,176.91s), but the old single
+source group needed135.836s under parallel load. Its146 existing cases were then
+split without loss into original sources/Rig81, stereo54 and background11. The
+new final four-group selection passes with the unchanged default timeout
+(4/71,74.09s): source46.164s, stereo8.881s, background18.975s, coverage.070s.
+Normal Emote separately passes40.996s. No native observation/input/quiet timeout
+was enlarged. All four final project checks pass2.92s; registry and whitespace
+pass. Source completeness remains3/14; durable view setup/restore, controlled
+scene/avatar, independent actor and complete Emote retirement remain unfinished.

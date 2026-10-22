@@ -341,5 +341,29 @@ if(calls!==51||files.length!==1||files[0].available!==false||"source" in files[0
         self.assertFalse(self.native.running)
         self.assertEqual(originals,[store.read() for store in (image,world)])
 
+    def test_actual_view_menu_factory_uses_bound_native_tokens_and_normal_pico_input_once(self):
+        from adapters.pico4.normal_view_menu import PicoViewMenu
+        self.native.opened=True;original_snapshot=self.native.snapshot;original_write=self.native.write_debug_app_file
+        menu=str(uuid.uuid4());token=str(uuid.uuid4());checked=[False]
+        def snapshot():
+            value=original_snapshot();value['viewMenuControlsVersion']=1
+            value['controls'].append(dict(id='view-menu.third',token=token,menuInstance=menu,checked=checked[0],
+                enabled=True,focused=False,inputReady=True));return value
+        def write(target,package,path,raw):
+            command=json.loads(raw)
+            if command.get('controlId')!='view-menu.third':return original_write(target,package,path,raw)
+            self.assertEqual(1,len(self.intents));self.assertEqual(token,command['controlToken'])
+            self.assertEqual('activate',command['action']);self.native.inputs.append(deepcopy(command))
+            self.native.sequence=command['sequence'];checked[0]=True
+            self.native.status=dict(schemaVersion=1,bridgeId=self.native.bridge_id,commandId=command['commandId'],
+                sequence=command['sequence'],performed=True,error='',processId=123,updatedEpochMs=self.native.epoch_milliseconds(target))
+        with patch.object(self.native,'snapshot',side_effect=snapshot),patch.object(self.native,'write_debug_app_file',side_effect=write):
+            flow=self.instance._view_menu_controls(self.native.target,self.intents.append);self.assertIsInstance(flow,PicoViewMenu)
+            before=flow.capture();flow.activate('view-menu.third',before);self.assertTrue(flow.capture()['controls'][0]['checked'])
+            self.assertEqual(1,len(self.native.inputs))
+            with self.assertRaises(RuntimeError):flow.activate('view-menu.third',before)
+            self.assertEqual(1,len(self.native.inputs));self.native.digest='f'*64
+            with self.assertRaises((RuntimeError,ValueError)):flow.capture()
+
 
 if __name__=='__main__':unittest.main()

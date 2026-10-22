@@ -19,6 +19,9 @@
 #include "../../../../../../tests/device/native/NormalEmoteControls.h"
 #include "../../../../../../tests/device/native/NormalLifecycleControls.h"
 #include "../../../../../../tests/device/native/NormalAccountMenuControls.h"
+#if defined(ANDROID_APP_PICO_INTERFACE)
+#include "../../../../../../tests/device/native/NormalViewMenuControls.h"
+#endif
 #include "../../../../../../tests/device/native/NormalPlacesControls.h"
 #include "../../../../../../tests/device/native/NavigationFailureModals.h"
 #include "../../../../../../tests/device/native/NavigationEnvironmentObservation.h"
@@ -68,9 +71,20 @@ bool enabled(QQuickItem* item) {
     return item->isEnabled() && (!explicitEnabled.isValid() || explicitEnabled.toBool());
 }
 
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+overte::e2e::ViewMenuContext viewMenuContext() {
+    auto menu=Menu::getInstance();
+    return menu ? overte::e2e::ViewMenuContext{menu->getMenuAction("View"),
+        menu->getActionForOption(MenuOption::FirstPersonLookAt),menu->getActionForOption(MenuOption::LookAtCamera),qApp->isHMDMode()}
+        : overte::e2e::ViewMenuContext{};
+}
+#endif
+
 QString controlId(QQuickItem* item) {
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #if defined(ANDROID_APP_PICO_INTERFACE)
+    const auto view=overte::e2e::viewMenuControlId(item,viewMenuContext());
+    if (!view.isEmpty()) {return view;}
     const auto createFile=overte::e2e::createFileControlId(item);
     if (!createFile.isEmpty()) { return createFile; }
     const auto navigationError=overte::e2e::navigationFailureModals().controlId(item);
@@ -239,6 +253,10 @@ QJsonObject NavigationUi::observe(QQuickItem* root, QQuickWindow* window, bool o
                 auto source = fileSource.isEmpty() ? overte::e2e::scriptRowSource(item) : fileSource;
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #if defined(ANDROID_APP_PICO_INTERFACE)
+                if (id.startsWith("view-menu.")) {
+                    source=overte::e2e::viewMenuControlSource(item,id,viewMenuContext());
+                    if (source.isEmpty()) {ambiguous=true;return;}
+                } else
                 if (id.startsWith("create-file.")) {
                     source=overte::e2e::createFileControlSource(item,id);
                     if (source.isEmpty()) { ambiguous=true;return; }
@@ -336,6 +354,9 @@ QJsonObject NavigationUi::observe(QQuickItem* root, QQuickWindow* window, bool o
         overte::e2e::appendScriptFileObservation(row, control.item, id);
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #if defined(ANDROID_APP_PICO_INTERFACE)
+        if (id.startsWith("view-menu.")) {
+            overte::e2e::appendViewMenuObservation(row,control.item,id,viewMenuContext());
+        } else
         if (id.startsWith("create-file.")) {
             overte::e2e::appendCreateFileObservation(row,control.item,id);
         } else
@@ -391,6 +412,7 @@ QJsonObject NavigationUi::observe(QQuickItem* root, QQuickWindow* window, bool o
     if (accountMenuContext.login.valid) { result["accountMenuControlsVersion"]=1; }
     result["navigationAddressVersion"]=1;
 #if defined(ANDROID_APP_PICO_INTERFACE)
+    result["viewMenuControlsVersion"]=1;
     result["placesControlsVersion"]=1;
     result["navigationErrorControlsVersion"]=1;
     result["navigationOriginControlsVersion"]=1;
@@ -455,7 +477,14 @@ QJsonObject NavigationUi::apply(QQuickItem* root, QQuickWindow* window, bool ope
     bool delivered { false };
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #if defined(ANDROID_APP_PICO_INTERFACE)
-    if (controlId.startsWith("navigation.error.ok.")) {
+    if (controlId.startsWith("view-menu.")) {
+        QJsonObject row;overte::e2e::appendViewMenuObservation(row,control.item,controlId,viewMenuContext());
+        const auto point=control.item->mapToScene(QPointF(control.item->width()/2,control.item->height()/2));
+        if (current.value("viewMenuControlsVersion")==QJsonValue(1) && row.value("inputReady").toBool()
+                && action=="activate" && pointerClick && overte::e2e::NormalControlUi::ownsPoint(control.item,window,point)) {
+            delivered=pointerClick(control.item);
+        }
+    } else if (controlId.startsWith("navigation.error.ok.")) {
         QJsonObject row;overte::e2e::navigationFailureModals().appendControl(row,control.item,controlId);
         const auto point=control.item->mapToScene(QPointF(control.item->width()/2,control.item->height()/2));
         if (current.value("navigationErrorControlsVersion")==QJsonValue(1) && row.value("inputReady").toBool()

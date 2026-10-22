@@ -494,6 +494,12 @@ def create_adapter(args, base_class):
             state, _ui = self._script_paths(target)
             return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-', 'emote-' + role + '-sources-')))
 
+        @_private
+        def _view_menu_controls(self,target,intent):
+            from adapters.pico4.normal_view_menu import PicoViewMenu
+            ui,_observe,_binding=self._script_runtime(target)
+            return PicoViewMenu(ui.io,intent,monotonic=ui.monotonic,sleep=ui.sleep)
+
         def _emote_world_render_store(self, target, role):
             source=self._emote_source_store(target,role)
             return PrivateFeatureState(source.path.with_name(source.path.stem+'-world-render.json'))
