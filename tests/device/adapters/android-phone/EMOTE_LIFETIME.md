@@ -150,3 +150,69 @@ only. Failed pending lifetime acquisitions use the [versioned failure transfer](
 before a later new quiet-window acquisition. The enclosing Run cleanup invokes
 this transfer for each role after source/role failure retention. Whole-facade
 integration remains pending.
+
+
+## Final actual Script-work observation, version 1
+
+`final_work(retain)` joins a completed original three-second quiet window to a
+new actual closed-source group and a later independent manager-thread work read
+after actual fixture closure. It reuses the same work validation, selected/
+unclassified classification and original activity counters as active lifetime
+checks. No new product input is sent; the active lifetime/source controls,
+records, manifests and original times remain unchanged. This is a measured
+cleanup prerequisite, not a complete feature or host-journal retirement verdict.
+
+The parent callback must durably retain three successive exact envelopes:
+`{emoteFinalWorkVersion:1, role, segment, phase, lifetimeHeader, source, work,
+providerAfter, epochMs, hostEpochMs, startedMonotonicMs, observedMonotonicMs}`.
+`lifetimeHeader` is the entire original complete lifetime control. `source` is
+the original closed-source v1 packet described in [source acquisition](EMOTE_SOURCES.md).
+The role/segment come from the actual bound owner. The phases are:
+
+- `source`: closed-source pending packet, retained before native source queries.
+- `work`: exact completed closed-source group, retained before querying work.
+- `complete`: actual work packet, later inactive provider packet and original
+  native/host/monotonic observation times; no expected facts are substituted.
+
+Before complete, `work`, `providerAfter`, `epochMs`, `hostEpochMs` and
+`observedMonotonicMs` are all null. `startedMonotonicMs` records the actual start
+of the final acquisition. Completed time must advance from it and span less than
+five seconds. Work restores all previous original worker cursors and must advance
+the actual work sequence/birth/member/code/compilation inventories. The request
+occurs after the new source widget capture; the provider observation follows
+both real reads. The current native/process/manager assignment, all-known
+membership, submitted code and actual compiled source must agree independently.
+The fixture must already be retired under the identical cleanup history.
+
+The final native Rig/history identity, call/override counters, lifecycle and
+consumed UI input sequence must still match the old quiet tail. Actual current
+selected-function timers, retained inactive timer entries, active selected or
+unclassified callbacks, unclassified timers and evaluation must be absent.
+Selected and unclassified cumulative invocation/registration counters in compiled
+work v2 must also be unchanged since that tail: a callback that completed between reads cannot
+hide behind current zero counts. Actual known unrelated default-script work is
+preserved and may advance; it is never called globally absent or cleared.
+Standalone legacy work-v1 histories retain their existing whole-manager empty
+inventory checks for historical compatibility. They provide no compiled-scope
+cumulative activity proof and cannot qualify a complete compiled Phone adapter;
+that requires the existing explicit version-4 executable/world admission.
+
+`final_archive(value, source)` is bounded historical validation only. It reopens
+the original source/manifest/inode files, recomputes the complete old dual-clock
+quiet suffix, validates the retained source and later work/provider group, and
+returns the same original data. It does not query a target, refresh timestamps,
+rebuild missing evidence or turn a pending phase into completion. It can replay
+these originals after control retirement using the retained bound source context;
+original evidence files remain mandatory.
+
+The whole measurement is limited to five seconds, and the source's independent
+native/provider 1.5-second age floors include final copying, parent retention and
+candidate/control checks. Rejected source intent issues no native source request;
+rejected work intent issues no work request. Missing, stale, foreign or busy work,
+changed cumulative activity, incomplete original quiet evidence, lost queries,
+failed/late retention and changed candidate leave the old controls owned and
+produce no fresh successful result. Source/work intents stay historical evidence
+for a subsequent new readonly attempt. The enclosing finalizer still must join
+actual Scene/View/image/actor retirement and delete all controls under a durable
+complete handoff. These device-free cases qualify test logic only; native source
+is uncompiled and every device remains untested.

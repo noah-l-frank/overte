@@ -459,4 +459,136 @@ class PhoneEmoteLifetimeTests(unittest.TestCase):
             self.assertEqual(2,current.previous['emoteLifetimeVersion'])
 
 
+    def final_ready(self):
+        owner=self.owner();owner.wait(sleep=self.model.sleep);self.model.journal.close(RUN);return owner
+
+    def test_final_work_retains_real_source_and_work_intents_without_mutating_active_originals(self):
+        m=self.model
+        with m.lock.held():
+            owner=self.final_ready();header=deepcopy(owner.previous);source=deepcopy(owner.source.previous)
+            records=deepcopy(owner.state['records']);retained=[];count=len(m.work_commands)
+            proof=owner.final_work(lambda value:retained.append(deepcopy(value)))
+            self.assertEqual(['source','work','complete'],[value['phase'] for value in retained])
+            self.assertEqual(proof,retained[-1]);self.assertEqual(count+1,len(m.work_commands))
+            self.assertEqual(header,owner.store.read());self.assertEqual(source,owner.source.store.read())
+            self.assertEqual(records,owner.state['records']);self.assertEqual([],m.controls.input_requests)
+            self.assertFalse(proof['providerAfter']['active']);before=len(m.work_commands)
+            self.assertEqual(proof,PhoneEmoteLifetime.final_archive(proof,owner.source));self.assertEqual(before,len(m.work_commands))
+            # Whole retirement may later remove controls; the original files
+            # and parent-retained contexts remain mandatory for pure replay.
+            owner.store.discard(header);owner.source.store.discard(source)
+            self.assertEqual(proof,PhoneEmoteLifetime.final_archive(proof,owner.source))
+
+    def test_final_work_rejects_new_live_retained_timer_callback_or_engine_evaluation(self):
+        m=self.model
+        with m.lock.held():
+            owner=self.final_ready();header=deepcopy(owner.previous)
+            for busy in (1,2,3,4,5):
+                m.busy=busy;retained=[]
+                with self.subTest(busy=busy),self.assertRaises(NativeUIError):owner.final_work(lambda value:retained.append(value))
+                self.assertEqual(['source','work'],[value['phase'] for value in retained]);self.assertEqual(header,owner.store.read())
+            m.busy=0;self.assertEqual('complete',owner.final_work(lambda _:None)['phase'])
+
+    def test_final_work_does_not_treat_provider_metadata_as_a_worker_measurement(self):
+        m=self.model
+        with m.lock.held():
+            owner=self.final_ready();retained=[];m.work_fault='lost'
+            with self.assertRaises(NativeUIError):owner.final_work(lambda value:retained.append(deepcopy(value)))
+            self.assertEqual(['source','work'],[value['phase'] for value in retained]);self.assertIsNone(retained[-1]['work'])
+            self.assertEqual(retained[-1],PhoneEmoteLifetime.final_archive(retained[-1],owner.source))
+            m.work_fault=None;proof=owner.final_work(lambda _:None);self.assertEqual('complete',proof['phase'])
+            self.assertIsNone(retained[-1]['work'])
+
+    def test_final_work_requires_both_durable_intents_before_the_corresponding_native_request(self):
+        m=self.model
+        with m.lock.held():
+            owner=self.final_ready();before=len(m.work_commands);reads=m.calls.count('native-read')
+            with self.assertRaises(NativeUIError):owner.final_work(lambda _:False)
+            self.assertEqual(reads,m.calls.count('native-read'));self.assertEqual(before,len(m.work_commands))
+            with self.assertRaises(NativeUIError):owner.final_work(lambda value:value['phase']!='work')
+            self.assertGreater(m.calls.count('native-read'),reads);self.assertEqual(before,len(m.work_commands))
+            self.assertIsNotNone(owner.store.read());self.assertIsNotNone(owner.source.store.read())
+
+    def test_final_work_rejects_stale_or_foreign_work_and_incomplete_original_quiet_evidence(self):
+        m=self.model
+        with m.lock.held():
+            owner=self.final_ready();proof=owner.final_work(lambda _:None)
+            for fault in ('version','role','segment','old-work','missing','provider','window','time'):
+                bad=deepcopy(proof)
+                if fault=='version':bad['emoteFinalWorkVersion']=True
+                elif fault=='role':bad['role']='actor'
+                elif fault=='segment':bad['segment']+=1
+                elif fault=='old-work':bad['work']=deepcopy(owner.state['records'][-1]['work'])
+                elif fault=='missing':bad['work']=None
+                elif fault=='provider':bad['providerAfter']['instance']='9'*32
+                elif fault=='window':
+                    from overte_phone_script_history import unpack,pack
+                    state=unpack(bad['lifetimeHeader']['payload'])[0];state['window']=None;bad['lifetimeHeader']['payload']=pack([state])
+                else:bad['observedMonotonicMs']=bad['startedMonotonicMs']-1
+                with self.subTest(fault=fault),self.assertRaises((NativeUIError,ValueError)):
+                    PhoneEmoteLifetime.final_archive(bad,owner.source)
+
+    def test_final_work_rejects_stale_packets_slow_retention_and_candidate_change(self):
+        m=self.model
+        with m.lock.held():
+            owner=self.final_ready();header=deepcopy(owner.previous)
+            for fault in ('old','frozen-sequence','birth','code','membership'):
+                m.work_fault=fault
+                with self.subTest(fault=fault),self.assertRaises(NativeUIError):owner.final_work(lambda _:None)
+            m.work_fault=None
+            def late(value):
+                if value['phase']=='complete':m.clock+=2
+            with self.assertRaises(NativeUIError):owner.final_work(late)
+            self.assertEqual(header,owner.store.read())
+            def candidate(value):
+                if value['phase']=='complete':m.okay=False
+            with self.assertRaises(NativeUIError):owner.final_work(candidate)
+            self.assertEqual(header,owner.store.read())
+
+    def test_final_work_checks_cumulative_selected_and_unclassified_activity_since_the_quiet_tail(self):
+        for identifier in (23,0,24):
+            m=self.scoped_model()
+            with self.subTest(identifier=identifier),m.lock.held():
+                if identifier!=23:
+                    m.worker.activity.append(activity(identifier,signal_calls=1));m.worker.activity.sort(key=lambda row:row['scriptId'])
+                owner=self.final_ready();selected=next(row for row in m.worker.activity if row['scriptId']==identifier)
+                selected['signalInvocations']+=1;retained=[]
+                with self.assertRaises(NativeUIError):owner.final_work(lambda value:retained.append(value))
+                self.assertEqual(['source','work'],[value['phase'] for value in retained])
+                self.assertIsNotNone(owner.store.read())
+
+    def test_final_work_allows_actual_unrelated_known_default_work_and_rechecks_original_files(self):
+        m=self.scoped_model()
+        with m.lock.held():
+            owner=self.final_ready();m.worker.activity[-1]['timerInvocations']+=1
+            proof=owner.final_work(lambda _:None);self.assertEqual('complete',proof['phase'])
+            self.assertTrue(m.worker.timers);self.assertEqual(31,m.worker.timers[0]['functionScriptId'])
+            path=next(m.root.glob('emote-frame-sources-*.json'));path.write_bytes(b'{}')
+            with self.assertRaises(NativeUIError):PhoneEmoteLifetime.final_archive(proof,owner.source)
+
+    def test_final_work_requires_an_actual_completed_quiet_window_and_closed_fixture(self):
+        m=self.model
+        with m.lock.held():
+            owner=self.owner();owner.read();retained=[]
+            with self.assertRaises(NativeUIError):owner.final_work(lambda value:retained.append(value))
+            self.assertEqual([],retained);owner.wait(sleep=m.sleep)
+            with self.assertRaises(NativeUIError):owner.final_work(lambda value:retained.append(value))
+            self.assertEqual([],retained);self.assertIsNotNone(owner.store.read())
+
+
+    def test_final_work_rejects_retained_selected_and_unclassified_timer_objects(self):
+        for identifier in (23,24):
+            m=self.scoped_model()
+            with self.subTest(identifier=identifier),m.lock.held():
+                owner=self.final_ready()
+                m.worker.timers.append(dict(handle=8,active=False,singleShot=True,intervalMs=0,remainingMs=-1,functionScriptId=identifier))
+                if identifier==23:m.worker.activity[0]['timerRegistrations']+=1
+                else:
+                    m.worker.activity.append(activity(identifier,registrations=1));m.worker.activity.sort(key=lambda row:row['scriptId'])
+                retained=[]
+                with self.assertRaises(NativeUIError):owner.final_work(lambda value:retained.append(value))
+                self.assertEqual(['source','work'],[value['phase'] for value in retained])
+                self.assertIsNotNone(owner.store.read())
+
+
 if __name__=='__main__':unittest.main()

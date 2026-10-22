@@ -32,8 +32,10 @@ original native groups; namespace retirement v2 replays all original source/inpu
 dependencies without re-dating them. Closed-source observation v1 additionally
 obtains new root/Script/Rig/UI/probe originals after actual provider closure,
 retaining pending responsibility before queries and exact measured completion
-before fresh delivery. Final Script-work/resource verification, the public facade
-and whole-run host-journal retirement remain open; complete Emotes is missing and
+before fresh delivery. Final-work observation v1 now independently checks actual
+Script work and cumulative selected/unclassified activity against the completed
+quiet tail. Whole-run resource/host-journal retirement and the public facade
+remain open; complete Emotes is missing and
 unregistered.
 The [consumed animation data source](../../native/ANIMATION_SOURCE.md) now joins
 actual parser bytes and original retargeted model/resource identity to compiled

@@ -40,8 +40,10 @@ replays all original role-source/input dependencies after actual closure; it
 supplies historical ownership proof rather than fresh native or work facts.
 A separate closed-source observation v1 now acquires new root/Script/Rig/UI/probe
 originals through the existing readers after actual closure, with mandatory
-pending/completed parent retention. Final Script-work and whole-run retirement
-still have to be composed.
+pending/completed parent retention. Final-work observation v1 now independently measures actual work after the new
+source group, checking the original quiet tail and cumulative selected/unknown
+activity. Whole-run resource/journal retirement and public registration still
+have to be composed.
 Emotes still lacks its public facade and whole-run retirement; it is
 not counted as an implemented full triple.
 The [Phone failure owner](adapters/android-phone/EMOTE_FAILURES.md) now retains
