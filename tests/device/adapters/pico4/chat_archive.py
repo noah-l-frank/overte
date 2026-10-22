@@ -18,7 +18,7 @@ from adapters.restart_inputs import validate_native_restart
 from adapters.script_journey.history import same
 from feature_journeys.phase_fixture import PhaseFixtureReader,validate as phase_packet
 
-VERSION=1
+VERSION=2
 
 
 class PicoChatArchivePlan:
@@ -29,7 +29,7 @@ class PicoChatArchivePlan:
     scan is used to discover or adopt journals; scans only reject extra paths.
     """
     def __init__(self,parent):
-        self.parent=parent;self.catalog=ChatArchiveCatalog();self.archive=None
+        self.parent=parent;self.catalog=ChatArchiveCatalog(hold_files=False);self.archive=None
         self.adapter,self.target=parent.adapter,parent.target
         self.state,self.ui=self.adapter._script_paths(self.target)
         self.key=self.state.stem.removeprefix('normal-script-state-');need(re.fullmatch('[0-9a-f]{32}',self.key))

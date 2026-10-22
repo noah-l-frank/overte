@@ -1,4 +1,4 @@
-# Original Pico Chat application and archive closure v1
+# Original Pico Chat application v1 and archive closure v2
 
 The private `PicoChatComposition.restart_and_close_application(after_epoch)` and
 `finalize_application()` extend its existing deferred-cache branch. They do not
@@ -61,8 +61,9 @@ actual completion. Directory enumeration rejects extras; it never discovers or
 adopts ownership. Rootless chunks and retained successor/retirement journals also
 block ordinary generic cleanup.
 
-`ChatEvidenceArchive` holds original Linux directory/file descriptions, full stamps
-and exact bytes. Each source is copied once into a newly created private evidence
+`ChatEvidenceArchive` v2 holds original Linux directory descriptions, full file
+stamps and exact bytes in explicitly closed immutable snapshots. Legacy v1 keeps
+its original held file-description lifetime unchanged. Each source is copied once into a newly created private evidence
 directory, with read-only files and a closed hashed multipart manifest. Writes/unlinks use
 the original directory descriptors; each original parent is requalified. The
 retirement ledger uses compact indices, and the final receipt pins the exact
@@ -141,3 +142,34 @@ The pre-stop inventory includes the exact already-owned, fully consumed retired
 peer reader journal as a known mutable source. It must still serve independent
 post-restart queries. Its original closed bytes are admitted into the archive
 only at `finish()`; a pending transaction or different original owner is refused.
+
+
+Archive v2 fixes the measured complete-catalog `EMFILE` failure without changing
+`RLIMIT_NOFILE` or the existing 4096-file, 64-MiB and 64-KiB bounds.
+`ClosedOriginalFile` reads each explicitly known source through an actual
+`O_NOFOLLOW` file description plus kernel alias. It verifies private mode, UID,
+link count, size, device/inode, nanosecond mtime/ctime, original bytes, FD-to-path
+identity and the continuously held original parent directory. Both handles close
+only after actual `F_DUPFD_QUERY` ownership succeeds. Later access is a new
+bounded read window of the same already-admitted immutable file; it never claims
+that the earlier file description remained open. Every reopened window repeats
+the full physical/byte checks. Changed bytes/stamps/parents and lost/recycled
+halves fail closed. An uncertain pair remains retained for host finalization;
+it cannot close a foreign replacement even when it names the same original file.
+
+Read-only archive copies use the same bounded windows under their held original
+archive directory. The v2 manifest explicitly declares
+`fileOwnership: closed-immutable-originals`; final and retirement versions match.
+The cold reader preserves legacy v1 compatibility and validates v2's closed
+field/version boundary. Pico archive plan v2 requires this v2 ownership mode;
+a relabelled legacy receipt is refused. A sealed cold archive still proves only
+its original bytes and scope, never current device/process release.
+
+The latest 24 affected original-file/archive/plan/Pico-factory cases passed in
+19.648 seconds. The 2100-file original catalog stayed within four additional
+steady descriptors and preserved the process's exact original RLIMIT tuple.
+Counterexamples include same-file FD recycling, identical-byte file replacement,
+parent replacement during a read, archive-copy replacement, unknown roots, lost
+unlink receipts, final-source expiration and v1/v2 scope relabelling. These are
+host filesystem/kernel checks with explicitly synthetic native release sources.
+The complete warm parent has not yet passed final archival and remains partial.
