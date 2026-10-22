@@ -49,6 +49,30 @@ class PicoChatScriptSourceTests(unittest.TestCase):
         self.assertEqual([],self.native.inputs);self.assertEqual([],self.native.controllers)
         self.assertEqual(4,len(source.roots.commands));self.assertEqual(2,len(source.script.commands))
 
+    def test_actual_erase_and_final_factories_keep_same_original_readers_and_private_stage_paths(self):
+        source=self.source_routes();state,_=self.adapter._script_paths(self.native.target)
+        lock=ScriptSourceLock(state.with_name('script-sources.lock'));target=self.native.target
+        active=self.adapter._chat_script_source(target,RUN,role='primary',source_lock=lock)
+        active.capture('1'*32,self.native.epoch_milliseconds(target))
+        erase=self.adapter._chat_script_source(target,RUN,role='primary',source_lock=lock,stage='erase',predecessor=active)
+        active.capture('2'*32,self.native.epoch_milliseconds(target));original=active.store.path.read_bytes()
+        erase.capture('3'*32,self.native.epoch_milliseconds(target))
+        final=self.adapter._chat_script_source(target,RUN,role='primary',source_lock=lock,stage='final',predecessor=erase)
+        final.capture('4'*32,self.native.epoch_milliseconds(target))
+        self.assertEqual(original,active.store.path.read_bytes());self.assertEqual(3,len({s.store.path for s in (active,erase,final)}))
+        self.assertIs(active.roots,final.roots);self.assertIs(active.scripts,final.scripts);self.assertIs(lock,final.lock)
+        self.assertEqual(8,len(source.roots.commands));self.assertEqual([],self.native.inputs);self.assertEqual([],self.native.controllers)
+
+    def test_actual_continuation_factory_rejects_wrong_stage_and_new_candidate_without_queries(self):
+        source=self.source_routes();state,_=self.adapter._script_paths(self.native.target)
+        lock=ScriptSourceLock(state.with_name('script-sources.lock'));target=self.native.target
+        active=self.adapter._chat_script_source(target,RUN,role='primary',source_lock=lock)
+        active.capture('1'*32,self.native.epoch_milliseconds(target));before=len(source.roots.commands)
+        with self.assertRaises(ValueError):self.adapter._chat_script_source(target,RUN,role='primary',source_lock=lock,stage='final',predecessor=active)
+        self.native.digest='f'*64
+        with self.assertRaises(ValueError):self.adapter._chat_script_source(target,RUN,role='primary',source_lock=lock,stage='erase',predecessor=active)
+        self.assertEqual(before,len(source.roots.commands));self.assertEqual([],self.native.inputs)
+
     def test_changed_actual_candidate_and_rootless_source_chunks_cannot_qualify_cleanup(self):
         state,_=self.adapter._script_paths(self.native.target);lock=ScriptSourceLock(state.with_name('script-sources.lock'))
         original_digest=self.native.digest;self.native.digest='f'*64

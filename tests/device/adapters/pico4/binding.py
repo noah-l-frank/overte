@@ -940,22 +940,31 @@ def create_adapter(args, base_class):
             return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-',
                 'chat-'+('erased-' if erased else '')+('witness' if witness else role)+'-samples-')))
 
-        def _chat_script_source_store(self,target,role,*,witness=False):
-            _need(role in ('primary','actor') and type(witness) is bool and (not witness or role=='actor'))
+        def _chat_script_source_store(self,target,role,*,witness=False,stage='active'):
+            _need(role in ('primary','actor') and type(witness) is bool and (not witness or role=='actor')
+                and stage in ('active','erase','final') and (not witness or stage=='active'))
             state,_ui=self._script_paths(target)
             return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-',
-                'chat-'+('witness' if witness else role)+'-script-source-')))
+                'chat-'+('witness' if witness else role)+'-'+('' if stage=='active' else stage+'-')+'script-source-')))
 
         @_private
-        def _chat_script_source(self,target,run,*,role,source_lock,witness=False):
+        def _chat_script_source(self,target,run,*,role,source_lock,witness=False,stage='active',predecessor=None):
             from adapters.chat_journey.script_source import ChatScriptSource
             from adapters.script_journey.lock import ScriptSourceLock
-            store=self._chat_script_source_store(target,role,witness=witness)
+            store=self._chat_script_source_store(target,role,witness=witness,stage=stage)
             _need(isinstance(source_lock,ScriptSourceLock) and source_lock.path==store.path.with_name('script-sources.lock'))
             with source_lock.held():
                 manager=self._scripts(target);native=self._native_feature_observer(target);native.guard()
-                return ChatScriptSource(run,role,manager.binding,self._script_roots_observer(target),
-                    self._script_execution_observer(target),store,source_lock,monotonic=native.monotonic)
+                if stage=='active':
+                    _need(predecessor is None);roots,scripts=self._script_roots_observer(target),self._script_execution_observer(target)
+                else:
+                    previous_stage='active' if stage=='erase' else 'erase'
+                    _need(type(predecessor) is ChatScriptSource and not witness
+                        and predecessor.store.path==self._chat_script_source_store(target,role,stage=previous_stage).path
+                        and predecessor.run==run and predecessor.binding==manager.binding and predecessor.lock is source_lock)
+                    roots,scripts=predecessor.roots,predecessor.scripts
+                return ChatScriptSource(run,role,manager.binding,roots,scripts,store,source_lock,
+                    monotonic=native.monotonic,predecessor=predecessor)
 
         def _chat_flow_inputs_store(self,target):
             state,_ui=self._script_paths(target)
@@ -1332,7 +1341,8 @@ def create_adapter(args, base_class):
                 selected=ChatCacheAbsence;extra={}
                 if script_source is not None:
                     from adapters.chat_journey.compiled_samples import CompiledChatCacheAbsence
-                    _need(script_source.store.path==self._chat_script_source_store(target,role,witness=witness).path)
+                    _need(script_source.store.path in {self._chat_script_source_store(target,role,witness=witness).path,
+                        self._chat_script_source_store(target,role,witness=witness,stage='active' if witness or stage=='initial' else 'final').path})
                     selected=CompiledChatCacheAbsence;extra=dict(script_source=script_source)
                 return selected(run,role,manager.binding,peer_binding,capture.reader,peer,self._chat_view(target),native,
                     store,source_lock,peer_lock,vr=True,monotonic=native.monotonic,**extra)
@@ -1367,7 +1377,8 @@ def create_adapter(args, base_class):
                 selected=ChatSamples;extra={}
                 if script_source is not None:
                     from adapters.chat_journey.compiled_samples import CompiledChatSamples
-                    _need(script_source.store.path==self._chat_script_source_store(target,role,witness=witness).path)
+                    _need(script_source.store.path in {self._chat_script_source_store(target,role,witness=witness).path,
+                        self._chat_script_source_store(target,role,witness=witness,stage='erase' if erased and not witness else 'active').path})
                     selected=CompiledChatSamples;extra=dict(script_source=script_source)
                 return selected(run,role,manager.binding,peer_binding,capture.reader,peer,self._chat_view(target),native,
                     store,source_lock,peer_lock,vr=True,monotonic=native.monotonic,**extra)
@@ -1606,8 +1617,9 @@ def create_adapter(args, base_class):
                     if self._chat_composition_store(target).read() is not None or self._chat_peer_state_retained(target) or self._chat_application_retained(target):chat_error=True
                     if self._chat_cleanup_admission_store(target).read() is not None:chat_error=True
                     if self._chat_chunk_store_retained(self._chat_cache_release_store(target)):chat_error=True
-                    if any(self._chat_chunk_store_retained(self._chat_script_source_store(target,role,witness=witness))
-                           for role,witness in (('primary',False),('actor',False),('actor',True))):chat_error=True
+                    if any(self._chat_chunk_store_retained(self._chat_script_source_store(target,role,witness=witness,stage=stage))
+                           for role,witness in (('primary',False),('actor',False),('actor',True))
+                           for stage in (('active',) if witness else ('active','erase','final'))):chat_error=True
                     if self._chat_background_store(target).read() is not None:chat_error=True
                     if self._chat_flow_inputs_store(target).read() is not None or self._chat_witness_store(target).read() is not None:chat_error=True
                     if self._chat_peer_input_store(target).read() is not None or self._chat_peer_send_store(target).read() is not None:chat_error=True
@@ -1676,8 +1688,9 @@ def create_adapter(args, base_class):
                       and self._chat_composition_store(target).read() is None and not self._chat_peer_state_retained(target) and not self._chat_application_retained(target)
                       and self._chat_cleanup_admission_store(target).read() is None
                       and not self._chat_chunk_store_retained(self._chat_cache_release_store(target))
-                      and not any(self._chat_chunk_store_retained(self._chat_script_source_store(target,role,witness=witness))
-                                  for role,witness in (('primary',False),('actor',False),('actor',True)))
+                      and not any(self._chat_chunk_store_retained(self._chat_script_source_store(target,role,witness=witness,stage=stage))
+                                  for role,witness in (('primary',False),('actor',False),('actor',True))
+                                  for stage in (('active',) if witness else ('active','erase','final')))
                       and self._chat_background_store(target).read() is None
                       and self._chat_flow_inputs_store(target).read() is None and self._chat_witness_store(target).read() is None
                       and self._chat_peer_input_store(target).read() is None and self._chat_peer_send_store(target).read() is None

@@ -24,7 +24,7 @@ from adapters.script_journey.history import same
 from adapters.script_journey.lock import ScriptSourceLock
 from feature_journeys.phase_fixture import PhaseFixtureReader
 
-VERSION=5
+VERSION=6
 
 
 PHASES=('admitted','bound','profile-acquire-issued','profile-acquired','prepared','step-issued','step-completed',
@@ -34,7 +34,7 @@ PHASES=('admitted','bound','profile-acquire-issued','profile-acquired','prepared
 def record(value):
     import re
     exact(value,{'picoChatCompositionVersion','runId','binding','fixtureUrl','phase','peerBinding','peerOriginBasis','completedSteps'})
-    need(type(value['picoChatCompositionVersion']) is int and value['picoChatCompositionVersion'] in (1,2,3,4,VERSION)
+    need(type(value['picoChatCompositionVersion']) is int and value['picoChatCompositionVersion'] in (1,2,3,4,5,VERSION)
         and type(value['runId']) is str and re.fullmatch('[0-9a-f]{32}',value['runId'])
         and type(value['fixtureUrl']) is str and len(value['fixtureUrl'])<=512
         and value['fixtureUrl'].endswith('/runs/'+value['runId']+'/') and value['phase'] in PHASES
@@ -216,9 +216,12 @@ class PicoChatComposition:
                 self.input_close=self.peer.input_close(distant.sender.input,distant=distant)
                 bind_phase_fence(self.input_close,self.cleanup_fence);self.input_close.run()
                 self.save('input-closed')
+                self.erase_code_sources=tuple(self.adapter._chat_script_source(self.target,self.source.run,role=role,
+                    source_lock=self.lock,stage='erase',predecessor=code)
+                    for role,code in zip(('primary','actor'),self.code_sources))
                 self.after=tuple(self.adapter._chat_samples(self.target,self.source.run,self.peer.reader(),self.peer.binding,
                     role=role,source_lock=self.lock,peer_lock=self.peer.lock,erased=True,script_source=code)
-                    for role,code in zip(('primary','actor'),self.code_sources))
+                    for role,code in zip(('primary','actor'),self.erase_code_sources))
                 self.erase=self.adapter._chat_erase_restore(self.target,self.profile,self.roles,self.after)
                 original_intent=self.erase.ui.intent
                 def intent(value):
@@ -250,9 +253,12 @@ class PicoChatComposition:
                 self.save('cache-release-issued')
                 caches=(self.adapter._chat_cache_lifetime(self.target,self.source.run,source_lock=self.lock),
                     self.peer.retirement_cache(self.source.run,self.input_close))
+                self.final_code_sources=tuple(self.adapter._chat_script_source(self.target,self.source.run,role=role,
+                    source_lock=self.lock,stage='final',predecessor=code)
+                    for role,code in zip(('primary','actor'),self.erase_code_sources))
                 final=tuple(self.adapter._chat_cache_absence(self.target,self.source.run,self.peer.reader(),self.peer.binding,
                     role=role,stage='final',source_lock=self.lock,peer_lock=self.peer.lock,script_source=code)
-                    for role,code in zip(('primary','actor'),self.code_sources))
+                    for role,code in zip(('primary','actor'),self.final_code_sources))
                 self.cache_release=ChatCacheRelease(caches,final,self.profile,self.input_close,self.peer.retirement_files,
                     self.adapter._chat_cache_release_store(self.target),self.cleanup_fence,
                     defer_ipc=defer_ipc,monotonic=self.native.monotonic,sleep=self.native.sleep)

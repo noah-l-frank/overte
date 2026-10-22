@@ -100,3 +100,40 @@ lazy child factories, independent witness readers and retention of an old parent
 manifest. Early targeted invocations had a mistyped selector/import and an
 incorrect expected private-factory exception; corrected focused reruns passed.
 No complete Pico 25-step/device run or final resource closure is claimed.
+
+## Bounded warm continuation v2
+
+The complete warm parent exposed the existing 512-frame bound when one role's
+source was reused across all input, Erase and cache quiet samples. The bound and
+16-MiB source budget remain unchanged. A v2 continuation records a closed
+`predecessor` descriptor containing the exact original journal name, root digest
+and final original frame digest. It uses the exact same accepted native Root and
+Script reader objects and parent lock. No native cursor, manager history or
+compilation identity is reset or copied into a new native reader.
+
+Construction is passive. The first continuation capture, after the final
+ordinary Before-role authorization read, freezes the fully consumed original
+source and retains its immutable chunks. The first new native transaction must
+continue its original sequence, birth, configured root and selected manager/code/
+compilation. Every later capture verifies the unchanged original predecessor
+roots and chunks. Source transaction IDs cannot be reused across the chain. A source chain has at
+most the three fixed active/Erase/final segments; arbitrary continuation depth is
+refused.
+An old owner cannot capture after the transfer. A competing successor, foreign
+reader, changed predecessor, interrupted link or existing v2 root fails closed;
+there is no cold continuation adoption or replay. Legacy v1 source reconstruction
+and the reviewed v1 script-byte manifest remain unchanged.
+
+Pico composition v6 selects fixed `active`, `erase` and `final` source namespaces
+for each original primary/actor role. The independent witness retains its own
+active source and lock. The actual factories require the exact preceding stage,
+role, binding and source-lock instance. Generic cleanup preserves each stage's
+root and rootless chunks. The warm archive admits every original segment through
+its typed model owner. New process sources use their own actual new native birth
+and do not continue a dead process's reader.
+
+Six continuation counterexamples and the four actual Pico factory cases exercise
+original cursor ownership, lazy handoff, unchanged per-segment limits, changed
+code/birth/predecessor, reused IDs, lost-link retention, frozen clocks, actual
+candidate changes and stage admission. All 18 affected source/factory cases
+passed in 2.997 seconds with explicit native/V8/SDK producer seams and no device.
