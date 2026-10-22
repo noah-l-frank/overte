@@ -37,9 +37,9 @@ class WorldWebKeysTransportTests(unittest.TestCase):
 
     def test_actual_large_original_roundtrip_keeps_native_clock_source_and_old_default_decoder_bound(self):
         qt=QtKeys()
-        for _ in range(200):qt.finish(qt.enter('key-press'));qt.finish(qt.enter('key-release'))
+        for _ in range(240):qt.finish(qt.enter('key-press'));qt.finish(qt.enter('key-release'))
         value,raw=self.transport(qt);self.assertGreater(len(raw),400000);self.assertLess(len(raw),keys.LIMIT)
-        self.assertEqual(400,len(keys.drained(value)['dispatches']))
+        self.assertEqual(480,len(keys.drained(value)['dispatches']))
         with self.assertRaises(NativeUIError):decode(raw.decode())
         self.assertEqual(value,decode(raw.decode(),limit=keys.LIMIT))
 
@@ -67,6 +67,12 @@ class WorldWebKeysTransportTests(unittest.TestCase):
         qt=QtKeys()
         def excess(value):value['source']['unexpectedBytes']='a'*keys.LIMIT
         with self.assertRaises(NativeUIError):self.transport(qt,mutate=excess)
+
+    def test_live_transport_refuses_a_genuine_legacy_source_instead_of_returning_or_relabelling_it(self):
+        from ios.self_tests.test_ios_world_web_keys import LegacyQtKeys
+        qt=LegacyQtKeys();qt.finish(qt.enter('input-method',commit='dummy-controlled-old-login'))
+        with self.assertRaises(NativeUIError):self.transport(qt)
+        self.assertEqual('dummy-controlled-old-login',qt.rows[0]['detail']['commit'])
 
 
 if __name__=='__main__':unittest.main()

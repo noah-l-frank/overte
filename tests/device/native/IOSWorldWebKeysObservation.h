@@ -24,22 +24,39 @@ public:
         if (!enabled() || !event || (event->type()!=QEvent::KeyPress && event->type()!=QEvent::KeyRelease && event->type()!=QEvent::InputMethod)) { return 0; }
         if (!mainThread() || !_started || !_complete || !target || _dispatches.size()>=1024 || _events.size()>=3072) { _complete=false;return 0; }
         const auto targetId=identity(_targets,target);if (targetId.isEmpty()) { return 0; }
-        QVariantMap detail;QString deviceId;QString kind;
+        const bool nested=_batches.contains(event);
+        QVariantMap detail;QString deviceId;QString kind;QString keyId;
         if (event->type()==QEvent::InputMethod) {
             const auto input=static_cast<QInputMethodEvent*>(event);kind="input-method";
-            if (input->commitString().size()>8192 || input->preeditString().size()>8192) { _complete=false;return 0; }
-            detail={{"commit",input->commitString()},{"preedit",input->preeditString()},
-                {"replacementStart",input->replacementStart()},{"replacementLength",input->replacementLength()}};
+            // Global input can include private account fields. Never retain
+            // text, lengths or character-derived identifiers in this source.
+            detail={{"preeditActive",!input->preeditString().isEmpty()}};
         } else {
             const auto input=static_cast<QKeyEvent*>(event);kind=event->type()==QEvent::KeyPress ? "key-press" : "key-release";
-            deviceId=identity(_devices,input->device());if (deviceId.isEmpty() || input->text().size()>8192) { _complete=false;return 0; }
-            detail={{"key",input->key()},{"text",input->text()},{"modifiers",static_cast<int>(input->modifiers())},
-                {"scanCode",static_cast<qulonglong>(input->nativeScanCode())},{"virtualKey",static_cast<qulonglong>(input->nativeVirtualKey())},
-                {"autoRepeat",input->isAutoRepeat()},{"count",input->count()},{"qtTimestamp",static_cast<double>(input->timestamp())}};
+            deviceId=identity(_devices,input->device());if (deviceId.isEmpty()) { return 0; }
+            if (nested) { keyId=_batches[event].keyId; }
+            else {
+                // The physical key exists only in this transient held map.
+                // Each new press gets a new opaque lifetime identity, including
+                // repeated characters. No raw key/scancode leaves the map.
+                const auto physical=deviceId+":"+QString::number(input->nativeScanCode())+":"+QString::number(input->key());
+                if (kind=="key-press" && !input->isAutoRepeat()) {
+                    if (_physicalKeys.contains(physical) || _physicalKeys.size()>=64) { _complete=false;return 0; }
+                    keyId=nonce();_physicalKeys.insert(physical,keyId);
+                } else {
+                    auto found=_physicalKeys.find(physical);
+                    if (found==_physicalKeys.end()) { _complete=false;return 0; }
+                    keyId=found.value();
+                    if (kind=="key-release" && !input->isAutoRepeat()) { _physicalKeys.erase(found); }
+                }
+            }
+            if (keyId.isEmpty()) { _complete=false;return 0; }
+            detail={{"keyId",keyId},{"modifiers",static_cast<int>(input->modifiers())},
+                {"autoRepeat",input->isAutoRepeat()},{"qtTimestamp",static_cast<double>(input->timestamp())}};
         }
-        const bool nested=_batches.contains(event);QString batch;
+        QString batch;
         if (nested) { batch=_batches[event].id;++_batches[event].depth; }
-        else { batch=nonce();_batches.insert(event,Batch{batch,1}); }
+        else { batch=nonce();_batches.insert(event,Batch{batch,1,keyId}); }
         const auto id=nonce();const auto epoch=QDateTime::currentMSecsSinceEpoch();const auto mono=_clock.elapsed();
         QVariantMap row{{"id",id},{"batch",batch},{"kind",kind},{"target",targetId},{"device",deviceId},{"detail",detail},
             {"enteredSequence",_events.size()+1},{"enteredEpochMs",epoch},{"enteredMonotonicMs",mono},
@@ -48,12 +65,12 @@ public:
         const auto ordinal=static_cast<quint64>(_dispatches.size()+1);_dispatches.append(row);_active.insert(ordinal,event);edge(id,"entered",epoch,mono);
         if (!nested) {
             if (kind=="input-method") {
-                _preedit[targetId]=QVariantMap{{"target",targetId},{"text",detail.value("preedit")},{"dispatch",id}};
+                _preedit[targetId]=QVariantMap{{"target",targetId},{"active",detail.value("preeditActive")},{"dispatch",id}};
             } else if (!detail.value("autoRepeat").toBool()) {
-                const auto key=deviceId+":"+QString::number(detail.value("scanCode").toULongLong())+":"+QString::number(detail.value("key").toInt());
+                const auto key=keyId;
                 if (kind=="key-press") {
                     if (_down.contains(key) || _down.size()>=64) { _complete=false; }
-                    else { _down.insert(key,QVariantMap{{"device",deviceId},{"key",detail.value("key")},{"scanCode",detail.value("scanCode")},
+                    else { _down.insert(key,QVariantMap{{"device",deviceId},{"keyId",keyId},
                         {"target",targetId},{"pressDispatch",id},{"releaseDispatch",QString()}}); }
                 } else {
                     if (!_down.contains(key)) { _complete=false; }
@@ -90,24 +107,24 @@ public:
             const auto weak=[](const QList<Weak>& rows) { QVariantList result;
                 for (const auto& row:rows) { auto original=row.original;original["alive"]=!row.pointer.isNull();result.append(original); }return result; };
             QVariantList down,preedit;for (const auto& row:_down) { down.append(row); }for (const auto& row:_preedit) { preedit.append(row); }
-            return {{"iosWorldWebKeySourceVersion",1},{"instance",_instance},{"bornEpochMs",_born},{"complete",_complete && _started},
+            return {{"iosWorldWebKeySourceVersion",2},{"instance",_instance},{"bornEpochMs",_born},{"complete",_complete && _started},
                 {"startup",QVariantMap{{"observed",_started},{"epochMs",_startEpoch},{"monotonicMs",_startMono},
                     {"windowCount",_initialWindows},{"modifiers",_initialModifiers}}},
                 {"eventSequence",_events.size()},{"events",_events},{"dispatches",_dispatches},{"pendingDispatches",_active.size()},
                 {"down",down},{"ended",_ended},{"preedit",preedit},{"devices",weak(_devices)},{"targets",weak(_targets)},
                 {"qtModifiers",static_cast<int>(QGuiApplication::keyboardModifiers())}};
         }();const auto after=clock();
-        // This source retains real per-character Qt dispatches. Its explicit
+        // This source retains actual Qt dispatch lifetimes without characters. Its explicit
         // independent carrier is larger than NativeReadBracket's old default;
         // no other source's bound is changed or bypassed.
         if (source.isEmpty() || QJsonDocument::fromVariant(source).toJson(QJsonDocument::Compact).size()>1040000) { return {}; }
-        return {{"iosWorldWebKeysVersion",1},{"requestId",request},{"runId",run},{"instance",_readInstance},
+        return {{"iosWorldWebKeysVersion",2},{"requestId",request},{"runId",run},{"instance",_readInstance},
             {"sequence",static_cast<double>(++_readSequence)},{"processId",static_cast<double>(QCoreApplication::applicationPid())},
             {"clockDomain","native-main-ios-world-web-keys"},{"clockBefore",before},{"clockAfter",after},{"source",source}};
     }
 private:
     struct Weak { QPointer<QObject> pointer;QVariantMap original; };
-    struct Batch { QString id;int depth; };
+    struct Batch { QString id;int depth;QString keyId; };
     IOSWorldWebKeysObservation():_born(QDateTime::currentMSecsSinceEpoch()) { _clock.start(); }
     static QString nonce() { return QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-'); }
     static bool mainThread() { const auto app=QCoreApplication::instance();return app && app->thread()==QThread::currentThread(); }
@@ -137,6 +154,7 @@ private:
     bool _started {false};std::atomic_bool _complete {true};
     qint64 _startEpoch {0},_startMono {0},_lastEpoch {0},_lastMono {0};int _initialWindows {-1},_initialModifiers {-1};
     QList<Weak> _devices,_targets;QVariantList _events,_dispatches,_ended;
+    QMap<QString,QString> _physicalKeys;
     QMap<QString,QVariantMap> _down,_preedit;QMap<quint64,QEvent*> _active;QMap<QEvent*,Batch> _batches;
 };
 class IOSWorldWebKeyDispatch {

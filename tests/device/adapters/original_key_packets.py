@@ -31,6 +31,10 @@ class OriginalKeyPackets:
 
     def write(self,index,query,raw):
         world_web_keys.command(query);need(query['runId']==self.run and type(raw) is str and len(raw.encode())<=world_web_keys.LIMIT)
+        # A stale AFC response can predate this source's privacy boundary.
+        # Validate unchanged bytes before creating even a planned host file.
+        packet=decode(raw,limit=world_web_keys.LIMIT);world_web_keys.privacy_qualified(packet)
+        world_web_keys.validate(packet,query,int(self.binding['processIdentity']))
         compact=self.originals.write(index,dict(nativeKeysRawVersion=VERSION,profile=self.profile,runId=self.run,role=self.role,subject=self.subject,
             binding=deepcopy(self.binding),query=deepcopy(query),raw=raw))
         return self.originals.expand(compact)

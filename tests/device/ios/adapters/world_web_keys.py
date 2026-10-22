@@ -7,7 +7,8 @@ from adapters.native_feature_observation import exact,fresh,integer,need,number
 from ios.adapters.places_model import IOSPlacesModel,text
 from ios.adapters.create_state import command as state_command
 
-VERSION=1
+VERSION=2
+READS=(1,2)
 ACTION='feature-ios-world-web-keys'
 FILE=ACTION+'.json'
 LIMIT=1048576
@@ -24,7 +25,8 @@ def nonce(value):need(type(value) is str and re.fullmatch(HEX,value));return val
 def source(value,epoch):
     exact(value,{'iosWorldWebKeySourceVersion','instance','bornEpochMs','complete','startup','eventSequence','events','dispatches',
         'pendingDispatches','down','ended','preedit','devices','targets','qtModifiers'})
-    need(type(value['iosWorldWebKeySourceVersion']) is int and value['iosWorldWebKeySourceVersion']==1
+    version=value['iosWorldWebKeySourceVersion']
+    need(type(version) is int and version in READS
         and type(value['complete']) is bool and integer(value['bornEpochMs'],1,epoch))
     nonce(value['instance']);startup=value['startup'];exact(startup,{'observed','epochMs','monotonicMs','windowCount','modifiers'})
     need(type(startup['observed']) is bool and integer(startup['epochMs'],0,epoch) and integer(startup['monotonicMs'])
@@ -49,23 +51,30 @@ def source(value,epoch):
             and row['kind'] in ('key-press','key-release','input-method'))
         detail=row['detail']
         if row['kind']=='input-method':
-            exact(detail,{'commit','preedit','replacementStart','replacementLength'});need(row['device']=='')
-            text(detail['commit'],32768);text(detail['preedit'],32768)
-            need(len(detail['commit'].encode('utf-16-le'))//2<=8192 and len(detail['preedit'].encode('utf-16-le'))//2<=8192
-                and type(detail['replacementStart']) is int and -8192<=detail['replacementStart']<=8192 and integer(detail['replacementLength'],0,8192))
+            need(row['device']=='')
+            if version==1:
+                exact(detail,{'commit','preedit','replacementStart','replacementLength'})
+                text(detail['commit'],32768);text(detail['preedit'],32768)
+                need(len(detail['commit'].encode('utf-16-le'))//2<=8192 and len(detail['preedit'].encode('utf-16-le'))//2<=8192
+                    and type(detail['replacementStart']) is int and -8192<=detail['replacementStart']<=8192 and integer(detail['replacementLength'],0,8192))
+            else:exact(detail,{'preeditActive'});need(type(detail['preeditActive']) is bool)
         else:
-            exact(detail,{'key','text','modifiers','scanCode','virtualKey','autoRepeat','count','qtTimestamp'})
-            need(row['device'] in registries['devices'] and integer(detail['key'],0,2**31-1) and integer(detail['modifiers'],0,2**31-1)
-                and integer(detail['scanCode'],0,2**32-1) and integer(detail['virtualKey'],0,2**32-1)
-                and type(detail['autoRepeat']) is bool and integer(detail['count'],0,65535) and number(detail['qtTimestamp'],0,1e15))
-            text(detail['text'],32768);need(len(detail['text'].encode('utf-16-le'))//2<=8192)
+            exact(detail,({'key','text','scanCode','virtualKey'} if version==1 else {'keyId'})
+                |{'modifiers','autoRepeat','qtTimestamp'}|({'count'} if version==1 else set()))
+            need(row['device'] in registries['devices'] and integer(detail['modifiers'],0,2**31-1)
+                and type(detail['autoRepeat']) is bool and number(detail['qtTimestamp'],0,1e15))
+            if version==1:
+                need(integer(detail['key'],0,2**31-1) and integer(detail['scanCode'],0,2**32-1) and integer(detail['virtualKey'],0,2**32-1)
+                    and integer(detail['count'],0,65535))
+                text(detail['text'],32768);need(len(detail['text'].encode('utf-16-le'))//2<=8192)
+            else:nonce(detail['keyId'])
         need(integer(row['enteredSequence'],1,value['eventSequence']) and integer(row['enteredEpochMs'],value['bornEpochMs'],epoch)
             and integer(row['enteredMonotonicMs']) and (row['deliveryResult'] is None or type(row['deliveryResult']) is bool))
         for phase in ('returned','finally'):
             need(integer(row[phase+'Sequence'],0,value['eventSequence']) and integer(row[phase+'EpochMs'],0,epoch) and integer(row[phase+'MonotonicMs']))
             if row[phase+'Sequence']==0:need(row[phase+'EpochMs']==row[phase+'MonotonicMs']==0)
         need((row['returnedSequence']==0)==(row['deliveryResult'] is None));rows[row['id']]=row
-    active=set();batches={};seen_batches=set();down={};ended=[];preedit={};seen={};last_epoch=value['bornEpochMs'];last_mono=0
+    active=set();batches={};batch_facts={};seen_batches=set();seen_keys=set();down={};ended=[];preedit={};seen={};last_epoch=value['bornEpochMs'];last_mono=0
     for index,event in enumerate(value['events'],1):
         exact(event,{'sequence','dispatch','kind','epochMs','monotonicMs'})
         need(type(event['sequence']) is int and event['sequence']==index and event['dispatch'] in rows
@@ -78,16 +87,26 @@ def source(value,epoch):
         marks=seen.setdefault(row['id'],[])
         if phase=='entered':
             need(not marks);active.add(row['id']);batch=row['batch'];nested=batch in batches;batches[batch]=batches.get(batch,0)+1
+            if version>=2:
+                facts=(row['kind'],row['device'],row['detail'])
+                if nested:need(batch_facts[batch]==facts)
+                else:batch_facts[batch]=facts
             if not nested:
                 need(batch not in seen_batches);seen_batches.add(batch)
                 detail=row['detail']
-                if row['kind']=='input-method':preedit[row['target']]=dict(target=row['target'],text=detail['preedit'],dispatch=row['id'])
+                if row['kind']=='input-method':
+                    preedit[row['target']]=dict(target=row['target'],dispatch=row['id'],**(
+                        dict(text=detail['preedit']) if version==1 else dict(active=detail['preeditActive'])))
                 elif not detail['autoRepeat']:
-                    key=row['device']+':'+str(detail['scanCode'])+':'+str(detail['key'])
+                    key=row['device']+':'+str(detail['scanCode'])+':'+str(detail['key']) if version==1 else detail['keyId']
                     if row['kind']=='key-press':
-                        need(key not in down);down[key]=dict(device=row['device'],key=detail['key'],scanCode=detail['scanCode'],target=row['target'],pressDispatch=row['id'],releaseDispatch='')
+                        need(key not in down)
+                        if version>=2:need(key not in seen_keys);seen_keys.add(key)
+                        down[key]=dict(device=row['device'],target=row['target'],pressDispatch=row['id'],releaseDispatch='',**(
+                            dict(key=detail['key'],scanCode=detail['scanCode']) if version==1 else dict(keyId=key)))
                     else:
-                        need(key in down);previous=down.pop(key);previous['releaseDispatch']=row['id'];ended.append(previous)
+                        need(key in down and down[key]['device']==row['device']);previous=down.pop(key);previous['releaseDispatch']=row['id'];ended.append(previous)
+                elif version>=2:need(detail['keyId'] in down and down[detail['keyId']]['device']==row['device'])
         elif phase=='returned':need(marks==['entered'] and row['id'] in active)
         else:
             need(marks==['entered','returned'] and row['id'] in active);active.remove(row['id'])
@@ -104,7 +123,7 @@ def source(value,epoch):
 
 def validate(value,query,pid,epoch=None,previous=None):
     command(query);exact(value,{'iosWorldWebKeysVersion','requestId','runId','instance','sequence','processId','clockDomain','clockBefore','clockAfter','source'})
-    need(type(value['iosWorldWebKeysVersion']) is int and value['iosWorldWebKeysVersion']==1 and value['requestId']==query['commandId']
+    need(type(value['iosWorldWebKeysVersion']) is int and value['iosWorldWebKeysVersion'] in READS and value['requestId']==query['commandId']
         and value['runId']==query['runId'] and type(value['processId']) is int and value['processId']==pid and integer(pid,1)
         and integer(value['sequence'],1) and value['clockDomain']=='native-main-ios-world-web-keys');nonce(value['instance'])
     a,b=value['clockBefore'],value['clockAfter']
@@ -112,9 +131,11 @@ def validate(value,query,pid,epoch=None,previous=None):
     utc,mono=b['epochMs']-a['epochMs'],b['monotonicMs']-a['monotonicMs'];need(0<=utc<1500 and 0<=mono<1500 and abs(utc-mono)<=250)
     if epoch is not None:fresh(b['epochMs'],epoch)
     source(value['source'],a['epochMs'])
+    need(value['source']['iosWorldWebKeySourceVersion']==value['iosWorldWebKeysVersion'])
     if previous is not None:
         original(previous);left,right=previous['source'],value['source']
-        need(value['instance']==previous['instance'] and value['sequence']>previous['sequence'] and value['requestId']!=previous['requestId']
+        need(value['iosWorldWebKeysVersion']==previous['iosWorldWebKeysVersion'] and value['instance']==previous['instance']
+            and value['sequence']>previous['sequence'] and value['requestId']!=previous['requestId']
             and a['epochMs']>=previous['clockAfter']['epochMs'] and a['monotonicMs']>=previous['clockAfter']['monotonicMs']
             and all(same_field(left[key],right[key]) for key in ('instance','bornEpochMs','startup')) and (left['complete'] or not right['complete'])
             and right['events'][:len(left['events'])]==left['events'] and len(right['dispatches'])>=len(left['dispatches']))
@@ -136,16 +157,31 @@ def same_field(left,right):return type(left) is type(right) and left==right
 def original(value):return validate(value,dict(schemaVersion=1,commandId=value['requestId'],action=ACTION,runId=value['runId']),value['processId'])
 
 
+def privacy_qualified(value):
+    """Current production source, with no characters or physical key codes.
+
+    Legacy originals remain readable at their original version. They cannot
+    establish the current global-input privacy boundary for a whole feature.
+    """
+    original(value);need(value['iosWorldWebKeysVersion']==value['source']['iosWorldWebKeySourceVersion']==2)
+    return value
+
+
 def drained(value):
     original(value);source=value['source']
     need(source['complete'] and source['startup']['observed'] and source['pendingDispatches']==0 and source['down']==[]
-        and source['qtModifiers']==0 and all(row['text']=='' for row in source['preedit']))
+        and source['qtModifiers']==0 and all(row['text']=='' if source['iosWorldWebKeySourceVersion']==1 else row['active'] is False
+            for row in source['preedit']))
     return deepcopy(source)
+
+
+def current_validate(value,query,pid,epoch=None,previous=None):
+    validate(value,query,pid,epoch,previous);return privacy_qualified(value)
 
 
 class IOSWorldWebKeys(IOSPlacesModel):
     _action=ACTION
     _command=staticmethod(command)
-    _validate=staticmethod(validate)
+    _validate=staticmethod(current_validate)
     _limit=LIMIT
     _acquisition_key='iosWorldWebKeysAcquisitionVersion'

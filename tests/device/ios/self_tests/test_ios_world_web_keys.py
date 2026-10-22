@@ -10,7 +10,7 @@ from ios.adapters import world_web_keys as keys
 RUN='a'*32
 
 
-class QtKeys:
+class LegacyQtKeys:
     def __init__(self):
         self.epoch=100000;self.rows=[];self.events=[];self.active={};self.down={};self.ended=[];self.preedit={}
         self.target='b'*32;self.device='c'*32;self.sequence=0;self.alive=True;self.started=True;self.complete=True
@@ -49,6 +49,50 @@ class QtKeys:
                 targets=[] if not self.rows else [dict(id=self.target,bornEpochMs=100001,className='QQuickWindow',alive=self.alive)],qtModifiers=0))
 
 
+class QtKeys:
+    """New source-2 producer, with only transient physical-key matching state."""
+    def __init__(self):
+        self.epoch=100000;self.rows=[];self.events=[];self.active={};self.down={};self.physical={};self.ended=[];self.preedit={}
+        self.target='b'*32;self.device='c'*32;self.sequence=0;self.alive=True;self.started=True;self.complete=True
+    tick=LegacyQtKeys.tick
+    edge=LegacyQtKeys.edge
+    finish=LegacyQtKeys.finish
+    def enter(self,kind,*,batch=None,repeat=False,preedit='',commit='',physical=65,text=''):
+        batch=secrets.token_hex(16) if batch is None else batch;id=secrets.token_hex(16)
+        nested=batch in self.active.values()
+        if nested:
+            detail=deepcopy(next(row['detail'] for row in self.rows if row['batch']==batch))
+        elif kind=='input-method':detail=dict(preeditActive=bool(preedit))
+        else:
+            if kind=='key-press' and not repeat:
+                assert physical not in self.physical;self.physical[physical]=secrets.token_hex(16)
+            key_id=self.physical[physical]
+            if kind=='key-release' and not repeat:del self.physical[physical]
+            detail=dict(keyId=key_id,modifiers=0,autoRepeat=repeat,qtTimestamp=self.epoch)
+        row=dict(id=id,batch=batch,kind=kind,target=self.target,device='' if kind=='input-method' else self.device,detail=detail,
+            enteredSequence=0,enteredEpochMs=0,enteredMonotonicMs=0,returnedSequence=0,returnedEpochMs=0,returnedMonotonicMs=0,
+            deliveryResult=None,finallySequence=0,finallyEpochMs=0,finallyMonotonicMs=0)
+        self.active[id]=batch;self.rows.append(row);self.edge(row,'entered')
+        if not nested:
+            if kind=='input-method':self.preedit[self.target]=dict(target=self.target,active=bool(preedit),dispatch=id)
+            elif not repeat:
+                key=detail['keyId']
+                if kind=='key-press':self.down[key]=dict(device=self.device,keyId=key,target=self.target,pressDispatch=id,releaseDispatch='')
+                else:
+                    ended=self.down.pop(key);ended['releaseDispatch']=id;self.ended.append(ended)
+        return row
+    def packet(self):
+        self.sequence+=1;before=self.tick();after=self.tick()
+        return dict(iosWorldWebKeysVersion=2,requestId='ios-'+secrets.token_hex(16),runId=RUN,instance='d'*32,sequence=self.sequence,processId=42,
+            clockDomain='native-main-ios-world-web-keys',clockBefore=dict(epochMs=before,monotonicMs=before-99998),clockAfter=dict(epochMs=after,monotonicMs=after-99998),
+            source=dict(iosWorldWebKeySourceVersion=2,instance='e'*32,bornEpochMs=99999,complete=self.complete,startup=dict(
+                observed=self.started,epochMs=100000 if self.started else 0,monotonicMs=1 if self.started else 0,windowCount=0 if self.started else -1,modifiers=0 if self.started else -1),
+                eventSequence=len(self.events),events=deepcopy(self.events),dispatches=deepcopy(self.rows),pendingDispatches=len(self.active),
+                down=[deepcopy(self.down[key]) for key in sorted(self.down)],ended=deepcopy(self.ended),preedit=[deepcopy(self.preedit[key]) for key in sorted(self.preedit)],
+                devices=[] if not any(row['device'] for row in self.rows) else [dict(id=self.device,bornEpochMs=100001,className='QInputDevice',alive=True)],
+                targets=[] if not self.rows else [dict(id=self.target,bornEpochMs=100001,className='QQuickWindow',alive=self.alive)],qtModifiers=0))
+
+
 class WorldWebKeysTests(unittest.TestCase):
     def test_positive_startup_actual_press_release_and_returned_false_do_not_claim_effect(self):
         qt=QtKeys();keys.drained(qt.packet());press=qt.enter('key-press');qt.finish(press)
@@ -75,7 +119,7 @@ class WorldWebKeysTests(unittest.TestCase):
         with self.assertRaises(NativeUIError):keys.drained(qt.packet())
         qt.finish(qt.enter('key-release'));keys.drained(qt.packet())
 
-    def test_ime_commit_and_preedit_are_actual_originals_target_death_does_not_clear_them(self):
+    def test_ime_preedit_activity_is_original_and_target_death_does_not_clear_it(self):
         qt=QtKeys();qt.finish(qt.enter('input-method',preedit='東京'))
         qt.finish(qt.enter('input-method',commit='東京',preedit=''));keys.drained(qt.packet())
         qt.finish(qt.enter('input-method',preedit='Ω'));qt.alive=False;current=qt.packet();keys.original(current)
@@ -92,7 +136,7 @@ class WorldWebKeysTests(unittest.TestCase):
             elif fault=='overflow':value['source']['eventSequence']=3073
             elif fault=='eventClock':value['source']['events'][-1]['epochMs']-=100
             elif fault=='unknownEnd':value['source']['dispatches'][0]['kind']='key-release'
-            else:value['source']['dispatches'][0]['detail']['key']=True
+            else:value['source']['dispatches'][0]['detail']['keyId']=True
             with self.subTest(fault=fault),self.assertRaises(NativeUIError):keys.original(value)
 
     def test_historical_source_prefix_target_death_and_completed_return_cannot_be_rewritten(self):

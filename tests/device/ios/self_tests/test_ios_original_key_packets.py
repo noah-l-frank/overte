@@ -22,7 +22,7 @@ class OriginalKeyPacketTests(unittest.TestCase):
     def carrier(self,large=False):
         qt=QtKeys()
         if large:
-            for _ in range(200):qt.finish(qt.enter('key-press'));qt.finish(qt.enter('key-release'))
+            for _ in range(240):qt.finish(qt.enter('key-press'));qt.finish(qt.enter('key-release'))
         packet=qt.packet();query=dict(schemaVersion=1,commandId=packet['requestId'],action=world_web_keys.ACTION,runId=RUN)
         return packet,query,json.dumps(packet,separators=(',',':'))
     def test_actual_large_original_uses_private_file_and_preserves_native_DTO_and_all_storage_phases(self):
@@ -54,13 +54,25 @@ class OriginalKeyPacketTests(unittest.TestCase):
         original=self.intents[-1][1];self.assertEqual('opened',original['phase']);self.assertTrue(self.owner.inspect_partial(original)['complete'])
         self.assertEqual(json.loads(raw),self.owner.packet(original))
 
-    def test_malformed_or_foreign_nonce_bytes_remain_originals_without_becoming_accepted_packets(self):
+    def test_malformed_or_foreign_nonce_bytes_are_refused_before_any_host_original_is_created(self):
         packet,query,raw=self.carrier();packet['requestId']='ios-'+'f'*32
-        self.owner.write(1,query,json.dumps(packet));ref=self.intents[-1][1]
-        self.assertEqual(packet,json.loads(self.owner.read(ref)['raw']))
-        with self.assertRaises(NativeUIError):self.owner.packet(ref)
-        self.owner.write(2,query,'{');self.assertEqual('{',self.owner.read(self.intents[-1][1])['raw'])
-        with self.assertRaises(ValueError):self.owner.packet(self.intents[-1][1])
+        with self.assertRaises(NativeUIError):self.owner.write(1,query,json.dumps(packet))
+        with self.assertRaises(ValueError):self.owner.write(2,query,'{')
+        self.assertEqual([],self.intents);self.assertEqual([],list(self.root.iterdir()))
+
+    def test_legacy_raw_is_readable_but_a_stale_unsafe_afc_response_is_never_written_by_the_new_owner(self):
+        from ios.self_tests.test_ios_world_web_keys import LegacyQtKeys
+        producer=LegacyQtKeys();producer.finish(producer.enter('input-method',commit='dummy-private-login'))
+        packet=producer.packet();query=dict(schemaVersion=1,commandId=packet['requestId'],action=world_web_keys.ACTION,runId=RUN)
+        raw=json.dumps(packet)
+        with self.assertRaises(NativeUIError):self.owner.write(1,query,raw)
+        self.assertEqual([],self.intents);self.assertEqual([],list(self.root.iterdir()))
+        # This is the actual former raw writer, before its first file exists.
+        # Read compatibility retains version 1; no old packet is relabelled.
+        compact=self.owner.originals.write(1,dict(nativeKeysRawVersion=1,profile='avatar',runId=RUN,role='primary',
+            subject='primary',binding=BINDING,query=query,raw=raw));ref=self.owner.originals.expand(compact)
+        self.assertEqual(packet,self.owner.packet(ref))
+        with self.assertRaises(NativeUIError):world_web_keys.privacy_qualified(self.owner.packet(ref))
 
     def test_actual_saved_inner_context_cannot_replace_an_integer_generation_with_a_boolean(self):
         _packet,query,raw=self.carrier();binding=deepcopy(BINDING)

@@ -1283,7 +1283,7 @@
                 // storage mutations with a lost return. No reissue on polling.
                 if (iosNewSourceRequests[command.commandId] || iosNewSourceRequestCount >= 4096) { return; }
                 iosNewSourceRequests[command.commandId]=true;iosNewSourceRequestCount+=1;
-                var sourceWorldWebKeys={iosWorldWebKeysVersion:1,requestId:command.commandId,status:"unavailable"};
+                var sourceWorldWebKeys={iosWorldWebKeysVersion:2,requestId:command.commandId,status:"unavailable"};
                 try {
                     if (typeof Test.featureIOSWorldWebKeys === "function") {
                         var originalWorldWebKeys=Test.featureIOSWorldWebKeys(command);

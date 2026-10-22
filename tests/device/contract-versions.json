@@ -211,7 +211,7 @@
     "ios-world-web-dom": {"current": 2, "reads": [1, 2]},
     "ios-world-web-dom-native": {"current": 1, "reads": [1]},
     "ios-world-web-geometry": {"current": 1, "reads": [1]},
-    "ios-world-web-keys": {"current": 1, "reads": [1]},
+    "ios-world-web-keys": {"current": 2, "reads": [1, 2]},
     "ios-world-web-files": {"current": 1, "reads": [1]},
     "ios-world-web-work": {"current": 1, "reads": [1]},
     "ios-world-web-marker-scope": {"current": 1, "reads": [1]},
