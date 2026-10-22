@@ -162,3 +162,19 @@ python3 android/phone/tests/snapshot-upload-source-contract-test.py --build-dir 
 python3 -m unittest discover -s tests/device/self_tests -p test_snapshot_upload_service.py
 python3 -m unittest discover -s android/phone/tests/device -p test_snapshot_upload_source.py
 ```
+
+## Primary login credential read
+
+The primary adapter's distinct read-only fixture token can GET the credentials
+of an active Snapshot run over original TLS 1.2/1.3. This supplies only the
+controlled inputs for ordinary native Login; the native/account/provider
+observations must still prove actual authentication. The endpoint refuses actor
+and unknown tokens, plaintext HTTP, unrelated account runs and retired runs.
+Adapter POST/control/publishing permissions remain denied. Actor journals and
+public feature configuration never contain these credentials. The facade clears
+its temporary credential mapping after the normal Login input.
+
+Ten real loopback TLS service tests pass, including actual adapter admission,
+original credentials followed by an original OAuth grant, actor/control denials,
+unrelated/retired scope rejection and plaintext refusal. These qualify fixture
+access and source logic, not a Phone login or device acceptance.

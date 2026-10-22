@@ -425,7 +425,16 @@ class Handler(BaseHTTPRequestHandler):
                 metadata,payload=self.server.snapshot_upload_service.image_original(run,identifier(parts[4]),identifier(parts[5]))
                 return self.send_snapshot_original(metadata,payload)
             if parts[2:]==['snapshot-upload','credentials']:
-                if self.command!='GET' or not reader or self.server.snapshot_upload_service is None:return self.send(403,{'error':'forbidden'})
+                if (self.command!='GET' or not (reader or adapter_reader) or self.server.snapshot_upload_service is None
+                        or not isinstance(self.connection,ssl.SSLSocket) or self.connection.version() not in ('TLSv1.2','TLSv1.3')):
+                    return self.send(403,{'error':'forbidden'})
+                # Only the primary adapter's normal owned login needs these
+                # private inputs. Actor publishing stays credential-free and
+                # cannot borrow an unrelated account run through this route.
+                original=self.server.journal.runs.get(run)
+                if (original is None or original['area']!='snapshots'
+                        or not self.server.snapshot_upload_service.has_run(run)):
+                    return self.send(404,{'error':'not-found'})
                 return self.send(200,self.server.snapshot_upload_service.credentials(run))
             if parts[2:]==['snapshot-upload','control']:
                 if self.command!='POST' or not reader or self.server.snapshot_upload_service is None:return self.send(403,{'error':'forbidden'})

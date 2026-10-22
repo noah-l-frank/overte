@@ -25,6 +25,7 @@ from feature_journeys.account_provider import AccountProvider
 from feature_journeys.server import make_server
 from feature_journeys.snapshot_upload_service import SnapshotUploadService,multipart
 from feature_journeys.witness import Client,NoRedirect
+from adapters.feature_fixture_access import AdapterFixtureClient
 from overte_phone_snapshot_upload_fixture import validate
 
 TICKET='a'*32;NEXT='b'*32;DOMAIN='12345678-1234-4234-8234-123456789012';PREFIX='/feature-fixture/v1'
@@ -76,6 +77,40 @@ class SnapshotUploadServiceTests(unittest.TestCase):
     def story(self,image,**changes):
         details={k:image[k] for k in ('image_url','original_image_file_name')};details['snapshot_id']=image['id'];details.update(changes)
         return self.request('/api/v1/user_stories',dict(user_story=dict(details=json.dumps(details),thumbnail_url=image['thumbnail_url'],place_name='Owned domain',path='/1,2,3',action='snapshot',audience='for_url')),self.token)
+
+    def test_primary_adapter_reads_only_active_snapshot_login_over_actual_tls(self):
+        path='/runs/'+self.run+'/snapshot-upload/credentials'
+        primary=AdapterFixtureClient(self.origin+PREFIX,self.adapter)
+        with patch('feature_journeys.witness.build_opener',return_value=self.opener):
+            credentials=primary.request(path)
+        self.assertTrue(primary._adapter_admitted)
+        self.assertEqual({'username','password'},set(credentials))
+        self.assertTrue(all(type(value) is str and value for value in credentials.values()))
+        status,grant=self.request('/oauth/token',urlencode(dict(grant_type='password',scope='owner',**credentials)).encode(),content_type='application/x-www-form-urlencoded')
+        credentials.clear();self.assertEqual(200,status);self.assertIn('access_token',grant)
+        self.assertEqual(403,self.request(PREFIX+path,token=self.actor)[0])
+        self.assertEqual(403,self.request(PREFIX+path,token=secrets.token_hex(32))[0])
+        self.assertEqual(403,self.request(PREFIX+'/runs/'+self.run+'/snapshot-upload/control',{'operation':'offline'},self.adapter)[0])
+        self.assertEqual(403,self.request(PREFIX+'/runs/'+self.run+'/samples',{},self.adapter)[0])
+        unrelated=self.request(PREFIX+'/runs',{'area':'authentication'},self.reader)[1]['runId']
+        self.assertEqual(404,self.request(PREFIX+'/runs/'+unrelated+'/snapshot-upload/credentials',token=self.adapter)[0])
+        self.assertEqual(200,self.request(PREFIX+'/runs/'+unrelated+'/account/control',{'operation':'cleanup'},self.reader)[0])
+        self.assertEqual(200,self.request(PREFIX+'/runs/'+unrelated,token=self.reader,method='DELETE')[0])
+        self.assertEqual(200,self.request(PREFIX+'/runs/'+self.run,token=self.reader,method='DELETE')[0])
+        self.assertEqual(404,self.request(PREFIX+path,token=self.adapter)[0])
+
+    def test_snapshot_login_credentials_never_cross_plain_http(self):
+        server=make_server(self.reader,self.actor,adapter_token=self.adapter)
+        server.snapshot_upload_service=self.service
+        thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
+        try:
+            opener=build_opener(ProxyHandler({}),NoRedirect())
+            target='http://127.0.0.1:'+str(server.server_port)+PREFIX+'/runs/'+self.run+'/snapshot-upload/credentials'
+            for token in (self.reader,self.adapter,self.actor):
+                request=Request(target,headers={'Authorization':'Bearer '+token})
+                with self.assertRaises(HTTPError) as caught:opener.open(request,timeout=3)
+                self.assertEqual(403,caught.exception.code);caught.exception.close()
+        finally:server.shutdown();server.server_close();thread.join(timeout=3)
 
     def test_actual_tls_multipart_story_ids_bytes_and_fresh_readonly_roles(self):
         query=urlencode(dict(now='2026-10-22T12:00:00Z',include_actions='concurrency',domain_id=DOMAIN,restriction='open,hifi'))
