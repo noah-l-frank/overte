@@ -376,6 +376,7 @@
     var scriptWorkTimer = null;
     var lastProcessPresenceRequest = "";
     var lastGraphicsSubjectRequest = "";
+    var lastPhoneAssetsReadRequest = "";
     var lastPhoneCreateObservationRequest = "";
     var lastPhoneSnapshotObservationRequest = "";
     var lastPhoneSnapshotReadbackRequest = "";
@@ -1964,6 +1965,32 @@
             return;
         }
         if (command && command.schemaVersion === 1 && /^[0-9a-f]{32}$/.test(String(command.commandId))
+                && /^[0-9a-f]{32}$/.test(String(command.runId))
+                && (command.action === "phone-assets-observe" || command.action === "phone-assets-download")
+                && objectKeysMatch(command,command.action === "phone-assets-download"
+                    ? ["schemaVersion","commandId","action","runId","hash"] : ["schemaVersion","commandId","action","runId"])
+                && (command.action !== "phone-assets-download" || /^[0-9a-f]{64}$/.test(String(command.hash)))) {
+            if (command.commandId === lastPhoneAssetsReadRequest) { return; }
+            lastPhoneAssetsReadRequest = command.commandId;
+            var assetsReadStarted = Date.now();
+            function readOriginalAssets() {
+                var assetsOriginal = {schemaVersion:1,requestId:command.commandId,available:false};
+                try {
+                    if (typeof Test.phoneAssetsRead === "function") {
+                        var resultAssets = Test.phoneAssetsRead(command,Date.now() - assetsReadStarted >= 4500);
+                        if (resultAssets && resultAssets.requestId === command.commandId) {
+                            if (resultAssets.pending === true) {
+                                Script.setTimeout(readOriginalAssets,10);return;
+                            }
+                            if (resultAssets.pending !== true) { assetsOriginal=resultAssets; }
+                        }
+                    }
+                } catch (_assetsOriginalError) { /* No ACK, pending read or failed source supplies mappings/bytes. */ }
+                Test.saveObject(assetsOriginal,command.action === "phone-assets-download" ? "phone-assets-download.json" : "phone-assets-observation.json");
+            }
+            readOriginalAssets();return;
+        }
+        if (command && command.schemaVersion === 1 && /^[0-9a-f]{32}$/.test(String(command.commandId))
                 && /^[0-9a-f]{32}$/.test(String(command.runId)) && command.action === "phone-create-observe"
                 && objectKeysMatch(command, ["schemaVersion", "commandId", "action", "runId", "trackedIds"])
                 && Array.isArray(command.trackedIds) && command.trackedIds.length <= 32) {
@@ -2356,7 +2383,7 @@
                 || command.action === "feature-world-render-observe" || command.action === "feature-world-render-storage"
                 || command.action === "feature-world-render-receipt"
                 || command.action === "feature-world-render-receipts"
-                || command.action === "feature-graphics-subject-observe" || command.action === "phone-create-observe" || command.action === "phone-snapshot-observe" || command.action === "phone-snapshot-readback"
+                || command.action === "feature-graphics-subject-observe" || command.action === "phone-create-observe" || command.action === "phone-assets-observe" || command.action === "phone-assets-download" || command.action === "phone-snapshot-observe" || command.action === "phone-snapshot-readback"
                 || command.action === "phone-avatar-configuration-observe" || command.action === "phone-touch-state-observe"
                 || command.action === "phone-emote-fixture-observe" || command.action === "phone-emote-fixture-input"
                 || command.action === "phone-create-fixture-observe" || command.action === "phone-create-fixture-input"

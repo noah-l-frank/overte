@@ -169,6 +169,9 @@ def readonly_feature_command(command):
     elif action=='phone-create-fixture-observe':
         from overte_phone_create_marker import command as validate_create_marker
         validate_create_marker(command)
+    elif action in ('phone-assets-observe','phone-assets-download'):
+        from overte_phone_assets_source import command as validate_assets_source
+        validate_assets_source(command)
     elif action=='phone-create-observe':
         from overte_phone_create_source import command as validate_create_source
         validate_create_source(command)
@@ -1178,6 +1181,16 @@ class PhoneAppiumAdapter(AppiumAdapter):
             lambda:transport.read_debug_app_file(device,target['appId'],
                 'files/overte-e2e/'+CREATE_FILES_FILE,attempts=1),
             native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep)
+
+    def _assets_source(self,selector,*,download=False,read_only=True):
+        from overte_phone_assets_source import PhoneAssetsSource,FILE,DOWNLOAD_FILE
+        require(type(download) is bool and type(read_only) is bool,'PHONE_ASSETS_READ_SCOPE_INVALID')
+        native=self._native_feature_observer(selector,read_only=read_only)
+        target=self.target(selector);device=target['capabilities']['appium:udid'];transport=PhoneAdapter(self.candidate).adb
+        name=DOWNLOAD_FILE if download else FILE
+        return PhoneAssetsSource(native.send,
+            lambda:transport.read_debug_app_file(device,target['appId'],'files/overte-e2e/'+name,attempts=1),
+            native.clock_ms,native.guard,native.pid,download=download,monotonic=native.monotonic,sleep=native.sleep)
 
     def _create_source(self, selector, *, read_only=True):
         native=self._native_feature_observer(selector,read_only=read_only)
