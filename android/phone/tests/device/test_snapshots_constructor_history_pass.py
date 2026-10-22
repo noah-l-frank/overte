@@ -163,6 +163,38 @@ class SnapshotConstructorHistoryPassTests(unittest.TestCase):
                     self.assertEqual(foreign,store.read())
                 finally:store.write(previous,foreign)
 
+    def test_first_constructor_header_cannot_replace_the_pinned_owner_even_for_direct_callers(self):
+        for explicit_pin in (False,True):
+            with self.subTest(explicit_pin=explicit_pin),self.prepared() as (f,token,disposals):
+                token.read()
+                role_path=token.role_store.path
+                actual=role_path.read_bytes();identity=(role_path.stat().st_dev,role_path.stat().st_ino)
+                foreign=dict(token.role_header,payload=pack([dict(phase='ready',sequence=0,manifests=[],pending=None)]))
+                # Supply a real, separately stored foreign header on the first
+                # constructor read only. Later owner checks see the unchanged
+                # original; checking just that later header would miss adoption.
+                other=PrivateFeatureState(f.root/'constructor-first-header-counter.json');other.write(foreign,None)
+                read=PrivateFeatureState.read;seen=[];forbidden=[]
+                def switched(store):
+                    if store.path==role_path and not seen:
+                        seen.append(True);return read(other)
+                    return read(store)
+                def unexpected(*_args,**_kwargs):
+                    forbidden.append(True);raise AssertionError('Foreign constructor header reached source acquisition or save')
+                try:
+                    with f.lock.held(),patch.object(PrivateFeatureState,'read',switched),\
+                            patch.object(PrivateFeatureState,'write',unexpected),\
+                            patch.object(SnapshotsOriginals,'restore',unexpected),\
+                            patch.object(PhoneSnapshotsRole,'read',unexpected),patch.object(PhoneSnapshotsRole,'batch',unexpected):
+                        options={'expected_previous':token.role_header} if explicit_pin else {}
+                        with self.assertRaises(NativeUIError):
+                            PhoneSnapshotsRole(f,'primary',_history_pass=token,_observe_disposals=disposals,**options)
+                    self.assertEqual([True],seen);self.assertEqual([],forbidden)
+                    self.assertEqual(actual,role_path.read_bytes())
+                    self.assertEqual(identity,(role_path.stat().st_dev,role_path.stat().st_ino))
+                    self.assertEqual(foreign,other.read())
+                finally:other.path.unlink()
+
     def test_replaced_scope_or_changed_configuration_cannot_supply_authority(self):
         for kind in ('scope-object','scope-content','configuration'):
             with self.subTest(kind=kind),self.prepared() as (f,token,disposals):
