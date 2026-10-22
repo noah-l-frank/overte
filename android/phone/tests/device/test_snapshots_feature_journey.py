@@ -28,6 +28,7 @@ from create_feature_target import Handler,RUN,DOMAIN,POLICY
 from snapshots_journey_producers import SnapshotTarget,SnapshotProxy,HostOnlyBoundary
 from snapshot_documents_journey_boundary import install_keepalive_snapshot_rpc,keepalive_handler,close_snapshot_rpc
 from adapters.normal_feature_state import PrivateFeatureState
+from adapters.normal_ui import NativeUIError
 from self_tests.test_phone_navigation import NativePhone
 from self_tests import test_snapshot_upload_service as wire
 from feature_journeys.account_provider import AccountProvider
@@ -184,6 +185,7 @@ class SnapshotJourneyTests(unittest.TestCase):
     def invoke(self,operation,arguments):
         try:return self.adapter.invoke('test-only-appium',operation,arguments)
         except Exception as error:
+            if os.environ.get('OVERTE_SNAPSHOT_HOST_TRACE')!='1':raise
             import traceback
             current=error.__context__
             while current is not None:
@@ -221,6 +223,44 @@ class SnapshotJourneyTests(unittest.TestCase):
         result=self.invoke('feature.snapshots.observe',dict(contractVersion=VERSION,runId=RUN,afterSequence=1))
         self.assertEqual(1,result['state']['saved']);self.assertEqual(1,len(self.model.os_files))
         self.assertTrue(all(path.read_bytes()==self.model.raw_png for path in self.model.os_files.values()))
+
+    def open_share(self):
+        self.client.activate('c'*32);self.invoke('feature.snapshots.observe',dict(contractVersion=VERSION,runId=RUN,afterSequence=0))
+        self.act('open');self.act('capture',dict(mode='still',format='png'));self.act('share-open')
+
+    def test_foreign_os_component_or_process_cannot_publish_a_passive_state(self):
+        self.open_share();original=self.model.component
+        delivered=len([row for row in self.model.product.calls if row['request']['action']!='observe'])
+        self.model.component='foreign.viewer/foreign.viewer.Activity'
+        with self.assertRaises(NativeUIError):self.invoke('feature.snapshots.observe',dict(contractVersion=VERSION,runId=RUN,afterSequence=1))
+        self.model.component=original;binding=deepcopy(self.model.model_binding)
+        self.model.model_binding['processIdentity']='32:changed-original-process'
+        with self.assertRaises(NativeUIError):self.invoke('feature.snapshots.observe',dict(contractVersion=VERSION,runId=RUN,afterSequence=1))
+        self.model.model_binding=binding
+        self.assertIsNotNone(PrivateFeatureState(self.root/'phone-snapshots-feature.json').read())
+        self.assertEqual(0,self.model.consumer.source['completedEpochMs'])
+        self.assertEqual(delivered,len([row for row in self.model.product.calls if row['request']['action']!='observe']))
+
+    def test_expired_original_native_lease_cannot_publish_current_os_state(self):
+        self.open_share()
+        # Explicit virtual target-clock advance, never a native TTL change or a
+        # rewrite of the original creation/deadline/history timestamps.
+        deadline=self.model.handoff['deadlineEpochMs'];self.model.query_epoch=deadline+1
+        with self.assertRaises(NativeUIError):self.invoke('feature.snapshots.observe',dict(contractVersion=VERSION,runId=RUN,afterSequence=1))
+        self.assertEqual(deadline,self.model.handoff['deadlineEpochMs'])
+        self.assertIsNotNone(PrivateFeatureState(self.root/'phone-snapshots-feature.json').read())
+
+    def test_ignored_native_grant_revocation_keeps_cleanup_red_and_owner_recoverable(self):
+        self.open_share();self.act('share-select-owned')
+        original=self.model.readback_source
+        def ignored(request):
+            return original(request|dict(operation='observe')) if request['operation']=='revoke-share' else original(request)
+        self.model.readback_source=ignored;self.client.activate('d'*32,'cleanup',{})
+        with self.assertRaises(NativeUIError):self.invoke('feature.snapshots.cleanup',dict(contractVersion=VERSION,runId=RUN))
+        self.assertTrue(self.model.readbacks['shareGrants']['rows'][0]['granted'])
+        self.assertTrue(self.model.consumer.path.exists())
+        self.assertIsNotNone(PrivateFeatureState(self.root/'phone-snapshots-feature.json').read())
+        self.assertFalse(list(self.root.glob('emote-frame-snapshots-retirement-*.json')))
 
     def test_repeated_native_prepare_cannot_replace_or_resurrect_original_marker_owner(self):
         self.client.activate('c'*32);self.invoke('feature.snapshots.observe',dict(contractVersion=VERSION,runId=RUN,afterSequence=0))
@@ -300,7 +340,7 @@ class SnapshotJourneyTests(unittest.TestCase):
         self.act('open');self.act('capture',dict(mode='still',format='png'));self.act('save')
         copy=self.model.readbacks['files'][0]
         (self.root/'snapshot-app/files'/Path(copy['path']).parent.name/Path(copy['path']).name).unlink()
-        with self.assertRaises(Exception):self.invoke('feature.snapshots.observe',dict(contractVersion=VERSION,runId=RUN,afterSequence=1))
+        with self.assertRaises(NativeUIError):self.invoke('feature.snapshots.observe',dict(contractVersion=VERSION,runId=RUN,afterSequence=1))
         self.assertIsNotNone(PrivateFeatureState(self.root/'phone-snapshots-feature.json').read())
 
     def test_separate_actor_publishes_only_its_own_original_baseline(self):
