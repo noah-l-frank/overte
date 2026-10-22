@@ -26,8 +26,12 @@ class ChatPhaseFence:
     last durable write, immediately before actual command publication. There
     is no retry, late source adoption or freshness reset after a failed check.
     """
-    def __init__(self,flow):
+    def __init__(self,flow,*,cleanup=None):
         need(type(flow) is ChatFlowInputs)
+        if cleanup is not None:
+            from adapters.chat_journey.cleanup_admission import ChatCleanupAdmission
+            need(type(cleanup) is ChatCleanupAdmission and cleanup.flow is flow)
+        self.cleanup=cleanup
         source=flow.source
         self.flow=flow;self.source=PhaseFixtureReader(source.client,source.run,source.area,
             epoch_ms=source.epoch_ms,monotonic=source.monotonic)
@@ -49,13 +53,15 @@ class ChatPhaseFence:
 
     def original(self):
         self.flow.roles[0].locks[0].assert_held()
+        if self.cleanup is not None:
+            need(not self.failed);return self.cleanup.original()
         need(not self.failed and self.flow.rows and self.flow.rows[-1]['phase']=='issued')
         return self.flow.rows[-1]['before']
 
     def read(self,expected):
         result=self.source.read(expected);packet=result['status']
         need(packet['active'] and same(packet['activations'],expected['activations'])
-            and result['ticket']==self.flow.rows[-1]['ticket'])
+            and result['ticket']==expected['activations'][-1]['ticket'])
         # The last copy also precedes the final original clock reads.
         original=deepcopy(packet);now=self.source.monotonic();epoch=self.source.epoch_ms()
         validate(original,run=self.source.run,area='chat',request=original['requestId'],epoch=epoch,previous=expected)
@@ -68,7 +74,7 @@ class ChatPhaseFence:
             need(number(started,0,1e15) and number(epoch,1,1e16))
             packet,now,current=self.read(expected)
             need(number(now,started,started+1.5) and number(current,epoch,epoch+1500))
-            self.anchor=dict(ticket=self.flow.rows[-1]['ticket'],before=deepcopy(expected),packet=packet,
+            self.anchor=dict(ticket=expected['activations'][-1]['ticket'],before=deepcopy(expected),packet=packet,
                 hostMonotonic=started,epochMs=epoch)
             return self.anchor
         except Exception:self.failed=True;raise
@@ -86,7 +92,7 @@ class ChatPhaseFence:
     def check(self):
         try:
             expected=self.original();anchor=self.anchor
-            need(anchor is not None and anchor['ticket']==self.flow.rows[-1]['ticket'] and same(anchor['before'],expected))
+            need(anchor is not None and anchor['ticket']==expected['activations'][-1]['ticket'] and same(anchor['before'],expected))
             # A fresh phase response cannot erase time spent in the original
             # child CAS, including a native jump under a frozen host clock.
             now=self.source.monotonic();epoch=self.source.epoch_ms()
