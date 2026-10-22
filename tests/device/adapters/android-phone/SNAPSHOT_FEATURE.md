@@ -417,3 +417,16 @@ UID; the preflight OS query alone proves neither actual routing nor a grant.
 Missing/ambiguous results, a changed resolver, a foreign UID and a stale or
 slow query cannot default to a configured chooser. Actual Android PackageManager
 execution remains untested; host tests exercise explicit OS transport seams.
+
+`SnapshotSystemContext` reuses the existing original OS/kernel/session lifecycle
+observer across that explicit share handoff. It requires a durable live owner's
+authority on both sides, the unchanged installed candidate, target, original
+SDK session/generation and kernel process; it brackets the actual current
+package/Activity with two matching original lifecycle reads. Only the original
+resolved chooser, owned consuming Activity and a genuinely foreground original
+app are admitted. A hidden foreign Activity, stopped process, changed SDK
+session or missing owner authority stays red. The dedicated Appium factories
+create no session, install nothing and send no native in-client command while
+a system surface is active. The normal app foreground-only native writer and
+observers are unchanged. Separate receiver consumption uses the same narrow
+context plus its existing fresh independent APK/UID/kernel/file identity checks.

@@ -1358,6 +1358,46 @@ class PhoneAppiumAdapter(AppiumAdapter):
             lambda:transport.read_debug_app_file(device,target['appId'],'files/overte-e2e/'+FILE,attempts=1),
             native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep)
 
+    def _snapshot_share_resolution(self,selector):
+        from overte_phone_snapshot_resolution import SnapshotChooserResolution
+        native=self._native_feature_observer(selector,read_only=True)
+        target=self.target(selector);transport=PhoneAdapter(self.candidate).adb
+        return SnapshotChooserResolution(transport,target['capabilities']['appium:udid'],native.guard,native.clock_ms,
+            monotonic=native.monotonic)
+
+    def _snapshot_system_context(self,selector,binding,resolution,authority):
+        from overte_phone_snapshot_system_context import SnapshotSystemContext
+        from overte_phone_snapshot_system_ui import component
+        target=self.target(selector)
+        require(getattr(self,'candidate',None) is not None and target.get('appId')=='io.github.noah_be.overte.phone'
+            and self.controlled_android_client(target),'PHONE_SNAPSHOT_SYSTEM_BOUND_DEBUG_TARGET_REQUIRED')
+        client,session,_state=self.existing_session(selector)
+        require(session==binding['sessionId'],'PHONE_SNAPSHOT_SYSTEM_ORIGINAL_SESSION_REQUIRED')
+        def current():
+            base='/session/'+session
+            return component(client.call('GET',base+'/appium/device/current_package'),
+                client.call('GET',base+'/appium/device/current_activity'))
+        scope=SnapshotSystemContext(binding,resolution,lambda:self._graphics_lifecycle_status(selector,binding),current,authority)
+        scope.guard()
+        return scope
+
+    def _snapshot_share_ui(self,selector,binding,resolution,intent,authority):
+        from overte_phone_snapshot_system_ui import PhoneSnapshotSystemUI
+        from adapters.normal_ui import NativeUI
+        scope=self._snapshot_system_context(selector,binding,resolution,authority)
+        client,session,_state=self.existing_session(selector);target=self.target(selector)
+        transport=PhoneAdapter(self.candidate).adb;device=target['capabilities']['appium:udid']
+        return PhoneSnapshotSystemUI(NativeUI(client,session,scope.guard),intent,
+            lambda:transport.epoch_milliseconds(device),resolution['component'])
+
+    def _snapshot_system_consumer(self,selector,run,arm,receiver_apk_sha256,application_binding,resolution,authority,*,read_only=True,binding=None):
+        from overte_phone_snapshot_consumer import PhoneSnapshotConsumer,SnapshotConsumerTransport
+        scope=self._snapshot_system_context(selector,application_binding,resolution,authority)
+        target=self.target(selector);device=target['capabilities']['appium:udid'];adb=PhoneAdapter(self.candidate).adb
+        transport=SnapshotConsumerTransport(adb,device,receiver_apk_sha256,scope.guard,read_only=read_only)
+        return PhoneSnapshotConsumer(transport.read,transport.binary,transport.control,transport.identity,
+            lambda:adb.epoch_milliseconds(device),scope.guard,run,arm,read_only=read_only,binding=binding)
+
     def _snapshot_platform(self,selector):
         from overte_phone_snapshot_platform import PhoneSnapshotPlatform
         native=self._native_feature_observer(selector,read_only=True)
