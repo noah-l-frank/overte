@@ -1,15 +1,7 @@
 name: Branch policy
 
 on:
-  pull_request:
-    types: [opened, reopened, synchronize, edited]
-    branches:
-      - android-main
-      - android-phone
-      - android-vr
-      - android-vr-pico
-      - apple-main
-      - apple-ios
+  workflow_dispatch:
 
 permissions:
   contents: read

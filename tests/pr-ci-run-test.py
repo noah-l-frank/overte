@@ -138,6 +138,17 @@ class DockerCommandTests(unittest.TestCase):
         self.assertEqual(R.PRLIMIT, call.call_args.args[0][0])
         self.assertEqual({"PATH", "LANG", "LC_ALL"}, set(call.call_args.kwargs["env"]))
 
+    def test_private_tmp_cannot_hide_an_explicit_prepared_runtime(self):
+        with tempfile.TemporaryDirectory(prefix="pr-ci-prepared-", dir="/tmp") as temporary:
+            prepared = Path(temporary) / "runtime"
+            (prepared / "bin").mkdir(parents=True)
+            argv = R.namespace_command(self.candidate, [str(prepared / "bin/python"), "one.py"],
+                                       prepared_roots=[prepared])
+            scratch = next(i for i, value in enumerate(argv) if value == "--tmpfs" and argv[i + 1] == "/tmp")
+            mount = next(i for i, value in enumerate(argv) if value == "--ro-bind" and argv[i + 1] == str(prepared))
+            self.assertLess(scratch, mount)
+            self.assertIn(["--tmpfs", "/run"], [argv[i:i + 2] for i in range(len(argv) - 1)])
+
     def test_namespace_failure_never_retries_docker_and_timeout_is_failure(self):
         with patch.object(R.subprocess, "run", side_effect=subprocess.TimeoutExpired([], 1)) as call:
             self.assertEqual(124, R.run(self.candidate, ["python3", "one.py"], boundary="user-namespace", timeout=1))

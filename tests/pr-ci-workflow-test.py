@@ -39,16 +39,16 @@ def scripts(job):
 
 
 def observer_contract(job):
-    assert job["name"] == "${{ github.event_name == 'pull_request' && 'Execution observer has no acceptance authority' || 'required-ci' }}"
-    assert job["needs"] == "ci-execution"
+    assert job["name"] == "${{ needs.plan.outputs.active == 'true' && 'required-ci' || 'Execution observer has no acceptance authority' }}"
+    assert job["needs"] == ["plan", "ci-execution"]
     condition = job["if"]
-    assert "always()" in condition and "pull_request_target" in condition
+    assert "always()" in condition and "pull_request'" in condition and "needs.plan.outputs.active == 'true'" in condition
     assert "workflow_dispatch" in condition and "!github.event.pull_request.draft" in condition
     assert all(permission == "read" for permission in job["permissions"].values())
     assert len(checkouts(job)) == 1
     checkout = checkouts(job)[0]
     assert checkout["path"] == "trusted" and checkout["persist-credentials"] is False
-    assert checkout["ref"] == "${{ github.event_name == 'workflow_dispatch' && github.sha || github.workflow_sha }}"
+    assert checkout["ref"] == "${{ needs.plan.outputs.controller }}"
     command = scripts(job)
     assert "trusted/tools/repository-checks/pr_ci.py gate" in command
     assert not re.search(r"\b(?:candidate|execute|platform|verify-native)\b", command)
@@ -104,12 +104,12 @@ class WorkflowContracts(unittest.TestCase):
         cls.jobs = cls.workflow["jobs"]
         cls.native = load("native-tests.yml")
 
-    def test_initial_rollout_is_main_only_and_manual_bootstrap_is_explicit(self):
+    def test_all_seven_targets_share_one_plan_and_manual_bootstrap_is_explicit(self):
         events = self.workflow["on"]
         self.assertEqual({"pull_request", "pull_request_target", "workflow_dispatch"}, set(events))
         expected = {"opened", "reopened", "synchronize", "ready_for_review", "edited"}
         for event in ("pull_request", "pull_request_target"):
-            self.assertEqual(["main"], events[event]["branches"])
+            self.assertEqual({"main", "apple-main", "apple-ios", "android-main", "android-phone", "android-vr", "android-vr-pico"}, set(events[event]["branches"]))
             self.assertEqual(expected, set(events[event]["types"]))
         self.assertEqual({"type": "string", "required": True,
             "description": "Open pull request to qualify with this reviewed controller"},
@@ -178,7 +178,7 @@ class WorkflowContracts(unittest.TestCase):
         self.assertEqual({"contents": "read"}, self.workflow["permissions"])
         for name, job in self.jobs.items():
             for scope, permission in job.get("permissions", {}).items():
-                self.assertTrue(permission == "read" or (name == "codeql" and scope == "security-events" and permission == "write"), (name, scope, permission))
+                self.assertTrue(permission == "read" or ((name == "codeql" and scope == "security-events" or name == "ios" and scope == "actions") and permission == "write"), (name, scope, permission))
         text = (WORKFLOWS / "repository-checks.yml").read_text()
         self.assertNotIn("secrets.", text)
         for name in ("host", "npm"):
@@ -240,6 +240,16 @@ class WorkflowContracts(unittest.TestCase):
             with self.subTest(mutation=mutation), self.assertRaises(AssertionError):
                 observer_contract(changed)
 
+    def test_fast_source_policy_uses_only_protected_source_and_no_dependencies(self):
+        job = self.jobs["source-policy"]
+        self.assertNotIn("needs", job)
+        self.assertEqual("github.event_name == 'pull_request_target' && !github.event.pull_request.draft", job["if"])
+        self.assertEqual("${{ github.event_name == 'pull_request_target' && 'source-policy' || 'Source policy not applicable' }}", job["name"])
+        self.assertEqual([{"ref": "${{ github.workflow_sha }}", "path": "trusted", "persist-credentials": False}], checkouts(job))
+        self.assertTrue(all(value == "read" for value in job["permissions"].values()))
+        self.assertIn("pr_ci.py source-policy", scripts(job))
+        self.assertNotIn(" candidate/", scripts(job))
+
     def test_codeql_analyzes_original_merge_and_publishes_native_upload_identity(self):
         job = self.jobs["codeql"]
         steps = {step.get("id"): step for step in job["steps"]}
@@ -295,8 +305,16 @@ class WorkflowContracts(unittest.TestCase):
                 native_recipe_contract(caller, workflow)
 
     def test_selected_platforms_fail_closed_through_trusted_cli(self):
+        self.assertEqual("./.github/workflows/pr-ci-ios.yml", self.jobs["ios"]["uses"])
+        product = load("pr-ci-ios.yml")
+        self.assertEqual({"workflow_call"}, set(product["on"]))
+        self.assertEqual("inputs.build_required", product["jobs"]["qt"]["if"])
+        self.assertEqual("inputs.build_required", product["jobs"]["client"]["if"])
+        self.assertIn("pr_ci.py verify-ios", scripts(product["jobs"]["verify"]))
+        self.assertEqual("${{ inputs.source }}", product["jobs"]["client"]["with"]["validated_host_contracts_sha"])
         for name in ("android", "ios"):
-            command = scripts(self.jobs[name])
+            job = self.jobs[name] if name == "android" else product["jobs"]["host"]
+            command = scripts(job)
             self.assertIn("trusted/tools/repository-checks/pr_ci.py platform", command)
             self.assertIn("--lane " + name, command)
             self.assertNotIn("continue-on-error", self.jobs[name])
@@ -319,15 +337,24 @@ class WorkflowContracts(unittest.TestCase):
         self.assertIn("workflow_dispatch", load("browser-client.yml")["on"])
         self.assertEqual({"workflow_dispatch"}, set(load("browser-direct-client.yml")["on"]))
         self.assertIn("schedule", load("codeql.yml")["on"])
-        self.assertNotIn("main", load("codeql.yml")["on"]["push"]["branches"])
+        self.assertNotIn("push", load("codeql.yml")["on"])
         self.assertIn("schedule", load("dependency-releases.yml")["on"])
         self.assertIn("workflow_dispatch", load("dependency-releases.yml")["on"])
         self.assertIn("tags", load("linux_server_build.yml")["on"]["push"])
-        self.assertIn("pull_request", load("branch-policy.yml")["on"])
-        self.assertIn("pull_request_target", load("sync-test-reuse.yml")["on"])
+        self.assertNotIn("pull_request", load("branch-policy.yml")["on"])
+        self.assertNotIn("pull_request_target", load("sync-test-reuse.yml")["on"])
         for name in ("parent-qualification.yml", "documentation-push-owner.yml", "dependency-releases.yml"):
             with self.subTest(retired_main_push=name):
-                self.assertNotIn("main", load(name)["on"]["push"]["branches"])
+                self.assertNotIn("push", load(name).get("on", {}))
+
+    def test_retired_product_workflows_cannot_restart_parallel_automatic_owners(self):
+        for name in ("android-tests.yml", "android-vr-tests.yml", "ios-build-qualification.yml", "ios-bootstrap.yml"):
+            if not (WORKFLOWS / name).exists():
+                continue
+            events = load(name)["on"]
+            with self.subTest(workflow=name):
+                self.assertFalse({"pull_request", "pull_request_target", "push"} & set(events))
+                self.assertIn("workflow_dispatch", events)
 
     def test_every_external_action_is_pinned_to_an_immutable_commit(self):
         for workflow in (self.workflow, self.native):

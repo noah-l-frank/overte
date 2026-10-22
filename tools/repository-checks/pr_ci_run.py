@@ -309,6 +309,9 @@ def namespace_command(candidate, command, *, prepared_roots=(), network=False,
         argv += ["--share-net", *_public_network_bindings()]
         values.update(SSL_CERT_FILE="/etc/ssl/certs/ca-certificates.crt",
                       SSL_CERT_DIR="/etc/ssl/certs")
+    # Mount scratch before prepared roots: an explicitly allowed runtime under
+    # /tmp must remain visible after the private temporary filesystem is made.
+    argv += ["--size", str(2 * 1024 ** 3), "--tmpfs", "/tmp"]
     for root in roots:
         argv += ["--ro-bind", str(root), str(root)]
     for alias in ("bin", "sbin", "lib", "lib64"):
@@ -322,8 +325,8 @@ def namespace_command(candidate, command, *, prepared_roots=(), network=False,
         require(_inside(target, Path("/usr")) and target.is_file(),
                 "system linker alias escapes prepared /usr")
         argv += ["--symlink", str(target), "/etc/alternatives/ld"]
-    argv += ["--proc", "/proc", "--dev", "/dev", "--size", str(2 * 1024 ** 3),
-             "--tmpfs", "/tmp", "--bind", str(candidate), "/work",
+    argv += ["--proc", "/proc", "--dev", "/dev", "--size", str(16 * 1024 ** 2),
+             "--tmpfs", "/run", "--bind", str(candidate), "/work",
              "--ro-bind", str(candidate / ".git"), "/work/.git",
              "--remount-ro", "/", "--chdir", "/work"]
     for name, value in sorted(values.items()):
