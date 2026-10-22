@@ -430,3 +430,13 @@ create no session, install nothing and send no native in-client command while
 a system surface is active. The normal app foreground-only native writer and
 observers are unchanged. Separate receiver consumption uses the same narrow
 context plus its existing fresh independent APK/UID/kernel/file identity checks.
+
+The capture-facts reducer retains the original baseline and joins subsequent
+VM contexts with actual native allocation/terminal events. A VM `complete`
+without its original native begin, final path and completed status is rejected,
+as are foreign contexts, source-manager/root changes and retained live work.
+Pending/cancelled history is raw provenance only: the complete owner must also
+require the independently retained normal fast-cancel recipe, and a native
+complete path still needs original file identity, encoded bytes and pixels.
+The reducer never converts an acknowledged input or an empty result into a
+file, cancellation or completed capture verdict.
