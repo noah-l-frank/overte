@@ -2706,5 +2706,35 @@
       "Final native clock reread after guard rejects actual clock jumps."
     ],
     "completeEmoteCapability": false
+  },
+  "createChatFollowup20261022": {
+    "status": "passed",
+    "commits": [
+      "6d1c70c2dd",
+      "036847d858",
+      "58754e0fef"
+    ],
+    "pico": {
+      "groups": 3,
+      "catalog": 63,
+      "seconds": 23.35,
+      "passed": [
+        "coverage-matrix",
+        "create-picker-owner",
+        "create-dialog-native"
+      ]
+    },
+    "chatFixtureSource": {
+      "tests": 3,
+      "seconds": 0.423,
+      "status": "passed"
+    },
+    "actualDomainNativeQt5": {
+      "tests": 1,
+      "seconds": 1.432,
+      "status": "passed"
+    },
+    "earlierFailure": "Resolved incorrect harness receiver affinity: actual Application setup creates GUI Window singleton; real Script thread DirectConnection call enters original blocking UI factory. Native queued receiver moved off GUI was an unsupported diagnostic seam; stack retained in Create docs. No functional product change.",
+    "deviceQualified": false
   }
 }
