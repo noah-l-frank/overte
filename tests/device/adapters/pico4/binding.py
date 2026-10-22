@@ -590,6 +590,25 @@ def create_adapter(args, base_class):
                 path, run, manager.binding, guard)
 
         @_private
+        def _navigation_missing(self,target,path,run,status,provider_instance,inputs,owned_origin,*,source_lock):
+            from adapters.navigation_missing import NavigationMissing
+            from adapters.pico4.graphics_binding import PicoGraphicsBinding
+            from adapters.pico4.tablet_home import bind_home
+            manager=self._scripts(target);native=self._native_feature_observer(target)
+            lock=PicoGraphicsBinding(self)._lock(target,source_lock)
+            def guard():
+                lock.assert_held();return native.guard()
+            return NavigationMissing(lambda intent:self._navigation_lookup_controls(target,intent,run),
+                self._navigation_arrival(target,run,inputs['sceneUrl']),bind_home(self,target,native),self._location_bookmarks(target),
+                self._navigation_replies(target),self._navigation_modals(target),status,path,run,manager.binding,
+                provider_instance,inputs,owned_origin,guard,monotonic=native.monotonic,sleep=native.sleep)
+
+        @_private
+        def _navigation_lookup_controls(self,target,intent,run):
+            from adapters.pico4.navigation_lookup import PicoNavigationLookup
+            return PicoNavigationLookup(self._scripts(target).ui,self._navigation_panels(target),intent,run)
+
+        @_private
         def _navigation_error_controls(self, target, intent, run):
             from adapters.token_navigation_error_ui import TokenNavigationErrorUI
             from adapters.pico4.normal_navigation_error import PicoNavigationErrorIO

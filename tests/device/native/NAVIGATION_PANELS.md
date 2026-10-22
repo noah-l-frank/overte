@@ -1,6 +1,6 @@
 # Original Pico Navigation panel lifetimes
 
-`native-navigation-panels` v1 is a passive source, not an input or complete
+`native-navigation-panels` v2 (reads closed v1) is a passive source, not an input or complete
 Navigation capability. It is compiled only with `OVERTE_E2E_FEATURE_TESTS` and
 `ANDROID_APP_PICO_INTERFACE`, requires `--testScript`, and observes on the actual
 GUI thread. The Test scripting entry also requires the original active test
@@ -29,7 +29,7 @@ cleanup instruction or preferred result is accepted. Missing instrumentation is
 unavailable, never an empty successful inventory. The actual private Pico reader
 retains candidate/process guards and the original native clock.
 
-The closed reply contains `navigationPanelsVersion: 1`, original command/run,
+The closed reply contains `navigationPanelsVersion: 2`, original command/run,
 source instance, sequence, PID, epoch, `complete: true`, roots and the original UI
 bridge/generation/input counter/elapsed/epoch/open/ready fields. Each root has
 `rootId`, `profile` (`pico-places-v1` or `pico-address-v1`), `sourceSha256`,
@@ -48,9 +48,31 @@ then joins actual Home state, unchanged Qt input count, measured destination,
 original bookmark file/map, original directory root and this complete panel
 inventory. Both the old Places root and any Go To root must be retired before
 success. Three seconds of original quiet follow. This neither closes the whole
-tablet nor implements the remaining Go To input/lookup owner, full Script/XHR/
-Web/callback retirement, restart, actor or complete Navigation finalizer.
+tablet nor implements a whole-area finalizer. The separate [normal lookup owner](../adapters/pico4/NAVIGATION_LOOKUP.md) now supplies Go To input/404/presentation. Full Script/XHR/
+Web/callback retirement, restart and actor composition remain unfinished.
 
-Do not add this source to Phone/iOS automatically. It changes no existing UI
-wire shape and is a Pico-only additive reader/probe entry. A future platform
+Do not add this source to Phone/iOS automatically. The nonce-only command and existing control row shapes stay unchanged; v2
+adds lookup metadata and the opt-in raw Pico UI flag described below. A future platform
 integration must supply that platform's actual root lifetime producer.
+
+## Original lookup metadata in v2
+
+The additive `lookup` object contains `complete`, nullable `home` and nullable
+`address`. Its completeness is separate from the full root traversal: missing
+original lexical objects, duplicate roots or unavailable properties cannot
+become a successful lookup input source. Closed v1 remains readable for older
+lifetime-only archives; one live source cannot change its producer version.
+
+Home identifies the original `TabletHome.qml` lexical `tablet` and `swipeView`.
+It reports the weak `rootId`, hashed component URL, actual `pageIndex`,
+`pageCount` and visibility. Unready count zero/index minus one is preserved.
+Address joins the original lexical `root` and `addressLine`, actual SHA-256,
+length, focus/input readiness and visibility to the exact live address root
+already in the lifetime inventory. Home is separate from Go To/Places lifetimes.
+
+`NavigationLookupControls.h` shares these weak identities with native control
+tokens. Original GOTO text/icons/button UUID, actual page delegate index,
+root/page/draft/focus and mapped scene geometry contribute to the input source
+fingerprint. Changed sources retire the prior token. No new QML controls or
+product setters are introduced. The raw Pico frame adds the opt-in
+`navigationLookupControlsVersion: 1`; existing control row shapes remain intact.

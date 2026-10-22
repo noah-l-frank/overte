@@ -105,6 +105,9 @@ def validate_snapshot(value, process_id, epoch_ms):
     if type(value) is dict and 'navigationErrorControlsVersion' in value:
         fields.add('navigationErrorControlsVersion')
         need(type(value['navigationErrorControlsVersion']) is int and value['navigationErrorControlsVersion']==1)
+    if type(value) is dict and 'navigationLookupControlsVersion' in value:
+        fields.add('navigationLookupControlsVersion')
+        need(type(value['navigationLookupControlsVersion']) is int and value['navigationLookupControlsVersion']==1)
     if type(value) is dict and 'navigationOriginControlsVersion' in value:
         fields.add('navigationOriginControlsVersion')
         need(type(value['navigationOriginControlsVersion']) is int and value['navigationOriginControlsVersion']==1)
@@ -297,7 +300,9 @@ class PicoNavigation:
         if expected_scope is not None:
             from adapters.token_create_ui import scope
             scope(expected_scope)
-            need(snapshot.get('navigationOriginControlsVersion')==1 and control_id in ('login.server','tablet.home')
+            need((snapshot.get('navigationOriginControlsVersion')==1 and control_id in ('login.server','tablet.home')
+                  or snapshot.get('navigationLookupControlsVersion')==1 and (control_id in ('navigation.goto','navigation.address')
+                      or re.fullmatch(r'tablet\.page\.([1-9]|[12][0-9]|3[0-2])',control_id)))
                  and token is not None and reference is None
                  and snapshot['bridgeId']==expected_scope['instance'] and snapshot['generation']==expected_scope['generation']
                  and snapshot['processId']==expected_scope['processId'] and snapshot['lastCommandSequence']==expected_scope['sequence']

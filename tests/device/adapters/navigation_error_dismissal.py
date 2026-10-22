@@ -10,7 +10,7 @@ import re
 import time
 
 from adapters.native_feature_observation import exact, integer, need, number
-from adapters.native_navigation_replies import origin, validate as reply_packet
+from adapters.native_navigation_replies import origin, validate as reply_packet, join_missing
 from adapters.native_navigation_modals import validate as modal_packet, validate_continuation, presented, retired
 from adapters.normal_feature_state import PrivateFeatureState, context
 from adapters.normal_ui import NativeUIError
@@ -83,16 +83,7 @@ class NavigationErrorDismissal:
         validate_status(new['provider'], instance=self.provider_instance, run=self.run, inputs=self.inputs, previous=old['provider'])
 
     def join(self, group, ticket, after_epoch):
-        reply, provider = group['reply'], group['provider']
-        responses = {r['responseId']: r for r in provider['responses']
-            if r['ticket'] == ticket and r['kind'] == 'missing-name' and r['status'] == 404 and r['completedEpochMs'] >= after_epoch}
-        matches = [(event, responses[event['responseId']]) for event in reply['events']
-            if event['responseId'] in responses and event['origin'] == self.origin and event['httpStatus'] == 404
-            and event['contentNotFound'] and event['callbackEpochMs'] >= after_epoch
-            and event['replyCapturedEpochMs'] >= after_epoch]
-        need(len(matches) == 1)
-        event, response = matches[0]
-        return dict(event=deepcopy(event), response=deepcopy(response))
+        return join_missing(group['reply'],group['provider'],ticket,after_epoch,self.origin)
 
     def validate_state(self, value):
         exact(value, LEGACY_FIELDS|{'lookupTicket'})

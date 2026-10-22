@@ -9,7 +9,7 @@ from adapters.native_feature_observation import decode,exact,fresh,integer,need,
 from adapters.token_create_ui import nonce
 from adapters.normal_ui import NativeUIError
 
-VERSION=1
+VERSION=2
 FILE='feature-navigation-panels.json'
 PROFILES=frozenset(('pico-address-v1','pico-places-v1'))
 
@@ -26,8 +26,9 @@ def command(value):
 
 def validate(value,request,pid,epoch):
     command(request)
-    exact(value,{'navigationPanelsVersion','commandId','runId','instance','sequence','processId','capturedEpochMs','complete','roots','ui'})
-    need(type(value['navigationPanelsVersion']) is int and value['navigationPanelsVersion']==VERSION
+    version=value.get('navigationPanelsVersion') if type(value) is dict else None
+    exact(value,{'navigationPanelsVersion','commandId','runId','instance','sequence','processId','capturedEpochMs','complete','roots','ui'}|({'lookup'} if version==2 else set()))
+    need(type(version) is int and version in (1,2)
          and value['commandId']==request['commandId'] and value['runId']==request['runId'] and identifier(value['instance'])
          and integer(value['sequence'],1,4096) and integer(pid,1) and integer(value['processId'],1) and value['processId']==pid
          and value['complete'] is True and type(value['roots']) is list and len(value['roots'])<=128)
@@ -46,11 +47,30 @@ def validate(value,request,pid,epoch):
              and (row['alive'] or not row['inCurrentTree'] and not row['visible'])
              and (not row['visible'] or row['inCurrentTree'] and ui['open']))
         seen.add(row['rootId'])
+    if version==2:
+        lookup=value['lookup'];exact(lookup,{'complete','home','address'});need(type(lookup['complete']) is bool)
+        home,address=lookup['home'],lookup['address']
+        if home is not None:
+            exact(home,{'rootId','sourceSha256','pageIndex','pageCount','visible'})
+            need(identifier(home['rootId']) and home['rootId'] not in seen and type(home['sourceSha256']) is str
+                 and re.fullmatch('[0-9a-f]{64}',home['sourceSha256']) and integer(home['pageCount'],0,32)
+                 and type(home['pageIndex']) is int and -1<=home['pageIndex']<home['pageCount']
+                 and type(home['visible']) is bool and (not home['visible'] or ui['open']))
+        current=[r for r in value['roots'] if r['profile']=='pico-address-v1' and r['alive'] and r['inCurrentTree']]
+        if address is not None:
+            exact(address,{'rootId','sourceSha256','textSha256','textLength','focused','inputReady','visible'})
+            need(identifier(address['rootId']) and all(type(address[k]) is str and re.fullmatch('[0-9a-f]{64}',address[k])
+                 for k in ('sourceSha256','textSha256')) and integer(address['textLength'],0,2048)
+                 and all(type(address[k]) is bool for k in ('focused','inputReady','visible'))
+                 and (not address['inputReady'] or address['focused']))
+            matching=[r for r in current if r['rootId']==address['rootId']]
+            need(len(matching)==1 and matching[0]['sourceSha256']==address['sourceSha256'] and matching[0]['visible']==address['visible'])
+        if lookup['complete']:need(len(current)<=1 and bool(current)==(address is not None))
     return value
 
 
 def continuation(before,after):
-    need(before['instance']==after['instance'] and before['processId']==after['processId'] and before['runId']==after['runId']
+    need(before['navigationPanelsVersion']==after['navigationPanelsVersion'] and before['instance']==after['instance'] and before['processId']==after['processId'] and before['runId']==after['runId']
          and after['sequence']>before['sequence'] and after['capturedEpochMs']>=before['capturedEpochMs']
          and before['ui']['bridgeId']==after['ui']['bridgeId']
          and all(after['ui'][k]>=before['ui'][k] for k in ('sequence','elapsedMs','observedEpochMs')))

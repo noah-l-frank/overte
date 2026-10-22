@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 #pragma once
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
-#include "NormalPlacesControls.h"
+#include "NavigationLookupControls.h"
 #include <QQuickWindow>
 #include <QDateTime>
 #include <functional>
@@ -14,7 +14,7 @@ class NavigationPanelsObservation {
 public:
     void observe(QQuickItem* root,QQuickWindow* window,const QJsonObject& frame) {
         if (!enabled()) { return; }
-        _frame=frame;_root=root;_window=window;_current.clear();_complete=false;
+        _frame=frame;_root=root;_window=window;_current.clear();_complete=false;_home=nullptr;_address=nullptr;_lookupComplete=true;
         const auto now=epoch();if (!now) { return; }
         if (!root) { _complete=!frame.value("open").toBool();return; }
         if (root->thread()!=QCoreApplication::instance()->thread() || !window
@@ -23,11 +23,17 @@ public:
         std::function<void(QQuickItem*,int)> walk=[&](QQuickItem* item,int depth) {
             if (!item || !_valid) { return; }
             if (++count>4096 || depth>128 || item->thread()!=root->thread()) { _valid=false;return; }
+            if (!navigationLookupComponent(item,true).isEmpty()) {
+                if (_home && _home!=item) { _lookupComplete=false; }else { _home=item; }
+            }
             QString profile,source=placesComponent(item);
             if (!source.isEmpty()) { profile="pico-places-v1"; }
             else {
-                source=addressComponent(item);
-                if (!source.isEmpty()) { profile="pico-address-v1"; }
+                source=navigationLookupComponent(item,false);
+                if (!source.isEmpty()) {
+                    profile="pico-address-v1";
+                    if (_address && _address!=item) { _lookupComplete=false; }else { _address=item; }
+                }
             }
             if (!profile.isEmpty()) {
                 QString id;
@@ -35,7 +41,7 @@ public:
                 const auto digest=placesHash(source);
                 if (id.isEmpty()) {
                     if (_rows.size()>=128) { _valid=false;return; }
-                    id=profile=="pico-places-v1" ? placesRootInstance(item) : nonce();
+                    id=profile=="pico-places-v1" ? placesRootInstance(item) : navigationLookupRootId(item);
                     if (!identifier(id) || _rows.contains(id)) { _valid=false;return; }
                     Row row;row.root=item;row.profile=profile;row.source=digest;row.first=now;_rows.insert(id,row);
                 } else if (_rows[id].profile!=profile || _rows[id].source!=digest) { _valid=false;return; }
@@ -62,10 +68,18 @@ public:
                 {"inCurrentTree",i->root && _current.contains(i.key()) && within(i->root,_root)},
                 {"visible",_frame.value("open").toBool() && _current.contains(i.key()) && within(i->root,_root) && visible(i->root,_window)}});
         }
-        return {{"navigationPanelsVersion",1},{"commandId",request.value("commandId")},{"runId",request.value("runId")},
+        QJsonObject lookup{{"complete",_lookupComplete},{"home",QJsonValue()},{"address",QJsonValue()}};
+        for (const auto home:{true,false}) {
+            const auto root=home ? _home.data() : _address.data();if (!root) { continue; }
+            if (root->thread()!=QCoreApplication::instance()->thread()) { _valid=false;return {}; }
+            auto source=home ? navigationLookupHome(root) : navigationLookupAddress(root);
+            if (source.isEmpty()) { lookup["complete"]=false;continue; }
+            source["visible"]=_frame.value("open").toBool() && source.value("visible").toBool();lookup[home ? "home" : "address"]=source;
+        }
+        return {{"navigationPanelsVersion",2},{"commandId",request.value("commandId")},{"runId",request.value("runId")},
             {"instance",_instance},{"sequence",static_cast<qulonglong>(++_sequence)},{"processId",QCoreApplication::applicationPid()},
             {"capturedEpochMs",now},{"complete",true},{"roots",roots},
-            {"ui",QVariantMap{{"bridgeId",_frame.value("bridgeId").toString()},{"generation",_frame.value("generation").toString()},
+            {"lookup",lookup.toVariantMap()},{"ui",QVariantMap{{"bridgeId",_frame.value("bridgeId").toString()},{"generation",_frame.value("generation").toString()},
                 {"sequence",_frame.value("lastCommandSequence").toVariant()},{"elapsedMs",_frame.value("elapsedMs").toVariant()},
                 {"observedEpochMs",observed},{"open",_frame.value("open").toBool()},{"ready",_frame.value("ready").toBool()}}}};
     }
@@ -88,19 +102,8 @@ private:
         }
         return depth<=128;
     }
-    static QString addressComponent(QQuickItem* item) {
-        if (!loginGuiItem(item) || item->objectName()!="tabletAddressDialog"
-                || !QString(item->metaObject()->className()).startsWith("TabletAddressDialog_QMLTYPE_")) { return {}; }
-        int depth{0};for (auto c=qmlContext(item);c && ++depth<=128;c=c->parentContext()) {
-            const auto url=c->baseUrl();
-            if (c->nameForObject(item)=="root" && (url.scheme()=="qrc" || url.scheme()=="file")
-                    && url.authority().isEmpty() && !url.hasQuery() && !url.hasFragment()
-                    && url.path().endsWith("/hifi/tablet/TabletAddressDialog.qml")) { return url.toString(); }
-        }
-        return {};
-    }
-    QPointer<QQuickItem> _root;QPointer<QQuickWindow> _window;QJsonObject _frame;QHash<QString,Row> _rows;
-    QSet<QString> _queries,_current;QString _instance{nonce()};qint64 _epoch{0};quint64 _sequence{0};bool _valid{true},_complete{false};
+    QPointer<QQuickItem> _root,_home,_address;QPointer<QQuickWindow> _window;QJsonObject _frame;QHash<QString,Row> _rows;
+    QSet<QString> _queries,_current;QString _instance{nonce()};qint64 _epoch{0};quint64 _sequence{0};bool _valid{true},_complete{false},_lookupComplete{true};
 };
 inline NavigationPanelsObservation& navigationPanelsObservation() { static NavigationPanelsObservation value;return value; }
 }

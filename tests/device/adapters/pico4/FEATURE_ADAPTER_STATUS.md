@@ -50,8 +50,13 @@ closes the already owned Home tablet once through ordinary OpenXR input, proves
 three seconds of independent original quiet and publishes new v2 stereo sources
 for primary/actor roles without UI repair. Source IDs, raw metadata/PNG identity,
 clocks, lost-result recovery and retained uncertain ownership are host verified.
-Full Navigation state/actor/public composition, maturity, remaining Go To input
-and closure, restart and independent whole-area retirement remain incomplete.
+The [normal Go To lookup owner](NAVIGATION_LOOKUP.md) now supplies original
+Home paging/GOTO/focus/Return, owned 404/callback/modal joining and one ordinary
+tablet reopen when the actual native modal is hidden. Lost input results retain
+original intents; completed before/input/after history and unrelated input are
+checked on recovery. Full Navigation state/actor/public composition, maturity,
+Go To dismissal/whole-tablet closure composition, restart and independent
+whole-area retirement remain incomplete.
 These components add no complete feature area.
 
 ## Historical component checkpoints

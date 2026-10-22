@@ -83,6 +83,19 @@ def validate_event(event,run,*,generation,epoch,after_sequence=0,after_epoch=0,r
     return event
 
 
+def join_missing(reply,provider,ticket,after_epoch,owned_origin):
+    """Already validated original packets; no query or desired native outcome."""
+    origin(owned_origin);need(type(ticket) is str and re.fullmatch(HEX,ticket) and integer(after_epoch,1))
+    responses={row['responseId']:row for row in provider['responses']
+        if row['ticket']==ticket and row['kind']=='missing-name' and row['status']==404 and row['completedEpochMs']>=after_epoch}
+    matches=[(event,responses[event['responseId']]) for event in reply['events']
+        if event['responseId'] in responses and event['origin']==owned_origin and event['httpStatus']==404
+        and event['contentNotFound'] and event['callbackEpochMs']>=after_epoch
+        and event.get('replyCapturedEpochMs',event['callbackEpochMs'])>=after_epoch]
+    need(len(matches)==1);event,response=matches[0]
+    return dict(event=deepcopy(event),response=deepcopy(response))
+
+
 class NativeNavigationReplies:
     def __init__(self,send,original,clock_ms,guard,pid,*,ios=False,monotonic=time.monotonic,sleep=time.sleep):
         need(all(callable(f) for f in (send,original,clock_ms,guard,monotonic,sleep)) and integer(pid,1) and type(ios) is bool)

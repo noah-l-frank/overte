@@ -744,3 +744,29 @@ activates dismissal after its original completed lookup response. Native code
 and input wire shape are unchanged; sources remain uncompiled and devices
 untested. Full Go To input/open/closure and Navigation actor/public/finalizer
 composition remain unfinished; no complete capability is added.
+
+
+## Normal Go To lookup, original hidden modal and one normal reopen
+
+The [normal lookup owner](NAVIGATION_LOOKUP.md) now starts from independently
+measured B and closed Home, finds original GOTO through bounded real page input,
+focuses and fills the owned missing address, and submits through normal Return.
+Native panel v2 adds independent original Home/page/address metadata, preserving
+closed v1 lifetime readers. The additive Pico input flag binds original control
+tokens to root/page/draft/focus/geometry; existing row shapes remain unchanged.
+
+The original owned HTTP 404, captured native reply/callback and live critical
+modal must agree. Actual Android source closes the HMD tablet on Return; the
+owner reopens it once through normal OpenXR input only after observing the
+original hidden modal, then proves that same modal physically presented. It
+preserves B, original bookmark storage and every successful input/source record.
+Lost results never trigger resends; tampered histories, extra input and foreign
+sources cannot borrow the completed lookup. The actual private factory requires
+the existing shared source lock and manager. All 69 selected host checks pass.
+
+This is another internal vertical flow, not complete Navigation. Its original
+lookup ticket/barrier must feed the later error-dismissal challenge. Whole-area
+state/actor/public composition, dismissal/close joining, maturity and scene
+restoration, actual process/bookmark transfer and complete resource retirement
+remain open. Three areas are source/host complete, native code is uncompiled,
+and no devices have run. Phone/iOS are unchanged.

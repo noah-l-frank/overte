@@ -228,7 +228,10 @@ QJsonObject NavigationUi::observe(QQuickItem* root, QQuickWindow* window, bool o
                 } else
 #endif
                 if (id=="navigation.address") {
-                    source=overte::e2e::navigationAddressSource(item);
+                    source=overte::e2e::navigationLookupControlSource(item,id);
+                    if (source.isEmpty()) { ambiguous=true;return; }
+                } else if (id=="navigation.goto" || id.startsWith("tablet.page.")) {
+                    source=overte::e2e::navigationLookupControlSource(item,id);
                     if (source.isEmpty()) { ambiguous=true;return; }
                 } else if (id.startsWith("chat.")) {
                     source=overte::e2e::chatControlSource(item,id);
@@ -338,6 +341,7 @@ QJsonObject NavigationUi::observe(QQuickItem* root, QQuickWindow* window, bool o
     result["placesControlsVersion"]=1;
     result["navigationErrorControlsVersion"]=1;
     result["navigationOriginControlsVersion"]=1;
+    result["navigationLookupControlsVersion"]=1;
     overte::e2e::navigationPanelsObservation().observe(root,window,result);
     overte::e2e::navigationEnvironmentObservation().observe(result,controls.value("login.server").item,controls.value("login.page").item);
     const auto directoryProvider=overte::e2e::navigationDirectoryProvider();

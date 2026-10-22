@@ -1767,5 +1767,47 @@
     ],
     "details": "The owner separately pins original lookup receipt identity/barrier and current dismissal challenge, preserves one pending normal OK across lost replies, rejects replacement identities or changed original provider history, and rechecks current provider/lookup scope even after completed cleanup. Closed v1 records retain same-ticket semantics without overwriting the original CAS comparison value. Unexpected legacy fields/version aliases and missing new fields fail closed. The existing real loopback response case activates a new challenge after the original 404; no fixture history is retagged or reactivated. Final action budget is checked after persistence.",
     "limitations": "All native/Qt/controller boundaries are synthetic and native sources remain uncompiled; physical runs remain zero. No builds, compilers, devices, installations, dependency installation, services, Jenkins, remote writes or protected integration. Actual Go To input/open/closure and full Navigation independent state/actor/public/final retirement remain unfinished; three source/host-complete areas only."
+  },
+  "normalGoToLookup": {
+    "status": "source-host-verified-internal-component",
+    "contracts": [
+      "native-navigation-panels v2 reads v1/v2",
+      "pico-navigation-lookup-controls v1",
+      "navigation-missing-lookup v1"
+    ],
+    "checks": [
+      {
+        "command": "PYTHONDONTWRITEBYTECODE=1 TMPDIR=PRIVATE_TMPFS python3 -m unittest self_tests.test_navigation_missing self_tests.test_navigation_lookup self_tests.test_native_navigation_panels self_tests.test_navigation_error_dismissal self_tests.test_token_navigation_error_ui self_tests.test_native_navigation_modals self_tests.test_native_navigation_replies",
+        "status": "passed",
+        "tests": 69,
+        "durationSeconds": 48.612
+      },
+      {
+        "command": "python3 tests/device/validate_contract_versions.py",
+        "status": "passed"
+      },
+      {
+        "command": "python3 tests/run-project-tests.py --suite documentation --suite documentation-contracts --suite source-layout --suite project-coverage --timeout 240",
+        "status": "passed",
+        "suites": 4,
+        "durationSeconds": 5.71,
+        "junit": "navigation-lookup-project.xml"
+      },
+      {
+        "command": "python3 android/vr/pico/tests/pico4-test-suite.py --test normal-create --test normal-chat --test normal-login --test suite-runner --test coverage-matrix --timeout 240",
+        "status": "passed",
+        "selectedGroups": 5,
+        "catalogGroups": 52,
+        "durationSeconds": 105.48,
+        "junit": "navigation-lookup-pico.xml"
+      },
+      {
+        "command": "PYTHONDONTWRITEBYTECODE=1 TMPDIR=PRIVATE_TMPFS python3 -m unittest self_tests.test_navigation_frames self_tests.test_navigation_tablet_close self_tests.test_navigation_ray_transit self_tests.test_navigation_transit self_tests.test_pico_tablet_home",
+        "status": "passed",
+        "tests": 41,
+        "durationSeconds": 156.951
+      }
+    ],
+    "limitations": "Internal normal lookup and original modal presentation only; no complete Navigation state/actor/public/cleanup composition. Native code uncompiled, all Qt/OpenXR/device boundaries synthetic, zero physical runs. No builds, compilers, devices, dependencies, services, remote writes or protected integration."
   }
 }
