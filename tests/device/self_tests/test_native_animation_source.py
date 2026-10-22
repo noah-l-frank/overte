@@ -5,7 +5,10 @@ from copy import deepcopy
 import hashlib
 from pathlib import Path
 import subprocess
+import sys
 import unittest
+
+sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 
 from adapters.native_animation_source import validate,model,pins,controlled,LIMIT,NAMES
 from adapters.native_animation_history import clip as clip_packet

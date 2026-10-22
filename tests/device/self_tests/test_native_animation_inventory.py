@@ -5,7 +5,10 @@ from copy import deepcopy
 import hashlib
 import json
 from pathlib import Path
+import sys
 import unittest
+
+sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 
 from adapters.native_animation_inventory import NativeAnimationInventory,command,validate
 from adapters.native_animation_source import NAMES

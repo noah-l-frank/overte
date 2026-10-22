@@ -225,11 +225,29 @@ class DomainFixtureTest(unittest.TestCase):
                 self.assertIsNone(process.poll())
                 configured = output / "chat-actor-config.json"
                 self.assertEqual(chat_receiver, configured.exists())
-                arguments = list((output / "runtime").rglob("args-*.json"))
+                roles = {"args-" + role + ".json" for role in
+                         ("0", "1", "3", "4", "5", "6", "overte-e2e-domain", "overte-e2e-peer")}
+                # Domain readiness proves its marker, not that every separate
+                # synthetic assignment interpreter has written its argv yet.
+                # Both actual controlled stack births still owe all eight roles.
+                deadline = time.monotonic() + 3
+                while True:
+                    arguments = list((output / "runtime").rglob("args-*.json"))
+                    by_stack = {}
+                    for path in arguments: by_stack.setdefault(path.parent, set()).add(path.name)
+                    if len(by_stack) == 2 and all(names == roles for names in by_stack.values()): break
+                    if time.monotonic() >= deadline: break
+                    time.sleep(0.02)
+                self.assertEqual(2, len(by_stack), "both original stack births must retain their own assignment argv")
+                for directory, names in by_stack.items(): self.assertEqual(roles, names, str(directory))
                 self.assertEqual(16, len(arguments))
                 for path in arguments:
                     argv = json.loads(path.read_text())
-                    expected = chat_receiver and path.name == "args-overte-e2e-peer.json"
+                    role = path.stem.removeprefix("args-")
+                    self.assertEqual("2" if role.startswith("overte-e2e-") else role, argv[argv.index("-t") + 1])
+                    self.assertEqual(role.startswith("overte-e2e-"), "--pool" in argv)
+                    if "--pool" in argv: self.assertEqual(role, argv[argv.index("--pool") + 1])
+                    expected = chat_receiver and role == "overte-e2e-peer"
                     self.assertEqual(expected, "--testScript" in argv)
                     self.assertEqual(expected, "--e2eChatActorDir" in argv)
                     if expected:

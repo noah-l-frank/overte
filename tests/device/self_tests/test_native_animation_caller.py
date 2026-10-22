@@ -3,7 +3,10 @@
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
 from pathlib import Path
+import sys
 import unittest
+
+sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 
 from adapters.native_animation_caller import validate,selected
 from adapters.native_animation_history import accept
