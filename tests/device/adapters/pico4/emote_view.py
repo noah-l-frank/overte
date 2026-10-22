@@ -41,7 +41,7 @@ class PicoEmoteView:
         self.home,self.controller_factory,self._session=home,controller,None
         self.monotonic,self.sleep=monotonic,sleep
         self.run,self.pid=phase.run,int(binding['processIdentity'].split(':')[0]);need(integer(self.pid,1))
-        self.started=self.clock=None;self.failed=False;self.anchor=None;self.require_resources=False
+        self.started=self.clock=None;self.failed=False;self.anchor=None;self.require_resources=False;self.require_local_rendering=False
         self._before_send=self.before_send
         self.previous=store.read()
         self.state=dict(phase='reserved',original=None,current=None,steps=[])
@@ -214,6 +214,11 @@ class PicoEmoteView:
         before=self.phase.status(None if previous is None else previous['phaseAfter'])
         avatar=reader.read();widgets=None
         if self.require_resources:controlled_resources(avatar)
+        if self.require_local_rendering:
+            # Third Person changes the camera, never MyAvatar's separate local
+            # render gate. Refuse before setup inputs when original Pico startup
+            # has disabled that gate; no setter may repair a requested proof.
+            need(avatar['source']['localRenderingEnabled'] is True)
         # Navigation publishes independently. Wait for an actually newer GUI
         # observation; never relabel an older file with the avatar query time.
         for attempt in range(16):
@@ -386,10 +391,12 @@ class PicoEmoteView:
         self.bound();need(type(restore) is bool and not self.require_resources)
         originals=[] if self.state['original'] is None else [self.state['original'],self.state['current']]
         for row in self.state['steps']:originals.extend([row['before']]+([] if row['after'] is None else [row['after']]))
-        for original in originals:controlled_resources(original['avatar'])
-        self.require_resources=True
+        for original in originals:
+            controlled_resources(original['avatar'])
+            if not restore:need(original['avatar']['source']['localRenderingEnabled'] is True)
+        self.require_resources=True;self.require_local_rendering=not restore
         try:return self.operate(restore)
-        finally:self.require_resources=False
+        finally:self.require_resources=False;self.require_local_rendering=False
 
     def controller_retirement(self):
         """Fresh original final stream neutral; historical originals stay owned."""

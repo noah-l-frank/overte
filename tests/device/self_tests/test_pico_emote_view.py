@@ -163,6 +163,30 @@ class PicoEmoteViewTests(unittest.TestCase):
             b.cleanup_phase();self.assertEqual({'performed':True},b.owner().controlled(restore=True))
             self.assertEqual(12,len(b.inputs));self.assertIsNotNone(b.store.read())
 
+    def test_disabled_actual_local_render_gate_refuses_controlled_setup_before_input(self):
+        b=ViewBoundary(self);b.bundled_avatar();b.avatar.avatar['localRenderingEnabled']=False
+        with b.lock.held():
+            with self.assertRaises(RuntimeError):b.owner().controlled()
+            self.assertEqual([],b.inputs);self.assertIsNone(b.store.read())
+            self.assertFalse(b.avatar.avatar['localRenderingEnabled'])
+
+    def test_local_render_gate_change_blocks_setup_but_cannot_block_view_restoration(self):
+        b=ViewBoundary(self);b.bundled_avatar();tablet=b.tablet
+        def hidden(opened):
+            tablet(opened);b.avatar.avatar['localRenderingEnabled']=False
+        b.tablet=hidden
+        with b.lock.held():
+            with self.assertRaises(RuntimeError):b.owner().controlled()
+            self.assertEqual(['tablet.open'],b.inputs);self.assertIsNotNone(b.store.read())
+            self.assertFalse(b.avatar.avatar['localRenderingEnabled'])
+        # A separately completed normal setup remains restorable even when the
+        # current original local gate is disabled. Cleanup must not repair it.
+        b=ViewBoundary(self);b.bundled_avatar()
+        with b.lock.held():
+            b.owner().controlled();b.avatar.avatar['localRenderingEnabled']=False;b.cleanup_phase()
+            self.assertEqual({'performed':True},b.owner().controlled(restore=True))
+            self.assertFalse(b.avatar.avatar['localRenderingEnabled']);self.assertEqual(12,len(b.inputs))
+
     def test_missing_or_changed_actual_bundled_bytes_fail_before_first_input(self):
         for fault in ('old-source','missing','foreign-bytes','size'):
             b=ViewBoundary(self)

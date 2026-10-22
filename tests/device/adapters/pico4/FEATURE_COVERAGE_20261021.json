@@ -536,6 +536,7 @@
         "restoredBeforeNominalEnd"
       ],
       "missingOperationsOrEvidence": [
+        "Actual Pico startup disables shouldRenderLocally in AvatarManager and the bundled default manager; Third Person cannot enable that independent flag. Controlled View setup now refuses the original disabled gate before any input. Local self-avatar stereo images are unavailable on that normal path; a separately implemented remote-avatar lane or independently reviewed product change would be required. No test setter or fabricated local pixels are permitted.",
         "Whole-run normal chooser, all Sit variants and original offscreen Scroll effects when the actual viewport clips buttons",
         "Whole independent observer/image/public composition, original callback/timer/Qt/native ownership retirement and final journal release",
         "Current original stereo avatar images and independent actor publication"

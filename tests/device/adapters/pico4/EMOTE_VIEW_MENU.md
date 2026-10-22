@@ -249,3 +249,33 @@ frozen native clock, host-only callbacks, ordinary open/play/cancel/close and
 all six setup/restoration streams with independent neutralization. Synthetic
 transport boundaries remain explicit; original SDK serialization/publication
 checks are separately covered by the real transport's device-free tests.
+
+
+## Original Pico local render gate
+
+`controlled()` now refuses setup before its first normal input when the
+original AvatarRender source reports `localRenderingEnabled:false`. That gate
+is independent of Third Person; changing the camera cannot enable it. Every
+subsequent controlled setup read checks the same actual flag. Historical setup
+with a disabled original cannot become eligible through later reconstruction.
+Original normal View restoration remains allowed when the current gate is
+disabled; cleanup neither changes it nor claims rendered avatar pixels.
+
+The source audit found that `AvatarManager::init` disables shouldRenderLocally
+under Q_OS_ANDROID, and `scripts/+android_picoInterface/defaultScripts.js` also
+sets it false. `MyAvatar::render` returns before Avatar::render while that flag
+is false. The reviewed Menu camera and MeshVisible paths do not assign the
+separate flag. No ordinary enabling path was found in the reviewed sources.
+Therefore the existing self-avatar stereo lane is presently unavailable for
+normal Pico startup. Native Rig progress and remote joint traffic do not
+establish local avatar pixels. Product changes and a test-only visibility
+setter are outside this task. A future independent remote-avatar stereo lane
+would need its own actual model/Rig/network/source binding and camera evidence;
+the local-avatar getter cannot simply be relabeled as that lane.
+
+Three focused View tests pass (1.473s), including refusal without input and
+restoration preserving an actual disabled gate. The pre-existing original
+hidden-avatar compiler harness also passes with Qt5: 33 cases, including all
+16 hidden cases with zero local draws and the hide/show/hide case. It compiles
+original simulation/render/override bodies using explicit model/Rig/network
+endpoint seams, not a full application or GPU/device. Full Emotes stay partial.
