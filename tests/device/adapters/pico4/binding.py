@@ -99,6 +99,71 @@ def _inputs(args):
     return frozen
 
 
+def _candidate_arguments(args):
+    return (tuple(sorted((key,type(value).__name__,str(value)) for key,value in vars(args).items())),
+        dict(os.environ),str(verifier.WEB_ROOT),str(verifier.PICO_MANIFEST),
+        id(verifier.verify_candidate),id(verifier.decoder_inputs))
+
+
+def _candidate_seal(args,frozen,candidate,admission):
+    """Freeze only an original complete verifier result, never partial evidence."""
+    from adapters.pico4.candidate_read_seal import CandidateReadSeal,bounded_decoder_tree
+    from schema.terminal_evidence import read_document,relative_file
+    network=candidate.get('network_capability')
+    if not isinstance(network,dict) or not all(isinstance(network.get(key),dict)
+            for key in ('source_inputs_sha256','decoder_inputs_sha256')):
+        # Explicit reduced component seams retain the original full verifier
+        # on every call. They cannot acquire this optimization's qualification.
+        return None
+    _need(_candidate_arguments(args)==admission)
+    evidence,_=read_document(args.build_evidence)
+    files={str(Path(getattr(args,name)).absolute()):digest for name,digest in frozen.items() if not name.startswith('build_receipt:')}
+    for entry in evidence['receipts']:
+        path=relative_file(args.build_evidence.parent,entry['path'])
+        files[str(path.absolute())]=frozen['build_receipt:'+entry['tier']]
+    for key in ('source_inputs_sha256','decoder_inputs_sha256'):
+        for path,digest in network[key].items():
+            name=str(Path(path).absolute());_need(name not in files or files[name]==digest);files[name]=digest
+    def metadata():
+        # Preserve argument TYPES as well as values (True is not integer 1).
+        return _candidate_arguments(args)
+    expected_metadata=admission
+    decoder_records=[];directories={};decoder_inventory=set()
+    for name in ('apkanalyzer','aapt2'):
+        path=Path(verifier.resolve_tool(getattr(args,name),name)).resolve(strict=True)
+        values={str(path)};sdk=path.parent.parent
+        classpath=path.name=='apkanalyzer' and (sdk/'lib/apkanalyzer-classpath.jar').is_file()
+        java=None
+        if classpath:
+            jars,tree=bounded_decoder_tree(sdk/'lib');directories.update(tree)
+            values.update(jars);values.add(str(sdk/'source.properties'))
+            java=(Path(os.environ['JAVA_HOME'])/'bin/java' if os.environ.get('JAVA_HOME')
+                else Path(verifier.resolve_tool(None,'java'))).resolve(strict=True)
+            values.update(str(item) for item in (java,java.parent.parent/'release',java.parent.parent/'lib/modules',java.parent.parent/'lib/server/libjvm.so'))
+        decoder_inventory.update(values);decoder_records.append((name,path,classpath,java))
+    _need(decoder_inventory==set(network['decoder_inputs_sha256']))
+    def inventory():
+        _need(metadata()==expected_metadata)
+        source={str(path) for path in (verifier.WEB_ROOT/'network_policy.py',verifier.WEB_ROOT/'network-capability.json',
+            verifier.WEB_ROOT/'res/xml/overte_embedded_web_network_security_config.xml',verifier.PICO_MANIFEST)}
+        _need(source==set(network['source_inputs_sha256']))
+        for name,original,classpath,java in decoder_records:
+            path=Path(verifier.resolve_tool(getattr(args,name),name)).resolve(strict=True)
+            _need(path==original and (path.name=='apkanalyzer' and (path.parent.parent/'lib/apkanalyzer-classpath.jar').is_file())==classpath)
+            if classpath:
+                current=(Path(os.environ['JAVA_HOME'])/'bin/java' if os.environ.get('JAVA_HOME')
+                    else Path(verifier.resolve_tool(None,'java'))).resolve(strict=True)
+                _need(current==java)
+        # Held original directory identities reject every added/removed entry.
+        # No recursive SDK/JVM walk occurs inside a native source query.
+        # Also freeze actual aapt/apksigner resolution, including PATH lookup.
+        for name in ('aapt','apksigner'):
+            path=Path(verifier.resolve_tool(getattr(args,name),name))
+            _need(path.resolve(strict=True)==Path(getattr(args,name)).resolve(strict=True))
+        return dict(files)
+    return CandidateReadSeal(inventory,metadata,candidate,directories=directories)
+
+
 @_private
 def create_adapter(args, base_class):
     _need(args.kind == 'pico')
@@ -106,14 +171,17 @@ def create_adapter(args, base_class):
     # disappeared or became invalid. It never emits an executionIdentity.
     cleanup_only = args.action == 'cleanup'
     cleanup_candidate = False
-    frozen = candidate = None
+    frozen = candidate = seal = None
     if not cleanup_only:
-        frozen = _inputs(args)
         args.require_identity = True
+        admission=_candidate_arguments(args)
+        frozen = _inputs(args)
+        _need(_candidate_arguments(args)==admission)
         candidate = verifier.verify_candidate(args)
-        _need(_inputs(args) == frozen)
+        _need(_inputs(args) == frozen and _candidate_arguments(args)==admission)
         _need(candidate['package'] == 'org.overte.pico' and
               candidate['identity']['artifactSha256'] == frozen['apk'])
+        seal=_candidate_seal(args,frozen,candidate,admission)
 
     class PicoBoundAdapter(base_class):
         @_private
@@ -127,20 +195,24 @@ def create_adapter(args, base_class):
         @_private
         def _candidate(self):
             _need(not cleanup_only or cleanup_candidate)
+            if seal is not None:return seal.check()
             _need(_inputs(args) == frozen)
             current = verifier.verify_candidate(args)
             _need(current == candidate and _inputs(args) == frozen)
             return current
 
         def _recover_cleanup_candidate(self):
-            nonlocal frozen, candidate, cleanup_candidate
+            nonlocal frozen, candidate, cleanup_candidate, seal
             _need(cleanup_only)
-            original = _inputs(args)
             args.require_identity = True
+            admission=_candidate_arguments(args)
+            original = _inputs(args)
+            _need(_candidate_arguments(args)==admission)
             verified = verifier.verify_candidate(args)
-            _need(_inputs(args) == original and verified['package'] == 'org.overte.pico'
+            _need(_candidate_arguments(args)==admission and _inputs(args) == original and verified['package'] == 'org.overte.pico'
                   and verified['identity']['artifactSha256'] == original['apk'])
             frozen, candidate, cleanup_candidate = original, verified, True
+            seal=_candidate_seal(args,frozen,candidate,admission)
 
         @_private
         def _package_path(self, target):
@@ -177,7 +249,7 @@ def create_adapter(args, base_class):
             second = self._installed_hash(target, before)
             _need(self._package_path(target) == before)
             _need(first == second == current['sha256'])
-            _need(_inputs(args) == frozen)
+            _need(seal.check()==candidate if seal is not None else _inputs(args)==frozen)
             return dict(schemaVersion=1, sourceRevision=current['identity']['sourceRevision'],
                         artifactSha256=first, installedCandidateVerified=True)
 

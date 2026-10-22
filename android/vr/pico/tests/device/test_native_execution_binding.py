@@ -486,6 +486,112 @@ class NativeExecutionBindingTest(unittest.TestCase):
         self.assertFalse(self.fake.running)
         self.assertFalse(list(self.state_root.iterdir()))
 
+    def test_original_candidate_seal_reuses_only_verified_host_bytes_and_keeps_installation_live(self):
+        args,pico=adapter.cli([*self.prefix,'describe','--target',self.fake.target])
+        original=pico.verifier.verify_candidate
+        with patch.object(pico.verifier,'verify_candidate',wraps=original) as verify:
+            bound=pico.create_adapter(args,adapter.AndroidAdapter);self.assertEqual(1,verify.call_count)
+            bound.describe(self.fake.target);bound.describe(self.fake.target)
+            self.assertEqual(1,verify.call_count)
+            result=bound._candidate();result['sha256']='f'*64
+            self.assertEqual(self.fake.digest,bound._candidate()['sha256'])
+            self.assertGreaterEqual(self.fake.events.count(('pm','path','org.overte.pico')),6)
+            self.fake.digest='f'*64
+            with self.assertRaises(ValueError):bound.describe(self.fake.target)
+            self.assertEqual(1,verify.call_count)
+
+    def test_original_candidate_seal_refuses_all_changed_argument_values_and_types(self):
+        from adapters.pico4 import binding as pico
+        for name,value in (('source_revision','b'*40),('minimum_version',5),
+                ('expected_version_name','changed'),('expect_e2e_input_layer',0),
+                ('forbid_e2e_input_layer',True),('require_identity',1),('aapt2','changed')):
+            with self.subTest(argument=name):
+                args,_binding=adapter.cli([*self.prefix,'describe','--target',self.fake.target])
+                bound=pico.create_adapter(args,adapter.AndroidAdapter);self.fake.events.clear()
+                setattr(args,name,value)
+                with self.assertRaises(ValueError):bound.describe(self.fake.target)
+                self.assertEqual([],self.fake.events)
+
+    def test_original_candidate_seal_detects_same_bytes_replacement_and_restored_mtime_writes(self):
+        for mode in ('replace','write-restore'):
+            with self.subTest(mode=mode):
+                bound=self.instance();path=self.fixture.input_file;original=path.read_bytes();before=path.stat()
+                if mode=='replace':
+                    replacement=path.with_suffix('.replacement');replacement.write_bytes(original)
+                    os.utime(replacement,ns=(before.st_atime_ns,before.st_mtime_ns));replacement.replace(path)
+                else:
+                    path.write_bytes(original+b' ');path.write_bytes(original)
+                    os.utime(path,ns=(before.st_atime_ns,before.st_mtime_ns))
+                self.fake.events.clear()
+                with self.assertRaises(ValueError):bound.describe(self.fake.target)
+                self.assertEqual([],self.fake.events)
+
+    def test_original_candidate_seal_refuses_arguments_changed_during_original_verification(self):
+        args,pico=adapter.cli([*self.prefix,'describe','--target',self.fake.target]);original=pico.verifier.verify_candidate
+        def changing(value):
+            verified=original(value);value.expected_version_code='changed-after-verify';return verified
+        with patch.object(pico.verifier,'verify_candidate',side_effect=changing):
+            with self.assertRaises(ValueError):pico.create_adapter(args,adapter.AndroidAdapter)
+        self.assertEqual([],self.fake.events)
+
+    def test_original_candidate_seal_detects_receipt_mutation(self):
+        bound=self.instance();entry=self.fixture.build['evidence']['receipts'][0]
+        receipt=self.fixture.build_file.parent/entry['path'];receipt.write_bytes(receipt.read_bytes()+b' ')
+        self.fake.events.clear()
+        with self.assertRaises(ValueError):bound.describe(self.fake.target)
+        self.assertEqual([],self.fake.events)
+
+    def test_original_candidate_seal_refuses_changed_tool_environment(self):
+        bound=self.instance();self.fake.events.clear()
+        with patch.dict(os.environ,MOCK_SIGNED='0'):
+            with self.assertRaises(ValueError):bound.describe(self.fake.target)
+        self.assertEqual([],self.fake.events)
+
+    def test_original_candidate_seal_rechecks_actual_decoder_dependency_inventory(self):
+        sdk=self.fixture.root/'seal-sdk';(sdk/'bin').mkdir(parents=True);(sdk/'lib').mkdir()
+        analyzer=sdk/'bin/apkanalyzer';analyzer.write_bytes(self.fixture.fixture.analyzer.read_bytes());analyzer.chmod(0o755)
+        prefix=list(self.prefix);prefix[prefix.index('--apkanalyzer')+1]=str(analyzer)
+        args,binding=adapter.cli([*prefix,'describe','--target',self.fake.target]);bound=binding.create_adapter(args,adapter.AndroidAdapter)
+        (sdk/'lib/apkanalyzer-classpath.jar').write_bytes(b'new dependency')
+        self.fake.events.clear()
+        with self.assertRaises(ValueError):bound.describe(self.fake.target)
+        self.assertEqual([],self.fake.events)
+
+    def test_original_candidate_seal_rechecks_hashed_jvm_and_nested_jar_inventory(self):
+        sdk=self.fixture.root/'seal-sdk-full';(sdk/'bin').mkdir(parents=True);(sdk/'lib/nested').mkdir(parents=True)
+        analyzer=sdk/'bin/apkanalyzer';analyzer.write_bytes(self.fixture.fixture.analyzer.read_bytes());analyzer.chmod(0o755)
+        (sdk/'source.properties').write_bytes(b'explicit synthetic SDK')
+        (sdk/'lib/apkanalyzer-classpath.jar').write_bytes(b'synthetic jar')
+        java=self.fixture.root/'seal-jvm';(java/'bin').mkdir(parents=True);(java/'lib/server').mkdir(parents=True)
+        for path in ('bin/java','release','lib/modules','lib/server/libjvm.so'):(java/path).write_bytes(b'synthetic '+path.encode())
+        prefix=list(self.prefix);prefix[prefix.index('--apkanalyzer')+1]=str(analyzer)
+        with patch.dict(os.environ,JAVA_HOME=str(java)):
+            args,binding=adapter.cli([*prefix,'describe','--target',self.fake.target]);bound=binding.create_adapter(args,adapter.AndroidAdapter)
+            from adapters.pico4 import candidate_read_seal
+            with patch.object(candidate_read_seal,'bounded_decoder_tree',side_effect=AssertionError('query must not rescan SDK')):
+                bound.describe(self.fake.target)
+            (sdk/'lib/nested/new.jar').write_bytes(b'new nested dependency')
+            self.fake.events.clear()
+            with self.assertRaises(ValueError):bound.describe(self.fake.target)
+            self.assertEqual([],self.fake.events)
+            (sdk/'lib/nested/new.jar').unlink()
+            # A separately verified original lifetime independently rejects
+            # JVM bytes, without borrowing the earlier failed inventory check.
+            args2,binding2=adapter.cli([*prefix,'describe','--target',self.fake.target]);jvm_bound=binding2.create_adapter(args2,adapter.AndroidAdapter)
+            (java/'lib/modules').write_bytes(b'changed original modules')
+            with self.assertRaises(ValueError):jvm_bound.describe(self.fake.target)
+
+    def test_original_candidate_seal_rechecks_physical_network_policy_bytes(self):
+        args,pico=adapter.cli([*self.prefix,'describe','--target',self.fake.target])
+        web=self.fixture.root/'seal-web';(web/'res/xml').mkdir(parents=True)
+        for name in ('network_policy.py','network-capability.json','res/xml/overte_embedded_web_network_security_config.xml'):
+            (web/name).write_bytes((pico.verifier.WEB_ROOT/name).read_bytes())
+        manifest=self.fixture.root/'seal-manifest.xml';manifest.write_bytes(pico.verifier.PICO_MANIFEST.read_bytes())
+        with patch.object(pico.verifier,'WEB_ROOT',web),patch.object(pico.verifier,'PICO_MANIFEST',manifest):
+            bound=pico.create_adapter(args,adapter.AndroidAdapter);(web/'network-capability.json').write_bytes(b'{}');self.fake.events.clear()
+            with self.assertRaises(ValueError):bound.describe(self.fake.target)
+            self.assertEqual([],self.fake.events)
+
     def test_native_candidate_network_decoder_bytes_are_rechecked(self):
         bound = self.instance()
         self.fixture.fixture.analyzer.write_text('#!/usr/bin/env python3\nraise SystemExit(2)\n')
@@ -679,6 +785,85 @@ class SnapshotInputObservationTests(unittest.TestCase):
         value['controls'].append(dict(value['controls'][0], id='snapshot.mode.animated', checked=False))
         with self.assertRaises(RuntimeError): self.validate(value)
 
+
+
+class CandidateReadSealTests(unittest.TestCase):
+    """Real private local filesystem/FD evidence; no product/device process."""
+    def setUp(self):
+        import tempfile
+        import hashlib
+        from adapters.pico4.candidate_read_seal import CandidateReadSeal
+        self.temporary=tempfile.TemporaryDirectory(prefix='pico-candidate-read-seal-');self.addCleanup(self.temporary.cleanup)
+        self.path=Path(self.temporary.name)/'original';self.path.write_bytes(b'original verified bytes')
+        self.inventory={str(self.path):hashlib.sha256(self.path.read_bytes()).hexdigest()};self.metadata={'argument':'original'}
+        self.create=lambda:CandidateReadSeal(lambda:dict(self.inventory),lambda:dict(self.metadata),{'verified':['original']})
+
+    def test_only_original_read_only_cloexec_descriptor_survives_unchanged_reads(self):
+        import fcntl
+        seal=self.create();self.addCleanup(seal.close);fd=seal.rows[0][2]
+        self.assertEqual(os.O_RDONLY,fcntl.fcntl(fd,fcntl.F_GETFL)&os.O_ACCMODE)
+        self.assertTrue(fcntl.fcntl(fd,fcntl.F_GETFD)&fcntl.FD_CLOEXEC)
+        result=seal.check();result['verified'].append('foreign')
+        self.assertEqual({'verified':['original']},seal.check())
+        seal.close()
+        with self.assertRaises(OSError):os.fstat(fd)
+        with self.assertRaises(ValueError):seal.check()
+
+    def test_failed_metadata_check_closes_original_fd_and_cannot_resume_after_reversal(self):
+        seal=self.create();fd=seal.rows[0][2];self.metadata['argument']='changed'
+        with self.assertRaises(ValueError):seal.check()
+        with self.assertRaises(OSError):os.fstat(fd)
+        self.metadata['argument']='original'
+        with self.assertRaises(ValueError):seal.check()
+
+    def test_added_inventory_cannot_be_removed_to_resume_this_lifetime(self):
+        seal=self.create();fd=seal.rows[0][2];self.inventory[str(self.path.with_name('new'))]='a'*64
+        with self.assertRaises(ValueError):seal.check()
+        with self.assertRaises(OSError):os.fstat(fd)
+        self.inventory.pop(str(self.path.with_name('new')))
+        with self.assertRaises(ValueError):seal.check()
+
+    def test_original_digest_mismatch_never_admits_or_leaks_fd(self):
+        self.inventory[str(self.path)]='f'*64
+        before={int(row.name) for row in Path('/proc/self/fd').iterdir()}
+        with self.assertRaises(ValueError):self.create()
+        self.assertEqual(before,{int(row.name) for row in Path('/proc/self/fd').iterdir()})
+
+    def test_unlink_and_same_bytes_symlink_replacement_fail_original_inode_admission(self):
+        seal=self.create();target=self.path.with_name('foreign');target.write_bytes(self.path.read_bytes())
+        self.path.unlink();self.path.symlink_to(target)
+        with self.assertRaises(ValueError):seal.check()
+
+    def test_cold_directory_scan_is_bounded_and_query_does_not_adopt_new_entries(self):
+        from adapters.pico4 import candidate_read_seal as module
+        root=self.path.parent/'sdk';root.mkdir();(root/'original.jar').write_bytes(b'original jar')
+        jars,directories=module.bounded_decoder_tree(root)
+        self.assertEqual({str(root/'original.jar')},jars)
+        seal=module.CandidateReadSeal(lambda:dict(self.inventory),lambda:dict(self.metadata),{},directories=directories)
+        with patch.object(module,'bounded_decoder_tree',side_effect=AssertionError('no scan during check')):seal.check()
+        (root/'new.jar').write_bytes(b'new jar')
+        with self.assertRaises(ValueError):seal.check()
+        with patch.object(module,'MAX_ENTRIES',1):
+            with self.assertRaises(ValueError):module.bounded_decoder_tree(root)
+
+    def test_lost_original_fd_cannot_close_a_foreign_replacement_or_resume(self):
+        seal=self.create();fd=seal.rows[0][2];os.close(fd)
+        foreign=self.path.with_name('foreign-fd');foreign.write_bytes(b'foreign original')
+        replacement=os.open(foreign,os.O_RDONLY|os.O_CLOEXEC)
+        try:
+            self.assertEqual(fd,replacement)
+            with self.assertRaises(ValueError):seal.check()
+            self.assertEqual(b'foreign original',os.read(replacement,64))
+            seal.close();os.fstat(replacement)
+            with self.assertRaises(ValueError):seal.check()
+        finally:os.close(replacement)
+
+    def test_object_finalization_releases_original_descriptor(self):
+        import gc
+        import weakref
+        seal=self.create();fd=seal.rows[0][2];reference=weakref.ref(seal)
+        del seal;gc.collect();self.assertIsNone(reference())
+        with self.assertRaises(OSError):os.fstat(fd)
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)
