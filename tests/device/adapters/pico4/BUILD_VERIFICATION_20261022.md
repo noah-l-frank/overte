@@ -824,3 +824,47 @@ host time prevents input. No higher-level feature or device completion follows.
 All4 final repository suites pass13.45s. Registry, probe syntax and whitespace
 pass. The input registry correctly advertises only readablev2; oldv1 remains
 retained/rejected, never silently promoted. Complete source/host areas stay3/14.
+
+
+## Integrated Audio HOME/return and original cancellation
+
+e24f554416 selects a14fb032be's normal HOME/Resume with actual original OS
+PID/start/foreground, native same-cycle cancellation and post-return quiet.
+db619a5ed6 selects02c9609b4c's independent exact original fixture phase fence
+after durable HOME/Resume intent and before returned/quiet release. No Qt source
+is queried while backgrounded. Native cancellation and cumulative Lifecycle
+changes remain distinct from OS acknowledgements. Lost delivery is never resent.
+Host/native final age includes retained copies, CAS and final guard. All original
+journals remain until final whole Audio closure; no acoustic peer is invented.
+Existing Emote scene/stream and all current Create/Chat guards were preserved
+in the clean local selections. No new selector is added (catalog80).
+
+Concurrent host regressions showed measured contention: an unchanged agent
+Audio group rose39 to120 seconds while several broad selections ran. The team
+now finishes already running selections, then staggers broad regressions while
+all three agents continue feature work and targeted counterexamples. Timeouts
+and observations are unchanged. The root's final integrated Audio and actual
+Qt5 original pause/poll/deferred-callback checks are recorded below.
+
+The actual Qt5 original AudioClient pause body, original250ms input-loss poll,
+original natural30s callback/functor retirement and strict lifetime reader pass
+(exit0). Audio-format/device/renegotiation hosting remain explicit seams; this
+is not a full AudioClient TU/application or acoustic/device qualification.
+
+The initial integrated catalog run passes coverage.136s but Capture122.108s
+and Page120.035s hit their unchanged120s limits under concurrent load; its
+original failed JUnit remains private. The48 Capture-group cases included22
+new BG cases. Those22 now have their own audio-background-owner group; the
+remaining21 capture and5 actual factory/orphan cases remain in Capture. Every
+assertion and original source is retained; the catalog changes80 to81.
+After broad runs were staggered, the complete final selection passes5/81
+groups157.74s: Runner2.460s, coverage.217s, Capture52.201s, BG30.953s and
+Page71.909s. All4 repository suites pass11.24s. No timeout is enlarged.
+
+The runner previously discarded TimeoutExpired.stdout when Python returned
+bytes despite text=True. It now decodes and retains the owning test's partial
+diagnostics in the failed report. Its existing real one-second timeout/fail-fast
+case also verifies a flushed original Unicode diagnostic, without changing
+failure/timeout/pending semantics. Registry, probe syntax and whitespace pass.
+Complete source/host areas remain3/14; whole Audio and physical qualification
+remain open.

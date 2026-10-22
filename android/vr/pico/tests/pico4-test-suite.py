@@ -53,6 +53,7 @@ TESTS = (
     test("audio-native-transport", "audio", PYTHON, "pico-audio-transport-test.py"),
     test("audio-preview-owner", "audio", PYTHON, "device/test_audio_preview.py"),
     test("audio-capture-owner", "audio", PYTHON, "device/test_audio_capture_owner.py"),
+    test("audio-background-owner", "audio", PYTHON, "pico-audio-background-test.py"),
     test("audio-page-owner", "audio", PYTHON, "device/test_audio_page_owner.py"),
     test("audio-settings-source", "audio", PYTHON, "device/test_audio_settings.py", requires=("node", "c++", "pkg-config")),
     test("openxr-loader", "openxr", PYTHON, "pico-openxr-loader-test.py"),
@@ -221,7 +222,9 @@ def main() -> int:
             message = "" if completed.returncode == 0 else f"exit code {completed.returncode}"
         except subprocess.TimeoutExpired as error:
             duration = time.monotonic() - test_started
-            output = (error.stdout or "") if isinstance(error.stdout, str) else ""
+            # TimeoutExpired may retain bytes even with text=True. Preserve
+            # the owning test's partial diagnostics in its failed report.
+            output = error.stdout.decode('utf-8',errors='replace') if isinstance(error.stdout,bytes) else (error.stdout or "")
             status, message = "failed", f"timeout after {args.timeout}s"
         except OSError:
             duration = time.monotonic() - test_started

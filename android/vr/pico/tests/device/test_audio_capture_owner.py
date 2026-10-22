@@ -12,7 +12,6 @@ from adapters.pico4.audio_page_owner import PicoAudioPageOwner
 from adapters.normal_feature_state import PrivateFeatureState
 from openxr_input.adapter_session import PicoOpenXrAdapterSession
 from self_tests.test_pico_audio_capture_owner import AudioCaptureOwnerTests
-from self_tests.test_pico_audio_background import AudioBackgroundTests
 from self_tests.test_pico_openxr_adapter_session import FakeTransport
 
 

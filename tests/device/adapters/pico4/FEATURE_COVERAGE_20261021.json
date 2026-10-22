@@ -863,7 +863,10 @@
         "tests/device/adapters/pico4/audio_capture_owner.py",
         "tests/device/adapters/pico4/AUDIO_CAPTURE_OWNER.md",
         "tests/device/self_tests/test_pico_audio_capture_owner.py",
-        "android/vr/pico/tests/device/test_audio_capture_owner.py"
+        "android/vr/pico/tests/device/test_audio_capture_owner.py",
+        "tests/device/adapters/pico4/audio_background_owner.py",
+        "tests/device/adapters/pico4/AUDIO_BACKGROUND_OWNER.md",
+        "tests/device/self_tests/test_pico_audio_background.py"
       ],
       "declaredCheckpoints": 14,
       "inputVerbs": [

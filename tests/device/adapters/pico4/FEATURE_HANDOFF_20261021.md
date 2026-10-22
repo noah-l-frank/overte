@@ -1005,3 +1005,11 @@ locked controller callback uses host CAS/elapsed admission only. Legacy inputv1
 stays owned without new authority. Every previous source/ownership/effect and
 lifetime case is retained across the three bounded selectors; full Emotes are
 still partial.
+
+
+Audio normal HOME/return now retains original same-process OS evidence, actual
+same-cycle native cancellation, unchanged UI/settings/keyboard and a fresh
+three-second quiet window after return. Independent exact fixture phase/host
+age fences follow durable intent; background checks never construct a Qt owner.
+Old uncertain inputs are never replayed. The entire Acoustic/peer and final
+PCM/Qt/native allocation retirement remain partial. See AUDIO_BACKGROUND_OWNER.md.

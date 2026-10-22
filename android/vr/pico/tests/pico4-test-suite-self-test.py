@@ -122,11 +122,12 @@ class SuiteOutcomeTests(unittest.TestCase):
         self.assertNotIn(str(self.root), ET.tostring(report).decode())
 
     def test_timeout_is_failure_with_pending_case_retained(self):
-        code, report = self.execute([self.case("timeout", "import time; time.sleep(10)"),
+        code, report = self.execute([self.case("timeout", "import time; print('Original timeout diagnostic: α',flush=True); time.sleep(10)"),
                                     self.case("pending")], "--timeout", "1", "--fail-fast")
         self.assertEqual(code, 1)
         self.assertEqual(report.get("failures"), "1")
         self.assertEqual(report.get("skipped"), "1")
+        self.assertIn('Original timeout diagnostic: α',report.findall('testcase')[0].find('system-out').text)
 
     def test_empty_catalog_cannot_pass(self):
         code, report = self.execute([])
