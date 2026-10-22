@@ -881,6 +881,14 @@ current marker can qualify a new world-render PNG, including the mandatory
 background/resume image. Original input receipts remain separate from the
 effect reducer and the actor's independent witness.
 
+SDK26–28 baseline arming retains the actual independent document-provider root,
+binding floor and empty raw inventories as measurement ownership. That empty
+setup alone is not a public live product resource. The first actual document
+plan, created document or FD adds a document connection responsibility until
+real provider retirement, including a created document whose writer has not
+yet opened. Missing or disappearing prior originals remain failures. The
+provider's actual raw DTO is retained in every role frame in either case.
+
 ## Bounds, failure recovery and complete retirement
 
 The original source freshness window is 1.5 seconds and each ordinary source or

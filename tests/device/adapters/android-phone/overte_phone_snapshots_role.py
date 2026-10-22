@@ -493,7 +493,11 @@ class PhoneSnapshotsRole(PhoneCreateRole):
             if any(not row['absent'] for row in measurement['readbacks']['osDestinations']['rows']):resources.append('file:snapshots-os-destinations')
             if any(row['granted'] or row['chooserGranted'] for row in measurement['readbacks']['shareGrants']['rows']):resources.append('connection:snapshots-grants')
         if consumer is not None and not consumer['retired']:resources.append('connection:snapshots-consumer')
-        if documents is not None and not documents['retired']:resources.append('connection:snapshots-documents')
+        # Arming the independent E2E provider is baseline measurement setup.
+        # Every actual plan/document/FD remains a responsibility until its real
+        # retirement; retain the full raw source even for an empty preflight.
+        if documents is not None and not documents['retired'] and any(documents[key] for key in ('plans','documents','fdLifetimes')):
+            resources.append('connection:snapshots-documents')
         if any(job['uploaderAlive'] or job['fileAlive'] or job['multipartAlive'] for job in measurement['upload']['jobs']):resources.append('connection:snapshots-upload')
         lifecycle=native_after['lifecycle'] if native_after is not None else batch['context']['lifecycle']
         return result('feature.snapshots.observe',dict(schemaVersion=1,contractVersion=VERSION,runId=f.run,sequence=self.state['sequence'],capturedEpochMs=captured_epoch,state=measured,artifacts=artifacts,resources=sorted(resources),lifecycle=lifecycle))

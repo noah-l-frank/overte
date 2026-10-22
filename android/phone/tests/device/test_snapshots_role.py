@@ -286,6 +286,34 @@ class SnapshotsRoleTests(unittest.TestCase):
             role.finish_archive(dict(diagnostic=True,documentOriginals=deepcopy(role.state['pending']['work']['documentOriginals']),binaries=[]))
         source.row.update(plans=[],documents=[],fdLifetimes=[],retired=True,workersTerminated=True);source.root['present']=False
         with b.role() as role,self.assertRaises(NativeUIError):role.documents.require_retired()
+    def test_empty_armed_document_preflight_is_not_a_live_product_resource_but_actual_documents_are(self):
+        from test_snapshot_documents import Boundary as Documents,ARM
+        from test_snapshot_documents_ui import Boundary as DocumentsUI
+        b=self.boundary;source=Documents();originals=deepcopy((source.row['plans'],source.row['documents'],source.row['fdLifetimes']))
+        source.row.update(plans=[],documents=[],fdLifetimes=[])
+        primary=source.reader();primary.observe();binding=primary.binding()
+        b.feature.state.update(docArm=ARM,docBinding=binding);b.feature.documents=lambda **_:source.reader(True,binding)
+        b._snapshot_platform=lambda *_:PhoneSnapshotPlatform(lambda:'26',lambda:True,lambda:b.epoch,monotonic=lambda:b.clock)
+        b.baseline['platform']=b._snapshot_platform(None).read();b.baseline['documentResolution']=DocumentsUI().resolve()
+        b._snapshot_phone_uid=lambda *_:dict(snapshotPhoneUidVersion=1,uid=11000,requestedEpochMs=b.epoch,capturedEpochMs=b.epoch)
+        with b.role() as role:
+            observed=role.read(0);frame=role.frames[-1]
+            self.assertNotIn('connection:snapshots-documents',observed['resources'])
+            self.assertFalse(frame['measurement']['documents']['retired'])
+            self.assertTrue(frame['measurement']['documents']['root']['present'])
+            self.assertEqual(binding,frame['measurement']['documentsBinding'])
+        # A document created by the normal picker is already an owned product
+        # responsibility before its writer opens or reports completed bytes.
+        created=originals[1][0];created.update(writerUid=0,writeOpenedEpochMs=0,writeClosedEpochMs=0,bytes=0,sha256='')
+        source.row.update(plans=originals[0],documents=[created],fdLifetimes=[])
+        with b.role() as role:
+            observed=role.read(1)
+            self.assertIn('connection:snapshots-documents',observed['resources'])
+            self.assertEqual(created,role.frames[-1]['measurement']['documents']['documents'][0])
+        # An incomplete provider cannot conceal its actual responsibility behind
+        # an empty public projection or clear a previously observed document.
+        source.row.update(plans=[],documents=[],fdLifetimes=[])
+        with b.role() as role,self.assertRaises(NativeUIError):role.read(2)
     def test_world_and_touch_source_births_remain_pinned_after_role_reconstruction(self):
         for key in ('world','touch'):
             with self.subTest(key=key):
