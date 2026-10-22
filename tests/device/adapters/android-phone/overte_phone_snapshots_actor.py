@@ -370,7 +370,10 @@ class PhoneSnapshotsActor(PhoneAssetsActor):
                     facts={key:deepcopy(measured['state'][key]) for key in WITNESS_KEYS['snapshots']})
                 self.state['pending']=dict(sample=sample,issued=False);self.save();self.deliver()
                 self.retain_cleanup(role,status);return False
-            if f.monotonic()-started>=3.5:
+            # Yield after a completed sample. A four-second scheduling slice
+            # lets a fifth genuine observation finish the unchanged three-second
+            # quiet window; source-lock acquisition and freshness limits remain.
+            if f.monotonic()-started>=4.0:
                 self.retain_cleanup(role,status);return False
             f.sleep(.1)
 
