@@ -378,3 +378,15 @@ verdict. Those still require normal input, original lifetimes/files/pixels and
 separate actor facts. Counterprobes substitute consistent foreign code, caller
 compilations, manager identities, pending duplicate managers and old/out-of-order
 reads; matching filenames or fresh request IDs cannot qualify those sources.
+
+`PhoneSnapshotPlatform` reads the selected bound target's original Android SDK
+property through the existing ADB transport, with candidate/process guards on
+both sides and a 1.5-second wall/monotonic budget. It uses the same API-29
+branch as the actual SnapshotAdapter: MediaStore at API 29+, the ordinary
+document picker below it, and no Photos permission on Android. Missing or
+changed properties fail closed; configuration cannot supply a measured SDK or
+Save backend. The property establishes platform selection only. Actual Save
+requires the separately retained original provider bytes and OS destination.
+The Appium composition factories now expose the original platform/VM readers
+and the normal SDK-tablet/Qt Snapshot controls. No public feature capability
+is enabled by these internal factories.

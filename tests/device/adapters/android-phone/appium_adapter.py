@@ -1358,6 +1358,21 @@ class PhoneAppiumAdapter(AppiumAdapter):
             lambda:transport.read_debug_app_file(device,target['appId'],'files/overte-e2e/'+FILE,attempts=1),
             native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep)
 
+    def _snapshot_platform(self,selector):
+        from overte_phone_snapshot_platform import PhoneSnapshotPlatform
+        native=self._native_feature_observer(selector,read_only=True)
+        target=self.target(selector);device=target['capabilities']['appium:udid']
+        transport=PhoneAdapter(self.candidate).adb
+        return PhoneSnapshotPlatform(lambda:transport.prop(device,'ro.build.version.sdk'),native.guard,native.clock_ms,
+            monotonic=native.monotonic)
+
+    def _snapshot_measurements(self,selector):
+        from overte_phone_snapshot_measurements import PhoneSnapshotMeasurements
+        native=self._native_feature_observer(selector,read_only=True)
+        return PhoneSnapshotMeasurements(self._script_roots(selector,read_only=True),
+            self._script_execution_observer(selector,read_only=True),self._snapshot_source(selector),
+            native.guard,native.clock_ms,native.pid,monotonic=native.monotonic)
+
     def _snapshot_source(self,selector):
         from overte_phone_snapshot_source import PhoneSnapshotSource,FILE
         native=self._native_feature_observer(selector,read_only=True)
@@ -1738,6 +1753,14 @@ class PhoneAppiumAdapter(AppiumAdapter):
         return NativeAnimationInventory(native.send,
             lambda:transport.read_debug_app_file(device,target['appId'],'files/overte-e2e/'+ANIMATION_INVENTORY_FILE,attempts=1),
             native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep)
+
+    def _snapshot_normal_controls(self,selector,intent,*,read_only=False):
+        from overte_phone_snapshot_ui import PhoneSnapshotControls
+        ui,_observe,_binding,guard,_installed=self.normal_feature_runtime(selector,read_only=read_only)
+        target=self.target(selector);guard()
+        io=self._snapshot_controls(selector,intent,read_only=read_only)
+        return PhoneSnapshotControls(io,PhoneScriptUI(ui,target['appId']),intent,
+            monotonic=io.monotonic,sleep=io.sleep)
 
     def _snapshot_controls(self,selector,intent,*,read_only=False):
         from overte_phone_snapshot_controls import PhoneSnapshotIO,FILE
