@@ -38,6 +38,8 @@
     "ios-avatar-login-owner": {"current": 1, "reads": [1]},
     "ios-emote-marker-measurements": {"current": 1, "reads": [1]},
     "ios-emote-peer": {"current": 1, "reads": [1]},
+    "original-avatar-peer-recovery": {"current": 1, "reads": [1]},
+    "original-avatar-peer-abandoned-read": {"current": 1, "reads": [1]},
     "original-avatar-peer-sources": {"current": 1, "reads": [1]},
     "ios-avatar-peer-sources": {"current": 1, "reads": [1]},
     "ios-emote-peer-sources": {"current": 1, "reads": [1]},

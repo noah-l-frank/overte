@@ -46,6 +46,8 @@ REQUIRED = {
     "ios-avatar-login-owner": 1,
     "ios-emote-marker-measurements": 1,
     "ios-emote-peer": 1,
+    "original-avatar-peer-recovery": 1,
+    "original-avatar-peer-abandoned-read": 1,
     "original-avatar-peer-sources": 1,
     "ios-avatar-peer-sources": 1,
     "ios-emote-peer-sources": 1,
