@@ -1,8 +1,8 @@
 # Phone Lifecycle/Input implementation
 
 This work is in progress. No complete `feature.lifecycle-input.*` triple is
-advertised by this component. World gesture attempts, effective drive/position,
-independent actor/image joins, mandatory foundation composition and the v18
+advertised by this component. Independent actor/image joins, mandatory
+foundation composition and the v18
 fixture-closed finalizer remain separate required work.
 
 ## Original editor source v1
@@ -51,3 +51,49 @@ translation-unit build or device behavior. Separate reader/probe counterexamples
 cover input ACKs without effects, closed grammar, missing original sources,
 read-only mutation refusal and immutable weak identity history. Central admission
 pins and global profile counts remain integration-owned.
+
+## Original world input and motion sources v1
+
+`phone-lifecycle-world-input` owns one normal hardware ArrowUp gesture through
+the actual original primary render QWidget. The reviewed keyboardMouse mapping
+routes Up to forward locomotion in the supported normal camera modes. No input
+mapping, avatar property or drive key is assigned. Its original native event
+object must actually reach Qt's event-filter dispatch before `pressObserved`
+can appear. A focused QML editor may normally consume the key without changing
+its draft; the separate actual effective-drive sample must then remain neutral.
+`performed` does not supply a displacement, drive or dispatched-gesture count.
+
+The Phone-E2E-only `KeyboardMouseDevice::e2eForwardKeyObservation` reads the
+original device's actual Up channel and original current button map. The original
+Application update samples this source, original feet, grounded state and both
+effective/raw drive keys **after** the normal real user-input-to-drive transfer.
+Each motion frame retains its own native instance/sequence/timestamp. Reading an
+input response does not retime an old motion frame. Missing, stale or changed
+original frame identity stays red. The full reducer must join current motion,
+grounded baseline feet, phase/input histories and independent image/actor facts.
+
+One original press lease lasts at most ten native monotonic seconds. There is
+no keepalive or caller-selected extension. Explicit release, actual focus loss,
+the original precise timer and owner destruction send only that original Up's
+normal key release. Actual release/filter history and subsequent independent
+button/effective-drive/position evidence remain necessary. Foreign preexisting
+Up cannot be acquired, foreign release cannot release another run, and a late
+unowned Up event makes the source unavailable. This is an exclusive test-input
+scope; arbitrary concurrent physical writers are not an exclusive keyboard
+identity guarantee. A missing original release never becomes cleanup.
+
+The closed reader enforces candidate/PID/native-clock guards, independent motion
+freshness, immutable native histories, single-send persisted control intent,
+bounded timing and observe-only actor admission. Historical restore accepts only
+original read observations, never relabels a mutating receipt as a current read.
+The source has no complete area capability flag.
+
+Component tests compile and execute the actual new Test method, real native
+Qt keyboard dispatch/filter/timer, original KeyboardMouse press/release/channel
+methods, original InputDevice button reader and the new passive source. They
+also wait through the actual ten-second watchdog. Controller ABI/plugin setup,
+application physics and original feet/drive producer values are explicit host
+seams. The insertion in the complete Application update is source reviewed;
+the full Application/Android translation unit is not compiled by that component
+check. No hardware input, phone rendering, Android IME or device acceptance is
+claimed. Common foundation/facade composition remains work in progress.

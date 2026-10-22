@@ -332,6 +332,7 @@
     var lastPhoneAvatarConfigurationRequest = "";
     var lastPhoneTouchStateRequest = "";
     var lastPhoneLifecycleEditorRequest = "";
+    var lastPhoneLifecycleWorldRequest = "";
     var lastPhoneEmoteFixtureRequest = "";
     var lastPhoneEmoteFixtureInputRequest = "";
     function validPhoneEmoteFixtureInput(c) {
@@ -1543,6 +1544,22 @@
         }
         if (command && command.schemaVersion === 1 && typeof command.commandId === "string"
                 && /^[0-9a-f]{32}$/.test(command.commandId) && /^[0-9a-f]{32}$/.test(String(command.runId))
+                && command.action === "phone-lifecycle-world-input"
+                && objectKeysMatch(command,["schemaVersion","commandId","action","operation","runId","gestureId"])) {
+            if (command.commandId === lastPhoneLifecycleWorldRequest) { return; }
+            lastPhoneLifecycleWorldRequest=command.commandId;
+            var lifecycleWorldOriginal={schemaVersion:1,requestId:command.commandId,available:false};
+            try {
+                if (typeof Test.phoneLifecycleWorldInput === "function") {
+                    var lifecycleWorldActual=Test.phoneLifecycleWorldInput(command);
+                    if (lifecycleWorldActual && lifecycleWorldActual.requestId === command.commandId) { lifecycleWorldOriginal=lifecycleWorldActual; }
+                }
+            } catch (_lifecycleWorldError) { /* No requested movement is an actual drive/position sample. */ }
+            Test.saveObject(lifecycleWorldOriginal,"phone-lifecycle-world-input.json");
+            return;
+        }
+        if (command && command.schemaVersion === 1 && typeof command.commandId === "string"
+                && /^[0-9a-f]{32}$/.test(command.commandId) && /^[0-9a-f]{32}$/.test(String(command.runId))
                 && (command.action === "phone-lifecycle-editor-observe" || command.action === "phone-lifecycle-editor-input")
                 && objectKeysMatch(command,command.action === "phone-lifecycle-editor-observe" ? ["schemaVersion","commandId","action","runId"]
                     : ["schemaVersion","commandId","action","runId","operation","fieldToken","observationSequence"])) {
@@ -2640,6 +2657,7 @@
                 || command.action === "feature-graphics-subject-observe" || command.action === "phone-create-observe" || command.action === "phone-assets-observe" || command.action === "phone-assets-download" || command.action === "phone-assets-resolve" || command.action === "phone-snapshot-observe" || command.action === "phone-snapshot-readback" || command.action === "phone-snapshot-upload-observe" || command.action === "phone-snapshot-files-observe" || command.action === "phone-snapshot-files-control" || command.action === "phone-snapshot-cancel" || command.action === "phone-snapshot-settings"
                 || command.action === "phone-avatar-configuration-observe" || command.action === "phone-touch-state-observe"
                 || command.action === "phone-lifecycle-editor-observe" || command.action === "phone-lifecycle-editor-input"
+                || command.action === "phone-lifecycle-world-input"
                 || command.action === "phone-emote-fixture-observe" || command.action === "phone-emote-fixture-input"
                 || command.action === "phone-create-fixture-observe" || command.action === "phone-create-fixture-input"
                 || command.action === "feature-avatar-render-observe" || command.action === "feature-world-model-draws-observe"

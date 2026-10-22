@@ -10,6 +10,9 @@
 //  See the accompanying file LICENSE or http://www.apache.org/licenses/LICENSE-2.0.html
 //
 #include "KeyboardMouseDevice.h"
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PHONE_INTERFACE)
+#include <QThread>
+#endif
 
 #include <QtGui/QKeyEvent>
 #include <QtGui/QMouseEvent>
@@ -78,6 +81,14 @@ void KeyboardMouseDevice::keyReleaseEvent(QKeyEvent* event) {
     auto input = _inputDevice->makeInput((Qt::Key) event->key());
     _inputDevice->_buttonPressedMap.erase(input.getChannel());
 }
+
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PHONE_INTERFACE)
+QVariantMap KeyboardMouseDevice::e2eForwardKeyObservation() const {
+    if (QThread::currentThread()!=thread() || !_inputDevice)return {};
+    const auto channel=_inputDevice->makeInput(Qt::Key_Up).getChannel();
+    return {{"keyboardPluginActive",isActive()},{"upChannel",channel},{"upPressed",_inputDevice->getButton(channel)}};
+}
+#endif
 
 void KeyboardMouseDevice::mousePressEvent(QMouseEvent* event) {
     auto input = _inputDevice->makeInput((Qt::MouseButton) event->button());

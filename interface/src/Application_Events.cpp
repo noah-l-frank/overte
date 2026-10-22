@@ -1169,4 +1169,7 @@ QVariantMap Application::phoneTouchObservation() const {
     if (QThread::currentThread() != thread() || !_touchscreenVirtualPadDevice) { return {}; }
     return _touchscreenVirtualPadDevice->e2eTouchObservation();
 }
+QWidget* Application::phoneLifecycleInputWidget() const {
+    return QThread::currentThread()==thread() ? _primaryWidget : nullptr;
+}
 #endif

@@ -73,6 +73,9 @@ overte::lifecycle::Gate& overte::lifecycle::applicationGate() {
 #include <hfm/ModelFormatRegistry.h>
 #include <input-plugins/InputPlugin.h>
 #include <input-plugins/KeyboardMouseDevice.h>
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PHONE_INTERFACE)
+#include "../../tests/device/native/PhoneLifecycleMotion.h"
+#endif
 #include <LocationScriptingInterface.h>
 #include <LogHandler.h>
 #include "../../security/redaction/SafeDiagnostics.h"
@@ -4085,6 +4088,16 @@ void Application::update(float deltaTime) {
         }
 
         myAvatar->setSprintMode((bool)userInputMapper->getActionState(controller::Action::SPRINT));
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PHONE_INTERFACE)
+        if (_keyboardMouseDevice) {
+            const auto feet=myAvatar->getWorldFeetPosition();
+            overte::e2e::PhoneLifecycleMotion::get().sample(_keyboardMouseDevice->e2eForwardKeyObservation(),
+                {feet.x,feet.y,feet.z},
+                {myAvatar->getDriveKey(MyAvatar::TRANSLATE_X),myAvatar->getDriveKey(MyAvatar::TRANSLATE_Y),myAvatar->getDriveKey(MyAvatar::TRANSLATE_Z)},
+                {myAvatar->getRawDriveKey(MyAvatar::TRANSLATE_X),myAvatar->getRawDriveKey(MyAvatar::TRANSLATE_Y),myAvatar->getRawDriveKey(MyAvatar::TRANSLATE_Z)},
+                myAvatar->getCharacterController()->getState()==CharacterController::State::Ground);
+        }
+#endif
         static const std::vector<controller::Action> avatarControllerActions = {
             controller::Action::LEFT_HAND,
             controller::Action::RIGHT_HAND,

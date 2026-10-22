@@ -90,6 +90,8 @@
 #include "NativeSnapshotAdapter.h"
 #include "../../../tests/device/native/PhoneNavigationMarker.h"
 #include "../../../tests/device/native/PhoneLifecycleEditor.h"
+#include "../../../tests/device/native/PhoneLifecycleWorldInput.h"
+#include "../../../tests/device/native/PhoneLifecycleMotion.h"
 #include <SettingHandle.h>
 #include "../../../tests/device/adapters/android-phone/PendingCommitOwner.h"
 #include "../../../tests/device/native/PrivateFeatureCommand.h"
@@ -998,6 +1000,29 @@ QVariantMap TestScriptingInterface::phoneNavigationMarkerObservation(const QVari
 }
 
 #endif
+
+QVariantMap TestScriptingInterface::phoneLifecycleWorldInput(const QVariantMap& command) {
+#if defined(ANDROID_APP_PHONE_INTERFACE)
+    if (QThread::currentThread()!=thread()) {
+        QVariantMap result;
+        if (!QMetaObject::invokeMethod(this,[&] { result=phoneLifecycleWorldInput(command); },Qt::BlockingQueuedConnection))return {};
+        return result;
+    }
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript"))return {};
+    const auto requested=QDateTime::currentMSecsSinceEpoch();
+    if (!_phoneLifecycleWorldInput)_phoneLifecycleWorldInput=std::make_shared<overte::e2e::PhoneLifecycleWorldInput>();
+    const auto controls=_phoneLifecycleWorldInput->request(command,qApp->phoneLifecycleInputWidget(),overte::e2e::PhoneLifecycleMotion::get().snapshot());
+    const auto motion=overte::e2e::PhoneLifecycleMotion::get().snapshot();
+    if (controls.isEmpty() || motion.isEmpty())return {};
+    return {{"schemaVersion",1},{"requestId",command.value("commandId")},{"runId",command.value("runId")},
+        {"instance",_featureObservationInstance},{"sequence",static_cast<qulonglong>(++_phoneLifecycleWorldInputSequence)},
+        {"processId",QCoreApplication::applicationPid()},{"requestedEpochMs",requested},{"capturedEpochMs",QDateTime::currentMSecsSinceEpoch()},
+        {"source",controls},{"motion",motion}};
+#else
+    Q_UNUSED(command);return {};
+#endif
+}
 
 QVariantMap TestScriptingInterface::phoneLifecycleEditor(const QVariantMap& command) {
 #if defined(ANDROID_APP_PHONE_INTERFACE)
@@ -2270,7 +2295,7 @@ void TestScriptingInterface::saveObject(QVariant variant, const QString& filenam
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     if (filename == "feature-chat-observation.json" || filename == "feature-native-observation.json" || filename == "normal-feature-observation.json"
             || filename == "phone-snapshot-files-observation.json" || filename == "phone-snapshot-settings.json" || filename == "feature-chat-history.json" || filename == "feature-chat-view-observation.json" || filename == "feature-web-dom-observation.json"
-            || filename == "feature-phone-web-runtime.json" || filename == "phone-lifecycle-editor.json"
+            || filename == "feature-phone-web-runtime.json" || filename == "phone-lifecycle-editor.json" || filename == "phone-lifecycle-world-input.json"
             || filename == "feature-pending-commit-owner.json" || filename == "feature-navigation-replies.json"
             || filename == "feature-process-presence.json"
             || filename == "recorded-preview-observation.json" || filename == "feature-script-observation.json"
