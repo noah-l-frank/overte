@@ -25,7 +25,8 @@ from ios.adapters.graphics_history import restore_native
 from ios.adapters.script_runtime import IOSScriptRuntime
 from ios.adapters.avatar_state import session
 
-VERSION=1
+VERSION=2
+READS=(1,2)
 
 
 class EmoteMarkerPending(MarkerNotReady):pass
@@ -35,7 +36,7 @@ def archived_sample(value,*,root,binding,run,role,lock,policy,marker_nonce,marke
     """Decode immutable native/image originals without any SDK or live guard."""
     need(isinstance(lock,ScriptSourceLock));lock.assert_held();context(binding);identifier(run)
     exact(value,{'iosEmoteSampleVersion','runId','role','binding','requestId','ticket','avatarId','phase','payload','owner'})
-    need(type(value['iosEmoteSampleVersion']) is int and value['iosEmoteSampleVersion']==VERSION
+    need(type(value['iosEmoteSampleVersion']) is int and value['iosEmoteSampleVersion'] in READS
         and value['runId']==run and value['role']==role and same(value['binding'],binding)
         and value['phase'] in ('observed','marker-pending') and value['requestId'].startswith('ios-'))
     identifier(value['requestId'][4:]);identifier(value['ticket'])
@@ -47,7 +48,7 @@ def archived_sample(value,*,root,binding,run,role,lock,policy,marker_nonce,marke
     raw=VulkanWorldFrameOwner.archive_original(owner,Path(root),binding,run,role,0,value['requestId'],lock)
     try:
         result,_subject=compose(run,value['ticket'],binding,frame,raw,policy,marker_nonce=marker_nonce,
-            marker_url=marker_url,avatar_id=value['avatarId'])
+            marker_url=marker_url,avatar_id=value['avatarId'],legacy=value['iosEmoteSampleVersion']==1)
     except MarkerNotReady:
         need(value['phase']=='marker-pending');return deepcopy(frame),raw,None,owner['name']
     need(value['phase']=='observed');return deepcopy(frame),raw,result,owner['name']
@@ -76,7 +77,8 @@ class IOSEmoteSamples:
 
     def decode(self,value):
         exact(value,{'iosEmoteSamplesVersion','runId','role','binding','artifactRoot','imagePolicy','payload'})
-        rows=unpack(value['payload']);need(len(rows)==1 and same(value,self.envelope(rows[0])));state=rows[0]
+        rows=unpack(value['payload']);need(type(value['iosEmoteSamplesVersion']) is int and value['iosEmoteSamplesVersion'] in READS
+            and len(rows)==1 and same(value,dict(self.envelope(rows[0]),iosEmoteSamplesVersion=value['iosEmoteSamplesVersion'])));state=rows[0]
         exact(state,{'phase','rows','seenFrames','cursors'});need(state['phase'] in ('ready','reading')
             and type(state['rows']) is list and len(state['rows'])<=128 and type(state['seenFrames']) is list
             and len(set(state['seenFrames']))==len(state['seenFrames']))
@@ -96,7 +98,7 @@ class IOSEmoteSamples:
             if state['rows'][-1]['phase']!='abandoned':
                 need(same(state['cursors']['native'],frame['clockJoin']['nativeAfter'])
                     and same(state['cursors']['world'],frame['worldAfter']))
-                if state['rows'][-1]['avatarId'] is not None:need(same(state['cursors']['renderers'],frame['renderersAfter']))
+                if sample['iosEmoteSampleVersion']>=2 or state['rows'][-1]['avatarId'] is not None:need(same(state['cursors']['renderers'],frame['renderersAfter']))
             else:
                 need(same(state['cursors']['native'],frame['clockJoin']['nativeAfter'])
                     and all(same(state['cursors'][key],frame['priorCursors'][key]) for key in ('world','renderers')))
@@ -125,7 +127,7 @@ class IOSEmoteSamples:
     def record(self,row):
         value=self.sample_store(row).read();need(value is not None and digest(value)==row['sampleSha256'])
         exact(value,{'iosEmoteSampleVersion','runId','role','binding','requestId','ticket','avatarId','phase','payload','owner'})
-        need(type(value['iosEmoteSampleVersion']) is int and value['iosEmoteSampleVersion']==VERSION and value['runId']==self.run and value['role']==self.role
+        need(type(value['iosEmoteSampleVersion']) is int and value['iosEmoteSampleVersion'] in READS and value['runId']==self.run and value['role']==self.role
             and same(value['binding'],self.binding) and all(value[k]==row[k] for k in ('requestId','ticket','avatarId','phase')))
         frames=unpack(value['payload']);need(len(frames)==1 and type(frames[0]) is dict)
         owners=unpack(value['owner']);need(len(owners)==1 and (owners[0] is None or type(owners[0]) is dict))
@@ -156,12 +158,12 @@ class IOSEmoteSamples:
         self.remember('native',window.started['nativeBefore']);frame={}
         try:
             frame['worldBefore']=world.read(self.run);self.remember('world',frame['worldBefore'])
-            if avatar_id is not None:frame['renderersBefore']=renderers.read(self.run);self.remember('renderers',frame['renderersBefore'])
+            frame['renderersBefore']=renderers.read(self.run);self.remember('renderers',frame['renderersBefore'])
             frame['capture'],raw=owner.capture(ticket)
             identity=frame['capture']['source']['renderTrace']['frameId'];need(identity not in self.state['seenFrames'])
         finally:
             if owner.store.read() is not None:frame['retirement']=owner.release()
-        if avatar_id is not None:frame['renderersAfter']=renderers.read(self.run);self.remember('renderers',frame['renderersAfter'])
+        frame['renderersAfter']=renderers.read(self.run);self.remember('renderers',frame['renderersAfter'])
         frame['worldAfter']=world.read(self.run);self.remember('world',frame['worldAfter'])
         packets=originals(frame);fields=[(name,field) for name,p in packets.items() for field in ('capturedEpochMs','sampleEpochMs') if field in p]
         frame['clockJoin']=window.finish(packets,fields);self.remember('native',frame['clockJoin']['nativeAfter'])

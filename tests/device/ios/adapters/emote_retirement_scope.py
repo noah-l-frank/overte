@@ -9,13 +9,15 @@ from ios.adapters.emote_marker_partial import drained_partial
 from ios.adapters.web_closures import drained_owned_resources
 
 
-def refresh(scope,*,clock,sleep):
+def refresh(scope,*,clock,sleep,pointers=None):
     need(isinstance(scope,IOSEmoteMarkerScope) and callable(clock) and callable(sleep))
     from ios.adapters.emote_marker_recovery import IOSEmoteMarkerRecovery
     scope.bound();IOSEmoteMarkerRecovery(scope).recover();need(scope.state['phase']=='released' and scope.state['pending'] is None and scope.state['baseline'] is not None)
     baseline=scope.frames[scope.state['baseline']-1];candidate=[];started=clock()
     while clock()-started<10:
+        if pointers is not None:pointers.abandon();pointers.capture()
         frame=scope.capture('retirement-quiet-refresh')
+        if pointers is not None:pointers.capture()
         try:
             scope.ui_absent(frame);scope.dialog_drained(frame)
             need(frame['clockJoin']['nativeAfter']['animation']['overrideActive'] is False)
@@ -33,6 +35,9 @@ def refresh(scope,*,clock,sleep):
         # passive read, including an interrupted first or middle acquisition.
         # Scope's own original/pending/recovery journals retain those reads.
         if len(candidate)>=3 and scope.quiet_interval(scope.frames[candidate[0]-1],frame):
+            if pointers is not None:
+                try:pointers.quiet([scope.frames[index-1] for index in candidate])
+                except NativeUIError:candidate=[];sleep(.15);continue
             scope.state['quiet']=candidate;scope.save();return True
         sleep(.15)
     raise NativeUIError('Original Emote resources have not remained quiet after retirement')

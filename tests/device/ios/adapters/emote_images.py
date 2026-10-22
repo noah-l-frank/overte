@@ -20,7 +20,8 @@ from ios.adapters.emote_world import original as world_original,owned_marker,val
 from ios.adapters.graphics_history import follow_native
 from ios.adapters import avatar_renderers
 
-VERSION=1
+VERSION=2
+READS=(1,2)
 FIELDS={'worldBefore','capture','retirement','worldAfter','clockJoin'}
 REMOTE_FIELDS={'renderersBefore','renderersAfter'}
 
@@ -45,8 +46,28 @@ def avatar_box(bounds,view,extent):
         min(extent[0],max(p[0] for p in points)),min(extent[1],max(p[1] for p in points))]
 
 
-def compose(run,ticket,binding,frame,raw,policy,*,marker_nonce,marker_url,avatar_id=None):
-    identifier(run);identifier(ticket);context(binding);exact(frame,FIELDS if avatar_id is None else FIELDS|REMOTE_FIELDS)
+def exclusive_subject(packet,avatar_id,policy,view,extent):
+    """Conservatively exclude every other actual rendered Avatar AABB.
+
+    This is the same original projection predicate as Avatar Images1. Unknown
+    geometry fails closed; no self/remote body can supply another body's ROI.
+    """
+    roi=policy['subject'];inverse=[-v for v in view['rotation'][:3]]+[view['rotation'][3]]
+    for row in packet['source']['avatars']:
+        if row['sessionId']==avatar_id or not (row['addedToScene'] and row['shouldRender']):continue
+        need(row['boundsReady']);bounds=row['bounds'];points=[]
+        for sides in itertools.product((0,1),repeat=3):
+            world=[a+b*c for a,b,c in zip(bounds['corner'],bounds['dimensions'],sides)]
+            camera=rotate([a-b for a,b in zip(world,view['position'])],inverse)+[1]
+            points.append([sum(view['projection'][r*4+c]*camera[c] for c in range(4)) for r in range(4)])
+        if any(all(p[axis]<-p[3] for p in points) or all(p[axis]>p[3] for p in points) for axis in range(3)):continue
+        box=avatar_box(bounds,view,extent)
+        need(max(roi[0],box[0])>=min(roi[2],box[2]) or max(roi[1],box[1])>=min(roi[3],box[3]))
+
+
+def compose(run,ticket,binding,frame,raw,policy,*,marker_nonce,marker_url,avatar_id=None,legacy=False):
+    identifier(run);identifier(ticket);context(binding);need(type(legacy) is bool)
+    exact(frame,FIELDS if legacy and avatar_id is None else FIELDS|REMOTE_FIELDS)
     need(type(policy) is dict and policy.get('source')=='world-render-target')
     clock=validate_join(frame['clockJoin'],originals(frame));pid=int(binding['processIdentity']);epoch=clock['nativeAfter']['capturedEpochMs']
     need(clock['nativeBefore']['processId']==clock['nativeAfter']['processId']==pid)
@@ -81,7 +102,7 @@ def compose(run,ticket,binding,frame,raw,policy,*,marker_nonce,marker_url,avatar
     # must never be counted as an Avatar pose change.
     subject=policy['subject'];need(marker_box[2]<=subject[0] or subject[2]<=marker_box[0]
         or marker_box[3]<=subject[1] or subject[3]<=marker_box[1])
-    if avatar_id is None:
+    if legacy and avatar_id is None:
         bounds=[]
         for packet in (before,after):
             avatar=packet['source']['avatar'];need(avatar['boundsReady']);bounds.append(avatar['bounds'])
@@ -92,10 +113,18 @@ def compose(run,ticket,binding,frame,raw,policy,*,marker_nonce,marker_url,avatar
         need(left['processId']==pid and left['runId']==run
             and before['clockAfter']['epochMs']<=left['clockBefore']['epochMs']<=left['clockAfter']['epochMs']<=capture['requestedEpochMs']
             and retirement['capturedEpochMs']<=right['clockBefore']['epochMs']<=right['clockAfter']['epochMs']<=after['clockBefore']['epochMs'])
-        bounds=[avatar_renderers.bounds(packet,avatar_id,remote=True) for packet in (left,right)]
+        if avatar_id is None:
+            selected=[row['sessionId'] for row in left['source']['avatars'] if row['self']];need(len(selected)==1);selected=selected[0]
+            from ios.adapters.emote_peer import session_sha
+            need(before['source']['domain']['selfSha256']==after['source']['domain']['selfSha256']==session_sha(selected))
+            bounds=[avatar_renderers.bounds(packet,selected,remote=False) for packet in (left,right)]
+            need(all(same(bound,world['source']['avatar']['bounds']) and world['source']['avatar']['boundsReady'] for bound,world in zip(bounds,(before,after))))
+        else:selected=avatar_id;bounds=[avatar_renderers.bounds(packet,selected,remote=True) for packet in (left,right)]
+        if not legacy:
+            for packet in (left,right):exclusive_subject(packet,selected,policy,recorded,source['targetExtent'])
     for bound in bounds:within(policy['subject'],avatar_box(bound,recorded,source['targetExtent']))
     image,subject=image_observation(raw,run,ticket,policy)
-    return dict(iosEmoteImageVersion=VERSION,capturedEpochMs=clock['hostBeforeEpochMs'],nativeEpochMs=ordered[0],
+    return dict(iosEmoteImageVersion=1 if legacy else VERSION,capturedEpochMs=clock['hostBeforeEpochMs'],nativeEpochMs=ordered[0],
         frameId=trace['frameId'],image=image,markerId=markers[0]['id'],remoteSessionId=avatar_id,actualAvatarBounds=deepcopy(bounds[-1])),subject
 
 

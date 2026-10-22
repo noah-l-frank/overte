@@ -21,8 +21,9 @@ without refreshing clocks or invoking an SDK or live authority.
 Ordinary cleanup inputs have their own durable Cancel/Home/tablet/pointer
 journal. A successful W3C release response alone cannot establish actual Qt
 pointer or callback drainage. That separate passive end/quiet source and its
-whole-retirement join remain required before a complete capability can be
-advertised. File receipt owners preserve original native file bytes/absence
+whole-retirement join use original startup/contact/returned/finally sources;
+whole runtime qualification is still required before a complete capability can
+be advertised. File receipt owners preserve original native file bytes/absence
 and their actual native/host brackets after delivery metadata retires.
 
 The closed Emote/Avatar marker entity owner consumes the unchanged original
@@ -35,3 +36,10 @@ Read-only peer admission retains the earlier actual existing SDK/candidate/
 process binding. It creates no session, takes no actor lock and sends no native
 command. Phase witness publication retains its independent once-POST ownership;
 publication ACKs and fixture phase changes establish no product cleanup.
+
+Current image/sample writers are version 2, reading versions 1 and 2. Both
+Primary and Actor acquire Renderer4 before and after the original frame. Every
+other should-render Avatar already in the scene needs actual mesh bounds whose
+entire projection is disjoint from the selected subject ROI. Unknown bounds
+fail closed. The entire marker projection is also excluded. Former self-image
+v1 frames remain historical bytes and cannot qualify a current observation.

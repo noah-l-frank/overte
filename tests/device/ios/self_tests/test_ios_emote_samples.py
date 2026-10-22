@@ -13,12 +13,12 @@ from adapters.native_feature_observation import NativeFeatureObservation
 from adapters.native_vulkan_world_frame import NativeVulkanWorldFrame
 from adapters.normal_ui import NativeUIError
 from adapters.script_feature.lock import ScriptSourceLock
-from adapters.script_feature.history import unpack
+from adapters.script_feature.history import pack,unpack
 from feature_journeys.phase_fixture import PhaseFixtureReader
 from ios.adapters.emote_marker_scope import IOSEmoteMarkerScope
-from ios.adapters.emote_samples import IOSEmoteSamples,EmoteMarkerPending
+from ios.adapters.emote_samples import IOSEmoteSamples,EmoteMarkerPending,archived_sample
 from ios.adapters.script_runtime import IOSScriptRuntime
-from ios.self_tests.test_ios_emote_images import bundle,MARKER_URL,NONCE
+from ios.self_tests.test_ios_emote_images import bundle,rebind,MARKER_URL,NONCE
 from ios.self_tests.test_ios_graphics_measurements import NATIVE,HOST,RUN,TICKET,URL,BINDING
 from self_tests.test_native_feature_observation import Boundary
 from self_tests.test_native_vulkan_world_frame import World
@@ -34,7 +34,7 @@ class SamplesTests(unittest.TestCase):
             if 'image' in value.get('source',{}):value['source']['image'].update(width=640,height=400)
         self.gpu.fault=actual_extent
         self.gpu.epoch=lambda:NATIVE+round(self.gpu.clock*1000)
-        self.boundary=Boundary();self.world_sequence=0
+        self.boundary=Boundary();self.world_sequence=0;self.renderer_sequence=0
         self.scope=object.__new__(IOSEmoteMarkerScope);self.scope.run,self.scope.role,self.scope.binding=RUN,'primary',deepcopy(BINDING)
         self.scope.fixture_url=URL;self.scope.state=dict(phase='ready',admission=dict(marker=dict(sourceUrl=MARKER_URL)),fileOwnership=dict(nonce=NONCE))
         self.scope.bound=lambda:self.lock.assert_held()
@@ -47,7 +47,7 @@ class SamplesTests(unittest.TestCase):
     def sources(self,_selector):
         return dict(binding=deepcopy(BINDING),check=lambda:True,clock_source=None,observer=SimpleNamespace(
             bound_native_observer=self.native,emote_world=lambda _:SimpleNamespace(last=None,read=self.world),
-            avatar_renderers=lambda _:SimpleNamespace(last=None),vulkan_world_frame=self.vulkan))
+            avatar_renderers=lambda _:SimpleNamespace(last=None,read=self.renderers),vulkan_world_frame=self.vulkan))
     def native(self,_clock):
         def send(query):
             if self.boundary.sequence:self.gpu.clock+=.1
@@ -63,6 +63,14 @@ class SamplesTests(unittest.TestCase):
         for key in ('clockBefore','clockAfter'):value[key]=dict(epochMs=self.gpu.epoch(),monotonicMs=round(self.gpu.clock*1000))
         value['source']['scriptOriginal'].update(requestedEpochMs=self.gpu.epoch(),capturedEpochMs=self.gpu.epoch())
         return value
+    def renderers(self,run):
+        self.assertEqual(RUN,run);self.renderer_sequence+=1;self.gpu.clock+=.01
+        value=deepcopy(self.template['renderersBefore']);value.update(requestId='ios-'+format(self.renderer_sequence+9000,'032x'),sequence=self.renderer_sequence)
+        for key in ('clockBefore','clockAfter'):value[key]=dict(epochMs=self.gpu.epoch(),monotonicMs=round(self.gpu.clock*1000))
+        for row in value['source']['avatars']:
+            for key in ('rigPose','externalPose'):
+                if row[key]:row[key].update(capturedEpochMs=self.gpu.epoch(),evaluationSequence=self.renderer_sequence+100)
+        return value
     def vulkan(self,intent,receipt):
         return NativeVulkanWorldFrame(self.gpu.send,self.gpu.original,self.gpu.epoch,lambda:True,42,intent,receipt=receipt,
             monotonic=lambda:self.gpu.clock,sleep=self.gpu.sleep)
@@ -74,6 +82,16 @@ class SamplesTests(unittest.TestCase):
         self.assertEqual('observed',row['phase']);self.assertTrue(Path(actual['imagePath']).is_file())
         self.assertEqual('released',unpack(rebuilt.record(row)['owner'])[0]['phase'])
         self.assertEqual(1,sum(q['operation']=='read' for q in self.gpu.commands))
+
+    def test_independently_authored_v1_sample_envelope_keeps_original_pixels_as_history_only(self):
+        owner=self.owner();owner.capture(TICKET);current=owner.record(owner.state['rows'][-1]);frame=unpack(current['payload'])[0]
+        frame.pop('renderersBefore');frame.pop('renderersAfter');rebind(frame)
+        # Literal former v1 envelope, rather than a new writer's version flag.
+        old=dict(iosEmoteSampleVersion=1,runId=RUN,role='primary',binding=deepcopy(BINDING),requestId=current['requestId'],
+            ticket=TICKET,avatarId=None,phase='observed',payload=pack([frame]),owner=current['owner'])
+        decoded,raw,result,_name=archived_sample(old,root=self.root,binding=BINDING,run=RUN,role='primary',lock=self.lock,
+            policy=self.policy,marker_nonce=NONCE,marker_url=MARKER_URL)
+        self.assertEqual(self.raw,raw);self.assertEqual(1,result['iosEmoteImageVersion']);self.assertNotIn('renderersBefore',decoded)
 
     def test_missing_current_marker_retains_failed_original_and_actual_gpu_release(self):
         image=Image.open(BytesIO(self.raw)).convert('RGBA');image.paste((128,128,128,255),(187,70,443,134));stream=BytesIO();image.save(stream,format='PNG')

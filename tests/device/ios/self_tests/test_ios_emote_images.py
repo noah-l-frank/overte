@@ -14,6 +14,7 @@ from ios.self_tests.test_ios_emote_world import packet as world_packet,NONCE
 from ios.self_tests.test_ios_graphics_world_measurements import world_bundle
 from ios.self_tests.test_ios_graphics_measurements import NATIVE,HOST,RUN,TICKET,URL,BINDING
 from ios.self_tests.test_ios_avatar_renderers import packet as renderers_packet,PEER,SELF
+from ios.adapters.emote_peer import session_sha
 
 MARKER_URL=URL+'tickets/'+TICKET+'/graphics-marker.v1.html'
 
@@ -37,11 +38,21 @@ def bundle(*,start=0,ticket=TICKET,change=False):
             **{k:geometry[k] for k in ('position','rotation','dimensions')})
         effect.update(name=marker['name'],userData=data)
         source['avatar'].update(feetPosition=[0,0,-4],bounds=dict(corner=[-.5,0,-4.5],dimensions=[1,1.8,1]))
+        source['domain']['selfSha256']=session_sha(SELF)
         source['view'].update(position=[0,1.6,0],rotation=[0,0,0,1],mode='look at',aspectRatio=1.6)
         return value
     cursor=start//1000*2
     result=dict(worldBefore=world(cursor+1,start+20),capture=original['capture'],retirement=original['retirement'],
         worldAfter=world(cursor+2,start+450),clockJoin=original['clockJoin'])
+    for index,(key,offset) in enumerate((('renderersBefore',start+40),('renderersAfter',start+300))):
+        packet=renderers_packet();packet.update(runId=RUN,requestId='ios-'+format(cursor+index+9000,'032x'),sequence=cursor+index+1)
+        packet['clockBefore']=dict(epochMs=NATIVE+offset,monotonicMs=offset);packet['clockAfter']=deepcopy(packet['clockBefore'])
+        for row in packet['source']['avatars']:
+            if row['rigPose']:row['rigPose'].update(capturedEpochMs=NATIVE+offset,evaluationSequence=100+cursor+index)
+            if row['externalPose']:row['externalPose'].update(capturedEpochMs=NATIVE+offset,evaluationSequence=10+cursor+index)
+            row['bounds']=deepcopy(result['worldBefore']['source']['avatar']['bounds'])
+            if not row['self']:row['bounds']['corner'][0]=20 # Actual modeled peer mesh outside this view.
+        result[key]=packet
     if change:
         image=Image.open(BytesIO(raw)).convert('RGBA');draw=ImageDraw.Draw(image)
         for y in range(200,330,5):
@@ -91,6 +102,7 @@ class ImagesTests(unittest.TestCase):
         # These are genuine modeled mesh bounds, deliberately including the
         # marker's lower projected pixels outside the selected challenge crop.
         for key in ('worldBefore','worldAfter'):frame[key]['source']['avatar']['bounds']['dimensions'][1]=4
+        for key in ('renderersBefore','renderersAfter'):frame[key]['source']['avatars'][0]['bounds']['dimensions'][1]=4
         image=Image.open(BytesIO(raw)).convert('RGBA');draw=ImageDraw.Draw(image)
         for x in range(290,350):draw.line((x,135,x,137),fill=(250,10,20,255) if x%2 else (10,200,30,255))
         stream=BytesIO();image.save(stream,format='PNG');raw=stream.getvalue()
@@ -107,7 +119,8 @@ class ImagesTests(unittest.TestCase):
             for row in packet['source']['avatars']:
                 if row['rigPose']:row['rigPose'].update(capturedEpochMs=NATIVE+offset,evaluationSequence=100+index)
                 if row['externalPose']:row['externalPose'].update(capturedEpochMs=NATIVE+offset,evaluationSequence=10+index)
-                row['boundsReady']=not row['self'];row['bounds']=deepcopy(frame['worldBefore']['source']['avatar']['bounds']) if not row['self'] else None
+                row['boundsReady']=True;row['bounds']=deepcopy(frame['worldBefore']['source']['avatar']['bounds'])
+                if row['self']:row['bounds']['corner'][0]=20
             frame[key]=packet
         for key in ('worldBefore','worldAfter'):frame[key]['source']['avatar'].update(boundsReady=False,bounds=None)
         rebind(frame);return frame,raw,policy
@@ -129,6 +142,24 @@ class ImagesTests(unittest.TestCase):
             rebind(current)
             with self.subTest(fault=fault),self.assertRaises(NativeUIError):images.compose(RUN,TICKET,BINDING,current,raw,policy,
                 marker_nonce=NONCE,marker_url=MARKER_URL,avatar_id=avatar)
+
+    def test_other_actual_rendered_avatar_cannot_supply_subject_pixels(self):
+        for remote in (False,True):
+            for fault in ('overlap','unknown'):
+                frame,raw,policy=self.remote() if remote else bundle()
+                for key in ('renderersBefore','renderersAfter'):
+                    other=frame[key]['source']['avatars'][0 if remote else 1]
+                    if fault=='overlap':other['bounds']=deepcopy(frame[key]['source']['avatars'][1 if remote else 0]['bounds'])
+                    else:other.update(boundsReady=False,bounds=None)
+                rebind(frame)
+                with self.subTest(remote=remote,fault=fault),self.assertRaises(NativeUIError):images.compose(RUN,TICKET,BINDING,frame,raw,policy,
+                    marker_nonce=NONCE,marker_url=MARKER_URL,avatar_id=PEER if remote else None)
+
+    def test_old_self_frame_remains_historical_but_cannot_qualify_current_subject_identity(self):
+        frame,raw,policy=bundle();frame.pop('renderersBefore');frame.pop('renderersAfter');rebind(frame)
+        old,_=images.compose(RUN,TICKET,BINDING,frame,raw,policy,marker_nonce=NONCE,marker_url=MARKER_URL,legacy=True)
+        self.assertEqual(1,old['iosEmoteImageVersion'])
+        with self.assertRaises(NativeUIError):self.compose((frame,raw,policy))
 
 
 if __name__=='__main__':unittest.main()

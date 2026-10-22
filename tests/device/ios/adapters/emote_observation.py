@@ -116,6 +116,7 @@ class IOSEmoteObservationDecoder:
             lock=self.lock,require_ready=True)
         frame,raw,image,name=archived_sample(value,root=self.root,binding=self.binding,run=self.run,role=self.role,
             lock=self.lock,policy=self.policy,marker_nonce=marker['nonce'],marker_url=marker['url'])
+        need(value['iosEmoteSampleVersion']>=2 and (image is None or image['iosEmoteImageVersion']>=2))
         for key in ('worldBefore','worldAfter'):
             need(scope.bind_image_world(frame[key])=={k:marker[k] for k in ('nonce','url')})
         return frame,raw,image,name

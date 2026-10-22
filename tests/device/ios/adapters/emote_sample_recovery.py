@@ -18,6 +18,7 @@ from adapters.normal_feature_state import PrivateFeatureState
 from adapters.owned_vulkan_world_frame import VulkanWorldFrameOwner
 from adapters.script_feature.history import pack,unpack,same
 from feature_journeys.phase_fixture import validate as phase_packet
+from feature_journeys.contract import identifier
 from ios.adapters.emote_native_prefix import follow as native_prefix
 from ios.adapters.graphics_history import restore_native
 
@@ -48,6 +49,13 @@ def retained_file(owner,root,binding,run,role,request,lock):
 
 def validate_abandonment(sample,*,root,binding,run,role,lock):
     """Historical only: no native reader, live SDK, input or fresh envelope."""
+    from ios.adapters.emote_samples import READS
+    from ios.adapters.avatar_state import session
+    exact(sample,{'iosEmoteSampleVersion','runId','role','binding','requestId','ticket','avatarId','phase','payload','owner'})
+    need(type(sample['iosEmoteSampleVersion']) is int and sample['iosEmoteSampleVersion'] in READS and sample['runId']==run
+        and sample['role']==role and same(sample['binding'],binding) and type(sample['requestId']) is str and sample['requestId'].startswith('ios-'))
+    identifier(sample['requestId'][4:]);identifier(sample['ticket'])
+    if sample['avatarId'] is not None:session(sample['avatarId'])
     lock.assert_held();need(sample['phase']=='abandoned')
     frames=unpack(sample['payload']);owners=unpack(sample['owner']);need(len(frames)==len(owners)==1)
     frame,owner=frames[0],owners[0]
@@ -168,7 +176,8 @@ class IOSEmoteSampleRecovery:
             prior=unpack(pending['priorOwner']['payload'])[0]['cursors']
             frame=dict(iosEmoteAbandonedSampleVersion=VERSION,priorCursors=deepcopy(prior),phaseBefore=phase,phaseAfter=attempt['phaseAfter'],
                 clockJoin=attempt['clockJoin'],absence=proof,partialFile=attempt['partialFile'],inspection=attempt['inspection'])
-            sample=dict(iosEmoteSampleVersion=1,runId=s.run,role=s.role,binding=s.binding,requestId=row['requestId'],ticket=row['ticket'],
+            from ios.adapters.emote_samples import VERSION as SAMPLE_VERSION
+            sample=dict(iosEmoteSampleVersion=SAMPLE_VERSION,runId=s.run,role=s.role,binding=s.binding,requestId=row['requestId'],ticket=row['ticket'],
                 avatarId=row['avatarId'],phase='abandoned',payload=pack([frame]),owner=pack([attempt['owner']]))
             validate_abandonment(sample,root=s.root,binding=s.binding,run=s.run,role=s.role,lock=s.lock)
             pending['sample']=sample;self.save()

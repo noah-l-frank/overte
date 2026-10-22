@@ -36,7 +36,7 @@ class SampleRecoveryTests(unittest.TestCase):
         partial=owner.root/owner.owner(owner.state['rows'][-1]).name;identity=partial.stat().st_ino
         recovery=IOSEmoteSampleRecovery(owner);self.assertTrue(recovery.recover())
         rebuilt=self.owner();row=rebuilt.state['rows'][-1];self.assertEqual('abandoned',row['phase'])
-        sample=rebuilt.record(row);frame=unpack(sample['payload'])[0];self.assertEqual(0,frame['partialFile']['bytes'])
+        sample=rebuilt.record(row);self.assertEqual(2,sample['iosEmoteSampleVersion']);frame=unpack(sample['payload'])[0];self.assertEqual(0,frame['partialFile']['bytes'])
         self.assertEqual(identity,partial.stat().st_ino);self.assertEqual(request,sample['requestId'])
         self.assertEqual(1,sum(q['operation']=='read' for q in self.fixture.gpu.commands))
         self.assertEqual(1,sum(q['operation']=='release' for q in self.fixture.gpu.commands))
@@ -77,6 +77,17 @@ class SampleRecoveryTests(unittest.TestCase):
         before=len(self.fixture.gpu.commands);rebuilt=IOSEmoteSampleRecovery(self.owner())
         self.assertTrue(rebuilt.recover());self.assertEqual(before,len(self.fixture.gpu.commands))
         self.assertEqual(1,len(rebuilt.state['records']))
+    def test_old_abandoned_sample1_remains_historical_and_unknown_or_boolean_versions_fail(self):
+        self.lose_read();owner=self.owner();IOSEmoteSampleRecovery(owner).recover();row=owner.state['rows'][-1];sample=owner.record(row)
+        # Same unchanged AbandonedSample1/native-owner bytes in the former
+        # literal sample1 envelope, independently of the current writer2.
+        old=dict(iosEmoteSampleVersion=1,runId=sample['runId'],role=sample['role'],binding=sample['binding'],requestId=sample['requestId'],
+            ticket=sample['ticket'],avatarId=sample['avatarId'],phase='abandoned',payload=sample['payload'],owner=sample['owner'])
+        kwargs=dict(root=owner.root,binding=owner.binding,run=owner.run,role=owner.role,lock=owner.lock)
+        validate_abandonment(old,**kwargs)
+        for version in (0,3,True):
+            with self.subTest(version=version),self.assertRaises(NativeUIError):validate_abandonment(dict(old,iosEmoteSampleVersion=version),**kwargs)
+
     def test_changed_retained_empty_inode_cannot_be_claimed_as_quiet_cleanup(self):
         self.lose_read();owner=self.owner();IOSEmoteSampleRecovery(owner).recover();row=owner.state['rows'][-1]
         path=owner.root/owner.owner(row).name;path.write_bytes(b'foreign partial bytes')
