@@ -9,7 +9,7 @@ from copy import deepcopy
 import hashlib
 import json
 import os
-from adapters.original_file_reads import record as record_original_read
+from adapters.original_file_reads import record as record_original_read,active as original_read_active
 from pathlib import Path
 import re
 import stat
@@ -132,6 +132,14 @@ class OriginalFrameStore:
             and len(body['entries'])==value['count'])
         for offset,row in enumerate(body['entries'],1):
             self.expand(row);need(row['index']==(value['block']-1)*BLOCK+offset)
+        if original_read_active():
+            # Earlier immutable index snapshots are real owned files too. Read
+            # only their deterministic exact prefix, never arbitrary siblings.
+            for count in range(1,len(body['entries'])):
+                prior=dict(body,entries=body['entries'][:count]);raw=canonical(prior)
+                reference=dict(block=body['block'],count=count,sha256=hashlib.sha256(raw).hexdigest(),bytes=len(raw))
+                previous=PrivateFeatureState(self.manifest_path(reference)).read()
+                need(previous is None or same(previous,prior))
         self.bound(started);return deepcopy(body['entries'])
 
     def append(self,references,original):

@@ -18,11 +18,14 @@ def record(path):
     if active is not None:active.add(Path(path))
 
 
+def active():return _ACTIVE.get() is not None
+
+
 @contextmanager
-def scope():
+def scope(*,fresh=False):
     # Nested original readers belong to the same synchronous full decoder.
     previous=_ACTIVE.get()
-    if previous is not None:yield previous;return
+    if previous is not None and not fresh:yield previous;return
     value=set();token=_ACTIVE.set(value)
     try:yield value
     finally:_ACTIVE.reset(token)
