@@ -251,5 +251,43 @@ class SnapshotConstructorHistoryPassTests(unittest.TestCase):
                     self.assertEqual([],forbidden);self.assertFalse(path.exists())
                 finally:other.rename(path)
 
+    def test_actual_unframed_image_binary_or_observer_owner_refuses_unknown_header_fallback(self):
+        # All retained evidence was produced by the normal public capture and
+        # Role read in setUp. Simulate loss of the role/frame/index references,
+        # isolating one real remaining ownership namespace in each subcase.
+        for kind in ('image','binary','observer-owner'):
+            with self.subTest(kind=kind),self.prepared() as (f,token,_disposals):
+                token.close()
+                patterns=('emote-frame-snapshots-'+f.run+'-primary-*.json',
+                    'emote-index-snapshots-'+f.run+'-primary-*.json',
+                    'snapshots-'+f.run+'-primary-*.png','snapshots-file-'+f.run+'-primary-*.bin',
+                    'snapshots-primary-transfer-*')
+                role_path=f.store.path.with_name('phone-snapshots-primary-originals.json')
+                observer=f.store.path.with_name('phone-snapshots-primary-files-observer.json')
+                paths={role_path,observer}
+                for pattern in patterns:paths.update(f.root.glob(pattern))
+                self.assertTrue(observer.is_file())
+                selected=(observer if kind=='observer-owner' else
+                    next(path for path in paths if path.suffix==('.png' if kind=='image' else '.bin')))
+                raw=selected.read_bytes();identity=(selected.stat().st_dev,selected.stat().st_ino)
+                backup=f.root/'.constructor-counter-owned-backup';backup.mkdir(mode=0o700);moved=[]
+                try:
+                    for index,path in enumerate(sorted(paths,key=str)):
+                        if path==selected:continue
+                        self.assertTrue(path.exists())
+                        destination=backup/str(index);path.rename(destination);moved.append((path,destination))
+                    self.assertFalse(role_path.exists())
+                    forbidden=[]
+                    def current(*_args,**_kwargs):
+                        forbidden.append(True);raise AssertionError('Unframed original reached current acquisition')
+                    with f.lock.held(),patch.object(PhoneSnapshotsRole,'read',current),patch.object(PhoneSnapshotsRole,'batch',current):
+                        with self.assertRaises(NativeUIError):SnapshotConstructorHistoryPass.prepare(f,'primary')
+                    self.assertEqual([],forbidden);self.assertFalse(role_path.exists())
+                    self.assertEqual(raw,selected.read_bytes())
+                    self.assertEqual(identity,(selected.stat().st_dev,selected.stat().st_ino))
+                finally:
+                    for path,destination in reversed(moved):destination.rename(path)
+                    backup.rmdir()
+
 
 if __name__=='__main__':unittest.main()
