@@ -141,6 +141,8 @@ def continuity(frames, frame):
             current, before = value['source'], previous['source']
             need(source_identity(value) == source_identity(previous)
                 and current['events'][:len(before['events'])] == before['events'])
+            if 'openedCommandId' in before:
+                need(all(current.get(field)==before[field] for field in ('openedCommandId','retiredCommandId')))
             if 'session' in previous['source']:
                 need('session' in value['source'])
                 need(all(value['source']['session'][field]==previous['source']['session'][field] for field in

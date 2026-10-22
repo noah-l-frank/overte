@@ -10,7 +10,7 @@ The same exact source-lock instances are shared inside each parent; separate
 processes serialize on the original OS lock inode. The existing independently
 qualified fixture actor supplies the peer transport and kernel/executable guard.
 
-`ChatFlowInputs` v2 records input metadata and original source references only.
+`ChatFlowInputs` v3 records input metadata and original source references only.
 It reads the existing common `PhaseFixtureReader` and admits baseline followed
 by the 25 original common Chat inputs in order. It selects only `verb` and
 `inputs` from the common inventory. It never consults checkpoint states or
@@ -25,7 +25,7 @@ paths require an unchanged original fixture phase. Parent references are retaine
 without becoming independent observations. This journal alone is neither a
 product effect nor a completed Chat journey.
 
-Run `ChatWitness` v2 only in the separate observer process with its own private
+Run `ChatWitness` v3 only in the separate observer process with its own private
 publisher `Client`. Pico's input-owner factory requires the restricted
 `AdapterFixtureClient`; its witness factory refuses that client and requires
 the fixed initial and active third journals. Baseline publication separately
@@ -52,8 +52,9 @@ Original source chunks, input metadata and publisher intents survive failure
 and base process teardown. The normal source factory supports separate
 post-Erase witness journals, preserving the real storage discontinuity. Full
 resource retirement, post-Erase publication and actual OS process closure still
-belong to the whole-journey owner. Old v1 input/publisher owners used active-cache baseline samples and cannot
-supply this absent-cache proof; they remain without adoption or replay.
+belong to the whole-journey owner. Old v1 input/publisher owners used active-cache baseline samples. V2 separated
+initial/active stores but did not bind their original native lifetimes. Both
+remain without adoption or replay; only v3 supplies the complete stage join.
 No complete Chat capability is advertised.
 
 Focused host tests use the actual original coordinator, phase protocol, strict
@@ -65,7 +66,7 @@ run in one test process; no external credentialed observer, native Assignment
 Client, networking product, application or device was started or qualified.
 
 Pico's `_chat_admit_capture` writes the existing original capture admission only
-after a fresh passive native v2 inspect proves no scope or prior retirement. It
+after a fresh passive domain-aware native inspect proves no scope or prior retirement. It
 does not send observe/retire. The explicit `pending_capture` source factory
 requires that same original admitted binding; it creates unqueried active
 readers without opening a cache. Ordinary default source admission continues to
@@ -81,3 +82,22 @@ Pico factory/reader quartet complete with the real monotonic clock and unchanged
 native freshness checks. This is synthetic-transport host evidence only; no
 real SDK signing, live installed Android APK, network peer or device performance
 is qualified by it.
+
+V3 requires actual native Chat v3 already in the initial absent-cache frame.
+The first active input and the independent observer each join their own initial
+and active originals: actual source instance/PID/sequence, self identity, native
+domain instance/revision/birth/UUID, view instance, physical-settings identity,
+keyboard instance/sequence and lifecycle instance/counters must continue. Only
+the explicitly admitted absent-to-active cache birth may change; its two actual
+first-open IDs must be distinct. QML page generations remain measured across
+the actual normal Open, rather than being required to stay absent or unchanged.
+Later active frames preserve their original mutation IDs. The native v3 fence
+prevents another first-open nonce replacing the same run/source lifetime.
+
+The observer must acquire its own initial stage and cannot skip an activated
+input ticket. Its private row sequence follows the original activation prefix.
+A fresh replacement source inside the same PID/candidate cannot publish under
+the earlier baseline's ownership, even when its apparent Chat state matches.
+This is an original source-lifetime join; product facts still come solely from
+new independent native observations. The whole dispatcher additionally owns
+the actual cache request journal and normal input attempts.
