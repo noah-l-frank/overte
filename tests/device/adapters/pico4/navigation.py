@@ -34,6 +34,8 @@ from adapters.token_places_ui import control_id as places_control, metadata as p
 from adapters.token_navigation_error_ui import control_id as error_control, metadata as error_metadata, same_reference as error_same_reference
 
 UUID = re.compile(r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}')
+from adapters.pico4.snapshot_export_controls import control as snapshot_export_control,metadata as snapshot_export_metadata
+
 CONTROL_IDS = {'navigation.goto', 'navigation.address', 'navigation.back',
     'navigation.forward', 'tablet.home', 'snapshot.entry', 'snapshot.name', 'snapshot.mode',
     'snapshot.format', 'snapshot.capture', 'snapshot.cancel'} | {'tablet.page.' + str(n) for n in range(1, 33)}
@@ -91,6 +93,9 @@ def validate_snapshot(value, process_id, epoch_ms):
     if type(value) is dict and 'fileControlsVersion' in value:
         fields.add('fileControlsVersion')
         need(type(value['fileControlsVersion']) is int and value['fileControlsVersion'] == 1)
+    if type(value) is dict and 'snapshotExportControlsVersion' in value:
+        fields.add('snapshotExportControlsVersion')
+        need(type(value['snapshotExportControlsVersion']) is int and value['snapshotExportControlsVersion']==1)
     if type(value) is dict and 'picoSnapshotReview' in value:
         from adapters.pico4.snapshot_review import validate as snapshot_review
         fields.add('picoSnapshotReview');snapshot_review(value['picoSnapshotReview'])
@@ -201,6 +206,8 @@ def validate_snapshot(value, process_id, epoch_ms):
             need(value.get('createFileControlsVersion')==1);create_file_metadata(control);fields=set(control)
         elif control['id'].startswith('lifecycle.'):
             need(control['id']==LIFECYCLE_ID and value.get('lifecycleControlsVersion')==1);lifecycle_metadata(control);fields=set(control)
+        elif snapshot_export_control(control['id']):
+            need(value.get('snapshotExportControlsVersion')==1);snapshot_export_metadata(control);fields=set(control)
         elif is_error:
             need(value.get('navigationErrorControlsVersion')==1);error_metadata(control);fields=set(control)
         elif is_places:
@@ -243,7 +250,7 @@ def validate_snapshot(value, process_id, epoch_ms):
                  or graphics_control(control['id']) or control['id'] in LOGIN_IDS or control['id'] in ACCOUNT_MENU_IDS or control['id'] in VIEW_MENU_IDS
                  or is_browser_app or is_avatar_people or is_create_voxel or is_create_extra or is_create and create_control(control['id']) or is_chat and chat_control(control['id'])
                  or is_emote and emote_control(control['id'])
-                 or is_places and places_control(control['id']) or is_error and error_control(control['id']) or is_create_file or control['id']==LIFECYCLE_ID)
+                 or snapshot_export_control(control['id']) or is_places and places_control(control['id']) or is_error and error_control(control['id']) or is_create_file or control['id']==LIFECYCLE_ID)
              and identifier(control['token']) and control['id'] not in ids
              and control['token'] not in tokens and type(control['enabled']) is bool
              and type(control['focused']) is bool)
@@ -525,6 +532,10 @@ class PicoNavigation:
             if action in ('replace','submit'):need(control['focused'])
             if action=='replace':need(control_id in ('login.username','login.password','login.server'))
             if action=='submit':need(control_id=='login.password' or control_id=='login.server' and snapshot.get('navigationOriginControlsVersion')==1)
+        elif snapshot_export_control(control_id):
+            need(snapshot.get('snapshotExportControlsVersion')==1 and action=='activate' and control['inputReady']
+                 and all(v is None for v in (text,source,index,direction,value,reference)))
+            snapshot_export_metadata(control)
         elif graphics_control(control_id) and snapshot.get('graphicsControlsVersion')==1:
             need(token is not None and control['inputReady'] and control['viewport']=='visible'
                  and control_id!='graphics.page' and action in ('activate','scroll','set-value'))

@@ -14,6 +14,7 @@ extern "C" void Java_org_overte_documents_DocumentAdapter_nativeInitialize(JNIEn
 extern "C" void Java_org_overte_documents_DocumentAdapter_nativeCompleted(
     JNIEnv*, jclass, jstring, jobjectArray, jstring);
 extern "C" void Java_org_overte_snapshot_SnapshotAdapter_nativeInitialize(JNIEnv*, jclass);
+extern "C" jboolean Java_org_overte_snapshot_SnapshotAdapter_nativeFeatureEnabled(JNIEnv*, jclass);
 extern "C" void Java_org_overte_snapshot_SnapshotAdapter_nativeCompleted(
     JNIEnv*, jclass, jlong, jlong, jstring, jstring);
 
@@ -97,6 +98,8 @@ bool installNativeBridges() {
           reinterpret_cast<void*>(&Java_org_overte_documents_DocumentAdapter_nativeCompleted) },
     };
     JNINativeMethod snapshots[] = {
+        { const_cast<char*>("nativeFeatureEnabled"), const_cast<char*>("()Z"),
+          reinterpret_cast<void*>(&Java_org_overte_snapshot_SnapshotAdapter_nativeFeatureEnabled) },
         { const_cast<char*>("nativeInitialize"), const_cast<char*>("()V"),
           reinterpret_cast<void*>(&Java_org_overte_snapshot_SnapshotAdapter_nativeInitialize) },
         { const_cast<char*>("nativeCompleted"), const_cast<char*>("(JJLjava/lang/String;Ljava/lang/String;)V"),
@@ -105,7 +108,7 @@ bool installNativeBridges() {
     const auto visibilityClass = bind("org.overte.pico.PicoClientVisibility", visibility, 1);
     const auto accessibilityClass = bind("org.overte.pico.PicoAccessibilityBridge", accessibility, 2);
     const auto documentClass = bind("org.overte.documents.DocumentAdapter", documents, 2);
-    const auto snapshotClass = bind("org.overte.snapshot.SnapshotAdapter", snapshots, 2);
+    const auto snapshotClass = bind("org.overte.snapshot.SnapshotAdapter", snapshots, 3);
     const auto documentHostClass = bind("org.overte.pico.PicoNativeDocumentHost", nullptr, 0);
     if (!visibilityClass || !accessibilityClass || !documentClass || !snapshotClass ||
             !documentHostClass || !localActivity) { return false; }

@@ -4,6 +4,7 @@
 
 #include <QObject>
 #include <QStringList>
+#include <QVariantMap>
 
 class NativeSnapshotAdapter : public QObject {
     Q_OBJECT
@@ -19,6 +20,10 @@ public:
     Q_INVOKABLE QString request(const QString& canonicalPath, const QString& action);
     Q_INVOKABLE void cancel(const QString& ticket);
     void acceptCompletion(qint64 ticket, const QString& status, const QString& error);
+    // Private read-only source; empty outside the guarded Android test process.
+    static QString featureExportObservation();
+    QVariantMap featureOriginalLease() const;
+    static QString featureReadbackCommand(const QString& command);
 signals:
     void stateChanged();
     void completed(const QString& ticket, const QString& status, const QString& error);

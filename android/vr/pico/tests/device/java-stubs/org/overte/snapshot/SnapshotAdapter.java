@@ -2,6 +2,7 @@
 package org.overte.snapshot;
 import android.content.Intent;
 public final class SnapshotAdapter {
+    private static native boolean nativeFeatureEnabled();
     public static void initialize(SnapshotHost owner) {}
     public static void foreground(SnapshotHost owner) {}
     public static void detach(SnapshotHost owner) {}

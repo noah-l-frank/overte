@@ -65,6 +65,8 @@ public class PicoLoaderTest {
             events();need(observed(),"actual native receiver must observe resume");
             Class<?> docs=loader.loadClass("org.overte.documents.DocumentAdapter");
             Class<?> shots=loader.loadClass("org.overte.snapshot.SnapshotAdapter");
+            Method featureGate=shots.getDeclaredMethod("nativeFeatureEnabled");featureGate.setAccessible(true);
+            need(!(Boolean)featureGate.invoke(null),"actual registered Snapshot observation stays disabled outside a feature test launch");
             need(docs.getField("initialized").getInt(null)==0,"admitted initialization must wait for Android main");
             handler.getMethod("drainPosted").invoke(null);
             need((Boolean)hostActive.invoke(host),"real host becomes foreground only after readiness");
@@ -337,7 +339,9 @@ public class PicoAccessibilityBridge {
             def native_boundary(boundary,module,name):
                 actual=(ROOT/'android/common'/module/'java/org/overte'/module/(name+'.java')).read_text()
                 natives=re.findall(r'private static native [^;]+;',actual)
-                self.assertEqual(2,len(natives),'Both actual shared Java native callbacks must be declared')
+                self.assertEqual(3 if module=='snapshot' else 2,len(natives),'Actual initializer/completion callbacks and the Snapshot-only read-only feature gate must be declared')
+                self.assertEqual({'nativeInitialize','nativeCompleted'}|({'nativeFeatureEnabled'} if module=='snapshot' else set()),
+                    {re.search(r'([A-Za-z0-9_]+)\s*\(',method).group(1) for method in natives})
                 return re.sub(r'    private static native [^;]+;\n','',boundary).replace(
                     'public final class '+name+' {','public final class '+name+' {\n    '+'\n    '.join(natives))
             document_java=native_boundary(DOCUMENT_BOUNDARY,'documents','DocumentAdapter')
@@ -444,6 +448,7 @@ SNAPSHOT_BOUNDARY=r'''
 package org.overte.snapshot;
 import android.content.Intent;
 public final class SnapshotAdapter {
+    private static native boolean nativeFeatureEnabled();
     private static native void nativeInitialize();
     private static native void nativeCompleted(long handle,long ticket,String status,String error);
     public static int initialized, detached;

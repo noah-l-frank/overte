@@ -23,6 +23,7 @@
 #include "../../../../../../tests/device/native/AudioPageObservation.h"
 #include "../../../../../../tests/device/native/ViewMenuLifetimes.h"
 #include "../../../../../../tests/device/native/SnapshotReviewObservation.h"
+#include "../../../../../../tests/device/native/PicoSnapshotExportControls.h"
 #include <PathUtils.h>
 #include "../../../../../../tests/device/native/NormalAccountMenuControls.h"
 #if defined(ANDROID_APP_PICO_INTERFACE)
@@ -104,6 +105,8 @@ QString controlId(QQuickItem* item) {
     if (!emote.isEmpty()) { return emote; }
     const auto avatarPeople=overte::e2e::avatarPeopleControlId(item);
     if (!avatarPeople.isEmpty()) {return avatarPeople;}
+    const auto snapshotExport=overte::e2e::picoSnapshotExportControlId(item);
+    if (!snapshotExport.isEmpty()) { return snapshotExport; }
     const auto lifecycle=overte::e2e::lifecycleControlId(item);
     if (!lifecycle.isEmpty()) { return lifecycle; }
     const auto chat=overte::e2e::chatControlId(item);
@@ -298,6 +301,9 @@ QJsonObject NavigationUi::observe(QQuickItem* root, QQuickWindow* window, bool o
                 } else if (id.startsWith("avatar.") || id.startsWith("people.")) {
                     source=overte::e2e::avatarPeopleControlSource(item,id);
                     if (source.isEmpty()) {ambiguous=true;return;}
+                } else if (overte::e2e::picoSnapshotExportControl(id)) {
+                    source=overte::e2e::picoSnapshotExportControlSource(item,id);
+                    if (source.isEmpty()) { ambiguous=true;return; }
                 } else if (id.startsWith("lifecycle.")) {
                     source=overte::e2e::lifecycleControlSource(item,id);
                     if (source.isEmpty()) { ambiguous=true;return; }
@@ -403,6 +409,8 @@ QJsonObject NavigationUi::observe(QQuickItem* root, QQuickWindow* window, bool o
             overte::e2e::appendAvatarPeopleControl(row,control.item,id);
         } else if (id.startsWith("lifecycle.")) {
             overte::e2e::appendLifecycleControlObservation(row,control.item,id);
+        } else if (overte::e2e::picoSnapshotExportControl(id)) {
+            overte::e2e::appendPicoSnapshotExportControl(row,control.item,id);
         } else if (id.startsWith("chat.")) {
             overte::e2e::appendChatControlObservation(row,control.item,id);
         } else if (id.startsWith("create-extra.")) {
@@ -443,6 +451,7 @@ QJsonObject NavigationUi::observe(QQuickItem* root, QQuickWindow* window, bool o
     if (!viewMenuLifetimes.isEmpty()) { result["picoViewMenuLifetimeVersion"]=1;result["picoViewMenuLifetimes"]=viewMenuLifetimes; }
     const auto snapshotReview=overte::e2e::picoSnapshotReviewObservation(root,window);
     if (!snapshotReview.isEmpty()) {result["picoSnapshotReview"]=snapshotReview;}
+    if (QCoreApplication::arguments().contains("--testScript")) {result["snapshotExportControlsVersion"]=1;}
     result["featureControlsVersion"] = 1;
     result["createFileControlsVersion"]=1;
     result["createUiInventory"]=createInventory;
