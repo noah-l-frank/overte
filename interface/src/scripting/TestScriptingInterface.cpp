@@ -1381,7 +1381,11 @@ void TestScriptingInterface::saveObject(QVariant variant, const QString& filenam
 
     QString filepath = QDir::cleanPath(_testResultsLocation + filename);
 #if defined(OVERTE_E2E_FEATURE_TESTS)
-    if (filename == "feature-chat-observation.json" || filename == "feature-native-observation.json" || filename == "normal-feature-observation.json"
+    // New observation packets must never fall through to ordinary result-file
+    // permissions merely because their filename was omitted from this list.
+    const bool featureResult=filename.startsWith("feature-");
+    if (featureResult && !QRegularExpression("\\Afeature-[a-z0-9]+(?:-[a-z0-9]+)*\\.json\\z").match(filename).hasMatch()) { return; }
+    if (featureResult || filename == "feature-chat-observation.json" || filename == "feature-native-observation.json" || filename == "normal-feature-observation.json"
             || filename == "feature-chat-view-observation.json" || filename == "feature-web-dom-observation.json"
             || filename == "feature-chat-peer-position.json"
             || filename == "feature-pending-commit-owner.json" || filename == "feature-navigation-replies.json"

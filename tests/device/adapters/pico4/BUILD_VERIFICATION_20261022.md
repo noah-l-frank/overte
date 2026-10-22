@@ -100,3 +100,14 @@ explicit application-owned objects. Original hidden/detached QML and surviving
 context wrappers remain retained. The shared 93-case Lifecycle/Chat/Emote
 selection passes. These narrow checks do not qualify complete Lifecycle,
 whole original QML retirement or a native application/device.
+
+## Private feature result admission
+
+The entire original Test saveObject body compiles and executes with real Qt5
+filesystem operations (1 test, 1.127 seconds). GPU receipt types are explicit
+compile-only seams. New closed feature-result names now automatically enter
+the existing private mode0600 writer; invalid names and links are refused,
+without --testScript no private result appears, and ordinary result handling
+is preserved. This closes the repeated omission found during parallel source
+review; it is not full TSI/application compilation. See
+[the private writer contract](../../native/PRIVATE_FEATURE_RESULTS.md).
