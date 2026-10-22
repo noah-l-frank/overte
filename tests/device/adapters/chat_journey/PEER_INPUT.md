@@ -31,3 +31,15 @@ private host files on explicit synthetic native seams, including 200 complete
 v3 receipt transactions, passive reconstruction, the next distinct operation,
 uncertain/old/rewritten histories, original file replacement and source loss.
 No device, service or complete Chat capability is qualified by this component.
+
+ChatPeerSend v2 independently reconstructs only completed received transactions.
+Each one must match its specific consumed native input index and both original
+before/after source histories, including native sender/channel/text, new actual
+receive time and exact accepted storage delta. Actual draft/channel/focus/
+keyboard, lifecycle, native mixer and existing remote primary reception remain
+unchanged. Old v1 send journals and partial attempts remain unresolved. New RPCs
+restore no old response as current and send no command during reconstruction.
+Only a different fixed peer message can then proceed. Both component roles must
+share the exact original source-lock objects; matching path strings alone fail.
+After final durable recording and result construction, new original guards and
+native clocks still bound the complete live delivery acquisition to 1.5 seconds.
