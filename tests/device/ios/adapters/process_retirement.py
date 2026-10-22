@@ -20,6 +20,13 @@ from ios.adapters.installed_code import source as process_source
 
 VERSION = 1
 RECORD_VERSION = 1
+PROFILES = {'graphics':'graphics','emote':'emote','worldweb':'world-web'}
+
+
+def filename(profile,role,stage):
+    need(type(profile) is str and profile in PROFILES and role in ('primary','actor')
+         and type(stage) is int and stage in (0,1))
+    return 'ios-'+PROFILES[profile]+'-'+role+'-'+str(stage)+'-process-retirement.json'
 
 
 def acquisition(value, original):
@@ -36,16 +43,18 @@ def acquisition(value, original):
 
 
 class IOSProcessRetirement:
-    def __init__(self, store, reader, binding, run, role, stage, lock):
+    def __init__(self, store, reader, binding, run, role, stage, lock, *, profile='graphics'):
         need(isinstance(store, PrivateFeatureState) and isinstance(reader, IOSRetiredProcess)
              and isinstance(lock, ScriptSourceLock) and role in ('primary', 'actor')
              and type(stage) is int and stage in (0, 1))
+        expected_name=filename(profile,role,stage)
+        self.profile=profile
         self.store, self.reader, self.lock = store, reader, lock
         self.binding = deepcopy(context(binding)); self.run = identifier(run)
         self.role, self.stage = role, stage
         self.pid = int(binding['processIdentity']); need(str(self.pid) == binding['processIdentity'] and self.pid == reader.pid)
         self.source, self.bundle = deepcopy(process_source(reader.source)), reader.bundle
-        need(store.path.name == 'ios-graphics-'+role+'-'+str(stage)+'-process-retirement.json'
+        need(store.path.name == expected_name
              and lock.path == store.path.with_name('script-feature-sources.lock'))
         self.historical = False; self.previous = store.read(); self.bound()
         self.state = dict(records=[], windows=[], pending=None) if self.previous is None else self.decode(self.previous)
@@ -61,7 +70,7 @@ class IOSProcessRetirement:
         return PrivateFeatureState(self.store.path.with_name(self.store.path.stem+'-'+str(ordinal)+'.json'))
 
     def bound(self):
-        need(not self.historical); self.lock.assert_held()
+        need(not self.historical and self.store.path.name==filename(self.profile,self.role,self.stage)); self.lock.assert_held()
         need(self.reader.guard() is not False and same(self.store.read(), self.previous))
 
     def save(self):
@@ -212,13 +221,14 @@ class IOSProcessRetirement:
         return deepcopy(row)
 
     @classmethod
-    def archive(cls, value, *, path, binding, source, bundle, run, role, stage, records=None):
+    def archive(cls, value, *, path, binding, source, bundle, run, role, stage, records=None, profile='graphics'):
         """Pure validation of immutable originals; it grants no current OS fact."""
-        scope = object.__new__(cls); scope.store = PrivateFeatureState(path)
+        expected_name=filename(profile,role,stage)
+        scope = object.__new__(cls); scope.profile=profile;scope.store = PrivateFeatureState(path)
         scope.binding, scope.source = deepcopy(context(binding)), deepcopy(process_source(source))
         scope.bundle, scope.run, scope.role, scope.stage = bundle, identifier(run), role, stage
         need(role in ('primary', 'actor') and type(stage) is int and stage in (0, 1)
-             and scope.store.path.name == 'ios-graphics-'+role+'-'+str(stage)+'-process-retirement.json')
+             and scope.store.path.name == expected_name)
         scope.pid = int(binding['processIdentity']); need(str(scope.pid) == binding['processIdentity'] and integer(scope.pid,1,2147483647))
         command(dict(bundleId=bundle,commandId='ios-'+'a'*32))
         scope.historical = True
