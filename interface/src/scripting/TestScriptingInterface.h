@@ -20,7 +20,7 @@
 #include <QSet>
 #include <QHash>
 #include <memory>
-namespace overte::e2e { class ChatViewObservation; class ChatProfileOwner; class CreateEntityLifetimes; }
+namespace overte::e2e { class ChatViewObservation; class ChatProfileOwner; class CreateEntityLifetimes; class CreateModelResources; }
 namespace overte::e2e { class ChatPeerPosition; }
 #include <QUuid>
 namespace overte::e2e { class FeatureLifecycle; class AccountOriginLease; }
@@ -184,6 +184,7 @@ public slots:
     Q_INVOKABLE QVariantMap featureCreateCallbacks(const QString& requestId);
     Q_INVOKABLE QVariantMap featureCreateDialogs(const QString& requestId);
     Q_INVOKABLE QVariantMap featureCreateEntities(const QVariantMap& command);
+    Q_INVOKABLE QVariantMap featureCreateModels(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureLocationBookmarks(const QVariantMap& command);
     void featurePlacesRecordsChanged();
     Q_INVOKABLE QVariantMap featureNavigationPanels(const QVariantMap& command);
@@ -290,6 +291,9 @@ private:
     QHash<QString,QVariantMap> _featureCreateEntitiesCommands, _featureCreateEntitiesResults;
     QHash<QString,QSet<QUuid>> _featureCreateEntityIds;
     std::shared_ptr<overte::e2e::CreateEntityLifetimes> _featureCreateEntityLifetimes;
+    quint64 _featureCreateModelsSequence {0};
+    QHash<QString,QVariantMap> _featureCreateModelsCommands, _featureCreateModelsResults;
+    std::shared_ptr<overte::e2e::CreateModelResources> _featureCreateModelResources;
 #endif
     quint64 _featureAvatarRenderSequence {0};
     quint64 _featureGraphicsSubjectSequence {0};
