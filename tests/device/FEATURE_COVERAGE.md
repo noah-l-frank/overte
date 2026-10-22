@@ -23,7 +23,7 @@ previously corrected their actual original-source semantics. The native retained
 input owner/private channel is now registered in all three separate platform
 branches; complete Lifecycle joins remain missing.
 
-All rows have shared test logic. The current ten-area Android Phone source/host integration status below supersedes the historical progress notes. Complete Android compilation and device acceptance remain unverified. Separate Pico/iOS sessions
+All rows have shared test logic. The current twelve-area Android Phone source/host integration status below supersedes the historical progress notes. Complete Android compilation and device acceptance remain unverified. Separate Pico/iOS sessions
 maintain their own worktrees; this checkout does not establish their current status.
 The [Phone Emote run owner](adapters/android-phone/EMOTE_RUN.md) now connects
 setup, ordinary inputs, original role sources, bounded namespace switching and
@@ -51,7 +51,7 @@ Retirement v3 additionally handles partly issued setup. The
 [public composition](adapters/android-phone/EMOTE_FEATURE.md) now connects operation
 paths, default-off registration and global finalization with immutable Run v6
 configuration. Full common normal-journey host composition now passes; the
-current ten-area source/host status below supersedes older progress notes.
+current twelve-area source/host status below supersedes older progress notes.
 The [Phone failure owner](adapters/android-phone/EMOTE_FAILURES.md) now retains
 both roles' interrupted readonly source, role/image/motion and lifetime-work attempts, then
 admitted/failed Admission originals before run input cleanup. Run v4 now records
@@ -100,18 +100,18 @@ and their branches are outside this Android Phone continuation.
 | world-web | `world-web-video` | Real text/bridge, foreign origin rejection, navigation/Back, 404/reload and background resume. | changed, image, peer | Phone adapter source implemented including mandatory video foundation; common journey and partial native/Java/JNI checks pass; complete Android build/device untested. [Details](adapters/android-phone/WORLD_WEB_FEATURE.md) |
 | graphics | `render-health` | Immediate resolution/Haze/Mirrors, actual completed-frame/pass effects, close/restart durability and measured original restoration. | changed, image | Logic present; Phone adapter implemented (native uncompiled); Pico/iOS adapter missing; all devices untested |
 | audio | `audio-controls`, `permission-recovery`, `sound-playback`, `voice-roundtrip` | Automatic memory capture/play/drain/completion, real cancel, muted rejection/cancel and background cancellation; OS permissions remain in the composed foundation. | audio, file, peer, silence | Phone adapter source implemented including all mandatory foundations; complete v17 host composition, independent actor/PCM/PC joins and targeted Qt native checks; complete Android build/device untested. [Details](adapters/android-phone/AUDIO_FEATURE.md) |
-| chat | `text-input` | Unicode send/receive, cancelled draft, actual Local/Domain histories, distant Local rejection, history reopen, no-mixer local echo and explicit retyped resend. | peer | Logic present; adapter missing; device untested |
+| chat | `text-input` | Unicode send/receive, cancelled draft, actual Local/Domain histories, distant Local rejection, history reopen, no-mixer local echo and explicit retyped resend. | peer | Phone public adapter source implemented; all 25 common actions, mandatory text-input foundation, separate actor and strict v18 retirement host verified; complete Android/device untested. [Details](adapters/android-phone/CHAT_FEATURE.md) |
 | snapshots | `domain-enter`, `snapshot-output-parity` | Actual pending-cancel history; Photos Save denial with successful private capture; measured Save backend, original Save/share/upload bytes, system-sheet cancellation and resume. | file, image, peer | Logic present; Phone original native/review/script/export sources, Save-URI bytes and private binary transfer implemented; complete public adapter missing; device untested. [Details](adapters/android-phone/SNAPSHOT_FEATURE.md) |
 | scripts | `scripts-management`, `scripted-entity` | File-bundle execution; actual mobile restart/three-second absence; separate normal reopen/cancel/reimport; current native/UI URL failure and complete cleanup. Separate existing entity-script consent remains. | peer | Logic present; Phone adapter implemented (native uncompiled); Pico/iOS adapter missing; all devices untested |
-| assets | `asset-load` | glTF/OBJ bundle paths and folder rename, real FBX bake disable/enable, Add to World, disabled Delete, vanished selected file and picker cancellation. | changed, file, image, peer | Logic present; Phone original AssetClient mapping/bake/download sources implemented; complete public adapter missing; device untested |
+| assets | `asset-load` | glTF/OBJ bundle paths and folder rename, real FBX bake disable/enable, Add to World, disabled Delete, vanished selected file and picker cancellation. | changed, file, image, peer | Phone public adapter source implemented; all 29 common actions, mandatory asset-load foundation, separate actor and strict repeated v18 retirement host verified; complete Android/device untested. [Details](adapters/android-phone/ASSETS_FEATURE.md) |
 | lifecycle-input | `lifecycle-under-load`, `tablet-input-isolation`, `text-input` | Distinct editor contexts/drafts, actual page Back/resume, original pending stale input rejection, held world input, stationary release and immutable counters. | changed, image, peer | Logic present; adapter missing; device untested |
 | tablet-web | `tablet-web-video`, `tablet` | Same browser flows plus ordinary inline app routing and input ownership. | changed, image, peer | Phone adapter source implemented including both mandatory foundations; common journey and partial native/Java/JNI checks pass; complete Android build/device untested. [Details](adapters/android-phone/TABLET_WEB_FEATURE.md) |
 
-Current Android Phone source integration (2026-10-22): **10/14** complete area
+Current Android Phone source integration (2026-10-22): **12/14** complete area
 compositions are implemented and host-verified: world-navigation, authentication,
-graphics, scripts, world-web, tablet-web, create, audio, emotes and avatar-people. The source-only boundary includes the mandatory
+graphics, scripts, world-web, tablet-web, create, audio, emotes, avatar-people, assets and chat. The source-only boundary includes the mandatory
 foundations. The full common Emote host replay now passes; the optimized replay also passes and gives no real-time product acceptance. Snapshots
-are in progress. Chat, Assets and Lifecycle/Input still need their complete public owners.
+and Lifecycle/Input remain in progress. Snapshot still needs the complete public composition, supported Android 26–28 document-provider ownership and fresh passive native observations during OS dialogs; Lifecycle/Input still needs its complete public composition.
 Missing mandatory capabilities continue to block the aggregate fourteen-area
 suite. Host simulation establishes test logic only. Some native components have
 real host compiler checks; the complete Android client and all devices remain
@@ -124,14 +124,14 @@ also requires changed feature-subject pixels; `audio`/`silence` inspect PCM;
 `file` inspects original bytes; `peer` reads the independent actor journal.
 Existing modules retain their additional image, PCM, process and file checks.
 
-The [machine matrix](feature_journeys/coverage.v17.json), [journey guide](FEATURE_JOURNEYS.md)
+The [machine matrix](feature_journeys/coverage.v18.json), [journey guide](FEATURE_JOURNEYS.md)
 and [adapter handoff](FEATURE_ADAPTER_HANDOFF.md) record the exact contracts.
 All rows currently depend on real product transports and independently measuring
 target observers. Adapter implementation is now in progress on the separate local platform
 branches; absent capabilities, missing observations and missing prerequisites fail
 closed. The source-contract corrections above are open implementation work too.
 The private [Chat actor transport](native/CHAT_ACTOR_FILES.md) is implemented
-with host-only checks, but does not complete its area adapter.
+with host-only checks and is now composed into the complete Phone Chat source adapter; product and device qualification remain separate.
 
 Version 9 [corrects Snapshot source semantics](feature_journeys/SNAPSHOT_SOURCE.md):
 real pending-cancel history, private capture despite denied Photos Save,

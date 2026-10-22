@@ -913,3 +913,33 @@ retirement are source implemented and host verified. Original source/Qt helper
 checks do not qualify the product translation units or devices. Shared observer
 union and changed probe-code pins remain central integration checks; no global
 coverage count or acceptance claim is changed by this packet.
+
+
+## Current Phone integration, 2026-10-22
+
+Twelve of fourteen Phone area compositions are locally source implemented and
+host verified, including mandatory foundations. Assets now passes all 29 common
+actions, the actual mandatory asset-load foundation, separate actor closure,
+interrupted retirement and strict repeated v18 finalization. Parent integration
+passes seven full composition/recovery cases and 45 source/registration/Avatar
+union cases. Chat passes all 25 actions/27 phases, the mandatory original
+text-input module, independent actor FD retirement and repeated finalization;
+parent integration passes 20 full/recovery cases and 25 union/foundation cases.
+Observer v6 retains the closed historical v2–v5 area grammars, Avatar's separate
+peer configuration, Assets v5 and the seven-field Chat v6 grammar.
+
+Snapshots and Lifecycle/Input remain in progress. Snapshot original files,
+settings/native-cache restoration and the existing owned five-format foundation
+are integrated; 254 selected parent component/ownership regressions pass. Its
+full public composition, independent uploaded original bytes, supported API26–28
+DocumentsProvider/normal picker ownership, and fresh passive native observations
+during OS handoff are being completed. Lifecycle original editor, world-input,
+actual-drive and feet sources are integrated; complete facade/actor/foundations
+remain open. Required missing capabilities continue to fail the aggregate suite.
+
+These host simulations, real private-file tests and explicitly partial Qt/Java/
+JNI compiler checks establish source/test logic only. Full Android compilation,
+actual OS behavior and device acceptance remain unverified. Pico/iOS work belongs
+to its separate sessions. Final shared source admission pins and aggregate
+verification await the remaining source packets; no green device or global
+acceptance result is inferred from this status.
