@@ -71,12 +71,24 @@ qualify a physical Pico. Actual retained Qt contexts remain resources. Compose
 these sources with the separately observed Script callbacks, durable file/input
 owner and independent entity/domain effects before claiming full cleanup.
 
-The scalar delivery lease also follows a real Window receiver on its original
-foreign Script thread. Only enabled, mutex-protected scalar history changes
-there; weak QObject/QML inspection remains GUI-only. The vertical Qt5 harness
-moves an actual Window receiver to a running QThread, opens through the original
-blocking UI factory, clicks the real Cancel button and independently samples the
-GUI source while the original foreign-thread signal callback is still running.
-It requires one live dispatch inside that callback and original return/listener
-retirement afterward, without a fabricated response or a GUI-thread handoff of
-the product callback.
+The source's scalar delivery history is mutex protected and does not inspect
+QML objects outside the GUI thread. The vertical Qt5 harness preserves actual
+product affinity: `main.cpp` calls `Application::initialize`, `setupEssentials`
+constructs the shared Window object on the application thread, and
+`Application.cpp` registers that same object in every Script engine.
+`ScriptObjectV8Proxy.cpp` invokes its void QMetaMethod with DirectConnection
+from the Script thread. The harness invokes that original method route from a
+real worker while keeping Window GUI-affine, opens through the original blocking
+UI factory and clicks normal Cancel. It observes an original live dispatch
+inside the real GUI Window callback and return/listener retirement afterward.
+
+A separate diagnostic experiment moved the Window receiver itself to a worker.
+That changes product affinity and is not an accepted product seam. A retained
+native stack from that experiment shows the unchanged browse response lambda
+calling `disconnect` with its captured raw listener after GUI `deleteLater`
+retirement: `QMetaObjectPrivate::disconnect` → `QObject::disconnectImpl` →
+`WindowScriptingInterface::browseAsync` lambda. No product fix, delayed deletion,
+held listener or callback synchronization hides that diagnostic lifetime race.
+It does not qualify an off-GUI Window receiver. The normal catalog harness was
+corrected to retain the actual product receiver affinity and to exercise the
+real Script-caller/UI-factory marshaling instead.
