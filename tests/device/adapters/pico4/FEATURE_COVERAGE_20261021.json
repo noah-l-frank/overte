@@ -1028,7 +1028,11 @@
         "tests/device/contracts/chat/test_chat_actor_input_lifetime_native.py",
         "tests/device/adapters/chat_journey/peer_input_close.py",
         "tests/device/adapters/chat_journey/PEER_INPUT_CLOSE.md",
-        "tests/device/self_tests/test_chat_peer_input_close.py"
+        "tests/device/self_tests/test_chat_peer_input_close.py",
+        "tests/device/adapters/pico4/chat_composition.py",
+        "tests/device/adapters/chat_journey/owned_mixer.py",
+        "tests/device/adapters/pico4/CHAT_COMPOSITION.md",
+        "android/vr/pico/tests/device/test_chat_composition.py"
       ],
       "declaredCheckpoints": 25,
       "inputVerbs": [
@@ -1072,7 +1076,7 @@
         "Restore peer position and owned mixer service",
         "Close view and observe keyboard, peer work and capture ownership fully retired"
       ],
-      "nextExecutableStep": "Bind the fixed full25-step Dispatcher2 to the actual Pico whole-factory and independently admitted passive peer build/process originals. Compose Erase/profile restoration, native input release, original Qt/process and independent final cache/domain/FD absence, plus explicit passive recovery authority. Dispatcher owns every original child intent/source and final phase admission but adds no complete public capability.",
+      "nextExecutableStep": "Extend the private PicoChatComposition with exact primary/peer locks, all six original child factories, independent witness, input-resource close and normal Erase/profile restoration through cache/observation IPC retirement, controlled actual Android restart/ESRCH, independent final absence and journal finalization. Admit a separate cleanup activation and cold partial recovery before a public complete capability. Native configured actor revision is metadata only, not a hermetic AC build receipt.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     },
@@ -1094,7 +1098,10 @@
         "tests/device/self_tests/test_pico_snapshot_originals.py",
         "tests/device/contracts/snapshot/test_snapshot_originals.py",
         "tests/device/contracts/snapshot/snapshot-originals-test.cpp",
-        "android/vr/pico/tests/device/test_snapshot_originals.py"
+        "android/vr/pico/tests/device/test_snapshot_originals.py",
+        "tests/device/adapters/pico4/snapshot_still_owner.py",
+        "tests/device/adapters/pico4/SNAPSHOT_STILL_OWNER.md",
+        "android/vr/pico/tests/device/test_snapshot_still_owner.py"
       ],
       "declaredCheckpoints": 18,
       "inputVerbs": [
@@ -1144,7 +1151,7 @@
         "Delete only actual owned private/saved/received/uploaded originals",
         "Restore permissions/preferences and observe quiet absent leases"
       ],
-      "nextExecutableStep": "Compose the existing normal PicoSnapshot/Navigation and AndroidSnapshotFiles/decoder paths with the now available original accepted-native-request/callback/weak-lease source in a durable Still-PNG owner. Native accepted requests do not establish the earlier 350ms Script-pending/cancel history; normal HMD still PNG reads one composite region and cannot prove two eyes. Script/Qt/OS Save/Share/upload and original whole-resource/file retirement remain required.",
+      "nextExecutableStep": "Extend the normal Still-PNG capture/native Complete/request/fullpath/physical file join and native quiet/normal preference restore/close owner with original Script pending/cancel history, all settings and Qt/observer retirement, original OS Save/permission/picker/receiver/upload and full file/resource retirement. Review fixed Phone5527d540e99cc6dba4204a5e904a854e6e1cd2b4 before duplicating its OS/Documents/retirement owners; retain v16 and actual Pico input/render evidence.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     },

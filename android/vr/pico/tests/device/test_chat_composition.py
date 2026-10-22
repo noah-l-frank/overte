@@ -7,6 +7,7 @@ Only owned stdin workers run. No product Agent, service, device or OpenXR run.
 import json
 import os
 import select
+from pathlib import Path
 from unittest.mock import patch
 import unittest
 
@@ -47,6 +48,8 @@ for line in sys.stdin:
 if result_fd>=0:os.close(result_fd)
 os.close(fd)
 """)
+WORKER = ('import sys\nsys.path.insert(0, ' + repr(str(Path(__file__).resolve().parents[5] / 'tests/device'))
+          + ')\n' + WORKER)
 
 
 def ready():

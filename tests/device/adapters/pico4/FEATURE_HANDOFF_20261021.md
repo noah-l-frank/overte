@@ -1223,3 +1223,33 @@ The renewed read-only Phone comparison pins
 `5527d540e99cc6dba4204a5e904a854e6e1cd2b4`; its newly committed complete
 Navigation restart pattern is reused through existing shared mechanisms. There
 is no moving-branch import, mono-to-stereo relabel or v16 contract replacement.
+
+## Integrated private Chat parent and normal Still-PNG flow
+
+The [private Chat composition](CHAT_COMPOSITION.md) is selected from
+`80133a643757ef328d838e663088320a5b922185`. Both real role factories and all six
+lazy input children retain their exact primary/peer locks. The separately
+credentialed witness acquires originals itself; configured native actor source
+metadata is explicitly not a hermetic build receipt. Parent/profile/native
+input closure is retained until the missing cache/IPC/process/finalization
+join completes. Cold or later cleanup-ticket input remains unavailable.
+
+The [normal Still-PNG owner](SNAPSHOT_STILL_OWNER.md) is selected from
+`4830a487ca56179165b81f1daac0c74a30b926e1`: actual normal Open/Capture/Close,
+original native accepted-request/Complete/fullpath and physical PNG join,
+normal mode/format restoration, and two native quiet windows. Its Script/Qt,
+OS outputs, other settings and final release obligations remain open. No stereo
+pair is inferred from the original HMD half-composite still screenshot.
+Shared Android file observations now retain inode/stamp/path identity; public
+`snapshot.files` DTO remains unchanged and Phone reconciliation is required.
+
+Root catalog preserves all earlier groups and adds Chat composition plus
+Still ownership (97 to 99). The integrated four-selector check passes coverage,
+28 Still/file cases (22.64s) and two actual native Create UI/Settings-receipt
+cases (12.14s). Its first Chat run exposed a missing inherited PYTHONPATH in the
+owned stdin test worker. The worker now pins its own checkout's `tests/device`
+import path; the standalone ten-case owning selector passes in 9.02s without
+inherited PYTHONPATH. No product or timeout was changed. The passive Create
+Settings-receipt fix is selected from `e72ef8d4167e6432ef2a1802237d4f4b74c1ea15`,
+reusing the fixed Phone original receipt rather than treating QML defaults as
+an actual baseline. Full area completion remains three of fourteen.
