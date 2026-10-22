@@ -4,6 +4,7 @@
 import base64
 from copy import deepcopy
 import hashlib
+import math
 import re
 import secrets
 
@@ -63,6 +64,19 @@ def physical_original(value):
     need(value['createBrowseSettingVersion']==3)
     a,b=value['originalPhysical'],value['writer']['physical']
     return all(a[k]==b[k] for k in ('format','pathSha256','row'))
+
+
+def physical_owned(value):
+    need(value['createBrowseSettingVersion']==3)
+    row=value['writer']['physical']['row'];owned=value['owned']
+    if not owned['present']:return not row['present']
+    if owned['typeId']!=10 or not row['present'] or owned['stringValue'] is None:return False
+    data=base64.b64decode(row['base64'],validate=True);text=owned['stringValue']
+    if value['writer']['physical']['format']=='json':
+        try:original=decode('['+data.decode('utf-8')+']')
+        except (ValueError,UnicodeError):return False
+        return len(original)==1 and type(original[0]) is str and original[0]==('@'+text if text.startswith('@') else text)
+    return (not text or bool(re.fullmatch('[A-Za-z0-9/._:-]+',text))) and data==text.encode('ascii')
 
 
 def restored(value):
@@ -210,7 +224,16 @@ class OwnedCreateBrowseSetting:
         actual=self.observe()
         if actual['current']==actual['original'] and not actual['claims']:
             need(restored(actual));return actual
-        if not actual['restoreAttempted']:self.command('restore')
+        if not actual['restoreAttempted']:
+            started=previous=self.native.monotonic()
+            need(type(started) in (int,float) and math.isfinite(started) and started>=0)
+            for attempt in range(32):
+                current=self.native.monotonic();need(type(current) in (int,float) and math.isfinite(current) and previous<=current<=started+3)
+                previous=current;need(actual['current']==actual['owned'])
+                if actual['writer']['raw']==actual['owned'] and physical_owned(actual):break
+                remaining=3-(current-started);need(remaining>0 and attempt<31)
+                self.native.sleep(min(.1,remaining));actual=self.observe();need(not actual['restoreAttempted'])
+            self.command('restore')
         actual=self.observe();need(restored(actual) and actual['restored']);return actual
     def release(self):
         actual=self.restore()

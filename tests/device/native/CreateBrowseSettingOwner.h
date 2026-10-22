@@ -128,7 +128,15 @@ public:
             }
         } else if (operation=="restore") {
             if (lease.restoreAttempted || (lease.claims.isEmpty() && lease.reads.isEmpty()) || lease.lastOwnedRow.isEmpty()) {return {};}
-            lease.restoreAttempted=true;bool restored=false;
+            lease.restoreAttempted=true;
+            // Before the one original CAS, independently fence its last
+            // actual owned value against the real writer and physical row.
+            // A foreign disk edit must not be overwritten by restore+sync.
+            // No manager lock spans this bounded owner-thread barrier.
+            const auto persisted=writer(manager.data());
+            if (persisted.value("raw").toMap()!=lease.lastOwnedRow
+                    || !createBrowsePhysicalOwned(persisted.value("physical").toMap(),lease.lastOwned,lease.lastOwnedRow.value("present").toBool())) {return {};}
+            bool restored=false;
             // This is an atomic CAS in the actual original manager, including
             // presence and raw QVariant type/bytes. A live cached Handle could
             // later overwrite restoration; refuse it rather than rewrite it.

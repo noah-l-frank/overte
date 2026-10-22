@@ -39,7 +39,7 @@ def physical(setting=None):
 class Boundary:
     def __init__(self):
         self.value=None;self.sequence=0;self.raw='';self.sent=[];self.lose=None;self.before_loss=False
-        self.setting=raw();self.clock=0.;self.freeze_writer=False;self.freeze_disk=False
+        self.setting=raw();self.clock=0.;self.freeze_writer=False;self.freeze_disk=False;self.disk_pending_until=None
     def send(self,command):
         self.sent.append(deepcopy(command));op=command['operation']
         if self.lose==op and self.before_loss:raise NativeUIError('lost before native dispatch')
@@ -62,6 +62,7 @@ class Boundary:
         if self.lose==op:raise NativeUIError('lost after native effect')
         self.value['current']=deepcopy(self.setting)
         if not self.freeze_writer:self.value['writer']['raw']=deepcopy(self.setting)
+        if self.disk_pending_until is not None and self.clock>=self.disk_pending_until:self.freeze_disk=False
         if not self.freeze_disk:self.value['writer']['physical']=physical(self.setting)
         self.sequence+=1
         self.raw=json.dumps(dict(schemaVersion=1,requestId=command['commandId'],instance='9'*32,sequence=self.sequence,
@@ -123,7 +124,7 @@ class CreateBrowseSettingTests(unittest.TestCase):
         with self.assertRaises(NativeUIError):owner.restore()
         self.assertEqual('/foreign/location',self.b.setting['stringValue']);self.assertFalse(self.b.value['restored'])
         with self.assertRaises(NativeUIError):self.make().restore()
-        self.assertEqual(1,sum(c['operation']=='restore' for c in self.b.sent));self.assertIsNotNone(self.store.read())
+        self.assertEqual(0,sum(c['operation']=='restore' for c in self.b.sent));self.assertIsNotNone(self.store.read())
     def test_restored_manager_memory_with_unrestored_original_writer_cannot_retire(self):
         owner=self.make();owner.reserve(RUN);self.claim(owner);self.b.freeze_writer=True
         with self.assertRaises(NativeUIError):owner.restore()
@@ -138,6 +139,35 @@ class CreateBrowseSettingTests(unittest.TestCase):
         self.assertEqual(self.b.value['original'],self.b.value['writer']['raw'])
         with self.assertRaises(NativeUIError):self.make().release()
         self.assertIsNotNone(self.store.read());self.assertFalse(any(c['operation']=='release' for c in self.b.sent))
+
+    def test_pending_original_physical_persistence_is_polled_before_the_one_restore(self):
+        owner=self.make();owner.reserve(RUN);self.b.freeze_disk=True;self.claim(owner)
+        self.b.disk_pending_until=.2
+        self.assertEqual(raw(),owner.restore()['current'])
+        self.assertGreaterEqual(self.b.clock,.2)
+        self.assertEqual(1,sum(c['operation']=='restore' for c in self.b.sent))
+
+    def test_closed_physical_owned_string_encoding_refuses_foreign_variants_and_ambiguous_ini(self):
+        from adapters.pico4.create_browse_setting import physical_owned
+        owner=self.make();owner.reserve(RUN);self.claim(owner);value=deepcopy(owner.observe())
+        self.assertTrue(physical_owned(value))
+        value['owned']=raw('@owned "unicode Ω"')
+        for encoded,expected in [(json.dumps('@@owned "unicode Ω"'),True),(json.dumps('@Variant(foreign)'),False),('{"foreign":1}',False),('invalid',False)]:
+            value['writer']['physical']['format']='json'
+            value['writer']['physical']['row'].update(present=True,base64=base64.b64encode(encoded.encode()).decode())
+            with self.subTest(encoded=encoded):self.assertEqual(expected,physical_owned(value))
+        value['owned']=raw('/ambiguous path');value['writer']['physical']['format']='ini'
+        value['writer']['physical']['row']['base64']=base64.b64encode(b'"/ambiguous path"').decode()
+        self.assertFalse(physical_owned(value))
+
+    def test_foreign_physical_row_is_preserved_before_any_original_restore_write(self):
+        owner=self.make();owner.reserve(RUN);self.claim(owner)
+        self.b.freeze_disk=True;self.b.value['writer']['physical']=physical(raw('/foreign-physical-only'))
+        with self.assertRaises(NativeUIError):owner.restore()
+        self.assertEqual(self.b.value['owned'],self.b.setting)
+        self.assertFalse(self.b.value['restoreAttempted']);self.assertIsNotNone(self.store.read())
+        self.assertFalse(any(c['operation']=='restore' for c in self.b.sent))
+        self.assertEqual('/foreign-physical-only',base64.b64decode(self.b.value['writer']['physical']['row']['base64']).decode())
 
     def test_corrupt_original_raw_history_or_candidate_cannot_rebind(self):
         owner=self.make();owner.reserve(RUN);self.claim(owner);before=owner.native.last

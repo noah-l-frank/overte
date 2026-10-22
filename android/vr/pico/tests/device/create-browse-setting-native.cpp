@@ -128,7 +128,7 @@ int main(int argc,char** argv) {
     const auto claimed=owner.request(root,claim(run,ticket,originalDialog),originalDialog);assert(!claimed.isEmpty());
     assert(claimed.value("claims").toList().size()==1 && claimed.value("current").toMap().value("stringValue")==directory);
     assert(owner.request(root,claim(run,ticket,originalDialog),originalDialog).isEmpty()); // Never duplicate a claim after uncertain delivery.
-    const auto restored=owner.request(root,call("restore"),originalDialog);assert(restored.value("restored").toBool());
+    SettingsTests::barrier(actual);const auto restored=owner.request(root,call("restore"),originalDialog);assert(restored.value("restored").toBool());
     assert(!manager->contains("LastBrowseLocation"));assert(manager->value("unrelated-control")==QVariant(QByteArray("unchanged")));
     SettingsTests::barrier(actual);QSettings disk(manager->fileName(),format);disk.sync();assert(!disk.contains("LastBrowseLocation"));
     assert(owner.request(root,call("release"),originalDialog).value("released").toBool());
@@ -172,6 +172,16 @@ int main(int argc,char** argv) {
         writeCounter(QJsonDocument(nested).toJson(QJsonDocument::Indented));const auto originalNested=readCounter();assert(!originalNested.isEmpty());
         nested.insert("unrelated",17);writeCounter(QJsonDocument(nested).toJson(QJsonDocument::Indented));assert(overte::e2e::createBrowsePhysicalOriginal(originalNested,readCounter()));
     }
+    if(format==JSON_FORMAT){
+        QJsonObject ownedString{{"LastBrowseLocation","@@owned \"unicode Ω\""}};
+        writeCounter(QJsonDocument(ownedString).toJson(QJsonDocument::Indented));
+        assert(overte::e2e::createBrowsePhysicalOwned(readCounter(),QString("@owned \"unicode Ω\""),true));
+        ownedString["LastBrowseLocation"]="@Variant(foreign)";writeCounter(QJsonDocument(ownedString).toJson(QJsonDocument::Indented));
+        assert(!overte::e2e::createBrowsePhysicalOwned(readCounter(),QString("@owned \"unicode Ω\""),true));
+    }else{
+        writeCounter("[General]\nLastBrowseLocation=\"/ambiguous path\"\n");
+        assert(!overte::e2e::createBrowsePhysicalOwned(readCounter(),QString("/ambiguous path"),true));
+    }
     assert(counter.remove());assert(!readCounter().isEmpty() && !readCounter().value("file").toMap().value("exists").toBool());
     // Deterministic dirty original cache: the first gate keeps the event
     // queue ordered before reserve. Its real setValue appends Qt autosync
@@ -206,18 +216,35 @@ int main(int argc,char** argv) {
     assert(manager->value("LastBrowseLocation")==QVariant(QString("/foreign/current-location")));
     assert(owner.request(root,call("release",secondRun),secondDialog).isEmpty());
     QTextStream(stdout)<<QJsonDocument::fromVariant(conflict).toJson(QJsonDocument::Compact)<<'\n';
+    // A foreign physical edit after an owned Select cannot be overwritten
+    // by a Manager-only restoration, even when both caches still look owned.
+    overte::e2e::CreateBrowseSettingOwner foreignRestore;const QString foreignRun(32,'e'),foreignTicket(32,'f');
+    assert(!foreignRestore.request(root,call("reserve",foreignRun),{}).isEmpty());
+    const auto foreignPath=QUrl(stage(root,foreignRun,foreignTicket).value("directory").toString()).toLocalFile();
+    const auto foreignDialog=acquireRead(foreignRestore,root,foreignRun,foreignTicket,foreignPath);
+    manager->setValue("LastBrowseLocation",foreignPath);assert(!foreignRestore.request(root,claim(foreignRun,foreignTicket,foreignDialog),foreignDialog).isEmpty());SettingsTests::barrier(actual);
+    assert(physicalFile.open(QIODevice::ReadOnly));const auto beforeForeign=physicalFile.readAll();physicalFile.close();QByteArray changedPhysical;
+    if(format==QSettings::IniFormat){changedPhysical=beforeForeign;changedPhysical.replace("LastBrowseLocation="+foreignPath.toUtf8(),"LastBrowseLocation=foreign-after-owned-select");assert(changedPhysical!=beforeForeign);}
+    else {auto object=QJsonDocument::fromJson(beforeForeign).object();object.insert("LastBrowseLocation","foreign-after-owned-select");changedPhysical=QJsonDocument(object).toJson(QJsonDocument::Indented);}
+    assert(physicalFile.open(QIODevice::WriteOnly|QIODevice::Truncate));assert(physicalFile.write(changedPhysical)==changedPhysical.size());physicalFile.close();
+    assert(foreignRestore.request(root,call("restore",foreignRun),foreignDialog).isEmpty());
+    const auto refusedRestore=foreignRestore.request(root,call("observe",foreignRun),foreignDialog);
+    assert(refusedRestore.value("restoreAttempted").toBool() && !refusedRestore.value("restored").toBool());
+    assert(manager->value("LastBrowseLocation")==QVariant(foreignPath));
+    assert(refusedRestore.value("writer").toMap().value("raw")==refusedRestore.value("owned"));
+    assert(physicalFile.open(QIODevice::ReadOnly));assert(physicalFile.readAll()==changedPhysical);physicalFile.close();
     const QString thirdRun(32,'4'),thirdTicket(32,'5');manager->setValue("LastBrowseLocation",QString());SettingsTests::barrier(actual);
     assert(!owner.request(root,call("reserve",thirdRun),{}).isEmpty());const auto thirdPath=QUrl(stage(root,thirdRun,thirdTicket).value("directory").toString()).toLocalFile();
     const auto thirdDialog=acquireRead(owner,root,thirdRun,thirdTicket,thirdPath);manager->setValue("LastBrowseLocation",thirdPath);
     assert(!owner.request(root,claim(thirdRun,thirdTicket,thirdDialog),thirdDialog).isEmpty());
-    CachedHandle cached;SettingsTests::registerHandle(actual,&cached);assert(owner.request(root,call("restore",thirdRun),thirdDialog).isEmpty());SettingsTests::removeHandle(actual);
+    SettingsTests::barrier(actual);CachedHandle cached;SettingsTests::registerHandle(actual,&cached);assert(owner.request(root,call("restore",thirdRun),thirdDialog).isEmpty());SettingsTests::removeHandle(actual);
     assert(manager->value("LastBrowseLocation")==QVariant(thirdPath));
     const QString fourthRun(32,'6'),fourthTicket(32,'7');const QByteArray rawOriginal("raw\0original",12);manager->setValue("LastBrowseLocation",rawOriginal);SettingsTests::barrier(actual);
     const auto rawReserved=owner.request(root,call("reserve",fourthRun),{});assert(rawReserved.value("original").toMap().value("typeId").toInt()==QMetaType::QByteArray);
     const auto fourthPath=QUrl(stage(root,fourthRun,fourthTicket).value("directory").toString()).toLocalFile();const auto fourthDialog=acquireRead(owner,root,fourthRun,fourthTicket,fourthPath);
     assert(manager->value("LastBrowseLocation").userType()==QMetaType::QString); // Original Handle really coerced the raw QByteArray.
     manager->setValue("LastBrowseLocation",fourthPath);assert(!owner.request(root,claim(fourthRun,fourthTicket,fourthDialog),fourthDialog).isEmpty());
-    const auto rawRestored=owner.request(root,call("restore",fourthRun),fourthDialog);assert(rawRestored.value("restored").toBool());
+    SettingsTests::barrier(actual);const auto rawRestored=owner.request(root,call("restore",fourthRun),fourthDialog);assert(rawRestored.value("restored").toBool());
     assert(overte::e2e::createBrowsePhysicalOriginal(rawRestored.value("originalPhysical").toMap(),rawRestored.value("writer").toMap().value("physical").toMap()));
     assert(manager->value("LastBrowseLocation").userType()==QMetaType::QByteArray && manager->value("LastBrowseLocation").toByteArray()==rawOriginal);
     SettingsTests::barrier(actual);disk.sync();assert(disk.value("LastBrowseLocation").userType()==QMetaType::QByteArray && disk.value("LastBrowseLocation").toByteArray()==rawOriginal);
@@ -231,7 +258,7 @@ int main(int argc,char** argv) {
     const auto canceledPath=QUrl(stage(root,canceledRun,canceledTicket).value("directory").toString()).toLocalFile();
     const auto canceledDialog=acquireRead(canceledRead,root,canceledRun,canceledTicket,canceledPath);
     assert(manager->value("LastBrowseLocation").userType()==QMetaType::QString);
-    const auto canceledRestored=canceledRead.request(root,call("restore",canceledRun),canceledDialog);assert(canceledRestored.value("restored").toBool());
+    SettingsTests::barrier(actual);const auto canceledRestored=canceledRead.request(root,call("restore",canceledRun),canceledDialog);assert(canceledRestored.value("restored").toBool());
     assert(manager->value("LastBrowseLocation").userType()==QMetaType::QByteArray && manager->value("LastBrowseLocation").toByteArray()==rawOriginal);
     assert(canceledRead.request(root,call("release",canceledRun),canceledDialog).isEmpty());
     assert(canceledRestored.value("writer").toMap().value("raw").toMap()!=canceledRestored.value("original").toMap());
