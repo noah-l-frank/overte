@@ -33,7 +33,7 @@ class SnapshotsBinary(CreateImages):
     """
     KIND='snapshots-file'
     LIMIT=MAX_BYTES
-    SOURCES=frozenset({'snapshot-capture-original','snapshot-saved-original','snapshot-receiver-original','snapshot-upload-original'})
+    SOURCES=frozenset({'snapshot-capture-original','snapshot-saved-original','snapshot-receiver-original','snapshot-upload-original','snapshot-document-original'})
 
     @classmethod
     def valid_stage(cls,stage):return integer(stage,1,256)

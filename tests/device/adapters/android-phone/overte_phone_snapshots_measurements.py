@@ -23,6 +23,8 @@ from overte_phone_snapshot_platform import profile
 from overte_phone_snapshot_resolution import original as chooser_source,join_grant
 from overte_phone_snapshot_system_ui import PRIMARY,tree
 from feature_journeys.contract import state as contract_state
+from overte_phone_snapshot_documents import source as documents_source,join as documents_join
+from overte_phone_snapshot_documents_ui import resolution as documents_resolution
 
 
 class SnapshotPending(Exception):
@@ -160,7 +162,30 @@ def inventory(value,native,*,run,epoch):
     return deepcopy(rows)
 
 
-def retired(group,native_files,actual_inventory,readbacks,upload,settings,*,run,epoch,consumer=None,consumer_binding=None):
+def document(readbacks,provider,binding,acquisition,captured,phone_uid,resolution,*,run,epoch):
+    """Independent actual DocumentsProvider creator, writer, FD and bytes."""
+    exact(binding,{'installed','instance','runId','armId','root'})
+    documents_source(provider,run,binding['armId'],provider['observationId'],binding['installed'],epoch)
+    need(provider['complete'] and provider['instance']==binding['instance'] and binding['runId']==run
+        and not provider['retired'] and all(provider['root'][key]==binding['root'][key] for key in ('rootId','path','device','inode')))
+    exact(phone_uid,{'snapshotPhoneUidVersion','uid','requestedEpochMs','capturedEpochMs'})
+    need(type(phone_uid['snapshotPhoneUidVersion']) is int and phone_uid['snapshotPhoneUidVersion']==1 and integer(phone_uid['uid'],1))
+    fresh(phone_uid['requestedEpochMs'],epoch);fresh(phone_uid['capturedEpochMs'],epoch);documents_resolution(resolution)
+    need(acquisition.get('source')=='snapshot-document-original')
+    actual=one(provider['documents'],lambda row:row['documentId']==acquisition.get('documentId'))
+    destination=one(readbacks['osDestinations']['rows'],lambda row:row['identity'] is not None
+        and row['identity'].get('documentId')==actual['documentId'])
+    need(destination['phase']=='qualified' and not destination['deleteIssued']
+        and destination['original']=={key:captured[key] for key in ('bytes','sha256')})
+    documents_join(destination['identity'],actual,provider,phone_uid['uid'],resolution)
+    need(all(fd['closed'] and not fd['error'] for fd in provider['fdLifetimes'] if fd['documentId']==actual['documentId'])
+        and acquisition['uri']==actual['uri'] and acquisition['capturedEpochMs']==actual['writeClosedEpochMs']
+        and integer(acquisition['acquiredEpochMs'],actual['writeClosedEpochMs'],epoch)
+        and all(acquisition[key]==actual[key]==captured[key] for key in ('bytes','sha256')))
+    return deepcopy(actual)
+
+
+def retired(group,native_files,actual_inventory,readbacks,upload,settings,*,run,epoch,consumer=None,consumer_binding=None,documents=None,documents_binding=None):
     """Fresh current absence permits an empty *live scope*, never raw erasure."""
     vm_source(group,run=run,pid=group['snapshot']['processId'],epoch=epoch)
     files_source(native_files,epoch);fresh(native_files['capturedEpochMs'],epoch)
@@ -181,6 +206,23 @@ def retired(group,native_files,actual_inventory,readbacks,upload,settings,*,run,
         need(consumer['instance']==consumer_binding['instance'] and consumer['retired'] and consumer['workersTerminated']
             and not consumer['activityAlive'] and not consumer['grantPresent'] and consumer['originalClosed'] and not consumer['files'])
     else:need(consumer_binding is None and not any(row['component'] for row in grants['rows']))
+    if documents is not None:
+        need(documents_binding is not None)
+        documents_source(documents,run,documents_binding['armId'],documents['observationId'],documents_binding['installed'],epoch)
+        need(documents['complete'] and documents['instance']==documents_binding['instance'] and documents['retired']
+            and documents['workersTerminated'] and not documents['root']['present']
+            and all(row['absent'] for row in documents['documents']) and all(row['closed'] and not row['error'] for row in documents['fdLifetimes']))
+        fresh(documents['root']['checkedEpochMs'],epoch)
+        for destination in destinations['rows']:
+            identity=destination['identity']
+            if identity is None or identity.get('storage')!='documents':continue
+            actual=one(documents['documents'],lambda row:row['documentId']==identity['documentId'])
+            need(identity['providerInstance']==documents['instance'] and identity['runId']==documents['runId']
+                and identity['armId']==documents['armId'] and identity['providerUid']==documents['providerUid']
+                and all(identity[key]==actual[key] for key in ('documentId','uri','displayName','device','inode','createUid','createdEpochMs'))
+                and destination['original']=={key:actual[key] for key in ('bytes','sha256')}
+                and actual['deleteCalls']==1 and destination['deleteCount']==1)
+    else:need(documents_binding is None and not any(row['identity'] is not None and row['identity'].get('storage')=='documents' for row in destinations['rows']))
     upload_retired(upload);fresh(upload['capturedEpochMs'],epoch)
     request=dict(schemaVersion=1,commandId=settings['commandId'],action='phone-snapshot-settings',runId=run,operation=settings['operation'])
     if settings['operation']=='restore':request.update({key:settings['source'][key] for key in ('restoreId','expectedSha256')})
@@ -204,7 +246,7 @@ def state(frame,baseline,*,run,pid,epoch):
     Three-second quiet time and host journal retirement are separate duties.
     """
     exact(frame,{'group','captureFiles','inventory','readbacks','upload','provider','platform','system','resolution',
-        'consumer','consumerBinding','acquisitions','cancels','settings'})
+        'consumer','consumerBinding','acquisitions','cancels','settings','documents','documentsBinding','phoneUid','documentResolution'})
     group=frame['group'];measured=capture_facts(baseline,group,run=run,pid=pid,epoch=epoch)
     snapshot=group['snapshot'];source=snapshot['source'];files=frame['captureFiles'];readbacks=frame['readbacks']
     rows=inventory(frame['inventory'],files,run=run,epoch=epoch)
@@ -214,6 +256,20 @@ def state(frame,baseline,*,run,pid,epoch):
     need(platform['source']==profile(str(platform['source']['sdk'])));fresh(platform['capturedEpochMs'],epoch)
     fresh(platform['requestedEpochMs'],epoch)
     backend=platform['source']['saveBackend'];system=frame['system']
+    if backend=='media-store':
+        need(all(frame[key] is None for key in ('documents','documentsBinding','phoneUid','documentResolution')))
+    else:
+        documents=frame['documents'];binding=frame['documentsBinding'];need(documents is not None and binding is not None)
+        exact(binding,{'installed','instance','runId','armId','root'})
+        documents_source(documents,run,binding['armId'],documents['observationId'],binding['installed'],epoch)
+        need(documents['complete'] and documents['instance']==binding['instance'] and binding['runId']==run
+            and all(documents['root'][key]==binding['root'][key] for key in ('rootId','path','device','inode')))
+        documents_resolution(frame['documentResolution'])
+        uid=frame['phoneUid'];exact(uid,{'snapshotPhoneUidVersion','uid','requestedEpochMs','capturedEpochMs'})
+        need(type(uid['snapshotPhoneUidVersion']) is int and uid['snapshotPhoneUidVersion']==1 and integer(uid['uid'],1)
+            and uid['uid']!=documents['providerUid'])
+        fresh(uid['requestedEpochMs'],epoch);fresh(uid['capturedEpochMs'],epoch)
+        need(all(row['createUid']==frame['documentResolution']['uid'] and (row['writerUid']==0 or row['writerUid']==uid['uid']) for row in documents['documents']))
     exact(system,{'snapshotSystemUiVersion','observationId','component','requestedEpochMs','capturedEpochMs','sourceSha256','xml'}
         if 'snapshotSystemUiVersion' in system else {'snapshotDocumentUiVersion','observationId','component','requestedEpochMs','capturedEpochMs','sourceSha256','xml'})
     version=system.get('snapshotSystemUiVersion',system.get('snapshotDocumentUiVersion'))
@@ -231,7 +287,6 @@ def state(frame,baseline,*,run,pid,epoch):
                 chooser_source(resolution);need(system.get('snapshotSystemUiVersion')==1)
                 share_sheet=True
             else:
-                from overte_phone_snapshot_documents_ui import resolution as documents_resolution
                 documents_resolution(resolution);need(backend=='document-picker' and system.get('snapshotDocumentUiVersion')==1)
                 one(events,lambda row:row['kind']=='document-launched');save_sheet=True
     elif not primary:
@@ -256,15 +311,15 @@ def state(frame,baseline,*,run,pid,epoch):
     if settings is not None and settings['source']['retired']:
         need(primary and not save_sheet and not share_sheet)
         retired(group,files,frame['inventory'],readbacks,upload,settings,run=run,epoch=epoch,
-            consumer=frame['consumer'],consumer_binding=frame['consumerBinding'])
+            consumer=frame['consumer'],consumer_binding=frame['consumerBinding'],documents=frame['documents'],documents_binding=frame['documentsBinding'])
         result=dict(open=False,pending=False,captureHistory=[],files=0,saved=0,uploads=0,shares=0,
             saveBackend=backend,savePermission=platform['source']['savePermission'],saveSheet=False,shareSheet=False,error='none')
         contract_state('snapshots',result);return result
     live=[row for row in rows if not row['absent']];need(len(live)<=1)
     acquired={}
     for item in frame['acquisitions']:
-        need(type(item) is dict and item.get('source') in ('snapshot-capture-original','snapshot-saved-original','snapshot-receiver-original','snapshot-upload-original'))
-        key=(item['source'],item.get('fileId',item.get('request')));acquired[key]=item
+        need(type(item) is dict and item.get('source') in ('snapshot-capture-original','snapshot-saved-original','snapshot-receiver-original','snapshot-upload-original','snapshot-document-original'))
+        key=(item['source'],item.get('fileId',item.get('request',item.get('documentId'))));acquired[key]=item
     captures=[]
     for row in live:
         receipt=acquired.get(('snapshot-capture-original',row['id']));need(receipt is not None)
@@ -286,7 +341,14 @@ def state(frame,baseline,*,run,pid,epoch):
             if destination['published'] and owner['phase']!='retired':
                 need(len(captures)==1)
                 receipt=acquired.get(('snapshot-saved-original',destination['request']));need(receipt is not None)
-                saved(snapshot,baseline['snapshot'],readbacks,receipt,captures[0],epoch=epoch);saved_count+=1
+                saved(snapshot,baseline['snapshot'],readbacks,receipt,captures[0],epoch=epoch)
+                if backend=='document-picker':
+                    need(owner['identity'].get('storage')=='documents' and frame['documents'] is not None)
+                    receipt=acquired.get(('snapshot-document-original',owner['identity']['documentId']));need(receipt is not None)
+                    document(readbacks,frame['documents'],frame['documentsBinding'],receipt,captures[0],frame['phoneUid'],
+                        frame['documentResolution'],run=run,epoch=epoch)
+                else:need(owner['identity'].get('storage') is None)
+                saved_count+=1
         if frame['consumer'] is not None and frame['consumer']['phase']=='complete' and not frame['consumer']['retired']:
             receipt=one(list(acquired.values()),lambda row:row['source']=='snapshot-receiver-original')
             need(len(captures)==1)

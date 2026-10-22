@@ -687,3 +687,26 @@ fixed shell transport. Mutation/foreign-run attempts, stale or foreign native
 frames, rolled-back plans and same-byte inode replacement remain red. The native
 passive producer and OS transport are explicit synthetic seams; no device or
 background event-loop acceptance follows from this check.
+
+### Independent DocumentsProvider joins in each role
+
+The public-state input retains `documents`, `documentsBinding`, `phoneUid` and
+`documentResolution`, together with its role's immutable
+`snapshot-document-original` binary receipt. On SDK26–28, a saved count requires
+both the original native Save/readback copy and the separate provider's actual
+creator UID, measured Phone writer UID, original FD closure, bytes and inode.
+Cleanup additionally joins the native destination's real deletion/absence to
+the same provider's fresh retired root, original deleted document and terminated
+FD lifetimes. Missing either original remains red. SDK29+ retains its separate
+MediaStore branch.
+
+`_snapshot_system_documents(..., binding=originalBinding)` permits only readonly
+DUMP observation of that already bound provider under the current original
+Share or Documents system context. It never masquerades the Share resolution as
+a document resolution, and cannot arm or retire anything. The original document
+resolution is retained independently for the actual creator-UID join. This
+allows a role to recheck saved provenance while the later ordinary Share chooser
+is foreground. The evidence namespace retains the separately acquired provider
+bytes in addition to the actual native Save copy. The targeted SDK26 source
+composition and retirement counterprobes remain synthetic Android/VM boundaries;
+the complete common replay and physical acceptance are separate qualifications.

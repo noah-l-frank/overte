@@ -129,6 +129,27 @@ class SnapshotDocumentsTests(unittest.TestCase):
         for operation in ('arm','retire'):
             with self.subTest(operation=operation),self.assertRaises(NativeUIError):actor.control(operation)
         self.assertEqual([], [call for call in b.calls if call[0]=='control'])
+    def test_os_observer_factory_preserves_current_share_scope_and_original_doc_binding_readonly(self):
+        from types import SimpleNamespace
+        from unittest.mock import patch
+        from appium_adapter import PhoneAppiumAdapter
+        from artifact_identity import IdentityError
+        b=Boundary();primary=b.reader();primary.observe();binding=primary.binding()
+        adapter=PhoneAppiumAdapter.__new__(PhoneAppiumAdapter);adapter.candidate=object();scopes=[]
+        share=dict(snapshotChooserResolutionVersion=1,component='android/com.android.internal.app.ChooserActivity')
+        application=dict(processIdentity='31:1');authority=lambda:True
+        def scope(*args):scopes.append(args);return SimpleNamespace(guard=authority)
+        adapter._snapshot_system_context=scope
+        adapter.target=lambda _selector:dict(appId='io.github.noah_be.overte.phone',capabilities={'appium:udid':'explicit-synthetic-only'})
+        sdk=SimpleNamespace(epoch_milliseconds=lambda _device:b.epoch)
+        with patch('appium_adapter.PhoneAdapter',return_value=SimpleNamespace(adb=sdk)),patch('overte_phone_snapshot_documents.SnapshotDocumentsTransport',return_value=b) as transport:
+            observer=adapter._snapshot_system_documents('own',RUN,ARM,'d'*64,application,share,authority,binding=binding)
+            observer.observe();self.assertIs(scopes[0][2],share);self.assertEqual(binding,observer.binding())
+            self.assertTrue(transport.call_args.kwargs['read_only'])
+            for operation in ('arm','retire'):
+                with self.subTest(operation=operation),self.assertRaises(NativeUIError):observer.control(operation)
+            with self.assertRaises(IdentityError):adapter._snapshot_system_documents('own','f'*32,ARM,'d'*64,application,share,authority,binding=binding)
+        self.assertFalse([call for call in b.calls if call[0]=='control'])
     def test_transient_reserved_fd_can_complete_but_permanent_failure_cannot_turn_green(self):
         b=Boundary()
         def pending(row):

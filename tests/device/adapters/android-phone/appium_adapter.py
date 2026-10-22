@@ -1546,6 +1546,16 @@ class PhoneAppiumAdapter(AppiumAdapter):
         need(type(requested) is int and type(captured) is int and 0<=captured-requested<=1500 and number(now,start,1e15) and now-start<=1.5)
         return dict(snapshotPhoneUidVersion=1,uid=int(raw.strip()),requestedEpochMs=requested,capturedEpochMs=captured)
 
+    def _snapshot_system_documents(self,selector,run,arm,receiver_apk_sha256,application_binding,handoff_resolution,authority,*,binding):
+        from overte_phone_snapshot_documents import PhoneSnapshotDocuments,SnapshotDocumentsTransport
+        require(type(binding) is dict and binding.get('runId')==run and binding.get('armId')==arm,
+            'PHONE_SNAPSHOT_ORIGINAL_DOCUMENT_BINDING_REQUIRED')
+        scope=self._snapshot_system_context(selector,application_binding,handoff_resolution,authority)
+        target=self.target(selector);device=target['capabilities']['appium:udid'];adb=PhoneAdapter(self.candidate).adb
+        transport=SnapshotDocumentsTransport(adb,device,receiver_apk_sha256,scope.guard,read_only=True)
+        return PhoneSnapshotDocuments(transport,lambda:adb.epoch_milliseconds(device),scope.guard,run,arm,
+            read_only=True,binding=binding)
+
     def _snapshot_document_resolution(self,selector):
         from overte_phone_snapshot_documents_ui import SnapshotDocumentResolution
         native=self._native_feature_observer(selector,read_only=True)

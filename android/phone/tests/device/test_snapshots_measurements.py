@@ -72,7 +72,7 @@ def public_frame(group,files,acquisitions,readback=None):
         upload=dict(snapshotUploadObservationVersion=1,instance='7'*32,complete=True,capturedEpochMs=20000,sequence=0,events=[],jobs=[]),
         provider=provider,platform=dict(requestedEpochMs=20000,capturedEpochMs=20000,source=dict(snapshotAndroidPlatformVersion=1,sdk=29,saveBackend='media-store',savePermission='not-required')),
         system=dict(snapshotSystemUiVersion=1,observationId='4'*32,component='io.github.noah_be.overte.phone/org.overte.Phone',requestedEpochMs=20000,capturedEpochMs=20000,sourceSha256=hashlib.sha256(xml.encode()).hexdigest(),xml=xml),
-        resolution=None,consumer=None,consumerBinding=None,acquisitions=acquisitions,cancels=[],settings=None)
+        resolution=None,consumer=None,consumerBinding=None,acquisitions=acquisitions,cancels=[],settings=None,documents=None,documentsBinding=None,phoneUid=None,documentResolution=None)
 
 
 class SnapshotsMeasurementsTests(unittest.TestCase):
@@ -215,6 +215,66 @@ class SnapshotsMeasurementsTests(unittest.TestCase):
         self.assertEqual([],measured['captureHistory']);self.assertEqual(0,measured['files']);self.assertEqual(raw,group)
         frame['settings']=None
         with self.assertRaises(NativeUIError):state(frame,before,run=RUN,pid=31,epoch=20000)
+
+    def documents_frame(self):
+        from test_snapshot_documents import Boundary as Documents,DOC
+        from test_snapshot_documents_ui import Boundary as DocumentsUI
+        before,group,readback,acquired,captured=saved_original();_,_,files,original=completed()
+        docs=Documents();name=Path(captured['path']).name
+        for row in (docs.document,docs.plan,docs.native):row['displayName']=name
+        metadata=docs.capture()
+        for row in (captured,original,acquired,files['rows'][0],readback['files'][0],readback['jobs'][0]['original']):row.update(metadata)
+        destination=readback['osDestinations']['rows'][0]
+        destination.update(identity=deepcopy(docs.native),inserted=False,original=metadata)
+        readback['osDestinations']['snapshotOsDestinationsVersion']=2
+        readback['destinations'][0].update(uri=docs.native['uri'],inserted=False)
+        request=acquired['request'];callbacks(group,'save',request,captured['path'],[('request-active',''),('document-launched',''),
+            ('document-result',docs.native['uri']),('destination-copied',docs.native['uri']),('result-ready','success'),('delivered','success')])
+        group['snapshot']['source']['androidExport']['events'][2]['auxiliary']='411:-1'
+        reader=docs.reader();reader.observe();binding=reader.binding();resolution=DocumentsUI().resolve()
+        doc_acquisition,raw=reader.acquire(DOC,docs.native,metadata,11000,resolution)
+        frame=public_frame(group,files,[original,acquired,doc_acquisition],readback)
+        frame.update(documents=deepcopy(reader.last),documentsBinding=binding,documentResolution=resolution,
+            phoneUid=dict(snapshotPhoneUidVersion=1,uid=11000,requestedEpochMs=20000,capturedEpochMs=20000))
+        frame['platform']['source'].update(sdk=26,saveBackend='document-picker')
+        return before,frame
+
+    def test_sdk26_saved_count_retains_independent_documents_provider_and_native_copy(self):
+        before,frame=self.documents_frame();self.assertEqual(1,state(frame,before,run=RUN,pid=31,epoch=20000)['saved'])
+        self.assertEqual('snapshot-document-original',frame['acquisitions'][-1]['source'])
+        self.assertEqual(19002,frame['acquisitions'][-1]['capturedEpochMs'])
+        for fault in ('missing-provider','missing-binary','wrong-writer','wrong-creator','open-fd','foreign-instance','stale-provider','missing-native-copy'):
+            changed=deepcopy(frame)
+            if fault=='missing-provider':changed['documents']=None
+            elif fault=='missing-binary':changed['acquisitions'].pop()
+            elif fault=='wrong-writer':changed['phoneUid']['uid']+=1
+            elif fault=='wrong-creator':changed['documentResolution']['uid']+=1
+            elif fault=='open-fd':changed['documents']['fdLifetimes'][0].update(closed=False,closedEpochMs=0)
+            elif fault=='foreign-instance':changed['documents']['instance']='f'*32
+            elif fault=='stale-provider':changed['documents']['capturedEpochMs']=18000
+            else:changed['readbacks']['files']=[]
+            with self.subTest(fault=fault),self.assertRaises(NativeUIError):state(changed,before,run=RUN,pid=31,epoch=20000)
+
+    def test_sdk26_retirement_keeps_both_original_os_and_documents_absence_mandatory(self):
+        before,frame=self.documents_frame();_,_,_,_,_,settings=self.retirement();frame['settings']=settings
+        native=frame['captureFiles'];native['rows'][0].update(retireId='4'*32,deleteIssued=True,deleteResult=0,absent=True,checkedEpochMs=20000)
+        native['plans'][0].update(sealed=True,sealId='5'*32,sealedEpochMs=20000)
+        frame['inventory'].update(files=[],rows=deepcopy(native['rows']))
+        readbacks=frame['readbacks'];readbacks.update(copiesRetired=True,workersTerminated=True,files=[],removedCopies=[readbacks['files'][0]['id']])
+        readbacks['osDestinations']['rows'][0].update(phase='retired',deleteIssued=True,deleteId='6'*32,deleteCount=1,absent=True,checkedEpochMs=20000)
+        for key in ('osDestinations','shareGrants'):readbacks[key].update(checkId='7'*32,checkedEpochMs=20000)
+        provider=frame['documents'];provider.update(retired=True,workersTerminated=True)
+        provider['root'].update(present=False,checkedEpochMs=20000)
+        provider['documents'][0].update(deleteCalls=1,deletedEpochMs=19900,absent=True,checkedEpochMs=20000)
+        self.assertEqual([],state(frame,before,run=RUN,pid=31,epoch=20000)['captureHistory'])
+        for fault in ('missing-provider','live-root','live-worker','old-check','wrong-native-original'):
+            changed=deepcopy(frame)
+            if fault=='missing-provider':changed['documents']=None
+            elif fault=='live-root':changed['documents']['root']['present']=True
+            elif fault=='live-worker':changed['documents']['workersTerminated']=False
+            elif fault=='old-check':changed['documents']['root']['checkedEpochMs']=18000
+            else:changed['readbacks']['osDestinations']['rows'][0]['original']['sha256']='f'*64
+            with self.subTest(fault=fault),self.assertRaises(NativeUIError):state(changed,before,run=RUN,pid=31,epoch=20000)
 
 
 class SnapshotUploadedMeasurementsTests(unittest.TestCase):
