@@ -19,6 +19,19 @@
 #include <functional>
 
 namespace overte::e2e {
+// Weak lifetime inventory shared by the actual QML source and native lifetime
+// counterexamples. It cannot create/replace a source-qualified editor identity.
+struct LifecycleEditorObjects {
+    QPointer<QQuickItem> field,page,loader;
+    QPointer<QQuickWindow> window;
+    QPointer<QQmlContext> context;
+    struct Liveness {
+        bool field,page,context,window,loader;
+        bool retained() const { return field || page || context; }
+    };
+    Liveness liveness() const { return {!field.isNull(),!page.isNull(),!context.isNull(),!window.isNull(),!loader.isNull()}; }
+};
+
 // Passive source. Canonical URLs come only from native PathUtils at binding,
 // not from the command or UI text. Tokens name weak original Qt objects.
 class LifecycleUiObservation {
@@ -78,12 +91,13 @@ public:
         if (!_valid || activeCount>1 || (home && activeCount)) { return {}; }
         QVariantList rows;QString current;
         for (auto& entry:_entries) {
-            const bool fieldAlive=entry.field, pageAlive=entry.page, contextAlive=entry.context;
-            const bool windowAlive=entry.window, loaderAlive=entry.loader;
+            const auto life=entry.liveness();
+            const bool fieldAlive=life.field, pageAlive=life.page, contextAlive=life.context;
+            const bool windowAlive=life.window, loaderAlive=life.loader;
             // Editor retirement requires all three original editor objects gone.
             // Shared window/loader survival is measured separately, never retired
             // merely because a field/context disappeared or a page was hidden.
-            const bool alive=fieldAlive || pageAlive || contextAlive;
+            const bool alive=life.retained();
             const bool attached=fieldAlive && pageAlive && loaderAlive
                 && descendant(entry.field,root) && descendant(entry.page,entry.loader);
             const bool visible=fieldAlive && windowAlive && visibleField(entry.field,entry.window);
@@ -112,9 +126,8 @@ public:
     }
 private:
     struct Object { QPointer<QObject> value;QString id; };
-    struct Entry {
+    struct Entry : LifecycleEditorObjects {
         QString id,kind,fieldId,pageId,contextId,windowId,loaderId;
-        QPointer<QQuickItem> field,page,loader;QPointer<QQuickWindow> window;QPointer<QQmlContext> context;
         qint64 firstObserved{0};
     };
     QString objectId(QObject* value) {
