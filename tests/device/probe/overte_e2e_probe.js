@@ -148,6 +148,9 @@
     var lastIOSPlacesHttpRequest = "";
     var lastIOSNavigationDialogRequest = "";
     var lastIOSNavigationStateRequest = "";
+    var lastIOSAvatarStateRequest = "";
+    var iosNewSourceRequests = {};
+    var iosNewSourceRequestCount = 0;
     var lastIOSSceneInventoryRequest = "";
     var lastSceneLoadRequest = "";
     var lastWorldRenderStorageCommand = "";
@@ -175,6 +178,8 @@
         Test.saveObject(value, "world-render-observation.json");
     }
     var lastScriptSourceRequest = "";
+    var lastScriptRootsRequest = "";
+    var lastAvatarReceiveRequest = "";
     var lastProcessPresenceRequest = "";
     var lastScriptFilesRequest = "";
     function saveScriptSourceObservation(requestId) {
@@ -1087,6 +1092,89 @@
             }
             return;
         }
+        if (command && command.action === "feature-ios-avatar-renderers") {
+            if (command.schemaVersion === 1 && typeof command.commandId === "string"
+                    && /^ios-[0-9a-f]{32}$/.test(command.commandId) && command.commandId.length === 36
+                    && typeof command.runId === "string" && /^[0-9a-f]{32}$/.test(command.runId) && command.runId.length === 32
+                    && objectKeysMatch(command,["schemaVersion","commandId","action","runId"])) {
+                // Keep every nonce consumed, including unavailable reads and
+                // storage mutations with a lost return. No reissue on polling.
+                if (iosNewSourceRequests[command.commandId] || iosNewSourceRequestCount >= 4096) { return; }
+                iosNewSourceRequests[command.commandId]=true;iosNewSourceRequestCount+=1;
+                var sourceAvatarRenderers={iosAvatarRenderersVersion:1,requestId:command.commandId,status:"unavailable"};
+                try {
+                    if (typeof Test.featureIOSAvatarRenderers === "function") {
+                        var originalAvatarRenderers=Test.featureIOSAvatarRenderers(command);
+                        if (originalAvatarRenderers && originalAvatarRenderers.requestId === command.commandId) { sourceAvatarRenderers=originalAvatarRenderers; }
+                    }
+                } catch (_AvatarRenderersError) { /* Retain unavailable; never retry an uncertain input. */ }
+                Test.saveObject(sourceAvatarRenderers,"feature-ios-avatar-renderers.json");
+            }
+            return;
+        }
+        if (command && command.action === "feature-ios-create-state") {
+            if (command.schemaVersion === 1 && typeof command.commandId === "string"
+                    && /^ios-[0-9a-f]{32}$/.test(command.commandId) && command.commandId.length === 36
+                    && typeof command.runId === "string" && /^[0-9a-f]{32}$/.test(command.runId) && command.runId.length === 32
+                    && objectKeysMatch(command,["schemaVersion","commandId","action","runId"])) {
+                // Keep every nonce consumed, including unavailable reads and
+                // storage mutations with a lost return. No reissue on polling.
+                if (iosNewSourceRequests[command.commandId] || iosNewSourceRequestCount >= 4096) { return; }
+                iosNewSourceRequests[command.commandId]=true;iosNewSourceRequestCount+=1;
+                var sourceCreateState={iosCreateStateVersion:1,requestId:command.commandId,status:"unavailable"};
+                try {
+                    if (typeof Test.featureIOSCreateState === "function") {
+                        var originalCreateState=Test.featureIOSCreateState(command);
+                        if (originalCreateState && originalCreateState.requestId === command.commandId) { sourceCreateState=originalCreateState; }
+                    }
+                } catch (_CreateStateError) { /* Retain unavailable; never retry an uncertain input. */ }
+                Test.saveObject(sourceCreateState,"feature-ios-create-state.json");
+            }
+            return;
+        }
+        if (command && command.action === "feature-ios-create-files") {
+            if (command.schemaVersion === 1 && typeof command.commandId === "string"
+                    && /^ios-[0-9a-f]{32}$/.test(command.commandId) && command.commandId.length === 36
+                    && typeof command.runId === "string" && /^[0-9a-f]{32}$/.test(command.runId) && command.runId.length === 32
+                    && typeof command.ownerToken === "string" && /^[0-9a-f]{64}$/.test(command.ownerToken) && command.ownerToken.length === 64
+                    && ["stage","locate","observe","release"].indexOf(command.operation) !== -1
+                    && (command.operation !== "stage" || typeof command.inputBase64 === "string" && command.inputBase64.length <= 10924)
+                    && (command.operation !== "release" || Array.isArray(command.originals) && command.originals.length === 2)
+                    && objectKeysMatch(command,["schemaVersion","commandId","action","runId","ownerToken","operation"].concat(
+                        command.operation === "stage" ? ["inputBase64"] : command.operation === "release" ? ["originals"] : []))) {
+                // Keep every nonce consumed, including unavailable reads and
+                // storage mutations with a lost return. No reissue on polling.
+                if (iosNewSourceRequests[command.commandId] || iosNewSourceRequestCount >= 4096) { return; }
+                iosNewSourceRequests[command.commandId]=true;iosNewSourceRequestCount+=1;
+                var sourceCreateFiles={iosCreateFilesVersion:1,requestId:command.commandId,status:"unavailable"};
+                try {
+                    if (typeof Test.featureIOSCreateFiles === "function") {
+                        var originalCreateFiles=Test.featureIOSCreateFiles(command);
+                        if (originalCreateFiles && originalCreateFiles.requestId === command.commandId) { sourceCreateFiles=originalCreateFiles; }
+                    }
+                } catch (_CreateFilesError) { /* Retain unavailable; never retry an uncertain input. */ }
+                Test.saveObject(sourceCreateFiles,"feature-ios-create-files.json");
+            }
+            return;
+        }
+        if (command && command.action === "feature-ios-avatar-state") {
+            if (command.schemaVersion === 1 && typeof command.commandId === "string"
+                    && /^ios-[0-9a-f]{32}$/.test(command.commandId) && command.commandId.length === 36
+                    && typeof command.runId === "string" && /^[0-9a-f]{32}$/.test(command.runId) && command.runId.length === 32
+                    && objectKeysMatch(command,["schemaVersion","commandId","action","runId"])) {
+                if (command.commandId === lastIOSAvatarStateRequest) { return; }
+                lastIOSAvatarStateRequest=command.commandId;
+                var avatarState={iosAvatarStateVersion:1,requestId:command.commandId,status:"unavailable"};
+                try {
+                    if (typeof Test.featureIOSAvatarState === "function") {
+                        var originalAvatarState=Test.featureIOSAvatarState(command);
+                        if (originalAvatarState && originalAvatarState.requestId === command.commandId) { avatarState=originalAvatarState; }
+                    }
+                } catch (_avatarStateError) { /* No current properties can fabricate an original model failure. */ }
+                Test.saveObject(avatarState,"feature-ios-avatar-state.json");
+            }
+            return;
+        }
         if (command && command.action === "feature-ios-navigation-state") {
             if (command.schemaVersion === 1 && typeof command.commandId === "string"
                     && /^ios-[0-9a-f]{32}$/.test(command.commandId) && command.commandId.length === 36
@@ -1330,6 +1418,42 @@
             if (command.commandId !== lastAccountProbeCommand) {
                 if (accountProbeTimer !== null) { Script.clearTimeout(accountProbeTimer); accountProbeTimer = null; }
                 lastAccountProbeCommand = String(command.commandId); saveAccountProbe(command);
+            }
+            return;
+        }
+        if (command && command.action === "feature-avatar-receive-observe") {
+            if (command.schemaVersion === 1 && typeof command.commandId === "string"
+                    && /^(?:ios-)?[0-9a-f]{32}$/.test(command.commandId)
+                    && command.commandId.length === (command.commandId.indexOf("ios-") === 0 ? 36 : 32)
+                    && objectKeysMatch(command,["schemaVersion","commandId","action"])
+                    && command.commandId !== lastAvatarReceiveRequest) {
+                lastAvatarReceiveRequest=command.commandId;
+                var receivedAvatar={avatarReceiveObservationVersion:1,commandId:command.commandId,available:false};
+                try {
+                    if (typeof Test.featureAvatarReceive === "function") {
+                        var originalReceivedAvatar=Test.featureAvatarReceive(command);
+                        if (originalReceivedAvatar && originalReceivedAvatar.commandId === command.commandId) { receivedAvatar=originalReceivedAvatar; }
+                    }
+                } catch (_avatarReceiveError) { /* Missing native source remains unavailable. */ }
+                Test.saveObject(receivedAvatar,"feature-avatar-receive.json");
+            }
+            return;
+        }
+        if (command && command.action === "feature-script-roots-observe") {
+            if (command.schemaVersion === 1 && typeof command.commandId === "string"
+                    && /^(?:ios-)?[0-9a-f]{32}$/.test(command.commandId)
+                    && command.commandId.length === (command.commandId.indexOf("ios-") === 0 ? 36 : 32)
+                    && objectKeysMatch(command,["schemaVersion","commandId","action"])
+                    && command.commandId !== lastScriptRootsRequest) {
+                lastScriptRootsRequest=command.commandId;
+                var scriptRoots={scriptRootsVersion:1,commandId:command.commandId,available:false};
+                try {
+                    if (typeof Test.featureScriptRoots === "function") {
+                        var originalScriptRoots=Test.featureScriptRoots(command);
+                        if (originalScriptRoots && originalScriptRoots.commandId === command.commandId) { scriptRoots=originalScriptRoots; }
+                    }
+                } catch (_scriptRootsError) { /* Missing configuration stays unavailable. */ }
+                Test.saveObject(scriptRoots,"feature-script-roots.json");
             }
             return;
         }

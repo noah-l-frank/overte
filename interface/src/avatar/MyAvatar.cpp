@@ -13,6 +13,9 @@
 //
 
 #include "MyAvatar.h"
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+#include "../../../tests/device/native/IOSAvatarStateObservation.h"
+#endif
 
 #include <algorithm>
 #include <vector>
@@ -257,6 +260,9 @@ MyAvatar::MyAvatar(QThread* thread) :
     _headData = new MyHead(this);
 
     _skeletonModel = std::make_shared<MySkeletonModel>(this, nullptr);
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    overte::e2e::IOSAvatarModelHistory::instance().bindWatcher(_skeletonModel->featureGeometryWatcherIdentity());
+#endif
     _skeletonModel->setLoadingPriorityOperator([]() { return MYAVATAR_LOADING_PRIORITY; });
     connect(_skeletonModel.get(), &Model::setURLFinished, this, &Avatar::setModelURLFinished);
     connect(_skeletonModel.get(), &Model::setURLFinished, this, [this](bool success) {
@@ -1249,6 +1255,16 @@ void MyAvatar::render(RenderArgs* renderArgs) {
 
 void MyAvatar::overrideAnimation(const QString& url, float fps, bool loop, float firstFrame, float lastFrame) {
     if (QThread::currentThread() != thread()) {
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        if (QCoreApplication::arguments().contains("--testScript")) {
+            const auto original=ScriptManager::featureNativeCallContext();
+            QMetaObject::invokeMethod(this,[this,url,fps,loop,firstFrame,lastFrame,original] {
+                ScriptManager::FeatureNativeCallScope nativeCall(original);
+                overrideAnimation(url,fps,loop,firstFrame,lastFrame);
+            });
+            return;
+        }
+#endif
         QMetaObject::invokeMethod(this, "overrideAnimation", Q_ARG(const QString&, url), Q_ARG(float, fps),
                                   Q_ARG(bool, loop), Q_ARG(float, firstFrame), Q_ARG(float, lastFrame));
         return;
@@ -1267,6 +1283,16 @@ void MyAvatar::overrideHandAnimation(bool isLeft, const QString& url, float fps,
 
 void MyAvatar::restoreAnimation() {
     if (QThread::currentThread() != thread()) {
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        if (QCoreApplication::arguments().contains("--testScript")) {
+            const auto original=ScriptManager::featureNativeCallContext();
+            QMetaObject::invokeMethod(this,[this,original] {
+                ScriptManager::FeatureNativeCallScope nativeCall(original);
+                restoreAnimation();
+            });
+            return;
+        }
+#endif
         QMetaObject::invokeMethod(this, "restoreAnimation");
         return;
     }
@@ -2535,6 +2561,10 @@ void MyAvatar::setSkeletonModelURL(const QUrl& skeletonModelURL) {
     int skeletonModelChangeCount = _skeletonModelChangeCount;
 
     auto previousSkeletonModelURL = _skeletonModelURL;
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    overte::e2e::IOSAvatarModelHistory::instance().requested(
+        skeletonModelURL.isEmpty() ? AvatarData::defaultFullAvatarModelUrl() : skeletonModelURL);
+#endif
     Avatar::setSkeletonModelURL(skeletonModelURL);
 
     _skeletonModel->setTagMask(render::hifi::TAG_NONE);

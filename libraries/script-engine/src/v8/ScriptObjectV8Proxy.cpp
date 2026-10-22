@@ -13,6 +13,9 @@
 //
 
 #include "ScriptObjectV8Proxy.h"
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+#include "../ScriptManager.h"
+#endif
 #include "QmlPropertyThreadGate.h"
 #include <v8-template.h>
 
@@ -1181,6 +1184,9 @@ void ScriptMethodV8Proxy::call(const v8::FunctionCallbackInfo<v8::Value>& argume
                                           _engine->currentContext()->parentContext());
         ScriptContextGuard guard(&ourContext);
         const QMetaMethod& meta = _metas[bestMeta];
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        ScriptManager::FeatureNativeCallScope featureNativeCall(_engine->manager(),meta.name());
+#endif
         int returnTypeId = meta.returnType();
         QVector <QGenericArgument> &qGenArgs = qGenArgsVectors[bestMeta];
 

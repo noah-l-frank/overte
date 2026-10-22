@@ -3,16 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
 from adapters.native_feature_observation import need
-from adapters.token_create_ui import control_id,snapshot
-
-
-def project(original):
-    need(type(original.get('createControlsVersion')) is int and original['createControlsVersion']==1)
-    rows=deepcopy([row for row in original['controls'] if control_id(row['id'])])
-    for row in rows:row.pop('frame') # NativeInput validated the actual original geometry.
-    return snapshot(dict(createControlsVersion=1,open=original['tabletShown'],ready=original['ready'],
-        scope=dict(instance=original['instance'],generation=original['createGeneration'],sequence=original['lastSequence'],
-                   elapsedMs=original['elapsedMs'],processId=original['processId']),controls=rows))
+from ios.adapters.create_controls_v2 import project
 
 
 class IOSCreateIO:

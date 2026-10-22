@@ -54,6 +54,9 @@ public:
     const std::shared_ptr<NetworkMaterial> getShapeMaterial(int shapeID) const;
 
     const QVariantMap getTextures() const;
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    QVariantList featureCreateTextures() const;
+#endif
     void setTextures(const QVariantMap& textureMap);
 
     virtual bool areTexturesLoaded() const;

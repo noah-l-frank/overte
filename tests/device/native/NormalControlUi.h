@@ -100,11 +100,16 @@ public:
             {"capturedEpochMs", static_cast<double>(QDateTime::currentMSecsSinceEpoch())},
             {"processId", static_cast<double>(QCoreApplication::applicationPid())},
             {"ready", ready}, {"controls", rows}};
+        int createVersion=1;
+#if defined(Q_OS_IOS)
+        createVersion=2;
+#endif
         result[_surface == Surface::Audio ? "audioControlsVersion"
             : _surface == Surface::Graphics ? "graphicsControlsVersion"
             : _surface == Surface::Login ? "loginControlsVersion"
             : _surface == Surface::Create ? "createControlsVersion"
-            : _surface == Surface::Chat ? "chatControlsVersion" : "fileControlsVersion"] = _surface==Surface::Login ? 2 : 1;
+            : _surface == Surface::Chat ? "chatControlsVersion" : "fileControlsVersion"] =
+                _surface==Surface::Login ? 2 : _surface==Surface::Create ? createVersion : 1;
         return result;
     }
 

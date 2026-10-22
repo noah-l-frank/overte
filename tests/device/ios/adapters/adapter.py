@@ -324,10 +324,10 @@ class IOSNativeMixin:
         return PrivateLoginInput(IOSPrivateLoginTransport(observer),self.private_login_input_store(selector),manager.binding,run)
 
     def _create_controls(self,selector,intent):
-        from adapters.token_create_ui import TokenCreateUI
+        from ios.adapters.create_inputs import IOSCreateUI
         from ios.adapters.create_controls import IOSCreateIO
         manager=self._scripts(selector) # Canonical installed-code gate remains unchanged.
-        return TokenCreateUI(IOSCreateIO(manager.ui.io),intent)
+        return IOSCreateUI(IOSCreateIO(manager.ui.io),intent)
 
     def _chat_controls(self,selector,intent,run):
         from adapters.token_chat_ui import TokenChatUI

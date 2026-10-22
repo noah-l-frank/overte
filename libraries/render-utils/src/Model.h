@@ -102,6 +102,11 @@ public:
     // Should only be called from the model's rendering thread to avoid access violations of changed geometry.
     Q_INVOKABLE virtual void setURL(const QUrl& url);
     const QUrl& getURL() const { return _url; }
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    // Passive provenance binding for the dedicated iOS Avatar observation.
+    // This identity grants no access to mutate or invoke the resource watcher.
+    const void* featureGeometryWatcherIdentity() const { return &_renderWatcher; }
+#endif
 
     // new Scene/Engine rendering support
     void setVisibleInScene(bool isVisible, const render::ScenePointer& scene = nullptr);

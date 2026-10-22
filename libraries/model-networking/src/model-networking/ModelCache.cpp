@@ -10,6 +10,9 @@
 //
 
 #include "ModelCache.h"
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+#include "../../../../tests/device/native/IOSAvatarStateObservation.h"
+#endif
 #include <Finally.h>
 #include <FSTReader.h>
 
@@ -449,6 +452,27 @@ const QVariantMap Geometry::getTextures() const {
     return textures;
 }
 
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+QVariantList Geometry::featureCreateTextures() const {
+    QVariantList rows;
+    int materialIndex=0;
+    for (const auto& material : _materials) {
+        if (!material) { return {}; }
+        for (const auto& entry : material->_textures) {
+            const auto texture=entry.second.texture;
+            if (!texture) { continue; }
+            const auto gpu=texture->getGPUTexture();
+            rows.append(QVariantMap{{"material",materialIndex},{"channel",static_cast<int>(entry.first)},
+                {"slot",entry.second.name},{"url",texture->getURL().toString()},
+                {"loaded",texture->isLoaded() && bool(gpu)},
+                {"original",texture->featureCreateConsumedImage()}});
+        }
+        ++materialIndex;
+    }
+    return rows;
+}
+#endif
+
 // FIXME: The materials should only be copied when modified, but the Model currently caches the original
 Geometry::Geometry(const Geometry& geometry) {
     _hfmModel = geometry._hfmModel;
@@ -563,6 +587,21 @@ void GeometryResourceWatcher::setResource(GeometryResource::Pointer resource) {
         stopWatching();
     }
     _resource = resource;
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    if (_resource) {
+        const auto original=overte::e2e::IOSAvatarModelHistory::instance().resourceAssigned(
+            this,_resource->getURL(),QString::number(reinterpret_cast<quintptr>(_resource.data()),16));
+        if (!original.isEmpty()) {
+            if (_resource->isLoaded()) {
+                overte::e2e::IOSAvatarModelHistory::instance().finished(original,true);
+            } else {
+                connect(_resource.data(),&Resource::finished,this,[original](bool success) {
+                    overte::e2e::IOSAvatarModelHistory::instance().finished(original,success);
+                });
+            }
+        }
+    }
+#endif
     if (_resource) {
         if (_resource->isLoaded()) {
             resourceFinished(true);

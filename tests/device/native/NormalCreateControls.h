@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 #pragma once
 #include "NormalLoginControls.h"
+#include "NativeCreateControlsV2.h"
 #include <QHash>
 #include <QUuid>
 #include <QCryptographicHash>
@@ -54,6 +55,7 @@ inline QString createEntityId(const QString& raw) {
 
 inline QString createControlId(QQuickItem* item) {
     if (!audioGuiItem(item)) { return {}; }
+    const auto extra=createExtraControlId(item);if (!extra.isEmpty()) { return extra; }
     auto page=createPage(item);const auto name=item->objectName();
     if (!page) {
         const auto nav=scriptControlId(item);
@@ -78,7 +80,15 @@ inline QString createControlId(QQuickItem* item) {
         {"NativeCreateUndo","create.undo"},{"NativeCreateRedo","create.redo"},
         {"NativeCreateImportUrl","create.import-url"},{"NativeCreateImport","create.import-submit"},
         {"NativeCreateBrowse","create.import-browse"},{"NativeCreateApplyTyped","create.apply-typed"},
-        {"NativeCreateTool_export","create.export"}};
+        {"NativeCreateTool_export","create.export"}
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+        ,
+        {"NativeCreateEditMode","create.voxel.mode"},{"NativeCreateVoxelShape","create.voxel.shape"},
+        {"NativeCreateVoxelRemove","create.voxel.remove"},{"NativeCreateVoxelDynamics","create.voxel.dynamics"},
+        {"NativeCreateVoxelPointer","create.voxel.pointer"},{"NativeCreateVoxelDiameter","create.voxel.diameter"},
+        {"NativeCreateVoxelReach","create.voxel.reach"},{"NativeCreateVoxelApply","create.voxel.apply"}
+#endif
+    };
     if (fixed.contains(name)) { return fixed.value(name); }
     const auto tab=QRegularExpression("\\ANativeCreateTab_([0-4])\\z").match(name);
     if (tab.hasMatch()) { return "create.tab."+tab.captured(1); }
@@ -97,11 +107,11 @@ inline QString createControlId(QQuickItem* item) {
 }
 
 inline bool createField(const QString& id) {
-    return id=="create.name" || id=="create.resource" || id=="create.import-url" || id=="create.filter"
+    return createExtraField(id) || id=="create.name" || id=="create.resource" || id=="create.import-url" || id=="create.filter"
         || id=="create.textures" || id.startsWith("create.field.");
 }
 inline bool createChoice(const QString& id) {
-    return id=="create.host" || id=="create.import-host" || id=="create.shape";
+    return createExtraChoiceCount(id)>0 || id=="create.host" || id=="create.import-host" || id=="create.shape";
 }
 inline bool createText(const QString& text) {
     if (text.size()>4096) { return false; }
@@ -132,7 +142,17 @@ inline void appendCreateControlObservation(QJsonObject& row,QQuickItem* item,con
             row["statusError"]=page->property("statusError").toBool();row["statusText"]=status;
             row["componentSourceSha256"]=QString::fromLatin1(QCryptographicHash::hash(createComponentSource(page).toUtf8(),QCryptographicHash::Sha256).toHex());
         }
-    } else { ready=ready && (id=="create.entry" || id=="tablet.home" || id.startsWith("tablet.page.")); }
+    } else {
+        const auto file=createFileBrowser(item);
+        ready=ready && (id=="create.entry" || id=="tablet.home" || id.startsWith("tablet.page.")
+            || (file && !file->property("closing").toBool() && file->property("requestId").toString().isEmpty()));
+        if (file) { row["picker"]=createFileObservation(file); }
+    }
+    if (id=="create.voxel.remove") {
+        const auto checked=item->property("checked");
+        if (checked.userType()!=QMetaType::Bool) { row["inputReady"]=false;return; }
+        row["checked"]=checked.toBool();
+    }
     if (id=="create.scrollbar") {
         const auto position=item->property("position"),size=item->property("size");
         bool positionOkay {false},sizeOkay {false};
@@ -149,7 +169,8 @@ inline void appendCreateControlObservation(QJsonObject& row,QQuickItem* item,con
     } else if (createChoice(id)) {
         const auto index=item->property("currentIndex"),count=item->property("count");
         const bool valid=index.userType()==QMetaType::Int && count.userType()==QMetaType::Int
-            && index.toInt()>=0 && index.toInt()<count.toInt() && count.toInt()==(id=="create.shape" ? 6 : 2);
+            && index.toInt()>=0 && index.toInt()<count.toInt()
+            && count.toInt()==(createExtraChoiceCount(id)>0 ? createExtraChoiceCount(id) : id=="create.shape" ? 6 : 2);
         if (valid) { row["currentIndex"]=index.toInt();row["count"]=count.toInt(); }
         ready=ready && valid;
     } else if (id.startsWith("create.entity.")) {

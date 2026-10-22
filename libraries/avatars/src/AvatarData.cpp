@@ -13,6 +13,9 @@
 
 
 #include "AvatarData.h"
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+#include "AvatarReceiveObservation.h"
+#endif
 
 #include <algorithm>
 #include <cstdio>
@@ -1632,7 +1635,10 @@ int AvatarData::parseDataFromBuffer(const QByteArray& buffer) {
 
     _parseBufferRate.increment(numBytesRead);
     _parseBufferUpdateRate.increment();
-
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    overte::e2e::AvatarReceiveObservation::instance().parsed(getSessionUUID(),buffer,numBytesRead,
+        hasJointData,getJointData(),getSkeletonModelURL().toString(QUrl::FullyEncoded),getTargetScale());
+#endif
     return numBytesRead;
 }
 

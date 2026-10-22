@@ -16,6 +16,7 @@ from self_tests.test_token_create_ui import Controls
 from adapters.token_create_ui import TokenCreateUI
 from adapters.ios import binding
 from ios.adapters import adapter as component,normal_input
+from ios.adapters.create_inputs import IOSCreateUI
 
 
 class IOSCreateControlsTests(unittest.TestCase):
@@ -62,7 +63,7 @@ class IOSCreateControlsTests(unittest.TestCase):
         for boundary in (patch.object(self.native,'observed',side_effect=observed),
                          patch.object(self.native,'post',side_effect=post),
                          patch.object(normal_input,'urlopen',side_effect=post),
-                         patch('adapters.token_create_ui.TokenCreateUI',partial(TokenCreateUI,
+                         patch('ios.adapters.create_inputs.IOSCreateUI',partial(IOSCreateUI,
                              monotonic=lambda:self.world.clock,sleep=self.world.sleep))):
             boundary.start();self.addCleanup(boundary.stop)
         self.flow=self.adapter._create_controls('test-only-selector',self.widget.intents.append)

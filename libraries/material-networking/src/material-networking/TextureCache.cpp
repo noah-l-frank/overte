@@ -1288,6 +1288,9 @@ void ImageReader::read() {
     auto networkTexture = resource.staticCast<NetworkTexture>();
 
     // Hash the source image and extraHash for KTX caching
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    networkTexture->featureCreateConsumeImage(_content);
+#endif
     std::string hash;
     {
         QCryptographicHash hasher(QCryptographicHash::Md5);

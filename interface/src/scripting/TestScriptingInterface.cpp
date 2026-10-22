@@ -65,12 +65,20 @@
 #include "../../../tests/device/native/NormalLoginControls.h"
 #include "../../../tests/device/native/PrivateLoginInput.h"
 #include "../../../tests/device/native/ChatViewObservation.h"
+#include <AvatarReceiveObservation.h>
+#include <NodeList.h>
+#include <QJsonArray>
 #if defined(Q_OS_IOS)
 #include "../../../tests/device/ios/InstalledBundleIdentity.h"
 #include "../../../tests/device/native/IOSWebClosureBridge.h"
 #include "../../../tests/device/native/IOSLocationBookmarksObservation.h"
 #include "../../../tests/device/native/IOSPlacesModelObservation.h"
 #include "../../../tests/device/native/IOSNavigationStateObservation.h"
+#include "../../../tests/device/native/IOSAvatarStateObservation.h"
+#include "../../../tests/device/native/IOSAvatarRenderersObservation.h"
+#include "../../../tests/device/native/IOSCreateStateObservation.h"
+#include "../../../tests/device/native/PrivateCreateFiles.h"
+#include "../AvatarBookmarks.h"
 #include "../../../tests/device/native/NativeReadBracket.h"
 #include <EntityTree.h>
 #include <QGuiApplication>
@@ -537,6 +545,140 @@ QVariantMap TestScriptingInterface::featureIOSSceneInventory(const QVariantMap& 
     });
     if (!result.isEmpty()) { result.insert("iosSceneInventoryVersion",2); }
     return result;
+}
+
+QVariantMap TestScriptingInterface::featureIOSAvatarRenderers(const QVariantMap& command) {
+    if (QThread::currentThread()!=thread()) {
+        if (!thread() || !thread()->isRunning()) { return {}; }
+        QVariantMap result;
+        if (!QMetaObject::invokeMethod(this,[&] { result=featureIOSAvatarRenderers(command); },Qt::BlockingQueuedConnection)) { return {}; }
+        return result;
+    }
+    QStringList fields {"schemaVersion","commandId","action","runId"};fields.sort();
+    const auto json=QJsonObject::fromVariantMap(command);
+    const auto request=command.value("commandId").toString(),run=command.value("runId").toString();
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript") || command.keys()!=fields
+            || json.value("schemaVersion")!=QJsonValue(1) || json.value("action")!=QJsonValue("feature-ios-avatar-renderers")
+            || !json.value("commandId").isString() || !json.value("runId").isString()
+            || !QRegularExpression("\\Aios-[0-9a-f]{32}\\z").match(request).hasMatch()
+            || !QRegularExpression("\\A[0-9a-f]{32}\\z").match(run).hasMatch()
+            || !DependencyManager::isSet<EntityScriptingInterface>() || !DependencyManager::isSet<AvatarManager>()) { return {}; }
+    const auto entities=DependencyManager::get<EntityScriptingInterface>();
+    if (!entities || !entities->getEntityTree()) { return {}; }
+    if (!_featureIOSAvatarRenderers) { _featureIOSAvatarRenderers=std::make_shared<overte::e2e::IOSAvatarRenderersObservation>(); }
+    return _featureIOSAvatarRenderers->read(request,run,DependencyManager::get<AvatarManager>().data(),entities->getEntityTree());
+}
+
+QVariantMap TestScriptingInterface::featureIOSCreateState(const QVariantMap& command) {
+    if (QThread::currentThread()!=thread()) {
+        if (!thread() || !thread()->isRunning()) { return {}; }
+        QVariantMap result;
+        if (!QMetaObject::invokeMethod(this,[&] { result=featureIOSCreateState(command); },Qt::BlockingQueuedConnection)) { return {}; }
+        return result;
+    }
+    QStringList fields {"schemaVersion","commandId","action","runId"};fields.sort();
+    const auto json=QJsonObject::fromVariantMap(command);
+    const auto request=command.value("commandId").toString(),run=command.value("runId").toString();
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript") || command.keys()!=fields
+            || json.value("schemaVersion")!=QJsonValue(1) || json.value("action")!=QJsonValue("feature-ios-create-state")
+            || !json.value("commandId").isString() || !json.value("runId").isString()
+            || !QRegularExpression("\\Aios-[0-9a-f]{32}\\z").match(request).hasMatch()
+            || !QRegularExpression("\\A[0-9a-f]{32}\\z").match(run).hasMatch()
+            || !DependencyManager::isSet<EntityScriptingInterface>() || !DependencyManager::isSet<OffscreenUi>()
+            || !DependencyManager::isSet<TabletScriptingInterface>() || !DependencyManager::isSet<NodeList>()) { return {}; }
+    const auto entities=DependencyManager::get<EntityScriptingInterface>();
+    if (!entities || !entities->getEntityTree()) { return {}; }
+    const auto ui=DependencyManager::get<OffscreenUi>();
+    const auto tablets=DependencyManager::get<TabletScriptingInterface>();
+    TabletProxy* tablet {nullptr};
+    for (auto candidate:tablets->findChildren<TabletProxy*>(QString(),Qt::FindDirectChildrenOnly)) {
+        if (candidate->getName()=="com.highfidelity.interface.tablet.system") {
+            if (tablet) { return {}; }tablet=candidate;
+        }
+    }
+    if (!ui || !ui->getRootItem() || !tablet || !tablet->getIOSTabletRoot()) { return {}; }
+    const auto shown=tablet->property("tabletShown");if (shown.userType()!=QMetaType::Bool) { return {}; }
+    if (!_featureIOSCreateState) { _featureIOSCreateState=std::make_shared<overte::e2e::IOSCreateStateObservation>(); }
+    return _featureIOSCreateState->read(request,run,{ui->getRootItem(),tablet->getIOSTabletRoot()},shown.toBool(),
+        entities.data(),DependencyManager::get<NodeList>()->getDomainHandler().getUUID().toString(QUuid::WithoutBraces));
+}
+
+QVariantMap TestScriptingInterface::featureIOSCreateFiles(const QVariantMap& command) {
+    if (QThread::currentThread()!=thread()) {
+        if (!thread() || !thread()->isRunning()) { return {}; }
+        QVariantMap result;
+        if (!QMetaObject::invokeMethod(this,[&] { result=featureIOSCreateFiles(command); },Qt::BlockingQueuedConnection)) { return {}; }
+        return result;
+    }
+    const auto json=QJsonObject::fromVariantMap(command);
+    const auto request=command.value("commandId").toString(),run=command.value("runId").toString();
+    const auto operation=command.value("operation").toString();
+    QStringList fields {"schemaVersion","commandId","action","runId","ownerToken","operation"};
+    if (operation=="stage") { fields.append("inputBase64"); }
+    if (operation=="release") { fields.append("originals"); }
+    fields.sort();
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript") || command.keys()!=fields
+            || json.value("schemaVersion")!=QJsonValue(1) || json.value("action")!=QJsonValue("feature-ios-create-files")
+            || !json.value("commandId").isString() || !json.value("runId").isString()
+            || !QRegularExpression("\Aios-[0-9a-f]{32}\z").match(request).hasMatch()
+            || !QRegularExpression("\A[0-9a-f]{32}\z").match(run).hasMatch()
+            || !QRegularExpression("\A[0-9a-f]{64}\z").match(json.value("ownerToken").toString()).hasMatch()
+            || !QStringList{"stage","locate","observe","release"}.contains(operation)
+            || (operation=="stage" && !json.value("inputBase64").isString())
+            || (operation=="release" && (!json.value("originals").isArray() || json.value("originals").toArray().size()!=2))
+            || QJsonDocument(json).toJson(QJsonDocument::Compact).size()>131072) { return {}; }
+    // Retain the actual first result, including unavailable. Insert intent
+    // before storage is touched; a repeated nonce never repeats a mutation.
+    if (_featureIOSCreateFileCommands.contains(request)) {
+        return _featureIOSCreateFileCommands.value(request)==command ? _featureIOSCreateFileResults.value(request) : QVariantMap{};
+    }
+    if (_featureIOSCreateFileCommands.size()>=4096) { return {}; }
+    _featureIOSCreateFileCommands.insert(request,command);
+    if (!_featureIOSCreateFiles) { _featureIOSCreateFiles=std::make_shared<overte::e2e::NativeReadBracket>(); }
+    const auto result=_featureIOSCreateFiles->read("iosCreateFilesVersion","native-main-create-files",request,run,[&] {
+        return overte::e2e::PrivateCreateFiles::request(_testResultsLocation,command);
+    });
+    _featureIOSCreateFileResults.insert(request,result);
+    return result;
+}
+
+QVariantMap TestScriptingInterface::featureIOSAvatarState(const QVariantMap& command) {
+    if (QThread::currentThread()!=thread()) {
+        if (!thread() || !thread()->isRunning()) { return {}; }
+        QVariantMap result;
+        if (!QMetaObject::invokeMethod(this,[&] { result=featureIOSAvatarState(command); },Qt::BlockingQueuedConnection)) { return {}; }
+        return result;
+    }
+    QStringList fields {"schemaVersion","commandId","action","runId"};fields.sort();
+    const auto json=QJsonObject::fromVariantMap(command);
+    const auto request=command.value("commandId").toString(),run=command.value("runId").toString();
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript") || command.keys()!=fields
+            || json.value("schemaVersion")!=QJsonValue(1) || json.value("action")!=QJsonValue("feature-ios-avatar-state")
+            || !json.value("commandId").isString() || !json.value("runId").isString()
+            || !QRegularExpression("\\Aios-[0-9a-f]{32}\\z").match(request).hasMatch()
+            || !QRegularExpression("\\A[0-9a-f]{32}\\z").match(run).hasMatch()
+            || !DependencyManager::isSet<AvatarManager>() || !DependencyManager::isSet<AvatarBookmarks>()) { return {}; }
+    if (!_featureIOSAvatarState) { _featureIOSAvatarState=std::make_shared<overte::e2e::IOSAvatarStateObservation>(); }
+    return _featureIOSAvatarState->read(request,run,[&]() -> QVariantMap {
+        const auto avatars=DependencyManager::get<AvatarManager>();const auto bookmarks=DependencyManager::get<AvatarBookmarks>();
+        if (!avatars || !bookmarks) { return {}; }
+        const auto avatar=avatars->getMyAvatar();if (!avatar) { return {}; }
+        const auto model=avatar->getSkeletonModel();if (!model) { return {}; }
+        const auto names=avatar->getJointNames();const bool loaded=model->isLoaded();
+        return {{"sessionId",avatar->getSessionUUID().toString(QUuid::WithoutBraces)},
+            {"requestedUrl",avatar->getSkeletonModelURL().toString(QUrl::FullyEncoded)},
+            {"resourceUrl",model->getURL().toString(QUrl::FullyEncoded)},
+            {"defaultResourceUrl",AvatarData::defaultFullAvatarModelUrl().toString(QUrl::FullyEncoded)},
+            {"geometryLoaded",loaded},{"rigReady",loaded && bool(model->getRig().getAnimNode()) && !names.isEmpty()},
+            {"shouldRender",avatar->shouldRender()},{"targetScale",avatar->getAvatarScale()},
+            {"modelScale",avatar->getModelScale()},{"jointNames",names},
+            {"bookmarks",QVariantMap{{"source","AvatarBookmarks.getBookmarks"},{"entries",bookmarks->getBookmarks()},
+                {"loadError",!bookmarks->getBookmarkError().isEmpty()}}}};
+    });
 }
 
 QVariantMap TestScriptingInterface::featureIOSNavigationState(const QVariantMap& command) {
@@ -1199,6 +1341,56 @@ QVariantMap TestScriptingInterface::featureScriptFiles(const QVariantMap& comman
     return result;
 }
 
+QVariantMap TestScriptingInterface::featureAvatarReceive(const QVariantMap& command) {
+    if (QThread::currentThread()!=thread()) {
+        if (!thread() || !thread()->isRunning()) { return {}; }
+        QVariantMap result;
+        if (!QMetaObject::invokeMethod(this,[&] { result=featureAvatarReceive(command); },Qt::BlockingQueuedConnection)) { return {}; }
+        return result;
+    }
+    const auto json=QJsonObject::fromVariantMap(command);const auto keys=json.keys();
+    const auto id=json.value("commandId").toString();
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript") || _featureAvatarReceiveSequence>=1000000000
+            || QSet<QString>(keys.begin(),keys.end())!=QSet<QString>{"schemaVersion","commandId","action"}
+            || json.value("schemaVersion")!=QJsonValue(1) || json.value("action")!=QJsonValue(QStringLiteral("feature-avatar-receive-observe"))
+            || !QRegularExpression("\\A(?:ios-)?[0-9a-f]{32}\\z").match(id).hasMatch()) { return {}; }
+    if (!DependencyManager::isSet<NodeList>()) { return {}; }
+    const auto requested=QDateTime::currentMSecsSinceEpoch();
+    const auto source=overte::e2e::AvatarReceiveObservation::instance().snapshot(DependencyManager::get<NodeList>()->getSessionUUID());
+    if (source.isEmpty()) { return {}; }
+    return {{"avatarReceiveObservationVersion",1},{"commandId",id},{"instance",_featureObservationInstance},
+        {"sequence",static_cast<qulonglong>(++_featureAvatarReceiveSequence)},
+        {"processId",QCoreApplication::applicationPid()},{"requestedEpochMs",requested},
+        {"capturedEpochMs",QDateTime::currentMSecsSinceEpoch()},{"source",source}};
+}
+
+QVariantMap TestScriptingInterface::featureScriptRoots(const QVariantMap& command) {
+    if (QThread::currentThread()!=thread()) {
+        if (!thread() || !thread()->isRunning()) { return {}; }
+        QVariantMap result;
+        if (!QMetaObject::invokeMethod(this,[&] { result=featureScriptRoots(command); },Qt::BlockingQueuedConnection)) { return {}; }
+        return result;
+    }
+    const auto json=QJsonObject::fromVariantMap(command);const auto keys=json.keys();
+    const auto id=json.value("commandId").toString();
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript") || _featureScriptRootsSequence>=1000000000
+            || QSet<QString>(keys.begin(),keys.end())!=QSet<QString>{"schemaVersion","commandId","action"}
+            || json.value("schemaVersion")!=QJsonValue(1) || json.value("action")!=QJsonValue(QStringLiteral("feature-script-roots-observe"))
+            || !QRegularExpression("\\A(?:ios-)?[0-9a-f]{32}\\z").match(id).hasMatch()) { return {}; }
+    const auto requested=QDateTime::currentMSecsSinceEpoch();
+    // Actual application resource configuration, not a root inferred from a
+    // running engine URL, a caller argument or a matching source basename.
+    const auto original=PathUtils::defaultScriptsLocation().toString(QUrl::FullyEncoded);
+    if (original.isEmpty()) { return {}; }
+    return {{"scriptRootsVersion",1},{"commandId",id},{"instance",_featureObservationInstance},
+        {"sequence",static_cast<qulonglong>(++_featureScriptRootsSequence)},
+        {"processId",QCoreApplication::applicationPid()},{"requestedEpochMs",requested},
+        {"capturedEpochMs",QDateTime::currentMSecsSinceEpoch()},
+        {"source",QVariantMap{{"defaultScriptsUrl",original}}}};
+}
+
 QVariantMap TestScriptingInterface::featureScriptObservation(const QString& requestId) {
     if (QThread::currentThread() != thread()) {
         QVariantMap result;
@@ -1681,6 +1873,9 @@ void TestScriptingInterface::saveObject(QVariant variant, const QString& filenam
             || filename == "feature-pending-commit-owner.json" || filename == "feature-navigation-replies.json"
             || filename == "feature-process-presence.json" || filename == "feature-graphics-subject.json" || filename == "feature-scene-load.json" || filename == "feature-completed-frame.json" || filename == "feature-vulkan-world-frame.json"
             || filename == "recorded-preview-observation.json" || filename == "feature-script-observation.json"
+            || filename == "feature-avatar-receive.json" || filename == "feature-script-roots.json"
+            || filename == "feature-ios-avatar-state.json" || filename == "feature-ios-avatar-renderers.json"
+            || filename == "feature-ios-create-state.json" || filename == "feature-ios-create-files.json"
             || filename == "feature-script-files.json" || filename == "world-render-observation.json"
             || filename == "world-render-receipt-result.json"
             || QRegularExpression("\\Aworld-render-storage-[0-9a-f]{32}\\.json\\z").match(filename).hasMatch()) {

@@ -36,6 +36,13 @@ class ModelEntityWrapper : public ModelEntityItem {
     using Parent = ModelEntityItem;
     friend class render::entities::ModelEntityRenderer;
 
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+public:
+    // Passive E2E access to this entity's actual renderer model. Never creates
+    // a model, requests a URL or changes a texture/scene property.
+    ModelPointer featureCreateModel() const { return getModel(); }
+#endif
+
 protected:
     ModelEntityWrapper(const EntityItemID& entityItemID) : Parent(entityItemID) {}
     void setModel(const ModelPointer& model);

@@ -46,6 +46,10 @@ from ios.adapters.places_http import IOSPlacesHttp,FILE as PLACES_HTTP_FILE,LIMI
 from ios.adapters.navigation_dialogs import IOSNavigationDialogs,FILE as NAVIGATION_DIALOG_FILE,LIMIT as NAVIGATION_DIALOG_LIMIT,command as navigation_dialog_command
 from ios.adapters.navigation_state import IOSNavigationState,FILE as NAVIGATION_STATE_FILE,LIMIT as NAVIGATION_STATE_LIMIT,command as navigation_state_command
 from ios.adapters.scene_inventory import IOSSceneInventory,FILE as SCENE_INVENTORY_FILE,LIMIT as SCENE_INVENTORY_LIMIT,command as scene_inventory_command
+from ios.adapters.avatar_state import IOSAvatarState,FILE as AVATAR_STATE_FILE,LIMIT as AVATAR_STATE_LIMIT,command as avatar_state_command
+from ios.adapters.avatar_renderers import IOSAvatarRenderers,FILE as AVATAR_RENDERERS_FILE,LIMIT as AVATAR_RENDERERS_LIMIT,command as avatar_renderers_command
+from ios.adapters.create_state import IOSCreateState,FILE as CREATE_STATE_FILE,LIMIT as CREATE_STATE_LIMIT,command as create_state_command
+from ios.adapters.create_files import IOSCreateFiles,FILE as CREATE_FILES_FILE,LIMIT as CREATE_FILES_LIMIT,command as create_files_command
 from adapters.private_login_input import command as private_input_command
 from adapters.native_account_origin import (NativeAccountOrigin, OwnedAccountOrigin, FILE as ACCOUNT_ORIGIN_FILE,
     command as account_origin_command)
@@ -134,6 +138,11 @@ class FeatureObservation:
         elif command.get('action')=='feature-ios-navigation-dialogs':navigation_dialog_command(command)
         elif command.get('action')=='feature-ios-navigation-state':navigation_state_command(command)
         elif command.get('action')=='feature-ios-scene-inventory':scene_inventory_command(command)
+        elif command.get('action')=='feature-ios-avatar-state':avatar_state_command(command)
+        elif command.get('action')=='feature-ios-avatar-renderers':avatar_renderers_command(command)
+        elif command.get('action')=='feature-ios-create-state':create_state_command(command)
+        elif command.get('action')=='feature-ios-create-files':
+            create_files_command(command);limit=131072
         elif command.get('action')=='feature-web-dom-observe':web_dom_command(command,ios=True)
         elif command.get('action')=='feature-pending-commit-owner':pending_owner_command(command,ios=True)
         elif command.get('action')=='feature-navigation-replies':navigation_replies_command(command,ios=True)
@@ -278,6 +287,34 @@ class FeatureObservation:
         if clock_source is None:clock_source=self.native_observer()
         def clock():return clock_source.read(clock_source.sequence)['capturedEpochMs']
         return IOSNavigationState(self.send,lambda:self.original(remote=remote,limit=NAVIGATION_STATE_LIMIT),
+            clock,self.guard,self.process['pid'],monotonic=self.monotonic,sleep=self.sleep)
+
+    def avatar_state(self,clock_source=None):
+        self.guard();remote=self.remote.rsplit('/',1)[0]+'/'+AVATAR_STATE_FILE
+        if clock_source is None:clock_source=self.native_observer()
+        def clock():return clock_source.read(clock_source.sequence)['capturedEpochMs']
+        return IOSAvatarState(self.send,lambda:self.original(remote=remote,limit=AVATAR_STATE_LIMIT),
+            clock,self.guard,self.process['pid'],monotonic=self.monotonic,sleep=self.sleep)
+
+    def avatar_renderers(self,clock_source=None):
+        self.guard();remote=self.remote.rsplit('/',1)[0]+'/'+AVATAR_RENDERERS_FILE
+        if clock_source is None:clock_source=self.native_observer()
+        def clock():return clock_source.read(clock_source.sequence)['capturedEpochMs']
+        return IOSAvatarRenderers(self.send,lambda:self.original(remote=remote,limit=AVATAR_RENDERERS_LIMIT),
+            clock,self.guard,self.process['pid'],monotonic=self.monotonic,sleep=self.sleep)
+
+    def create_state(self,clock_source=None):
+        self.guard();remote=self.remote.rsplit('/',1)[0]+'/'+CREATE_STATE_FILE
+        if clock_source is None:clock_source=self.native_observer()
+        def clock():return clock_source.read(clock_source.sequence)['capturedEpochMs']
+        return IOSCreateState(self.send,lambda:self.original(remote=remote,limit=CREATE_STATE_LIMIT),
+            clock,self.guard,self.process['pid'],monotonic=self.monotonic,sleep=self.sleep)
+
+    def create_files(self,clock_source=None):
+        self.guard();remote=self.remote.rsplit('/',1)[0]+'/'+CREATE_FILES_FILE
+        if clock_source is None:clock_source=self.native_observer()
+        def clock():return clock_source.read(clock_source.sequence)['capturedEpochMs']
+        return IOSCreateFiles(self.send,lambda:self.original(remote=remote,limit=CREATE_FILES_LIMIT),
             clock,self.guard,self.process['pid'],monotonic=self.monotonic,sleep=self.sleep)
 
     def navigation_dialogs(self,clock_source=None):

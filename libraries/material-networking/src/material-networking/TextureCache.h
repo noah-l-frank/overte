@@ -19,6 +19,15 @@
 #include <QColor>
 #include <QMetaEnum>
 #include <QtCore/QSharedPointer>
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+#include <QCoreApplication>
+#include <QCryptographicHash>
+#include <QDateTime>
+#include <QMutex>
+#include <QMutexLocker>
+#include <QUuid>
+#include <QVariantMap>
+#endif
 
 #include <DependencyManager.h>
 #include <ResourceCache.h>
@@ -58,6 +67,15 @@ public:
     ~NetworkTexture() override;
 
     QString getType() const override { return "NetworkTexture"; }
+
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    QVariantMap featureCreateConsumedImage() const {
+        if (!QCoreApplication::arguments().contains("--testScript")) { return {}; }
+        QMutexLocker lock(&_featureCreateMutex);
+        return {{"textureOriginalVersion",1},{"instance",_featureCreateInstance},
+            {"url",getURL().toString()},{"complete",_featureCreateComplete},{"consumptions",_featureCreateImages}};
+    }
+#endif
 
     int getOriginalWidth() const { return _textureSource->getGPUTexture() ? _textureSource->getGPUTexture()->getOriginalWidth() : 0; }
     int getOriginalHeight() const { return _textureSource->getGPUTexture() ? _textureSource->getGPUTexture()->getOriginalHeight() : 0; }
@@ -103,6 +121,26 @@ protected:
 private:
     friend class KTXReader;
     friend class ImageReader;
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    void featureCreateConsumeImage(const QByteArray& content) {
+        if (!QCoreApplication::arguments().contains("--testScript")) { return; }
+        QMutexLocker lock(&_featureCreateMutex);
+        // Bounded retained originals. Overflow poisons this resource source;
+        // dropping old entries must never manufacture a clean history.
+        if (!_featureCreateComplete) { return; }
+        if (content.isEmpty() || content.size()>8192 || _featureCreateImages.size()>=16) {
+            _featureCreateComplete=false;return;
+        }
+        _featureCreateImages.append(QVariantMap{{"sequence",_featureCreateImages.size()+1},
+            {"consumedEpochMs",QDateTime::currentMSecsSinceEpoch()},{"bytes",content.size()},
+            {"sha256",QString::fromLatin1(QCryptographicHash::hash(content,QCryptographicHash::Sha256).toHex())},
+            {"base64",QString::fromLatin1(content.toBase64())}});
+    }
+    mutable QMutex _featureCreateMutex;
+    const QString _featureCreateInstance {QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-')};
+    bool _featureCreateComplete {true};
+    QVariantList _featureCreateImages;
+#endif
 
     image::TextureUsage::Type _type { image::TextureUsage::UNUSED_TEXTURE };
     image::ColorChannel _sourceChannel;

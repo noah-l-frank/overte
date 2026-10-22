@@ -10,6 +10,9 @@
 //
 
 #include "AvatarHashMap.h"
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+#include "AvatarReceiveObservation.h"
+#endif
 
 #include <QtCore/QDataStream>
 
@@ -320,6 +323,10 @@ AvatarSharedPointer AvatarHashMap::parseAvatarData(QSharedPointer<ReceivedMessag
         reconcileReplicas(sessionUUID, avatar, sendingNode);
         
         // have the matching (or new) avatar parse the data from the packet
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        overte::e2e::AvatarReceiveObservation::NetworkScope received(sessionUUID,
+            sendingNode ? sendingNode->getUUID() : QUuid(),sendingNode && sendingNode->getType()==NodeType::AvatarMixer);
+#endif
         int bytesRead = avatar->parseDataFromBuffer(byteArray);
         if (bytesRead <= 0 || bytesRead > byteArray.size()) {
             qCWarning(avatars) << "Discarding invalid avatar record length" << bytesRead

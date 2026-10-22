@@ -410,13 +410,15 @@ class FixtureHandler(SimpleHTTPRequestHandler):
         except ValueError:
             self.send_error(400)
             return
-        maximum = 32768 if request_path == "/e2e-client-command.json" else 4096
+        maximum = 131072 if request_path == "/e2e-client-command.json" else 4096
         if not 0 < length <= maximum:
             self.send_error(400)
             return
         try:
             command = json.loads(self.rfile.read(length))
-            if length > 4096 and (not isinstance(command, dict) or command.get("action") != "normal-ui-input"):
+            if length > 4096 and (not isinstance(command, dict) or not (
+                    command.get("action") == "normal-ui-input" and length <= 32768
+                    or command.get("action") == "feature-ios-create-files" and length <= 131072)):
                 raise ValueError("client command exceeds its bounded transport")
             command = (self.server.fixture_state.set_command(command)
                        if request_path == "/sound-command.json"
@@ -479,7 +481,7 @@ class FixtureState:
                      and re.fullmatch(r"ios-[0-9a-f]{32}", command["commandId"]) is not None
                      and command.get("operation") in {"prepare", "restore"})
         elif action in {"native-crash", "native-ui-snapshot", "native-geometry-snapshot", "native-probe-snapshot", "feature-native-observe",
-                        "feature-recorded-audio-observe", "feature-recorded-audio-release", "feature-recorded-audio-files", "feature-script-observe", "feature-world-render-observe"}:
+                        "feature-recorded-audio-observe", "feature-recorded-audio-release", "feature-recorded-audio-files", "feature-script-observe", "feature-script-roots-observe", "feature-avatar-receive-observe", "feature-world-render-observe"}:
             valid = (set(command) == {"schemaVersion", "commandId", "action"}
                      and type(command["schemaVersion"]) is int
                      and re.fullmatch(r"ios-[0-9a-f]{32}", command["commandId"]) is not None)
@@ -572,6 +574,30 @@ class FixtureState:
             from ios.adapters.scene_inventory import command as scene_inventory_command
             try:scene_inventory_command(command)
             except (ValueError,RuntimeError):raise ValueError("invalid iOS scene inventory request") from None
+            valid=True
+        elif action == "feature-ios-avatar-renderers":
+            sys.path.insert(0,str(ROOT.parent))
+            from ios.adapters.avatar_renderers import command as validate_ios_source
+            try:validate_ios_source(command)
+            except (ValueError,RuntimeError):raise ValueError("invalid iOS avatar renderers request") from None
+            valid=True
+        elif action == "feature-ios-create-state":
+            sys.path.insert(0,str(ROOT.parent))
+            from ios.adapters.create_state import command as validate_ios_source
+            try:validate_ios_source(command)
+            except (ValueError,RuntimeError):raise ValueError("invalid iOS create state request") from None
+            valid=True
+        elif action == "feature-ios-create-files":
+            sys.path.insert(0,str(ROOT.parent))
+            from ios.adapters.create_files import command as validate_ios_source
+            try:validate_ios_source(command)
+            except (ValueError,RuntimeError):raise ValueError("invalid iOS create files request") from None
+            valid=True
+        elif action == "feature-ios-avatar-state":
+            sys.path.insert(0,str(ROOT.parent))
+            from ios.adapters.avatar_state import command as avatar_state_command
+            try:avatar_state_command(command)
+            except (ValueError,RuntimeError):raise ValueError("invalid iOS avatar state request") from None
             valid=True
         elif action == "feature-ios-navigation-state":
             sys.path.insert(0,str(ROOT.parent))
