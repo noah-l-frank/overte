@@ -112,6 +112,9 @@ SnapshotCapture Snapshot::beginCapture(const QString& requestId) {
         return {};
     }
     _captures.insert(requestId, capture);
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    _featureCaptureOriginals.begin(capture);
+#endif
     return capture;
 }
 
@@ -126,6 +129,9 @@ void Snapshot::captureStatus(const SnapshotCapture& capture, const QString& phas
     if (terminal) { capture->announced.store(true); }
     if (!capture->id.isEmpty()) {
         if (terminal) { QMutexLocker lock(&_captureMutex); if (_captures.value(capture->id) == capture) { _captures.remove(capture->id); } }
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        _featureCaptureOriginals.emitted(capture, phase, path, error);
+#endif
         emit captureStatusChanged(capture->id, phase, path, error);
     }
 }
@@ -145,9 +151,29 @@ void Snapshot::cancelCapture(const QString& requestId) {
             _capture360.reset();
             for (auto& image : _imageArray) { image = {}; }
         }
-        if (!capture->announced.exchange(true)) { emit captureStatusChanged(capture->id, "cancelled", {}, {}); }
+        if (!capture->announced.exchange(true)) {
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+            _featureCaptureOriginals.emitted(capture, "cancelled", {}, {});
+#endif
+            emit captureStatusChanged(capture->id, "cancelled", {}, {});
+        }
     }, Qt::QueuedConnection);
 }
+
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+QVariantMap Snapshot::featureSnapshotCaptureOriginals(const QVariantMap& command) {
+    if (!QCoreApplication::instance() || !QCoreApplication::arguments().contains("--testScript")
+            || QThread::currentThread()!=thread() || thread()!=QCoreApplication::instance()->thread()
+            || _snapshotTimer.thread()!=thread()) {return {};}
+    int active;
+    {QMutexLocker lock(&_captureMutex);active=_captures.size();}
+    qulonglong imageBytes=0;
+    for(const auto& image:_imageArray) {imageBytes+=qulonglong(image.sizeInBytes());}
+    return _featureCaptureOriginals.snapshot(command,{{"nativeReviewEnabled",nativeReviewEnabled()},
+        {"activeRequests",active},{"taking360",_taking360Snapshot},{"waitingOnSnapshot",_waitingOnSnapshot},
+        {"projectionTimerActive",_snapshotTimer.isActive()},{"projectionImagesBytes",imageBytes}});
+}
+#endif
 
 SnapshotMetaData* Snapshot::parseSnapshotData(QString snapshotPath) {
     if (!QFile(snapshotPath).exists()) {
