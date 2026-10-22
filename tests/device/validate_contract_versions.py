@@ -12,6 +12,7 @@ REQUIRED = {
     "pico-create-management": 1,
     "pico-create-json-files": 1,
     "pico-create-file-controls": 1,
+    "pico-create-callbacks": 1,
     "pico-graphics-feature-binding": 1,
     "graphics-journey-feature": 1,
     "graphics-journey-lifetime": 1,

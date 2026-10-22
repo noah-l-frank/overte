@@ -83,8 +83,10 @@ The next executable source work is:
 - The [explicit Create JSON storage role](CREATE_FILES_SOURCE.md) now stages and
   independently reads original input/output bytes, and the
   [actual Import/Save control source](CREATE_FILE_UI.md) now binds normal input
-  and original weak Qt roots. Compose both with the full feature, actual
-  domain effects and native Script/ModalDialog callback sources. Script
+  and original weak Qt roots. The separate
+  [original native Script callback source](CREATE_CALLBACK_SOURCE.md) observes
+  actual connections and in-flight dispatches. Compose these with the full
+  feature, actual domain effects and native ModalDialog delivery sources. Script
   file roots and picker identities must remain distinct. Observe cancel and
   accept through their original retained callbacks and a quiet absence window.
 - Compose normal Domain/New Model/Properties input with actual selected UUID,

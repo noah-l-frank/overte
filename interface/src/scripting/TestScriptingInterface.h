@@ -176,6 +176,7 @@ public slots:
     Q_INVOKABLE QVariantMap featureScriptFiles(const QVariantMap& command);
 #if defined(ANDROID_APP_PICO_INTERFACE)
     QVariantMap featureCreateFiles(const QVariantMap& command);
+    Q_INVOKABLE QVariantMap featureCreateCallbacks(const QString& requestId);
     Q_INVOKABLE QVariantMap featureLocationBookmarks(const QVariantMap& command);
     void featurePlacesRecordsChanged();
     Q_INVOKABLE QVariantMap featureNavigationPanels(const QVariantMap& command);
@@ -266,6 +267,8 @@ private:
     QSet<QString> _featureWorldReceiptsRequests;
     quint64 _featureCreateFilesSequence {0};
     QHash<QString, QVariantMap> _featureCreateFilesCommands, _featureCreateFilesResults;
+    quint64 _featureCreateCallbacksSequence {0};
+    QHash<QString,QVariantMap> _featureCreateCallbacksResults;
 #endif
     quint64 _featureGraphicsSubjectSequence {0};
     QSet<QString> _featureGraphicsSubjectRequests;

@@ -493,6 +493,14 @@ def create_adapter(args, base_class):
             return CreateFileUI(PicoCreateFileIO(ui.io), intent, directory, run, ticket, role, before,
                 monotonic=ui.monotonic, sleep=ui.sleep)
 
+        @_private
+        def _create_callback_observer(self, target):
+            from adapters.pico4.create_callbacks import NativeCreateCallbacks, FILE as CREATE_CALLBACK_FILE
+            native=self._native_feature_observer(target)
+            return NativeCreateCallbacks(native.send,
+                lambda:self.adb.read_debug_app_file(target,'org.overte.pico','files/overte-e2e/'+CREATE_CALLBACK_FILE,attempts=1),
+                native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep)
+
         def _chat_controls(self, target, intent, run):
             from adapters.token_chat_ui import TokenChatUI
             from adapters.pico4.normal_chat import PicoChatIO

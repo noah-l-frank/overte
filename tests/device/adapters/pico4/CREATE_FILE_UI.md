@@ -68,7 +68,8 @@ test, and no actual Clipboard export, domain entity or device is claimed.
 
 Pico's catalog adds `create-file-ui` (pure Python), `create-file-native-ui`
 (isolated Qt) and `create-original-files` (isolated Qt Core). The local risk
-inventory now has 55 cases; all three map to `tablet-and-create-ui`. These are
+inventory has 56 cases after the separate callback-source continuation; all
+three picker/storage cases map to `tablet-and-create-ui`. These are
 test cases, not completed feature areas. Select them explicitly rather than
 running unrelated full catalogs. The complete application, OpenXR rendering and
 physical Pico qualification remain unverified.

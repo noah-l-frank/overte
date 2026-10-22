@@ -1250,12 +1250,23 @@ ScriptSignalV8Proxy::ScriptSignalV8Proxy(ScriptEngineV8* engine, QObject* object
     _engine->_signalProxySetLock.lockForWrite();
     _engine->_signalProxySet.insert(this);
     _engine->_signalProxySetLock.unlock();
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    if (object && object->inherits("WindowScriptingInterface")) {
+        const auto targetClass=QString::fromLatin1(object->metaObject()->className()),signature=QString::fromLatin1(meta.methodSignature());
+        if (overte::e2e::CreateCallbackObservation::supported(targetClass,signature)) {
+            if (const auto manager=_engine->manager()) { _featureCreateCallbackProxy=manager->featureCreateCallbacks()->born(targetClass,signature); }
+        }
+    }
+#endif
 }
 
 ScriptSignalV8Proxy::~ScriptSignalV8Proxy() {
     if (!_cleanup) {
         disconnectAllScriptSignalProxies();
     }
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    if (const auto manager=_engine->manager()) { manager->featureCreateCallbacks()->retired(_featureCreateCallbackProxy); }
+#endif
 
     auto isolate = _engine->getIsolate();
     Q_ASSERT(isolate->IsCurrent());
@@ -1311,6 +1322,12 @@ int ScriptSignalV8Proxy::qt_metacall(QMetaObject::Call call, int id, void** argu
     Q_ASSERT(isolate->IsCurrent());
 
     QList<Connection> connections;
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    // Begins before the original list copy. Self-disconnection during a live
+    // callback leaves this lease active until every dispatcher return path.
+    const auto featureCreateDispatch=_engine->manager()
+        ? _engine->manager()->featureCreateCallbacks()->dispatch(_featureCreateCallbackProxy) : std::shared_ptr<void>();
+#endif
     withReadLock([&]{
         connections = _connections;
     });
@@ -1531,6 +1548,14 @@ void ScriptSignalV8Proxy::connect(ScriptValue arg0, ScriptValue arg1) {
     }
 
     withWriteLock([&]{
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        if (const auto manager=_engine->manager()) {
+            // Actual V8 compiled callback identity, never its name or an
+            // adapter-supplied resource URL. Publish before real admission.
+            newConnection.featureCreateCallbackId=manager->featureCreateCallbacks()->connected(
+                _featureCreateCallbackProxy,callback.get().As<v8::Function>()->ScriptId());
+        }
+#endif
         _connections.append(newConnection);
     });
 
@@ -1590,7 +1615,15 @@ void ScriptSignalV8Proxy::disconnect(ScriptValue arg0, ScriptValue arg1) {
 
         // remove it from our internal list of connections
         withWriteLock([&]{
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+            const auto featureCreateCallback=lookup->featureCreateCallbackId;
+#endif
             _connections.erase(lookup);
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+            if (const auto manager=_engine->manager()) {
+                manager->featureCreateCallbacks()->disconnected(_featureCreateCallbackProxy,featureCreateCallback);
+            }
+#endif
         });
     }
 

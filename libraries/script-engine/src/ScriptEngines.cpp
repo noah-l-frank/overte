@@ -486,6 +486,44 @@ QStringList ScriptEngines::getRunningScripts() {
 }
 
 #if defined(OVERTE_E2E_FEATURE_TESTS)
+QVariantMap ScriptEngines::featureCreateCallbackObservation() {
+    if (!QCoreApplication::arguments().contains("--testScript")) { return {}; }
+    QSet<ScriptManagerPointer> known;quint64 revision {0};
+    {
+        QMutexLocker lock(&_allScriptsMutex);
+        if (_allKnownScriptManagers.size()>128 || _featureKnownScriptRevision>9007199254740991ULL) { return {}; }
+        known=_allKnownScriptManagers;revision=_featureKnownScriptRevision;
+    }
+    QVariantList managers;
+    for (const auto& manager:known) {
+        if (!manager || !manager->featureCreateCallbacks()) { return {}; }
+        const auto membership=manager->featureLoadMembership(),callbacks=manager->featureCreateCallbacks()->snapshot();
+        const auto compiled=manager->featureCompiledSources();
+        if (membership.isEmpty() || callbacks.isEmpty() || compiled.isEmpty()) { return {}; }
+        managers.append(QVariantMap{{"membership",membership},{"callbacks",callbacks},{"compiled",compiled}});
+    }
+    for (const auto& manager:known) {
+        const auto current=manager->featureCreateCallbacks()->snapshot();
+        const auto membership=manager->featureLoadMembership();const auto identity=membership.value("instance");
+        bool unchanged=false;
+        for (const auto& value:managers) {
+            const auto row=value.toMap();
+            if (row.value("membership").toMap().value("instance")==identity) {
+                unchanged=row.value("callbacks").toMap()==current && row.value("membership").toMap()==membership;break;
+            }
+        }
+        if (!unchanged) { return {}; }
+    }
+    // A concurrent new manager makes this acquisition unavailable rather than
+    // losing a pending/stopped manager and its callback resources.
+    {
+        QMutexLocker lock(&_allScriptsMutex);
+        if (_featureKnownScriptRevision!=revision) { return {}; }
+    }
+    return {{"createCallbackSourceVersion",1},{"complete",true},{"membershipRevision",static_cast<qulonglong>(revision)},
+        {"managers",managers}};
+}
+
 QVariantMap ScriptEngines::featureScriptObservation() {
     if (!QCoreApplication::arguments().contains("--testScript")) { return {}; }
     QSet<ScriptManagerPointer> known;

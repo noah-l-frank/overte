@@ -53,6 +53,7 @@
 #include "EntityScriptConsent.h"
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #include "RequiredModuleObservation.h"
+#include "CreateCallbackObservation.h"
 #endif
 
 static const QString NO_SCRIPT("");
@@ -1050,6 +1051,7 @@ public:
         _e2eRequiredModules.compiled(scriptId,resourceName,actualCode);
     }
     QVariantMap featureLoadMembership() const { return _e2eRequiredModules.loadMembership(); }
+    std::shared_ptr<overte::e2e::CreateCallbackObservation> featureCreateCallbacks() const { return _e2eCreateCallbacks; }
     static QVariantMap featureLoadHistory();
     static QVariantMap featureNativeCallContext();
     class FeatureNativeCallScope {
@@ -1700,6 +1702,8 @@ protected:
     overte::e2e::RequiredModuleObservation _e2eRequiredModules;
     quint64 _featureNativeCallSequence {0}; // Actual manager thread only.
     static thread_local QVariantMap _featureNativeCallContext;
+    std::shared_ptr<overte::e2e::CreateCallbackObservation> _e2eCreateCallbacks {
+        std::make_shared<overte::e2e::CreateCallbackObservation>()};
 #endif
     Type _type;
     ScriptEnginePointer _engine;
