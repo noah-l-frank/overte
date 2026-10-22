@@ -1221,7 +1221,7 @@ class RulesetManifestContracts(unittest.TestCase):
         expected = {
             "Android target branch topology": "Enforce Android parent sync path",
             "Apple target branch topology": "Enforce apple-main sync path",
-            "Permanent branch governance": "branch-policy",
+            "Permanent branch governance": "source-policy",
             "Selected CodeQL security results on main": "codeql-security-results",
         }
         for name, context in expected.items():
@@ -1231,17 +1231,9 @@ class RulesetManifestContracts(unittest.TestCase):
             self.assertTrue(parameters["strict_required_status_checks_policy"])
             self.assertFalse(parameters["do_not_enforce_on_create"])
             expected_checks = [{"context": context, "integration_id": 15368}]
-            if name == "Apple target branch topology":
-                expected_checks.append(
-                    {"context": "ios-device-build", "integration_id": 15368}
-                )
             if name == "Permanent branch governance":
-                expected_checks.insert(0, {"context": "dependency-release-policy", "integration_id": 15368})
                 expected_checks.append(
-                    {"context": "sync-test-reuse", "integration_id": 15368}
-                )
-                expected_checks.append(
-                    {"context": "repository-checks", "integration_id": 15368}
+                    {"context": "required-ci", "integration_id": 15368}
                 )
             self.assertEqual(parameters["required_status_checks"], expected_checks)
             if name == "Selected CodeQL security results on main":

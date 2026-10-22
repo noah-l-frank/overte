@@ -38,8 +38,8 @@ LABELS = {"policy": "Authenticate candidate policy", "host": "Host contracts",
 STEPS = {
     "plan": ("Authenticate immutable PR inputs", "Select owners from complete immutable trees"),
     "policy": ("Verify exact policy and source identities",),
-    "host": ("Execute selected host contracts without credentials",),
-    "npm": ("Execute the selected package owner without credentials",),
+    "host": ("Execute selected host contracts without credentials", "Publish authenticated host task results"),
+    "npm": ("Execute the selected package owner without credentials", "Publish authenticated package task results"),
     "native": ("Recheck exact candidate selection", "Configure and select affected targets",
                "Build and run selected native tests"),
     "codeql": ("Initialize the pinned CodeQL extractor", "Require the reviewed extractor version",
@@ -64,7 +64,7 @@ SOURCE_PREFIXES = (".github/workflows/", ".github/codeql/", "tools/repository-ch
     "tools/test-evidence/", "tools/branch-policy/", "tools/dependency-releases/",
     "tools/native-tests/", "tools/workflow-security/", "tools/ios-build-qualification/")
 SOURCE_FILES = frozenset((".github/pr-ci-suites.json", ".github/pr-ci-dependencies.json",
-    ".github/pr-ci-platforms.json",
+    ".github/pr-ci-platforms.json", ".github/pr-ci-platform-inputs.json",
     ".github/branch-policy.json", ".github/dependency-releases.json",
     ".github/native-tests.json", ".github/actionlint.yaml"))
 
@@ -390,6 +390,8 @@ def read_artifact(api, artifact, *, expected_name, run_id, run_attempt, head_sha
     prefix = str(run_id) + "-" + str(run_attempt)
     if expected_name == "pr-ci-" + prefix:
         member = "result.json"
+    elif re.fullmatch(r"pr-ci-tasks-" + re.escape(prefix) + r"-(?:host|npm-[0-9a-f]{64})", expected_name):
+        member = "tasks.json"
     else:
         require(expected_name in {"codeql-upload-" + prefix + "-" + language
                 for language in ("javascript-typescript", "python")}, "unsupported native artifact name")

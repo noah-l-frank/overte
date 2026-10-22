@@ -18,21 +18,19 @@ Required status checks are strict and bound to GitHub Actions integration ID
 `15368`. A check with the same display name from another integration does not
 satisfy the rule. Linux and Windows work targets `main`; dedicated desktop
 branch protection and synchronization are retired. Permanent branch governance
-requires `sync-test-reuse`; it is an always-terminal trusted gate, so path
-filters cannot leave a required status pending. It reports ordinary pull
-requests without delegating their existing checks and authorizes a sync fast
-path only after exact evidence validation.
+requires `source-policy` and `required-ci` on all seven targets. The protected
+source policy authenticates the controller and workflow inventory; the final
+gate verifies the exact candidate's selected execution owners. Missing, failed
+or unexpectedly skipped required work cannot satisfy it. Apple and Android
+child rules retain their applicable branch-topology context. The former
+standalone `repository-checks`, `sync-test-reuse` and `ios-device-build` contexts
+are not part of the current desired rules.
 
-The desired manifest also requires `repository-checks`. Its always-running PR
-workflow aggregates the required documentation, project, workflow-security, and
-selected native C++ jobs; unknown non-documentation paths receive full project validation. Only
-same-repository direct-parent or correctly scoped reconciliation shapes delegate
-project validation to the independently required `sync-test-reuse` gate. Both
-checks must remain required. A skipped or missing selected job fails aggregation. Native checks have their own
-change selection and cannot be replaced by host-only parent qualification. Follow
-the [native activation sequence](../../tools/native-tests/README.md#dependency-preparation-and-activation)
-before adding a target to trusted `native_required_branches` (initially `main`).
-Other targets retain their existing required checks until their native lane is qualified.
+The [selective PR controller](../../docs/PR_CI.md) owns native selection for all
+seven targets. Its native worker independently recomputes that same plan;
+historical `native_required_branches` settings apply only to legacy consumers.
+Verified parent command results can cover identical host/npm work, while npm
+security queries remain fresh. Compiler caches do not replace test evidence.
 
 This is a deployment payload, not evidence that GitHub already enforces the new
 check. Integrate and propagate the workflow and trusted checker first, seed the
