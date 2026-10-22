@@ -107,6 +107,25 @@ class ProductOwnershipTests(unittest.TestCase):
             P.execute(ROOT, context, plan, 'android', [], recompute=lambda *_: plan)
             preflight.assert_not_called(); native.assert_not_called()
 
+    def test_groovy_fixture_requires_its_verified_small_classpath_without_native_execution(self):
+        context = {'target': 'android-vr-pico', 'original_merge': '1' * 40, 'tree': '2' * 40}
+        plan = {'android_required': True, 'android_native_products': [], 'android_groovy_contracts': True}
+        arguments = [['python', 'android/vr/pico/native-ci/inputs_test.py']]
+        with tempfile.TemporaryDirectory() as scratch:
+            runtime = Path(scratch)
+            with patch.object(P, 'authenticate', return_value=ROOT), patch.object(P, 'commands', return_value=arguments), \
+                 patch.object(P.R, 'run', return_value=0) as host, patch.object(N, 'execute') as native, \
+                 patch.object(N, 'groovy_classpath', return_value=str(runtime / 'groovy.jar')):
+                P.execute(ROOT, context, plan, 'android', [runtime], recompute=lambda *_: plan,
+                          android_groovy_runtime=runtime)
+                self.assertEqual(host.call_args.args[1][:2], ['/usr/bin/env',
+                                 'PICO_TEST_GROOVY_CLASSPATH=' + str(runtime / 'groovy.jar')])
+                native.assert_not_called()
+                host.reset_mock()
+                with self.assertRaisesRegex(C.ContextError, 'require their prepared runtime'):
+                    P.execute(ROOT, context, plan, 'android', [], recompute=lambda *_: plan)
+                host.assert_not_called()
+
     def test_platforms_cannot_execute_on_another_target(self):
         for target, lane in (("main", "android"), ("apple-ios", "android"), ("android-phone", "ios")):
             with self.subTest(target=target), self.assertRaises(C.ContextError):

@@ -103,6 +103,21 @@ def _read_json(tree, path, read_blob):
         raise PlanError("cannot read trusted policy: " + path) from error
 
 
+def _android_groovy_required(paths, regular, target, trusted_tree, read_blob):
+    if target != 'android-vr-pico' or not paths:
+        return False
+    value = _read_json(trusted_tree, '.github/pr-ci-platform-inputs.json', read_blob)
+    if type(value) is not dict or value.get('schema') != 2 or type(value.get('infrastructure')) is not list:
+        raise PlanError('invalid protected Android infrastructure closures')
+    matches = [item for item in value['infrastructure'] if type(item) is dict
+               and item.get('name') == 'pico-native-ci-inputs']
+    if (len(matches) != 1 or matches[0].get('targets') != ['android-vr-pico']
+            or type(matches[0].get('inputs')) is not list
+            or not all(type(path) is str for path in matches[0]['inputs'])):
+        raise PlanError('missing owning Pico Groovy input closure')
+    return not regular or bool(set(paths) & set(matches[0]['inputs']))
+
+
 def _blob(entry, read_blob):
     if not entry or entry["mode"] != "100644" or entry["type"] != "blob":
         raise PlanError("ordinary immutable blob required")
@@ -581,6 +596,7 @@ def plan(base_tree, candidate_tree, trusted_tree, *, read_blob, target="main"):
                         "android-phone": "phone", "android-vr-pico": "pico"}[target]]
                       if _ANDROID_NATIVE.classify(paths, target=target)["native_qualification_required"] else [])
     android = android or bool(android_compile) or bool(android_native)
+    android_groovy = android and _android_groovy_required(paths, regular, target, trusted_tree, read_blob)
     ios_build = ios and (native["mode"] != "skip" or any(
         (path.startswith("ios/") and not path.startswith(("ios/tests/", "ios/release-check/"))
          and not path.endswith(".md"))
@@ -670,6 +686,7 @@ def plan(base_tree, candidate_tree, trusted_tree, *, read_blob, target="main"):
             "native": native, "codeql_languages": security["languages"],
             "codeql_reasons": security["reasons"], "browser_required": browser,
             "android_required": android, "android_compile_products": android_compile,
+            "android_groovy_contracts": android_groovy,
             "android_native_products": android_native, "ios_required": ios, "ios_build_required": ios_build,
             "tasks": list(tasks.values()),
             "setup": sorted({item for task in tasks.values() for item in task["setup"]}),

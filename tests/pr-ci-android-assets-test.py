@@ -125,9 +125,10 @@ class AssetTests(unittest.TestCase):
         opener = lambda request, **_kwargs: Response(bodies[request.full_url])
         result = A.prepare({'status': 'qualified', 'assets': assets}, destination, cache, opener=opener)
         self.assertFalse(result['build_qualified'])
-        for name in A.KINDS - {'image'}:
+        for name in A.NATIVE_KINDS - {'image'}:
             self.assertEqual((destination / name / 'sealed/data').read_bytes(), b'fixture transport data')
             self.assertEqual((destination / name / 'sealed').stat().st_mode & 0o777, 0o555)
+        self.assertFalse((destination / 'groovy').exists())
         with self.assertRaisesRegex(ValueError, 'new and canonical'):
             A.prepare({'status': 'qualified', 'assets': assets}, destination, cache, opener=opener)
         self.assertEqual(list(self.root.glob('.android-runtime-*')), [])

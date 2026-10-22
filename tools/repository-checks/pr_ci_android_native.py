@@ -63,7 +63,7 @@ def prerequisites(candidate, plan, target, *, revision=None):
     """Reject unavailable production infrastructure before any hosted setup."""
     selected = products(plan, target)
     if not selected:
-        return None
+        return A.policy() if plan.get('android_groovy_contracts') else None
     value = A.policy()
     check_intent(candidate, value['products'][selected[0]]['dependency_intent'], revision=revision)
     return value
@@ -145,6 +145,32 @@ def prepare(destination, cache):
     return result
 
 
+def prepare_groovy(destination, cache):
+    """Prepare the small exact host fixture runtime, without native payloads."""
+    payload = A.policy()['assets']['groovy']
+    cache = Path(cache)
+    cache.mkdir(parents=True, exist_ok=True)
+    B.R._private_path(cache.resolve(strict=True), 'Android public asset cache')
+    archive = A.fetch(payload['archive'], cache)
+    ledger = A.fetch(payload['inventory'], cache)
+    R.extract(archive, destination, ledger, payload['inventory']['sha256'],
+              payload['archive']['sha256'], payload['archive']['bytes'])
+    inventory = Path(destination).with_name(Path(destination).name + '-inventory.json')
+    C.require(not inventory.exists() and not inventory.is_symlink(), 'Groovy inventory destination already exists')
+    shutil.copyfile(ledger, inventory)
+    return {'root': str(destination), 'scope': 'selected-pico-host-groovy-contracts', 'build_qualified': False}
+
+
+def groovy_classpath(root):
+    root = Path(root).resolve(strict=True)
+    identity = A.policy()['assets']['groovy']['inventory']['sha256']
+    value = R.verify(root, root.with_name(root.name + '-inventory.json'), identity)
+    jars = [root / name for name, entry in value['entries'].items()
+            if name.endswith('.jar') and entry['type'] == 'file']
+    C.require(0 < len(jars) <= 32 and all(':' not in str(path) for path in jars), 'Invalid prepared Groovy classpath')
+    return ':'.join(str(path) for path in sorted(jars))
+
+
 def execute(candidate, context, plan, prepared, *, authenticate):
     selected = products(plan, context['target'])
     C.require(len(selected) == 1, 'Unselected Android native execution')
@@ -203,8 +229,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--destination', type=Path, required=True)
     parser.add_argument('--cache', type=Path, required=True)
+    parser.add_argument('--groovy-only', action='store_true')
     args = parser.parse_args()
-    print(json.dumps(prepare(args.destination, args.cache), sort_keys=True))
+    print(json.dumps((prepare_groovy if args.groovy_only else prepare)(args.destination, args.cache), sort_keys=True))
 
 
 if __name__ == '__main__':
