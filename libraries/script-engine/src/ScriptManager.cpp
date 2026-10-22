@@ -1135,6 +1135,7 @@ void ScriptManager::run() {
         _e2eRequiredModules.submitted(_scriptContents);
 #if defined(Q_OS_IOS)
         _featureCreateSources.submitted(_fileNameString,_scriptContents);
+        _featureAvatarScript->submitted(_fileNameString,_scriptContents);
 #endif
 #endif
         _returnValue = _engine->evaluate(_scriptContents, _fileNameString);
@@ -1468,6 +1469,9 @@ void ScriptManager::timerFired(int handle) {
     auto& functionPair = _timerFunctionMap[handle];
     auto& timer = functionPair.first;
     auto data = functionPair.second;
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    const auto avatarTimer=_featureAvatarScript->fired(handle,timer.get());
+#endif
 
     if (!timer->isActive()) {
         // this timer is done, we can kill it
@@ -1481,6 +1485,10 @@ void ScriptManager::timerFired(int handle) {
 #endif
         PROFILE_RANGE(script, __FUNCTION__);
         auto preTimer = p_high_resolution_clock::now();
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+        _featureAvatarScript->callback(avatarTimer,true);
+        Finally avatarCallbackLeft([&] { _featureAvatarScript->callback(avatarTimer,false); });
+#endif
         callWithEnvironment(data.definingEntityIdentifier, data.definingSandboxURL, data.function, data.function, ScriptValueList(), data.consentRequest);
         auto postTimer = p_high_resolution_clock::now();
         auto elapsed = (postTimer - preTimer);
@@ -1493,6 +1501,22 @@ void ScriptManager::timerFired(int handle) {
     _totalTimeInTimerEvents_s += callTimer.elapsed() / 1000.0;
 #endif
 }
+
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+QStringList ScriptManager::featureAvatarTimerCallers() const {
+    if (!QCoreApplication::arguments().contains("--testScript") || !_engine || QThread::currentThread()!=thread()) { return {}; }
+    QStringList result;auto context=_engine->currentContext();ScriptContextPointer owner;int depth {0};
+    while (context && ++depth<=128) {
+        const auto function=context->functionContext();
+        if (function && function->functionType()==ScriptFunctionContext::ScriptFunction) {
+            const auto source=function->fileName();if (source.size()>4096 || result.size()>=32) { _featureAvatarScript->unavailable();return {}; }result.append(source);
+        }
+        owner=context->parentContext();context=owner.get();
+    }
+    if (depth>128) { _featureAvatarScript->unavailable();return {}; }
+    return result;
+}
+#endif
 
 int ScriptManager::setupTimerWithInterval(const ScriptValue& function, int intervalMS, bool isSingleShot) {
     int handle = _timerHandleCounter++;
@@ -1525,6 +1549,13 @@ int ScriptManager::setupTimerWithInterval(const ScriptValue& function, int inter
         newTimer->start(intervalMS);
     }
 
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    const auto avatarTimer=_featureAvatarScript->created(handle,featureAvatarTimerCallers(),newTimer.get());
+    if (!avatarTimer.isEmpty()) {
+        const auto observer=_featureAvatarScript;
+        QObject::connect(newTimer.get(),&QObject::destroyed,[observer,avatarTimer] { observer->destroyed(avatarTimer); });
+    }
+#endif
     return handle;
 }
 
@@ -1876,6 +1907,7 @@ ScriptValue ScriptManager::instantiateModule(const ScriptValue& module, const QS
         //_engine->scriptValueDebugDetails(module);
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
         _featureCreateSources.submitted(modulePath,sourceCode);
+        _featureAvatarScript->submitted(modulePath,sourceCode);
 #endif
         result = _engine->evaluateInClosure(closure, _engine->newProgram( sourceCode, modulePath ));
     }
@@ -2097,6 +2129,7 @@ void ScriptManager::include(const QStringList& includeFiles, const ScriptValue& 
                     auto operation = [&]() {
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
                         _featureCreateSources.submitted(url.toString(),contents);
+                        _featureAvatarScript->submitted(url.toString(),contents);
 #endif
                         _engine->evaluate(contents, url.toString());
                     };

@@ -9,6 +9,9 @@
 //
 
 #include "ScriptEngines.h"
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+#include <QMap>
+#endif
 
 #include <QtCore/QStandardPaths>
 #include <QtCore/QSharedPointer>
@@ -486,6 +489,34 @@ QStringList ScriptEngines::getRunningScripts() {
 }
 
 #if defined(OVERTE_E2E_FEATURE_TESTS)
+#if defined(Q_OS_IOS)
+QVariantMap ScriptEngines::featureAvatarScriptObservation() {
+    if (!QCoreApplication::arguments().contains("--testScript")) { return {}; }
+    QSet<ScriptManagerPointer> known;quint64 revision {0};
+    {
+        QMutexLocker lock(&_allScriptsMutex);
+        if (_allKnownScriptManagers.size()>128 || _featureKnownScriptRevision>9007199254740991ULL) { return {}; }
+        known=_allKnownScriptManagers;revision=_featureKnownScriptRevision;
+    }
+    QMap<QString,QVariant> workers;
+    for (const auto& manager:known) {
+        if (!manager) { return {}; }
+        const auto member=manager->featureLoadMembership(),code=manager->featureSourceIdentity();
+        const auto source=manager->featureAvatarScriptObservation();const auto id=member.value("instance").toString();
+        if (member.isEmpty() || code.isEmpty() || source.isEmpty() || id.isEmpty() || workers.contains(id)) { return {}; }
+        workers.insert(id,QVariantMap{{"membership",member},{"code",code},{"running",manager->isRunning()},
+            {"stopping",manager->isStopping()},{"finished",manager->isFinished()},{"done",manager->isDoneRunning()},{"avatar",source}});
+        if (member!=manager->featureLoadMembership() || code!=manager->featureSourceIdentity()) { return {}; }
+    }
+    {
+        QMutexLocker lock(&_allScriptsMutex);
+        if (_featureKnownScriptRevision!=revision) { return {}; }
+    }
+    QVariantList result;for (auto it=workers.cbegin();it!=workers.cend();++it) { result.append(it.value()); }
+    return {{"complete",true},{"revision",static_cast<qulonglong>(revision)},{"workers",result}};
+}
+#endif
+
 QVariantMap ScriptEngines::featureScriptWorkObservation(const QString& managerInstance, const QString& requestId) {
     if (!QCoreApplication::arguments().contains("--testScript")) { return {}; }
     QSet<ScriptManagerPointer> known;quint64 revision {0};

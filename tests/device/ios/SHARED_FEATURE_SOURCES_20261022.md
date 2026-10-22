@@ -112,3 +112,26 @@ JavaScript tests, five project suites, contract versions, probe syntax and
 whitespace checks passed. The host suite includes separately owned Places
 composite input and missing-name regression tests. Native code is uncompiled,
 devices are untested and no complete capability was enabled by this packet.
+
+## Avatar protocol code and timer packet
+
+AvatarScripts1 adds the actual complete all-known manager registry, original
+main/include/CommonJS code passed to evaluation, and PeopleConnection-specific
+QTimer creation, fire, callback and destruction histories. Native caller chains
+identify timer ownership; unrelated default script polls are not relabeled as
+People resources. The callback remains owned when a single-shot timer is
+destroyed before the callback returns. Separate ScriptWork, HTTP and QML sources
+remain mandatory for a full quiet claim. The normal Avatar control reader also
+retains its exact unprojected native UI packet for independent original archives.
+
+The shared OriginalFrameStore preserves the frozen Emote v1 private file and
+manifest contracts behind a compatible facade. Avatar uses a distinct namespace.
+Host checks independently construct old v1 bytes rather than using the new writer
+to manufacture a compatibility fixture. Partial original writes remain owned.
+
+The 91 Avatar/source/store host tests passed. Two additional Emote modules first
+reported missing sibling imports; with their required explicit self-test path,
+all 12 source/marker tests passed. The separate Emote facade regression also
+passed 32 tests. Five project suites, contract versions, probe syntax and
+whitespace checks passed. No native compilation or devices were exercised, and
+the complete Avatar and Emote capabilities remain disabled.

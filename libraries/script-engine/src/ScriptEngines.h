@@ -80,6 +80,9 @@ public:
     ScriptManagerPointer getScriptEngine(const QUrl& scriptHash);
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     QVariantMap featureScriptObservation();
+#if defined(Q_OS_IOS)
+    QVariantMap featureAvatarScriptObservation();
+#endif
     QVariantMap featureScriptWorkObservation(const QString& managerInstance, const QString& requestId);
 #endif
 

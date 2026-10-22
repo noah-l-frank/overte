@@ -58,6 +58,7 @@
 #include "ScriptTerminalObservation.h"
 #if defined(Q_OS_IOS)
 #include "CreateSourceObservation.h"
+#include "AvatarScriptObservation.h"
 #endif
 #endif
 
@@ -1051,6 +1052,7 @@ public:
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #if defined(Q_OS_IOS)
     QVariantMap featureCreateSources() const { return _featureCreateSources.snapshot(); }
+    QVariantMap featureAvatarScriptObservation() const { return _featureAvatarScript->snapshot(); }
 #endif
     QVariantMap featureRequiredModules() const { return _e2eRequiredModules.snapshot(); }
     QVariantMap featureSourceIdentity() const { return _e2eRequiredModules.sourceIdentity(); }
@@ -1721,6 +1723,8 @@ protected:
     overte::e2e::RequiredModuleObservation _e2eRequiredModules;
 #if defined(Q_OS_IOS)
     overte::e2e::CreateSourceObservation _featureCreateSources;
+    QStringList featureAvatarTimerCallers() const;
+    std::shared_ptr<overte::e2e::AvatarScriptObservation> _featureAvatarScript {std::make_shared<overte::e2e::AvatarScriptObservation>()};
 #endif
     void featureCallbackBoundary(bool timer, bool entering);
     const bool _featureWorkEnabled {QCoreApplication::arguments().contains("--testScript")};

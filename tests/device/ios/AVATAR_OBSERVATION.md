@@ -31,8 +31,9 @@ the latest packet is not necessarily identical to the current rendered pose.
 `AvatarSocialHttpObservation` writes original native XHR events for installed
 `request.js` calls from actual Pal, peopleConnection or request-service script
 contexts. The actual original defaultScripts manager membership and submitted
-code identity accompany the context URLs. These URL/membership records do not
-claim a CommonJS module-code digest. Original method/URL/request body bytes,
+code identity accompany the context URLs. These URL/membership records alone do not
+claim a CommonJS module-code digest; that identity comes from the separate
+AvatarScripts source below. Original method/URL/request body bytes,
 response header ID/body bytes/status, request.js responseText access during an
 actual callback, timer/callback/reply/XHR lifetime events are retained without
 recording OAuth tokens. Snapshot does not create requests or call JS handlers.
@@ -54,13 +55,40 @@ Actual completed contact rows and a positive native barrier are independently
 required by the relationship helper. Empty loaded data while PSF requests or
 refreshes remain pending cannot prove contact absence.
 
-The existing private probe and fixed-file HTTP/AFC transport provide all three
+`AvatarScriptObservation` records original Avatar/People code directly before
+real main/include/CommonJS evaluation, without reading a later disk copy. Its
+strict reader checks actual submitted UTF16 identities against a separately
+candidate-bound source manifest. The HTTP code join retains the original
+caller manager/load/top-code identity, actual sent/reply/read records and the
+matching module code submitted before that request. A later correct module
+copy cannot authenticate an earlier request from different code.
+
+The same passive source records actual PeopleConnection timer creation using
+the original native script context chain. Real QTimer fire, native callback
+entry/exit and QObject destruction preserve each original timer birth. A
+single-shot QTimer may be destroyed before its actual callback executes; the
+callback remains owned until its original leave event. An elapsed nominal
+interval or inactive QTimer is insufficient evidence of destruction. Existing
+default script polling timers are not silently labeled as PeopleConnection
+resources. Actual generic manager callback/evaluation barriers still require
+the independent ScriptWork source. The complete native all-known manager
+registry, including pending assignments, accompanies these locked originals.
+Retired managers cannot reappear after reader reconstruction.
+
+The shared `OriginalFrameStore` stores original private evidence larger than a
+64 KiB owner journal in immutable 0600 files and bounded indexes. Avatar uses
+its own file and schema namespace. The Emote v1 compatibility facade retains
+its existing bytes, names and manifest formats. Hashes and actual device/inode
+identity bind every archived file. Partial or uncertain writes remain owned;
+this evidence store does not replay inputs or manufacture fresh observations.
+
+The existing private probe and fixed-file HTTP/AFC transport provide these
 readers with original native process/PID/birth/nonce/sequence/clock binding.
 Missing native hooks save unavailable. No requested relationship, URL, scale,
 joints or other wanted result is accepted as an observation command field.
 
-Remaining full-area work includes original People protocol script timer/code
-ownership, root callback delivery identity, independently published actor data,
+Remaining full-area work includes joining the actual protocol timer/code
+ownership into the full owner, root callback delivery identity, independently published actor data,
 current private GPU images and the complete durable action/recovery/cleanup
 coordinator. QML-only drainage cannot replace native XHR destruction or protocol
 work drainage. The full owner must restore original avatar/scale and all
@@ -85,8 +113,10 @@ python3 -m unittest -q \
  self_tests.test_avatar_social_http \
  ios.self_tests.test_ios_avatar_social_http \
  ios.self_tests.test_ios_people_model \
- ios.self_tests.test_ios_avatar_transports
+ ios.self_tests.test_ios_avatar_transports \
+ ios.self_tests.test_ios_avatar_scripts \
+ ios.self_tests.test_ios_avatar_originals
 ```
 
-Current result: 76 tests pass. No native compiler, build, simulator, device or
+Current result: 91 tests pass. No native compiler, build, simulator, device or
 laboratory test was run.

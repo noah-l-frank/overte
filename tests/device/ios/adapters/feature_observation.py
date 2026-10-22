@@ -51,6 +51,7 @@ from ios.adapters.scene_inventory import IOSSceneInventory,FILE as SCENE_INVENTO
 from ios.adapters.avatar_social_http import IOSAvatarSocialHttp,FILE as AVATAR_SOCIAL_HTTP_FILE,LIMIT as AVATAR_SOCIAL_HTTP_LIMIT,command as avatar_social_http_command
 from ios.adapters.people_model import IOSPeopleModel,FILE as PEOPLE_MODEL_FILE,LIMIT as PEOPLE_MODEL_LIMIT,command as people_model_command
 from ios.adapters.create_work import IOSCreateWork,FILE as CREATE_WORK_FILE,LIMIT as CREATE_WORK_LIMIT,command as create_work_command
+from ios.adapters.avatar_scripts import IOSAvatarScripts,FILE as AVATAR_SCRIPTS_FILE,LIMIT as AVATAR_SCRIPTS_LIMIT,command as avatar_scripts_command
 from ios.adapters.avatar_state import IOSAvatarState,FILE as AVATAR_STATE_FILE,LIMIT as AVATAR_STATE_LIMIT,command as avatar_state_command
 from ios.adapters.avatar_renderers import IOSAvatarRenderers,FILE as AVATAR_RENDERERS_FILE,LIMIT as AVATAR_RENDERERS_LIMIT,command as avatar_renderers_command
 from ios.adapters.emote_world import IOSEmoteWorld,FILE as EMOTE_WORLD_FILE,LIMIT as EMOTE_WORLD_LIMIT,command as emote_world_command
@@ -147,6 +148,7 @@ class FeatureObservation:
         elif command.get('action')=='feature-ios-avatar-social-http':avatar_social_http_command(command)
         elif command.get('action')=='feature-ios-people-model':people_model_command(command)
         elif command.get('action')=='feature-ios-create-work':create_work_command(command)
+        elif command.get('action')=='feature-ios-avatar-scripts':avatar_scripts_command(command)
         elif command.get('action')=='feature-ios-avatar-state':avatar_state_command(command)
         elif command.get('action')=='feature-ios-avatar-renderers':avatar_renderers_command(command)
         elif command.get('action')=='feature-ios-emote-world':emote_world_command(command)
@@ -320,6 +322,13 @@ class FeatureObservation:
         if clock_source is None:clock_source=self.native_observer()
         def clock():return clock_source.read(clock_source.sequence)['capturedEpochMs']
         return IOSCreateWork(self.send,lambda:self.original(remote=remote,limit=CREATE_WORK_LIMIT),
+            clock,self.guard,self.process['pid'],monotonic=self.monotonic,sleep=self.sleep)
+
+    def avatar_scripts(self,clock_source=None):
+        self.guard();remote=self.remote.rsplit('/',1)[0]+'/'+AVATAR_SCRIPTS_FILE
+        if clock_source is None:clock_source=self.native_observer()
+        def clock():return clock_source.read(clock_source.sequence)['capturedEpochMs']
+        return IOSAvatarScripts(self.send,lambda:self.original(remote=remote,limit=AVATAR_SCRIPTS_LIMIT),
             clock,self.guard,self.process['pid'],monotonic=self.monotonic,sleep=self.sleep)
 
     def avatar_state(self,clock_source=None):

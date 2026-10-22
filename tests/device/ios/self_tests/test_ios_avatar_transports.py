@@ -9,10 +9,11 @@ import subprocess
 import unittest
 from unittest.mock import patch
 
-from ios.adapters import feature_observation, avatar_renderers, avatar_social_http, people_model
+from ios.adapters import feature_observation, avatar_renderers, avatar_social_http, people_model, avatar_scripts
 from ios.self_tests import test_ios_avatar_renderers as render_tests
 from ios.self_tests import test_ios_avatar_social_http as http_tests
 from ios.self_tests import test_ios_people_model as people_tests
+from ios.self_tests import test_ios_avatar_scripts as script_tests
 from ios.self_tests.test_ios_feature_observation import Native
 from ios.self_tests.test_ios_location_bookmarks import Boundary as Clocks
 from self_tests.test_native_feature_observation import Boundary as ClockBoundary, probe_source
@@ -75,9 +76,16 @@ class AvatarTransportTests(unittest.TestCase):
         original=people_tests.packet();result=self.transport(people_model,original,'people_model')
         self.assertEqual(original['source'],result['source'])
 
+    def test_avatar_scripts_retains_original_code_and_live_target_timer_through_native_clock_HTTP_AFC(self):
+        original=script_tests.packet();script_tests.created(original)
+        result=self.transport(avatar_scripts,original,'avatar_scripts')
+        self.assertEqual(original['source'],result['source'])
+        self.assertFalse(avatar_scripts.drained(result,{script_tests.MANAGER}))
+
     def test_probe_calls_once_preserves_originals_and_never_forges_unavailable_sources(self):
         for module,method,key in ((avatar_renderers,'featureIOSAvatarRenderers','source'),
-                (avatar_social_http,'featureIOSAvatarSocialHttp','events'),(people_model,'featureIOSPeopleModel','source')):
+                (avatar_social_http,'featureIOSAvatarSocialHttp','events'),(people_model,'featureIOSPeopleModel','source'),
+                (avatar_scripts,'featureIOSAvatarScripts','source')):
             program=r'''
 const Uuid={generate:()=>"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"};
 const objectKeysMatch=(v,k)=>JSON.stringify(Object.keys(v).sort())===JSON.stringify(k.sort());

@@ -28,7 +28,7 @@ namespace overte::e2e { class IOSLocationBookmarksObservation; }
 namespace overte::e2e { class IOSPlacesModelObservation; }
 namespace overte::e2e { class IOSPeopleModelObservation; }
 namespace overte::e2e { class IOSNavigationStateObservation; }
-namespace overte::e2e { class IOSAvatarRenderersObservation; }
+namespace overte::e2e { class IOSAvatarRenderersObservation; class IOSAvatarScriptsObservation; }
 namespace overte::e2e { class IOSEmoteWorldObservation; }
 namespace overte::e2e { class IOSCreateStateObservation; }
 namespace overte::e2e { class IOSAvatarStateObservation; }
@@ -185,6 +185,7 @@ public slots:
     Q_INVOKABLE QVariantMap featureIOSNavigationState(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureIOSEmoteWorld(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureIOSAvatarRenderers(const QVariantMap& command);
+    Q_INVOKABLE QVariantMap featureIOSAvatarScripts(const QVariantMap& command);
     Q_INVOKABLE void featureIOSCreateEvent(const QVariantMap& value);
     Q_INVOKABLE QVariantMap featureIOSCreateWork(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureIOSCreateState(const QVariantMap& command);
@@ -283,6 +284,7 @@ private:
     std::shared_ptr<overte::e2e::IOSNavigationStateObservation> _featureIOSNavigationState;
     std::shared_ptr<overte::e2e::IOSEmoteWorldObservation> _featureIOSEmoteWorld;
     std::shared_ptr<overte::e2e::IOSAvatarRenderersObservation> _featureIOSAvatarRenderers;
+    std::shared_ptr<overte::e2e::IOSAvatarScriptsObservation> _featureIOSAvatarScripts;
     std::shared_ptr<overte::e2e::IOSCreateStateObservation> _featureIOSCreateState;
     std::shared_ptr<overte::e2e::IOSAvatarStateObservation> _featureIOSAvatarState;
     std::shared_ptr<overte::e2e::NativeReadBracket> _featureIOSSceneInventory;

@@ -151,8 +151,10 @@ def same_reference(before, after, identifier):
 
 class IOSAvatarIO:
     def __init__(self, native):
-        need(callable(native.capture) and callable(native.deliver)); self.native = native; self.last_input = None
-    def capture(self): return project(self.native.capture())
+        need(callable(native.capture) and callable(native.deliver)); self.native = native; self.last_input = None; self.original_packet = None
+    def capture(self):
+        original = self.native.capture(); result = project(original)
+        self.original_packet = deepcopy(original); return result
     def command(self, identifier, action, *, reference, value=None):
         need(control_id(identifier) and identifier not in ('avatar.page', 'people.page')
              and action in ('activate', 'replace', 'set-value', 'select-index'))
