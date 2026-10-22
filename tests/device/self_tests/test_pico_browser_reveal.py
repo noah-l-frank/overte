@@ -34,6 +34,11 @@ class Reader(PicoTabletBrowserIO):
     def intent(self,row):self.intents.append(deepcopy(row))
     def reveal_control(self):return self.reveal(RUN,URL,OWNER,VIEW,'bridge',intent=self.intent)
 class PicoBrowserRevealTests(unittest.TestCase):
+    def test_original_full_dom_view_matches_exact_measurement_identity_and_foreign_document_refuses(self):
+        source=Reader();view=dict(VIEW,nativeFinished=True,httpErrorStatus=0,inlineLease=False,sourceUrl=VIEW['url'],sourceIdentity='tablet:original')
+        packet=source.measure(RUN,URL,OWNER,view,'bridge');self.assertEqual(VIEW,packet['source']['nativeView'])
+        with self.assertRaises(NativeUIError):source.measure(RUN,URL,OWNER,view|{'url':VIEW['url']+'?foreign'},'bridge')
+        self.assertEqual([],source.intents);self.assertFalse(any(row['operation']=='input' for row in source.calls))
     def test_normal_wheel_then_independent_actual_bounds_before_single_pointer(self):
         source=Reader();source.input_visible(RUN,URL,OWNER,VIEW,'bridge',intent=source.intent)
         self.assertEqual(['scroll-down','bridge'],[row['control'] for row in source.calls if row['operation']=='input'])

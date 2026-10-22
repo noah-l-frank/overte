@@ -697,7 +697,9 @@
         "tests/device/self_tests/test_native_script_object_lifetimes.py",
         "tests/device/contracts/lifecycle/test_script_object_lifetimes.py",
         "tests/device/adapters/pico4/browser_vm.py",
-        "tests/device/self_tests/test_pico_browser_vm.py"
+        "tests/device/self_tests/test_pico_browser_vm.py",
+        "tests/device/adapters/pico4/browser_quiet_journal.py",
+        "tests/device/adapters/pico4/TABLET_WEB_COMPOSITION.md"
       ],
       "declaredCheckpoints": 26,
       "inputVerbs": [
@@ -736,7 +738,7 @@
         "open"
       ],
       "missingOperationsOrEvidence": [
-        "Complete 26-step qualification of the private normal Script/app/Home/wheel/keyboard/document-transition coordinator, including actual joined input effects and lost-input cleanup; source composition is present but only baseline and counterexamples are host verified",
+        "Complete 26-stage Journey image/actor qualification: all26 private normal input/state stages, original HTTP/DOM/source measurement and normal browser/VM quiet cleanup are host verified with explicit synthetic target producers; original product execution remains unqualified",
         "Complete independent actor/state/stereo publication and inline/held-callback qualification across all shared steps; private baseline actor, once-only durable publication and post-CAS original clock fences are host verified",
         "Whole final Script/native/Java/renderer/capture quiet retirement and immutable archive: original compiled HTTP client, actual manager/engine/worker death and retained three-clock VM quiet are now joined to the private owner; complete phase/capture/actor originals and final capture absence remain outstanding"
       ],
@@ -751,7 +753,7 @@
         "Revoke leases and retire callback/grant authority",
         "Observe actual source destruction and closed quiet baseline"
       ],
-      "nextExecutableStep": "Execute all26 normal input/effect stages with independent actor/stereo sources; bound complete original image records, then join current capture absence, full phase histories and immutable archive before enabling private finalization or public capabilities.",
+      "nextExecutableStep": "Connect the full26 input/state lane to original primary/independent actor stereo acquisition and the common Journey verifier; then join current final capture absence, complete original phase histories and immutable archive before enabling finalization/public capabilities.",
       "nativeCompilation": "Selected native backend translation unit and original Pico pointer/provider bodies host-compiled; full application unverified",
       "deviceQualification": "untested"
     },

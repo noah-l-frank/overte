@@ -5,7 +5,7 @@ import re
 from urllib.parse import urlsplit
 from adapters.native_feature_observation import exact,integer,need
 from feature_journeys.contract import identifier
-from adapters.pico4.browser_source import PicoBrowserIO,identity,geometry_original,CONTROLS
+from adapters.pico4.browser_source import PicoBrowserIO,identity,geometry_original,CONTROLS,IDENTITY
 from adapters.normal_ui import NativeUIError
 
 HELD={'handle','creation','grant','page','url','token','revision','bodySha256','sourceSha256','payloadSha256','capturedEpochMs','origin','mainFrame','payloadBytes'}
@@ -42,7 +42,7 @@ class PicoTabletBrowserIO(PicoBrowserIO):
         need(control in CONTROLS);identity(view)
         packet=self.request(run,url,owner,'measure',control=control,
             **{key:view[key] for key in ('handle','creation','grant','page')})
-        need(packet['source']['nativeView']==view)
+        need(packet['source']['nativeView']=={key:view[key] for key in IDENTITY})
         return packet
 
     @staticmethod

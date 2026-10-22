@@ -124,6 +124,17 @@ class PicoTabletWebFeatureTests(unittest.TestCase):
         flow=self.flow()
         with flow.lock.held():
             owner=flow.owner();self.assertFalse(owner['reserved']);self.assertFalse(owner['inputs'][0]['complete'])
+
+    def test_rootless_vm_quiet_or_actor_originals_refuse_before_new_reservation(self):
+        from adapters.normal_feature_state import PrivateFeatureState
+        for index,name in enumerate(('pico-tablet-web-primary-vm.json.frame-000.json',
+                'pico-tablet-web-cleanup-quiet.json.frame-000.json','pico-tablet-web-actor.json')):
+            source=PhaseFixtureReader(self.client(),RUN,'tablet-web',epoch_ms=lambda:self.original.epoch,monotonic=lambda:self.original.host)
+            flow=self.binding.feature('orphan-'+str(index),source,self.artifacts,FOREIGN)
+            child=PrivateFeatureState(flow.store.path.with_name(name));child.write(dict(original='unresolved'),None)
+            before=len(self.original.commands)
+            with self.subTest(name=name),self.assertRaises((ValueError,RuntimeError)):flow.prepare()
+            self.assertEqual(before,len(self.original.commands));self.assertEqual(dict(original='unresolved'),child.read())
     def test_lost_original_publication_is_durable_and_not_resent_after_reconstruction(self):
         primary=self.flow();primary.prepare();self.lose_pub=True
         with self.assertRaises((ValueError,RuntimeError)):self.flow(actor=True).publish()

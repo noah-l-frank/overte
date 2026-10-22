@@ -4,7 +4,8 @@
     "pico-browser-vm": {"current": 1, "reads": [1]},
     "native-script-object-lifetimes": {"current": 1, "reads": [1]},
     "pico-tablet-web-binding": {"current": 1, "reads": [1]},
-    "pico-tablet-web-feature": {"current": 2, "reads": [1, 2]},
+    "pico-tablet-web-feature": {"current": 3, "reads": [1, 2, 3]},
+    "pico-browser-quiet-journal": {"current": 1, "reads": [1]},
     "pico-browser-quiet": {"current": 1, "reads": [1]},
 
     "normal-input-phase-fence": {"current": 1, "reads": [1]},

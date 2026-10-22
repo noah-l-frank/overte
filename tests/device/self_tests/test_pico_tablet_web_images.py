@@ -10,6 +10,7 @@ from unittest.mock import patch
 
 from adapters.normal_ui import NativeUIError
 from adapters.script_journey.history import pack,unpack
+from adapters.pico4.tablet_web_feature import VERSION
 from self_tests.test_pico_browser_stereo import Model,RUN,TICKET,OWNER,SCRIPT
 from self_tests import test_pico_tablet_web_feature as feature_seams
 
@@ -58,7 +59,7 @@ class PicoTabletWebImageTests(unittest.TestCase):
             restored=self.flow.role_state();self.assertEqual(self.state,restored)
             self.assertEqual(1,self.flow.role_store.read()[self.flow.version_field])
             self.flow.write(self.flow.role_store,'primary',restored)
-        self.assertEqual(2,self.flow.role_store.read()[self.flow.version_field])
+        self.assertEqual(VERSION,self.flow.role_store.read()[self.flow.version_field])
         changed=deepcopy(old);legacy['images'][0]['record']['binding']['sessionId']='foreign-session';changed['payload']=pack([legacy])
         self.flow.role_store.write(changed,self.flow.role_store.read())
         with self.flow.lock.held(),self.assertRaises((ValueError,RuntimeError)):self.flow.role_state()

@@ -1744,3 +1744,24 @@ packed DTOs overflow; those random DTOs are not accepted product evidence.
 Owning parent/VM/coverage groups pass3/139 in10.23s. Whole26-stage execution,
 actor/stereo/phase/final capture absence and immutable archive remain open;
 private finalize still refuses and complete source areas remain3/14.
+
+
+## Tablet Web all26 input/state stages and bounded original cleanup
+
+The [private v3 composition](TABLET_WEB_COMPOSITION.md) now runs all26 shared
+input/state stages in a host fixture reused from fixed Phone5527 with Pico
+closed protocols, independent source measurement and normal original cleanup.
+The longer lane exposed and corrected the exact DOM/measurement identity
+comparison; a foreign document still refuses. It also measured a58224-byte
+packed cleanup parent after three original frames. Full original quiet samples
+now use existing immutable chunks with a small exact parent reference, preserving
+all source/cadence/size caps and legacy original proofs. Final source age and
+phase/binding fences run after every host CAS before native retirement.
+
+Four flow cases, three quiet-journal cases and the existing original parent/
+stereo/VM regressions are owned by the existing selectors. Root3/139 groups
+pass27.08s (parent20.664s, VM6.354s, coverage0.066s). The additional rootless
+prepare and full DOM identity cases pass8 narrow cases0.067s. The input/state
+lane is explicitly separate from the missing complete Journey actor/image/
+archive execution; original product producers remain host seams. Finalize still
+refuses, complete source areas stay3/14, and no device/application claim is made.
