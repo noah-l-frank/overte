@@ -125,6 +125,17 @@ page, disabled/foreign/negative-z/clipped controls are checked. Context services
 Tablet boundary, source-root URL, MyAvatar calls and JS timers are declared host
 actors. No actual native Model is supplied by this UI harness.
 
+The follow-up also compiles the complete original `NavigationUi::observe`
+body and original control-ID/visibility/enabled/token functions with both E2E
+and Pico branches enabled. Its real Avatar DTO is checked for readiness,
+dialog text and a changed original token after page movement. Unrelated
+application services are explicit unavailable host seams. This exposed and
+corrected an earlier misplaced Avatar metadata branch and missing dedicated
+header include that isolated input-branch compilation had missed. The owning
+Qt5 check passed in 7.929 seconds; the same host test, reading only the fixed
+Root `d5ad48ed3f` native source including its Browser app branch, passed in
+7.689 seconds. Neither check compiles the complete Android application.
+
 A separate Qt5/Qt6 harness compiles the whole original Model/Avatar URL and
 callback bodies plus the complete getter/queue, real original storage lock and
 original live preference accessors. It checks worker-to-original-slot routing,

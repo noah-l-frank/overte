@@ -17,6 +17,7 @@
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #include "../../../../../../tests/device/native/ScriptFileUi.h"
 #include "../../../../../../tests/device/native/NormalEmoteControls.h"
+#include "../../../../../../tests/device/native/NormalAvatarPeopleControls.h"
 #include "../../../../../../tests/device/native/NormalLifecycleControls.h"
 #include "../../../../../../tests/device/native/AudioPageObservation.h"
 #include "../../../../../../tests/device/native/ViewMenuLifetimes.h"
@@ -291,9 +292,7 @@ QJsonObject NavigationUi::observe(QQuickItem* root, QQuickWindow* window, bool o
                 } else if (id.startsWith("avatar.") || id.startsWith("people.")) {
                     source=overte::e2e::avatarPeopleControlSource(item,id);
                     if (source.isEmpty()) {ambiguous=true;return;}
-                } else if (id.startsWith("avatar.") || id.startsWith("people.")) {
-            overte::e2e::appendAvatarPeopleControl(row,control.item,id);
-        } else if (id.startsWith("lifecycle.")) {
+                } else if (id.startsWith("lifecycle.")) {
                     source=overte::e2e::lifecycleControlSource(item,id);
                     if (source.isEmpty()) { ambiguous=true;return; }
                 } else if (id.startsWith("chat.")) {
@@ -392,6 +391,8 @@ QJsonObject NavigationUi::observe(QQuickItem* root, QQuickWindow* window, bool o
             for (auto item=original.begin();item!=original.end();++item) { row[item.key()]=item.value(); }
         } else if (id.startsWith("emote.")) {
             overte::e2e::appendEmoteControlObservation(row,control.item,id);
+        } else if (id.startsWith("avatar.") || id.startsWith("people.")) {
+            overte::e2e::appendAvatarPeopleControl(row,control.item,id);
         } else if (id.startsWith("lifecycle.")) {
             overte::e2e::appendLifecycleControlObservation(row,control.item,id);
         } else if (id.startsWith("chat.")) {
