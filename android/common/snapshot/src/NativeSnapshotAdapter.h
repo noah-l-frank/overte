@@ -21,6 +21,7 @@ public:
     void acceptCompletion(qint64 ticket, const QString& status, const QString& error);
     // Private read-only source; empty outside the guarded Phone test process.
     static QString featureExportObservation();
+    static QString featureReadbackCommand(const QString& command);
 signals:
     void stateChanged();
     void completed(const QString& ticket, const QString& status, const QString& error);

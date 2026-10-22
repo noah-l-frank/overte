@@ -44,6 +44,7 @@ int main(int argc,char** argv) {
     if ((Java_org_overte_snapshot_SnapshotAdapter_nativeFeatureEnabled(nullptr,nullptr)==JNI_TRUE)!=expected)return 1;
     // An uninitialized backend must never be represented as observed success.
     if (!NativeSnapshotAdapter::featureExportObservation().isEmpty())return 2;
+    if (!NativeSnapshotAdapter::featureReadbackCommand("{}").isEmpty())return 3;
     return 0;
 }
 ''')

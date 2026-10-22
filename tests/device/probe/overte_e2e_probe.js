@@ -378,6 +378,7 @@
     var lastGraphicsSubjectRequest = "";
     var lastPhoneCreateObservationRequest = "";
     var lastPhoneSnapshotObservationRequest = "";
+    var lastPhoneSnapshotReadbackRequest = "";
     var lastPhoneCreateFilesRequest = "";
     var lastAvatarRenderRequest = "";
     var lastWorldModelDrawsRequest = "";
@@ -1279,6 +1280,23 @@
     }
 
     function applyClientCommand(command) {
+        if (command && command.schemaVersion === 1 && command.action === "phone-snapshot-readback"
+                && /^[0-9a-f]{32}$/.test(String(command.commandId)) && /^[0-9a-f]{32}$/.test(String(command.runId))
+                && objectKeysMatch(command,["schemaVersion","commandId","action","runId","operation","exportRequest","resourceId"])) {
+            if (command.commandId === lastPhoneSnapshotReadbackRequest) { return; }
+            lastPhoneSnapshotReadbackRequest=command.commandId;
+            // The native grammar owns request/file identity. This path accepts
+            // neither an external URI/path nor an expected file result.
+            var readbackOriginal={schemaVersion:1,requestId:command.commandId,available:false};
+            try {
+                if (typeof Test.phoneSnapshotReadback === "function") {
+                    var readbackActual=Test.phoneSnapshotReadback(command);
+                    if (readbackActual && readbackActual.requestId === command.commandId) { readbackOriginal=readbackActual; }
+                }
+            } catch (_phoneReadbackError) { /* Private originals never enter public diagnostics. */ }
+            Test.saveObject(readbackOriginal,"phone-snapshot-readback.json");
+            return;
+        }
         if (command && command.schemaVersion === 1 && command.action === "phone-snapshot-observe"
                 && /^[0-9a-f]{32}$/.test(String(command.commandId)) && /^[0-9a-f]{32}$/.test(String(command.runId))
                 && objectKeysMatch(command,["schemaVersion","commandId","action","runId"])) {
@@ -2337,7 +2355,7 @@
                 || command.action === "feature-world-render-observe" || command.action === "feature-world-render-storage"
                 || command.action === "feature-world-render-receipt"
                 || command.action === "feature-world-render-receipts"
-                || command.action === "feature-graphics-subject-observe" || command.action === "phone-create-observe" || command.action === "phone-snapshot-observe"
+                || command.action === "feature-graphics-subject-observe" || command.action === "phone-create-observe" || command.action === "phone-snapshot-observe" || command.action === "phone-snapshot-readback"
                 || command.action === "phone-avatar-configuration-observe" || command.action === "phone-touch-state-observe"
                 || command.action === "phone-emote-fixture-observe" || command.action === "phone-emote-fixture-input"
                 || command.action === "phone-create-fixture-observe" || command.action === "phone-create-fixture-input"

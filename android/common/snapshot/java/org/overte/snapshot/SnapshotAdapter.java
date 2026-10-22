@@ -44,6 +44,8 @@ public final class SnapshotAdapter {
     private static native void nativeCompleted(long handle, long ticket, String status, String error);
     private static native boolean nativeFeatureEnabled();
     private static volatile SnapshotExportObservation feature;
+    private static volatile SnapshotExportReadbacks featureReadbacks;
+    private static volatile boolean featureReadbacksFailed;
     private SnapshotAdapter() { }
 
     private static synchronized SnapshotExportObservation feature() {
@@ -58,6 +60,43 @@ public final class SnapshotAdapter {
     }
     private static void observed(Request request, String kind, String value, String auxiliary) {
         if (request.feature != null) request.feature.event(request.featureToken, kind, value, auxiliary);
+    }
+    private static synchronized void featureReadbacks(Request request) {
+        if (request.feature == null || featureReadbacks != null || featureReadbacksFailed) return;
+        try { featureReadbacks = new SnapshotExportReadbacks(request.owner.activity().getFilesDir().toPath()); }
+        catch (IOException | RuntimeException failure) { featureReadbacksFailed = true; }
+    }
+    private static void featureDestination(Request request, Uri uri, boolean inserted) {
+        if (request.feature != null && featureReadbacks != null)
+            featureReadbacks.destination(request.featureToken, request.resolver, uri, inserted);
+    }
+    private static void featurePublished(Request request, Uri uri) {
+        if (request.feature != null && featureReadbacks != null) featureReadbacks.published(request.featureToken, uri);
+    }
+    /** E2E file acquisition/retirement only. No caller path, URI or expected bytes. */
+    public static String featureReadbackCommand(String raw) {
+        if (!nativeFeatureEnabled() || raw == null || raw.length() > 4096) return "";
+        try {
+            JSONObject command = new JSONObject(raw);
+            if (command.length() != 4 || !(command.opt("snapshotReadbackCommandVersion") instanceof Integer)
+                    || command.getInt("snapshotReadbackCommandVersion") != 1 || !(command.opt("action") instanceof String)
+                    || !(command.opt("request") instanceof String) || !(command.opt("id") instanceof String)) return "";
+            String action = command.getString("action"), request = command.getString("request"), id = command.getString("id");
+            SnapshotExportReadbacks current = featureReadbacks;
+            JSONObject result = new JSONObject(); boolean accepted = false;
+            if (current != null && !featureReadbacksFailed) {
+                if ("observe".equals(action) && request.isEmpty() && id.isEmpty()) accepted = true;
+                else if ("read".equals(action)) accepted = current.read(request, id);
+                else if ("cancel".equals(action) && request.isEmpty() && id.matches("[0-9a-f]{32}")) { current.cancel(id); accepted = true; }
+                else if ("remove-copy".equals(action) && request.isEmpty() && id.matches("[0-9a-f]{32}")) { current.removeCopy(id); accepted = true; }
+                else if ("retire-copies".equals(action) && request.isEmpty() && id.isEmpty()) { current.retireCopies(); accepted = true; }
+                result.put("source", new JSONObject(current.observation()));
+            } else {
+                result.put("source", new JSONObject().put("snapshotExportReadbacksVersion",1)
+                    .put("initialized",false).put("complete",!featureReadbacksFailed));
+            }
+            result.put("accepted",accepted);return result.toString();
+        } catch (IOException | RuntimeException | org.json.JSONException failure) { return ""; }
     }
 
     public static void initialize(SnapshotHost owner) {
@@ -97,6 +136,7 @@ public final class SnapshotAdapter {
                 Request pending = new Request(handle, ticket, generation, owner, file, root, action);
                 active = pending;
                 if (pending.feature != null) pending.featureToken = pending.feature.begin(handle, ticket, generation, action, file.getPath());
+                featureReadbacks(pending);
                 if ("share".equals(action)) share(pending);
                 else if (Build.VERSION.SDK_INT >= 29) IO.execute(() -> saveMediaStore(pending));
                 else saveDocument(pending);
@@ -164,7 +204,10 @@ public final class SnapshotAdapter {
             if (!current(request)) return;
             if ("share".equals(request.action)) MAIN.post(() -> finish(request, request.chosen ? "success" : "cancelled", ""));
             else if (uri == null) finish(request, "cancelled", "");
-            else IO.execute(() -> saveUri(request, uri));
+            else {
+                featureDestination(request, uri, false);
+                IO.execute(() -> saveUri(request, uri));
+            }
         });
         if (code == 0) throw new IOException("Picker unavailable");
         return code;
@@ -226,7 +269,7 @@ public final class SnapshotAdapter {
         observed(request, "destination-copied", uri.toString(), "");
     }
     private static void saveUri(Request request, Uri uri) {
-        try { copy(request, uri); finish(request, "success", ""); }
+        try { copy(request, uri); featurePublished(request, uri); finish(request, "success", ""); }
         catch (IOException | RuntimeException failure) { finish(request, "error", "The snapshot could not be saved."); }
     }
     private static void saveMediaStore(Request request) {
@@ -240,12 +283,14 @@ public final class SnapshotAdapter {
             values.put(MediaStore.Images.Media.IS_PENDING, 1);
             uri = request.resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values);
             if (uri == null) throw new IOException("MediaStore unavailable");
+            featureDestination(request, uri, true);
             observed(request, "destination-created", uri.toString(), "");
             copy(request, uri);
             if (request.lease.cancelled()) throw new IOException("Cancelled export");
             values.clear(); values.put(MediaStore.Images.Media.IS_PENDING, 0);
             if (request.resolver.update(uri, values, null, null) != 1) throw new IOException("Publish failed");
             observed(request, "destination-published", uri.toString(), "1");
+            featurePublished(request, uri);
             published = true; finish(request, "success", "");
         } catch (IOException | RuntimeException failure) {
             finish(request, "error", "The snapshot could not be saved.");

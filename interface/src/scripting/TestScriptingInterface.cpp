@@ -1225,6 +1225,36 @@ QVariantMap TestScriptingInterface::phoneSnapshotObservation(const QVariantMap& 
         {"capturedEpochMs",QDateTime::currentMSecsSinceEpoch()},{"source",source}};
 }
 
+QVariantMap TestScriptingInterface::phoneSnapshotReadback(const QVariantMap& command) {
+    if (QThread::currentThread()!=thread()) {
+        QVariantMap result;
+        if (!QMetaObject::invokeMethod(this,[&] { result=phoneSnapshotReadback(command); },Qt::BlockingQueuedConnection)) { return {}; }
+        return result;
+    }
+    const auto json=QJsonObject::fromVariantMap(command);
+    QStringList keys{"schemaVersion","commandId","action","runId","operation","exportRequest","resourceId"};keys.sort();
+    const QRegularExpression nonce("\\A[0-9a-f]{32}\\z");
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript") || command.keys()!=keys
+            || json.value("schemaVersion")!=QJsonValue(1) || json.value("action")!=QJsonValue("phone-snapshot-readback")
+            || !json.value("commandId").isString() || !nonce.match(json.value("commandId").toString()).hasMatch()
+            || !json.value("runId").isString() || !nonce.match(json.value("runId").toString()).hasMatch()
+            || !json.value("operation").isString() || !json.value("exportRequest").isString() || !json.value("resourceId").isString()) { return {}; }
+    const auto operation=json.value("operation").toString(),request=json.value("exportRequest").toString(),id=json.value("resourceId").toString();
+    if ((operation=="observe" || operation=="retire-copies") ? (!request.isEmpty() || !id.isEmpty())
+            : operation=="read" ? (!nonce.match(request).hasMatch() || !nonce.match(id).hasMatch())
+            : (operation=="cancel" || operation=="remove-copy") ? (!request.isEmpty() || !nonce.match(id).hasMatch()) : true) { return {}; }
+    const auto requested=QDateTime::currentMSecsSinceEpoch();
+    const QJsonObject input{{"snapshotReadbackCommandVersion",1},{"action",operation},{"request",request},{"id",id}};
+    const auto raw=NativeSnapshotAdapter::featureReadbackCommand(QString::fromUtf8(QJsonDocument(input).toJson(QJsonDocument::Compact)));
+    const auto actual=QJsonDocument::fromJson(raw.toUtf8());
+    if (!actual.isObject() || raw.toUtf8().size()>200000) { return {}; }
+    return {{"schemaVersion",1},{"requestId",command.value("commandId")},{"runId",command.value("runId")},
+        {"instance",_featureObservationInstance},{"sequence",static_cast<qulonglong>(++_phoneSnapshotReadbackSequence)},
+        {"processId",QCoreApplication::applicationPid()},{"requestedEpochMs",requested},
+        {"capturedEpochMs",QDateTime::currentMSecsSinceEpoch()},{"source",actual.object().toVariantMap()}};
+}
+
 QVariantMap TestScriptingInterface::phoneCreateFiles(const QVariantMap& command) {
     if (QThread::currentThread()!=thread()) {
         QVariantMap result;

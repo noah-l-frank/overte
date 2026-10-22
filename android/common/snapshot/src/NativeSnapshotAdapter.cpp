@@ -135,6 +135,19 @@ QString NativeSnapshotAdapter::featureExportObservation() {
 extern "C" JNIEXPORT jboolean JNICALL Java_org_overte_snapshot_SnapshotAdapter_nativeFeatureEnabled(JNIEnv*, jclass) {
     return featureEnabled() ? JNI_TRUE : JNI_FALSE;
 }
+QString NativeSnapshotAdapter::featureReadbackCommand(const QString& command) {
+    if (!featureEnabled() || command.size()>4096) return {};
+    Jni jni; if (!jni.env || !backend.load()) return {};
+    const auto id=jni.env->GetStaticMethodID(backend.load(),"featureReadbackCommand","(Ljava/lang/String;)Ljava/lang/String;");
+    auto input=jni.string(command);
+    auto output=id && input ? static_cast<jstring>(jni.env->CallStaticObjectMethod(backend.load(),id,input)) : nullptr;
+    const bool valid=id && output && !jni.env->ExceptionCheck() && jni.env->GetStringLength(output)<=262144;
+    const auto result=valid ? string(jni.env,output) : QString();
+    if(jni.env->ExceptionCheck())jni.env->ExceptionClear();
+    if(input)jni.env->DeleteLocalRef(input);
+    if(output)jni.env->DeleteLocalRef(output);
+    return result;
+}
 extern "C" JNIEXPORT void JNICALL Java_org_overte_snapshot_SnapshotAdapter_nativeInitialize(JNIEnv* env, jclass type) {
     JavaVM* vm = nullptr; if (env->GetJavaVM(&vm) != JNI_OK) return;
     if (!backend.load()) { auto reference = static_cast<jclass>(env->NewGlobalRef(type)); if (!reference) return; backend.store(reference); }

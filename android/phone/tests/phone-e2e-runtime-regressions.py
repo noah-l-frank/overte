@@ -16,7 +16,9 @@ PREPARED_HOST_CHECKS = (
     "android/phone/tests/device/test_snapshot_native_history.py",
     "android/phone/tests/device/test_snapshot_native_review.py",
     "android/phone/tests/device/test_snapshot_export_originals.py",
+    "android/phone/tests/device/test_snapshot_readback_jobs.py",
     "android/phone/tests/phone-snapshot-export-native-test.py",
+    "android/phone/tests/phone-snapshot-readback-contract-test.py",
     "android/phone/tests/device/test_create_native_ui.py",
     "android/phone/tests/phone-snapshot-journey-test.py",
     "android/phone/tests/phone-snapshot-ui-test.py",
@@ -31,6 +33,7 @@ PREPARED_HOST_CHECKS = (
 COMMON_HOST_CHECKS = (
     "android/phone/tests/device/test_navigation_feature.py",
     "android/phone/tests/device/test_snapshot_source.py",
+    "android/phone/tests/device/test_snapshot_readback_source.py",
     "android/phone/tests/device/test_create_source.py",
     "android/phone/tests/device/test_create_workflows.py",
     "tests/device/self_tests/test_phone_control_poll.py",

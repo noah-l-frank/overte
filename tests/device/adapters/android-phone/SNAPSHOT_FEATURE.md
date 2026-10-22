@@ -56,8 +56,52 @@ The native read-only export method returns empty outside that gate or before a
 real backend has initialized; an absent backend never becomes observed absence.
 Capture, upload and export behavior is unchanged. In particular, a chosen
 component and even the existing product `success` callback do not prove
-successful system saving or receiver consumption. There is no destination byte
-reader or receiver acknowledgement in this source contract.
+successful system saving or receiver consumption. The callback contract itself
+supplies no destination bytes or receiver acknowledgement. The separately
+versioned readback component below must qualify an actual saved destination;
+sharing still needs its external receiver.
+
+## Original Save readback component v1
+
+`phone-snapshot-readback` accepts exactly `schemaVersion:1`, `commandId`,
+`action`, `runId`, `operation`, `exportRequest` and `resourceId`. Operation
+`observe` takes empty request/resource fields; `read` takes an original export
+request identity and a new opaque read-job ID. Repeating the same job ID is
+idempotent and returns that original acquisition; it does not refresh its time.
+A fresh acquisition needs a new retained job ID. Cancellation and copy removal
+take an owned job/copy ID; `retire-copies` takes empty fields. Read-only product
+transport allows observation/read only. Cleanup needs the normal guarded
+mutable transport. No caller URI, capture path, expected hash, expected size or
+requested product outcome is accepted.
+
+The real Java Save path registers only its original ContentResolver and actual
+MediaStore-insertion/document-return URI. Reads are admitted only after actual
+copy completion (document) or successful publication (MediaStore). A separate
+worker opens that URI again in read mode and consumes the provider's actual
+stream. It never reopens the private capture path to manufacture Save evidence.
+The original request, job and new private copy identities remain distinct.
+Jobs are queued/reading/complete/failed; acceptance alone supplies no file.
+Only successful consumption and original descriptor closure can complete a job.
+The source records original job times, measured byte count/SHA-256 and the
+private copy path. It has an immutable instance, increasing observation sequence
+and actual wall/monotonic clocks. Blocking provider acquisition uses Android
+CancellationSignal plus a 15-second watchdog that closes an opened stream.
+The source is never represented as initialized empty state before creation.
+
+The 64-job/copy bound and 256-MiB original-byte ceiling are enforced. Copies live
+in a new process-owned `files/overte-snapshot-e2e-<nonce>/` directory (0700), each
+in a newly created private file (0600). File/directory identities, aliases and
+permissions are checked independently. Completed-copy removal additionally
+requires unchanged actual bytes. Failed/partial acquisitions retain owned
+cleanup responsibilities. Unknown files, pending original closes, replacement
+paths and incomplete worker retirement remain failures. Repeated cleanup
+revalidates actual absence, including after copy-directory retirement.
+
+Copy retirement says nothing about deletion of the actual OS destination. That
+separate URI cleanup, the bounded binary transfer into host artifacts, normal
+review/system-sheet input, receiver consumption and complete public owner remain
+unfinished. This component must not advertise the extended Snapshot capability
+or report a complete feature/cleanup verdict.
 
 ## Remaining composition
 
@@ -111,3 +155,17 @@ build establishes neither Qt5/Android ABI compatibility nor a complete client
 build. The actual Snapshot Java sources also compile with the prepared Android
 34 SDK and AndroidX Core; neither that compile nor the host contracts execute
 MediaStore, a document provider, a chooser or a physical device.
+
+`test_snapshot_readback_source.py` checks original packet identity, missing or
+foreign output, old replies, source replacement, terminal-job rewrite and the
+read-only cleanup boundary. `test_snapshot_readback_jobs.py` executes the real
+Java worker/files/clocks using explicit synthetic Android provider/descriptor
+boundaries; cancellation of an actual blocking host provider, descriptor-close
+failure, idempotent job IDs, fresh reacquisition and worker retirement are
+exercised. Original Java observations are also passed to the strict Python
+validator, changing only the permitted private-root boundary for host files.
+`SnapshotReadbackFilesHostTest` covers actual stream/filesystem failures and
+preservation of foreign files. `phone-snapshot-readback-contract-test.py`
+compiles the original TestScriptingInterface command function against real Qt
+JSON/thread APIs with explicit synthetic lifecycle/JNI endpoints; those endpoints
+return only an ACK. It does not compile the complete scripting translation unit.

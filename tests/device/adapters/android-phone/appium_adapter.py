@@ -180,6 +180,10 @@ def readonly_feature_command(command):
     elif action=='phone-snapshot-observe':
         from overte_phone_snapshot_source import command as validate_snapshot
         validate_snapshot(command)
+    elif action=='phone-snapshot-readback':
+        from overte_phone_snapshot_readbacks import command as validate_readback
+        validate_readback(command)
+        require(command['operation'] in ('observe','read'),'PHONE_READ_ONLY_COMMAND_REJECTED')
     elif action in ('phone-world-web','phone-tablet-web','phone-web-reference'):
         from overte_phone_world_web_source import command as validate_world_web
         validate_world_web(command)
@@ -1138,6 +1142,15 @@ class PhoneAppiumAdapter(AppiumAdapter):
         target=self.target(selector);device=target['capabilities']['appium:udid']
         transport=PhoneAdapter(self.candidate).adb
         return PhoneSnapshotSource(native.send,
+            lambda:transport.read_debug_app_file(device,target['appId'],'files/overte-e2e/'+FILE,attempts=1),
+            native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep)
+
+    def _snapshot_readbacks(self,selector,*,read_only=True):
+        from overte_phone_snapshot_readbacks import PhoneSnapshotReadbacks,FILE
+        native=self._native_feature_observer(selector,read_only=read_only)
+        target=self.target(selector);device=target['capabilities']['appium:udid']
+        transport=PhoneAdapter(self.candidate).adb
+        return PhoneSnapshotReadbacks(native.send,
             lambda:transport.read_debug_app_file(device,target['appId'],'files/overte-e2e/'+FILE,attempts=1),
             native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep)
 
