@@ -28,7 +28,7 @@ capture, original writer birth and completed-mutation sequence remain measured.
 Acquire retains the exact private original key presence and QVariant values in
 native memory. History must actually be absent/null or an empty string/list.
 Cache and original worker must agree in exact serialized type/value/presence;
-their independent physical INI row must also be literally empty. Config is
+their independent physical INI or registered JSON row must also be literally empty. Config is
 bounded to a small scalar/map. Only SHA-256 and physical presence/empty markers
 leave native memory. This preserves differences such as null QString versus
 nonnull empty QString and unset versus present null. Physical serialization is
@@ -39,8 +39,9 @@ empty string-list compares equal; this mismatch refuses acquisition.
 Restore first reacquires fresh original view/cache/worker/file sources. Both
 live histories and the physical row must be empty, and original config must
 still match in all three independent forms. The native owner records its
-restore attempt before admitting one history write. The Manager then takes its
-actual write lock without waiting and checks exact current cache variants,
+restore attempt before admitting one history write. The Manager then obtains a
+bounded original worker/file snapshot with exact serialized native types, then
+takes its actual write lock without waiting and checks exact current cache variants,
 original barrier birth, completed-mutation sequence and absence of other active
 mutations. A racing change refuses admission without overwriting that history.
 The original valueChanged/keyRemoved path runs after releasing the cache lock,
