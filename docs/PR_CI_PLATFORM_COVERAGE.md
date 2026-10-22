@@ -23,6 +23,9 @@ compile tier: `common` on `android-main`/`android-vr`, `phone` on `android-phone
 and `pico` on `android-vr-pico`. Directory presence does not assign ownership;
 parent/other-product trees contain legacy product snapshots that must not be
 treated as an additional current application.
+A product Java/resource exemption applies only on its governed target. Changes
+to another product's legacy snapshot cannot borrow the current target's compiler
+receipt. Shared Java/resources remain eligible on all Android targets.
 
 The trusted compiler runs AAPT2 36.0.0 on actual resources, generates the real
 product `R` class and compiles all owned production Java plus shared Qt bindings,

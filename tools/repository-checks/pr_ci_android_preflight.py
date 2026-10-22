@@ -23,8 +23,11 @@ HOST_TEST_FILES = frozenset({"android/common/conan/test_package_store.py",
     "android/common/conan/test_package_folder.py", "android/phone/fdroid/profiles/test_doctor.py",
     "android/phone/fdroid/conan/test_stage_host_tools.py", "android/phone/device-tests/parity/test_packet.py"})
 BUILD_WORKFLOWS = frozenset({".github/workflows/android-phone-build.yml", ".github/workflows/pico4-build.yml"})
-JAVA_ROOTS = ("android/phone/apps/phoneInterface/src/main/", "android/vr/pico/apps/picoInterface/src/main/",
-              "android/common/libraries/qt/src/main/")
+JAVA_ROOTS = ("android/common/libraries/qt/src/main/",)
+PRODUCT_JAVA_ROOTS = {
+    "android-phone": ("android/phone/apps/phoneInterface/src/main/",),
+    "android-vr-pico": ("android/vr/pico/apps/picoInterface/src/main/",),
+}
 SHARED_JAVA_ROOTS = ("android/common/web/", "android/common/snapshot/", "android/common/documents/")
 PRODUCER = {
     "entrypoint": "android/phone/fdroid/scripts/cold-build.sh",
@@ -47,10 +50,10 @@ MISSING = (
 )
 
 
-def _java_resource_input(path):
+def _java_resource_input(path, target):
     if path.startswith("security/redaction/java/") and path.endswith(".java"):
         return True
-    for root in (*JAVA_ROOTS, *SHARED_JAVA_ROOTS):
+    for root in (*JAVA_ROOTS, *SHARED_JAVA_ROOTS, *PRODUCT_JAVA_ROOTS.get(target, ())):
         if path.startswith(root + "java/") and path.endswith(".java"):
             return True
         if path.startswith(root + "res/") or path == root + "AndroidManifest.xml":
@@ -78,7 +81,7 @@ def classify(paths, *, target):
                 continue
             if path.startswith(HOST_TEST_ROOTS) or path in HOST_TEST_FILES:
                 continue
-            if _java_resource_input(path):
+            if _java_resource_input(path, target):
                 continue
             if path in ROOT_BUILD_INPUTS or path in BUILD_WORKFLOWS:
                 relevant.append(path)

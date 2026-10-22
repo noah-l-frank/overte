@@ -46,6 +46,7 @@ PRODUCTS = {
 COMMON = ('android/common/libraries/qt/src/main/java', 'android/common/web/java',
           'android/common/snapshot/java', 'android/common/documents/java', 'security/redaction/java')
 RESOURCES = ('android/common/web/res', 'android/common/snapshot/res')
+OPTIONAL_RESOURCES = ('android/common/documents/res',)
 
 
 def require(value, message):
@@ -179,6 +180,17 @@ def verify_qt_api_reference(candidate):
             'Android Qt provider changed; review and qualify its actual Java API before compilation')
 
 
+def resource_roots(candidate, main):
+    """Include new Documents resources when present; existing trees may omit them."""
+    roots = ([main / 'res'] if main else []) + [candidate / name for name in RESOURCES]
+    for name in OPTIONAL_RESOURCES:
+        path = candidate / name
+        if path.exists():
+            require(path.is_dir(), 'optional Android resource input is not a directory: ' + name)
+            roots.append(path)
+    return roots
+
+
 def compile_product(candidate, runtime, product, run=subprocess.run):
     require(product in PRODUCTS, 'unknown Android product')
     candidate, runtime = Path(candidate).resolve(strict=True), verify_runtime(runtime)
@@ -206,7 +218,7 @@ def compile_product(candidate, runtime, product, run=subprocess.run):
         manifest_path = stage / 'AndroidManifest.xml'
         manifest.write(manifest_path, encoding='utf-8')
         compiled = []
-        resources = ([main / 'res'] if main else []) + [candidate / name for name in RESOURCES]
+        resources = resource_roots(candidate, main)
         for index, resource in enumerate(resources):
             require(resource.is_dir(), 'production Android resources are missing')
             output = stage / (str(index) + '.zip')

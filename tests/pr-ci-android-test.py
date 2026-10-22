@@ -150,6 +150,20 @@ class ApiRuntimeTests(unittest.TestCase):
                     with self.assertRaisesRegex(ValueError, 'Kotlin compiler owner'):
                         A.compile_product(root, root, product)
 
+    def test_new_documents_resources_are_included_without_requiring_a_missing_module(self):
+        with tempfile.TemporaryDirectory() as scratch:
+            root = Path(scratch); main = root / 'product'
+            before = [main / 'res', *[root / path for path in A.RESOURCES]]
+            self.assertEqual(A.resource_roots(root, main), before)
+            documents = root / 'android/common/documents/res'
+            documents.parent.mkdir(parents=True)
+            documents.write_text('not a resource directory')
+            with self.assertRaisesRegex(ValueError, 'not a directory'):
+                A.resource_roots(root, main)
+            documents.unlink(); documents.mkdir()
+            self.assertEqual(A.resource_roots(root, main), [*before, documents])
+            self.assertEqual(A.resource_roots(root, None), [*before[1:], documents])
+
     def test_phone_java_selects_only_proven_related_suites(self):
         profile = P.policy()['android']['android-phone']
         inputs = json.loads((ROOT / '.github/pr-ci-platform-inputs.json').read_text())['android'][0]

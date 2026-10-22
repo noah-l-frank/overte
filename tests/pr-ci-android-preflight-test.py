@@ -45,9 +45,6 @@ class AndroidPrerequisiteTests(unittest.TestCase):
             "tests/device/self_tests/test_graph.py", "android/phone/tests/fixture.cpp",
             "android/common/web/tests/java/Regression.java", "browser-client/src/client.ts",
             "browser-client/package-lock.json", "script-archive/marketplace/S3Server/package-lock.json",
-            "android/phone/apps/phoneInterface/src/main/java/org/overte/Activity.java",
-            "android/phone/apps/phoneInterface/src/main/res/xml/policy.xml",
-            "android/phone/apps/phoneInterface/src/main/AndroidManifest.xml",
             "android/common/web/java/org/overte/Host.java", "android/common/snapshot/res/xml/paths.xml",
             "security/redaction/java/org/overte/security/SafeDiagnostics.java"]
         for target in PREFLIGHT.ANDROID_TARGETS:
@@ -55,6 +52,18 @@ class AndroidPrerequisiteTests(unittest.TestCase):
             self.assertEqual("not-required", result["status"])
             self.assertEqual([], result["missing"])
             self.assertIsNone(result["producer"])
+
+    def test_product_java_resource_waiver_requires_its_actual_compile_owner(self):
+        owners = {'android-phone': 'android/phone/apps/phoneInterface/src/main/',
+                  'android-vr-pico': 'android/vr/pico/apps/picoInterface/src/main/'}
+        for owner, root in owners.items():
+            for path in (root + 'java/org/overte/Activity.java', root + 'res/xml/policy.xml',
+                         root + 'AndroidManifest.xml'):
+                for target in PREFLIGHT.ANDROID_TARGETS:
+                    with self.subTest(target=target, path=path):
+                        result = PREFLIGHT.classify([path], target=target)
+                        self.assertEqual(target != owner, result['native_qualification_required'])
+                        self.assertFalse(result['build_qualified'])
 
     def test_mixed_changes_cannot_hide_native_input_and_results_are_deterministic(self):
         paths = ["browser-client/package-lock.json", "tests/shared/src/Test.cpp", "interface/src/Application.cpp"]
