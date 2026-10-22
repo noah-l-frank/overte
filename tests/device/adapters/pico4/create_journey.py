@@ -9,7 +9,8 @@ from copy import deepcopy
 import hashlib
 import re
 import os
-from adapters.native_feature_observation import exact,fresh,integer,need
+import math
+from adapters.native_feature_observation import exact,fresh,integer,need,number
 from adapters.normal_feature_state import PrivateFeatureState,context
 from adapters.pico4.create_models import PicoCreateModels,input_original,source_pin,selected,idle,WorkJournal
 from adapters.native_script_work import scope as work_scope
@@ -29,7 +30,7 @@ from feature_journeys.scenarios import VERSION as CONTRACT
 
 VERSION=1
 MEMBERS={'models':PicoCreateModels,'picker':PicoCreatePicker}
-ROLES=('owner','entities','callbacks','dialogs','resources','work','lifecycle')
+ROLES=('owner','entities','callbacks','dialogs','resources','work','lifecycle','completion')
 
 
 class PicoCreateJourney:
@@ -44,8 +45,10 @@ class PicoCreateJourney:
         self.lock=ScriptSourceLock(self.parent/('normal-create-sources-'+self.key+'.lock'))
         self.store=PrivateFeatureState(self.parent/('create-feature-owner-'+self.key+'-'+run+'.json'))
         self.readers={};self.lifecycle=None;self.lifecycle_previous=None
+        self.completion_store=self.source_store('completion');self.completion_previous=self.completion_store.read()
         self.previous=self.store.read()
         if self.previous is not None:self.validate(self.previous)
+        if self.completion_previous is not None:self.validate_completion(self.completion_previous)
     def validate(self,value):
         exact(value,{'createFeatureVersion','binding','runId','fixtureUrl','phase','calls','pending','members','subject','lastInput','inputCount','baselineUi','baselineEntities','sourcePin','manager','compilation','cleanupStarted','cleanupAttempted','baselineLifecycle','editorIds'})
         need(type(value['createFeatureVersion']) is int and value['createFeatureVersion']==VERSION
@@ -107,7 +110,7 @@ class PicoCreateJourney:
         key=hashlib.sha256(('org.overte.pico\0'+target).encode()).hexdigest()[:32];parent=adapter.pico_configuration[1];found=False
         PrivateFeatureState(parent/'create-feature-parent-check.json')._parent()
         for path in parent.glob('create-feature-*-'+key+'-*.json'):
-            need(re.fullmatch(r'create-feature-(?:owner|entities|callbacks|dialogs|resources|work|lifecycle)-'+key+r'-[0-9a-f]{32}\.json',path.name))
+            need(re.fullmatch(r'create-feature-(?:owner|entities|callbacks|dialogs|resources|work|lifecycle|completion)-'+key+r'-[0-9a-f]{32}\.json',path.name))
             found=PrivateFeatureState(path).read() is not None or found
         return found
     def source_store(self,role):
@@ -163,9 +166,12 @@ class PicoCreateJourney:
         return all(r['id'] in baseline or r['kind']!='create' or not r['alive'] for r in rows.values())
 
     def sample(self):
+        started=self.source.monotonic();native=self.adapter._native_feature_observer(self.target);epoch=native.clock_ms()
+        need(number(started,0,1e15) and integer(epoch,1))
         ui,binding=self.runtime();readers=self.originals(binding);callback=readers['callbacks'].read()
         manager,compilation=selected(callback,source_pin());work=readers['work'].read(manager['instance'])
-        result=dict(callbacks=callback,manager=manager,compilation=compilation,work=work,scope=work_scope(work,compilation),ui=ui.capture())
+        result=dict(callbacks=callback,manager=manager,compilation=compilation,work=work,scope=work_scope(work,compilation),ui=ui.capture(),
+            sampleAnchor=dict(hostStarted=started,nativeEpochMs=epoch))
         self.validate_navigation(result['ui'],binding)
         for role in ('entities','dialogs','resources'):result[role]=readers[role].read()
         need(len({result[k]['instance'] for k in ('callbacks','entities','dialogs','resources','work')})==1
@@ -187,7 +193,7 @@ class PicoCreateJourney:
         if self.previous is not None:
             need(context(binding)==context(self.state()['binding']));self.check_children(self.state())
         for path in self.parent.glob('create-feature-*-'+self.key+'-*.json'):
-            need(re.fullmatch(r'create-feature-(?:owner|entities|callbacks|dialogs|resources|work|lifecycle)-'+self.key+'-'+self.run+r'\.json',path.name))
+            need(re.fullmatch(r'create-feature-(?:owner|entities|callbacks|dialogs|resources|work|lifecycle|completion)-'+self.key+'-'+self.run+r'\.json',path.name))
             journal=PrivateFeatureState(path).read()
             if journal is not None:need(context(journal.get('binding'))==context(binding))
         return ui,binding
@@ -228,17 +234,54 @@ class PicoCreateJourney:
             original=value['phase']['activations'][-1]
             need(active['ticket']==original['ticket'] and active['verb']=='cleanup' and active['inputs']=={})
         else:
-            need(value['pending'] is not None);call=value['calls'][-1]
-            need(active['ticket']==value['pending']==call['ticket'] and active['verb']==call['verb']
+            ticket=value['pending']
+            if ticket is None and self.completion_previous is not None:ticket=self.completion_previous['call']['ticket']
+            need(ticket is not None);call=value['calls'][-1]
+            need(active['ticket']==ticket==call['ticket'] and active['verb']==call['verb']
                 and typed_equal(active['inputs'],call['inputs']))
         return active['status']
     def fresh_sample(self,actual):
-        epoch=self.readers['entities'].reader.clock_ms()
+        anchor=actual['sampleAnchor'];exact(anchor,{'hostStarted','nativeEpochMs'})
+        native=self.readers['entities'].reader.clock_ms();now=self.source.monotonic()
+        need(number(now,anchor['hostStarted'],1e15) and integer(native,anchor['nativeEpochMs']))
+        # This is an admission bound only. Preserve every original source clock.
+        epoch=max(native,anchor['nativeEpochMs']+math.ceil((now-anchor['hostStarted'])*1000))
         for role in ('callbacks','entities','dialogs','resources','work','lifecycle'):fresh(actual[role]['capturedEpochMs'],epoch)
         fresh(actual['ui']['updatedEpochMs'],epoch)
+    def validate_completion(self,value):
+        exact(value,{'schemaVersion','binding','runId','call'})
+        need(type(value['schemaVersion']) is int and value['schemaVersion']==1 and value['runId']==self.run)
+        arguments('feature.create.act',value['call']);state=self.state()
+        need(bool(state['calls']) and context(value['binding'])==context(state['binding']) and value['call']==state['calls'][-1]
+            and state['pending'] in (None,value['call']['ticket']))
+    def completion(self):
+        value=self.completion_store.read();need(value==self.completion_previous)
+        if value is not None:self.validate_completion(value)
+        return value
+    def resume_completion(self):
+        self.lock.assert_held();value=self.completion()
+        if value is not None:
+            self.runtime() # Candidate/process guard before any recovery write.
+            if self.state()['pending'] is None:self.mark(pending=value['call']['ticket'])
     def complete_call(self):
-        actual=self.sample();phase=self.phase_fence();self.fresh_sample(actual)
-        self.mark(phase=phase,pending=None);return {'performed':True}
+        actual=self.sample();phase=self.phase_fence();self.fresh_sample(actual);original=self.state()
+        transition=dict(schemaVersion=1,binding=deepcopy(original['binding']),runId=self.run,call=deepcopy(original['calls'][-1]))
+        self.validate_completion(transition);previous=self.completion()
+        need(previous is None or previous==transition)
+        self.completion_store.write(transition,previous);self.completion_previous=transition
+        try:
+            # Keep the exact original ticket through the retained copy/CAS and
+            # actual candidate guard. A slow writer cannot hide behind a frozen
+            # native clock. The final pending-clear CAS is checked once again.
+            self.mark(phase=phase);self.runtime();self.fresh_sample(actual)
+            self.mark(pending=None);self.runtime();self.phase_fence();self.fresh_sample(actual)
+            self.completion_store.discard(transition);self.completion_previous=None
+        except Exception:
+            # If this restoration itself fails, the durable transition still
+            # blocks every next act and restores the original on reconstruction.
+            if self.state()['pending'] is None:self.mark(pending=transition['call']['ticket'])
+            raise
+        return {'performed':True}
 
     def record_input(self,kind,original):
         value=self.state();need(value['pending'] is not None or value['cleanupStarted'])
@@ -310,6 +353,7 @@ class PicoCreateJourney:
     def act(self,values):
         arguments('feature.create.act',values)
         with self.lock.held():
+            self.resume_completion()
             value=self.state();need(value['pending'] is None and not value['cleanupStarted'] and values['runId']==self.run and values['fixtureUrl']==self.source.fixture_url
                 and values['ticket'] not in [r['ticket'] for r in value['calls']])
             need(values['verb'] in ('open','close','import-picker-open','import-picker-cancel','import-picker-accept','model-create','apply-texture','export-selection','delete-owned'))
@@ -339,7 +383,7 @@ class PicoCreateJourney:
 
     def reconcile(self):
         """Read-only completion after a lost reply; never resumes input stages."""
-        self.lock.assert_held();value=self.state();need(value['pending'] is not None and not value['cleanupStarted']);self.phase_fence()
+        self.lock.assert_held();self.resume_completion();value=self.state();need(value['pending'] is not None and not value['cleanupStarted']);self.phase_fence()
         verb=value['calls'][-1]['verb'];subject=value['subject']
         if verb in ('open','close'):
             ui=self.adapter._create_controls(self.target,self.input);page=ui.row(ui.capture(),'create.page',enabled=False)
@@ -374,7 +418,7 @@ class PicoCreateJourney:
         Cleanup cannot call act/replay its uncertain call. All child attempts,
         files and original Qt/resource identities remain owned on refusal.
         """
-        self.lock.assert_held();value=self.state()
+        self.lock.assert_held();self.resume_completion();value=self.state()
         if not value['cleanupStarted']:
             active=self.source.read(value['phase']);need(active['verb']=='cleanup' and active['inputs']=={})
             self.mark(cleanupStarted=True,phase=active['status'])
@@ -449,7 +493,9 @@ class PicoCreateJourney:
             if ready and (stable is None or signature==stable):
                 quiet=current if quiet is None else quiet;clocks=epoch if clocks is None else clocks;stable=deepcopy(signature)
                 if current-quiet>=3 and all(b-a>=3000 for a,b in zip(clocks,epoch)):
-                    phase=self.phase_fence();self.fresh_sample(actual);self.mark(phase=phase)
+                    phase=self.phase_fence();self.fresh_sample(actual);self.mark(phase=phase);self.runtime();self.fresh_sample(actual)
+                    if self.completion() is not None:
+                        self.completion_store.discard(self.completion_previous);self.completion_previous=None
                     for reader in self.readers.values():reader.retire()
                     self.source_store('lifecycle').discard(self.lifecycle_previous);self.lifecycle_previous=None
                     self.store.discard(self.state());self.previous=None;return {'performed':True}

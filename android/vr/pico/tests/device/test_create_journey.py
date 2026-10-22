@@ -326,6 +326,54 @@ class CreateJourneyTests(unittest.TestCase):
         with self.assertRaises(NativeUIError):self.root.invoke('cleanup')
         self.assertEqual(count,len(self.b.inputs));self.assertIsNotNone(self.root.source_store('entities').read())
 
+    def test_frozen_native_clock_cannot_hide_final_fixture_read_host_age(self):
+        self.b.freeze_epoch=True;read=self.root.source.read;delayed=[]
+        def original(previous=None):
+            actual=read(previous)
+            if self.b.editor and not delayed:delayed.append(True);self.b.ui.sleep(2)
+            return actual
+        with patch.object(self.root.source,'read',side_effect=original):
+            with self.assertRaises(NativeUIError):self.act('open')
+        self.assertTrue(delayed);self.assertEqual(20000,self.b.epoch());self.assertIsNotNone(self.root.state()['pending'])
+    def test_frozen_native_clock_and_slow_final_root_cas_restore_original_pending(self):
+        self.b.freeze_epoch=True;write=self.root.store.write;delayed=[]
+        def original(value,previous):
+            write(value,previous)
+            if value['pending'] is None and previous['pending'] is not None and not delayed:
+                delayed.append(True);self.b.ui.sleep(2)
+        with patch.object(self.root.store,'write',side_effect=original):
+            with self.assertRaises(NativeUIError):self.act('open')
+        self.assertTrue(delayed);self.assertEqual(20000,self.b.epoch());self.assertIsNotNone(self.root.state()['pending'])
+        transition=self.root.completion_store.read();self.assertEqual(self.root.state()['calls'][-1],transition['call'])
+        count=len(self.b.inputs);self.b.freeze_epoch=False;self.make();self.root.invoke('reconcile')
+        self.assertEqual(count,len(self.b.inputs));self.assertIsNone(self.root.completion_store.read());self.assertIsNone(self.root.state()['pending'])
+    def test_interrupted_pending_clear_cannot_grant_a_later_input_before_readonly_recovery(self):
+        self.b.freeze_epoch=True;write=self.root.store.write;delayed=[]
+        def original(value,previous):
+            if delayed and value['pending'] is not None and previous['pending'] is None:
+                raise OSError('synthetic rollback write unavailable')
+            write(value,previous)
+            if value['pending'] is None and previous['pending'] is not None and not delayed:
+                delayed.append(True);self.b.ui.sleep(2)
+        with patch.object(self.root.store,'write',side_effect=original):
+            with self.assertRaises(NativeUIError):self.act('open')
+        self.assertIsNone(self.root.store.read()['pending']);transition=deepcopy(self.root.completion_store.read());self.assertIsNotNone(transition)
+        count=len(self.b.inputs);self.b.freeze_epoch=False;self.make()
+        with self.assertRaises(NativeUIError):self.act('close')
+        self.assertEqual(count,len(self.b.inputs));self.assertEqual(transition['call']['ticket'],self.root.state()['pending'])
+        self.assertEqual(transition,self.root.completion_store.read())
+
+    def test_frozen_native_clock_cannot_hide_retained_root_copy_age(self):
+        self.b.freeze_epoch=True;write=self.root.store.write;delayed=[]
+        def original(value,previous):
+            write(value,previous)
+            if self.root.completion_store.read() is not None and value['pending'] is not None and not delayed:
+                delayed.append(True);self.b.ui.sleep(2)
+        with patch.object(self.root.store,'write',side_effect=original):
+            with self.assertRaises(NativeUIError):self.act('open')
+        self.assertTrue(delayed);self.assertEqual(20000,self.b.epoch());self.assertIsNotNone(self.root.state()['pending'])
+        self.assertIsNotNone(self.root.completion_store.read())
+
     def test_foreign_phase_refuses_before_normal_input(self):
         self.journal.activate(RUN,uuid.uuid4().hex,'open',{});before=len(self.b.inputs)
         with self.assertRaises(NativeUIError):self.root.invoke('act',dict(contractVersion=VERSION,runId=RUN,ticket=uuid.uuid4().hex,fixtureUrl=URL,verb='open',inputs={}))

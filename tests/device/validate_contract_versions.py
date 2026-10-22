@@ -9,6 +9,7 @@ from pathlib import Path
 
 
 REQUIRED = {
+    "pico-create-feature-completion": 1,
     "pico-create-feature-owner": 1,
     "pico-create-model-resource-join": 1,
     "pico-create-model-resources": 1,
