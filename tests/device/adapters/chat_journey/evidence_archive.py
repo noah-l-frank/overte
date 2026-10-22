@@ -18,11 +18,13 @@ from adapters.normal_feature_state import PrivateFeatureState
 from adapters.script_journey.history import same,pack
 from adapters.chat_journey.source_chunks import digest
 
-VERSION=3
+VERSION=4
+WINDOW_VERSION=3
 CLOSED_VERSION=2
 LEGACY_VERSION=1
 FILE_OWNERSHIP='closed-immutable-originals'
 UNLINK_POLICY='original-source-16-unlinks-250ms'
+COPY_POLICY='full-current-copy-and-original-physical-inventory'
 LIMIT_FILES=4096
 LIMIT_BYTES=64*1024*1024
 
@@ -105,7 +107,7 @@ class ChatEvidenceArchive:
     before making its explicit catalog. A failed warm attempt cannot be retried
     or reconstructed by selecting files from disk.
     """
-    def __init__(self,catalog,directory,store,metadata,guard,inventory,*,unlink_fence=None):
+    def __init__(self,catalog,directory,store,metadata,guard,inventory,*,unlink_fence=None,indexed_verify=False):
         need(type(catalog) is ChatArchiveCatalog and isinstance(store,PrivateFeatureState)
             and directory.parent==store.path.parent and directory.is_absolute()
             and directory.resolve()==directory and not directory.exists() and store.read() is None
@@ -113,11 +115,14 @@ class ChatEvidenceArchive:
         self.catalog,self.directory,self.store,self.metadata=catalog,directory,store,deepcopy(metadata)
         need(unlink_fence is None or not catalog.hold_files and unlink_fence.guard is guard
             and all(callable(getattr(unlink_fence,name,None)) for name in ('prepare','check','complete')))
-        self.unlink_fence=unlink_fence
-        self.version=VERSION if unlink_fence is not None else LEGACY_VERSION if catalog.hold_files else CLOSED_VERSION
+        need(type(indexed_verify) is bool and (not indexed_verify or unlink_fence is not None))
+        self.unlink_fence=unlink_fence;self.indexed_verify=indexed_verify
+        self.version=VERSION if indexed_verify else WINDOW_VERSION if unlink_fence is not None else LEGACY_VERSION if catalog.hold_files else CLOSED_VERSION
         need(directory.parent in catalog.parents);self.parent_owner=catalog.parents[directory.parent]
         self.guard,self.inventory=guard,inventory;self.previous=None;self.started=False;self.archived={};self.deleted=[]
         self.root=None;self.manifest=None;self.receipt=None;self.complete=False
+        self.admitted={};self.cache_digest='';self.labels=tuple(catalog.rows)
+        self.positions={label:index for index,label in enumerate(self.labels)}
         catalog.verify_all();inventory(set(row['store'].path for row in catalog.rows.values()))
 
     def write(self,phase,**changes):
@@ -141,7 +146,16 @@ class ChatEvidenceArchive:
             else:
                 owner=ClosedOriginalFile(path,0o400,self.verify_root);actual,original_stamp=owner.read();need(actual==raw)
             row=dict(owner=owner,path=path,stamp=original_stamp,raw=raw,sha256=hashlib.sha256(raw).hexdigest())
-            self.archived[name]=row;self.verify_archive();return row
+            self.archived[name]=row
+            if self.indexed_verify:
+                snapshot=(name,tuple(original_stamp),row['sha256'],len(raw))
+                # Immutable bytes plus an independently pinned digest chain;
+                # caller mutations cannot update this original admission.
+                self.admitted[name]=(snapshot,raw,owner,owner.raw)
+                self.cache_digest=digest((self.cache_digest,snapshot))
+                self.verify_root()
+            else:self.verify_archive()
+            return row
         except BaseException:
             if owner is not None and not owner.close():self.catalog.uncertain.append(owner)
             raise
@@ -157,11 +171,47 @@ class ChatEvidenceArchive:
         if self.root is None:return
         self.verify_root()
         need({path.name for path in self.directory.iterdir()}==set(self.archived))
-        for row in self.archived.values():
-            if type(row['owner']) is ClosedOriginalFile:
-                raw,original_stamp=row['owner'].read();need(raw==row['raw'] and original_stamp==row['stamp']);continue
-            row['owner'].require(row['owner'].fd);info=os.fstat(row['owner'].fd);private(info,0o400)
-            need(stamp(info)==row['stamp']==stamp(row['path'].lstat()) and os.pread(row['owner'].fd,65537,0)==row['raw'])
+        if self.indexed_verify:self.verify_index()
+        for row in self.archived.values():self.verify_archived(row)
+
+    def verify_archived(self,row):
+        if type(row['owner']) is ClosedOriginalFile:
+            raw,original_stamp=row['owner'].read();need(raw==row['raw'] and original_stamp==row['stamp']);return
+        row['owner'].require(row['owner'].fd);info=os.fstat(row['owner'].fd);private(info,0o400)
+        need(stamp(info)==row['stamp']==stamp(row['path'].lstat()) and os.pread(row['owner'].fd,65537,0)==row['raw'])
+
+    def verify_index(self):
+        """Original physical inventory, NOT a new observation of cached bytes.
+
+        Every copy was fully read through its real owned FD window. Between
+        complete passes, all original physical stamps are checked via the held
+        directory; the current copy/manifest gets another FULL byte window.
+        Immutable byte objects and a pinned digest chain guard the cache too.
+        """
+        need(self.indexed_verify and tuple(self.catalog.rows)==self.labels)
+        self.verify_root()
+        # Enumeration can leave the owned directory OFD at end-of-directory;
+        # reset only this still kernel-verified original before every pass.
+        os.lseek(self.root.fd,0,os.SEEK_SET)
+        need(set(os.listdir(self.root.fd))==set(self.archived)==set(self.admitted))
+        chain=''
+        for name,row in self.archived.items():
+            snapshot,raw,owner,owner_raw=self.admitted[name]
+            current=(name,tuple(row['stamp']),row['sha256'],len(row['raw']))
+            need(current==snapshot and type(raw) is bytes and row['raw'] is raw and row['owner'] is owner
+                and type(owner) is ClosedOriginalFile and owner.path==row['path']==self.directory/name
+                and type(owner_raw) is bytes and owner.raw is owner_raw and owner.stamp==row['stamp'] and not owner.failed and owner.active is None)
+            chain=digest((chain,current))
+            info=os.stat(name,dir_fd=self.root.fd,follow_symlinks=False);private(info,0o400)
+            need(stamp(info)==row['stamp'])
+        need(chain==self.cache_digest);self.verify_root()
+
+    def verify_current(self,label):
+        self.verify_index();index=self.positions[label]
+        need(type(index) is int and 0<=index<len(self.labels) and self.labels[index]==label)
+        for name in (f'original-{index:04d}.json',f'manifest-{index//64:03d}.json','manifest.json'):
+            self.verify_archived(self.archived[name])
+        self.verify_index()
 
     def retire(self):
         need(not self.started);self.started=True
@@ -178,7 +228,8 @@ class ChatEvidenceArchive:
         # packed source nor its original bytes are truncated to fit a root.
         manifest=dict(chatEvidenceArchiveVersion=self.version,metadata=self.metadata,parts=[])
         if self.version>=CLOSED_VERSION:manifest['fileOwnership']=FILE_OWNERSHIP
-        if self.version==VERSION:manifest['unlinkPolicy']=UNLINK_POLICY
+        if self.version>=WINDOW_VERSION:manifest['unlinkPolicy']=UNLINK_POLICY
+        if self.version==VERSION:manifest['copyVerification']=COPY_POLICY
         for index in range(0,len(items),64):
             name=f'manifest-{index//64:03d}.json';raw=(json.dumps(items[index:index+64],sort_keys=True,separators=(',',':'))+'\n').encode()
             need(len(raw)<=65536);item=self.original(name,raw);manifest['parts'].append(dict(file=name,sha256=item['sha256']))
@@ -186,14 +237,21 @@ class ChatEvidenceArchive:
         self.manifest=self.original('manifest.json',raw);os.fsync(self.root.fd)
         self.write('archived',archiveSha256=self.manifest['sha256']);self.catalog.verify_all();self.verify_archive();self.guard()
         for row in self.catalog.rows.values():
-            self.catalog.verify(row);self.verify_archive()
+            self.catalog.verify(row)
+            if not self.indexed_verify:self.verify_archive()
             self.inventory({value['store'].path for key,value in self.catalog.rows.items() if key not in self.deleted})
             # The actual source/phase guard follows the final host intent.
             token=self.unlink_fence.prepare() if self.unlink_fence is not None else None
             self.write('unlink-issued',unlink=row['label'],**({'unlinkFence':token} if token is not None else {}))
             if token is None:self.guard();self.catalog.verify(row)
             else:
-                self.catalog.verify(row);check=lambda:self.unlink_fence.check(token);check()
+                self.catalog.verify(row)
+                def check():
+                    # A special retirement can contain its own final CAS.
+                    # Repeat copy/manifest/inventory at that exact callback.
+                    if self.indexed_verify:self.verify_current(row['label'])
+                    self.unlink_fence.check(token)
+                check()
             if 'retire' in row:
                 need(callable(row['retire']))
                 if token is not None:row['retire'](check)
@@ -212,14 +270,19 @@ class ChatEvidenceArchive:
             retiredSha256=digest(list(self.catalog.rows)),original=pack([proof]))
         raw=(json.dumps(receipt,sort_keys=True,separators=(',',':'))+'\n').encode();need(len(raw)<=65536)
         self.receipt=self.original('final.json',raw);os.fsync(self.root.fd)
-        self.write('complete',finalSha256=self.receipt['sha256']);self.verify_archive()
+        self.write('complete',finalSha256=self.receipt['sha256'])
+        if self.indexed_verify:self.verify_index()
+        else:self.verify_archive()
         # The caller's guard checks its original packet age after the final
         # receipt/CAS; it must not replace the stored proof with a later query.
         result=dict(chatEvidenceArchiveVersion=self.version,archiveSha256=self.manifest['sha256'],finalSha256=self.receipt['sha256'])
         self.guard(proof)
         try:
             self.store.discard(self.previous);os.fsync(self.parent_owner.fd)
-            os.chmod(self.directory,0o500);os.fsync(self.root.fd);self.verify_archive();self.guard(proof)
+            os.chmod(self.directory,0o500);os.fsync(self.root.fd)
+            if self.indexed_verify:self.verify_index()
+            else:self.verify_archive()
+            self.guard(proof)
         except BaseException:
             # No action is replayed and no landed/foreign root is overwritten.
             # If our final marker unlink landed, retain a NEW explicit failure
@@ -258,10 +321,11 @@ def completed_archive(directory):
         finally:owner.close()
     try:
         raw,_=read('manifest.json');manifest=decode(raw.decode());manifest_sha=hashlib.sha256(raw).hexdigest()
-        version=manifest.get('chatEvidenceArchiveVersion');need(type(version) is int and version in (LEGACY_VERSION,CLOSED_VERSION,VERSION))
-        exact(manifest,{'chatEvidenceArchiveVersion','metadata','parts'}|({'fileOwnership'} if version>=CLOSED_VERSION else set())|({'unlinkPolicy'} if version==VERSION else set()))
+        version=manifest.get('chatEvidenceArchiveVersion');need(type(version) is int and version in (LEGACY_VERSION,CLOSED_VERSION,WINDOW_VERSION,VERSION))
+        exact(manifest,{'chatEvidenceArchiveVersion','metadata','parts'}|({'fileOwnership'} if version>=CLOSED_VERSION else set())|({'unlinkPolicy'} if version>=WINDOW_VERSION else set())|({'copyVerification'} if version==VERSION else set()))
         if version>=CLOSED_VERSION:need(manifest['fileOwnership']==FILE_OWNERSHIP)
-        if version==VERSION:need(manifest['unlinkPolicy']==UNLINK_POLICY)
+        if version>=WINDOW_VERSION:need(manifest['unlinkPolicy']==UNLINK_POLICY)
+        if version==VERSION:need(manifest['copyVerification']==COPY_POLICY)
         need(type(manifest['chatEvidenceArchiveVersion']) is int and manifest['chatEvidenceArchiveVersion']==version
             and type(manifest['metadata']) is dict and type(manifest['parts']) is list and 1<=len(manifest['parts'])<=LIMIT_FILES//64)
         labels=[];items=[]
@@ -293,6 +357,7 @@ def completed_archive(directory):
             and (directory.stat().st_dev,directory.stat().st_ino)==root.node and stat.S_IMODE(directory.stat().st_mode)==0o500)
         result=dict(metadata=manifest['metadata'],original=proof[0],archiveSha256=manifest_sha,finalSha256=hashlib.sha256(raw).hexdigest())
         if version>=CLOSED_VERSION:result.update(chatEvidenceArchiveVersion=version,fileOwnership=FILE_OWNERSHIP)
-        if version==VERSION:result['unlinkPolicy']=UNLINK_POLICY
+        if version>=WINDOW_VERSION:result['unlinkPolicy']=UNLINK_POLICY
+        if version==VERSION:result['copyVerification']=COPY_POLICY
         return deepcopy(result)
     finally:root.close()

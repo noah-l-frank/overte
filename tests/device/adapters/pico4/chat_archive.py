@@ -19,7 +19,7 @@ from adapters.restart_inputs import validate_native_restart
 from adapters.script_journey.history import same
 from feature_journeys.phase_fixture import PhaseFixtureReader,validate as phase_packet
 
-VERSION=3
+VERSION=4
 
 
 class PicoChatArchivePlan:
@@ -162,7 +162,7 @@ class PicoChatArchivePlan:
             originalProfile=application.profile['original'],cleanupSha256=digest(guard.expected),parentSha256=digest(p.previous),applicationSha256=digest(application.previous))
         directory=self.state.parent/('chat-evidence-'+self.key+'-'+p.source.run)
         self.archive=ChatEvidenceArchive(self.catalog,directory,self.adapter._chat_archive_retirement_store(self.target),metadata,guard,self.inventory,
-            unlink_fence=ChatArchiveUnlinkFence(guard))
+            unlink_fence=ChatArchiveUnlinkFence(guard),indexed_verify=True)
         return self.archive.retire()
 
     def close_host(self):
