@@ -12,6 +12,7 @@ from feature_journeys.engine import Journey
 from feature_journeys.evidence import read_private_artifact
 from feature_journeys.scenarios import SCENARIOS
 from feature_journeys.session import prepare
+from feature_journeys.audio_cleanup import identity as audio_cleanup_identity
 from feature_journeys.witness import Client
 from module_support import (ARTIFACT_DIR, AssertionFailure, InfrastructureError,
     assert_foreground, assert_process, module_main, process_identity, write_json)
@@ -27,6 +28,7 @@ def main():
     run, url = client.register(args.area)
     session = OverteSession()
     identity = old_identity = None
+    audio_cleanup_restarted=False
     try:
         prepare(session, args.area)
         identity = process_identity()
@@ -45,8 +47,15 @@ def main():
             assert_foreground('normal feature observation')
 
         def invoke(operation, fields):
+            nonlocal identity,audio_cleanup_restarted
             prefix, area, kind = operation.split('.')
-            return session.feature_operation(area, kind, fields)
+            value=session.feature_operation(area, kind, fields)
+            if area=='audio' and kind=='cleanup':
+                # The immutable native preview history has no reset input.
+                # Its documented cleanup uses one explicit normal restart;
+                # independently reacquire OS identity before further reads.
+                identity,audio_cleanup_restarted=audio_cleanup_identity(identity,process_identity(),audio_cleanup_restarted)
+            return value
 
         Journey(args.area, run, url, invoke=invoke, witness=client.observe, activate=client.activate,
             read_artifact=lambda name: read_private_artifact(ARTIFACT_DIR, name), image_policy=policy,

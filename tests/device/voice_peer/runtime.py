@@ -9,6 +9,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import math
 import os
+import re
+import stat
 from pathlib import Path
 import secrets
 import shutil
@@ -177,6 +179,9 @@ class Peer:
         self.snapshot = None
         self.snapshot_received = 0.0
         self.receiving_challenge = None
+        self.receiving_preview = None
+        self.preview_instance = secrets.token_hex(16)
+        self.preview_used, self.preview_retired = set(), set()
         self.command = None
         self.guard = threading.RLock()
         self.operation = threading.Lock()
@@ -282,6 +287,10 @@ class Peer:
                 "snapshotAgeSeconds": None if age is None else round(age, 3),
                 "clientSha256": getattr(self, "client_digest", None), "client": snapshot,
                 "receivingChallenge": self.receiving_challenge,
+                "receivingPreview": self.receiving_preview,
+                "previewProviderVersion": 1,
+                "recordedPreviewEnabled": os.environ.get('OVERTE_E2E_RECORDED_PREVIEW_TESTS') == '1',
+                "previewRunnerSha256": self.runner_digest,
                 "proof": "PC partner readiness; no device acceptance claim"}
 
     def ready(self, mixer: bool = True) -> dict:
@@ -344,6 +353,8 @@ class Peer:
 
     def run(self, request: dict) -> dict:
         action = request.get("action")
+        if action in ('receive-preview','preview-files','preview-release'):
+            return self.preview(request)
         if action == "status":
             return self.status()
         if action == "domain-check":
@@ -449,6 +460,103 @@ class Peer:
                     self.configure(muted=True)
             finally:
                 self.operation.release()
+
+    def preview(self,request):
+        """Original PC output acquisition, never a target fact or detector verdict.
+
+        The existing logical voice path/isolated Pulse monitor is reused. This
+        does not claim an acoustic speaker or physical microphone measurement.
+        """
+        if os.environ.get('OVERTE_E2E_RECORDED_PREVIEW_TESTS')!='1':raise ValueError('Recorded preview PC fixture is disabled')
+        action=request.get('action');capture=request.get('capture_id');request_id=request.get('request_id')
+        if type(capture) is not str or not re.fullmatch('[0-9a-f]{32}',capture):raise ValueError('Original preview capture identity is required')
+        path=self.root/('preview-'+capture+'.wav');journal=self.root/('preview-'+capture+'.json')
+        exists=lambda source:source.exists() or source.is_symlink()
+        def read_private(source,limit):
+            before=source.lstat()
+            with os.fdopen(os.open(source,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK),'rb') as stream:
+                info=os.fstat(stream.fileno())
+                if (before.st_dev,before.st_ino)!=(info.st_dev,info.st_ino) or not stat.S_ISREG(info.st_mode) or info.st_nlink!=1 or info.st_uid!=os.getuid() or stat.S_IMODE(info.st_mode)!=0o600 or info.st_size>limit:
+                    raise InfrastructureError('Original private PC preview file changed')
+                raw=stream.read(limit+1);after=os.fstat(stream.fileno());current=source.lstat()
+                if len(raw)>limit or (info.st_dev,info.st_ino,info.st_size)!=(after.st_dev,after.st_ino,after.st_size) or (info.st_dev,info.st_ino,info.st_size)!=(current.st_dev,current.st_ino,current.st_size) or not stat.S_ISREG(current.st_mode) or current.st_nlink!=1 or stat.S_IMODE(current.st_mode)!=0o600:
+                    raise InfrastructureError('Original private PC preview file changed')
+            return raw
+        def original():
+            if not exists(path) and not exists(journal):return None
+            for source in (path,journal):
+                info=source.lstat()
+                if not stat.S_ISREG(info.st_mode) or info.st_nlink!=1 or info.st_uid!=os.getuid() or stat.S_IMODE(info.st_mode)!=0o600 or info.st_size>32*1024*1024:
+                    raise InfrastructureError('Original private PC preview file ownership changed')
+            def pairs(rows):
+                value={}
+                for key,item in rows:
+                    if key in value:raise InfrastructureError('Duplicate original PC preview metadata')
+                    value[key]=item
+                return value
+            value=json.loads(read_private(journal,65536),object_pairs_hook=pairs);content=read_private(path,32*1024*1024);info=path.lstat()
+            if value.get('captureId')!=capture or value.get('sha256')!=hashlib.sha256(content).hexdigest() or value.get('bytes')!=len(content) or value.get('device')!=info.st_dev or value.get('inode')!=info.st_ino:
+                raise InfrastructureError('Original PC preview PCM changed')
+            return value
+        if action!='receive-preview':
+            if set(request)!={'action','capture_id','request_id'} or type(request_id) is not str or not re.fullmatch('[0-9a-f]{32}',request_id):raise ValueError('Closed original preview file request required')
+            if self.receiving_preview==capture:raise InfrastructureError('Original PC preview capture is still running')
+            value=original()
+            if action=='preview-release' and capture not in self.preview_used and capture not in self.preview_retired:
+                raise ValueError('Cannot release an unowned PC preview capture')
+            if action=='preview-release' and value is not None:
+                path.unlink();journal.unlink()
+            if action=='preview-release':
+                self.preview_retired.add(capture)
+            # A new query is required to prove absence after release.
+            return dict(schemaVersion=1,requestId=request_id,instance=self.preview_instance,captureId=capture,capturedEpochMs=int(time.time()*1000),
+                exists=exists(path) or exists(journal),retired=capture in self.preview_retired,
+                original=value if action=='preview-files' else None)
+        if set(request)!={'action','challenge','capture_id','seconds'}:raise ValueError('Closed original preview capture request required')
+        challenge=request['challenge'];sequence(challenge,profile='recorded-preview-v1')
+        seconds=request['seconds']
+        if type(seconds) not in (int,float) or not 3<=seconds<=10 or exists(path) or exists(journal) or len(list(self.root.glob('preview-*.wav')))>=32 or capture in self.preview_used or capture in self.preview_retired or len(self.preview_used)>=128:
+            raise ValueError('Original bounded PC preview capture is unavailable')
+        if not self.operation.acquire(blocking=False):raise InfrastructureError('Another PC audio operation is active')
+        try:
+            self.preview_used.add(capture)
+            before=self.ready();self.configure(muted=True)
+            with self.artifacts() as temporary:
+                with self.routes.capture(temporary) as wav:
+                    started=int(time.time()*1000)
+                    with self.guard:self.receiving_challenge=challenge;self.receiving_preview=capture
+                    deadline=time.monotonic()+seconds;stats=[];previous=None
+                    while time.monotonic()<deadline:
+                        current=self.ready();client=current.get('client') or {}
+                        if client.get('sequence')!=previous and len(stats)<128:
+                            stats.append(dict(capturedEpochMs=int(time.time()*1000),peerSequence=client.get('sequence'),audioStats=client.get('audioStats')))
+                            previous=client.get('sequence')
+                        time.sleep(.1)
+                content=wav.read_bytes();completed=int(time.time()*1000)
+                if not content or len(content)>32*1024*1024:raise InfrastructureError('Original PC preview PCM is unavailable')
+                with wave.open(str(wav),'rb') as source:
+                    rate,channels,width,frames=source.getframerate(),source.getnchannels(),source.getsampwidth(),source.getnframes()
+                    if not 8000<=rate<=48000 or channels not in (1,2) or width!=2 or not 3*rate<=frames<=11*rate:
+                        raise InfrastructureError('Original PC preview format is unavailable')
+                descriptor=os.open(path,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600)
+                with os.fdopen(descriptor,'wb') as output:
+                    if output.write(content)!=len(content):raise InfrastructureError('Original PC preview write is incomplete')
+                    output.flush();os.fsync(output.fileno());info=os.fstat(output.fileno())
+                value=dict(schemaVersion=1,instance=self.preview_instance,captureId=capture,challenge=challenge,source='private-pc-playout-monitor',
+                    startedEpochMs=started,completedEpochMs=completed,bytes=len(content),sha256=hashlib.sha256(content).hexdigest(),
+                    device=info.st_dev,inode=info.st_ino,sampleRate=rate,channels=channels,frames=frames,
+                    clientSha256=self.client_digest,runnerSha256=self.runner_digest,pcAudioStats=stats,
+                    physicalAudioHardwareTested=False)
+                metadata=json.dumps(value,allow_nan=False).encode()
+                if len(metadata)>65536:raise InfrastructureError('Original PC preview metadata exceeded its limit')
+                descriptor=os.open(journal,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600)
+                with os.fdopen(descriptor,'wb') as output:
+                    if output.write(metadata)!=len(metadata):raise InfrastructureError('Original PC preview metadata write is incomplete')
+                    output.flush();os.fsync(output.fileno())
+                original();return dict(schemaVersion=1,captureId=capture,retained=True)
+        finally:
+            with self.guard:self.receiving_challenge=None;self.receiving_preview=None
+            self.operation.release()
 
 
 def make_handler(peer: Peer):

@@ -21,6 +21,7 @@
 #include <QSet>
 #include <memory>
 namespace overte::e2e { class ChatViewObservation; }
+namespace overte::e2e { class PhoneAudioFixtureHTTP; }
 #include <QUuid>
 namespace overte::e2e { class FeatureLifecycle; class AccountOriginLease; class ScriptFileUi; class AudioUi; class GraphicsUi; class LoginUi; class CreateUi; class ChatUi; class EmoteUi; class PhoneEmoteFixture; class PrivateCreateFiles; class PhoneCreateFixture; class PhoneNavigationMarker; class NavigationUi; class NavigationViewObservation; class AvatarPeopleUi; class AvatarPeopleViewObservation; class PhoneAssetsReadJob; }
 #endif
@@ -176,6 +177,7 @@ public slots:
 #if defined(ANDROID_APP_PHONE_INTERFACE)
     Q_INVOKABLE QVariantMap phoneScriptFileUi(const QVariantMap& command);
     Q_INVOKABLE QVariantMap phoneAudioUi(const QVariantMap& command);
+    Q_INVOKABLE QVariantMap phoneAudioFixture(const QVariantMap& command);
     Q_INVOKABLE QVariantMap phoneGraphicsUi(const QVariantMap& command);
     Q_INVOKABLE QVariantMap phoneEmoteUi(const QVariantMap& command);
     Q_INVOKABLE QVariantMap phoneCreateUi(const QVariantMap& command);
@@ -278,6 +280,7 @@ private:
     QVariantMap phoneControlUi(const QVariantMap& command, int surfaceKind);
     std::shared_ptr<overte::e2e::ScriptFileUi> _phoneScriptFileUi;
     std::shared_ptr<overte::e2e::AudioUi> _phoneAudioUi;
+    std::shared_ptr<overte::e2e::PhoneAudioFixtureHTTP> _phoneAudioFixture;
     std::shared_ptr<overte::e2e::GraphicsUi> _phoneGraphicsUi;
     std::shared_ptr<overte::e2e::EmoteUi> _phoneEmoteUi;
     std::shared_ptr<overte::e2e::LoginUi> _phoneLoginUi;

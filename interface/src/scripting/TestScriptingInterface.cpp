@@ -70,6 +70,7 @@
 #include <AnimationCache.h>
 #if defined(ANDROID_APP_PHONE_INTERFACE)
 #include "../../../tests/device/native/ScriptFileUi.h"
+#include "../../../tests/device/native/PhoneAudioFixtureHTTP.h"
 #include "../../../tests/device/native/PhoneAvatarConfiguration.h"
 #include "../../../tests/device/native/PhoneEmoteFixture.h"
 #include "../../../tests/device/native/PhoneCreateFixture.h"
@@ -545,6 +546,35 @@ QVariantMap TestScriptingInterface::featureNativeObservation(const QString& requ
     _featureCompletedObservation = result;
     return result;
 }
+
+#if defined(ANDROID_APP_PHONE_INTERFACE)
+QVariantMap TestScriptingInterface::phoneAudioFixture(const QVariantMap& command) {
+    if (QThread::currentThread() != thread()) {
+        QVariantMap result;
+        QMetaObject::invokeMethod(this, [&] { result = phoneAudioFixture(command); }, Qt::BlockingQueuedConnection);
+        return result;
+    }
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript")
+            || !overte::e2e::previewDirectory(_testResultsLocation)) { return {}; }
+    if (!_phoneAudioFixture) {
+        const auto audio = DependencyManager::get<AudioClient>();
+        _phoneAudioFixture = std::make_shared<overte::e2e::PhoneAudioFixtureHTTP>(this,
+            [audio](const QByteArray& pcm, const QVariantMap& receipt) {
+                bool armed = false;
+                QMetaObject::invokeMethod(audio.data(), [&] { armed = audio->armPhoneAudioFixture(pcm, receipt); }, Qt::BlockingQueuedConnection);
+                return armed;
+            }, [audio] {
+                QVariantMap value;
+                QMetaObject::invokeMethod(audio.data(), [&] { value = audio->phoneAudioFixtureObservation(); }, Qt::BlockingQueuedConnection);
+                return value;
+            }, [audio] {
+                QMetaObject::invokeMethod(audio.data(), [audio] { audio->releasePhoneAudioFixture(); }, Qt::BlockingQueuedConnection);
+            });
+    }
+    return _phoneAudioFixture->command(command);
+}
+#endif
 
 QVariantMap TestScriptingInterface::featureRecordedVoiceEvidence(const QString& requestId) {
     if (QThread::currentThread() != thread()) {

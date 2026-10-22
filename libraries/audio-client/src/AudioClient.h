@@ -69,6 +69,9 @@
 #include "AudioFileWav.h"
 #include "HifiAudioDeviceInfo.h"
 #include "PhoneVoiceTestBuffer.h"
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PHONE_INTERFACE)
+#include "PhoneAudioFixtureInput.h"
+#endif
 
 #if defined(WEBRTC_AUDIO)
 #  define WEBRTC_APM_DEBUG_DUMP 0
@@ -271,6 +274,11 @@ public slots:
     QVariantMap featureRecordedVoiceObservation() const;
     QVariantMap featureRecordedVoiceEvidence() const;
     void releaseFeatureRecordedVoiceEvidence();
+#if defined(ANDROID_APP_PHONE_INTERFACE)
+    QVariantMap phoneAudioFixtureObservation() const;
+    bool armPhoneAudioFixture(const QByteArray& pcm, const QVariantMap& receipt);
+    void releasePhoneAudioFixture();
+#endif
 #endif
 
     virtual bool getServerEcho() override { return _shouldEchoToServer; }
@@ -437,6 +445,9 @@ private:
     bool _e2eRecordedVoiceHistoryComplete {true};
     QVariantList _e2eRecordedVoiceHistory;
     overte::e2e::RecordedPreviewObservation _e2eRecordedPreview;
+#if defined(ANDROID_APP_PHONE_INTERFACE)
+    overte::e2e::PhoneAudioFixtureInput _e2ePhoneAudioInput;
+#endif
 #endif
     void finishRecordedVoiceTest(const QString& phase, const QString& error = QString());
     void publishRecordedVoiceTestStatus(const QString& phase, const QString& error = QString());

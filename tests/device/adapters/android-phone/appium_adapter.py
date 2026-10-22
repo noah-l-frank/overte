@@ -108,6 +108,7 @@ EMOTE_FEATURE_OPERATIONS={'feature.emotes.'+kind for kind in ('act','observe','c
 WORLD_WEB_FEATURE_OPERATIONS={'feature.world-web.'+kind for kind in ('act','observe','cleanup')}
 TABLET_WEB_FEATURE_OPERATIONS={'feature.tablet-web.'+kind for kind in ('act','observe','cleanup')}
 TABLET_FOUNDATION_OPERATIONS={'tablet.open','tablet.close'}
+AUDIO_FEATURE_OPERATIONS={'feature.audio.'+kind for kind in ('act','observe','cleanup')}
 NAVIGATION_FEATURE_OPERATIONS={'feature.world-navigation.'+kind for kind in ('act','observe','cleanup')}
 WEB_REFERENCE_OPERATIONS={'web.reference.'+kind for kind in ('open','close','play','pause','seek')}
 
@@ -138,6 +139,15 @@ def readonly_feature_command(command):
         validate_navigation_marker(command)
     elif action=='phone-navigation-ui':
         require(set(command)=={'schemaVersion','commandId','action','request'} and command['request']==dict(schemaVersion=1,commandId=command['commandId'],action='observe'),'PHONE_READ_ONLY_COMMAND_REJECTED')
+    elif action=='phone-audio-fixture':
+        from overte_phone_audio_source import command as validate_audio_source
+        validate_audio_source(command);require(command['request']['operation']=='observe','PHONE_READ_ONLY_COMMAND_REJECTED')
+    elif action=='voice-test':
+        from voice_contract import command as validate_voice
+        require(set(command)=={'schemaVersion','commandId','action','request'},'PHONE_READ_ONLY_COMMAND_REJECTED')
+        validate_voice(command['request']);require(command['request']==dict(schemaVersion=1,commandId=command['commandId'],action='status'),'PHONE_READ_ONLY_COMMAND_REJECTED')
+    elif action in ('feature-recorded-audio-observe','feature-recorded-audio-files'):
+        require(set(command)=={'schemaVersion','commandId','action'},'PHONE_READ_ONLY_COMMAND_REJECTED')
     elif action=='feature-script-work-observe':
         script_work_command(command)
     elif action=='feature-script-files':
@@ -211,7 +221,7 @@ def readonly_feature_command(command):
     elif action=='feature-account-probe':
         from adapters.native_account_probe import command as validate_probe
         validate_probe(command) # Only read/release/inspect; no URL or credentials.
-    elif action in ('phone-script-file-ui','phone-login-ui','phone-graphics-ui','phone-emote-ui','phone-create-ui'):
+    elif action in ('phone-script-file-ui','phone-login-ui','phone-graphics-ui','phone-emote-ui','phone-create-ui','phone-audio-ui'):
         require(set(command)=={'schemaVersion','commandId','action','request'}
                 and type(command['request']) is dict
                 and command['request']==dict(schemaVersion=1,commandId=command['commandId'],action='observe')
@@ -353,6 +363,15 @@ class PhoneAppiumAdapter(AppiumAdapter):
             self._tablet_web_configuration();self._feature_fixture_client()
             values=sorted(set(values)|TABLET_WEB_FEATURE_OPERATIONS|WEB_REFERENCE_OPERATIONS|TABLET_FOUNDATION_OPERATIONS)
         reference_enabled=os.environ.get('OVERTE_PHONE_NORMAL_WEB_REFERENCE','0')
+        full_audio=os.environ.get('OVERTE_PHONE_FEATURE_AUDIO','0')
+        require(full_audio in ('0','1'),'PHONE_FEATURE_AUDIO_CONFIGURATION_INVALID')
+        if full_audio=='1':
+            require(getattr(self,'candidate',None) is not None and target.get('appId')=='io.github.noah_be.overte.phone'
+                and self.controlled_android_client(target),'PHONE_FEATURE_AUDIO_REQUIRES_BOUND_DEBUG_TARGET')
+            require(os.environ.get('OVERTE_E2E_VOICE_TESTS')=='1' and os.environ.get('OVERTE_E2E_RECORDED_PREVIEW_TESTS')=='1'
+                and {'permission.snapshot','permission.set','sound.play','voice.exchange'}<=set(values),'PHONE_AUDIO_MANDATORY_FOUNDATIONS_REQUIRED')
+            self._audio_configuration();self._feature_fixture_client()
+            values=sorted(set(values)|AUDIO_FEATURE_OPERATIONS|{'audio.mute'})
         require(reference_enabled in ('0','1'),'PHONE_WEB_REFERENCE_CONFIGURATION_INVALID')
         if reference_enabled=='1':
             require(getattr(self,'candidate',None) is not None and target.get('appId')=='io.github.noah_be.overte.phone'
@@ -558,8 +577,8 @@ class PhoneAppiumAdapter(AppiumAdapter):
         check()
         return OwnedAccountProbe(probe,owner)
 
-    def _recorded_preview_evidence(self, selector):
-        native = self._native_feature_observer(selector)
+    def _recorded_preview_evidence(self, selector, *, read_only=False):
+        native = self._native_feature_observer(selector,read_only=read_only)
         target = self.target(selector)
         device = target['capabilities']['appium:udid']
         transport = PhoneAdapter(self.candidate).adb
@@ -568,6 +587,46 @@ class PhoneAppiumAdapter(AppiumAdapter):
                 'files/overte-e2e/' + RECORDED_PREVIEW_FILE, attempts=1),
             AndroidPreviewFiles(transport, device, target['appId'], native.guard),
             native.clock_ms, native.guard, native.pid)
+
+    def _audio_source(self,selector,*,read_only=False):
+        from overte_phone_audio_source import PhoneAudioSource,FILE
+        native=self._native_feature_observer(selector,read_only=read_only)
+        target=self.target(selector);device=target['capabilities']['appium:udid'];transport=PhoneAdapter(self.candidate).adb
+        return PhoneAudioSource(native,lambda:transport.read_debug_app_file(device,target['appId'],'files/overte-e2e/'+FILE,attempts=1),read_only=read_only)
+
+    def audio_feature_store(self,selector):return PrivateFeatureState(self.state_path(selector).with_name('phone-audio-feature.json'))
+    def audio_retirement_store(self,selector):return PrivateFeatureState(self.state_path(selector).with_name('phone-audio-retirement.json'))
+    def audio_mute_store(self,selector):return PrivateFeatureState(self.state_path(selector).with_name('phone-audio-mute.json'))
+
+    @staticmethod
+    def _audio_configuration(metadata=None):
+        from overte_phone_audio_peer import configuration
+        if metadata is None:
+            path=os.environ.get('OVERTE_PHONE_AUDIO_CONFIGURATION');require(type(path) is str and bool(path),'PHONE_AUDIO_CONFIGURATION_REQUIRED')
+            value=PrivateFeatureState(Path(path)).read()
+        else:value=metadata['configuration']
+        value=configuration(value)
+        require(value['artifactRoot']==os.environ.get('OVERTE_DEVICE_ARTIFACT_DIR')
+            and value['peerState']==os.environ.get('OVERTE_E2E_VOICE_PEER_STATE'),'PHONE_AUDIO_ORIGINAL_CONFIGURATION_CHANGED')
+        return value
+
+    def _audio_feature(self,selector,run,*,role='primary',client=None,retirement=False):
+        from overte_phone_audio_feature import PhoneAudioFeature
+        from overte_phone_audio_fixture import AudioFixtureReader
+        target=self.target(selector);require(self.candidate is not None and target.get('appId')=='io.github.noah_be.overte.phone' and self.controlled_android_client(target),'PHONE_AUDIO_BOUND_DEBUG_TARGET_REQUIRED')
+        if client is None:require(role=='primary','PHONE_AUDIO_ACTOR_REQUIRES_SEPARATE_CLIENT');client=self._feature_fixture_client()
+        metadata=self.audio_feature_store(selector).read() or self.audio_retirement_store(selector).read()
+        if metadata is not None:require(metadata['runId']==run and metadata['fixtureUrl']==client.url+'/runs/'+run+'/','PHONE_AUDIO_ORIGINAL_SCOPE_CHANGED')
+        elif role=='actor' or retirement:require(False,'PHONE_AUDIO_ORIGINAL_OWNER_REQUIRED')
+        config=self._audio_configuration(metadata)
+        return PhoneAudioFeature(self,selector,AudioFixtureReader(client,run),config,role=role)
+
+    def _audio_voice_status(self,selector):
+        from adapters.voice_transport import exchange
+        native=self._native_feature_observer(selector,read_only=True)
+        target=self.target(selector);device=target['capabilities']['appium:udid'];transport=PhoneAdapter(self.candidate).adb
+        return exchange(dict(schemaVersion=1,commandId=uuid.uuid4().hex,action='status'),native.send,
+            lambda:transport.read_debug_app_file(device,target['appId'],'files/overte-e2e/voice-result.json',attempts=1),native.guard)
 
     def world_render_store(self, selector, *, role='primary'):
         require(role in ('primary','actor'),'PHONE_WORLD_RENDER_ROLE_INVALID')
@@ -1649,10 +1708,10 @@ class PhoneAppiumAdapter(AppiumAdapter):
                 and self.installed_identity(selector)==installed,'PHONE_ACCOUNT_MENU_CONTEXT_CHANGED')
         return PhoneAccountMenu(ui,source,intent,run,origin)
 
-    def _audio_controls(self, selector, intent):
+    def _audio_controls(self, selector, intent, *, read_only=False):
         # Internal ordinary-input prerequisite. Caller must persist ownership;
         # no full Audio capability is advertised by this component.
-        native = self._native_feature_observer(selector)
+        native = self._native_feature_observer(selector,read_only=read_only)
         target = self.target(selector)
         device = target['capabilities']['appium:udid']
         transport = PhoneAdapter(self.candidate).adb
@@ -1875,6 +1934,13 @@ class PhoneAppiumAdapter(AppiumAdapter):
         return result
 
     def cleanup(self, selector):
+        audio_error=False
+        try:
+            metadata=self.audio_feature_store(selector).read() or self.audio_retirement_store(selector).read()
+            if metadata is not None:self._audio_feature(selector,metadata['runId'],retirement=True).finalize()
+            from overte_phone_audio_mute import PhoneAudioMute
+            if self.audio_mute_store(selector).read() is not None:PhoneAudioMute(self,selector,self.audio_mute_store(selector)).cleanup()
+        except Exception:audio_error=True
         reference_error=False
         try:
             if self.web_reference_store(selector).read() is not None or self.web_reference_retired_store(selector).read() is not None:self._web_reference(selector).cleanup()
@@ -2100,6 +2166,8 @@ class PhoneAppiumAdapter(AppiumAdapter):
         require(not create_error and self.create_feature_store(selector).read() is None
             and PrivateFeatureState(self.state_path(selector).with_name('phone-create-retirement.json')).read() is None
             and all(PrivateFeatureState(self.state_path(selector).with_name('phone-create-'+kind+'.json')).read() is None for kind in ('primary-originals','actor-originals','actor-lifecycle','files-owner')),'PHONE_CREATE_FEATURE_CLEANUP_INCOMPLETE')
+        require(not audio_error and self.audio_feature_store(selector).read() is None and self.audio_retirement_store(selector).read() is None
+            and self.audio_mute_store(selector).read() is None and all(PrivateFeatureState(self.state_path(selector).with_name('phone-audio-'+role+'.json')).read() is None for role in ('primary','actor')),'PHONE_AUDIO_FEATURE_CLEANUP_INCOMPLETE')
         require(not emote_error,'PHONE_EMOTE_FEATURE_CLEANUP_INCOMPLETE')
         return result
 
@@ -2149,6 +2217,14 @@ class PhoneAppiumAdapter(AppiumAdapter):
             arguments(operation,values)
             require(operation in self.advertised_capabilities(self.target(selector)),'PHONE_NAVIGATION_FEATURE_NOT_ENABLED')
             return getattr(self._navigation_feature(selector,values['runId']),operation.rsplit('.',1)[1])(values)
+        if operation in AUDIO_FEATURE_OPERATIONS:
+            from feature_journeys.contract import arguments
+            arguments(operation,values);require(operation in self.advertised_capabilities(self.target(selector)),'PHONE_AUDIO_FEATURE_NOT_ENABLED')
+            return getattr(self._audio_feature(selector,values['runId']),operation.rsplit('.',1)[1])(values)
+        if operation=='audio.mute' and os.environ.get('OVERTE_PHONE_FEATURE_AUDIO','0')=='1':
+            from overte_phone_audio_mute import PhoneAudioMute
+            arguments=validate_operation_arguments(operation,values);require(operation in self.advertised_capabilities(self.target(selector)),'PHONE_AUDIO_CONTROLS_NOT_ENABLED')
+            return PhoneAudioMute(self,selector,self.audio_mute_store(selector)).act(arguments['muted'])
         if operation in SCRIPT_FEATURE_OPERATIONS:
             from feature_journeys.contract import arguments
             arguments(operation,values)

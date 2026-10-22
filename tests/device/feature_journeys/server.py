@@ -28,6 +28,7 @@ from feature_journeys.browser_fixture import BrowserResources
 from feature_journeys.navigation_fixture import NavigationResources,DIRECTORY
 from feature_journeys.script_fixture import ScriptResources
 from feature_journeys.graphics_resources import GraphicsResources, RESOURCE as GRAPHICS_SCENE
+from feature_journeys.audio_resources import AudioResources, RESOURCE as AUDIO_INPUT
 
 PREFIX = '/feature-fixture/v1'
 
@@ -83,6 +84,16 @@ class Handler(BaseHTTPRequestHandler):
             observe_write(dict(status=actual_status,responseId=actual_id,bytes=written,sha256=hashlib.sha256(body).hexdigest()))
 
     def resource(self,run,ticket,name):
+        if name==AUDIO_INPUT:
+            provider=self.server.audio_resources
+            if provider is None:return self.send(503,{'error':'audio-provider-unavailable'})
+            self.connection.settimeout(2)
+            authorities=self.headers.get_all('Host',[])
+            if len(authorities)!=1:raise ValueError('One original Audio request authority is required')
+            with provider.response(run,ticket,request_authority=authorities[0],
+                    request_scheme='https' if isinstance(self.connection,ssl.SSLSocket) else 'http') as response:
+                if response is None:return self.send(404,{'error':'not-found'})
+                return self.send(response[0],response[1],'application/octet-stream',response_id=response[2],observe_write=response[3])
         social=self.server.avatar_people_service
         if social is not None and run in social.runs and (name in ('avatar-a.fst','missing.fst') or name.startswith(('mannequin/','gltf-bundle/'))):
             self.connection.settimeout(2)
@@ -270,6 +281,9 @@ class Handler(BaseHTTPRequestHandler):
             if self.command=='GET' and parts==['graphics-provider']:
                 if self.server.graphics_resources is None:return self.send(503,{'error':'graphics-provider-unavailable'})
                 return self.send(200,dict(self.server.graphics_resources.ready(),internalErrors=self.server.internal_errors))
+            if self.command=='GET' and parts==['audio-provider']:
+                if self.server.audio_resources is None:return self.send(503,{'error':'audio-provider-unavailable'})
+                return self.send(200,dict(self.server.audio_resources.ready(),internalErrors=self.server.internal_errors))
             body = None
             if self.command == 'POST':
                 size = int(self.headers.get('Content-Length', '0'))
@@ -297,6 +311,10 @@ class Handler(BaseHTTPRequestHandler):
                     except Exception:
                         self.server.journal.close(run)
                         raise
+                if body['area']=='audio' and self.server.audio_resources is not None:
+                    try:
+                        self.server.audio_resources.provision(run)
+                    except BaseException:self.server.journal.close(run);raise
                 if body['area'] in ('world-web','tablet-web'):self.server.browser_resources.open(run,area=body['area'])
                 if body['area']=='scripts':
                     try:self.server.script_resources.provision(run)
@@ -335,6 +353,12 @@ class Handler(BaseHTTPRequestHandler):
                 if self.command=='POST' and reader and self.server.avatar_people_service is not None:
                     exact(body,{},'social authority cleanup');self.server.avatar_people_service.cleanup_accounts(run);return self.send(200,{})
                 return self.send(403,{'error':'forbidden'})
+            if parts[2:]==['audio']:
+                if self.command=='GET' and self.server.audio_resources is not None:
+                    nonces=self.headers.get_all('X-Overte-Audio-Read',[])
+                    if len(nonces)!=1:raise ValueError('One original Audio status nonce is required')
+                    return self.send(200,self.server.audio_resources.snapshot(run,identifier(nonces[0])))
+                return self.send(503,{'error':'audio-provider-unavailable'})
             if parts[2:]==['graphics']:
                 if self.command=='GET' and self.server.graphics_resources is not None:
                     requests=self.headers.get_all('X-Overte-Graphics-Read',[])
@@ -398,6 +422,7 @@ class Handler(BaseHTTPRequestHandler):
                         self.server.journal.activate(run, body['ticket'], body['verb'], body['inputs'])
                         self.server.script_resources.activate(run,body['ticket'])
                 else:self.server.journal.activate(run, body['ticket'], body['verb'], body['inputs'])
+                if self.server.journal.runs[run]['area']=='audio' and self.server.audio_resources is not None:self.server.audio_resources.activate(run,body['ticket'])
                 if self.server.journal.runs[run]['area']=='avatar-people':self.server.avatar_people_service.activate(run,body['ticket'])
                 if self.server.journal.runs[run]['area']=='world-navigation':
                     self.server.navigation_resources.activate(run,body['ticket'])
@@ -423,6 +448,11 @@ class Handler(BaseHTTPRequestHandler):
                 if adapter_reader:original['entries']=[] # Only the original phase/read clock, never independent peer facts.
                 return self.send(200,original)
             if self.command == 'DELETE' and len(parts) == 2 and reader:
+                if self.server.audio_resources is not None and self.server.audio_resources.has_run(run):
+                    with self.server.journal.lock:
+                        self.server.audio_resources.retire(run)
+                        if run in self.server.journal.runs:self.server.journal.close(run)
+                    return self.send(200,{})
                 if self.server.graphics_resources is not None and self.server.graphics_resources.has_run(run):
                     with self.server.journal.lock:
                         self.server.graphics_resources.retire(run)
@@ -472,7 +502,7 @@ class FixtureServer(ThreadingHTTPServer):
         super().server_close()
 
 
-def make_server(reader_token, actor_token, address=('127.0.0.1', 0),*,account_provider=None,tls_context=None,browser_peer_of=None,navigation_resources=None,graphics_resources=None,adapter_token=None,avatar_people_service=None):
+def make_server(reader_token, actor_token, address=('127.0.0.1', 0),*,account_provider=None,tls_context=None,browser_peer_of=None,navigation_resources=None,graphics_resources=None,adapter_token=None,avatar_people_service=None,audio_resources=None):
     if adapter_token is not None and (type(adapter_token) is not str or not 32<=len(adapter_token)<=256
             or not adapter_token.isascii() or any(not 33<=ord(c)<=126 for c in adapter_token)
             or adapter_token in (reader_token,actor_token)):
@@ -502,6 +532,9 @@ def make_server(reader_token, actor_token, address=('127.0.0.1', 0),*,account_pr
     server.avatar_people_service=avatar_people_service
     server.navigation_resources=navigation_resources
     server.graphics_resources=graphics_resources
+    if audio_resources is not None and (not isinstance(audio_resources,AudioResources) or browser_peer_of is not None):
+        server.server_close();raise ValueError('Audio provider requires its original primary owner')
+    server.audio_resources=audio_resources
     server.script_resources=ScriptResources() if browser_peer_of is None else browser_peer_of.script_resources
     server.internal_errors=0
     server.reader_token, server.actor_token = reader_token, actor_token
@@ -527,6 +560,7 @@ def main():
     from adapters.normal_feature_state import PrivateFeatureState
     config=PrivateFeatureState(args.private_config.absolute()).read()
     fields={'readerToken','actorToken','host','port'}|({'adapterToken'} if 'adapterToken' in config else set())|({'tls'} if 'tls' in config else set())|({'accountProvider'} if 'accountProvider' in config else set())|({'browserPeer'} if 'browserPeer' in config else set())|({'navigationProvider'} if 'navigationProvider' in config else set())|({'graphicsProvider'} if 'graphicsProvider' in config else set())|({'avatarPeopleService'} if 'avatarPeopleService' in config else set())
+    fields|=({'audioProvider'} if 'audioProvider' in config else set())
     exact(config,fields,'private fixture configuration')
     tls=None;provider=None
     if 'tls' in config:
@@ -551,9 +585,13 @@ def main():
     if 'graphicsProvider' in config:
         exact(config['graphicsProvider'],{'fixtureUrl'},'actual Graphics fixture input')
         graphics=GraphicsResources(config['graphicsProvider']['fixtureUrl'])
+    audio=None
+    if 'audioProvider' in config:
+        exact(config['audioProvider'],{'fixtureUrl'},'actual Audio fixture input')
+        audio=AudioResources(config['audioProvider']['fixtureUrl'])
     with ExitStack() as owned:
         server=owned.enter_context(make_server(config['readerToken'],config['actorToken'],(config['host'],config['port']),
-            account_provider=provider,tls_context=tls,navigation_resources=navigation,graphics_resources=graphics,adapter_token=config.get('adapterToken'),avatar_people_service=social))
+            account_provider=provider,tls_context=tls,navigation_resources=navigation,graphics_resources=graphics,adapter_token=config.get('adapterToken'),avatar_people_service=social,audio_resources=audio))
         peer=None;worker=None
         if 'browserPeer' in config:
             exact(config['browserPeer'],{'host','port'},'private second browser listener')

@@ -71,6 +71,11 @@ def parser() -> argparse.ArgumentParser:
     receive.add_argument("--challenge", required=True)
     receive.add_argument("--seconds", type=float, default=8)
     receive.add_argument("--expect", choices=("present", "absent"), default="present")
+    preview=commands.add_parser("receive-preview",help="retain original private PC playout PCM for an explicitly enabled recorded preview fixture")
+    preview.add_argument("--challenge",required=True);preview.add_argument("--capture-id",required=True)
+    preview.add_argument("--seconds",type=float,default=8)
+    for name in ('preview-files','preview-release'):
+        query=commands.add_parser(name);query.add_argument('--capture-id',required=True);query.add_argument('--request-id',required=True)
     position = commands.add_parser("position", help="place the muted PC avatar at the device's test location")
     for axis in ("x", "y", "z"):
         position.add_argument("--" + axis, type=float, required=True)
@@ -164,7 +169,7 @@ def main() -> int:
             result = analyze(args.wav, args.challenge, args.expect)
         else:
             request = {"action": args.action}
-            for field in ("challenge", "seconds", "expect"):
+            for field in ("challenge", "seconds", "expect", "capture_id", "request_id"):
                 if hasattr(args, field):
                     request[field] = getattr(args, field)
             if args.action == "domain-check":

@@ -1407,6 +1407,24 @@
             return;
         }
         if (command && command.schemaVersion === 1 && /^[0-9a-f]{32}$/.test(String(command.commandId))
+                && command.action === "phone-audio-fixture"
+                && objectKeysMatch(command, ["schemaVersion", "commandId", "action", "request"])
+                && command.request && command.request.schemaVersion === 1 && command.request.commandId === command.commandId
+                && /^(arm|observe|release)$/.test(String(command.request.operation))
+                && objectKeysMatch(command.request, command.request.operation === "arm"
+                    ? ["schemaVersion", "commandId", "operation", "runId", "ticket", "url"]
+                    : ["schemaVersion", "commandId", "operation"])) {
+            var audioFixture = {schemaVersion: 1, requestId: command.commandId, available: false};
+            try {
+                if (typeof Test.phoneAudioFixture === "function") {
+                    var originalFixture = Test.phoneAudioFixture(command.request);
+                    if (originalFixture && originalFixture.requestId === command.commandId) { audioFixture = originalFixture; }
+                }
+            } catch (_phoneAudioFixtureError) { /* Missing source remains unavailable. */ }
+            Test.saveObject(audioFixture, "phone-audio-fixture.json");
+            return;
+        }
+        if (command && command.schemaVersion === 1 && /^[0-9a-f]{32}$/.test(String(command.commandId))
                 && command.action === "phone-audio-ui"
                 && objectKeysMatch(command, ["schemaVersion", "commandId", "action", "request"])
                 && validPhoneAudioRequest(command.request) && command.request.commandId === command.commandId) {
@@ -2379,7 +2397,7 @@
                 || command.action === "feature-recorded-audio-observe" || command.action === "feature-recorded-audio-release"
                 || command.action === "feature-recorded-audio-files" || command.action === "feature-script-observe"
                 || command.action === "phone-login-ui" || command.action === "phone-create-ui" || command.action === "phone-chat-ui"
-                || command.action === "phone-script-file-ui" || command.action === "phone-audio-ui" || command.action === "phone-graphics-ui" || command.action === "phone-emote-ui"
+                || command.action === "phone-script-file-ui" || command.action === "phone-audio-ui" || command.action === "phone-audio-fixture" || command.action === "phone-graphics-ui" || command.action === "phone-emote-ui"
                 || command.action === "feature-world-render-observe" || command.action === "feature-world-render-storage"
                 || command.action === "feature-world-render-receipt"
                 || command.action === "feature-world-render-receipts"

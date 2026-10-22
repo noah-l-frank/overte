@@ -40,7 +40,7 @@ def configuration(path):
         exact(value,{'featureObserverVersion','area','target','candidateArguments','fixtureUrl','actorToken','durationSeconds'}
             |({'imagePolicy'} if value.get('featureObserverVersion') in (3,4) and value.get('area')=='emotes' else set()))
         need(type(value['featureObserverVersion']) is int and value['featureObserverVersion'] in (2,3,VERSION)
-             and value['area'] in (('scripts','authentication','graphics') if value['featureObserverVersion']==2 else ('scripts','authentication','graphics','emotes','world-web','tablet-web','world-navigation') if value['featureObserverVersion']==3 else ('scripts','authentication','graphics','emotes','world-web','tablet-web','world-navigation','create')))
+             and value['area'] in (('scripts','authentication','graphics') if value['featureObserverVersion']==2 else ('scripts','authentication','graphics','emotes','world-web','tablet-web','world-navigation','audio') if value['featureObserverVersion']==3 else ('scripts','authentication','graphics','emotes','world-web','tablet-web','world-navigation','create','audio')))
         if value['area']=='emotes':image_policy(value['imagePolicy'])
         if value['area']=='authentication':account_origin(value['fixtureUrl'])
     need(type(value['target']) is str and bool(value['target'])
@@ -55,8 +55,8 @@ def run(adapter,config,*,monotonic=time.monotonic,sleep=time.sleep):
     """One owned run; no session repair, child launch or device discovery."""
     started=previous=monotonic();need(number(started,0,1e15))
     client=Client(config['fixtureUrl'],config['actorToken']);flow=None
-    area=config.get('area','scripts');need(area in ('scripts','authentication','graphics','emotes','world-web','tablet-web','world-navigation','create'))
-    if area in ('world-web','tablet-web'):return run_world_web(adapter,config,client,monotonic=monotonic,sleep=sleep)
+    area=config.get('area','scripts');need(area in ('scripts','authentication','graphics','emotes','world-web','tablet-web','world-navigation','create','audio'))
+    if area in ('world-web','tablet-web','audio'):return run_world_web(adapter,config,client,monotonic=monotonic,sleep=sleep)
     if area=='create':return run_create(adapter,config,client,monotonic=monotonic,sleep=sleep)
     if area=='emotes':return run_emote(adapter,config,client,monotonic=monotonic,sleep=sleep)
     if area=='authentication':account_origin(config['fixtureUrl'])
@@ -167,6 +167,7 @@ def main(argv=None):
         os.environ['OVERTE_PHONE_FEATURE_WORLD_NAVIGATION']='0'
         os.environ['OVERTE_PHONE_FEATURE_WORLD_WEB']='0'
         os.environ['OVERTE_PHONE_FEATURE_TABLET_WEB']='0'
+        os.environ['OVERTE_PHONE_FEATURE_AUDIO']='0'
         os.environ['OVERTE_PHONE_NORMAL_WEB_REFERENCE']='0'
         os.environ['OVERTE_PHONE_FEATURE_CREATE']='0'
         return run(PhoneAppiumAdapter(candidate),config)

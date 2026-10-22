@@ -106,3 +106,7 @@ The complete default-off tablet-browser composition, normal tablet foundation,
 original inline leases and mandatory reference-video operations are documented
 in [TABLET_WEB_FEATURE.md](TABLET_WEB_FEATURE.md). Source/host completion does
 not qualify a device or change the common acceptance count.
+
+The complete default-off audio composition, normal mute foundation, original
+HTTP/PCM and independently owned PC playout sources are documented in
+[AUDIO_FEATURE.md](AUDIO_FEATURE.md), including its source and device limits.

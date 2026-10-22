@@ -21,6 +21,21 @@ SINK = 'recorded-preview-sink.pcm16le'
 MAX_BYTES = 32 * 1024 * 1024
 
 
+def validate_absence(value,request,pid,epoch,*,instance=None,after_sequence=0):
+    exact(value,{'schemaVersion','requestId','instance','sequence','requestedEpochMs','capturedEpochMs','processId','files','memoryEmpty'})
+    need(type(value['schemaVersion']) is int and value['schemaVersion']==1 and value['requestId']==request
+        and type(value['instance']) is str and re.fullmatch('[0-9a-f]{32}',value['instance'])
+        and instance in (None,value['instance']) and integer(value['sequence'],after_sequence+1)
+        and integer(value['processId'],1) and value['processId']==pid
+        and integer(value['requestedEpochMs'],1) and integer(value['capturedEpochMs'],1)
+        and 0<=value['capturedEpochMs']-value['requestedEpochMs']<5000 and value['memoryEmpty'] is True
+        and type(value['files']) is list and len(value['files'])==2)
+    fresh(value['capturedEpochMs'],epoch)
+    for row,name in zip(value['files'],(INPUT,SINK)):
+        exact(row,{'name','exists'});need(row['name']==name and row['exists'] is False)
+    return value
+
+
 def validate(value, request, pid, epoch):
     exact(value, {'schemaVersion', 'requestId', 'instance', 'sequence', 'requestedEpochMs',
                   'capturedEpochMs', 'processId', 'source'})
@@ -159,20 +174,18 @@ class RecordedPreviewEvidence:
             need(type(value['schemaVersion']) is int and value['schemaVersion'] == 1 and value['released'] is True)
             # A release acknowledgement cannot establish absence. Issue a
             # separate read-only native filesystem/memory query with a fresh ID.
+            self.require_absent(started=started)
+        except Exception:
+            raise NativeUIError('Original recorded preview evidence cleanup is incomplete') from None
+
+    def require_absent(self,*,started=None):
+        """Fresh original absence without releasing or adopting any source."""
+        try:
+            if started is None:started=self.monotonic()
+            need(number(started,0,1e15))
             request = self._request('feature-recorded-audio-files')
             observed = self._packet(request, started)
-            exact(observed, {'schemaVersion', 'requestId', 'instance', 'sequence', 'requestedEpochMs',
-                             'capturedEpochMs', 'processId', 'files', 'memoryEmpty'})
-            need(type(observed['schemaVersion']) is int and observed['schemaVersion'] == 1
-                 and type(observed['instance']) is str and re.fullmatch('[0-9a-f]{32}', observed['instance'])
-                 and self.instance in (None, observed['instance'])
-                 and integer(observed['sequence'], self.sequence + 1)
-                 and integer(observed['processId'], 1) and observed['processId'] == self.pid
-                 and integer(observed['requestedEpochMs'], 1) and integer(observed['capturedEpochMs'], 1)
-                 and 0 <= observed['capturedEpochMs'] - observed['requestedEpochMs'] < 5000
-                 and observed['memoryEmpty'] is True and type(observed['files']) is list
-                 and len(observed['files']) == 2)
-            fresh(observed['capturedEpochMs'], observed['capturedEpochMs'] if self.ios else self.clock_ms())
+            validate_absence(observed,request,self.pid,observed['capturedEpochMs'] if self.ios else self.clock_ms(),instance=self.instance,after_sequence=self.sequence)
             for item, name in zip(observed['files'], (INPUT, SINK)):
                 exact(item, {'name', 'exists'})
                 need(item['name'] == name and item['exists'] is False)
@@ -182,6 +195,7 @@ class RecordedPreviewEvidence:
             need(number(completed, 0, 1e15) and started <= completed and completed - started < 5)
             need(self.guard() is not False)
             self.instance, self.sequence = observed['instance'], observed['sequence']
+            return observed
         except Exception:
             raise NativeUIError('Original recorded preview evidence cleanup is incomplete') from None
 

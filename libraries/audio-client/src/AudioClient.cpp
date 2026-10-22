@@ -1790,6 +1790,33 @@ void AudioClient::releaseFeatureRecordedVoiceEvidence() {
         _e2eRecordedPreview.clear();
     }
 }
+#if defined(ANDROID_APP_PHONE_INTERFACE)
+QVariantMap AudioClient::phoneAudioFixtureObservation() const {
+    if (QThread::currentThread() != thread() || !QCoreApplication::arguments().contains("--testScript")) { return {}; }
+    auto value = _e2ePhoneAudioInput.snapshot();
+    value["inputAvailable"] = recordedVoiceTestInputAvailable();
+    value["lifecycleRunning"] = _audioLifecycleRunning;
+    value["paused"] = _audioPaused;
+    value["muted"] = _isMuted;
+    value["preview"] = featureRecordedVoiceObservation();
+    return value;
+}
+bool AudioClient::armPhoneAudioFixture(const QByteArray& pcm, const QVariantMap& receipt) {
+    if (QThread::currentThread() != thread() || !QCoreApplication::arguments().contains("--testScript")
+            || _recordedVoiceTestActive || !_audioLifecycleRunning || _audioPaused || !recordedVoiceTestInputAvailable()
+            || _inputFormat.sampleSize() != 16 || _inputFormat.sampleType() != QAudioFormat::SignedInt
+            || _inputFormat.byteOrder() != QAudioFormat::LittleEndian
+            || _inputFormat.sampleRate() < 8000 || _inputFormat.sampleRate() > 48000
+            || _inputFormat.channelCount() < 1 || _inputFormat.channelCount() > 2) { return false; }
+#if defined(OVERTE_E2E_VOICE_TESTS)
+    if (_voiceTestInputEnabled) { return false; }
+#endif
+    return _e2ePhoneAudioInput.arm(pcm, receipt);
+}
+void AudioClient::releasePhoneAudioFixture() {
+    if (QThread::currentThread() == thread() && QCoreApplication::arguments().contains("--testScript")) { _e2ePhoneAudioInput.clear(); }
+}
+#endif
 #endif
 
 void AudioClient::finishRecordedVoiceTest(const QString& phase, const QString& error) {
@@ -2299,6 +2326,9 @@ void AudioClient::handleAudioInput(QByteArray& audioBuffer) {
         emitAudioPacket(encodedBuffer.data(), encodedBuffer.size(), _outgoingAvatarAudioSequenceNumber, _isStereoInput,
                         audioTransform, avatarBoundingBoxCorner, avatarBoundingBoxScale,
                         packetType, _selectedCodecName);
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PHONE_INTERFACE)
+        _e2ePhoneAudioInput.emitted(encodedBuffer.size(), packetType == PacketType::SilentAudioFrame, _selectedCodecName);
+#endif
         _stats.sentPacket();
     }
 }
@@ -2359,6 +2389,12 @@ void AudioClient::drainAndroidAudioInput() {
 #endif
 
 void AudioClient::processMicAudioInput(QByteArray& inputByteArray) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PHONE_INTERFACE)
+    if (QCoreApplication::arguments().contains("--testScript")) {
+        _e2ePhoneAudioInput.replace(inputByteArray, _inputFormat.sampleRate(), _inputFormat.channelCount(),
+            _recordedVoiceTestActive && _e2eRecordedVoiceEvent.value("phase").toString() == "capturing", _e2eRecordedVoiceCycle);
+    }
+#endif
 #if defined(OVERTE_E2E_VOICE_TESTS)
     if (_voiceTestInputEnabled) { ++_voiceTestMicCallbacks; }
 #endif
