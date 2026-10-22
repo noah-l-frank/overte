@@ -1151,3 +1151,18 @@ pass 2/93 in 8.27s, including native Qt5 original DTO to Linux FD observations
 and late-poll/foreign-thread counterexamples. Full native translation units and
 application/devices remain unqualified. The separate input-close owner and
 whole Chat coordinator/finalizer remain under construction.
+
+
+The [original peer input-close owner](../chat_journey/PEER_INPUT_CLOSE.md) now
+requires the consumed original Release and, after any Hold, the completed
+original Distant/restore owner. It verifies original three-second quiet before
+and after once-only inode-bound input/receipt removal, actual native receipt
+handle death and independent Linux process-FD absence. Uncertain removals are
+not replayed; all journals, immutable chunks and admission tombstones remain
+owned. This closes only that input resource scope. Root source/coverage groups
+pass 2/93 in 27.14s, including eight host counterexamples and actual Qt5/POSIX
+producer-to-Linux-FD closure. Two earlier agent native runs failed under host
+load; no clocks, freshness bounds or checks were weakened. The final agent
+rerun and this integrated root selection pass, without claiming a continuously
+green earlier sequence. Whole Chat factory/public/Qt/cache/process/journal
+closure remains incomplete.
