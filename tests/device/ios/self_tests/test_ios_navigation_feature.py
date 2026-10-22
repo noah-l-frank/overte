@@ -9,6 +9,7 @@ from contextlib import contextmanager
 from copy import deepcopy
 import unittest
 import time
+import json
 from unittest.mock import patch
 
 from adapters.normal_feature_state import PrivateFeatureState
@@ -135,6 +136,16 @@ class NavigationFeatureTests(unittest.TestCase):
             owner.bound()
             self.fail('A slow candidate guard returned input authorization')
         self.assertEqual(before,self.b.inputs)
+
+    def test_enclosing_deadline_reaches_a_fresh_sdk_client_after_actual_serialization(self):
+        from ios.adapters import appium_adapter
+        flow=self.flow();flow.prepare();original=json.dumps
+        def late(value,*args,**kwargs):self.b.clock+=31;return original(value,*args,**kwargs)
+        with self.assertRaises(NativeUIError),flow.held():
+            driver=appium_adapter.WebDriver('http://127.0.0.1:1')
+            with patch('ios.adapters.appium_adapter.json.dumps',side_effect=late),patch('ios.adapters.appium_adapter.urlopen') as send:
+                try:driver.execute('existing','mobile: backgroundApp',dict(seconds=-1))
+                finally:send.assert_not_called()
 
 
 if __name__=='__main__':unittest.main()

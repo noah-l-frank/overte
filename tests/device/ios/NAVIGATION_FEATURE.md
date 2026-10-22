@@ -17,6 +17,11 @@ delivery. The 30-second action budget includes preparation and child dispatch.
 Its original host epoch/monotonic beginning is retained before delivery and
 checked by child input guards. Reconstruction cannot renew an expired issued
 call; slow parent or child storage cannot permit a late input.
+The enclosing source-lock scope also registers this pure work-clock guard at
+the canonical SDK/native HTTP transport boundary. Freshly constructed SDK
+clients cannot bypass it through late serialization. Active acquisition narrows
+the same scope to its original 1.5-second host window before new field/image
+reads; child scopes cannot grant a new deadline.
 
 Native original observations, first-open directory recovery, independent actor
 publication, actual restart transfer and final static restoration are existing

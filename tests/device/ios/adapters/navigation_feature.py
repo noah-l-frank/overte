@@ -17,6 +17,7 @@ from adapters.native_clock_join import digest
 from adapters.native_feature_observation import exact,need,number
 from adapters.normal_feature_state import PrivateFeatureState,context
 from adapters.normal_ui import NativeUIError
+from adapters.operation_transport_guard import scope as transport_scope
 from adapters.script_feature.history import pack,unpack,same
 from adapters.script_feature.lock import ScriptSourceLock
 from feature_journeys.contract import arguments,identifier
@@ -67,7 +68,8 @@ class IOSNavigationFeature:
         try:
             # Retain exceptions across ScriptSourceLock's context manager.
             with self.lock.held():
-                try:yield;self.clock()
+                try:
+                    with transport_scope(self.clock):yield;self.clock()
                 except BaseException as caught:error=caught
             if error is not None:raise error
         finally:self.deadline=outer
@@ -233,6 +235,7 @@ class IOSNavigationFeature:
             owners=observer.owners();previous=owners[-1] if owners else None
             prototype=observer.factory(uuid.uuid4().hex,previous)
             started,epoch=self.monotonic(),self.epoch_ms()
+            self.deadline=min(self.deadline,started+1.5)
             observed=prototype.navigation.read(self.run)
             urls=viewpoint_urls(self.fixture.inputs['sceneUrl'])
             labels=[label for label,url in urls.items() if same_viewpoint(observed['source']['sceneUrl'],url)]
