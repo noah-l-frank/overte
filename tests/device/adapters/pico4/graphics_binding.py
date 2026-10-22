@@ -116,6 +116,9 @@ class PicoGraphicsBinding(PicoScriptJourney):
         # Ordinary controlled activation must preserve this process; do not
         # use a missing probe as an invitation to bootstrap or repair it.
         need(self.original.require_controlled_debug_identity(target)==binding['processIdentity'])
+        fence=getattr(self,'phase_fence',None)
+        if fence is not None:
+            return self.original._pico_lifecycle_input_once(target,operation,binding,before_input=fence.check)
         return self.original.invoke(target,operation,{})
 
     def invoke(self,target,operation,values):

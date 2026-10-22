@@ -1645,6 +1645,11 @@ def create_adapter(args, base_class):
                 native.clock_ms,native.guard,native.pid,source_lock,intent=intent,monotonic=native.monotonic,sleep=native.sleep)
 
         @_private
+        def _pico_lifecycle_input_once(self,target,operation,binding,*,before_input):
+            from adapters.pico4.lifecycle_input import issue_once
+            return issue_once(self,target,operation,binding,before_input=before_input)
+
+        @_private
         def _chat_background(self,target,primary,actor):
             from adapters.chat_journey.background import ChatBackground
             from adapters.pico4.graphics_binding import PicoGraphicsBinding
