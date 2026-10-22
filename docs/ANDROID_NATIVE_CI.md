@@ -142,6 +142,21 @@ input closure is selected. Missing Groovy is a CI prerequisite failure rather
 than a skipped check. These host fixtures do not download an SDK or start a
 native build.
 
+## Build evidence and VM cleanup
+
+Selected native executions export their protected receipt, logs and owning
+outputs to a source/run-bound artifact manifest before removing build scratch.
+Phone and Pico require their verified unsigned APK; the common harness retains
+its ELF outputs. The workflow also saves the platform result and uploads only
+these known paths, including available failure diagnostics. An upload failure
+fails the Android owner and therefore the final merge gate.
+
+The ephemeral VM controller must download the run artifacts and job logs into a
+verified durable workstation archive before reclaiming the VM overlay. Missing
+or damaged backup retains the overlay and blocks the next build. A successful
+GitHub upload alone does not authorize overlay deletion; local rescue remains
+possible if upload or durable download fails.
+
 ## Offline execution boundary
 
 `tools/repository-checks/pr_ci_android_boundary.py` constructs the isolated

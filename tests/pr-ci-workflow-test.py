@@ -198,6 +198,47 @@ class WorkflowContracts(unittest.TestCase):
             with self.subTest(mutation=mutation), self.assertRaises(AssertionError):
                 android_runner_contract(changed)
 
+    def test_native_outputs_upload_is_mandatory_attempt_bound_and_runs_after_failure(self):
+        def contract(workflow):
+            job = workflow['jobs']['android']
+            steps = job['steps']
+            execute = next(step for step in steps if step['name'] == 'Require the selected Android product validation')
+            assert execute['env']['PR_CI_ANDROID_NATIVE_EXPORT'] == '${{ runner.temp }}/pr-ci-android-export'
+            assert '--out "$RUNNER_TEMP/pr-ci-android-result.json"' in execute['run']
+            uploads = [step for step in steps if step.get('uses') == UPLOAD]
+            assert len(uploads) == 1
+            upload = uploads[0]
+            assert steps.index(upload) > steps.index(execute)
+            assert upload['if'] == "always() && needs.plan.outputs.android_native_products != '[]'"
+            assert upload['with']['name'] == 'android-native-${{ github.run_id }}-${{ github.run_attempt }}-${{ needs.plan.outputs.target }}'
+            assert upload['with']['path'].splitlines() == [
+                '${{ runner.temp }}/pr-ci-android-export/', '${{ runner.temp }}/pr-ci-android-result.json']
+            assert upload['with']['if-no-files-found'] == 'error'
+            assert upload['with']['overwrite'] is False
+            assert upload['with']['retention-days'] == 7
+            assert 'continue-on-error' not in upload and 'continue-on-error' not in job
+            assert 'android' in workflow['jobs']['ci-execution']['needs']
+        contract(self.workflow)
+        for mutation in ('success-only', 'optional', 'all-temp', 'no-result', 'no-export', 'no-final-owner'):
+            changed = deepcopy(self.workflow)
+            steps = changed['jobs']['android']['steps']
+            upload = next(step for step in steps if step.get('uses') == UPLOAD)
+            execute = next(step for step in steps if step['name'] == 'Require the selected Android product validation')
+            if mutation == 'success-only':
+                upload['if'] = "needs.plan.outputs.android_native_products != '[]'"
+            elif mutation == 'optional':
+                upload['continue-on-error'] = True
+            elif mutation == 'all-temp':
+                upload['with']['path'] = '${{ runner.temp }}/'
+            elif mutation == 'no-result':
+                execute['run'] = execute['run'].replace('--out "$RUNNER_TEMP/pr-ci-android-result.json"', '')
+            elif mutation == 'no-export':
+                del execute['env']['PR_CI_ANDROID_NATIVE_EXPORT']
+            else:
+                changed['jobs']['ci-execution']['needs'].remove('android')
+            with self.subTest(mutation=mutation), self.assertRaises((AssertionError, KeyError)):
+                contract(changed)
+
     def test_groovy_contract_transport_is_conditional_and_cannot_poison_native_cache(self):
         def contract(workflow):
             steps = workflow['jobs']['android']['steps']
