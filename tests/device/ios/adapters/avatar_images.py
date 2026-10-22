@@ -116,7 +116,12 @@ def compose(run,ticket,binding,frame,raw,policy,*,marker_nonce,marker_url,avatar
         after['clockBefore']['epochMs'],after['clockAfter']['epochMs']]
     need(order==sorted(order) and clock['nativeBefore']['capturedEpochMs']<=order[0]<=order[-1]<=epoch
         and abs(a['aspectRatio']-source['targetExtent'][0]/source['targetExtent'][1])<=.01)
-    within(policy['marker'],projected_box(markers[0],view,source['targetExtent']))
+    marker_box=projected_box(markers[0],view,source['targetExtent']);within(policy['marker'],marker_box)
+    # The whole original Web quad can change with the challenge, including
+    # pixels outside the selected challenge crop. None can count as Avatar.
+    subject=policy['subject']
+    need(max(marker_box[0],subject[0])>=min(marker_box[2],subject[2])
+        or max(marker_box[1],subject[1])>=min(marker_box[3],subject[3]))
     remote=avatar_id is not None
     if not remote:
         own=[row for row in left['source']['avatars'] if row['self']];need(len(own)==1);avatar_id=own[0]['sessionId']

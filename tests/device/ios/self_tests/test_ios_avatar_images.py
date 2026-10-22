@@ -79,6 +79,19 @@ class AvatarImagesTests(unittest.TestCase):
             seal(frame)
             with self.subTest(fault=fault),self.assertRaises((NativeUIError,ValueError,AssertionError)):self.compose(frame,raw,policy,remote=True)
 
+    def test_actual_full_marker_quad_outside_challenge_crop_cannot_supply_avatar_subject_pixels(self):
+        frame,raw,policy=bundle()
+        for name in ('worldBefore','worldAfter'):
+            marker=frame[name]['source']['markers'][0]
+            # Keep the original top edge/challenge inside the genuine quad,
+            # while its lower half extends into an otherwise valid body crop.
+            marker['position'][1]=1.64;marker['dimensions'][1]=.11
+        seal(frame)
+        box=images.projected_box(frame['worldBefore']['source']['markers'][0],
+            frame['capture']['source']['renderTrace']['recordedView'],frame['capture']['source']['targetExtent'])
+        self.assertLess(policy['marker'][3],policy['subject'][1]);self.assertGreater(box[3],policy['subject'][1])
+        with self.assertRaises(NativeUIError):self.compose(frame,raw,policy)
+
     def test_actual_unavailable_model_uses_only_retained_prior_volume_and_honest_uniform_background(self):
         for remote in (False,True):
             before,old_raw,policy=bundle(remote=remote);frame,raw,_=bundle(start=1000,ticket='f'*32,remote=remote,unavailable=True,uniform=True)

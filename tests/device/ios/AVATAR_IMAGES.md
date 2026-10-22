@@ -39,3 +39,11 @@ subject, real changed subject pixels and a foreign Domain. Pure geometry math
 reuses the committed Emote helpers without relabeling source DTOs. Native and
 device execution remain unqualified; sample ownership, ordinary marker setup
 and the complete feature cleanup owner still need integration.
+
+The selected subject ROI must also be disjoint from the entire actually
+projected marker Web quad. Excluding only the selected challenge crop would
+allow other changing pixels from that same marker to masquerade as Avatar
+pixels. The geometry predicate uses the original source entity dimensions and
+native recorded view; a host counterexample keeps a valid challenge crop while
+extending the actual marker quad into the otherwise valid Avatar body crop.
+This tightens validation without changing the image1 DTO.
