@@ -60,3 +60,12 @@ completed original permission check. A missing selected receiver is never a
 consumption proof. Private-copy retirement requires both destination and grant
 retirement, and actual closed workers. The separately credentialed consumer
 source must establish original consumption before permission retirement.
+
+Private readback creation publishes the actual file identity under the same
+owner lock as creation. Concurrent readers can observe an absent planned
+path or its acquired original identity; a newly created file is never exposed
+before its original file key is retained. The host publication test delegates
+to the real filesystem and pauses immediately after actual creation. Original
+copy, observation, close and retirement bodies run concurrently. Restoring the
+former creation-before-lock ordering is rejected in that same window. This
+qualifies E2E helper synchronization only, not Android provider behavior.

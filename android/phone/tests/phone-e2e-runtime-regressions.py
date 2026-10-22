@@ -24,6 +24,7 @@ PREPARED_HOST_CHECKS = (
     "android/phone/tests/device/test_snapshot_native_controls.py",
     "android/phone/tests/device/test_snapshot_export_originals.py",
     "android/phone/tests/device/test_snapshot_readback_jobs.py",
+    "android/phone/tests/device/test_snapshot_readback_publication.py",
     "android/phone/tests/phone-snapshot-export-native-test.py",
     "android/phone/tests/phone-snapshot-readback-contract-test.py",
     "android/phone/tests/device/test_create_native_ui.py",

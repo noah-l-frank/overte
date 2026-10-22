@@ -97,8 +97,12 @@ final class SnapshotReadbackFiles {
         }
         long start=System.nanoTime(),total=0;MessageDigest observed=digest();
         try (InputStream input=original) {
-            Files.createFile(entry.path,PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-------")));
-            synchronized(this) { entry.fileKey=attributes(entry.path).fileKey();entry.phase="reading";bound(entry); }
+            synchronized(this) {
+                // Observers must see either the absent planned path or its
+                // acquired original identity, never a half-published file.
+                Files.createFile(entry.path,PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-------")));
+                entry.fileKey=attributes(entry.path).fileKey();entry.phase="reading";bound(entry);
+            }
             try (OutputStream output=Files.newOutputStream(entry.path,StandardOpenOption.WRITE,LinkOption.NOFOLLOW_LINKS)) {
                 byte[] buffer=new byte[65536];int count;
                 while(true) {
