@@ -115,6 +115,14 @@ class PhoneSnapshotsRole(PhoneCreateRole):
             self.measurements.snapshot.last=deepcopy(groups[-1]['snapshot'])
             previous=next((row['avatarAfter'] for row in reversed(history) if row.get('avatarAfter') is not None),baseline['avatar'])
             self.avatar.restore([previous])
+            for key,reader in (('touch',self.touch),('world',self.world),('marker',self.marker)):
+                previous=next((frame[key] for frame in reversed(history) if frame.get(key) is not None),baseline.get(key))
+                if previous is not None:
+                    if key in ('touch','marker'):reader.restore([previous])
+                    else:reader.last=deepcopy(previous)
+            self.settings=feature.settings(read_only=True)
+            previous=next((frame['measurement']['settings'] for frame in reversed(history) if frame.get('measurement') is not None and frame['measurement']['settings'] is not None),None)
+            if previous is not None:self.settings.last=deepcopy(previous)
             for key,reader in (('readbacksPacket',self.readbacks),('uploadPacket',self.upload)):
                 previous=next((row[key] for row in reversed(history) if row.get(key) is not None),None)
                 if previous is not None:reader.last=deepcopy(previous)
@@ -128,6 +136,12 @@ class PhoneSnapshotsRole(PhoneCreateRole):
                 self.native.lifecycle=deepcopy(current['lifecycle'])
                 self.native.account_history=account_accept(self.native.account_history,current['account'])
         self.platform.original=deepcopy(baseline['platform']['source'])
+        self.work=None
+        if not self.system and (feature.state['cancelJobs'] or feature.state['phase'] in ('cleaned','retiring')):
+            self.work=feature.adapter._script_work(feature.selector,read_only=True)
+            rows=[row for frame in history for row in frame.get('workOriginals',([frame['scriptWork']] if frame.get('scriptWork') is not None else []))]
+            if rows:self.work.restore(distinct(rows))
+            self.track(self.work,'read','workOriginals')
         self.documents=feature.documents(read_only=True) if feature.state['docArm'] is not None else None
         if self.documents is not None:
             floor=feature.state['docBinding']['floor']
@@ -244,7 +258,8 @@ class PhoneSnapshotsRole(PhoneCreateRole):
                         source=self.files_owner().transport
                         reader=PhoneSnapshotSavedFiles(source.adb,source.selector,source.package,source.context,source.check_continuity,root,PassiveReadbacks(self.handoff),f.run)
                     else:reader=f.adapter._snapshot_saved_files(f.selector,f.run,root)
-                    value=reader.acquire_current(jobs[0]['original']['id']);path=root/value['artifact']
+                    value=reader.acquire_current(jobs[0]['original']['id']);need(type(value['artifact']) is str and Path(value['artifact']).name==value['artifact'])
+                    path=root/value['artifact'];need(path.parent==root)
                     fd=os.open(path,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK)
                     with os.fdopen(fd,'rb') as stream:
                         info=os.fstat(stream.fileno());current=path.lstat()
@@ -363,12 +378,19 @@ class PhoneSnapshotsRole(PhoneCreateRole):
         if not self.system:
             native_before=self.native.read(self.native.sequence,require_account=True);avatar_before=self.avatar.read()
             self.checkpoint(nativeBefore=native_before,avatarBefore=avatar_before)
-        batch=self.batch();self.checkpoint(group=batch['group'])
-        owner=self.files_owner();inventory=owner.inventory();packet=owner.source.last;need(packet is not None)
-        binaries=self.capture_bodies(ticket,packet)
-        acquired=self.state['pending']['work'].get('acquisitions',[]);captured=next((row for row in acquired if row['source']=='snapshot-capture-original'),None)
-        provider=f.phase.provider()
-        if captured is not None:binaries.extend(self.independent_exports(ticket,batch['group'],batch['readbacks']['source']['source'],batch['upload']['source'],provider,captured))
+        closing=f.state['phase'] in ('cleaned','retiring')
+        owner=self.files_owner();binaries=[]
+        if not closing:
+            batch=self.batch();self.checkpoint(group=batch['group'])
+            inventory=owner.inventory();packet=owner.source.last;need(packet is not None)
+            binaries=self.capture_bodies(ticket,packet)
+            acquired=self.state['pending']['work'].get('acquisitions',[]);captured=next((row for row in acquired if row['source']=='snapshot-capture-original'),None)
+            if captured is not None:
+                provider=f.phase.provider();binaries.extend(self.independent_exports(ticket,batch['group'],batch['readbacks']['source']['source'],batch['upload']['source'],provider,captured))
+        # Closure needs no new body publication. Its complete fresh VM group,
+        # real namespace scan and every owner are still acquired below; any
+        # live/late file makes the strict reducer fail rather than becoming a
+        # fictional empty inventory. Avoid duplicate native groups/scans here.
         if not self.system:
             if f.state['marker'] is not None and f.state['marker']['operation']=='prepare':
                 marker=self.marker.read(f.run);marker_ready(marker,avatar_before)
@@ -393,7 +415,7 @@ class PhoneSnapshotsRole(PhoneCreateRole):
         documents=self.documents.observe() if self.documents is not None else None
         consumer=self.consumer.observe() if self.consumer is not None else None
         phone_uid=f.adapter._snapshot_phone_uid(f.selector,f.binding,(f.state['handoff'] or {}).get('resolution',self.baseline['documentResolution']),f.header_authority) if documents is not None else None
-        settings=None if self.system else f.settings(read_only=True).request(f.run,'observe')
+        settings=None if self.system else self.settings.request(f.run,'observe')
         cancels=[]
         if f.state['cancelJobs']:
             originals=f.inputs.restore(f.state['inputs'],f.state['inputSequence'])
@@ -411,7 +433,7 @@ class PhoneSnapshotsRole(PhoneCreateRole):
                 else:
                     request=None
                     if not batch['group']['snapshot']['source']['review']['present']:
-                        work=f.adapter._script_work(f.selector,read_only=True).read(self.selected['manager']['instance'])
+                        work=self.work.read(self.selected['manager']['instance'],0 if self.work.last is None else self.work.last['sequence'])
                         selected=script_scope(work,self.selected['compilation'])
                         need(not selected['evaluating'] and not selected['timers'] and not selected['unknownTimers']
                             and all(selected[key]==0 for key in ('signalCallbacks','timerCallbacks','unknownSignalCallbacks','unknownTimerCallbacks')))
@@ -422,7 +444,7 @@ class PhoneSnapshotsRole(PhoneCreateRole):
             native_after=self.native.read(self.native.sequence,require_account=True);avatar_after=self.avatar.read()
             self.checkpoint(nativeAfter=native_after,avatarAfter=avatar_after)
             if f.state['phase'] in ('cleaned','retiring'):
-                script_work=f.adapter._script_work(f.selector,read_only=True).read(self.selected['manager']['instance'])
+                script_work=self.work.read(self.selected['manager']['instance'],0 if self.work.last is None else self.work.last['sequence'])
                 scope=script_scope(script_work,self.selected['compilation'])
                 need(not scope['evaluating'] and not scope['timers'] and not scope['unknownTimers']
                     and all(scope[key]==0 for key in ('signalCallbacks','timerCallbacks','unknownSignalCallbacks','unknownTimerCallbacks')))
@@ -434,14 +456,20 @@ class PhoneSnapshotsRole(PhoneCreateRole):
             acquisitions=deepcopy(self.state['pending']['work'].get('acquisitions',[])),cancels=cancels,settings=settings,
             documents=documents,documentsBinding=deepcopy(f.state['docBinding']),phoneUid=phone_uid,documentResolution=self.baseline['documentResolution'])
         measured=measured_state(measurement,self.baseline['group'],run=f.run,pid=f.pid,epoch=epoch)
+        observer_retirement=None
+        if f.state['phase'] in ('cleaned','retiring'):
+            need(settings is not None and settings['source']['retired'])
+            with owner.held():already_retired=owner.state['retired']
+            if not already_retired:owner.retire()
+            observer_retirement=owner.require_retired();self.checkpoint(observerFilesRetirement=observer_retirement)
         for packet_ in (native_before,native_after):
             if packet_ is not None:native_packet(packet_,packet_['requestId'],f.pid,epoch)
         captured_epoch=min(batch['group']['rootsBefore']['requestedEpochMs'],platform['requestedEpochMs'],system['requestedEpochMs'],provider['capturedEpochMs'])
         fresh(captured_epoch,epoch)
         frame=dict(ticket=ticket,phaseBefore=phase_before,phaseAfter=phase_after,measurement=measurement,state=measured,epochMs=epoch,
-            nativeBefore=native_before,nativeAfter=native_after,scriptWork=script_work,avatarBefore=avatar_before,avatarAfter=avatar_after,world=world,touch=touch,marker=marker,
+            nativeBefore=native_before,nativeAfter=native_after,scriptWork=script_work,observerFilesRetirement=observer_retirement,avatarBefore=avatar_before,avatarAfter=avatar_after,world=world,touch=touch,marker=marker,
             capture=capture,image=image,imageReady=image_ready,retirement=retirement,transfer=deepcopy(self.state['pending']['work'].get('transfer')),binaries=deepcopy(self.state['pending']['binaries']),
-            documentOriginals=deepcopy(self.state['pending']['work'].get('documentOriginals',[])),consumerOriginals=deepcopy(self.state['pending']['work'].get('consumerOriginals',[])),
+            workOriginals=deepcopy(self.state['pending']['work'].get('workOriginals',[])),documentOriginals=deepcopy(self.state['pending']['work'].get('documentOriginals',[])),consumerOriginals=deepcopy(self.state['pending']['work'].get('consumerOriginals',[])),
             groups=deepcopy(self.state['pending']['work'].get('groups',[])),handoffOriginals=deepcopy(self.state['pending']['work'].get('handoffOriginals',[])),readbacksPacket=batch['readbacks'],uploadPacket=batch['upload'])
         self.finish_archive(frame);self.bound();artifacts=[]
         if image_ready:artifacts.append(dict(kind='image',source='world-render-target',name=image['name'],sequence=self.state['sequence'],capturedEpochMs=capture['source']['capturedEpochMs'],ticket=ticket))

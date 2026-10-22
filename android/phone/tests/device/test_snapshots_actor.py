@@ -8,6 +8,7 @@ from pathlib import Path
 import sys
 import tempfile
 import threading
+import time
 import unittest
 from unittest.mock import patch
 ROOT=Path(__file__).resolve().parents[4]
@@ -29,6 +30,31 @@ def actor_once(boundary,url,token,queue):
         phase=PhaseFixtureReader(Client(url,token),RUN,'snapshots',epoch_ms=lambda:boundary.epoch)
         f.phase.client=phase.client;f.phase.status=phase.status
         result=PhoneSnapshotsActor(f).step();queue.put(dict(result=result,pid=os.getpid(),start=start_identity(os.getpid())))
+    except Exception as error:queue.put(dict(error=type(error).__name__,message=str(error)))
+
+
+def actor_until_closed(boundary,url,queue,command):
+    try:
+        f=boundary.feature;f.role='actor';f.load=lambda:None
+        phase=PhaseFixtureReader(Client(url,'a'*64),RUN,'snapshots',epoch_ms=lambda:boundary.epoch)
+        f.phase.client=phase.client;f.phase.status=phase.status
+        f.phase.provider=lambda:dict(boundary.provider,active=phase.status()['active'])
+        # Exercise the production quiet window with real elapsed host time.
+        f.monotonic,f.sleep=time.monotonic,time.sleep
+        actor=PhoneSnapshotsActor(f)
+        for _attempt in range(4):
+            result=actor.step()
+            if actor.state['quiet'] is not None and actor.state['quiet']['complete']:break
+        else:raise RuntimeError('Independent original actor quiet never completed')
+        queue.put(dict(ready=True,pid=os.getpid(),start=start_identity(os.getpid()),quiet=deepcopy(actor.state['quiet'])))
+        if not command.poll(10):raise RuntimeError('Explicit host close seam timed out')
+        assert command.recv()=='closed'
+        result=actor.step();queue.put(dict(result=result,phase=actor.state['phase'],closure=deepcopy(actor.state['closure'])))
+        if not command.poll(10):raise RuntimeError('Explicit post-close seam timed out')
+        next_command=command.recv()
+        if next_command=='late':actor.step();raise AssertionError('Late original unexpectedly passed retired actor')
+        assert next_command=='exit'
+
     except Exception as error:queue.put(dict(error=type(error).__name__,message=str(error)))
 
 
@@ -62,6 +88,40 @@ class SnapshotsActorTests(unittest.TestCase):
         result=self.run_actor('r'*64);self.assertIn('error',result);self.assertFalse(self.reader.request('/runs/'+RUN)['entries'])
         state=unpack(PrivateFeatureState(self.root/'phone-snapshots-actor-lifecycle.json').read()['payload'])[0]
         self.assertTrue(state['pending']['issued']);self.assertIsNone(state['last']);self.assertEqual('watching',state['phase'])
+    def test_own_original_quiet_and_actual_closed_phase_precede_actor_retirement(self):
+        b=self.boundary;b.clean();self.reader.activate('d'*32,'cleanup',{});b.feature.state['actions']=[dict(ticket='d'*32,phase='acknowledged')]
+        b.provider.update(ticket='d'*32,activations=[dict(ticket=TICKET,verb='capture',capturedEpochMs=19000),dict(ticket='d'*32,verb='cleanup',capturedEpochMs=20000)])
+        self.server.shutdown();self.thread.join(3)
+        ctx=multiprocessing.get_context('fork');queue=ctx.Queue();receive,send=ctx.Pipe(duplex=False)
+        process=ctx.Process(target=actor_until_closed,args=(b,self.url,queue,receive));process.start()
+        self.thread=threading.Thread(target=self.server.serve_forever,daemon=True);self.thread.start()
+        try:
+            ready=queue.get(timeout=25);self.assertNotIn('error',ready);self.assertGreaterEqual(ready['quiet']['last']-ready['quiet']['started'],3)
+            self.assertGreaterEqual(len(ready['quiet']['sequences']),3);self.reader.close();send.send('closed')
+            final=queue.get(timeout=15);self.assertNotIn('error',final);self.assertIs(final['result'],True);self.assertEqual('retired',final['phase']);self.assertFalse(final['closure']['active'])
+            # A stored retired plan must not hide actual late target work.
+            late=b.producer.directory/('e2e-'+RUN+'-late.png');late.write_bytes(b.raw);send.send('late')
+            rejected=queue.get(timeout=10);self.assertEqual('NativeUIError',rejected.get('error'));self.assertEqual(b.raw,late.read_bytes())
+            process.join(3);self.assertEqual(0,process.exitcode)
+        finally:
+            if process.is_alive():process.terminate();process.join(3)
+        state=unpack(PrivateFeatureState(self.root/'phone-snapshots-actor-lifecycle.json').read()['payload'])[0]
+        self.assertEqual('retired',state['phase']);self.assertIsNone(state['partialClosure']);self.assertIsNone(state['pending'])
+    def test_partial_cleanup_records_only_the_owner_proof_after_actual_close(self):
+        b=self.boundary;f=b.feature;f.role='actor';f.load=lambda:None;f.state.update(phase='partial-cleaned',partial=True)
+        f.state['hostProcess']=dict(pid=os.getpid()+100,start='explicit-host-identity-seam')
+        phase=PhaseFixtureReader(Client(self.url,'a'*64),RUN,'snapshots',epoch_ms=lambda:b.epoch);f.phase.client=phase.client;f.phase.status=phase.status
+        proof=dict(originalScope='zero-issued',kernelBinding=deepcopy(f.binding));calls=[]
+        f.partial_restored=lambda:calls.append('original-proof') or deepcopy(proof)
+        actor=PhoneSnapshotsActor(f);self.assertIs(actor.step(),False);self.assertFalse(calls);self.reader.close()
+        def refused():raise NativeUIError('Original owner still has an unresolved partial obligation')
+        f.partial_restored=refused
+        with self.assertRaises(NativeUIError):actor.step()
+        self.assertEqual('watching',actor.state['phase']);self.assertIsNone(actor.state['partialClosure'])
+        f.partial_restored=lambda:calls.append('original-proof') or deepcopy(proof)
+        self.assertIs(actor.step(),True);self.assertEqual(['original-proof'],calls);self.assertEqual(proof,actor.state['partialClosure'])
+        self.assertIsNone(actor.state['last']);self.assertIsNone(actor.state['quiet']);self.assertIsNone(actor.state['pending'])
+        self.assertFalse(list(self.root.glob('snapshots-file-'+RUN+'-actor-*')))
     def test_primary_process_cannot_claim_separate_actor_identity(self):
         b=self.boundary;f=b.feature;f.role='actor';f.load=lambda:None;f.phase.client=Client(self.url,'a'*64)
         with self.assertRaises(NativeUIError):PhoneSnapshotsActor(f).step()

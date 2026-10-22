@@ -59,7 +59,7 @@ class SnapshotRolesBoundary:
     def __init__(self,root):
         self.root=Path(root);self.root.chmod(0o700);self.epoch=20000;self.clock=0.;self.raw=pixels();self.fault='';self.calls=[]
         self.vm,self.before,self.after=originals();self.vm.snapshot.epoch=self.epoch
-        self.app=self.root/'app';self.app.mkdir(mode=0o700);self.producer=Producer(self.app);self.producer.epoch=18999
+        self.app=self.root/'app';self.app.mkdir(mode=0o700);self.producer=Producer(self.app);self.producer.epoch=18999;self.producer.outer='a'*32
         self.primary=self.owner('producer',False);self.primary.plan(RUN,'e2e-'+RUN)
         self.row,self.path=self.producer.capture();self.path.write_bytes(self.raw)
         self.row.update(bytes=len(self.raw),sha256=hashlib.sha256(self.raw).hexdigest(),captureId='snap_19000_1')
@@ -88,9 +88,47 @@ class SnapshotRolesBoundary:
             platform=self._snapshot_platform(None).read(),resolution=dict(component='android/android.ChooserActivity'),documentResolution=None)
         self.feature.monotonic=lambda:self.clock;self.feature.sleep=lambda seconds:setattr(self,'clock',self.clock+seconds)
         self.feature.original=lambda:deepcopy(self.baseline)
-        self.feature.observer_files=lambda role,**kwargs:self.observer(role)
+        self.feature.observer_files=lambda role,**kwargs:self.observer(role,**kwargs)
         self.feature.settings=lambda **_:SimpleNamespace(request=lambda *_:None)
         self.readback_sequence=0;self.upload_sequence=0
+    def clean(self):
+        """Explicit original native close/lease/file producers for actor tests."""
+        from test_snapshot_settings import Boundary as Settings
+        from overte_phone_snapshot_settings import PhoneSnapshotSettings
+        from self_tests.test_native_script_work import WorkBoundary,activity
+        from test_snapshot_os_retirement_source import boundary as Readbacks
+        self.primary.retire();self.feature.state['phase']='cleaned';self.feature.state['partial']=False
+        self.settings_source=Settings()
+        def reader(read_only):
+            source=self.settings_source
+            def raw():
+                value=json.loads(source.raw);value['processId']=31;return json.dumps(value)
+            return PhoneSnapshotSettings(source.send,raw,lambda:self.epoch,lambda:True,31,read_only=read_only,monotonic=lambda:self.clock,sleep=lambda _:None)
+        settings=reader(False);self.baseline['settings']=settings.request(RUN,'capture');last=settings.request(RUN,'observe')
+        settings.request(RUN,'restore',restore_id='9'*32,expected_sha256=last['source']['currentSha256']);settings.request(RUN,'retire')
+        def observe_settings(**kwargs):
+            result=reader(True);result.restore_source(self.baseline['settings']);return result
+        self.feature.settings=observe_settings
+        self.readbacks_body=Readbacks().component;self.readbacks_body.update(sequence=1,capturedEpochMs=self.epoch,destinations=[],jobs=[],files=[],removedCopies=[])
+        for key in ('osDestinations','shareGrants'):self.readbacks_body[key].update(rows=[],checkedEpochMs=self.epoch,checkId='6'*32)
+        self.work_source=WorkBoundary();source=self.work_source
+        source.member=deepcopy(self.vm.manager);source.code=deepcopy(self.vm.code)
+        source.compiled=dict(compiledSourcesVersion=1,complete=True,compilations=[deepcopy(self.vm.compilation)]);source.activity=[activity(5,signal_calls=1)]
+        def work_packet(value):
+            value['source']['compiled']=deepcopy(source.compiled)
+            value['source']['work'].update(scriptWorkVersion=2,activity=deepcopy(source.activity),timerEntries=len(source.timers),activityEntries=len(source.activity))
+        source.mutate=work_packet
+        self._script_work=lambda *_args,**_kwargs:source.reader()
+        def restored(*,snapshot):
+            from overte_phone_snapshots_measurements import retired
+            from adapters.native_phone_touch_state import released
+            measurement=snapshot['measurement']
+            retired(measurement['group'],measurement['captureFiles'],measurement['inventory'],measurement['readbacks'],measurement['upload'],measurement['settings'],run=RUN,epoch=self.epoch)
+            released(snapshot['touch']);assert snapshot['nativeAfter']['account']['loggedIn'] is False
+            assert snapshot['observerFilesRetirement']['retired'] and snapshot['scriptWork'] is not None
+            return dict(snapshotSequence=measurement['group']['snapshot']['sequence'],nativeSequence=snapshot['nativeAfter']['sequence'],scriptWork=deepcopy(snapshot['scriptWork']),fileRetirement=deepcopy(snapshot['observerFilesRetirement']))
+        self.feature.restored=restored
+
     def source(self,read_only):
         def read():
             value=json.loads(self.producer.read());value['processId']=31
@@ -100,8 +138,29 @@ class SnapshotRolesBoundary:
     def owner(self,role,read_only):
         root=self.root/(role+'-files');root.mkdir(mode=0o700,exist_ok=True);transport=LocalTransport(self.app,root)
         return PhoneSnapshotCaptureFiles(transport,self.source(read_only),BINDING,self.root/(role+'-files.json'),read_only=read_only)
-    def observer(self,role):
-        owner=self.owner(role,True);owner.attach(self.binding);return owner
+    def observer(self,role,*,handoff_source=None):
+        if handoff_source is None:owner=self.owner(role,True)
+        else:
+            from overte_phone_snapshot_system_files import SnapshotSystemFileSource
+            root=self.root/(role+'-files');root.mkdir(mode=0o700,exist_ok=True)
+            owner=PhoneSnapshotCaptureFiles(LocalTransport(self.app,root),SnapshotSystemFileSource(handoff_source),BINDING,self.root/(role+'-files.json'),read_only=True)
+        owner.attach(self.binding);return owner
+    def system_mode(self):
+        from test_snapshot_handoff import Boundary as HandoffBoundary
+        from overte_phone_snapshot_handoff import PhoneSnapshotHandoff
+        native=HandoffBoundary();native.group=deepcopy(self.after)
+        for packet in native.group.values():packet.update(requestedEpochMs=self.epoch,capturedEpochMs=self.epoch)
+        def raw():
+            value=native.frame();batch=value['source']['source']
+            self.producer.sequence+=1;self.producer.body.update(sequence=self.producer.sequence,capturedEpochMs=self.epoch)
+            batch['captureFiles']=dict(schemaVersion=1,requestId=uuid.uuid4().hex,runId=RUN,instance='a'*32,sequence=self.producer.sequence,processId=31,requestedEpochMs=self.epoch,capturedEpochMs=self.epoch,accepted=True,source=deepcopy(self.producer.body))
+            self.vm.scripts.sequence=batch['group']['script']['sequence'];self.vm.roots.sequence=batch['group']['rootsAfter']['sequence'];self.vm.snapshot.sequence=batch['group']['snapshot']['sequence']
+            return json.dumps(value)
+        self.feature.state['handoff']=dict(id=native.owner['handoffId'],kind='share',resolution=self.baseline['resolution'],binding=native.owner,sourceIndex=1)
+        self._snapshot_handoff_source=lambda *_:PhoneSnapshotHandoff(raw,lambda:self.epoch,lambda:True,native.owner,monotonic=lambda:self.clock,sleep=lambda _:None)
+        self._snapshot_system_platform=lambda *_:self._snapshot_platform(None)
+        self.passive=native
+
     def phase(self):return dict(active=True,activations=[dict(ticket=TICKET,stimulus=dict(verb='capture'))])
     def native_reader(self):
         source=self.native_source
@@ -175,6 +234,49 @@ class SnapshotsRoleTests(unittest.TestCase):
             self.assertEqual('ready',role.state['phase']);self.assertEqual('saved',role.frames[-1]['binaries'][0]['phase'])
             self.assertEqual(b.raw,SnapshotsBinary.archive(b.root,role.frames[-1]['binaries'][0]))
 
+    def test_passive_handoff_retains_all_intermediate_groups_and_never_constructs_a_foreground_reader(self):
+        b=self.boundary;b.system_mode();before=len(b.producer.sent)
+        with b.role() as role:
+            measured=role.read(0);self.assertEqual(1,measured['state']['files']);self.assertGreater(len(role.frames[-1]['handoffOriginals']),4)
+        self.assertFalse(b.calls);self.assertEqual(before,len(b.producer.sent));self.assertFalse(b.passive.commands)
+        with b.role() as role:
+            value=role.read(1);self.assertEqual(2,value['sequence']);self.assertGreater(role.frames[-1]['handoffOriginals'][0]['source']['sequence'],role.frames[-2]['handoffOriginals'][-1]['source']['sequence'])
+    def test_resume_from_passive_handoff_keeps_original_vm_native_and_files_floors(self):
+        b=self.boundary;b.system_mode()
+        with b.role() as role:role.read(0)
+        b.feature.state['handoff']=None
+        with b.role() as role:
+            observed=role.read(1);self.assertEqual(2,observed['sequence']);self.assertEqual(1,observed['state']['files'])
+            self.assertIsNotNone(role.frames[-1]['nativeAfter']);self.assertFalse(role.frames[-1]['handoffOriginals'])
+    def test_documents_own_original_history_outlives_the_initial_empty_primary_floor(self):
+        from test_snapshot_documents import Boundary as Documents,ARM
+        b=self.boundary;source=Documents();originals=(source.row['plans'],source.row['documents'],source.row['fdLifetimes'])
+        source.row.update(plans=[],documents=[],fdLifetimes=[])
+        primary=source.reader();primary.observe();binding=primary.binding()
+        b.feature.state.update(docArm=ARM,docBinding=binding);b.feature.documents=lambda **_:source.reader(True,binding)
+        with b.role() as role:
+            role.state.update(phase='reading',pending=dict(original=None,manifest=None,image=None,binaries=[],retirement=None,frame=None,work={}))
+            role.save();source.row.update(plans=originals[0],documents=originals[1],fdLifetimes=originals[2]);role.documents.observe()
+            role.finish_archive(dict(diagnostic=True,documentOriginals=deepcopy(role.state['pending']['work']['documentOriginals']),binaries=[]))
+        source.row.update(plans=[],documents=[],fdLifetimes=[],retired=True,workersTerminated=True);source.root['present']=False
+        with b.role() as role,self.assertRaises(NativeUIError):role.documents.require_retired()
+    def test_world_and_touch_source_births_remain_pinned_after_role_reconstruction(self):
+        for key in ('world','touch'):
+            with self.subTest(key=key):
+                temporary=tempfile.TemporaryDirectory(prefix='snapshot-birth-');self.addCleanup(temporary.cleanup);b=SnapshotRolesBoundary(temporary.name)
+                with b.role() as role:role.read(0)
+                source=b.world_source if key=='world' else b.touch_source
+                source.edit=lambda value:value.update(instance='9'*32)
+                with b.role() as role,self.assertRaises(NativeUIError):role.read(1)
+    def test_current_script_work_sequence_and_retired_settings_cannot_rollback_after_restart(self):
+        for fault in ('work','settings'):
+            with self.subTest(fault=fault):
+                temporary=tempfile.TemporaryDirectory(prefix='snapshot-quiet-floors-');self.addCleanup(temporary.cleanup);b=SnapshotRolesBoundary(temporary.name);b.clean()
+                with b.role() as role:
+                    measured=role.read(0);self.assertEqual([],measured['resources']);self.assertTrue(role.frames[-1]['observerFilesRetirement']['retired'])
+                if fault=='work':b.work_source.sequence=0
+                else:b.settings_source.retired=False
+                with b.role() as role,self.assertRaises(NativeUIError):role.read(1)
     def test_saved_original_and_planned_manifest_resume_without_another_target_acquisition(self):
         b=self.boundary
         with b.role() as role:
