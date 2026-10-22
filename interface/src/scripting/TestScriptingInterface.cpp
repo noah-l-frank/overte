@@ -47,6 +47,7 @@
 #include "../../../tests/device/native/PrivateWorldRenderReceipts.h"
 #include "../../../tests/device/native/PrivateCreateFiles.h"
 #include "../../../tests/device/native/CreateBrowseSettingOwner.h"
+#include "../../../tests/device/native/CreateEntityLifetimes.h"
 #include <algorithm>
 #include <PointerManager.h>
 #include <ui/Keyboard.h>
@@ -1281,10 +1282,16 @@ QVariantMap TestScriptingInterface::featureCreateEntities(const QVariantMap& com
     if (scan.size()>1024) {return {};}
     auto& owned=_featureCreateEntityIds[run];QVariantList unowned;
     const auto prefix=QString("e2e-")+run+"-";
+    const auto resource=QRegularExpression("\\A/feature-fixture/v1/runs/"+run+"/tickets/[0-9a-f]{32}/(?:gltf-bundle/main\\.gltf|obj-bundle/main\\.obj)\\z");
+    const auto runModel=[&](const EntityItemProperties& p) {
+        const QUrl url(p.getModelURL());return p.getType()==EntityTypes::Model && url.isValid()
+            && (url.scheme()=="http" || url.scheme()=="https") && !url.host().isEmpty() && url.userInfo().isEmpty()
+            && !url.authority().contains('@') && !url.hasQuery() && !url.hasFragment() && resource.match(url.path()).hasMatch();
+    };
     for (const auto& entityId:scan) {
         const auto p=entities->getEntityProperties(entityId);
         if (p.getType()==EntityTypes::Unknown || !bounded(p)) {return {};}
-        if (p.getName().startsWith(prefix)) {owned.insert(entityId);}
+        if (p.getName().startsWith(prefix) || runModel(p)) {owned.insert(entityId);}
         else if (!owned.contains(entityId)) {
             const auto hash=QCryptographicHash::hash(QJsonDocument::fromVariant(properties(p)).toJson(QJsonDocument::Compact),QCryptographicHash::Sha256).toHex();
             unowned.append(QVariantMap{{"id",entityId.toString(QUuid::WithoutBraces)},{"sha256",QString::fromLatin1(hash)}});
@@ -1292,21 +1299,36 @@ QVariantMap TestScriptingInterface::featureCreateEntities(const QVariantMap& com
     }
     if (owned.size()>32) {return {};}
     QStringList ordered;for (const auto& entityId:owned) {ordered.append(entityId.toString(QUuid::WithoutBraces));}ordered.sort();
-    QVariantList present,absent;
+    QVariantList present,absent,lifetimes;
+    if (!_featureCreateEntityLifetimes) {_featureCreateEntityLifetimes=std::make_shared<overte::e2e::CreateEntityLifetimes>();}
     for (const auto& text:ordered) {
-        const auto p=entities->getEntityProperties(QUuid(text));
-        if (p.getType()==EntityTypes::Unknown) {absent.append(text);continue;}
+        const auto entityId=QUuid(text);EntityItemPointer original;
+        entities->getEntityTree()->withReadLock([&]{original=entities->getEntityTree()->findEntityByEntityItemID(entityId);});
+        const auto lifetime=_featureCreateEntityLifetimes->observe(run,entityId,original);if (lifetime.isEmpty()) {return {};}
+        lifetimes.append(lifetime);
+        const auto p=entities->getEntityProperties(entityId);
+        if (p.getType()==EntityTypes::Unknown) {if (original) {return {};}absent.append(text);continue;}
         if (!bounded(p)) {return {};}
-        auto row=properties(p);row.insert("id",text);row.insert("lastEditedEpochUs",static_cast<qulonglong>(p.getLastEdited()));present.append(row);
+        if (!original) {return {};}
+        QVariantMap textureNames;const auto names=p.getTextureNames();if (names.size()>64) {return {};}
+        for (auto it=names.cbegin();it!=names.cend();++it) {
+            if (it.key().isEmpty() || it.key().size()>256 || (it.value().userType()!=QMetaType::QUrl && it.value().userType()!=QMetaType::QString)) {return {};}
+            const auto actual=it.value().userType()==QMetaType::QUrl ? it.value().toUrl().toString() : it.value().toString();
+            if (actual.size()>4096) {return {};}textureNames.insert(it.key(),actual);
+        }
+        auto row=properties(p);row.insert("visuallyReady",entities->isLoaded(entityId));row.insert("naturalDimensions",vector(p.getNaturalDimensions()));
+        row.insert("textureNames",textureNames);row.insert("renderInfo",QVariantMap{{"vertices",static_cast<qulonglong>(p.getRenderInfoVertexCount())},
+            {"textures",p.getRenderInfoTextureCount()},{"textureBytes",static_cast<qulonglong>(p.getRenderInfoTextureSize())},{"drawCalls",p.getRenderInfoDrawCalls()}});
+        row.insert("id",text);row.insert("lastEditedEpochUs",static_cast<qulonglong>(p.getLastEdited()));present.append(row);
     }
     std::sort(unowned.begin(),unowned.end(),[](const QVariant& a,const QVariant& b) {return a.toMap().value("id").toString()<b.toMap().value("id").toString();});
     auto& domain=nodes->getDomainHandler();
     if (domain.featureChatSession(run)!=domainSession) {return {};}
-    const QVariantMap source{{"createEntitySourceVersion",2},{"domainSession",domainSession},{"runId",run},{"domainConnected",domain.isConnected()},
+    const QVariantMap source{{"createEntitySourceVersion",3},{"domainSession",domainSession},{"runId",run},{"domainConnected",domain.isConnected()},
         {"domainId",domain.getUUID().isNull() ? QVariant() : QVariant(domain.getUUID().toString(QUuid::WithoutBraces))},
         {"sessionId",nodes->getSessionUUID().isNull() ? QVariant() : QVariant(nodes->getSessionUUID().toString(QUuid::WithoutBraces))},
         {"canRez",nodes->getThisNodeCanRez()},{"canRezTmp",nodes->getThisNodeCanRezTmp()},
-        {"entities",present},{"absentIds",absent},{"scan",QVariantMap{{"center",vector(center)},
+        {"entities",present},{"absentIds",absent},{"entityLifetimes",lifetimes},{"scan",QVariantMap{{"center",vector(center)},
             {"radiusMeters",128},{"propertyScope","create-domain-v1"},{"scannedEntities",scan.size()},{"unowned",unowned}}}};
     const QVariantMap result{{"schemaVersion",1},{"requestId",id},{"instance",_featureObservationInstance},
         {"sequence",static_cast<qulonglong>(++_featureCreateEntitiesSequence)},{"requestedEpochMs",requested},

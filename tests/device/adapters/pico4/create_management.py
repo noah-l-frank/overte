@@ -167,7 +167,8 @@ class PicoCreateManagement:
 
     def flow(self):
         self.lock.assert_held()
-        need(not getattr(self.adapter,'_create_picker_owned',lambda _target:False)(self.target))
+        need(not getattr(self.adapter,'_create_picker_owned',lambda _target:False)(self.target)
+            and not getattr(self.adapter,'_create_models_owned',lambda _target:False)(self.target))
         # Do not adopt an unrelated regular Script manager reservation.
         script_path, _ui_path = self.adapter._script_paths(self.target)
         need(PrivateFeatureState(script_path).read() is None)

@@ -1,12 +1,14 @@
 {
   "schemaVersion": 1,
   "contracts": {
+    "pico-create-model-owner": {"current": 1, "reads": [1]},
+    "pico-create-model-work-originals": {"current": 1, "reads": [1]},
     "pico-create-management": {"current": 1, "reads": [1]},
     "pico-create-json-files": {"current": 1, "reads": [1]},
     "pico-create-file-controls": {"current": 1, "reads": [1]},
     "pico-create-callbacks": {"current": 1, "reads": [1]},
     "pico-create-picker-owner": {"current": 2, "reads": [2]},
-    "pico-create-entities": {"current": 2, "reads": [1, 2]},
+    "pico-create-entities": {"current": 3, "reads": [1, 2, 3]},
     "pico-create-dialogs": {"current": 3, "reads": [1, 2, 3]},
     "pico-create-browse-setting": {"current": 3, "reads": [2, 3]},
     "pico-graphics-feature-binding": {"current": 1, "reads": [1]},

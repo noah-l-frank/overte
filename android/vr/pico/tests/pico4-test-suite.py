@@ -78,6 +78,8 @@ TESTS = (
     test("create-callback-native", "interaction", PYTHON, "device/test_create_callbacks_native.py", requires=("c++", "pkg-config")),
     test("create-browse-setting", "interaction", PYTHON, "device/test_create_browse_setting.py"),
     test("create-browse-setting-native", "interaction", PYTHON, "device/test_create_browse_setting_native.py", requires=("c++", "pkg-config")),
+    test("create-model-owner", "interaction", PYTHON, "device/test_create_models.py", requires=("node",)),
+    test("create-model-native-ui", "interaction", PYTHON, "device/test_create_model_controls_native.py", requires=("c++", "pkg-config")),
     test("create-picker-owner", "interaction", PYTHON, "device/test_create_picker_owner.py"),
     test("create-entities-native", "interaction", PYTHON, "device/test_create_entities_native.py", requires=("c++", "pkg-config")),
     test("create-dialog-native", "interaction", PYTHON, "device/test_create_dialogs_native.py", requires=("c++", "pkg-config")),

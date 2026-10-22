@@ -95,7 +95,11 @@ The next executable source work is:
   private; independent peer/render effects and the full driver are missing. Script
   file roots and picker identities must remain distinct. Observe cancel and
   accept through their original retained callbacks and a quiet absence window.
-- Compose normal Domain/New Model/Properties input with actual selected UUID,
+- The private [domain Model owner](CREATE_MODEL_OWNER.md) now composes normal
+  NEW glTF/OBJ, actual readiness/geometry and original selected UUID, original
+  Script timer retirement, normal name/dimensions/Delete and weak entity death.
+  Its source v3 also prevents picker cleanup on mere tree absence. Compose its
+  domain Model/Properties input with actual selected UUID,
   creator/context and a separately acquired domain/peer original. Resolve the
   original `checker.png` texture slot and bytes, actual model drawing and both
   eye captures before claiming the texture effect.

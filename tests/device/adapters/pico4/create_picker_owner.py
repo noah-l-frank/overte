@@ -22,6 +22,7 @@ from adapters.normal_ui import NativeUIError
 from adapters.pico4.create_callbacks import active as active_callbacks
 from adapters.pico4.create_browse_setting import restored as browse_setting_restored
 from adapters.pico4.create_dialogs import active as active_dialogs,joined
+from adapters.pico4.create_entities import retired as entities_retired
 from adapters.pico4.create_file_ui import inventory
 from adapters.token_create_ui import nonce,scope,control_id
 from feature_journeys.contract import identifier
@@ -175,7 +176,7 @@ class OwnedCreatePicker:
     def same_scene(before,after):
         a,b=before['source'],after['source']
         need(before['instance']==after['instance'] and a['domainConnected'] and b['domainConnected'] and a['domainId'] is not None and a['sessionId'] is not None
-            and a['createEntitySourceVersion']==b['createEntitySourceVersion']==2 and a['domainSession']==b['domainSession']
+            and a['createEntitySourceVersion']==b['createEntitySourceVersion'] and a['createEntitySourceVersion'] in (2,3) and a['domainSession']==b['domainSession']
             and all(a[k]==b[k] for k in ('runId','domainId','sessionId','canRez','canRezTmp'))
             and a['scan']['center']==b['scan']['center'] and a['scan']['unowned']==b['scan']['unowned'])
 
@@ -234,9 +235,9 @@ class OwnedCreatePicker:
             value=dict(schemaVersion=VERSION,binding=self.binding,runId=run,fixtureUrl=fixture_url,steps=[],lastInput=None,inputCount=0,pending=None)
             allowed=set();need(role=='import')
         need(all(r['id'] in allowed for r in active_dialogs(actual['dialogs'])))
-        source=actual['entities']['source'];need(source['createEntitySourceVersion']==2 and source['domainConnected'] and source['domainId'] and source['sessionId']
+        source=actual['entities']['source'];need(source['createEntitySourceVersion']==3 and source['domainConnected'] and source['domainId'] and source['sessionId']
             and (source['canRez'] or source['canRezTmp']))
-        if role=='import':need(source['entities']==[])
+        if role=='import':need(entities_retired(source))
         else:
             need(len(source['entities'])==1 and before_selection==[source['entities'][0]['id']]
                 and any(s['role']=='import' and s['outcome']=='imported' and s['entityId']==before_selection[0] for s in value['steps']))
@@ -328,7 +329,7 @@ class OwnedCreatePicker:
                 if operation=='export':self.verify_export(step)
                 else:need(not self.owned_files(step).verify()['files'][1]['exists'])
             else:
-                ready=not entities
+                ready=entities_retired(actual['entities']['source'])
                 need(page['selectedIds']==[])
                 if operation=='cancel':need(page['statusText']=='Import cancelled.')
             packet=actual['entities'];current=self.now()
@@ -414,7 +415,7 @@ class OwnedCreatePicker:
         for attempt in range(132):
             actual=self.actual();ui=self.release_ui(previous_ui);previous_ui=deepcopy(ui)
             ready=True
-            ready=ready and not active_callbacks(actual['callbacks']) and not active_dialogs(actual['dialogs']) and not actual['entities']['source']['entities']
+            ready=ready and not active_callbacks(actual['callbacks']) and not active_dialogs(actual['dialogs']) and entities_retired(actual['entities']['source'])
             clocks=(actual['entities']['capturedEpochMs'],actual['dialogs']['source']['elapsedMs'],ui['scope']['elapsedMs'])
             now=self.now()
             if ready:
@@ -441,7 +442,7 @@ class OwnedCreatePicker:
             setting=self.setting.observe();need(browse_setting_restored(setting))
             if active_dialogs(actual['dialogs']):
                 raise NativeUIError('Original Create Qt context, listener or delivery remains retained')
-            ready=not active_callbacks(actual['callbacks']) and not actual['entities']['source']['entities']
+            ready=not active_callbacks(actual['callbacks']) and entities_retired(actual['entities']['source'])
             for step in value['steps']:
                 self.same_scene(step['baseline'],actual['entities']);joined(step['dialogBinding'],actual['dialogs'])
             current=self.now();packet=actual['entities']
@@ -506,7 +507,7 @@ class PicoCreatePicker:
         from adapters.pico4.create_files import NativeCreateFiles,OwnedCreateFiles,FILE
         from adapters.pico4.create_file_ui import PicoCreateFileIO
         self.lock.assert_held()
-        need(not self.adapter._create_management(self.target).owned())
+        need(not self.adapter._create_management(self.target).owned() and not self.adapter._create_models_owned(self.target))
         regular,_ui=self.adapter._script_paths(self.target)
         from adapters.normal_feature_state import PrivateFeatureState
         need(PrivateFeatureState(regular).read() is None)

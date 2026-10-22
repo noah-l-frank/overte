@@ -43,7 +43,7 @@ class OriginalBackend:
         self.path=path;self.ui=FileEffects(SimpleNamespace(bridge_id=SID,generation=1))
         self.callback=callback_frame();self.dialog=dialog_frame();self.callback['instance']=self.dialog['instance']='9'*32;self.callback['source']['managers'][0]['callbacks'].update(proxies=[],callbacks=[])
         self.dialog['source']['createDialogSourceVersion']=3
-        self.dialog['source']['dialogs']=[];self.rows=[];self.absent=[];self.unowned=[]
+        self.dialog['source']['dialogs']=[];self.rows=[];self.absent=[];self.unowned=[];self.lifetimes={};self.retain_entity=False
         code=(ROOT/'scripts/system/create/edit.js').read_text().encode('utf-16le')
         self.source={'import':dict(sha256=hashlib.sha256(code).hexdigest(),codeUnits=len(code)//2)}
         code=(ROOT/'scripts/system/create/entityList/entityList.js').read_text().encode('utf-16le')
@@ -66,12 +66,16 @@ class OriginalBackend:
         def send(command):
             self.sequence[kind]+=1;epoch=self.epoch()
             if kind=='entities':
-                source=dict(createEntitySourceVersion=2,domainSession=dict(domainSessionVersion=1,instance='7'*32,revision=self.domain_revision,connected=True,
+                source=dict(createEntitySourceVersion=3,domainSession=dict(domainSessionVersion=1,instance='7'*32,revision=self.domain_revision,connected=True,
                     domainSha256=hashlib.sha256((RUN+':').encode()+uuid.UUID('11111111-1111-1111-1111-111111111111').bytes).hexdigest(),
                     connectionBirth=self.domain_birth,connectedEpochMs=19000),runId=RUN,domainConnected=True,domainId='11111111-1111-1111-1111-111111111111',
                     sessionId='22222222-2222-2222-2222-222222222222',canRez=True,canRezTmp=False,
                     entities=deepcopy(self.rows),absentIds=sorted(self.absent),scan=dict(center=[0,1,0],radiusMeters=128,
                     propertyScope='create-domain-v1',scannedEntities=len(self.rows)+len(self.unowned),unowned=deepcopy(self.unowned)))
+                present={r['id'] for r in self.rows}
+                for entity in sorted(present|set(self.absent)):
+                    if entity not in self.lifetimes:self.lifetimes[entity]=dict(id=entity,instance=uuid.uuid5(uuid.NAMESPACE_URL,'entity:'+entity).hex,firstObservedEpochMs=epoch)
+                source['entityLifetimes']=[self.lifetimes[k]|dict(alive=k in present or self.retain_entity,inTree=k in present) for k in sorted(self.lifetimes)]
                 value=dict(schemaVersion=1,requestId=command['commandId'],instance='9'*32,sequence=self.sequence[kind],processId=123,
                     requestedEpochMs=epoch,capturedEpochMs=epoch,source=source)
             else:
@@ -138,7 +142,9 @@ class OriginalBackend:
             raw=(self.file_sources[self.ticket].root/'entity-import.json').read_bytes();original=json.loads(raw)['Entities'][0]
             self.rows=[dict(id=MODEL,name=original['name'],type='Model',hostType='domain',modelUrl=original['modelURL'] if not self.invalid_model else 'http://foreign.test/a.gltf',
                 textures='',position=[0,1,-2],rotation=[0,0,0,1],dimensions=[1,1,1],parentId=None,visible=True,locked=False,
-                lastEditedEpochUs=self.epoch()*1000)]
+                lastEditedEpochUs=self.epoch()*1000,visuallyReady=True,naturalDimensions=[1,1,1],
+                textureNames={'checker.png':original['modelURL'].rsplit('/',1)[0]+'/textures/checker.png'},
+                renderInfo=dict(vertices=3,textures=1,textureBytes=768,drawCalls=1))]
             self.selected=[MODEL]
 
 
@@ -287,6 +293,15 @@ class CreatePickerOwnerTests(unittest.TestCase):
         path=self.b.file_sources[SECOND].root/'export.json';path.write_bytes(path.read_bytes()+b' ')
         with self.assertRaises(NativeUIError):self.flow.verify_export(step)
         self.assertEqual(packet,self.flow.state()['steps'][-1]['exportEvidence'])
+    def test_tree_absence_with_original_entity_retained_cannot_complete_delete_or_cleanup(self):
+        self.open();self.flow.import_file();self.b.retain_entity=True
+        with self.assertRaises(NativeUIError):self.flow.delete_import()
+        self.assertEqual([],self.b.rows);self.assertEqual('delete',self.flow.state()['pending']['operation'])
+        count=len(self.b.inputs);self.b.retain_entity=False;self.flow=self.b.make();self.flow.reconcile()
+        self.assertEqual(count,len(self.b.inputs));self.assertEqual('deleted',self.flow.state()['steps'][-1]['outcome'])
+        for row in self.b.dialog['source']['dialogs']:row['contextAlive']=False
+        self.flow.release();self.assertIsNone(self.b.store('owner').read())
+
     def test_same_uuid_disconnect_reconnect_generation_refuses_input_or_cleanup(self):
         self.open();count=len(self.b.inputs);self.b.domain_birth='6'*32;self.b.domain_revision+=2
         with self.assertRaises(NativeUIError):self.flow.import_file()

@@ -647,6 +647,15 @@ def create_adapter(args, base_class):
             from adapters.pico4.create_picker_owner import PicoCreatePicker
             return PicoCreatePicker.owned_target(self,target)
 
+        @_private
+        def _create_models(self, target, run):
+            from adapters.pico4.create_models import PicoCreateModels
+            return PicoCreateModels(self,target,run)
+
+        def _create_models_owned(self, target):
+            from adapters.pico4.create_models import PicoCreateModels
+            return PicoCreateModels.owned_target(self,target)
+
         def _create_file_controls(self, target, intent, directory, run, ticket, role, before):
             from adapters.pico4.create_file_ui import CreateFileUI, PicoCreateFileIO
             ui, _observe, _binding = self._script_runtime(target)
@@ -1751,7 +1760,7 @@ def create_adapter(args, base_class):
                     discard_stopped_state(path)
                 state, ui = self._script_paths(target)
                 discard_stopped_state(ui)
-                _need(not audio_error and not create_error and not self._create_management(target).owned() and not self._create_picker_owned(target)
+                _need(not audio_error and not create_error and not self._create_management(target).owned() and not self._create_picker_owned(target) and not self._create_models_owned(target)
                       and not feature_error and not script_error and not probe_error and not origin_error and not chat_error and PrivateFeatureState(state).read() is None
                       and self._lifecycle_back_store(target).read() is None
                       and (self._lifecycle_world_store(target,create=False) is None or self._lifecycle_world_store(target,create=False).read() is None)

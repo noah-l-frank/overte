@@ -34,11 +34,11 @@ class CreateEntitiesNativeTests(unittest.TestCase):
                 '-o',str(binary),*libraries,*flags],check=True,timeout=60,env=environment)
             subprocess.run([str(binary)],check=True,timeout=10,env=environment)
             output=subprocess.check_output([str(binary),'--testScript'],timeout=10,env=environment,text=True)
-            packets=[json.loads(line) for line in output.splitlines()];self.assertEqual(5,len(packets));previous=None
-            for packet in packets[:4]:
+            packets=[json.loads(line) for line in output.splitlines()];self.assertEqual(6,len(packets));previous=None
+            for packet in packets[:5]:
                 validate(packet,packet['requestId'],packet['processId'],packet['capturedEpochMs'],'a'*32);continuity(previous,packet);previous=packet
-            validate(packets[4],packets[4]['requestId'],packets[4]['processId'],packets[4]['capturedEpochMs'],'a'*32)
-            with self.assertRaises(NativeUIError):continuity(packets[3],packets[4])
+            validate(packets[5],packets[5]['requestId'],packets[5]['processId'],packets[5]['capturedEpochMs'],'a'*32)
+            with self.assertRaises(NativeUIError):continuity(packets[4],packets[5])
             self.assertEqual([],packets[0]['source']['entities']);self.assertEqual('domain',packets[1]['source']['entities'][0]['hostType'])
             self.assertEqual('local',packets[2]['source']['entities'][0]['hostType']);self.assertEqual(1,len(packets[3]['source']['absentIds']))
 
