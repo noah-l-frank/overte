@@ -16,6 +16,7 @@
 #include <QSet>
 #include <QVariantMap>
 #include <functional>
+#include <cmath>
 #if defined(Q_OS_UNIX)
 #include <fcntl.h>
 #include <sys/stat.h>
@@ -24,8 +25,9 @@
 #endif
 
 namespace overte::e2e {
-// Dedicated owned Assignment Client IPC. This source accepts only native
-// read/inspect/retire queries, never messages, subscriptions or desired results.
+// Dedicated owned Assignment Client IPC. Observation accepts only native
+// read/inspect/retire queries. A distinct opt-in private fixture input channel
+// never supplies observations or requested delivery/position results.
 class ChatActorFiles {
 public:
     ChatActorFiles(const QString& directory,const QString& scriptSha,const QString& instance) : _path(directory) {
@@ -41,7 +43,8 @@ public:
         // be staged by the owner, but native output names must be absent.
         struct stat existing{};
         if (::fstatat(_root,"chat-actor-source.v1.json",&existing,AT_SYMLINK_NOFOLLOW)==0 || errno!=ENOENT
-                || ::fstatat(_root,"feature-chat-observation.json",&existing,AT_SYMLINK_NOFOLLOW)==0 || errno!=ENOENT) { closeAll();return; }
+                || ::fstatat(_root,"feature-chat-observation.json",&existing,AT_SYMLINK_NOFOLLOW)==0 || errno!=ENOENT
+                || ::fstatat(_root,"chat-peer-input-receipt.v1.json",&existing,AT_SYMLINK_NOFOLLOW)==0 || errno!=ENOENT) { closeAll();return; }
         QJsonObject source{{"actorVersion",1},{"instance",instance},{"processId",static_cast<double>(QCoreApplication::applicationPid())},
             {"configuredEpochMs",static_cast<double>(QDateTime::currentMSecsSinceEpoch())},{"scriptSha256",scriptSha}};
         const auto bytes=QJsonDocument(source).toJson(QJsonDocument::Compact)+'\n';
@@ -55,10 +58,56 @@ public:
     }
     ~ChatActorFiles() { closeAll(); }
     bool available() const { return _available; }
+    // A separate opt-in fixture INPUT path. Consumption is never a position,
+    // delivery or restoration observation. The original peer script performs
+    // ordinary Avatar/ Messages operations after this call returns.
+    QVariantMap takeInput() {
+#if defined(Q_OS_UNIX)
+        if (!_available || !root() || !same(_sourceNode,"chat-actor-source.v1.json")) { return {}; }
+        const auto raw=readCommand("chat-peer-input.v1.json");
+        QJsonParseError error;const auto document=QJsonDocument::fromJson(raw,&error);
+        const auto value=document.object();const auto operation=value.value("operation").toString();
+        QSet<QString> required{"schemaVersion","commandId","runId","operation"};
+        if (operation=="hold") { required.insert("position"); }
+        else if (operation=="send") { required.insert("channel");required.insert("textKey"); }
+        else if (operation!="restore" && operation!="release") { return {}; }
+        const auto keys=value.keys();const auto id=value.value("commandId").toString();const auto run=value.value("runId").toString();
+        if (error.error!=QJsonParseError::NoError || !document.isObject() || raw!=document.toJson(QJsonDocument::Compact)+'\n'
+                || QSet<QString>(keys.begin(),keys.end())!=required || value.value("schemaVersion")!=QJsonValue(1)
+                || !QRegularExpression("\\A[0-9a-f]{32}\\z").match(id).hasMatch()
+                || !QRegularExpression("\\A[0-9a-f]{32}\\z").match(run).hasMatch()
+                || (!_inputRun.isEmpty() && _inputRun!=run) || _inputs.contains(id) || _inputs.size()>=128 || _inputReleased) { return {}; }
+        if (operation=="hold") {
+            const auto position=value.value("position").toObject();const auto coordinates=position.keys();
+            if (QSet<QString>(coordinates.begin(),coordinates.end())!=QSet<QString>{"x","y","z"}) { return {}; }
+            for (const auto key:{"x","y","z"}) {
+                const auto coordinate=position.value(key);
+                if (!coordinate.isDouble() || !std::isfinite(coordinate.toDouble()) || std::abs(coordinate.toDouble())>100000) { return {}; }
+            }
+        } else if (operation=="send" && ((value.value("channel")!="local" && value.value("channel")!="domain")
+                || (value.value("textKey")!="reply" && value.value("textKey")!="hidden"))) { return {}; }
+        // Admit once before publishing consumption or returning to script.
+        _inputs.insert(id);_inputRun=run;
+        if (operation=="release") { _inputReleased=true; }
+        const QVariantMap receipt{{"peerInputVersion",1},{"commandId",id},{"runId",run},{"operation",operation},
+            {"instance",_inputInstance},{"sequence",_inputs.size()},{"processId",QCoreApplication::applicationPid()},
+            {"capturedEpochMs",QDateTime::currentMSecsSinceEpoch()}};
+        if (!writeResult(receipt,"chat-peer-input-receipt.v1.json",_inputResult,_inputResultNode,_commandNode)) { closeAll();return {}; }
+        return value.toVariantMap();
+#else
+        return {};
+#endif
+    }
     void tick(const std::function<QVariantMap(const QVariantMap&)>& observe) {
 #if defined(Q_OS_UNIX)
         if (!_available || !observe) { return; }
         if (!root() || !same(_sourceNode,"chat-actor-source.v1.json")) { closeAll();return; }
+        if (_inputResult>=0 && !same(_inputResultNode,"chat-peer-input-receipt.v1.json")) {
+            struct stat current{};
+            if (_inputReleased && ::fstatat(_root,"chat-peer-input-receipt.v1.json",&current,AT_SYMLINK_NOFOLLOW)!=0 && errno==ENOENT) {
+                ::close(_inputResult);_inputResult=-1;
+            } else { closeAll();return; }
+        }
         // After a real retired/empty reply, its owner may remove that original
         // output. Close the actual unlinked FD even when no next query exists.
         if (_result>=0 && !same(_resultNode,"feature-chat-observation.json")) {
@@ -93,10 +142,13 @@ public:
     }
 private:
     QString _path,_lastCommand;
+    QString _inputRun,_inputInstance{QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-')};
+    QSet<QString> _inputs;
+    bool _inputReleased{false};
     bool _available{false},_lastRetired{false};
 #if defined(Q_OS_UNIX)
-    int _root{-1},_source{-1},_result{-1};
-    struct stat _rootNode{},_sourceNode{},_resultNode{},_commandNode{};
+    int _root{-1},_source{-1},_result{-1},_inputResult{-1};
+    struct stat _rootNode{},_sourceNode{},_resultNode{},_commandNode{},_inputResultNode{};
     static bool node(int fd,bool directory,struct stat* result=nullptr) {
         struct stat value{};
         if (fd<0 || ::fstat(fd,&value)!=0 || value.st_uid!=::geteuid()
@@ -147,10 +199,10 @@ private:
         }
         return true;
     }
-    QByteArray readCommand() {
-        const int fd=::openat(_root,"chat-actor-command.v1.json",O_RDONLY|O_NOFOLLOW|O_NONBLOCK|O_CLOEXEC);
+    QByteArray readCommand(const char* name="chat-actor-command.v1.json") {
+        const int fd=::openat(_root,name,O_RDONLY|O_NOFOLLOW|O_NONBLOCK|O_CLOEXEC);
         struct stat before{};
-        if (!node(fd,false,&before) || before.st_size<1 || before.st_size>2048 || !same(before,"chat-actor-command.v1.json")) {
+        if (!node(fd,false,&before) || before.st_size<1 || before.st_size>2048 || !same(before,name)) {
             if (fd>=0) { ::close(fd); }return {};
         }
         QByteArray bytes(static_cast<int>(before.st_size),'\0');int done{0};
@@ -160,37 +212,39 @@ private:
         }
         struct stat after{};const bool valid=node(fd,false,&after) && after.st_dev==before.st_dev && after.st_ino==before.st_ino
             && after.st_size==before.st_size && mtime(after)==mtime(before) && ctime(after)==ctime(before)
-            && done==bytes.size() && same(before,"chat-actor-command.v1.json");
+            && done==bytes.size() && same(before,name);
         ::close(fd);if (valid) { _commandNode=before; }return valid?bytes:QByteArray();
     }
     bool writeResult(const QVariantMap& originalFrame) {
-        if (!root() || (_result>=0 && !same(_resultNode,"feature-chat-observation.json"))) { return false; }
+        return writeResult(originalFrame,"feature-chat-observation.json",_result,_resultNode,_commandNode);
+    }
+    bool writeResult(const QVariantMap& originalFrame,const char* name,int& result,struct stat& resultNode,const struct stat& commandNode) {
+        if (!root() || (result>=0 && !same(resultNode,name))) { return false; }
         const auto temporary=(".chat-result-"+QUuid::createUuid().toString(QUuid::WithoutBraces)).toLatin1();
         const int fd=::openat(_root,temporary.constData(),O_RDWR|O_CREAT|O_EXCL|O_NOFOLLOW|O_CLOEXEC,0600);
         struct stat original{};
         bool okay=node(fd,false,&original);
-        const QJsonObject envelope{{"actorFileVersion",1},{"commandNode",identity(_commandNode)},
+        const QJsonObject envelope{{"actorFileVersion",1},{"commandNode",identity(commandNode)},
             {"resultNode",identity(original)},{"native",QJsonObject::fromVariantMap(originalFrame)}};
         const auto bytes=QJsonDocument(envelope).toJson(QJsonDocument::Compact)+'\n';
         okay=okay && bytes.size()<=131072 && writeAll(fd,bytes) && ::fsync(fd)==0 && node(fd,false,&original) && root();
         if (okay) {
-            if (_result<0) { // Exclusive first publication; never adopt another writer's result.
-                okay=::linkat(_root,temporary.constData(),_root,"feature-chat-observation.json",0)==0;
+            if (result<0) { // Exclusive first publication; never adopt another writer's result.
+                okay=::linkat(_root,temporary.constData(),_root,name,0)==0;
             } else {
-                okay=same(_resultNode,"feature-chat-observation.json")
-                    && ::renameat(_root,temporary.constData(),_root,"feature-chat-observation.json")==0;
+                okay=same(resultNode,name) && ::renameat(_root,temporary.constData(),_root,name)==0;
             }
         }
         ::unlinkat(_root,temporary.constData(),0);
-        if (okay) { okay=node(fd,false,&original) && same(original,"feature-chat-observation.json"); }
+        if (okay) { okay=node(fd,false,&original) && same(original,name); }
         if (!okay) { if (fd>=0) { ::close(fd); }return false; }
-        if (_result>=0) { ::close(_result); }
-        _result=fd;_resultNode=original;return true;
+        if (result>=0) { ::close(result); }
+        result=fd;resultNode=original;return true;
     }
 #endif
     void closeAll() {
 #if defined(Q_OS_UNIX)
-        for (auto fd:{&_result,&_source,&_root}) { if (*fd>=0) { ::close(*fd);*fd=-1; } }
+        for (auto fd:{&_inputResult,&_result,&_source,&_root}) { if (*fd>=0) { ::close(*fd);*fd=-1; } }
 #endif
         _available=false;
     }

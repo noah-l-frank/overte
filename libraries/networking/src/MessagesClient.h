@@ -60,6 +60,7 @@ public:
     // Test-only metadata read/cache retirement; never sends a message.
     Q_INVOKABLE QVariantMap featureChatObservation(const QVariantMap& command);
     bool configureFeatureChatActor(const QString& actualScriptSha256);
+    Q_INVOKABLE QVariantMap featureChatActorInput();
 #endif
 
     /*@jsdoc

@@ -1,0 +1,141 @@
+"""Owned private fixture inputs, never peer position or remote delivery proof."""
+# Copyright 2026 Overte contributors.
+# SPDX-License-Identifier: Apache-2.0
+from copy import deepcopy
+import hashlib
+import os
+import re
+import uuid
+
+from adapters.chat_actor_files import ChatActorFiles, encode, node, stamp, identity
+from adapters.native_feature_observation import decode, exact, fresh, integer, need, number
+from adapters.normal_ui import NativeUIError
+
+VERSION = 1
+COMMAND = 'chat-peer-input.v1.json'
+RECEIPT = 'chat-peer-input-receipt.v1.json'
+
+
+def command(value):
+    need(type(value) is dict and value.get('operation') in ('hold', 'send', 'restore', 'release'))
+    operation = value['operation']
+    exact(value, {'schemaVersion', 'commandId', 'runId', 'operation'}
+        | ({'position'} if operation == 'hold' else {'channel', 'textKey'} if operation == 'send' else set()))
+    need(type(value['schemaVersion']) is int and value['schemaVersion'] == VERSION
+        and all(type(value[key]) is str and re.fullmatch('[0-9a-f]{32}', value[key]) for key in ('commandId', 'runId')))
+    if operation == 'hold':
+        exact(value['position'], {'x', 'y', 'z'})
+        need(all(number(coordinate, -100000, 100000) for coordinate in value['position'].values()))
+    elif operation == 'send':
+        need(value['channel'] in ('local', 'domain') and value['textKey'] in ('reply', 'hidden'))
+    return value
+
+
+class ChatPeerInput:
+    """Shares the independently qualified actor's original private file owner.
+
+    Native receipts mean input consumption only. Every attempted operation stays
+    in this journal; there is deliberately no success/retirement shortcut here.
+    Failed receipt acquisition locks further input except one restoration.
+    """
+    def __init__(self, files, store, run):
+        need(isinstance(files, ChatActorFiles) and type(run) is str and re.fullmatch('[0-9a-f]{32}', run)
+            and store.path != files.store.path)
+        files._check_source()
+        self.files, self.store, self.run = files, store, run
+        self.previous = store.read()
+        base = dict(chatPeerInputVersion=VERSION, binding=files.binding, sourceSha256=files.source_sha,
+            root=files.root, runId=run, intents=[], commandStamp=None, receipt=None)
+        # Reconstruction cannot resume/replace an uncertain command or adopt a
+        # prior receipt. The full run retains this journal for audited recovery.
+        need(self.previous is None and not files._exists(COMMAND) and not files._exists(RECEIPT))
+        self.write(base)
+
+    def write(self, value):
+        need(self.store.read() == self.previous)
+        self.store.write(value, self.previous); need(self.store.read() == value)
+        self.previous = deepcopy(value)
+
+    def check_command(self):
+        raw, info = self.files._read(COMMAND, 2048)
+        need(stamp(info) == self.previous['commandStamp'] and raw == encode(self.previous['intents'][-1]['command']))
+
+    def issue(self, operation, **inputs):
+        try:
+            files = self.files; files._check_source(); need(self.store.read() == self.previous)
+            request = command(dict(schemaVersion=VERSION, commandId=uuid.uuid4().hex,
+                runId=self.run, operation=operation, **inputs))
+            old = self.previous['intents']
+            need(not any(row['command']['operation'] == 'release' for row in old))
+            need(not old or old[-1]['phase'] == 'consumed' or operation == 'restore')
+            if operation in ('hold', 'restore'):
+                need(not any(row['command']['operation'] == operation for row in old))
+            if operation == 'restore': need(any(row['command']['operation'] == 'hold' for row in old))
+            if operation == 'release':
+                need(not any(row['command']['operation'] == 'hold' for row in old)
+                    or any(row['command']['operation'] == 'restore' and row['phase'] == 'consumed' for row in old))
+            if operation == 'send':
+                need(not any(row['command']['operation'] == 'send'
+                    and row['command']['channel'] == inputs['channel'] and row['command']['textKey'] == inputs['textKey'] for row in old))
+            if self.previous['commandStamp'] is not None: self.check_command()
+            else: need(not files._exists(COMMAND))
+            intent = dict(command=request, phase='uncertain')
+            self.write({**self.previous, 'intents': old + [intent]})
+            temporary = '.chat-peer-input-' + uuid.uuid4().hex
+            descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC,
+                0o600, dir_fd=files.fd)
+            try:
+                with os.fdopen(descriptor, 'wb') as stream:
+                    stream.write(encode(request)); stream.flush(); os.fsync(stream.fileno())
+                files._check_source()
+                if self.previous['commandStamp'] is None:
+                    os.link(temporary, COMMAND, src_dir_fd=files.fd, dst_dir_fd=files.fd, follow_symlinks=False)
+                    os.unlink(temporary, dir_fd=files.fd)
+                else:
+                    # The previous file belongs to the previous input, whose
+                    # immutable stamp was checked before persisting this intent.
+                    raw, info = files._read(COMMAND, 2048)
+                    need(stamp(info) == self.previous['commandStamp'] and raw == encode(old[-1]['command']))
+                    os.replace(temporary, COMMAND, src_dir_fd=files.fd, dst_dir_fd=files.fd)
+                raw, info = files._read(COMMAND, 2048); need(raw == encode(request)); os.fsync(files.fd)
+                self.write({**self.previous, 'commandStamp': stamp(info)})
+            finally:
+                try: os.unlink(temporary, dir_fd=files.fd)
+                except FileNotFoundError: pass
+            started = previous = files.monotonic(); need(number(started, 0, 1e15))
+            for attempt in range(31):
+                files._check_source(); self.check_command()
+                if files._exists(RECEIPT):
+                    raw, info = files._read(RECEIPT, 4096); envelope = decode(raw.decode('utf-8'))
+                    exact(envelope, {'actorFileVersion', 'commandNode', 'resultNode', 'native'})
+                    need(type(envelope['actorFileVersion']) is int and envelope['actorFileVersion'] == 1
+                        and identity(envelope['resultNode']) == node(info))
+                    receipt = envelope['native']
+                    if receipt.get('commandId') == request['commandId']:
+                        exact(receipt, {'peerInputVersion', 'commandId', 'runId', 'operation', 'instance',
+                            'sequence', 'processId', 'capturedEpochMs'})
+                        need(type(receipt['peerInputVersion']) is int and receipt['peerInputVersion'] == VERSION
+                            and all(receipt[key] == request[key] for key in ('commandId', 'runId', 'operation'))
+                            and integer(receipt['processId'], 1) and receipt['processId'] == files.pid
+                            and type(receipt['instance']) is str and re.fullmatch('[0-9a-f]{32}', receipt['instance'])
+                            and integer(receipt['sequence'], 1, 128) and receipt['sequence'] == len(self.previous['intents'])
+                            and envelope['commandNode'] == {key: self.previous['commandStamp'][key] for key in ('device', 'inode')}
+                            and files.released(node(info)) is False)
+                        fresh(receipt['capturedEpochMs'], files.clock_ms())
+                        need(receipt['capturedEpochMs'] >= files.source['configuredEpochMs'])
+                        before = self.previous['receipt']
+                        need(before is None or receipt['instance'] == before['native']['instance']
+                            and receipt['capturedEpochMs'] >= before['native']['capturedEpochMs'])
+                        intents = deepcopy(self.previous['intents']); intents[-1]['phase'] = 'consumed'
+                        self.write({**self.previous, 'intents': intents, 'receipt': dict(native=receipt,
+                            stamp=stamp(info), sha256=hashlib.sha256(raw).hexdigest())})
+                        return deepcopy(receipt)
+                    old_receipt = self.previous['receipt']
+                    need(old_receipt is not None and old_receipt['stamp'] == stamp(info)
+                        and old_receipt['sha256'] == hashlib.sha256(raw).hexdigest())
+                now = files.monotonic(); need(number(now, previous, started + 1.5)); previous = now
+                if now - started >= 1.5 or attempt == 30: break
+                files.sleep(min(.05, 1.5 - (now - started)))
+            need(False)
+        except Exception:
+            raise NativeUIError('Chat peer input is unresolved; its original intent is retained without replay') from None
