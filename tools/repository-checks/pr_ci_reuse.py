@@ -234,15 +234,21 @@ class Evidence:
         selected = sorted((r for r in listing if r.get('status') == 'completed'
                            and r.get('conclusion') == 'success'), key=lambda r:r['id'], reverse=True)[:2]
         for run in selected:
-            rows = self.command_results(run['id'], lane, project)
-            found = {}
-            for task in tasks:
-                row = next((r for r in rows if matches(r, task, runtime)), None)
-                if row:
-                    origin = row.get('origin') or {'run_id':run['id'], 'run_attempt':run['run_attempt']}
-                    found[task['id']] = self.command(origin, task, runtime, lane, project)
-            if found:
-                return found
+            try:
+                rows = self.command_results(run['id'], lane, project)
+                found = {}
+                for task in tasks:
+                    row = next((r for r in rows if matches(r, task, runtime)), None)
+                    if row:
+                        origin = row.get('origin') or {'run_id':run['id'], 'run_attempt':run['run_attempt']}
+                        found[task['id']] = self.command(origin, task, runtime, lane, project)
+                if found:
+                    return found
+            except (OSError, ValueError, KeyError, TypeError, AttributeError, subprocess.SubprocessError):
+                # A newer successful metadata-only run has no command evidence.
+                # Discovery is optional: try the next bounded candidate, while
+                # command() and final acceptance continue to refuse bad proofs.
+                continue
         return {}
 
 

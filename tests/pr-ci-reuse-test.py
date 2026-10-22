@@ -166,6 +166,16 @@ class ReuseProvenance(unittest.TestCase):
             found = self.evidence().discover([self.task], self.runtime, 'host')
         self.assertEqual(found, {self.task['id']:{'run_id':123,'run_attempt':1}})
 
+    def test_metadata_only_latest_run_does_not_hide_a_valid_earlier_producer(self):
+        latest={**deepcopy(self.f.native),'id':124}
+        self.f.api.lists['actions/workflows/repository-checks.yml/runs?event=pull_request&head_sha='
+                        +self.f.head].insert(0,latest)
+        self.f.api.objects['actions/runs/124']=latest
+        self.f.api.lists['actions/runs/124/artifacts']=[]
+        with patch.object(T,'_download',side_effect=lambda api,artifact:self.archives[artifact]):
+            found=self.evidence().discover([self.task],self.runtime,'host')
+        self.assertEqual(found,{self.task['id']:{'run_id':123,'run_attempt':1}})
+
     def test_final_gate_reauthenticates_flattened_original_execution(self):
         self.child.update(target='apple-ios', head_ref='apple-main')
         name=REUSE.artifact_name(self.child, 'host')
