@@ -1,0 +1,171 @@
+name: Selected iOS product qualification
+on:
+  workflow_call:
+    inputs:
+      context_json:
+        type: string
+        required: true
+      plan_json:
+        type: string
+        required: true
+      controller:
+        type: string
+        required: true
+      source:
+        type: string
+        required: true
+      build_required:
+        type: boolean
+        required: true
+permissions:
+  contents: read
+jobs:
+  host:
+    name: iOS host contracts
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Check out the immutable trusted controller
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ inputs.controller }}
+          path: trusted
+          persist-credentials: false
+      - name: Check out the immutable private candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ inputs.source }}
+          path: candidate
+          fetch-depth: 2
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: '3.12.15'
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '22.23.3'
+      - name: Set up Java for complete host contracts
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Prepare Python dependencies from trusted requirements
+        env:
+          FULL_HOST: 'true'
+        run: |
+          python3 -m venv "$RUNNER_TEMP/pr-ci-venv"
+          requirements=trusted/tests/requirements-repository.txt
+          if test "$FULL_HOST" = true; then
+            requirements=trusted/tests/requirements-host.txt
+          fi
+          "$RUNNER_TEMP/pr-ci-venv/bin/python" -m pip install \
+            --disable-pip-version-check --requirement "$requirements"
+      - name: Install complete host prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y \
+            cmake ninja-build qml-module-qttest qtdeclarative5-dev-tools \
+            qt6-base-dev qt6-base-dev-tools libglm-dev qtdeclarative5-dev \
+            qml-module-qtquick2 qml-module-qtquick-controls2 qml-module-qtquick-layouts \
+            qml-module-qtquick-window2 qt6-declarative-dev qt6-declarative-dev-tools \
+            qt6-webchannel-dev libqt5webchannel5-dev qml-module-qt-labs-folderlistmodel \
+            qml6-module-qt-labs-folderlistmodel qml6-module-qtqml qml6-module-qtqml-models \
+            qml6-module-qtqml-workerscript qml6-module-qtquick qml6-module-qtquick-controls \
+            qml6-module-qtquick-layouts qml6-module-qtquick-templates qml6-module-qtquick-window \
+            qml6-module-qt-labs-settings qml6-module-qtquick-dialogs qml6-module-qttest
+          pkg-config --exists Qt5Quick Qt5WebChannel Qt5Network Qt6Quick Qt6WebChannel Qt6Network
+          test -x /usr/lib/qt6/bin/qmltestrunner
+      - name: Prepare tokenless namespace execution
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y bubblewrap
+          if ! unshare --user --map-root-user --net /usr/bin/true; then
+            test -f /proc/sys/kernel/apparmor_restrict_unprivileged_userns
+            test "$(cat /proc/sys/kernel/apparmor_restrict_unprivileged_userns)" = 1
+            sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+            unshare --user --map-root-user --net /usr/bin/true
+          fi
+      - name: Require the selected iOS product validation
+        env:
+          CONTEXT_JSON: ${{ inputs.context_json }}
+          PLAN_JSON: ${{ inputs.plan_json }}
+          FULL_HOST: 'true'
+        run: |
+          node_root=$(dirname "$(dirname "$(readlink -f "$(command -v node)")")")
+          prepared=(--prepared-root "$node_root")
+          if test "$FULL_HOST" = true; then
+            prepared+=(--prepared-root "$(readlink -f "$JAVA_HOME")")
+          fi
+          "$RUNNER_TEMP/pr-ci-venv/bin/python" -I -S -B trusted/tools/repository-checks/pr_ci.py platform \
+            --lane ios --context-json "$CONTEXT_JSON" --plan-json "$PLAN_JSON" \
+            --candidate candidate "${prepared[@]}"
+
+  qt:
+    needs: host
+    if: inputs.build_required
+    uses: ./.github/workflows/ios-qt-source.yml
+    permissions:
+      contents: read
+      actions: write
+    with:
+      preserve_reusable_data: true
+  client:
+    needs: [host, qt]
+    if: inputs.build_required
+    uses: ./.github/workflows/ios-integrated.yml
+    permissions:
+      contents: read
+      actions: write
+    with:
+      validated_host_contracts_sha: ${{ inputs.source }}
+      macos_runner: macos-26
+      preserve_reusable_data: true
+      qt_host_cache_key: ${{ needs.qt.outputs.qt_host_cache_key }}
+      qt_ios_cache_key: ${{ needs.qt.outputs.qt_ios_cache_key }}
+      qt_host_artifact_prefix: ${{ needs.qt.outputs.qt_host_artifact_prefix }}
+      qt_ios_artifact_prefix: ${{ needs.qt.outputs.qt_ios_artifact_prefix }}
+      e2e_test_build: true
+      e2e_bundle_id: org.overte.interface.e2e
+  verify:
+    name: Verify iOS product qualification
+    needs: [host, qt, client]
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: read
+    steps:
+      - name: Check out the immutable trusted verifier
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ inputs.controller }}
+          path: trusted
+          persist-credentials: false
+      - name: Read the immutable candidate metadata
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ inputs.source }}
+          path: candidate
+          fetch-depth: 2
+          persist-credentials: false
+      - name: Download this run's selected IPA
+        if: inputs.build_required && needs.client.result == 'success'
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131
+        with:
+          name: ${{ github.run_number }}-overte-ios-integrated-e2e-unsigned-${{ github.run_id }}
+          path: qualification-artifact
+      - name: Verify exact iOS application artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CONTEXT_JSON: ${{ inputs.context_json }}
+          PLAN_JSON: ${{ inputs.plan_json }}
+          PRODUCT_RESULTS: ${{ toJSON(needs) }}
+        run: |
+          python3 -I -S -B trusted/tools/repository-checks/pr_ci.py verify-ios \
+            --context-json "$CONTEXT_JSON" --plan-json "$PLAN_JSON" --candidate candidate \
+            --needs-json "$PRODUCT_RESULTS" --artifacts qualification-artifact --out qualification.json

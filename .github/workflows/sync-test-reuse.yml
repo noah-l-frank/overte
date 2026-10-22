@@ -2,15 +2,6 @@ name: Sync test reuse
 run-name: ${{ github.event.action == 'edited' && !github.event.changes.base && (github.event.changes.title || github.event.changes.body) && 'Sync metadata' || 'Sync test reuse' }} for PR ${{ github.event.pull_request.number || 'contract-seed' }}
 
 on: # zizmor: ignore[dangerous-triggers] Default-branch data-only gate; candidate execution is dispatched read-only without secrets.
-  pull_request_target:
-    types: [opened, reopened, synchronize, edited]
-    branches:
-      - android-main
-      - android-phone
-      - android-vr
-      - android-vr-pico
-      - apple-main
-      - apple-ios
   workflow_dispatch:
 
 permissions:

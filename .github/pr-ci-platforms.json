@@ -1,0 +1,328 @@
+{
+  "schema": 1,
+  "android": {
+    "android-main": {
+      "schema": 1,
+      "platform": "android",
+      "suites": [
+        {
+          "name": "android-package-store",
+          "entrypoint": "android/common/conan/test_package_store.py",
+          "interpreter": "python"
+        },
+        {
+          "name": "android-package-binding",
+          "entrypoint": "android/common/conan/test_package_folder.py",
+          "interpreter": "python"
+        },
+        {
+          "name": "pico4-device-free",
+          "entrypoint": "android/vr/pico/tests/pico-device-free-test.sh",
+          "interpreter": "bash"
+        },
+        {
+          "name": "android-source-boundary",
+          "entrypoint": "android/common/tests/source-boundary-test.py",
+          "interpreter": "python"
+        },
+        {
+          "name": "android-build-workspace",
+          "entrypoint": "tests/device/jenkins/test_android_build_workspace.py",
+          "interpreter": "python"
+        },
+        {
+          "name": "android-conan-cache",
+          "entrypoint": "tests/device/jenkins/test_conan_cache_manager.py",
+          "interpreter": "python"
+        },
+        {
+          "name": "android-build-evidence",
+          "entrypoint": "tests/device/schema/test_android_build_evidence.py",
+          "interpreter": "python"
+        },
+        {
+          "name": "android-neutral-bootstrap",
+          "entrypoint": "android/common/tests/neutral-bootstrap-test.py",
+          "interpreter": "python"
+        },
+        {
+          "name": "android-input-provenance",
+          "entrypoint": "android/phone/fdroid/profiles/test_doctor.py",
+          "interpreter": "python"
+        },
+        {
+          "name": "android-source-host-tools",
+          "entrypoint": "android/phone/fdroid/conan/test_stage_host_tools.py",
+          "interpreter": "python"
+        },
+        {
+          "name": "android-embedded-web",
+          "entrypoint": "android/common/web/tests/run.py",
+          "interpreter": "python"
+        },
+        {
+          "name": "android-snapshot",
+          "entrypoint": "android/common/snapshot/tests/run.py",
+          "interpreter": "python"
+        },
+        {
+          "name": "android-documents",
+          "entrypoint": "android/common/documents/tests/run.py",
+          "interpreter": "python"
+        }
+      ]
+    },
+    "android-phone": {
+      "schema": 1,
+      "platform": "android",
+      "suites": [
+        {
+          "name": "phone-package-binding",
+          "entrypoint": "android/phone/tests/phone-prepare-architecture-test.sh",
+          "interpreter": "bash"
+        },
+        {
+          "name": "android-package-store",
+          "entrypoint": "android/common/conan/test_package_store.py",
+          "interpreter": "python"
+        },
+        {
+          "name": "android-package-binding",
+          "entrypoint": "android/common/conan/test_package_folder.py",
+          "interpreter": "python"
+        },
+        {
+          "name": "pico4-device-free",
+          "entrypoint": "android/vr/pico/tests/pico-device-free-test.sh",
+          "interpreter": "bash"
+        },
+        {
+          "name": "android-source-boundary",
+          "entrypoint": "android/common/tests/source-boundary-test.py",
+          "interpreter": "python"
+        },
+        {
+          "name": "android-build-workspace",
+          "entrypoint": "tests/device/jenkins/test_android_build_workspace.py",
+          "interpreter": "python"
+        },
+        {
+          "name": "android-conan-cache",
+          "entrypoint": "tests/device/jenkins/test_conan_cache_manager.py",
+          "interpreter": "python"
+        },
+        {
+          "name": "android-build-evidence",
+          "entrypoint": "tests/device/schema/test_android_build_evidence.py",
+          "interpreter": "python"
+        },
+        {
+          "name": "android-neutral-bootstrap",
+          "entrypoint": "android/common/tests/neutral-bootstrap-test.py",
+          "interpreter": "python"
+        },
+        {
+          "name": "android-input-provenance",
+          "entrypoint": "android/phone/fdroid/profiles/test_doctor.py",
+          "interpreter": "python"
+        },
+        {
+          "name": "android-source-host-tools",
+          "entrypoint": "android/phone/fdroid/conan/test_stage_host_tools.py",
+          "interpreter": "python"
+        },
+        {
+          "name": "phone-default-input",
+          "entrypoint": "android/phone/tests/test_phone_default_input.py",
+          "interpreter": "python"
+        },
+        {
+          "name": "phone-editor-teardown",
+          "entrypoint": "android/phone/tests/test_phone_editor_teardown.py",
+          "interpreter": "python"
+        },
+        {
+          "name": "phone-e2e-runtime-regressions",
+          "entrypoint": "android/phone/tests/phone-e2e-runtime-regressions.py",
+          "interpreter": "python"
+        },
+        {
+          "name": "android-embedded-web",
+          "entrypoint": "android/common/web/tests/run.py",
+          "interpreter": "python"
+        },
+        {
+          "name": "phone-embedded-web",
+          "entrypoint": "android/phone/tests/phone-embedded-web-test.py",
+          "interpreter": "python"
+        },
+        {
+          "name": "android-snapshot",
+          "entrypoint": "android/common/snapshot/tests/run.py",
+          "interpreter": "python"
+        },
+        {
+          "name": "android-documents",
+          "entrypoint": "android/common/documents/tests/run.py",
+          "interpreter": "python"
+        },
+        {
+          "name": "phone-parity-packet",
+          "entrypoint": "android/phone/device-tests/parity/test_packet.py",
+          "interpreter": "python"
+        }
+      ]
+    },
+    "android-vr": {
+      "schema": 1,
+      "platform": "android",
+      "suites": [
+        {
+          "name": "android-package-store",
+          "entrypoint": "android/common/conan/test_package_store.py",
+          "interpreter": "python"
+        },
+        {
+          "name": "android-package-binding",
+          "entrypoint": "android/common/conan/test_package_folder.py",
+          "interpreter": "python"
+        },
+        {
+          "name": "pico4-device-free",
+          "entrypoint": "android/vr/pico/tests/pico-device-free-test.sh",
+          "interpreter": "bash"
+        },
+        {
+          "name": "android-source-boundary",
+          "entrypoint": "android/common/tests/source-boundary-test.py",
+          "interpreter": "python"
+        },
+        {
+          "name": "android-build-workspace",
+          "entrypoint": "tests/device/jenkins/test_android_build_workspace.py",
+          "interpreter": "python"
+        },
+        {
+          "name": "android-conan-cache",
+          "entrypoint": "tests/device/jenkins/test_conan_cache_manager.py",
+          "interpreter": "python"
+        },
+        {
+          "name": "android-build-evidence",
+          "entrypoint": "tests/device/schema/test_android_build_evidence.py",
+          "interpreter": "python"
+        },
+        {
+          "name": "android-neutral-bootstrap",
+          "entrypoint": "android/common/tests/neutral-bootstrap-test.py",
+          "interpreter": "python"
+        },
+        {
+          "name": "android-input-provenance",
+          "entrypoint": "android/phone/fdroid/profiles/test_doctor.py",
+          "interpreter": "python"
+        },
+        {
+          "name": "android-source-host-tools",
+          "entrypoint": "android/phone/fdroid/conan/test_stage_host_tools.py",
+          "interpreter": "python"
+        },
+        {
+          "name": "android-embedded-web",
+          "entrypoint": "android/common/web/tests/run.py",
+          "interpreter": "python"
+        },
+        {
+          "name": "android-snapshot",
+          "entrypoint": "android/common/snapshot/tests/run.py",
+          "interpreter": "python"
+        },
+        {
+          "name": "android-documents",
+          "entrypoint": "android/common/documents/tests/run.py",
+          "interpreter": "python"
+        }
+      ]
+    },
+    "android-vr-pico": {
+      "schema": 1,
+      "platform": "android",
+      "suites": [
+        {
+          "name": "android-package-store",
+          "entrypoint": "android/common/conan/test_package_store.py",
+          "interpreter": "python"
+        },
+        {
+          "name": "android-package-binding",
+          "entrypoint": "android/common/conan/test_package_folder.py",
+          "interpreter": "python"
+        },
+        {
+          "name": "pico4-device-free",
+          "entrypoint": "android/vr/pico/tests/pico-device-free-test.sh",
+          "interpreter": "bash"
+        },
+        {
+          "name": "android-source-boundary",
+          "entrypoint": "android/common/tests/source-boundary-test.py",
+          "interpreter": "python"
+        },
+        {
+          "name": "android-build-workspace",
+          "entrypoint": "tests/device/jenkins/test_android_build_workspace.py",
+          "interpreter": "python"
+        },
+        {
+          "name": "android-conan-cache",
+          "entrypoint": "tests/device/jenkins/test_conan_cache_manager.py",
+          "interpreter": "python"
+        },
+        {
+          "name": "android-build-evidence",
+          "entrypoint": "tests/device/schema/test_android_build_evidence.py",
+          "interpreter": "python"
+        },
+        {
+          "name": "android-neutral-bootstrap",
+          "entrypoint": "android/common/tests/neutral-bootstrap-test.py",
+          "interpreter": "python"
+        },
+        {
+          "name": "android-input-provenance",
+          "entrypoint": "android/phone/fdroid/profiles/test_doctor.py",
+          "interpreter": "python"
+        },
+        {
+          "name": "android-source-host-tools",
+          "entrypoint": "android/phone/fdroid/conan/test_stage_host_tools.py",
+          "interpreter": "python"
+        },
+        {
+          "name": "android-embedded-web",
+          "entrypoint": "android/common/web/tests/run.py",
+          "interpreter": "python"
+        },
+        {
+          "name": "android-snapshot",
+          "entrypoint": "android/common/snapshot/tests/run.py",
+          "interpreter": "python"
+        },
+        {
+          "name": "android-documents",
+          "entrypoint": "android/common/documents/tests/run.py",
+          "interpreter": "python"
+        }
+      ]
+    }
+  },
+  "ios": {
+    "target": "apple-ios",
+    "commands": [
+      [
+        "bash",
+        "ios/tests/run-tests.sh"
+      ]
+    ]
+  }
+}

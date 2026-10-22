@@ -47,7 +47,7 @@ DEPENDENCIES = ".github/test-suite-dependencies.json"
 ACTIVE_REGISTRY = ".github/pr-ci-suites.json"
 ACTIVE_DEPENDENCIES = ".github/pr-ci-dependencies.json"
 RUNTIME_INPUTS = (".github/attested-runtime.json", ".github/ci37-runtime.json",
-                  "tests/requirements-host.txt", ".tool-versions")
+                  "tests/requirements-host.txt", ".tool-versions", ".github/pr-ci-platforms.json")
 _BROWSER_SUFFIXES = frozenset({".js", ".mjs", ".cjs", ".jsx", ".ts", ".tsx",
     ".mts", ".cts", ".html", ".css", ".scss", ".sass", ".vue", ".svelte",
     ".json", ".svg", ".png", ".jpg", ".jpeg", ".webp", ".wasm", ".glb"})
@@ -298,7 +298,9 @@ def _platform_inputs(paths, native_mode, target):
     android = target.startswith("android-") and (product or any(
         path.startswith("android/") and not path.endswith(".md") for path in paths))
     ios = target == "apple-ios" and (product or any(
-        path.startswith("ios/") and not path.endswith(".md") for path in paths))
+        (path.startswith("ios/") and not path.endswith(".md"))
+        or path in {".github/workflows/ios-integrated.yml", ".github/workflows/ios-qt-source.yml"}
+        for path in paths))
     return android, ios
 
 
@@ -521,6 +523,11 @@ def plan(base_tree, candidate_tree, trusted_tree, *, read_blob, target="main"):
                        != _suite_inputs(selection, registry, suite, dependencies[name])):
                 selected.append(name)
     android, ios = _platform_inputs(paths, native["mode"], target)
+    ios_build = ios and (native["mode"] != "skip" or any(
+        (path.startswith("ios/") and not path.startswith(("ios/tests/", "ios/release-check/"))
+         and not path.endswith(".md"))
+        or path in {".github/workflows/ios-integrated.yml", ".github/workflows/ios-qt-source.yml"}
+        for path in paths))
     covered = {}
     if ("server-console" in npm_projects and "server-console-behavior" in selected
             and _server_console_coverage(candidate_tree, registry,
@@ -586,10 +593,10 @@ def plan(base_tree, candidate_tree, trusted_tree, *, read_blob, target="main"):
             _rows(candidate_tree), ["codeql"], environment="codeql")
     if android:
         add("platform:android", "android", ["platform-validation", target],
-            _rows(candidate_tree), ["android-sdk", "java"], environment=target, target_scoped=True)
+            _rows(candidate_tree), ["host-full"], environment=target, target_scoped=True)
     if ios:
         add("platform:ios", "ios", ["platform-validation", target],
-            _rows(candidate_tree), ["xcode"], environment=target, target_scoped=True)
+            _rows(candidate_tree), ["host-full", *(["xcode"] if ios_build else [])], environment=target, target_scoped=True)
     return {"schema": 1, "target": target, "changes": changes, "paths": paths,
             "regular": regular, "conservative_fallback": unknown,
             "host_suites": selected, "npm_projects": npm_projects,
@@ -597,7 +604,7 @@ def plan(base_tree, candidate_tree, trusted_tree, *, read_blob, target="main"):
             "dependency_profiles": {"pillow13": pillow, "vite": vite_profiles},
             "native": native, "codeql_languages": security["languages"],
             "codeql_reasons": security["reasons"], "browser_required": browser,
-            "android_required": android, "ios_required": ios,
+            "android_required": android, "ios_required": ios, "ios_build_required": ios_build,
             "tasks": list(tasks.values()),
             "setup": sorted({item for task in tasks.values() for item in task["setup"]}),
             "input_identity": {"base": _digest(_rows(base_tree)),

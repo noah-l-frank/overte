@@ -1,13 +1,13 @@
 name: Repository checks
 
-# PR jobs execute with read-only permissions. The default-branch PR-target job
-# observes their native results and never checks out or executes a candidate.
-on: # zizmor: ignore[dangerous-triggers] PR-target runs only the read-only protected observer; it never checks out candidate code.
+# PR jobs execute with read-only permissions. The protected PR-target job
+# authenticates workflow sources without checking out or executing a candidate.
+on: # zizmor: ignore[dangerous-triggers] PR-target runs only the read-only protected source policy; it never checks out candidate code.
   pull_request:
-    branches: [main]
+    branches: [main, apple-main, apple-ios, android-main, android-phone, android-vr, android-vr-pico]
     types: [opened, reopened, synchronize, ready_for_review, edited]
   pull_request_target:
-    branches: [main]
+    branches: [main, apple-main, apple-ios, android-main, android-phone, android-vr, android-vr-pico]
     types: [opened, reopened, synchronize, ready_for_review, edited]
   workflow_dispatch:
     inputs:
@@ -56,6 +56,7 @@ jobs:
       security: ${{ steps.plan.outputs.security }}
       android: ${{ steps.plan.outputs.android }}
       ios: ${{ steps.plan.outputs.ios }}
+      ios_build: ${{ steps.plan.outputs.ios_build }}
       native_mode: ${{ steps.plan.outputs.native_mode }}
       npm_projects: ${{ steps.plan.outputs.npm_projects }}
       codeql_languages: ${{ steps.plan.outputs.codeql_languages }}
@@ -440,7 +441,7 @@ jobs:
     needs: [plan, policy]
     if: needs.plan.outputs.active == 'true' && needs.plan.outputs.android == 'true'
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 45
     steps:
       - name: Check out the immutable trusted controller
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -448,48 +449,93 @@ jobs:
           ref: ${{ needs.plan.outputs.controller }}
           path: trusted
           persist-credentials: false
-      - name: Check out the immutable candidate
+      - name: Check out the immutable private candidate
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ needs.plan.outputs.source }}
           path: candidate
           fetch-depth: 2
           persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: '3.12.15'
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '22.23.3'
+      - name: Set up Java for complete host contracts
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Prepare Python dependencies from trusted requirements
+        env:
+          FULL_HOST: 'true'
+        run: |
+          python3 -m venv "$RUNNER_TEMP/pr-ci-venv"
+          requirements=trusted/tests/requirements-repository.txt
+          if test "$FULL_HOST" = true; then
+            requirements=trusted/tests/requirements-host.txt
+          fi
+          "$RUNNER_TEMP/pr-ci-venv/bin/python" -m pip install \
+            --disable-pip-version-check --requirement "$requirements"
+      - name: Install complete host prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y \
+            cmake ninja-build qml-module-qttest qtdeclarative5-dev-tools \
+            qt6-base-dev qt6-base-dev-tools libglm-dev qtdeclarative5-dev \
+            qml-module-qtquick2 qml-module-qtquick-controls2 qml-module-qtquick-layouts \
+            qml-module-qtquick-window2 qt6-declarative-dev qt6-declarative-dev-tools \
+            qt6-webchannel-dev libqt5webchannel5-dev qml-module-qt-labs-folderlistmodel \
+            qml6-module-qt-labs-folderlistmodel qml6-module-qtqml qml6-module-qtqml-models \
+            qml6-module-qtqml-workerscript qml6-module-qtquick qml6-module-qtquick-controls \
+            qml6-module-qtquick-layouts qml6-module-qtquick-templates qml6-module-qtquick-window \
+            qml6-module-qt-labs-settings qml6-module-qtquick-dialogs qml6-module-qttest
+          pkg-config --exists Qt5Quick Qt5WebChannel Qt5Network Qt6Quick Qt6WebChannel Qt6Network
+          test -x /usr/lib/qt6/bin/qmltestrunner
+      - name: Prepare tokenless namespace execution
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y bubblewrap
+          if ! unshare --user --map-root-user --net /usr/bin/true; then
+            test -f /proc/sys/kernel/apparmor_restrict_unprivileged_userns
+            test "$(cat /proc/sys/kernel/apparmor_restrict_unprivileged_userns)" = 1
+            sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+            unshare --user --map-root-user --net /usr/bin/true
+          fi
       - name: Require the selected Android product validation
         env:
           CONTEXT_JSON: ${{ needs.plan.outputs.context_json }}
           PLAN_JSON: ${{ needs.plan.outputs.plan_json }}
+          FULL_HOST: 'true'
         run: |
-          python3 -I -S -B trusted/tools/repository-checks/pr_ci.py platform \
-            --lane android --context-json "$CONTEXT_JSON" --plan-json "$PLAN_JSON" --candidate candidate
+          node_root=$(dirname "$(dirname "$(readlink -f "$(command -v node)")")")
+          prepared=(--prepared-root "$node_root")
+          if test "$FULL_HOST" = true; then
+            prepared+=(--prepared-root "$(readlink -f "$JAVA_HOME")")
+          fi
+          "$RUNNER_TEMP/pr-ci-venv/bin/python" -I -S -B trusted/tools/repository-checks/pr_ci.py platform \
+            --lane android --context-json "$CONTEXT_JSON" --plan-json "$PLAN_JSON" \
+            --candidate candidate "${prepared[@]}"
 
   ios:
     name: iOS product owner
     needs: [plan, policy]
-    if: needs.plan.outputs.active == 'true' && needs.plan.outputs.ios == 'true'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    steps:
-      - name: Check out the immutable trusted controller
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          ref: ${{ needs.plan.outputs.controller }}
-          path: trusted
-          persist-credentials: false
-      - name: Check out the immutable candidate
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          ref: ${{ needs.plan.outputs.source }}
-          path: candidate
-          fetch-depth: 2
-          persist-credentials: false
-      - name: Require the selected iOS product validation
-        env:
-          CONTEXT_JSON: ${{ needs.plan.outputs.context_json }}
-          PLAN_JSON: ${{ needs.plan.outputs.plan_json }}
-        run: |
-          python3 -I -S -B trusted/tools/repository-checks/pr_ci.py platform \
-            --lane ios --context-json "$CONTEXT_JSON" --plan-json "$PLAN_JSON" --candidate candidate
+    if: needs.plan.outputs.active == 'true' && needs.plan.outputs.ios == 'true' && github.event_name == 'pull_request'
+    uses: ./.github/workflows/pr-ci-ios.yml
+    permissions:
+      contents: read
+      actions: write
+      pull-requests: read
+    with:
+      context_json: ${{ needs.plan.outputs.context_json }}
+      plan_json: ${{ needs.plan.outputs.plan_json }}
+      controller: ${{ needs.plan.outputs.controller }}
+      source: ${{ needs.plan.outputs.source }}
+      build_required: ${{ needs.plan.outputs.ios_build == 'true' }}
 
   ci-execution:
     name: Candidate execution receipt
@@ -528,10 +574,35 @@ jobs:
           retention-days: 14
           overwrite: false
 
+  source-policy:
+    name: ${{ github.event_name == 'pull_request_target' && 'source-policy' || 'Source policy not applicable' }}
+    if: github.event_name == 'pull_request_target' && !github.event.pull_request.draft
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Check out the protected source policy
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: trusted
+          persist-credentials: false
+      - name: Authenticate workflow sources without executing candidate code
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          controller=$(git -C trusted rev-parse HEAD)
+          python3 -I -S -B trusted/tools/repository-checks/pr_ci.py source-policy \
+            --event "$GITHUB_EVENT_PATH" --event-name "$GITHUB_EVENT_NAME" \
+            --number "$PR_NUMBER" --controller "$controller"
+
   required-ci:
-    name: ${{ github.event_name == 'pull_request' && 'Execution observer has no acceptance authority' || 'required-ci' }}
-    needs: ci-execution
-    if: always() && (github.event_name == 'pull_request_target' || github.event_name == 'workflow_dispatch') && !github.event.pull_request.draft
+    name: ${{ needs.plan.outputs.active == 'true' && 'required-ci' || 'Execution observer has no acceptance authority' }}
+    needs: [plan, ci-execution]
+    if: always() && needs.plan.outputs.active == 'true' && (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch') && !github.event.pull_request.draft
     runs-on: ubuntu-24.04
     timeout-minutes: 100
     permissions:
@@ -544,7 +615,7 @@ jobs:
       - name: Check out only the protected observer
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && github.sha || github.workflow_sha }}
+          ref: ${{ needs.plan.outputs.controller }}
           path: trusted
           persist-credentials: false
       - name: Observe genuine native owners without executing candidate code

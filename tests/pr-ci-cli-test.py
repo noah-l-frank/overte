@@ -197,6 +197,39 @@ class GateTests(unittest.TestCase):
         self.assertEqual(self.selected_contexts[0]["controller"], self.base)
         self.assertEqual(self.selected_contexts[0]["caller_source"], self.original)
 
+    def test_all_children_use_the_default_controller_and_authenticated_target_workflow_basis(self):
+        for target in sorted(CLI.C.TARGETS - {"main"}):
+            with self.subTest(target=target):
+                self.setUp()
+                self.pr["base"]["ref"] = target
+                self.api.objects["branches/" + target] = {
+                    "name": target, "protected": True, "commit": {"sha": self.base}}
+                self.context["target"] = target
+                self.plan["target"] = target
+                self.ordinary_worker()
+                self.controller = "9" * 40
+                self.context["controller"] = self.controller
+                self.plan["controller"] = self.controller
+                self.record.update(context=deepcopy(self.context), plan=deepcopy(self.plan),
+                    observed_context=CLI.C.capture(self.api, 42, original_merge=self.original))
+                self.environment["GITHUB_WORKFLOW_SHA"] = self.controller
+                self.api.objects["branches/main"] = {
+                    "name": "main", "protected": True, "commit": {"sha": self.controller}}
+                legacy = ".github/workflows/product-legacy.yml"
+                self.actual_tree[legacy] = {"mode": "100644", "type": "blob", "sha": "b" * 40}
+                base_tree = "6" * 40
+                self.api.objects["git/commits/" + self.base] = {
+                    "sha": self.base, "tree": {"sha": base_tree}}
+                self.api.objects["git/trees/" + base_tree + "?recursive=1"] = {
+                    "sha": base_tree, "truncated": False,
+                    "tree": [{"path": path, **entry} for path, entry in self.actual_tree.items()]}
+                result = self.run_gate("pull_request_target")
+                self.assertEqual(self.original, result["source"])
+                self.assertEqual(self.controller, self.selected_contexts[0]["controller"])
+                self.assertEqual(target, self.selected_contexts[0]["target"])
+                self.assertIn(("get", "git/commits/" + self.base), self.api.calls)
+                self.assertIn(("get", "git/trees/" + base_tree + "?recursive=1"), self.api.calls)
+
     def selected_native(self, mode):
         self.plan["native"] = {"mode": mode}
         self.plan["owners"] = CLI.expected_owners(self.plan)
@@ -278,10 +311,60 @@ class GateTests(unittest.TestCase):
         with self.assertRaisesRegex(CLI.C.ContextError, "protected target advanced"):
             self.run_gate()
 
-    def test_ordinary_pr_event_has_no_acceptance_authority(self):
-        with self.assertRaisesRegex(CLI.C.ContextError, "protected observer"):
+    def native_final(self):
+        self.ordinary_worker()
+        self.environment.update(GITHUB_WORKFLOW_SHA=self.original, GITHUB_SHA=self.original,
+                                GITHUB_REF="refs/pull/42/merge", GITHUB_RUN_ID="123")
+        self.job_rows[-1].update(name="required-ci", status="in_progress", conclusion=None)
+        self.job_rows.append({"id": 2001, "run_id": 123, "run_attempt": 1, "head_sha": self.head,
+            "name": "Source policy not applicable", "status": "completed", "conclusion": "skipped", "steps": []})
+
+    def test_native_final_observes_its_own_completed_owners_without_searching_other_runs(self):
+        self.native_final()
+        self.assertEqual("success", self.run_gate("pull_request")["result"])
+        self.assertFalse(any("/runs?event=" in call[1] for call in self.api.calls))
+
+    def test_native_final_rejects_a_different_caller(self):
+        self.native_final()
+        self.environment["GITHUB_WORKFLOW_SHA"] = self.base
+        with self.assertRaisesRegex(CLI.C.ContextError, "original PR caller"):
             self.run_gate("pull_request")
-        self.assertEqual(self.api.calls, [])
+
+    def test_fast_source_policy_validates_sources_without_reading_execution_metadata(self):
+        self.ordinary_worker()
+        with patch.object(CLI, "API", return_value=self.api), \
+             patch.object(CLI, "git", return_value=(self.controller+"\n").encode()), \
+             patch.object(CLI, "remote_selection", return_value=(self.plan,self.actual_tree,self.source_tree)), \
+             patch.dict(os.environ,self.environment), redirect_stdout(io.StringIO()):
+            CLI.source_policy({"number":42,"pull_request":self.pr},"pull_request_target",42,self.controller)
+        self.assertFalse(any(call[1].startswith(("actions/", "check-suites/", "code-scanning/")) for call in self.api.calls))
+
+    def test_fast_source_policy_rejects_candidate_workflow_mutation(self):
+        self.ordinary_worker()
+        self.actual_tree[TRANSPORT.WORKFLOW]["sha"] = "b"*40
+        with patch.object(CLI, "API", return_value=self.api), \
+             patch.object(CLI, "git", return_value=(self.controller+"\n").encode()), \
+             patch.object(CLI, "remote_selection", return_value=(self.plan,self.actual_tree,self.source_tree)), \
+             patch.dict(os.environ,self.environment), self.assertRaises(TRANSPORT.TransportError):
+            CLI.source_policy({"number":42,"pull_request":self.pr},"pull_request_target",42,self.controller)
+
+    def test_new_main_product_commit_preserves_controller_but_policy_or_runtime_change_does_not(self):
+        self.ordinary_worker()
+        revision="9"*40
+        self.api.objects["branches/main"]["commit"]["sha"] = revision
+        self.api.objects["git/commits/"+revision] = {"sha":revision,"tree":{"sha":"8"*40}}
+        current=deepcopy(self.source_tree)
+        current["interface/product.cpp"]={"mode":"100644","type":"blob","sha":"b"*40}
+        with patch.object(CLI,"remote_tree",return_value=current), \
+             patch.object(CLI.P._INPUTS,"full_tree",return_value=self.source_tree):
+            CLI.current_controller(self.api,self.controller)
+            current[TRANSPORT.WORKFLOW]["sha"]="c"*40
+            with self.assertRaises(TRANSPORT.TransportError):
+                CLI.current_controller(self.api,self.controller)
+            current[TRANSPORT.WORKFLOW]["sha"]="a"*40
+            current[CLI.P.RUNTIME_INPUTS[0]]={"mode":"100644","type":"blob","sha":"d"*40}
+            with self.assertRaisesRegex(CLI.C.ContextError,"runtime inputs changed"):
+                CLI.current_controller(self.api,self.controller)
 
     def test_native_failure_stops_before_artifact_download(self):
         self.job_rows[2]["conclusion"] = "failure"
