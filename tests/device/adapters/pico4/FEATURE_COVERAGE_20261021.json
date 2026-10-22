@@ -461,7 +461,12 @@
         "libraries/gpu/src/gpu/Backend.h",
         "libraries/gpu-gl-common/src/gpu/gl/GLBackend.cpp",
         "tests/device/contracts/emote/test_draw_cameras_native.py",
-        "tests/device/adapters/pico4/EMOTE_DRAW_CAMERAS.md"
+        "tests/device/adapters/pico4/EMOTE_DRAW_CAMERAS.md",
+        "libraries/gpu/src/gpu/FeatureRenderTrace.h",
+        "libraries/gpu/src/gpu/FeatureWorldRender.h",
+        "libraries/render-utils/src/MeshPartPayload.cpp",
+        "tests/device/adapters/pico4/emote_model_draws.py",
+        "tests/device/self_tests/test_pico_emote_model_draws.py"
       ],
       "declaredCheckpoints": 28,
       "inputVerbs": [
@@ -498,7 +503,7 @@
         "Observe original pose/mapping/timer/resource retirement",
         "Restore captured prior override and closed panel"
       ],
-      "nextExecutableStep": "Bind original loaded model/geometry/Rig to actual executed model draws and both original Pico eye cameras/PNG/same-frame OpenXR submission; then compose independent actor/public flow and verified resource retirement. Source/effect/work/background components remain partial.",
+      "nextExecutableStep": "Measure original current-challenge stereo avatar/body pixels using only the executed model-specific eye cameras, retain actual capture ownership through release, then compose independent actor/public flow and verified original resource retirement. Loaded model/geometry/Rig, indexed draw and same-frame submitted PNG provenance are present as a partial source component; Emotes remains unavailable as a whole feature.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     },

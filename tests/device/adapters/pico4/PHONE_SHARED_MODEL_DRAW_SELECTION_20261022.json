@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "reference": "abb7f6b60d97daf17752aadf94e2b5df099bb7ba",
+  "originCommit": "f84dd87eb66f7fd2652710f1fef31f4e006b7890",
+  "targetBase": "523715e31a",
+  "uncommittedPhoneWorkExcluded": true,
+  "selectedFragments": [
+    "Original loaded model/geometry/HFM-source metadata and weak original mesh identity.",
+    "Original world bounds, index count and actual deformation/replacement facts."
+  ],
+  "sourceFileSha256": {
+    "libraries/render-utils/src/MeshPartPayload.cpp": "60f484a5bc28d17420af3d7a45bdb6466d24f7b453f57b9fca930692a2dc44fb",
+    "libraries/render-utils/src/MeshPartPayload.h": "f619fd99da36b8b3c6e84940080ceabf63f947d544714d433132587e74807c76"
+  },
+  "picoAdaptations": [
+    "Actual indexed-command/Batch identity and executed per-eye cameras.",
+    "Per-draw claims independently validated against the completed original stereo batch.",
+    "Separate Pico model trace/capture v1 bound to existing capture v4 and successful same-frame submission.",
+    "Original query/probe/private factory and raw native clocks; no Phone mono or platform adapter copied."
+  ],
+  "qualification": "Partial Emote source component. No full application, actual GPU/OpenXR or device qualification."
+}

@@ -241,3 +241,28 @@ migration. All 24 focused sample/chunk cases pass (26.812s), including 355
 original frames each with 256 changing joint poses, full query-free historical
 reconstruction and late native-guard file mutation. Both components remain
 partial Chat support; no whole-flow/device qualification is added.
+
+
+## Original loaded model, used stereo cameras and submitted image
+
+The expanded actual native harness passes on Qt5 (5.205s) and Qt6 (7.126s),
+each compiling both doubled and instanced configurations. It now includes
+entire original FeatureRenderTrace/FeatureWorldRender classes, the full original
+TSI model getter, actual mesh metadata/render fragments and drawCall, plus the
+original GLBackend/GLES functions. Qt PNG/QtCore/GLM are real. GL, Batch/transform,
+loaded-geometry and surrounding application/context services are explicit seams.
+No full native TU, real GPU/OpenXR, application/APK or device result is claimed.
+Qt6 reports the existing storage QVariant::type deprecation; no check is skipped.
+
+Thirty model/stereo source counterexamples pass (.153s), including both own eyes,
+aggregate draw limits, foreign model/geometry/Rig/pose/view, mono rejection,
+image/submission identity, missing native method, ignored query and a final
+native-clock/candidate loss. The actual Pico factory passes (.599s). Its first
+fixture used fixed epoch20000 against the real simulated candidate clock and
+correctly failed freshness; the producer now constructs its synthetic original
+capture at the candidate's clock. No acquired production evidence is retimed.
+Current challenge pixels/independent actor and whole Emote cleanup remain open.
+
+The three final Pico groups pass (3/65, 94.98s): coverage-matrix .061s,
+normal-emote 34.414s and emote-original-sources 60.508s. All four final project
+checks pass (3.65s); contract registry, Node probe syntax and whitespace pass.

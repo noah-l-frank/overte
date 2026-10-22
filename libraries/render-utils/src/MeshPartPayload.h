@@ -112,6 +112,10 @@ private:
     Transform _parentTransform;
     graphics::Box _localBound;
     graphics::Box _adjustedLocalBound;
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    QVariantMap _e2eOriginalModel;
+    std::weak_ptr<const graphics::Mesh> _e2eOriginalDrawMesh;
+#endif
 };
 
 namespace render {

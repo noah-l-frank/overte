@@ -198,6 +198,7 @@ public slots:
     Q_INVOKABLE QVariantMap featureAvatarRenderObservation(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureGraphicsSubjectObservation(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureWorldRenderCapture(const QString& requestId);
+    Q_INVOKABLE QVariantMap featurePicoWorldModelDrawsObservation(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureWorldRenderStorage(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureWorldRenderReceipt(const QVariantMap& command);
 #endif

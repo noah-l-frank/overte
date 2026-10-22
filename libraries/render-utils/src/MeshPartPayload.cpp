@@ -11,6 +11,9 @@
 //
 
 #include "MeshPartPayload.h"
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+#include <QCryptographicHash>
+#endif
 
 #include <BillboardMode.h>
 #include <MirrorMode.h>
@@ -34,7 +37,19 @@ ModelMeshPartPayload::ModelMeshPartPayload(ModelPointer model, int meshIndex, in
 
     assert(model && model->isLoaded());
 
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    // Reviewed shared identity fragment from fixed Phone source f84dd87eb66f.
+    const auto& geometry = model->getGeometry();
+    const auto source = geometry->getHFMModel().originalURL.toUtf8();
+    _e2eOriginalModel = {{"modelInstance",model->e2eModelInstance()},
+        {"geometryInstance",geometry->e2eGeometryInstance()},{"loadedSourcePresent",!source.isEmpty()},
+        {"loadedSourceSha256",QString::fromLatin1(QCryptographicHash::hash(source,QCryptographicHash::Sha256).toHex())}};
+#endif
+
     auto& modelMesh = model->getGeometry()->getMeshes().at(_meshIndex);
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    _e2eOriginalDrawMesh = modelMesh;
+#endif
     _meshNumVertices = (int)modelMesh->getNumVertices();
     const Model::MeshState& state = model->getMeshState(_meshIndex);
 
@@ -388,6 +403,29 @@ void ModelMeshPartPayload::render(RenderArgs* args) {
         PerformanceTimer perfTimer("batch.drawIndexed()");
         drawCall(batch);
     }
+
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    // Original payload metadata follows its actual indexed command. Each eye
+    // must independently join this draw's actual executed camera binding.
+    if (_clusterPaletteValid && _drawPart._numIndices > 0 && args->_featureRenderTrace
+            && args->_renderMode == RenderArgs::DEFAULT_RENDER_MODE && args->_mirrorDepth == 0 && args->isStereo()) {
+        auto original = _e2eOriginalModel;
+        const auto bound = getBound(args);
+        const auto low = bound.getMinimum(), high = bound.getMaximum();
+        original.insert("minimum",QVariantList{low.x,low.y,low.z});
+        original.insert("maximum",QVariantList{high.x,high.y,high.z});
+        original.insert("indices",static_cast<qulonglong>(_drawPart._numIndices));
+        original.insert("skinned",bool(drawcallInfo & 2));
+        original.insert("blendshaped",bool(drawcallInfo & 1));
+        original.insert("originalGeometry",_e2eOriginalDrawMesh.lock() == _drawMesh);
+        const auto trace = args->_featureRenderTrace;
+        const auto originalBatch = &batch;
+        const auto commandIndex = batch.getCommands().size()-1;
+        batch.runLambda([trace,original,originalBatch,commandIndex] {
+            trace->model(gpu::Backend::featureExecutingBackend(),originalBatch,commandIndex,original);
+        });
+    }
+#endif
 
     const int INDICES_PER_TRIANGLE = 3;
     args->_details._trianglesRendered += _drawPart._numIndices / INDICES_PER_TRIANGLE;

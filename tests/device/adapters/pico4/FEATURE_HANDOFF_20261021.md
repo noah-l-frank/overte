@@ -819,3 +819,17 @@ parser mapping; no Phone functional parser optimization or diagnostics were
 transplanted. Existing v1 native feature/Rig histories accept the explicit clip
 source and preserve old unsourced history without qualifying it as known data.
 Cache readiness, caller/profile/input/stereo/actor and full cleanup remain open.
+
+
+## Original Pico loaded-model draws and submitted stereo capture
+
+[Model draw provenance](EMOTE_DRAW_CAMERAS.md#loaded-model-and-submitted-capture-join)
+now joins the actual loaded model/geometry/Rig to its indexed GPU command, both
+actual used eye cameras and its original same-frame submitted PNG. The separate
+Pico trace/capture v1 contracts preserve existing Graphics v4 and never reuse
+Phone mono evidence. Closed private queries select an already owned capture;
+no input acknowledgement, draw count or central frustum establishes visibility.
+Original camera counts, image hashes, source identities and native times survive
+the host join. Existing release clears the added bounded maps, including late
+callback cases. Current challenge/body pixels, independent actor publication and
+whole flow/callback/resource retirement remain open; Emotes remains partial.

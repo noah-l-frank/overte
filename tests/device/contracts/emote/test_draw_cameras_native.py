@@ -24,8 +24,26 @@ def block(text, marker):
 
 HARNESS=r'''
 #include <QCoreApplication>
+#include <QThread>
 #include <QPointer>
 #include <QObject>
+#include <QVariantMap>
+#include <QImage>
+#include <QBuffer>
+#include <QCryptographicHash>
+#include <QElapsedTimer>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QHash>
+#include <QMutex>
+#include <QMutexLocker>
+#include <QDateTime>
+#include <QMap>
+#include <QSet>
+#include <QRegularExpression>
+#include <QUuid>
+#include <cmath>
+#include <memory>
 #include <glm/glm.hpp>
 #include <cassert>
 #include <functional>
@@ -57,16 +75,24 @@ struct Batch{
     using Commands=std::vector<Command>;using CommandOffsets=std::vector<size_t>;
     struct Param{uint32 _uint;};std::vector<Param>_params{{0},{6},{0}};
     Commands commands;CommandOffsets offsets;std::function<void()>lambda;
+    void drawIndexed(Primitive,unsigned,unsigned){commands.push_back(COMMAND_drawIndexed);offsets.push_back(0);}
+    void runLambda(std::function<void()>fn){commands.push_back(COMMAND_runLambda);offsets.push_back(0);lambda=fn;}
     const Commands&getCommands()const{return commands;}
     const CommandOffsets&getCommandOffsets()const{return offsets;}
 };
-struct Stereo{bool enabled=true;bool isStereo()const{return enabled;}};
+using TexturePointer=std::shared_ptr<int>;using FramebufferPointer=std::shared_ptr<int>;using Vec2i=glm::ivec2;
+struct Stereo{bool enabled=true;Mat4 _eyeProjections[2]{Mat4(1),Mat4(1)},_eyeViews[2]{Mat4(1),Mat4(1)};bool isStereo()const{return enabled;}};
 struct Backend{
     CAMERA_STRUCTS
+    virtual bool featureTextureExtent(const TexturePointer&,Vec2i&extent){extent={8,6};return true;}
+    virtual bool featureReadFramebuffer(const FramebufferPointer&,QImage&image){image=QImage(8,6,QImage::Format_RGBA8888);image.fill(Qt::red);return true;}
+    virtual bool featureExecutedBatchCameras(const Batch*,FeatureBatchCameras&)const{return false;}
+    virtual bool featureExecutedDrawCameras(const Batch*,size_t,FeatureBatchCameras&)const{return false;}
     struct Frame{uint32_t index=4;uint64_t execution=19;Stereo stereo;bool observeCameras=true;}frame;
     static Backend*executing;static Backend*featureExecutingBackend(){return executing;}
     const Frame*featureFrame()const{return &frame;}
 };Backend*Backend::executing=nullptr;
+TRACE_CLASS
 struct GLBackend:Backend{
     bool featureExecutedBatchCameras(const Batch*,FeatureBatchCameras&)const;
     bool featureExecutedDrawCameras(const Batch*,size_t,FeatureBatchCameras&)const;
@@ -113,9 +139,37 @@ struct GLBackend:Backend{
         RENDER_END
     }
 };
+struct TestContext{std::shared_ptr<gpu::FeatureWorldRender>state;auto featureWorldRender(){return state;}};
+class TestApp:public QCoreApplication{public:using QCoreApplication::QCoreApplication;
+    std::shared_ptr<TestContext>context;auto getGPUContext(){return context;}};
+#undef qApp
+#define qApp static_cast<TestApp*>(QCoreApplication::instance())
+struct Lifecycle{bool active=true;QVariantMap snapshot(){return active?QVariantMap{{"original",true}}:QVariantMap{};}};
+class TestScriptingInterface:public QObject{public:
+    QVariantMap featurePicoWorldModelDrawsObservation(const QVariantMap&);
+    QString _testResultsLocation{"private-results"};std::shared_ptr<Lifecycle>_featureLifecycle{new Lifecycle};
+};
+TSI_GETTER
+struct LoadedGeometry{struct HFM{QString originalURL{"file:///actual-original-avatar.fbx"};}hfm;
+    const HFM&getHFMModel()const{return hfm;}QString e2eGeometryInstance()const{return QString(32,'b');}};
+struct LoadedModel{std::shared_ptr<LoadedGeometry>geometry{new LoadedGeometry};auto getGeometry(){return geometry;}
+    QString e2eModelInstance()const{return QString(32,'a');}};
+struct RenderArgs{static constexpr int DEFAULT_RENDER_MODE=0;int _renderMode=0;size_t _mirrorDepth=0;bool stereo=true;
+    std::shared_ptr<gpu::FeatureRenderTrace>_featureRenderTrace;Batch*_batch;bool isStereo()const{return stereo;}};
+struct ModelMeshPartPayload{
+    struct Mesh{};std::shared_ptr<const Mesh>_drawMesh{new Mesh};std::weak_ptr<const Mesh>_e2eOriginalDrawMesh;
+    QVariantMap _e2eOriginalModel;bool _clusterPaletteValid=true;
+    struct{int _numIndices=6,_startIndex=0;}_drawPart;
+    struct Bound{glm::vec3 getMinimum()const{return {-1,0,-3};}glm::vec3 getMaximum()const{return {1,2,-1};}};
+    Bound getBound(RenderArgs*){return {};}
+    void drawCall(Batch&)const;
+    void capture(LoadedModel*model){PAYLOAD_IDENTITY _e2eOriginalDrawMesh=_drawMesh;}
+    void record(RenderArgs*args){auto&batch=*args->_batch;int drawcallInfo=2;PAYLOAD_RECORD}
+};
+PAYLOAD_DRAW
 ORIGINALS
 int main(int argc,char**argv){
-    QCoreApplication app(argc,argv);GLBackend backend;
+    TestApp app(argc,argv);GLBackend backend;
     Batch batch;batch.commands={Batch::COMMAND_drawIndexed,Batch::COMMAND_runLambda};batch.offsets={0,0};
     Backend::FeatureBatchCameras output;int observations=0;
     batch.lambda=[&]{assert(backend.featureExecutedDrawCameras(&batch,0,output));++observations;};
@@ -148,6 +202,97 @@ int main(int argc,char**argv){
     backend.begin(batch);batch.lambda=[&]{assert(!backend.featureExecutedDrawCameras(&batch,0,output));};backend.renderPassDraw(batch);
     batch.commands={Batch::COMMAND_drawIndexed,Batch::COMMAND_draw,Batch::COMMAND_runLambda};
     backend.begin(batch);backend.renderPassDraw(batch);
+    // Compile and execute the entire original trace, joining the actual
+    // per-draw readings to the completed original batch. No model selector is
+    // supplied to native acquisition or used to fabricate either camera.
+    auto original=QVariantMap{{"modelInstance",QString(32,'a')},{"geometryInstance",QString(32,'b')},
+        {"loadedSourcePresent",true},{"loadedSourceSha256",QString(64,'c')},
+        {"minimum",QVariantList{-1.,0.,-1.}},{"maximum",QVariantList{1.,2.,1.}},
+        {"indices",qulonglong(6)},{"skinned",true},{"blendshaped",false},{"originalGeometry",true}};
+    for(int fault=0;fault<8;++fault){
+        gpu::FeatureRenderTrace trace({});Backend::executing=&backend;trace.begin(&backend);Backend::executing=nullptr;
+        batch.commands={Batch::COMMAND_drawIndexed,Batch::COMMAND_runLambda};batch.offsets={0,0};
+        backend.begin(batch);batch.lambda=[&]{
+            auto payload=original;if(fault==1)payload.insert("modelInstance","foreign");
+            trace.model(&backend,&batch,0,payload);
+            if(fault==2)trace.model(&backend,&batch,0,payload);
+            assert(trace.modelSnapshot(&backend).isEmpty());
+        };
+        backend.renderPassDraw(batch);backend.end(batch);Backend::executing=&backend;
+        if(fault==3)backend._featureCompletedCameras.cameras[0].view[3][0]=100;
+        if(fault==4)backend._featureCompletedCameras.sequence+=1;
+        if(fault==5)backend._featureCompletedCameras.cameras[1].draws=0;
+        if(fault==6)backend._featureCompletedCameras.cameras.pop_back();
+        trace.batch(&backend,&batch,fault==7,false);
+        auto frame=trace.snapshot(&backend),model=trace.modelSnapshot(&backend);assert(!frame.isEmpty());
+        if(fault){assert(model.isEmpty());}else{
+            assert(model.value("picoModelTraceVersion")==1&&model.value("drawCommands")==qulonglong(1));
+            assert(model.value("frameId")==frame.value("frameId")&&model.value("frameIndex")==frame.value("frameIndex"));
+            const auto row=model.value("models").toList().first().toMap();
+            assert(row.value("indices")==qulonglong(6)&&row.value("skinnedDrawCommands")==qulonglong(1));
+            const auto uses=row.value("cameraUses").toList();assert(uses.size()==2);
+            assert(uses[0].toMap().value("eye")=="left"&&uses[1].toMap().value("eye")=="right");
+            assert(uses[0].toMap().value("batchSequence")==frame.value("cameraBatches").toList().first().toMap().value("sequence"));
+        }
+        Backend::executing=nullptr;
+    }
+    auto state=std::make_shared<gpu::FeatureWorldRender>();app.context=std::make_shared<TestContext>();app.context->state=state;
+    TestScriptingInterface tsi;
+    const QString capture(32,'e');const QVariantMap query{{"schemaVersion",1},{"commandId",QString(32,'f')},
+        {"action","feature-pico-world-model-draws-observe"},{"captureRequestId",capture}};
+    assert(tsi.featurePicoWorldModelDrawsObservation(query).isEmpty());assert(!state->request(capture).isEmpty());
+    auto captureTrace=std::make_shared<gpu::FeatureRenderTrace>(QVariantMap{});
+    auto ticket=state->reserve(captureTrace);assert(ticket);
+    Backend::executing=&backend;captureTrace->begin(&backend);Backend::executing=nullptr;
+    batch.commands={Batch::COMMAND_drawIndexed,Batch::COMMAND_runLambda};batch.offsets={0,0};
+    LoadedModel loaded;ModelMeshPartPayload payload;payload.capture(&loaded);
+    assert(payload._e2eOriginalModel.value("geometryInstance")==QString(32,'b'));
+    assert(payload._e2eOriginalModel.value("loadedSourceSha256")==QString::fromLatin1(QCryptographicHash::hash(
+        loaded.geometry->hfm.originalURL.toUtf8(),QCryptographicHash::Sha256).toHex()));
+    batch.commands.clear();batch.offsets.clear();RenderArgs args;args._featureRenderTrace=captureTrace;args._batch=&batch;
+    payload.drawCall(batch);payload.record(&args);assert(batch.commands.size()==2);
+    backend.begin(batch);
+    backend.renderPassDraw(batch);backend.end(batch);Backend::executing=&backend;captureTrace->batch(&backend,&batch,false,false);
+    ticket->execute(&backend,{}, {},Vec4i(0,0,8,6),true,Mat4(1),captureTrace);Backend::executing=nullptr;
+    assert(state->modelObservation(query).isEmpty()); // GPU acquisition is not submission.
+    state->submitted(backend.frame.index+1,QVariantList{QVariantMap{},QVariantMap{}});
+    assert(state->modelObservation(query).isEmpty());
+    state->submitted(backend.frame.index,QVariantList{QVariantMap{},QVariantMap{}});
+    const auto captured=state->request(capture),models=tsi.featurePicoWorldModelDrawsObservation(query);assert(!models.isEmpty());
+    const auto modelSource=models.value("source").toMap(),pixelSource=captured.value("source").toMap();
+    assert(modelSource.value("captureSequence")==captured.value("sequence"));
+    assert(modelSource.value("pixelSha256")==pixelSource.value("image").toMap().value("pixelSha256"));
+    assert(modelSource.value("captureCapturedEpochMs")==pixelSource.value("capturedEpochMs"));
+    tsi._testResultsLocation.clear();assert(tsi.featurePicoWorldModelDrawsObservation(query).isEmpty());tsi._testResultsLocation="private-results";
+    tsi._featureLifecycle->active=false;assert(tsi.featurePicoWorldModelDrawsObservation(query).isEmpty());tsi._featureLifecycle->active=true;
+    auto context=app.context;app.context.reset();assert(tsi.featurePicoWorldModelDrawsObservation(query).isEmpty());app.context=context;
+    auto malformed=query;malformed.insert("expectedModel",QString(32,'a'));assert(state->modelObservation(malformed).isEmpty());
+    malformed=query;malformed.insert("captureRequestId",QString(32,'0'));assert(state->modelObservation(malformed).isEmpty());
+    assert(!state->storage({{"schemaVersion",1},{"commandId",QString(32,'1')},{"action","feature-world-render-storage"},
+        {"requestId",capture},{"operation","release"}}).isEmpty());
+    assert(state->modelObservation(query).isEmpty());ticket.reset();
+    // Missing model provenance cannot change an otherwise original successful
+    // Graphics image into a failed capture or lend it another model's table.
+    auto unavailable=std::make_shared<gpu::FeatureWorldRender>();const QString noModelCapture(32,'2');
+    unavailable->request(noModelCapture);auto noModelTrace=std::make_shared<gpu::FeatureRenderTrace>(QVariantMap{});
+    auto noModelTicket=unavailable->reserve(noModelTrace);assert(noModelTicket);
+    Backend::executing=&backend;noModelTrace->begin(&backend);Backend::executing=nullptr;
+    backend.begin(batch);batch.lambda=[&]{auto invalid=original;invalid.insert("modelInstance","invalid");noModelTrace->model(&backend,&batch,0,invalid);};
+    backend.renderPassDraw(batch);backend.end(batch);Backend::executing=&backend;noModelTrace->batch(&backend,&batch,false,false);
+    noModelTicket->execute(&backend,{}, {},Vec4i(0,0,8,6),true,Mat4(1),noModelTrace);Backend::executing=nullptr;
+    unavailable->submitted(backend.frame.index,QVariantList{QVariantMap{},QVariantMap{}});
+    assert(unavailable->request(noModelCapture).value("source").toMap().value("available")==true);
+    auto noModelQuery=query;noModelQuery.insert("captureRequestId",noModelCapture);assert(unavailable->modelObservation(noModelQuery).isEmpty());
+    noModelTicket.reset();
+    // A cancelled queued callback cannot recreate its retired capture/model
+    // evidence; the original ticket still drains independently.
+    auto cancelled=std::make_shared<gpu::FeatureWorldRender>();const QString cancelledId(32,'3');
+    cancelled->request(cancelledId);auto cancelledTicket=cancelled->reserve();assert(cancelledTicket);
+    cancelled->storage({{"schemaVersion",1},{"commandId",QString(32,'4')},{"action","feature-world-render-storage"},
+        {"requestId",cancelledId},{"operation","release"}});
+    Backend::executing=&backend;cancelledTicket->execute(&backend,{}, {},Vec4i(0,0,8,6),true,Mat4(1),captureTrace);Backend::executing=nullptr;
+    cancelled->submitted(backend.frame.index,QVariantList{QVariantMap{},QVariantMap{}});cancelledTicket.reset();
+    auto cancelledQuery=query;cancelledQuery.insert("captureRequestId",cancelledId);assert(cancelled->modelObservation(cancelledQuery).isEmpty());
     // A reused camera slot whose original bytes changed cannot borrow an old
     // aggregate row. The second real indexed command fails the source closed.
     batch.commands={Batch::COMMAND_drawIndexed,Batch::COMMAND_runLambda,Batch::COMMAND_drawIndexed,Batch::COMMAND_runLambda};
@@ -187,7 +332,12 @@ class ExecutedDrawCameras(unittest.TestCase):
         begin=begin[:begin.index('\n#endif\n\n    _transform')]
         end=gl[gl.index('    for (const auto command:batch.getCommands())',gl.index('void GLBackend::render(')):]
         end=end[:end.index('\n#endif')]
-        pieces=dict(BATCH_ENUM=block(batch,'    enum Command'),
+        trace=(ROOT/'libraries/gpu/src/gpu/FeatureRenderTrace.h').read_text()
+        world=(ROOT/'libraries/gpu/src/gpu/FeatureWorldRender.h').read_text()
+        payload=(ROOT/'libraries/render-utils/src/MeshPartPayload.cpp').read_text()
+        identity=payload[payload.index('    // Reviewed shared identity fragment'):];identity=identity[:identity.index('\n#endif')]
+        record=payload[payload.index('    // Original payload metadata follows'):];record=record[:record.index('\n#endif')]
+        pieces=dict(TSI_GETTER=block((ROOT/'interface/src/scripting/TestScriptingInterface.cpp').read_text(),'QVariantMap TestScriptingInterface::featurePicoWorldModelDrawsObservation('),PAYLOAD_IDENTITY=identity,PAYLOAD_RECORD=record,PAYLOAD_DRAW=block(payload,'void ModelMeshPartPayload::drawCall(').replace('gpu::Batch','Batch'),TRACE_CLASS='namespace gpu { using Primitive=::Primitive;constexpr auto TRIANGLES=::TRIANGLES;using Backend=::Backend;using Batch=::Batch;using TexturePointer=::TexturePointer;using FramebufferPointer=::FramebufferPointer;'+block(trace,'class FeatureRenderTrace')+';'+block(world,'class FeatureWorldRender :')+';}\n',BATCH_ENUM=block(batch,'    enum Command'),
             CAMERA_STRUCTS=block(backend,'    struct FeatureCameraUniform')+';\n'+block(backend,'    struct FeatureBatchCameras')+';',
             CAMERA_MEMBERS=header[header.index('    QPointer<QObject> _featureCameraShareGroup;'):header.index('\npublic:\n#endif',header.index('    QPointer<QObject> _featureCameraShareGroup;'))],
             RENDER_BEGIN=begin,RENDER_END=end,ORIGINALS=originals)
@@ -199,7 +349,7 @@ class ExecutedDrawCameras(unittest.TestCase):
             env.update(PKG_CONFIG_SYSROOT_DIR=str(prefix),PKG_CONFIG_LIBDIR=str(prefix/'usr/lib64/pkgconfig'),LD_LIBRARY_PATH=str(prefix/'usr/lib64'))
             extra=['-L'+str(prefix/'usr/lib64')]
         glm=Path(env['OVERTE_TEST_GLM_INCLUDE']).resolve(strict=True)
-        flags=shlex.split(subprocess.check_output(['pkg-config','--cflags','--libs','Qt'+major+'Core'],text=True,env=env))
+        flags=shlex.split(subprocess.check_output(['pkg-config','--cflags','--libs','Qt'+major+'Core','Qt'+major+'Gui'],text=True,env=env))
         with tempfile.TemporaryDirectory(prefix='native-executed-draw-cameras-') as directory:
             path=Path(directory);cpp=path/'test.cpp';cpp.write_text(harness)
             for technique in ('DOUBLED','INSTANCED'):
@@ -207,7 +357,7 @@ class ExecutedDrawCameras(unittest.TestCase):
                 subprocess.run(['c++','-std=c++17','-fPIC','-UNDEBUG','-DOVERTE_E2E_FEATURE_TESTS=1',
                     '-DGPU_STEREO_DRAWCALL_'+technique,*(['-DGPU_STEREO_CAMERA_BUFFER'] if technique=='INSTANCED' else []),
                     '-I'+str(glm),str(cpp),'-o',str(binary),*extra,*flags],check=True,timeout=60,env=env)
-                subprocess.run([str(binary)],check=True,timeout=10,env=env)
+                subprocess.run([str(binary),'--testScript'],check=True,timeout=10,env=env)
 
 
 if __name__=='__main__':unittest.main()

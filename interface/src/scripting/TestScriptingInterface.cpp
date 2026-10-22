@@ -400,6 +400,18 @@ QVariantMap TestScriptingInterface::featureWorldRenderCapture(const QString& req
     return context ? context->featureWorldRender()->request(requestId) : QVariantMap();
 }
 
+QVariantMap TestScriptingInterface::featurePicoWorldModelDrawsObservation(const QVariantMap& command) {
+    if (QThread::currentThread()!=thread()) {
+        QVariantMap result;
+        if (!QMetaObject::invokeMethod(this,[&] {result=featurePicoWorldModelDrawsObservation(command);},Qt::BlockingQueuedConnection)) {return {};}
+        return result;
+    }
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript")) {return {};}
+    const auto context=qApp->getGPUContext();
+    return context ? context->featureWorldRender()->modelObservation(command) : QVariantMap();
+}
+
 QVariantMap TestScriptingInterface::featureWorldRenderStorage(const QVariantMap& command) {
     if (QThread::currentThread() != thread()) {
         QVariantMap result;

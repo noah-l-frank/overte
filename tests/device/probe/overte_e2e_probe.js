@@ -149,6 +149,7 @@
     var lastScriptSourceRequest = "";
     var lastAnimationInventoryRequest = null;
     var lastScriptRootRequest = "";
+    var lastPicoWorldModelDrawsRequest = null;
     var lastAvatarRenderRequest = "";
     var lastGraphicsSubjectRequest = "";
     var lastSceneLoadRequest = "";
@@ -1058,6 +1059,24 @@
     }
 
     function applyClientCommand(command) {
+        if (command && command.schemaVersion === 1
+                && typeof command.commandId === "string" && /^[0-9a-f]{32}$/.test(command.commandId)
+                && command.action === "feature-pico-world-model-draws-observe"
+                && typeof command.captureRequestId === "string" && /^[0-9a-f]{32}$/.test(command.captureRequestId)
+                && objectKeysMatch(command, ["schemaVersion", "commandId", "action", "captureRequestId"])) {
+            if (command.commandId === lastPicoWorldModelDrawsRequest) { return; }
+            lastPicoWorldModelDrawsRequest = command.commandId;
+            var picoWorldModelDraws = {schemaVersion: 1, requestId: command.commandId, available: false};
+            try {
+                if (typeof Test.featurePicoWorldModelDrawsObservation === "function") {
+                    var originalPicoWorldModelDraws = Test.featurePicoWorldModelDrawsObservation(command);
+                    if (originalPicoWorldModelDraws && originalPicoWorldModelDraws.requestId === command.commandId) { picoWorldModelDraws = originalPicoWorldModelDraws; }
+                }
+            } catch (_picoWorldModelDrawsError) { /* Missing submitted original draw evidence stays unavailable. */ }
+            Test.saveObject(picoWorldModelDraws, "feature-pico-world-model-draws.json");
+            return;
+        }
+
         if (command && command.schemaVersion === 1
                 && typeof command.commandId === "string" && /^(?:ios-)?[0-9a-f]{32}$/.test(command.commandId)
                 && command.action === "feature-avatar-render-observe"
@@ -2009,6 +2028,7 @@
                 || command.action === "feature-create-browse-setting"
                 || command.action === "feature-world-render-observe"
                 || command.action === "feature-avatar-render-observe"
+                || command.action === "feature-pico-world-model-draws-observe"
                 || command.action === "feature-graphics-subject-observe"
                 || command.action === "feature-scene-load-observe"
                 || command.action === "feature-tablet-http-observe"

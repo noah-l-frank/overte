@@ -156,6 +156,8 @@ REQUIRED = {
     "emote-source-profile": 3,
     "native-script-roots": 1,
     "native-avatar-render": 1,
+    "pico-model-draw-trace": 1,
+    "pico-model-draw-capture": 1,
     "native-animation-inventory": 1,
     "emote-animation-readiness": 1,
     "emote-originals": 1,

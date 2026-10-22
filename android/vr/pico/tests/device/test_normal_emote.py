@@ -257,6 +257,25 @@ if(calls!==51||files.length!==1||files[0].available!==false||"source" in files[0
             with patch.object(self.instance,'_installation',return_value=changed),self.assertRaises(RuntimeError):reader.read()
             self.assertEqual(before,len(source.commands));self.assertEqual(value,reader.last)
 
+    def test_actual_stereo_model_factory_uses_original_private_capture_and_candidate_guards(self):
+        from self_tests.test_pico_emote_model_draws import ModelBoundary
+        source=ModelBoundary(self.native.epoch_milliseconds(self.native.target));source.capture['processId']=123;native_send=source.send
+        def send(target,identity,description,command):
+            self.assertEqual(self.native.target,target);self.assertEqual('123:synthetic-start',identity)
+            source.epoch=self.native.epoch_milliseconds(target)
+            native_send(command)
+        original_read=self.native.read_debug_app_file
+        def original(target,package,path,**options):
+            if path!='files/overte-e2e/feature-pico-world-model-draws.json':return original_read(target,package,path,**options)
+            self.assertEqual('org.overte.pico',package);self.assertEqual({'attempts':1},options)
+            return source.original()
+        with patch.object(self.instance,'write_control_command',side_effect=send),patch.object(self.native,'read_debug_app_file',side_effect=original):
+            reader=self.instance._emote_model_draws_observer(self.native.target);value=reader.read(source.capture)
+            self.assertEqual(source.sample,value);self.assertEqual([],self.native.inputs)
+            count=len(source.commands);changed={**self.instance._installation(self.native.target),'artifactSha256':'f'*64}
+            with patch.object(self.instance,'_installation',return_value=changed),self.assertRaises(RuntimeError):reader.read(source.capture)
+            self.assertEqual(count,len(source.commands));self.assertEqual(value,reader.last)
+
     def test_orphaned_lifetime_journal_remains_owned_after_base_cleanup(self):
         from adapters.script_journey.lock import ScriptSourceLock
         from self_tests.test_pico_emote_sources import SourcesTests

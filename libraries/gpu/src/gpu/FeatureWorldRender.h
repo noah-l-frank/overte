@@ -46,6 +46,7 @@ public:
             // A cancelled queued/executing callback must drain before reuse.
             if (!_callback.isEmpty() || _retired.size() >= 256) { return {}; }
             _active = id; _requested = now(); _age.start(); _result.clear(); _pending.clear(); _png.clear();
+            _models.clear();_pendingModels.clear();
         }
         if (_active != id) { return {}; }
         if (!_result.isEmpty()) { return _result; } // Original times, never retimed.
@@ -84,6 +85,38 @@ public:
             {"submissionSequence",static_cast<qulonglong>(++_submissions)}, {"submittedEpochMs",stamp},{"views",views}});
         _pending.insert("source",source); _pending.insert("capturedEpochMs",stamp);
         _result = std::move(_pending); _pending.clear();
+        _models=std::move(_pendingModels);_pendingModels.clear();
+    }
+
+    // The original model trace is published only with its successful original
+    // stereo submission. A query cannot create a capture, choose a model or
+    // retime the GPU acquisition. Existing image availability is independent.
+    QVariantMap modelObservation(const QVariantMap& command) {
+        QMutexLocker lock(&_mutex);
+        const auto json=QJsonObject::fromVariantMap(command);
+        const auto nonce=command.value("commandId").toString(),capture=command.value("captureRequestId").toString();
+        if (!enabled() || command.keys()!=QStringList{"action","captureRequestId","commandId","schemaVersion"}
+                || !json.value("schemaVersion").isDouble() || json.value("schemaVersion").toDouble()!=1
+                || command.value("action")!=QVariant("feature-pico-world-model-draws-observe")
+                || !json.value("commandId").isString() || !json.value("captureRequestId").isString()
+                || !valid(nonce) || !valid(capture) || nonce.startsWith("ios-") || capture.startsWith("ios-")
+                || _active!=capture || _retired.contains(capture)
+                || _result.isEmpty() || !_pending.isEmpty() || _models.isEmpty()) {return {};}
+        const auto requested=now();const auto original=_result.value("source").toMap();
+        const auto frame=original.value("stereo").toMap(),presentation=original.value("presentation").toMap();
+        if (original.value("view")!=QVariant("main-stereo") || presentation.isEmpty()
+                || frame.value("frameIndex")!=_models.value("frameIndex")
+                || frame.value("executionSequence")!=_models.value("executionSequence")
+                || presentation.value("frameIndex")!=frame.value("frameIndex")) {return {};}
+        const auto image=original.value("image").toMap();
+        const QVariantMap source{{"picoModelCaptureVersion",1},{"captureRequestId",capture},
+            {"captureSequence",_result.value("sequence")},{"acquisitionSequence",original.value("acquisitionSequence")},
+            {"captureCapturedEpochMs",original.value("capturedEpochMs")},
+            {"imageSha256",image.value("sha256")},{"pixelSha256",image.value("pixelSha256")},{"modelTrace",_models}};
+        if (QJsonDocument::fromVariant(source).toJson(QJsonDocument::Compact).size()>196608) {return {};}
+        return {{"schemaVersion",1},{"requestId",nonce},{"instance",_instance},
+            {"sequence",static_cast<qulonglong>(++_modelSequence)},{"processId",QCoreApplication::applicationPid()},
+            {"requestedEpochMs",requested},{"capturedEpochMs",now()},{"source",source}};
     }
 
     // A closed memory transport: logical nonce PNG names are never filesystem
@@ -112,6 +145,7 @@ public:
         }
         if (action == "release" && _active == id) {
             _active.clear(); _result.clear(); _pending.clear(); _png.clear();
+            _models.clear();_pendingModels.clear();
             // A queued lambda keeps its ticket until execution or batch discard.
         }
         QVariantMap value {{"storageVersion",1},{"commandId",nonce},{"requestId",id},{"instance",_instance},
@@ -187,6 +221,7 @@ private:
     void fail(const QString& id) {
         if (_active == id) {
             _pending.clear(); _png.clear();
+            _models.clear();_pendingModels.clear();
             _result = {{"schemaVersion",1},{"requestId",id},{"available",false}};
         }
     }
@@ -237,6 +272,7 @@ private:
         const QVariantMap image {{"name","world-render-image-"+normalized+".png"},{"bytes",png.size()},
             {"sha256",sha(png)},{"pixelSha256",QString::fromLatin1(pixelHash)},{"width",width},{"height",height}};
         const auto execution=trace ? trace->snapshot(backend) : QVariantMap();
+        const auto models=trace ? trace->modelSnapshot(backend) : QVariantMap();
         if (trace && (!stereo || execution.isEmpty())) { fail(id);return; }
         QVariantMap observation {{"captureVersion",trace ? 4 : stereo ? 2 : 1},{"available",true},
             {"acquisitionSequence",static_cast<qulonglong>(++_acquisitions)}, {"recordedEpochMs",recorded},
@@ -268,7 +304,7 @@ private:
         QVariantMap result {{"schemaVersion",1},{"requestId",id},{"instance",_instance},
             {"sequence",static_cast<qulonglong>(++_sequence)}, {"requestedEpochMs",requested},
             {"capturedEpochMs",published},{"processId",QCoreApplication::applicationPid()},{"source",observation}};
-        if (stereo) { _pending = std::move(result); _pendingFrame = frame->index; }
+        if (stereo) { _pending = std::move(result); _pendingFrame = frame->index;_pendingModels=models; }
         else { _result = std::move(result); }
     }
     static QVariantList matrix(const Mat4& value) {
@@ -291,6 +327,8 @@ private:
     quint64 _sequence {0}, _acquisitions {0}, _storageSequence {0}, _submissions {0};
     uint32_t _pendingFrame {0};
     QVariantMap _result, _pending;
+    QVariantMap _models,_pendingModels;
+    quint64 _modelSequence {0};
     QByteArray _png;
     QHash<QString,QPair<QString,QByteArray>> _receipts; // Bounded original receipt identities/hashes, not PNG copies.
 };
