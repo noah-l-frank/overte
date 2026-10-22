@@ -281,6 +281,32 @@ class SnapshotsFeatureTests(unittest.TestCase):
             proof=f.restored();self.assertFalse(proof['readbacks']['initialized']);self.assertNotIn('osDestinations',proof['readbacks'])
             rows=f.input_originals();original=next(row['snapshotNoOwnedExports'] for row in rows if 'snapshotNoOwnedExports' in row)
             self.assertFalse(original['readbacksUnavailable']['initialized']);self.assertEqual(2,len(f.state['quiet']))
+            import overte_phone_snapshots_measurements as reductions
+            original_retired=reductions.retired;original_inputs=f.input_originals
+            events=[]
+            def inputs():events.append('actual-input-history');return original_inputs()
+            def proof(*args,**kwargs):events.append('current-retirement-proof');return original_retired(*args,**kwargs)
+            with patch.object(f,'input_originals',inputs),patch.object(reductions,'retired',proof):f.restored()
+            self.assertEqual(['actual-input-history','current-retirement-proof','actual-input-history'],events[-3:])
+            first=f.inputs.expand(f.inputs.manifest(f.state['inputs'][0])[0]);path=f.inputs.path(first);raw=path.read_bytes()
+            for fault in ('actual-original-bytes','actual-feature-header'):
+                with self.subTest(lateRestorationFault=fault):
+                    header=deepcopy(f.previous);changed=[]
+                    def interrupted(*args,**kwargs):
+                        result=original_retired(*args,**kwargs)
+                        if fault=='actual-original-bytes':path.write_bytes(raw+b' ');changed.append(raw+b' ')
+                        else:
+                            foreign=deepcopy(header);state=unpack(foreign['payload']);state[0]['phase']='retiring';foreign['payload']=pack(state)
+                            f.store.write(foreign,header);changed.append(foreign)
+                        return result
+                    try:
+                        with patch.object(reductions,'retired',interrupted),self.assertRaises(NativeUIError):f.restored()
+                        if fault=='actual-original-bytes':self.assertEqual(changed[0],path.read_bytes())
+                        else:self.assertEqual(changed[0],f.store.read())
+                        self.assertEqual('cleaned',f.state['phase'])
+                    finally:
+                        if fault=='actual-original-bytes':path.write_bytes(raw)
+                        else:f.store.write(header,changed[0])
         self.assertTrue(self.adapter.foreign_ui_open)
 
     def test_partial_finalize_requires_real_actor_exit_and_retires_exact_journals_idempotently(self):

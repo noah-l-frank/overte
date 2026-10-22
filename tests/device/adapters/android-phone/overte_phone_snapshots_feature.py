@@ -211,7 +211,10 @@ class PhoneSnapshotsFeature(PhoneCreateFeature):
         self.bound();return frames
 
     def original(self):
-        frames=self.input_originals();need(frames and 'snapshotsBaseline' in frames[0])
+        return self.baseline_original(self.input_originals())
+
+    def baseline_original(self,frames):
+        need(frames and 'snapshotsBaseline' in frames[0])
         baseline=deepcopy(frames[0]['snapshotsBaseline'])
         if self.state['settingsIndex'] is not None:baseline['settings']=deepcopy(frames[self.state['settingsIndex']-1]['snapshotsSettingsCaptured'])
         if self.state['filesIndex'] is not None:baseline['filesBinding']=deepcopy(frames[self.state['filesIndex']-1]['snapshotsFilesPlanned'])
@@ -588,9 +591,11 @@ class PhoneSnapshotsFeature(PhoneCreateFeature):
         self.archive_input(dict(snapshotResumed=after));current['pending']=None;self.save()
 
     def queued_idle(self,group,packet,*,previous=None):
+        return self.queued_idle_original(group,packet,self.original()['group'],previous=previous)
+
+    def queued_idle_original(self,group,packet,initial,*,previous=None):
         epoch=self.adapter._native_feature_observer(self.selector,read_only=True).clock_ms()
         selected=validate_group(group,run=self.run,pid=self.pid,epoch=epoch)
-        initial=self.original()['group']
         baseline=validate_group(initial,run=self.run,pid=self.pid,epoch=initial['rootsAfter']['capturedEpochMs'])
         need(same(selected,baseline) and packet['instance']==group['script']['instance'])
         request=dict(schemaVersion=1,commandId=packet['requestId'],action='feature-script-work-observe',managerInstance=selected['manager']['instance'])
@@ -803,13 +808,20 @@ class PhoneSnapshotsFeature(PhoneCreateFeature):
             avatar=snapshot['avatarAfter'];touch=snapshot['touch'];world=snapshot['world'];native=snapshot['nativeAfter']
             need(native is not None and native['account']['loggedIn'] is False)
             script_work=snapshot['scriptWork']
+        # Historical baseline and quiet floors are metadata, never current
+        # product evidence. Read every actual input original once before the
+        # pure proof and again afterwards. No graph or authority survives this
+        # call; a late replacement/deletion/header change still fails closed.
+        originals=self.input_originals();baseline=self.baseline_original(originals)
+        proof=self.state['quiet'][-1];need(proof['sources'])
+        floor=originals[proof['sources'][-1]-1]['snapshotQuiet']['work']
         epoch=self.adapter._native_feature_observer(self.selector,read_only=True).clock_ms()
-        self.queued_idle(group,script_work,previous=self.quiet_work_floor())
-        capture_facts(self.original()['group'],group,run=self.run,pid=self.pid,epoch=epoch)
+        self.queued_idle_original(group,script_work,baseline['group'],previous=floor)
+        capture_facts(baseline['group'],group,run=self.run,pid=self.pid,epoch=epoch)
         retired(group,files,inventory,readback,upload,settings,run=self.run,epoch=epoch,consumer=consumer,
-            consumer_binding=self.state['consumerBinding'],documents=documents,documents_binding=self.state['docBinding'],baseline=self.original()['group'])
-        touch_released(touch);need(avatar['source']['cameraMode']==self.original()['avatar']['source']['cameraMode'])
-        a={row['id']:row['sha256'] for row in self.original()['world']['source']['scan']['unowned']}
+            consumer_binding=self.state['consumerBinding'],documents=documents,documents_binding=self.state['docBinding'],baseline=baseline['group'])
+        touch_released(touch);need(avatar['source']['cameraMode']==baseline['avatar']['source']['cameraMode'])
+        a={row['id']:row['sha256'] for row in baseline['world']['source']['scan']['unowned']}
         b={row['id']:row['sha256'] for row in world['source']['scan']['unowned']};need(same(a,b))
         need(not native['account']['loggedIn'] and native['account']['observation']['credentialActive']
             and native['account']['principalSha256']==hashlib.sha256(b'').hexdigest()
@@ -818,6 +830,7 @@ class PhoneSnapshotsFeature(PhoneCreateFeature):
         if self.state['marker'] is not None:
             marker=self.adapter._create_fixture_observer(self.selector,read_only=True).read(self.run) if snapshot is None else snapshot['marker']
             need(marker['source']['phase']=='drained' and not marker['source']['entities'] and marker['source']['retainedObjects']==0)
+        need(same(self.input_originals(),originals))
         return dict(group=group,captureFiles=files,inventory=inventory,readbacks=readback,upload=upload,settings=settings,
             consumer=consumer,documents=documents,avatar=avatar,touch=touch,world=world,native=native,scriptWork=script_work)
 
