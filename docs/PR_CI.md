@@ -82,6 +82,45 @@ runtime inputs. Content-scoped host tasks omit an unrelated target branch;
 candidate-scoped tasks retain it. A fingerprint is a comparison key, not a test
 result, reusable evidence, or permission to skip a required owner.
 
+Host and npm execution now publish separate task receipts. For a direct
+parent-to-child propagation, the controller can reuse the original successful
+command only after authenticating its repository, owning ancestor, merged PR,
+tested/integrated tree, workflow and controller sources, native run/attempt,
+check-suite application, required jobs, artifact digest and original command.
+Input keys and actual mounted tool/package runtime fingerprints must match.
+The final merge gate independently reauthenticates each reused command. An
+origin remains the original executed command across multiple propagation edges.
+Missing, expired or incompatible optional evidence causes execution without
+polling or requesting another run. npm installation and vulnerability queries
+still execute; mutable advisory data is never reused as an immutable result.
+
+Runtime fingerprints include the actual OS/runner image, installed packages,
+Python and prepared tool bytes. Relocating an equivalent prepared tool bundle
+does not by itself invalidate it. A kernel, package or tool change does.
+Native/compiler caches and platform host fallbacks remain conservative; they
+are not promoted to successful test evidence by a matching cache key.
+
+Before publication, inspect local immutable inputs without contacting GitHub:
+
+```sh
+python3 -I -S -B tools/repository-checks/pr_ci.py preflight \
+    --candidate . --base origin/main --revision HEAD --target main --out preflight.json
+```
+
+Use the actual target and its base ref. This reports selection and known
+platform prerequisites; it never issues execution or merge authority. Android
+production native/build changes currently require the separately qualified
+source-only dependency graph and hosted target consumer described in
+[platform coverage](PR_CI_PLATFORM_COVERAGE.md). Their prerequisite check runs
+before expensive selected owners and blocks acceptance when that environment
+is unavailable. Java/resource compilation is a distinct verified tier, not an
+APK or native-build claim.
+
+The preflight also reports incompatible workflow/controller sources before a PR
+is published. `--allow-controller-transition` is only for the explicitly
+reviewed local rollout procedure while Actions are disabled; it cannot bypass
+the protected GitHub source policy or waive missing Android prerequisites.
+
 ## Platform ownership and merge gates
 
 All seven targets require the same `source-policy` and `required-ci` contexts. Branch-path guards retain
