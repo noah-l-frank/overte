@@ -9,7 +9,7 @@ from copy import deepcopy
 import hashlib
 import re
 import os
-from adapters.native_feature_observation import exact,integer,need
+from adapters.native_feature_observation import exact,fresh,integer,need
 from adapters.normal_feature_state import PrivateFeatureState,context
 from adapters.pico4.create_models import PicoCreateModels,input_original,source_pin,selected,idle,WorkJournal
 from adapters.native_script_work import scope as work_scope
@@ -220,10 +220,31 @@ class PicoCreateJourney:
         def record(original):
             self.record_input(member,original);intent(original)
         return record
+    def phase_fence(self):
+        """Fresh original activation admission, including cleanup ownership."""
+        value=self.state();active=self.source.read(value['phase'])
+        need(typed_equal(active['status']['activations'],value['phase']['activations']))
+        if value['cleanupStarted']:
+            original=value['phase']['activations'][-1]
+            need(active['ticket']==original['ticket'] and active['verb']=='cleanup' and active['inputs']=={})
+        else:
+            need(value['pending'] is not None);call=value['calls'][-1]
+            need(active['ticket']==value['pending']==call['ticket'] and active['verb']==call['verb']
+                and typed_equal(active['inputs'],call['inputs']))
+        return active['status']
+    def fresh_sample(self,actual):
+        epoch=self.readers['entities'].reader.clock_ms()
+        for role in ('callbacks','entities','dialogs','resources','work','lifecycle'):fresh(actual[role]['capturedEpochMs'],epoch)
+        fresh(actual['ui']['updatedEpochMs'],epoch)
+    def complete_call(self):
+        actual=self.sample();phase=self.phase_fence();self.fresh_sample(actual)
+        self.mark(phase=phase,pending=None);return {'performed':True}
+
     def record_input(self,kind,original):
         value=self.state();need(value['pending'] is not None or value['cleanupStarted'])
         item=dict(kind=kind,original=deepcopy(original));self.validate_input(item,value['binding'])
-        self.mark(lastInput=item,inputCount=value['inputCount']+1)
+        phase=self.phase_fence()
+        self.mark(phase=phase,lastInput=item,inputCount=value['inputCount']+1)
     def export_subject(self,actual):
         need('models' in self.state()['members'] and self.state()['subject']=='models')
         model=self.component('models');value=model.state();step=value['steps'][-1]
@@ -258,6 +279,10 @@ class PicoCreateJourney:
             and resources_retired(original['resources']['source']))
         from adapters.pico4.lifecycle_source import measured_keyboard
         need(not original['lifecycle']['source']['current'] and not measured_keyboard(original['lifecycle']['source']['keyboard']))
+        current=self.source.read(active['status'])
+        need(current['ticket']==active['ticket'] and current['verb']=='baseline' and current['inputs']=={}
+            and typed_equal(current['status']['activations'],active['status']['activations']))
+        self.fresh_sample(original);active=current
         value=dict(createFeatureVersion=VERSION,binding=deepcopy(context(binding)),runId=self.run,fixtureUrl=self.source.fixture_url,
             phase=active['status'],calls=[],pending=None,members=[],subject=None,lastInput=None,inputCount=0,baselineUi=before,baselineEntities=original['entities'],sourcePin=source_pin(),manager=original['manager'],
             compilation=original['compilation'],cleanupStarted=False,cleanupAttempted=[],baselineLifecycle=original['lifecycle'],editorIds=[])
@@ -310,11 +335,11 @@ class PicoCreateJourney:
                 if value['subject']=='models':self.join_model_deletion(member)
                 self.mark(subject=None)
             else:need(False)
-            self.sample();self.mark(pending=None);return {'performed':True}
+            return self.complete_call()
 
     def reconcile(self):
         """Read-only completion after a lost reply; never resumes input stages."""
-        self.lock.assert_held();value=self.state();need(value['pending'] is not None and not value['cleanupStarted'])
+        self.lock.assert_held();value=self.state();need(value['pending'] is not None and not value['cleanupStarted']);self.phase_fence()
         verb=value['calls'][-1]['verb'];subject=value['subject']
         if verb in ('open','close'):
             ui=self.adapter._create_controls(self.target,self.input);page=ui.row(ui.capture(),'create.page',enabled=False)
@@ -341,7 +366,7 @@ class PicoCreateJourney:
                 else:picker.settle_completed(operation)
                 if verb=='import-picker-accept':self.mark(subject='picker')
                 elif verb=='delete-owned':self.mark(subject=None)
-        self.sample();self.mark(pending=None);return {'performed':True}
+        return self.complete_call()
 
     def cleanup(self):
         """A distinct ordinary Cancel/Delete, then original joint retirement.
@@ -353,6 +378,7 @@ class PicoCreateJourney:
         if not value['cleanupStarted']:
             active=self.source.read(value['phase']);need(active['verb']=='cleanup' and active['inputs']=={})
             self.mark(cleanupStarted=True,phase=active['status'])
+        self.phase_fence()
         # Settle or cancel actual open file input before changing selection.
         if 'picker' in self.state()['members']:
             picker=self.component('picker')
@@ -393,7 +419,7 @@ class PicoCreateJourney:
             factory=MEMBERS[member](self.adapter,self.target,self.run,coordinator=self)
             if not factory.owned():
                 need(not factory.owned_target(self.adapter,self.target));continue
-            child=self.component(member)
+            self.phase_fence();child=self.component(member)
             if child.previous is None:child.release_observations()
             else:child.release()
         # Every child retirement may fail independently. The root sources and
@@ -423,6 +449,7 @@ class PicoCreateJourney:
             if ready and (stable is None or signature==stable):
                 quiet=current if quiet is None else quiet;clocks=epoch if clocks is None else clocks;stable=deepcopy(signature)
                 if current-quiet>=3 and all(b-a>=3000 for a,b in zip(clocks,epoch)):
+                    phase=self.phase_fence();self.fresh_sample(actual);self.mark(phase=phase)
                     for reader in self.readers.values():reader.retire()
                     self.source_store('lifecycle').discard(self.lifecycle_previous);self.lifecycle_previous=None
                     self.store.discard(self.state());self.previous=None;return {'performed':True}
