@@ -431,6 +431,37 @@ class PicoOpenXrAdapterSession:
                 raise AdapterSessionError("Pico owned stream binding is unresolved")
             return self._wait_for_neutral(envelope["sessionNonce"], envelope["sequence"])
 
+    def neutralize_owned(self, process_identity: str, envelope: dict, *, intent) -> dict:
+        """Remove only this exact current grant, retaining session/cursor ownership.
+
+        The caller durably records release intent before the first mutation.
+        Reconciliation uses require_owned_neutral(), never repeats this method.
+        Neither its receipt nor grant removal proves actual client axes/stability.
+        """
+        from .controller_protocol import validate_envelope
+        validate_envelope(envelope, self.profile)
+        if not callable(intent):
+            raise AdapterSessionError("Pico owned neutralization intent is invalid")
+        with self._lock():
+            state = self._load()
+            if (state is None or state["processIdentity"] != process_identity
+                    or state["sessionNonce"] != envelope["sessionNonce"]
+                    or state["nextSequence"] != envelope["sequence"] + 1):
+                raise AdapterSessionError("Pico owned stream binding is unresolved")
+            status = self.transport.read_status(expected_nonce=envelope["sessionNonce"],
+                                                expected_sequence=envelope["sequence"])
+            if (status.get("acceptedSequence") != envelope["sequence"]
+                    or status.get("acceptedNonce") != "[redacted]"
+                    or status.get("state") not in {"active", "neutral"}
+                    or (status["state"] == "active" and
+                        (status.get("enabled") is not True
+                         or status.get("activeCommandId") != envelope["commands"][0]["id"]))
+                    or (status["state"] == "neutral" and status.get("activeCommandId") != "")):
+                raise AdapterSessionError("Pico native owned stream binding is unresolved")
+            intent()  # Pure host CAS/fsync; do not reenter session, guard or ADB.
+            self.transport.cleanup()
+            return self._wait_for_neutral(envelope["sessionNonce"], envelope["sequence"])
+
     def cleanup(self, process_running: bool) -> None:
         with self._lock():
             state = self._load()

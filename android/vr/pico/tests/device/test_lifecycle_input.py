@@ -18,6 +18,7 @@ from self_tests.test_pico_lifecycle_back import LifecycleBackTests
 from self_tests.test_pico_lifecycle_x_mapping import PicoLifecycleXMappingTests
 from self_tests.test_pico_lifecycle_drive import LifecycleDriveTests,LifecycleDriveProbeTests
 from self_tests.test_pico_lifecycle_gesture import LifecycleGestureTests,LifecycleGestureProbeTests
+from self_tests.test_pico_lifecycle_world import LifecycleWorldTests
 from self_tests.test_pico_openxr_adapter_session import FakeTransport
 
 
@@ -80,6 +81,29 @@ class PicoLifecycleBindingTests(unittest.TestCase):
             self.native.digest='f'*64
             with self.assertRaises((ValueError,RuntimeError)):source.capture(RUN)
             self.assertEqual(1,len(boundary.commands));self.assertEqual([],self.native.inputs)
+
+    def test_actual_world_factory_uses_shared_script_source_lock_and_original_installed_candidate(self):
+        from adapters.pico4.lifecycle_world import PicoLifecycleWorld
+        from adapters.script_journey.lock import ScriptSourceLock
+        directory=self.fixture.fixture.state_root
+        session=PicoOpenXrAdapterSession(FakeTransport(),'explicit-world-target',directory);session.begin(self.native.identity)
+        with patch.object(self.adapter,'pico_input_session',return_value=session):
+            owner=self.adapter._lifecycle_world(self.native.target,RUN)
+            self.assertIsInstance(owner,PicoLifecycleWorld);self.assertIs(owner.session,session)
+            self.assertEqual(self.adapter._script_journey()._lock(self.native.target).path,owner.lock.path)
+            self.assertEqual('lifecycle-world-owner.json',owner.store.path.name);self.assertIsNone(owner.state)
+            self.assertEqual(self.native.identity,owner.binding['processIdentity'])
+            self.native.digest='f'*64
+            with self.assertRaises((ValueError,RuntimeError)):owner.prepare()
+            self.assertIsNone(owner.store.read());self.assertEqual([],session.transport.envelopes)
+        self.assertFalse(any(cap.startswith('feature.lifecycle-input.') for cap in self.adapter.capabilities(self.native.target)))
+        self.assertEqual([],self.native.inputs)
+
+    def test_base_cleanup_keeps_original_world_journal_after_process_teardown(self):
+        original=dict(explicitSyntheticBoundary='unresolved lifecycle world ownership')
+        store=self.adapter._lifecycle_world_store(self.native.target);store.write(original,None)
+        with self.assertRaises((ValueError,RuntimeError)):self.adapter.cleanup(self.native.target)
+        self.assertEqual(original,store.read());self.assertIn(('am','force-stop','org.overte.pico'),self.native.events)
 
     def test_base_cleanup_keeps_unresolved_lifecycle_ownership_after_actual_teardown(self):
         store=self.adapter._lifecycle_back_store(self.native.target)
