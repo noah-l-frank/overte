@@ -26,3 +26,7 @@ The Core operation fixture and actual bundle-template checks run in the iOS
 host gate. They do not compile UIKit/Photos Objective-C++ or establish SDK,
 physical iPad permission, GIF import, share-sheet, or device lifecycle evidence.
 Those require the coordinated full iOS build and physical-device qualification.
+
+The gated passive [export observer](../../tests/device/ios/SNAPSHOT_EXPORTS.md)
+retains actual Photos/share/Qt callbacks and weak operation lifetimes. Its native
+completion originals do not establish destination bytes or a complete adapter.

@@ -198,6 +198,7 @@ public slots:
     Q_INVOKABLE QVariantMap featureIOSCreateState(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureIOSCreateFiles(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureIOSAvatarState(const QVariantMap& command);
+    Q_INVOKABLE QVariantMap featureIOSSnapshotExports(const QVariantMap& command);
     Q_INVOKABLE void featureIOSWorldWebEvent(const QVariantMap& value);
     Q_INVOKABLE QVariantMap featureIOSWorldWebWork(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureIOSWorldWebKeys(const QVariantMap& command);
@@ -308,6 +309,7 @@ private:
     std::shared_ptr<overte::e2e::IOSAvatarStateObservation> _featureIOSAvatarState;
     std::shared_ptr<overte::e2e::NativeReadBracket> _featureIOSSceneInventory;
     std::shared_ptr<overte::e2e::NativeReadBracket> _featureIOSCreateFiles;
+    std::shared_ptr<overte::e2e::NativeReadBracket> _featureIOSSnapshotExports;
     QMap<QString,QVariantMap> _featureIOSCreateFileCommands, _featureIOSCreateFileResults;
 #endif
     QString _featureObservationInstance;

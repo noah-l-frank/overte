@@ -530,6 +530,14 @@ class FeatureObservation:
 
 
 
+    def snapshot_exports(self,clock_source=None):
+        from ios.adapters.snapshot_exports import IOSSnapshotExports,FILE,LIMIT
+        self.guard();remote=self.remote.rsplit('/',1)[0]+'/'+FILE
+        if clock_source is None:clock_source=self.native_observer()
+        def clock():return clock_source.read(clock_source.sequence)['capturedEpochMs']
+        return IOSSnapshotExports(self.send,lambda:self.original(remote=remote,limit=LIMIT),
+            clock,self.guard,self.process['pid'],monotonic=self.monotonic,sleep=self.sleep)
+
     def chat_view(self):
         self.guard();remote=self.remote.rsplit('/',1)[0]+'/'+CHAT_VIEW_FILE
         return NativeChatView(self.send,lambda:self.original(remote=remote,limit=NATIVE_FEATURE_LIMIT),

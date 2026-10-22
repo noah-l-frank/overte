@@ -15,6 +15,9 @@ public:
         ticket(std::move(ticket)),path(std::move(path)),action(std::move(action)) {}
     const QString ticket,path,action;
     bool current() const { return _state.load()!=0; }
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    unsigned featureObservedState() const {return _state.load();}
+#endif
     bool cancelled() const { return bool(_state.load() & CANCELLED); }
     Phase phase() const { return Phase(_state.load() & ~CANCELLED); }
     bool advance(Phase phase) {

@@ -118,6 +118,12 @@ session Stop and its independent process-absence proof must be joined without
 turning an ended renderer into a fresh live-world reading. No hidden root is
 reported as destroyed and no unresolved owner is discarded.
 
+Snapshots now has a [passive native export source](SNAPSHOT_EXPORTS.md): actual
+Photos authorization/commit/placeholder/completion, system Share result, Qt
+delivery, callback return and weak export expiry. Seven host checks pass; native
+code is uncompiled. Destination Photos bytes, an actual independent Share
+recipient and the full pending/input/cleanup coordinator remain required.
+
 The canonical physical source binding and explicit lost-launch recovery have
 host-tested implementations. The native byte observer and SDK plugin remain
 uninstalled/uncompiled and unqualified here. See the [Script handoff](SCRIPT_FEATURE.md)

@@ -72,6 +72,7 @@
 #include "../../../tests/device/ios/InstalledBundleIdentity.h"
 #include "../../../tests/device/native/IOSWebClosureBridge.h"
 #include "../../../ios/web/IOSWorldWebTrace.h"
+#include "../../../ios/snapshot/IOSSnapshotObservation.h"
 #include "../../../tests/device/native/IOSLocationBookmarksObservation.h"
 #include "../../../tests/device/native/IOSPlacesModelObservation.h"
 #include "../../../tests/device/native/IOSPeopleModelObservation.h"
@@ -972,6 +973,27 @@ QVariantMap TestScriptingInterface::featureIOSCreateFiles(const QVariantMap& com
     });
     _featureIOSCreateFileResults.insert(request,result);
     return result;
+}
+
+QVariantMap TestScriptingInterface::featureIOSSnapshotExports(const QVariantMap& command) {
+    if (QThread::currentThread()!=thread()) {
+        if (!thread() || !thread()->isRunning()) {return {};}
+        QVariantMap result;
+        if (!QMetaObject::invokeMethod(this,[&] {result=featureIOSSnapshotExports(command);},Qt::BlockingQueuedConnection)) {return {};}
+        return result;
+    }
+    QStringList fields {"schemaVersion","commandId","action","runId"};fields.sort();
+    const auto json=QJsonObject::fromVariantMap(command);
+    const auto request=command.value("commandId").toString(),run=command.value("runId").toString();
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript") || command.keys()!=fields
+            || json.value("schemaVersion")!=QJsonValue(1) || json.value("action")!=QJsonValue("feature-ios-snapshot-exports")
+            || !json.value("commandId").isString() || !json.value("runId").isString()
+            || !QRegularExpression("\\Aios-[0-9a-f]{32}\\z").match(request).hasMatch()
+            || !QRegularExpression("\\A[0-9a-f]{32}\\z").match(run).hasMatch()) {return {};}
+    if (!_featureIOSSnapshotExports) {_featureIOSSnapshotExports=std::make_shared<overte::e2e::NativeReadBracket>();}
+    return _featureIOSSnapshotExports->read("iosSnapshotExportsVersion","native-main-snapshot-exports",request,run,
+        [] {return overte::ios::featureSnapshotExportObservation();});
 }
 
 QVariantMap TestScriptingInterface::featureIOSAvatarState(const QVariantMap& command) {
