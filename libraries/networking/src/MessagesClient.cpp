@@ -80,8 +80,17 @@ QVariantMap MessagesClient::featureChatObservation(const QVariantMap& command) {
         return original;
     }
     const auto nodes = DependencyManager::get<NodeList>();
-    const auto mixer = nodes->soloNodeOfType(NodeType::MessagesMixer);
-    return _featureChat.request(command, nodes->getSessionUUID(), mixer ? mixer->getUUID() : QUuid());
+    const auto run=command.value("runId").toString();
+    const auto before=nodes->getDomainHandler().featureChatSession(run);
+    if (before.isEmpty()) { return {}; }
+    const auto self=nodes->getSessionUUID();const auto mixer=nodes->soloNodeOfType(NodeType::MessagesMixer);
+    QUuid mixerId;bool active{false};
+    if (mixer) { QMutexLocker lock(&mixer->getMutex());mixerId=mixer->getUUID();active=mixer->getActiveSocket()!=nullptr; }
+    const auto after=nodes->getDomainHandler().featureChatSession(run);
+    if (after.isEmpty() || before!=after || nodes->getSessionUUID()!=self
+            || nodes->soloNodeOfType(NodeType::MessagesMixer)!=mixer) { return {}; }
+    auto session=after;session.insert("mixerActive",active);
+    return _featureChat.request(command,self,mixerId,session);
 }
 #endif
 
