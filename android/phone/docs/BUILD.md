@@ -752,6 +752,69 @@ Run the secret-free static release check with:
 ./tests/phone-release-config-test.sh
 ```
 
+## Dedicated feature E2E debug build
+
+The Phone module accepts the exact Gradle property `overteFeatureTests=ON|OFF`.
+Missing means `OFF`; empty values, `true`, `1`, different case and whitespace
+are rejected before dependency preparation. Only the `debug` build type may
+forward `ON` to CMake's `OVERTE_E2E_FEATURE_TESTS` option. Release, emulator and
+other build types force `OFF`. The final DSL callback runs after `initWith`
+inheritance, removes earlier definitions of that exact CMake variable and adds
+one authoritative value while preserving unrelated arguments. The root CMake
+option remains default `OFF`; setting an environment variable named
+`OVERTE_E2E_FEATURE_TESTS` alone does not activate this forwarder.
+
+The existing wrapper accepts only `build [--stacktrace]`. Preserve that wrapper's
+existing dependency checks, JDK, temporary-directory and resource settings by passing
+the property through Gradle's standard project-property environment prefix:
+
+```bash
+ORG_GRADLE_PROJECT_overteFeatureTests=ON \
+ORG_GRADLE_PROJECT_overteVoiceTests=true \
+./build.sh build
+```
+
+This requires the existing prepared, network-isolated build environment; the
+wrapper does not forward `--offline` or arbitrary `-P` arguments. No wrapper or
+dependency guard is bypassed or changed by this property.
+
+With the verified Phone Qt/non-Qt graph, 16 KiB sentinel and host tools already
+prepared, use the installed SDK36, NDK27.3.13750724, CMake3.31.6 and JDK17–21.
+The private Gradle cache must already contain Gradle8.13, AGP8.13.2 and its full
+dependency closure. From `android/phone/`, this build-only invocation selects
+the feature hooks and the existing separate voice/controlled-fixture hooks:
+
+```bash
+JAVA_HOME=/absolute/prepared/jdk-21 \
+ANDROID_SDK_ROOT=/absolute/prepared/android-sdk \
+ANDROID_NDK_HOME=/absolute/prepared/android-sdk/ndk/27.3.13750724 \
+GRADLE_USER_HOME=/absolute/private/prepared-gradle-home \
+/absolute/prepared/gradle-8.13/bin/gradle --offline --no-daemon \
+    --settings-file settings.gradle \
+    -PoverteFeatureTests=ON -PoverteVoiceTests=true \
+    :phoneInterface:assembleDebug
+```
+
+Using the already prepared Gradle executable avoids wrapper-distribution
+acquisition; `--offline` preserves offline Gradle dependency resolution. Existing
+build isolation and content-bound dependency checks still apply. This does not
+download, install, launch or test an APK. `overteVoiceTests` is an independent
+existing opt-in, needed by foundations using its controlled source/resource
+hooks; it does not enable feature instrumentation by itself.
+
+The feature hooks require `OVERTE_E2E_FEATURE_TESTS=ON` at native compilation
+and their existing `--testScript`, lifecycle and candidate/process guards at
+runtime. Each public adapter area retains its own default-off configuration and
+mandatory foundations. A successful ordinary APK build with this option `OFF`
+does not compile or qualify those hooks. The prepared
+[`phone-feature-build-flag-test.py`](../tests/phone-feature-build-flag-test.py)
+runs the original Gradle project-environment loader and Groovy blocks against
+explicit environment/Android DSL endpoints and the
+original CMake option in fresh host output. It verifies ON/OFF, invalid input,
+variant inheritance and clearing an old ON cache without running Gradle/AGP,
+resolving dependencies or contacting devices. This component check is not a
+complete Android build or device acceptance result.
+
 ## Dedicated voice test build
 
 The optional [synthetic voice roundtrip](../../../tests/device/VOICE_ROUNDTRIP.md)

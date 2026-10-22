@@ -11,6 +11,14 @@ android {
     ndkVersion '27.3.13750724'
 }
 
+// Dedicated Phone feature E2E opt-in; ordinary variants remain disabled.
+// BEGIN PHONE_FEATURE_E2E_PROPERTY
+def phoneFeatureTests = providers.gradleProperty('overteFeatureTests').getOrElse('OFF')
+if (!(phoneFeatureTests in ['ON', 'OFF'])) {
+    throw new GradleException('overteFeatureTests must be exactly ON or OFF')
+}
+// END PHONE_FEATURE_E2E_PROPERTY
+
 def legacyConanDir = file('../../../common/conan/pico4-debug')
 def fdroidSourceOnlyConanPath = System.getenv('OVERTE_FDROID_CONAN_DIR')
 def fdroidSourceOnlyConanDir = fdroidSourceOnlyConanPath == null
@@ -757,6 +765,22 @@ tasks.configureEach { task ->
         }
     }
 }
+
+// Apply after initWith has copied variant arguments. Force one authoritative
+// value even when a previous/inherited configuration supplied a typed flag.
+// BEGIN PHONE_FEATURE_E2E_FINALIZE
+androidComponents.finalizeDsl { androidDsl ->
+    androidDsl.buildTypes.each { buildType ->
+        def arguments = buildType.externalNativeBuild.cmake.arguments
+        arguments.removeAll { argument ->
+            argument == '-DOVERTE_E2E_FEATURE_TESTS' ||
+                argument ==~ /-DOVERTE_E2E_FEATURE_TESTS(?::[^=]+)?=.*/
+        }
+        def mode = buildType.name == 'debug' ? phoneFeatureTests : 'OFF'
+        arguments.add('-DOVERTE_E2E_FEATURE_TESTS=' + mode)
+    }
+}
+// END PHONE_FEATURE_E2E_FINALIZE
 
 // Use the Android parent's runtime and pinned WebKit dependency.
 ext.overteEmbeddedWebRoot = file('../../../common/web')
