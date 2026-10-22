@@ -38,8 +38,21 @@ with tempfile.TemporaryDirectory(prefix='lifecycle-gesture-') as directory:
     body=source[begin:end];body=body[body.index('{')+1:body.rfind('}')]
     (private/'original-pico-vector-query.inc').write_text(body)
     binary=private/'test'
-    subprocess.run(['c++','-std=c++17','-fPIC','-UNDEBUG','-DOVERTE_E2E_FEATURE_TESTS','-DOVERTE_E2E_OPENXR_INPUT_V1=1',
+    subprocess.run(['c++','-std=c++17','-fPIC','-UNDEBUG','-DOVERTE_E2E_FEATURE_TESTS','-DANDROID_APP_PICO_INTERFACE=1','-DOVERTE_E2E_OPENXR_INPUT_V1=1',
         '-I'+str(ROOT),'-I'+str(private),str(Path(__file__).with_name('lifecycle-gesture-observation-test.cpp')),
         str(ROOT/'libraries/controllers/src/controllers/AxisValue.cpp'),'-o',str(binary),*library_paths,*flags],check=True,timeout=90,env=environment)
     subprocess.run([str(binary)],check=True,timeout=10,env=environment)
     subprocess.run([str(binary),'--testScript',str(script),'--testResultsLocation',str(private)],check=True,timeout=10,env=environment)
+    # The shared TSI translation unit must also compile when this Pico-only
+    # producer is absent. Execute its unchanged original non-Pico getter body.
+    tsi=(ROOT/'interface/src/scripting/TestScriptingInterface.cpp').read_text()
+    begin=tsi.index('QVariantMap TestScriptingInterface::featureLifecycleGestureObservation(')
+    end=tsi.index('QVariantMap TestScriptingInterface::featureLifecycleDriveObservation(',begin)
+    shared=private/'shared.cpp'
+    shared.write_text('#include "tests/device/native/LifecycleGestureObservation.h"\n#include <QVariantMap>\n'
+        'struct TestScriptingInterface { QVariantMap featureLifecycleGestureObservation(const QVariantMap&); };\n'
+        +tsi[begin:end]+'\nint main(){TestScriptingInterface source;return source.featureLifecycleGestureObservation({}).isEmpty()?0:1;}\n')
+    shared_binary=private/'shared'
+    subprocess.run(['c++','-std=c++17','-fPIC','-DOVERTE_E2E_FEATURE_TESTS','-I'+str(ROOT),str(shared),
+        '-o',str(shared_binary),*library_paths,*flags],check=True,timeout=90,env=environment)
+    subprocess.run([str(shared_binary)],check=True,timeout=10,env=environment)

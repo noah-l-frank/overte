@@ -66,7 +66,8 @@ class OpenXrInputStateTest(unittest.TestCase):
 
     def test_native_e2e_layer_identity_and_release_exclusion_are_mechanical(self):
         header = (E2E_ROOT / "E2eInputProtocol.h").read_text(encoding="utf-8")
-        header += (E2E_ROOT / "E2eInputConstants.h").read_text(encoding="utf-8")
+        header += (ROOT / "tests/device/native/PicoOpenXrInputConstants.h").read_text(encoding="utf-8")
+        self.assertIn("../../../../../../../tests/device/native/PicoOpenXrInputConstants.h", (E2E_ROOT / "E2eInputConstants.h").read_text(encoding="utf-8"))
         protocol = (E2E_ROOT / "E2eInputProtocol.cpp").read_text(encoding="utf-8")
         layer = (E2E_ROOT / "XrApiLayer.cpp").read_text(encoding="utf-8")
         openxr_root = E2E_ROOT.parent
