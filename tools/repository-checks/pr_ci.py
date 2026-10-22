@@ -626,6 +626,7 @@ def main():
             else:
                 command.add_argument('--android-runtime', type=Path)
                 command.add_argument('--android-native-runtime', type=Path)
+                command.add_argument('--android-groovy-runtime', type=Path)
         if name == "complete":
             command.add_argument("--needs-json", required=True)
         if name == "verify-ios":
@@ -695,6 +696,7 @@ def main():
                       if t['kind'] == 'npm' and 'browser' in t['setup']]),
                   "android_compile_products": json.dumps(plan.get('android_compile_products', [])),
                   "android_native_products": json.dumps(plan.get('android_native_products', [])),
+                  "android_groovy_contracts": plan.get('android_groovy_contracts', False),
                   "ios_build": plan["ios_build_required"]}
         outputs(args.output, values)
         print(json.dumps({"target": context["target"], "tasks": [t["id"] for t in plan["tasks"]],
@@ -720,7 +722,7 @@ def main():
             import pr_ci_platform
             receipt = pr_ci_platform.execute(args.candidate, context, plan, args.lane,
                 args.prepared_root, recompute=selection, android_runtime=args.android_runtime,
-                android_native_runtime=args.android_native_runtime)
+                android_native_runtime=args.android_native_runtime, android_groovy_runtime=args.android_groovy_runtime)
             if args.out:
                 write_json(args.out, receipt)
         elif args.command == "verify-ios":

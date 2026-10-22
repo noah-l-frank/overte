@@ -48,6 +48,17 @@ class NativeHostTests(unittest.TestCase):
     def test_unselected_change_does_not_load_or_prepare_native_assets(self):
         with patch.object(N.A, 'policy', side_effect=AssertionError('no native setup')):
             self.assertIsNone(N.prerequisites(self.candidate, {}, 'android-phone'))
+
+    def test_groovy_classpath_is_separately_sealed_and_modified_jars_reject(self):
+        tools = self.root / 'groovy'; tools.mkdir()
+        jar = tools / 'groovy.jar'; jar.write_bytes(b'transport fixture only')
+        ledger = tools.with_name('groovy-inventory.json'); ledger.write_bytes(N.R.canonical(N.R.inventory(tools)))
+        definition = {'assets': {'groovy': {'inventory': {'sha256': N.R.digest(ledger)}}}}
+        with patch.object(N.A, 'policy', return_value=definition):
+            self.assertEqual(N.groovy_classpath(tools), str(jar))
+            jar.write_bytes(b'modified fixture')
+            with self.assertRaisesRegex(ValueError, 'payload differs'):
+                N.groovy_classpath(tools)
     def test_changed_missing_and_aliased_dependency_declarations_fail_early(self):
         N.check_intent(self.candidate, self.intent)
         source = self.candidate / 'conanfile.py'

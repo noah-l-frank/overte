@@ -153,6 +153,45 @@ class WorkflowContracts(unittest.TestCase):
         self.assertEqual("${{ steps.context.outputs.source }}", candidate["ref"])
         self.assertFalse(candidate["persist-credentials"])
 
+    def test_groovy_contract_transport_is_conditional_and_cannot_poison_native_cache(self):
+        def contract(workflow):
+            steps = workflow['jobs']['android']['steps']
+            transports = {}
+            for name, flag in (('groovy', "needs.plan.outputs.android_groovy_contracts == 'true'"),
+                               ('native', "needs.plan.outputs.android_native_products != '[]'")):
+                restore = next(step for step in steps if step.get('id') == 'android-' + name + '-cache')
+                assert restore['if'] == flag
+                path, key = restore['with']['path'], restore['with']['key']
+                assert path == '${{ runner.temp }}/pr-ci-android-' + name + '-cache'
+                assert key.startswith('pr-ci-android-' + name + '-v1-')
+                save = next(step for step in steps if '/save@' in step.get('uses', '')
+                            and step.get('with', {}).get('path') == path)
+                assert save['with']['key'] == key
+                assert save['if'].startswith(flag + ' && ')
+                preparations = [step for step in steps if 'pr_ci_android_native.py' in step.get('run', '')
+                                and '--cache "$RUNNER_TEMP/pr-ci-android-' + name + '-cache"' in step['run']]
+                assert len(preparations) == 1
+                assert preparations[0]['if'] == flag
+                assert ('--groovy-only' in preparations[0]['run']) == (name == 'groovy')
+                transports[name] = (path, key)
+            assert all(left != right for left, right in zip(transports['groovy'], transports['native']))
+        contract(self.workflow)
+        for mutation in ('shared-cache', 'shared-key', 'unconditional-prepare', 'native-prepare'):
+            changed = deepcopy(self.workflow)
+            steps = changed['jobs']['android']['steps']
+            restore = next(step for step in steps if step.get('id') == 'android-groovy-cache')
+            prepare = next(step for step in steps if '--groovy-only' in step.get('run', ''))
+            if mutation == 'shared-cache':
+                restore['with']['path'] = '${{ runner.temp }}/pr-ci-android-native-cache'
+            elif mutation == 'shared-key':
+                restore['with']['key'] = next(step for step in steps if step.get('id') == 'android-native-cache')['with']['key']
+            elif mutation == 'unconditional-prepare':
+                prepare['if'] = 'always()'
+            else:
+                prepare['run'] = prepare['run'].replace('--groovy-only ', '')
+            with self.subTest(mutation=mutation), self.assertRaises(AssertionError):
+                contract(changed)
+
     def test_every_selected_owner_requires_policy_and_failed_owners_reach_receipt(self):
         owners_contract(self.workflow)
         receipt = self.jobs["ci-execution"]
