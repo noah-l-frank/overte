@@ -132,9 +132,11 @@ class FullRetirementAuditTests(unittest.TestCase):
             fixtureUrl=self.base, actorToken='a' * 64), None)
         # Hold only the actual process exit after unchanged Actor.step has
         # retired. Its journals, proof, source reads and quiet are untouched.
+        exit_statement = 'if flow.step():sys.exit(0)'
+        self.assertEqual(1, journey.ACTOR.count(exit_statement))
         program = journey.ACTOR.replace(
-            "if adapter.actor('synthetic',RUN,client).step():sys.exit(0)",
-            "if adapter.actor('synthetic',RUN,client).step():\n"
+            exit_statement,
+            "if flow.step():\n"
             "            sys.stdin.readline()\n            sys.exit(0)")
         self.assertNotEqual(journey.ACTOR, program)
         self.actor = subprocess.Popen([sys.executable, '-c', program, json.dumps(sys.path), str(configuration)],

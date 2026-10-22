@@ -1144,6 +1144,19 @@ fresh restoration checks. Missing journals alone never prove success. Global
 adapter teardown attempts retained Snapshot cleanup even with the opt-in flag
 removed and reports unresolved ownership after attempting base teardown.
 
+Finalization validates the exact actor journal version and state shape. A
+legacy version-1 archive is read without adding fields to its immutable bytes;
+version 2 also reopens every transition manifest and frame and checks its
+archived role prefix and typed scope. Current feature, retirement and child
+headers authorize every historical read under the source lock. Fresh target
+authority brackets the entire replay. Absent child headers are permitted only
+for a verified interrupted retirement or a completed archived owner.
+Five registered host cases exercise real TLS inputs, capture/save/upload,
+phase transition, process exit and repeated finalization, including malformed
+versions, missing originals, a foreign late process identity and a rolled-back
+role floor. A separate held-exit case verifies that a retired actor which still
+runs cannot authorize any archive or journal removal.
+
 The historical compiler, Java/JNI, Qt, file, transport, reducer, actor and
 recovery results above remain scoped host evidence. The current focused facade
 suite has twenty-two passing cases, including actual private filesystem/journal
