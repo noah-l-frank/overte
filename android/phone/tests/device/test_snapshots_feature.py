@@ -137,6 +137,39 @@ class BackgroundAdapter(LeasedAdapter):
         self.calls.append(operation);self.app_state=4;self.lifecycle['activations']+=1
 
 
+class HandoffAdapter(Adapter):
+    """Original handoff/control/input readers over explicit native IO producers."""
+    def __init__(self,root,run):
+        super().__init__(root)
+        from test_snapshot_handoff import Boundary as NativeHandoff
+        from test_snapshot_handoff_input import Handoff
+        self.run=run;self.native=NativeHandoff();self.input=Handoff();self.input.epoch=20000
+        io=self.input.io();original=io.capture();request=io._prepare(self.input.controls[0]['id'],'activate',reference=original)
+        self.input.plan=dict(request=request,original=original);self.input.epoch=20020
+        self.control_calls=[];self.absent=False
+        original_frame=self.native.frame
+        def frame(retired=False):
+            value=original_frame(retired);source=value['source'];source['runId']=run
+            source['source']['group']['snapshot']['runId']=run
+            for key in ('readbacks','captureFiles','upload'):source['source'][key]['runId']=run
+            value['jobs'][0]['runId']=run;return value
+        self.native.frame=frame
+    def _snapshot_handoff_control(self,_,*,read_only=False):
+        from overte_phone_snapshot_handoff import PhoneSnapshotHandoffControl
+        def send(request):
+            need(not read_only or request['operation']=='observe');self.control_calls.append(deepcopy(request))
+            need(not self.absent and request['runId']==self.run)
+            self.native.send(request);self.native.result['runId']=self.run
+        return PhoneSnapshotHandoffControl(send,lambda:json.dumps(self.native.result),lambda:self.native.epoch,lambda:True,31,
+            monotonic=lambda:self.native.time,sleep=self.native.sleep)
+    def _snapshot_system_context(self,*_):return SimpleNamespace(guard=lambda:True)
+    def _snapshot_handoff_input(self,_selector,_binding,_resolution,_authority,owner,admit,*,read_only=False):
+        need(read_only);self.input.owner=deepcopy(owner);reader=self.input.reader()
+        reader.send=lambda *_:(_ for _ in ()).throw(AssertionError('Recovery may not repeat a write'))
+        reader.admit=lambda *_:(_ for _ in ()).throw(AssertionError('Recovery may not admit'))
+        return reader
+
+
 class SnapshotsFeatureTests(unittest.TestCase):
     def setUp(self):
         self.temp=tempfile.TemporaryDirectory(prefix='snapshots-feature-');self.addCleanup(self.temp.cleanup)
@@ -289,5 +322,73 @@ class SnapshotsFeatureTests(unittest.TestCase):
         self.adapter.binding['processIdentity']='99:1';f.monotonic=lambda:101.
         with f.lock.held(),self.assertRaises(NativeUIError):f.load()
         self.assertEqual(original,f.store.read());self.assertEqual([],self.adapter.calls)
+
+    def handoff_journal(self,stage):
+        self.failed_preflight();self.adapter=HandoffAdapter(self.root,self.run);f=self.feature()
+        with f.lock.held():
+            f.load();resolution=dict(component='android/ExplicitSyntheticChooser')
+            f.state['original']=dict(avatar=dict(source=dict(cameraMode='selfie')))
+            f.archive_input(dict(snapshotsBaseline=dict(avatar=deepcopy(f.state['original']['avatar']),resolution=resolution)))
+            call=dict(contractVersion=VERSION,runId=self.run,fixtureUrl=f.fixture_url,ticket=uuid.uuid4().hex,verb='share-open',inputs={})
+            f.state.update(phase='acting',current=dict(call=call,phase='issuing',pending=None))
+            f.archive_input(dict(snapshotInput=self.adapter.input.plan))
+            identifier='b'*32;start=self.adapter._snapshot_handoff_control(None).request(self.run,'start',identifier)
+            from overte_phone_snapshot_handoff import bound
+            self.adapter.input.owner=bound(start)
+            if stage=='start':f.state['current']['pending']=dict(kind='handoff-start',id=identifier,mode='share',plan=self.adapter.input.plan)
+            else:
+                index=f.archive_input(dict(handoffStart=start,handoffPlan=self.adapter.input.plan))
+                f.state['handoff']=dict(id=identifier,kind='share',resolution=resolution,binding=bound(start),sourceIndex=index)
+                f.state['current']['pending']=dict(kind='handoff-input',issued=True,binding=bound(start),plan=self.adapter.input.plan)
+                self.adapter.input.reader().deliver(self.adapter.input.plan)
+            f.save()
+        return f
+
+    def test_lost_native_start_return_observes_owned_job_without_restarting_or_delivering(self):
+        self.handoff_journal('start');f=self.feature()
+        with f.lock.held():
+            f.load();f.recover_handoff_input();self.assertIsNone(f.state['current']['pending'])
+            self.assertEqual('b'*32,f.state['handoff']['id'])
+        self.assertEqual(['start','observe'],[row['operation'] for row in self.adapter.control_calls]);self.assertEqual([],self.adapter.input.sent)
+        again=self.feature()
+        with again.lock.held():again.load();again.recover_handoff_input()
+        self.assertEqual(2,len(self.adapter.control_calls));self.assertEqual([],self.adapter.input.sent)
+
+    def test_issued_handoff_recovers_original_receipt_without_readmission_or_write(self):
+        self.handoff_journal('issued');f=self.feature()
+        with f.lock.held():
+            f.load();f.recover_handoff_input();self.assertIsNone(f.state['current']['pending'])
+            originals=f.inputs.restore(f.state['inputs'],f.state['inputSequence'])
+            self.assertIn('snapshotHandoffRecovered',originals[-1]);self.assertEqual(self.adapter.input.plan,originals[-1]['plan'])
+        self.assertEqual(1,len(self.adapter.input.sent));self.assertEqual(1,len(self.adapter.input.admissions))
+
+    def test_missing_native_start_preserves_unadmitted_authority(self):
+        self.handoff_journal('start');f=self.feature();header=f.store.read();self.adapter.absent=True
+        with f.lock.held():
+            f.load()
+            with self.assertRaises(NativeUIError):f.recover_handoff_input()
+        self.assertEqual(header,f.store.read());self.assertEqual([],self.adapter.input.sent)
+
+    def test_missing_original_receipt_preserves_issued_authority_and_never_retries(self):
+        self.handoff_journal('issued');self.adapter.input.raw='';f=self.feature();header=f.store.read()
+        with f.lock.held():
+            f.load()
+            with self.assertRaises(NativeUIError):f.recover_handoff_input()
+        self.assertEqual(header,f.store.read());self.assertEqual(1,len(self.adapter.input.sent));self.assertEqual(1,len(self.adapter.input.admissions))
+
+    def test_receipt_already_archived_before_pending_clear_rechecks_without_retry(self):
+        f=self.handoff_journal('issued')
+        with f.lock.held():
+            f.load();f.archive_input(dict(snapshotHandoffInput=self.adapter.input.plan,receipt=json.loads(self.adapter.input.raw)))
+        f=self.feature()
+        with f.lock.held():f.load();f.recover_handoff_input();self.assertIsNone(f.state['current']['pending'])
+        self.assertEqual(1,len(self.adapter.input.sent));self.assertEqual(1,len(self.adapter.input.admissions))
+
+    def test_changed_pending_plan_cannot_reconstruct_original_issued_authority(self):
+        f=self.handoff_journal('issued');header=f.store.read();changed=deepcopy(header);rows=unpack(changed['payload'])
+        rows[0]['current']['pending']['plan']['request']['commandId']='e'*32;changed['payload']=pack(rows);f.store.write(changed,header)
+        rebuilt=self.feature()
+        with rebuilt.lock.held(),self.assertRaises(NativeUIError):rebuilt.load()
+        self.assertEqual(changed,f.store.read());self.assertEqual(1,len(self.adapter.input.sent))
 
 if __name__=='__main__':unittest.main()

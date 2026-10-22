@@ -764,3 +764,12 @@ original monotonic twenty-second bound. Expiry or a changed process preserves
 the pending journal and fails. The host recovery counterprobes use actual
 private journals and the original native packet reader with explicit synthetic
 SDK/lifecycle producers; they do not qualify device execution or latency.
+
+Handoff recovery counterprobes reconstruct the actual private owner and
+immutable input archive with original handoff and input readers. A lost native
+start result observes only the existing job; a durably issued Save/Share reads
+only its original receipt. Missing jobs or receipts retain the pending journal.
+A changed pending plan cannot acquire authority from the same run. A receipt
+archived before the pending-clear write can be rechecked without admission or
+another input. These native/UI producers are explicit transport seams; actual
+OS-scope admission and independent Save/Share effects remain separate checks.
