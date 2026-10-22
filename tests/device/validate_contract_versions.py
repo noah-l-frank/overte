@@ -91,7 +91,7 @@ REQUIRED = {
     "navigation-bookmark-operations": 1,
     "native-chat-observation": 2,
     "native-chat-domain-session": 1,
-    "fixture-chat-mixer-control": 1,
+    "fixture-chat-mixer-control": 2,
     "native-chat-view": 2,
     "chat-journey-samples": 1,
     "chat-journey-no-replay": 2,

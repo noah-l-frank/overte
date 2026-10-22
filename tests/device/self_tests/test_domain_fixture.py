@@ -163,8 +163,15 @@ class DomainFixtureTest(unittest.TestCase):
                 self.assertIn("Agent.isAvatar = true", peer_script)
                 if chat_receiver:
                     endpoint = metadata["messagesMixerControlUrl"]
+                    mixer_run = uuid.uuid4().hex
                     def mixer_request(action=None, *, token=metadata["controlToken"], extra=None):
-                        payload = None if action is None else json.dumps({"schemaVersion": 1, "action": action, **(extra or {})}).encode()
+                        payload = None
+                        if action is not None:
+                            with mixer_request() as observed:
+                                actual = json.loads(observed.read())
+                            payload = json.dumps({**dict(schemaVersion=2, commandId=uuid.uuid4().hex, runId=mixer_run,
+                                instance=actual['instance'], observedGeneration=actual['mixer']['generation'],
+                                action=action), **(extra or {})}).encode()
                         return urlopen(Request(endpoint, method="GET" if payload is None else "POST", data=payload,
                             headers={"X-Overte-E2E-Token": token, "Content-Type": "application/json"}), timeout=6)
                     deadline = time.monotonic() + 3
@@ -182,16 +189,19 @@ class DomainFixtureTest(unittest.TestCase):
                         self.assertEqual(400, rejected.exception.code);rejected.exception.close()
                     with mixer_request() as response:
                         initial = json.loads(response.read())
-                    self.assertTrue(initial["running"]);self.assertFalse(initial["pending"])
+                    self.assertTrue(initial["mixer"]["running"]);self.assertFalse(initial["mixer"]["pending"])
                     with mixer_request("offline") as response:
                         stopped = json.loads(response.read())
-                    self.assertFalse(stopped["running"]);self.assertFalse(stopped["pending"])
+                    self.assertFalse(stopped["mixer"]["running"]);self.assertFalse(stopped["mixer"]["pending"])
                     self.assertFalse(Path(f"/proc/{mixer_pid}").exists())
                     for name, pid in before_pids.items():
                         if name != "pid-4.json":
                             self.assertTrue(Path(f"/proc/{pid}").exists(), name + " must survive mixer removal")
                     with mixer_request() as response:
-                        self.assertEqual(stopped, json.loads(response.read()))
+                        actual = json.loads(response.read())
+                        self.assertEqual(stopped['mixer'], actual['mixer'])
+                        self.assertEqual(stopped['commands'], actual['commands'])
+                        self.assertGreater(actual['sequence'], stopped['sequence'])
                     self.assertIsNone(process.poll(), "intentional slow mixer stop must not trip whole-stack monitoring")
                     try:
                         with mixer_request("online") as response:
@@ -199,8 +209,8 @@ class DomainFixtureTest(unittest.TestCase):
                     except HTTPError as error:
                         error.close();process.terminate();diagnostics, _ = process.communicate(timeout=10)
                         self.fail("mixer recovery failed:\n" + diagnostics)
-                    self.assertTrue(restored["running"]);self.assertFalse(restored["pending"])
-                    self.assertGreater(restored["generation"], stopped["generation"])
+                    self.assertTrue(restored["mixer"]["running"]);self.assertFalse(restored["mixer"]["pending"])
+                    self.assertGreater(restored["mixer"]["generation"], stopped["mixer"]["generation"])
                     deadline = time.monotonic() + 3
                     while int((first_data / "pid-4.json").read_text()) == mixer_pid and time.monotonic() < deadline:
                         time.sleep(0.02)
