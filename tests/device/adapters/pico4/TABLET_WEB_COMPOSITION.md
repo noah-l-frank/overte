@@ -86,3 +86,24 @@ The actual synthetic-SDK canonical cleanup regression passes1.312s: allowed
 force-stop completes, cleanup still refuses, and both original uncertain
 capture/receipt records remain unchanged. This is retained ownership, not a
 fresh capture absence proof or finalization.
+
+## Fresh retired-capture source
+
+The private Tablet Web binding now reuses the Graphics retirement reader through
+`adapters/retired_world_capture.py`, retaining its original native birth, PID,
+binding, capture request, issued receipt identities and advancing inventory
+cursor. Tablet Web supplies its canonical Script lock and checks every default,
+browser, graphics and emote capture owner before and during inspection. The
+transport admits only `inspect`; it cannot acquire, release or remove a capture.
+Fresh packets must still prove zero callbacks/PNG memory and absence of every
+original receipt. A reappearing file or changed issuance history refuses.
+
+Two source/factory tests pass with the actual private binding and explicit
+native/OS producer seams (11.628s). Counterexamples cover reappearing files,
+callbacks, lost issuance, changed native birth or binding, existing foreign
+capture owners, and ownership appearing after reader creation. The original
+artifact bytes remain unchanged. This reader is not yet the durable final
+archive coordinator: all-role capture traversal, phase/actor retirement history,
+host handle closure and public complete-feature binding remain open.
+The owning Browser stereo and existing Graphics lifetime modules pass all
+26 cases in 88.433s; four repository suites and the contract registry also pass.

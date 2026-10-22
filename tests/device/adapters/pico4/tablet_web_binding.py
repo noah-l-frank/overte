@@ -124,3 +124,19 @@ class PicoTabletWebBinding(PicoScriptJourney):
             self.original._script_object_lifetimes(target,source_lock=flow.lock),
             self._store(target,'pico-tablet-web-'+flow.role+'-vm.json'),flow.lock,
             lambda:flow.source.client.request('/runs/'+flow.run+'/browser'))
+
+    def _tablet_web_retired_capture_observer(self,target,proof,lock,*,previous=None):
+        from adapters.retired_world_capture import observer
+        from adapters.world_render_receipts import INVENTORY_FILE
+        from adapters.pico4.graphics_binding import PicoGraphicsBinding
+        self._lock(target,lock).assert_held()
+        _ui,_source,binding,guard,_installed=self.normal_feature_runtime(target,read_only=True)
+        native=self._native_feature_observer(target,read_only=True)
+        graphics=PicoGraphicsBinding(self.original)
+        stores=[self.original._world_render_store(target)]
+        for role in ('primary','actor'):
+            stores.extend((self.original._browser_world_render_store(target,role),
+                self.original._emote_world_render_store(target,role),graphics.world_render_store(target,role=role)))
+        return observer(proof,lock,binding,native,guard,stores,
+            lambda:self.original.adb.read_debug_app_file(target,'org.overte.pico','files/overte-e2e/'+INVENTORY_FILE,attempts=1),
+            previous=previous)

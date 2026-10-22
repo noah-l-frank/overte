@@ -50,30 +50,16 @@ class PicoGraphicsBinding(PicoScriptJourney):
         return self.original._tablet_http_observer(target)
 
     def _graphics_retired_capture_observer(self,target,proof,lock,*,previous=None):
-        from adapters.graphics_journey.samples import retirement
-        from adapters.world_render_receipts import NativeWorldReceiptInventory,INVENTORY_FILE
+        from adapters.retired_world_capture import observer
+        from adapters.world_render_receipts import INVENTORY_FILE
         self._lock(target,lock).assert_held()
         _ui,_observer,binding,guard,_installed=self.normal_feature_runtime(target,read_only=True)
-        native=self._native_feature_observer(target,read_only=True);packet=native.read(0)
-        role=proof['owner']['role'];retirement(proof,proof['owner'],native.pid,binding,role)
-        need(packet['instance']==proof['memory']['instance'])
+        native=self._native_feature_observer(target,read_only=True)
         stores=[self.world_render_store(target,role=value) for value in ('primary','actor')]
         stores.append(self.original._world_render_store(target))
-        def quiet_guard():
-            lock.assert_held();need(guard() is not False and native.guard() is not False
-                and all(store.read() is None for store in stores));return True
-        floor=proof['files']['absent'] if previous is None else previous
-        updated=deepcopy(proof);updated['files']['absent']=deepcopy(floor)
-        retirement(updated,proof['owner'],native.pid,binding,role)
-        need(floor['sequence']>=proof['files']['absent']['sequence'])
-        quiet_guard()
-        reader=NativeWorldReceiptInventory(native.send,
+        return observer(proof,lock,binding,native,guard,stores,
             lambda:self.original.adb.read_debug_app_file(target,'org.overte.pico','files/overte-e2e/'+INVENTORY_FILE,attempts=1),
-            native.clock_ms,quiet_guard,native.pid,lambda:deepcopy(proof['owner']),lambda:packet['instance'],
-            monotonic=native.monotonic,sleep=native.sleep)
-        reader.sequence,reader.captured=floor['sequence'],floor['capturedEpochMs']
-        reader.histories={floor['requestId']:{row['receiptId']:row['issued'] for row in floor['source']['receipts']}}
-        return reader
+            previous=previous)
 
     def _script_file_io(self,target,*,read_only=False):
         need(type(read_only) is bool)
