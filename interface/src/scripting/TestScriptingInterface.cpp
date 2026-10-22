@@ -35,6 +35,7 @@
 #include "../../../tests/device/native/TabletHttpObservationBridge.h"
 #include "../../../tests/device/native/LocationBookmarkObservation.h"
 #include "../../../tests/device/native/NavigationFailureModals.h"
+#include "../../../tests/device/native/NavigationEnvironmentObservation.h"
 #include "LocationBookmarks.h"
 #include <XMLHttpRequestClass.h>
 #include "../../../tests/device/native/PrivateWorldRenderReceipts.h"
@@ -491,6 +492,18 @@ QVariantMap TestScriptingInterface::featureProcessPresence(const QVariantMap& co
 }
 
 #if defined(ANDROID_APP_PICO_INTERFACE)
+QVariantMap TestScriptingInterface::featureNavigationEnvironment(const QVariantMap& command) {
+    if (QThread::currentThread()!=thread()) {
+        if (!thread() || !thread()->isRunning()) { return {}; }
+        QVariantMap result;
+        if (!QMetaObject::invokeMethod(this,[&] { result=featureNavigationEnvironment(command); },Qt::BlockingQueuedConnection)) { return {}; }
+        return result;
+    }
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript") || !overte::e2e::previewDirectory(_testResultsLocation)) { return {}; }
+    return overte::e2e::navigationEnvironmentObservation().snapshot(command);
+}
+
 QVariantMap TestScriptingInterface::featureNavigationModals(const QVariantMap& command) {
     if (QThread::currentThread()!=thread()) {
         if (!thread() || !thread()->isRunning()) { return {}; }
@@ -1183,7 +1196,7 @@ void TestScriptingInterface::saveObject(QVariant variant, const QString& filenam
             || filename == "feature-chat-view-observation.json" || filename == "feature-web-dom-observation.json"
             || filename == "feature-pending-commit-owner.json" || filename == "feature-navigation-replies.json"
             || filename == "feature-location-bookmarks.json"
-            || filename == "feature-navigation-modals.json"
+            || filename == "feature-navigation-modals.json" || filename == "feature-navigation-environment.json"
             || filename == "feature-process-presence.json"
             || filename == "feature-graphics-subject.json" || filename == "feature-scene-load.json"
             || filename == "feature-web-runtime.json" || filename == "feature-tablet-http.json"

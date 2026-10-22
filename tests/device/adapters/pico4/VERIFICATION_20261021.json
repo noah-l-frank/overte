@@ -1448,5 +1448,49 @@
     ],
     "details": "Actual original probe/Android command dispatch, original TabletMessageBox and MessageDialogButton JavaScript execution, actual private Pico factories and existing normal input router, real durable private journals and owned loopback completed HTTP response/header. Native/Qt/device boundaries remain synthetic. Counterexamples cover original capture identity/clock/barrier, v1/v2 continuity, source/current-ticket/generation, ignored/lost input, root and listener independently retained, changed geometry/event, archive/query replay and interrupted quiet. Native source inspection follows actual GUI reply -> NodeList original callback -> GUI original not-found modal. Bookmark nonce/run grammar now admits actual V8 numeric QVariant carrier via exact JSON numeric comparison.",
     "limits": "No builds, compilers, real devices, installations, device services, remote writes or physical Qt/VR/thread/render qualification. Native source remains uncompiled. Full Navigation still needs selected-origin/account/federation/maturity preservation, consumed directory/model/arrival/stereo joins, original restart/bookmark transfer and independent final resource retirement. No complete Navigation capability is advertised; three source/host-complete areas and eleven incomplete remain."
+  },
+  "navigationOriginalDirectory": {
+    "status": "partial-source-host-verified",
+    "contracts": [
+      "native-navigation-environment v1",
+      "native-navigation-origin-controls v1",
+      "navigation-origin-operations v1",
+      "navigation-environment-archive v1"
+    ],
+    "checks": [
+      {
+        "command": "python3 tests/run-unittest-suite.py tests/device/self_tests --pattern test_navigation_origin.py",
+        "tests": 13,
+        "status": "passed",
+        "durationSeconds": 7.032
+      },
+      {
+        "command": "python3 -m unittest self_tests.test_navigation_origin self_tests.test_navigation_error_dismissal self_tests.test_native_navigation_modals self_tests.test_token_navigation_error_ui self_tests.test_native_navigation_replies self_tests.test_native_location_bookmarks self_tests.test_navigation_bookmarks self_tests.test_token_places_ui self_tests.test_navigation_source_semantics",
+        "tests": 79,
+        "status": "passed",
+        "durationSeconds": 15.653
+      },
+      {
+        "command": "python3 tests/device/validate_contract_versions.py",
+        "status": "passed"
+      },
+      {
+        "command": "python3 android/vr/pico/tests/pico4-test-suite.py --test normal-create --test normal-chat --test normal-login --test suite-runner --test coverage-matrix --timeout 240",
+        "groups": 5,
+        "catalogGroups": 52,
+        "status": "passed",
+        "durationSeconds": 64.81,
+        "junit": "navigation-origin-pico.xml"
+      },
+      {
+        "command": "python3 tests/run-project-tests.py --suite documentation --suite documentation-contracts --suite source-layout --suite project-coverage",
+        "suites": 4,
+        "status": "passed",
+        "durationSeconds": 2.82,
+        "junit": "navigation-origin-final-project.xml"
+      }
+    ],
+    "details": "Actual private Pico factories and existing normal input router; separate native-source protocol and passive account original validation; original probe and actual LinkAccountBody directory Return handler run under Node. Normal focus/replace/Return/Home and separate original URL restoration including /server path, all four applied lost replies without resend, each ignored effect retaining pending ownership, original scope/counter admission, original settings/account/UI quiet, query/source/archive faults and full 64-event history retained through bounded digest-referenced private original files. Native packet capture time is taken after nested original account observation to preserve its actual clock ordering.",
+    "limitations": "Native Qt/Settings/account/key/thread sources remain uncompiled and all OS/device boundaries are simulated. No builds, compilers, devices, installations, services, remote or protected writes. The parent still owns normal login-page opening and full source/input lock. Unowned credentials/principal/password/draft, environment override and absence of the original explicit directory setting are refused before input: an ordinary UI field cannot restore setting absence. Federation/maturity are preserved unchanged by this component, not normally reconfigured. Whole Navigation still requires consumed directory/model/arrival/stereo, maturity composition, remaining Go To closure, actual restart/bookmark transfer, independent publication and full final retirement. Three complete source/host areas remain; no new full capability."
   }
 }

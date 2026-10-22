@@ -1023,6 +1023,22 @@
     }
 
     function applyClientCommand(command) {
+        if (command && command.action === "feature-navigation-environment") {
+            if (command.schemaVersion === 1 && typeof command.commandId === "string"
+                    && command.commandId.length === 32 && /^[0-9a-f]{32}$/.test(command.commandId)
+                    && typeof command.runId === "string" && command.runId.length === 32 && /^[0-9a-f]{32}$/.test(command.runId)
+                    && objectKeysMatch(command,["schemaVersion","commandId","action","runId"])) {
+                var navigationEnvironment={navigationModalVersion:1,commandId:command.commandId,status:"unavailable"};
+                try {
+                    if (typeof Test.featureNavigationEnvironment === "function") {
+                        var originalNavigationEnvironment=Test.featureNavigationEnvironment(command);
+                        if (originalNavigationEnvironment && originalNavigationEnvironment.commandId === command.commandId) { navigationEnvironment=originalNavigationEnvironment; }
+                    }
+                } catch (_navigationModalError) { /* Unknown presentation is never an absent successful modal. */ }
+                Test.saveObject(navigationEnvironment,"feature-navigation-environment.json");
+            }
+            return true;
+        }
         if (command && command.action === "feature-navigation-modals") {
             if (command.schemaVersion === 1 && typeof command.commandId === "string"
                     && command.commandId.length === 32 && /^[0-9a-f]{32}$/.test(command.commandId)
@@ -1673,6 +1689,7 @@
                 || command.action === "feature-pending-commit-owner" || command.action === "feature-navigation-replies"
                 || command.action === "feature-location-bookmarks"
                 || command.action === "feature-navigation-modals"
+                || command.action === "feature-navigation-environment"
                 || command.action === "feature-process-presence"
                 || command.action === "feature-recorded-audio-observe" || command.action === "feature-recorded-audio-release"
                 || command.action === "feature-recorded-audio-files" || command.action === "feature-script-observe"

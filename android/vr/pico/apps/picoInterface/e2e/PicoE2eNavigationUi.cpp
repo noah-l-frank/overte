@@ -19,6 +19,7 @@
 #include "../../../../../../tests/device/native/NormalAccountMenuControls.h"
 #include "../../../../../../tests/device/native/NormalPlacesControls.h"
 #include "../../../../../../tests/device/native/NavigationFailureModals.h"
+#include "../../../../../../tests/device/native/NavigationEnvironmentObservation.h"
 #include "../../../../../../tests/device/native/FeatureUiInventory.h"
 #include "../../../../../../tests/device/native/NormalNavigationAddress.h"
 #include "../../../../../../tests/device/native/TabletHttpObservation.h"
@@ -334,6 +335,8 @@ QJsonObject NavigationUi::observe(QQuickItem* root, QQuickWindow* window, bool o
 #if defined(ANDROID_APP_PICO_INTERFACE)
     result["placesControlsVersion"]=1;
     result["navigationErrorControlsVersion"]=1;
+    result["navigationOriginControlsVersion"]=1;
+    overte::e2e::navigationEnvironmentObservation().observe(result,controls.value("login.server").item,controls.value("login.page").item);
 #endif
 #endif
     return result;
@@ -466,7 +469,11 @@ QJsonObject NavigationUi::apply(QQuickItem* root, QQuickWindow* window, bool ope
         } else if (action=="replace" && (controlId=="login.username" || controlId=="login.password" || controlId=="login.server")
                 && command.value("text").isString() && overte::e2e::validLoginText(command.value("text").toString())) {
             delivered=overte::ui::replaceFocusedField(control.item,window,command.value("text").toString());
-        } else if (action=="submit" && controlId=="login.password") {
+        } else if (action=="submit" && (controlId=="login.password"
+#if defined(ANDROID_APP_PICO_INTERFACE)
+                || controlId=="login.server" && current.value("navigationOriginControlsVersion")==QJsonValue(1)
+#endif
+                )) {
             delivered=overte::ui::submitFocusedField(control.item,window);
         }
     } else if (controlId.startsWith("graphics.") || (controlId == "settings.entry" && current.contains("graphicsControlsVersion"))) {

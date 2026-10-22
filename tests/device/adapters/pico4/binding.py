@@ -21,6 +21,7 @@ from adapters.native_web_dom import NativeWebDOMObservation, FILE as WEB_DOM_FIL
 from adapters.native_navigation_replies import NativeNavigationReplies, FILE as NAVIGATION_REPLIES_FILE
 from adapters.native_location_bookmarks import NativeLocationBookmarks, FILE as LOCATION_BOOKMARKS_FILE
 from adapters.native_navigation_modals import NativeNavigationModals, FILE as NAVIGATION_MODALS_FILE
+from adapters.native_navigation_environment import NativeNavigationEnvironment, FILE as NAVIGATION_ENVIRONMENT_FILE
 from adapters.native_process_presence import NativeProcessPresence, FILE as PROCESS_PRESENCE_FILE
 from adapters.pending_commit_owner import NativePendingCommitOwner, FILE as PENDING_OWNER_FILE
 from adapters.native_account_origin import NativeAccountOrigin, OwnedAccountOrigin, FILE as ACCOUNT_ORIGIN_FILE
@@ -493,6 +494,14 @@ def create_adapter(args, base_class):
                 self._location_bookmarks(target), path, run, manager.binding)
 
         @_private
+        def _navigation_origin(self, target, path, run, guard):
+            from adapters.navigation_origin import NavigationOrigin
+            from adapters.pico4.normal_navigation_origin import PicoNavigationOriginIO
+            manager = self._scripts(target)
+            return NavigationOrigin(PicoNavigationOriginIO(manager.ui.io), self._navigation_environment(target),
+                path, run, manager.binding, guard)
+
+        @_private
         def _navigation_error_controls(self, target, intent, run):
             from adapters.token_navigation_error_ui import TokenNavigationErrorUI
             from adapters.pico4.normal_navigation_error import PicoNavigationErrorIO
@@ -668,6 +677,14 @@ def create_adapter(args, base_class):
             return NativeLocationBookmarks(native.send,
                 lambda: self.adb.read_debug_app_file(target, 'org.overte.pico',
                     'files/overte-e2e/' + LOCATION_BOOKMARKS_FILE, attempts=1),
+                native.clock_ms, native.guard, native.pid, monotonic=native.monotonic, sleep=native.sleep)
+
+        @_private
+        def _navigation_environment(self, target):
+            native = self._native_feature_observer(target)
+            return NativeNavigationEnvironment(native.send,
+                lambda: self.adb.read_debug_app_file(target, 'org.overte.pico',
+                    'files/overte-e2e/' + NAVIGATION_ENVIRONMENT_FILE, attempts=1),
                 native.clock_ms, native.guard, native.pid, monotonic=native.monotonic, sleep=native.sleep)
 
         @_private

@@ -64,7 +64,13 @@
         "tests/device/adapters/pico4/NAVIGATION_ERROR.md",
         "tests/device/self_tests/test_native_navigation_modals.py",
         "tests/device/self_tests/test_token_navigation_error_ui.py",
-        "tests/device/self_tests/test_navigation_error_dismissal.py"
+        "tests/device/self_tests/test_navigation_error_dismissal.py",
+        "tests/device/native/NavigationEnvironmentObservation.h",
+        "tests/device/adapters/native_navigation_environment.py",
+        "tests/device/adapters/navigation_origin.py",
+        "tests/device/adapters/pico4/normal_navigation_origin.py",
+        "tests/device/adapters/pico4/NAVIGATION_ORIGIN.md",
+        "tests/device/self_tests/test_navigation_origin.py"
       ],
       "declaredCheckpoints": 15,
       "inputVerbs": [
@@ -94,7 +100,7 @@
       ],
       "missingOperationsOrEvidence": [
         "Whole-area integration of the present normal Places/bookmark flow and original lookup-error modal/normal OK/quiet release with directory consumption, arrival and actual restart",
-        "Selected normal metaverse origin/account/federation/maturity setup and restoration; current directory response/model/normal selection/arrival composition",
+        "Whole-area composition of the present original directory selection/restoration owner with current directory consumption/model/normal selection/arrival, maturity preservation and original restart; an absent original endpoint setting or unowned credentials/draft is explicitly refused before input",
         "Whole-area independent publisher and complete original callback/resource retirement"
       ],
       "requiredOriginalEvidence": [
@@ -109,7 +115,7 @@
         "Restore original location and closed owned dialogs",
         "Prove pending reply/callback retirement and a three-second quiet baseline"
       ],
-      "nextExecutableStep": "Compose the normal Places/bookmark and original lookup-error dismissal owners with original selected-origin/account preservation, directory response/model/native arrival/stereo join, actual restart and an independent final quiet/resource observer before registering the complete area triple.",
+      "nextExecutableStep": "Compose the normal Places/bookmark, original directory selection/restoration and lookup-error dismissal owners with actual directory response consumption/model/native arrival/stereo, remaining Go To closure, actual restart and an independent final quiet/resource observer before registering the complete area triple.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     },

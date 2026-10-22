@@ -103,7 +103,7 @@ The inspected original READY_FOR_CONTENT path calls `transmitPortalList`, which
 aborts the previous request, clears cached portals and starts a new generation
 fetch. Every open must join its actual provider response and consumed current
 model. No cached-list or completed network receipt alone establishes this.
-The next whole-area work is the original selected metaverse/account source,
-normal ownership-preserving setup/restoration, directory response/model/arrival
-join, composition of the original lookup-error owner, restart and independent
-final observer.
+The [normal directory owner](NAVIGATION_ORIGIN.md) provides original
+endpoint/account/settings observation and guarded selection/restoration. Next
+compose it with directory response consumption/model/arrival, original lookup
+error and remaining Go To closure, restart and the independent final observer.

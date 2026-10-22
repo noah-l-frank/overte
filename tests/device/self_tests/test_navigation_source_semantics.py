@@ -117,5 +117,25 @@ assert.deepEqual(calls,[['selected',1024,1024],['destroy']]);
             str(ROOT/'interface/resources/qml/dialogs/messageDialog/MessageDialogButton.qml')],capture_output=True,text=True,timeout=5)
         self.assertEqual(0,result.returncode,result.stdout+result.stderr)
 
+    def test_original_directory_enter_commits_path_updates_auth_and_does_not_submit_credentials(self):
+        program=r'''
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const text=fs.readFileSync(process.argv[1],'utf8');const field=text.indexOf('id: metaverseServerField');
+const start=text.indexOf('Keys.onPressed: {',field)+'Keys.onPressed: '.length;
+assert(field>=0&&start>field);let end=start,depth=0;do{if(text[end]==='{')depth++;if(text[end]==='}')depth--;end++;}while(depth&&end<text.length);
+const calls=[],ctx={event:{key:4,accepted:false},Qt:{Key_Tab:1,Key_Backtab:2,Key_Enter:3,Key_Return:4},
+ isLoggingInToDomain:false,metaverseServerField:{text:'https://original.invalid/server'},passwordField:{text:'unowned'},
+ displayNameField:{focus:false},Settings:{setValue:(key,value)=>calls.push([key,value])},
+ AccountServices:{isLoggedIn:()=>false,logOut:()=>calls.push('logout'),updateAuthURLFromMetaverseServerURL:()=>calls.push('auth')},
+ console:{log:()=>{}}};vm.createContext(ctx);vm.runInContext('function press() '+text.slice(start,end),ctx);
+ctx.press();assert.deepEqual(calls,[['private/selectedMetaverseURL','https://original.invalid/server'],'auth']);
+assert.equal(ctx.passwordField.text,'');assert.equal(ctx.event.accepted,true);
+calls.length=0;ctx.event.key=1;ctx.press();assert.equal(calls.length,0);assert.equal(ctx.displayNameField.focus,true);
+ctx.event.key=4;ctx.isLoggingInToDomain=true;ctx.press();assert.equal(calls.length,0);
+'''
+        result=subprocess.run(['node','-e',program,str(ROOT/'interface/resources/qml/LoginDialog/LinkAccountBody.qml')],
+            capture_output=True,text=True,timeout=5)
+        self.assertEqual(0,result.returncode,result.stdout+result.stderr)
+
 
 if __name__=='__main__':unittest.main()

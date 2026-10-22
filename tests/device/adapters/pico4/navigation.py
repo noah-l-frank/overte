@@ -105,6 +105,9 @@ def validate_snapshot(value, process_id, epoch_ms):
     if type(value) is dict and 'navigationErrorControlsVersion' in value:
         fields.add('navigationErrorControlsVersion')
         need(type(value['navigationErrorControlsVersion']) is int and value['navigationErrorControlsVersion']==1)
+    if type(value) is dict and 'navigationOriginControlsVersion' in value:
+        fields.add('navigationOriginControlsVersion')
+        need(type(value['navigationOriginControlsVersion']) is int and value['navigationOriginControlsVersion']==1)
     need(type(value) is dict and set(value) == fields
          and type(value['schemaVersion']) is int and value['schemaVersion'] == 1
          and identifier(value['bridgeId']) and identifier(value['generation'])
@@ -283,7 +286,7 @@ class PicoNavigation:
                 return value
         return None
 
-    def input(self, control_id, action='activate', text=None, *, source=None, index=None, token=None, direction=None, value=None, reference=None, expected_address=None):
+    def input(self, control_id, action='activate', text=None, *, source=None, index=None, token=None, direction=None, value=None, reference=None, expected_address=None, expected_scope=None):
         # SDK/package verification can take longer than the native input's
         # freshness window. Bind bytes first, then capture the current UI.
         self.io.bind_input()
@@ -291,6 +294,14 @@ class PicoNavigation:
         control = self.control(snapshot, control_id)
         need(snapshot['ready'] and control is not None and snapshot['lastCommandSequence'] < MAX_INTEGER)
         if token is not None: need(control['token'] == token)
+        if expected_scope is not None:
+            from adapters.token_create_ui import scope
+            scope(expected_scope)
+            need(snapshot.get('navigationOriginControlsVersion')==1 and control_id in ('login.server','tablet.home')
+                 and token is not None and reference is None
+                 and snapshot['bridgeId']==expected_scope['instance'] and snapshot['generation']==expected_scope['generation']
+                 and snapshot['processId']==expected_scope['processId'] and snapshot['lastCommandSequence']==expected_scope['sequence']
+                 and 0<=snapshot['elapsedMs']-expected_scope['elapsedMs']<=5000)
         need(expected_address is None or control_id=='navigation.address' and action=='submit')
         if expected_address is not None:
             need(type(expected_address) is str and 0<len(expected_address)<=2048
@@ -350,7 +361,7 @@ class PicoNavigation:
                  and action in ('activate','replace','submit'))
             if action in ('replace','submit'):need(control['focused'])
             if action=='replace':need(control_id in ('login.username','login.password','login.server'))
-            if action=='submit':need(control_id=='login.password')
+            if action=='submit':need(control_id=='login.password' or control_id=='login.server' and snapshot.get('navigationOriginControlsVersion')==1)
         elif graphics_control(control_id) and snapshot.get('graphicsControlsVersion')==1:
             need(token is not None and control['inputReady'] and control['viewport']=='visible'
                  and control_id!='graphics.page' and action in ('activate','scroll','set-value'))
@@ -375,6 +386,8 @@ class PicoNavigation:
             'sequence': snapshot['lastCommandSequence'] + 1,
             'observedElapsedMs': snapshot['elapsedMs'], 'controlId': control_id,
             'controlToken': control['token'], 'action': action}
+        if expected_scope is not None:
+            command.update(observedElapsedMs=expected_scope['elapsedMs'],sequence=expected_scope['sequence']+1)
         if reference is not None:
             command.update(observedElapsedMs=reference['scope']['elapsedMs'],sequence=reference['scope']['sequence']+1,controlToken=original['token'])
         if action == 'replace':

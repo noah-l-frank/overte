@@ -575,3 +575,22 @@ changes: no functional product callback, signal dispatch count, modal creation
 or dismissal behavior is replaced. Shared reply readers accept v1 and v2; the
 new Pico modal owner requires v2. Native code is uncompiled. Complete areas
 remain Scripts, Authentication and Graphics; continue the other eleven areas.
+
+
+## Original directory selection and restoration
+
+The [normal directory owner](NAVIGATION_ORIGIN.md) now joins original Settings,
+effective MetaverseAPI endpoint, passive account, original login draft and
+current VR input. It normally focuses/replaces/submits the actual directory
+field, closes through Home and verifies three seconds of actual original quiet.
+A separate parent ticket restores the captured original endpoint including its
+path. All four applied lost replies resume without resending. Full original
+account histories survive in bounded hash-referenced private evidence files.
+
+Initial credentials, saved principal, password or unowned draft, environment
+override and absence of the original setting are refused before input. The
+ordinary field cannot restore setting absence; no product setter, credentials
+replay or environment override is introduced. These restrictions are explicit
+source prerequisites, not a complete-area or device claim. The complete count
+remains three. Next join actual consumed directory/model/native arrival/stereo,
+remaining Go To closure, original restart and independent final retirement.
