@@ -695,7 +695,9 @@
         "tests/device/adapters/native_script_object_lifetimes.py",
         "tests/device/native/SCRIPT_OBJECT_LIFETIMES.md",
         "tests/device/self_tests/test_native_script_object_lifetimes.py",
-        "tests/device/contracts/lifecycle/test_script_object_lifetimes.py"
+        "tests/device/contracts/lifecycle/test_script_object_lifetimes.py",
+        "tests/device/adapters/pico4/browser_vm.py",
+        "tests/device/self_tests/test_pico_browser_vm.py"
       ],
       "declaredCheckpoints": 26,
       "inputVerbs": [
@@ -736,7 +738,7 @@
       "missingOperationsOrEvidence": [
         "Complete 26-step qualification of the private normal Script/app/Home/wheel/keyboard/document-transition coordinator, including actual joined input effects and lost-input cleanup; source composition is present but only baseline and counterexamples are host verified",
         "Complete independent actor/state/stereo publication and inline/held-callback qualification across all shared steps; private baseline actor, once-only durable publication and post-CAS original clock fences are host verified",
-        "Whole final Script/native/Java/renderer/capture quiet retirement and immutable archive: actual Manager/engine/worker QObject death source is present and Qt component compiled, but the original compiled browser VM scope, complete phase histories and final capture absence are not yet joined into this private owner"
+        "Whole final Script/native/Java/renderer/capture quiet retirement and immutable archive: original compiled HTTP client, actual manager/engine/worker death and retained three-clock VM quiet are now joined to the private owner; complete phase/capture/actor originals and final capture absence remain outstanding"
       ],
       "requiredOriginalEvidence": [
         "Original VR tablet Web view and current document admission",
@@ -749,7 +751,7 @@
         "Revoke leases and retire callback/grant authority",
         "Observe actual source destruction and closed quiet baseline"
       ],
-      "nextExecutableStep": "Compose the frozen Phone whole browser owner around the existing Pico normal app/Home/input and original stereo factories, retaining the exact root lock and final phase fence; then independently publish original actor samples and verify final quiet/archive retirement.",
+      "nextExecutableStep": "Execute all26 normal input/effect stages with independent actor/stereo sources; bound complete original image records, then join current capture absence, full phase histories and immutable archive before enabling private finalization or public capabilities.",
       "nativeCompilation": "Selected native backend translation unit and original Pico pointer/provider bodies host-compiled; full application unverified",
       "deviceQualification": "untested"
     },

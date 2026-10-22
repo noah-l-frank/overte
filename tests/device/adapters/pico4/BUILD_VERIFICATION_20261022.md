@@ -1025,3 +1025,13 @@ Avatar native group now compiles the complete original Pico NavigationUi
 observe/controlId/visible/enabled/token bodies with E2E+Pico gates, including
 Browser controls; that group passes7.623s with unrelated platform-service seams.
 No immutable full Pico source graph, application/APK or device claim is added.
+
+
+The private Browser VM join is now registered in the existing Script object
+lifetime group, preserving134 catalog selectors. That group passes4.098s;
+Tablet Web owner0.716s and coverage0.060s. The new host cases exercise the actual
+parent/facade and canonical generic cleanup with explicit SDK/V8/Qt DTO seams.
+An empty public Script table cannot hide still-live original QObject ownership.
+The native registry fragment remains separately compiled; no complete V8 or
+application build is inferred. Private finalization and full Browser journey
+qualification remain incomplete.

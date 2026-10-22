@@ -205,6 +205,7 @@ class PicoTabletWebFeature:
             manager.open();manager.load_source(owner['scriptUrl'])
             manager.wait_rows(lambda rows:any(row['url']==owner['scriptUrl'] for row in rows));manager.close_tablet()
             self.adapter._tablet_web_entry(self.selector,self,'browser-app.web',initial=True)
+            self.adapter._tablet_web_vm(self.selector,self).capture()
         elif verb in ('open-inline-app','return-from-inline'):
             need(bool(self.sample_native(owner)['source']['current']))
             self.adapter._tablet_web_entry(self.selector,self,'browser-app.inline' if verb=='open-inline-app' else 'browser-app.web',initial=False)
@@ -389,6 +390,9 @@ class PicoTabletWebFeature:
             and all(image['phase']=='saved' for image in state['images']))
         epoch_started=self.source.epoch_ms();need(number(epoch_started,1,1e16))
         self.runtime(owner)
+        vm=None;vm_facts=None
+        if owner['scriptUrl'] is not None:
+            vm=self.adapter._tablet_web_vm(self.selector,self);vm_facts=vm.capture()
         native=self.sample_native(owner,state['native'])
         if native['source']['retired']:need(owner['phase']=='cleaned')
         before=self.adapter._native_feature_observer(self.selector,read_only=True).read(0)
@@ -398,6 +402,8 @@ class PicoTabletWebFeature:
         _ui,observe,_binding,guard,_installed=self.adapter.normal_feature_runtime(self.selector,read_only=True)
         diagnostic,_diagnostic_epoch=observe(0);rows=diagnostic['scripts']
         measured,resources=measurement(self.run,self.fixture_url,self.foreign_url,native,status,runtime,rows,owner['scriptUrl'],area=self.area)
+        if vm_facts is not None and not vm_facts['retired'] and 'script:tablet-web-client' not in resources:
+            resources.append('script:tablet-web-client')
         artifacts=[];sequence=state['sequence']+1
         if measured['open'] and self.image_required(phase):
             need(len(state['images'])<256)
@@ -427,6 +433,9 @@ class PicoTabletWebFeature:
         epochs=[native['capturedEpochMs'],runtime['capturedEpochMs'],before['capturedEpochMs'],
             after['capturedEpochMs'],diagnostic['sampleEpochMs'],captured]
         epochs.extend(runtime['source'][key]['capturedEpochMs'] for key in ('nativeBefore','java','nativeAfter'))
+        if vm is not None:
+            frame=vm.frames[-1];epochs.extend((frame['objectsBefore']['source']['capturedEpochMs'],
+                frame['scripts']['capturedEpochMs'],frame['objectsAfter']['source']['capturedEpochMs']))
         self.sample_fence=(deepcopy(phase),start,epoch_started,epochs)
         guard();self.write(self.role_store,self.role,state)
         self.completion_fence(owner)
@@ -488,21 +497,27 @@ class PicoTabletWebFeature:
         with self.serialized(),self.adapter.existing_input_session(self.selector):
             owner=self.owner()
             if owner is None:return {'performed':True} # No reserved scope or product input was ever issued.
-            if owner['phase']=='cleaned':return {'performed':True}
             phase=self.source.read(owner['phaseSource']);need(phase['verb']=='cleanup')
+            if owner['phase']=='cleaned':
+                if owner['scriptUrl'] is not None:
+                    vm=self.adapter._tablet_web_vm(self.selector,self);need(vm.capture()['retired'] and vm.quiet(phase['afterEpochMs']))
+                return {'performed':True}
             owner.update(phase='cleaning',phaseSource=phase['status']);self.save(owner);self.close_source(owner)
             from adapters.pico4.browser_quiet import append as quiet_append
+            vm=None if owner['scriptUrl'] is None else self.adapter._tablet_web_vm(self.selector,self)
             start=previous=self.monotonic();runtime_reader=self.adapter._web_runtime_observer(self.selector,read_only=True)
             if owner['cleanupProof'] is not None:runtime_reader.last=deepcopy(owner['cleanupProof']['frames'][-1]['runtime'])
             for attempt in range(81):
                 self.runtime(owner);self.source.read(owner['phaseSource'])
+                vm_quiet=True
+                if vm is not None:vm.capture();vm_quiet=vm.quiet(phase['afterEpochMs'])
                 floor=None if owner['cleanupProof'] is None else owner['cleanupProof']['frames'][-1]['browser']
                 native=self.sample_native(owner,floor);runtime=runtime_reader.read(self.run,self.fixture_url)
                 now=self.monotonic();need(number(now,previous,start+20));previous=now
                 owner['cleanupProof']=quiet_append(owner['cleanupProof'],native,runtime,now,self.run,self.fixture_url,
                     owner['ownerToken'],int(owner['binding']['processIdentity'].split(':',1)[0]),retired=False)
                 self.save(owner)
-                if owner['cleanupProof']['complete']:break
+                if owner['cleanupProof']['complete'] and vm_quiet:break
                 need(attempt<80);self.sleep(.1)
             receipt=self.source_control(owner,'retire');need(receipt['source']=={'retired':True})
             owner.update(phase='cleaned');self.save(owner)

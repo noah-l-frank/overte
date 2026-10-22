@@ -9,6 +9,7 @@ from pathlib import Path
 
 
 REQUIRED = {
+    "pico-browser-vm": 1,
     "native-script-object-lifetimes": 1,
     "pico-tablet-web-binding": 1,
     "pico-tablet-web-feature": 1,

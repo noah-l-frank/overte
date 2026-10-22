@@ -1659,3 +1659,31 @@ private Tablet Web0.799s, complete original Avatar observer7.623s, coverage0.060
 The four required repository suites pass3.26s; registry, Node syntax and
 whitespace pass. Source-complete features remain3/14; VM/actor/capture whole
 retirement, full application and all device qualification remain outstanding.
+
+
+## Original Tablet Web VM/code and QObject retirement join
+
+`PicoBrowserVm1` now connects the private Tablet Web coordinator to the actual
+submitted and compiled pinned HTTP client, original Script manager membership,
+and original manager/engine/worker destruction source. Service-table removal
+alone keeps the Script resource owned. The primary and independent actor keep
+separate immutable original-frame files under the canonical source lock. Cold
+reconstruction restores complete source cursors without a query; pending reads,
+orphan/replaced chunks and source/HTTP/compiled-code substitution refuse. Every
+transaction checks the original source age after all copies and host CAS writes.
+
+Normal cleanup requires both the existing native/Java renderer quiet window and
+a retained original three-clock VM-death window. No source input is added by the
+VM observer. Exact completed quiet windows remain independently checkable after
+later read-only samples. Generic application cleanup scans the entire private
+Tablet Web namespace without feature configuration; rootless originals remain
+owned even after canonical force-stop. It does not adopt, unlink or qualify them.
+
+Owning source/VM group and existing parent/coverage groups pass3/134 in4.87s.
+The nine new cases include actual parent/facade composition, cold source restore,
+original compiled/HTTP/lifetime substitution, pending/slow CAS and rootless
+generic-cleanup refusal. SDK/V8/Qt producer packets remain explicit host seams;
+the separate original native registry/getter/disconnect fragment is compiled.
+Whole26-stage Browser input/effect/actor/stereo, complete capture retirement and
+archive/public integration remain outstanding. Private finalize still refuses;
+complete source areas stay3/14. No application/APK/device qualification is added.

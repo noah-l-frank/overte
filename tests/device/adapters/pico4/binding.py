@@ -2527,6 +2527,12 @@ def create_adapter(args, base_class):
                 snapshot_error=self.pico_configuration is not None and self._snapshot_originals_owned(target)
             except Exception:snapshot_error=True
             feature_error = False
+            try:
+                if self.pico_configuration is not None:
+                    from adapters.pico4.tablet_web_binding import retained
+                    if retained(self,target):feature_error=True
+            except Exception:
+                feature_error=True
             create_error = False
             try:
                 if self.pico_configuration is not None and self._create_management(target).owned():

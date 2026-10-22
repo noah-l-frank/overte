@@ -13,5 +13,6 @@ NATIVE=importlib.util.module_from_spec(SPEC);SPEC.loader.exec_module(NATIVE)
 if __name__=='__main__':
     loader=unittest.defaultTestLoader
     suite=loader.loadTestsFromName('self_tests.test_native_script_object_lifetimes')
+    suite.addTests(loader.loadTestsFromName('self_tests.test_pico_browser_vm'))
     suite.addTests(loader.loadTestsFromModule(NATIVE))
     raise SystemExit(not unittest.TextTestRunner(verbosity=2).run(suite).wasSuccessful())

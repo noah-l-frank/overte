@@ -18,6 +18,17 @@ import os
 VERSION=1
 
 
+def retained(adapter,target):
+    """Inspect the entire original namespace without configuration or adoption.
+
+    Partial reservations and orphan immutable chunks remain ownership even
+    without a readable parent. Generic application stop cannot retire them.
+    """
+    journey=PicoScriptJourney(adapter);journey.state_area='tablet-web'
+    path=journey.existing_state_path(target)
+    return path is not None and any(path.parent.iterdir())
+
+
 class PicoTabletWebBinding(PicoScriptJourney):
     state_area='tablet-web'
     def __init__(self,adapter):
@@ -103,3 +114,13 @@ class PicoTabletWebBinding(PicoScriptJourney):
             flow.run,self.scene_url,role=role,source_lock=flow.lock,journal_id=journal,fixture_url=flow.fixture_url,
             foreign_fixture_url=flow.foreign_url,owner_token=owner['ownerToken'],script_url=owner['scriptUrl'],
             http=lambda:flow.source.client.request('/runs/'+flow.run+'/browser'))
+
+    def _tablet_web_vm(self,target,flow):
+        from adapters.pico4.browser_vm import PicoBrowserVm
+        self.check_flow(target,flow);owner=flow.live_owner
+        need(owner is not None and owner['scriptUrl'] is not None)
+        return PicoBrowserVm(flow.run,flow.fixture_url,owner['scriptUrl'],flow.role,owner['binding'],
+            self.original._script_execution_observer(target,read_only=True),
+            self.original._script_object_lifetimes(target,source_lock=flow.lock),
+            self._store(target,'pico-tablet-web-'+flow.role+'-vm.json'),flow.lock,
+            lambda:flow.source.client.request('/runs/'+flow.run+'/browser'))
