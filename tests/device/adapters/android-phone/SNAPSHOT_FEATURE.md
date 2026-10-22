@@ -726,3 +726,16 @@ loss, changed histories or unfinished work keep observation/retirement red;
 retirement never cancels work or changes the original complete/failed result.
 The Qt/QML contract runs the unchanged Test method and actual input/timer code
 with explicitly synthetic VM/source producers; it is not device acceptance.
+
+
+The separate `_snapshot_handoff_input` admits one previously planned normal
+Save/Share button command while the original client is foreground. Its durable
+issued intent precedes the only write to the existing fixed private command
+file. After that write it uses the original narrow chooser/DocumentsUI system
+scope and reads only the unchanged Qt input receipt. It never sends a client
+command from OS context or changes the shared foreground-only writer. Missing
+or uncertain receipts cannot replay a click, including after reconstruction.
+The original prestarted passive handoff binding, fixed application identity,
+original token/generation/sequence/path, five-second call deadline and native
+lease deadline remain mandatory. Save/Share effects require independent current
+file, destination or consuming-APK originals; the input receipt adds no effects.

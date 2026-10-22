@@ -106,14 +106,24 @@ class PhoneSnapshotControls:
         need(mode is not None and mode['currentIndex']==MODES.index('animated'))
         return self.io.plan_capture(reference=value)
 
+    def plan_image_action(self,action,path):
+        need(action in ('save','share'))
+        value,id=self._image_control(action,path)
+        request=self.io._prepare(id,'activate',reference=value)
+        return dict(request=request,original=deepcopy(value))
+
     def image_action(self,action,path):
+        value,id=self._image_control(action,path)
+        return self.input(id)
+
+    def _image_control(self,action,path):
         need(action in ('save','share','upload') and original_path(path))
         id='snapshot.'+action+'.'+hashlib.sha256(path.encode()).hexdigest()
         self.wait_page()
         for attempt in range(13):
             value=self.capture();row=self.row(value,id)
             if row is not None:
-                need(row['path']==path);return self.input(id)
+                need(row['path']==path);return value,id
             scrollbar=self.row(value,'snapshot.scrollbar')
             if scrollbar is None or attempt==12:break
             before=scrollbar['position'];self.input('snapshot.scrollbar','scroll','down')

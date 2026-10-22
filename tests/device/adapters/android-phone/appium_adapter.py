@@ -2165,6 +2165,31 @@ class PhoneAppiumAdapter(AppiumAdapter):
             lambda:transport.read_debug_app_file(device,target['appId'],'files/overte-e2e/'+ANIMATION_INVENTORY_FILE,attempts=1),
             native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep)
 
+    def _snapshot_handoff_input(self,selector,application_binding,resolution,authority,handoff_binding,admit):
+        from overte_phone_snapshot_handoff_input import SnapshotHandoffInput
+        from overte_phone_snapshot_handoff import binding as validate_handoff
+        from overte_phone_snapshot_controls import FILE
+        validate_handoff(handoff_binding)
+        _ui,_observe,binding,foreground_guard,_installed=self.normal_feature_runtime(selector,read_only=True)
+        require(binding==application_binding and handoff_binding['processId']==int(binding['processIdentity'].split(':')[0]),
+            'PHONE_SNAPSHOT_HANDOFF_ORIGINAL_APPLICATION_REQUIRED')
+        scope=self._snapshot_system_context(selector,binding,resolution,authority)
+        target=self.target(selector);device=target['capabilities']['appium:udid'];transport=PhoneAdapter(self.candidate).adb
+        client,session,_state=self.existing_session(selector)
+        def send(command):
+            # This sole narrow writer admits only the already planned ordinary
+            # Save/Share click. No post-write foreground requirement is moved
+            # into the shared writer and no command is sent from OS context.
+            foreground_guard();require(authority() is True,'PHONE_SNAPSHOT_HANDOFF_OWNER_REQUIRED')
+            expected={'running':True,'identity':binding['processIdentity']}
+            require(self.android_client_identity(client,session,target)==expected,'PHONE_SNAPSHOT_HANDOFF_PROCESS_CHANGED')
+            foreground_guard()
+            transport.write_debug_app_file(device,target['appId'],self.ANDROID_CLIENT_COMMAND,
+                json.dumps(command,sort_keys=True,separators=(',',':'))+'\n')
+        return SnapshotHandoffInput(send,
+            lambda:transport.read_debug_app_file(device,target['appId'],'files/overte-e2e/'+FILE,attempts=1),
+            lambda:transport.epoch_milliseconds(device),foreground_guard,scope.guard,handoff_binding['processId'],handoff_binding,admit)
+
     def _snapshot_normal_controls(self,selector,intent,*,read_only=False):
         from overte_phone_snapshot_ui import PhoneSnapshotControls
         ui,_observe,_binding,guard,_installed=self.normal_feature_runtime(selector,read_only=read_only)
