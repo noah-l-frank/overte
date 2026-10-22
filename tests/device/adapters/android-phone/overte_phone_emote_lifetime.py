@@ -204,7 +204,7 @@ class PhoneEmoteLifetime:
         need(False)
 
     @classmethod
-    def retirement_archive(cls,value,source):
+    def _archive(cls,value,source,*,field,required):
         """Historical originals only; no live owner, query or current verdict."""
         need(isinstance(source,PhoneEmoteSources));source.lock.assert_held()
         started=source.monotonic();clock=started
@@ -212,28 +212,59 @@ class PhoneEmoteLifetime:
             nonlocal clock
             source.lock.assert_held();need(source.guard() is not False)
             now=source.monotonic();need(number(now,clock,1e15) and now-started<5);clock=now
-        bound();exact(value,{'emoteLifetimeRetirementVersion','segment','header','sourceHeader','cleanup'})
-        need(type(value['emoteLifetimeRetirementVersion']) is int and value['emoteLifetimeRetirementVersion']==1
+        bound();exact(value,{field,'segment','header','sourceHeader','cleanup'})
+        need(type(value[field]) is int and value[field]==1
             and type(value['segment']) is int and value['segment']==source.segment)
         header=value['sourceHeader'];need(type(header) is dict and header.get('role')==source.role
             and same(header.get('admissionPolicy'),source.admission))
         state,frames=PhoneEmoteSources.archive(header,phase=source.phase,artifact_root=source.artifact_root,
             binding=source.binding,guard=bound,monotonic=source.monotonic)
-        need(state['phase']=='ready' and state['pending'] is None and frames
+        need(state['phase']=='ready' and state['pending'] is None
             and len(source.frames)>=len(frames) and same(source.frames[:len(frames)],frames))
         view=object.__new__(cls)
         view.source=SimpleNamespace(frames=frames,state=state,pid=source.pid,phase=source.phase,run=source.run,
             role=source.role,binding=source.binding,artifact_root=source.artifact_root)
         view.originals=PhoneEmoteOriginals(source.artifact_root,source.binding,source.run,source.role,
             bound,lambda *_:need(False),monotonic=source.monotonic)
-        result=view.decode(value['header']);need(result['phase']=='complete')
-        # A saved worker packet cannot borrow a later unrelated source frame.
-        last=result['records'][-1];need(last['source']['revision']==len(frames))
-        cleanup=value['cleanup'];previous=last['providerAfter']
+        result=view.decode(value['header']);need(result['phase']==required)
+        if required=='complete':
+            # A saved worker packet cannot borrow a later unrelated source frame.
+            need(result['records'] and result['records'][-1]['source']['revision']==len(frames))
+        cleanup=value['cleanup'];previous=result['records'][-1]['providerAfter'] if result['records'] else frames[-1]['phaseAfter'] if frames else None
         phase_packet(cleanup,run=source.run,area='emotes',request=cleanup.get('requestId'),
             epoch=cleanup.get('capturedEpochMs'),previous=previous)
-        view.cleanup_phase(cleanup,view.cleanup_phase(previous));bound()
+        view.cleanup_phase(cleanup,view.cleanup_phase(previous) if result['records'] else None);bound()
         return deepcopy(result)
+
+    @classmethod
+    def retirement_archive(cls,value,source):
+        return cls._archive(value,source,field='emoteLifetimeRetirementVersion',required='complete')
+
+    @classmethod
+    def failure_archive(cls,value,source):
+        return cls._archive(value,source,field='emoteLifetimeFailureArchiveVersion',required='reading')
+
+    def transfer_failed(self,retain,*,retained=None):
+        """Transfer interrupted work without a new sample or a quiet verdict."""
+        need(callable(retain));started=self.source.monotonic();self.started=started
+        try:
+            self.current();need(self.source.state['phase']=='ready' and self.source.state['pending'] is None)
+            if retained is None:
+                need(self.state['phase']=='reading')
+                cleanup=self.source.phase.status();self.cleanup_phase(cleanup)
+                proof=dict(emoteLifetimeFailureArchiveVersion=1,segment=self.source.segment,header=deepcopy(self.previous),
+                    sourceHeader=deepcopy(self.source.previous),cleanup=cleanup)
+            else:proof=deepcopy(retained)
+            failed=self.failure_archive(proof,self.source)
+            ready=dict(phase='ready',records=deepcopy(failed['records']),pending=None,window=None)
+            need(same(self.previous,proof['header']) or self.previous is not None and same(self.state,ready))
+            self.retirement_phase(proof);self.bound();need(retain(deepcopy(proof)) is not False)
+            self.bound();self.failure_archive(proof,self.source);self.retirement_phase(proof);self.bound()
+            need(self.source.monotonic()-started<5)
+            if self.state['phase']=='reading':self.state=ready;self.save()
+            self.bound();need(self.source.monotonic()-started<5)
+            return deepcopy(proof)
+        finally:self.started=None
 
     def retirement_phase(self,proof):
         previous=proof['cleanup'];current=self.source.phase.status(previous)

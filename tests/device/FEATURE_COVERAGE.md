@@ -33,11 +33,14 @@ original native/image/motion evidence and derives common v17 samples. Complete
 Emotes still lacks its public facade, separately credentialed actor lifecycle
 and whole-run retirement; it is not counted as an implemented full triple.
 The [Phone failure owner](adapters/android-phone/EMOTE_FAILURES.md) now retains
-both roles' interrupted readonly source and role/image/motion attempts, then
+both roles' interrupted readonly source, role/image/motion and lifetime-work attempts, then
 admitted/failed Admission originals before run input cleanup. Run v4 now records
 View/Scene setup attempts before dispatch and handles explicitly unissued
 resources plus ownership-only input cleanup before the first baseline. Native
 quiet/current-state checks and final whole-run retirement remain required.
+The Lifetime child now requires original retirement retention; its failure path
+retains interrupted work before a later new measurement, without refreshing
+old quiet/idle evidence. Failure-owner/record v4 reads all prior versions.
 These are implementation statuses, not complete product-feature acceptance.
 The [source compatibility review](FEATURE_SOURCE_COMPATIBILITY.md) identifies
 remaining platform Emote prerequisites. Version 5 corrects ordinary override/chooser semantics, adds nine automatic completions and a separate early-restoration check. Version 4 corrects Graphics to immediate settings and independently measured original preferences. Version 2 corrected Scripts to the real file-bundle picker; version 3 corrected

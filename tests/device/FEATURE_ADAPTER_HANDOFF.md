@@ -138,7 +138,11 @@ remain required; native compilation and device qualification are still open.
 The [Phone Emote work/quiet-window owner](adapters/android-phone/EMOTE_LIFETIME.md)
 now joins each role's original selected manager/code/membership to actual timer,
 callback, Rig and closed-UI observations. Three seconds in native and host clocks
-and a new retirement read prevent cached cleanup success. Retained/late work
+and a new retirement read prevent cached cleanup success. Mandatory original
+retirement retention and exact historical lost-return recovery now preserve the
+quiet-window proof before journal removal. Run cleanup also retains interrupted
+lifetime reads through failure-owner/record v4, preserving completed packets
+and requiring new measurements for any later quiet result. Retained/late work
 and unresolved journals stay red. This remains a subresource proof; whole image/
 fixture/UI-lifetime/actor/run retirement is still required before registration.
 

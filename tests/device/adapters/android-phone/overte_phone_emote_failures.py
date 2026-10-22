@@ -13,9 +13,11 @@ from overte_phone_emote_originals import PhoneEmoteOriginals,BLOCK,MAX_FRAMES
 from overte_phone_emote_sources import PhoneEmoteSources,source_name
 from overte_phone_emote_admission import PhoneEmoteAdmission
 from overte_phone_emote_role import PhoneEmoteRole
+from overte_phone_emote_lifetime import PhoneEmoteLifetime
 from overte_phone_script_history import canonical,pack,unpack,same
 
-VERSION=3
+VERSION=4
+KINDS={'source':1,'admission':2,'role':3,'lifetime':4}
 
 
 class FailureOriginals(PhoneEmoteOriginals):
@@ -48,7 +50,7 @@ class PhoneEmoteFailures:
     def decode(self,value):
         exact(value,{'emoteFailureOwnerVersion','runId','fixtureUrl','binding','artifactRoot','payload'})
         version=value['emoteFailureOwnerVersion']
-        need(type(version) is int and version in (1,2,VERSION)
+        need(type(version) is int and version in (1,2,3,VERSION)
             and value['runId']==self.run.run and value['fixtureUrl']==self.run.fixture_url
             and same(value['binding'],self.binding) and value['artifactRoot']==str(self.run.root))
         rows=unpack(value['payload']);need(len(rows)==1);state=rows[0]
@@ -63,15 +65,14 @@ class PhoneEmoteFailures:
         if pending is not None:
             exact(pending,{'role','segment','headerSha256','archive','original','manifest'}|({'kind','recordVersion'} if version>=2 else set()))
             if version==1:pending=dict(pending,kind='source',recordVersion=1);state['pending']=pending
-            need(pending['kind'] in (('source','admission') if version==2 else ('source','admission','role')) and type(pending['recordVersion']) is int
-                and pending['recordVersion'] in ((1,2,3) if pending['kind']=='source' else (2,3) if pending['kind']=='admission' else (3,))
-                and pending['recordVersion']<=version
+            need(pending['kind'] in KINDS and type(pending['recordVersion']) is int
+                and KINDS[pending['kind']]<=pending['recordVersion']<=version
                 and (pending['kind']!='admission' or pending['segment']==0))
             need(pending['role'] in ('primary','actor') and integer(pending['segment'],0,15) and count<MAX_FRAMES
                 and type(pending['headerSha256']) is str and len(pending['headerSha256'])==64
                 and all(c in '0123456789abcdef' for c in pending['headerSha256']))
             if pending['archive'] is not None:
-                proof=pending['archive'];field={'source':'emoteSourceFailureArchiveVersion','admission':'emoteAdmissionArchiveVersion','role':'emoteRoleFailureArchiveVersion'}[pending['kind']]
+                proof=pending['archive'];field={'source':'emoteSourceFailureArchiveVersion','admission':'emoteAdmissionArchiveVersion','role':'emoteRoleFailureArchiveVersion','lifetime':'emoteLifetimeFailureArchiveVersion'}[pending['kind']]
                 need(type(proof) is dict and type(proof.get(field)) is int and proof[field]==1
                     and (pending['kind']=='admission' or proof.get('segment')==pending['segment'])
                     and type(proof.get('header')) is dict and proof['header'].get('role')==pending['role']
@@ -112,12 +113,13 @@ class PhoneEmoteFailures:
     def record(self,value,index):
         exact(value,{'emoteFailureRecordVersion','index','kind','archive'})
         version=value['emoteFailureRecordVersion']
-        need(type(version) is int and version in (1,2,3) and type(value['index']) is int and value['index']==index
-            and value['kind'] in (('source',) if version==1 else ('source','admission') if version==2 else ('source','admission','role')))
+        need(type(version) is int and version in (1,2,3,4) and type(value['index']) is int and value['index']==index
+            and value['kind'] in KINDS and KINDS[value['kind']]<=version)
         proof=value['archive'];segment=0 if value['kind']=='admission' else proof['segment']
         source=self.run.source(proof['header']['role'],segment=segment)
         if value['kind']=='source':source.failure_archive(proof)
         elif value['kind']=='role':PhoneEmoteRole(self.run,source.role,proof['header']['imagePolicy']).failure_archive(proof)
+        elif value['kind']=='lifetime':PhoneEmoteLifetime.failure_archive(proof,source)
         else:
             expected=self.run.state['admissionSha256']
             if source.role=='primary' and expected is not None:need(hashlib.sha256(canonical(proof['header'])).hexdigest()==expected)
@@ -125,20 +127,20 @@ class PhoneEmoteFailures:
         return value
 
     def collect(self,source,*,kind='source'):
-        need(kind in ('source','admission','role') and isinstance(source,PhoneEmoteSources) and source.lock.path==self.run.lock.path
+        need(kind in KINDS and isinstance(source,PhoneEmoteSources) and source.lock.path==self.run.lock.path
             and same(source.binding,self.binding) and source.segment==(0 if kind=='admission' else self.run.state['segment']))
         need(self.started is None);self.started=self.run.monotonic()
         try:
             self.bound();need(self.run.state['phase']=='cleaning-inputs');self.run.active('cleanup')
             admission=PhoneEmoteAdmission(source,self.run.policy) if kind=='admission' else None
-            role=None
+            role=None;life=PhoneEmoteLifetime(source) if kind=='lifetime' else None
             if kind=='role':
                 stored=PrivateFeatureState(self.store.path.with_name('phone-emote-'+source.role+'-role.json')).read()
                 need(stored is not None);role=PhoneEmoteRole(self.run,source.role,stored['imagePolicy'])
-            header=source.previous if kind=='source' else admission.previous if kind=='admission' else role.previous
+            header=source.previous if kind=='source' else admission.previous if kind=='admission' else life.previous if kind=='lifetime' else role.previous
             pending=self.state['pending']
             if pending is None:
-                need(header is not None and self.state['count']<MAX_FRAMES and (source.state['phase']=='reading' if kind=='source' else role.state['phase']!='ready' if kind=='role' else True))
+                need(header is not None and self.state['count']<MAX_FRAMES and (source.state['phase']=='reading' if kind=='source' else life.state['phase']=='reading' if kind=='lifetime' else role.state['phase']!='ready' if kind=='role' else True))
                 self.state['pending']=dict(kind=kind,recordVersion=VERSION,role=source.role,segment=source.segment,
                     headerSha256=hashlib.sha256(canonical(header)).hexdigest(),archive=None,original=None,manifest=None);self.save()
             else:need(pending['kind']==kind and pending['role']==source.role and pending['segment']==source.segment)
@@ -157,10 +159,12 @@ class PhoneEmoteFailures:
                 manifests=self.originals.resume_manifest(self.state['manifests'],ref,pending['manifest'])
             if kind=='source':source.transfer_failed(retain,retained=retained)
             elif kind=='admission':admission.retire(retain,retained=retained)
+            elif kind=='lifetime':life.transfer_failed(retain,retained=retained)
             else:role.transfer_failed(retain,retained=retained)
             self.bound();need(manifests is not None and source.state['phase']=='ready');self.run.active('cleanup')
             if admission is not None:need(admission.store.read() is None)
             if role is not None:need(role.state['phase']=='ready')
+            if life is not None:need(life.state['phase']=='ready')
             self.state.update(count=self.state['count']+1,manifests=deepcopy(manifests),pending=None);self.save()
         finally:self.started=None
 
@@ -176,6 +180,14 @@ class PhoneEmoteFailures:
             if value is not None:
                 owner=PhoneEmoteRole(self.run,role,value['imagePolicy'])
                 if owner.state['phase']!='ready':self.collect(owner.source,kind='role')
+
+    def collect_lifetimes(self):
+        self.resume_pending()
+        for role in ('primary','actor'):
+            path=self.store.path.with_name('phone-emote-'+role+'-lifetime.json')
+            if PrivateFeatureState(path).read() is not None:
+                source=self.run.source(role);owner=PhoneEmoteLifetime(source)
+                if owner.state['phase']=='reading':self.collect(source,kind='lifetime')
 
     def collect_admissions(self):
         self.resume_pending()

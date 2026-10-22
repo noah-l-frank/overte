@@ -146,6 +146,7 @@ whole-run resource checks remain mandatory. Lifetime header versions 1/2 and
 all existing source/work packet formats are unchanged. Device-free tests cover
 new retirement, late real work, rejected/slow callbacks, ignored/lost deletion,
 exact historical retry and altered/foreign/missing evidence. They qualify logic
-only. Failed pending lifetime acquisitions still require explicit failure
-transfer before a later new quiet-window acquisition; whole-facade integration
-remains pending.
+only. Failed pending lifetime acquisitions use the [versioned failure transfer](EMOTE_FAILURES.md#interrupted-lifetime-work-in-version-4)
+before a later new quiet-window acquisition. The enclosing Run cleanup invokes
+this transfer for each role after source/role failure retention. Whole-facade
+integration remains pending.

@@ -205,7 +205,7 @@ phase changes, stale ownership, partial-file mutation and ignored commits remain
 errors. Whole-operation bounds remain 20 seconds with existing five-second child
 limits. `failure_archive` is historical replay only and returns no new facts.
 
-Failure-owner/record version 3 integrates this path for both roles after source
+Failure-owner/record versions 3/4 integrate this path for both roles after source
 failure recovery and before admission/input restoration. Versions 1/2 remain
 readable, preserving their old source/admission record bytes and original inodes.
 Role journals and all diagnostic originals still require final whole-run

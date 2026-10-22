@@ -1,7 +1,8 @@
-# Phone Emote source/admission retention, version 3
+# Phone Emote source/admission/role/work retention, version 4
 
 `PhoneEmoteFailures` connects actual failed readonly Source acquisitions and
-admitted/failed Admission contexts and interrupted role/image/motion attempts to the existing Run input-cleanup path. It is an internal component. No failed attempt
+admitted/failed Admission contexts, interrupted role/image/motion attempts and
+interrupted lifetime work reads to the existing Run input-cleanup path. It is an internal component. No failed attempt
 becomes a source sample, no evidence file is deleted, and no complete Emote
 capability is registered. Three Phone feature triples remain source-implemented;
 native code remains uncompiled and all device behavior untested.
@@ -51,7 +52,7 @@ files and reconstructs the old reading context without target/fixture queries,
 a usable live owner or a fresh verdict. It remains valid after subsequent source
 frames only while its original evidence files remain intact.
 
-## Durable enclosing failure owner, versions 1, 2 and 3
+## Durable enclosing failure owner, versions 1, 2, 3 and 4
 
 Construct `PhoneEmoteFailures(run)` under the loaded Run's held source lock. The
 actual candidate/process binding, run, fixture and artifact root must agree.
@@ -65,12 +66,12 @@ same lock/binding. Kind admission uses namespace zero and its actual Admission
 owner. `collect_admissions()` runs after source failure transfer, before ordinary
 input restoration, for both roles' existing admission journals.
 It persists responsibility before source transfer. The private control is exactly
-`{emoteFailureOwnerVersion:3,runId,fixtureUrl,binding,artifactRoot,payload}`. Its
+`{emoteFailureOwnerVersion:4,runId,fixtureUrl,binding,artifactRoot,payload}`. Its
 existing bounded packed payload holds one `{count,manifests,pending}` state.
 Count is 0..1024; manifests retain the existing 128-entry blocks and eight-block
 bound. Pending is null or
 `{kind,recordVersion,role,segment,headerSha256,archive,original,manifest}`.
-Kind is source, admission or role. RecordVersion is 3 for new transfers; a recovered v1
+Kind is source, admission, role or lifetime. RecordVersion is 4 for new transfers; a recovered v1
 source transfer retains record version 1. Header SHA-256 binds the
 exact source or admission journal. Archive is null until the actual complete failure
 packet is durably frozen; it contains no guessed product effects. Original and
@@ -78,7 +79,7 @@ manifest use the existing planned/opened/saved storage protocol.
 
 The same 64 KiB control and 1 MiB original limits apply; neither is increased.
 A failure original is exactly
-`{emoteFailureRecordVersion:3,index,kind,archive}` and uses the existing
+`{emoteFailureRecordVersion:4,index,kind,archive}` and uses the existing
 immutable file/index engine with kind source-failures and primary run ownership.
 An actor's failure archive still names and validates the actor's actual original
 source stream. Primary ownership of diagnostic storage supplies no actor facts.
@@ -88,16 +89,16 @@ parent-pinned hash. A failed pre-setup admission remains unapproved. The fixed
 legacy source-failures storage kind is retained for both record types; no
 original filenames or indexes are renamed.
 
-Version 1/2 owner and record files remain readable. Version 1 pending sources
+Version 1/2/3 owner and record files remain readable. Version 1 pending sources
 retain record 1; version 2 pending source/admission transfers retain record 2. Reconstruction alone never
 rewrites a v1 control. Its pending transfer is interpreted as source/record 1;
-the next explicit transition writes owner v3 while preserving its frozen v1
+the next explicit transition writes owner v4 while preserving its frozen v1
 record bytes, digest, inode, manifest and epochs. Version 1 cannot encode the
 new kind/recordVersion fields or an admission record.
 
 Run cleanup recovers owned foreground first and reconciles any committed
 namespace transition, then collects failed sources and retires admission owners
-with interrupted roles in between, before releasing namespace freezes and invoking ordinary input restoration. A lost final failure-owner
+with interrupted roles and lifetime work in between, before releasing namespace freezes and invoking ordinary input restoration. A lost final failure-owner
 commit can reuse the exact already-transferred source, original and manifest;
 it cannot append a second record or advance native/UI sequences. Failure journals
 and their evidence remain owned for final whole-run retention/retirement.
@@ -149,7 +150,7 @@ They verify ownership/test logic only, not product behavior or acceptance.
 
 `collect_roles()` recovers pending transfers, inspects both existing role
 controls and retains acquiring/retaining attempts through the actual Role
-failure operation. Run order is source failures, role/scope failures, Admission
+failure operation. Run order is source failures, role/scope failures, lifetime failures, Admission
 retirement, namespace/input restoration. Scope/capture cleanup keeps its existing
 original byte, native buffer and issuer-receipt proofs. A failed cleanup release
 never permits a role reset. The role's successful sequence and manifest prefix
@@ -165,6 +166,46 @@ still has to be verified before full feature registration.
 
 Old completed and pending v1/v2 records are not rewritten. V2 pending admission
 records retain their original bytes/digest/inode during explicit owner upgrade.
-Version 3 alone admits kind role. Source and Admission packet formats remain
+Versions 3/4 admit kind role; only version 4 admits kind lifetime. Source and Admission packet formats remain
 unchanged; the new role archive and partial-motion descriptor have their own
 version 1 contracts in the registry.
+
+
+## Interrupted lifetime work in version 4
+
+`collect_lifetimes()` validates both existing role lifetime controls, including
+ready/complete controls whose unknown versions must never be skipped. A reading
+control is transferred through `PhoneEmoteLifetime.transfer_failed`. Source
+failures are resolved first; a pending source cannot be interpreted as a ready
+lifetime original. Actual original worker/source packets already completed in
+the lifetime journal remain unchanged. The lost attempt never adds a worker
+packet, source frame, successful sequence or quiet/idle verdict.
+
+The exact failure packet is
+`{emoteLifetimeFailureArchiveVersion:1,segment,header,sourceHeader,cleanup}`.
+Header is the original reading lifetime control, sourceHeader is that role's
+actual ready source control after source failure transfer, and cleanup is the
+original actual provider phase. The actual namespace, role, admission policy,
+run/candidate/process, private root and complete provider birth/history must
+match. Historical worker records and their source references are independently
+reopened. The pending afterRevision/index must agree with that original context.
+No unknown raw native response is promoted to a completed worker packet.
+
+The mandatory callback retains this original packet before the lifetime journal
+can return to ready. Only its pending intent and unavailable window are cleared;
+all completed original records remain, with their actual epochs/cursors. Rejected,
+slow or lost callbacks, changed cleanup, ignored writes or altered original
+files preserve ownership. An exact retained proof can finish a lost final clear
+or enclosing completion without another source/work/input query or duplicate
+failure original. Historical replay through `failure_archive(packet, source)`
+returns reading state only. Only a later actual new source/work acquisition can
+complete a quiet window. Existing 40-record/30-second lifetime and five-second
+transfer bounds remain unchanged; this path does not reset an exhausted window.
+
+Version 4 retains old pending record versions and old completed bytes/inodes/
+digests. New original and manifest writes use the existing exclusive staged
+engine; planned/opened/saved interruptions resume only exact owned bytes. The
+same 64 KiB control and 1 MiB original limits apply. These journals and originals
+still require whole-run transfer/retirement. Source implementations are tested
+with synthetic host producers only; no native build or device acceptance is
+implied.

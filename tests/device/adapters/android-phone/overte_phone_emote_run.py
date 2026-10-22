@@ -283,7 +283,7 @@ class PhoneEmoteRun:
                     and same(lease.state['closed'][-1]['call'],self.state['call']))
                 self.state['segment']+=1;self.save();source=self.source();lease=PhoneEmoteNamespaces(source)
             from overte_phone_emote_failures import PhoneEmoteFailures
-            failures=PhoneEmoteFailures(self);failures.collect_sources();failures.collect_roles();failures.collect_admissions()
+            failures=PhoneEmoteFailures(self);failures.collect_sources();failures.collect_roles();failures.collect_lifetimes();failures.collect_admissions()
             source=self.source();lease=PhoneEmoteNamespaces(source)
             lease.begin_cleanup();lease.assert_acquiring()
             if self.state['baseline'] is None and self.state['call'] is None and self.state['setup']==dict(view='unissued',scene='unissued'):
