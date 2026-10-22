@@ -140,7 +140,8 @@ class TokenAssetsUI(TokenCreateUI):
         return self.wait(lambda value:bool(self.row(value,identifier) and self.row(value,identifier)['text']==text))
     def open_assets(self,create):
         need(self.page(self.capture()) is None)
-        create.open_create();create.tab(3);create.reveal('create.assets');create.input('create.assets')
+        if not any(row['id']=='create.page' for row in create.capture()['controls']):create.open_create()
+        create.tab(3);create.reveal('create.assets');create.input('create.assets')
         return self.wait(lambda value:self.page(value) is not None)
     def close_assets(self):
         need(self.page(self.capture()) is not None and self.file_picker(self.capture()) is None)

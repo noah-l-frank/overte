@@ -18,6 +18,7 @@ PREPARED_HOST_CHECKS = (
     "android/phone/tests/phone-chat-peer-native-test.py",
     "android/phone/tests/phone-chat-history-native-test.py",
     "android/phone/tests/phone-snapshot-settings-native-test.py",
+    "android/phone/tests/device/test_assets_feature.py",
     "android/phone/tests/device/test_assets_bake_originals.py",
     "android/phone/tests/device/test_snapshot_capture_files_native.py",
     "android/phone/tests/device/test_snapshot_capture_gif_native.py",
@@ -68,6 +69,9 @@ COMMON_HOST_CHECKS = (
     "android/phone/tests/device/test_snapshot_share_grants_source.py",
     "android/phone/tests/device/test_snapshot_consumer_source.py",
     "android/phone/tests/device/test_snapshot_upload_source.py",
+    "android/phone/tests/device/test_assets_backend.py",
+    "android/phone/tests/device/test_assets_evidence.py",
+    "android/phone/tests/device/test_assets_registration.py",
     "tests/device/self_tests/test_assets_originals.py",
     "android/phone/tests/device/test_assets_uploads.py",
     "android/phone/tests/device/test_assets_controls.py",
@@ -211,8 +215,11 @@ for name in selected + COMMON_HOST_CHECKS + (EXTENDED_HOST_CHECKS if args.extend
         arguments.append(str(ROOT))
     if name.endswith(("phone-chat-native-test.py","phone-chat-peer-native-test.py","phone-chat-history-native-test.py","phone-snapshot-settings-native-test.py")):
         arguments.extend(("--build-dir",str(ROOT / "build" / ("phone-chat-runtime-"+uuid.uuid4().hex))))
+    # Assets runs its full common journey, actor and interrupted/idempotent
+    # retirement probes. Only this aggregate host budget is larger; source,
+    # checkpoint and quiet-window deadlines remain unchanged.
     # The complete Graphics/Create compositions execute the unchanged common
     # journeys; their file/image/actor checks need a larger aggregate budget.
     # Per-source freshness and common checkpoint deadlines remain unchanged.
     subprocess.run(arguments, cwd=ROOT, check=True,
-                   timeout=10800 if name in EXTENDED_HOST_CHECKS else 180 if name.endswith(("phone-chat-native-test.py","phone-chat-peer-native-test.py","phone-chat-history-native-test.py","phone-snapshot-settings-native-test.py")) else 240 if name.endswith(("test_graphics_feature.py","test_create_feature.py","test_avatar_people_feature.py")) else 90)
+                   timeout=10800 if name in EXTENDED_HOST_CHECKS else 600 if name.endswith("test_assets_feature.py") else 180 if name.endswith(("phone-chat-native-test.py","phone-chat-peer-native-test.py","phone-chat-history-native-test.py","phone-snapshot-settings-native-test.py")) else 240 if name.endswith(("test_graphics_feature.py","test_create_feature.py","test_avatar_people_feature.py")) else 90)

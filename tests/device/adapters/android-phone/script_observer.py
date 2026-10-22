@@ -29,7 +29,7 @@ from overte_phone_emote_actor import image_policy
 from overte_phone_avatar_people_feature import image_policy as avatar_people_image_policy
 
 SCRIPT_VERSION=1
-VERSION=4
+VERSION=5
 
 
 def configuration(path):
@@ -39,12 +39,13 @@ def configuration(path):
         need(type(value['scriptObserverVersion']) is int and value['scriptObserverVersion']==SCRIPT_VERSION)
     else:
         exact(value,{'featureObserverVersion','area','target','candidateArguments','fixtureUrl','actorToken','durationSeconds'}
-            |({'imagePolicy'} if value.get('featureObserverVersion') in (3,4) and value.get('area')=='emotes' else set())
-            |({'peerTarget','peerImagePolicy'} if value.get('featureObserverVersion')==4 and value.get('area')=='avatar-people' else set()))
-        need(type(value['featureObserverVersion']) is int and value['featureObserverVersion'] in (2,3,VERSION)
+            |({'imagePolicy'} if value.get('featureObserverVersion') in (3,4,5) and value.get('area')=='emotes' else set())
+            |({'peerTarget','peerImagePolicy'} if value.get('featureObserverVersion') in (4,5) and value.get('area')=='avatar-people' else set()))
+        need(type(value['featureObserverVersion']) is int and value['featureObserverVersion'] in (2,3,4,VERSION)
              and value['area'] in (('scripts','authentication','graphics') if value['featureObserverVersion']==2 else
                  ('scripts','authentication','graphics','emotes','world-web','tablet-web','world-navigation','audio') if value['featureObserverVersion']==3 else
-                 ('scripts','authentication','graphics','emotes','world-web','tablet-web','world-navigation','create','audio','avatar-people')))
+                 ('scripts','authentication','graphics','emotes','world-web','tablet-web','world-navigation','create','audio','avatar-people') if value['featureObserverVersion']==4 else
+                 ('scripts','authentication','graphics','emotes','world-web','tablet-web','world-navigation','create','audio','avatar-people','assets')))
         if value['area']=='emotes':image_policy(value['imagePolicy'])
         if value['area']=='authentication':account_origin(value['fixtureUrl'])
         if value['area']=='avatar-people':
@@ -62,9 +63,10 @@ def run(adapter,config,*,monotonic=time.monotonic,sleep=time.sleep):
     """One owned run; no session repair, child launch or device discovery."""
     started=previous=monotonic();need(number(started,0,1e15))
     client=Client(config['fixtureUrl'],config['actorToken']);flow=None
-    area=config.get('area','scripts');need(area in ('scripts','authentication','graphics','emotes','world-web','tablet-web','world-navigation','create','audio','avatar-people'))
+    area=config.get('area','scripts');need(area in ('scripts','authentication','graphics','emotes','world-web','tablet-web','world-navigation','create','audio','avatar-people','assets'))
     if area=='avatar-people':return run_avatar_people(adapter,config,client,monotonic=monotonic,sleep=sleep)
     if area in ('world-web','tablet-web','audio'):return run_world_web(adapter,config,client,monotonic=monotonic,sleep=sleep)
+    if area=='assets':return run_assets(adapter,config,client,monotonic=monotonic,sleep=sleep)
     if area=='create':return run_create(adapter,config,client,monotonic=monotonic,sleep=sleep)
     if area=='emotes':return run_emote(adapter,config,client,monotonic=monotonic,sleep=sleep)
     if area=='authentication':account_origin(config['fixtureUrl'])
@@ -175,6 +177,23 @@ def run_create(adapter,config,client,*,monotonic=time.monotonic,sleep=time.sleep
         sleep(.25)
 
 
+def run_assets(adapter,config,client,*,monotonic=time.monotonic,sleep=time.sleep):
+    """Separately credentialed source reader; no primary observe/input path."""
+    started=previous=monotonic();flow=None
+    while True:
+        now=monotonic();need(number(now,previous,1e15) and now-started<config['durationSeconds']);previous=now
+        if flow is None:
+            metadata=adapter.assets_feature_store(config['target']).read()
+            if metadata is not None:
+                need(metadata.get('fixtureUrl')==client.url+'/runs/'+metadata['runId']+'/')
+                flow=adapter._assets_actor(config['target'],metadata['runId'],client=client)
+        if flow is not None:
+            try:
+                if flow.step():return 0
+            except PhoneScriptSourceBusy:pass
+        sleep(.25)
+
+
 def main(argv=None):
     parser=argparse.ArgumentParser(description=__doc__,allow_abbrev=False)
     parser.add_argument('--config',type=Path,required=True)
@@ -203,6 +222,8 @@ def main(argv=None):
         os.environ['OVERTE_PHONE_FEATURE_AUDIO']='0'
         os.environ['OVERTE_PHONE_NORMAL_WEB_REFERENCE']='0'
         os.environ['OVERTE_PHONE_FEATURE_CREATE']='0'
+        os.environ['OVERTE_PHONE_FEATURE_ASSETS']='0'
+        os.environ.pop('OVERTE_PHONE_ASSETS_CONFIGURATION',None)
         return run(PhoneAppiumAdapter(candidate),config)
     except (OSError,RuntimeError,ValueError,TypeError,KeyError,RecursionError):
         print('PHONE_FEATURE_OBSERVER_REJECTED',file=sys.stderr)

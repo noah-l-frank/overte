@@ -1,7 +1,6 @@
 # Phone Assets source handoff
 
-The complete common v17 Assets adapter is being composed in this worktree.
-There is no public `feature.assets.act|observe|cleanup` advertisement yet.
+The complete public `feature.assets.act|observe|cleanup` composition is source-implemented and default-off. Its unchanged common 29-action Assets journey, independent actor and strict final retirement are host-verified. The code imports the common contract `VERSION`; this isolated source base retains v17, and integration uses the original v18 fixture-closure contract without editing historical v17 inventories.
 The inherited controlled debug `asset.load` foundation remains separate from
 normal Asset Browser mutations. Physical acceptance is untested.
 
@@ -58,7 +57,7 @@ model copy includes that original. Original mesh draw traces use its actual
 loaded URL digest only when the serializer has no original URL. Existing
 serializer/trace semantics (including compression normalization) remain unchanged.
 
-The public reducer still needs to join original server mappings/resolution,
+The public reducer joins original server mappings/resolution,
 actual reader content, entity/model/geometry identity, original draw commands
 and a fresh owned PNG. Static immutable metadata is not retimed or rejected for
 being older than 1.5 seconds. A fresh capture alone cannot qualify an old reader
@@ -94,9 +93,7 @@ assignment receives an exclusive private receipt directory. Dedicated Unix E2E
 builds retain passive bounded worker instances, actual queue/run start/exit,
 QProcess started PID and actual exit arguments, normal completion/failure/abort,
 and actual QObject destruction. Worker callbacks copy their measurement closure
-before running; receipts retain no worker pointer. The actual assignment thread
-publishes current mappings, pending count and SHA-256/length of actual stored
-blobs every 100 ms. Input/read limits fail closed; no output is synthesized.
+before running; receipts retain no worker pointer. A bounded asynchronous NodeList-owner callback copies the actual Domain/server context and its own original epoch. The assignment owner publishes current mappings, pending count and SHA-256/length of actual stored blobs on its 100 ms timer only while that separate context remains fresh. Source v2 exposes both epochs. Terminal receipts require the actual QObject sender, current same-hash task pointer and original instance; a replaced or late sender invalidates measurement. Input/read limits fail closed; no output is synthesized.
 
 The existing Domain control serves `/v1/assets-originals` through two separate
 readonly role tokens. Those tokens cannot change Settings; the permission token
@@ -113,7 +110,7 @@ explicit synthetic oven executable, plus the actual server snapshot method with
 explicit NodeList endpoints. They exercise actual files and exclusive receipt
 creation. This is no real oven output, complete AssetServer/Android build or
 product lifetime qualification. The normal task/request lifetimes are unchanged.
-The public reducer must still join current meta/download/redirect originals and
+The public reducer joins current meta/download/redirect originals and
 new worker identities to its action barrier, then to current renderer originals.
 
 ## Actual private inputs
@@ -193,9 +190,25 @@ its popup covers the original center. Input receipts supply no mapping/model
 verdict. The parent integration must retain Snapshot Surface 10 and merge the
 native dispatch range to 0 through 10; this isolated base has only 0 through 9.
 
-## Host verification and remaining composition
+## Public composition and retirement
+
+Set `OVERTE_PHONE_FEATURE_ASSETS=1` only on the existing verified debug candidate. The private primary configuration is `OVERTE_PHONE_ASSETS_CONFIGURATION`; the separate actor configuration is `OVERTE_PHONE_ASSETS_ACTOR_CONFIGURATION`. Both use `assetsFeatureVersion: 1`, artifact/image/domain policy, `/v1/assets-originals`, distinct role read tokens and their SHA-256 identities. Only the primary receives `/v1/assets-permissions` writer credentials. The actor has `permissionsTokenSha256` instead of that secret and uses observer configuration v5, `area: assets`, its own original fixture actor token and existing candidate arguments. The Domain fixture must enable its existing Assets permission/originals provider and supply those actual private endpoints. Tokens never enter public observation facts or durable headers.
+
+Normal Create Tools entry, Assets browser, bundle FileDialog selection, upload destination, rename, import, Properties selection, model deletion, write denial, baking, file cancellation and unavailable-primary error compose all common actions. Every mutation first retains original-reference intent. Successful inputs do not supply mapping, file, worker or renderer effects. Independent GetAll/GetMapping/download/backend/reader/draw/capture sources supply those facts. Both the first FBX upload and baking re-enable bind to new actual worker instances after an original server-clock barrier; disabled baking requires the real nonredirect behavior.
+
+Immutable baseline and actual upload request/file originals bound authority. Historical receipt replay reconstructs claims, rename path transformations, deletion and every private file generation before any destructive selection. Altered mutable claims, baselines, current paths or omitted owner headers fail closed. Interrupted original-prefix/manifest storage and an actually archived rename effect resume without replaying the uncertain input. Shared outside mappings, blobs and world identities remain exact originals.
+
+Cleanup reconciles actual terminal request responsibility, restores its Settings lease and camera/tools, removes owned scene entities and normal mapping folders, proves stored blob/native-file absence and retires the exact upload-measurement instance. Both roles take new originals; the separate process retains a real three-second quiet absence window. After original fixture closure, finalization requires actual actor exit, immutable raw/PNG/download validation, fresh restored originals and no capture owner. Exact child headers are pruned before the owner, with an immutable final archive retained. Lost child-unlink receipts resume, and repeated finalize independently revalidates that archive and current absence. Missing actor/closure proof stays red. A retirement-only factory reuses the frozen original configuration and SHA-bound read credential, not a new environment policy or writer credential.
+
+Historical JSON parsing has a bounded mutex-protected cache. Each read still opens and hashes all actual bytes, checks exact inode/mode/link/owner and both live five-second guards; returned graphs cannot mutate the cached original. No native source is cached as a fresh observation.
+
+## Host verification
 
 ```sh
+python3 android/phone/tests/device/test_assets_feature.py
+python3 android/phone/tests/device/test_assets_backend.py
+python3 android/phone/tests/device/test_assets_evidence.py
+python3 android/phone/tests/device/test_assets_registration.py
 python3 android/phone/tests/device/test_assets_bake_originals.py
 python3 tests/device/self_tests/test_assets_originals.py
 python3 android/phone/tests/device/test_assets_upload_originals.py
@@ -242,5 +255,8 @@ renderer snapshots. It is not a full HFM/renderer build. A direct actual HFM
 header syntax attempt is currently blocked by missing host `glm/glm.hpp`; no
 installation/fetch was attempted and no complete Android/client PASS is claimed.
 
-Next are independent role/actor observations, actual model/render joins and the complete 29-action journey with
-its mandatory asset-load foundation, ownership, interruption and retirement.
+The complete facade test uses explicit synthetic SDK/widget/backend/oven/renderer endpoints, an independently credentialed actual host actor process, unchanged common journey/witness and actual compiled native private-file ownership. Its own evidence directory is on `/dev/shm`; real fsync/readback/inode/mode operations remain unchanged. Separate native filesystem counterexamples execute on the ordinary own build filesystem. This is not disk/device latency evidence. The actor aggregate lifetime comes from the existing `feature-assets` catalog budget; only this test has a 600-second aggregate runtime-runner budget. Native 1.5-second freshness, real five-second calls, common 20-second checkpoints and real three-second quiet windows remain unchanged.
+
+The mandatory inherited controlled-load foundation is also host-composed through the actual Phone/shared dispatch, unchanged common module/session, actual loopback PNG GET/decode, independent probe-consumer seam and actual HTTP telemetry. ACK-only, fabricated readiness without HTTP and wrong image dimensions fail. This test does not qualify an actual client renderer.
+
+The full HFM/AssetServer/Android client is not compiled by these contract seams. The prepared native environment currently lacks `glm/glm.hpp` for a full HFM syntax check; no dependency was installed or fetched. The preexisting normal upload callback lifetime issue above remains unresolved product risk. Real oven output, live AssetServer behavior and physical-device acceptance remain untested. Parent integration owns observer v5 union (including Avatar/Audio), Snapshot Surface10/range0..10, v18 inventories/profiles/global counts and final central Emote source pins.

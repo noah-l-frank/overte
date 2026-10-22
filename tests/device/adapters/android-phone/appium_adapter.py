@@ -108,6 +108,7 @@ SCRIPT_FEATURE_OPERATIONS={'feature.scripts.'+kind for kind in ('act','observe',
 AUTHENTICATION_FEATURE_OPERATIONS={'feature.authentication.'+kind for kind in ('act','observe','cleanup')}
 GRAPHICS_FEATURE_OPERATIONS={'feature.graphics.'+kind for kind in ('act','observe','cleanup')}
 CREATE_FEATURE_OPERATIONS={'feature.create.'+kind for kind in ('act','observe','cleanup')}
+ASSETS_FEATURE_OPERATIONS={'feature.assets.'+kind for kind in ('act','observe','cleanup')}
 EMOTE_FEATURE_OPERATIONS={'feature.emotes.'+kind for kind in ('act','observe','cleanup')}
 WORLD_WEB_FEATURE_OPERATIONS={'feature.world-web.'+kind for kind in ('act','observe','cleanup')}
 TABLET_WEB_FEATURE_OPERATIONS={'feature.tablet-web.'+kind for kind in ('act','observe','cleanup')}
@@ -425,6 +426,13 @@ class PhoneAppiumAdapter(AppiumAdapter):
             require(getattr(self,'candidate',None) is not None and target.get('appId')=='io.github.noah_be.overte.phone'
                 and self.controlled_android_client(target),'PHONE_WEB_REFERENCE_REQUIRES_BOUND_DEBUG_TARGET')
             values=sorted(set(values)|WEB_REFERENCE_OPERATIONS)
+        full_assets=os.environ.get('OVERTE_PHONE_FEATURE_ASSETS','0')
+        require(full_assets in ('0','1'),'PHONE_FEATURE_ASSETS_CONFIGURATION_INVALID')
+        if full_assets=='1':
+            require(getattr(self,'candidate',None) is not None and target.get('appId')=='io.github.noah_be.overte.phone'
+                and self.controlled_android_client(target),'PHONE_FEATURE_ASSETS_REQUIRES_BOUND_DEBUG_TARGET')
+            self._assets_configuration();self._feature_fixture_client()
+            values=sorted(set(values)|ASSETS_FEATURE_OPERATIONS)
         full_create=os.environ.get('OVERTE_PHONE_FEATURE_CREATE','0')
         require(full_create in ('0','1'),'PHONE_FEATURE_CREATE_CONFIGURATION_INVALID')
         if full_create=='1':
@@ -702,6 +710,64 @@ class PhoneAppiumAdapter(AppiumAdapter):
             return root,deepcopy(policy)
         except (OSError,RuntimeError,ValueError,TypeError,KeyError):
             raise ValueError('PHONE_FEATURE_GRAPHICS_CONFIGURATION_INVALID') from None
+
+    def assets_feature_store(self,selector):
+        return PrivateFeatureState(self.state_path(selector).with_name('phone-assets-feature.json'))
+
+    @staticmethod
+    def _assets_configuration(*,actor=False):
+        try:
+            from overte_phone_assets_feature import configuration
+            name='OVERTE_PHONE_ASSETS_ACTOR_CONFIGURATION' if actor else 'OVERTE_PHONE_ASSETS_CONFIGURATION'
+            return configuration(PrivateFeatureState(Path(os.environ.get(name,''))).read(),actor=actor)
+        except (OSError,RuntimeError,ValueError,TypeError,KeyError):
+            raise ValueError('PHONE_FEATURE_ASSETS_CONFIGURATION_INVALID') from None
+
+    def _assets_feature(self,selector,run,*,retirement=False):
+        from feature_journeys.phase_fixture import PhaseFixtureReader
+        from overte_phone_assets_feature import PhoneAssetsFeature
+        from overte_phone_script_history import unpack
+        target=self.target(selector)
+        require(getattr(self,'candidate',None) is not None and target.get('appId')=='io.github.noah_be.overte.phone'
+            and self.controlled_android_client(target) and type(retirement) is bool,'PHONE_FEATURE_ASSETS_REQUIRES_BOUND_DEBUG_TARGET')
+        client=self._feature_fixture_client();metadata=self.assets_feature_store(selector).read()
+        parent=PrivateFeatureState(self.state_path(selector).with_name('phone-assets-retirement.json')).read()
+        if parent is not None:
+            require(retirement,'PHONE_ASSETS_RETIREMENT_ALREADY_STARTED');original=unpack(parent['payload'])[0]['owner']
+            require(metadata is None or metadata==original,'PHONE_ASSETS_ORIGINAL_CONFIGURATION_REQUIRED');metadata=original
+        if retirement and metadata is None:
+            from overte_phone_assets_retirement import completed_archive
+            raw=PrivateFeatureState(Path(os.environ.get('OVERTE_PHONE_ASSETS_CONFIGURATION',''))).read()
+            require(type(raw) is dict and type(raw.get('artifactRoot')) is str,'PHONE_ASSETS_ORIGINAL_CONFIGURATION_REQUIRED')
+            _ui,_service,binding,guard,_installed=self.normal_feature_runtime(selector,read_only=True)
+            metadata=completed_archive(Path(raw['artifactRoot']),binding,run,guard)['owner']
+        if metadata is not None:require(metadata.get('runId')==run and metadata.get('fixtureUrl')==client.url+'/runs/'+run+'/',
+            'PHONE_ASSETS_ORIGINAL_CONFIGURATION_REQUIRED')
+        # Live readonly credentials remain in the external private config. Only
+        # their hashes occur in durable original headers.
+        if retirement:
+            raw=PrivateFeatureState(Path(os.environ.get('OVERTE_PHONE_ASSETS_CONFIGURATION',''))).read()
+            require(type(raw) is dict and type(raw.get('originalsReadToken')) is str,'PHONE_ASSETS_ORIGINAL_READER_CREDENTIAL_REQUIRED')
+            config=dict(metadata['configuration'],originalsReadToken=raw['originalsReadToken'])
+        else:config=self._assets_configuration()
+        feature=PhoneAssetsFeature(self,selector,PhaseFixtureReader(client,run,'assets'),config,original_configuration=retirement)
+        if metadata is not None:require(metadata['configuration']==feature.public_configuration(),'PHONE_ASSETS_ORIGINAL_CONFIGURATION_REQUIRED')
+        return feature
+
+    def _assets_actor(self,selector,run,*,client):
+        from feature_journeys.witness import Client
+        from feature_journeys.phase_fixture import PhaseFixtureReader
+        from overte_phone_assets_feature import PhoneAssetsFeature
+        from overte_phone_assets_actor import PhoneAssetsActor
+        target=self.target(selector)
+        require(getattr(self,'candidate',None) is not None and target.get('appId')=='io.github.noah_be.overte.phone'
+            and self.controlled_android_client(target) and isinstance(client,Client),'PHONE_ASSETS_ACTOR_REQUIRES_BOUND_TARGET')
+        metadata=self.assets_feature_store(selector).read()
+        require(type(metadata) is dict and metadata.get('runId')==run and metadata.get('fixtureUrl')==client.url+'/runs/'+run+'/',
+            'PHONE_ASSETS_ACTOR_ORIGINAL_RUN_REQUIRED')
+        feature=PhoneAssetsFeature(self,selector,PhaseFixtureReader(client,run,'assets'),self._assets_configuration(actor=True),role='actor')
+        require(metadata['configuration']==feature.public_configuration(),'PHONE_ASSETS_ACTOR_ORIGINAL_CONFIGURATION_REQUIRED')
+        return PhoneAssetsActor(feature)
 
     def create_feature_store(self,selector):
         return PrivateFeatureState(self.state_path(selector).with_name('phone-create-feature.json'))
@@ -2237,6 +2303,11 @@ class PhoneAppiumAdapter(AppiumAdapter):
             feature=self.navigation_feature_store(selector).read() or self.navigation_retirement_store(selector).read()
             if feature is not None:self._navigation_feature(selector,feature['runId'],retirement=True).finalize()
         except Exception:navigation_error=True
+        assets_error=False
+        try:
+            metadata=self.assets_feature_store(selector).read() or PrivateFeatureState(self.state_path(selector).with_name('phone-assets-retirement.json')).read()
+            if metadata is not None:self._assets_feature(selector,metadata['runId'],retirement=True).finalize()
+        except Exception:assets_error=True
         create_error=False
         try:
             feature=self.create_feature_store(selector).read() or PrivateFeatureState(self.state_path(selector).with_name('phone-create-retirement.json')).read()
@@ -2445,6 +2516,12 @@ class PhoneAppiumAdapter(AppiumAdapter):
             'PHONE_AVATAR_PEOPLE_FEATURE_CLEANUP_INCOMPLETE')
         require(not graphics_error and self.graphics_feature_store(selector).read() is None
                 and self.graphics_retirement_store(selector).read() is None,'PHONE_GRAPHICS_FEATURE_CLEANUP_INCOMPLETE')
+        require(not assets_error and self.assets_feature_store(selector).read() is None
+            and PrivateFeatureState(self.state_path(selector).with_name('phone-assets-retirement.json')).read() is None
+            and all(PrivateFeatureState(self.state_path(selector).with_name('phone-assets-'+kind+'.json')).read() is None
+                for kind in ('primary-originals','actor-originals','actor-lifecycle'))
+            and all(PrivateFeatureState(self.state_path(selector).with_name('phone-assets-files-owner-'+str(stage)+'.json')).read() is None for stage in range(1,7)),
+            'PHONE_ASSETS_FEATURE_CLEANUP_INCOMPLETE')
         require(not create_error and self.create_feature_store(selector).read() is None
             and PrivateFeatureState(self.state_path(selector).with_name('phone-create-retirement.json')).read() is None
             and all(PrivateFeatureState(self.state_path(selector).with_name('phone-create-'+kind+'.json')).read() is None for kind in ('primary-originals','actor-originals','actor-lifecycle','files-owner')),'PHONE_CREATE_FEATURE_CLEANUP_INCOMPLETE')
@@ -2552,6 +2629,11 @@ class PhoneAppiumAdapter(AppiumAdapter):
             arguments(operation,values)
             require(operation in self.advertised_capabilities(self.target(selector)),'PHONE_TABLET_WEB_FEATURE_NOT_ENABLED')
             return self._invoke_feature(selector,operation,values,lambda retired:self._tablet_web_feature(selector,values['runId'],**({'retirement':True} if retired else {})))
+        if operation in ASSETS_FEATURE_OPERATIONS:
+            from feature_journeys.contract import arguments
+            arguments(operation,values)
+            require(operation in self.advertised_capabilities(self.target(selector)),'PHONE_ASSETS_FEATURE_NOT_ENABLED')
+            return self._invoke_feature(selector,operation,values,lambda retired:self._assets_feature(selector,values['runId'],**({'retirement':True} if retired else {})))
         if operation in CREATE_FEATURE_OPERATIONS:
             from feature_journeys.contract import arguments
             arguments(operation,values)
