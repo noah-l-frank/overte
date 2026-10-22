@@ -9,7 +9,7 @@ import hashlib
 from urllib.parse import urlsplit
 from adapters.native_feature_observation import need,fresh
 from feature_journeys.contract import state as public_state
-from feature_journeys.fixtures import context,pinned_resource
+from feature_journeys.fixtures import context,pinned_resource,companion
 from feature_journeys.avatar_people_service import validate_status
 from feature_journeys.phase_fixture import PhasePending
 from overte_phone_avatar_people_native import validate,ACTION,digest
@@ -77,7 +77,8 @@ def consumed(run,url,native,backend,*,status=200):
     relative=parsed.path[len(prefix):].split('/',1);need(len(relative)==2)
     ticket,name=relative;expected=None
     if status==200:
-        raw=pinned_resource(name);expected=(len(raw),hashlib.sha256(raw).hexdigest())
+        raw=companion(name) if name in ('gltf-bundle/main.gltf','gltf-bundle/mesh/triangle.bin','gltf-bundle/textures/checker.png') else pinned_resource(name)
+        expected=(len(raw),hashlib.sha256(raw).hexdigest())
     candidates=[row for row in native['events'] if row['requestedUrlSha256']==digest(url) and row['replyUrlSha256']==digest(url)
         and row['runId']==run and row['ticket']==ticket and row['resource']==name and row['httpStatus']==status
         and not row['fromCache'] and not row['redirected'] and (row['networkError']==0 if status==200 else row['networkError']!=0)]
@@ -171,9 +172,44 @@ def measurement(run,before,after,backend,phase,baseline,fixture_url,provider_ins
     actual['connection']='connected' if connected else 'pending' if pending else 'none';actual['dialog']=dialog
     receipts=social_replies(left,backend,origin,'primary')
     if connected:
-        need(view['present'] and not backend['pending'] and any(row['method']=='POST' and row['status']==200 for row in receipts))
+        ticket=phase['activations'][-1]['ticket']
+        need(view['present'] and not backend['pending'] and backend['binding'] is not None
+            and backend['binding']['primarySession']==left['avatar']['sessionId']
+            and any(row['method']=='POST' and row['status']==200 and row['ticket']==ticket for row in receipts))
         rows=left['view']['models']['connectionsUserModel']['rows']
         need(sum(row.get('userName')==backend['principals']['peer'] and row.get('connection')=='connection' for row in rows)==1)
     if pending:need(dialog and view['present'] and consent.get('peer') not in ('',left['avatar']['sessionId']) and consent.get('requestId'))
     if not connected and not pending:need(not dialog and not backend['pending'])
     return deepcopy(public_state('avatar-people',actual,run))
+
+
+def restoration(run,before,after,backend,original,fixture_url,provider_instance,*,pid,epoch,after_epoch):
+    """Logical original target state plus actual owned EntityTree/object drain."""
+    validate(before,request(before),pid,epoch);validate(after,request(after),pid,epoch,previous=before)
+    validate_status(backend,run=run,request=backend['requestId'],instance=provider_instance);fresh(backend['capturedEpochMs'],epoch)
+    need(before['runId']==after['runId']==run and before['requestedEpochMs']>=after_epoch and not backend['inflightResponses'])
+    if backend['pending'] or any(backend['relationships'].values()):raise PhasePending('The actual relationship/pending service has not drained')
+    baseline=original['source'];empty=digest('')
+    for packet in (before,after):
+        source=packet['source'];avatar=source['avatar'];auth=source['auth'];account=auth['observation'];entities=source['avatarEntities']
+        need(source['connected'] and source['domainId']==baseline['domainId']==backend['domainId']
+            and avatar['sessionId']==baseline['avatar']['sessionId'] and not avatar['replicated']
+            and avatar['requestedUrl']==baseline['avatar']['requestedUrl'] and avatar['loaded'] and avatar['geometry'] is not None
+            and avatar['geometry']['url']==baseline['avatar']['geometry']['url'] and avatar['geometry']['texturesLoaded']
+            and same(avatar['geometry']['textures'],baseline['avatar']['geometry']['textures'])
+            and abs(avatar['scale']-baseline['avatar']['scale'])<.005 and abs(avatar['targetScale']-baseline['avatar']['targetScale'])<.005
+            and source['preferredAvatarUrl']==baseline['preferredAvatarUrl'] and source['preferredAvatarName']==baseline['preferredAvatarName']
+            and same(source['attachments'],baseline['attachments']) and same(source['bookmarks'],baseline['bookmarks'])
+            and same(source['view']['preferences'],baseline['view']['preferences'])
+            and source['accountOrigin']==baseline['accountOrigin'] and not auth['loggedIn'] and auth['principalSha256']==empty
+            and not any(account[key] for key in ('tokenPresent','tokenValid','refreshPresent','loginPending','refreshPending'))
+            and not source['view']['tabletShown'] and not source['view']['avatar']['present'] and not source['view']['people']['present']
+            and not source['view']['avatar']['dialogs'] and not source['view']['people']['dialog'])
+        owned={row['entityId'] for row in source['avatarEntityOrigins']['events']}
+        need(owned<=set(entities['rememberedIds']) and owned<=set(entities['absentIds'])
+            and not owned.intersection(entities['advertisedIds']) and not owned.intersection(entities['retainedIds']))
+        # An unclassified same-run orphan cannot be retired by matching its URL.
+        prefix='/feature-fixture/v1/runs/'+run+'/tickets/'
+        need(not any(urlsplit(row['modelUrl']).path.startswith(prefix) for row in entities['entities']))
+    return deepcopy(public_state('avatar-people',dict(avatar='original',requestedAvatar='original',modelLoaded=after['source']['avatar']['loaded'],
+        loadFailed=False,scale=after['source']['avatar']['scale'],wearable=False,bookmarked=False,connection='none',dialog=after['source']['view']['people']['dialog']),run))

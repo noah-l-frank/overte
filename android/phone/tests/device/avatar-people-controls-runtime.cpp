@@ -17,6 +17,9 @@ QUrl PathUtils::qmlUrl(const QString& relative) { return QUrl::fromLocalFile(bas
 int main(int argc,char** argv) {
     QGuiApplication app(argc,argv);QCoreApplication::setOrganizationName("Overte-E2E-Host");qmlRegisterModule("Hifi",1,0);qmlRegisterModule("TabletScriptingInterface",1,0);QQmlEngine engine;QObject::connect(&engine,&QQmlEngine::warnings,[](const QList<QQmlError>& errors) { for (const auto& error:errors) { std::cerr<<"QML "<<error.toString().toStdString()<<"\n"; } });engine.addImportPath(base+"/interface/resources/qml");
     engine.rootContext()->setContextProperty("HMD",QVariantMap{{"active",false},{"mounted",false}});
+    engine.rootContext()->setContextProperty("AddressManager",QVariantMap{{"isConnected",true}});
+    engine.rootContext()->setContextProperty("Entities",QVariant::fromValue(engine.evaluate("({canRezAvatarEntities:function(){return true;},getEntityProperties:function(){return {};},getJointNames:function(){return [];}})")));
+    engine.rootContext()->setContextProperty("MyAvatar",QVariant::fromValue(engine.evaluate("({getJointNames:function(){return ['Hips'];}})")));
     QQmlComponent component(&engine,PathUtils::qmlUrl("hifi/AvatarApp.qml"));QScopedPointer<QObject> object(component.create());
     if (!object) { for (const auto& error:component.errors()) { std::cerr<<error.toString().toStdString()<<'\n'; }return 1; }
     auto root=qobject_cast<QQuickItem*>(object.data());if (!root) { return 2; }
@@ -48,10 +51,29 @@ int main(int argc,char** argv) {
     if (!input("avatar.settings","activate") || !input("avatar.scale","set-value",15.0)) { return 8; }
     bool scaled=false;for (const auto& row:capture().value("controls").toArray()) { if (row.toObject().value("id")=="avatar.scale" && qAbs(row.toObject().value("value").toDouble()-15.0)<0.1) { scaled=true; } }
     if (!scaled || !input("avatar.dialog.cancel","activate")) { return 9; }
+    if (!input("avatar.settings","activate") || !input("avatar.scale","set-value",15.0) || !input("avatar.dialog.confirm","activate")) { return 33; }
+    bool savedScale=false;for (const auto& args:avatarMessages) { const auto m=args.at(0).toMap();if (m.value("method")=="setScale" && qAbs(m.value("avatarScale").toDouble()-1.5)<.005) { savedScale=true; } }
+    if (!savedScale || !input("avatar.settings","activate") || !input("avatar.scale","set-value",10.0) || !input("avatar.dialog.confirm","activate")) { return 34; }
     overte::e2e::AvatarPeopleViewObservation view;const auto observed=view.read({root},true);if (observed.isEmpty() || !observed.value("avatar").toMap().value("present").toBool()) { return 10; }
     const auto current=observed.value("avatar").toMap().value("current").toMap();
     if (current.keys()!=QStringList{"avatarScale","avatarUrl","name"} || current.value("avatarUrl")!=original.value("avatarUrl")
             || current.value("avatarScale").toDouble()!=1.0) { std::cerr<<"Missing original current avatar QObject properties\n";return 32; }
+    const QString wearableId="88888888-8888-4888-8888-888888888888",wearableUrl="https://controlled.invalid/owned/main.gltf";
+    if (!input("avatar.wearables","activate") || !input("avatar.wearable.add","activate") || !input("avatar.dialog.input","activate")
+            || !input("avatar.dialog.input","replace",wearableUrl) || !input("avatar.dialog.confirm","activate")) { return 38; }
+    bool addedWearable=false;for (const auto& args:avatarMessages) { const auto m=args.at(0).toMap();if (m.value("method")=="addWearable" && m.value("url")==wearableUrl) { addedWearable=true; } }
+    if (!addedWearable) { return 39; }
+    const QVariantMap vector{{"x",1.0},{"y",1.0},{"z",1.0}},zero{{"x",0.0},{"y",0.0},{"z",0.0}};
+    const QVariantMap properties{{"id",wearableId},{"modelURL",wearableUrl},{"localPosition",zero},{"localRotationAngles",zero},{"dimensions",vector},{"naturalDimensions",vector},{"parentJointIndex",0}};
+    QVariant wornMessage=QVariantMap{{"method","wearablesUpdated"},{"wearables",QVariantList{QVariantMap{{"properties",properties}}}}};
+    if (!QMetaObject::invokeMethod(root,"fromScript",Q_ARG(QVariant,wornMessage))) { return 35; }
+    bool originalWearable=false;for (const auto& row:capture().value("controls").toArray()) { const auto actual=row.toObject();
+        if (actual.value("id")=="avatar.wearable.remove" && actual.value("wearableId")==wearableId
+                && actual.value("wearableUrlSha256")==QString::fromLatin1(QCryptographicHash::hash(wearableUrl.toUtf8(),QCryptographicHash::Sha256).toHex())) { originalWearable=true; } }
+    if (!originalWearable) { std::cerr<<"Missing original selected wearable "<<QJsonDocument(capture()).toJson(QJsonDocument::Compact).constData()<<'\n';return 36; }
+    if (!input("avatar.wearable.remove","activate")) { return 36; }
+    bool tookOff=false;for (const auto& args:avatarMessages) { const auto m=args.at(0).toMap();if (m.value("method")=="deleteWearable" && m.value("entityID")==wearableId) { tookOff=true; } }
+    if (!tookOff || !input("avatar.dialog.confirm","activate")) { return 37; }
     QQuickItem blocker(window.contentItem());blocker.setSize(QSizeF(640,1000));blocker.setZ(100000);blocker.setAcceptedMouseButtons(Qt::LeftButton);
     if (input("avatar.url","activate")) { return 11; }blocker.setVisible(false);
     // A separately loaded original People page receives host producer messages;

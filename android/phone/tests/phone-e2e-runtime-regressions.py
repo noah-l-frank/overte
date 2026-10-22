@@ -140,6 +140,7 @@ COMMON_HOST_CHECKS = (
     "android/phone/tests/device/test_emote_lifetime_failure.py",
     "android/phone/tests/device/test_emote_pixels.py",
     "android/phone/tests/device/test_avatar_people_pixels.py",
+    "android/phone/tests/device/test_avatar_people_feature.py",
     "android/phone/tests/device/test_emote_images.py",
     "android/phone/tests/device/test_emote_capture.py",
     "android/phone/tests/device/test_emote_observation.py",
@@ -191,4 +192,4 @@ for name in selected + COMMON_HOST_CHECKS + (EXTENDED_HOST_CHECKS if args.extend
     # journeys; their file/image/actor checks need a larger aggregate budget.
     # Per-source freshness and common checkpoint deadlines remain unchanged.
     subprocess.run(arguments, cwd=ROOT, check=True,
-                   timeout=10800 if name in EXTENDED_HOST_CHECKS else 240 if name.endswith(("test_graphics_feature.py","test_create_feature.py")) else 90)
+                   timeout=10800 if name in EXTENDED_HOST_CHECKS else 240 if name.endswith(("test_graphics_feature.py","test_create_feature.py","test_avatar_people_feature.py")) else 90)

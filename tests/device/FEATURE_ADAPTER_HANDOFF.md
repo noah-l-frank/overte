@@ -19,6 +19,16 @@ change carries no physical-device acceptance.
 
 # Feature adapter handoff, contract v17
 
+The default-off [Phone Avatar/People adapter](adapters/android-phone/AVATAR_PEOPLE.md)
+now composes all 15 public actions, mandatory multi-user foundation and common
+baseline/cleanup checkpoints. Independent actor configuration uses observer v4
+with mandatory `peerTarget` and `peerImagePolicy`; the parent integration owns
+the final shared observer grammar and current common-contract version. Host
+composition uses two explicit synthetic Phone/Qt/GPU producers and real loopback
+HTTPS/OAuth/resource/social requests. Qt6 checks compile real helper headers and
+load original QML; product translation units/APK and physical two-Phone execution
+remain untested. No global complete count or device acceptance is changed.
+
 The [Phone World Navigation adapter](adapters/android-phone/WORLD_NAVIGATION_FEATURE.md)
 now connects the complete public triple and common v17 Journey. Host composition
 and a partial native Qt6 check are verified; Android product compilation and

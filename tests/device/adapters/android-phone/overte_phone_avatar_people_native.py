@@ -18,7 +18,7 @@ from overte_phone_script_history import same
 FILE='phone-avatar-people-observation.json'
 UI_FILE='phone-avatar-people-ui.json'
 ACTION='phone-avatar-people-observe'
-CONTROL=re.compile(r'(?:avatar\.(?:entry|page|url|wearables|settings|scale|settings\.scrollbar|wearable\.add|bookmark\.(?:add|manage|previous|next|row\.(?:0|[1-9][0-9]{0,2}))|dialog\.(?:input|confirm|cancel))|people\.(?:entry|page|nearby|connections|ConnectionAccept|ConnectionDecline|ConnectionCancel|RequestConnection|row\.(?:0|[1-9][0-9]{0,2})|remove\.[A-Za-z0-9_-]{1,128}))')
+CONTROL=re.compile(r'(?:avatar\.(?:entry|page|url|wearables|settings|scale|settings\.scrollbar|wearable\.(?:add|remove)|bookmark\.(?:add|manage|previous|next|row\.(?:0|[1-9][0-9]{0,2}))|dialog\.(?:input|confirm|cancel))|people\.(?:entry|page|nearby|connections|ConnectionAccept|ConnectionDecline|ConnectionCancel|RequestConnection|row\.(?:0|[1-9][0-9]{0,2})|remove\.[A-Za-z0-9_-]{1,128}))')
 UUID=re.compile('[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}')
 HASH=re.compile('[0-9a-f]{64}')
 
@@ -115,13 +115,17 @@ def controls(value,request,pid,epoch):
     for row in value['controls']:
         need(type(row) is dict and type(row.get('id')) is str and CONTROL.fullmatch(row['id']) and nonce(row.get('token'))
             and row['id'] not in ids and row['token'] not in tokens and {'id','token','enabled','focused','inputReady'}<=set(row)
-            and set(row)<={'id','token','enabled','focused','inputReady','text','dialogTitle','dialogSource','managing','value','from','to','stepSize','bookmarkName','peerSession','userName','consent','tab'}
+            and set(row)<={'id','token','enabled','focused','inputReady','text','dialogTitle','dialogSource','managing','value','from','to','stepSize','bookmarkName','peerSession','userName','consent','tab','wearableId','wearableUrlSha256'}
             and all(type(row[k]) is bool for k in ('enabled','focused','inputReady')))
         for k in ('text','dialogTitle','dialogSource','bookmarkName','peerSession','userName','tab'):
             if k in row:need(text(row[k]))
         for k in ('value','from','to','stepSize'):
             if k in row:need(number(row[k],0,1000))
         if 'managing' in row:need(type(row['managing']) is bool)
+        if row['id']=='avatar.wearable.remove':
+            if row['enabled'] or row.get('wearableId')!='':session(row.get('wearableId'))
+            need(type(row.get('wearableUrlSha256')) is str and HASH.fullmatch(row['wearableUrlSha256']))
+        else:need('wearableId' not in row and 'wearableUrlSha256' not in row)
         if 'consent' in row:need(type(row['consent']) is dict)
         ids.add(row['id']);tokens.add(row['token'])
     return value

@@ -1,10 +1,10 @@
 # Android Phone Avatar/People source and ordinary input seams
 
-These are E2E-only native source components and bounded readers. They do not
-register an Avatar/People feature triple, perform a complete common journey or
-qualify rendered avatar pixels. The complete facade still must provide both
-real participants, mandatory multi-user foundation, per-phase independent
-publisher evidence, GPU/body pixels and durable verified restoration/retirement.
+These are E2E-only native source components and bounded readers. The historical
+source packets below are now composed by the default-off
+[public Avatar/People owner](../adapters/android-phone/AVATAR_PEOPLE.md), including
+both participant roles, mandatory multi-user foundation, original GPU/PNG joins
+and durable restoration/retirement. Physical two-Phone execution remains untested.
 
 `phoneAvatarPeopleUi` enters the existing ordinary Qt window dispatcher. It
 resolves only the original AvatarApp, Settings, MessageBox, favorite dialogs,
@@ -156,3 +156,14 @@ replacement, forgotten orphan queries and durable reader resume. The updated
 Qt6 helper exercises weak original/first-observed identity and final reference
 drain. EntityTree and TestScriptingInterface product translation units remain
 uncompiled; no runtime/two-Phone result is claimed.
+
+The public composition adds normal `TAKE IT OFF` input, bound to the actual
+selected wearable's original QML model ID and URL digest. The read-only model
+projection handles both QVariantMap and original QObject ListModel entries.
+An empty disabled selector grants no input authority. The Qt6 host harness
+additionally checks ordinary scale SAVE, normal wearable add/remove messages and
+the selected entity metadata. No functional QML or product behavior is changed.
+The public owner retains the original native marker/Browser/camera handback
+proof after its live marker lease is cleared. Host source blobs and saved PNGs
+remain private audit artifacts; only live authority journals and partial files
+are retired. See the public owner document for exact admission and test limits.

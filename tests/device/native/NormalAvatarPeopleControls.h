@@ -44,6 +44,19 @@ inline QVariantMap peopleRow(QQuickItem* item) {
     return {};
 }
 inline QQuickItem* peopleCard(QQuickItem* item) { return peopleApp(item) ? avatarPeopleComponent(item,"hifi/NameCard.qml","thisNameCard") : nullptr; }
+inline QVariantMap avatarPeopleSelectedWearable(QQuickItem* item) {
+    auto root=avatarPeopleComponent(item,"hifi/avatarapp/AdjustWearables.qml","root");
+    if (!root || root->thread()!=qApp->thread()) { return {}; }
+    QVariant original;
+    if (!QMetaObject::invokeMethod(root,"getCurrentWearable",Qt::DirectConnection,Q_RETURN_ARG(QVariant,original))) { return {}; }
+    original=createVariant(original);auto result=original.toMap();
+    if (result.isEmpty()) { if (auto object=original.value<QObject*>()) {
+        if (object->thread()!=qApp->thread()) { return {}; }
+        for (const auto& key:QStringList{"id","modelURL"}) { const auto value=object->property(key.toUtf8().constData());
+            if (value.userType()!=QMetaType::QString) { return {}; }result.insert(key,value); }
+    } }
+    return result;
+}
 inline bool avatarPeopleFrontDialog(QQuickItem* item,QQuickItem* dialog) {
     auto page=avatarApp(item);if (!page || !dialog) { return false; }
     QQuickItem* front{nullptr};
@@ -106,6 +119,8 @@ inline QString avatarPeopleControlId(QQuickItem* item) {
             if (button=="noButton") { return "avatar.dialog.cancel"; }
         }
         if (avatarPeopleComponent(item,"hifi/avatarapp/AdjustWearables.qml","root") && item->inherits("QQuickText") && item->property("text").toString()=="<a href='#'>Add custom</a>") { return "avatar.wearable.add"; }
+        if (avatarPeopleComponent(item,"hifi/avatarapp/AdjustWearables.qml","root") && item->inherits("QQuickAbstractButton")
+                && item->property("text").toString()=="TAKE IT OFF" && avatarPeopleFrontDialog(item,avatarDialog(item))) { return "avatar.wearable.remove"; }
     }
     if (people) {
         if (item==people) { return "people.page"; }
@@ -137,6 +152,11 @@ inline void appendAvatarPeopleControl(QJsonObject& row,QQuickItem* item,const QS
     if (auto page=avatarApp(item)) { row["managing"]=page->property("isInManageState").toBool(); }
     if (id=="avatar.scale") { for (const auto& key:QStringList{"value","from","to","stepSize"}) { row[key]=QJsonValue::fromVariant(item->property(key.toUtf8().constData())); } }
     if (id.startsWith("avatar.bookmark.row.")) { row["bookmarkName"]=navigationRole(item,"name").toString(); }
+    if (id=="avatar.wearable.remove") {
+        const auto selected=avatarPeopleSelectedWearable(item);
+        row["wearableId"]=selected.value("id").toString();
+        row["wearableUrlSha256"]=QString::fromLatin1(QCryptographicHash::hash(selected.value("modelURL").toString().toUtf8(),QCryptographicHash::Sha256).toHex());
+    }
     if (auto card=peopleCard(item)) { row["peerSession"]=card->property("uuid").toString();row["userName"]=card->property("userName").toString(); }
     const auto original=peopleRow(item);
     if (!original.isEmpty()) { row["peerSession"]=original.value("sessionId").toString();row["userName"]=original.value("userName").toString(); }

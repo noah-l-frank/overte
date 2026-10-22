@@ -93,6 +93,8 @@ from adapters.native_animation_inventory import NativeAnimationInventory, FILE a
 from adapters.native_script_work import NativeScriptWork, FILE as SCRIPT_WORK_FILE, command as script_work_command
 from overte_phone_navigation_feature import PhoneNavigationFeature
 from overte_phone_navigation_fixture import NavigationFixtureReader
+from overte_phone_avatar_people_feature import PhoneAvatarPeopleFeature,image_policy as avatar_people_image_policy
+from overte_phone_avatar_people_fixture import AvatarPeopleFixtureReader
 from overte_phone_navigation_native import PhoneNavigationIO,PhoneNavigationView,UI_FILE as NAVIGATION_UI_FILE,VIEW_FILE as NAVIGATION_VIEW_FILE
 from overte_phone_navigation_marker import NativePhoneNavigationMarker,FILE as NAVIGATION_MARKER_FILE
 from overte_phone_graphics_feature import PhoneGraphicsFeature
@@ -113,6 +115,7 @@ TABLET_FOUNDATION_OPERATIONS={'tablet.open','tablet.close'}
 AUDIO_FEATURE_OPERATIONS={'feature.audio.'+kind for kind in ('act','observe','cleanup')}
 NAVIGATION_FEATURE_OPERATIONS={'feature.world-navigation.'+kind for kind in ('act','observe','cleanup')}
 WEB_REFERENCE_OPERATIONS={'web.reference.'+kind for kind in ('open','close','play','pause','seek')}
+AVATAR_PEOPLE_FEATURE_OPERATIONS={'feature.avatar-people.'+kind for kind in ('act','observe','cleanup')}
 
 
 def readonly_feature_command(command):
@@ -349,6 +352,15 @@ class PhoneAppiumAdapter(AppiumAdapter):
                     and self.controlled_android_client(target),'PHONE_FEATURE_WORLD_NAVIGATION_REQUIRES_BOUND_DEBUG_TARGET')
             self._navigation_configuration();self._feature_fixture_client()
             values=sorted(set(values)|NAVIGATION_FEATURE_OPERATIONS)
+        full_avatar=os.environ.get('OVERTE_PHONE_FEATURE_AVATAR_PEOPLE','0')
+        require(full_avatar in ('0','1'),'PHONE_FEATURE_AVATAR_PEOPLE_CONFIGURATION_INVALID')
+        if full_avatar=='1':
+            require(getattr(self,'candidate',None) is not None and target.get('appId')=='io.github.noah_be.overte.phone'
+                and self.controlled_android_client(target),'PHONE_FEATURE_AVATAR_PEOPLE_REQUIRES_BOUND_DEBUG_TARGET')
+            require(self.account_fixture_configuration(target) is not None,'PHONE_FEATURE_AVATAR_PEOPLE_REQUIRES_ACCOUNT_FIXTURE_LAUNCH')
+            self._avatar_people_configuration();client=self._feature_fixture_client()
+            require(urlsplit(client.url).scheme=='https','PHONE_FEATURE_AVATAR_PEOPLE_REQUIRES_TLS')
+            values=sorted(set(values)|AVATAR_PEOPLE_FEATURE_OPERATIONS)
         full_graphics=os.environ.get('OVERTE_PHONE_FEATURE_GRAPHICS','0')
         require(full_graphics in ('0','1'),'PHONE_FEATURE_GRAPHICS_CONFIGURATION_INVALID')
         if full_graphics=='1':
@@ -847,6 +859,51 @@ class PhoneAppiumAdapter(AppiumAdapter):
         return PhoneAvatarPeopleIO(native.send,
             lambda:transport.read_debug_app_file(device,target['appId'],'files/overte-e2e/'+UI_FILE,attempts=1),
             native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep)
+
+    def avatar_people_feature_store(self,selector):
+        return PrivateFeatureState(self.state_path(selector).with_name('phone-avatar-people-feature.json'))
+
+    def avatar_people_retirement_store(self,selector):
+        return PrivateFeatureState(self.state_path(selector).with_name('phone-avatar-people-retirement.json'))
+
+    @staticmethod
+    def _avatar_people_configuration(metadata=None):
+        if metadata is None:
+            policy=PrivateFeatureState(Path(os.environ.get('OVERTE_PHONE_AVATAR_PEOPLE_IMAGE_POLICY',''))).read()
+            root=Path(os.environ.get('OVERTE_DEVICE_ARTIFACT_DIR',''))
+        else:
+            from overte_phone_script_history import unpack
+            require(type(metadata) is dict and type(metadata.get('avatarPeopleFeatureVersion')) is int
+                and metadata['avatarPeopleFeatureVersion']==1,'PHONE_AVATAR_PEOPLE_ORIGINAL_CONFIGURATION_REQUIRED')
+            rows=unpack(metadata['payload']);require(len(rows)==1,'PHONE_AVATAR_PEOPLE_ORIGINAL_CONFIGURATION_REQUIRED')
+            if metadata['kind']=='retirement':
+                from overte_phone_avatar_people_feature import read_blob
+                owner=read_blob(metadata['artifactRoot'],metadata['runId'],rows[0]['owner'])
+            else:owner=rows[0]
+            policy=owner['policy'];root=Path(metadata['artifactRoot'])
+        policy=avatar_people_image_policy(policy)
+        PrivateFeatureState(root/'avatar-people-configuration-boundary.json')._parent()
+        return root,policy
+
+    def _avatar_people_feature(self,selector,run,*,role='primary',client=None,retirement=False,peer_selector=None,peer_policy=None):
+        target=self.target(selector)
+        require(getattr(self,'candidate',None) is not None and target.get('appId')=='io.github.noah_be.overte.phone'
+            and self.controlled_android_client(target),'PHONE_AVATAR_PEOPLE_REQUIRES_BOUND_DEBUG_TARGET')
+        if client is None:
+            require(role=='primary','PHONE_AVATAR_PEOPLE_ACTOR_REQUIRES_SEPARATE_CLIENT');client=self._feature_fixture_client()
+        metadata=None
+        if role=='actor' or retirement:
+            metadata=self.avatar_people_feature_store(selector).read() or self.avatar_people_retirement_store(selector).read()
+            require(type(metadata) is dict and metadata.get('runId')==run and metadata.get('fixtureUrl')==client.url+'/runs/'+run+'/',
+                'PHONE_AVATAR_PEOPLE_ORIGINAL_CONFIGURATION_REQUIRED')
+        if role=='actor':
+            peer=self.target(peer_selector)
+            require(peer_selector!=selector and peer.get('appId')=='io.github.noah_be.overte.phone'
+                and self.controlled_android_client(peer),'PHONE_AVATAR_PEOPLE_REQUIRES_INDEPENDENT_PHONE')
+            avatar_people_image_policy(peer_policy)
+        root,policy=self._avatar_people_configuration(metadata)
+        return PhoneAvatarPeopleFeature(self,selector,AvatarPeopleFixtureReader(client,run),root,policy,
+            role=role,peer_selector=peer_selector,peer_policy=peer_policy)
 
     def _avatar_people_source(self,selector,*,read_only=True):
         from overte_phone_avatar_people_native import PhoneAvatarPeopleObservation,FILE
@@ -2025,6 +2082,11 @@ class PhoneAppiumAdapter(AppiumAdapter):
         try:
             if self.web_reference_store(selector).read() is not None or self.web_reference_retired_store(selector).read() is not None:self._web_reference(selector).cleanup()
         except Exception:reference_error=True
+        avatar_people_error=False
+        try:
+            feature=self.avatar_people_feature_store(selector).read() or self.avatar_people_retirement_store(selector).read()
+            if feature is not None:self._avatar_people_feature(selector,feature['runId'],retirement=True).finalize()
+        except Exception:avatar_people_error=True
         world_web_error=False
         try:
             feature=self.world_web_feature_store(selector).read() or self.world_web_retirement_store(selector).read()
@@ -2241,6 +2303,9 @@ class PhoneAppiumAdapter(AppiumAdapter):
         require(not navigation_error and self.navigation_feature_store(selector).read() is None and self.navigation_retirement_store(selector).read() is None
             and all(PrivateFeatureState(self.state_path(selector).with_name('phone-navigation-'+role+'-feature.json')).read() is None for role in ('primary','actor')),
             'PHONE_NAVIGATION_FEATURE_CLEANUP_INCOMPLETE')
+        require(not avatar_people_error and self.avatar_people_feature_store(selector).read() is None and self.avatar_people_retirement_store(selector).read() is None
+            and all(PrivateFeatureState(self.state_path(selector).with_name('phone-avatar-people-'+role+'-feature.json')).read() is None for role in ('primary','actor')),
+            'PHONE_AVATAR_PEOPLE_FEATURE_CLEANUP_INCOMPLETE')
         require(not graphics_error and self.graphics_feature_store(selector).read() is None
                 and self.graphics_retirement_store(selector).read() is None,'PHONE_GRAPHICS_FEATURE_CLEANUP_INCOMPLETE')
         require(not create_error and self.create_feature_store(selector).read() is None
@@ -2296,6 +2361,11 @@ class PhoneAppiumAdapter(AppiumAdapter):
         PhoneAdapter.require_bound_operation(self, operation, values)
         if operation in ('app.launch','scene.load'):
             self.account_fixture_configuration(self.target(selector))
+        if operation in AVATAR_PEOPLE_FEATURE_OPERATIONS:
+            from feature_journeys.contract import arguments
+            arguments(operation,values)
+            require(operation in self.advertised_capabilities(self.target(selector)),'PHONE_AVATAR_PEOPLE_FEATURE_NOT_ENABLED')
+            return self._invoke_feature(selector,operation,values,lambda retired:self._avatar_people_feature(selector,values['runId'],**({'retirement':True} if retired else {})))
         if operation in NAVIGATION_FEATURE_OPERATIONS:
             from feature_journeys.contract import arguments
             arguments(operation,values)

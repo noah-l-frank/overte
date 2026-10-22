@@ -26,6 +26,7 @@ from overte_phone_account_fixture import origin as account_origin
 from feature_journeys.phase_fixture import PhasePending,PhaseRetired
 from overte_phone_script_lock import PhoneScriptSourceBusy
 from overte_phone_emote_actor import image_policy
+from overte_phone_avatar_people_feature import image_policy as avatar_people_image_policy
 
 SCRIPT_VERSION=1
 VERSION=4
@@ -38,11 +39,17 @@ def configuration(path):
         need(type(value['scriptObserverVersion']) is int and value['scriptObserverVersion']==SCRIPT_VERSION)
     else:
         exact(value,{'featureObserverVersion','area','target','candidateArguments','fixtureUrl','actorToken','durationSeconds'}
-            |({'imagePolicy'} if value.get('featureObserverVersion') in (3,4) and value.get('area')=='emotes' else set()))
+            |({'imagePolicy'} if value.get('featureObserverVersion') in (3,4) and value.get('area')=='emotes' else set())
+            |({'peerTarget','peerImagePolicy'} if value.get('featureObserverVersion')==4 and value.get('area')=='avatar-people' else set()))
         need(type(value['featureObserverVersion']) is int and value['featureObserverVersion'] in (2,3,VERSION)
-             and value['area'] in (('scripts','authentication','graphics') if value['featureObserverVersion']==2 else ('scripts','authentication','graphics','emotes','world-web','tablet-web','world-navigation','audio') if value['featureObserverVersion']==3 else ('scripts','authentication','graphics','emotes','world-web','tablet-web','world-navigation','create','audio')))
+             and value['area'] in (('scripts','authentication','graphics') if value['featureObserverVersion']==2 else
+                 ('scripts','authentication','graphics','emotes','world-web','tablet-web','world-navigation','audio') if value['featureObserverVersion']==3 else
+                 ('scripts','authentication','graphics','emotes','world-web','tablet-web','world-navigation','create','audio','avatar-people')))
         if value['area']=='emotes':image_policy(value['imagePolicy'])
         if value['area']=='authentication':account_origin(value['fixtureUrl'])
+        if value['area']=='avatar-people':
+            need(type(value['peerTarget']) is str and bool(value['peerTarget']) and value['peerTarget']!=value['target'])
+            avatar_people_image_policy(value['peerImagePolicy']);account_origin(value['fixtureUrl'])
     need(type(value['target']) is str and bool(value['target'])
          and type(value['candidateArguments']) is list and len(value['candidateArguments'])<=64
          and all(type(item) is str and item for item in value['candidateArguments'])
@@ -55,7 +62,8 @@ def run(adapter,config,*,monotonic=time.monotonic,sleep=time.sleep):
     """One owned run; no session repair, child launch or device discovery."""
     started=previous=monotonic();need(number(started,0,1e15))
     client=Client(config['fixtureUrl'],config['actorToken']);flow=None
-    area=config.get('area','scripts');need(area in ('scripts','authentication','graphics','emotes','world-web','tablet-web','world-navigation','create','audio'))
+    area=config.get('area','scripts');need(area in ('scripts','authentication','graphics','emotes','world-web','tablet-web','world-navigation','create','audio','avatar-people'))
+    if area=='avatar-people':return run_avatar_people(adapter,config,client,monotonic=monotonic,sleep=sleep)
     if area in ('world-web','tablet-web','audio'):return run_world_web(adapter,config,client,monotonic=monotonic,sleep=sleep)
     if area=='create':return run_create(adapter,config,client,monotonic=monotonic,sleep=sleep)
     if area=='emotes':return run_emote(adapter,config,client,monotonic=monotonic,sleep=sleep)
@@ -85,6 +93,31 @@ def run(adapter,config,*,monotonic=time.monotonic,sleep=time.sleep):
             try:flow.publish()
             except (ScriptRunRetired,AuthenticationRunRetired,GraphicsRunRetired,PhaseRetired):return 0
             except (ScriptPhasePending,AuthenticationPhasePending,GraphicsPhasePending,PhasePending,PhoneScriptSourceBusy):pass
+        sleep(.25)
+
+
+def run_avatar_people(adapter,config,client,*,monotonic=time.monotonic,sleep=time.sleep):
+    """Independent second Phone: separate target, credentials and PNG sources."""
+    started=previous=monotonic();flow=None
+    while True:
+        now=monotonic();need(number(now,previous,started+config['durationSeconds']));previous=now
+        metadata=adapter.avatar_people_feature_store(config['target']).read()
+        retirement=adapter.avatar_people_retirement_store(config['target']).read()
+        if retirement is not None:
+            need(flow is not None and retirement.get('runId')==flow.run and retirement.get('fixtureUrl')==flow.fixture_url
+                and retirement.get('kind')=='retirement');return 0
+        if metadata is None:
+            if flow is not None:
+                need(flow.role_store.read() is None);return 0
+        else:
+            if flow is None:
+                need(metadata.get('fixtureUrl')==client.url+'/runs/'+metadata['runId']+'/')
+                flow=adapter._avatar_people_feature(config['target'],metadata['runId'],role='actor',client=client,
+                    peer_selector=config['peerTarget'],peer_policy=config['peerImagePolicy'])
+            need(metadata.get('runId')==flow.run)
+            try:flow.publish()
+            except PhaseRetired:return 0
+            except (PhasePending,PhoneScriptSourceBusy):pass
         sleep(.25)
 
 

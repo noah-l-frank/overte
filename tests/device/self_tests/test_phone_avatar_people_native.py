@@ -58,6 +58,18 @@ class Boundary:
 
 
 class AvatarPeopleNativeTests(unittest.TestCase):
+    def test_empty_wearable_selector_never_acquires_removal_authority(self):
+        from overte_phone_avatar_people_native import controls
+        row=dict(id='avatar.wearable.remove',token='a'*32,enabled=False,focused=False,inputReady=False,wearableId='',wearableUrlSha256=digest(''))
+        packet=dict(schemaVersion=1,commandId='b'*32,action='observe',instance='c'*32,generation='d'*32,sourceSequence=1,lastCommandSequence=0,
+            elapsedMs=0,capturedEpochMs=20000,processId=31,avatarPeopleControlsVersion=1,ready=True,controls=[row])
+        controls(packet,'b'*32,31,20000)
+        row.update(enabled=True,inputReady=True)
+        with self.assertRaises(NativeUIError):controls(packet,'b'*32,31,20000)
+        row.update(wearableId=SESSION,wearableUrlSha256=digest(URL));controls(packet,'b'*32,31,20000)
+        row['id']='avatar.wearable.add'
+        with self.assertRaises(NativeUIError):controls(packet,'b'*32,31,20000)
+
     def test_closed_original_query_has_no_expected_or_mutating_fields(self):
         b=Boundary();r=b.reader();self.assertEqual(r.read(RUN),b.sample)
         self.assertEqual({'schemaVersion','commandId','action','runId'},set(b.commands[0]));self.assertEqual(2,r.read(RUN)['sequence'])

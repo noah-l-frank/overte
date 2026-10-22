@@ -176,7 +176,7 @@
                 || !/^[0-9a-f]{32}$/.test(String(c.instance)) || !/^[0-9a-f]{32}$/.test(String(c.generation))
                 || !/^[0-9a-f]{32}$/.test(String(c.controlToken)) || !phoneFileInteger(c.sequence,1,1000000000)
                 || !phoneFileInteger(c.observedElapsedMs,0,9007199254740991)
-                || !/^(?:avatar\.(?:entry|url|wearables|settings|scale|settings\.scrollbar|wearable\.add|bookmark\.(?:add|manage|previous|next|row\.(?:0|[1-9][0-9]{0,2}))|dialog\.(?:input|confirm|cancel))|people\.(?:entry|nearby|connections|ConnectionAccept|ConnectionDecline|ConnectionCancel|RequestConnection|row\.(?:0|[1-9][0-9]{0,2})|remove\.[A-Za-z0-9_-]{1,128}))$/.test(String(c.controlId))) { return false; }
+                || !/^(?:avatar\.(?:entry|url|wearables|settings|scale|settings\.scrollbar|wearable\.(?:add|remove)|bookmark\.(?:add|manage|previous|next|row\.(?:0|[1-9][0-9]{0,2}))|dialog\.(?:input|confirm|cancel))|people\.(?:entry|nearby|connections|ConnectionAccept|ConnectionDecline|ConnectionCancel|RequestConnection|row\.(?:0|[1-9][0-9]{0,2})|remove\.[A-Za-z0-9_-]{1,128}))$/.test(String(c.controlId))) { return false; }
         if (c.action === "replace") { return c.controlId === "avatar.dialog.input" && typeof c.text === "string" && c.text.length <= 4096
             && (/^(?:e2e-|hidden-)[0-9a-f]{32}$/.test(c.text) || /^(?:https:\/\/[^\s@#]+|qrc:\/[^\s@#]+)$/.test(c.text)); }
         if (c.action === "set-value") { return c.controlId === "avatar.scale" && typeof c.value === "number" && isFinite(c.value) && c.value >= 1 && c.value <= 40; }

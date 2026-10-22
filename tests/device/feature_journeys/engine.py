@@ -340,7 +340,7 @@ class Journey:
             # Its cleanup operation distinguishes issued/unissued ownership and
             # never dismisses an unowned initial tablet. Attempt restoration
             # while fixture authority is still active, preserving the failure.
-            if self.area in ('emotes','world-navigation'):cleanup_enabled=True
+            if self.area in ('emotes','world-navigation','avatar-people'):cleanup_enabled=True
             if measured:
                 candidate = self.observe(initial, barrier)
                 if not matches({key: candidate['state'][key] for key in expected_baseline if key not in measured},
