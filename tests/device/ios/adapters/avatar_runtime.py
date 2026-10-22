@@ -50,6 +50,19 @@ class IOSAvatarLoginRuntime(IOSAuthenticationRuntime):
 
 
 class IOSAvatarRuntime(IOSScriptRuntime):
+    def _avatar_postlogout_tail(self,selector,client,run,role,subject,root,lock,*,child_run,ticket,baseline,logout_before,epoch_ms=None,monotonic=None):
+        from ios.adapters.avatar_postlogout_tail import IOSAvatarPostLogoutTail
+        identifier(run);identifier(child_run);identifier(ticket);need(isinstance(client,Client) and isinstance(lock,ScriptSourceLock))
+        lock.assert_held();need(lock.path==self.state_path(selector).with_name('script-feature-sources.lock'))
+        source=self._sources(selector);binding=source['binding']
+        need(source['target'].get('testBuild',{}).get('launchEnvironment',{}).get('HIFI_METAVERSE_URL')==origin(client.url))
+        def factory():
+            current=self._sources(selector);need(current['binding']==binding);return current
+        return IOSAvatarPostLogoutTail(PrivateFeatureState(self.state_path(selector).with_name('ios-avatar-'+role+'-'+subject+'-postlogout-tail.json')),
+            root,binding,run,role,subject,lock,source['check'],factory,child_run=child_run,fixture_url=client.url+'/runs/'+child_run+'/',ticket=ticket,
+            baseline=baseline,logout_before=logout_before,epoch_ms=(lambda:time.time()*1000) if epoch_ms is None else epoch_ms,
+            monotonic=time.monotonic if monotonic is None else monotonic)
+
     def _avatar_postlogout_reads(self,selector,client,run,role,subject,root,lock,*,child_run,ticket,baseline,logout_before,epoch_ms=None,monotonic=None):
         from ios.adapters.avatar_postlogout_reads import IOSAvatarPostLogoutReads
         identifier(run);identifier(child_run);identifier(ticket);lock.assert_held()
