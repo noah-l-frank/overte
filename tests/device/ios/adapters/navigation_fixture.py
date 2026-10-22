@@ -14,6 +14,7 @@ from adapters.normal_ui import NativeUIError
 from feature_journeys.contract import identifier
 from feature_journeys.navigation_fixture import configuration,validate_status
 from feature_journeys.navigation_scene import validate_status as scene_status
+from feature_journeys.navigation_base_scene import validate_status as base_status
 from feature_journeys.phase_fixture import PhaseFixtureReader
 from feature_journeys.witness import Client
 
@@ -37,6 +38,7 @@ class NavigationFixtureReader:
         self.client,self.run,self.base=client,run,client.url
         self.epoch_ms,self.monotonic=epoch_ms,monotonic
         self.instance=self.inputs=self.navigation_previous=self.scene_previous=None
+        self.base_previous=None
         self.last_epoch=None;self.last=None;self.fixture_url=self.base+'/runs/'+run+'/'
         self.phase=PhaseFixtureReader(client,run,'world-navigation',epoch_ms=epoch_ms,monotonic=monotonic)
         self.bound()
@@ -72,6 +74,15 @@ class NavigationFixtureReader:
         scene_status(value,instance=self.instance,run=self.run,scene_url=self.inputs['sceneUrl'],previous=self.scene_previous)
         fresh(value['capturedEpochMs'],self.clock());need(not getattr(self.client,'closed',False) or not value['active'])
         self.bound();self.scene_previous=deepcopy(value);return deepcopy(value)
+
+    def base_scene(self):
+        """Original static input, separately available after run retirement."""
+        self.bound();need(self.instance is not None)
+        value=self.client.request('/navigation-base-scene')
+        base_status(value,instance=self.instance,scene_url=self.inputs['sceneUrl'],
+            source_revision=self.inputs['sourceRevision'],previous=self.base_previous)
+        fresh(value['capturedEpochMs'],self.clock());self.bound()
+        self.base_previous=deepcopy(value);return deepcopy(value)
 
     def read(self):
         self.bound();need(self.instance is not None);started=self.monotonic();need(number(started,0,1e15))

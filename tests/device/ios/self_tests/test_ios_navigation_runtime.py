@@ -38,6 +38,18 @@ class NavigationRuntimeTests(unittest.TestCase):
         self.assertEqual([('GET','/session/test-only')],self.calls)
         self.assertFalse(any(operation in ('mobile: terminateApp','mobile: backgroundApp') for operation,_values in self.f.commands))
 
+    def test_admission_factory_uses_same_candidate_lock_and_never_loads_a_scene(self):
+        sessions,launches=self.f.sessions,self.f.launches
+        with self.lock.held():
+            owner=self.runtime._navigation_admission_owner('test-only',self.scene.client,self.run,self.lock)
+            self.assertEqual('42',owner.binding['processIdentity']);self.assertIsNone(owner.store.read())
+            self.assertEqual(8,len(owner.sources));self.assertTrue(owner.native.native_clock_bound)
+            self.assertEqual(20000,owner.native.read(0)['capturedEpochMs'])
+            self.f.process['pid']=43
+            with self.assertRaises((NativeUIError,ValueError)):owner.bound()
+        self.assertEqual((sessions,launches),(self.f.sessions,self.f.launches))
+        self.assertFalse(any(operation in ('mobile: terminateApp','mobile: backgroundApp') for operation,_values in self.f.commands))
+
     def test_factory_and_native_reader_refuse_changed_candidate_before_input_or_new_capture(self):
         with self.lock.held():
             owner=self.owner();before=len(self.f.commands);self.f.artifact.write_bytes(b'Replaced candidate')

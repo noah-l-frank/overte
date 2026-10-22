@@ -40,6 +40,29 @@ class NavigationFixtureTests(unittest.TestCase):
         self.assertGreater(again['originals']['phaseBefore']['sequence'],first['originals']['phaseAfter']['sequence'])
         self.assertEqual(first['originals']['scene']['responses'][0],again['originals']['scene']['responses'][0])
 
+    def test_static_original_history_remains_separate_and_readable_after_run_retirement(self):
+        from feature_journeys.navigation_base_scene import resource_url
+        reader=self.reader();url=resource_url(reader.inputs['sceneUrl'])
+        self.harness.get(url[len(self.harness.origin):]);first=reader.base_scene()
+        self.harness.client.close();again=reader.base_scene()
+        self.assertEqual(first['responses'],again['responses']);self.assertTrue(again['available'])
+        self.assertIsNone(reader.scene_previous);self.assertIsNone(reader.navigation_previous)
+
+    def test_static_original_history_rollback_or_foreign_provider_cannot_replace_retained_source(self):
+        from feature_journeys.navigation_base_scene import resource_url
+        reader=self.reader();self.harness.get(resource_url(reader.inputs['sceneUrl'])[len(self.harness.origin):])
+        first=reader.base_scene();original=self.client.request
+        for fault in ('history','instance'):
+            def request(path):
+                value=deepcopy(original(path))
+                if fault=='history':value['responses']=[]
+                else:value['instance']='f'*32
+                return value
+            self.client.request=request
+            with self.subTest(fault=fault),self.assertRaises(ValueError):reader.base_scene()
+            self.assertEqual(first,reader.base_previous)
+        self.client.request=original
+
     def test_integer_provider_quantization_preserves_distinct_original_fractional_phase_clock(self):
         reader=self.reader();original=self.client.request;floor=[None]
         # Model the documented integer/fractional precision boundary while

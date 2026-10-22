@@ -12,12 +12,26 @@ from adapters.script_feature.lock import ScriptSourceLock
 from feature_journeys.contract import identifier
 from ios.adapters.navigation_fixture import NavigationFixtureReader
 from ios.adapters.navigation_observation_owner import NavigationObservationOwner
+from ios.adapters.navigation_admission_owner import NavigationAdmissionOwner
 from ios.adapters.navigation_sample import NavigationSampleOwner
 from ios.adapters.navigation_samples import NavigationSamples
 from ios.adapters.script_runtime import IOSScriptRuntime
 
 
 class IOSNavigationRuntime(IOSScriptRuntime):
+    def _navigation_admission_owner(self,selector,client,run,lock):
+        identifier(run);need(isinstance(lock,ScriptSourceLock));lock.assert_held()
+        source=self._sources(selector);fixture=NavigationFixtureReader(client,run);fixture.attach()
+        directory=self.state_path(selector).parent
+        need(lock.path==directory/'script-feature-sources.lock')
+        observer,clock=source['observer'],source['clock_source']
+        readers=dict(inventory=observer.scene_inventory(clock),navigation=observer.navigation_state(clock),
+            bookmarks=observer.location_bookmarks(clock),model=observer.places_model(clock),http=observer.places_http(clock),
+            dialogs=observer.navigation_dialogs(clock),replies=observer.navigation_replies(),ui=source['native'])
+        source['check']()
+        return NavigationAdmissionOwner(PrivateFeatureState(directory/'ios-navigation-scene-admission.json'),
+            source['binding'],run,lock,source['check'],native=observer.bound_native_observer(clock),sources=readers,fixture=fixture)
+
     def _navigation_observation_owner(self,selector,client,run,role,stage,request,root,lock,*,previous=None):
         identifier(run);identifier(request)
         need(role in ('primary','actor') and type(stage) is int and stage in (0,1) and isinstance(lock,ScriptSourceLock))

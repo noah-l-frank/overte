@@ -4,6 +4,8 @@
 before the first ordinary Worlds input. It does not send an input, prepare or
 restore a scene, publish a state, own a process replacement or retire a run.
 The whole scene coordinator and complete Worlds operation triple remain partial.
+The [durable admission owner](NAVIGATION_ADMISSION_OWNER.md) now acquires and
+retains this proof through the existing iOS runtime without replaying reads.
 
 One original bounded native clock join covers eight actual sources: whole-tree
 inventory, current navigation/physics/view, saved/loaded bookmarks, Places
@@ -42,9 +44,9 @@ observe Everyone in the loaded model when the page opens.
 The version-1 private proof retains all unchanged originals, their original
 clock join and digest, actual static provider source, original bookmark baseline
 and native commit. `validate` recomputes that same proof. Historical validation
-cannot refresh it. The future durable scene owner must save it, retain any
-partial acquisition and enforce its original freshness deadline before ordinary
-input. It must separately own input delivery, actual arrival, restart, callback
+cannot refresh it. The durable admission owner saves it, retains partial
+acquisition and enforces its original freshness deadline before ordinary input.
+The whole scene coordinator must separately own input delivery, actual arrival, restart, callback
 drainage, restored scene/body/map/pose/preferences and repeated quiet cleanup.
 
 Host tests use real static loopback bytes and bookmark files with modeled

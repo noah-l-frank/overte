@@ -42,6 +42,10 @@ The [original admission validator](NAVIGATION_SCENE_ADMISSION.md) now joins eigh
 fresh source packets to that actual static body/map and rejects unsaved edits,
 unowned UI, unsupported bookmark storage and conflicting preferences. The durable
 scene/input/cleanup owner remains to be integrated.
+Its [durable acquisition owner](NAVIGATION_ADMISSION_OWNER.md) now retains the
+static source, eight originals and both native clock brackets through lost reads
+and lost final returns. The candidate-qualified factory sends no input; expired
+or partial acquisition cannot become fresh admission on reconstruction.
 
 The canonical physical source binding and explicit lost-launch recovery have
 host-tested implementations. The native byte observer and SDK plugin remain
