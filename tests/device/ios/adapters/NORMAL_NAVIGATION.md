@@ -89,3 +89,12 @@ GPU capture; a pending publication blocks the next Actor acquisition. Primary
 public reads post no Actor sample. Twenty-four host tests cover the connected
 active/restart/publication paths and counterexamples. Paired final restoration
 and complete Worlds dispatch remain required before capability advertisement.
+
+The connected current-process test also opens a newly born ordinary Qt Places
+page, materializes its real controlled HTTP/JS/QML directory, deletes the actual
+persisted bookmark using the normal native token recipe and closes that page.
+The new process has its own native input instance and page root. Its original
+source basis still points to the unchanged startup file; later file/model
+observations establish deletion independently. Ignored native tab input retains
+that responsibility and a reconstructed owner sends no second delete attempt.
+The new sources are explicit models; these two tests establish no device result.
