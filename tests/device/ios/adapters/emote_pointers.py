@@ -75,7 +75,7 @@ class IOSEmotePointers:
         exact(value,{'priorRecords','nativeStart','query','raw','original'});need(integer(value['priorRecords'],0,512))
         if value['nativeStart'] is not None:
             start=value['nativeStart'];exact(start,{'clockJoinVersion','hostBeforeEpochMs','hostBeforeMonotonic','nativeBefore'})
-            need(type(start['clockJoinVersion']) is int and start['clockJoinVersion']==1 and number(start['hostBeforeEpochMs'],1) and number(start['hostBeforeMonotonic'],0))
+            need(type(start['clockJoinVersion']) is int and start['clockJoinVersion']==1 and number(start['hostBeforeEpochMs'],1,1e15) and number(start['hostBeforeMonotonic'],0,1e15))
             p=start['nativeBefore'];native_packet(p,p['requestId'],int(self.binding['processIdentity']),p['capturedEpochMs'])
         if value['query'] is not None:need(value['nativeStart'] is not None and pointer_state.command(value['query'])['runId']==self.run)
         if value['raw'] is not None:need(value['query'] is not None and type(value['raw']) is str and len(value['raw'].encode())<=pointer_state.LIMIT)

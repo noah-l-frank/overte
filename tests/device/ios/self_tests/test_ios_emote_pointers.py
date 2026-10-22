@@ -89,6 +89,19 @@ class PointerOwnerTests(unittest.TestCase):
         self.assertEqual('b'*32,rebuilt.original(ref)['packet']['source']['instance'])
         self.assertIn('ffffffff',rebuilt.abandoned(rebuilt.state['abandoned'][0])['raw'])
 
+    def test_real_epoch_magnitude_interrupted_owner_reconstructs_without_reissuing_query(self):
+        import tempfile
+        from pathlib import Path
+        with tempfile.TemporaryDirectory(dir=self.scope.root) as directory:
+            root=Path(directory);root.chmod(0o700);store=PrivateFeatureState(root/'owner.json')
+            def owner():return IOSEmotePointers(store,root,BINDING,RUN,'primary',self.scope.lock,lambda:True,native=self.scope.native,
+                pointer=self.qt.owner().pointer,epoch_ms=lambda:1700000000000+self.domain.time*1000,monotonic=lambda:self.domain.time)
+            first=owner();first.capture();send=first.pointer.send
+            def lost(query):send(query);raise OSError('Lost query with actual UTC epoch magnitude')
+            with patch.object(first.pointer,'send',side_effect=lost),self.assertRaises(NativeUIError):first.capture()
+            count=len(self.qt.boundary.requests);rebuilt=owner();self.assertFalse(rebuilt.resolve());rebuilt.abandon()
+            self.assertEqual(count,len(self.qt.boundary.requests));self.assertGreater(rebuilt.abandoned(rebuilt.state['abandoned'][0])['nativeStart']['hostBeforeEpochMs'],1e12)
+
     def test_pending_actual_callback_remains_owned_even_after_touch_end(self):
         self.scope.cleanup();self.qt.boundary.touch('touch-begin')
         def pending():
