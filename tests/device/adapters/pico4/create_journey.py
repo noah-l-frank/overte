@@ -44,6 +44,7 @@ class PicoCreateJourney(CreatePrimitives):
         from adapters.pico4.create_management import configuration
         need(configuration(os.environ) is not None)
         self.adapter,self.target,self.run,self.source=adapter,target,run,source
+        self.dispatch_admission=self.before_send
         self.parent=adapter.pico_configuration[1];self.key=hashlib.sha256(('org.overte.pico\0'+target).encode()).hexdigest()[:32]
         self.lock=ScriptSourceLock(self.parent/('normal-create-sources-'+self.key+'.lock'))
         self.store=PrivateFeatureState(self.parent/('create-feature-owner-'+self.key+'-'+run+'.json'))
@@ -268,6 +269,31 @@ class PicoCreateJourney(CreatePrimitives):
         def record(original):
             self.record_input(member,original);intent(original)
         return record
+    def controls(self,intent=None):
+        return self.adapter._create_controls(self.target,self.input if intent is None else intent,before_send=self.dispatch_admission)
+    def before_send(self,command,navigation):
+        """Final actual NativeNavigationIO guard-to-writer admission."""
+        self.lock.assert_held();started=self.source.monotonic()
+        clock=lambda:navigation.io.adapter.adb.epoch_milliseconds(navigation.io.target)
+        initial=clock();need(number(started,0,1e15) and integer(initial,1))
+        current=navigation.snapshot();navigation.io.guard()
+        value=self.state();item=value['lastInput'];need(item is not None and item['kind'] in ('create','models','picker','primitive'))
+        need(all(navigation.context[k]==value['binding'][k] for k in ('sourceRevision','artifactSha256','processIdentity')))
+        original=item['original'];scope(original['scope']);s=original['scope']
+        need(all(command.get(k)==original[k] for k in ('controlId','controlToken','action'))
+            and command.get('bridgeId')==s['instance'] and command.get('generation')==s['generation']
+            and command.get('sequence')==s['sequence']+1 and command.get('observedElapsedMs')==s['elapsedMs'])
+        self.validate_navigation(current,value['binding'])
+        row=navigation.control(current,command['controlId'])
+        need(current['ready'] and row is not None and row.get('inputReady') is True and row['token']==original['controlToken']
+            and current['bridgeId']==s['instance'] and current['generation']==s['generation']
+            and current['lastCommandSequence']==s['sequence'] and 0<=current['elapsedMs']-s['elapsedMs']<=5000)
+        # Candidate and native UI work precede this final original phase read.
+        # A phase advanced by the actual last guard can never reach the writer.
+        phase=self.phase_fence();need(self.state()==value)
+        native=clock();now=self.source.monotonic();need(integer(native,initial) and number(now,started,1e15))
+        effective=max(native,initial+math.ceil((now-started)*1000))
+        fresh(current['updatedEpochMs'],effective);fresh(phase['capturedEpochMs'],effective)
     def phase_fence(self):
         """Fresh original activation admission, including cleanup ownership."""
         value=self.state();active=self.source.read(value['phase'])
@@ -389,12 +415,12 @@ class PicoCreateJourney(CreatePrimitives):
             self.navigation_input('tablet-open',before,'tablet-open');ui.open_tablet()
         from adapters.pico4.tablet_home import bind_home
         home=bind_home(self.adapter,self.target,self.adapter._native_feature_observer(self.target));home.ensure(self.home_input)
-        controls=self.adapter._create_controls(self.target,self.input);controls.open_create();controls.wait_create()
+        controls=self.controls();controls.open_create();controls.wait_create()
     def close_editor(self):
         from adapters.pico4.tablet_home import bind_home
         home=bind_home(self.adapter,self.target,self.adapter._native_feature_observer(self.target))
         home.ensure(self.home_input)
-        controls=self.adapter._create_controls(self.target,self.input)
+        controls=self.controls()
         need(controls.row(controls.capture(),'create.page',enabled=False) is None)
     def act(self,values):
         arguments('feature.create.act',values)
@@ -439,7 +465,7 @@ class PicoCreateJourney(CreatePrimitives):
         if verb=='voxel-create' or verb=='delete-owned' and (subject=='primitive' or value.get('primitives') and value['primitives'][-1]['deleteTicket']==value['pending']):
             self.primitive_reconcile('create' if verb=='voxel-create' else 'delete')
         elif verb in ('open','close'):
-            ui=self.adapter._create_controls(self.target,self.input);page=ui.row(ui.capture(),'create.page',enabled=False)
+            ui=self.controls();page=ui.row(ui.capture(),'create.page',enabled=False)
             need((page is not None)==(verb=='open') and value['lastInput'] is not None)
         elif verb in ('model-create','apply-texture') or verb=='delete-owned' and subject=='models':
             model=self.component('models');state=model.state()
@@ -525,7 +551,7 @@ class PicoCreateJourney(CreatePrimitives):
         # original pending call survive until a fresh common quiet window.
         need(not self.adapter._create_models_owned(self.target) and not self.adapter._create_picker_owned(self.target))
         self.mark(subject=None)
-        ui,_binding=self.runtime();controls=self.adapter._create_controls(self.target,self.input)
+        ui,_binding=self.runtime();controls=self.controls()
         if controls.row(controls.capture(),'create.page',enabled=False) is not None:
             value=self.state();need('editor-close' not in value['cleanupAttempted'])
             self.mark(cleanupAttempted=value['cleanupAttempted']+['editor-close']);self.close_editor()
@@ -536,7 +562,7 @@ class PicoCreateJourney(CreatePrimitives):
         started=ui.monotonic();quiet=None;clocks=None;stable=None
         for attempt in range(67):
             actual=self.sample();packet=actual['entities'];current=ui.monotonic()
-            controls=self.adapter._create_controls(self.target,self.input);page=controls.row(controls.capture(),'create.page',enabled=False)
+            controls=self.controls();page=controls.row(controls.capture(),'create.page',enabled=False)
             if not self.extra_retired():raise NativeUIError('Original Create PolyVox page or Qt context remains retained')
             if not self.editors_retired(actual['lifecycle']):
                 raise NativeUIError('Original Create editor or Qt context remains retained')

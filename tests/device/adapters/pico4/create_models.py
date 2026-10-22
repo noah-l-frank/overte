@@ -401,7 +401,7 @@ class PicoCreateModels:
         work=WorkJournal(self.adapter._script_work(self.target),self.store('work'),binding)
         from adapters.pico4.create_model_resource_join import ResourceJoinedCreateModels
         resources=OriginalReader(self.adapter._create_model_resources_observer(self.target,self.run),self.store('resources'),binding)
-        return ResourceJoinedCreateModels(self.store('owner'),binding,lambda intent:self.adapter._create_controls(self.target,intent if self.coordinator is None else self.coordinator.wrap_intent('models',intent)),
+        return ResourceJoinedCreateModels(self.store('owner'),binding,lambda intent:self.adapter._create_controls(self.target,intent) if self.coordinator is None else self.coordinator.controls(self.coordinator.wrap_intent('models',intent)),
             entities,callbacks,work,resources=resources,join_store=self.store('resource-join'),
             monotonic=ui.monotonic,sleep=ui.sleep)
     def invoke(self,operation,*,ticket=None,fixture_url=None,resource=None):

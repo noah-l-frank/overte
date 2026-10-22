@@ -472,15 +472,24 @@ def create_adapter(args, base_class):
                 require_cameras=require_frame_view,**options)
             return SerializedWorldCapture(capture,storage,owner,receipts,source_lock=lock)
 
-        def _create_controls(self, target, intent):
+        def _bind_create_transport(self, ui, before_send):
+            if before_send is not None:
+                _need(callable(before_send))
+                navigation=ui.io.navigation
+                navigation.io.bind_before_send(lambda command:before_send(command,navigation))
+            return ui
+
+        def _create_controls(self, target, intent, *, before_send=None):
             from adapters.token_create_ui import TokenCreateUI
             from adapters.pico4.normal_create import PicoCreateIO
             ui, _observe, _binding = self._script_runtime(target)
+            self._bind_create_transport(ui,before_send)
             return TokenCreateUI(PicoCreateIO(ui.io),intent)
 
-        def _create_extra_controls(self,target,intent):
+        def _create_extra_controls(self,target,intent,*,before_send=None):
             from adapters.pico4.create_extra_ui import TokenCreateExtraUI,PicoCreateExtraIO
             ui,_observe,_binding=self._script_runtime(target)
+            self._bind_create_transport(ui,before_send)
             return TokenCreateExtraUI(PicoCreateExtraIO(ui.io),intent,monotonic=ui.monotonic,sleep=ui.sleep)
 
         def _create_management(self, target):
@@ -523,9 +532,10 @@ def create_adapter(args, base_class):
             from adapters.pico4.create_journey import PicoCreateJourney
             return PicoCreateJourney.owned_target(self,target)
 
-        def _create_file_controls(self, target, intent, directory, run, ticket, role, before):
+        def _create_file_controls(self, target, intent, directory, run, ticket, role, before, *, before_send=None):
             from adapters.pico4.create_file_ui import CreateFileUI, PicoCreateFileIO
             ui, _observe, _binding = self._script_runtime(target)
+            self._bind_create_transport(ui,before_send)
             return CreateFileUI(PicoCreateFileIO(ui.io), intent, directory, run, ticket, role, before,
                 monotonic=ui.monotonic, sleep=ui.sleep)
 

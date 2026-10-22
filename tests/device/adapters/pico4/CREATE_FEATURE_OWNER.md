@@ -45,6 +45,18 @@ proof; no marker is interpreted as a successful input receipt.
 Stored calls must exist with their exact typed stimulus and order in the
 original fixture phase history. No requested state is accepted.
 
+All parent, Model, picker and detailed PolyVox QML controls also bind the fixed
+`NativeNavigationIO.bind_before_send` hook. After the original final native
+candidate guard, the parent matches the exact persisted intent, action, token,
+sequence, bridge and candidate identity, reads the actual current UI, then
+freshly reads the original fixture phase immediately before the single original
+writer. Changed tokens, advanced phases and a slow final phase read refuse
+publication while preserving the original pending owner. Final UI/phase ages
+use both original native epoch and advancing host monotonic time. The callable
+owner cannot be replaced or cleared, and cannot mutate the original command.
+This hook qualifies the QML transport; original Home/controller gestures retain
+their separate existing input owners and require their own final transport join.
+
 Model and picker children coexist only through this exact root and shared
 lock. Every registered peer's original source/owner histories are reconstructed
 before the next component is granted. Unknown files, other runs, changed native
@@ -129,6 +141,11 @@ cleanup ticket before Home, and advance it before final retirement. A delayed
 final phase read that ages otherwise valid native packets also refuses
 completion. None of these failures dispatches/replays the rejected input or
 retires the pending root originals.
+The same selector additionally runs five narrow final-transport checks over the
+actual NativeNavigationIO and production Pico Create factory, with explicit SDK,
+Qt observation and writer-status seams. A fixture phase advanced inside the
+actual final native send guard produces zero command publications. Frozen native
+time cannot conceal host time spent in the final original phase read.
 
 Remaining full-flow work includes the normal PolyVox world brush stroke, denied/rez authority plus exact authority restoration,
 independent actor and current state, completed actual stereo draw/texture/pixels

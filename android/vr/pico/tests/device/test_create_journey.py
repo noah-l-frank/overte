@@ -101,8 +101,8 @@ class AdapterActor:
     def _create_model_resources_observer(self,_target,_run):return self.b.resource_reader()
     def _script_work(self,_target):return self.b.work_reader()
     def _create_browse_setting_native(self,_target):return self.b
-    def _create_controls(self,_target,intent):return TokenCreateUI(UnifiedIO(self.b),intent,monotonic=self.b.now,sleep=self.b.ui.sleep)
-    def _create_file_controls(self,_target,intent,directory,run,ticket,role,before):
+    def _create_controls(self,_target,intent,*,before_send=None):return TokenCreateUI(UnifiedIO(self.b),intent,monotonic=self.b.now,sleep=self.b.ui.sleep)
+    def _create_file_controls(self,_target,intent,directory,run,ticket,role,before,*,before_send=None):
         return CreateFileUI(FileIO(self.b),intent,directory,run,ticket,role,before,monotonic=self.b.now,sleep=self.b.ui.sleep)
     def _lifecycle_ui_source(self,_target):
         from adapters.pico4.lifecycle_source import PicoLifecycleSource
