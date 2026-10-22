@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 import re
 import hashlib
+import base64
 import uuid
 from adapters.native_feature_observation import exact,fresh,integer,need,number
 from adapters.pico4.create_callbacks import NativeCreateCallbacks
@@ -19,6 +20,43 @@ def vector(value,length):
     need(type(value) is list and len(value)==length and all(number(v) for v in value))
 
 
+def bytes64(value,maximum):
+    need(type(value) is str and len(value)<=4*((maximum+2)//3))
+    try:result=base64.b64decode(value,validate=True)
+    except (ValueError,TypeError):need(False)
+    need(len(result)<=maximum and base64.b64encode(result).decode()==value);return result
+
+
+def voxel_source(value):
+    exact(value,{'createVoxelsVersion','ready','surfaceStyle','volume','dataBase64','valuesBase64','nonzero','meshReady','vertices','indices'})
+    need(type(value['createVoxelsVersion']) is int and value['createVoxelsVersion']==1 and type(value['ready']) is bool
+        and integer(value['surfaceStyle'],0,3) and integer(value['nonzero'],0,512) and type(value['meshReady']) is bool
+        and integer(value['vertices'],0,1_000_000_000) and integer(value['indices'],0,1_000_000_000))
+    vector(value['volume'],3);need(all(1<=v<=128 and int(v)==v for v in value['volume']))
+    data=bytes64(value['dataBase64'],8192);values=bytes64(value['valuesBase64'],512)
+    need(len(values)==(512 if value['ready'] and value['volume']==[8,8,8] else 0)
+        and value['nonzero']==sum(v!=0 for v in values))
+    return values
+
+
+def local_creations(value,epoch):
+    exact(value,{'createLocalCreationsVersion','armedAfterSequence','lastSequence','events'})
+    need(type(value['createLocalCreationsVersion']) is int and value['createLocalCreationsVersion']==1
+        and integer(value['armedAfterSequence']) and integer(value['lastSequence'],value['armedAfterSequence'])
+        and type(value['events']) is list and len(value['events'])<=128
+        and len(value['events'])==value['lastSequence']-value['armedAfterSequence'])
+    ids=set();previous=0
+    for index,row in enumerate(value['events']):
+        exact(row,{'sequence','id','type','createdEpochUs','sessionId','hostType','observedEpochMs'})
+        need(type(row['sequence']) is int and row['sequence']==value['armedAfterSequence']+index+1
+            and entity_id(row['id']) and row['id'] not in ids and entity_id(row['sessionId'])
+            and type(row['type']) is str and 0<len(row['type'])<=64 and all(ord(c)>=32 for c in row['type'])
+            and integer(row['createdEpochUs'],1) and integer(row['observedEpochMs'],previous,epoch)
+            and row['hostType']=='domain')
+        ids.add(row['id']);previous=row['observedEpochMs']
+    return value
+
+
 def validate(value,request,pid,epoch,run):
     exact(value,{'schemaVersion','requestId','instance','sequence','requestedEpochMs','capturedEpochMs','processId','source'})
     need(type(value['schemaVersion']) is int and value['schemaVersion']==1 and nonce(request) and value['requestId']==request
@@ -28,14 +66,14 @@ def validate(value,request,pid,epoch,run):
         and value['capturedEpochMs']-value['requestedEpochMs']<5000)
     fresh(value['capturedEpochMs'],epoch)
     source=value['source'];version=source.get('createEntitySourceVersion');exact(source,{'createEntitySourceVersion','runId','domainConnected','domainId','sessionId',
-        'canRez','canRezTmp','entities','absentIds','scan'} | ({'domainSession'} if version in (2,3) else set())|({'entityLifetimes'} if version==3 else set()))
-    need(type(source['createEntitySourceVersion']) is int and source['createEntitySourceVersion'] in (1,2,3)
+        'canRez','canRezTmp','entities','absentIds','scan'} | ({'domainSession'} if version in (2,3,4) else set())|({'entityLifetimes'} if version in (3,4) else set())|({'localCreations','avatarRotation'} if version==4 else set()))
+    need(type(source['createEntitySourceVersion']) is int and source['createEntitySourceVersion'] in (1,2,3,4)
         and type(run) is str and re.fullmatch('[0-9a-f]{32}',run) and source['runId']==run
         and all(type(source[k]) is bool for k in ('domainConnected','canRez','canRezTmp'))
         and all(source[k] is None or entity_id(source[k]) for k in ('domainId','sessionId'))
         and type(source['entities']) is list and type(source['absentIds']) is list
         and len(source['entities'])+len(source['absentIds'])<=32)
-    if version in (2,3):
+    if version in (2,3,4):
         session=source['domainSession'];exact(session,{'domainSessionVersion','instance','revision','connected','domainSha256','connectionBirth','connectedEpochMs'})
         need(type(session['domainSessionVersion']) is int and session['domainSessionVersion']==1 and nonce(session['instance'])
             and integer(session['revision']) and type(session['connected']) is bool and session['connected']==source['domainConnected']
@@ -47,7 +85,7 @@ def validate(value,request,pid,epoch,run):
         else:need(session['connectionBirth']=='' and session['connectedEpochMs']==0 and type(session['connectedEpochMs']) is int)
     ids=[]
     for row in source['entities']:
-        exact(row,{'id','name','type','hostType','modelUrl','textures','position','rotation','dimensions','parentId','visible','locked','lastEditedEpochUs'}|({'visuallyReady','naturalDimensions','textureNames','renderInfo'} if version==3 else set()))
+        exact(row,{'id','name','type','hostType','modelUrl','textures','position','rotation','dimensions','parentId','visible','locked','lastEditedEpochUs'}|({'visuallyReady','naturalDimensions','textureNames','renderInfo'} if version in (3,4) else set())|({'createdEpochUs','lastEditedBy','voxels'} if version==4 else set()))
         need(entity_id(row['id']) and row['hostType'] in ('domain','avatar','local')
             and all(type(row[k]) is str and len(row[k])<=limit and not any(ord(c)<32 for c in row[k])
                 for k,limit in (('name',256),('type',64),('modelUrl',4096),('textures',8192))))
@@ -55,7 +93,7 @@ def validate(value,request,pid,epoch,run):
         need(type(row['visible']) is bool and type(row['locked']) is bool and integer(row['lastEditedEpochUs'],1))
         for key in ('position','dimensions'):vector(row[key],3)
         vector(row['rotation'],4);need(all(v>=0 for v in row['dimensions']));ids.append(row['id'])
-        if version==3:
+        if version in (3,4):
             need(type(row['visuallyReady']) is bool);vector(row['naturalDimensions'],3)
             need(all(v>=0 for v in row['naturalDimensions']) and type(row['textureNames']) is dict and len(row['textureNames'])<=64)
             need(all(type(k) is str and 0<len(k)<=256 and not any(ord(c)<32 for c in k)
@@ -63,9 +101,16 @@ def validate(value,request,pid,epoch,run):
             exact(row['renderInfo'],{'vertices','textures','textureBytes','drawCalls'})
             need(all(integer(row['renderInfo'][k],0,1_000_000_000) for k in ('vertices','textures','drawCalls'))
                 and integer(row['renderInfo']['textureBytes'],0,2**53-1))
+        if version==4:
+            need(integer(row['createdEpochUs'],1,row['lastEditedEpochUs']) and (row['lastEditedBy'] is None or entity_id(row['lastEditedBy'])))
+            if row['type']=='PolyVox':voxel_source(row['voxels'])
+            else:need(row['voxels'] is None)
+    if version==4:
+        local_creations(source['localCreations'],value['capturedEpochMs']);vector(source['avatarRotation'],4)
+        need(abs(sum(v*v for v in source['avatarRotation'])-1)<=.001)
     absent=source['absentIds'];need(ids==sorted(set(ids)) and absent==sorted(set(absent))
         and all(entity_id(v) for v in absent) and not set(ids)&set(absent))
-    if version==3:
+    if version in (3,4):
         need(type(source['entityLifetimes']) is list and len(source['entityLifetimes'])==len(ids)+len(absent))
         seen=[];births=set()
         for row in source['entityLifetimes']:
@@ -93,12 +138,16 @@ def continuity(previous,value):
         and value['capturedEpochMs']>=previous['capturedEpochMs'])
     a=previous['source'];b=value['source']
     need(all(a[k]==b[k] for k in ('createEntitySourceVersion','runId','domainId','sessionId','domainConnected')))
-    if a['createEntitySourceVersion'] in (2,3):need(a['domainSession']==b['domainSession'])
-    if a['createEntitySourceVersion']==3:
+    if a['createEntitySourceVersion'] in (2,3,4):need(a['domainSession']==b['domainSession'])
+    if a['createEntitySourceVersion'] in (3,4):
         current={r['id']:r for r in b['entityLifetimes']}
         for row in a['entityLifetimes']:
             need(row['id'] in current and all(row[k]==current[row['id']][k] for k in ('id','instance','firstObservedEpochMs'))
                 and (row['alive'] or not current[row['id']]['alive']))
+    if a['createEntitySourceVersion']==4:
+        before=a['localCreations'];after=b['localCreations']
+        need(before['armedAfterSequence']==after['armedAfterSequence'] and before['lastSequence']<=after['lastSequence']
+            and after['events'][:len(before['events'])]==before['events'])
     tracked=lambda source:set(source['absentIds'])|{r['id'] for r in source['entities']}
     need(tracked(a)<=tracked(b))
     old={r['id']:r for r in a['entities']}
@@ -107,7 +156,7 @@ def continuity(previous,value):
 
 
 def retired(source):
-    return source['createEntitySourceVersion']==3 and not source['entities'] and all(not row['alive'] for row in source['entityLifetimes'])
+    return source['createEntitySourceVersion'] in (3,4) and not source['entities'] and all(not row['alive'] for row in source['entityLifetimes'])
 
 
 class NativeCreateEntities(NativeCreateCallbacks):

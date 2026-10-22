@@ -89,6 +89,9 @@ public:
                                                   bool precisionPicking) const override;
 
     bool isVoxelDataReady() const override;
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+    QVariantMap featureCreateVoxels() const override;
+#endif
     virtual void setVoxelData(const QByteArray& voxelData) override;
     virtual void setVoxelVolumeSize(const glm::vec3& voxelVolumeSize) override;
     virtual void setVoxelSurfaceStyle(uint16_t voxelSurfaceStyle) override;

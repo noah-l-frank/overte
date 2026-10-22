@@ -8,6 +8,7 @@
 #include "NormalGraphicsControls.h"
 #include "NormalLoginControls.h"
 #include "NormalCreateControls.h"
+#include "NormalCreateExtraControls.h"
 #include "NormalChatControls.h"
 #include <ui/NativeFieldInput.h>
 #include <QCoreApplication>
@@ -29,7 +30,7 @@ namespace overte::e2e {
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 class NormalControlUi {
 public:
-    enum class Surface { ScriptFiles, Audio, Graphics, Login, Create, Chat };
+    enum class Surface { ScriptFiles, Audio, Graphics, Login, Create, CreateExtra, Chat };
     explicit NormalControlUi(Surface surface = Surface::ScriptFiles) : _surface(surface), _instance(nonce()), _generation(nonce()) { _clock.start(); }
 
     QJsonObject observe(QQuickItem* root, QQuickWindow* window, const AudioUiContext& audio = {}, const GraphicsUiContext& graphics = {}, const LoginUiContext& login = {}) {
@@ -55,6 +56,7 @@ public:
                     : _surface == Surface::Graphics ? graphicsControlId(item)
                     : _surface == Surface::Login ? loginControlId(item)
                     : _surface == Surface::Create ? createControlId(item)
+                    : _surface == Surface::CreateExtra ? createExtraControlId(item)
                     : _surface == Surface::Chat ? chatControlId(item) : scriptFileControlId(item);
                 if (!id.isEmpty()) {
                     if (controls.contains(id)) { ambiguous = true; return; }
@@ -63,8 +65,9 @@ public:
                         : _surface == Surface::Graphics ? graphicsControlSource(item, id, graphics)
                         : _surface == Surface::Login ? loginControlSource(item, id, login)
                         : _surface == Surface::Create ? createControlSource(item,id)
+                        : _surface == Surface::CreateExtra ? createExtraControlSource(item,id)
                         : _surface == Surface::Chat ? chatControlSource(item,id) : scriptFileControlSource(item);
-                    if (_surface==Surface::Chat && source.isEmpty()) { ambiguous=true;return; }
+                    if ((_surface==Surface::Chat || _surface==Surface::CreateExtra) && source.isEmpty()) { ambiguous=true;return; }
                     controls.insert(id, {item, previous.item == item && previous.source == source ? previous.token : nonce(), source});
                 }
             }
@@ -93,6 +96,7 @@ public:
             else if (_surface == Surface::Graphics) { appendGraphicsControlObservation(row, control.item, id, graphics); }
             else if (_surface == Surface::Login) { appendLoginControlObservation(row, control.item, id, login); }
             else if (_surface == Surface::Create) { appendCreateControlObservation(row,control.item,id); }
+            else if (_surface == Surface::CreateExtra) { appendCreateExtraObservation(row,control.item,id); }
             else if (_surface == Surface::Chat) { appendChatControlObservation(row,control.item,id); }
             else { appendScriptFileObservation(row, control.item, id); }
             rows.append(row);
@@ -107,7 +111,9 @@ public:
             : _surface == Surface::Graphics ? "graphicsControlsVersion"
             : _surface == Surface::Login ? "loginControlsVersion"
             : _surface == Surface::Create ? "createControlsVersion"
+            : _surface == Surface::CreateExtra ? "createExtraControlsVersion"
             : _surface == Surface::Chat ? "chatControlsVersion" : "fileControlsVersion"] = _surface==Surface::Login ? 2 : 1;
+        if (_surface==Surface::CreateExtra) {result["createExtraUiInventory"]=createExtraUiLifetimes().snapshot();}
         if (_surface==Surface::ScriptFiles) { result["scriptInventory"]=scriptInventory.observation(ready); }
         return result;
     }
@@ -142,6 +148,7 @@ public:
                 || (_surface == Surface::Audio ? action != "activate" && action != "scroll"
                     : _surface == Surface::Graphics ? action != "activate" && action != "scroll" && action != "set-value"
                     : _surface == Surface::Login ? action != "activate" && action != "replace" && action != "submit"
+                    : _surface == Surface::CreateExtra ? action != "activate" && action != "replace" && action != "select-index"
                     : _surface == Surface::Create ? action != "activate" && action != "replace" && action != "select-index" && action != "scroll"
                     : _surface == Surface::Chat ? action != "activate" && action != "replace" && action != "submit"
                     : action != "activate" && action != "replace" && action != "submit" && action != "select-index")) { return result; }
@@ -180,6 +187,17 @@ public:
             } else if (action=="select-index" && createChoice(id)) {
                 qint64 index {0};
                 if (integer(command.value("index"),index)) { delivered=selectCreateChoice(control.item,window,index); }
+            }
+        } else if (_surface == Surface::CreateExtra) {
+            QJsonObject row;appendCreateExtraObservation(row,control.item,id);
+            const auto point=control.item->mapToScene(QPointF(control.item->width()/2,control.item->height()/2));
+            if (!row.value("inputReady").toBool()) { return result; }
+            const auto own=[&]{return ownsPoint(control.item,window,point,createExtraDecoration);};
+            if (action=="activate" && id!="create-extra.polyvox.page" && pointerClick && own()) { delivered=pointerClick(control.item); }
+            else if (action=="replace" && command.value("text").isString() && createExtraText(id,command.value("text").toString()) && own()) {
+                delivered=overte::ui::replaceFocusedField(control.item,window,command.value("text").toString());
+            } else if (action=="select-index" && createExtraCount(id)) {
+                qint64 index{0};if (integer(command.value("index"),index)) { delivered=selectCreateChoice(control.item,window,index,createExtraCount(id)); }
             }
         } else if (_surface == Surface::Login) {
             QJsonObject row;
@@ -270,17 +288,29 @@ public:
         return delivered && original && surface && ownsFocus(original, surface) && key(surface, Qt::Key_Return);
     }
 
-    static bool selectCreateChoice(QQuickItem* item,QQuickWindow* window,qint64 index) {
+    static bool selectCreateChoice(QQuickItem* item,QQuickWindow* window,qint64 index,int extraCount=0) {
         if (!item || !window || visibleRect(item,window).isEmpty() || !item->isEnabled()
-                || !createChoice(createControlId(item)) || !item->inherits("QQuickComboBox")
+                || (extraCount ? createExtraCount(createExtraControlId(item))!=extraCount || item->property("count").toInt()!=extraCount
+                    : !createChoice(createControlId(item))) || !item->inherits("QQuickComboBox")
                 || index<0 || index>=32 || index>=item->property("count").toInt()) { return false; }
         const auto focused=[&] {
-            if (ownsFocus(item,window)) { return true; }
+            if (!extraCount && ownsFocus(item,window)) {return true;}
             auto popup=item->property("popup").value<QObject*>();
             auto content=popup ? qobject_cast<QQuickItem*>(popup->property("contentItem").value<QObject*>()) : nullptr;
-            if (!popup || !popup->property("visible").toBool() || !content || content->window()!=window) { return false; }
-            for (auto focus=window->activeFocusItem();focus;focus=focus->parentItem()) { if (focus==content) { return true; } }
-            return false;
+            const bool shown=popup && popup->property("visible").toBool();
+            bool actualFocus=ownsFocus(item,window);
+            if (shown && content && content->window()==window) {
+                for (auto focus=window->activeFocusItem();focus;focus=focus->parentItem()) {if (focus==content) {actualFocus=true;}}
+            }
+            if (!actualFocus) {return false;}
+            if (!extraCount) {return true;}
+            // The original Qt Combo can keep focus while its real popup is
+            // open. Hit its actual content rather than the covered combo.
+            if (shown) {
+                return content && content->window()==window && ownsPoint(content,window,
+                    content->mapToScene(QPointF(content->width()/2,content->height()/2)));
+            }
+            return ownsPoint(item,window,item->mapToScene(QPointF(item->width()/2,item->height()/2)),createExtraDecoration);
         };
         if (!focused()) { return false; }
         QPointer<QQuickItem> original=item;QPointer<QQuickWindow> surface=window;
@@ -293,7 +323,8 @@ public:
 
     // Conservative actual scene hit-test: an overlay/modal outside the
     // resolved item blocks input. Never replace the point by guessed coordinates.
-    static bool ownsPoint(QQuickItem* item, QQuickWindow* window, const QPointF& point) {
+    static bool ownsPoint(QQuickItem* item, QQuickWindow* window, const QPointF& point,
+                          const std::function<bool(QQuickItem*,QQuickItem*)>& decoration = std::function<bool(QQuickItem*,QQuickItem*)>()) {
         const auto visible=visibleRect(item,window);
         if (visible.isEmpty() || !item->isEnabled() || !visible.contains(point)) { return false; }
         int visited{0};bool complete{true};
@@ -330,7 +361,7 @@ public:
             // Without pixel-level transparency proof, its geometry conservatively
             // blocks an underlying child. Outside a non-clipping parent, that
             // child may still be the actual highest painted/interactive item.
-            if (node->contains(local)) { return node; }
+            if (node->contains(local) && (!decoration || !decoration(node,item))) { return node; }
             for (auto child=children.crbegin();child!=children.crend();++child) {
                 if ((*child)->z()>=0) { continue; }
                 const auto found=top(*child,depth+1);if (!complete || found) { return found; }

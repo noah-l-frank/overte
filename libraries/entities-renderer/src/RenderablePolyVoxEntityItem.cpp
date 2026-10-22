@@ -12,6 +12,9 @@
 //
 
 #include "RenderablePolyVoxEntityItem.h"
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+#include <QCoreApplication>
+#endif
 
 #include <math.h>
 #include <algorithm>
@@ -1136,6 +1139,35 @@ bool RenderablePolyVoxEntityItem::isVoxelDataReady() const {
     });
     return ready;
 }
+
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+QVariantMap RenderablePolyVoxEntityItem::featureCreateVoxels() const {
+    if (!QCoreApplication::instance() || !QCoreApplication::arguments().contains("--testScript")) {return {};}
+    QVariantMap result;
+    withReadLock([&] {
+        // One original volume/state/data lock, not 512 independent reads that
+        // could combine values from different asynchronous volume revisions.
+        const bool canonical=_voxelVolumeSize==glm::vec3(8.0f);
+        if (_voxelData.size()>8192) {return;}
+        const bool ready=_state==PolyVoxState::Ready && !_volDataDirty && !_voxelDataDirty;
+        QByteArray values;int nonzero{0};
+        if (canonical && ready && _volData) {
+            values.reserve(512);
+            for (int z=0;z<8;++z) {for (int y=0;y<8;++y) {for (int x=0;x<8;++x) {
+                const auto value=getVoxelInternal({x,y,z});values.append(char(value));nonzero+=(value!=0);
+            }}}
+        }
+        result={{"createVoxelsVersion",1},{"ready",ready},{"surfaceStyle",int(_voxelSurfaceStyle)},
+            {"volume",QVariantList{_voxelVolumeSize.x,_voxelVolumeSize.y,_voxelVolumeSize.z}},
+            {"meshReady",_meshReady && bool(_mesh)},
+            {"vertices",static_cast<qulonglong>(_mesh ? _mesh->getNumVertices() : 0)},
+            {"indices",static_cast<qulonglong>(_mesh ? _mesh->getNumIndices() : 0)},
+            {"dataBase64",QString::fromLatin1(_voxelData.toBase64())},
+            {"valuesBase64",QString::fromLatin1(values.toBase64())},{"nonzero",nonzero}};
+    });
+    return result;
+}
+#endif
 
 void RenderablePolyVoxEntityItem::setVoxelData(const QByteArray& voxelData) {
     // accept compressed voxel information from the entity-server

@@ -76,6 +76,8 @@ TESTS = (
     test("create-callback-native", "interaction", PYTHON, "device/test_create_callbacks_native.py", requires=("c++", "pkg-config")),
     test("create-browse-setting", "interaction", PYTHON, "device/test_create_browse_setting.py"),
     test("create-browse-setting-native", "interaction", PYTHON, "device/test_create_browse_setting_native.py", requires=("c++", "pkg-config")),
+    test("create-primitives-owner", "interaction", PYTHON, "device/test_create_primitives_owner.py"),
+    test("create-polyvox-native-ui", "interaction", PYTHON, "device/test_create_polyvox_controls_native.py", requires=("c++", "pkg-config", "node")),
     test("create-feature-owner", "interaction", PYTHON, "device/test_create_journey.py"),
     test("create-model-resource-join", "interaction", PYTHON, "device/test_create_model_resource_join.py"),
     test("create-model-resources-native", "interaction", PYTHON, "device/test_create_model_resources_native.py", requires=("c++", "pkg-config")),

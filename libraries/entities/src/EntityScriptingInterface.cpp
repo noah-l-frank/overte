@@ -736,6 +736,13 @@ bool EntityScriptingInterface::addLocalEntityCopy(EntityItemProperties& properti
                 // since we're creating this object we will immediately volunteer to own its simulation
                 entity->upgradeScriptSimulationPriority(VOLUNTEER_SIMULATION_PRIORITY);
                 properties.setLastEdited(entity->getLastEdited());
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+                const auto host=entity->getEntityHostType();
+                if (host==entity::HostType::DOMAIN) {
+                    _featureCreateLocalCreations.inserted(entity->getID(),EntityTypes::getEntityTypeName(entity->getType()),
+                        entity->getCreated(),properties.getLastEditedBy(),"domain");
+                }
+#endif
             } else {
                 qCDebug(entities) << "script failed to add new Entity to local Octree";
                 success = false;

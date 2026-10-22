@@ -14,6 +14,9 @@
 #include <QThread>
 #include <QTimer>
 #include <QPointer>
+#include <QSemaphore>
+#include <QElapsedTimer>
+#include <atomic>
 #include <QUuid>
 #include <QVariant>
 #include <QUrl>
@@ -26,10 +29,22 @@
 struct EntityItem:QObject{};using EntityItemPointer=std::shared_ptr<EntityItem>;
 using RenderableModelEntityItem=EntityItem;
 #include "CreateEntityLifetimes.h"
+#include "CreateLocalCreations.h"
+struct PolyVoxEntityItem:EntityItem {
+    QVariantMap featureCreateVoxels() const {
+        // Declared renderer-storage actor; the complete original atomic
+        // renderer method is independently compiled by the second host test.
+        QByteArray values(512,0);for(int z=2;z<6;++z){for(int y=2;y<6;++y){for(int x=2;x<6;++x){values[z*64+y*8+x]=char(255);}}}
+        return {{"createVoxelsVersion",1},{"ready",true},{"surfaceStyle",3},{"volume",QVariantList{8,8,8}},
+            {"dataBase64",QString::fromLatin1(QByteArray("actor-compressed").toBase64())},
+            {"valuesBase64",QString::fromLatin1(values.toBase64())},{"nonzero",64},
+            {"meshReady",true},{"vertices",64},{"indices",96}};
+    }
+};
 #include "ChatDomainSession.h"
 namespace glm {struct vec3 {float x=0,y=0,z=0;};struct quat {float x=0,y=0,z=0,w=1;};}
 namespace entity {enum class HostType {DOMAIN,AVATAR,LOCAL};}
-namespace EntityTypes {enum Type {Unknown,Model};QString getEntityTypeName(Type t){return t==Model ? "Model" : "Unknown";}}
+namespace EntityTypes {enum Type {Unknown,Model,PolyVox,Shape,Box};QString getEntityTypeName(Type t){return t==Model ? "Model" : t==PolyVox ? "PolyVox" : t==Shape ? "Shape" : t==Box ? "Box" : "Unknown";}}
 struct EntityItemProperties {
     QString name,model,textures;EntityTypes::Type type=EntityTypes::Model;entity::HostType host=entity::HostType::DOMAIN;
     glm::vec3 position {0,1,-2},dimensions {1,1,1},natural {1,1,1};bool ready=true,visible=true;glm::quat orientation;QUuid parent;
@@ -39,21 +54,28 @@ struct EntityItemProperties {
     auto getDimensions() const{return dimensions;}auto getRotation() const{return orientation;}auto getParentID() const{return parent;}
     auto getNaturalDimensions() const{return natural;}QVariantMap getTextureNames() const{return {{"checker.png",QUrl("http://controlled.test/original/checker.png")}};}
     size_t getRenderInfoVertexCount() const{return ready ? 3 : 0;}int getRenderInfoTextureCount() const{return ready ? 1 : 0;}size_t getRenderInfoTextureSize() const{return ready ? 256 : 0;}int getRenderInfoDrawCalls() const{return ready ? 1 : 0;}
-    bool getVisible() const{return visible;}bool getLocked() const{return false;}auto getLastEdited() const{return edited;}
+    bool getVisible() const{return visible;}bool getLocked() const{return false;}auto getLastEdited() const{return edited;}auto getCreated() const{return edited-1;}
+    auto getLastEditedBy() const{return QUuid("22222222-2222-2222-2222-222222222222");}
 };
 struct PickFilter {enum class FlagBit {DOMAIN_ENTITIES,COARSE};static int getBitMask(FlagBit b){return b==FlagBit::DOMAIN_ENTITIES ? 1 : 2;}};
 struct EntityTree {QHash<QUuid,EntityItemProperties>* values;QHash<QUuid,EntityItemPointer> objects;
     template<typename F>void withReadLock(F&& fn){fn();}
     EntityItemPointer findEntityByEntityItemID(const QUuid& id){if(!values->contains(id)){objects.remove(id);return {};}
-        if(!objects.contains(id)){objects.insert(id,std::make_shared<EntityItem>());}return objects[id];}
+        if(!objects.contains(id)){
+            EntityItemPointer item=values->value(id).getType()==EntityTypes::PolyVox
+                ? std::static_pointer_cast<EntityItem>(std::make_shared<PolyVoxEntityItem>()) : std::make_shared<EntityItem>();
+            objects.insert(id,item);
+        }return objects[id];}
 };
 struct EntityScriptingInterface {
+    overte::e2e::CreateLocalCreations local;
+    QVariantMap featureCreateLocalCreations(const QString& run){return local.snapshot(run);}
     QHash<QUuid,EntityItemProperties> values;QVector<QUuid> scan;int reads=0;EntityTree tree{&values,{}};
     EntityTree* getEntityTree(){return &tree;}bool isLoaded(const QUuid& id){return values.contains(id) && values[id].ready;}
     auto findEntities(const glm::vec3&,float radius,int mask){assert(radius==128.0f && mask==3);return scan;}
     EntityItemProperties getEntityProperties(const QUuid& id){++reads;if(values.contains(id)){return values.value(id);}EntityItemProperties p;p.type=EntityTypes::Unknown;return p;}
 };
-struct Avatar {glm::vec3 getWorldPosition(){return {0,1,0};}};
+struct Avatar {glm::quat getWorldOrientation(){return {};}glm::vec3 getWorldPosition(){return {0,1,0};}};
 struct AvatarManager {std::shared_ptr<Avatar> getMyAvatar(){return std::make_shared<Avatar>();}};
 struct DomainHandler {overte::e2e::ChatDomainSession session;
     QVariantMap featureChatSession(const QString& run){return session.snapshot(run);}
@@ -90,6 +112,20 @@ int main(int argc,char** argv) {
     QThread idle;auto foreign=new TestScriptingInterface;foreign->moveToThread(&idle);
     assert(foreign->featureCreateEntities(command(1)).isEmpty());assert(gets==0);
     idle.start();assert(QMetaObject::invokeMethod(foreign,[&]{foreign->moveToThread(app.thread());},Qt::BlockingQueuedConnection));idle.quit();assert(idle.wait(1000));delete foreign;
+    // Actual foreign-thread getter refuses a blocked owner within its native
+    // budget; late work cannot recapture the original consumed request.
+    for(bool destroy:{false,true}){
+        QThread worker;auto blocked=new TestScriptingInterface;blocked->moveToThread(&worker);worker.start();
+        QSemaphore entered,release,done;QPointer<TestScriptingInterface> guard(blocked);
+        assert(QMetaObject::invokeMethod(blocked,[&]{entered.release();release.acquire();if(destroy){delete blocked;done.release();}},Qt::QueuedConnection));
+        assert(entered.tryAcquire(1,1000));QElapsedTimer clock;clock.start();
+        assert(blocked->featureCreateEntities(command(1)).isEmpty());assert(clock.elapsed()>=1700 && clock.elapsed()<5000);
+        release.release();
+        if(!destroy){
+            assert(QMetaObject::invokeMethod(blocked,[&]{assert(blocked->_featureCreateEntitiesCommands.isEmpty());blocked->moveToThread(app.thread());done.release();},Qt::QueuedConnection));
+        }
+        assert(done.tryAcquire(1,1000));worker.quit();assert(worker.wait(1000));if(!destroy){delete blocked;}assert(!guard);
+    }
     const auto baseline=target.featureCreateEntities(command(1));assert(source(baseline).value("entities").toList().isEmpty());
     assert(baseline.value("processId").toLongLong()==app.applicationPid());assert(source(baseline).value("canRez").toBool());
     const QUuid id("{33333333-3333-3333-3333-333333333333}");EntityItemProperties p;
@@ -159,5 +195,20 @@ int main(int argc,char** argv) {
     QTimer::singleShot(1000,&app,[&]{app.exit(1);});assert(app.exec()==0 && !guard);
     const auto actualDeath=deferred.featureCreateEntities(command(3));
     assert(!source(actualDeath).value("entityLifetimes").toList().first().toMap().value("alive").toBool());
+    // Actual source-v4 adoption of the independent successful-insertion
+    // receipt, before any run-specific name exists. A foreign session's
+    // insertion remains unowned even when its type/name match.
+    entities->values.clear();entities->scan.clear();TestScriptingInterface primitive;
+    assert(source(primitive.featureCreateEntities(command(1))).value("entities").toList().isEmpty());
+    EntityItemProperties voxel;voxel.type=EntityTypes::PolyVox;voxel.name="terrain";voxel.model.clear();
+    const QUuid voxelId("88888888-8888-8888-8888-888888888888"),foreignId("99999999-9999-9999-9999-999999999999");
+    entities->values[voxelId]=voxel;entities->values[foreignId]=voxel;entities->scan={voxelId,foreignId};
+    entities->local.inserted(voxelId,"PolyVox",voxel.getCreated(),nodes->getSessionUUID(),"domain");
+    entities->local.inserted(foreignId,"PolyVox",voxel.getCreated(),QUuid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),"domain");
+    const auto originalVoxel=primitive.featureCreateEntities(command(2));
+    assert(source(originalVoxel).value("entities").toList().size()==1 && entityRow(originalVoxel).value("id")==voxelId.toString(QUuid::WithoutBraces));
+    assert(entityRow(originalVoxel).value("name")==QVariant("terrain") && entityRow(originalVoxel).value("voxels").toMap().value("nonzero").toInt()==64);
+    assert(source(originalVoxel).value("scan").toMap().value("unowned").toList().size()==1);
+    QTextStream(stdout)<<QJsonDocument::fromVariant(originalVoxel).toJson(QJsonDocument::Compact)<<'\n';
     return 0;
 }
