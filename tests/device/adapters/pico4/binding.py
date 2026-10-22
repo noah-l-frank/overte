@@ -549,6 +549,14 @@ def create_adapter(args, base_class):
                 lambda:self.adb.read_debug_app_file(target,'org.overte.pico','files/overte-e2e/'+CREATE_ENTITIES_FILE,attempts=1),
                 native.clock_ms,native.guard,native.pid,run=run,monotonic=native.monotonic,sleep=native.sleep)
 
+        @_private
+        def _create_model_resources_observer(self, target, run):
+            from adapters.pico4.create_model_resources import NativeCreateModelResources, FILE as MODEL_FILE
+            native=self._native_feature_observer(target)
+            return NativeCreateModelResources(native.send,
+                lambda:self.adb.read_debug_app_file(target,'org.overte.pico','files/overte-e2e/'+MODEL_FILE,attempts=1),
+                native.clock_ms,native.guard,native.pid,run=run,monotonic=native.monotonic,sleep=native.sleep)
+
         def _chat_controls(self, target, intent, run):
             from adapters.token_chat_ui import TokenChatUI
             from adapters.pico4.normal_chat import PicoChatIO

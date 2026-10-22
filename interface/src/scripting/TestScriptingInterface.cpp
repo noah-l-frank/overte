@@ -44,6 +44,10 @@
 #include "../../../tests/device/native/PrivateCreateFiles.h"
 #include "../../../tests/device/native/CreateBrowseSettingOwner.h"
 #include "../../../tests/device/native/CreateEntityLifetimes.h"
+#include "../../../tests/device/native/CreateModelResources.h"
+#include <RenderableModelEntityItem.h>
+#include <QPointer>
+#include <atomic>
 #include <algorithm>
 #include <PointerManager.h>
 #include <ui/Keyboard.h>
@@ -1070,6 +1074,54 @@ QVariantMap TestScriptingInterface::featureCreateEntities(const QVariantMap& com
         {"sequence",static_cast<qulonglong>(++_featureCreateEntitiesSequence)},{"requestedEpochMs",requested},
         {"capturedEpochMs",QDateTime::currentMSecsSinceEpoch()},{"processId",QCoreApplication::applicationPid()},{"source",source}};
     _featureCreateEntitiesResults.insert(id,result);return result;
+}
+
+QVariantMap TestScriptingInterface::featureCreateModels(const QVariantMap& command) {
+    if (QThread::currentThread()!=thread()) {
+        if (!thread() || !thread()->isRunning()) {return {};}
+        struct Result {QSemaphore ready;QVariantMap value;std::atomic_bool expired {false};};
+        const auto result=std::make_shared<Result>();const QPointer<TestScriptingInterface> original(this);
+        if (!QMetaObject::invokeMethod(this,[original,command,result] {
+            if (!result->expired.load() && original) {result->value=original->featureCreateModels(command);}
+            result->ready.release();
+        },Qt::QueuedConnection) || !result->ready.tryAcquire(1,1750)) {result->expired.store(true);return {};}
+        return result->value;
+    }
+    QStringList fields {"schemaVersion","commandId","action","runId"};fields.sort();
+    const auto json=QJsonObject::fromVariantMap(command);
+    const auto id=command.value("commandId").toString(),run=command.value("runId").toString();
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript") || command.keys()!=fields
+            || json.value("schemaVersion")!=QJsonValue(1) || json.value("action")!=QJsonValue("feature-create-models-observe")
+            || !json.value("commandId").isString() || !json.value("runId").isString()
+            || !QRegularExpression("\\A[0-9a-f]{32}\\z").match(id).hasMatch()
+            || !QRegularExpression("\\A[0-9a-f]{32}\\z").match(run).hasMatch()) {return {};}
+    if (_featureCreateModelsCommands.contains(id)) {
+        return _featureCreateModelsCommands.value(id)==command ? _featureCreateModelsResults.value(id) : QVariantMap{};
+    }
+    if (_featureCreateModelsCommands.size()>=512 || _featureCreateModelsSequence>=9007199254740991ULL
+            || !_featureCreateEntityIds.contains(run) || !DependencyManager::isSet<EntityScriptingInterface>()
+            || !DependencyManager::isSet<NodeList>() || thread()!=QCoreApplication::instance()->thread()) {return {};}
+    _featureCreateModelsCommands.insert(id,command); // Unknown/timeout nonces never recapture later effects.
+    const auto requested=QDateTime::currentMSecsSinceEpoch();
+    const auto entities=DependencyManager::get<EntityScriptingInterface>();const auto nodes=DependencyManager::get<NodeList>();
+    if (!entities || !entities->getEntityTree() || !nodes || _featureCreateEntityIds.value(run).size()>32) {return {};}
+    const auto session=nodes->getDomainHandler().featureChatSession(run);if (session.isEmpty()) {return {};}
+    QStringList ordered;for (const auto& id:_featureCreateEntityIds.value(run)) {ordered.append(id.toString(QUuid::WithoutBraces));}ordered.sort();
+    overte::e2e::CreateModelResources::Models originals;
+    for (const auto& text:ordered) {
+        EntityItemPointer entity;entities->getEntityTree()->withReadLock([&]{entity=entities->getEntityTree()->findEntityByEntityItemID(QUuid(text));});
+        const auto renderable=std::dynamic_pointer_cast<RenderableModelEntityItem>(entity);
+        originals.append({text,renderable ? renderable->featureCreateModel() : ModelPointer()});
+    }
+    if (!_featureCreateModelResources) {_featureCreateModelResources=std::make_shared<overte::e2e::CreateModelResources>();}
+    auto source=_featureCreateModelResources->observe(run,originals);
+    if (source.isEmpty() || nodes->getDomainHandler().featureChatSession(run)!=session) {return {};}
+    source.insert("domainSession",session);
+    const QVariantMap result{{"schemaVersion",1},{"requestId",id},{"instance",_featureObservationInstance},
+        {"sequence",static_cast<qulonglong>(++_featureCreateModelsSequence)},{"requestedEpochMs",requested},
+        {"capturedEpochMs",QDateTime::currentMSecsSinceEpoch()},{"processId",QCoreApplication::applicationPid()},{"source",source}};
+    _featureCreateModelsResults.insert(id,result);return result;
 }
 
 QVariantMap TestScriptingInterface::featureCreateDialogs(const QString& requestId) {

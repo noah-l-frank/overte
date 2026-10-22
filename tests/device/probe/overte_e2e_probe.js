@@ -155,6 +155,7 @@
     var lastCreateCallbacksRequest = "";
     var lastCreateDialogsRequest = "";
     var lastCreateEntitiesRequest = "";
+    var lastCreateModelsRequest = "";
     function saveScriptSourceObservation(requestId) {
         var value = {schemaVersion: 1, requestId: requestId, available: false};
         try {
@@ -1508,6 +1509,21 @@
             } catch (_createEntitiesError) { /* Original domain entities remain unavailable. */ }
             Test.saveObject(createEntities, "feature-create-entities.json");return;
         }
+        if (command && command.schemaVersion === 1 && command.action === "feature-create-models-observe"
+                && typeof command.commandId === "string" && /^[0-9a-f]{32}$/.test(command.commandId)
+                && typeof command.runId === "string" && /^[0-9a-f]{32}$/.test(command.runId)
+                && objectKeysMatch(command, ["schemaVersion", "commandId", "action", "runId"])) {
+            if (command.commandId === lastCreateModelsRequest) {return;}
+            lastCreateModelsRequest = command.commandId;
+            var createModels = {schemaVersion: 1, requestId: command.commandId, available: false};
+            try {
+                if (typeof Test.featureCreateModels === "function") {
+                    var originalCreateModels = Test.featureCreateModels(command);
+                    if (originalCreateModels && originalCreateModels.requestId === command.commandId) {createModels = originalCreateModels;}
+                }
+            } catch (_createModelsError) { /* Original domain models remain unavailable. */ }
+            Test.saveObject(createModels, "feature-create-models.json");return;
+        }
         if (command && command.schemaVersion === 1 && command.action === "feature-create-dialogs-observe"
                 && typeof command.commandId === "string" && /^[0-9a-f]{32}$/.test(command.commandId)
                 && objectKeysMatch(command, ["schemaVersion", "commandId", "action"])) {
@@ -1855,6 +1871,7 @@
                 || command.action === "feature-create-callbacks-observe"
                 || command.action === "feature-create-dialogs-observe"
                 || command.action === "feature-create-entities-observe"
+                || command.action === "feature-create-models-observe"
                 || command.action === "feature-create-browse-setting"
                 || command.action === "feature-world-render-observe"
                 || command.action === "feature-graphics-subject-observe"

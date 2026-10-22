@@ -52,6 +52,10 @@ class RenderableModelEntityItem : public ModelEntityWrapper {
     friend class render::entities::ModelEntityRenderer;
     using Parent = ModelEntityWrapper;
 public:
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+    // Passive original association, never constructs/loads a requested model.
+    ModelPointer featureCreateModel() const { return getModel(); }
+#endif
     static EntityItemPointer factory(const EntityItemID& entityID, const EntityItemProperties& properties);
 
     RenderableModelEntityItem(const EntityItemID& entityItemID, bool dimensionsInitialized);

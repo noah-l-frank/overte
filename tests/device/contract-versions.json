@@ -2,6 +2,7 @@
   "schemaVersion": 1,
   "contracts": {
     "native-script-work": {"current": 2, "reads": [1, 2]},
+    "pico-create-model-resources": {"current": 1, "reads": [1]},
     "pico-create-model-owner": {"current": 2, "reads": [1, 2]},
     "pico-create-model-work-originals": {"current": 1, "reads": [1]},
     "pico-create-management": {"current": 1, "reads": [1]},

@@ -50,6 +50,10 @@ public:
 
     // Mutable, but must retain structure of vector
     using NetworkMaterials = std::vector<std::shared_ptr<NetworkMaterial>>;
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+    // Original current material objects; no texture load/opacity work.
+    const NetworkMaterials& featureCreateMaterials() const { return _materials; }
+#endif
 
     bool isHFMModelLoaded() const { return (bool)_hfmModel; }
 
