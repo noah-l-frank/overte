@@ -55,6 +55,18 @@ class IOSEmoteSourcesTests(unittest.TestCase):
         owner=self.owner();value=frame();self.assertTrue(owner.validate_frame(value))
         self.assertEqual(20000,value['group']['native']['capturedEpochMs'])
         self.assertEqual(90000,value['clockJoin']['hostBeforeEpochMs'])
+    def test_v2_world_original_binds_actual_primary_domain_without_retiming(self):
+        from ios.self_tests.test_ios_emote_world import packet
+        value=frame();value['world']=packet();value['clockJoin']['originalsSha256']=digest(dict(value['group'],widgets=value['widgets'],world=value['world']))
+        self.assertTrue(self.owner().validate_frame(value))
+        for field,bad in (('processId',99),('runId','0'*32)):
+            corrupt=deepcopy(value);corrupt['world'][field]=bad
+            corrupt['clockJoin']['originalsSha256']=digest(dict(corrupt['group'],widgets=corrupt['widgets'],world=corrupt['world']))
+            with self.subTest(field=field),self.assertRaises(NativeUIError):self.owner().validate_frame(corrupt)
+    def test_v1_owner_and_originals_remain_historically_readable(self):
+        first=self.archive();legacy=first.envelope(first.state,version=1)
+        self.store.write(legacy,first.previous);rebuilt=self.owner()
+        self.assertEqual(first.frames,rebuilt.frames);self.assertNotIn('world',rebuilt.frames[0])
     def test_changed_native_original_or_host_clock_join_is_rejected(self):
         for mutate in (lambda v:v['group']['native'].update(capturedEpochMs=20001),
                        lambda v:v['clockJoin'].update(hostAfterEpochMs=95000),

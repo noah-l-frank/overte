@@ -123,7 +123,14 @@ class IOSEmoteActions:
         verb=call['verb']
         if verb in ('open','play','sit','override','cancel'):
             self.tablet(True);ui.open()
-            if verb in ('play','sit','override'):ui.play('Sit' if verb=='sit' else call['inputs']['name'])
+            if verb in ('play','sit','override'):
+                if verb=='sit':
+                    # The real chooser toggles an already active Sit off. A
+                    # new ordinary Sit request first cancels that actual active
+                    # button, then selects Sit again. No variant is requested.
+                    page=ui.row(ui.capture(),'emote.page');need(page is not None)
+                    if page['activeName']=='Sit':ui.cancel()
+                ui.play('Sit' if verb=='sit' else call['inputs']['name'])
             elif verb=='cancel':ui.cancel()
         elif verb=='close':
             if self.source.readers['ui'].capture()['open']:ui.close();self.tablet(False)

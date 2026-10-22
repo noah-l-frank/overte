@@ -23,8 +23,10 @@ from feature_journeys.phase_fixture import PhaseFixtureReader,validate as phase_
 from ios.adapters.emote_controls import IOSEmoteIO,project
 from ios.adapters.emote_originals import IOSEmoteOriginals,MAX_FRAMES,BLOCK
 from ios.adapters.graphics_history import restore_native
+from ios.adapters.emote_world import original as world_original,actual_domain,validate as world_packet,ACTION as WORLD_ACTION
 
-VERSION=1
+VERSION=2
+READS=(1,2)
 
 
 class EmotePhaseChanged(NativeUIError):pass
@@ -45,7 +47,7 @@ class IOSEmoteSources:
         self.phase,self.readers=phase,readers
         if not historical:
             need(isinstance(phase,PhaseFixtureReader) and phase.area=='emotes' and phase.run==run)
-            exact(readers,{'roots','scripts','native','ui'})
+            need(set(readers) in ({'roots','scripts','native','ui'},{'roots','scripts','native','ui','world'}))
             need(isinstance(readers['roots'],NativeScriptRoots) and readers['roots'].ios
                 and isinstance(readers['scripts'],NativeScriptObservation) and readers['scripts'].ios
                 and isinstance(readers['ui'],IOSEmoteIO))
@@ -57,13 +59,14 @@ class IOSEmoteSources:
         if self.previous is not None:self.state,self.frames=self.decode(self.previous)
         if not historical and self.frames:self.restore_readers()
 
-    def envelope(self,state):
-        return dict(iosEmoteSourcesVersion=VERSION,runId=self.run,role=self.role,binding=self.binding,
+    def envelope(self,state,version=VERSION):
+        return dict(iosEmoteSourcesVersion=version,runId=self.run,role=self.role,binding=self.binding,
             artifactRoot=str(self.root),payload=pack([state]))
 
     def decode(self,value):
         exact(value,{'iosEmoteSourcesVersion','runId','role','binding','artifactRoot','payload'})
-        rows=unpack(value['payload']);need(len(rows)==1 and same(value,self.envelope(rows[0])))
+        version=value['iosEmoteSourcesVersion'];need(type(version) is int and version in READS)
+        rows=unpack(value['payload']);need(len(rows)==1 and same(value,self.envelope(rows[0],version)))
         state=rows[0];exact(state,{'phase','revision','manifests','pending'})
         need(state['phase'] in ('ready','reading') and integer(state['revision'],0,MAX_FRAMES))
         frames=self.originals.restore(state['manifests'],state['revision']);old=None
@@ -118,14 +121,21 @@ class IOSEmoteSources:
         pending[kind]=deepcopy(value);self.save()
 
     def validate_frame(self,frame,old=None):
-        exact(frame,{'group','widgets','ui','clockJoin','phaseBefore','phaseAfter'})
+        fields={'group','widgets','ui','clockJoin','phaseBefore','phaseAfter'}
+        exact(frame,fields|({'world'} if 'world' in frame else set()))
         group=frame['group'];originals=dict(group,widgets=frame['widgets'])
+        if 'world' in frame:originals['world']=frame['world']
         clock=validate_join(frame['clockJoin'],originals)
         selected,current,_=source(group,self.pid,clock['nativeAfter']['capturedEpochMs'])
         need(selected['profile']['ui']=='native-qml'
             and selected['profile']['id'] in ('touch-one-shot-chooser-v1','phone-one-shot-hide-v1'))
         need(same(project(frame['widgets']),frame['ui']) and frame['widgets']['processId']==self.pid
             and frame['widgets']['sampleEpochMs']>=group['rootsAfter']['capturedEpochMs'])
+        if 'world' in frame:
+            world=world_original(frame['world']);actual_domain(world)
+            need(world['runId']==self.run and world['processId']==self.pid
+                and frame['widgets']['sampleEpochMs']<=world['clockBefore']['epochMs']<=world['clockAfter']['epochMs']
+                <=clock['nativeAfter']['capturedEpochMs'])
         for name in ('phaseBefore','phaseAfter'):
             status=frame[name]
             phase_packet(status,run=self.run,area='emotes',request=status['requestId'],
@@ -143,6 +153,10 @@ class IOSEmoteSources:
             actual='qrc:'+path if assigned.scheme=='qrc' else urlunsplit((assigned.scheme,'',path,'',''))
             need(pages[0]['componentSourceSha256']==hashlib.sha256(actual.encode()).hexdigest())
         if old:
+            if 'world' in old:
+                need('world' in frame)
+                world_packet(frame['world'],dict(schemaVersion=1,commandId=frame['world']['requestId'],action=WORLD_ACTION,runId=self.run),
+                    self.pid,clock['nativeAfter']['capturedEpochMs'],old['world'])
             before=old['group'];continuation(before['native'],current,self.pid)
             roots_packet(group['rootsBefore'],dict(schemaVersion=1,commandId=group['rootsBefore']['commandId'],
                 action='feature-script-roots-observe'),self.pid,clock['nativeAfter']['capturedEpochMs'],previous=before['rootsAfter'])
@@ -168,6 +182,7 @@ class IOSEmoteSources:
                 require_load_history=True,require_membership=True)
             scripts._commit_history(packet,transition)
         restore_native(r['native'],old['native'])
+        if 'world' in self.frames[-1] and 'world' in r:r['world'].last=deepcopy(self.frames[-1]['world'])
         previous=None
         for frame in self.frames:
             packet=frame['group']['native'];previous=animation_history(previous,packet['animation']['rigId'],packet['animation']['history'])
@@ -189,6 +204,8 @@ class IOSEmoteSources:
         ui=r['ui'].capture();widgets=r['ui'].original_packet;self.remember('widgets',widgets)
         group=dict(rootsBefore=before,script=script,native=native,rootsAfter=after)
         originals=dict(group,widgets=widgets)
+        need('world' in r)
+        world=r['world'].read(self.run);self.remember('world',world);originals['world']=world
         ending=dict(nativeAfter=r['native'].read(r['native'].sequence),hostAfterEpochMs=self.epoch_ms(),hostAfterMonotonic=self.monotonic())
         self.remember('nativeEnd',ending)
         clock=dict(window.started,**ending,originalsSha256=digest(originals),sourceTimes=[
@@ -196,7 +213,7 @@ class IOSEmoteSources:
             for field in ('capturedEpochMs','sampleEpochMs') if field in packet])
         self.remember('clockJoin',clock)
         final=self.phase.status(phase['status']);self.remember('phaseAfter',final)
-        frame=dict(group=group,widgets=widgets,ui=ui,clockJoin=clock,phaseBefore=phase['status'],phaseAfter=final)
+        frame=dict(group=group,widgets=widgets,ui=ui,world=world,clockJoin=clock,phaseBefore=phase['status'],phaseAfter=final)
         stable=self.validate_frame(frame,previous)
         original=self.originals.write(len(self.frames)+1,frame)
         manifests=self.originals.append(self.state['manifests'],original)

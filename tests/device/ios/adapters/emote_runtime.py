@@ -26,7 +26,7 @@ class IOSEmoteRuntime(IOSScriptRuntime):
         roots=NativeScriptRoots(observer.send,lambda:observer.original(remote=remote+ROOTS_FILE,limit=ROOTS_LIMIT),
             s['native_clock'],s['check'],int(s['binding']['processIdentity']),ios=True)
         readers=dict(roots=roots,scripts=observer.script_execution_observer(),
-            native=observer.bound_native_observer(s['clock_source']),ui=IOSEmoteIO(s['native']))
+            native=observer.bound_native_observer(s['clock_source']),ui=IOSEmoteIO(s['native']),world=observer.emote_world(s['clock_source']))
         return IOSEmoteSources(PrivateFeatureState(self.state_path(selector).with_name('ios-emote-'+role+'-sources.json')),
             root,s['binding'],run,role,lock,s['check'],PhaseFixtureReader(client,run,'emotes'),readers=readers)
 

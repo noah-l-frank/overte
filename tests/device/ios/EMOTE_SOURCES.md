@@ -68,6 +68,12 @@ cannot be silently reread. Historical reconstruction restores original source
 floors and never claims a current read. All selected source, native Rig,
 QML/control, fixture-phase and process identities are checked together.
 
+Source writer 2 additionally includes the actual primary World/domain in that
+same acquisition. Current reads require this source; version-1 owner records and
+original files remain readable historically without manufactured World fields.
+The current factory uses the existing native World reader and actual connected
+domain/mixer identity. A serverless marker scene cannot replace a real peer.
+
 One `NativeClockAcquisition` brackets the unchanged root/Script/Rig/UI packets.
 Host fixture activation and acquisition times remain separate from original
 native epochs. A phase crossing is archived but cannot become a stable current
@@ -80,10 +86,38 @@ or skipping responsibility with another ticket. `wait-complete` sends no input,
 restore call or expected-duration sleep. Actual animation success must still be
 measured independently. Initial admission refuses an unowned tablet or active
 override. These actions alone do not restore arbitrary pre-existing overrides.
+When Sit is already actually active, another ordinary Sit request first uses
+normal Cancel and then selects Sit again; it does not request a random variant.
 
 `IOSEmoteRuntime` provides internal factories on the existing candidate-qualified
 session and shared source lock. It does not create sessions, modify capability
 advertisement or introduce an alternate feature-dispatch path.
+
+## Separate peer, image and lifecycle components
+
+`IOSEmotePeerSources` independently archives the actual actor World, AvatarMixer
+receiver and Renderer4 originals on an existing different candidate-qualified
+SDK target. Full original prefixes and native/host brackets survive
+reconstruction. The peer join binds the measured primary session, domain and
+mixer to fresh received motion and actual remote external-pose copies. It does
+not infer a remote clip name, Sit choice, or local AnimGraph evaluation, and it
+does not compare absolute received rotations to relative interpolated poses.
+
+The image join validates the actual pre-HUD Vulkan PNG, completed original
+frame/fence/readback clocks and actual GPU retirement. Marker and subject ROIs
+must lie within projected actual marker geometry and loaded primary/remote
+avatar bounds. Current challenge decoding and changed subject pixels remain
+separate from Rig/receiver effects. Changing only the marker cannot supply
+changed-avatar evidence. The durable sample/scope and whole observer are still
+under integration.
+
+`IOSEmoteBackground` owns one ordinary Home and activation input using retained
+intent, original OS foreground state and actual advancing native lifecycle
+counters. Lost returns recover by observation without resending. It does not
+read foreground native UI while the app is backgrounded. Process/source
+replacement, ignored inputs and absent original counter transitions fail.
+This retires lifecycle input responsibility only; the whole owner separately
+verifies current animation, callback and resource absence.
 
 ## Verification and remaining integration
 
@@ -103,10 +137,19 @@ UI/scene/GPU lifetime drainage; repeated three-second quiet cleanup and safe
 retirement without resetting native history. The whole v16 journey must pass
 before the complete triple is advertised.
 
+The later source/peer/image/lifecycle packet adds 36 host tests covering original
+private archives, legacy source compatibility, current renderer bounds/poses,
+marker-only image negatives and lost lifecycle delivery. All pass. These use
+explicit modeled native/SDK/renderer boundaries, with actual Python transport,
+private files, PNG decoding and original ownership validation.
+
 Shared reconciliation manifest: `native-animation-history` writes2/reads1,2;
 `native-animation-caller`, `native-script-roots`, `native-emote-controls`,
-`native-avatar-receive`, `native-avatar-receive-observation`, `ios-emote-controls`,
-`ios-emote-originals`, `ios-emote-sources`, `ios-emote-actions` are v1;
-`emote-rig-measurements` is v2. `emote-source-profile` remains v1. The reusable
+`native-avatar-receive`, `native-avatar-receive-observation`,
+`ios-emote-originals`, `ios-emote-actions` are v1. `ios-emote-controls` and
+`ios-emote-sources` write2/read1,2. `ios-emote-marker-measurements`,
+`ios-emote-peer`, `ios-emote-peer-sources`, `ios-emote-images` and
+`ios-emote-lifecycle` are v1. `emote-rig-measurements` is v2.
+`emote-source-profile` remains v1. The reusable
 frozen Phone provenance is `fe4684bf46585088370b3a328a738f147e670b97`; Android
 transport, package and host/native clock assumptions were not ported as iOS facts.

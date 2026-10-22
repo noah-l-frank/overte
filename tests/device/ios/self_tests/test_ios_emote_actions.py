@@ -58,6 +58,12 @@ class IOSEmoteActionsTests(unittest.TestCase):
     def test_repeat_completed_call_returns_original_ack_without_any_input(self):
         call=self.call('open');self.actions().act(call);before=(len(self.sdk.calls),len(self.source.native.requests),len(self.source.frames))
         self.assertEqual({'performed':True},self.actions().act(call));self.assertEqual(before,(len(self.sdk.calls),len(self.source.native.requests),len(self.source.frames)))
+    def test_repeated_sit_uses_actual_cancel_then_new_ordinary_selection_without_requested_variant(self):
+        for index in range(3):
+            result=self.actions().act(self.call('sit',str(index+1)))
+            self.assertEqual({'performed':True},result);self.assertEqual('Sit',self.source.native.active)
+        self.assertEqual(5,self.source.native.actions.count('emote.play.Sit'))
+        self.assertTrue(all('variant' not in row['call']['inputs'] for row in self.actions().state['history']))
     def test_uncertain_SDK_delivery_stays_owned_across_reconstruction(self):
         call=self.call('open');self.sdk.lost=True
         with self.assertRaises(NativeUIError):self.actions().act(call)

@@ -9,6 +9,11 @@ from pathlib import Path
 
 
 REQUIRED = {
+    "ios-emote-marker-measurements": 1,
+    "ios-emote-peer": 1,
+    "ios-emote-peer-sources": 1,
+    "ios-emote-images": 1,
+    "ios-emote-lifecycle": 1,
     "feature-avatar-accounts": 1,
     "ios-avatar-sources": 1,
     "phase-witness-publisher": 1,
@@ -54,7 +59,7 @@ REQUIRED = {
     "ios-emote-actions": 1,
     "native-avatar-receive-observation": 1,
     "native-avatar-receive": 1,
-    "ios-emote-sources": 1,
+    "ios-emote-sources": 2,
     "ios-emote-originals": 1,
     "ios-emote-controls": 2,
     "emote-rig-measurements": 2,

@@ -1,6 +1,11 @@
 {
   "schemaVersion": 1,
   "contracts": {
+    "ios-emote-marker-measurements": {"current": 1, "reads": [1]},
+    "ios-emote-peer": {"current": 1, "reads": [1]},
+    "ios-emote-peer-sources": {"current": 1, "reads": [1]},
+    "ios-emote-images": {"current": 1, "reads": [1]},
+    "ios-emote-lifecycle": {"current": 1, "reads": [1]},
     "feature-avatar-accounts": {"current": 1, "reads": [1]},
     "ios-avatar-sources": {"current": 1, "reads": [1]},
     "phase-witness-publisher": {"current": 1, "reads": [1]},
@@ -46,7 +51,7 @@
     "ios-emote-actions": {"current": 1, "reads": [1]},
     "native-avatar-receive-observation": {"current": 1, "reads": [1]},
     "native-avatar-receive": {"current": 1, "reads": [1]},
-    "ios-emote-sources": {"current": 1, "reads": [1]},
+    "ios-emote-sources": {"current": 2, "reads": [1, 2]},
     "ios-emote-originals": {"current": 1, "reads": [1]},
     "ios-emote-controls": {"current": 2, "reads": [1, 2]},
     "emote-rig-measurements": {"current": 2, "reads": [2]},
