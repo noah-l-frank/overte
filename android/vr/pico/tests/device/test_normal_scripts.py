@@ -620,6 +620,29 @@ class PicoNormalScriptsTests(unittest.TestCase):
         with self.assertRaises(ValueError):self.cleanup_instance().cleanup(self.native.target)
         self.assertFalse(self.native.running);self.assertEqual(original,store.read())
 
+    def test_pico_chat_mixer_factory_pins_actual_candidate_and_independent_role_stores_without_input(self):
+        from adapters.chat_journey.mixer_control import FixtureMixerControl
+        from adapters.chat_journey.mixer import ChatMixerOwner
+        source,peer,create=self.chat_samples();primary=create();reader=peer.reader();reader.pid=456
+        actor=self.instance._chat_samples(self.native.target,CHAT_RUN,reader,primary.peer_binding,
+            role='actor',source_lock=primary.locks[0],peer_lock=primary.locks[1])
+        controls=tuple(FixtureMixerControl('http://127.0.0.1:34567/v1/messages-mixer-state','x'*48,
+            lambda:True,readonly=readonly) for readonly in (False,True))
+        owner=self.instance._chat_mixer(self.native.target,controls,primary,actor)
+        self.assertIsInstance(owner,ChatMixerOwner);self.assertEqual(primary.binding,owner.base['binding'])
+        self.assertEqual(self.instance._chat_mixer_store(self.native.target).path,owner.store.path)
+        self.assertIsNone(owner.store.read());self.assertTrue(all(control.previous is None for control in controls))
+        self.assertEqual([],peer.commands);self.assertEqual([],self.native.inputs)
+        self.native.digest='f'*64
+        with self.assertRaises(ValueError):self.instance._chat_mixer(self.native.target,controls,primary,actor)
+        self.assertIsNone(owner.store.read());self.assertEqual([],peer.commands)
+
+    def test_pico_chat_process_teardown_preserves_restored_mixer_owner_and_original_input_intent(self):
+        store=self.instance._chat_mixer_store(self.native.target)
+        original={'phase':'online','unreleased':'original-mixer-input-and-transcript'};store.write(original,None)
+        with self.assertRaises(ValueError):self.cleanup_instance().cleanup(self.native.target)
+        self.assertFalse(self.native.running);self.assertEqual(original,store.read())
+
     def test_pico_chat_process_teardown_preserves_completed_no_replay_owner_until_full_release(self):
         store=self.instance._chat_no_replay_store(self.native.target)
         original={'phase':'complete','unreleased':'original-no-replay-owner'};store.write(original,None)

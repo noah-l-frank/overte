@@ -21,7 +21,7 @@ from adapters.script_journey.lock import ScriptSourceLock
 from adapters.graphics_journey.source_history import restore_native
 from feature_journeys.contract import identifier, state as chat_state
 
-VERSION = 2
+VERSION = 3
 SOURCES = ('primary', 'peer', 'view', 'lifecycle')
 
 
@@ -37,8 +37,9 @@ def compose(run, frame, primary_pid, peer_pid, *, vr):
     whole multi-source transaction by actual host monotonic time separately.
     """
     identifier(run)
-    exact(frame, {'ticket', 'afterEpochMs', 'primaryEpochMs', 'peerEpochMs', *SOURCES} | ({'settings'} if 'settings' in frame else set()))
-    need('settings' not in frame or frame['settings'] is True)
+    exact(frame, {'ticket', 'afterEpochMs', 'primaryEpochMs', 'peerEpochMs', *SOURCES} | ({'settings'} if 'settings' in frame else set()) | ({'transition'} if 'transition' in frame else set()))
+    need(('settings' not in frame or frame['settings'] is True) and ('transition' not in frame or frame['transition'] is True)
+        and not ('settings' in frame and 'transition' in frame))
     identifier(frame['ticket'])
     need(type(vr) is bool and integer(frame['afterEpochMs'], 1))
     p, q, view, lifecycle = (frame[key] for key in SOURCES)
@@ -57,17 +58,21 @@ def compose(run, frame, primary_pid, peer_pid, *, vr):
     fresh(min(epochs), frame['primaryEpochMs'])
     ps, qs, source = p['source'], q['source'], view['source']
     need(p['instance'] != q['instance'] and ps['selfSha256'] != qs['selfSha256']
-        and ps['mixerPresent'] == qs['mixerPresent']
-        and (not ps['mixerPresent'] or ps['mixerSha256'] == qs['mixerSha256']))
+        and (frame.get('transition') or ps['mixerPresent'] == qs['mixerPresent']
+            and (not ps['mixerPresent'] or ps['mixerSha256'] == qs['mixerSha256'])))
     if p['chatVersion']==2 or q['chatVersion']==2:
         need(p['chatVersion']==q['chatVersion']==2)
         sessions=[value['source']['session'] for value in (p,q)]
-        need(all(source['connected'] and source['mixerActive']==value['source']['mixerPresent'] for source,value in zip(sessions,(p,q))))
+        need(all(source['connected'] and (frame.get('transition') or source['mixerActive']==value['source']['mixerPresent']) for source,value in zip(sessions,(p,q))))
         need(sessions[0]['domainSha256']==sessions[1]['domainSha256'] and sessions[0]['instance']!=sessions[1]['instance'])
     # Storage is the accepted history; the native receive cache also contains
     # rejected distant Local packets. Neither source may manufacture UI rows.
     stored = source['storage']; ui = source['ui']
     need(stored['unowned'] == 0)
+    if frame.get('transition'):
+        # Actual asynchronous node/model propagation is retained as original
+        # source evidence. No joined Chat state or resource verdict is emitted.
+        return deepcopy(dict(transition=True,capturedEpochMs=min(epochs),lifecycle=lifecycle['lifecycle']))
     local = [row['text'] for row in stored['events'] if row['channel'] == 'local']
     domain = [row['text'] for row in stored['events'] if row['channel'] == 'domain']
     arrivals = iter(row for row in ps['events'] if row['senderSha256'] in (ps['selfSha256'], qs['selfSha256']))
@@ -100,6 +105,16 @@ def compose(run, frame, primary_pid, peer_pid, *, vr):
         lifecycle=lifecycle['lifecycle'], resources=sorted(resources)))
 
 
+
+def transition_ready(samples):
+    """Internal qualification only; a verdict still needs a NEW full read."""
+    need(isinstance(samples,ChatSamples) and samples.frames and samples.frames[-1].get('transition') is True)
+    frame=deepcopy(samples.frames[-1]);del frame['transition']
+    try:compose(samples.run,frame,samples.primary.pid,samples.peer.pid,vr=samples.vr)
+    except NativeUIError:return False
+    return True
+
+
 def continuity(frames, frame):
     """Immutable source histories, queries, storage and actual mixer recovery."""
     for key in SOURCES:
@@ -107,7 +122,7 @@ def continuity(frames, frame):
         need(all(frame[key][nonce] != old[key][nonce] for old in frames))
     p, q = frame['primary']['source'], frame['peer']['source']
     if not frames:
-        need(p['mixerPresent'] and q['mixerPresent'])
+        need(frame.get('transition') or p['mixerPresent'] and q['mixerPresent'])
         return
     old = frames[-1]
     need(frame['primaryEpochMs'] >= old['primaryEpochMs'] and frame['peerEpochMs'] >= old['peerEpochMs'])
@@ -134,14 +149,18 @@ def continuity(frames, frame):
                     and current['keyboard']['sequence'] > before['keyboard']['sequence'])
         else:
             need(all(value['lifecycle'][k] >= previous['lifecycle'][k] for k in previous['lifecycle']))
-    # Return of the same old cached mixer after both saw absence is not fresh
-    # recovery. A replacement without a jointly witnessed outage is foreign.
-    last_present = next((row for row in reversed(frames) if row['primary']['source']['mixerPresent']), None)
-    need(last_present is not None)
-    if p['mixerPresent']:
-        original = last_present['primary']['source']['mixerSha256']
-        if old['primary']['source']['mixerPresent']: need(p['mixerSha256'] == original)
-        else: need(p['mixerSha256'] != original)
+    # Pin the last jointly usable mixer. Half-propagated source observations
+    # are allowed only in internal transition frames, never shared Chat state.
+    present=[(index,row) for index,row in enumerate(frames) if row['primary']['source']['mixerPresent']
+        and row['peer']['source']['mixerPresent'] and row['primary']['source']['mixerSha256']==row['peer']['source']['mixerSha256']]
+    if not present:
+        need(all(row.get('transition') is True for row in frames));return
+    last_index,last_present=present[-1];original=last_present['primary']['source']['mixerSha256']
+    absent=any(not row['primary']['source']['mixerPresent'] and not row['peer']['source']['mixerPresent']
+        for row in frames[last_index+1:])
+    for actual in (p,q):
+        if actual['mixerPresent']:need((actual['mixerSha256']!=original) if absent else (actual['mixerSha256']==original))
+
 
 
 class ChatSamples:
@@ -207,14 +226,17 @@ class ChatSamples:
     def read_settings(self,ticket,after_epoch):
         return self.read(ticket,after_epoch,settings=True)
 
-    def read(self, ticket, after_epoch, *, settings=False):
+    def read_transition(self,ticket,after_epoch):
+        return self.read(ticket,after_epoch,transition=True)
+
+    def read(self, ticket, after_epoch, *, settings=False, transition=False):
         started = previous = self.monotonic(); need(number(started, 0, 1e15))
         def check():
             nonlocal previous
             for reader in (self.primary, self.peer, self.view, self.lifecycle): need(reader.guard() is not False)
             now = self.monotonic(); need(number(now, 0, 1e15) and previous <= now and now - started <= 1.5); previous = now
         try:
-            identifier(ticket); need(integer(after_epoch, 1) and type(settings) is bool); check()
+            identifier(ticket); need(integer(after_epoch, 1) and type(settings) is bool and type(transition) is bool and not (settings and transition)); check()
             with ExitStack() as held:
                 for lock in sorted(self.locks, key=lambda item: str(item.path)): held.enter_context(lock.held())
                 check(); need(self.base['phase'] == 'ready' and len(self.frames) < MAX_FRAMES)
@@ -226,6 +248,7 @@ class ChatSamples:
                 frame = dict(ticket=ticket, afterEpochMs=after_epoch, primaryEpochMs=self.primary.clock_ms(),
                     peerEpochMs=self.peer.clock_ms(), primary=p, peer=q, view=view, lifecycle=lifecycle)
                 if settings:frame['settings']=True
+                if transition:frame['transition']=True
                 check(); measured = compose(self.run, frame, self.primary.pid, self.peer.pid, vr=self.vr)
                 continuity(self.frames, frame); frames = self.frames + [deepcopy(frame)]
                 self._write({**self.base, 'phase': 'ready', 'revision': self.base['revision'] + 1, 'transcript': pack(frames)})
