@@ -8,6 +8,7 @@ import json
 import os
 import select
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 import unittest
 
@@ -75,6 +76,21 @@ class PicoChatCompositionTests(unittest.TestCase):
     def compose(self):
         owner=self.instance._chat_composition(self.native.target,self.source,self.peer.config,self.ready)
         self.owners.append(owner);return owner
+
+    def test_actual_host_detach_reports_complete_owned_closure_without_retiring_parent_journal(self):
+        owner=self.compose();original=owner.store.path.read_bytes();peer=owner.peer
+        self.assertTrue(owner.detach());self.assertTrue(owner.detach())
+        self.assertIsNone(peer.process);self.assertIsNone(peer.files)
+        self.assertEqual(original,owner.store.path.read_bytes());self.assertIsNone(self.peer.worker.poll())
+
+    def test_uncertain_host_detach_keeps_original_owner_and_still_checks_other_owned_handles(self):
+        owner=self.compose();calls=[]
+        original=SimpleNamespace(close_host=lambda:calls.append('uncertain-session') or False)
+        archive=SimpleNamespace(close_host=lambda:calls.append('archive') or True)
+        owner.restart_io=original;owner.archive_plan=archive
+        self.assertFalse(owner.detach());self.assertIs(original,owner.restart_io);self.assertIs(archive,owner.archive_plan)
+        self.assertEqual(['uncertain-session','archive'],calls);self.assertIsNotNone(owner.store.read())
+        self.assertIsNone(self.peer.worker.poll())
 
     def test_owned_mixer_accepts_same_original_controller_permissions_extension_and_pins_its_stamp(self):
         from adapters.chat_journey.owned_mixer import OwnedChatMixer

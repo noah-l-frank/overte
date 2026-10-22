@@ -136,7 +136,7 @@ class ChatActorFiles:
         """Close this host handle only; never claim native cache/file cleanup."""
         if self.fd>=0:
             if self.fd_owner is None:os.close(self.fd)
-            else:self.fd_owner.close()
+            elif not self.fd_owner.close():return False
             self.fd=-1
         return self.fd_owner.closed if self.fd_owner is not None else True
 

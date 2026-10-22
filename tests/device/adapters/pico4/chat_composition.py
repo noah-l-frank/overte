@@ -309,9 +309,12 @@ class PicoChatComposition:
 
     def detach(self):
         """Host handles only; never a native, journal or feature cleanup claim."""
-        if self.peer is not None:self.peer.close_host()
-        if getattr(self,'restart_io',None) is not None:self.restart_io.close_host()
-        if getattr(self,'archive_plan',None) is not None:self.archive_plan.close_host()
+        okay=True
+        for owner in (self.peer,getattr(self,'restart_io',None),getattr(self,'archive_plan',None)):
+            if owner is not None:
+                try:okay=owner.close_host() is True and okay
+                except Exception:okay=False
+        return okay
 
 
 class PicoChatWitness:

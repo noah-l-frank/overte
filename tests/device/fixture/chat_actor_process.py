@@ -83,4 +83,6 @@ class LinuxChatActorProcess:
 
     def close(self):
         if self.fd>=0:
-            self.fd_owner.close();self.fd=-1
+            if not self.fd_owner.close():return False
+            self.fd=-1
+        return self.fd_owner is None or self.fd_owner.closed

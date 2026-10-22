@@ -89,7 +89,8 @@ class ActorFileTests(unittest.TestCase):
         try:
             self.assertEqual(descriptor,foreign)
             with self.assertRaises(NativeUIError):transport.send(self.request())
-            transport.detach();self.assertEqual(self.root.stat().st_ino,os.fstat(foreign).st_ino)
+            self.assertFalse(transport.detach());self.assertEqual(descriptor,transport.fd)
+            self.assertFalse(transport.detach());self.assertEqual(self.root.stat().st_ino,os.fstat(foreign).st_ino)
             self.assertFalse((self.root/COMMAND).exists());self.assertIsNone(self.store.read()['pending'])
         finally:os.close(foreign);os.close(anchor)
 
