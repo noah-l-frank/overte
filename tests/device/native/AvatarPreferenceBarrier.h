@@ -10,6 +10,7 @@
 #include <QMutex>
 #include <QThread>
 #include <QUuid>
+#include <QUrl>
 #include <QVariantMap>
 #include <atomic>
 #include <functional>
@@ -23,7 +24,41 @@ inline bool avatarPreferenceKey(const QString& key) {
     return normalized=="Avatar" || normalized.startsWith("Avatar/")
         || normalized=="fullPrivate/Avatar" || normalized.startsWith("fullPrivate/Avatar/");
 }
+inline bool avatarPreferenceValueBounded(const QVariant& value,int depth,qint64& budget,int& nodes) {
+    // Inspect only closed built-in value containers before QDataStream. A
+    // registered custom serializer must never execute in a passive GUI read.
+    if(depth>8 || ++nodes>4096 || (budget-=32)<0) {return false;}
+    switch(value.userType()) {
+    case QMetaType::UnknownType:case QMetaType::Bool:case QMetaType::Int:case QMetaType::UInt:
+    case QMetaType::LongLong:case QMetaType::ULongLong:case QMetaType::Float:case QMetaType::Double:case QMetaType::QUuid:return true;
+    case QMetaType::QString: {
+        const auto text=value.toString();return text.size()<=32768 && (budget-=qint64(text.size())*2)>=0;
+    }
+    case QMetaType::QByteArray: {
+        const auto bytes=value.toByteArray();return bytes.size()<=65536 && (budget-=bytes.size())>=0;
+    }
+    case QMetaType::QUrl: {
+        const auto text=value.toUrl().toString(QUrl::FullyEncoded);return text.size()<=16384 && (budget-=qint64(text.size())*4)>=0;
+    }
+    case QMetaType::QStringList: {
+        const auto list=value.toStringList();if(list.size()>512) {return false;}
+        for(const auto& item:list) {if(!avatarPreferenceValueBounded(item,depth+1,budget,nodes)) {return false;}}return true;
+    }
+    case QMetaType::QVariantList: {
+        const auto list=value.toList();if(list.size()>512) {return false;}
+        for(const auto& item:list) {if(!avatarPreferenceValueBounded(item,depth+1,budget,nodes)) {return false;}}return true;
+    }
+    case QMetaType::QVariantMap: {
+        const auto map=value.toMap();if(map.size()>512) {return false;}
+        for(auto it=map.cbegin();it!=map.cend();++it) {
+            if(it.key().size()>4096 || (budget-=qint64(it.key().size())*2)<0 || !avatarPreferenceValueBounded(it.value(),depth+1,budget,nodes)) {return false;}
+        }return true;
+    }
+    default:return false;
+    }
+}
 inline QVariantMap avatarPreferenceRaw(bool present,const QVariant& value) {
+    qint64 budget=65536;int nodes=0;if(!avatarPreferenceValueBounded(value,0,budget,nodes)) {return {};}
     QByteArray bytes;QDataStream stream(&bytes,QIODevice::WriteOnly);stream.setVersion(QDataStream::Qt_5_15);stream<<value;
     if(stream.status()!=QDataStream::Ok || bytes.size()>65536) {return {};}
     return {{"present",present},{"typeId",value.userType()},{"typeName",value.typeName() ? QVariant(QString::fromLatin1(value.typeName())) : QVariant()},

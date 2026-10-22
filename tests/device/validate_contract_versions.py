@@ -16,7 +16,7 @@ REQUIRED = {
     "native-avatar-entity-storage": 1,
     "pico-avatar-people-controls": 1,
     "pico-avatar-state": 1,
-    "pico-avatar-urls-owner": 1,
+    "pico-avatar-urls-owner": 2,
     "native-model-load-history": 1,
     "pico-browser-originals": 2,
     "pico-browser-geometry": 1,

@@ -621,6 +621,7 @@ def create_adapter(args, base_class):
             store=PrivateFeatureState(self.pico_configuration[1]/('avatar-urls-owner-'+key+'-'+run+'.json'))
             return PicoAvatarUrls(store,binding,phase,lock,lambda:self._avatar_state_observer(target),ui.io.capture,
                 lambda intent,before_send:self._avatar_people_controls(target,intent,before_send=before_send),native.guard,
+                preferences=lambda:self._avatar_preferences_observer(target),
                 monotonic=native.monotonic,sleep=native.sleep)
 
         def _avatar_urls_owned(self,target):
@@ -628,6 +629,11 @@ def create_adapter(args, base_class):
             key=hashlib.sha256(('org.overte.pico\0'+target).encode()).hexdigest()[:32];parent=self.pico_configuration[1]
             for path in parent.glob('avatar-urls-owner-'+key+'-*.json'):
                 _need(re.fullmatch('avatar-urls-owner-'+key+'-[0-9a-f]{32}\\.json',path.name))
+                if PrivateFeatureState(path).read() is not None:return True
+            # A failed root CAS can leave an already durable immutable original
+            # leaf. It is still owned even if the first root was never saved.
+            for path in parent.glob('avatar-urls-frame-'+key+'-*.json'):
+                _need(re.fullmatch('avatar-urls-frame-'+key+'-[0-9a-f]{32}-[0-9a-f]{32}\\.json',path.name))
                 if PrivateFeatureState(path).read() is not None:return True
             return False
 

@@ -12,6 +12,11 @@
 #include <thread>
 #include <vector>
 #include <sys/stat.h>
+struct ForeignPreferenceValue{int value{1};};
+Q_DECLARE_METATYPE(ForeignPreferenceValue)
+static int foreignPreferenceStreams=0;
+QDataStream&operator<<(QDataStream&stream,const ForeignPreferenceValue&value){++foreignPreferenceStreams;return stream<<value.value;}
+QDataStream&operator>>(QDataStream&stream,ForeignPreferenceValue&value){return stream>>value.value;}
 // Explicit application/dependency-registry and native avatar/model live-value
 // actors. The Handle declarations+initializer keys, complete passive methods,
 // Manager/WriteWorker/Handle persistence and original JSON codec are real.
@@ -82,6 +87,16 @@ int main(int argc,char**argv){
     assert(tsi.featurePicoAvatarPreferences(request()).isEmpty());assert(!DependencyManager::isSet<Setting::Manager>());
     auto manager=DependencyManager::set<Setting::Manager>();manager->setValue("unrelated",QByteArray("untouched"));SettingsTests::flush(manager.data());
     if(!app.arguments().contains("--testScript")){assert(tsi.featurePicoAvatarPreferences(request()).isEmpty());avatarManager->avatar.reset();avatar.reset();SettingsTests::stop(manager.data());return 0;}
+#if QT_VERSION < QT_VERSION_CHECK(6,0,0)
+    qRegisterMetaTypeStreamOperators<ForeignPreferenceValue>();
+#endif
+    const auto foreignVariant=QVariant::fromValue(ForeignPreferenceValue{});
+    assert(overte::e2e::avatarPreferenceRaw(true,foreignVariant).isEmpty());
+    assert(overte::e2e::avatarPreferenceRaw(true,QVariantMap{{"nested",foreignVariant}}).isEmpty());
+    assert(foreignPreferenceStreams==0);
+    QVariant nested="leaf";for(int depth=0;depth<10;++depth){nested=QVariantList{nested};}
+    assert(overte::e2e::avatarPreferenceRaw(true,nested).isEmpty());
+    assert(overte::e2e::avatarPreferenceRaw(true,QString(32769,'x')).isEmpty());
     assert(avatar->_scaleSetting.e2ePreferenceSnapshot().isEmpty());
     auto publish=[&](const QString&kind){auto command=request();auto value=tsi.featurePicoAvatarPreferences(command);output(kind,command,value);assert(tsi.featurePicoAvatarPreferences(command).isEmpty());return value.value("source").toMap().value("snapshot").toMap();};
     const auto initial=publish("lazy-original");assert(!manager->contains("Avatar/scale"));
