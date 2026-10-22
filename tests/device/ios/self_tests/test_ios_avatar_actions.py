@@ -90,12 +90,20 @@ class Widget(Boundary):
 
 
 class UIKit(NativeUI):
-    def __init__(self,fixture):self.fixture=fixture;self.sleep=fixture.sleep;self.inputs=[]
-    def click(self,locator):
-        self.inputs.append(locator.value)
-        if locator.value=='OverteTabletOpen':self.fixture.widget.shown=True
-        elif locator.value=='OverteTabletClose':self.fixture.widget.shown=False
-        else:raise AssertionError('Unexpected UIKit control')
+    def __init__(self,fixture):
+        self.fixture=fixture;self.inputs=[];self.selected=None
+        super().__init__(self,'owned-session',lambda:True,monotonic=lambda:fixture.clock,sleep=fixture.sleep)
+    def call(self,method,path,body=None):
+        if path.endswith('/elements'):
+            self.selected=body['value'];return [{'element-6066-11e4-a52e-4f735466cecf':'original-tablet-button'}]
+        if path.endswith(('/displayed','/enabled')):return True
+        if path.endswith('/click'):
+            self.inputs.append(self.selected)
+            if self.selected=='OverteTabletOpen':self.fixture.widget.shown=True
+            elif self.selected=='OverteTabletClose':self.fixture.widget.shown=False
+            else:raise AssertionError('Unexpected UIKit control')
+            return None
+        raise AssertionError('Unexpected UIKit transport')
 
 
 class AvatarActionTests(unittest.TestCase):
@@ -190,9 +198,9 @@ class AvatarActionTests(unittest.TestCase):
             with self.assertRaises(NativeUIError):owner.act(query)
             original_id=self.fixture.widget.wearable_id;self.assertIsNotNone(original_id)
             restored=self.owner();self.assertEqual(original_id,restored.state['owned'][0]['id'])
-            count=len(self.fixture.widget.requests)
+            count=sum(row['operation']=='edit' for row in self.fixture.widget.requests)
             with self.assertRaises(NativeUIError):restored.act(query)
-            self.assertEqual(count,len(self.fixture.widget.requests));self.assertEqual(original_id,self.fixture.widget.wearable_id)
+            self.assertEqual(count,sum(row['operation']=='edit' for row in self.fixture.widget.requests));self.assertEqual(original_id,self.fixture.widget.wearable_id)
 
     def test_unowned_original_entity_change_is_refused_before_recipe_input_and_never_excluded_as_owned(self):
         renderer_tests.attach(self.fixture.prototypes['renderers'])

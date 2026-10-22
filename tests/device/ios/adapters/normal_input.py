@@ -279,7 +279,9 @@ class NativeInput:
         self.last_clock = value
         return value
 
-    def _request(self, operation, native=None):
+    def _request(self, operation, native=None, *, before_send=None):
+        if before_send is not None and not callable(before_send):
+            raise NativeUIError('Native iOS input requires a callable transport guard')
         self.last_receipt = None
         self._check()
         command_id = 'ios-' + uuid.uuid4().hex
@@ -294,6 +296,8 @@ class NativeInput:
             raise NativeUIError('Native iOS input exceeds its bounded transport')
         request = Request(origin + '/e2e-client-command.json', data=body, method='POST',
                           headers={'Content-Type': 'application/json'})
+        if before_send is not None and before_send() is False:
+            raise NativeUIError('Native iOS input transport guard refused delivery')
         with urlopen(request, timeout=5) as response:
             result = response.read(32769)
             if response.status != 200 or len(result) > 32768 or json.loads(result) != payload:
@@ -494,8 +498,8 @@ class NativeInput:
             fieldToken=token,operation='set-value',value=value)
         return self.deliver(command)
 
-    def deliver(self, command):
-        value = self._request('edit', command)
+    def deliver(self, command, *, before_send=None):
+        value = self._request('edit', command) if before_send is None else self._request('edit', command, before_send=before_send)
         clock = getattr(self, 'native_epoch_ms', None)
         epoch = clock() if clock is not None else time.time() * 1000
         def receipt_fresh(captured):

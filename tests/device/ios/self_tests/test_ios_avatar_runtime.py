@@ -172,7 +172,12 @@ class AvatarRuntimeTests(unittest.TestCase):
         fixture=SourcesFixture();fixture.phase.client.url=self.client.url;readers=fixture.readers()
         from ios.adapters.avatar_sources import IOSAvatarSources
         from ios.adapters.avatar_consent import IOSAvatarConsent
-        actual=dict(binding=BINDING,check=lambda:True,client=object(),session='owned-sdk-session',
+        from ios.adapters.avatar_inputs import IOSAvatarInputs
+        clock=object();seen=[]
+        def input_reader(actual_clock):
+            seen.append(actual_clock);return IOSAvatarInputs(lambda _query:None,lambda:'{}',lambda:20000,lambda:True,42)
+        actual=dict(binding=BINDING,check=lambda:True,client=object(),session='owned-sdk-session',clock_source=clock,
+            observer=SimpleNamespace(avatar_inputs=input_reader),
             target=dict(testBuild=dict(launchEnvironment=dict(HIFI_METAVERSE_URL='https://controlled.invalid'))))
         class Runtime(IOSAvatarRuntime):
             def _sources(_self,_selector):return actual
@@ -185,6 +190,8 @@ class AvatarRuntimeTests(unittest.TestCase):
             self.assertIsInstance(consent,IOSAvatarConsent);self.assertEqual('actor',consent.inputs.role)
             self.assertEqual('ios-avatar-actor-consent.json',consent.store.path.name)
             self.assertEqual('https://controlled.invalid',consent.origin)
+            self.assertEqual([clock],seen);self.assertEqual('actor',consent.input_reads.role)
+            self.assertEqual('ios-avatar-actor-input-reads.json',consent.input_reads.store.path.name)
             actual['binding']=BINDING|dict(artifactSha256='f'*64)
             with self.assertRaises(NativeUIError):runtime._avatar_consent('target',source,consent.peer,consent.username)
 

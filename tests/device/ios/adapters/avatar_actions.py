@@ -19,6 +19,8 @@ from ios.adapters import avatar_entities,avatar_renderers,avatar_state,avatar_bo
 from ios.adapters.avatar_controls import AvatarUI,same_reference
 from ios.adapters.avatar_input_owner import AvatarInputOwner
 from ios.adapters.avatar_sources import IOSAvatarSources
+from ios.adapters.avatar_recipe_ui import AvatarRecipeUI
+from ios.adapters import avatar_operation_clock as operation_clock
 
 VERSION=1
 
@@ -56,7 +58,7 @@ class IOSAvatarActions:
             need(same(whole['query'],events['arguments']) and (whole['phase']!='acknowledged' or events['phase']=='acknowledged'))
         return result
 
-    def __init__(self,store,sources,inputs,sdk,peer,expected_code):
+    def __init__(self,store,sources,inputs,sdk,peer,expected_code,*,input_reads=None):
         need(isinstance(store,PrivateFeatureState) and isinstance(sources,IOSAvatarSources) and not sources.historical
             and sources.role=='primary' and isinstance(inputs,AvatarInputOwner) and isinstance(sdk,NativeUI))
         exact(peer,{'sessionId','username'});avatar_state.session(peer['sessionId']);avatar_state.text(peer['username'],256)
@@ -65,8 +67,17 @@ class IOSAvatarActions:
             and inputs.fixture_url==sources.phase.fixture_url and store.path.name=='ios-avatar-primary-actions.json')
         need(type(expected_code) is dict and '/system/avatarapp.js' in expected_code)
         self.store,self.sources,self.inputs,self.sdk=store,sources,inputs,sdk
+        self.sdk=copy(sdk)
+        def continuous():
+            self.operation_deadline();need(sdk.check_continuity() is not False);self.operation_deadline();return True
+        self.sdk.check_continuity=continuous
         self.peer,self.expected_code=deepcopy(peer),deepcopy(expected_code)
         self.lock=sources.lock;self.lock.assert_held();self.previous=store.read();self.failed=False;self.historical=False
+        if input_reads is not None:
+            from ios.adapters.avatar_input_reads import IOSAvatarInputReads
+            need(isinstance(input_reads,IOSAvatarInputReads) and not input_reads.historical and input_reads.run==sources.run
+                and input_reads.role=='primary' and input_reads.binding==sources.binding and input_reads.lock is sources.lock)
+        self.input_reads=input_reads
         self.state=None if self.previous is None else self.decode(self.previous);inputs.load()
         if self.state is not None:
             expected=[row for row in self.state['calls'] if row['inputStarted']]
@@ -97,7 +108,8 @@ class IOSAvatarActions:
             and type(state['owned']) is list and len(state['owned'])<=8)
         tickets=set()
         for index,call in enumerate(state['calls']):
-            exact(call,{'query','phase','before','after','sdk','inputStarted'})
+            exact(call,{'query','phase','before','after','sdk','inputStarted'}|({'operationClock'} if 'operationClock' in call else set()))
+            if 'operationClock' in call:operation_clock.validate(call['operationClock'])
             query=arguments('feature.avatar-people.act',call['query'])
             need(query['runId']==self.sources.run and query['fixtureUrl']==self.sources.phase.fixture_url and query['ticket'] not in tickets
                 and call['phase'] in ('acting','issuing','acknowledged') and type(call['sdk']) is list and len(call['sdk'])<=4
@@ -151,7 +163,9 @@ class IOSAvatarActions:
             self.save() # Own the actual return before geometry, next input or cleanup.
 
     def capture(self):
-        self.bound();frame=self.sources.read();need(frame.get('avatarSourceGroupVersion')==2)
+        self.bound()
+        if self.state is not None and self.state['calls'] and self.state['calls'][-1]['phase']!='acknowledged':self.operation_deadline()
+        frame=self.sources.read();need(frame.get('avatarSourceGroupVersion')==2)
         if self.state is not None:
             if self.state['calls']:self.active(frame)
             self.retain_returns(frame)
@@ -200,19 +214,48 @@ class IOSAvatarActions:
         after=self.wait(lambda value:value['ui']['open'] is opened)
         call['sdk'][-1]['after']=self.reference(after);call['phase']='acting';self.save()
 
+    def operation_deadline(self):
+        call=self.state['calls'][-1]
+        if 'operationClock' not in call:raise AvatarActionPending('Legacy interrupted Avatar recipe has no original deadline and cannot be resumed')
+        return operation_clock.check(call['operationClock'],self.sources.epoch_ms(),self.sources.monotonic())
+
+    def recover_event(self):
+        """Resolve one actually returned command; do not replay its recipe."""
+        self.operation_deadline();call=self.state['calls'][-1]
+        if call['phase']!='acting':raise AvatarActionPending('Original UIKit input remains unresolved; it is not repeated')
+        if not call['inputStarted']:return []
+        events=self.inputs.state['calls'][-1]['events'];need(events)
+        event=events[-1];original=event['intent']
+        if event['phase']=='issued':
+            if self.input_reads is None:raise AvatarActionPending('Original Avatar native return source is required before recipe continuation')
+            row=self.input_reads.read();receipt=self.input_reads.delivered(row,original)
+            self.operation_deadline();self.inputs.delivered(original,receipt)
+        if event['phase']!='observed':
+            current=self.sources.readers['ui'].capture();self.operation_deadline();self.inputs.observed(original,current)
+        return deepcopy(events)
+
     def act(self,query):
         query=deepcopy(arguments('feature.avatar-people.act',query));self.bound();need(self.state is not None
             and query['runId']==self.sources.run and query['fixtureUrl']==self.sources.phase.fixture_url)
+        current=None;resuming=False;prefix=[]
         for call in self.state['calls']:
             if call['query']['ticket']==query['ticket']:
-                need(same(call['query'],query) and call['phase']=='acknowledged');return {'performed':True}
+                need(same(call['query'],query))
+                if call['phase']=='acknowledged':return {'performed':True}
+                current=call;resuming=True;break
         if self.state['calls'] and self.state['calls'][-1]['phase']!='acknowledged':
-            raise AvatarActionPending('Original Avatar recipe is unresolved; ordinary input is not repeated')
-        call=dict(query=query,phase='acting',before=None,after=None,sdk=[],inputStarted=False)
-        self.state['calls'].append(call);self.save();call['before']=self.reference(self.capture());self.save()
-        self.tablet(True)
-        ui=AvatarUI(self.sources.readers['ui'],self.intent,delivered=self.inputs.delivered,observed=self.inputs.observed,
-            monotonic=self.sources.monotonic,sleep=self.sdk.sleep)
+            if current is None:raise AvatarActionPending('Original Avatar recipe is unresolved; ordinary input is not repeated')
+        if current is None:
+            call=dict(query=query,phase='acting',before=None,after=None,sdk=[],inputStarted=False,
+                operationClock=operation_clock.begin(self.sources.epoch_ms(),self.sources.monotonic()))
+            self.state['calls'].append(call);self.save();call['before']=self.reference(self.capture());self.save();self.tablet(True)
+        else:
+            call=current;prefix=self.recover_event();self.operation_deadline()
+            if call['before'] is None:call['before']=self.reference(self.capture());self.save()
+            if prefix:need(self.capture()['ui']['open'])
+            else:self.tablet(True)
+        ui=AvatarRecipeUI(self.sources.readers['ui'],self.intent,prefix,deadline=self.operation_deadline,
+            delivered=self.inputs.delivered,observed=self.inputs.observed,monotonic=self.sources.monotonic,sleep=self.sdk.sleep)
         verb=query['verb'];supplied=query['inputs']
         if verb=='avatar-url':
             url=self.resource(query);ui.avatar_url(url)
@@ -258,13 +301,14 @@ class IOSAvatarActions:
             self.wait(lambda frame:self.absent_contact(frame,call))
         elif verb=='avatar-restore':
             for owned in self.state['owned']:
-                frame=self.capture()
+                frame=self.original(call['before']) if resuming else self.capture()
                 if any(row['id']==owned['id'] for row in frame['originals']['renderers']['source']['avatarEntities']):ui.remove_wearable(owned['id'])
             original=self.original(self.state['baseline'])['originals']['state']['source'];ui.avatar_url(original['requestedUrl']);ui.scale(original['targetScale'])
             self.wait(lambda frame:all(frame['originals']['state']['source'][key]==original[key] for key in ('requestedUrl','resourceUrl','geometryLoaded','rigReady'))
                 and all(abs(frame['originals']['state']['source'][key]-original[key])<.0001 for key in ('targetScale','modelScale')))
         else:need(False)
-        if call['inputStarted']:self.inputs.finish()
+        ui.complete()
+        if call['inputStarted'] and self.inputs.state['phase']!='acknowledged':self.inputs.finish()
         call['after']=self.reference(self.capture());call['phase']='acknowledged';self.save();return {'performed':True}
 
     def wearable_ready(self,frame,owned):

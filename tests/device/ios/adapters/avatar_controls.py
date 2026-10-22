@@ -171,14 +171,16 @@ class IOSAvatarIO:
         elif action == 'set-value': query['value'] = value
         elif action == 'select-index': query['index'] = value
         return query
-    def input(self, identifier, action, *, reference, value=None, command=None):
+    def input(self, identifier, action, *, reference, value=None, command=None, before_deliver=None):
+        need(before_deliver is None or callable(before_deliver))
         query = self.command(identifier, action, reference=reference, value=value)
         if command is not None:
             need(type(command) is dict and nonce(command.get('commandId')))
             query['commandId'] = command['commandId']; need(query == command)
         current = self.capture(); same_reference(reference, current, identifier)
         self.last_input = None
-        result = self.native.deliver(query)
+        if before_deliver is not None: need(before_deliver() is not False)
+        result = self.native.deliver(query, before_send=before_deliver) if before_deliver is not None else self.native.deliver(query)
         self.last_input = dict(command=deepcopy(query), originalReceipt=deepcopy(self.native.last_receipt))
         return result
 
@@ -206,6 +208,9 @@ class AvatarUI:
     def now(self):
         clock = self.monotonic(); need(number(clock, 0, 1e15) and (self.last_clock is None or clock >= self.last_clock))
         self.last_clock = clock; return clock
+    def before_deliver(self):
+        """Optional owner guard, rechecked at the final native boundary."""
+        return True
     def wait(self, predicate):
         started = self.now()
         for attempt in range(101):
@@ -221,7 +226,8 @@ class AvatarUI:
         intent = dict(controlId=identifier, action=action, reference=deepcopy(before), nativeCommand=deepcopy(command))
         if value is not None: intent['value'] = value
         self.intent(intent)  # Persist before crossing the native event boundary.
-        self.io.input(identifier, action, reference=before, value=value, command=command)
+        need(self.before_deliver() is not False)
+        self.io.input(identifier, action, reference=before, value=value, command=command, before_deliver=self.before_deliver)
         if self.delivered is not None: self.delivered(intent, deepcopy(self.io.last_input))
         after = self.capture(); need(after['scope']['sequence'] == before['scope']['sequence']+1)
         if self.observed is not None: self.observed(intent, deepcopy(after))

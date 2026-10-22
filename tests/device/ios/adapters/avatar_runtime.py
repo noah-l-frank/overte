@@ -90,7 +90,8 @@ class IOSAvatarRuntime(IOSScriptRuntime):
         inputs=AvatarInputOwner(PrivateFeatureState(self.state_path(selector).with_name('ios-avatar-actor-inputs.json')),
             sources.lock,sources.binding,sources.run,'actor',sources.phase.fixture_url,sources.guard)
         return IOSAvatarConsent(PrivateFeatureState(self.state_path(selector).with_name('ios-avatar-actor-consent.json')),
-            sources,inputs,NativeUI(actual['client'],actual['session'],actual['check']),peer,username,owned_origin)
+            sources,inputs,NativeUI(actual['client'],actual['session'],actual['check']),peer,username,owned_origin,
+            input_reads=self._avatar_input_reads(selector,sources))
 
     def _avatar_receive(self,selector):
         from adapters.native_avatar_receive import NativeAvatarReceive,FILE,LIMIT
@@ -117,7 +118,15 @@ class IOSAvatarRuntime(IOSScriptRuntime):
         inputs=AvatarInputOwner(PrivateFeatureState(self.state_path(selector).with_name('ios-avatar-primary-inputs.json')),
             sources.lock,sources.binding,sources.run,'primary',sources.phase.fixture_url,sources.guard)
         return IOSAvatarActions(PrivateFeatureState(self.state_path(selector).with_name('ios-avatar-primary-actions.json')),sources,inputs,
-            NativeUI(actual['client'],actual['session'],actual['check']),peer,pins())
+            NativeUI(actual['client'],actual['session'],actual['check']),peer,pins(),input_reads=self._avatar_input_reads(selector,sources))
+
+    def _avatar_input_reads(self,selector,sources):
+        from ios.adapters.avatar_input_reads import IOSAvatarInputReads
+        need(isinstance(sources,IOSAvatarSources) and not sources.historical);sources.bound();actual=self._sources(selector)
+        need(actual['binding']==sources.binding and sources.lock.path==self.state_path(selector).with_name('script-feature-sources.lock'))
+        reader=actual['observer'].avatar_inputs(actual['clock_source'])
+        return IOSAvatarInputReads(PrivateFeatureState(self.state_path(selector).with_name('ios-avatar-'+sources.role+'-input-reads.json')),
+            sources.root,sources.binding,sources.run,sources.role,sources.lock,actual['check'],reader)
 
     def _avatar_sources(self,selector,client,run,role,root,lock):
         identifier(run);need(isinstance(client,Client) and role in ('primary','actor') and isinstance(lock,ScriptSourceLock))
