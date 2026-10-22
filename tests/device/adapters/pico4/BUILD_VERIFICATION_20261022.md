@@ -780,3 +780,15 @@ is the only catalog addition (77 to78); no timeout increased. Actual factory
 and common-cleanup cases separately pass2.075s. Originals/journals remain
 retained, full Emote/public/actor composition stays open and complete source
 feature count remains3/14.
+
+
+## Bounded original normal Chat attempts
+
+5298bca73c selects773bdb9811's ChatNormalInputv2. Completed exact original
+attempts use existing immutable ChatSourceChunks; only the current attempt
+remains packed in the root. Existing48KiB and raw-history limits are unchanged.
+A durable reading intent precedes child archival; lost root/child ACKs, orphans,
+replacement and oldv1 owners remain unknown without adoption or replay.
+All15 integrated normal-input cases pass62.600s, actual Pico factory case
+passes.879s. The complete dispatcher/actor and final resource/FD/process
+retirement are still open; source-complete count stays3/14.
