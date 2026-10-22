@@ -64,6 +64,7 @@
     "ios-navigation-feature": {"current": 1, "reads": [1]},
     "ios-navigation-address-root-state": {"current": 1, "reads": [1]},
     "ios-navigation-address-inputs": {"current": 2, "reads": [1, 2]},
+    "ios-navigation-address-dismiss": {"current": 1, "reads": [1]},
     "ios-navigation-restart-proof": {"current": 1, "reads": [1]},
     "ios-navigation-process-context": {"current": 2, "reads": [1, 2]},
     "ios-navigation-process-source-basis": {"current": 2, "reads": [1, 2]},

@@ -70,6 +70,7 @@ REQUIRED = {
     "ios-navigation-feature": 1,
     "ios-navigation-address-root-state": 1,
     "ios-navigation-address-inputs": 2,
+    "ios-navigation-address-dismiss": 1,
     "ios-navigation-restart-proof": 1,
     "ios-navigation-process-context": 2,
     "ios-navigation-process-source-basis": 2,

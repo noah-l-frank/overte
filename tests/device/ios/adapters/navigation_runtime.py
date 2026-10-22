@@ -135,6 +135,18 @@ class IOSNavigationRuntime(IOSScriptRuntime):
         return NavigationMissingActions(PrivateFeatureState(owner_path(admission,'ios-navigation-missing-actions.json')),
             admission,ui,source['native'])
 
+    def _navigation_address_dismiss(self,selector,admission):
+        from ios.adapters.navigation_address_inputs import NavigationAddressInputs
+        from ios.adapters.navigation_address_dismiss import NavigationAddressDismiss
+        need(isinstance(admission,(NavigationAdmissionOwner,NavigationProcessScope)));admission.bound()
+        source=self._sources(selector);need(same(source['binding'],admission.binding)
+            and admission.store.path.parent==self.state_path(selector).parent)
+        directory=admission.store.path.parent
+        ui=NativeUI(source['client'],source['session'],source['check'])
+        address=NavigationAddressInputs(PrivateFeatureState(directory/('ios-navigation-address-'+admission.binding['processIdentity']+'-inputs.json')),
+            admission.binding,admission.run,admission.lock,admission.bound,ui,source['native'])
+        return NavigationAddressDismiss(PrivateFeatureState(directory/('ios-navigation-address-dismiss-'+admission.binding['processIdentity']+'.json')),address)
+
     def _navigation_surface_actions(self,selector,admission):
         need(isinstance(admission,(NavigationAdmissionOwner,NavigationProcessScope)));admission.bound()
         source=self._sources(selector);need(same(source['binding'],admission.binding)
