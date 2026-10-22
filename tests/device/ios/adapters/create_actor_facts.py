@@ -10,6 +10,7 @@ remain required responsibilities of the complete feature owner.
 from copy import deepcopy
 from contextlib import contextmanager
 import os
+import json
 import stat
 
 from adapters.native_clock_join import digest
@@ -24,8 +25,9 @@ from ios.adapters.create_actions import semantic_map
 from ios.adapters.create_peer import project_actor
 from ios.adapters.create_product_state import adopt_created
 from ios.adapters.create_sources import CreateSources
+from ios.adapters.create_marker_identity import PreparedCreateMarker,marker as actual_marker
 
-VERSION=1
+VERSION=2
 
 
 class CreateActorPublisher(PhaseWitnessPublisher):
@@ -42,19 +44,30 @@ class CreateActorPublisher(PhaseWitnessPublisher):
 
 
 class CreateActorFacts:
-    def __init__(self,store,lock,run,primary,peer,guard,*,historical=False):
+    def __init__(self,store,lock,run,primary,peer,guard,*,historical=False,marker=None):
         need(isinstance(store,PrivateFeatureState) and isinstance(lock,ScriptSourceLock) and isinstance(primary,CreateSources)
              and isinstance(peer,CreateSources) and primary.role=='actor-primary' and peer.role=='actor'
-             and type(historical) is bool and callable(guard) and primary.run==peer.run==run
+             and type(historical) is bool and callable(guard) and (marker is None or isinstance(marker,PreparedCreateMarker)) and primary.run==peer.run==run
              and primary.binding['targetFingerprint']!=peer.binding['targetFingerprint'])
         self.store,self.lock,self.run,self.primary,self.peer,self.guard,self.historical=store,lock,identifier(run),primary,peer,guard,historical
-        self.binding=deepcopy(context(peer.binding));self.primary_binding=deepcopy(context(primary.binding))
+        self.binding=deepcopy(context(peer.binding));self.primary_binding=deepcopy(context(primary.binding));self.marker=marker
+        if marker is not None:need(same(marker.binding,self.primary_binding) and marker.run==run and (primary.phase is None or marker.fixture_url==primary.phase.fixture_url))
+        self._identity_stamp=digest(dict(binding=self.binding,primaryBinding=self.primary_binding,runId=self.run))
         self._frame_cache={};self._derive_cache={};self._publication_cache={};self._round=None
         need(store.path.name=='ios-create-actor-facts.json' and lock is peer.lock and lock.path==store.path.with_name('script-feature-sources.lock'))
-        lock.assert_held();primary.lock.assert_held();self.previous=store.read()
+        lock.assert_held();primary.lock.assert_held();self.previous=store.read();self._version=VERSION if self.previous is None else self.previous.get('iosCreateActorFactsVersion')
         self.state=dict(records=[],pending=None,interrupted=[]) if self.previous is None else self.decode(self.previous)
     def envelope(self,state):
-        return dict(iosCreateActorFactsVersion=VERSION,binding=self.binding,primaryBinding=self.primary_binding,runId=self.run,payload=pack([state]))
+        return dict(iosCreateActorFactsVersion=self._version,binding=self.binding,primaryBinding=self.primary_binding,runId=self.run,payload=pack([state]))
+    def identities(self,entry=None):
+        need(digest(dict(binding=self.binding,primaryBinding=self.primary_binding,runId=self.run))==self._identity_stamp
+            and same(self.primary_binding,self.primary.binding) and same(self.binding,self.peer.binding)
+            and self.primary.role=='actor-primary' and self.peer.role=='actor' and self.primary.run==self.peer.run==self.run)
+        if entry is not None and entry.get('marker') is not None:
+            need(isinstance(self.marker,PreparedCreateMarker) and self.marker.run==self.run
+                and same(self.marker.binding,self.primary_binding) and (self.primary.phase is None or self.marker.fixture_url==self.primary.phase.fixture_url)
+                and same(entry['marker'],self.marker.state['admission']))
+
     def source_ref(self,source,frame):
         packet=source.record_store(frame['index']).read();need(packet is not None)
         return dict(index=frame['index'],sha256=digest(packet))
@@ -91,7 +104,11 @@ class CreateActorFacts:
         exact(reference,{'index','sha256'});need(integer(reference['index'],1,len(source.frames)))
         frame=source.frames[reference['index']-1];packet=self.record_packet(source,reference)
         need(same(reference,source.state['records'][frame['index']-1]))
-        previous=None if frame['index']==1 else source.frames[frame['index']-2]
+        previous=None
+        if frame['index']>1:
+            predecessor=source.state['records'][frame['index']-2];need(predecessor['index']==frame['index']-1)
+            old=self.record_packet(source,predecessor);rows=unpack(old['payload'])
+            need(len(rows)==1 and same(rows[0],source.frames[frame['index']-2]));previous=rows[0]
         key=(source.role,frame['index'],reference['sha256'],digest(frame),None if previous is None else digest(previous))
         if key not in self._frame_cache:
             originals=unpack(packet['payload']);need(len(originals)==1 and same(originals[0],frame))
@@ -100,8 +117,8 @@ class CreateActorFacts:
         # and the exact current in-memory prefix are still checked on every use.
         return deepcopy(self._frame_cache[key])
     def derive(self,entry,before,baseline,owned,voxel):
-        need(same(self.primary_binding,self.primary.binding) and same(self.binding,self.peer.binding))
-        exact(entry,{'sequence','primary','peer'});need(integer(entry['sequence'],1,256))
+        self.identities(entry)
+        exact(entry,{'sequence','primary','peer'}|({'marker'} if self._version>=2 else set()));need(integer(entry['sequence'],1,256))
         ui=self.frame(self.primary,entry['primary']);world=self.frame(self.peer,entry['peer'])
         need(ui['ticket']==world['ticket'] and ui['phaseBefore']['instance']==world['phaseBefore']['instance']
             and all(frame['phaseAfter']['active'] and frame['phaseAfter']['activations'][-1]['ticket']==ui['ticket'] for frame in (ui,world))
@@ -112,16 +129,35 @@ class CreateActorFacts:
             need(entry['sequence']==before['sequence']+1 and ui['index']>old_ui['index'] and world['index']>old_world['index'])
         if baseline is None:baseline=entry
         baseline_ui=self.frame(self.primary,baseline['primary'])['originals']['createAfter'];baseline_peer=self.frame(self.peer,baseline['peer'])['originals']['createAfter']
+        marker=entry.get('marker');ignored=[]
+        if marker is not None:
+            need(before is not None and isinstance(self.marker,PreparedCreateMarker) and self.marker.run==self.run
+                and same(self.marker.binding,self.primary_binding) and same(marker,self.marker.state['admission']))
+            actual=actual_marker(primary,json.loads(marker['marker']['userData'])['nonce'],marker['marker']['sourceUrl'])
+            need(same(actual,marker['marker']));scripts=ui['originals']['domain']['source']['scriptOriginal']['source']
+            need(scripts['membership']['complete'] and any(same(row,marker['manager']) for row in scripts['membership']['managers'])
+                and any(row['required']['instance']==marker['manager']['instance'] and row['url']==marker['sourceUrl'] and same(row['code'],marker['code']) for row in scripts['engines']))
+            ignored=[actual['id']]
+        elif before is not None and self.marker is not None:
+            # Omitting the prior marker lease is only an observation mode.
+            # Actual current primary originals must independently show its
+            # scene row and registered worker gone; whole terminal/weak/pixel
+            # retirement is still the separate primary cleanup owner's duty.
+            old=self.marker.state['admission'];scripts=ui['originals']['domain']['source']['scriptOriginal']['source']
+            need(not any(row['id']==old['marker']['id'] for row in primary['source']['entities'])
+                and scripts.get('membershipSourceVersion')==1 and type(scripts.get('membership')) is dict and scripts['membership']['complete']
+                and not any(row['instance']==old['manager']['instance'] or row['url']==old['sourceUrl'] for row in scripts['membership']['managers'])
+                and not any(row['required']['instance']==old['manager']['instance'] or row['url']==old['sourceUrl'] for row in scripts['engines']))
         memo=digest(dict(entry=entry,before=before,baseline=baseline,owned=owned,voxel=voxel,primary=ui,peer=world,baselineUi=baseline_ui,baselinePeer=baseline_peer,
                          primaryBinding=self.primary_binding,binding=self.binding))
         if memo in self._derive_cache:return deepcopy(self._derive_cache[memo])
-        new=set(semantic_map(primary))-set(semantic_map(baseline_ui))-set(owned)
+        new=set(semantic_map(primary,ignored))-set(semantic_map(baseline_ui))-set(owned)
         if new:
             need(before is not None and len(new)==1)
             born=adopt_created(self.frame(self.primary,before['primary'])['originals']['createAfter'],primary,list(owned),self.run)
             need(born['id'] in new);owned=owned+[born['id']]
             if born['type']=='PolyVox':need(voxel is None);voxel=dict(id=born['id'],source=deepcopy(born['voxels']))
-        need(same(semantic_map(baseline_ui),semantic_map(primary,owned)) and same(semantic_map(baseline_peer),semantic_map(peer,owned)))
+        need(same(semantic_map(baseline_ui),semantic_map(primary,owned+ignored)) and same(semantic_map(baseline_peer),semantic_map(peer,owned)))
         measured=project_actor(primary,peer,self.run,owned,self.primary_binding,self.binding,
             domain_originals=(ui['originals']['domain'],world['originals']['domain']),voxel_baseline=voxel)
         if before is None:need(same(measured,SCENARIOS['create']['baseline']))
@@ -132,6 +168,7 @@ class CreateActorFacts:
         resources=['entity:'+role for role in measured['objects']]
         if measured['editor']:resources.append('panel:create')
         if measured['picker']:resources.append('panel:create-picker')
+        if marker is not None:resources+=['entity:create-primary-marker','script:create-primary-marker','file:create-primary-marker-input']
         # Marker/JSON/GPU/input ownership belongs to their source-validated
         # owners. A matching native basename alone never adds such ownership.
         public=dict(schemaVersion=1,contractVersion=16,runId=self.run,sequence=entry['sequence'],capturedEpochMs=first['hostBeforeEpochMs'],
@@ -141,14 +178,14 @@ class CreateActorFacts:
         self._derive_cache[memo]=deepcopy(output);return output
     def decode(self,value):
         exact(value,{'iosCreateActorFactsVersion','binding','primaryBinding','runId','payload'});rows=unpack(value['payload'])
-        need(len(rows)==1 and type(value['iosCreateActorFactsVersion']) is int and value['iosCreateActorFactsVersion']==VERSION and same(value,self.envelope(rows[0])))
+        need(len(rows)==1 and type(value['iosCreateActorFactsVersion']) is int and value['iosCreateActorFactsVersion'] in (1,2) and same(value,self.envelope(rows[0])))
         state=rows[0];exact(state,{'records','pending','interrupted'});need(type(state['records']) is list and len(state['records'])<=256
             and type(state['interrupted']) is list and len(state['interrupted'])<=128)
         before=baseline=None;owned=[];voxel=None
         for entry in state['records']:
             _,baseline,owned,voxel=self.derive(entry,before,baseline,owned,voxel);before=entry
         for pending in state['interrupted']+([] if state['pending'] is None else [state['pending']]):
-            exact(pending,{'sequence','primary','peer'});need(integer(pending['sequence'],1,len(state['records'])+1))
+            exact(pending,{'sequence','primary','peer'}|({'marker'} if self._version>=2 else set()));need(integer(pending['sequence'],1,len(state['records'])+1))
             if pending['primary'] is not None:self.frame(self.primary,pending['primary'])
             if pending['peer'] is not None:self.frame(self.peer,pending['peer'])
         if state['pending'] is not None:need(state['pending']['sequence']==len(state['records'])+1)
@@ -156,14 +193,17 @@ class CreateActorFacts:
     def save(self):
         need(not self.historical);self.lock.assert_held();self.primary.lock.assert_held();need(self.guard() is not False and same(self.store.read(),self.previous))
         value=self.envelope(self.state);self.decode(value);self.store.write(value,self.previous);need(same(self.store.read(),value));self.previous=deepcopy(value)
-    def capture(self):
-        self.lock.assert_held();self.primary.lock.assert_held();need(not self.historical)
+    def capture(self,*,marker_active=True):
+        self.lock.assert_held();self.primary.lock.assert_held();need(not self.historical and type(marker_active) is bool)
         if self.state['pending'] is not None:
             # Original source owners retain every successful/partial native
             # read. A delayed peer or interrupted read gets a separate fresh
             # acquisition, never an input replay or a new clock on old bytes.
             self.state['interrupted'].append(deepcopy(self.state['pending']));self.state['pending']=None;self.save()
-        self.state['pending']=dict(sequence=len(self.state['records'])+1,primary=None,peer=None);self.save()
+        self.state['pending']=dict(sequence=len(self.state['records'])+1,primary=None,peer=None)
+        if self._version>=2:self.state['pending']['marker']=None if self.marker is None or not marker_active else self.marker.state['admission']
+        else:need(self.marker is None)
+        self.save()
         frame=self.primary.capture('independent-primary-ui');self.state['pending']['primary']=self.source_ref(self.primary,frame);self.save()
         frame=self.peer.capture('independent-peer-world');self.state['pending']['peer']=self.source_ref(self.peer,frame);self.save()
         entry=deepcopy(self.state['pending']);baseline=before=None;owned=[];voxel=None
@@ -174,11 +214,15 @@ class CreateActorFacts:
     def validate_original(self,original):
         """Historical Publisher decoder; it performs no SDK read or input."""
         exact(original,{'iosCreateActorOriginalVersion','binding','primaryBinding','runId','entry'})
-        need(type(original['iosCreateActorOriginalVersion']) is int and original['iosCreateActorOriginalVersion']==VERSION
+        need(type(original['iosCreateActorOriginalVersion']) is int and original['iosCreateActorOriginalVersion']==self._version
              and same(original['binding'],self.binding) and same(original['primaryBinding'],self.primary_binding) and original['runId']==self.run)
         index=original['entry']['sequence'];need(integer(index,1,len(self.state['records'])) and same(original['entry'],self.state['records'][index-1]))
         prefix=self.state['records'][:index];memo=digest(dict(binding=self.binding,primaryBinding=self.primary_binding,records=prefix))
         if memo in self._publication_cache:
+            # Cached native verdicts cannot bypass current sealed role/header
+            # identity or the actual typed admission used by this original.
+            self.identities()
+            for entry in prefix:self.identities(entry)
             # Recheck every ownership-prefix original's immutable file bytes;
             # source verdicts cannot survive a changed/deleted source carrier.
             for entry in prefix:self.frame(self.primary,entry['primary']);self.frame(self.peer,entry['peer'])
@@ -190,12 +234,12 @@ class CreateActorFacts:
                 need(same(entry,original['entry']));self._publication_cache[memo]=deepcopy(derived);return derived
         need(False)
     def original(self,entry):
-        original=dict(iosCreateActorOriginalVersion=VERSION,binding=deepcopy(self.binding),primaryBinding=deepcopy(self.primary_binding),runId=self.run,entry=deepcopy(entry))
+        original=dict(iosCreateActorOriginalVersion=self._version,binding=deepcopy(self.binding),primaryBinding=deepcopy(self.primary_binding),runId=self.run,entry=deepcopy(entry))
         self.validate_original(original);return original
     def publisher(self):
         self.lock.assert_held();self.primary.lock.assert_held();need(not self.historical)
         return CreateActorPublisher(self)
-    def publish(self):
+    def publish(self,*,marker_active=True):
         """Publish only independently recomposed original actor facts."""
         publisher=self.publisher()
         if not publisher.resolve():
@@ -203,4 +247,4 @@ class CreateActorFacts:
             # shared publisher alone decides whether its original POST exists;
             # neither this owner nor a new source read may resend it.
             return publisher.publish(deepcopy(publisher.state['pending']['original']))
-        entry,_derived=self.capture();return publisher.publish(self.original(entry))
+        entry,_derived=self.capture(marker_active=marker_active);return publisher.publish(self.original(entry))

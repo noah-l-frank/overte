@@ -26,8 +26,8 @@
     "native-create-entity-calls": {"current": 1, "reads": [1]},
     "native-entity-tree-lifetimes": {"current": 1, "reads": [1]},
 
-    "ios-create-actor-facts": {"current": 1, "reads": [1]},
-    "ios-create-actor-original": {"current": 1, "reads": [1]},
+    "ios-create-actor-facts": {"current": 2, "reads": [1, 2]},
+    "ios-create-actor-original": {"current": 2, "reads": [1, 2]},
     "ios-create-export": {"current": 1, "reads": [1]},
     "ios-create-export-artifact": {"current": 1, "reads": [1]},
     "ios-create-primary": {"current": 1, "reads": [1]},

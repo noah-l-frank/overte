@@ -164,6 +164,64 @@ class CreateActorFactsTests(unittest.TestCase):
                     facts.validate_original(original)
                     changed=deepcopy(before);changed['role']='foreign';store.write(changed,before)
             self.assertIsNone(facts._round)
+    def test_version1_actor_history_remains_readable_and_cannot_admit_new_marker_metadata(self):
+        with self.held():
+            facts=self.facts();facts._version=1;entry,derived=facts.capture();self.assertNotIn('marker',entry)
+            reconstructed=self.facts();self.assertEqual(1,reconstructed._version)
+            self.assertEqual(derived,reconstructed.validate_original(facts.original(entry)))
+
+    def test_mutated_predecessor_memory_is_never_a_validation_floor_for_an_unchanged_warm_frame(self):
+        with self.held():
+            facts=self.facts();facts.capture();entry,_=facts.capture();facts.frame(self.primary,entry['primary'])
+            self.primary.frames[0]['label']='mutated-in-memory-predecessor'
+            with self.assertRaises(NativeUIError):facts.frame(self.primary,entry['primary'])
+    def test_typed_actual_primary_marker_lease_is_excluded_without_actor_marker_or_expected_world_values(self):
+        from ios.adapters.create_marker_identity import PreparedCreateMarker
+        from ios.adapters.create_marker_files import originals
+        from ios.self_tests import test_ios_create_marker_measurements as markers
+        from ios.self_tests.test_ios_create_peer import domain_pair
+        with self.held():
+            facts=self.facts();facts.capture();before,after,scripts=markers.frames();domain_before,domain_after=domain_pair(before,after)
+            raw=originals(RUN,markers.URL,markers.FILES['ticket'],markers.FILES['nonce'])
+            files=dict(contractVersion=1,markerFilesVersion=1,binding=deepcopy(BINDING),ownerToken='f'*64,**markers.FILES,
+                hashes={name:hashlib.sha256(value).hexdigest() for name,value in raw.items()})
+            lease=PreparedCreateMarker(BINDING,RUN,markers.URL,before=before,after=after,scripts=scripts,files=files,
+                directory=markers.DIRECTORY,after_epoch=markers.EPOCH-30,domain_before=domain_before,domain_after=domain_after)
+            self.primary_product.value['source']['entities']=[deepcopy(lease.state['admission']['marker'])];self.primary_product.marker=self.primary_product.value['source']['entities'][0]
+            native_original=self.primary_h.sdk.original;active=[True]
+            def script_original(name):
+                value=json.loads(native_original(name))
+                if name=='domain':
+                    packet=deepcopy(scripts)
+                    if not active[0]:packet['source']['engines']=[];packet['source']['membership'].update(revision=2,managers=[])
+                    packet.update(requestId=value['requestId'],sequence=value['sequence'],
+                        requestedEpochMs=value['clockBefore']['epochMs'],capturedEpochMs=value['clockBefore']['epochMs'])
+                    value['source']['scriptOriginal']=packet
+                return json.dumps(value)
+            self.primary_h.sdk.original=script_original;facts.marker=lease;self.phase('open')
+            entry,derived=facts.capture();self.assertEqual([],derived['public']['state']['objects'])
+            self.assertIn('entity:create-primary-marker',derived['public']['resources']);self.assertEqual([],self.peer_product.value['source']['entities'])
+            rebuilt=CreateActorFacts(self.store,self.peer_h.lock,RUN,self.primary,self.peer,lambda:True,marker=lease)
+            original=facts.original(entry);self.assertEqual(derived,rebuilt.validate_original(original))
+            self.assertTrue(rebuilt._publication_cache)
+            marker_before=deepcopy(lease._admission);binding_before=deepcopy(lease._binding);source_binding=deepcopy(self.primary.binding)
+            for fault in ('admission','marker-binding','source-binding','owner-binding','source-role'):
+                owner_binding=deepcopy(rebuilt.binding);source_role=self.primary.role
+                if fault=='admission':lease._admission['code']['sha256']='0'*64
+                elif fault=='marker-binding':lease._binding['artifactSha256']='0'*64
+                elif fault=='source-binding':self.primary.binding['artifactSha256']='0'*64
+                elif fault=='owner-binding':rebuilt.binding['sessionId']='foreign-session'
+                else:self.primary.role='primary'
+                with self.subTest(warm_identity=fault),self.assertRaises(NativeUIError):rebuilt.validate_original(original)
+                lease._admission=deepcopy(marker_before);lease._binding=deepcopy(binding_before);self.primary.binding=deepcopy(source_binding)
+                rebuilt.binding=deepcopy(owner_binding);self.primary.role=source_role
+            self.assertEqual(derived,rebuilt.validate_original(original))
+            self.primary_product.value['source']['entities']=[]
+            with self.assertRaises(NativeUIError):rebuilt.capture(marker_active=False)
+            active[0]=False
+            _,gone=rebuilt.capture(marker_active=False);self.assertEqual([],gone['public']['resources'])
+            self.assertEqual([],gone['public']['state']['objects'])
+
     def test_returned_original_cannot_poison_cached_native_facts_or_rederived_publication(self):
         with self.held():
             facts=self.facts();entry,derived=facts.capture();original=facts.original(entry)

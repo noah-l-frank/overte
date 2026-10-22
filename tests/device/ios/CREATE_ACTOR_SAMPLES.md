@@ -53,3 +53,19 @@ This validates host adapter logic, not real Create device behavior.
 
 The full primary observation composition, export-original integration, marker
 recovery, paired quiet cleanup and final dispatch still require integration.
+
+Actor facts version 2 retains the actual primary marker admission in each
+applicable original record. Only an actual typed prepared lease and matching
+independently acquired primary entity, assigned manager and submitted code can
+exclude this local marker from unowned-map comparison. The actor creates no
+marker, Script, image or file merely for symmetry. Its actual replicated domain
+entities and renderer originals remain independent. Removing the prior admission
+from an observation additionally requires the original primary scene and complete
+registered Script membership to show it absent. Whole terminal/weak/pixel cleanup
+remains a separate responsibility. Version 1 records remain readable.
+
+Ten actor host tests include a genuine primary lease with no actor marker, refusal
+to omit a still registered marker VM, v1 reconstruction and predecessor-memory
+mutation. Predecessor floors are read and hashed against their actual immutable
+carrier, including on warm-cache use. No current-frame cache can bless a mutated
+in-memory predecessor. These source-only tests make no device qualification.
