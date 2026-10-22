@@ -31,7 +31,7 @@ namespace Setting {
         if (!QCoreApplication::arguments().contains("--testScript") || QThread::currentThread()!=thread()) { return {}; }
         sync();
         if (!_qSettings || _qSettings->status()!=QSettings::NoError) { return {}; }
-        const auto physical=overte::e2e::chatSettingsFile(_qSettings->fileName());
+        const auto physical=overte::e2e::chatSettingsFile(_qSettings->fileName(),_qSettings->format());
         if (physical.isEmpty()) { return {}; }
         QVariantMap values;
         for (const auto key:{"ArmoredChat-Messages","ArmoredChat-Config"}) {
@@ -50,6 +50,13 @@ namespace Setting {
                 && !(value.userType()==QMetaType::QVariantList && value.toList().isEmpty())
                 && !(value.userType()==QMetaType::QStringList && value.toStringList().isEmpty())) { return false; }
         if (!original.value("present").toBool() && value.isValid()) { return false; }
+        // An external physical writer does not increment the Manager's mutation
+        // counter. Reacquire the actual original worker/file before admission;
+        // no Manager/barrier lock spans this bounded queued acquisition.
+        const auto current=featureChatSnapshot();
+        if (current.isEmpty() || current.value("instance")!=expected.value("instance")
+                || current.value("mutationSequence")!=expected.value("mutationSequence")
+                || current.value("cache")!=expected.value("cache") || current.value("writer")!=expected.value("writer")) { return false; }
         overte::e2e::ChatSettingsBarrier::Mutation mutation(_featureChatSettings,"ArmoredChat-Messages");
         bool admitted{false};
         if (!withTryWriteLock([&] {

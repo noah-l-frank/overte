@@ -12,6 +12,7 @@
 #include <QMutex>
 #include <QMutexLocker>
 #include <QMap>
+#include "ChatSettingsJson.h"
 #include <QUuid>
 #include <QVariantMap>
 #include <functional>
@@ -79,7 +80,7 @@ private:
     const QString _instance{QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-')};
 };
 
-// Read physical INI bytes after the original writer's actual sync. This never
+// Read physical INI or registered JSON bytes after the original writer's actual sync. This never
 // constructs another QSettings reader (which would share a process-global cache).
 #if defined(Q_OS_UNIX)
 inline bool chatSettingsSameFile(const struct stat& a,const struct stat& b) {
@@ -94,10 +95,14 @@ inline bool chatSettingsSameFile(const struct stat& a,const struct stat& b) {
         && a.st_uid==b.st_uid && a.st_mode==b.st_mode && a.st_nlink==b.st_nlink;
 }
 #endif
-inline QVariantMap chatSettingsFile(const QString& originalPath) {
+inline QVariantMap chatSettingsFile(const QString& originalPath,QSettings::Format format=QSettings::IniFormat) {
+    if (format!=QSettings::IniFormat && format!=JSON_FORMAT) { return {}; }
 #if defined(Q_OS_UNIX)
     const QFileInfo file(originalPath);const auto path=file.canonicalFilePath();
-    auto privateRoot=QFileInfo(originalPath).dir().canonicalPath();struct stat directory{};
+    const auto originalParent=QFileInfo(originalPath).dir().canonicalPath();
+    auto privateRoot=originalParent;struct stat directory{},parentBefore{};
+    if (originalParent.isEmpty() || ::lstat(QFile::encodeName(originalParent).constData(),&parentBefore)!=0) { return {}; }
+    const bool existed=file.exists();
     if (file.isSymLink()) { return {}; }
     while (!privateRoot.isEmpty()) {
         if (::lstat(QFile::encodeName(privateRoot).constData(),&directory)!=0 || !S_ISDIR(directory.st_mode)
@@ -107,8 +112,8 @@ inline QVariantMap chatSettingsFile(const QString& originalPath) {
         if (parent==privateRoot) { return {}; }privateRoot=parent;
     }
     if (privateRoot.isEmpty()) { return {}; }
-    QByteArray bytes;
-    if (file.exists()) {
+    QByteArray bytes;struct stat sourceFile{};
+    if (existed) {
         if (path.isEmpty()) { return {}; }
         const int descriptor=::open(QFile::encodeName(path).constData(),O_RDONLY|O_NOFOLLOW|O_NONBLOCK|O_CLOEXEC);
         struct stat before{},after{},current{};
@@ -116,6 +121,7 @@ inline QVariantMap chatSettingsFile(const QString& originalPath) {
                 || (before.st_mode&0600)!=0600 || (before.st_mode&07133)!=0 || before.st_nlink!=1 || before.st_size<0 || before.st_size>1048576) {
             if (descriptor>=0) { ::close(descriptor); }return {};
         }
+        sourceFile=before;
         QFile actual;
         if (!actual.open(descriptor,QIODevice::ReadOnly,QFileDevice::AutoCloseHandle)) { ::close(descriptor);return {}; }
         bytes=actual.read(1048577);
@@ -130,38 +136,58 @@ inline QVariantMap chatSettingsFile(const QString& originalPath) {
     struct stat finalDirectory{};
     if (::lstat(QFile::encodeName(privateRoot).constData(),&finalDirectory)!=0 || !chatSettingsSameFile(directory,finalDirectory)
             || QFileInfo(privateRoot).canonicalFilePath()!=privateRoot) { return {}; }
-    if (bytes.startsWith("\xEF\xBB\xBF")) { bytes.remove(0,3); }
-    if (bytes.contains('\0')) { return {}; }
-    QMap<QByteArray,QByteArray> rows;bool general{true};
-    for (auto line:bytes.split('\n')) {
-        if (line.endsWith('\r')) { line.chop(1); }
-        if (line.isEmpty() || line.startsWith(';') || line.startsWith('#')) { continue; }
-        if (line.startsWith('[')) { if (!line.endsWith(']')) { return {}; }general=line=="[General]";continue; }
-        if (!general) { continue; }const auto separator=line.indexOf('=');
-        if (separator<1) { return {}; }const auto key=line.left(separator);
-        if (key!="ArmoredChat-Messages" && key!="ArmoredChat-Config") {
-            auto alias=QByteArray::fromPercentEncoding(key.trimmed());
-            if (alias.startsWith('"') && alias.endsWith('"')) { alias=alias.mid(1,alias.size()-2); }
-            if (alias=="ArmoredChat-Messages" || alias=="ArmoredChat-Config") { return {}; }
-            continue;
+    struct stat parentAfter{},missingAfter{};
+    if (::lstat(QFile::encodeName(originalParent).constData(),&parentAfter)!=0 || !chatSettingsSameFile(parentBefore,parentAfter)
+            || QFileInfo(originalPath).dir().canonicalPath()!=originalParent
+            || (!existed && (::lstat(QFile::encodeName(originalPath).constData(),&missingAfter)==0 || errno!=ENOENT))) { return {}; }
+    QMap<QByteArray,QByteArray> rows;bool jsonEmpty=false;
+    if (format==JSON_FORMAT) {
+        if (existed && !chatSettingsJsonRows(bytes,rows,jsonEmpty)) { return {}; }
+        if (!existed) { jsonEmpty=true; }
+    } else {
+        if (bytes.startsWith("\xEF\xBB\xBF")) { bytes.remove(0,3); }
+        if (bytes.contains('\0')) { return {}; }
+        bool general{true};
+        for (auto line:bytes.split('\n')) {
+            if (line.endsWith('\r')) { line.chop(1); }
+            if (line.isEmpty() || line.startsWith(';') || line.startsWith('#')) { continue; }
+            if (line.startsWith('[')) { if (!line.endsWith(']')) { return {}; }general=line=="[General]";continue; }
+            if (!general) { continue; }const auto separator=line.indexOf('=');
+            if (separator<1) { return {}; }const auto key=line.left(separator);
+            if (key!="ArmoredChat-Messages" && key!="ArmoredChat-Config") {
+                auto alias=QByteArray::fromPercentEncoding(key.trimmed());
+                if (alias.startsWith('"') && alias.endsWith('"')) { alias=alias.mid(1,alias.size()-2); }
+                if (alias=="ArmoredChat-Messages" || alias=="ArmoredChat-Config") { return {}; }
+                continue;
+            }
+            if (rows.contains(key) || line.endsWith('\\')) { return {}; }rows.insert(key,line.mid(separator+1));
         }
-        if (rows.contains(key) || line.endsWith('\\')) { return {}; }rows.insert(key,line.mid(separator+1));
     }
     QVariantMap result;
     for (const auto key:{"ArmoredChat-Messages","ArmoredChat-Config"}) {
         const auto name=QByteArray(key);const bool present=rows.contains(name);
         QVariantMap row{{"present",present},
-            {"sha256",QString::fromLatin1(QCryptographicHash::hash((present?QByteArray("present:"):QByteArray("absent:"))+rows.value(name),QCryptographicHash::Sha256).toHex())}};
+            {"sha256",QString::fromLatin1(QCryptographicHash::hash((format==JSON_FORMAT?QByteArray("json:"):QByteArray())+(present?QByteArray("present:"):QByteArray("absent:"))+rows.value(name),QCryptographicHash::Sha256).toHex())}};
         if (name=="ArmoredChat-Messages") {
             // Admit only independently read literal empty physical encodings.
             // A null or empty cached value cannot hide unowned file history.
-            row.insert("empty",!present || rows.value(name).isEmpty() || rows.value(name)=="@Invalid()");
+            row.insert("empty",format==JSON_FORMAT?jsonEmpty:(!present || rows.value(name).isEmpty() || rows.value(name)=="@Invalid()"));
         }
         result.insert(QString::fromLatin1(key),row);
     }
+    // Parsing is part of this acquisition: retain original inode/times and
+    // parent ownership through its final result, including the absent case.
+    struct stat finalFile{},parsedParent{},parsedRoot{};
+    if (::lstat(QFile::encodeName(originalParent).constData(),&parsedParent)!=0 || !chatSettingsSameFile(parentBefore,parsedParent)
+            || ::lstat(QFile::encodeName(privateRoot).constData(),&parsedRoot)!=0 || !chatSettingsSameFile(directory,parsedRoot)
+            || QFileInfo(originalPath).dir().canonicalPath()!=originalParent || QFileInfo(originalPath).isSymLink()) { return {}; }
+    if (existed) {
+        if (::lstat(QFile::encodeName(path).constData(),&finalFile)!=0 || !chatSettingsSameFile(sourceFile,finalFile)
+                || QFileInfo(originalPath).canonicalFilePath()!=path) { return {}; }
+    } else if (::lstat(QFile::encodeName(originalPath).constData(),&finalFile)==0 || errno!=ENOENT) { return {}; }
     return result;
 #else
-    Q_UNUSED(originalPath) return {};
+    Q_UNUSED(originalPath) Q_UNUSED(format) return {};
 #endif
 }
 } // namespace overte::e2e
