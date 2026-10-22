@@ -87,6 +87,7 @@
     "native-chat-peer-position": {"current": 1, "reads": [1]},
     "native-chat-settings-barrier": {"current": 2, "reads": [1, 2]},
     "native-chat-profile": {"current": 1, "reads": [1]},
+    "chat-profile-owner": {"current": 1, "reads": [1]},
     "chat-journey-peer-send": {"current": 1, "reads": [1]},
     "chat-journey-peer-distant": {"current": 1, "reads": [1]},
     "native-account-observation": {"current": 1, "reads": [1]},

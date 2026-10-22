@@ -29,6 +29,8 @@ from self_tests.test_native_script_observation import Boundary as ScriptBoundary
 from self_tests.test_native_process_presence import Boundary as PresenceBoundary
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.script_journey.lock import ScriptSourceLock
+from adapters.script_journey.history import unpack
+from self_tests.test_chat_profile_owner import Boundary as ProfileBoundary
 from adapters.token_graphics_ui import TokenGraphicsUI
 from self_tests.test_token_graphics_ui import GraphicsBoundary
 from adapters.token_audio_ui import TokenAudioUI
@@ -634,6 +636,40 @@ class PicoNormalScriptsTests(unittest.TestCase):
     def test_pico_chat_process_teardown_preserves_completed_distant_peer_owner(self):
         store=self.instance._chat_peer_distant_store(self.native.target)
         original={'phase':'complete','unreleased':'original-distant-peer-owner'};store.write(original,None)
+        with self.assertRaises(ValueError):self.cleanup_instance().cleanup(self.native.target)
+        self.assertFalse(self.native.running);self.assertEqual(original,store.read())
+
+    def test_pico_chat_profile_factory_uses_actual_binding_and_durable_original_transport(self):
+        source=ProfileBoundary();original_write=self.native.write_debug_app_file;original_read=self.native.read_debug_app_file
+        def captured(value):
+            epoch=self.native.epoch_milliseconds(self.native.target)
+            value['capturedEpochMs']=value['settings']['capturedEpochMs']=value['view']['capturedEpochMs']=epoch
+        source.mutate=captured
+        def write(target,package,path,raw):
+            request=json.loads(raw)
+            if request['action']!='feature-chat-profile':return original_write(target,package,path,raw)
+            self.assertEqual('org.overte.pico',package);self.assertEqual(adapter.ANDROID_CONTROL_COMMAND,path)
+            attempts=unpack(self.instance._chat_profile_store(target).read()['transcript'])
+            self.assertEqual(request,attempts[-1]['request']);self.assertIsNone(attempts[-1]['result']);source.send(request)
+        def read(target,package,path,**kwargs):
+            if path.endswith('/feature-chat-profile.json'):
+                self.assertEqual({'attempts':1},kwargs);return source.raw
+            return original_read(target,package,path,**kwargs)
+        path=self.instance._chat_profile_store(self.native.target).path
+        lock=ScriptSourceLock(path.with_name('script-sources.lock'))
+        with patch.object(self.native,'write_debug_app_file',side_effect=write),patch.object(self.native,'read_debug_app_file',side_effect=read):
+            owner=self.instance._chat_profile(self.native.target,'a'*32,lock)
+            # The seam's fixed run matches this fixture's actual bound request.
+            original=source.send
+            def send(request):
+                original(request);value=json.loads(source.raw);value['runId']=request['runId'];source.raw=json.dumps(value)
+            source.send=send
+            self.assertTrue(owner.perform('acquire')['owned']);self.assertTrue(owner.perform('restore')['restored'])
+        self.assertEqual(2,len(source.requests));self.assertEqual([],self.native.inputs)
+
+    def test_pico_chat_process_teardown_preserves_restored_original_profile_owner(self):
+        store=self.instance._chat_profile_store(self.native.target)
+        original={'restored':True,'unreleased':'original-private-profile-owner'};store.write(original,None)
         with self.assertRaises(ValueError):self.cleanup_instance().cleanup(self.native.target)
         self.assertFalse(self.native.running);self.assertEqual(original,store.read())
 
