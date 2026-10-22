@@ -24,7 +24,7 @@ class Boundary:
     def clock(self):return self.epoch+round(self.time*1000)
     def send(self,command):
         self.commands.append(deepcopy(command));self.sequence+=1
-        self.value=dict(snapshotNativeCaptureVersion=1,commandId=command['commandId'],runId=command['runId'],instance=BIRTH,
+        self.value=dict(snapshotNativeCaptureVersion=source.VERSION,commandId=command['commandId'],runId=command['runId'],instance=BIRTH,
             sequence=self.sequence,pid=123,capturedEpochMs=self.clock(),resources=dict(nativeReviewEnabled=True,activeRequests=0,
                 taking360=False,waitingOnSnapshot=False,projectionTimerActive=False,projectionImagesBytes=0),requests=deepcopy(self.requests))
         if self.mutate:self.mutate(self.value)
@@ -45,7 +45,7 @@ class SnapshotOriginalTests(unittest.TestCase):
         native=Boundary();reader=native.reader(self.lock);first=reader.capture(RUN,'arm')
         self.assertEqual([],first['requests']);native.requests=[native.request()];second=reader.capture(RUN)
         native.requests[0].update(alive=False,nativeState='');native.requests[0]['events']=[dict(sequence=1,phase='complete',
-            publishedEpochMs=20000,pathSha256='c'*64,basenameSha256='d'*64,error='')]
+            publishedEpochMs=20000,pathSha256='c'*64,canonicalPathSha256='c'*64,basenameSha256='d'*64,error='')]
         third=reader.capture(RUN);self.assertTrue(second['requests'][0]['alive']);self.assertFalse(third['requests'][0]['alive'])
         self.assertEqual('complete',third['requests'][0]['events'][0]['phase'])
         self.assertEqual(native.read(),reader.original()['raw']);self.assertIs(reader.lock,self.lock)
@@ -57,7 +57,7 @@ class SnapshotOriginalTests(unittest.TestCase):
             lambda v:v['requests'][0]['events'][0].update(pathSha256='e'*64),lambda v:v.update(instance='32345678-1234-1234-1234-123456789abc'))
         for fault in faults:
             native=Boundary();native.requests=[native.request()];native.requests[0].update(alive=False,nativeState='')
-            native.requests[0]['events']=[dict(sequence=1,phase='complete',publishedEpochMs=20000,pathSha256='c'*64,basenameSha256='d'*64,error='')]
+            native.requests[0]['events']=[dict(sequence=1,phase='complete',publishedEpochMs=20000,pathSha256='c'*64,canonicalPathSha256='c'*64,basenameSha256='d'*64,error='')]
             first=native.reader(self.lock).capture(RUN);reader=native.reader(self.lock);reader.restore(first);native.mutate=fault
             with self.subTest(fault=fault),self.assertRaises(NativeUIError):reader.capture(RUN)
             self.assertEqual(first,reader.previous)
@@ -102,6 +102,20 @@ class SnapshotOriginalTests(unittest.TestCase):
         native=Boundary();native.alive=False
         with self.assertRaises(NativeUIError):native.reader(self.lock).capture(RUN)
         self.assertEqual([],native.commands)
+    def test_v2_complete_requires_actual_canonical_path_and_legacy_history_cannot_change_version(self):
+        native=Boundary();native.requests=[native.request()];native.requests[0].update(alive=False,nativeState='')
+        native.requests[0]['events']=[dict(sequence=1,phase='complete',publishedEpochMs=20000,pathSha256='c'*64,
+            canonicalPathSha256='',basenameSha256='d'*64,error='')]
+        with self.assertRaises(NativeUIError):native.reader(self.lock).capture(RUN)
+        def legacy(value):
+            value['snapshotNativeCaptureVersion']=1
+            for row in value['requests']:
+                for event in row['events']:event.pop('canonicalPathSha256')
+        native.mutate=legacy;reader=native.reader(self.lock);old=reader.capture(RUN)
+        self.assertEqual(1,old['snapshotNativeCaptureVersion'])
+        native.requests[0]['events'][0]['canonicalPathSha256']='c'*64;native.mutate=None
+        with self.assertRaises(NativeUIError):reader.capture(RUN)
+        self.assertEqual(old,reader.previous)
 
 
 if __name__=='__main__':unittest.main()

@@ -66,6 +66,7 @@ class SnapshotStillOwnerTests(unittest.TestCase):
             basename=self.adb.text+'-'+request['requestId']+'.png'
             request['events']=[dict(sequence=1,phase='complete',publishedEpochMs=self.native.clock(),
                 basenameSha256=hashlib.sha256((RUN+'\0'+basename).encode()).hexdigest(),
+                canonicalPathSha256=hashlib.sha256((RUN+'\0'+str((self.adb.files/basename).resolve())).encode()).hexdigest(),
                 pathSha256=hashlib.sha256((RUN+'\0'+str(self.adb.files/basename)).encode()).hexdigest(),error='')]
             self.native.requests=[request];self.adb.opened=True # Explicit original native/script-return boundary.
         def write(target,package,path,raw):
@@ -159,9 +160,15 @@ class SnapshotStillOwnerTests(unittest.TestCase):
         self.assertTrue(self.owner.store.path.exists())
     def test_actual_callback_path_mismatch_refuses_same_basename_png(self):
         self.opened();self.activate('capture',dict(mode='still',format='png'))
-        self.native.mutate=lambda value:[event.update(pathSha256='e'*64) for row in value['requests'] for event in row['events']]
+        self.native.mutate=lambda value:[event.update(canonicalPathSha256='e'*64) for row in value['requests'] for event in row['events']]
         with self.assertRaises((ValueError,RuntimeError)):self.owner.take()
         self.assertEqual(1,self.adb.captures);self.assertIsNone(self.owner.state['capture']);self.assertTrue(self.owner.store.path.exists())
+    def test_original_callback_alias_keeps_raw_path_and_joins_actual_canonical_os_file(self):
+        self.opened();self.activate('capture',dict(mode='still',format='png'))
+        self.native.mutate=lambda value:[event.update(pathSha256='e'*64) for row in value['requests'] for event in row['events']]
+        self.assertEqual('captured',self.owner.take()['stage'])
+        event=self.owner.state['capture']['event'];self.assertNotEqual(event['pathSha256'],event['canonicalPathSha256'])
+        self.assertEqual(event['canonicalPathSha256'],self.owner.state['capture']['file']['pathSha256'])
     def test_archived_quiet_window_cannot_accept_a_living_original_timer(self):
         self.captured();self.owner.quiet();disk=self.owner.store.read();state=unpack(disk['payload'])[0]
         index=state['quiet'][0]['first'];frame=state['frames'][index];value=json.loads(frame['native']['raw'])
