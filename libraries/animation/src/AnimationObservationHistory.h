@@ -16,14 +16,14 @@ namespace overte::e2e {
 // These are native call/pose histories, never UI intent or inferred cause.
 class AnimationObservationHistory {
 public:
-    void overrideCalled(const QString& url, float fps, bool loop, float first, float last) {
+    void overrideCalled(const QString& url, float fps, bool loop, float first, float last, const QVariantMap& caller = {}) {
         if (!enabled()) { return; }
         ++_override;
         QVariantMap request {{"url",url},{"framesPerSecond",fps},{"loop",loop},{"firstFrame",first},{"lastFrame",last}};
-        appendEvent("override",QDateTime::currentMSecsSinceEpoch(),request);
+        appendEvent("override",QDateTime::currentMSecsSinceEpoch(),request,caller);
     }
-    void restoreCalled() {
-        if (enabled()) { appendEvent("restore",QDateTime::currentMSecsSinceEpoch(),{}); }
+    void restoreCalled(const QVariantMap& caller = {}) {
+        if (enabled()) { appendEvent("restore",QDateTime::currentMSecsSinceEpoch(),{},caller); }
     }
     void evaluated(const QVariantMap& original, float delta, const std::weak_ptr<const void>& graph,
             const std::weak_ptr<const void>& skeleton) {
@@ -63,17 +63,18 @@ public:
         if (_frames.size() > 32) { _frames.removeFirst(); ++_droppedFrames; }
     }
     QVariantMap snapshot() const {
-        return {{"historyVersion",1},{"instance",_instance},{"available",_valid}, {"callSequence",static_cast<qulonglong>(_calls)},
+        return {{"historyVersion",2},{"instance",_instance},{"available",_valid}, {"callSequence",static_cast<qulonglong>(_calls)},
             {"overrideSequence",static_cast<qulonglong>(_override)},{"frameSequence",static_cast<qulonglong>(_framesSequence)},
             {"droppedEvents",static_cast<qulonglong>(_droppedEvents)}, {"droppedFrames",static_cast<qulonglong>(_droppedFrames)},
             {"events",_events},{"frames",_frames}};
     }
 private:
     static bool enabled() { return QCoreApplication::arguments().contains("--testScript"); }
-    void appendEvent(const QString& kind, qint64 epoch, const QVariantMap& request) {
+    void appendEvent(const QString& kind, qint64 epoch, const QVariantMap& request, const QVariantMap& caller) {
         if (!_events.isEmpty() && epoch < _events.last().toMap().value("capturedEpochMs").toLongLong()) { _valid = false; }
         QVariantMap event {{"eventSequence",static_cast<qulonglong>(++_calls)}, {"kind",kind},
             {"overrideSequence",static_cast<qulonglong>(_override)}, {"capturedEpochMs",epoch}};
+        event.insert("caller",caller.isEmpty() ? QVariant() : QVariant(caller));
         if (kind == "override") { event.insert("request",request); }
         _events.append(event);
         if (_events.size() > 64) { _events.removeFirst(); ++_droppedEvents; }

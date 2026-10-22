@@ -1051,6 +1051,18 @@ public:
     }
     QVariantMap featureLoadMembership() const { return _e2eRequiredModules.loadMembership(); }
     static QVariantMap featureLoadHistory();
+    static QVariantMap featureNativeCallContext();
+    class FeatureNativeCallScope {
+    public:
+        FeatureNativeCallScope(ScriptManager* manager, const QByteArray& method, int originalScriptId=0);
+        explicit FeatureNativeCallScope(const QVariantMap& original);
+        ~FeatureNativeCallScope();
+        FeatureNativeCallScope(const FeatureNativeCallScope&)=delete;
+        FeatureNativeCallScope& operator=(const FeatureNativeCallScope&)=delete;
+    private:
+        QVariantMap _previous;
+    };
+
 #endif
 
     // this is used by code in ScriptEngines.cpp during the "reload all" operation
@@ -1686,6 +1698,8 @@ protected:
     const Context _context;
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     overte::e2e::RequiredModuleObservation _e2eRequiredModules;
+    quint64 _featureNativeCallSequence {0}; // Actual manager thread only.
+    static thread_local QVariantMap _featureNativeCallContext;
 #endif
     Type _type;
     ScriptEnginePointer _engine;

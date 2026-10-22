@@ -51,3 +51,32 @@ This supplies original consumed-content provenance, not an animation or render
 verdict. Passive cache readiness and compiled caller/source/profile joins are
 still missing, followed by ordinary Pico VR input, stereo avatar evidence,
 independent role publication and whole interruption/resource retirement.
+
+
+## Original VM caller and bounded Rig history
+
+A further reviewed selection from the same immutable Phone commit reuses
+`native_animation_caller` v2 and `native_animation_history` v2 (both read their
+legacy v1 records), plus the original native Rig history producer. Actual V8
+stack-frame script IDs select the already recorded compiled UTF-16 bytes;
+resource names, chooser acknowledgements and requested URLs cannot identify the
+caller. Each actual manager retains its own native-call sequence and original
+load assignment. The context is copied through the ordinary queued MyAvatar
+thread hop and recorded by the actual Rig call. Null/dynamic/native origins
+remain explicit and cannot qualify a selected Emote source.
+
+Pico selects only that caller scope from ScriptManager; Phone callback/timer
+work inventory and activity instrumentation are not imported. The original
+non-test queued method path remains intact when `--testScript` is absent. All
+new native instrumentation also requires `OVERTE_E2E_FEATURE_TESTS`. No script
+or QML setter exposes the native caller identity. Weak graph/skeleton lifetimes
+and the existing event/frame bounds remain unchanged. Reader caller and
+compilation identities survive event-ring trimming and reject reuse, changed
+code, changed assignments, changed clocks and v2-to-v1 downgrade.
+
+The source/target hash manifest is
+[PHONE_SHARED_ANIMATION_CALLER_20261022.json](PHONE_SHARED_ANIMATION_CALLER_20261022.json).
+These host cases establish Python reader/counterexample behavior only. Native
+code is uncompiled; actual V8 dispatch, Qt delivery, animation and VR are
+unqualified. The Pico source-profile v1 selector and common journey v16 remain
+unchanged in this packet. No complete Emote capability is advertised.

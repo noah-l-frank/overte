@@ -14,6 +14,9 @@
 
 #include "ScriptObjectV8Proxy.h"
 #include "QmlPropertyThreadGate.h"
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+#include "../ScriptManager.h"
+#endif
 #include <v8-template.h>
 
 #include <QElapsedTimer>
@@ -1127,6 +1130,12 @@ void ScriptMethodV8Proxy::call(const v8::FunctionCallbackInfo<v8::Value>& argume
                                           _engine->currentContext()->parentContext());
         ScriptContextGuard guard(&ourContext);
         const QMetaMethod& meta = _metas[bestMeta];
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        const auto featureMethod=meta.name();
+        const int featureScriptId=(featureMethod=="overrideAnimation" || featureMethod=="restoreAnimation")
+            ? _engine->featureCurrentScriptId() : 0;
+        ScriptManager::FeatureNativeCallScope featureNativeCall(_engine->manager(),featureMethod,featureScriptId);
+#endif
         int returnTypeId = meta.returnType();
         QVector <QGenericArgument> &qGenArgs = qGenArgsVectors[bestMeta];
 

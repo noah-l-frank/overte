@@ -202,6 +202,7 @@ public: // not for public use, but I don't like how Qt strings this along with p
         return _v8Isolate;}
     v8::Local<v8::Context> getContext();
 #if defined(OVERTE_E2E_FEATURE_TESTS)
+    int featureCurrentScriptId() const;
     void featureRecordCompilation(v8::Local<v8::Script> script, v8::Local<v8::String> actualCode);
 #endif
     const v8::Local<v8::Context> getConstContext() const;

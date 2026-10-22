@@ -1,0 +1,118 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "abb7f6b60d97daf17752aadf94e2b5df099bb7ba",
+  "originalFrozenReference": "fe4684bf46585088370b3a328a738f147e670b97",
+  "targetBase": "033fb8bc7dfd08c48dec364c01c82ffe350b6d32",
+  "uncommittedPhoneWorkExcluded": true,
+  "sharedContracts": [
+    "native-animation-caller v2 reads v1",
+    "native-animation-history v2 reads v1"
+  ],
+  "files": [
+    {
+      "sourcePath": "libraries/animation/src/AnimationObservationHistory.h",
+      "targetPath": "libraries/animation/src/AnimationObservationHistory.h",
+      "sourceSha256": "3611d3e356888e14bc9cc1d92a55f1141a2352187d5f9364f595f6d29d186b02",
+      "targetSha256": "3611d3e356888e14bc9cc1d92a55f1141a2352187d5f9364f595f6d29d186b02",
+      "selection": "exact"
+    },
+    {
+      "sourcePath": "libraries/animation/src/Rig.cpp",
+      "targetPath": "libraries/animation/src/Rig.cpp",
+      "sourceSha256": "e637b8bd3a715171783c45cc017c9d19fa43a487372a13b2d592383a7fa06f5a",
+      "targetSha256": "07223aaf1bfe4ea39c17c82ee998a3f2de9a464bfa63e99ae4cad5593d88b1b1",
+      "selection": "reviewed-narrow-Pico-compatible-selection"
+    },
+    {
+      "sourcePath": "libraries/script-engine/src/ScriptManager.cpp",
+      "targetPath": "libraries/script-engine/src/ScriptManager.cpp",
+      "sourceSha256": "91b5b2d65ca7f7e39c2994c9e9d8e3f1a542c13b095d896eb17bf1cbb7427d2f",
+      "targetSha256": "c3001e989d1735807f246da56d863bddfd6022702273b188ec2c826ab8093385",
+      "selection": "reviewed-narrow-Pico-compatible-selection"
+    },
+    {
+      "sourcePath": "libraries/script-engine/src/ScriptManager.h",
+      "targetPath": "libraries/script-engine/src/ScriptManager.h",
+      "sourceSha256": "6bfe1dbb39dc251079028a4e511fddd15e63bd6d1b94b59b6325c82ebbab9151",
+      "targetSha256": "45a439251225f68b7156c8cc3b868371ce496dcbe0141154dee1f957e8106212",
+      "selection": "reviewed-narrow-Pico-compatible-selection"
+    },
+    {
+      "sourcePath": "libraries/script-engine/src/v8/ScriptEngineV8.cpp",
+      "targetPath": "libraries/script-engine/src/v8/ScriptEngineV8.cpp",
+      "sourceSha256": "c16a26c2114672f01f6ec8c9fbaa4dda1d8c2ce7408ab87704c01d3499b852e4",
+      "targetSha256": "68f508a815bc2d7657123b23c8bb0f45ba6d4ccf4773a389398378750773c0d7",
+      "selection": "reviewed-narrow-Pico-compatible-selection"
+    },
+    {
+      "sourcePath": "libraries/script-engine/src/v8/ScriptEngineV8.h",
+      "targetPath": "libraries/script-engine/src/v8/ScriptEngineV8.h",
+      "sourceSha256": "e6eea8faad7dd84b22a7b405341deec984fbb8e02870b684d5b8fb6a6fe9a231",
+      "targetSha256": "418abdd00095d8e212526adb52499ff45ec98c5abcd1bbf6c82a7844a5408dc5",
+      "selection": "reviewed-narrow-Pico-compatible-selection"
+    },
+    {
+      "sourcePath": "libraries/script-engine/src/v8/ScriptObjectV8Proxy.cpp",
+      "targetPath": "libraries/script-engine/src/v8/ScriptObjectV8Proxy.cpp",
+      "sourceSha256": "809ddd3cd557e4e84c53a952680e666f100a2453b11ccce830fd8718b3521338",
+      "targetSha256": "a45156167d2b70a46455eeae888fb09e11a6bb2e76e67e1cdf1268cf1d9a6ecc",
+      "selection": "reviewed-narrow-Pico-compatible-selection"
+    },
+    {
+      "sourcePath": "interface/src/avatar/MyAvatar.cpp",
+      "targetPath": "interface/src/avatar/MyAvatar.cpp",
+      "sourceSha256": "384a9d9196c5d7c9ce15e62cc4e9c015a55e3b6f816d7c0ae32be7669ab8a2f7",
+      "targetSha256": "f2b3b9120aaed89f352264a0e137741b6f0c7d895ee52adc8b996a4b36db4785",
+      "selection": "reviewed-narrow-Pico-compatible-selection"
+    },
+    {
+      "sourcePath": "tests/device/adapters/native_animation_caller.py",
+      "targetPath": "tests/device/adapters/native_animation_caller.py",
+      "sourceSha256": "1681daf574944ea39187e18ae211d7526377e44954c1ecc9fe03170bfd051d71",
+      "targetSha256": "1681daf574944ea39187e18ae211d7526377e44954c1ecc9fe03170bfd051d71",
+      "selection": "exact"
+    },
+    {
+      "sourcePath": "tests/device/adapters/native_animation_history.py",
+      "targetPath": "tests/device/adapters/native_animation_history.py",
+      "sourceSha256": "f17935e1038c7e537cbd54a8e1a8ac38e6246fc5d5aeed45bfbb6f7ce7766d6b",
+      "targetSha256": "f17935e1038c7e537cbd54a8e1a8ac38e6246fc5d5aeed45bfbb6f7ce7766d6b",
+      "selection": "exact"
+    },
+    {
+      "sourcePath": "tests/device/self_tests/test_native_animation_caller.py",
+      "targetPath": "tests/device/self_tests/test_native_animation_caller.py",
+      "sourceSha256": "6e53d157e17a534ed36d353194a5b001385286903486f4a54b255aa7afad77bc",
+      "targetSha256": "27254423e13c9a10ae503dc205fd22fdaca5b99a32525d90b8781bf6ea32e53f",
+      "selection": "reviewed-narrow-Pico-compatible-selection"
+    },
+    {
+      "sourcePath": "tests/device/self_tests/test_native_animation_history.py",
+      "targetPath": "tests/device/self_tests/test_native_animation_history.py",
+      "sourceSha256": "806e2cbc9e62f9a0390fb3b0a2a9cdb73c3dbfa8f48d7dc256b66ac7977c9872",
+      "targetSha256": "745546f0802378015657773a0ca9b395c0b57cadfa5904eb2935ab5e9628993c",
+      "selection": "reviewed-narrow-Pico-compatible-selection"
+    },
+    {
+      "sourcePath": "tests/device/native/ANIMATION_CALLER.md",
+      "targetPath": "tests/device/native/ANIMATION_CALLER.md",
+      "sourceSha256": "5e8d32d0e452b7612fdce14ce3fd41d954139b833ca10f5b9dd1c36c1d6fef8c",
+      "targetSha256": "0c7b9310cf60c7b804c2b39111e69d60c5106d6348cf62d43ad6ec3ef47b89d1",
+      "selection": "exact"
+    },
+    {
+      "sourcePath": "tests/device/native/ANIMATION_HISTORY.md",
+      "targetPath": "tests/device/native/ANIMATION_HISTORY.md",
+      "sourceSha256": "3ae93d49820cece24d3c5e0e625d4c27995643a0725baf1f1343d0a4e478bd04",
+      "targetSha256": "e84768c4873b00b2a3eed508d1cc9ce99a6786cc474fbd91b047f74fbb11c461",
+      "selection": "reviewed-narrow-Pico-compatible-selection"
+    }
+  ],
+  "excluded": [
+    "Phone callback/timer work and function-origin instrumentation",
+    "Phone touch/mono/platform/actor bindings",
+    "Source-profile and common journey migration, separate remaining work",
+    "Moving branch or uncommitted Phone changes"
+  ],
+  "qualification": "Native source uncompiled; Python logic only; no device or complete Emote qualification."
+}

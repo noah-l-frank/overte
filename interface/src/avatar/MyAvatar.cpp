@@ -13,6 +13,9 @@
 //
 
 #include "MyAvatar.h"
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+#include <ScriptManager.h>
+#endif
 
 #include <algorithm>
 #include <vector>
@@ -1242,6 +1245,16 @@ void MyAvatar::render(RenderArgs* renderArgs) {
 
 void MyAvatar::overrideAnimation(const QString& url, float fps, bool loop, float firstFrame, float lastFrame) {
     if (QThread::currentThread() != thread()) {
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        if (QCoreApplication::arguments().contains("--testScript")) {
+            const auto original=ScriptManager::featureNativeCallContext();
+            QMetaObject::invokeMethod(this,[this,url,fps,loop,firstFrame,lastFrame,original] {
+                ScriptManager::FeatureNativeCallScope nativeCall(original);
+                overrideAnimation(url,fps,loop,firstFrame,lastFrame);
+            });
+            return;
+        }
+#endif
         QMetaObject::invokeMethod(this, "overrideAnimation", Q_ARG(const QString&, url), Q_ARG(float, fps),
                                   Q_ARG(bool, loop), Q_ARG(float, firstFrame), Q_ARG(float, lastFrame));
         return;
@@ -1260,6 +1273,16 @@ void MyAvatar::overrideHandAnimation(bool isLeft, const QString& url, float fps,
 
 void MyAvatar::restoreAnimation() {
     if (QThread::currentThread() != thread()) {
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        if (QCoreApplication::arguments().contains("--testScript")) {
+            const auto original=ScriptManager::featureNativeCallContext();
+            QMetaObject::invokeMethod(this,[this,original] {
+                ScriptManager::FeatureNativeCallScope nativeCall(original);
+                restoreAnimation();
+            });
+            return;
+        }
+#endif
         QMetaObject::invokeMethod(this, "restoreAnimation");
         return;
     }

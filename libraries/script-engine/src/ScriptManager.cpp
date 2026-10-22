@@ -38,6 +38,37 @@ QVariantMap ScriptManager::featureLoadHistory() { return featureScriptLoads().sn
 #include <QtCore/QTimer>
 #include <QtCore/QThread>
 #include <QtCore/QRegularExpression>
+#include <QtCore/QDateTime>
+
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+thread_local QVariantMap ScriptManager::_featureNativeCallContext;
+
+QVariantMap ScriptManager::featureNativeCallContext() { return _featureNativeCallContext; }
+
+ScriptManager::FeatureNativeCallScope::FeatureNativeCallScope(const QVariantMap& original) :
+    _previous(_featureNativeCallContext) {
+    _featureNativeCallContext=original;
+}
+
+ScriptManager::FeatureNativeCallScope::FeatureNativeCallScope(ScriptManager* manager, const QByteArray& method, int originalScriptId) :
+    _previous(_featureNativeCallContext) {
+    _featureNativeCallContext.clear();
+    if (!manager || !QCoreApplication::arguments().contains("--testScript") || QThread::currentThread()!=manager->thread()
+            || (method!="overrideAnimation" && method!="restoreAnimation")
+            || manager->_featureNativeCallSequence>=1000000000) { return; }
+    const auto membership=manager->featureLoadMembership();const auto code=manager->featureSourceIdentity();
+    if (membership.isEmpty() || code.isEmpty() || !membership.value("assigned").toBool()
+            || !code.value("submitted").toBool()) { return; }
+    const auto compilation=manager->_e2eRequiredModules.compilation(originalScriptId);
+    _featureNativeCallContext={{"callerVersion",2},{"method",QString::fromLatin1(method)},
+        {"sequence",static_cast<qulonglong>(++manager->_featureNativeCallSequence)},
+        {"invokedEpochMs",QDateTime::currentMSecsSinceEpoch()},{"manager",membership},{"code",code},
+        {"compilation",compilation.isEmpty() ? QVariant() : QVariant(compilation)}};
+}
+
+ScriptManager::FeatureNativeCallScope::~FeatureNativeCallScope() { _featureNativeCallContext=_previous; }
+
+#endif
 
 #include <QtCore/QFuture>
 #include <QtConcurrent/QtConcurrentRun>

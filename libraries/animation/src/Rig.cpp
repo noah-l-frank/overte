@@ -380,7 +380,7 @@ void Rig::overrideAnimation(const QString& url, float fps, bool loop, float firs
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     {
         QWriteLocker lock(&_e2eAnimationLock);
-        _e2eAnimationHistory.overrideCalled(url,fps,loop,firstFrame,lastFrame);
+        _e2eAnimationHistory.overrideCalled(url,fps,loop,firstFrame,lastFrame,ScriptManager::featureNativeCallContext());
     }
 #endif
 }
@@ -395,7 +395,7 @@ void Rig::restoreAnimation() {
         _animVars.set("userAnimB", false);
 #if defined(OVERTE_E2E_FEATURE_TESTS)
         QWriteLocker lock(&_e2eAnimationLock);
-        _e2eAnimationHistory.restoreCalled();
+        _e2eAnimationHistory.restoreCalled(ScriptManager::featureNativeCallContext());
 #endif
     }
 }

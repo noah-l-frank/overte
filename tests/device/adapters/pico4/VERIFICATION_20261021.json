@@ -1956,5 +1956,43 @@
     ],
     "details": "Same original parser input bytes, weak HFM model and resource identity used by actual normal retargeting, exact shared validators and immutable twelve-FBX pins. Actual file bytes checked independently against pins and immutable Git base; wrong FBX bytes at the correct URL, foreign/null data and future parse/consume clocks remain red. Existing native feature reader integration retains original data without advancing its cursor on invalid model. Pico retains original full-parser call; Phone functional optimizations/diagnostics were not copied.",
     "limitations": "Native parser/model/retarget boundaries are synthetic in host checks; native C++ uncompiled and physical runs zero. Caller/profile/cache/input/stereo/actor/full cleanup remain incomplete; no complete Emote capability or shared v17 migration."
+  },
+  "emoteSharedAnimationCaller": {
+    "status": "shared-prerequisite-source-host-verified",
+    "sourceCommit": "abb7f6b60d97daf17752aadf94e2b5df099bb7ba",
+    "manifest": "PHONE_SHARED_ANIMATION_CALLER_20261022.json",
+    "contracts": [
+      "native-animation-caller v2 reads v1",
+      "native-animation-history v2 reads v1"
+    ],
+    "checks": [
+      {
+        "command": "PYTHONDONTWRITEBYTECODE=1 TMPDIR=PRIVATE_TMPFS PYTHONPATH=tests/device:tests/device/self_tests python3 -m unittest self_tests.test_native_animation_caller self_tests.test_native_animation_history self_tests.test_native_animation_source self_tests.test_native_feature_observation self_tests.test_native_script_compilations self_tests.test_emote_source_profile",
+        "status": "passed",
+        "tests": 74,
+        "durationSeconds": 0.328
+      },
+      {
+        "command": "python3 tests/run-project-tests.py --suite documentation --suite documentation-contracts --suite source-layout --suite project-coverage",
+        "status": "passed",
+        "suites": 4,
+        "durationSeconds": 3.06,
+        "junit": "shared-animation-caller-project.xml"
+      },
+      {
+        "command": "python3 android/vr/pico/tests/pico4-test-suite.py --test feature-observation --test suite-runner --test coverage-matrix --timeout 240",
+        "status": "passed",
+        "selectedGroups": 3,
+        "catalogGroups": 52,
+        "durationSeconds": 22.58,
+        "junit": "shared-animation-caller-pico.xml"
+      },
+      {
+        "command": "python3 tests/device/validate_contract_versions.py",
+        "status": "passed"
+      }
+    ],
+    "details": "Actual nearest V8 frame ID joins immutable original compilation metadata, original manager assignment/code and original native thread handoff. Original Rig history retains explicit null native origins. Closed v2 readers accept legacy v1, reject downgrade and keep per-manager call/compilation identities across bounded trimming; no Phone callback/timer work instrumentation selected. Host fixtures use reviewed standalone Emote source pins, not Phone input behavior.",
+    "limitations": "Native V8/Qt/Rig boundaries are synthetic; C++ uncompiled and physical runs zero. Profile/cache/normal VR input/stereo/actor/full cleanup remain incomplete. Three of fourteen complete source/host feature areas; common journey v16 unchanged."
   }
 }

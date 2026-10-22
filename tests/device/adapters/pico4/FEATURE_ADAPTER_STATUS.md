@@ -68,8 +68,11 @@ The [reviewed shared Phone selection](EMOTE_SHARED_REUSE.md) now reuses actual
 V8 compilation identities, immutable originals, optional Script source reader
 and counterexamples. The same pinned shared selection now also supplies original
 FBX parser bytes, weak model identity and consumed retarget/clip sources while
-preserving Pico functional parsing. Native compilation, actual Pico caller/input/Rig/
-stereo/actor and full resource retirement remain unqualified or incomplete.
+preserving Pico functional parsing. Actual VM-to-native caller v2 and bounded
+Rig history v2 now retain original compiled-code identity and per-manager cursors
+through native thread handoff and reader ring trimming. Native compilation,
+actual Pico input/Rig/stereo/actor and full resource retirement remain
+unqualified or incomplete.
 This adds no complete feature area and keeps shared journey v16 unchanged.
 
 ## Historical component checkpoints
@@ -516,3 +519,15 @@ Current VR subject prerequisite: [native subject v3](../../native/VR_GRAPHICS_SU
 requires actual OpenXR HMD transforms and exact native tablet/keyboard/pointer
 owner IDs for Pico, retaining legacy readers elsewhere. It preserves the raw
 entity scan and cannot itself qualify original scene/framework restoration.
+
+
+## Build authorization update, 2026-10-22
+
+The user explicitly authorized builds on 2026-10-22, superseding the original
+session's compiler/build prohibition. Earlier recorded checks and exclusions
+remain historical evidence; they do not qualify native sources. New selected
+local build checks may now execute using existing tools and independently bound
+inputs. Device access, installation/dependency changes, Jenkins/device services,
+functional product changes, remote writes and protected/foreign integration
+remain outside the current authorized scope. Complete native or Pico build
+qualification must be recorded separately from narrow host fixture compilation.
