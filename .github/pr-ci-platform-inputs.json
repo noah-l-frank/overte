@@ -12,7 +12,7 @@
         "tests/device/jenkins": "5f075ec8c0cd366df90588a62231701d3a056616",
         "tests/device/schema": "93f815e60f37b15cc2e9756c9d234418d2984268",
         "android/phone/fdroid": "ddebf7343ac2fe21c82c20da913f6469f18604fe",
-        "android/phone/tests": "ebb1cef78a3f33d9d549e2cf467ec5391744cf97"
+        "android/phone/tests": "1f3202012025a7fc05625f8ab542e6ddaf7fd685"
       },
       "omit": [
         "phone-package-binding",
@@ -58,6 +58,7 @@
       "inputs": [
         "android/common/native-ci/android-arm64-ci",
         "android/common/native-ci/target.conanfile.py",
+        "android/vr/pico/apps/picoInterface/build.gradle",
         "android/vr/pico/native-ci/android-arm64-ci-release",
         "android/vr/pico/native-ci/graph_contract.py",
         "android/vr/pico/native-ci/target.conanfile.py",

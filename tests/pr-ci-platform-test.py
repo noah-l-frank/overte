@@ -24,6 +24,28 @@ class ProductOwnershipTests(unittest.TestCase):
         return {suite["name"] for suite in P.android_suites(ROOT, target, profile,
                 {"paths": paths, "regular": regular})}
 
+    def test_reviewed_phone_java_closure_selects_six_and_changed_harness_fails_closed(self):
+        inputs = json.loads((ROOT / ".github/pr-ci-platform-inputs.json").read_text())
+        case = next(row for row in inputs["android"] if row["target"] == "android-phone")
+        expected = {"phone-e2e-runtime-regressions", "android-embedded-web", "phone-embedded-web",
+                    "android-snapshot", "android-documents", "phone-parity-packet"}
+        path = "android/phone/apps/phoneInterface/src/main/java/org/overte/phone/PhoneInterfaceActivity.java"
+        observed = dict(case["inventory"])
+
+        def actual_git_identity(command, **_):
+            self.assertEqual(command[:3], ["git", "--no-replace-objects", "rev-parse"])
+            self.assertTrue(command[3].startswith("HEAD:"))
+            return (observed[command[3][5:]] + "\n").encode()
+
+        with patch.object(P.subprocess, "check_output", side_effect=actual_git_identity):
+            self.assertEqual(self.selected("android-phone", [path]), expected)
+            observed["android/phone/tests"] = "0" * 40
+            broader = self.selected("android-phone", [path])
+            self.assertGreater(len(broader), len(expected))
+            self.assertIn("phone-default-input", broader)
+            self.assertIn("android-source-boundary", broader)
+            self.assertNotIn("phone-native-ci-unsigned-apk", broader)
+
     def test_native_infrastructure_suites_follow_their_actual_inputs(self):
         for target in P.policy()["android"]:
             with self.subTest(target=target):
@@ -45,6 +67,10 @@ class ProductOwnershipTests(unittest.TestCase):
         self.assertIn("pico-native-ci-inputs", selected)
         self.assertNotIn("pico-native-ci-unsigned-apk", selected)
         self.assertNotIn("android-common-native-ci", selected)
+        selected = self.selected("android-vr-pico", ["android/vr/pico/apps/picoInterface/build.gradle"])
+        self.assertIn("pico-native-ci-graph", selected)
+        self.assertIn("pico-native-ci-inputs", selected)
+        self.assertNotIn("pico-native-ci-unsigned-apk", selected)
 
     def test_unknown_or_nonregular_context_keeps_all_owned_suites(self):
         for target, profile in P.policy()["android"].items():
