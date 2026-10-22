@@ -118,6 +118,7 @@
     "chat-compiled-model-samples": {"current": 1, "reads": [1]},
     "chat-compiled-cache-absence": {"current": 1, "reads": [1]},
     "chat-cleanup-admission": {"current": 1, "reads": [1]},
+    "pico-openxr-binding-transfer": {"current": 1, "reads": [1]},
     "native-host-descriptor-owner": {"current": 1, "reads": [1]},
     "native-chat-actor-ipc-close": {"current": 1, "reads": [1]},
     "chat-cache-release": {"current": 1, "reads": [1]},
