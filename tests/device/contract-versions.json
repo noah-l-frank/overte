@@ -125,6 +125,7 @@
     "ios-places-http": {"current": 1, "reads": [1]},
     "ios-places-http-acquisition": {"current": 1, "reads": [1]},
     "ios-navigation-error-context": {"current": 1, "reads": [1]},
+    "ios-navigation-sample-owner": {"current": 1, "reads": [1]},
     "ios-navigation-fixture-reader": {"current": 1, "reads": [1]},
     "ios-navigation-challenge": {"current": 1, "reads": [1]},
     "ios-navigation-rendered-state": {"current": 1, "reads": [1]},
