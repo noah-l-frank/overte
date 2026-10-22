@@ -58,7 +58,9 @@ inventory, including every real key/layer/entity, actual visibility and pressed
 state, target and tablet-screen ownership. The Python source reuses
 `vr_keyboard` validation. A QML keyboard request or generic touch metric cannot
 replace this actual VR source. Source acquisition is bounded to five seconds
-and 51 reads; actual native/PID/installed-candidate/OpenXR guards wrap each I/O.
+and 51 reads, with a 262144-byte original bound before JSON decode. The final
+monotonic age bound includes parsing, acceptance and the last identity guard;
+a frozen device clock cannot make a source older than 1500 ms fresh. Actual native/PID/installed-candidate/OpenXR guards wrap each I/O.
 
 The private `lifecycle-ui-observation.json` packet has exactly
 `lifecycleUiVersion,commandId,runId,instance,sequence,processId,capturedEpochMs,source`.
@@ -88,7 +90,7 @@ python3 tests/check-documentation.py --all
 git diff --check
 ```
 
-The ten Python cases use explicit synthetic original native/keyboard
+The twelve Python cases use explicit synthetic original native/keyboard
 boundaries. The compiled Qt5 check loads the real NativeCreate.qml, sends a real
 normal Qt pointer focus, hides and detaches the original page, deletes only
 the field or context while retaining the original page, destroys the actual page and reconstructs it. It proves

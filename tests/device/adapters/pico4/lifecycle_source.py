@@ -7,7 +7,7 @@ import json
 import re
 import time
 import uuid
-from adapters.native_feature_observation import decode, exact, fresh, integer, need, number
+from adapters.native_feature_observation import LIMIT, decode, exact, fresh, integer, need, number
 from adapters.native_chat_view import vr_keyboard, measured_keyboard
 from feature_journeys.fixtures import context
 
@@ -114,17 +114,19 @@ class PicoLifecycleSource:
         self.send(request) # Only one original query; never resend the nonce.
         for attempt in range(51):
             need(self.guard() is not False)
-            raw=self.original()
+            raw=self.original();need(type(raw) is str and len(raw.encode('utf-8'))<=LIMIT)
             try:value=decode(raw) if raw else None
             except json.JSONDecodeError:value=None
             now=self.monotonic();need(number(now,0,1e15) and previous<=now and now-started<5);previous=now
             need(self.guard() is not False)
             if type(value) is dict and value.get('commandId')==request['commandId']:
-                validate(value,request,self.pid,self.clock_ms())
+                epoch=self.clock_ms();validate(value,request,self.pid,epoch)
                 need(value['capturedEpochMs']>=requested)
                 current=accept(self.previous,summary(value))
-                completed=self.monotonic();need(number(completed,0,1e15) and previous<=completed and completed-started<5)
                 need(self.guard() is not False)
+                completed=self.monotonic();need(number(completed,0,1e15) and previous<=completed and completed-started<5
+                    and max(epoch-value['capturedEpochMs'],
+                        requested-value['capturedEpochMs']+(completed-started)*1000)<=1500)
                 self.previous,self.last_raw,self.last_sha256=current,raw,hashlib.sha256(raw.encode()).hexdigest()
                 return deepcopy(value)
             if attempt<50:self.sleep(.1)
