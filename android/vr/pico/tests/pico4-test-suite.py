@@ -41,7 +41,7 @@ TESTS = (
     test("chat-dispatcher-recovery", "interaction", PYTHON, "pico-chat-dispatcher-test.py", "recovery"),
     test("chat-input-phase", "interaction", PYTHON, "pico-chat-dispatcher-test.py", "phase"),
     test("chat-compiled-source", "interaction", PYTHON, "pico-chat-compiled-source-test.py"),
-    test("chat-erase-restore", "interaction", PYTHON, "pico-chat-erase-restore-test.py"),
+    test("chat-erase-restore", "interaction", PYTHON, "pico-chat-erase-restore-test.py", requires=("c++", "pkg-config", "node")),
     test("chat-composition", "interaction", PYTHON, "device/test_chat_composition.py"),
     test("chat-cache-release-positive", "interaction", PYTHON, "pico-chat-cache-release-test.py", "positive"),
     test("chat-cache-release-admission", "interaction", PYTHON, "pico-chat-cache-release-test.py", "admission"),

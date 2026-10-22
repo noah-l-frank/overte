@@ -1414,3 +1414,28 @@ Chat composition25.739s, cache positive30.276s/admission15.962s/quiet28.719s/fin
 clock35.996s and Snapshot FastCancel13.437s, plus coverage. No quiet threshold,
 observation clock, default timeout or source inventory was changed. Catalog
 counts refer to test groups; completed source/host feature areas remain3/14.
+
+
+## Create denial/retry source6 and passive current Chat profile
+
+Create selection `cbcb0a78a7` composes original normal Denied→Cube retry→name→
+Delete, actual shape observations, parent4 migration and normal cleanup reopening.
+The original diagnostic whole21-input host route completes, but needs646 entity
+source reads against the real512 ceiling. It is explicitly not a qualified native
+whole flow. The bounded counterexample runs the original first15 actions, fills
+remaining source capacity with passive reads and requires step16/cold recovery/
+cleanup to retain the exact pending owner without another input or false native
+restoration. The cap, cadence, guards and default120-second timeout are unchanged.
+Actual Qt context/resource release, independent actor and stereo remain open.
+
+Chat selection `779289eeb1` adds a strictly passive current-profile source for the
+post-restart comparison. It reads actual Manager/cache/worker/physical originals,
+never acquires saved ownership or restores/writes configuration. Actual complete
+Manager/moc/worker sources compile in INI and registered JSON checks. TSI full-TU,
+application/device and whole restarted Chat finalization remain unqualified.
+
+The integrated selection passes7/115 groups in231.74s: current/restore Chat
+50.719s, browser58-case regression15.886s, Create recovery flow20.170s/guards
+72.665s/native6.345s and native-budget counterexample65.884s, plus coverage.
+The current-profile source/Probe/private-factory/native cases are included in
+the existing Erase/restore owner group. Completed source/host areas remain3/14.
