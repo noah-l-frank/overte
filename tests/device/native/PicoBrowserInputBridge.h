@@ -11,8 +11,9 @@ namespace overte::e2e {
 struct PicoBrowserInputProvider {
     std::function<bool(QQuickItem*,const QPointF&,qint64)> pointer;
     std::function<bool(QQuickItem*,const QString&,qint64)> text;
+    std::function<bool(QQuickItem*,const QPointF&,int,qint64)> scroll;
 };
-inline const char* picoBrowserInputProperty() { return "_overteE2EPicoBrowserInputProviderV1"; }
+inline const char* picoBrowserInputProperty() { return "_overteE2EPicoBrowserInputProviderV2"; }
 // Closed original geometry -> local item coordinates. The producer supplies the
 // original native document and its clock; host commands cannot supply geometry.
 inline std::optional<QPointF> picoBrowserPoint(const QVariantMap& packet,const QString& request,
@@ -65,6 +66,9 @@ inline std::optional<QPointF> picoBrowserPoint(const QVariantMap& packet,const Q
     if (x>=view.value("width").toDouble() || y>=view.value("height").toDouble()
             || std::abs(x-rect.value("x").toDouble()-rect.value("width").toDouble()/2)>0.001
             || std::abs(y-rect.value("y").toDouble()-rect.value("height").toDouble()/2)>0.001) { return {}; }
+    if ((control=="scroll-up" || control=="scroll-down")
+            && (rect.value("x").toDouble()!=0 || rect.value("y").toDouble()!=0
+                || rect.value("width")!=view.value("width") || rect.value("height")!=view.value("height"))) { return {}; }
     return QPointF(x/view.value("width").toDouble()*size.width(),y/view.value("height").toDouble()*size.height());
 }
 } // namespace overte::e2e

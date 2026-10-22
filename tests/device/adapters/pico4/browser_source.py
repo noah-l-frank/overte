@@ -20,8 +20,8 @@ from adapters.script_journey.lock import ScriptSourceLock
 from feature_journeys.contract import identifier
 
 FILE='feature-pico-browser.json'
-VERSION=1
-CONTROLS={'text','bridge','reference','second','recovery','back','reload','foreign','navigate'}
+VERSION=2
+CONTROLS={'text','bridge','reference','second','recovery','back','reload','foreign','navigate','scroll-up','scroll-down'}
 IDENTITY={'handle','creation','grant','page','url'}
 
 
@@ -36,21 +36,21 @@ def fixture(run,url):
 def command(value):
     need(type(value) is dict);op=value.get('operation');fields={'schemaVersion','commandId','action','runId','fixtureUrl','operation','ownerToken'}
     reference=value.get('action')=='pico-web-reference'
-    exact(value,fields|({'surface'} if reference else set())|({'handle','creation','grant','page','control','text'} if op=='input' else set()))
+    exact(value,fields|({'surface'} if reference else set())|({'handle','creation','grant','page','control'} if op in ('input','measure') else set())|({'text'} if op=='input' else set()))
     need(type(value['schemaVersion']) is int and value['schemaVersion']==1 and value['action'] in ('pico-world-web','pico-tablet-web','pico-web-reference')
-        and op in ('reserve','observe','input','retire','arm-held','deliver-held','cancel-held')
+        and op in ('reserve','observe','measure','input','retire','arm-held','deliver-held','cancel-held')
         and (op not in ('arm-held','deliver-held','cancel-held') or value['action']=='pico-tablet-web'))
     identifier(value['commandId']);identifier(value['ownerToken'])
     if reference:
         fixture(value['runId'],value['fixtureUrl'])
         need(value['surface'] in ('world','tablet'))
     else:fixture(value['runId'],value['fixtureUrl'])
-    if op=='input':
+    if op in ('input','measure'):
         need(type(value['handle']) is str and re.fullmatch('[1-9][0-9]{0,18}',value['handle'])
             and all(integer(value[k],1) for k in ('creation','grant','page')) and value['control'] in ({'play','pause','seekStart','seek'} if reference else CONTROLS)
-            and type(value['text']) is str and len(value['text'].encode('utf-16-le'))//2<=512
+            and (op=='measure' or type(value['text']) is str and len(value['text'].encode('utf-16-le'))//2<=512
             and not any(ord(c)<32 or ord(c)==127 or 0xE000<=ord(c)<=0xE05E for c in value['text'])
-            and (value['control'] in ('text','foreign') or not value['text']))
+            and (value['control'] in ('text','foreign') or not value['text'])))
     return value
 
 
@@ -64,7 +64,7 @@ def identity(row):
 def validate(value,request,pid,epoch):
     command(request)
     exact(value,{'picoBrowserVersion','commandId','runId','ownerToken','instance','sequence','processId','capturedEpochMs','status','source'})
-    need(type(value['picoBrowserVersion']) is int and value['picoBrowserVersion']==VERSION
+    need(type(value['picoBrowserVersion']) is int and value['picoBrowserVersion'] in (1,VERSION)
         and value['commandId']==request['commandId'] and value['runId']==request['runId'] and value['ownerToken']==request['ownerToken']
         and integer(value['processId'],1) and value['processId']==pid and integer(value['sequence'],1)
         and value['status'] in ('pending','ready','unavailable'))
@@ -72,6 +72,12 @@ def validate(value,request,pid,epoch):
     source=value['source']
     if value['status']!='ready':exact(source,set());return value
     op=request['operation']
+    if op=='measure':
+        need(value['picoBrowserVersion']==2);exact(source,{'geometryRaw','nativeView'})
+        view=source['nativeView'];exact(view,IDENTITY);identity(view)
+        need(all(view[k]==request[k] for k in ('handle','creation','grant','page')))
+        geometry_original(source['geometryRaw'],request,view['url'],value['capturedEpochMs'],visible=False)
+        return value
     if op!='observe':
         field={'reserve':'reserved','input':'delivered','retire':'retired','arm-held':'armed','deliver-held':'delivered','cancel-held':'cancelled'}[op]
         exact(source,{field});need(source[field] is True);return value
@@ -110,7 +116,7 @@ def validate(value,request,pid,epoch):
             and packet['capturedEpochMs']>=documents[key]['finishedEpochMs'] and packet['capturedEpochMs']<=value['capturedEpochMs'])
         echoes=packet['source']['dom']['echoes']
         need(all((key,row['sequence']) in event_keys['replies'] for row in echoes))
-    input_history(source['inputs'],request,value['capturedEpochMs'],documents)
+    input_history(source['inputs'],request,value['capturedEpochMs'],documents,version=value['picoBrowserVersion'])
     current=source['current'];need(type(current) is dict)
     if request['action']=='pico-web-reference':
         need(not source['domHistory'])
@@ -131,7 +137,7 @@ def validate(value,request,pid,epoch):
     return value
 
 
-def geometry_original(raw,call,document,epoch,*,focused=False):
+def geometry_original(raw,call,document,epoch,*,focused=False,visible=True):
     need(type(raw) is str);actual=decode(decode(raw))
     exact(actual,{'webGeometryVersion','requestId','instance','sequence','capturedEpochMs','document','control','editor','viewport','rect','center','hit','enabled','connected'})
     need(type(actual['webGeometryVersion']) is int and actual['webGeometryVersion']==1 and actual['requestId']==call['commandId']
@@ -144,22 +150,25 @@ def geometry_original(raw,call,document,epoch,*,focused=False):
         and number(viewport['scale'],1,1) and number(viewport['offsetLeft'],0,0) and number(viewport['offsetTop'],0,0))
     rect,center=actual['rect'],actual['center'];exact(rect,{'x','y','width','height'});exact(center,{'x','y'})
     need(number(rect['x'],-1e7,1e7) and number(rect['y'],-1e7,1e7) and number(rect['width'],.001,1e7) and number(rect['height'],.001,1e7)
-        and number(center['x'],0,viewport['width']) and center['x']<viewport['width']
-        and number(center['y'],0,viewport['height']) and center['y']<viewport['height']
+        and number(center['x'],-1e7,1e7) and number(center['y'],-1e7,1e7)
+        and (not visible or 0<=center['x']<viewport['width'] and 0<=center['y']<viewport['height'])
         and abs(center['x']-rect['x']-rect['width']/2)<=.001 and abs(center['y']-rect['y']-rect['height']/2)<=.001
-        and all(actual[key] is True for key in ('hit','enabled','connected')))
+        and all(type(actual[key]) is bool for key in ('hit','enabled','connected'))
+        and (not visible or all(actual[key] for key in ('hit','enabled','connected'))))
     editor=actual['editor'];exact(editor,{'focused','text','cursor','anchor'});need(type(editor['focused']) is bool and (not focused or editor['focused']))
     if call['control'] in ('text','foreign'):
         need(type(editor['text']) is str);units=len(editor['text'].encode('utf-16-le'))//2
         need(units<=512 and integer(editor['cursor'],0,units) and integer(editor['anchor'],0,units))
     else:need(editor['text'] is editor['cursor'] is editor['anchor'] is None)
+    if call['control'] in ('scroll-up','scroll-down'):
+        need(rect==dict(x=0,y=0,width=viewport['width'],height=viewport['height']))
     return actual
 
 
-def input_history(rows,request,epoch,documents):
+def input_history(rows,request,epoch,documents,*,version=VERSION):
     need(type(rows) is list and len(rows)<=128);seen=set();previous=0
     for row in rows:
-        exact(row,{'command','issuedEpochMs','geometryRaw','focusRaw','pointerEpochMs','imeEpochMs','nativeBeforeIME','completion'})
+        exact(row,{'command','issuedEpochMs','geometryRaw','focusRaw','pointerEpochMs','imeEpochMs','nativeBeforeIME','completion'}|({'wheelEpochMs'} if version==2 else set()))
         call=command(row['command']);identifier(call['commandId'])
         need(call['operation']=='input' and call['commandId'] not in seen
             and all(call[key]==request[key] for key in ('action','runId','ownerToken','fixtureUrl'))
@@ -180,8 +189,14 @@ def input_history(rows,request,epoch,documents):
             if key=='geometryRaw':first_geometry=actual
             elif first_geometry is not None:
                 need(actual['instance']==first_geometry['instance'] and actual['sequence']>first_geometry['sequence'])
-        for key in ('pointerEpochMs','imeEpochMs'):
+        for key in (('pointerEpochMs','wheelEpochMs','imeEpochMs') if version==2 else ('pointerEpochMs','imeEpochMs')):
             if row[key] is not None:need(integer(row[key],stage,epoch));stage=row[key]
+        wheel=version==2 and row['wheelEpochMs'] is not None
+        if wheel:
+            need(call['control'] in ('scroll-up','scroll-down') and row['geometryRaw'] is not None
+                and row['pointerEpochMs'] is row['imeEpochMs'] is row['focusRaw'] is None)
+        elif call['control'] in ('scroll-up','scroll-down'):
+            need(version==2 and row['pointerEpochMs'] is row['imeEpochMs'] is row['focusRaw'] is None)
         if row['pointerEpochMs'] is not None:need(row['geometryRaw'] is not None)
         native=row['nativeBeforeIME']
         if row['imeEpochMs'] is not None:
@@ -198,9 +213,9 @@ def input_history(rows,request,epoch,documents):
         if done is not None:
             exact(done,{'status','capturedEpochMs'});need(done['status'] in ('ready','unavailable') and integer(done['capturedEpochMs'],stage,epoch))
             if done['status']=='ready':
-                need(row['pointerEpochMs'] is not None and (call['control'] not in ('text','foreign') or row['imeEpochMs'] is not None))
+                need((wheel or row['pointerEpochMs'] is not None) and (call['control'] not in ('text','foreign') or row['imeEpochMs'] is not None))
                 key=':'.join(str(call[k]) for k in ('handle','creation','grant','page'));need(key in documents)
-                original=geometry_original(row['geometryRaw'],call,documents[key]['url'],row['pointerEpochMs'])
+                original=geometry_original(row['geometryRaw'],call,documents[key]['url'],row['wheelEpochMs'] if wheel else row['pointerEpochMs'])
                 if row['imeEpochMs'] is not None:
                     focus=geometry_original(row['focusRaw'],call,documents[key]['url'],row['imeEpochMs'],focused=True)
                     need(focus['instance']==original['instance'] and focus['sequence']>original['sequence']
@@ -246,7 +261,7 @@ class PicoBrowserIO:
         request=command(dict(schemaVersion=1,commandId=uuid.uuid4().hex,action=self.action if reference_surface is None else 'pico-web-reference',runId=run,
             fixtureUrl=url,ownerToken=owner,operation=operation,**({'surface':reference_surface} if reference_surface is not None else {}),**fields))
         try:
-            self.lock.assert_held();need(not self.read_only or operation=='observe')
+            self.lock.assert_held();need(not self.read_only or operation in ('observe','measure'))
             start=previous=self.monotonic();requested=self.clock_ms();need(number(start,0,1e15) and integer(requested,1) and self.guard() is not False)
             self.send(request)
             for attempt in range(51):
@@ -255,7 +270,7 @@ class PicoBrowserIO:
                 except json.JSONDecodeError:value=None
                 now=self.monotonic();need(number(now,previous,start+5));previous=now
                 if type(value) is dict and value.get('commandId')==request['commandId']:
-                    epoch=self.clock_ms();validate(value,request,self.pid,epoch)
+                    epoch=self.clock_ms();validate(value,request,self.pid,epoch);need(value['picoBrowserVersion']==VERSION)
                     need(value['capturedEpochMs']>=requested and value['status']!='unavailable')
                     if value['status']=='ready':
                         continuity(self.last,value);need(self.guard() is not False)
@@ -272,6 +287,8 @@ class PicoBrowserIO:
                             and max(final-value['capturedEpochMs'],requested-value['capturedEpochMs']+math.ceil((finished-start)*1000))<=1500)
                         if operation=='observe' and reference_surface is None and value['source']['current']:
                             fresh(value['source']['current']['source']['dom']['capturedEpochMs'],final)
+                        if operation=='measure':
+                            geometry_original(value['source']['geometryRaw'],request,value['source']['nativeView']['url'],final,visible=False)
                         self.last=retained;return returned
                 need(attempt<50 and now-start<5);self.sleep(.1)
         except Exception:raise NativeUIError('Original Pico World Web source or input is unavailable') from None

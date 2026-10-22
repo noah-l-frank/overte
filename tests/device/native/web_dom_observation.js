@@ -108,16 +108,18 @@ function overteWebDOMSource(global) {
         // the native input producer, never accepted as caller coordinates.
         readGeometry(requestId, control) {
             need(['text','bridge','reference','second','recovery','back','reload','foreign','navigate',
-                  'play','pause','seekStart','seek'].includes(control));
-            const actual = read(requestId), item = node(control);
+                  'play','pause','seekStart','seek','scroll-up','scroll-down'].includes(control));
+            const actual = read(requestId), scrolling = control === 'scroll-up' || control === 'scroll-down',
+                item = scrolling ? doc.documentElement : node(control);
             need(item && typeof item.getBoundingClientRect === 'function');
-            const rect = item.getBoundingClientRect(), x = rect.left + rect.width / 2,
+            const rect = scrolling ? {left:0,top:0,width:global.innerWidth,height:global.innerHeight} : item.getBoundingClientRect(),
+                x = rect.left + rect.width / 2,
                 y = rect.top + rect.height / 2, hit = doc.elementFromPoint(x, y), viewport = global.visualViewport;
             need([rect.left,rect.top,rect.width,rect.height,x,y,global.innerWidth,global.innerHeight].every(Number.isFinite)
                  && rect.width > 0 && rect.height > 0 && global.innerWidth > 0 && global.innerHeight > 0);
             const editable = control === 'text' || control === 'foreign';
-            need(editable ? item.tagName === 'INPUT' && ['text','url'].includes(item.type)
-                          : ['BUTTON','A','INPUT'].includes(item.tagName));
+            need(scrolling || (editable ? item.tagName === 'INPUT' && ['text','url'].includes(item.type)
+                          : ['BUTTON','A','INPUT'].includes(item.tagName)));
             return {webGeometryVersion:1,requestId,instance:actual.instance,sequence:actual.sequence,capturedEpochMs:actual.capturedEpochMs,
                 document:actual.document,control,
                 editor:{focused:doc.activeElement === item,text:editable ? item.value : null,

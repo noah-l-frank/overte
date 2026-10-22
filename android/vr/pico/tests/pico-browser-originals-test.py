@@ -10,5 +10,6 @@ sys.path[:0]=[str(ROOT/'tests/device'),str(Path(__file__).resolve().parent/'devi
 if __name__=='__main__':
     suite=unittest.defaultTestLoader.loadTestsFromNames([
         'self_tests.test_pico_browser_geometry','self_tests.test_pico_browser_io',
+        'self_tests.test_pico_browser_reveal',
         'self_tests.test_web_dom_observation','self_tests.test_native_web_dom','test_pico_browser_originals'])
     raise SystemExit(not unittest.TextTestRunner(verbosity=2).run(suite).wasSuccessful())

@@ -19,7 +19,7 @@ class Boundary:
     def __init__(self):self.epoch=20000;self.elapsed=1.;self.calls=[];self.packet=None;self.guards=0
     def guard(self):self.guards+=1;return True
     def send(self,call):
-        self.calls.append(deepcopy(call));self.packet=dict(picoBrowserVersion=1,commandId=call['commandId'],runId=RUN,ownerToken=OWNER,
+        self.calls.append(deepcopy(call));self.packet=dict(picoBrowserVersion=2,commandId=call['commandId'],runId=RUN,ownerToken=OWNER,
             instance='c'*32,sequence=len(self.calls),processId=123,capturedEpochMs=self.epoch,status='ready',source={'reserved':True})
     def reader(self,lock,**options):return PicoTabletBrowserIO(self.send,lambda:json.dumps(self.packet),lambda:self.epoch,self.guard,123,
         source_lock=lock,monotonic=lambda:self.elapsed,sleep=lambda _:None,**options)

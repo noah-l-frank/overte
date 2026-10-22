@@ -374,6 +374,16 @@ void installBrowserInputProvider() {
         return surface && surface->getWindow()==item->window() && originalEpoch>0 && now>=originalEpoch && now-originalEpoch<=1500
             && sendPointerAt(item,surface,scene);
     };
+    provider.scroll=[admitted](QQuickItem* item,const QPointF& local,int delta,qint64 originalEpoch) {
+        if (!admitted(item) || (delta!=120 && delta!=-120)) { return false; }
+        const auto scene=item->mapToScene(local);
+        if (!NormalControlUi::ownsPoint(item,item->window(),scene)) { return false; }
+        const auto tablet=DependencyManager::get<TabletScriptingInterface>()->getTablet(SYSTEM_TABLET);
+        auto surface=tablet ? tablet->getTabletSurface() : nullptr;
+        const auto now=QDateTime::currentMSecsSinceEpoch();
+        return surface && surface->getWindow()==item->window() && originalEpoch>0 && now>=originalEpoch && now-originalEpoch<=1500
+            && sendPointerScroll(item,surface,scene,delta);
+    };
     provider.text=[admitted](QQuickItem* item,const QString& text,qint64 originalEpoch) {
         if (!admitted(item) || item->window()->activeFocusItem()!=item || text.size()>512) { return false; }
         for (int i=0;i<text.size();++i) {

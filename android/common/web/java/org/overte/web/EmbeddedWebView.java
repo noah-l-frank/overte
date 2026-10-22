@@ -539,7 +539,7 @@ public final class EmbeddedWebView {
     }
     private static void featurePicoGeometryRead(long handle,long grant,long page,String requestId,String control,boolean focused,long started) {
         if (!nativeFeatureEnabled() || requestId == null || !requestId.matches("[0-9a-f]{32}")
-                || control == null || !control.matches("text|bridge|reference|second|recovery|back|reload|foreign|navigate|play|pause|seekStart|seek")) return;
+                || control == null || !control.matches("text|bridge|reference|second|recovery|back|reload|foreign|navigate|play|pause|seekStart|seek|scroll-up|scroll-down")) return;
         MAIN.post(() -> {
             Instance instance=VIEWS.get(handle);
             if (instance==null) { featurePicoReadResult(handle,grant,page,"",requestId,"null",focused);return; }

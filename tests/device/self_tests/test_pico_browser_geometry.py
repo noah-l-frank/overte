@@ -36,4 +36,10 @@ assert.equal(a.connected,false);assert.equal(a.editor.focused,false);assert.equa
 assert.deepEqual(a.viewport,{width:640,height:480,scale:2,offsetLeft:7,offsetTop:9});assert.equal(node('text').value,'old');''')
     def test_retired_source_cannot_supply_new_geometry(self):
         self.run_case("source.readGeometry(nonce,'text');source.retire();assert.throws(()=>source.readGeometry(nonce,'text'),/UNAVAILABLE/);")
+    def test_scroll_samples_actual_viewport_without_a_dom_scroll_setter(self):
+        self.run_case("""let scrollWrites=0;w.scrollTo=()=>{scrollWrites++;};doc.documentElement={isConnected:true,
+getBoundingClientRect(){return {left:0,top:-700,width:640,height:2000};},contains:()=>true};
+const a=source.readGeometry(nonce,'scroll-down');assert.deepEqual(a.center,{x:320,y:240});
+assert.deepEqual(a.rect,{x:0,y:0,width:640,height:480});assert.equal(a.hit,true);
+assert.deepEqual(a.editor,{focused:false,text:null,cursor:null,anchor:null});assert.equal(scrollWrites,0);assert.equal(requests.length,0);""")
 if __name__=='__main__':unittest.main()

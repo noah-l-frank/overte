@@ -24,7 +24,7 @@ QVariantMap worldWebPacket(const QVariantMap& command,WorldWebScope& scope,const
     const auto now=QDateTime::currentMSecsSinceEpoch();
     if (now<=0 || now<scope.epoch || scope.sequence>=9007199254740991ULL || !scope.complete) { return {}; }
     scope.epoch=now;
-    QVariantMap packet{{"picoBrowserVersion",1},{"commandId",command.value("commandId")},{"runId",command.value("runId")},
+    QVariantMap packet{{"picoBrowserVersion",2},{"commandId",command.value("commandId")},{"runId",command.value("runId")},
         {"ownerToken",scope.token},{"instance",scope.instance},{"sequence",static_cast<qulonglong>(++scope.sequence)},
         {"processId",QCoreApplication::applicationPid()},{"capturedEpochMs",now},{"status",status},{"source",source}};
     const auto id=command.value("commandId").toString();
@@ -148,12 +148,12 @@ QVariantMap NativeWebViewItem::featurePicoBrowser(const QVariantMap& command) {
                 || !scope.originalPackets.contains(nonce)) { return {}; }
         const auto old=scope.originalPackets.value(nonce);
         if (old.value("status")!="pending") { return old; }
-        if (operation=="input" && scope.timer.isValid() && scope.timer.elapsed()>=4000) {
+        if ((operation=="input" || operation=="measure") && scope.timer.isValid() && scope.timer.elapsed()>=4000) {
             if (scope.focusTimer) { scope.focusTimer->stop();scope.focusTimer->deleteLater(); }
             scope.receipt=worldWebPacket(command,scope,"unavailable");return scope.receipt;
         }
     } else if (scope.originalCommands.size()>=4096) { scope.complete=false;return {}; }
-    if (operation!="input" && scope.lastCommand.value("commandId")==command.value("commandId")) {
+    if (operation!="input" && operation!="measure" && scope.lastCommand.value("commandId")==command.value("commandId")) {
         if (scope.lastCommand!=command) { return {}; }
         if (scope.lastPacket.value("status")=="ready" || scope.lastPacket.value("status")=="unavailable") { return scope.lastPacket; }
     }
@@ -199,7 +199,7 @@ QVariantMap NativeWebViewItem::featurePicoBrowser(const QVariantMap& command) {
         scope.originalPackets.clear();scope.geometryOriginal.clear();scope.retired=true;scope.held.clear();scope.deliveries.clear();scope.documents.clear();scope.requests.clear();scope.replies.clear();scope.inputs.clear();scope.dom.clear();
         return worldWebPacket(command,scope,"ready",{{"retired",true}});
     }
-    if (operation=="input") {
+    if (operation=="input" || operation=="measure") {
         if (scope.retired) { return {}; }
         if (!scope.input.isEmpty() && scope.input.value("commandId")==command.value("commandId")) {
             if (scope.input!=command) { return {}; }
@@ -213,10 +213,10 @@ QVariantMap NativeWebViewItem::featurePicoBrowser(const QVariantMap& command) {
                 || command.value("grant").toULongLong()!=grant || command.value("page").toULongLong()!=page
                 || !selected->allowsEditorDocument(grant,page,document) || selected->_featureWebFinishedGrant!=grant
                 || selected->_featureWebFinishedPage!=page || selected->_featureWebFinishedDocument!=document) { return {}; }
-        if (scope.inputs.size()>=128) { scope.complete=false;return {}; }
-        scope.inputs.append(QVariantMap{{"command",command},{"issuedEpochMs",QDateTime::currentMSecsSinceEpoch()},
+        if (operation=="input" && scope.inputs.size()>=128) { scope.complete=false;return {}; }
+        if (operation=="input") { scope.inputs.append(QVariantMap{{"command",command},{"issuedEpochMs",QDateTime::currentMSecsSinceEpoch()},
             {"geometryRaw",QVariant()},{"focusRaw",QVariant()},{"pointerEpochMs",QVariant()},{"imeEpochMs",QVariant()},
-            {"nativeBeforeIME",QVariant()},{"completion",QVariant()}});
+            {"nativeBeforeIME",QVariant()},{"wheelEpochMs",QVariant()},{"completion",QVariant()}}); }
         scope.pointerEpoch=0;scope.pointerIssued=false;scope.commitIssued=false;scope.input=command;scope.timer.start();scope.receipt=worldWebPacket(command,scope,"pending");
         Jni jni;if (!jni.env) { scope.receipt=worldWebPacket(command,scope,"unavailable");return scope.receipt; }
         const auto id=jni.string(command.value("commandId").toString()),control=jni.string(command.value("control").toString());
@@ -299,6 +299,15 @@ void NativeWebViewItem::acceptFeaturePicoBrowserGeometry(qint64 handle,quint64 g
                 const auto parsed=QJsonDocument::fromJson(quoted.array()[0].toString().toUtf8());
                 if (parsed.isObject()) { original=parsed.object().toVariantMap(); }
             }
+            if (command.value("operation")=="measure") {
+                // Preserve the original read even when the control is offscreen.
+                // The consumer validates its closed DOM schema independently.
+                const bool okay=!focused && valid() && !original.isEmpty() && scope.timer.elapsed()<4000;
+                scope.receipt=worldWebPacket(command,scope,okay ? "ready" : "unavailable",
+                    okay ? QVariantMap{{"geometryRaw",QString::fromUtf8(result)},
+                        {"nativeView",QVariantMap{{"handle",QString::number(item->_handle)},{"creation",qulonglong(item->_creationRevision)},
+                            {"grant",qulonglong(grant)},{"page",qulonglong(page)},{"url",document}}}} : QVariantMap());return;
+            }
             for (auto& value:scope.inputs) { auto row=value.toMap();if (row.value("command").toMap().value("commandId")!=request) { continue; }
                 row[focused ? "focusRaw" : "geometryRaw"]=QString::fromUtf8(result);value=row;break; }
             const auto point=overte::e2e::picoBrowserPoint(original,request,run,document,
@@ -312,6 +321,13 @@ void NativeWebViewItem::acceptFeaturePicoBrowserGeometry(qint64 handle,quint64 g
               if (std::abs(double(item->_image.width())/item->_image.height()
                       -view.value("width").toDouble()/view.value("height").toDouble())>0.02) { guard.unlock();finish(false);return; } }
             const auto control=command.value("control").toString();
+            if (!focused && (control=="scroll-up" || control=="scroll-down")) {
+                const auto attempted=QDateTime::currentMSecsSinceEpoch();
+                for (auto& value:scope.inputs) { auto row=value.toMap();if (row.value("command").toMap().value("commandId")!=request) { continue; }
+                    row["wheelEpochMs"]=attempted;value=row;break; }
+                finish(provider.scroll && provider.scroll(item,*point,control=="scroll-up" ? 120 : -120,
+                    original.value("capturedEpochMs").toLongLong()));return;
+            }
             if (!focused) {
                 scope.pointerIssued=true;scope.pointerEpoch=QDateTime::currentMSecsSinceEpoch();scope.geometryOriginal=original;
                 for (auto& value:scope.inputs) { auto row=value.toMap();if (row.value("command").toMap().value("commandId")!=request) { continue; }

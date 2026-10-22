@@ -2,6 +2,7 @@
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 import os
+from copy import deepcopy
 import json
 import sys
 from pathlib import Path
@@ -17,13 +18,14 @@ sys.path.insert(0,str(ROOT/'tests/device'))
 JAVA='''package org.overte.web;
 // Explicit Android WebView/scheduler boundary. No product behavior is asserted.
 public class EmbeddedWebView {
- public static long handle,birth; public static int pointers,geometryReads,focusReads,edits,ownedReads; public static String lastEdit;
+ public static long handle,birth; public static int pointers,geometryReads,focusReads,edits,ownedReads,wheels; public static String lastEdit;
  public static void create(long h,long g,String u,String a,boolean b,boolean o,int x,int y,int w,int z,int cx,int cy,int cw,int ch,String boot,String editor){handle=h;birth=g;}
  public static void destroy(long h){} public static void visibility(long h,boolean v){} public static void focus(long h,boolean v){}
  public static void featurePicoGeometry(long h,long g,long p,String id,String control){geometryReads++;}
  public static void featurePicoFocus(long h,long g,long p,String id,String control){focusReads++;}
  public static void featurePicoReadOwned(long h,long g,long p,String id){ownedReads++;}
  public static void edit(long h,long g,long p,String url,String command){edits++;lastEdit=command;}
+ public static void wheel(long h,long g,long p,String u,float x,float y,float dx,float dy,float ax,float ay,boolean inverted){wheels++;}
  public static void pointer(long h,int action,float x,float y){if(action==0 || action==1)pointers++;}
 }
 '''
@@ -78,6 +80,8 @@ class PicoBrowserOriginalTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix='pico-browser-original-') as temporary:
             stage=Path(temporary);web=ROOT/'android/common/web';tools=prefix/'usr/lib64/qt5/bin'
             pointer_source(stage)
+            route=stage/'actual-pointer-route.inc'
+            route.write_text(route.read_text()+original((ROOT/'android/vr/pico/apps/picoInterface/e2e/PicoE2eTabletBridge.cpp').read_text(),'bool sendPointerScroll('))
             bridge=(ROOT/'android/vr/pico/apps/picoInterface/e2e/PicoE2eTabletBridge.cpp').read_text()
             (stage/'actual-browser-provider.inc').write_text(original(bridge,'void installBrowserInputProvider() {'))
             (stage/'PathUtils.h').write_text('#pragma once\n#include <QUrl>\nclass PathUtils {public:static QUrl defaultScriptsLocation(){return QUrl("file:///host/scripts/");} static QUrl qmlUrl(const QString& s){return QUrl("file:///host/qml/"+s);}};\n')
@@ -101,7 +105,28 @@ class PicoBrowserOriginalTests(unittest.TestCase):
             from adapters.pico4.browser_source import validate
             actual=json.loads((stage/'native-originals.json').read_text());packet=actual['packet']
             validate(packet,actual['request'],packet['processId'],packet['capturedEpochMs'])
+            validate(actual['measurePacket'],actual['measureRequest'],packet['processId'],actual['measurePacket']['capturedEpochMs'])
             self.assertEqual('old',packet['source']['current']['source']['dom']['editor']['text'])
-            self.assertEqual(['ready','unavailable','unavailable'],[row['completion']['status'] for row in packet['source']['inputs']])
+            self.assertEqual(['ready','unavailable','unavailable','ready','unavailable'],[row['completion']['status'] for row in packet['source']['inputs']])
+            from adapters.normal_ui import NativeUIError
+            # Historical v1 remains readable without invented wheel originals.
+            historic=deepcopy(packet);historic['picoBrowserVersion']=1;historic['source']['inputs']=historic['source']['inputs'][:3]
+            for row in historic['source']['inputs']:row.pop('wheelEpochMs')
+            validate(historic,actual['request'],historic['processId'],historic['capturedEpochMs'])
+            for mutation in ('missing-wheel','pointer-for-wheel','foreign-document','bad-scroll-point','v1-wheel'):
+                corrupt=deepcopy(packet);row=corrupt['source']['inputs'][3]
+                if mutation=='missing-wheel':row['wheelEpochMs']=None
+                if mutation=='pointer-for-wheel':row['pointerEpochMs']=row['wheelEpochMs']
+                if mutation in ('foreign-document','bad-scroll-point'):
+                    geometry=json.loads(json.loads(row['geometryRaw']))
+                    if mutation=='foreign-document':geometry['document']['runId']='f'*32
+                    else:geometry['rect']['x']=1;geometry['center']['x']+=1
+                    row['geometryRaw']=json.dumps(json.dumps(geometry))
+                if mutation=='v1-wheel':
+                    corrupt['picoBrowserVersion']=1
+                    for item in corrupt['source']['inputs']:item.pop('wheelEpochMs')
+                with self.subTest(mutation=mutation),self.assertRaises(NativeUIError):
+                    validate(corrupt,actual['request'],corrupt['processId'],corrupt['capturedEpochMs'])
+
 
 if __name__=='__main__':unittest.main()

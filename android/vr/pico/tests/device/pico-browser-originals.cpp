@@ -59,7 +59,7 @@ int main(int argc,char**argv){
         QQuickWindow window;window.resize(640,480);window.show();window.requestActivate();events();
         QQuickItem root(window.contentItem());root.setSize(QSizeF(640,480));OffscreenQmlSurface surface(&root,&window);
         tabletBoundary.tablet->root=&root;tabletBoundary.tablet->surface=&surface;tabletBoundary.tablet->setProperty("tabletShown",true);
-        installBrowserInputProvider();const auto input=app.property(picoBrowserInputProperty()).value<PicoBrowserInputProvider>();assert(input.pointer && input.text);
+        installBrowserInputProvider();const auto input=app.property(picoBrowserInputProperty()).value<PicoBrowserInputProvider>();assert(input.pointer && input.text && input.scroll);
         const QString run(32,'a'),owner(32,'b'),fixture="http://127.0.0.1/feature-fixture/v1/runs/"+run+"/",url=fixture+"tickets/"+QString(32,'c')+"/index.html";
         auto cmd=[&](const QString&op){return QVariantMap{{"schemaVersion",1},{"commandId",nonce()},{"action","pico-tablet-web"},{"runId",run},{"fixtureUrl",fixture},{"operation",op},{"ownerToken",owner}};};
         auto reserve=cmd("reserve");assert(picoBrowserCommand(reserve));assert(NativeWebViewItem::featurePicoBrowser(reserve).value("status")=="ready");
@@ -122,14 +122,37 @@ int main(int argc,char**argv){
         auto stale=action("text","late");NativeWebViewItem::featurePicoBrowser(stale);auto old=geometry(stale,5,false);old["capturedEpochMs"]=QDateTime::currentMSecsSinceEpoch()-1501;
         NativeWebViewItem::acceptFeaturePicoBrowserGeometry(handle,grant,1,url,stale.value("commandId").toString(),quoted(old));events();
         assert(NativeWebViewItem::featurePicoBrowser(stale).value("status")=="unavailable" && count("pointers")==2);
+        // A passive offscreen measurement performs no pointer, wheel or IME.
+        auto measure=action("text","");measure.remove("text");measure["operation"]="measure";
+        assert(picoBrowserCommand(measure));assert(NativeWebViewItem::featurePicoBrowser(measure).value("status")=="pending");
+        auto offscreen=geometry(measure,6,false);offscreen["rect"]=QVariantMap{{"x",80},{"y",600},{"width",160},{"height",80}};
+        offscreen["center"]=QVariantMap{{"x",160},{"y",640}};offscreen["hit"]=false;
+        NativeWebViewItem::acceptFeaturePicoBrowserGeometry(handle,grant,1,url,measure.value("commandId").toString(),quoted(offscreen));events();
+        const auto measured=NativeWebViewItem::featurePicoBrowser(measure);
+        assert(measured.value("status")=="ready" && measured.value("source").toMap().value("geometryRaw")==QString::fromUtf8(quoted(offscreen)));
+        assert(count("pointers")==2 && count("edits")==1 && count("wheels")==0);
+        assert(NativeWebViewItem::featurePicoBrowser(measure)==measured);
+        auto wheel=action("scroll-down","");assert(picoBrowserCommand(wheel));NativeWebViewItem::featurePicoBrowser(wheel);
+        auto wheelGeometry=geometry(wheel,7,false);wheelGeometry["editor"]=QVariantMap{{"focused",false},{"text",QVariant()},{"cursor",QVariant()},{"anchor",QVariant()}};
+        wheelGeometry["rect"]=QVariantMap{{"x",0},{"y",0},{"width",640},{"height",480}};wheelGeometry["center"]=QVariantMap{{"x",320},{"y",240}};
+        NativeWebViewItem::acceptFeaturePicoBrowserGeometry(handle,grant,1,url,wheel.value("commandId").toString(),quoted(wheelGeometry));events();
+        const auto wheelReceipt=NativeWebViewItem::featurePicoBrowser(wheel);
+        assert(wheelReceipt.value("status")=="ready" && count("wheels")==1 && count("pointers")==2 && count("edits")==1);
+        assert(NativeWebViewItem::featurePicoBrowser(wheel)==wheelReceipt && count("wheels")==1);
+        // An overlay cannot receive a replayed wheel under a replacement nonce.
+        auto blockedWheel=action("scroll-up","");NativeWebViewItem::featurePicoBrowser(blockedWheel);overlay.setVisible(true);
+        auto blockedGeometry=wheelGeometry;blockedGeometry["requestId"]=blockedWheel.value("commandId");blockedGeometry["sequence"]=8;blockedGeometry["control"]="scroll-up";
+        NativeWebViewItem::acceptFeaturePicoBrowserGeometry(handle,grant,1,url,blockedWheel.value("commandId").toString(),quoted(blockedGeometry));events();
+        assert(NativeWebViewItem::featurePicoBrowser(blockedWheel).value("status")=="unavailable" && count("wheels")==1);
+        overlay.setVisible(false);
         auto finalObserve=cmd("observe");NativeWebViewItem::featurePicoBrowser(finalObserve);
         item->acceptFeatureWebDOM(grant,1,QUrl(url),finalObserve.value("commandId").toString(),quoted(dom(finalObserve,2)));events();
         auto finalPacket=NativeWebViewItem::featurePicoBrowser(finalObserve);assert(finalPacket.value("status")=="ready");
-        const auto history=finalPacket.value("source").toMap().value("inputs").toList();assert(history.size()==3);
+        const auto history=finalPacket.value("source").toMap().value("inputs").toList();assert(history.size()==5);
         assert(!history[0].toMap().value("geometryRaw").isNull() && !history[0].toMap().value("focusRaw").isNull()
             && history[0].toMap().value("nativeBeforeIME").toMap().value("text")=="old");
         QFile originalFile(QString::fromLocal8Bit(argv[1])+"/native-originals.json");assert(originalFile.open(QFile::WriteOnly));
-        originalFile.write(QJsonDocument::fromVariant(QVariantMap{{"request",finalObserve},{"packet",finalPacket}}).toJson(QJsonDocument::Compact));originalFile.close();
+        originalFile.write(QJsonDocument::fromVariant(QVariantMap{{"request",finalObserve},{"packet",finalPacket},{"measureRequest",measure},{"measurePacket",measured}}).toJson(QJsonDocument::Compact));originalFile.close();
         auto retire=cmd("retire");assert(NativeWebViewItem::featurePicoBrowser(retire).isEmpty());
         item.reset();events();QCoreApplication::sendPostedEvents(nullptr,QEvent::DeferredDelete);events();
         assert(NativeWebViewItem::featurePicoBrowser(retire).value("status")=="ready");

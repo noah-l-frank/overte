@@ -806,3 +806,18 @@ no assertion is dropped or default120s group timeout changed. Complete Pico
 factory/peer source-build admission, Erase/profile/native-input restoration,
 Qt/process/independent final absence and recovery authority remain unfinished.
 Chat is partial and no new public complete feature capability is advertised.
+
+
+## Original Pico browser measurement and wheel continuation
+
+Browser source v2 adds passive actual offscreen geometry and normal Pico surface
+wheels. The reveal recipe requires independently measured movement after each
+journaled wheel; ignored/lost input, occlusion, foreign documents and read-only
+roles cannot advance to a pointer. See [the browser original-source handoff](BROWSER_ORIGINALS.md).
+The owning37 host cases and coverage pass2/106 groups in16.10s. Selected native
+backend/provider/surface bodies and production Java compile; Android DOM,
+scheduling and Tablet singleton remain explicit seams. Four repository suites
+pass in4.93s. The initial harness mismatched a requested scroll-up control with
+scroll-down geometry; correcting that synthetic original made the unchanged
+strict validator pass. App entry, full stereo/actor flow and final retirement
+remain open. Completed areas stay3/14; no APK/device qualification is claimed.

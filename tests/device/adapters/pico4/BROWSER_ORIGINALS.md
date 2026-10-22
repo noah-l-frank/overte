@@ -63,3 +63,34 @@ captures and markers, independent actor publication, original Script/service
 closure and durable end-to-end finalization. World input also needs its actual
 Pico entity/VR surface route; this tablet provider rejects world items. The
 reserved reference profile does not qualify media or general web origins.
+
+
+## Original geometry and normal wheel route (2026-10-22)
+
+Pico browser profile v2 retains v1 archives; fresh commands require v2. A closed
+`measure` command binds the original native handle/creation/grant/page and returns
+the original JavaScript geometry bytes plus the actual native document identity.
+It adds no input history and cannot send a pointer, IME event or wheel. Offscreen
+bounds remain original measurements, not valid pointer coordinates. The unchanged
+HTTP DOM v1 source and existing geometry schema retain their original fields.
+
+`PicoTabletBrowserIO.input_visible` measures a fixed fixture control, issues at most
+16 ordinary wheels during a ten-second reveal budget, and requires independent
+measured movement after each delivery. It preserves one journal intent before
+each wheel/pointer input, refuses occlusion/disconnection/replacement documents,
+and never repeats an uncertain or ignored wheel. Read-only actor sources can
+measure but cannot reveal an offscreen target with an input.
+
+The actual Pico provider revalidates the current shown system tablet root,
+surface/window, visibility, clipping, occlusion, application state and 1.5-second
+original geometry age before the ordinary `sendPointerScroll` route. Native input
+history records the actual wheel-attempt epoch separately from pointer/IME
+attempts. Java observes a fixed control; no DOM scroll/state setter, WebView
+`scrollTo`, Phone touch actuator or caller coordinates are introduced.
+
+The selected common native backend, original Pico surface/provider bodies and
+production Android Java APIs compile in the host proof. The Java/DOM scheduler and
+Tablet singleton remain declared seams. Native wheel delivery and the pure
+reveal-owner counterexamples do not establish Android scroll behavior or HMD
+pixels. App entry, stereo image ownership and the complete shared journey/final
+retirement remain partial.
