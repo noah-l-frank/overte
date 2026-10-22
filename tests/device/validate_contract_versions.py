@@ -10,6 +10,10 @@ from pathlib import Path
 
 REQUIRED = {
     "native-script-work": 2,
+    "pico-create-rez-controller": 1,
+    "pico-create-rez-provider": 1,
+    "pico-create-rez-source": 1,
+    "pico-create-rez-owner": 1,
     "pico-create-feature-completion": 1,
     "pico-create-feature-owner": 3,
     "pico-create-model-resource-join": 1,
