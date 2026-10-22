@@ -1349,3 +1349,9 @@ sensitivity is retained, not relabeled as product or device qualification.
 The owning groups now include the new cleanup, compiled-model and kernel-FD
 checks, plus a separate bounded Erase/restore group. Catalog count: 106 groups;
 completed areas remain 3/14.
+
+The subsequent `25e42fab68` capture-owner v2 selection binds retirement to the
+original cache-lifetime journal and actual tombstone/inspect identities. Generic
+observe/retire cannot send a second retire or discard that owner's journal. All
+39 cache-lifetime/native-observation host cases pass in 1.415s; they are registered
+in the existing owning Actor/source group. The full parent cleanup is pending.
