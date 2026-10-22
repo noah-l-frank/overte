@@ -540,6 +540,15 @@ def create_adapter(args, base_class):
             return PicoEmoteSources(self._emote_source_store(target, role), binding, phase, role,
                 source_lock, artifact_root, readers, native.guard, native.clock_ms, monotonic=native.monotonic)
 
+        @_private
+        def _create_picker(self, target, run):
+            from adapters.pico4.create_picker_owner import PicoCreatePicker
+            return PicoCreatePicker(self,target,run)
+
+        def _create_picker_owned(self, target):
+            from adapters.pico4.create_picker_owner import PicoCreatePicker
+            return PicoCreatePicker.owned_target(self,target)
+
         def _create_file_controls(self, target, intent, directory, run, ticket, role, before):
             from adapters.pico4.create_file_ui import CreateFileUI, PicoCreateFileIO
             ui, _observe, _binding = self._script_runtime(target)
@@ -561,6 +570,14 @@ def create_adapter(args, base_class):
             return NativeCreateDialogs(native.send,
                 lambda:self.adb.read_debug_app_file(target,'org.overte.pico','files/overte-e2e/'+CREATE_DIALOG_FILE,attempts=1),
                 native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep)
+
+        @_private
+        def _create_entity_observer(self, target, run):
+            from adapters.pico4.create_entities import NativeCreateEntities, FILE as CREATE_ENTITIES_FILE
+            native=self._native_feature_observer(target)
+            return NativeCreateEntities(native.send,
+                lambda:self.adb.read_debug_app_file(target,'org.overte.pico','files/overte-e2e/'+CREATE_ENTITIES_FILE,attempts=1),
+                native.clock_ms,native.guard,native.pid,run=run,monotonic=native.monotonic,sleep=native.sleep)
 
         def _chat_controls(self, target, intent, run):
             from adapters.token_chat_ui import TokenChatUI
@@ -1393,7 +1410,7 @@ def create_adapter(args, base_class):
                     discard_stopped_state(path)
                 state, ui = self._script_paths(target)
                 discard_stopped_state(ui)
-                _need(not audio_error and not create_error and not self._create_management(target).owned()
+                _need(not audio_error and not create_error and not self._create_management(target).owned() and not self._create_picker_owned(target)
                       and not feature_error and not script_error and not probe_error and not origin_error and not chat_error and PrivateFeatureState(state).read() is None
                       and self._lifecycle_back_store(target).read() is None
                       and (self._lifecycle_world_store(target,create=False) is None or self._lifecycle_world_store(target,create=False).read() is None)

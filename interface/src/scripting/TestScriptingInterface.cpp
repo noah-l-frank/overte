@@ -46,6 +46,7 @@
 #include <XMLHttpRequestClass.h>
 #include "../../../tests/device/native/PrivateWorldRenderReceipts.h"
 #include "../../../tests/device/native/PrivateCreateFiles.h"
+#include <algorithm>
 #include <PointerManager.h>
 #include <ui/Keyboard.h>
 #include "HMDScriptingInterface.h"
@@ -1105,6 +1106,87 @@ QVariantMap TestScriptingInterface::featureCreateFiles(const QVariantMap& comman
 #endif
 
 #if defined(ANDROID_APP_PICO_INTERFACE)
+QVariantMap TestScriptingInterface::featureCreateEntities(const QVariantMap& command) {
+    if (QThread::currentThread()!=thread()) {
+        if (!thread() || !thread()->isRunning()) {return {};}
+        QVariantMap result;
+        QMetaObject::invokeMethod(this,[&]{result=featureCreateEntities(command);},Qt::BlockingQueuedConnection);return result;
+    }
+    QStringList fields {"schemaVersion","commandId","action","runId"};fields.sort();
+    const auto json=QJsonObject::fromVariantMap(command);
+    const auto id=command.value("commandId").toString(),run=command.value("runId").toString();
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript") || command.keys()!=fields
+            || !json.value("schemaVersion").isDouble() || json.value("schemaVersion").toDouble()!=1
+            || json.value("action").toString()!="feature-create-entities-observe"
+            || !json.value("commandId").isString() || !json.value("runId").isString()
+            || !QRegularExpression("\\A[0-9a-f]{32}\\z").match(id).hasMatch()
+            || !QRegularExpression("\\A[0-9a-f]{32}\\z").match(run).hasMatch()) {return {};}
+    if (_featureCreateEntitiesCommands.contains(id)) {
+        return _featureCreateEntitiesCommands.value(id)==command ? _featureCreateEntitiesResults.value(id) : QVariantMap{};
+    }
+    if (_featureCreateEntitiesCommands.size()>=512 || _featureCreateEntitiesSequence>=9007199254740991ULL
+            || (!_featureCreateEntityIds.contains(run) && _featureCreateEntityIds.size()>=4)
+            || !DependencyManager::isSet<EntityScriptingInterface>() || !DependencyManager::isSet<AvatarManager>()
+            || !DependencyManager::isSet<NodeList>()) {return {};}
+    _featureCreateEntitiesCommands.insert(id,command); // A nonce never recaptures a later effect.
+    const auto requested=QDateTime::currentMSecsSinceEpoch();
+    const auto entities=DependencyManager::get<EntityScriptingInterface>();
+    const auto avatar=DependencyManager::get<AvatarManager>()->getMyAvatar();
+    const auto nodes=DependencyManager::get<NodeList>();
+    if (!entities || !entities->getEntityTree() || !avatar || !nodes) {return {};}
+    const auto center=avatar->getWorldPosition();
+    auto vector=[](const glm::vec3& v) {return QVariantList{v.x,v.y,v.z};};
+    auto rotation=[](const glm::quat& q) {return QVariantList{q.x,q.y,q.z,q.w};};
+    auto properties=[&](const EntityItemProperties& p) -> QVariantMap {
+        const auto host=p.getEntityHostType();
+        return {{"name",p.getName()},{"type",EntityTypes::getEntityTypeName(p.getType())},
+            {"hostType",host==entity::HostType::DOMAIN ? "domain" : host==entity::HostType::AVATAR ? "avatar" : "local"},
+            {"modelUrl",p.getModelURL()},{"textures",p.getTextures()},
+            {"position",vector(p.getPosition())},{"dimensions",vector(p.getDimensions())},{"rotation",rotation(p.getRotation())},
+            {"parentId",p.getParentID().isNull() ? QVariant() : QVariant(p.getParentID().toString(QUuid::WithoutBraces))},
+            {"visible",p.getVisible()},{"locked",p.getLocked()}};
+    };
+    auto bounded=[](const EntityItemProperties& p) {
+        return p.getName().size()<=256 && p.getModelURL().size()<=4096 && p.getTextures().size()<=8192;
+    };
+    const auto mask=PickFilter::getBitMask(PickFilter::FlagBit::DOMAIN_ENTITIES)|PickFilter::getBitMask(PickFilter::FlagBit::COARSE);
+    const auto scan=entities->findEntities(center,128.0f,mask);
+    if (scan.size()>1024) {return {};}
+    auto& owned=_featureCreateEntityIds[run];QVariantList unowned;
+    const auto prefix=QString("e2e-")+run+"-";
+    for (const auto& entityId:scan) {
+        const auto p=entities->getEntityProperties(entityId);
+        if (p.getType()==EntityTypes::Unknown || !bounded(p)) {return {};}
+        if (p.getName().startsWith(prefix)) {owned.insert(entityId);}
+        else if (!owned.contains(entityId)) {
+            const auto hash=QCryptographicHash::hash(QJsonDocument::fromVariant(properties(p)).toJson(QJsonDocument::Compact),QCryptographicHash::Sha256).toHex();
+            unowned.append(QVariantMap{{"id",entityId.toString(QUuid::WithoutBraces)},{"sha256",QString::fromLatin1(hash)}});
+        }
+    }
+    if (owned.size()>32) {return {};}
+    QStringList ordered;for (const auto& entityId:owned) {ordered.append(entityId.toString(QUuid::WithoutBraces));}ordered.sort();
+    QVariantList present,absent;
+    for (const auto& text:ordered) {
+        const auto p=entities->getEntityProperties(QUuid(text));
+        if (p.getType()==EntityTypes::Unknown) {absent.append(text);continue;}
+        if (!bounded(p)) {return {};}
+        auto row=properties(p);row.insert("id",text);row.insert("lastEditedEpochUs",static_cast<qulonglong>(p.getLastEdited()));present.append(row);
+    }
+    std::sort(unowned.begin(),unowned.end(),[](const QVariant& a,const QVariant& b) {return a.toMap().value("id").toString()<b.toMap().value("id").toString();});
+    const auto& domain=nodes->getDomainHandler();
+    const QVariantMap source{{"createEntitySourceVersion",1},{"runId",run},{"domainConnected",domain.isConnected()},
+        {"domainId",domain.getUUID().isNull() ? QVariant() : QVariant(domain.getUUID().toString(QUuid::WithoutBraces))},
+        {"sessionId",nodes->getSessionUUID().isNull() ? QVariant() : QVariant(nodes->getSessionUUID().toString(QUuid::WithoutBraces))},
+        {"canRez",nodes->getThisNodeCanRez()},{"canRezTmp",nodes->getThisNodeCanRezTmp()},
+        {"entities",present},{"absentIds",absent},{"scan",QVariantMap{{"center",vector(center)},
+            {"radiusMeters",128},{"propertyScope","create-domain-v1"},{"scannedEntities",scan.size()},{"unowned",unowned}}}};
+    const QVariantMap result{{"schemaVersion",1},{"requestId",id},{"instance",_featureObservationInstance},
+        {"sequence",static_cast<qulonglong>(++_featureCreateEntitiesSequence)},{"requestedEpochMs",requested},
+        {"capturedEpochMs",QDateTime::currentMSecsSinceEpoch()},{"processId",QCoreApplication::applicationPid()},{"source",source}};
+    _featureCreateEntitiesResults.insert(id,result);return result;
+}
+
 QVariantMap TestScriptingInterface::featureCreateDialogs(const QString& requestId) {
     if (QThread::currentThread()!=thread()) {
         if (!thread() || !thread()->isRunning()) {return {};}

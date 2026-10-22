@@ -88,8 +88,11 @@ The next executable source work is:
   actual connections and in-flight dispatches. Compose these with the full
   feature and actual domain effects. The
   [original dialog delivery/context source](CREATE_DIALOG_SOURCE.md) now joins
-  actual native listener delivery to original UI roots; the durable cancel/import
-  owner is the next composition. Script
+  actual native listener delivery to original UI roots. The
+  [durable picker owner](CREATE_PICKER_OWNER.md) now composes normal Cancel,
+  Domain Import and Delete, original callback/compile/delivery joins, actual
+  local domain-tree effects and retained-context/file retirement. It remains
+  private; independent peer/render effects and the full driver are missing. Script
   file roots and picker identities must remain distinct. Observe cancel and
   accept through their original retained callbacks and a quiet absence window.
 - Compose normal Domain/New Model/Properties input with actual selected UUID,

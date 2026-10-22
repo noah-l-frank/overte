@@ -76,6 +76,8 @@ TESTS = (
     test("create-file-native-ui", "interaction", PYTHON, "device/test_create_file_ui_native.py", requires=("c++", "pkg-config")),
     test("create-original-files", "interaction", PYTHON, "device/test_create_files_native.py", requires=("c++", "pkg-config")),
     test("create-callback-native", "interaction", PYTHON, "device/test_create_callbacks_native.py", requires=("c++", "pkg-config")),
+    test("create-picker-owner", "interaction", PYTHON, "device/test_create_picker_owner.py"),
+    test("create-entities-native", "interaction", PYTHON, "device/test_create_entities_native.py", requires=("c++", "pkg-config")),
     test("create-dialog-native", "interaction", PYTHON, "device/test_create_dialogs_native.py", requires=("c++", "pkg-config")),
     test("normal-chat", "interaction", PYTHON, "device/test_normal_chat.py"),
     test("normal-emote", "interaction", PYTHON, "device/test_normal_emote.py"),
