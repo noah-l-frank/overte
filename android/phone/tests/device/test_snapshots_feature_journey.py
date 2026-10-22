@@ -209,6 +209,29 @@ class SnapshotJourneyTests(unittest.TestCase):
         self.assertEqual(1,result['state']['saved']);self.assertEqual(1,len(self.model.os_files))
         self.assertTrue(all(path.read_bytes()==self.model.raw_png for path in self.model.os_files.values()))
 
+    def test_saved_original_remains_independently_readable_inside_share_scope(self):
+        self.client.activate('c'*32);self.invoke('feature.snapshots.observe',dict(contractVersion=VERSION,runId=RUN,afterSequence=0))
+        self.act('open');self.act('capture',dict(mode='still',format='png'));self.act('save');self.act('share-open')
+        result=self.invoke('feature.snapshots.observe',dict(contractVersion=VERSION,runId=RUN,afterSequence=1))
+        self.assertEqual(1,result['state']['saved']);self.assertTrue(result['state']['shareSheet'])
+        self.assertTrue(all(path.read_bytes()==self.model.raw_png for path in self.model.os_files.values()))
+
+    def test_ignored_ordinary_capture_does_not_become_measured_effect(self):
+        self.client.activate('c'*32);self.invoke('feature.snapshots.observe',dict(contractVersion=VERSION,runId=RUN,afterSequence=0))
+        self.act('open');self.model.product.ignored.add('snapshot.capture')
+        self.act('capture',dict(mode='still',format='png'))
+        result=self.invoke('feature.snapshots.observe',dict(contractVersion=VERSION,runId=RUN,afterSequence=1))
+        self.assertEqual(0,result['state']['files']);self.assertEqual([],result['state']['captureHistory'])
+        self.assertIsNone(self.model.current_path)
+
+    def test_missing_external_original_bytes_cannot_be_observed_as_saved(self):
+        self.client.activate('c'*32);self.invoke('feature.snapshots.observe',dict(contractVersion=VERSION,runId=RUN,afterSequence=0))
+        self.act('open');self.act('capture',dict(mode='still',format='png'));self.act('save')
+        copy=self.model.readbacks['files'][0]
+        (self.root/'snapshot-app/files'/Path(copy['path']).parent.name/Path(copy['path']).name).unlink()
+        with self.assertRaises(Exception):self.invoke('feature.snapshots.observe',dict(contractVersion=VERSION,runId=RUN,afterSequence=1))
+        self.assertIsNotNone(PrivateFeatureState(self.root/'phone-snapshots-feature.json').read())
+
     def test_separate_actor_publishes_only_its_own_original_baseline(self):
         self.client.activate('c'*32);self.invoke('feature.snapshots.observe',dict(contractVersion=VERSION,runId=RUN,afterSequence=0))
         self.start_actor();deadline=time.monotonic()+15
