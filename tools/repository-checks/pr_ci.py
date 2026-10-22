@@ -84,6 +84,31 @@ class API(C.GitHub):
         raise C.ContextError("native metadata listing exceeds bound")
 
 
+
+class ReuseAPI(API):
+    """Independent, bounded provenance budget for at most three ancestor levels.
+
+    Parent authentication must not spend the current execution observer's API
+    allowance. Only immutable Git object reads may be shared across origins;
+    run, attempt, suite, PR and artifact bookends always reach GitHub again.
+    """
+    max_calls = 192
+
+    def __init__(self, deadline=None):
+        super().__init__(deadline=deadline)
+        self.immutable = {}
+
+    def get(self, endpoint):
+        immutable = type(endpoint) is str and re.fullmatch(
+            r"git/(?:commits/[0-9a-f]{40}|blobs/[0-9a-f]{40}|trees/[0-9a-f]{40}\?recursive=1)", endpoint)
+        if not immutable:
+            return super().get(endpoint)
+        if endpoint not in self.immutable:
+            self.immutable[endpoint] = super().get(endpoint)
+        # A consumer cannot mutate another origin's validated object snapshot.
+        return json.loads(C.canonical(self.immutable[endpoint]))
+
+
 def expected_owners(plan):
     return {"policy": True, "host": bool(plan["host_suites"]),
             "npm": bool(plan["npm_projects"]), "native": plan["native"]["mode"] != "skip",
@@ -506,7 +531,8 @@ def gate(event, event_name, number, controller, *, timeout=5700, pause=time.slee
                         run_id=identity["id"], run_attempt=identity["run_attempt"])
                     if record.get('task_results') == 'required':
                         import pr_ci_reuse
-                        pr_ci_reuse.verify_current(api, context, plan, artifacts, remote_selection)
+                        reuse_api = ReuseAPI(deadline=min(deadline, time.monotonic() + 60))
+                        pr_ci_reuse.verify_current(reuse_api, context, plan, artifacts, remote_selection)
                     uploads = {}
                     for language in plan["codeql_languages"]:
                         upload_name = f"codeql-upload-{identity['id']}-{identity['run_attempt']}-{language}"

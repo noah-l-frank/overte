@@ -247,5 +247,115 @@ class RuntimeIdentity(unittest.TestCase):
             config.write_text(config.read_text().replace('/usr/bin','/other/interpreter'))
             self.assertNotEqual(first, REUSE.observed_runtime([str(right)]))
 
+class ReuseBudget(unittest.TestCase):
+    def fixture(self):
+        case=ReuseProvenance();case.setUp();f=case.f
+        second={**deepcopy(case.task),'id':'suite:second','command':['python','tests/second.py'],
+                'reuse_key':'sha256:'+'c'*64}
+        f.plan['tasks'].append(second)
+        f.record['plan']=deepcopy(f.plan)
+        case.command_record['results'].append({**deepcopy(case.command_row),
+            'task':second['id'],'command':second['command'],'input_key':second['reuse_key']})
+        case.refresh_artifacts()
+        def remap(value):
+            if type(value) is int:return {123:124,789:790,321:421,322:422,323:423}.get(value,value)
+            if type(value) is str:
+                for before,after in [('actions/runs/123','actions/runs/124'),('check-suites/789','check-suites/790'),
+                        ('123-1','124-1'),('actions/artifacts/321','actions/artifacts/421'),
+                        ('actions/artifacts/322','actions/artifacts/422'),('actions/artifacts/323','actions/artifacts/423')]:
+                    value=value.replace(before,after)
+                return value
+            if type(value) is dict:return {remap(k):remap(v) for k,v in value.items()}
+            if type(value) is list:return [remap(v) for v in value]
+            return value
+        for key,value in list(f.api.objects.items()):
+            changed=remap(key)
+            if changed!=key:f.api.objects[changed]=remap(value)
+        for key,value in list(f.api.lists.items()):
+            changed=remap(key)
+            if changed!=key:f.api.lists[changed]=remap(value)
+        for old,new in [(321,421),(322,422),(323,423)]:
+            with zipfile.ZipFile(io.BytesIO(case.archives[old])) as archive:
+                member=archive.namelist()[0];value=remap(json.loads(archive.read(member)))
+            stream=io.BytesIO()
+            with zipfile.ZipFile(stream,'w',compression=zipfile.ZIP_DEFLATED) as archive:
+                archive.writestr(member,CLI.C.canonical(value))
+            raw=stream.getvalue();case.archives[new]=raw
+            for row in [f.api.objects['actions/artifacts/'+str(new)],
+                        *f.api.lists['actions/runs/124/artifacts']]:
+                if row['id']==new:row.update(size_in_bytes=len(raw),digest='sha256:'+hashlib.sha256(raw).hexdigest())
+        context={**case.child,'target':'android-vr-pico','head_ref':'android-vr','run_id':125}
+        rows=[{**deepcopy(row),'executed':False,'origin':{'run_id':origin,'run_attempt':1}}
+              for row,origin in zip(case.command_record['results'],[123,124])]
+        record={'kind':'pr-ci-task-results-v1','context':context,'lane':'host','project':'','results':rows}
+        stream=io.BytesIO()
+        with zipfile.ZipFile(stream,'w',compression=zipfile.ZIP_DEFLATED) as archive:
+            archive.writestr('tasks.json',CLI.C.canonical(record))
+        raw=stream.getvalue();case.archives[521]=raw
+        artifact={**deepcopy(f.api.objects['actions/artifacts/323']),'id':521,
+            'name':REUSE.artifact_name(context,'host'),'size_in_bytes':len(raw),
+            'digest':'sha256:'+hashlib.sha256(raw).hexdigest(),
+            'url':T.API_ROOT+'/actions/artifacts/521',
+            'archive_download_url':T.API_ROOT+'/actions/artifacts/521/zip',
+            'workflow_run':{'id':125,'repository_id':CLI.C.REPOSITORY_ID,
+                'head_repository_id':CLI.C.REPOSITORY_ID,'head_sha':context['head']}}
+        f.api.objects['actions/artifacts/521']=artifact
+        f.api.objects['git/trees/'+f.tree+'?recursive=1']=case.tree_response(f.actual_tree,f.tree)
+        def recompute(api,source):
+            base=api.get('git/commits/'+source['base'])
+            CLI.remote_tree(api,base['tree']['sha']);CLI.remote_tree(api,source['tree'])
+            return deepcopy(f.plan),deepcopy(f.actual_tree),deepcopy(f.source_tree)
+        return case,context,[artifact],recompute
+
+    def test_distinct_origins_have_their_own_bounded_budget_and_keep_mutable_bookends(self):
+        import time
+        case,context,artifacts,recompute=self.fixture();requests=[]
+        class Response:
+            status=200
+            def __init__(self,url,value):self.url,self.raw=url,CLI.C.canonical(value)
+            def __enter__(self):return self
+            def __exit__(self,*args):return False
+            def geturl(self):return self.url
+            def read(self,limit):return self.raw[:limit]
+        class Opener:
+            def open(self,request,timeout):
+                url=request.full_url;endpoint=url.split(T.API_ROOT+'/',1)[1];requests.append(endpoint)
+                if '?per_page=100&page=1' in endpoint:
+                    key=endpoint.split('?per_page=',1)[0]
+                    field='jobs' if key.endswith('/jobs') else 'artifacts'
+                    value={field:case.f.api.pages(key,field=field)}
+                else:value=case.f.api.get(endpoint)
+                return Response(url,value)
+        with patch.dict(os.environ,{'GH_TOKEN':'offline-read-only-fixture'}),\
+                patch.object(CLI.C.urllib.request,'build_opener',return_value=Opener()),\
+                patch.object(T,'_download',side_effect=lambda api,artifact:case.archives[artifact]):
+            observer=CLI.API(deadline=time.monotonic()+60)
+            for _ in range(75):observer.get('actions/workflows/repository-checks.yml')
+            with self.assertRaisesRegex(ValueError,'budget exhausted'):
+                REUSE.verify_current(observer,context,case.f.plan,artifacts,recompute)
+            spent=observer.calls
+            reuse=CLI.ReuseAPI(deadline=time.monotonic()+60)
+            REUSE.verify_current(reuse,context,case.f.plan,artifacts,recompute)
+            self.assertEqual(observer.calls,spent)
+            self.assertLessEqual(reuse.calls,reuse.max_calls)
+            # Mutable origin run metadata is fetched at both ends for both
+            # sources; immutable Git objects may be shared across their proofs.
+            for run in (123,124):self.assertGreaterEqual(requests.count('actions/runs/'+str(run)),2)
+            self.assertEqual(sum(k.startswith('git/trees/') for k in reuse.immutable),2)
+
+    def test_native_final_gate_constructs_a_separate_deadline_bounded_reuse_client(self):
+        import time
+        f=FIXTURE.GateTests();f.setUp();f.plan['tasks']=[]
+        f.record.update(plan=deepcopy(f.plan),task_results='required')
+        before=time.monotonic()
+        with patch.object(FIXTURE.CLI,'ReuseAPI',wraps=FIXTURE.CLI.ReuseAPI) as constructor:
+            result=f.run_gate()
+        self.assertEqual(result['result'],'success')
+        self.assertEqual(constructor.call_count,1)
+        deadline=constructor.call_args.kwargs['deadline']
+        self.assertGreater(deadline,before)
+        self.assertLessEqual(deadline,time.monotonic()+60)
+        self.assertLessEqual(deadline,before+10.25)  # Fixture gate budget is ten seconds.
+
 
 if __name__=='__main__':unittest.main()
