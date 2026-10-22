@@ -252,3 +252,37 @@ checks the strict Python join and native packet boundary. The original
 ordering, ignored idle Cancel, foreign/retired completions and the unchanged
 desktop path with an explicit native observer seam. Full normal Qt fast-cancel
 automation, extended owner, output cleanup and devices remain unfinished.
+
+## Normal original Qt controls v1
+
+`phone-snapshot-ui` uses the existing `NormalControlUi` source-token/input
+mechanism (Phone surface 10). Qualified original Snapshot review controls cover
+name, real mode/format choices, Capture, Cancel capture/upload/system request,
+scrolling and the exact original image row's Save/Share/Upload buttons. Dynamic
+export IDs are SHA-256 labels of actual privately observed image paths; neither
+a desired path nor requested success can select an unrelated row. The page must
+come from the original native review QML context. Duplicate controls, replaced
+objects, stale/consumed tokens and foreign overlays fail closed. Ordinary mouse,
+focused field and keyboard choice events enter the actual rendered Qt window;
+no script handler, property setter or export API supplies an input shortcut.
+
+`PhoneSnapshotIO` reuses `PhoneScriptFileIO`'s candidate/process-bound private
+probe transport, five-second exchange budget and 1.5-second source freshness.
+It retains original native packet metadata and requires durable intent before
+input delivery. Read-only actor transport permits observation only. A delivered
+input never creates capture/file/export evidence; the extended owner must obtain
+those independently from original producers. The public Snapshot triple stays
+absent until its complete composition exists.
+
+`test_snapshot_native_controls.py` compiles the unchanged normal-control helper
+and actual field-input implementation with real Qt6. It loads unchanged product
+review/Android-backend QML with explicit script/OS service seams, then checks
+real name/choice/capture/cancel/Save/Share events and actual original image-row
+arguments. Its actual Qt observation is additionally checked by the strict Python
+reader; only the transport envelope's command nonce/action are supplied at that
+explicit boundary. Foreign/duplicate components, replaced tokens, consumed input
+and a real obstructing overlay remain red. The four native cases pass; the
+47-case selected source/transport/native composition passes. These tests prove
+no Android backend, successful OS export, fast pre-render cancel or device
+acceptance. `test_snapshot_controls.py` separately checks missing/stale/foreign
+packets, ACK-only inputs, exact paths, closed Probe grammar and read-only refusal.

@@ -12,6 +12,7 @@
 #include "NormalChatControls.h"
 #include "NormalEmoteControls.h"
 #include "NormalNavigationControls.h"
+#include "NormalSnapshotControls.h"
 #include "NormalAvatarPeopleControls.h"
 #include <ui/NativeFieldInput.h>
 #include <QCoreApplication>
@@ -33,7 +34,7 @@ namespace overte::e2e {
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 class NormalControlUi {
 public:
-    enum class Surface { ScriptFiles, Audio, Graphics, Login, Create, Chat, Emote, Navigation, AvatarPeople };
+    enum class Surface { ScriptFiles, Audio, Graphics, Login, Create, Chat, Emote, Navigation, AvatarPeople, Snapshot=10 };
     explicit NormalControlUi(Surface surface = Surface::ScriptFiles) : _surface(surface), _instance(nonce()), _generation(nonce()) { _clock.start(); }
 
     QJsonObject observe(QQuickItem* root, QQuickWindow* window, const AudioUiContext& audio = {}, const GraphicsUiContext& graphics = {}, const LoginUiContext& login = {}) {
@@ -66,7 +67,8 @@ public:
                     : _surface == Surface::Chat ? chatControlId(item)
                     : _surface == Surface::Emote ? emoteControlId(item)
                     : _surface == Surface::Navigation ? navigationControlId(item)
-                    : _surface == Surface::AvatarPeople ? avatarPeopleControlId(item) : scriptFileControlId(item);
+                    : _surface == Surface::AvatarPeople ? avatarPeopleControlId(item)
+                    : _surface == Surface::Snapshot ? snapshotControlId(item) : scriptFileControlId(item);
                 if (!id.isEmpty()) {
                     if (controls.contains(id)) { ambiguous = true; return; }
                     const auto previous = _controls.value(id);
@@ -77,7 +79,8 @@ public:
                         : _surface == Surface::Chat ? chatControlSource(item,id)
                         : _surface == Surface::Emote ? emoteControlSource(item,id)
                         : _surface == Surface::Navigation ? navigationControlSource(item,id)
-                        : _surface == Surface::AvatarPeople ? avatarPeopleControlSource(item,id) : scriptFileControlSource(item);
+                        : _surface == Surface::AvatarPeople ? avatarPeopleControlSource(item,id)
+                        : _surface == Surface::Snapshot ? snapshotControlSource(item,id) : scriptFileControlSource(item);
                     if ((_surface==Surface::Chat || _surface==Surface::Emote) && source.isEmpty()) { ambiguous=true;return; }
                     controls.insert(id, {item, previous.item == item && previous.source == source ? previous.token : nonce(), source});
                 }
@@ -111,6 +114,7 @@ public:
             else if (_surface == Surface::Emote) { appendEmoteControlObservation(row,control.item,id); }
             else if (_surface == Surface::Navigation) { appendNavigationControlObservation(row,control.item,id); }
             else if (_surface == Surface::AvatarPeople) { appendAvatarPeopleControl(row,control.item,id); }
+            else if (_surface == Surface::Snapshot) { appendSnapshotControl(row,control.item,id); }
             else { appendScriptFileObservation(row, control.item, id); }
             rows.append(row);
         }
@@ -127,7 +131,8 @@ public:
             : _surface == Surface::Chat ? "chatControlsVersion"
             : _surface == Surface::Emote ? "emoteControlsVersion"
             : _surface == Surface::Navigation ? "navigationControlsVersion"
-            : _surface == Surface::AvatarPeople ? "avatarPeopleControlsVersion" : "fileControlsVersion"] = _surface==Surface::Login ? 2 : 1;
+            : _surface == Surface::AvatarPeople ? "avatarPeopleControlsVersion"
+            : _surface == Surface::Snapshot ? "snapshotControlsVersion" : "fileControlsVersion"] = _surface==Surface::Login ? 2 : 1;
 #if defined(ANDROID_APP_PHONE_INTERFACE)
         if (_surface==Surface::ScriptFiles) { result["scriptInventory"]=scriptInventory.observation(ready); }
 #endif
@@ -169,6 +174,7 @@ public:
                     : _surface == Surface::Emote ? action != "activate" && action != "scroll"
                     : _surface == Surface::Navigation ? action != "activate" && action != "replace"
                     : _surface == Surface::AvatarPeople ? action != "activate" && action != "replace" && action != "set-value" && action != "scroll"
+                    : _surface == Surface::Snapshot ? action != "activate" && action != "replace" && action != "select-index" && action != "scroll"
                     : action != "activate" && action != "replace" && action != "submit" && action != "select-index")) { return result; }
         // Consume intent before dispatch; never replay uncertain native input.
         _lastCommandSequence = sequence;
@@ -177,7 +183,23 @@ public:
         if (!control.item || !control.item->isEnabled() || command.value("controlToken") != QJsonValue(control.token)
                 || visibleRect(control.item, window).isEmpty()) { return result; }
         bool delivered {false};
-        if (_surface == Surface::AvatarPeople) {
+        if (_surface == Surface::Snapshot) {
+            QJsonObject row;appendSnapshotControl(row,control.item,id);
+            if (!row.value("inputReady").toBool()) { return result; }
+            const auto point=control.item->mapToScene(QPointF(control.item->width()/2,control.item->height()/2));
+            if (action=="scroll" && id=="snapshot.scrollbar") {
+                QPointF target;
+                if (snapshotScrollPoint(control.item,command.value("direction").toString(),target)
+                    && ownsPoint(control.item,window,target) && pointerAt) { delivered=pointerAt(control.item,target); }
+            } else if (action=="activate" && id!="snapshot.page" && id!="snapshot.scrollbar" && pointerClick
+                && ownsPoint(control.item,window,point)) { delivered=pointerClick(control.item); }
+            else if (action=="replace" && id=="snapshot.name" && command.value("text").isString()
+                && snapshotText(command.value("text").toString()) && ownsPoint(control.item,window,point)) {
+                delivered=overte::ui::replaceFocusedField(control.item,window,command.value("text").toString());
+            } else if (action=="select-index" && snapshotChoice(id)) {
+                qint64 index=0;if (integer(command.value("index"),index)) { delivered=selectSnapshotChoice(control.item,window,index); }
+            }
+        } else if (_surface == Surface::AvatarPeople) {
             QJsonObject row;appendAvatarPeopleControl(row,control.item,id);
             if (!row.value("inputReady").toBool()) { return result; }
             const auto center=avatarPeopleActivatePoint(control.item,id);
@@ -363,6 +385,27 @@ public:
         return delivered && original && surface && focused() && key(surface,Qt::Key_Return);
     }
 
+    static bool selectSnapshotChoice(QQuickItem* item,QQuickWindow* window,qint64 index) {
+        if (!item || !window || visibleRect(item,window).isEmpty() || !item->isEnabled()
+                || !snapshotChoice(snapshotControlId(item)) || !item->inherits("QQuickComboBox")
+                || index<0 || index>=32 || index>=item->property("count").toInt()) { return false; }
+        const auto focused=[&] {
+            if (ownsFocus(item,window)) { return true; }
+            auto popup=item->property("popup").value<QObject*>();
+            auto content=popup ? qobject_cast<QQuickItem*>(popup->property("contentItem").value<QObject*>()) : nullptr;
+            if (!popup || !popup->property("visible").toBool() || !content || content->window()!=window) { return false; }
+            for (auto focus=window->activeFocusItem();focus;focus=focus->parentItem()) { if (focus==content) { return true; } }
+            return false;
+        };
+        if (!focused()) { return false; }
+        QPointer<QQuickItem> original=item;QPointer<QQuickWindow> surface=window;
+        bool delivered=key(window,Qt::Key_Home);
+        for (int step=0;delivered && original && surface && step<index;++step) {
+            delivered=focused() && key(surface,Qt::Key_Down);
+        }
+        return delivered && original && surface && focused() && key(surface,Qt::Key_Return);
+    }
+
     // Conservative actual scene hit-test: an overlay/modal outside the
     // resolved item blocks input. Never replace the point by guessed coordinates.
     static bool ownsPoint(QQuickItem* item, QQuickWindow* window, const QPointF& point) {
@@ -436,6 +479,10 @@ public:
 class AvatarPeopleUi : public NormalControlUi {
 public:
     AvatarPeopleUi() : NormalControlUi(Surface::AvatarPeople) {}
+};
+class SnapshotUi : public NormalControlUi {
+public:
+    SnapshotUi() : NormalControlUi(Surface::Snapshot) {}
 };
 class NavigationUi : public NormalControlUi {
 public:

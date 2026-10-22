@@ -124,7 +124,7 @@ def readonly_feature_command(command):
     elif action=='phone-avatar-people-observe':
         from overte_phone_avatar_people_native import command as validate_avatar_people
         validate_avatar_people(command)
-    elif action=='phone-avatar-people-ui':
+    elif action in ('phone-avatar-people-ui','phone-snapshot-ui'):
         request=command.get('request')
         require(set(command)=={'schemaVersion','commandId','action','request'} and type(request) is dict and type(request.get('schemaVersion')) is int
             and request==dict(schemaVersion=1,commandId=command['commandId'],action='observe'),'PHONE_READ_ONLY_COMMAND_REJECTED')
@@ -1619,6 +1619,14 @@ class PhoneAppiumAdapter(AppiumAdapter):
         return NativeAnimationInventory(native.send,
             lambda:transport.read_debug_app_file(device,target['appId'],'files/overte-e2e/'+ANIMATION_INVENTORY_FILE,attempts=1),
             native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep)
+
+    def _snapshot_controls(self,selector,intent,*,read_only=False):
+        from overte_phone_snapshot_controls import PhoneSnapshotIO,FILE
+        native=self._native_feature_observer(selector,read_only=read_only)
+        target=self.target(selector);device=target['capabilities']['appium:udid'];transport=PhoneAdapter(self.candidate).adb
+        return PhoneSnapshotIO(native.send,
+            lambda:transport.read_debug_app_file(device,target['appId'],'files/overte-e2e/'+FILE,attempts=1),
+            native.clock_ms,native.guard,native.pid,intent=intent,monotonic=native.monotonic,sleep=native.sleep)
 
     def _emote_controls(self,selector,intent,*,receipt=None,read_only=False):
         native=self._native_feature_observer(selector,read_only=read_only)

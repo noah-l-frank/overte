@@ -258,6 +258,23 @@
         var allowed=/^(?:tablet\.(?:home|page\.(?:[1-9]|[12][0-9]|3[0-2]))|chat\.(?:entry|input|send|close|local|domain))$/.exec(request.controlId);
         return allowed !== null && allowed[0] === request.controlId;
     }
+    var lastPhoneSnapshotUiRequest = "";
+    function validPhoneSnapshotRequest(request) {
+        if (!request || request.schemaVersion !== 1 || !/^[0-9a-f]{32}$/.test(String(request.commandId))) { return false; }
+        if (request.action === "observe") { return objectKeysMatch(request,["schemaVersion","commandId","action"]); }
+        var keys=["schemaVersion","commandId","action","instance","generation","sequence","observedElapsedMs","controlId","controlToken"];
+        if (request.action === "replace") { keys.push("text"); }
+        if (request.action === "select-index") { keys.push("index"); }
+        if (request.action === "scroll") { keys.push("direction"); }
+        if (["activate","replace","select-index","scroll"].indexOf(request.action) === -1 || !objectKeysMatch(request,keys)
+            || !/^[0-9a-f]{32}$/.test(String(request.instance)) || !/^[0-9a-f]{32}$/.test(String(request.generation))
+            || !/^[0-9a-f]{32}$/.test(String(request.controlToken)) || !phoneFileInteger(request.sequence,1,9007199254740991)
+            || !phoneFileInteger(request.observedElapsedMs,0,9007199254740991) || typeof request.controlId !== "string") { return false; }
+        if (request.action === "replace") { return request.controlId === "snapshot.name" && typeof request.text === "string" && /^[\x20-\x7e]{0,48}$/.test(request.text); }
+        if (request.action === "select-index") { return /^snapshot\.(?:mode|format)$/.test(request.controlId) && phoneFileInteger(request.index,0,7); }
+        if (request.action === "scroll") { return request.controlId === "snapshot.scrollbar" && (request.direction === "up" || request.direction === "down"); }
+        return /^(?:tablet\.(?:home|page\.(?:[1-9]|[12][0-9]|3[0-2]))|snapshot\.(?:entry|name|mode|format|capture|cancel-capture|cancel-upload|cancel-export|(?:save|share|upload)\.[0-9a-f]{64}))$/.test(request.controlId);
+    }
     var lastPhoneCreateRequest = "";
     function validPhoneCreateRequest(request) {
         if (!request || request.schemaVersion !== 1 || !/^[0-9a-f]{32}$/.test(String(request.commandId))) { return false; }
@@ -1480,6 +1497,20 @@
             }
             return true;
         }
+        if (command && command.action === "phone-snapshot-ui") {
+            if (command.schemaVersion === 1 && /^[0-9a-f]{32}$/.test(String(command.commandId))
+                && objectKeysMatch(command,["schemaVersion","commandId","action","request"])
+                && validPhoneSnapshotRequest(command.request) && command.request.commandId === command.commandId
+                && command.commandId !== lastPhoneSnapshotUiRequest) {
+                lastPhoneSnapshotUiRequest=command.commandId;
+                var snapshotUi={schemaVersion:1,commandId:command.commandId,available:false};
+                try { if (typeof Test.phoneSnapshotUi === "function") {
+                    var originalSnapshotUi=Test.phoneSnapshotUi(command.request);
+                    if (originalSnapshotUi && originalSnapshotUi.commandId === command.commandId) { snapshotUi=originalSnapshotUi; }
+                } } catch (_snapshotUiError) { /* Input delivery supplies no capture/export effect. */ }
+                Test.saveObject(snapshotUi,"phone-snapshot-ui.json");
+            }return true;
+        }
         if (command && command.action === "phone-avatar-people-ui") {
             if (command.schemaVersion === 1 && /^[0-9a-f]{32}$/.test(String(command.commandId))
                     && objectKeysMatch(command,["schemaVersion","commandId","action","request"])
@@ -2390,7 +2421,7 @@
                 || command.action === "feature-phone-web-runtime-observe" || command.action === "phone-world-web" || command.action === "phone-tablet-web" || command.action === "phone-web-reference" || command.action === "feature-phone-web-reference-runtime-observe"
                 || command.action === "phone-navigation-marker-input" || command.action === "phone-navigation-marker-observe"
                 || command.action === "phone-navigation-ui" || command.action === "phone-navigation-view-observe"
-                || command.action === "phone-avatar-people-ui" || command.action === "phone-avatar-people-observe"
+                || command.action === "phone-avatar-people-ui" || command.action === "phone-avatar-people-observe" || command.action === "phone-snapshot-ui"
                 || command.action === "feature-pending-commit-owner" || command.action === "feature-navigation-replies"
                 || command.action === "feature-process-presence" || command.action === "feature-script-roots-observe"
                 || command.action === "feature-script-work-observe" || command.action === "feature-animation-inventory-observe"

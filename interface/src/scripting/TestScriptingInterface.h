@@ -23,7 +23,7 @@
 namespace overte::e2e { class ChatViewObservation; }
 namespace overte::e2e { class PhoneAudioFixtureHTTP; }
 #include <QUuid>
-namespace overte::e2e { class FeatureLifecycle; class AccountOriginLease; class ScriptFileUi; class AudioUi; class GraphicsUi; class LoginUi; class CreateUi; class ChatUi; class EmoteUi; class PhoneEmoteFixture; class PrivateCreateFiles; class PhoneCreateFixture; class PhoneNavigationMarker; class NavigationUi; class NavigationViewObservation; class AvatarPeopleUi; class AvatarPeopleViewObservation; class PhoneAssetsReadJob; }
+namespace overte::e2e { class FeatureLifecycle; class AccountOriginLease; class ScriptFileUi; class AudioUi; class GraphicsUi; class LoginUi; class CreateUi; class ChatUi; class EmoteUi; class PhoneEmoteFixture; class PrivateCreateFiles; class PhoneCreateFixture; class PhoneNavigationMarker; class NavigationUi; class NavigationViewObservation; class AvatarPeopleUi; class AvatarPeopleViewObservation; class PhoneAssetsReadJob; class SnapshotUi; }
 #endif
 
 class TestScriptingInterface : public QObject {
@@ -184,6 +184,7 @@ public slots:
     Q_INVOKABLE QVariantMap phoneAssetsRead(const QVariantMap& command, bool abort=false);
     Q_INVOKABLE QVariantMap phoneCreateObservation(const QVariantMap& command);
     Q_INVOKABLE QVariantMap phoneSnapshotObservation(const QVariantMap& command);
+    Q_INVOKABLE QVariantMap phoneSnapshotUi(const QVariantMap& command);
     Q_INVOKABLE QVariantMap phoneSnapshotReadback(const QVariantMap& command);
     Q_INVOKABLE QVariantMap phoneCreateFiles(const QVariantMap& command);
     Q_INVOKABLE QVariantMap phoneNavigationMarkerInput(const QVariantMap& command);
@@ -299,6 +300,7 @@ private:
     quint64 _phoneNavigationMarkerSequence {0};
     std::shared_ptr<overte::e2e::NavigationUi> _phoneNavigationUi;
     std::shared_ptr<overte::e2e::AvatarPeopleUi> _phoneAvatarPeopleUi;
+    std::shared_ptr<overte::e2e::SnapshotUi> _phoneSnapshotUi;
     std::shared_ptr<overte::e2e::AvatarPeopleViewObservation> _phoneAvatarPeopleView;
     quint64 _phoneAvatarPeopleSequence {0};
     std::shared_ptr<overte::e2e::NavigationViewObservation> _phoneNavigationView;
