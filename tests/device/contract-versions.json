@@ -39,6 +39,7 @@
     "original-marker-restoration-frame": {"current": 1, "reads": [1]},
     "original-marker-restoration-abandoned": {"current": 1, "reads": [1]},
     "original-marker-restoration-image": {"current": 1, "reads": [1]},
+    "ios-avatar-restoration-image": {"current": 1, "reads": [1]},
     "marker-entity-original": {"current": 1, "reads": [1]},
     "marker-entity-record": {"current": 1, "reads": [1]},
     "ios-create-entities": {"current": 1, "reads": [1]},
