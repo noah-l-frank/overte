@@ -9,6 +9,7 @@ from pathlib import Path
 
 
 REQUIRED = {
+    "native-script-work": 2,
     "pico-create-management": 1,
     "pico-create-json-files": 1,
     "pico-create-file-controls": 1,

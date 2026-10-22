@@ -696,6 +696,28 @@ ScriptValue ScriptEngineV8::evaluateInClosure(const ScriptValue& _closure,
 }
 
 #if defined(OVERTE_E2E_FEATURE_TESTS)
+int ScriptEngineV8::featureFunctionScriptId(v8::Local<v8::Function> function) const {
+    if (!_manager || !QCoreApplication::arguments().contains("--testScript") || function.IsEmpty()
+            || QThread::currentThread()!=_manager->thread() || !_v8Isolate || !_v8Isolate->IsCurrent()) { return 0; }
+    // Bound wrappers have no own JS body. Follow actual V8 targets without JS
+    // property access or Function.toString; unknown/deep/native origins stay zero.
+    for (int depth=0;depth<16;++depth) {
+        const auto bound=function->GetBoundFunction();
+        if (bound.IsEmpty() || !bound->IsFunction()) { return function->ScriptId()>0 ? function->ScriptId() : 0; }
+        function=bound.As<v8::Function>();
+    }
+    return 0;
+}
+
+int ScriptEngineV8::featureFunctionScriptId(const ScriptValue& function) const {
+    if (!_manager || !QCoreApplication::arguments().contains("--testScript")
+            || QThread::currentThread()!=_manager->thread() || !_v8Isolate || !_v8Isolate->IsCurrent()) { return 0; }
+    const auto original=ScriptValueV8Wrapper::unwrap(function);
+    if (!original || original->getV8Engine()!=this) { return 0; }
+    v8::HandleScope handles(_v8Isolate);const auto value=original->toV8Value().get();
+    return value.IsEmpty() || !value->IsFunction() ? 0 : featureFunctionScriptId(value.As<v8::Function>());
+}
+
 void ScriptEngineV8::featureRecordCompilation(v8::Local<v8::Script> script, v8::Local<v8::String> actualCode) {
     if (!_manager || !QCoreApplication::arguments().contains("--testScript")) { return; }
     if (QThread::currentThread()!=_manager->thread() || script.IsEmpty() || actualCode.IsEmpty()) {

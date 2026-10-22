@@ -97,6 +97,8 @@
     // Private read-only diagnostic for normal Running Scripts row identity.
     // Actual execution is still judged by the independent fixture journal.
     var normalFeatureInstance = String(Uuid.generate()).replace(/[{}-]/g, "").toLowerCase();
+    var lastScriptWorkRequest = "";
+    var scriptWorkTimer = null;
     var normalFeatureSequence = 0;
     var lastChatObservationCommand="";
     function validChatObservationCommand(command) {
@@ -224,6 +226,27 @@
         } catch (_accountProbeError) { /* A missing HTTP/native result cannot establish authority. */ }
         Test.saveObject(value,"feature-account-probe.json");
     }
+    function saveScriptWorkObservation(command, remaining) {
+        if (command.commandId !== lastScriptWorkRequest) { return; }
+        if (remaining === undefined) { remaining = 50; }
+        var value = {schemaVersion:1,requestId:command.commandId,available:false};
+        try {
+            if (typeof Test.featureScriptWork === "function") {
+                var original = Test.featureScriptWork(command);
+                if (original && original.requestId === command.commandId && original.pending === true && remaining > 0) {
+                    scriptWorkTimer = Script.setTimeout(function () {
+                        if (command.commandId !== lastScriptWorkRequest) { return; }
+                        scriptWorkTimer = null; saveScriptWorkObservation(command,remaining-1);
+                    },50);
+                    return;
+                }
+                if (original && original.requestId === command.commandId && original.pending !== true
+                        && original.schemaVersion === 1 && original.source) { value = original; }
+            }
+        } catch (_scriptWorkError) { /* Missing owner-thread work is never an empty inventory. */ }
+        Test.saveObject(value,"feature-script-work.json");
+    }
+
     function saveNativeFeatureObservation(requestId, remaining) {
         if (requestId !== lastNativeFeatureRequest) { return; }
         if (remaining === undefined) { remaining = 50; }
@@ -1499,6 +1522,19 @@
             } catch (_createDialogError) { /* Original native modal ownership remains unavailable. */ }
             Test.saveObject(createDialogs, "feature-create-dialogs.json");return;
         }
+        if (command && command.action === "feature-script-work-observe") {
+            if (command.schemaVersion === 1 && typeof command.commandId === "string"
+                    && /^(?:ios-)?[0-9a-f]{32}$/.test(command.commandId)
+                    && command.commandId.length === (command.commandId.indexOf("ios-") === 0 ? 36 : 32)
+                    && typeof command.managerInstance === "string" && /^[0-9a-f]{32}$/.test(command.managerInstance)
+                    && command.managerInstance.length === 32
+                    && objectKeysMatch(command,["schemaVersion","commandId","action","managerInstance"])
+                    && command.commandId !== lastScriptWorkRequest) {
+                if (scriptWorkTimer !== null) { Script.clearTimeout(scriptWorkTimer); scriptWorkTimer = null; }
+                lastScriptWorkRequest=command.commandId;saveScriptWorkObservation(command);
+            }
+            return true;
+        }
         if (command && command.schemaVersion === 1 && command.action === "feature-create-callbacks-observe"
                 && typeof command.commandId === "string" && /^[0-9a-f]{32}$/.test(command.commandId)
                 && objectKeysMatch(command, ["schemaVersion", "commandId", "action"])) {
@@ -1815,6 +1851,7 @@
                 || command.action === "feature-process-presence"
                 || command.action === "feature-recorded-audio-observe" || command.action === "feature-recorded-audio-release"
                 || command.action === "feature-recorded-audio-files" || command.action === "feature-script-observe"
+                || command.action === "feature-script-work-observe"
                 || command.action === "feature-create-callbacks-observe"
                 || command.action === "feature-create-dialogs-observe"
                 || command.action === "feature-create-entities-observe"
@@ -2529,6 +2566,8 @@
         if (accountProbeTimer !== null) { Script.clearTimeout(accountProbeTimer); accountProbeTimer = null; }
         if (worldRenderTimer !== null) { Script.clearTimeout(worldRenderTimer); worldRenderTimer = null; }
         lastNativeFeatureRequest = "";
+        lastScriptWorkRequest = "";
+        if (scriptWorkTimer !== null) { Script.clearTimeout(scriptWorkTimer); scriptWorkTimer = null; }
         if (nativeFeatureTimer !== null) { Script.clearTimeout(nativeFeatureTimer); nativeFeatureTimer = null; }
         Script.update.disconnect(updateProbe);
         Script.clearInterval(interactionPointerDiscovery);

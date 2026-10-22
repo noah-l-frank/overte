@@ -1,6 +1,7 @@
 {
   "schemaVersion": 1,
   "contracts": {
+    "native-script-work": {"current": 2, "reads": [1, 2]},
     "pico-create-management": {"current": 1, "reads": [1]},
     "pico-create-json-files": {"current": 1, "reads": [1]},
     "pico-create-file-controls": {"current": 1, "reads": [1]},
