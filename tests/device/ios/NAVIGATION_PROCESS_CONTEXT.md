@@ -70,3 +70,8 @@ retained address root requires an explicitly owned normal-entry/root handoff;
 neither is silently adopted. Source bases still need connection to the later
 normal action owners. Full independent publication, static restoration,
 callback/resource drainage and repeated quiet finalization remain open.
+
+Source inspection confirms that normal iOS Go To close retains its QML root.
+The separate [address-root ownership validator](NAVIGATION_ADDRESS_ROOTS.md)
+distinguishes that actual hidden object from destruction. Its durable ordinary
+input hooks still need connection before a retained root can cross this gate.
