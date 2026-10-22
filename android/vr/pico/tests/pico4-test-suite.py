@@ -74,6 +74,7 @@ TESTS = (
     test("create-file-native-ui", "interaction", PYTHON, "device/test_create_file_ui_native.py", requires=("c++", "pkg-config")),
     test("create-original-files", "interaction", PYTHON, "device/test_create_files_native.py", requires=("c++", "pkg-config")),
     test("create-callback-native", "interaction", PYTHON, "device/test_create_callbacks_native.py", requires=("c++", "pkg-config")),
+    test("create-dialog-native", "interaction", PYTHON, "device/test_create_dialogs_native.py", requires=("c++", "pkg-config")),
     test("normal-chat", "interaction", PYTHON, "device/test_normal_chat.py"),
     test("normal-login", "interaction", PYTHON, "device/test_normal_login.py"),
     test("create-qml", "interaction", PYTHON, "pico-create-qml-test.py"),

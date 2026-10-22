@@ -20,8 +20,9 @@ PROFILES = frozenset(('create-editor-v1','create-import-json-v1','create-export-
 def component(value, suffix):
     need(type(value) is str and 1<=len(value)<=4096)
     parsed=urlsplit(value)
+    suffixes=('/dialogs/NativeFileBrowser.qml','/dialogs/TabletFileDialog.qml') if suffix=='/dialogs/NativeFileBrowser.qml' else (suffix,)
     need(parsed.scheme in ('file','qrc') and not parsed.netloc and not parsed.query and not parsed.fragment
-         and parsed.path.endswith(suffix) and not any(ord(c)<32 for c in value))
+         and parsed.path.endswith(suffixes) and not any(ord(c)<32 for c in value))
 
 
 def inventory(value):
@@ -116,6 +117,11 @@ class PicoCreateFileIO:
     def activate(self,identifier,*,reference):self.original.navigation.input(identifier,reference=reference)
     def replace(self,identifier,text,*,reference):self.original.navigation.input(identifier,'replace',text,reference=reference)
     def submit(self,identifier,*,reference):self.original.navigation.input(identifier,'submit',reference=reference)
+    def dialog_bindings(self):
+        from adapters.pico4.create_dialogs import ui_bindings
+        value=self.original.capture()
+        need(type(value.get('createDialogBindingsVersion')) is int and value['createDialogBindingsVersion']==1)
+        return deepcopy(ui_bindings(value['createDialogBindings'],value['createUiInventory']))
 
 
 class CreateFileUI:

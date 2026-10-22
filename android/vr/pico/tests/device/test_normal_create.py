@@ -21,6 +21,7 @@ from self_tests.test_normal_create_adapter import URL
 from test_create_management import PicoCreateManagementTests
 from test_create_files import CreateFilesTests
 from test_create_callbacks import CreateCallbackTests
+from test_create_dialogs import CreateDialogTests
 
 
 class PicoCreateTests(unittest.TestCase):

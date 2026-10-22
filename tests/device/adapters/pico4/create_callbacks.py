@@ -119,6 +119,9 @@ def active(value):
 
 
 class NativeCreateCallbacks:
+    action=ACTION
+    validate=staticmethod(validate)
+    continuity=staticmethod(continuity)
     def __init__(self,send,original,clock_ms,guard,pid,*,monotonic=time.monotonic,sleep=time.sleep):
         need(all(callable(v) for v in (send,original,clock_ms,guard,monotonic,sleep)) and integer(pid,1))
         self.send,self.original,self.clock_ms,self.guard,self.pid=send,original,clock_ms,guard,pid
@@ -130,7 +133,7 @@ class NativeCreateCallbacks:
             request=uuid.uuid4().hex;started=previous=self.monotonic()
             need(number(started,0,1e15) and self.guard() is not False)
             requested=self.clock_ms();need(integer(requested,1))
-            self.send(dict(schemaVersion=VERSION,commandId=request,action=ACTION))
+            self.send(dict(schemaVersion=VERSION,commandId=request,action=self.action))
             for attempt in range(51):
                 need(self.guard() is not False);raw=self.original()
                 try:value=decode(raw) if raw else None
@@ -138,8 +141,8 @@ class NativeCreateCallbacks:
                 current=self.monotonic();need(number(current,previous,1e15) and current-started<5);previous=current
                 if type(value) is dict and value.get('requestId')==request:
                     epoch=self.clock_ms();need(integer(epoch,requested))
-                    validate(value,request,self.pid,epoch);need(value['requestedEpochMs']>=requested)
-                    continuity(self.last,value);need(self.guard() is not False)
+                    self.validate(value,request,self.pid,epoch);need(value['requestedEpochMs']>=requested)
+                    self.continuity(self.last,value);need(self.guard() is not False)
                     freshness_started=self.monotonic();need(number(freshness_started,previous,1e15));previous=freshness_started
                     final=self.clock_ms();need(integer(final,epoch));fresh(value['capturedEpochMs'],final)
                     need(self.guard() is not False)

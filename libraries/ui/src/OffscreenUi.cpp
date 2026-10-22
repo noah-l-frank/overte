@@ -808,6 +808,13 @@ ModalDialogListener* OffscreenUi::fileDialogAsync(const QVariantMap& properties)
     FileDialogListener* fileDialogListener = new FileDialogListener(qvariant_cast<QQuickItem*>(buildDialogResult));
     QObject* fileModalDialog = qobject_cast<QObject*>(fileDialogListener);
     registerModalDialog(qobject_cast<ModalDialogListener*>(fileModalDialog));
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+    // Observe original listener/root/context ownership on its existing GUI
+    // creation thread. Window may have been invoked from a Script thread.
+    fileDialogListener->_featureCreateDialogTicket=_featureCreateDialogs->born(fileDialogListener,
+        fileDialogListener->getDialogItem(),properties.value("caption").toString(),properties.value("filter").toString(),
+        properties.value("saveDialog",false).toBool());
+#endif
 
     return fileDialogListener;
 }
