@@ -92,7 +92,12 @@ inline QString createControlId(QQuickItem* item) {
         if (!id.isEmpty()) { return "create.entity."+id; }
     }
     if (loginQmlId(item,"shapeChoice") && item->inherits("QQuickComboBox")) { return "create.shape"; }
-    if (loginQmlId(item,"listSearch") && item->inherits("QQuickTextInput")) { return "create.filter"; }
+    // LIST and PROPERTIES expose one original visible search field at a time.
+    // Reuse the existing filter contract; source/tab and actual item identity
+    // still bind its token, and simultaneous duplicates fail closed.
+    if ((loginQmlId(item,"listSearch") || (loginQmlId(item,"propertySearch")
+            && name=="NativeCreatePropertySearch" && page->property("currentTab").toInt()==2))
+            && item->inherits("QQuickTextInput")) { return "create.filter"; }
     return {};
 }
 

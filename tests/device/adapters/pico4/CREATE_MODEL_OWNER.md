@@ -145,8 +145,22 @@ original `NativeFieldInput.cpp`, loads the unchanged `NativeCreate.qml` from its
 real resolved URL and uses actual Qt pointer/IME delivery. It independently
 reads the exact original Domain/Model/URL `sendToScript` payload, consumed and
 stale token refusal and the original missing-URL error. PathUtils configuration
-and a visible Qt host window are explicit boundaries. No QML handler is invoked
-by the test, and a button receipt is not an entity-effect verdict.
+and a visible Qt host window are explicit boundaries. No QML input handler is invoked by the test; the declared backend actor feeds
+the original `fromScript` selection route. A button receipt is not an entity-effect
+verdict. The original exclusive Properties search reuses the existing
+`create.filter` contract, then normal TextArea/ApplyTyped input emits the exact
+original `textures` patch with a distinct owned texture ticket. Adapter-level
+texture/resource/render composition remains a subsequent step.
+
+The shared E2E hit observer now follows visible children in their actual visual
+z order even when a non-clipping Flickable content item has zero geometry. All
+original clips, foreign visible overlays (including disabled ones), disabled
+target refusal, finite coordinates and depth/4096-node bounds remain enforced.
+The real QML Properties search independently reproduces the previous refusal;
+an owned temporary header with the old containment assumption must fail exactly
+at that original field. Positive original-pointer/TextArea/Apply observations
+and clip/hidden/disabled/overlay/traversal counterexamples execute. Product QML
+and input dispatch are unchanged.
 
 `create-entities-native` compiles the real production getter with substituted
 entity/tree/domain APIs and real original shared/weak objects. A removed entity
