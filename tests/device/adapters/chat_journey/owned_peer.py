@@ -116,6 +116,13 @@ class OwnedChatPeer:
         return ChatCacheLifetime(self.capture(run),PrivateFeatureState(self.files_store.path.with_name('chat-cache-lifetime.json')),
             self.lock,monotonic=self.monotonic)
 
+    def input_close(self,input_owner,*,distant=None):
+        from adapters.chat_journey.peer_input_close import ChatPeerInputClose
+        self.lock.assert_held();self.guard();need(input_owner.files is self.files)
+        return ChatPeerInputClose(input_owner,self.reader(),
+            PrivateFeatureState(self.files_store.path.with_name('chat-peer-input-close.json')),self.lock,distant=distant,
+            monotonic=self.monotonic,sleep=self.sleep)
+
     def close_host(self):
         """Detach only owned host handles; never retire native state/journals."""
         if self.files is not None:self.files.detach();self.files=None

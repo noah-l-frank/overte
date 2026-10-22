@@ -44,3 +44,13 @@ explicit seams. A separate Qt5 original-header test also joins the actual native
 source producer to this same passive factory, with its compiler macro declared
 as an input seam. No Assignment Client, domain, service, OpenXR runtime or device
 is run by these checks. Full Pico Chat remains partial.
+
+`input_close(original_input_owner, distant=original_distant_owner)` creates the
+separate [input close owner](PEER_INPUT_CLOSE.md) under this exact peer lock and
+actual reader/file transport. It retains the completed close manifest and all
+original source chunks in the peer's private host state directory. A held peer
+cannot bypass the original distance/restore/motion proof. Closing these input
+resources does not retire the observation cache or stop the fixture. The native
+input run and release/nonces remain replay tombstones; a different run cannot
+reuse this actor's closed input route without an independently owned fixture
+restart. No automatic restart or process discovery is supplied here.

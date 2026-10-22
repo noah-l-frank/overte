@@ -132,7 +132,8 @@ class ChatPeerInput:
 
     def issue(self, operation, **inputs):
         try:
-            files = self.files; files._check_source();owned=files._owned()
+            files = self.files;need(getattr(files,'_chat_input_close_owner',None) is None)
+            files._check_source();owned=files._owned()
             need(not owned['closing'] and not owned['removed'] and owned['runId'] in (None,self.run))
             need(same(self.store.read(),self.disk))
             request = command(dict(schemaVersion=1, commandId=uuid.uuid4().hex,
