@@ -11,6 +11,7 @@ from contextlib import contextmanager
 from copy import deepcopy
 from pathlib import Path
 import time
+import uuid
 
 from adapters.native_clock_join import digest
 from adapters.native_feature_observation import exact,need,number
@@ -24,6 +25,10 @@ from ios.adapters.navigation_admission_owner import NavigationAdmissionOwner
 from ios.adapters.navigation_fixture import NavigationFixtureReader
 from ios.adapters.navigation_places_actions import VERBS as PLACE_VERBS
 from ios.adapters.navigation_runtime import IOSNavigationRuntime
+from ios.adapters.navigation_observer import NavigationObserver
+from ios.adapters import navigation_source_prefix as source_prefix
+from ios.adapters.graphics_history import follow_native
+from navigation_observation import same_viewpoint,viewpoint_urls
 
 VERSION=1
 
@@ -179,3 +184,75 @@ class IOSNavigationFeature:
                 else:raise NavigationFeaturePending('Worlds process-transfer and final restoration coordination remain required')
             self.state.update(phase='ready');self.state['lastCall']['phase']='acknowledged';self.save()
             return {'performed':True}
+
+    def observer(self):
+        """First-process role-owned acquisition on the current candidate."""
+        self.current()
+        owner=self.runtime._navigation_observer(self.selector,self.client,self.run,self.role,0,self.root,self.lock)
+        need(isinstance(owner,NavigationObserver) and same(owner.binding,self.state['binding'])
+            and owner.lock.path==self.lock.path and owner.images.root==self.root
+            and owner.role==self.role and owner.stage==0)
+        return owner
+
+    def directory(self,observer,admission):
+        """Re-derive the original first-open proof; never issue another read."""
+        owners=observer.owners()
+        found=[owner for owner in owners if owner.state['options']['directory'] is not None]
+        if not found:return None
+        surface=self.runtime._navigation_surface_actions(self.selector,admission)
+        return surface.directory(found[0])
+
+    def settle_directory(self,observer,admission):
+        """Resolve only a complete first-open read, without replaying sources."""
+        if not observer.state['rows'] or observer.state['rows'][-1]['status']!='reserved':return
+        row=observer.state['rows'][-1]
+        need(row['childStarted']);owner=observer.live(row)
+        state=owner.state
+        if state is None or state['phaseAfter'] is None:
+            raise NavigationFeaturePending('An interrupted Worlds source acquisition remains owned')
+        if state['options']['directory'] is None and state['phaseBefore']['verb']=='open':
+            surface=self.runtime._navigation_surface_actions(self.selector,admission)
+            observer.recover(directory=surface.directory(owner))
+        else:observer.recover()
+
+    def observe_active(self,after_sequence):
+        """Fresh active originals; not the whole public cleanup/transfer API.
+
+        A preliminary actual navigation read selects which of the two bounded
+        viewpoints to qualify. It supplies no returned fact. The subsequent
+        independent complete source/image acquisition must validate that pose.
+        A historical first-open recovery is always followed by a new capture.
+        """
+        need(type(after_sequence) is int and after_sequence>=0)
+        self.prepare()
+        with self.held():
+            self.load();admission=self.admission();observer=self.observer()
+            need(type(after_sequence) is int and 0<=after_sequence<=observer.state['sequence'])
+            self.settle_directory(observer,admission)
+            directory=self.directory(observer,admission)
+            owners=observer.owners();previous=owners[-1] if owners else None
+            prototype=observer.factory(uuid.uuid4().hex,previous)
+            started,epoch=self.monotonic(),self.epoch_ms()
+            observed=prototype.navigation.read(self.run)
+            urls=viewpoint_urls(self.fixture.inputs['sceneUrl'])
+            labels=[label for label,url in urls.items() if same_viewpoint(observed['source']['sceneUrl'],url)]
+            need(len(labels)==1);label=labels[0];phase=self.fixture.read()
+            options=dict(baseline=admission.archive()['bookmarkBaseline'],provider_inputs=self.fixture.inputs,directory=directory)
+            try:measured=observer.read(phase['ticket'],urls[label],label,epoch,**options)
+            except NativeUIError:
+                # Only the retained complete first-open join can be resolved
+                # here. Any partial, unrelated or invalid source remains owned.
+                if directory is not None or observer.state['rows'][-1]['status']!='reserved':raise
+                self.settle_directory(observer,admission)
+                directory=self.directory(observer,admission);need(directory is not None)
+                options['directory']=directory
+                measured=observer.read(phase['ticket'],urls[label],label,self.epoch_ms(),**options)
+            initial=admission.archive();first=observer.owners()[0]
+            follow_native(initial['clockJoin']['nativeAfter'],first.state['nativeStart']['nativeBefore'])
+            before=deepcopy(initial['originals']);before['currentNavigation']=before.pop('navigation')
+            source_prefix.follow(before,first.state['originals'],self.run,int(self.state['binding']['processIdentity']))
+            self.current();ended,now=self.monotonic(),self.epoch_ms()
+            need(measured['sequence']>after_sequence and number(ended,started,started+1.5) and ended-started<1.5
+                and number(now,epoch,epoch+1500) and now-epoch<1500
+                and abs(now-epoch-(ended-started)*1000)<=250)
+            return deepcopy(measured)

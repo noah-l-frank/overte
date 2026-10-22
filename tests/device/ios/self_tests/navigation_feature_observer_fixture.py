@@ -7,6 +7,7 @@ retained original packet is rewritten to bridge otherwise unrelated fixtures.
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
 import json
+from unittest.mock import patch
 
 from adapters.native_navigation_replies import NativeNavigationReplies
 from adapters.normal_feature_state import PrivateFeatureState
@@ -18,10 +19,15 @@ from ios.self_tests.test_ios_navigation_feature import NavigationFeatureTests
 from ios.self_tests import test_ios_navigation_samples as pictures
 from ios.self_tests import test_ios_navigation_observation_owner as fields
 from ios.self_tests.test_ios_places_settings import row as control
+from ios.self_tests.test_ios_navigation_state import Boundary as NavigationBoundary
 
 
 class Whole:
     def __init__(self, test):
+        original=NavigationBoundary.__init__
+        def viewport(producer):
+            original(producer);producer.source['view']['aspectRatio']=1.6
+        patcher=patch.object(NavigationBoundary,'__init__',viewport);patcher.start();test.addCleanup(patcher.stop)
         self.flow_fixture=NavigationFeatureTests();self.flow_fixture.setUp()
         test.addCleanup(self.flow_fixture.doCleanups)
         f=self.flow_fixture
@@ -40,13 +46,22 @@ class Whole:
         self.sdk.navigation.source=deepcopy(initial['navigation']['source'])
         self.sdk.navigation.url=f.b.current
         self.sdk.navigation.sequence=initial['navigation']['sequence']
-        self.sdk.native_boundary.sequence=initial['navigation']['sequence']
+        self.sdk.native_boundary.sequence=f.f.admission.native.sequence
         self.fetch_directory=True
+        inventory=f.h.fixture.inventory
+        def loads(value):
+            value['source']['sceneLoads'].update(currentGeneration=inventory.generation,requests=deepcopy(inventory.loads))
+        self.sdk.navigation.mutate=loads
         original_call=f.b.call
         def ordinary(method,path,body=None):
-            was=f.b.screen
+            was=f.b.screen;url_before=f.b.current
             result=original_call(method,path,body)
             if f.b.current.startswith(self.harness.inputs['sceneUrl']):
+                if f.b.current!=url_before:
+                    _status,raw,_response=self.harness.get('/navigation/scene.json')
+                    inventory.clock=self.sdk.gpu.clock;inventory.url=f.b.current;inventory.body=raw
+                    inventory.raw={row['id'].strip('{}'):json.dumps(row,sort_keys=True).encode() for row in json.loads(raw)['Entities']}
+                    inventory.revision=inventory.after_revision=3;inventory.commit()
                 self.sdk.navigation.url=f.b.current
                 self.sdk.navigation.source=deepcopy(run_source)
                 self.sdk.navigation.source['sceneUrl']=f.b.current
@@ -84,18 +99,20 @@ class Whole:
             return value
         f.b.observed=ui
         self.native=self.sdk.native();self.navigation=self.sdk.navigation.reader()
+        f.runtime._navigation_observer=lambda _selector,_client,_run,role,_stage,_root,_lock:self.observer(role,lock=_lock)
 
-    def observer(self,role='primary'):
+    def observer(self,role='primary',*,lock=None):
+        lock=self.lock if lock is None else lock
         def child(request):
             return NavigationSampleOwner(PrivateFeatureState(self.root/('ios-navigation-'+role+'-0-'+request[4:]+'-sample.json')),
-                self.root,self.binding,self.run,role,0,request,self.lock,lambda:self.sdk.okay,native=self.native,
+                self.root,self.binding,self.run,role,0,request,lock,lambda:self.sdk.okay,native=self.native,
                 navigation=self.navigation,fixture=self.fixture,frame_factory=self.gpu.factory,
                 epoch_ms=self.now,monotonic=self.mono,sleep=self.sdk.gpu.sleep)
         images=NavigationSamples(PrivateFeatureState(self.root/('ios-navigation-'+role+'-0-samples.json')),
-            self.root,self.binding,self.run,role,0,self.lock,lambda:self.sdk.okay,factory=child)
+            self.root,self.binding,self.run,role,0,lock,lambda:self.sdk.okay,factory=child)
         def owner(request,previous):
             return NavigationObservationOwner(PrivateFeatureState(self.root/('ios-navigation-'+role+'-0-'+request+'-observation.json')),
-                images,self.binding,self.run,role,0,request,self.lock,lambda:self.sdk.okay,native=self.native,
+                images,self.binding,self.run,role,0,request,lock,lambda:self.sdk.okay,native=self.native,
                 navigation=self.navigation,sources=self.sources,fixture=self.fixture,previous=previous,
                 epoch_ms=self.now,monotonic=self.mono)
         return NavigationObserver(PrivateFeatureState(self.root/('ios-navigation-'+role+'-0-observer.json')),

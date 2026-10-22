@@ -26,6 +26,23 @@ process replacement. It provides no whole public observation/cleanup operation
 or capability advertisement. The role may read existing admission but only the
 primary can send scene entry/action input.
 
+Its internal `observe_active` now connects the first-process acquisition path.
+A genuine current navigation read selects the bounded viewpoint; the returned
+state still comes from the subsequent independent complete source group and
+untouched fenced image. The first group must extend the original static
+admission's native birth/counter and all shared source histories. An ignored
+scene entry cannot select an expected viewpoint or trigger a capture.
+
+For the first open, the complete retained raw group gains its exact directory
+join and becomes historical. The coordinator then acquires a distinct new
+group and image before returning current facts. An interrupted partial group
+stays owned; it is not abandoned or replayed automatically. Later observations
+re-derive the retained directory barriers from the actual original surface
+journal. A final host epoch/monotonic check includes original revalidation and
+candidate continuity inside the original 1.5-second acquisition budget.
+This remains an internal measurement; global actor sequence across restart,
+the full public operation and paired final restoration remain required.
+
 `NavigationSurfaceActions.directory` now derives the first-open directory join
 from the actual original surface action and a complete retained observation.
 It takes its native barrier from that open's untouched before packet, provider

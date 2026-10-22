@@ -185,16 +185,19 @@ class NavigationSurfaceActions:
         from ios.adapters.navigation_observation_owner import NavigationObservationOwner
         from ios.adapters.navigation_places_state import directory_proof
         from ios.adapters.navigation_product_state import ORIGINALS
-        need(isinstance(owner, NavigationObservationOwner) and not owner.historical)
+        need(isinstance(owner, NavigationObservationOwner))
         self.bound(); self.decode(self.previous); owner.bound()
         need(same(self.envelope(self.state), self.previous)
              and same(owner.binding, self.binding) and owner.run == self.run
              and owner.lock.path == self.lock.path and owner.store.path.parent == self.store.path.parent)
         state = owner.state
-        need(state is not None and state['phase'] == 'reading' and state['phaseAfter'] is not None
-             and state['clockJoin'] is not None and state['options']['directory'] is None
+        need(state is not None and state['phase'] in ('reading', 'observed', 'marker-pending') and state['phaseAfter'] is not None
+             and state['clockJoin'] is not None
              and set(state['originals']) == ORIGINALS and same(owner.envelope(state), owner.previous))
-        owner.interrupted()
+        if state['phase'] == 'reading':
+            need(not owner.historical and state['options']['directory'] is None); owner.interrupted()
+        else:
+            need(state['options']['directory'] is not None); owner.archive()
         rows = self.state['actions']
         need(rows and rows[0]['surface'] == 'open' and rows[0]['phase'] == 'acknowledged')
         opened = rows[0]
@@ -215,6 +218,7 @@ class NavigationSurfaceActions:
                 nativeAfterEpochMs=opened['before']['sampleEpochMs'],
                 providerAfterEpochMs=opened['fixture']['originals']['navigation']['capturedEpochMs'],
                 afterEvent=len(before['http']['events'])))
+        if state['options']['directory'] is not None:need(same(proof, state['options']['directory']))
         self.bound(); owner.bound(); return proof
 
     def input_intent(self, method, path, body):
