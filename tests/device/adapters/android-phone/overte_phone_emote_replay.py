@@ -12,7 +12,11 @@ from adapters.emote_admission import PINS as ADMISSION_PINS
 from adapters.emote_source_profile import PINS as SOURCE_PINS,MANAGER_PINS
 from overte_phone_script_history import canonical
 
-LIMIT=128
+# A complete primary/actor journey retains hundreds of distinct verified
+# historical prefixes. Keep their digest-only proofs through reconstruction;
+# the former 128-entry cache churned while final retirement replayed them.
+# This bound stores no decoded frame or product fact (roughly 0.1 MiB of keys).
+LIMIT=1024
 _verified=OrderedDict()
 
 
