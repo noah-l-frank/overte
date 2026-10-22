@@ -406,7 +406,7 @@ class SnapshotJourneyTests(unittest.TestCase):
             continuity=lambda *_:None,monotonic=time.monotonic,epoch_ms=self.model.now,sleep=sleep,report=reports.append)
         try:journey.execute()
         except BaseException:
-            print('Explicit Snapshot producer replay stopped; recent source calls '+repr(timings[-8:])+'; original witness age/transport/receipt ages '+repr(witness_clocks)+'; actual final measured samples '+repr([(row['phase'],row['state']) for row in journey.samples if row['phase']=='16-upload']),file=sys.stderr)
+            print('Explicit Snapshot producer replay stopped; recent source calls '+repr(timings[-8:])+'; original witness age/transport/receipt ages '+repr(witness_clocks)+'; actual final measured samples '+repr([(row['phase'],row['state'],row['lifecycle'],None if row['witness'] is None else row['witness']['facts']) for row in journey.samples[-8:]])+'; required original lifecycle '+repr(journey.required_lifecycle),file=sys.stderr)
             if initialized[0]:self.actor_ok()
             raise
         self.assertTrue(reports[-1]['sequenceCompleted']);self.assertTrue(reports[-1]['cleanupSucceeded'])
