@@ -23,14 +23,15 @@ from fixture.messages_mixer import start_identity
 def digest(value):return type(value) is str and re.fullmatch('[0-9a-f]{64}',value) is not None
 
 def original(value,*,domain=None,process=None,epoch=None):
-    exact(value,{'assetsBakeOriginalsVersion','instance','sequence','processId','processStart','domainId','assetServerId','capturedEpochMs','valid','jobs','mappings','blobs','pending'})
-    need(type(value['assetsBakeOriginalsVersion']) is int and value['assetsBakeOriginalsVersion']==1 and value['valid'] is True)
+    exact(value,{'assetsBakeOriginalsVersion','instance','sequence','processId','processStart','domainId','assetServerId','capturedEpochMs','contextCapturedEpochMs','valid','jobs','mappings','blobs','pending'})
+    need(type(value['assetsBakeOriginalsVersion']) is int and value['assetsBakeOriginalsVersion']==2 and value['valid'] is True)
     identifier(value['instance']);need(integer(value['sequence'],1,1000000000) and integer(value['processId'],1) and type(value['processStart']) is str and value['processStart'].isdecimal())
     for key in ('domainId','assetServerId'):need(str(uuid.UUID(value[key]))==value[key] and uuid.UUID(value[key]).int!=0)
     need(domain is None or value['domainId']==domain)
     need(process is None or (value['processId'],value['processStart'])==(process.pid,start_identity(process.pid)))
     need(integer(value['capturedEpochMs'],1));captured=value['capturedEpochMs']
-    if epoch is not None:fresh(captured,epoch)
+    need(integer(value['contextCapturedEpochMs'],1,captured))
+    if epoch is not None:fresh(captured,epoch);fresh(value['contextCapturedEpochMs'],epoch)
     need(type(value['jobs']) is list and len(value['jobs'])<=64 and type(value['mappings']) is list and len(value['mappings'])<=4096
         and type(value['blobs']) is list and len(value['blobs'])<=4096 and integer(value['pending'],0,64))
     seen=set();pending=0

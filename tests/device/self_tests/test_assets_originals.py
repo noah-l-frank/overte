@@ -28,8 +28,9 @@ class AssetsOriginalsTests(unittest.TestCase):
         self.tmp=tempfile.TemporaryDirectory();self.root=Path(self.tmp.name);self.path=self.root/'source';self.path.mkdir(mode=0o700)
         self.process=subprocess.Popen([sys.executable,'-c','import time; time.sleep(30)','-t','3','--server-port','40102'])
         self.reader=AssetsOriginals(self.path,self.process,lambda pid:pid==self.process.pid,ID)
-        self.value=dict(assetsBakeOriginalsVersion=1,instance='b'*32,sequence=1,processId=self.process.pid,processStart=start_identity(self.process.pid),
-            domainId=ID,assetServerId=ID,capturedEpochMs=time.time_ns()//1000000,valid=True,jobs=[],mappings=[],blobs=[],pending=0)
+        self.value=dict(assetsBakeOriginalsVersion=2,instance='b'*32,sequence=1,processId=self.process.pid,processStart=start_identity(self.process.pid),
+            domainId=ID,assetServerId=ID,capturedEpochMs=time.time_ns()//1000000,contextCapturedEpochMs=time.time_ns()//1000000,valid=True,jobs=[],mappings=[],blobs=[],pending=0)
+        self.value['contextCapturedEpochMs']=self.value['capturedEpochMs']
         self.call=dict(schemaVersion=1,runId=RUN);self.file=self.path/'assets-bakes.json';self.write()
     def tearDown(self):self.process.terminate();self.process.wait(timeout=5);self.tmp.cleanup()
     def write(self):
@@ -38,7 +39,7 @@ class AssetsOriginalsTests(unittest.TestCase):
         self.assertEqual(self.value,self.reader.read(self.call)['source']);self.value['sequence']+=1;self.write()
         self.assertEqual(2,self.reader.read(self.call)['source']['sequence'])
     def test_missing_partial_stale_replaced_server_scope_and_counts_are_red(self):
-        for change in (dict(valid=False),dict(capturedEpochMs=self.value['capturedEpochMs']-5000),dict(processId=self.process.pid+1),dict(processStart='1'),dict(domainId='ffffffff-ffff-4fff-8fff-ffffffffffff'),dict(pending=1),dict(blobs=[dict(hash='c'*64,actualSha256='d'*64,bytes=1)])):
+        for change in (dict(valid=False),dict(contextCapturedEpochMs=self.value['capturedEpochMs']-5000),dict(contextCapturedEpochMs=self.value['capturedEpochMs']+1),dict(capturedEpochMs=self.value['capturedEpochMs']-5000),dict(processId=self.process.pid+1),dict(processStart='1'),dict(domainId='ffffffff-ffff-4fff-8fff-ffffffffffff'),dict(pending=1),dict(blobs=[dict(hash='c'*64,actualSha256='d'*64,bytes=1)])):
             old=deepcopy(self.value);self.value.update(change);self.write()
             with self.subTest(change=change),self.assertRaises((NativeUIError,ValueError)):self.reader.read(self.call)
             self.value=old

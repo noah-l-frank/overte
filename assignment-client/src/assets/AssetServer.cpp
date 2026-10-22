@@ -126,6 +126,8 @@ void AssetServer::bakeAsset(const AssetUtils::AssetHash& assetHash, const AssetU
         _pendingBakes[assetHash] = task;
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_UNIX)
         const auto originals=_e2eBakeOriginals;const auto instance=originals->begin(assetHash,assetPath,int(currentBakeVersionForAssetType(assetTypeForFilename(assetPath))));
+        _e2eBakeInstances.insert(task.get(),instance);
+        connect(task.get(),&QObject::destroyed,this,[this,identity=task.get()] { _e2eBakeInstances.remove(identity); });
         task->e2eOriginalEvent=[originals,instance](const QString& kind,qint64 pid,int code,int status) { originals->event(instance,kind,pid,code,status); };
         connect(task.get(),&QObject::destroyed,[originals,instance] { originals->event(instance,"destroyed"); });
 #endif
@@ -1334,7 +1336,7 @@ void AssetServer::handleFailedBake(QString originalAssetHash, QString assetPath,
     writeMetaFile(originalAssetHash, meta);
 
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_UNIX)
-    _e2eBakeOriginals->event(_e2eBakeOriginals->current(originalAssetHash),"failed");
+    e2eFinishBakeOriginal(originalAssetHash,"failed");
 #endif
     _pendingBakes.remove(originalAssetHash);
 }
@@ -1360,7 +1362,7 @@ void AssetServer::handleCompletedBake(QString originalAssetHash, QString origina
         writeMetaFile(originalAssetHash, meta);
 
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_UNIX)
-        _e2eBakeOriginals->event(_e2eBakeOriginals->current(originalAssetHash),errorCompletingBake ? "failed" : "complete");
+        e2eFinishBakeOriginal(originalAssetHash,errorCompletingBake ? "failed" : "complete");
 #endif
         _pendingBakes.remove(originalAssetHash);
     };
@@ -1496,7 +1498,7 @@ void AssetServer::handleAbortedBake(QString originalAssetHash, QString assetPath
 
     // for an aborted bake we don't do anything but remove the BakeAssetTask from our pending bakes
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_UNIX)
-    _e2eBakeOriginals->event(_e2eBakeOriginals->current(originalAssetHash),"aborted");
+    e2eFinishBakeOriginal(originalAssetHash,"aborted");
 #endif
     _pendingBakes.remove(originalAssetHash);
 }
@@ -1626,9 +1628,35 @@ bool AssetServer::setBakingEnabled(const AssetUtils::AssetPathList& paths, bool 
 }
 
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_UNIX)
+void AssetServer::e2eFinishBakeOriginal(const QString& hash,const QString& outcome) {
+    const auto current=_pendingBakes.find(hash);const auto actual=sender();
+    if (QThread::currentThread()!=thread() || !actual || current==_pendingBakes.end() || current.value().get()!=actual || !_e2eBakeInstances.contains(actual)) {
+        _e2eBakeOriginals->invalidate();return;
+    }
+    _e2eBakeOriginals->event(_e2eBakeInstances.value(actual),outcome);
+}
 void AssetServer::e2ePublishBakeOriginals() {
-    if (QThread::currentThread()!=thread()) { return; }
-    const auto nodes=DependencyManager::get<NodeList>();QVariantList mappings,blobs;
+    if (QThread::currentThread()!=thread() || _e2eOriginalContextPending) { return; }
+    const auto nodes=DependencyManager::get<NodeList>();auto bridge=new QObject;auto original=std::make_shared<QVariantMap>();
+    bridge->moveToThread(nodes->thread());_e2eOriginalContextPending=true;
+    connect(this,&QObject::destroyed,bridge,&QObject::deleteLater,Qt::QueuedConnection);
+    connect(nodes.data(),&QObject::destroyed,bridge,&QObject::deleteLater);
+    connect(bridge,&QObject::destroyed,this,[this,original] {
+        _e2eOriginalContextPending=false;
+        if (!original->isEmpty()) { e2eWriteBakeOriginals(*original); }
+    },Qt::QueuedConnection);
+    if (!QMetaObject::invokeMethod(nodes.data(),[node=nodes.data(),bridge,original] {
+        if (QThread::currentThread()==node->thread()) {
+            *original={{"domainId",node->getDomainHandler().getUUID().toString(QUuid::WithoutBraces)},
+                {"assetServerId",node->getSessionUUID().toString(QUuid::WithoutBraces)},
+                {"capturedEpochMs",QDateTime::currentMSecsSinceEpoch()}};
+        }
+        bridge->deleteLater();
+    },Qt::QueuedConnection)) { bridge->deleteLater(); }
+}
+void AssetServer::e2eWriteBakeOriginals(const QVariantMap& context) {
+    if (QThread::currentThread()!=thread() || QDateTime::currentMSecsSinceEpoch()-context.value("capturedEpochMs").toLongLong()>1500) { return; }
+    QVariantList mappings,blobs;
     for (const auto& entry:_fileMappings) {
         mappings.append(QVariantMap{{"path",entry.first},{"hash",entry.second}});
     }
@@ -1645,6 +1673,6 @@ void AssetServer::e2ePublishBakeOriginals() {
         }
         blobs.append(QVariantMap{{"hash",name},{"actualSha256",sha},{"bytes",size}});
     }
-    _e2eBakeOriginals->publish(nodes->getDomainHandler().getUUID().toString(QUuid::WithoutBraces),nodes->getSessionUUID().toString(QUuid::WithoutBraces),mappings,blobs,_pendingBakes.size());
+    _e2eBakeOriginals->publish(context.value("domainId").toString(),context.value("assetServerId").toString(),mappings,blobs,_pendingBakes.size(),context.value("capturedEpochMs").toLongLong());
 }
 #endif

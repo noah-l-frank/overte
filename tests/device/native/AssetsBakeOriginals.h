@@ -53,18 +53,20 @@ public:
             raw=row;return;
         }_valid=false;
     }
+    void invalidate() { QMutexLocker lock(&_mutex);_valid=false; }
     QString current(const QString& hash) const { QMutexLocker lock(&_mutex);for (auto it=_jobs.crbegin();it!=_jobs.crend();++it) { const auto row=it->toMap();if (row.value("hash")==hash && row.value("terminalEpochMs").isNull()) { return row.value("instance").toString(); } }return {}; }
     // Called on the actual AssetServer assignment owner thread. Maps and stored
     // blob metadata are copied there; worker events use the same snapshot lock.
-    void publish(const QString& domain,const QString& server,const QVariantList& mappings,const QVariantList& blobs,int pending) {
+    void publish(const QString& domain,const QString& server,const QVariantList& mappings,const QVariantList& blobs,int pending,qint64 contextEpoch) {
         if (!_enabled) { return; }QMutexLocker lock(&_mutex);struct stat root{},file{},path{};
+        if (contextEpoch<=0 || contextEpoch>now() || now()-contextEpoch>1500) { return; }
         if (::fstat(_root,&root) || root.st_dev!=_device || root.st_ino!=_inode || root.st_uid!=::geteuid() || (root.st_mode&0777)!=0700
                 || ::fstat(_file,&file) || ::fstatat(_root,"assets-bakes.json",&path,AT_SYMLINK_NOFOLLOW)
                 || !S_ISREG(path.st_mode) || file.st_dev!=_fileDevice || file.st_ino!=_fileInode || path.st_dev!=_fileDevice || path.st_ino!=_fileInode
                 || path.st_uid!=::geteuid() || path.st_nlink!=1 || (path.st_mode&0777)!=0600 || _sequence>=1000000000) { _valid=false;return; }
         QFile proc("/proc/self/stat");QString start;if (proc.open(QIODevice::ReadOnly)) { const auto data=proc.readAll();const auto fields=data.mid(data.lastIndexOf(')')+2).split(' ');if (fields.size()>19) { start=fields[19]; } }
-        const QVariantMap packet{{"assetsBakeOriginalsVersion",1},{"instance",_instance},{"sequence",++_sequence},{"processId",QCoreApplication::applicationPid()},
-            {"processStart",start},{"domainId",domain},{"assetServerId",server},{"capturedEpochMs",now()},{"valid",_valid},
+        const QVariantMap packet{{"assetsBakeOriginalsVersion",2},{"instance",_instance},{"sequence",++_sequence},{"processId",QCoreApplication::applicationPid()},
+            {"processStart",start},{"domainId",domain},{"assetServerId",server},{"capturedEpochMs",now()},{"contextCapturedEpochMs",contextEpoch},{"valid",_valid},
             {"jobs",_jobs},{"mappings",mappings},{"blobs",blobs},{"pending",pending}};
         const auto bytes=QJsonDocument::fromVariant(packet).toJson(QJsonDocument::Compact);
         if (bytes.size()>1048576) { _valid=false;return; }

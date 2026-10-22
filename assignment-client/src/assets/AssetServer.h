@@ -99,7 +99,11 @@ private slots:
 private:
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_UNIX)
     std::shared_ptr<overte::e2e::AssetsBakeOriginals> _e2eBakeOriginals { std::make_shared<overte::e2e::AssetsBakeOriginals>() };
+    QHash<const QObject*,QString> _e2eBakeInstances;
+    bool _e2eOriginalContextPending { false };
     void e2ePublishBakeOriginals();
+    void e2eWriteBakeOriginals(const QVariantMap& context);
+    void e2eFinishBakeOriginal(const QString& hash,const QString& outcome);
 #endif
     void replayRequests();
 
