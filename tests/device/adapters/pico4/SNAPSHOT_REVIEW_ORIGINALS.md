@@ -16,7 +16,7 @@ and actual native publication site remain required. There is no Phone window,
 Phone touch driver, handler invocation, setter, timer or service initialization
 in the source. The existing publisher owns private process/candidate transport.
 
-The exact version-1 source distinguishes:
+The exact version-2 source distinguishes (archived version 1 remains readable):
 
 - A valid live original root with no Review: `present=false, review=null`.
 - A real Review qualified by its original `root` QML ID, context base URL and
@@ -25,13 +25,20 @@ The exact version-1 source distinguishes:
   malformed original properties: unavailable; no source field is published.
 
 It reads original capturing/processing/settings, visibility, current mode and
-format, image-row paths/story presence and platform export properties from
+format, the actual `captureName` TextField text, image-row paths/story presence and platform export properties from
 that page. The Python source parser and existing Pico navigation parser retain
 closed keys/types and explicit bounds. They do not infer an effect from an
 input receipt or an expected value. A detached old page can still live outside
 the current visual root; an observed absence is never Qt/context retirement.
 
-The owning `snapshot-review-originals` selector has three strict parser/root
+Version 2 requires the original bounded name field qualified by its real QML ID
+and object name. Version 1 has no name fact and cannot establish a run-owned
+capture filename. An old source cannot be silently upgraded by a requested name
+or an input receipt. The compiler check types the owned name through the whole
+original `NativeFieldInput.cpp` and actual Qt input-method events before reading
+it independently from the page.
+
+The owning `snapshot-review-originals` selector has four strict parser/root
 boundary cases plus one actual native QML check. The latter compiles the
 selected whole source header with real Qt5/6-compatible APIs, loads the
 unchanged production `NativeSnapshotReview.qml` on a real host QQuickWindow,

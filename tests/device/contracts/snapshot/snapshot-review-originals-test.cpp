@@ -10,6 +10,7 @@
 #include <QtTest/QTest>
 #include <QtTest/QSignalSpy>
 #include <QPointer>
+#include <ui/NativeFieldInput.h>
 #include <cstdio>
 #include <cassert>
 
@@ -48,7 +49,7 @@ int main(int argc,char** argv) {
         if(!page) {qFatal("%s",qPrintable(component.errorString()));}
         page->setParent(&root);page->setParentItem(&root);page->setSize(root.size());QTest::qWait(30);return page;
     };
-    auto page=load();const auto first=capture();assert(first.value("present")==true);
+    auto page=load();const auto first=capture();assert(first.value("present")==true && first.value("snapshotReviewObservationVersion")==2);
     assert(first.value("review").toObject().value("componentUrl")==source.toString());
     assert(first.value("review").toObject().value("visible")==true);
     auto fromScript=[&](QVariantMap message) {
@@ -58,6 +59,11 @@ int main(int argc,char** argv) {
     fromScript({{"action","captureSettings"},{"setting",true}});
     const auto initialized=capture().value("review").toObject();
     assert(initialized.value("mode")==1 && initialized.value("format")=="png" && initialized.value("captureSettingsLoaded")==true);
+    auto field=page->findChild<QQuickItem*>("snapshotName");assert(field);
+    assert(initialized.value("captureName")=="");
+    QTest::mouseClick(&window,Qt::LeftButton,Qt::NoModifier,field->mapToScene(QPointF(field->width()/2,field->height()/2)).toPoint());
+    assert(overte::ui::replaceFocusedField(field,&window,"parity-aaaaaaaaaaaaaaaa-animated"));
+    assert(capture().value("review").toObject().value("captureName")=="parity-aaaaaaaaaaaaaaaa-animated");
     QSignalSpy outbound(page,SIGNAL(sendToScript(QVariant)));assert(outbound.isValid());outbound.clear();
     auto button=page->findChild<QQuickItem*>("snapshotCapture");assert(button && button->isEnabled());
     QTest::mouseClick(&window,Qt::LeftButton,Qt::NoModifier,button->mapToScene(QPointF(button->width()/2,button->height()/2)).toPoint());
