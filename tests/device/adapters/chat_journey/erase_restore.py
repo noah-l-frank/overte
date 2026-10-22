@@ -7,17 +7,17 @@ cursor or granting a generic authority to discard earlier history.
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
-import math
+import re
 import time
 import uuid
 from adapters.chat_journey.samples import ChatSamples
 from adapters.independent_chat_receiver import source_identity
 from adapters.native_chat_profile import OwnedChatProfile
-from adapters.native_feature_observation import exact,fresh,integer,need,number
+from adapters.native_feature_observation import exact,integer,need,number
 from adapters.normal_ui import NativeUIError
 from adapters.token_chat_ui import TokenChatUI,authorize_erase
 
-VERSION=1
+VERSION=2
 
 
 def references(roles):
@@ -53,12 +53,29 @@ class ChatEraseRestore:
 
     def intent(self,value):
         exact(value,{'controlId','action','instance','generation','sequence'})
-        need(self.previous is not None and value['action']=='activate' and len(self.previous['inputs'])<16)
+        need(self.previous is not None and len(self.previous['inputs'])<16)
         phase=self.previous['phase'];control=value['controlId']
+        if value['action']=='controller-open':
+            need(phase in ('opening-for-erase','opening') and control=='tablet.open')
+            self.write(phase,inputs=self.previous['inputs']+[deepcopy(value)]);return
+        need(value['action']=='activate')
         need((phase=='preparing' and control=='chat.settings') or (phase=='authorized' and control=='chat.erase')
             or (phase in ('closing','final-closing','recovery-closing') and control=='chat.close')
-            or (phase=='opening' and control in ('tablet.home','chat.entry')))
+            or (phase in ('opening-for-erase','opening') and control in ('tablet.home','chat.entry')))
         self.write('erasing' if control=='chat.erase' else phase,inputs=self.previous['inputs']+[deepcopy(value)])
+
+    def controller_intent(self,envelope):
+        """Host-only original envelope CAS while the native session is locked."""
+        need(self.previous is not None and self.previous['phase'] in ('opening-for-erase','opening')
+            and self.previous['inputs'] and self.previous['inputs'][-1]['controlId']=='tablet.open'
+            and self.previous['inputs'][-1]['action']=='controller-open' and not self.previous['controllerEnvelopes'])
+        exact(envelope,{'schemaVersion','sessionNonce','sequence','commands'})
+        need(type(envelope['schemaVersion']) is int and envelope['schemaVersion']==1
+            and type(envelope['sessionNonce']) is str and re.fullmatch('[0-9a-f]{32,128}',envelope['sessionNonce'])
+            and integer(envelope['sequence'],1) and type(envelope['commands']) is list and len(envelope['commands'])==1
+            and envelope['commands'][0]==dict(id='tablet-open-'+str(envelope['sequence']),
+                operation='tablet.open',arguments=dict(holdMilliseconds=1000)))
+        self.write(self.previous['phase'],controllerEnvelopes=[deepcopy(envelope)])
 
     def pair(self,roles,after_epoch,*,settings=False):
         started=self.now();observed=[(role.read_settings if settings else role.read)(uuid.uuid4().hex,after_epoch) for role in roles]
@@ -66,15 +83,8 @@ class ChatEraseRestore:
             need(all(value.get('settings') is True and 'state' not in value for value in observed))
             need(all(roles[0].frames[-1]['view']['source'][key]==roles[1].frames[-1]['view']['source'][key] for key in ('ui','storage','editorFocused','editorHasDraft','tabletShown')))
         else:need(observed[0]['state']==observed[1]['state'])
-        clocks=[]
-        for role in roles:
-            frame=role.frames[-1]
-            for reader in (role.primary,role.peer,role.view,role.lifecycle):need(reader.guard() is not False)
-            for reader,oldest in ((role.primary,min(frame[key]['capturedEpochMs'] for key in ('primary','view','lifecycle'))),
-                                  (role.peer,frame['peer']['capturedEpochMs'])):
-                measured=self.now();epoch=reader.clock_ms();fresh(oldest,epoch);clocks.append((measured,epoch,oldest))
-        finished=self.now();need(number(finished,started,started+1.5))
-        need(all(epoch-oldest+math.ceil((finished-measured)*1000)<=1500 for measured,epoch,oldest in clocks))
+        from adapters.chat_journey.flow_inputs import fresh_roles
+        fresh_roles(roles,started,self.now)
         return observed
 
     def stable_sources(self,roles,initial):
@@ -139,8 +149,9 @@ class ChatEraseRestore:
             self.previous=dict(chatEraseRestoreVersion=VERSION,runId=self.profile.run,binding=self.profile.binding,
                 peerBinding=self.before[0].peer_binding,profileJournal=self.profile.store.path.name,
                 beforeTranscripts=[role.store.path.name for role in self.before],afterTranscripts=[role.store.path.name for role in self.after],
-                phase='preparing',inputs=[],control=None,before=None,erased=None,reopened=None,restored=None,samples=[])
+                phase='opening-for-erase',inputs=[],controllerEnvelopes=[],control=None,before=None,erased=None,reopened=None,restored=None,samples=[])
             value=self.previous;self.previous=None;need(self.store.read() is None);self.store.write(value,None);self.previous=deepcopy(value)
+            self.ui.open();self.write('preparing')
             self.ui.erase_history(self.authorize);need(self.ui.erase_issued and self.reference is not None)
             consumed=self.ui.capture()['scope'];scope=self.reference['scope']
             need(consumed['instance']==scope['instance'] and consumed['processId']==scope['processId']
