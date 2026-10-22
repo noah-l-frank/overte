@@ -2016,8 +2016,9 @@ def create_adapter(args, base_class):
                 run=path.name.removeprefix('chat-evidence-'+key+'-')
                 _need(re.fullmatch('[0-9a-f]{32}',run))
                 evidence=completed_archive(path);metadata=evidence['metadata']
-                if metadata.get('picoChatArchivePlanVersion')==2:_need(evidence.get('chatEvidenceArchiveVersion')==2 and evidence.get('fileOwnership')=='closed-immutable-originals')
-                _need(type(metadata.get('picoChatArchivePlanVersion')) is int and metadata['picoChatArchivePlanVersion'] in (1,2) and metadata.get('runId')==run
+                if metadata.get('picoChatArchivePlanVersion') in (2,3):_need(evidence.get('chatEvidenceArchiveVersion')==metadata['picoChatArchivePlanVersion'] and evidence.get('fileOwnership')=='closed-immutable-originals')
+                if metadata.get('picoChatArchivePlanVersion')==3:_need(evidence.get('unlinkPolicy')=='original-source-16-unlinks-250ms')
+                _need(type(metadata.get('picoChatArchivePlanVersion')) is int and metadata['picoChatArchivePlanVersion'] in (1,2,3) and metadata.get('runId')==run
                     and metadata['oldBinding']['targetFingerprint']==metadata['newBinding']['targetFingerprint']
                     ==hashlib.sha256((target+'\0'+str(self.pico_configuration)).encode()).hexdigest())
             return retained

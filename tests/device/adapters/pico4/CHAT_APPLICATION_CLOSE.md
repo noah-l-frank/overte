@@ -1,4 +1,4 @@
-# Original Pico Chat application v1 and archive closure v2
+# Original Pico Chat application v1 and archive closure v3
 
 The private `PicoChatComposition.restart_and_close_application(after_epoch)` and
 `finalize_application()` extend its existing deferred-cache branch. They do not
@@ -173,3 +173,46 @@ parent replacement during a read, archive-copy replacement, unknown roots, lost
 unlink receipts, final-source expiration and v1/v2 scope relabelling. These are
 host filesystem/kernel checks with explicitly synthetic native release sources.
 The complete warm parent has not yet passed final archival and remains partial.
+
+The next complete warm host measurement reached all 26 compiled/Witness stages,
+normal Erase/profile restoration, both cache retirements, once-only restart,
+new-birth/old-PID absence and independent IPC closure with both quiet windows.
+It stopped before the first archive unlink: 2623 admitted original files and
+native Root sequence 186 would require 5438 requests under the old per-file
+Root/Script/Root guard, exceeding the actual unchanged whole-process limit 4096.
+That 275.228-second manual diagnostic is not a registered catalog test and does
+not change the existing 120-second selection budget or establish whole closure.
+
+Archive/plan v3 therefore explicitly opts into `ChatArchiveUnlinkFence`. Up to
+16 unlinks and 250 milliseconds since a complete source acquisition may use
+that exact immutable original packet. Its original 1.5-second host/native age
+still includes the whole acquisition; the shorter reuse window cannot restart
+it. A new full acquisition is permitted only before the next durable unlink
+intent. Each actual unlink requires a NEW independent original HTTP phase read
+after its last CAS and file check, with the same complete cleanup activation.
+Fresh HTTP never refreshes the native packet. Changed accepted reader facts,
+the selected packet, birth/lifecycle, slow writes/file checks, stale clocks and
+pending/unknown tokens fail closed without another acquisition or unlink retry.
+Final receipt/marker/seal checks also read the original current cleanup phase.
+The special original `RestartInputs.retire(..., before_discard=...)` callback
+repeats this fence after its inner observation CAS immediately before discard.
+That deliberate native read may advance only its accepted sequence; the native
+birth/lifecycle and every other selected reader fact remain pinned.
+
+The v3 manifest records `unlinkPolicy: original-source-16-unlinks-250ms` beside
+the v2 immutable-file ownership declaration. Final and retirement versions match.
+Default held v1 and closed-file v2 paths retain their original behavior. Cold
+scope validation reads all three versions and refuses a v3 plan relabelled over
+a v2 receipt. No file, byte, nonce, native-age, input or catalog limit is raised.
+The complete warm v3 join remains unqualified pending its measured full rerun.
+
+The actual component application owner plus v3 archive/fence, existing archive,
+typed plan and actual Pico factory selections passed 32 cases in 68.762 seconds.
+The new counterexamples retain originals on either frozen-clock late CAS,
+post-intent file-check delay, changed/retired HTTP phase, changed accepted native
+facts, final-guard mutation, acquisition age exceeding its original deadline,
+and phase change after the actual inner RestartInputs observation CAS. Its
+17-file positive performs five full native-production-seam acquisitions and
+new original phase queries for every unlink; it never fabricates a later native
+timestamp from HTTP. No complete 2623-file warm archive result follows from
+this smaller actual host component proof.
