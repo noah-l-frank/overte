@@ -13,7 +13,6 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
 import android.view.MotionEvent;
-import android.view.KeyEvent;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputConnection;
 import android.view.InputDevice;
@@ -418,6 +417,7 @@ public final class EmbeddedWebView {
     private static boolean featureOwnedURL(String value,String root) {
         if (value == null) return false;
         Uri original = Uri.parse(value).buildUpon().clearQuery().fragment(null).build();
+        if (Uri.parse(root).getPath().equals("/parity/")) return original.getUserInfo()==null && original.toString().equals(root+"index.html");
         String prefix = root + "tickets/", raw = original.toString();
         return original.getUserInfo() == null && raw.startsWith(prefix)
             && raw.substring(prefix.length()).matches("[0-9a-f]{32}/[A-Za-z0-9_.-]{1,80}");
@@ -431,7 +431,7 @@ public final class EmbeddedWebView {
     /** Original UI queue fence and bounded inventories; no JavaScript or input. */
     public static void featureRuntimeSnapshot(String requestId,String root,String knownJSON) {
         if (!nativeFeatureEnabled() || requestId == null || !requestId.matches("[0-9a-f]{32}")
-                || root == null || root.length() > 512 || !root.matches("https?://[^/?#@\\s]+/feature-fixture/v1/runs/[0-9a-f]{32}/")
+                || root == null || root.length() > 512 || !root.matches("https?://[^/?#@\\s]+/(?:feature-fixture/v1/runs/[0-9a-f]{32}/|parity/)")
                 || knownJSON == null || knownJSON.length() > 65536) return;
         MAIN.post(() -> {
             try {
@@ -510,7 +510,7 @@ public final class EmbeddedWebView {
      */
     public static void featureWorldInput(long handle,long grant,long page,String requestId,String control,String text) {
         if (!nativeFeatureEnabled() || requestId==null || !requestId.matches("[0-9a-f]{32}")
-                || control==null || !control.matches("text|bridge|reference|second|recovery|back|reload|foreign|navigate")
+                || control==null || !control.matches("text|bridge|reference|second|recovery|back|reload|foreign|navigate|play|pause|seekStart|seek")
                 || text==null || text.length()>512 || (!control.equals("text") && !control.equals("foreign") && !text.isEmpty())) return;
         post(handle, instance -> featureWorldControl(instance,grant,page,requestId,control,text,SystemClock.uptimeMillis(),0));
     }
@@ -525,26 +525,36 @@ public final class EmbeddedWebView {
         if (!featureWorldCurrent(instance,grant,page) || SystemClock.uptimeMillis()-started>=3500 || attempts>=24) {
             nativeFeatureWorldInput(id,false);return;
         }
+        instance.view.requestFocus();
         // Closed original selectors. The result is geometry only, never an input
         // effect. elementFromPoint prevents clicking a covered/replaced control.
         String script="(function(){let e=document.getElementById("+JSONObject.quote(control)+");if(!e||e.disabled)return null;"
             +"let r=e.getBoundingClientRect(),x=r.x+r.width/2,y=r.y+r.height/2,h=document.elementFromPoint(x,y);"
-            +"return [x,y,r.width,r.height,innerWidth,innerHeight,!!h&&(h===e||e.contains(h))];})()";
+            +"let m=document.getElementById(\"feature-document-label\"),t=m?m.getBoundingClientRect().bottom:0;let v=/^(play|pause|seekStart|seek)$/.test("+JSONObject.quote(control)+")?document.getElementById(\"video\"):null,d=0;if(v){let q=v.getBoundingClientRect(),a=Math.max(0,Math.min(document.documentElement.scrollHeight-innerHeight,scrollY+q.top-16));d=scrollY-a;}return [x,y,r.width,r.height,innerWidth,innerHeight,!!h&&(h===e||e.contains(h)),t,d];})()";
         instance.view.evaluateJavascript(script,result -> {
             try {
                 if (!featureWorldCurrent(instance,grant,page) || SystemClock.uptimeMillis()-started>=3500) throw new IllegalStateException();
                 JSONArray geometry=new JSONArray(result);
-                if (geometry.length()!=7) throw new IllegalStateException();
+                if (geometry.length()!=9) throw new IllegalStateException();
                 double x=geometry.getDouble(0),y=geometry.getDouble(1),width=geometry.getDouble(2),height=geometry.getDouble(3);
-                double viewportWidth=geometry.getDouble(4),viewportHeight=geometry.getDouble(5);
+                double viewportWidth=geometry.getDouble(4),viewportHeight=geometry.getDouble(5),safeTop=geometry.getDouble(7),videoScroll=geometry.getDouble(8);
                 if (!Double.isFinite(x)||!Double.isFinite(y)||!Double.isFinite(width)||!Double.isFinite(height)
-                        ||!Double.isFinite(viewportWidth)||!Double.isFinite(viewportHeight)||width<=0||height<=0||viewportWidth<=0||viewportHeight<=0) throw new IllegalStateException();
-                if (y<1 || y>=viewportHeight-1) {
-                    // Ordinary native keyboard scroll, bounded independently of
-                    // DOM readiness. Never repeat a Send/navigation click.
-                    int key=y<1 ? KeyEvent.KEYCODE_PAGE_UP : KeyEvent.KEYCODE_PAGE_DOWN;
-                    instance.view.dispatchKeyEvent(new KeyEvent(KeyEvent.ACTION_DOWN,key));
-                    instance.view.dispatchKeyEvent(new KeyEvent(KeyEvent.ACTION_UP,key));
+                        ||!Double.isFinite(viewportWidth)||!Double.isFinite(viewportHeight)||!Double.isFinite(safeTop)||!Double.isFinite(videoScroll)||safeTop<0||safeTop>=viewportHeight-4||width<=0||height<=0||viewportWidth<=0||viewportHeight<=0) throw new IllegalStateException();
+                if (Math.abs(videoScroll)>1 || y<safeTop+1 || y>=viewportHeight-1) {
+                    // Normal native mouse-wheel input. Small measured steps
+                    // reveal the control below the fixed fixture header without
+                    // a DOM scroll setter or repeated Send/navigation click.
+                    float factor=ViewConfiguration.get(instance.activity).getScaledVerticalScrollFactor();
+                    if (!Float.isFinite(factor) || factor<=0) throw new IllegalStateException();
+                    double target=(safeTop+viewportHeight)/2;
+                    double delta=Math.abs(videoScroll)>1 ? videoScroll : target-y;
+                    float pixels=(float)Math.copySign(Math.min(viewportHeight/3,Math.abs(delta))*instance.view.getHeight()/viewportHeight,delta);
+                    MotionEvent.PointerProperties pointer=new MotionEvent.PointerProperties();pointer.id=0;pointer.toolType=MotionEvent.TOOL_TYPE_MOUSE;
+                    MotionEvent.PointerCoords point=new MotionEvent.PointerCoords();point.x=1;point.y=(float)(target*instance.view.getHeight()/viewportHeight);
+                    point.setAxisValue(MotionEvent.AXIS_VSCROLL,pixels/factor);
+                    long now=SystemClock.uptimeMillis();MotionEvent wheel=MotionEvent.obtain(now,now,MotionEvent.ACTION_SCROLL,1,
+                        new MotionEvent.PointerProperties[]{pointer},new MotionEvent.PointerCoords[]{point},0,0,1,1,0,0,InputDevice.SOURCE_MOUSE,0);
+                    try { instance.view.dispatchGenericMotionEvent(wheel); } finally { wheel.recycle(); }
                     instance.view.postDelayed(() -> featureWorldControl(instance,grant,page,id,control,text,started,attempts+1),75);return;
                 }
                 if (x<1 || x>=viewportWidth-1 || !geometry.getBoolean(6)) throw new IllegalStateException();
@@ -557,13 +567,32 @@ public final class EmbeddedWebView {
                 try { delivered=instance.view.dispatchTouchEvent(press);delivered=instance.view.dispatchTouchEvent(release)&&delivered; }
                 finally { press.recycle();release.recycle(); }
                 if (control.equals("text") || control.equals("foreign")) {
-                    if (!featureWorldCurrent(instance,grant,page)) throw new IllegalStateException();
-                    InputConnection editor=instance.view.onCreateInputConnection(new EditorInfo());
-                    if (editor==null) throw new IllegalStateException();
-                    delivered=editor.performContextMenuAction(android.R.id.selectAll)&&delivered;
-                    delivered=editor.commitText(text,1)&&delivered;
-                    editor.finishComposingText();
+                    if (!delivered) throw new IllegalStateException();
+                    // Blink publishes actual editor focus asynchronously after
+                    // native pointer delivery. Retry only this read readiness,
+                    // never the pointer or an uncertain text commit.
+                    featureWorldType(instance,grant,page,id,control,text,started,0);return;
                 }
+                nativeFeatureWorldInput(id,delivered);
+            } catch (Exception unavailable) { nativeFeatureWorldInput(id,false); }
+        });
+    }
+    private static void featureWorldType(Instance instance,long grant,long page,String id,String control,String text,long started,int attempt) {
+        if (!featureWorldCurrent(instance,grant,page) || SystemClock.uptimeMillis()-started>=3500 || attempt>=24) {
+            nativeFeatureWorldInput(id,false);return;
+        }
+        String focusScript="(function(){let e=document.getElementById("+JSONObject.quote(control)+");return e&&e.tagName===\"INPUT\"&&!e.disabled?[document.activeElement===e,e.value.length]:null;})()";
+        instance.view.evaluateJavascript(focusScript,result -> {
+            try {
+                if (!featureWorldCurrent(instance,grant,page) || SystemClock.uptimeMillis()-started>=3500) throw new IllegalStateException();
+                JSONArray source=new JSONArray(result);
+                if (source.length()!=2 || source.getInt(1)<0 || source.getInt(1)>512) throw new IllegalStateException();
+                EditorInfo info=new EditorInfo();InputConnection editor=source.getBoolean(0) ? instance.view.onCreateInputConnection(info) : null;
+                if (editor==null || info.inputType==android.text.InputType.TYPE_NULL) {
+                    instance.view.postDelayed(() -> featureWorldType(instance,grant,page,id,control,text,started,attempt+1),75);return;
+                }
+                boolean delivered=source.getInt(1)==0 || editor.performContextMenuAction(android.R.id.selectAll);
+                delivered=editor.commitText(text,1)&&delivered;editor.finishComposingText();
                 nativeFeatureWorldInput(id,delivered);
             } catch (Exception unavailable) { nativeFeatureWorldInput(id,false); }
         });

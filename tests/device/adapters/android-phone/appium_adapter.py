@@ -105,6 +105,7 @@ GRAPHICS_FEATURE_OPERATIONS={'feature.graphics.'+kind for kind in ('act','observ
 EMOTE_FEATURE_OPERATIONS={'feature.emotes.'+kind for kind in ('act','observe','cleanup')}
 WORLD_WEB_FEATURE_OPERATIONS={'feature.world-web.'+kind for kind in ('act','observe','cleanup')}
 NAVIGATION_FEATURE_OPERATIONS={'feature.world-navigation.'+kind for kind in ('act','observe','cleanup')}
+WEB_REFERENCE_OPERATIONS={'web.reference.'+kind for kind in ('open','close','play','pause','seek')}
 
 
 def readonly_feature_command(command):
@@ -166,11 +167,11 @@ def readonly_feature_command(command):
     elif action=='phone-snapshot-observe':
         from overte_phone_snapshot_source import command as validate_snapshot
         validate_snapshot(command)
-    elif action=='phone-world-web':
+    elif action in ('phone-world-web','phone-web-reference'):
         from overte_phone_world_web_source import command as validate_world_web
         validate_world_web(command)
         require(command['operation']=='observe','PHONE_READ_ONLY_COMMAND_REJECTED')
-    elif action=='feature-phone-web-runtime-observe':
+    elif action in ('feature-phone-web-runtime-observe','feature-phone-web-reference-runtime-observe'):
         from adapters.native_phone_web_runtime import command as validate_web_runtime
         validate_web_runtime(command)
     elif action=='feature-world-render-storage':
@@ -322,7 +323,13 @@ class PhoneAppiumAdapter(AppiumAdapter):
             require(getattr(self,'candidate',None) is not None and target.get('appId')=='io.github.noah_be.overte.phone'
                 and self.controlled_android_client(target),'PHONE_FEATURE_WORLD_WEB_REQUIRES_BOUND_DEBUG_TARGET')
             self._world_web_configuration();self._feature_fixture_client()
-            values=sorted(set(values)|WORLD_WEB_FEATURE_OPERATIONS)
+            values=sorted(set(values)|WORLD_WEB_FEATURE_OPERATIONS|WEB_REFERENCE_OPERATIONS)
+        reference_enabled=os.environ.get('OVERTE_PHONE_NORMAL_WEB_REFERENCE','0')
+        require(reference_enabled in ('0','1'),'PHONE_WEB_REFERENCE_CONFIGURATION_INVALID')
+        if reference_enabled=='1':
+            require(getattr(self,'candidate',None) is not None and target.get('appId')=='io.github.noah_be.overte.phone'
+                and self.controlled_android_client(target),'PHONE_WEB_REFERENCE_REQUIRES_BOUND_DEBUG_TARGET')
+            values=sorted(set(values)|WEB_REFERENCE_OPERATIONS)
         create_enabled = os.environ.get('OVERTE_PHONE_NORMAL_CREATE', '0')
         require(create_enabled in ('0', '1'), 'PHONE_NORMAL_CREATE_CONFIGURATION_INVALID')
         if create_enabled == '1':
@@ -796,6 +803,44 @@ class PhoneAppiumAdapter(AppiumAdapter):
         require(role in ('primary','actor'),'PHONE_GRAPHICS_OBSERVER_SCOPE_REQUIRED')
         return PrivateFeatureState(self.state_path(selector).with_name('phone-graphics-'+role+'-observer.json'))
 
+    def web_reference_store(self,selector):
+        return PrivateFeatureState(self.state_path(selector).with_name('phone-web-reference.json'))
+
+    def web_reference_retired_store(self,selector):
+        return PrivateFeatureState(self.state_path(selector).with_name('phone-web-reference-retired.json'))
+
+    def web_reference_manager_store(self,selector):
+        return PrivateFeatureState(self.state_path(selector).with_name('phone-web-reference-manager.json'))
+
+    def _web_reference(self,selector):
+        from overte_phone_web_reference import PhoneWebReference
+        return PhoneWebReference(self,selector)
+
+    def _web_reference_manager(self,selector):
+        native,observe,binding,_guard,_installed=self.normal_feature_runtime(selector,read_only=True)
+        return NormalScriptManager(PhoneScriptUI(native,'io.github.noah_be.overte.phone'),observe,
+            self.web_reference_manager_store(selector),binding,source_kind='feature-web-reference')
+
+    def _web_reference_tablet(self,selector,operation):
+        from adapters.normal_ui import Locator
+        require(operation in ('open','close'),'PHONE_WEB_REFERENCE_TABLET_OPERATION_INVALID')
+        native,_observe,_binding,guard,_installed=self.normal_feature_runtime(selector,read_only=True)
+        ui=PhoneScriptUI(native,'io.github.noah_be.overte.phone')
+        if operation=='close':
+            if ui.tablet_visible():
+                if native.available(ui.resource('nav.home')):native.click(ui.resource('nav.home'))
+                ui.close_tablet()
+            ui.wait_tablet_absent();guard();return {'performed':True}
+        require(not ui.tablet_visible(),'PHONE_WEB_REFERENCE_FOREIGN_TABLET_OPEN')
+        ui.open_tablet();entry=Locator('accessibility id','WEB TEST')
+        if native.available(ui.resource('nav.home')):native.click(ui.resource('nav.home'))
+        if not native.available(entry):
+            for page in range(1,9):
+                button=ui.resource('tabletPage.'+str(page))
+                if native.available(button):native.click(button)
+                if native.available(entry):break
+        native.click(entry);guard();return {'performed':True}
+
     def world_web_feature_store(self,selector):
         return PrivateFeatureState(self.state_path(selector).with_name('phone-world-web-feature.json'))
 
@@ -816,6 +861,8 @@ class PhoneAppiumAdapter(AppiumAdapter):
                 'PHONE_WORLD_WEB_CONFIGURATION_INVALID')
         else:value=metadata
         root=Path(value['artifactRoot']);PrivateFeatureState(root/'world-web-configuration-boundary.json')._parent()
+        if metadata is None and 'OVERTE_DEVICE_ARTIFACT_DIR' in os.environ:
+            require(root==Path(os.environ['OVERTE_DEVICE_ARTIFACT_DIR']),'PHONE_WORLD_WEB_ARTIFACT_ROOT_CHANGED')
         foreign=value['foreignFixtureUrl'];fixture('a'*32,foreign+'/runs/'+'a'*32+'/')
         return root,foreign
 
@@ -1591,6 +1638,10 @@ class PhoneAppiumAdapter(AppiumAdapter):
         return result
 
     def cleanup(self, selector):
+        reference_error=False
+        try:
+            if self.web_reference_store(selector).read() is not None or self.web_reference_retired_store(selector).read() is not None:self._web_reference(selector).cleanup()
+        except Exception:reference_error=True
         world_web_error=False
         try:
             feature=self.world_web_feature_store(selector).read() or self.world_web_retirement_store(selector).read()
@@ -1776,6 +1827,8 @@ class PhoneAppiumAdapter(AppiumAdapter):
         require(self.authentication_actions_store(selector).read() is None
                 and all(self.authentication_restart_store(selector,stage).read() is None for stage in range(1,4)),
                 'PHONE_AUTHENTICATION_INPUT_CLEANUP_INCOMPLETE')
+        require(not reference_error and self.web_reference_store(selector).read() is None
+            and self.web_reference_manager_store(selector).read() is None and self.web_reference_retired_store(selector).read() is None,'PHONE_WEB_REFERENCE_CLEANUP_INCOMPLETE')
         require(not world_web_error and self.world_web_feature_store(selector).read() is None
                 and self.world_web_retirement_store(selector).read() is None and self.world_web_manager_store(selector).read() is None
                 and all(PrivateFeatureState(self.state_path(selector).with_name('phone-world-web-'+role+'.json')).read() is None
@@ -1855,6 +1908,10 @@ class PhoneAppiumAdapter(AppiumAdapter):
             require(operation in self.advertised_capabilities(self.target(selector)),
                     'PHONE_GRAPHICS_FEATURE_NOT_ENABLED')
             return getattr(self._graphics_feature(selector,values['runId']),operation.rsplit('.',1)[1])(values)
+        if operation in WEB_REFERENCE_OPERATIONS:
+            values=validate_operation_arguments(operation,values)
+            require(operation in self.advertised_capabilities(self.target(selector)),'PHONE_WEB_REFERENCE_NOT_ENABLED')
+            return self._web_reference(selector).invoke(operation,values)
         if operation in WORLD_WEB_FEATURE_OPERATIONS:
             from feature_journeys.contract import arguments
             arguments(operation,values)

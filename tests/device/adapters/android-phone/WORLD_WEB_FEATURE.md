@@ -2,19 +2,21 @@
 
 The default-off `feature.world-web.act|observe|cleanup` facade composes all
 nineteen current common v17 browser checkpoints with the existing Phone Appium
-adapter. This packet implements the feature extension; the separately required
-`world-web-video` foundation still needs `web.reference.*` input registration.
-The complete catalog area must remain red until that foundation is implemented.
-No device or physical acceptance is claimed.
+adapter. The mandatory [reference-video foundation](WEB_REFERENCE.md) also implements
+all five `web.reference.*` inputs for both surfaces and retains the common
+independent encoded-pixel assertions. This is source/host composition; no device
+or physical acceptance is claimed. Missing mandatory native hooks remain red.
 
 Normal Running Scripts URL entry loads the unchanged owned `client.js`. The
 script creates its original local Web entity and echo receiver. Native Android
 pointer events activate the original controls. Text goes through a native
 `InputConnection`; no DOM value assignment, handler invocation or JavaScript
 click supplies an input. Read-only geometry determines where the original
-control is, with bounded native keyboard scrolling and current view/creation/
+control is, with bounded native mouse-wheel scrolling and current view/creation/
 grant/page guards. The served original fixture adds named ordinary Reference
-and B links and a visible foreign-origin heading. It retains the original echo
+and B links and a fixed full-width challenge/document header. The actual document label
+and its visible source color remain in view after ordinary history/scroll
+restoration; original native/HTTP facts are measured separately. It retains the original echo
 protocol and deliberately has no cooperative origin filter.
 
 The E2E-only native provider retains actual completion callbacks once per
@@ -70,9 +72,9 @@ laboratory under the existing policy.
 
 ## Checked scope and remaining qualification
 
-Seventeen focused host cases cover the complete common journey, actual loopback
-HTTP response IDs/404/restoration, source/history counterexamples, separate
-credentials, one-send intent, default-off registration and original cleanup. Resumed retirement plans acquire another original three-second
+Twenty-six focused host cases cover the complete common journey, actual loopback
+HTTP response IDs/404/restoration, source/history counterexamples, the mandatory video foundation on both
+surfaces, separate credentials, one-send intent, default-off registration and original cleanup. Resumed retirement plans acquire another original three-second
 native/Java/service absence window and verify the original saved PNG files,
 inodes, sizes and hashes before active journals can be pruned.
 Native events, pointer/IME boundaries and PNGs in those cases are explicitly
@@ -81,13 +83,14 @@ synthetic. Existing passive DOM and HTTP fixtures retain their own checks.
 The actual `EmbeddedWebView.java` and all common Web helpers compile against
 local Android API 34, AndroidX WebKit 1.12.1 and Core 1.1.0. The actual new C++
 provider and grammar compile and run with Qt6Core against synthetic item/JNI
-seams. The complete Android C++ translation unit and Test/probe integration
+seams. SDK 36 R8 classfile optimization of actual production Java retains all
+sixty C++ JNI lookups/callbacks. The complete Android C++ translation unit and Test/probe integration
 are not compiled; an Android build and real-device behavior remain unqualified.
 
 Focused commands:
 
 ```sh
-python3 -m unittest discover -s android/phone/tests/device -p 'test_world_web*.py'
+python3 -m unittest discover -s android/phone/tests/device -p '*web*.py'
 python3 -m unittest discover -s tests/device/self_tests -p test_browser_resources.py
 python3 -m unittest discover -s tests/device/self_tests -p test_native_web_dom.py
 python3 android/phone/tests/world-web-source-contract-test.py --build-dir build/world-web-source-contract

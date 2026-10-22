@@ -28,12 +28,12 @@ def digest(value):return type(value) is str and re.fullmatch('[0-9a-f]{64}',valu
 
 def command(value):
     exact(value,{'schemaVersion','commandId','action','runId','fixtureUrl'})
-    need(type(value['schemaVersion']) is int and value['schemaVersion']==1 and value['action']=='feature-phone-web-runtime-observe')
+    need(type(value['schemaVersion']) is int and value['schemaVersion']==1 and value['action'] in ('feature-phone-web-runtime-observe','feature-phone-web-reference-runtime-observe'))
     identifier(value['commandId']);identifier(value['runId']);root=value['fixtureUrl']
     need(type(root) is str and 0<len(root)<=512 and root.isascii() and not any(ord(c)<=32 or ord(c)==127 for c in root))
     parsed=urlsplit(root);parsed.port
     need(parsed.scheme in ('http','https') and parsed.hostname and parsed.username is None and parsed.password is None
-        and not parsed.query and not parsed.fragment and parsed.path=='/feature-fixture/v1/runs/'+value['runId']+'/')
+        and not parsed.query and not parsed.fragment and parsed.path==('/parity/' if value['action']=='feature-phone-web-reference-runtime-observe' else '/feature-fixture/v1/runs/'+value['runId']+'/'))
     return value
 
 
@@ -105,7 +105,7 @@ def validate(value,request,pid,epoch):
 
 def continuity(previous,value,pid,fixture_url):
     if previous is None:return
-    request=dict(schemaVersion=1,commandId=previous['commandId'],action='feature-phone-web-runtime-observe',
+    request=dict(schemaVersion=1,commandId=previous['commandId'],action=('feature-phone-web-reference-runtime-observe' if urlsplit(fixture_url).path=='/parity/' else 'feature-phone-web-runtime-observe'),
         runId=previous['runId'],fixtureUrl=fixture_url)
     validate(previous,request,pid,previous['capturedEpochMs'])
     need(previous['status']=='ready' and value['status']=='ready' and value['instance']==previous['instance']
@@ -157,7 +157,7 @@ class NativePhoneWebRuntime:
 
     def read(self,run,fixture_url):
         try:
-            request=command(dict(schemaVersion=1,commandId=uuid.uuid4().hex,action='feature-phone-web-runtime-observe',runId=run,fixtureUrl=fixture_url))
+            request=command(dict(schemaVersion=1,commandId=uuid.uuid4().hex,action=('feature-phone-web-reference-runtime-observe' if urlsplit(fixture_url).path=='/parity/' else 'feature-phone-web-runtime-observe'),runId=run,fixtureUrl=fixture_url))
             started=previous=self.monotonic();need(number(started,0,1e15) and self.guard() is not False)
             requested=self.clock_ms();need(integer(requested,1))
             if self.last is not None:need(requested>=self.last['capturedEpochMs'])

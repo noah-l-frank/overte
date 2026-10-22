@@ -1525,12 +1525,14 @@
             }
             return true;
         }
-        if (command && command.action === "feature-phone-web-runtime-observe") {
+        if (command && (command.action === "feature-phone-web-runtime-observe" || command.action === "feature-phone-web-reference-runtime-observe")) {
             if (command.schemaVersion === 1 && typeof command.commandId === "string"
                     && command.commandId.length === 32 && /^[0-9a-f]{32}$/.test(command.commandId)
                     && typeof command.runId === "string" && command.runId.length === 32 && /^[0-9a-f]{32}$/.test(command.runId)
                     && typeof command.fixtureUrl === "string" && command.fixtureUrl.length <= 512
-                    && new RegExp("^https?://[^/?#@\\s]+/feature-fixture/v1/runs/"+command.runId+"/$").test(command.fixtureUrl)
+                    && (command.action === "feature-phone-web-runtime-observe"
+                        ? new RegExp("^https?://[^/?#@\\s]+/feature-fixture/v1/runs/"+command.runId+"/$").test(command.fixtureUrl)
+                        : /^https?:\/\/[^/?#@\s]+\/parity\/$/.test(command.fixtureUrl))
                     && objectKeysMatch(command,["schemaVersion","commandId","action","runId","fixtureUrl"])) {
                 var phoneWebRuntime={phoneWebRuntimeVersion:1,commandId:command.commandId,status:"unavailable"};
                 try {
@@ -1543,7 +1545,7 @@
             }
             return true;
         }
-        if (command && command.action === "phone-world-web") {
+        if (command && (command.action === "phone-world-web" || command.action === "phone-web-reference")) {
             // The typed native provider validates the complete closed grammar.
             var worldWeb={phoneWorldWebVersion:1,commandId:command.commandId,status:"unavailable"};
             try {
@@ -2219,7 +2221,7 @@
     function applyAndroidControlCommand(command) {
         if (command && (command.action === "normal-feature-observe" || command.action === "feature-native-observe"
                 || command.action === "feature-chat-observe" || command.action === "feature-chat-view-observe" || command.action === "feature-web-dom-observe" || command.action === "feature-account-probe" || command.action === "feature-account-origin"
-                || command.action === "feature-phone-web-runtime-observe" || command.action === "phone-world-web"
+                || command.action === "feature-phone-web-runtime-observe" || command.action === "phone-world-web" || command.action === "phone-web-reference" || command.action === "feature-phone-web-reference-runtime-observe"
                 || command.action === "phone-navigation-marker-input" || command.action === "phone-navigation-marker-observe"
                 || command.action === "phone-navigation-ui" || command.action === "phone-navigation-view-observe"
                 || command.action === "feature-pending-commit-owner" || command.action === "feature-navigation-replies"

@@ -106,3 +106,15 @@ unsafe commands. Three actual Phone wrapper cases verify existing-session
 admission, no SDK repair, original release/live-state checks and closed grammar.
 They establish reader/probe logic only. Native/Java compilation and physical
 lifetime behavior remain explicitly unqualified.
+
+
+## Separately typed parity-video root
+
+The Phone video foundation additionally uses the closed action
+`feature-phone-web-reference-runtime-observe` with the same original envelope
+and explicit run ID, but only an exact credential-free HTTP(S) `/parity/` root.
+The original feature action remains confined to its exact feature-run root.
+Native and Java observers independently qualify original `/parity/index.html`
+source/document ownership and retain known handles through reconstruction. This
+adds no arbitrary path, source URL mutation or normalized media result. See the
+[Phone reference-video handoff](../adapters/android-phone/WEB_REFERENCE.md).

@@ -109,7 +109,20 @@ class BrowserResources:
                 head = ('<meta name="overte-fixture-response" content="' + response + '">'
                         '<meta name="overte-fixture-owner" content="' + run + '">')
                 body = body.replace('</head>', head + '</head>')
-                body = body.replace('<body>', '<body><img id="feature-marker" alt="Owned challenge" src="' + marker + '">')
+                # An ordinary fixed fixture header keeps the current challenge
+                # and actual document label visible after native history/scroll
+                # restoration. It grants no bridge and supplies no observation.
+                # Its full viewport width keeps all 128 challenge bits legible
+                # when the original high-DPI Web entity is rendered in-world.
+                color = ('#594917' if origin=='foreign' else '#4d2e5c' if name=='page-b.html' else
+                         '#5c2828' if status==404 else '#285c32' if name=='recovery.html' else '#263d52')
+                style = ('<style>body{padding-top:calc(25vw + 96px)}'
+                    '#feature-marker{position:fixed;left:0;top:0;width:100vw;height:25vw;image-rendering:pixelated;z-index:2147483646;pointer-events:none}'
+                    '#feature-document-label{position:fixed;left:0;top:25vw;width:100%;height:88px;box-sizing:border-box;padding:12px;'
+                    'font:24px sans-serif;color:white;background:'+color+';z-index:2147483646;pointer-events:none}</style>')
+                body = body.replace('</head>',style+'</head>')
+                body = body.replace('<body>', '<body><img id="feature-marker" alt="Owned challenge" src="' + marker + '">' +
+                    '<div id="feature-document-label">'+title+'</div>')
                 body = body.replace('</body>', '<script src="feature-marker.js"></script></body>')
                 body = body.encode('utf-8'); content_type = 'text/html; charset=utf-8'
             row['sequence'] += 1; row['epoch'] = epoch

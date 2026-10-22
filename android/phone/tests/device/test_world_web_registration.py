@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
 import os
+import json
 import secrets
 import unittest
 from unittest.mock import patch
@@ -38,6 +39,9 @@ class WorldWebRegistrationTests(unittest.TestCase):
             caps=fixture.adapter.advertised_capabilities(fixture.target)
             self.assertEqual({'feature.world-web.'+kind for kind in ('act','observe','cleanup')},
                 {value for value in caps if value.startswith('feature.world-web.')})
+            catalog=json.loads((world.DEVICE/'catalog.json').read_text())
+            video=next(row for row in catalog['modules'] if row['id']=='world-web-video')
+            self.assertLessEqual(set(video['requires']),set(caps))
             value=fixture.adapter.invoke(bound.SELECTOR,'feature.world-web.observe',dict(contractVersion=world.VERSION,runId=self.run,afterSequence=0))
             self.assertFalse(value['state']['open']);make.assert_called_once_with(bound.SELECTOR,self.run)
 
@@ -70,6 +74,21 @@ class WorldWebRegistrationTests(unittest.TestCase):
             self.assertEqual(self.path,actor.artifact_root);self.assertEqual(self.foreign+'/runs/'+self.run+'/',actor.foreign_url)
             self.assertEqual('actor',actor.role)
         self.assertEqual([],self.target.inputs)
+
+    def test_normal_reference_registration_is_explicit_and_routes_both_surfaces(self):
+        fixture=self.adapter()
+        with patch.dict(os.environ,dict(OVERTE_PHONE_NORMAL_WEB_REFERENCE='1')),patch.object(fixture.adapter,'_web_reference') as make:
+            caps=fixture.adapter.advertised_capabilities(fixture.target)
+            self.assertLessEqual({'web.reference.'+kind for kind in ('open','close','play','pause','seek')},set(caps))
+            for surface in ('world','tablet'):
+                make.return_value.invoke.return_value={'performed':True}
+                value=fixture.adapter.invoke(bound.SELECTOR,'web.reference.play',dict(surface=surface))
+                self.assertEqual({'performed':True},value)
+                make.return_value.invoke.assert_called_with('web.reference.play',dict(surface=surface))
+        with patch.dict(os.environ,dict(OVERTE_PHONE_NORMAL_WEB_REFERENCE='0',OVERTE_PHONE_FEATURE_WORLD_WEB='0')),patch.object(fixture.adapter,'_web_reference') as make:
+            with self.assertRaisesRegex(ValueError,'PHONE_WEB_REFERENCE_NOT_ENABLED'):
+                fixture.adapter.invoke(bound.SELECTOR,'web.reference.play',dict(surface='world'))
+            make.assert_not_called()
 
     def test_read_only_source_gate_cannot_reserve_retire_or_send_input(self):
         request=dict(schemaVersion=1,commandId=secrets.token_hex(16),action='phone-world-web',operation='observe',

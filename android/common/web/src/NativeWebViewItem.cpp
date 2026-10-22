@@ -847,6 +847,7 @@ PhoneWebRuntime phoneWebRuntime;
 bool runtimeOwned(const QString& raw,const QString& root) {
     const QUrl url(raw,QUrl::StrictMode);
     const auto original=url.adjusted(QUrl::RemoveQuery|QUrl::RemoveFragment).toString(QUrl::FullyEncoded);
+    if (QUrl(root).path()=="/parity/") { return original==root+"index.html" && url.userInfo().isEmpty(); }
     const auto prefix=root+"tickets/";
     return url.isValid() && url.userInfo().isEmpty() && original.startsWith(prefix)
         && QRegularExpression("\\A[0-9a-f]{32}/[A-Za-z0-9_.-]{1,80}\\z").match(original.mid(prefix.size())).hasMatch();

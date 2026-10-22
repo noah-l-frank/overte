@@ -8,7 +8,9 @@ Native compilation/devices and complete browser feature adapters remain open.
 
 The [world Web feature handoff](WORLD_WEB_FEATURE.md) documents the new
 default-off public v17 composition, original native histories, normal Android
-pointer/IME input and remaining catalog video prerequisite.
+pointer/IME input and the mandatory [reference-video inputs](WEB_REFERENCE.md)
+with independent common pixel checks. Complete Android C++/device qualification
+remains separate.
 
 The [Snapshot continuation](SNAPSHOT_FEATURE.md) adds a versioned passive
 capture/upload source and compiled recorder checks. The extended Snapshot

@@ -34,13 +34,19 @@ def fixture(run,url):
 
 def command(value):
     need(type(value) is dict);op=value.get('operation');fields={'schemaVersion','commandId','action','runId','fixtureUrl','operation','ownerToken'}
-    exact(value,fields|({'handle','creation','grant','page','control','text'} if op=='input' else set()))
-    need(type(value['schemaVersion']) is int and value['schemaVersion']==1 and value['action']=='phone-world-web'
+    reference=value.get('action')=='phone-web-reference'
+    exact(value,fields|({'surface'} if reference else set())|({'handle','creation','grant','page','control','text'} if op=='input' else set()))
+    need(type(value['schemaVersion']) is int and value['schemaVersion']==1 and value['action'] in ('phone-world-web','phone-web-reference')
         and op in ('reserve','observe','input','retire'))
-    identifier(value['commandId']);identifier(value['ownerToken']);fixture(value['runId'],value['fixtureUrl'])
+    identifier(value['commandId']);identifier(value['ownerToken'])
+    if reference:
+        from adapters.native_phone_web_runtime import command as runtime_command
+        runtime_command(dict(schemaVersion=1,commandId=value['commandId'],action='feature-phone-web-reference-runtime-observe',runId=value['runId'],fixtureUrl=value['fixtureUrl']))
+        need(value['surface'] in ('world','tablet'))
+    else:fixture(value['runId'],value['fixtureUrl'])
     if op=='input':
         need(type(value['handle']) is str and re.fullmatch('[1-9][0-9]{0,18}',value['handle'])
-            and all(integer(value[k],1) for k in ('creation','grant','page')) and value['control'] in CONTROLS
+            and all(integer(value[k],1) for k in ('creation','grant','page')) and value['control'] in ({'play','pause','seekStart','seek'} if reference else CONTROLS)
             and type(value['text']) is str and len(value['text'].encode('utf-16-le'))//2<=512
             and not any(ord(c)<32 or ord(c)==127 or 0xE000<=ord(c)<=0xE05E for c in value['text'])
             and (value['control'] in ('text','foreign') or not value['text']))
@@ -98,7 +104,16 @@ def validate(value,request,pid,epoch):
         echoes=packet['source']['dom']['echoes']
         need(all((key,row['sequence']) in event_keys['replies'] for row in echoes))
     current=source['current'];need(type(current) is dict)
-    if current:
+    if request['action']=='phone-web-reference':
+        need(not source['domHistory'])
+        if current:
+            exact(current,{'nativeView'});view=current['nativeView']
+            exact(view,IDENTITY|{'nativeFinished','httpErrorStatus','inlineLease','sourceUrl','sourceIdentity'})
+            key=identity(view);need(key in documents and view['nativeFinished'] is True and view['inlineLease'] is False
+                and type(view['httpErrorStatus']) is int and view['httpErrorStatus']==0
+                and view['sourceUrl']==request['fixtureUrl']+'index.html' and view['url']==view['sourceUrl']
+                and type(view['sourceIdentity']) is str and 0<len(view['sourceIdentity'])<=512)
+    elif current:
         dom_request=dict(schemaVersion=1,commandId=request['commandId'],action='feature-web-dom-observe',runId=request['runId'],surface='world',fixtureUrl=request['fixtureUrl'])
         validate_dom(current,dom_request,pid,epoch);key=identity(current['source']['nativeView'])
         need(key in source['domHistory'] and current==source['domHistory'][key])
@@ -128,9 +143,9 @@ class PhoneWorldWebIO:
         self.send,self.original,self.clock_ms,self.guard,self.pid=send,original,clock_ms,guard,pid
         self.monotonic,self.sleep,self.last=monotonic,sleep,None
 
-    def request(self,run,url,owner,operation,**fields):
-        request=command(dict(schemaVersion=1,commandId=uuid.uuid4().hex,action='phone-world-web',runId=run,
-            fixtureUrl=url,ownerToken=owner,operation=operation,**fields))
+    def request(self,run,url,owner,operation,*,reference_surface=None,**fields):
+        request=command(dict(schemaVersion=1,commandId=uuid.uuid4().hex,action='phone-world-web' if reference_surface is None else 'phone-web-reference',runId=run,
+            fixtureUrl=url,ownerToken=owner,operation=operation,**({'surface':reference_surface} if reference_surface is not None else {}),**fields))
         try:
             start=previous=self.monotonic();requested=self.clock_ms();need(number(start,0,1e15) and integer(requested,1) and self.guard() is not False)
             self.send(request)
@@ -145,7 +160,7 @@ class PhoneWorldWebIO:
                     if value['status']=='ready':
                         continuity(self.last,value);need(self.guard() is not False)
                         final=self.clock_ms();need(integer(final,epoch));fresh(value['capturedEpochMs'],final)
-                        if operation=='observe' and value['source']['current']:
+                        if operation=='observe' and reference_surface is None and value['source']['current']:
                             fresh(value['source']['current']['source']['dom']['capturedEpochMs'],final)
                         finished=self.monotonic();need(number(finished,previous,start+5) and finished-start<5
                             and max(final-value['capturedEpochMs'],requested-value['capturedEpochMs']+math.ceil((finished-start)*1000))<=1500)

@@ -120,7 +120,7 @@ class NormalScriptManager:
         self.ui, self.observe, self.store = ui, observe, store
         self.binding = dict(context(binding, component_only=component_only))
         self.monotonic, self.sleep = monotonic, sleep
-        need(source_kind in {'scripts', 'create-observer', 'script-file-bundle', 'feature-script-missing', 'feature-world-web'})
+        need(source_kind in {'scripts', 'create-observer', 'script-file-bundle', 'feature-script-missing', 'feature-world-web', 'feature-web-reference'})
         self.source_kind = source_kind
         bundled = source_kind == 'script-file-bundle'
         missing = source_kind == 'feature-script-missing'
@@ -170,6 +170,9 @@ class NormalScriptManager:
             self.validate_url(value['source'])
 
     def validate_url(self, url):
+        if self.source_kind == 'feature-web-reference':
+            from contracts import validate_operation_arguments
+            return validate_operation_arguments('web.reference.open',dict(surface='world',scriptUrl=url))['scriptUrl']
         if self.source_kind == 'feature-world-web':
             need(type(url) is str and len(url)<=4096 and url.isascii() and not any(ord(c)<=32 for c in url))
             parsed=urlsplit(url);parsed.port

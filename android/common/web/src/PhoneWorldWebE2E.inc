@@ -5,6 +5,7 @@
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PHONE_INTERFACE)
 namespace {
 struct WorldWebScope {
+    bool reference{false};QString surface{"world"};
     QString root,token,instance{QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-')};
     QVariantList documents,requests,replies;QVariantMap dom;
     bool complete{true},retired{false};quint64 sequence{0};qint64 epoch{0};
@@ -26,12 +27,12 @@ QVariantMap worldWebPacket(const QVariantMap& command,WorldWebScope& scope,const
 }
 }
 void NativeWebViewItem::featureWorldWebRecord(const QString& kind,const QVariant& value) {
-    if (!featureEnabled() || _surface!=WorldEntity || thread()!=QThread::currentThread()) { return; }
+    if (!featureEnabled() || thread()!=QThread::currentThread()) { return; }
     QString source,document;quint64 grant,page;
     { QMutexLocker guard(&_mutex);source=_session.url().toString(QUrl::FullyEncoded);document=_document.toString(QUrl::FullyEncoded);
       grant=_session.generation();page=_page; }
     for (auto scope=worldWebScopes.begin();scope!=worldWebScopes.end();++scope) {
-        if (scope->retired || !source.startsWith(scope->root+"tickets/") || !grant || !page) { continue; }
+        if ((!scope->reference && _surface!=WorldEntity) || scope->retired || !(scope->reference ? source==scope->root+"index.html" : source.startsWith(scope->root+"tickets/")) || !grant || !page) { continue; }
         QVariantMap identity{{"handle",QString::number(_handle)},{"creation",static_cast<qulonglong>(_creationRevision)},
             {"grant",static_cast<qulonglong>(grant)},{"page",static_cast<qulonglong>(page)},{"url",document}};
         const auto key=worldWebKey(identity);const auto now=QDateTime::currentMSecsSinceEpoch();
@@ -75,31 +76,40 @@ QVariantMap NativeWebViewItem::featurePhoneWorldWeb(const QVariantMap& command) 
     const auto run=command.value("runId").toString(),operation=command.value("operation").toString();
     if (!worldWebScopes.contains(run)) {
         if (operation!="reserve" || worldWebScopes.size()>=32) { return {}; }
-        WorldWebScope scope;scope.root=command.value("fixtureUrl").toString();scope.token=command.value("ownerToken").toString();
+        WorldWebScope scope;scope.root=command.value("fixtureUrl").toString();scope.reference=command.value("action")=="phone-web-reference";
+        scope.surface=scope.reference ? command.value("surface").toString() : "world";scope.token=command.value("ownerToken").toString();
         worldWebScopes.insert(run,scope);
     }
     auto& scope=worldWebScopes[run];
-    if (scope.root!=command.value("fixtureUrl") || scope.token!=command.value("ownerToken") || !scope.complete) { return {}; }
+    if (scope.root!=command.value("fixtureUrl") || scope.token!=command.value("ownerToken") || !scope.complete
+            || scope.reference!=(command.value("action")=="phone-web-reference")
+            || (scope.reference && scope.surface!=command.value("surface"))) { return {}; }
     if (operation!="input" && scope.lastCommand.value("commandId")==command.value("commandId")) {
         if (scope.lastCommand!=command) { return {}; }
         if (scope.lastPacket.value("status")=="ready" || scope.lastPacket.value("status")=="unavailable") { return scope.lastPacket; }
     }
     QList<QPointer<NativeWebViewItem>> original;
     { QMutexLocker guard(&registryMutex);if (registry.size()>128) { return {}; }for (auto* item:registry) { original.append(item); } }
-    QPointer<NativeWebViewItem> selected;
+    QPointer<NativeWebViewItem> selected;int owned=0;
     for (const auto& item:original) {
         if (!item || item->thread()!=QThread::currentThread()) { return {}; }
         QString source;{ QMutexLocker guard(&item->_mutex);source=item->_session.url().toString(QUrl::FullyEncoded); }
-        if (item->_surface!=WorldEntity || !source.startsWith(scope.root+"tickets/")) { continue; }
+        const bool matches=scope.reference ? source==scope.root+"index.html" : source.startsWith(scope.root+"tickets/");
+        if (!matches) { continue; }++owned;
+        if (item->_surface!=(scope.surface=="world" ? WorldEntity : Tablet)) { continue; }
         if (selected) { return {}; }selected=item;
     }
     if (operation=="reserve") {
         // A reservation cannot adopt an already existing owned world view.
-        if (selected || scope.retired || !scope.documents.isEmpty()) { return {}; }
+        if (owned || scope.retired || !scope.documents.isEmpty()) { return {}; }
         return worldWebPacket(command,scope,"ready",{{"reserved",true}});
     }
     if (operation=="retire") {
-        if (selected || (!scope.input.isEmpty() && scope.receipt.value("status")=="pending")) { return {}; }
+        if (!scope.input.isEmpty() && scope.receipt.value("status")=="pending" && scope.timer.isValid() && scope.timer.elapsed()>=4000) {
+            scope.receipt=worldWebPacket(scope.input,scope,"unavailable"); // An expired input is never an effect.
+        }
+        if (owned || (!scope.input.isEmpty() && scope.receipt.value("status")=="pending")) { return {}; }
+        scope.input.clear();scope.receipt.clear();scope.timer.invalidate();
         scope.retired=true;scope.documents.clear();scope.requests.clear();scope.replies.clear();scope.dom.clear();
         return worldWebPacket(command,scope,"ready",{{"retired",true}});
     }
@@ -129,11 +139,27 @@ QVariantMap NativeWebViewItem::featurePhoneWorldWeb(const QVariantMap& command) 
     QVariantMap current;
     if (selected) {
         if (scope.retired) { return {}; }
+        if (scope.reference) {
+            quint64 grant,page;QString source;QUrl document;bool inlineLease;
+            { QMutexLocker guard(&selected->_mutex);grant=selected->_session.generation();page=selected->_page;
+              document=selected->_document;source=selected->_session.url().toString(QUrl::FullyEncoded);
+              inlineLease=selected->_inlineProvided && selected->_inlineDocument.current(); }
+            if (!selected->allowsEditorDocument(grant,page,document) || selected->_featureWebFinishedGrant!=grant
+                    || selected->_featureWebFinishedPage!=page || selected->_featureWebFinishedDocument!=document) {
+                return worldWebPacket(command,scope,"pending");
+            }
+            QVariantMap view{{"handle",QString::number(selected->_handle)},{"creation",static_cast<qulonglong>(selected->_creationRevision)},
+                {"grant",static_cast<qulonglong>(grant)},{"page",static_cast<qulonglong>(page)},{"url",document.toString(QUrl::FullyEncoded)},
+                {"nativeFinished",true},{"httpErrorStatus",selected->_featureWebHTTPGrant==grant && selected->_featureWebHTTPPage==page ? selected->_featureWebHTTPStatus : 0},
+                {"inlineLease",inlineLease},{"sourceUrl",source},{"sourceIdentity",selected->_sourceIdentity}};
+            current={{"nativeView",view}};
+        } else {
         auto request=QVariantMap{{"schemaVersion",1},{"commandId",command.value("commandId")},{"action","feature-web-dom-observe"},
             {"runId",run},{"surface","world"},{"fixtureUrl",scope.root}};
         const auto packet=selected->featureWebDOMRequest(request);
         if (packet.value("status")!="ready") { return worldWebPacket(command,scope,packet.value("status").toString()); }
         current=packet;
+        }
     }
     return worldWebPacket(command,scope,"ready",{{"retired",scope.retired},{"documents",scope.documents},
         {"requests",scope.requests},{"replies",scope.replies},{"domHistory",scope.dom},{"current",current}});

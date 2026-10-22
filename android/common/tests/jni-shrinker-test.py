@@ -49,6 +49,7 @@ with tempfile.TemporaryDirectory(prefix='overte-jni-r8-') as temporary:
     checked=0
     for module,(name,source) in modules.items():
         native=(ROOT/'android/common'/module/'src'/source).read_text()
+        if module=='web':native += (ROOT/'android/common/web/src/PhoneWorldWebE2E.inc').read_text()
         required=set(re.findall(r'call\("([A-Za-z0-9_]+)",\s*"([^"\n]+)"',native))
         text=subprocess.check_output(['javap','-p','-s','-classpath',str(output),name],text=True)
         retained=set(re.findall(r'([A-Za-z0-9_]+)\([^;\n]*\);\s*descriptor: (\S+)',text))

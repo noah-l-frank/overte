@@ -30,6 +30,7 @@ source=r'''
 #include <jni.h>
 #include <cassert>
 #include "tests/device/native/PhoneWorldWebBridge.h"
+#include "tests/device/native/PhoneWebRuntimeBridge.h"
 struct Session {
     QUrl original;quint64 generation() const { return 1; }
     QUrl url() const { return original; }
@@ -38,7 +39,10 @@ class NativeWebViewItem:public QObject {
 public:
     enum Surface { Tablet,WorldEntity };
     Surface _surface{WorldEntity};Session _session;QUrl _document;QMutex _mutex;
-    jlong _handle{42};quint64 _page{1},_creationRevision{1};
+    jlong _handle{42};quint64 _page{1},_creationRevision{1},_featureWebFinishedGrant{1},_featureWebFinishedPage{1};
+    QUrl _featureWebFinishedDocument;QString _sourceIdentity{"original-item"};
+    quint64 _featureWebHTTPGrant{0},_featureWebHTTPPage{0};int _featureWebHTTPStatus{0};bool _inlineProvided{false};
+    struct Inline { bool active{false};bool current() const { return active; } } _inlineDocument;
     static QVariantMap featurePhoneWorldWeb(const QVariantMap&);
     static void acceptFeatureWorldWebInput(const QString&,bool);
     void featureWorldWebRecord(const QString&,const QVariant& value={});
@@ -96,6 +100,36 @@ int main(int argc,char** argv) {
     command.insert("grant",1);command.insert("page",2);command.insert("control","bridge");command.insert("text","");
     assert(overte::e2e::phoneWorldWebCommand(command));
     command.insert("page",true);assert(!overte::e2e::phoneWorldWebCommand(command));
+    // The separately typed original /parity/ path qualifies video controls only.
+    QVariantMap reference{{"schemaVersion",1},{"commandId",QString(32,'6')},{"action","phone-web-reference"},
+        {"runId",QString(32,'7')},{"fixtureUrl","http://127.0.0.1:50001/parity/"},{"ownerToken",QString(32,'8')},
+        {"operation","reserve"},{"surface","world"}};
+    assert(overte::e2e::phoneWorldWebCommand(reference));
+    reply=NativeWebViewItem::featurePhoneWorldWeb(reference);assert(reply.value("status")=="ready");
+    item._session.original=QUrl("http://127.0.0.1:50001/parity/index.html");item._document=item._session.original;
+    item._page=1;item._featureWebFinishedGrant=1;item._featureWebFinishedPage=1;item._featureWebFinishedDocument=item._document;
+    registry.insert(42,&item);item.featureWorldWebRecord("documents");
+    reference.insert("operation","observe");reference.insert("commandId",QString(32,'9'));
+    reply=NativeWebViewItem::featurePhoneWorldWeb(reference);assert(reply.value("status")=="ready");
+    assert(reply.value("source").toMap().value("current").toMap().value("nativeView").toMap().value("nativeFinished")==true);
+    const auto originalReply=reply;
+    assert(NativeWebViewItem::featurePhoneWorldWeb(reference)==originalReply); // Never retime a completed nonce.
+    item._featureWebHTTPGrant=1;item._featureWebHTTPPage=1;item._featureWebHTTPStatus=404;
+    item._inlineProvided=true;item._inlineDocument.active=true;reference.insert("commandId",QString(32,'c'));
+    reply=NativeWebViewItem::featurePhoneWorldWeb(reference);
+    const auto errorView=reply.value("source").toMap().value("current").toMap().value("nativeView").toMap();
+    assert(errorView.value("httpErrorStatus")==404 && errorView.value("inlineLease")==true);
+    reference.insert("operation","input");reference.insert("commandId",QString(32,'a'));reference.insert("handle","42");
+    reference.insert("creation",1);reference.insert("grant",1);reference.insert("page",1);reference.insert("control","play");reference.insert("text","");
+    assert(overte::e2e::phoneWorldWebCommand(reference));
+    reference.insert("control","bridge");assert(!overte::e2e::phoneWorldWebCommand(reference));
+    reference.insert("control","play");reference.insert("fixtureUrl",root);assert(!overte::e2e::phoneWorldWebCommand(reference));
+    QVariantMap runtime{{"schemaVersion",1},{"commandId",QString(32,'b')},{"action","feature-phone-web-reference-runtime-observe"},
+        {"runId",run},{"fixtureUrl","http://127.0.0.1:50001/parity/"}};
+    assert(overte::e2e::phoneWebRuntimeCommand(runtime));
+    runtime.insert("action","feature-phone-web-runtime-observe");assert(!overte::e2e::phoneWebRuntimeCommand(runtime));
+    runtime.insert("fixtureUrl",root);assert(overte::e2e::phoneWebRuntimeCommand(runtime));
+    runtime.insert("action","feature-phone-web-reference-runtime-observe");assert(!overte::e2e::phoneWebRuntimeCommand(runtime));
     return 0;
 }
 '''
