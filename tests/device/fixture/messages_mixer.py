@@ -2,11 +2,15 @@
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 import os
+from copy import deepcopy
+import hashlib
+import json
 from pathlib import Path
 import signal
 import subprocess
 import sys
 import time
+import uuid
 
 from adapters.normal_ui import NativeUIError
 
@@ -102,3 +106,62 @@ class MessagesMixer:
         self.generation+=1
         actual=self.state();need(actual['running']==(action=='online'))
         self.clear_intent();need(self.read_intent() is None);self.intent=None;self.dispatched=False;return self.state()
+
+
+class MessagesMixerObservation:
+    """Read the existing mixer owner and all original other fixture processes.
+
+    This creates no process and sends no signal. Its controller instance exists
+    from the actual fixture stack startup, rather than an adapter's first read.
+    Private kernel identities never expose PIDs, paths or the owner credential.
+    """
+    ROLES={'domain-server','assignment-0','assignment-1','assignment-3','assignment-5','assignment-6','domain-agent','peer-agent'}
+
+    def __init__(self,mixer,processes,owned,domain_id,stack_generation):
+        need(isinstance(mixer,MessagesMixer) and type(processes) is dict and set(processes)==self.ROLES
+            and callable(owned) and type(domain_id) is str and str(uuid.UUID(domain_id))==domain_id
+            and uuid.UUID(domain_id).int!=0 and type(stack_generation) is int and stack_generation>0
+            and len({process.pid for process in processes.values()})==len(processes))
+        self.mixer,self.processes,self.owned=mixer,dict(processes),owned
+        self.domain_id,self.stack_generation=domain_id,stack_generation
+        self.instance=uuid.uuid4().hex;self.sequence=0;self.epoch=0;self.last=None
+        self.boot=Path('/proc/sys/kernel/random/boot_id').read_text().strip()
+        need(str(uuid.UUID(self.boot))==self.boot)
+        self.original={role:self._process(process) for role,process in self.processes.items()}
+
+    def _process(self,process):
+        need(process.poll() is None and self.owned(process.pid) is True)
+        start=start_identity(process.pid);path=Path('/proc')/str(process.pid)
+        before=os.stat(path/'exe');uid=path.stat().st_uid
+        need(uid==os.geteuid() and before.st_size>0 and start_identity(process.pid)==start
+            and process.poll() is None and self.owned(process.pid) is True)
+        after=os.stat(path/'exe')
+        def node(info):
+            return [str(info.st_dev),str(info.st_ino),info.st_size,info.st_mode,info.st_nlink,info.st_mtime_ns,info.st_ctime_ns]
+        need(node(before)==node(after))
+        return [process.pid,start,uid,node(before)]
+
+    def _hash(self,value):
+        return hashlib.sha256(json.dumps([self.instance,self.boot,value],sort_keys=True,separators=(',',':')).encode()).hexdigest()
+
+    def state(self):
+        started=time.monotonic();epoch=int(time.time()*1000)
+        need(epoch>0 and epoch>=self.epoch and Path('/proc/sys/kernel/random/boot_id').read_text().strip()==self.boot)
+        before=self.mixer.state();actual={role:self._process(process) for role,process in self.processes.items()}
+        need(actual==self.original)
+        process=self.mixer.process
+        mixer_identity=self._hash(self._process(process)) if process is not None else None
+        need(self.mixer.state()==before and self.mixer.process is process)
+        # Requalify original non-mixer processes after the mixer read as well.
+        need({role:self._process(process) for role,process in self.processes.items()}==actual)
+        finished=int(time.time()*1000)
+        need(epoch<=finished<=epoch+1500 and 0<=time.monotonic()-started<=1.5 and self.sequence<9007199254740991)
+        if self.last is not None:
+            need(before['generation']>=self.last['mixer']['generation'])
+            if before['generation']==self.last['mixer']['generation']:
+                need(before['running']==self.last['mixer']['running'] and mixer_identity==self.last['mixerIdentity'])
+        self.sequence+=1;self.epoch=finished
+        value=dict(mixerControlVersion=1,instance=self.instance,sequence=self.sequence,capturedEpochMs=finished,
+            domainId=self.domain_id,stackGeneration=self.stack_generation,
+            processes={role:self._hash(row) for role,row in actual.items()},mixer=before,mixerIdentity=mixer_identity)
+        self.last=deepcopy(value);return value

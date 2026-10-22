@@ -209,3 +209,11 @@ executes original setter and observation bodies on explicit transport seams;
 whole networking compilation and device execution remain unqualified. This
 source still needs the original owned fixture process/control join for the full
 mixer outage/recovery operation.
+
+The [existing fixture mixer control](../../fixture/CHAT_MIXER_SOURCE.md) now
+also observes the original domain identity, mixer kernel birth and all eight
+other fixed original processes. Its source instance exists from actual stack
+startup, and authenticated control still affects only the owned `-t 4` process.
+Focused host checks run owned synthetic workers and the original controller
+function; Overte services/devices remain unrun. Native domain/source joins and
+the durable whole network owner must still be composed before full registration.

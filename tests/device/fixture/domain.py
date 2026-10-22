@@ -22,7 +22,7 @@ import uuid
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from fixture.collaboration_broker import CollaborationBroker
 from fixture.owned_processes import OwnedProcesses
-from fixture.messages_mixer import MessagesMixer
+from fixture.messages_mixer import MessagesMixer, MessagesMixerObservation
 from adapters.normal_feature_state import PrivateFeatureState, need
 
 
@@ -456,6 +456,7 @@ def main() -> int:
     domain_id = None
     generation = 0
     mixer = None
+    mixer_observation = None
     mixer_store = PrivateFeatureState(output / "messages-mixer-intent.json")
     mixer_expected = None
     stack_state = "offline"
@@ -491,7 +492,7 @@ def main() -> int:
 
     def start_stack() -> None:
         nonlocal domain_process, assignment_processes, assignment_agent_processes
-        nonlocal domain_id, generation, stack_state, mixer
+        nonlocal domain_id, generation, stack_state, mixer, mixer_observation
         if stack_state == "online":
             return
         # The broker and assignment seed start afresh on each controlled
@@ -519,8 +520,10 @@ def main() -> int:
             raise RuntimeError("controlled domain identity changed during restart")
         domain_id = observed_id
         mixer_process = None
+        assignment_by_type = {}
         for assignment_type in ("0", "1", "3", "4", "5", "6"):
             process = spawn_assignment(assignment_type)
+            assignment_by_type[assignment_type] = process
             if assignment_type == "4":
                 mixer_process = process
         if sys.platform.startswith("linux"):
@@ -528,6 +531,7 @@ def main() -> int:
             mixer = MessagesMixer(mixer_process, owned_processes.matches,
                                   lambda: spawn_assignment("4"),
                                   write_mixer_intent, clear_mixer_intent, mixer_store.read)
+        agents_by_pool = {}
         for pool in ("overte-e2e-domain", "overte-e2e-peer"):
             actor_options = []
             if args.feature_chat_receiver and pool == "overte-e2e-peer":
@@ -551,6 +555,7 @@ def main() -> int:
                  "--log-directory", str(output / "assignment-logs"),
                  "--logOptions", "nocolor,process_id,milliseconds", *actor_options],
                 **process_options(environment, assignment_agent_log)))
+            agents_by_pool[pool] = assignment_agent_processes[-1]
         deadline = time.monotonic() + args.assignment_warmup_seconds
         while time.monotonic() < deadline:
             if (domain_process.poll() is not None
@@ -569,12 +574,19 @@ def main() -> int:
         wait_for_assignment_content(
             (domain_process, *assignment_processes, *assignment_agent_processes),
             args.startup_timeout_seconds, stopping)
+        if args.feature_chat_receiver and mixer is not None:
+            mixer_observation = MessagesMixerObservation(mixer, {
+                "domain-server": domain_process,
+                **{"assignment-" + kind: assignment_by_type[kind] for kind in ("0", "1", "3", "5", "6")},
+                "domain-agent": agents_by_pool["overte-e2e-domain"],
+                "peer-agent": agents_by_pool["overte-e2e-peer"],
+            }, owned_processes.matches, domain_id, generation + 1)
         stack_state = "online"
         generation += 1
 
     def stop_stack() -> None:
         nonlocal domain_process, assignment_processes, assignment_agent_processes
-        nonlocal generation, stack_state, mixer
+        nonlocal generation, stack_state, mixer, mixer_observation
         was_online = stack_state == "online"
         stack_state = "offline"
         for process in reversed(assignment_agent_processes):
@@ -587,6 +599,7 @@ def main() -> int:
         assignment_processes = []
         domain_process = None
         mixer = None
+        mixer_observation = None
         if was_online:
             generation += 1
 
@@ -608,13 +621,13 @@ def main() -> int:
             if stack_state != "online" or mixer is None:
                 raise RuntimeError("owned MessagesMixer control is unavailable")
             if action is None:
-                return mixer.state()
+                return mixer_observation.state() if mixer_observation is not None else mixer.state()
             original = mixer.process
             actual = mixer.transition(action)
             if original is not None and mixer.process is not original:
                 need(original.poll() is not None and original in assignment_processes)
                 assignment_processes.remove(original)
-            return actual
+            return mixer_observation.state() if mixer_observation is not None else actual
 
     def request_stop(_signal=None, _frame=None) -> None:
         stopping.set()
