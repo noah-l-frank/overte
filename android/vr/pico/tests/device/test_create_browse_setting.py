@@ -27,17 +27,26 @@ def raw(text=None):
         base64=base64.b64encode(data).decode(),sha256=hashlib.sha256(data).hexdigest(),stringValue=text)
 
 
+def physical(setting=None):
+    setting=raw() if setting is None else setting
+    data=b'' if not setting['present'] else setting['stringValue'].encode()
+    return dict(physicalVersion=1,format='ini',pathSha256='5'*64,capturedEpochMs=20000,
+        file=dict(exists=True,device='1',inode='2',bytes=len(data),mode=0o600,modified='1.000000000',changed='1.000000000'),
+        fileSha256=hashlib.sha256(data).hexdigest(),row=dict(present=setting['present'],base64=base64.b64encode(data).decode(),
+            sha256=hashlib.sha256((b'present:' if setting['present'] else b'absent:')+data).hexdigest()))
+
+
 class Boundary:
     def __init__(self):
         self.value=None;self.sequence=0;self.raw='';self.sent=[];self.lose=None;self.before_loss=False
-        self.setting=raw();self.clock=0.;self.freeze_writer=False
+        self.setting=raw();self.clock=0.;self.freeze_writer=False;self.freeze_disk=False
     def send(self,command):
         self.sent.append(deepcopy(command));op=command['operation']
         if self.lose==op and self.before_loss:raise NativeUIError('lost before native dispatch')
         if op=='reserve':
             if self.value is not None:raise AssertionError('native reserve resent')
-            self.value=dict(createBrowseSettingVersion=2,leaseId='c'*32,runId=RUN,createdEpochMs=10000,original=raw(),current=raw(),
-                claims=[],reads=[],owned=raw(),writer=dict(id='6'*32,capturedEpochMs=20000,raw=raw()),restoreAttempted=False,restored=False,released=False)
+            self.value=dict(createBrowseSettingVersion=3,leaseId='c'*32,runId=RUN,createdEpochMs=10000,original=raw(),current=raw(),originalPhysical=physical(),
+                claims=[],reads=[],owned=raw(),writer=dict(id='6'*32,capturedEpochMs=20000,raw=raw(),physical=physical()),restoreAttempted=False,restored=False,released=False)
         elif op=='claim-read':
             self.value['reads'].append(dict(dialogId='d'*32,sourceInstance='e'*32,ticket=TICKET,role='import',claimedEpochMs=13000,
                 read=dict(before=dict(capturedEpochMs=11000,raw=deepcopy(self.setting)),after=dict(capturedEpochMs=12000,raw=deepcopy(self.setting)))))
@@ -53,6 +62,7 @@ class Boundary:
         if self.lose==op:raise NativeUIError('lost after native effect')
         self.value['current']=deepcopy(self.setting)
         if not self.freeze_writer:self.value['writer']['raw']=deepcopy(self.setting)
+        if not self.freeze_disk:self.value['writer']['physical']=physical(self.setting)
         self.sequence+=1
         self.raw=json.dumps(dict(schemaVersion=1,requestId=command['commandId'],instance='9'*32,sequence=self.sequence,
             requestedEpochMs=20000,capturedEpochMs=20000,processId=123,runId=RUN,operation=op,source=self.value),indent=2)+'\n'
@@ -121,15 +131,31 @@ class CreateBrowseSettingTests(unittest.TestCase):
         with self.assertRaises(NativeUIError):self.make().release()
         self.assertIsNotNone(self.store.read());self.assertEqual(1,sum(c['operation']=='restore' for c in self.b.sent))
         self.assertFalse(any(c['operation']=='release' for c in self.b.sent))
+    def test_original_manager_and_writer_cache_with_foreign_physical_row_cannot_retire(self):
+        owner=self.make();owner.reserve(RUN);self.claim(owner);self.b.freeze_disk=True
+        with self.assertRaises(NativeUIError):owner.restore()
+        self.assertEqual(self.b.value['original'],self.b.value['current'])
+        self.assertEqual(self.b.value['original'],self.b.value['writer']['raw'])
+        with self.assertRaises(NativeUIError):self.make().release()
+        self.assertIsNotNone(self.store.read());self.assertFalse(any(c['operation']=='release' for c in self.b.sent))
+
     def test_corrupt_original_raw_history_or_candidate_cannot_rebind(self):
         owner=self.make();owner.reserve(RUN);self.claim(owner);before=owner.native.last
         for change in (lambda p:p['source']['original'].update(sha256='0'*64),lambda p:p['source'].update(leaseId='7'*32),
-                lambda p:p['source'].update(claims=[]),lambda p:p.update(instance='7'*32),lambda p:p['source']['writer'].update(id='7'*32)):
+                lambda p:p['source'].update(claims=[]),lambda p:p.update(instance='7'*32),lambda p:p['source']['writer'].update(id='7'*32),lambda p:p['source']['originalPhysical']['row'].update(sha256='0'*64),
+                lambda p:p['source']['originalPhysical'].update(pathSha256='1'*64)):
             value=deepcopy(before);value['sequence']+=1;change(value)
             with self.subTest(change=change),self.assertRaises(NativeUIError):
                 validate(value,value['requestId'],123,20000);continuity(before,value)
         state=self.store.read();state['binding']['artifactSha256']='0'*64;self.store.write(state,self.store.read())
         with self.assertRaises(NativeUIError):self.make()
+    def test_v2_originals_remain_readable_but_cannot_qualify_exact_physical_retirement(self):
+        owner=self.make();owner.reserve(RUN);value=deepcopy(owner.native.last['source'])
+        value['createBrowseSettingVersion']=2;value.pop('originalPhysical');value['writer'].pop('physical')
+        source(value,20000)
+        from adapters.pico4.create_browse_setting import restored
+        with self.assertRaises(NativeUIError):restored(value)
+
     def test_closed_probe_forwards_original_only_and_never_accepts_requested_restore_value(self):
         program='''const assert=require('assert');let calls=[],saved=[];
 const Uuid={generate:()=>'{aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa}'};

@@ -16,7 +16,7 @@ REQUIRED = {
     "pico-create-picker-owner": 2,
     "pico-create-entities": 2,
     "pico-create-dialogs": 3,
-    "pico-create-browse-setting": 2,
+    "pico-create-browse-setting": 3,
     "pico-graphics-feature-binding": 1,
     "graphics-journey-feature": 1,
     "graphics-journey-lifetime": 1,

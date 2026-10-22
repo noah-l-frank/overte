@@ -13,9 +13,12 @@
 #include <QMap>
 #include <QRegularExpression>
 #include <QThread>
+#include <QSemaphore>
+#include <memory>
 #include <QUuid>
 #include <QUrl>
 #include "PrivateCreateFiles.h"
+#include "CreateBrowseSettingFile.h"
 
 namespace overte::e2e {
 // One fixed actual setting. Original raw values are acquired inside the real
@@ -136,7 +139,7 @@ public:
         } else if (operation=="release") {
             bool same=false;manager->withReadLock([&]{same=raw(manager->_settings.contains(key()),manager->_settings.value(key()))==lease.originalRow;});
             const auto written=writer(manager.data());
-            if (!same || written.value("raw").toMap()!=lease.originalRow || (!lease.claims.isEmpty() && !lease.restored)
+            if (!same || written.value("raw").toMap()!=lease.originalRow || !createBrowsePhysicalOriginal(lease.originalPhysical,written.value("physical").toMap()) || (!lease.claims.isEmpty() && !lease.restored)
                     || dialogs.value("complete")!=QVariant(true)) {return {};}
             for (const auto& prior:lease.reads+lease.claims) {
                 const auto claim=prior.toMap();if (claim.value("sourceInstance")!=dialogs.value("instance")) {return {};}
@@ -151,26 +154,50 @@ public:
         QVariantMap current;manager->withReadLock([&]{current=raw(manager->_settings.contains(key()),manager->_settings.value(key()));});
         const auto written=writer(manager.data());
         if (current.isEmpty() || written.isEmpty()) {return {};}
-        if (operation=="reserve" && written.value("raw").toMap()!=lease.originalRow) {return {};}
-        return {{"createBrowseSettingVersion",2},{"leaseId",lease.id},{"runId",run},{"createdEpochMs",lease.created},
-            {"original",lease.originalRow},{"current",current},{"writer",written},{"claims",lease.claims},{"reads",lease.reads},
+        if (operation=="reserve") {
+            if (written.value("raw").toMap()!=lease.originalRow) {return {};}
+            lease.originalPhysical=written.value("physical").toMap();
+        }
+        if (lease.originalPhysical.isEmpty()) {return {};}
+        return {{"createBrowseSettingVersion",3},{"leaseId",lease.id},{"runId",run},{"createdEpochMs",lease.created},
+            {"original",lease.originalRow},{"originalPhysical",lease.originalPhysical},{"current",current},{"writer",written},{"claims",lease.claims},{"reads",lease.reads},
             {"owned",lease.lastOwnedRow.isEmpty() ? lease.originalRow : lease.lastOwnedRow},{"restoreAttempted",lease.restoreAttempted},
             {"restored",lease.restored},{"released",lease.released}};
     }
 private:
-    static QVariantMap writer(Setting::Manager* manager) {
-        if (!enabled() || !manager || !manager->_workerThread.isRunning() || !manager->_featureBrowseWriteWorker) {return {};}
-        const QPointer<Setting::WriteWorker> worker=manager->_featureBrowseWriteWorker;QVariantMap observed;
-        // Observe the real original writer on its own thread, after earlier
-        // queued Manager signals. init() loads only its existing QSettings;
-        // no requested value or replacement worker provides this source.
-        const bool invoked=QMetaObject::invokeMethod(worker.data(),[&]{
-            if (!worker || QThread::currentThread()!=worker->thread()) {return;}
-            worker->init();if (worker->_qSettings->status()!=QSettings::NoError) {return;}
-            const auto value=raw(worker->_qSettings->contains(key()),worker->_qSettings->value(key()));
-            if (!value.isEmpty()) {observed={{"id",manager->_featureBrowseWriteWorkerBirth},{"capturedEpochMs",QDateTime::currentMSecsSinceEpoch()},{"raw",value}};}
-        },Qt::BlockingQueuedConnection);
-        return invoked ? observed : QVariantMap{};
+    struct WriterRead {
+        QSemaphore ready;QVariantMap value;QPointer<Setting::WriteWorker> worker;
+    };
+    QVariantMap writer(Setting::Manager* manager) {
+        if (!enabled()) {return {};}
+        if (_writerRead) {
+            if (!_writerRead->worker || _writerRead->ready.tryAcquire(1,0)) {
+                // A late old barrier cannot observe signals queued by this
+                // request. Discard its original result; never retime/adopt it.
+                _writerRead.reset();
+            } else {return {};}
+        }
+        if (!manager || !manager->_workerThread.isRunning() || !manager->_featureBrowseWriteWorker) {return {};}
+        const QPointer<Setting::WriteWorker> worker=manager->_featureBrowseWriteWorker;
+        const auto birth=manager->_featureBrowseWriteWorkerBirth;
+        const auto read=std::make_shared<WriterRead>();read->worker=worker;
+        _writerRead=read; // One bounded queued observation, retained on timeout.
+        const bool invoked=QMetaObject::invokeMethod(worker.data(),[worker,birth,read]{
+            QVariantMap observed;
+            if (worker && QCoreApplication::instance() && QCoreApplication::arguments().contains("--testScript")
+                    && QThread::currentThread()==worker->thread()) {
+                worker->init();
+                if (worker->_qSettings->status()==QSettings::NoError) {
+                    const auto value=raw(worker->_qSettings->contains(key()),worker->_qSettings->value(key()));
+                    const auto physical=createBrowseSettingsFile(worker->_qSettings->fileName(),worker->_qSettings->format());
+                    if (!value.isEmpty() && !physical.isEmpty()) {observed={{"id",birth},{"capturedEpochMs",QDateTime::currentMSecsSinceEpoch()},{"raw",value},{"physical",physical}};}
+                }
+            }
+            read->value=observed;read->ready.release();
+        },Qt::QueuedConnection);
+        if (!invoked) {_writerRead.reset();return {};}
+        if (!read->ready.tryAcquire(1,250)) {return {};}
+        _writerRead.reset();return read->value;
     }
     static QString key() {return QStringLiteral("LastBrowseLocation");}
     static bool enabled() {return QCoreApplication::instance() && QThread::currentThread()==QCoreApplication::instance()->thread()
@@ -187,8 +214,9 @@ private:
     }
     struct Lease {
         QString id,owner,writer;bool present {false},restoreAttempted {false},restored {false},released {false};qint64 created {0};
-        QVariant original,lastOwned;QVariantMap originalRow,lastOwnedRow;QVariantList claims,reads;
+        QVariant original,lastOwned;QVariantMap originalRow,lastOwnedRow,originalPhysical;QVariantList claims,reads;
     };
+    std::shared_ptr<WriterRead> _writerRead;
     QMap<QString,Lease> _leases;bool _valid {true};qint64 _epoch {0};
 };
 } // namespace overte::e2e

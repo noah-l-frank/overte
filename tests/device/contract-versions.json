@@ -8,7 +8,7 @@
     "pico-create-picker-owner": {"current": 2, "reads": [2]},
     "pico-create-entities": {"current": 2, "reads": [1, 2]},
     "pico-create-dialogs": {"current": 3, "reads": [1, 2, 3]},
-    "pico-create-browse-setting": {"current": 2, "reads": [2]},
+    "pico-create-browse-setting": {"current": 3, "reads": [2, 3]},
     "pico-graphics-feature-binding": {"current": 1, "reads": [1]},
     "graphics-journey-feature": {"current": 1, "reads": [1]},
     "graphics-journey-lifetime": {"current": 1, "reads": [1]},

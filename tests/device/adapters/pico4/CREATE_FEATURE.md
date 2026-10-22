@@ -145,3 +145,11 @@ Python/Node logic and short-lived owned loopback fixtures; no device, build,
 compiler, installation, dependency or service provisioning is needed. Also run
 the contract-version, generated feature inventory, documentation and whitespace
 checks. Exact results are recorded in the local commit handoff.
+
+
+The follow-up [Browse setting source](CREATE_BROWSE_SETTING.md) now requires
+independent physical INI/registered-JSON originals in source v3 and uses a bounded
+real-worker observation. Actual host counterexamples prevent release when caches
+agree but the original physical row differs. This closes that source-level
+cleanup evidence gap; the known original Cancel writer failure and full-feature
+boundaries remain retained.

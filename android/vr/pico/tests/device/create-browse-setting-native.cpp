@@ -4,6 +4,7 @@
 #include <SettingInterface.h>
 #include <SettingHandle.h>
 #include <QCoreApplication>
+#include <QElapsedTimer>
 #include <QDir>
 #include <QFile>
 #include <QJsonDocument>
@@ -48,6 +49,9 @@ public:
     static void registerHandle(Setting::Manager* manager,Setting::Interface* handle){manager->registerHandle(handle);}
     static void removeHandle(Setting::Manager* manager){manager->removeHandle("LastBrowseLocation");}
     static void destroy(Setting::Manager* manager){delete manager;}
+    static QPointer<Setting::WriteWorker> worker(Setting::Manager* manager){return manager->_featureBrowseWriteWorker;}
+    static void requestQuit(Setting::Manager* manager){manager->_workerThread.quit();}
+    static void quit(Setting::Manager* manager){manager->_workerThread.quit();assert(manager->_workerThread.wait(1500));}
     static void stop(Setting::Manager* manager){manager->terminateThread();assert(manager->_workerThread.wait(2000));}
 };
 class CachedHandle:public Setting::Interface {
@@ -95,7 +99,8 @@ QVariantMap acquireRead(overte::e2e::CreateBrowseSettingOwner& owner,const QStri
 int main(int argc,char** argv) {
     QCoreApplication app(argc,argv);assert(argc>=2);::umask(0077);const auto root=QString::fromLocal8Bit(argv[1]);
     QCoreApplication::setOrganizationName("OwnedCreateBrowseHost");QCoreApplication::setApplicationName("settings");
-    QSettings::setDefaultFormat(QSettings::IniFormat);QSettings::setPath(QSettings::IniFormat,QSettings::UserScope,root);
+    const auto format=app.arguments().contains("--json") ? JSON_FORMAT : QSettings::IniFormat;
+    QSettings::setDefaultFormat(format);QSettings::setPath(format,QSettings::UserScope,root);
     TestScriptingInterface getter;getter._testResultsLocation=root;
     assert(getter.featureCreateBrowseSetting(call("reserve")).isEmpty()); // No Offscreen dependency is instantiated.
     assert(!DependencyManager::isSet<OffscreenUi>());
@@ -104,6 +109,7 @@ int main(int argc,char** argv) {
     assert(owner.request(root,call("reserve"),{}).isEmpty());assert(!DependencyManager::isSet<Setting::Manager>());
     auto manager=DependencyManager::set<Setting::Manager>();const auto actual=manager.data();manager->setValue("unrelated-control",QByteArray("unchanged"));
     if(!app.arguments().contains("--testScript")){assert(getter.featureCreateBrowseSetting(call("reserve")).isEmpty());assert(owner.request(root,call("reserve"),{}).isEmpty());SettingsTests::stop(actual);return 0;}
+    SettingsTests::barrier(actual);
     auto firstCommand=call("reserve",QString(32,'9'));const auto firstGetter=getter.featureCreateBrowseSetting(firstCommand);
     assert(!firstGetter.value("source").toMap().isEmpty());assert(!manager->contains("LastBrowseLocation"));
     assert(getter.featureCreateBrowseSetting(firstCommand)==firstGetter);
@@ -122,10 +128,50 @@ int main(int argc,char** argv) {
     assert(owner.request(root,claim(run,ticket,originalDialog),originalDialog).isEmpty()); // Never duplicate a claim after uncertain delivery.
     const auto restored=owner.request(root,call("restore"),originalDialog);assert(restored.value("restored").toBool());
     assert(!manager->contains("LastBrowseLocation"));assert(manager->value("unrelated-control")==QVariant(QByteArray("unchanged")));
-    SettingsTests::barrier(actual);QSettings disk(manager->fileName(),QSettings::IniFormat);disk.sync();assert(!disk.contains("LastBrowseLocation"));
+    SettingsTests::barrier(actual);QSettings disk(manager->fileName(),format);disk.sync();assert(!disk.contains("LastBrowseLocation"));
     assert(owner.request(root,call("release"),originalDialog).value("released").toBool());
     QTextStream(stdout)<<QJsonDocument::fromVariant(restored).toJson(QJsonDocument::Compact)<<'\n';
-    const QString secondRun(32,'2'),secondTicket(32,'3');manager->setValue("LastBrowseLocation",QString("/original/selected-location"));
+    // Direct physical modification leaves the original QSettings cache intact.
+    // Manager/writer equality alone must not authorize retirement.
+    overte::e2e::CreateBrowseSettingOwner physicalConflict;const QString physicalRun(32,'0');
+    const auto originalPhysical=physicalConflict.request(root,call("reserve",physicalRun),{});assert(!originalPhysical.isEmpty());
+    QFile physicalFile(manager->fileName());assert(physicalFile.open(QIODevice::ReadOnly));const auto originalBytes=physicalFile.readAll();physicalFile.close();
+    QByteArray foreignBytes;
+    if(format==QSettings::IniFormat){foreignBytes=originalBytes+"LastBrowseLocation=foreign-physical-only\n";}
+    else {auto object=QJsonDocument::fromJson(originalBytes).object();object.insert("LastBrowseLocation","foreign-physical-only");foreignBytes=QJsonDocument(object).toJson(QJsonDocument::Indented);}
+    assert(physicalFile.open(QIODevice::WriteOnly|QIODevice::Truncate));assert(physicalFile.write(foreignBytes)==foreignBytes.size());physicalFile.close();
+    const auto physicalMismatch=physicalConflict.request(root,call("observe",physicalRun),{});assert(!physicalMismatch.isEmpty());
+    assert(physicalMismatch.value("writer").toMap().value("raw")==physicalMismatch.value("original"));
+    assert(physicalMismatch.value("current")==physicalMismatch.value("original"));
+    assert(!overte::e2e::createBrowsePhysicalOriginal(physicalMismatch.value("originalPhysical").toMap(),physicalMismatch.value("writer").toMap().value("physical").toMap()));
+    assert(physicalConflict.request(root,call("release",physicalRun),originalDialog).isEmpty());
+    // Restore only owned fixture bytes, outside the native feature seam.
+    assert(physicalFile.open(QIODevice::WriteOnly|QIODevice::Truncate));assert(physicalFile.write(originalBytes)==originalBytes.size());physicalFile.close();
+    manager->setValue("unrelated-second",QString("ordinary other setting progress"));SettingsTests::barrier(actual);
+    assert(physicalConflict.request(root,call("release",physicalRun),originalDialog).value("released").toBool());
+    // Independent owned physical parser counterexamples, without touching a
+    // workstation or product config path outside this fixture.
+    const auto counterPath=root+"/fixed-row-countercase";QFile counter(counterPath);
+    const auto writeCounter=[&](const QByteArray& bytes){assert(counter.open(QIODevice::WriteOnly|QIODevice::Truncate));assert(counter.write(bytes)==bytes.size());counter.close();assert(counter.setPermissions(QFile::ReadOwner|QFile::WriteOwner));};
+    const auto readCounter=[&]{return overte::e2e::createBrowseSettingsFile(counterPath,format);};
+    writeCounter(originalBytes);assert(!readCounter().isEmpty());
+    assert(counter.setPermissions(QFile::ReadOwner|QFile::WriteOwner|QFile::ReadOther));assert(readCounter().isEmpty());
+    assert(counter.setPermissions(QFile::ReadOwner|QFile::WriteOwner));
+    assert(::link(QFile::encodeName(counterPath).constData(),QFile::encodeName(counterPath+"-hardlink").constData())==0);assert(readCounter().isEmpty());assert(QFile::remove(counterPath+"-hardlink"));
+    assert(::symlink(QFile::encodeName(counterPath).constData(),QFile::encodeName(counterPath+"-symlink").constData())==0);
+    assert(overte::e2e::createBrowseSettingsFile(counterPath+"-symlink",format).isEmpty());assert(QFile::remove(counterPath+"-symlink"));
+    if(format==QSettings::IniFormat){
+        writeCounter("[General]\nLastBrowseLocation=first\nLastBrowseLocation=second\n");assert(readCounter().isEmpty());
+        writeCounter("[General]\n%4CastBrowseLocation=alias\n");assert(readCounter().isEmpty());
+    }else{
+        writeCounter("{\n    \"LastBrowseLocation\": \"first\",\n    \"LastBrowseLocation\": \"second\"\n}\n");assert(readCounter().isEmpty());
+        writeCounter("{\n    \"LastBrowseLocatio\\u006e\": \"alias\"\n}\n");assert(readCounter().isEmpty());
+        QJsonObject nested{{"nested",QJsonObject{{"LastBrowseLocation","not top level"}}},{"LastBrowseLocation",QJsonObject{{"array",QJsonArray{1,"escaped \" quote",QJsonObject{{"inner",true}}}}}}};
+        writeCounter(QJsonDocument(nested).toJson(QJsonDocument::Indented));const auto originalNested=readCounter();assert(!originalNested.isEmpty());
+        nested.insert("unrelated",17);writeCounter(QJsonDocument(nested).toJson(QJsonDocument::Indented));assert(overte::e2e::createBrowsePhysicalOriginal(originalNested,readCounter()));
+    }
+    assert(counter.remove());assert(!readCounter().isEmpty() && !readCounter().value("file").toMap().value("exists").toBool());
+    const QString secondRun(32,'2'),secondTicket(32,'3');manager->setValue("LastBrowseLocation",QString("/original/selected-location"));SettingsTests::barrier(actual);
     assert(!owner.request(root,call("reserve",secondRun),{}).isEmpty());const auto secondPath=QUrl(stage(root,secondRun,secondTicket).value("directory").toString()).toLocalFile();
     const auto secondDialog=acquireRead(owner,root,secondRun,secondTicket,secondPath,"export");manager->setValue("LastBrowseLocation",secondPath);
     assert(!owner.request(root,claim(secondRun,secondTicket,secondDialog),secondDialog).isEmpty());
@@ -136,18 +182,19 @@ int main(int argc,char** argv) {
     assert(manager->value("LastBrowseLocation")==QVariant(QString("/foreign/current-location")));
     assert(owner.request(root,call("release",secondRun),secondDialog).isEmpty());
     QTextStream(stdout)<<QJsonDocument::fromVariant(conflict).toJson(QJsonDocument::Compact)<<'\n';
-    const QString thirdRun(32,'4'),thirdTicket(32,'5');manager->setValue("LastBrowseLocation",QString());
+    const QString thirdRun(32,'4'),thirdTicket(32,'5');manager->setValue("LastBrowseLocation",QString());SettingsTests::barrier(actual);
     assert(!owner.request(root,call("reserve",thirdRun),{}).isEmpty());const auto thirdPath=QUrl(stage(root,thirdRun,thirdTicket).value("directory").toString()).toLocalFile();
     const auto thirdDialog=acquireRead(owner,root,thirdRun,thirdTicket,thirdPath);manager->setValue("LastBrowseLocation",thirdPath);
     assert(!owner.request(root,claim(thirdRun,thirdTicket,thirdDialog),thirdDialog).isEmpty());
     CachedHandle cached;SettingsTests::registerHandle(actual,&cached);assert(owner.request(root,call("restore",thirdRun),thirdDialog).isEmpty());SettingsTests::removeHandle(actual);
     assert(manager->value("LastBrowseLocation")==QVariant(thirdPath));
-    const QString fourthRun(32,'6'),fourthTicket(32,'7');const QByteArray rawOriginal("raw\0original",12);manager->setValue("LastBrowseLocation",rawOriginal);
+    const QString fourthRun(32,'6'),fourthTicket(32,'7');const QByteArray rawOriginal("raw\0original",12);manager->setValue("LastBrowseLocation",rawOriginal);SettingsTests::barrier(actual);
     const auto rawReserved=owner.request(root,call("reserve",fourthRun),{});assert(rawReserved.value("original").toMap().value("typeId").toInt()==QMetaType::QByteArray);
     const auto fourthPath=QUrl(stage(root,fourthRun,fourthTicket).value("directory").toString()).toLocalFile();const auto fourthDialog=acquireRead(owner,root,fourthRun,fourthTicket,fourthPath);
     assert(manager->value("LastBrowseLocation").userType()==QMetaType::QString); // Original Handle really coerced the raw QByteArray.
     manager->setValue("LastBrowseLocation",fourthPath);assert(!owner.request(root,claim(fourthRun,fourthTicket,fourthDialog),fourthDialog).isEmpty());
     const auto rawRestored=owner.request(root,call("restore",fourthRun),fourthDialog);assert(rawRestored.value("restored").toBool());
+    assert(overte::e2e::createBrowsePhysicalOriginal(rawRestored.value("originalPhysical").toMap(),rawRestored.value("writer").toMap().value("physical").toMap()));
     assert(manager->value("LastBrowseLocation").userType()==QMetaType::QByteArray && manager->value("LastBrowseLocation").toByteArray()==rawOriginal);
     SettingsTests::barrier(actual);disk.sync();assert(disk.value("LastBrowseLocation").userType()==QMetaType::QByteArray && disk.value("LastBrowseLocation").toByteArray()==rawOriginal);
     assert(owner.request(root,call("reserve",QString(32,'8')),{}).isEmpty());
@@ -170,5 +217,28 @@ int main(int argc,char** argv) {
         <<canceledRestored.value("writer").toMap().value("raw").toMap().value("typeId").toInt()<<" disk="<<onDisk.userType()<<" bytes="<<onDisk.toByteArray().size()<<'\n';
     assert(onDisk.userType()==QMetaType::QString && onDisk.toByteArray()!=rawOriginal); // Original writer loss is retained, not repaired.
     QTextStream(stdout)<<QJsonDocument::fromVariant(canceledRestored).toJson(QJsonDocument::Compact)<<'\n';
+    const auto originalWorker=SettingsTests::worker(actual);assert(originalWorker);
+    struct Block {QSemaphore entered,leave;};
+    const auto blocked=std::make_shared<Block>();
+    assert(QMetaObject::invokeMethod(originalWorker.data(),[blocked]{blocked->entered.release();blocked->leave.acquire();},Qt::QueuedConnection));
+    assert(blocked->entered.tryAcquire(1,1000));QElapsedTimer deadline;deadline.start();
+    assert(owner.request(root,call("observe",fourthRun),{}).isEmpty());
+    assert(deadline.elapsed()>=200 && deadline.elapsed()<1250); // Real blocked original worker never hangs the GUI.
+    deadline.restart();assert(owner.request(root,call("observe",fourthRun),{}).isEmpty());assert(deadline.elapsed()<200);
+    manager->setValue("LastBrowseLocation",QString("/new-value-after-timed-out-original-barrier"));
+    blocked->leave.release();SettingsTests::barrier(actual);
+    const auto freshWriter=owner.request(root,call("observe",fourthRun),{});
+    assert(freshWriter.value("writer").toMap().value("raw").toMap().value("stringValue")==QVariant("/new-value-after-timed-out-original-barrier"));
+    // The timed-out read was ahead of that real write. Its later completion
+    // cannot satisfy this new barrier, and no stack/manager capture survives.
+    const auto dying=std::make_shared<Block>();
+    assert(QMetaObject::invokeMethod(originalWorker.data(),[dying]{dying->entered.release();dying->leave.acquire();},Qt::QueuedConnection));
+    assert(dying->entered.tryAcquire(1,1000));deadline.restart();
+    assert(owner.request(root,call("observe",fourthRun),{}).isEmpty());assert(deadline.elapsed()<1250);
+    originalWorker->deleteLater(); // Owned fixture QObject; actual receiver dies before queued observation can run.
+    // quit() is thread-safe; arrange it before releasing the real blocking job.
+    SettingsTests::requestQuit(actual);
+    dying->leave.release();SettingsTests::quit(actual);assert(!originalWorker);
+    deadline.restart();assert(owner.request(root,call("observe",fourthRun),{}).isEmpty());assert(deadline.elapsed()<200);
     SettingsTests::stop(actual);manager.reset();DependencyManager::destroy<Setting::Manager>();SettingsTests::destroy(actual);return 0;
 }
