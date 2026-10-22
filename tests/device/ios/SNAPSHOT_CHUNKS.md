@@ -96,3 +96,36 @@ They reject changed final inventories, source-birth changes, missing/reordered
 or modified original chunks, live/failed/unknown jobs and foreign sources.
 Native file IO and clocks are modeled; this does not qualify an iOS device or
 physical acquisition deadlines.
+
+## Private host artifact
+
+`SnapshotArtifact` creates one separately journaled private `.bytes` file from
+the joined original bytes. It retains the actual original native file-work
+packet in the existing inode/hash-bound `OriginalFrameStore`, with durable
+planned/opened/saved transitions and its unchanged 1 MiB frame ceiling.
+Manifest/chunk journal indexes and exact original journal digests are retained
+alongside it. Recovery reconstructs these historical owners, revalidates their
+actual source files and repeats the complete pure file join before admitting
+any artifact bytes. It does not query the SDK, generate image bytes, choose a
+new input nonce or mint a fresh observation.
+
+The artifact create is exclusive and records its actual descriptor device and
+inode before writing. Reads check the private directory, owner, mode, regular
+file type, single hardlink, unchanged inode and full original byte stream.
+Interrupted opened files are never appended to or overwritten. A fully written
+inode whose completion response was lost can be adopted; an incomplete file
+remains owned. An actual create without committed inode metadata is explicitly
+unresolved and cannot be overwritten or unlinked through a guessed identity.
+
+The enclosing feature must prove paired product/native quiet before asking to
+remove an artifact. Partial bytes must match the original prefix before their
+one unlink. A lost unlink response resolves through actual path absence without
+repeating the unlink. Native work originals and participating query journals
+remain retained for outer archival/cleanup; artifact removal does not retire
+their responsibility or claim image, export, process or feature completion.
+
+Eight explicit no-build host cases cover actual multichunk files and private
+artifact bytes, copied/opened/create/unlink response loss, same-inode recovery,
+partial files, unknown inodes, modified/replaced/hardlinked files, missing
+original query journals and original work-file corruption. Native operations
+remain modeled and iOS compilation/device qualification remains unperformed.
