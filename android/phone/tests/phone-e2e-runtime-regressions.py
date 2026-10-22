@@ -72,6 +72,7 @@ COMMON_HOST_CHECKS = (
     "android/phone/tests/device/test_snapshot_handoff_audit.py",
     "android/phone/tests/device/test_snapshot_system_files.py",
     "android/phone/tests/device/test_snapshots_measurements.py",
+    "android/phone/tests/device/test_snapshots_feature.py",
     "android/phone/tests/device/test_snapshots_evidence.py",
     "android/phone/tests/device/test_snapshot_upload_bytes.py",
     "android/phone/tests/device/test_snapshot_documents.py",
