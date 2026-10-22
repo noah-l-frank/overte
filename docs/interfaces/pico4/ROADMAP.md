@@ -1,61 +1,51 @@
 # Pico 4 roadmap
 
-- **Priority:** NEXT 1, after `PHONE-P1`
-- **Maturity:** Experimental
-- **Last verified:** Host and device-free evidence at `3ba6df421f`,
-  2026-08-24, Linux; physical-device evidence is still required
+- **Priority:** NOW, alongside iOS and Android Phone under `CLIENT-PARITY`.
+- **Maturity:** Personal alpha completed; current-artifact cross-client
+  acceptance remains separate.
+- **Status reviewed:** 2026-10-20 against the shared roadmap and live milestones,
+  not a new headset-test result.
 
 ## Current milestone
 
-`PICO-P1` — Personal Alpha: a repeatable private build that completes the
-core Overte journey on one named Pico 4 without a critical failure.
+[PICO-P2 — Genuine Cross-Client Feature Parity](https://github.com/noah-l-frank/overte/milestone/5).
+The [shared roadmap](https://github.com/noah-l-frank/overte/blob/main/docs/ROADMAP.md)
+and [feature contract](https://github.com/noah-l-frank/overte/blob/main/docs/interfaces/FEATURE_PARITY.md)
+own product order and required outcomes. Preserve working VR/controller behavior
+while bringing useful features to parity with Phone and iOS.
 
 ## Exit criteria
 
-- [ ] At a named source revision, the documented Linux path builds the ARM64
-  APK, installs it on one named Pico 4, and launches it successfully.
-- [ ] On that headset, one representative world loads and renders correctly
-  enough to complete the core journey.
-- [ ] Head and controller tracking, required buttons, pointing, selection, and
-  grabbing work for the core journey.
-- [ ] Movement or teleport and the tablet, text-entry, and system-keyboard path
-  needed by the core journey work on the headset.
-- [ ] Playback, mute, microphone permission allowed, and microphone permission
-  denied each behave safely and predictably.
-- [ ] Pause/resume, headset removal/re-entry, application restart, and clean
-  exit do not leave the app in an unusable state.
-- [ ] A documented 30-minute headset session completes without a crash,
-  critical thermal behavior, or uncontrolled memory growth; known limitations
-  are recorded.
+- The selected shared feature outcomes are usable through normal client startup
+  and Pico-appropriate controls, as defined by PICO-P2 and the shared contract.
+- Exact integrated source, APK, installation identity, and required headset
+  journeys are bound to the same candidate.
+- Negative, lifecycle, privacy, and platform limitations are recorded; host or
+  device-free success is not substituted for required headset evidence.
 
 ## Single next action
 
-After `PHONE-P1` is complete or explicitly paused, install the APK built from
-the current `android-vr-pico` candidate on one explicitly selected Pico 4 and
-run the documented core-journey baseline,
-recording the source revision, device identity, result, and first blocking
-failure.
+Qualify the integrated Pico candidate through the regular parent hierarchy and
+perform the remaining PICO-P2 acceptance journeys on its exact installed APK,
+recording the first blocking failure and artifact/source binding.
 
-## Blockers
+## Completed baseline
 
-- `PHONE-P1` is the active product milestone and must complete or be explicitly
-  paused before Pico becomes the primary track.
-- Physical-device evidence requires an authorized, USB-connected Pico 4 and a
-  person able to wear and operate it.
-- The device run must name the exact source revision; host and device-free
-  evidence cannot replace it.
+The maintainer completed [PICO-P1 — Personal Alpha](https://github.com/noah-l-frank/overte/milestone/1)
+on September 27, 2026. Its eleven acceptance issues are closed. Preserve that
+historical baseline without treating it as qualification of every newer build.
 
-## Non-goals
+## Execution boundary and non-goals
 
-- Meta Quest support or validation;
-- store submission, public release, or broad hardware compatibility;
-- optional trackers, accessories, and full desktop-interface parity; and
-- iPad or macOS work while `PICO-P1` is the primary product track.
+The maintainer's hardware runs use the private Proxmox Jenkins laboratory;
+local compilation and device-free tests do not require that personal setup.
+Meta Quest, broad headset/accessory coverage, production security/privacy
+qualification, and store submission are not implied by this milestone.
 
-## Evidence
+## References
 
 - [Development status](DEVELOPMENT_STATUS.md)
-- [Testing and Pico 4 core journey](TESTING.md)
+- [Testing](TESTING.md)
 - [Build and deployment](BUILD.md)
 - [Security and privacy](SECURITY_AND_PRIVACY.md)
 - [Retained historical notes](archive/README.md)

@@ -1,16 +1,26 @@
 # Pico 4 CI/CD
 
-The Pico pipeline is intentionally split into an untrusted, device-free check
-and a trusted build. Neither workflow connects to a headset or invokes ADB.
+This personal hobby fork separates device-free checks from trusted builds and
+hardware tests. Its self-hosted build runners and private Proxmox Jenkins
+laboratory are the maintainer's own infrastructure, not public contributor
+services. Local host checks do not require access to them.
 
 ## Device-free pull-request CI
 
-`.github/workflows/project-tests.yml` runs on GitHub-hosted Ubuntu runners for
-pull requests and relevant branch pushes. It executes the dependency-light
-project suite and retains only its JUnit report for seven days. The workflow
-has read-only repository permissions, does not persist checkout credentials,
-cancels superseded runs, and pins every third-party action to an immutable
-commit.
+The central selective PR controller in `repository-checks.yml` reports
+`source-policy` and `required-ci`. It selects shared and branch-owned consumers
+from their actual inputs. The [selective CI guide](https://github.com/noah-l-frank/overte/blob/main/docs/PR_CI.md)
+owns the current acceptance contract; retained project-runner and synchronization
+recipes describe earlier implementations, not additional current required
+contexts. Actions was disabled when inspected on October 22, 2026. Local
+qualification and an installed workflow do not establish hosted execution.
+
+The shared execution runs on GitHub-hosted Ubuntu, uses read-only repository
+permissions, does not persist checkout credentials, and pins third-party actions
+to immutable commits. Host reports have explicit seven-day retention. Separate
+Android platform push/manual checks are in `android-vr-tests.yml`, named
+`Android VR integration tests`. Neither these host checks nor the trusted APK
+build connects to a headset or invokes ADB.
 
 ## Trusted Pico build
 
@@ -34,18 +44,26 @@ the repository root:
 
 ```bash
 android/vr/pico/build.sh doctor
-android/vr/pico/build.sh deps --download
+```
+
+Supply the four explicit environment values and complete source graph described
+in [SOURCE_INPUTS.md](../release/SOURCE_INPUTS.md), then run:
+
+```bash
+android/vr/pico/build.sh deps --source-graph
 android/vr/pico/build.sh prepare
 ```
 
-Every trusted build restores the dependency bundle after checkout because the
-checkout's clean operation removes generated runtime files inside the worktree.
-The restore verifies the committed SHA-256 manifest before changing the
-Conan/runtime cache. This deliberately favors reproducibility over avoiding the
-roughly 1.1 GB download in a manually triggered build.
+The checked-in debug and release workflows still invoke the legacy
+`deps --download` helper before preparation. Those checksum-verified downloads
+do not satisfy the current source-input consumer. The workflows do not declare
+the four source-input values themselves; a selected trusted runner would need
+the correct explicit inputs independently. Their presence in the repository
+therefore does not establish a working current native build or release lane.
+Read the actual run and source-input bindings before interpreting its result.
 
-The build runs all device-free tests before compiling, builds the debug APK,
-and rejects output with an unexpected package, SDK contract, ABI, native
+The workflow is designed to run device-free tests before compiling, build the
+debug APK, and reject output with an unexpected package, SDK contract, ABI, native
 library set, ZIP structure, or signature. Its JSON manifest records the exact
 Git revision and APK SHA-256 digest. Only that small manifest and the JUnit
 report are uploaded to Actions storage for seven days. The roughly 550 MB APK
@@ -103,10 +121,18 @@ or repository credentials, and start from an empty build directory. Pin the
 runner image/tool versions administratively and retain its inventory with each
 candidate. Never assign `overte-android-release` to a general build host.
 
-### Later device-acceptance handoff
+### Separate device-acceptance implementation
 
-`.github/workflows/pico4-device-acceptance.yml` implements the separate,
-manual approval-gated handoff. Its default inspection job runs on a
+The maintainer's hardware tests run through their private Proxmox Jenkins
+laboratory, using the prepared `overte-jenkins` wrapper. The former workstation
+device laboratory was retired on October 19, 2026 and is not a fallback. See
+the [shared operator guide](https://github.com/noah-l-frank/overte/blob/main/docs/portal/jenkins/index.md)
+for that personal deployment boundary.
+
+`.github/workflows/pico4-device-acceptance.yml` retains a separate,
+manual approval-gated implementation. Its presence is not evidence that its
+environment or device runner is deployed. It is not the entry point for the
+maintainer's current laboratory. Its default inspection job runs on a
 GitHub-hosted runner, consumes the APK digest from `SHA256SUMS`, validates the
 draft release, tag, commit and APK manifest, and cannot invoke ADB. It neither
 rebuilds nor publishes the candidate.
@@ -122,11 +148,13 @@ Pico, installs with `adb install -r`, and performs a minimal launch smoke test.
 The report binds the result to tag, commit and APK digest. It never rebuilds or
 publishes. The RC workflow itself remains ADB-free.
 
-Create the `pico4-device-acceptance` environment separately from signing. Add
-required reviewers, prevent self-review, restrict deployment to protected Pico
-RC tags, and expose only `PICO_RELEASE_CERT_SHA256`; the device runner does not
-need the keystore or its passwords. Keep the runner physically isolated, with
-one USB-connected Pico and no ambient repository or cloud credentials.
+A separately reviewed deployment of this implementation would need a
+`pico4-device-acceptance` environment separate from signing, required reviewers,
+protected RC-tag restrictions, and only `PICO_RELEASE_CERT_SHA256`. The device
+runner would not need the keystore or its passwords. Such a deployment must
+keep the runner isolated with one authorized Pico and no ambient credentials.
+Those prerequisites are not provisioned by a clone of this hobby fork and are
+separate from the maintainer's current Jenkins deployment.
 
 Running only the non-mutating local contract is safe without a headset:
 
@@ -142,12 +170,19 @@ has been separately authorized.
 
 ### Required checks and repository administration
 
-After pushing, protect `android-vr-pico` and Pico CI branches with the
-`Pico 4 device-free CI / project-tests` check, required review, conversation
-resolution, and blocked force-push/deletion. Configure a tag ruleset for
-`pico4-v*-rc.*` that restricts creation to release maintainers and blocks update
-and deletion. GitHub cannot require a workflow check before creating the tag;
-therefore create it only from a reviewed commit whose device-free check passed.
+The live `android-vr-pico` rules were inspected on **October 22, 2026**. They
+require `source-policy`, `required-ci`, and
+`Enforce Android parent sync path`, with strict up-to-date validation and
+GitHub Actions integration binding. The old
+`Pico 4 device-free CI / project-tests` check is not a current required context.
+The [shared CI overview](https://github.com/noah-l-frank/overte/blob/main/docs/portal/testing/github-actions.md)
+explains the corresponding owners and how to read back live branch rules.
+This is a dated observation, not an instruction to change repository settings.
+
+Pico RC tags use their own versioned protection policy; inspect its live rules
+before a release operation. GitHub cannot require a workflow check before
+creating a tag, so create one only from a reviewed commit whose applicable
+checks passed.
 The environment approval and `Pico 4 release candidate / release-candidate`
 job are release gates, not merge checks. Do not make the manual release job a
 required branch check because ordinary pull requests cannot trigger it.

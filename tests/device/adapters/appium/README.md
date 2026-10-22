@@ -1,5 +1,12 @@
 # Appium Android and iOS adapters
 
+This is the portable adapter contract. In the maintainer's private setup,
+Appium and device sessions belong to Proxmox Jenkins agents; the workstation
+lab and its services remain retired. Target-file examples describe agent-side
+configuration, not credentials or access supplied by a clone. Local mocked
+checks need no Appium server. See
+[execution environments](../../README.md#execution-environments).
+
 The [shared implementation](../shared_appium/README.md) lives outside the
 iOS-owned adapter directory. This entrypoint remains compatible on `main`;
 `apple-ios` keeps its native implementation under `../../ios/adapters/appium_adapter.py`.

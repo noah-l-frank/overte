@@ -9,10 +9,10 @@
         "android/vr/pico/tests": "ecb9c54a65f03a65c28186aa1a90e0ce204e701f",
         "android/common/conan": "fc305d408066e2a9c7c0bc9a786094d9bb725cd3",
         "android/common/tests": "7aee2ddc121d5b29931375534967cf6e11ba348a",
-        "tests/device/jenkins": "5f075ec8c0cd366df90588a62231701d3a056616",
+        "tests/device/jenkins": "71f95fa4b77f0f6c00b8b72a4b5fbb758efc4b8f",
         "tests/device/schema": "93f815e60f37b15cc2e9756c9d234418d2984268",
         "android/phone/fdroid": "ddebf7343ac2fe21c82c20da913f6469f18604fe",
-        "android/phone/tests": "ebb1cef78a3f33d9d549e2cf467ec5391744cf97"
+        "android/phone/tests": "1f3202012025a7fc05625f8ab542e6ddaf7fd685"
       },
       "omit": [
         "phone-package-binding",
@@ -58,6 +58,8 @@
       "inputs": [
         "android/common/native-ci/android-arm64-ci",
         "android/common/native-ci/target.conanfile.py",
+        "android/vr/pico/apps/picoInterface/build.gradle",
+        "android/vr/pico/gradle.properties",
         "android/vr/pico/native-ci/android-arm64-ci-release",
         "android/vr/pico/native-ci/graph_contract.py",
         "android/vr/pico/native-ci/target.conanfile.py",

@@ -1,5 +1,11 @@
 # Measure Overte power use on Pico 4
 
+These are hardware-test protocol and prepared-agent references. The maintainer's
+runs use private Proxmox Jenkins jobs; the retired workstation lab is not a
+fallback. Local analysis of previously collected, redacted results remains
+separate from controlling a headset. See
+[the laboratory boundary](https://github.com/noah-l-frank/overte/blob/main/docs/portal/jenkins/index.md).
+
 This test setup records the battery telemetry exposed by the Pico Android
 firmware and compares repeatable scenarios. It measures the complete headset,
 not Overte in isolation. The difference between an idle baseline and an Overte

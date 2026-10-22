@@ -3,16 +3,18 @@
 Start with:
 
 ```bash
-cd android
-./build-pico.sh doctor
+cd android/vr/pico
+./build.sh doctor
 ```
 
 Use the phase-specific guidance in
 [`android/vr/pico/docs/BUILD.md`](../../../android/vr/pico/docs/BUILD.md#troubleshooting).
 
-- For a missing dependency bundle, rerun the checksum-verified download and
-  prepare phases before building.
-- For Gradle failures, use `./build-pico.sh build --stacktrace`.
+- For missing or rejected source inputs, check the four explicit environment
+  values, exact checkout revision, binding digest, and completed graph receipts
+  in [SOURCE_INPUTS.md](../../../android/vr/pico/release/SOURCE_INPUTS.md).
+  Downloading the legacy bundle does not repair this contract.
+- For Gradle failures, use `./build.sh build --stacktrace`.
 - For `unauthorized` ADB state, unlock the headset and accept the USB debugging
   prompt.
 - With multiple devices, set `ANDROID_SERIAL`; do not rely on ADB's implicit

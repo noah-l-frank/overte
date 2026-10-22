@@ -243,12 +243,17 @@ def environment(product, config, roots):
            "LANG": "C.UTF-8", "LC_ALL": "C.UTF-8", "TZ": "UTC", "CI": "true",
            "PYTHONDONTWRITEBYTECODE": "1", "PYTHONNOUSERSITE": "1",
            "GIT_CONFIG_NOSYSTEM": "1", "GIT_CONFIG_GLOBAL": "/dev/null", "GIT_OPTIONAL_LOCKS": "0",
-           "JAVA_HOME": "/usr/lib/jvm/java-17-openjdk-amd64", "ANDROID_SDK_ROOT": str(roots.sdk),
+           "JAVA_HOME": "/usr/lib/jvm/java-17-openjdk-amd64",
+           # Android tools prefer ANDROID_USER_HOME, then Java user.home,
+           # over HOME. The image passwd home is deliberately read-only.
+           "ANDROID_USER_HOME": str(roots.scratch / "home/.android"),
+           "JAVA_TOOL_OPTIONS": "-Duser.home=" + str(roots.scratch / "home"),
+           "ANDROID_SDK_ROOT": str(roots.sdk),
            "ANDROID_HOME": str(roots.sdk), "ANDROID_NDK_HOME": str(roots.sdk / "ndk/27.3.13750724"),
            "GRADLE_USER_HOME": str(roots.scratch / "gradle-home"), "CONAN_HOME": str(roots.attempt / "conan"),
            "OVERTE_QT_COMPOSED_SOURCE": str(roots.attempt / "qt-composed"),
-           "CMAKE_BUILD_PARALLEL_LEVEL": "2", "MAKEFLAGS": "-j2", "PICO_BUILD_JOBS": "2",
-           "OMP_NUM_THREADS": "2", "OMP_THREAD_LIMIT": "2"}
+           "CMAKE_BUILD_PARALLEL_LEVEL": "4", "MAKEFLAGS": "-j4", "PICO_BUILD_JOBS": "4",
+           "OMP_NUM_THREADS": "4", "OMP_THREAD_LIMIT": "4"}
     if product in {"common", "phone"}:
         env["OVERTE_FDROID_CONAN_DIR"] = str(roots.attempt / "target-continuation")
     if product == "phone":
@@ -280,7 +285,7 @@ def vectors(product, head, config, roots):
             "-DCMAKE_FIND_PACKAGE_PREFER_CONFIG=ON", "-DUSE_BREAKPAD=OFF", "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON"]
         configure += ["-DOVERTE_ANDROID_CI_" + name.upper() + "=" + config["tools"][name] for name in ("moc", "rcc", "uic", "qmake")]
         return {"query": [sys.executable, "-I", "-S", "-B", verify, "--query", "--build", build],
-                "candidate": [configure, ["cmake", "--build", build, "--target", "overte-android-common-native", "--parallel", "2"]],
+                "candidate": [configure, ["cmake", "--build", build, "--target", "overte-android-common-native", "--parallel", "4"]],
                 "verify": [sys.executable, "-I", "-S", "-B", verify, "--source", source, "--build", build,
                            "--expected-head", head, "--receipt", scratch + "/common-native-receipt.json"],
                 "receipt": scratch + "/common-native-receipt.json"}
@@ -289,7 +294,7 @@ def vectors(product, head, config, roots):
     version = "0.1.0-ci"
     command = [source + "/android/common/gradlew", "--offline", "--no-daemon", "--settings-file", source + "/" + owner + "/settings.gradle",
                "-p", source + "/" + owner, "-PVERSION_CODE=1", "-PRELEASE_NUMBER=" + version,
-               "-Pandroid.aapt2FromMavenOverride=" + sdk + "/build-tools/36.0.0/aapt2", ":" + app + ":assembleRelease", "--max-workers=2"]
+               "-Pandroid.aapt2FromMavenOverride=" + sdk + "/build-tools/36.0.0/aapt2", ":" + app + ":assembleRelease", "--max-workers=4"]
     if product == "pico":
         command.insert(-2, "-PPICO_UNSIGNED=1")
     apk = source + "/" + owner + "/apps/" + app + "/build/outputs/apk/release/" + app + "-release-unsigned.apk"
@@ -389,7 +394,8 @@ def execute(product, head, config_path, config_sha256):
     verifier_home = roots.scratch / "verifier-home"
     require(not verifier_home.exists() and not verifier_home.is_symlink(), "candidate substituted verifier home")
     verifier_home.mkdir(mode=0o700)
-    env = dict(env, HOME=str(verifier_home))
+    env = dict(env, HOME=str(verifier_home), ANDROID_USER_HOME=str(verifier_home / ".android"),
+               JAVA_TOOL_OPTIONS="-Duser.home=" + str(verifier_home))
     if product != "common":
         apk_tmp = roots.scratch / "apk-verification"
         require(not apk_tmp.exists() and not apk_tmp.is_symlink(), "candidate substituted APK verification scratch")

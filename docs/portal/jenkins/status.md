@@ -1,71 +1,63 @@
 ---
-last-reviewed: "2026-10-07"
-scope: "Local laboratory snapshot on 2026-10-07; not a live dashboard or device acceptance"
+last-reviewed: "2026-10-20"
+scope: "Dated inventory of the maintainer's private Proxmox laboratory; no device-acceptance claim"
 ---
 
-# Laboratory status — October 7, 2026
+# Laboratory status — October 20, 2026
 
-This is a dated, read-only inventory of the existing local Jenkins laboratory.
-Job enablement, configured source, schedules and historical outcomes were read
-through the official CLI. No build or device action was triggered for this
-documentation. Recheck Jenkins before planning a new run.
+This is a small, dated snapshot of the **maintainer's personal infrastructure**
+for this hobby fork. It is not a public service inventory or a contributor setup
+guide. The Proxmox Jenkins controller was inspected through `overte-jenkins`
+using `who-am-i`, `list-jobs`, and private extraction of safe `get-job` fields.
+No build or device action was triggered for this review.
 
-## Regular jobs
+## Observed configuration
 
-| Job | Enabled | Configured source branch | Last recorded build (UTC date) |
+| Overte target | Job enabled | Pipeline definition | Timer configured |
 | --- | --- | --- | --- |
-| `android-device-e2e` | Yes | `android-phone` | #33, SUCCESS, 2026-08-28 |
-| `ios-device-e2e` | Yes | `apple-ios` | #28, SUCCESS, 2026-08-29 |
-| `overte-device-phone-smoke` | Yes | `android-phone` | #4, FAILURE, 2026-08-30 |
-| `overte-device-ipad-smoke` | Yes | `apple-ios` | No recorded build |
-| `overte-device-pico-smoke` | No | `android-vr-pico` | #4, SUCCESS, 2026-08-30 |
-| `pico-device-e2e` | No | `android-vr-pico` | #113, SUCCESS, 2026-08-30 |
-| `overte-e2e-linux` | No | `main` | No recorded build |
-| `overte-e2e-macos` | No | `apple-main` | No recorded build |
-| `overte-e2e-windows` | No | `main` | No recorded build |
+| Android Phone | Yes | Private inline pipeline | No |
+| Pico 4 | Yes | Private inline pipeline | No |
+| iPad | Yes | Private inline pipeline | No |
 
-These jobs obtain `tests/device/jenkins/Jenkinsfile` from their configured
-branch. The inspected configurations have no timer trigger. Enabled jobs still
-require valid deployment parameters, artifacts and a ready target.
+The controller exposes three Overte jobs. Job names, host addresses, agent
+paths, credential identifiers, and device selectors remain in the private
+configuration. This page deliberately does not provide runnable job-specific
+commands or enumerate unrelated personal jobs.
 
-## Separate qualification and diagnostics
+These jobs do not use a Jenkins SCM definition that automatically loads
+`tests/device/jenkins/Jenkinsfile`. Inspect each actual inline definition and
+its selected source/artifact before planning a run. The checked-in shared
+pipeline and migration inventory describe reference contracts, not the live
+deployment. An enabled job does not establish a connected device, a successful
+scenario, or acceptance of an installed candidate.
 
-| Job | Enabled | Last recorded build (UTC date) | Evidence scope |
-| --- | --- | --- | --- |
-| `overte-browser-native-ci` | Yes | #8, FAILURE, 2026-10-02 | Dedicated browser/native qualification; separate from mobile device acceptance. |
-| `overte-m4-ipad-wifi-diagnostic` | Yes | #8, SUCCESS, 2026-09-27 | Historical iPad transport diagnostic. |
-| `overte-m4-ipad-launch-diagnostic` | Yes | #6, SUCCESS, 2026-09-27 | Historical iPad launch diagnostic. |
+## Retirement and historical evidence
 
-The browser job's [own guide](../../../browser-client/ci/jenkins/README.md)
-records its exact-source qualification and remaining failures. Diagnostic
-successes do not establish complete portable E2E or acceptance of today's
-installed candidate. Other candidate and historical diagnostic jobs exist;
-this table is an operator entry point, not an exhaustive job list.
+The workstation laboratory was retired on October 19, 2026. Its controller,
+agents, Appium, and device-connect services must remain disabled. The retained
+workstation lab directory is historical; matching paths on a Proxmox agent
+do not imply shared files or a current installation receipt.
 
-## Repository and acceptance state
+The [October 7 workstation snapshot](https://github.com/noah-l-frank/overte/blob/286d054f05bbc535d05d8f83dbad3564df41877a/docs/portal/jenkins/status.md)
+preserves the earlier job names and August/September results. It describes the
+retired installation, not this controller or today's device readiness. Keep
+historical browser and transport diagnostics separate from current acceptance.
 
-The shared documentation baseline inspected for this chapter is fork `main` at
-`a0102a0133078b36ce3a384a974348b57c22501a`. Product-branch configurations and
-private laboratory settings have separate identities.
-
-- The shared [acceptance registry](../../../tests/device/acceptance-evidence.json)
-  is empty at that baseline. Implemented suites have not thereby become
-  registered physical acceptance.
-- Regular inspected jobs do not expose a voice-roundtrip parameter. The local
-  voice work discussed on October 7 has not been activated in those jobs.
-- Historical successful builds above date from August and September; they do
-  not qualify the October 7 fork source.
-- Host inspection did not check current device connectivity, installed signing
-  profile validity, adapter readiness, or artifact/installed-candidate binding.
+The shared source reviewed here is fork `main` at
+`b5f48d2a842a5cc1655ceb2f69a46bf3c4030429`. Its
+[acceptance registry](../../../tests/device/acceptance-evidence.json) contains
+no physical acceptance records. This configuration inspection did not test
+device connectivity, signing/profile validity, adapter readiness, or the binding
+between an installed app and its producing artifact.
 
 ## Refresh this snapshot
 
-Use `overte-jenkins who-am-i` and `list-jobs`, then inspect the current job forms
-and build history locally. CLI `get-job` exposes the full XML and must remain
-private; extract only the enablement flag, public source branch, timer presence,
-build number, UTC date and outcome for documentation. The installed CLI has no
-`get-build` command; the UI or a read-only CLI `groovy` projection can provide
-build metadata without a raw HTTP fallback.
+Use the prepared `overte-jenkins` wrapper to inspect the Proxmox controller and
+actual jobs. Read `get-job` output privately and extract only the public
+platform, enablement, pipeline type, and timer presence needed for this page.
+Do not publish raw XML, console logs, endpoint overrides, or target files.
+Use `help` to discover supported CLI operations and keep any build result bound
+to its exact source, artifact, selected suite, and cleanup outcome.
 
-Update this dated page with new observations and their limits. Never silently
-turn old diagnostic results into current platform acceptance.
+Date new observations and state their limits. Recheck the live configuration
+before a run; refreshing this page does not qualify an installed application.

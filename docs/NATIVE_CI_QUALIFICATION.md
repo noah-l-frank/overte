@@ -1,7 +1,12 @@
 # Native CI qualification — 2026-09-27
 
-The native lane is enforced for pull requests targeting `main` through the
-existing required `repository-checks` result. It was activated by
+This is a historical qualification record for the revision below. Its dependency
+addresses, timings, counts, and remaining efficiency work describe September 27.
+Use the [current CI overview](portal/testing/github-actions.md) and
+[native lane guide](../tools/native-tests/README.md) for today's behavior.
+
+At this revision, the native lane was enforced for pull requests targeting
+`main` through the required `repository-checks` result. It was activated by
 [PR #983](https://github.com/noah-be/overte/pull/983), merged as
 `4a01dc9f7ee60fe6304ab86f20d94008e317482b`, after the checks below passed.
 Existing branch protections and required status contexts were retained.

@@ -2,19 +2,26 @@
 
 The authoritative detailed command reference remains
 [`android/vr/pico/docs/BUILD.md`](../../../android/vr/pico/docs/BUILD.md). Run its build
-commands from `android/` on a 64-bit Linux host.
+commands from `android/vr/pico/` on a 64-bit Linux host.
 
 Required tools include Conan 2, Git, CMake, Ninja, Python, Perl, the Android SDK
-and NDK, a supported JDK, and ADB for physical installation. Prefer the
-checksum-verified prebuilt dependency path for ordinary development; source
-dependency builds can take several hours and are maintainer work.
+and NDK, a supported JDK, and ADB for physical installation. Preparation and
+builds require the explicit, revision-bound source dependency inputs described
+in [SOURCE_INPUTS.md](../../../android/vr/pico/release/SOURCE_INPUTS.md).
+The old prebuilt downloads are not accepted inputs to the current consumer.
 
 ```bash
-cd android
-./build-pico.sh doctor
-./build-pico.sh deps --download
-./build-pico.sh prepare
-./build-pico.sh build
+cd android/vr/pico
+./build.sh doctor
+```
+
+After supplying the four reviewed `PICO_SOURCE_*` / `PICO_EXPECTED_SOURCE_SHA`
+environment values from that contract:
+
+```bash
+./build.sh deps --source-graph
+./build.sh prepare
+./build.sh build
 ```
 
 Use `PICO_BUILD_JOBS` to bound general compilation and `PICO_SHADER_JOBS` to

@@ -1,11 +1,11 @@
 ---
-last-reviewed: "2026-10-07"
+last-reviewed: "2026-10-20"
 scope: "Documentation source, local HTML build, and page-maintenance rules"
 ---
 
 # Maintaining the documentation
 
-Portal sources and configuration live in `docs/portal` in **noah-be/overte**.
+Portal sources and configuration live in `docs/portal` in **noah-l-frank/overte**.
 Sphinx reads the explicitly selected repository pages directly. Common guides
 keep their existing paths and remain authoritative; add summaries and links
 rather than copying their procedures.
@@ -32,9 +32,11 @@ build/docs-env/bin/python -m http.server 8765 --bind 127.0.0.1 \
 Open `http://127.0.0.1:8765/`, then stop the server when
 finished. Build output and the environment are ignored by Git.
 
-The first implementation is a local, reviewable portal. Website deployment
-and additional CI workflows have not been activated. An HTML build does not
-trigger Jenkins or GitHub device tests.
+The portal is built and previewed locally. The existing documentation CI checks
+Markdown paths, anchors, and derived policy displays; it does not install Sphinx,
+build the portal, or deploy a public documentation site. Run the strict HTML
+build above when changing portal content. Neither that build nor a documentation
+check triggers the maintainer's private Jenkins laboratory or device tests.
 
 ## Add or update a page
 
@@ -82,7 +84,10 @@ git diff --check
 ```
 
 Prepare the [quick-profile environment](../../tests/PROJECT_TESTING.md#host-prerequisites)
-first. The strict HTML build fails unresolved local document references.
+first. The project-runner profiles remain available for their existing checks;
+the [selective CI guide](https://github.com/noah-l-frank/overte/blob/main/docs/PR_CI.md)
+owns the current central controller regressions and acceptance contract. The
+strict HTML build fails unresolved local document references.
 Links to existing repository Markdown outside the selected portal become
 explicit GitHub links to the fork's current `main`; product pages must name
 their owning branch. The offline repository checker verifies local file paths
