@@ -40,7 +40,7 @@ class Widgets:
                 page=row('chat.page');page.update(inputReady=False,profile='armored-chat-native-v1',channel=self.channel,
                     keyboardRequested=self.keyboard_request,localRowCount=len(self.local),domainRowCount=len(self.domain),componentSourceSha256='d'*64)
                 editor=row('chat.input',text=self.draft);editor['focused']=self.focus
-                for identifier in ('chat.send','chat.close','chat.local','chat.domain'):row(identifier)
+                for identifier in ('chat.send','chat.close','chat.local','chat.domain','chat.settings','chat.erase'):row(identifier)
             else:row('chat.entry')
         result=dict(chatControlsVersion=1,open=self.tablet,ready=self.ready,
             scope=dict(instance=self.instance,generation=self.generation,sequence=self.sequence,elapsedMs=self.elapsed,processId=self.pid),controls=controls)
@@ -64,6 +64,8 @@ class Widgets:
         elif identifier=='chat.send':
             self.sent.append((self.channel,self.draft));self.draft='';self.focus=False;self.keyboard_request=False
         elif identifier in ('chat.local','chat.domain'):self.channel=identifier.split('.')[1]
+        elif identifier=='chat.settings':self.channel='settings'
+        elif identifier=='chat.erase':self.local=[];self.domain=[]
         if self.lose_ack:raise NativeUIError('Input acknowledgement was lost')
     def activate(self,identifier,*,reference):self.input(identifier,'activate',reference)
     def replace(self,identifier,value,*,reference):self.input(identifier,'replace',reference,value)
@@ -91,6 +93,20 @@ class ChatControlTests(unittest.TestCase):
         self.assertEqual([('local',context(RUN)['retry'])],self.widgets.sent);self.assertTrue(self.widgets.focus)
         page=self.ui.page(self.ui.capture());self.assertTrue(page['keyboardRequested']);self.assertNotIn('keyboard',page)
         self.assertEqual([],self.widgets.local);self.assertEqual([],self.widgets.domain)
+
+    def test_original_settings_erase_removes_both_models_without_claiming_storage_restore(self):
+        self.opened();self.widgets.local=[context(RUN)['reply']];self.widgets.domain=[context(RUN)['unicode']]
+        self.ui.erase_history()
+        self.assertEqual('settings',self.widgets.channel)
+        self.assertEqual([],self.widgets.local);self.assertEqual([],self.widgets.domain)
+        self.assertEqual(['chat.settings','chat.erase'],[r[0] for r in self.widgets.calls[-2:]])
+
+    def test_consumed_erase_with_unchanged_models_retains_cleanup_intent(self):
+        self.opened();self.widgets.domain=[context(RUN)['unicode']]
+        self.widgets.channel='settings';self.widgets.ignore_effect=True
+        with self.assertRaises(NativeUIError):self.ui.erase_history()
+        self.assertEqual([context(RUN)['unicode']],self.widgets.domain)
+        self.assertEqual('chat.erase',self.store.read()['intents'][-1]['controlId'])
 
     def test_ignored_command_ack_is_rejected_by_fresh_consumed_input_counter(self):
         self.widgets.ignore=True

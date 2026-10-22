@@ -109,3 +109,23 @@ retained original channel/history and released editor focus/keyboard on resume.
 Ignored lifecycle input, reset channel, lost history or a ghost keyboard fails.
 Source-correct closed-page cleanup and all original native/source/resource
 requirements remain mandatory. Full adapter implementations are still missing.
+
+
+## Normal cleanup controls (2026-10-22)
+
+The E2E-only Chat control inventory now identifies the original Settings tab
+and Erase button from their original QML context and control structure. The
+adapter sends ordinary Qt pointer events, records durable input intent first,
+and requires fresh original channel/model changes. An input acknowledgement
+never proves persisted history removal; the complete owner must separately
+read storage and verify exact original history/configuration restoration.
+
+`test_token_chat_ui.py` covers both model erasure and consumed-but-ignored Erase
+while preserving cleanup intent. `phone-chat-native-test.py` compiles the
+original control helpers against installed Qt6 and loads the actual original
+Chat QML. Its ordinary channel, Unicode editor, Send, Settings, Erase and Close
+events pass; a foreign overlay blocks input. Send leaves both receive models
+empty in this harness, deliberately proving that an input signal does not
+create delivery evidence. This is a desktop host seam, not an Android product
+build, MessagesMixer roundtrip or device/rendering acceptance. The public Chat
+owner and common journey remain incomplete at this source packet.

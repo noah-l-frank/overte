@@ -10,7 +10,7 @@ from adapters.token_create_ui import nonce,navigation,scope
 from feature_journeys.fixtures import context
 
 VERSION=1
-FIXED={'chat.page','chat.entry','chat.input','chat.send','chat.close','chat.local','chat.domain'}
+FIXED={'chat.page','chat.entry','chat.input','chat.send','chat.close','chat.local','chat.domain','chat.settings','chat.erase'}
 
 
 def control_id(value):return type(value) is str and (value in FIXED or navigation(value))
@@ -157,6 +157,14 @@ class TokenChatUI:
         self.wait(lambda v:(self.row(v,'chat.input') or {}).get('text')=='')
         # Editor clearing is an input effect only. The feature verdict still
         # needs actual UI/storage history and original independent peer receipt.
+
+    def erase_history(self):
+        """Use the original Settings/Erase controls; storage requires its own read."""
+        if self.page(self.capture())['channel']!='settings':
+            self.input('chat.settings')
+            self.wait(lambda v:self.page(v)['channel']=='settings')
+        self.input('chat.erase')
+        self.wait(lambda v:all(self.page(v)[k]==0 for k in ('localRowCount','domainRowCount')))
 
     def close(self):
         current=self.capture()

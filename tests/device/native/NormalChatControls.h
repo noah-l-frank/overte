@@ -76,9 +76,18 @@ inline QString chatControlId(QQuickItem* item) {
     if (name=="chatMessageInput" && item->inherits("QQuickTextEdit")) { return "chat.input"; }
     if (name=="chatSend" && item->metaObject()->indexOfSignal("clicked()")>=0) { return "chat.send"; }
     if (name=="chatClose" && item->metaObject()->indexOfSignal("clicked()")>=0) { return "chat.close"; }
+    if (item->metaObject()->indexOfSignal("clicked()")>=0 && item->property("text").toString()=="Erase"
+            && item->parentItem()) {
+        int labels {0};
+        for (auto sibling:item->parentItem()->childItems()) {
+            if (sibling->property("text").toString()=="Erase chat history") { ++labels; }
+        }
+        if (labels==1) { return "chat.erase"; }
+    }
     if (item->inherits("QQuickMouseArea") && item->parentItem()) {
         if (loginQmlId(item->parentItem(),"local_page")) { return "chat.local"; }
         if (loginQmlId(item->parentItem(),"domain_page")) { return "chat.domain"; }
+        if (loginQmlId(item->parentItem(),"settings_page")) { return "chat.settings"; }
     }
     return {};
 }
