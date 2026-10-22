@@ -12,6 +12,7 @@
 #include "tests/device/native/AudioPageObservation.h"
 #include "tests/device/native/ViewMenuLifetimes.h"
 #include "tests/device/native/SnapshotReviewObservation.h"
+#include "tests/device/native/PicoSnapshotExportControls.h"
 #include "android/vr/pico/apps/picoInterface/e2e/PicoE2eNavigationUi.h"
 class HostApplication:public QGuiApplication {
 public:using QGuiApplication::QGuiApplication;bool isHMDMode()const{return true;}

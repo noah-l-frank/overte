@@ -345,7 +345,7 @@ class PicoChatWitness:
         self.native.guard();self.lock=ScriptSourceLock(adapter._chat_composition_store(target).path.with_name('script-sources.lock'))
         self.parent=adapter._chat_composition_store(target);original=record(self.parent.read())
         need(type(original) is dict and type(original.get('picoChatCompositionVersion')) is int
-            and original['picoChatCompositionVersion'] in (3,4,VERSION) and same(original.get('binding'),self.binding)
+            and original['picoChatCompositionVersion'] in (3,4,5,VERSION) and same(original.get('binding'),self.binding)
             and original.get('runId')==source.run and original.get('fixtureUrl')==source.fixture_url
             and original.get('phase') in ('prepared','step-issued','step-completed'))
         try:

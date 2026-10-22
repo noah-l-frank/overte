@@ -11,6 +11,16 @@ native components and original production bodies now compile and pass host
 checks; the full application/APK and every device remain unqualified. See the
 [current build and integration record](BUILD_VERIFICATION_20261022.md).
 
+The selected Chat archive-v4/host-close, Avatar original preferences/Bookmarks
+and Snapshot export packets are integrated together. Eleven affected owning
+groups pass after correcting the shared original Avatar observer harness to
+include Snapshot controls and updating the Chat parent-version fixture.
+Independent witnesses also read unchanged legacy-v5 parents without sending
+input (one focused regression, 2.280s). Archive index and original host-close
+counterexamples run through the existing Chat archive selector. The four
+repository checks, contract registry, probe syntax and whitespace checks pass.
+These host/source results add no complete feature or device qualification.
+
 | Area | Current Pico implementation | Concrete next boundary |
 | --- | --- | --- |
 | Worlds/navigation | Partial normal Places/bookmark/origin/directory/error and measured B/A transit with original stereo-source retirement | Fresh v2 image/actor publication, normal tablet and Go To closure, maturity composition, restart and independent final retirement |

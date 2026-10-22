@@ -155,7 +155,7 @@ class PicoChatCompositionTests(unittest.TestCase):
             self.assertIs(owner.roles[index].script_source,owner.code_sources[index])
             self.assertIs(owner.initial[index].script_source,owner.code_sources[index])
             self.assertIs(owner.code_sources[index].lock,owner.lock)
-        self.assertEqual(5,owner.previous['picoChatCompositionVersion'])
+        self.assertEqual(6,owner.previous['picoChatCompositionVersion'])
         self.assertEqual([],self.native.inputs)
         with self.assertRaises(NativeUIError):owner.prepare()
         self.assertEqual(['acquire'],[request['operation'] for request in profile.requests])
@@ -214,6 +214,16 @@ class PicoChatCompositionTests(unittest.TestCase):
             legacy=dict(original,picoChatCompositionVersion=version);owner.store.write(legacy,owner.store.read())
             with self.subTest(version=version),self.assertRaises(ValueError):self.instance._chat_witness_composition(self.native.target,source,self.peer.config)
             self.assertEqual(legacy,owner.store.read());self.assertEqual([],self.native.inputs)
+
+    def test_legacy_five_parent_admits_independent_readers_without_rewriting_original_or_sending_input(self):
+        from feature_journeys.witness import Client
+        owner=self.compose();self.prepare_sources(owner);owner.prepare()
+        legacy=dict(owner.store.read(),picoChatCompositionVersion=5);owner.store.write(legacy,owner.store.read())
+        raw=owner.store.path.read_bytes();source=PhaseFixtureReader(Client(self.source.client.url,'w'*48),RUN,'chat')
+        witness=self.instance._chat_witness_composition(self.native.target,source,self.peer.config);self.addCleanup(witness.detach)
+        self.assertIs(source,witness.publisher.source);self.assertEqual(owner.peer.binding,witness.peer.binding)
+        self.assertIsNot(owner.peer,witness.peer);self.assertEqual([],witness.publisher.samples.frames)
+        self.assertEqual(raw,owner.store.path.read_bytes());self.assertEqual([],self.native.inputs)
 
     def test_premature_parent_cleanup_never_admits_phase_or_creates_peer_release_input(self):
         owner=self.compose();self.prepare_sources(owner);owner.prepare()
