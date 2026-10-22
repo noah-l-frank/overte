@@ -146,6 +146,7 @@ REQUIRED = {
     "pico-snapshot-native-originals": 1,
     "pico-snapshot-still-owner": 1,
     "android-snapshot-file-originals": 2,
+    "native-script-work": 2,
     "pico-audio-capture-background": 1,
     "pico-audio-capture-owner": 2,
     "pico-audio-final-close": 1,
