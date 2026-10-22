@@ -983,6 +983,22 @@ catalog module budget is not a source freshness or checkpoint deadline.
 Explicit synthetic native epochs used by host replay never replace these real
 monotonic call/quiet bounds or qualify real device latency.
 
+The independent actor performs one complete original role acquisition and
+`restored()` check per `step()`. While its cleanup quiet suffix is incomplete,
+it durably saves that suffix and returns, releasing the original source lock
+before another measurement. It neither sleeps nor starts a second complete
+acquisition inside that lock. The unchanged `quiet_window` still requires at
+least three advancing samples spanning three real seconds and resets the suffix
+after any gap greater than 1.5 seconds. No witness is published before it is
+complete; actual fixture closure, a fresh closed-phase read and actual actor
+exit remain separate finalization requirements. This prevents accumulated
+complete acquisitions from starving the primary's existing five-second lock
+deadline without relaxing freshness or quietness. Source packet `7b6f40442c`
+has six parent-reported actor checks passing in 13.365 seconds, including an
+alive child with incomplete quiet, no premature witness, primary lock acquisition
+and strict later closure/retirement. The complete SDK29+ and SDK26–28 common
+replays remain pending.
+
 The durable owner is written before setup can acquire settings, capture-file or
 document leases. Baseline preparation takes readonly originals before ordinary
 UI input. A failed first observation still attempts owned cleanup before the
