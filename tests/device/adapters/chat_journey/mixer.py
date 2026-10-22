@@ -255,16 +255,18 @@ class ChatMixerOwner:
         try:
             need(integer(after_epoch,1) and self.base['original'] is not None
                 and [row['action'] for row in self.base['commands']]==['offline'] and self.base['phase']=='offline')
-            self.deadline=self.now()+20;self.issue('online',after_epoch)
-            return self.inspect_restored(after_epoch)
+            self.deadline=None;self.deadline=self.now()+20;self.issue('online',after_epoch)
+            return self.inspect_restored(after_epoch,continuation=True)
         except Exception:
             raise NativeUIError('Chat mixer restoration is unresolved; no uncertain command is resent') from None
 
-    def inspect_restored(self,after_epoch):
+    def inspect_restored(self,after_epoch,*,continuation=False):
         # Passive completion after an uncertain online response. The original
         # command cannot be retried, even after reconstruction or a timeout.
         need(integer(after_epoch,1) and self.base['original'] is not None and self.base['offlineObserved']
             and [row['action'] for row in self.base['commands']]==['offline','online'])
+        need(type(continuation) is bool)
+        if not continuation:self.deadline=None
         if self.deadline is None:self.deadline=self.now()+20
         current=self.await_ready(after_epoch,True);observed=self.quiet(after_epoch,True,current)
         self.write('online');return observed
@@ -274,7 +276,7 @@ class ChatMixerOwner:
         # An online-first source admission fences a delayed offline HTTP input.
         if self.previous is None or 'offline' not in [row['action'] for row in self.base['commands']] or 'online' in [row['action'] for row in self.base['commands']]:return
         try:
-            self.deadline=self.now()+20;self.write('recovering');self.issue('online',after_epoch,recovery=True)
+            self.deadline=None;self.deadline=self.now()+20;self.write('recovering');self.issue('online',after_epoch,recovery=True)
             frame=self.measure_control(recovery=True);first=frame['controls'][0]
             need(first['mixer']['running'] and not first['mixer']['pending'] and first['offlineFenced']
                 and all(row['status']!='pending' for row in first['commands']))

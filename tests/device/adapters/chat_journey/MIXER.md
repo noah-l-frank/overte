@@ -87,3 +87,12 @@ callback remain mandatory. Both the frozen-host/late-clock and lost persistence
 cases fail closed. The return explicitly marks nativeChatUnresolved and retains
 all journals; it emits no shared Chat state or resource inventory. Original
 packed/native histories are neither repacked, changed to ready nor retired.
+
+
+Each distinct restoration or later passive inspection gets a new bounded
+operation budget. The previous step's expired deadline cannot block the
+separately authorized online recovery input; it never resets any source,
+controller/run/command identity, original native history or once-only input bit.
+An online inspection nested within the same restoration retains that operation's
+original budget. Host cases cover a 30-second idle offline interval, a genuinely
+late/uncertain original command and later passive inspection without resend.
