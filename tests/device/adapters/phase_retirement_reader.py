@@ -13,10 +13,10 @@ from adapters.normal_feature_state import PrivateFeatureState,context
 from adapters.phase_retirement_publisher import PhaseRetirementPublisher,PublicationPending
 from adapters.script_feature.history import pack,unpack,same
 from feature_journeys.phase_fixture import PhaseFixtureReader,validate as phase_packet
-from feature_journeys.retirement_receipts import binding_from_context,summary as retirement_summary,stage as retirement_stage,SCENE_STAGE
+from feature_journeys.retirement_receipts import binding_from_context,summary as retirement_summary,stage as retirement_stage,SCENE_STAGE,WEB_SCENE_STAGE,WEB_SCENE_AREAS
 
 VERSION=2
-READS=(1,2)
+READS=(1,2,3)
 
 
 class PhaseRetirementReader:
@@ -27,7 +27,7 @@ class PhaseRetirementReader:
         self.guard,self.admitted_original,self.validate_admission=guard,deepcopy(admitted_original),validate_admission
         self.run,self.area,self.instance,self.url=phase.run,phase.area,phase.previous['instance'],phase.client.url
         self.epoch_ms,self.monotonic=epoch_ms,monotonic
-        need(stage in ('complete',SCENE_STAGE) and (stage=='complete' or self.area=='avatar-people'));self.stage=stage
+        need(stage=='complete' or stage==SCENE_STAGE and self.area=='avatar-people' or stage==WEB_SCENE_STAGE and self.area in WEB_SCENE_AREAS);self.stage=stage
         self.previous=store.read();self.state=dict(records=[])
         self.actor=self.admission()
         if self.previous is not None:self.state=self.decode(self.previous)
@@ -39,10 +39,11 @@ class PhaseRetirementReader:
             and all(actor[key]==self.binding[key] for key in ('artifactSha256','sourceRevision')))
         return binding_from_context(actor)
 
-    def envelope(self,state,version=VERSION):
+    def envelope(self,state,version=None):
+        if version is None:version=max([3 if self.stage==WEB_SCENE_STAGE else VERSION]+[row['journal']['phaseRetirementJournalVersion'] for row in state['records']])
         value=dict(phaseRetirementReaderVersion=version,runId=self.run,area=self.area,phaseInstance=self.instance,
             fixtureUrl=self.url,binding=self.binding,admittedOriginal=self.admitted_original,payload=pack([state]))
-        if version==2:value['stage']=self.stage
+        if version>=2:value['stage']=self.stage
         else:need(self.stage=='complete')
         return value
 
@@ -71,7 +72,7 @@ class PhaseRetirementReader:
     def decode(self,value):
         need(type(value) is dict and type(value.get('phaseRetirementReaderVersion')) is int and value['phaseRetirementReaderVersion'] in READS)
         version=value['phaseRetirementReaderVersion']
-        exact(value,{'phaseRetirementReaderVersion','runId','area','phaseInstance','fixtureUrl','binding','admittedOriginal','payload'}|({'stage'} if version==2 else set()))
+        exact(value,{'phaseRetirementReaderVersion','runId','area','phaseInstance','fixtureUrl','binding','admittedOriginal','payload'}|({'stage'} if version>=2 else set()))
         rows=unpack(value['payload']);need(len(rows)==1 and same(value,self.envelope(rows[0],version)));state=rows[0];exact(state,{'records'})
         need(type(state['records']) is list and len(state['records'])<=128);before=None
         for row in state['records']:

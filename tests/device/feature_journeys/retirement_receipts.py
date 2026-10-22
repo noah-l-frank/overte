@@ -13,8 +13,12 @@ from .contract import exact,identifier,number,result
 from .scenarios import SCENARIOS
 
 VERSION=2
-READS=(1,2)
+READS=(1,2,3)
 SCENE_STAGE="avatar-scene-retired"
+WEB_SCENE_STAGE="web-marker-scene-quiet"
+SCENE_STAGES=(SCENE_STAGE,WEB_SCENE_STAGE)
+WEB_SCENE_AREAS=('world-web','emotes')
+WEB_SCENE_CLASSES=("entity", "renderer-lease", "file", "gpu-sampler", "marker-pixels", "qt-ui", "script-listener", "script-vm", "timer", "world-view", "wk-callback")
 SCENE_CLASSES=("entity", "file", "gpu", "marker-pixels", "qt-ui", "script-listener", "script-vm", "timer", "world-view")
 
 
@@ -68,7 +72,7 @@ def stage(value):
 
 
 def summary(value):
-    return value['scene'] if stage(value)==SCENE_STAGE else value['cleanup']
+    return value['scene'] if stage(value) in SCENE_STAGES else value['cleanup']
 
 
 def scene(value,run,sequence):
@@ -76,6 +80,16 @@ def scene(value,run,sequence):
     check(type(value['sceneRetirementVersion']) is int and value['sceneRetirementVersion']==1
         and value['runId']==run and type(value['sequence']) is int and value['sequence']==sequence
         and value['retired']==list(SCENE_CLASSES) and value['remaining']==['account-session'])
+    lifecycle(value['lifecycle']);number(value['capturedEpochMs'],1)
+    return value
+
+
+
+def web_scene(value,run,sequence):
+    exact(value,{'webMarkerSceneQuietVersion','runId','sequence','capturedEpochMs','quiet','remaining','lifecycle'},'closed Web marker scene quiet summary')
+    check(type(value['webMarkerSceneQuietVersion']) is int and value['webMarkerSceneQuietVersion']==1
+        and value['runId']==run and type(value['sequence']) is int and value['sequence']==sequence
+        and value['quiet']==list(WEB_SCENE_CLASSES) and value['remaining']==['native-process-resources'])
     lifecycle(value['lifecycle']);number(value['capturedEpochMs'],1)
     return value
 
@@ -88,9 +102,11 @@ def lifecycle(value):
 def body(value,*,run=None,area=None,phase_instance=None):
     check(type(value) is dict and type(value.get('phaseRetirementVersion')) is int and value['phaseRetirementVersion'] in READS)
     version=value['phaseRetirementVersion'];kind=stage(value)
-    check(kind in ('complete',SCENE_STAGE) and (kind!='avatar-scene-retired' or version==2 and value.get('area')=='avatar-people'))
+    check(kind in ('complete',*SCENE_STAGES) and (kind!=SCENE_STAGE or version==2 and value.get('area')=='avatar-people')
+        and (kind!=WEB_SCENE_STAGE or version==3 and value.get('area') in WEB_SCENE_AREAS)
+        and (version!=3 or kind==WEB_SCENE_STAGE))
     exact(value,{'phaseRetirementVersion','runId','area','phaseInstance','ticket','role','actorSequence','binding','originalSha256',
-        'acquisition','quiet','provenance'}|({'stage'} if version==2 else set())|({'scene'} if kind==SCENE_STAGE else {'cleanup'}),'retirement publication')
+        'acquisition','quiet','provenance'}|({'stage'} if version>=2 else set())|({'scene'} if kind in SCENE_STAGES else {'cleanup'}),'retirement publication')
     check(value['role']=='actor' and value['area'] in SCENARIOS
         and (area is None or value['area']==area) and (run is None or value['runId']==run)
         and (phase_instance is None or value['phaseInstance']==phase_instance))
@@ -98,6 +114,7 @@ def body(value,*,run=None,area=None,phase_instance=None):
     check(sha(value['originalSha256']) and type(value['actorSequence']) is int and value['actorSequence']>0)
     public=summary(value)
     if kind==SCENE_STAGE:scene(public,value['runId'],value['actorSequence'])
+    elif kind==WEB_SCENE_STAGE:web_scene(public,value['runId'],value['actorSequence'])
     else:
         exact(public,{'schemaVersion','contractVersion','runId','sequence','capturedEpochMs','resources','lifecycle'},'closed complete retirement summary')
         check(type(public['schemaVersion']) is int and public['schemaVersion']==1 and type(public['contractVersion']) is int and public['contractVersion']==16
@@ -130,7 +147,7 @@ class PhaseRetirementJournal:
             rows=self.runs.get(run,[]);check(len(rows)<128)
             if rows:check(value['actorSequence']>rows[-1]['actorSequence'] and value['binding']==rows[0]['binding'])
             same_ticket=[row for row in rows if row['ticket']==value['ticket']]
-            check(stage(value)!=SCENE_STAGE or not same_ticket)
+            check(stage(value) not in SCENE_STAGES or not same_ticket)
             captured=summary(value)['capturedEpochMs'];now=self.journal.clock()
             check(current['activeEpochMs']<=captured<=now+250 and now-captured<=1500)
             rows.append(dict(deepcopy(value),sequence=len(rows)+1,receivedEpochMs=now,receiptSha256=digest(value)))
@@ -139,5 +156,5 @@ class PhaseRetirementJournal:
     def snapshot(self,run):
         with self.journal.lock:
             current=self.journal.runs[identifier(run)]
-            return dict(phaseRetirementJournalVersion=VERSION,runId=run,area=current['area'],phaseInstance=self.journal.phase_instance,
+            return dict(phaseRetirementJournalVersion=max([VERSION]+[row['phaseRetirementVersion'] for row in self.runs.get(run,[])]),runId=run,area=current['area'],phaseInstance=self.journal.phase_instance,
                 ticket=current['ticket'],sampleEpochMs=self.journal.clock(),entries=deepcopy(self.runs.get(run,[])))

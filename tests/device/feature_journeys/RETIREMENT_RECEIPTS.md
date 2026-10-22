@@ -69,3 +69,37 @@ exercise Emote, Avatar and Create summaries, once-POST recovery, missing replies
 private full-original reconstruction and the adapter-only information boundary.
 Product/native cleanup decoders are modeled in these protocol tests; each whole
 feature must additionally test its actual source-to-retirement decoder.
+
+
+## Optional Web marker scene quiet, version 3
+
+The default complete and Avatar scene writers remain version 2. Their original
+wire fields, full cleanup requirements and version-1 historical readers remain
+unchanged. Readers also accept version 3. Only explicit
+`PhaseRetirementPublisher(..., stage='web-marker-scene-quiet')` on `world-web`
+or `emotes` may publish the new scene stage. Its callback returns exactly
+`{ticket, scene, acquisition, retirement}`. The closed `scene` contains
+`webMarkerSceneQuietVersion: 1`, run/sequence/capture time, `lifecycle`, the exact
+ordered `quiet` classes `entity`, `renderer-lease`, `file`, `gpu-sampler`,
+`marker-pixels`, `qt-ui`, `script-listener`, `script-vm`, `timer`, `world-view`,
+`wk-callback`, and `remaining: ['native-process-resources']`.
+
+This stage is not full native resource retirement. The feature decoder must
+retain actual held native resource groups and their original cache surface/root
+and renderer-lease identities privately. A native QImage, cached QSG root or WK
+holder can remain owned after ordinary scene cleanup. Actual callback/grant
+quiet, input endings, Entity/renderer lease ends, file absence and restored pixels
+must be validated from their original sources before publication. Neither this
+receipt nor its hash establishes those effects independently.
+
+A primary reader must explicitly select this stage. The default complete reader
+refuses it; an Avatar scene reader also refuses it. Only one scene stage is
+accepted per cleanup ticket, before any complete receipt. A journal containing
+an actual version-3 entry writes 3; old journals remain 2. Mixed historical
+journals retain original per-entry versions, clocks, binding and ordering.
+
+Final native resource retirement remains a separate feature-owned coordinator:
+actual inactive fixture authority, both roles' retained held groups, one normal
+Stop intention, each role's own existing-SDK OS/DVT numeric-PID quiet window,
+immutable archives and canonical SDK deletion. No post-death zero native
+inventory, receipt ACK, phase death or image reset can replace that proof.

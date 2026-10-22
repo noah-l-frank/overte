@@ -17,10 +17,10 @@ from adapters.script_feature.lock import ScriptSourceLock
 from feature_journeys.contract import identifier, result, state as feature_state
 from feature_journeys.phase_fixture import PhaseFixtureReader, validate as phase_packet
 from feature_journeys.scenarios import SCENARIOS
-from feature_journeys.retirement_receipts import body as retirement_body,binding_from_context,digest as retirement_digest,summary as retirement_summary,stage as retirement_stage,SCENE_STAGE
+from feature_journeys.retirement_receipts import body as retirement_body,binding_from_context,digest as retirement_digest,summary as retirement_summary,stage as retirement_stage,SCENE_STAGE,SCENE_STAGES,WEB_SCENE_STAGE,WEB_SCENE_AREAS
 
 VERSION = 2
-READS = (1,2)
+READS = (1,2,3)
 
 
 class PublicationPending(NativeUIError):
@@ -40,12 +40,14 @@ class PhaseRetirementPublisher:
         return deepcopy(scope.decode(value))
 
     def __init__(self, store, binding, phase, lock, guard, validate_original, *,
-                 epoch_ms=lambda: time.time()*1000, monotonic=time.monotonic):
+                 epoch_ms=lambda: time.time()*1000, monotonic=time.monotonic, stage=None):
         need(isinstance(store, PrivateFeatureState) and isinstance(phase, PhaseFixtureReader)
              and isinstance(lock, ScriptSourceLock) and phase.previous is not None
              and all(callable(fn) for fn in (guard, validate_original, epoch_ms, monotonic)))
         self.store, self.binding, self.phase, self.lock = store, deepcopy(context(binding)), phase, lock
         self.run, self.area, self.url = phase.run, phase.area, phase.client.url
+        need(stage is None or stage==WEB_SCENE_STAGE and self.area in WEB_SCENE_AREAS)
+        self.stage=stage;self._body_version=3 if stage==WEB_SCENE_STAGE else VERSION
         self.instance = identifier(phase.previous['instance'])
         phase_packet(phase.previous, run=self.run, area=self.area,
                      request=phase.previous['requestId'], epoch=phase.previous['capturedEpochMs'])
@@ -53,13 +55,15 @@ class PhaseRetirementPublisher:
         need(store.path.name == 'phase-retirement-'+self.area+'-'+self.run+'-actor.json'
              and lock.path == store.path.parent/'script-feature-sources.lock')
         self.live = True; self.clock = None; lock.assert_held(); self.previous = store.read()
+        self._metadata_version=max(self._body_version,self.previous.get('phaseRetirementPublisherVersion',VERSION) if type(self.previous) is dict else VERSION)
         if self.previous is None:
             need(not any(store.path.parent.glob('phase-retirement-'+self.area+'-'+self.run+'-actor-*.json')))
         self.state = dict(records=[], pending=None) if self.previous is None else self.decode(self.previous)
         self.bound()
         if self.previous is None: self.save()
 
-    def envelope(self, state,version=VERSION):
+    def envelope(self, state,version=None):
+        if version is None:version=getattr(self,'_metadata_version',VERSION)
         return dict(phaseRetirementPublisherVersion=version, binding=self.binding, runId=self.run, area=self.area,
                     fixtureUrl=self.url, phaseInstance=self.instance, payload=pack([state]))
 
@@ -84,14 +88,15 @@ class PhaseRetirementPublisher:
              and abs(b-a-(d-c)*1000) <= 250)
         return value
 
-    def original(self, value,version=VERSION):
+    def original(self, value,version=None):
         """Scene and complete callbacks have deliberately disjoint grammars."""
+        if version is None:version=getattr(self,'_body_version',VERSION)
         need(type(value) is dict and type(version) is int and version in READS)
         derived = deepcopy(self.validate_original(deepcopy(value)))
         need(type(derived) is dict);is_scene='scene' in derived
         exact(derived, {'ticket', 'scene' if is_scene else 'public', 'acquisition', 'retirement'}); identifier(derived['ticket'])
         if is_scene:
-            need(version==2 and self.area=='avatar-people');public=derived['scene']
+            need(version==2 and self.area=='avatar-people' or version==3 and self.area in WEB_SCENE_AREAS);public=derived['scene']
         else:public=result('feature.'+self.area+'.observe',derived['public'])
         need(public['runId']==self.run)
         clock=self.acquisition(derived['acquisition'])
@@ -100,7 +105,7 @@ class PhaseRetirementPublisher:
         body=dict(phaseRetirementVersion=version,runId=self.run,area=self.area,phaseInstance=self.instance,
             ticket=derived['ticket'],role='actor',actorSequence=public['sequence'],binding=binding_from_context(self.binding),
             originalSha256=retirement['originalSha256'],acquisition=clock,quiet=retirement['quiet'],provenance=retirement['provenance'])
-        if version==2:body['stage']=SCENE_STAGE if is_scene else 'complete'
+        if version>=2:body['stage']=(WEB_SCENE_STAGE if version==3 else SCENE_STAGE) if is_scene else 'complete'
         if is_scene:body['scene']=deepcopy(public)
         else:body['cleanup']={key:public[key] for key in ('schemaVersion','contractVersion','runId','sequence','capturedEpochMs','resources','lifecycle')}
         retirement_body(body,run=self.run,area=self.area,phase_instance=self.instance)
@@ -127,7 +132,7 @@ class PhaseRetirementPublisher:
             keys=set(row)-{'sequence','receivedEpochMs','receiptSha256'};original={key:row[key] for key in keys}
             retirement_body(original,run=self.run,area=self.area,phase_instance=self.instance)
             need(original['phaseRetirementVersion']<=value['phaseRetirementJournalVersion']
-                and (retirement_stage(original)!=SCENE_STAGE or original['ticket'] not in seen_tickets))
+                and (retirement_stage(original) not in SCENE_STAGES or original['ticket'] not in seen_tickets))
             seen_tickets.add(original['ticket'])
             need(row['receiptSha256']==retirement_digest(original) and integer(row['sequence'],sequence+1)
                 and integer(row['actorSequence'],actor+1) and number(row['receivedEpochMs'],1,value['sampleEpochMs'])
@@ -205,7 +210,7 @@ class PhaseRetirementPublisher:
 
     def store_record(self, row):
         self.receipt(row); ordinal = row['intent']['ordinal']
-        value = dict(phaseRetirementPublicationRecordVersion=VERSION, binding=self.binding, runId=self.run, area=self.area,
+        value = dict(phaseRetirementPublicationRecordVersion=max(VERSION,row['intent']['body']['phaseRetirementVersion']), binding=self.binding, runId=self.run, area=self.area,
                      fixtureUrl=self.url, phaseInstance=self.instance, payload=pack([row]))
         store = self.record_store(ordinal); previous = store.read()
         if previous is None: store.write(value, None)
