@@ -527,3 +527,45 @@ The readonly `/runs/<run>/snapshot-upload/original/<request>/<nonce>` route read
 `PhoneSnapshotUploadBytes` brackets binary acquisition with its own fresh provider reads using the existing role credential. It checks the fresh nonce and exact provider/run/request/ticket/domain/HTTPS-origin identities, original multipart receipt and payload metadata, actual decoded bytes, immutable completion time and real five-second acquisition/freshness guards. This separate binary route retains the existing 32 MiB original multipart ceiling and leaves the generic Client's 1 MiB JSON ceiling unchanged. The resulting file source is `snapshot-upload-original`; private capture bytes cannot be relabeled as upload evidence. Both actor and adapter reader credentials can acquire originals, while the product access token and mutation requests cannot use this route. This supplies component evidence only; the complete public composition remains unadvertised.
 
 The dedicated host check uses real loopback TLS, actual multipart uploads, private original inodes and image decoding. It includes an original PNG larger than 1 MiB, changed wire bytes/inodes/permissions/links, missing/retired sources, foreign roles/run/request/ticket/nonces, stale metadata, changed payload and an advanced five-second acquisition clock. SDK/native request producers remain explicit synthetic seams; no live product upload or device acceptance is claimed.
+### Passive original source during ordinary OS handoff (version 1)
+
+The primary starts `phone-snapshot-handoff` while the original Phone process
+and normal foreground command guard still hold. Its closed command contains
+only schemaVersion, commandId, action, runId, handoffId and operation
+(start/observe/retire). No caller duration, expected state, source, URI or OS
+component is accepted. One active owner and eight retained owners per native
+process are allowed. A real 250 ms Qt timer acquires the original sources;
+60 seconds is an immutable measured lease, never a renewable timeout.
+Retirement actually stops the timer and takes a final original sample. An
+expired or failed owner remains failed even after its resources are stopped.
+
+The atomic private `phone-snapshot-handoff.json` contains source version 1,
+the original Test instance/PID, publication time, original source and the
+complete bounded original job summaries. The source contains its own immutable
+instance/run/handoff/PID/start/deadline, actual sequence/time, complete/error,
+retired/timerActive/readActive and this exact original batch:
+`context`, `group`, `readbacks`, `captureFiles`, `upload`. Context version 1
+reads original lifecycle counters and AccountManager passive observations on
+their actual owner thread. The existing pinned roots/script/Snapshot/roots
+join, native readbacks, capture-file FD inventory and upload lifecycle getters
+are called directly. No JavaScript handler or UI mutation is used. Original
+VM event times and native/file completion times are preserved.
+
+The SDK independently binds the actual foreground start result, then reads
+only this private file under the existing narrow OS/kernel/session handoff
+authority. Actors cannot start or retire it. They send no background client
+command. Every nested original grammar, fixed compiled script pin, actual
+PID/instance/run, source order, closed fields, account history and monotonically
+retained native histories are checked. Sources remain limited to 1.5 seconds
+freshness, five seconds polling and the original 60 second deadline. An old
+file with a new host read/publication time, missing getter, ignored command,
+foreign evidence, changed source, missing retirement or stalled Qt event loop
+fails. The host never relabels a cached pending frame as current. Normal
+foreground-only command protection is unchanged.
+
+`test_snapshot_handoff.py` exercises synthetic native/VM/OS boundaries and
+negative histories. `test_snapshot_handoff_native.py` compiles the actual timer
+helper and unchanged native gateway body against explicit original-getter,
+account and lifecycle seams, writes a real private atomic file, and waits the
+actual 60 second deadline. The full native product translation unit, Android
+background event delivery, OS UI and physical client remain unverified.

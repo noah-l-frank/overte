@@ -128,6 +128,17 @@ def continuity(before,after):
                 if row['retireId']:need(all(current[field]==row[field] for field in ('retireId','deleteIssued','deleteResult','absent')) and current['checkedEpochMs']>=row['checkedEpochMs'])
 
 
+def validate(value,request,pid,epoch):
+    command(request)
+    exact(value,{'schemaVersion','requestId','runId','instance','sequence','processId','requestedEpochMs','capturedEpochMs','accepted','source'})
+    need(type(value['schemaVersion']) is int and value['schemaVersion']==1 and value['runId']==request['runId'] and value['requestId']==request['commandId'] and nonce(value['instance']) and integer(value['sequence'],1)
+        and type(value['accepted']) is bool and type(value['processId']) is int and value['processId']==pid
+        and integer(value['requestedEpochMs'],1) and integer(value['capturedEpochMs'],value['requestedEpochMs']) and value['capturedEpochMs']-value['requestedEpochMs']<1500)
+    fresh(value['capturedEpochMs'],epoch);source(value['source'],value['capturedEpochMs'])
+    need(value['source']['capturedEpochMs']>=value['requestedEpochMs'])
+    return value
+
+
 class PhoneSnapshotCaptureFileSource:
     def __init__(self,send,read,clock_ms,guard,pid,*,read_only=True,monotonic=time.monotonic,sleep=time.sleep):
         need(all(callable(fn) for fn in (send,read,clock_ms,guard,monotonic,sleep)) and integer(pid,1) and type(read_only) is bool)
@@ -146,12 +157,7 @@ class PhoneSnapshotCaptureFileSource:
                 except json.JSONDecodeError:value=None
                 now=self.monotonic();need(number(now,previous,1e15) and now-start<5);previous=now
                 if type(value) is dict and value.get('requestId')==request['commandId']:
-                    exact(value,{'schemaVersion','requestId','runId','instance','sequence','processId','requestedEpochMs','capturedEpochMs','accepted','source'})
-                    need(type(value['schemaVersion']) is int and value['schemaVersion']==1 and value['runId']==run and nonce(value['instance']) and integer(value['sequence'],1)
-                        and type(value['accepted']) is bool and type(value['processId']) is int and value['processId']==self.pid
-                        and integer(value['requestedEpochMs'],requested) and integer(value['capturedEpochMs'],value['requestedEpochMs']) and value['capturedEpochMs']-value['requestedEpochMs']<1500)
-                    fresh(value['capturedEpochMs'],self.clock_ms());source(value['source'],value['capturedEpochMs'])
-                    need(value['source']['capturedEpochMs']>=value['requestedEpochMs'] and self.guard() is not False)
+                    validate(value,request,self.pid,self.clock_ms());need(value['requestedEpochMs']>=requested and self.guard() is not False)
                     if self.last is not None:continuity(self.last,value)
                     now=self.monotonic();need(number(now,previous,1e15) and now-start<5);fresh(value['capturedEpochMs'],self.clock_ms())
                     self.last=deepcopy(value);return deepcopy(value)

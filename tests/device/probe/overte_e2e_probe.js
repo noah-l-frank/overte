@@ -435,6 +435,7 @@
     var lastPhoneSnapshotCaptureFilesRequest = "";
     var lastPhoneSnapshotCancelRequest = "";
     var lastPhoneSnapshotSettingsRequest = "";
+    var lastPhoneSnapshotHandoffRequest = "";
     var lastPhoneCreateFilesRequest = "";
     var lastAvatarRenderRequest = "";
     var lastWorldModelDrawsRequest = "";
@@ -1336,6 +1337,21 @@
     }
 
     function applyClientCommand(command) {
+        if (command && command.schemaVersion === 1 && command.action === "phone-snapshot-handoff"
+                && objectKeysMatch(command,["schemaVersion","commandId","action","runId","handoffId","operation"])
+                && /^[0-9a-f]{32}$/.test(String(command.commandId)) && /^[0-9a-f]{32}$/.test(String(command.runId))
+                && /^[0-9a-f]{32}$/.test(String(command.handoffId)) && ["start","observe","retire"].indexOf(command.operation) !== -1) {
+            if (lastPhoneSnapshotHandoffRequest === command.commandId) { return; }
+            lastPhoneSnapshotHandoffRequest=command.commandId;
+            var handoffOriginal={available:false,requestId:command.commandId};
+            try {
+                if (typeof Test.phoneSnapshotHandoff === "function") {
+                    var handoffActual=Test.phoneSnapshotHandoff(command);
+                    if (handoffActual && handoffActual.requestId === command.commandId) { handoffOriginal=handoffActual; }
+                }
+            } catch (_phoneSnapshotHandoffError) { /* No original state is synthesized for an unavailable source. */ }
+            Test.saveObject(handoffOriginal,"phone-snapshot-handoff-result.json");return;
+        }
         if (command && command.schemaVersion === 1 && command.action === "phone-snapshot-settings"
                 && /^[0-9a-f]{32}$/.test(String(command.commandId)) && /^[0-9a-f]{32}$/.test(String(command.runId))
                 && ((["capture","observe","retire"].indexOf(command.operation) !== -1
@@ -2654,7 +2670,7 @@
                 || command.action === "feature-world-render-observe" || command.action === "feature-world-render-storage"
                 || command.action === "feature-world-render-receipt"
                 || command.action === "feature-world-render-receipts"
-                || command.action === "feature-graphics-subject-observe" || command.action === "phone-create-observe" || command.action === "phone-assets-observe" || command.action === "phone-assets-download" || command.action === "phone-assets-resolve" || command.action === "phone-snapshot-observe" || command.action === "phone-snapshot-readback" || command.action === "phone-snapshot-upload-observe" || command.action === "phone-snapshot-files-observe" || command.action === "phone-snapshot-files-control" || command.action === "phone-snapshot-cancel" || command.action === "phone-snapshot-settings"
+                || command.action === "feature-graphics-subject-observe" || command.action === "phone-create-observe" || command.action === "phone-assets-observe" || command.action === "phone-assets-download" || command.action === "phone-assets-resolve" || command.action === "phone-snapshot-observe" || command.action === "phone-snapshot-readback" || command.action === "phone-snapshot-upload-observe" || command.action === "phone-snapshot-files-observe" || command.action === "phone-snapshot-files-control" || command.action === "phone-snapshot-cancel" || command.action === "phone-snapshot-settings" || command.action === "phone-snapshot-handoff"
                 || command.action === "phone-avatar-configuration-observe" || command.action === "phone-touch-state-observe"
                 || command.action === "phone-lifecycle-editor-observe" || command.action === "phone-lifecycle-editor-input"
                 || command.action === "phone-lifecycle-world-input"

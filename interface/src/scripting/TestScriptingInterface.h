@@ -25,6 +25,7 @@ namespace overte::e2e { class ChatViewObservation; }
 namespace overte::e2e { class PhoneAudioFixtureHTTP; }
 namespace overte::e2e { class PhoneLifecycleEditor; }
 namespace overte::e2e { class PhoneLifecycleWorldInput; }
+namespace overte::e2e { class PhoneSnapshotHandoff; }
 #include <QUuid>
 namespace overte::e2e { class FeatureLifecycle; class AccountOriginLease; class ScriptFileUi; class AudioUi; class GraphicsUi; class LoginUi; class CreateUi; class ChatUi; class EmoteUi; class PhoneEmoteFixture; class PrivateCreateFiles; class PhoneCreateFixture; class PhoneNavigationMarker; class NavigationUi; class NavigationViewObservation; class AvatarPeopleUi; class AvatarPeopleViewObservation; class PhoneAssetsReadJob; class SnapshotUi; class PhoneSnapshotFastCancel; class PrivateAssetsFiles; class AssetsUi; }
 #endif
@@ -196,6 +197,7 @@ public slots:
     Q_INVOKABLE QVariantMap phoneSnapshotReadback(const QVariantMap& command);
     Q_INVOKABLE QVariantMap phoneSnapshotCancel(const QVariantMap& command);
     Q_INVOKABLE QVariantMap phoneSnapshotSettings(const QVariantMap& command);
+    Q_INVOKABLE QVariantMap phoneSnapshotHandoff(const QVariantMap& command);
     Q_INVOKABLE QVariantMap phoneCreateFiles(const QVariantMap& command);
     Q_INVOKABLE QVariantMap phoneNavigationMarkerInput(const QVariantMap& command);
     Q_INVOKABLE QVariantMap phoneNavigationMarkerObservation(const QVariantMap& command);
@@ -311,6 +313,8 @@ private:
     quint64 _phoneSnapshotReadbackSequence {0};
     quint64 _phoneSnapshotCancelSequence {0};
     QMap<QString,std::shared_ptr<overte::e2e::PhoneSnapshotFastCancel>> _phoneSnapshotCancelJobs;
+    quint64 _phoneSnapshotHandoffSequence {0};
+    QMap<QString,std::shared_ptr<overte::e2e::PhoneSnapshotHandoff>> _phoneSnapshotHandoffs;
     quint64 _phoneCreateFilesSequence {0};
     std::shared_ptr<overte::e2e::PrivateCreateFiles> _phoneCreateFiles;
     quint64 _phoneCreateFixtureSequence {0};

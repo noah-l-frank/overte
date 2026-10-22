@@ -236,6 +236,9 @@ def readonly_feature_command(command):
     elif action=='phone-snapshot-observe':
         from overte_phone_snapshot_source import command as validate_snapshot
         validate_snapshot(command)
+    elif action=='phone-snapshot-handoff':
+        from overte_phone_snapshot_handoff import command as validate_handoff
+        validate_handoff(command);require(command['operation']=='observe','PHONE_READ_ONLY_COMMAND_REJECTED')
     elif action=='phone-snapshot-upload-observe':
         from overte_phone_snapshot_upload_source import command as validate_snapshot_upload
         validate_snapshot_upload(command)
@@ -1567,6 +1570,25 @@ class PhoneAppiumAdapter(AppiumAdapter):
         transport=PhoneAdapter(self.candidate).adb
         return PhoneSnapshotPlatform(lambda:transport.prop(device,'ro.build.version.sdk'),native.guard,native.clock_ms,
             monotonic=native.monotonic)
+
+    def _snapshot_handoff_control(self,selector,*,read_only=False):
+        from overte_phone_snapshot_handoff import PhoneSnapshotHandoffControl,CONTROL_FILE
+        native=self._native_feature_observer(selector,read_only=read_only)
+        target=self.target(selector);device=target['capabilities']['appium:udid'];transport=PhoneAdapter(self.candidate).adb
+        return PhoneSnapshotHandoffControl(native.send,
+            lambda:transport.read_debug_app_file(device,target['appId'],'files/overte-e2e/'+CONTROL_FILE,attempts=1),
+            native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep)
+
+    def _snapshot_handoff_source(self,selector,application_binding,resolution,authority,handoff_binding):
+        from overte_phone_snapshot_handoff import PhoneSnapshotHandoff,FILE,binding as validate_binding
+        validate_binding(handoff_binding)
+        scope=self._snapshot_system_context(selector,application_binding,resolution,authority)
+        require(handoff_binding['processId']==int(application_binding['processIdentity'].split(':')[0]),
+            'PHONE_SNAPSHOT_HANDOFF_ORIGINAL_PID_REQUIRED')
+        target=self.target(selector);device=target['capabilities']['appium:udid'];transport=PhoneAdapter(self.candidate).adb
+        return PhoneSnapshotHandoff(
+            lambda:transport.read_debug_app_file(device,target['appId'],'files/overte-e2e/'+FILE,attempts=1),
+            lambda:transport.epoch_milliseconds(device),scope.guard,handoff_binding)
 
     def _snapshot_measurements(self,selector):
         from overte_phone_snapshot_measurements import PhoneSnapshotMeasurements

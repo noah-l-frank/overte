@@ -172,6 +172,18 @@ def continuity(before,after):
         elif row['phase']=='reading':need(current['phase']!='queued' and current['startedEpochMs']==row['startedEpochMs'])
 
 
+def validate(value,request,pid,epoch):
+    command(request)
+    exact(value,{'schemaVersion','requestId','runId','instance','sequence','processId','requestedEpochMs','capturedEpochMs','source'})
+    need(type(value['schemaVersion']) is int and value['schemaVersion']==1 and value['runId']==request['runId'] and value['requestId']==request['commandId'] and nonce(value['instance'])
+        and integer(value['sequence'],1) and type(value['processId']) is int and value['processId']==pid
+        and integer(value['requestedEpochMs'],1) and integer(value['capturedEpochMs'],value['requestedEpochMs'])
+        and value['capturedEpochMs']-value['requestedEpochMs']<1500)
+    fresh(value['capturedEpochMs'],epoch);source(value['source']);component=value['source']['source']
+    if 'initialized' not in component:need(integer(component['capturedEpochMs'],value['requestedEpochMs'],value['capturedEpochMs']))
+    return value
+
+
 class PhoneSnapshotReadbacks:
     def __init__(self,send,read,clock_ms,guard,pid,*,monotonic=time.monotonic,sleep=time.sleep):
         need(all(callable(fn) for fn in (send,read,clock_ms,guard,monotonic,sleep)) and integer(pid,1))
@@ -190,13 +202,7 @@ class PhoneSnapshotReadbacks:
                 except json.JSONDecodeError:value=None
                 need(self.guard() is not False);now=self.monotonic();need(number(now,previous,1e15) and now-start<5);previous=now
                 if type(value) is dict and value.get('requestId')==request['commandId']:
-                    exact(value,{'schemaVersion','requestId','runId','instance','sequence','processId','requestedEpochMs','capturedEpochMs','source'})
-                    need(type(value['schemaVersion']) is int and value['schemaVersion']==1 and value['runId']==run and nonce(value['instance'])
-                        and integer(value['sequence'],1) and type(value['processId']) is int and value['processId']==self.pid
-                        and integer(value['requestedEpochMs'],requested) and integer(value['capturedEpochMs'],value['requestedEpochMs'])
-                        and value['capturedEpochMs']-value['requestedEpochMs']<1500)
-                    fresh(value['capturedEpochMs'],self.clock_ms());source(value['source']);component=value['source']['source']
-                    if 'initialized' not in component:need(integer(component['capturedEpochMs'],value['requestedEpochMs'],value['capturedEpochMs']))
+                    validate(value,request,self.pid,self.clock_ms());need(value['requestedEpochMs']>=requested)
                     if self.last is not None:continuity(self.last,value)
                     need(self.guard() is not False);fresh(value['capturedEpochMs'],self.clock_ms())
                     now=self.monotonic();need(number(now,previous,1e15) and now-start<5)

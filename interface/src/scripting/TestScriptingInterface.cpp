@@ -87,6 +87,7 @@
 #include "../../../tests/device/native/PhoneSnapshotReviewObservation.h"
 #include "../../../tests/device/native/PhoneSnapshotFastCancel.h"
 #include "../../../tests/device/native/PhoneSnapshotCaptureFiles.h"
+#include "../../../tests/device/native/PhoneSnapshotHandoff.h"
 #include "NativeSnapshotAdapter.h"
 #include "../../../tests/device/native/PhoneNavigationMarker.h"
 #include "../../../tests/device/native/PhoneLifecycleEditor.h"
@@ -1364,6 +1365,63 @@ QVariantMap TestScriptingInterface::phoneSnapshotObservation(const QVariantMap& 
         {"capturedEpochMs",QDateTime::currentMSecsSinceEpoch()},{"source",source}};
 }
 
+QVariantMap TestScriptingInterface::phoneSnapshotHandoff(const QVariantMap& command) {
+    using Handoff=overte::e2e::PhoneSnapshotHandoff;
+    if (QThread::currentThread()!=thread()) {
+        QVariantMap result;
+        if (!QMetaObject::invokeMethod(this,[&] { result=phoneSnapshotHandoff(command); },Qt::BlockingQueuedConnection)) { return {}; }
+        return result;
+    }
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !Handoff::validCommand(command) || !QCoreApplication::arguments().contains("--testScript")
+            || _phoneSnapshotHandoffSequence>=1000000000) { return {}; }
+    const auto run=command.value("runId").toString(),id=command.value("handoffId").toString(),operation=command.value("operation").toString();
+    auto owner=_phoneSnapshotHandoffs.value(id);
+    if (!owner) {
+        if (operation!="start" || _phoneSnapshotHandoffs.size()>=8) { return {}; }
+        for (const auto& original:_phoneSnapshotHandoffs) { if (!original || !original->retired()) { return {}; } }
+        const auto read=[this,run] {
+            const auto nonce=[] { return QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-'); };
+            const auto roots=[&] { return featureScriptRoots({{"schemaVersion",1},{"commandId",nonce()},{"action","feature-script-roots-observe"}}); };
+            // These are the existing original native getters. No JS handler,
+            // UI mutation or background command transport is introduced.
+            const auto contextRequested=QDateTime::currentMSecsSinceEpoch();
+            const auto lifecycle=_featureLifecycle->snapshot();
+            QVariantMap accountState;const auto account=DependencyManager::get<AccountManager>();
+            if (!account || lifecycle.isEmpty()) { return QVariantMap{}; }
+            const auto readAccount=[&] { accountState=account->featureAccountObservation(); };
+            if (QThread::currentThread()==account->thread()) { readAccount(); }
+            else if (!QMetaObject::invokeMethod(account.data(),readAccount,Qt::BlockingQueuedConnection)) { return QVariantMap{}; }
+            const QVariantMap context{{"snapshotHandoffContextVersion",1},{"requestedEpochMs",contextRequested},
+                {"capturedEpochMs",QDateTime::currentMSecsSinceEpoch()},{"lifecycle",lifecycle.toVariantMap()},{"account",accountState}};
+            const auto before=roots();const auto script=featureScriptObservation(nonce());
+            const auto snapshot=phoneSnapshotObservation({{"schemaVersion",1},{"commandId",nonce()},{"action","phone-snapshot-observe"},{"runId",run}});
+            const auto after=roots();
+            const auto readbacks=phoneSnapshotReadback({{"schemaVersion",1},{"commandId",nonce()},{"action","phone-snapshot-readback"},
+                {"runId",run},{"operation","observe"},{"exportRequest",""},{"resourceId",""}});
+            const auto files=phoneSnapshotCaptureFiles({{"schemaVersion",1},{"commandId",nonce()},{"action","phone-snapshot-files-observe"},{"runId",run}});
+            const auto upload=phoneSnapshotUploadObservation({{"schemaVersion",1},{"commandId",nonce()},{"action","phone-snapshot-upload-observe"},{"runId",run}});
+            if (before.isEmpty() || script.isEmpty() || snapshot.isEmpty() || after.isEmpty() || readbacks.isEmpty() || files.isEmpty() || upload.isEmpty()) { return QVariantMap{}; }
+            return QVariantMap{{"context",context},{"group",QVariantMap{{"rootsBefore",before},{"script",script},{"snapshot",snapshot},{"rootsAfter",after}}},
+                {"readbacks",readbacks},{"captureFiles",files},{"upload",upload}};
+        };
+        const auto publish=[this](const QVariantMap& source) {
+            QVariantList jobs;for (const auto& original:_phoneSnapshotHandoffs) { jobs.append(original->summary()); }
+            saveObject(QVariantMap{{"snapshotHandoffSourceVersion",1},{"instance",_featureObservationInstance},
+                {"processId",QCoreApplication::applicationPid()},{"publishedEpochMs",QDateTime::currentMSecsSinceEpoch()},
+                {"source",source},{"jobs",jobs}},"phone-snapshot-handoff.json");
+        };
+        owner=std::make_shared<Handoff>(run,id,read,publish);_phoneSnapshotHandoffs.insert(id,owner);
+    }
+    const auto identity=owner->summary();
+    if (identity.value("runId")!=run || (operation=="start" && !owner->start()) || (operation=="retire" && !owner->retire())) { return {}; }
+    QVariantList jobs;for (const auto& original:_phoneSnapshotHandoffs) { jobs.append(original->summary()); }
+    return {{"snapshotHandoffControlVersion",1},{"requestId",command.value("commandId")},{"runId",run},{"handoffId",id},
+        {"instance",_featureObservationInstance},{"processId",QCoreApplication::applicationPid()},
+        {"sequence",static_cast<qulonglong>(++_phoneSnapshotHandoffSequence)},{"capturedEpochMs",QDateTime::currentMSecsSinceEpoch()},
+        {"source",owner->observation()},{"jobs",jobs}};
+}
+
 QVariantMap TestScriptingInterface::phoneSnapshotCaptureFiles(const QVariantMap& command) {
     if (QThread::currentThread()!=thread()) {
         QVariantMap result;
@@ -2294,6 +2352,7 @@ void TestScriptingInterface::saveObject(QVariant variant, const QString& filenam
     QString filepath = QDir::cleanPath(_testResultsLocation + filename);
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     if (filename == "feature-chat-observation.json" || filename == "feature-native-observation.json" || filename == "normal-feature-observation.json"
+            || filename == "phone-snapshot-handoff.json" || filename == "phone-snapshot-handoff-result.json"
             || filename == "phone-snapshot-files-observation.json" || filename == "phone-snapshot-settings.json" || filename == "feature-chat-history.json" || filename == "feature-chat-view-observation.json" || filename == "feature-web-dom-observation.json"
             || filename == "feature-phone-web-runtime.json" || filename == "phone-lifecycle-editor.json" || filename == "phone-lifecycle-world-input.json"
             || filename == "feature-pending-commit-owner.json" || filename == "feature-navigation-replies.json"
