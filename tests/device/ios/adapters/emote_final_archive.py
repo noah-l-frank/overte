@@ -14,6 +14,7 @@ from adapters.script_feature.history import pack,unpack,same
 from adapters.script_feature.lock import ScriptSourceLock
 from feature_journeys.contract import identifier
 from feature_journeys.phase_fixture import validate as phase_packet
+from ios.adapters.emote_original_lease import EmoteOriginalLease
 
 VERSION=1
 
@@ -27,7 +28,7 @@ class IOSEmoteFinalArchive:
         need(role in ('primary','actor') and self.root.is_absolute() and self.root.resolve()==self.root and self.root.is_dir()
             and type(paths) is list and 1<=len(paths)<=256 and all(isinstance(path,PrivateFeatureState) for path in paths)
             and len({str(path.path) for path in paths})==len(paths))
-        self.paths=paths;self.previous=store.read();self.state=None
+        self.paths=paths;self.previous=store.read();self.state=None;self.qualified=None
         if self.previous is not None:self.state=self.decode(self.previous)
     def envelope(self,state):return dict(iosEmoteFinalArchiveVersion=VERSION,runId=self.run,role=self.role,binding=self.binding,
         artifactRoot=str(self.root),paths=[str(path.path) for path in self.paths],payload=pack([state]))
@@ -81,17 +82,21 @@ class IOSEmoteFinalArchive:
             else:need(same(old,value))
             ref=dict(index=index,sha256=digest(value));need(same(self.copy(ref),pending['value']))
             self.state['records'].append(ref);self.state['pending']=None;self.save()
-        self.validate(self.copies());self.state['phase']='validated';self.save()
+        self.qualify();self.state['phase']='validated';self.save()
+    def qualify(self):
+        lease=EmoteOriginalLease(self.root,[path.path for path in self.paths]+[self.store.path])
+        self.validate(self.copies());lease.guard();self.qualified=lease
     def retire(self):
         self.bound();self.freeze();need(self.state['phase'] in ('validated','retiring','complete'))
-        self.validate(self.copies())
+        if self.qualified is None:self.qualify()
+        self.qualified.guard()
         if self.state['phase']=='complete':
             need(all(path.read() is None for path in self.paths));return {'performed':True}
         self.state['phase']='retiring';self.save()
         while self.state['retired']<len(self.paths):
             index=self.state['retired'];path=self.paths[index];original=self.copy(self.state['records'][index])
             current=path.read();need(current is None or same(current,original))
-            self.validate(self.copies());self.bound()
+            self.bound();self.qualified.guard()
             if current is not None:path.discard(current)
-            need(path.read() is None);self.state['retired']+=1;self.save()
+            need(path.read() is None);self.qualified.guard();self.state['retired']+=1;self.save()
         self.state['phase']='complete';self.save();return {'performed':True}

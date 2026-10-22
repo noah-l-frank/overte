@@ -27,7 +27,7 @@ class FinalArchiveTests(unittest.TestCase):
         f=self.fixture;return IOSEmoteFinalArchive(self.store,f.root,BINDING,RUN,'primary',f.lock,f.lock,self.paths,lambda:True,validate or self.validate)
     def test_actual_archived_native_closure_survives_retired_fixed_metadata(self):
         owner=self.owner();owner.begin(self.status);self.assertEqual({'performed':True},owner.retire())
-        self.assertTrue(all(path.read() is None for path in self.paths));self.assertGreater(self.checks,4)
+        self.assertTrue(all(path.read() is None for path in self.paths));self.assertEqual(1,self.checks)
         self.assertEqual({'performed':True},self.owner().retire());self.assertEqual('complete',self.owner().state['phase'])
         self.assertTrue(any(self.fixture.root.glob('emote-frame-*')))
     def test_native_original_failure_or_active_phase_never_authorizes_metadata_deletion(self):
@@ -51,6 +51,18 @@ class FinalArchiveTests(unittest.TestCase):
         self.assertEqual(dict(unrelated='new-owner'),self.paths[0].read())
         raw=owner.record_store(1).read();owner.record_store(1).write(dict(raw,binding=dict(BINDING,processIdentity='32')),raw)
         with self.assertRaises(NativeUIError):self.owner()
+
+
+    def test_actual_original_write_after_one_metadata_drop_blocks_all_later_retirement(self):
+        owner=self.owner();owner.begin(self.status);original=next(self.fixture.root.glob('emote-frame-*'))
+        discard=PrivateFeatureState.discard;changed=[]
+        def interrupted(store,previous):
+            discard(store,previous)
+            if store.path==self.paths[0].path and not changed:
+                changed.append(True);original.write_bytes(original.read_bytes())
+        with patch.object(PrivateFeatureState,'discard',interrupted),self.assertRaises(NativeUIError):owner.retire()
+        self.assertIsNone(self.paths[0].read());self.assertTrue(all(path.read() is not None for path in self.paths[1:]))
+        self.assertEqual(1,self.checks)
 
 
 if __name__=='__main__':unittest.main()
