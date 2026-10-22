@@ -16,6 +16,7 @@
 #include <QTextStream>
 #include <QJsonDocument>
 #include <cassert>
+#include <atomic>
 #include "CreateFileAdmission.inc"
 #include "OriginalDialogs.inc"
 #include "moc_DialogHarness.cpp"
@@ -86,6 +87,25 @@ int main(int argc,char** argv) {
     const auto exported=row(offscreen->featureCreateDialogs(),exportId);assert(exported.value("role")==QVariant("export") && !exported.value("pending").toBool());
     assert(row(within,exportId).value("dispatches").toInt()==1);
     assert(offscreen->featureCreateDialogs().value("dialogs").toList().size()==3);
+    QThread responseThread;WindowScriptingInterface foreign;foreign.moveToThread(&responseThread);responseThread.start();
+    std::atomic<bool> foreignReturned {false};QVariantMap foreignWithin;QString foreignResult;
+    QObject::connect(&foreign,&WindowScriptingInterface::browseChanged,&foreign,[&](const QString& result) {
+        assert(QThread::currentThread()==&responseThread);foreignResult=result;
+        assert(QMetaObject::invokeMethod(&acquisition,[&]{foreignWithin=capture();},Qt::BlockingQueuedConnection));
+        foreignReturned.store(true);
+    });
+    assert(QMetaObject::invokeMethod(&foreign,[&]{foreign.browseAsync("Select .json to Import",directory,"*.json");},Qt::QueuedConnection));
+    QTest::qWait(80);picker=named(host,"nativeFileBrowser");assert(picker);inventory.observe(host,&window);
+    const auto foreignId=offscreen->featureCreateDialogIdentity(picker).value("dialogId").toString();assert(!foreignId.isEmpty());
+    assert(originalCreateFileInput(named(picker,"fileCancel"),&window,"create-file.cancel","activate",{}).value("performed").toBool());
+    for(int attempt=0;attempt<100 && !foreignReturned.load();++attempt){QTest::qWait(10);}assert(foreignReturned.load());
+    assert(foreignResult.isEmpty());assert(foreignWithin.value("complete").toBool());
+    assert(row(foreignWithin,foreignId).value("dispatches").toInt()==1 && row(foreignWithin,foreignId).value("pending").toBool());
+    QTest::qWait(60);assert(!picker);const auto foreignAfter=row(capture(),foreignId);
+    assert(!foreignAfter.value("pending").toBool() && foreignAfter.value("dispatches").toInt()==0
+        && foreignAfter.value("returnedEpochMs").toLongLong()>0 && !foreignAfter.value("listenerAlive").toBool());
+    assert(QMetaObject::invokeMethod(&foreign,[&]{foreign.moveToThread(app.thread());},Qt::BlockingQueuedConnection));
+    responseThread.quit();assert(responseThread.wait(1000));
     capture();
     const auto first=packets.first();assert(acquisition.featureCreateDialogs(first.value("requestId").toString())==first);
     const auto beforeGets=offscreenGets;offscreenAvailable=false;
