@@ -137,6 +137,8 @@ REQUIRED = {
     "ios-avatar-cleanup-input-call": 1,
     "ios-avatar-cleanup-input-owner": 1,
     "ios-avatar-cleanup-controls": 1,
+    "ios-avatar-cleanup-sources": 1,
+    "ios-avatar-wearable-lifetimes": 1,
     "ios-avatar-scripts-acquisition": 1,
     "native-avatar-script-observation": 1,
     "ios-avatar-social": 1,
