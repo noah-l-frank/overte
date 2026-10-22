@@ -18,6 +18,8 @@
 #include <cassert>
 #include <memory>
 #include <type_traits>
+#define OVERTE_E2E_FEATURE_TESTS 1
+#include "ChatDomainSession.h"
 namespace glm {struct vec3 {float x=0,y=0,z=0;};struct quat {float x=0,y=0,z=0,w=1;};}
 namespace entity {enum class HostType {DOMAIN,AVATAR,LOCAL};}
 namespace EntityTypes {enum Type {Unknown,Model};QString getEntityTypeName(Type t){return t==Model ? "Model" : "Unknown";}}
@@ -39,7 +41,9 @@ struct EntityScriptingInterface {
 };
 struct Avatar {glm::vec3 getWorldPosition(){return {0,1,0};}};
 struct AvatarManager {std::shared_ptr<Avatar> getMyAvatar(){return std::make_shared<Avatar>();}};
-struct DomainHandler {QUuid getUUID() const{return QUuid("{11111111-1111-1111-1111-111111111111}");}bool isConnected() const{return true;}};
+struct DomainHandler {overte::e2e::ChatDomainSession session;
+    QVariantMap featureChatSession(const QString& run){return session.snapshot(run);}
+    QUuid getUUID() const{return QUuid("{11111111-1111-1111-1111-111111111111}");}bool isConnected() const{return true;}};
 struct NodeList {DomainHandler domain;DomainHandler& getDomainHandler(){return domain;}
     QUuid getSessionUUID(){return QUuid("{22222222-2222-2222-2222-222222222222}");}bool getThisNodeCanRez(){return true;}bool getThisNodeCanRezTmp(){return false;}};
 auto entities=std::make_shared<EntityScriptingInterface>();auto avatars=std::make_shared<AvatarManager>();auto nodes=std::make_shared<NodeList>();
@@ -66,6 +70,7 @@ QVariantMap entityRow(const QVariantMap& value){return source(value).value("enti
 int main(int argc,char** argv) {
     QCoreApplication app(argc,argv);TestScriptingInterface target;
     if(!app.arguments().contains("--testScript")){assert(target.featureCreateEntities(command(1)).isEmpty());assert(gets==0);return 0;}
+    nodes->domain.session.changed(nodes->domain.getUUID(),true,true);
     dependencies=false;assert(target.featureCreateEntities(command(1)).isEmpty());assert(gets==0);dependencies=true;
     QThread idle;auto foreign=new TestScriptingInterface;foreign->moveToThread(&idle);
     assert(foreign->featureCreateEntities(command(1)).isEmpty());assert(gets==0);
@@ -87,7 +92,12 @@ int main(int argc,char** argv) {
     const QUuid other("{44444444-4444-4444-4444-444444444444}");p.host=entity::HostType::DOMAIN;entities->values.insert(other,p);entities->scan={other};
     const auto unowned=target.featureCreateEntities(command(5));assert(source(unowned).value("scan").toMap().value("unowned").toList().size()==1);
     const auto raw=source(unowned).value("scan").toMap().value("unowned").toList().first().toMap();assert(raw.value("sha256").toString().size()==64);
-    for(int i=6;i<513;++i){assert(!target.featureCreateEntities(command(i)).isEmpty());}
+    nodes->domain.session.changed(nodes->domain.getUUID(),false,true);nodes->domain.session.changed(nodes->domain.getUUID(),true,true);
+    const auto reconnect=target.featureCreateEntities(command(6));
+    assert(source(reconnect).value("domainId")==source(deleted).value("domainId"));
+    assert(source(reconnect).value("domainSession").toMap().value("connectionBirth")!=source(deleted).value("domainSession").toMap().value("connectionBirth"));
+    QTextStream(stdout)<<QJsonDocument::fromVariant(reconnect).toJson(QJsonDocument::Compact)<<'\n';
+    for(int i=7;i<513;++i){assert(!target.featureCreateEntities(command(i)).isEmpty());}
     assert(target.featureCreateEntities(command(513)).isEmpty());assert(target.featureCreateEntities(command(2))==imported);
     target._featureLifecycle.reset();assert(target.featureCreateEntities(command(2)).isEmpty());
     return 0;

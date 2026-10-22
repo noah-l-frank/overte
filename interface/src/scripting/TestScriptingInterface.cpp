@@ -42,6 +42,7 @@
 #include <XMLHttpRequestClass.h>
 #include "../../../tests/device/native/PrivateWorldRenderReceipts.h"
 #include "../../../tests/device/native/PrivateCreateFiles.h"
+#include "../../../tests/device/native/CreateBrowseSettingOwner.h"
 #include <algorithm>
 #include <PointerManager.h>
 #include <ui/Keyboard.h>
@@ -912,6 +913,31 @@ QVariantMap TestScriptingInterface::featureScriptFiles(const QVariantMap& comman
 }
 
 #if defined(ANDROID_APP_PICO_INTERFACE)
+QVariantMap TestScriptingInterface::featureCreateBrowseSetting(const QVariantMap& command) {
+    if (QThread::currentThread()!=thread()) {
+        if (!thread() || !thread()->isRunning()) {return {};}
+        QVariantMap result;QMetaObject::invokeMethod(this,[&]{result=featureCreateBrowseSetting(command);},Qt::BlockingQueuedConnection);return result;
+    }
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript") || !DependencyManager::isSet<OffscreenUi>()) {return {};}
+    const auto id=command.value("commandId").toString();
+    if (!QRegularExpression("\\A[0-9a-f]{32}\\z").match(id).hasMatch()
+            || QJsonDocument(QJsonObject::fromVariantMap(command)).toJson(QJsonDocument::Compact).size()>8192) {return {};}
+    if (_featureCreateBrowseSettingCommands.contains(id)) {
+        return _featureCreateBrowseSettingCommands.value(id)==command ? _featureCreateBrowseSettingResults.value(id) : QVariantMap{};
+    }
+    if (_featureCreateBrowseSettingCommands.size()>=512 || _featureCreateBrowseSettingSequence>=9007199254740991ULL) {return {};}
+    _featureCreateBrowseSettingCommands.insert(id,command); // Never repeat uncertain native mutations.
+    static overte::e2e::CreateBrowseSettingOwner owner;
+    const auto requested=QDateTime::currentMSecsSinceEpoch();
+    const auto source=owner.request(_testResultsLocation,command,DependencyManager::get<OffscreenUi>()->featureCreateDialogs());
+    const QVariantMap result{{"schemaVersion",1},{"requestId",id},{"instance",_featureObservationInstance},
+        {"sequence",static_cast<qulonglong>(++_featureCreateBrowseSettingSequence)},{"requestedEpochMs",requested},
+        {"capturedEpochMs",QDateTime::currentMSecsSinceEpoch()},{"processId",QCoreApplication::applicationPid()},
+        {"runId",command.value("runId")},{"operation",command.value("operation")},{"source",source}};
+    _featureCreateBrowseSettingResults.insert(id,result);return result;
+}
+
 QVariantMap TestScriptingInterface::featureCreateFiles(const QVariantMap& command) {
     if (QThread::currentThread() != thread() || _testResultsLocation.isEmpty() || !_featureLifecycle
             || _featureLifecycle->snapshot().isEmpty() || !QCoreApplication::arguments().contains("--testScript")) { return {}; }
@@ -969,6 +995,8 @@ QVariantMap TestScriptingInterface::featureCreateEntities(const QVariantMap& com
     const auto avatar=DependencyManager::get<AvatarManager>()->getMyAvatar();
     const auto nodes=DependencyManager::get<NodeList>();
     if (!entities || !entities->getEntityTree() || !avatar || !nodes) {return {};}
+    const auto domainSession=nodes->getDomainHandler().featureChatSession(run);
+    if (domainSession.isEmpty()) {return {};}
     const auto center=avatar->getWorldPosition();
     auto vector=[](const glm::vec3& v) {return QVariantList{v.x,v.y,v.z};};
     auto rotation=[](const glm::quat& q) {return QVariantList{q.x,q.y,q.z,q.w};};
@@ -1008,8 +1036,9 @@ QVariantMap TestScriptingInterface::featureCreateEntities(const QVariantMap& com
         auto row=properties(p);row.insert("id",text);row.insert("lastEditedEpochUs",static_cast<qulonglong>(p.getLastEdited()));present.append(row);
     }
     std::sort(unowned.begin(),unowned.end(),[](const QVariant& a,const QVariant& b) {return a.toMap().value("id").toString()<b.toMap().value("id").toString();});
-    const auto& domain=nodes->getDomainHandler();
-    const QVariantMap source{{"createEntitySourceVersion",1},{"runId",run},{"domainConnected",domain.isConnected()},
+    auto& domain=nodes->getDomainHandler();
+    if (domain.featureChatSession(run)!=domainSession) {return {};}
+    const QVariantMap source{{"createEntitySourceVersion",2},{"domainSession",domainSession},{"runId",run},{"domainConnected",domain.isConnected()},
         {"domainId",domain.getUUID().isNull() ? QVariant() : QVariant(domain.getUUID().toString(QUuid::WithoutBraces))},
         {"sessionId",nodes->getSessionUUID().isNull() ? QVariant() : QVariant(nodes->getSessionUUID().toString(QUuid::WithoutBraces))},
         {"canRez",nodes->getThisNodeCanRez()},{"canRezTmp",nodes->getThisNodeCanRezTmp()},
@@ -1397,7 +1426,7 @@ void TestScriptingInterface::saveObject(QVariant variant, const QString& filenam
             || filename == "feature-web-runtime.json" || filename == "feature-tablet-http.json"
             || filename == "recorded-preview-observation.json" || filename == "feature-script-observation.json"
             || filename == "feature-script-files.json" || filename == "feature-create-files.json" || filename == "feature-create-callbacks.json"
-            || filename == "feature-create-dialogs.json" || filename == "world-render-observation.json"
+            || filename == "feature-create-entities.json" || filename == "feature-create-browse-setting.json" || filename == "feature-create-dialogs.json" || filename == "world-render-observation.json"
             || filename == "world-render-receipt-result.json" || filename == "world-render-receipts-result.json"
             || QRegularExpression("\\Aworld-render-storage-[0-9a-f]{32}\\.json\\z").match(filename).hasMatch()) {
         if (!QCoreApplication::arguments().contains("--testScript") || QFileInfo(filepath).isSymLink()) { return; }

@@ -13,6 +13,7 @@ import unittest
 HERE=Path(__file__).resolve().parent;ROOT=HERE.parents[4]
 sys.path.insert(0,str(ROOT/'tests/device'))
 from adapters.pico4.create_entities import validate,continuity
+from adapters.normal_ui import NativeUIError
 from test_create_callbacks_native import function
 
 
@@ -29,13 +30,15 @@ class CreateEntitiesNativeTests(unittest.TestCase):
             stage=Path(directory);source=(ROOT/'interface/src/scripting/TestScriptingInterface.cpp').read_text()
             (stage/'OriginalCreateEntities.inc').write_text(function(source,'QVariantMap TestScriptingInterface::featureCreateEntities('))
             binary=stage/'entity-test'
-            subprocess.run(['c++','-std=c++17','-fPIC','-pthread','-I'+directory,str(HERE/'create-entities-native.cpp'),
+            subprocess.run(['c++','-std=c++17','-fPIC','-pthread','-I'+directory,'-I'+str(ROOT/'tests/device/native'),str(HERE/'create-entities-native.cpp'),
                 '-o',str(binary),*libraries,*flags],check=True,timeout=60,env=environment)
             subprocess.run([str(binary)],check=True,timeout=10,env=environment)
             output=subprocess.check_output([str(binary),'--testScript'],timeout=10,env=environment,text=True)
-            packets=[json.loads(line) for line in output.splitlines()];self.assertEqual(4,len(packets));previous=None
-            for packet in packets:
+            packets=[json.loads(line) for line in output.splitlines()];self.assertEqual(5,len(packets));previous=None
+            for packet in packets[:4]:
                 validate(packet,packet['requestId'],packet['processId'],packet['capturedEpochMs'],'a'*32);continuity(previous,packet);previous=packet
+            validate(packets[4],packets[4]['requestId'],packets[4]['processId'],packets[4]['capturedEpochMs'],'a'*32)
+            with self.assertRaises(NativeUIError):continuity(packets[3],packets[4])
             self.assertEqual([],packets[0]['source']['entities']);self.assertEqual('domain',packets[1]['source']['entities'][0]['hostType'])
             self.assertEqual('local',packets[2]['source']['entities'][0]['hostType']);self.assertEqual(1,len(packets[3]['source']['absentIds']))
 

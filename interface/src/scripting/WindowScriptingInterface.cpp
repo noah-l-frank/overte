@@ -36,6 +36,9 @@
 #include "MainWindow.h"
 #include "Menu.h"
 #include "OffscreenUi.h"
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+#include "../../../tests/device/native/CreateBrowseSettingOwner.h"
+#endif
 #include "NetworkingConstants.h"
 
 static const QString DESKTOP_LOCATION = QStandardPaths::writableLocation(QStandardPaths::DesktopLocation);
@@ -379,10 +382,16 @@ ScriptValue WindowScriptingInterface::browse(const QString& title, const QString
 /// \param const QString& nameFilter filter to filter filenames by - see `QFileDialog`
 void WindowScriptingInterface::browseAsync(const QString& title, const QString& directory, const QString& nameFilter) {
     ensureReticleVisible();
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+    const auto featureBrowseBefore=overte::e2e::CreateBrowseSettingOwner::captureRead();
+#endif
     QString path = directory;
     if (path.isEmpty()) {
         path = getPreviousBrowseLocation();
     }
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+    const auto featureBrowseAfter=overte::e2e::CreateBrowseSettingOwner::captureRead();
+#endif
 #ifndef Q_OS_WIN
     path = fixupPathForMac(directory);
 #endif
@@ -390,11 +399,17 @@ void WindowScriptingInterface::browseAsync(const QString& title, const QString& 
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
     const auto featureCreateTicket=dlg ? dlg->featureCreateDialogTicket() : overte::e2e::CreateDialogs::Ticket();
 #endif
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+    if (directory.isEmpty()) {featureCreateTicket.observedBrowseRead(featureBrowseBefore,featureBrowseAfter);}
+#endif
     connect(dlg, &ModalDialogListener::response, this, [=, this] (QVariant response) {
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
         const auto featureCreateDelivery=featureCreateTicket.dispatch();
 #endif
         const QString& result = response.toString();
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+        featureCreateTicket.observedResponse(result);
+#endif
         disconnect(dlg, &ModalDialogListener::response, this, nullptr);
         if (!result.isEmpty()) {
             setPreviousBrowseLocation(QFileInfo(result).absolutePath());
@@ -433,10 +448,16 @@ ScriptValue WindowScriptingInterface::save(const QString& title, const QString& 
 /// \param const QString& nameFilter filter to filter filenames by - see `QFileDialog`
 void WindowScriptingInterface::saveAsync(const QString& title, const QString& directory, const QString& nameFilter) {
     ensureReticleVisible();
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+    const auto featureBrowseBefore=overte::e2e::CreateBrowseSettingOwner::captureRead();
+#endif
     QString path = directory;
     if (path.isEmpty()) {
         path = getPreviousBrowseLocation();
     }
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+    const auto featureBrowseAfter=overte::e2e::CreateBrowseSettingOwner::captureRead();
+#endif
 #ifndef Q_OS_WIN
     path = fixupPathForMac(directory);
 #endif
@@ -444,11 +465,17 @@ void WindowScriptingInterface::saveAsync(const QString& title, const QString& di
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
     const auto featureCreateTicket=dlg ? dlg->featureCreateDialogTicket() : overte::e2e::CreateDialogs::Ticket();
 #endif
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+    if (directory.isEmpty()) {featureCreateTicket.observedBrowseRead(featureBrowseBefore,featureBrowseAfter);}
+#endif
     connect(dlg, &ModalDialogListener::response, this, [=, this] (QVariant response) {
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
         const auto featureCreateDelivery=featureCreateTicket.dispatch();
 #endif
         const QString& result = response.toString();
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+        featureCreateTicket.observedResponse(result);
+#endif
         disconnect(dlg, &ModalDialogListener::response, this, nullptr);
         if (!result.isEmpty()) {
             setPreviousBrowseLocation(QFileInfo(result).absolutePath());

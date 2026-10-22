@@ -2,6 +2,8 @@
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 import re
+import hashlib
+import uuid
 from adapters.native_feature_observation import exact,fresh,integer,need,number
 from adapters.pico4.create_callbacks import NativeCreateCallbacks
 from adapters.token_create_ui import nonce,UUID
@@ -26,13 +28,23 @@ def validate(value,request,pid,epoch,run):
         and value['capturedEpochMs']-value['requestedEpochMs']<5000)
     fresh(value['capturedEpochMs'],epoch)
     source=value['source'];exact(source,{'createEntitySourceVersion','runId','domainConnected','domainId','sessionId',
-        'canRez','canRezTmp','entities','absentIds','scan'})
-    need(type(source['createEntitySourceVersion']) is int and source['createEntitySourceVersion']==1
+        'canRez','canRezTmp','entities','absentIds','scan'} | ({'domainSession'} if source.get('createEntitySourceVersion')==2 else set()))
+    need(type(source['createEntitySourceVersion']) is int and source['createEntitySourceVersion'] in (1,2)
         and type(run) is str and re.fullmatch('[0-9a-f]{32}',run) and source['runId']==run
         and all(type(source[k]) is bool for k in ('domainConnected','canRez','canRezTmp'))
         and all(source[k] is None or entity_id(source[k]) for k in ('domainId','sessionId'))
         and type(source['entities']) is list and type(source['absentIds']) is list
         and len(source['entities'])+len(source['absentIds'])<=32)
+    if source['createEntitySourceVersion']==2:
+        session=source['domainSession'];exact(session,{'domainSessionVersion','instance','revision','connected','domainSha256','connectionBirth','connectedEpochMs'})
+        need(type(session['domainSessionVersion']) is int and session['domainSessionVersion']==1 and nonce(session['instance'])
+            and integer(session['revision']) and type(session['connected']) is bool and session['connected']==source['domainConnected']
+            and type(session['domainSha256']) is str and (session['domainSha256']=='' if source['domainId'] is None else
+                session['domainSha256']==hashlib.sha256((run+':').encode()+uuid.UUID(source['domainId']).bytes).hexdigest()))
+        if session['connected']:
+            need(session['revision']>=1 and type(session['connectionBirth']) is str and re.fullmatch('[0-9a-f]{32}',session['connectionBirth'])
+                and integer(session['connectedEpochMs'],1,value['capturedEpochMs']) and source['domainId'] is not None)
+        else:need(session['connectionBirth']=='' and session['connectedEpochMs']==0 and type(session['connectedEpochMs']) is int)
     ids=[]
     for row in source['entities']:
         exact(row,{'id','name','type','hostType','modelUrl','textures','position','rotation','dimensions','parentId','visible','locked','lastEditedEpochUs'})
@@ -61,7 +73,8 @@ def continuity(previous,value):
     need(value['instance']==previous['instance'] and value['sequence']>previous['sequence']
         and value['capturedEpochMs']>=previous['capturedEpochMs'])
     a=previous['source'];b=value['source']
-    need(all(a[k]==b[k] for k in ('runId','domainId','sessionId','domainConnected')))
+    need(all(a[k]==b[k] for k in ('createEntitySourceVersion','runId','domainId','sessionId','domainConnected')))
+    if a['createEntitySourceVersion']==2:need(a['domainSession']==b['domainSession'])
     tracked=lambda source:set(source['absentIds'])|{r['id'] for r in source['entities']}
     need(tracked(a)<=tracked(b))
     old={r['id']:r for r in a['entities']}

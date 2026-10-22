@@ -148,6 +148,7 @@
     var lastTabletHttpRequest = "";
     var lastProcessPresenceRequest = "";
     var lastScriptFilesRequest = "";
+    var lastCreateBrowseSettingRequest = "";
     var lastCreateFilesRequest = "";
     var lastCreateCallbacksRequest = "";
     var lastCreateDialogsRequest = "";
@@ -1451,6 +1452,24 @@
             }
             return;
         }
+        if (command && command.schemaVersion === 1 && command.action === "feature-create-browse-setting"
+                && typeof command.commandId === "string" && /^[0-9a-f]{32}$/.test(command.commandId)
+                && typeof command.runId === "string" && /^[0-9a-f]{32}$/.test(command.runId)
+                && typeof command.ownerToken === "string" && /^[0-9a-f]{64}$/.test(command.ownerToken)
+                && ["reserve", "observe", "claim", "claim-read", "restore", "release"].indexOf(command.operation) !== -1
+                && objectKeysMatch(command, ["schemaVersion", "commandId", "action", "operation", "runId", "ownerToken"].concat(
+                    (command.operation === "claim" || command.operation === "claim-read") ? ["ticket", "fileOwnerToken", "dialogBinding"] : []))) {
+            if (command.commandId === lastCreateBrowseSettingRequest) {return;}
+            lastCreateBrowseSettingRequest = command.commandId;
+            var browseSetting = {schemaVersion: 1, requestId: command.commandId, available: false};
+            try {
+                if (typeof Test.featureCreateBrowseSetting === "function") {
+                    var originalBrowseSetting = Test.featureCreateBrowseSetting(command);
+                    if (originalBrowseSetting && originalBrowseSetting.requestId === command.commandId) {browseSetting = originalBrowseSetting;}
+                }
+            } catch (_createBrowseSettingError) { /* Unknown retains exact original ownership. */ }
+            Test.saveObject(browseSetting, "feature-create-browse-setting.json");return;
+        }
         if (command && command.schemaVersion === 1 && command.action === "feature-create-entities-observe"
                 && typeof command.commandId === "string" && /^[0-9a-f]{32}$/.test(command.commandId)
                 && typeof command.runId === "string" && /^[0-9a-f]{32}$/.test(command.runId)
@@ -1799,6 +1818,7 @@
                 || command.action === "feature-create-callbacks-observe"
                 || command.action === "feature-create-dialogs-observe"
                 || command.action === "feature-create-entities-observe"
+                || command.action === "feature-create-browse-setting"
                 || command.action === "feature-world-render-observe"
                 || command.action === "feature-graphics-subject-observe"
                 || command.action === "feature-scene-load-observe"

@@ -72,6 +72,10 @@ namespace Setting {
 
     Manager::Manager(QObject *parent) {
         WriteWorker *worker = new WriteWorker();
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+        _featureBrowseWriteWorker=worker;
+        _featureBrowseWriteWorkerBirth=QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-');
+#endif
 
         // We operate purely from memory, and forward all changes to a thread that has writing the
         // settings as its only job.

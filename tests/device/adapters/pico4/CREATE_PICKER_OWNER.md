@@ -1,10 +1,11 @@
-# Durable Pico Create JSON picker composition v1
+# Durable Pico Create JSON picker composition v2
 
 Feature 4/14 remains partial. `_create_picker(target, run)` now composes the
 existing normal Create controls, original JSON staging, actual file-browser
 controls, native dialog delivery/context source, actual Script callbacks and
-an independent read-only domain-entity source. It provides private `open`,
-`cancel`, `import`, `delete`, `reconcile` and `release` operations for a complete
+an independent read-only domain-entity source and the
+[fixed-key original Browse setting owner](CREATE_BROWSE_SETTING.md). It provides private `open`, `open-export`,
+`cancel`, `import`, `export`, `delete`, `reconcile` and `release` operations for a complete
 Create owner to call after entering the original Create page. It does not add a
 parallel public journey or advertise the incomplete common `feature.create`
 capability trio. The existing catalog/OverteSession normal Cube/URL foundation
@@ -23,7 +24,7 @@ Create editor inventory, empty selection, actual domain/session/permissions,
 original domain scan, full original callback/compile history and native dialog
 history. It persists each operation attempt and original control reference
 before input. An interrupted operation cannot be replayed after reconstruction.
-A distinct normal Cancel can recover an uncertain Open/Import only while its
+A distinct normal Cancel can recover an uncertain Open/Import/Export only while its
 actual original picker/callback remains observable. A lost Cancel, Select or
 Delete is reconciled by original observations alone. Missing or delayed effects
 keep ownership; there is no fallback resend.
@@ -56,7 +57,12 @@ boundaries, it reads actual EntityScriptingInterface properties, actual NodeList
 domain/session and effective rez permissions. It never creates or edits entities.
 It scans Domain entities within 128 metres of the actual avatar, retaining every
 original UUID whose actual name uses the run namespace. Those UUIDs are then
-queried directly even if moved, renamed or changed to another host. Deleted
+queried directly even if moved, renamed or changed to another host. Version 2
+also reads the original DomainHandler connection lifetime from the unchanged
+stable Chat source introduced by commit `84a26af913c780633ae910611ac28abab825f191`.
+The same actual native handler birth, assignment revision, connection birth and
+event time must hold before/after each scan and throughout this owner. A short
+false/true reconnect with the same domain UUID cannot reuse the baseline. Deleted
 UUIDs remain in the original absent-ID inventory; their disappearance from the
 radius never proves deletion. The independent property scope is explicitly
 `create-domain-v1`, with actual position/dimensions/rotation/name/type/host/model
@@ -84,7 +90,11 @@ Script callback/dispatch and no owned entities. Native dialog elapsed time,
 entity capture time and UI elapsed time must independently advance. A surviving
 original QQmlContext is explicitly retained and prevents file/owner retirement;
 there is no destruction of Qt internals or inference from page absence.
-Original files are released only afterward. Per-ticket release progress is
+The exact original `LastBrowseLocation` presence/type/bytes must also be
+restored by the native fixed-key CAS and independently observed in the actual
+Manager and original writer throughout
+that quiet interval. Native settings release retains its host journal until all
+original file releases complete. Original files are released only afterward. Per-ticket release progress is
 persisted before subsequent tickets are retired. Base cleanup reports unresolved
 picker/source/file journals and retains them even when application teardown
 runs. A read-only acquisition failure before the main/file reservation can
@@ -105,7 +115,60 @@ The complete application/entity APIs have not been compiled by this isolated
 harness. No device, domain server, peer or renderer has run.
 
 The full Create feature still needs normal model creation and resolved texture
-render/peer effects, actual product export, PolyVox input/settled original data,
+render/peer effects, full export checkpoint/texture joins, PolyVox input/settled original data,
 controlled authority permission denial/restoration, independent full actor and
-artifact publication, normal page/settings restoration and the complete common
+artifact publication, normal page restoration and the complete common
 21-checkpoint driver. These are not replaced by this partial private composition.
+
+
+## Save/export continuation and compatibility
+
+After an independently observed import, `open-export` requires the actual one
+selected owned Model and preserves its original domain properties and resource
+ticket. It stages a separate authenticated file namespace, then activates the
+existing normal `create.export` control. The actual Save root joins its original
+native listener/context/window; the one new `saveFileChanged(QString)` callback
+must carry the actual compiled UTF-16 digest and code-unit count of original
+`system/create/entityList/entityList.js`. The ordinary filename/IME/Select route
+submits only the new owned `export.json` destination. It never calls Clipboard
+or writes an expected export file as an input action.
+
+Before Select, an original complete native file observation must show absent
+output. Reconciliation independently acquires actual product-created output bytes,
+inode, times and SHA-256 through the existing native storage owner. It rejects
+missing output, changed hashes, duplicate/nonfinite JSON, foreign Model identity,
+name, type, model URL, dimensions or textures and nonzero exported DataVersion.
+The original pre-Select absence packet and first valid output packet persist
+with native IDs/times. Modified/change times must follow original absence, and
+subsequent observations must retain exact bytes/inode/times.
+Those comparisons use the independently acquired pre-Save domain row, preserving
+all other original bytes/fields. The source follows the existing product default
+export tree DataVersion 0; the controlled import document remains DataVersion 3.
+Save Cancel preserves the original selected Model and requires absent output.
+Normal Delete afterward still targets the actual imported UUID, regardless of
+which picker ticket is current. The model's original import ticket is never
+replaced by the export ticket. Lost Select cannot be resent, and a consumed
+Select or callback alone cannot establish any file effect.
+
+Owner schema 2 requires original Settings capture; old schema-1 owners are
+explicitly refused and retained because their missing original value cannot be
+reconstructed honestly. Native dialog source 3 adds the actual raw Browse read-before/read-after join
+and response UTF-8 SHA-256 while retaining source-1/2 passive parsing. Native entity source 2 adds original
+connection generation while retaining passive source-1 parsing. The new owner
+requires source 2 for its scene continuity. Existing raw-source journals retain
+their original schema-1 envelope; no acquired history is silently reinterpreted.
+
+Host export composition checks substitute domain/file effects while executing
+the real Python/token/file owners. Separate Qt5 harnesses exercise the original
+Window/TabletFileDialog/ModalDialogListener response and the real Settings
+Manager, worker, locks, signals and persisted owned QSettings file. They do not
+execute the complete application's Clipboard/EntityTree export implementation,
+a real domain server, peer or stereo renderer. These source/host checks do not
+qualify full Create or physical Pico export behavior.
+
+
+The documented non-string Browse/Cancel writer failure remains retained. It does
+not qualify as successful cleanup even when the Manager CAS restored its raw
+memory. No functional product fix is included. This known boundary and the
+remaining common model/texture/PolyVox/authority/peer/stereo flow keep full Create
+partial; the native writer proof is required rather than waived.

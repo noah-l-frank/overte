@@ -35,6 +35,9 @@
 #include "NetworkingConstants.h"
 #include "MetaverseAPI.h"
 #include "ScopedHostnameLookup.h"
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+#include "../../../tests/device/native/ChatDomainSession.h"
+#endif
 
 const unsigned short DEFAULT_DOMAIN_SERVER_PORT =
     QProcessEnvironment::systemEnvironment()
@@ -104,6 +107,9 @@ public:
 
     const QUuid& getUUID() const { return _uuid; }
     void setUUID(const QUuid& uuid);
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    QVariantMap featureChatSession(const QString& run) { return _featureChatDomainSession.snapshot(run); }
+#endif
 
     Node::LocalID getLocalID() const { return _localID; }
     void setLocalID(Node::LocalID localID) { _localID = localID; }
@@ -315,6 +321,9 @@ private:
     SockAddr _iceServerSockAddr;
     NetworkPeer _icePeer;
     bool _isConnected { false };
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    overte::e2e::ChatDomainSession _featureChatDomainSession;
+#endif
     bool _haveAskedConnectWithoutAvatarEntities { false };
     bool _canConnectWithoutAvatarEntities { false };
     bool _isInErrorState { false };

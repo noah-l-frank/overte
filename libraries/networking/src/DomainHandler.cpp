@@ -75,6 +75,9 @@ void DomainHandler::disconnect(QString reason) {
 
     // clear member variables that hold the connection state to a domain
     _uuid = QUuid();
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    _featureChatDomainSession.changed(_uuid,_isConnected,QThread::currentThread()==thread());
+#endif
     _connectionToken = QUuid();
 
     _icePeer.reset();
@@ -243,6 +246,9 @@ void DomainHandler::setSockAddr(const SockAddr& sockAddr, const QString& hostnam
 void DomainHandler::setUUID(const QUuid& uuid) {
     if (uuid != _uuid) {
         _uuid = uuid;
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        _featureChatDomainSession.changed(_uuid,_isConnected,QThread::currentThread()==thread());
+#endif
         qCDebug(networking) << overte::security::diagnosticEvent(overte::security::DiagnosticEvent::Redacted);
     }
 }
@@ -412,6 +418,9 @@ void DomainHandler::completedIceServerHostnameLookup() {
 void DomainHandler::setIsConnected(bool isConnected) {
     if (_isConnected != isConnected) {
         _isConnected = isConnected;
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        _featureChatDomainSession.changed(_uuid,_isConnected,QThread::currentThread()==thread());
+#endif
 
         if (_isConnected) {
             _lastDomainConnectionError = -1;

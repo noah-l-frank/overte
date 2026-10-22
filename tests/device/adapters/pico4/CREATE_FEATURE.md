@@ -99,7 +99,11 @@ The next executable source work is:
   creator/context and a separately acquired domain/peer original. Resolve the
   original `checker.png` texture slot and bytes, actual model drawing and both
   eye captures before claiming the texture effect.
-- Drive the actual Export selection Save dialog. Independently enumerate/read
+- The [durable picker owner v2](CREATE_PICKER_OWNER.md) now composes normal
+  Import → original Save/export → Delete, compares acquired output against actual
+  pre-Save domain properties and preserves exact original Browse settings through
+  the [fixed-key CAS owner](CREATE_BROWSE_SETTING.md). Full feature/texture joins
+  and physical application behavior remain unverified. Independently enumerate/read
   the original product-exported DataVersion 0 file, retaining its exact model
   and separate texture ticket. A generated reference file is not an export.
 - Bind the actual Tools controls `NativeCreateEditMode`, `NativeCreateVoxelShape`,

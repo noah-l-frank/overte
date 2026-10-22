@@ -28,10 +28,11 @@ from adapters.token_create_ui import TokenCreateUI,same_reference as same_create
 from self_tests.test_native_script_files import BINDING
 from test_create_file_ui import FileEffects
 from test_create_files import NativeBoundary
+from test_create_browse_setting import raw as raw_setting
 from test_create_callbacks import frame as callback_frame
 from test_create_dialogs import frame as dialog_frame,bound
 
-RUN='a'*32;TICKET='b'*32;SECOND='c'*32
+RUN='a'*32;TICKET='b'*32;SECOND='c'*32;THIRD='d'*32
 URL='http://controlled.test/feature-fixture/v1/runs/'+RUN+'/'
 SID='12345678-1111-1111-1111-111111111111'
 MODEL='33333333-3333-3333-3333-333333333333'
@@ -41,14 +42,19 @@ class OriginalBackend:
     def __init__(self,path):
         self.path=path;self.ui=FileEffects(SimpleNamespace(bridge_id=SID,generation=1))
         self.callback=callback_frame();self.dialog=dialog_frame();self.callback['instance']=self.dialog['instance']='9'*32;self.callback['source']['managers'][0]['callbacks'].update(proxies=[],callbacks=[])
+        self.dialog['source']['createDialogSourceVersion']=3
         self.dialog['source']['dialogs']=[];self.rows=[];self.absent=[];self.unowned=[]
         code=(ROOT/'scripts/system/create/edit.js').read_text().encode('utf-16le')
-        self.source=dict(sha256=hashlib.sha256(code).hexdigest(),codeUnits=len(code)//2)
+        self.source={'import':dict(sha256=hashlib.sha256(code).hexdigest(),codeUnits=len(code)//2)}
+        code=(ROOT/'scripts/system/create/entityList/entityList.js').read_text().encode('utf-16le')
+        self.source['export']=dict(sha256=hashlib.sha256(code).hexdigest(),codeUnits=len(code)//2)
         compiled=self.callback['source']['managers'][0]['compiled']['compilations'][0]
-        compiled.update(resourceName='file:///original/scripts/system/create/edit.js',**self.source)
+        compiled.update(resourceName='file:///original/scripts/system/create/edit.js',**self.source['import'])
+        exported=deepcopy(compiled);exported.update(scriptId=18,resourceName='file:///original/scripts/system/create/entityList/entityList.js',**self.source['export'])
+        self.callback['source']['managers'][0]['compiled']['compilations'].append(exported)
         self.frames={};self.sequence={'callbacks':0,'dialogs':0,'entities':0};self.file_sources={};self.file_owners={}
         self.ticket=None;self.current=None;self.status='';self.selected=[];self.index=0;self.tab=4;self.focus=None
-        self.inputs=[];self.owner=None;self.ignore_import=False;self.lose=None;self.invalid_model=False;self.freeze_epoch=False;self.freeze_dialog=False
+        self.inputs=[];self.owner=None;self.ignore_import=False;self.lose=None;self.invalid_model=False;self.freeze_epoch=False;self.freeze_dialog=False;self.export_fault=None;self.domain_birth='8'*32;self.domain_revision=2
         self.ui.intents=IntentList(self);self.ui.before_input=self.before_input
     def now(self):return self.ui.clock
     def epoch(self):return 20000+(0 if self.freeze_epoch else round(self.now()*1000))
@@ -60,7 +66,9 @@ class OriginalBackend:
         def send(command):
             self.sequence[kind]+=1;epoch=self.epoch()
             if kind=='entities':
-                source=dict(createEntitySourceVersion=1,runId=RUN,domainConnected=True,domainId='11111111-1111-1111-1111-111111111111',
+                source=dict(createEntitySourceVersion=2,domainSession=dict(domainSessionVersion=1,instance='7'*32,revision=self.domain_revision,connected=True,
+                    domainSha256=hashlib.sha256((RUN+':').encode()+uuid.UUID('11111111-1111-1111-1111-111111111111').bytes).hexdigest(),
+                    connectionBirth=self.domain_birth,connectedEpochMs=19000),runId=RUN,domainConnected=True,domainId='11111111-1111-1111-1111-111111111111',
                     sessionId='22222222-2222-2222-2222-222222222222',canRez=True,canRezTmp=False,
                     entities=deepcopy(self.rows),absentIds=sorted(self.absent),scan=dict(center=[0,1,0],radiusMeters=128,
                     propertyScope='create-domain-v1',scannedEntities=len(self.rows)+len(self.unowned),unowned=deepcopy(self.unowned)))
@@ -82,7 +90,8 @@ class OriginalBackend:
         source=self.file_sources[ticket]
         def send(command):
             with patch('test_create_files.TICKET',ticket):source.send(command)
-        native=NativeCreateFiles(send,lambda:json.dumps(source.sample),lambda:20000,lambda:True,31,
+            source.sample.update(instance='9'*32,processId=123)
+        native=NativeCreateFiles(send,lambda:json.dumps(source.sample),lambda:20000,lambda:True,123,
             ticket=ticket,monotonic=lambda:source.clock,sleep=source.sleep)
         return OwnedCreateFiles(native,self.store('files-'+ticket),self.binding)
     def make(self):
@@ -90,26 +99,40 @@ class OriginalBackend:
         readers={k:OriginalReader(self.reader(k),self.store(k),self.binding) for k in self.sequence}
         owner=OwnedCreatePicker(self.store('owner'),self.binding,lambda intent:TokenCreateUI(NormalIO(self),intent,
             monotonic=self.now,sleep=self.ui.sleep),lambda intent,step:CreateFileUI(FileIO(self),intent,step['directory'],RUN,
-            step['ticket'],'import',step['beforeUi'],monotonic=self.now,sleep=self.ui.sleep),FileIO(self),self.files,
-            readers['callbacks'],readers['dialogs'],readers['entities'],self.source,monotonic=self.now,sleep=self.ui.sleep)
+            step['ticket'],step['role'],step['beforeUi'],monotonic=self.now,sleep=self.ui.sleep),FileIO(self),self.files,
+            readers['callbacks'],readers['dialogs'],readers['entities'],FakeSetting(self),self.source,monotonic=self.now,sleep=self.ui.sleep)
         self.owner=owner;return owner
     def born(self):
-        self.ticket=self.owner.state()['steps'][-1]['ticket'];number=len(self.dialog['source']['dialogs'])+1
+        step=self.owner.state()['steps'][-1];self.ticket=step['ticket'];self.ui.role=step['role'];number=len(self.dialog['source']['dialogs'])+1
         ids=[uuid.uuid5(uuid.NAMESPACE_URL,str(number)+':'+str(k)).hex for k in range(7)]
         self.ui.root=ids[0];source=self.callback['source']['managers'][0]['callbacks'];source['sequence']+=1
-        proxy=dict(id=ids[1],targetClass='WindowScriptingInterface',signal='browseChanged(QString)',createdEpochMs=self.epoch(),retiredEpochMs=0,dispatches=0)
-        callback=dict(id=ids[2],proxyId=ids[1],scriptId=17,connectedEpochMs=self.epoch(),disconnectedEpochMs=0)
+        proxy=dict(id=ids[1],targetClass='WindowScriptingInterface',signal='browseChanged(QString)' if step['role']=='import' else 'saveFileChanged(QString)',createdEpochMs=self.epoch(),retiredEpochMs=0,dispatches=0)
+        callback=dict(id=ids[2],proxyId=ids[1],scriptId=17 if step['role']=='import' else 18,connectedEpochMs=self.epoch(),disconnectedEpochMs=0)
         source['proxies'].append(proxy);source['proxies'].sort(key=lambda r:r['id']);source['callbacks'].append(callback);source['callbacks'].sort(key=lambda r:r['id'])
-        row=dict(id=ids[3],rootId=ids[4],listenerId=ids[5],contextId=ids[6],windowId='1'*32,role='import',
+        row=dict(id=ids[3],rootId=ids[4],listenerId=ids[5],contextId=ids[6],windowId='1'*32,role=step['role'],
             componentSource='file:///original/dialogs/TabletFileDialog.qml',registeredEpochMs=self.epoch(),enteredEpochMs=0,
-            returnedEpochMs=0,pending=True,dispatches=0,listenerAlive=True,rootAlive=True,contextAlive=True,windowAlive=True)
+            returnedEpochMs=0,pending=True,dispatches=0,listenerAlive=True,rootAlive=True,contextAlive=True,windowAlive=True,responseSha256=None,
+            browseSettingRead=dict(before=dict(capturedEpochMs=self.epoch(),raw=deepcopy(self.setting['current'])),
+                after=dict(capturedEpochMs=self.epoch(),raw=deepcopy(self.setting['current']))))
         self.dialog['source']['dialogs'].append(row);self.dialog['source']['dialogs'].sort(key=lambda r:r['id'])
         self.current=(row,callback,proxy);self.status=''
     def returned(self,accept):
-        row,callback,proxy=self.current;row.update(enteredEpochMs=self.epoch(),returnedEpochMs=self.epoch(),pending=False,
+        row,callback,proxy=self.current;row.update(enteredEpochMs=self.epoch(),returnedEpochMs=self.epoch(),responseSha256=hashlib.sha256((('/owned/'+self.ticket) if accept else '').encode()).hexdigest(),pending=False,
             listenerAlive=False,rootAlive=False)
         callback['disconnectedEpochMs']=self.epoch();self.callback['source']['managers'][0]['callbacks']['sequence']+=1
-        if not accept:self.status='Import cancelled.';return
+        if not accept:
+            if row['role']=='import':self.status='Import cancelled.'
+            return
+        if row['role']=='export':
+            if self.export_fault=='missing':return
+            model=self.rows[0]
+            document=dict(DataVersion=0,Entities=[dict(id='{'+model['id']+'}',type=model['type'],name=model['name'],
+                modelURL=model['modelUrl'],dimensions=dict(zip('xyz',model['dimensions'])),textures=model['textures'],position=dict(x=0,y=0,z=0))])
+            if self.export_fault=='foreign':document['Entities'][0]['modelURL']='http://foreign.test/model.gltf'
+            if self.export_fault=='version':document['DataVersion']=3
+            output=self.file_sources[self.ticket].root/'export.json';output.write_text(json.dumps(document));output.chmod(0o600)
+            if self.export_fault=='old-time':os.utime(output,ns=(1,1))
+            return
         self.status='Imported 1 entities.'
         if not self.ignore_import:
             raw=(self.file_sources[self.ticket].root/'entity-import.json').read_bytes();original=json.loads(raw)['Entities'][0]
@@ -117,6 +140,30 @@ class OriginalBackend:
                 textures='',position=[0,1,-2],rotation=[0,0,0,1],dimensions=[1,1,1],parentId=None,visible=True,locked=False,
                 lastEditedEpochUs=self.epoch()*1000)]
             self.selected=[MODEL]
+
+
+class FakeSetting:
+    def __init__(self,b):
+        self.b=b;self.previous=None
+        if not hasattr(b,'setting'):
+            b.setting=dict(original=raw_setting(),current=raw_setting(),owned=raw_setting(),writer={'raw':raw_setting()},claims=[],reads=[],restored=False)
+    def reserve(self,run):return self.observe()
+    def observe(self):return deepcopy(self.b.setting)
+    def claim_read(self,files,binding):
+        if not any(r['dialogId']==binding['dialogId'] for r in self.b.setting['reads']):
+            self.b.setting['reads'].append(dict(dialogId=binding['dialogId']))
+        return self.observe()
+    def claim(self,files,binding):
+        if not any(r['dialogId']==binding['dialogId'] for r in self.b.setting['claims']):
+            setting=raw_setting('/owned/'+files['ticket'])
+            self.b.setting['claims'].append(dict(dialogId=binding['dialogId'],setting=setting))
+            self.b.setting['current']=setting;self.b.setting['owned']=setting;self.b.setting['writer']['raw']=deepcopy(setting)
+        return self.observe()
+    def restore(self):
+        self.b.setting['current']=deepcopy(self.b.setting['original']);self.b.setting['writer']['raw']=deepcopy(self.b.setting['original']);self.b.setting['restored']=True
+        return self.observe()
+    def release(self):self.restore()
+    def retire(self):pass
 
 
 class IntentList:
@@ -160,7 +207,7 @@ class NormalIO:
             row['token']=uuid.uuid5(uuid.NAMESPACE_URL,json.dumps(row,sort_keys=True)).hex;rows.append(row)
         add('create.page',profile='native-create-v1',tab=b.tab,selectedIds=list(b.selected),statusError=False,statusText=b.status,componentSourceSha256='a'*64)
         for k in range(5):add('create.tab.'+str(k))
-        add('create.import-host',currentIndex=b.index,count=2);add('create.import-browse');add('create.refresh');add('create.delete')
+        add('create.import-host',currentIndex=b.index,count=2);add('create.import-browse');add('create.export');add('create.refresh');add('create.delete')
         for entity in b.rows:add('create.entity.'+entity['id'],entityId=entity['id'])
         add('create.name',text='')
         return dict(createControlsVersion=1,open=True,ready=True,scope=b.scope(),controls=rows)
@@ -169,7 +216,7 @@ class NormalIO:
         b.inputs.append(dict(controlId=identifier,action=action))
         if identifier.startswith('create.tab.'):b.tab=int(identifier[-1])
         elif identifier=='create.import-host' and action=='select-index':b.index=value
-        elif identifier=='create.import-browse':b.born()
+        elif identifier in ('create.import-browse','create.export'):b.born()
         elif identifier.startswith('create.entity.'):b.selected=[identifier[len('create.entity.'):]]
         elif identifier=='create.delete':b.rows=[];b.absent=[MODEL];b.selected=[]
         else:b.focus=identifier
@@ -195,6 +242,59 @@ class CreatePickerOwnerTests(unittest.TestCase):
         self.flow=self.b.make();self.flow.release()
         self.assertIsNone(self.b.store('owner').read());self.assertFalse(self.b.file_sources[TICKET].root.exists())
         self.assertFalse(self.b.file_sources[SECOND].root.exists())
+    def test_import_save_original_bytes_delete_and_setting_restore_compose_across_restart(self):
+        self.open();self.flow.import_file();original=deepcopy(self.b.rows[0])
+        self.flow=self.b.make();self.flow.open_export(RUN,SECOND,URL);self.flow.export_file()
+        step=self.flow.state()['steps'][-1];self.assertEqual('exported',step['outcome']);self.assertEqual(original,step['exportOriginal'])
+        output=self.flow.owned_files(step).exported();self.assertEqual(0,json.loads(base64.b64decode(output['base64']))['DataVersion'])
+        self.assertEqual(MODEL,self.b.rows[0]['id']);self.assertEqual('imported',self.flow.state()['steps'][0]['outcome'])
+        self.flow=self.b.make();self.flow.delete_import()
+        with self.assertRaises(NativeUIError):self.flow.release()
+        self.assertTrue(self.b.file_sources[SECOND].root.exists())
+        for row in self.b.dialog['source']['dialogs']:row['contextAlive']=False
+        self.flow=self.b.make();self.flow.release();self.assertFalse(self.b.file_sources[SECOND].root.exists())
+        self.assertEqual(self.b.setting['original'],self.b.setting['current']);self.assertTrue(self.b.setting['restored'])
+    def test_uncertain_save_select_reconciles_once_and_invalid_output_never_proves_export(self):
+        for fault in ('lost','missing','foreign','version','old-time'):
+            with self.subTest(fault=fault):
+                path=self.path/fault;path.mkdir(mode=0o700);b=OriginalBackend(path);flow=b.make();flow.open(RUN,TICKET,URL);flow.import_file()
+                flow.open_export(RUN,SECOND,URL)
+                if fault=='lost':b.lose='create-file.accept'
+                else:b.export_fault=fault
+                with self.assertRaises(NativeUIError):flow.export_file()
+                flow=b.make()
+                with self.assertRaises(NativeUIError):flow.export_file()
+                if fault=='lost':flow.reconcile();self.assertEqual('exported',flow.state()['steps'][-1]['outcome'])
+                else:
+                    with self.assertRaises(NativeUIError):flow.reconcile()
+                    self.assertEqual('export',flow.state()['pending']['operation'])
+                self.assertEqual(2,sum(r['controlId']=='create-file.accept' for r in b.inputs))
+                self.assertTrue(b.file_sources[SECOND].root.exists());self.assertEqual(MODEL,b.rows[0]['id'])
+    def test_normal_save_cancel_preserves_selected_model_and_never_creates_output(self):
+        self.open();self.flow.import_file();self.flow.open_export(RUN,SECOND,URL);self.flow.cancel()
+        self.assertEqual([MODEL],self.b.selected);self.assertFalse((self.b.file_sources[SECOND].root/'export.json').exists())
+        self.flow.delete_import();self.assertEqual([],self.b.rows)
+    def test_preexisting_export_before_select_refuses_input_and_preserves_original_file(self):
+        self.open();self.flow.import_file();self.flow.open_export(RUN,SECOND,URL)
+        path=self.b.file_sources[SECOND].root/'export.json';path.write_text('{"foreign":"before Select"}');path.chmod(0o600)
+        count=len(self.b.inputs)
+        with self.assertRaises(NativeUIError):self.flow.export_file()
+        self.assertEqual(count,len(self.b.inputs));self.assertIsNotNone(self.b.store('owner').read());self.assertTrue(path.exists())
+    def test_export_original_inode_time_and_bytes_survive_reconstruction_and_replacement_refuses(self):
+        self.open();self.flow.import_file();self.flow.open_export(RUN,SECOND,URL);self.flow.export_file()
+        step=self.flow.state()['steps'][-1];packet=deepcopy(step['exportEvidence']);self.flow=self.b.make()
+        self.assertEqual(packet,self.flow.state()['steps'][-1]['exportEvidence']);self.assertFalse(step['beforeChoice']['source']['files'][1]['exists'])
+        path=self.b.file_sources[SECOND].root/'export.json';path.write_bytes(path.read_bytes()+b' ')
+        with self.assertRaises(NativeUIError):self.flow.verify_export(step)
+        self.assertEqual(packet,self.flow.state()['steps'][-1]['exportEvidence'])
+    def test_same_uuid_disconnect_reconnect_generation_refuses_input_or_cleanup(self):
+        self.open();count=len(self.b.inputs);self.b.domain_birth='6'*32;self.b.domain_revision+=2
+        with self.assertRaises(NativeUIError):self.flow.import_file()
+        self.assertEqual(count,len(self.b.inputs));self.assertIsNotNone(self.b.store('owner').read())
+    def test_old_owner_without_original_setting_capture_is_retained_and_refused(self):
+        self.open();state=self.b.store('owner').read();self.b.store('owner').write(state|dict(schemaVersion=1),state)
+        with self.assertRaises(NativeUIError):self.b.make()
+        self.assertTrue(self.b.file_sources[TICKET].root.exists())
     def test_uncertain_cancel_is_never_resent_and_reconciles_original_delivery(self):
         self.open();self.b.lose='create-file.cancel'
         with self.assertRaises(NativeUIError):self.flow.cancel()
