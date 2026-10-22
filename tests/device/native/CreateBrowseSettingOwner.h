@@ -59,6 +59,11 @@ public:
             manager->withReadLock([&]{lease.present=manager->_settings.contains(key());lease.original=manager->_settings.value(key());});
             lease.originalRow=raw(lease.present,lease.original);if (lease.originalRow.isEmpty()) {return {};}
             _leases.insert(run,lease);
+            // Flush the original writer's pending real signals before the
+            // bounded reserve barrier captures the physical starting row.
+            // Observe never flushes: an independent foreign physical change
+            // must remain visible even when the original cache still agrees.
+            manager->forceSave();
         }
         if (!_leases.contains(run) || _leases[run].owner!=owner) {return {};}
         auto& lease=_leases[run];

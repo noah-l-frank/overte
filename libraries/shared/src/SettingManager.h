@@ -112,6 +112,7 @@ namespace Setting {
         QSettings* _qSettings = nullptr;
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
         friend class overte::e2e::CreateBrowseSettingOwner;
+        friend class ::SettingsTests;
 #endif
     };
 
