@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
+from copy import deepcopy
 import hashlib
 import json
 import os
@@ -331,9 +332,11 @@ class PicoOpenXrAdapterSession:
             "native Pico OpenXR controller override was not consumed by an action query"
         ) from last_error
 
-    def stage(self, process_identity: str, operation: str, arguments: dict) -> dict:
+    def stage(self, process_identity: str, operation: str, arguments: dict, *, intent=None) -> dict:
         if not isinstance(process_identity, str) or not process_identity:
             raise AdapterSessionError("Pico application process identity is unavailable")
+        if intent is not None and not callable(intent):
+            raise AdapterSessionError("Pico OpenXR input intent writer is invalid")
         with self._lock():
             state = self._load()
             if state is None:
@@ -356,6 +359,10 @@ class PicoOpenXrAdapterSession:
                     "arguments": arguments,
                 }],
             }
+            if intent is not None:
+                # This pure host CAS/fsync callback runs while the exact input
+                # sequence is locked. It must not reenter this session/ADB.
+                intent(deepcopy(envelope))
             staged = self.transport.stage(envelope, self.profile)
             state["nextSequence"] = sequence + 1
             # Persist immediately after the device-side grant commit. A later
@@ -407,6 +414,22 @@ class PicoOpenXrAdapterSession:
                 "openXrRightSecondaryApplied": status["rightSecondaryApplied"],
             })
         return result
+
+    def require_owned_neutral(self, process_identity: str, envelope: dict) -> dict:
+        """Read original neutralization of one already committed owned stream.
+
+        No input, grant retry, cursor adoption, process repair or file deletion.
+        A lost grant commit/host-save boundary stays unresolved for its owner.
+        """
+        from .controller_protocol import validate_envelope
+        validate_envelope(envelope, self.profile)
+        with self._lock():
+            state = self._load()
+            if (state is None or state["processIdentity"] != process_identity
+                    or state["sessionNonce"] != envelope["sessionNonce"]
+                    or state["nextSequence"] != envelope["sequence"] + 1):
+                raise AdapterSessionError("Pico owned stream binding is unresolved")
+            return self._wait_for_neutral(envelope["sessionNonce"], envelope["sequence"])
 
     def cleanup(self, process_running: bool) -> None:
         with self._lock():
