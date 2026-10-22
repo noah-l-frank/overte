@@ -147,6 +147,7 @@
     var lastIOSPlacesModelRequest = "";
     var lastIOSPlacesHttpRequest = "";
     var lastIOSNavigationDialogRequest = "";
+    var lastIOSNavigationStateRequest = "";
     var lastSceneLoadRequest = "";
     var lastWorldRenderStorageCommand = "";
     var lastWorldRenderReceiptCommand = "";
@@ -1064,6 +1065,24 @@
                 } catch (_bundleReadError) { /* No paths or archive expectations are exported. */ }
                 if (installedBundle.status !== "pending") { lastIOSBundleDone=command.commandId; }
                 Test.saveObject(installedBundle,"ios-installed-bundle-observation.json");
+            }
+            return;
+        }
+        if (command && command.action === "feature-ios-navigation-state") {
+            if (command.schemaVersion === 1 && typeof command.commandId === "string"
+                    && /^ios-[0-9a-f]{32}$/.test(command.commandId) && command.commandId.length === 36
+                    && typeof command.runId === "string" && /^[0-9a-f]{32}$/.test(command.runId) && command.runId.length === 32
+                    && objectKeysMatch(command,["schemaVersion","commandId","action","runId"])) {
+                if (command.commandId === lastIOSNavigationStateRequest) { return; }
+                lastIOSNavigationStateRequest=command.commandId;
+                var navigationState={iosNavigationStateVersion:1,requestId:command.commandId,status:"unavailable"};
+                try {
+                    if (typeof Test.featureIOSNavigationState === "function") {
+                        var originalNavigationState=Test.featureIOSNavigationState(command);
+                        if (originalNavigationState && originalNavigationState.requestId === command.commandId) { navigationState=originalNavigationState; }
+                    }
+                } catch (_navigationStateError) { /* A missing original is not an arrived scene. */ }
+                Test.saveObject(navigationState,"feature-ios-navigation-state.json");
             }
             return;
         }

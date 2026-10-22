@@ -44,6 +44,7 @@ from ios.adapters.location_bookmarks import (IOSLocationBookmarks,FILE as BOOKMA
 from ios.adapters.places_model import IOSPlacesModel,FILE as PLACES_MODEL_FILE,LIMIT as PLACES_MODEL_LIMIT,command as places_model_command
 from ios.adapters.places_http import IOSPlacesHttp,FILE as PLACES_HTTP_FILE,LIMIT as PLACES_HTTP_LIMIT,command as places_http_command
 from ios.adapters.navigation_dialogs import IOSNavigationDialogs,FILE as NAVIGATION_DIALOG_FILE,LIMIT as NAVIGATION_DIALOG_LIMIT,command as navigation_dialog_command
+from ios.adapters.navigation_state import IOSNavigationState,FILE as NAVIGATION_STATE_FILE,LIMIT as NAVIGATION_STATE_LIMIT,command as navigation_state_command
 from adapters.private_login_input import command as private_input_command
 from adapters.native_account_origin import (NativeAccountOrigin, OwnedAccountOrigin, FILE as ACCOUNT_ORIGIN_FILE,
     command as account_origin_command)
@@ -130,6 +131,7 @@ class FeatureObservation:
         elif command.get('action')=='feature-ios-places-model':places_model_command(command)
         elif command.get('action')=='feature-ios-places-http':places_http_command(command)
         elif command.get('action')=='feature-ios-navigation-dialogs':navigation_dialog_command(command)
+        elif command.get('action')=='feature-ios-navigation-state':navigation_state_command(command)
         elif command.get('action')=='feature-web-dom-observe':web_dom_command(command,ios=True)
         elif command.get('action')=='feature-pending-commit-owner':pending_owner_command(command,ios=True)
         elif command.get('action')=='feature-navigation-replies':navigation_replies_command(command,ios=True)
@@ -260,6 +262,13 @@ class FeatureObservation:
         if clock_source is None:clock_source=self.native_observer()
         def clock():return clock_source.read(clock_source.sequence)['capturedEpochMs']
         return IOSPlacesModel(self.send,lambda:self.original(remote=remote,limit=PLACES_MODEL_LIMIT),
+            clock,self.guard,self.process['pid'],monotonic=self.monotonic,sleep=self.sleep)
+
+    def navigation_state(self,clock_source=None):
+        self.guard();remote=self.remote.rsplit('/',1)[0]+'/'+NAVIGATION_STATE_FILE
+        if clock_source is None:clock_source=self.native_observer()
+        def clock():return clock_source.read(clock_source.sequence)['capturedEpochMs']
+        return IOSNavigationState(self.send,lambda:self.original(remote=remote,limit=NAVIGATION_STATE_LIMIT),
             clock,self.guard,self.process['pid'],monotonic=self.monotonic,sleep=self.sleep)
 
     def navigation_dialogs(self,clock_source=None):

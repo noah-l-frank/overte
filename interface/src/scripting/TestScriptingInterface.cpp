@@ -70,6 +70,9 @@
 #include "../../../tests/device/native/IOSWebClosureBridge.h"
 #include "../../../tests/device/native/IOSLocationBookmarksObservation.h"
 #include "../../../tests/device/native/IOSPlacesModelObservation.h"
+#include "../../../tests/device/native/IOSNavigationStateObservation.h"
+#include <QGuiApplication>
+#include <NodeList.h>
 #include <XMLHttpRequestClass.h>
 #include "../LocationBookmarks.h"
 #endif
@@ -503,6 +506,67 @@ QVariantMap TestScriptingInterface::featureSceneLoadObservation(const QVariantMa
 
 
 #if defined(Q_OS_IOS)
+QVariantMap TestScriptingInterface::featureIOSNavigationState(const QVariantMap& command) {
+    if (QThread::currentThread()!=thread()) {
+        if (!thread() || !thread()->isRunning()) { return {}; }
+        QVariantMap result;
+        if (!QMetaObject::invokeMethod(this,[&] { result=featureIOSNavigationState(command); },Qt::BlockingQueuedConnection)) { return {}; }
+        return result;
+    }
+    QStringList fields {"schemaVersion","commandId","action","runId"};fields.sort();
+    const auto json=QJsonObject::fromVariantMap(command);
+    const auto request=command.value("commandId").toString(),run=command.value("runId").toString();
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript") || command.keys()!=fields
+            || json.value("schemaVersion")!=QJsonValue(1) || json.value("action")!=QJsonValue("feature-ios-navigation-state")
+            || !json.value("commandId").isString() || !json.value("runId").isString()
+            || !QRegularExpression("\\Aios-[0-9a-f]{32}\\z").match(request).hasMatch()
+            || !QRegularExpression("\\A[0-9a-f]{32}\\z").match(run).hasMatch()
+            || !DependencyManager::isSet<EntityScriptingInterface>() || !DependencyManager::isSet<AvatarManager>()
+            || !DependencyManager::isSet<AddressManager>() || !DependencyManager::isSet<NodeList>()) { return {}; }
+    if (!_featureIOSNavigationState) { _featureIOSNavigationState=std::make_shared<overte::e2e::IOSNavigationStateObservation>(); }
+    return _featureIOSNavigationState->read(request,run,[&]() -> QVariantMap {
+        const auto entities=DependencyManager::get<EntityScriptingInterface>();
+        const auto avatars=DependencyManager::get<AvatarManager>();
+        const auto addresses=DependencyManager::get<AddressManager>();const auto nodes=DependencyManager::get<NodeList>();
+        if (!entities || !entities->getEntityTree() || !avatars || !addresses || !nodes) { return {}; }
+        const auto avatar=avatars->getMyAvatar();if (!avatar) { return {}; }
+        auto vec=[](const glm::vec3& value) { return QVariantList{value.x,value.y,value.z}; };
+        auto quat=[](const glm::quat& value) { return QVariantList{value.x,value.y,value.z,value.w}; };
+        QVariantList present,absent;
+        // Fixed fixture identities, queried directly. Names and geometry below
+        // are read from real entities; no wanted URL/pose enters this query.
+        for (int index=1;index<=5;++index) {
+            const auto id=QUuid(QString("00000000-0000-4000-8000-%1").arg(index,12,10,QLatin1Char('0')));
+            const auto actual=entities->getEntityProperties(id);
+            if (actual.getType()==EntityTypes::Unknown) { absent.append(id.toString(QUuid::WithoutBraces));continue; }
+            if (actual.getName().size()>256) { return {}; }
+            const auto color=actual.getColor();
+            present.append(QVariantMap{{"id",id.toString(QUuid::WithoutBraces)},{"name",actual.getName()},
+                {"type",EntityTypes::getEntityTypeName(actual.getType())},{"position",vec(actual.getPosition())},
+                {"rotation",quat(actual.getRotation())},{"dimensions",vec(actual.getDimensions())},
+                {"color",QVariantList{int(color.x),int(color.y),int(color.z)}},{"visible",actual.getVisible()},
+                {"collisionless",actual.getCollisionless()}});
+        }
+        const auto address=addresses->currentAddress().toString(QUrl::FullyEncoded);
+        if (address.size()>2048) { return {}; }
+        auto sceneCommand=command;sceneCommand["action"]="feature-scene-load-observe";
+        const auto scene=featureSceneLoadObservation(sceneCommand);if (scene.isEmpty()) { return {}; }
+        const auto& camera=qApp->getCamera();ViewFrustum frustum;camera.loadViewFrustum(frustum);
+        const auto& domain=nodes->getDomainHandler();
+        return {{"foreground",QGuiApplication::applicationState()==Qt::ApplicationActive},{"sceneUrl",address},
+            {"domain",QVariantMap{{"handlerConnected",domain.isConnected()},{"serverless",domain.isServerless()},
+                {"protocol",addresses->currentAddress().scheme()}}},
+            {"avatar",QVariantMap{{"feetPosition",vec(avatar->getWorldFeetPosition())},
+                {"orientation",quat(avatar->getWorldOrientation())},{"velocity",vec(avatar->getWorldVelocity())},
+                {"inAir",avatar->isInAir()},{"flying",avatar->isFlying()},{"modelScale",avatar->getModelScale()}}},
+            {"view",QVariantMap{{"position",vec(frustum.getPosition())},{"rotation",quat(frustum.getOrientation())},
+                {"mode",camera.getModeString()},{"fieldOfViewDegrees",frustum.getFieldOfView()},
+                {"aspectRatio",frustum.getAspectRatio()},{"perspective",frustum.isPerspective()}}},
+            {"markers",present},{"absentMarkerIds",absent},{"sceneLoads",scene}};
+    });
+}
+
 QVariantMap TestScriptingInterface::featureIOSNavigationDialogs(const QVariantMap& command) {
     if (QThread::currentThread()!=thread()) {
         if (!thread() || !thread()->isRunning()) { return {}; }
@@ -1566,7 +1630,7 @@ void TestScriptingInterface::saveObject(QVariant variant, const QString& filenam
     QString filepath = QDir::cleanPath(_testResultsLocation + filename);
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     if (filename == "feature-chat-observation.json" || filename == "feature-native-observation.json" || filename == "normal-feature-observation.json"
-            || filename == "feature-ios-web-closures.json" || filename == "feature-ios-location-bookmarks.json" || filename == "feature-ios-places-model.json" || filename == "feature-ios-places-http.json" || filename == "feature-ios-navigation-dialogs.json" || filename == "feature-chat-view-observation.json" || filename == "feature-web-dom-observation.json"
+            || filename == "feature-ios-web-closures.json" || filename == "feature-ios-location-bookmarks.json" || filename == "feature-ios-places-model.json" || filename == "feature-ios-places-http.json" || filename == "feature-ios-navigation-dialogs.json" || filename == "feature-ios-navigation-state.json" || filename == "feature-chat-view-observation.json" || filename == "feature-web-dom-observation.json"
             || filename == "feature-pending-commit-owner.json" || filename == "feature-navigation-replies.json"
             || filename == "feature-process-presence.json" || filename == "feature-graphics-subject.json" || filename == "feature-scene-load.json" || filename == "feature-completed-frame.json" || filename == "feature-vulkan-world-frame.json"
             || filename == "recorded-preview-observation.json" || filename == "feature-script-observation.json"

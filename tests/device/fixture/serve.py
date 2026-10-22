@@ -567,6 +567,12 @@ class FixtureState:
             try:places_http_command(command)
             except (ValueError,RuntimeError):raise ValueError("invalid iOS Places HTTP request") from None
             valid=True
+        elif action == "feature-ios-navigation-state":
+            sys.path.insert(0,str(ROOT.parent))
+            from ios.adapters.navigation_state import command as navigation_state_command
+            try:navigation_state_command(command)
+            except (ValueError,RuntimeError):raise ValueError("invalid iOS native navigation state request") from None
+            valid=True
         elif action == "feature-ios-navigation-dialogs":
             sys.path.insert(0,str(ROOT.parent))
             from ios.adapters.navigation_dialogs import command as navigation_dialog_command

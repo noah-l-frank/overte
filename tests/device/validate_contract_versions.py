@@ -122,6 +122,8 @@ REQUIRED = {
     "ios-places-http": 1,
     "ios-places-http-acquisition": 1,
     "ios-navigation-error-context": 1,
+    "ios-navigation-state": 1,
+    "ios-navigation-state-acquisition": 1,
     "ios-navigation-dialogs": 1,
     "ios-navigation-dialogs-acquisition": 1,
     "ios-navigation-dialog-controls": 1,
