@@ -36,7 +36,7 @@ def source():
         resourceReplies=dict(resourceRepliesVersion=1,instance='5'*32,sequence=1,capturedEpochMs=20000,complete=True,runId=RUN,events=[]),
         peopleReplies=dict(peopleRepliesVersion=1,instance='6'*32,sequence=1,capturedEpochMs=20000,complete=True,events=[]),
         avatarEntityOrigins=dict(avatarEntityOriginsVersion=1,instance='7'*32,sequence=1,capturedEpochMs=20000,runId=RUN,complete=True,events=[]),
-        avatarEntities=dict(complete=True,entities=[],absentIds=[]))
+        avatarEntities=dict(complete=True,entities=[],absentIds=[],advertisedIds=[],queriedIds=[],rememberedIds=[],retainedIds=[]))
 
 
 class Boundary:
@@ -113,6 +113,46 @@ class AvatarPeopleNativeTests(unittest.TestCase):
         for value in (dict(performed=True),dict(avatar='A',modelLoaded=True,loadFailed=False),dict(available=False)):
             b=Boundary();b.edit=lambda original:original.update(source=value)
             with self.subTest(value=value),self.assertRaises(NativeUIError):b.reader().read(RUN)
+
+class AvatarEntityRetirementTests(unittest.TestCase):
+    def original(self):
+        b=Boundary();id='88888888-8888-4888-8888-888888888888';url=URL.rsplit('/',1)[0]+'/gltf-bundle/main.gltf'
+        b.state['avatarEntityOrigins']['events']=[dict(eventSequence=1,capturedEpochMs=20000,runId=RUN,ticket='b'*32,
+            entityId=id,parentId=SESSION,parentJointIndex=17,treePresent=True,modelUrlSha256=digest(url))]
+        row=dict(entityId=id,type='Model',host='avatar',parentId=SESSION,parentJointIndex=17,modelUrl=url,visible=True,originalObject=True,
+            localPosition=[0,0,0],localRotation=[0,0,0,1],localDimensions=[1,1,1],model=None)
+        b.state['avatarEntities']=dict(complete=True,entities=[row],absentIds=[],advertisedIds=[id],queriedIds=[id],rememberedIds=[id],retainedIds=[id])
+        return b,id,url
+    def test_map_removal_tree_removal_and_final_native_object_drain_are_separate_originals(self):
+        from overte_phone_avatar_people_measurements import wearable
+        from feature_journeys.phase_fixture import PhasePending
+        b,id,url=self.original();r=b.reader();r.read(RUN)
+        actual=b.state['avatarEntities'];actual['advertisedIds']=[]
+        with self.assertRaises(PhasePending):wearable(RUN,r.read(RUN)['source'],dict(wearable={url}),{})
+        actual.update(entities=[],absentIds=[id])
+        with self.assertRaises(PhasePending):wearable(RUN,r.read(RUN)['source'],dict(wearable={url}),{})
+        actual['retainedIds']=[]
+        self.assertEqual((False,[id]),wearable(RUN,r.read(RUN)['source'],dict(wearable={url}),{}))
+        self.assertEqual([id],actual['rememberedIds']) # Absence never forgets the queried original.
+    def test_same_uuid_replacement_never_supplies_original_ownership(self):
+        from overte_phone_avatar_people_measurements import wearable
+        b,id,url=self.original();b.state['avatarEntities']['entities'][0]['originalObject']=False
+        actual=b.reader().read(RUN)
+        with self.assertRaises(NativeUIError):wearable(RUN,actual['source'],dict(wearable={url}),{})
+    def test_orphan_queries_cannot_be_dropped_or_replace_absence_with_empty_success(self):
+        b,id,url=self.original();r=b.reader();r.read(RUN)
+        b.state['avatarEntities'].update(entities=[],absentIds=[],advertisedIds=[],queriedIds=[],rememberedIds=[],retainedIds=[])
+        with self.assertRaises(NativeUIError):r.read(RUN)
+        b,id,url=self.original();b.state['avatarEntityOrigins']['events']=[];r=b.reader();r.read(RUN)
+        b.state['avatarEntities'].update(entities=[],absentIds=[],advertisedIds=[],queriedIds=[],rememberedIds=[],retainedIds=[])
+        with self.assertRaises(NativeUIError):r.read(RUN)
+    def test_resume_restores_original_queries_without_retiming_or_replay(self):
+        b,id,url=self.original();first=b.reader().read(RUN);resumed=b.reader();resumed.restore([first])
+        next=resumed.read(RUN);self.assertGreater(next['sequence'],first['sequence']);self.assertEqual(first['capturedEpochMs'],resumed.last['capturedEpochMs']-1)
+        for change in (lambda v:v.update(processId=32),lambda v:v['source']['avatarEntities'].update(rememberedIds=[])):
+            wrong=deepcopy(first);change(wrong)
+            with self.subTest(change=change),self.assertRaises(NativeUIError):b.reader().restore([wrong])
+
 
 class AvatarPeopleProbeGrammarTests(unittest.TestCase):
     def test_original_probe_closed_grammar_rejects_setters_extra_fields_and_invalid_inputs(self):

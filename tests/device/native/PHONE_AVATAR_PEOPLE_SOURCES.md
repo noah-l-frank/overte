@@ -139,3 +139,20 @@ Six new host PNG tests use explicit synthetic native/GPU source producers and
 real PNG decoding/projection. They qualify the source joins, not a real rendered
 avatar or second Phone. Actual two-Phone composition and the full public facade
 remain outstanding.
+
+Wearable retirement independently distinguishes actual advertised map membership,
+actual EntityTree presence and the original weak object's final drain. A bounded
+read of the actual tree also finds run-scoped model orphans after advertisement
+has gone. It grants no deletion authority by URL. Original successful addEntity
+IDs bind weak object identity; remote models retain first-observed identity.
+Remembered UUIDs remain queryable and append-only after disappearance. A same-ID
+replacement stays foreign, and a retained object cannot become empty cleanup
+success merely because the tree or map no longer lists it. No UUID query/input
+protocol or product behavior is added. Source snapshots finish before the outer
+capture clock, avoiding a false future timestamp at a millisecond boundary.
+
+Four new host counterexamples cover the separate retirement stages, foreign
+replacement, forgotten orphan queries and durable reader resume. The updated
+Qt6 helper exercises weak original/first-observed identity and final reference
+drain. EntityTree and TestScriptingInterface product translation units remain
+uncompiled; no runtime/two-Phone result is claimed.

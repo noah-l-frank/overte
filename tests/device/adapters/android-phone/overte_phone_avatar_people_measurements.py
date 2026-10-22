@@ -107,10 +107,14 @@ def wearable(run,source,urls,backend):
     need(len(origins)<=1 and all(row['treePresent'] for row in origins))
     if not origins:return False,[]
     original=origins[0];owned=original['entityId'];actual=source['avatarEntities']
-    if owned in actual['absentIds']:raise PhasePending('An advertised avatar entity is not available in the actual tree yet')
+    if owned in actual['absentIds']:
+        if owned in actual['advertisedIds'] or owned in actual['retainedIds']:
+            raise PhasePending('The original avatar entity is advertised or still retained while absent from the tree')
+        return False,[owned]
+    if owned not in actual['advertisedIds']:raise PhasePending('An unadvertised original avatar entity remains in the actual tree')
     rows=[row for row in actual['entities'] if row['entityId']==owned];need(len(rows)<=1)
     if not rows:return False,[owned]
-    row=rows[0];avatar=source['avatar'];need(row['type']=='Model' and row['host']=='avatar' and row['visible']
+    row=rows[0];avatar=source['avatar'];need(row['type']=='Model' and row['host']=='avatar' and row['visible'] and row['originalObject']
         and row['parentId']==original['parentId']==avatar['sessionId'] and row['parentJointIndex']==original['parentJointIndex']==avatar['hipsJoint']
         and row['modelUrl'] in urls['wearable'] and digest(row['modelUrl'])==original['modelUrlSha256'])
     model=row['model']

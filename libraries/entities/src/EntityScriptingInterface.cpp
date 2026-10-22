@@ -714,9 +714,9 @@ QUuid EntityScriptingInterface::addEntityInternal(const EntityItemProperties& pr
         queueEntityMessage(PacketType::EntityAdd, id, propertiesWithSimID);
 #if defined(OVERTE_E2E_FEATURE_TESTS)
         if (entityHostType==entity::HostType::AVATAR && propertiesWithSimID.getType()==EntityTypes::Model) {
-            bool present=false;if (_entityTree) { _entityTree->withReadLock([&] { present=bool(_entityTree->findEntityByEntityItemID(id)); }); }
+            EntityItemPointer original;if (_entityTree) { _entityTree->withReadLock([&] { original=_entityTree->findEntityByEntityItemID(id); }); }
             overte::e2e::FeatureAvatarEntityOrigins::instance().added(id,propertiesWithSimID.getModelURL(),
-                propertiesWithSimID.getParentID(),propertiesWithSimID.getParentJointIndex(),present);
+                propertiesWithSimID.getParentID(),propertiesWithSimID.getParentJointIndex(),bool(original),original);
         }
 #endif
         return id;

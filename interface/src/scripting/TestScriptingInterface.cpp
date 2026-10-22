@@ -1503,15 +1503,28 @@ QVariantMap TestScriptingInterface::phoneAvatarPeopleObservation(const QVariantM
     for (auto it=hash.begin();it!=hash.end();++it) { if (!it.value()) { return {}; }const auto data=it.value()->getAvatarEntityData();if (data.size()>128) { return {}; }
         for (auto entry=data.begin();entry!=data.end();++entry) { ownedIds.insert(entry.key()); }
     }
-    if (ownedIds.size()>256) { return {}; }QVariantList entityRows,absentIds;
+    if (ownedIds.size()>256) { return {}; }
+    const auto advertisedIds=ownedIds;auto& origins=overte::e2e::FeatureAvatarEntityOrigins::instance();
+    bool inventoryComplete=false;QHash<EntityItemID,EntityItemPointer> treeObjects;
+    treeRenderer->getTree()->withReadLock([&] { treeObjects=treeRenderer->getTree()->e2eEntityInventory(inventoryComplete); });
+    if (!inventoryComplete) { return {}; }
+    const QRegularExpression ownedModel("\\A/feature-fixture/v1/runs/"+run+"/tickets/[0-9a-f]{32}/gltf-bundle/main\\.gltf\\z");
+    for (auto it=treeObjects.begin();it!=treeObjects.end();++it) { if (!it.value()) { return {}; }const auto p=it.value()->getProperties();
+        if (p.getType()==EntityTypes::Model && ownedModel.match(QUrl(p.getModelURL()).path()).hasMatch()) { ownedIds.insert(it.key()); }
+    }
+    ownedIds.unite(origins.knownIds(run));if (ownedIds.size()>512) { return {}; }
+    QVariantList entityRows,absentIds,advertised,queried;
+    for (const auto& id:advertisedIds) { advertised.append(id.toString(QUuid::WithoutBraces)); }
+    for (const auto& id:ownedIds) { queried.append(id.toString(QUuid::WithoutBraces)); }
     auto vec=[](const glm::vec3& value) { return QVariantList{value.x,value.y,value.z}; };
     auto quat=[](const glm::quat& value) { return QVariantList{value.x,value.y,value.z,value.w}; };
     for (const auto& id:ownedIds) {
-        if (id.isNull()) { return {}; }const auto p=entities->getEntityProperties(id);
-        if (p.getType()==EntityTypes::Unknown) { absentIds.append(id.toString(QUuid::WithoutBraces));continue; }
+        if (id.isNull()) { return {}; }const auto actual=treeObjects.value(EntityItemID(id));
+        if (!actual) { absentIds.append(id.toString(QUuid::WithoutBraces));continue; }
+        const auto p=actual->getProperties();const bool originalObject=origins.observe(run,id,actual);
         QVariant nativeModel;
         if (p.getType()==EntityTypes::Model) {
-            std::shared_ptr<RenderableModelEntityItem> entity;treeRenderer->getTree()->withReadLock([&] { entity=std::dynamic_pointer_cast<RenderableModelEntityItem>(treeRenderer->getTree()->findEntityByEntityItemID(id)); });
+            const auto entity=std::dynamic_pointer_cast<RenderableModelEntityItem>(actual);
             if (entity) { const auto model=entity->e2eAvatarEntityModel();if (model) {
                 QVariant geometrySource;const auto geometry=model->getGeometry();
                 if (geometry && geometry->isHFMModelLoaded()) { geometrySource=QVariantMap{{"instance",geometry->e2eGeometryInstance()},
@@ -1523,9 +1536,13 @@ QVariantMap TestScriptingInterface::phoneAvatarPeopleObservation(const QVariantM
         entityRows.append(QVariantMap{{"entityId",id.toString(QUuid::WithoutBraces)},{"type",EntityTypes::getEntityTypeName(p.getType())},
             {"host",p.getEntityHostType()==entity::HostType::AVATAR ? "avatar" : p.getEntityHostType()==entity::HostType::LOCAL ? "local" : "domain"},
             {"parentId",p.getParentID().toString(QUuid::WithoutBraces)},{"parentJointIndex",p.getParentJointIndex()},{"modelUrl",p.getModelURL()},
-            {"visible",p.getVisible()},{"localPosition",vec(p.getLocalPosition())},{"localRotation",quat(p.getLocalRotation())},
+            {"visible",p.getVisible()},{"originalObject",originalObject},{"localPosition",vec(p.getLocalPosition())},{"localRotation",quat(p.getLocalRotation())},
             {"localDimensions",vec(p.getLocalDimensions())},{"model",nativeModel}});
     }
+    const auto resourceReplies=overte::e2e::FeatureResourceReplies::instance().snapshot(run);
+    const auto peopleReplies=overte::e2e::FeaturePeopleReplies::instance().snapshot();
+    const auto avatarOrigins=origins.snapshot(run);const auto retained=origins.retained(run);QVariantList remembered;
+    for (const auto& id:origins.knownIds(run)) { remembered.append(id.toString(QUuid::WithoutBraces)); }
     const auto captured=QDateTime::currentMSecsSinceEpoch();if (captured<requested || captured-requested>1500) { return {}; }
     return {{"avatarPeopleObservationVersion",1},{"commandId",request},{"runId",run},{"instance",_featureObservationInstance},
         {"sequence",static_cast<qulonglong>(++_phoneAvatarPeopleSequence)},{"processId",QCoreApplication::applicationPid()},
@@ -1533,10 +1550,9 @@ QVariantMap TestScriptingInterface::phoneAvatarPeopleObservation(const QVariantM
         {"source",QVariantMap{{"view",view},{"bookmarks",bookmarks},{"auth",auth},{"accountOrigin",accountOrigin},{"avatar",original},{"peers",peers},
             {"canRezAvatarEntities",canRez},{"attachments",attachments},{"preferredAvatarUrl",local->getFullAvatarURLFromPreferences().toString()},{"preferredAvatarName",local->getFullAvatarModelName()},
             {"domainId",nodes->getDomainHandler().getUUID().toString(QUuid::WithoutBraces)},{"connected",nodes->getDomainHandler().isConnected()},
-            {"resourceReplies",overte::e2e::FeatureResourceReplies::instance().snapshot(run)},
-            {"peopleReplies",overte::e2e::FeaturePeopleReplies::instance().snapshot()},
-            {"avatarEntityOrigins",overte::e2e::FeatureAvatarEntityOrigins::instance().snapshot(run)},
-            {"avatarEntities",QVariantMap{{"complete",true},{"entities",entityRows},{"absentIds",absentIds}}}}}};
+            {"resourceReplies",resourceReplies},{"peopleReplies",peopleReplies},{"avatarEntityOrigins",avatarOrigins},
+            {"avatarEntities",QVariantMap{{"complete",true},{"entities",entityRows},{"absentIds",absentIds},
+                {"advertisedIds",advertised},{"queriedIds",queried},{"rememberedIds",remembered},{"retainedIds",retained}}}}}};
 }
 QVariantMap TestScriptingInterface::phoneScriptFileUi(const QVariantMap& command) { return phoneControlUi(command, 0); }
 QVariantMap TestScriptingInterface::phoneAudioUi(const QVariantMap& command) { return phoneControlUi(command, 1); }

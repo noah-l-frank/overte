@@ -129,6 +129,13 @@ public:
     void deleteEntitiesByID(const std::vector<EntityItemID>& entityIDs, bool force = false, bool ignoreWarnings = true);
     void deleteEntitiesByPointer(const std::vector<EntityItemPointer>& entities);
 
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    // Passive bounded inventory. A missing/oversized tree is never empty success.
+    QHash<EntityItemID,EntityItemPointer> e2eEntityInventory(bool& complete) const {
+        QReadLocker guard(&_entityMapLock);complete=_entityMap.size()<=4096;
+        return complete ? _entityMap : QHash<EntityItemID,EntityItemPointer>();
+    }
+#endif
     EntityItemPointer findEntityByID(const QUuid& id) const;
     EntityItemPointer findEntityByEntityItemID(const EntityItemID& entityID) const;
     virtual SpatiallyNestablePointer findByID(const QUuid& id) const override { return findEntityByID(id); }

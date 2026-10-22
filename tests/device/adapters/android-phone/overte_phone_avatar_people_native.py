@@ -167,13 +167,13 @@ def entities(source,epoch,run,previous=None):
     if previous is not None:
         old=previous['avatarEntityOrigins'];need(origins['instance']==old['instance'] and origins['sequence']>old['sequence']
             and origins['capturedEpochMs']>=old['capturedEpochMs'] and same(origins['events'][:len(old['events'])],old['events']))
-    actual=source['avatarEntities'];exact(actual,{'complete','entities','absentIds'})
-    need(actual['complete'] is True and type(actual['entities']) is list and len(actual['entities'])<=256 and type(actual['absentIds']) is list and len(actual['absentIds'])<=256)
+    actual=source['avatarEntities'];exact(actual,{'complete','entities','absentIds','advertisedIds','queriedIds','rememberedIds','retainedIds'})
+    need(actual['complete'] is True and type(actual['entities']) is list and len(actual['entities'])<=512 and type(actual['absentIds']) is list and len(actual['absentIds'])<=512)
     ids=set()
     for row in actual['entities']:
-        exact(row,{'entityId','type','host','parentId','parentJointIndex','modelUrl','visible','localPosition','localRotation','localDimensions','model'})
+        exact(row,{'entityId','type','host','parentId','parentJointIndex','modelUrl','visible','originalObject','localPosition','localRotation','localDimensions','model'})
         session(row['entityId']);session(row['parentId']);need(row['entityId'] not in ids and text(row['type'],128) and row['host'] in ('avatar','local','domain')
-            and integer(row['parentJointIndex'],0,65535) and text(row['modelUrl']) and type(row['visible']) is bool)
+            and integer(row['parentJointIndex'],0,65535) and text(row['modelUrl']) and type(row['visible']) is bool and type(row['originalObject']) is bool)
         ids.add(row['entityId'])
         for key,count in (('localPosition',3),('localRotation',4),('localDimensions',3)):
             need(type(row[key]) is list and len(row[key])==count and all(number(v,-1e6,1e6) for v in row[key]))
@@ -188,6 +188,14 @@ def entities(source,epoch,run,previous=None):
                     and type(g['texturesLoaded']) is bool and type(g['textures']) is dict and len(g['textures'])<=256 and all(text(k,1024) and text(v) for k,v in g['textures'].items()))
             need(not m['loaded'] or m['geometry'] is not None)
     for id in actual['absentIds']:session(id);need(id not in ids);ids.add(id)
+    for key in ('advertisedIds','queriedIds','rememberedIds','retainedIds'):
+        rows=actual[key];need(type(rows) is list and len(rows)<=512 and len(set(rows))==len(rows))
+        for id in rows:session(id)
+    need(set(actual['queriedIds'])==ids and set(actual['advertisedIds'])<=ids and set(actual['retainedIds'])<=ids
+        and {row['entityId'] for row in origins['events']}<=set(actual['rememberedIds'])<=ids
+        and {row['entityId'] for row in actual['entities']}<=set(actual['rememberedIds']) and set(actual['retainedIds'])<=set(actual['rememberedIds'])
+        and all(not row['originalObject'] or row['entityId'] in actual['retainedIds'] for row in actual['entities']))
+    if previous is not None:need(set(previous['avatarEntities']['rememberedIds'])<=set(actual['rememberedIds']))
 
 
 def validate(value,request,pid,epoch,*,previous=None):
@@ -249,6 +257,15 @@ def validate(value,request,pid,epoch,*,previous=None):
 
 
 class PhoneAvatarPeopleObservation(NativeScriptRoots):
+    def restore(self,packets):
+        need(self.last is None and type(packets) is list and 0<len(packets)<=256 and self.guard() is not False)
+        seen=set();run=None
+        for value in packets:
+            original=dict(schemaVersion=1,commandId=value.get('commandId'),action=ACTION,runId=value.get('runId'))
+            validate(value,original,self.pid,value.get('capturedEpochMs'),previous=self.last)
+            need(value['commandId'] not in seen and run in (None,value['runId']))
+            seen.add(value['commandId']);run=value['runId'];self.last=deepcopy(value)
+
     def read(self,run):
         need(self.ios is False)
         barrier=self.clock_ms();need(integer(barrier,1) and self.guard() is not False)

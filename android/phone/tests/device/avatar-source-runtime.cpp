@@ -57,12 +57,21 @@ int main(int argc,char** argv) {
     if (people.snapshot().value("events").toList()!=socialRows) { return 8; }
     auto& origins=overte::e2e::FeatureAvatarEntityOrigins::instance();
     const QUuid entity("11111111-1111-4111-8111-111111111111"),parent("22222222-2222-4222-8222-222222222222");
-    const auto url=a.toString().replace("avatar-a.fst","gltf-bundle/main.gltf");origins.added(entity,url,parent,17,true);
+    const auto url=a.toString().replace("avatar-a.fst","gltf-bundle/main.gltf");auto entityObject=std::make_shared<int>(17);
+    origins.added(entity,url,parent,17,true,entityObject);
     const auto original=origins.snapshot(QString(32,'a'));const auto returned=original.value("events").toList();
     if (!original.value("complete").toBool() || returned.size()!=1 || returned[0].toMap().value("entityId").toString()!=entity.toString(QUuid::WithoutBraces)
             || returned[0].toMap().value("parentJointIndex").toInt()!=17 || !returned[0].toMap().value("treePresent").toBool()) { return 9; }
-    origins.added(QUuid::createUuid(),"https://controlled.invalid/foreign",parent,17,true);
+    origins.added(QUuid::createUuid(),"https://controlled.invalid/foreign",parent,17,true,entityObject);
     if (origins.snapshot(QString(32,'a')).value("events").toList()!=returned || !origins.snapshot(QString(32,'e')).value("events").toList().isEmpty()) { return 10; }
+    if (!origins.knownIds(QString(32,'a')).contains(entity) || !origins.observe(QString(32,'a'),entity,entityObject)
+            || origins.retained(QString(32,'a')).size()!=1) { return 25; }
+    auto replacement=std::make_shared<int>(18);
+    if (origins.observe(QString(32,'a'),entity,replacement)) { return 26; }
+    entityObject.reset();if (!origins.retained(QString(32,'a')).isEmpty() || !origins.knownIds(QString(32,'a')).contains(entity)) { return 27; }
+    const auto remoteId=QUuid::createUuid();
+    if (!origins.observe(QString(32,'a'),remoteId,replacement) || !origins.knownIds(QString(32,'a')).contains(remoteId)) { return 28; }
+    replacement.reset();if (!origins.retained(QString(32,'a')).isEmpty()) { return 29; }
     using Lease=overte::e2e::MeasuredCameraLease;
     const QVariantMap cameraOriginal{{"mode","selfie"},{"position",QVariantList{0.,1.6,4.}},
         {"rotation",QVariantList{0.,0.,0.,1.}},{"projection",QVariantList{1.,0.,0.,0.,0.,1.,0.,0.,0.,0.,-1.,-1.,0.,0.,-.2,0.}}};
