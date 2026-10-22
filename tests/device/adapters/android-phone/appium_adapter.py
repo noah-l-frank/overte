@@ -1639,6 +1639,29 @@ class PhoneAppiumAdapter(AppiumAdapter):
             self._script_execution_observer(selector,read_only=True),self._snapshot_source(selector),
             native.guard,native.clock_ms,native.pid,monotonic=native.monotonic)
 
+    def _snapshot_system_files(self,selector,artifact_root,owner_path,application_binding,resolution,authority,handoff_source):
+        from overte_phone_snapshot_capture_files import CaptureFileTransport,PhoneSnapshotCaptureFiles
+        from overte_phone_snapshot_system_files import SnapshotSystemFileSource
+        from overte_phone_snapshot_handoff import PhoneSnapshotHandoff
+        scope=self._snapshot_system_context(selector,application_binding,resolution,authority)
+        require(isinstance(handoff_source,PhoneSnapshotHandoff)
+            and handoff_source.owner['processId']==int(application_binding['processIdentity'].split(':')[0]),
+            'PHONE_SNAPSHOT_PASSIVE_FILE_ORIGINAL_SOURCE_REQUIRED')
+        # Reuse this role's original reader, retaining every nested sequence
+        # floor across the file-owner reads and the final measurement group.
+        source=SnapshotSystemFileSource(handoff_source)
+        target=self.target(selector);binding={key:application_binding[key] for key in ('sourceRevision','artifactSha256','processIdentity')}
+        transport=CaptureFileTransport(PhoneAdapter(self.candidate).adb,target['capabilities']['appium:udid'],target['appId'],
+            binding,scope.guard,artifact_root)
+        return PhoneSnapshotCaptureFiles(transport,source,application_binding,owner_path,read_only=True)
+
+    def _snapshot_system_platform(self,selector,application_binding,resolution,authority):
+        from overte_phone_snapshot_platform import PhoneSnapshotPlatform
+        scope=self._snapshot_system_context(selector,application_binding,resolution,authority)
+        target=self.target(selector);device=target['capabilities']['appium:udid'];transport=PhoneAdapter(self.candidate).adb
+        return PhoneSnapshotPlatform(lambda:transport.prop(device,'ro.build.version.sdk'),scope.guard,
+            lambda:transport.epoch_milliseconds(device))
+
     def _snapshot_source(self,selector):
         from overte_phone_snapshot_source import PhoneSnapshotSource,FILE
         native=self._native_feature_observer(selector,read_only=True)

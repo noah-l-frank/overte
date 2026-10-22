@@ -667,3 +667,23 @@ leaves settings, descriptors, workers, grants or files live. The upload join
 uses the real loopback HTTPS provider's retained multipart original. Native,
 VM and Android producers in this check are explicit synthetic seams; this
 component does not enable or qualify the complete public Snapshot capability.
+
+### Readonly original file inventory across an owned OS handoff
+
+`_snapshot_system_files(..., handoff_source)` combines the existing narrow
+`SnapshotSystemContext`, the role's existing `PhoneSnapshotHandoff` reader, and
+the unchanged private file transport/owner. `SnapshotSystemFileSource` accepts
+only `observe` for that original handoff run. It sends no native commands and
+cannot plan, delete or seal files. Every read uses a newly acquired passive
+batch; the same role reader retains all its original nested sequence floors.
+An independent readonly file journal attaches only to the original writer's
+actual binding and still scans real namespace/root/device/inode/hash identities.
+The primary writer and each readonly observer keep separate host journals and
+copies. `_snapshot_system_platform` reads the actual SDK property under the same
+narrow OS guard. Normal foreground command guards are unchanged.
+
+The host check joins this passive source to actual private files and the existing
+fixed shell transport. Mutation/foreign-run attempts, stale or foreign native
+frames, rolled-back plans and same-byte inode replacement remain red. The native
+passive producer and OS transport are explicit synthetic seams; no device or
+background event-loop acceptance follows from this check.
