@@ -24,11 +24,26 @@ vertical segment of the existing Audio recipe. The normal path is:
    Preserve the separately retained QQmlContext instead of calling it dead.
 7. Prove three seconds of original Home/native/PCM quiet, press ordinary X to
    close the owned tablet, then prove another fresh three-second quiet window.
+8. With actual settings version 2, wait read-only for original native callback
+   capture destruction and an exact match of the observed original resource
+   baseline. Then require another three seconds of independent original quiet
+   while that resource match remains true. Passing the original 30-second delay,
+   PCM absence or a dead receiver cannot substitute for native retirement.
 
 The full original UI/settings/Lifecycle packets and post-release PCM-absence
 packets remain in the private, bounded compressed journal with SHA-256. Both
 quiet windows retain their exact original frame indices. All nine original
 native/host clocks must cover three seconds; a gap over 500 ms resets a window.
+The final native wait is bounded to 40 seconds and retains every original
+sample. No new normal input or source callback is registered while waiting.
+Its completed quiet windows are derived from the same saved original frame
+indices, including every native lifetime DTO; the journal format is unchanged.
+The report separately exposes actual callback retirement, observed resource
+baseline match, and native lifetime quiet windows. A retained capacity or newly
+created stopped polling timer prevents a resource match even with empty PCM.
+Historical settings version 1 reports those lifetime facts as unavailable;
+`await_deferred()` refuses it instead of treating missing originals as zero.
+
 Historical windows never replace a fresh read after reconstruction. A repeated
 closed-boundary invocation acquires a new final window without sending input.
 
@@ -55,7 +70,10 @@ and controller host boundaries. It covers the complete segment, original true
 and false peak/mute states, lost entry/mute/release responses, acknowledgements
 without actual page/tablet effects, hidden retained pages, failed peak restore,
 old native events, changed original contexts, final clock/copy aging and fresh
-quiet after reconstruction/gaps. Native observer and unchanged full Audio.qml
+quiet after reconstruction/gaps. Explicit original callback publications are
+also composed with the entire normal version 2 flow; frozen pending callbacks
+after the requested due time, retained allocation capacity, and resource changes
+during the final quiet window fail while retaining journals. Native observer and unchanged full Audio.qml
 checks remain in `audio-settings-source`; neither group is device evidence.
 
 This is not complete `feature.audio.*` qualification. The remaining recipe needs

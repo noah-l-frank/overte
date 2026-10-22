@@ -10,6 +10,7 @@ from adapters.recorded_preview_evidence import INPUT,SINK
 from adapters.script_journey.history import pack,unpack
 from adapters.script_journey.lock import ScriptSourceLock
 from adapters.audio_preview import AudioPreview
+from adapters import audio_preview_lifetime as lifetime
 from adapters.token_audio_ui import TokenAudioUI
 from adapters.native_chat_view import measured_keyboard
 from adapters.pico4 import audio_pages as pages,audio_settings_source as settings,lifecycle_source as ui
@@ -289,11 +290,35 @@ class PicoAudioPageOwner:
         normal,audio,lifecycle,empty=self.packets(row);need(empty is not None)
         return [audio['capturedEpochMs'],lifecycle['capturedEpochMs'],normal['picoAudioPages']['capturedEpochMs'],empty['capturedEpochMs'],
             *(audio['source'][key] for key in settings.CLOCKS),row['hostMonotonic']*1000]
-    def quiet(self,where):
+    def lifetime(self,row):
+        audio=self.packets(row)[1]
+        return audio['source'].get('previewLifetime') if audio['audioSettingsVersion']==2 else None
+    def resource_match(self,row):
+        current,original=self.lifetime(row),self.lifetime(self.state['frames'][0])
+        return None if current is None or original is None else lifetime.restored(current,original)
+    def await_deferred(self):
+        """Read original closure destruction without sending or repeating input.
+
+        The native 30s callback supplies immutable events. Requested waiting,
+        PCM absence and receiver death never produce a retirement event here.
+        The bounded journal remains retained on timeout or unavailable data.
+        """
+        with self.lock.held():
+            self.load();need(self.state['phase']=='closed' and self.lifetime(self.state['frames'][0]) is not None)
+            started=self.now()
+            for attempt in range(41):
+                row=self.capture(empty=True);self.check(row,'closed')
+                need(self.packets(row)[1]['source']['native']['previewCycle']==1 and self.preview.owned()['releaseState']=='verified')
+                state=deepcopy(self.state);state['frames'].append(row);self.save(state);result=self.report();self.fresh()
+                if self.resource_match(row) is True:return self.quiet('closed',require_deferred=True)
+                need(self.now()-started<40 and attempt<40);self.settings.sleep(1)
+            need(False)
+    def quiet(self,where,*,require_deferred=False):
         with self.lock.held():
             self.load();need(where in ('home','closed') and self.state['phase']==where);origin=prior=None;first_index=None;started=self.now()
             for _attempt in range(41):
                 row=self.capture(empty=True);self.check(row,where);_,audio,lifecycle,empty=self.packets(row)
+                if require_deferred:need(self.resource_match(row) is True)
                 need(audio['source']['native']['previewCycle']==1 and self.preview.owned()['releaseState']=='verified')
                 clocks=self.clocks(row)
                 if prior is None or any(now-old>500 for now,old in zip(clocks,prior)):origin=clocks;first_index=len(self.state['frames'])
@@ -306,10 +331,15 @@ class PicoAudioPageOwner:
     def report(self):
         need(self.state is not None);normal,audio,lifecycle,_=self.packets(self.state['frames'][-1]);original=None
         if self.state['originalId'] is not None:original=pages.original(normal['picoAudioPages'],self.state['originalId'])
+        current=self.lifetime(self.state['frames'][-1]);native_quiet=[]
+        for window in self.state['quiet']:
+            if all(self.resource_match(row) is True for row in self.state['frames'][window['first']:window['last']+1]):native_quiet.append(window['where'])
         return dict(phase=self.state['phase'],partialRecipe='normal-muted-start-rejection',fullAudioQualified=False,
             tabletShown=lifecycle['source']['tabletShown'],audioPageCurrent=bool(normal['picoAudioPages']['current']),
             pageAlive=None if original is None else original['pageAlive'],contextAlive=None if original is None else original['contextAlive'],
-            inputPeakValuesEnabled=audio['source']['inputPeakValuesEnabled'],originalQuietWindows=[row['where'] for row in self.state['quiet']],journalsRetained=True)
+            inputPeakValuesEnabled=audio['source']['inputPeakValuesEnabled'],
+            nativeDeferredFunctorsRetired=None if current is None else lifetime.deferred_retired(current),
+            nativeResourceMatchesBaseline=self.resource_match(self.state['frames'][-1]),nativeDeferredQuietWindows=native_quiet,originalQuietWindows=[row['where'] for row in self.state['quiet']],journalsRetained=True)
 
 
 def run_normal_audio_page(owner):
@@ -334,7 +364,10 @@ def run_normal_audio_page(owner):
             elif phase=='rejected':owner.action('restore')
             elif phase=='restored':owner.release()
             elif phase=='released':owner.close_page()
-            elif phase=='home':return owner.close_tablet()
-            elif phase=='closed':return owner.quiet('closed')
+            elif phase=='home':
+                result=owner.close_tablet()
+                return owner.await_deferred() if owner.lifetime(owner.state['frames'][0]) is not None else result
+            elif phase=='closed':
+                return owner.await_deferred() if owner.lifetime(owner.state['frames'][0]) is not None else owner.quiet('closed')
             else:need(False)
         need(False)

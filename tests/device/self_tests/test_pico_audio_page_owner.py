@@ -28,12 +28,13 @@ from self_tests.test_pico_openxr_adapter_session import FakeTransport
 
 
 class Boundary(PreviewBoundary):
-    def __init__(self,path,*,peak=False,muted=False):
+    def __init__(self,path,*,peak=False,muted=False,lifetime=False):
         super().__init__();self.shown=self.opened=False;self.origin_peak=self.peak=peak;self.muted=muted
         self.pages=PageBoundary();self.settings=SettingsBoundary();self.ui=UiBoundary();self.ui.rows=[];self.ui.raised=False
         self.sequence=0;self.entry_inputs=0;self.fault_effect='';self.entry_lost=False;self.retain_page=False;self.record_starts={}
         self.binding=dict(BASE_BINDING,sessionId=BRIDGE);self.path=path;self.lock=ScriptSourceLock(path/'script-sources.lock')
         self.instance=self.generation=BRIDGE;self.pages_mutate=None
+        self.lifetime=lifetime;self.callback_events={};self.retained_capacity=0
         original=self.native.mutate
         def native(packet):
             original(packet);packet.update(capturedEpochMs=self.epoch(),requestedEpochMs=self.epoch());packet['animation']={};packet['animationFence']={}
@@ -92,12 +93,24 @@ class Boundary(PreviewBoundary):
         super().evidence_send(command)
         if self.preview_value and 'capturedEpochMs' in self.preview_value:
             self.preview_value.update(requestedEpochMs=self.epoch(),capturedEpochMs=self.epoch())
+    def complete_callback(self):
+        # Explicit original-source boundary publication. Native callback timing
+        # and actual lease destruction are independently checked by real Qt.
+        self.callback_events[self.cycle]=dict(enteredEpochMs=self.epoch(),completedEpochMs=self.epoch(),retiredEpochMs=self.epoch(),retired=True)
     def owner(self):
         def setting_send(request):
             self.settings.time=self.clock;self.settings.source.update(inputPeakValuesEnabled=self.peak)
             self.settings.source['properties'].update(muted=self.muted,mutedHMD=self.muted)
             self.settings.source['native'].update(muted=self.muted,previewCycle=self.cycle,previewActive=self.active)
             self.settings.send(request)
+            if self.lifetime:
+                from self_tests.test_audio_preview_lifetime import sample
+                value=sample(self.cycle)
+                for callback in value['deferred']['callbacks']:
+                    callback['registeredEpochMs']=self.record_starts[callback['cycle']]
+                    callback.update(self.callback_events.get(callback['cycle'],{}))
+                value.update(previewBufferCapacityBytes=self.retained_capacity)
+                self.settings.value.update(audioSettingsVersion=2);self.settings.value['source']['previewLifetime']=value
         source=self.settings.reader();source.send=setting_send;source.clock_ms=self.epoch;source.monotonic=lambda:self.clock;source.sleep=self.sleep;source.guard=self.guard;source.source_lock=self.lock
         def ui_send(request):
             self.ui.shown=self.shown;self.ui.home=self.shown and not self.opened;self.ui.send(request);self.ui.value['capturedEpochMs']=self.epoch()
@@ -124,6 +137,59 @@ class AudioPageOwnerTests(unittest.TestCase):
         self.assertFalse(self.boundary.muted);self.assertEqual({},self.boundary.files);self.assertGreaterEqual(self.boundary.clock,12)
         self.assertTrue(self.flow.store.path.exists());self.assertTrue(self.flow.preview.store.path.exists())
         with self.flow.lock.held():self.assertEqual(3,len(self.flow.state['streams']))
+    def native_closed(self):
+        directory=self.path/'lifetime';directory.mkdir(mode=0o700);self.boundary=Boundary(directory,lifetime=True);self.flow=self.boundary.owner()
+        self.rejected();self.flow.action('restore');self.flow.release();self.flow.close_page();self.flow.close_tablet()
+        return deepcopy(self.boundary.actions),len(self.boundary.transport.envelopes)
+    def test_native_callback_release_requires_original_events_then_three_second_quiet(self):
+        actions,streams=self.native_closed();original=self.flow.report()
+        self.assertFalse(original['nativeDeferredFunctorsRetired']);self.assertFalse(original['nativeResourceMatchesBaseline'])
+        self.assertEqual([],original['nativeDeferredQuietWindows']);native_sleep=self.boundary.sleep;publications=0
+        def emit(seconds):
+            nonlocal publications
+            native_sleep(seconds);publications+=1
+            if publications==2:self.boundary.complete_callback()
+        self.flow.settings.sleep=emit;result=self.flow.await_deferred()
+        self.assertTrue(result['nativeDeferredFunctorsRetired']);self.assertTrue(result['nativeResourceMatchesBaseline'])
+        self.assertEqual(['closed'],result['nativeDeferredQuietWindows']);self.assertFalse(result['fullAudioQualified'])
+        self.assertEqual(actions,self.boundary.actions);self.assertEqual(streams,len(self.boundary.transport.envelopes))
+        recovered=self.boundary.owner();self.assertEqual(result,recovered.report());self.assertTrue(recovered.store.path.exists())
+    def test_normal_v2_recipe_joins_actual_release_without_more_input(self):
+        from adapters.pico4.audio_page_owner import run_normal_audio_page
+        directory=self.path/'v2';directory.mkdir(mode=0o700);native=Boundary(directory,lifetime=True);flow=native.owner()
+        def publish(seconds):
+            native.sleep(seconds)
+            if not native.shown and native.cycle==1 and 1 not in native.callback_events:native.complete_callback()
+        flow.settings.sleep=publish;result=run_normal_audio_page(flow)
+        self.assertEqual('closed',result['phase']);self.assertEqual(['closed'],result['nativeDeferredQuietWindows'])
+        self.assertTrue(result['nativeResourceMatchesBaseline']);self.assertFalse(result['fullAudioQualified'])
+        self.assertEqual(3,len(native.transport.envelopes));self.assertEqual(1,native.actions.count('audio.record'))
+    def test_changed_resource_during_native_final_quiet_leaves_no_completed_window(self):
+        self.native_closed();self.boundary.complete_callback();native_sleep=self.boundary.sleep
+        def retain(seconds):native_sleep(seconds);self.boundary.retained_capacity=65536
+        self.flow.settings.sleep=retain
+        with self.assertRaises(NativeUIError):self.flow.await_deferred()
+        self.assertEqual([],self.flow.report()['nativeDeferredQuietWindows']);self.assertEqual(2,len(self.flow.state['quiet']))
+        self.assertTrue(self.flow.store.path.exists())
+
+    def test_elapsed_due_time_empty_pcm_and_stopped_ui_never_retire_a_native_callback(self):
+        actions,streams=self.native_closed();self.boundary.sleep(60)
+        # Keep publication frozen pending even after the actual requested due
+        # time. Only native-source events can complete the wait.
+        with self.assertRaises(NativeUIError):self.flow.await_deferred()
+        self.assertFalse(self.flow.report()['nativeDeferredFunctorsRetired']);self.assertEqual('closed',self.flow.state['phase'])
+        self.assertEqual(actions,self.boundary.actions);self.assertEqual(streams,len(self.boundary.transport.envelopes))
+        self.assertTrue(self.flow.store.path.exists());self.assertTrue(self.flow.preview.store.path.exists())
+    def test_retired_callback_with_retained_allocation_does_not_restore_original_resources(self):
+        self.native_closed();self.boundary.complete_callback();self.boundary.retained_capacity=65536
+        with self.assertRaises(NativeUIError):self.flow.await_deferred()
+        result=self.flow.report();self.assertTrue(result['nativeDeferredFunctorsRetired']);self.assertFalse(result['nativeResourceMatchesBaseline'])
+        self.assertEqual([],result['nativeDeferredQuietWindows']);self.assertFalse(result['fullAudioQualified'])
+    def test_legacy_lifetime_missing_never_becomes_an_empty_native_owner(self):
+        self.rejected();self.flow.action('restore');self.flow.release();self.flow.close_page();self.flow.close_tablet()
+        with self.assertRaises(NativeUIError):self.flow.await_deferred()
+        self.assertIsNone(self.flow.report()['nativeDeferredFunctorsRetired']);self.assertIsNone(self.flow.report()['nativeResourceMatchesBaseline'])
+
     def test_entry_ack_without_original_page_is_unresolved_and_never_repeated(self):
         self.flow.prepare();self.flow.tablet();self.boundary.fault_effect='entry-ack-only'
         with self.assertRaises(NativeUIError):self.flow.open_audio()
