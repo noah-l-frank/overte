@@ -54,7 +54,17 @@
         "tests/device/native/NormalPlacesControls.h",
         "tests/device/adapters/pico4/PLACES_BOOKMARKS.md",
         "tests/device/self_tests/test_token_places_ui.py",
-        "tests/device/self_tests/test_navigation_bookmarks.py"
+        "tests/device/self_tests/test_navigation_bookmarks.py",
+        "libraries/networking/src/FeatureNavigationReplyCapture.h",
+        "tests/device/native/NavigationFailureModals.h",
+        "tests/device/adapters/native_navigation_modals.py",
+        "tests/device/adapters/token_navigation_error_ui.py",
+        "tests/device/adapters/navigation_error_dismissal.py",
+        "tests/device/adapters/pico4/normal_navigation_error.py",
+        "tests/device/adapters/pico4/NAVIGATION_ERROR.md",
+        "tests/device/self_tests/test_native_navigation_modals.py",
+        "tests/device/self_tests/test_token_navigation_error_ui.py",
+        "tests/device/self_tests/test_navigation_error_dismissal.py"
       ],
       "declaredCheckpoints": 15,
       "inputVerbs": [
@@ -83,7 +93,7 @@
         "addressDialog"
       ],
       "missingOperationsOrEvidence": [
-        "Whole-area integration of the present normal Places/bookmark input and durable five-operation storage flow with original response, modal, arrival and actual restart",
+        "Whole-area integration of the present normal Places/bookmark flow and original lookup-error modal/normal OK/quiet release with directory consumption, arrival and actual restart",
         "Selected normal metaverse origin/account/federation/maturity setup and restoration; current directory response/model/normal selection/arrival composition",
         "Whole-area independent publisher and complete original callback/resource retirement"
       ],
@@ -99,7 +109,7 @@
         "Restore original location and closed owned dialogs",
         "Prove pending reply/callback retirement and a three-second quiet baseline"
       ],
-      "nextExecutableStep": "Compose the present normal Places/model and durable bookmark input/storage flow with the original selected-origin/account source, provider response/model/native arrival/stereo join, matching failed-lookup modal, actual restart and independent final quiet/resource observer before registering the complete area triple.",
+      "nextExecutableStep": "Compose the normal Places/bookmark and original lookup-error dismissal owners with original selected-origin/account preservation, directory response/model/native arrival/stereo join, actual restart and an independent final quiet/resource observer before registering the complete area triple.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     },

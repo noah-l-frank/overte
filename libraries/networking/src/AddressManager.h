@@ -402,7 +402,13 @@ signals:
      * @function location.lookupResultIsNotFound
      * @returns {Signal}
      */
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+    // Diagnostic value follows the same original AutoConnection across the
+    // NodeList -> GUI queue. No extra signal or UI invocation is introduced.
+    void lookupResultIsNotFound(const QVariantMap& featureOriginalError);
+#else
     void lookupResultIsNotFound();
+#endif
 
     /*@jsdoc
      * Triggered when a request is made to go to a URL or IP address.
@@ -560,7 +566,11 @@ private:
     QUrl _previousAPILookup;
     overte::network::RequestScope _lookupRequests;
 #if defined(OVERTE_E2E_FEATURE_TESTS)
+#if defined(ANDROID_APP_PICO_INTERFACE)
+    overte::e2e::FeatureNavigationReplies _featureNavigationReplies{this};
+#else
     overte::e2e::FeatureNavigationReplies _featureNavigationReplies;
+#endif
 #endif
     bool _clientLookupPolicy { false };
     bool _lookupForeground { true };

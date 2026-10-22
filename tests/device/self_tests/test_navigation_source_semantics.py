@@ -96,5 +96,26 @@ source.transmitPortalList();assert.deepEqual(calls,['abort','servers',[0,4]]);as
 assert.equal(source.metaverseServers.length,0);assert.equal(source.nbrPlaceProtocolKnown,0);
 ''')
 
+    def test_original_modal_button_path_selects_before_destroy_and_dispatches_once_per_platform(self):
+        program=r'''
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const modal=fs.readFileSync(process.argv[1],'utf8'),button=fs.readFileSync(process.argv[2],'utf8');
+const start=modal.indexOf('    function click(button) {'),end=modal.indexOf('    function exec()',start);
+assert(start>=0&&end>start);
+const calls=[],ctx={clickedButton:0,selected:value=>calls.push(['selected',value,ctx.clickedButton]),destroy:()=>calls.push(['destroy'])};
+vm.createContext(ctx);vm.runInContext(modal.slice(start,end),ctx);
+const android=button.split('androidClickAction: ')[1].split('\n')[0];
+const ordinary=button.split('onClicked: ')[1].split('\n')[0];
+assert(android&&ordinary);
+const b={dialog:ctx,button:1024,usesAndroidClickAction:true};vm.createContext(b);
+vm.runInContext('const android='+android+';function clicked() '+ordinary+';android();clicked();',b);
+assert.deepEqual(calls,[['selected',1024,1024],['destroy']]);
+calls.length=0;b.usesAndroidClickAction=false;vm.runInContext('clicked()',b);
+assert.deepEqual(calls,[['selected',1024,1024],['destroy']]);
+'''
+        result=subprocess.run(['node','-e',program,str(ROOT/'interface/resources/qml/dialogs/TabletMessageBox.qml'),
+            str(ROOT/'interface/resources/qml/dialogs/messageDialog/MessageDialogButton.qml')],capture_output=True,text=True,timeout=5)
+        self.assertEqual(0,result.returncode,result.stdout+result.stderr)
+
 
 if __name__=='__main__':unittest.main()

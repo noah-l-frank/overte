@@ -20,6 +20,7 @@ from adapters.native_chat_view import NativeChatView, FILE as CHAT_VIEW_FILE
 from adapters.native_web_dom import NativeWebDOMObservation, FILE as WEB_DOM_FILE
 from adapters.native_navigation_replies import NativeNavigationReplies, FILE as NAVIGATION_REPLIES_FILE
 from adapters.native_location_bookmarks import NativeLocationBookmarks, FILE as LOCATION_BOOKMARKS_FILE
+from adapters.native_navigation_modals import NativeNavigationModals, FILE as NAVIGATION_MODALS_FILE
 from adapters.native_process_presence import NativeProcessPresence, FILE as PROCESS_PRESENCE_FILE
 from adapters.pending_commit_owner import NativePendingCommitOwner, FILE as PENDING_OWNER_FILE
 from adapters.native_account_origin import NativeAccountOrigin, OwnedAccountOrigin, FILE as ACCOUNT_ORIGIN_FILE
@@ -491,6 +492,23 @@ def create_adapter(args, base_class):
             return NavigationBookmarks(lambda intent: TokenPlacesUI(PicoPlacesIO(manager.ui.io), intent, run),
                 self._location_bookmarks(target), path, run, manager.binding)
 
+        @_private
+        def _navigation_error_controls(self, target, intent, run):
+            from adapters.token_navigation_error_ui import TokenNavigationErrorUI
+            from adapters.pico4.normal_navigation_error import PicoNavigationErrorIO
+            manager = self._scripts(target)
+            return TokenNavigationErrorUI(PicoNavigationErrorIO(manager.ui.io), intent, run)
+
+        @_private
+        def _navigation_error_dismissal(self, target, path, run, status, provider_instance, provider_inputs, owned_origin, guard):
+            from adapters.navigation_error_dismissal import NavigationErrorDismissal
+            from adapters.token_navigation_error_ui import TokenNavigationErrorUI
+            from adapters.pico4.normal_navigation_error import PicoNavigationErrorIO
+            manager = self._scripts(target)
+            return NavigationErrorDismissal(lambda intent: TokenNavigationErrorUI(PicoNavigationErrorIO(manager.ui.io), intent, run),
+                self._navigation_replies(target), self._navigation_modals(target), status, path, run, manager.binding,
+                provider_instance, provider_inputs, owned_origin, guard)
+
         def _login_controls(self, target, intent, run, origin):
             from adapters.token_login_ui import TokenLoginUI
             from adapters.pico4.normal_login import PicoLoginIO
@@ -650,6 +668,14 @@ def create_adapter(args, base_class):
             return NativeLocationBookmarks(native.send,
                 lambda: self.adb.read_debug_app_file(target, 'org.overte.pico',
                     'files/overte-e2e/' + LOCATION_BOOKMARKS_FILE, attempts=1),
+                native.clock_ms, native.guard, native.pid, monotonic=native.monotonic, sleep=native.sleep)
+
+        @_private
+        def _navigation_modals(self, target):
+            native = self._native_feature_observer(target)
+            return NativeNavigationModals(native.send,
+                lambda: self.adb.read_debug_app_file(target, 'org.overte.pico',
+                    'files/overte-e2e/' + NAVIGATION_MODALS_FILE, attempts=1),
                 native.clock_ms, native.guard, native.pid, monotonic=native.monotonic, sleep=native.sleep)
 
         @_private

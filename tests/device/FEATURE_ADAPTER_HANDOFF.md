@@ -14,8 +14,11 @@ actual HTTP inputs do not establish that a client consumed them.
 The [passive native navigation reply source](native/NAVIGATION_REPLIES.md)
 adds original current RequestTicket/HTTP response-ID provenance and a strict
 fixture-receipt join. The three local platform branches now register guarded
-internal factories. Independent actual modal/arrival/UI/storage observations
-and complete Navigation coordination are still missing; native code is uncompiled.
+internal factories. Pico additionally joins an [original modal and normal OK
+retirement owner](adapters/pico4/NAVIGATION_ERROR.md) using reply-owner capture
+and the existing queued original callback. Complete Navigation coordination,
+directory consumption/arrival/stereo, restart and independent final retirement
+remain unfinished; native code is uncompiled.
 
 Scripts v16 follows the [actual mobile default-only startup and explicit reimport contract](feature_journeys/SCRIPTS_SOURCE.md).
 

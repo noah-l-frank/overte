@@ -8,6 +8,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QRegularExpression>
+#include <QSet>
 #include <QVariantMap>
 #include <cerrno>
 #include <fcntl.h>
@@ -33,11 +34,15 @@ inline QByteArray bookmarkRevision(const struct stat& value) {
 }
 
 inline bool bookmarkObservationCommand(const QVariantMap& value) {
-    return value.size() == 4 && value.value("schemaVersion").userType() == QMetaType::Int
-        && value.value("schemaVersion").toInt() == 1
-        && value.value("action").toString() == "feature-location-bookmarks"
-        && QRegularExpression("\\A[0-9a-f]{32}\\z").match(value.value("commandId").toString()).hasMatch()
-        && QRegularExpression("\\A[0-9a-f]{32}\\z").match(value.value("runId").toString()).hasMatch();
+    // V8's actual QVariantMap demarshaller represents JS numbers as doubles.
+    // Preserve the exact numeric version and reject bool/string aliases.
+    const auto object = QJsonObject::fromVariantMap(value);const auto keys = object.keys();
+    return QSet<QString>(keys.begin(), keys.end()) == QSet<QString>{"schemaVersion", "commandId", "action", "runId"}
+        && object.value("schemaVersion") == QJsonValue(1)
+        && object.value("action") == QJsonValue("feature-location-bookmarks")
+        && object.value("commandId").isString() && object.value("runId").isString()
+        && QRegularExpression("\\A[0-9a-f]{32}\\z").match(object.value("commandId").toString()).hasMatch()
+        && QRegularExpression("\\A[0-9a-f]{32}\\z").match(object.value("runId").toString()).hasMatch();
 }
 
 // Called only by LocationBookmarks on its owning GUI thread. This inspects the

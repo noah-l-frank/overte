@@ -1404,5 +1404,49 @@
     ],
     "details": "Normal Pico Places controls and original QML models on the existing NavigationUi/PicoNavigation route, including real component/root identities, original popup RejectRole, closed hashed UI/model fields, focus/reference/geometry/source checks and normal pointer/key/scroll input. Actual private Pico factories join the independent native bookmark map/file reader. A durable five-operation bookmark flow retains original native and UI-clock quiet headers, unowned native/UI baselines, exact pending input and source cursors across adapter recreation; applied lost replies are resolved without resending. Cancellation and positive persistence require three seconds of unchanged original storage and advancing original UI/native clocks. Original product QML dialog/script bookmark/rate-guard/refresh functions execute under Node with synthetic native boundaries. READY_FOR_CONTENT was verified to clear cached portals and start a current-generation fetch, correcting the earlier source guide.",
     "limits": "Native Qt/QML/controller/model/POSIX sources remain uncompiled. Package/OS/Qt/device inputs and native storage boundary are simulated; a private host file is real, not a native product backing-file qualification. No builds, compilers, real devices, installations, device services, remote writes or physical rendering qualification. Whole Navigation lacks origin/account/federation restoration, consumed response/model/arrival/stereo joins, matching failed-lookup modal, actual restart/ownership transfer and independent final retirement. No complete Navigation capability is advertised; three areas remain complete source/host and eleven partial/missing."
+  },
+  "navigationOriginalError": {
+    "status": "partial-source-host-verified",
+    "contracts": [
+      "native-navigation-replies v2 (reads v1/v2)",
+      "native-navigation-modals v1",
+      "native-navigation-error-controls v1",
+      "navigation-error-dismissal v1"
+    ],
+    "checks": [
+      {
+        "command": "python3 -m unittest self_tests.test_navigation_error_dismissal self_tests.test_native_navigation_modals self_tests.test_token_navigation_error_ui self_tests.test_native_navigation_replies self_tests.test_native_location_bookmarks self_tests.test_navigation_bookmarks self_tests.test_token_places_ui self_tests.test_navigation_source_semantics",
+        "tests": 66,
+        "status": "passed",
+        "durationSeconds": 8.189
+      },
+      {
+        "command": "python3 tests/device/validate_contract_versions.py",
+        "status": "passed"
+      },
+      {
+        "command": "python3 android/vr/pico/tests/device/test_normal_scripts.py PicoNormalScriptsTests.test_pico_navigation_replies_retain_only_original_current_callback_receipt PicoNormalScriptsTests.test_pico_navigation_replies_ignored_source_retired_scope_and_foreign_pid_cannot_pass PicoNormalScriptsTests.test_pico_navigation_replies_changed_candidate_stops_before_another_command",
+        "tests": 3,
+        "status": "passed",
+        "durationSeconds": 2.97
+      },
+      {
+        "command": "python3 android/vr/pico/tests/pico4-test-suite.py --test normal-create --test normal-chat --test normal-login --test suite-runner --test coverage-matrix --timeout 240",
+        "groups": 5,
+        "catalogGroups": 52,
+        "status": "passed",
+        "durationSeconds": 63.65,
+        "junit": "navigation-error-pico.xml"
+      },
+      {
+        "command": "python3 tests/run-project-tests.py --suite documentation --suite documentation-contracts --suite source-layout --suite project-coverage",
+        "suites": 4,
+        "status": "passed",
+        "durationSeconds": 2.72,
+        "junit": "navigation-error-project.xml"
+      }
+    ],
+    "details": "Actual original probe/Android command dispatch, original TabletMessageBox and MessageDialogButton JavaScript execution, actual private Pico factories and existing normal input router, real durable private journals and owned loopback completed HTTP response/header. Native/Qt/device boundaries remain synthetic. Counterexamples cover original capture identity/clock/barrier, v1/v2 continuity, source/current-ticket/generation, ignored/lost input, root and listener independently retained, changed geometry/event, archive/query replay and interrupted quiet. Native source inspection follows actual GUI reply -> NodeList original callback -> GUI original not-found modal. Bookmark nonce/run grammar now admits actual V8 numeric QVariant carrier via exact JSON numeric comparison.",
+    "limits": "No builds, compilers, real devices, installations, device services, remote writes or physical Qt/VR/thread/render qualification. Native source remains uncompiled. Full Navigation still needs selected-origin/account/federation/maturity preservation, consumed directory/model/arrival/stereo joins, original restart/bookmark transfer and independent final resource retirement. No complete Navigation capability is advertised; three source/host-complete areas and eleven incomplete remain."
   }
 }

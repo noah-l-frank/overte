@@ -557,3 +557,21 @@ longer creates unused Script/Auth/Graphics namespaces. The original invalid-
 candidate navigation cleanup regression passes again. These are test adapter
 changes, not functional product fixes. Continue the other eleven areas; no
 protected/remote/reference/Phone/iOS integration or qualification was performed.
+
+
+## Original Navigation error and normal dismissal
+
+The [lookup-error owner](NAVIGATION_ERROR.md) joins the original completed
+owned HTTP 404 to Pico native reply capture v2, the actual queued AddressManager
+callback and its actual original modal/listener. Normal pointer OK is one-send;
+actual response and destruction of both QObjects plus three seconds of original
+clock quiet are separate requirements. Recreating the owner resolves an applied
+lost reply without another click. Private original histories and pending inputs
+remain retained for later whole-area retirement.
+
+The source review accounts for Pico's real GUI/NodeList thread split and V8's
+number-to-QVariant double carrier. Only dedicated Pico E2E instrumentation
+changes: no functional product callback, signal dispatch count, modal creation
+or dismissal behavior is replaced. Shared reply readers accept v1 and v2; the
+new Pico modal owner requires v2. Native code is uncompiled. Complete areas
+remain Scripts, Authentication and Graphics; continue the other eleven areas.

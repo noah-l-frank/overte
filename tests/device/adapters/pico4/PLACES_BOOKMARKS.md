@@ -2,8 +2,9 @@
 
 This is a source/host-verified component of the unfinished Worlds/navigation
 adapter. The full Navigation feature triple is unavailable. World arrival,
-stereo originals, selected-origin/account/federation restoration, matching failed
-lookup modal, actual restart, independent peer and final resource retirement
+stereo originals, selected-origin/account/federation restoration, whole-area
+composition of the [lookup-error owner](NAVIGATION_ERROR.md), actual restart,
+independent peer and final resource retirement
 still need whole-area composition. Native additions are uncompiled; no device
 or product behavior is qualified.
 
@@ -104,4 +105,5 @@ fetch. Every open must join its actual provider response and consumed current
 model. No cached-list or completed network receipt alone establishes this.
 The next whole-area work is the original selected metaverse/account source,
 normal ownership-preserving setup/restoration, directory response/model/arrival
-join, actual failed lookup modal, restart and independent final observer.
+join, composition of the original lookup-error owner, restart and independent
+final observer.

@@ -26,9 +26,12 @@ now joins [normal Places controls and durable bookmark operations](PLACES_BOOKMA
 through the existing private Pico input/router and native binding. The complete
 five-operation bookmark flow, cancellation/quiet storage, lost-input recovery
 and original source counterexamples pass on the host. Native code is uncompiled.
-Normal endpoint restoration, original response/model/arrival joins, modal,
-restart and independent whole-area retirement remain incomplete. These
-components add no complete feature area.
+The [original lookup-error owner](NAVIGATION_ERROR.md) also joins actual
+reply-owner capture, queued native callback, original modal/listener, normal OK
+and full three-second QObject retirement, including lost-reply continuation.
+Normal endpoint restoration, directory consumption/model/arrival joins, restart
+and independent whole-area retirement remain incomplete. These components add
+no complete feature area.
 
 ## Historical component checkpoints
 

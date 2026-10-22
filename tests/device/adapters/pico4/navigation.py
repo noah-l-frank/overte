@@ -22,6 +22,7 @@ from adapters.token_audio_ui import audio_control, metadata_fields as audio_meta
 from adapters.token_script_file_ui import (file_control, metadata_fields as file_metadata_fields,
     validate_metadata as validate_file_metadata, folder_text)
 from adapters.token_places_ui import control_id as places_control, metadata as places_metadata, same_reference as places_same_reference
+from adapters.token_navigation_error_ui import control_id as error_control, metadata as error_metadata, same_reference as error_same_reference
 
 UUID = re.compile(r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}')
 CONTROL_IDS = {'navigation.goto', 'navigation.address', 'navigation.back',
@@ -101,6 +102,9 @@ def validate_snapshot(value, process_id, epoch_ms):
     if type(value) is dict and 'placesControlsVersion' in value:
         fields.add('placesControlsVersion')
         need(type(value['placesControlsVersion']) is int and value['placesControlsVersion']==1)
+    if type(value) is dict and 'navigationErrorControlsVersion' in value:
+        fields.add('navigationErrorControlsVersion')
+        need(type(value['navigationErrorControlsVersion']) is int and value['navigationErrorControlsVersion']==1)
     need(type(value) is dict and set(value) == fields
          and type(value['schemaVersion']) is int and value['schemaVersion'] == 1
          and identifier(value['bridgeId']) and identifier(value['generation'])
@@ -122,7 +126,10 @@ def validate_snapshot(value, process_id, epoch_ms):
         is_create=control['id'].startswith('create.')
         is_chat=control['id'].startswith('chat.')
         is_places=control['id'].startswith('places.')
-        if is_places:
+        is_error=control['id'].startswith('navigation.error.ok.')
+        if is_error:
+            need(value.get('navigationErrorControlsVersion')==1);error_metadata(control);fields=set(control)
+        elif is_places:
             need(value.get('placesControlsVersion')==1);places_metadata(control);fields=set(control)
         elif is_chat:
             need(value.get('chatControlsVersion')==1);chat_metadata(control);fields=set(control)
@@ -150,7 +157,7 @@ def validate_snapshot(value, process_id, epoch_ms):
                  or script_control(control['id']) or file_control(control['id']) or audio_control(control['id'])
                  or graphics_control(control['id']) or control['id'] in LOGIN_IDS or control['id'] in ACCOUNT_MENU_IDS
                  or is_create and create_control(control['id']) or is_chat and chat_control(control['id'])
-                 or is_places and places_control(control['id']))
+                 or is_places and places_control(control['id']) or is_error and error_control(control['id']))
              and identifier(control['token']) and control['id'] not in ids
              and control['token'] not in tokens and type(control['enabled']) is bool
              and type(control['focused']) is bool)
@@ -161,7 +168,8 @@ def validate_snapshot(value, process_id, epoch_ms):
                 and (not control['inputReady'] or control['enabled'] and control['focused']))
         if control['id'] in SNAPSHOT_CHOICES:
             need(type(control['checked']) is bool)
-        if is_places:places_metadata(control)
+        if is_error:error_metadata(control)
+        elif is_places:places_metadata(control)
         elif is_chat:chat_metadata(control)
         elif is_create:create_metadata(control)
         elif control['id'] in ACCOUNT_MENU_IDS:validate_account_menu_metadata(control)
@@ -293,9 +301,13 @@ class PicoNavigation:
         is_create=control_id.startswith('create.')
         is_chat=control_id.startswith('chat.')
         is_places=control_id.startswith('places.')
+        is_error=control_id.startswith('navigation.error.ok.')
         if reference is not None:
             need(type(reference) is dict)
-            if 'placesControlsVersion' in reference:
+            if 'navigationErrorControlsVersion' in reference:
+                from adapters.pico4.normal_navigation_error import project as error_project
+                original=error_same_reference(reference,error_project(snapshot),control_id)
+            elif 'placesControlsVersion' in reference:
                 from adapters.pico4.normal_places import project as places_project
                 original=places_same_reference(reference,places_project(snapshot),control_id)
             elif 'chatControlsVersion' in reference:
@@ -305,7 +317,10 @@ class PicoNavigation:
                 from adapters.pico4.normal_create import project
                 original=same_reference(reference,project(snapshot),control_id)
             need(original['token']==control['token'])
-        if is_places:
+        if is_error:
+            need(reference is not None and snapshot.get('navigationErrorControlsVersion')==1 and control['inputReady']
+                 and action=='activate' and all(v is None for v in (text,source,index,direction,value)))
+        elif is_places:
             need(reference is not None and snapshot.get('placesControlsVersion')==1 and control['inputReady']
                  and control_id!='places.page' and index is None and source is None and value is None
                  and action in ('activate','replace','scroll'))

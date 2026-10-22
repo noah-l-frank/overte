@@ -18,6 +18,7 @@
 #include "../../../../../../tests/device/native/ScriptFileUi.h"
 #include "../../../../../../tests/device/native/NormalAccountMenuControls.h"
 #include "../../../../../../tests/device/native/NormalPlacesControls.h"
+#include "../../../../../../tests/device/native/NavigationFailureModals.h"
 #include "../../../../../../tests/device/native/FeatureUiInventory.h"
 #include "../../../../../../tests/device/native/NormalNavigationAddress.h"
 #include "../../../../../../tests/device/native/TabletHttpObservation.h"
@@ -63,6 +64,8 @@ bool enabled(QQuickItem* item) {
 QString controlId(QQuickItem* item) {
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #if defined(ANDROID_APP_PICO_INTERFACE)
+    const auto navigationError=overte::e2e::navigationFailureModals().controlId(item);
+    if (!navigationError.isEmpty()) { return navigationError; }
     const auto places = overte::e2e::placesControlId(item);
     if (!places.isEmpty()) { return places; }
 #endif
@@ -158,6 +161,9 @@ QJsonObject NavigationUi::observe(QQuickItem* root, QQuickWindow* window, bool o
     }
     bool ready = open && root && window && root->thread() == qApp->thread()
         && window->thread() == qApp->thread() && root->window() == window;
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+    overte::e2e::navigationFailureModals().observeRoot(root,window,open,_bridgeId,_generation,_lastCommandSequence,_clock.elapsed());
+#endif
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     overte::e2e::GraphicsUiContext graphicsContext;
     if (QCoreApplication::arguments().contains("--testScript")) {
@@ -210,7 +216,10 @@ QJsonObject NavigationUi::observe(QQuickItem* root, QQuickWindow* window, bool o
                 auto source = fileSource.isEmpty() ? overte::e2e::scriptRowSource(item) : fileSource;
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #if defined(ANDROID_APP_PICO_INTERFACE)
-                if (id.startsWith("places.")) {
+                if (id.startsWith("navigation.error.ok.")) {
+                    source=overte::e2e::navigationFailureModals().controlSource(item,id);
+                    if (source.isEmpty()) { ambiguous=true;return; }
+                } else if (id.startsWith("places.")) {
                     source=overte::e2e::placesControlSource(item,id);
                     if (source.isEmpty()) { ambiguous=true;return; }
                 } else
@@ -281,7 +290,9 @@ QJsonObject NavigationUi::observe(QQuickItem* root, QQuickWindow* window, bool o
         overte::e2e::appendScriptFileObservation(row, control.item, id);
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #if defined(ANDROID_APP_PICO_INTERFACE)
-        if (id.startsWith("places.")) {
+        if (id.startsWith("navigation.error.ok.")) {
+            overte::e2e::navigationFailureModals().appendControl(row,control.item,id);
+        } else if (id.startsWith("places.")) {
             overte::e2e::appendPlacesObservation(row,control.item,id);
         } else
 #endif
@@ -322,6 +333,7 @@ QJsonObject NavigationUi::observe(QQuickItem* root, QQuickWindow* window, bool o
     result["navigationAddressVersion"]=1;
 #if defined(ANDROID_APP_PICO_INTERFACE)
     result["placesControlsVersion"]=1;
+    result["navigationErrorControlsVersion"]=1;
 #endif
 #endif
     return result;
@@ -377,7 +389,14 @@ QJsonObject NavigationUi::apply(QQuickItem* root, QQuickWindow* window, bool ope
     bool delivered { false };
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #if defined(ANDROID_APP_PICO_INTERFACE)
-    if (controlId.startsWith("places.")) {
+    if (controlId.startsWith("navigation.error.ok.")) {
+        QJsonObject row;overte::e2e::navigationFailureModals().appendControl(row,control.item,controlId);
+        const auto point=control.item->mapToScene(QPointF(control.item->width()/2,control.item->height()/2));
+        if (current.value("navigationErrorControlsVersion")==QJsonValue(1) && row.value("inputReady").toBool()
+                && action=="activate" && pointerClick && overte::e2e::NormalControlUi::ownsPoint(control.item,window,point)) {
+            delivered=pointerClick(control.item);
+        }
+    } else if (controlId.startsWith("places.")) {
         QJsonObject row;overte::e2e::appendPlacesObservation(row,control.item,controlId);
         if (current.value("placesControlsVersion")!=QJsonValue(1) || !row.value("inputReady").toBool()) { return result; }
         const auto point=control.item->mapToScene(QPointF(control.item->width()/2,control.item->height()/2));

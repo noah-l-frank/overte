@@ -1023,6 +1023,22 @@
     }
 
     function applyClientCommand(command) {
+        if (command && command.action === "feature-navigation-modals") {
+            if (command.schemaVersion === 1 && typeof command.commandId === "string"
+                    && command.commandId.length === 32 && /^[0-9a-f]{32}$/.test(command.commandId)
+                    && typeof command.runId === "string" && command.runId.length === 32 && /^[0-9a-f]{32}$/.test(command.runId)
+                    && objectKeysMatch(command,["schemaVersion","commandId","action","runId"])) {
+                var navigationModals={navigationModalVersion:1,commandId:command.commandId,status:"unavailable"};
+                try {
+                    if (typeof Test.featureNavigationModals === "function") {
+                        var originalNavigationModals=Test.featureNavigationModals(command);
+                        if (originalNavigationModals && originalNavigationModals.commandId === command.commandId) { navigationModals=originalNavigationModals; }
+                    }
+                } catch (_navigationModalError) { /* Unknown presentation is never an absent successful modal. */ }
+                Test.saveObject(navigationModals,"feature-navigation-modals.json");
+            }
+            return true;
+        }
         if (command && command.action === "feature-location-bookmarks") {
             if (command.schemaVersion === 1 && typeof command.commandId === "string"
                     && command.commandId.length === 32 && /^[0-9a-f]{32}$/.test(command.commandId)
@@ -1656,6 +1672,7 @@
                 || command.action === "feature-chat-observe" || command.action === "feature-chat-view-observe" || command.action === "feature-web-dom-observe" || command.action === "feature-account-probe" || command.action === "feature-account-origin"
                 || command.action === "feature-pending-commit-owner" || command.action === "feature-navigation-replies"
                 || command.action === "feature-location-bookmarks"
+                || command.action === "feature-navigation-modals"
                 || command.action === "feature-process-presence"
                 || command.action === "feature-recorded-audio-observe" || command.action === "feature-recorded-audio-release"
                 || command.action === "feature-recorded-audio-files" || command.action === "feature-script-observe"

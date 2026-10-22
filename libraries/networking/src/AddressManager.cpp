@@ -708,7 +708,11 @@ void AddressManager::handleAPIError(QNetworkReply* errorReply) {
         // if this is a lookup that has no result, don't keep re-trying it
         _previousAPILookup.clear();
 
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+        emit lookupResultIsNotFound(_featureNavigationReplies.presentation(lookup));
+#else
         emit lookupResultIsNotFound();
+#endif
     }
 
     if (current()) { emit lookupResultsFinished(); }

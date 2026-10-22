@@ -13,7 +13,7 @@ from adapters.native_feature_observation import decode,exact,fresh,integer,need,
 from adapters.normal_ui import NativeUIError
 from feature_journeys.navigation_fixture import configuration,validate_status
 
-VERSION=1
+VERSION=2
 FILE='feature-navigation-replies.json'
 LIMIT=262144
 HEX='[0-9a-f]{32}'
@@ -40,28 +40,47 @@ def origin(value):
 def validate(value,request,pid,epoch):
     command(request,ios=request['commandId'].startswith('ios-'))
     exact(value,{'navigationReplyVersion','commandId','runId','instance','sequence','processId','capturedEpochMs','currentLookupGeneration','currentLookupActive','events'})
-    need(type(value['navigationReplyVersion']) is int and value['navigationReplyVersion']==VERSION
+    need(type(value['navigationReplyVersion']) is int and value['navigationReplyVersion'] in (1,2)
          and value['commandId']==request['commandId'] and value['runId']==request['runId']
          and integer(pid,1) and integer(value['processId'],1) and value['processId']==pid
          and type(value['instance']) is str and re.fullmatch(HEX,value['instance'])
          and integer(value['currentLookupGeneration'],1) and type(value['currentLookupActive']) is bool
          and integer(value['sequence'],1,1_000_000_000) and type(value['events']) is list and len(value['events'])<=128)
     fresh(value['capturedEpochMs'],epoch)
-    ids=set();responses=set();sequence=0;captured=0
+    ids=set();responses=set();captures=set();sequence=0;captured=0
     for event in value['events']:
-        exact(event,{'sequence','eventId','runId','responseId','origin','httpStatus','networkError','contentNotFound','current','lookupGeneration','callbackEpochMs'})
-        need(integer(event['sequence'],sequence+1,1_000_000_000) and type(event['eventId']) is str and re.fullmatch(HEX,event['eventId'])
-             and event['eventId'] not in ids and event['runId']==request['runId']
-             and type(event['responseId']) is str and (not event['responseId'] or re.fullmatch(HEX,event['responseId']))
-             and (not event['responseId'] or event['responseId'] not in responses)
-             and integer(event['httpStatus'],0,599) and integer(event['networkError'],1,499)
-             and type(event['contentNotFound']) is bool and event['contentNotFound']==(event['networkError']==203)
-             and event['current'] is True and integer(event['lookupGeneration'],1,value['currentLookupGeneration'])
-             and integer(event['callbackEpochMs'],1) and captured<=event['callbackEpochMs']<=value['capturedEpochMs'])
-        origin(event['origin']);ids.add(event['eventId'])
+        validate_event(event,request['runId'],generation=value['currentLookupGeneration'],epoch=value['capturedEpochMs'],
+                       after_sequence=sequence,after_epoch=captured,require_capture=value['navigationReplyVersion']==2)
+        need(value['navigationReplyVersion']==2 or not ({'replyCaptureId','replyCapturedEpochMs'} & set(event)))
+        need(event['eventId'] not in ids and (not event['responseId'] or event['responseId'] not in responses))
+        if value['navigationReplyVersion']==2:
+            need(event['replyCaptureId'] not in captures);captures.add(event['replyCaptureId'])
+        ids.add(event['eventId'])
         if event['responseId']:responses.add(event['responseId'])
         sequence=event['sequence'];captured=event['callbackEpochMs']
     return value
+
+
+def validate_event(event,run,*,generation,epoch,after_sequence=0,after_epoch=0,require_capture=False):
+    """Pure original callback validation, including historical presentation joins."""
+    need(type(event) is dict and type(require_capture) is bool)
+    captured = {'replyCaptureId','replyCapturedEpochMs'} & set(event)
+    exact(event,{'sequence','eventId','runId','responseId','origin','httpStatus','networkError','contentNotFound','current','lookupGeneration','callbackEpochMs'} | captured)
+    need(not require_capture or captured=={'replyCaptureId','replyCapturedEpochMs'})
+    need(type(run) is str and re.fullmatch(HEX,run) and integer(generation,1) and integer(epoch,1)
+         and integer(after_sequence) and integer(after_epoch)
+         and integer(event['sequence'],after_sequence+1,1_000_000_000)
+         and type(event['eventId']) is str and re.fullmatch(HEX,event['eventId']) and event['runId']==run
+         and type(event['responseId']) is str and (not event['responseId'] or re.fullmatch(HEX,event['responseId']))
+         and integer(event['httpStatus'],0,599) and integer(event['networkError'],1,499)
+         and type(event['contentNotFound']) is bool and event['contentNotFound']==(event['networkError']==203)
+         and event['current'] is True and integer(event['lookupGeneration'],1,generation)
+         and integer(event['callbackEpochMs'],1) and after_epoch<=event['callbackEpochMs']<=epoch)
+    if captured:
+        need(captured=={'replyCaptureId','replyCapturedEpochMs'} and type(event['replyCaptureId']) is str
+             and re.fullmatch(HEX,event['replyCaptureId']) and integer(event['replyCapturedEpochMs'],1,event['callbackEpochMs']))
+    origin(event['origin'])
+    return event
 
 
 class NativeNavigationReplies:
@@ -69,12 +88,14 @@ class NativeNavigationReplies:
         need(all(callable(f) for f in (send,original,clock_ms,guard,monotonic,sleep)) and integer(pid,1) and type(ios) is bool)
         self.send,self.original,self.clock_ms,self.guard,self.pid=send,original,clock_ms,guard,pid
         self.ios,self.monotonic,self.sleep=ios,monotonic,sleep
-        self.last=None;self.histories={}
+        self.last=None;self.histories={};self.requests=set()
 
     def read(self,run):
         request=dict(schemaVersion=1,commandId=('ios-' if self.ios else '')+uuid.uuid4().hex,action='feature-navigation-replies',runId=run)
         command(request,ios=self.ios)
         try:
+            need(len(self.requests)<4096 and request['commandId'] not in self.requests)
+            self.requests.add(request['commandId'])
             need(self.guard() is not False)
             started=self.monotonic();need(number(started,0,1e15));previous=started
             self.send(deepcopy(request))
@@ -87,7 +108,8 @@ class NativeNavigationReplies:
                 if type(value) is dict and value.get('commandId')==request['commandId']:
                     validate(value,request,self.pid,self.clock_ms())
                     if self.last is not None:
-                        need(value['instance']==self.last['instance'] and value['sequence']>self.last['sequence']
+                        need(value['navigationReplyVersion']==self.last['navigationReplyVersion']
+                             and value['instance']==self.last['instance'] and value['sequence']>self.last['sequence']
                              and value['capturedEpochMs']>=self.last['capturedEpochMs']
                              and value['currentLookupGeneration']>=self.last['currentLookupGeneration'])
                     if run in self.histories:
@@ -115,7 +137,8 @@ class NativeNavigationReplies:
         matched=[(event,responses[event['responseId']]) for event in native['events']
             if native['currentLookupActive'] and event['lookupGeneration']==native['currentLookupGeneration']
             and event['origin']==owned_origin and event['httpStatus']==404 and event['contentNotFound']
-            and event['callbackEpochMs']>=after_epoch and event['responseId'] in responses]
+            and event['callbackEpochMs']>=after_epoch and event.get('replyCapturedEpochMs',event['callbackEpochMs'])>=after_epoch
+            and event['responseId'] in responses]
         need(bool(matched))
         event,response=matched[-1]
         return dict(native=deepcopy(event),http=deepcopy(response))

@@ -27,7 +27,8 @@ INPUTS=dict(protocolSignature='AAAAAAAAAAAAAAAAAAAAAA==',sourceRevision='c'*40,s
 
 
 class Boundary:
-    def __init__(self):
+    def __init__(self,*,version=1):
+        self.version=version
         self.clock=0.;self.sequence=0;self.commands=[];self.request=None;self.alive=True;self.ignored=False;self.edit=None
         self.events=[];self.generation=2;self.active=True;self.last_id=None;self.cached=None
     def epoch(self):return 20000+round(self.clock*1000)
@@ -35,11 +36,12 @@ class Boundary:
     def error(self,response='d'*32,*,origin=ORIGIN):
         self.events.append(dict(sequence=len(self.events)+1,eventId='e'*32,runId=RUN,responseId=response,origin=origin,
             httpStatus=404,networkError=203,contentNotFound=True,current=True,lookupGeneration=self.generation,callbackEpochMs=self.epoch()))
+        if self.version==2:self.events[-1].update(replyCaptureId='c'*32,replyCapturedEpochMs=self.epoch())
     def original(self):
         if self.ignored:return ''
         if self.request['commandId']!=self.last_id:
             self.last_id=self.request['commandId'];self.sequence+=1
-            self.cached=dict(navigationReplyVersion=1,commandId=self.last_id,runId=self.request['runId'],instance='f'*32,
+            self.cached=dict(navigationReplyVersion=self.version,commandId=self.last_id,runId=self.request['runId'],instance='f'*32,
                 sequence=self.sequence,processId=123,capturedEpochMs=self.epoch(),currentLookupGeneration=self.generation,
                 currentLookupActive=self.active,events=deepcopy([e for e in self.events if e['runId']==self.request['runId']]))
         value=deepcopy(self.cached)
@@ -124,6 +126,26 @@ class NativeNavigationRepliesTests(unittest.TestCase):
             reader=source.reader();reader.original=changed
             with self.subTest(fault=fault),self.assertRaises(NativeUIError):reader.read(RUN)
             self.assertEqual(1,len(source.commands))
+
+    def test_pico_v2_requires_original_capture_identity_clock_and_never_downgrades_live_source(self):
+        source=Boundary(version=2);source.clock=1;source.error();source.events[0]['replyCapturedEpochMs']=20010
+        self.assertEqual(20010,source.join(barrier=20000)['native']['replyCapturedEpochMs'])
+        with self.assertRaises(NativeUIError):source.join(barrier=20500)
+        for edit in (lambda v:v['events'][0].pop('replyCaptureId'),
+                     lambda v:v['events'][0].pop('replyCapturedEpochMs'),
+                     lambda v:v['events'][0].update(replyCapturedEpochMs=True),
+                     lambda v:v['events'][0].update(replyCapturedEpochMs=21001),
+                     lambda v:v['events'][0].update(replyCaptureId='private-name'),
+                     lambda v:v.update(navigationReplyVersion=1)):
+            source=Boundary(version=2);source.error();source.edit=edit
+            with self.subTest(edit=edit),self.assertRaises(NativeUIError):source.reader().read(RUN)
+        source=Boundary(version=2);source.error();reader=source.reader();reader.read(RUN)
+        source.edit=lambda v:(v.update(navigationReplyVersion=1),v['events'][0].pop('replyCaptureId'),v['events'][0].pop('replyCapturedEpochMs'))
+        with self.assertRaises(NativeUIError):reader.read(RUN)
+        source=Boundary(version=2);source.error();source.error(response='3'*32);source.events[-1]['eventId']='4'*32
+        with self.assertRaises(NativeUIError):source.reader().read(RUN)
+        source.events[-1]['replyCaptureId']='5'*32
+        self.assertEqual(2,len(source.reader().read(RUN)['events']))
 
     def test_private_fixture_grammar_rejects_expected_state_arbitrary_uri_and_version_alias(self):
         state=FixtureState();request=dict(schemaVersion=1,commandId='ios-'+'5'*32,action='feature-navigation-replies',runId=RUN)

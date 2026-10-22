@@ -18,6 +18,9 @@
 #include <QCryptographicHash>
 #include <QUuid>
 #include "FeatureAccountProbe.h"
+#if defined(ANDROID_APP_PICO_INTERFACE)
+#include "FeatureNavigationReplyCapture.h"
+#endif
 #endif
 
 #include <memory>
@@ -564,6 +567,9 @@ void AccountManager::sendRequest(const QString& path,
             // There's a cleaner way to fire the JSON/error callbacks below and ensure that deleteLater is called for the
             // request reply - unfortunately it requires Qt 5.10 which the Android build does not support as of 06/26/18
 
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+            overte::e2e::navigationReplyCapture().watch(networkReply,callbackParams.requestTicket);
+#endif
             connect(networkReply, &QNetworkReply::finished, callbackParams.callbackReceiver,
                     [callbackParams, networkReply] {
                 if (!callbackParams.requestTicket.current()) {

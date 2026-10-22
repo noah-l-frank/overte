@@ -507,6 +507,12 @@ class FixtureState:
             try:process_presence_command(command,ios=True)
             except (ValueError,RuntimeError):raise ValueError("invalid native process presence request") from None
             valid=True
+        elif action == "feature-navigation-modals":
+            sys.path.insert(0,str(ROOT.parent))
+            from adapters.native_navigation_modals import command as navigation_modals_command
+            try:navigation_modals_command(command)
+            except (ValueError,RuntimeError):raise ValueError("invalid native navigation modal request") from None
+            valid=True
         elif action == "feature-location-bookmarks":
             sys.path.insert(0,str(ROOT.parent))
             from adapters.native_location_bookmarks import command as location_bookmarks_command

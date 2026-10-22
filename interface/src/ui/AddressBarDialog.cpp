@@ -18,6 +18,9 @@
 #include "AddressManager.h"
 #include "DialogsManager.h"
 #include "LocationBookmarks.h"
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+#include "../../../tests/device/native/NavigationFailureModals.h"
+#endif
 
 HIFI_QML_DEF(AddressBarDialog)
 
@@ -78,8 +81,14 @@ void AddressBarDialog::displayAddressOfflineMessage() {
     OffscreenUi::asyncCritical("", "That user or place is currently offline");
 }
 
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+void AddressBarDialog::displayAddressNotFoundMessage(const QVariantMap& original) {
+    auto listener=OffscreenUi::asyncCritical("", "There is no address information for that user or place");
+    overte::e2e::navigationFailureModals().record(original,listener);
+#else
 void AddressBarDialog::displayAddressNotFoundMessage() {
     OffscreenUi::asyncCritical("", "There is no address information for that user or place");
+#endif
 }
 
 void AddressBarDialog::observeShownChanged(bool visible) {

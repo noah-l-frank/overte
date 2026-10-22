@@ -41,7 +41,11 @@ signals:
 
 protected:
     void displayAddressOfflineMessage();
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+    void displayAddressNotFoundMessage(const QVariantMap& featureOriginalError);
+#else
     void displayAddressNotFoundMessage();
+#endif
 
     Q_INVOKABLE void loadAddress(const QString& address, bool fromSuggestions = false);
     Q_INVOKABLE void loadHome();
