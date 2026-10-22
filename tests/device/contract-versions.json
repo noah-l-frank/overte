@@ -82,6 +82,7 @@
     "native-chat-observation": {"current": 1, "reads": [1]},
     "native-chat-view": {"current": 2, "reads": [1, 2]},
     "chat-journey-samples": {"current": 1, "reads": [1]},
+    "chat-journey-no-replay": {"current": 1, "reads": [1]},
     "native-account-observation": {"current": 1, "reads": [1]},
     "native-account-probe": {"current": 1, "reads": [1]},
     "native-account-origin": {"current": 1, "reads": [1]},

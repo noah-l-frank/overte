@@ -853,6 +853,19 @@ def create_adapter(args, base_class):
             state,_ui=self._script_paths(target)
             return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-','chat-'+role+'-samples-')))
 
+        def _chat_no_replay_store(self,target):
+            state,_ui=self._script_paths(target)
+            return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-','chat-no-replay-')))
+
+        @_private
+        def _chat_no_replay(self,target,primary,actor):
+            from adapters.chat_journey.no_replay import ChatNoReplay
+            manager=self._scripts(target);native=self._native_feature_observer(target);native.guard()
+            _need(primary.binding==actor.binding==manager.binding
+                and primary.store.path==self._chat_samples_store(target,'primary').path
+                and actor.store.path==self._chat_samples_store(target,'actor').path)
+            return ChatNoReplay(primary,actor,self._chat_no_replay_store(target),monotonic=native.monotonic,sleep=native.sleep)
+
         @_private
         def _chat_samples(self,target,run,peer,peer_binding,*,role,source_lock,peer_lock):
             from adapters.chat_journey.samples import ChatSamples
@@ -1058,6 +1071,7 @@ def create_adapter(args, base_class):
                     # ownership. Process teardown cannot qualify their removal.
                     if any(self._chat_samples_store(target,role).read() is not None for role in ('primary','actor')):
                         chat_error=True
+                    if self._chat_no_replay_store(target).read() is not None:chat_error=True
                     owned=self._chat_capture_store(target).read()
                     if owned is not None:
                         if cleanup_only:self._recover_cleanup_candidate()
@@ -1108,6 +1122,7 @@ def create_adapter(args, base_class):
                       and self._script_restart_store(target).read() is None
                       and self._script_files_store(target).read() is None and self._account_probe_store(target).read() is None
                       and self._account_origin_store(target).read() is None and self._chat_capture_store(target).read() is None
+                      and self._chat_no_replay_store(target).read() is None
                       and all(self._chat_samples_store(target,role).read() is None for role in ('primary','actor')))
             else:
                 _need(not feature_error and not script_error and not probe_error and not origin_error and not chat_error)
