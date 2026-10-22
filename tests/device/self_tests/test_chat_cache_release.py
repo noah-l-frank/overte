@@ -204,4 +204,29 @@ class CacheReleaseTests(unittest.TestCase):
         with self.phase.flow.session(),self.assertRaises(NativeUIError):self.owner.run(20000)
 
 
+# The existing 120-second per-selector budget is unchanged. Explicit groups
+# remain lossless: a new/renamed test refuses selection until it is assigned.
+_GROUPS=dict(
+    positive=('test_original_two_retirements_independent_compiled_absence_quiet_and_retained_ipc_close',),
+    admission=('test_phase_change_after_parent_retirement_intent_prevents_native_mutation_and_retains_original',
+        'test_lost_original_parent_intent_never_overwrites_or_retires_peer_after_first_primary_release'),
+    quiet=('test_frozen_host_cannot_hide_original_native_quiet_gap_or_allow_ipc_removal',
+        'test_late_keyboard_input_after_first_final_absence_refuses_ipc_close'),
+    final_clock=('test_native_jump_after_final_ipc_cas_cannot_return_fresh_success_with_frozen_host',))
+
+
+def _selection(group):
+    names=[name for selection in _GROUPS.values() for name in selection]
+    expected=unittest.defaultTestLoader.getTestCaseNames(CacheReleaseTests)
+    if len(set(names))!=len(names) or sorted(names)!=expected:
+        raise ValueError('Chat cache-release selectors must include every original case exactly once')
+    return unittest.TestSuite(CacheReleaseTests(name) for name in _GROUPS[group])
+
+
+def cache_release_positive_tests():return _selection('positive')
+def cache_release_admission_tests():return _selection('admission')
+def cache_release_quiet_tests():return _selection('quiet')
+def cache_release_final_clock_tests():return _selection('final_clock')
+
+
 if __name__=='__main__':unittest.main()
