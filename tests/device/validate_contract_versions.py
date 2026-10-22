@@ -99,6 +99,7 @@ REQUIRED = {
     "chat-journey-no-replay": 2,
     "chat-peer-input": 3,
     "native-chat-peer-position": 1,
+    "native-chat-settings-barrier": 1,
     "chat-journey-peer-send": 1,
     "chat-journey-peer-distant": 1,
     "native-chat-actor-files": 1,

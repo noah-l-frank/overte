@@ -23,6 +23,42 @@ Q_LOGGING_CATEGORY(settings_writer, "settings.manager.writer")
 
 namespace Setting {
 
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    QVariantMap WriteWorker::featureChatSnapshot() {
+        if (!QCoreApplication::arguments().contains("--testScript") || QThread::currentThread()!=thread()) { return {}; }
+        sync();
+        if (!_qSettings || _qSettings->status()!=QSettings::NoError) { return {}; }
+        const auto physical=overte::e2e::chatSettingsFile(_qSettings->fileName());
+        if (physical.isEmpty()) { return {}; }
+        QVariantMap values;
+        for (const auto key:{"ArmoredChat-Messages","ArmoredChat-Config"}) {
+            values.insert(key,QVariantMap{{"present",_qSettings->contains(key)},{"value",_qSettings->value(key)}});
+        }
+        return {{"instance",_featureChatInstance},{"values",values},{"physical",physical}};
+    }
+
+    QVariantMap Manager::featureChatSnapshot() {
+        if (!QCoreApplication::arguments().contains("--testScript") || QThread::currentThread()!=thread()) { return {}; }
+        return _featureChatSettings.read([this] {
+            return resultWithReadLock<QVariantMap>([this] {
+                QVariantMap values;
+                for (const auto key:{"ArmoredChat-Messages","ArmoredChat-Config"}) {
+                    values.insert(key,QVariantMap{{"present",_settings.contains(key)},{"value",_settings.value(key)}});
+                }
+                return values;
+            });
+        },[this] {
+            const QPointer<WriteWorker> original=_featureChatWorker;
+            if (!original || original->thread()!=&_workerThread || !_workerThread.isRunning()) { return QVariantMap(); }
+            QVariantMap result;
+            if (!QMetaObject::invokeMethod(original.data(),[&] {
+                if (original) { result=original->featureChatSnapshot(); }
+            },Qt::BlockingQueuedConnection)) { return QVariantMap(); }
+            return result;
+        });
+    }
+#endif
+
 
     void WriteWorker::start() {
         // QSettings seems to have some issues with moving to a new thread.
@@ -72,6 +108,9 @@ namespace Setting {
 
     Manager::Manager(QObject *parent) {
         WriteWorker *worker = new WriteWorker();
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        _featureChatWorker=worker;
+#endif
 
         // We operate purely from memory, and forward all changes to a thread that has writing the
         // settings as its only job.
@@ -131,6 +170,9 @@ namespace Setting {
 
     void Manager::loadSetting(Interface* handle) {
         const auto& key = handle->getKey();
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        overte::e2e::ChatSettingsBarrier::Mutation chatMutation(_featureChatSettings,key);
+#endif
 
         withWriteLock([&] {
             QVariant loadedValue = _settings[key];
@@ -144,6 +186,9 @@ namespace Setting {
 
     void Manager::saveSetting(Interface* handle) {
         const auto& key = handle->getKey();
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        overte::e2e::ChatSettingsBarrier::Mutation chatMutation(_featureChatSettings,key);
+#endif
 
         if (handle->isSet()) {
             QVariant handleValue = handle->getVariant();
@@ -168,6 +213,9 @@ namespace Setting {
     }
 
     void Manager::terminateThread() {
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        overte::e2e::ChatSettingsBarrier::Mutation chatMutation(_featureChatSettings,QString());
+#endif
         qCDebug(settings_manager) << "Terminating settings writer thread";
 
         emit terminationRequested(); // This blocks
@@ -184,6 +232,9 @@ namespace Setting {
     }
 
     void Manager::remove(const QString &key) {
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        overte::e2e::ChatSettingsBarrier::Mutation chatMutation(_featureChatSettings,key);
+#endif
         withWriteLock([&] {
             _settings.remove(key);
         });
@@ -204,6 +255,9 @@ namespace Setting {
     }
 
     void Manager::setValue(const QString &key, const QVariant &value) {
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        overte::e2e::ChatSettingsBarrier::Mutation chatMutation(_featureChatSettings,key);
+#endif
         withWriteLock([&] {
             _settings[key] = value;
         });
@@ -218,6 +272,9 @@ namespace Setting {
     }
 
     void Manager::clearAllSettings() {
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        overte::e2e::ChatSettingsBarrier::Mutation chatMutation(_featureChatSettings,QString());
+#endif
         withWriteLock([&] {
             _settings.clear();
         });
