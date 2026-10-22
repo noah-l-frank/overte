@@ -500,6 +500,20 @@ def create_adapter(args, base_class):
             ui,_observe,_binding=self._script_runtime(target)
             return PicoViewMenu(ui.io,intent,monotonic=ui.monotonic,sleep=ui.sleep)
 
+        def _emote_view_store(self,target):
+            source=self._emote_source_store(target,'primary')
+            return PrivateFeatureState(source.path.with_name(source.path.stem+'-view.json'))
+
+        @_private
+        def _emote_view(self,target,phase,source_lock):
+            from adapters.pico4.emote_view import PicoEmoteView
+            journey=self._script_journey();lock=journey._lock(target,source_lock);lock.assert_held()
+            ui,_observe,binding=self._script_runtime(target);native=self._native_feature_observer(target)
+            native.guard();_need(native.pid==int(binding['processIdentity'].split(':')[0]))
+            return PicoEmoteView(self._emote_view_store(target),binding,phase,lock,lambda:ui.io,
+                lambda:self._avatar_render_observer(target),native.guard,lambda:journey.existing_input_session(target),
+                monotonic=native.monotonic,sleep=native.sleep)
+
         def _emote_world_render_store(self, target, role):
             source=self._emote_source_store(target,role)
             return PrivateFeatureState(source.path.with_name(source.path.stem+'-world-render.json'))
@@ -1948,6 +1962,7 @@ def create_adapter(args, base_class):
                       and self._chat_peer_input_store(target).read() is None and self._chat_peer_send_store(target).read() is None
                       and self._chat_peer_distant_store(target).read() is None
                       and not self._emote_image_journals(target)
+                      and self._emote_view_store(target).read() is None
                       and all(self._emote_world_render_store(target, role).read() is None for role in ('primary','actor'))
                       and self._emote_input_store(target).read() is None
                       and all(self._emote_source_store(target, role).read() is None for role in ('primary', 'actor'))

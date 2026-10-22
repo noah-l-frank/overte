@@ -365,5 +365,26 @@ if(calls!==51||files.length!==1||files[0].available!==false||"source" in files[0
             self.assertEqual(1,len(self.native.inputs));self.native.digest='f'*64
             with self.assertRaises((RuntimeError,ValueError)):flow.capture()
 
+    def test_actual_emote_view_factory_keeps_exact_parent_lock_and_original_candidate_binding(self):
+        from adapters.pico4.emote_view import PicoEmoteView
+        from self_tests import test_pico_emote_sources as phase_fixture
+        original=phase_fixture.SourcesTests();original.setUp();self.addCleanup(original.doCleanups)
+        lock=self.instance._script_journey()._lock(self.native.target)
+        with lock.held():
+            owner=self.instance._emote_view(self.native.target,original.phase,lock)
+            self.assertIsInstance(owner,PicoEmoteView);self.assertIs(lock,owner.lock)
+            self.assertEqual(self.instance._emote_view_store(self.native.target).path,owner.store.path)
+            self.assertEqual(self.instance._script_runtime(self.native.target)[2],owner.binding)
+            self.assertEqual(123,owner.pid);self.assertEqual([],self.native.inputs)
+            self.native.digest='f'*64
+            with self.assertRaises((RuntimeError,ValueError)):owner.prepare()
+            self.assertEqual([],self.native.inputs)
+
+    def test_unresolved_emote_view_mode_cannot_be_discarded_by_base_process_cleanup(self):
+        store=self.instance._emote_view_store(self.native.target);value={'unresolvedOriginalView':True}
+        store.write(value,None)
+        with self.assertRaises(ValueError):self.instance.cleanup(self.native.target)
+        self.assertFalse(self.native.running);self.assertEqual(value,store.read())
+
 
 if __name__=='__main__':unittest.main()

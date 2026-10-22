@@ -169,6 +169,7 @@ REQUIRED = {
     "pico-emote-pixel-policy": 1,
     "pico-emote-pixels": 1,
     "pico-emote-capture": 1,
+    "pico-emote-view": 1,
     "pico-view-menu-controls": 1,
     "pico-view-menu-input": 1,
     "native-animation-inventory": 1,

@@ -484,7 +484,9 @@
         "tests/device/adapters/pico4/normal_view_menu.py",
         "tests/device/native/NormalViewMenuControls.h",
         "tests/device/contracts/emote/test_view_menu_native.py",
-        "tests/device/adapters/pico4/EMOTE_VIEW_MENU.md"
+        "tests/device/adapters/pico4/EMOTE_VIEW_MENU.md",
+        "tests/device/adapters/pico4/emote_view.py",
+        "tests/device/self_tests/test_pico_emote_view.py"
       ],
       "declaredCheckpoints": 28,
       "inputVerbs": [
@@ -521,7 +523,7 @@
         "Observe original pose/mapping/timer/resource retirement",
         "Restore captured prior override and closed panel"
       ],
-      "nextExecutableStep": "Compose durable normal View-menu setup/restore with independently observed original avatar/camera/model and eligible full-body stereo capture. Continue controlled scene/avatar setup, independent effects/actor and full Qt/native/journal retirement; native QAction checks are not actual camera or whole Emote verdicts.",
+      "nextExecutableStep": "Join durable normal HMD View-menu setup/restore to eligible full-body original stereo capture and controlled scene/avatar identity. Compose independent effects/actor and actual Qt/menu timer/context/native/journal retirement; mode restoration retains its journal until that original proof exists.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     },

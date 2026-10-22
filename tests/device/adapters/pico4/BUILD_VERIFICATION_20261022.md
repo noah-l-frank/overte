@@ -460,3 +460,33 @@ the actual Pico absence factory passes8.196s. All4 repository suites pass3.58s.
 The first combined CLI command rejected the unknown coverage selector before
 running tests; the corrected coverage-matrix command above passes. Total
 source-complete areas remain3/14; Create, Audio and Chat remain partial.
+
+
+## Durable normal HMD view setup and original mode restoration
+
+PicoEmoteView v1 owns ten bounded ordinary controller/menu/View/mode/close steps
+with original native avatar/checked action and immutable fixture input anchors.
+Original mode/model/Geometry/Rig/pose are captured before mutation. Cold lost
+input replies are re-observed without another controller/pointer, including
+every restore step. Unknown writes or absent effects retain ownership; a later
+fixture cannot relabel a prior uncertain input. Final delivery includes original
+native/host clocks, and an older independently published UI file is polled until
+its actual timestamp advances. Foreign camera/geometry/pose or candidate changes
+stop new input. The owner retains restored journals pending full Qt/menu/native
+retirement; process teardown cannot erase them or qualify cleanup.
+
+The first host invocation exposed a local method/attribute name collision,
+corrected before the positive checks. The initial ten-case source selection
+plus the existing complete normal Emote route, capture/model/pixels and coverage
+pass3/73 groups65.48s (normal40.942s,stereo24.471s,coverage.064s). Both actual
+Pico factory/orphan teardown cases pass1.894s. Subsequent review added exact
+normal command increments, foreign live camera protection and actual delayed
+UI publication; all final11 owner cases pass4.451s. The final complete
+repository selection passes4/4,2.97s. Registry/coverage/whitespace pass. No native
+C++ changed in this packet.
+
+Only the committed Phone view file at abb7f6b60d97daf17752aadf94e2b5df099bb7ba
+was inspected for the durable reserve/observe/restore design; its whole-file
+hash is recorded in EMOTE_VIEW_MENU.md. Pico uses its own actual HMD native
+menu/controller route. Full stereo/actor/scene/avatar/Qt-retirement composition
+remains executable next work; source-complete areas remain3/14.

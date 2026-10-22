@@ -57,15 +57,48 @@ qualified by this harness. The existing original surface pointer route has its
 separate compiled checks. Qt source fixtures wait for real menu transition/frame
 settling; they do not bypass input by invoking selection handlers.
 
-Next: the whole durable setup/restore owner must capture the actual prior mode,
-open/leave the normal menu/tablet, join fresh NativeAvatarRender and model-specific
-stereo pixels, and prove original Qt/menu timer/callback retirement. Original
+PicoEmoteView v1 now journals the actual prior supported HMD mode and native
+loaded Model/Geometry/Rig/pose before any mutation. It uses the original
+controller tablet open, existing normal menu button, View pointer, Third Person
+pointer and tablet close. Restoration uses the same normal route and the actual
+captured First Person or Third Person mode. A separately queried original
+NativeAvatarRender cameraMode and original native checked QAction are required;
+an input acknowledgement is never camera proof. Unsupported original modes,
+unloaded avatars and a pre-existing open tablet fail before mutation.
+
+Each of the ten bounded setup/restore steps reserves a private record, then
+retains the actual original token/menu/native phase before one input. Lost
+controller/pointer results are re-observed after cold reconstruction without
+another input. A missing effect retains the unresolved step; original setup
+must be resolved before restoration. A reserved step without a known completed
+intent cannot be replayed. Original fixture tickets, candidate/PID/bridge,
+native cursors, original model identity and pose, monotonic/native/host clocks
+and the 1.5s freshness budget remain bound through final delivery. Changed
+fixtures or slow final copies cannot retime an original. The whole operation
+stays within the existing 60s outer bound and each effect wait within5s.
+
+The owner keeps its journal even after mode restoration. Closing the tablet
+and unchanged camera state do not prove actual menu timer/context retirement.
+Base cleanup independently refuses an unresolved view journal after stopping
+the app. Eleven explicit source/input/clock boundary cases cover the positive
+normal route and ignored/lost/foreign/stale/cold recovery cases; two actual Pico
+factory/teardown cases check the existing parent lock and candidate association.
+
+The design was selected after inspecting only the fixed committed Phone
+overte_phone_emote_view.py at abb7f6b60d97daf17752aadf94e2b5df099bb7ba
+(SHA256 `5a6544d49e7068eddb34e426eae24622bb33bfd293571bbcf71632de3c1df531`).
+The original durable reserve/observe/restore pattern is reused. All normal HMD
+inputs and mode guards are Pico-specific; no Phone preferences, pinch gesture,
+camera setters or mono evidence were copied. No reference tree was changed.
+
+Next: join the setup owner to fresh model-specific original stereo pixels and
+prove original Qt/menu timer/callback retirement. Original
 avatar body bounds must actually project in both eyes; no fabricated ROI or
 camera result is accepted. Controlled scene/avatar identity, independent actor
 and whole Emote cleanup remain required before a complete capability.
 
 The Pico catalog keeps emote-original-sources (81 cases),
-emote-stereo-capture (54 cases) and emote-background-effects (11 cases)
+emote-stereo-capture (65 cases) and emote-background-effects (11 cases)
 separate, preserving every case under the existing default per-group timeout.
 The native menu check is emote-view-native-ui. These selector counts are test
 groups, not completed feature areas; no adapter operation budget was enlarged.

@@ -866,3 +866,16 @@ inspect queries cannot begin or retire an active cache, and cannot substitute
 for active v4 histories/input ownership. Complete Chat coordination and physical
 profile/FD/PID/Qt restoration remain open. See the current
 [verification log](BUILD_VERIFICATION_20261022.md) for integrated host results.
+
+
+## Durable normal Emote HMD camera setup/restoration
+
+The [View-menu owner](EMOTE_VIEW_MENU.md) now composes the actual prior camera
+mode, original loaded Model/Geometry/Rig/pose, normal VR controller/tablet/menu
+pointers and fresh independent NativeAvatarRender mode observations. Lost
+setup/restoration results recover by original observation without resending
+inputs. Separate source/host clocks and original fixture ticket prevent stale
+files or later phases from adopting an uncertain input. The restored journal
+remains owned until independent Qt/menu/native retirement; base process cleanup
+cannot discard it. Whole scene/avatar, stereo effect and actor/public/cleanup
+coordination remain open; this adds no complete feature capability.
