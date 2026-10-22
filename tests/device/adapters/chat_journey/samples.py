@@ -59,6 +59,11 @@ def compose(run, frame, primary_pid, peer_pid, *, vr):
     need(p['instance'] != q['instance'] and ps['selfSha256'] != qs['selfSha256']
         and ps['mixerPresent'] == qs['mixerPresent']
         and (not ps['mixerPresent'] or ps['mixerSha256'] == qs['mixerSha256']))
+    if p['chatVersion']==2 or q['chatVersion']==2:
+        need(p['chatVersion']==q['chatVersion']==2)
+        sessions=[value['source']['session'] for value in (p,q)]
+        need(all(source['connected'] and source['mixerActive']==value['source']['mixerPresent'] for source,value in zip(sessions,(p,q))))
+        need(sessions[0]['domainSha256']==sessions[1]['domainSha256'] and sessions[0]['instance']!=sessions[1]['instance'])
     # Storage is the accepted history; the native receive cache also contains
     # rejected distant Local packets. Neither source may manufacture UI rows.
     stored = source['storage']; ui = source['ui']
@@ -114,6 +119,10 @@ def continuity(frames, frame):
             current, before = value['source'], previous['source']
             need(source_identity(value) == source_identity(previous)
                 and current['events'][:len(before['events'])] == before['events'])
+            if 'session' in previous['source']:
+                need('session' in value['source'])
+                need(all(value['source']['session'][field]==previous['source']['session'][field] for field in
+                    ('instance','revision','connected','domainSha256','connectionBirth','connectedEpochMs')))
         elif key == 'view':
             need(value['chatViewVersion'] >= previous['chatViewVersion'])
             current, before = value['source'], previous['source']
