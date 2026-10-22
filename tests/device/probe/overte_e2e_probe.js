@@ -152,6 +152,7 @@
     var lastSnapshotScriptRequest = "";
     var lastPicoSnapshotFilesRequest = "";
     var lastScriptWorkRequest = "";
+    var lastScriptRootRequest = "";
     var scriptWorkTimer = null;
     var lastLifecycleGestureRequest = "";
     var lastProcessPresenceRequest = "";
@@ -1402,6 +1403,24 @@
             Test.saveObject(snapshotOriginals, "feature-snapshot-capture-originals.json");
             return;
         }
+        if (command && command.action === "feature-script-roots-observe") {
+            if (command.schemaVersion === 1 && typeof command.commandId === "string"
+                    && /^(?:ios-)?[0-9a-f]{32}$/.test(command.commandId)
+                    && command.commandId.length === (command.commandId.indexOf("ios-") === 0 ? 36 : 32)
+                    && objectKeysMatch(command,["schemaVersion","commandId","action"])) {
+                if (lastScriptRootRequest === command.commandId) { return; }
+                lastScriptRootRequest = command.commandId;
+                var roots={scriptRootsVersion:1,commandId:command.commandId,available:false};
+                try {
+                    if (typeof Test.featureScriptRoots === "function") {
+                        var originalRoots=Test.featureScriptRoots(command);
+                        if (originalRoots && originalRoots.commandId === command.commandId) { roots=originalRoots; }
+                    }
+                } catch (_rootsError) { /* Missing original configuration never becomes a guessed root. */ }
+                Test.saveObject(roots,"feature-script-roots.json");
+            }
+            return;
+        }
         if (command && command.action === "feature-script-work-observe") {
             if (command.schemaVersion === 1 && typeof command.commandId === "string"
                     && /^(?:ios-)?[0-9a-f]{32}$/.test(command.commandId)
@@ -1878,7 +1897,7 @@
                 || command.action === "feature-scene-load-observe"
                 || command.action === "feature-tablet-http-observe"
                 || command.action === "feature-lifecycle-drive-observe" || command.action === "feature-lifecycle-gesture-observe"
-                || command.action === "feature-audio-settings-observe" || command.action === "feature-snapshot-capture-originals" || command.action === "feature-snapshot-script-originals" || command.action === "feature-script-work-observe"
+                || command.action === "feature-audio-settings-observe" || command.action === "feature-snapshot-capture-originals" || command.action === "feature-snapshot-script-originals" || command.action === "feature-script-work-observe" || command.action === "feature-script-roots-observe"
                 || command.action === "pico-snapshot-files-observe" || command.action === "pico-snapshot-files-control"
                 || command.action === "feature-web-runtime-observe"
                 || command.action === "feature-world-render-storage"

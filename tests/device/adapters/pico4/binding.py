@@ -1386,6 +1386,16 @@ def create_adapter(args, base_class):
                 monotonic=native.monotonic, sleep=native.sleep)
 
         @_private
+        def _script_roots_observer(self, target):
+            from adapters.native_script_roots import NativeScriptRoots, FILE as ROOTS_FILE
+            native = self._native_feature_observer(target)
+            return NativeScriptRoots(native.send,
+                lambda: self.adb.read_debug_app_file(target, 'org.overte.pico',
+                    'files/overte-e2e/' + ROOTS_FILE, attempts=1),
+                native.clock_ms, native.guard, native.pid,
+                monotonic=native.monotonic, sleep=native.sleep)
+
+        @_private
         def _script_execution_observer(self, target):
             native = self._native_feature_observer(target)
             return NativeScriptObservation(native.send,

@@ -72,6 +72,7 @@
 #include <QDateTime>
 #include <QRegularExpression>
 #include <QUuid>
+#include <PathUtils.h>
 #include <QTimer>
 #include <ScriptEngines.h>
 #include <EntityScriptingInterface.h>
@@ -1151,6 +1152,34 @@ QVariantMap TestScriptingInterface::featureScriptFiles(const QVariantMap& comman
     return result;
 }
 
+QVariantMap TestScriptingInterface::featureScriptRoots(const QVariantMap& command) {
+    if (QThread::currentThread()!=thread()) {
+        if (!thread() || !thread()->isRunning()) { return {}; }
+        QVariantMap result;
+        if (!QMetaObject::invokeMethod(this,[&] { result=featureScriptRoots(command); },Qt::BlockingQueuedConnection)) { return {}; }
+        return result;
+    }
+    const auto json=QJsonObject::fromVariantMap(command);const auto keys=json.keys();
+    const auto id=json.value("commandId").toString();
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript") || _featureScriptRootsSequence>=1000000000
+            || QSet<QString>(keys.begin(),keys.end())!=QSet<QString>{"schemaVersion","commandId","action"}
+            || json.value("schemaVersion")!=QJsonValue(1) || json.value("action")!=QJsonValue(QStringLiteral("feature-script-roots-observe"))
+            || !QRegularExpression("\\A(?:ios-)?[0-9a-f]{32}\\z").match(id).hasMatch()) { return {}; }
+    if (_featureScriptRootRequests.contains(id) || _featureScriptRootRequests.size()>=4096) { return {}; }
+    _featureScriptRootRequests.insert(id); // Failed acquisitions retain their original nonce too.
+    const auto requested=QDateTime::currentMSecsSinceEpoch();
+    // Actual application resource configuration, not a root inferred from a
+    // running engine URL, a caller argument or a matching source basename.
+    const auto original=PathUtils::defaultScriptsLocation().toString(QUrl::FullyEncoded);
+    if (original.isEmpty()) { return {}; }
+    return {{"scriptRootsVersion",1},{"commandId",id},{"instance",_featureObservationInstance},
+        {"sequence",static_cast<qulonglong>(++_featureScriptRootsSequence)},
+        {"processId",QCoreApplication::applicationPid()},{"requestedEpochMs",requested},
+        {"capturedEpochMs",QDateTime::currentMSecsSinceEpoch()},
+        {"source",QVariantMap{{"defaultScriptsUrl",original}}}};
+}
+
 QVariantMap TestScriptingInterface::featureScriptWork(const QVariantMap& command) {
     if (QThread::currentThread()!=thread()) {
         if (!thread() || !thread()->isRunning()) { return {}; }
@@ -1514,7 +1543,7 @@ void TestScriptingInterface::saveObject(QVariant variant, const QString& filenam
             || filename == "feature-navigation-modals.json" || filename == "feature-navigation-environment.json" || filename == "feature-navigation-directory.json"
             || filename == "feature-process-presence.json"
             || filename == "feature-graphics-subject.json" || filename == "feature-scene-load.json"
-            || filename == "feature-lifecycle-drive.json" || filename == "feature-lifecycle-gesture.json" || filename == "feature-audio-settings.json" || filename == "feature-snapshot-capture-originals.json" || filename == "feature-snapshot-script-originals.json" || filename == "feature-pico-snapshot-files.json" || filename == "feature-script-work.json"
+            || filename == "feature-lifecycle-drive.json" || filename == "feature-lifecycle-gesture.json" || filename == "feature-audio-settings.json" || filename == "feature-snapshot-capture-originals.json" || filename == "feature-snapshot-script-originals.json" || filename == "feature-pico-snapshot-files.json" || filename == "feature-script-work.json" || filename == "feature-script-roots.json"
             || filename == "feature-web-runtime.json" || filename == "feature-tablet-http.json"
             || filename == "recorded-preview-observation.json" || filename == "feature-script-observation.json"
             || filename == "feature-script-files.json" || filename == "world-render-observation.json"
