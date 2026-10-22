@@ -75,6 +75,7 @@ TESTS = (
     test("audio-final-retirement", "audio", PYTHON, "device/test_audio_final_close.py", "AudioFinalRetirementTests"),
     test("audio-page-owner", "audio", PYTHON, "device/test_audio_page_owner.py"),
     test("audio-settings-source", "audio", PYTHON, "device/test_audio_settings.py", requires=("node", "c++", "pkg-config")),
+    test("snapshot-file-originals", "interaction", PYTHON, "device/test_snapshot_capture_files.py", requires=("node", "c++", "pkg-config")),
     test("snapshot-fast-cancel", "interaction", PYTHON, "device/test_snapshot_cancel.py", requires=("c++", "pkg-config")),
     test("snapshot-review-originals", "interaction", PYTHON, "device/test_snapshot_review.py", requires=("c++", "pkg-config")),
     test("snapshot-script-originals", "interaction", PYTHON, "device/test_snapshot_script_originals.py", requires=("node", "c++", "pkg-config")),

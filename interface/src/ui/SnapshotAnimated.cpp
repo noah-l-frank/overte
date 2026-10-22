@@ -11,6 +11,10 @@
 
 #include "SnapshotAnimated.h"
 #include "Snapshot.h"
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+#include "../../../tests/device/native/PicoSnapshotCaptureFiles.h"
+#include "SnapshotStorage.h"
+#endif
 #include <QDateTime>
 #include <QFile>
 #include <QFileInfo>
@@ -117,7 +121,15 @@ void SnapshotAnimated::captureFrames() {
         const bool success = watcher->result();
         watcher->deleteLater();
         if (encodingCapture == request) { encodingCapture.reset(); }
-        if (!request->current()) { QFile::remove(path); return; }
+        if (!request->current()) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+            const bool actualRemoved=QFile::remove(path);
+            overte::e2e::PicoSnapshotCaptureFiles::get().removedPath(path,actualRemoved);
+#else
+            QFile::remove(path);
+#endif
+            return;
+        }
         if (!success) { DependencyManager::get<Snapshot>()->captureStatus(request, "error", {}, "gif-save-failed"); return; }
         emit dm->processingGifCompleted(path);
         DependencyManager::get<Snapshot>()->captureStatus(request, "complete", path);
@@ -135,7 +147,17 @@ bool SnapshotAnimated::processFrames(QVector<QImage> frames, QVector<qint64> del
     if (!request->current()) { return false; }
     bool success = !frames.isEmpty() && frames.size() == delays.size();
     GifWriter writer {};
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+    overte::e2e::PicoSnapshotCaptureFiles::Scope originalFileScope(request->id);
+    const auto originalFileTicket=success ? overte::e2e::PicoSnapshotCaptureFiles::get().opening(path,overte::snapshot::storageRoot()) : QString();
+#endif
     if (success) { success = GifBegin(&writer, qPrintable(path), frames[0].width(), frames[0].height(), 1); }
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+    if(!originalFileTicket.isEmpty()) {
+        if(success)overte::e2e::PicoSnapshotCaptureFiles::get().opened(originalFileTicket,::fileno(writer.f));
+        else overte::e2e::PicoSnapshotCaptureFiles::get().openFailed(originalFileTicket);
+    }
+#endif
     if (success) {
         for (int i = 0; i < frames.size(); ++i) {
             if (!request->current() || frames[i].size() != frames[0].size()) { success = false; break; }
@@ -145,12 +167,25 @@ bool SnapshotAnimated::processFrames(QVector<QImage> frames, QVector<qint64> del
         if (std::ferror(writer.f)) { success = false; }
         if (std::fflush(writer.f) != 0) { success = false; }
         // GifEnd closes the file and frees the writer even on cancellation.
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+        overte::e2e::PicoSnapshotCaptureFiles::get().beforeClose(originalFileTicket,::fileno(writer.f));
+#endif
         if (!GifEnd(&writer)) { success = false; }
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+        overte::e2e::PicoSnapshotCaptureFiles::get().closed(originalFileTicket,false);
+#endif
     }
     QFile encoded(path);
     const bool complete = encoded.open(QFile::ReadOnly) && encoded.size() > 0 && encoded.seek(encoded.size() - 1) && encoded.read(1) == QByteArray(1, char(0x3b));
     encoded.close();
     success = success && complete && QImageReader(path).canRead();
-    if (!success || !request->current()) { QFile::remove(path); }
+    if (!success || !request->current()) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+        const bool actualRemoved=QFile::remove(path);
+        overte::e2e::PicoSnapshotCaptureFiles::get().removed(originalFileTicket,actualRemoved);
+#else
+        QFile::remove(path);
+#endif
+    }
     return success && request->current();
 }

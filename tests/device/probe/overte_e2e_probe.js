@@ -160,6 +160,7 @@
     var lastAudioSettingsRequest = "";
     var lastSnapshotCaptureRequest = "";
     var lastSnapshotScriptRequest = "";
+    var lastPicoSnapshotFilesRequest = "";
     var lastLifecycleGestureRequest = "";
     var lastProcessPresenceRequest = "";
     var lastScriptFilesRequest = "";
@@ -1611,6 +1612,25 @@
         if (command && command.schemaVersion === 1
                 && typeof command.commandId === "string" && /^[0-9a-f]{32}$/.test(command.commandId)
                 && typeof command.runId === "string" && /^[0-9a-f]{32}$/.test(command.runId)
+                && ((command.action === "pico-snapshot-files-observe"
+                    && objectKeysMatch(command, ["schemaVersion", "commandId", "action", "runId"]))
+                    || (command.action === "pico-snapshot-files-control"
+                    && objectKeysMatch(command, ["schemaVersion", "commandId", "action", "runId", "operation", "prefix", "fileId", "operationId"])))) {
+            if (command.commandId === lastPicoSnapshotFilesRequest) { return; }
+            lastPicoSnapshotFilesRequest = command.commandId;
+            var captureFiles = {schemaVersion: 1, requestId: command.commandId, available: false};
+            try {
+                if (typeof Test.featurePicoSnapshotCaptureFiles === "function") {
+                    var actualFiles = Test.featurePicoSnapshotCaptureFiles(command);
+                    if (actualFiles && actualFiles.requestId === command.commandId) { captureFiles = actualFiles; }
+                }
+            } catch (_captureFilesError) { /* Original file identity/closure remains unavailable. */ }
+            Test.saveObject(captureFiles, "feature-pico-snapshot-files.json");
+            return;
+        }
+        if (command && command.schemaVersion === 1
+                && typeof command.commandId === "string" && /^[0-9a-f]{32}$/.test(command.commandId)
+                && typeof command.runId === "string" && /^[0-9a-f]{32}$/.test(command.runId)
                 && command.action === "feature-snapshot-script-originals"
                 && objectKeysMatch(command, ["schemaVersion", "commandId", "action", "runId"])) {
             if (command.commandId === lastSnapshotScriptRequest) { return; }
@@ -2163,6 +2183,7 @@
                 || command.action === "feature-tablet-http-observe"
                 || command.action === "feature-lifecycle-drive-observe" || command.action === "feature-lifecycle-gesture-observe"
                 || command.action === "feature-audio-settings-observe" || command.action === "feature-snapshot-capture-originals" || command.action === "feature-snapshot-script-originals"
+                || command.action === "pico-snapshot-files-observe" || command.action === "pico-snapshot-files-control"
                 || command.action === "feature-web-runtime-observe"
                 || command.action === "feature-world-render-storage"
                 || command.action === "feature-world-render-receipt"

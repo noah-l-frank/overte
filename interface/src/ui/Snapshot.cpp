@@ -52,6 +52,9 @@
 #include <QRegularExpression>
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #include <ScriptManager.h>
+#if defined(ANDROID_APP_PICO_INTERFACE)
+#include "../../../tests/device/native/PicoSnapshotCaptureFiles.h"
+#endif
 #endif
 
 // filename format: overte-snap-by-%username%-on-%date%_%time%_@-%location%.png
@@ -117,6 +120,9 @@ SnapshotCapture Snapshot::beginCapture(const QString& requestId) {
     _captures.insert(requestId, capture);
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     _featureCaptureOriginals.begin(capture);
+#if defined(ANDROID_APP_PICO_INTERFACE)
+    overte::e2e::PicoSnapshotCaptureFiles::get().begin(requestId);
+#endif
 #endif
     return capture;
 }
@@ -134,6 +140,9 @@ void Snapshot::captureStatus(const SnapshotCapture& capture, const QString& phas
         if (terminal) { QMutexLocker lock(&_captureMutex); if (_captures.value(capture->id) == capture) { _captures.remove(capture->id); } }
 #if defined(OVERTE_E2E_FEATURE_TESTS)
         _featureCaptureOriginals.emitted(capture, phase, path, error);
+#if defined(ANDROID_APP_PICO_INTERFACE)
+        overte::e2e::PicoSnapshotCaptureFiles::get().terminal(capture->id,phase,path);
+#endif
 #endif
         emit captureStatusChanged(capture->id, phase, path, error);
     }
@@ -157,6 +166,9 @@ void Snapshot::cancelCapture(const QString& requestId) {
         if (!capture->announced.exchange(true)) {
 #if defined(OVERTE_E2E_FEATURE_TESTS)
             _featureCaptureOriginals.emitted(capture, "cancelled", {}, {});
+#if defined(ANDROID_APP_PICO_INTERFACE)
+            overte::e2e::PicoSnapshotCaptureFiles::get().terminal(capture->id,"cancelled",{});
+#endif
 #endif
             emit captureStatusChanged(capture->id, "cancelled", {}, {});
         }
@@ -529,6 +541,9 @@ QImage Snapshot::convertToEquirectangular(std::array<QImage, 6> images, Snapshot
 
 void Snapshot::complete360(const QImage& image, const QString& filename, bool notify, const SnapshotCapture& capture) {
     if (!capture->current()) { return; }
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+    overte::e2e::PicoSnapshotCaptureFiles::Scope originalFileScope(capture->id);
+#endif
     const auto path = saveSnapshot(image, filename);
     if (path.isEmpty()) { captureStatus(capture, "error", {}, "save-failed"); return; }
     emit DependencyManager::get<WindowScriptingInterface>()->snapshot360Taken(path, notify);
@@ -626,8 +641,14 @@ QFile* Snapshot::savedFileForSnapshot(QImage& shot,
             snapshotFullPath.append(filename);
 
             if (nativeReviewEnabled() && QFileInfo(snapshotFullPath).isSymLink()) { return nullptr; }
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+            auto originalFileTicket=overte::e2e::PicoSnapshotCaptureFiles::get().opening(snapshotFullPath,overte::snapshot::storageRoot());
+#endif
             QFile* imageFile = new QFile(snapshotFullPath);
             while (!imageFile->open(QIODevice::WriteOnly)) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+                overte::e2e::PicoSnapshotCaptureFiles::get().openFailed(originalFileTicket);
+#endif
                 delete imageFile;
                 if (nativeReviewEnabled()) { return nullptr; }
                 // It'd be better for the directory chooser to restore the cursor to its previous state
@@ -650,13 +671,36 @@ QFile* Snapshot::savedFileForSnapshot(QImage& shot,
                 }
                 snapshotFullPath.append(filename);
 
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+                originalFileTicket=overte::e2e::PicoSnapshotCaptureFiles::get().opening(snapshotFullPath,overte::snapshot::storageRoot());
+#endif
                 imageFile = new QFile(snapshotFullPath);
             }
 
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+            overte::e2e::PicoSnapshotCaptureFiles::get().opened(originalFileTicket,imageFile->handle());
+#endif
             if (!shot.save(imageFile, nullptr, imageQuality)) {
-                imageFile->close(); imageFile->remove(); delete imageFile; return nullptr;
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+                overte::e2e::PicoSnapshotCaptureFiles::get().beforeClose(originalFileTicket,imageFile->handle());
+#endif
+                imageFile->close();
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+                overte::e2e::PicoSnapshotCaptureFiles::get().closed(originalFileTicket,imageFile->isOpen());
+                const bool actualRemoved=imageFile->remove();
+                overte::e2e::PicoSnapshotCaptureFiles::get().removed(originalFileTicket,actualRemoved);
+#else
+                imageFile->remove();
+#endif
+                delete imageFile; return nullptr;
             }
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+            overte::e2e::PicoSnapshotCaptureFiles::get().beforeClose(originalFileTicket,imageFile->handle());
+#endif
             imageFile->close();
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+            overte::e2e::PicoSnapshotCaptureFiles::get().closed(originalFileTicket,imageFile->isOpen());
+#endif
 
             return imageFile;
         }

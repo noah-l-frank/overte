@@ -28,6 +28,8 @@ def text(value,limit):return type(value) is str and len(value)<=limit
 
 class PicoSnapshotCancelIO(NativeNavigationIO):
     DIRECTORY='files/overte-e2e/snapshot-cancel-ui-'
+    def guard(self):
+        super().guard();self.adapter._installation(self.target)
 
 
 def input_command(value,*,cancel=False):

@@ -145,6 +145,9 @@ overte::lifecycle::Gate& overte::lifecycle::applicationGate() {
 #include <ui/OctreeStatsProvider.h>
 #include <ui/OffscreenQmlSurfaceCache.h>
 #include <ui/Snapshot.h>
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+#include "../../tests/device/native/PicoSnapshotCaptureFiles.h"
+#endif
 #include <ui/SnapshotAnimated.h>
 #include <ui/StandAloneJSConsole.h>
 #include <ui/Stats.h>
@@ -828,6 +831,9 @@ void Application::takeSnapshot(bool notify, bool includeAnimated, float aspectRa
     addSnapshotOperator(std::make_tuple([notify, includeAnimated, aspectRatio, filename, capture](const QImage& snapshot) {
         qApp->postLambdaEvent([snapshot, notify, includeAnimated, aspectRatio, filename, capture] {
             if (!capture->current()) { return; }
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+            overte::e2e::PicoSnapshotCaptureFiles::Scope originalFileScope(capture->id);
+#endif
             QString path = DependencyManager::get<Snapshot>()->saveSnapshot(snapshot, filename, capture->id.isEmpty() ? TestScriptingInterface::getInstance()->getTestResultsLocation() : QString());
 
             if (path.isEmpty()) { DependencyManager::get<Snapshot>()->captureStatus(capture, "error", {}, "save-failed"); return; }
