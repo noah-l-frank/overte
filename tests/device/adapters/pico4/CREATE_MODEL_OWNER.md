@@ -1,4 +1,4 @@
-# Pico normal domain Model owner
+# Pico normal domain Model owner v2
 
 Feature 4/14 remains **partial**. The private `_create_models(target, run)`
 composition supplies normal NEW glTF/OBJ creation, independently observed local
@@ -53,7 +53,20 @@ adopting the actual owned Model; it targets that UUID through the normal list,
 selection and Delete controls. A lost Delete uses observations alone. Failed
 intent writes, unknown/missing effects, candidate/source/domain replacement and
 foreign entity changes retain ownership. A later step cannot overwrite an
-unresolved earlier attempt. Two resource tickets are admitted per owner.
+unresolved earlier attempt. Two Model tickets are admitted per owner. A texture ticket cannot alias a Model
+ticket or another texture ticket. A lost filter/text/Apply response never
+repeats that operation: the exact actual entity `textures` string and original
+edit time, unchanged remaining original Model properties, selected UUID, native
+readiness and quiet work must establish the property change. A consumed receipt
+or matching text field alone cannot. A partial texture attempt can use only the
+distinct normal owned-Model Delete for cleanup.
+
+The internal outcome is `texture-property-applied`, explicitly limiting this
+component to the independently read entity property. This does not prove that
+the renderer actually bound the requested resource, decoded the original bytes,
+drew either eye or changed current pixels. Those independent sources still need
+to join before the full Create checkpoint can set its `textured` state. No full
+feature observation is emitted by this owner.
 
 ## Original work and object lifetime
 
@@ -150,7 +163,8 @@ the original `fromScript` selection route. A button receipt is not an entity-eff
 verdict. The original exclusive Properties search reuses the existing
 `create.filter` contract, then normal TextArea/ApplyTyped input emits the exact
 original `textures` patch with a distinct owned texture ticket. Adapter-level
-texture/resource/render composition remains a subsequent step.
+normal texture input and entity-property composition are now durable in owner
+v2. Independent resource/render composition remains a subsequent step.
 
 The shared E2E hit observer now follows visible children in their actual visual
 z order even when a non-clipping Flickable content item has zero geometry. All
@@ -184,7 +198,11 @@ admission, loaded render fields and forbidden URL query/fragment cases execute.
 The complete Interface/native translation units, real V8/entity renderer,
 physical Pico, domain server, peer, OpenXR and GPU remain unrun here.
 
-The registry adds `pico-create-model-owner` v1 and
+The registry records `pico-create-model-owner` v2 with an explicit v1 reader and
+forward migration on the next admitted durable write. Original source packets,
+IDs, times, attempt records and pinned raw baselines remain unchanged; a pending
+v1 Delete can reconcile by new observations alone. The separate work transcript
+stays v1. The registry also records
 `pico-create-model-work-originals` v1 and advances `pico-create-entities` to v3
 with readers [1,2,3]. Two additive Pico host selectors map to
 `tablet-and-create-ui`. Parent integration must add **two** to its current

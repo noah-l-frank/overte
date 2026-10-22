@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "contracts": {
-    "pico-create-model-owner": {"current": 1, "reads": [1]},
+    "pico-create-model-owner": {"current": 2, "reads": [1, 2]},
     "pico-create-model-work-originals": {"current": 1, "reads": [1]},
     "pico-create-management": {"current": 1, "reads": [1]},
     "pico-create-json-files": {"current": 1, "reads": [1]},
