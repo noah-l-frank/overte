@@ -87,46 +87,8 @@ class PicoLifecycleWorld:
         self.lock.assert_held();self.now();disk=self.store.read()
         if self.disk is not None:need(disk==self.disk)
         if disk is None:need(self.state is None);return
-        exact(disk,{'lifecycleWorldOwnerVersion','runId','binding','payload'})
-        need(type(disk['lifecycleWorldOwnerVersion']) is int and disk['lifecycleWorldOwnerVersion']==VERSION
-            and disk['runId']==self.run and disk['binding']==self.binding)
-        payload=unpack(disk['payload']);need(len(payload)==1);state=payload[0]
-        exact(state,{'frames','attempts'});need(type(state['frames']) is list and 1<=len(state['frames'])<=MAX_FRAMES
-            and type(state['attempts']) is list and len(state['attempts'])<=2)
-        previous=None;seen={name:set() for name in ('ui','gesture','drive')}
-        for row in state['frames']:
-            current=self.originals(row)
-            if previous:
-                ui.accept(ui.summary(previous['ui']),ui.summary(current['ui']));gesture.accept(previous['gesture'],current['gesture'])
-                drive.continuity(previous['drive'],current['drive']);need(row['hostMonotonic']>=host)
-            for name,value in current.items():need(value['commandId'] not in seen[name]);seen[name].add(value['commandId'])
-            previous=current;host=row['hostMonotonic']
-        initial=self.originals(state['frames'][0]);neutral(initial['gesture']);self.anchor=drive.AvatarDisplacement(initial['drive'])
-        need(ui.current_editor(initial['ui']) is None and measured_keyboard(initial['ui']['source']['keyboard']) is False
-            and not any(row['focused'] for row in initial['ui']['source']['editors']))
-        prior=-1
-        for index,attempt in enumerate(state['attempts']):
-            exact(attempt,{'phase','before','envelope','receiptFrame','receiptId','quiet'})
-            need(attempt['phase'] in PHASES and integer(attempt['before'],prior+1,len(state['frames'])-1))
-            if index:need(state['attempts'][index-1]['phase']=='quiet'
-                and attempt['before']>state['attempts'][index-1]['quiet']['last'])
-            prior=attempt['before'];before=self.originals(state['frames'][prior]);neutral(before['gesture']);self.editor_gate(before['ui'],index)
-            if attempt['envelope'] is None:need(attempt['phase']=='reserved')
-            else:envelope(attempt['envelope'],self.session.profile);need(attempt['phase']!='reserved')
-            if attempt['phase'] in ('consumed','release-issued','quiet'):
-                need(integer(attempt['receiptFrame'],prior+1,len(state['frames'])-1) and ui.nonce(attempt['receiptId']))
-                packet=self.originals(state['frames'][attempt['receiptFrame']])
-                events=self.attempts(state,packet['gesture'],through=index+1)
-                need(events[-1]['id']==attempt['receiptId'])
-            else:need(attempt['receiptFrame'] is None and attempt['receiptId'] is None)
-            if attempt['phase']=='quiet':
-                exact(attempt['quiet'],{'first','last'});first,last=attempt['quiet']['first'],attempt['quiet']['last']
-                need(integer(first,attempt['receiptFrame']+1,len(state['frames'])-1) and integer(last,first+1,len(state['frames'])-1))
-                quiet=drive.AvatarReleaseWindow(self.anchor)
-                for row in state['frames'][first:last+1]:
-                    current=self.originals(row);neutral(current['gesture']);result=quiet.observe(current['drive'],row['hostMonotonic'])
-                need(result)
-            else:need(attempt['quiet'] is None)
+        history=LifecycleWorldHistory(self.run,self.binding,self.pid,self.session.profile)
+        state,previous,self.anchor=history.validate(disk)
         for reader,name in ((self.source,'ui'),(self.axes,'gesture'),(self.avatar,'drive')):
             value=ui.summary(previous[name]) if name=='ui' else previous[name]
             if reader.previous is None:reader.restore(value)
@@ -230,3 +192,58 @@ class PicoLifecycleWorld:
                         need(self.now()-now<=1.5);return self.report(packets,len(state['attempts']))
                     need(index<40);self.sleep(.25)
         except Exception:raise NativeUIError('Pico world release unresolved; original ownership retained') from None
+
+
+class LifecycleWorldHistory:
+    """Exact shared historical validators; no transport/input/lifetime authority."""
+    originals=PicoLifecycleWorld.originals
+    attempts=PicoLifecycleWorld.attempts
+    editor_gate=staticmethod(PicoLifecycleWorld.editor_gate)
+
+    def __init__(self,run,binding,pid,profile):
+        need(ui.nonce(run) and integer(pid,1));self.run,self.binding,self.pid,self.profile=run,deepcopy(context(binding)),pid,profile
+        need(int(self.binding['processIdentity'].split(':')[0])==pid);self.state=self.anchor=None
+
+    def validate(self,disk):
+        exact(disk,{'lifecycleWorldOwnerVersion','runId','binding','payload'})
+        need(type(disk['lifecycleWorldOwnerVersion']) is int and disk['lifecycleWorldOwnerVersion']==VERSION
+            and disk['runId']==self.run and disk['binding']==self.binding)
+        payload=unpack(disk['payload']);need(len(payload)==1);state=payload[0]
+        exact(state,{'frames','attempts'});need(type(state['frames']) is list and 1<=len(state['frames'])<=MAX_FRAMES
+            and type(state['attempts']) is list and len(state['attempts'])<=2)
+        previous=None;seen={name:set() for name in ('ui','gesture','drive')}
+        for row in state['frames']:
+            current=self.originals(row)
+            if previous:
+                ui.accept(ui.summary(previous['ui']),ui.summary(current['ui']));gesture.accept(previous['gesture'],current['gesture'])
+                drive.continuity(previous['drive'],current['drive']);need(row['hostMonotonic']>=host)
+            for name,value in current.items():need(value['commandId'] not in seen[name]);seen[name].add(value['commandId'])
+            previous=current;host=row['hostMonotonic']
+        initial=self.originals(state['frames'][0]);neutral(initial['gesture']);self.anchor=drive.AvatarDisplacement(initial['drive'])
+        need(ui.current_editor(initial['ui']) is None and measured_keyboard(initial['ui']['source']['keyboard']) is False
+            and not any(row['focused'] for row in initial['ui']['source']['editors']))
+        prior=-1
+        for index,attempt in enumerate(state['attempts']):
+            exact(attempt,{'phase','before','envelope','receiptFrame','receiptId','quiet'})
+            need(attempt['phase'] in PHASES and integer(attempt['before'],prior+1,len(state['frames'])-1))
+            if index:need(state['attempts'][index-1]['phase']=='quiet'
+                and attempt['before']>state['attempts'][index-1]['quiet']['last'])
+            prior=attempt['before'];before=self.originals(state['frames'][prior]);neutral(before['gesture']);self.editor_gate(before['ui'],index)
+            if attempt['envelope'] is None:need(attempt['phase']=='reserved')
+            else:envelope(attempt['envelope'],self.profile);need(attempt['phase']!='reserved')
+            if attempt['phase'] in ('consumed','release-issued','quiet'):
+                need(integer(attempt['receiptFrame'],prior+1,len(state['frames'])-1) and ui.nonce(attempt['receiptId']))
+                packet=self.originals(state['frames'][attempt['receiptFrame']])
+                events=self.attempts(state,packet['gesture'],through=index+1)
+                need(events[-1]['id']==attempt['receiptId'])
+            else:need(attempt['receiptFrame'] is None and attempt['receiptId'] is None)
+            if attempt['phase']=='quiet':
+                exact(attempt['quiet'],{'first','last'});first,last=attempt['quiet']['first'],attempt['quiet']['last']
+                need(integer(first,attempt['receiptFrame']+1,len(state['frames'])-1) and integer(last,first+1,len(state['frames'])-1))
+                quiet=drive.AvatarReleaseWindow(self.anchor)
+                for row in state['frames'][first:last+1]:
+                    current=self.originals(row);neutral(current['gesture']);result=quiet.observe(current['drive'],row['hostMonotonic'])
+                need(result)
+            else:need(attempt['quiet'] is None)
+        self.state=deepcopy(state)
+        return deepcopy(state),deepcopy(previous),self.anchor

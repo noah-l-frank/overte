@@ -29,20 +29,7 @@ class PicoLifecycleXJoin:
         selected=ui.current_editor(before);need(selected is not None and selected['kind']=='create');return selected['id']
 
     def validate(self,value):
-        exact(value,{'phase','originalId','before','after','backOwner'})
-        need(value['phase'] in ('reserved','observed') and ui.nonce(value['originalId']) and value['originalId']==self.original())
-        need(sum(row==value['before'] for row in self.world.state['frames'])==1)
-        before=self.world.originals(value['before'])['ui'];self.world.editor_gate(before,0)
-        need(ui.current_editor(before)['id']==value['originalId'])
-        if value['phase']=='reserved':need(value['after'] is None and value['backOwner'] is None);return
-        need(sum(row==value['after'] for row in self.world.state['frames'])==1)
-        current=self.world.originals(value['after'])['ui']
-        back,previous=validate_history(value['backOwner'],self.world.run,self.world.binding,self.world.pid,self.world.session.profile)
-        need(back['phase'] in ('retained','released') and back['originalId']==value['originalId'])
-        back_before=self.back.packet(back['frames'][0]);back_after=self.back.packet(back['frames'][-1])
-        ui.accept(ui.summary(before),ui.summary(back_before));ui.accept(previous,ui.summary(current))
-        PicoLifecycleBack.home(current,value['originalId'])
-        need(value['backOwner']==self.back.store.read())
+        LifecycleXHistory(self.world,self.world.session.profile,self.back.store.read()).validate(value)
 
     def load(self):
         self.world.lock.assert_held();self.world.load();self.world.now();disk=self.store.read()
@@ -89,3 +76,28 @@ class PicoLifecycleXJoin:
         try:
             with self.world.lock.held():self.load();return self.finish(True)
         except Exception:raise NativeUIError('Pico lifecycle X reconciliation unresolved; no button repeated') from None
+
+
+class LifecycleXHistory:
+    """Original X↔World history validation without live observers or input."""
+    original=PicoLifecycleXJoin.original
+
+    def __init__(self,world,profile,back_owner):
+        self.world,self.profile,self.back_owner=world,profile,deepcopy(back_owner)
+
+    def validate(self,value):
+        exact(value,{'phase','originalId','before','after','backOwner'})
+        need(value['phase'] in ('reserved','observed') and ui.nonce(value['originalId']) and value['originalId']==self.original())
+        need(sum(row==value['before'] for row in self.world.state['frames'])==1)
+        before=self.world.originals(value['before'])['ui'];self.world.editor_gate(before,0)
+        need(ui.current_editor(before)['id']==value['originalId'])
+        if value['phase']=='reserved':need(value['after'] is None and value['backOwner'] is None);return
+        need(sum(row==value['after'] for row in self.world.state['frames'])==1)
+        current=self.world.originals(value['after'])['ui']
+        back,previous=validate_history(value['backOwner'],self.world.run,self.world.binding,self.world.pid,self.profile)
+        need(back['phase'] in ('retained','released') and back['originalId']==value['originalId'])
+        from adapters.native_feature_observation import decode
+        back_before=decode(back['frames'][0]['raw'])
+        ui.accept(ui.summary(before),ui.summary(back_before));ui.accept(previous,ui.summary(current))
+        PicoLifecycleBack.home(current,value['originalId'])
+        need(value['backOwner']==self.back_owner)

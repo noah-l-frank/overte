@@ -38,7 +38,9 @@ rewrite the completed X history.
 
 `pico-lifecycle-x-join:1` is a partial source/owner contract. The ordinary X route,
 original movement and local quiet compose here; the full editor/typing,
-background/pending-stale, peer/image/restore and final OS-proven owner retirement
-still require their own closure. All three journals remain preserved. Device-free
+background/pending-stale, peer/image/restore still require their own closure. The separate
+[process retirement owner](LIFECYCLE_PROCESS.md) now combines original OS
+absence, native births and a restored new-process baseline without rewriting
+retained Qt flags. It also remains a partial component. All three journals remain preserved. Device-free
 checks execute the actual owners/session/readers over explicitly declared UI,
 OpenXR-status and physics boundaries. No hardware run is claimed.
