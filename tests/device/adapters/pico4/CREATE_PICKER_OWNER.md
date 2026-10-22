@@ -172,3 +172,10 @@ not qualify as successful cleanup even when the Manager CAS restored its raw
 memory. No functional product fix is included. This known boundary and the
 remaining common model/texture/PolyVox/authority/peer/stereo flow keep full Create
 partial; the native writer proof is required rather than waived.
+
+The Browse setting owner now requires source v3 original physical-row evidence,
+in addition to exact Manager/writer raw values, throughout final quiet and
+retirement. Its bounded real-worker barrier and physical INI/registered-JSON
+counterexamples are documented in [CREATE_BROWSE_SETTING.md](CREATE_BROWSE_SETTING.md).
+Older source v2 packets stay readable as retained evidence and cannot qualify
+new input or physical restoration.

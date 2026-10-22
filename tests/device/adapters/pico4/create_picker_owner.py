@@ -20,6 +20,7 @@ from adapters.native_feature_observation import exact,fresh,need,decode,integer
 from adapters.normal_feature_state import context
 from adapters.normal_ui import NativeUIError
 from adapters.pico4.create_callbacks import active as active_callbacks
+from adapters.pico4.create_browse_setting import restored as browse_setting_restored
 from adapters.pico4.create_dialogs import active as active_dialogs,joined
 from adapters.pico4.create_file_ui import inventory
 from adapters.token_create_ui import nonce,scope,control_id
@@ -437,7 +438,7 @@ class OwnedCreatePicker:
         started=self.now();quiet=None;native_quiet=None;dialog_quiet=None;ui_quiet=None;last=0;previous_ui=None
         for attempt in range(132):
             actual=self.actual();ui=self.release_ui(previous_ui);previous_ui=deepcopy(ui)
-            setting=self.setting.observe();need(setting['current']==setting['original'] and setting['writer']['raw']==setting['original'])
+            setting=self.setting.observe();need(browse_setting_restored(setting))
             if active_dialogs(actual['dialogs']):
                 raise NativeUIError('Original Create Qt context, listener or delivery remains retained')
             ready=not active_callbacks(actual['callbacks']) and not actual['entities']['source']['entities']

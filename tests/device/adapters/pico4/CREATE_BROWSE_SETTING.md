@@ -53,6 +53,40 @@ final quiet and release. Missing/stopped/replaced writers or unavailable storage
 retain ownership. This is original QSettings worker state, not a requested value
 or an acknowledgement.
 
+Source version 3 additionally captures the physical original before normal
+picker input. The path and actual format come from that same original worker;
+format identity is compared against `QSettings::IniFormat` or the actual
+registered `JSON_FORMAT`, never inferred from a suffix. A separate read-only
+file descriptor reads physical bytes without constructing a QSettings object.
+It preserves file existence, device/inode, mode, byte count, nanosecond original
+mtime/ctime, whole-file SHA-256, path digest and the fixed raw row's bytes/hash.
+Descriptor/path identities, the immediate parent and the nearest owned private
+ancestor must remain stable during acquisition. Missing files are checked again
+at the end. Symlinks, hardlinks, foreign ownership, non-0600 files, unsafe parent
+permissions, oversized files/rows and unsupported encodings fail closed.
+
+The INI reader refuses duplicate or escaped aliases of LastBrowseLocation. The
+JSON reader requires exact original Qt indented serialization, which refuses
+duplicate keys and alternate key escapes, then acquires the literal top-level
+value token from the original bytes, including nested values and escaped quotes.
+Final quiet, restoration, native release and host journal retirement require the
+same original fixed physical row and format/path, independently of the Manager
+and worker cache. Original atomic QSettings rewrites may replace the inode and
+unrelated keys may change; every acquisition preserves its own actual identity.
+No replacement config value or physical-file write is accepted by this seam.
+Version 2 remains passively readable, but lacks original physical evidence and
+cannot qualify a new input operation or exact cleanup.
+
+The original writer observation posts one shared, weak-receiver job and waits
+at most 250 ms. It captures no Manager, stack reference or owner pointer in the
+queued job. A timed-out job remains tracked; further reads refuse while pending,
+and a late original result is discarded before a fresh barrier is queued. A
+stopped/dead worker cannot satisfy the barrier. Native Qt5 counterexamples block
+the actual original worker, complete an older read ahead of a newer actual
+write, and destroy an owned original receiver before queued work executes.
+Another counterexample changes the physical fixed row while both actual caches
+still equal the original and proves that native and host retirement refuse.
+
 Each original mutation command/nonce is persisted before send. Interrupted
 reserve/claim/restore/release is reconciled through fresh observations; a lost
 command is never resent, even if it might not have reached native code. Host
@@ -65,9 +99,10 @@ continuity, candidate replacement, foreign CAS refusal, and lost operations
 before/after actual effect with one-send recovery. `create-browse-setting-native`
 compiles the original TSI getter, original getPreviousBrowseLocation and original
 Setting::Interface methods, actual Setting::Handle and real product SettingManager.cpp with actual
-moc, worker, locks and signals. It validates missing gates/dependencies, stopped
+moc, worker, locks and signals. It compiles the actual registered JSON format in SettingHelpers.cpp as well.
+It validates missing gates/dependencies, stopped
 foreign threads, immutable nonce/budget behavior, exact absent and QByteArray
-restoration in an independently read persisted owned INI QSettings file, unrelated-key
+restoration in independently read owned INI and JSON physical files, unrelated-key
 preservation, authenticated Create manifests, foreign-CAS and cached-Handle
 refusal. Its actual native packets pass the real Python parser. The application
 dependency-registry lifetime and dialog metadata are supplied boundaries in this
@@ -89,9 +124,30 @@ keeps the original lease, bytes and read identity. The test verifies this retain
 failure rather than changing product behavior, forcing a replacement write or
 reporting restored memory as complete cleanup. Import/Save with a different
 owned path successfully restores and independently persists the original absent
-or QByteArray value. The complete application JSON settings format and physical
-Pico behavior have not run in this host fixture.
+or QByteArray value. The actual original JSON format now runs in this QtCore fixture and reproduces
+the same retained Cancel failure. The full application and physical Pico
+behavior have not run in this host fixture.
 
 Use existing `OVERTE_TEST_GLM_INCLUDE` when real GLM headers are not installed
 systemwide; the native check compiles the actual SettingHandle header without
 substituting GLM or downloading dependencies.
+
+
+## Follow-up host validation
+
+The bounded/physical follow-up passed 34 targeted tests in 81.273 seconds:
+`python3 -m unittest test_create_browse_setting test_create_browse_setting_native test_create_picker_owner`
+with the existing Qt5 host root, actual GLM include and an owned 0700 TMPDIR.
+The native check compiles original SettingManager, SettingHelpers, SharedLogging,
+original Handle/Interface/Window-read bodies and real moc; it runs independent
+owned INI and registered JSON processes. The two observed Cancel failures remain
+expected retained failures. No original writer was repaired.
+
+The documentation suite, contract-version validator, unchanged generated common
+v16 inventory comparison, twelve Pico suite CLI tests, six coverage tests and
+whitespace check also passed. The 250 ms barrier is a bounded observation wait,
+not a guarantee that a filesystem itself completes within that time; an original
+blocked worker or unsupported physical file leaves its owned lease unresolved.
+There were no application, headset, device, domain-server or peer runs. Feature
+4/14 remains partial, including the original retained Context/Cancel boundaries
+and the remaining full Model/render/peer/PolyVox/rez-authority contract.

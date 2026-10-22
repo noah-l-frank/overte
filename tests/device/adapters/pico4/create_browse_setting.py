@@ -39,15 +39,50 @@ def browse_read(value,epoch):
     return value
 
 
+def physical(value,epoch):
+    exact(value,{'physicalVersion','format','pathSha256','capturedEpochMs','file','fileSha256','row'})
+    need(type(value['physicalVersion']) is int and value['physicalVersion']==1 and value['format'] in ('ini','json')
+        and integer(value['capturedEpochMs'],1,epoch)
+        and all(type(value[k]) is str and re.fullmatch('[0-9a-f]{64}',value[k]) for k in ('pathSha256','fileSha256')))
+    file=value['file'];need(type(file) is dict and type(file.get('exists')) is bool)
+    exact(file,{'exists'}|({'device','inode','bytes','mode','modified','changed'} if file['exists'] else set()))
+    if file['exists']:
+        need(all(type(file[k]) is str and re.fullmatch('[0-9]{1,24}',file[k]) for k in ('device','inode'))
+            and integer(file['bytes'],0,1048576) and type(file['mode']) is int and file['mode']==0o600
+            and all(type(file[k]) is str and re.fullmatch(r'[0-9]{1,20}\.[0-9]{9}',file[k]) for k in ('modified','changed')))
+    row=value['row'];exact(row,{'present','base64','sha256'})
+    need(type(row['present']) is bool and type(row['base64']) is str and len(row['base64'])<=43692)
+    data=base64.b64decode(row['base64'],validate=True)
+    need(len(data)<=32768 and base64.b64encode(data).decode()==row['base64'] and (row['present'] or not data)
+        and hashlib.sha256((b'present:' if row['present'] else b'absent:')+data).hexdigest()==row['sha256'])
+    need(file['exists'] or not row['present'] and value['fileSha256']==hashlib.sha256(b'').hexdigest())
+    return value
+
+
+def physical_original(value):
+    need(value['createBrowseSettingVersion']==3)
+    a,b=value['originalPhysical'],value['writer']['physical']
+    return all(a[k]==b[k] for k in ('format','pathSha256','row'))
+
+
+def restored(value):
+    return value['current']==value['original'] and value['writer']['raw']==value['original'] and physical_original(value)
+
+
 def source(value,epoch):
-    exact(value,{'createBrowseSettingVersion','leaseId','runId','createdEpochMs','original','current','claims','reads','owned','writer','restoreAttempted','restored','released'})
-    need(type(value['createBrowseSettingVersion']) is int and value['createBrowseSettingVersion']==2
+    version=value.get('createBrowseSettingVersion');need(type(version) is int and version in (2,3))
+    exact(value,{'createBrowseSettingVersion','leaseId','runId','createdEpochMs','original','current','claims','reads','owned','writer','restoreAttempted','restored','released'}|({'originalPhysical'} if version==3 else set()))
+    need(type(value['createBrowseSettingVersion']) is int and value['createBrowseSettingVersion'] in (2,3)
         and nonce(value['leaseId']) and nonce(value['runId']) and integer(value['createdEpochMs'],1,epoch)
         and all(type(value[k]) is bool for k in ('restoreAttempted','restored','released'))
         and (not value['restored'] or value['restoreAttempted']) and type(value['claims']) is list and len(value['claims'])<=4)
     raw(value['original']);raw(value['current']);raw(value['owned']);seen=set()
-    writer=value['writer'];exact(writer,{'id','capturedEpochMs','raw'})
+    writer=value['writer'];exact(writer,{'id','capturedEpochMs','raw'}|({'physical'} if version==3 else set()))
     need(nonce(writer['id']) and integer(writer['capturedEpochMs'],value['createdEpochMs'],epoch));raw(writer['raw'])
+    if version==3:
+        physical(value['originalPhysical'],epoch);physical(writer['physical'],writer['capturedEpochMs'])
+        need(value['createdEpochMs']<=value['originalPhysical']['capturedEpochMs']<=writer['physical']['capturedEpochMs']
+            and all(value['originalPhysical'][k]==writer['physical'][k] for k in ('format','pathSha256')))
     need(type(value['reads']) is list and len(value['reads'])<=4)
     for row in value['reads']:
         exact(row,{'dialogId','sourceInstance','ticket','role','read','claimedEpochMs'})
@@ -70,7 +105,9 @@ def source(value,epoch):
         raw(claim['setting']);need(claim['setting']['present'] and claim['setting']['typeId']==10 and claim['setting']['stringValue'] is not None)
         seen.add(claim['dialogId'])
     need(value['owned'] in [value['original']]+[r['read']['after']['raw'] for r in value['reads']]+[r['setting'] for r in value['claims']])
-    if value['released']:need(value['current']==value['original'] and value['writer']['raw']==value['original'] and (not value['claims'] or value['restored']))
+    if value['released']:
+        need(value['current']==value['original'] and value['writer']['raw']==value['original'] and (not value['claims'] or value['restored']))
+        if version==3:need(physical_original(value))
     return value
 
 
@@ -95,6 +132,8 @@ def continuity(before,after):
         and b['claims'][:len(a['claims'])]==a['claims'] and b['reads'][:len(a['reads'])]==a['reads']
         and (b['claims']!=a['claims'] or b['reads']!=a['reads'] or b['owned']==a['owned'])
         and all(not a[k] or b[k] for k in ('restoreAttempted','restored','released')))
+    if a['createBrowseSettingVersion']==3:
+        need(a['originalPhysical']==b['originalPhysical'] and b['writer']['physical']['capturedEpochMs']>=a['writer']['physical']['capturedEpochMs'])
 
 
 class NativeCreateBrowseSetting(NativeCreateCallbacks):
@@ -152,17 +191,17 @@ class OwnedCreateBrowseSetting:
     def reserve(self,run):
         if self.previous is None:
             self.write(dict(schemaVersion=1,binding=self.binding,runId=run,ownerToken=secrets.token_hex(32),commands=[],packet=None))
-            return self.command('reserve')
-        need(self.state()['runId']==run);return self.command('observe')
+            actual=self.command('reserve');need(actual['createBrowseSettingVersion']==3);return actual
+        need(self.state()['runId']==run);actual=self.command('observe');need(actual['createBrowseSettingVersion']==3);return actual
     def observe(self):return self.command('observe')
     def claim_read(self,files,binding):
-        native=self.observe()
+        native=self.observe();need(native['createBrowseSettingVersion']==3)
         found=[r for r in native['reads'] if r['dialogId']==binding['dialogId']]
         if found:
             need(len(found)==1 and found[0]['ticket']==files['ticket'] and found[0]['role']==binding['role']);return native
         return self.command('claim-read',dict(ticket=files['ticket'],fileOwnerToken=files['ownerToken'],dialogBinding=binding))
     def claim(self,files,binding):
-        native=self.observe()
+        native=self.observe();need(native['createBrowseSettingVersion']==3)
         found=[r for r in native['claims'] if r['dialogId']==binding['dialogId']]
         if found:
             need(len(found)==1 and found[0]['ticket']==files['ticket'] and found[0]['role']==binding['role']);return native
@@ -170,14 +209,14 @@ class OwnedCreateBrowseSetting:
     def restore(self):
         actual=self.observe()
         if actual['current']==actual['original'] and not actual['claims']:
-            need(actual['writer']['raw']==actual['original']);return actual
+            need(restored(actual));return actual
         if not actual['restoreAttempted']:self.command('restore')
-        actual=self.observe();need(actual['current']==actual['original'] and actual['writer']['raw']==actual['original'] and actual['restored']);return actual
+        actual=self.observe();need(restored(actual) and actual['restored']);return actual
     def release(self):
         actual=self.restore()
         if not actual['released']:self.command('release')
-        actual=self.observe();need(actual['released'] and actual['current']==actual['original'] and actual['writer']['raw']==actual['original'])
+        actual=self.observe();need(actual['released'] and restored(actual))
         return actual
     def retire(self):
-        actual=self.observe();need(actual['released'] and actual['current']==actual['original'] and actual['writer']['raw']==actual['original'])
+        actual=self.observe();need(actual['released'] and restored(actual))
         self.store.discard(self.state());self.previous=None

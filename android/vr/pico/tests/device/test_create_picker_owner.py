@@ -146,7 +146,7 @@ class FakeSetting:
     def __init__(self,b):
         self.b=b;self.previous=None
         if not hasattr(b,'setting'):
-            b.setting=dict(original=raw_setting(),current=raw_setting(),owned=raw_setting(),writer={'raw':raw_setting()},claims=[],reads=[],restored=False)
+            b.setting=dict(createBrowseSettingVersion=3,originalPhysical={'format':'ini','pathSha256':'5'*64,'row':{}},original=raw_setting(),current=raw_setting(),owned=raw_setting(),writer={'raw':raw_setting(),'physical':{'format':'ini','pathSha256':'5'*64,'row':{}}},claims=[],reads=[],restored=False)
     def reserve(self,run):return self.observe()
     def observe(self):return deepcopy(self.b.setting)
     def claim_read(self,files,binding):

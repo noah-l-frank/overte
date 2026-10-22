@@ -38,9 +38,13 @@ class CreateBrowseSettingNativeTests(unittest.TestCase):
             subprocess.run([moc,*definitions,*include,str(ROOT/'libraries/shared/src/SettingManager.h'),'-o',str(stage/'moc_SettingManager.cpp')],check=True,timeout=20,env=environment)
             binary=stage/'browse-setting-test'
             subprocess.run(['c++','-std=c++17','-fPIC','-pthread',*definitions,*include,str(HERE/'create-browse-setting-native.cpp'),
-                str(ROOT/'libraries/shared/src/SettingManager.cpp'),str(stage/'moc_SettingManager.cpp'),'-o',str(binary),*libraries,*flags],check=True,timeout=60,env=environment)
+                str(ROOT/'libraries/shared/src/SettingManager.cpp'),str(ROOT/'libraries/shared/src/SettingHelpers.cpp'),str(ROOT/'libraries/shared/src/SharedLogging.cpp'),str(stage/'moc_SettingManager.cpp'),'-o',str(binary),*libraries,*flags],check=True,timeout=60,env=environment)
             subprocess.run([str(binary),directory],check=True,timeout=10,env=environment)
-            output=subprocess.check_output([str(binary),directory,'--testScript'],text=True,timeout=10,env=environment)
+            for mode in ('ini','json'):
+                data=stage/mode;data.mkdir(mode=0o700)
+                output=subprocess.check_output([str(binary),str(data),'--testScript',*(['--json'] if mode=='json' else [])],text=True,timeout=12,env=environment)
+                for packet in [json.loads(line) for line in output.splitlines()]:
+                    source(packet,2**53-1);self.assertEqual(mode,packet['originalPhysical']['format'])
             packets=[json.loads(line) for line in output.splitlines()];self.assertEqual(4,len(packets))
             for packet in packets:source(packet,2**53-1)
             self.assertFalse(packets[0]['original']['present']);self.assertFalse(packets[0]['current']['present']);self.assertTrue(packets[0]['restored'])
