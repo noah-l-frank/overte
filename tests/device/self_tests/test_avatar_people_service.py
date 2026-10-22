@@ -132,6 +132,28 @@ class AvatarPeopleServiceTests(unittest.TestCase):
         for token in (self.reader,self.actor,self.adapter):
             self.assertEqual(401 if token!=self.adapter else 403,self.request(REQUEST,method='POST',body=dict(user_connection_request=dict(node_id=PRIMARY,proposed_node_id=PEER)),headers={'Authorization':'Bearer '+token})[0])
         self.assertFalse(any(self.client.avatar_people_status()['relationships'].values()))
+    def test_original_request_target_and_wire_body_bind_native_xhr_consumption(self):
+        sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'adapters/android-phone'))
+        from overte_phone_avatar_people_measurements import social_replies
+        from adapters.normal_ui import NativeUIError
+        self.connect();target=USERS[1]+'?per_page=1000&page=1'
+        self.assertEqual(200,self.request(target,headers={'Authorization':'Bearer '+self.tokens['primary']})[0])
+        status=self.client.avatar_people_status();write=status['responses'][-1]
+        self.assertEqual(target,write['requestTarget']);self.assertEqual(hashlib.sha256(b'').hexdigest(),write['requestBodySha256'])
+        post=next(row for row in status['responses'] if row['role']=='primary' and row['method']=='POST')
+        original_body=json.dumps(dict(user_connection_request=dict(node_id=PRIMARY,proposed_node_id=PEER))).encode()
+        self.assertEqual(hashlib.sha256(original_body).hexdigest(),post['requestBodySha256'])
+        native=dict(responseId=write['responseId'],method='GET',httpStatus=200,bytes=write['bytes'],sha256=write['sha256'],
+            redirected=False,fromCache=False,networkError=0,requestedUrlSha256=hashlib.sha256((self.origin+target).encode()).hexdigest(),
+            replyUrlSha256=hashlib.sha256((self.origin+target).encode()).hexdigest(),requestBodySha256=write['requestBodySha256'])
+        source=dict(peopleReplies=dict(events=[native]));self.assertEqual([write],social_replies(source,status,self.origin,'primary'))
+        for field,value in (('requestedUrlSha256',hashlib.sha256(('https://foreign.invalid'+target).encode()).hexdigest()),
+                ('requestBodySha256',hashlib.sha256(b'foreign body').hexdigest())):
+            wrong=deepcopy(source);wrong['peopleReplies']['events'][0][field]=value
+            with self.subTest(field=field),self.assertRaises(NativeUIError):social_replies(wrong,status,self.origin,'primary')
+        rewritten=deepcopy(status);rewritten['responses'][-1]['requestTarget']=USERS[1]+'?page=1&per_page=1000'
+        with self.assertRaises(NativeUIError):social_replies(source,rewritten,self.origin,'primary')
+
     def test_generic_auth_routes_cannot_bypass_primary_peer_credential_separation(self):
         scopes=self.social.runs[self.run]['accounts']
         for auth_run in scopes.values():
@@ -166,7 +188,8 @@ class AvatarPeopleServiceTests(unittest.TestCase):
         with self.assertRaises(ValueError):validate_status(changed,run=self.run,request=changed['requestId'],instance=self.social.instance,previous=first)
     def test_failed_wire_delivery_is_retained_and_cannot_become_clean_retirement(self):
         token=self.grant('primary')
-        with self.social.response('Bearer '+token,'POST',REQUEST,{},dict(user_connection_request=dict(node_id=PRIMARY,proposed_node_id=PEER))) as response:
+        with self.social.response('Bearer '+token,'POST',REQUEST,{},dict(user_connection_request=dict(node_id=PRIMARY,proposed_node_id=PEER)),
+                request_target=REQUEST,request_body_sha256=hashlib.sha256(b'original interrupted request').hexdigest()) as response:
             self.assertEqual(200,response[0]) # Deliberately omit actual completed body write.
         failed=self.client.avatar_people_status();self.assertEqual(1,failed['failedResponses']);self.assertEqual([],failed['responses'])
         self.assertEqual(1,self.social.snapshot(self.run,secrets.token_hex(16))['failedResponses'])

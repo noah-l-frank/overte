@@ -109,3 +109,10 @@ The checked source packet passes 60 explicitly selected host tests plus the
 existing complete Navigation public composition's 16 tests (94.452 s). Both
 updated Qt6 helper checks pass in separate fresh build directories. These 76
 host tests include no complete Avatar/People public adapter journey.
+
+The People completed-wire source also retains the original raw HTTP request
+target (including paging query) and request-body digest from the listener's
+bounded wire read. The native XHR consumer joins these exact original bytes,
+response ID, own HTTPS origin and completed response digest. Semantically
+similar query reorderings, foreign origins or a different body cannot borrow a
+successful response. No request body, token or password is retained.

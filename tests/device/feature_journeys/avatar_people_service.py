@@ -12,7 +12,7 @@ import hashlib
 import json
 import re
 import secrets
-from urllib.parse import parse_qsl,unquote
+from urllib.parse import parse_qsl,unquote,urlsplit
 from .account_provider import AccountProvider
 from .contract import exact,identifier
 
@@ -137,7 +137,13 @@ class AvatarPeopleService:
         return 405,dict(status='fail',error='method-not-allowed')
 
     @contextmanager
-    def response(self,authorization,method,path,parameters,body):
+    def response(self,authorization,method,path,parameters,body,*,request_target,request_body_sha256):
+        original=urlsplit(request_target) if type(request_target) is str else None
+        if (original is None or len(request_target)>4096 or original.scheme or original.netloc or original.fragment
+                or original.path!=path or query(original.query)!=parameters
+                or re.search(r'[\x00-\x20\x7f]',request_target)
+                or type(request_body_sha256) is not str or not re.fullmatch('[0-9a-f]{64}',request_body_sha256)):
+            raise ValueError('Original bounded social request provenance is required')
         row=run=role=None;completed=False
         with self.accounts.changed:
             actual=self._principal(authorization)
@@ -157,7 +163,7 @@ class AvatarPeopleService:
                 if completed or value!=dict(status=status,responseId=response_id,bytes=len(raw),sha256=hashlib.sha256(raw).hexdigest()):
                     raise ValueError('Incomplete original social response')
                 self.sequence+=1;row['responses'].append(dict(sequence=self.sequence,responseId=response_id,role=role,ticket=ticket,
-                    method=method,path=path,startedEpochMs=started,completedEpochMs=self.accounts.now(),**{k:value[k] for k in ('status','bytes','sha256')}))
+                    method=method,path=path,requestTarget=request_target,requestBodySha256=request_body_sha256,startedEpochMs=started,completedEpochMs=self.accounts.now(),**{k:value[k] for k in ('status','bytes','sha256')}))
                 completed=True
         try:yield status,raw,response_id,observed
         finally:
@@ -190,7 +196,7 @@ class AvatarPeopleService:
             with self.accounts.changed:
                 if completed or value!=dict(status=status,responseId=response_id,bytes=len(raw),sha256=hashlib.sha256(raw).hexdigest()):raise ValueError('Incomplete original avatar resource response')
                 self.sequence+=1;row['responses'].append(dict(sequence=self.sequence,responseId=response_id,role='resource',ticket=ticket,
-                    method='GET',path=path,startedEpochMs=started,completedEpochMs=self.accounts.now(),**{k:value[k] for k in ('status','bytes','sha256')}));completed=True
+                    method='GET',path=path,requestTarget=path,requestBodySha256=hashlib.sha256(b'').hexdigest(),startedEpochMs=started,completedEpochMs=self.accounts.now(),**{k:value[k] for k in ('status','bytes','sha256')}));completed=True
         try:yield status,raw,content_type,response_id,observed
         finally:
             with self.accounts.changed:
@@ -261,8 +267,15 @@ def validate_status(value,*,run,request,instance,previous=None):
     if not integer(value['inflightResponses'],0,8) or not integer(value['failedResponses']) or type(value['responses']) is not list or len(value['responses'])>512:raise ValueError('Invalid bounded social history')
     sequence=0;seen=set()
     for row in value['responses']:
-        exact(row,{'sequence','responseId','role','ticket','method','path','startedEpochMs','completedEpochMs','status','bytes','sha256'},'completed social wire original')
+        exact(row,{'sequence','responseId','role','ticket','method','path','requestTarget','requestBodySha256','startedEpochMs','completedEpochMs','status','bytes','sha256'},'completed social wire original')
         identifier(row['responseId']);identifier(row['ticket'])
+        target=row['requestTarget'];parsed=urlsplit(target) if type(target) is str else None
+        if (parsed is None or len(target)>4096 or parsed.scheme or parsed.netloc or parsed.fragment or parsed.path!=row['path']
+                or re.search(r'[\x00-\x20\x7f]',target) or type(row['requestBodySha256']) is not str
+                or not re.fullmatch('[0-9a-f]{64}',row['requestBodySha256'])
+                or row['method']!='POST' and row['requestBodySha256']!=hashlib.sha256(b'').hexdigest()):
+            raise ValueError('Missing original request target/body provenance')
+        if parsed.query:query(parsed.query)
         if not integer(row['sequence'],sequence+1) or row['responseId'] in seen or row['role'] not in (*ROLES,'resource') or row['method'] not in ('GET','POST','DELETE') or row['path'] not in (REQUEST,*USERS) and not row['path'].startswith(DELETE) and not (row['role']=='resource' and row['method']=='GET' and re.fullmatch('/feature-fixture/v1/runs/'+run+r'/tickets/[0-9a-f]{32}/(?:avatar-a\.fst|missing\.fst|mannequin/[A-Za-z0-9_.-]+|gltf-bundle/(?:main\.gltf|mesh/triangle\.bin|textures/checker\.png))',row['path'])) or not integer(row['status'],100,599) or not integer(row['bytes'],1,16*1024*1024 if row['role']=='resource' else 65536) or not re.fullmatch('[0-9a-f]{64}',row['sha256']) or not integer(row['startedEpochMs'],1,row['completedEpochMs']) or not integer(row['completedEpochMs'],1,value['capturedEpochMs']):raise ValueError('Invalid completed social wire source')
         sequence=row['sequence'];seen.add(row['responseId'])
     if not value['active'] and (value['pending'] or value['inflightResponses'] or any(value['relationships'].values())):raise ValueError('Retired social scope remains live')

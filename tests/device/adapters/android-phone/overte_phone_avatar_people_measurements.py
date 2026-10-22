@@ -86,7 +86,7 @@ def consumed(run,url,native,backend,*,status=200):
         writes=[row for row in backend['responses'] if row['responseId']==actual['responseId']]
         if len(writes)!=1:continue
         write=writes[0]
-        if write['role']=='resource' and write['method']=='GET' and write['path']==parsed.path and write['ticket']==ticket and write['status']==status and write['bytes']==actual['bytes'] and write['sha256']==actual['sha256']:
+        if write['role']=='resource' and write['method']=='GET' and write['path']==parsed.path and write['requestTarget']==parsed.path and write['ticket']==ticket and write['status']==status and write['bytes']==actual['bytes'] and write['sha256']==actual['sha256']:
             if expected is None or expected==(actual['bytes'],actual['sha256']):originals.append((actual,write))
     need(originals);return originals
 
@@ -133,8 +133,8 @@ def social_replies(source,backend,origin,role):
         need(actual['method']==write['method'] and actual['httpStatus']==write['status'] and actual['bytes']==write['bytes']
             and actual['sha256']==write['sha256'] and not actual['redirected'] and not actual['fromCache']
             and actual['requestedUrlSha256']==actual['replyUrlSha256'])
-        # GET query parameters are original URI data and may vary with paging.
-        if write['method']!='GET':need(actual['requestedUrlSha256']==digest(origin+write['path']))
+        need(actual['requestedUrlSha256']==digest(origin+write['requestTarget'])
+            and actual['requestBodySha256']==write['requestBodySha256'])
         need(actual['networkError']==0 if actual['httpStatus']==200 else actual['networkError']!=0)
     return [row for row in writes if any(actual['responseId']==row['responseId'] for actual in source['peopleReplies']['events'])]
 

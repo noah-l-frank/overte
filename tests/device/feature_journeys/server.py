@@ -181,15 +181,16 @@ class Handler(BaseHTTPRequestHandler):
             self.send(404,{'error':'not-found'});return True
         if parsed.scheme or parsed.netloc or parsed.fragment:raise ValueError('Invalid social request URL')
         if len(self.headers.get_all('Authorization',[]))!=1:raise ValueError('One original social authorization is required')
-        body=None
+        body=None;raw=b''
         if self.command=='POST':
             lengths=self.headers.get_all('Content-Length',[])
             if len(lengths)!=1 or not lengths[0].isdigit() or not 0<int(lengths[0])<=4096 or self.headers.get('Transfer-Encoding') or self.headers.get('Content-Encoding') or self.headers.get('Content-Type','').split(';')[0].lower().strip()!='application/json':
                 raise ValueError('Invalid bounded social body')
-            body=json_document(read_account_body(self.rfile,self.connection,int(lengths[0])))
+            raw=read_account_body(self.rfile,self.connection,int(lengths[0]));body=json_document(raw)
         elif self.headers.get('Content-Length') not in (None,'0') or self.headers.get('Transfer-Encoding'):
             raise ValueError('Unexpected social body')
-        with provider.response(self.headers['Authorization'],self.command,parsed.path,social_query(parsed.query),body) as response:
+        with provider.response(self.headers['Authorization'],self.command,parsed.path,social_query(parsed.query),body,
+                request_target=self.path,request_body_sha256=hashlib.sha256(raw).hexdigest()) as response:
             self.send(response[0],response[1],response_id=response[2],observe_write=response[3])
         return True
 
