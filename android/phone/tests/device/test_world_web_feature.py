@@ -256,6 +256,46 @@ class WorldWebFeatureTests(unittest.TestCase):
         self.assertEqual({'performed':True},self.primary.finalize())
         self.assertFalse(any(self.path.glob('phone-world-web-*.json')))
 
+    def retired_journey(self):
+        self.journey().execute();self.client.close()
+        with self.assertRaises(PhaseRetired):self.actor.publish()
+
+    def test_resumed_retirement_plan_rechecks_late_original_browser_resources(self):
+        self.retired_journey()
+        with patch.object(self.primary.retirement_store,'discard',side_effect=OSError('interrupted prune')):
+            with self.assertRaises(NativeUIError):self.primary.finalize()
+        self.assertIsNotNone(self.primary.retirement_store.read())
+        self.target.current=dict(url=self.target.source,response=secrets.token_hex(16),text='',focused=False,
+            attempts=[],echoes=[],instance=secrets.token_hex(16),sequence=0,status=200)
+        with self.assertRaises(NativeUIError):self.primary.finalize()
+        self.assertIsNotNone(self.primary.retirement_store.read())
+
+    def test_retirement_rejects_missing_modified_or_incomplete_original_png_ownership(self):
+        from overte_phone_script_history import pack,unpack
+        for fault in ('missing','changed','opened','quiet-incomplete'):
+            with self.subTest(fault=fault):
+                case=WorldWebFeatureTests();case.setUp()
+                try:
+                    case.retired_journey();store=case.primary.role_store;record=store.read();state=unpack(record['payload'])[0]
+                    image=state['images'][0];path=case.path/image['name']
+                    if fault=='missing':path.unlink()
+                    elif fault=='changed':path.write_bytes(b'changed-original')
+                    elif fault=='opened':image.update(phase='opened',sha256=None,bytes=None)
+                    else:state['quiet']['complete']=False
+                    if fault in ('opened','quiet-incomplete'):store.write(record|dict(payload=pack([state])),record)
+                    with case.assertRaises(NativeUIError):case.primary.finalize()
+                    case.assertIsNotNone(case.primary.store.read())
+                finally:case.doCleanups()
+
+    def test_saved_plan_cannot_hide_a_later_changed_original_png(self):
+        from overte_phone_script_history import unpack
+        self.retired_journey();record=self.primary.role_store.read();image=unpack(record['payload'])[0]['images'][0]
+        with patch.object(self.primary.retirement_store,'discard',side_effect=OSError('interrupted prune')):
+            with self.assertRaises(NativeUIError):self.primary.finalize()
+        (self.path/image['name']).write_bytes(b'changed after active journal removal')
+        with self.assertRaises(NativeUIError):self.primary.finalize()
+        self.assertIsNotNone(self.primary.retirement_store.read())
+
     def test_lost_input_return_is_never_redelivered(self):
         self.activate();self.observe();self.act('open');self.target.fail='lost-input'
         ticket=self.activate('submit');call=dict(contractVersion=VERSION,runId=self.run,fixtureUrl=self.fixture_url,ticket=ticket,verb='submit',inputs={})

@@ -70,9 +70,11 @@ laboratory under the existing policy.
 
 ## Checked scope and remaining qualification
 
-Fourteen focused host cases cover the complete common journey, actual loopback
+Seventeen focused host cases cover the complete common journey, actual loopback
 HTTP response IDs/404/restoration, source/history counterexamples, separate
-credentials, one-send intent, default-off registration and original cleanup.
+credentials, one-send intent, default-off registration and original cleanup. Resumed retirement plans acquire another original three-second
+native/Java/service absence window and verify the original saved PNG files,
+inodes, sizes and hashes before active journals can be pruned.
 Native events, pointer/IME boundaries and PNGs in those cases are explicitly
 synthetic. Existing passive DOM and HTTP fixtures retain their own checks.
 

@@ -203,18 +203,34 @@ class PhoneWorldWebFeature:
                 fixtureUrl=self.fixture_url,ownerToken=owner['ownerToken'],operation='observe')
             validate_source(packet,request,int(owner['binding']['processIdentity'].split(':')[0]),packet['capturedEpochMs'])
         if value['browser'] is not None:browser_status(value['browser'])
+        self.verify_images(value,self.role)
+        if value['last'] is not None:result('feature.world-web.observe',value['last'])
+        return value
+
+    def verify_images(self,value,role):
+        image_started=self.monotonic()
         for image in value['images']:
             exact(image,{'name','phase','device','inode','sha256','bytes'})
-            name=image['name'];need(type(name) is str and name.startswith('world-web-'+self.run+'-'+self.role+'-')
-                and name.endswith('.png') and len(name)==len('world-web-'+self.run+'-'+self.role+'-')+36
+            name=image['name'];need(type(name) is str and name.startswith('world-web-'+self.run+'-'+role+'-')
+                and name.endswith('.png') and len(name)==len('world-web-'+self.run+'-'+role+'-')+36
                 and '/' not in name and '\\' not in name and image['phase'] in ('planned','opened','saved'))
             identifier(name[-36:-4])
             if image['phase']=='planned':need(all(image[key] is None for key in ('device','inode','sha256','bytes')))
             else:
                 need(integer(image['device'],0,2**64-1) and integer(image['inode'],1,2**64-1))
                 if image['phase']=='saved':need(type(image['sha256']) is str and len(image['sha256'])==64 and integer(image['bytes'],1,32*1024*1024))
-        if value['last'] is not None:result('feature.world-web.observe',value['last'])
-        return value
+                path=self.artifact_root/image['name'];PrivateFeatureState(path)._parent()
+                descriptor=os.open(path,os.O_RDONLY|getattr(os,'O_NOFOLLOW',0)|getattr(os,'O_NONBLOCK',0))
+                with os.fdopen(descriptor,'rb') as stream:
+                    a=os.fstat(stream.fileno());b=path.lstat()
+                    need(stat.S_ISREG(a.st_mode) and stat.S_ISREG(b.st_mode) and a.st_nlink==b.st_nlink==1
+                        and a.st_uid==b.st_uid==os.geteuid() and stat.S_IMODE(a.st_mode)==stat.S_IMODE(b.st_mode)==0o600
+                        and (a.st_dev,a.st_ino)==(b.st_dev,b.st_ino)==(image['device'],image['inode']) and a.st_size<=32*1024*1024)
+                    if image['phase']=='saved':
+                        raw=stream.read(32*1024*1024+1)
+                        need(a.st_size==image['bytes']==len(raw) and hashlib.sha256(raw).hexdigest()==image['sha256'])
+                        after=path.lstat();need((after.st_dev,after.st_ino,after.st_size,after.st_mtime_ns)==(b.st_dev,b.st_ino,b.st_size,b.st_mtime_ns))
+            need(self.monotonic()-image_started<5)
 
     def screenshot(self,owner,ticket,sequence,role,state):
         binding,guard=self.runtime(owner)
@@ -245,7 +261,8 @@ class PhoneWorldWebFeature:
         return dict(kind='image',name=name,sequence=sequence,capturedEpochMs=captured,ticket=ticket,source='native-screen')
 
     def acquire(self,owner,phase,state,*,after_sequence=0):
-        start=self.monotonic();need(number(start,0,1e15) and integer(after_sequence) and after_sequence<=state['sequence'])
+        start=self.monotonic();need(number(start,0,1e15) and integer(after_sequence) and after_sequence<=state['sequence']
+            and all(image['phase']=='saved' for image in state['images']))
         self.runtime(owner)
         native=self.sample_native(owner,state['native'])
         if native['source']['retired']:need(owner['phase']=='cleaned')
@@ -334,6 +351,25 @@ class PhoneWorldWebFeature:
             owner.update(phase='cleaned');self.save(owner)
             return {'performed':True}
 
+    def verify_retirement(self,plan):
+        """Every retry obtains a new original empty native/Java/service window."""
+        original=unpack(plan['owner']['payload'])[0]
+        self.runtime(original);start=previous=self.monotonic();stable=None;count=0
+        for attempt in range(81):
+            native=self.sample_native(original);need(native['source']['retired'] and not native['source']['current'])
+            runtime=self.adapter._web_runtime_observer(self.selector,read_only=True).read(self.run,self.fixture_url)
+            if runtime['source']['nativeAfter']['knownHandles']:released(runtime)
+            else:need(not runtime['source']['nativeAfter']['views'] and not runtime['source']['java']['views'] and not runtime['source']['java']['creations'])
+            _ui,observe,_binding,guard,_installed=self.adapter.normal_feature_runtime(self.selector,read_only=True)
+            diagnostic,_epoch=observe(0);url=original['scriptUrl']
+            need(not any(row['url']==url or url is not None and row['url'].rsplit('/',1)[-1]==url.rsplit('/',1)[-1] for row in diagnostic['scripts']))
+            guard();now=self.monotonic();need(number(now,previous,start+15));previous=now
+            if stable is None:stable=now
+            count+=1
+            if now-stable>=3 and count>=3:return dict(native=native,runtime=runtime,diagnostic=diagnostic)
+            need(attempt<80);self.sleep(.1)
+        raise NativeUIError('Original World Web retirement did not remain empty')
+
     def finalize(self):
         need(self.role=='primary');started=previous=self.monotonic()
         for attempt in range(81):
@@ -343,8 +379,8 @@ class PhoneWorldWebFeature:
                 if plan is None and self.store.read() is None:
                     need(completed is not None and all(PrivateFeatureState(self.store.path.with_name('phone-world-web-'+role+'.json')).read() is None
                         for role in ('primary','actor')) and self.adapter.world_web_manager_store(self.selector).read() is None)
-                    original=unpack(completed['owner']['payload'])[0];native=self.sample_native(original)
-                    need(native['source']['retired']);return {'performed':True}
+                    for role in ('primary','actor'):self.verify_images(unpack(completed[role]['payload'])[0],role)
+                    self.verify_retirement(completed);return {'performed':True}
                 if plan is None:
                     owner=self.owner();need(owner is not None and owner['phase']=='cleaned' and self.adapter.world_web_manager_store(self.selector).read() is None)
                     status=self.source.status();need(status['active'] is False)
@@ -352,11 +388,17 @@ class PhoneWorldWebFeature:
                     actor=self.read(actor_store,'actor')
                     if actor is not None and actor['retired'] is not None:
                         need(actor['quiet'] is not None and actor['quiet']['complete'])
-                        primary=self.role_state()
+                        primary=self.role_state();need(primary['quiet'] is not None and primary['quiet']['complete']
+                            and primary['native']['source']['retired'] and all(image['phase']=='saved' for image in primary['images']))
                         plan=dict(owner=deepcopy(self.originals[self.store.path]),actor=deepcopy(self.originals[actor_store.path]),
                             primary=deepcopy(self.originals[self.role_store.path]),status=status,binding=owner['binding'])
                         self.write(self.retirement_store,'retirement',plan)
                 if plan is not None:
+                    # Revalidate every retained original PNG even after active role journals were partly pruned.
+                    for role in ('primary','actor'):
+                        saved=unpack(plan[role]['payload'])[0];self.verify_images(saved,role)
+                        need(saved['quiet'] is not None and saved['quiet']['complete'] and all(image['phase']=='saved' for image in saved['images']))
+                    self.verify_retirement(plan)
                     if completed is None:self.write(self.completed_store,'completed',plan)
                     else:need(same(completed,plan))
                     self.runtime(dict(binding=plan['binding']))
