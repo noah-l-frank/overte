@@ -184,5 +184,9 @@ now handles the actual cache-update/signal-enqueue race and independently reads
 physical Chat-key INI rows after the real worker sync. Its entire original
 SettingManager translation unit and QObject metadata compile and run against
 real Qt5, alongside the worker/barrier/file counterexamples. This is internal
-source infrastructure; there is no public raw-value output, original-profile
-restoration owner or whole-run cleanup claim yet.
+source infrastructure with a bounded queue and no mutex over worker waits.
+The [native private profile owner](../../native/CHAT_PROFILE_OWNER.md) now
+captures and restores actual original storage without exporting raw values.
+Its real Qt5 proof includes a post-write timeout followed by fresh original
+recovery and no second restore. Normal Erase/reopen composition and whole-run
+cleanup remain required.

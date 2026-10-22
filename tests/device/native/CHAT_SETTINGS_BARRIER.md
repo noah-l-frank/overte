@@ -1,4 +1,4 @@
-# Original Chat settings writer barrier v1
+# Original Chat settings writer barrier v2
 
 This internal native component is not a complete Chat profile owner or a public
 feature operation. It does not export private setting values through a script
@@ -48,7 +48,9 @@ size, mode and original path are checked across the bounded read; symlinks,
 replacement and nonprivate roots fail. The descriptor closes before return.
 
 Only the two literal root Chat key rows are retained as presence and SHA-256
-of actual serialized bytes, bounded to a 1-MiB INI. Duplicate/ambiguous aliases,
+of actual serialized bytes, bounded to a 1-MiB INI. Version 2 also reports
+whether the actual history row is absent or has a literal empty/`@Invalid()`
+encoding; no cached live value supplies this physical admission. Duplicate/ambiguous aliases,
 unsupported continuations and malformed syntax refuse acquisition. Other rows
 and raw file content never enter this source result. These physical row hashes
 remain distinct from both manager and worker QVariant types: Qt5 serializes an
@@ -56,7 +58,7 @@ empty QVariantList and a null QVariant into identical `@Invalid()` bytes even
 while the current live types differ. A shared-cache QSettings read cannot prove
 that physical boundary.
 
-Two real Qt5 compiler/run checks pass. One compiles the complete original
+Three real Qt5 compiler/run checks pass. One compiles the complete original
 SettingManager.cpp translation unit and real generated QObject metadata, then
 executes its original worker thread, Manager set/remove/clear paths, native
 snapshot, an actual still-active signal emission, contended cache lock, worker-
@@ -67,9 +69,11 @@ physical file reader, exercising pre-enqueue delay, mutations started and comple
 snapshot, actual null/list/string differences, file modes, duplicate rows and
 symlink refusal. Its manager cache is an explicit seam. These checks qualify
 this host component only; full application/Android linking and devices remain
-unqualified.
+unqualified. The third compiles the entire original Manager and new
+[private profile owner](CHAT_PROFILE_OWNER.md), exercising saved native types,
+actual file boundaries, conditional restore and late original worker ownership.
 
-The next profile owner must capture exact original live presence/type/value and
+The profile owner must capture exact original live presence/type/value and
 these distinct physical row hashes before mutation, forbid unowned history,
 use normal Erase and independently reconstructed Script history, restore only
 its saved original keys, acquire fresh matching cache/worker/file originals and
