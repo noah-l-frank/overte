@@ -58,6 +58,18 @@ class NavigationRuntimeTests(unittest.TestCase):
         self.assertEqual((sessions,launches),(self.f.sessions,self.f.launches))
         self.assertFalse(any(operation in ('mobile: terminateApp','mobile: backgroundApp') for operation,_values in self.f.commands))
 
+    def test_independent_observer_factory_keeps_existing_candidate_and_original_owner_ports(self):
+        sessions,launches=self.f.sessions,self.f.launches
+        with self.lock.held():
+            observer=self.runtime._navigation_observer('test-only',self.scene.client,self.run,'actor',0,self.root,self.lock)
+            self.assertEqual('42',observer.binding['processIdentity']);self.assertEqual([],observer.state['rows'])
+            owner=observer.factory('c'*32,None)
+            self.assertEqual('actor',owner.role);self.assertIs(observer.images,owner.images)
+            self.assertIs(self.lock,owner.lock);self.assertTrue(owner.native.native_clock_bound)
+            self.assertIsNone(owner.store.read());self.assertIsNotNone(observer.store.read())
+        self.assertEqual((sessions,launches),(self.f.sessions,self.f.launches))
+        self.assertFalse(any(operation in ('mobile: terminateApp','mobile: backgroundApp') for operation,_values in self.f.commands))
+
     def test_factory_and_native_reader_refuse_changed_candidate_before_input_or_new_capture(self):
         with self.lock.held():
             owner=self.owner();before=len(self.f.commands);self.f.artifact.write_bytes(b'Replaced candidate')

@@ -304,6 +304,8 @@ REQUIRED = {
     "ios-navigation-samples": 1,
     "ios-navigation-image-archive": 1,
     "ios-navigation-observation-owner": 1,
+    "ios-navigation-observer": 1,
+    "ios-navigation-observed": 1,
     "native-entity-edit-inventory": 1,
     "ios-scene-inventory": 2,
     "ios-scene-commit-origin": 1,

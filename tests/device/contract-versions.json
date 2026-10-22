@@ -310,6 +310,8 @@
     "ios-navigation-samples": {"current": 1, "reads": [1]},
     "ios-navigation-image-archive": {"current": 1, "reads": [1]},
     "ios-navigation-observation-owner": {"current": 1, "reads": [1]},
+    "ios-navigation-observer": {"current": 1, "reads": [1]},
+    "ios-navigation-observed": {"current": 1, "reads": [1]},
     "native-entity-edit-inventory": {"current": 1, "reads": [1]},
     "ios-scene-inventory": {"current": 2, "reads": [1, 2]},
     "ios-scene-commit-origin": {"current": 1, "reads": [1]},

@@ -130,6 +130,7 @@ class NavigationObservationOwner:
 
     def image(self):
         row,archive=self.state['imageRow'],self.state['imageArchive'];need(row is not None and archive is not None)
+        need(same(self.images.original(row)[1],archive))
         values=unpack(archive['payload']);need(len(values)==1 and same(archive,self.images.archive_envelope(row,values[0]))
             and digest(archive)==row['archiveSha256'])
         child=self.images.frozen_child(row,values[0]);sample,result=child.archive()

@@ -31,6 +31,20 @@ from ios.adapters.script_runtime import IOSScriptRuntime
 
 
 class IOSNavigationRuntime(IOSScriptRuntime):
+    def _navigation_observer(self,selector,client,run,role,stage,root,lock):
+        """Role-owned original acquisition/publication on the existing session."""
+        import uuid
+        from ios.adapters.navigation_observer import NavigationObserver
+        prototype=self._navigation_observation_owner(selector,client,run,role,stage,uuid.uuid4().hex,root,lock)
+        def factory(request,previous):
+            return NavigationObservationOwner(PrivateFeatureState(prototype.store.path.with_name(
+                'ios-navigation-'+role+'-'+str(stage)+'-'+request+'-observation.json')),
+                prototype.images,prototype.binding,run,role,stage,request,lock,prototype.guard,
+                native=prototype.native,navigation=prototype.navigation,sources=prototype.sources,
+                fixture=prototype.fixture,previous=previous)
+        return NavigationObserver(PrivateFeatureState(prototype.store.path.with_name(
+            'ios-navigation-'+role+'-'+str(stage)+'-observer.json')),prototype.images,factory=factory)
+
     def _navigation_restart(self,selector,initial,samples,lock,fixture):
         from ios.adapters.navigation_restart import NavigationRestart
         return NavigationRestart(self,selector,initial,samples,lock,fixture)
