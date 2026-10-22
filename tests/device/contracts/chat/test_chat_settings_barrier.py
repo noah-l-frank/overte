@@ -293,12 +293,100 @@ int main(int argc,char** argv) {
 '''
 
 
+JSON_PHYSICAL=r'''
+#include "tests/device/native/ChatProfileOwner.h"
+#include <QTemporaryDir>
+#include <QJsonObject>
+#include <cassert>
+class OwnedManager:public Setting::Manager {public:~OwnedManager(){terminateThread();}};
+class SettingsTests {
+public:static Setting::WriteWorker* worker(Setting::Manager& manager){return manager._featureChatWorker.data();}
+};
+int main(int argc,char** argv) {
+    QCoreApplication app(argc,argv);QTemporaryDir scratch;assert(scratch.isValid());
+    assert(::chmod(QFile::encodeName(scratch.path()).constData(),0700)==0);
+    const auto path=scratch.path()+"/literal.json";
+    auto write=[&](const QByteArray& bytes) {
+        QFile file(path);assert(file.open(QIODevice::WriteOnly|QIODevice::Truncate));assert(file.write(bytes)==bytes.size());file.close();
+        assert(::chmod(QFile::encodeName(path).constData(),0600)==0);
+    };
+    auto produce=[](const QSettings::SettingsMap& values) {
+        QByteArray bytes;QBuffer output(&bytes);assert(output.open(QIODevice::WriteOnly));assert(writeJSONFile(output,values));return bytes;
+    };
+    assert(!overte::e2e::chatSettingsFile(path,JSON_FORMAT).isEmpty()); // Actual missing file.
+    write("");assert(overte::e2e::chatSettingsFile(path,JSON_FORMAT).isEmpty());
+    const QVariantMap config{{"ArmoredChat-Messages",QVariantMap{{"quoted","a,\\\"b"},{"array",QVariantList{1,2}}}},{"private","secret"}};
+    for(const auto value:{QVariant(),QVariant(QString()),QVariant(QString("")),QVariant(QVariantList()),QVariant(QStringList())}) {
+        const auto bytes=produce({{"ArmoredChat-Messages",value},{"ArmoredChat-Config",config}});write(bytes);
+        const auto physical=overte::e2e::chatSettingsFile(path,JSON_FORMAT);assert(!physical.isEmpty());
+        assert(physical.value("ArmoredChat-Messages").toMap().value("empty")==true);
+        assert(!QJsonDocument::fromVariant(physical).toJson().contains("secret"));
+        QBuffer input;input.setData(bytes);assert(input.open(QIODevice::ReadOnly));QSettings::SettingsMap decoded;
+        assert(readJSONFile(input,decoded));
+        if(value.userType()==QMetaType::QStringList) {assert(decoded.value("ArmoredChat-Messages").userType()==QMetaType::QStringList);}
+    }
+    for(const auto value:{QVariant(QString("@Variant(malformed)")),QVariant(QStringList{"row"}),QVariant(QVariantList{QString("row")}),QVariant(QVariantMap()),QVariant(false),QVariant(0)}) {
+        write(produce({{"ArmoredChat-Messages",value}}));const auto physical=overte::e2e::chatSettingsFile(path,JSON_FORMAT);
+        assert(!physical.isEmpty() && physical.value("ArmoredChat-Messages").toMap().value("empty")==false);
+    }
+    // Literal malformed serialized data is never deserialized or called empty.
+    write("{\n    \"ArmoredChat-Messages\": \"@Variant(malformed)\"\n}\n");
+    assert(overte::e2e::chatSettingsFile(path,JSON_FORMAT).value("ArmoredChat-Messages").toMap().value("empty")==false);
+    const auto canonical=produce({{"ArmoredChat-Messages",QVariantList()},{"ArmoredChat-Config",config}});
+    for(const auto malformed:{QByteArray("[]\n"),canonical.trimmed(),QByteArray("\xEF\xBB\xBF")+canonical,
+            QByteArray("{\n    \"ArmoredChat-Messages\": null,\n    \"ArmoredChat-Messages\": []\n}\n"),
+            QByteArray("{\n    \"ArmoredChat-\\u004dessages\": []\n}\n"),canonical.left(canonical.size()-2)}) {
+        write(malformed);assert(overte::e2e::chatSettingsFile(path,JSON_FORMAT).isEmpty());
+    }
+    for(const auto alias:{" ArmoredChat-Messages","%41rmoredChat-Messages","/ArmoredChat-Messages/","\"ArmoredChat-Config\""}) {
+        write(produce({{alias,QVariantList()}}));assert(overte::e2e::chatSettingsFile(path,JSON_FORMAT).isEmpty());
+    }
+    write(canonical);assert(overte::e2e::chatSettingsFile(path,QSettings::NativeFormat).isEmpty());
+    assert(::chmod(QFile::encodeName(path).constData(),0666)==0);assert(overte::e2e::chatSettingsFile(path,JSON_FORMAT).isEmpty());
+    assert(::chmod(QFile::encodeName(path).constData(),0600)==0);
+    const auto hard=scratch.path()+"/hard";assert(::link(QFile::encodeName(path).constData(),QFile::encodeName(hard).constData())==0);
+    assert(overte::e2e::chatSettingsFile(path,JSON_FORMAT).isEmpty());assert(QFile::remove(hard));
+    assert(QFile::remove(path));assert(QFile::link(scratch.path()+"/missing",path));assert(overte::e2e::chatSettingsFile(path,JSON_FORMAT).isEmpty());
+    assert(QFile::remove(path));
+
+    // Actual Manager cache stays original while a separate writer changes
+    // physical JSON. Original worker sync may reload it; no new QSettings reader.
+    QCoreApplication::setOrganizationName("OverteOriginalJSON");QCoreApplication::setApplicationName("Settings");
+    QSettings::setDefaultFormat(JSON_FORMAT);QSettings::setPath(JSON_FORMAT,QSettings::UserScope,scratch.path());
+    assert(QDir().mkpath(scratch.path()+"/OverteOriginalJSON"));OwnedManager manager;
+    manager.setValue("ArmoredChat-Messages",QVariantList());manager.setValue("ArmoredChat-Config",config);
+    const auto original=manager.featureChatSnapshot();assert(!original.isEmpty());const auto actualPath=manager.fileName();
+    QFile originalFile(actualPath);assert(originalFile.open(QIODevice::ReadOnly));const auto originalBytes=originalFile.readAll();originalFile.close();
+    QFile changed(actualPath);assert(changed.open(QIODevice::WriteOnly|QIODevice::Truncate));
+    const auto foreign=produce({{"ArmoredChat-Messages",QVariantList{QString("foreign physical history")}},{"ArmoredChat-Config",config}});
+    assert(changed.write(foreign)==foreign.size());changed.close();
+    const auto observed=manager.featureChatSnapshot();assert(!observed.isEmpty());
+    assert(observed.value("cache")==original.value("cache"));
+    assert(observed.value("writer").toMap().value("values")!=original.value("writer").toMap().value("values"));
+    assert(observed.value("writer").toMap().value("values").toMap().value("ArmoredChat-Messages").toMap().value("value").toList()==QVariantList{QString("foreign physical history")});
+    assert(observed.value("writer").toMap().value("physical").toMap().value("ArmoredChat-Messages").toMap().value("empty")==false);
+    assert(!manager.featureChatRestoreHistory(original,{{"present",false},{"value",QVariant()}}));
+    assert(changed.open(QIODevice::WriteOnly|QIODevice::Truncate));assert(changed.write(originalBytes)==originalBytes.size());changed.close();
+    assert(manager.featureChatSnapshot().value("writer").toMap().value("physical")==original.value("writer").toMap().value("physical"));
+}
+'''
+
+
 class SettingsBarrierTests(unittest.TestCase):
     def test_actual_manager_translation_unit_and_original_worker(self):
         self.compile_manager(FULL_MANAGER)
 
     def test_actual_profile_owner_saved_types_physical_refusal_and_one_restore(self):
         self.compile_manager(PROFILE)
+
+    def test_actual_json_manager_translation_unit_and_original_worker(self):
+        self.compile_manager(FULL_MANAGER.replace('QSettings::IniFormat','JSON_FORMAT'))
+
+    def test_actual_json_profile_saved_types_and_conditional_restore(self):
+        self.compile_manager(PROFILE.replace('QSettings::IniFormat','JSON_FORMAT'))
+
+    def test_actual_json_producer_literal_rows_aliases_and_cache_file_disagreement(self):
+        self.compile_manager(JSON_PHYSICAL)
 
     def compile_manager(self,program):
         flags=shlex.split(subprocess.check_output(['pkg-config','--cflags','--libs','Qt5Core'],text=True))
@@ -314,7 +402,7 @@ class SettingsBarrierTests(unittest.TestCase):
                 str(ROOT/'libraries/shared/src/SettingManager.h'),'-o',str(generated)],capture_output=True,text=True,timeout=30)
             self.assertEqual(0,meta.returncode,meta.stderr[:6000])
             compiled=subprocess.run(['c++','-std=c++17','-fPIC','-pthread','-DOVERTE_E2E_FEATURE_TESTS',*includes,
-                str(unit),str(ROOT/'libraries/shared/src/SettingManager.cpp'),str(generated),'-o',str(binary),
+                str(unit),str(ROOT/'libraries/shared/src/SettingManager.cpp'),str(ROOT/'libraries/shared/src/SettingHelpers.cpp'),str(ROOT/'libraries/shared/src/SharedLogging.cpp'),str(generated),'-o',str(binary),
                 '-L'+library,'-Wl,-rpath,'+library,*flags],capture_output=True,text=True,timeout=45)
             self.assertEqual(0,compiled.returncode,compiled.stderr[:6000])
             executed=subprocess.run([str(binary),'--testScript'],capture_output=True,text=True,timeout=10)
@@ -329,8 +417,8 @@ class SettingsBarrierTests(unittest.TestCase):
         library=subprocess.check_output(['pkg-config','--variable=libdir','Qt5Core'],text=True).strip()
         with tempfile.TemporaryDirectory(prefix='overte-chat-settings-barrier-') as scratch:
             unit=Path(scratch)/'test.cpp';binary=Path(scratch)/'test';unit.write_text(program)
-            compiled=subprocess.run(['c++','-std=c++17','-fPIC','-DOVERTE_E2E_FEATURE_TESTS','-I'+str(ROOT),
-                str(unit),'-o',str(binary),'-L'+library,'-Wl,-rpath,'+library,*flags],capture_output=True,text=True,timeout=45)
+            compiled=subprocess.run(['c++','-std=c++17','-fPIC','-DOVERTE_E2E_FEATURE_TESTS','-I'+str(ROOT),'-I'+str(ROOT/'libraries/shared/src'),
+                str(unit),str(ROOT/'libraries/shared/src/SettingHelpers.cpp'),str(ROOT/'libraries/shared/src/SharedLogging.cpp'),'-o',str(binary),'-L'+library,'-Wl,-rpath,'+library,*flags],capture_output=True,text=True,timeout=45)
             self.assertEqual(0,compiled.returncode,compiled.stderr[:6000])
             executed=subprocess.run([str(binary),'--testScript'],capture_output=True,text=True,timeout=10)
             self.assertEqual(0,executed.returncode,executed.stderr[:2000])
