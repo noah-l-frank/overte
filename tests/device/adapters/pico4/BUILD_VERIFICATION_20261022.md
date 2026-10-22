@@ -266,3 +266,23 @@ Current challenge pixels/independent actor and whole Emote cleanup remain open.
 The three final Pico groups pass (3/65, 94.98s): coverage-matrix .061s,
 normal-emote 34.414s and emote-original-sources 60.508s. All four final project
 checks pass (3.65s); contract registry, Node probe syntax and whitespace pass.
+
+
+## Integrated consumed peer continuation and native background history
+
+8fb38cccbe and 5db4f50c4f allow only fully consumed/received original peer input
+and delivery histories to reconstruct between RPCs. Complete original receipt
+bytes, native owner/process/file identities and both independent original source
+histories remain bound to each input. Uncertain/old journals remain retained;
+input is never replayed. 9343feb3b4 adds the bounded original Qt/Chat/VR-keyboard
+background history without weakening foreground guards or supplying OS input.
+
+All 38 affected peer-input/send/distance/background cases pass (39.378s).
+An earlier combined command named a nonexistent test_chat_distant module;
+its 33 loaded cases passed, the selector error was preserved, and the corrected
+whole selection above is green. The actual Qt5 Chat QML/native IME/history check
+and original bridge-body compilation pass; OS/VR/service boundaries remain
+explicit seams. Both integrated actual factory/parent-lock cases pass (2.348s).
+All four project checks pass (3.17s), and registry/Node/whitespace checks pass.
+Whole Chat and Lifecycle remain partial; no source/journal retirement or device
+qualification is inferred from these components.

@@ -833,3 +833,15 @@ Original camera counts, image hashes, source identities and native times survive
 the host join. Existing release clears the added bounded maps, including late
 callback cases. Current challenge/body pixels, independent actor publication and
 whole flow/callback/resource retirement remain open; Emotes remains partial.
+
+
+## Original background history and consumed peer RPC continuation
+
+The [native background history](LIFECYCLE_BACKGROUND_SOURCE.md) retains actual
+Qt state transitions and sampled original Chat/editor/VR-keyboard facts while
+foreground host guards remain unchanged. A durable arm precedes native mutation;
+release requires the exact original arm identity. Actual normal OS background
+input, recovery and whole retirement still need composition. Chat now reconstructs
+only complete consumed peer inputs/received deliveries from original receipts,
+file/native identities and both source histories. Old/uncertain attempts stay
+retained and are never replayed. These are partial source/ownership components.

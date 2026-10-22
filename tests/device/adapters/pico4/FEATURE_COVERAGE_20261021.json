@@ -1184,7 +1184,12 @@
         "tests/device/adapters/pico4/lifecycle_editor.py",
         "tests/device/adapters/pico4/LIFECYCLE_EDITOR.md",
         "tests/device/adapters/pico4/lifecycle_chat.py",
-        "tests/device/adapters/pico4/LIFECYCLE_CHAT.md"
+        "tests/device/adapters/pico4/LIFECYCLE_CHAT.md",
+        "tests/device/native/LifecycleBackgroundHistory.h",
+        "tests/device/adapters/pico4/lifecycle_background_source.py",
+        "tests/device/adapters/pico4/LIFECYCLE_BACKGROUND_SOURCE.md",
+        "tests/device/contracts/tablet/test_lifecycle_background.py",
+        "tests/device/self_tests/test_pico_lifecycle_background_source.py"
       ],
       "declaredCheckpoints": 16,
       "inputVerbs": [
@@ -1229,7 +1234,7 @@
         "Observe real old context retirement and new empty editor",
         "Restore original position/focus and sustain zero deferred/held input for three seconds"
       ],
-      "nextExecutableStep": "Extend the actual normal Create/Unicode -> consumed world gesture/neutral -> X/Home -> new original Chat/reply generation sequence with native background UI/keyboard history, second world attempt, Scripts/pending/stale contexts, independent peer and exact restoration/process-owned final retirement. Reuse one actual source-lock instance through each whole owner. No complete Lifecycle triple.",
+      "nextExecutableStep": "Compose durable normal OS HOME/resume input with the original bounded Qt UI/VR-keyboard history and independent lifecycle counters/quiet proof, then finish second-world/Scripts/Pending/stale/peer/restoration and whole process/resource retirement. The background source is passive and does not establish OS input or whole lifecycle completion.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     }
