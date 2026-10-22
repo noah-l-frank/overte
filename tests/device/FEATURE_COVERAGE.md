@@ -23,7 +23,7 @@ previously corrected their actual original-source semantics. The native retained
 input owner/private channel is now registered in all three separate platform
 branches; complete Lifecycle joins remain missing.
 
-All rows have shared test logic. The current eight-area Android Phone source/host integration status below supersedes the historical progress notes. Complete Android compilation and device acceptance remain unverified. Separate Pico/iOS sessions
+All rows have shared test logic. The current nine-area Android Phone source/host integration status below supersedes the historical progress notes. Complete Android compilation and device acceptance remain unverified. Separate Pico/iOS sessions
 maintain their own worktrees; this checkout does not establish their current status.
 The [Phone Emote run owner](adapters/android-phone/EMOTE_RUN.md) now connects
 setup, ordinary inputs, original role sources, bounded namespace switching and
@@ -50,8 +50,8 @@ admission, retaining ownership-only proof and preserving an unowned tablet.
 Retirement v3 additionally handles partly issued setup. The
 [public composition](adapters/android-phone/EMOTE_FEATURE.md) now connects operation
 paths, default-off registration and global finalization with immutable Run v6
-configuration. Full common normal-journey composition verification remains open;
-Emotes is not yet counted as an implemented full triple.
+configuration. Full common normal-journey host composition now passes; the
+current nine-area source/host status below supersedes older progress notes.
 The [Phone failure owner](adapters/android-phone/EMOTE_FAILURES.md) now retains
 both roles' interrupted readonly source, role/image/motion and lifetime-work attempts, then
 admitted/failed Admission originals before run input cleanup. Run v4 now records
@@ -96,7 +96,7 @@ and their branches are outside this Android Phone continuation.
 | authentication | No prior feature journey | Invalid login; close/reopen a pending view; real restart before valid old-grant release; successful login/restart and native logout; separate fixture revocation. | peer | Logic present; Phone adapter implemented (native uncompiled); Pico/iOS adapter missing; all devices untested |
 | avatar-people | `multi-user` | Actual loaded/requested avatar, Model wearable, native load failure and bookmark recovery; mutual contact consent/cancel/reject/removal. | changed, image, peer | Logic present; Phone controlled reciprocal service/model/resource sources implemented; public adapter in progress; device untested |
 | create | `create-management`, `entity-sync`, `world-interaction` | Model URL/texture/voxel creation/edit, real entity-JSON picker cancellation/import, exact-slot original export and rez denial/retry. | changed, file, image, peer | Phone adapter source implemented; all 21 common steps, independent actor and full cleanup host-verified; complete Android build/device untested. [Details](adapters/android-phone/CREATE_FEATURE.md) |
-| emotes | No prior feature journey | Ten actual native overrides, nine automatic completions, all observed Sit variants, chooser lifetime, early restoration and resume. | changed, image, file, peer | Logic present; Phone public paths composed; full normal-journey verification pending; native uncompiled; device untested |
+| emotes | No prior feature journey | Ten actual native overrides, nine automatic completions, all observed Sit variants, chooser lifetime, early restoration and resume. | changed, image, file, peer | Phone public adapter source implemented; full common host replay, independent original-source actor and complete retirement pass; runtime improvements under verification; complete Android/device untested |
 | world-web | `world-web-video` | Real text/bridge, foreign origin rejection, navigation/Back, 404/reload and background resume. | changed, image, peer | Phone adapter source implemented including mandatory video foundation; common journey and partial native/Java/JNI checks pass; complete Android build/device untested. [Details](adapters/android-phone/WORLD_WEB_FEATURE.md) |
 | graphics | `render-health` | Immediate resolution/Haze/Mirrors, actual completed-frame/pass effects, close/restart durability and measured original restoration. | changed, image | Logic present; Phone adapter implemented (native uncompiled); Pico/iOS adapter missing; all devices untested |
 | audio | `audio-controls`, `permission-recovery`, `sound-playback`, `voice-roundtrip` | Automatic memory capture/play/drain/completion, real cancel, muted rejection/cancel and background cancellation; OS permissions remain in the composed foundation. | audio, file, peer, silence | Phone adapter source implemented including all mandatory foundations; complete v17 host composition, independent actor/PCM/PC joins and targeted Qt native checks; complete Android build/device untested. [Details](adapters/android-phone/AUDIO_FEATURE.md) |
@@ -107,12 +107,11 @@ and their branches are outside this Android Phone continuation.
 | lifecycle-input | `lifecycle-under-load`, `tablet-input-isolation`, `text-input` | Distinct editor contexts/drafts, actual page Back/resume, original pending stale input rejection, held world input, stationary release and immutable counters. | changed, image, peer | Logic present; adapter missing; device untested |
 | tablet-web | `tablet-web-video`, `tablet` | Same browser flows plus ordinary inline app routing and input ownership. | changed, image, peer | Phone adapter source implemented including both mandatory foundations; common journey and partial native/Java/JNI checks pass; complete Android build/device untested. [Details](adapters/android-phone/TABLET_WEB_FEATURE.md) |
 
-Current Android Phone source integration (2026-10-22): **8/14** complete area
+Current Android Phone source integration (2026-10-22): **9/14** complete area
 compositions are implemented and host-verified: world-navigation, authentication,
-graphics, scripts, world-web, tablet-web, create and audio. The source-only boundary includes the mandatory
-foundations. Emotes remains incomplete after the full common journey exposed an
-idle Stop after automatic completion; targeted corrections pass while the
-complete common test remains running. Avatar/People and Snapshots
+graphics, scripts, world-web, tablet-web, create, audio and emotes. The source-only boundary includes the mandatory
+foundations. The full common Emote host replay now passes; runtime improvement
+verification is running separately and gives no real-time product acceptance. Avatar/People and Snapshots
 are in progress. Chat, Assets and Lifecycle/Input still need their complete public owners.
 Missing mandatory capabilities continue to block the aggregate fourteen-area
 suite. Host simulation establishes test logic only. Some native components have

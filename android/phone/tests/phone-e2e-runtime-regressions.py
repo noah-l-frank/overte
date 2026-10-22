@@ -96,6 +96,7 @@ COMMON_HOST_CHECKS = (
     "android/phone/tests/device/test_emote_cleanup.py",
     "android/phone/tests/device/test_emote_run.py",
     "android/phone/tests/device/test_emote_feature.py",
+    "android/phone/tests/device/test_emote_journey_registration.py",
     "android/phone/tests/device/test_emote_registration.py",
     "android/phone/tests/device/test_emote_early_cleanup.py",
     "android/phone/tests/device/test_emote_admission_owner.py",
@@ -134,10 +135,18 @@ COMMON_HOST_CHECKS = (
     "android/phone/tests/device/test_graphics_restart_scope.py",
     "android/phone/tests/device/test_graphics_restart.py",
 )
-CHECKS = DEPENDENCY_LIGHT_CHECKS + PREPARED_HOST_CHECKS + COMMON_HOST_CHECKS
+# The complete original-file Emote replay is deliberately registered in this
+# same runner as an explicit expensive host composition. Existing mandatory
+# profiles/deadlines are unchanged; the extended result is never device proof.
+EXTENDED_HOST_CHECKS = (
+    "android/phone/tests/device/test_emote_feature_journey.py",
+)
+CHECKS = DEPENDENCY_LIGHT_CHECKS + PREPARED_HOST_CHECKS + COMMON_HOST_CHECKS + EXTENDED_HOST_CHECKS
 parser = argparse.ArgumentParser()
 parser.add_argument("--execute", action="store_true",
                     help="execute the Qt/GLM native contracts on the prepared host")
+parser.add_argument("--extended", action="store_true",
+                    help="also execute expensive complete original-file host compositions; no device acceptance")
 args = parser.parse_args()
 # Every declared input is required even in dependency-light platform checks.
 for name in CHECKS:
@@ -147,7 +156,7 @@ for name in CHECKS:
 # Keep it mandatory in both modes; prepared contracts retain their existing
 # host compiler/Qt prerequisites.
 selected = PREPARED_HOST_CHECKS if args.execute else DEPENDENCY_LIGHT_CHECKS
-for name in selected + COMMON_HOST_CHECKS:
+for name in selected + COMMON_HOST_CHECKS + (EXTENDED_HOST_CHECKS if args.extended else ()):
     path = ROOT / name
     if not path.is_file():
         raise SystemExit("Missing mandatory Phone runtime contract: " + name)
@@ -159,4 +168,4 @@ for name in selected + COMMON_HOST_CHECKS:
     # journeys; their file/image/actor checks need a larger aggregate budget.
     # Per-source freshness and common checkpoint deadlines remain unchanged.
     subprocess.run(arguments, cwd=ROOT, check=True,
-                   timeout=240 if name.endswith(("test_graphics_feature.py","test_create_feature.py")) else 90)
+                   timeout=10800 if name in EXTENDED_HOST_CHECKS else 240 if name.endswith(("test_graphics_feature.py","test_create_feature.py")) else 90)

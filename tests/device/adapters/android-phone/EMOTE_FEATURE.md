@@ -1,11 +1,12 @@
-# Phone Emote public composition, integration in progress
+# Phone Emote public composition
 
 `PhoneEmoteFeature` composes the existing Run, Role, Namespace, independent Actor
 and Retirement owners through the normal `feature.emotes.act|observe|cleanup`
 entrypoint. Shared contract v17 remains unchanged. This package implements the
-public operation paths and guarded registration; full normal-journey composition
-verification is still pending. Emotes is not yet counted as a completed Phone
-area. See the current coverage matrix for the complete Phone count. The native
+public operation paths and guarded registration. The complete common v17
+host composition now passes, including all ten clips, nine automatic ends,
+three observed Sit variants, override/early cancel, background return and
+normal cleanup with final actor/journal retirement. See the current coverage matrix for the complete Phone count. The native
 Qt6 input contract has a host compiler check; the complete Android client and
 all devices remain untested.
 
@@ -94,10 +95,26 @@ original policy, incomplete restoration, stale/foreign evidence in the underlyin
 Role tests, missing actor termination, active fixture retirement, and interrupted
 final deletion after all child controls disappear.
 
-The complete common normal journey still needs composed verification, including
-all ten clips, automatic completion, randomized Sit discovery, replacement/early
-cancel, background return and normal final cleanup. No host simulation qualifies
-the native implementation, product behavior or physical devices.
+`test_emote_feature_journey.py` now exercises the complete unchanged common
+Journey through the public facade and independently credentialed original-source
+actor. A separate case checks all three target-selected Sit variants and idle
+Stop provenance. Both pass. Target clock, native renderer/IO and final resource
+transport are explicit synthetic boundaries; host simulation qualifies no native
+implementation, product behavior, real-time performance or physical device.
+
+The original complete replay took 7091.812 host seconds. Its actual historical
+file validation is CPU intensive. Bounded digest-only pure-history reuse and
+removal of redundant copies reduce repeated work; they never bypass reopening/
+hashing originals or acquire/cache a fresh product fact. Targeted corruption,
+missing-file, changed-catalog, graph-alias and fixed-bound counterexamples pass.
+A second isolated full run checks the combined runtime improvements. Real
+product source/input/quiet/deadline requirements remain unchanged and unqualified
+on devices. This slow complete host composition is registered in the existing
+Phone runtime runner's explicit `--extended` profile, with a separate three-hour
+aggregate host budget. All previously mandatory profiles and their 90/240-second
+limits are unchanged; default/prepared execution does not claim that extended
+check ran. Shared Probe admission pins must still be regenerated centrally from
+the final integrated source commit before actual admission can succeed.
 
 ## Idle Stop after an original completion
 

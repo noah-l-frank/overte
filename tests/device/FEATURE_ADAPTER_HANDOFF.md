@@ -832,7 +832,7 @@ required; the complete Phone count stays 3/14 and native source is uncompiled.
 ## Android Phone integration continuation (2026-10-22)
 
 The current [coverage matrix](FEATURE_COVERAGE.md) supersedes the historical
-three-area progress counts above: eight complete Phone source/host compositions
+three-area progress counts above: nine complete Phone source/host compositions
 are now integrated. [World Navigation](adapters/android-phone/WORLD_NAVIGATION_FEATURE.md)
 includes the common 17-checkpoint journey, real native Places/modal boundaries,
 independent publication and guarded cleanup. [World Web](adapters/android-phone/WORLD_WEB_FEATURE.md)
@@ -853,10 +853,12 @@ has a versioned original capture/upload, native-review and Android export
 callback source, alongside the
 existing five-mode output foundation. Original saved-URI stream consumption
 and bounded private host transfer now exist; OS destination cleanup, external
-receiver/upload evidence and the extended public owner are still missing. Emotes is not complete:
-the full common test found an idle-Stop composition defect after automatic
-completion. Its targeted corrections pass; the complete common test is still
-running and has not been counted as successful. Avatar/People has real controlled
+receiver/upload evidence and the extended public owner are still missing. [Emotes](adapters/android-phone/EMOTE_FEATURE.md) now passes both the complete
+unchanged common host Journey and the separate target-selected Sit/idle Stop
+case, including final fixture/actor/private-original retirement. The slow full
+host replay is registered as an explicit extended Phone-runner check; targeted
+runtime improvements pass counterexamples and a combined replay is running.
+This proves no real-time native/device qualification. Avatar/People has real controlled
 reciprocal HTTPS and original model/resource sources; its full public owner is
 still being implemented. [Audio](adapters/android-phone/AUDIO_FEATURE.md) now supplies the complete common
 v17 composition, all four mandatory foundations, independently read microphone/
