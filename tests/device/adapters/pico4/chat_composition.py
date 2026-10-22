@@ -1,0 +1,243 @@
+"""Private Pico Chat composition of original sources and once-only child owners.
+
+No public feature capability is granted until enclosing process/final journal
+retirement and independent whole-feature cleanup are implemented and verified.
+"""
+# Copyright 2026 Overte contributors.
+# SPDX-License-Identifier: Apache-2.0
+from contextlib import ExitStack,contextmanager
+from copy import deepcopy
+import stat
+import os
+
+from adapters.chat_journey.dispatcher import ChatDispatcher
+from adapters.chat_journey.owned_peer import OwnedChatPeer
+from adapters.chat_journey.owned_mixer import OwnedChatMixer
+from adapters.chat_journey.flow_inputs import fresh_roles
+from adapters.feature_fixture_access import AdapterFixtureClient
+from adapters.native_feature_observation import need,integer,exact
+from adapters.normal_feature_state import context
+from adapters.normal_feature_state import PrivateFeatureState
+from adapters.normal_ui import NativeUIError
+from adapters.script_journey.history import same
+from adapters.script_journey.lock import ScriptSourceLock
+from feature_journeys.phase_fixture import PhaseFixtureReader
+
+VERSION=1
+
+
+PHASES=('admitted','bound','profile-acquire-issued','profile-acquired','prepared','step-issued','step-completed',
+    'input-close-issued','input-closed','erase-restore-issued','profile-restored')
+
+
+def record(value):
+    import re
+    exact(value,{'picoChatCompositionVersion','runId','binding','fixtureUrl','phase','peerBinding','peerOriginBasis','completedSteps'})
+    need(type(value['picoChatCompositionVersion']) is int and value['picoChatCompositionVersion']==VERSION
+        and type(value['runId']) is str and re.fullmatch('[0-9a-f]{32}',value['runId'])
+        and type(value['fixtureUrl']) is str and len(value['fixtureUrl'])<=512
+        and value['fixtureUrl'].endswith('/runs/'+value['runId']+'/') and value['phase'] in PHASES
+        and integer(value['completedSteps'],0,26))
+    context(value['binding'])
+    if value['phase']=='admitted':need(value['peerBinding'] is None and value['peerOriginBasis']=='unavailable')
+    else:context(value['peerBinding']);need(value['peerOriginBasis']=='native-configured-metadata-only')
+    if value['phase'] in PHASES[:5]:need(value['completedSteps']==0)
+    if value['phase'] in PHASES[7:]:need(value['completedSteps']==26)
+    if value['phase']=='step-completed':need(value['completedSteps']>=1)
+    if value['phase']=='step-issued':need(value['completedSteps']<26)
+    return value
+
+
+def peer_directory(adapter,target,*,create=False):
+    state,_=adapter._script_paths(target);directory=state.with_name(state.stem.replace('normal-script-state-','chat-peer-state-'))
+    if create:
+        try:directory.mkdir(mode=0o700)
+        except FileExistsError:pass
+    try:info=directory.lstat()
+    except FileNotFoundError:
+        need(not create);return None
+    need(stat.S_ISDIR(info.st_mode) and info.st_uid==os.geteuid() and stat.S_IMODE(info.st_mode)==0o700
+        and directory.resolve(strict=True)==directory)
+    return directory
+
+
+def peer_retained(adapter,target):
+    directory=peer_directory(adapter,target)
+    if directory is None:return False
+    retained=False
+    for path in directory.iterdir():
+        if path.name!='script-sources.lock':retained=True;continue
+        info=path.lstat();need(stat.S_ISREG(info.st_mode) and info.st_uid==os.geteuid()
+            and stat.S_IMODE(info.st_mode)==0o600 and info.st_nlink==1 and info.st_size==0)
+    return retained
+
+
+class PicoChatComposition:
+    """One warm parent; a partial/unknown child is retained, never reconstructed.
+
+    Static peer provenance is its actual native configured source metadata plus
+    original kernel/executable/script ownership. It is not a hermetic AC receipt.
+    """
+    def __init__(self,adapter,target,source,peer_config,domain_ready):
+        need(isinstance(source,PhaseFixtureReader) and source.area=='chat' and isinstance(source.client,AdapterFixtureClient)
+            and isinstance(peer_config,PrivateFeatureState) and isinstance(domain_ready,PrivateFeatureState))
+        self.adapter,self.target,self.source=adapter,target,source
+        self.native=adapter._native_feature_observer(target);self.binding=deepcopy(adapter._scripts(target).binding)
+        self.native.guard();need(self.native.pid==int(self.binding['processIdentity'].split(':')[0]))
+        self.store=adapter._chat_composition_store(target);need(self.store.read() is None)
+        self.lock=ScriptSourceLock(self.store.path.with_name('script-sources.lock'))
+        self.peer=self.mixer=self.profile=self.dispatcher=None;self.previous=None;self.failed=False
+        self.after=None;self.erase=self.input_close=None
+        with self.lock.held():
+            self.save('admitted',peerBinding=None,peerOriginBasis='unavailable',completedSteps=0)
+            try:
+                need(not peer_retained(adapter,target))
+                directory=peer_directory(adapter,target,create=True)
+                peer_lock=ScriptSourceLock(directory/'script-sources.lock')
+                self.peer=OwnedChatPeer(peer_config,PrivateFeatureState(directory/'actor-files.json'),source_lock=peer_lock)
+                need(self.peer.lock.path!=self.lock.path)
+                self.mixer=OwnedChatMixer(self.peer,domain_ready)
+                self.save('bound',peerBinding=deepcopy(self.peer.binding),peerOriginBasis='native-configured-metadata-only')
+            except Exception:
+                self.failed=True
+                if self.peer is not None:self.peer.close_host()
+                raise NativeUIError('Pico Chat original sources are unavailable; parent intent remains retained') from None
+
+    def guard(self):
+        need(same(self.adapter._scripts(self.target).binding,self.binding) and self.native.guard() is not False)
+        if self.peer is not None:need(self.peer.guard() is True)
+        if self.mixer is not None:need(self.mixer.guard() is True)
+
+    def save(self,phase,**changes):
+        self.lock.assert_held();self.guard();need(same(self.store.read(),self.previous))
+        base=self.previous or dict(picoChatCompositionVersion=VERSION,runId=self.source.run,binding=self.binding,
+            fixtureUrl=self.source.fixture_url)
+        value=record({**base,**deepcopy(changes),'phase':phase});self.store.write(value,self.previous)
+        need(same(self.store.read(),value));self.previous=deepcopy(value)
+
+    @contextmanager
+    def held(self):
+        with ExitStack() as held:
+            for lock in sorted((self.lock,self.peer.lock),key=lambda lock:str(lock.path)):held.enter_context(lock.held())
+            yield
+
+    def prepare(self):
+        try:
+            need(not self.failed and self.previous['phase']=='bound' and self.dispatcher is None)
+            with self.held():
+                self.save('profile-acquire-issued')
+                self.profile=self.adapter._chat_profile(self.target,self.source.run,self.lock)
+                original=self.profile.perform('acquire');need(original['owned'] and not original['restoreAttempted'])
+                self.save('profile-acquired')
+                self.adapter._chat_admit_capture(self.target,self.source.run,source_lock=self.lock)
+                self.peer.admit_capture(self.source.run)
+                self.initial=tuple(self.adapter._chat_cache_absence(self.target,self.source.run,self.peer.reader(),self.peer.binding,
+                    role=role,stage='initial',source_lock=self.lock,peer_lock=self.peer.lock) for role in ('primary','actor'))
+                self.roles=tuple(self.adapter._chat_samples(self.target,self.source.run,self.peer.reader(),self.peer.binding,
+                    role=role,source_lock=self.lock,peer_lock=self.peer.lock,pending_capture=True) for role in ('primary','actor'))
+                self.flow=self.adapter._chat_flow_inputs(self.target,self.source,*self.roles,*self.initial)
+                factories=dict(normal=lambda:self.adapter._chat_normal_input(self.target,*self.roles),
+                    peer=self.peer_sender,distant=lambda:self.adapter._chat_peer_distant(self.target,self.dispatcher.child('peer')),
+                    background=lambda:self.adapter._chat_background(self.target,*self.roles),
+                    mixer=lambda:self.adapter._chat_mixer(self.target,self.mixer.controls,*self.roles),
+                    **{'no-replay':lambda:self.adapter._chat_no_replay(self.target,*self.roles)})
+                self.dispatcher=ChatDispatcher(self.flow,self.caches,factories,self.adapter._chat_dispatcher_store(self.target))
+                need(not self.dispatcher.cold);self.save('prepared')
+            return self.dispatcher
+        except Exception:
+            self.failed=True
+            raise NativeUIError('Pico Chat preparation is unresolved; original profile/source intents remain without replay') from None
+
+    def caches(self):
+        self.lock.assert_held();self.peer.lock.assert_held()
+        return (self.adapter._chat_cache_lifetime(self.target,self.source.run,source_lock=self.lock),
+            self.peer.cache_lifetime(self.source.run))
+
+    def peer_sender(self):
+        self.peer.lock.assert_held()
+        input_owner=self.adapter._chat_peer_input(self.target,self.peer.files,self.source.run)
+        return self.adapter._chat_peer_send(self.target,input_owner,*self.roles)
+
+    def step(self):
+        try:
+            need(not self.failed and self.dispatcher is not None and self.previous['phase'] in ('prepared','step-completed'))
+            with self.held():
+                self.save('step-issued')
+                observed=self.dispatcher.step();started=self.flow.now()
+                self.save('step-completed',completedSteps=len(self.dispatcher.base['steps']))
+                result=deepcopy(observed);self.guard()
+                fresh_roles(self.initial if len(self.dispatcher.base['steps'])==1 else self.roles,started,self.flow.now)
+                return result
+        except Exception:
+            self.failed=True
+            raise NativeUIError('Pico Chat parent is unresolved; no child input is repeated') from None
+
+    def close_input_and_restore_profile(self,after_epoch):
+        try:
+            need(not self.failed and integer(after_epoch,1) and self.previous['phase']=='step-completed'
+                and self.previous['completedSteps']==26 and all(row['phase']=='completed' for row in self.dispatcher.base['steps']))
+            with self.held():
+                self.save('input-close-issued')
+                distant=self.dispatcher.children.get('distant');need(distant is not None)
+                self.input_close=self.peer.input_close(distant.sender.input,distant=distant);self.input_close.run()
+                self.save('input-closed')
+                self.after=tuple(self.adapter._chat_samples(self.target,self.source.run,self.peer.reader(),self.peer.binding,
+                    role=role,source_lock=self.lock,peer_lock=self.peer.lock,erased=True) for role in ('primary','actor'))
+                self.erase=self.adapter._chat_erase_restore(self.target,self.profile,self.roles,self.after)
+                # This private terminal path still owns the actual last Close
+                # ticket/prefix. A later/retired fixture phase refuses input.
+                original_intent=self.erase.ui.intent
+                def intent(value):
+                    self.dispatcher.fence.mark();original_intent(value)
+                self.erase.ui.intent=intent;self.erase.ui.io.bind_input_fence(self.dispatcher.fence)
+                self.dispatcher.fence.mark();self.save('erase-restore-issued');result=self.erase.run(after_epoch)
+                need(result['phase']=='complete');self.save('profile-restored')
+                return deepcopy(self.previous)
+        except Exception:
+            self.failed=True
+            raise NativeUIError('Pico Chat release/profile work is unresolved; original owners remain without replay') from None
+
+    def detach(self):
+        """Host handles only; never a native, journal or feature cleanup claim."""
+        if self.peer is not None:self.peer.close_host()
+
+
+class PicoChatWitness:
+    """Independent publisher credentials, original native sources and OS locks.
+
+    The parent manifest supplies only admission/control identity. Every target
+    fact is acquired anew by the existing original ChatWitness publisher.
+    """
+    def __init__(self,adapter,target,source,peer_config):
+        need(isinstance(source,PhaseFixtureReader) and source.area=='chat' and not isinstance(source.client,AdapterFixtureClient)
+            and isinstance(peer_config,PrivateFeatureState))
+        self.adapter,self.target=adapter,target;self.peer=None
+        self.native=adapter._native_feature_observer(target);self.binding=deepcopy(adapter._scripts(target).binding)
+        self.native.guard();self.lock=ScriptSourceLock(adapter._chat_composition_store(target).path.with_name('script-sources.lock'))
+        self.parent=adapter._chat_composition_store(target);original=record(self.parent.read())
+        need(type(original) is dict and type(original.get('picoChatCompositionVersion')) is int
+            and original['picoChatCompositionVersion']==VERSION and same(original.get('binding'),self.binding)
+            and original.get('runId')==source.run and original.get('fixtureUrl')==source.fixture_url
+            and original.get('phase') in ('prepared','step-issued','step-completed'))
+        try:
+            directory=peer_directory(adapter,target);need(directory is not None)
+            self.peer=OwnedChatPeer(peer_config,PrivateFeatureState(directory/'actor-files.json'),
+                source_lock=ScriptSourceLock(directory/'script-sources.lock'))
+            need(same(self.peer.binding,original['peerBinding']) and self.peer.lock.path!=self.lock.path)
+            with ExitStack() as held:
+                for lock in sorted((self.lock,self.peer.lock),key=lambda lock:str(lock.path)):held.enter_context(lock.held())
+                initial=adapter._chat_cache_absence(target,source.run,self.peer.reader(),self.peer.binding,
+                    role='actor',stage='initial',source_lock=self.lock,peer_lock=self.peer.lock,witness=True)
+                samples=adapter._chat_samples(target,source.run,self.peer.reader(),self.peer.binding,
+                    role='actor',source_lock=self.lock,peer_lock=self.peer.lock,witness=True,pending_capture=True)
+                self.publisher=adapter._chat_witness(target,source,samples,initial)
+        except Exception:
+            self.detach();raise NativeUIError('Independent Pico Chat witness originals are unavailable') from None
+
+    def publish(self):
+        need(same(self.adapter._scripts(self.target).binding,self.binding) and self.native.guard() is not False
+            and self.peer.guard() is True)
+        return self.publisher.publish()
+
+    def detach(self):
+        if self.peer is not None:self.peer.close_host()
