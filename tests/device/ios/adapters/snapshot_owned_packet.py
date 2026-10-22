@@ -17,9 +17,10 @@ from adapters.script_feature.lock import ScriptSourceLock
 from feature_journeys.contract import identifier
 from ios.adapters.feature_observation import FeatureObservation
 from ios.adapters.emote_native_prefix import follow
-from ios.adapters import snapshot_owned_files as source
+from ios.adapters import snapshot_owned_files as source,snapshot_file_work
 
 VERSION=1
+KINDS={'owned':source,'file-work':snapshot_file_work}
 
 
 def originals(packet):
@@ -38,25 +39,32 @@ def acquisition(value,pid):
     need(abs(host-mono)<=250 and abs(native-mono)<=250);return value
 
 
-def original(frame,pid):
-    exact(frame,{'query','raw','packet','acquisition'});source.command(frame['query'])
-    need(type(frame['raw']) is str and len(frame['raw'].encode())<=source.LIMIT
-        and same(decode(frame['raw'],limit=source.LIMIT),frame['packet']))
-    source.validate(frame['packet'],frame['query'],pid);span=acquisition(frame['acquisition'],pid)
+def original(frame,pid,kind='owned'):
+    need(kind in KINDS);module=KINDS[kind]
+    exact(frame,{'query','raw','packet','acquisition'});module.command(frame['query'])
+    need(type(frame['raw']) is str and len(frame['raw'].encode())<=module.LIMIT
+        and same(decode(frame['raw'],limit=module.LIMIT),frame['packet']))
+    module.validate(frame['packet'],frame['query'],pid);span=acquisition(frame['acquisition'],pid)
     need(span['nativeBefore']['capturedEpochMs']<=frame['packet']['clockBefore']['epochMs']
         <=frame['packet']['clockAfter']['epochMs']<=span['nativeAfter']['capturedEpochMs'])
     return frame
 
 
-def qualified(frame,pid):
+def qualified(frame,pid,kind='owned'):
     """Strict original acquisition; no new envelope around a late source."""
-    original(frame,pid);values=originals(frame['packet']);span=frame['acquisition']
+    original(frame,pid,kind);values=originals(frame['packet']);span=frame['acquisition']
     join=dict(span,clockJoinVersion=1,originalsSha256=digest(values),sourceTimes=[
         dict(source=key,field='capturedEpochMs',epochMs=values[key]['capturedEpochMs']) for key in ('getterBefore','getterAfter')])
     validate_join(join,values);return deepcopy(join)
 
 
 class SnapshotOwnedPacket:
+    _name='native-owned'
+    _key='iosSnapshotOwnedPacketVersion'
+    _namespace='snapshot-native-owned'
+    _schema='snapshotNativeOwned'
+    _kind='owned'
+    _source=source
     @classmethod
     def history(cls,store,lock,binding,run,role,index):
         result=cls.__new__(cls);result.setup(store,lock,binding,run,role,index)
@@ -71,7 +79,7 @@ class SnapshotOwnedPacket:
         need(re.fullmatch('[1-9][0-9]*',binding['processIdentity']))
         self.pid=int(binding['processIdentity']);need(self.pid>0 and str(self.pid)==binding['processIdentity']
             and lock.path==store.path.with_name('script-feature-sources.lock')
-            and store.path.name=='ios-snapshot-'+role+'-native-owned-'+format(index,'04d')+'.json');lock.assert_held()
+            and store.path.name=='ios-snapshot-'+role+'-'+self._name+'-'+format(index,'04d')+'.json');lock.assert_held()
 
     def __init__(self,store,lock,binding,run,role,index,feature,native,guard,*,epoch_ms,monotonic):
         self.setup(store,lock,binding,run,role,index)
@@ -83,15 +91,15 @@ class SnapshotOwnedPacket:
 
     def files(self,live=False):
         return OriginalFrameStore(self.store.path.parent,self.binding,self.run,self.role,self.guard if live else lambda:True,
-            self.storage if live else lambda *_:need(False),namespace='snapshot-native-owned',schema_prefix='snapshotNativeOwned')
+            self.storage if live else lambda *_:need(False),namespace=self._namespace,schema_prefix=self._schema)
 
     def load(self,value):
-        exact(value,{'iosSnapshotOwnedPacketVersion','binding','runId','role','index','payload'})
-        need(type(value['iosSnapshotOwnedPacketVersion']) is int and value['iosSnapshotOwnedPacketVersion']==VERSION
+        exact(value,{self._key,'binding','runId','role','index','payload'})
+        need(type(value[self._key]) is int and value[self._key]==VERSION
             and same(value['binding'],self.binding) and value['runId']==self.run and value['role']==self.role
             and type(value['index']) is int and value['index']==self.index)
         states=unpack(value['payload']);need(len(states)==1);state=states[0];exact(state,{'phase','query','started','storage','proof'})
-        source.command(state['query']);need(state['query']['runId']==self.run and state['phase'] in ('reserved','issued','retained'))
+        self._source.command(state['query']);need(state['query']['runId']==self.run and state['phase'] in ('reserved','issued','retained'))
         if state['phase']=='reserved':need(state['started'] is state['storage'] is state['proof'] is None)
         else:
             start=state['started'];exact(start,{'hostBeforeEpochMs','hostBeforeMonotonic','nativeBefore'})
@@ -101,7 +109,7 @@ class SnapshotOwnedPacket:
         if state['phase']=='retained':
             need(state['storage'] is not None and state['storage']['phase']=='saved'
                 and same(self.files().expand(state['proof']),state['storage']))
-            frame=self.files().read(state['storage']);original(frame,self.pid)
+            frame=self.files().read(state['storage']);original(frame,self.pid,self._kind)
             need(same(frame['query'],state['query']) and all(same(frame['acquisition'][key],v) for key,v in state['started'].items()))
         else:need(state['proof'] is None)
         return state
@@ -111,13 +119,13 @@ class SnapshotOwnedPacket:
         need(self.feature.process['pid']==self.pid)
 
     def save(self):
-        self.bound();value=dict(iosSnapshotOwnedPacketVersion=VERSION,binding=self.binding,runId=self.run,role=self.role,
+        self.bound();value=dict({self._key:VERSION},binding=self.binding,runId=self.run,role=self.role,
             index=self.index,payload=pack([self.state]));self.load(value);self.store.write(value,self.previous)
         need(same(self.store.read(),value));self.previous=deepcopy(value)
 
     def reserve(self):
         self.bound();need(self.state is None)
-        query=source.command(dict(schemaVersion=1,action=source.ACTION,commandId='ios-'+uuid.uuid4().hex,runId=self.run))
+        query=self._source.command(dict(schemaVersion=1,action=self._source.ACTION,commandId='ios-'+uuid.uuid4().hex,runId=self.run))
         self.state=dict(phase='reserved',query=query,started=None,storage=None,proof=None);self.save();return deepcopy(query)
 
     def deadline(self):
@@ -153,15 +161,15 @@ class SnapshotOwnedPacket:
         """Adopt/pull only this original reply; do not resend or resample it."""
         self.bound();need(self.state is not None and self.state['phase']=='issued');files=self.files();saved=self.state['storage']
         if saved is not None:
-            need(saved['phase'] in ('opened','saved'));frame=files.read(saved);original(frame,self.pid)
+            need(saved['phase'] in ('opened','saved'));frame=files.read(saved);original(frame,self.pid,self._kind)
             if saved['phase']=='opened':saved=dict(saved,phase='saved');self.storage('original',saved)
             proof=files.compact(saved)
         else:
-            remote=self.feature.remote.rsplit('/',1)[0]+'/'+source.FILE
-            raw=self.feature.original(remote=remote,limit=source.LIMIT);packet=decode(raw,limit=source.LIMIT)
-            source.validate(packet,self.state['query'],self.pid);after=self.native.read(self.native.sequence)
+            remote=self.feature.remote.rsplit('/',1)[0]+'/'+self._source.FILE
+            raw=self.feature.original(remote=remote,limit=self._source.LIMIT);packet=decode(raw,limit=self._source.LIMIT)
+            self._source.validate(packet,self.state['query'],self.pid);after=self.native.read(self.native.sequence)
             span=dict(self.state['started'],hostAfterEpochMs=self.epoch_ms(),hostAfterMonotonic=self.monotonic(),nativeAfter=deepcopy(after))
-            frame=dict(query=deepcopy(self.state['query']),raw=raw,packet=packet,acquisition=span);original(frame,self.pid)
+            frame=dict(query=deepcopy(self.state['query']),raw=raw,packet=packet,acquisition=span);original(frame,self.pid,self._kind)
             proof=self.files(live=True).write(self.index,frame)
         need(same(frame['query'],self.state['query']) and all(same(frame['acquisition'][key],v) for key,v in self.state['started'].items()))
         self.state.update(phase='retained',proof=proof);self.save();return deepcopy(frame)
@@ -170,4 +178,4 @@ class SnapshotOwnedPacket:
         self.lock.assert_held();need(same(self.store.read(),self.previous) and self.state['phase']=='retained')
         self.state=self.load(self.previous);return self.files().read(self.state['storage'])
 
-    def qualified(self):return qualified(self.historical(),self.pid)
+    def qualified(self):return qualified(self.historical(),self.pid,self._kind)

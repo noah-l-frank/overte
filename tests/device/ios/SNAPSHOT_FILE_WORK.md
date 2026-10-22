@@ -55,3 +55,32 @@ the enclosing cleanup retains query and partial-file responsibility. Three
 additional no-build host cases exercise real throwing/cached functors and
 normal false-publication branches, and reject missing, foreign, unentered,
 unfinished, live or duplicate job claims.
+
+## Durable original packet ownership
+
+`SnapshotFileWorkPacket` reuses the exact owned native-query admission, one-send
+intent, original clocks and historical recovery of `SnapshotOwnedPacket`. The
+original file-work DTO and its bounds remain version 1. Its separate private
+owner/frame/part formats are version 1; no existing owned-file frame changes.
+
+The exact original raw reply is retained in the shared closed
+`snapshot-file-work` segment profile. Only `raw` and the actual primary/actor
+role are admitted. Each query owner reserves eight frame indices in its own
+role namespace, up to the existing 128 owners/1,024 indices. The native raw bound
+needs at most four parts. Every actual part retains planned/opened/saved inode
+responsibility and stays below the unchanged 1 MiB frame limit. The small frame
+references these original bytes and acquisition clocks; it does not duplicate a
+large decoded ledger into the metadata journal.
+
+Complete raw bytes after a lost flush can be read without another query, AFC
+read or part write. Incomplete parts remain owned. Their actual partial prefixes
+are frozen after failure, and later same-inode changes fail historical validation.
+The original body-frame write is also one-shot; complete opened body recovery
+uses the existing original-file adoption rules. Historical readers validate the
+actual original bytes only and cannot issue native operations.
+
+Host tests exercise the 1,024-job ledger with real weak callback holders and
+multiple actual private files. The native work/clock boundary is explicitly
+modeled. These tests establish neither native compilation nor physical timing
+qualification. The enclosing Snapshot cleanup still needs fresh original empty
+manifests, original file-read job retirement, and the required quiet window.
