@@ -1253,3 +1253,18 @@ inherited PYTHONPATH. No product or timeout was changed. The passive Create
 Settings-receipt fix is selected from `e72ef8d4167e6432ef2a1802237d4f4b74c1ea15`,
 reusing the fixed Phone original receipt rather than treating QML defaults as
 an actual baseline. Full area completion remains three of fourteen.
+
+The subsequent file-source selection
+`7b1e846ab9a3d82130bc76c2698cf328510e4204` explicitly versions the five-column
+physical-original listing as V2, requiring `snapshotFileOriginalVersion: 2`.
+Old V1 listings and incomplete V2 originals cannot qualify this owner. Public
+file DTOs and the separate byte-transfer frame remain unchanged. Root coverage
+and 29 owning Still/file cases pass 2/99 in 22.26s. Phone's separately overridden
+`OVT_CAPTURE_SCAN_V1` path is not this listing source.
+
+The shared Script-root reader selection
+`cbe03f066b0b83a7ff014ef5651933bce93515c2` performs both result copies before its
+last guard/native/host clocks and commits no cursor on a late acquisition. Root
+passes all twelve owning cases, including final-copy and last-guard clock-jump
+refusals, in 0.005s. Four repository suites pass in 2.74s. This is source-reader
+validation; it grants no new feature or native/application/device qualification.
