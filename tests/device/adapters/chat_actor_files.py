@@ -66,8 +66,13 @@ class ChatActorFiles:
         try:
             info=os.fstat(self.fd);self.root=node(info);self._check_root()
             raw,source_info=self._read(SOURCE,4096)
-            source=decode(raw.decode('utf-8'));exact(source,{'actorVersion','instance','processId','configuredEpochMs','scriptSha256'})
-            need(type(source['actorVersion']) is int and source['actorVersion']==1
+            source=decode(raw.decode('utf-8'));need(type(source) is dict and type(source.get('actorVersion')) is int and source['actorVersion'] in (1,2))
+            exact(source,{'actorVersion','instance','processId','configuredEpochMs','scriptSha256'}|({'build'} if source['actorVersion']==2 else set()))
+            if source['actorVersion']==2:
+                build=source['build'];exact(build,{'cleanConfiguredSource','compiledSourceRevision'})
+                need(type(build['cleanConfiguredSource']) is bool and type(build['compiledSourceRevision']) is str
+                    and (re.fullmatch('[0-9a-f]{40}',build['compiledSourceRevision']) is not None if build['cleanConfiguredSource'] else build['compiledSourceRevision']==''))
+            need(type(source['actorVersion']) is int and source['actorVersion'] in (1,2)
                  and type(source['instance']) is str and re.fullmatch('[0-9a-f]{32}',source['instance'])
                  and integer(source['processId'],1) and source['processId']==self.pid
                  and integer(source['configuredEpochMs'],1) and source['configuredEpochMs']<=self.clock_ms()+1000
@@ -118,7 +123,15 @@ class ChatActorFiles:
     def _check_source(self):
         raw,info=self._read(SOURCE,4096)
         need(stamp(info)==self.source_stamp and hashlib.sha256(raw).hexdigest()==self.source_sha
-             and self.released(node(info)) is False)
+             and decode(raw.decode('utf-8'))==self.source and self.released(node(info)) is False)
+
+    def require_compiled_source(self):
+        """Static identity from the original native-held source, never a sample."""
+        self._check_source();source=self.source
+        need(source['actorVersion']==2 and source['build']['cleanConfiguredSource'] is True)
+        revision=source['build']['compiledSourceRevision']
+        need(type(revision) is str and re.fullmatch('[0-9a-f]{40}',revision))
+        self._check_source();return revision
 
     def _owned(self):
         self._check_root();value=self.store.read()
