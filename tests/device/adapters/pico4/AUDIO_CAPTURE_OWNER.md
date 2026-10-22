@@ -74,3 +74,7 @@ Preview, source-reader, normal token and phase-journal classes with explicit
 independent host boundaries. Actual original AudioClient/Qt timer and unchanged
 Audio.qml checks remain in `audio-settings-source`; simulated host PCM is not
 physical or device evidence.
+
+The [final close owner](AUDIO_FINAL_CLOSE.md) consumes this cycle only after its
+original PCM files are retained. Its durable scope blocks competing capture
+phase inputs and the older muted-page continuation, including orphan manifests.

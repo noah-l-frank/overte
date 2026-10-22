@@ -147,6 +147,7 @@ class PicoAudioCaptureOwner:
         return packet
     def frame_unchecked(self,row):return self.parent.raw(row['native'])
     def phase(self,verb,inputs=None):
+        need(not any(self.store.path.parent.glob('audio-final-*')))
         source=self.source.status(None if self.state is None else self.state['lastPhase'])
         need(source['active'] and source['activations'] and source['activations'][-1]['stimulus']==dict(verb=verb,inputs={} if inputs is None else inputs))
         return source

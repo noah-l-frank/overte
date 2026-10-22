@@ -54,6 +54,8 @@ TESTS = (
     test("audio-preview-owner", "audio", PYTHON, "device/test_audio_preview.py"),
     test("audio-capture-owner", "audio", PYTHON, "device/test_audio_capture_owner.py"),
     test("audio-background-owner", "audio", PYTHON, "pico-audio-background-test.py"),
+    test("audio-final-close", "audio", PYTHON, "device/test_audio_final_close.py", "AudioFinalCloseTests", "PicoAudioFinalBindingTests"),
+    test("audio-final-retirement", "audio", PYTHON, "device/test_audio_final_close.py", "AudioFinalRetirementTests"),
     test("audio-page-owner", "audio", PYTHON, "device/test_audio_page_owner.py"),
     test("audio-settings-source", "audio", PYTHON, "device/test_audio_settings.py", requires=("node", "c++", "pkg-config")),
     test("openxr-loader", "openxr", PYTHON, "pico-openxr-loader-test.py"),
