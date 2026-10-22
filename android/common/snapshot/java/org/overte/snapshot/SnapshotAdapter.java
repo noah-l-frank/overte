@@ -80,7 +80,7 @@ public final class SnapshotAdapter {
     }
     private static void featureDestination(Request request, Uri uri, boolean inserted) {
         if (request.feature != null && featureReadbacks != null)
-            featureReadbacks.destination(request.featureToken, request.resolver, uri, inserted);
+            featureReadbacks.destination(request.featureToken, request.owner.activity().getApplicationContext(), request.resolver, uri, inserted, request.file.getName());
     }
     private static void featurePublished(Request request, Uri uri) {
         if (request.feature != null && featureReadbacks != null) featureReadbacks.published(request.featureToken, uri);
@@ -102,6 +102,10 @@ public final class SnapshotAdapter {
                 else if ("cancel".equals(action) && request.isEmpty() && id.matches("[0-9a-f]{32}")) { current.cancel(id); accepted = true; }
                 else if ("remove-copy".equals(action) && request.isEmpty() && id.matches("[0-9a-f]{32}")) { current.removeCopy(id); accepted = true; }
                 else if ("retire-copies".equals(action) && request.isEmpty() && id.isEmpty()) { current.retireCopies(); accepted = true; }
+                else if ("remove-destination".equals(action) && request.matches("[0-9a-f]{32}") && id.matches("[0-9a-f]{32}")) accepted=current.removeDestination(request,id);
+                else if ("inspect-destinations".equals(action) && request.isEmpty() && id.matches("[0-9a-f]{32}")) accepted=current.inspectDestinations(id);
+                else if ("revoke-share".equals(action) && request.matches("[0-9a-f]{32}") && id.matches("[0-9a-f]{32}")) accepted=current.revokeShare(request,id);
+                else if ("inspect-shares".equals(action) && request.isEmpty() && id.matches("[0-9a-f]{32}")) accepted=current.inspectShares(id);
                 result.put("source", new JSONObject(current.observation()));
             } else {
                 result.put("source", new JSONObject().put("snapshotExportReadbacksVersion",1)
@@ -247,6 +251,7 @@ public final class SnapshotAdapter {
         request.chosenCallback = PendingIntent.getBroadcast(activity, code, selected, flags);
         Intent chooser = Intent.createChooser(send, "Share snapshot", request.chosenCallback.getIntentSender());
         chooser.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION); chooser.setClipData(send.getClipData());
+        if(request.feature!=null && featureReadbacks!=null)featureReadbacks.shareIssued(request.featureToken,activity.getApplicationContext(),uri,chooser);
         activity.startActivityForResult(chooser, code);
     }
     static void shareChosen(Context context, Intent intent) {
@@ -261,6 +266,7 @@ public final class SnapshotAdapter {
             if (component instanceof ComponentName) {
                 request.chosen = true;
                 observed(request, "share-chosen", ((ComponentName) component).flattenToString(), "");
+                if(request.feature!=null && featureReadbacks!=null)featureReadbacks.shareSelected(request.featureToken,(ComponentName)component);
             }
         });
     }

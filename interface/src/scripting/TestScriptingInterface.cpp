@@ -1317,7 +1317,8 @@ QVariantMap TestScriptingInterface::phoneSnapshotReadback(const QVariantMap& com
             || !json.value("operation").isString() || !json.value("exportRequest").isString() || !json.value("resourceId").isString()) { return {}; }
     const auto operation=json.value("operation").toString(),request=json.value("exportRequest").toString(),id=json.value("resourceId").toString();
     if ((operation=="observe" || operation=="retire-copies") ? (!request.isEmpty() || !id.isEmpty())
-            : operation=="read" ? (!nonce.match(request).hasMatch() || !nonce.match(id).hasMatch())
+            : (operation=="read" || operation=="remove-destination" || operation=="revoke-share") ? (!nonce.match(request).hasMatch() || !nonce.match(id).hasMatch())
+            : (operation=="inspect-destinations" || operation=="inspect-shares") ? (!request.isEmpty() || !nonce.match(id).hasMatch())
             : (operation=="cancel" || operation=="remove-copy") ? (!request.isEmpty() || !nonce.match(id).hasMatch()) : true) { return {}; }
     const auto requested=QDateTime::currentMSecsSinceEpoch();
     const QJsonObject input{{"snapshotReadbackCommandVersion",1},{"action",operation},{"request",request},{"id",id}};

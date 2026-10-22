@@ -12,7 +12,7 @@ from adapters.normal_ui import NativeUIError
 from overte_phone_snapshot_exports import uri
 
 FILE='phone-snapshot-readback.json'
-OPERATIONS={'observe','read','cancel','remove-copy','retire-copies'}
+OPERATIONS={'observe','read','cancel','remove-copy','retire-copies','remove-destination','inspect-destinations','revoke-share','inspect-shares'}
 ROOTS={'/data/'+base+'/io.github.noah_be.overte.phone/files/' for base in ('user/0','data')}
 
 
@@ -23,7 +23,7 @@ def command(value):
         and nonce(value['commandId']) and nonce(value['runId']) and value['operation'] in OPERATIONS)
     operation=value['operation'];request=value['exportRequest'];id=value['resourceId']
     if operation in ('observe','retire-copies'):need(request==id=='')
-    elif operation=='read':need(nonce(request) and nonce(id))
+    elif operation in ('read','remove-destination','revoke-share'):need(nonce(request) and nonce(id))
     else:need(request=='' and nonce(id))
     return value
 
@@ -48,9 +48,10 @@ def source(value):
         need(type(row['snapshotExportReadbacksVersion']) is int and row['snapshotExportReadbacksVersion']==1
             and row['initialized'] is False and row['complete'] is True and value['accepted'] is False)
         return value # Uninitialized means unavailable, never an empty OS destination inventory.
+    version=row.get('snapshotExportReadbacksVersion')
     exact(row,{'snapshotExportReadbacksVersion','instance','sequence','elapsedMs','complete','copiesRetired','capturedEpochMs',
-        'workersTerminated','destinations','jobs','files','removedCopies'})
-    need(type(row['snapshotExportReadbacksVersion']) is int and row['snapshotExportReadbacksVersion']==1
+        'workersTerminated','destinations','jobs','files','removedCopies'}|({'osDestinations','shareGrants'} if version==2 else set()))
+    need(type(version) is int and version in (1,2)
         and nonce(row['instance']) and integer(row['sequence'],1) and integer(row['elapsedMs'],0)
         and row['complete'] is True and type(row['copiesRetired']) is bool and type(row['workersTerminated']) is bool
         and integer(row['capturedEpochMs'],1) and all(type(row[key]) is list and len(row[key])<=64 for key in ('destinations','jobs','files','removedCopies')))
@@ -82,6 +83,56 @@ def source(value):
                 and job['phase'] in ('complete','failed') and (files.get(item['id'])==item or item['id'] in row['removedCopies']))
         if job['phase']=='complete':need(job['original'] is not None)
     if row['copiesRetired']:need(not files and all(job['phase'] in ('complete','failed') for job in row['jobs']))
+    if version==2:
+        os_destinations(row['osDestinations'],destinations,row['capturedEpochMs'])
+        share_grants(row['shareGrants'],row['capturedEpochMs'])
+    return value
+
+
+def os_destinations(value,destinations,epoch):
+    exact(value,{'snapshotOsDestinationsVersion','complete','pending','checkId','checkedEpochMs','rows'})
+    need(type(value['snapshotOsDestinationsVersion']) is int and value['snapshotOsDestinationsVersion']==1 and value['complete'] is True
+        and integer(value['pending'],0,64) and (value['checkId']=='' or nonce(value['checkId'])) and integer(value['checkedEpochMs'],0,epoch)
+        and type(value['rows']) is list and len(value['rows'])<=64)
+    seen=set()
+    for row in value['rows']:
+        exact(row,{'request','inserted','phase','identity','original','acquiredEpochMs','deleteId','deleteIssued','deleteCount','checkedEpochMs','absent'})
+        request=row['request'];need(nonce(request) and request in destinations and request not in seen and type(row['inserted']) is bool
+            and row['inserted']==destinations[request]['inserted'] and row['phase'] in ('planned','created','qualified','checking-delete','deleting','delete-uncertain','retired')
+            and type(row['deleteIssued']) is bool and type(row['absent']) is bool and integer(row['deleteCount'],-1,2**31-1)
+            and integer(row['acquiredEpochMs'],0,epoch) and integer(row['checkedEpochMs'],0,epoch) and (row['deleteId']=='' or nonce(row['deleteId'])))
+        seen.add(request)
+        if row['identity'] is not None:
+            identity=row['identity'];exact(identity,{'uri','providerUid','ownerPackage','displayName','device','inode'})
+            parsed=uri(identity['uri']);need(parsed.netloc=='media' and identity['uri']==destinations[request]['uri'] and integer(identity['providerUid'],1)
+                and identity['ownerPackage']=='io.github.noah_be.overte.phone' and type(identity['displayName']) is str and 0<len(identity['displayName'])<=255
+                and '/' not in identity['displayName'] and integer(identity['device']) and integer(identity['inode'],1))
+        if row['original'] is not None:
+            original=row['original'];exact(original,{'bytes','sha256'});need(integer(original['bytes'],1,256*1024*1024) and type(original['sha256']) is str and re.fullmatch('[0-9a-f]{64}',original['sha256']) and row['acquiredEpochMs']>0 and row['identity'] is not None)
+        if row['phase']=='planned':need(row['identity'] is row['original'] is None and row['acquiredEpochMs']==0)
+        elif row['phase']=='created':need(row['identity'] is not None and row['original'] is None)
+        else:need(row['identity'] is not None and row['original'] is not None)
+        if row['deleteIssued']:need(row['inserted'] and nonce(row['deleteId']))
+        else:need(row['deleteId']=='' and row['deleteCount']==-1 and not row['absent'])
+        if row['phase']=='retired':need(row['deleteIssued'] and row['absent'] and row['checkedEpochMs']>0)
+    need(seen==set(destinations))
+
+
+def share_grants(value,epoch):
+    exact(value,{'snapshotShareGrantsVersion','complete','checkId','checkedEpochMs','rows'})
+    need(type(value['snapshotShareGrantsVersion']) is int and value['snapshotShareGrantsVersion']==1 and value['complete'] is True
+        and (value['checkId']=='' or nonce(value['checkId'])) and integer(value['checkedEpochMs'],0,epoch) and type(value['rows']) is list and len(value['rows'])<=64)
+    requests=set()
+    for row in value['rows']:
+        exact(row,{'request','uri','ownerUid','component','receiverUid','chooserComponent','chooserUid','revokeId','revokeIssued','granted','chooserGranted','checkedEpochMs'})
+        parsed=uri(row['uri']);need(parsed.netloc=='io.github.noah_be.overte.phone.snapshot.files' and nonce(row['request']) and row['request'] not in requests
+            and integer(row['ownerUid'],1) and integer(row['receiverUid'],0) and integer(row['chooserUid'],1) and integer(row['checkedEpochMs'],0,epoch)
+            and type(row['component']) is str and (row['component']=='' or re.fullmatch(r'[a-zA-Z0-9_.]+/[a-zA-Z0-9_.]+',row['component']))
+            and type(row['chooserComponent']) is str and re.fullmatch(r'[a-zA-Z0-9_.]+/[a-zA-Z0-9_.]+',row['chooserComponent'])
+            and all(type(row[key]) is bool for key in ('revokeIssued','granted','chooserGranted')))
+        requests.add(row['request']);need(row['revokeId']=='' if not row['revokeIssued'] else nonce(row['revokeId']))
+        need((row['receiverUid']==0)==(row['component']==''))
+        if row['component']:need(row['ownerUid']!=row['receiverUid'])
     return value
 
 
@@ -97,6 +148,23 @@ def continuity(before,after):
     for row in a['destinations']:
         current=destinations.get(row['request']);need(current is not None
             and all(current[key]==row[key] for key in ('request','uri','inserted')) and (not row['published'] or current['published']))
+    need(b['snapshotExportReadbacksVersion']>=a['snapshotExportReadbacksVersion'])
+    if 'osDestinations' in a:
+        old={row['request']:row for row in a['osDestinations']['rows']};new={row['request']:row for row in b['osDestinations']['rows']}
+        for request,row in old.items():
+            current=new[request]
+            for key in ('identity','original'):
+                if row[key] is not None:need(current[key]==row[key])
+            if row['deleteIssued']:need(current['deleteIssued'] and current['deleteId']==row['deleteId'])
+            if row['absent']:need(current['absent'] and current['phase']=='retired' and current['checkedEpochMs']>=row['checkedEpochMs'])
+    if 'shareGrants' in a:
+        current={row['request']:row for row in b['shareGrants']['rows']}
+        for row in a['shareGrants']['rows']:
+            item=current[row['request']]
+            need(all(item[key]==row[key] for key in ('uri','ownerUid','chooserComponent','chooserUid')))
+            if row['component']:need(item['component']==row['component'] and item['receiverUid']==row['receiverUid'])
+            if row['revokeIssued']:need(item['revokeIssued'] and item['revokeId']==row['revokeId'])
+            need(item['checkedEpochMs']>=row['checkedEpochMs'])
     jobs={row['id']:row for row in b['jobs']}
     for row in a['jobs']:
         current=jobs.get(row['id']);need(current is not None and current['request']==row['request'])
@@ -110,11 +178,11 @@ class PhoneSnapshotReadbacks:
         self.send,self.original,self.clock_ms,self.guard,self.pid=send,read,clock_ms,guard,pid
         self.monotonic,self.sleep,self.last=monotonic,sleep,None
 
-    def request(self,run,operation='observe',export_request='',resource_id=''):
+    def request(self,run,operation='observe',export_request='',resource_id='',*,_started=None):
         try:
             request=command(dict(schemaVersion=1,commandId=uuid.uuid4().hex,action='phone-snapshot-readback',runId=run,
                 operation=operation,exportRequest=export_request,resourceId=resource_id))
-            need(self.guard() is not False);start=previous=self.monotonic();requested=self.clock_ms()
+            need(self.guard() is not False);previous=self.monotonic();start=previous if _started is None else _started;requested=self.clock_ms()
             need(number(start,0,1e15) and integer(requested,1));self.send(request)
             for attempt in range(51):
                 need(self.guard() is not False);raw=self.original();need(type(raw) is str and len(raw.encode())<=262144)
@@ -136,3 +204,30 @@ class PhoneSnapshotReadbacks:
                 if attempt<50:self.sleep(.1)
         except Exception:raise NativeUIError('Original Phone Snapshot readback source is unavailable or invalid') from None
         raise NativeUIError('Original Phone Snapshot readback did not produce this request')
+
+    def require_os_retired(self,run):
+        start=self.monotonic();id=uuid.uuid4().hex
+        self.request(run,'inspect-destinations',resource_id=id,_started=start)
+        for attempt in range(51):
+            value=self.request(run,_started=start);row=value['source']['source'];need(row.get('snapshotExportReadbacksVersion')==2)
+            os=row['osDestinations']
+            if os['checkId']==id and os['pending']==0 and (not row['copiesRetired'] or row['workersTerminated']):
+                fresh(os['checkedEpochMs'],self.clock_ms())
+                need(all(one['phase']=='retired' and one['deleteIssued'] and one['absent'] and one['checkedEpochMs']>=os['checkedEpochMs']-1500 for one in os['rows']))
+                if row['copiesRetired']:need(row['workersTerminated'])
+                return value
+            need(attempt<50 and self.monotonic()-start<5);self.sleep(.1)
+        raise NativeUIError('Original OS destination retirement did not produce fresh absence')
+
+    def require_share_retired(self,run):
+        start=self.monotonic();id=uuid.uuid4().hex
+        self.request(run,'inspect-shares',resource_id=id,_started=start)
+        for attempt in range(51):
+            value=self.request(run,_started=start);row=value['source']['source'];need(row.get('snapshotExportReadbacksVersion')==2)
+            grants=row['shareGrants']
+            if grants['checkId']==id and row['osDestinations']['pending']==0 and (not row['copiesRetired'] or row['workersTerminated']):
+                fresh(grants['checkedEpochMs'],self.clock_ms())
+                need(all(one['revokeIssued'] and not one['granted'] and not one['chooserGranted'] and one['checkedEpochMs']>=grants['checkedEpochMs']-1500 for one in grants['rows']))
+                return value
+            need(attempt<50 and self.monotonic()-start<5);self.sleep(.1)
+        raise NativeUIError('Original Share grants did not produce fresh absence')

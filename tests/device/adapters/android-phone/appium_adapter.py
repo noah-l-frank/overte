@@ -210,7 +210,7 @@ def readonly_feature_command(command):
     elif action=='phone-snapshot-readback':
         from overte_phone_snapshot_readbacks import command as validate_readback
         validate_readback(command)
-        require(command['operation'] in ('observe','read'),'PHONE_READ_ONLY_COMMAND_REJECTED')
+        require(command['operation'] in ('observe','read','inspect-destinations','inspect-shares'),'PHONE_READ_ONLY_COMMAND_REJECTED')
     elif action in ('phone-world-web','phone-tablet-web','phone-web-reference'):
         from overte_phone_world_web_source import command as validate_world_web
         validate_world_web(command)

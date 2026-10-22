@@ -3,6 +3,7 @@
 package org.overte.snapshot;
 
 import android.content.ContentResolver;
+import android.content.Context;
 import android.content.res.AssetFileDescriptor;
 import android.net.Uri;
 import android.os.CancellationSignal;
@@ -39,6 +40,8 @@ final class SnapshotExportReadbacks {
         Thread thread=new Thread(task,"OverteSnapshotEvidenceDeadline");thread.setDaemon(true);return thread;
     });
     private boolean complete=true,retired;
+    private final SnapshotOsDestinations osDestinations;
+    private final SnapshotShareGrants shareGrants;
     private static final class Destination {
         final ContentResolver resolver;final Uri uri;final boolean inserted;
         boolean published;
@@ -59,9 +62,16 @@ final class SnapshotExportReadbacks {
             value.put("original",original==null ? null : new LinkedHashMap<>(original));return value;
         }
     }
-    SnapshotExportReadbacks(Path privateFilesRoot) throws IOException { files=new SnapshotReadbackFiles(privateFilesRoot); }
+    SnapshotExportReadbacks(Path privateFilesRoot) throws IOException { this(privateFilesRoot,false); }
+    // Isolate the pre-existing file-copy contract in host tests. This component-
+    // only constructor has no native/command entry and reports legacy v1, which
+    // cannot qualify original OS destination retirement.
+    SnapshotExportReadbacks(Path privateFilesRoot,boolean fileComponentOnly) throws IOException {
+        files=new SnapshotReadbackFiles(privateFilesRoot);osDestinations=fileComponentOnly ? null : new SnapshotOsDestinations(worker,watchdog);
+        shareGrants=fileComponentOnly ? null : new SnapshotShareGrants(osDestinations);
+    }
 
-    synchronized void destination(String request,ContentResolver resolver,Uri uri,boolean inserted) {
+    synchronized void destination(String request,Context context,ContentResolver resolver,Uri uri,boolean inserted,String name) {
         if(retired || request==null || !request.matches("[0-9a-f]{32}") || resolver==null || uri==null
                 || !"content".equals(uri.getScheme()) || uri.getAuthority()==null || destinations.size()>=64) {
             complete=false;return;
@@ -69,11 +79,14 @@ final class SnapshotExportReadbacks {
         Destination prior=destinations.get(request);
         if(prior!=null) { if(prior.resolver!=resolver || !prior.uri.equals(uri) || prior.inserted!=inserted)complete=false;return; }
         destinations.put(request,new Destination(resolver,uri,inserted));
+        try { if(osDestinations!=null)osDestinations.destination(request,context,resolver,uri,inserted,name); }
+        catch(IOException | RuntimeException failure) { complete=false; }
     }
     synchronized void published(String request,Uri uri) {
         Destination destination=destinations.get(request);
         if(retired || destination==null || !destination.uri.equals(uri)) { complete=false;return; }
         destination.published=true;
+        try { if(osDestinations!=null)osDestinations.published(request); }catch(IOException | RuntimeException failure) { complete=false; }
     }
     synchronized boolean read(String request,String id) {
         if(!complete || retired || request==null || id==null || !request.matches("[0-9a-f]{32}") || !id.matches("[0-9a-f]{32}"))return false;
@@ -108,10 +121,11 @@ final class SnapshotExportReadbacks {
         long epoch=System.currentTimeMillis(),elapsed=(System.nanoTime()-startedNanos)/1000000;
         if(epoch<=0 || epoch<previousEpoch || elapsed<previousElapsed || sequence==Long.MAX_VALUE)complete=false;
         previousEpoch=epoch;previousElapsed=elapsed;
-        Map<String,Object> value=new LinkedHashMap<>();value.put("snapshotExportReadbacksVersion",1);
+        Map<String,Object> value=new LinkedHashMap<>();value.put("snapshotExportReadbacksVersion",osDestinations==null ? 1 : 2);
         value.put("instance",instance);value.put("sequence",++sequence);value.put("elapsedMs",elapsed);
         value.put("complete",complete);value.put("copiesRetired",retired);value.put("capturedEpochMs",epoch);
-        value.put("workersTerminated",worker.isTerminated() && watchdog.isTerminated());
+        value.put("workersTerminated",worker.isTerminated() && watchdog.isTerminated() && (osDestinations==null || osDestinations.inspectionsTerminated()));
+        if(osDestinations!=null) { value.put("osDestinations",osDestinations.observation());value.put("shareGrants",shareGrants.observation()); }
         List<Map<String,Object>> rows=new ArrayList<>();
         for(Map.Entry<String,Destination> entry:destinations.entrySet()) {
             Map<String,Object> row=new LinkedHashMap<>();row.put("request",entry.getKey());row.put("uri",entry.getValue().uri.toString());
@@ -129,8 +143,16 @@ final class SnapshotExportReadbacks {
         if(removedCopies.contains(id)) { files.observationAbsence(id);return; }
         files.remove(id);removedCopies.add(id);
     }
+    synchronized boolean removeDestination(String request,String id) throws IOException { return osDestinations!=null && osDestinations.remove(request,id); }
+    synchronized boolean inspectDestinations(String id) throws IOException { return osDestinations!=null && osDestinations.inspect(id); }
+    void shareIssued(String request,Context context,Uri uri,android.content.Intent chooser) { if(shareGrants!=null)shareGrants.issued(request,context,uri,chooser); }
+    void shareSelected(String request,android.content.ComponentName component) { if(shareGrants!=null)shareGrants.selected(request,component); }
+    synchronized boolean revokeShare(String request,String id) throws IOException { return shareGrants!=null && shareGrants.revoke(request,id); }
+    synchronized boolean inspectShares(String id) throws IOException { return shareGrants!=null && shareGrants.inspect(id); }
     void retireCopies() throws IOException {
         synchronized(this) {
+            if(osDestinations!=null && !osDestinations.retired())throw new IOException("Original OS destinations remain owned");
+            if(shareGrants!=null && !shareGrants.retired())throw new IOException("Original Share URI grants remain owned");
             for(Job job:jobs.values())if("queued".equals(job.phase) || "reading".equals(job.phase))throw new IOException("Readback still active");
             if(retired)files.retiredAbsence();
             else { files.retire();retired=true;worker.shutdown();watchdog.shutdown(); }

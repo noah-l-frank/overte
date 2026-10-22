@@ -17,6 +17,32 @@ ROOT=Path(__file__).resolve().parents[4]
 sys.path[:0]=[str(ROOT/'tests/device'),str(ROOT/'tests/device/adapters/android-phone')]
 import overte_phone_snapshot_readbacks as contract
 STUBS={
+'android/content/Intent.java':'package android.content; public class Intent {}',
+'android/content/ComponentName.java':'package android.content; public class ComponentName {}',
+'org/overte/snapshot/SnapshotShareGrants.java':'''package org.overte.snapshot;
+final class SnapshotShareGrants {
+ SnapshotShareGrants(SnapshotOsDestinations queue){throw new AssertionError();}
+ void issued(String request,android.content.Context context,android.net.Uri uri,android.content.Intent chooser){throw new AssertionError();}
+ void selected(String request,android.content.ComponentName component){throw new AssertionError();}
+ boolean revoke(String request,String id)throws java.io.IOException{throw new AssertionError();}
+ boolean inspect(String id)throws java.io.IOException{throw new AssertionError();}
+ boolean retired(){throw new AssertionError();}
+ java.util.Map<String,Object> observation(){throw new AssertionError();}
+}''',
+
+'android/content/Context.java':'package android.content; public abstract class Context {}',
+'org/overte/snapshot/SnapshotOsDestinations.java':'''package org.overte.snapshot;
+// This file-only harness must never enter Android OS ownership glue.
+final class SnapshotOsDestinations {
+ SnapshotOsDestinations(java.util.concurrent.ExecutorService worker,java.util.concurrent.ScheduledExecutorService clock){throw new AssertionError("Android glue entered file-only fixture");}
+ void destination(String request,android.content.Context context,android.content.ContentResolver resolver,android.net.Uri uri,boolean inserted,String name)throws java.io.IOException{throw new AssertionError();}
+ void published(String request)throws java.io.IOException{throw new AssertionError();}
+ boolean remove(String request,String id)throws java.io.IOException{throw new AssertionError();}
+ boolean inspect(String id)throws java.io.IOException{throw new AssertionError();}
+ java.util.Map<String,Object> observation(){throw new AssertionError();}
+ boolean retired(){throw new AssertionError();}
+ boolean inspectionsTerminated(){throw new AssertionError();}
+}''',
 'android/net/Uri.java':'''package android.net;
 public final class Uri {
  private final java.net.URI value; private Uri(String raw){value=java.net.URI.create(raw);}
@@ -90,8 +116,8 @@ public final class SnapshotReadbackJobsHostTest {
   need(Boolean.TRUE.equals(source.get("copiesRetired"))&&Boolean.TRUE.equals(source.get("workersTerminated"))&&rows(source,"files").isEmpty());
  }
  @SuppressWarnings("unchecked") public static void main(String[] args)throws Exception{
-  SnapshotExportReadbacks owner=new SnapshotExportReadbacks(Paths.get(args[1]));Provider provider=new Provider();
-  Uri uri=Uri.parse("content://media/external/images/media/418");owner.destination(REQUEST,provider,uri,true);
+  SnapshotExportReadbacks owner=new SnapshotExportReadbacks(Paths.get(args[1]),true);Provider provider=new Provider();
+  Uri uri=Uri.parse("content://media/external/images/media/418");owner.destination(REQUEST,null,provider,uri,true,"original.png");
   String mode=args[0];
   if(mode.equals("admission")){
    need(!owner.read(REQUEST,ONE)&&!owner.read(TWO,ONE));owner.published(REQUEST,uri);
