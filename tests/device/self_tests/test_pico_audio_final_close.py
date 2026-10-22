@@ -51,6 +51,16 @@ class AudioFinalCloseTests(unittest.TestCase):
             with self.assertRaises(NativeUIError):self.final.stream('back-issued')
         count=len(self.native.transport.envelopes);result=self.owner().reconcile()
         self.assertEqual('home',result['phase']);self.assertEqual(count,len(self.native.transport.envelopes))
+    def test_last_native_guard_phase_progress_prevents_private_tap_release(self):
+        self.final.prepare();original=self.final.parent.fresh
+        def changed():
+            original();self.fixture.activate('cleanup')
+        with patch.object(self.final.parent,'fresh',side_effect=changed):
+            with self.assertRaises(NativeUIError):self.final.release()
+        self.assertEqual('release-issued',self.final.state['phase'])
+        self.assertEqual('live',self.final.preview.owned()['releaseState'])
+        self.assertTrue(self.final.store.path.exists())
+
     def test_phase_progress_after_durable_x_intent_before_stage_blocks_input(self):
         self.release();original=self.final.save
         def changed(state,**kwargs):

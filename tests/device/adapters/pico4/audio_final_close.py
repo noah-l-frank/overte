@@ -131,10 +131,12 @@ class PicoAudioFinalClose:
         self.files_bound() if input_intent else self.bound()
     def anchor(self):return self.bound(),self.source.epoch_ms()
     def fresh(self,anchor):
-        started,requested=anchor;original=self.state['fixturePhase'];current=self.source.status(original)
-        need(current['active'] and all(current[key]==original[key] for key in ('instance','createdEpochMs','activations')))
+        started,requested=anchor;original=self.state['fixturePhase']
         for artifact in self.capture_owner.state['artifacts'].values():self.capture_owner.read_file(artifact)
-        self.files_bound();self.parent.fresh();epoch=self.source.epoch_ms();completed=self.parent.settings.monotonic()
+        self.files_bound();self.parent.fresh()
+        current=self.source.status(original)
+        need(current['active'] and all(current[key]==original[key] for key in ('instance','createdEpochMs','activations')))
+        epoch=self.source.epoch_ms();completed=self.parent.settings.monotonic()
         need(number(completed,started,1e15) and completed>=self.parent.last_clock and number(epoch,requested,1e15) and -250<=epoch-current['capturedEpochMs']
             and max(epoch-current['capturedEpochMs'],requested-current['capturedEpochMs']+(completed-started)*1000)<=1500)
         self.parent.last_clock=completed
