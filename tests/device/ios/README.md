@@ -1,5 +1,13 @@
 # iOS E2E test-build contract
 
+The Fedora/macOS roles below define the portable build-to-test handoff.
+They do not identify the maintainer's current machines or imply that a local
+Fedora workstation should run a device session. In the maintainer's setup,
+hardware operations use the private Proxmox Jenkins laboratory; the former
+workstation lab is retired. Agent provisioning and signing prerequisites are
+personal infrastructure, not requirements for local host-contract tests. See
+[execution environments](../README.md#execution-environments).
+
 The maintained iOS application target lives on the platform branch
 `apple-ios`, while this directory defines the shared integration boundary. The
 protected macOS producer on that branch builds the application and

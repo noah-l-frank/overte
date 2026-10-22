@@ -1,90 +1,139 @@
 ---
-last-reviewed: "2026-10-19"
-scope: "Shared GitHub Actions design on main; platform callers retain their own requirements"
+last-reviewed: "2026-10-22"
+scope: "Current selective CI, live required-result inventory, and private laboratory boundaries"
 ---
 
 # GitHub Actions
 
-GitHub Actions checks proposed repository changes. Jenkins owns the separately
-configured device laboratory. A green pull request does not establish that a
-physical device was tested.
+This is the CI of **noah-l-frank/overte**, a personal hobby fork. The
+maintainer's [private Jenkins laboratory](../jenkins/index.md) runs separately
+on Proxmox. Access to that infrastructure is not a prerequisite for reading the
+code or running host tests. These workflows do not promise hosted build
+capacity, contributor support, or a release schedule. A green PR or a packaged
+application does not establish physical-device acceptance.
+
+The [selective PR CI guide](https://github.com/noah-l-frank/overte/blob/main/docs/PR_CI.md)
+owns the current controller, selection, isolation, and acceptance contract.
+[Platform coverage](https://github.com/noah-l-frank/overte/blob/main/docs/PR_CI_PLATFORM_COVERAGE.md)
+owns the browser, Android, and iOS execution tiers and their prerequisites.
+Follow those guides when integrating locally prepared CI changes; historical
+workflow recipes and earlier rollout reports do not define the current gate.
 
 ## Required repository checks
 
-The existing `repository-checks` aggregate evaluates the selected work. Routing
-can choose documentation checks, bounded dependency-tool checks, or broader
-host and native checks according to the actual candidate delta. See the
-[project testing guide](../../../tests/PROJECT_TESTING.md) for prerequisites and
-the [maintenance guide](../../REPOSITORY_MAINTENANCE.md#required-checks) for the
-required-check design.
+The live rules for all seven permanent branches were read on **October 22,
+2026**. They require these two shared GitHub Actions results:
 
-Synchronization may reuse qualified shared host evidence only for the exact
-eligible source. Branch-owned tests and independent product gates retain their
-requirements. A host qualification cannot replace a selected native result.
+| Required result | Responsibility |
+| --- | --- |
+| `source-policy` | Authenticate the complete workflow and controller sources from trusted policy without executing candidate code. |
+| `required-ci` | Independently authenticate selected execution owners, their actual results, and the current PR candidate. |
+
+Additional topology results remain required on these targets:
+
+| Target branches | Additional required result |
+| --- | --- |
+| `main`, `android-main`, `apple-main` | None beyond the two shared results. |
+| `android-phone`, `android-vr`, `android-vr-pico` | `Enforce Android parent sync path`. |
+| `apple-ios` | `Enforce apple-main sync path`. |
+
+The former `repository-checks`, `sync-test-reuse`, `codeql-security-results`,
+`dependency-release-policy`, `branch-policy`, and separate `ios-device-build`
+contexts are not the current shared required-result inventory. Their historical
+records remain useful evidence for their original revisions.
+
+**Actions was disabled** at the same inspection. Installed source, local tests,
+and live rules do not establish a hosted execution. Work still being qualified
+locally must retain its own revision and evidence; an implementation draft is
+not a completed native build or device test. Enabling Actions requires the
+maintainer's explicit instruction.
+
+To inspect the live rules without changing them, substitute the intended branch:
+
+```text
+gh api repos/noah-l-frank/overte/rules/branches/<branch> \
+  --jq '[.[] | select(.type == "required_status_checks") | .parameters.required_status_checks[].context] | unique'
+gh api repos/noah-l-frank/overte/actions/permissions --jq '{enabled: .enabled}'
+```
+
+This is a dated observation, not an instruction to apply repository settings.
+Recheck the rules after a rollout or administration change. A successful manual
+workflow or a similarly named job cannot replace a required result.
+
+## Workflow entry points
+
+The current `repository-checks.yml` controller selects work once from complete
+immutable base and candidate trees. Its owners cover applicable policy, host,
+package, native, platform, and CodeQL checks. Candidate execution and trusted
+acceptance have separate authority. The final gate verifies the actual selected
+native GitHub jobs and their source-bound execution record.
+
+Consult the [current workflow directory](https://github.com/noah-l-frank/overte/tree/main/.github/workflows)
+and selective CI guide for installed triggers and reusable recipes. Files under
+`tools/repository-checks/workflows` also retain historical or staged generations;
+their presence alone does not activate them. Earlier shared PR, synchronization,
+and post-merge qualification recipes must not be treated as additional current
+acceptance owners or restarted to repeat an already selected command.
+
+Manual builds, release candidates, dependency preparation, maintenance schedules,
+and explicit diagnostics have separate purposes and prerequisites. An existing
+self-hosted recipe does not establish that its runner is available. The
+platform-owned guides describe signing, artifacts, and manual build parameters:
+[Android Phone](https://github.com/noah-l-frank/overte/blob/android-phone/docs/interfaces/android-phone/CI.md),
+[Pico 4](https://github.com/noah-l-frank/overte/blob/android-vr-pico/docs/interfaces/pico4/CI.md),
+and [iPhone/iPad](https://github.com/noah-l-frank/overte/blob/apple-ios/docs/interfaces/ios/CI.md).
+Retention limits are defined in the [CI storage policy](../../CI_STORAGE_POLICY.md).
 
 ## Selected work and unchanged PR text edits
 
-Selection uses the actual base and merge candidate, including deleted paths,
-rename sources and file modes. A manifest or lockfile change belongs to its
-package checks, dependency security checks, JavaScript build and behavior tests.
-A change confined to `browser-client/package-lock.json` or
-`script-archive/marketplace/S3Server/package-lock.json` does not select an
-unrelated native Overte build. The S3 package does not select browser tests.
-Browser application tests require changes to the corresponding browser client
-inputs.
+Selection reads actual input closures, including deleted paths, rename sources,
+and file modes. Package changes retain their install, vulnerability, build,
+and behavior checks. A package lockfile alone does not select an unrelated
+Overte build. Browser journeys depend on the affected browser's application,
+renderer, UI, or test inputs. Unknown inputs retain conservative coverage.
 
-CodeQL selects the affected languages. Changes to shared security configuration
-can require both supported language analyses, and scheduled scans retain their
-full coverage. Workflow security has one mandatory PR owner; merging that same
-change does not repeat the scan through a separate main-push owner.
+CodeQL covers the affected extractor inputs; changed shared analysis controls
+retain both supported languages. Pending or unverified security results cannot
+be reported as success. Dependency vulnerability queries execute against their
+current advisory data rather than borrowing an old result.
 
-A title or body edit with the same authenticated base, head and complete merge
-tree retains the original mandatory results. If GitHub regenerates the temporary
-merge commit, both immutable objects must also have the same ordered parents.
-Its small read-only jobs must verify
-the original successful Actions jobs before reporting `repository-checks` and
-`codeql-security-results`. They run no new tests, builds or CodeQL analyses and
-create no reusable execution evidence. A pending original is awaited; a failed,
-missing or different original cannot become a passing result. A changed base or
-head still requires selection and verification for the new candidate.
+A task fingerprint identifies inputs and execution requirements. Reuse also
+requires independent authentication of the original successful command and its
+native run, artifacts, source, and current context. Missing optional proof
+causes execution. A matching cache or fingerprint alone is not a passing test.
 
-Native workflow status can advance while the verifier reads GitHub. The active
-metadata invocation is checked against the time of its fresh observation; the
-original test result keeps its independently verified execution identity.
-
-Synchronization has the same distinction between input selection and successful
-execution. The required synchronization check owns the selected shared CI
-contracts; independent Android and iOS owners remain mandatory when selected.
-An unavailable optional parent receipt requires the applicable independent
-checks, rather than an assumed reusable pass. A changed test controller may
-invalidate a reviewed program identity and legitimately require a broader host
-qualification. Inspect the recorded selection reason before interpreting a
-full host job as an application build or a duplicate.
-
-Compiler and dependency caches accelerate a relevant build; a cache hit is not
-a passing test result. Cache-only CI changes must not start an application build
-just to warm or measure the cache. Timing improvements require observations of
-subsequent relevant builds and must not be inferred from configuration alone.
+PR metadata events do not create replacement execution evidence or a substitute
+`required-ci`. The controller retains the original tested merge identity and
+authenticates any equivalent regenerated merge using its base, head, parent
+geometry, and complete tree. Changed sources require the applicable new work.
+See the selective guide for the current event and receipt verification rules;
+older metadata-retention recipes describe their original deployment only.
 
 ## Native builds
 
-The [native lane guide](../../../tools/native-tests/README.md) owns routing,
-dependency preparation, caches, and diagnostics. Relevant C++ or build changes
-can select real production and native test targets; known documentation-only
-changes skip product compilation.
+The central planner selects native work from relevant production, build, and
+test inputs. Host-only selection does not imply product compilation. Platform
+tiers remain distinct: Java/resource compilation is not an APK, a Qt host check
+is not an IPA, and either package is distinct from physical-device acceptance.
+Use the current platform coverage guide for required dependency graphs and
+exact-source consumer prerequisites. A locally prepared follow-up must not be
+described as deployed or qualified before its own checks finish.
 
-The [qualification report](../../NATIVE_CI_QUALIFICATION.md) records the
-September 27 activation on `main`, actual build costs, and a failing native test
-that blocked a merge. Its timings and suite counts describe that revision.
-They are historical measurements, not current latency guarantees.
+The [native lane guide](../../../tools/native-tests/README.md) retains the native
+build mechanics and earlier routing/deployment details. The
+[September qualification report](../../NATIVE_CI_QUALIFICATION.md) records actual
+build costs and a native failure that blocked a merge at that revision. Those
+measurements and old result names are historical, not current latency guarantees
+or an instruction to reactivate a former gate.
 
 ## Inspect a run
 
-Open [the fork's Actions page](https://github.com/noah-l-frank/overte/actions), select
-the exact pull-request candidate or integrated commit, and inspect the failed
-job before its aggregate. Match artifacts and reused evidence to that run and
-revision. Distinguish a successful native job from a successful overall workflow.
+Open [the fork's Actions page](https://github.com/noah-l-frank/overte/actions),
+select the exact candidate or integrated revision, and inspect the failed owner
+before the final gate. Match actual job results, artifacts, and reused evidence
+to the recorded source and run. While Actions is disabled, report local checks
+as local evidence and keep hosted execution unclaimed.
 
-Use the platform guides for Android and Apple build outputs. A verified APK or
-IPA is build evidence; installed-app identity and physical behavior require
-their own checks.
+A verified APK or IPA is build evidence. Installed-app identity and physical
+behavior require their own checks in the private Proxmox Jenkins laboratory.
+The retired workstation device lab is not a fallback.

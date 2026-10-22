@@ -1,5 +1,11 @@
 # Pico 4 microphone investigation
 
+These are hardware-test protocol and prepared-agent references. The maintainer's
+runs use private Proxmox Jenkins jobs; the retired workstation lab is not a
+fallback. Local analysis of previously collected, redacted results remains
+separate from controlling a headset. See
+[the laboratory boundary](https://github.com/noah-l-frank/overte/blob/main/docs/portal/jenkins/index.md).
+
 This document records controlled microphone findings for the Pico Interface.
 The production Pico path now captures 48 kHz mono PCM through Android's public
 `AudioRecord` API with `AUDIO_SOURCE_MIC`, bypassing Qt 5's deprecated OpenSL

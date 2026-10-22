@@ -12,29 +12,40 @@
 > [no-AI-contributions policy](https://github.com/overte-org/overte/blob/master/CONTRIBUTING.md).
 > For the official, stable project, use the
 > [original Overte repository](https://github.com/overte-org/overte). See the
-> fork's [full AI-use disclaimer](../../../README.md) for more information.
+> fork's [full AI-use disclaimer](../../../../README.md) for more information.
 
 The Pico 4 client has a maintained command-line build workflow for 64-bit
-Linux. Run all commands below from the repository's `android/` directory.
+Linux. Run all commands below from the repository's `android/vr/pico/` directory.
 
-## Tested systems
+Local source builds do not require the maintainer's private device laboratory.
+Hardware, installation, power, and microphone commands below are references for
+a prepared test agent or an independent lab. The maintainer uses private Proxmox
+Jenkins jobs; the workstation lab is retired. See the
+[operator guide](https://github.com/noah-l-frank/overte/blob/main/docs/portal/jenkins/index.md).
+Some helper messages retain the historical `build-pico.sh` name; the executable
+in this source tree is `android/vr/pico/build.sh`.
 
-| Operating system | Status |
+## Bootstrap distribution handlers
+
+| Operating system | Bootstrap handler |
 | --- | --- |
-| Fedora Linux 44 | ✅ |
-| Ubuntu 24.04 | ✅ |
-| openSUSE Tumbleweed | ✅ |
-| Arch Linux | ✅ |
-| Debian 13 | ✅ |
+| Fedora Linux 44 | Present |
+| Ubuntu 24.04 | Present |
+| openSUSE Tumbleweed | Present |
+| Arch Linux | Present |
+| Debian 13 | Present |
+
+These handlers describe package-manager setup coverage, not a new full-build
+or physical-device qualification on every listed distribution.
 
 ## Quick start
 
-On a new development machine, install the toolchain and the downloadable Pico
-dependencies once:
+On a new development machine, inspect and prepare the host toolchain:
 
 ```bash
-cd android
-./build-pico.sh bootstrap --with-deps
+cd android/vr/pico
+./build.sh doctor
+./build.sh bootstrap
 ```
 
 The bootstrap supports Fedora, Debian/Ubuntu, Arch Linux, and openSUSE. It may
@@ -47,18 +58,19 @@ downloads and checksum-verifies the current official Linux tools. Android SDK
 Platform 36, Build-Tools 36.0.0, the NDK, and ADB are installed afterward with
 `sdkmanager`.
 
-With an authorized Pico 4 connected over USB, build the APK, install it, and
-start the client:
+Preparation and builds now consume an explicitly supplied, revision-bound
+source graph. Follow [Source dependency inputs](#source-dependency-inputs)
+before running:
 
 ```bash
-./build-pico.sh deploy
+./build.sh deps --source-graph
+./build.sh prepare
+./build.sh build
 ```
 
-Without a connected headset, only build the APK:
-
-```bash
-./build-pico.sh
-```
+These commands do not install onto a headset. With valid inputs already supplied,
+`./build.sh` combines preparation and the debug build. Hardware installation
+belongs to the [prepared-agent path](#install-and-run-on-a-pico-4).
 
 To measure the completed client's battery and power use on the headset, see
 [Measure Overte power use on Pico 4](POWER_TEST.md).
@@ -69,8 +81,8 @@ For the device-free pull-request checks and trusted build-runner design, see
 For world-entry and post-loading optimization measurements, see the
 [Pico 4 world-loading guide](world-loading/pico4-optimization-guide.md).
 
-`deploy` assumes that the one-time bootstrap or setup has already installed the
-dependencies. It does not download missing Conan packages itself.
+`deploy` also requires those explicit source inputs. It does not produce or
+qualify the source dependency graph.
 
 ## Requirements and automatic setup
 
@@ -82,49 +94,44 @@ optional, but provides the Android SDK and a compatible JDK conveniently.
 Inspect the complete environment without changing anything:
 
 ```bash
-./build-pico.sh doctor
+./build.sh doctor
 ```
 
 Missing requirements are reported together with an official installation page
 or an appropriate `sdkmanager` command. The automatic bootstrap variants are:
 
 ```bash
-./build-pico.sh bootstrap
-./build-pico.sh bootstrap --check
-./build-pico.sh bootstrap --system-packages
-./build-pico.sh bootstrap --with-deps
+./build.sh bootstrap
+./build.sh bootstrap --check
+./build.sh bootstrap --system-packages
 ```
 
 - `bootstrap` installs as much of the complete toolchain as possible.
 - `--check` is the read-only `doctor` check.
 - `--system-packages` only handles packages from the operating system.
-- `--with-deps` also installs the downloadable Pico and Conan dependencies.
 
-As an alternative to `bootstrap --with-deps`, an already configured machine can
-download dependencies, prepare the runtime, and build the APK in one command:
-
-```bash
-./build-pico.sh setup --download
-```
-
-The `setup` command runs the environment check before downloading anything.
+The retained `bootstrap --with-deps` and `setup --download` modes use the older
+dependency helpers. Their downloads do not satisfy the current source-input
+consumer. Use the source-input contract below rather than treating those modes
+as a complete current build setup.
 
 ## Daily development commands
 
 | Command | Purpose |
 | --- | --- |
-| `./build-pico.sh` | Prepare existing dependencies and build the debug APK |
-| `./build-pico.sh build` | Build the debug APK without preparing dependencies again |
-| `./build-pico.sh install` | Install and start an already built APK |
-| `./build-pico.sh deploy` | Prepare, build, install, and start the client |
-| `./build-pico.sh prepare` | Restage existing Conan and runtime dependencies |
-| `./build-pico.sh deps --download` | Download and install prebuilt dependencies only |
-| `./build-pico.sh --help` | Show commands and supported path overrides |
+| `./build.sh` | Prepare existing dependencies and build the debug APK |
+| `./build.sh build` | Revalidate source inputs and build the debug APK |
+| `./build.sh install` | Install and start an already built APK |
+| `./build.sh deploy` | Prepare, build, install, and start the client |
+| `./build.sh prepare` | Validate and resolve the explicitly supplied source graph |
+| `./build.sh deps --source-graph` | Consume the same explicit source-input contract |
+| `./build.sh deps --download` | Retained legacy download helper; not current build inputs |
+| `./build.sh --help` | Show commands and supported path overrides |
 
 `PICO_BUILD_JOBS` bounds Gradle, native compilation, and shader generation to
 the same host-worker count. `PICO_SHADER_JOBS` can override only shader
 generation when memory or shared-runner load requires a lower limit. Use
-`./build-pico.sh build --stacktrace` to include Gradle failure details when
+`./build.sh build --stacktrace` to include Gradle failure details when
 diagnosing an unsuccessful CI or local build.
 
 Before building, or on a host without Pico/Android dependencies, run the
@@ -144,9 +151,9 @@ After a build, verify that the output is a signed, structurally valid Pico APK:
 
 ```bash
 ./ci/verify-pico-apk.py \
-  vr/pico/apps/picoInterface/build/outputs/apk/debug/picoInterface-debug.apk \
+  apps/picoInterface/build/outputs/apk/debug/picoInterface-debug.apk \
   --expect-e2e-input-layer \
-  --output ../build/pico4/apk-manifest.json
+  --output ../../../build/pico4/apk-manifest.json
 ```
 
 The verifier fails closed if the package identity, SDK levels, signature,
@@ -206,23 +213,33 @@ The coordination behavior can be tested without ADB or a headset:
 ./tests/pico-device-lock-test.sh
 ```
 
-## Prebuilt dependencies
+## Source dependency inputs
 
-The recommended download path restores checksum-verified Conan cache packages
-for Qt 5.15.18 and Node.js 22.22.3 together with the patched Qt/TBB runtime.
-The three archives total approximately 1.1 GiB. Smaller dependencies are then
-resolved normally through Conan. The script automatically configures Overte's
-public official Conan repository for Overte-specific packages.
+The current `prepare`, `build`, and Gradle paths use the in-tree
+`release/pico-source-inputs.py` consumer. It validates supplied inputs; it does
+not fetch, build, repair, or certify a dependency graph. The authoritative
+[source-input contract](../release/SOURCE_INPUTS.md) defines these environment
+values and the supported v1/v2/v3 bindings:
 
-The files are published in the
-[release selected by the central policy](../../../../.github/dependency-releases.json).
-Their SHA-256 checksums are versioned in
-the central dependency policy and verified before extraction.
+| Variable | Required input |
+| --- | --- |
+| `PICO_SOURCE_GRAPH_ROOT` | Canonical absolute root of the supplied attempt |
+| `PICO_SOURCE_INPUTS` | Regular JSON binding supplied by the input owner |
+| `PICO_SOURCE_INPUTS_SHA256` | Independently reviewed SHA-256 of that binding |
+| `PICO_EXPECTED_SOURCE_SHA` | Exact application revision matching this checkout and the selected contract |
 
-The staged runtime fixes originate from
-`conan/patches/qt-pico-android-runtime.patch`. Generated runtime libraries and
-absolute links into a developer's Conan cache are intentionally not tracked by
-Git.
+The input owner must supply the completed phases, original producer receipts,
+source closure, package/generator files, host tools, and Qt runtime patch
+bindings required by the selected contract. A v2/v3 dependency producer revision
+is distinct from the actual current application revision. Retain both identities;
+do not relabel an old receipt or generate a replacement digest merely to accept
+changed input bytes. Successful input resolution does not establish native APK,
+16 KiB, OpenXR, or headset acceptance.
+
+Historical `deps --download` output and the old Conan cache/runtime-overrides
+layout are not inputs to this consumer. Their checksum policy remains in
+[dependency-releases.json](../../../../.github/dependency-releases.json) for the
+retained helper; it does not establish compatibility with the current build.
 
 ## Install and run on a Pico 4
 
@@ -237,8 +254,8 @@ when necessary:
 The device must appear with the state `device`. If it shows `unauthorized`, put
 on the headset and accept the USB debugging prompt before retrying.
 
-Use `./build-pico.sh deploy` to build a new APK before installation, or
-`./build-pico.sh install` to reinstall the existing APK without rebuilding it.
+Use `./build.sh deploy` to build a new APK before installation, or
+`./build.sh install` to reinstall the existing APK without rebuilding it.
 Both installation paths preserve existing app data, start the launcher
 activity automatically, and verify that the app process remains active.
 
@@ -254,15 +271,16 @@ The command expects exactly one authorized ADB device. Select a device
 explicitly when several are connected:
 
 ```bash
-ANDROID_SERIAL=<serial> ./build-pico.sh deploy
+ANDROID_SERIAL=<serial> ./build.sh deploy
 ```
 
 ## Build output
 
-The wrapper builds the `picoInterface` debug variant. The APK is written to:
+The wrapper builds the `picoInterface` debug variant. Relative to the repository
+root, the APK is written to:
 
 ```text
-vr/pico/apps/picoInterface/build/outputs/apk/debug/picoInterface-debug.apk
+android/vr/pico/apps/picoInterface/build/outputs/apk/debug/picoInterface-debug.apk
 ```
 
 ## Troubleshooting
@@ -270,14 +288,14 @@ vr/pico/apps/picoInterface/build/outputs/apk/debug/picoInterface-debug.apk
 Start with the environment report:
 
 ```bash
-./build-pico.sh doctor
+./build.sh doctor
 ```
 
 Common issues are:
 
 - Android command-line tools are installed, but SDK Platform 36, Build-Tools
   36.0.0, the exact NDK, or Platform-Tools are missing. Follow the printed
-  `sdkmanager` command or rerun `./build-pico.sh bootstrap`.
+  `sdkmanager` command or rerun `./build.sh bootstrap`.
 - Conan was installed but has no default profile. The bootstrap creates it, or
   it can be created manually with `conan profile detect --force`.
 - A connected Pico is `unauthorized`. Accept the prompt inside the headset and
@@ -285,43 +303,14 @@ Common issues are:
 - Several ADB devices are connected. Set `ANDROID_SERIAL` as shown above.
 - Custom installations are not detected. Use `ANDROID_SDK_ROOT`,
   `ANDROID_NDK_HOME`, `JAVA_HOME`, or the `PICO_*` overrides listed by
-  `./build-pico.sh --help`.
+  `./build.sh --help`.
 
-## Advanced: source builds and dependency maintenance
+## Dependency production and historical helpers
 
-Downloading the published Qt and Node artifacts is the normal path. To build
-all missing dependencies locally from source instead, omit `--download`:
-
-```bash
-./build-pico.sh setup
-```
-
-The first source build can take several hours. Qt 5's bundled Mapbox/Boost code
-requires the compatibility flags pinned in `conan/profiles/pico4-arm64`, and
-the Pico runtime patch is applied before the required Qt runtime libraries are
-staged.
-
-For manual dependency maintenance, install the Pico Conan graph and its host
-builds of `glslang`, `scribe`, `spirv-cross`, and `spirv-tools`. Make those host
-executables available in `PATH`, then provide the package and build locations:
-
-```bash
-export PICO_QT_SOURCE_DIR=/path/to/qt/conan/build/qt5
-export PICO_QT_BUILD_DIR=/path/to/qt/conan/build_folder
-export PICO_TBB_PACKAGE_DIR=/path/to/onetbb/package
-export PICO_DRACO_PACKAGE_DIR=/path/to/draco/package
-
-./prepare-pico-deps.sh
-```
-
-The Qt source directory must be the `qt5` checkout corresponding to the shadow
-build. The preparation script applies the Pico runtime patch when needed and
-rebuilds QtBase after applying it. Force another QtBase rebuild with:
-
-```bash
-PICO_REBUILD_QT=1 PICO_BUILD_JOBS="$(nproc)" ./prepare-pico-deps.sh
-```
-
-The script also stages the release TBB runtime, creates the legacy Draco
-compatibility layout, and resolves shader host tools from explicit `PICO_*`
-variables or `PATH`.
+Producing or regenerating the native graph is separate from consuming it.
+Follow [SOURCE_INPUTS.md](../release/SOURCE_INPUTS.md) and the owning producer's
+actual receipts. The current consumer does not patch/rebuild Qt, select the
+newest Conan cache entry, or fall back to compatibility archives. The older
+download, `setup`, and `prepare-pico-deps.sh` instructions are preserved in the
+[historical guide](https://github.com/noah-l-frank/overte/blob/0b63ee87460bf053a9b67ff2f61f9edb696a88ff/android/vr/pico/docs/BUILD.md);
+they are not a substitute for the current source-input contract.

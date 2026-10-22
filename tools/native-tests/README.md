@@ -1,5 +1,14 @@
 # Selective native C++ checks
 
+The current PR controller and its `source-policy` / `required-ci` acceptance
+contract are documented in the [selective CI guide](https://github.com/noah-l-frank/overte/blob/main/docs/PR_CI.md).
+The [CI overview](../../docs/portal/testing/github-actions.md) records the live
+rules and disabled Actions state read on October 22, 2026. This guide retains
+the native build mechanics and earlier aggregate routing/deployment details.
+References below to `repository-checks`, delegated synchronization, or its
+activation sequence describe that earlier implementation; use the selective
+guide for the current owner and prerequisites.
+
 The Linux native lane builds real Overte targets and runs selected Qt tests.
 It complements the quick/host checks and device acceptance; it does not claim
 Windows, Android, iOS, GPU, audio-device, or full user-journey qualification.
@@ -71,8 +80,11 @@ push trigger, OS matrix, automatic benchmark, or device provisioning. Superseded
 PR runs are cancelled by the parent workflow. Checks do not repeat merely
 when a tested draft becomes ready for review. The
 `edited` trigger remains because changing the PR base needs fresh merge-candidate
-validation; metadata edits can therefore rerun checks. Do not turn those runs
-into successful skipped gates that could replace an earlier failed result.
+validation. An authenticated title/body-only edit with the same base, head, and
+complete merge tree preserves the original mandatory results through a read-only
+verifier; it starts no new native build or test. Pending original results are
+awaited, and failed or unverifiable originals cannot become successful skipped
+gates. See the [current metadata-event contract](../../docs/portal/testing/github-actions.md#selected-work-and-unchanged-pr-text-edits).
 Ordinary PR dependency resolution
 uses `--build=never`: missing dependencies fail clearly instead of starting a
 large hidden source build. Configuration/build/test failure fails the existing

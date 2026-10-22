@@ -282,7 +282,7 @@ output, and whether the visible ray agrees with the physical pointing axis.
 For an aim-offset defect, record whether the angular error is stable for each
 hand; this distinguishes a pose transform error from tracking latency.
 
-When several Android worktrees share the Conan cache, `build-pico.sh` resolves
+When several Android worktrees share the Conan cache, `android/vr/pico/build.sh` resolves
 Draco from the Pico ARMv8 generator metadata rather than selecting the newest
 Draco cache entry. This prevents a concurrent host or phone build from staging
 an x86-64 archive into the Pico compatibility directory.

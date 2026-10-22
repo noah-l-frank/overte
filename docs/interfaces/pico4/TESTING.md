@@ -15,10 +15,15 @@ hardware-independent suite is documented in
 
 ## Physical headset
 
-Build verification and device mutation are separate. The device-acceptance
-workflow requires an immutable candidate, explicit installation confirmation, a
-protected environment, and a dedicated runner with exactly one authorized Pico.
-It binds the report to the tag, commit, APK digest, and signing certificate.
+Build verification and device mutation are separate. The maintainer's hardware
+runs use the prepared `overte-jenkins` wrapper with private Proxmox jobs and
+verified candidate identity. This is personal infrastructure, not a shared
+service. The workstation lab is retired; do not use local ADB automation as a
+fallback. See the [operator boundary](https://github.com/noah-l-frank/overte/blob/main/docs/portal/jenkins/index.md).
+
+The repository also retains a separate manual GitHub device-acceptance
+implementation. Its existence does not establish an active runner or current
+acceptance; [the CI guide](CI.md) explains that distinction.
 
 A device-free pass cannot establish rendering, controller, audio, thermal,
 power, lifecycle, or comfort behavior on a worn headset.

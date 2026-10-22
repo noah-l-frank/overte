@@ -1,0 +1,7 @@
+# New Pico CI unsigned-release contract. Legacy V1/V2/V3 profiles are unchanged.
+include(../../../common/native-ci/android-arm64-ci)
+
+[conf]
+# The legacy NDK CMake toolchain drops Conan's 16 KiB flags for OpenXR.
+# Native ELF checking remains mandatory after an actual qualified build.
+openxr/*:tools.android:cmake_legacy_toolchain=False

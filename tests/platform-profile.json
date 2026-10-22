@@ -66,6 +66,31 @@
       "name": "android-documents",
       "entrypoint": "android/common/documents/tests/run.py",
       "interpreter": "python"
+    },
+    {
+      "name": "android-common-native-ci",
+      "entrypoint": "android/common/native-ci/tests.py",
+      "interpreter": "python"
+    },
+    {
+      "name": "pico-native-ci-graph",
+      "entrypoint": "android/vr/pico/native-ci/tests.py",
+      "interpreter": "python"
+    },
+    {
+      "name": "pico-native-ci-inputs",
+      "entrypoint": "android/vr/pico/native-ci/inputs_test.py",
+      "interpreter": "python"
+    },
+    {
+      "name": "pico-native-ci-unsigned-apk",
+      "entrypoint": "android/vr/pico/native-ci/verify_apk_test.py",
+      "interpreter": "python"
+    },
+    {
+      "name": "android-native-apk-structure",
+      "entrypoint": "android/common/native-ci/apk_native_test.py",
+      "interpreter": "python"
     }
   ]
 }
