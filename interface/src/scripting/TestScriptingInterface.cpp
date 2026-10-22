@@ -928,7 +928,9 @@ QVariantMap TestScriptingInterface::featureIOSAvatarState(const QVariantMap& com
         const auto avatar=avatars->getMyAvatar();if (!avatar) { return {}; }
         const auto model=avatar->getSkeletonModel();if (!model) { return {}; }
         const auto names=avatar->getJointNames();const bool loaded=model->isLoaded();
-        return {{"sessionId",avatar->getSessionUUID().toString(QUuid::WithoutBraces)},
+        const auto session=avatar->getSessionUUID();
+        return {{"sessionId",session.toString(QUuid::WithoutBraces)},
+            {"sessionPresent",!session.isNull()},
             {"requestedUrl",avatar->getSkeletonModelURL().toString(QUrl::FullyEncoded)},
             {"resourceUrl",model->getURL().toString(QUrl::FullyEncoded)},
             {"defaultResourceUrl",AvatarData::defaultFullAvatarModelUrl().toString(QUrl::FullyEncoded)},

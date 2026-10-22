@@ -60,7 +60,7 @@ def aliases(status,fixture_url,original_url):
 def bookmark_file(source,*,allow_missing):
     loaded=source['bookmarks'];need(not loaded['loadError'])
     actual=avatar_bookmarks.entries(source['bookmarkFile'])
-    if actual['status']=='missing':need(allow_missing and not loaded['entries']);return {}
+    if actual['status']=='absent':need(allow_missing and not loaded['entries']);return {}
     return avatar_bookmarks.persisted(source['bookmarkFile'],loaded)
 
 

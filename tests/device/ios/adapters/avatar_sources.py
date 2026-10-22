@@ -132,7 +132,8 @@ class IOSAvatarSources:
         if previous:follow_native(previous['clockJoin']['nativeAfter'],first)
         for name,module in channels.items():
             packet=originals[name];module.original(packet)
-            version_key,version=VERSIONS[name];need(type(packet[version_key]) is int and packet[version_key]==version)
+            version_key,version=VERSIONS[name];need(type(packet[version_key]) is int
+                and (packet[version_key]==version or name=='state' and packet[version_key]==3))
             need(packet['processId']==self.pid and packet['runId']==self.run
                  and first['capturedEpochMs']<=packet['clockBefore']['epochMs']<=packet['clockAfter']['epochMs']<=last['capturedEpochMs'])
             acquisition=acquisitions[name]

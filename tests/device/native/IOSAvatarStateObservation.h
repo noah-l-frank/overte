@@ -85,6 +85,7 @@ public:
             auto result=source;result["modelHistory"]=history;return result;
         });
         if (!value.isEmpty() && value.value("source").toMap().contains("bookmarkFile")) { value["iosAvatarStateVersion"]=2; }
+        if (!value.isEmpty() && value.value("source").toMap().contains("sessionPresent")) { value["iosAvatarStateVersion"]=3; }
         return value;
     }
 private:

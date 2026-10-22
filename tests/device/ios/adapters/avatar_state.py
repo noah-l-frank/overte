@@ -13,8 +13,8 @@ from urllib.parse import urlsplit
 from adapters.native_feature_observation import exact, fresh, integer, need, number
 from ios.adapters.places_model import IOSPlacesModel, tree
 
-VERSION = 2
-READS = (1, 2)
+VERSION = 3
+READS = (1, 2, 3)
 ACTION = 'feature-ios-avatar-state'
 FILE = ACTION+'.json'
 LIMIT = 262144
@@ -93,7 +93,8 @@ def history(value, pid, epoch, previous=None):
     return value
 
 
-def validate(value, query, pid, epoch=None, previous=None):
+def _validate(value, query, pid, epoch=None, previous=None,*,postlogout=False):
+    need(type(postlogout) is bool)
     command(query)
     exact(value, {'iosAvatarStateVersion', 'requestId', 'runId', 'instance', 'sequence', 'processId',
                   'clockDomain', 'clockBefore', 'clockAfter', 'source'})
@@ -112,8 +113,13 @@ def validate(value, query, pid, epoch=None, previous=None):
     source = value['source']
     exact(source, {'sessionId', 'requestedUrl', 'resourceUrl', 'defaultResourceUrl', 'geometryLoaded',
                    'rigReady', 'shouldRender', 'targetScale', 'modelScale', 'jointNames', 'bookmarks', 'modelHistory'}
-          | ({'bookmarkFile'} if value['iosAvatarStateVersion'] >= 2 else set()))
-    session(source['sessionId'])
+          | ({'bookmarkFile'} if value['iosAvatarStateVersion'] >= 2 else set())
+          | ({'sessionPresent'} if value['iosAvatarStateVersion'] >= 3 else set()))
+    if value['iosAvatarStateVersion']>=3:
+        need(type(source['sessionPresent']) is bool)
+        if source['sessionPresent']:session(source['sessionId'])
+        else:need(postlogout and source['sessionId']=='00000000-0000-0000-0000-000000000000')
+    else:session(source['sessionId']);need(not postlogout)
     for field in ('requestedUrl', 'resourceUrl', 'defaultResourceUrl'): text(source[field])
     need(source['requestedUrl'] and source['defaultResourceUrl'])
     for field in ('geometryLoaded', 'rigReady', 'shouldRender'): need(type(source[field]) is bool)
@@ -137,15 +143,20 @@ def validate(value, query, pid, epoch=None, previous=None):
         need(wanted['requestedUrl'] == source['requestedUrl'])
     need(len(json.dumps(value, allow_nan=False).encode()) <= LIMIT)
     if previous is not None:
-        validate(previous, dict(query, commandId=previous['requestId']), pid)
+        _validate(previous, dict(query, commandId=previous['requestId']), pid,postlogout=postlogout)
         need(value['iosAvatarStateVersion'] >= previous['iosAvatarStateVersion']
              and value['instance'] == previous['instance'] and value['sequence'] > previous['sequence']
              and value['requestId'] != previous['requestId'] and value['runId'] == previous['runId']
-             and source['sessionId'] == previous['source']['sessionId']
+             and (postlogout or source['sessionId'] == previous['source']['sessionId'])
              and before['epochMs'] >= previous['clockAfter']['epochMs']
              and before['monotonicMs'] >= previous['clockAfter']['monotonicMs'])
         history(native_history, pid, after['epochMs'], previous['source']['modelHistory'])
     return value
+
+
+def validate(value,query,pid,epoch=None,previous=None):
+    """Every active consumer still requires an actual nonnull avatar session."""
+    return _validate(value,query,pid,epoch,previous)
 
 
 def original(value):

@@ -24,7 +24,7 @@ def state_original(frame,binding):
     originals=frame['originals'];join=validate_join(frame['clockJoin'],originals)
     pid=int(binding['processIdentity']);state=avatar_state.original(originals['state'])
     rendered=avatar_renderers.original(originals['renderers'])
-    need(state['iosAvatarStateVersion']==2 and rendered['iosAvatarRenderersVersion']==4
+    need(state['iosAvatarStateVersion'] in (2,3) and rendered['iosAvatarRenderersVersion']==4
         and join['nativeBefore']['processId']==join['nativeAfter']['processId']==pid)
     for row in (state,rendered):
         need(row['processId']==pid and row['runId']==state['runId']
