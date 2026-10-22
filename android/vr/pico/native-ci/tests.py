@@ -156,6 +156,12 @@ class PicoCiGraphContracts(unittest.TestCase):
         # compileSdk alone does not override AGP's older default tool version.
         gradle = (HERE.parent / "apps/picoInterface/build.gradle").read_text()
         self.assertRegex(gradle, r"(?m)^    buildToolsVersion '36[.]0[.]0'$")
+        properties = dict(line.split("=", 1) for line in
+                          (HERE.parent / "gradle.properties").read_text().splitlines()
+                          if line and not line.startswith("#"))
+        # Packaging has its own JVM inside the bounded 8 GiB native consumer.
+        # Avoid Gradle's 512 MiB default without granting an unbounded heap.
+        self.assertEqual(properties["org.gradle.jvmargs"].split(), ["-Xms256m", "-Xmx4g"])
 
     def test_declared_dependency_cohort_matches_graph_admission(self):
         common = HERE.parents[2] / "common/native-ci"
