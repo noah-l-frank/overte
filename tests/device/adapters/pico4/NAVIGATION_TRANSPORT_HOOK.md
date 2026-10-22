@@ -22,3 +22,14 @@ separate, host-only `stage(..., intent=callback)` boundary.
 
 Host tests use the original Pico navigation and normal Chat wrappers with explicit
 synthetic SDK, Qt and native observations; no device execution is claimed.
+
+`bind_controller_admission(callback, intent=host_callback)` is a separate optional
+pair for normal tablet Open/Close. Both callable objects have the same immutable
+ownership rule. The adapter retains the ordinary target eligibility and original
+process/session/foreground guards, then calls `callback(operation)` outside the
+session lock. It forwards `host_callback` to the unchanged original
+`PicoOpenXrAdapterSession.stage(..., intent=...)`. That original callback receives
+the exact envelope inside the original session lock and must perform only host
+CAS/fsync and elapsed-age checks: no HTTP, SDK, guard or session reentry. This
+route does not prove neutral release or the requested tablet effect. With no
+bound pair, the existing controller callback remains unchanged.

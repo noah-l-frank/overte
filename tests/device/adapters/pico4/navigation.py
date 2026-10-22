@@ -567,6 +567,7 @@ class NativeNavigationIO:
         self.adapter, self.target, self.identity = adapter, target, process_identity
         self._controller = controller
         self._before_send = None
+        self._before_controller = self._controller_intent = None
         if before_send is not None:
             self.bind_before_send(before_send)
 
@@ -574,6 +575,13 @@ class NativeNavigationIO:
         """Bind one owner to the final validated QML command before publication."""
         need(callable(callback) and (self._before_send is None or self._before_send is callback))
         self._before_send = callback
+
+    def bind_controller_admission(self, callback, *, intent):
+        """Keep phase/SDK reads outside the original locked host-only intent."""
+        need(callable(callback) and callable(intent)
+             and (self._before_controller is None or self._before_controller is callback)
+             and (self._controller_intent is None or self._controller_intent is intent))
+        self._before_controller, self._controller_intent = callback, intent
 
     def guard(self):
         self.adapter.require_same_process(self.target, self.identity, 'normal navigation input')
@@ -631,5 +639,11 @@ class NativeNavigationIO:
         need(operation in {'tablet.open', 'tablet.close'})
         # Preserve the canonical real OpenXR controller route, including its
         # native session/nonce/sequence and process guards.
-        result = self._controller(operation)
+        if self._before_controller is None:result = self._controller(operation)
+        else:
+            self.adapter.require(self.target)
+            self.guard();need(self.adapter.require_pico_session_identity(self.target)==self.identity)
+            session=self.adapter.pico_input_session(self.target)
+            self._before_controller(operation)
+            result=session.stage(self.identity,operation,dict(holdMilliseconds=1000),intent=self._controller_intent)
         need(type(result) is dict and result.get('performed') is True)
