@@ -6,6 +6,10 @@ and domain facts remain the independent original source/probe values.
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
+from contextlib import contextmanager
+import hashlib
+import os
+import stat
 import json
 from pathlib import Path
 import re
@@ -30,8 +34,8 @@ def pin(value):
         and type(value['sha256']) is str and re.fullmatch('[0-9a-f]{64}',value['sha256']))
 
 
-def catalog(path=PINS):
-    value=json.loads(Path(path).read_text());exact(value,{'phoneEmoteAdmissionCatalogVersion','sourceBase','managers','files','probe','native'})
+def _catalog_text(raw):
+    value=json.loads(raw);exact(value,{'phoneEmoteAdmissionCatalogVersion','sourceBase','managers','files','probe','native'})
     need(type(value['phoneEmoteAdmissionCatalogVersion']) is int and value['phoneEmoteAdmissionCatalogVersion']==VERSION
         and type(value['sourceBase']) is str and re.fullmatch('[0-9a-f]{40}',value['sourceBase'])
         and type(value['managers']) is list and len(value['managers'])==len(MANAGERS) and set(value['managers'])==MANAGERS
@@ -50,6 +54,55 @@ def catalog(path=PINS):
     for row in value['native']:
         exact(row,{'resourceName',*KEYS});pin(row);need(row['resourceName']=='(boundRequire)')
     return deepcopy(value)
+
+
+def catalog(path=PINS):
+    if type(path) is _VerifiedCatalogPass:return path.read()
+    return _catalog_text(Path(path).read_text())
+
+
+class _VerifiedCatalogPass:
+    """One pure-history parse of trusted expectations, never observed sources.
+
+    Each access still opens and hashes the actual unchanged original file.
+    Neither a caller DTO nor a previous pass can supply catalog authority.
+    """
+    def __init__(self,path):
+        self._closed=True;self._path=Path(path);self._value=None;self._raw=None
+        self._identity,self._raw,self._sha256=self._original()
+        self._value=_catalog_text(self._raw.decode('utf-8'));self._closed=False
+    @staticmethod
+    def _file_identity(info):
+        return (info.st_dev,info.st_ino,info.st_mode,info.st_nlink,info.st_uid,info.st_gid,
+            info.st_size,info.st_mtime_ns,info.st_ctime_ns)
+    def _original(self):
+        before=self._path.lstat();need(stat.S_ISREG(before.st_mode) and before.st_nlink==1)
+        fd=os.open(self._path,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK)
+        with os.fdopen(fd,'rb') as stream:
+            opened=os.fstat(stream.fileno());identity=self._file_identity(opened)
+            need(stat.S_ISREG(opened.st_mode) and opened.st_nlink==1 and identity==self._file_identity(before))
+            raw=stream.read(opened.st_size+1)
+            need(len(raw)==opened.st_size and self._file_identity(os.fstat(stream.fileno()))==identity
+                and self._file_identity(self._path.lstat())==identity)
+        return identity,raw,hashlib.sha256(raw).digest()
+    def _check(self):
+        need(not self._closed)
+        identity,raw,digest=self._original()
+        need(identity==self._identity and digest==self._sha256 and raw==self._raw)
+    def read(self):
+        self._check();return deepcopy(self._value)
+    def close(self):
+        try:self._check()
+        finally:
+            self._closed=True;self._value=self._raw=self._identity=self._sha256=None
+
+
+@contextmanager
+def verified_catalog_pass(path=PINS):
+    """Discard the verified expectations after the final actual-file recheck."""
+    reader=_VerifiedCatalogPass(path)
+    try:yield reader
+    finally:reader.close()
 
 
 def policy(value):

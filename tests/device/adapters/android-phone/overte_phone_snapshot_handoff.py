@@ -210,11 +210,16 @@ class PhoneSnapshotHandoff:
     def restore_history(self,frames):
         """Restore bounded immutable originals only; require a fresh next read."""
         need(type(frames) is list and len(frames)<=512 and self.last is None and self.scripts is None and self.last_clock is None)
-        previous=scripts=None
-        for value in frames:
-            self.validate(value,value['publishedEpochMs'])
-            scripts=script_advance(None,value['source']['source']['group']['script']) if previous is None else continuity(previous,value,scripts=scripts)
-            previous=deepcopy(value)
+        from adapters.emote_admission import PINS,verified_catalog_pass
+        previous=scripts=None;path=self.pins_path
+        with verified_catalog_pass(PINS if path is None else path) as pins:
+            self.pins_path=pins
+            try:
+                for value in frames:
+                    self.validate(value,value['publishedEpochMs'])
+                    scripts=script_advance(None,value['source']['source']['group']['script']) if previous is None else continuity(previous,value,scripts=scripts)
+                    previous=deepcopy(value)
+            finally:self.pins_path=path
         self.last,self.scripts=previous,scripts
     def validate(self,value,epoch):
         exact(value,{'snapshotHandoffSourceVersion','instance','processId','publishedEpochMs','source','jobs'})
