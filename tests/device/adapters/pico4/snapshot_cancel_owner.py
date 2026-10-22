@@ -1,0 +1,439 @@
+"""Normal Pico open/Capture/Cancel composition with original file ownership.
+
+This is the first part of the unchanged v16 recipe, not a Snapshot verdict.
+All original journals remain obligations for the subsequent capture/export flow.
+"""
+# Copyright 2026 Overte contributors.
+# SPDX-License-Identifier: Apache-2.0
+from copy import deepcopy
+import hashlib
+import json
+from pathlib import Path
+import uuid
+
+from adapters.native_feature_observation import decode,exact,integer,need,number
+from adapters.normal_feature_state import PrivateFeatureState,context
+from adapters.native_script_observation import NativeScriptObservation
+from adapters.native_script_roots import NativeScriptRoots,root_url,validate as roots_packet
+from adapters.native_script_work import NativeScriptWork,validate as work_packet,scope as work_scope
+from adapters.pico4.snapshot import PicoSnapshot,MODES,FORMATS
+from adapters.pico4.snapshot_cancel import PicoSnapshotCancel,command as cancel_command,validate as cancel_packet,idle
+from adapters.pico4.snapshot_capture_files import PicoSnapshotCaptureFiles
+from adapters.pico4.snapshot_capture_source import validate as file_packet,command as file_command,continuity as file_continuity
+from adapters.pico4.snapshot_script_originals import PicoSnapshotScriptOriginals,validate as script_packet,accept as script_accept
+from adapters.pico4.snapshot_script_history import join_compilation
+from adapters.pico4 import snapshot_originals as native_source
+from adapters.pico4.navigation import NativeNavigationIO,validate_snapshot,identifier
+from adapters.script_journey.history import pack,unpack
+from feature_journeys.phase_fixture import PhaseFixtureReader,validate as phase_packet
+from feature_journeys.contract import typed_equal
+from openxr_input.adapter_session import PicoOpenXrAdapterSession
+from openxr_input.controller_protocol import validate_envelope
+
+VERSION=1
+STAGES=('arm-issued','prepared','open-issued','opened','cancel-issued','cancel-observed',
+        'quiet-issued','cancel-quiet','job-retire-issued','partial-ready')
+
+
+def original(row,limit):
+    exact(row,{'raw','sha256'})
+    need(type(row['raw']) is str and len(row['raw'].encode())<=limit
+        and hashlib.sha256(row['raw'].encode()).hexdigest()==row['sha256'])
+    return decode(row['raw'])
+
+
+class PicoSnapshotCancelOwner:
+    """One parent and one exact shared source lock; no cold ordinary resend."""
+    def __init__(self,path,run,binding,snapshot,native,script,cancel,files,roots,execution,work,session,source):
+        need(native_source.nonce(run) and isinstance(snapshot,PicoSnapshot)
+            and isinstance(native,native_source.PicoSnapshotOriginals) and isinstance(script,PicoSnapshotScriptOriginals)
+            and isinstance(cancel,PicoSnapshotCancel) and isinstance(files,PicoSnapshotCaptureFiles)
+            and isinstance(roots,NativeScriptRoots) and isinstance(execution,NativeScriptObservation) and isinstance(work,NativeScriptWork)
+            and isinstance(snapshot.ui.io,NativeNavigationIO) and isinstance(session,PicoOpenXrAdapterSession)
+            and isinstance(source,PhaseFixtureReader) and source.area=='snapshots' and source.run==run)
+        self.store,self.run,self.binding=PrivateFeatureState(path),run,deepcopy(context(binding))
+        self.snapshot,self.native,self.script,self.cancel,self.files=snapshot,native,script,cancel,files
+        self.roots,self.execution,self.work,self.session,self.source=roots,execution,work,session,source
+        self.lock=native.lock
+        need(all(reader.lock is self.lock for reader in (script,cancel,files.source))
+            and all(reader.pid==native.pid for reader in (script,cancel,files.source,roots,execution,work))
+            and native.pid==int(binding['processIdentity'].split(':')[0])
+            and files.context==binding and snapshot.ui.context['processIdentity']==binding['processIdentity']
+            and all(snapshot.ui.context[key]==binding[key] for key in ('sourceRevision','artifactSha256'))
+            and self.store.path==self.lock.path.with_name('snapshot-cancel-owner.json')
+            and session.bound_process_identity()==binding['processIdentity'])
+        self.prefix='parity-'+run[:16]+'-animated'
+        self.disk=self.state=self.anchor=self.controller_anchor=self.controller_envelope=None
+        self.current=False;self.last_clock=None
+        with session._lock():self.session_origin=deepcopy(session._load())
+        self.reviewed=json.loads(Path(__file__).with_name('snapshot-script-pin.v1.json').read_text())
+        self.qml_callback=self.before_qml;self.cancel_callback=self.before_cancel;self.file_callback=self.before_file
+        self.controller_callback=self.before_controller;self.intent_callback=self.controller_intent;self.publish_callback=self.before_publish
+        snapshot.ui.io.bind_before_send(self.qml_callback)
+        snapshot.ui.io.bind_controller_admission(self.controller_callback,intent=self.intent_callback,before_publish=self.publish_callback)
+        # The factory installs these exact callbacks before constructing this
+        # owner. A different callback cannot later take over either publisher.
+        with self.lock.held():self.load()
+
+    def now(self):
+        value=self.native.monotonic();need(number(value,0,1e15) and (self.last_clock is None or value>=self.last_clock))
+        self.last_clock=value;return value
+
+    def phase(self,value):
+        phase_packet(value,run=self.run,area='snapshots',request=value['requestId'],epoch=value['capturedEpochMs'])
+        need(value['active'] and value['activations']);return value
+
+    def frame(self,row):
+        exact(row,{'native','script','ui','files','inventory','work','hostMonotonic'})
+        native=original(row['native'],native_source.LIMIT);script=original(row['script'],65536)
+        native_source.validate(native,self.run,native['commandId'],self.native.pid,native['capturedEpochMs'])
+        script_packet(script,self.run,script['commandId'],self.native.pid,script['capturedEpochMs'])
+        need(native['snapshotNativeCaptureVersion']==2 and script['snapshotScriptOriginalsVersion']==2)
+        validate_snapshot(row['ui'],self.native.pid,row['ui']['updatedEpochMs'])
+        exact(row['files'],{'raw','sha256','request'})
+        packet=original({key:row['files'][key] for key in ('raw','sha256')},262144)
+        file_packet(packet,row['files']['request'],self.native.pid,packet['capturedEpochMs'])
+        need(packet['runId']==self.run and row['ui']['bridgeId']==self.binding['sessionId'] and number(row['hostMonotonic'],0,1e15))
+        exact(row['inventory'],{'files','rows','capturedEpochMs'})
+        need(row['inventory']['capturedEpochMs']==packet['capturedEpochMs']
+            and type(row['inventory']['files']) is list and type(row['inventory']['rows']) is list)
+        events=script['history']['events']
+        if events:
+            caller=events[-1]['caller'];value=row['work']
+            request=dict(schemaVersion=1,commandId=value['requestId'],action='feature-script-work-observe',managerInstance=caller['manager']['instance'])
+            work_packet(value,request,self.native.pid,value['capturedEpochMs'])
+            need(typed_equal(value['source']['manager'],caller['manager']) and typed_equal(value['source']['code'],caller['code']))
+            work_scope(value,caller['compilation'])
+        else:need(row['work'] is None)
+        clocks=self.clocks(row)[1:]
+        need(max(clocks)-min(clocks)<=1500);return native,script,packet
+
+    def validate(self,state):
+        exact(state,{'stage','source','baseline','sessionOrigin','frames','deliveries','plan','job','requests','replies','vm','quiet'})
+        origin=state['sessionOrigin'];exact(origin,{'schemaVersion','sessionNonce','processIdentity','nextSequence'})
+        need(type(origin['schemaVersion']) is int and origin['schemaVersion']==self.session_origin['schemaVersion']
+            and origin['processIdentity']==self.binding['processIdentity']
+            and origin['sessionNonce']==self.session_origin['sessionNonce'] and integer(origin['nextSequence'],1,0xffffffff))
+        need(state['stage'] in STAGES and type(state['frames']) is list and len(state['frames'])<=128
+            and (state['frames'] or state['stage']=='arm-issued')
+            and type(state['deliveries']) is list and len(state['deliveries'])<=128
+            and type(state['requests']) is list and len(state['requests'])<=64
+            and type(state['replies']) is list and len(state['replies'])<=64
+            and native_source.nonce(state['job']) and type(state['quiet']) is list and len(state['quiet'])<=1)
+        self.phase(state['source']);self.phase(state['baseline'])
+        need(state['baseline']['activations'][-1]['stimulus']==dict(verb='baseline',inputs={})
+            and state['source']['activations'][:len(state['baseline']['activations'])]==state['baseline']['activations']
+            and all(state['source'][key]==state['baseline'][key] for key in ('instance','createdEpochMs')))
+        verb='baseline' if state['stage'] in ('arm-issued','prepared') else 'open' if state['stage'] in ('open-issued','opened') else 'capture-cancel'
+        need(state['source']['activations'][-1]['stimulus']==dict(verb=verb,inputs=dict(mode='animated',format='png') if verb=='capture-cancel' else {}))
+        previous_native=previous_script=previous_files=previous_work=None;clock=0
+        for row in state['frames']:
+            native,script,_packet=self.frame(row)
+            previous_native=native_source.accept(previous_native,native);previous_script=script_accept(previous_script,script)
+            if previous_files is not None:file_continuity(previous_files,_packet)
+            previous_files=_packet
+            if row['work'] is not None:
+                value=row['work'];request=dict(schemaVersion=1,commandId=value['requestId'],action='feature-script-work-observe',managerInstance=value['source']['manager']['instance'])
+                work_packet(value,request,self.native.pid,value['capturedEpochMs'],previous=previous_work);previous_work=value
+            need(row['hostMonotonic']>=clock);clock=row['hostMonotonic']
+        if state['plan'] is not None:
+            plan=state['plan'];need(type(plan) is dict and native_source.nonce(plan.get('id')) and plan.get('runId')==self.run
+                and plan.get('prefix')==self.prefix and plan.get('sealed') is False)
+            plans=[row for row in self.frame(state['frames'][-1])[2]['source']['plans'] if row['id']==plan['id']]
+            need(len(plans)==1 and typed_equal(plans[0],plan))
+        requests={}
+        for request in state['requests']:
+            cancel_command(request);need(request['runId']==self.run and request['jobId']==state['job'] and request['commandId'] not in requests)
+            requests[request['commandId']]=request
+        starts=[request for request in requests.values() if request['operation']=='start'];need(len(starts)<=1)
+        for saved in state['replies']:
+            exact(saved,{'raw','sha256','anchor','request'});need(saved['request']['commandId'] in requests)
+            packet=original({key:saved[key] for key in ('raw','sha256')},262144)
+            exact(packet,{'commandId','packet'});value=packet['packet'];request=requests[packet['commandId']]
+            need(typed_equal(saved['request'],request));cancel_packet(value,request,self.native.pid,value['capturedEpochMs'])
+            exact(saved['anchor'],{'hostMonotonic','nativeEpochMs'})
+            need(number(saved['anchor']['hostMonotonic'],0,1e15) and integer(saved['anchor']['nativeEpochMs'],1))
+        next_controller=origin['nextSequence']
+        for delivery in state['deliveries']:
+            exact(delivery,{'kind','command','frame','stage'});need(delivery['kind'] in ('qml','controller','files','cancel')
+                and delivery['stage'] in STAGES and integer(delivery['frame'],0,len(state['frames'])-1))
+            if delivery['kind']=='qml':
+                command=delivery['command'];self.allowed(command,delivery['stage'])
+                ui=state['frames'][delivery['frame']]['ui'];control=self.snapshot.ui.control(ui,command['controlId'])
+                need(control is not None and command['controlToken']==control['token'] and command['generation']==ui['generation']
+                    and command['sequence']==ui['lastCommandSequence']+1 and 0<=ui['elapsedMs']-command['observedElapsedMs']<=1500)
+            elif delivery['kind']=='controller':
+                validate_envelope(delivery['command'],self.session.profile)
+                command=delivery['command'];need(len(command['commands'])==1 and command['commands'][0]['operation']=='tablet.open'
+                    and command['sessionNonce']==origin['sessionNonce'] and command['sequence']==next_controller
+                    and command['commands'][0]['arguments']==dict(holdMilliseconds=1000)
+                    and command['commands'][0]['id']=='tablet-open-'+str(command['sequence']))
+                next_controller+=1
+            elif delivery['kind']=='cancel':
+                request=delivery['command'];need(request['commandId'] in requests)
+                if request['operation']=='start':
+                    frame=state['frames'][delivery['frame']];native,script,packet=self.frame(frame)
+                    need(state['plan'] is not None and not script['history']['events'] and not native['requests']
+                        and not packet['source']['rows'] and not packet['source']['captures']
+                        and any(typed_equal(plan,state['plan']) for plan in packet['source']['plans']))
+                    command=request['request'];ui=frame['ui'];control=self.snapshot.ui.control(ui,'snapshot.capture')
+                    need(control is not None and command['controlToken']==control['token'] and command['generation']==ui['generation']
+                        and command['bridgeId']==ui['bridgeId'] and command['sequence']==ui['lastCommandSequence']+1
+                        and 0<=ui['elapsedMs']-command['observedElapsedMs']<=1500)
+            else:
+                command=file_command(delivery['command'])
+                need(command['runId']==self.run and command['operation']=='plan' and command['prefix']==self.prefix
+                    and (state['plan'] is None or command['operationId']==state['plan']['id']))
+        for window in state['quiet']:
+            exact(window,{'first','last'});need(integer(window['first'],0,len(state['frames'])-1) and integer(window['last'],window['first']+1,len(state['frames'])-1))
+            rows=state['frames'][window['first']:window['last']+1];clocks=[]
+            for row in rows:self.no_output(row,state);clocks.append(self.clocks(row))
+            need(all(all(0<=b-a<=500 for a,b in zip(old,new)) for old,new in zip(clocks,clocks[1:]))
+                and all(b-a>=3000 for a,b in zip(clocks[0],clocks[-1])))
+            counts=[self.scoped_work(row) for row in rows]
+            need(all(all(value[key]==counts[0][key] for key in ('signalInvocations','timerInvocations','timerRegistrations')) for value in counts))
+        if state['stage'] in ('cancel-observed','quiet-issued','cancel-quiet','job-retire-issued','partial-ready'):
+            need(state['plan'] is not None and starts and state['replies'] and self.cancel_value(state)['source']['phase']=='complete')
+            job=self.cancel_value(state)['source']
+            need(not job['before']['script']['history']['events'] and state['plan']['checkedEpochMs']<=job['startedEpochMs'])
+        if state['stage'] in ('cancel-quiet','job-retire-issued','partial-ready'):need(state['quiet'])
+        if state['stage']=='partial-ready':need(self.cancel_value(state)['source']['retired'])
+        if state['vm'] is not None:
+            exact(state['vm'],{'roots','execution'});root=state['vm']['roots']
+            roots_packet(root,dict(schemaVersion=1,commandId=root['commandId'],action='feature-script-roots-observe'),self.native.pid,root['capturedEpochMs'])
+            history=self.frame(state['frames'][-1])[1]['history']
+            need(history['events'])
+            join_compilation(history,state['vm']['execution'],root_url(root['source']['defaultScriptsUrl'])+'system/snapshot.js',self.reviewed)
+        if state['stage'] in ('cancel-observed','quiet-issued','cancel-quiet','job-retire-issued','partial-ready'):need(state['vm'] is not None)
+
+    @staticmethod
+    def cancel_value(state):return decode(state['replies'][-1]['raw'])['packet']
+
+    def load(self):
+        self.lock.assert_held();self.now();disk=self.store.read()
+        if self.disk is not None:need(typed_equal(disk,self.disk))
+        if disk is None:need(self.state is None);return
+        exact(disk,{'snapshotCancelOwnerVersion','runId','binding','fixtureUrl','payload'})
+        need(type(disk['snapshotCancelOwnerVersion']) is int and disk['snapshotCancelOwnerVersion']==VERSION
+            and disk['runId']==self.run and typed_equal(disk['binding'],self.binding) and disk['fixtureUrl']==self.source.fixture_url)
+        rows=unpack(disk['payload']);need(len(rows)==1);self.validate(rows[0]);state=rows[0]
+        if state['frames']:
+            native,script,_packet=self.frame(state['frames'][-1])
+            if self.native.previous is None:self.native.restore(native)
+            if self.script.previous is None:self.script.restore(script)
+        if state['vm'] is not None and self.roots.last is None:self.roots.restore(state['vm']['roots'])
+        if self.work.last is None:self.work.restore([row['work'] for row in state['frames'] if row['work'] is not None])
+        if state['replies'] and self.cancel.last is None:
+            saved=state['replies'][-1];self.cancel.restore(decode(saved['raw'])['packet'],saved['request'],anchor=saved['anchor'])
+        self.disk,self.state=deepcopy(disk),deepcopy(state)
+
+    def save(self,state):
+        self.lock.assert_held();need(typed_equal(self.store.read(),self.disk));self.validate(state)
+        disk=dict(snapshotCancelOwnerVersion=VERSION,runId=self.run,binding=self.binding,fixtureUrl=self.source.fixture_url,payload=pack([state]))
+        self.store.write(disk,self.disk);need(typed_equal(self.store.read(),disk));self.disk,self.state=deepcopy(disk),deepcopy(state)
+
+    def read_frame(self,operation='read'):
+        self.lock.assert_held();started=self.now();requested=self.native.clock_ms()
+        self.native.capture(self.run,operation);self.script.capture(self.run);ui=self.snapshot.ui.snapshot()
+        events=self.script.previous['history']['events'];work=None
+        if events:work=self.work.read(events[-1]['caller']['manager']['instance'],0 if self.work.last is None else self.work.last['sequence'])
+        inventory=self.files.inventory() if self.files.store.read() is not None else None
+        if inventory is None:
+            value=self.files.source.request(self.run);inventory=dict(files=[],rows=[],capturedEpochMs=value['capturedEpochMs'])
+            need(not value['source']['rows'] and not value['source']['captures'])
+        row=dict(native=self.native.original(),script=self.script.original(),ui=deepcopy(ui),files=self.files.source.original(),
+            inventory=deepcopy(inventory),work=deepcopy(work),hostMonotonic=self.now());self.frame(row)
+        self.anchor=(started,requested,min(self.clocks(row)[1:]));return row
+
+    def append_frame(self,operation='read'):
+        row=self.read_frame(operation);state=deepcopy(self.state);state['frames'].append(row);self.save(state);return row
+
+    def fence(self):
+        need(self.anchor is not None);started,requested,captured=self.anchor
+        need(self.native.guard() is not False);native_epoch=self.native.clock_ms()
+        phase_started=self.now();phase_epoch=self.source.epoch_ms();value=self.source.status(self.state['source'])
+        need(value['active'] and all(typed_equal(value[key],self.state['source'][key]) for key in ('instance','createdEpochMs','activations')))
+        final_native=self.native.clock_ms();final_epoch=self.source.epoch_ms();completed=self.now()
+        need(number(final_native,native_epoch,1e15) and number(final_epoch,phase_epoch,1e15))
+        age=max(final_native-captured,requested-captured+(completed-started)*1000,
+            final_epoch-value['capturedEpochMs'],phase_epoch-value['capturedEpochMs']+(completed-phase_started)*1000)
+        need(-250<=final_native-captured and -250<=final_epoch-value['capturedEpochMs'] and age<=1500)
+        return completed,age
+
+    def fixture(self,verb,inputs):
+        value=self.phase(self.source.status(None if self.state is None else self.state['source']))
+        need(value['activations'][-1]['stimulus']==dict(verb=verb,inputs=inputs));return value
+
+    def issued(self,stage,source=None):
+        state=deepcopy(self.state);state['stage']=stage
+        if source is not None:state['source']=deepcopy(source)
+        self.save(state)
+
+    def allowed(self,command,stage):
+        extra={'text'} if command.get('action')=='replace' else set()
+        exact(command,{'schemaVersion','commandId','bridgeId','generation','sequence','observedElapsedMs','controlId','controlToken','action'}|extra)
+        control=command['controlId']
+        need(type(command['schemaVersion']) is int and command['schemaVersion']==1 and identifier(command['commandId'])
+            and command['bridgeId']==self.binding['sessionId'] and all(identifier(command[key]) for key in ('generation','controlToken'))
+            and integer(command['sequence'],1) and integer(command['observedElapsedMs']))
+        if stage=='open-issued':need(command['action']=='activate' and (control in ('snapshot.entry','tablet.home','snapshot.mode','snapshot.format')
+            or control.startswith(('tablet.page.','snapshot.mode.','snapshot.format.'))))
+        else:
+            need(stage=='cancel-issued' and (control in ('snapshot.name','snapshot.mode','snapshot.format') or control.startswith(('snapshot.mode.','snapshot.format.'))))
+            need(command['action']=='activate' or control=='snapshot.name' and command['action']=='replace' and command['text']==self.prefix)
+
+    def delivery(self,kind,command):
+        state=deepcopy(self.state);state['deliveries'].append(dict(kind=kind,command=deepcopy(command),stage=state['stage'],frame=len(state['frames'])-1));self.save(state)
+
+    def before_qml(self,command):
+        self.lock.assert_held();need(self.current);self.allowed(command,self.state['stage']);self.append_frame()
+        self.delivery('qml',command);self.fence()
+
+    def before_file(self,command):
+        if command['action']=='pico-snapshot-files-observe':return
+        self.lock.assert_held();need(self.current and self.state['stage']=='cancel-issued' and command['operation']=='plan'
+            and command['runId']==self.run and command['prefix']==self.prefix)
+        # Child control CAS has already committed. This parent CAS follows it;
+        # the last exact fixture read is after both journals and all guards.
+        self.delivery('files',command);self.fence()
+
+    def before_cancel(self,command):
+        self.lock.assert_held();need(self.current and any(typed_equal(command,row) for row in self.state['requests']))
+        need(self.state['stage'] in ('cancel-issued','cancel-observed','quiet-issued','cancel-quiet','job-retire-issued'))
+        self.append_frame();self.delivery('cancel',command);self.fence()
+
+    def before_controller(self,operation):
+        self.lock.assert_held();need(self.current and self.state['stage']=='open-issued' and operation=='tablet.open')
+        self.append_frame();self.controller_anchor=self.fence();self.controller_envelope=None
+
+    def controller_intent(self,envelope):
+        self.lock.assert_held();need(self.controller_anchor is not None and self.controller_envelope is None)
+        self.delivery('controller',envelope);self.controller_envelope=deepcopy(envelope);self.before_publish(envelope)
+
+    def before_publish(self,envelope):
+        need(typed_equal(self.controller_envelope,envelope) and self.controller_anchor is not None)
+        started,age=self.controller_anchor;now=self.native.monotonic();need(number(now,started,1e15) and age+(now-started)*1000<=1500)
+
+    def prepare(self):
+        with self.lock.held():
+            self.load();need(self.state is None and self.snapshot.state is None and self.snapshot.ui.state is None and self.files.store.read() is None)
+            source=self.fixture('baseline',{})
+            self.save(dict(stage='arm-issued',source=source,baseline=deepcopy(source),sessionOrigin=deepcopy(self.session_origin),frames=[],deliveries=[],plan=None,
+                job=uuid.uuid4().hex,requests=[],replies=[],vm=None,quiet=[]))
+            row=self.append_frame('arm');native,script,_packet=self.frame(row)
+            need(not native['requests'] and not script['history']['events'] and not row['ui']['open'])
+            self.issued('prepared');result=self.report();self.fence();return result
+
+    def open(self):
+        with self.lock.held():
+            self.load();need(self.state['stage']=='prepared');self.issued('open-issued',self.fixture('open',{}));self.current=True
+            try:self.snapshot.open()
+            finally:self.current=False
+            self.append_frame();need(self.snapshot.state['originalMode'] in MODES and self.snapshot.state['originalFormat'] in FORMATS)
+            self.issued('opened');result=self.report();self.fence();return result
+
+    def send_cancel(self,operation,request=None):
+        envelope=self.cancel.envelope(self.run,self.state['job'],operation,request)
+        state=deepcopy(self.state);state['requests'].append(deepcopy(envelope));self.save(state)
+        self.current=True
+        try:value=self.cancel.request(envelope)
+        finally:self.current=False
+        saved=self.cancel.original();saved['request']=deepcopy(envelope)
+        state=deepcopy(self.state);state['replies'].append(saved);self.save(state);return value
+
+    def start(self):
+        with self.lock.held():
+            self.load();need(self.state['stage']=='opened');self.issued('cancel-issued',self.fixture('capture-cancel',dict(mode='animated',format='png')))
+            self.append_frame();self.fence();self.current=True
+            try:
+                plan=self.files.plan(self.run,self.prefix)
+                self.snapshot.click('snapshot.name');self.snapshot.ui.input('snapshot.name','replace',self.prefix)
+                self.snapshot.choose('snapshot.mode',MODES,'animated');self.snapshot.choose('snapshot.format',FORMATS,'png')
+            finally:self.current=False
+            self.append_frame();state=deepcopy(self.state);state['plan']=plan;self.save(state);self.fence()
+            ui=self.snapshot.ui.snapshot();control=self.snapshot.ui.control(ui,'snapshot.capture')
+            need(ui['ready'] and control is not None)
+            command=dict(schemaVersion=1,commandId=str(uuid.uuid4()),action='activate',controlId='snapshot.capture',
+                controlToken=control['token'],bridgeId=ui['bridgeId'],generation=ui['generation'],sequence=ui['lastCommandSequence']+1,observedElapsedMs=ui['elapsedMs'])
+            self.send_cancel('start',command);return self.reconcile()
+
+    def reconcile(self):
+        """Only new original queries; an uncertain start is never repeated."""
+        with self.lock.held():
+            self.load();need(self.state is not None)
+            if self.state['stage'] in ('arm-issued','open-issued'):
+                row=self.append_frame();native,script,_packet=self.frame(row)
+                if self.state['stage']=='arm-issued':
+                    need(not native['requests'] and not script['history']['events'] and not row['ui']['open']);self.issued('prepared')
+                else:
+                    preferences=self.snapshot._read()
+                    if preferences is not None and preferences['originalMode'] in MODES and preferences['originalFormat'] in FORMATS:
+                        need(row['ui']['open'] and self.snapshot.ui.control(row['ui'],'snapshot.capture') is not None);self.issued('opened')
+                result=self.report();self.fence();return result
+            need(self.state['stage'] in ('cancel-issued','cancel-observed','quiet-issued','cancel-quiet','job-retire-issued','partial-ready'))
+            starts=[row for row in self.state['requests'] if row['operation']=='start'];need(len(starts)==1)
+            if self.state['stage']!='partial-ready':self.send_cancel('observe')
+            self.append_frame();value=self.cancel_value(self.state)
+            if value['source']['phase']=='complete':
+                root=self.roots.read(0 if self.roots.last is None else self.roots.last['sequence'])
+                execution=self.execution.read(self.execution.sequence,require_code_identity=True,require_membership=True)
+                if self.state['vm'] is not None:
+                    previous=self.state['vm']['execution']
+                    need(execution['instance']==previous['instance'] and execution['sequence']>previous['sequence']
+                        and execution['capturedEpochMs']>=previous['capturedEpochMs'])
+                state=deepcopy(self.state);state['vm']=dict(roots=deepcopy(root),execution=deepcopy(execution))
+                if state['stage']=='cancel-issued':state['stage']='cancel-observed'
+                if state['stage']=='job-retire-issued' and value['source']['retired']:state['stage']='partial-ready'
+                self.save(state)
+            result=self.report();self.fence();return result
+
+    @staticmethod
+    def clocks(row):
+        return (row['hostMonotonic']*1000,decode(row['native']['raw'])['capturedEpochMs'],decode(row['script']['raw'])['capturedEpochMs'],
+            row['ui']['updatedEpochMs'],decode(row['files']['raw'])['capturedEpochMs'])+(() if row['work'] is None else
+            (row['work']['capturedEpochMs'],row['work']['source']['work']['capturedEpochMs']))
+
+    @staticmethod
+    def scoped_work(row):
+        caller=decode(row['script']['raw'])['history']['events'][-1]['caller']
+        selected=work_scope(row['work'],caller['compilation'])
+        need(all(selected[key]>=caller['snapshotWork'][key] for key in ('signalInvocations','timerInvocations','timerRegistrations')))
+        return selected
+
+    def no_output(self,row,state):
+        native,script,packet=self.frame(row);baseline=self.frame(state['frames'][0])[0]
+        need(typed_equal(native['requests'],baseline['requests']) and not script['activeUploads']
+            and not row['inventory']['files'] and not row['inventory']['rows'] and not packet['source']['rows'] and not packet['source']['captures'])
+        resources=native['resources'];need(resources['activeRequests']==resources['projectionImagesBytes']==0
+            and not any(resources[key] for key in ('taking360','waitingOnSnapshot','projectionTimerActive')))
+        value=self.cancel_value(state)['source'];need(value['phase']=='complete' and not value['timerActive'] and idle(value['current']))
+        need(typed_equal(script['history'],value['cancelled']['script']['history']))
+        work=self.scoped_work(row)
+        need(not work['evaluating'] and not work['timers'] and not work['unknownTimers']
+            and all(work[key]==0 for key in ('signalCallbacks','timerCallbacks','unknownSignalCallbacks','unknownTimerCallbacks')))
+
+    def quiet(self):
+        with self.lock.held():
+            self.load();need(self.state['stage'] in ('cancel-observed','quiet-issued'));self.issued('quiet-issued');first=previous=counts=None
+            for _ in range(65):
+                self.send_cancel('observe');row=self.append_frame();self.no_output(row,self.state);clocks=self.clocks(row)
+                if first is None or previous is not None and any(b-a>500 for a,b in zip(previous,clocks)):first=(len(self.state['frames'])-1,clocks)
+                previous=clocks;self.fence()
+                current=self.scoped_work(row)
+                if counts is None:counts=current
+                else:need(all(current[key]==counts[key] for key in ('signalInvocations','timerInvocations','timerRegistrations')))
+                if all(b-a>=3000 for a,b in zip(first[1],clocks)):
+                    state=deepcopy(self.state);state['quiet']=[dict(first=first[0],last=len(state['frames'])-1)];state['stage']='cancel-quiet';self.save(state)
+                    result=self.report();self.fence();return result
+                self.native.sleep(.25)
+            need(False)
+
+    def retire_job(self):
+        with self.lock.held():
+            self.load();need(self.state['stage']=='cancel-quiet');self.issued('job-retire-issued')
+            self.send_cancel('retire');return self.reconcile()
+
+    def report(self):
+        return dict(qualification='PICO_NORMAL_CAPTURE_CANCEL_COMPONENT_ONLY',stage=self.state['stage'],fullSnapshotRecipe=False,
+            deviceAcceptance=False,journalRetained=True,filePlan=None if self.state['plan'] is None else self.state['plan']['id'],
+            ordinaryCaptureResendAllowed=False)

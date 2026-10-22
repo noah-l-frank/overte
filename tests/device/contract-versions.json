@@ -130,6 +130,7 @@
     "pico-audio-final-close": {"current": 1, "reads": [1]},
     "pico-audio-normal-recipe": {"current": 1, "reads": [1]},
     "pico-audio-page-owner": {"current": 1, "reads": [1]},
+    "pico-snapshot-cancel-owner": {"current": 1, "reads": [1]},
     "pico-snapshot-file-owner": {"current": 1, "reads": [1]},
     "pico-snapshot-file-binding": {"current": 1, "reads": [1]},
     "pico-snapshot-capture-files": {"current": 1, "reads": [1]},
