@@ -31,29 +31,47 @@ class SnapshotCancelOwnerTests(unittest.TestCase):
         self.h=existing.SnapshotStillOwnerTests();self.h.setUp();self.addCleanup(self.h.doCleanups)
         self.adb,self.adapter,self.native,self.phase=self.h.adb,self.h.adapter,self.h.native,self.h.source
         self.lock=self.h.lock;self.script_sequence=0;self.events=[];self.status={};self.fast=None;self.fast_sequence=0
-        self.roots_sequence=self.execution_sequence=self.work_sequence=0;self.source_values={};self.started=[];self.lost=False;self.ignore=False;self.work_fault=None
+        self.roots_sequence=self.execution_sequence=self.work_sequence=0;self.source_values={};self.started=[];self.lost=False;self.ignore=False;self.work_fault=None;self.still_ignored=False
         self.producer=Producer(self.h.h.state_root/'synthetic-native-file-registry')
         self.producer.app=self.adb.app;self.producer.directory=self.adb.files
         self.producer.body.update(rows=[],captures=[],plans=[])
         self.pin=json.loads((ROOT/'tests/device/adapters/pico4/snapshot-script-pin.v1.json').read_text())
         self.origin=caller();self.origin['compilation'].update(self.pin)
         self.origin['compilation']['resourceName']='file:///packaged/scripts/system/snapshot.js'
-        self.original_write=self.adb.write_debug_app_file;self.original_read=self.adb.read_debug_app_file
+        self.original_write=self.adb.write_debug_app_file;self.original_read=self.adb.read_debug_app_file;self.original_snapshot=self.adb.snapshot
         self.changes=[patch.object(self.adb,'write_debug_app_file',side_effect=self.write),
             patch.object(self.adb,'read_debug_app_file',side_effect=self.read),
+            patch.object(self.adb,'snapshot',side_effect=self.snapshot),
             patch.object(self.adb,'take',side_effect=self.take)]
         for change in self.changes:change.start();self.addCleanup(change.stop)
         self.owner=self.make();self.h.owner=self.owner
 
     def make(self):
         result=self.adapter._snapshot_cancel_owner(self.adb.target,RUN,self.phase,source_lock=self.lock)
-        for source in (result.native,result.script,result.cancel,result.files.source,result.roots,result.execution,result.work):
+        for source in (result.native,result.script,result.cancel,result.files.source,result.roots,result.execution,result.work,result.platform):
             source.monotonic=lambda:self.adb.clock;source.sleep=self.adb.sleep
         return result
 
     def activate(self,verb,inputs=None):self.h.activate(verb,inputs)
     def clock(self):return self.adb.epoch_milliseconds(self.adb.target)
-    def take(self):self.adb.captures+=1;self.adb.capturing=True
+    def take(self):
+        if self.adb.mode!='still':self.adb.captures+=1;self.adb.capturing=True;return
+        if self.still_ignored:self.adb.captures+=1;return
+        capture_id='snap_1792368000000_'+str(self.adb.captures+1);self.event('pending',capture_id,'still')
+        type(self.adb).take(self.adb) # Original synthetic render boundary writes real PNG bytes.
+        local=self.adb.files/(self.adb.text+'-'+capture_id+'.png');path='/data/user/0/org.overte.pico/files/Snapshots/'+local.name
+        request=self.native.request();request.update(requestId=capture_id,registeredEpochMs=self.clock(),alive=False,nativeState='')
+        request['events']=[dict(sequence=1,phase='complete',publishedEpochMs=self.clock(),error='',
+            pathSha256=hashlib.sha256((RUN+'\0'+path).encode()).hexdigest(),canonicalPathSha256=hashlib.sha256((RUN+'\0'+path).encode()).hexdigest(),
+            basenameSha256=hashlib.sha256((RUN+'\0'+local.name).encode()).hexdigest())];self.native.requests=[request]
+        info=local.stat();root=local.parent.stat();self.producer.event+=1
+        self.producer.body['captures'].append(dict(captureId=capture_id,event=self.producer.event,beganEpochMs=self.clock(),terminal='complete',terminalPath=path,terminalEpochMs=self.clock()))
+        self.producer.body['rows'].append(dict(id=uuid.uuid4().hex,captureId=capture_id,path=path,
+            planId=self.producer.body['plans'][-1]['id'],runId=RUN,sha256=hashlib.sha256(local.read_bytes()).hexdigest(),
+            retireId='',deleteIssued=False,deleteResult=-2,absent=False,checkedEpochMs=0,phase='closed',preexisting=False,
+            rootDevice=root.st_dev,rootInode=root.st_ino,device=info.st_dev,inode=info.st_ino,uid=info.st_uid,links=info.st_nlink,
+            opened=True,closed=True,bytes=info.st_size,createdEpochMs=self.clock(),closedEpochMs=self.clock(),removeAttempted=False,removeAttempts=0,nativeRemoved=False))
+        self.event('complete',capture_id,'still');self.adb.opened=True
 
     def script(self):
         self.script_sequence+=1
@@ -61,23 +79,31 @@ class SnapshotCancelOwnerTests(unittest.TestCase):
             capturedEpochMs=self.clock(),activeUploads=0,history=dict(snapshotScriptHistoryVersion=1,instance='f'*32,
             complete=True,sequence=len(self.events),events=deepcopy(self.events)))
 
-    def event(self,kind):
+    def event(self,kind,capture_id='snap_20000_1',mode='animated'):
         origin=deepcopy(self.origin);origin['sequence']=len(self.events)+1;origin['invokedEpochMs']=self.clock()
-        work=origin['snapshotWork'];work.update(capturedEpochMs=self.clock(),signalInvocations=len(self.events)+1)
+        work=origin['snapshotWork'];work.update(capturedEpochMs=self.clock(),signalInvocations=len(self.events)+1,timerRegistrations=2*(len(self.events)//2+1))
         if kind=='pending':work['timers']=[dict(handle=index,active=True,singleShot=True,intervalMs=interval,remainingMs=interval)
             for index,interval in ((1,350),(2,60000))]
-        self.events.append(dict(sequence=len(self.events)+1,kind=kind,id='snap_20000_1',mode='animated',revision=1,
+        self.events.append(dict(sequence=len(self.events)+1,kind=kind,id=capture_id,mode=mode,revision=1 if mode=='animated' else 2,
             capturedEpochMs=self.clock(),elapsedMs=round(self.adb.clock*1000),caller=origin))
 
     def current(self):
         request=dict(schemaVersion=1,commandId=uuid.uuid4().hex,runId=RUN,action=snapshot_originals.ACTION,operation='read')
         self.native.send(request);native=json.loads(self.native.read())
-        view={key:False for key in BOOLS};view.update({key:'' for key in STRINGS})
-        view.update(componentUrl='file:///packaged/scripts/system/snapshot/NativeSnapshotReview.qml',mode=1,format='png',
-            capabilities=[],images=[],captureName='parity-'+RUN[:16]+'-animated',visible=True,captureSettingsLoaded=True,
-            capturing=self.adb.capturing)
         return dict(capturedEpochMs=self.clock(),native=native,script=self.script(),
-            review=dict(snapshotReviewObservationVersion=2,present=True,review=view))
+            review=self.review())
+
+    def review(self):
+        if self.adb.screen!='snapshot':return dict(snapshotReviewObservationVersion=2,present=False,review=None)
+        view={key:False for key in BOOLS};view.update({key:'' for key in STRINGS})
+        view.update(componentUrl='file:///packaged/scripts/system/snapshot/NativeSnapshotReview.qml',
+            mode=('still','animated','panorama','cubemap').index(self.adb.mode),format=self.adb.format,
+            capabilities=['save','share'],images=[dict(path='/data/user/0/org.overte.pico/files/Snapshots/'+path.name,storyPresent=False) for path in self.adb.files.iterdir()],
+            captureName=self.adb.text,visible=self.adb.opened,captureSettingsLoaded=True,capturing=self.adb.capturing)
+        return dict(snapshotReviewObservationVersion=2,present=True,review=view)
+
+    def snapshot(self):
+        value=self.original_snapshot();value['picoSnapshotReview']=self.review();return value
 
     def fast_packet(self,request):
         self.fast_sequence+=1
@@ -122,7 +148,7 @@ class SnapshotCancelOwnerTests(unittest.TestCase):
         if action=='feature-script-work-observe':
             self.work_sequence+=1;origin=self.origin
             activity=dict(scriptId=origin['compilation']['scriptId'],signalCallbacks=0,timerCallbacks=0,
-                signalInvocations=len(self.events),timerInvocations=0,timerRegistrations=2)
+                signalInvocations=len(self.events),timerInvocations=0,timerRegistrations=2*((len(self.events)+1)//2))
             work=dict(scriptWorkVersion=2,requestId=request['commandId'],sequence=self.work_sequence,
                 requestedEpochMs=self.clock(),capturedEpochMs=self.clock(),signalCallbacks=0,timerCallbacks=0,evaluating=False,
                 timers=[],activity=[activity],timerEntries=0,activityEntries=1)
@@ -196,14 +222,14 @@ class SnapshotCancelOwnerTests(unittest.TestCase):
         self.assertEqual([],self.started);self.assertEqual(0,self.adb.captures)
 
     def test_late_unowned_file_prevents_quiet_and_cold_archived_clock_gap_is_rejected(self):
-        self.cancelled();self.owner.quiet();disk=self.owner.store.read();state=unpack(disk['payload'])[0]
+        self.cancelled();self.owner.quiet();disk=self.owner.store.read()
         for fault in ('clock-gap','retained-work'):
-            state=unpack(disk['payload'])[0]
+            state=deepcopy(self.owner.state)
             if fault=='clock-gap':state['frames'][state['quiet'][0]['last']]['hostMonotonic']+=2
             else:
                 row=state['frames'][state['quiet'][0]['last']]['work']['source']['work']
                 row['timers']=[dict(handle=90,active=False,singleShot=True,intervalMs=350,remainingMs=-1,functionScriptId=2)];row['timerEntries']=1
-            changed=deepcopy(disk);changed['payload']=pack([state]);self.owner.store.write(changed,disk)
+            changed=deepcopy(disk);changed['payload']=pack([self.owner.originals.encode(state)]);self.owner.store.write(changed,disk)
             with self.subTest(fault=fault),self.assertRaises((ValueError,RuntimeError)):self.make()
             self.owner.store.write(disk,changed)
         late=self.adb.files/(self.owner.prefix+'-late.png');late.write_bytes(b'late original output')
@@ -252,6 +278,69 @@ class SnapshotCancelOwnerTests(unittest.TestCase):
         self.h.transport.delay=2
         with self.assertRaises((ValueError,RuntimeError)):self.owner.open()
         self.assertFalse(self.h.transport.envelopes);self.assertFalse(self.adb.inputs);self.assertEqual('open-issued',self.owner.state['stage'])
+
+
+class SnapshotStillSequenceTests(unittest.TestCase):
+    def setUp(self):
+        self.h=SnapshotCancelOwnerTests();self.h.setUp();self.addCleanup(self.h.doCleanups)
+    def ready(self):
+        self.h.cancelled();self.h.owner.quiet();self.h.owner.retire_job()
+        self.h.activate('capture',dict(mode='still',format='png'))
+    def test_continuous_normal_cancel_then_still_original_png_fd_ui_and_live_work_quiet(self):
+        self.ready();owner=self.h.owner;report=owner.capture_still();self.assertEqual('captured',report['stage'])
+        self.assertEqual('document-picker',report['saveBackend']);self.assertEqual('baseline',owner.state['platform']['where'])
+        self.assertEqual('still-ready',owner.quiet_still()['stage']);self.assertFalse(report['fullSnapshotRecipe'])
+        self.assertEqual(['pending','cancelled','pending','complete'],[row['kind'] for row in self.h.events])
+        self.assertEqual(2,self.h.adb.captures);self.assertEqual(2,len(self.h.producer.body['plans']));self.assertEqual(1,len(self.h.producer.body['rows']))
+        self.assertEqual('png',owner.state['capture']['decoded']['format'].lower())
+        before=len(self.h.adb.inputs);cold=self.h.make();self.assertEqual(owner.report(),cold.report());self.assertEqual(before,len(self.h.adb.inputs))
+        self.assertTrue(owner.store.path.exists());self.assertTrue(owner.files.store.path.exists())
+    def test_v1_original_migration_and_lost_still_reply_recover_without_new_capture_or_baseline_facts(self):
+        self.ready();owner=self.h.owner;disk=owner.store.read();state=deepcopy(owner.state)
+        for key in ('platform','migration','stillPlan','capture','captureQuiet'):state.pop(key)
+        legacy=dict(disk,snapshotCancelOwnerVersion=1,payload=pack([state]));owner.store.write(legacy,disk)
+        owner=self.h.make();self.assertEqual(1,owner.encoding_version);write=self.h.write
+        def lost(target,package,path,raw):
+            value=write(target,package,path,raw)
+            if json.loads(raw).get('controlId')=='snapshot.capture':raise RuntimeError('Original still reply lost')
+            return value
+        with patch.object(self.h.adb,'write_debug_app_file',side_effect=lost),self.assertRaises(RuntimeError):owner.capture_still()
+        before=len(self.h.adb.inputs);cold=self.h.make();report=cold.reconcile()
+        self.assertEqual('captured',report['stage']);self.assertEqual(before,len(self.h.adb.inputs));self.assertEqual(2,self.h.adb.captures)
+        self.assertEqual('before-still',cold.state['platform']['where']);self.assertEqual(1,cold.state['migration']['fromVersion'])
+        with self.assertRaises((ValueError,RuntimeError)):cold.capture_still()
+        record=cold.state['capture']['artifactRecord'];path=cold.files.host_path(record);path.rename(str(path)+'.old')
+        replacement=Path(str(path)+'.old').read_bytes();path.write_bytes(replacement);path.chmod(0o600)
+        with self.assertRaises((ValueError,RuntimeError)):self.h.make()
+        self.assertTrue(cold.store.path.exists())
+    def test_final_still_parent_cas_phase_advance_refuses_actual_second_capture(self):
+        self.ready();owner=self.h.owner;write=owner.store.write
+        def advance(value,previous):
+            write(value,previous);state=unpack(value['payload'])[0]
+            if state['deliveries'] and state['deliveries'][-1]['command'].get('controlId')=='snapshot.capture':self.h.activate('close')
+        with patch.object(owner.store,'write',side_effect=advance),self.assertRaises((ValueError,RuntimeError)):owner.capture_still()
+        self.assertEqual(1,self.h.adb.captures);self.assertIsNone(owner.state['capture']);self.assertTrue(owner.store.path.exists())
+
+    def test_acknowledged_ignored_still_never_creates_original_png_or_allows_cold_resend(self):
+        self.ready();self.h.still_ignored=True;report=self.h.owner.capture_still();self.assertEqual('capture-issued',report['stage'])
+        self.assertIsNone(report['png']);self.assertEqual([],self.h.producer.body['rows']);before=len(self.h.adb.inputs)
+        cold=self.h.make();self.assertEqual('capture-issued',cold.reconcile()['stage']);self.assertEqual(before,len(self.h.adb.inputs))
+        with self.assertRaises((ValueError,RuntimeError)):cold.capture_still()
+        self.assertEqual(2,self.h.adb.captures);self.assertTrue(cold.store.path.exists())
+
+
+class SnapshotOriginalBindingTests(unittest.TestCase):
+    def test_orphan_original_manifest_or_chunk_blocks_public_input_and_cleanup_without_deletion(self):
+        for name in ('snapshot-cancel-originals.json','snapshot-cancel-originals.json.frame-000.json'):
+            with self.subTest(name=name):
+                h=SnapshotCancelOwnerTests();h.setUp()
+                try:
+                    path=h.owner.store.path.with_name(name);PrivateFeatureState(path).write(dict(unresolved=True),None)
+                    self.assertTrue(h.adapter._snapshot_originals_owned(h.adb.target))
+                    with self.assertRaises((ValueError,RuntimeError)):h.adapter.invoke(h.adb.target,'snapshot.open',{})
+                    with self.assertRaises((ValueError,RuntimeError)):h.adapter.cleanup(h.adb.target)
+                    self.assertTrue(path.exists());self.assertFalse(h.adb.running)
+                finally:h.doCleanups()
 
 
 if __name__=='__main__':unittest.main()

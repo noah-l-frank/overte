@@ -1421,8 +1421,10 @@ def create_adapter(args, base_class):
         def _snapshot_originals_owned(self,target):
             store=self._snapshot_still_store(target,create=False)
             if store is None:return False
-            return any(path.exists() or path.is_symlink() for path in (store.path,
-                store.path.with_name('snapshot-cancel-owner.json'),store.path.with_name('snapshot-cancel-files-owner.json')))
+            return (any(path.exists() or path.is_symlink() for path in (store.path,
+                store.path.with_name('snapshot-cancel-owner.json'),store.path.with_name('snapshot-cancel-files-owner.json'),
+                store.path.with_name('snapshot-cancel-originals.json')))
+                or any(path.name.startswith('snapshot-cancel-originals.json.frame-') for path in store.path.parent.iterdir()))
 
         @_private
         def _snapshot_cancel_owner(self,target,run,phase_source,*,source_lock=None):
@@ -1442,8 +1444,15 @@ def create_adapter(args, base_class):
             owner=PicoSnapshotCancelOwner(lock.path.with_name('snapshot-cancel-owner.json'),run,binding,snapshot,
                 self._snapshot_native_originals(target,source_lock=lock),self._snapshot_script_originals(target,source_lock=lock),
                 self._snapshot_cancel(target,before_send=before_cancel,source_lock=lock),files,
-                self._script_roots_observer(target),self._script_execution_observer(target),self._script_work(target),self.pico_input_session(target),phase_source)
+                self._script_roots_observer(target),self._script_execution_observer(target),self._script_work(target),self._snapshot_platform(target),self.pico_input_session(target),phase_source)
             return owner
+
+        @_private
+        def _snapshot_platform(self,target):
+            from adapters.pico4.snapshot_platform import PicoSnapshotPlatform
+            native=self._native_feature_observer(target)
+            return PicoSnapshotPlatform(lambda:self.adb.prop(target,'ro.build.version.sdk'),native.guard,native.clock_ms,
+                monotonic=native.monotonic)
 
         @_private
         def _snapshot_still_owner(self,target,run,phase_source,*,source_lock=None):
