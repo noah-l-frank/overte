@@ -275,6 +275,21 @@ class SnapshotJourneyTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError,'cannot be prepared twice'):self.model.marker_input(replacement)
         self.assertEqual(retired,self.model.marker)
 
+    def test_background_resume_refreshes_original_marker_lease_and_current_png(self):
+        self.client.activate('c'*32);self.invoke('feature.snapshots.observe',dict(contractVersion=VERSION,runId=RUN,afterSequence=0))
+        self.act('open');self.act('capture',dict(mode='still',format='png'))
+        first=self.invoke('feature.snapshots.observe',dict(contractVersion=VERSION,runId=RUN,afterSequence=1))
+        creation=deepcopy(self.model.marker);private=self.model.raw_png
+        self.act('background-resume')
+        observed=self.invoke('feature.snapshots.observe',dict(contractVersion=VERSION,runId=RUN,afterSequence=first['sequence']))
+        for key in ('fixtureInstance','createdEpochMs','originalInput','originalView','objects'):self.assertEqual(creation[key],self.model.marker[key])
+        self.assertEqual(1,len(self.model.marker['refreshes']));self.assertEqual(private,self.model.raw_png)
+        self.assertTrue(any(row['kind']=='image' for row in observed['artifacts']))
+        self.assertEqual(1,observed['lifecycle']['backgrounds']);self.assertEqual(2,observed['lifecycle']['activations'])
+        from adapters.native_phone_web_runtime import active_marker
+        url=next(row['sourceUrl'] for row in self.model.marker['entities'] if row['role']=='marker')
+        active_marker(self.proxy._web_runtime_observer(None).read(RUN,self.fixture_url),url)
+
     def test_native_widget_producer_cannot_turn_foreign_or_stale_inputs_into_save_effects(self):
         self.client.activate('c'*32);self.invoke('feature.snapshots.observe',dict(contractVersion=VERSION,runId=RUN,afterSequence=0))
         self.act('open');self.act('capture',dict(mode='still',format='png'))

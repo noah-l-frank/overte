@@ -162,11 +162,36 @@ class SnapshotTarget(CreateTarget):
         with Image.open(io.BytesIO(marker_bytes(RUN,self.ticket))) as card:image.paste(card,(20,20))
         out=io.BytesIO();image.save(out,format='PNG');return out.getvalue()
     def marker_input(self,request):
+        from overte_phone_create_marker import input_command,current_input
+        input_command(request)
+        if request['runId']!=RUN:raise RuntimeError('Original marker run required')
         if self.marker_command is not None and request['commandId']==self.marker_command['commandId']:
             if request!=self.marker_command:raise RuntimeError('Original marker command changed')
             return deepcopy(self.marker_receipt)
         if request['operation']=='prepare':
             if self.marker_seen:raise RuntimeError('Native marker owner cannot be prepared twice for the same run')
+        elif request['operation']=='refresh':
+            if (not self.marker_active or self.marker['phase']!='active' or request['fixtureInstance']!=self.marker['fixtureInstance']
+                    or len(self.marker['objects'])!=3 or len(self.marker['entities'])!=3):
+                raise RuntimeError('Original active marker refresh owner required')
+            inputs=[self.marker['originalInput'],*[row['input'] for row in self.marker.get('refreshes',[])]]
+            if len(inputs)>256 or any(row['commandId']==request['commandId'] or row['ticket']==request['ticket'] for row in inputs):
+                raise RuntimeError('Original marker refresh input cannot replay')
+            for row in self.marker['entities']:
+                if (not row['originalObject'] or row['hostType']!='local' or row['locked'] or row['parentId']!='00000000-0000-0000-0000-000000000000'
+                        or not any(item['id']==row['id'] and item['role']==row['role'] for item in self.marker['objects'])):
+                    raise RuntimeError('Original marker entity was replaced')
+            row=next(row for row in self.marker['entities'] if row['role']=='marker')
+            root=self.marker['originalInput']['fixtureUrl']
+            if row['sourceUrl']!=root+'tickets/'+current_input(self.marker)['ticket']+'/graphics-marker.v1.html':
+                raise RuntimeError('Original marker URL changed before refresh')
+            row.update(sourceUrl=root+'tickets/'+request['ticket']+'/graphics-marker.v1.html',lastEditedEpochUs=self.now()*1000)
+            self.marker.update(phoneCreateFixtureVersion=3,lastRefreshInput=deepcopy(request),
+                refreshes=[*self.marker.get('refreshes',[]),dict(input=deepcopy(request),editedEpochMs=self.now())])
+            self.ticket=request['ticket']
+            receipt=dict(phoneCreateFixtureInputVersion=1,commandId=request['commandId'],runId=RUN,fixtureInstance=self.marker['fixtureInstance'],operation='refresh',recorded=True)
+            self.marker_command=deepcopy(request);self.marker_receipt=deepcopy(receipt)
+            return receipt
         elif request['operation']=='release':
             if not self.marker_seen or request['fixtureInstance']!=self.marker['fixtureInstance']:
                 raise RuntimeError('Original marker release owner required')
@@ -429,6 +454,16 @@ class SnapshotTarget(CreateTarget):
             self.producer.epoch=epoch;self.producer.send(request);value=json.loads(self.producer.read());value['processId']=31;return value
         if key=='snapshot-settings':
             self.lease_settings.epoch=epoch;self.lease_settings.send(request);value=json.loads(self.lease_settings.raw);value['processId']=31;return value
+        if key=='web':
+            value=super().source(key,request)
+            if self.marker_active:
+                actual=next(row['sourceUrl'] for row in self.marker['entities'] if row['role']=='marker')
+                creation=self.marker['originalInput'];old=hashlib.sha256((creation['fixtureUrl']+'tickets/'+creation['ticket']+'/graphics-marker.v1.html').encode()).hexdigest()
+                current=hashlib.sha256(actual.encode()).hexdigest()
+                for original in (*value['source']['nativeBefore']['views'],*value['source']['nativeAfter']['views'],*value['source']['java']['views']):
+                    for name in ('sourceSha256','documentSha256','creationSha256'):
+                        if original.get(name)==old:original[name]=current
+            return value
         if key=='native':
             value=super().source(key,request);value['lifecycle']=deepcopy(self.lifecycle)
             value['account']=deepcopy(self.account);value['account']['observation']['capturedEpochMs']=epoch
