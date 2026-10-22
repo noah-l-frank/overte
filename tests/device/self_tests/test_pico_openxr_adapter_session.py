@@ -115,6 +115,39 @@ class PicoOpenXrAdapterSessionTests(unittest.TestCase):
     def tearDown(self) -> None:
         self.temporary.cleanup()
 
+    def test_owned_controller_intent_is_original_and_durable_before_transport(self):
+        self.session.begin('42:100');saved=[]
+        original=self.transport.stage
+        def staged(value,profile):
+            self.assertEqual(saved[0],value);return original(value,profile)
+        def intent(value):
+            saved.append(__import__('copy').deepcopy(value));value['commands'].clear()
+        with mock.patch.object(self.transport,'stage',side_effect=staged):
+            self.session.stage('42:100','controller.button',{'hand':'left','control':'primary'},intent=intent)
+        self.assertEqual(1,len(self.transport.envelopes[0]['commands']))
+        self.assertEqual('controller.button',saved[0]['commands'][0]['operation'])
+
+    def test_failed_intent_does_not_stage_or_advance_the_exact_session_cursor(self):
+        self.session.begin('42:100')
+        def fail(_value):raise RuntimeError('explicit synthetic private-disk failure')
+        with self.assertRaises(RuntimeError):
+            self.session.stage('42:100','controller.button',{'hand':'left','control':'primary'},intent=fail)
+        self.assertEqual([],self.transport.envelopes)
+        self.assertEqual(1,self.session._load()['nextSequence'])
+
+    def test_owned_neutral_is_read_only_and_requires_the_original_process_nonce_and_cursor(self):
+        self.session.begin('42:100');owned=[]
+        self.session.stage('42:100','controller.button',{'hand':'left','control':'primary'},intent=owned.append)
+        self.assertEqual('neutral',self.session.require_owned_neutral('42:100',owned[0])['state'])
+        self.assertEqual(1,len(self.transport.envelopes));self.assertEqual(0,self.transport.cleanup_count)
+        with self.assertRaises(AdapterSessionError):self.session.require_owned_neutral('43:101',owned[0])
+        original=owned[0]['sessionNonce'];owned[0]['sessionNonce']='f'*64
+        with self.assertRaises(AdapterSessionError):self.session.require_owned_neutral('42:100',owned[0])
+        owned[0]['sessionNonce']=original
+        self.session.stage('42:100','input.jump',{})
+        with self.assertRaises(AdapterSessionError):self.session.require_owned_neutral('42:100',owned[0])
+        self.assertEqual(2,len(self.transport.envelopes))
+
     def test_common_operations_share_nonce_and_advance_sequence(self) -> None:
         self.session.begin("42:100")
         first = self.session.stage(
