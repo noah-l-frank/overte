@@ -33,3 +33,21 @@ and original stereo avatar pixels. The independent actor and full interruption/
 restoration/retirement path remain required before advertising any complete
 Emote operation triple. Shared v17 motion/runner changes need their own reviewed
 migration; this packet keeps the existing Pico v16 complete triples intact.
+
+
+## Original animation bytes and consumed model selection
+
+The [second selection manifest](PHONE_SHARED_ANIMATION_DATA_20261022.json)
+now reuses the shared consumed-data parser, immutable twelve-FBX fixture pins,
+weak native model registry and actual retarget/clip source observation from the
+same fixed Phone commit. Pico preserves its original parser call and functional
+behavior. The native observation hashes the actual parser input and the same
+model reference copied into the clip; it never replaces that with a disk reread
+or requested URL hash. The existing native feature/history v1 readers admit
+this explicitly versioned optional source and reject future model/consumption
+clocks at the containing original capture. Legacy clips remain readable.
+
+This supplies original consumed-content provenance, not an animation or render
+verdict. Passive cache readiness and compiled caller/source/profile joins are
+still missing, followed by ordinary Pico VR input, stereo avatar evidence,
+independent role publication and whole interruption/resource retirement.

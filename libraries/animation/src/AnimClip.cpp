@@ -94,11 +94,18 @@ void bakeAbsoluteDeltaAnim(std::vector<AnimPoseVec>& anim, const AnimPoseVec& ba
     }
 }
 
-static std::vector<AnimPoseVec> copyAndRetargetFromNetworkAnim(AnimationPointer networkAnim, AnimSkeleton::ConstPointer avatarSkeleton) {
+static std::vector<AnimPoseVec> copyAndRetargetFromNetworkAnim(AnimationPointer networkAnim, AnimSkeleton::ConstPointer avatarSkeleton
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        , QVariantMap* originalSource=nullptr
+#endif
+        ) {
     ASSERT(networkAnim && networkAnim->isLoaded() && avatarSkeleton);
     std::vector<AnimPoseVec> anim;
 
     const HFMModel& animModel = networkAnim->getHFMModel();
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    if (originalSource) { *originalSource=networkAnim->featureSourceForModel(&animModel); }
+#endif
     AnimSkeleton animSkeleton(animModel);
     const int animJointCount = animSkeleton.getNumJoints();
     const int avatarJointCount = avatarSkeleton->getNumJoints();
@@ -269,9 +276,14 @@ const AnimPoseVec& AnimClip::evaluate(const AnimVariantMap& animVars, const Anim
     if (_blendType == AnimBlendType_Normal) {
         if (_networkAnim && _networkAnim->isLoaded() && _skeleton) {
             // loading is complete, copy & retarget animation.
-            _anim = copyAndRetargetFromNetworkAnim(_networkAnim, _skeleton);
+            _anim = copyAndRetargetFromNetworkAnim(_networkAnim, _skeleton
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+                , &_e2eLoadedSource
+#endif
+                );
 #if defined(OVERTE_E2E_FEATURE_TESTS)
             _e2eLoadedUrl = _networkAnim->getURL().toString();
+            _e2eConsumedEpochMs=QDateTime::currentMSecsSinceEpoch();
 #endif
 
             // we no longer need the actual animation resource anymore.
@@ -286,9 +298,14 @@ const AnimPoseVec& AnimClip::evaluate(const AnimVariantMap& animVars, const Anim
         // an additive blend type
         if (_networkAnim && _networkAnim->isLoaded() && _baseNetworkAnim && _baseNetworkAnim->isLoaded() && _skeleton) {
             // loading is complete, copy & retarget animation.
-            _anim = copyAndRetargetFromNetworkAnim(_networkAnim, _skeleton);
+            _anim = copyAndRetargetFromNetworkAnim(_networkAnim, _skeleton
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+                , &_e2eLoadedSource
+#endif
+                );
 #if defined(OVERTE_E2E_FEATURE_TESTS)
             _e2eLoadedUrl = _networkAnim->getURL().toString();
+            _e2eConsumedEpochMs=QDateTime::currentMSecsSinceEpoch();
 #endif
 
             // we no longer need the actual animation resource anymore.
@@ -355,11 +372,19 @@ const AnimPoseVec& AnimClip::evaluate(const AnimVariantMap& animVars, const Anim
 
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 QVariantMap AnimClip::e2eClipObservation() const {
+    auto source=_e2eLoadedSource;
+    if (_anim.empty()) { source.clear(); }
+    if (!source.isEmpty()) {
+        source.insert("consumedEpochMs",_e2eConsumedEpochMs);
+        source.insert("blend",_blendType==AnimBlendType_Normal ? "normal"
+            : _blendType==AnimBlendType_AddAbsolute ? "add-absolute" : "add-relative");
+    }
     return {{"url", _e2eLoadedUrl}, {"requestedUrl", _url}, {"frame", _frame}, {"firstFrame", _startFrame},
         {"lastFrame", _endFrame}, {"framesPerSecond", _timeScale * 30.0f},
         {"loop", _loopFlag}, {"loadedFrames", static_cast<int>(_anim.size())},
         {"evaluatedEpochMs", _e2eEvaluatedEpochMs},
-        {"evaluationSequence", static_cast<qulonglong>(_e2eEvaluationSequence)}};
+        {"evaluationSequence", static_cast<qulonglong>(_e2eEvaluationSequence)},
+        {"animationSourceVersion",1},{"assetSource",source.isEmpty() ? QVariant() : QVariant(source)}};
 }
 #endif
 

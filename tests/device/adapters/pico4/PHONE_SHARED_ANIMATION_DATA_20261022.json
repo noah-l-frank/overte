@@ -1,0 +1,97 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "abb7f6b60d97daf17752aadf94e2b5df099bb7ba",
+  "originalFrozenReference": "fe4684bf46585088370b3a328a738f147e670b97",
+  "targetBase": "2ee07e05ba",
+  "uncommittedPhoneWorkExcluded": true,
+  "sharedContracts": [
+    "native-animation-source v1",
+    "emote-animation-pins v1"
+  ],
+  "files": [
+    {
+      "sourcePath": "libraries/animation/src/AnimationDataObservation.h",
+      "targetPath": "libraries/animation/src/AnimationDataObservation.h",
+      "sourceSha256": "a007fc7fecf711430e985b3422cb18c1f7998bcc3ab8a209d2b1f9a84a1cbb15",
+      "targetSha256": "a007fc7fecf711430e985b3422cb18c1f7998bcc3ab8a209d2b1f9a84a1cbb15",
+      "selection": "exact"
+    },
+    {
+      "sourcePath": "libraries/animation/src/AnimationCache.cpp",
+      "targetPath": "libraries/animation/src/AnimationCache.cpp",
+      "sourceSha256": "4442dce44b64a8858032b5f1871e3b178397e60da86fc39a54b6bc9644329c88",
+      "targetSha256": "f640ebbc67ed6e1c47e0350c03c487a21e529f9e58d0853fc88b4a7e8695b54f",
+      "selection": "reviewed-narrow-Pico-compatible-selection"
+    },
+    {
+      "sourcePath": "libraries/animation/src/AnimationCache.h",
+      "targetPath": "libraries/animation/src/AnimationCache.h",
+      "sourceSha256": "b69389bc41486855621bd763af57fb771c7212939eba9c479eb98a3b0c6f1172",
+      "targetSha256": "aae073889d042fbaa76b75cfe962d29fa3cfe89f6e50ca0c6ab103239a2726da",
+      "selection": "reviewed-narrow-Pico-compatible-selection"
+    },
+    {
+      "sourcePath": "libraries/animation/src/AnimClip.cpp",
+      "targetPath": "libraries/animation/src/AnimClip.cpp",
+      "sourceSha256": "daa0ff56e6926103bde01784597b92283424bc4bcfac9e0400a876115e4cab01",
+      "targetSha256": "daa0ff56e6926103bde01784597b92283424bc4bcfac9e0400a876115e4cab01",
+      "selection": "exact"
+    },
+    {
+      "sourcePath": "libraries/animation/src/AnimClip.h",
+      "targetPath": "libraries/animation/src/AnimClip.h",
+      "sourceSha256": "d92b2e7c2d4600b7954bee355a9a77f15f78c866a9a6bfccd01fd6e0da36a412",
+      "targetSha256": "d92b2e7c2d4600b7954bee355a9a77f15f78c866a9a6bfccd01fd6e0da36a412",
+      "selection": "exact"
+    },
+    {
+      "sourcePath": "tests/device/adapters/native_animation_source.py",
+      "targetPath": "tests/device/adapters/native_animation_source.py",
+      "sourceSha256": "039476cb7e05007f87fa4799b9e5b7b0633ff1eae89622ba6c9024538ad05bfa",
+      "targetSha256": "039476cb7e05007f87fa4799b9e5b7b0633ff1eae89622ba6c9024538ad05bfa",
+      "selection": "exact"
+    },
+    {
+      "sourcePath": "tests/device/adapters/native_animation_history.py",
+      "targetPath": "tests/device/adapters/native_animation_history.py",
+      "sourceSha256": "f17935e1038c7e537cbd54a8e1a8ac38e6246fc5d5aeed45bfbb6f7ce7766d6b",
+      "targetSha256": "37a8ae594de340df217735a3ebf13fa01fa26b9e80411b0bac585fda923cd73a",
+      "selection": "reviewed-narrow-Pico-compatible-selection"
+    },
+    {
+      "sourcePath": "tests/device/adapters/native_feature_observation.py",
+      "targetPath": "tests/device/adapters/native_feature_observation.py",
+      "sourceSha256": "cd046f578132dfb4f8a5371dcadc4d5674e40bb81d7a356cd4e336c271954176",
+      "targetSha256": "cd046f578132dfb4f8a5371dcadc4d5674e40bb81d7a356cd4e336c271954176",
+      "selection": "exact"
+    },
+    {
+      "sourcePath": "tests/device/feature_journeys/emote-animation-pins.v1.json",
+      "targetPath": "tests/device/feature_journeys/emote-animation-pins.v1.json",
+      "sourceSha256": "c40f1b909090df068c7f54f44fb374498be80452757e444de9f85d6f38fcbdfa",
+      "targetSha256": "c40f1b909090df068c7f54f44fb374498be80452757e444de9f85d6f38fcbdfa",
+      "selection": "exact"
+    },
+    {
+      "sourcePath": "tests/device/self_tests/test_native_animation_source.py",
+      "targetPath": "tests/device/self_tests/test_native_animation_source.py",
+      "sourceSha256": "ff4379c4f8b0e6227043dad267855b6bd16dc80a31fea6cb9b548564279f344a",
+      "targetSha256": "c126648c8ffdd9f37d98ee2e34a37db3d580b485ba5336096bd8b203a7a9dfa0",
+      "selection": "reviewed-narrow-Pico-compatible-selection"
+    },
+    {
+      "sourcePath": "tests/device/native/ANIMATION_SOURCE.md",
+      "targetPath": "tests/device/native/ANIMATION_SOURCE.md",
+      "sourceSha256": "3ba64a54b0e373a032fdfa100933d0e30fd02dd8b0639278396557cd5a249652",
+      "targetSha256": "0a4f12b67d86de167ca7ef4653968fdce311f500ce229d201cbdac0987b1a73c",
+      "selection": "reviewed-narrow-Pico-compatible-selection"
+    }
+  ],
+  "excluded": [
+    "Phone functional FBX parser optimization and loading diagnostics",
+    "Phone caller/work/touch/actor/mono bindings",
+    "Passive cache inventory and readiness binding, not yet selected",
+    "Moving branch or uncommitted Phone changes"
+  ],
+  "qualification": "Original consumed FBX bytes and weak model/retarget source only. Native C++ uncompiled; no physical runs, no complete Emote adapter."
+}

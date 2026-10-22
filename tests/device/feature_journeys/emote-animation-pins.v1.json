@@ -1,0 +1,78 @@
+{
+  "contractVersion": 1,
+  "sourceBase": "7636452f2124029798948aafae70ecff5c5fa7d0",
+  "animations": [
+    {
+      "name": "Crying",
+      "sourcePath": "scripts/system/assets/animations/Crying.fbx",
+      "bytes": 727680,
+      "sha256": "88b9d6860fdc32614f48fbcfcfe33fcc5d02a19991ddda44fb8b8f942d979a27"
+    },
+    {
+      "name": "Surprised",
+      "sourcePath": "scripts/system/assets/animations/Surprised.fbx",
+      "bytes": 474752,
+      "sha256": "9224092b142a72b8c4239a163b7159614da9ecfbb8459cc6cc11ea568ddb32e5"
+    },
+    {
+      "name": "Dancing",
+      "sourcePath": "scripts/system/assets/animations/Dancing.fbx",
+      "bytes": 532928,
+      "sha256": "010ce5ecb439121d4e3dfa423330cbe59c91e85de0ce59f8f151b0cf70dba034"
+    },
+    {
+      "name": "Cheering",
+      "sourcePath": "scripts/system/assets/animations/Cheering.fbx",
+      "bytes": 351664,
+      "sha256": "6d68f62a8144a97604791e52e2062d1501d767af0693530f86faf6f2ea7314be"
+    },
+    {
+      "name": "Waving",
+      "sourcePath": "scripts/system/assets/animations/Waving.fbx",
+      "bytes": 281696,
+      "sha256": "5516355f7eafa0c5fe01e79662cfe2f006bf899a21db11dde33ce5187df87667"
+    },
+    {
+      "name": "Fall",
+      "sourcePath": "scripts/system/assets/animations/Fall.fbx",
+      "bytes": 452160,
+      "sha256": "6454f5416618b9289f275175684b0a2615e10b40e40f9d0dd76f24c88c189474"
+    },
+    {
+      "name": "Pointing",
+      "sourcePath": "scripts/system/assets/animations/Pointing.fbx",
+      "bytes": 472544,
+      "sha256": "698ab488948e82c0a65d3c41f34a0e6725d8d67313389dd386e7d25018fa08dc"
+    },
+    {
+      "name": "Clapping",
+      "sourcePath": "scripts/system/assets/animations/Clapping.fbx",
+      "bytes": 293728,
+      "sha256": "f0732ebe4be5a7a38e581ae712a6cfa26c85a003b22fe7d26b21bcb986427baa"
+    },
+    {
+      "name": "Sit1",
+      "sourcePath": "scripts/system/assets/animations/Sit1.fbx",
+      "bytes": 628720,
+      "sha256": "13626e697c4014b737f8fd98e50c6a27b6dc28ffd5a112546e9f5d2a77d269e7"
+    },
+    {
+      "name": "Sit2",
+      "sourcePath": "scripts/system/assets/animations/Sit2.fbx",
+      "bytes": 2418736,
+      "sha256": "99864a621914c07d945ca323a036a7472f251758ba8aa999440b1008031257c2"
+    },
+    {
+      "name": "Sit3",
+      "sourcePath": "scripts/system/assets/animations/Sit3.fbx",
+      "bytes": 2417280,
+      "sha256": "1993e677d9bd7eff1ff639603a34d804c48b5944abdfef9e51b64ee2ba5cbede"
+    },
+    {
+      "name": "Love",
+      "sourcePath": "scripts/system/assets/animations/Love.fbx",
+      "bytes": 2085904,
+      "sha256": "a037797e9f9ed1ff79ea097bc19b6777a9402485d0bb0d00122931a25ed594d5"
+    }
+  ]
+}

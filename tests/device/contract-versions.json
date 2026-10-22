@@ -85,6 +85,8 @@
     "native-account-probe": {"current": 1, "reads": [1]},
     "native-account-origin": {"current": 1, "reads": [1]},
     "native-animation-history": {"current": 1, "reads": [1]},
+    "native-animation-source": {"current": 1, "reads": [1]},
+    "emote-animation-pins": {"current": 1, "reads": [1]},
     "native-script-code-identity": {"current": 1, "reads": [1]},
     "native-script-compilations": {"current": 1, "reads": [1]},
     "native-script-load-history": {"current": 1, "reads": [1]},

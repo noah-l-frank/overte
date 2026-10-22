@@ -804,3 +804,15 @@ query. The existing Script observation command, private transport and legacy
 source schemas stay intact. Only narrow native recording dependencies were
 selected; Phone input/work/caller/actor/mono bindings remain excluded. This is
 an Emote prerequisite, not complete Emotes or actual Pico/device qualification.
+
+
+## Shared consumed animation-data source reused for Pico
+
+The [second reviewed selection](EMOTE_SHARED_REUSE.md#original-animation-bytes-and-consumed-model-selection)
+now retains actual FBX parser input, weak original HFM model/resource identity
+and the same original model consumed by the normal retarget operation. Shared
+fixture pins and validators are reused directly. Pico keeps its original empty
+parser mapping; no Phone functional parser optimization or diagnostics were
+transplanted. Existing v1 native feature/Rig histories accept the explicit clip
+source and preserve old unsourced history without qualifying it as known data.
+Cache readiness, caller/profile/input/stereo/actor and full cleanup remain open.

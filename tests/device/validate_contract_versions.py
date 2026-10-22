@@ -102,6 +102,8 @@ REQUIRED = {
     "web-dom-observation": 1,
     "native-web-dom-observation": 1,
     "native-animation-history": 1,
+    "native-animation-source": 1,
+    "emote-animation-pins": 1,
     "native-script-controls": 1,
     "native-private-login-input": 2,
     "native-login-controls": 2,

@@ -66,7 +66,9 @@ These components add no complete feature area.
 
 The [reviewed shared Phone selection](EMOTE_SHARED_REUSE.md) now reuses actual
 V8 compilation identities, immutable originals, optional Script source reader
-and counterexamples. Native compilation, actual Pico source/caller/input/Rig/
+and counterexamples. The same pinned shared selection now also supplies original
+FBX parser bytes, weak model identity and consumed retarget/clip sources while
+preserving Pico functional parsing. Native compilation, actual Pico caller/input/Rig/
 stereo/actor and full resource retirement remain unqualified or incomplete.
 This adds no complete feature area and keeps shared journey v16 unchanged.
 

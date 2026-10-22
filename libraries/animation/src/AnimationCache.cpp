@@ -10,6 +10,9 @@
 //
 
 #include "AnimationCache.h"
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+#include "AnimationDataObservation.h"
+#endif
 
 #include <QRunnable>
 #include <QThreadPool>
@@ -78,6 +81,9 @@ void AnimationReader::run() {
             HFMModel::Pointer hfmModel;
             if (_url.path().toLower().endsWith(".fbx")) {
                 hfmModel = FBXSerializer().read(_data, QVariantHash(), _url.path());
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+                overte::e2e::animationDataObservation().record(hfmModel,_url,_data,false);
+#endif
             } else {
                 QString errorStr("usupported format");
                 emit onError(299, errorStr);
@@ -130,6 +136,14 @@ QVector<HFMAnimationFrame> Animation::getFrames() const {
 const QVector<HFMAnimationFrame>& Animation::getFramesReference() const {
     return _hfmModel->animationFrames;
 }
+
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+QVariantMap Animation::featureSourceForModel(const HFMModel* original) const {
+    if (_featureInstance.isEmpty() || !original || _hfmModel.get()!=original) { return {}; }
+    const auto model=overte::e2e::animationDataObservation().source(original);
+    return model.isEmpty() ? QVariantMap() : QVariantMap{{"animationSourceVersion",1},{"resourceInstance",_featureInstance},{"model",model}};
+}
+#endif
 
 void Animation::downloadFinished(const QByteArray& data) {
     // parse the animation/fbx file on a background thread.

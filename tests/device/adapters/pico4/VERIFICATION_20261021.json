@@ -1918,5 +1918,43 @@
     ],
     "initialInvocationCorrection": "One combined unittest invocation omitted tests/device/self_tests from PYTHONPATH and could not import the existing Emote source-profile fixture. The corrected complete 150-case selection passed without source changes.",
     "limitations": "Only common original compilation identities and narrow native recording/publication dependencies selected. No Phone touch, mono, caller/work/actor binding imported. No compiler/build/device invocation; native source uncompiled and physical runs zero. Complete Pico count stays three of fourteen; shared journey v16 unchanged."
+  },
+  "emoteSharedAnimationData": {
+    "status": "shared-prerequisite-source-host-verified",
+    "sourceCommit": "abb7f6b60d97daf17752aadf94e2b5df099bb7ba",
+    "manifest": "PHONE_SHARED_ANIMATION_DATA_20261022.json",
+    "contracts": [
+      "native-animation-source v1",
+      "emote-animation-pins v1"
+    ],
+    "checks": [
+      {
+        "command": "PYTHONDONTWRITEBYTECODE=1 TMPDIR=PRIVATE_TMPFS PYTHONPATH=tests/device:tests/device/self_tests python3 -m unittest self_tests.test_native_animation_source self_tests.test_native_animation_history self_tests.test_native_feature_observation self_tests.test_native_script_compilations self_tests.test_emote_source_profile",
+        "status": "passed",
+        "tests": 60,
+        "durationSeconds": 0.277
+      },
+      {
+        "command": "python3 tests/run-project-tests.py --suite documentation --suite documentation-contracts --suite source-layout --suite project-coverage",
+        "status": "passed",
+        "suites": 4,
+        "durationSeconds": 2.6,
+        "junit": "shared-animation-data-project.xml"
+      },
+      {
+        "command": "python3 android/vr/pico/tests/pico4-test-suite.py --test feature-observation --test suite-runner --test coverage-matrix --timeout 240",
+        "status": "passed",
+        "selectedGroups": 3,
+        "catalogGroups": 52,
+        "durationSeconds": 21.62,
+        "junit": "shared-animation-data-pico.xml"
+      },
+      {
+        "command": "python3 tests/device/validate_contract_versions.py",
+        "status": "passed"
+      }
+    ],
+    "details": "Same original parser input bytes, weak HFM model and resource identity used by actual normal retargeting, exact shared validators and immutable twelve-FBX pins. Actual file bytes checked independently against pins and immutable Git base; wrong FBX bytes at the correct URL, foreign/null data and future parse/consume clocks remain red. Existing native feature reader integration retains original data without advancing its cursor on invalid model. Pico retains original full-parser call; Phone functional optimizations/diagnostics were not copied.",
+    "limitations": "Native parser/model/retarget boundaries are synthetic in host checks; native C++ uncompiled and physical runs zero. Caller/profile/cache/input/stereo/actor/full cleanup remain incomplete; no complete Emote capability or shared v17 migration."
   }
 }

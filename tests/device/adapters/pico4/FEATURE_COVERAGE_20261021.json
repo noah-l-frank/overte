@@ -355,7 +355,19 @@
         "tests/device/self_tests/test_native_script_compilations.py",
         "tests/device/native/SCRIPT_COMPILATIONS.md",
         "tests/device/adapters/pico4/EMOTE_SHARED_REUSE.md",
-        "tests/device/adapters/pico4/PHONE_SHARED_COMPILATIONS_20261022.json"
+        "tests/device/adapters/pico4/PHONE_SHARED_COMPILATIONS_20261022.json",
+        "libraries/animation/src/AnimationDataObservation.h",
+        "libraries/animation/src/AnimationCache.cpp",
+        "libraries/animation/src/AnimationCache.h",
+        "libraries/animation/src/AnimClip.cpp",
+        "libraries/animation/src/AnimClip.h",
+        "tests/device/adapters/native_animation_source.py",
+        "tests/device/adapters/native_animation_history.py",
+        "tests/device/adapters/native_feature_observation.py",
+        "tests/device/feature_journeys/emote-animation-pins.v1.json",
+        "tests/device/self_tests/test_native_animation_source.py",
+        "tests/device/native/ANIMATION_SOURCE.md",
+        "tests/device/adapters/pico4/PHONE_SHARED_ANIMATION_DATA_20261022.json"
       ],
       "declaredCheckpoints": 28,
       "inputVerbs": [
@@ -392,7 +404,7 @@
         "Observe original pose/mapping/timer/resource retirement",
         "Restore captured prior override and closed panel"
       ],
-      "nextExecutableStep": "Reuse the pinned shared animation/caller/history/loaded-model/readiness dependency closure after reviewing actual Pico roots and original compiled code. Shared compile-boundary observation/reader is now selected with original hashes and host counterexamples; actual Pico normal VR controls, stereo avatar acquisition, independent actor and whole retirement remain unfinished. Shared v17 motion migration is separate; current complete triples remain v16.",
+      "nextExecutableStep": "Join reviewed pinned shared native caller/history/profile and passive cache readiness to the now-selected actual compiled-code and consumed-animation-data observations. Then bind real Pico chooser/VR input, original stereo avatar images, independent actor and whole interruption/resource retirement. Current shared journey v16 remains unchanged; no complete Emote triple.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     },
