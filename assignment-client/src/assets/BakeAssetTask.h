@@ -19,6 +19,9 @@
 #include <QtCore/QRunnable>
 #include <QDir>
 #include <QProcess>
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_UNIX)
+#include <functional>
+#endif
 
 #include <AssetUtils.h>
 
@@ -31,6 +34,9 @@ public:
     bool isBaking() { return _isBaking.load(); }
     bool wasAborted() const { return _wasAborted.load(); }
 
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_UNIX)
+    std::function<void(const QString&,qint64,int,int)> e2eOriginalEvent;
+#endif
     void run() override;
 
 public slots:

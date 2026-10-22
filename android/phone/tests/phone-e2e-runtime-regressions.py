@@ -12,6 +12,7 @@ DEPENDENCY_LIGHT_CHECKS = (
     "android/phone/tests/phone-apk-provenance-test.py",
 )
 PREPARED_HOST_CHECKS = (
+    "android/phone/tests/device/test_assets_bake_originals.py",
     "android/phone/tests/device/test_assets_upload_originals.py",
     "android/phone/tests/device/test_assets_geometry_input.py",
     "android/phone/tests/device/test_assets_native_ui.py",
@@ -54,6 +55,7 @@ COMMON_HOST_CHECKS = (
     "android/phone/tests/device/test_snapshot_share_grants_source.py",
     "android/phone/tests/device/test_snapshot_consumer_source.py",
     "android/phone/tests/device/test_snapshot_upload_source.py",
+    "tests/device/self_tests/test_assets_originals.py",
     "android/phone/tests/device/test_assets_uploads.py",
     "android/phone/tests/device/test_assets_controls.py",
     "android/phone/tests/device/test_assets_source.py",

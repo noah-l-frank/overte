@@ -42,6 +42,11 @@ void BakeAssetTask::run() {
         return;
     }
 
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_UNIX)
+    const auto e2eOriginal=e2eOriginalEvent;
+    if (e2eOriginal) { e2eOriginal("started",0,0,0); }
+    struct E2ERunExit { std::function<void(const QString&,qint64,int,int)> original;~E2ERunExit() { if (original) { original("run-exited",0,0,0); } } } e2eExit { e2eOriginal };
+#endif
     // Make a new temporary directory for the Oven to work in
     QString tempOutputDir = PathUtils::generateTemporaryDir();
     QString tempOutputDirName = QDir(tempOutputDir).dirName();
@@ -114,6 +119,14 @@ void BakeAssetTask::run() {
         loop.quit();
     });
 
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_UNIX)
+    auto* e2eProcess=_ovenProcess.get();
+    connect(e2eProcess,&QProcess::started,e2eProcess,[e2eOriginal,e2eProcess] {
+        if (e2eOriginal) { e2eOriginal("oven",e2eProcess->processId(),0,0); }
+    },Qt::DirectConnection);
+    connect(e2eProcess,static_cast<void(QProcess::*)(int,QProcess::ExitStatus)>(&QProcess::finished),e2eProcess,
+        [e2eOriginal](int code,QProcess::ExitStatus status) { if (e2eOriginal) { e2eOriginal("oven-finished",0,code,int(status)); } },Qt::DirectConnection);
+#endif
     qDebug() << "Starting oven for " << _assetPath;
     _ovenProcess->start(path, args, QIODevice::ReadOnly);
     qDebug() << "Running:" << path << args;

@@ -25,6 +25,7 @@ from fixture.owned_processes import OwnedProcesses
 from fixture.messages_mixer import MessagesMixer
 from fixture.create_permissions import CreatePermissions, STANDARD, OVERRIDES, permission_request
 from fixture.assets_permissions import AssetsPermissions, WRITE
+from fixture.assets_originals import AssetsOriginals
 from adapters.normal_feature_state import PrivateFeatureState, need
 
 
@@ -100,6 +101,8 @@ class DomainControlHandler(BaseHTTPRequestHandler):
     mixer = None
     create_permissions = None
     assets_permissions = None
+    assets_originals = None
+    assets_original_tokens = ()
 
     def do_GET(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler API
         if self.path not in {"/v1/collaboration-state", "/v1/messages-mixer-state"} or self.headers.get("X-Overte-E2E-Token") != self.token:
@@ -117,6 +120,25 @@ class DomainControlHandler(BaseHTTPRequestHandler):
             self.send_error(503, "independent actor is not ready")
 
     def do_POST(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler API
+        if self.path == "/v1/assets-originals":
+            if self.assets_originals is None or self.headers.get("X-Overte-E2E-Token") not in self.assets_original_tokens:
+                self.send_error(404)
+                return
+            try:
+                length = int(self.headers.get("Content-Length", "0"))
+                if not 0 < length <= 512:
+                    raise ValueError("invalid originals request length")
+                command = json.loads(self.rfile.read(length))
+                result = self.assets_originals(command)
+                payload = (json.dumps(result, sort_keys=True) + "\n").encode("utf-8")
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(payload)))
+                self.end_headers()
+                self.wfile.write(payload)
+            except (RuntimeError, OSError, ValueError):
+                self.send_error(503, "owned Assets originals are unavailable")
+            return
         if self.path not in {"/v1/domain-state", "/v1/collaboration-edit", "/v1/messages-mixer-state", "/v1/create-permissions", "/v1/assets-permissions"} or self.headers.get(
                 "X-Overte-E2E-Token") != self.token:
             self.send_error(404)
@@ -487,6 +509,7 @@ def main() -> int:
     mixer = None
     create_permissions = None
     assets_permissions = None
+    assets_originals = None
     mixer_store = PrivateFeatureState(output / "messages-mixer-intent.json")
     mixer_expected = None
     stack_state = "offline"
@@ -510,13 +533,23 @@ def main() -> int:
         mixer_expected = None
 
     def spawn_assignment(assignment_type):
+        nonlocal assets_originals
+        assignment_environment = environment.copy()
+        if args.feature_assets_permissions and assignment_type == "3":
+            directory = runtime / f"assets-originals-{generation + 1}"
+            directory.mkdir(mode=0o700)
+            assignment_environment["OVERTE_E2E_ASSETS_ORIGINALS"] = str(directory)
+        else:
+            assignment_environment.pop("OVERTE_E2E_ASSETS_ORIGINALS", None)
         process = subprocess.Popen(
             [str(assignment_client), "-t", assignment_type, "-a", "127.0.0.1",
              "--server-port", str(args.domain_port),
              "--disable-domain-port-auto-discovery",
              "--log-directory", str(output / "assignment-logs"),
              "--logOptions", "nocolor,process_id,milliseconds"],
-            **process_options(environment, assignment_log))
+            **process_options(assignment_environment, assignment_log))
+        if args.feature_assets_permissions and assignment_type == "3":
+            assets_originals = AssetsOriginals(directory, process, owned_processes.matches, domain_id)
         assignment_processes.append(process)
         return process
 
@@ -667,6 +700,12 @@ def main() -> int:
                 raise RuntimeError("owned Assets permission control is unavailable")
             return permission_request(assets_permissions, create_permissions, command)
 
+    def assets_original_control(command):
+        with transition_lock:
+            if stack_state != "online" or assets_originals is None:
+                raise RuntimeError("owned Assets originals are unavailable")
+            return assets_originals.read(command)
+
     def request_stop(_signal=None, _frame=None) -> None:
         stopping.set()
 
@@ -682,6 +721,9 @@ def main() -> int:
         DomainControlHandler.mixer = staticmethod(mixer_control)
         DomainControlHandler.create_permissions = staticmethod(create_permission_control) if args.feature_create_permissions else None
         DomainControlHandler.assets_permissions = staticmethod(assets_permission_control) if args.feature_assets_permissions else None
+        original_tokens = (secrets.token_urlsafe(32), secrets.token_urlsafe(32)) if args.feature_assets_permissions else ()
+        DomainControlHandler.assets_originals = staticmethod(assets_original_control) if args.feature_assets_permissions else None
+        DomainControlHandler.assets_original_tokens = original_tokens
         control = ThreadingHTTPServer(("127.0.0.1", args.control_port), DomainControlHandler)
         control_thread = threading.Thread(target=control.serve_forever, daemon=True)
         control_thread.start()
@@ -706,10 +748,12 @@ def main() -> int:
             ready["createPermissionsControlUrl"] = f"http://127.0.0.1:{control.server_address[1]}/v1/create-permissions"
         if args.feature_assets_permissions:
             ready["assetsPermissionsControlUrl"] = f"http://127.0.0.1:{control.server_address[1]}/v1/assets-permissions"
+            ready["assetsOriginalsControlUrl"] = f"http://127.0.0.1:{control.server_address[1]}/v1/assets-originals"
+            ready["assetsOriginalsPrimaryToken"], ready["assetsOriginalsActorToken"] = original_tokens
         if args.ready_file:
             atomic_json(args.ready_file.resolve(), ready)
         print(json.dumps({key: value for key, value in ready.items()
-                          if key != "controlToken"}, sort_keys=True), flush=True)
+                          if key not in ("controlToken", "assetsOriginalsPrimaryToken", "assetsOriginalsActorToken")}, sort_keys=True), flush=True)
         while not stopping.wait(0.25):
             # Serialize monitoring with an intentionally stopped service. Other
             # processes remain alive and are checked immediately afterwards.

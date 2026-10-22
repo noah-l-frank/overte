@@ -71,6 +71,10 @@ struct AssetMeta {
 
 class BakeAssetTask;
 
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_UNIX)
+#include "../../../tests/device/native/AssetsBakeOriginals.h"
+#endif
+
 class AssetServer : public ThreadedAssignment {
     Q_OBJECT
 public:
@@ -93,6 +97,10 @@ private slots:
     void sendStatsPacket() override;
 
 private:
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_UNIX)
+    std::shared_ptr<overte::e2e::AssetsBakeOriginals> _e2eBakeOriginals { std::make_shared<overte::e2e::AssetsBakeOriginals>() };
+    void e2ePublishBakeOriginals();
+#endif
     void replayRequests();
 
     void handleGetMappingOperation(ReceivedMessage& message, NLPacketList& replyPacket);

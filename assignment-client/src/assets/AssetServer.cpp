@@ -38,6 +38,10 @@
 #include "AssetServerLogging.h"
 #include "BakeAssetTask.h"
 #include "SendAssetTask.h"
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_UNIX)
+#include <QRegularExpression>
+#include <QThread>
+#endif
 #include "UploadAssetTask.h"
 
 static const uint8_t MIN_CORES_FOR_MULTICORE = 4;
@@ -120,6 +124,11 @@ void AssetServer::bakeAsset(const AssetUtils::AssetHash& assetHash, const AssetU
         auto task = std::make_shared<BakeAssetTask>(assetHash, assetPath, filePath);
         task->setAutoDelete(false);
         _pendingBakes[assetHash] = task;
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_UNIX)
+        const auto originals=_e2eBakeOriginals;const auto instance=originals->begin(assetHash,assetPath,int(currentBakeVersionForAssetType(assetTypeForFilename(assetPath))));
+        task->e2eOriginalEvent=[originals,instance](const QString& kind,qint64 pid,int code,int status) { originals->event(instance,kind,pid,code,status); };
+        connect(task.get(),&QObject::destroyed,[originals,instance] { originals->event(instance,"destroyed"); });
+#endif
 
         connect(task.get(), &BakeAssetTask::bakeComplete, this, &AssetServer::handleCompletedBake);
         connect(task.get(), &BakeAssetTask::bakeFailed, this, &AssetServer::handleFailedBake);
@@ -352,6 +361,11 @@ void AssetServer::aboutToFinish() {
 }
 
 void AssetServer::run() {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_UNIX)
+    if (_e2eBakeOriginals->enabled()) {
+        auto timer=new QTimer(this);connect(timer,&QTimer::timeout,this,&AssetServer::e2ePublishBakeOriginals);timer->start(100);
+    }
+#endif
 
     qCDebug(asset_server) << "Waiting for connection to domain to request settings from domain-server.";
 
@@ -1319,6 +1333,9 @@ void AssetServer::handleFailedBake(QString originalAssetHash, QString assetPath,
 
     writeMetaFile(originalAssetHash, meta);
 
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_UNIX)
+    _e2eBakeOriginals->event(_e2eBakeOriginals->current(originalAssetHash),"failed");
+#endif
     _pendingBakes.remove(originalAssetHash);
 }
 
@@ -1342,6 +1359,9 @@ void AssetServer::handleCompletedBake(QString originalAssetHash, QString origina
 
         writeMetaFile(originalAssetHash, meta);
 
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_UNIX)
+        _e2eBakeOriginals->event(_e2eBakeOriginals->current(originalAssetHash),errorCompletingBake ? "failed" : "complete");
+#endif
         _pendingBakes.remove(originalAssetHash);
     };
 
@@ -1475,6 +1495,9 @@ void AssetServer::handleAbortedBake(QString originalAssetHash, QString assetPath
     qDebug() << "Aborted bake:" << originalAssetHash;
 
     // for an aborted bake we don't do anything but remove the BakeAssetTask from our pending bakes
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_UNIX)
+    _e2eBakeOriginals->event(_e2eBakeOriginals->current(originalAssetHash),"aborted");
+#endif
     _pendingBakes.remove(originalAssetHash);
 }
 
@@ -1601,3 +1624,27 @@ bool AssetServer::setBakingEnabled(const AssetUtils::AssetPathList& paths, bool 
     }
     return true;
 }
+
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_UNIX)
+void AssetServer::e2ePublishBakeOriginals() {
+    if (QThread::currentThread()!=thread()) { return; }
+    const auto nodes=DependencyManager::get<NodeList>();QVariantList mappings,blobs;
+    for (const auto& entry:_fileMappings) {
+        mappings.append(QVariantMap{{"path",entry.first},{"hash",entry.second}});
+    }
+    // Include every actual stored hash, including unreferenced leftovers. The
+    // fixture reducer must reject residual owned blobs after normal deletion.
+    const auto files=_filesDirectory.entryInfoList(QDir::Files|QDir::Hidden|QDir::NoDotAndDotDot,QDir::Name);
+    qint64 total=0;
+    for (const auto& info:files) {
+        const auto name=info.fileName();if (!QRegularExpression("\\A[0-9a-f]{64}\\z").match(name).hasMatch()) { continue; }
+        QFile file(info.filePath());QString sha;auto size=info.size();
+        total+=size;
+        if (files.size()<=4096 && total<=8*1024*1024 && size>0 && size<=1024*1024 && !info.isSymLink() && file.open(QIODevice::ReadOnly)) {
+            QCryptographicHash hash(QCryptographicHash::Sha256);if (hash.addData(&file)) { sha=QString::fromLatin1(hash.result().toHex()); }
+        }
+        blobs.append(QVariantMap{{"hash",name},{"actualSha256",sha},{"bytes",size}});
+    }
+    _e2eBakeOriginals->publish(nodes->getDomainHandler().getUUID().toString(QUuid::WithoutBraces),nodes->getSessionUUID().toString(QUuid::WithoutBraces),mappings,blobs,_pendingBakes.size());
+}
+#endif

@@ -87,6 +87,35 @@ hooks and runs real Qt threads, but substitutes network endpoints and does not
 execute or qualify those normal callbacks. Neither a live upload nor a product
 PASS follows from this contract test.
 
+## Original backend workers and stored blobs
+
+With the existing Assets fixture option, only its actual type-3 AssetServer
+assignment receives an exclusive private receipt directory. Dedicated Unix E2E
+builds retain passive bounded worker instances, actual queue/run start/exit,
+QProcess started PID and actual exit arguments, normal completion/failure/abort,
+and actual QObject destruction. Worker callbacks copy their measurement closure
+before running; receipts retain no worker pointer. The actual assignment thread
+publishes current mappings, pending count and SHA-256/length of actual stored
+blobs every 100 ms. Input/read limits fail closed; no output is synthesized.
+
+The existing Domain control serves `/v1/assets-originals` through two separate
+readonly role tokens. Those tokens cannot change Settings; the permission token
+cannot read originals. Secrets remain in the private ready file and are omitted
+from stdout. The reader pins the actual fixture-owned type-3 PID/start, native
+server/Domain IDs, source instance, sequence, immutable worker history and exact
+0700/0600 directory/file inode. Locks, no-follow reads and same-inode comparisons
+reject partial/replaced/symlink/hardlink/FIFO sources. Native publication cannot
+adopt or truncate another lifetime's file. An old worker, omitted live job, failed
+oven, absent exit or stale heartbeat cannot establish a new successful bake.
+
+Host checks compile actual BakeAssetTask with real Qt threads/QProcess and an
+explicit synthetic oven executable, plus the actual server snapshot method with
+explicit NodeList endpoints. They exercise actual files and exclusive receipt
+creation. This is no real oven output, complete AssetServer/Android build or
+product lifetime qualification. The normal task/request lifetimes are unchanged.
+The public reducer must still join current meta/download/redirect originals and
+new worker identities to its action barrier, then to current renderer originals.
+
 ## Actual private inputs
 
 `phone-assets-files` exclusively stages the seven original glTF/OBJ/FBX bundle
@@ -162,6 +191,8 @@ native dispatch range to 0 through 10; this isolated base has only 0 through 9.
 ## Host verification and remaining composition
 
 ```sh
+python3 android/phone/tests/device/test_assets_bake_originals.py
+python3 tests/device/self_tests/test_assets_originals.py
 python3 android/phone/tests/device/test_assets_upload_originals.py
 python3 android/phone/tests/device/test_assets_uploads.py
 python3 android/phone/tests/device/test_assets_geometry_input.py
