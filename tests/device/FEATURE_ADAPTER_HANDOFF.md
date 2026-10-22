@@ -962,8 +962,10 @@ The other thirteen source/host-qualified areas retain their status.
 These host simulations, real private-file tests and partial Qt/Java/JNI/compiler
 checks establish source/test logic only. Full Android compilation, actual OS
 behavior and device acceptance remain unverified. Pico/iOS belong to separate
-sessions. Final shared source admission pins and aggregate verification await
-the remaining source packets.
+sessions. Shared source admission pins include the owned marker refresh and
+match the integrated source catalog. Both complete Snapshot backend replays
+and aggregate verification remain pending; current component checks do not
+qualify those complete journeys.
 
 ## Controlled SDK26–28 Documents destination component
 

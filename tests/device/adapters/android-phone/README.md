@@ -5,10 +5,11 @@ controls, independent native peer reception, actual mixer control, the mandatory
 text-input foundation and common v18 retirement. Full host composition passes;
 component Qt6 checks are separate from unverified Android/device acceptance.
 
-The [native browser DOM component](WEB_DOM_OBSERVATION.md) now wires the exact
-common passive source through the actual Android backend and guarded private
-adapter file transport. The Phone feature adapter group passes 97 host cases.
-Native compilation/devices and complete browser feature adapters remain open.
+The [native browser DOM component](WEB_DOM_OBSERVATION.md) wires the common
+passive source through the Android backend and guarded private file transport.
+Complete Phone World Web and Tablet Web source/host compositions are documented
+in their feature handoffs. Partial native compilation and unverified complete
+Android compilation/device acceptance remain separate.
 
 
 The [world Web feature handoff](WORLD_WEB_FEATURE.md) documents the new
@@ -17,10 +18,12 @@ pointer/IME input and the mandatory [reference-video inputs](WEB_REFERENCE.md)
 with independent common pixel checks. Complete Android C++/device qualification
 remains separate.
 
-The [Snapshot continuation](SNAPSHOT_FEATURE.md) adds a versioned passive
-capture/upload/review/Android-export source and compiled recorder checks. The extended Snapshot
-feature triple remains unavailable until its complete evidence and cleanup
-composition is implemented.
+The [Snapshot handoff](SNAPSHOT_FEATURE.md) documents the integrated default-off
+`feature.snapshots.act|observe|cleanup` source, independent original role/actor,
+native capture/review/export sources and strict post-fixture-close retirement.
+Source registration is present; full common backend/recovery qualification and
+real-device acceptance remain pending. [SOURCE_STATUS.md](SOURCE_STATUS.md)
+records the current source/host qualification.
 
 This Phone-owned entry delegates device behavior to the original Shared Android
 adapter. Its manifest retains `android-phone-adb`. The Shared Android and Appium
