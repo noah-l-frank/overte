@@ -532,6 +532,7 @@ class PhoneSnapshotsFeature(PhoneCreateFeature):
 
     def observe(self,value):
         from overte_phone_snapshots_role import PhoneSnapshotsRole
+        from overte_phone_snapshots_history_pass import SnapshotHistoryReadPass
         call=arguments('feature.snapshots.observe',value);need(call['runId']==self.run)
         with ExitStack() as session:
             with self.lock.held():
@@ -544,6 +545,8 @@ class PhoneSnapshotsFeature(PhoneCreateFeature):
                         role=PhoneSnapshotsRole(self,self.role)
                         if role.state['phase']=='reading':role.recover()
                         prepared=self.cleanup_observe_pin(role)
+                        history=SnapshotHistoryReadPass(role,prepared)
+                        session.callback(history.close)
                     else:
                         try:
                             for attempt in range(51):
@@ -555,7 +558,8 @@ class PhoneSnapshotsFeature(PhoneCreateFeature):
                         finally:session.close()
                 except BaseException:
                     session.close();raise
-            return self.observe_cleaned(call,role,prepared,session)
+            try:return self.observe_cleaned(call,role,prepared,session,history)
+            finally:history.close()
 
     @staticmethod
     def cleanup_observe_phase(status,previous=None):
@@ -582,39 +586,47 @@ class PhoneSnapshotsFeature(PhoneCreateFeature):
             state=deepcopy(role.state),framesSha256=hashlib.sha256(canonical(role.frames)).hexdigest())
         self.cleanup_observe_owners(role,prepared);return prepared
 
-    def observe_cleaned(self,call,role,prepared,session):
+    def observe_cleaned(self,call,role,prepared,session,history):
         from overte_phone_snapshots_role import PhoneSnapshotsRole
-        for attempt in range(51):
-            if attempt:
+        from overte_phone_snapshots_history_pass import SnapshotHistoryReadPass
+        try:
+            for attempt in range(51):
+                if attempt:
+                    with self.lock.held():
+                        try:
+                            self.cleanup_observe_owners(role,prepared)
+                            self.load();self.cleanup_observe_owners(role,prepared,loaded=True)
+                            role=PhoneSnapshotsRole(self,self.role,expected_previous=prepared['role'])
+                            if role.state['phase']=='reading':role.recover()
+                            prepared=self.cleanup_observe_pin(role,prepared['phase'])
+                            history=SnapshotHistoryReadPass(role,prepared)
+                            session.callback(history.close)
+                        except BaseException:
+                            session.close();raise
+                # Reopen every original outside the shared target lock. The
+                # single-use pass retains byte/metadata receipts, not effects.
+                self.sleep(.1)
+                history.read()
                 with self.lock.held():
                     try:
                         self.cleanup_observe_owners(role,prepared)
                         self.load();self.cleanup_observe_owners(role,prepared,loaded=True)
-                        role=PhoneSnapshotsRole(self,self.role,expected_previous=prepared['role'])
-                        if role.state['phase']=='reading':role.recover()
-                        prepared=self.cleanup_observe_pin(role,prepared['phase'])
+                        self.bound();role.bound();role.history_authority()
+                        need(self.state['phase']=='cleaned' and self.state['current'] is None and self.state['handoff'] is None)
+                        self.cleanup_observe_phase(self.phase.status(),prepared['phase'])
+                        # Recheck all owner and old-file receipts under fresh
+                        # target authority before acquiring any current facts.
+                        history.finish()
+                        try:value=role.read(call['afterSequence'])
+                        except SnapshotPending:
+                            need(attempt<50);prepared=self.cleanup_observe_pin(role,prepared['phase']);continue
+                        self.cleanup_observe_phase(role.frames[-1]['phaseBefore'],prepared['phase'])
+                        self.cleanup_observe_phase(role.frames[-1]['phaseAfter'],prepared['phase'])
+                        session.close();return value
                     except BaseException:
                         session.close();raise
-            # Only history preparation survives this yield. All publication
-            # facts and every historical file are acquired again below.
-            self.sleep(.1)
-            with self.lock.held():
-                try:
-                    self.cleanup_observe_owners(role,prepared)
-                    self.load();self.cleanup_observe_owners(role,prepared,loaded=True)
-                    self.bound();role.bound();role.history_authority()
-                    need(self.state['phase']=='cleaned' and self.state['current'] is None and self.state['handoff'] is None)
-                    self.cleanup_observe_phase(self.phase.status(),prepared['phase'])
-                    need(hashlib.sha256(canonical(role.restore_originals())).hexdigest()==prepared['framesSha256'])
-                    try:value=role.read(call['afterSequence'])
-                    except SnapshotPending:
-                        need(attempt<50);prepared=self.cleanup_observe_pin(role,prepared['phase']);continue
-                    self.cleanup_observe_phase(role.frames[-1]['phaseBefore'],prepared['phase'])
-                    self.cleanup_observe_phase(role.frames[-1]['phaseAfter'],prepared['phase'])
-                    session.close();return value
-                except BaseException:
-                    session.close();raise
-        need(False)
+            need(False)
+        finally:history.close()
 
     def background_guard(self):
         self.header_authority()

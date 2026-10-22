@@ -17,6 +17,7 @@ from adapters.normal_feature_state import PrivateFeatureState
 from adapters.normal_ui import NativeUIError
 from overte_phone_script_history import pack,unpack
 from overte_phone_snapshots_measurements import SnapshotPending
+from overte_phone_snapshots_history_pass import SnapshotHistoryReadPass
 
 
 LOCK_READER=r"""
@@ -50,7 +51,8 @@ class SnapshotPrimaryCleanupStagesTests(unittest.TestCase):
             def between(seconds):
                 if feature.lock._owner is None and not yielded:
                     yielded.append(True);self.assertIsNotNone(f.adapter._existing_input_scope)
-                    if mutation=='continue':
+                    if mutation.startswith('after-'):pass
+                    elif mutation=='continue':
                         child=subprocess.run([sys.executable,'-c',LOCK_READER,json.dumps(sys.path),str(feature.lock.path)],
                             capture_output=True,text=True,timeout=3,check=True)
                         self.assertNotEqual(os.getpid(),int(child.stdout))
@@ -85,7 +87,27 @@ class SnapshotPrimaryCleanupStagesTests(unittest.TestCase):
                     else:raise RuntimeError('Unknown controlled stage mutation')
                 return sleep(seconds)
             feature.sleep=between;observed.append(feature);return feature
-        with patch.object(f.adapter,'_snapshots_feature',side_effect=create):
+        read_history=SnapshotHistoryReadPass.read;passes=[]
+        def historical(token):
+            result=read_history(token);passes.append(token)
+            if mutation.startswith('after-'):
+                self.assertIsNone(token.feature.lock._owner)
+                def forbidden(_after):raise AssertionError('Current facts acquired after invalid historical pass')
+                token.role.read=forbidden
+                kind=mutation.removeprefix('after-')
+                if kind in ('feature-aba','role-aba'):
+                    store=token.feature.store if kind=='feature-aba' else token.role.store
+                    value=deepcopy(store.read());store.write(value,value);foreign.append((store.path,value))
+                else:
+                    suffix='.png' if kind=='png-mode' else '.bin' if kind=='binary-link' else '.json'
+                    path=next(path for path in token.files if
+                        (path.name.startswith('emote-index-') if kind=='manifest' else path.suffix==suffix))
+                    if kind=='png-mode':path.chmod(0o640)
+                    elif kind=='binary-link':os.link(path,path.with_name(path.name+'.controlled'))
+                    elif kind=='missing':path.unlink()
+                    else:path.write_bytes(path.read_bytes()+b' ')
+            return result
+        with patch.object(f.adapter,'_snapshots_feature',side_effect=create),patch.object(SnapshotHistoryReadPass,'read',historical):
             if mutation in ('continue','pending'):
                 value=f.invoke('feature.snapshots.observe',dict(contractVersion=h.VERSION,runId=h.RUN,afterSequence=sequence))
                 self.assertEqual([],value['resources']);self.assertEqual(0,value['state']['files']);self.assertGreater(value['sequence'],sequence)
@@ -94,6 +116,8 @@ class SnapshotPrimaryCleanupStagesTests(unittest.TestCase):
             else:
                 with self.assertRaises((NativeUIError,FileNotFoundError)):
                     f.invoke('feature.snapshots.observe',dict(contractVersion=h.VERSION,runId=h.RUN,afterSequence=sequence))
+        self.assertTrue(passes or not mutation.startswith('after-'))
+        self.assertTrue(all(token.closed for token in passes))
         self.assertEqual([True],yielded);self.assertIsNone(f.adapter._existing_input_scope)
         for path,value in foreign:self.assertEqual(value,PrivateFeatureState(path).read())
         self.assertEqual(calls,len(f.model.product.calls))
