@@ -45,7 +45,7 @@ function(overte_e2e_source_identity source_root)
     endforeach()
     execute_process(COMMAND "${_overte_e2e_git}" -C "${source_root}" symbolic-ref -q HEAD
         OUTPUT_VARIABLE _overte_e2e_reference ERROR_QUIET OUTPUT_STRIP_TRAILING_WHITESPACE TIMEOUT 5)
-    foreach(_overte_e2e_metadata IN ITEMS HEAD logs/HEAD packed-refs "${_overte_e2e_reference}")
+    foreach(_overte_e2e_metadata IN ITEMS HEAD logs/HEAD packed-refs index "${_overte_e2e_reference}")
         execute_process(COMMAND "${_overte_e2e_git}" -C "${source_root}" rev-parse --git-path "${_overte_e2e_metadata}"
             RESULT_VARIABLE _overte_e2e_meta_status OUTPUT_VARIABLE _overte_e2e_meta ERROR_QUIET OUTPUT_STRIP_TRAILING_WHITESPACE TIMEOUT 5)
         if(_overte_e2e_meta_status EQUAL 0)
@@ -57,6 +57,25 @@ function(overte_e2e_source_identity source_root)
             endif()
         endif()
     endforeach()
+    # A commit/index change during acquisition cannot join an old HEAD with a
+    # newer clean tree. The final HEAD/status/HEAD sandwich retains the same
+    # original revision instead of refreshing this admission to a new one.
+    execute_process(COMMAND "${CMAKE_COMMAND}" -E env GIT_OPTIONAL_LOCKS=0
+        "${_overte_e2e_git}" -C "${source_root}" rev-parse --verify HEAD
+        RESULT_VARIABLE _overte_e2e_final_head_status OUTPUT_VARIABLE _overte_e2e_final_head
+        ERROR_QUIET OUTPUT_STRIP_TRAILING_WHITESPACE TIMEOUT 5)
+    execute_process(COMMAND "${CMAKE_COMMAND}" -E env GIT_OPTIONAL_LOCKS=0
+        "${_overte_e2e_git}" -C "${source_root}" status --porcelain=v1 --untracked-files=all --ignore-submodules=none
+        RESULT_VARIABLE _overte_e2e_final_status_status OUTPUT_VARIABLE _overte_e2e_final_status ERROR_QUIET TIMEOUT 5)
+    execute_process(COMMAND "${CMAKE_COMMAND}" -E env GIT_OPTIONAL_LOCKS=0
+        "${_overte_e2e_git}" -C "${source_root}" rev-parse --verify HEAD
+        RESULT_VARIABLE _overte_e2e_ended_head_status OUTPUT_VARIABLE _overte_e2e_ended_head
+        ERROR_QUIET OUTPUT_STRIP_TRAILING_WHITESPACE TIMEOUT 5)
+    if(NOT _overte_e2e_final_head_status EQUAL 0 OR NOT _overte_e2e_final_status_status EQUAL 0
+            OR NOT _overte_e2e_ended_head_status EQUAL 0 OR NOT _overte_e2e_final_head STREQUAL _overte_e2e_head
+            OR NOT _overte_e2e_ended_head STREQUAL _overte_e2e_head OR NOT _overte_e2e_final_status STREQUAL "")
+        return()
+    endif()
     set(OVERTE_E2E_CONFIGURED_SOURCE_REVISION "${_overte_e2e_head}" PARENT_SCOPE)
     set(OVERTE_E2E_SOURCE_DEPENDENCIES "${_overte_e2e_dependencies}" PARENT_SCOPE)
 endfunction()
