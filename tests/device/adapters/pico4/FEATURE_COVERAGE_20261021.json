@@ -1192,7 +1192,9 @@
         "tests/device/adapters/pico4/lifecycle_background_source.py",
         "tests/device/adapters/pico4/LIFECYCLE_BACKGROUND_SOURCE.md",
         "tests/device/contracts/tablet/test_lifecycle_background.py",
-        "tests/device/self_tests/test_pico_lifecycle_background_source.py"
+        "tests/device/self_tests/test_pico_lifecycle_background_source.py",
+        "tests/device/adapters/pico4/lifecycle_background.py",
+        "tests/device/self_tests/test_pico_lifecycle_background.py"
       ],
       "declaredCheckpoints": 16,
       "inputVerbs": [

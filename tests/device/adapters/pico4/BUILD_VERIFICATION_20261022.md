@@ -307,3 +307,14 @@ The final expanded Pico source group and coverage checks pass (2/65, 70.20s):
 emote-original-sources 70.125s and coverage-matrix .080s. The source group now
 contains 126 cases. All four project checks pass (3.32s); registry/whitespace
 checks pass. No native files changed in this pixel-only packet.
+
+
+## Original OS/native background evidence join
+
+71634f8b5a and 1ffc7bb0ab join original process/foreground facts, native lifecycle
+counts and actual Hidden/Suspended-to-Active Qt/editor/keyboard history. Root
+review removed an unsupported fixed generation2 result: this component has no
+preceding Create/X archive, so it reports no generation; the whole parent must
+independently derive it. All 22 source/evidence cases pass (.127s), and all four
+project checks pass (2.94s). This pure original join sends no OS input and proves
+no current three-second quiet, source retirement or whole Lifecycle completion.
