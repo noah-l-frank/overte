@@ -167,6 +167,8 @@ class ChatNormalInput:
         attempt=deepcopy(self.base['attempts'][-1]);need(attempt['phase']=='issuing' and len(attempt['inputIntents'])<8)
         self.input_shape(value,attempt['verb']);need(value['instance']==self.ui.instance)
         if not self.roles[0].component_only:need(value['instance']==self.roles[0].binding['sessionId'])
+        fence=getattr(self,'phase_fence',None)
+        if fence is not None:fence.mark()
         attempt['inputIntents'].append(deepcopy(value));self.write(attempt);self.now()
 
     def pair(self,after_epoch,*,transition=False):

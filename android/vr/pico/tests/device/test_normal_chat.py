@@ -126,6 +126,74 @@ class PicoChatTests(unittest.TestCase):
         with self.assertRaises(RuntimeError):self.flow.close()
         self.assertTrue(self.widget.panel);self.assertTrue(self.intents)
 
+    def phase_boundary(self):
+        from self_tests import test_chat_phase_fence as phases
+        original=phases.PhaseFenceTests();original.setUp();self.addCleanup(original.doCleanups)
+        self.flow.io.bind_input_fence(original.fence)
+        def intent(value):original.fence.mark();self.intents.append(deepcopy(value))
+        self.flow.intent=intent
+        return original
+
+    def test_actual_qml_transport_refuses_changed_phase_after_original_intent_write(self):
+        boundary=self.phase_boundary();intent=self.flow.intent
+        def changed(value):
+            intent(value);boundary.h.journal.activate(RUN,uuid.uuid4().hex,'open',{})
+        self.flow.intent=changed
+        with boundary.flow.session():
+            with self.assertRaises((ValueError,RuntimeError)):self.flow.type(context(RUN)['unicode'])
+        self.assertEqual([],self.native.inputs);self.assertEqual([],self.widget.calls)
+        self.assertEqual('',self.widget.draft);self.assertTrue(boundary.fence.failed)
+
+    def test_actual_controller_transport_refuses_phase_changed_by_final_navigation_cas(self):
+        boundary=self.phase_boundary();self.widget.panel=False;self.widget.tablet=False;self.native.opened=False
+        navigation=self.flow.io.original.navigation;mark=navigation._mark
+        def changed(snapshot,owned):
+            mark(snapshot,owned);boundary.h.journal.activate(RUN,uuid.uuid4().hex,'open',{})
+        navigation._mark=changed
+        with boundary.flow.session():
+            with self.assertRaises((ValueError,RuntimeError)):self.flow.open()
+        self.assertEqual([],self.native.controllers);self.assertEqual([],self.native.inputs)
+        self.assertTrue(json.loads(navigation.path.read_text())['tabletOwned'])
+        self.assertFalse(self.widget.tablet);self.assertTrue(boundary.fence.failed)
+
+    def test_original_locked_controller_callback_persists_envelope_without_phase_or_sdk_reentry(self):
+        from contextlib import contextmanager
+        from self_tests import test_pico_openxr_adapter_session as sessions
+        from adapters.normal_feature_state import PrivateFeatureState
+        for late in (False,True):
+            with self.subTest(late=late):
+                self.setUp();boundary=self.phase_boundary();self.widget.panel=False;self.widget.tablet=False;self.native.opened=False
+                directory=self.fixture.fixture.state_root/'chat-native-session';directory.mkdir(mode=0o700)
+                transport=sessions.FakeTransport();session=sessions.PicoOpenXrAdapterSession(transport,'synthetic-chat-target',directory)
+                session.begin('123:synthetic-start');original_lock=session._lock;inside=False
+                @contextmanager
+                def held():
+                    nonlocal inside
+                    with original_lock():
+                        inside=True
+                        try:yield
+                        finally:inside=False
+                session._lock=held;request=boundary.fence.source.client.request
+                def outside(*args,**kwargs):
+                    self.assertFalse(inside);return request(*args,**kwargs)
+                boundary.fence.source.client.request=outside
+                ledger=PrivateFeatureState(directory/'actual-envelope.json')
+                def intent(envelope):
+                    self.assertTrue(inside);ledger.write({'envelope':envelope},None)
+                    if late:boundary.h.h.native.host+=2
+                boundary.fence.stream_intent=intent;stage=transport.stage
+                def publish(envelope,profile):
+                    self.assertEqual(envelope,ledger.read()['envelope']);self.assertTrue(inside)
+                    self.native.opened=True;self.widget.tablet=True;return stage(envelope,profile)
+                transport.stage=publish
+                with patch.object(self.instance,'pico_input_session',return_value=session),boundary.flow.session():
+                    if late:
+                        with self.assertRaises((ValueError,RuntimeError)):self.flow.open()
+                    else:self.flow.open()
+                self.assertEqual(0 if late else 1,len(transport.envelopes));self.assertIsNotNone(ledger.read())
+                if late:self.assertFalse(self.widget.tablet);self.assertTrue(boundary.fence.failed)
+                else:self.assertTrue(self.widget.panel);self.assertEqual('tablet.open',transport.envelopes[0]['commands'][0]['operation'])
+
 
 from test_chat_erase_binding import PicoChatControlsTests
 

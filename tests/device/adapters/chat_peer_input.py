@@ -145,6 +145,8 @@ class ChatPeerInput:
             issued=files.monotonic();need(number(issued,0,1e15))
             requested=files.clock_ms();need(integer(requested,1))
             intent['requestedEpochMs']=requested
+            fence=getattr(self,'phase_fence',None)
+            if fence is not None and operation!='inspect':fence.mark()
             self.write({**self.previous, 'intents': old + [intent]})
             temporary = '.chat-peer-input-' + uuid.uuid4().hex
             descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC,
@@ -153,6 +155,7 @@ class ChatPeerInput:
                 with os.fdopen(descriptor, 'wb') as stream:
                     stream.write(encode(request)); stream.flush(); os.fsync(stream.fileno())
                 files._check_source()
+                if fence is not None and operation!='inspect':fence.check()
                 if self.previous['commandStamp'] is None:
                     os.link(temporary, COMMAND, src_dir_fd=files.fd, dst_dir_fd=files.fd, follow_symlinks=False)
                     os.unlink(temporary, dir_fd=files.fd)
@@ -161,6 +164,7 @@ class ChatPeerInput:
                     # immutable stamp was checked before persisting this intent.
                     raw, info = files._read(COMMAND, 2048)
                     need(stamp(info) == self.previous['commandStamp'] and raw == encode(old[-1]['command']))
+                    if fence is not None and operation!='inspect':fence.check()
                     os.replace(temporary, COMMAND, src_dir_fd=files.fd, dst_dir_fd=files.fd)
                 raw, info = files._read(COMMAND, 2048); need(raw == encode(request)); os.fsync(files.fd)
                 intents=deepcopy(self.previous['intents']);intents[-1]['commandStamp']=stamp(info)

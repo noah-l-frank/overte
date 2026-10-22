@@ -57,8 +57,10 @@ class DispatcherTests(unittest.TestCase):
                 return send(request)
             boundary.send=send_owned
         ordinary=self.widgets.input
+        self.widgets.bind_input_fence=lambda fence:setattr(self.widgets,'phase_fence',fence)
         def widget_input(identifier,action,reference,value=None):
             before=len(self.widgets.sent)
+            if getattr(self.widgets,'phase_fence',None) is not None:self.widgets.phase_fence.check()
             try:return ordinary(identifier,action,reference,value)
             finally:
                 if len(self.widgets.sent)>before:
@@ -276,7 +278,7 @@ class DispatcherTests(unittest.TestCase):
         def changed():self.w.journal.activate(RUN,uuid.uuid4().hex,'type',recipe(RUN)[2]['inputs'])
         self.widgets.before=changed
         with self.assertRaises(NativeUIError):self.next(1)
-        self.assertEqual('observed',self.store.read()['steps'][-1]['phase']);self.assertEqual(1,len(self.widgets.calls))
+        self.assertEqual('issued',self.store.read()['steps'][-1]['phase']);self.assertEqual(1,len(self.widgets.calls))
         with self.assertRaises(NativeUIError):self.owner.step()
         self.assertEqual(1,len(self.widgets.calls));self.assertEqual('',self.widgets.draft)
 
@@ -294,6 +296,54 @@ class DispatcherTests(unittest.TestCase):
         with self.assertRaises(NativeUIError):self.owner.history()
         with self.assertRaises(NativeUIError):self.create()
         self.assertEqual(original,self.store.path.read_bytes());self.assertEqual(1,len(self.widgets.calls))
+
+    def test_normal_intent_cas_phase_change_or_native_jump_prevents_actual_transport(self):
+        from adapters.script_journey.history import unpack
+        for native in (False,True):
+            with self.subTest(native=native):
+                self.setUp();self.next(0);factory=self.factories['normal']
+                def create():
+                    owner=factory();write=owner.store.write
+                    def changed(value,previous):
+                        write(value,previous);attempt=unpack(value['attempts'])[-1]
+                        if attempt['phase']=='issuing' and attempt['inputIntents']:
+                            if native:self.h.native.epoch+=2000
+                            else:self.w.journal.activate(RUN,uuid.uuid4().hex,'type',recipe(RUN)[2]['inputs'])
+                    owner.store.write=changed;return owner
+                self.factories['normal']=create
+                with self.assertRaises(NativeUIError):self.next(1)
+                self.assertEqual([],self.widgets.calls);self.assertEqual(2,len(self.mutations()))
+                self.assertEqual('issued',self.store.read()['steps'][-1]['phase'])
+                with self.assertRaises(NativeUIError):self.owner.step()
+                self.assertEqual([],self.widgets.calls)
+
+    def test_type_second_part_rechecks_phase_after_its_own_durable_cas(self):
+        from adapters.script_journey.history import unpack
+        self.through(1);owner=self.owner.children['normal'];write=owner.store.write
+        def changed(value,previous):
+            write(value,previous);attempt=unpack(value['attempts'])[-1]
+            if attempt['verb']=='type' and len(attempt['inputIntents'])==2:
+                self.w.journal.activate(RUN,uuid.uuid4().hex,'close',{})
+        owner.store.write=changed
+        with self.assertRaises(NativeUIError):self.next(2)
+        self.assertEqual(['chat.entry','chat.input'],[row[0] for row in self.widgets.calls])
+        self.assertEqual('',self.widgets.draft);self.assertTrue(self.widgets.focus)
+
+    def test_peer_intent_cas_does_not_publish_command_for_a_retired_original_ticket(self):
+        self.through(7);factory=self.factories['peer']
+        def create():
+            owner=factory();write=owner.input.store.write
+            def changed(value,previous):
+                write(value,previous)
+                from adapters.script_journey.history import unpack
+                if unpack(value['intents']):
+                    current=self.w.journal.runs.pop(RUN);current['retiredEpochMs']=self.h.native.epoch
+                    self.w.journal.retired_phases[RUN]=current
+            owner.input.store.write=changed;return owner
+        self.factories['peer']=create
+        with self.assertRaises(NativeUIError):self.next(8)
+        self.assertEqual([],self.peer_commands);self.assertFalse((self.root/'peer'/COMMAND).exists())
+        self.assertEqual('issued',self.store.read()['steps'][-1]['phase'])
 
     def test_lost_input_ack_and_lost_completed_parent_write_never_replay_warm_or_cold(self):
         self.through(6);self.widgets.lose_ack=True
@@ -333,7 +383,7 @@ class DispatcherTests(unittest.TestCase):
 
     def test_cold_history_and_immutable_snapshot_corruption_never_issue_input(self):
         self.through(2);before=len(self.widgets.calls);queries=len(self.h.h.primary.commands)
-        rebuilt=self.create();self.assertEqual(4,len(rebuilt.history()))
+        rebuilt=self.create();self.assertEqual(6,len(rebuilt.history()))
         self.assertEqual(queries,len(self.h.h.primary.commands));self.assertEqual(before,len(self.widgets.calls))
         child=self.owner.chunks.store(0);old=child.read();child.write({**old,'scopeSha256':'f'*64},old)
         with self.assertRaises(NativeUIError):self.owner.history()

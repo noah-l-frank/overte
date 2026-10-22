@@ -16,6 +16,10 @@ def project(original):
 
 class PicoChatIO:
     def __init__(self,original):self.original=original
+    def bind_input_fence(self,fence):
+        native=self.original.navigation.io
+        native.bind_before_send(fence.before_send)
+        native.bind_controller_admission(fence.before_controller,intent=fence.stage_intent)
     def capture(self):return project(self.original.capture())
     def activate(self,identifier,*,reference):self.original.navigation.input(identifier,reference=reference)
     def replace(self,identifier,value,*,reference):self.original.navigation.input(identifier,'replace',value,reference=reference)

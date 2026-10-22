@@ -233,6 +233,8 @@ class ChatMixerOwner:
         need(actual['runId'] in (None,self.roles[0].run))
         request=dict(schemaVersion=2,commandId=uuid.uuid4().hex,runId=self.roles[0].run,
             instance=actual['instance'],observedGeneration=actual['mixer']['generation'],action=action)
+        fence=getattr(self,'phase_fence',None)
+        if fence is not None:fence.mark()
         self.write('issuing-'+action,commands=self.base['commands']+[request])
         self.final_clocks([(source,value['capturedEpochMs']) for source,value in zip(self.controls,frame['controls'])],started)
         self.controls[0].command(request) # Receipt is never used as a node fact.

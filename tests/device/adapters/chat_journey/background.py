@@ -97,6 +97,8 @@ class ChatBackground:
     def intent(self,request):
         command(request);need(self.state is not None and request['runId']==self.run_id and len(self.state['sourceInputs'])<2
             and request['operation']==('arm' if not self.state['sourceInputs'] else 'release'))
+        fence=getattr(self,'phase_fence',None)
+        if fence is not None:fence.mark()
         self.state['sourceInputs'].append(deepcopy(request));self.save(request['operation']+'-issued');self.now()
 
     def record_source(self,value,phase=None):
@@ -283,11 +285,15 @@ class ChatBackground:
                         need(actual['available'] and actual['active'] and actual['timerActive'] and actual['armCommandId']==arm['commandId'] and actual['instance']==arm['ownerInstance'])
                         self.record_source(actual,'armed')
                     if self.state['phase']=='armed':
-                        need(self.os_status('before-home')['foreground']);self.save('background-issued')
+                        need(self.os_status('before-home')['foreground'])
+                        if getattr(self,'phase_fence',None) is not None:self.phase_fence.mark()
+                        self.save('background-issued')
                         self.os._graphics_lifecycle_input(self.target,'lifecycle.background',self.binding)
                     if self.state['phase']=='background-issued':self.wait_os(False,'background');self.save('background-observed')
                     if self.state['phase']=='background-observed':
-                        self.sleep(.6);need(not self.os_status('before-resume')['foreground']);self.save('foreground-issued')
+                        self.sleep(.6);need(not self.os_status('before-resume')['foreground'])
+                        if getattr(self,'phase_fence',None) is not None:self.phase_fence.mark()
+                        self.save('foreground-issued')
                         self.os._graphics_lifecycle_input(self.target,'app.launch',self.binding)
                     if self.state['phase']=='foreground-issued':self.wait_os(True,'foreground');self.save('foreground-observed')
                     need(self.state['phase'] in ('foreground-observed','quiet','release-issued','released-quiet'))

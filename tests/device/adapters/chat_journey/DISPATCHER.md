@@ -1,6 +1,6 @@
 # Original Chat input dispatcher
 
-`ChatDispatcher` version 1 composes the fixed common Chat inputs through
+`ChatDispatcher` version 2 composes the fixed common Chat inputs through
 `ChatFlowInputs` v3 and the existing concrete input owners. It reads only each
 recipe verb and its closed inputs; checkpoint states and witness facts never
 drive an input. Baseline uses the separate original absent-cache sources. The
@@ -16,6 +16,24 @@ use the original consumed `ChatPeerSend` input; the distant peer uses
 must return those exact concrete classes with the exact parent role objects.
 The distant sender is the same original peer owner. No callback can replace a
 route with a Boolean success, receipt, requested state or expected effect.
+
+The separate `ChatPhaseFence` obtains original fixture HTTP frames with its own
+reader and nonce history. Every input marks its original phase/native-clock
+anchor before its child CAS; the actual command publication checks the exact
+same active ticket and full activation prefix after that CAS and the final
+candidate/process guards. Each part of Type/Open has a separate fence. This
+covers native cache creation, normal Pico QML commands, peer command-file
+publication, mixer HTTP, background timer ownership and normal HOME/Resume.
+Background phase reads use only HTTP and the original non-Qt epoch source.
+Neither a new phase response nor a frozen host clock refreshes time spent in
+the original CAS. Original phase frames are retained as immutable proof chunks.
+
+The ordinary controller route reads its fresh phase before entering the
+original input-session lock. Its original `stage(intent=...)` callback retains
+the exact controller envelope in the parent journal before the native grant and
+checks the original host elapsed-age bound after that write. This callback is
+host-only: no ADB, guard, PhaseReader or session reentry. Version 1 journals are
+retained without adoption.
 
 After actual child closure, the dispatcher archives the exact original child
 root packet and its canonical SHA-256 in the existing immutable private

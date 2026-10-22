@@ -128,6 +128,8 @@ class NativeLifecycleBackground:
                 need(number(started,0,1e15) and integer(requested,1))
                 if request['operation']!='observe':
                     need(self.intent is not None);self.intent(deepcopy(request));need(self.guard() is not False)
+                    fence=getattr(self,'phase_fence',None)
+                    if fence is not None:fence.check()
                 self.send(deepcopy(request))
                 for attempt in range(51):
                     need(self.guard() is not False);raw=self.original();need(type(raw) is str and len(raw.encode('utf-8'))<=LIMIT)
