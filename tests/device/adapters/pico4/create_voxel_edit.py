@@ -124,7 +124,8 @@ class CreateVoxelEdit:
         controls.input('create.scrollbar','scroll',direction)
         controls.wait(lambda v:bool(controls.row(v,'create.scrollbar') and controls.row(v,'create.scrollbar')['position']!=bar['position']));return True
     def voxel_settings(self):
-        tools=self.voxel_controls();row=tools.row(tools.capture(),'create-voxel.mode');need(row is not None)
+        tools=self.voxel_controls();observed=tools.wait(lambda v:tools.row(v,'create-voxel.mode') is not None)
+        row=tools.row(observed,'create-voxel.mode');need(row is not None)
         return deepcopy(row['settings'])
     def voxel_apply_settings(self,original):
         settings(original);tools=self.voxel_controls();scroll=self.voxel_scroll

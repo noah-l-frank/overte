@@ -33,6 +33,8 @@ var SelectionManager={selections:[entityID],createApp:{pushVoxelStroke:function(
 function initializeOriginalTools(){
     var tools=EditTools({createToolsWindow:windowActor}),voxels=EditVoxels();tools.addListener(voxels.updateEditSettings);
     var bridge=module.exports.createBridge({isActive:function(){return true;},entities:Entities,avatar:MyAvatar,selection:SelectionManager,
+        // Explicit entity-list transport actor for the original ready branch.
+        refresh:function(){bridge.acceptList({type:"update",entities:[{id:entityID,type:"PolyVox"}]});},
         history:{canUndo:function(){return savedStrokes.length>0;},canRedo:function(){return false;}},numericFocus:function(){},
         applyEditSettings:tools.applyNativeSettings,editSettings:tools.getSettings,send:function(message){outputs.push(copy(message));}});
     tools.onNativeUpdate=bridge.sendSettings;

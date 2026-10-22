@@ -10,6 +10,8 @@ inline QQuickItem* createVoxelPage(QQuickItem* item) {
     auto page=createPage(item);
     const auto expected=PathUtils::defaultScriptsLocation().resolved(QUrl("system/create/qml/NativeCreate.qml"));
     if (!page || page->property("currentTab").toInt()!=3 || QUrl(createComponentSource(page))!=expected) {return nullptr;}
+    const auto receipt=page->property("e2eSettingsReceived");
+    if (receipt.userType()!=QMetaType::Bool || !receipt.toBool()) {return nullptr;}
     int depth{0};
     for (auto context=qmlContext(item);context && ++depth<=128;context=context->parentContext()) {
         if (context->isValid() && context->baseUrl()==expected && context->nameForObject(page)=="root") {return page;}

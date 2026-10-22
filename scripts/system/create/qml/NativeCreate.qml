@@ -21,6 +21,8 @@ Rectangle {
     property bool canRedo: false
     property var focusedNumber: null
     property var typedFieldRows: []
+    // Passive provenance for the compile-guarded E2E reader; never drives controls.
+    property bool e2eSettingsReceived: false
     property var voxelSettings: ({ createAppMode: "object", voxelEditMode: "single",
         voxelSphereSize: 0.3, voxelEditDynamics: "click", voxelRemove: false,
         voxelPointerMode: "laser", voxelBrushLength: 0.5 })
@@ -68,6 +70,7 @@ Rectangle {
             selectionChanged()
         } else if (message.method === "nativeCreate.settings") {
             voxelSettings = value
+            e2eSettingsReceived = true
         } else if (message.method === "nativeCreate.status") {
             statusText = value.text || ""
             statusError = value.error === true
