@@ -37,9 +37,11 @@ public:
         for(auto& row:_requests) {
             if(row.weak.owner_before(original) || original.owner_before(row.weak)) {continue;}
             if(row.events.size()>=16) {_overflow=true;return;}
+            const auto canonical=path.isEmpty() ? QString() : QFileInfo(path).canonicalFilePath();
             row.events.append(QVariantMap{{"sequence",row.events.size()+1},{"phase",phase},
                 {"publishedEpochMs",QDateTime::currentMSecsSinceEpoch()},
                 {"pathSha256",path.isEmpty() ? QString() : hash(_run,path)},
+                {"canonicalPathSha256",canonical.isEmpty() ? QString() : hash(_run,canonical)},
                 {"basenameSha256",path.isEmpty() ? QString() : hash(_run,QFileInfo(path).fileName())},
                 {"error",error}});
             return;
@@ -81,7 +83,7 @@ public:
             requests.append(QVariantMap{{"birth",row.birth},{"requestId",row.id},{"registeredEpochMs",row.epoch},
                 {"alive",bool(original)},{"nativeState",state},{"events",row.events}});
         }
-        return {{"snapshotNativeCaptureVersion",1},{"commandId",request},{"runId",_run},
+        return {{"snapshotNativeCaptureVersion",2},{"commandId",request},{"runId",_run},
             {"instance",_instance},{"sequence",++_sequence},{"pid",QCoreApplication::applicationPid()},
             {"capturedEpochMs",QDateTime::currentMSecsSinceEpoch()},{"resources",resources},{"requests",requests}};
     }

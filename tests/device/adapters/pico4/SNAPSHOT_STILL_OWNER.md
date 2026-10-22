@@ -18,7 +18,11 @@ actual `capture` activation with `mode=still, format=png`; it selects an empty
 run-owned prefix using the existing name field and real mode/format controls.
 An immutable actual native request ID and complete callback are joined to
 the same OS original by request ID, basename and run-salted **full canonical
-path** hash. The native observer never accepts these as expected effects.
+path** hash. Native source v2 retains the callback's raw path hash and actual
+canonical path hash separately, including a genuine OS-owned app-root alias.
+The v1 reader can join only when its actual raw hash itself equals the OS
+canonical hash; no alias or missing canonical provenance is inferred.
+The native observer never accepts these as expected effects.
 
 The existing file observer retains OS device/inode/full mode/UID/link count/
 size/mtime/ctime with nine fractional timestamp digits before and after actual
@@ -97,7 +101,7 @@ this packet does not migrate the common contract or import moving Phone work.
 
 The `snapshot-normal-still-owner` Pico selector runs the actual private factory,
 normal input classes, original Session staging callbacks, original run-as file
-scripts and decoder against explicit native Qt/render/SDK/time seams. Twelve
+scripts and decoder against explicit native Qt/render/SDK/time seams. Thirteen
 composition cases cover normal capture/restore/close, read-only cold recovery,
 ignored ACK, lost capture response, last-CAS phase advancement, frozen native
 clock plus slow CAS, delayed controller publication, native full-path mismatch,

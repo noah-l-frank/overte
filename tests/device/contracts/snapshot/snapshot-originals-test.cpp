@@ -3,6 +3,8 @@
 #include <QCoreApplication>
 #include <QGuiApplication>
 #include <QTemporaryDir>
+#include <QDir>
+#include <QFile>
 #include <QSharedPointer>
 #include <QElapsedTimer>
 #include "tests/device/native/FeatureLifecycle.h"
@@ -84,13 +86,15 @@ int main(int argc,char** argv) {
     auto foreign=command();foreign.insert("runId",QString(32,'b'));
     assert(owner.featureSnapshotCaptureOriginals(foreign).isEmpty());
     const auto id=QStringLiteral("snap_1234_1");auto original=owner.beginCapture(id);
+    QTemporaryDir captureDirectory;assert(captureDirectory.isValid());const auto path=captureDirectory.filePath("capture.png");
+    {QFile file(path);assert(file.open(QIODevice::WriteOnly));assert(file.write("original opaque host bytes")>0);file.close();}
     assert(original);const auto birth=rows(owner).at(0).toMap().value("birth");
     assert(rows(owner).at(0).toMap().value("alive").toBool());
     assert(rows(owner).at(0).toMap().value("events").toList().isEmpty());
     int emitted=0;QObject::connect(&owner,&Snapshot::captureStatusChanged,[&](auto,auto,auto,auto){++emitted;});
     // The actual cross-thread body queues its original shared request. Dropping
     // our variable cannot retire that real queued functor before its callback.
-    std::thread worker([&]{owner.captureStatus(original,"complete","/explicit-host/capture.png");});worker.join();
+    std::thread worker([&]{owner.captureStatus(original,"complete",path);});worker.join();
     original.reset();auto before=rows(owner).at(0).toMap();
     assert(before.value("alive").toBool());assert(before.value("events").toList().isEmpty());assert(emitted==0);
     queued();auto completed=rows(owner).at(0).toMap();
@@ -112,6 +116,18 @@ int main(int argc,char** argv) {
     assert(rows(owner).size()==3);assert(!rows(owner).at(2).toMap().value("alive").toBool());
     auto request=command();assert(!owner.featureSnapshotCaptureOriginals(request).isEmpty());
     assert(owner.featureSnapshotCaptureOriginals(request).isEmpty());
+    // Actual filesystem alias: preserve the callback's original lexical path
+    // and independently acquire its canonical path, without changing emission.
+    const auto real=captureDirectory.filePath("real"),logical=captureDirectory.filePath("logical");
+    assert(QDir().mkpath(real));assert(QFile::link(real,logical));const auto logicalFile=logical+"/alias.png";
+    {QFile file(logicalFile);assert(file.open(QIODevice::WriteOnly));assert(file.write("original alias bytes")>0);file.close();}
+    QString emittedPath;QObject::connect(&owner,&Snapshot::captureStatusChanged,[&](auto,auto,const QString& path,auto){emittedPath=path;});
+    auto aliased=owner.beginCapture("snap_1234_3");owner.captureStatus(aliased,"complete",logicalFile);aliased.reset();
+    const auto aliasedEvent=rows(owner).last().toMap().value("events").toList().last().toMap();
+    const auto canonical=QFileInfo(logicalFile).canonicalFilePath();assert(canonical!=logicalFile && emittedPath==logicalFile);
+    auto hash=[](const QString& value){return QString::fromLatin1(QCryptographicHash::hash(QByteArray(32,'a')+QByteArray(1,'\0')+value.toUtf8(),QCryptographicHash::Sha256).toHex());};
+    assert(aliasedEvent.value("pathSha256")==hash(logicalFile));assert(aliasedEvent.value("canonicalPathSha256")==hash(canonical));
+    assert(aliasedEvent.value("pathSha256")!=aliasedEvent.value("canonicalPathSha256"));
     QTemporaryDir directory;assert(directory.isValid());
     TestScriptingInterface test;test._testResultsLocation=directory.path();
     overte::e2e::FeatureLifecycle lifecycle(&test);assert(lifecycle.start(directory.path()));test._featureLifecycle=&lifecycle;

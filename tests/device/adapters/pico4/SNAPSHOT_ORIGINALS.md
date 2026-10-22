@@ -1,4 +1,4 @@
-# Pico Snapshot native originals, version 1
+# Pico Snapshot native originals, version 2 (reads 1 and 2)
 
 This is a private source component for the existing shared Snapshot journey.
 It does not advertise `feature.snapshots.*`, perform a capture, qualify an image,
@@ -21,7 +21,13 @@ same control block, an immutable native birth, original request ID and actual
 registration time. It never prolongs the request lifetime. The existing
 `captureStatus` and `cancelCapture` paths append their actual callbacks immediately
 before the original signal emission. Callback paths and basenames are hashed
-with the run and a NUL separator, never published as private paths. No requested
+with the run and a NUL separator, never published as private paths. Version 2
+separately records the actual callback path and the independently read canonical
+path of that actual file. They can legitimately differ for an OS-owned app
+directory alias; the original emitted path is unchanged. Complete v2 events
+require an actual nonempty canonical path. Original v1 events remain readable
+with their raw-path hash; a source instance cannot switch versions mid-history.
+No requested
 phase, filename, click, acknowledgement or expected effect enters this history.
 
 Each frame also reads the original active map size, six projection QImages'
@@ -62,7 +68,7 @@ No restart or force-stop acknowledgement substitutes for those closures.
 
 ## Device-free verification
 
-`snapshot-native-originals` registers five reader counterexamples, the actual
+`snapshot-native-originals` registers six reader counterexamples, the actual
 private Pico factory, original Probe dispatch under Node, and a Qt compiler/run
 check. The native check compiles the complete original Snapshot begin/status/
 cancel/source and TSI getter bodies, original production request type and

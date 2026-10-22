@@ -130,7 +130,7 @@
     "pico-audio-final-close": {"current": 1, "reads": [1]},
     "pico-audio-normal-recipe": {"current": 1, "reads": [1]},
     "pico-audio-page-owner": {"current": 1, "reads": [1]},
-    "pico-snapshot-native-originals": {"current": 1, "reads": [1]},
+    "pico-snapshot-native-originals": {"current": 2, "reads": [1, 2]},
     "pico-snapshot-still-owner": {"current": 1, "reads": [1]},
     "android-snapshot-file-originals": {"current": 2, "reads": [2]},
     "native-script-work": {"current": 2, "reads": [1, 2]},

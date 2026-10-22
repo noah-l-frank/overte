@@ -171,7 +171,8 @@ class PicoSnapshotStillOwner:
         need(not self.packet(frame)['requests'] and row['registeredEpochMs']>=max(self.packet(frame)['capturedEpochMs'],
             frame['ui']['updatedEpochMs'],delivery['source']['activations'][-1]['activatedEpochMs']))
         basename=self.prefix+'-'+row['requestId']+'.png';file=record['file']
-        need(file['basename']==basename and record['event']['pathSha256']==file['pathSha256']
+        native=self.packet(state['frames'][-1]);path_key='canonicalPathSha256' if native['snapshotNativeCaptureVersion']==2 else 'pathSha256'
+        need(file['basename']==basename and record['event'][path_key]==file['pathSha256']
             and record['event']['basenameSha256']==hashlib.sha256((self.run+'\0'+basename).encode()).hexdigest())
         # A cold owner independently decodes once. Warm validation still reads
         # the original FD/path signature and bytes, then compares the immutable

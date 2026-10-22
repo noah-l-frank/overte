@@ -9,7 +9,8 @@ import time
 from adapters.native_feature_observation import decode,exact,integer,need,number
 from adapters.script_journey.lock import ScriptSourceLock
 
-VERSION=1
+VERSION=2
+READS=(1,2)
 FILE='feature-snapshot-capture-originals.json'
 ACTION='feature-snapshot-capture-originals'
 LIMIT=65536
@@ -23,7 +24,7 @@ def sha(value):return type(value) is str and re.fullmatch('[0-9a-f]{64}',value) 
 
 def validate(value,run,request,pid,epoch):
     exact(value,{'snapshotNativeCaptureVersion','commandId','runId','instance','sequence','pid','capturedEpochMs','resources','requests'})
-    need(type(value['snapshotNativeCaptureVersion']) is int and value['snapshotNativeCaptureVersion']==VERSION
+    need(type(value['snapshotNativeCaptureVersion']) is int and value['snapshotNativeCaptureVersion'] in READS
         and nonce(run) and value['runId']==run and nonce(request) and value['commandId']==request and value['pid']==pid
         and integer(value['pid'],1) and birth(value['instance']) and integer(value['sequence'],1)
         and integer(value['capturedEpochMs'],1) and number(epoch,1,1e15) and -250<=epoch-value['capturedEpochMs']<=1500)
@@ -41,13 +42,18 @@ def validate(value,run,request,pid,epoch):
             and type(row['events']) is list and len(row['events'])<=16)
         identities.add(row['birth']);last=row['registeredEpochMs'];terminal=False
         for index,event in enumerate(row['events']):
-            exact(event,{'sequence','phase','publishedEpochMs','pathSha256','basenameSha256','error'})
+            exact(event,{'sequence','phase','publishedEpochMs','pathSha256','basenameSha256','error'}
+                | ({'canonicalPathSha256'} if value['snapshotNativeCaptureVersion']==2 else set()))
             need(not terminal and type(event['sequence']) is int and event['sequence']==index+1
                 and event['phase'] in ('processing','complete','cancelled','error') and integer(event['publishedEpochMs'],last,value['capturedEpochMs'])
                 and type(event['error']) is str and len(event['error'])<=1024
                 and ((event['pathSha256']==event['basenameSha256']=='') or sha(event['pathSha256']) and sha(event['basenameSha256'])))
             if event['phase']=='complete':need(sha(event['pathSha256']) and not event['error'])
             if event['phase']=='cancelled':need(event['pathSha256']==event['basenameSha256']==event['error']=='')
+            if value['snapshotNativeCaptureVersion']==2:
+                need(event['canonicalPathSha256']=='' or sha(event['canonicalPathSha256']))
+                if event['phase']=='complete':need(sha(event['canonicalPathSha256']))
+                if event['phase']=='cancelled' or event['pathSha256']=='':need(event['canonicalPathSha256']=='')
             terminal=event['phase'] in ('complete','cancelled','error');last=event['publishedEpochMs']
         if row['alive'] and row['events'] and terminal:
             need(row['nativeState']==('cancelled' if row['events'][-1]['phase']=='cancelled' else 'completed'))
@@ -59,6 +65,7 @@ def accept(previous,current):
     if previous is not None:
         validate(previous,previous['runId'],previous['commandId'],previous['pid'],previous['capturedEpochMs'])
         need(current['instance']==previous['instance'] and current['runId']==previous['runId'] and current['pid']==previous['pid']
+            and current['snapshotNativeCaptureVersion']==previous['snapshotNativeCaptureVersion']
             and current['sequence']>previous['sequence'] and current['commandId']!=previous['commandId']
             and current['capturedEpochMs']>=previous['capturedEpochMs'] and len(current['requests'])>=len(previous['requests']))
         for old,new in zip(previous['requests'],current['requests']):
