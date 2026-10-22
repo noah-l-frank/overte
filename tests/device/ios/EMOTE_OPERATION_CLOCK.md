@@ -15,6 +15,13 @@ Its default is inactive. The guard runs after transport preparation; slow
 serialization or a slow W3C lookup cannot authorize a subsequent send or click.
 An input already marked issued retains its original ownership after failure.
 
+The canonical installed adapter also enters the same final-transport boundary
+before its first candidate check and retains it through its final binding
+verification. The early Emote entry guard uses the operation's 25/30/60-second
+budget and a pure host-clock callback. Nested operations cannot bypass an outer
+deadline or clear a latched failure. Other operation names retain their existing
+behavior; this entry guard adds no Emote dispatch or capability by itself.
+
 The host tests exercise the real `NativeUI`, `NativeInput._request` and
 `FeatureObservation.send` paths, plus nested call deadlines and context release.
 They explicitly verify zero send/click after expiry and rejection after a clock

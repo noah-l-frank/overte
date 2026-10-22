@@ -9,6 +9,7 @@ import stat
 
 from contracts import validate_operation_arguments
 from ios.adapters.create_api_clock import installed_entry as create_api_entry
+from ios.adapters.emote_api_entry import installed_entry as emote_api_entry
 from adapters.normal_feature_state import PrivateFeatureState
 from ios.adapters.adapter import IOSNativeMixin
 from ios.adapters.feature_observation import FeatureObservation
@@ -306,6 +307,7 @@ def create_physical_adapter(args, base_class, preflight, *, cleanup_only=False):
             finally:self._operation = None
 
         @create_api_entry
+        @emote_api_entry
         def invoke(self, selector, operation, values):
             validate_operation_arguments(operation,values)
             need(operation not in ('app.install','app.upgrade'))
