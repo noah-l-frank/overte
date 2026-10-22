@@ -94,6 +94,8 @@
     "ios-create-state": {"current": 3, "reads": [1, 2, 3]},
     "ios-create-controls": {"current": 2, "reads": [1, 2]},
     "ios-avatar-renderers": {"current": 4, "reads": [1, 2, 3, 4]},
+    "ios-avatar-world": {"current": 1, "reads": [1]},
+    "ios-avatar-world-acquisition": {"current": 1, "reads": [1]},
     "ios-avatar-state": {"current": 2, "reads": [1, 2]},
     "ios-emote-actions": {"current": 1, "reads": [1]},
     "native-avatar-receive-observation": {"current": 1, "reads": [1]},

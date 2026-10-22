@@ -29,7 +29,7 @@ namespace overte::e2e { class IOSPlacesModelObservation; }
 namespace overte::e2e { class IOSPeopleModelObservation; }
 namespace overte::e2e { class IOSNavigationStateObservation; }
 namespace overte::e2e { class IOSAvatarRenderersObservation; class IOSAvatarScriptsObservation; class IOSAvatarEntitiesObservation; }
-namespace overte::e2e { class IOSEmoteWorldObservation; }
+namespace overte::e2e { class IOSEmoteWorldObservation; class IOSAvatarWorldObservation; }
 namespace overte::e2e { class IOSCreateStateObservation; }
 namespace overte::e2e { class IOSAvatarStateObservation; }
 namespace overte::e2e { class NativeReadBracket; }
@@ -185,6 +185,7 @@ public slots:
     Q_INVOKABLE QVariantMap featureIOSNavigationState(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureIOSScriptDialogs(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureIOSEmoteWorld(const QVariantMap& command);
+    Q_INVOKABLE QVariantMap featureIOSAvatarWorld(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureIOSAvatarRenderers(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureIOSAvatarScripts(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureIOSAvatarEntities(const QVariantMap& command);
@@ -284,7 +285,9 @@ private:
     std::shared_ptr<overte::e2e::IOSPlacesModelObservation> _featureIOSPlacesModel;
     std::shared_ptr<overte::e2e::IOSPeopleModelObservation> _featureIOSPeopleModel;
     std::shared_ptr<overte::e2e::IOSNavigationStateObservation> _featureIOSNavigationState;
+    QVariantMap featureIOSMarkerWorldSource(const QString& request,const QString& run,const QString& markerKind);
     std::shared_ptr<overte::e2e::IOSEmoteWorldObservation> _featureIOSEmoteWorld;
+    std::shared_ptr<overte::e2e::IOSAvatarWorldObservation> _featureIOSAvatarWorld;
     std::shared_ptr<overte::e2e::IOSAvatarRenderersObservation> _featureIOSAvatarRenderers;
     std::shared_ptr<overte::e2e::IOSAvatarScriptsObservation> _featureIOSAvatarScripts;
     std::shared_ptr<overte::e2e::IOSAvatarEntitiesObservation> _featureIOSAvatarEntities;

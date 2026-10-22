@@ -102,6 +102,8 @@ REQUIRED = {
     "ios-create-state": 3,
     "ios-create-controls": 2,
     "ios-avatar-renderers": 4,
+    "ios-avatar-world": 1,
+    "ios-avatar-world-acquisition": 1,
     "ios-avatar-state": 2,
     "ios-emote-actions": 1,
     "native-avatar-receive-observation": 1,

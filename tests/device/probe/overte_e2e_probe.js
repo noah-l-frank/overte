@@ -1154,6 +1154,26 @@
             }
             return;
         }
+        if (command && command.action === "feature-ios-avatar-world") {
+            if (command.schemaVersion === 1 && typeof command.commandId === "string"
+                    && /^ios-[0-9a-f]{32}$/.test(command.commandId) && command.commandId.length === 36
+                    && typeof command.runId === "string" && /^[0-9a-f]{32}$/.test(command.runId) && command.runId.length === 32
+                    && objectKeysMatch(command,["schemaVersion","commandId","action","runId"])) {
+                // Keep every nonce consumed, including unavailable reads and
+                // storage mutations with a lost return. No reissue on polling.
+                if (iosNewSourceRequests[command.commandId] || iosNewSourceRequestCount >= 4096) { return; }
+                iosNewSourceRequests[command.commandId]=true;iosNewSourceRequestCount+=1;
+                var sourceAvatarWorld={iosAvatarWorldVersion:1,requestId:command.commandId,status:"unavailable"};
+                try {
+                    if (typeof Test.featureIOSAvatarWorld === "function") {
+                        var originalAvatarWorld=Test.featureIOSAvatarWorld(command);
+                        if (originalAvatarWorld && originalAvatarWorld.requestId === command.commandId) { sourceAvatarWorld=originalAvatarWorld; }
+                    }
+                } catch (_AvatarWorldError) { /* Retain unavailable; never retry an uncertain input. */ }
+                Test.saveObject(sourceAvatarWorld,"feature-ios-avatar-world.json");
+            }
+            return;
+        }
         if (command && command.action === "feature-ios-avatar-social-http") {
             if (command.schemaVersion === 1 && typeof command.commandId === "string"
                     && /^ios-[0-9a-f]{32}$/.test(command.commandId) && command.commandId.length === 36

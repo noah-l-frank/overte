@@ -81,6 +81,7 @@
 #include "../../../tests/device/native/IOSAvatarScriptsObservation.h"
 #include "../../../tests/device/native/IOSAvatarEntitiesObservation.h"
 #include "../../../tests/device/native/IOSEmoteWorldObservation.h"
+#include "../../../tests/device/native/IOSAvatarWorldObservation.h"
 #include "../../../tests/device/native/IOSScriptDialogObservation.h"
 #include "../../../tests/device/native/IOSCreateStateObservation.h"
 #include "../../../tests/device/native/IOSCreateWorkObservation.h"
@@ -593,57 +594,86 @@ QVariantMap TestScriptingInterface::featureIOSEmoteWorld(const QVariantMap& comm
             || !QRegularExpression("\\A[0-9a-f]{32}\\z").match(run).hasMatch()) { return {}; }
     if (!_featureIOSEmoteWorld) { _featureIOSEmoteWorld=std::make_shared<overte::e2e::IOSEmoteWorldObservation>(); }
     return _featureIOSEmoteWorld->read(request,run,[&]() -> QVariantMap {
-        if (!DependencyManager::isSet<AddressManager>() || !DependencyManager::isSet<NodeList>() || !DependencyManager::isSet<AvatarManager>()
-                || !DependencyManager::isSet<EntityScriptingInterface>()) { return {}; }
-        const auto nodes=DependencyManager::get<NodeList>();const auto avatars=DependencyManager::get<AvatarManager>();
-        const auto entities=DependencyManager::get<EntityScriptingInterface>();const auto avatar=avatars->getMyAvatar();
-        if (!avatar || !entities->getEntityTree() || nodes->getSessionUUID().isNull()) { return {}; }
-        const auto before=entities->getEntityTree()->featureEntityInventory();
-        if (before.isEmpty() || !before.value("complete").toBool()) { return {}; }
-        const auto scripts=featureScriptObservation(request);if (scripts.isEmpty()) { return {}; }
-        auto vec=[](const glm::vec3& value) { return QVariantList{value.x,value.y,value.z}; };
-        auto quat=[](const glm::quat& value) { return QVariantList{value.x,value.y,value.z,value.w}; };
-        QVariantList markers;
-        const auto effects=scripts.value("source").toMap().value("effects").toMap();
-        for (const auto& entry:effects.value("entities").toList()) {
-            const auto row=entry.toMap();const auto data=QJsonDocument::fromJson(row.value("userData").toString().toUtf8()).object();
-            if (data.value("runId").toString()!=run || data.value("kind").toString()!="emote-marker-v1") { continue; }
-            const auto id=QUuid(row.value("id").toString());const auto original=entities->getEntityProperties(id);
-            const auto host=original.getEntityHostType();
-            markers.append(QVariantMap{{"id",id.toString(QUuid::WithoutBraces)},{"name",original.getName()},
-                {"type",EntityTypes::getEntityTypeName(original.getType())},
-                {"hostType",host==entity::HostType::LOCAL ? "local" : host==entity::HostType::AVATAR ? "avatar" : "domain"},
-                {"sourceUrl",original.getSourceUrl()},{"userData",original.getUserData()},
-                {"position",vec(original.getPosition())},{"rotation",quat(original.getRotation())},
-                {"dimensions",vec(original.getDimensions())},{"visible",original.getVisible()},
-                {"collisionless",original.getCollisionless()},
-                {"lastEditedEpochUs",QString::number(original.getLastEdited())}});
-        }
-        if (markers.size()>4) { return {}; }
-        const auto model=avatar->getSkeletonModel();if (!model) { return {}; }
-        const bool boundsReady=model->isLoaded() && model->isRenderable() && !model->needsFixupInScene();
-        QVariant bounds;
-        if (boundsReady) {
-            const auto box=avatar->getBounds();bounds=QVariantMap{{"corner",vec(box.getCorner())},{"dimensions",vec(box.getDimensions())}};
-        }
-        const auto mixer=nodes->soloNodeOfType(NodeType::AvatarMixer);const auto& domain=nodes->getDomainHandler();
-        const auto& camera=qApp->getCamera();ViewFrustum frustum;camera.loadViewFrustum(frustum);
-        const auto address=DependencyManager::get<AddressManager>()->currentAddress().toString(QUrl::FullyEncoded);
-        const auto after=entities->getEntityTree()->featureEntityInventory();if (before!=after) { return {}; }
-        return {{"complete",true},{"tree",before},{"scriptOriginal",scripts},{"markers",markers},{"sceneUrl",address},
-            {"domain",QVariantMap{{"connected",domain.isConnected()},{"serverless",domain.isServerless()},
-                {"domainId",domain.getUUID().toString(QUuid::WithoutBraces)},
-                {"selfSha256",overte::e2e::AvatarReceiveObservation::identity(nodes->getSessionUUID())},
-                {"avatarMixerSha256",mixer ? QVariant(overte::e2e::AvatarReceiveObservation::identity(mixer->getUUID())) : QVariant()}}},
-            {"avatar",QVariantMap{{"feetPosition",vec(avatar->getWorldFeetPosition())},{"orientation",quat(avatar->getWorldOrientation())},
-                {"velocity",vec(avatar->getWorldVelocity())},{"inAir",avatar->isInAir()},{"flying",avatar->isFlying()},
-                {"modelScale",avatar->getModelScale()},{"boundsReady",boundsReady},{"bounds",bounds}}},
-            {"view",QVariantMap{{"position",vec(frustum.getPosition())},{"rotation",quat(frustum.getOrientation())},
-                {"mode",camera.getModeString()},{"fieldOfViewDegrees",frustum.getFieldOfView()},
-                {"aspectRatio",frustum.getAspectRatio()},{"perspective",frustum.isPerspective()}}},
-            {"cameraOrbit",QVariantMap{{"lookAtRotation",quat(avatar->getLookAtRotation())},
-                {"boomLength",avatar->getBoomLength()},{"minimumBoomLength",MyAvatar::ZOOM_MIN},{"defaultBoomLength",MyAvatar::ZOOM_DEFAULT}}}};
+        return featureIOSMarkerWorldSource(request,run,"emote-marker-v1");
     });
+}
+
+QVariantMap TestScriptingInterface::featureIOSAvatarWorld(const QVariantMap& command) {
+    if (QThread::currentThread()!=thread()) {
+        if (!thread() || !thread()->isRunning()) { return {}; }
+        QVariantMap result;
+        if (!QMetaObject::invokeMethod(this,[&] { result=featureIOSAvatarWorld(command); },Qt::BlockingQueuedConnection)) { return {}; }
+        return result;
+    }
+    const auto keys=command.keys();const auto json=QJsonObject::fromVariantMap(command);
+    const auto request=command.value("commandId").toString();const auto run=command.value("runId").toString();
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript")
+            || QSet<QString>(keys.begin(),keys.end())!=QSet<QString>{"schemaVersion","commandId","action","runId"}
+            || json.value("schemaVersion")!=QJsonValue(1) || json.value("action")!=QJsonValue("feature-ios-avatar-world")
+            || !QRegularExpression("\\Aios-[0-9a-f]{32}\\z").match(request).hasMatch()
+            || !QRegularExpression("\\A[0-9a-f]{32}\\z").match(run).hasMatch()) { return {}; }
+    if (!_featureIOSAvatarWorld) { _featureIOSAvatarWorld=std::make_shared<overte::e2e::IOSAvatarWorldObservation>(); }
+    return _featureIOSAvatarWorld->read(request,run,[&]() -> QVariantMap {
+        return featureIOSMarkerWorldSource(request,run,"avatar-marker-v1");
+    });
+}
+
+QVariantMap TestScriptingInterface::featureIOSMarkerWorldSource(const QString& request,const QString& run,const QString& markerKind) {
+    // Only the two gated native wrappers select a fixed marker profile. No
+    // command can supply an expected entity, model, pose, camera or marker ID.
+    if (QThread::currentThread()!=thread()
+            || (markerKind!="emote-marker-v1" && markerKind!="avatar-marker-v1")) { return {}; }
+    if (!DependencyManager::isSet<AddressManager>() || !DependencyManager::isSet<NodeList>() || !DependencyManager::isSet<AvatarManager>()
+            || !DependencyManager::isSet<EntityScriptingInterface>()) { return {}; }
+    const auto nodes=DependencyManager::get<NodeList>();const auto avatars=DependencyManager::get<AvatarManager>();
+    const auto entities=DependencyManager::get<EntityScriptingInterface>();const auto avatar=avatars->getMyAvatar();
+    if (!avatar || !entities->getEntityTree() || nodes->getSessionUUID().isNull()) { return {}; }
+    const auto before=entities->getEntityTree()->featureEntityInventory();
+    if (before.isEmpty() || !before.value("complete").toBool()) { return {}; }
+    const auto scripts=featureScriptObservation(request);if (scripts.isEmpty()) { return {}; }
+    auto vec=[](const glm::vec3& value) { return QVariantList{value.x,value.y,value.z}; };
+    auto quat=[](const glm::quat& value) { return QVariantList{value.x,value.y,value.z,value.w}; };
+    QVariantList markers;
+    const auto effects=scripts.value("source").toMap().value("effects").toMap();
+    for (const auto& entry:effects.value("entities").toList()) {
+        const auto row=entry.toMap();const auto data=QJsonDocument::fromJson(row.value("userData").toString().toUtf8()).object();
+        if (data.value("runId").toString()!=run || data.value("kind").toString()!=markerKind) { continue; }
+        const auto id=QUuid(row.value("id").toString());const auto original=entities->getEntityProperties(id);
+        const auto host=original.getEntityHostType();
+        markers.append(QVariantMap{{"id",id.toString(QUuid::WithoutBraces)},{"name",original.getName()},
+            {"type",EntityTypes::getEntityTypeName(original.getType())},
+            {"hostType",host==entity::HostType::LOCAL ? "local" : host==entity::HostType::AVATAR ? "avatar" : "domain"},
+            {"sourceUrl",original.getSourceUrl()},{"userData",original.getUserData()},
+            {"position",vec(original.getPosition())},{"rotation",quat(original.getRotation())},
+            {"dimensions",vec(original.getDimensions())},{"visible",original.getVisible()},
+            {"collisionless",original.getCollisionless()},
+            {"lastEditedEpochUs",QString::number(original.getLastEdited())}});
+    }
+    if (markers.size()>4) { return {}; }
+    const auto model=avatar->getSkeletonModel();if (!model) { return {}; }
+    const bool boundsReady=model->isLoaded() && model->isRenderable() && !model->needsFixupInScene();
+    QVariant bounds;
+    if (boundsReady) {
+        const auto box=avatar->getBounds();bounds=QVariantMap{{"corner",vec(box.getCorner())},{"dimensions",vec(box.getDimensions())}};
+    }
+    const auto mixer=nodes->soloNodeOfType(NodeType::AvatarMixer);const auto& domain=nodes->getDomainHandler();
+    const auto& camera=qApp->getCamera();ViewFrustum frustum;camera.loadViewFrustum(frustum);
+    const auto address=DependencyManager::get<AddressManager>()->currentAddress().toString(QUrl::FullyEncoded);
+    const auto after=entities->getEntityTree()->featureEntityInventory();if (before!=after) { return {}; }
+    return {{"complete",true},{"tree",before},{"scriptOriginal",scripts},{"markers",markers},{"sceneUrl",address},
+        {"domain",QVariantMap{{"connected",domain.isConnected()},{"serverless",domain.isServerless()},
+            {"domainId",domain.getUUID().toString(QUuid::WithoutBraces)},
+            {"selfSha256",overte::e2e::AvatarReceiveObservation::identity(nodes->getSessionUUID())},
+            {"avatarMixerSha256",mixer ? QVariant(overte::e2e::AvatarReceiveObservation::identity(mixer->getUUID())) : QVariant()}}},
+        {"avatar",QVariantMap{{"feetPosition",vec(avatar->getWorldFeetPosition())},{"orientation",quat(avatar->getWorldOrientation())},
+            {"velocity",vec(avatar->getWorldVelocity())},{"inAir",avatar->isInAir()},{"flying",avatar->isFlying()},
+            {"modelScale",avatar->getModelScale()},{"boundsReady",boundsReady},{"bounds",bounds}}},
+        {"view",QVariantMap{{"position",vec(frustum.getPosition())},{"rotation",quat(frustum.getOrientation())},
+            {"mode",camera.getModeString()},{"fieldOfViewDegrees",frustum.getFieldOfView()},
+            {"aspectRatio",frustum.getAspectRatio()},{"perspective",frustum.isPerspective()}}},
+        {"cameraOrbit",QVariantMap{{"lookAtRotation",quat(avatar->getLookAtRotation())},
+            {"boomLength",avatar->getBoomLength()},{"minimumBoomLength",MyAvatar::ZOOM_MIN},{"defaultBoomLength",MyAvatar::ZOOM_DEFAULT}}}};
 }
 
 QVariantMap TestScriptingInterface::featureIOSAvatarRenderers(const QVariantMap& command) {
@@ -2139,7 +2169,7 @@ void TestScriptingInterface::saveObject(QVariant variant, const QString& filenam
             || filename == "feature-process-presence.json" || filename == "feature-graphics-subject.json" || filename == "feature-scene-load.json" || filename == "feature-completed-frame.json" || filename == "feature-vulkan-world-frame.json"
             || filename == "recorded-preview-observation.json" || filename == "feature-script-observation.json"
             || filename == "feature-avatar-receive.json" || filename == "feature-script-roots.json" || filename == "feature-script-terminal.json" || filename == "feature-script-work.json"
-            || filename == "feature-ios-script-dialogs.json" || filename == "feature-ios-emote-world.json" || filename == "feature-ios-avatar-social-http.json" || filename == "feature-ios-avatar-state.json" || filename == "feature-ios-avatar-renderers.json" || filename == "feature-ios-avatar-scripts.json" || filename == "feature-ios-avatar-entities.json"
+            || filename == "feature-ios-script-dialogs.json" || filename == "feature-ios-emote-world.json" || filename == "feature-ios-avatar-world.json" || filename == "feature-ios-avatar-social-http.json" || filename == "feature-ios-avatar-state.json" || filename == "feature-ios-avatar-renderers.json" || filename == "feature-ios-avatar-scripts.json" || filename == "feature-ios-avatar-entities.json"
             || filename == "feature-ios-people-model.json" || filename == "feature-ios-create-work.json" || filename == "feature-ios-create-state.json" || filename == "feature-ios-create-files.json"
             || filename == "feature-script-files.json" || filename == "world-render-observation.json"
             || filename == "world-render-receipt-result.json"
