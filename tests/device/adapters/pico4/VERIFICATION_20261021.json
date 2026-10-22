@@ -2169,5 +2169,27 @@
     "details": "Original configured roots and complete manager/code/compilation join actual separate Pico Emote VM with touch-one-shot-chooser-v1 retained UI. Unknown default manager is unrelated only after own original assignment/submission/top compilation and complete absence of reviewed Emote names or code. Additional/renamed Emote origins, missing/incomplete/foreign top evidence remain red. Exact common original Rig joins loaded consumed bytes, advancing clips, changing final poses, Sit replacement and restoration under original caller/native clocks. Closed read-only fixture/probe route has current-command deduplication and native bounded nonce ownership; no guessed resource root.",
     "initialFailure": "The new isolated probe test initially omitted its existing Uuid native-boundary stub; corrected the fixture without product changes. Final complete selected checks pass.",
     "limitations": "No complete Emote capability, passive cache admission, durable Pico role/source group, normal VR input, actor/stereo or whole finalizer. New root/caller native additions uncompiled; device0 and common journey v16 unchanged."
+  },
+  "chatEraseControlsIntegration": {
+    "sourceCommit": "778ab7c8ab36d257d2826bb2c68c11476f37b6a4",
+    "localCommit": "e55ca61cb9",
+    "status": "source-and-selected-host-checks-pass",
+    "components": {
+      "tests": 57,
+      "durationSeconds": 0.776
+    },
+    "nativeDigest": {
+      "tests": 1,
+      "durationSeconds": 1.084,
+      "qt": "5.15.18",
+      "boundary": "Actual original digest helper with real Qt model; page/model association seam, no full app compilation"
+    },
+    "pico": {
+      "selectedGroups": 3,
+      "catalogGroups": 53,
+      "durationSeconds": 28.48,
+      "junit": "chat-erase-integration-pico.xml"
+    },
+    "limitations": "Independent authorization must bind original full history; durable full owner, profile persistence, peer stimulus and final retirement remain in progress. No complete Chat feature or device qualification."
   }
 }

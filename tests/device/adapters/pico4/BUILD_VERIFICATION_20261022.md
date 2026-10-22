@@ -58,3 +58,13 @@ Create, Audio and Chat agents continue their own remaining whole-feature work.
 Only Scripts, Authentication and Graphics currently have complete source/host
 feature triples. Application native compilation, a complete Pico APK and all
 physical/device qualification remain unverified.
+
+## Original Chat Erase digest
+
+The selected original native history digest compiles and passes with real Qt5
+models (one test, 1.084 seconds). Its page/model association is an explicit host
+seam; the whole application is uncompiled. The combined 57 Chat component cases
+pass, and `normal-chat`, `suite-runner`, `coverage-matrix` pass (3/53 catalog
+groups, 28.48 seconds). Erase uses original version-2 controls and full ordered
+row hashes, not row counts. These checks do not qualify independent whole-run
+authorization, durable profile restoration, peer stimulus or complete Chat.
