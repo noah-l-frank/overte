@@ -1039,8 +1039,10 @@ replacement. Every original file and absence receipt is rechecked before and
 after current native/phase authority, so a file changed after replay cannot be
 hidden by the digest. The pass closes on success or failure before a new normal
 role acquisition. The ordinary role history path retains its original locked
-authority. Eight host test methods exercise this helper; its public observation
-integration and both complete common replay qualifications remain pending.
+authority. Eight host test methods exercise this helper. The public observation
+path is integrated with eleven stage/ownership cases and seven late-after-read
+file/owner counterexamples. Both complete common replay qualifications remain
+pending; these tests alone do not qualify the whole Snapshot composition.
 
 The unchanged `quiet_window` requires at least three advancing samples spanning
 three real seconds and resets after any gap greater than 1.5 seconds. An

@@ -87,12 +87,14 @@ class SnapshotPrimaryCleanupStagesTests(unittest.TestCase):
                     else:raise RuntimeError('Unknown controlled stage mutation')
                 return sleep(seconds)
             feature.sleep=between;observed.append(feature);return feature
-        read_history=SnapshotHistoryReadPass.read;passes=[]
+        read_history=SnapshotHistoryReadPass.read;passes=[];invalid_current_reads=[]
         def historical(token):
             result=read_history(token);passes.append(token)
             if mutation.startswith('after-'):
                 self.assertIsNone(token.feature.lock._owner)
-                def forbidden(_after):raise AssertionError('Current facts acquired after invalid historical pass')
+                def forbidden(_after):
+                    invalid_current_reads.append(True)
+                    raise AssertionError('Current facts acquired after invalid historical pass')
                 token.role.read=forbidden
                 kind=mutation.removeprefix('after-')
                 if kind in ('feature-aba','role-aba'):
@@ -117,6 +119,9 @@ class SnapshotPrimaryCleanupStagesTests(unittest.TestCase):
                 with self.assertRaises((NativeUIError,FileNotFoundError)):
                     f.invoke('feature.snapshots.observe',dict(contractVersion=h.VERSION,runId=h.RUN,afterSequence=sequence))
         self.assertTrue(passes or not mutation.startswith('after-'))
+        # The source lock translates exceptions. Its generic rejection alone
+        # cannot prove that an invalid pass never reached a current reader.
+        self.assertEqual([],invalid_current_reads)
         self.assertTrue(all(token.closed for token in passes))
         self.assertEqual([True],yielded);self.assertIsNone(f.adapter._existing_input_scope)
         for path,value in foreign:self.assertEqual(value,PrivateFeatureState(path).read())
