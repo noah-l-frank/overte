@@ -620,6 +620,25 @@ class PicoNormalScriptsTests(unittest.TestCase):
         with self.assertRaises(ValueError):self.cleanup_instance().cleanup(self.native.target)
         self.assertFalse(self.native.running);self.assertEqual(original,store.read())
 
+    def test_pico_chat_normal_input_factory_preserves_actual_binding_and_readers_without_product_input(self):
+        from adapters.chat_journey.normal_input import ChatNormalInput
+        source,peer,create=self.chat_samples();primary=create();reader=peer.reader();reader.pid=456
+        actor=self.instance._chat_samples(self.native.target,CHAT_RUN,reader,primary.peer_binding,
+            role='actor',source_lock=primary.locks[0],peer_lock=primary.locks[1])
+        owner=self.instance._chat_normal_input(self.native.target,primary,actor,enter=True)
+        self.assertIsInstance(owner,ChatNormalInput);self.assertTrue(owner.enter)
+        self.assertEqual(primary.binding,owner.base['binding']);self.assertEqual([],self.native.inputs)
+        self.assertEqual([],peer.commands);self.assertIsNone(owner.store.read())
+        self.native.digest='f'*64
+        with self.assertRaises(ValueError):self.instance._chat_normal_input(self.native.target,primary,actor)
+        self.assertEqual([],self.native.inputs);self.assertIsNone(owner.store.read())
+
+    def test_pico_chat_process_teardown_preserves_normal_input_delivery_and_close_ownership(self):
+        store=self.instance._chat_normal_input_store(self.native.target)
+        original={'phase':'observed','unreleased':'original-normal-send-and-close-intent'};store.write(original,None)
+        with self.assertRaises(ValueError):self.cleanup_instance().cleanup(self.native.target)
+        self.assertFalse(self.native.running);self.assertEqual(original,store.read())
+
     def test_pico_chat_mixer_factory_pins_actual_candidate_and_independent_role_stores_without_input(self):
         from adapters.chat_journey.mixer_control import FixtureMixerControl
         from adapters.chat_journey.mixer import ChatMixerOwner

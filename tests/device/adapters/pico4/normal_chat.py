@@ -20,3 +20,13 @@ class PicoChatIO:
     def activate(self,identifier,*,reference):self.original.navigation.input(identifier,reference=reference)
     def replace(self,identifier,value,*,reference):self.original.navigation.input(identifier,'replace',value,reference=reference)
     def submit(self,identifier,*,reference):self.original.navigation.input(identifier,'submit',reference=reference)
+
+    def open_tablet(self,*,reference):
+        snapshot(reference);need(not reference['open'] and reference['controls']==[])
+        current=self.capture();old=reference['scope'];actual=current['scope']
+        need(not current['open'] and current['controls']==[]
+            and all(actual[key]==old[key] for key in ('instance','generation','sequence','processId'))
+            and 0<=actual['elapsedMs']-old['elapsedMs']<=5000)
+        # Reuse the original installed/OpenXR-owned gesture and its durable
+        # tablet input journal; never synthesize a QML activate command.
+        self.original.navigation.open()

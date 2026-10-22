@@ -79,6 +79,28 @@ class ChatControlTests(unittest.TestCase):
         previous=self.store.read();self.store.write({'intents':(previous or {'intents':[]})['intents']+[deepcopy(value)]},previous)
     def opened(self):self.ui.open();return self.ui.capture()
 
+    def test_closed_tablet_uses_one_separately_journalled_original_controller_gesture(self):
+        self.widgets.tablet=False;gestures=[]
+        def open_tablet(*,reference):
+            self.assertFalse(reference['open']);self.assertEqual([],reference['controls'])
+            gesture=self.store.read()['intents'][-1]
+            self.assertEqual('controller-open',gesture['action']);self.assertEqual(0,gesture['sequence'])
+            gestures.append(reference);self.widgets.tablet=True
+        self.widgets.open_tablet=open_tablet;self.ui.open()
+        self.assertEqual(1,len(gestures));self.assertEqual([('chat.entry','activate',None)],self.widgets.calls)
+        self.assertTrue(self.widgets.panel);self.assertEqual(1,self.widgets.sequence)
+
+    def test_failed_or_lost_controller_gesture_is_not_retried_by_normal_chat_open(self):
+        self.widgets.tablet=False;gestures=[]
+        def open_tablet(*,reference):
+            gestures.append(reference)
+            raise NativeUIError('uncertain original controller gesture')
+        self.widgets.open_tablet=open_tablet
+        with self.assertRaises(NativeUIError):self.ui.open()
+        with self.assertRaises(NativeUIError):self.ui.open()
+        self.assertEqual(1,len(gestures));self.assertEqual([],self.widgets.calls)
+        self.assertEqual('controller-open',self.store.read()['intents'][-1]['action'])
+
     def test_normal_open_unicode_type_channel_send_and_close_do_not_invent_received_rows(self):
         self.opened();self.ui.select_channel('domain');self.ui.type(context(RUN)['unicode']);self.ui.send();self.ui.close()
         self.assertEqual([('domain',context(RUN)['unicode'])],self.widgets.sent)
