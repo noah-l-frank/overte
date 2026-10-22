@@ -113,6 +113,9 @@ def delivered(value,original_intent):
     need(len(matches)==1);start=matches[0]
     root=start['details']['root'];rows=[row for row in original_intent['reference']['controls'] if row['id']==original_intent['controlId']]
     if root is not None and 'rootId' in rows[0]:need(all(rows[0][key]==root[key] for key in root))
+    if original_intent['controlId']=='tablet.home' or original_intent['controlId'].startswith('tablet.page.'):
+        pages=[row for row in original_intent['reference']['controls'] if row['id'] in ('avatar.page','people.page')]
+        need(root is not None and len(pages)==1 and all(pages[0][key]==root[key] for key in root))
     returned=[row for row in value['source']['events'] if row['inputId']==start['inputId'] and row['kind']=='returned']
     need(len(returned)==1 and returned[0]['details']['status']['performed'] is True)
     result=dict(command=deepcopy(expected),originalReceipt=deepcopy(returned[0]['details']))

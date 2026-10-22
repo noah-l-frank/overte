@@ -25,6 +25,9 @@ class AvatarActionRecoveryTests(unittest.TestCase):
             if query['operation']=='edit':
                 rows=[row for row in f.fixture.widget.rows() if row['token']==query['input']['fieldToken']];self.assertEqual(1,len(rows))
                 row=rows[0];root={key:row[key] for key in ('rootId','qmlSource')} if 'rootId' in row else None
+                if root is None and (row['id']=='tablet.home' or row['id'].startswith('tablet.page.')):
+                    page=next((item for item in f.fixture.widget.rows() if item['id'] in ('avatar.page','people.page')),None)
+                    if page is not None:root={key:page[key] for key in ('rootId','qmlSource')}
                 event=dict(sequence=len(self.events)+1,eventId=str(uuid.uuid4()),inputId=str(uuid.uuid4()),kind='received',
                     clock=dict(epochMs=f.fixture.now(),monotonicMs=round(f.fixture.clock*1000)),
                     details=dict(outerCommandId=query['commandId'],command=deepcopy(query['input']),controlId=row['id'],root=root))

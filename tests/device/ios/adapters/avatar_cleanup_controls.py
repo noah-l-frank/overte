@@ -9,14 +9,15 @@ from adapters.normal_ui import NativeUI,NativeUIError,Locator
 from adapters.script_feature.history import pack,unpack,same
 from feature_journeys.contract import arguments,VERSION as CONTRACT_VERSION
 from ios.adapters import avatar_operation_clock as operation_clock
-from ios.adapters.avatar_cleanup_inputs import AvatarCleanupInputOwner,call as cleanup_call
+from ios.adapters.avatar_cleanup_inputs import AvatarCleanupInputOwner,call as cleanup_call,VERSION as CALL_VERSION
 from ios.adapters.avatar_controls import same_reference
 from ios.adapters.avatar_input_reads import IOSAvatarInputReads
 from ios.adapters.avatar_recipe_ui import AvatarRecipeUI
 from ios.adapters.avatar_source_recovery import IOSAvatarSourceRecovery
 from ios.adapters.avatar_sources import IOSAvatarSources
 
-VERSION=1
+VERSION=2
+READS=(1,2)
 
 
 class AvatarCleanupPending(NativeUIError):pass
@@ -40,7 +41,7 @@ class IOSAvatarCleanupControls:
         for row,events in zip((row for row in self.state['calls'] if row['inputStarted']),inputs.state['calls']):
             need(same(row['query'],events['arguments']) and (row['phase']!='acknowledged' or events['phase']=='acknowledged'))
 
-    def envelope(self,state):return dict(iosAvatarCleanupControlsVersion=VERSION,runId=self.sources.run,role=self.sources.role,
+    def envelope(self,state,version=VERSION):return dict(iosAvatarCleanupControlsVersion=version,runId=self.sources.run,role=self.sources.role,
         binding=self.sources.binding,fixtureUrl=self.sources.phase.fixture_url,payload=pack([state]))
 
     def original(self,reference):
@@ -52,13 +53,14 @@ class IOSAvatarCleanupControls:
 
     def decode(self,value):
         exact(value,{'iosAvatarCleanupControlsVersion','runId','role','binding','fixtureUrl','payload'})
-        need(type(value['iosAvatarCleanupControlsVersion']) is int and value['iosAvatarCleanupControlsVersion']==VERSION)
-        rows=unpack(value['payload']);need(len(rows)==1 and same(value,self.envelope(rows[0])))
+        version=value['iosAvatarCleanupControlsVersion'];need(type(version) is int and version in READS)
+        rows=unpack(value['payload']);need(len(rows)==1 and same(value,self.envelope(rows[0],version)))
         state=rows[0];exact(state,{'calls'});need(type(state['calls']) is list and len(state['calls'])<=64)
         for index,row in enumerate(state['calls'],1):
             exact(row,{'query','phase','operationClock','before','after','inputStarted','sdk'})
             query=cleanup_call(row['query']);need(query['runId']==self.sources.run and query['fixtureUrl']==self.sources.phase.fixture_url
                 and query['index']==index and row['phase'] in ('acting','issuing','acknowledged') and type(row['inputStarted']) is bool)
+            need(query['avatarCleanupInputCallVersion']<=version)
             operation_clock.validate(row['operationClock']);self.original(row['before'])
             if row['after'] is not None:self.original(row['after'])
             if index<len(state['calls']) or row['phase']=='acknowledged':need(row['phase']=='acknowledged' and row['after'] is not None)
@@ -108,7 +110,8 @@ class IOSAvatarCleanupControls:
             need(all(same(row['operationClock'],whole_clock) for row in self.state['calls']))
             operation_clock.check(whole_clock,self.sources.epoch_ms(),self.sources.monotonic())
         phase=self.sources.phase.read();need(phase['verb']=='cleanup')
-        actual=cleanup_call(dict(avatarCleanupInputCallVersion=1,contractVersion=CONTRACT_VERSION,runId=self.sources.run,
+        call_version=self.state['calls'][index-1]['query']['avatarCleanupInputCallVersion'] if index<=len(self.state['calls']) else CALL_VERSION
+        actual=cleanup_call(dict(avatarCleanupInputCallVersion=call_version,contractVersion=CONTRACT_VERSION,runId=self.sources.run,
             fixtureUrl=self.sources.phase.fixture_url,ticket=phase['ticket'],index=index,step=step,inputs=deepcopy(inputs)))
         if index<=len(self.state['calls']):
             row=self.state['calls'][index-1];need(same(row['query'],actual))
@@ -124,6 +127,7 @@ class IOSAvatarCleanupControls:
             self.state['calls'].append(row);self.save();prefix=[]
         before=self.capture()
         if prefix:need(before['ui']['open'])
+        if step=='close-page':need(before['ui']['open'])
         if not before['ui']['open']:
             row['sdk'].append(dict(before=self.reference(before),after=None));row['phase']='issuing';self.save()
             self.sdk.click(Locator('accessibility id','OverteTabletOpen'))
@@ -138,6 +142,7 @@ class IOSAvatarCleanupControls:
         elif step=='restore-model':ui.avatar_url(inputs['url'])
         elif step=='restore-scale':ui.scale(inputs['value'])
         elif step=='delete-bookmark':ui.choose_bookmark(inputs['name'],delete=True)
+        elif step=='close-page':ui.input('tablet.home')
         ui.complete();need(row['inputStarted'])
         if self.inputs.state['phase']!='acknowledged':self.inputs.finish()
         row['after']=self.reference(self.capture())

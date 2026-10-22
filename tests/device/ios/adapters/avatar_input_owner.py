@@ -79,6 +79,8 @@ def observed(value, original, acknowledged, pid):
 
 class AvatarInputOwner:
     VERSION_KEY='iosAvatarInputOwnerVersion'
+    WRITER_VERSION=VERSION
+    READ_VERSIONS=(VERSION,)
     STORE_SUFFIX='inputs'
 
     def call_arguments(self,value):return arguments('feature.avatar-people.act',value)
@@ -93,13 +95,14 @@ class AvatarInputOwner:
         self.fixture_url, self.guard, self.pid = fixture_url, guard, int(binding['processIdentity'])
         need(store.path.name == 'ios-avatar-'+role+'-'+self.STORE_SUFFIX+'.json' and store.path.parent == lock.path.parent)
         self.previous = self.state = None
-    def envelope(self, state):
-        return dict({self.VERSION_KEY:VERSION}, binding=self.binding, runId=self.run, role=self.role,
+    def envelope(self, state,version=None):
+        version=self.WRITER_VERSION if version is None else version
+        return dict({self.VERSION_KEY:version}, binding=self.binding, runId=self.run, role=self.role,
                     fixtureUrl=self.fixture_url, payload=pack([state]))
     def decode(self, value):
         exact(value, {self.VERSION_KEY, 'binding', 'runId', 'role', 'fixtureUrl', 'payload'})
         rows = unpack(value['payload']); need(len(rows) == 1 and type(value[self.VERSION_KEY]) is int
-            and value[self.VERSION_KEY] == VERSION and same(value, self.envelope(rows[0])))
+            and value[self.VERSION_KEY] in self.READ_VERSIONS and same(value, self.envelope(rows[0],value[self.VERSION_KEY])))
         state = rows[0]; exact(state, {'phase', 'calls'})
         need(state['phase'] in ('ready', 'acting', 'acknowledged') and type(state['calls']) is list and len(state['calls']) <= 128)
         tickets = set(); last_scope = None

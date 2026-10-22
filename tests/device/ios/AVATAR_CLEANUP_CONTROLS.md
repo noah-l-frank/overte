@@ -9,12 +9,25 @@ controlled peer account, restored URL or scale before ordinary input.
 `AvatarCleanupInputOwner` shares the original `AvatarInputOwner` event grammar,
 native receipts and input validation. The base owner's act namespace and
 serialized version 1 bytes remain unchanged. The cleanup facade uses its own
-`iosAvatarCleanupInputOwnerVersion: 1` key and
-`ios-avatar-{role}-cleanup-inputs.json` file. Its version 1 call descriptor and
+`iosAvatarCleanupInputOwnerVersion: 2` key and
+`ios-avatar-{role}-cleanup-inputs.json` file. Its versioned call descriptor and
 sequential step index allow distinct cleanup steps under the same actual
 cleanup ticket. Closed input authorization is rechecked when reopening saved
 event histories, including exact invitation, selected entity and replacement
 operands.
+
+Writer 2 adds the narrow `close-page` descriptor. It requires the actual
+previously observed Avatar/People page root with no dialog and authorizes only
+one ordinary `tablet.home`. Recovery joins the native ledger's actual page
+root to that original admission, even though the shared Home control itself
+has no page root. A different root cannot settle the original input. This
+step keeps the tablet open: UIKit closure and genuine weak root destruction
+remain separate whole cleanup originals.
+
+The cleanup call, cleanup input owner and cleanup controls write version 2
+and read versions 1 and 2. Genuine version 1 records remain readable without
+rewriting and cannot contain a version 2 close-page call. The active input
+owner continues to write/read version 1.
 
 `IOSAvatarCleanupControls` retains original before/after source references,
 one original 25-second operation clock and every UIKit intent. It uses the

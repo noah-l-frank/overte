@@ -6,8 +6,10 @@ import unittest
 from unittest.mock import patch
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.normal_ui import NativeUIError
+from adapters.normal_ui import Locator
 from ios.adapters.avatar_cleanup_controls import IOSAvatarCleanupControls
 from ios.adapters.avatar_cleanup_inputs import AvatarCleanupInputOwner,call
+from adapters.script_feature.history import pack,unpack
 from ios.self_tests import test_ios_avatar_action_recovery as active_fixture
 
 URL='https://controlled.invalid/restored-original.fst'
@@ -33,6 +35,54 @@ class AvatarCleanupControlsTests(unittest.TestCase):
         self.assertEqual([],self.boundary.owner().inputs.state['calls'])
         self.assertTrue(owner.inputs.store.path.name.endswith('-cleanup-inputs.json'))
         self.assertIn('iosAvatarCleanupInputOwnerVersion',owner.inputs.store.read())
+
+    def close(self,owner):return owner.run(self.query,index=1,step='close-page',inputs=dict(rootId=self.f.fixture.widget.root_id,page='avatar'))
+    def open_page(self):self.f.sdk.click(Locator('accessibility id','OverteTabletOpen'))
+    def test_close_page_uses_exact_admitted_root_and_only_normal_home_then_retains_independent_sources(self):
+        self.setup_case();self.open_page();owner=self.owner();self.assertEqual({'performed':True},self.close(owner))
+        self.assertEqual('home',self.f.fixture.widget.screen);self.assertTrue(self.f.fixture.widget.shown)
+        self.assertEqual(1,len(self.boundary.edits));self.assertEqual('tablet.home',owner.inputs.state['calls'][0]['events'][0]['intent']['controlId'])
+        self.assertEqual(2,owner.state['calls'][0]['query']['avatarCleanupInputCallVersion'])
+        # This component reports a normal input return. Root destruction and
+        # UIKit tablet closure remain separate actual whole cleanup sources.
+        self.assertTrue(owner.original(owner.state['calls'][0]['after'])['ui']['open'])
+    def test_lost_normal_home_return_is_joined_without_a_second_home(self):
+        self.setup_case(1);self.open_page();owner=self.owner()
+        with self.assertRaises(NativeUIError):self.close(owner)
+        self.assertEqual('home',self.f.fixture.widget.screen);self.assertEqual(1,len(self.boundary.edits))
+        restored=self.owner();self.assertEqual({'performed':True},self.close(restored))
+        self.assertEqual(1,len(self.boundary.edits));self.assertEqual(1,len(self.boundary.queries))
+    def test_close_page_refuses_changed_actual_root_or_live_dialog_before_home(self):
+        for fault in ('root','dialog','page'):
+            self.setup_case();self.open_page();owner=self.owner();inputs=dict(rootId=self.f.fixture.widget.root_id,page='avatar')
+            if fault=='root':inputs['rootId']='44444444-4444-4444-8444-444444444444'
+            elif fault=='page':inputs['page']='people'
+            else:self.f.fixture.widget.dialog='settings'
+            with self.subTest(fault=fault),self.assertRaises(NativeUIError):owner.run(self.query,index=1,step='close-page',inputs=inputs)
+            self.assertEqual([],self.boundary.edits)
+    def test_lost_home_from_different_original_native_root_cannot_settle_the_admitted_close(self):
+        self.setup_case(1);self.open_page();owner=self.owner()
+        with self.assertRaises(NativeUIError):self.close(owner)
+        self.boundary.events[0]['details']['root']['rootId']='44444444-4444-4444-8444-444444444444'
+        with self.assertRaises(NativeUIError):self.close(self.owner())
+        self.assertEqual(1,len(self.boundary.edits));self.assertEqual('issued',self.owner().inputs.state['calls'][-1]['events'][-1]['phase'])
+    def test_legacy_cleanup_writer_records_are_read_without_rewriting_and_cannot_carry_new_step(self):
+        self.setup_case();owner=self.owner();envelope=owner.envelope
+        # Explicit old writer configuration emits v1 from its first intent.
+        # No existing v2 original is relabeled or stripped to make this fixture.
+        owner.envelope=lambda state,version=1:envelope(state,version)
+        owner.inputs.WRITER_VERSION=1
+        with patch('ios.adapters.avatar_cleanup_controls.CALL_VERSION',1):self.run_model(owner)
+        original=deepcopy(owner.store.read());inputs=deepcopy(owner.inputs.store.read());commands=deepcopy(self.boundary.edits)
+        self.assertEqual(1,original['iosAvatarCleanupControlsVersion']);self.assertEqual(1,inputs['iosAvatarCleanupInputOwnerVersion'])
+        restored=self.owner();self.assertEqual({'performed':True},self.run_model(restored))
+        self.assertEqual(original,owner.store.read());self.assertEqual(inputs,owner.inputs.store.read());self.assertEqual(commands,self.boundary.edits)
+        bad=deepcopy(restored.state['calls'][0]['query']);bad.update(step='close-page',inputs=dict(rootId=self.f.fixture.widget.root_id,page='avatar'))
+        with self.assertRaises(NativeUIError):call(bad)
+        # New call grammar must also be rejected inside a legacy enclosing owner.
+        wrong=deepcopy(inputs);state=unpack(wrong['payload']);state[0]['calls'][0]['arguments']['avatarCleanupInputCallVersion']=2
+        wrong['payload']=pack(state)
+        with self.assertRaises(NativeUIError):restored.inputs.decode(wrong)
     def test_each_lost_cleanup_URL_return_recovers_original_input_without_repeating_any_command(self):
         for position in range(1,5):
             with self.subTest(position=position):

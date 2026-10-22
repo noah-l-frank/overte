@@ -10,17 +10,21 @@ from ios.adapters.avatar_controls import nonce
 from ios.adapters.avatar_input_owner import AvatarInputOwner
 from ios.adapters.avatar_state import text
 
-VERSION=1
-STEPS={'dismiss-avatar','dismiss-people','connections','remove-connection','remove-wearable','restore-model','restore-scale','delete-bookmark'}
+VERSION=2
+READS=(1,2)
+LEGACY_STEPS={'dismiss-avatar','dismiss-people','connections','remove-connection','remove-wearable','restore-model','restore-scale','delete-bookmark'}
+STEPS=LEGACY_STEPS|{'close-page'}
 
 
 def call(value):
     exact(value,{'avatarCleanupInputCallVersion','contractVersion','runId','fixtureUrl','ticket','index','step','inputs'})
-    need(type(value['avatarCleanupInputCallVersion']) is int and value['avatarCleanupInputCallVersion']==VERSION
-        and integer(value['index'],1,64) and value['step'] in STEPS)
+    version=value['avatarCleanupInputCallVersion']
+    need(type(version) is int and version in READS and integer(value['index'],1,64)
+        and value['step'] in (LEGACY_STEPS if version==1 else STEPS))
     arguments('feature.avatar-people.cleanup',{key:value[key] for key in ('contractVersion','runId')})
     identifier(value['ticket']);resource_root(value['fixtureUrl'],value['runId']);step,inputs=value['step'],value['inputs']
     if step=='connections':exact(inputs,set())
+    elif step=='close-page':exact(inputs,{'rootId','page'});need(nonce(inputs['rootId']) and inputs['page'] in ('avatar','people'))
     elif step=='dismiss-avatar':
         exact(inputs,{'rootId','dialog'});need(nonce(inputs['rootId']) and inputs['dialog'] in ('popup','favorite','settings','wearables'))
     elif step=='dismiss-people':
@@ -38,6 +42,8 @@ def call(value):
 class AvatarCleanupInputOwner(AvatarInputOwner):
     VERSION_KEY='iosAvatarCleanupInputOwnerVersion'
     STORE_SUFFIX='cleanup-inputs'
+    WRITER_VERSION=VERSION
+    READ_VERSIONS=READS
 
     def call_arguments(self,value):return call(value)
     def call_key(self,value):return value['ticket'],value['index']
@@ -45,6 +51,9 @@ class AvatarCleanupInputOwner(AvatarInputOwner):
     def authorize(self,original):
         current=self.state['calls'][-1]['arguments'];call(current)
         step,inputs,control=current['step'],current['inputs'],original['controlId'];reference=original['reference']
+        if step=='close-page':
+            page=next((row for row in reference['controls'] if row['id']==inputs['page']+'.page'),None)
+            need(control=='tablet.home' and page is not None and page['rootId']==inputs['rootId'] and page['dialog']=='none');return
         # Navigation remains normal original UI input. It cannot grant a
         # different product operation or remove an unowned row.
         navigation={'tablet.home','avatar.entry','people.entry'}
@@ -98,6 +107,7 @@ class AvatarCleanupInputOwner(AvatarInputOwner):
         try:
             self.state={'calls':[]}
             for index,item in enumerate(state['calls'],1):
+                need(item['arguments']['avatarCleanupInputCallVersion']<=value[self.VERSION_KEY])
                 need(item['arguments']['index']==index and item['arguments']['ticket']==state['calls'][0]['arguments']['ticket'])
                 self.state['calls'].append(item)
                 for event in item['events']:self.authorize(event['intent'])
