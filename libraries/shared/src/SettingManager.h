@@ -133,6 +133,9 @@ namespace Setting {
 #if defined(OVERTE_E2E_FEATURE_TESTS)
         // Cleanup-only atomic CAS for the controlled empty Chat profile.
         bool featureRestoreEmptyChat(const QVariantMap& expected,const QVariantMap& original);
+        // Snapshot-only native cleanup, with the original typed key presence.
+        QVariantMap featureSnapshotEntries() const;
+        bool featureRestoreSnapshotEntries(const QVariantMap& expected,const QVariantMap& original);
 #endif
 
         /**

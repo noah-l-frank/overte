@@ -33,7 +33,7 @@ class QFile;
 class QTemporaryFile;
 class SnapshotUploader;
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PHONE_INTERFACE)
-namespace overte::e2e { class PhoneSnapshotHistory; class PhoneSnapshotScriptHistory; }
+namespace overte::e2e { class PhoneSnapshotHistory; class PhoneSnapshotScriptHistory; class PhoneSnapshotSettingsLease; }
 #endif
 
 class SnapshotMetaData {
@@ -83,6 +83,7 @@ public:
     void captureStatus(const SnapshotCapture&, const QString& phase, const QString& path = {}, const QString& error = {});
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PHONE_INTERFACE)
     QVariantMap featureSnapshotObservation();
+    QVariantMap featureSnapshotSettings(const QVariantMap& command,bool closed);
     Q_INVOKABLE void featureCaptureEvent(const QString& kind,const QString& id,const QString& mode,int revision);
 #endif
 
@@ -262,6 +263,7 @@ private:
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PHONE_INTERFACE)
     std::shared_ptr<overte::e2e::PhoneSnapshotHistory> _featureSnapshotHistory;
     std::shared_ptr<overte::e2e::PhoneSnapshotScriptHistory> _featureSnapshotScriptHistory;
+    QHash<QString,std::shared_ptr<overte::e2e::PhoneSnapshotSettingsLease>> _featureSnapshotSettingsScopes;
 #endif
 };
 

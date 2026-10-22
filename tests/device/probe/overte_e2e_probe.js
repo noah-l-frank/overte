@@ -432,6 +432,7 @@
     var lastPhoneSnapshotReadbackRequest = "";
     var lastPhoneSnapshotCaptureFilesRequest = "";
     var lastPhoneSnapshotCancelRequest = "";
+    var lastPhoneSnapshotSettingsRequest = "";
     var lastPhoneCreateFilesRequest = "";
     var lastAvatarRenderRequest = "";
     var lastWorldModelDrawsRequest = "";
@@ -1333,6 +1334,25 @@
     }
 
     function applyClientCommand(command) {
+        if (command && command.schemaVersion === 1 && command.action === "phone-snapshot-settings"
+                && /^[0-9a-f]{32}$/.test(String(command.commandId)) && /^[0-9a-f]{32}$/.test(String(command.runId))
+                && ((["capture","observe","retire"].indexOf(command.operation) !== -1
+                    && objectKeysMatch(command,["schemaVersion","commandId","action","runId","operation"]))
+                    || (command.operation === "restore" && /^[0-9a-f]{32}$/.test(String(command.restoreId))
+                        && /^[0-9a-f]{64}$/.test(String(command.expectedSha256))
+                        && objectKeysMatch(command,["schemaVersion","commandId","action","runId","operation","restoreId","expectedSha256"])))) {
+            if (command.commandId === lastPhoneSnapshotSettingsRequest) { return; }
+            lastPhoneSnapshotSettingsRequest=command.commandId;
+            var settingsOriginal={available:false,commandId:command.commandId};
+            try {
+                if (typeof Test.phoneSnapshotSettings === "function") {
+                    var settingsActual=Test.phoneSnapshotSettings(command);
+                    if (settingsActual && settingsActual.commandId === command.commandId) { settingsOriginal=settingsActual; }
+                }
+            } catch (_phoneSnapshotSettingsError) { /* Private typed originals remain under native ownership. */ }
+            Test.saveObject(settingsOriginal,"phone-snapshot-settings.json");
+            return;
+        }
         if (command && command.schemaVersion === 1 && command.action === "phone-snapshot-cancel"
                 && /^[0-9a-f]{32}$/.test(String(command.commandId)) && /^[0-9a-f]{32}$/.test(String(command.runId))
                 && /^[0-9a-f]{32}$/.test(String(command.jobId))
@@ -2599,7 +2619,7 @@
                 || command.action === "feature-world-render-observe" || command.action === "feature-world-render-storage"
                 || command.action === "feature-world-render-receipt"
                 || command.action === "feature-world-render-receipts"
-                || command.action === "feature-graphics-subject-observe" || command.action === "phone-create-observe" || command.action === "phone-assets-observe" || command.action === "phone-assets-download" || command.action === "phone-assets-resolve" || command.action === "phone-snapshot-observe" || command.action === "phone-snapshot-readback" || command.action === "phone-snapshot-upload-observe" || command.action === "phone-snapshot-files-observe" || command.action === "phone-snapshot-files-control" || command.action === "phone-snapshot-cancel"
+                || command.action === "feature-graphics-subject-observe" || command.action === "phone-create-observe" || command.action === "phone-assets-observe" || command.action === "phone-assets-download" || command.action === "phone-assets-resolve" || command.action === "phone-snapshot-observe" || command.action === "phone-snapshot-readback" || command.action === "phone-snapshot-upload-observe" || command.action === "phone-snapshot-files-observe" || command.action === "phone-snapshot-files-control" || command.action === "phone-snapshot-cancel" || command.action === "phone-snapshot-settings"
                 || command.action === "phone-avatar-configuration-observe" || command.action === "phone-touch-state-observe"
                 || command.action === "phone-emote-fixture-observe" || command.action === "phone-emote-fixture-input"
                 || command.action === "phone-create-fixture-observe" || command.action === "phone-create-fixture-input"

@@ -446,3 +446,37 @@ require the independently retained normal fast-cancel recipe, and a native
 complete path still needs original file identity, encoded bytes and pixels.
 The reducer never converts an acknowledged input or an empty result into a
 file, cancellation or completed capture verdict.
+
+
+The separate native Snapshot settings lease v1 captures only the original fixed
+13 Snapshot keys plus the actual native `Setting::Handle<QString>` format cache.
+Capture, restore and retirement require actual review absence, no native capture
+or upload and no pending/processing original script context. Commands cannot
+provide settings, desired values, paths, or a claimed UI-closed state. A restore
+names a durable operation ID and the SHA-256 of a freshly observed original
+typed Qt serialization. The native owner retains the original typed values and
+presence. It performs an atomic compare/restore of only those keys, restores the
+real native Handle through its normal set/remove path, then restores exact raw
+presence/type after any legitimate Handle normalization. Both independent
+readbacks must match the original; a raw-only restore cannot pass. No production
+Handle or general script settings API changes.
+
+Interrupted restoration retains its immutable operation ID, expected digest and
+native basis. Resume accepts only the original, basis or precisely known partial
+cache/raw transition; changed foreign values or a replacement operation stay red.
+The native handback timestamp is measured after the successful original reread,
+retirement cannot revive a scope, and another scope cannot replace a live owner.
+Private typed originals remain private. The host reader checks original PID,
+nonce, monotonic sequence, original digest, typed serialized bytes, closure and
+actual handback continuity. Read-only actors may observe only. Freshness remains
+1.5 seconds and transport polling remains bounded at five seconds.
+
+The dedicated host compiler check compiles actual SettingManager.cpp plus MOC,
+the unchanged Handle template and Setting::Interface member bodies, and the
+unchanged Snapshot cleanup and Test gateway bodies. Dependency/bootstrap and the
+surrounding GUI/VM are explicit host seams; only unused GLM declarations are
+replaced for this partial host build. Actual Qt raw/cache restoration, original
+presence/type, ignored-cache counterexample, foreign-key refusal and interrupted
+CAS recovery pass. This does not compile the complete Android product or prove
+native GUI closure/device behavior. No public Snapshot capability follows from
+this prerequisite alone.

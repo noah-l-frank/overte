@@ -58,6 +58,8 @@
 #include "../../../tests/device/native/PhoneSnapshotHistory.h"
 #include "../../../tests/device/native/PhoneSnapshotCaptureFiles.h"
 #include "../../../tests/device/native/PhoneSnapshotScriptHistory.h"
+#include "../../../tests/device/native/PhoneSnapshotSettingsLease.h"
+#include <SettingManager.h>
 #include <ScriptManager.h>
 #endif
 
@@ -143,6 +145,38 @@ SnapshotCapture Snapshot::beginCapture(const QString& requestId) {
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PHONE_INTERFACE)
 void Snapshot::featureCaptureEvent(const QString& kind,const QString& id,const QString& mode,int revision) {
     _featureSnapshotScriptHistory->record(kind,id,mode,revision,ScriptManager::featureNativeCallContext());
+}
+
+QVariantMap Snapshot::featureSnapshotSettings(const QVariantMap& command,bool closed) {
+    using Lease=overte::e2e::PhoneSnapshotSettingsLease;
+    if (QThread::currentThread()!=thread() || !QCoreApplication::arguments().contains("--testScript")
+            || !DependencyManager::isSet<Setting::Manager>()) { return {}; }
+    if (!Lease::validCommand(command)) { return {}; }
+    const auto json=QJsonObject::fromVariantMap(command);const auto run=json.value("runId").toString();
+    auto owner=_featureSnapshotSettingsScopes.value(run);
+    if (!owner) {
+        if (json.value("operation")!=QJsonValue("capture") || !closed || _featureSnapshotSettingsScopes.size()>=32) { return {}; }
+        for (const auto& other:_featureSnapshotSettingsScopes) { if (!other || !other->retired()) { return {}; } }
+        owner=std::make_shared<Lease>();_featureSnapshotSettingsScopes.insert(run,owner);
+    }
+    const auto manager=DependencyManager::get<Setting::Manager>();
+    const auto read=[&]() -> QVariantMap {
+        // Read the real typed Handle first, including its original unset state.
+        // Its ordinary lazy initialization precedes the captured raw map.
+        const bool set=_snapshotFormat.isSet();const auto value=_snapshotFormat.get();
+        return {{"format",QVariantMap{{"set",set},{"value",value}}},{"entries",manager->featureSnapshotEntries()}};
+    };
+    const auto entries=[&](const QVariantMap& expected,const QVariantMap& original) {
+        return manager->featureRestoreSnapshotEntries(expected,original);
+    };
+    const auto format=[&](const QVariantMap& original) {
+        if (original.value("set").toBool()) { _snapshotFormat.set(original.value("value").toString()); }
+        else { _snapshotFormat.remove(); }
+        return _snapshotFormat.isSet()==original.value("set").toBool() && _snapshotFormat.get()==original.value("value").toString();
+    };
+    return owner->request(command,closed,read,[&](const QVariantMap& expected,const QVariantMap& original) {
+        return overte::e2e::restoreSnapshotSettings(expected,original,read,entries,format);
+    });
 }
 
 QVariantMap Snapshot::featureSnapshotObservation() {

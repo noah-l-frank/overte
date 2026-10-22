@@ -193,6 +193,7 @@ public slots:
     Q_INVOKABLE QVariantMap phoneSnapshotCaptureFiles(const QVariantMap& command);
     Q_INVOKABLE QVariantMap phoneSnapshotReadback(const QVariantMap& command);
     Q_INVOKABLE QVariantMap phoneSnapshotCancel(const QVariantMap& command);
+    Q_INVOKABLE QVariantMap phoneSnapshotSettings(const QVariantMap& command);
     Q_INVOKABLE QVariantMap phoneCreateFiles(const QVariantMap& command);
     Q_INVOKABLE QVariantMap phoneNavigationMarkerInput(const QVariantMap& command);
     Q_INVOKABLE QVariantMap phoneNavigationMarkerObservation(const QVariantMap& command);

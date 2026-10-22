@@ -141,7 +141,8 @@ class SnapshotScriptNativeTests(unittest.TestCase):
         manager=(ROOT/'libraries/script-engine/src/ScriptManager.cpp').read_text()
         actual_scope=manager[manager.index('thread_local QVariantMap ScriptManager::_featureNativeCallContext;'):manager.index('void ScriptManager::featureCallbackBoundary(')]
         snapshot=(ROOT/'interface/src/ui/Snapshot.cpp').read_text()
-        actual_bridge=snapshot[snapshot.index('void Snapshot::featureCaptureEvent('):snapshot.index('QVariantMap Snapshot::featureSnapshotObservation()')]
+        start=snapshot.index('void Snapshot::featureCaptureEvent(')
+        actual_bridge=snapshot[start:snapshot.index('\n}',start)+2]
         source=stage/'original.cpp';source.write_text(PREFIX+actual_scope+actual_bridge+SUFFIX)
         flags=shlex.split(subprocess.check_output(['pkg-config','--cflags','--libs','Qt6Core'],text=True))
         subprocess.run(['c++','-std=c++17','-fPIC','-DOVERTE_E2E_FEATURE_TESTS','-DANDROID_APP_PHONE_INTERFACE',

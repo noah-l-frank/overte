@@ -228,6 +228,24 @@ namespace Setting {
 
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #include "../../../tests/device/native/ChatEmptyHistoryLease.h"
+#include "../../../tests/device/native/PhoneSnapshotSettingsKeys.h"
+QVariantMap Setting::Manager::featureSnapshotEntries() const {
+    if (!QCoreApplication::arguments().contains("--testScript")) { return {}; }
+    return resultWithReadLock<QVariantMap>([&] {
+        QVariantMap entries;
+        for (const auto& key:overte::e2e::snapshotSettingsKeys()) {
+            entries[key]=QVariantMap{{"present",_settings.contains(key)},{"value",_settings.value(key)}};
+        }
+        return entries;
+    });
+}
+
+bool Setting::Manager::featureRestoreSnapshotEntries(const QVariantMap& expected,const QVariantMap& original) {
+    const auto keys=overte::e2e::snapshotSettingsKeys();
+    if (expected.keys()!=keys || original.keys()!=keys) { return false; }
+    return featureCompareRestoreEntries(expected,original);
+}
+
 bool Setting::Manager::featureRestoreEmptyChat(const QVariantMap& expected,const QVariantMap& original) {
     using overte::e2e::ChatEmptyHistoryLease;
     const QStringList keys{"config","configPresent","history","historyPresent"};

@@ -146,6 +146,10 @@ def readonly_feature_command(command):
         from overte_phone_snapshot_cancel import command as validate_snapshot_cancel
         validate_snapshot_cancel(command)
         require(command['operation']=='observe','PHONE_READ_ONLY_COMMAND_REJECTED')
+    elif action=='phone-snapshot-settings':
+        from overte_phone_snapshot_settings import command as validate_snapshot_settings
+        validate_snapshot_settings(command)
+        require(command['operation']=='observe','PHONE_READ_ONLY_COMMAND_REJECTED')
     elif action=='phone-navigation-view-observe':
         from overte_phone_navigation_native import command as validate_navigation
         validate_navigation(command)
@@ -1468,6 +1472,15 @@ class PhoneAppiumAdapter(AppiumAdapter):
         return PhoneSnapshotCancel(native.send,
             lambda:transport.read_debug_app_file(device,target['appId'],'files/overte-e2e/'+FILE,attempts=1),
             native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep)
+
+    def _snapshot_settings(self,selector,*,read_only=True):
+        from overte_phone_snapshot_settings import PhoneSnapshotSettings,FILE
+        native=self._native_feature_observer(selector,read_only=read_only)
+        target=self.target(selector);device=target['capabilities']['appium:udid']
+        transport=PhoneAdapter(self.candidate).adb
+        return PhoneSnapshotSettings(native.send,
+            lambda:transport.read_debug_app_file(device,target['appId'],'files/overte-e2e/'+FILE,attempts=1),
+            native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep,read_only=read_only)
 
     def _snapshot_consumer(self,selector,run,arm,receiver_apk_sha256,*,read_only=True,binding=None):
         from overte_phone_snapshot_consumer import PhoneSnapshotConsumer,SnapshotConsumerTransport

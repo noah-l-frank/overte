@@ -1313,6 +1313,37 @@ QVariantMap TestScriptingInterface::phoneSnapshotCaptureFiles(const QVariantMap&
     return overte::e2e::phoneSnapshotCaptureFileObservation(command,_featureObservationInstance,_phoneSnapshotCaptureFilesSequence);
 }
 
+QVariantMap TestScriptingInterface::phoneSnapshotSettings(const QVariantMap& command) {
+    if (QThread::currentThread()!=thread()) {
+        QVariantMap result;
+        if (!QMetaObject::invokeMethod(this,[&] { result=phoneSnapshotSettings(command); },Qt::BlockingQueuedConnection)) { return {}; }
+        return result;
+    }
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript") || !DependencyManager::isSet<Snapshot>()
+            || !DependencyManager::isSet<OffscreenUi>()) { return {}; }
+    // Closure is measured from the original native review and producer history;
+    // the host command has no closed/desired-state field.
+    const auto review=overte::e2e::phoneSnapshotReviewObservation(DependencyManager::get<OffscreenUi>()->getRootItem());
+    if (review.isEmpty()) { return {}; }
+    const auto snapshot=DependencyManager::get<Snapshot>();QVariantMap result;
+    const auto read=[&] {
+        const auto source=snapshot->featureSnapshotObservation();
+        if (source.isEmpty() || !source.value("scriptHistory").toMap().value("complete").toBool()) { return; }
+        QMap<QString,QString> phases;
+        for (const auto& raw:source.value("scriptHistory").toMap().value("events").toList()) {
+            const auto event=raw.toMap();phases.insert(event.value("id").toString(),event.value("kind").toString());
+        }
+        bool closed=!review.value("present").toBool() && source.value("captures").toList().isEmpty()
+            && source.value("uploads").toStringList().isEmpty();
+        for (const auto& phase:phases) { if (phase=="pending" || phase=="processing") { closed=false; } }
+        result=snapshot->featureSnapshotSettings(command,closed);
+    };
+    if (QThread::currentThread()==snapshot->thread()) { read(); }
+    else if (!QMetaObject::invokeMethod(snapshot.data(),read,Qt::BlockingQueuedConnection)) { return {}; }
+    return result;
+}
+
 QVariantMap TestScriptingInterface::phoneSnapshotReadback(const QVariantMap& command) {
     if (QThread::currentThread()!=thread()) {
         QVariantMap result;
@@ -2202,7 +2233,7 @@ void TestScriptingInterface::saveObject(QVariant variant, const QString& filenam
     QString filepath = QDir::cleanPath(_testResultsLocation + filename);
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     if (filename == "feature-chat-observation.json" || filename == "feature-native-observation.json" || filename == "normal-feature-observation.json"
-            || filename == "feature-chat-history.json" || filename == "feature-chat-view-observation.json" || filename == "feature-web-dom-observation.json"
+            || filename == "phone-snapshot-settings.json" || filename == "feature-chat-history.json" || filename == "feature-chat-view-observation.json" || filename == "feature-web-dom-observation.json"
             || filename == "feature-phone-web-runtime.json"
             || filename == "feature-pending-commit-owner.json" || filename == "feature-navigation-replies.json"
             || filename == "feature-process-presence.json"
