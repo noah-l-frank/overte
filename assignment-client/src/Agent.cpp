@@ -382,16 +382,22 @@ void Agent::executeScript() {
     {
         _scriptManager = scriptManagerFactory(ScriptManager::AGENT_SCRIPT, _scriptContents, _payload);
 
+        // setup an Avatar for the script to use
+        auto scriptedAvatar = DependencyManager::get<ScriptableAvatar>();
+        scriptedAvatar->setID(getSessionUUID());
+
 #if defined(OVERTE_E2E_FEATURE_TESTS)
         // Actual downloaded assignment source, never an expected source digest
         // supplied in a query. The native IPC path is an explicit actor opt-in.
         const auto actualScriptSha=QString::fromLatin1(QCryptographicHash::hash(_scriptContents.toUtf8(),QCryptographicHash::Sha256).toHex());
-        DependencyManager::get<MessagesClient>()->configureFeatureChatActor(actualScriptSha);
+        DependencyManager::get<MessagesClient>()->configureFeatureChatActor(actualScriptSha,
+            [scriptedAvatar] {
+                const auto actual=scriptedAvatar->getWorldPosition();
+                return QVariantMap{{"x",static_cast<double>(actual.x)},{"y",static_cast<double>(actual.y)},{"z",static_cast<double>(actual.z)}};
+            },[scriptedAvatar](const QVariantMap& actual) {
+                scriptedAvatar->setPositionViaScript(glm::vec3(actual.value("x").toDouble(),actual.value("y").toDouble(),actual.value("z").toDouble()));
+            });
 #endif
-
-        // setup an Avatar for the script to use
-        auto scriptedAvatar = DependencyManager::get<ScriptableAvatar>();
-        scriptedAvatar->setID(getSessionUUID());
 
         // call model URL setters with empty URLs so our avatar, if user, will have the default models
         scriptedAvatar->setSkeletonModelURL(QUrl());

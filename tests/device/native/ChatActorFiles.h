@@ -25,7 +25,7 @@
 
 namespace overte::e2e {
 // Dedicated owned Assignment Client IPC. This source accepts only native
-// read/inspect/retire queries, never messages, subscriptions or desired results.
+// receive queries and closed dedicated-peer stimuli; never desired results.
 class ChatActorFiles {
 public:
     ChatActorFiles(const QString& directory,const QString& scriptSha,const QString& instance) : _path(directory) {
@@ -74,10 +74,12 @@ public:
         const auto keys=request.keys();
         if (error.error!=QJsonParseError::NoError || !document.isObject() || raw!=document.toJson(QJsonDocument::Compact)+'\n'
                 || QSet<QString>(keys.begin(),keys.end())!=QSet<QString>{"schemaVersion","commandId","action","operation","runId"}
-                || request.value("schemaVersion")!=QJsonValue(1) || request.value("action")!=QJsonValue("feature-chat-observe")
+                || request.value("schemaVersion")!=QJsonValue(1) || (request.value("action")!=QJsonValue("feature-chat-observe") && request.value("action")!=QJsonValue("feature-chat-peer"))
                 || !QRegularExpression("\\A[0-9a-f]{32}\\z").match(request.value("commandId").toString()).hasMatch()
                 || !QRegularExpression("\\A[0-9a-f]{32}\\z").match(request.value("runId").toString()).hasMatch()
-                || (request.value("operation")!=QJsonValue("inspect") && request.value("operation")!=QJsonValue("observe") && request.value("operation")!=QJsonValue("retire"))) { return; }
+                || (request.value("action")==QJsonValue("feature-chat-observe")
+                    ? !QSet<QString>{"inspect","observe","retire"}.contains(request.value("operation").toString())
+                    : !QSet<QString>{"inspect","lease","send-domain-reply","send-domain-hidden","send-local-reply","send-local-distant","restore"}.contains(request.value("operation").toString()))) { return; }
         const auto id=request.value("commandId").toString();
         if (id==_lastCommand) { return; }
         _lastCommand=id; // Never replay an uncertain cache-creation/retire query.

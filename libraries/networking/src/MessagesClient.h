@@ -25,6 +25,7 @@
 #include "ReceivedMessage.h"
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #include "../../../tests/device/native/ChatObservation.h"
+#include "../../../tests/device/native/ChatPeerControl.h"
 #include <memory>
 namespace overte::e2e { class ChatActorFiles; }
 #endif
@@ -59,7 +60,8 @@ public:
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     // Test-only metadata read/cache retirement; never sends a message.
     Q_INVOKABLE QVariantMap featureChatObservation(const QVariantMap& command);
-    bool configureFeatureChatActor(const QString& actualScriptSha256);
+    bool configureFeatureChatActor(const QString& actualScriptSha256, overte::e2e::ChatPeerControl::Read read, overte::e2e::ChatPeerControl::Write write);
+    Q_INVOKABLE bool featureChatActorLeased() const { return _featureChatPeer.leased(); }
 #endif
 
     /*@jsdoc
@@ -216,6 +218,7 @@ protected:
     QSet<QString> _subscribedChannels;
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     overte::e2e::ChatObservation _featureChat;
+    overte::e2e::ChatPeerControl _featureChatPeer;
     std::shared_ptr<overte::e2e::ChatActorFiles> _featureChatActorFiles;
 #endif
 };

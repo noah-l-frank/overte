@@ -1,6 +1,7 @@
 """Private actor-host IPC for original Assignment Client Chat observations.
 
-This transport never launches a process, supplies messages or reports delivery.
+This transport never launches a process or reports delivery. Dedicated peer
+stimuli are closed operations; they cannot provide sender, text or coordinates.
 The caller owns executable/PID/start qualification and the independent receiver.
 """
 # Copyright 2026 Overte contributors.
@@ -15,7 +16,16 @@ import stat
 import time
 import uuid
 
-from adapters.native_chat_observation import command, validate
+from adapters.native_chat_observation import command as receive_command, validate as receive_validate
+from adapters.native_chat_peer import command as peer_command, validate as peer_validate
+
+
+def command(value):
+    return peer_command(value) if type(value) is dict and value.get('action')=='feature-chat-peer' else receive_command(value)
+
+
+def validate(value,request,pid,epoch):
+    return peer_validate(value,request,pid,epoch) if request['action']=='feature-chat-peer' else receive_validate(value,request,pid,epoch)
 from adapters.native_feature_observation import decode, exact, integer, need, number
 from adapters.normal_feature_state import context
 from adapters.normal_ui import NativeUIError
@@ -198,7 +208,7 @@ class ChatActorFiles:
         need(frame['instance']==self.source['instance'] and frame['capturedEpochMs']>=self.source['configuredEpochMs']
              and self.released(node(info)) is False)
         result=dict(stamp=stamp(info),sha256=hashlib.sha256(raw).hexdigest(),commandId=frame['commandId'],
-                    retired=frame['source']['retired'] and not frame['source']['scopePresent'] and frame['source']['events']==[])
+                    retired=previous['request']['action']=='feature-chat-observe' and frame['source']['retired'] and not frame['source']['scopePresent'] and frame['source']['events']==[])
         if previous['result']!=result:self.store.write({**previous,'result':result},previous)
         return encode(frame).decode('utf-8')
 

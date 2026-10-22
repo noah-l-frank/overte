@@ -46,26 +46,32 @@ MessagesClient::MessagesClient() {
 }
 
 #if defined(OVERTE_E2E_FEATURE_TESTS)
-bool MessagesClient::configureFeatureChatActor(const QString& actualScriptSha256) {
+bool MessagesClient::configureFeatureChatActor(const QString& actualScriptSha256, overte::e2e::ChatPeerControl::Read read, overte::e2e::ChatPeerControl::Write write) {
     if (!QCoreApplication::arguments().contains("--testScript")) { return false; }
     if (QThread::currentThread()!=thread()) {
         if (!thread() || !thread()->isRunning()) { return false; }
         bool configured{false};
-        if (!QMetaObject::invokeMethod(this,[&] { configured=configureFeatureChatActor(actualScriptSha256); },Qt::BlockingQueuedConnection)) { return false; }
+        if (!QMetaObject::invokeMethod(this,[&] { configured=configureFeatureChatActor(actualScriptSha256,read,write); },Qt::BlockingQueuedConnection)) { return false; }
         return configured;
     }
     if (_featureChatActorFiles || _subscribedChannels.contains("chat")) { return false; }
     const auto arguments=QCoreApplication::arguments();const auto index=arguments.indexOf("--e2eChatActorDir");
     if (index<0 || index+1>=arguments.size()) { return false; }
     auto files=std::make_shared<overte::e2e::ChatActorFiles>(arguments.at(index+1),actualScriptSha256,_featureChat.instance());
-    if (!files->available()) { return false; }
+    if (!files->available() || !_featureChatPeer.configure(read,write,[this](const QString& payload) { sendMessage("chat",payload,false); })) { return false; }
     _featureChatActorFiles=files;
     // This is an explicitly owned secondary fixture client, never a primary
     // user input route. Refuse any pre-existing channel before owning it.
     subscribe("chat");
     auto timer=new QTimer(this);timer->setInterval(50);
     connect(timer,&QTimer::timeout,this,[this,files,timer] {
-        files->tick([this](const QVariantMap& request) { return featureChatObservation(request); });
+        files->tick([this](const QVariantMap& request) {
+            if (request.value("action")=="feature-chat-peer") {
+                const auto nodes=DependencyManager::get<NodeList>();const auto mixer=nodes->soloNodeOfType(NodeType::MessagesMixer);
+                return _featureChatPeer.request(request,_featureChat.instance(),nodes->getSessionUUID(),mixer?mixer->getUUID():QUuid());
+            }
+            return featureChatObservation(request);
+        });
         if (!files->available()) { timer->stop();unsubscribe("chat"); }
     });
     timer->start();return true;

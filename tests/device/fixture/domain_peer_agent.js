@@ -11,6 +11,12 @@
     Avatar.position = origin;
 
     function update(deltaTime) {
+        // Default-off native lease exists only on the explicitly owned Chat
+        // fixture actor. Keep both original trajectory phase and pose until its
+        // measured handback; normal domains and product scripts are unchanged.
+        if (typeof Messages.featureChatActorLeased === "function" && Messages.featureChatActorLeased()) {
+            return;
+        }
         updates += 1;
         elapsed += Number(deltaTime);
         Avatar.position = {

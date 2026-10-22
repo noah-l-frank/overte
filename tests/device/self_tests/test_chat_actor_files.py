@@ -72,6 +72,14 @@ class ActorFileTests(unittest.TestCase):
         return NativeChatObservation(self.transport.send,read,lambda:20000,lambda:self.alive,123,
             monotonic=lambda:self.clock,sleep=self.sleep)
 
+    def test_closed_peer_command_cannot_adopt_a_receive_ack_or_expected_result(self):
+        request=dict(schemaVersion=1,commandId='e'*32,action='feature-chat-peer',operation='inspect',runId=RUN)
+        self.transport.send(request);self.actor.tick()
+        with self.assertRaises(NativeUIError):self.transport.read()
+        self.assertEqual(request,self.store.read()['request']);self.assertIsNone(self.store.read()['result'])
+        with self.assertRaises(NativeUIError):self.transport.close()
+        self.assertTrue((self.root/RESULT).exists());self.assertIsNotNone(self.store.read())
+
     def test_original_reader_receives_native_events_and_retirement_closes_actual_unlinked_fd(self):
         reader=self.reader();self.assertFalse(reader.perform(RUN,'inspect')['source']['scopePresent'])
         reader.perform(RUN,'observe');self.actor.native.event()

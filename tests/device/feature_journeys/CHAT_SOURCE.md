@@ -129,3 +129,38 @@ empty in this harness, deliberately proving that an input signal does not
 create delivery evidence. This is a desktop host seam, not an Android product
 build, MessagesMixer roundtrip or device/rendering acceptance. The public Chat
 owner and common journey remain incomplete at this source packet.
+
+
+## Dedicated native peer input source (2026-10-22)
+
+The existing owned Assignment Client file channel now accepts a second closed
+command kind, `feature-chat-peer`. It permits only Inspect, Lease, four fixed
+run-scoped peer sends, and Restore. Requests cannot supply message text,
+identity, coordinates or delivery results. Its native output is a distinct
+`chatPeerVersion: 1` pose/input source; the original `chatVersion: 1` receive
+ledger remains separate. The host rejects an ordinary receive reply where a
+peer source is required, and retains ownership on this failure.
+
+Only the explicitly opted-in fixture actor configures this source. Agent binds
+its actual downloaded script digest and actual ScriptableAvatar position
+read/write callbacks. The existing deterministic fixture update pauses its own
+trajectory while the native lease is present, including its phase counter.
+After actual pose stability the native helper captures the original position.
+Peer messages go through ordinary `MessagesClient.sendMessage`; the payload
+contains the position read back from the actual avatar after any controlled
+move. Distant Local moves the owned peer 128 metres on X; the complete adapter
+must still independently measure its distance from the actual primary. Each
+fixed send operation is consumed at most once, before any mutation. Lost
+results cannot authorize replay. A foreign pose blocks further sends and
+restoration. Restore reads the actual handback before releasing the lease and
+retains that immutable event as the original trajectory resumes.
+
+`phone-chat-peer-native-test.py` builds and executes the actual Qt6 peer,
+receive-cache and file-channel helpers against explicit synthetic pose/network
+producers. It verifies stable-pose admission, actual payload pose, no receipt
+from Send alone, separate receipt production, duplicate-send refusal, original
+handback, resumed motion, replaced-pose refusal and actual native IPC output.
+This does not compile Agent.cpp or MessagesClient.cpp, run an Assignment Client,
+prove mixer delivery, or exercise an Android device. Eleven host peer-source
+counterexamples, sixteen private file-channel tests and ten independent receiver
+tests pass. The public owner/common journey is still pending in this packet.
