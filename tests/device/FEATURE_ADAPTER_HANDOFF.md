@@ -880,9 +880,11 @@ dedicated mutex-protected snapshots from their original producer boundaries.
 Its complete public composition now passes all 21 unchanged common v17 steps, independent actor publication, original host/native resource retention and verified retirement. The default-off triple and mandatory foundations are source implemented. Parent integration additionally passes 186 selected registration, source and common tests. [Snapshots](adapters/android-phone/SNAPSHOT_FEATURE.md)
 has a versioned original capture/upload, native-review and Android export
 callback source, alongside the
-existing five-mode output foundation. Original saved-URI stream consumption
-and bounded private host transfer now exist; OS destination cleanup, external
-receiver/upload evidence and the extended public owner are still missing. [Emotes](adapters/android-phone/EMOTE_FEATURE.md) now passes both the complete
+existing five-mode output foundation. Original saved-URI stream consumption,
+bounded private host transfer, OS destination cleanup, external receiver/upload
+evidence and the guarded public owner are now integrated. Complete common
+MediaStore and SDK26–28 replay qualification remains pending as described in the
+current integration section below. [Emotes](adapters/android-phone/EMOTE_FEATURE.md) now passes both the complete
 unchanged common host Journey and the separate target-selected Sit/idle Stop
 case, including final fixture/actor/private-original retirement. The slow full
 host replay is registered as an explicit extended Phone-runner check; targeted
