@@ -8,6 +8,7 @@ whether native bridge authority was enforced. Product sources remain mandatory.
 from copy import deepcopy
 import base64
 import hashlib
+import json
 from pathlib import Path
 import secrets
 import threading
@@ -16,7 +17,7 @@ from .contract import exact, identifier
 from .fixtures import pinned_resource
 
 ROOT = Path(__file__).resolve().parents[1] / 'fixture/parity'
-ASSETS = {'reference.js', 'client.js', 'injected.js', 'feature-marker.js'}
+ASSETS = {'reference.js', 'client.js', 'injected.js', 'feature-marker.js','inline-input.json'}
 PAGES = {'index.html', 'reference.html', 'page-b.html', 'recovery.html'}
 
 
@@ -41,6 +42,7 @@ def inline_source(run,ticket,fixture_url):
     # The only inline image checkpoint is initial open. Later text/bridge/retire
     # checkpoints use independent sources, not a stale image challenge relabel.
     marker=base64.b64encode(marker_bytes(run,ticket)).decode('ascii')
+    page=page.replace('</head>','<style>body{padding-top:25vw}#feature-marker{position:fixed;left:0;top:0;width:100vw;height:25vw;image-rendering:pixelated;z-index:2147483646;pointer-events:none}</style></head>')
     page=page.replace('<body>','<body><img id="feature-marker" alt="Owned challenge" src="data:image/png;base64,'+marker+'">')
     return page.encode('utf-8')
 
@@ -54,11 +56,12 @@ class BrowserResources:
         if not callable(clock_ms): raise ValueError('Browser fixture clock is required')
         self.clock_ms, self.lock, self.runs = clock_ms, threading.RLock(), {}
 
-    def open(self, run):
+    def open(self, run, *, area="world-web"):
         identifier(run)
+        if area not in ('world-web','tablet-web'):raise ValueError('Unknown browser fixture area')
         with self.lock:
             if run in self.runs or len(self.runs) >= 32: raise ValueError('Browser fixture ownership already exists or is full')
-            self.runs[run] = dict(instance=secrets.token_hex(16), ready=False, sequence=0, epoch=0, responses=[])
+            self.runs[run] = dict(area=area, instance=secrets.token_hex(16), ready=False, sequence=0, epoch=0, responses=[])
 
     def control(self, run, value):
         exact(value, {'operation'}, 'browser fixture control')
@@ -83,7 +86,14 @@ class BrowserResources:
                 raise ValueError('Browser fixture clock is unavailable or regressed')
             response = secrets.token_hex(16)
             status = 404 if name == 'recovery.html' and not row['ready'] else 200
-            if name == 'feature-marker.js':
+            if name == 'inline-input.json':
+                page=inline_source(run,ticket,'http://input.invalid/feature-fixture/v1/runs/'+run+'/')
+                page=page.replace(b'</head>',('<meta name="overte-fixture-inline-input" content="'+response+'"></head>').encode())
+                data='data:text/html;charset=utf-8;base64,'+base64.b64encode(page).decode('ascii')
+                body=json.dumps(dict(dataUrl=data),separators=(',',':')).encode();content_type='application/json'
+            elif name=='client.js' and row['area']=='tablet-web':
+                body=pinned_resource('web-source/tablet-feature-client.js');content_type='application/javascript'
+            elif name == 'feature-marker.js':
                 path = '/feature-fixture/v1/runs/' + run
                 body = ('(function(){let busy=false;async function refresh(){if(busy)return;busy=true;try{'
                     'let r=await fetch("' + path + '/current",{cache:"no-store"});if(!r.ok)return;let v=await r.json();'
@@ -98,17 +108,31 @@ class BrowserResources:
                 # fixture never fills echo output or cooperatively rejects an
                 # untrusted origin; native authority must reject it.
                 body = pinned_resource('web-source/index.html').decode('utf-8')
-                title = 'Overte web parity ' + ('second' if name == 'page-b.html' else
+                title = 'Overte web parity ' + ('foreign ' if origin=='foreign' else '') + ('second' if name == 'page-b.html' else
                     'recovery unavailable' if status == 404 else 'recovery available' if name == 'recovery.html' else 'reference')
                 body = body.replace('Overte web parity reference', title)
-                body = body.replace('href="index.html?page=second"', 'href="page-b.html"')
+                body = body.replace('href="index.html?page=second"', 'id="second" href="page-b.html"')
+                body = body.replace('<button id="back">', '<a id="reference" href="reference.html">Reference document</a><button id="back">')
                 # A real ordinary link exposes the failing/recovered resource.
                 body = body.replace('<button id="back">', '<a id="recovery" href="recovery.html">Recovery document</a><button id="back">')
                 marker = '/feature-fixture/v1/runs/' + run + '/tickets/' + ticket + '/marker.png'
                 head = ('<meta name="overte-fixture-response" content="' + response + '">'
                         '<meta name="overte-fixture-owner" content="' + run + '">')
                 body = body.replace('</head>', head + '</head>')
-                body = body.replace('<body>', '<body><img id="feature-marker" alt="Owned challenge" src="' + marker + '">')
+                # An ordinary fixed fixture header keeps the current challenge
+                # and actual document label visible after native history/scroll
+                # restoration. It grants no bridge and supplies no observation.
+                # Its full viewport width keeps all 128 challenge bits legible
+                # when the original high-DPI Web entity is rendered in-world.
+                color = ('#594917' if origin=='foreign' else '#4d2e5c' if name=='page-b.html' else
+                         '#5c2828' if status==404 else '#285c32' if name=='recovery.html' else '#263d52')
+                style = ('<style>body{padding-top:calc(25vw + 96px)}'
+                    '#feature-marker{position:fixed;left:0;top:0;width:100vw;height:25vw;image-rendering:pixelated;z-index:2147483646;pointer-events:none}'
+                    '#feature-document-label{position:fixed;left:0;top:25vw;width:100%;height:88px;box-sizing:border-box;padding:12px;'
+                    'font:24px sans-serif;color:white;background:'+color+';z-index:2147483646;pointer-events:none}</style>')
+                body = body.replace('</head>',style+'</head>')
+                body = body.replace('<body>', '<body><img id="feature-marker" alt="Owned challenge" src="' + marker + '">' +
+                    '<div id="feature-document-label">'+title+'</div>')
                 body = body.replace('</body>', '<script src="feature-marker.js"></script></body>')
                 body = body.encode('utf-8'); content_type = 'text/html; charset=utf-8'
             row['sequence'] += 1; row['epoch'] = epoch

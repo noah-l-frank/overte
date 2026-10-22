@@ -3,6 +3,7 @@
   "contracts": {
     "pico-browser-originals": {"current": 2, "reads": [1, 2]},
     "pico-browser-geometry": {"current": 1, "reads": [1]},
+    "pico-browser-app-controls": {"current": 1, "reads": [1]},
     "pico-emote-scene-source": {"current": 1, "reads": [1]},
     "pico-emote-scene-input": {"current": 1, "reads": [1]},
     "pico-emote-scene-owner": {"current": 1, "reads": [1]},

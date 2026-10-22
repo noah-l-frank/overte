@@ -53,6 +53,22 @@ class BrowserResourcesTests(unittest.TestCase):
         status,_,raw=self.fetch('/runs/'+self.run+'/browser',token=self.reader)
         self.assertEqual(200,status);return json.loads(raw)
 
+    def test_tablet_area_serves_pinned_original_app_and_owned_inline_input(self):
+        client=Client(self.base,self.reader);run,_=client.register('tablet-web');client.activate('b'*32)
+        prefix='/runs/'+run+'/tickets/'+'b'*32+'/'
+        status,_,app=self.fetch(prefix+'client.js')
+        self.assertEqual(200,status);self.assertEqual((ROOT/'tablet-feature-client.js').read_bytes(),app)
+        self.assertIn(b'tablet.addButton',app);self.assertIn(b'WEB TEST',app);self.assertIn(b'INLINE TEST',app)
+        status,headers,raw=self.fetch(prefix+'inline-input.json');self.assertEqual(200,status)
+        source=base64.b64decode(json.loads(raw)['dataUrl'].split(',',1)[1],validate=True)
+        self.assertIn(run.encode(),source);self.assertIn(headers['X-Overte-Fixture-Response'].encode(),source)
+        status,_,primary=self.fetch(prefix+'reference.html');self.assertEqual(200,status)
+        self.assertIn(b'id="second"',primary);self.assertIn(b'id="reference"',primary)
+        self.assertIn(b'position:fixed',primary)
+        status,_,foreign=self.fetch(prefix+'reference.html',foreign=True);self.assertEqual(200,status)
+        self.assertIn(b'Overte web parity foreign reference',foreign)
+        client.close()
+
     def test_original_page_and_real_echo_scripts_replace_dom_copy_stubs(self):
         status,headers,body=self.fetch(self.path+'reference.html')
         self.assertEqual(200,status);self.assertIn(('<meta name="overte-fixture-owner" content="'+self.run+'">').encode(),body)

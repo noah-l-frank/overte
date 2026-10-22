@@ -288,7 +288,7 @@ class Handler(BaseHTTPRequestHandler):
                     except Exception:
                         self.server.journal.close(run)
                         raise
-                if body['area'] in ('world-web','tablet-web'):self.server.browser_resources.open(run)
+                if body['area'] in ('world-web','tablet-web'):self.server.browser_resources.open(run,area=body['area'])
                 if body['area']=='scripts':
                     try:self.server.script_resources.provision(run)
                     except Exception:

@@ -11,5 +11,6 @@ if __name__=='__main__':
     suite=unittest.defaultTestLoader.loadTestsFromNames([
         'self_tests.test_pico_browser_geometry','self_tests.test_pico_browser_io',
         'self_tests.test_pico_browser_reveal',
-        'self_tests.test_web_dom_observation','self_tests.test_native_web_dom','test_pico_browser_originals'])
+        'self_tests.test_web_dom_observation','self_tests.test_native_web_dom','test_pico_browser_originals',
+        'test_pico_browser_apps','self_tests.test_browser_resources'])
     raise SystemExit(not unittest.TextTestRunner(verbosity=2).run(suite).wasSuccessful())

@@ -94,3 +94,33 @@ Tablet singleton remain declared seams. Native wheel delivery and the pure
 reveal-owner counterexamples do not establish Android scroll behavior or HMD
 pixels. App entry, stereo image ownership and the complete shared journey/final
 retirement remain partial.
+
+
+## Normal fixture-app tile continuation
+
+Fixed Phone `5527d540e99cc6dba4204a5e904a854e6e1cd2b4` supplies the original
+`BrowserResources` additions and ordinary `tablet-feature-client.js`. The server
+selects this app only for actual `tablet-web` registration, serves immutable
+owned inline input, original second/reference/recovery links and foreign-origin
+titles. The Pico selection additionally pins the tablet app SHA-256 in the
+existing fixture manifest. No Phone input or screen capture is reused.
+
+The closed `pico-browser-app-controls` v1 profile qualifies the original
+`hifi/tablet/TabletButton.qml` component/id and reads its actual proxy UUID and
+caption. The native input token also binds source and scene geometry; changed
+UUID/source invalidates a captured reference. Input uses the existing Pico
+NavigationUi and normal surface pointer with final clipping/occlusion admission.
+`_browser_app_controls` requires the exact root ScriptSourceLock, is read-only by
+default and supports the existing final phase/input fence. It does not expose a
+public complete Web capability. Its button evidence is not a script-ownership or
+page-load verdict: the whole owner must still join original script resources,
+owned native document/DOM, original independent actor and actual stereo images.
+
+The58-case owning selection plus coverage passes2/106 groups in20.11s. It
+compiles the actual original TabletButton QML, normal Pico pointer bodies and
+exact NavigationUi browser input branch, and retains the selected native/Java
+backend proof. Tablet/proxy/script delivery remain explicit host seams. The
+first combined run correctly rejected changed/missing-lock input but two tests
+expected only RuntimeError; the existing private factory reports ValueError.
+The corrected expectations accept both established refusal types. No production
+admission was changed to make those counterexamples green.

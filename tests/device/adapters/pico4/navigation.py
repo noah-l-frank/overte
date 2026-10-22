@@ -15,6 +15,7 @@ from adapters.token_emote_ui import metadata as emote_metadata,control_id as emo
 from contracts import validate_operation_arguments
 from navigation_observation import OPERATIONS, viewpoint_urls
 from adapters.token_lifecycle_ui import ID as LIFECYCLE_ID,text as lifecycle_text,metadata as lifecycle_metadata,same_reference as lifecycle_same_reference
+from adapters.pico4.browser_apps import IDS as BROWSER_APP_IDS,metadata as browser_app_metadata
 from adapters.token_chat_ui import metadata as chat_metadata,control_id as chat_control,text as chat_text,same_reference as chat_same_reference
 from adapters.pico4.create_extra_ui import IDS as CREATE_EXTRA_IDS, metadata as create_extra_metadata, FIELDS as CREATE_EXTRA_FIELDS, COUNTS as CREATE_EXTRA_COUNTS, text as create_extra_text
 from adapters.pico4.create_voxel_ui import IDS as CREATE_VOXEL_IDS,metadata as create_voxel_metadata,FIELDS as CREATE_VOXEL_FIELDS,COUNTS as CREATE_VOXEL_COUNTS,text as create_voxel_text
@@ -115,6 +116,8 @@ def validate_snapshot(value, process_id, epoch_ms):
         fields|={'emoteControlsVersion','emoteSourceSequence'}
         need(type(value['emoteControlsVersion']) is int and value['emoteControlsVersion']==2
             and integer(value['emoteSourceSequence']) and value['emoteSourceSequence']>0)
+    if type(value) is dict and 'picoBrowserAppControlsVersion' in value:
+        fields.add('picoBrowserAppControlsVersion');need(type(value['picoBrowserAppControlsVersion']) is int and value['picoBrowserAppControlsVersion']==1)
     if type(value) is dict and 'chatControlsVersion' in value:
         fields.add('chatControlsVersion')
         need(type(value['chatControlsVersion']) is int and value['chatControlsVersion'] in (1,2))
@@ -181,11 +184,14 @@ def validate_snapshot(value, process_id, epoch_ms):
         is_create_extra=control['id'] in CREATE_EXTRA_IDS
         is_create_voxel=control['id'] in CREATE_VOXEL_IDS
         is_create_file=control['id'] in CREATE_FILE_IDS
+        is_browser_app=control['id'] in BROWSER_APP_IDS
         is_chat=control['id'].startswith('chat.')
         is_emote=control['id'].startswith('emote.')
         is_places=control['id'].startswith('places.')
         is_error=control['id'].startswith('navigation.error.ok.')
-        if is_create_file:
+        if is_browser_app:
+            need(value.get('picoBrowserAppControlsVersion')==1);browser_app_metadata(control);fields=set(control)
+        elif is_create_file:
             need(value.get('createFileControlsVersion')==1);create_file_metadata(control);fields=set(control)
         elif control['id'].startswith('lifecycle.'):
             need(control['id']==LIFECYCLE_ID and value.get('lifecycleControlsVersion')==1);lifecycle_metadata(control);fields=set(control)
@@ -229,7 +235,7 @@ def validate_snapshot(value, process_id, epoch_ms):
              and isinstance(control['id'], str) and (control['id'] in CONTROL_IDS
                  or script_control(control['id']) or file_control(control['id']) or audio_control(control['id'])
                  or graphics_control(control['id']) or control['id'] in LOGIN_IDS or control['id'] in ACCOUNT_MENU_IDS or control['id'] in VIEW_MENU_IDS
-                 or is_create_voxel or is_create_extra or is_create and create_control(control['id']) or is_chat and chat_control(control['id'])
+                 or is_browser_app or is_create_voxel or is_create_extra or is_create and create_control(control['id']) or is_chat and chat_control(control['id'])
                  or is_emote and emote_control(control['id'])
                  or is_places and places_control(control['id']) or is_error and error_control(control['id']) or is_create_file or control['id']==LIFECYCLE_ID)
              and identifier(control['token']) and control['id'] not in ids
@@ -390,13 +396,17 @@ class PicoNavigation:
         is_create_extra=control_id in CREATE_EXTRA_IDS
         is_create_voxel=control_id in CREATE_VOXEL_IDS
         is_create_file=control_id in CREATE_FILE_IDS
+        is_browser_app=control_id in BROWSER_APP_IDS
         is_chat=control_id.startswith('chat.')
         is_emote=control_id.startswith('emote.')
         is_places=control_id.startswith('places.')
         is_error=control_id.startswith('navigation.error.ok.')
         if reference is not None:
             need(type(reference) is dict)
-            if 'createVoxelControlsVersion' in reference:
+            if 'picoBrowserAppControlsVersion' in reference:
+                from adapters.pico4.browser_apps import same_reference as browser_same_reference,project as browser_project
+                original=browser_same_reference(reference,browser_project(snapshot),control_id)
+            elif 'createVoxelControlsVersion' in reference:
                 from adapters.pico4.create_voxel_ui import same_reference as voxel_same_reference,project as voxel_project
                 original=voxel_same_reference(reference,voxel_project(snapshot),control_id)
             elif 'createExtraControlsVersion' in reference:
@@ -424,7 +434,10 @@ class PicoNavigation:
                 from adapters.pico4.normal_create import project
                 original=same_reference(reference,project(snapshot),control_id)
             need(original['token']==control['token'])
-        if is_create_file:
+        if is_browser_app:
+            need(reference is not None and snapshot.get('picoBrowserAppControlsVersion')==1 and control['inputReady']
+                and action=='activate' and all(v is None for v in (text,source,index,direction,value)))
+        elif is_create_file:
             need(reference is not None and snapshot.get('createFileControlsVersion')==1 and control['inputReady']
                  and control_id!='create-file.page' and all(v is None for v in (source,index,direction,value))
                  and action in ('activate','replace','submit'))

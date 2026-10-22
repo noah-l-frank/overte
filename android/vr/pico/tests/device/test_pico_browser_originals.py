@@ -41,6 +41,30 @@ class PicoBrowserOriginalTests(unittest.TestCase):
             subprocess.run(['/usr/lib/jvm/temurin-21-jdk/bin/javac','-cp',os.pathsep.join(map(str,(sdk,stage/'webkit.jar',annotation))),
                 '-d',str(stage),*map(str,sorted((ROOT/'android/common/web/java/org/overte/web').glob('*.java')))],check=True,timeout=45)
 
+    def test_actual_tablet_button_component_and_original_pico_app_pointer(self):
+        prefix=Path(os.environ['OVERTE_QT5_HOST_ROOT']).resolve(strict=True)
+        env=dict(os.environ,PKG_CONFIG_SYSROOT_DIR=str(prefix),PKG_CONFIG_LIBDIR=str(prefix/'usr/lib64/pkgconfig'),
+            LD_LIBRARY_PATH=str(prefix/'usr/lib64'),QT_PLUGIN_PATH=str(prefix/'usr/lib64/qt5/plugins'),QML2_IMPORT_PATH=str(prefix/'usr/lib64/qt5/qml'),
+            QT_QPA_PLATFORM='offscreen',QT_QUICK_BACKEND='software')
+        flags=shlex.split(subprocess.check_output(['pkg-config','--cflags','--libs','Qt5Quick','Qt5Test'],env=env,text=True))
+        with tempfile.TemporaryDirectory(prefix='pico-browser-app-original-') as temporary:
+            stage=Path(temporary);pointer_source(stage);imports=stage/'imports/TabletScriptingInterface';imports.mkdir(parents=True)
+            (imports/'qmldir').write_text('module TabletScriptingInterface\nsingleton Tablet 1.0 Tablet.qml\nsingleton TabletEnums 1.0 TabletEnums.qml\n')
+            (imports/'Tablet.qml').write_text('pragma Singleton\nimport QtQuick 2.7\nQtObject {function playSound(value){}}\n')
+            (imports/'TabletEnums.qml').write_text('pragma Singleton\nimport QtQuick 2.7\nQtObject {readonly property int buttonClick:1;readonly property int buttonHover:2}\n')
+            (stage/'PathUtils.h').write_text('#pragma once\n#include <QUrl>\nclass PathUtils {public:inline static QUrl qml;static QUrl defaultScriptsLocation(){return QUrl("file:///host/scripts/");}static QUrl qmlUrl(const QString& s){return qml.resolved(QUrl(s));}};\n')
+            native=(ROOT/'android/vr/pico/apps/picoInterface/e2e/PicoE2eNavigationUi.cpp').read_text()
+            start=native.index('    } else if (controlId.startsWith("browser-app.")) {');end=native.index('\n    } else if (',start+10)
+            branch=native[start:end].split('{',1)[1]
+            (stage/'actual-browser-app-input.inc').write_text('QJsonObject originalBrowserAppInput(QQuickItem* item,QQuickWindow* window,const QString& controlId,const QString& action,const std::function<bool(QQuickItem*)>& pointerClick){\n'
+                'QJsonObject result,current{{"picoBrowserAppControlsVersion",1}};bool delivered=false;struct {QQuickItem* item;} control{item};\n'+branch+'\nresult["performed"]=delivered;return result;}\n')
+            binary=stage/'test'
+            subprocess.run(['c++','-std=c++17','-fPIC','-UNDEBUG','-DOVERTE_E2E_FEATURE_TESTS','-I'+str(stage),'-I'+str(ROOT),
+                '-I'+str(ROOT/'libraries/ui/src'),'-I'+str(ROOT/'libraries/script-engine/src'),'-isystem',str(Path(env['OVERTE_TEST_GLM_INCLUDE']).resolve(strict=True)),
+                str(HERE/'pico-browser-apps.cpp'),'-L'+str(prefix/'usr/lib64'),'-o',str(binary),*flags],check=True,env=env,timeout=60)
+            output=subprocess.check_output(['unshare','--user','--map-root-user','--net',str(binary),str(ROOT),str(stage/'imports')],text=True,env=env,timeout=20)
+            self.assertIn('PASS original TabletButton',output)
+
     def test_actual_private_factory_binds_original_source_lock_candidate_and_read_only_role(self):
         import test_normal_scripts as original
         from unittest.mock import patch

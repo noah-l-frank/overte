@@ -16,6 +16,7 @@
 #include "../../../../../../tests/device/native/NormalScriptFileControls.h"
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #include "../../../../../../tests/device/native/ScriptFileUi.h"
+#include "../../../../../../tests/device/native/PicoBrowserAppControls.h"
 #include "../../../../../../tests/device/native/NormalEmoteControls.h"
 #include "../../../../../../tests/device/native/NormalLifecycleControls.h"
 #include "../../../../../../tests/device/native/AudioPageObservation.h"
@@ -96,6 +97,8 @@ QString controlId(QQuickItem* item) {
     const auto places = overte::e2e::placesControlId(item);
     if (!places.isEmpty()) { return places; }
 #endif
+    const auto browser=overte::e2e::picoBrowserAppControlId(item);
+    if (!browser.isEmpty()) { return browser; }
     const auto emote=overte::e2e::emoteControlId(item);
     if (!emote.isEmpty()) { return emote; }
     const auto lifecycle=overte::e2e::lifecycleControlId(item);
@@ -283,6 +286,9 @@ QJsonObject NavigationUi::observe(QQuickItem* root, QQuickWindow* window, bool o
                 } else if (id=="navigation.goto" || id.startsWith("tablet.page.")) {
                     source=overte::e2e::navigationLookupControlSource(item,id);
                     if (source.isEmpty()) { ambiguous=true;return; }
+                } else if (id.startsWith("browser-app.")) {
+                    source=overte::e2e::picoBrowserAppControlSource(item,id);
+                    if (source.isEmpty()) { ambiguous=true;return; }
                 } else if (id.startsWith("emote.")) {
                     source=overte::e2e::emoteControlSource(item,id);
                     if (source.isEmpty()) { ambiguous=true;return; }
@@ -383,6 +389,8 @@ QJsonObject NavigationUi::observe(QQuickItem* root, QQuickWindow* window, bool o
         if (id=="navigation.address") {
             const auto original=overte::e2e::navigationAddressObservation(control.item);
             for (auto item=original.begin();item!=original.end();++item) { row[item.key()]=item.value(); }
+        } else if (id.startsWith("browser-app.")) {
+            overte::e2e::appendPicoBrowserAppObservation(row,control.item,id);
         } else if (id.startsWith("emote.")) {
             overte::e2e::appendEmoteControlObservation(row,control.item,id);
         } else if (id.startsWith("lifecycle.")) {
@@ -433,6 +441,7 @@ QJsonObject NavigationUi::observe(QQuickItem* root, QQuickWindow* window, bool o
     result["createDialogBindingsVersion"]=1;result["createDialogBindings"]=createBindings;
     result["createControlsVersion"] = 1;
     result["chatControlsVersion"] = 2;
+    result["picoBrowserAppControlsVersion"]=1;
     result["emoteControlsVersion"] = 2;
     result["emoteSourceSequence"] = static_cast<double>(++_emoteSourceSequence);
     result["lifecycleControlsVersion"] = 1;
@@ -571,6 +580,13 @@ QJsonObject NavigationUi::apply(QQuickItem* root, QQuickWindow* window, bool ope
         else if (action=="replace" && command.value("text").isString()
                 && overte::e2e::lifecycleControlText(command.value("text").toString())) {
             delivered=overte::ui::replaceFocusedField(control.item,window,command.value("text").toString());
+        }
+    } else if (controlId.startsWith("browser-app.")) {
+        QJsonObject row;overte::e2e::appendPicoBrowserAppObservation(row,control.item,controlId);
+        const auto point=control.item->mapToScene(QPointF(control.item->width()/2,control.item->height()/2));
+        if (current.value("picoBrowserAppControlsVersion")==QJsonValue(1) && row.value("inputReady").toBool()
+                && action=="activate" && pointerClick && overte::e2e::NormalControlUi::ownsPoint(control.item,window,point)) {
+            delivered=pointerClick(control.item);
         }
     } else if (controlId.startsWith("chat.")) {
         QJsonObject row;overte::e2e::appendChatControlObservation(row,control.item,controlId);

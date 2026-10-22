@@ -1378,3 +1378,14 @@ peer/Review cases pass in14.085s. Peer transport permits only same-run inspect
 and retire after the full retained original input-close/FD proof; it neither
 refreshes historical epochs nor reopens peer input. Its tests are registered
 in the existing Actor/source group. Whole Chat finalization remains pending.
+
+
+## Normal Pico browser fixture-app entry
+
+The browser owning58-case selection and coverage pass2/106 groups in20.11s.
+Fixed committed Phone fixture/app logic is reused with an explicit manifest
+pin. Actual TabletButton QML component/UUID references drive the existing Pico
+surface pointer; private read-only roles and the exact root lock are enforced.
+[Browser originals](BROWSER_ORIGINALS.md) retain the exact reuse and host seams.
+This closes an input component, not whole Web/stereo/independent/final cleanup.
+Completed feature areas remain3/14; the full application and devices are untested.

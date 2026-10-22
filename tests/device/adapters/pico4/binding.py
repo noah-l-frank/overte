@@ -1674,6 +1674,12 @@ def create_adapter(args, base_class):
                 native.clock_ms,native.guard,native.pid,intent=intent,monotonic=native.monotonic,sleep=native.sleep)
 
         @_private
+        def _browser_app_controls(self,target,*,source_lock,read_only=True):
+            from adapters.pico4.browser_apps import PicoBrowserAppsIO
+            source_lock=self._script_journey()._lock(target,source_lock);source_lock.assert_held()
+            return PicoBrowserAppsIO(self._scripts(target).ui.io,source_lock=source_lock,read_only=read_only)
+
+        @_private
         def _browser_originals(self,target,*,source_lock,tablet=True,read_only=True):
             from adapters.pico4.browser_source import PicoBrowserIO,FILE
             from adapters.pico4.tablet_browser_source import PicoTabletBrowserIO
