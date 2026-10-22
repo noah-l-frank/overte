@@ -128,12 +128,14 @@ class NativeCreateCallbacks:
         self.monotonic,self.sleep,self.last=monotonic,sleep,None
         self.last_raw,self.last_sha256=None,None
 
+    def command(self,request):return dict(schemaVersion=VERSION,commandId=request,action=self.action)
+
     def read(self):
         try:
             request=uuid.uuid4().hex;started=previous=self.monotonic()
             need(number(started,0,1e15) and self.guard() is not False)
             requested=self.clock_ms();need(integer(requested,1))
-            self.send(dict(schemaVersion=VERSION,commandId=request,action=self.action))
+            self.send(self.command(request))
             for attempt in range(51):
                 need(self.guard() is not False);raw=self.original()
                 try:value=decode(raw) if raw else None

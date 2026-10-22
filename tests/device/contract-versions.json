@@ -5,6 +5,8 @@
     "pico-create-json-files": {"current": 1, "reads": [1]},
     "pico-create-file-controls": {"current": 1, "reads": [1]},
     "pico-create-callbacks": {"current": 1, "reads": [1]},
+    "pico-create-picker-owner": {"current": 1, "reads": [1]},
+    "pico-create-entities": {"current": 1, "reads": [1]},
     "pico-create-dialogs": {"current": 1, "reads": [1]},
     "pico-graphics-feature-binding": {"current": 1, "reads": [1]},
     "graphics-journey-feature": {"current": 1, "reads": [1]},

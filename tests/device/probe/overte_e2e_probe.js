@@ -151,6 +151,7 @@
     var lastCreateFilesRequest = "";
     var lastCreateCallbacksRequest = "";
     var lastCreateDialogsRequest = "";
+    var lastCreateEntitiesRequest = "";
     function saveScriptSourceObservation(requestId) {
         var value = {schemaVersion: 1, requestId: requestId, available: false};
         try {
@@ -1450,6 +1451,21 @@
             }
             return;
         }
+        if (command && command.schemaVersion === 1 && command.action === "feature-create-entities-observe"
+                && typeof command.commandId === "string" && /^[0-9a-f]{32}$/.test(command.commandId)
+                && typeof command.runId === "string" && /^[0-9a-f]{32}$/.test(command.runId)
+                && objectKeysMatch(command, ["schemaVersion", "commandId", "action", "runId"])) {
+            if (command.commandId === lastCreateEntitiesRequest) {return;}
+            lastCreateEntitiesRequest = command.commandId;
+            var createEntities = {schemaVersion: 1, requestId: command.commandId, available: false};
+            try {
+                if (typeof Test.featureCreateEntities === "function") {
+                    var originalCreateEntities = Test.featureCreateEntities(command);
+                    if (originalCreateEntities && originalCreateEntities.requestId === command.commandId) {createEntities = originalCreateEntities;}
+                }
+            } catch (_createEntitiesError) { /* Original domain entities remain unavailable. */ }
+            Test.saveObject(createEntities, "feature-create-entities.json");return;
+        }
         if (command && command.schemaVersion === 1 && command.action === "feature-create-dialogs-observe"
                 && typeof command.commandId === "string" && /^[0-9a-f]{32}$/.test(command.commandId)
                 && objectKeysMatch(command, ["schemaVersion", "commandId", "action"])) {
@@ -1782,6 +1798,7 @@
                 || command.action === "feature-recorded-audio-files" || command.action === "feature-script-observe"
                 || command.action === "feature-create-callbacks-observe"
                 || command.action === "feature-create-dialogs-observe"
+                || command.action === "feature-create-entities-observe"
                 || command.action === "feature-world-render-observe"
                 || command.action === "feature-graphics-subject-observe"
                 || command.action === "feature-scene-load-observe"

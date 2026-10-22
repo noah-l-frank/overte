@@ -174,6 +174,7 @@ public slots:
     QVariantMap featureCreateFiles(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureCreateCallbacks(const QString& requestId);
     Q_INVOKABLE QVariantMap featureCreateDialogs(const QString& requestId);
+    Q_INVOKABLE QVariantMap featureCreateEntities(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureLocationBookmarks(const QVariantMap& command);
     void featurePlacesRecordsChanged();
     Q_INVOKABLE QVariantMap featureNavigationPanels(const QVariantMap& command);
@@ -263,6 +264,9 @@ private:
     QHash<QString,QVariantMap> _featureCreateCallbacksResults;
     quint64 _featureCreateDialogsSequence {0};
     QHash<QString,QVariantMap> _featureCreateDialogsResults;
+    quint64 _featureCreateEntitiesSequence {0};
+    QHash<QString,QVariantMap> _featureCreateEntitiesCommands, _featureCreateEntitiesResults;
+    QHash<QString,QSet<QUuid>> _featureCreateEntityIds;
 #endif
     quint64 _featureGraphicsSubjectSequence {0};
     QSet<QString> _featureGraphicsSubjectRequests;
