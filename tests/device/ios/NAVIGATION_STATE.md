@@ -47,7 +47,9 @@ lease pending. Importantly, DomainHandler legitimately reports connected=true
 for serverless scenes after `connectedToServerless`; that original fact is
 preserved rather than projected as a network-domain connection.
 
-A matching requested URL and loaded entities cannot establish that this scene
+The [rendered-state prerequisite](NAVIGATION_RENDERED_STATE.md) joins actual
+Vulkan pixels to these original state packets. A matching requested URL and
+loaded entities cannot establish that this scene
 reached the renderer. The next owner must additionally bracket an original
 completed Vulkan image with these state packets, join its recorded camera and
 scene identity, verify visible scene effects, and retain/drain all image and

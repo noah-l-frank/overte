@@ -76,7 +76,9 @@ def validate(value,query,pid,epoch=None,previous=None):
         validate(previous,dict(query,commandId=previous['requestId']),pid)
         need(value['instance']==previous['instance'] and value['sequence']>previous['sequence']
              and value['requestId']!=previous['requestId'] and value['runId']==previous['runId']
-             and before['epochMs']>=previous['clockAfter']['epochMs'] and before['monotonicMs']>=previous['clockAfter']['monotonicMs'])
+             and before['epochMs']>=previous['clockAfter']['epochMs'] and before['monotonicMs']>=previous['clockAfter']['monotonicMs']
+             and abs((before['epochMs']-previous['clockAfter']['epochMs'])
+                     -(before['monotonicMs']-previous['clockAfter']['monotonicMs']))<=250)
         scene_continuity(previous['source']['sceneLoads'],scene,pid)
     return value
 
