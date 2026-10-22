@@ -68,7 +68,7 @@ class CreatePrimitives:
         step=self.primitive_step();need(kind in ATTEMPTS and kind not in step['attempted'])
         self.primitive_update(attempted=step['attempted']+[kind])
     def primitive_extra(self):
-        return self.adapter._create_extra_controls(self.target,lambda original:self.record_input('primitive',original))
+        return self.adapter._create_extra_controls(self.target,lambda original:self.record_input('primitive',original),before_send=self.dispatch_admission)
     def primitive_row(self,actual,*,absent=False):
         step=self.primitive_step();before=step['before'];packet=actual['entities'];a,b=before['source'],packet['source']
         from adapters.pico4.create_picker_owner import OwnedCreatePicker
@@ -140,7 +140,7 @@ class CreatePrimitives:
         # Original fromQml pops the tablet stack before handling DialogAdd.
         # Only observe that ordinary route; never pop or load a page here.
         extra=self.primitive_extra();extra.wait(lambda v:extra.row(v,'create-extra.polyvox.page',ready=False) is None)
-        self.adapter._create_controls(self.target,self.input).wait_create()
+        self.controls().wait_create()
     def primitive_create(self):
         actual=self.sample();before=actual['entities'];source=before['source'];need(source['createEntitySourceVersion']==4 and retired(source))
         ui=actual['ui'];need(ui.get('createExtraControlsVersion')==1 and self.state()['baselineExtra'] is not None)
@@ -152,7 +152,7 @@ class CreatePrimitives:
         position=[round(a+b,8) for a,b in zip(source['scan']['center'],forward)]
         step=dict(ticket=self.state()['pending'],before=deepcopy(before),position=position,attempted=[],entityId=None,lifetime=None,
             outcome='creating',configured=False,pageId=None,deleteTicket=None,createOriginal=None,creationProof=None)
-        self.mark(primitives=steps+[step]);controls=self.adapter._create_controls(self.target,self.input)
+        self.mark(primitives=steps+[step]);controls=self.controls()
         self.primitive_attempt('open');controls.tab(0);extra=self.primitive_extra();opened=extra.open_polyvox()
         page=extra.row(opened,'create-extra.polyvox.page',ready=False);need(page is not None);self.primitive_update(pageId=page['pageId'])
         self.sample();self.primitive_attempt('configure');extra.configure_polyvox()
@@ -163,7 +163,7 @@ class CreatePrimitives:
             actual=self.sample();row=self.primitive_row(actual)
             if row is not None:break
             need(ui.monotonic()-started<10 and attempt<66);ui.sleep(.15)
-        self.primitive_return();controls=self.adapter._create_controls(self.target,self.input)
+        self.primitive_return();controls=self.controls()
         self.primitive_attempt('properties');controls.select_entity(self.primitive_step()['entityId']);controls.name_entity('e2e-'+self.run+'-voxel')
         for axis in 'xyz':controls.replace('create.field.dimensions.'+axis,'1')
         for axis,value in zip('xyz',position):controls.replace('create.field.position.'+axis,str(value))
@@ -187,11 +187,11 @@ class CreatePrimitives:
 
         if row is not None and 'delete' not in step['attempted']:
             if step['deleteTicket'] is None:self.primitive_update(deleteTicket=self.state()['phase']['activations'][-1]['ticket'])
-            controls=self.adapter._create_controls(self.target,self.input)
+            controls=self.controls()
             if 'delete-prepare' not in step['attempted']:
                 self.primitive_attempt('delete-prepare')
                 if controls.row(controls.capture(),'create.page',enabled=False) is None:
-                    self.close_editor();self.open_editor();controls=self.adapter._create_controls(self.target,self.input)
+                    self.close_editor();self.open_editor();controls=self.controls()
                 controls.select_entity(row['id'])
             need(controls.page(controls.capture())['selectedIds']==[row['id']])
             self.primitive_attempt('delete');controls.delete_entity()
