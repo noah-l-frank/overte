@@ -100,8 +100,10 @@ class FixtureMixerControl:
                 raw=response.read(8193);need(type(raw) is bytes and 0<len(raw)<=8192)
             value=decode(raw.decode('utf-8'));epoch_started=self.monotonic();epoch=self.clock_ms();need(integer(epoch,requested))
             validate(value,epoch);need(value['capturedEpochMs']>=requested and self.guard() is not False)
-            finished=self.monotonic();need(number(finished,epoch_started,started+(1.5 if command is None else 10))
-                and epoch-value['capturedEpochMs']+math.ceil((finished-epoch_started)*1000)<=1500)
+            guarded=self.monotonic();need(number(guarded,epoch_started,started+(1.5 if command is None else 10)))
+            final_epoch=self.clock_ms();need(integer(final_epoch,epoch))
+            finished=self.monotonic();need(number(finished,guarded,started+(1.5 if command is None else 10))
+                and max(final_epoch-value['capturedEpochMs'],epoch-value['capturedEpochMs']+math.ceil((finished-epoch_started)*1000))<=1500)
             return value
         except Exception:
             raise NativeUIError('Original private Chat mixer source/control is unavailable') from None

@@ -7,6 +7,7 @@ their original owners. This reader inspects already owned caches only.
 # SPDX-License-Identifier: Apache-2.0
 from contextlib import ExitStack
 from copy import deepcopy
+import math
 import time
 
 from adapters.native_chat_observation import NativeChatObservation, validate as chat_packet
@@ -252,6 +253,16 @@ class ChatSamples:
                 check(); measured = compose(self.run, frame, self.primary.pid, self.peer.pid, vr=self.vr)
                 continuity(self.frames, frame); frames = self.frames + [deepcopy(frame)]
                 self._write({**self.base, 'phase': 'ready', 'revision': self.base['revision'] + 1, 'transcript': pack(frames)})
-                self.frames = frames; check(); return measured
+                self.frames = frames; check()
+                # Re-read original wall clocks after the final guards and the
+                # durable write. A frozen host clock cannot mask a native jump.
+                clocks=[]
+                for reader,oldest in ((self.primary,min(p['capturedEpochMs'],view['capturedEpochMs'],lifecycle['capturedEpochMs'])),
+                                      (self.peer,q['capturedEpochMs'])):
+                    before=self.monotonic();need(number(before,previous,started+1.5));previous=before
+                    epoch=reader.clock_ms();fresh(oldest,epoch);clocks.append((before,epoch,oldest))
+                finished=self.monotonic();need(number(finished,previous,started+1.5)
+                    and all(epoch-oldest+math.ceil((finished-before)*1000)<=1500 for before,epoch,oldest in clocks))
+                return measured
         except Exception:
             raise NativeUIError('Chat original observation failed; unresolved source intent is retained') from None

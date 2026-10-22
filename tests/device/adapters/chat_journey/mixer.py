@@ -114,19 +114,26 @@ class ChatMixerOwner:
                 session=value['source']['session'];need(session['connected'] and session['domainSha256']==expected)
         return frame
 
+    def final_clocks(self,sources,started):
+        # Every potentially slow guard precedes these original wall-clock reads.
+        # A frozen host timer cannot hide another source's actual clock jump.
+        for source,_oldest in sources:need(source.guard() is not False)
+        clocks=[]
+        for source,oldest in sources:
+            measured=self.now();epoch=source.clock_ms();fresh(oldest,epoch)
+            clocks.append((measured,epoch,oldest))
+        finished=self.now();need(number(finished,started,started+1.5)
+            and all(epoch-oldest+math.ceil((finished-measured)*1000)<=1500 for measured,epoch,oldest in clocks))
+        self.budget()
+
     def measure_control(self,*,recovery=False):
         # Recovery must still fence/restore the owned mixer when native client
         # observation is unavailable. This frame emits no Chat state/resources.
         self.budget();started=self.now();packets=[source.state() for source in self.controls]
         frame=dict(controls=deepcopy(packets),roles=[],transition=True,controlOnly=True)
         self.join(frame);self.append(frame,recovery=recovery)
-        clocks=[]
-        for source,value in zip(self.controls,packets):
-            measured=self.now();epoch=source.clock_ms();fresh(value['capturedEpochMs'],epoch)
-            need(source.guard() is not False);clocks.append((measured,epoch,value['capturedEpochMs']))
-        finished=self.now();need(number(finished,started,started+1.5)
-            and all(epoch-oldest+math.ceil((finished-measured)*1000)<=1500 for measured,epoch,oldest in clocks))
-        self.budget();return frame
+        self.final_clocks([(source,value['capturedEpochMs']) for source,value in zip(self.controls,packets)],started)
+        return frame
 
     def measure(self,after_epoch,*,transition):
         self.budget();started=self.now();first=self.controls[0].state()
@@ -135,18 +142,14 @@ class ChatMixerOwner:
         frame=dict(controls=deepcopy(packets),roles=self.reference(),transition=transition,controlOnly=False)
         self.join(frame)
         self.append(frame)
-        clocks=[]
+        sources=[]
         for role in self.roles:
             native=role.frames[-1]
             for reader in (role.primary,role.peer,role.view,role.lifecycle):need(reader.guard() is not False)
-            for reader,oldest in ((role.primary,min(native[key]['capturedEpochMs'] for key in ('primary','view','lifecycle'))),
-                                  (role.peer,native['peer']['capturedEpochMs'])):
-                measured=self.now();epoch=reader.clock_ms();fresh(oldest,epoch);clocks.append((measured,epoch,oldest))
-        for source,value in zip(self.controls,packets):
-            measured=self.now();epoch=source.clock_ms();fresh(value['capturedEpochMs'],epoch);need(source.guard() is not False)
-            clocks.append((measured,epoch,value['capturedEpochMs']))
-        finished=self.now();need(number(finished,started,started+1.5)
-            and all(epoch-oldest+math.ceil((finished-measured)*1000)<=1500 for measured,epoch,oldest in clocks))
+            sources.extend(((role.primary,min(native[key]['capturedEpochMs'] for key in ('primary','view','lifecycle'))),
+                            (role.peer,native['peer']['capturedEpochMs'])))
+        sources.extend((source,value['capturedEpochMs']) for source,value in zip(self.controls,packets))
+        self.final_clocks(sources,started)
         if not transition:need(observed[0]['state']==observed[1]['state'])
         self.budget();return observed,frame
 
