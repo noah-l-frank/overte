@@ -111,6 +111,21 @@ class MixerOwnerTests(unittest.TestCase):
             self.assertGreater(len(role.frames),60)
             for frame in role.frames:
                 if frame.get('transition'):self.assertNotIn('state',frame)
+    def test_distinct_restore_gets_its_own_budget_after_a_long_observed_offline_interval(self):
+        self.owner.remove(20000);self.sleep(30)
+        self.assertTrue(self.owner.restore(20000)[0]['state']['mixerConnected'])
+        self.assertEqual(2,len(self.controller.posts))
+
+    def test_expired_original_input_deadline_cannot_block_the_distinct_recovery_command(self):
+        original=self.apply
+        def late(command):
+            original(command)
+            if command['action']=='offline':self.clock+=21
+        self.controller.effect=late
+        with self.assertRaises(NativeUIError):self.owner.remove(20000)
+        self.assertEqual(['offline','online'],[row['action'] for row in self.controller.posts])
+        self.assertEqual('recovery-observed',self.store.read()['phase']);self.assertTrue(self.controller.value['offlineFenced'])
+
     def test_lost_online_receipt_is_resolved_only_by_new_passive_sources_after_reconstruction(self):
         self.owner.remove(20000);self.controller.lost='online'
         with self.assertRaises(NativeUIError):self.owner.restore(20000)

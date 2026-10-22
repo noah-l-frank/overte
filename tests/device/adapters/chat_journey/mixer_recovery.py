@@ -88,8 +88,10 @@ class ChatMixerRecovery:
         control_join(frame,self.base['commands'],self.run);self.fresh(frame,started)
         return frame,started
 
-    def inspect(self):
+    def inspect(self,*,continuation=False):
         need(len(self.base['commands'])==2 and len(self.base['recoverySources'])<2)
+        need(type(continuation) is bool)
+        if not continuation:self.deadline=None
         if self.deadline is None:self.deadline=self.now()+20
         frame,started=self.current();source=frame['controls'][0];online=self.base['commands'][1]
         row=next((row for row in source['commands'] if row['commandId']==online['commandId']),None)
@@ -101,7 +103,7 @@ class ChatMixerRecovery:
 
     def restore_once(self):
         try:
-            need(len(self.base['recoverySources'])<2);self.deadline=self.now()+20
+            need(len(self.base['recoverySources'])<2);self.deadline=None;self.deadline=self.now()+20
             if len(self.base['commands'])==1:
                 frame,started=self.current();source=frame['controls'][1]
                 if not self.base['recoverySources']:
@@ -112,6 +114,6 @@ class ChatMixerRecovery:
                 self.controls[0].command(request)
             # Once online intent exists this path is exclusively passive, even
             # after a transport loss, interpreter death or new owner object.
-            return self.inspect()
+            return self.inspect(continuation=True)
         except Exception:
             raise NativeUIError('Original mixer recovery is unresolved; no input or native journal is replayed') from None

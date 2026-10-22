@@ -44,6 +44,13 @@ class MixerRecoveryTests(unittest.TestCase):
         self.assertEqual('issuing-online',self.h.store.read()['phase']);self.h.controller.lost=None
         result=self.recovery().restore_once();self.assertTrue(result['mixerProcessRestored'])
         self.assertEqual(2,len(self.h.controller.posts));self.unchanged()
+    def test_later_passive_inspection_has_a_new_budget_without_repeating_uncertain_online(self):
+        recovery=self.recovery();self.h.controller.lost='online'
+        with self.assertRaises(NativeUIError):recovery.restore_once()
+        self.h.controller.lost=None;self.h.sleep(30)
+        self.assertTrue(recovery.inspect()['mixerProcessRestored'])
+        self.assertEqual(2,len(self.h.controller.posts));self.unchanged()
+
     def test_late_original_online_admission_is_observed_passively_without_a_second_input(self):
         self.h.controller.effect=lambda command:None;self.h.controller.lost='online'
         with self.assertRaises(NativeUIError):self.recovery().restore_once()
