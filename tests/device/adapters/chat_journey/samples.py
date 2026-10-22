@@ -32,7 +32,7 @@ def request(value, view=False):
         **{key: value[key] for key in (('commandId', 'runId') if view else ('commandId', 'runId', 'operation'))})
 
 
-def compose(run, frame, primary_pid, peer_pid, *, vr):
+def compose(run, frame, primary_pid, peer_pid, *, vr, cache_absent=False):
     """Recompute only historical originals; live acquisition supplies freshness.
 
     Native peer and primary clocks remain distinct. The live reader bounds the
@@ -43,13 +43,14 @@ def compose(run, frame, primary_pid, peer_pid, *, vr):
     need(('settings' not in frame or frame['settings'] is True) and ('transition' not in frame or frame['transition'] is True)
         and not ('settings' in frame and 'transition' in frame))
     identifier(frame['ticket'])
-    need(type(vr) is bool and integer(frame['afterEpochMs'], 1))
+    need(type(vr) is bool and type(cache_absent) is bool and integer(frame['afterEpochMs'], 1)
+        and (not cache_absent or not frame.get('settings') and not frame.get('transition')))
     p, q, view, lifecycle = (frame[key] for key in SOURCES)
     need(integer(frame['primaryEpochMs'], 1) and integer(frame['peerEpochMs'], 1))
     for value, pid, epoch in ((p, primary_pid, frame['primaryEpochMs']), (q, peer_pid, frame['peerEpochMs'])):
         chat_packet(value, request(value), pid, epoch)
-        need(value['runId'] == run and value['operation'] == 'inspect' and value['source']['scopePresent']
-            and not value['source']['retired'] and value['source']['droppedEvents'] == 0)
+        need(value['runId'] == run and value['operation'] == 'inspect' and value['source']['scopePresent'] is (not cache_absent)
+            and (cache_absent or not value['source']['retired']) and value['source']['droppedEvents'] == 0)
     view_packet(view, request(view, True), primary_pid, frame['primaryEpochMs'])
     need(view['runId'] == run)
     if vr:
@@ -71,6 +72,10 @@ def compose(run, frame, primary_pid, peer_pid, *, vr):
     # rejected distant Local packets. Neither source may manufacture UI rows.
     stored = source['storage']; ui = source['ui']
     need(stored['unowned'] == 0)
+    if cache_absent:
+        need(not ui['present'] and not source['editorFocused'] and not source['editorHasDraft']
+            and not measured_keyboard(source['keyboard']) and stored['count']==0 and not stored['events']
+            and all(not value['source']['events'] and value['source']['eventSequence']==value['source']['openedEpochMs']==0 for value in (p,q)))
     if frame.get('transition'):
         # Actual asynchronous node/model propagation is retained as original
         # source evidence. No joined Chat state or resource verdict is emitted.
@@ -99,7 +104,7 @@ def compose(run, frame, primary_pid, peer_pid, *, vr):
         peerMessages=[row['text'] for row in qs['events']
             if row['senderSha256'] == ps['selfSha256'] and not row['localOnly']])
     chat_state('chat', measured, run)
-    resources = ['connection:chat-primary-cache', 'connection:chat-peer-cache']
+    resources = [] if cache_absent else ['connection:chat-primary-cache', 'connection:chat-peer-cache']
     if measured['open']: resources.append('panel:chat')
     if source['editorFocused']: resources.append('input:chat-editor')
     if measured['keyboard']: resources.append('input:chat-keyboard')
@@ -165,12 +170,18 @@ def continuity(frames, frame):
 
 
 
-class ChatSamples:
+class _ChatSources:
     """Durable separate primary/actor original reads; interrupted intent stays.
 
     Callers supply distinct bound transports and shared source locks. This
     component never opens/retires native caches, sends Chat or drops its journal.
     """
+    journal_field='chatSamplesVersion'
+    journal_version=VERSION
+
+    def _compose(self,frame):
+        return compose(self.run,frame,self.primary.pid,self.peer.pid,vr=self.vr)
+
     def __init__(self, run, role, binding, peer_binding, primary, peer, view, lifecycle, store,
                  primary_lock, peer_lock, *, vr=False, component_only=False, monotonic=time.monotonic):
         need(role in ('primary', 'actor') and type(vr) is bool and type(component_only) is bool
@@ -189,7 +200,7 @@ class ChatSamples:
         self.primary, self.peer, self.view, self.lifecycle = primary, peer, view, lifecycle
         self.store, self.locks, self.monotonic = store, (primary_lock, peer_lock), monotonic
         self.previous = store.read(); self.frames = []
-        self.base = dict(chatSamplesVersion=VERSION, runId=run, role=role, binding=self.binding,
+        self.base = dict(**{self.journal_field:self.journal_version}, runId=run, role=role, binding=self.binding,
             peerBinding=self.peer_binding, vr=vr, phase='ready', revision=0, chunks=[])
         self.history=ChatSourceChunks(store,{key:value for key,value in self.base.items() if key not in ('phase','revision','chunks')})
         if self.previous is not None:
@@ -199,7 +210,7 @@ class ChatSamples:
             frames = self.history.load(self.previous['chunks'])
             need(self.previous['revision'] == 2 * len(frames))
             for frame in frames:
-                compose(run, frame, primary.pid, peer.pid, vr=vr); continuity(self.frames, frame); self.frames.append(frame)
+                self._compose(frame); continuity(self.frames, frame); self.frames.append(frame)
             self.base = deepcopy(self.previous)
         else:
             self.history.inventory(0)
@@ -254,7 +265,7 @@ class ChatSamples:
                     peerEpochMs=self.peer.clock_ms(), primary=p, peer=q, view=view, lifecycle=lifecycle)
                 if settings:frame['settings']=True
                 if transition:frame['transition']=True
-                check(); measured = compose(self.run, frame, self.primary.pid, self.peer.pid, vr=self.vr)
+                check(); measured = self._compose(frame)
                 continuity(self.frames, frame); frames = self.frames + [deepcopy(frame)]
                 self._write({**self.base, 'phase': 'ready', 'revision': self.base['revision'] + 1, 'chunks': self.history.append(frame,self.base['chunks'])})
                 self.frames = frames; check(); self.history.verify()
@@ -270,3 +281,21 @@ class ChatSamples:
                 return measured
         except Exception:
             raise NativeUIError('Chat original observation failed; unresolved source intent is retained') from None
+
+
+class ChatSamples(_ChatSources):
+    """Original active-cache joins; v4 behavior and journals are unchanged."""
+
+
+class ChatCacheAbsence(_ChatSources):
+    """Fresh original native cache absence, closed Chat/storage/VR keyboard.
+
+    This is deliberately not a ChatSamples subtype accepted by input owners.
+    Its separate journal cannot reset or adopt an active source history.
+    """
+    journal_field='chatCacheAbsenceVersion'
+    journal_version=1
+
+    def _compose(self,frame):
+        need(self.component_only or all(frame[key]['chatVersion']==2 for key in ('primary','peer')))
+        return compose(self.run,frame,self.primary.pid,self.peer.pid,vr=self.vr,cache_absent=True)

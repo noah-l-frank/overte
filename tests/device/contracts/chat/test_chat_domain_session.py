@@ -99,6 +99,10 @@ int main(int argc,char** argv) {
     nodes.reset(new NodeList);nodes->domain.setUUID(original);nodes->domain.setIsConnected(true);
     auto command=[&](QString operation){return QVariantMap{{"schemaVersion",1},
         {"commandId",QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-')},{"runId",run},{"action","feature-chat-observe"},{"operation",operation}};};
+    const auto initial=messages.featureChatObservation(command("inspect")).value("source").toMap();
+    assert(!initial.value("scopePresent").toBool() && !initial.value("retired").toBool()
+        && initial.value("openedEpochMs").toLongLong()==0 && initial.value("eventSequence").toLongLong()==0
+        && initial.value("events").toList().isEmpty());
     const auto received=messages.featureChatObservation(command("observe"));assert(received.value("chatVersion")==2);
     const auto session=received.value("source").toMap().value("session").toMap();assert(session.value("domainSha256")==expected);
     assert(session.value("instance")!=first.value("instance") && session.value("connectionBirth")!=first.value("connectionBirth"));
@@ -110,6 +114,19 @@ int main(int argc,char** argv) {
     assert(messages.featureChatObservation(command("inspect")).isEmpty());nodes->onSelf={};
     nodes->mixer.reset(new FakeNode);int lookups{0};nodes->onMixer=[&]{if(++lookups==2)nodes->mixer.reset(new FakeNode);};
     assert(messages.featureChatObservation(command("inspect")).isEmpty());nodes->onMixer={};
+    QJsonObject ordinary{{"action","send_chat_message"},{"channel","domain"},{"message","reply-"+run},
+        {"displayName","explicit network seam"},{"position",QJsonObject{{"x",0.0},{"y",0.0},{"z",0.0}}}};
+    const auto bytes=QString::fromUtf8(QJsonDocument(ordinary).toJson(QJsonDocument::Compact));
+    messages._featureChat.received("chat",bytes,other,false);
+    assert(messages.featureChatObservation(command("inspect")).value("source").toMap().value("eventSequence").toLongLong()==1);
+    const auto retired=messages.featureChatObservation(command("retire")).value("source").toMap();
+    assert(retired.value("retired").toBool() && !retired.value("scopePresent").toBool()
+        && retired.value("openedEpochMs").toLongLong()==0 && retired.value("eventSequence").toLongLong()==0
+        && retired.value("events").toList().isEmpty());
+    messages._featureChat.received("chat",bytes,other,false);
+    const auto passive=messages.featureChatObservation(command("inspect")).value("source").toMap();
+    assert(passive.value("retired").toBool() && !passive.value("scopePresent").toBool()
+        && passive.value("events").toList().isEmpty() && passive.value("session").toMap().value("connected").toBool());
     overte::e2e::ChatDomainSession badThread;badThread.changed(original,true,false);assert(badThread.snapshot(run).isEmpty());
     nodes.clear();const auto reads=DependencyManager::reads;
     assert(messages.featureChatObservation(command("inspect")).isEmpty());
