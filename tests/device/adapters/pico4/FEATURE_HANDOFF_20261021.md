@@ -1687,3 +1687,38 @@ the separate original native registry/getter/disconnect fragment is compiled.
 Whole26-stage Browser input/effect/actor/stereo, complete capture retirement and
 archive/public integration remain outstanding. Private finalize still refuses;
 complete source areas stay3/14. No application/APK/device qualification is added.
+
+
+## Integrated Chat continuation, Snapshot Still and Avatar favorites packets
+
+Reviewed fixed agent selections `08b7ab9908`, `57ed9da7d2` and `d8a555a594`
+retain the same original Chat readers across separate active/Erase/final source
+segments, each preserving existing512-frame/16MiB bounds. Parent v6 preserves
+legacy readers. Typed archive acquisition retains original Dispatcher children
+and the exact known consumed Peer journal. Fourteen continuation/archive/actual
+factory cases pass3.058s. The full warm Parent-to-archive run is still incomplete:
+actual full-size archive acquisition reached the host4096-descriptor soft limit
+before SDK stop. No limit was raised; bounded versioned file ownership is next.
+
+`a3df27182d74dff38e8d407a600dd91741bcb72e` connects Snapshot normal animated
+Cancel and its original quiet window to ordinary Still capture, real original
+PNG bytes/FD/Review/VM/OS joins and seven-clock quiet. Owner v2 explicitly
+migrates original v1 state without inventing a baseline; all complete originals
+use existing immutable chunks. Lost replies perform read-only reconciliation,
+never another capture. Plans/files/preferences remain retained; whole Snapshot,
+export/share destinations, true stereo and final archive remain incomplete.
+Five disjoint selectors are added, preserving the default120-second bound.
+
+`b3d23972ba6450998d50ad7966d5d77f9c460aad` joins normal Avatar Favorites
+Save/Choose/Scale/Delete through the actual QML/Pico pointer/avatarapp.js and
+native Bookmarks writer to independent original file bytes. Original unrelated
+bookmarks remain preserved; normal OVERWRITE is refused before input. The
+private gated source retains bounded callback/queue/cache/FD ownership. This
+is a component qualification: complete durable preferences, Wearables, People,
+peer/stereo and final resource retirement remain outstanding.
+
+Root integrated validation passes8/139 groups73.25s: Still positive25.552s,
+Still recovery21.413s, Still originals3.107s, Avatar UI10.340s, Avatar state/
+Bookmarks5.395s, Chat archive3.359s, Script/Browser VM4.027s and coverage0.059s.
+These are host/original-source and selected native component checks. Complete
+source features remain3/14; no full application/APK/device claim is added.

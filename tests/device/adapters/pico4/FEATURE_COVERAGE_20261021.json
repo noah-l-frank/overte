@@ -1167,7 +1167,9 @@
         "tests/device/native/SnapshotScriptHistory.h",
         "tests/device/native/SnapshotReviewObservation.h",
         "android/vr/pico/tests/device/test_snapshot_script_originals.py",
-        "android/vr/pico/tests/device/test_snapshot_review.py"
+        "android/vr/pico/tests/device/test_snapshot_review.py",
+        "tests/device/adapters/pico4/snapshot_cancel_originals.py",
+        "tests/device/adapters/pico4/snapshot_platform.py"
       ],
       "declaredCheckpoints": 18,
       "inputVerbs": [
@@ -1204,7 +1206,7 @@
       "missingOperationsOrEvidence": [
         "Actual selected Save backend/authorization and real OS chooser driver",
         "Independent receiver-original/save-original/upload-original acquisition and actor",
-        "Whole queued cancel/history/interruption/cleanup composition"
+        "Complete export/share/upload/permissions/restart/actor/stereo and final archive around the host-verified normal Cancel\u2192Still original PNG/FD/VM/Review/OS/seven-clock quiet owner v2; retained files/plans/preferences are not retired"
       ],
       "requiredOriginalEvidence": [
         "Original native queued-capture history and private PNG",
@@ -1217,7 +1219,7 @@
         "Delete only actual owned private/saved/received/uploaded originals",
         "Restore permissions/preferences and observe quiet absent leases"
       ],
-      "nextExecutableStep": "Compose the fixed Phone fast-cancel flow with actual Pico normal controls, original VM/timer/work/review/upload sources; then complete review/save/OS-file and independent final retirement.",
+      "nextExecutableStep": "Bind existing ordinary Save/System Share/Upload controls and shared original Java export/destination sources to the retained Cancel\u2192Still owner, preserving exact original Pico filename/provider ownership. Then compose independent actor/stereo and complete restore/archive; do not relabel the existing one-region saved Still as stereo.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     },
