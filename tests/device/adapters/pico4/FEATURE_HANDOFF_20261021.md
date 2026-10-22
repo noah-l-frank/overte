@@ -1389,3 +1389,28 @@ surface pointer; private read-only roles and the exact root lock are enforced.
 [Browser originals](BROWSER_ORIGINALS.md) retain the exact reuse and host seams.
 This closes an input component, not whole Web/stereo/independent/final cleanup.
 Completed feature areas remain3/14; the full application and devices are untested.
+
+
+## Original Chat cache release and normal Snapshot cancellation
+
+Selections `195295df94`, `81e336b6ff`, `748c09da17` and `6f7924286b` are locally
+integrated. Chat composition4 joins both original cache retirements, independent
+compiled final absence, three-second original quiet windows, retained IPC closure
+and final actual kernel FD absence. Four disjoint owning selectors include all
+six original release cases exactly once within the unchanged120-second budget.
+The actual process-presence reader checks original freshness after its final
+copies and guards. Complete Chat app/process/profile/archive closure is pending.
+
+Snapshot FastCancel uses normal original Name/Capture/Cancel controls and the
+actual passive VM/native/Qt timer histories. The original getter and selected
+TabletBridge provider/request/tick/writer bodies compile with explicit VM/VR
+boundaries. The complete normal NavigationUi TU is compiled without unrelated
+feature macros; the feature recipe/provider is compiled separately. This is no
+full application qualification. Original capture-file plans, physical descriptors,
+parent/final quiet retirement and the complete shared Snapshot journey are pending.
+
+The integrated selection passes8/111 groups in155.24s: normal transport5.015s,
+Chat composition25.739s, cache positive30.276s/admission15.962s/quiet28.719s/final
+clock35.996s and Snapshot FastCancel13.437s, plus coverage. No quiet threshold,
+observation clock, default timeout or source inventory was changed. Catalog
+counts refer to test groups; completed source/host feature areas remain3/14.
