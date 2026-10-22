@@ -1098,6 +1098,13 @@ def create_adapter(args, base_class):
                 lambda:self._script_restart_recover_binding(target,restart_inputs=owner.inputs,owner_check=lambda:owner.store.read()),
                 lambda:self._lifecycle_process_observe(target,run,owner=owner))
 
+        @_private
+        def _lifecycle_draft_controls(self,target,intent,run):
+            from adapters.token_lifecycle_ui import TokenLifecycleUI
+            from adapters.pico4.normal_lifecycle import PicoLifecycleIO
+            manager=self._scripts(target)
+            return TokenLifecycleUI(PicoLifecycleIO(manager.ui.io),intent,run)
+
         def _lifecycle_back_store(self,target):
             state,_ui=self._script_paths(target)
             return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-','lifecycle-back-owner-')))

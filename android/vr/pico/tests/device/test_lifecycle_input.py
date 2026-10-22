@@ -21,6 +21,7 @@ from self_tests.test_pico_lifecycle_gesture import LifecycleGestureTests,Lifecyc
 from self_tests.test_pico_lifecycle_world import LifecycleWorldTests
 from self_tests.test_pico_lifecycle_join import LifecycleJoinTests
 from self_tests.test_pico_lifecycle_process import LifecycleProcessTests
+from self_tests.test_token_lifecycle_ui import LifecycleControlTests
 from self_tests.test_pico_openxr_adapter_session import FakeTransport
 
 
@@ -129,6 +130,42 @@ class PicoLifecycleBindingTests(unittest.TestCase):
         with self.assertRaises((ValueError,RuntimeError)):self.adapter.cleanup(self.native.target)
         self.assertEqual(original,store.read())
         self.assertIn(('am','force-stop','org.overte.pico'),self.native.events)
+
+    def test_actual_draft_factory_uses_original_normal_bridge_and_rejects_changed_field_before_transport(self):
+        import uuid
+        from copy import deepcopy
+        from adapters.token_lifecycle_ui import ID
+        from self_tests.test_token_lifecycle_ui import Boundary as FieldBoundary
+        from feature_journeys.fixtures import context
+        io=FieldBoundary();original_snapshot=self.native.snapshot;original_write=self.native.write_debug_app_file
+        self.native.opened=True
+        def snapshot():
+            value=original_snapshot();row=io.capture()['controls'][0]
+            row['token']=str(uuid.UUID(row['token']));value['controls'].append(row)
+            value.update(lifecycleControlsVersion=1,lastCommandSequence=io.sequence);return value
+        def write(target,package,path,raw):
+            command=json.loads(raw)
+            if path!='files/overte-e2e/navigation-ui-command.json' or command.get('controlId')!=ID:
+                return original_write(target,package,path,raw)
+            value=snapshot();row=value['controls'][-1]
+            self.assertEqual(row['token'],command['controlToken']);self.assertEqual(io.sequence+1,command['sequence'])
+            self.assertEqual(self.native.bridge_id,command['bridgeId']);self.assertEqual(self.native.generation,command['generation'])
+            self.native.inputs.append(deepcopy(command));io.sequence+=1;self.native.sequence=io.sequence
+            if command['action']=='activate':io.focused=True
+            else:self.assertEqual(context(RUN)['unicode'],command['text']);io.text=command['text']
+            self.native.status=dict(schemaVersion=1,bridgeId=self.native.bridge_id,commandId=command['commandId'],
+                sequence=command['sequence'],performed=True,error='',processId=123,updatedEpochMs=self.native.epoch_milliseconds(target))
+        with patch.object(self.native,'snapshot',side_effect=snapshot),patch.object(self.native,'write_debug_app_file',side_effect=write):
+            intents=[];flow=self.adapter._lifecycle_draft_controls(self.native.target,intents.append,RUN)
+            before=flow.capture();io.field='8'*32
+            with self.assertRaises((ValueError,RuntimeError)):flow.io.activate(ID,reference=before)
+            self.assertEqual([],self.native.inputs)
+            current=flow.type_owned();self.assertEqual(context(RUN)['unicode'],current['controls'][0]['text'])
+            self.assertEqual(['activate','replace'],[packet['action'] for packet in self.native.inputs]);self.assertEqual(2,len(intents))
+            self.native.digest='f'*64
+            with self.assertRaises((ValueError,RuntimeError)):flow.capture()
+            self.assertEqual(2,len(self.native.inputs))
+        self.assertFalse(any(cap.startswith('feature.lifecycle-input.') for cap in self.adapter.capabilities(self.native.target)))
 
     def test_actual_process_factory_keeps_existing_three_original_owners_and_candidate_pins(self):
         from adapters.pico4.lifecycle_process import PicoLifecycleProcessRetirement,PicoLifecycleDomain

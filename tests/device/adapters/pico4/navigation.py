@@ -13,6 +13,7 @@ import uuid
 from adapters.token_emote_ui import metadata as emote_metadata,control_id as emote_control,same_reference as emote_same_reference
 from contracts import validate_operation_arguments
 from navigation_observation import OPERATIONS, viewpoint_urls
+from adapters.token_lifecycle_ui import ID as LIFECYCLE_ID,text as lifecycle_text,metadata as lifecycle_metadata,same_reference as lifecycle_same_reference
 from adapters.token_chat_ui import metadata as chat_metadata,control_id as chat_control,text as chat_text,same_reference as chat_same_reference
 from adapters.token_create_ui import metadata as create_metadata,control_id as create_control,field as create_field,choice as create_choice,ascii_text,same_reference
 from adapters.pico4.create_file_ui import (metadata as create_file_metadata, inventory as create_inventory,
@@ -97,6 +98,9 @@ def validate_snapshot(value, process_id, epoch_ms):
     if type(value) is dict and 'chatControlsVersion' in value:
         fields.add('chatControlsVersion')
         need(type(value['chatControlsVersion']) is int and value['chatControlsVersion'] in (1,2))
+    if type(value) is dict and 'lifecycleControlsVersion' in value:
+        fields.add('lifecycleControlsVersion')
+        need(type(value['lifecycleControlsVersion']) is int and value['lifecycleControlsVersion']==1)
     if type(value) is dict and 'createControlsVersion' in value:
         fields.add('createControlsVersion')
         need(type(value['createControlsVersion']) is int and value['createControlsVersion']==1)
@@ -155,6 +159,8 @@ def validate_snapshot(value, process_id, epoch_ms):
         is_error=control['id'].startswith('navigation.error.ok.')
         if is_create_file:
             need(value.get('createFileControlsVersion')==1);create_file_metadata(control);fields=set(control)
+        elif control['id'].startswith('lifecycle.'):
+            need(control['id']==LIFECYCLE_ID and value.get('lifecycleControlsVersion')==1);lifecycle_metadata(control);fields=set(control)
         elif is_error:
             need(value.get('navigationErrorControlsVersion')==1);error_metadata(control);fields=set(control)
         elif is_places:
@@ -189,7 +195,7 @@ def validate_snapshot(value, process_id, epoch_ms):
                  or graphics_control(control['id']) or control['id'] in LOGIN_IDS or control['id'] in ACCOUNT_MENU_IDS
                  or is_create and create_control(control['id']) or is_chat and chat_control(control['id'])
                  or is_emote and emote_control(control['id'])
-                 or is_places and places_control(control['id']) or is_error and error_control(control['id']) or is_create_file)
+                 or is_places and places_control(control['id']) or is_error and error_control(control['id']) or is_create_file or control['id']==LIFECYCLE_ID)
              and identifier(control['token']) and control['id'] not in ids
              and control['token'] not in tokens and type(control['enabled']) is bool
              and type(control['focused']) is bool)
@@ -353,6 +359,9 @@ class PicoNavigation:
             if 'createFileControlsVersion' in reference:
                 from adapters.pico4.create_file_ui import project as create_file_project
                 original=create_file_same_reference(reference,create_file_project(snapshot),control_id)
+            elif 'lifecycleControlsVersion' in reference:
+                from adapters.pico4.normal_lifecycle import project as lifecycle_project
+                original=lifecycle_same_reference(reference,lifecycle_project(snapshot),control_id)
             elif 'navigationErrorControlsVersion' in reference:
                 from adapters.pico4.normal_navigation_error import project as error_project
                 original=error_same_reference(reference,error_project(snapshot),control_id)
@@ -375,6 +384,12 @@ class PicoNavigation:
                  and action in ('activate','replace','submit'))
             if action=='replace':need(control['focused']);create_file_path(text,control_id,control['role'])
             elif action=='submit':need(control_id=='create-file.folder' and control['focused'] and text is None)
+            else:need(text is None)
+        elif control_id.startswith('lifecycle.'):
+            need(control_id==LIFECYCLE_ID and reference is not None and snapshot.get('lifecycleControlsVersion')==1
+                and control['inputReady'] and action in ('activate','replace')
+                and all(v is None for v in (source,index,direction,value)))
+            if action=='replace':need(control['focused']);lifecycle_text(text)
             else:need(text is None)
         elif is_error:
             need(reference is not None and snapshot.get('navigationErrorControlsVersion')==1 and control['inputReady']
@@ -465,6 +480,8 @@ class PicoNavigation:
                 create_file_path(text,control_id,control['role'])
             elif is_places:
                 need(control_id in ('places.search','places.bookmark.name','places.server.url'));ascii_text(text)
+            elif control_id==LIFECYCLE_ID:
+                lifecycle_text(text)
             elif is_chat:
                 need(control_id=='chat.input');chat_text(text)
             elif is_create:
