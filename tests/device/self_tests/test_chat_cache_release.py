@@ -128,8 +128,23 @@ class CacheReleaseTests(unittest.TestCase):
         for reader in (view,native):reader.clock_ms=self.epoch;reader.monotonic=self.now;reader.sleep=self.sleep
         return CompiledChatCacheAbsence(RUN,role,self.binding,self.peer_binding,self.native_reader(0),self.native_reader(1),view,native,
             PrivateFeatureState(self.root/(role+'-final.json')),*self.locks,vr=True,script_source=source,monotonic=self.now)
-    def make(self):return ChatCacheRelease(tuple(self.caches),self.roles,self.profile,self.input_close,self.fresh,self.store,
-        self.fence,monotonic=self.now,sleep=self.sleep)
+    def make(self,*,defer_ipc=False):return ChatCacheRelease(tuple(self.caches),self.roles,self.profile,self.input_close,self.fresh,self.store,
+        self.fence,defer_ipc=defer_ipc,monotonic=self.now,sleep=self.sleep)
+
+    def test_deferred_original_retirements_keep_actual_peer_source_and_ipc_for_postrestart_queries(self):
+        with self.phase.flow.session():
+            self.owner=self.make(defer_ipc=True);result=self.owner.run(20000)
+            self.assertEqual('caches-quiet',result['phase']);self.assertEqual(2,result['chatCacheReleaseVersion'])
+            self.assertTrue(result['ipcDeferred']);self.assertNotIn('ipc',result)
+            before=deepcopy(self.files.store.read());self.assertFalse(before['closing']);self.assertFalse(before['removed'])
+            self.assertGreaterEqual(self.actor.fd,0);self.assertFalse(self.fresh.fd_owner.closed)
+            request=dict(schemaVersion=1,commandId='f'*32,action='feature-chat-observe',operation='inspect',runId=RUN)
+            self.fresh.send(request);self.actor.tick();packet=json.loads(self.fresh.read())
+            self.assertTrue(packet['source']['retired']);self.assertFalse(packet['source']['scopePresent'])
+            self.assertEqual(self.caches[1].base['retirement']['request']['commandId'],packet['source']['retiredCommandId'])
+            self.assertFalse(self.files.released(node(os.fstat(self.actor.fd))));self.owner.authority()
+        self.assertEqual(['observe','retire'],self.mutations(0));self.assertEqual(['observe','retire'],self.mutations(1))
+        self.assertIsNotNone(self.input_close.store.read());self.assertIsNotNone(self.profile.store.read())
 
     def mutations(self,index):
         return [row['operation'] for row in (self.model.primary,self.model.peer)[index].commands if row['operation']!='inspect']
@@ -208,6 +223,7 @@ class CacheReleaseTests(unittest.TestCase):
 # remain lossless: a new/renamed test refuses selection until it is assigned.
 _GROUPS=dict(
     positive=('test_original_two_retirements_independent_compiled_absence_quiet_and_retained_ipc_close',),
+    deferred=('test_deferred_original_retirements_keep_actual_peer_source_and_ipc_for_postrestart_queries',),
     admission=('test_phase_change_after_parent_retirement_intent_prevents_native_mutation_and_retains_original',
         'test_lost_original_parent_intent_never_overwrites_or_retires_peer_after_first_primary_release'),
     quiet=('test_frozen_host_cannot_hide_original_native_quiet_gap_or_allow_ipc_removal',
@@ -224,6 +240,7 @@ def _selection(group):
 
 
 def cache_release_positive_tests():return _selection('positive')
+def cache_release_deferred_tests():return _selection('deferred')
 def cache_release_admission_tests():return _selection('admission')
 def cache_release_quiet_tests():return _selection('quiet')
 def cache_release_final_clock_tests():return _selection('final_clock')

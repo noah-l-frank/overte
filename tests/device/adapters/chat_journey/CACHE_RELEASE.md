@@ -1,6 +1,7 @@
 # Original Chat cache and IPC release
 
-`ChatCacheRelease` v1 follows the completed original peer input close and normal
+`ChatCacheRelease` v2 adds the deferred IPC path described below. The unchanged
+immediate component path still emits its original v1 journal. Both follow the completed original peer input close and normal
 Erase/profile-restoration owner. It does not replace their journals. Admission
 requires both original active `ChatCacheLifetime` owners, two new independent
 `CompiledChatCacheAbsence` roles, the same exact two parent source-lock objects,
@@ -45,7 +46,7 @@ manifest CAS and copy, before returning. Rootless release chunks prevent general
 cleanup success. All original capture/lifetime/input/profile/model/IPC journals
 remain retained; the enclosing fixture/source descriptor stays owned.
 
-Pico parent v4 exposes this private stage as `close_caches_and_ipc(after_epoch)`
+Pico parent v4 and later expose the immediate private component stage as `close_caches_and_ipc(after_epoch)`
 after `close_input_and_restore_profile`. The new parent phases are
 `cache-release-issued` and `caches-ipc-released`. Legacy v1/v2/v3 roots remain
 readable for retention and cannot gain these v4 phases. The already compiled
@@ -72,12 +73,32 @@ cd tests/device
 PYTHONDONTWRITEBYTECODE=1 python3 -m unittest self_tests.test_chat_cache_release -v
 ```
 
-For the Pico catalog's unchanged 120-second budget, four lossless suite factories
+For the Pico catalog's unchanged 120-second budget, five lossless suite factories
 separate the actual positive closure, admission/lost-CAS countercases, quiet/late
 input countercases and final-clock countercase:
-`cache_release_positive_tests`, `cache_release_admission_tests`,
+`cache_release_positive_tests`, `cache_release_deferred_tests`, `cache_release_admission_tests`,
 `cache_release_quiet_tests`, and `cache_release_final_clock_tests` in the same
 host test module. Selection refuses missing or duplicated original cases. No
 case, repetition or freshness bound is removed, and normal module discovery
 continues to include every case. An aggregate module timing is not presented as
 a measured per-selector timing.
+
+
+V2's `defer_ipc=True` records `ipcDeferred:true` and returns `caches-quiet` after
+the same two actual retirements and independent three-second source interval.
+It does not unlink either observation IPC path, close the original result FD or
+claim IPC release. The exact original peer transport remains available for NEW
+passive native queries through the application restart. Input files are already
+closed, so no peer input can be reopened. Its unchanged native3 tombstones remain
+bound to the original first mutation IDs. The old source histories stay intact.
+
+Pico parent v5 selects this path through `prepare_cache_release(after_epoch)` and
+records `caches-retired`. The old immediate `close_caches_and_ipc` method remains
+a component-only path and cannot establish a post-restart current peer proof.
+A full parent must next prove the original application's death, new birth and
+saved profile, acquire new independent post-restart originals while this peer
+channel is still owned, then close IPC through the retained original transport.
+That later process/IPC/archive owner is not implemented by this packet. No
+closed IPC path is recreated and no old frame is relabelled as a new observation.
+The deferred selector proves a NEW original Inspect after cache retirement with
+the original kernel result FD still held, retaining both original histories.

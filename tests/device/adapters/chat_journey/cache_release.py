@@ -18,7 +18,7 @@ from adapters.native_feature_observation import integer,need,number
 from adapters.normal_ui import NativeUIError
 from adapters.script_journey.history import same
 
-VERSION=1
+VERSION=2
 
 
 class ChatCacheRelease:
@@ -27,14 +27,15 @@ class ChatCacheRelease:
     Qt/global process destruction and post-restart profile verification belong
     to the enclosing parent. This component cannot grant feature capability.
     """
-    def __init__(self,caches,roles,profile,input_close,files,store,fence,*,monotonic=time.monotonic,sleep=time.sleep):
+    def __init__(self,caches,roles,profile,input_close,files,store,fence,*,defer_ipc=False,monotonic=time.monotonic,sleep=time.sleep):
         need(type(caches) is tuple and len(caches)==2 and all(type(cache) is ChatCacheLifetime for cache in caches)
             and type(roles) is tuple and len(roles)==2 and all(type(role) is CompiledChatCacheAbsence for role in roles)
             and type(profile) is OwnedChatProfile and type(input_close) is ChatPeerInputClose
             and type(files) is ChatPeerRetirementFiles and files.input_close is input_close
             and type(fence) is ChatPhaseFence and fence.cleanup is not None
-            and callable(monotonic) and callable(sleep) and store.read() is None)
+            and type(defer_ipc) is bool and callable(monotonic) and callable(sleep) and store.read() is None)
         self.caches,self.roles,self.profile,self.input_close,self.files,self.store,self.fence=caches,roles,profile,input_close,files,store,fence
+        self.defer_ipc=defer_ipc
         self.monotonic,self.sleep=monotonic,sleep;self.last_clock=None;self.previous=None;self.failed=False;self.frames=[]
         self.locks=roles[0].locks;self.run_id=profile.run
         for lock in self.locks:lock.assert_held()
@@ -53,11 +54,12 @@ class ChatCacheRelease:
         self.profile_original=deepcopy(profile.reader.last);need(self.profile_original is not None and self.profile_original['restored']
             and self.profile_original['restoreAttempted'] and self.profile_original['current']==self.profile_original['original'])
         self.profile_disk=deepcopy(profile.previous);need(same(profile.store.read(),self.profile_disk))
-        self.scope=dict(chatCacheReleaseVersion=VERSION,runId=self.run_id,binding=deepcopy(profile.binding),
+        self.scope=dict(chatCacheReleaseVersion=VERSION if defer_ipc else 1,runId=self.run_id,binding=deepcopy(profile.binding),
             peerBinding=deepcopy(roles[0].peer_binding),cacheJournals=[cache.store.path.name for cache in caches],
             absenceJournals=[role.store.path.name for role in roles],profileJournal=profile.store.path.name,
             profileSha256=digest(self.profile_disk),inputCloseJournal=input_close.store.path.name,
             inputCloseSha256=digest(input_close.previous))
+        if defer_ipc:self.scope['ipcDeferred']=True
         self.chunks=ChatSourceChunks(store,self.scope);self.chunks.inventory(0)
         for cache in caches:
             bind_phase_fence(cache,fence);bind_phase_fence(cache.reader._chat_transport,fence)
@@ -137,6 +139,9 @@ class ChatCacheRelease:
                 label='primary' if index==0 else 'peer';self.issue(label+'-retirement-issued')
                 cache.retire();self.save(label+'-retired')
             self.quiet(max(after_epoch,self.profile_original['capturedEpochMs']))
+            if self.defer_ipc:
+                self.save('caches-quiet');result=deepcopy(self.previous);self.authority()
+                fresh_roles(self.roles,self.final_started,self.now);return result
             self.issue('ipc-close-issued');closed=self.files.close(retain=True)
             need(closed['closing'] and closed['removed'] and closed['result']['retired']);self.save('ipc-closed',ipc=closed)
             result=deepcopy(self.previous);self.authority();fresh_roles(self.roles,self.final_started,self.now)

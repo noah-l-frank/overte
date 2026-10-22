@@ -24,24 +24,24 @@ from adapters.script_journey.history import same
 from adapters.script_journey.lock import ScriptSourceLock
 from feature_journeys.phase_fixture import PhaseFixtureReader
 
-VERSION=4
+VERSION=5
 
 
 PHASES=('admitted','bound','profile-acquire-issued','profile-acquired','prepared','step-issued','step-completed',
-    'cleanup-admission-issued','cleanup-admitted','input-close-issued','input-closed','erase-restore-issued','profile-restored','cache-release-issued','caches-ipc-released')
+    'cleanup-admission-issued','cleanup-admitted','input-close-issued','input-closed','erase-restore-issued','profile-restored','cache-release-issued','caches-ipc-released','caches-retired')
 
 
 def record(value):
     import re
     exact(value,{'picoChatCompositionVersion','runId','binding','fixtureUrl','phase','peerBinding','peerOriginBasis','completedSteps'})
-    need(type(value['picoChatCompositionVersion']) is int and value['picoChatCompositionVersion'] in (1,2,3,VERSION)
+    need(type(value['picoChatCompositionVersion']) is int and value['picoChatCompositionVersion'] in (1,2,3,4,VERSION)
         and type(value['runId']) is str and re.fullmatch('[0-9a-f]{32}',value['runId'])
         and type(value['fixtureUrl']) is str and len(value['fixtureUrl'])<=512
         and value['fixtureUrl'].endswith('/runs/'+value['runId']+'/') and value['phase'] in PHASES
         and integer(value['completedSteps'],0,26))
     context(value['binding'])
     if value['picoChatCompositionVersion']<3:need(value['phase'] not in ('cleanup-admission-issued','cleanup-admitted'))
-    if value['picoChatCompositionVersion']<4:need(value['phase'] not in ('cache-release-issued','caches-ipc-released'))
+    if value['picoChatCompositionVersion']<4:need(value['phase'] not in ('cache-release-issued','caches-ipc-released','caches-retired'))
     if value['phase']=='admitted':need(value['peerBinding'] is None and value['peerOriginBasis']=='unavailable')
     else:context(value['peerBinding']);need(value['peerOriginBasis']=='native-configured-metadata-only')
     if value['phase'] in PHASES[:5]:need(value['completedSteps']==0)
@@ -232,6 +232,14 @@ class PicoChatComposition:
             raise NativeUIError('Pico Chat release/profile work is unresolved; original owners remain without replay') from None
 
     def close_caches_and_ipc(self,after_epoch):
+        """Immediate legacy component close; this cannot enter the app restart stage."""
+        return self._release_caches(after_epoch,defer_ipc=False)
+
+    def prepare_cache_release(self,after_epoch):
+        """Retire original caches while keeping peer queries owned through restart."""
+        return self._release_caches(after_epoch,defer_ipc=True)
+
+    def _release_caches(self,after_epoch,*,defer_ipc):
         from adapters.chat_journey.cache_release import ChatCacheRelease
         try:
             need(not self.failed and integer(after_epoch,1) and self.previous['phase']=='profile-restored'
@@ -246,12 +254,14 @@ class PicoChatComposition:
                     for role,code in zip(('primary','actor'),self.code_sources))
                 self.cache_release=ChatCacheRelease(caches,final,self.profile,self.input_close,self.peer.retirement_files,
                     self.adapter._chat_cache_release_store(self.target),self.cleanup_fence,
-                    monotonic=self.native.monotonic,sleep=self.native.sleep)
-                result=self.cache_release.run(after_epoch);need(result['phase']=='ipc-closed')
-                self.save('caches-ipc-released');result=deepcopy(self.previous);self.guard()
+                    defer_ipc=defer_ipc,monotonic=self.native.monotonic,sleep=self.native.sleep)
+                result=self.cache_release.run(after_epoch);need(result['phase']==('caches-quiet' if defer_ipc else 'ipc-closed'))
+                self.save('caches-retired' if defer_ipc else 'caches-ipc-released');result=deepcopy(self.previous);self.guard()
                 self.cache_release.authority()
-                node={key:self.cache_release.previous['ipc']['result']['stamp'][key] for key in ('device','inode')}
-                need(self.peer.process.released(node) is True)
+                owned=self.peer.files._owned()
+                need(owned['pending'] is None and owned['result']['commandId']==owned['request']['commandId'])
+                node={key:owned['result']['stamp'][key] for key in ('device','inode')}
+                need(self.peer.process.released(node) is (not defer_ipc))
                 fresh_roles(final,self.cache_release.final_started,self.cache_release.now);return result
         except Exception:
             self.failed=True
@@ -276,7 +286,7 @@ class PicoChatWitness:
         self.native.guard();self.lock=ScriptSourceLock(adapter._chat_composition_store(target).path.with_name('script-sources.lock'))
         self.parent=adapter._chat_composition_store(target);original=record(self.parent.read())
         need(type(original) is dict and type(original.get('picoChatCompositionVersion')) is int
-            and original['picoChatCompositionVersion'] in (3,VERSION) and same(original.get('binding'),self.binding)
+            and original['picoChatCompositionVersion'] in (3,4,VERSION) and same(original.get('binding'),self.binding)
             and original.get('runId')==source.run and original.get('fixtureUrl')==source.fixture_url
             and original.get('phase') in ('prepared','step-issued','step-completed'))
         try:
