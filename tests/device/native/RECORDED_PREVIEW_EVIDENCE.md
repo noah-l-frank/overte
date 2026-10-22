@@ -103,3 +103,17 @@ and independent peer remain required for the complete audio journey.
 Device-free tests exercise the actual Python reader, original probe dispatch,
 HTTP command validator and Android shell file checks with explicit native
 boundaries. They prove test/control logic only; the new C++ is uncompiled.
+
+The tap and atomic product history now retain the same original native Start
+instant. AudioClient supplies its already measured `_e2eRecordedVoiceStarted`
+to `RecordedPreviewObservation::begin`; the observer does not acquire a second
+start timestamp that could differ by a millisecond. This changes only dedicated
+E2E instrumentation. The native history cycle/start/format/events can therefore
+be joined exactly to the original PCM acquisition without retiming either.
+
+`tests/device/contracts/audio/test_recorded_preview_observation.py` compiles the
+actual observer with Qt Core and an explicit QAudioFormat value seam. It checks
+separate unchanged input/sink bytes, immutable original timestamps/history,
+release and next-cycle identity. That narrow compiled observer is not an
+AudioClient, Qt Multimedia, Android or OpenXR product build and makes no audio
+or device qualification claim.
