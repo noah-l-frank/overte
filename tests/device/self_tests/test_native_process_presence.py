@@ -7,6 +7,7 @@ from pathlib import Path
 import subprocess
 import sys
 import unittest
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from adapters.native_process_presence import NativeProcessPresence, command
@@ -122,6 +123,50 @@ class ProcessPresenceTests(unittest.TestCase):
                 with self.assertRaises(NativeUIError): reader.require_absent(29)
                 self.assertIsNone(reader.last)
                 self.assertEqual(0 if fault == 'late-initial' else 1, len(source.commands))
+
+    def test_slow_either_final_copy_cannot_commit_absence_with_the_other_clock_frozen(self):
+        for copy_index in (1,2):
+            for clock in ('host','native'):
+                with self.subTest(copy_index=copy_index,clock=clock):
+                    epoch=[20000];source=Boundary(epoch_ms=lambda:epoch[0]);source.presence='absent';reader=source.reader();copies=[0]
+                    def late(value):
+                        result=deepcopy(value)
+                        if type(value) is dict and value.get('processPresenceVersion')==1:
+                            copies[0]+=1
+                            if copies[0]==copy_index:
+                                if clock=='host':source.clock+=2
+                                else:epoch[0]+=2000
+                        return result
+                    with patch('adapters.native_process_presence.deepcopy',late),self.assertRaises(NativeUIError):reader.require_absent(29)
+                    self.assertIsNone(reader.last);self.assertEqual(1,len(source.commands))
+
+    def test_last_guard_or_clock_jump_after_final_copy_cannot_commit_unknown_as_fresh_absence(self):
+        for fault in ('guard-native','clock-host','clock-regression'):
+            with self.subTest(fault=fault):
+                epoch=[20000];source=Boundary(epoch_ms=lambda:epoch[0]);source.presence='absent';reader=source.reader();copied=[False]
+                def copy(value):
+                    result=deepcopy(value)
+                    if type(value) is dict and value.get('processPresenceVersion')==1:copied[0]=True
+                    return result
+                def guard():
+                    if copied[0] and fault=='guard-native':epoch[0]+=2000
+                    return True
+                def clock():
+                    if copied[0]:
+                        if fault=='clock-host':source.clock+=2
+                        elif fault=='clock-regression':return 19999
+                    return epoch[0]
+                reader.guard=guard;reader.clock_ms=clock
+                with patch('adapters.native_process_presence.deepcopy',copy),self.assertRaises(NativeUIError):reader.require_absent(29)
+                self.assertIsNone(reader.last);self.assertEqual(1,len(source.commands))
+
+    def test_slow_original_physical_read_with_frozen_native_clock_never_commits_absence(self):
+        source=Boundary();source.presence='absent';reader=source.reader();original=reader.original
+        def late():
+            value=original();source.clock+=2;return value
+        reader.original=late
+        with self.assertRaises(NativeUIError):reader.require_absent(29)
+        self.assertIsNone(reader.last);self.assertEqual(1,len(source.commands))
 
     def test_caller_mutation_cannot_replace_the_readers_previous_original(self):
         source = Boundary(); reader = source.reader(); value = reader.read(29)

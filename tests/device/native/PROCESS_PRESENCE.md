@@ -88,3 +88,20 @@ native clocks; legacy/unbound entrypoints refuse before target/transport I/O.
 Their host selections pass Phone 110, Pico 24 native-feature and iOS 400 no-build
 cases. Full restart ownership joins remain pending; no complete feature
 capability or device qualification is enabled.
+
+The host reader retains two detached originals before its final ownership guard
+and original device-clock read: one for the caller and one for its cursor. The
+unchanged five-second query deadline never replaces the stricter 1.5-second
+accepted-packet freshness check. Physical result acquisition, parsing,
+validation, both copies and final guards share that host elapsed-age bound;
+advancing native epoch and final-clock call time are checked independently.
+A frozen host/device clock cannot conceal a jump of its other original clock.
+A failed final check never commits the new cursor or returns an ESRCH verdict.
+The protocol remains v1; neither EPERM/unknown nor a stop acknowledgement is
+reclassified as process absence.
+
+Focused synthetic-source countercases cover both final copies, the final guard
+and clock, regressing epoch and a slow physical read. The unchanged historical
+reader fails the final-guard/clock and physical-read counterprobes; the corrected
+original reader passes all 14 process-presence host tests. These checks do not
+claim that an Android process or physical device was run.
