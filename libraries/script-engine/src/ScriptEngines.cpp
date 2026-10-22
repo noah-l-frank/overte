@@ -524,6 +524,43 @@ QVariantMap ScriptEngines::featureCreateCallbackObservation() {
         {"managers",managers}};
 }
 
+QVariantMap ScriptEngines::featureScriptWorkObservation(const QString& managerInstance, const QString& requestId) {
+    if (!QCoreApplication::arguments().contains("--testScript")) { return {}; }
+    QSet<ScriptManagerPointer> known;quint64 revision {0};
+    {
+        QMutexLocker lock(&_allScriptsMutex);
+        if (_allKnownScriptManagers.size()>128 || _featureKnownScriptRevision>9007199254740991ULL) { return {}; }
+        known=_allKnownScriptManagers;revision=_featureKnownScriptRevision;
+    }
+    ScriptManagerPointer selected;
+    for (const auto& manager:known) {
+        const auto member=manager ? manager->featureLoadMembership() : QVariantMap();
+        if (member.isEmpty()) { return {}; }
+        if (member.value("instance").toString()==managerInstance) {
+            if (selected) { return {}; }selected=manager;
+        }
+    }
+    if (!selected || !selected->isRunning() || selected->isStopping() || selected->isFinished()) { return {}; }
+    const auto original=selected->featureWorkObservation(requestId);
+    if (original.value("pending").toBool()) { return {{"pending",true}}; }
+    if (original.isEmpty() || original.value("manager").toMap()!=selected->featureLoadMembership()
+            || original.value("code").toMap()!=selected->featureSourceIdentity()) { return {}; }
+    QVariantList workers;
+    for (const auto& manager:known) {
+        const auto member=manager->featureLoadMembership();
+        if (member.isEmpty()) { return {}; }
+        workers.append(QVariantMap{{"membership",member},{"running",manager->isRunning()},
+            {"stopping",manager->isStopping()},{"finished",manager->isFinished()},{"done",manager->isDoneRunning()}});
+    }
+    {
+        QMutexLocker lock(&_allScriptsMutex);
+        if (_featureKnownScriptRevision!=revision) { return {}; }
+    }
+    if (!selected->isRunning() || selected->isStopping() || selected->isFinished()) { return {}; }
+    auto result=original;result.insert("complete",true);result.insert("revision",static_cast<qulonglong>(revision));
+    result.insert("workers",workers);return result;
+}
+
 QVariantMap ScriptEngines::featureScriptObservation() {
     if (!QCoreApplication::arguments().contains("--testScript")) { return {}; }
     QSet<ScriptManagerPointer> known;

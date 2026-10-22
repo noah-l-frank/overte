@@ -14,6 +14,7 @@
 #include "ScriptManager.h"
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #include "ScriptLoadObservation.h"
+#include "v8/ScriptEngineV8.h"
 namespace {
 overte::e2e::ScriptLoadObservation& featureScriptLoads() {
     static overte::e2e::ScriptLoadObservation history;
@@ -1300,6 +1301,90 @@ void ScriptManager::run() {
     }
 }
 
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+void ScriptManager::featureCallbackBoundary(bool timer, bool entering, int scriptId) {
+    if (!_featureWorkValid) { return; }
+    if (QThread::currentThread()!=thread() || scriptId<0
+            || (!_featureWorkActivity.contains(scriptId) && _featureWorkActivity.size()>=1024)) { _featureWorkValid=false;return; }
+    auto& activity=_featureWorkActivity[scriptId];
+    auto& count=timer ? _featureTimerCallbacks : _featureSignalCallbacks;
+    auto& active=timer ? activity.timerCallbacks : activity.signalCallbacks;
+    auto& calls=timer ? activity.timerInvocations : activity.signalInvocations;
+    if ((entering && (count>=1000000000 || active>=1000000000 || calls>=1000000000))
+            || (!entering && (count==0 || active==0))) { _featureWorkValid=false;return; }
+    if (entering) { ++count;++active;++calls; } else { --count;--active; }
+}
+
+void ScriptManager::featureTimerRegistered(int scriptId) {
+    if (!_featureWorkEnabled || !_featureWorkValid) { return; }
+    if (QThread::currentThread()!=thread() || scriptId<0
+            || (!_featureWorkActivity.contains(scriptId) && _featureWorkActivity.size()>=1024)) { _featureWorkValid=false;return; }
+    auto& activity=_featureWorkActivity[scriptId];
+    if (activity.timerRegistrations>=1000000000) { _featureWorkValid=false;return; }
+    ++activity.timerRegistrations;
+}
+
+QVariantMap ScriptManager::featureWorkObservation(const QString& requestId) {
+    if (!_featureWorkEnabled || !_featureWorkValid || !thread() || !thread()->isRunning()
+            || !isRunning() || isStopping() || isFinished() || _isDoneRunning) { return {}; }
+    std::lock_guard<std::mutex> lock(_featureWorkMutex);
+    if (requestId==_featureWorkRequest) {
+        return _featureWorkPending ? QVariantMap{{"pending",true}} : _featureWorkResult;
+    }
+    if (_featureWorkPending || _featureWorkSequence>=1000000000) { return {}; }
+    _featureWorkRequest=requestId;_featureWorkResult.clear();_featureWorkPending=true;
+    const auto sequence=++_featureWorkSequence;
+    const auto requested=QDateTime::currentMSecsSinceEpoch();
+    // This normal-priority owner-thread barrier follows already posted Qt
+    // input deliveries. It never blocks the GUI or forwards a product input.
+    const bool posted=QMetaObject::invokeMethod(this,[this,requestId,sequence,requested] {
+        QVariantMap result;
+        if (QThread::currentThread()==thread() && _featureWorkValid && isRunning()
+                && !isStopping() && !isFinished() && !_isDoneRunning && _timerFunctionMap.size()<=256) {
+            const auto membership=featureLoadMembership();const auto code=featureSourceIdentity();const auto compiled=featureCompiledSources();
+            QVariantList timers,activity;
+            bool complete=!membership.isEmpty() && !code.isEmpty() && _engine && compiled.value("complete").toBool()
+                && _featureWorkActivity.size()<=1024;
+            for (const auto& entry:_timerFunctionMap) {
+                const auto& timer=entry.second.first;
+                if (!timer || timer->thread()!=QThread::currentThread() || entry.first<=0) { complete=false;break; }
+                timers.append(QVariantMap{{"handle",entry.first},{"active",timer->isActive()},
+                    {"singleShot",timer->isSingleShot()},{"intervalMs",timer->interval()},{"remainingMs",timer->remainingTime()},
+                    {"functionScriptId",entry.second.second.featureFunctionScriptId}});
+            }
+            for (auto it=_featureWorkActivity.cbegin();it!=_featureWorkActivity.cend();++it) {
+                const auto& original=it.value();
+                activity.append(QVariantMap{{"scriptId",it.key()},
+                    {"signalCallbacks",static_cast<qulonglong>(original.signalCallbacks)},
+                    {"timerCallbacks",static_cast<qulonglong>(original.timerCallbacks)},
+                    {"signalInvocations",static_cast<qulonglong>(original.signalInvocations)},
+                    {"timerInvocations",static_cast<qulonglong>(original.timerInvocations)},
+                    {"timerRegistrations",static_cast<qulonglong>(original.timerRegistrations)}});
+            }
+            if (complete && _featureWorkValid) {
+                const auto captured=QDateTime::currentMSecsSinceEpoch();
+                if (captured>=requested) {
+                    result={{"manager",membership},{"code",code},{"compiled",compiled},{"work",QVariantMap{
+                        {"scriptWorkVersion",2},{"requestId",requestId},{"sequence",static_cast<qulonglong>(sequence)},
+                        {"requestedEpochMs",requested},{"capturedEpochMs",captured},
+                        {"signalCallbacks",static_cast<qulonglong>(_featureSignalCallbacks)},
+                        {"timerCallbacks",static_cast<qulonglong>(_featureTimerCallbacks)},
+                        {"evaluating",_engine->isEvaluating()},{"timers",timers},{"activity",activity},
+                        {"timerEntries",static_cast<int>(_timerFunctionMap.size())},
+                        {"activityEntries",_featureWorkActivity.size()}}}};
+                }
+            }
+        }
+        std::lock_guard<std::mutex> completed(_featureWorkMutex);
+        if (_featureWorkRequest==requestId && _featureWorkPending) {
+            _featureWorkResult=result;_featureWorkPending=false;
+        }
+    },Qt::QueuedConnection);
+    if (!posted) { _featureWorkPending=false;_featureWorkValid=false;return {}; }
+    return {{"pending",true}};
+}
+#endif
+
 // NOTE: This is private because it must be called on the same thread that created the timers, which is why
 // we want to only call it in our own run "shutdown" processing.
 void ScriptManager::stopAllTimers() {
@@ -1381,6 +1466,9 @@ void ScriptManager::timerFired(int handle) {
     // call the associated JS function, if it exists
     if (data.function.isValid()) {
         PROFILE_RANGE(script, __FUNCTION__);
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        FeatureCallbackScope featureCallback(this,true,data.featureFunctionScriptId);
+#endif
         auto preTimer = p_high_resolution_clock::now();
         callWithEnvironment(data.definingEntityIdentifier, data.definingSandboxURL, data.function, data.function, ScriptValueList(), data.consentRequest);
         auto postTimer = p_high_resolution_clock::now();
@@ -1399,10 +1487,22 @@ int ScriptManager::setupTimerWithInterval(const ScriptValue& function, int inter
     int handle = _timerHandleCounter++;
 
     // create the timer, add it to the map, and start it
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    if (_featureWorkEnabled && _timerFunctionMap.contains(handle)) { _featureWorkValid=false; }
+#endif
     CallbackData timerData = { function, currentEntityIdentifier, currentSandboxURL, _currentEntityScriptConsentRequest };
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    if (_featureWorkEnabled) {
+        const auto engineV8=dynamic_cast<ScriptEngineV8*>(_engine.get());
+        timerData.featureFunctionScriptId=engineV8 ? engineV8->featureFunctionScriptId(function) : 0;
+    }
+#endif
     auto& newTimer =
         _timerFunctionMap.emplace(handle, std::make_pair(std::make_unique<QTimer>(), timerData)).first->second.first;
     newTimer->setSingleShot(isSingleShot);
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    featureTimerRegistered(timerData.featureFunctionScriptId);
+#endif
 
     // The default timer type is not very accurate below about 200ms http://doc.qt.io/qt-5/qt.html#TimerType-enum
     static const int MIN_TIMEOUT_FOR_COARSE_TIMER = 200;

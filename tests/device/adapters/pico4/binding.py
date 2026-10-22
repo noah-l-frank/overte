@@ -510,6 +510,18 @@ def create_adapter(args, base_class):
                 lambda: self._script_journey().existing_input_session(target))
 
         @_private
+        def _script_work(self, target):
+            from adapters.native_script_work import NativeScriptWork, FILE, command
+            native = self._native_feature_observer(target)
+            def send(value):
+                command(value); native.guard(); native.send(value)
+            return NativeScriptWork(send,
+                lambda: self.adb.read_debug_app_file(target, 'org.overte.pico',
+                    'files/overte-e2e/' + FILE, attempts=1),
+                native.clock_ms, native.guard, native.pid,
+                monotonic=native.monotonic, sleep=native.sleep)
+
+        @_private
         def _emote_effects(self, target, inputs, *, current_source=None):
             from adapters.pico4.emote_effects import PicoEmoteEffects
             from adapters.pico4.emote_inputs import PicoEmoteInputs

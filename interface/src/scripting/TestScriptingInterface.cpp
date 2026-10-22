@@ -1049,6 +1049,38 @@ QVariantMap TestScriptingInterface::featureAnimationInventory(const QVariantMap&
         {"capturedEpochMs",QDateTime::currentMSecsSinceEpoch()},{"source",source}};
 }
 
+QVariantMap TestScriptingInterface::featureScriptWork(const QVariantMap& command) {
+    if (QThread::currentThread()!=thread()) {
+        if (!thread() || !thread()->isRunning()) { return {}; }
+        QVariantMap result;
+        if (!QMetaObject::invokeMethod(this,[&] { result=featureScriptWork(command); },Qt::BlockingQueuedConnection)) { return {}; }
+        return result;
+    }
+    const auto json=QJsonObject::fromVariantMap(command);const auto keys=json.keys();
+    const auto id=json.value("commandId").toString();const auto subject=json.value("managerInstance").toString();
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript") || _featureScriptWorkSequence>=1000000000
+            || QSet<QString>(keys.begin(),keys.end())!=QSet<QString>{"schemaVersion","commandId","action","managerInstance"}
+            || json.value("schemaVersion")!=QJsonValue(1) || json.value("action")!=QJsonValue(QStringLiteral("feature-script-work-observe"))
+            || !QRegularExpression("\\A(?:ios-)?[0-9a-f]{32}\\z").match(id).hasMatch()
+            || !QRegularExpression("\\A[0-9a-f]{32}\\z").match(subject).hasMatch()) { return {}; }
+    if (_featureScriptWorkCommand.value("commandId")==QVariant(id)) {
+        return command==_featureScriptWorkCommand ? _featureScriptWorkResult : QVariantMap();
+    }
+    if (!DependencyManager::isSet<ScriptEngines>()) { return {}; }
+    const auto source=DependencyManager::get<ScriptEngines>()->featureScriptWorkObservation(subject,id);
+    if (source.value("pending").toBool()) { return {{"schemaVersion",1},{"requestId",id},{"pending",true}}; }
+    if (source.isEmpty()) { return {}; }
+    const auto work=source.value("work").toMap();
+    const auto requested=work.value("requestedEpochMs").toLongLong();const auto captured=QDateTime::currentMSecsSinceEpoch();
+    if (requested<=0 || captured<work.value("capturedEpochMs").toLongLong()) { return {}; }
+    QVariantMap result{{"schemaVersion",1},{"requestId",id},{"instance",_featureObservationInstance},
+        {"sequence",static_cast<qulonglong>(++_featureScriptWorkSequence)},
+        {"processId",QCoreApplication::applicationPid()},{"requestedEpochMs",requested},
+        {"capturedEpochMs",captured},{"source",source}};
+    _featureScriptWorkCommand=command;_featureScriptWorkResult=result;return result;
+}
+
 QVariantMap TestScriptingInterface::featureScriptRoots(const QVariantMap& command) {
     if (QThread::currentThread()!=thread()) {
         if (!thread() || !thread()->isRunning()) { return {}; }

@@ -10,6 +10,6 @@ ROOT = Path(__file__).resolve().parents[4]
 sys.path[:0] = [str(ROOT / 'tests/device'), str(ROOT / 'tests/device/self_tests')]
 suite = unittest.defaultTestLoader.loadTestsFromNames([
     'self_tests.test_emote_originals', 'self_tests.test_pico_emote_sources',
-    'self_tests.test_pico_emote_inputs', 'self_tests.test_pico_emote_effects'])
+    'self_tests.test_pico_emote_inputs', 'self_tests.test_pico_emote_effects', 'self_tests.test_native_script_work'])
 if __name__ == '__main__':
     raise SystemExit(0 if unittest.TextTestRunner(verbosity=2).run(suite).wasSuccessful() else 1)

@@ -50,3 +50,10 @@ No complete feature capability, image/actor publisher or resource release is
 added. Whole-run three-Sit behavior, actual Pico background continuation,
 current original two-eye avatar evidence, independent actor publication and
 callback/timer/Qt/native retirement remain required. Journals remain retained.
+
+The [original manager work source](../../native/SCRIPT_WORK_OBSERVATION.md)
+now supplies selected real timer/callback origins through the existing Pico
+private native observer. [The fixed selection manifest](PHONE_SHARED_SCRIPT_WORK_20261022.json)
+records shared source provenance. The native queue/body test uses real Qt5
+objects with explicit manager/engine seams. Whole Emote lifetime and final
+resource/journal retirement still require composition with these observations.

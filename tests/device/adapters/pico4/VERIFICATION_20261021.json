@@ -2669,5 +2669,42 @@
       "status": "passed"
     },
     "deviceQualified": false
+  },
+  "scriptWork20261022": {
+    "status": "passed",
+    "protocol": 2,
+    "reads": [
+      1,
+      2
+    ],
+    "fixedSource": "abb7f6b60d97daf17752aadf94e2b5df099bb7ba",
+    "focusedNativeQt5": {
+      "tests": 1,
+      "seconds": 1.82,
+      "scope": "Original queued manager/callback/registration/RAII bodies, real Qt5 owner thread/timers/semaphores/nested event loop; source/engine lifecycle APIs explicit seams; no full ScriptManager/V8 TU"
+    },
+    "sharedWorkTests": 23,
+    "sharedWorkSeconds": 0.063,
+    "picoActualFactoryAndProbe": {
+      "tests": 3,
+      "seconds": 1.028
+    },
+    "picoSelection": {
+      "groups": 3,
+      "catalog": 63,
+      "status": "passed",
+      "seconds": 57.78
+    },
+    "requiredProject": {
+      "suites": 4,
+      "status": "passed",
+      "seconds": 2.95
+    },
+    "corrections": [
+      "Explicit probe ScriptWork variables added within original observation scope; JS pending and replaced-timer counterexamples pass.",
+      "Synthetic factory preserves other original file channels and timestamps actual work at dispatch; closed transport not relaxed.",
+      "Final native clock reread after guard rejects actual clock jumps."
+    ],
+    "completeEmoteCapability": false
   }
 }

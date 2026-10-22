@@ -1,0 +1,102 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "abb7f6b60d97daf17752aadf94e2b5df099bb7ba",
+  "targetBase": "f13040552019725a5bc8d2804840dfbf31db12bd",
+  "uncommittedPhoneWorkExcluded": true,
+  "originalCommits": [
+    "58a48737cb24b5cf37dd143f9023addcbda7bb79",
+    "155fd8b797b20fc75852eaa417ca8c3adcb7a8b5"
+  ],
+  "files": [
+    {
+      "path": "tests/device/adapters/native_script_work.py",
+      "sourceSha256": "d9a7dc9f4e0c044f2a07af050c787a729c3fe2027d1ec33edbe64bccea613c7e",
+      "targetSha256": "56948f81bef30fa5f5cb07f69d56be7ece00b031a33d306b3b1181c812cee73b",
+      "selection": "shared-original-reader-with-final-native-clock-guard"
+    },
+    {
+      "path": "tests/device/self_tests/test_native_script_work.py",
+      "sourceSha256": "afdc98fbccd519f4549beb65db23a44cc823a7018e6a9caf0adca6611fead838",
+      "targetSha256": "4122721ccedf8380437a15fe97b38eebeaa1a557e61bb259feabf86b1a666294",
+      "selection": "shared-original-reader-with-final-native-clock-guard"
+    },
+    {
+      "path": "tests/device/native/SCRIPT_WORK_OBSERVATION.md",
+      "sourceSha256": "dd2f2c398b2b7ed92c675bf724214ba7bcb7ab6983aa42bb9869f40681f22697",
+      "targetSha256": "3f3cf920545d0956f1a0ac03795e2c993748988e6d33afc49a95c7abc4357e7b",
+      "selection": "shared-work-only-hunks-existing-Pico-instrumentation-preserved"
+    },
+    {
+      "path": "libraries/script-engine/src/ScriptManager.cpp",
+      "sourceSha256": "91b5b2d65ca7f7e39c2994c9e9d8e3f1a542c13b095d896eb17bf1cbb7427d2f",
+      "targetSha256": "ba973d745b8ead79c677d360729674b0be50cd8c12e35983ff5e3321ff06c2ad",
+      "selection": "shared-work-only-hunks-existing-Pico-instrumentation-preserved"
+    },
+    {
+      "path": "libraries/script-engine/src/ScriptManager.h",
+      "sourceSha256": "6bfe1dbb39dc251079028a4e511fddd15e63bd6d1b94b59b6325c82ebbab9151",
+      "targetSha256": "b50289bc004d7b1a457432f4068ca0abe8beb6b2cd795cdc0834703eb992ed10",
+      "selection": "shared-work-only-hunks-existing-Pico-instrumentation-preserved"
+    },
+    {
+      "path": "libraries/script-engine/src/ScriptEngines.cpp",
+      "sourceSha256": "1476fbb613625357f842602b9350c25d136a510d7c259ebcea26a69a5552cf52",
+      "targetSha256": "872485fc53d4efe025865830e82c3981fe749128d2d59bc05db3e829a1935e2e",
+      "selection": "shared-work-only-hunks-existing-Pico-instrumentation-preserved"
+    },
+    {
+      "path": "libraries/script-engine/src/ScriptEngines.h",
+      "sourceSha256": "3597bedcd1f56edbfd498c16932f0d7d3d5bf6fdeb069b3b36564119b2d5516a",
+      "targetSha256": "ef5d542809c3d7aee63dbe1fba0e65254c1d7edc8b0ae1ed53f1be5cb2dc1add",
+      "selection": "shared-work-only-hunks-existing-Pico-instrumentation-preserved"
+    },
+    {
+      "path": "libraries/script-engine/src/v8/ScriptEngineV8.cpp",
+      "sourceSha256": "c16a26c2114672f01f6ec8c9fbaa4dda1d8c2ce7408ab87704c01d3499b852e4",
+      "targetSha256": "c16a26c2114672f01f6ec8c9fbaa4dda1d8c2ce7408ab87704c01d3499b852e4",
+      "selection": "shared-work-only-hunks-existing-Pico-instrumentation-preserved"
+    },
+    {
+      "path": "libraries/script-engine/src/v8/ScriptEngineV8.h",
+      "sourceSha256": "e6eea8faad7dd84b22a7b405341deec984fbb8e02870b684d5b8fb6a6fe9a231",
+      "targetSha256": "30b2d92cb8abf14a68ba2f2cac5cbf7eb584198eb2b9571f2798b64fe12663de",
+      "selection": "shared-work-only-hunks-existing-Pico-instrumentation-preserved"
+    },
+    {
+      "path": "libraries/script-engine/src/v8/ScriptObjectV8Proxy.cpp",
+      "sourceSha256": "809ddd3cd557e4e84c53a952680e666f100a2453b11ccce830fd8718b3521338",
+      "targetSha256": "ffd471ab62dc6ed8956d39d3608cbc0324891582708b3bdf35c79873f60092f2",
+      "selection": "shared-work-only-hunks-existing-Pico-instrumentation-preserved"
+    },
+    {
+      "path": "interface/src/scripting/TestScriptingInterface.cpp",
+      "sourceSha256": "4f5e525a6e3ab547a7de6002db29c8a71c6afd1d124db1cf5520a45d15c4e0cd",
+      "targetSha256": "6a4be6ad2f5835badcb59989961db302ff9a7e3687a2aadc9a7fddbc790c55c3",
+      "selection": "shared-work-only-hunks-existing-Pico-instrumentation-preserved"
+    },
+    {
+      "path": "interface/src/scripting/TestScriptingInterface.h",
+      "sourceSha256": "469d8495d3da87b3f1a205b43b57b70d407f05543f2c2882b656ef8ffe3d0ec5",
+      "targetSha256": "7259bebda51e507ba6c061c93033f2e8bbd5a5e5089ef994f607d24ad79ae819",
+      "selection": "shared-work-only-hunks-existing-Pico-instrumentation-preserved"
+    },
+    {
+      "path": "tests/device/probe/overte_e2e_probe.js",
+      "sourceSha256": "52bbdc2a266774316fc5b315504318f95e3c284d99d265752425661e7445fbc0",
+      "targetSha256": "d210cc5427feb05197348a91a0d8739d4eca5f442c045e3359e4aadf331a72aa",
+      "selection": "shared-work-only-hunks-existing-Pico-instrumentation-preserved"
+    }
+  ],
+  "excluded": [
+    "Phone adapter/runtime files",
+    "Phone UI/package/input and background policy",
+    "Unrelated source changes or existing compilation layout",
+    "Full application/device qualification"
+  ],
+  "changes": [
+    "Added Pico private factory using actual existing observer and original file channel.",
+    "Actual native getter refuses missing ScriptEngines dependency.",
+    "Final actual native clock check after guard refuses a clock jump.",
+    "Original native queued bodies compiled with real Qt5 threads/timers; source/engine lifecycle APIs explicit seams, full TUs uncompiled."
+  ]
+}

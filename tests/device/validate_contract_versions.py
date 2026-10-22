@@ -154,6 +154,7 @@ REQUIRED = {
     "emote-animation-readiness": 1,
     "emote-originals": 1,
     "pico-emote-sources": 2,
+    "native-script-work": 2,
     "pico-emote-inputs": 1,
     "pico-emote-effect": 1,
     "pico-emote-pending-restore": 1,

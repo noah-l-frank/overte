@@ -4,10 +4,12 @@
 from copy import deepcopy
 from functools import partial
 import json
+import subprocess
 import unittest
 from unittest.mock import patch
 import uuid
 import test_normal_scripts as sources
+from self_tests.test_native_feature_observation import probe_source
 from self_tests.test_token_emote_ui import EmoteBoundary
 from adapters.token_emote_ui import TokenEmoteUI,snapshot as validate_emote
 from adapters.pico4.navigation import validate_snapshot
@@ -162,6 +164,78 @@ class PicoEmoteTests(unittest.TestCase):
             self.assertIs(actor_effects.source,actor);self.assertIs(actor_effects.input_source,source)
         with self.assertRaises(ValueError):self.instance.cleanup(self.native.target)
         self.assertFalse(self.native.running);self.assertEqual(original,owner.store.read())
+
+    def test_actual_js_probe_polls_only_the_same_read_and_cancels_replaced_observation_timers(self):
+        program=r'''
+const Uuid={generate:()=>"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"};
+const objectKeysMatch=(value,keys)=>JSON.stringify(Object.keys(value).sort())===JSON.stringify(keys.sort());
+let calls=[],files=[],queue=new Map(),next=1,cleared=[];
+const Script={setTimeout:(fn,ms)=>{if(ms!==50)throw Error("unexpected wait");const id=next++;queue.set(id,fn);return id;},
+ clearTimeout:id=>{cleared.push(id);queue.delete(id);}};
+const counts=new Map();
+const Test={featureScriptWork:r=>{calls.push({...r});const n=(counts.get(r.commandId)||0)+1;counts.set(r.commandId,n);
+ if(n===1)return {requestId:r.commandId,pending:true};
+ return {schemaVersion:1,requestId:r.commandId,source:{actualTimerHandle:7}};},saveObject:(value,name)=>files.push({value,name})};
+SOURCE
+const request={schemaVersion:1,commandId:"a".repeat(32),action:"feature-script-work-observe",managerInstance:"c".repeat(32)};
+applyAndroidControlCommand(request);applyAndroidControlCommand(request);
+if(calls.length!==1||queue.size!==1||files.length!==0)throw Error("pending is not a completed observation");
+let entry=[...queue.entries()][0];queue.delete(entry[0]);entry[1]();
+if(calls.length!==2||files[0].value.source.actualTimerHandle!==7||files[0].name!=="feature-script-work.json")throw Error("original result");
+for(const edit of [{expectedTimers:0},{code:"Script.clearTimeout(7)"},{managerInstance:["c".repeat(32)]},
+ {managerInstance:"c".repeat(32)+"\n"},{commandId:["b".repeat(32)]},{schemaVersion:true}]){
+ applyAndroidControlCommand({...request,commandId:"b".repeat(32),...edit});}
+if(calls.length!==2)throw Error("expected results or foreign command admitted");
+applyAndroidControlCommand({...request,commandId:"d".repeat(32)});
+const old=[...queue.values()][0];
+applyAndroidControlCommand({...request,commandId:"e".repeat(32)});
+const before=calls.length;old();if(calls.length!==before||cleared.length!==1)throw Error("replaced read callback survived");
+delete Test.featureScriptWork;applyAndroidControlCommand({...request,commandId:"f".repeat(32)});
+if(files[1].value.available!==false)throw Error("missing native owner green");
+'''.replace('SOURCE',probe_source())
+        result=subprocess.run(['node','-e',program],capture_output=True,text=True,timeout=5)
+        self.assertEqual(0,result.returncode,result.stderr)
+
+
+    def test_actual_js_pending_deadline_never_synthesizes_zero_timers(self):
+        program=r'''
+const Uuid={generate:()=>"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"};
+const objectKeysMatch=(value,keys)=>JSON.stringify(Object.keys(value).sort())===JSON.stringify(keys.sort());
+let calls=0,files=[],queue=[];
+const Script={setTimeout:fn=>{queue.push(fn);return queue.length;},clearTimeout:()=>{}};
+const Test={featureScriptWork:r=>{calls++;return {requestId:r.commandId,pending:true};},saveObject:value=>files.push(value)};
+SOURCE
+applyAndroidControlCommand({schemaVersion:1,commandId:"a".repeat(32),action:"feature-script-work-observe",managerInstance:"c".repeat(32)});
+while(queue.length){const fn=queue.shift();fn();}
+if(calls!==51||files.length!==1||files[0].available!==false||"source" in files[0])throw Error("pending guessed empty work");
+'''.replace('SOURCE',probe_source())
+        result=subprocess.run(['node','-e',program],capture_output=True,text=True,timeout=5)
+        self.assertEqual(0,result.returncode,result.stderr)
+
+
+    def test_actual_work_factory_is_read_only_and_candidate_bound(self):
+        from self_tests.test_native_script_work import WorkBoundary, MANAGER
+        source=WorkBoundary()
+        epoch=self.native.epoch_milliseconds(self.native.target)
+        source.epoch=epoch
+        native_send=source.send
+        def send(target,identity,description,command):
+            self.assertEqual(self.native.target,target);self.assertEqual('123:synthetic-start',identity)
+            source.epoch=self.native.epoch_milliseconds(target)
+            native_send(command);source.value['processId']=123
+        original_read=self.native.read_debug_app_file
+        def original(target,package,path,**options):
+            if path != 'files/overte-e2e/feature-script-work.json':return original_read(target,package,path,**options)
+            self.assertEqual('org.overte.pico',package)
+            self.assertEqual('files/overte-e2e/feature-script-work.json',path)
+            self.assertEqual({'attempts':1},options);return source.original()
+        with patch.object(self.instance,'write_control_command',side_effect=send), patch.object(self.native,'read_debug_app_file',side_effect=original,create=True):
+            reader=self.instance._script_work(self.native.target);value=reader.read(MANAGER)
+            self.assertEqual(source.value,value);self.assertEqual([],self.native.inputs)
+            bad=deepcopy(source.commands[-1]);bad['expectedTimers']=0
+            with self.assertRaises(RuntimeError):reader.send(bad)
+            self.assertEqual(1,len(source.commands))
+
 
 
 if __name__=='__main__':unittest.main()

@@ -81,6 +81,7 @@ public:
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     QVariantMap featureScriptObservation();
     QVariantMap featureCreateCallbackObservation();
+    QVariantMap featureScriptWorkObservation(const QString& managerInstance, const QString& requestId);
 #endif
 
     ScriptsModel* scriptsModel() { return &_scriptsModel; };

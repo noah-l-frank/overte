@@ -101,6 +101,9 @@ public:
      */
     QUrl definingSandboxURL;
     std::shared_ptr<EntityScriptConsentRequest> consentRequest;
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    int featureFunctionScriptId {0};
+#endif
 };
 
 
@@ -1065,6 +1068,25 @@ public:
         QVariantMap _previous;
     };
 
+    // Queued read on the actual manager thread; never evaluates JavaScript or
+    // touches its timer map from a foreign observer thread.
+    QVariantMap featureWorkObservation(const QString& requestId);
+    class FeatureCallbackScope {
+    public:
+        FeatureCallbackScope(ScriptManager* manager, bool timer, int scriptId=0) :
+            _manager(nullptr), _timer(timer), _scriptId(scriptId>0 ? scriptId : 0) {
+            if (manager && manager->_featureWorkEnabled) {
+                _manager=manager;_manager->featureCallbackBoundary(_timer,true,_scriptId);
+            }
+        }
+        ~FeatureCallbackScope() { if (_manager) { _manager->featureCallbackBoundary(_timer,false,_scriptId); } }
+        FeatureCallbackScope(const FeatureCallbackScope&)=delete;
+        FeatureCallbackScope& operator=(const FeatureCallbackScope&)=delete;
+    private:
+        ScriptManager* _manager;
+        bool _timer;
+        int _scriptId;
+    };
 #endif
 
     // this is used by code in ScriptEngines.cpp during the "reload all" operation
@@ -1704,6 +1726,20 @@ protected:
     static thread_local QVariantMap _featureNativeCallContext;
     std::shared_ptr<overte::e2e::CreateCallbackObservation> _e2eCreateCallbacks {
         std::make_shared<overte::e2e::CreateCallbackObservation>()};
+    void featureCallbackBoundary(bool timer, bool entering, int scriptId);
+    void featureTimerRegistered(int scriptId);
+    struct FeatureWorkActivity {
+        quint64 signalCallbacks {0}, timerCallbacks {0}, signalInvocations {0}, timerInvocations {0}, timerRegistrations {0};
+    };
+    QMap<int,FeatureWorkActivity> _featureWorkActivity; // Original function IDs; zero is unknown.
+    const bool _featureWorkEnabled {QCoreApplication::arguments().contains("--testScript")};
+    std::atomic<bool> _featureWorkValid {true};
+    quint64 _featureSignalCallbacks {0}, _featureTimerCallbacks {0}; // Manager thread only.
+    std::mutex _featureWorkMutex;
+    QString _featureWorkRequest;
+    QVariantMap _featureWorkResult;
+    bool _featureWorkPending {false};
+    quint64 _featureWorkSequence {0};
 #endif
     Type _type;
     ScriptEnginePointer _engine;

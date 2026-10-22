@@ -123,6 +123,7 @@
     "emote-animation-readiness": {"current": 1, "reads": [1]},
     "emote-originals": {"current": 1, "reads": [1]},
     "pico-emote-sources": {"current": 2, "reads": [1, 2]},
+    "native-script-work": {"current": 2, "reads": [1, 2]},
     "pico-emote-inputs": {"current": 1, "reads": [1]},
     "pico-emote-effect": {"current": 1, "reads": [1]},
     "pico-emote-pending-restore": {"current": 1, "reads": [1]},
