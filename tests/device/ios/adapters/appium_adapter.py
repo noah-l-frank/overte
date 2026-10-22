@@ -140,6 +140,8 @@ class WebDriver:
             if method == "POST" and path == "/session"
             else self.COMMAND_TIMEOUT_SECONDS
         )
+        from adapters.operation_transport_guard import check as final_transport_guard
+        final_transport_guard()
         try:
             with urlopen(request, timeout=timeout) as response:
                 declared = response.headers.get("Content-Length")

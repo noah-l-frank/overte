@@ -80,8 +80,11 @@ class NoRedirect(HTTPRedirectHandler):
 
 
 def post_request(request, timeout):
+    from adapters.operation_transport_guard import check as final_transport_guard
     try:
-        return build_opener(NoRedirect()).open(request, timeout=timeout)
+        opener=build_opener(NoRedirect())
+        final_transport_guard()
+        return opener.open(request, timeout=timeout)
     except HTTPError as error:
         error.close()
         raise NativeUIError('Native iOS feature HTTP request failed') from None

@@ -377,6 +377,14 @@ operation deadline at this final boundary. A false, invalid or failing guard
 sends nothing. The default path, original commands and serialized schemas are
 unchanged; this callback is not a native freshness or product-effect source.
 
+An optional `adapters.operation_transport_guard.scope` binds pure enclosing
+operation checks to the current execution context. The iOS WebDriver and
+canonical native HTTP helper check it after request/opener preparation and
+before sending. Nested scopes preserve outer checks, exceptions reset only the
+entered scope, and independent threads retain independent contexts. This also
+covers newly constructed lifecycle and installed-code clients. An empty context
+keeps existing behavior; guards must not acquire sources or issue transport.
+
 The [internal output test](AUDIO_OUTPUT.md) verifies physical output PCM at
 system volume zero. The [acoustic loopback](ACOUSTIC_LOOPBACK.md) checks the
 built-in speaker and microphone with dedicated test builds. Host fixtures do
