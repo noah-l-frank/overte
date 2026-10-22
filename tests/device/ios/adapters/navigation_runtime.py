@@ -31,6 +31,42 @@ from ios.adapters.script_runtime import IOSScriptRuntime
 
 
 class IOSNavigationRuntime(IOSScriptRuntime):
+    def _navigation_restart(self,selector,initial,samples,lock,fixture):
+        from ios.adapters.navigation_restart import NavigationRestart
+        return NavigationRestart(self,selector,initial,samples,lock,fixture)
+
+    def _navigation_restart_input(self,selector,operation,owner):
+        from ios.adapters.navigation_restart import NavigationRestart
+        need(isinstance(owner,NavigationRestart));owner.authorize_input(self,selector,operation)
+        base=self.adapter;outer=base._operation;need(outer in (None,'feature.world-navigation.act'))
+        base._operation=None
+        try:return base.invoke(selector,operation,{})
+        finally:base._operation=outer
+
+    def _navigation_restart_stopped(self,selector,old_binding):
+        from adapters.restart_inputs import RestartInputs
+        directory=self.state_path(selector).parent
+        inputs=RestartInputs(PrivateFeatureState(directory/'ios-navigation-restart-inputs.json'),
+            [PrivateFeatureState(directory/name) for name in RESTART_OWNERS])
+        need(same(inputs.read()['oldBinding'],old_binding) and inputs.read()['phase']=='stop-issued')
+        base=self.adapter;base._candidate_guard(complete=True)
+        client,state,target=base._script_restart_session(selector,inputs=inputs)
+        gate=base._binding(selector,client,state['sessionId'],state,target);record=gate.record()
+        if record is not None and record['phase']=='retiring':gate.finish_retirement()
+        gate.retired_absence();base.reset_launch_state(selector,state)
+        return dict(running=False,identity=None)
+
+    def _navigation_recover_launch(self,selector,inputs):
+        from adapters.restart_inputs import RestartInputs
+        directory=self.state_path(selector).parent
+        need(isinstance(inputs,RestartInputs) and not inputs.component_only
+            and inputs.store.path==directory/'ios-navigation-restart-inputs.json'
+            and inputs.owner_files==[str(directory/name) for name in RESTART_OWNERS])
+        owned=self.adapter._binding_store(selector).read()
+        if owned is not None and owned['phase']=='preparing':
+            need(inputs.read()['phase']=='launch-issued')
+            self.adapter._recover_script_restart_launch(selector,inputs=inputs)
+
     def _navigation_before_restart(self,selector,admission):
         from ios.adapters.navigation_before_restart import NavigationBeforeRestart
         need(isinstance(admission,NavigationAdmissionOwner));admission.bound()

@@ -97,8 +97,34 @@ Host tests cover original-only recovery, retained prefix, foreign scene/root,
 changed preferences, archive tampering and the expired input deadline. Native
 and process behavior remain explicitly modeled in these tests.
 
-The ordinary restart controller and pre-stop input/image drainage still need
-whole-journey integration. This transfer accepts only a reloaded owned run
+`NavigationRestart` now composes the existing normal iOS Stop/Launch inputs.
+Its initial preparation requires genuine retained images for both logical
+observers on the actual primary SDK, each complete native GPU drainage ledger,
+a fresh `NavigationBeforeRestart` owned-scene group, actual Qt contact/dispatch
+drainage around that group and an independent original old native packet. The
+exact current fixture ticket must still authorize `restart-app`. Both normal
+inputs have durable issued intents. A slow stop-intent write cannot deliver an
+expired scene gate. A later fixture phase revokes the prepared action.
+
+The runtime calls the canonical iOS adapter for actual Stop/Launch and retains
+its existing candidate gate and OS application-state checks. A lost stop return
+can only continue after independent OS absence; a lost launch return can only
+recover an existing original candidate through the installed-code recovery path.
+Neither lifecycle input is repeated. Full actual new native and kernel originals
+are separately retained before deriving the candidate/PID/birth/ESRCH receipt.
+A lost complete parent result adopts those exact originals without any SDK read
+or new clock. Unknown old-PID death remains unresolved despite both input ACKs.
+The restart owner, image files and input responsibilities remain present.
+
+Eleven new host cases compose real loopback scenes, original private PNG/GPU
+ledgers, pointer readers and the actual runtime/RestartInputs implementations
+at explicitly modeled SDK/OS/native boundaries. They cover normal restart,
+ignored and lost stop/launch, expired and slow-journal input, phase replacement,
+unknown kernel death and original-only lost-final recovery. No real process,
+device, simulator or compiler is used. The restart contract writes/reads 1.
+
+Whole-journey restart dispatch still needs integration with post-restart source
+and image observations. This transfer accepts only a reloaded owned run
 scene. A default/foreign startup world requires a fresh, explicitly owned
 normal entry.
 

@@ -54,6 +54,7 @@ REQUIRED = {
     "ios-navigation-process-return": 1,
     "ios-navigation-before-restart": 1,
     "ios-navigation-image-drain": 1,
+    "ios-navigation-restart": 1,
     "ios-navigation-process-owner": 1,
     "ios-script-dialogs": 1,
     "ios-script-dialog-ledger": 1,
