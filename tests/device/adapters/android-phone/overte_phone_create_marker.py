@@ -25,10 +25,10 @@ def command(value):
 
 
 def input_command(value):
-    need(type(value) is dict and value.get('operation') in ('prepare','release'))
+    need(type(value) is dict and value.get('operation') in ('prepare','refresh','release'))
     operation=value['operation']
     fields={'schemaVersion','commandId','action','operation','runId'}
-    exact(value,fields|({'fixtureUrl','ticket','imageExtent','markerRoi'} if operation=='prepare' else {'fixtureInstance'}))
+    exact(value,fields|({'fixtureUrl','ticket','imageExtent','markerRoi'} if operation=='prepare' else {'fixtureInstance','ticket'} if operation=='refresh' else {'fixtureInstance'}))
     need(type(value['schemaVersion']) is int and value['schemaVersion']==1 and nonce(value['commandId'])
         and value['action']=='phone-create-fixture-input');identifier(value['runId'])
     if operation=='prepare':
@@ -39,7 +39,9 @@ def input_command(value):
             and type(roi) is list and len(roi)==4 and all(integer(v,0,16384) for v in roi))
         x0,y0,x1,y1=roi;w,h=extent
         need(x0<x1<=w and y0<y1<=h and x1-x0>=160 and y1-y0>=40 and (x1-x0)*(y1-y0)<=.1*w*h)
-    else:need(nonce(value['fixtureInstance']))
+    else:
+        need(nonce(value['fixtureInstance']))
+        if operation=='refresh':identifier(value['ticket'])
     return value
 
 
@@ -61,14 +63,26 @@ def original_view(value):
 
 def validate(value,request,pid,epoch):
     command(request);envelope(value,request,pid,epoch);source=value['source']
+    version=source.get('phoneCreateFixtureVersion')
     exact(source,{'phoneCreateFixtureVersion','fixtureInstance','runId','phase','createdEpochMs','originalInput',
-        'originalView','objects','entities','absentIds','retainedObjects'})
-    need(type(source['phoneCreateFixtureVersion']) is int and source['phoneCreateFixtureVersion']==VERSION
+        'originalView','objects','entities','absentIds','retainedObjects'}|({'refreshes','lastRefreshInput'} if version==3 else set()))
+    need(type(version) is int and version in (VERSION,3)
         and nonce(source['fixtureInstance']) and source['runId']==request['runId']
         and source['phase'] in ('creating','active','failed','releasing','drained')
         and integer(source['createdEpochMs'],1,value['capturedEpochMs']))
     input_command(source['originalInput']);need(source['originalInput']['operation']=='prepare'
         and source['originalInput']['runId']==source['runId'])
+    if version==3:
+        need(source['phase'] in ('active','releasing','drained'))
+        rows=source['refreshes'];need(type(rows) is list and 0<len(rows)<=256)
+        commands={source['originalInput']['commandId']};tickets={source['originalInput']['ticket']};previous=source['createdEpochMs']
+        for row in rows:
+            exact(row,{'input','editedEpochMs'});refresh=input_command(row['input'])
+            need(refresh['operation']=='refresh' and refresh['fixtureInstance']==source['fixtureInstance'] and refresh['runId']==source['runId']
+                and refresh['commandId'] not in commands and refresh['ticket'] not in tickets
+                and integer(row['editedEpochMs'],previous,value['capturedEpochMs']))
+            commands.add(refresh['commandId']);tickets.add(refresh['ticket']);previous=row['editedEpochMs']
+        need(source['lastRefreshInput']==rows[-1]['input'])
     original_view(source['originalView']);need(abs(source['originalInput']['imageExtent'][0]/source['originalInput']['imageExtent'][1]
         -source['originalView']['aspectRatio'])<=.005)
     objects=source['objects'];need(type(objects) is list and 0<len(objects)<=3)
@@ -154,6 +168,14 @@ def continuation(previous,value):
     allowed={'creating':{'creating','active','failed','releasing','drained'},'active':{'active','releasing','drained'},
         'failed':{'failed','releasing','drained'},'releasing':{'releasing','drained'},'drained':{'drained'}}
     need(new['phase'] in allowed[old['phase']])
+    old_refreshes=old.get('refreshes',[]);new_refreshes=new.get('refreshes',[])
+    need(len(new_refreshes)>=len(old_refreshes) and new_refreshes[:len(old_refreshes)]==old_refreshes)
+    if len(new_refreshes)>len(old_refreshes):need(old['phase']=='active')
+
+
+def current_input(source):
+    """Actual latest challenge input; creation ownership stays immutable."""
+    return source['lastRefreshInput'] if source['phoneCreateFixtureVersion']==3 else source['originalInput']
 
 
 def ready(value,avatar):
@@ -175,7 +197,8 @@ def ready(value,avatar):
             and near(row['position'],expected['position'],.001) and near(row['dimensions'],expected['dimensions'],.001)
             and rotation_equal(row['rotation'],expected['rotation'],.0001))
         if name=='marker':need(row['dpi']==100 and row['sourceUrl']==source['originalInput']['fixtureUrl']+'tickets/'
-            +source['originalInput']['ticket']+'/graphics-marker.v1.html')
+            +current_input(source)['ticket']+'/graphics-marker.v1.html'
+            and (source['phoneCreateFixtureVersion']!=3 or row['lastEditedEpochUs']>=source['refreshes'][-1]['editedEpochMs']*1000))
         else:need(row['color']==([40,70,100] if name=='accent' else [128,128,128]) and not row['sourceUrl'])
     return deepcopy(source['entities'])
 

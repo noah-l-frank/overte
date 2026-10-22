@@ -41,25 +41,28 @@ namespace entity {enum class HostType {LOCAL,DOMAIN};}
 namespace EntityTypes {enum EntityType {Unknown,Box,Web};inline QString getEntityTypeName(EntityType type){return type==Box?"Box":type==Web?"Web":"Unknown";}}
 struct EntityItemProperties {
  EntityTypes::EntityType type=EntityTypes::Unknown;QString name,url;glm::vec3 position,dimensions;glm::quat rotation;glm::u8vec3 color{128};
- bool visible=false,locked=false,collision=false,shadow=true;int dpi=0;
+ bool visible=false,locked=false,collision=false,shadow=true;int dpi=0;quint64 edited=1;
  void setType(EntityTypes::EntityType v){type=v;}void setName(QString v){name=v;}void setPosition(glm::vec3 v){position=v;}
  void setDimensions(glm::vec3 v){dimensions=v;}void setRotation(glm::quat v){rotation=v;}void setVisible(bool v){visible=v;}
  void setCollisionless(bool v){collision=v;}void setCanCastShadow(bool v){shadow=v;}void setLocked(bool v){locked=v;}
  void setSourceUrl(QString v){url=v;}void setDpi(int v){dpi=v;}void setColor(glm::u8vec3 v){color=v;}
+ void setLastEdited(quint64 v){edited=v;}
  EntityTypes::EntityType getType()const{return type;}QString getName()const{return name;}QString getSourceUrl()const{return url;}
  glm::vec3 getPosition()const{return position;}glm::vec3 getDimensions()const{return dimensions;}glm::quat getRotation()const{return rotation;}
  bool getVisible()const{return visible;}bool getLocked()const{return locked;}bool getCollisionless()const{return collision;}bool getCanCastShadow()const{return shadow;}
  int getDpi()const{return dpi;}glm::u8vec3 getColor()const{return color;}QUuid getParentID()const{return {};}
- entity::HostType getEntityHostType()const{return entity::HostType::LOCAL;}quint64 getLastEdited()const{return 1;}
+ entity::HostType getEntityHostType()const{return entity::HostType::LOCAL;}quint64 getLastEdited()const{return edited;}
 };
 struct EntityItem {EntityItemProperties properties;bool child=false,local=true;QUuid clone;
  bool isLocalEntity()const{return local;}bool getLocked()const{return properties.locked;}bool hasChildren()const{return child;}
  QUuid getParentID()const{return {};}QUuid getCloneOriginID()const{return clone;}QList<QUuid>getCloneIDs()const{return {};}
  EntityItemProperties getProperties()const{return properties;}};
 using EntityItemPointer=std::shared_ptr<EntityItem>;
-struct EntityTree {QMap<QUuid,EntityItemPointer>objects;
+struct EntityTree {QMap<QUuid,EntityItemPointer>objects;int updates=0;bool refuseUpdate=false;
  template<typename F>void withReadLock(F fn){fn();}template<typename F>void withWriteLock(F fn){fn();}
  EntityItemPointer findEntityByEntityItemID(QUuid id){return objects.value(id);}
+ bool updateEntity(QUuid id,const EntityItemProperties& p){if(refuseUpdate||!objects.contains(id))return false;
+ ++updates;objects[id]->properties.url=p.url;objects[id]->properties.edited=p.edited;return true;}
  void deleteEntitiesByPointer(const std::vector<EntityItemPointer>& values){for(auto object:values){for(auto it=objects.begin();it!=objects.end();){if(it.value()==object)it=objects.erase(it);else ++it;}}}};
 struct EntityScriptingInterface {std::shared_ptr<EntityTree>tree=std::make_shared<EntityTree>();
  auto getEntityTree(){return tree;}QUuid addEntity(EntityItemProperties properties,QString host){if(host!="local")return {};auto id=QUuid::createUuid();auto item=std::make_shared<EntityItem>();item->properties=properties;tree->objects[id]=item;return id;}};

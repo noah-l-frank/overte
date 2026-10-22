@@ -379,6 +379,11 @@
         if (!c || c.schemaVersion !== 1 || c.action !== "phone-create-fixture-input"
                 || typeof c.commandId !== "string" || c.commandId.length !== 32 || !/^[0-9a-f]{32}$/.test(c.commandId)
                 || typeof c.runId !== "string" || c.runId.length !== 32 || !/^[0-9a-f]{32}$/.test(c.runId)) { return false; }
+        if (c.operation === "refresh") {
+            return objectKeysMatch(c,["schemaVersion","commandId","action","operation","runId","fixtureInstance","ticket"])
+                && typeof c.fixtureInstance === "string" && c.fixtureInstance.length === 32 && /^[0-9a-f]{32}$/.test(c.fixtureInstance)
+                && typeof c.ticket === "string" && c.ticket.length === 32 && /^[0-9a-f]{32}$/.test(c.ticket);
+        }
         if (c.operation === "release") {
             return objectKeysMatch(c,["schemaVersion","commandId","action","operation","runId","fixtureInstance"])
                 && typeof c.fixtureInstance === "string" && c.fixtureInstance.length === 32 && /^[0-9a-f]{32}$/.test(c.fixtureInstance);

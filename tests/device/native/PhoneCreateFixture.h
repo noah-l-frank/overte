@@ -32,11 +32,12 @@ public:
         const auto operation=object.value("operation").toString();
         const auto id=object.value("commandId").toString(),run=object.value("runId").toString();
         const auto allowed=operation=="prepare" ? QStringList{"action","commandId","fixtureUrl","imageExtent","markerRoi",
-            "operation","runId","schemaVersion","ticket"} : QStringList{"action","commandId","fixtureInstance","operation","runId","schemaVersion"};
+            "operation","runId","schemaVersion","ticket"} : operation=="refresh" ? QStringList{"action","commandId","fixtureInstance","operation","runId","schemaVersion","ticket"}
+            : QStringList{"action","commandId","fixtureInstance","operation","runId","schemaVersion"};
         if (QThread::currentThread()!=qApp->thread() || command.keys()!=allowed
                 || !object.value("schemaVersion").isDouble() || object.value("schemaVersion").toDouble()!=1
                 || object.value("action").toString()!="phone-create-fixture-input"
-                || !hex(id) || !hex(run) || (operation!="prepare" && operation!="release")) { return {}; }
+                || !hex(id) || !hex(run) || (operation!="prepare" && operation!="refresh" && operation!="release")) { return {}; }
         if (!_lastInput.isEmpty() && _lastInput.value("commandId")==id) {
             return command==_lastInput ? _lastReceipt : QVariantMap();
         }
@@ -94,7 +95,7 @@ public:
             const auto markerSize=unrotate*(markerBottom-markerTop),backSize=unrotate*(backBottom-backTop);
             auto dimensions=[](const glm::vec3& delta) { return glm::vec3(std::abs(delta.x),std::abs(delta.y),.01f); };
             _instance=QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-');_run=run;_phase="creating";
-            _created=QDateTime::currentMSecsSinceEpoch();_objects.clear();_originalInput=command;_seenRuns.insert(run);
+            _created=QDateTime::currentMSecsSinceEpoch();_objects.clear();_refreshes.clear();_originalInput=command;_seenRuns.insert(run);
             QVariantList matrix;
             for (int row=0;row<4;++row) { for (int column=0;column<4;++column) { matrix.append(projection[column][row]); } }
             _view={{"position",vec(view.getPosition())},{"rotation",quat(view.getOrientation())},{"projection",matrix},
@@ -120,6 +121,46 @@ public:
             const bool accent=back && add("accent",EntityTypes::Box,(accentTop+accentBottom)*.5f,dimensions(unrotate*(accentBottom-accentTop)));
             const bool marker=accent && add("marker",EntityTypes::Web,(markerTop+markerBottom)*.5f,dimensions(markerSize));
             _phase=back&&accent&&marker ? "active" : "failed";
+            receipt={{"phoneCreateFixtureInputVersion",1},{"commandId",id},{"runId",run},{"fixtureInstance",_instance},
+                {"operation",operation},{"recorded",true}};
+        } else if (operation=="refresh") {
+            const auto ticket=object.value("ticket").toString();
+            if (_phase!="active" || _run!=run || object.value("fixtureInstance").toString()!=_instance
+                    || !hex(ticket) || _objects.size()!=3 || _refreshes.size()>=256
+                    || id==_originalInput.value("commandId").toString() || ticket==_originalInput.value("ticket").toString()) { return {}; }
+            for (const auto& row:_refreshes) {
+                const auto input=row.toMap().value("input").toMap();
+                if (input.value("commandId").toString()==id || input.value("ticket").toString()==ticket) { return {}; }
+            }
+            const auto previous=_refreshes.isEmpty() ? _originalInput : _refreshes.last().toMap().value("input").toMap();
+            const auto root=_originalInput.value("fixtureUrl").toString();
+            const auto previousUrl=root+"tickets/"+previous.value("ticket").toString()+"/graphics-marker.v1.html";
+            const auto url=root+"tickets/"+ticket+"/graphics-marker.v1.html";
+            bool updated=false;
+            const auto edited=QDateTime::currentMSecsSinceEpoch();
+            // Recheck every original under the same write lock as the normal
+            // tree update. Refresh never adopts a replacement or creates an
+            // object, and changes only this owned Web entity's challenge URL.
+            entities->getEntityTree()->withWriteLock([&] {
+                QUuid marker;
+                for (const auto& entry:_objects) {
+                    auto actual=entities->getEntityTree()->findEntityByEntityItemID(entry.id);
+                    if (!actual || actual!=entry.object.lock() || !actual->isLocalEntity() || actual->getLocked() || actual->hasChildren()
+                            || !actual->getParentID().isNull() || !actual->getCloneOriginID().isNull() || !actual->getCloneIDs().isEmpty()) { return; }
+                    const auto p=actual->getProperties();
+                    if (p.getName()!="e2e-"+run+"-create-"+entry.role || p.getType()!=(entry.role=="marker" ? EntityTypes::Web : EntityTypes::Box)) { return; }
+                    if (entry.role=="marker") {
+                        if (p.getSourceUrl()!=previousUrl) { return; }
+                        marker=entry.id;
+                    }
+                }
+                if (marker.isNull()) { return; }
+                EntityItemProperties properties;properties.setSourceUrl(url);
+                properties.setLastEdited(static_cast<quint64>(edited)*1000);
+                updated=entities->getEntityTree()->updateEntity(marker,properties);
+            });
+            if (!updated) { return {}; }
+            _refreshes.append(QVariantMap{{"input",command},{"editedEpochMs",edited}});
             receipt={{"phoneCreateFixtureInputVersion",1},{"commandId",id},{"runId",run},{"fixtureInstance",_instance},
                 {"operation",operation},{"recorded",true}};
         } else {
@@ -180,9 +221,13 @@ public:
                 {"dpi",p.getDpi()},{"lastEditedEpochUs",static_cast<qulonglong>(p.getLastEdited())}});
         }
         if (_phase=="releasing" && present.isEmpty() && retained==0) { _phase="drained"; }
-        return {{"phoneCreateFixtureVersion",2},{"fixtureInstance",_instance},{"runId",_run},{"phase",_phase},
+        QVariantMap result{{"phoneCreateFixtureVersion",_refreshes.isEmpty() ? 2 : 3},{"fixtureInstance",_instance},{"runId",_run},{"phase",_phase},
             {"createdEpochMs",_created},{"originalInput",_originalInput},{"originalView",_view},{"objects",objects},
             {"entities",present},{"absentIds",absent},{"retainedObjects",retained}};
+        if (!_refreshes.isEmpty()) {
+            result["refreshes"]=_refreshes;result["lastRefreshInput"]=_refreshes.last().toMap().value("input");
+        }
+        return result;
     }
 private:
     struct Object { QString role;QUuid id;std::weak_ptr<EntityItem> object; };
@@ -193,6 +238,7 @@ private:
     QSet<QString> _seenRuns; // Bounded tombstones: old runs cannot revive after a later run drains.
     qint64 _created {0};
     QVariantMap _originalInput,_view,_lastInput,_lastReceipt;
+    QVariantList _refreshes;
     std::vector<Object> _objects;
 };
 }

@@ -19,7 +19,7 @@ from feature_journeys.contract import result
 from feature_journeys.evidence import image_observation
 from feature_journeys.scenarios import VERSION
 from overte_phone_create_role import PhoneCreateRole
-from overte_phone_create_marker import ready as marker_ready,retired as marker_retired
+from overte_phone_create_marker import ready as marker_ready,retired as marker_retired,current_input as marker_current_input
 from overte_phone_graphics_samples import restore_native
 from overte_phone_script_history import pack,unpack,same
 from overte_phone_snapshot_handoff import script_advance
@@ -416,7 +416,7 @@ class PhoneSnapshotsRole(PhoneCreateRole):
                 # The original private capture keeps its own capture ticket.
                 # Save/Share phases need no new world image, and cannot claim
                 # one by retiming a marker left by the earlier capture.
-                if marker['source']['originalInput']['ticket']==ticket:
+                if marker_current_input(marker['source'])['ticket']==ticket:
                     marker_ready(marker,avatar_before)
                     owned=f.adapter._world_render_capture(f.selector,read_only=True,role=self.role,require_trace=True,require_frame_view=True)
                     need(owned.owner.store.read() is None)

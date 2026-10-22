@@ -167,6 +167,16 @@ class PhoneSnapshotsFeature(PhoneCreateFeature):
             from adapters.native_feature_observation import validate as native_packet
             before=pending['before'];native_packet(before,before['requestId'],self.pid,before['capturedEpochMs'])
             return
+        if pending.get('kind')=='marker-refresh':
+            from overte_phone_create_marker import input_command
+            exact(pending,{'kind','request','sourceIndex','issued'})
+            request=input_command(pending['request'])
+            need(call['verb']=='background-resume' and request['operation']=='refresh' and request['runId']==self.run
+                and request['ticket']==call['ticket'] and pending['issued'] is True and self.state['handoff'] is None
+                and request['fixtureInstance']==self.state['markerSource']['source']['fixtureInstance']
+                and integer(pending['sourceIndex'],1,len(originals))
+                and same(originals[pending['sourceIndex']-1],dict(markerRefreshInput=request)))
+            return
         if pending.get('kind')=='handoff-start':
             exact(pending,{'kind','id','mode','plan'});identifier(pending['id'])
             need(self.state['handoff'] is None and pending['mode'] in ('share','document')
@@ -456,6 +466,33 @@ class PhoneSnapshotsFeature(PhoneCreateFeature):
             reader=self.consumer(read_only=False);reader.control('arm');original=reader.observe()
             self.archive_input(dict(consumerArmed=original));self.state['consumerBinding']=reader.binding();self.save()
 
+    def refresh_marker(self):
+        need(self.state['marker'] is not None and self.state['marker']['operation']=='prepare'
+            and self.state['markerSource']['source']['phase']=='active' and self.state['current']['pending'] is None)
+        request=dict(schemaVersion=1,commandId=uuid.uuid4().hex,action='phone-create-fixture-input',operation='refresh',
+            runId=self.run,fixtureInstance=self.state['markerSource']['source']['fixtureInstance'],ticket=self.state['current']['call']['ticket'])
+        index=self.archive_input(dict(markerRefreshInput=request))
+        self.state['current']['pending']=dict(kind='marker-refresh',request=request,sourceIndex=index,issued=True);self.save()
+        delivery=self.adapter._create_fixture_input(self.selector,request,lock=self.lock,intent=lambda _command,binding:same(binding,self.binding))
+        self.archive_input(dict(markerRefreshDelivery=delivery,request=request)) # ACK alone is never the edit or pixels.
+        self.recover_marker_refresh()
+
+    def recover_marker_refresh(self):
+        pending=self.state['current']['pending'];need(pending['kind']=='marker-refresh')
+        self.check_pending(self.input_originals())
+        reader=self.adapter._create_fixture_observer(self.selector,read_only=True)
+        reader.restore([self.state['markerSource']])
+        source=self.wait_original(lambda:reader.read(self.run),lambda value:value['source']['phase']=='active'
+            and same(value['source'].get('lastRefreshInput'),pending['request']))
+        scene=source['source'];rows=scene['entities'];marker=next((row for row in rows if row['role']=='marker'),None)
+        need(len(rows)==scene['retainedObjects']==3 and not scene['absentIds'] and all(row['originalObject'] for row in rows)
+            and marker is not None and marker['sourceUrl']==scene['originalInput']['fixtureUrl']+'tickets/'+pending['request']['ticket']+'/graphics-marker.v1.html'
+            and marker['lastEditedEpochUs']>=scene['refreshes'][-1]['editedEpochMs']*1000)
+        # A lost return is recovered from the actual append-only native edit,
+        # never by resending the refresh or replacing this lease with prepare.
+        self.archive_input(dict(markerRefreshOriginal=source,request=pending['request']))
+        self.state['markerSource']=source;self.state['current']['pending']=None;self.save()
+
     def act(self,value):
         call=deepcopy(arguments('feature.snapshots.act',value));need(self.role=='primary' and call['runId']==self.run and call['fixtureUrl']==self.fixture_url)
         with self.lock.held(),self.adapter.existing_input_session(self.selector):
@@ -483,7 +520,7 @@ class PhoneSnapshotsFeature(PhoneCreateFeature):
                 self.wait_original(consumer.observe,lambda row:row['phase']=='complete' and row['originalClosed'])
                 self.handoff_ui().back(receiver=True);self.finish_handoff()
             elif verb in ('upload-fail','upload'):ui.image_action('upload',self.capture_path())
-            elif verb=='background-resume':self.marker('prepare');self.background()
+            elif verb=='background-resume':self.refresh_marker();self.background()
             elif verb=='close':ui.close();self.state['leases']['tablet']=False;self.save()
             else:need(False) # Unsupported required backend actions remain red.
             self.active();self.state['actions'].append(dict(call=call,ticket=call['ticket'],phase='acknowledged'))
@@ -604,6 +641,7 @@ class PhoneSnapshotsFeature(PhoneCreateFeature):
         from overte_phone_snapshot_handoff_input import plan as check_plan
         pending=self.state['current']['pending']
         if pending is None:return
+        if pending['kind']=='marker-refresh':self.recover_marker_refresh();return
         if pending['kind']=='background':self.background(cleanup=True);return
         if pending['kind']=='handoff-start':
             exact(pending,{'kind','id','mode','plan'});need(self.state['handoff'] is None and pending['mode'] in ('share','document'))
