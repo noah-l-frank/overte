@@ -74,7 +74,13 @@ def compose(run,ticket,binding,frame,raw,policy,*,marker_nonce,marker_url,avatar
         retirement['requestedEpochMs'],retirement['capturedEpochMs'],after['clockBefore']['epochMs'],after['clockAfter']['epochMs']]
     need(ordered==sorted(ordered) and clock['nativeBefore']['capturedEpochMs']<=ordered[0]<=ordered[-1]<=epoch
         and abs(a['aspectRatio']-source['targetExtent'][0]/source['targetExtent'][1])<=.01)
-    within(policy['marker'],projected_box(markers[0],recorded,source['targetExtent']))
+    marker_box=projected_box(markers[0],recorded,source['targetExtent'])
+    within(policy['marker'],marker_box)
+    # Exclude the entire actual marker projection, including pixels outside
+    # the selected challenge crop. Those pixels can change with a ticket and
+    # must never be counted as an Avatar pose change.
+    subject=policy['subject'];need(marker_box[2]<=subject[0] or subject[2]<=marker_box[0]
+        or marker_box[3]<=subject[1] or subject[3]<=marker_box[1])
     if avatar_id is None:
         bounds=[]
         for packet in (before,after):

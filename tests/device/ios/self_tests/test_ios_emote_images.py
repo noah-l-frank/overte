@@ -86,6 +86,18 @@ class ImagesTests(unittest.TestCase):
         value=images.changed(RUN,BINDING,before,raw_before,TICKET,after,raw_after,'f'*32,policy,marker_nonce=NONCE,marker_url=MARKER_URL)
         self.assertGreater(value['subjectChangedFraction'],.5)
 
+    def test_challenge_crop_disjointness_cannot_hide_other_marker_pixels_in_avatar_roi(self):
+        frame,raw,policy=bundle();policy['subject']=[290,135,350,138]
+        # These are genuine modeled mesh bounds, deliberately including the
+        # marker's lower projected pixels outside the selected challenge crop.
+        for key in ('worldBefore','worldAfter'):frame[key]['source']['avatar']['bounds']['dimensions'][1]=4
+        image=Image.open(BytesIO(raw)).convert('RGBA');draw=ImageDraw.Draw(image)
+        for x in range(290,350):draw.line((x,135,x,137),fill=(250,10,20,255) if x%2 else (10,200,30,255))
+        stream=BytesIO();image.save(stream,format='PNG');raw=stream.getvalue()
+        frame['capture']['source']['image'].update(bytes=len(raw),sha256=hashlib.sha256(raw).hexdigest(),pixelSha256=hashlib.sha256(image.tobytes()).hexdigest())
+        rebind(frame)
+        with self.assertRaises(NativeUIError):images.compose(RUN,TICKET,BINDING,frame,raw,policy,marker_nonce=NONCE,marker_url=MARKER_URL)
+
     def remote(self):
         frame,raw,policy=bundle()
         for index,(key,offset) in enumerate((('renderersBefore',40),('renderersAfter',300))):
