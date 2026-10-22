@@ -13,6 +13,11 @@
 //
 
 #include "EntityTree.h"
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+#include <QCryptographicHash>
+#include <QStringList>
+#include <QThread>
+#endif
 #include <QtCore/QDateTime>
 #include <QtCore/QQueue>
 #include <openssl/err.h>
@@ -111,6 +116,9 @@ void EntityTree::eraseDomainAndNonOwnedEntities() {
             }
         }
         _entityMap.swap(savedEntities);
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+        featureInventoryChanged();
+#endif
     });
 
     resetClientEditStats();
@@ -139,6 +147,9 @@ void EntityTree::eraseAllOctreeElements(bool createNewRoot) {
     }
     QHash<EntityItemID, EntityItemPointer> localMap;
     localMap.swap(_entityMap);
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    featureInventoryChanged();
+#endif
     this->withWriteLock([&] {
         foreach(EntityItemPointer entity, localMap) {
             EntityTreeElementPointer element = entity->getElement();
@@ -1809,6 +1820,9 @@ void EntityTree::releaseSceneEncodeData(OctreeElementExtraEncodeData* extraEncod
 }
 
 void EntityTree::entityChanged(EntityItemPointer entity) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    featureInventoryChanged();
+#endif
     if (entity->isSimulated()) {
         _simulation->changeEntity(entity);
     }
@@ -2209,12 +2223,73 @@ void EntityTree::addEntityMapEntry(EntityItemPointer entity) {
         return;
     }
     _entityMap.insert(id, entity);
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    featureInventoryChanged();
+#endif
 }
 
 void EntityTree::clearEntityMapEntry(const EntityItemID& id) {
     QWriteLocker locker(&_entityMapLock);
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    const bool featureHadEntity=_entityMap.contains(id);
+#endif
     _entityMap.remove(id);
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    if (featureHadEntity) { featureInventoryChanged(); }
+#endif
 }
+
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+QVariantMap EntityTree::featureEntityInventory() {
+    if (!_featureInventoryEnabled || !QCoreApplication::instance()
+            || QThread::currentThread()!=QCoreApplication::instance()->thread()) { return {}; }
+    QVariantMap result;
+    withReadLock([&] {
+        // Preserve the product's existing Tree -> map read-lock order. No
+        // product lock, update ordering or entity setter is changed here.
+        QReadLocker locker(&_entityMapLock);
+        const auto revision=_featureInventoryRevision.load(std::memory_order_relaxed);
+        bool complete=revision<=1000000000 && _entityMap.size()<=512;
+        QVariantList rows;
+        if (complete) {
+            QStringList ids;QHash<QString,EntityItemPointer> ordered;
+            for (auto it=_entityMap.constBegin();it!=_entityMap.constEnd();++it) {
+                const auto id=it.key().toString(QUuid::WithoutBraces);ids.append(id);ordered.insert(id,it.value());
+            }
+            ids.sort();
+            for (const auto& id:ids) {
+                const auto item=ordered.value(id);
+                if (!item) { complete=false;break; }
+                auto properties=item->getProperties();
+                const auto created=properties.getCreated(),edited=properties.getLastEdited();
+                const auto host=properties.getEntityHostType();
+                // Normalize ONLY the detached serialization copy. Original
+                // creation/edit clocks below remain exact decimal uint64s.
+                properties.setCreated(0);properties.setLastEdited(0);
+                auto fields=properties.getChangedProperties();
+                fields-=PROP_CREATED;fields-=PROP_LAST_EDITED_BY;fields-=PROP_SIMULATION_OWNER;
+                QByteArray encoded(65536,'\0');EntityPropertyFlags didntFit;
+                const auto state=EntityItemProperties::encodeEntityEditPacket(PacketType::EntityEdit,EntityItemID(QUuid(id)),
+                    properties,encoded,fields,didntFit);
+                const auto editedAfter=item->getLastEdited();
+                const bool ready=state==OctreeElement::COMPLETED && !encoded.isEmpty() && encoded.size()<=65536
+                    && editedAfter==edited;
+                if (!ready) { complete=false; }
+                rows.append(QVariantMap{{"id",id},{"hostType",host==entity::HostType::LOCAL ? "local"
+                    : host==entity::HostType::AVATAR ? "avatar" : "domain"},{"ready",ready},
+                    {"createdEpochUs",QString::number(created)},{"lastEditedEpochUs",QString::number(edited)},{"lastEditedAfterEpochUs",QString::number(editedAfter)},
+                    {"semanticBytes",ready ? QVariant(static_cast<qulonglong>(encoded.size())) : QVariant()},
+                    {"semanticSha256",ready ? QVariant(QString::fromLatin1(QCryptographicHash::hash(encoded,QCryptographicHash::Sha256).toHex())) : QVariant()}});
+            }
+        }
+        const auto after=_featureInventoryRevision.load(std::memory_order_relaxed);
+        result={{"entityInventoryVersion",1},{"profile","native-entity-edit-wire-v1"},{"treeInstance",_featureInventoryInstance},
+            {"revisionBefore",static_cast<qulonglong>(revision)},{"revisionAfter",static_cast<qulonglong>(after)},
+            {"totalEntities",static_cast<qulonglong>(_entityMap.size())},{"complete",complete && revision==after && rows.size()==_entityMap.size()},{"entities",rows}};
+    });
+    return result;
+}
+#endif
 
 void EntityTree::debugDumpMap() {
     // QHash's are implicitly shared, so we make a shared copy and use that instead.

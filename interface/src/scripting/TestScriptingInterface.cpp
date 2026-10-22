@@ -71,6 +71,8 @@
 #include "../../../tests/device/native/IOSLocationBookmarksObservation.h"
 #include "../../../tests/device/native/IOSPlacesModelObservation.h"
 #include "../../../tests/device/native/IOSNavigationStateObservation.h"
+#include "../../../tests/device/native/NativeReadBracket.h"
+#include <EntityTree.h>
 #include <QGuiApplication>
 #include <NodeList.h>
 #include <XMLHttpRequestClass.h>
@@ -506,6 +508,34 @@ QVariantMap TestScriptingInterface::featureSceneLoadObservation(const QVariantMa
 
 
 #if defined(Q_OS_IOS)
+QVariantMap TestScriptingInterface::featureIOSSceneInventory(const QVariantMap& command) {
+    if (QThread::currentThread()!=thread()) {
+        if (!thread() || !thread()->isRunning()) { return {}; }
+        QVariantMap result;
+        if (!QMetaObject::invokeMethod(this,[&] { result=featureIOSSceneInventory(command); },Qt::BlockingQueuedConnection)) { return {}; }
+        return result;
+    }
+    QStringList fields {"schemaVersion","commandId","action","runId"};fields.sort();
+    const auto json=QJsonObject::fromVariantMap(command);
+    const auto request=command.value("commandId").toString(),run=command.value("runId").toString();
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript") || command.keys()!=fields
+            || json.value("schemaVersion")!=QJsonValue(1) || json.value("action")!=QJsonValue("feature-ios-scene-inventory")
+            || !json.value("commandId").isString() || !json.value("runId").isString()
+            || !QRegularExpression("\\Aios-[0-9a-f]{32}\\z").match(request).hasMatch()
+            || !QRegularExpression("\\A[0-9a-f]{32}\\z").match(run).hasMatch()
+            || !DependencyManager::isSet<EntityScriptingInterface>()) { return {}; }
+    const auto entities=DependencyManager::get<EntityScriptingInterface>();
+    if (!entities || !entities->getEntityTree()) { return {}; }
+    if (!_featureIOSSceneInventory) { _featureIOSSceneInventory=std::make_shared<overte::e2e::NativeReadBracket>(); }
+    return _featureIOSSceneInventory->read("iosSceneInventoryVersion","native-main-scene-inventory",request,run,[&]() -> QVariantMap {
+        const auto tree=entities->getEntityTree()->featureEntityInventory();if (tree.isEmpty()) { return {}; }
+        auto sceneCommand=command;sceneCommand["action"]="feature-scene-load-observe";
+        const auto scene=featureSceneLoadObservation(sceneCommand);if (scene.isEmpty()) { return {}; }
+        return {{"tree",tree},{"sceneLoads",scene}};
+    });
+}
+
 QVariantMap TestScriptingInterface::featureIOSNavigationState(const QVariantMap& command) {
     if (QThread::currentThread()!=thread()) {
         if (!thread() || !thread()->isRunning()) { return {}; }
@@ -1644,7 +1674,7 @@ void TestScriptingInterface::saveObject(QVariant variant, const QString& filenam
     QString filepath = QDir::cleanPath(_testResultsLocation + filename);
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     if (filename == "feature-chat-observation.json" || filename == "feature-native-observation.json" || filename == "normal-feature-observation.json"
-            || filename == "feature-ios-web-closures.json" || filename == "feature-ios-location-bookmarks.json" || filename == "feature-ios-places-model.json" || filename == "feature-ios-places-http.json" || filename == "feature-ios-navigation-dialogs.json" || filename == "feature-ios-navigation-state.json" || filename == "feature-chat-view-observation.json" || filename == "feature-web-dom-observation.json"
+            || filename == "feature-ios-web-closures.json" || filename == "feature-ios-location-bookmarks.json" || filename == "feature-ios-places-model.json" || filename == "feature-ios-places-http.json" || filename == "feature-ios-navigation-dialogs.json" || filename == "feature-ios-navigation-state.json" || filename == "feature-ios-scene-inventory.json" || filename == "feature-chat-view-observation.json" || filename == "feature-web-dom-observation.json"
             || filename == "feature-pending-commit-owner.json" || filename == "feature-navigation-replies.json"
             || filename == "feature-process-presence.json" || filename == "feature-graphics-subject.json" || filename == "feature-scene-load.json" || filename == "feature-completed-frame.json" || filename == "feature-vulkan-world-frame.json"
             || filename == "recorded-preview-observation.json" || filename == "feature-script-observation.json"

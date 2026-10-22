@@ -26,6 +26,7 @@ namespace overte::e2e { class InstalledBundleIdentity; }
 namespace overte::e2e { class IOSLocationBookmarksObservation; }
 namespace overte::e2e { class IOSPlacesModelObservation; }
 namespace overte::e2e { class IOSNavigationStateObservation; }
+namespace overte::e2e { class NativeReadBracket; }
 #endif
 #include <QUuid>
 namespace overte::e2e { class FeatureLifecycle; class AccountOriginLease; class PrivateLoginInput; }
@@ -174,6 +175,7 @@ public slots:
     Q_INVOKABLE QVariantMap featureIOSPlacesHttp(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureIOSNavigationDialogs(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureIOSNavigationState(const QVariantMap& command);
+    Q_INVOKABLE QVariantMap featureIOSSceneInventory(const QVariantMap& command);
 #endif
 
     Q_INVOKABLE QVariantMap featureWebDOMObservation(const QVariantMap& command);
@@ -259,6 +261,7 @@ private:
     std::shared_ptr<overte::e2e::IOSLocationBookmarksObservation> _featureIOSLocationBookmarks;
     std::shared_ptr<overte::e2e::IOSPlacesModelObservation> _featureIOSPlacesModel;
     std::shared_ptr<overte::e2e::IOSNavigationStateObservation> _featureIOSNavigationState;
+    std::shared_ptr<overte::e2e::NativeReadBracket> _featureIOSSceneInventory;
 #endif
     QString _featureObservationInstance;
     quint64 _featureObservationSequence {0};

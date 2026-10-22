@@ -14,6 +14,12 @@
 
 #include <QSet>
 #include <QVector>
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+#include <atomic>
+#include <QCoreApplication>
+#include <QUuid>
+#include <QVariantMap>
+#endif
 
 #include <HelperScriptEngine.h>
 #include <Octree.h>
@@ -171,6 +177,10 @@ public:
     void addEntityMapEntry(EntityItemPointer entity);
     void clearEntityMapEntry(const EntityItemID& id);
     void debugDumpMap();
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    // Read-only, bounded whole-tree inventory; never a radius-filtered absence.
+    QVariantMap featureEntityInventory();
+#endif
     virtual void dumpTree() override;
     virtual void pruneTree() override;
 
@@ -327,6 +337,17 @@ protected:
 
     mutable QReadWriteLock _entityMapLock;
     QHash<EntityItemID, EntityItemPointer> _entityMap;
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    const bool _featureInventoryEnabled {QCoreApplication::instance()
+        && QCoreApplication::arguments().contains("--testScript")};
+    const QString _featureInventoryInstance {_featureInventoryEnabled
+        ? QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-') : QString()};
+    std::atomic<quint64> _featureInventoryRevision {0};
+    void featureInventoryChanged() {
+        if (_featureInventoryEnabled) { _featureInventoryRevision.fetch_add(1,std::memory_order_relaxed); }
+    }
+#endif
+
 
     EntitySimulationPointer _simulation;
 

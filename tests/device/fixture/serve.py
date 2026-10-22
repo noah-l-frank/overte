@@ -567,6 +567,12 @@ class FixtureState:
             try:places_http_command(command)
             except (ValueError,RuntimeError):raise ValueError("invalid iOS Places HTTP request") from None
             valid=True
+        elif action == "feature-ios-scene-inventory":
+            sys.path.insert(0,str(ROOT.parent))
+            from ios.adapters.scene_inventory import command as scene_inventory_command
+            try:scene_inventory_command(command)
+            except (ValueError,RuntimeError):raise ValueError("invalid iOS scene inventory request") from None
+            valid=True
         elif action == "feature-ios-navigation-state":
             sys.path.insert(0,str(ROOT.parent))
             from ios.adapters.navigation_state import command as navigation_state_command

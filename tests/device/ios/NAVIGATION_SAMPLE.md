@@ -48,8 +48,10 @@ facts; it cannot turn an old image into a fresh observation or initiate cleanup.
 
 Host tests use actual private state files, original PNG hashes/inodes, source
 locks, immutable history and short real HTTP fixture reads. Native/GPU/process
-boundaries are modeled. Counterexamples cover lost capture results,
-reconstruction, old markers, phase crossings, ignored motion, missing owner
+and acquisition clock boundaries are modeled; they do not qualify real device
+deadlines. Counterexamples cover lost capture results,
+reconstruction, explicit acquisition deadline expiry, old markers, phase
+crossings, ignored motion, missing owner
 metadata, foreign occupied native slots, replacement files/candidates and process
 guard loss. Native code remains uncompiled and devices untested. Whole-run
 quiet windows, metadata retirement, new-process admission and paired OS/SDK

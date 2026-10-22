@@ -1,4 +1,4 @@
-"""Durable real private PNG/state files and loopback; native/GPU boundaries modeled."""
+"""Real private files/loopback; SDK, native/GPU and acquisition clocks modeled."""
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
@@ -6,7 +6,6 @@ from io import BytesIO
 import json
 from pathlib import Path
 import tempfile
-import time
 import unittest
 
 from PIL import Image,ImageDraw
@@ -51,9 +50,6 @@ class SDK:
         self.gpu=World();self.okay=True;self.requests=[];self.drop=False;self.on_read=None
         self.navigation=Navigation(self.gpu,run,viewpoint_urls(harness.inputs['sceneUrl'])['A'],self.body)
         self.gpu.source_extent=self.gpu.target_extent=[640,400]
-        original_sleep=self.gpu.sleep
-        def sleep(seconds):time.sleep(seconds);original_sleep(seconds)
-        self.gpu.sleep=sleep
         recorded=view();recorded['position']=[0,1.6,4]
         image=Image.new('RGBA',(640,400),(120,120,120,255));draw=ImageDraw.Draw(image)
         def screen(point):
@@ -100,8 +96,9 @@ class NavigationSampleTests(unittest.TestCase):
         if fixture:fixture.attach()
         return NavigationSampleOwner(self.store,self.root,binding,self.run,'primary',0,REQUEST,self.lock,lambda:sdk.okay,
             native=None if historical else sdk.native(),navigation=None if historical else sdk.navigation.reader(),fixture=fixture,
-            frame_factory=None if historical else sdk.factory,historical=historical,sleep=sdk.gpu.sleep)
-    def capture(self,owner):return owner.capture(scene_tests.TICKET,viewpoint_urls(self.harness.inputs['sceneUrl'])['A'],'A',time.time()*1000-1)
+            frame_factory=None if historical else sdk.factory,historical=historical,sleep=sdk.gpu.sleep,
+            monotonic=lambda:sdk.gpu.clock,epoch_ms=lambda:1_000_000+sdk.gpu.clock*1000)
+    def capture(self,owner):return owner.capture(scene_tests.TICKET,viewpoint_urls(self.harness.inputs['sceneUrl'])['A'],'A',owner.epoch_ms()-1)
 
     def test_original_capture_and_private_file_survive_reconstruction_and_historical_no_sdk_read(self):
         sdk=SDK(self.harness,self.run)
@@ -170,6 +167,16 @@ class NavigationSampleTests(unittest.TestCase):
             path=self.root/owner.owner().name;owner.owner().store.path.unlink()
             with self.assertRaises(NativeUIError):owner.drain()
             self.assertTrue(path.exists());self.assertEqual('reading',owner.state['phase'])
+
+    def test_expired_host_native_acquisition_budget_never_publishes_or_recaptures(self):
+        sdk=SDK(self.harness,self.run);sdk.on_read=lambda:sdk.gpu.sleep(2.)
+        with self.lock.held():
+            owner=self.owner(sdk)
+            with self.assertRaises(NativeUIError):self.capture(owner)
+            self.assertEqual('reading',owner.state['phase']);self.assertIsNone(owner.state['result'])
+            sdk.on_read=None;owner.drain()
+            self.assertEqual(1,sum(row['operation']=='read' for row in sdk.requests))
+            self.assertEqual(1,sum(row['operation']=='release' for row in sdk.requests))
 
     def test_preexisting_native_slot_never_authorizes_releasing_another_resource(self):
         sdk=SDK(self.harness,self.run);sdk.gpu.request=dict(schemaVersion=1,commandId='ios-'+'f'*32,

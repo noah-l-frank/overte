@@ -167,6 +167,10 @@ class IOSScriptRuntime:
         source=self._sources(selector)
         return source['observer'].places_http(source['clock_source'])
 
+    def _scene_inventory_observer(self,selector):
+        source=self._sources(selector)
+        return source['observer'].scene_inventory(source['clock_source'])
+
     def _navigation_state_observer(self,selector):
         source=self._sources(selector)
         return source['observer'].navigation_state(source['clock_source'])

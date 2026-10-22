@@ -148,6 +148,7 @@
     var lastIOSPlacesHttpRequest = "";
     var lastIOSNavigationDialogRequest = "";
     var lastIOSNavigationStateRequest = "";
+    var lastIOSSceneInventoryRequest = "";
     var lastSceneLoadRequest = "";
     var lastWorldRenderStorageCommand = "";
     var lastWorldRenderReceiptCommand = "";
@@ -1065,6 +1066,24 @@
                 } catch (_bundleReadError) { /* No paths or archive expectations are exported. */ }
                 if (installedBundle.status !== "pending") { lastIOSBundleDone=command.commandId; }
                 Test.saveObject(installedBundle,"ios-installed-bundle-observation.json");
+            }
+            return;
+        }
+        if (command && command.action === "feature-ios-scene-inventory") {
+            if (command.schemaVersion === 1 && typeof command.commandId === "string"
+                    && /^ios-[0-9a-f]{32}$/.test(command.commandId) && command.commandId.length === 36
+                    && typeof command.runId === "string" && /^[0-9a-f]{32}$/.test(command.runId) && command.runId.length === 32
+                    && objectKeysMatch(command,["schemaVersion","commandId","action","runId"])) {
+                if (command.commandId === lastIOSSceneInventoryRequest) { return; }
+                lastIOSSceneInventoryRequest=command.commandId;
+                var sceneInventory={iosSceneInventoryVersion:1,requestId:command.commandId,status:"unavailable"};
+                try {
+                    if (typeof Test.featureIOSSceneInventory === "function") {
+                        var originalInventory=Test.featureIOSSceneInventory(command);
+                        if (originalInventory && originalInventory.requestId === command.commandId) { sceneInventory=originalInventory; }
+                    }
+                } catch (_sceneInventoryError) { /* Unknown/partial global scope is never empty absence. */ }
+                Test.saveObject(sceneInventory,"feature-ios-scene-inventory.json");
             }
             return;
         }
