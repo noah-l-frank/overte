@@ -15,6 +15,7 @@ def selected(part):
         return unittest.defaultTestLoader.loadTestsFromNames([
             'self_tests.test_chat_evidence_archive','self_tests.test_chat_archive_files',
             'self_tests.test_chat_archive_plan','test_chat_application_close',
+            'self_tests.test_chat_archive_unlink_fence',
             'self_tests.test_chat_compiled_dispatcher.CompiledDispatcherTests.test_original_compiled_prefix_uses_distinct_code_roles_and_independent_witness_sources'])
     from self_tests.test_pico_chat_application_close import _application_tests
     return _application_tests(part)

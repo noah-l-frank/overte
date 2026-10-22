@@ -1822,3 +1822,24 @@ flow regressions pass together:5 cases8.643s. The render/Qt/OS/VM producers are
 explicit analytical host seams; no actual HMD/device frame is claimed. The
 existing owning selector includes this prefix; catalog remains139. Full26
 Journey/actor/image and immutable final retirement remain outstanding.
+
+
+## Chat bounded original unlink source fence
+
+Fixed chain `ff1d36dac1` → `d69425c5f1` → `7b6c5c5cb6` is integrated.
+The optional RestartInputs final-discard callback follows its original observe
+CAS; the default path is unchanged. Archive/plan v3 opt-in uses at most16
+unlinks/250ms from one exact original source acquisition, preserving its entire
+original1.5-second host/native deadline. Each unlink checks a new independent
+HTTP phase after final intent; it cannot renew native facts. Only pre-intent
+preparation can obtain another original source frame. Lost/slow final CAS or
+file check, phase changes and changed source packets/cursors retain ownership.
+Legacy archive v1/v2 keep their existing per-file source behavior.
+
+Ten unlink-source counterexamples join the existing archive selector; original
+rootless Erase/final frames also have an actual generic-cleanup counterexample.
+Root3/139 owning groups pass24.31s: archive18.272s, compiled source5.983s,
+coverage0.059s. The complete2623-file warm archive is still a separate pending
+measurement. Cumulative copied-file verification is potentially quadratic; no
+verification, size/source limit or original file was omitted to claim success.
+Whole Chat, complete host-handle release and device qualification remain open.
