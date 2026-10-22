@@ -213,7 +213,7 @@ class Client:
             self.navigation_instance=identifier(provider['instance'])
             self.navigation_inputs,_urls=configuration(provider['inputs'])
             number(provider['capturedEpochMs'],1)
-            self.navigation_previous=None
+            self.navigation_previous=None;self.navigation_scene_previous=None
         if area=='authentication':
             from urllib.parse import urlsplit
             if urlsplit(self.url).scheme!='https':raise ValueError('Authentication requires the trusted HTTPS account fixture')
@@ -296,6 +296,15 @@ class Client:
         epoch=time.time()*1000
         if not -250<=epoch-value['capturedEpochMs']<=1500:raise ValueError('Original Script provider snapshot is stale')
         self.script_previous=copy.deepcopy(value)
+        return value
+
+    def navigation_scene_status(self):
+        if self.area!='world-navigation':raise ValueError('No owned navigation scene provider')
+        from .navigation_scene import validate_status
+        value=self.request('/runs/'+self.run+'/navigation-scene')
+        validate_status(value,instance=self.navigation_instance,run=self.run,scene_url=self.navigation_inputs['sceneUrl'],
+            previous=getattr(self,'navigation_scene_previous',None))
+        self.navigation_scene_previous=copy.deepcopy(value)
         return value
 
     def navigation_status(self):

@@ -121,6 +121,20 @@ class Handler(BaseHTTPRequestHandler):
             except ValueError:return self.send(404,{'error':'not-found'})
         return self.send(200,data[1],data[0])
 
+    def navigation_scene_request(self,parsed):
+        provider=self.server.navigation_resources
+        if (provider is None or provider.scene_profile is None
+                or parsed.path!=urlsplit(provider.inputs['sceneUrl']).path):return False
+        hosts=self.headers.get_all('Host',[])
+        if (self.command!='GET' or parsed.scheme or parsed.netloc or parsed.fragment or len(hosts)!=1):
+            self.send(404,{'error':'not-found'});return True
+        self.connection.settimeout(2)
+        with provider.scene_response(parsed.path,parsed.query,request_authority=hosts[0],
+                request_scheme='https' if isinstance(self.connection,ssl.SSLSocket) else 'http') as response:
+            if response is None:self.send(404,{'error':'not-found'})
+            else:self.send(response[0],response[1],response_id=response[2])
+        return True
+
     def navigation_request(self,parsed):
         if parsed.path!=DIRECTORY and not parsed.path.startswith(DIRECTORY+'/'):return False
         provider=self.server.navigation_resources
@@ -190,6 +204,7 @@ class Handler(BaseHTTPRequestHandler):
             if adapter_reader and self.command!='GET':return self.send(403,{'error':'forbidden'})
             if self.account_request(parsed):return
             if self.navigation_request(parsed):return
+            if self.navigation_scene_request(parsed):return
             if parsed.query and not parsed.fragment and self.command=='GET' and parsed.path.startswith(PREFIX+'/'):
                 pieces=parsed.path[len(PREFIX)+1:].split('/')
                 if (len(pieces)==5 and pieces[0]=='runs' and pieces[2]=='tickets' and pieces[4]==GRAPHICS_SCENE
@@ -312,6 +327,11 @@ class Handler(BaseHTTPRequestHandler):
                             return self.send(503,{'error':'script-provider-ownership-inconsistent'})
                     return self.send(200,source)
                 return self.send(503,{'error':'script-provider-unavailable'})
+            if parts[2:]==['navigation-scene']:
+                provider=self.server.navigation_resources
+                if self.command=='GET' and provider is not None and provider.scene_profile is not None:
+                    return self.send(200,provider.scene_snapshot(run))
+                return self.send(503,{'error':'navigation-scene-unavailable'})
             if parts[2:]==['navigation']:
                 if self.command=='GET' and self.server.navigation_resources is not None:
                     return self.send(200,self.server.navigation_resources.snapshot(run))
@@ -489,7 +509,11 @@ def main():
     if 'accountProvider' in config:
         if config['accountProvider'] is not True:raise ValueError('Explicit account provider opt-in is required')
         provider=AccountProvider()
-    navigation=NavigationResources(config['navigationProvider']) if 'navigationProvider' in config else None
+    navigation=None
+    if 'navigationProvider' in config:
+        if type(config['navigationProvider']) is not dict:raise ValueError('Navigation provider configuration must be an object')
+        inputs=dict(config['navigationProvider']);profile=inputs.pop('sceneProfile',None)
+        navigation=NavigationResources(inputs,scene_profile=profile)
     graphics=None
     if 'graphicsProvider' in config:
         exact(config['graphicsProvider'],{'fixtureUrl'},'actual Graphics fixture input')

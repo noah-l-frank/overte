@@ -12,6 +12,9 @@ import threading
 import time
 from .contract import exact,identifier,number
 from .fixtures import context
+from .navigation_scene import PROFILE as SCENE_PROFILE,scene,viewpoint_query
+from .script_fixture import authority
+from urllib.parse import urlsplit
 from navigation_observation import viewpoint_urls
 
 VERSION=1
@@ -35,8 +38,15 @@ def configuration(value):
 
 
 class NavigationResources:
-    def __init__(self,inputs,*,clock_ms=lambda:int(time.time()*1000)):
+    def __init__(self,inputs,*,clock_ms=lambda:int(time.time()*1000),scene_profile=None):
         self.inputs,self.urls=configuration(inputs)
+        if scene_profile not in (None,SCENE_PROFILE):raise ValueError("Unknown explicit navigation scene profile")
+        self.scene_profile=scene_profile;self.scene_responses={}
+        if scene_profile is not None:
+            target=urlsplit(self.inputs['sceneUrl'])
+            if (target.port is not None and not 1<=target.port<=65535
+                    or target.path.startswith(DIRECTORY) or target.path.startswith('/feature-fixture/')):
+                raise ValueError('Navigation scene cannot shadow existing fixture routes')
         if not callable(clock_ms):raise ValueError('Original server clock is required')
         self.clock_ms=clock_ms;self.lock=threading.RLock();self.runs={};self.instance=secrets.token_hex(16)
         self.last_epoch=0;self.failed=0;self.valid=True
@@ -60,6 +70,7 @@ class NavigationResources:
                     or any(row['active'] for row in self.runs.values())):
                 raise ValueError('Navigation provider ownership is unavailable')
             self.runs[run]=dict(active=True,ticket=None,responses=[],epoch=self.epoch())
+            self.scene_responses[run]=[]
 
     def activate(self,run,ticket):
         identifier(ticket)
@@ -79,6 +90,39 @@ class NavigationResources:
         with self.lock:
             self.runs[identifier(run)]['active']=False
             self.runs[run]['ticket']=None
+
+    def scene_snapshot(self,run):
+        with self.lock:
+            if self.scene_profile is None:raise ValueError('Navigation scene profile is disabled')
+            row=self.runs[identifier(run)]
+            return dict(navigationSceneVersion=1,instance=self.instance,runId=run,profile=self.scene_profile,
+                sceneUrl=self.inputs['sceneUrl'],active=row['active'],ticket=row['ticket'],capturedEpochMs=self.epoch(),
+                responses=deepcopy(self.scene_responses[run]),complete=self.valid and not self.failed)
+
+    @contextmanager
+    def scene_response(self,path,query,*,request_authority,request_scheme):
+        # The same source lock is held through the actual bounded socket write.
+        # Default v1 directory/missing-name operation does not enable this route.
+        with self.lock:
+            configured=urlsplit(self.inputs['sceneUrl'])
+            active=[(run,row) for run,row in self.runs.items() if row['active']]
+            try:
+                host,port=authority(request_authority);expected_host,expected_port=authority(configured.netloc)
+                same_origin=(request_scheme==configured.scheme and host==expected_host
+                    and (port or (443 if request_scheme=='https' else 80))==(expected_port or (443 if configured.scheme=='https' else 80)))
+            except ValueError:same_origin=False
+            if (self.scene_profile is None or not same_origin or path!=configured.path or not viewpoint_query(query)
+                    or len(active)!=1 or not self.valid or self.failed):yield None;return
+            run,row=active[0];ticket=row['ticket'];receipts=self.scene_responses[run]
+            if ticket is None or len(receipts)>=256:yield None;return
+            fixture_url=configured._replace(path='/feature-fixture/v1/runs/'+run+'/',query='',fragment='').geturl()
+            body=json.dumps(scene(run,ticket,fixture_url),separators=(',',':'),ensure_ascii=False).encode()
+            if not 1<=len(body)<=16384:raise ValueError('Navigation scene exceeds its byte bound')
+            response_id=secrets.token_hex(16)
+            try:yield 200,body,response_id
+            except BaseException:self.failed+=1;raise
+            else:receipts.append(dict(sequence=len(receipts)+1,responseId=response_id,ticket=ticket,
+                bytes=len(body),sha256=hashlib.sha256(body).hexdigest(),completedEpochMs=self.epoch()))
 
     @contextmanager
     def response(self,path,query):
