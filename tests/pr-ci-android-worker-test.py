@@ -129,6 +129,11 @@ class ConsumerTests(unittest.TestCase):
         W.copy_gradle_seed(seed, out)
         self.assertEqual((out / "internal").read_text(), "prepared bytes")
         self.assertFalse((out / "internal").is_symlink())
+        (seed / "directory-cycle").symlink_to(".")
+        with self.assertRaisesRegex(ValueError, "directory or special symlink"):
+            W.copy_gradle_seed(seed, self.roots.scratch / "cycle")
+        self.assertFalse((self.roots.scratch / "cycle").exists())
+        (seed / "directory-cycle").unlink()
         (seed / "escape").symlink_to("../tools/moc")
         with self.assertRaisesRegex(ValueError, "escapes its own seed"):
             W.copy_gradle_seed(seed, self.roots.scratch / "other")

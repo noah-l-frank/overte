@@ -357,7 +357,9 @@ def copy_gradle_seed(seed, destination):
     seed = Path(seed)
     for path in seed.rglob("*"):
         if path.is_symlink():
-            require(path.resolve(strict=True).is_relative_to(seed), "Gradle seed symlink escapes its own seed")
+            target = path.resolve(strict=True)
+            require(target.is_relative_to(seed), "Gradle seed symlink escapes its own seed")
+            require(target.is_file(), "Gradle seed directory or special symlink is refused")
     shutil.copytree(seed, destination, symlinks=False)
 
 
