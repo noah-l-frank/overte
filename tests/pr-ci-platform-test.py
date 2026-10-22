@@ -77,7 +77,11 @@ class ProductOwnershipTests(unittest.TestCase):
             root = Path(scratch)
             def git(*args):
                 return subprocess.check_output(["git", *args], cwd=root, stderr=subprocess.DEVNULL).decode().strip()
-            git("init", "-q"); (root / "source").write_text("original\n")
+            branch = "test/main/pr-ci-platform-fixture"
+            subprocess.run([sys.executable, str(ROOT / "tools/branch-policy/check.py"),
+                "check-name", "--branch", branch], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            git("init", "-q", "--initial-branch=" + branch)
+            (root / "source").write_text("original\n")
             git("add", "source"); git("-c", "user.name=Offline Test", "-c", "user.email=test@example.invalid", "commit", "-qm", "Fixture")
             context = {"original_merge": git("rev-parse", "HEAD"), "tree": git("rev-parse", "HEAD^{tree}")}
             plan = {"selected": True}
