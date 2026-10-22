@@ -393,17 +393,22 @@ class PhoneSnapshotsRole(PhoneCreateRole):
         # fictional empty inventory. Avoid duplicate native groups/scans here.
         if not self.system:
             if f.state['marker'] is not None and f.state['marker']['operation']=='prepare':
-                marker=self.marker.read(f.run);marker_ready(marker,avatar_before)
-                owned=f.adapter._world_render_capture(f.selector,read_only=True,role=self.role,require_trace=True,require_frame_view=True)
-                need(owned.owner.store.read() is None)
-                captures=[row['capture'] for row in self.frames if row.get('capture') is not None]
-                if captures:
-                    previous=captures[-1];reader=owned.capture;reader.instance,reader.sequence=previous['instance'],previous['sequence']
-                    reader.acquisition,reader.captured=previous['source']['acquisitionSequence'],previous['source']['capturedEpochMs'];reader.frames={row['source']['renderTrace']['frameId'] for row in captures}
-                capture,raw=owned.read(owned.capture.sequence);self.checkpoint(capture=capture);self.state['pending']['capture']=deepcopy(owned.owner.owned());self.save()
-                original_pixels(capture,raw);image_observation(raw,f.run,ticket,f.policy)
-                need(capture['source']['targetExtent']==f.config['imageExtent']);image=self.image_engine().write(ticket,capture,raw)
-                retirement=self.release_capture(owned);image_ready=True
+                marker=self.marker.read(f.run)
+                # The original private capture keeps its own capture ticket.
+                # Save/Share phases need no new world image, and cannot claim
+                # one by retiming a marker left by the earlier capture.
+                if marker['source']['originalInput']['ticket']==ticket:
+                    marker_ready(marker,avatar_before)
+                    owned=f.adapter._world_render_capture(f.selector,read_only=True,role=self.role,require_trace=True,require_frame_view=True)
+                    need(owned.owner.store.read() is None)
+                    captures=[row['capture'] for row in self.frames if row.get('capture') is not None]
+                    if captures:
+                        previous=captures[-1];reader=owned.capture;reader.instance,reader.sequence=previous['instance'],previous['sequence']
+                        reader.acquisition,reader.captured=previous['source']['acquisitionSequence'],previous['source']['capturedEpochMs'];reader.frames={row['source']['renderTrace']['frameId'] for row in captures}
+                    capture,raw=owned.read(owned.capture.sequence);self.checkpoint(capture=capture);self.state['pending']['capture']=deepcopy(owned.owner.owned());self.save()
+                    original_pixels(capture,raw);image_observation(raw,f.run,ticket,f.policy)
+                    need(capture['source']['targetExtent']==f.config['imageExtent']);image=self.image_engine().write(ticket,capture,raw)
+                    retirement=self.release_capture(owned);image_ready=True
             elif f.state['marker'] is not None:
                 marker=self.marker.read(f.run);marker_retired(marker)
             world=self.world.read(f.run,require_avatar=True);touch=self.touch.read()
