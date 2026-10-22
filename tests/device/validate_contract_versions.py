@@ -102,6 +102,7 @@ REQUIRED = {
     "native-chat-peer-position": 1,
     "native-chat-settings-barrier": 2,
     "native-chat-profile": 1,
+    "chat-profile-owner": 1,
     "chat-journey-peer-send": 1,
     "chat-journey-peer-distant": 1,
     "native-chat-actor-files": 1,

@@ -66,3 +66,16 @@ retained unavailable results and private output routing. These are component
 proofs. The full journey still must perform normal Erase, close/reopen to prove
 original Script history reconstruction, independently restore peer/service/UI
 resources, observe quiet and then verify actual source/callback/file retirement.
+
+The Pico `_chat_profile` factory now binds this channel to its actual installed
+candidate/process, original private command/result transport and existing shared
+source lock. `OwnedChatProfile` writes each private host intent before transport,
+retains complete compressed original results, reconstructs only validated native
+cursors and prevents reacquire or restore replay after missing receipts. Only a
+new passive inspect can resolve such uncertainty. All nested original capture
+times and final guard/storage processing share the 1.5-second freshness bound;
+a frozen target clock cannot hide host processing time. No raw original variant
+is stored on the host. Pico cleanup retains even a restored profile journal and
+reports unresolved ownership after process teardown. Six focused owner/source
+cases and two actual Pico-wrapper cases cover these boundaries on synthetic
+native/device seams; no physical device or complete Chat verdict is implied.
