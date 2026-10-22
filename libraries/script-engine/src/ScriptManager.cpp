@@ -1324,7 +1324,7 @@ ScriptManager::FeatureNativeCallScope::FeatureNativeCallScope(ScriptManager* man
     if (!manager || !manager->_featureWorkEnabled || QThread::currentThread()!=manager->thread()
             || (method!="overrideAnimation" && method!="restoreAnimation"
 #if defined(Q_OS_IOS)
-                && method!="featureIOSCreateEvent" && method!="addEntity" && method!="deleteEntity"
+                && method!="featureIOSCreateEvent" && method!="featureIOSWorldWebEvent" && method!="addEntity" && method!="deleteEntity"
 #endif
                 )
             || manager->_featureNativeCallSequence>=1000000000) { return; }

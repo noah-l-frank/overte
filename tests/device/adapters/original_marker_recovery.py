@@ -22,8 +22,9 @@ class OriginalMarkerRecovery:
         from adapters.original_marker_scope import OriginalMarkerScope
         need(isinstance(scope,OriginalMarkerScope));self.scope=scope
         self.profile=scope.components.profile
-        self.key='ios'+self.profile.title()+'MarkerRecoveryVersion'
-        self.record_key='ios'+self.profile.title()+'MarkerAbandonedReadVersion'
+        prefix='WorldWeb' if self.profile=='worldweb' else self.profile.title()
+        self.key='ios'+prefix+'MarkerRecoveryVersion'
+        self.record_key='ios'+prefix+'MarkerAbandonedReadVersion'
         self.store=PrivateFeatureState(scope.store.path.with_name('ios-'+self.profile+'-'+scope.role+'-marker-recovery.json'))
         self.previous=self.store.read();self.state=dict(records=[],pending=None)
         if self.previous is not None:self.state=self.decode(self.previous)

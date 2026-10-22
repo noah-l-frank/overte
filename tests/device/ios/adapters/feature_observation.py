@@ -42,6 +42,8 @@ from adapters.native_process_presence import NativeProcessPresence, FILE as PROC
 from ios.adapters.web_closures import IOSWebClosures, FILE as WEB_CLOSURES_FILE, LIMIT as WEB_CLOSURES_LIMIT, command as web_closures_command
 from ios.adapters.world_web_source import IOSWorldWebSource,FILE as WORLD_WEB_FILE,LIMIT as WORLD_WEB_LIMIT,command as world_web_command
 from ios.adapters.world_web_dom import IOSWorldWebDOM,FILE as WORLD_WEB_DOM_FILE,LIMIT as WORLD_WEB_DOM_LIMIT,command as world_web_dom_command
+from ios.adapters.world_web_geometry import IOSWorldWebGeometry,FILE as WORLD_WEB_GEOMETRY_FILE,LIMIT as WORLD_WEB_GEOMETRY_LIMIT,command as world_web_geometry_command
+from ios.adapters.world_web_work import IOSWorldWebWork,FILE as WORLD_WEB_WORK_FILE,LIMIT as WORLD_WEB_WORK_LIMIT,command as world_web_work_command
 from ios.adapters.bundle_observation import NativeBundleObservation, FILE as BUNDLE_FILE, command as bundle_command
 from ios.adapters.location_bookmarks import (IOSLocationBookmarks,FILE as BOOKMARKS_FILE,LIMIT as BOOKMARKS_LIMIT,
     command as bookmarks_command)
@@ -152,6 +154,8 @@ class FeatureObservation:
         elif command.get('action')=='feature-ios-web-closures':web_closures_command(command)
         elif command.get('action')=='feature-ios-world-web':world_web_command(command)
         elif command.get('action')=='feature-ios-world-web-dom':world_web_dom_command(command)
+        elif command.get('action')=='feature-ios-world-web-geometry':world_web_geometry_command(command)
+        elif command.get('action')=='feature-ios-world-web-work':world_web_work_command(command)
         elif command.get('action')=='feature-ios-location-bookmarks':bookmarks_command(command)
         elif command.get('action')=='feature-ios-places-model':places_model_command(command)
         elif command.get('action')=='feature-ios-places-http':places_http_command(command)
@@ -498,6 +502,22 @@ class FeatureObservation:
         def clock():return clock_source.read(clock_source.sequence)['capturedEpochMs']
         return IOSWorldWebDOM(self.send,lambda:self.original(remote=remote,limit=WORLD_WEB_DOM_LIMIT),
             clock,self.guard,self.process['pid'],monotonic=self.monotonic,sleep=self.sleep)
+
+    def world_web_work(self,clock_source=None):
+        self.guard();remote=self.remote.rsplit('/',1)[0]+'/'+WORLD_WEB_WORK_FILE
+        if clock_source is None:clock_source=self.native_observer()
+        def clock():return clock_source.read(clock_source.sequence)['capturedEpochMs']
+        return IOSWorldWebWork(self.send,lambda:self.original(remote=remote,limit=WORLD_WEB_WORK_LIMIT),
+            clock,self.guard,self.process['pid'],monotonic=self.monotonic,sleep=self.sleep)
+
+
+    def world_web_geometry(self,clock_source=None):
+        self.guard();remote=self.remote.rsplit('/',1)[0]+'/'+WORLD_WEB_GEOMETRY_FILE
+        if clock_source is None:clock_source=self.native_observer()
+        def clock():return clock_source.read(clock_source.sequence)['capturedEpochMs']
+        return IOSWorldWebGeometry(self.send,lambda:self.original(remote=remote,limit=WORLD_WEB_GEOMETRY_LIMIT),
+            clock,self.guard,self.process['pid'],monotonic=self.monotonic,sleep=self.sleep)
+
 
     def chat_view(self):
         self.guard();remote=self.remote.rsplit('/',1)[0]+'/'+CHAT_VIEW_FILE

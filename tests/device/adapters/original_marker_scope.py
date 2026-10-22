@@ -37,7 +37,10 @@ PHASES=('new','preparing','aborting-unused','ready','restoring-view','stopping-m
 
 
 def _components(profile):
-    need(profile in ('emote','avatar'))
+    need(profile in ('emote','avatar','worldweb'))
+    if profile=='worldweb':
+        from ios.adapters.world_web_scope_components import components
+        return components()
     if profile=='emote':
         from ios.adapters import emote_world as world,emote_marker_files as files,emote_marker_measurements as measurements,emote_marker_partial as partial
         from ios.adapters.emote_originals import IOSEmoteOriginals as Originals

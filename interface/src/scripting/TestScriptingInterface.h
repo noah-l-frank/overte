@@ -31,7 +31,7 @@ namespace overte::e2e { class IOSNavigationStateObservation; }
 namespace overte::e2e { class IOSAvatarRenderersObservation; class IOSAvatarScriptsObservation; class IOSAvatarEntitiesObservation; }
 namespace overte::e2e { class IOSEmoteWorldObservation; class IOSAvatarWorldObservation; }
 namespace overte::e2e { class IOSCreateStateObservation; class IOSCreateEntitiesObservation; }
-namespace overte::e2e { class IOSPointerStateObservation; }
+namespace overte::e2e { class IOSPointerStateObservation; class IOSWorldWebGeometryObservation; }
 namespace overte::e2e { class IOSAvatarStateObservation; }
 namespace overte::e2e { class NativeReadBracket; }
 #endif
@@ -198,6 +198,9 @@ public slots:
     Q_INVOKABLE QVariantMap featureIOSCreateState(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureIOSCreateFiles(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureIOSAvatarState(const QVariantMap& command);
+    Q_INVOKABLE void featureIOSWorldWebEvent(const QVariantMap& value);
+    Q_INVOKABLE QVariantMap featureIOSWorldWebWork(const QVariantMap& command);
+    Q_INVOKABLE QVariantMap featureIOSWorldWebGeometry(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureIOSWorldWeb(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureIOSWorldWebDOM(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureIOSSceneInventory(const QVariantMap& command);
@@ -299,6 +302,7 @@ private:
     std::shared_ptr<overte::e2e::IOSAvatarEntitiesObservation> _featureIOSAvatarEntities;
     std::shared_ptr<overte::e2e::IOSCreateEntitiesObservation> _featureIOSCreateEntities;
     std::shared_ptr<overte::e2e::IOSPointerStateObservation> _featureIOSPointerState;
+    std::shared_ptr<overte::e2e::IOSWorldWebGeometryObservation> _featureIOSWorldWebGeometry;
     std::shared_ptr<overte::e2e::IOSCreateStateObservation> _featureIOSCreateState;
     std::shared_ptr<overte::e2e::IOSAvatarStateObservation> _featureIOSAvatarState;
     std::shared_ptr<overte::e2e::NativeReadBracket> _featureIOSSceneInventory;

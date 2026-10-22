@@ -1254,6 +1254,46 @@
             }
             return;
         }
+        if (command && command.action === "feature-ios-world-web-work") {
+            if (command.schemaVersion === 1 && typeof command.commandId === "string"
+                    && /^ios-[0-9a-f]{32}$/.test(command.commandId) && command.commandId.length === 36
+                    && typeof command.runId === "string" && /^[0-9a-f]{32}$/.test(command.runId) && command.runId.length === 32
+                    && objectKeysMatch(command,["schemaVersion","commandId","action","runId"])) {
+                // Keep every nonce consumed, including unavailable reads and
+                // storage mutations with a lost return. No reissue on polling.
+                if (iosNewSourceRequests[command.commandId] || iosNewSourceRequestCount >= 4096) { return; }
+                iosNewSourceRequests[command.commandId]=true;iosNewSourceRequestCount+=1;
+                var sourceWorldWebWork={iosWorldWebWorkVersion:1,requestId:command.commandId,status:"unavailable"};
+                try {
+                    if (typeof Test.featureIOSWorldWebWork === "function") {
+                        var originalWorldWebWork=Test.featureIOSWorldWebWork(command);
+                        if (originalWorldWebWork && originalWorldWebWork.requestId === command.commandId) { sourceWorldWebWork=originalWorldWebWork; }
+                    }
+                } catch (_WorldWebWorkError) { /* Retain unavailable; never retry an uncertain input. */ }
+                Test.saveObject(sourceWorldWebWork,"feature-ios-world-web-work.json");
+            }
+            return;
+        }
+        if (command && command.action === "feature-ios-world-web-geometry") {
+            if (command.schemaVersion === 1 && typeof command.commandId === "string"
+                    && /^ios-[0-9a-f]{32}$/.test(command.commandId) && command.commandId.length === 36
+                    && typeof command.runId === "string" && /^[0-9a-f]{32}$/.test(command.runId) && command.runId.length === 32
+                    && objectKeysMatch(command,["schemaVersion","commandId","action","runId"])) {
+                // Keep every nonce consumed, including unavailable reads and
+                // storage mutations with a lost return. No reissue on polling.
+                if (iosNewSourceRequests[command.commandId] || iosNewSourceRequestCount >= 4096) { return; }
+                iosNewSourceRequests[command.commandId]=true;iosNewSourceRequestCount+=1;
+                var sourceWorldWebGeometry={iosWorldWebGeometryVersion:1,requestId:command.commandId,status:"unavailable"};
+                try {
+                    if (typeof Test.featureIOSWorldWebGeometry === "function") {
+                        var originalWorldWebGeometry=Test.featureIOSWorldWebGeometry(command);
+                        if (originalWorldWebGeometry && originalWorldWebGeometry.requestId === command.commandId) { sourceWorldWebGeometry=originalWorldWebGeometry; }
+                    }
+                } catch (_WorldWebGeometryError) { /* Retain unavailable; never retry an uncertain input. */ }
+                Test.saveObject(sourceWorldWebGeometry,"feature-ios-world-web-geometry.json");
+            }
+            return;
+        }
         if (command && command.action === "feature-ios-avatar-scripts") {
             if (command.schemaVersion === 1 && typeof command.commandId === "string"
                     && /^ios-[0-9a-f]{32}$/.test(command.commandId) && command.commandId.length === 36
