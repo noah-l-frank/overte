@@ -19,6 +19,7 @@ from create_observation import OPERATIONS as CREATE_OPERATIONS
 from self_tests.test_normal_create_adapter import URL
 # Register the owner cases in the existing named Pico normal-create suite.
 from test_create_management import PicoCreateManagementTests
+from test_create_files import CreateFilesTests
 
 
 class PicoCreateTests(unittest.TestCase):
