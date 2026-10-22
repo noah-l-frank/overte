@@ -6,6 +6,7 @@
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #include "../../../../../../tests/device/native/PendingFieldCommitOwner.h"
 #include "../../../../../../tests/device/native/LifecycleUiObservation.h"
+#include "../../../../../../tests/device/native/LifecycleBackgroundHistory.h"
 #include <PathUtils.h>
 #include "../../../../../../tests/device/native/PrivatePreviewFiles.h"
 #include "../../../../../../tests/device/native/LoginUiInventory.h"
@@ -405,6 +406,7 @@ private:
         navigationTick();
 #if defined(OVERTE_E2E_FEATURE_TESTS)
         lifecycleObservationTick();
+        lifecycleBackgroundTick();
         scriptObservationTick();
         loginObservationTick();
         graphicsObservationTick();
@@ -561,16 +563,35 @@ private:
                 || QThread::currentThread()!=qApp->thread() || !qApp->isHMDMode()
                 || !DependencyManager::isSet<Keyboard>() || !DependencyManager::isSet<TabletScriptingInterface>()) { return; }
         _lifecycleObservationNonces.insert(id); // Failed writes cannot retime an original nonce.
+        auto packet=lifecycleCurrent(run);
+        if (packet.isEmpty()) { return; }
+        packet["commandId"]=id;
+        writeJson(BRIDGE_DIRECTORY+"/lifecycle-ui-observation.json",QJsonObject::fromVariantMap(packet));
+    }
+
+    QVariantMap lifecycleCurrent(const QString& run) {
+        if (!bridgeEnabled() || !overte::e2e::previewDirectory(BRIDGE_DIRECTORY) || QThread::currentThread()!=qApp->thread()
+                || !qApp->isHMDMode() || !DependencyManager::isSet<Keyboard>()
+                || !DependencyManager::isSet<TabletScriptingInterface>()) { return {}; }
         const auto tablet=DependencyManager::get<TabletScriptingInterface>()->getTablet(SYSTEM_TABLET);
         const auto root=tablet ? tablet->getTabletRoot() : nullptr;
         const auto surface=tablet ? tablet->getTabletSurface() : nullptr;
         const auto window=surface ? surface->getWindow() : nullptr;
         const auto keyboard=DependencyManager::get<Keyboard>()->featureChatObservation();
-        auto packet=_lifecycleObservation.observe(root,window,tablet && tablet->property("tabletShown").toBool(),
+        return _lifecycleObservation.observe(root,window,tablet && tablet->property("tabletShown").toBool(),
             tablet && tablet->onHomeScreen(),run,keyboard);
-        if (packet.isEmpty()) { return; }
-        packet["commandId"]=id;
-        writeJson(BRIDGE_DIRECTORY+"/lifecycle-ui-observation.json",QJsonObject::fromVariantMap(packet));
+    }
+
+    void lifecycleBackgroundTick() {
+        if (!overte::e2e::previewDirectory(BRIDGE_DIRECTORY)) { return; }
+        const QString path=BRIDGE_DIRECTORY+"/lifecycle-background-command.json";const QFileInfo info(path);
+        QFile input(path);
+        if (!info.isFile() || info.isSymLink() || info.permissions() & (QFile::ReadGroup|QFile::WriteGroup|QFile::ExeGroup
+                |QFile::ReadOther|QFile::WriteOther|QFile::ExeOther) || !input.open(QIODevice::ReadOnly) || input.size()>4096) { return; }
+        QJsonParseError error;const auto document=QJsonDocument::fromJson(input.readAll(),&error);
+        if (error.error!=QJsonParseError::NoError || !document.isObject()) { return; }
+        const auto value=_lifecycleBackground.request(document.object().toVariantMap());
+        if (!value.isEmpty()) { writeJson(BRIDGE_DIRECTORY+"/lifecycle-background-observation.json",QJsonObject::fromVariantMap(value)); }
     }
 
     // Passive source on the actual VR TabletRoot and offscreen surface. Input
@@ -698,6 +719,7 @@ private:
         {"scripts",PathUtils::qmlUrl("hifi/dialogs/TabletRunningScripts.qml")}
     }};
     QSet<QString> _lifecycleObservationNonces;
+    overte::e2e::LifecycleBackgroundHistory _lifecycleBackground {this,[this](const QString& run) { return lifecycleCurrent(run); }};
     overte::e2e::ScriptFileUi _scriptObservation;
     overte::e2e::LoginUi _loginObservation;
     overte::e2e::GraphicsUi _graphicsObservation;

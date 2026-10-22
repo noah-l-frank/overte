@@ -1157,17 +1157,28 @@ def create_adapter(args, base_class):
             return run_create_world_back(self._lifecycle_editor(target,run,source_lock=joined.world.lock),joined)
 
         @_private
-        def _lifecycle_chat_editor(self,target,run):
+        def _lifecycle_chat_editor(self,target,run,*,source_lock=None,joined=None):
             from adapters.pico4.lifecycle_chat import PicoLifecycleChatDraft
-            joined=self._lifecycle_x_join(target,run)
+            from adapters.pico4.lifecycle_join import PicoLifecycleXJoin
+            if joined is None:joined=self._lifecycle_x_join(target,run,source_lock=source_lock)
+            else:
+                _need(isinstance(joined,PicoLifecycleXJoin) and joined.world.run==run)
+                source_lock=self._script_journey()._lock(target,source_lock or joined.world.lock)
+                _need(source_lock is joined.world.lock)
+                _need(joined.world.binding==self._scripts(target).binding)
             def unavailable(_value):_need(False)
             return PicoLifecycleChatDraft(joined,self._lifecycle_ui_source(target,source_lock=joined.world.lock),
                 self._chat_controls(target,unavailable,run),joined.world.store.path.with_name('lifecycle-chat-owner.json'))
 
         @_private
-        def _lifecycle_chat_draft(self,target,run):
+        def _lifecycle_chat_draft(self,target,run,*,source_lock=None,joined=None):
             from adapters.pico4.lifecycle_chat import run_chat_draft
-            return run_chat_draft(self._lifecycle_chat_editor(target,run))
+            return run_chat_draft(self._lifecycle_chat_editor(target,run,source_lock=source_lock,joined=joined))
+
+        @_private
+        def _lifecycle_background_source(self,target,*,source_lock=None,intent=None):
+            from adapters.pico4.lifecycle_background_source import bind_source
+            return bind_source(self,target,self._native_feature_observer(target),source_lock=source_lock,intent=intent)
 
         def _lifecycle_back_store(self,target):
             state,_ui=self._script_paths(target)
