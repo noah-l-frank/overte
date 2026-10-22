@@ -11,7 +11,7 @@ from adapters.token_create_ui import nonce,scope,navigation,metadata as navigati
 from adapters.normal_ui import NativeUIError
 
 VERSION=1
-STATIC={'avatar.'+s for s in ('entry','page','url','wearables','settings','scale','settings.scrollbar',
+STATIC={'avatar.'+s for s in ('entry','page','url','wearables','settings','scale','settings.scrollbar','settings.confirm','settings.cancel',
     'bookmark.add','bookmark.manage','bookmark.previous','bookmark.next','dialog.input','dialog.confirm','dialog.cancel',
     'wearable.add','wearable.remove')}|{'people.'+s for s in ('entry','page','nearby','connections','RequestConnection',
     'ConnectionAccept','ConnectionDecline','ConnectionCancel')}
@@ -42,8 +42,9 @@ def metadata(row):
     if identifier.endswith('.page'):need(not row['inputReady'])
     if identifier.startswith('avatar.') and identifier!='avatar.entry':fields.add('managing');need(type(row.get('managing')) is bool)
     if identifier=='avatar.dialog.input':fields.add('text');need(type(row.get('text')) is str and len(row['text'])<=4096)
-    if 'dialogTitle' in row or 'dialogSource' in row:
-        fields|={'dialogTitle','dialogSource'};need(all(type(row.get(k)) is str and 0<len(row[k])<=512 for k in ('dialogTitle','dialogSource')))
+    if 'dialogSource' in row:fields.add('dialogSource');need(type(row['dialogSource']) is str and 0<len(row['dialogSource'])<=512)
+    if 'dialogTitle' in row:
+        fields.add('dialogTitle');need('dialogSource' in row and type(row['dialogTitle']) is str and 0<len(row['dialogTitle'])<=512)
     if identifier=='avatar.scale':
         fields|={'value','from','to','stepSize'};need(all(type(row.get(k)) in (int,float) and math.isfinite(row[k]) for k in ('value','from','to','stepSize')))
         need(row['from']==1 and row['to']==40 and row['from']<=row['value']<=row['to'] and row['stepSize']>=0)
@@ -130,6 +131,41 @@ class TokenAvatarPeopleUI:
         self.input('avatar.dialog.input');self.wait(lambda v:bool(self.row(v,'avatar.dialog.input') and self.row(v,'avatar.dialog.input')['focused']))
         self.input('avatar.dialog.input','replace',url);self.wait(lambda v:bool(self.row(v,'avatar.dialog.input') and self.row(v,'avatar.dialog.input')['text']==url))
         self.input('avatar.dialog.confirm');return self.wait(lambda v:self.row(v,'avatar.dialog.input',ready=False) is None)
+
+    def save_bookmark(self,name):
+        need(re.fullmatch(r'e2e-[0-9a-f]{32}',name));self.open()
+        before=self.capture();need(not any(r.get('bookmarkName')==name for r in before['controls']))
+        self.input('avatar.bookmark.add');self.wait(lambda v:self.row(v,'avatar.dialog.input') is not None)
+        self.input('avatar.dialog.input');self.wait(lambda v:bool(self.row(v,'avatar.dialog.input') and self.row(v,'avatar.dialog.input')['focused']))
+        self.input('avatar.dialog.input','replace',name)
+        self.wait(lambda v:bool(self.row(v,'avatar.dialog.input') and self.row(v,'avatar.dialog.input')['text']==name))
+        self.input('avatar.dialog.confirm');return self.wait(lambda v:self.row(v,'avatar.dialog.input',ready=False) is None)
+
+    def set_scale(self,value):
+        need(type(value) in (float,int) and math.isfinite(value) and .1<=value<=4);self.open()
+        self.input('avatar.settings');self.wait(lambda v:self.row(v,'avatar.scale') is not None)
+        self.input('avatar.scale','set-value',value*10)
+        self.wait(lambda v:bool(self.row(v,'avatar.scale') and abs(self.row(v,'avatar.scale')['value']-value*10)<=.01))
+        for _ in range(32):
+            current=self.capture()
+            if self.row(current,'avatar.settings.confirm') is not None:break
+            self.input('avatar.settings.scrollbar','scroll','down')
+        self.input('avatar.settings.confirm');return self.wait(lambda v:self.row(v,'avatar.settings.confirm',ready=False) is None and self.row(v,'avatar.scale',ready=False) is None)
+
+    def bookmark(self,name,*,delete=False):
+        need(re.fullmatch(r'e2e-[0-9a-f]{32}',name) and type(delete) is bool);self.open();current=self.capture()
+        page=self.row(current,'avatar.page',ready=False);need(page is not None)
+        if page['managing']!=delete:self.input('avatar.bookmark.manage');current=self.capture()
+        seen=set()
+        for _ in range(128):
+            rows=[r for r in current['controls'] if r.get('bookmarkName')==name];need(len(rows)<=1)
+            if rows:
+                need(self.row(current,rows[0]['id']) is not None);self.input(rows[0]['id']);break
+            names=tuple((r['id'],r.get('bookmarkName')) for r in current['controls'] if r['id'].startswith('avatar.bookmark.row.'))
+            need(names not in seen);seen.add(names);self.input('avatar.bookmark.next');current=self.capture()
+        else:need(False)
+        self.wait(lambda v:self.row(v,'avatar.dialog.confirm') is not None)
+        self.input('avatar.dialog.confirm');return self.wait(lambda v:self.row(v,'avatar.dialog.confirm',ready=False) is None)
 
     def open(self,page='avatar'):
         need(page in ('avatar','people'));current=self.capture();need(current['open'] and current['ready'])

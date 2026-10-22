@@ -1,6 +1,8 @@
 {
   "schemaVersion": 1,
   "contracts": {
+    "native-avatar-bookmark-storage": {"current": 1, "reads": [1]},
+    "pico-avatar-bookmarks-source": {"current": 1, "reads": [1]},
     "native-avatar-entity-storage": {"current": 1, "reads": [1]},
     "pico-avatar-people-controls": {"current": 1, "reads": [1]},
     "pico-avatar-state": {"current": 1, "reads": [1]},

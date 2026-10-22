@@ -42,6 +42,14 @@
 #include <memory>
 #include "WarningsSuppression.h"
 #include "ScriptPermissions.h"
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+#include "../../tests/device/native/AvatarBookmarkStorage.h"
+QVariantMap AvatarBookmarks::e2eBookmarkStorage() const {
+    if(!QCoreApplication::instance() || !QCoreApplication::arguments().contains("--testScript") || QThread::currentThread()!=thread()
+            || QDir::cleanPath(_bookmarksFilename)!=QDir::cleanPath(PathUtils::getAppDataPath()+"/"+AVATARBOOKMARKS_FILENAME)) {return {};}
+    return overte::e2e::avatarBookmarkStorage(_bookmarks,_bookmarksFilename,_bookmarkError);
+}
+#endif
 
 QVariantMap AvatarBookmarks::getBookmarks() {
     if (ScriptPermissions::isCurrentScriptAllowed(ScriptPermissions::Permission::SCRIPT_PERMISSION_GET_AVATAR_URL)) {

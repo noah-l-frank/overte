@@ -8,4 +8,7 @@ ROOT=Path(__file__).resolve().parents[5]
 SPEC=importlib.util.spec_from_file_location('pico_avatar_state_native',ROOT/'tests/device/contracts/avatar/test_avatar_state_native.py')
 MODULE=importlib.util.module_from_spec(SPEC);SPEC.loader.exec_module(MODULE)
 AvatarStateNativeTests=MODULE.AvatarStateNativeTests
+BOOKMARK_SPEC=importlib.util.spec_from_file_location('pico_avatar_bookmarks_native',ROOT/'tests/device/contracts/avatar/test_avatar_bookmarks_native.py')
+BOOKMARK_MODULE=importlib.util.module_from_spec(BOOKMARK_SPEC);BOOKMARK_SPEC.loader.exec_module(BOOKMARK_MODULE)
+AvatarBookmarksNativeTests=BOOKMARK_MODULE.AvatarBookmarksNativeTests
 if __name__=='__main__':unittest.main()

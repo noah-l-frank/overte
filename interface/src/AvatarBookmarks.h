@@ -38,6 +38,9 @@ class AvatarBookmarks: public Bookmarks, public  Dependency {
 
 public:
     AvatarBookmarks();
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+    QVariantMap e2eBookmarkStorage() const;
+#endif
     void setupMenus(Menu* menubar, MenuWrapper* menu) override {};
 
     /*@jsdoc

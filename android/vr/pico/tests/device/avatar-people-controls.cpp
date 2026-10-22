@@ -28,6 +28,7 @@
 #include "avatar-navigation-observation-seams.h"
 #define ANDROID_APP_PICO_INTERFACE
 #include "actual-avatar-observe.inc"
+#include "avatar-bookmark-store-actor.h"
 #undef ANDROID_APP_PICO_INTERFACE
 int main(int argc,char**argv) {
     HostApplication app(argc,argv);using namespace overte::e2e;
@@ -50,13 +51,28 @@ int main(int argc,char**argv) {
     QQmlComponent wrongType(&engine);wrongType.setData("import QtQuick 2.7;Item {id:root;width:640;height:1000}",PathUtils::qmlUrl("hifi/AvatarApp.qml"));
     QScopedPointer<QObject> wrongObject(wrongType.create());assert(wrongObject);assert(avatarPeopleControlId(qobject_cast<QQuickItem*>(wrongObject.data())).isEmpty());
     QSignalSpy messages(page,SIGNAL(sendToScript(QVariant)));
+    QTemporaryDir bookmarkProfile;assert(bookmarkProfile.isValid());assert(QFile::setPermissions(bookmarkProfile.path(),QFile::ReadOwner|QFile::WriteOwner|QFile::ExeOwner));
+    avatar_bookmark_host::PathUtils::profile=bookmarkProfile.path();
+    QFile originalFile(bookmarkProfile.path()+"/avatarbookmarks.json");assert(originalFile.open(QIODevice::WriteOnly));
+    const auto unowned=QJsonDocument(QJsonObject{{"unowned",QJsonObject{{"version",3},{"avatarUrl","qrc:/meshes/unowned.fst"},{"avatarScale",1},{"avatarEntites",QJsonArray{}}}}}).toJson();
+    assert(originalFile.write(unowned)==unowned.size());originalFile.close();avatar_bookmark_host::AvatarBookmarks nativeBookmarks;QJsonArray originalBookmarkStorage;
     overte::pico::e2e::NavigationUi actualObserver;
     auto capture=[&]{return ui.observe(root,&window);};
     auto originalCapture=[&]{return actualObserver.observe(root,&window,true);};
     const auto before=capture();for(const auto& raw:before.value("controls").toArray()){assert(!raw.toObject().value("inputReady").toBool());}
     QProcess backend;backend.setProcessChannelMode(QProcess::ForwardedErrorChannel);
-    backend.start("node",QStringList{path+"/android/vr/pico/tests/device/avatar-original-backend.js",path});assert(backend.waitForStarted(2000));
-    auto response=[&]{if(!backend.canReadLine()){assert(backend.waitForReadyRead(2000));}const auto raw=backend.readLine();auto value=QJsonDocument::fromJson(raw).object();assert(!value.isEmpty());return value;};
+    backend.start("node",QStringList{path+"/android/vr/pico/tests/device/avatar-original-backend.js",path,"--native-bookmarks"});assert(backend.waitForStarted(2000));
+    auto response=[&]{for(int calls=0;calls<32;++calls){if(!backend.canReadLine()){assert(backend.waitForReadyRead(2000));}const auto raw=backend.readLine();auto value=QJsonDocument::fromJson(raw).object();assert(!value.isEmpty());
+        if(!value.contains("nativeBookmarkCall")){return value;}
+        const auto call=value.value("nativeBookmarkCall").toObject();const auto method=call.value("method").toString(),name=call.value("name").toString();
+        nativeBookmarks.currentAvatarActor={{"version",3},{"avatarUrl",call.value("avatarUrl").toString()},{"avatarScale",call.value("scale").toDouble()},{"avatarEntites",QVariantList{}},{"avatarIcon",""}};
+        if(method=="save"){assert(name=="e2e-"+QString(32,'a'));nativeBookmarks.addBookmarkInternal(name);}
+        else if(method=="delete"){assert(name=="e2e-"+QString(32,'a'));nativeBookmarks.removeBookmarkInternal(name);}
+        else {assert(method=="get" || method=="all");}
+        const auto actual=nativeBookmarks.e2eBookmarkStorage();assert(!actual.isEmpty());originalBookmarkStorage.append(QJsonObject::fromVariantMap(actual));
+        const auto reply=QJsonDocument(QJsonObject{{"nativeBookmarkReply",QJsonObject{{"bookmarks",QJsonObject::fromVariantMap(nativeBookmarks.getBookmarks())},{"bookmark",QJsonObject::fromVariantMap(nativeBookmarks.getBookmarkInternal(name))}}}}).toJson(QJsonDocument::Compact)+'\n';
+        assert(backend.write(reply)==reply.size());assert(backend.waitForBytesWritten(2000));
+        }qFatal("Native bookmark call recursion exceeded its original host bound");return QJsonObject{};};
     auto applyProducer=[&](const QJsonObject& value){for(const auto& raw:value.value("qml").toArray()){QVariant actual=raw.toObject().toVariantMap();assert(QMetaObject::invokeMethod(page,"fromScript",Q_ARG(QVariant,actual)));}};
     auto boot=response();assert(boot.value("source")==QJsonValue("hifi/AvatarApp.qml"));applyProducer(boot);
     int delivered=0;QJsonObject backendResult;
@@ -65,7 +81,7 @@ int main(int argc,char**argv) {
             while(delivered<messages.size()){pending.append(QJsonObject::fromVariantMap(createVariant(messages.at(delivered++).first()).toMap()));}
             const auto raw=QJsonDocument(QJsonObject{{"messages",pending}}).toJson(QJsonDocument::Compact)+'\n';assert(backend.write(raw)==raw.size());assert(backend.waitForBytesWritten(2000));
             backendResult=response();applyProducer(backendResult);
-        }assert(delivered==messages.size());
+        }if(delivered!=messages.size()){qFatal("Original UI bridge did not settle; last method %s",qPrintable(createVariant(messages.last().first()).toMap().value("method").toString()));}
     };
     drain();QTest::qWait(80);
     OffscreenQmlSurface surface(root,&window);int pointers=0;
@@ -75,7 +91,7 @@ int main(int argc,char**argv) {
         qFatal("missing %s: %s",qPrintable(id),QJsonDocument(value).toJson(QJsonDocument::Compact).constData());return QJsonObject();};
     auto command=[&](const QString& id,const QString& action,const QJsonValue& arg=QJsonValue()){
         const auto r=row(id),value=capture();QJsonObject c{{"schemaVersion",1},{"commandId",QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-')},{"instance",value.value("instance")},{"generation",value.value("generation")},{"sequence",value.value("lastCommandSequence").toInt()+1},{"observedElapsedMs",value.value("elapsedMs")},{"controlId",id},{"controlToken",r.value("token")},{"action",action}};
-        if(action=="replace"){c["text"]=arg;}return c;};
+        if(action=="replace"){c["text"]=arg;}if(action=="set-value"){c["value"]=arg;}if(action=="scroll"){c["direction"]=arg;}return c;};
     auto input=[&](const QString& id,const QString& action,const QJsonValue& arg=QJsonValue()){
         const auto result=ui.apply(root,&window,command(id,action,arg),click,{},pointerAt);if(!result.value("performed").toBool()){qFatal("refused %s/%s",qPrintable(id),qPrintable(action));}drain();QTest::qWait(40);renderControl.polishItems();QCoreApplication::processEvents();};
     assert(row("avatar.page").value("inputReady")==QJsonValue(false));
@@ -130,6 +146,42 @@ int main(int argc,char**argv) {
     assert(!originalAvatarInput(actualUrl,&window,"avatar.url","activate",{},pointerAt,2).value("performed").toBool());
     assert(originalAvatarInput(actualUrl,&window,"avatar.url","activate",{},pointerAt).value("performed").toBool());QTest::qWait(40);
     input("avatar.dialog.cancel","activate");
+    const auto urlCalls=backendResult.value("avatarCalls");
+    const QString ownedName="e2e-"+QString(32,'a'),aUrl="https://controlled.invalid/owned/avatar-a.fst",originalUrl="qrc:/meshes/defaultAvatar_full.fst";
+    auto setUrl=[&](const QString& url){input("avatar.url","activate");input("avatar.dialog.input","activate");input("avatar.dialog.input","replace",url);input("avatar.dialog.confirm","activate");};
+    auto findBookmark=[&]{const auto current=capture();QString found;
+        for(const auto& raw:current.value("controls").toArray()){const auto r=raw.toObject();if(r.value("bookmarkName")==QJsonValue(ownedName)){assert(found.isEmpty());found=r.value("id").toString();}}
+        assert(!found.isEmpty());return found;};
+    setUrl(aUrl);input("avatar.bookmark.add","activate");input("avatar.dialog.input","activate");input("avatar.dialog.input","replace",ownedName);input("avatar.dialog.confirm","activate");
+    assert(backendResult.value("bookmarks").toObject().value(ownedName).toObject().value("avatarScale")==QJsonValue(1));
+    setUrl(originalUrl);const auto beforeDuplicate=nativeBookmarks.e2eBookmarkStorage();input("avatar.bookmark.add","activate");
+    input("avatar.dialog.input","activate");input("avatar.dialog.input","replace",ownedName);
+    assert(row("avatar.dialog.confirm").value("inputReady")==QJsonValue(false));const int duplicatePointers=pointers;
+    assert(!ui.apply(root,&window,command("avatar.dialog.confirm","activate"),click,{},pointerAt).value("performed").toBool());
+    assert(pointers==duplicatePointers);input("avatar.dialog.cancel","activate");
+    assert(nativeBookmarks.e2eBookmarkStorage().value("rawSha256")==beforeDuplicate.value("rawSha256"));setUrl(aUrl);
+    input("avatar.settings","activate");snapshots.append(capture());originalSnapshots.append(originalCapture());
+    input("avatar.scale","set-value",15.0);assert(qAbs(backendResult.value("scale").toDouble()-1.5)<.001);
+    auto has=[&](const QString& id){for(const auto& raw:capture().value("controls").toArray()){if(raw.toObject().value("id")==id && raw.toObject().value("inputReady").toBool()){return true;}}return false;};
+    for(int i=0;i<32&&!has("avatar.settings.confirm");++i){input("avatar.settings.scrollbar","scroll","down");}
+    input("avatar.settings.confirm","activate");
+    setUrl(originalUrl);input(findBookmark(),"activate");input("avatar.dialog.confirm","activate");
+    assert(backendResult.value("scale")==QJsonValue(1));assert(backendResult.value("avatarCalls").toArray().last()==QJsonValue(aUrl));
+    setUrl(originalUrl);input("avatar.bookmark.manage","activate");
+    QQuickItem* actualBookmark=nullptr;const auto bookmarkId=findBookmark();
+    std::function<void(QQuickItem*)> locateBookmark=[&](QQuickItem* item){if(avatarPeopleControlId(item)==bookmarkId){assert(!actualBookmark);actualBookmark=item;}for(auto child:item->childItems()){locateBookmark(child);}};locateBookmark(root);assert(actualBookmark);
+    const auto bookmarkPoint=avatarPeopleActivatePoint(actualBookmark,bookmarkId);assert(avatarPeopleOwnsPoint(actualBookmark,&window,bookmarkPoint));
+    const int beforeForeign=pointers;
+    for(const auto& qml:QList<QByteArray>{"import QtQuick 2.7;Rectangle {width:92;height:92;z:999;color:'#AFAFAF';opacity:.4;radius:5}",
+            "import QtQuick 2.7;import stylesUit 1.0;HiFiGlyphs {width:92;height:92;z:999;text:'{';size:56;horizontalAlignment:Text.AlignHCenter}"}) {
+        QQmlComponent foreignDecoration(&engine);foreignDecoration.setData(qml,QUrl::fromLocalFile(path+"/android/vr/pico/tests/device/declared-foreign-decoration.qml"));
+        QScopedPointer<QObject> foreignObject(foreignDecoration.create());auto foreignItem=qobject_cast<QQuickItem*>(foreignObject.data());assert(foreignItem);
+        foreignItem->setParentItem(actualBookmark->parentItem()->parentItem());assert(!avatarPeopleOwnsPoint(actualBookmark,&window,bookmarkPoint));
+        assert(!ui.apply(root,&window,command(bookmarkId,"activate"),click,{},pointerAt).value("performed").toBool());foreignItem->setVisible(false);
+    }
+    assert(pointers==beforeForeign);assert(avatarPeopleOwnsPoint(actualBookmark,&window,bookmarkPoint));
+    input(bookmarkId,"activate");input("avatar.dialog.confirm","activate");
+    assert(!backendResult.value("bookmarks").toObject().contains(ownedName));assert(backendResult.value("bookmarks").toObject().contains("unowned"));
     backend.closeWriteChannel();assert(backend.waitForFinished(2000));assert(backend.exitStatus()==QProcess::NormalExit && backend.exitCode()==0);
-    QTextStream(stdout)<<QJsonDocument(QJsonObject{{"normalUrlMessages",urls},{"originalScriptAvatarCalls",backendResult.value("avatarCalls")},{"snapshots",snapshots},{"originalSnapshots",originalSnapshots},{"counterexamples",QJsonArray{"uninitialized","wrong-root","moved-token","window-source","disabled","higher-overlay","outside-child","hidden-child","disabled-painted-child","clipped","negative-z"}},{"pointerCalls",pointers},{"hmdActive",true},{"wholeOriginalObserver",true}}).toJson(QJsonDocument::Compact)<<'\n';
+    QTextStream(stdout)<<QJsonDocument(QJsonObject{{"normalUrlMessages",urls},{"originalScriptAvatarCalls",urlCalls},{"bookmarkCalls",backendResult.value("bookmarkCalls")},{"scaleCalls",backendResult.value("scaleCalls")},{"snapshots",snapshots},{"originalSnapshots",originalSnapshots},{"originalBookmarkStorage",originalBookmarkStorage},{"counterexamples",QJsonArray{"uninitialized","wrong-root","moved-token","window-source","disabled","higher-overlay","outside-child","hidden-child","disabled-painted-child","clipped","negative-z"}},{"pointerCalls",pointers},{"hmdActive",true},{"wholeOriginalObserver",true}}).toJson(QJsonDocument::Compact)<<'\n';
 }
