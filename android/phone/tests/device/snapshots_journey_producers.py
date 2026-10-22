@@ -478,6 +478,9 @@ class SnapshotTarget(CreateTarget):
             self.rpc_counts[kind]+=1
             if kind!='clock':self.query_epoch+=1
             if kind=='binding':return deepcopy(self.model_binding)
+            if kind=='scope-status':
+                if value is not None:raise ValueError('SDK status cannot accept caller fields')
+                return dict(binding=deepcopy(self.model_binding),foreground=self.app_state==4,running=True,appState=self.app_state)
             if kind=='clock':return self.now()
             if kind=='sdk-version':return self.sdk
             if kind=='system-ui':
@@ -560,7 +563,7 @@ class SnapshotProxy(CreateProxy):
             {key:self.binding[key] for key in ('sourceRevision','artifactSha256','processIdentity')},lambda:True,root,self._snapshot_readbacks(None),run)
     def _snapshot_system_context(self,_s,binding,resolution,authority):
         def status():
-            row=self.call('snapshot-state',None);return dict(binding=self.call('binding',None),foreground=row['foreground'],running=True,appState=4 if row['foreground'] else 3)
+            return self.call('scope-status',None)
         return SnapshotSystemContext(binding,resolution,status,lambda:self.call('snapshot-state',None)['component'],authority)
     def _snapshot_share_ui(self,_s,binding,resolution,intent,authority):
         scope=self._snapshot_system_context(_s,binding,resolution,authority)
