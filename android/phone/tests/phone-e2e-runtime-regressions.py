@@ -52,6 +52,7 @@ PREPARED_HOST_CHECKS = (
     "android/phone/tests/device/test_create_native_measurements.py",
     "android/phone/tests/device/test_create_texture_state.py",
     "android/phone/tests/device/test_create_native_fixture.py",
+    "android/phone/tests/device/test_create_marker_refresh.py",
     "android/phone/tests/device/test_create_feature.py",
     "android/phone/tests/phone-snapshot-journey-test.py",
     "android/phone/tests/phone-snapshot-ui-test.py",
