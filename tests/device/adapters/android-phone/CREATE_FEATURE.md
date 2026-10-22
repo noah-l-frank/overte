@@ -101,6 +101,19 @@ as measured product state or exported bytes.
 
 ## Verification and continuation
 
+The ephemeral domain fixture has an explicit default-off
+`--feature-create-permissions` option. Its private authenticated control endpoint
+changes the real domain-server `/settings.json` standard Rez and temporary-Rez
+permissions. It guards the owned live process/start identity and `/id` around
+readback, refuses account/group/IP/fingerprint overrides, journals intent before
+the Settings POST, and verifies original settings after the reply. A lost reply
+is reconciled from current settings without replay. Restoration preserves the
+exact original standard rows and the hash of every untouched security setting;
+unexpected external changes retain the journal and fail closed. The controller
+never claims that a Settings ACK proves Interface's live `Entities.canRez()`.
+That independent native permission join remains mandatory in public composition.
+The option changes only this owned test domain's fixture configuration.
+
 `PrivateCreateFiles.h` implements a Phone/E2E-only app-private file lease.
 The durable host owner persists its random token and issuing intent before
 exclusive staging; an uncertain response is reconciled through a fresh native
@@ -119,6 +132,7 @@ Focused commands (no device, install, Jenkins or network access):
 python3 android/phone/tests/device/test_create_source.py
 python3 android/phone/tests/device/test_create_workflows.py
 python3 android/phone/tests/device/test_create_files.py
+python3 tests/device/self_tests/test_create_permissions.py
 python3 android/phone/tests/device/test_create_native_ui.py
 python3 -m unittest discover -s tests/device/self_tests -p test_token_create_ui.py
 python3 -m unittest discover -s tests/device/self_tests -p test_normal_create_adapter.py

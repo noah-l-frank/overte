@@ -23,6 +23,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from fixture.collaboration_broker import CollaborationBroker
 from fixture.owned_processes import OwnedProcesses
 from fixture.messages_mixer import MessagesMixer
+from fixture.create_permissions import CreatePermissions, STANDARD, OVERRIDES
 from adapters.normal_feature_state import PrivateFeatureState, need
 
 
@@ -96,6 +97,7 @@ class DomainControlHandler(BaseHTTPRequestHandler):
     transition = None
     collaboration = None
     mixer = None
+    create_permissions = None
 
     def do_GET(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler API
         if self.path not in {"/v1/collaboration-state", "/v1/messages-mixer-state"} or self.headers.get("X-Overte-E2E-Token") != self.token:
@@ -113,15 +115,26 @@ class DomainControlHandler(BaseHTTPRequestHandler):
             self.send_error(503, "independent actor is not ready")
 
     def do_POST(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler API
-        if self.path not in {"/v1/domain-state", "/v1/collaboration-edit", "/v1/messages-mixer-state"} or self.headers.get(
+        if self.path not in {"/v1/domain-state", "/v1/collaboration-edit", "/v1/messages-mixer-state", "/v1/create-permissions"} or self.headers.get(
                 "X-Overte-E2E-Token") != self.token:
             self.send_error(404)
             return
         try:
             length = int(self.headers.get("Content-Length", "0"))
-            if not 0 < length <= 256:
+            if not 0 < length <= 512:
                 raise ValueError("invalid request length")
             command = json.loads(self.rfile.read(length))
+            if self.path == "/v1/create-permissions":
+                if self.create_permissions is None:
+                    raise RuntimeError("owned Create permissions are not enabled")
+                result = self.create_permissions(command)
+                payload = (json.dumps(result, sort_keys=True) + "\n").encode("utf-8")
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(payload)))
+                self.end_headers()
+                self.wfile.write(payload)
+                return
             if self.path == "/v1/collaboration-edit":
                 result = self.collaboration.submit(command)
                 payload = (json.dumps(result, sort_keys=True) + "\n").encode("utf-8")
@@ -360,6 +373,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--assignment-warmup-seconds", type=float, default=2.0)
     parser.add_argument("--feature-chat-receiver", action="store_true",
                         help="Opt in the dedicated peer to native E2E private Chat IPC; requires an instrumented Assignment Client.")
+    parser.add_argument("--feature-create-permissions", action="store_true",
+                        help="Opt in owned ephemeral-domain rez control and exact Settings restoration for Create E2E.")
     parser.add_argument("--check", action="store_true")
     args = parser.parse_args()
     for name in ("domain_port", "http_port"):
@@ -428,6 +443,12 @@ def main() -> int:
         ]},
     }
     config_path = output / "domain-config.json"
+    if args.feature_create_permissions:
+        config["security"] = {key: [] for key in OVERRIDES}
+        config["security"]["standard_permissions"] = [
+            dict(permissions_id=name, id_can_connect=True, id_can_rez_avatar_entities=True,
+                 id_can_adjust_locks=True, id_can_rez=True, id_can_rez_tmp=True)
+            for name in STANDARD]
     atomic_json(config_path, config)
     runtime = output / "runtime"
     for name in ("config", "data", "cache"):
@@ -456,6 +477,7 @@ def main() -> int:
     domain_id = None
     generation = 0
     mixer = None
+    create_permissions = None
     mixer_store = PrivateFeatureState(output / "messages-mixer-intent.json")
     mixer_expected = None
     stack_state = "offline"
@@ -491,7 +513,7 @@ def main() -> int:
 
     def start_stack() -> None:
         nonlocal domain_process, assignment_processes, assignment_agent_processes
-        nonlocal domain_id, generation, stack_state, mixer
+        nonlocal domain_id, generation, stack_state, mixer, create_permissions
         if stack_state == "online":
             return
         # The broker and assignment seed start afresh on each controlled
@@ -518,6 +540,9 @@ def main() -> int:
             domain_process = None
             raise RuntimeError("controlled domain identity changed during restart")
         domain_id = observed_id
+        if args.feature_create_permissions:
+            create_permissions = CreatePermissions(domain_process, owned_processes.matches,
+                args.http_port, domain_id, PrivateFeatureState(output / "create-permissions-intent.json"))
         mixer_process = None
         for assignment_type in ("0", "1", "3", "4", "5", "6"):
             process = spawn_assignment(assignment_type)
@@ -574,7 +599,7 @@ def main() -> int:
 
     def stop_stack() -> None:
         nonlocal domain_process, assignment_processes, assignment_agent_processes
-        nonlocal generation, stack_state, mixer
+        nonlocal generation, stack_state, mixer, create_permissions
         was_online = stack_state == "online"
         stack_state = "offline"
         for process in reversed(assignment_agent_processes):
@@ -587,6 +612,7 @@ def main() -> int:
         assignment_processes = []
         domain_process = None
         mixer = None
+        create_permissions = None
         if was_online:
             generation += 1
 
@@ -616,6 +642,12 @@ def main() -> int:
                 assignment_processes.remove(original)
             return actual
 
+    def create_permission_control(command):
+        with transition_lock:
+            if stack_state != "online" or create_permissions is None:
+                raise RuntimeError("owned Create permission control is unavailable")
+            return create_permissions.request(command)
+
     def request_stop(_signal=None, _frame=None) -> None:
         stopping.set()
 
@@ -629,6 +661,7 @@ def main() -> int:
         DomainControlHandler.token = control_token
         DomainControlHandler.transition = staticmethod(transition)
         DomainControlHandler.mixer = staticmethod(mixer_control)
+        DomainControlHandler.create_permissions = staticmethod(create_permission_control) if args.feature_create_permissions else None
         control = ThreadingHTTPServer(("127.0.0.1", args.control_port), DomainControlHandler)
         control_thread = threading.Thread(target=control.serve_forever, daemon=True)
         control_thread.start()
@@ -649,6 +682,8 @@ def main() -> int:
         }
         if args.feature_chat_receiver and mixer is not None:
             ready["messagesMixerControlUrl"] = f"http://127.0.0.1:{control.server_address[1]}/v1/messages-mixer-state"
+        if args.feature_create_permissions:
+            ready["createPermissionsControlUrl"] = f"http://127.0.0.1:{control.server_address[1]}/v1/create-permissions"
         if args.ready_file:
             atomic_json(args.ready_file.resolve(), ready)
         print(json.dumps({key: value for key, value in ready.items()
