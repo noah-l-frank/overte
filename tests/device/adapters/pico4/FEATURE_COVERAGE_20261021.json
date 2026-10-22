@@ -1011,7 +1011,9 @@
         "android/vr/pico/tests/pico-chat-actor-source-test.py",
         "tests/device/adapters/chat_journey/owned_peer.py",
         "tests/device/adapters/chat_journey/OWNED_PEER.md",
-        "tests/device/self_tests/test_chat_owned_peer.py"
+        "tests/device/self_tests/test_chat_owned_peer.py",
+        "tests/device/self_tests/test_chat_input_lifetime_source.py",
+        "tests/device/contracts/chat/test_chat_actor_input_lifetime_native.py"
       ],
       "declaredCheckpoints": 25,
       "inputVerbs": [

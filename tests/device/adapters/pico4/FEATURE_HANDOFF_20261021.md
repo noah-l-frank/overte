@@ -1139,3 +1139,15 @@ transfer, independent actor/public composition, original controller retirement
 and whole Script/XHR/Web/native/host-journal finalization remain open.
 All native/Qt/GPU/OpenXR sources in these checks are explicit host seams.
 Complete source/host feature areas remain 3/14 and devices remain untested.
+
+
+The optional original Chat input-resource extension is now independently readable
+from the existing Inspect IPC after input-channel unlink. It retains actual
+owner/run/instance/sequence, Script polls, consumed Release and private path/FD
+inodes. Legacy Chat envelopes remain readable but supply no release defaults.
+Native owner-thread admission and the original recursive mutex bound the reads;
+no new observer lease or input channel is created. Root source/coverage groups
+pass 2/93 in 8.27s, including native Qt5 original DTO to Linux FD observations
+and late-poll/foreign-thread counterexamples. Full native translation units and
+application/devices remain unqualified. The separate input-close owner and
+whole Chat coordinator/finalizer remain under construction.
