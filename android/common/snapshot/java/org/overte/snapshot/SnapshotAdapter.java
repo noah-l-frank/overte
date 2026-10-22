@@ -61,6 +61,18 @@ public final class SnapshotAdapter {
     private static void observed(Request request, String kind, String value, String auxiliary) {
         if (request.feature != null) request.feature.event(request.featureToken, kind, value, auxiliary);
     }
+    private static void postIo(Request request,Runnable operation) {
+        if(request.feature==null) { IO.execute(operation);return; }
+        final String id=request.feature.submit(request.featureToken);
+        try {
+            IO.execute(() -> {
+                observed(request,"io-started",id,"");
+                try { operation.run(); }
+                finally { observed(request,"io-finished",id,""); }
+            });
+            observed(request,"io-accepted",id,"");
+        } catch(RuntimeException failure) { observed(request,"io-rejected",id,"");throw failure; }
+    }
     private static synchronized void featureReadbacks(Request request) {
         if (request.feature == null || featureReadbacks != null || featureReadbacksFailed) return;
         try { featureReadbacks = new SnapshotExportReadbacks(request.owner.activity().getFilesDir().toPath()); }
@@ -138,7 +150,7 @@ public final class SnapshotAdapter {
                 if (pending.feature != null) pending.featureToken = pending.feature.begin(handle, ticket, generation, action, file.getPath());
                 featureReadbacks(pending);
                 if ("share".equals(action)) share(pending);
-                else if (Build.VERSION.SDK_INT >= 29) IO.execute(() -> saveMediaStore(pending));
+                else if (Build.VERSION.SDK_INT >= 29) postIo(pending,() -> saveMediaStore(pending));
                 else saveDocument(pending);
             } catch (IOException | RuntimeException failure) {
                 if (active != null && active.lease.handle == handle && active.lease.ticket == ticket)
@@ -206,7 +218,7 @@ public final class SnapshotAdapter {
             else if (uri == null) finish(request, "cancelled", "");
             else {
                 featureDestination(request, uri, false);
-                IO.execute(() -> saveUri(request, uri));
+                postIo(request,() -> saveUri(request, uri));
             }
         });
         if (code == 0) throw new IOException("Picker unavailable");

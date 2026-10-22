@@ -59,7 +59,7 @@ def review(value,valid_path):
 
 def source(value):
     exact(value,{'phoneSnapshotObservationVersion','nativeReview','storageRoot','captures','uploads','history','review','androidExport'})
-    need(type(value['phoneSnapshotObservationVersion']) is int and value['phoneSnapshotObservationVersion']==3
+    need(type(value['phoneSnapshotObservationVersion']) is int and value['phoneSnapshotObservationVersion']==4
         and value['nativeReview'] is True and value['storageRoot'] in ROOTS)
     root=value['storageRoot']
     def path(raw):

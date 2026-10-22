@@ -7,7 +7,8 @@ from urllib.parse import urlsplit
 from adapters.native_feature_observation import exact,integer,need
 
 KINDS={'request-active','share-uri','document-launched','document-result','share-chosen','destination-created',
-    'destination-copied','destination-published','destination-deleted','destination-delete-failed','result-ready','delivered','cancelled'}
+    'destination-copied','destination-published','destination-deleted','destination-delete-failed','result-ready','delivered','cancelled',
+    'io-submit','io-accepted','io-rejected','io-started','io-finished'}
 IDENTITY={'request','handle','ticket','generation','action','source'}
 
 
@@ -22,12 +23,13 @@ def uri(value):
 
 
 def exports(value,valid_path):
-    exact(value,{'snapshotExportObservationVersion','instance','complete','capturedEpochMs','elapsedMs','sequence','activeRequest','events'})
-    need(type(value['snapshotExportObservationVersion']) is int and value['snapshotExportObservationVersion']==1
+    exact(value,{'snapshotExportObservationVersion','instance','complete','capturedEpochMs','elapsedMs','sequence','activeRequest','pendingIo','events'})
+    need(type(value['snapshotExportObservationVersion']) is int and value['snapshotExportObservationVersion']==2
         and nonce(value['instance']) and value['complete'] is True and integer(value['capturedEpochMs'],1)
         and integer(value['elapsedMs'],0) and integer(value['sequence'],0,256) and type(value['events']) is list
-        and len(value['events'])==value['sequence'] and (value['activeRequest']=='' or nonce(value['activeRequest'])))
-    requests={};ready={};tickets=set();active='';epoch=elapsed=0
+        and len(value['events'])==value['sequence'] and (value['activeRequest']=='' or nonce(value['activeRequest']))
+        and type(value['pendingIo']) is list and len(value['pendingIo'])<=256)
+    requests={};ready={};tickets=set();work={};active='';epoch=elapsed=0
     for sequence,row in enumerate(value['events'],1):
         exact(row,IDENTITY|{'sequence','kind','value','auxiliary','capturedEpochMs','elapsedMs'})
         need(type(row['sequence']) is int and row['sequence']==sequence and nonce(row['request'])
@@ -58,9 +60,20 @@ def exports(value,valid_path):
             if kind=='destination-published':need(aux=='1')
             elif kind=='destination-deleted':need(re.fullmatch('[0-9]{1,10}',aux) is not None)
             else:need(not aux)
+        elif kind.startswith('io-'):
+            need(nonce(data) and not aux)
+            if kind=='io-submit':
+                need(data not in work);work[data]=dict(request=row['request'],accepted=False,started=False,finished=False,rejected=False)
+            else:
+                need(data in work and work[data]['request']==row['request']);job=work[data]
+                if kind=='io-accepted':need(not job['accepted'] and not job['rejected']);job['accepted']=True
+                elif kind=='io-rejected':need(not job['started'] and not job['accepted'] and not job['rejected']);job['rejected']=True
+                elif kind=='io-started':need(not job['started'] and not job['rejected']);job['started']=True
+                else:need(job['started'] and not job['finished'] and not job['rejected']);job['finished']=True
         if kind in ('delivered','cancelled'):active=''
         epoch,elapsed=row['capturedEpochMs'],row['elapsedMs']
     need(active==value['activeRequest'])
+    need(value['pendingIo']==sorted(id for id,job in work.items() if not job['finished'] and not job['rejected']))
     return value
 
 

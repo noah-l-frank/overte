@@ -20,7 +20,27 @@ public final class SnapshotExportObservationHostTest {
         String mode = args[0]; SnapshotExportObservation value = new SnapshotExportObservation();
         long before = System.currentTimeMillis(); String token = begin(value, 1);
         require(token.matches("[0-9a-f]{32}"));
-        if ("originals".equals(mode)) {
+        if ("io-late".equals(mode)) {
+            String id=value.submit(token);require(value.pending(token));
+            value.event(token,"io-started",id,"");value.event(token,"cancelled","cancelled","");
+            require(value.snapshot().get("activeRequest").equals("") && value.pending(token));
+            value.event(token,"io-finished",id,"");value.event(token,"io-accepted",id,"");
+            require(Boolean.TRUE.equals(value.snapshot().get("complete")) && !value.pending(token)
+                && ((List<?>)value.snapshot().get("pendingIo")).isEmpty());
+        } else if ("io-rejected".equals(mode)) {
+            String id=value.submit(token);value.event(token,"io-rejected",id,"");
+            require(Boolean.TRUE.equals(value.snapshot().get("complete")) && !value.pending(token));
+        } else if ("io-foreign".equals(mode)) {
+            value.submit(token);value.event(token,"io-finished","00000000000000000000000000000000","");
+            require(Boolean.FALSE.equals(value.snapshot().get("complete")) && value.pending(token));
+        } else if ("io-missing-start".equals(mode)) {
+            String id=value.submit(token);value.event(token,"io-accepted",id,"");value.event(token,"io-finished",id,"");
+            require(Boolean.FALSE.equals(value.snapshot().get("complete")) && value.pending(token));
+        } else if ("io-duplicate-finish".equals(mode)) {
+            String id=value.submit(token);value.event(token,"io-accepted",id,"");value.event(token,"io-started",id,"");
+            value.event(token,"io-finished",id,"");require(!value.pending(token));
+            value.event(token,"io-finished",id,"");require(Boolean.FALSE.equals(value.snapshot().get("complete")) && value.pending(token));
+        } else if ("originals".equals(mode)) {
             value.event(token, "destination-created", "content://media/external/images/media/418", "");
             value.event(token, "destination-copied", "content://media/external/images/media/418", "");
             value.event(token, "destination-published", "content://media/external/images/media/418", "1");

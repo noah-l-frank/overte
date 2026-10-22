@@ -20,7 +20,7 @@ class Boundary:
         self.epoch=10000;self.clock=0.;self.sequence=0;self.okay=True;self.ignore=False;self.fault=None;self.raw=''
         self.events=[];self.captures=[];self.uploads=[];self.calls=[]
         self.review=dict(snapshotReviewObservationVersion=1,present=False,review=None)
-        self.export_events=[];self.export_active=''
+        self.export_events=[];self.export_active='';self.export_pending=[]
     def export_event(self,kind,value='',auxiliary='',*,request='e'*32,action='save',ticket='1'):
         self.export_events.append(dict(request=request,handle='1',ticket=ticket,generation='1',action=action,
             source=STORAGE+'/owned.png',sequence=len(self.export_events)+1,kind=kind,value=value,auxiliary=auxiliary,
@@ -36,9 +36,9 @@ class Boundary:
         self.sequence+=1;self.epoch+=10
         value=dict(schemaVersion=1,requestId=request['commandId'],runId=request['runId'],instance='b'*32,
             sequence=self.sequence,processId=31,requestedEpochMs=self.epoch,capturedEpochMs=self.epoch,
-            source=dict(phoneSnapshotObservationVersion=3,nativeReview=True,storageRoot=STORAGE,
-                androidExport=dict(snapshotExportObservationVersion=1,instance='d'*32,complete=True,capturedEpochMs=self.epoch,
-                    elapsedMs=int(self.clock*1000),sequence=len(self.export_events),activeRequest=self.export_active,
+            source=dict(phoneSnapshotObservationVersion=4,nativeReview=True,storageRoot=STORAGE,
+                androidExport=dict(snapshotExportObservationVersion=2,instance='d'*32,complete=True,capturedEpochMs=self.epoch,
+                    elapsedMs=int(self.clock*1000),sequence=len(self.export_events),activeRequest=self.export_active,pendingIo=self.export_pending[:],
                     events=deepcopy(self.export_events)),
                 review=deepcopy(self.review),
                 captures=deepcopy(self.captures),uploads=self.uploads[:],history=dict(snapshotHistoryVersion=1,
@@ -52,6 +52,27 @@ class Boundary:
 
 
 class SnapshotSourceTests(unittest.TestCase):
+    def test_original_io_survives_lease_cancellation_until_its_actual_worker_finishes(self):
+        b=Boundary();work='f'*32;b.export_event('request-active');b.export_event('io-submit',work);b.export_pending=[work]
+        b.export_event('io-started',work);b.export_event('cancelled','cancelled');reader=b.reader();pending=reader.read(RUN)
+        self.assertEqual('',pending['source']['androidExport']['activeRequest'])
+        self.assertEqual([work],pending['source']['androidExport']['pendingIo'])
+        b.export_event('io-finished',work);b.export_event('io-accepted',work);b.export_pending=[]
+        self.assertEqual([],reader.read(RUN)['source']['androidExport']['pendingIo'])
+
+    def test_missing_foreign_duplicate_or_forged_io_quietness_is_rejected(self):
+        for fault in ('hidden','foreign','missing-start','duplicate','rejected-active','legacy'):
+            with self.subTest(fault=fault):
+                b=Boundary();work='f'*32;b.export_event('request-active');b.export_event('io-submit',work);b.export_pending=[work]
+                if fault=='hidden':b.export_pending=[]
+                elif fault=='foreign':b.export_event('io-finished','1'*32)
+                elif fault=='missing-start':b.export_event('io-finished',work);b.export_pending=[]
+                elif fault=='duplicate':
+                    b.export_event('io-started',work);b.export_event('io-finished',work);b.export_event('io-finished',work);b.export_pending=[]
+                elif fault=='rejected-active':b.export_event('io-started',work);b.export_event('io-rejected',work);b.export_pending=[]
+                else:b.fault=lambda v:v['source']['androidExport'].update(snapshotExportObservationVersion=1)
+                with self.assertRaises(NativeUIError):b.reader().read(RUN)
+
     def test_android_callback_originals_keep_actual_file_identity_and_retirement(self):
         b=Boundary();b.export_event('request-active');reader=b.reader();pending=reader.read(RUN)
         self.assertEqual('e'*32,pending['source']['androidExport']['activeRequest'])
@@ -69,7 +90,7 @@ class SnapshotSourceTests(unittest.TestCase):
                 def mutate(v):
                     e=v['source']['androidExport']
                     if fault=='missing':v['source'].pop('androidExport')
-                    elif fault=='version':e['snapshotExportObservationVersion']=2
+                    elif fault=='version':e['snapshotExportObservationVersion']=99
                     elif fault=='incomplete':e['complete']=False
                     elif fault=='stale':e['capturedEpochMs']=1
                     elif fault=='future':e['events'][0]['capturedEpochMs']=v['capturedEpochMs']+1

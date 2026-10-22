@@ -36,6 +36,11 @@ class SnapshotExportOriginalTests(unittest.TestCase):
     def test_overlapping_active_requests_are_not_collapsed_into_one_identity(self):self.case('overlap')
     def test_overflow_retains_the_original_prefix_and_cannot_reset(self):self.case('overflow')
     def test_concurrent_snapshots_never_mix_sequences_or_mutable_rows(self):self.case('concurrent')
+    def test_cancelled_native_lease_does_not_hide_its_running_original_io(self):self.case('io-late')
+    def test_actual_executor_rejection_has_no_remaining_io_responsibility(self):self.case('io-rejected')
+    def test_foreign_io_completion_cannot_clear_an_owned_responsibility(self):self.case('io-foreign')
+    def test_missing_original_io_start_never_becomes_completed_work(self):self.case('io-missing-start')
+    def test_duplicate_io_finish_is_permanently_incomplete(self):self.case('io-duplicate-finish')
 
     def files(self,name):
         with tempfile.TemporaryDirectory(prefix='streams-',dir=self.classes) as parent:

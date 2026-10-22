@@ -7,6 +7,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.Collections;
 
 /** Passive, private E2E callback originals. Never an export-success verdict. */
 final class SnapshotExportObservation {
@@ -15,6 +16,12 @@ final class SnapshotExportObservation {
     private final long startedNanos = System.nanoTime();
     private final List<Map<String, Object>> events = new ArrayList<>();
     private final Map<String, Map<String, Object>> requests = new LinkedHashMap<>();
+    private final Map<String, Io> io = new LinkedHashMap<>();
+    private static final class Io {
+        final String request;
+        boolean submitted, accepted, started, finished, rejected;
+        Io(String request) { this.request=request; }
+    }
     private boolean complete = true;
     private long previousEpoch, previousElapsed;
     private String active = "";
@@ -35,6 +42,17 @@ final class SnapshotExportObservation {
         return token;
     }
 
+    synchronized String submit(String request) {
+        if (!complete || !requests.containsKey(request)) { complete=false;return ""; }
+        String id=UUID.randomUUID().toString().replace("-", "");io.put(id,new Io(request));
+        event(request,"io-submit",id,"");return id;
+    }
+    synchronized boolean pending(String request) {
+        if(!complete || !requests.containsKey(request))return true;
+        for(Io work:io.values())if(work.request.equals(request) && !work.finished && !work.rejected)return true;
+        return false;
+    }
+
     /** Values are actual callback arguments; no desired result is accepted. */
     synchronized void event(String token, String kind, String value, String auxiliary) {
         if (!complete) return;
@@ -49,6 +67,17 @@ final class SnapshotExportObservation {
                 && !("success".equals(value) || "cancelled".equals(value) || "error".equals(value))) {
             complete = false; return;
         }
+        if(kind.startsWith("io-")) {
+            Io work=io.get(value);
+            if(work==null || !work.request.equals(token) || !auxiliary.isEmpty()) { complete=false;return; }
+            boolean valid;
+            if("io-submit".equals(kind)) { valid=!work.submitted;work.submitted=true; }
+            else if("io-accepted".equals(kind)) { valid=work.submitted && !work.accepted && !work.rejected;work.accepted=true; }
+            else if("io-rejected".equals(kind)) { valid=work.submitted && !work.started && !work.accepted && !work.rejected;work.rejected=true; }
+            else if("io-started".equals(kind)) { valid=work.submitted && !work.started && !work.rejected;work.started=true; }
+            else { valid=work.started && !work.finished && !work.rejected;work.finished=true; }
+            if(!valid) { complete=false;return; }
+        }
         long epoch = System.currentTimeMillis(), elapsed = (System.nanoTime() - startedNanos) / 1000000;
         if (epoch <= 0 || epoch < previousEpoch || elapsed < previousElapsed) { complete = false; return; }
         Map<String, Object> row = new LinkedHashMap<>(identity);
@@ -62,9 +91,12 @@ final class SnapshotExportObservation {
         long epoch = System.currentTimeMillis(), elapsed = (System.nanoTime() - startedNanos) / 1000000;
         if (epoch <= 0 || epoch < previousEpoch || elapsed < previousElapsed) complete = false;
         Map<String, Object> result = new LinkedHashMap<>();
-        result.put("snapshotExportObservationVersion", 1); result.put("instance", instance);
+        result.put("snapshotExportObservationVersion", 2); result.put("instance", instance);
         result.put("complete", complete); result.put("capturedEpochMs", epoch); result.put("elapsedMs", elapsed);
         result.put("sequence", events.size()); result.put("activeRequest", active);
+        List<String> pending=new ArrayList<>();
+        for(Map.Entry<String,Io> row:io.entrySet())if(!row.getValue().finished && !row.getValue().rejected)pending.add(row.getKey());
+        Collections.sort(pending);result.put("pendingIo",pending);
         List<Map<String, Object>> rows = new ArrayList<>();
         for (Map<String, Object> row : events) rows.add(new LinkedHashMap<>(row));
         result.put("events", rows);
@@ -76,7 +108,9 @@ final class SnapshotExportObservation {
             || "document-result".equals(kind) || "share-chosen".equals(kind) || "destination-created".equals(kind)
             || "destination-copied".equals(kind) || "destination-published".equals(kind)
             || "destination-deleted".equals(kind) || "destination-delete-failed".equals(kind)
-            || "result-ready".equals(kind) || "delivered".equals(kind) || "cancelled".equals(kind);
+            || "result-ready".equals(kind) || "delivered".equals(kind) || "cancelled".equals(kind)
+            || "io-submit".equals(kind) || "io-accepted".equals(kind) || "io-rejected".equals(kind)
+            || "io-started".equals(kind) || "io-finished".equals(kind);
     }
     private static boolean text(String value, int limit) {
         if (value == null || value.length() > limit) return false;

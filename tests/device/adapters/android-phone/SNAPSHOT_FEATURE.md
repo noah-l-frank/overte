@@ -6,7 +6,7 @@ original files independently of input delivery. The common v17 extended
 `feature.snapshots.*` triple is **not yet advertised** by the Phone adapter.
 Devices and the complete Android client build remain unverified.
 
-## Passive native source v3
+## Passive native source v4
 
 `phone-snapshot-observe` accepts exactly `schemaVersion:1`, a fresh 32-character
 hexadecimal `commandId`, `action`, and the 32-character hexadecimal `runId`.
@@ -35,8 +35,8 @@ Successive reads require the same native/history instances and the unchanged
 full event prefix. Original paths remain in private source files and must never
 be copied to public result JSON. Public resources need opaque owned labels.
 
-Version 3 additionally requires the original Android export source (export
-component contract v1). The real Java adapter records its actual native handle,
+Version 3 added the original Android export source. Version 4 requires export
+component contract v2. The real Java adapter records its actual native handle,
 ticket, Activity generation, original validated source path, original document
 or MediaStore URI and callback values. Each request has a new opaque identity.
 Insertion, completed copy, successful publication, actual deletion return
@@ -46,6 +46,21 @@ or reset any callback history. The bound is 256 original events; overflow,
 unknown values, foreign/overlapping responsibility or clock regression leave
 the source permanently incomplete. Source replays require the exact immutable
 prefix. URI and source-path originals stay in the private evidence file.
+
+Export v2 retains separate original IO submission, executor acceptance/rejection,
+worker entry and worker exit events. Each actual worker has a new opaque ID
+under its original native export request. `pendingIo` is independently checked
+against that complete immutable history. Cancelling/closing the native lease
+does not hide still queued or running file work; cleanup requires both the
+closed original lease and an empty original IO inventory. Worker exit is recorded
+only after the actual copy/MediaStore function's existing `finally` block,
+including its real cancellation deletion. A fast worker may finish before the
+executor call's acceptance is recorded; that original ordering is retained.
+No expected IO count or result is accepted from the caller. Missing starts,
+foreign/duplicate completions and hidden outstanding work cannot qualify quiet
+state. Older v3/v1 sources fail the version gate rather than supplying assumed
+empty IO inventories. Ordinary builds still execute the original Runnable
+directly, without the E2E recording wrapper.
 
 The capture/review hooks require `OVERTE_E2E_FEATURE_TESTS`,
 `ANDROID_APP_PHONE_INTERFACE`, `--testScript`, and the existing native test
