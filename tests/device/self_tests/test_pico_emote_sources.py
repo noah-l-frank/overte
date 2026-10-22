@@ -92,19 +92,20 @@ class SourcesTests(unittest.TestCase):
                 current.clear(); current.update(value)
             return cls(send, lambda: json.dumps(current), lambda: self.epoch, self.guard, 31,
                 monotonic=lambda: self.clock, sleep=self.sleep)
-        def capture():
-            self.calls.append('widgets'); value = self.widget.capture()
-            for row in value['controls']:
-                row['token'] = str(uuid.uuid5(uuid.NAMESPACE_URL, row['token']))
-                if row['id'].startswith('tablet.'): row.pop('inputReady')
-            return dict(schemaVersion=1, bridgeId=value['scope']['instance'], generation=value['scope']['generation'],
-                processId=31, elapsedMs=value['scope']['elapsedMs'], updatedEpochMs=self.epoch,
-                lastCommandSequence=value['scope']['sequence'], open=True, ready=True, controls=value['controls'],
-                emoteControlsVersion=2, emoteSourceSequence=value['scope']['sourceSequence'])
         return (make(NativeScriptRoots, 'roots', self.before, 'commandId'),
             make(NativeScriptObservation, 'script', self.code, 'requestId'),
             make(NativeAnimationInventory, 'inventory', self.inventory, 'commandId'),
-            make(NativeFeatureObservation, 'native', self.native, 'requestId'), SimpleNamespace(capture=capture))
+            make(NativeFeatureObservation, 'native', self.native, 'requestId'), SimpleNamespace(capture=self.widgets))
+
+    def widgets(self):
+        self.calls.append('widgets'); value = self.widget.capture()
+        for row in value['controls']:
+            row['token'] = str(uuid.uuid5(uuid.NAMESPACE_URL, row['token']))
+            if row['id'].startswith('tablet.'): row.pop('inputReady')
+        return dict(schemaVersion=1, bridgeId=value['scope']['instance'], generation=value['scope']['generation'],
+            processId=31, elapsedMs=value['scope']['elapsedMs'], updatedEpochMs=self.epoch,
+            lastCommandSequence=value['scope']['sequence'], open=self.widget.tablet, ready=self.widget.tablet,
+            controls=value['controls'], emoteControlsVersion=2, emoteSourceSequence=value['scope']['sourceSequence'])
 
     def owner(self, role='primary', binding=None):
         return PicoEmoteSources(self.store, binding or BINDING, self.phase, role, self.lock, self.root,

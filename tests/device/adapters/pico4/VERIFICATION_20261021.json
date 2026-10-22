@@ -2435,5 +2435,50 @@
     "actualQt5ActorFilesPositionTests": 1,
     "nativeDurationSeconds": 1.455,
     "qualification": "Original actor IPC/position helpers compiled and run; full MessagesClient/Agent/TSI/native application and devices unqualified. Journals retained."
+  },
+  "emoteOneSendInputs20261022": {
+    "status": "source-and-focused-host-verified-component-only",
+    "protocols": {
+      "pico-emote-sources": {
+        "current": 2,
+        "reads": [
+          1,
+          2
+        ]
+      },
+      "pico-emote-inputs": 1
+    },
+    "sourceSelection": "PHONE_SHARED_EMOTE_INPUTS_20261022.json",
+    "checks": [
+      {
+        "command": "Affected source/input components",
+        "tests": 18,
+        "durationSeconds": 4.215,
+        "status": "passed"
+      },
+      {
+        "command": "Pico suite-runner/coverage-matrix/normal-emote/emote-original-sources",
+        "groups": 4,
+        "catalogGroups": 60,
+        "testsByOwningGroup": {
+          "normal-emote": 9,
+          "emote-original-sources": 37
+        },
+        "durationSeconds": 55.94,
+        "status": "passed"
+      },
+      {
+        "command": "Required documentation/documentation-contracts/source-layout/project-coverage",
+        "suites": 4,
+        "durationSeconds": 3.5,
+        "status": "passed"
+      }
+    ],
+    "details": "Actual private Pico source/input factories and original normal Pico tablet/pointer methods with explicit Qt/OpenXR/Rig/clock seams. Original input architecture selected from fixed committed Phone source; SDK/package/touch/mono parts excluded. Saved pre-delivery inputs, exact source and fixture barriers, actual generation visibility edges, closed historical v1/v2 replay and private original file recovery. Performed is input handling only; synthetic Crying input with original older Waving Rig remains no effect verdict.",
+    "failuresAndCorrections": [
+      "Initial synthetic calls omitted mandatory unchanged contractVersion16; the actual closed shared input parser rejected every call before input. Fixed test calls; common contract unchanged.",
+      "An imported TestCase class initially duplicated nine source cases in the first test discovery. Replaced the class import with a fixture module import before final owning-group counts."
+    ],
+    "remaining": "Measured playback/completion/early-cancel/replacement, all Sit variants, background/interruption, current stereo, independent actor and actual callback/timer/Qt/native resource retirement. Original source and input journals stay owned; no complete area capability or app/device qualification."
   }
 }

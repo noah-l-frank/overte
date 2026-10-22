@@ -484,13 +484,30 @@ def create_adapter(args, base_class):
         def _emote_controls(self, target, intent, receipt=None):
             from adapters.token_emote_ui import TokenEmoteUI
             from adapters.pico4.normal_emote import PicoEmoteIO
-            manager = self._scripts(target)
-            return TokenEmoteUI(PicoEmoteIO(manager.ui.io), intent, receipt=receipt)
+            ui, _observe, _binding = self._script_runtime(target)
+            return TokenEmoteUI(PicoEmoteIO(ui.io), intent, receipt=receipt)
 
         def _emote_source_store(self, target, role):
             _need(role in ('primary', 'actor'))
             state, _ui = self._script_paths(target)
             return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-', 'emote-' + role + '-sources-')))
+
+        def _emote_input_store(self, target):
+            state, _ui = self._script_paths(target)
+            return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-', 'emote-inputs-')))
+
+        @_private
+        def _emote_inputs(self, target, source):
+            from adapters.pico4.emote_inputs import PicoEmoteInputs
+            from adapters.pico4.emote_sources import PicoEmoteSources
+            _need(isinstance(source, PicoEmoteSources) and source.role == 'primary'
+                and source.store.path == self._emote_source_store(target, 'primary').path)
+            source.lock.assert_held(); source.guard()
+            ui, _observe, binding = self._script_runtime(target)
+            _need(binding == source.binding)
+            return PicoEmoteInputs(source, self._emote_input_store(target),
+                lambda intent, receipt: self._emote_controls(target, intent, receipt=receipt), ui.io,
+                lambda: self._script_journey().existing_input_session(target))
 
         @_private
         def _emote_sources(self, target, phase, role, artifact_root, source_lock):
@@ -1327,6 +1344,7 @@ def create_adapter(args, base_class):
                       and self._chat_no_replay_store(target).read() is None
                       and self._chat_peer_input_store(target).read() is None and self._chat_peer_send_store(target).read() is None
                       and self._chat_peer_distant_store(target).read() is None
+                      and self._emote_input_store(target).read() is None
                       and all(self._emote_source_store(target, role).read() is None for role in ('primary', 'actor'))
                       and all(self._chat_samples_store(target,role).read() is None for role in ('primary','actor')))
             else:

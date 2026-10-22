@@ -592,3 +592,11 @@ private journals and general teardown refuses success while they remain. The
 common immutable original store was extracted from a fixed reviewed Phone commit;
 its transport and Phone UI were excluded. This is source/host progress within
 Emotes; the complete area, application build and device qualification remain open.
+
+The [one-send Emote input owner](EMOTE_INPUTS.md) now retains actual original
+phase/source barriers and pre-delivery Qt/controller intents. It uses the
+existing Pico/OpenXR tablet and VR pointer transport, with independently
+observed generation/visibility edges. Lost/ignored delivery cannot be resent
+after reconstruction; exact archival recovery sends no input or query.
+Playback/cancel/replacement effects, actor/stereo and original resource
+retirement remain distinct unfinished joins. No full Emote triple is advertised.

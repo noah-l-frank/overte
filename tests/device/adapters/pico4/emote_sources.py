@@ -28,7 +28,7 @@ from adapters.script_journey.lock import ScriptSourceLock
 from feature_journeys.contract import identifier
 from feature_journeys.phase_fixture import PhaseFixtureReader, validate as phase_packet
 
-VERSION = 1
+VERSION = 2
 MAX_FRAMES = 512
 
 
@@ -48,9 +48,11 @@ class PicoEmoteSources:
         self.lock, self.readers, self.guard, self.monotonic = lock, readers, guard, monotonic
         self.clock_ms = clock_ms
         self.frames, self.failed = [], False
+        self.historical = False
         self.state = dict(phase='ready', revision=0, manifests=[], pending=None)
         self.originals = EmoteOriginals(artifact_root, self.binding, self.run, role, guard,
             self.storage_intent, monotonic=monotonic)
+        self.artifact_root = self.originals.root
         self.lock.assert_held(); need(self.guard() is not False)
         started = self.monotonic(); need(number(started, 0, 1e15))
         self.previous = store.read()
@@ -99,7 +101,11 @@ class PicoEmoteSources:
                        and same(old['reference'], value['reference']))
         pending[kind] = deepcopy(value); self.save()
 
-    def validate_frame(self, frame, previous=None):
+    @staticmethod
+    def ui(frame):
+        return project(frame['widgets'])
+
+    def validate_frame(self, frame, previous=None, *, version=VERSION):
         exact(frame, {'group', 'inventory', 'widgets', 'phaseBefore', 'phaseAfter', 'epochMs', 'hostEpochMs'})
         need(integer(frame['epochMs'], 1) and number(frame['hostEpochMs'], 1, 1e15))
         group = frame['group']; selected, native, _urls = source(group, self.pid, frame['epochMs'])
@@ -130,12 +136,17 @@ class PicoEmoteSources:
                 action='feature-animation-inventory-observe'), self.pid, frame['epochMs'], previous=previous['inventory'])
             continuation(old['native'], native, self.pid)
             left, right = project(previous['widgets'])['scope'], ui['scope']
-            need(all(left[key] == right[key] for key in ('instance', 'generation', 'processId'))
+            need(all(left[key] == right[key] for key in ('instance', 'processId'))
                  and right['sourceSequence'] > left['sourceSequence'] and right['sequence'] >= left['sequence']
                  and right['elapsedMs'] >= left['elapsedMs'] and right['capturedEpochMs'] >= left['capturedEpochMs'])
+            if left['generation'] != right['generation']:
+                # Original NavigationUi rotates generation on root/window or
+                # open changes. A visibility edge may cross a real controller
+                # open/close; unexplained live-root replacement stays invalid.
+                need(version == 2 and project(previous['widgets'])['open'] != ui['open'])
         return before['activations'][-1]['ticket'] == after['activations'][-1]['ticket']
 
-    def replay(self, frames, script=None, inventory=None):
+    def replay(self, frames, script=None, inventory=None, *, version=VERSION):
         # These readers never send. Replay original history including model
         # birth identities that might disappear from the latest cache survey.
         absent = lambda *_: need(False)
@@ -144,8 +155,13 @@ class PicoEmoteSources:
         inventory = inventory or NativeAnimationInventory(absent, absent, absent, absent, self.pid)
         history = None; previous = None
         seen = {key: set() for key in ('roots', 'script', 'native', 'inventory', 'phase')}
+        generations = set(); generation = None
         for frame in frames:
-            self.validate_frame(frame, previous)
+            self.validate_frame(frame, previous, version=version)
+            current_generation = self.ui(frame)['scope']['generation']
+            if current_generation != generation:
+                need(current_generation not in generations)
+                generations.add(current_generation); generation = current_generation
             group = frame['group']
             for key, values, field in (
                     ('roots', (group['rootsBefore'], group['rootsAfter']), 'commandId'),
@@ -162,13 +178,14 @@ class PicoEmoteSources:
 
     def decode(self, value):
         exact(value, {'picoEmoteSourcesVersion', 'binding', 'runId', 'role', 'fixtureUrl', 'artifactRoot', 'payload'})
-        need(type(value['picoEmoteSourcesVersion']) is int and value['picoEmoteSourcesVersion'] == VERSION
+        need(type(value['picoEmoteSourcesVersion']) is int and value['picoEmoteSourcesVersion'] in (1, VERSION)
              and same(value['binding'], self.binding) and value['runId'] == self.run and value['role'] == self.role
              and value['fixtureUrl'] == self.phase.fixture_url and value['artifactRoot'] == str(self.originals.root))
         rows = unpack(value['payload']); need(len(rows) == 1); state = rows[0]
         exact(state, {'phase', 'revision', 'manifests', 'pending'})
         need(state['phase'] in ('reading', 'ready') and integer(state['revision'], 0, MAX_FRAMES))
-        frames = self.originals.restore(state['manifests'], state['revision']); self.replay(frames)
+        frames = self.originals.restore(state['manifests'], state['revision'])
+        self.replay(frames, version=value['picoEmoteSourcesVersion'])
         if state['phase'] == 'ready': need(state['pending'] is None)
         else:
             pending = state['pending']; exact(pending, {'startedEpochMs', 'original', 'manifest'})
@@ -185,12 +202,32 @@ class PicoEmoteSources:
                      and item['reference']['count'] == state['revision'] % BLOCK + 1)
         return deepcopy(state), deepcopy(frames)
 
+    @classmethod
+    def archive(cls, value, *, phase, artifact_root, binding, guard, monotonic=time.monotonic):
+        """Validate retained source bytes only; no runtime, queries or live owner."""
+        need(isinstance(phase, PhaseFixtureReader) and phase.area == 'emotes'
+             and type(value) is dict and value.get('role') in ('primary', 'actor')
+             and callable(guard) and callable(monotonic))
+        started = previous = monotonic(); need(number(started, 0, 1e15))
+        def bound():
+            nonlocal previous
+            need(guard() is not False)
+            now = monotonic(); need(number(now, previous, started + 5)); previous = now
+        bound(); scope = object.__new__(cls)
+        scope.binding, scope.phase, scope.role = deepcopy(context(binding)), phase, value['role']
+        scope.run = identifier(phase.run); scope.pid = int(scope.binding['processIdentity'].split(':')[0])
+        need(integer(scope.pid, 1)); scope.historical = True
+        scope.originals = EmoteOriginals(artifact_root, scope.binding, scope.run, scope.role,
+            bound, lambda *_: need(False), monotonic=monotonic)
+        result = scope.decode(value); bound(); return result
+
     def recover_complete(self):
         """Commit exact complete original bytes only, with no transport/input.
 
         Missing/partial originals remain unresolved. No historical frame is
         delivered as a current observation and no journal is retired here.
         """
+        need(not self.historical)
         started = previous = self.monotonic(); need(number(started, 0, 1e15))
         previous = self.bound(started, previous)
         need(self.state['phase'] == 'reading'); state, frames = self.decode(self.previous)
@@ -208,6 +245,7 @@ class PicoEmoteSources:
         self.save(); self.bound(started, previous)
 
     def read(self):
+        need(not self.historical)
         started = previous = self.monotonic(); need(number(started, 0, 1e15))
         previous = self.bound(started, previous)
         need(self.state['phase'] == 'ready' and len(self.frames) < MAX_FRAMES)

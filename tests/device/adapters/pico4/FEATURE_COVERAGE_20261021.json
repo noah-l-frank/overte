@@ -419,7 +419,10 @@
         "tests/device/adapters/pico4/emote_sources.py",
         "tests/device/adapters/pico4/EMOTE_SOURCES.md",
         "tests/device/self_tests/test_emote_originals.py",
-        "tests/device/self_tests/test_pico_emote_sources.py"
+        "tests/device/self_tests/test_pico_emote_sources.py",
+        "tests/device/adapters/pico4/emote_inputs.py",
+        "tests/device/adapters/pico4/EMOTE_INPUTS.md",
+        "tests/device/self_tests/test_pico_emote_inputs.py"
       ],
       "declaredCheckpoints": 28,
       "inputVerbs": [
@@ -456,7 +459,7 @@
         "Observe original pose/mapping/timer/resource retirement",
         "Restore captured prior override and closed panel"
       ],
-      "nextExecutableStep": "Compose durable one-send Emote input ownership and current measured playback/cancel/replacement flows around the retained original source owner. Then join independent actor/current stereo evidence and actual callback/timer/native-resource retirement. Missing/partial source reads and both role journals remain unresolved until the whole independent owner proves release; do not advertise a complete Emote triple.",
+      "nextExecutableStep": "Compose independent current playback/natural completion/early cancel/replacement measurements around the now durable one-send ordinary Pico input owner and original per-role source journals. Then join all Sit variants, interruption/background behavior, independent actor/current stereo evidence and actual callback/timer/Qt/native-resource retirement. Retain all uncertain input/source journals; do not advertise a complete Emote triple.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     },

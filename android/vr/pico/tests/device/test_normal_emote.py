@@ -142,5 +142,22 @@ class PicoEmoteTests(unittest.TestCase):
         self.assertFalse(self.native.running)
         self.assertEqual(original,owner.store.read())
 
+    def test_durable_inputs_factory_requires_original_primary_source_and_retains_ownership(self):
+        from adapters.pico4.emote_inputs import PicoEmoteInputs
+        from adapters.script_journey.lock import ScriptSourceLock
+        from self_tests.test_pico_emote_sources import SourcesTests
+        seam=SourcesTests();seam.setUp();self.addCleanup(seam.doCleanups)
+        path=self.instance._script_journey().state_path(self.native.target)
+        lock=ScriptSourceLock(path.with_name('script-sources.lock'))
+        with lock.held():
+            source=self.instance._emote_sources(self.native.target,seam.phase,'primary',seam.root,lock)
+            owner=self.instance._emote_inputs(self.native.target,source)
+            self.assertIsInstance(owner,PicoEmoteInputs);self.assertIs(source,owner.source)
+            owner.save();original=owner.store.read()
+            actor=self.instance._emote_sources(self.native.target,seam.phase,'actor',seam.root,lock)
+            with self.assertRaises(ValueError):self.instance._emote_inputs(self.native.target,actor)
+        with self.assertRaises(ValueError):self.instance.cleanup(self.native.target)
+        self.assertFalse(self.native.running);self.assertEqual(original,owner.store.read())
+
 
 if __name__=='__main__':unittest.main()

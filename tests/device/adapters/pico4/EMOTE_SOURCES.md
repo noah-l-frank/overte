@@ -1,6 +1,6 @@
 # Original Pico Emote sources
 
-`PicoEmoteSources` v1 acquires original configured Script roots, actual compiled
+`PicoEmoteSources` v2 acquires original configured Script roots, actual compiled
 Emote code, passive animation-cache resources, evaluated native Rig history and
 the original Pico VR navigation/chooser snapshot. The existing phase reader
 brackets each acquisition. The existing `script-sources.lock` serializes these
@@ -11,6 +11,13 @@ existing VR bridge. Both primary and actor roles have separate journals and
 original files. Role names alone do not prove independence; the unfinished
 whole-feature coordinator must join independently acquired sources and process
 ownership. These sources do not send a feature input or produce an effect verdict.
+
+Version 2 follows the original Pico `NavigationUi::observe` generation change
+when tablet visibility changes. Such an edge is retained as a source transition;
+the [one-send input owner](EMOTE_INPUTS.md) separately binds it to an original
+controller intent. Live-root replacement without a visibility edge and reuse of
+a retired generation fail. Version 1 archives retain their fixed-generation
+rule; changing a header cannot authorize an unsupported historical transition.
 
 The original store is a reviewed platform-independent extraction from fixed
 Phone commit `abb7f6b60d97daf17752aadf94e2b5df099bb7ba`, documented in
@@ -52,9 +59,9 @@ without a device or compiler. `normal-emote` additionally exercises the real
 private Pico factory, exact shared lock and retained-journal teardown. Boundaries
 for product Qt/Rig/OpenXR and clocks in these tests are explicitly synthetic.
 
-The normal ten-button input path and focused native UI/cache helpers have their
-separate verification records. A complete Emote area still requires one-send
-input/phase ownership, independent playback/cancellation/replacement joins,
+The normal ten-button input path, one-send owner and focused native UI/cache
+helpers have separate verification records. A complete Emote area still requires
+independent playback/cancellation/replacement joins,
 current original two-eye images, independent actor publication, interruption
 composition, actual callback/timer/resource ownership and full retirement.
 No native application or headset/device qualification is established here.
