@@ -111,6 +111,7 @@ class Composite(Inputs):
     def request(self,role,path,value=None,method=None,**kwargs):
         if path=='/graphics-provider':return self.resources.ready()|dict(internalErrors=0)
         if path=='/runs/'+RUN+'/graphics':return self.resources.snapshot(RUN,kwargs['graphics_nonce'])
+        if path=='/runs/'+RUN+'/phase':return self.journal.phase(RUN,kwargs['phase_nonce'])
         if path=='/runs/'+RUN+'/active':return self.journal.active(RUN)
         if path=='/runs/'+RUN:return self.journal.snapshot(RUN)
         if path=='/runs/'+RUN+'/samples':
@@ -236,7 +237,15 @@ class GraphicsFeatureTests(unittest.TestCase):
         journey=Journey('graphics',RUN,FIXTURE,invoke=invoke,witness=lambda:m.journal.snapshot(RUN),activate=m.activate,
             read_artifact=lambda name:(m.root/name).read_bytes(),image_policy=dict(screen=POLICY),continuity=lambda *_args:None,
             monotonic=lambda:m.sdk.clock,epoch_ms=m.epoch,sleep=m.sleep,report=reports.append)
-        with patch.dict(os.environ,self.configuration()),patch.object(registered.adapter,'_graphics_feature',side_effect=lambda *_args,**_kwargs:m.flow()):
+        from feature_journeys.phase_fixture import PhaseFixtureReader
+        # Same nonce-bound original Journal as the composition, on its explicit
+        # synthetic clock. Public cleanup still dispatches through the real
+        # phase validator and the existing original Graphics owner.
+        def phase_reader(client,run,area):
+            return PhaseFixtureReader(client,run,area,epoch_ms=m.epoch,monotonic=lambda:m.sdk.clock)
+        with patch.dict(os.environ,self.configuration()),patch.object(registered.adapter,'_graphics_feature',side_effect=lambda *_args,**_kwargs:m.flow()), \
+             patch.object(registered.adapter,'_feature_fixture_client',return_value=m.client), \
+             patch('overte_phone_feature_dispatch.PhaseFixtureReader',side_effect=phase_reader):
             journey.execute()
         self.assertEqual(15,len([row for row in journey.phases if row['phase'][:2].isdigit()]))
         m.resources.retire(RUN);m.journal.close(RUN);m.client.closed=True;m.actor_enabled=True
