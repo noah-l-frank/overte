@@ -222,6 +222,19 @@ class SnapshotJourneyTests(unittest.TestCase):
         self.assertEqual(1,result['state']['saved']);self.assertEqual(1,len(self.model.os_files))
         self.assertTrue(all(path.read_bytes()==self.model.raw_png for path in self.model.os_files.values()))
 
+    def test_repeated_native_prepare_cannot_replace_or_resurrect_original_marker_owner(self):
+        self.client.activate('c'*32);self.invoke('feature.snapshots.observe',dict(contractVersion=VERSION,runId=RUN,afterSequence=0))
+        self.act('open');self.act('capture',dict(mode='still',format='png'))
+        original=deepcopy(self.model.marker);command=deepcopy(original['originalInput'])
+        self.assertEqual(self.model.marker_receipt,self.model.marker_input(command))
+        replacement=command|dict(commandId=os.urandom(16).hex(),ticket=os.urandom(16).hex())
+        with self.assertRaisesRegex(RuntimeError,'cannot be prepared twice'):self.model.marker_input(replacement)
+        self.assertEqual(original,self.model.marker);self.assertEqual(command['ticket'],self.model.ticket)
+        release=dict(schemaVersion=1,commandId=os.urandom(16).hex(),action='phone-create-fixture-input',operation='release',runId=RUN,fixtureInstance=original['fixtureInstance'])
+        self.model.marker_input(release);retired=deepcopy(self.model.marker)
+        with self.assertRaisesRegex(RuntimeError,'cannot be prepared twice'):self.model.marker_input(replacement)
+        self.assertEqual(retired,self.model.marker)
+
     def test_actual_offline_reply_then_new_normal_upload_clears_error_and_publishes(self):
         self.client.activate('c'*32);self.invoke('feature.snapshots.observe',dict(contractVersion=VERSION,runId=RUN,afterSequence=0))
         self.act('open');self.act('capture',dict(mode='still',format='png'));self.act('save')

@@ -129,7 +129,7 @@ class SnapshotTarget(CreateTarget):
         self.component=PRIMARY+'/'+PRIMARY+'.MainActivity';self.app_state=4;self.lifecycle=dict(backgrounds=0,activations=1,launches=1)
         self.account=account();self.account['observation']['credentialActive']=True
         self.story_id=None;self.origin=None;self.token=None;self.opener=None;self.raw_png=None;self.current_path=None
-        self.handoff=None;self.job_sources={};self.model_binding=None;self.work_packets={};self.export_tickets={}
+        self.handoff=None;self.job_sources={};self.model_binding=None;self.work_packets={};self.export_tickets={};self.marker_seen=False;self.marker_command=None;self.marker_receipt=None
         self.readbacks=dict(snapshotExportReadbacksVersion=1,initialized=False,complete=True)
         self.consumer=None;self.os_files={};self.handoff_jobs={};self.handoff_last=None;self.handoff_count=0
         self.upload=dict(snapshotUploadObservationVersion=1,instance='7'*32,complete=True,capturedEpochMs=now(),sequence=0,events=[],jobs=[])
@@ -154,8 +154,19 @@ class SnapshotTarget(CreateTarget):
         with Image.open(io.BytesIO(marker_bytes(RUN,self.ticket))) as card:image.paste(card,(20,20))
         out=io.BytesIO();image.save(out,format='PNG');return out.getvalue()
     def marker_input(self,request):
-        if request['operation']=='prepare':self.ticket=request['ticket']
-        return super().marker_input(request)
+        if self.marker_command is not None and request['commandId']==self.marker_command['commandId']:
+            if request!=self.marker_command:raise RuntimeError('Original marker command changed')
+            return deepcopy(self.marker_receipt)
+        if request['operation']=='prepare':
+            if self.marker_seen:raise RuntimeError('Native marker owner cannot be prepared twice for the same run')
+        elif request['operation']=='release':
+            if not self.marker_seen or request['fixtureInstance']!=self.marker['fixtureInstance']:
+                raise RuntimeError('Original marker release owner required')
+        else:raise RuntimeError('Unsupported native marker operation')
+        receipt=super().marker_input(request)
+        if request['operation']=='prepare':self.ticket=request['ticket'];self.marker_seen=True
+        self.marker_command=deepcopy(request);self.marker_receipt=deepcopy(receipt)
+        return receipt
     def capture_packet(self,request):
         packet=super().capture_packet(request);raw=self.image()
         with Image.open(io.BytesIO(raw)) as image:
