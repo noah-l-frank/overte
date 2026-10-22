@@ -342,3 +342,34 @@ pass (3.36s); registry and whitespace pass. These are host/synthetic source test
 no native sources changed, application build or devices were qualified. Normal
 VR scene/avatar/view setup, joined effects/independent actor and complete Emote
 resource/journal retirement remain open; no whole Emote capability is advertised.
+
+
+## Integrated domain Model, independent Chat and Lifecycle owners
+
+12a532a1ab integrates46707ea1e1 without the already present ScriptWork support
+commit; all newer Chat/Emote/native declarations, safeguards and catalog entries
+remain. An initial conflict-resolution script accidentally truncated six files;
+the changed statistics/JSON check exposed it. The affected files were rebuilt
+from8829794867 with exact selected additions, the local integration commit was
+corrected, and JSON/AST/version/coverage checks passed before further work.
+The final difference is the original25-file1191-addition/43-removal packet.
+No reference or foreign worktree was changed.
+
+e3d78288ef and846519f5a4 integrate original Chat HOME/Return and a third independent
+witness source journal, closed original input admission and non-replayed publisher
+intent. All28 selected component/actualPico factory/teardown cases pass29.257s.
+Chat background v1 is intermediate; reviewed post-release quiet v2 follows.
+a7a3779ff5 integrates339b8d501d with the existing lossless source container,
+original hidden Qt checkpoints and3s quiet before/after actual timer release.
+All seven integrated Pico groups pass191.78s (7/68): Lifecycle input49.594s,
+Lifecycle background68.429s, Model owner24.396s, actual Model Qt5 UI5.168s,
+picker42.156s, actual entity source/weak lifetime Qt5 native1.975s, coverage.057s.
+Native services/entity tree/VM/renderer remain explicit harness seams; this is
+not a full native translation-unit/application or device qualification.
+
+A further Emote review found cold cleanup incorrectly requiring the original
+parent source to remain its latest header. It now retains and validates the
+original ready source prefix while binding current parent CAS independently.
+Cleanup works after parent advancement or interruption, without another acquire;
+historical source contexts cannot provide live authority. All12 owner cases
+pass5.698s, including the new lost-acquire/advanced/interrupted-parent cases.

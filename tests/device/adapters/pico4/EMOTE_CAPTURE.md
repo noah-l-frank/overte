@@ -33,7 +33,11 @@ foreign or partly written files cannot become complete original evidence.
 The owner retains the original PNG, model/avatar/phase packets and retirement
 proof; it does not delete originals or claim whole-feature resource retirement.
 
-Recovery is cleanup only. A lost acquire/query/release result is never resent
+Recovery is cleanup only. A cold owner checks the retained original ready source
+prefix against the current parent archive, even when the parent has advanced or
+its next acquisition is interrupted. Current parent CAS remains mandatory; an
+old live owner cannot cross a parent change and historical source contexts
+cannot acquire input authority. A lost acquire/query/release result is never resent
 as a new acquisition. A retained cleanup proof can be replayed as historical
 cleanup after a later pixel/phase failure. It cannot satisfy a new live image.
 Unknown journal writes stop warm and cold dispatch; ownership remains unresolved.
@@ -50,7 +54,7 @@ source journal is absent. No public complete Emote capability is advertised.
 
 Fresh delivery includes original phase/native clocks, all final guards, copies
 and repeated PNG validation within five seconds and original 1500ms native age.
-Ten owner counterexamples cover success, exact originals, passive reconstruction,
+Twelve owner counterexamples cover success, exact originals, passive reconstruction,
 historical parent advancement, lost acquire/model/release/journal replies,
 partial image writes, changed bytes/inodes/links, ignored release, foreign Rig/
 phase, wrong challenge and final native/host clock changes. Two actual Pico

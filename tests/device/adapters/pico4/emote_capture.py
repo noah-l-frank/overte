@@ -35,19 +35,23 @@ class PicoEmoteCapture:
     def __init__(self,source,index,policy,world,avatar,models,*,monotonic=time.monotonic):
         need(isinstance(source,PicoEmoteSources) and integer(index,1,256)
             and all(callable(value) for value in (world,avatar,models,monotonic)))
-        source.lock.assert_held();need(source.frames and source.previous is not None and source.state['phase']=='ready')
+        source.lock.assert_held();need(source.frames and source.previous is not None and not source.historical)
         self.source,self.index,self.policy=source,index,deepcopy(policy)
         self.world,self.avatar,self.models,self.monotonic=world,avatar,models,monotonic
         self.lock,self.guard,self.binding,self.pid=source.lock,source.guard,deepcopy(source.binding),source.pid
         self.run,self.role,self.root=source.run,source.role,Path(source.artifact_root)
-        self.source_header=deepcopy(source.previous)
+        self.current_source_header=deepcopy(source.previous)
         self.store=PrivateFeatureState(source.store.path.with_name(source.store.path.stem+'-image-'+str(index)+'.json'))
         self.previous=self.store.read();self.started=self.clock=None;self.failed=False
+        self.source_header=deepcopy(self.current_source_header if self.previous is None else self.previous.get('sourceHeader'))
+        need(type(self.source_header) is dict and (self.previous is not None or source.state['phase']=='ready'))
         self.state={key:None for key in FIELDS};self.state['phase']='ready'
         self.bound()
         state,frames=PicoEmoteSources.archive(self.source_header,phase=source.phase,artifact_root=self.root,
             binding=self.binding,guard=self.guard,monotonic=self.monotonic)
-        need(same(state,source.state) and same(frames,source.frames))
+        need(state['phase']=='ready' and len(frames)<=len(source.frames)
+            and all(same(a,b) for a,b in zip(frames,source.frames)))
+        if self.previous is None:need(same(state,source.state) and same(frames,source.frames))
         self.source_frames=frames
         exact(self.policy,{'picoEmotePixelPolicyVersion','source','eyes'})
         need(type(self.policy['picoEmotePixelPolicyVersion']) is int and self.policy['picoEmotePixelPolicyVersion']==1
@@ -60,7 +64,7 @@ class PicoEmoteCapture:
         if self.previous is not None:self.state=self.decode(self.previous)
 
     def bound(self):
-        self.lock.assert_held();need(self.guard() is not False and same(self.source.store.read(),self.source_header)
+        self.lock.assert_held();need(self.guard() is not False and same(self.source.store.read(),self.current_source_header)
             and same(self.store.read(),self.previous))
         now=self.monotonic();need(number(now,0,1e15) and (self.clock is None or now>=self.clock)
             and (self.started is None or now-self.started<5));self.clock=now;return now

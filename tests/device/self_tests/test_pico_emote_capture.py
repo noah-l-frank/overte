@@ -136,9 +136,38 @@ class PicoEmoteCaptureTests(unittest.TestCase):
             owner=m.capture();frame=owner.read('c'*32);header=deepcopy(owner.previous)
             m.source.read();calls=(len(m.gpu.commands),len(m.avatar.commands),len(m.models.commands))
             self.assertEqual((frame,m.raw),owner.original())
+            self.assertEqual((frame,m.raw),m.capture().original())
             owner.store.discard(header)
             self.assertEqual((frame,m.raw),PicoEmoteCapture.archive(header,m.source,1,POLICY))
             self.assertEqual(calls,(len(m.gpu.commands),len(m.avatar.commands),len(m.models.commands)))
+
+    def test_lost_acquisition_cleanup_uses_original_prefix_after_parent_advance_or_interruption(self):
+        for interrupted in (False,True):
+            with self.subTest(interrupted=interrupted):
+                m=CaptureModel(self);m.lost=True;m.release_lost=True
+                with m.lock.held():
+                    owner=m.capture()
+                    with self.assertRaises(NativeUIError):owner.read('c'*32)
+                    header=deepcopy(owner.source_header);m.release_lost=False
+                    m.source.read()
+                    if interrupted:
+                        m.source_case.fault='roots'
+                        with self.assertRaises(NativeUIError):m.source.read()
+                    restored=m.capture();proof=restored.recover()
+                    self.assertEqual(header,restored.source_header)
+                    self.assertNotEqual(header,restored.current_source_header)
+                    self.assertFalse(proof['memory']['present']);self.assertIsNone(m.owner_store().read())
+                    self.assertEqual(1,len(m.gpu.commands));self.assertEqual([],list(m.native_root.iterdir()))
+
+    def test_parent_change_during_live_owner_and_historical_source_cannot_authorize_acquisition(self):
+        m=self.model
+        with m.lock.held():
+            owner=m.capture();m.source.read()
+            with self.assertRaises(NativeUIError):owner.read('c'*32)
+            self.assertEqual([],m.gpu.commands)
+            m.source.historical=True
+            with self.assertRaises(NativeUIError):m.capture()
+            self.assertEqual([],m.gpu.commands)
 
     def test_ignored_release_or_changed_avatar_rig_cannot_deliver_a_frame(self):
         for fault in ('ignore_release','rig'):
