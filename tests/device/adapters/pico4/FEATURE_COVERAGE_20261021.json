@@ -343,7 +343,19 @@
         "scripts/system/+android_phoneInterface/phoneEmote.js",
         "scripts/system/emote.js",
         "tests/device/adapters/pico4/binding.py",
-        "tests/device/adapters/emote_source_profile.py"
+        "tests/device/adapters/emote_source_profile.py",
+        "libraries/script-engine/src/RequiredModuleObservation.h",
+        "libraries/script-engine/src/ScriptEngines.cpp",
+        "libraries/script-engine/src/ScriptManager.h",
+        "libraries/script-engine/src/v8/ScriptEngineV8.cpp",
+        "libraries/script-engine/src/v8/ScriptEngineV8.h",
+        "libraries/script-engine/src/v8/ScriptProgramV8Wrapper.cpp",
+        "tests/device/adapters/native_script_compilations.py",
+        "tests/device/adapters/native_script_observation.py",
+        "tests/device/self_tests/test_native_script_compilations.py",
+        "tests/device/native/SCRIPT_COMPILATIONS.md",
+        "tests/device/adapters/pico4/EMOTE_SHARED_REUSE.md",
+        "tests/device/adapters/pico4/PHONE_SHARED_COMPILATIONS_20261022.json"
       ],
       "declaredCheckpoints": 28,
       "inputVerbs": [
@@ -380,7 +392,7 @@
         "Observe original pose/mapping/timer/resource retirement",
         "Restore captured prior override and closed panel"
       ],
-      "nextExecutableStep": "Reuse frozen Phone source-profile/Rig/caller components only after binding actual Pico roots/submitted code; implement Pico VR token input and stereo avatar acquisition. Do not assume the legacy Web Emote and normal QML app have identical Sit behavior.",
+      "nextExecutableStep": "Reuse the pinned shared animation/caller/history/loaded-model/readiness dependency closure after reviewing actual Pico roots and original compiled code. Shared compile-boundary observation/reader is now selected with original hashes and host counterexamples; actual Pico normal VR controls, stereo avatar acquisition, independent actor and whole retirement remain unfinished. Shared v17 motion migration is separate; current complete triples remain v16.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     },

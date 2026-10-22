@@ -52,8 +52,10 @@ applied only here, reviewed, host-tested and committed with
 file snapshot remain outside the checkout. No original reference, Phone, iOS,
 frozen worktree or another session's evidence/progress was edited.
 
-Only the frozen Phone reference
-`fe4684bf46585088370b3a328a738f147e670b97` was used. Its status confirms three
+The initial shared selection used frozen Phone reference
+`fe4684bf46585088370b3a328a738f147e670b97`. The later narrow
+[shared compilation selection](EMOTE_SHARED_REUSE.md) additionally pins reviewed
+commit `abb7f6b60d97daf17752aadf94e2b5df099bb7ba`. Its status confirms three
 complete source adapters (Scripts, Authentication, Graphics); Emote is component
 work. Its historical instruction to pause Pico does not override this task's
 explicit parallel authorization. No moving Phone branch or uncommitted Phone
@@ -790,3 +792,15 @@ readiness work suitable for later dependency review. Its committed status still
 reports three complete areas of fourteen and incomplete unregistered Emotes.
 This additional review does not replace the original frozen baseline or import
 Phone WIP, touch/mono/device bindings, or a moving branch automatically.
+
+
+## Shared Emote compilation observation reused from pinned Phone source
+
+The [reuse record](EMOTE_SHARED_REUSE.md) now selects original shared V8
+compile-boundary records, their exact optional Script reader and original
+counterexamples from committed Phone source. Prior IDs/names/bytes/times and
+the presence of the extension survive historical replay without a new native
+query. The existing Script observation command, private transport and legacy
+source schemas stay intact. Only narrow native recording dependencies were
+selected; Phone input/work/caller/actor/mono bindings remain excluded. This is
+an Emote prerequisite, not complete Emotes or actual Pico/device qualification.

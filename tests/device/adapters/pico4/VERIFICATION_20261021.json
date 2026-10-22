@@ -1883,5 +1883,40 @@
       "passive animation cache readiness"
     ],
     "limitations": "No uncommitted Phone files copied; no moving branch followed or new Phone platform bindings imported. Full shared v17 dependency review remains necessary before selecting these candidates for Pico Emotes."
+  },
+  "emoteSharedCompilations": {
+    "status": "shared-prerequisite-source-host-verified",
+    "sourceCommit": "abb7f6b60d97daf17752aadf94e2b5df099bb7ba",
+    "manifest": "PHONE_SHARED_COMPILATIONS_20261022.json",
+    "contract": "native-script-compilations v1",
+    "checks": [
+      {
+        "command": "PYTHONDONTWRITEBYTECODE=1 TMPDIR=PRIVATE_TMPFS PYTHONPATH=tests/device:tests/device/self_tests python3 -m unittest self_tests.test_native_script_compilations self_tests.test_native_script_observation self_tests.test_native_script_membership self_tests.test_script_journey_measurements self_tests.test_script_journey_history self_tests.test_script_journey_causality self_tests.test_emote_source_profile",
+        "status": "passed",
+        "tests": 150,
+        "durationSeconds": 0.6
+      },
+      {
+        "command": "python3 tests/run-project-tests.py --suite documentation --suite documentation-contracts --suite source-layout --suite project-coverage",
+        "status": "passed",
+        "suites": 4,
+        "durationSeconds": 2.44,
+        "junit": "shared-compilations-project.xml"
+      },
+      {
+        "command": "python3 android/vr/pico/tests/pico4-test-suite.py --test script-feature-journey --test script-feature-engine --test feature-observation --test suite-runner --test coverage-matrix --timeout 240",
+        "status": "passed",
+        "selectedGroups": 5,
+        "catalogGroups": 52,
+        "durationSeconds": 124.7,
+        "junit": "shared-compilations-pico.xml"
+      },
+      {
+        "command": "python3 tests/device/validate_contract_versions.py",
+        "status": "passed"
+      }
+    ],
+    "initialInvocationCorrection": "One combined unittest invocation omitted tests/device/self_tests from PYTHONPATH and could not import the existing Emote source-profile fixture. The corrected complete 150-case selection passed without source changes.",
+    "limitations": "Only common original compilation identities and narrow native recording/publication dependencies selected. No Phone touch, mono, caller/work/actor binding imported. No compiler/build/device invocation; native source uncompiled and physical runs zero. Complete Pico count stays three of fourteen; shared journey v16 unchanged."
   }
 }

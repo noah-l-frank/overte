@@ -509,7 +509,8 @@ QVariantMap ScriptEngines::featureScriptObservation() {
         const auto code = manager->featureSourceIdentity();
         if (required.isEmpty() || code.isEmpty()) { return {}; }
         rows.append(QVariantMap{{"url", it.key().toString()}, {"running", manager->isRunning()},
-            {"stopping", manager->isStopping()}, {"finished", manager->isFinished()}, {"required", required}, {"code", code}});
+            {"stopping", manager->isStopping()}, {"finished", manager->isFinished()}, {"required", required}, {"code", code},
+            {"compiled",manager->featureCompiledSources()}});
     }
     const auto loads = ScriptManager::featureLoadHistory();
     if (loads.isEmpty()) { return {}; }
@@ -527,7 +528,7 @@ QVariantMap ScriptEngines::featureScriptObservation() {
         ? QVariantMap{{"complete",true},{"revision",static_cast<qulonglong>(knownRevision)},{"managers",knownRows}}
         : QVariantMap{{"complete",false}};
     return {{"complete", true}, {"engines", rows}, {"sourceIdentityVersion", 1},
-        {"loadSourceVersion", 1}, {"loads", loads},{"membershipSourceVersion",1},{"membership",memberships}};
+        {"loadSourceVersion", 1}, {"loads", loads},{"membershipSourceVersion",1},{"membership",memberships},{"compiledSourceVersion",1}};
 }
 #endif
 

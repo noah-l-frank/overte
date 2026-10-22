@@ -62,6 +62,14 @@ Go To dismissal/whole-tablet closure composition, restart and independent
 whole-area retirement remain incomplete.
 These components add no complete feature area.
 
+## Current Emotes continuation
+
+The [reviewed shared Phone selection](EMOTE_SHARED_REUSE.md) now reuses actual
+V8 compilation identities, immutable originals, optional Script source reader
+and counterexamples. Native compilation, actual Pico source/caller/input/Rig/
+stereo/actor and full resource retirement remain unqualified or incomplete.
+This adds no complete feature area and keeps shared journey v16 unchanged.
+
 ## Historical component checkpoints
 
 The entries below describe the earlier reference branch and do not override

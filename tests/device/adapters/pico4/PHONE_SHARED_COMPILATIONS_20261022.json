@@ -1,0 +1,86 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "abb7f6b60d97daf17752aadf94e2b5df099bb7ba",
+  "originalFrozenReference": "fe4684bf46585088370b3a328a738f147e670b97",
+  "targetBase": "841a51ed65",
+  "uncommittedPhoneWorkExcluded": true,
+  "sharedContract": "native-script-compilations v1",
+  "files": [
+    {
+      "sourcePath": "libraries/script-engine/src/RequiredModuleObservation.h",
+      "targetPath": "libraries/script-engine/src/RequiredModuleObservation.h",
+      "sourceSha256": "55f81904db66a15f6f5918d502cba9cf33146f14065140066b0a59831896fc4c",
+      "targetSha256": "55f81904db66a15f6f5918d502cba9cf33146f14065140066b0a59831896fc4c",
+      "selection": "exact"
+    },
+    {
+      "sourcePath": "libraries/script-engine/src/ScriptEngines.cpp",
+      "targetPath": "libraries/script-engine/src/ScriptEngines.cpp",
+      "sourceSha256": "1476fbb613625357f842602b9350c25d136a510d7c259ebcea26a69a5552cf52",
+      "targetSha256": "a73ee34968058ba1c6da4275ce4ca17765d2b9f596ab314da7573521accba62c",
+      "selection": "reviewed-narrow-native-dependency-or-Pico-guide"
+    },
+    {
+      "sourcePath": "libraries/script-engine/src/ScriptManager.h",
+      "targetPath": "libraries/script-engine/src/ScriptManager.h",
+      "sourceSha256": "6bfe1dbb39dc251079028a4e511fddd15e63bd6d1b94b59b6325c82ebbab9151",
+      "targetSha256": "f822c3f4d20587e8c879036e59fe46b436700956cdf5c8c9a3949a5bd4a2e26d",
+      "selection": "reviewed-narrow-native-dependency-or-Pico-guide"
+    },
+    {
+      "sourcePath": "libraries/script-engine/src/v8/ScriptEngineV8.cpp",
+      "targetPath": "libraries/script-engine/src/v8/ScriptEngineV8.cpp",
+      "sourceSha256": "c16a26c2114672f01f6ec8c9fbaa4dda1d8c2ce7408ab87704c01d3499b852e4",
+      "targetSha256": "8197e9209b5882b463399de2f59c2903de2c397cbb03e6eae442cb556dee8fe5",
+      "selection": "reviewed-narrow-native-dependency-or-Pico-guide"
+    },
+    {
+      "sourcePath": "libraries/script-engine/src/v8/ScriptEngineV8.h",
+      "targetPath": "libraries/script-engine/src/v8/ScriptEngineV8.h",
+      "sourceSha256": "e6eea8faad7dd84b22a7b405341deec984fbb8e02870b684d5b8fb6a6fe9a231",
+      "targetSha256": "49ef88c266f4e039cd461be82303fa32980ebaf36d70ff1cb96c9fb7ae21b44b",
+      "selection": "reviewed-narrow-native-dependency-or-Pico-guide"
+    },
+    {
+      "sourcePath": "libraries/script-engine/src/v8/ScriptProgramV8Wrapper.cpp",
+      "targetPath": "libraries/script-engine/src/v8/ScriptProgramV8Wrapper.cpp",
+      "sourceSha256": "6eac9705f1fdd754d900adce0574ffe169766ab1fd89b0cb8dac40d1496d4c2f",
+      "targetSha256": "6eac9705f1fdd754d900adce0574ffe169766ab1fd89b0cb8dac40d1496d4c2f",
+      "selection": "exact"
+    },
+    {
+      "sourcePath": "tests/device/adapters/native_script_compilations.py",
+      "targetPath": "tests/device/adapters/native_script_compilations.py",
+      "sourceSha256": "a07c4ed2454a74026fd1c705af7a4e04c7c61914a680a2055555629e63cc36c5",
+      "targetSha256": "a07c4ed2454a74026fd1c705af7a4e04c7c61914a680a2055555629e63cc36c5",
+      "selection": "exact"
+    },
+    {
+      "sourcePath": "tests/device/adapters/native_script_observation.py",
+      "targetPath": "tests/device/adapters/native_script_observation.py",
+      "sourceSha256": "cc9dd4a53be2ee6257fd5b95a79b171bf816be0e28cb139ebab9713698bdb7b8",
+      "targetSha256": "cc9dd4a53be2ee6257fd5b95a79b171bf816be0e28cb139ebab9713698bdb7b8",
+      "selection": "exact"
+    },
+    {
+      "sourcePath": "tests/device/self_tests/test_native_script_compilations.py",
+      "targetPath": "tests/device/self_tests/test_native_script_compilations.py",
+      "sourceSha256": "16d9570abc405cbdb2d08f1869e9e1a8881b67756a7fe3665b2d649d03617665",
+      "targetSha256": "16d9570abc405cbdb2d08f1869e9e1a8881b67756a7fe3665b2d649d03617665",
+      "selection": "exact"
+    },
+    {
+      "sourcePath": "tests/device/native/SCRIPT_COMPILATIONS.md",
+      "targetPath": "tests/device/native/SCRIPT_COMPILATIONS.md",
+      "sourceSha256": "3eaea9f9c2f7a3d22a3faa834973ea775923e9132e5296ff16111f6bd69b398a",
+      "targetSha256": "af55dddcf0907844eba8b6bc47efef759bda4aea08738dadd78354a22e3f280b",
+      "selection": "reviewed-narrow-native-dependency-or-Pico-guide"
+    }
+  ],
+  "excluded": [
+    "Phone touch, package, lifecycle and actor bindings",
+    "Phone mono evidence and native work/caller/function-origin dispatch changes",
+    "Moving branch updates and uncommitted Phone files"
+  ],
+  "qualification": "Original shared compile-boundary observation and host logic only; native C++ uncompiled, zero physical runs, complete Pico feature count remains three of fourteen."
+}

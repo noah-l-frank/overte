@@ -43,6 +43,49 @@ public:
         return {{"submitted", _submitted}, {"encoding", "utf-16le-code-units"},
             {"codeUnits", _codeUnits}, {"sha256", _codeDigest}, {"submittedEpochMs", _submittedEpochMs}};
     }
+    // Original V8 compile-boundary identity, including Script.include inside a
+    // shared manager. Script IDs come from the actual compiled V8 Script, not
+    // a requested URL, filename alias or JavaScript-supplied observation.
+    void compiled(int scriptId, const QString& resourceName, const QString& actualCode) {
+        std::lock_guard<std::mutex> lock(_mutex);
+        if (_instance.isEmpty() || !_compilationsValid) { return; }
+        if (scriptId<=0 || resourceName.size()>4096 || actualCode.size()>4194304) {
+            _compilationsValid=false;return;
+        }
+        for (const auto character:resourceName) { if (character.unicode()<32) { _compilationsValid=false;return; } }
+        const auto epoch=QDateTime::currentMSecsSinceEpoch();
+        if (epoch<=0 || epoch<_compiledEpochMs) { _compilationsValid=false;return; }
+        QByteArray bytes;bytes.reserve(actualCode.size()*2);
+        for (const auto character:actualCode) {
+            const auto unit=character.unicode();bytes.append(static_cast<char>(unit & 0xff));
+            bytes.append(static_cast<char>((unit >> 8) & 0xff));
+        }
+        const QVariantMap row{{"scriptId",scriptId},{"resourceName",resourceName},{"encoding","utf-16le-code-units"},
+            {"codeUnits",actualCode.size()},{"sha256",QString::fromLatin1(QCryptographicHash::hash(bytes,QCryptographicHash::Sha256).toHex())},
+            {"compiledEpochMs",epoch}};
+        if (_compilations.contains(scriptId)) {
+            // V8 may reuse a cached original Script on another compile of the
+            // same source. Preserve its first original time; never relabel it.
+            auto original=_compilations.value(scriptId);auto current=row;
+            original.remove("compiledEpochMs");current.remove("compiledEpochMs");
+            if (original!=current) { _compilationsValid=false; }
+            return;
+        }
+        if (_compilations.size()>=256) { _compilationsValid=false;return; }
+        _compilations.insert(scriptId,row);_compiledEpochMs=epoch;
+    }
+    QVariantMap compiledSources() const {
+        std::lock_guard<std::mutex> lock(_mutex);
+        if (_instance.isEmpty() || !_compilationsValid) { return {{"compiledSourcesVersion",1},{"complete",false}}; }
+        QVariantList rows;
+        for (auto it=_compilations.cbegin();it!=_compilations.cend();++it) { rows.append(it.value()); }
+        return {{"compiledSourcesVersion",1},{"complete",true},{"compilations",rows}};
+    }
+    QVariantMap compilation(int scriptId) const {
+        std::lock_guard<std::mutex> lock(_mutex);
+        if (_instance.isEmpty() || !_compilationsValid || scriptId<=0) { return {}; }
+        return _compilations.value(scriptId);
+    }
     // Observe the original assigned load URL before ScriptCache dispatch.
     // Pending managers are not yet in the public running-script hash.
     void assignedLoadURL(const QUrl& url, quint64 generation) {
@@ -93,6 +136,9 @@ private:
     int _codeUnits {0};
     qint64 _submittedEpochMs {0};
     QString _codeDigest;
+    bool _compilationsValid {true};
+    qint64 _compiledEpochMs {0};
+    QMap<int,QVariantMap> _compilations;
     bool _loadSourceValid {true};
     QString _loadURL;
     quint64 _loadGeneration {0};
