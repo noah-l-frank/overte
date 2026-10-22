@@ -10,14 +10,16 @@ from ios.adapters.emote_marker_recovery import IOSEmoteMarkerRecovery
 from ios.adapters.web_closures import drained_owned_resources
 
 
-def extend(scope,pointers):
+def extend(scope,pointers,*,keys=None):
     """No timer wait is claimed: actual original histories cover the interval."""
     need(isinstance(scope,IOSEmoteMarkerScope) and isinstance(pointers,IOSEmotePointers))
     scope.bound();IOSEmoteMarkerRecovery(scope).recover()
     need(scope.state['phase']=='released' and scope.state['pending'] is None and len(scope.state['quiet'])>=3)
     quiet=[scope.frames[index-1] for index in scope.state['quiet']];baseline=scope.frames[scope.state['baseline']-1]
     need(scope.quiet_interval(quiet[0],quiet[-1]))
+    if keys is not None:keys.abandon();keys.capture()
     pointers.abandon();pointers.capture();frame=scope.capture('retirement-fresh-end');pointers.capture()
+    if keys is not None:keys.capture()
     scope.ui_absent(frame);scope.dialog_drained(frame)
     before=quiet[0]['clockJoin']['nativeAfter'];after=frame['clockJoin']['nativeAfter']
     need(after['animation']['overrideActive'] is False and before['animation']['history']['callSequence']==after['animation']['history']['callSequence']
@@ -31,4 +33,6 @@ def extend(scope,pointers):
         drain=drained_partial if scope.state['cleanupMode'] in ('partial-execution','finished-execution') else drained_owned_resources
         drain(frame['web'],scope.frames[scope.state['webAdmission']-1]['web'])
     candidate=list(scope.state['quiet'])+[len(scope.frames)]
-    pointers.quiet([scope.frames[index-1] for index in candidate]);scope.state['quiet']=candidate;scope.save();return True
+    pointers.quiet([scope.frames[index-1] for index in candidate])
+    if keys is not None:keys.quiet([scope.frames[index-1] for index in candidate])
+    scope.state['quiet']=candidate;scope.save();return True

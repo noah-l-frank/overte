@@ -20,6 +20,14 @@ from ios.adapters import emote_operation
 
 
 class IOSEmoteRuntime(IOSScriptRuntime):
+    def _emote_feature(self,selector,run,*,role,client,settings):
+        from ios.adapters.emote_configuration import settings as validate_settings
+        from ios.adapters.emote_feature import IOSEmoteFeature
+        need(role in ('primary','actor') and client is not None)
+        selected=validate_settings(settings,role=role,target=selector)
+        return IOSEmoteFeature(self,selector,client,run,role,selected['artifactRoot'],selected['imagePolicy'],
+            primary_selector=selected.get('primaryTarget'),actor_selector=selected.get('actorTarget'))
+
     def operation_guard(self,guard):return emote_operation.scope(self,guard)
 
     def _sources(self,selector):

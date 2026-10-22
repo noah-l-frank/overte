@@ -10,6 +10,7 @@ import stat
 from contracts import validate_operation_arguments
 from ios.adapters.create_api_clock import installed_entry as create_api_entry
 from ios.adapters.emote_api_entry import installed_entry as emote_api_entry
+from ios.adapters.emote_session_cleanup import session_entry as emote_session_entry,ensure_finalized as finalize_emotes
 from adapters.normal_feature_state import PrivateFeatureState
 from ios.adapters.adapter import IOSNativeMixin
 from ios.adapters.feature_observation import FeatureObservation
@@ -327,6 +328,10 @@ def create_physical_adapter(args, base_class, preflight, *, cleanup_only=False):
                         from ios.adapters.create_runtime import IOSCreateRuntime
                         config=configuration();runtime=IOSCreateRuntime(self)
                         flow=runtime._create_feature(selector,values['runId'],role='primary',client=reader(config),settings=config['create'])
+                    elif operation.split('.')[1]=='emotes':
+                        from ios.adapters.emote_runtime import IOSEmoteRuntime
+                        config=configuration();runtime=IOSEmoteRuntime(self)
+                        flow=runtime._emote_feature(selector,values['runId'],role='primary',client=reader(config),settings=config['emotes'])
                     elif operation.split('.')[1]=='authentication':
                         from ios.adapters.authentication_runtime import IOSAuthenticationRuntime
                         runtime=IOSAuthenticationRuntime(self,reader(configuration()),values['runId'])
@@ -365,7 +370,9 @@ def create_physical_adapter(args, base_class, preflight, *, cleanup_only=False):
             finally:
                 self._operation = self._retiring = None
 
+        @emote_session_entry
         def cleanup(self, selector):
+            need(finalize_emotes(self,selector))
             # Graphics has its own paired original-world/final-Stop protocol.
             # Its durable handoff survives metadata retirement and a lost SDK
             # DELETE return. Never fall through to another terminate on error.
@@ -391,7 +398,7 @@ def create_physical_adapter(args, base_class, preflight, *, cleanup_only=False):
                     need(self.component_owners_absent(selector))
                     transaction=IOSGraphicsSessionRetirement.from_receipt(IOSGraphicsRuntime(self),selector,graphics_receipt)
                     return transaction.historical(graphics_receipt)
-                config=configuration();need(config is not None and config['iosFeatureAdapterVersion'] in (2,3) and 'graphics' in config['areas'])
+                config=configuration();need(config is not None and config['iosFeatureAdapterVersion'] in (2,3,4) and 'graphics' in config['areas'])
                 transaction=IOSGraphicsSessionRetirement(IOSGraphicsRuntime(self),selector,reader(config),config['graphics'],original)
                 need(self.cleanup_components(selector) and self.component_owners_absent(selector))
                 return transaction.finalize()

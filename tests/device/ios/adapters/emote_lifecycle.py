@@ -75,7 +75,8 @@ class IOSEmoteBackground:
     def send(self,operation):
         self.bound();need(operation in ('lifecycle.background','app.launch')
             and self.state['phase']==('background-issued' if operation=='lifecycle.background' else 'foreground-issued'))
-        base=self.runtime.adapter;outer=base._operation;need(outer in (None,'feature.emotes.act'))
+        base=self.runtime.adapter;outer=base._operation
+        need(outer in (None,'feature.emotes.act') or outer=='feature.emotes.cleanup' and operation=='app.launch')
         # Candidate/source and same SDK session stay under the canonical adapter.
         # The durable phase already owns this one ordinary lifecycle delivery.
         base._operation=None

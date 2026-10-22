@@ -8,10 +8,10 @@ from adapters.normal_feature_state import PrivateFeatureState
 from adapters.feature_fixture_access import client as fixture_client
 from ios.adapters.normal_scripts import configuration as scripts_configuration
 
-VERSION=3
-READS=(1,2,3)
-AREAS=frozenset(('scripts','authentication','graphics','create'))
-COMPLETE_AREAS=frozenset(('scripts','authentication','graphics','create'))
+VERSION=4
+READS=(1,2,3,4)
+AREAS=frozenset(('scripts','authentication','graphics','create','emotes'))
+COMPLETE_AREAS=frozenset(('scripts','authentication','graphics','create','emotes'))
 OPERATIONS=frozenset('feature.'+area+'.'+kind for area in AREAS for kind in ('act','observe','cleanup'))
 
 
@@ -27,8 +27,8 @@ def configuration(path=None):
 def validate(value):
     need(type(value) is dict and type(value.get('iosFeatureAdapterVersion')) is int and value['iosFeatureAdapterVersion'] in READS)
     version=value['iosFeatureAdapterVersion']
-    exact(value,{'iosFeatureAdapterVersion','areas','fixtureConfig'}|({'graphics'} if version>=2 else set())|({'create'} if version>=3 else set()))
-    allowed=AREAS if version>=3 else AREAS-{'create'} if version==2 else AREAS-{'graphics','create'}
+    exact(value,{'iosFeatureAdapterVersion','areas','fixtureConfig'}|({'graphics'} if version>=2 else set())|({'create'} if version>=3 else set())|({'emotes'} if version>=4 else set()))
+    allowed=AREAS if version>=4 else AREAS-{'emotes'} if version==3 else AREAS-{'create','emotes'} if version==2 else AREAS-{'graphics','create','emotes'}
     need(type(value['iosFeatureAdapterVersion']) is int
          and type(value['areas']) is list and 1<=len(value['areas'])<=len(AREAS)
          and all(type(area) is str and area in allowed for area in value['areas'])
@@ -44,6 +44,11 @@ def validate(value):
             from ios.adapters.create_configuration import settings
             settings(value['create'])
         else:need(value['create'] is None)
+    if version>=4:
+        if 'emotes' in value['areas']:
+            from ios.adapters.emote_configuration import settings
+            settings(value['emotes'])
+        else:need(value['emotes'] is None)
     return value
 
 

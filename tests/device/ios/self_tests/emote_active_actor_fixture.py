@@ -19,7 +19,6 @@ from adapters.native_avatar_receive import NativeAvatarReceive
 from adapters.native_feature_observation import NativeFeatureObservation
 from adapters.native_vulkan_world_frame import NativeVulkanWorldFrame
 from adapters.normal_feature_state import PrivateFeatureState
-from adapters.script_feature.lock import ScriptSourceLock
 from feature_journeys.phase_fixture import PhaseFixtureReader
 from feature_journeys.witness import Client
 from ios.adapters.emote_marker_files import OwnedEmoteMarkerFiles
@@ -69,8 +68,8 @@ class SharedClockDomain(RunningDomain):
 
 
 class ActiveActorFixture:
-    def __init__(self,test,primary):
-        self.primary=primary;fixture=MarkerScopeTests();fixture.setUp();test.addCleanup(fixture.tearDown)
+    def __init__(self,test,primary,*,defer_setup=False):
+        self.primary=primary;fixture=self.fixture=MarkerScopeTests();fixture.setUp();test.addCleanup(fixture.tearDown)
         self.root,self.lock=fixture.root,fixture.lock;self.scope=fixture.owner(ACTOR);s=self.scope
         s.role='actor';s.store=PrivateFeatureState(self.root/'ios-emote-actor-marker.json')
         s.files=OwnedEmoteMarkerFiles(None,PrivateFeatureState(self.root/'ios-emote-actor-marker-files.json'),ACTOR)
@@ -95,12 +94,14 @@ class ActiveActorFixture:
         test.addCleanup(self.socket.close);test.addCleanup(self.sender.close)
         self.runtime=object.__new__(IOSScriptRuntime);self.runtime.state_path=lambda _:self.root/'session.json'
         self.runtime._sources=self.runtime_sources;self.runtime._avatar_receive=lambda _:self.receive_reader()
-        self.policy=deepcopy(primary.policy);s.prepare();d.paint();s.admit_rendered()
+        self.policy=deepcopy(primary.policy)
+        if not defer_setup:s.prepare();d.paint();s.admit_rendered()
         source_root=self.root/'primary-sdk-originals';source_root.mkdir(mode=0o700)
-        source_lock=ScriptSourceLock(source_root/'script-feature-sources.lock');held=source_lock.held();held.__enter__();test.addCleanup(held.__exit__,None,None,None)
         # Independent actual reads of the primary producer, never primary facts
         # or its archived Source frames. The primary SDK lock is already held.
-        self.sources=IOSEmoteSources(PrivateFeatureState(source_root/'ios-emote-actor-sources.json'),source_root,BINDING,RUN,'actor',source_lock,
+        # Its fixed-channel metadata uses that exact SDK lock and directory;
+        # immutable originals still belong only to the Actor artifact root.
+        self.sources=IOSEmoteSources(PrivateFeatureState(primary.root/'ios-emote-actor-sources.json'),source_root,BINDING,RUN,'actor',primary.lock,
             lambda:True,self.phase,readers=primary.sources.readers,epoch_ms=s.epoch_ms,monotonic=s.monotonic)
         self.peers=IOSEmotePeerSources(PrivateFeatureState(self.root/'ios-emote-actor-peer-sources.json'),self.root,ACTOR,RUN,self.phase,self.lock,
             lambda:True,runtime=self.runtime,selector='actor',epoch_ms=s.epoch_ms,monotonic=s.monotonic)
@@ -162,11 +163,12 @@ class ActiveActorFixture:
         image=Image.new('RGBA',(1600,1000),(75,85,100,255));draw=ImageDraw.Draw(image)
         draw.rectangle((740,550,860,820),fill=(70,110,180,255));offset=round((self.remote_pose[0][4]-.1)*100)
         draw.rectangle((760+offset,560,779+offset,800),fill=(220,65,30,255))
-        box=projected_box(self.domain.marker,self.recorded_view(),[1600,1000])
-        with urlopen(self.primary.url+'current',timeout=2) as response:ticket=json.load(response)['ticket']
-        with urlopen(self.primary.url+'tickets/'+ticket+'/marker.png',timeout=2) as response:raw=response.read()
-        bounds=(math.floor(box[0]),math.floor(box[1]),math.ceil(box[2]),math.ceil(box[3]))
-        bitmap=Image.open(BytesIO(raw)).convert('RGBA');image.paste(bitmap.resize((bounds[2]-bounds[0],bounds[3]-bounds[1]),Image.Resampling.NEAREST),bounds[:2])
+        if self.domain.running:
+            box=projected_box(self.domain.marker,self.recorded_view(),[1600,1000])
+            with urlopen(self.primary.url+'current',timeout=2) as response:ticket=json.load(response)['ticket']
+            with urlopen(self.primary.url+'tickets/'+ticket+'/marker.png',timeout=2) as response:raw=response.read()
+            bounds=(math.floor(box[0]),math.floor(box[1]),math.ceil(box[2]),math.ceil(box[3]))
+            bitmap=Image.open(BytesIO(raw)).convert('RGBA');image.paste(bitmap.resize((bounds[2]-bounds[0],bounds[3]-bounds[1]),Image.Resampling.NEAREST),bounds[:2])
         stream=BytesIO();image.save(stream,format='PNG');return stream.getvalue(),image.tobytes()
 
     def vulkan(self,intent,receipt):

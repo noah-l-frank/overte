@@ -257,6 +257,28 @@ class IOSEmoteObserver:
             if kind=='playback':proof['inputBarrier']=None
         self.decoder.state(current,proof,ticket);return proof
 
+    def recover_owned_episode(self,before,current):
+        """Retain a measured episode skipped by an interrupted public read.
+
+        The caller supplies its durable ordinary-input barrier. All playback
+        facts still come from the retained native caller/clip/evaluation history.
+        No public playback result or missing image is fabricated here.
+        """
+        self.bound();need(self.role=='primary' and self.state['pending'] is None and self.state['baseline'] is not None)
+        original=self.decoder.source(before);reference=self.source_reference()
+        need(before['index']>=self.state['baseline']['index'] and before['index']<reference['index']
+            and same(current,self.decoder.source(reference)))
+        measured=playback(current['group'],original['group']['native'],pid=self.decoder.pid,
+            epoch=current['clockJoin']['nativeAfter']['capturedEpochMs'])
+        previous=self.state['episode']
+        if previous is not None:
+            old=self.decoder.source(previous['played'])['group']['native']['animation']['history']['overrideSequence']
+            actual=current['group']['native']['animation']['history']['overrideSequence']
+            need(actual>=old)
+            if actual==old:return
+        self.state['episode']=dict(before=deepcopy(before),played=reference);self.save()
+        return measured
+
     def episode_comparison(self,proof):
         """Retain the episode's actual active image/peer through quiet reads.
 

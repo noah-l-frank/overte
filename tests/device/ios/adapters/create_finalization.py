@@ -15,7 +15,9 @@ from ios.adapters.create_final_archive import CreateFinalArchive
 def no_orphan_carriers(directory,config):
     """Missing coordinator metadata cannot erase retained ownership originals."""
     directories={directory}
-    if type(config) is dict and config.get('iosFeatureAdapterVersion')==3 and 'create' in config.get('areas',[]):
+    if type(config) is dict and 'create' in config.get('areas',[]):
+        from ios.adapters.feature_configuration import validate
+        validate(config)
         from ios.adapters.create_configuration import settings
         directories.add(Path(settings(config['create'])['artifactRoot']))
     prefixes=('ios-create-','phase-publication-create-','phase-retirement-create-')
