@@ -7,6 +7,7 @@ retained original packet is rewritten to bridge otherwise unrelated fixtures.
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
 import json
+from urllib.parse import parse_qs,urlsplit
 from unittest.mock import patch
 
 from adapters.native_navigation_replies import NativeNavigationReplies
@@ -48,6 +49,7 @@ class Whole:
         self.sdk.navigation.sequence=initial['navigation']['sequence']
         self.sdk.native_boundary.sequence=f.f.admission.native.sequence
         self.fetch_directory=True
+        self.ignore_motion=False
         inventory=f.h.fixture.inventory
         self.inventory,self.run_source=inventory,run_source
         def loads(value):
@@ -98,9 +100,16 @@ class Whole:
             return value
         f.b.observed=ui
         self.native=self.sdk.native();self.navigation=self.sdk.navigation.reader()
+        f.f.admission.native=self.native
         f.runtime._navigation_observer=lambda _selector,_client,_run,role,_stage,_root,_lock:self.observer(role,lock=_lock)
         from ios.self_tests.navigation_feature_places_fixture import PlacesWidget
         self.widget=PlacesWidget(self,test)
+        from ios.adapters.navigation_composite_actions import NavigationCompositeActions
+        def composite(selector,admission):
+            return NavigationCompositeActions(PrivateFeatureState(self.root/'ios-navigation-composite-actions.json'),
+                f.runtime._navigation_surface_actions(selector,admission),f.runtime._navigation_places_actions(selector,admission),
+                self.navigation,epoch_ms=self.now,monotonic=self.mono)
+        f.runtime._navigation_composite_actions=composite
 
     def sync_navigation(self):
         current=self.flow_fixture.b.current
@@ -113,6 +122,12 @@ class Whole:
             inventory.revision=inventory.after_revision=3;inventory.commit()
         self.sdk.navigation.url=current;self.sdk.navigation.source=deepcopy(self.run_source)
         self.sdk.navigation.source['sceneUrl']=current
+        if not self.ignore_motion:
+            location=parse_qs(urlsplit(current).query)['location'][0].split('/')
+            feet=list(map(float,location[1].split(',')));rotation=list(map(float,location[2].split(',')))
+            offset=[a-b for a,b in zip(self.run_source['view']['position'],self.run_source['avatar']['feetPosition'])]
+            self.sdk.navigation.source['avatar'].update(feetPosition=feet,orientation=rotation)
+            self.sdk.navigation.source['view'].update(position=[a+b for a,b in zip(feet,offset)],rotation=rotation)
 
     def observer(self,role='primary',*,lock=None):
         lock=self.lock if lock is None else lock

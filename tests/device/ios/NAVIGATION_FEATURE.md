@@ -88,7 +88,7 @@ source/image owners. Search materialization executes the unchanged original
 JavaScript/QML against the actual retained HTTP body. An ignored tab input
 retains its issued journal across reconstruction without saving a bookmark or
 repeating delivery. No frozen admission/source packet is rewritten to connect
-these paths. Restart, missing-lookup and final restoration joins remain partial.
+these paths. Restart and final restoration joins remain partial.
 
 The active named-lookup path now independently joins its genuine provider 404,
 native error callback and owned Qt modal before full field/image acquisition.
@@ -100,3 +100,11 @@ root stays retained responsibility. Partial or foreign error sources and an
 unresolved Cancel cannot become a successful dismissal through parent recovery.
 The connected host fixture retains a real HTTP 404 before delivering its modeled
 native event-loop callback. No received fixture value becomes a product verdict.
+
+The connected directory-select path now sends the actual original row token,
+independently observes the new native B scene/pose and closes the owned tablet
+through its ordinary controls. Ignored physical motion keeps a complete not-ready
+frame and the selection responsibility. A later real arrival acquires a distinct
+new frame before close; it never repeats the selection or rewrites the earlier
+not-ready original. Fenced B pixels and fresh field sources are acquired after
+closure, separately from the input return.
