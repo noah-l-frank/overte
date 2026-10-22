@@ -103,6 +103,7 @@
 #include "../../../tests/device/native/IOSWorldWebWorkObservation.h"
 #include "../../../tests/device/native/IOSWorldWebKeysObservation.h"
 #include "../../../tests/device/native/IOSWorldWebGeometryObservation.h"
+#include "../../../tests/device/native/IOSWorldWebSurfacesObservation.h"
 #include "../../../tests/device/native/IOSWorldWebSnapshot.h"
 #include "../../../tests/device/native/PrivateCreateFiles.h"
 #include "../AvatarBookmarks.h"
@@ -943,6 +944,26 @@ QVariantMap TestScriptingInterface::featureIOSWorldWebGeometry(const QVariantMap
     if (!entities || !entities->getEntityTree()) { return {}; }
     if (!_featureIOSWorldWebGeometry) { _featureIOSWorldWebGeometry=std::make_shared<overte::e2e::IOSWorldWebGeometryObservation>(); }
     return _featureIOSWorldWebGeometry->read(request,run,entities.data());
+}
+
+QVariantMap TestScriptingInterface::featureIOSWorldWebSurfaces(const QVariantMap& command) {
+    if (QThread::currentThread()!=thread()) {
+        if (!thread() || !thread()->isRunning()) { return {}; }
+        QVariantMap result;
+        if (!QMetaObject::invokeMethod(this,[&] { result=featureIOSWorldWebSurfaces(command); },Qt::BlockingQueuedConnection)) { return {}; }
+        return result;
+    }
+    QStringList fields {"schemaVersion","commandId","action","runId"};fields.sort();
+    const auto json=QJsonObject::fromVariantMap(command);
+    const auto request=command.value("commandId").toString(),run=command.value("runId").toString();
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript") || command.keys()!=fields
+            || json.value("schemaVersion")!=QJsonValue(1) || json.value("action")!=QJsonValue("feature-ios-world-web-surfaces")
+            || !json.value("commandId").isString() || !json.value("runId").isString()
+            || !QRegularExpression("\\Aios-[0-9a-f]{32}\\z").match(request).hasMatch()
+            || !QRegularExpression("\\A[0-9a-f]{32}\\z").match(run).hasMatch()) { return {}; }
+    if (!_featureIOSWorldWebSurfaces) { _featureIOSWorldWebSurfaces=std::make_shared<overte::e2e::IOSWorldWebSurfacesObservation>(); }
+    return _featureIOSWorldWebSurfaces->read(request,run);
 }
 
 QVariantMap TestScriptingInterface::featureIOSCreateState(const QVariantMap& command) {
@@ -2601,7 +2622,7 @@ void TestScriptingInterface::saveObject(QVariant variant, const QString& filenam
     // Other source writers keep their original encoding.
     if (filename=="feature-ios-snapshot-file-work.json" || filename=="feature-ios-snapshot-inputs.json" || filename=="feature-ios-snapshot-work.json" || filename=="feature-ios-snapshot-exports.json" || filename=="feature-ios-snapshot-captures.json"
             || filename=="feature-ios-tablet-web-dom.json" || filename=="feature-ios-tablet-web-deferred.json" || filename=="feature-ios-tablet-web-defer.json" || filename=="feature-ios-tablet-app-buttons.json" || filename=="feature-ios-uikit-input.json" || filename=="feature-ios-tablet-web-closures.json" || filename=="feature-ios-tablet-web.json" || filename=="feature-ios-tablet-sources.json" || filename=="feature-ios-world-web.json" || filename=="feature-ios-world-web-dom.json"
-            || filename=="feature-ios-world-web-work.json" || filename=="feature-ios-world-web-geometry.json"
+            || filename=="feature-ios-world-web-work.json" || filename=="feature-ios-world-web-geometry.json" || filename=="feature-ios-world-web-surfaces.json"
             || filename=="feature-ios-world-web-keys.json" || filename=="feature-ios-world-web-snapshot.json") {
         jsonData=jsonDocument.toJson(QJsonDocument::Compact);
     }
@@ -2615,7 +2636,7 @@ void TestScriptingInterface::saveObject(QVariant variant, const QString& filenam
     QString filepath = QDir::cleanPath(_testResultsLocation + filename);
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     if (filename == "feature-ios-snapshot-file-work.json" || filename == "feature-ios-snapshot-inputs.json" || filename == "feature-chat-observation.json" || filename == "feature-native-observation.json" || filename == "normal-feature-observation.json"
-            || filename == "feature-ios-world-web-snapshot.json" || filename == "feature-ios-world-web-keys.json" || filename == "feature-ios-world-web-work.json" || filename == "feature-ios-world-web-geometry.json"
+            || filename == "feature-ios-world-web-snapshot.json" || filename == "feature-ios-world-web-keys.json" || filename == "feature-ios-world-web-work.json" || filename == "feature-ios-world-web-geometry.json" || filename == "feature-ios-world-web-surfaces.json"
             || filename == "feature-ios-tablet-web-dom.json" || filename == "feature-ios-tablet-web-deferred.json" || filename == "feature-ios-tablet-web-defer.json" || filename == "feature-ios-tablet-app-buttons.json" || filename == "feature-ios-uikit-input.json" || filename == "feature-ios-tablet-web-closures.json" || filename == "feature-ios-tablet-web.json" || filename == "feature-ios-tablet-sources.json" || filename == "feature-ios-world-web.json" || filename == "feature-ios-world-web-dom.json"
             || filename == "feature-ios-web-closures.json" || filename == "feature-ios-location-bookmarks.json" || filename == "feature-ios-places-model.json" || filename == "feature-ios-places-http.json" || filename == "feature-ios-navigation-dialogs.json" || filename == "feature-ios-navigation-state.json" || filename == "feature-ios-scene-inventory.json" || filename == "feature-chat-view-observation.json" || filename == "feature-web-dom-observation.json"
             || filename == "feature-pending-commit-owner.json" || filename == "feature-navigation-replies.json"

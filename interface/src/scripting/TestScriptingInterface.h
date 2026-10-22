@@ -31,7 +31,7 @@ namespace overte::e2e { class IOSNavigationStateObservation; }
 namespace overte::e2e { class IOSAvatarRenderersObservation; class IOSAvatarScriptsObservation; class IOSAvatarEntitiesObservation; }
 namespace overte::e2e { class IOSEmoteWorldObservation; class IOSAvatarWorldObservation; }
 namespace overte::e2e { class IOSCreateStateObservation; class IOSCreateEntitiesObservation; }
-namespace overte::e2e { class IOSPointerStateObservation; class IOSWorldWebGeometryObservation; class IOSWorldWebSnapshotObservation; }
+namespace overte::e2e { class IOSPointerStateObservation; class IOSWorldWebGeometryObservation; class IOSWorldWebSurfacesObservation; class IOSWorldWebSnapshotObservation; }
 namespace overte::e2e { class IOSAvatarStateObservation; }
 namespace overte::e2e { class NativeReadBracket; }
 #endif
@@ -208,6 +208,7 @@ public slots:
     Q_INVOKABLE QVariantMap featureIOSWorldWebWork(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureIOSWorldWebKeys(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureIOSWorldWebGeometry(const QVariantMap& command);
+    Q_INVOKABLE QVariantMap featureIOSWorldWebSurfaces(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureIOSTabletSources(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureIOSTabletWeb(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureIOSTabletWebDeferred(const QVariantMap& command);
@@ -319,6 +320,7 @@ private:
     std::shared_ptr<overte::e2e::IOSCreateEntitiesObservation> _featureIOSCreateEntities;
     std::shared_ptr<overte::e2e::IOSPointerStateObservation> _featureIOSPointerState;
     std::shared_ptr<overte::e2e::IOSWorldWebGeometryObservation> _featureIOSWorldWebGeometry;
+    std::shared_ptr<overte::e2e::IOSWorldWebSurfacesObservation> _featureIOSWorldWebSurfaces;
     std::shared_ptr<overte::e2e::IOSWorldWebSnapshotObservation> _featureIOSWorldWebSnapshot;
     std::shared_ptr<overte::e2e::IOSCreateStateObservation> _featureIOSCreateState;
     std::shared_ptr<overte::e2e::IOSAvatarStateObservation> _featureIOSAvatarState;

@@ -32,6 +32,9 @@
 
 #include <gl/GLHelpers.h>
 #include <ui/OffscreenQmlSurface.h>
+#if defined(Q_OS_IOS) && defined(OVERTE_E2E_FEATURE_TESTS)
+#include <ui/OffscreenQmlSurfaceCache.h>
+#endif
 #include <ui/TabletScriptingInterface.h>
 #include <EntityScriptingInterface.h>
 #include <shared/LocalFileAccessGate.h>
@@ -672,6 +675,12 @@ void WebEntityRenderer::buildWebSurface(const EntityItemPointer& entity, const Q
     // A cached surface can return to the same renderer with a different owner
     // lifetime. Keep queued root creation from an earlier acquisition inert.
     _webSurfaceLease = QSharedPointer<int>::create(0);
+#if defined(Q_OS_IOS) && defined(OVERTE_E2E_FEATURE_TESTS)
+    if (_cachedWebSurface && DependencyManager::isSet<OffscreenQmlSurfaceCache>()) {
+        const auto cache=DependencyManager::get<OffscreenQmlSurfaceCache>();
+        if (cache) { cache->featureWebRendererLease(_webSurface,_webSurfaceLease,entity->getID().toString(QUuid::WithoutBraces),newSourceURL); }
+    }
+#endif
     const auto lease = _webSurfaceLease;
     const QWeakPointer<OffscreenQmlSurface> weakSurface(_webSurface);
     _connections.push_back(QObject::connect(_webSurface.data(), &::hifi::qml::OffscreenSurface::rootItemCreated,

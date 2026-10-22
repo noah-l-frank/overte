@@ -178,6 +178,9 @@ class FeatureObservation:
             world_snapshot_command(command)
         elif command.get('action')=='feature-ios-world-web':world_web_command(command)
         elif command.get('action')=='feature-ios-world-web-dom':world_web_dom_command(command)
+        elif command.get('action')=='feature-ios-world-web-surfaces':
+            from ios.adapters.world_web_surfaces import command as world_surfaces_command
+            world_surfaces_command(command)
         elif command.get('action')=='feature-ios-world-web-geometry':world_web_geometry_command(command)
         elif command.get('action')=='feature-ios-world-web-work':world_web_work_command(command)
         elif command.get('action')=='feature-ios-world-web-keys':world_web_keys_command(command)
@@ -623,6 +626,14 @@ class FeatureObservation:
         return IOSWorldWebWork(self.send,lambda:self.original(remote=remote,limit=WORLD_WEB_WORK_LIMIT),
             clock,self.guard,self.process['pid'],monotonic=self.monotonic,sleep=self.sleep)
 
+
+    def world_web_surfaces(self,clock_source=None):
+        from ios.adapters.world_web_surfaces import IOSWorldWebSurfaces,FILE,LIMIT
+        self.guard();remote=self.remote.rsplit('/',1)[0]+'/'+FILE
+        if clock_source is None:clock_source=self.native_observer()
+        def clock():return clock_source.read(clock_source.sequence)['capturedEpochMs']
+        return IOSWorldWebSurfaces(self.send,lambda:self.original(remote=remote,limit=LIMIT),
+            clock,self.guard,self.process['pid'],monotonic=self.monotonic,sleep=self.sleep)
 
     def world_web_geometry(self,clock_source=None):
         self.guard();remote=self.remote.rsplit('/',1)[0]+'/'+WORLD_WEB_GEOMETRY_FILE

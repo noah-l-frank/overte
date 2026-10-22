@@ -9,6 +9,9 @@
 
 #include <QtGui/QOpenGLContext>
 #include <QtQml/QQmlContext>
+#if defined(Q_OS_IOS) && defined(OVERTE_E2E_FEATURE_TESTS)
+#include <QtQuick/QQuickItem>
+#endif
 
 #include <PathUtils.h>
 #include "OffscreenQmlSurface.h"
@@ -25,9 +28,15 @@ QSharedPointer<OffscreenQmlSurface> OffscreenQmlSurfaceCache::acquire(const QStr
     auto& list = _cache[rootSource];
     if (list.empty()) {
         list.push_back(buildSurface(rootSource));
+#if defined(Q_OS_IOS) && defined(OVERTE_E2E_FEATURE_TESTS)
+        _featureWebSurfaces.cached(list.back(),"reserved");
+#endif
     }
     auto result = list.front();
     list.pop_front();
+#if defined(Q_OS_IOS) && defined(OVERTE_E2E_FEATURE_TESTS)
+    _featureWebSurfaces.acquired(result);
+#endif
     return result;
 }
 
@@ -35,6 +44,9 @@ void OffscreenQmlSurfaceCache::reserve(const QString& rootSource, int count) {
     auto& list = _cache[rootSource];
     while (list.size() < count) {
         list.push_back(buildSurface(rootSource));
+#if defined(Q_OS_IOS) && defined(OVERTE_E2E_FEATURE_TESTS)
+        _featureWebSurfaces.cached(list.back(),"reserved");
+#endif
     }
 }
 
@@ -42,10 +54,21 @@ void OffscreenQmlSurfaceCache::release(const QString& rootSource, const QSharedP
     PROFILE_RANGE(app, "buildSurface");
     surface->pause();
     _cache[rootSource].push_back(surface);
+#if defined(Q_OS_IOS) && defined(OVERTE_E2E_FEATURE_TESTS)
+    _featureWebSurfaces.cached(surface,"released");
+#endif
 }
 
 QSharedPointer<OffscreenQmlSurface> OffscreenQmlSurfaceCache::buildSurface(const QString& rootSource) {
     auto surface = QSharedPointer<OffscreenQmlSurface>::create();
+#if defined(Q_OS_IOS) && defined(OVERTE_E2E_FEATURE_TESTS)
+    _featureWebSurfaces.built(rootSource,surface);
+    const auto featureRoot = _featureWebSurfaces.rootCallback(surface);
+    if (featureRoot) {
+        QObject::connect(surface.data(), &hifi::qml::OffscreenSurface::rootItemCreated, QCoreApplication::instance(),
+            [featureRoot](QQuickItem* root) { featureRoot(root); }, Qt::DirectConnection);
+    }
+#endif
 
     QObject::connect(surface.data(), &hifi::qml::OffscreenSurface::rootContextCreated, [this, rootSource](QQmlContext* surfaceContext) {
         if (_onRootContextCreated) {

@@ -595,6 +595,12 @@ class FixtureState:
             try:world_snapshot_command(command)
             except (ValueError,RuntimeError):raise ValueError("invalid iOS world Web snapshot request") from None
             valid=True
+        elif action == "feature-ios-world-web-surfaces":
+            sys.path.insert(0,str(ROOT.parent))
+            from ios.adapters.world_web_surfaces import command as world_surfaces_command
+            try:world_surfaces_command(command)
+            except (ValueError,RuntimeError):raise ValueError("invalid iOS world Web surface ownership request") from None
+            valid=True
         elif action == "feature-ios-world-web-keys":
             sys.path.insert(0,str(ROOT.parent))
             from ios.adapters.world_web_keys import command as world_web_keys_command

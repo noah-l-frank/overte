@@ -12,6 +12,9 @@
 #include "DependencyManager.h"
 
 #include <QtCore/QSharedPointer>
+#if defined(Q_OS_IOS) && defined(OVERTE_E2E_FEATURE_TESTS)
+#include "IOSWebSurfaceOwnership.h"
+#endif
 
 class QQmlContext;
 class OffscreenQmlSurface;
@@ -28,7 +31,17 @@ public:
     void reserve(const QString& rootSource, int count = 1);
     void setOnRootContextCreated(const std::function<void(const QString& rootSource, QQmlContext* rootContext)> & onRootContextCreated);
 
+#if defined(Q_OS_IOS) && defined(OVERTE_E2E_FEATURE_TESTS)
+    // Passive source only; no dependency/session/cache allocation is performed.
+    QVariantMap featureWebSurfaceOwnership() const { return _featureWebSurfaces.read(); }
+    void featureWebRendererLease(const QSharedPointer<OffscreenQmlSurface>& surface,const QSharedPointer<int>& lease,
+        const QString& entity,const QString& source) { _featureWebSurfaces.rendererLease(surface,lease,entity,source); }
+#endif
+
 private:
+#if defined(Q_OS_IOS) && defined(OVERTE_E2E_FEATURE_TESTS)
+    overte::ios::IOSWebSurfaceOwnership _featureWebSurfaces;
+#endif
     QSharedPointer<OffscreenQmlSurface> buildSurface(const QString& rootSource);
     QHash<QString, QList<QSharedPointer<OffscreenQmlSurface>>> _cache;
     std::function<void(const QString& rootSource, QQmlContext* rootContext)> _onRootContextCreated;

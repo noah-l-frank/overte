@@ -422,8 +422,7 @@ class OriginalMarkerScope:
                 try:
                     self.restored_marker(baseline,current,owned,barrier);self.ui_absent(current);self.dialog_drained(current)
                     need(current['clockJoin']['nativeAfter']['animation']['overrideActive'] is False)
-                    drain=self.components.drained_partial if self.state['cleanupMode'] in ('partial-execution','finished-execution') else drained_owned_resources
-                    drain(current['web'],self.frames[self.state['webAdmission']-1]['web'])
+                    self.quiet_web(current,self.frames[self.state['webAdmission']-1])
                 except NativeUIError:self.state['quiet']=[]
                 else:self.state['quiet'].append(len(self.frames))
                 self.save()
@@ -435,6 +434,13 @@ class OriginalMarkerScope:
             need(self.state['phase']=='releasing-files')
         if self.state['phase']=='releasing-files':return self.release_files()
         return {'performed':True}
+
+    def quiet_web(self,current,admitted,*,partial=False):
+        # Existing Emote/Avatar/v1 behavior remains full resource drainage.
+        # A closed feature profile may override this only with its own later
+        # process-retirement owner; this hook supplies no final completion.
+        drain=self.components.drained_partial if partial or self.state['cleanupMode'] in ('partial-execution','finished-execution') else drained_owned_resources
+        return drain(current['web'],admitted['web'])
 
     @classmethod
     def ui_absent(cls,frame):
@@ -526,7 +532,7 @@ class OriginalMarkerScope:
                 need(current['world']['source']['tree']['entities']==baseline['world']['source']['tree']['entities']
                     and not current['world']['source']['markers'] and current['clockJoin']['nativeAfter']['animation']['overrideActive'] is False
                     and same(current['clockJoin']['nativeAfter']['graphics'],baseline['clockJoin']['nativeAfter']['graphics']))
-                self.components.drained_partial(current['web'],baseline['web'])
+                self.quiet_web(current,baseline,partial=True)
                 if self.state['directory'] is not None:
                     url=self.state['directory']+'/script-bundle/main.js';source=current['world']['source']['scriptOriginal']['source']
                     need(source.get('membershipSourceVersion')==1 and source['membership']['complete']
