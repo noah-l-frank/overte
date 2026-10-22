@@ -69,6 +69,9 @@ public slots:
     void focusDestroyed(QObject *obj);
     // script event bridge
     void emitScriptEvent(const QVariant& scriptMessage);
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    void featureEmitScriptEvent(const QVariant& message, const QVariant& nativeCapture);
+#endif
     // web event bridge
     void emitWebEvent(const QVariant& webMessage);
     // qml event bridge

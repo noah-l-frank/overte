@@ -276,6 +276,8 @@
     "ios-tablet-web-source-packet": {"current": 1, "reads": [1]},
     "ios-tablet-web-source-packet-frame": {"current": 1, "reads": [1]},
     "ios-tablet-web-source-packet-original": {"current": 1, "reads": [1]},
+    "ios-web-script-emissions": {"current": 1, "reads": [1]},
+    "ios-v8-script-stack": {"current": 1, "reads": [1]},
     "ios-tablet-web-source-segments": {"current": 1, "reads": [1]},
     "ios-tablet-web-source-segment-body": {"current": 1, "reads": [1]},
     "ios-tablet-web-source-segment-frame": {"current": 1, "reads": [1]},

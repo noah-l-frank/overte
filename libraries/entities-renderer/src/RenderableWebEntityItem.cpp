@@ -11,6 +11,7 @@
 #include "RenderableWebEntityItem.h"
 #if defined(Q_OS_IOS) && defined(OVERTE_E2E_FEATURE_TESTS)
 #include <shared/IOSFeatureImageTrace.h>
+#include "../../../tests/device/native/IOSWebScriptEmissions.h"
 #endif
 #include <algorithm>
 #include <array>
@@ -702,7 +703,27 @@ void WebEntityRenderer::buildWebSurface(const EntityItemPointer& entity, const Q
     synchronizeWebVisibility(entity->getVisible());
     _webSurface->resume();
 
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    if (overte::e2e::web_script_emissions::enabled()) {
+        // Qt itself owns Auto delivery and receiver cancellation. No foreign
+        // thread dereferences or posts through a checked weak receiver.
+        _connections.push_back(QObject::connect(this, &WebEntityRenderer::featureScriptEventReceived,
+            _webSurface.data(), &OffscreenQmlSurface::featureEmitScriptEvent, Qt::AutoConnection));
+        // Replace only the old Surface receiver at this original public-signal
+        // registration position. Sender 'this' is held by the actual caller;
+        // this relay never dereferences/posts the foreign-thread Surface.
+        _connections.push_back(QObject::connect(this, &WebEntityRenderer::scriptEventReceived,this,[this](const QVariant& message) {
+            QVariant nativeCapture;
+            try { nativeCapture=QVariant::fromValue(overte::e2e::web_script_emissions::queued(
+                overte::e2e::web_script_emissions::current(),"world-surface",message)); }
+            catch (...) { overte::e2e::web_script_emissions::invalid(); }
+            emit featureScriptEventReceived(message,nativeCapture);
+        },Qt::DirectConnection));
+    } else
+#endif
+    {
     _connections.push_back(QObject::connect(this, &WebEntityRenderer::scriptEventReceived, _webSurface.data(), &OffscreenQmlSurface::emitScriptEvent));
+    }
     _connections.push_back(QObject::connect(_webSurface.data(), &OffscreenQmlSurface::webEventReceived, this, &WebEntityRenderer::webEventReceived));
     const EntityItemID entityItemID = entity->getID();
     _connections.push_back(QObject::connect(_webSurface.data(), &OffscreenQmlSurface::webEventReceived, this, [entityItemID](const QVariant& message) {

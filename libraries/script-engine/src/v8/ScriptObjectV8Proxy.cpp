@@ -1185,7 +1185,15 @@ void ScriptMethodV8Proxy::call(const v8::FunctionCallbackInfo<v8::Value>& argume
         ScriptContextGuard guard(&ourContext);
         const QMetaMethod& meta = _metas[bestMeta];
 #if defined(OVERTE_E2E_FEATURE_TESTS)
+#if defined(Q_OS_IOS)
+        QVariantMap featureEmitStack;
+        if (meta.name()=="emitScriptEvent" && overte::e2e::IOSV8ScriptStack::enabled()) {
+            featureEmitStack=_engine->featureV8Stack();
+        }
+        ScriptManager::FeatureNativeCallScope featureNativeCall(_engine->manager(),meta.name(),featureEmitStack);
+#else
         ScriptManager::FeatureNativeCallScope featureNativeCall(_engine->manager(),meta.name());
+#endif
 #endif
         int returnTypeId = meta.returnType();
         QVector <QGenericArgument> &qGenArgs = qGenArgsVectors[bestMeta];

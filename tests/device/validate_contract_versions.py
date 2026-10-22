@@ -282,6 +282,8 @@ REQUIRED = {
     "ios-tablet-web-source-packet": 1,
     "ios-tablet-web-source-packet-frame": 1,
     "ios-tablet-web-source-packet-original": 1,
+    "ios-web-script-emissions": 1,
+    "ios-v8-script-stack": 1,
     "ios-tablet-web-source-segments": 1,
     "ios-tablet-web-source-segment-body": 1,
     "ios-tablet-web-source-segment-frame": 1,

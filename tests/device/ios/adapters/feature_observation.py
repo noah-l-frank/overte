@@ -165,6 +165,9 @@ class FeatureObservation:
         elif command.get('action') in ('feature-ios-tablet-web-deferred','feature-ios-tablet-web-defer'):
             from ios.adapters.tablet_web_deferred import command as tablet_deferred_command
             tablet_deferred_command(command,operation=command['action']=='feature-ios-tablet-web-defer')
+        elif command.get('action')=='feature-ios-web-script-emissions':
+            from ios.adapters.web_script_emissions import command as web_emissions_command
+            web_emissions_command(command)
         elif command.get('action')=='feature-ios-tablet-web-state':
             from ios.adapters.tablet_web_state import command as tablet_state_command
             tablet_state_command(command)
@@ -563,6 +566,14 @@ class FeatureObservation:
         if clock_source is None:clock_source=self.native_observer()
         def clock():return clock_source.read(clock_source.sequence)['capturedEpochMs']
         return IOSTabletWebDefer(self.send,lambda:self.original(remote=remote,limit=LIMIT),
+            clock,self.guard,self.process['pid'],monotonic=self.monotonic,sleep=self.sleep)
+
+    def web_script_emissions(self,clock_source=None):
+        from ios.adapters.web_script_emissions import IOSWebScriptEmissions,FILE,LIMIT
+        self.guard();remote=self.remote.rsplit('/',1)[0]+'/'+FILE
+        if clock_source is None:clock_source=self.native_observer()
+        def clock():return clock_source.read(clock_source.sequence)['capturedEpochMs']
+        return IOSWebScriptEmissions(self.send,lambda:self.original(remote=remote,limit=LIMIT),
             clock,self.guard,self.process['pid'],monotonic=self.monotonic,sleep=self.sleep)
 
     def tablet_web_state(self,clock_source=None):

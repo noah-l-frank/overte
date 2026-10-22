@@ -1319,13 +1319,13 @@ ScriptManager::FeatureNativeCallScope::FeatureNativeCallScope(const QVariantMap&
     _featureNativeCallContext=original;
 }
 
-ScriptManager::FeatureNativeCallScope::FeatureNativeCallScope(ScriptManager* manager, const QByteArray& method) :
+ScriptManager::FeatureNativeCallScope::FeatureNativeCallScope(ScriptManager* manager, const QByteArray& method, const QVariantMap& emitStack) :
     _previous(_featureNativeCallContext) {
     _featureNativeCallContext.clear();
     if (!manager || !manager->_featureWorkEnabled || QThread::currentThread()!=manager->thread()
             || (method!="overrideAnimation" && method!="restoreAnimation"
 #if defined(Q_OS_IOS)
-                && method!="featureIOSCreateEvent" && method!="featureIOSWorldWebEvent" && method!="featureIOSSnapshotEvent" && method!="addButton" && method!="addEntity" && method!="deleteEntity"
+                && method!="emitScriptEvent" && method!="featureIOSCreateEvent" && method!="featureIOSWorldWebEvent" && method!="featureIOSSnapshotEvent" && method!="addButton" && method!="addEntity" && method!="deleteEntity"
 #endif
                 )
             || manager->_featureNativeCallSequence>=1000000000) { return; }
@@ -1336,6 +1336,7 @@ ScriptManager::FeatureNativeCallScope::FeatureNativeCallScope(ScriptManager* man
         {"sequence",static_cast<qulonglong>(++manager->_featureNativeCallSequence)},
         {"invokedEpochMs",QDateTime::currentMSecsSinceEpoch()},{"manager",membership},{"code",code}};
 #if defined(Q_OS_IOS)
+    if (method=="emitScriptEvent") { _featureNativeCallContext.insert("emitStack",emitStack.isEmpty()?QVariant():QVariant(emitStack)); }
     if (method=="featureIOSCreateEvent") { _featureNativeCallContext.insert("codeSources",manager->featureCreateSources()); }
     if (method=="featureIOSSnapshotEvent") {_featureNativeCallContext.insert("codeSources",manager->featureSnapshotSources());}
     if (method=="addEntity" || method=="deleteEntity") {

@@ -20,7 +20,7 @@ VERSION=1
 CHUNK_BYTES=524288
 LIMIT=4*1024*1024
 AVATAR_LABELS=frozenset({'scripts','http','people','uikit','geometry','partial','record'})
-TABLET_COMPONENTS=frozenset({'native','sources','trace','dom','buttons','state','uikit','keys','pointer','closures','deferred',
+TABLET_COMPONENTS=frozenset({'native','sources','trace','dom','emissions','buttons','state','uikit','keys','pointer','closures','deferred',
     'scripts','work','terminal','dialogs','widgets','geometry','http','phase','record','partial'})
 POSTLOGOUT_LABELS=frozenset({'parts','record','partial'})
 PROFILES={'snapshot-file-work':dict(parent='snapshotFileWorkPartsVersion',body='snapshotFileWorkPartBodyVersion',schema='snapshotFileWorkPart',

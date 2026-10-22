@@ -36,6 +36,9 @@
 
 #include "libplatform/libplatform.h"
 #include "v8.h"
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+#include "../../../../tests/device/native/IOSV8ScriptStack.h"
+#endif
 
 #include "ScriptEngineDebugFlags.h"
 #include "../ScriptEngine.h"
@@ -144,6 +147,13 @@ public:  // ScriptEngine implementation
     virtual ScriptValue undefinedValue() override;
     virtual std::shared_ptr<ScriptException> uncaughtException() const override;
     virtual void updateMemoryCost(const qint64& deltaSize) override;
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    QVariantMap featureV8Stack() noexcept {
+        if (!overte::e2e::IOSV8ScriptStack::enabled()) {return {};}
+        try {if (!_featureV8Stack) {_featureV8Stack=std::make_unique<overte::e2e::IOSV8ScriptStack>();}
+            return _featureV8Stack->snapshot(getIsolate());}catch(...){return {};}
+    }
+#endif
     virtual void requestCollectGarbage() override { _v8Isolate->MemoryPressureNotification(v8::MemoryPressureLevel::kCritical); }
     virtual void processEvents() override;
     virtual void compileTest() override;
@@ -255,6 +265,9 @@ protected:
     // V8TODO: clean up isolate when script engine is destroyed?
     std::atomic<bool> _abortRequested { false };
     v8::Isolate* _v8Isolate;
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    std::unique_ptr<overte::e2e::IOSV8ScriptStack> _featureV8Stack;
+#endif
 
     struct CustomMarshal {
         ScriptEngine::MarshalFunction marshalFunc;

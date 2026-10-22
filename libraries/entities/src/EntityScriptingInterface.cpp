@@ -15,6 +15,8 @@
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
 #include <AvatarEntityObservation.h>
 #include <CreateEntityObservation.h>
+#include "../../../tests/device/native/IOSWebScriptEmissions.h"
+#include <memory>
 #endif
 
 #include <glm/gtc/matrix_transform.hpp>
@@ -2604,6 +2606,14 @@ bool EntityScriptingInterface::wantsHandControllerPointerEvents(const QUuid& id)
 }
 
 void EntityScriptingInterface::emitScriptEvent(const EntityItemID& entityID, const QVariant& message) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    std::unique_ptr<overte::e2e::web_script_emissions::Api> featureEmission;
+    if (overte::e2e::web_script_emissions::enabled()) {
+        try { featureEmission=std::make_unique<overte::e2e::web_script_emissions::Api>(
+            "world",this,entityID.toString(QUuid::WithoutBraces),message,ScriptManager::featureNativeCallContext()); }
+        catch (...) { overte::e2e::web_script_emissions::invalid(); }
+    }
+#endif
     EntityTree::emitScriptEvent(entityID, message);
 }
 

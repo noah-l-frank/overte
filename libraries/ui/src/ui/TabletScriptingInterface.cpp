@@ -37,6 +37,8 @@
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
 #include "../../../../tests/device/native/IOSTabletSourcesObservation.h"
 #include "../../../../tests/device/native/IOSTabletAppButtonsObservation.h"
+#include "../../../../tests/device/native/IOSWebScriptEmissions.h"
+#include <memory>
 #endif
 
 #include <AudioInjectorManager.h>
@@ -1226,15 +1228,62 @@ void TabletProxy::removeButton(TabletButtonProxy* tabletButtonProxy) {
 }
 
 void TabletProxy::emitScriptEvent(const QVariant& msg) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    std::unique_ptr<overte::e2e::web_script_emissions::Api> featureEmission;
+    if (overte::e2e::web_script_emissions::enabled()) {
+        try { featureEmission=std::make_unique<overte::e2e::web_script_emissions::Api>(
+            "tablet",this,_name,msg,ScriptManager::featureNativeCallContext()); }
+        catch (...) { overte::e2e::web_script_emissions::invalid(); }
+    }
+#endif
     if (QThread::currentThread() != thread()) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+        if (overte::e2e::web_script_emissions::enabled()) {
+            const auto capture=overte::e2e::web_script_emissions::queued(
+                overte::e2e::web_script_emissions::current(),"tablet-proxy",msg);
+            QMetaObject::invokeMethod(this,[this,msg,capture] {
+                overte::e2e::web_script_emissions::Dispatch dispatched(capture,true);
+                emitScriptEvent(msg);
+            },Qt::AutoConnection);
+            return;
+        }
+#endif
         QMetaObject::invokeMethod(this, "emitScriptEvent", Q_ARG(QVariant, msg));
         return;
     }
 
     if (!_toolbarMode && _qmlOffscreenSurface) {
-        QMetaObject::invokeMethod(_qmlOffscreenSurface, "emitScriptEvent", Qt::AutoConnection, Q_ARG(QVariant, msg));
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+        if (overte::e2e::web_script_emissions::enabled()) {
+            QVariant nativeCapture;
+            try { nativeCapture=QVariant::fromValue(overte::e2e::web_script_emissions::queued(
+                overte::e2e::web_script_emissions::current(),"tablet-surface",msg)); }
+            catch (...) { overte::e2e::web_script_emissions::invalid(); }
+            const bool invoked=QMetaObject::invokeMethod(_qmlOffscreenSurface,"featureEmitScriptEvent",Qt::AutoConnection,
+                Q_ARG(QVariant,msg),Q_ARG(QVariant,nativeCapture));
+            if (!invoked) {
+                overte::e2e::web_script_emissions::invalid();
+                QMetaObject::invokeMethod(_qmlOffscreenSurface,"emitScriptEvent",Qt::AutoConnection,Q_ARG(QVariant,msg));
+            }
+        } else
+#endif
+        { QMetaObject::invokeMethod(_qmlOffscreenSurface, "emitScriptEvent", Qt::AutoConnection, Q_ARG(QVariant, msg)); }
     } else if (_toolbarMode && _desktopWindow) {
-        QMetaObject::invokeMethod(_desktopWindow, "emitScriptEvent", Qt::AutoConnection, Q_ARG(QVariant, msg));
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+        if (overte::e2e::web_script_emissions::enabled()) {
+            QVariant nativeCapture;
+            try { nativeCapture=QVariant::fromValue(overte::e2e::web_script_emissions::queued(
+                overte::e2e::web_script_emissions::current(),"tablet-window",msg)); }
+            catch (...) { overte::e2e::web_script_emissions::invalid(); }
+            const bool invoked=QMetaObject::invokeMethod(_desktopWindow,"featureEmitScriptEvent",Qt::AutoConnection,
+                Q_ARG(QVariant,msg),Q_ARG(QVariant,nativeCapture));
+            if (!invoked) {
+                overte::e2e::web_script_emissions::invalid();
+                QMetaObject::invokeMethod(_desktopWindow,"emitScriptEvent",Qt::AutoConnection,Q_ARG(QVariant,msg));
+            }
+        } else
+#endif
+        { QMetaObject::invokeMethod(_desktopWindow, "emitScriptEvent", Qt::AutoConnection, Q_ARG(QVariant, msg)); }
     }
 }
 

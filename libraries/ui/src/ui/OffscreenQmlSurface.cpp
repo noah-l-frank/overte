@@ -7,6 +7,10 @@
 //
 
 #include "OffscreenQmlSurface.h"
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+#include "../../../../tests/device/native/IOSWebScriptEmissions.h"
+#include <memory>
+#endif
 
 #include <unordered_set>
 #include <unordered_map>
@@ -804,6 +808,22 @@ void OffscreenQmlSurface::setKeyboardRaised(QObject* object, bool raised, bool n
     }
 
 }
+
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+void OffscreenQmlSurface::featureEmitScriptEvent(const QVariant& message, const QVariant& nativeCapture) {
+    if (!overte::e2e::web_script_emissions::enabled()) { emitScriptEvent(message);return; }
+    overte::e2e::web_script_emissions::Scope neutral({});
+    std::unique_ptr<overte::e2e::web_script_emissions::Dispatch> dispatched;
+    try {
+        if (nativeCapture.userType()==qMetaTypeId<overte::e2e::web_script_emissions::Capture>()) {
+            dispatched=std::make_unique<overte::e2e::web_script_emissions::Dispatch>(
+                qvariant_cast<overte::e2e::web_script_emissions::Capture>(nativeCapture));
+        } else { overte::e2e::web_script_emissions::invalid(); }
+    } catch (...) { overte::e2e::web_script_emissions::invalid(); }
+    // Original argument and body execute once, even if observation failed.
+    emitScriptEvent(message);
+}
+#endif
 
 void OffscreenQmlSurface::emitScriptEvent(const QVariant& message) {
     emit scriptEventReceived(message);

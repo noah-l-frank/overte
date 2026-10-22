@@ -137,6 +137,9 @@ public slots:
     void emitScriptEvent(const QVariant& scriptMessage) override;
 
 signals:
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    void featureScriptEventReceived(const QVariant& message, const QVariant& nativeCapture);
+#endif
     void scriptEventReceived(const QVariant& message);
     void webEventReceived(const QVariant& message);
 };

@@ -1068,7 +1068,7 @@ public:
     static QVariantMap featureNativeCallContext();
     class FeatureNativeCallScope {
     public:
-        FeatureNativeCallScope(ScriptManager* manager, const QByteArray& method);
+        FeatureNativeCallScope(ScriptManager* manager, const QByteArray& method, const QVariantMap& emitStack = {});
         explicit FeatureNativeCallScope(const QVariantMap& original);
         ~FeatureNativeCallScope();
         FeatureNativeCallScope(const FeatureNativeCallScope&)=delete;
