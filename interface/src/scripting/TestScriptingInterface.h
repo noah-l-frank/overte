@@ -173,6 +173,7 @@ public slots:
     Q_INVOKABLE QVariantMap releaseFeatureRecordedVoiceEvidence(const QString& requestId);
     Q_INVOKABLE QVariantMap featureRecordedVoiceFiles(const QString& requestId);
     Q_INVOKABLE QVariantMap featureScriptObservation(const QString& requestId);
+    Q_INVOKABLE QVariantMap featureScriptWork(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureScriptFiles(const QVariantMap& command);
 #if defined(ANDROID_APP_PICO_INTERFACE)
     Q_INVOKABLE QVariantMap featureLocationBookmarks(const QVariantMap& command);
@@ -241,6 +242,8 @@ private:
     std::shared_ptr<overte::e2e::AudioSettingsQueue> _featureSnapshotQueue;
     QString _featureObservationInstance;
     quint64 _featureObservationSequence {0};
+    quint64 _featureScriptWorkSequence {0};
+    QVariantMap _featureScriptWorkCommand, _featureScriptWorkResult;
     QString _featurePendingRequest;
     qint64 _featurePendingEpochMs {0};
     quint64 _featurePendingAnimationSequence {0};

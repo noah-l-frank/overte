@@ -83,3 +83,15 @@ callback-only export to establish full cleanup. Final original Script work,
 Qt/observer scope, private/OS/receiver/server resources, settings, independent
 actor and native allocation boundaries must actually close before a complete
 Pico capability is advertised.
+
+## Later local transport dependency
+
+The FastCancel continuation also selects the exact original `featureScriptWork`
+TSI owner-queue dispatcher/cache, Q_INVOKABLE/counters, ordinary Probe polling/
+teardown and private `_script_work` factory from the same fixed `db5767da46`.
+The old local writer receives the explicit existing private filename; root's
+closed private feature writer already covers it. No Emote composition or other
+source is selected. This second local dependency is not an integration packet:
+the root already owns all of these original transport hunks. It enables the
+fixed FastCancel closed-history/work-floor retirement check without querying
+or evaluating a foreign VM from the GUI thread.
