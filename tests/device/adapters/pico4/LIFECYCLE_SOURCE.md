@@ -92,15 +92,17 @@ git diff --check
 
 The twelve Python cases use explicit synthetic original native/keyboard
 boundaries. The compiled Qt5 check loads the real NativeCreate.qml, sends a real
-normal Qt pointer focus, hides and detaches the original page, deletes only
-the field or context while retaining the original page, destroys the actual page and reconstructs it. It proves
-real context/page/field retirement and new identity, with the same actual window
-and loader. The context-only case first destroys the owning engine while its original
-page/field survive, then deletes the orphan invalid context wrapper; deleting
-engine-owned internal contexts directly would violate Qt ownership. An invalid
-but living context wrapper correctly remains retained and cannot be current.
-Qt5 can also retain a context after page destruction. Host destruction does not
-prove normal device Back retires its context. Keyboard and TabletRoot hosting are explicit host boundaries; no
+normal Qt pointer focus, hides/detaches the original page, deletes only its
+field while retaining the actual page/context, and reconstructs the page. It
+proves real page/field death and distinct context/page/field replacement tokens,
+with the same actual window and loader. Qt5 can retain a context after page
+destruction, which correctly remains retained; complete real QML context
+retirement is not claimed. The context-only counterexample uses explicit
+application-owned QQuickItem/QQmlContext objects and the exact passive weak
+lifetime helper used by the source. Deleting that ordinary owned context while
+its field/page survive leaves retained true; all three must actually die before
+it becomes false. The harness never manually deletes an internal QML context
+or destroys its engine while its original QML page survives. Keyboard and TabletRoot hosting are explicit host boundaries; no
 real VR keyboard, OpenXR input, headset, independent peer or device result is
 claimed. The Pico TabletBridge binding itself remains uncompiled by this narrow
 header/QML check. Full tracking/effective-held-input/original-displacement and

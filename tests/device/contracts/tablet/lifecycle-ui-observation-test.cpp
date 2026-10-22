@@ -67,32 +67,21 @@ int main(int argc,char** argv) {
     assert(fieldGone["contextAlive"].toBool() && fieldGone["alive"].toBool());
     assert(!fieldGone["current"].toBool() && !fieldGone["visible"].toBool());
     delete page;
-    // Leave original page/field alive while retiring their engine and context.
-    // Qt may retain an invalid context wrapper after engine destruction. Only
-    // then delete that orphan wrapper; never delete an engine-owned context.
-    auto contextEngine=new QQmlEngine;
-    auto contextComponent=new QQmlComponent(contextEngine,source);
-    page=qobject_cast<QQuickItem*>(contextComponent->create());assert(page);
-    page->setParentItem(&loader);page->setSize(loader.size());capture();
-    field=page->findChild<QQuickItem*>("NativeCreateText");assert(field);
-    const QPointer<QQmlContext> originalContext(qmlContext(field));assert(originalContext);
-    const QPointer<QQuickItem> originalPage(page),originalField(field);
-    delete contextComponent;delete contextEngine;QCoreApplication::processEvents();
-    if (originalContext) {
-        assert(!originalContext->isValid());
-        auto invalid=capture(true,true)["source"].toMap()["editors"].toList().last().toMap();
-        assert(invalid["alive"].toBool() && invalid["contextAlive"].toBool() && !invalid["current"].toBool());
-        delete originalContext.data();QCoreApplication::processEvents();
-    }
-    assert(originalContext.isNull() && originalPage && originalField);
-    auto contextGone=capture(true,true)["source"].toMap()["editors"].toList().last().toMap();
-    assert(!contextGone["contextAlive"].toBool() && contextGone["pageAlive"].toBool());
-    assert(contextGone["fieldAlive"].toBool() && contextGone["alive"].toBool());
-    assert(!contextGone["current"].toBool());
-    delete page;
-    auto last=capture(true,true)["source"].toMap()["editors"].toList().last().toMap();
-    assert(!last["alive"].toBool() && !last["fieldAlive"].toBool() && !last["pageAlive"].toBool()
-        && !last["contextAlive"].toBool() && last["windowAlive"].toBool() && last["loaderAlive"].toBool());
+    // The context-only counterexample uses explicit application-owned Qt
+    // objects and the exact lifetime helper used above. Never delete an
+    // internal QML context/engine while its QML page is still alive.
+    overte::e2e::LifecycleEditorObjects originals;
+    originals.page=new QQuickItem(&loader);originals.field=new QQuickItem(originals.page);
+    originals.context=new QQmlContext(engine.rootContext());
+    originals.window=&window;originals.loader=&loader;
+    assert(originals.liveness().retained());
+    delete originals.context.data();
+    auto life=originals.liveness();
+    assert(!life.context && life.field && life.page && life.retained() && life.window && life.loader);
+    delete originals.field.data();life=originals.liveness();
+    assert(!life.context && !life.field && life.page && life.retained());
+    delete originals.page.data();life=originals.liveness();
+    assert(!life.field && !life.page && !life.context && !life.retained() && life.window && life.loader);
     assert(reader.observe(nullptr,nullptr,false,false,run,keyboard)["source"].toMap()["current"].toString().isEmpty());
     Q_UNUSED(rootPath)
     qInfo("PASS actual NativeCreate Qt identities/focus/partial/hidden/detached/destruction/replacement; keyboard is an explicit host boundary");
