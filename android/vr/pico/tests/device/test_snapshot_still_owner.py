@@ -119,6 +119,9 @@ class SnapshotStillOwnerTests(unittest.TestCase):
         before=(len(self.adb.inputs),len(self.transport.envelopes));cold=self.create()
         self.assertEqual('captured',cold.reconcile()['stage']);self.assertEqual(before,(len(self.adb.inputs),len(self.transport.envelopes)))
         self.assertEqual(1,self.adb.captures)
+        self.assertEqual(2,cold.file_source()['snapshotFileOriginalVersion'])
+        cold.snapshot.files.last_original['snapshotFileOriginalVersion']=1
+        with self.assertRaises((ValueError,RuntimeError)):cold.file_source()
     def test_last_parent_cas_phase_advance_prevents_actual_capture_writer(self):
         self.opened();self.activate('capture',dict(mode='still',format='png'));original_write=self.owner.store.write
         def changed(value,previous):

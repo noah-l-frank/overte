@@ -8,7 +8,7 @@ import re
 import stat
 from adapters.native_feature_observation import decode,exact,integer,need,number
 from adapters.normal_feature_state import PrivateFeatureState,context
-from adapters.android_snapshot_files import original_stat
+from adapters.android_snapshot_files import original_stat,ORIGINAL_VERSION
 from adapters.pico4.snapshot import PicoSnapshot,MODES,FORMATS
 from adapters.pico4.navigation import NativeNavigationIO,validate_snapshot,identifier
 from adapters.pico4 import snapshot_originals as originals
@@ -288,7 +288,7 @@ class PicoSnapshotStillOwner:
             elif state['stage']=='capture-issued' and native['requests']:
                 request=native['requests'][0];need(request['registeredEpochMs']>=state['source']['activations'][-1]['activatedEpochMs'])
                 if request['events'] and request['events'][-1]['phase']=='complete':
-                    result=self.snapshot.files.files(self.prefix,run=self.run);files=self.snapshot.files.last_original
+                    result=self.snapshot.files.files(self.prefix,run=self.run);files=self.file_source()
                     need(len(result['files'])==len(files['files'])==1);file=deepcopy(files['files'][0]);path=self.snapshot.files.artifacts/file['artifact']
                     file.update(hostFile=signature(path.lstat()),decoded={})
                     raw=artifact(self.snapshot.files.artifacts,file);file['decoded']=inspect_snapshot(raw,mode='still',file_format='png')
@@ -300,6 +300,12 @@ class PicoSnapshotStillOwner:
         value=self.packet(row);resource=value['resources'];need(len(value['requests'])==1 and not value['requests'][0]['alive']
             and resource['activeRequests']==resource['projectionImagesBytes']==0
             and not any(resource[key] for key in ('taking360','waitingOnSnapshot','projectionTimerActive')))
+    def file_source(self):
+        value=self.snapshot.files.last_original
+        exact(value,{'snapshotFileOriginalVersion','prefix','context','files'})
+        need(type(value['snapshotFileOriginalVersion']) is int and value['snapshotFileOriginalVersion']==ORIGINAL_VERSION==2
+            and value['prefix']==self.prefix and value['context']=={key:self.binding[key] for key in ('sourceRevision','artifactSha256','processIdentity')})
+        return value
     def quiet(self):
         with self.lock.held():
             self.load();where='closed' if self.state['stage'] in ('closed','closed-quiet-issued') else 'open'
@@ -309,7 +315,7 @@ class PicoSnapshotStillOwner:
                 row=self.capture_frame();self.native_quiet(row);need(row['ui']['open']==(where=='open'))
                 result=self.snapshot.files.files(self.prefix,run=self.run);file=self.state['capture']['file']
                 need(result['files']==[dict(basename=file['basename'],artifact=file['artifact'])]
-                    and self.snapshot.files.last_original['files']==[{key:file[key] for key in ('basename','artifact','bytes','sha256','originalStat','pathSha256')}])
+                    and self.file_source()['files']==[{key:file[key] for key in ('basename','artifact','bytes','sha256','originalStat','pathSha256')}])
                 clocks=(row['hostMonotonic']*1000,self.packet(row)['capturedEpochMs'],row['ui']['updatedEpochMs'])
                 if first is None or previous is not None and any(b-a>500 for a,b in zip(previous,clocks)):first=(len(self.state['frames'])-1,clocks)
                 previous=clocks;self.fence(self.state['source'])

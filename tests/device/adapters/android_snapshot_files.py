@@ -28,15 +28,16 @@ class SnapshotFileError(RuntimeError):
 # QStandardPaths::AppDataLocation on Android is the application's files root;
 # the actual SnapshotStorage.h appends Snapshots. No configurable directory grant.
 ROOT = 'files/Snapshots'
-LIST_HEADER = 'OVT_SNAPSHOT_FILES_V1'
-LIST_FOOTER = 'OVT_SNAPSHOT_FILES_END_V1'
+ORIGINAL_VERSION = 2
+LIST_HEADER = 'OVT_SNAPSHOT_FILES_V2'
+LIST_FOOTER = 'OVT_SNAPSHOT_FILES_END_V2'
 BYTES_HEADER = b'OVT_SNAPSHOT_BYTES_V1\n'
 BYTES_FOOTER = b'\nOVT_SNAPSHOT_BYTES_END_V1\n'
 LIST_SCRIPT = r'''
-printf 'OVT_SNAPSHOT_FILES_V1\n'
+printf 'OVT_SNAPSHOT_FILES_V2\n'
 snapshot_root=files/Snapshots
 [ -d files ] && [ ! -L files ] || exit 1
-if [ ! -e "$snapshot_root" ]; then printf 'OVT_SNAPSHOT_FILES_END_V1\n'; exit 0; fi
+if [ ! -e "$snapshot_root" ]; then printf 'OVT_SNAPSHOT_FILES_END_V2\n'; exit 0; fi
 [ -d "$snapshot_root" ] && [ ! -L "$snapshot_root" ] || exit 1
 snapshot_count=0
 for snapshot_path in "$snapshot_root"/"$1"-*; do
@@ -58,7 +59,7 @@ for snapshot_path in "$snapshot_root"/"$1"-*; do
     snapshot_name=${snapshot_path##*/}
     printf '%s\t%s\t%s\t%s\t%s\n' "$snapshot_name" "$snapshot_size" "$snapshot_hash" "$snapshot_before" "$snapshot_path_hash"
 done
-printf 'OVT_SNAPSHOT_FILES_END_V1\n'
+printf 'OVT_SNAPSHOT_FILES_END_V2\n'
 '''.strip()
 READ_SCRIPT = r'''
 snapshot_root=files/Snapshots
@@ -240,6 +241,6 @@ class AndroidSnapshotFiles:
         result = [{'basename': name, 'artifact': self._publish(name, content, after[name]['sha256'])}
                   for name, content in sorted(copied.items())]
         self._check()
-        self.last_original=deepcopy({'prefix':prefix,'context':self.context,'files':[
+        self.last_original=deepcopy({'snapshotFileOriginalVersion':ORIGINAL_VERSION,'prefix':prefix,'context':self.context,'files':[
             {'basename':row['basename'],'artifact':row['artifact'],**after[row['basename']]} for row in result]})
         return {'files': result}
