@@ -334,6 +334,24 @@ class IOSNavigationFeature:
             and owner.role==self.role and owner.stage==stage)
         return owner
 
+    def return_to_original(self):
+        """Deliver the owned final Go To once, without claiming restoration.
+
+        A retained child return can resolve a lost parent result. An unknown
+        input or incomplete acquisition remains owned and is never resent.
+        Full static originals, PNG comparison and final lifetime retirement
+        must still independently qualify the resulting product state.
+        """
+        need(self.role=='primary');self.prepare()
+        with self.held():
+            self.load();self.current();need(self.state['phase']=='ready' and self.state['stage']==1
+                and (self.state['lastCall'] is None or self.state['lastCall']['phase']=='acknowledged'))
+            scope=self.admission()
+            child=self.runtime._navigation_process_return(self.selector,scope)
+            with self.runtime.existing_input_session(self.selector):
+                if child.state is not None and child.state['phase']=='issued':return child.recover_return()
+                return child.return_to_original()
+
     def directory(self,observer,admission):
         """Re-derive the original first-open proof; never issue another read."""
         owners=observer.owners()

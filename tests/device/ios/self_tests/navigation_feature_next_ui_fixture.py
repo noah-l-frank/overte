@@ -6,7 +6,9 @@ The new UI has independent root/input births and uses the new source cohort.
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
+import json
 from types import SimpleNamespace
+from urllib.parse import parse_qs,urlsplit
 import uuid
 from unittest.mock import patch
 
@@ -20,7 +22,26 @@ from navigation_observation import viewpoint_urls
 
 class NextUI:
     materialize=Whole.materialize
-    sync_navigation=Whole.sync_navigation
+
+    def sync_navigation(self):
+        current=self.flow_fixture.b.current
+        base=self.base_url
+        if not current.startswith(base):return Whole.sync_navigation(self)
+        if self.inventory.url!=current:
+            parts=urlsplit(current);status,raw,_response=self.harness.get(parts.path)
+            if status!=200:raise AssertionError('Ordinary static return did not fetch the actual base scene')
+            self.inventory.url,self.inventory.body=current,raw
+            self.inventory.raw={row['id'].strip('{}'):json.dumps(row,sort_keys=True).encode()
+                for row in json.loads(raw)['Entities']}
+            self.inventory.revision=self.inventory.after_revision=self.inventory.revision+1
+            self.inventory.commit()
+        source=self.static_source;self.sdk.navigation.url=current;self.sdk.navigation.source=deepcopy(source)
+        self.sdk.navigation.source['sceneUrl']=current
+        location=parse_qs(urlsplit(current).query)['location'][0].split('/')
+        feet=list(map(float,location[1].split(',')));rotation=list(map(float,location[2].split(',')))
+        offset=[a-b for a,b in zip(source['view']['position'],source['avatar']['feetPosition'])]
+        self.sdk.navigation.source['avatar'].update(feetPosition=feet,orientation=rotation)
+        self.sdk.navigation.source['view'].update(position=[a+b for a,b in zip(feet,offset)],rotation=rotation)
 
     def __init__(self,cohort,test):
         self.h=cohort.h;self.sdk,self.inventory=cohort.sdk,cohort.inventory
@@ -28,6 +49,14 @@ class NextUI:
         self.books,self.model,self.http=cohort.books,cohort.model,cohort.http
         self.root,self.run=self.h.root,self.h.run;self.fetch_directory=True;self.ignore_motion=False
         self.run_source=deepcopy(self.sdk.navigation.source)
+        with self.h.flow.held():
+            initial=self.h.flow.initial_admission()
+        from ios.self_tests.test_ios_navigation_state import Boundary as StaticNavigation
+        from feature_journeys.navigation_scene import marker_id
+        self.static_source=StaticNavigation().source
+        self.static_source['view']['aspectRatio']=1.6
+        self.static_source['challengeMarker']=dict(id=marker_id(self.run),present=False,entity=None)
+        self.base_url=initial['base']['url']
         b=RetainedBoundary();physical_clock=self.sdk.gpu
         b.__class__=type('NewQtSurface',(type(b),),{'clock':property(lambda _:physical_clock.clock,
             lambda _,value:setattr(physical_clock,'clock',max(physical_clock.clock,value)))})
@@ -69,3 +98,9 @@ class NextUI:
             if admission.binding['processIdentity']=='42':return surface(selector,admission)
             return IOSNavigationRuntime._navigation_surface_actions(self.h.runtime,selector,admission)
         self.h.runtime._navigation_surface_actions=surfaces
+        from adapters.normal_feature_state import PrivateFeatureState
+        from ios.adapters.navigation_process_return import NavigationProcessReturn
+        def returning(selector,scope):
+            return NavigationProcessReturn(PrivateFeatureState(scope.store.path.with_name('ios-navigation-process-return-43.json')),
+                scope,b.ui,self.sources['ui'],epoch_ms=self.h.now,monotonic=self.h.mono)
+        self.h.runtime._navigation_process_return=returning

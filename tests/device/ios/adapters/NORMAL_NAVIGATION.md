@@ -98,3 +98,14 @@ source basis still points to the unchanged startup file; later file/model
 observations establish deletion independently. Ignored native tab input retains
 that responsibility and a reconstructed owner sends no second delete attempt.
 The new sources are explicit models; these two tests establish no device result.
+
+The current-stage coordinator now delivers the final ordinary Go To through
+`NavigationProcessReturn`. Its durable child journal resolves only a fully
+retained lost return; an unknown delivery is not resent. Three connected host
+tests cover actual loopback static-scene import bytes, ignored Go To and lost
+final owner writes. Delivery claims neither restoration nor destruction of the
+hidden address QML root. Eight existing return tests also pass after preventing
+their modeled host clock from regressing behind an earlier fixture reply.
+Native timestamps and production freshness checks remain unchanged. Initial
+static PNG ownership, full restored originals and paired final retirement still
+gate complete Worlds capability admission.

@@ -80,8 +80,9 @@ class NextProcess:
             @clock.setter
             def clock(self,value):sdk.gpu.clock=value
             def commit(self):
-                self.url=url;self.body=raw
-                self.raw={r['id'].strip('{}'):json.dumps(r,sort_keys=True).encode() for r in json.loads(raw)['Entities']}
+                if self.anchor is None:
+                    self.url=url;self.body=raw
+                    self.raw={r['id'].strip('{}'):json.dumps(r,sort_keys=True).encode() for r in json.loads(raw)['Entities']}
                 super().commit()
         self.inventory=Inventory()
         self.sdk.navigation.mutate=lambda value:value['source']['sceneLoads'].update(

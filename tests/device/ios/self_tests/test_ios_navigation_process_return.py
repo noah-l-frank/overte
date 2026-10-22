@@ -45,10 +45,10 @@ class NavigationProcessReturnTests(unittest.TestCase):
                 packets.append(value)
             self.scope.native.values=packets
         self.http=patch.object(normal_input,'urlopen',self.b.post);self.http.start();self.addCleanup(self.http.stop)
-        # Align the independent modeled host clock with the live loopback
-        # server after expensive original-context setup. Native epochs stay
-        # independent and unchanged.
-        self.h.h.host=time.time()*1000-self.h.h.ms
+        # Advance an independent modeled host if setup was expensive. Never
+        # regress the same provider clock after its earlier real HTTP reply.
+        # Original native DTOs and their epochs remain unchanged.
+        self.h.h.host=max(self.h.h.host,time.time()*1000-self.h.h.ms)
     def owner(self):
         return NavigationProcessReturn(PrivateFeatureState(self.scope.store.path.with_name('ios-navigation-process-return-43.json')),
             self.scope,self.b.ui,self.native,epoch_ms=self.h.h.epoch,monotonic=self.h.h.mono)
