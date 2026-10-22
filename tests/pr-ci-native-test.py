@@ -130,7 +130,7 @@ class NativeWorkerComposition(unittest.TestCase):
                     self.assertEqual(plan["native"]["mode"], expected)
                     result, native = self.worker(context, plan)
                     self.assertEqual(result.returncode, 0, result.stderr)
-                    self.assertEqual(native, plan["native"])
+                    self.assertEqual(native, {**plan["native"], "sha": context["original_merge"]})
 
     def test_skip_has_no_native_execution_and_cannot_obtain_native_receipt(self):
         for path, raw in (("browser-client/package-lock.json", b'{"lockfileVersion":3}\n'),
