@@ -172,3 +172,33 @@ worktree. The documentation and whitespace checks passed again. The existing
 SettingsTests friend gains one declaration inside both dedicated native test
 gates to read the actual worker cache without constructing a second QSettings
 object, whose own construction can itself flush shared dirty state.
+
+
+## Physical ownership before restoration
+
+The one native restore now requires a fresh bounded original writer observation
+before taking the Manager write lock. Its raw value and the independent physical
+row must both still represent the last actual claimed owned value. A foreign
+physical edit after Select is preserved even when Manager and worker caches
+still contain the owned directory; no restore signal or sync is issued. The
+failed native attempt remains recorded and owned. The host polls only read-only
+sources for up to three seconds before consuming its sole restore command, so
+normal pending persistence can settle without replaying input or overwriting a
+foreign file. A measured foreign Manager change is refused before sending.
+
+Physical owned QString admission uses the original JSON writer's closed string
+encoding, including doubled leading `@`. It never deserializes a foreign
+`@Variant` or custom type. INI owned-value admission accepts unambiguous plain
+ASCII directories/values (letters, digits, `/._:-`) and empty strings; ambiguous
+escaped/quoted legacy INI owned values remain retained. Original raw values and
+original physical rows are still captured without this restriction. Current
+Android owned directories and the actual fixture paths use this admitted form.
+A later external disk writer can race the original product sync; this seam
+adds observed pre-write ownership fencing and does not claim cross-process
+atomicity that the original Settings writer does not provide.
+
+The pre-write fence follow-up passed thirteen focused Python/actual Qt5 tests in
+19.500 seconds, including the actual foreign-row preservation case in both
+original formats, pending-persistence polling, original retained Cancel failure,
+closed JSON `@`/variant and ambiguous INI negatives. Source schema and catalog
+selectors remain unchanged. This adds no config setter or product correction.

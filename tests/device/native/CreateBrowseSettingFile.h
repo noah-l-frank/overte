@@ -9,6 +9,8 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QJsonDocument>
+#include <QJsonArray>
+#include <QRegularExpression>
 #include <QJsonObject>
 #include <QVariantMap>
 #if defined(Q_OS_UNIX)
@@ -135,6 +137,24 @@ inline QVariantMap createBrowseSettingsFile(const QString& originalPath,QSetting
 #else
     Q_UNUSED(originalPath) Q_UNUSED(format) return {};
 #endif
+}
+inline bool createBrowsePhysicalOwned(const QVariantMap& physical,const QVariant& owned,bool present) {
+    if (physical.isEmpty()) {return false;}const auto row=physical.value("row").toMap();
+    if (!present) {return row.value("present")==QVariant(false);}
+    if (owned.userType()!=QMetaType::QString || row.value("present")!=QVariant(true)) {return false;}
+    const auto bytes=QByteArray::fromBase64(row.value("base64").toString().toLatin1());const auto text=owned.toString();
+    if (physical.value("format")==QVariant("json")) {
+        // This is the original writer's closed QString encoding. Do not
+        // deserialize a foreign @Variant/custom type merely to admit a CAS.
+        QJsonParseError error;const auto document=QJsonDocument::fromJson(QByteArray("[")+bytes+']',&error);
+        const auto values=document.array();
+        return error.error==QJsonParseError::NoError && values.size()==1 && values.first().isString()
+            && values.first().toString()==(text.startsWith('@') ? QString('@')+text : text);
+    }
+    // The actual owned Android Create directory is plain ASCII. Ambiguous
+    // INI escape/quote forms stay owned instead of inventing a Qt decoder.
+    return physical.value("format")==QVariant("ini") && (text.isEmpty()
+        || QRegularExpression("\\A[A-Za-z0-9/._:-]+\\z").match(text).hasMatch()) && bytes==text.toLatin1();
 }
 inline bool createBrowsePhysicalOriginal(const QVariantMap& original,const QVariantMap& current) {
     // Original QSettings atomic rewrites legitimately replace the inode. Keep
