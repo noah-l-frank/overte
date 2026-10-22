@@ -47,6 +47,26 @@ class RestartInputTests(unittest.TestCase):
         self.assertEqual(dict(backgrounds=0, activations=2, launches=2), self.store.read()['newNative']['lifecycle'])
         self.flow().retire(NEW, self.new_source); self.assertIsNone(self.store.read())
 
+    def test_final_retirement_fence_runs_after_original_observation_cas_and_can_retain_intent(self):
+        self.inputs();self.flow().observe(NEW,self.new_source);write=self.store.write;events=[]
+        def recorded(value,previous):
+            write(value,previous);events.append('observed-cas')
+        self.store.write=recorded
+        def refused():
+            events.append('final-fence');self.assertEqual('observed',self.store.read()['phase'])
+            raise NativeUIError('Original enclosing phase changed during observe CAS')
+        with self.assertRaises(NativeUIError):self.flow().retire(NEW,self.new_source,before_discard=refused)
+        self.assertEqual(['observed-cas','final-fence'],events)
+        self.assertEqual('observed',self.store.read()['phase']);self.assertEqual(['stop','launch'],self.calls)
+
+    def test_successful_final_retirement_fence_precedes_only_the_original_discard(self):
+        self.inputs();self.flow().observe(NEW,self.new_source);events=[];discard=self.store.discard
+        def recorded(value):events.append('discard');discard(value)
+        self.store.discard=recorded
+        self.flow().retire(NEW,self.new_source,before_discard=lambda:events.append('final-fence'))
+        self.assertEqual(['final-fence','discard'],events);self.assertIsNone(self.store.read())
+        self.assertEqual(['stop','launch'],self.calls)
+
     def test_before_binding_native_comparison_is_read_only_and_refuses_old_birth_pid_or_counts(self):
         def measured(reader):
             value = reader.read(0)

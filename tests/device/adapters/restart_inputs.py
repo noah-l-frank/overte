@@ -157,14 +157,19 @@ class RestartInputs:
         self.store.write(value | dict(phase='observed', newBinding=deepcopy(binding), newNative=measured), value)
         return original  # Measured persisted counters, not increments from requests.
 
-    def retire(self, binding, source):
+    def retire(self, binding, source, *, before_discard=None):
         # Full feature cleanup must independently establish resource absence.
         # This method retires only input intent after those separate owners
         # have been retired; it neither deletes them nor reports feature success.
+        need(before_discard is None or callable(before_discard))
         value = self.read(); need(value['phase'] == 'observed')
         self.observe(binding, source)
         value = self.read()
         need(all(owner.read() is None for owner in self.owners) and source.guard() is not False)
+        # The enclosing feature may fence the actual unlink after observe's
+        # final durable CAS. It cannot replace the already observed binding,
+        # repeat stop/launch, or hide an uncertain discard.
+        if before_discard is not None:before_discard()
         self.store.discard(value)
 
 
