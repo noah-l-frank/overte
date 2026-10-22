@@ -86,6 +86,23 @@ def drained(value,queries):
     return deepcopy(value['source'])
 
 
+def retired(value,queries):
+    """Error-path body/capture death, without successful publication credit.
+
+    Failed or thrown native work can release its actual functor. This proves
+    neither a successful query nor file presence/absence; its original query
+    and any partial output remain owned by the enclosing error cleanup.
+    """
+    original(value);need(value['source']['complete'] and type(queries) is list and queries)
+    nonces=set()
+    for query in queries:
+        read_request(query);need(query['commandId'] not in nonces);nonces.add(query['commandId'])
+        rows=[row for row in value['source']['jobs'] if same(row['query'],query)]
+        need(len(rows)==1 and rows[0]['enteredEpochMs'] is not None and rows[0]['finallyEpochMs'] is not None)
+    need(all(not row['alive'] and row['finallyEpochMs'] is not None and row['expiredEpochMs'] is not None for row in value['source']['jobs']))
+    return deepcopy(value['source'])
+
+
 class IOSSnapshotFileWork(IOSPlacesModel):
     _limit=LIMIT
     _action=ACTION

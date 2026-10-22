@@ -44,3 +44,14 @@ callsite wiring, actual Node probe, fixture and AFC factory. Native workers and
 Qt destruction are modeled; the C++ source remains uncompiled and device tests
 are unexecuted. Durable whole Snapshot ownership must still retain these
 originals and join repeated fresh quiet reads before final retirement.
+
+The separate `snapshot_file_work.retired` error-path check requires the actual
+entered/finally boundary and last weak-capture expiry for every retained query
+and all observed jobs. It also accepts a real publication failure or a body
+that threw before publication/normal return. The successful `drained` query
+check remains unchanged and still rejects those originals. Neither error-path
+retirement nor its callback exit establishes any output bytes or path absence;
+the enclosing cleanup retains query and partial-file responsibility. Three
+additional no-build host cases exercise real throwing/cached functors and
+normal false-publication branches, and reject missing, foreign, unentered,
+unfinished, live or duplicate job claims.

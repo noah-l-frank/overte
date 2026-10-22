@@ -125,9 +125,10 @@ Eight no-build component checks and thirteen actual production JavaScript cases
 cover early pending cancellation, thrown callbacks and strict original history.
 [Native capture lifetimes](SNAPSHOT_CAPTURE_LIFETIMES.md) also join actual weak
 render/worker/timer/watcher owners and the early-cancel source history (ten
-host checks). Durable normal input and owned-file absence must still join that
-proof; whole capture/image, OS permission/sheet, destination/receiver, upload and
-paired cleanup integration remain open. No complete capability is enabled.
+host checks). The durable pending-cancellation join now binds actual normal
+inputs, original native/Script timers and before/after empty manifests. Whole
+OS permission/sheet, destination/receiver, upload and paired cleanup integration
+remain open. No complete capability is enabled.
 
 The [durable Snapshot input owner](SNAPSHOT_INPUTS.md) now retains exact ordinary
 command/root originals before delivery and resolves lost native returns without
@@ -135,9 +136,22 @@ another input (seventeen source/owner host checks). The separate
 [owned manifest reader](SNAPSHOT_MANIFEST.md) retains one actual file-list query,
 independent native before/after clocks and immutable response originals (nine
 host checks). It rejects uncertain query replay and incomplete evidence, and
-supports file-only historical reading. Joining these owners with pending
-cancellation, repeated fresh absence, all image/export journeys and paired
-retirement remains required; this does not enable whole Snapshot support.
+supports file-only historical reading. Pending cancellation now composes these
+owners without replaying an uncertain input or file query. Repeated fresh
+absence, all export journeys and paired retirement remain required; this does
+not enable whole Snapshot support.
+
+[Bounded original chunks and private artifacts](SNAPSHOT_CHUNKS.md) now retain
+actual file bytes, complete query/clock originals, stable before/after file
+inventories and actual native file-job weak expiry. Interrupted writes keep
+their original inodes; lost full-write or unlink returns recover without
+repeating the operation. The [still-capture completion join](SNAPSHOT_COMPLETION.md)
+binds the ordinary control, pinned Script call/return/finally, actual accepted
+native completion and that original artifact. Actual PNG/JPEG decoding reuses
+the common byte decoder and rejects uniform, truncated or mislabeled output.
+Scene fidelity, independent witness agreement, system destinations, upload,
+background/resume and whole repeated cleanup remain open. These source
+components do not advertise a complete Snapshot capability.
 
 Actual Save/Share/Upload inputs also have a [closed row-token route](SNAPSHOT_EXPORT_CONTROLS.md)
 with real UIKit presentation gating and unchanged ordinary QML handlers. This
