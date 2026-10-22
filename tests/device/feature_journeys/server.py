@@ -29,6 +29,7 @@ from feature_journeys.navigation_fixture import NavigationResources,DIRECTORY
 from feature_journeys.script_fixture import ScriptResources
 from feature_journeys.graphics_resources import GraphicsResources, RESOURCE as GRAPHICS_SCENE
 from feature_journeys.audio_resources import AudioResources, RESOURCE as AUDIO_INPUT
+from feature_journeys.snapshot_upload_service import SnapshotUploadService,SNAPSHOTS as SNAPSHOT_UPLOAD,STORIES as SNAPSHOT_STORIES,MAX_BODY as SNAPSHOT_MAX_BODY
 
 PREFIX = '/feature-fixture/v1'
 
@@ -205,6 +206,24 @@ class Handler(BaseHTTPRequestHandler):
             self.send(response[0],response[1],response_id=response[2],observe_write=response[3])
         return True
 
+    def snapshot_upload_request(self,parsed):
+        if parsed.path not in (SNAPSHOT_UPLOAD,SNAPSHOT_STORIES) and not parsed.path.startswith(SNAPSHOT_STORIES+'/'):return False
+        provider=self.server.snapshot_upload_service;self.close_connection=True
+        if provider is None or not isinstance(self.connection,ssl.SSLSocket) or self.connection.version() not in ('TLSv1.2','TLSv1.3'):
+            self.send(404,{'error':'not-found'});return True
+        authorities=self.headers.get_all('Host',[])
+        if authorities!=[urlsplit(provider.origin).netloc] or len(self.headers.get_all('Authorization',[]))>1:raise ValueError('Original Snapshot HTTPS authority is required')
+        raw=b''
+        if self.command=='POST':
+            lengths=self.headers.get_all('Content-Length',[])
+            if len(lengths)!=1 or not lengths[0].isdigit() or not 0<int(lengths[0])<=SNAPSHOT_MAX_BODY or self.headers.get('Transfer-Encoding') or self.headers.get('Content-Encoding'):raise ValueError('Invalid bounded Snapshot upload body')
+            raw=read_account_body(self.rfile,self.connection,int(lengths[0]))
+        elif self.headers.get('Content-Length') not in (None,'0') or self.headers.get('Transfer-Encoding'):raise ValueError('Unexpected Snapshot request body')
+        with provider.response(self.headers.get('Authorization',''),self.command,self.path,self.headers.get('Content-Type',''),raw) as response:
+            if response[0]==0:self.connection.shutdown(2)
+            else:self.send(response[0],response[1],response_id=response[2],observe_write=response[3])
+        return True
+
     def handle_request(self):
         try:
             parsed = urlsplit(self.path)
@@ -225,6 +244,7 @@ class Handler(BaseHTTPRequestHandler):
             adapter_markers=self.headers.get_all('X-Overte-Fixture-Adapter-Read',[])
             if adapter_markers and (adapter_markers!=['1'] or not adapter_reader):return self.send(403,{'error':'forbidden'})
             if adapter_reader and self.command!='GET':return self.send(403,{'error':'forbidden'})
+            if self.snapshot_upload_request(parsed):return
             if self.social_request(parsed):return
             if self.account_request(parsed):return
             if self.navigation_request(parsed):return
@@ -284,6 +304,10 @@ class Handler(BaseHTTPRequestHandler):
             if self.command=='GET' and parts==['audio-provider']:
                 if self.server.audio_resources is None:return self.send(503,{'error':'audio-provider-unavailable'})
                 return self.send(200,dict(self.server.audio_resources.ready(),internalErrors=self.server.internal_errors))
+            if self.command=='GET' and parts==['snapshot-upload-provider']:
+                provider=self.server.snapshot_upload_service
+                if provider is None:return self.send(503,{'error':'snapshot-upload-provider-unavailable'})
+                return self.send(200,dict(snapshotUploadServiceVersion=1,instance=provider.instance,domainId=provider.domain_id,origin=provider.origin,internalErrors=self.server.internal_errors))
             body = None
             if self.command == 'POST':
                 size = int(self.headers.get('Content-Length', '0'))
@@ -315,6 +339,9 @@ class Handler(BaseHTTPRequestHandler):
                     try:
                         self.server.audio_resources.provision(run)
                     except BaseException:self.server.journal.close(run);raise
+                if body['area']=='snapshots' and self.server.snapshot_upload_service is not None:
+                    try:self.server.snapshot_upload_service.provision(run)
+                    except BaseException:self.server.journal.close(run);raise
                 if body['area'] in ('world-web','tablet-web'):self.server.browser_resources.open(run,area=body['area'])
                 if body['area']=='scripts':
                     try:self.server.script_resources.provision(run)
@@ -334,6 +361,18 @@ class Handler(BaseHTTPRequestHandler):
             if len(parts) < 2 or parts[0] != 'runs':
                 return self.send(404, {'error': 'not-found'})
             run = identifier(parts[1])
+            if parts[2:]==['snapshot-upload']:
+                provider=self.server.snapshot_upload_service
+                if self.command!='GET' or provider is None:return self.send(503,{'error':'snapshot-upload-provider-unavailable'})
+                nonces=self.headers.get_all('X-Overte-Snapshot-Upload-Read',[])
+                if len(nonces)!=1:raise ValueError('Fresh original Snapshot upload nonce is required')
+                return self.send(200,provider.snapshot(run,identifier(nonces[0])))
+            if parts[2:]==['snapshot-upload','credentials']:
+                if self.command!='GET' or not reader or self.server.snapshot_upload_service is None:return self.send(403,{'error':'forbidden'})
+                return self.send(200,self.server.snapshot_upload_service.credentials(run))
+            if parts[2:]==['snapshot-upload','control']:
+                if self.command!='POST' or not reader or self.server.snapshot_upload_service is None:return self.send(403,{'error':'forbidden'})
+                exact(body,{'operation'},'Snapshot upload fixture control');self.server.snapshot_upload_service.control(run,body['operation']);return self.send(200,{})
             if parts[2:]==['phase']:
                 if self.command!='GET':return self.send(403,{'error':'forbidden'})
                 requests=self.headers.get_all('X-Overte-Phase-Read',[])
@@ -423,6 +462,7 @@ class Handler(BaseHTTPRequestHandler):
                         self.server.script_resources.activate(run,body['ticket'])
                 else:self.server.journal.activate(run, body['ticket'], body['verb'], body['inputs'])
                 if self.server.journal.runs[run]['area']=='audio' and self.server.audio_resources is not None:self.server.audio_resources.activate(run,body['ticket'])
+                if self.server.journal.runs[run]['area']=='snapshots' and self.server.snapshot_upload_service is not None:self.server.snapshot_upload_service.activate(run,body['ticket'],body['verb'])
                 if self.server.journal.runs[run]['area']=='avatar-people':self.server.avatar_people_service.activate(run,body['ticket'])
                 if self.server.journal.runs[run]['area']=='world-navigation':
                     self.server.navigation_resources.activate(run,body['ticket'])
@@ -448,6 +488,10 @@ class Handler(BaseHTTPRequestHandler):
                 if adapter_reader:original['entries']=[] # Only the original phase/read clock, never independent peer facts.
                 return self.send(200,original)
             if self.command == 'DELETE' and len(parts) == 2 and reader:
+                if self.server.snapshot_upload_service is not None and self.server.snapshot_upload_service.has_run(run):
+                    self.server.snapshot_upload_service.retire(run)
+                    if run in self.server.journal.runs:self.server.journal.close(run)
+                    return self.send(200,{})
                 if self.server.audio_resources is not None and self.server.audio_resources.has_run(run):
                     with self.server.journal.lock:
                         self.server.audio_resources.retire(run)
@@ -502,7 +546,7 @@ class FixtureServer(ThreadingHTTPServer):
         super().server_close()
 
 
-def make_server(reader_token, actor_token, address=('127.0.0.1', 0),*,account_provider=None,tls_context=None,browser_peer_of=None,navigation_resources=None,graphics_resources=None,adapter_token=None,avatar_people_service=None,audio_resources=None):
+def make_server(reader_token, actor_token, address=('127.0.0.1', 0),*,account_provider=None,tls_context=None,browser_peer_of=None,navigation_resources=None,graphics_resources=None,adapter_token=None,avatar_people_service=None,audio_resources=None,snapshot_upload_service=None):
     if adapter_token is not None and (type(adapter_token) is not str or not 32<=len(adapter_token)<=256
             or not adapter_token.isascii() or any(not 33<=ord(c)<=126 for c in adapter_token)
             or adapter_token in (reader_token,actor_token)):
@@ -524,12 +568,14 @@ def make_server(reader_token, actor_token, address=('127.0.0.1', 0),*,account_pr
         raise ValueError('Navigation provider requires its original primary owner')
     if avatar_people_service is not None and (not isinstance(avatar_people_service,AvatarPeopleService) or avatar_people_service.accounts is not account_provider or tls_context is None or browser_peer_of is not None):
         raise ValueError('Social service requires the same original HTTPS account owner')
+    if snapshot_upload_service is not None and (not isinstance(snapshot_upload_service,SnapshotUploadService) or snapshot_upload_service.accounts is not account_provider or tls_context is None or browser_peer_of is not None):raise ValueError('Snapshot service requires its original HTTPS account owner')
     if account_provider is not None:account_provider._attach(reader_token,actor_token)
     if graphics_resources is not None and (not isinstance(graphics_resources,GraphicsResources) or browser_peer_of is not None):
         raise ValueError('Graphics provider requires its original primary owner')
     server = FixtureServer(address, Handler)
     server.account_provider,server.tls_context=account_provider,tls_context
     server.avatar_people_service=avatar_people_service
+    server.snapshot_upload_service=snapshot_upload_service
     server.navigation_resources=navigation_resources
     server.graphics_resources=graphics_resources
     if audio_resources is not None and (not isinstance(audio_resources,AudioResources) or browser_peer_of is not None):
@@ -561,6 +607,7 @@ def main():
     config=PrivateFeatureState(args.private_config.absolute()).read()
     fields={'readerToken','actorToken','host','port'}|({'adapterToken'} if 'adapterToken' in config else set())|({'tls'} if 'tls' in config else set())|({'accountProvider'} if 'accountProvider' in config else set())|({'browserPeer'} if 'browserPeer' in config else set())|({'navigationProvider'} if 'navigationProvider' in config else set())|({'graphicsProvider'} if 'graphicsProvider' in config else set())|({'avatarPeopleService'} if 'avatarPeopleService' in config else set())
     fields|=({'audioProvider'} if 'audioProvider' in config else set())
+    fields|=({'snapshotUploadService'} if 'snapshotUploadService' in config else set())
     exact(config,fields,'private fixture configuration')
     tls=None;provider=None
     if 'tls' in config:
@@ -589,9 +636,13 @@ def main():
     if 'audioProvider' in config:
         exact(config['audioProvider'],{'fixtureUrl'},'actual Audio fixture input')
         audio=AudioResources(config['audioProvider']['fixtureUrl'])
+    snapshot_upload=None
+    if 'snapshotUploadService' in config:
+        exact(config['snapshotUploadService'],{'domainId','root','origin'},'owned Snapshot HTTPS service')
+        values=config['snapshotUploadService'];snapshot_upload=SnapshotUploadService(provider,values['domainId'],values['root'],values['origin'])
     with ExitStack() as owned:
         server=owned.enter_context(make_server(config['readerToken'],config['actorToken'],(config['host'],config['port']),
-            account_provider=provider,tls_context=tls,navigation_resources=navigation,graphics_resources=graphics,adapter_token=config.get('adapterToken'),avatar_people_service=social,audio_resources=audio))
+            account_provider=provider,tls_context=tls,navigation_resources=navigation,graphics_resources=graphics,adapter_token=config.get('adapterToken'),avatar_people_service=social,audio_resources=audio,snapshot_upload_service=snapshot_upload))
         peer=None;worker=None
         if 'browserPeer' in config:
             exact(config['browserPeer'],{'host','port'},'private second browser listener')

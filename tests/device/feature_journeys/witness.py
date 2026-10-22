@@ -166,7 +166,7 @@ class Client:
         self.url, self.token = url, reader_token
         self.monotonic,self.sleep=monotonic,sleep
 
-    def request(self, path, value=None, method=None, *, script_nonce=None, graphics_nonce=None, phase_nonce=None, avatar_people_nonce=None, adapter_access=False, audio_nonce=None):
+    def request(self, path, value=None, method=None, *, script_nonce=None, graphics_nonce=None, phase_nonce=None, avatar_people_nonce=None, adapter_access=False, audio_nonce=None, snapshot_upload_nonce=None):
         raw = None if value is None else json.dumps(value).encode()
         headers={'Authorization': 'Bearer ' + self.token, 'Content-Type': 'application/json'}
         if type(adapter_access) is not bool:raise ValueError('Invalid adapter fixture access marker')
@@ -174,6 +174,7 @@ class Client:
         if script_nonce is not None:headers['X-Overte-Script-Read']=identifier(script_nonce)
         if graphics_nonce is not None:headers['X-Overte-Graphics-Read']=identifier(graphics_nonce)
         if audio_nonce is not None:headers['X-Overte-Audio-Read']=identifier(audio_nonce)
+        if snapshot_upload_nonce is not None:headers['X-Overte-Snapshot-Upload-Read']=identifier(snapshot_upload_nonce)
         if phase_nonce is not None:headers['X-Overte-Phase-Read']=identifier(phase_nonce)
         if avatar_people_nonce is not None:headers['X-Overte-Avatar-People-Read']=identifier(avatar_people_nonce)
         request = Request(self.url + path, data=raw, method=method,
