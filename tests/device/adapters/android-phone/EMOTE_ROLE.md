@@ -1,6 +1,6 @@
 # Phone Emote role observations and motion files, version 1
 
-`PhoneEmoteRole(run, role, image_policy)` composes the actual Run v3, checked
+`PhoneEmoteRole(run, role, image_policy)` composes the actual Run v4, checked
 Source v4, ordinary Input v2, Effects v2, Observation and private file owners.
 It is an internal component, not a registered complete feature adapter. Scripts,
 Authentication and Graphics remain the only three complete Phone triples.

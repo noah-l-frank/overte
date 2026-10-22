@@ -29,7 +29,7 @@ from overte_phone_emote_view import PhoneEmoteView
 from overte_phone_script_history import pack,unpack,same,canonical
 from overte_phone_script_lock import PhoneScriptSourceLock
 
-VERSION=3
+VERSION=4
 
 
 class PhoneEmoteRun:
@@ -55,16 +55,20 @@ class PhoneEmoteRun:
 
     def decode(self,value):
         version=value.get('emoteRunVersion') if type(value) is dict else None
+        need(type(version) is int and version in (1,2,3,VERSION))
         exact(value,{'emoteRunVersion','runId','fixtureUrl','artifactRoot','imageExtent','markerRoi','payload'}
-            |({'admissionPolicy'} if version==VERSION else set()))
-        need(type(version) is int and version in (1,2,VERSION)
+            |({'admissionPolicy'} if version>=3 else set()))
+        need(type(version) is int and version in (1,2,3,VERSION)
             and value['runId']==self.run and value['fixtureUrl']==self.fixture_url and value['artifactRoot']==str(self.root)
             and same(value['imageExtent'],self.extent) and same(value['markerRoi'],self.marker))
         rows=unpack(value['payload']);need(len(rows)==1);state=rows[0]
-        exact(state,{'phase','binding','segment','baseline','call','cleanupTicket'}|({'admissionSha256'} if version==VERSION else set()))
+        exact(state,{'phase','binding','segment','baseline','call','cleanupTicket'}|({'admissionSha256'} if version>=3 else set())|({'setup'} if version==VERSION else set()))
         state=deepcopy(state)
-        if version==VERSION:need(same(value['admissionPolicy'],self.policy))
+        if version>=3:need(same(value['admissionPolicy'],self.policy))
         else:state['admissionSha256']=None
+        if version<VERSION:state['setup']=dict(view='legacy',scene='legacy')
+        exact(state['setup'],{'view','scene'});need(all(item in ('unissued','issued','legacy') for item in state['setup'].values())
+            and (state['setup']['scene']!='issued' or state['setup']['view']=='issued'))
         context(state['binding']);need(integer(state['segment'],0,MAX_SEGMENTS-1)
             and state['phase'] in ('preparing','prepared','acting','active','switching','cleaning-inputs','inputs-restored',
                 'restoring-resources','resources-restored'))
@@ -72,12 +76,13 @@ class PhoneEmoteRun:
         if state['admissionSha256'] is not None:
             need(self.policy is not None and type(state['admissionSha256']) is str
                 and len(state['admissionSha256'])==64 and all(ch in '0123456789abcdef' for ch in state['admissionSha256']))
-        if version==VERSION and state['phase'] in ('prepared','acting','active','switching'):need(state['admissionSha256'] is not None)
+        if version>=3 and state['phase'] in ('prepared','acting','active','switching'):need(state['admissionSha256'] is not None)
         if state['baseline'] is not None:
             exact(state['baseline'],{'revision','sha256'});need(integer(state['baseline']['revision'],1,1024)
                 and type(state['baseline']['sha256']) is str and len(state['baseline']['sha256'])==64
                 and all(ch in '0123456789abcdef' for ch in state['baseline']['sha256']))
-        if state['phase'] in ('prepared','acting','active','switching'):need(state['baseline'] is not None)
+        if state['phase'] in ('prepared','acting','active','switching'):
+            need(state['baseline'] is not None and all(item!='unissued' for item in state['setup'].values()))
         if state['call'] is not None:
             call=arguments('feature.emotes.act',state['call'])
             need(call['runId']==self.run and call['fixtureUrl']==self.fixture_url)
@@ -149,7 +154,7 @@ class PhoneEmoteRun:
                 need(not list(self.store.path.parent.glob('phone-emote-*.json')))
                 _ui,_service,binding,guard,_installed=self.adapter.normal_feature_runtime(self.selector,read_only=True)
                 need(guard() is not False)
-                self.state=dict(phase='preparing',binding=deepcopy(context(binding)),segment=0,baseline=None,call=None,cleanupTicket=None,admissionSha256=None)
+                self.state=dict(phase='preparing',binding=deepcopy(context(binding)),segment=0,baseline=None,call=None,cleanupTicket=None,admissionSha256=None,setup=dict(view='unissued',scene='unissued'))
                 self.save() # Parent ownership precedes every child request/input.
             if self.state['phase']!='preparing':
                 need(self.state['phase'] in ('prepared','acting','active','switching'));self.admitted();return deepcopy(self.state)
@@ -166,8 +171,10 @@ class PhoneEmoteRun:
                 header=admission.wait(sleep=self.sleep);need(admission.state['phase']=='admitted')
                 self.state['admissionSha256']=hashlib.sha256(canonical(header)).hexdigest();self.save()
             else:self.admitted()
+            if self.state['setup']['view']!='issued':self.state['setup']['view']='issued';self.save()
             view=self.view();view.prepare();need(view.state['phase']=='active')
             need(self.active('baseline')['ticket']==baseline_ticket)
+            if self.state['setup']['scene']!='issued':self.state['setup']['scene']='issued';self.save()
             scene=self.scene(view);scene.prepare();need(scene.state['phase']=='active')
             need(self.active('baseline')['ticket']==baseline_ticket and source.guard() is not False)
             self.state['phase']='prepared';self.save();return deepcopy(self.state)
@@ -230,6 +237,31 @@ class PhoneEmoteRun:
             # Recovery reads the committed child lease; it never advances twice.
             self.state.update(segment=current+1,phase='acting');self.save();return current+1
 
+    def unissued_resource(self,kind):
+        """Only a new explicit write-ahead journal can prove no setup attempt."""
+        need(kind in ('view','scene') and self.state['setup'][kind]=='unissued')
+        need(PrivateFeatureState(self.store.path.with_name('phone-emote-'+kind+'.json')).read() is None)
+
+    def no_input_cleanup(self):
+        """No owned mutation existed; preserve absence of a baseline as unknown.
+
+        This private proof supplies no idle/UI/quiet or whole-run verdict.
+        """
+        self.lock.assert_held();need(self.state['phase']=='cleaning-inputs' and self.state['baseline'] is None
+            and self.state['call'] is None and self.state['segment']==0 and self.state['admissionSha256'] is None
+            and self.state['setup']==dict(view='unissued',scene='unissued'))
+        self.unissued_resource('view');self.unissued_resource('scene')
+        for name in ('inputs','cleanup-inputs','background','primary-role','actor-role'):
+            need(PrivateFeatureState(self.store.path.with_name('phone-emote-'+name+'.json')).read() is None)
+        sources={}
+        for role in ('primary','actor'):
+            source=self.source(role);need(source.state['phase']=='ready' and source.state['pending'] is None)
+            sources[role]=deepcopy(source.previous)
+        cleanup=self.phase.status();need(cleanup['active'] and cleanup['activations'][-1]['ticket']==self.state['cleanupTicket']
+            and cleanup['activations'][-1]['stimulus']==dict(verb='cleanup',inputs={}))
+        return dict(emoteNoInputCleanupVersion=1,runId=self.run,binding=deepcopy(self.state['binding']),
+            parentHeader=deepcopy(self.previous),sources=sources,cleanup=cleanup)
+
     def cleanup_inputs(self,call):
         """Recover OS, release a freeze and restore owned native/UI inputs.
 
@@ -254,6 +286,8 @@ class PhoneEmoteRun:
             failures=PhoneEmoteFailures(self);failures.collect_sources();failures.collect_roles();failures.collect_admissions()
             source=self.source();lease=PhoneEmoteNamespaces(source)
             lease.begin_cleanup();lease.assert_acquiring()
+            if self.state['baseline'] is None and self.state['call'] is None and self.state['setup']==dict(view='unissued',scene='unissued'):
+                proof=self.no_input_cleanup();self.state['phase']='inputs-restored';self.save();return proof
             owner=PhoneEmoteInputs(source);clean=PhoneEmoteCleanup(owner);clean.cleanup(call,sleep=self.sleep)
             self.state['phase']='inputs-restored';self.save();return deepcopy(clean.previous)
 
@@ -269,13 +303,20 @@ class PhoneEmoteRun:
             self.load();need(self.state is not None and self.state['phase']=='inputs-restored')
             need(self.active('cleanup')['ticket']==self.state['cleanupTicket'])
             self.state['phase']='restoring-resources';self.save()
-            view=self.view();scene=self.scene(view)
-            scene.cleanup();need(scene.state['phase']=='released')
-            need(self.active('cleanup')['ticket']==self.state['cleanupTicket'])
-            view.cleanup();need(view.state['phase']=='restored')
+            view=None;scene=None
+            if self.state['setup']['view']=='unissued':
+                need(self.state['setup']['scene']=='unissued' and self.state['call'] is None)
+                self.unissued_resource('view');self.unissued_resource('scene')
+            else:
+                view=self.view()
+                if self.state['setup']['scene']=='unissued':self.unissued_resource('scene')
+                else:
+                    scene=self.scene(view);scene.cleanup();need(scene.state['phase']=='released')
+                    need(self.active('cleanup')['ticket']==self.state['cleanupTicket'])
+                view.cleanup();need(view.state['phase']=='restored')
             need(self.active('cleanup')['ticket']==self.state['cleanupTicket'])
             self.state['phase']='resources-restored';self.save()
-            return dict(scene=deepcopy(scene.previous),view=deepcopy(view.previous))
+            return dict(scene=None if scene is None else deepcopy(scene.previous),view=None if view is None else deepcopy(view.previous))
 
     def cleanup_quiet(self,role):
         """This role independently reads the original three-second quiet window.

@@ -1,4 +1,4 @@
-# Phone Emote setup and input run owner, version 3
+# Phone Emote setup and input run owner, version 4
 
 `PhoneEmoteRun` joins the existing View, Scene, per-role Source, normal Input,
 Background, Namespace and Cleanup Input components under the same source lock.
@@ -17,11 +17,11 @@ stored unchanged and cannot be replaced on reconstruction. The constructor does
 not open a foreground-only target source, so reconstructing the run while an
 owned background action is interrupted remains possible.
 
-The private control `phone-emote-run.json` contains exactly `emoteRunVersion:3`,
+The private control `phone-emote-run.json` contains exactly `emoteRunVersion:4`,
 `runId`, `fixtureUrl`, `artifactRoot`, `imageExtent`, `markerRoi`,
 `admissionPolicy`, `payload`. Its
 existing bounded packed payload holds one
-`{phase,binding,segment,baseline,call,cleanupTicket,admissionSha256}` state. Binding is the actual
+`{phase,binding,segment,baseline,call,cleanupTicket,admissionSha256,setup}` state. Binding is the actual
 existing candidate/process/session context. Baseline references an original
 primary frame by revision/hash. Call is an actual normal action or null. Current
 segment retains the existing 0..15 bound. Phases are `preparing`, `prepared`,
@@ -167,3 +167,57 @@ legacy source history into approved current evidence. No old source journal is
 silently migrated into a checked namespace. The remaining complete adapter must
 still own public observations, credentials/actor publication and verified full
 resource/original-file/host-journal retirement before capability registration.
+
+
+## Unissued setup ownership, version 4
+
+New runs persist `setup:{view:"unissued",scene:"unissued"}` in the parent
+before the first source request. Each entry transitions to issued and must be
+read back durably before the corresponding child factory or prepare method is
+called. Scene issued requires View issued. Normal prepared/acting/active/switching
+states cannot contain an unissued entry. Ignored/lost intent writes cannot
+construct the child or dispatch its input. These flags describe attempted
+ownership; issued never proves a View/Scene effect or restoration.
+
+Resource cleanup skips only a new explicit unissued child, after independently
+checking that its private control is absent. If View was unissued, Scene must
+also be unissued and no normal action may exist. If only Scene was unissued,
+the actual View cleanup still runs and must prove exact restoration. An issued
+or legacy child always follows the real original-resource cleanup path; a
+missing original cannot be guessed restored. Returned child headers are null
+only for the explicitly unissued empty resource sets. A foreign/unaccounted
+journal blocks skipping. Failure-owner, source, namespace and parent ownership
+remain for whole-run retirement.
+
+Versions 1/2/3 remain readable. Their missing setup flags normalize to
+`{view:"legacy",scene:"legacy"}` in memory; reconstruction alone does not rewrite
+the original control. Explicit later transitions write v4 while retaining the
+unknown legacy ownership. Legacy absence is never promoted to unissued and
+therefore cannot skip real restoration. Source, role, observation and existing
+child packet formats remain unchanged.
+
+If setup fails before the first accepted baseline, input cleanup may use a
+narrow ownership-only branch. It requires namespace zero, null baseline/call/
+admission hash, both explicit unissued flags, absent View/Scene, input/cleanup/
+background/role controls, and both source streams ready after actual failure
+retention. No gesture, normal close/cancel, restore call or native source is
+sent. The exact private result is
+`{emoteNoInputCleanupVersion:1,runId,binding,parentHeader,sources,cleanup}`.
+Sources contains each role's actual header or null; cleanup is the real current
+cleanup phase. The parent header preserves why no owned mutation existed.
+
+This result deliberately contains no measured state, idle, quiet, cleaned or
+successful-product flag. Unknown initial UI/animation state remains unknown;
+an already-open unowned tablet is not dismissed. Unissued resource cleanup can
+then finish the empty owned resource set. Later current observations, independent
+quiet/native absence checks and full evidence/host-journal retirement remain
+required; an unapproved world still cannot pass a qualified source read or turn
+a failed admission into product acceptance. Complete facade handling of this
+aborted-bootstrap path still has to retain/finalize these original proofs.
+
+Host tests compose actual Source/failure/input cleanup over synthetic sources;
+View/Scene completion boundaries remain explicit doubles in Run tests. Cases
+include cache denial before View, failure before any baseline, an initially open
+unowned tablet, interrupted View setup before Scene, ignored View/Scene parent
+intents, unaccounted child controls, forged setup state and conservative legacy
+cleanup. Device compilation and qualification remain unperformed.

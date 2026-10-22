@@ -2,7 +2,7 @@
 
 `PhoneEmoteAdmission(source, policy)` owns read-only baseline admission through
 the existing source lock, original Source/Input/fixture context and private
-file engine. Run owner version 3 requires it before View/Scene setup. Source
+file engine. Run owner versions 3/4 require it before View/Scene setup. Source
 version 4 additionally enforces executable/world approval on every current
 primary/actor frame. This supplies no public feature triple, gesture/rendering
 success, credentialed actor or whole-run retirement. Native instrumentation is
