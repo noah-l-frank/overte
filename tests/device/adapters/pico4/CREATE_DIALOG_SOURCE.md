@@ -70,3 +70,13 @@ does not compile the complete application or V8 signal proxy, run OpenXR or
 qualify a physical Pico. Actual retained Qt contexts remain resources. Compose
 these sources with the separately observed Script callbacks, durable file/input
 owner and independent entity/domain effects before claiming full cleanup.
+
+The scalar delivery lease also follows a real Window receiver on its original
+foreign Script thread. Only enabled, mutex-protected scalar history changes
+there; weak QObject/QML inspection remains GUI-only. The vertical Qt5 harness
+moves an actual Window receiver to a running QThread, opens through the original
+blocking UI factory, clicks the real Cancel button and independently samples the
+GUI source while the original foreign-thread signal callback is still running.
+It requires one live dispatch inside that callback and original return/listener
+retirement afterward, without a fabricated response or a GUI-thread handoff of
+the product callback.

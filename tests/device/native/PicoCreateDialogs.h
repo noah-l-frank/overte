@@ -89,9 +89,8 @@ private:
         QPointer<QObject> listener;QPointer<QQuickItem> root;QPointer<QQmlContext> context;QPointer<QQuickWindow> window;
         qint64 registered {0},entered {0},returned {0};int dispatches {0};
     };
-    static bool gui() {
-        return qApp && QThread::currentThread()==qApp->thread() && QCoreApplication::arguments().contains("--testScript");
-    }
+    static bool enabled() {return qApp && QCoreApplication::arguments().contains("--testScript");}
+    static bool gui() {return enabled() && QThread::currentThread()==qApp->thread();}
     static QString identity() {return QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-');}
     static QQmlContext* original(QQuickItem* root,const QString& role) {
         return gui() && root && createFileRole(root)==role ? createOriginalFileContext(root) : nullptr;
@@ -106,10 +105,13 @@ private:
         if (_objectGenerations>=128) {_complete=false;return {};}
         ++_objectGenerations;const auto id=identity();_objects.insert(object,{object,id});return id;
     }
+    // Original Window receivers may run on their Script thread. These two
+    // methods touch only locked scalar delivery history; all weak QObject/QML
+    // inspection stays in the GUI-only acquisition methods above.
     std::shared_ptr<void> dispatch(const QString& id) {
         {
             std::lock_guard<std::mutex> lock(_mutex);
-            if (!gui() || !_complete || !_rows.contains(id) || _rows[id].entered!=0 || !advance()) {_complete=false;return {};}
+            if (!enabled() || !_complete || !_rows.contains(id) || _rows[id].entered!=0 || !advance()) {_complete=false;return {};}
             _rows[id].entered=_epoch;_rows[id].dispatches=1;
         }
         const auto self=shared_from_this();
@@ -117,7 +119,7 @@ private:
     }
     void returned(const QString& id) {
         std::lock_guard<std::mutex> lock(_mutex);
-        if (!gui() || !_complete || !_rows.contains(id) || _rows[id].dispatches!=1 || _rows[id].returned!=0 || !advance()) {
+        if (!enabled() || !_complete || !_rows.contains(id) || _rows[id].dispatches!=1 || _rows[id].returned!=0 || !advance()) {
             _complete=false;return;
         }
         _rows[id].dispatches=0;_rows[id].returned=_epoch;
