@@ -50,7 +50,7 @@ class IOSEmotePointers:
     def archive(cls,value,*,store,root,binding,run,role,lock):
         result=object.__new__(cls);result.store,result.root,result.binding,result.run,result.role,result.lock=store,Path(root),deepcopy(context(binding)),identifier(run),role,lock
         need(isinstance(store,PrivateFeatureState) and isinstance(lock,ScriptSourceLock));lock.assert_held()
-        result.previous=store.read();result.state=result.decode(value);return result
+        result.historical=True;result.previous=store.read();result.state=result.decode(value);return result
 
     def __init__(self,store,root,binding,run,role,lock,guard,*,native,pointer,epoch_ms,monotonic):
         need(isinstance(store,PrivateFeatureState) and isinstance(lock,ScriptSourceLock) and isinstance(pointer,pointer_state.IOSPointerState)
@@ -58,7 +58,7 @@ class IOSEmotePointers:
         self.store,self.root,self.binding,self.run,self.role,self.lock=store,Path(root),deepcopy(context(binding)),identifier(run),role,lock
         self.guard,self.native,self.pointer,self.epoch_ms,self.monotonic=guard,native,pointer,epoch_ms,monotonic
         need(role in ('primary','actor') and self.root.is_absolute() and self.root.resolve()==self.root and self.root.is_dir())
-        self.previous=store.read();self.state=dict(records=[],abandoned=[],pending=None)
+        self.historical=False;self.previous=store.read();self.state=dict(records=[],abandoned=[],pending=None)
         if self.previous is not None:self.state=self.decode(self.previous)
 
     def envelope(self,state):return dict(iosEmotePointersVersion=VERSION,runId=self.run,role=self.role,binding=self.binding,artifactRoot=str(self.root),payload=pack([state]))
@@ -108,11 +108,11 @@ class IOSEmotePointers:
             for later in state['records'][partial['priorRecords']:]:self.floors(partial,self.original(later))
         if state['pending'] is not None:
             self.partial(state['pending']);need(state['pending']['priorRecords']==len(state['records']))
-        else:need(len(state['records'])==512 or self.file(len(state['records'])+1).read() is None)
-        need(len(state['abandoned'])==512 or self.file(len(state['abandoned'])+1,True).read() is None)
+        elif not getattr(self,'historical',False):need(len(state['records'])==512 or self.file(len(state['records'])+1).read() is None)
+        if not getattr(self,'historical',False):need(len(state['abandoned'])==512 or self.file(len(state['abandoned'])+1,True).read() is None)
         return deepcopy(state)
 
-    def bound(self):self.lock.assert_held();need(same(self.store.read(),self.previous) and self.guard() is not False)
+    def bound(self):self.lock.assert_held();need(not getattr(self,'historical',False) and same(self.store.read(),self.previous) and self.guard() is not False)
 
     def save(self):
         self.bound();value=self.envelope(self.state);self.store.write(value,self.previous);need(same(self.store.read(),value));self.previous=deepcopy(value)

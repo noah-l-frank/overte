@@ -81,7 +81,7 @@ class OriginalMarkerEntities:
     @classmethod
     def archive(cls,value,*,store,root,binding,run,role,lock):
         result=object.__new__(cls);result.store,result.root,result.binding,result.run,result.role,result.lock=store,Path(root),deepcopy(context(binding)),identifier(run),role,lock
-        lock.assert_held();result.previous=store.read();result.state=result.decode(value);return result
+        lock.assert_held();result.historical=True;result.previous=store.read();result.state=result.decode(value);return result
 
     def __init__(self,store,root,binding,run,role,lock,guard,*,native,entities,epoch_ms,monotonic):
         need(type(self).PROFILE in ('emote','avatar') and isinstance(store,PrivateFeatureState) and isinstance(lock,ScriptSourceLock)
@@ -89,7 +89,7 @@ class OriginalMarkerEntities:
         self.store,self.root,self.binding,self.run,self.role,self.lock=store,Path(root),deepcopy(context(binding)),identifier(run),role,lock
         self.guard,self.native,self.entities,self.epoch_ms,self.monotonic=guard,native,entities,epoch_ms,monotonic
         need(role in ('primary','actor') and self.root.is_absolute() and self.root.resolve()==self.root and self.root.is_dir())
-        self.previous=store.read();self.state=dict(records=[],pending=None,abandoned=[])
+        self.historical=False;self.previous=store.read();self.state=dict(records=[],pending=None,abandoned=[])
         if self.previous is not None:self.state=self.decode(self.previous)
         previous=self.latest()
         if previous is not None:
@@ -121,7 +121,7 @@ class OriginalMarkerEntities:
                 if later['index']>ref['index']:self.follow_partial(abandoned,self.original(later))
         need(sorted(indices)==list(range(1,len(indices)+1)))
         if state['pending'] is not None:self.partial(state['pending'])
-        elif len(indices)<256:need(self.record_store(len(indices)+1).read() is None)
+        elif not getattr(self,'historical',False) and len(indices)<256:need(self.record_store(len(indices)+1).read() is None)
         return deepcopy(state)
     def partial(self,value):
         exact(value,{'query','nativeStart','packet','original'})
@@ -140,10 +140,11 @@ class OriginalMarkerEntities:
         if prior['nativeStart'] is not None:native_prefix(prior['nativeStart']['nativeBefore'],current['clockJoin']['nativeBefore'])
         if prior['packet'] is not None:native_entities.validate(current['packet'],current['query'],int(self.binding['processIdentity']),previous=prior['packet'])
 
-    def bound(self):self.lock.assert_held();need(self.guard() is not False and same(self.store.read(),self.previous))
+    def bound(self):self.lock.assert_held();need(not getattr(self,'historical',False) and self.guard() is not False and same(self.store.read(),self.previous))
     def save(self):
         self.bound();value=self.envelope(self.state);self.store.write(value,self.previous);need(same(self.store.read(),value));self.previous=deepcopy(value)
     def retain(self,value):
+        self.bound()
         index=len(self.state['records'])+len(self.state['abandoned'])+1
         document=dict(markerEntityRecordVersion=VERSION,profile=type(self).PROFILE,runId=self.run,role=self.role,binding=self.binding,payload=pack([value]))
         store=self.record_store(index);old=store.read()

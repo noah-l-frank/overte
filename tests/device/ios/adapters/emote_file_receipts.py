@@ -58,7 +58,7 @@ class IOSEmoteFileReceipts:
     def archive(cls,value,*,store,root,binding,run,role,lock):
         need(isinstance(store,PrivateFeatureState) and isinstance(lock,ScriptSourceLock));lock.assert_held()
         result=object.__new__(cls);result.store,result.root,result.binding,result.run,result.role,result.lock=store,Path(root),deepcopy(context(binding)),identifier(run),role,lock
-        result.previous=store.read();result.state=result.decode(value);return result
+        result.historical=True;result.previous=store.read();result.state=result.decode(value);return result
 
     def __init__(self,store,root,binding,run,role,lock,guard,*,native,files,epoch_ms,monotonic):
         need(isinstance(store,PrivateFeatureState) and isinstance(lock,ScriptSourceLock)
@@ -66,7 +66,7 @@ class IOSEmoteFileReceipts:
         self.store,self.root,self.binding,self.run,self.role,self.lock=store,Path(root),deepcopy(context(binding)),identifier(run),role,lock
         self.guard,self.native,self.files,self.epoch_ms,self.monotonic=guard,native,files,epoch_ms,monotonic
         need(role in ('primary','actor') and self.root.is_absolute() and self.root.resolve()==self.root and self.root.is_dir())
-        self.previous=store.read();self.state=dict(records=[],pending=None,abandoned=[])
+        self.historical=False;self.previous=store.read();self.state=dict(records=[],pending=None,abandoned=[])
         if self.previous is not None:self.state=self.decode(self.previous)
 
     def envelope(self,state):return dict(iosEmoteFileReceiptsVersion=VERSION,runId=self.run,role=self.role,binding=self.binding,
@@ -124,12 +124,12 @@ class IOSEmoteFileReceipts:
         if pending is not None:
             self.partial(pending)
             if pending['original'] is not None:receipt(pending['original'],root=self.root,binding=self.binding,run=self.run,role=self.role,previous=old)
-        else:need(len(state['records'])==128 or self.record_store(len(state['records'])+1).read() is None)
+        elif not getattr(self,'historical',False):need(len(state['records'])==128 or self.record_store(len(state['records'])+1).read() is None)
         for index,ref in enumerate(state['abandoned'],1):need(ref['index']==index);self.abandoned(ref)
-        if pending is None:need(len(state['abandoned'])==128 or self.abandoned_store(len(state['abandoned'])+1).read() is None)
+        if pending is None and not getattr(self,'historical',False):need(len(state['abandoned'])==128 or self.abandoned_store(len(state['abandoned'])+1).read() is None)
         return deepcopy(state)
 
-    def bound(self):self.lock.assert_held();need(same(self.store.read(),self.previous) and self.guard() is not False)
+    def bound(self):self.lock.assert_held();need(not getattr(self,'historical',False) and same(self.store.read(),self.previous) and self.guard() is not False)
 
     def save(self):
         self.bound();value=self.envelope(self.state);self.decode(value);self.store.write(value,self.previous)
