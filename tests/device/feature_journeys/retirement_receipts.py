@@ -12,7 +12,10 @@ import re
 from .contract import exact,identifier,number,result
 from .scenarios import SCENARIOS
 
-VERSION=1
+VERSION=2
+READS=(1,2)
+SCENE_STAGE="avatar-scene-retired"
+SCENE_CLASSES=("entity", "file", "gpu", "marker-pixels", "qt-ui", "script-listener", "script-vm", "timer", "world-view")
 
 
 def check(value):
@@ -60,22 +63,48 @@ def quiet(value,actor_binding):
     check(max(intervals)-min(intervals)<=500);return value
 
 
+def stage(value):
+    return 'complete' if value.get('phaseRetirementVersion')==1 else value.get('stage')
+
+
+def summary(value):
+    return value['scene'] if stage(value)==SCENE_STAGE else value['cleanup']
+
+
+def scene(value,run,sequence):
+    exact(value,{'sceneRetirementVersion','runId','sequence','capturedEpochMs','retired','remaining','lifecycle'},'closed Avatar scene retirement summary')
+    check(type(value['sceneRetirementVersion']) is int and value['sceneRetirementVersion']==1
+        and value['runId']==run and type(value['sequence']) is int and value['sequence']==sequence
+        and value['retired']==list(SCENE_CLASSES) and value['remaining']==['account-session'])
+    lifecycle(value['lifecycle']);number(value['capturedEpochMs'],1)
+    return value
+
+
+def lifecycle(value):
+    exact(value,{'backgrounds','activations','launches'},'retirement lifecycle')
+    check(all(type(count) is int and 0<=count<=1000000 for count in value.values()) and value['launches']>=1)
+
+
 def body(value,*,run=None,area=None,phase_instance=None):
+    check(type(value) is dict and type(value.get('phaseRetirementVersion')) is int and value['phaseRetirementVersion'] in READS)
+    version=value['phaseRetirementVersion'];kind=stage(value)
+    check(kind in ('complete',SCENE_STAGE) and (kind!='avatar-scene-retired' or version==2 and value.get('area')=='avatar-people'))
     exact(value,{'phaseRetirementVersion','runId','area','phaseInstance','ticket','role','actorSequence','binding','originalSha256',
-        'cleanup','acquisition','quiet','provenance'},'retirement publication')
-    check(type(value['phaseRetirementVersion']) is int and value['phaseRetirementVersion']==VERSION and value['role']=='actor'
-        and value['area'] in SCENARIOS and (area is None or value['area']==area) and (run is None or value['runId']==run)
+        'acquisition','quiet','provenance'}|({'stage'} if version==2 else set())|({'scene'} if kind==SCENE_STAGE else {'cleanup'}),'retirement publication')
+    check(value['role']=='actor' and value['area'] in SCENARIOS
+        and (area is None or value['area']==area) and (run is None or value['runId']==run)
         and (phase_instance is None or value['phaseInstance']==phase_instance))
     identifier(value['runId']);identifier(value['phaseInstance']);identifier(value['ticket']);binding(value['binding'])
     check(sha(value['originalSha256']) and type(value['actorSequence']) is int and value['actorSequence']>0)
-    public=value['cleanup'];exact(public,{'schemaVersion','contractVersion','runId','sequence','capturedEpochMs','resources','lifecycle'},'closed retirement summary')
-    check(type(public['schemaVersion']) is int and public['schemaVersion']==1 and type(public['contractVersion']) is int and public['contractVersion']==16
-        and type(public['sequence']) is int and public['sequence']>0 and type(public['resources']) is list)
-    exact(public['lifecycle'],{'backgrounds','activations','launches'},'retirement lifecycle')
-    check(all(type(count) is int and 0<=count<=1000000 for count in public['lifecycle'].values()))
-    number(public['capturedEpochMs'],1);check(public['lifecycle']['launches']>=1)
+    public=summary(value)
+    if kind==SCENE_STAGE:scene(public,value['runId'],value['actorSequence'])
+    else:
+        exact(public,{'schemaVersion','contractVersion','runId','sequence','capturedEpochMs','resources','lifecycle'},'closed complete retirement summary')
+        check(type(public['schemaVersion']) is int and public['schemaVersion']==1 and type(public['contractVersion']) is int and public['contractVersion']==16
+            and type(public['sequence']) is int and public['sequence']>0 and type(public['resources']) is list and public['resources']==[])
+        lifecycle(public['lifecycle']);number(public['capturedEpochMs'],1)
     clock=acquisition(value['acquisition'])
-    check(public['runId']==value['runId'] and public['sequence']==value['actorSequence'] and public['resources']==[]
+    check(public['runId']==value['runId'] and public['sequence']==value['actorSequence']
         and clock['hostBeforeEpochMs']<=public['capturedEpochMs']<=clock['hostAfterEpochMs'])
     quiet(value['quiet'],value['binding']);check(value['quiet']['hostBeforeLastEpochMs']<=clock['hostBeforeEpochMs']
         and value['quiet']['hostBeforeLastMonotonic']<=clock['hostBeforeMonotonic'])
@@ -100,7 +129,9 @@ class PhaseRetirementJournal:
             check(value['quiet']['hostAfterFirstEpochMs']>=current['activeEpochMs'])
             rows=self.runs.get(run,[]);check(len(rows)<128)
             if rows:check(value['actorSequence']>rows[-1]['actorSequence'] and value['binding']==rows[0]['binding'])
-            captured=value['cleanup']['capturedEpochMs'];now=self.journal.clock()
+            same_ticket=[row for row in rows if row['ticket']==value['ticket']]
+            check(stage(value)!=SCENE_STAGE or not same_ticket)
+            captured=summary(value)['capturedEpochMs'];now=self.journal.clock()
             check(current['activeEpochMs']<=captured<=now+250 and now-captured<=1500)
             rows.append(dict(deepcopy(value),sequence=len(rows)+1,receivedEpochMs=now,receiptSha256=digest(value)))
             self.runs[run]=rows
@@ -108,5 +139,5 @@ class PhaseRetirementJournal:
     def snapshot(self,run):
         with self.journal.lock:
             current=self.journal.runs[identifier(run)]
-            return dict(phaseRetirementJournalVersion=1,runId=run,area=current['area'],phaseInstance=self.journal.phase_instance,
+            return dict(phaseRetirementJournalVersion=VERSION,runId=run,area=current['area'],phaseInstance=self.journal.phase_instance,
                 ticket=current['ticket'],sampleEpochMs=self.journal.clock(),entries=deepcopy(self.runs.get(run,[])))

@@ -13,19 +13,21 @@ from adapters.normal_feature_state import PrivateFeatureState,context
 from adapters.phase_retirement_publisher import PhaseRetirementPublisher,PublicationPending
 from adapters.script_feature.history import pack,unpack,same
 from feature_journeys.phase_fixture import PhaseFixtureReader,validate as phase_packet
-from feature_journeys.retirement_receipts import binding_from_context
+from feature_journeys.retirement_receipts import binding_from_context,summary as retirement_summary,stage as retirement_stage,SCENE_STAGE
 
-VERSION=1
+VERSION=2
+READS=(1,2)
 
 
 class PhaseRetirementReader:
-    def __init__(self,store,binding,phase,guard,admitted_original,validate_admission,*,epoch_ms=lambda:time.time()*1000,monotonic=time.monotonic):
+    def __init__(self,store,binding,phase,guard,admitted_original,validate_admission,*,epoch_ms=lambda:time.time()*1000,monotonic=time.monotonic,stage='complete'):
         need(isinstance(store,PrivateFeatureState) and isinstance(phase,PhaseFixtureReader) and phase.previous is not None
             and all(callable(fn) for fn in (guard,validate_admission,epoch_ms,monotonic)))
         self.store,self.binding,self.phase=store,deepcopy(context(binding)),phase
         self.guard,self.admitted_original,self.validate_admission=guard,deepcopy(admitted_original),validate_admission
         self.run,self.area,self.instance,self.url=phase.run,phase.area,phase.previous['instance'],phase.client.url
         self.epoch_ms,self.monotonic=epoch_ms,monotonic
+        need(stage in ('complete',SCENE_STAGE) and (stage=='complete' or self.area=='avatar-people'));self.stage=stage
         self.previous=store.read();self.state=dict(records=[])
         self.actor=self.admission()
         if self.previous is not None:self.state=self.decode(self.previous)
@@ -37,8 +39,12 @@ class PhaseRetirementReader:
             and all(actor[key]==self.binding[key] for key in ('artifactSha256','sourceRevision')))
         return binding_from_context(actor)
 
-    def envelope(self,state):return dict(phaseRetirementReaderVersion=VERSION,runId=self.run,area=self.area,phaseInstance=self.instance,
-        fixtureUrl=self.url,binding=self.binding,admittedOriginal=self.admitted_original,payload=pack([state]))
+    def envelope(self,state,version=VERSION):
+        value=dict(phaseRetirementReaderVersion=version,runId=self.run,area=self.area,phaseInstance=self.instance,
+            fixtureUrl=self.url,binding=self.binding,admittedOriginal=self.admitted_original,payload=pack([state]))
+        if version==2:value['stage']=self.stage
+        else:need(self.stage=='complete')
+        return value
 
     def journal(self,value):
         checker=object.__new__(PhaseRetirementPublisher);checker.run,checker.area,checker.instance=self.run,self.area,self.instance
@@ -58,16 +64,18 @@ class PhaseRetirementReader:
             and first['capturedEpochMs']<=journal['sampleEpochMs']<=last['capturedEpochMs']
             and clock['hostBeforeEpochMs']-250<=first['capturedEpochMs']<=last['capturedEpochMs']<=clock['hostAfterEpochMs']+250
             and clock['hostAfterEpochMs']-first['capturedEpochMs']<1500 and entry in journal['entries']
-            and same(entry,journal['entries'][-1]) and same(entry['binding'],self.actor)
+            and same(entry,journal['entries'][-1]) and retirement_stage(entry)==self.stage and same(entry['binding'],self.actor)
             and value['sha256']==digest({key:item for key,item in value.items() if key!='sha256'}))
         return value
 
     def decode(self,value):
-        exact(value,{'phaseRetirementReaderVersion','runId','area','phaseInstance','fixtureUrl','binding','admittedOriginal','payload'})
-        rows=unpack(value['payload']);need(len(rows)==1 and same(value,self.envelope(rows[0])));state=rows[0];exact(state,{'records'})
+        need(type(value) is dict and type(value.get('phaseRetirementReaderVersion')) is int and value['phaseRetirementReaderVersion'] in READS)
+        version=value['phaseRetirementReaderVersion']
+        exact(value,{'phaseRetirementReaderVersion','runId','area','phaseInstance','fixtureUrl','binding','admittedOriginal','payload'}|({'stage'} if version==2 else set()))
+        rows=unpack(value['payload']);need(len(rows)==1 and same(value,self.envelope(rows[0],version)));state=rows[0];exact(state,{'records'})
         need(type(state['records']) is list and len(state['records'])<=128);before=None
         for row in state['records']:
-            self.record(row)
+            self.record(row);need(row['entry']['phaseRetirementVersion']<=version and row['journal']['phaseRetirementJournalVersion']<=version)
             if before is not None:
                 a,b=before['entry'],row['entry'];need(b['actorSequence']>=a['actorSequence'])
                 if b['actorSequence']==a['actorSequence']:need(same(a,b))
@@ -82,16 +90,17 @@ class PhaseRetirementReader:
         epoch,started=self.epoch_ms(),self.monotonic();floor=self.state['records'][-1]['phaseAfter'] if self.state['records'] else None
         before=self.phase.status(floor);journal=self.phase.client.request('/runs/'+self.run+'/retirements');after=self.phase.status(before)
         self.journal(journal)
-        if not journal['entries']:raise PublicationPending('No independent committed resource retirement is present')
+        if not journal['entries'] or retirement_stage(journal['entries'][-1])!=self.stage:
+            raise PublicationPending('No independent committed retirement of the required stage is present')
         record=dict(phaseBefore=before,journal=journal,phaseAfter=after,acquisition=dict(hostBeforeEpochMs=epoch,hostAfterEpochMs=self.epoch_ms(),
             hostBeforeMonotonic=started,hostAfterMonotonic=self.monotonic()),entry=deepcopy(journal['entries'][-1]))
         record['sha256']=digest(record);self.record(record)
         need(number(self.epoch_ms(),record['acquisition']['hostAfterEpochMs'],1e15)
-            and -250<=record['acquisition']['hostAfterEpochMs']-record['entry']['cleanup']['capturedEpochMs']<=1500
+            and -250<=record['acquisition']['hostAfterEpochMs']-retirement_summary(record['entry'])['capturedEpochMs']<=1500
             and self.guard() is not False and same(self.admission(),self.actor) and same(self.store.read(),self.previous))
         self.state['records'].append(record);value=self.envelope(self.state);self.decode(value);self.store.write(value,self.previous)
         need(same(self.store.read(),value));self.previous=deepcopy(value)
         end,mono=self.epoch_ms(),self.monotonic();need(number(end,record['acquisition']['hostAfterEpochMs'],1e15)
             and number(mono,record['acquisition']['hostAfterMonotonic'],started+1.5) and mono-started<1.5
-            and max(end-record['entry']['cleanup']['capturedEpochMs'],epoch-record['entry']['cleanup']['capturedEpochMs']+(mono-started)*1000)<=1500)
+            and max(end-retirement_summary(record['entry'])['capturedEpochMs'],epoch-retirement_summary(record['entry'])['capturedEpochMs']+(mono-started)*1000)<=1500)
         return deepcopy(record)

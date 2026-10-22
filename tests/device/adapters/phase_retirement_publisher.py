@@ -17,9 +17,10 @@ from adapters.script_feature.lock import ScriptSourceLock
 from feature_journeys.contract import identifier, result, state as feature_state
 from feature_journeys.phase_fixture import PhaseFixtureReader, validate as phase_packet
 from feature_journeys.scenarios import SCENARIOS
-from feature_journeys.retirement_receipts import body as retirement_body,binding_from_context,digest as retirement_digest
+from feature_journeys.retirement_receipts import body as retirement_body,binding_from_context,digest as retirement_digest,summary as retirement_summary,stage as retirement_stage,SCENE_STAGE
 
-VERSION = 1
+VERSION = 2
+READS = (1,2)
 
 
 class PublicationPending(NativeUIError):
@@ -58,8 +59,8 @@ class PhaseRetirementPublisher:
         self.bound()
         if self.previous is None: self.save()
 
-    def envelope(self, state):
-        return dict(phaseRetirementPublisherVersion=VERSION, binding=self.binding, runId=self.run, area=self.area,
+    def envelope(self, state,version=VERSION):
+        return dict(phaseRetirementPublisherVersion=version, binding=self.binding, runId=self.run, area=self.area,
                     fixtureUrl=self.url, phaseInstance=self.instance, payload=pack([state]))
 
     def bound(self):
@@ -83,26 +84,32 @@ class PhaseRetirementPublisher:
              and abs(b-a-(d-c)*1000) <= 250)
         return value
 
-    def original(self, value):
-        """The callback must validate source bytes/history without live reads."""
-        need(type(value) is dict)
+    def original(self, value,version=VERSION):
+        """Scene and complete callbacks have deliberately disjoint grammars."""
+        need(type(value) is dict and type(version) is int and version in READS)
         derived = deepcopy(self.validate_original(deepcopy(value)))
-        exact(derived, {'ticket', 'public', 'acquisition', 'retirement'}); identifier(derived['ticket'])
-        public = result('feature.'+self.area+'.observe', derived['public'])
-        need(public['runId'] == self.run)
-        clock = self.acquisition(derived['acquisition'])
-        need(number(public['capturedEpochMs'], clock['hostBeforeEpochMs'], clock['hostAfterEpochMs']))
+        need(type(derived) is dict);is_scene='scene' in derived
+        exact(derived, {'ticket', 'scene' if is_scene else 'public', 'acquisition', 'retirement'}); identifier(derived['ticket'])
+        if is_scene:
+            need(version==2 and self.area=='avatar-people');public=derived['scene']
+        else:public=result('feature.'+self.area+'.observe',derived['public'])
+        need(public['runId']==self.run)
+        clock=self.acquisition(derived['acquisition'])
+        need(number(public['capturedEpochMs'],clock['hostBeforeEpochMs'],clock['hostAfterEpochMs']))
         retirement=derived['retirement'];exact(retirement,{'originalSha256','quiet','provenance'})
-        body = dict(phaseRetirementVersion=1,runId=self.run,area=self.area,phaseInstance=self.instance,
+        body=dict(phaseRetirementVersion=version,runId=self.run,area=self.area,phaseInstance=self.instance,
             ticket=derived['ticket'],role='actor',actorSequence=public['sequence'],binding=binding_from_context(self.binding),
-            originalSha256=retirement['originalSha256'],cleanup={key:public[key] for key in ('schemaVersion','contractVersion','runId','sequence','capturedEpochMs','resources','lifecycle')},acquisition=clock,quiet=retirement['quiet'],provenance=retirement['provenance'])
+            originalSha256=retirement['originalSha256'],acquisition=clock,quiet=retirement['quiet'],provenance=retirement['provenance'])
+        if version==2:body['stage']=SCENE_STAGE if is_scene else 'complete'
+        if is_scene:body['scene']=deepcopy(public)
+        else:body['cleanup']={key:public[key] for key in ('schemaVersion','contractVersion','runId','sequence','capturedEpochMs','resources','lifecycle')}
         retirement_body(body,run=self.run,area=self.area,phase_instance=self.instance)
-        return derived, body
+        return derived,body
 
     def intent(self, value):
         exact(value, {'ordinal', 'original', 'derived', 'body', 'phase'})
         need(integer(value['ordinal'], 1, 128) and value['phase'] in ('planned', 'issued'))
-        derived, body = self.original(value['original'])
+        derived, body = self.original(value['original'],value['body'].get('phaseRetirementVersion'))
         need(same(derived, value['derived']) and same(body, value['body'])); return value
 
     def phase_original(self, value, previous=None):
@@ -112,16 +119,19 @@ class PhaseRetirementPublisher:
 
     def journal(self,value):
         exact(value,{'phaseRetirementJournalVersion','runId','area','phaseInstance','ticket','sampleEpochMs','entries'})
-        need(type(value['phaseRetirementJournalVersion']) is int and value['phaseRetirementJournalVersion']==1
+        need(type(value['phaseRetirementJournalVersion']) is int and value['phaseRetirementJournalVersion'] in READS
             and value['runId']==self.run and value['area']==self.area and value['phaseInstance']==self.instance
             and number(value['sampleEpochMs'],1,1e15) and type(value['entries']) is list and len(value['entries'])<=128)
-        identifier(value['ticket']);sequence=actor=0;binding=None
+        identifier(value['ticket']);sequence=actor=0;binding=None;seen_tickets=set()
         for row in value['entries']:
             keys=set(row)-{'sequence','receivedEpochMs','receiptSha256'};original={key:row[key] for key in keys}
             retirement_body(original,run=self.run,area=self.area,phase_instance=self.instance)
+            need(original['phaseRetirementVersion']<=value['phaseRetirementJournalVersion']
+                and (retirement_stage(original)!=SCENE_STAGE or original['ticket'] not in seen_tickets))
+            seen_tickets.add(original['ticket'])
             need(row['receiptSha256']==retirement_digest(original) and integer(row['sequence'],sequence+1)
                 and integer(row['actorSequence'],actor+1) and number(row['receivedEpochMs'],1,value['sampleEpochMs'])
-                and -250<=row['receivedEpochMs']-row['cleanup']['capturedEpochMs']<=1500)
+                and -250<=row['receivedEpochMs']-retirement_summary(row)['capturedEpochMs']<=1500)
             if binding is not None:need(same(binding,row['binding']))
             binding=row['binding'];sequence,actor=row['sequence'],row['actorSequence']
         return value
@@ -146,7 +156,7 @@ class PhaseRetirementPublisher:
             need(row['intent']['phase'] == 'issued' and len(matches) == 1 and same(row['entry'], matches[0])
                  and same({key:row['entry'][key] for key in body}, body)
                  and any(item['ticket'] == body['ticket'] and item['stimulus']==dict(verb='cleanup',inputs={})
-                         and item['activatedEpochMs'] <= body['quiet']['hostAfterFirstEpochMs'] <= body['cleanup']['capturedEpochMs']
+                         and item['activatedEpochMs'] <= body['quiet']['hostAfterFirstEpochMs'] <= retirement_summary(body)['capturedEpochMs']
                          for item in last['activations']))
         else:
             need(row['mode'] == 'phase-retired' and not matches and row['entry'] is None and journal['ticket'] != body['ticket'])
@@ -160,30 +170,33 @@ class PhaseRetirementPublisher:
         exact(reference, {'ordinal', 'sha256'}); value = self.record_store(reference['ordinal']).read()
         need(value is not None and digest(value) == reference['sha256'])
         exact(value, {'phaseRetirementPublicationRecordVersion', 'binding', 'runId', 'area', 'fixtureUrl', 'phaseInstance', 'payload'})
-        need(type(value['phaseRetirementPublicationRecordVersion']) is int and value['phaseRetirementPublicationRecordVersion'] == VERSION
+        need(type(value['phaseRetirementPublicationRecordVersion']) is int and value['phaseRetirementPublicationRecordVersion'] in READS
              and same(value['binding'], self.binding) and (value['runId'], value['area'], value['fixtureUrl'], value['phaseInstance'])
              == (self.run, self.area, self.url, self.instance))
         rows = unpack(value['payload']); need(len(rows) == 1)
-        row = self.receipt(rows[0]); need(row['intent']['ordinal'] == reference['ordinal']); return row
+        row = self.receipt(rows[0]); need(row['intent']['ordinal'] == reference['ordinal']
+            and row['intent']['body']['phaseRetirementVersion']<=value['phaseRetirementPublicationRecordVersion']); return row
 
     def decode(self, value):
         exact(value, {'phaseRetirementPublisherVersion', 'binding', 'runId', 'area', 'fixtureUrl', 'phaseInstance', 'payload'})
         rows = unpack(value['payload']); need(len(rows) == 1 and type(value['phaseRetirementPublisherVersion']) is int
-            and value['phaseRetirementPublisherVersion'] == VERSION and same(value, self.envelope(rows[0])))
+            and value['phaseRetirementPublisherVersion'] in READS and same(value, self.envelope(rows[0],value['phaseRetirementPublisherVersion'])))
         state = rows[0]; exact(state, {'records', 'pending'})
         need(type(state['records']) is list and len(state['records']) <= 128)
         previous = None; previous_phase = None
         for ordinal, ref in enumerate(state['records'], 1):
             need(ref.get('ordinal') == ordinal); row = self.load(ref); current = row['intent']['body']
+            need(current['phaseRetirementVersion']<=value['phaseRetirementPublisherVersion'])
             if previous is not None:
-                need(current['actorSequence'] > previous['actorSequence'] and current['cleanup']['capturedEpochMs'] >= previous['cleanup']['capturedEpochMs'])
+                need(current['actorSequence'] > previous['actorSequence'] and retirement_summary(current)['capturedEpochMs'] >= retirement_summary(previous)['capturedEpochMs'])
                 self.phase_original(row['phaseBefore'], previous_phase)
             previous, previous_phase = current, row['phaseAfter']
         if state['pending'] is not None:
             pending = self.intent(state['pending']); current = pending['body']
+            need(current['phaseRetirementVersion']<=value['phaseRetirementPublisherVersion'])
             need(pending['ordinal'] == len(state['records'])+1
                  and (previous is None or current['actorSequence'] > previous['actorSequence']
-                      and current['cleanup']['capturedEpochMs'] >= previous['cleanup']['capturedEpochMs']))
+                      and retirement_summary(current)['capturedEpochMs'] >= retirement_summary(previous)['capturedEpochMs']))
         elif self.live and len(state['records']) < 128:
             # A forgotten receipt is unresolved responsibility, not permission
             # to reuse its ordinal and send another sample.
@@ -252,7 +265,7 @@ class PhaseRetirementPublisher:
         active = self.phase.read(floor); self.bound(); clock = pending['derived']['acquisition']
         now, epoch = self.monotonic(), self.epoch_ms()
         need(active['verb']=='cleanup' and active['ticket'] == pending['body']['ticket']
-             and active['afterEpochMs'] <= pending['body']['cleanup']['capturedEpochMs']
+             and active['afterEpochMs'] <= retirement_summary(pending['body'])['capturedEpochMs']
              and number(now, clock['hostAfterMonotonic'], clock['hostBeforeMonotonic']+1.5)
              and now-clock['hostBeforeMonotonic'] < 1.5
              and number(epoch, clock['hostAfterEpochMs'], clock['hostBeforeEpochMs']+1500)
