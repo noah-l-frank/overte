@@ -18,6 +18,9 @@
 #define hifi_EntityScriptingInterface_h
 
 #include <memory>
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+#include "../../../tests/device/native/CreateLocalCreations.h"
+#endif
 
 #include <QtCore/QObject>
 #include <QtCore/QStringList>
@@ -176,6 +179,10 @@ class EntityScriptingInterface : public OctreeScriptingInterface, public Depende
     friend EntityPropertyMetadataRequest;
 public:
     EntityScriptingInterface(bool bidOnSimulationOwnership);
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+    // Native-only private observer; deliberately absent from the script API.
+    QVariantMap featureCreateLocalCreations(const QString& run) {return _featureCreateLocalCreations.snapshot(run);}
+#endif
 
     class ActivityTracking {
     public:
@@ -2797,6 +2804,9 @@ private:
     bool _bidOnSimulationOwnership { false };
 
     ActivityTracking _activityTracking;
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+    overte::e2e::CreateLocalCreations _featureCreateLocalCreations;
+#endif
 
     // By default, we do coarse picking against only domain and avatar entities
     static const uint ENTITY_PICK_FILTER = PickFilter::getBitMask(PickFilter::FlagBit::DOMAIN_ENTITIES) |

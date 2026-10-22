@@ -1,11 +1,14 @@
-# Pico Create original parent owner v1
+# Pico Create original parent owner v2
 
 Feature 4/14 remains **partial**. The private `_create_journey(target, run)`
 factory now connects the normal owners through the first twelve original v16
 steps: Open, actual JSON picker Cancel, NEW glTF, normal texture application,
 actual Save/export of that same Model, Delete, NEW OBJ/Delete, and actual JSON
 picker Import/Delete. It accepts the original closed v16 input envelopes but
-refuses the remaining unimplemented verbs before reserving or sending input.
+also composes canonical normal PolyVox creation and Delete on independent v4
+local-insertion and atomic original volume sources, documented in
+[the PolyVox parent packet](CREATE_POLYVOX_PARENT.md). Remaining verbs refuse
+before reserving or sending input.
 It does not advertise the incomplete `feature.create.*` capability trio.
 
 ## Original ownership and normal input
@@ -127,11 +130,12 @@ final phase read that ages otherwise valid native packets also refuses
 completion. None of these failures dispatches/replays the rejected input or
 retires the pending root originals.
 
-Remaining full-flow work includes original canonical PolyVox dialog creation
-and world brush stroke, denied/rez authority plus exact authority restoration,
+Remaining full-flow work includes the normal PolyVox world brush stroke, denied/rez authority plus exact authority restoration,
 independent actor and current state, completed actual stereo draw/texture/pixels
 and artifacts, complete allocation/assignment histories, and final complete
 original lifetime closure. No requested checkpoint or ACK substitutes for any
-of these. This additive packet registers `pico-create-feature-owner` v1 and one
-`create-feature-owner` selector under `tablet-and-create-ui`; parent integration
-adds one to its actual current catalog count.
+of these. The original first-twelve packet registered the parent v1 and its selector.
+Parent v2 reads v1 histories without rewriting their source originals; a
+candidate-guarded upgrade adds empty primitive history. V3 entity sources
+remain readable but cannot authorize primitive input. The PolyVox extension
+registers two additional selectors, without advertising full Create capability.

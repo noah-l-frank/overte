@@ -16,6 +16,7 @@ from contracts import validate_operation_arguments
 from navigation_observation import OPERATIONS, viewpoint_urls
 from adapters.token_lifecycle_ui import ID as LIFECYCLE_ID,text as lifecycle_text,metadata as lifecycle_metadata,same_reference as lifecycle_same_reference
 from adapters.token_chat_ui import metadata as chat_metadata,control_id as chat_control,text as chat_text,same_reference as chat_same_reference
+from adapters.pico4.create_extra_ui import IDS as CREATE_EXTRA_IDS, metadata as create_extra_metadata, FIELDS as CREATE_EXTRA_FIELDS, COUNTS as CREATE_EXTRA_COUNTS, text as create_extra_text
 from adapters.token_create_ui import metadata as create_metadata,control_id as create_control,field as create_field,choice as create_choice,ascii_text,same_reference
 from adapters.pico4.create_file_ui import (metadata as create_file_metadata, inventory as create_inventory,
     IDS as CREATE_FILE_IDS, same_reference as create_file_same_reference, owned_path as create_file_path)
@@ -116,6 +117,10 @@ def validate_snapshot(value, process_id, epoch_ms):
     if type(value) is dict and 'lifecycleControlsVersion' in value:
         fields.add('lifecycleControlsVersion')
         need(type(value['lifecycleControlsVersion']) is int and value['lifecycleControlsVersion']==1)
+    if type(value) is dict and 'createExtraControlsVersion' in value:
+        fields|={'createExtraControlsVersion','createExtraUiInventory'};need(type(value['createExtraControlsVersion']) is int and value['createExtraControlsVersion']==1)
+        from adapters.pico4.create_extra_ui import inventory as extra_inventory
+        extra_inventory(value['createExtraUiInventory'])
     if type(value) is dict and 'createControlsVersion' in value:
         fields.add('createControlsVersion')
         need(type(value['createControlsVersion']) is int and value['createControlsVersion']==1)
@@ -167,6 +172,7 @@ def validate_snapshot(value, process_id, epoch_ms):
         if control['id'].startswith('graphics.'):need(value.get('graphicsControlsVersion')==1)
         is_graphics=graphics_control(control['id']) and value.get('graphicsControlsVersion')==1
         is_create=control['id'].startswith('create.')
+        is_create_extra=control['id'] in CREATE_EXTRA_IDS
         is_create_file=control['id'] in CREATE_FILE_IDS
         is_chat=control['id'].startswith('chat.')
         is_emote=control['id'].startswith('emote.')
@@ -185,6 +191,8 @@ def validate_snapshot(value, process_id, epoch_ms):
         elif is_chat:
             need(value.get('chatControlsVersion') in (1,2));chat_metadata(control);fields=set(control)
             if control['id'] in ('chat.settings','chat.erase'):need(value['chatControlsVersion']==2)
+        elif is_create_extra:
+            need(value.get('createExtraControlsVersion')==1);create_extra_metadata(control);fields=set(control)
         elif is_create:
             need(value.get('createControlsVersion')==1);create_metadata(control);fields=set(control)
         elif control['id'] in VIEW_MENU_IDS:
@@ -212,7 +220,7 @@ def validate_snapshot(value, process_id, epoch_ms):
              and isinstance(control['id'], str) and (control['id'] in CONTROL_IDS
                  or script_control(control['id']) or file_control(control['id']) or audio_control(control['id'])
                  or graphics_control(control['id']) or control['id'] in LOGIN_IDS or control['id'] in ACCOUNT_MENU_IDS or control['id'] in VIEW_MENU_IDS
-                 or is_create and create_control(control['id']) or is_chat and chat_control(control['id'])
+                 or is_create_extra or is_create and create_control(control['id']) or is_chat and chat_control(control['id'])
                  or is_emote and emote_control(control['id'])
                  or is_places and places_control(control['id']) or is_error and error_control(control['id']) or is_create_file or control['id']==LIFECYCLE_ID)
              and identifier(control['token']) and control['id'] not in ids
@@ -230,6 +238,7 @@ def validate_snapshot(value, process_id, epoch_ms):
         elif is_places:places_metadata(control)
         elif is_emote:emote_metadata(control,2)
         elif is_chat:chat_metadata(control)
+        elif is_create_extra:create_extra_metadata(control)
         elif is_create:create_metadata(control)
         elif control['id'] in ACCOUNT_MENU_IDS:validate_account_menu_metadata(control)
         elif control['id'] in LOGIN_IDS:validate_login_metadata(control)
@@ -368,6 +377,7 @@ class PicoNavigation:
                 and control['textSha256']==hashlib.sha256(expected_address.encode()).hexdigest())
             need(self.address_authority(expected_address) is True if self.address_authority is not None else expected_address in self.urls)
         is_create=control_id.startswith('create.')
+        is_create_extra=control_id in CREATE_EXTRA_IDS
         is_create_file=control_id in CREATE_FILE_IDS
         is_chat=control_id.startswith('chat.')
         is_emote=control_id.startswith('emote.')
@@ -375,7 +385,10 @@ class PicoNavigation:
         is_error=control_id.startswith('navigation.error.ok.')
         if reference is not None:
             need(type(reference) is dict)
-            if 'createFileControlsVersion' in reference:
+            if 'createExtraControlsVersion' in reference:
+                from adapters.pico4.create_extra_ui import same_reference as extra_same_reference, project as extra_project
+                original=extra_same_reference(reference,extra_project(snapshot),control_id)
+            elif 'createFileControlsVersion' in reference:
                 from adapters.pico4.create_file_ui import project as create_file_project
                 original=create_file_same_reference(reference,create_file_project(snapshot),control_id)
             elif 'lifecycleControlsVersion' in reference:
@@ -439,6 +452,12 @@ class PicoNavigation:
             if action in ('replace','submit'):need(control_id=='chat.input' and control['focused'])
             if action=='replace':chat_text(text)
             else:need(text is None)
+        elif is_create_extra:
+            need(reference is not None and snapshot.get('createExtraControlsVersion')==1 and control['inputReady']
+                and control_id!='create-extra.polyvox.page' and value is None and direction is None
+                and action in ('activate','replace','select-index'))
+            if action=='replace':need(control_id in CREATE_EXTRA_FIELDS and control['focused']);create_extra_text(text)
+            elif action=='select-index':need(control_id in CREATE_EXTRA_COUNTS and type(index) is int and 0<=index<control['count'])
         elif is_create:
             need(reference is not None and snapshot.get('createControlsVersion')==1 and control['inputReady']
                  and control_id!='create.page' and value is None and action in ('activate','replace','select-index','scroll'))

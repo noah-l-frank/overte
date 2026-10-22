@@ -13,6 +13,9 @@
 #define hifi_PolyVoxEntityItem_h
 
 #include "EntityItem.h"
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+#include <QVariantMap>
+#endif
 
 class PolyVoxEntityItem : public EntityItem {
 public:
@@ -62,6 +65,9 @@ public:
     QByteArray getVoxelData() const;
     // Non-rendering entities cannot confirm asynchronous volume compression.
     virtual bool isVoxelDataReady() const { return false; }
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+    virtual QVariantMap featureCreateVoxels() const {return {};}
+#endif
 
     virtual void setVoxelData(const QByteArray& voxelData);
     glm::vec3 getVoxelVolumeSize() const;

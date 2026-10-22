@@ -60,7 +60,7 @@ Item {
             geometry=function(original,'    static QRectF visibleRect(')+'\n'+function(original,'    static bool ownsPoint(')
             native=(ROOT/'android/vr/pico/apps/picoInterface/e2e/PicoE2eNavigationUi.cpp').read_text()
             start=native.index('    } else if (controlId.startsWith("create-file.")) {')
-            end=native.index('    } else if (controlId.startsWith("create.")) {',start)
+            end=native.index('\n    } else if (',start+10)
             branch=native[start:end].split('{',1)[1]
             (stage/'CreateFileAdmission.inc').write_text('namespace overte::e2e { class NormalControlUi {public:\n'+geometry+'\n};}\n'
                 'QJsonObject originalCreateFileInput(QQuickItem* item,QQuickWindow* window,const QString& controlId,const QString& action,const QJsonObject& command){\n'

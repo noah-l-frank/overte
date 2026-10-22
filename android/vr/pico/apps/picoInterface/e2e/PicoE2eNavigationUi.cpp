@@ -101,6 +101,8 @@ QString controlId(QQuickItem* item) {
     if (!lifecycle.isEmpty()) { return lifecycle; }
     const auto chat=overte::e2e::chatControlId(item);
     if (!chat.isEmpty()) { return chat; }
+    const auto createExtra=overte::e2e::createExtraControlId(item);
+    if (!createExtra.isEmpty()) {return createExtra;}
     const auto create=overte::e2e::createControlId(item);
     if (!create.isEmpty()) { return create; }
     const auto graphics = overte::e2e::graphicsControlId(item);
@@ -287,6 +289,9 @@ QJsonObject NavigationUi::observe(QQuickItem* root, QQuickWindow* window, bool o
                 } else if (id.startsWith("chat.")) {
                     source=overte::e2e::chatControlSource(item,id);
                     if (source.isEmpty()) { ambiguous=true;return; }
+                } else if (id.startsWith("create-extra.")) {
+                    source=overte::e2e::createExtraControlSource(item,id);
+                    if (source.isEmpty()) {ambiguous=true;return;}
                 } else if (id.startsWith("create.")) {
                     source=overte::e2e::createControlSource(item,id);
                 } else if (id.startsWith("account-menu.")) {
@@ -378,6 +383,8 @@ QJsonObject NavigationUi::observe(QQuickItem* root, QQuickWindow* window, bool o
             overte::e2e::appendLifecycleControlObservation(row,control.item,id);
         } else if (id.startsWith("chat.")) {
             overte::e2e::appendChatControlObservation(row,control.item,id);
+        } else if (id.startsWith("create-extra.")) {
+            overte::e2e::appendCreateExtraObservation(row,control.item,id);
         } else if (id.startsWith("create.")) {
             overte::e2e::appendCreateControlObservation(row,control.item,id);
         } else if (id.startsWith("account-menu.")) {
@@ -419,6 +426,8 @@ QJsonObject NavigationUi::observe(QQuickItem* root, QQuickWindow* window, bool o
     result["emoteControlsVersion"] = 2;
     result["emoteSourceSequence"] = static_cast<double>(++_emoteSourceSequence);
     result["lifecycleControlsVersion"] = 1;
+    result["createExtraControlsVersion"]=1;
+    result["createExtraUiInventory"]=overte::e2e::createExtraUiLifetimes().snapshot();
     result["fileControlsVersion"] = 1;
     if (audioContext.valid) { result["audioControlsVersion"] = 1; }
     if (graphicsContext.valid) { result["graphicsControlsVersion"] = 1; }
@@ -578,6 +587,20 @@ QJsonObject NavigationUi::apply(QQuickItem* root, QQuickWindow* window, bool ope
             delivered=overte::ui::replaceFocusedField(control.item,window,command.value("text").toString());
         } else if (action=="submit" && controlId=="create-file.folder") {
             delivered=overte::ui::submitFocusedField(control.item,window);
+        }
+    } else if (controlId.startsWith("create-extra.")) {
+        QJsonObject row;overte::e2e::appendCreateExtraObservation(row,control.item,controlId);
+        if (current.value("createExtraControlsVersion")!=QJsonValue(1) || !row.value("inputReady").toBool()) {return result;}
+        const auto point=control.item->mapToScene(QPointF(control.item->width()/2,control.item->height()/2));
+        const auto own=[&]{return overte::e2e::NormalControlUi::ownsPoint(control.item,window,point,overte::e2e::createExtraDecoration);};
+        if (action=="activate" && controlId!="create-extra.polyvox.page" && pointerClick && own()) {delivered=pointerClick(control.item);}
+        else if (action=="replace" && command.value("text").isString()
+                && overte::e2e::createExtraText(controlId,command.value("text").toString()) && own()) {
+            delivered=overte::ui::replaceFocusedField(control.item,window,command.value("text").toString());
+        } else if (action=="select-index" && overte::e2e::createExtraCount(controlId)) {
+            qint64 index{0};if (integer(command.value("index"),index)) {
+                delivered=overte::e2e::NormalControlUi::selectCreateChoice(control.item,window,index,overte::e2e::createExtraCount(controlId));
+            }
         }
     } else if (controlId.startsWith("create.")) {
         QJsonObject row;overte::e2e::appendCreateControlObservation(row,control.item,controlId);

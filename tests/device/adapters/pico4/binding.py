@@ -553,6 +553,11 @@ def create_adapter(args, base_class):
             ui, _observe, _binding = self._script_runtime(target)
             return TokenCreateUI(PicoCreateIO(ui.io),intent)
 
+        def _create_extra_controls(self,target,intent):
+            from adapters.pico4.create_extra_ui import TokenCreateExtraUI,PicoCreateExtraIO
+            ui,_observe,_binding=self._script_runtime(target)
+            return TokenCreateExtraUI(PicoCreateExtraIO(ui.io),intent,monotonic=ui.monotonic,sleep=ui.sleep)
+
         def _create_management(self, target):
             return create_management.PicoCreateManagement(self, target)
 
