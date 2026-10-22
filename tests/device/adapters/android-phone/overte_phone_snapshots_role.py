@@ -32,7 +32,7 @@ from overte_phone_snapshot_upload_bytes import PhoneSnapshotUploadBytes
 from overte_phone_snapshot_saved_files import PhoneSnapshotSavedFiles
 from adapters.native_account_observation import accept as account_accept
 from adapters.native_script_work import scope as script_scope
-from overte_phone_snapshots_evidence import SnapshotsOriginals,SnapshotsImages,SnapshotsBinary
+from overte_phone_snapshots_evidence import SnapshotsOriginals,SnapshotsImages,SnapshotsBinary,HistoricalSnapshotsBinary
 from overte_phone_snapshots_measurements import state as measured_state,SnapshotPending,export_requests
 
 
@@ -539,10 +539,11 @@ class PhoneSnapshotsRole(PhoneCreateRole):
     def validate_files(self,*,frames=None,historical=False):
         """A retained JSON receipt cannot hide a missing or replaced original."""
         f=self.feature
+        decoded_pngs=set()
         for index,frame in enumerate(self.frames if frames is None else frames,1):
             image_engine=(SnapshotsImages(f.root,f.binding,f.run,self.role,index,self.history_authority,lambda *_:need(False))
                 if historical else self.image_engine(index))
-            binary_engine=(SnapshotsBinary(f.root,f.binding,f.run,self.role,index,self.history_authority,lambda *_:need(False))
+            binary_engine=(HistoricalSnapshotsBinary(f.root,f.binding,f.run,self.role,index,self.history_authority,lambda *_:need(False),decoded_pngs=decoded_pngs)
                 if historical else self.binary_engine(index))
             image=frame.get('image')
             if image is not None:

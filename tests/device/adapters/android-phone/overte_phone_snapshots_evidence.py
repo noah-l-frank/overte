@@ -65,3 +65,27 @@ class SnapshotsBinary(CreateImages):
         # qualification remains the existing independent five-format foundation.
         try:inspect_snapshot(raw,mode='still',file_format='png')
         except (OSError,ValueError):need(False)
+
+
+class HistoricalSnapshotsBinary(SnapshotsBinary):
+    """Share only a PNG decode within one bounded historical validation pass.
+
+    Every read still verifies its original record, file identity and actual
+    bytes against its own source. The memo contains exact immutable bytes,
+    never a source verdict, and is discarded by the caller after that pass.
+    """
+    def __init__(self,*args,decoded_pngs,**kwargs):
+        need(type(decoded_pngs) is set)
+        self.decoded_pngs=decoded_pngs
+        super().__init__(*args,**kwargs)
+
+    def content(self,value,raw):
+        source=value['acquisition']
+        need(type(raw) is bytes and len(raw)==source['bytes']
+            and hashlib.sha256(raw).hexdigest()==source['sha256'])
+        if raw in self.decoded_pngs:return
+        super().content(value,raw)
+        # Large or diverse histories remain fully checked without retaining
+        # unbounded bodies. This changes no file/decode acceptance limit.
+        if len(self.decoded_pngs)<256 and sum(map(len,self.decoded_pngs))+len(raw)<=16*1024*1024:
+            self.decoded_pngs.add(raw)
