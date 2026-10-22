@@ -89,6 +89,13 @@ pre-stop sources, both logical observers' actual GPU drains, pointer closure,
 one-send normal Stop/Launch, actual old-PID absence and new native birth. Later
 source/observer publication handoff and full quiet cleanup remain open.
 
+The internal [active action coordinator](NAVIGATION_FEATURE.md) now retains
+the initial admission and routes ordinary first-process scene entry, Places
+and lookup inputs through these original owners. Parent return loss adopts
+actual child acknowledgments; uncertain delivery and the original operation
+deadline survive reconstruction. Whole observation/publication, restart
+handoff and final static restoration remain open; Worlds is still partial.
+
 The canonical physical source binding and explicit lost-launch recovery have
 host-tested implementations. The native byte observer and SDK plugin remain
 uninstalled/uncompiled and unqualified here. See the [Script handoff](SCRIPT_FEATURE.md)
