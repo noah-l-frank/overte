@@ -105,7 +105,7 @@ REQUIRED = {
     "native-chat-profile": 1,
     "chat-profile-owner": 1,
     "chat-erase-restore": 1,
-    "chat-journey-peer-send": 1,
+    "chat-journey-peer-send": 2,
     "chat-journey-peer-distant": 1,
     "native-chat-actor-files": 1,
     "owned-messages-mixer": 1,

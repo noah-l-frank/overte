@@ -2,6 +2,7 @@
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 import os
+from copy import deepcopy
 from pathlib import Path
 import sys
 import unittest
@@ -69,6 +70,52 @@ class PeerSendTests(unittest.TestCase):
         refs = self.store.read()['attempts'][0]
         self.assertFalse(set(refs['before'][0]['queries']) & set(refs['after'][1]['queries']))
         self.assertTrue(self.input.store.path.exists()); self.assertTrue(self.store.path.exists())
+
+    def rebuilt(self):
+        self.input=ChatPeerInput(self.files,self.input.store,RUN)
+        self.h.samples=self.h.sampler();self.actor=self.h.sampler(role='actor',store=self.actor.store)
+        return ChatPeerSend(self.input,self.h.samples,self.actor,self.store,monotonic=lambda:self.clock,sleep=lambda seconds:setattr(self,'clock',self.clock+seconds))
+
+    def test_rpc_reconstruction_uses_both_original_histories_and_full_consumption_without_query_or_send(self):
+        self.send();before=self.issued;queries=[len(source.commands) for source in (self.h.primary,self.h.peer,self.h.view,self.h.native)]
+        original=self.store.path.read_bytes();self.owner=self.rebuilt()
+        self.assertEqual(original,self.store.path.read_bytes());self.assertEqual(before,self.issued)
+        self.assertEqual(queries,[len(source.commands) for source in (self.h.primary,self.h.peer,self.h.view,self.h.native)])
+        with self.assertRaises(NativeUIError):self.send()
+        self.assertEqual(before,self.issued);self.assertEqual(original,self.store.path.read_bytes())
+        self.owner.send('domain','hidden',20000);self.assertEqual(before+1,self.issued)
+        self.assertEqual(['reply','hidden'],[row['textKey'] for row in self.store.read()['attempts']])
+        self.assertEqual(2,len(self.rebuilt().previous['attempts']))
+
+    def test_uncertain_old_rewritten_query_or_consumption_reference_never_reconstructs_or_sends(self):
+        for fault in ('phase','old-v1','queries','input-index','false-channel'):
+            with self.subTest(fault=fault):
+                self.setUp();self.send();old=self.store.read();changed=deepcopy(old);before=self.issued
+                if fault=='old-v1':changed['chatPeerSendVersion']=1
+                elif fault=='phase':changed['attempts'][0]['phase']='observing'
+                elif fault=='queries':changed['attempts'][0]['after'][1]['queries'][0]='f'*32
+                elif fault=='input-index':changed['attempts'][0]['inputIndex']=2
+                else:changed['attempts'][0]['channel']='local'
+                self.store.write(changed,old);original=self.store.path.read_bytes()
+                with self.assertRaises(NativeUIError):self.rebuilt()
+                self.assertEqual(original,self.store.path.read_bytes());self.assertEqual(before,self.issued)
+
+    def test_equivalent_lock_paths_without_the_same_original_instances_are_refused(self):
+        from adapters.script_journey.lock import ScriptSourceLock
+        self.actor.locks=tuple(ScriptSourceLock(lock.path) for lock in self.actor.locks)
+        with self.assertRaises(NativeUIError):ChatPeerSend(self.input,self.h.samples,self.actor,self.store)
+        self.assertEqual(0,self.issued)
+
+    def test_final_durable_received_write_cannot_hide_a_native_clock_jump_under_frozen_host(self):
+        original=self.store.write;delta=0
+        for role in self.owner.roles:role.primary.clock_ms=lambda:20000+delta
+        def late(value,previous):
+            nonlocal delta
+            original(value,previous)
+            if value['attempts'][-1]['phase']=='received':delta=2000
+        self.store.write=late
+        with self.assertRaises(NativeUIError):self.send()
+        self.assertEqual('received',self.store.read()['attempts'][0]['phase']);self.assertEqual(1,self.issued)
 
     def test_consumption_without_reception_times_out_and_cannot_resend(self):
         self.effect = 'none'

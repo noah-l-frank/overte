@@ -95,7 +95,7 @@
     "native-chat-profile": {"current": 1, "reads": [1]},
     "chat-profile-owner": {"current": 1, "reads": [1]},
     "chat-erase-restore": {"current": 1, "reads": [1]},
-    "chat-journey-peer-send": {"current": 1, "reads": [1]},
+    "chat-journey-peer-send": {"current": 2, "reads": [2]},
     "chat-journey-peer-distant": {"current": 1, "reads": [1]},
     "native-account-observation": {"current": 1, "reads": [1]},
     "native-account-probe": {"current": 1, "reads": [1]},
