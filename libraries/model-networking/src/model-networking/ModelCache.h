@@ -45,22 +45,25 @@ public:
     QString e2eGeometryInstance() const { return _e2eIdentity.value; }
     // Passive inspection of the actual render geometry's material resources.
     // This never resolves/loads a URL or refreshes a cached texture.
-    QVariantList e2eCreateTextures() const {
-        QVariantList rows;
+    QVariantMap e2eCreateTextures() const {
+        QVariantList rows;bool complete=true;
         for (size_t index=0;index<_materials.size();++index) {
             const auto material=_materials[index];if (!material) { continue; }
             for (const auto& slot:material->getTextures()) {
                 const auto texture=slot.second.texture;if (!texture) { continue; }
-                if (rows.size()>=256) { return {}; }
-                const auto gpu=texture->getGPUTexture();
-                rows.append(QVariantMap{{"material",int(index)},{"channel",int(slot.first)},
-                    {"name",slot.second.name},{"urlSha256",QString::fromLatin1(QCryptographicHash::hash(texture->getURL().toString().toUtf8(),QCryptographicHash::Sha256).toHex())},
-                    {"loaded",texture->isLoaded()},{"failed",texture->isFailed()},
-                    {"originalSha256",texture->e2eOriginalContentSha256()},{"originalBytes",texture->e2eOriginalContentBytes()},
-                    {"gpuWidth",gpu ? gpu->getWidth() : 0},{"gpuHeight",gpu ? gpu->getHeight() : 0}});
+                if (rows.size()>=256) { return {{"complete",false},{"rows",rows}}; }
+                // Resource QObject/GPU state belongs to its owner thread.
+                // The renderer reads only this mutex-protected original copy.
+                auto original=texture->e2eOriginalTextureObservation();
+                complete=complete && original.value("complete").toBool();
+                original.insert("material",int(index));original.insert("channel",int(slot.first));original.insert("name",slot.second.name);
+                rows.append(original);
+                auto after=texture->e2eOriginalTextureObservation();
+                original.remove("material");original.remove("channel");original.remove("name");
+                complete=complete && original==after;
             }
         }
-        return rows;
+        return {{"complete",complete},{"rows",rows}};
     }
 #endif
 

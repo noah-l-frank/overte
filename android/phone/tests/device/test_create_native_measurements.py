@@ -50,7 +50,12 @@ struct Model {std::shared_ptr<Geometry>geometry=std::make_shared<Geometry>();
  std::shared_ptr<Geometry>getGeometry()const{return geometry;}QString e2eModelInstance()const{return "dddddddddddddddddddddddddddddddd";}
  bool isLoaded()const{return true;}bool isVisible()const{return true;}bool isAddedToScene()const{return true;}};
 struct RenderableModelEntityItem:EntityItem {std::shared_ptr<Model>model=std::make_shared<Model>();
- std::shared_ptr<Model>e2eOriginalModel()const{return model;}};
+ QVariantMap e2eOriginalModelObservation()const{
+  auto geometry=model->getGeometry();auto source=geometry->getHFMModel().originalURL.toUtf8();
+  return {{"recordedEpochMs",1},{"modelInstance",model->e2eModelInstance()},{"loaded",true},{"visible",true},{"addedToScene",true},
+   {"geometry",QVariantMap{{"instance",geometry->e2eGeometryInstance()},{"sourcePresent",true},
+    {"sourceSha256",QString::fromLatin1(QCryptographicHash::hash(source,QCryptographicHash::Sha256).toHex())},
+    {"textures",QVariantMap{{"complete",true},{"rows",geometry->e2eCreateTextures()}}}}}};}};
 struct PolyVoxEntityItem:EntityItem {QByteArray bytes="original-saved-compressed-volume";bool ready=true;
  QByteArray getVoxelData()const{return bytes;}glm::vec3 getVoxelVolumeSize()const{return glm::vec3(8);}
  bool isVoxelDataReady()const{return ready;}uint8_t getVoxel(int x,int y,int z)const{return x<2&&y<3&&z<4?255:0;}};

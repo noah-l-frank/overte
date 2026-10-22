@@ -85,6 +85,17 @@ the SHA-256/size of bytes delivered to the normal decoder, and the actual GPU
 texture extent. The passive decoder hook is compiled only for E2E builds.
 It never downloads or refreshes a resource. Missing original bytes remain
 missing, including resource paths that did not consume the original decoder.
+SHA and byte count are one mutex-protected original, including resource copies
+and refresh. The Resource owner thread records its actual flags/GPU extent on
+normal completion and refresh; the renderer reads only that protected copy.
+Overlapping or retired decoders become explicitly incomplete and cannot pair
+an old image completion with newer source bytes. Model/Geometry/material reads
+occur at the existing render-thread update boundary and are transferred through
+the entity's own E2E mutex. The GUI observer reads that original snapshot and
+never traverses mutable render objects. Its original render-update epoch stays
+visible; a source read cannot re-date it. The Qt concurrency check exercises
+four simultaneous readers/copies, decoder overlap, refresh and a foreign-thread
+rejection on the actual native state class.
 For a ready 8³ PolyVox, actual cell reads additionally provide occupied count
 and normalized cell SHA-256, independently of compressed input/output bytes.
 
@@ -160,6 +171,7 @@ python3 android/phone/tests/device/test_create_files.py
 python3 tests/device/self_tests/test_create_permissions.py
 python3 android/phone/tests/device/test_create_native_ui.py
 python3 android/phone/tests/device/test_create_native_measurements.py
+python3 android/phone/tests/device/test_create_texture_state.py
 python3 android/phone/tests/device/test_create_marker.py
 python3 -m unittest discover -s tests/device/self_tests -p test_token_create_ui.py
 python3 -m unittest discover -s tests/device/self_tests -p test_normal_create_adapter.py

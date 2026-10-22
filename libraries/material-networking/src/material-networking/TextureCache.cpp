@@ -488,6 +488,18 @@ QSharedPointer<Resource> TextureCache::createResourceCopy(const QSharedPointer<R
 
 int networkTexturePointerMetaTypeId = qRegisterMetaType<QWeakPointer<NetworkTexture>>();
 
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+void NetworkTexture::e2eRecordCreateTexture() {
+    if (QThread::currentThread()!=thread()) {
+        _e2eCreateTexture.resource({},false,false,0,0,false);return;
+    }
+    const auto texture=_textureSource ? _textureSource->getGPUTexture() : gpu::TexturePointer();
+    const auto url=QString::fromLatin1(QCryptographicHash::hash(getURL().toString().toUtf8(),QCryptographicHash::Sha256).toHex());
+    _e2eCreateTexture.resource(url,isLoaded(),isFailed(),texture ? texture->getWidth() : 0,
+        texture ? texture->getHeight() : 0,true);
+}
+#endif
+
 NetworkTexture::NetworkTexture(const QUrl& url, bool resourceTexture) :
     Resource(url),
     Texture()
@@ -496,6 +508,11 @@ NetworkTexture::NetworkTexture(const QUrl& url, bool resourceTexture) :
         _textureSource = std::make_shared<gpu::TextureSource>(url);
         _loaded = true;
     }
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    connect(this,&Resource::finished,this,[this](bool) { e2eRecordCreateTexture(); },Qt::DirectConnection);
+    connect(this,&Resource::onRefresh,this,[this] { e2eRecordCreateTexture(); },Qt::DirectConnection);
+    e2eRecordCreateTexture();
+#endif
 }
 
 NetworkTexture::NetworkTexture(const NetworkTexture& other) :
@@ -510,8 +527,9 @@ NetworkTexture::NetworkTexture(const NetworkTexture& other) :
     _content(other._content)
 {
 #if defined(OVERTE_E2E_FEATURE_TESTS)
-    _e2eOriginalContentSha256 = other._e2eOriginalContentSha256;
-    _e2eOriginalContentBytes = other._e2eOriginalContentBytes;
+    _e2eCreateTexture.copyFrom(other._e2eCreateTexture);
+    connect(this,&Resource::finished,this,[this](bool) { e2eRecordCreateTexture(); },Qt::DirectConnection);
+    connect(this,&Resource::onRefresh,this,[this] { e2eRecordCreateTexture(); },Qt::DirectConnection);
 #endif
     if (_width == 0 || _height == 0 ||
         other._currentlyLoadingResourceType == ResourceType::META ||
@@ -1446,8 +1464,7 @@ void NetworkTexture::loadTextureContent(const QByteArray& content) {
     }
 
 #if defined(OVERTE_E2E_FEATURE_TESTS)
-    _e2eOriginalContentSha256 = QString::fromLatin1(QCryptographicHash::hash(content,QCryptographicHash::Sha256).toHex());
-    _e2eOriginalContentBytes = content.size();
+    _e2eCreateTexture.decode(content);
 #endif
     QThreadPool::globalInstance()->start(new ImageReader(_self, _url, content, _extraHash, _maxNumPixels, _sourceChannel));
 }
@@ -1472,8 +1489,7 @@ void NetworkTexture::refresh() {
 
     _ktxResourceState = PENDING_INITIAL_LOAD;
 #if defined(OVERTE_E2E_FEATURE_TESTS)
-    _e2eOriginalContentSha256.clear();
-    _e2eOriginalContentBytes = 0;
+    _e2eCreateTexture.refresh();
 #endif
 #if defined(ANDROID_APP_PHONE_INTERFACE)
     _phoneProbeInitialKtxCache = false;

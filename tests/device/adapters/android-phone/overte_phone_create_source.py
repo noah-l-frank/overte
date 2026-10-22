@@ -29,23 +29,30 @@ def digest(value):return type(value) is str and re.fullmatch('[0-9a-f]{64}',valu
 
 
 def render_source(value):
-    exact(value,{'modelInstance','loaded','visible','addedToScene','geometry'})
-    need(nonce(value['modelInstance']) and all(type(value[key]) is bool for key in ('loaded','visible','addedToScene')))
+    exact(value,{'recordedEpochMs','modelInstance','loaded','visible','addedToScene','geometry'})
+    need(integer(value['recordedEpochMs'],1) and nonce(value['modelInstance'])
+        and all(type(value[key]) is bool for key in ('loaded','visible','addedToScene')))
     geometry=value['geometry'];need(value['loaded']==(geometry is not None))
     if geometry is None:return value
     exact(geometry,{'instance','sourcePresent','sourceSha256','textures'})
     need(nonce(geometry['instance']) and type(geometry['sourcePresent']) is bool and digest(geometry['sourceSha256'])
-        and type(geometry['textures']) is list and len(geometry['textures'])<=256)
+        and type(geometry['textures']) is dict)
+    exact(geometry['textures'],{'complete','rows'})
+    need(type(geometry['textures']['complete']) is bool and type(geometry['textures']['rows']) is list
+        and len(geometry['textures']['rows'])<=256)
     seen=set()
-    for row in geometry['textures']:
-        exact(row,{'material','channel','name','urlSha256','loaded','failed','originalSha256','originalBytes','gpuWidth','gpuHeight'})
+    for row in geometry['textures']['rows']:
+        exact(row,{'complete','revision','material','channel','name','urlSha256','loaded','failed','originalSha256','originalBytes','gpuWidth','gpuHeight'})
         need(integer(row['material'],0,65535) and integer(row['channel'],0,255) and text(row['name'],256)
-            and digest(row['urlSha256']) and all(type(row[key]) is bool for key in ('loaded','failed'))
+            and type(row['complete']) is bool and integer(row['revision'],1)
+            and (digest(row['urlSha256']) or not row['complete'] and row['urlSha256']=='')
+            and all(type(row[key]) is bool for key in ('loaded','failed'))
             and (row['originalSha256']=='' or digest(row['originalSha256'])) and integer(row['originalBytes'],0,32*1024*1024)
             and (row['originalSha256']=='')==(row['originalBytes']==0)
             and all(integer(row[key],0,16384) for key in ('gpuWidth','gpuHeight'))
             and (row['material'],row['channel']) not in seen)
         seen.add((row['material'],row['channel']))
+    need(not geometry['textures']['complete'] or all(row['complete'] for row in geometry['textures']['rows']))
     return value
 
 
@@ -114,6 +121,7 @@ def validate(value,request,pid,epoch):
         else:need(voxel is None)
         if row['render'] is not None:
             need(row['type']=='Model');render_source(row['render'])
+            need(row['render']['recordedEpochMs']<=value['capturedEpochMs'])
         listed=[item for item in scan['inventory'] if item['id']==row['id']]
         if listed:need(listed[0]['instance']==row['instance'])
         seen.add(row['id'])

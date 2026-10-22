@@ -11,6 +11,11 @@
 //
 
 #include "RenderableModelEntityItem.h"
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+#include <QDateTime>
+#include <QCryptographicHash>
+#include <Finally.h>
+#endif
 
 #include <set>
 #include <cmath>
@@ -1337,7 +1342,31 @@ bool ModelEntityRenderer::needsRenderUpdateFromTypedEntity(const TypedEntityPoin
     return Parent::needsRenderUpdateFromTypedEntity(entity);
 }
 
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+void RenderableModelEntityItem::e2eRecordOriginalModel() {
+    // Called only at the existing render-thread update boundary. The GUI
+    // source never traverses mutable Model/Geometry/material/GPU state.
+    QVariantMap original;
+    const auto model=getModel();
+    if (model) {
+        const auto geometry=model->getGeometry();QVariant loaded;
+        if (geometry && geometry->isHFMModelLoaded()) {
+            const auto source=geometry->getHFMModel().originalURL.toUtf8();
+            loaded=QVariantMap{{"instance",geometry->e2eGeometryInstance()},{"sourcePresent",!source.isEmpty()},
+                {"sourceSha256",QString::fromLatin1(QCryptographicHash::hash(source,QCryptographicHash::Sha256).toHex())},
+                {"textures",geometry->e2eCreateTextures()}};
+        }
+        original={{"recordedEpochMs",QDateTime::currentMSecsSinceEpoch()},{"modelInstance",model->e2eModelInstance()},
+            {"loaded",model->isLoaded()},{"visible",model->isVisible()},{"addedToScene",model->isAddedToScene()},{"geometry",loaded}};
+    }
+    QMutexLocker locker(&_e2eCreateModelMutex);_e2eCreateModel=original;
+}
+#endif
+
 void ModelEntityRenderer::doRenderUpdateAsynchronousTyped(const TypedEntityPointer& entity) {
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    Finally recordCreateOriginal([entity] { entity->e2eRecordOriginalModel(); });
+#endif
     DETAILED_PROFILE_RANGE(simulation_physics, __FUNCTION__);
 
     _hasModel = entity->hasModel();

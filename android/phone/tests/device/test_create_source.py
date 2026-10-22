@@ -31,8 +31,8 @@ def entity(kind='Model'):
         position=[0.,1.,-2.],rotation=[0.,0.,0.,1.],dimensions=[1.,1.,1.],visible=True,locked=False,
         modelUrl='http://controlled.invalid/model.gltf' if kind=='Model' else '',textures='',
         voxel=dict(savedSha256=hashlib.sha256(b'actual-saved').hexdigest(),savedBytes=12,ready=True,volumeSize=[8,8,8],cells=None) if kind=='PolyVox' else None,
-        render=dict(modelInstance='e'*32,loaded=True,visible=True,addedToScene=True,
-            geometry=dict(instance='d'*32,sourcePresent=True,sourceSha256=hashlib.sha256(b'http://controlled.invalid/model.gltf').hexdigest(),textures=[])) if kind=='Model' else None)
+        render=dict(recordedEpochMs=20000,modelInstance='e'*32,loaded=True,visible=True,addedToScene=True,
+            geometry=dict(instance='d'*32,sourcePresent=True,sourceSha256=hashlib.sha256(b'http://controlled.invalid/model.gltf').hexdigest(),textures=dict(complete=True,rows=[]))) if kind=='Model' else None)
 
 
 class Boundary:
@@ -76,12 +76,12 @@ class CreateSourceTests(unittest.TestCase):
 
     def test_model_render_geometry_material_gpu_and_consumed_bytes_are_original_fields(self):
         boundary=Boundary();row=entity();boundary.rows=[row]
-        texture=dict(material=0,channel=0,name='checker.png',urlSha256=hashlib.sha256(b'original-url').hexdigest(),
+        texture=dict(complete=True,revision=1,material=0,channel=0,name='checker.png',urlSha256=hashlib.sha256(b'original-url').hexdigest(),
             loaded=True,failed=False,originalSha256=hashlib.sha256(b'actual-network-content').hexdigest(),
             originalBytes=22,gpuWidth=16,gpuHeight=16)
-        row['render']['geometry']['textures']=[texture]
+        row['render']['geometry']['textures']['rows']=[texture]
         observed=boundary.reader().read(RUN)['source']['entities'][0]
-        self.assertEqual('f'*32,observed['instance']);self.assertEqual(texture,observed['render']['geometry']['textures'][0])
+        self.assertEqual('f'*32,observed['instance']);self.assertEqual(texture,observed['render']['geometry']['textures']['rows'][0])
         self.assertNotIn('expected',boundary.commands[0])
 
     def test_replaced_entity_lifetime_and_invalid_render_or_material_fields_fail(self):

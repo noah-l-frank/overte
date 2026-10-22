@@ -16,6 +16,10 @@
 
 #include <QString>
 #include <QStringList>
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+#include <QMutex>
+#include <QMutexLocker>
+#endif
 
 #include <ModelEntityItem.h>
 #include <AnimationCache.h>
@@ -53,7 +57,14 @@ class RenderableModelEntityItem : public ModelEntityWrapper {
     using Parent = ModelEntityWrapper;
 public:
 #if defined(OVERTE_E2E_FEATURE_TESTS)
-    ModelPointer e2eOriginalModel() const { return getModel(); }
+    QVariantMap e2eOriginalModelObservation() const {
+        QMutexLocker locker(&_e2eCreateModelMutex);return _e2eCreateModel;
+    }
+private:
+    void e2eRecordOriginalModel();
+    mutable QMutex _e2eCreateModelMutex;
+    QVariantMap _e2eCreateModel;
+public:
 #endif
     static EntityItemPointer factory(const EntityItemID& entityID, const EntityItemProperties& properties);
 

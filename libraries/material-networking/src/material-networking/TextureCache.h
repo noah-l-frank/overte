@@ -13,6 +13,9 @@
 #define hifi_TextureCache_h
 
 #include <gpu/Texture.h>
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+#include "../../../../tests/device/native/CreateTextureState.h"
+#endif
 
 #include <QImage>
 #include <QMap>
@@ -59,8 +62,7 @@ public:
 
     QString getType() const override { return "NetworkTexture"; }
 #if defined(OVERTE_E2E_FEATURE_TESTS)
-    QString e2eOriginalContentSha256() const { return _e2eOriginalContentSha256; }
-    int e2eOriginalContentBytes() const { return _e2eOriginalContentBytes; }
+    QVariantMap e2eOriginalTextureObservation() const { return _e2eCreateTexture.read(); }
 #endif
 
     int getOriginalWidth() const { return _textureSource->getGPUTexture() ? _textureSource->getGPUTexture()->getOriginalWidth() : 0; }
@@ -114,8 +116,8 @@ private:
 
     image::TextureUsage::Type _type { image::TextureUsage::UNUSED_TEXTURE };
 #if defined(OVERTE_E2E_FEATURE_TESTS)
-    QString _e2eOriginalContentSha256;
-    int _e2eOriginalContentBytes {0};
+    void e2eRecordCreateTexture();
+    overte::e2e::CreateTextureState _e2eCreateTexture;
 #endif
     image::ColorChannel _sourceChannel;
 

@@ -86,16 +86,8 @@ inline QVariantMap phoneCreateObservationSource(const QVariantMap& command, cons
             instance=object->e2eEntityInstance();
             const auto modelEntity=std::dynamic_pointer_cast<RenderableModelEntityItem>(object);
             if (!modelEntity) { return; }
-            const auto model=modelEntity->e2eOriginalModel();if (!model) { return; }
-            const auto geometry=model->getGeometry();QVariant loaded;
-            if (geometry && geometry->isHFMModelLoaded()) {
-                const auto original=geometry->getHFMModel().originalURL.toUtf8();
-                loaded=QVariantMap{{"instance",geometry->e2eGeometryInstance()},{"sourcePresent",!original.isEmpty()},
-                    {"sourceSha256",QString::fromLatin1(QCryptographicHash::hash(original,QCryptographicHash::Sha256).toHex())},
-                    {"textures",geometry->e2eCreateTextures()}};
-            }
-            render=QVariantMap{{"modelInstance",model->e2eModelInstance()},{"loaded",model->isLoaded()},
-                {"visible",model->isVisible()},{"addedToScene",model->isAddedToScene()},{"geometry",loaded}};
+            const auto original=modelEntity->e2eOriginalModelObservation();
+            if (!original.isEmpty()) { render=original; }
         });
         if (instance.isEmpty()) { return {}; }
         if (p.getType()==EntityTypes::PolyVox) {
