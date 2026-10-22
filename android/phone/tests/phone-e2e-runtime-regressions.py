@@ -13,6 +13,7 @@ DEPENDENCY_LIGHT_CHECKS = (
     "android/phone/tests/phone-apk-provenance-test.py",
 )
 PREPARED_HOST_CHECKS = (
+    "android/phone/tests/device/test_snapshot_cancel_followfloor_audit.py",
     "android/phone/tests/device/test_snapshot_handoff_audit_native.py",
     "android/phone/tests/device/test_snapshot_handoff_native.py",
     "android/phone/tests/device/test_lifecycle_editor_native.py",
@@ -61,6 +62,7 @@ PREPARED_HOST_CHECKS = (
     "android/phone/tests/phone-voice-clock-test.py",
 )
 COMMON_HOST_CHECKS = (
+    "android/phone/tests/device/test_snapshot_handoff_admission_audit.py",
     "android/phone/tests/device/test_navigation_foundations.py",
     "android/phone/tests/device/test_snapshots_observer.py",
     "android/phone/tests/device/test_create_collaboration_foundation.py",
