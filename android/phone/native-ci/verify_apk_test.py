@@ -145,6 +145,15 @@ print(values[sys.argv[2]])
         del self.entries["../escape"]; del self.entries["lib/arm64-v8a/libphoneInterface.so"]
         with self.assertRaisesRegex(ValueError, "Phone native output is missing"): self.verify()
 
+    def test_duplicate_symlink_and_special_zip_entries_fail(self):
+        for mode in (0o120777, 0o010600, 0o020600):
+            self.archive()
+            with zipfile.ZipFile(self.apk, "a") as archive:
+                entry = zipfile.ZipInfo("assets/special")
+                entry.create_system = 3; entry.external_attr = mode << 16
+                archive.writestr(entry, b"special")
+            with self.assertRaisesRegex(ValueError, "Unsafe APK ZIP"): self.native.inspect_native(self.apk)
+
     def test_changed_source_and_wrong_version_fail(self):
         (self.source / "source.txt").write_text("changed\n")
         with self.assertRaisesRegex(ValueError, "tracked candidate inputs changed"): self.verify()
