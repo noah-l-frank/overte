@@ -821,6 +821,16 @@ def create_adapter(args, base_class):
                 native.clock_ms, native.guard, native.pid, monotonic=native.monotonic, sleep=native.sleep)
 
         @_private
+        def _lifecycle_ui_source(self, target,*,source_lock=None):
+            from adapters.pico4.lifecycle_source import bind_source
+            return bind_source(self, target, self._native_feature_observer(target),source_lock=source_lock)
+
+        @_private
+        def _lifecycle_background_source(self,target,*,source_lock=None,intent=None):
+            from adapters.pico4.lifecycle_background_source import bind_source
+            return bind_source(self,target,self._native_feature_observer(target),source_lock=source_lock,intent=intent)
+
+        @_private
         def _pending_owner(self,target,intent=None):
             manager=self._scripts(target);native=self._native_feature_observer(target)
             native.guard();_need(native.pid==int(manager.binding['processIdentity'].split(':')[0]))
