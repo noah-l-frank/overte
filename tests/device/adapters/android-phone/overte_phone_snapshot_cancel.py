@@ -125,15 +125,16 @@ def validate(value,request,pid,epoch):
         need(terminal and bool(row['retirement']) and idle(row['retirement']))
     else:need(row['retirement']=={})
     if request['operation']=='retire':need(row['retired'] and idle(row['current']))
-    jobs=value['jobs'];need(type(jobs) is list and 1<=len(jobs)<=8);ids=[];matches=[]
+    jobs=value['jobs'];need(type(jobs) is list and 1<=len(jobs)<=8);ids=[];instances=[];matches=[]
     for job in jobs:
         exact(job,{'job','runId','instance','phase','timerActive','retired'})
         need(all(nonce(job[key]) for key in ('job','runId','instance')) and job['phase'] in ('capturing','cancelling','complete','failed')
             and type(job['timerActive']) is bool and type(job['retired']) is bool
-            and job['timerActive'] is (job['phase'] in ('capturing','cancelling')))
-        ids.append(job['job'])
+            and job['timerActive'] is (job['phase'] in ('capturing','cancelling'))
+            and (not job['retired'] or job['phase'] in ('complete','failed')))
+        ids.append(job['job']);instances.append(job['instance'])
         if job['job']==row['job']:matches.append(job)
-    need(ids==sorted(set(ids)) and len(matches)==1 and all(typed_equal(matches[0][key],row[key]) for key in matches[0]))
+    need(ids==sorted(set(ids)) and len(set(instances))==len(instances) and len(matches)==1 and all(typed_equal(matches[0][key],row[key]) for key in matches[0]))
     return value
 
 
@@ -160,6 +161,12 @@ class PhoneSnapshotCancel:
                     if self.last is not None:
                         need(actual['instance']==self.last['instance'] and actual['sequence']>self.last['sequence']
                             and actual['capturedEpochMs']>=self.last['capturedEpochMs'])
+                        after={row['job']:row for row in actual['jobs']}
+                        for prior in self.last['jobs']:
+                            need(prior['job'] in after);present=after[prior['job']]
+                            need(all(typed_equal(prior[key],present[key]) for key in ('job','runId','instance')))
+                            if prior['phase'] in ('complete','failed'):need(present['phase']==prior['phase'])
+                            if prior['retired']:need(present['retired'])
                     old=self.jobs.get(job);current=actual['source']
                     if old is not None:
                         need(all(typed_equal(old[key],current[key]) for key in ('instance','job','runId','startedEpochMs','captureCommand')))

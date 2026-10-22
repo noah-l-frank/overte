@@ -90,6 +90,19 @@ class SnapshotCancelTests(unittest.TestCase):
                 b.fault=replace
                 with self.assertRaises(NativeUIError):reader.request(RUN,JOB,'observe')
 
+    def test_a_different_original_job_cannot_disappear_or_change_identity_between_fresh_reads(self):
+        for fault in ('missing','identity','phase','retirement'):
+            with self.subTest(fault=fault):
+                b=Boundary();reader=b.reader()
+                other=dict(job='9'*32,runId=RUN,instance='7'*32,phase='complete',timerActive=False,retired=True)
+                b.fault=lambda packet:packet['jobs'].insert(0,deepcopy(other))
+                reader.request(RUN,JOB,'start',INPUT)
+                if fault=='missing':b.fault=None
+                elif fault=='identity':other['instance']='6'*32
+                elif fault=='phase':other['phase']='failed'
+                else:other['retired']=False
+                with self.assertRaises(NativeUIError):reader.request(RUN,JOB,'observe')
+
     def test_missing_reply_or_lost_guard_never_replays_a_mutating_input(self):
         b=Boundary();b.ignore=True
         with self.assertRaises(NativeUIError):b.reader().request(RUN,JOB,'start',INPUT)
