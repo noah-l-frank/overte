@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>CFBundleIdentifier</key><string>@OVT_SNAPSHOT_SHARE_BUNDLE_ID@.receiver</string>
+<key>CFBundleExecutable</key><string>overte-snapshot-share-extension</string>
+<key>CFBundleName</key><string>Snapshot Original Receiver</string>
+<key>CFBundlePackageType</key><string>XPC!</string>
+<key>CFBundleShortVersionString</key><string>1.0</string><key>CFBundleVersion</key><string>1</string>
+<key>OVTSnapshotShareGroup</key><string>@OVT_SNAPSHOT_SHARE_GROUP@</string>
+<key>NSExtension</key><dict>
+<key>NSExtensionPointIdentifier</key><string>com.apple.share-services</string>
+<key>NSExtensionPrincipalClass</key><string>OVTShareReceiver</string>
+<key>NSExtensionAttributes</key><dict><key>NSExtensionActivationRule</key><dict>
+<key>NSExtensionActivationSupportsImageWithMaxCount</key><integer>1</integer>
+<key>NSExtensionActivationSupportsFileWithMaxCount</key><integer>1</integer>
+</dict></dict></dict>
+</dict></plist>
