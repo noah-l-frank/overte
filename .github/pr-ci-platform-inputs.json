@@ -46,7 +46,8 @@
         "android/common/native-ci/CMakeLists.txt",
         "android/common/native-ci/qt-host-tools.cmake",
         "android/common/native-ci/tests.py",
-        "android/common/native-ci/verify.py"
+        "android/common/native-ci/verify.py",
+        "android/README.md"
       ]
     },
     {
@@ -102,10 +103,44 @@
         "android-vr-pico"
       ],
       "inputs": [
+        "android/common/native-ci/apk_native.py",
         "android/common/native-ci/verify.py",
         "android/vr/pico/ci/verify-pico-apk.py",
         "android/vr/pico/native-ci/verify_apk.py",
         "android/vr/pico/native-ci/verify_apk_test.py"
+      ]
+    },
+    {
+      "name": "android-native-apk-structure",
+      "targets": [
+        "android-main",
+        "android-phone",
+        "android-vr",
+        "android-vr-pico"
+      ],
+      "inputs": [
+        "android/common/native-ci/apk_native.py",
+        "android/common/native-ci/verify.py",
+        "android/common/native-ci/apk_native_test.py"
+      ]
+    },
+    {
+      "name": "phone-native-ci-unsigned-apk",
+      "targets": [
+        "android-phone"
+      ],
+      "inputs": [
+        "android/phone/ci/verify-phone-apk.py",
+        "android/phone/tests/check-phone-apk-16k.sh",
+        "android/phone/tests/check-phone-apk-metadata.sh",
+        "android/phone/tests/check-phone-apk-contents.py",
+        "android/phone/tests/check-phone-elf-alignment.sh",
+        "android/phone/tests/check-phone-apk-padding.py",
+        "android/phone/apps/phoneInterface/src/main/res/values/qt_dependencies.xml",
+        "android/common/native-ci/apk_native.py",
+        "android/common/native-ci/verify.py",
+        "android/phone/native-ci/verify_apk.py",
+        "android/phone/native-ci/verify_apk_test.py"
       ]
     }
   ]

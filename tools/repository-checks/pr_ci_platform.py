@@ -162,10 +162,18 @@ def android_compile_commands(target, plan, runtime, prepared_roots):
              "--runtime", str(runtime), "--product", product] for product in products]
 
 
-def execute(candidate, context, plan, lane, prepared_roots, *, recompute, android_runtime=None):
+def execute(candidate, context, plan, lane, prepared_roots, *, recompute, android_runtime=None,
+            android_native_runtime=None):
     candidate = authenticate(candidate, context, plan, recompute)
     C.require(lane in {"android", "ios"} and plan[lane + "_required"] is True,
               "unselected platform execution")
+    if lane == 'android' and plan.get('android_native_products'):
+        import pr_ci_android_native as native
+        native.prerequisites(candidate, plan, context['target'])
+        C.require(android_native_runtime is not None, 'Selected Android native build requires its immutable runtime')
+        root = Path(android_native_runtime).resolve(strict=True)
+        C.require(any(root == Path(path).resolve(strict=True) or Path(path).resolve(strict=True) in root.parents
+                      for path in prepared_roots), 'Android native runtime is outside explicit prepared inputs')
     results = []
     for arguments in commands(candidate, context["target"], lane, plan):
         command = [sys.executable if item == "python" and index == 0 else item
@@ -189,6 +197,12 @@ def execute(candidate, context, plan, lane, prepared_roots, *, recompute, androi
             authenticate(candidate, context, plan, recompute)
             results.append({"command": ["android-production-compile", "--product", command[-1]],
                             "scope": "production-java-and-resources", "result": "success"})
+        if plan.get('android_native_products'):
+            import pr_ci_android_native as native
+            result = native.execute(candidate, context, plan, android_native_runtime,
+                authenticate=lambda: authenticate(candidate, context, plan, recompute))
+            results.append({'command': ['android-native-offline', '--product', result['product']],
+                            'scope': 'production-native-product', 'result': 'success', 'qualification': result})
     C.require(bool(results), "selected product owner executed no contracts")
     return {"kind": "pr-ci-product-execution-v1", "source": context["original_merge"],
             "tree": context["tree"], "target": context["target"], "result": "success", "commands": results}
