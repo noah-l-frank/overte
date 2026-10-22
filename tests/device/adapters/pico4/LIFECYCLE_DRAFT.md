@@ -56,7 +56,8 @@ PYTHONDONTWRITEBYTECODE=1 TMPDIR=<private-directory> \
 ```
 
 The existing Lifecycle catalog group is extended; no new group or complete
-`feature.lifecycle-input.*` capability is advertised. Full normal editor
-opening/typing/context generation, pending/stale and background composition,
-peer/image evidence, restored original position and resource closure remain
-separate unfinished journey work.
+`feature.lifecycle-input.*` capability is advertised. The separate
+[durable editor owner](LIFECYCLE_EDITOR.md) now composes normal opening, focus,
+Unicode, first blocked world consumption and X. Pending/stale and background
+composition, later editor generations, peer/image evidence, restored original
+position and resource closure remain separate unfinished journey work.

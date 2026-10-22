@@ -962,6 +962,29 @@ def create_adapter(args, base_class):
             manager=self._scripts(target)
             return TokenLifecycleUI(PicoLifecycleIO(manager.ui.io),intent,run)
 
+        @_private
+        def _lifecycle_editor(self,target,run,*,source_lock=None):
+            from adapters.pico4.lifecycle_editor import PicoLifecycleEditor
+            from adapters.token_create_ui import TokenCreateUI
+            from adapters.token_lifecycle_ui import TokenLifecycleUI
+            from adapters.pico4.normal_create import PicoCreateIO
+            from adapters.pico4.normal_lifecycle import PicoLifecycleIO
+            manager=self._scripts(target);native=self._native_feature_observer(target)
+            native.guard();identity=self.require_pico_session_identity(target)
+            _need(identity==manager.binding['processIdentity'] and native.pid==int(identity.split(':')[0]))
+            source_lock=self._script_journey()._lock(target,source_lock)
+            def unavailable(_value):_need(False)
+            route=TokenCreateUI(PicoCreateIO(manager.ui.io),unavailable)
+            field=TokenLifecycleUI(PicoLifecycleIO(manager.ui.io),unavailable,run)
+            return PicoLifecycleEditor(self._lifecycle_world_store(target).path.with_name('lifecycle-editor-owner.json'),run,
+                manager.binding,self._lifecycle_ui_source(target,source_lock=source_lock),self.pico_input_session(target),route,field,source_lock)
+
+        @_private
+        def _lifecycle_create_world_back(self,target,run):
+            from adapters.pico4.lifecycle_editor import run_create_world_back
+            joined=self._lifecycle_x_join(target,run)
+            return run_create_world_back(self._lifecycle_editor(target,run,source_lock=joined.world.lock),joined)
+
         def _lifecycle_back_store(self,target):
             state,_ui=self._script_paths(target)
             return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-','lifecycle-back-owner-')))

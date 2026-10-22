@@ -140,13 +140,18 @@ class PicoLifecycleWorld:
             positionDelta=dict(zip(('x','y','z'),actual['positionDelta'])),originals=deepcopy(packets))
         self.now();self.fresh_current();return result
 
-    def world_input(self):
+    def world_input(self,*,editor_id=None):
         try:
             with self.lock.held():
                 self.load();need(self.state is not None and len(self.state['attempts'])<2
                     and (not self.state['attempts'] or self.state['attempts'][-1]['phase']=='quiet'))
                 packets=self.current();neutral(packets['gesture']);need(not self.anchor.measure(packets['drive'])['heldInputs'])
                 self.editor_gate(packets['ui'],len(self.state['attempts']))
+                if editor_id is not None:
+                    from feature_journeys.fixtures import context as fixture
+                    current=ui.current_editor(packets['ui'])
+                    need(ui.nonce(editor_id) and not self.state['attempts'] and current is not None
+                        and current['id']==editor_id and current['text']==fixture(self.run)['unicode'])
                 state=deepcopy(self.state);state['attempts'].append(dict(phase='reserved',before=len(state['frames'])-1,
                     envelope=None,receiptFrame=None,receiptId=None,quiet=None));self.save(state)
                 self.now()
