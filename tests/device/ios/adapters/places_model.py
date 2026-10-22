@@ -12,7 +12,7 @@ from adapters.native_feature_observation import decode,exact,fresh,integer,need,
 from adapters.normal_ui import NativeUIError
 from ios.adapters.places_controls import identity,qml_source,snapshot as controls_snapshot
 
-VERSION=1
+VERSION=2
 FILE='feature-ios-places-model.json'
 LIMIT=262144
 ACTION='feature-ios-places-model'
@@ -62,13 +62,16 @@ def model(value,kind):
     return value
 
 
-def root(value,shown):
+def root(value,shown,version=1):
     exact(value,{'rootId','qmlSource','windowPresent','visible','active','loading','currentAddress','directoryWarning',
-        'records','bookmarkAddresses','maturityFilter','pendingCommands','timerRunning','tab','search','dialog','lists'})
+        'records','bookmarkAddresses','maturityFilter','pendingCommands','timerRunning','tab','search','dialog','lists'}
+        | ({'popup','serverDraft'} if version==2 else set()))
     identity(value['rootId']);qml_source(value['qmlSource'])
     for key in ('windowPresent','visible','active','loading','timerRunning'):need(type(value[key]) is bool)
     need((not value['visible'] or value['windowPresent']) and value['active']==(shown and value['visible']))
     for key in ('currentAddress','directoryWarning','search'):text(value[key])
+    if version==2:
+        need(value['popup'] in ('none','bookmark','ratings','location'));text(value['serverDraft'],4096)
     need(integer(value['tab'],0,2) and type(value['records']) is list and type(value['bookmarkAddresses']) is dict
          and type(value['maturityFilter']) is list and len(value['maturityFilter'])<=16
          and type(value['pendingCommands']) is list and len(value['pendingCommands'])<=256)
@@ -78,6 +81,7 @@ def root(value,shown):
     for entry in value['pendingCommands']:
         need(type(entry) is dict and entry.get('channel')=='com.overte.places');text(entry.get('action'),128)
     dialog=value['dialog'];exact(dialog,{'visible','originalName','address','name'});need(type(dialog['visible']) is bool)
+    if version==2:need(dialog['visible']==(value['popup']=='bookmark'))
     for key in ('originalName','address','name'):text(dialog[key],4096)
     exact(value['lists'],{'places','bookmarks','servers'})
     for kind,original in value['lists'].items():model(original,kind)
@@ -85,15 +89,19 @@ def root(value,shown):
 
 
 def validate(value,query,pid,epoch=None,previous=None):
-    command(query);exact(value,{'iosPlacesModelVersion','requestId','runId','instance','sequence','processId',
-        'clockDomain','clockBefore','clockAfter','complete','tabletShown','roots'})
-    need(type(value['iosPlacesModelVersion']) is int and value['iosPlacesModelVersion']==VERSION
+    command(query);need(type(value) is dict and type(value.get('iosPlacesModelVersion')) is int and value['iosPlacesModelVersion'] in (1,2))
+    version=value['iosPlacesModelVersion'];exact(value,{'iosPlacesModelVersion','requestId','runId','instance','sequence','processId',
+        'clockDomain','clockBefore','clockAfter','complete','tabletShown','roots'}|({'preferences'} if version==2 else set()))
+    need(type(value['iosPlacesModelVersion']) is int
          and value['requestId']==query['commandId'] and value['runId']==query['runId']
          and integer(pid,1) and type(value['processId']) is int and value['processId']==pid
          and type(value['instance']) is str and re.fullmatch('[a-f0-9]{32}',value['instance'])
          and integer(value['sequence'],1,1_000_000_000) and value['clockDomain']=='native-main-places-model'
          and type(value['complete']) is bool and type(value['tabletShown']) is bool
          and type(value['roots']) is list and len(value['roots'])<=32)
+    if version==2:
+        from ios.adapters.places_preferences import validate as preferences
+        preferences(value['preferences'])
     for clock in (value['clockBefore'],value['clockAfter']):
         exact(clock,{'epochMs','monotonicMs'});need(integer(clock['epochMs'],1) and integer(clock['monotonicMs'],0))
     before,after=value['clockBefore'],value['clockAfter']
@@ -102,11 +110,11 @@ def validate(value,query,pid,epoch=None,previous=None):
     if epoch is not None:fresh(after['epochMs'],epoch)
     ids=set();active=0
     for entry in value['roots']:
-        root(entry,value['tabletShown']);need(entry['rootId'] not in ids);ids.add(entry['rootId']);active+=entry['active']
+        root(entry,value['tabletShown'],version);need(entry['rootId'] not in ids);ids.add(entry['rootId']);active+=entry['active']
     need(active<=1 and len(json.dumps(value,allow_nan=False,ensure_ascii=False).encode())<=LIMIT)
     if previous is not None:
         validate(previous,dict(query,commandId=previous['requestId']),pid)
-        need(value['instance']==previous['instance'] and value['sequence']>previous['sequence']
+        need(version>=previous['iosPlacesModelVersion'] and value['instance']==previous['instance'] and value['sequence']>previous['sequence']
              and value['requestId']!=previous['requestId'] and before['epochMs']>=previous['clockAfter']['epochMs']
              and before['monotonicMs']>=previous['clockAfter']['monotonicMs'])
     return value
@@ -134,7 +142,7 @@ def drained(value):
     original(value)
     need(value['complete'] is True)
     return all(not entry['active'] and not entry['pendingCommands'] and not entry['timerRunning']
-               and not entry['loading'] and not entry['dialog']['visible'] for entry in value['roots'])
+               and not entry['loading'] and not entry['dialog']['visible'] and entry.get('popup','none')=='none' for entry in value['roots'])
 
 
 def original(value):

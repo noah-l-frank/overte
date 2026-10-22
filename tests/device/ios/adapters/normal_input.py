@@ -31,7 +31,7 @@ from ios.adapters.view_controls import IDS as VIEW_IDS,FIELDS as VIEW_FIELDS,met
 from adapters.token_audio_ui import audio_control, metadata_fields as audio_metadata_fields, validate_metadata as validate_audio_metadata
 from adapters.token_script_file_ui import (file_control, folder_text,
     metadata_fields as file_metadata_fields, validate_metadata as validate_file_metadata)
-from ios.adapters.places_controls import (PROFILE as PLACES_PROFILE,metadata as places_metadata,
+from ios.adapters.places_controls import (PROFILES as PLACES_PROFILES,metadata as places_metadata,
     control_id as places_control,text as places_text,FIELDS as PLACES_FIELDS)
 
 CONTROLS = frozenset({'hud.goto', 'hud.tablet', 'address.field', 'address.go',
@@ -105,7 +105,7 @@ def observation(value, pid, now_ms=None):
             raise NativeUIError('Native iOS Graphics control version is invalid')
         fields.add('graphicsControlsVersion')
     if type(value) is dict and 'placesControlsVersion' in value:
-        if (type(value['placesControlsVersion']) is not int or value['placesControlsVersion']!=1
+        if (type(value['placesControlsVersion']) is not int or value['placesControlsVersion'] not in PLACES_PROFILES
                 or not _integer(value.get('placesSourceSequence'),1)):
             raise NativeUIError('Native iOS Places controls lack their original source sequence')
         fields |= {'placesControlsVersion','placesSourceSequence'}
@@ -138,9 +138,9 @@ def observation(value, pid, now_ms=None):
             raise NativeUIError('Native iOS Graphics controls lack their source extension')
         is_create=type(control) is dict and type(control.get('id')) is str and control['id'].startswith('create.')
         is_chat=type(control) is dict and type(control.get('id')) is str and control['id'].startswith('chat.')
-        is_places=type(control) is dict and control.get('profile')==PLACES_PROFILE
+        is_places=type(control) is dict and control.get('profile') in PLACES_PROFILES.values()
         if is_places:
-            if value.get('placesControlsVersion')!=1:raise NativeUIError('Native iOS Places controls lack their source extension')
+            if control['profile']!=PLACES_PROFILES.get(value.get('placesControlsVersion')):raise NativeUIError('Native iOS Places controls lack their source extension')
             original=dict(control);original.pop('frame',None);places_metadata(original);fields=set(control)
         elif is_chat:
             if value.get('chatControlsVersion')!=1:raise NativeUIError('Native iOS Chat controls lack their source extension')
@@ -367,6 +367,9 @@ class NativeInput:
         if action=='replace':
             if identifier not in PLACES_FIELDS or not row['focused']:raise NativeUIError('Native iOS Places field lacks focus')
             places_text(value)
+            if identifier=='places.server-url' and value:
+                from ios.adapters.places_preferences import origin as places_origin
+                places_origin(value)
             if len(value.encode('utf-16-le'))//2>4096:raise NativeUIError('Native iOS Places field exceeds its input bound')
         elif value is not None:raise NativeUIError('Native iOS Places activation has an unexpected value')
         original=reference['scope']

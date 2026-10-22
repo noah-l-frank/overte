@@ -4,6 +4,7 @@
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
 #include "NormalPlacesControls.h"
 #include "NormalControlUi.h"
+#include "PlacesPreferenceObservation.h"
 #include <QAbstractItemModel>
 #include <QJsonArray>
 #include <QSet>
@@ -21,7 +22,9 @@ public:
     QVariantMap read(const QString& request,const QString& run,const QList<QQuickItem*>& inputs,bool shown) {
         if (!qApp || QThread::currentThread()!=qApp->thread() || !QCoreApplication::arguments().contains("--testScript")
                 || _sequence>=1000000000) { return {}; }
-        const auto before=clock();bool complete=!inputs.isEmpty();QSet<QQuickItem*> visited;
+        const auto before=clock();const auto preferences=placesPreferenceObservation();
+        if (preferences.isEmpty()) { return {}; }
+        bool complete=!inputs.isEmpty();QSet<QQuickItem*> visited;
         std::function<void(QQuickItem*,int)> visit=[&](QQuickItem* item,int depth) {
             if (!item || !complete || visited.contains(item)) { return; }
             if (depth>128 || visited.size()>=8192 || item->thread()!=qApp->thread()) { complete=false;return; }
@@ -52,10 +55,10 @@ public:
             return a.toMap().value("rootId").toString()<b.toMap().value("rootId").toString();
         });
         const auto after=clock();
-        QVariantMap result {{"iosPlacesModelVersion",1},{"requestId",request},{"runId",run},{"instance",_instance},
+        QVariantMap result {{"iosPlacesModelVersion",2},{"requestId",request},{"runId",run},{"instance",_instance},
             {"sequence",static_cast<double>(++_sequence)},{"processId",static_cast<double>(QCoreApplication::applicationPid())},
             {"clockDomain","native-main-places-model"},{"clockBefore",before},{"clockAfter",after},
-            {"complete",complete},{"tabletShown",shown},{"roots",roots}};
+            {"complete",complete},{"tabletShown",shown},{"roots",roots},{"preferences",preferences}};
         if (QJsonDocument::fromVariant(result).toJson(QJsonDocument::Compact).size()>262144) { return {}; }
         return result;
     }
@@ -66,16 +69,7 @@ private:
             {"monotonicMs",static_cast<double>(_clock.elapsed())}};
     }
     static QObject* named(QQuickItem* root,const QString& name) {
-        const auto objects=root->findChildren<QObject*>();if (objects.size()>4096) { return nullptr; }
-        QObject* result {nullptr};
-        for (auto object:objects) {
-            int depth {0};bool matches {false};
-            for (auto context=qmlContext(object);context && ++depth<=128;context=context->parentContext()) {
-                if (context->nameForObject(object)==name) { matches=true;break; }
-            }
-            if (matches) { if (result && result!=object) { return nullptr; }result=object; }
-        }
-        return result;
+        return placesNamedObject(root,name);
     }
     static bool list(QQuickItem* root,const QString& name,const QList<QByteArray>& expected,QVariantMap& result) {
         auto view=qobject_cast<QQuickItem*>(named(root,name));
@@ -111,6 +105,9 @@ private:
                 || tabs->property("currentIndex").userType()!=QMetaType::Int || search->property("text").userType()!=QMetaType::QString
                 || name->property("text").userType()!=QMetaType::QString) { return {}; }
         result["timerRunning"]=timer->property("running");result["tab"]=tabs->property("currentIndex");result["search"]=search->property("text");
+        const auto popup=placesPopup(root);auto server=named(root,"newServer");
+        if (popup.isEmpty() || !server || server->property("text").userType()!=QMetaType::QString) { return {}; }
+        result["popup"]=popup;result["serverDraft"]=server->property("text");
         result["dialog"]=QVariantMap {{"visible",dialog->property("visible")},{"originalName",dialog->property("originalName")},
             {"address",dialog->property("address")},{"name",name->property("text")}};
         QVariantMap places,bookmarks,servers;

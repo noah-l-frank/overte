@@ -350,7 +350,7 @@ QJsonObject NormalUiInput::observe(QQuickItem* hud, QQuickItem* tablet, bool tab
         { "tabletShown", tabletShown }, { "ready", !ambiguous && hud && hud->window() }, { "controls", observed } };
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     result["featureControlsVersion"] = 1;
-    result["placesControlsVersion"]=1;result["placesSourceSequence"]=static_cast<double>(++_placesObservationSequence);
+    result["placesControlsVersion"]=2;result["placesSourceSequence"]=static_cast<double>(++_placesObservationSequence);
     result["accountMenuControlsVersion"]=1;
     result["viewMenuControlsVersion"]=1;
     result["loginClearInputVersion"]=1;
@@ -497,7 +497,7 @@ QJsonObject NormalUiInput::edit(const QJsonObject& command) {
     observe(_hud,_tablet,_tabletShown);
     QString placesId;
     for (auto it=_controls.cbegin();it!=_controls.cend();++it) {
-        if (it.value().token==fieldToken && it.value().source.value("profile")==QJsonValue("qt-places-qml-v1")) {
+        if (it.value().token==fieldToken && overte::e2e::placesControlId(it.value().item)==it.key()) {
             if (!placesId.isEmpty()) { return result; } placesId=it.key();
         }
     }
@@ -511,7 +511,7 @@ QJsonObject NormalUiInput::edit(const QJsonObject& command) {
         const auto point=target->mapToScene(QPointF(target->width()/2,target->height()/2));
         if (!overte::e2e::NormalControlUi::ownsPoint(target,target->window(),point)) { return result; }
         if (action=="activate") { result["performed"]=press(placesId,fieldToken); }
-        else if (action=="replace" && (placesId=="places.search" || placesId=="places.bookmark-name")
+        else if (action=="replace" && (placesId=="places.search" || placesId=="places.bookmark-name" || placesId=="places.server-url")
                 && command.value("text").isString()) {
             const auto text=command.value("text").toString();bool valid=text.size()<=4096;
             for (auto character:text) { if (character.unicode()<32 || character.unicode()==127) { valid=false;break; } }

@@ -15,6 +15,7 @@
 #include <QPointer>
 #include <QUuid>
 #include <QVector>
+#include <cmath>
 
 namespace overte::e2e {
 
@@ -63,6 +64,34 @@ inline QString placesRootId(QQuickItem* root) {
     roots.append(Entry {root,id});return id;
 }
 
+inline QObject* placesNamedObject(QQuickItem* root,const QString& name) {
+    if (placesRootSource(root).isEmpty()) { return nullptr; }
+    const auto objects=root->findChildren<QObject*>();if (objects.size()>4096) { return nullptr; }
+    QObject* result {nullptr};
+    for (auto object:objects) {
+        int depth {0};bool matches {false};
+        for (auto context=qmlContext(object);context && ++depth<=128;context=context->parentContext()) {
+            if (context->nameForObject(object)==name) { matches=true;break; }
+        }
+        if (matches) { if (result && result!=object) { return nullptr; }result=object; }
+    }
+    return result;
+}
+
+inline QString placesPopup(QQuickItem* root) {
+    const auto bookmark=placesNamedObject(root,"bookmarkDialog"),ratings=placesNamedObject(root,"ratingPopup"),
+        location=placesNamedObject(root,"locationMenu");
+    if (!bookmark || !ratings || !location) { return {}; }
+    QString result="none";
+    for (const auto& entry:QList<QPair<QObject*,QString>>{{bookmark,"bookmark"},{ratings,"ratings"},{location,"location"}}) {
+        if (entry.first->property("visible").userType()!=QMetaType::Bool) { return {}; }
+        if (entry.first->property("visible").toBool()) {
+            if (result!="none") { return {}; }result=entry.second;
+        }
+    }
+    return result;
+}
+
 inline QObject* placesBookmarkDialog(QQuickItem* page) {
     if (placesRootSource(page).isEmpty()) { return nullptr; }
     const auto dialogs=page->findChildren<QObject*>(QStringLiteral("bookmarkDialog"),Qt::FindChildrenRecursively);
@@ -104,15 +133,25 @@ inline QString placesControlId(QQuickItem* item) {
     if (item->inherits("QQuickTextInput")) {
         if (name=="placesSearch") { return "places.search"; }
         if (name=="bookmarkName") { return "places.bookmark-name"; }
+        if (name=="newServerUrl") { return "places.server-url"; }
         return {};
     }
     if (item->metaObject()->indexOfSignal("clicked()")<0) { return {}; }
     static const QHash<QString,QString> buttons {
         {"refreshPlaces","places.refresh"},{"goBack","places.back"},{"goForward","places.forward"},
         {"goHome","places.home"},{"placesTab","places.tab.places"},{"bookmarksTab","places.tab.bookmarks"},
-        {"serversTab","places.tab.servers"},{"addBookmark","places.bookmark-add"},{"saveBookmark","places.bookmark-save"}
+        {"serversTab","places.tab.servers"},{"addBookmark","places.bookmark-add"},{"saveBookmark","places.bookmark-save"},
+        {"addServer","places.server-add"},{"maturityFilters","places.ratings"}
     };
     if (buttons.contains(name)) { return buttons.value(name); }
+    if (name=="fetchServer" || name=="pinServer") {
+        const auto key=placesRowKey(placesRowValue(item,"serverUrl"));
+        return key.isEmpty() ? QString() : (name=="fetchServer" ? "places.server-fetch." : "places.server-pin.")+key;
+    }
+    const auto rating=placesRowValue(item,"modelData");
+    if (name=="rating_"+rating && QStringList{"everyone","teen","mature","adult","unrated"}.contains(rating)) {
+        return "places.rating."+rating;
+    }
     if (name=="visitPlace") {
         const auto key=placesRowKey(placesRowValue(item,"placeId"));
         return key.isEmpty() ? QString() : "places.visit."+key;
@@ -139,36 +178,64 @@ inline QString placesControlId(QQuickItem* item) {
     return {};
 }
 
-inline QJsonObject placesControlSource(QQuickItem* item,const QString& id) {
+inline QJsonObject placesControlMetadata(QQuickItem* item,const QString& id) {
     auto page=placesPage(item);auto dialog=placesBookmarkDialog(page);
     if (!page || !dialog || placesControlId(item)!=id) { return {}; }
-    if ((id=="places.search" || id=="places.bookmark-name")
+    if ((id=="places.search" || id=="places.bookmark-name" || id=="places.server-url")
             && item->property("text").userType()!=QMetaType::QString) { return {}; }
     const auto root=placesRootId(page);
     if (root.isEmpty()) { return {}; }
     const bool place=id.startsWith("places.visit.");
     const bool bookmark=id.startsWith("places.bookmark-visit.") || id.startsWith("places.bookmark-rename.")
         || id.startsWith("places.bookmark-delete.");
-    const auto name=placesRowValue(item,place ? "placeId" : "bookmarkName");
-    const auto address=placesRowValue(item,place ? "placeAddress" : "bookmarkAddress");
-    if ((place || bookmark) && (name.isEmpty() || address.isEmpty() || address.size()>4096)) { return {}; }
-    return QJsonObject {{"profile","qt-places-qml-v1"},{"rootId",root},{"qmlSource",placesRootSource(page)},
-        {"rowName",place || bookmark ? name : QString()},{"rowAddress",place || bookmark ? address : QString()}};
+    const bool server=id.startsWith("places.server-fetch.") || id.startsWith("places.server-pin.");
+    const bool checked=server || id.startsWith("places.rating.");
+    const auto name=placesRowValue(item,server ? "serverUrl" : place ? "placeId" : "bookmarkName");
+    const auto address=placesRowValue(item,server ? "serverUrl" : place ? "placeAddress" : "bookmarkAddress");
+    if ((place || bookmark || server) && (name.isEmpty() || address.isEmpty() || address.size()>4096)) { return {}; }
+    if (checked && item->property("checked").userType()!=QMetaType::Bool) { return {}; }
+    QJsonValue index;
+    if (server) {
+        const auto context=qmlContext(item);bool valid {false};
+        const auto original=context ? context->contextProperty("serverIndex") : QVariant();
+        const auto number=original.toDouble(&valid);
+        if (!valid || original.userType()==QMetaType::Bool || original.userType()==QMetaType::QString
+                || !std::isfinite(number) || std::floor(number)!=number || number<0 || number>1000) { return {}; }
+        index=number;
+    }
+    const auto popup=placesPopup(page);if (popup.isEmpty()) { return {}; }
+    return QJsonObject {{"profile","qt-places-qml-v2"},{"rootId",root},{"qmlSource",placesRootSource(page)},
+        {"rowName",place || bookmark || server ? name : QString()},{"rowAddress",place || bookmark || server ? address : QString()},
+        {"rowIndex",index},{"checked",checked ? QJsonValue(item->property("checked").toBool()) : QJsonValue()},
+        {"popup",popup}};
 }
 
 inline void appendPlacesControlObservation(QJsonObject& row,QQuickItem* item,const QString& id) {
-    const auto source=placesControlSource(item,id);
+    const auto source=placesControlMetadata(item,id);
     if (source.isEmpty()) { return; }
     for (auto iterator=source.begin();iterator!=source.end();++iterator) { row[iterator.key()]=iterator.value(); }
     auto dialog=placesBookmarkDialog(placesPage(item));
     const bool modal=dialog->property("visible").toBool();
-    const bool field=id=="places.search" || id=="places.bookmark-name";
+    const bool field=id=="places.search" || id=="places.bookmark-name" || id=="places.server-url";
     const bool modalControl=id=="places.bookmark-name" || id=="places.bookmark-save" || id=="places.bookmark-cancel";
     const auto text=item->property("text");
     row["value"]=field && text.userType()==QMetaType::QString ? text.toString() : QString();
     row["modal"]=modal;
-    row["inputReady"]=item->isEnabled() && id!="places.page" && modal==modalControl
+    const auto popup=source.value("popup").toString();
+    const bool eligible=popup=="bookmark" ? modalControl : popup=="ratings" ? id.startsWith("places.rating.")
+        : popup=="none" && !modalControl && !id.startsWith("places.rating.");
+    row["inputReady"]=item->isEnabled() && id!="places.page" && eligible
         && (!field || text.userType()==QMetaType::QString);
+}
+
+inline QString placesControlSource(QQuickItem* item,const QString& id) {
+    QJsonObject original;appendPlacesControlObservation(original,item,id);
+    if (original.isEmpty() || !item || !item->window()) { return {}; }
+    const auto point=item->mapToScene(QPointF(item->width()/2,item->height()/2));
+    if (!std::isfinite(point.x()) || !std::isfinite(point.y()) || !std::isfinite(item->width()) || !std::isfinite(item->height())) { return {}; }
+    original["sceneX"]=point.x();original["sceneY"]=point.y();original["width"]=item->width();original["height"]=item->height();
+    original["focused"]=item->hasActiveFocus();
+    return QString::fromLatin1(QCryptographicHash::hash(QJsonDocument(original).toJson(QJsonDocument::Compact),QCryptographicHash::Sha256).toHex());
 }
 
 } // namespace overte::e2e

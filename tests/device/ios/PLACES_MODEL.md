@@ -1,4 +1,4 @@
-# Original iOS Places model and retained queues, version 1
+# Original iOS Places model and retained queues, version 2
 
 This is a passive component of Worlds/navigation, which remains partial. It
 neither advertises a full capability nor supplies directory HTTP-consumer,
@@ -18,6 +18,15 @@ TabletProxy by its actual name among direct QObject children. It does not call
 the lazy-creating `getTablet` factory. Both actual iOS roots must be present.
 The bounded visual survey includes hidden items and window content. A root with
 the Places semantic screen but a foreign QML source makes the survey incomplete.
+
+Version 2 also reads the actual existing Setting::Manager under one recursive
+read lock, preserving original presence, Qt list type, values and serialized
+value digests for the three Places preferences. The packet includes the actual
+native metaverse origin and protocol signature. See the
+[preference source and admission semantics](PLACES_PREFERENCES.md). It adds the
+actual server draft and original bookmark/rating/location popup state for each
+retained root. A hidden root with a retained popup cannot satisfy queue drainage.
+No settings mutation or claim about settings-file persistence is added.
 
 Each actual selected `PicoPlaces.qml` root has the same weak original UUID used
 by [the normal input controls](PLACES_CONTROLS.md). The observer retains QPointers
@@ -63,3 +72,10 @@ They cover ignored effects, raw/filtered-map divergence, duplicate rows, retaine
 queues after close, incomplete inventory, stale/foreign/reused originals,
 changed processes, distinct native clocks and uncertain replies without resend.
 They do not execute the native QML/model survey or qualify physical behavior.
+
+Original v1 snapshots remain readable with their exact original fields. New
+snapshots use writer 2/readers 1,2; history cannot silently downgrade once v2
+preferences have been observed. The acquisition receipt remains v1 and hashes
+the entire unchanged original packet. Reconcile the model registry addition and
+shared QML identity helper with the Phone/Pico union. No full capability is
+admitted by either version.
