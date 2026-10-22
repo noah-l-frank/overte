@@ -131,6 +131,14 @@ class LifecycleProcessTests(unittest.TestCase):
         self.sleep(2)
         with self.process.lock.held(),self.assertRaises(NativeUIError):self.process.require_stop_ready(self.source)
         self.assertEqual('prepared',self.process.inputs.read()['phase'])
+    def test_final_device_clock_jump_during_guard_with_frozen_host_clock_prevents_stop(self):
+        self.shutdown();epoch=[self.source.clock_ms()];self.source.clock_ms=lambda:epoch[0]
+        original=self.source.guard
+        def jump():
+            okay=original();epoch[0]+=2000;return okay
+        self.source.guard=jump;host=self.native.clock
+        with self.process.lock.held(),self.assertRaises(NativeUIError):self.process.require_stop_ready(self.source)
+        self.assertEqual(host,self.native.clock);self.assertEqual('prepared',self.process.inputs.read()['phase'])
     def test_same_original_source_and_changed_settings_cannot_be_new_process_baseline(self):
         self.shutdown();self.new_process();original=self.new_feature.mutate
         def changed(value):original(value);value['audio']['muted']=not self.process.state['originalNative']['audio']['muted']
