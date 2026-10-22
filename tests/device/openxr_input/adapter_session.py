@@ -449,6 +449,11 @@ class PicoOpenXrAdapterSession:
                 raise AdapterSessionError(
                     "native Pico OpenXR input did not confirm neutral cleanup")
 
+    def original_binding_transfer(self):
+        """Capture original host cursor ownership; no target/process verdict."""
+        from .binding_transfer import OriginalBindingTransfer
+        return OriginalBindingTransfer(self)
+
     def discard_local_state(self) -> None:
         with self._lock():
             try:
