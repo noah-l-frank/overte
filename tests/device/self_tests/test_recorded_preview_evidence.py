@@ -53,7 +53,7 @@ class Boundary:
             source=dict(cycle=self.cycle, startedEpochMs=13000, sampleRate=8000, channels=1,
                 inputLastEpochMs=16000, sinkLastEpochMs=19000,
                 events=[event(10, 'capturing', 0, 0, 13000), event(11, 'playing', 48000, 0, 16000),
-                        event(12, 'completed', 48000, 48000, 19500)],
+                        event(12, 'draining', 48000, 48000, 19000), event(13, 'completed', 48000, 48000, 19500)],
                 input=file(INPUT, 'capture-before-normalization'),
                 sink=file(SINK, 'loopback-device-accepted-write')))
         if self.mutate: self.mutate(self.value)
@@ -102,6 +102,39 @@ class RecordedPreviewEvidenceTests(unittest.TestCase):
                 native.mutate = mutate
                 with self.assertRaises(NativeUIError): reader.read(first['sequence'])
                 self.assertEqual(first['sequence'], reader.sequence)
+
+    def test_same_cycle_new_envelope_cannot_rewrite_original_events_bytes_or_timestamps(self):
+        for fault in ('event', 'drop', 'input', 'sink', 'retime', 'format', 'start'):
+            with self.subTest(fault=fault):
+                native = Boundary(); reader = native.reader(); first, _ = reader.read(0)
+                if fault in ('input', 'sink'):
+                    name = INPUT if fault == 'input' else SINK
+                    native.files[name] = b'x' * len(native.files[name])
+                else:
+                    def mutate(value):
+                        source = value['source']
+                        if fault == 'event': source['events'][0]['publishedEpochMs'] += 1
+                        elif fault == 'drop': source['events'].pop(0)
+                        elif fault == 'retime': source['inputLastEpochMs'] += 1
+                        elif fault == 'format': source['sampleRate'] = 16000
+                        else: source['startedEpochMs'] += 1
+                    native.mutate = mutate
+                with self.assertRaises(NativeUIError): reader.read(first['sequence'])
+                self.assertEqual(first['sequence'], reader.sequence)
+
+    def test_first_completed_packet_requires_real_drain_contiguous_events_and_legal_phases(self):
+        for fault in ('drain', 'gap', 'phase', 'error', 'frame'):
+            with self.subTest(fault=fault):
+                native = Boundary()
+                def mutate(value):
+                    events = value['source']['events']
+                    if fault == 'drain': events.pop(2)
+                    elif fault == 'gap': events[1]['eventSequence'] += 5
+                    elif fault == 'phase': events[0]['phase'] = 'playing'
+                    elif fault == 'error': events[1]['error'] = 'hidden-failure'
+                    else: events[0]['capturedBytes'] = 1
+                native.mutate = mutate
+                with self.assertRaises(NativeUIError): native.reader().read(0)
 
     def test_new_request_and_envelope_cannot_make_previous_recording_a_new_capture(self):
         native = Boundary(); reader = native.reader()
