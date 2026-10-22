@@ -1549,3 +1549,40 @@ Validation:28 selected owner/original-stereo/common-evidence cases pass18.466s.
 The owning Tablet-Web, normal Browser entry, complete Chat phase and coverage
 selection passes4/120 groups in11.97s (0.759s/1.851s/9.292s respectively).
 The four required repository suites pass3.38s; registry and whitespace pass.
+
+
+## Integrated original Chat application close and Snapshot cancel parent
+
+Fixed local selections `9e182fca3a` (Chat) and
+`1ab4b52e20821d43544f00305b5b14914f4ecb3d` (Snapshot) are integrated on
+this isolated branch. Root's newer Browser/Create/Navigation/Chat registrations,
+all original factories and the canonical source locks are retained. The local
+agent-only dependency `f4761c0397` was not imported.
+
+[Chat application closure](CHAT_APPLICATION_CLOSE.md) now composes actual
+once-only restart inputs, original new birth/ESRCH/profile, held cursor transfer,
+two distinct compiled absence roles, both original three-second quiet intervals,
+peer IPC/held descriptor release and sealed original archival. Its component
+host fixtures explicitly simulate SDK/native/V8 and the predecessor input effects;
+the complete warm parent catalog and actual actors remain to be qualified.
+No public Chat capability is added. Five lossless disjoint application groups
+and one small archive/factory group use the unchanged120-second catalog limit.
+
+[Snapshot cancellation](SNAPSHOT_CANCEL_OWNER.md) composes normal SNAP entry,
+original name/mode/format controls and durable file plan before the original
+FastCancel input. Recovery queries originals only; no Arm/Open/Capture/Cancel
+resend is allowed. Fresh NativeScriptWork2 proves current owned/unknown work
+absence; the historical cancelled timer DTO cannot stand in for it. Seven
+original clocks and stable counters must span three uninterrupted seconds before
+original job retirement. Normal page/preferences/file and host journals stay
+owned for the still/export/actor/final cleanup join. Four lossless groups use
+the unchanged120-second catalog limit. Complete source areas remain3/14;
+no full application, APK, Assignment Client or device is qualified.
+
+Integrated validation:11/130 selected groups pass225.07s, no failures/skips.
+Chat application journey51.779s; recovery30.967s; admission31.087s;
+delivery17.114s; post-IPC43.867s; archive/factories2.528s. Snapshot normal
+cancel12.420s; quiet11.572s; recovery8.857s; fences14.817s. The four required
+repository suites pass2.94s; registry and whitespace pass. Each group remains
+below the existing120-second bound. No source/host component result is counted
+as an additional complete feature area.
