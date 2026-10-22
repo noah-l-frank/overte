@@ -20,7 +20,7 @@ POLICY=dict(picoEmotePixelPolicyVersion=1,source='world-render-target',eyes={
     'right':dict(marker=[520,450,648,482],subject=[675,10,835,270])})
 
 
-def fixture(ticket,*,second=False,moved_eye=None,background=False,marker_eye=None,ignored=False):
+def fixture(ticket,*,second=False,moved_eye=None,background=False,marker_eye=None,ignored=False,run=RUN,producers=False):
     boundary=CameraBoundary();produce=boundary.mutate
     boundary.frame+=int(second);boundary.execution+=int(second);boundary.submission+=int(second);boundary.uniform_sequence+=3*int(second)
     image=Image.new('RGBA',(1024,512),(20,35,50,255));draw=ImageDraw.Draw(image)
@@ -30,7 +30,7 @@ def fixture(ticket,*,second=False,moved_eye=None,background=False,marker_eye=Non
             color=(190 if eye=='left' else 80,100,60)
             if second and not ignored and moved_eye in (None,eye):color=(40,180 if y%16 else 100,200)
             draw.rectangle((180+offset,y,310+offset,y+3),fill=color)
-        marker=POLICY['eyes'][eye]['marker'];bits=''.join(f'{byte:08b}' for byte in challenge(RUN,ticket if marker_eye in (None,eye) else 'f'*32))
+        marker=POLICY['eyes'][eye]['marker'];bits=''.join(f'{byte:08b}' for byte in challenge(run,ticket if marker_eye in (None,eye) else 'f'*32))
         for index,bit in enumerate(bits):
             x=marker[0]+(index%32)*4;y=marker[1]+(index//32)*8
             draw.rectangle((x,y,x+3,y+7),fill=(240,240,240) if bit=='1' else (0,0,0))
@@ -57,7 +57,7 @@ def fixture(ticket,*,second=False,moved_eye=None,background=False,marker_eye=Non
     # These are producer-owned original native sources at one explicit clock.
     before['requestedEpochMs']=before['capturedEpochMs']=20000
     frame=dict(ticket=ticket,avatarBefore=before,avatarAfter=after,capture=model.capture,draws=model.reader().read(model.capture))
-    return frame,boundary.raw
+    return (frame,boundary.raw,model,boundary) if producers else (frame,boundary.raw)
 
 
 class PicoEmotePixelTests(unittest.TestCase):

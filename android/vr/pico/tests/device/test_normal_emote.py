@@ -303,5 +303,43 @@ if(calls!==51||files.length!==1||files[0].available!==false||"source" in files[0
         with self.assertRaises(ValueError):self.instance.cleanup(self.native.target)
         self.assertFalse(self.native.running);self.assertEqual(original,owner.store.read())
 
+    def test_emote_capture_factory_shares_exact_parent_lock_and_excludes_other_capture_owners(self):
+        from adapters.pico4.graphics_binding import PicoGraphicsBinding,SerializedWorldCapture
+        from adapters.script_journey.lock import ScriptSourceLock
+        from self_tests.test_pico_emote_sources import SourcesTests
+        seam=SourcesTests();seam.setUp();self.addCleanup(seam.doCleanups)
+        path=self.instance._script_journey().state_path(self.native.target)
+        lock=ScriptSourceLock(path.with_name('script-sources.lock'))
+        with lock.held():
+            source=self.instance._emote_sources(self.native.target,seam.phase,'primary',seam.root,lock)
+            owner=self.instance._emote_world_render_capture(self.native.target,source)
+            self.assertIsInstance(owner,SerializedWorldCapture);self.assertIs(owner.source_lock,lock)
+            self.assertEqual(source.binding,owner.owner.binding);self.assertEqual('primary',owner.owner.role)
+            self.assertTrue(owner.capture.require_cameras);self.assertTrue(owner.capture.stereo);owner.owner.guard()
+            facade=PicoGraphicsBinding(self.instance)
+            stores=[self.instance._world_render_store(self.native.target),
+                self.instance._emote_world_render_store(self.native.target,'actor')]
+            stores.extend(facade.world_render_store(self.native.target,role=role) for role in ('primary','actor'))
+            for store in stores:
+                store.write({'unresolvedForeignCapture':True},None)
+                with self.assertRaises((RuntimeError,ValueError)):owner.owner.guard()
+                store.discard(store.read())
+            owner.owner.guard()
+            changed={**self.instance._installation(self.native.target),'artifactSha256':'f'*64}
+            with patch.object(self.instance,'_installation',return_value=changed),self.assertRaises((RuntimeError,ValueError)):owner.owner.guard()
+        self.assertEqual([],self.native.inputs)
+
+    def test_orphaned_emote_image_and_world_journals_prevent_base_cleanup_success(self):
+        from adapters.normal_feature_state import PrivateFeatureState
+        source=self.instance._emote_source_store(self.native.target,'primary')
+        image=PrivateFeatureState(source.path.with_name(source.path.stem+'-image-7.json'))
+        world=self.instance._emote_world_render_store(self.native.target,'primary')
+        for store in (image,world):store.write({'unresolvedEmoteCapture':True},None)
+        originals=[store.read() for store in (image,world)]
+        self.assertIsNone(source.read())
+        with self.assertRaises(ValueError):self.instance.cleanup(self.native.target)
+        self.assertFalse(self.native.running)
+        self.assertEqual(originals,[store.read() for store in (image,world)])
+
 
 if __name__=='__main__':unittest.main()

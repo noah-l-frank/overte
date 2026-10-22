@@ -469,7 +469,10 @@
         "tests/device/self_tests/test_pico_emote_model_draws.py",
         "tests/device/adapters/pico4/emote_pixels.py",
         "tests/device/self_tests/test_pico_emote_pixels.py",
-        "tests/device/adapters/pico4/EMOTE_STEREO_PIXELS.md"
+        "tests/device/adapters/pico4/EMOTE_STEREO_PIXELS.md",
+        "tests/device/adapters/pico4/emote_capture.py",
+        "tests/device/self_tests/test_pico_emote_capture.py",
+        "tests/device/adapters/pico4/EMOTE_CAPTURE.md"
       ],
       "declaredCheckpoints": 28,
       "inputVerbs": [
@@ -506,7 +509,7 @@
         "Observe original pose/mapping/timer/resource retirement",
         "Restore captured prior override and closed panel"
       ],
-      "nextExecutableStep": "Compose durable model-bound original stereo acquisition/archive/release with current per-eye challenge/body pixels and the existing independent Rig effect source. Establish an actual normal VR scene/avatar/view setup, independent actor/public flow and complete original resource retirement; pixel measurements alone do not make Emotes complete.",
+      "nextExecutableStep": "Join the durable original stereo capture owner and current per-eye pixels to existing Rig/input effects, establish actual normal VR scene/avatar/view setup, then independent actor/public flow and complete original resource retirement. Indexed image/native cleanup does not make the whole Emote adapter complete.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     },

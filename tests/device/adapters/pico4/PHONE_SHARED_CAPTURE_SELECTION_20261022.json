@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "reference": "abb7f6b60d97daf17752aadf94e2b5df099bb7ba",
+  "sourcePath": "tests/device/adapters/android-phone/overte_phone_emote_capture.py",
+  "sourceSha256": "ffabb405570818fedcf03be79b838c3378b584bb5c6b26c328672c98d08e7187",
+  "uncommittedPhoneWorkExcluded": true,
+  "adapted": [
+    "Indexed durable one-shot acquisition and cleanup-only recovery shape.",
+    "Original parent archive prefix and separate historical replay."
+  ],
+  "reusedExisting": [
+    "GraphicsOriginals private original byte engine.",
+    "WorldRenderOwner and native memory/receipt inventory retirement.",
+    "Exact shared ScriptSourceLock."
+  ],
+  "excluded": [
+    "Phone platform class and mono capture/model projection.",
+    "Phone scene, camera and touch inputs."
+  ],
+  "qualification": "Internal Pico stereo acquisition/retirement component only; whole Emote remains partial and devices untested."
+}

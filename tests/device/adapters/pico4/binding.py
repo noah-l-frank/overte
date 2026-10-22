@@ -448,6 +448,7 @@ def create_adapter(args, base_class):
                 store=facade.world_render_store(target,role=role)
             foreign=[facade.world_render_store(target,role=value) for value in ('primary','actor') if value!=role]
             if role is not None:foreign.append(self._world_render_store(target))
+            foreign.extend(self._emote_world_render_store(target,value) for value in ('primary','actor'))
             def world_guard():
                 lock.assert_held();native.guard()
                 _need(all(value.read() is None for value in foreign))
@@ -491,6 +492,58 @@ def create_adapter(args, base_class):
             _need(role in ('primary', 'actor'))
             state, _ui = self._script_paths(target)
             return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-', 'emote-' + role + '-sources-')))
+
+        def _emote_world_render_store(self, target, role):
+            source=self._emote_source_store(target,role)
+            return PrivateFeatureState(source.path.with_name(source.path.stem+'-world-render.json'))
+
+        def _emote_image_journals(self, target):
+            sources=[self._emote_source_store(target,role).path for role in ('primary','actor')]
+            root=sources[0].parent
+            if not root.exists():return False
+            PrivateFeatureState(root/'emote-image-boundary.json')._parent()
+            prefixes=tuple(path.stem+'-image-' for path in sources)
+            for index,path in enumerate(root.iterdir()):
+                _need(index<4096)
+                if path.name.startswith(prefixes):return True
+            return False
+
+        @_private
+        def _emote_world_render_capture(self, target, source):
+            from adapters.pico4.emote_sources import PicoEmoteSources
+            from adapters.pico4.graphics_binding import PicoGraphicsBinding,SerializedWorldCapture
+            from adapters.world_render_receipts import NativeWorldReceiptInventory,NativeWorldReceiptBatchFiles,INVENTORY_FILE
+            _need(isinstance(source,PicoEmoteSources) and source.role in ('primary','actor')
+                and source.store.path==self._emote_source_store(target,source.role).path)
+            lock=self._script_journey()._lock(target,source.lock);lock.assert_held()
+            _ui,_observe,binding=self._script_runtime(target);native=self._native_feature_observer(target)
+            _need(binding==source.binding and native.pid==source.pid)
+            role=source.role;facade=PicoGraphicsBinding(self)
+            foreign=[self._emote_world_render_store(target,'actor' if role=='primary' else 'primary'),self._world_render_store(target)]
+            foreign.extend(facade.world_render_store(target,role=value) for value in ('primary','actor'))
+            def world_guard():
+                lock.assert_held();native.guard();_need(source.guard() is not False and all(store.read() is None for store in foreign));return True
+            owner=WorldRenderOwner(self._emote_world_render_store(target,role),binding,world_guard,role=role)
+            files=AndroidWorldRenderReceipts(self.adb,target,'org.overte.pico',world_guard)
+            options=dict(monotonic=native.monotonic,sleep=native.sleep)
+            storage=NativeWorldRenderStorage(native.send,files.read,native.clock_ms,world_guard,native.pid,receipt_intent=owner.receipt_intent,**options)
+            inventory=NativeWorldReceiptInventory(native.send,
+                lambda:self.adb.read_debug_app_file(target,'org.overte.pico','files/overte-e2e/'+INVENTORY_FILE,attempts=1),
+                native.clock_ms,world_guard,native.pid,owner.owned,lambda:storage.instance,**options)
+            receipts=NativeWorldReceiptBatchFiles(files,inventory)
+            capture=NativeWorldRenderCapture(native.send,
+                lambda:self.adb.read_debug_app_file(target,'org.overte.pico','files/overte-e2e/'+WORLD_RENDER_FILE,attempts=1),
+                storage,native.clock_ms,world_guard,native.pid,intent=owner.intent,stereo=True,require_cameras=True,**options)
+            return SerializedWorldCapture(capture,storage,owner,receipts,source_lock=lock)
+
+        @_private
+        def _emote_capture(self, target, source, index, policy):
+            from adapters.pico4.emote_capture import PicoEmoteCapture
+            from adapters.pico4.emote_sources import PicoEmoteSources
+            _need(isinstance(source,PicoEmoteSources) and source.store.path==self._emote_source_store(target,source.role).path)
+            self._script_journey()._lock(target,source.lock).assert_held()
+            return PicoEmoteCapture(source,index,policy,lambda:self._emote_world_render_capture(target,source),
+                lambda:self._avatar_render_observer(target),lambda:self._emote_model_draws_observer(target),monotonic=source.monotonic)
 
         def _emote_input_store(self, target):
             state, _ui = self._script_paths(target)
@@ -1711,6 +1764,8 @@ def create_adapter(args, base_class):
                       and self._chat_normal_input_store(target).read() is None
                       and self._chat_peer_input_store(target).read() is None and self._chat_peer_send_store(target).read() is None
                       and self._chat_peer_distant_store(target).read() is None
+                      and not self._emote_image_journals(target)
+                      and all(self._emote_world_render_store(target, role).read() is None for role in ('primary','actor'))
                       and self._emote_input_store(target).read() is None
                       and all(self._emote_source_store(target, role).read() is None for role in ('primary', 'actor'))
                       and all(self._emote_lifetime_store(target, role).read() is None for role in ('primary', 'actor'))

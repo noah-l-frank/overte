@@ -47,7 +47,8 @@ The original Phone bounded stride/body-versus-control approach is reused from
 fixed committed source; mono projection and Phone scene/input owners are excluded.
 These tests execute no renderer, HMD, GL/OpenXR device or target automation.
 
-Next: bind durable acquisition/archive/native release, actual normal Pico
+The [durable indexed capture owner](EMOTE_CAPTURE.md) now binds acquisition,
+archive and independent native memory/file retirement. Next: actual normal Pico
 scene/avatar/view setup and the existing original Rig effects, then independent
 actor/public coordination and full callback/resource retirement. A first-person
 view whose full body bounds cannot project is ineligible; no camera/property

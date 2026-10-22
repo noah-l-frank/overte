@@ -318,3 +318,27 @@ preceding Create/X archive, so it reports no generation; the whole parent must
 independently derive it. All 22 source/evidence cases pass (.127s), and all four
 project checks pass (2.94s). This pure original join sends no OS input and proves
 no current three-second quiet, source retirement or whole Lifecycle completion.
+
+
+## Durable indexed Emote image ownership
+
+PicoEmoteCapture v1 now binds exact parent source/phase/Rig, the original model's
+executed stereo cameras and unchanged PNG, private inode-bound storage, and
+independent native memory/callback/receipt-file retirement. Lost acquisition,
+model, release and journal responses never authorize another acquisition.
+Original historical replay retains source times after parent advancement.
+Ten owner cases and ten existing pixel cases pass (20/20, 7.061s); two actual
+Pico lock/candidate/foreign-owner/orphan-teardown cases pass (2.349s).
+The first owner tests exposed a missing exclusive image directory and a synthetic
+model producer bound to a different GPU frame; both were corrected. An initial
+partial-write fixture failed before reserving a file, so its interruption was
+moved to actual post-write verification. One factory test expected the wrong
+exception type; its explicit Pico binding rejection is now covered. No production
+validation threshold was relaxed.
+
+All three final Pico groups pass (3/65, 120.74s): normal-emote36.659s,
+emote-original-sources84.021s and coverage-matrix .060s. All four project checks
+pass (3.36s); registry and whitespace pass. These are host/synthetic source tests;
+no native sources changed, application build or devices were qualified. Normal
+VR scene/avatar/view setup, joined effects/independent actor and complete Emote
+resource/journal retirement remain open; no whole Emote capability is advertised.
