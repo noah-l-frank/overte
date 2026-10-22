@@ -41,6 +41,7 @@ public:
     static QVariantMap featureTabletWebDefer(const QVariantMap& command);
     static QVariantMap featureTabletWebDeferredObservation(const QVariantMap& command);
     static QVariantMap featureTabletWebDOMObservation(const QVariantMap& command);
+    static QVariantMap featureTabletWebStateObservation(const QVariantMap& command);
 #endif
     ~IOSWebView() override;
     QString url() const;

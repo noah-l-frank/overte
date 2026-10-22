@@ -28,6 +28,7 @@ REQUIRED = {
     "native-keys-raw": 1,
     "ios-tablet-sources": 1,
     "ios-tablet-web": 1,
+    "ios-tablet-web-state": 1,
     "ios-world-web-snapshot": 1,
     "ios-world-web-snapshot-body": 1,
     "ios-tablet-web-app-files": 2,

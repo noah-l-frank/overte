@@ -20,6 +20,7 @@
     "native-keys-raw": {"current": 1, "reads": [1]},
     "ios-tablet-sources": {"current": 1, "reads": [1]},
     "ios-tablet-web": {"current": 1, "reads": [1]},
+    "ios-tablet-web-state": {"current": 1, "reads": [1]},
     "ios-world-web-snapshot": {"current": 1, "reads": [1]},
     "ios-world-web-snapshot-body": {"current": 1, "reads": [1]},
     "ios-tablet-web-app-files": {"current": 2, "reads": [1, 2]},
