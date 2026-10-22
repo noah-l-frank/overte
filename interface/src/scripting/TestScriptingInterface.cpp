@@ -41,6 +41,7 @@
 #include "LocationBookmarks.h"
 #include <XMLHttpRequestClass.h>
 #include "../../../tests/device/native/PrivateWorldRenderReceipts.h"
+#include "../../../tests/device/native/PrivateCreateFiles.h"
 #include <PointerManager.h>
 #include <ui/Keyboard.h>
 #include "HMDScriptingInterface.h"
@@ -879,6 +880,11 @@ QVariantMap TestScriptingInterface::featureScriptFiles(const QVariantMap& comman
     }
     if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
             || !QCoreApplication::arguments().contains("--testScript")) { return {}; }
+    // This explicit source role extends storage only on Pico. The original
+    // Script role keeps its exact admission and resource namespace below.
+#if defined(ANDROID_APP_PICO_INTERFACE)
+    if (command.contains("sourceRole")) { return featureCreateFiles(command); }
+#endif
     const auto json = QJsonObject::fromVariantMap(command);
     const auto action = json.value("operation").toString();
     QStringList expected {"schemaVersion", "commandId", "action", "operation", "runId", "ownerToken"};
@@ -903,6 +909,34 @@ QVariantMap TestScriptingInterface::featureScriptFiles(const QVariantMap& comman
     _featureScriptFilesCommand = command; _featureScriptFilesResult = result;
     return result;
 }
+
+#if defined(ANDROID_APP_PICO_INTERFACE)
+QVariantMap TestScriptingInterface::featureCreateFiles(const QVariantMap& command) {
+    if (QThread::currentThread() != thread() || _testResultsLocation.isEmpty() || !_featureLifecycle
+            || _featureLifecycle->snapshot().isEmpty() || !QCoreApplication::arguments().contains("--testScript")) { return {}; }
+    const auto id = command.value("commandId").toString();
+    const auto json = QJsonObject::fromVariantMap(command);
+    if (command.value("sourceRole") != QVariant("create-json-v1")
+            || !QRegularExpression("\\A[0-9a-f]{32}\\z").match(id).hasMatch()
+            || QJsonDocument(json).toJson(QJsonDocument::Compact).size() > 16384) { return {}; }
+    if (_featureCreateFilesCommands.contains(id)) {
+        return _featureCreateFilesCommands.value(id) == command ? _featureCreateFilesResults.value(id) : QVariantMap{};
+    }
+    if (_featureCreateFilesCommands.size() >= 512) { return {}; }
+    // Persist uncertainty in process before the single filesystem operation.
+    // No earlier nonce can be replayed or recaptured after another role reads.
+    _featureCreateFilesCommands.insert(id, command);
+    const auto requested = QDateTime::currentMSecsSinceEpoch();
+    const auto source = overte::e2e::PrivateCreateFiles::request(_testResultsLocation, command);
+    const QVariantMap result{{"schemaVersion", 1}, {"requestId", id}, {"instance", _featureObservationInstance},
+        {"sequence", static_cast<qulonglong>(++_featureCreateFilesSequence)}, {"requestedEpochMs", requested},
+        {"capturedEpochMs", QDateTime::currentMSecsSinceEpoch()}, {"processId", QCoreApplication::applicationPid()},
+        {"sourceRole", "create-json-v1"}, {"runId", command.value("runId")}, {"ticket", command.value("ticket")},
+        {"operation", command.value("operation")}, {"source", source}};
+    _featureCreateFilesResults.insert(id, result);
+    return result;
+}
+#endif
 
 QVariantMap TestScriptingInterface::featureScriptObservation(const QString& requestId) {
     if (QThread::currentThread() != thread()) {
@@ -1237,7 +1271,7 @@ void TestScriptingInterface::saveObject(QVariant variant, const QString& filenam
             || filename == "feature-graphics-subject.json" || filename == "feature-scene-load.json"
             || filename == "feature-web-runtime.json" || filename == "feature-tablet-http.json"
             || filename == "recorded-preview-observation.json" || filename == "feature-script-observation.json"
-            || filename == "feature-script-files.json" || filename == "world-render-observation.json"
+            || filename == "feature-script-files.json" || filename == "feature-create-files.json" || filename == "world-render-observation.json"
             || filename == "world-render-receipt-result.json" || filename == "world-render-receipts-result.json"
             || QRegularExpression("\\Aworld-render-storage-[0-9a-f]{32}\\.json\\z").match(filename).hasMatch()) {
         if (!QCoreApplication::arguments().contains("--testScript") || QFileInfo(filepath).isSymLink()) { return; }

@@ -78,8 +78,9 @@ The full feature uses **domain** entities. The implemented foundation uses the
 existing serverless scene's avatar-entity rights and cannot stand in for it.
 The next executable source work is:
 
-- Add an explicitly versioned Create entity-JSON staging/picker role, with the
-  actual `Select .json to Import` caption/filter/root and original bytes. Script
+- The [explicit Create JSON storage role](CREATE_FILES_SOURCE.md) now stages and
+  independently reads original input/output bytes. Bind its actual
+  `Select .json to Import` caption/filter/root to ordinary picker input. Script
   file roots and picker identities must remain distinct. Observe cancel and
   accept through their original retained callbacks and a quiet absence window.
 - Compose normal Domain/New Model/Properties input with actual selected UUID,

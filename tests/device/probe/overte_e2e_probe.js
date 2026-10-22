@@ -148,6 +148,7 @@
     var lastTabletHttpRequest = "";
     var lastProcessPresenceRequest = "";
     var lastScriptFilesRequest = "";
+    var lastCreateFilesRequest = "";
     function saveScriptSourceObservation(requestId) {
         var value = {schemaVersion: 1, requestId: requestId, available: false};
         try {
@@ -1380,6 +1381,28 @@
                 if (worldRenderTimer !== null) { Script.clearTimeout(worldRenderTimer); worldRenderTimer = null; }
                 lastWorldRenderRequest = String(command.commandId);
                 saveWorldRenderObservation(command.commandId);
+            }
+            return;
+        }
+        if (command && command.schemaVersion === 1 && command.action === "feature-script-files"
+                && command.sourceRole === "create-json-v1"
+                && typeof command.commandId === "string" && /^[0-9a-f]{32}$/.test(command.commandId)
+                && typeof command.runId === "string" && /^[0-9a-f]{32}$/.test(command.runId)
+                && typeof command.ticket === "string" && /^[0-9a-f]{32}$/.test(command.ticket)
+                && typeof command.ownerToken === "string" && /^[0-9a-f]{64}$/.test(command.ownerToken)
+                && /^(stage|observe|locate|release)$/.test(command.operation)
+                && objectKeysMatch(command, ["schemaVersion", "commandId", "action", "sourceRole", "operation", "runId", "ticket", "ownerToken"].concat(
+                    command.operation === "stage" ? ["files"] : command.operation === "release" ? ["exportSha256"] : []))) {
+            if (command.commandId !== lastCreateFilesRequest) {
+                lastCreateFilesRequest = command.commandId;
+                var createFilesResult = {schemaVersion: 1, requestId: command.commandId, available: false};
+                try {
+                    if (typeof Test.featureScriptFiles === "function") {
+                        var createFilesNative = Test.featureScriptFiles(command);
+                        if (createFilesNative && createFilesNative.requestId === command.commandId) { createFilesResult = createFilesNative; }
+                    }
+                } catch (_createFileError) { /* Missing original storage is not success. */ }
+                Test.saveObject(createFilesResult, "feature-create-files.json");
             }
             return;
         }

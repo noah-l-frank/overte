@@ -61,13 +61,24 @@ class NativeScriptFiles:
         self.last_packet = None
         self.captured_epoch = 0
 
+    def prepare(self, operation, run, owner, files):
+        request = dict(schemaVersion=1, commandId=('ios-' if self.ios else '') + uuid.uuid4().hex,
+            action='feature-script-files', operation=operation, runId=run, ownerToken=owner)
+        if files is not None:
+            request['files'] = {key: base64.b64encode(raw).decode() for key, raw in files.items()}
+        return command(request, ios=self.ios)
+
+    def packet_fields(self):
+        return {'schemaVersion', 'requestId', 'instance', 'sequence', 'requestedEpochMs',
+            'capturedEpochMs', 'processId', 'runId', 'operation', 'source'}
+
+    def packet_scope(self, value):
+        pass  # The original Script role has no extra scope fields.
+
     def request(self, operation, run, owner, files=None):
         self.last_packet = None
         try:
-            request = dict(schemaVersion=1, commandId=('ios-' if self.ios else '') + uuid.uuid4().hex,
-                action='feature-script-files', operation=operation, runId=run, ownerToken=owner)
-            if files is not None: request['files'] = {key: base64.b64encode(raw).decode() for key, raw in files.items()}
-            command(request, ios=self.ios)
+            request = self.prepare(operation, run, owner, files)
             need(self.guard() is not False)
             started = previous = self.monotonic(); need(number(started, 0, 1e15))
             requested = self.clock_ms(); need(integer(requested, 1))
@@ -86,8 +97,7 @@ class NativeScriptFiles:
                 now = self.monotonic(); need(number(now, 0, 1e15) and now >= previous and now - started < 5)
                 previous = now
                 if type(value) is dict and value.get('requestId') == request['commandId']:
-                    exact(value, {'schemaVersion', 'requestId', 'instance', 'sequence', 'requestedEpochMs',
-                        'capturedEpochMs', 'processId', 'runId', 'operation', 'source'})
+                    exact(value, self.packet_fields())
                     need(type(value['schemaVersion']) is int and value['schemaVersion'] == 1
                          and type(value['instance']) is str and re.fullmatch('[0-9a-f]{32}', value['instance'])
                          and self.instance in (None, value['instance']) and integer(value['sequence'], self.sequence + 1)
@@ -100,6 +110,7 @@ class NativeScriptFiles:
                     epoch = self.clock_ms()
                     need(integer(epoch, 1) and epoch >= requested)
                     fresh(value['capturedEpochMs'], epoch)
+                    self.packet_scope(value)
                     self.validate_source(value['source'], operation, run)
                     need(self.guard() is not False)
                     now = self.monotonic()

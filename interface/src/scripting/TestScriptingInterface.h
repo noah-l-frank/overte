@@ -18,6 +18,7 @@
 #include <ScriptValue.h>
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #include <QSet>
+#include <QHash>
 #include <memory>
 namespace overte::e2e { class ChatViewObservation; }
 #include <QUuid>
@@ -170,6 +171,7 @@ public slots:
     Q_INVOKABLE QVariantMap featureScriptObservation(const QString& requestId);
     Q_INVOKABLE QVariantMap featureScriptFiles(const QVariantMap& command);
 #if defined(ANDROID_APP_PICO_INTERFACE)
+    QVariantMap featureCreateFiles(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureLocationBookmarks(const QVariantMap& command);
     void featurePlacesRecordsChanged();
     Q_INVOKABLE QVariantMap featureNavigationPanels(const QVariantMap& command);
@@ -253,6 +255,8 @@ private:
     quint64 _featureLocationBookmarksSequence {0};
     QSet<QString> _featureLocationBookmarksRequests;
     QSet<QString> _featureWorldReceiptsRequests;
+    quint64 _featureCreateFilesSequence {0};
+    QHash<QString, QVariantMap> _featureCreateFilesCommands, _featureCreateFilesResults;
 #endif
     quint64 _featureGraphicsSubjectSequence {0};
     QSet<QString> _featureGraphicsSubjectRequests;

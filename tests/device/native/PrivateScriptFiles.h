@@ -161,6 +161,8 @@ public:
 #endif
     }
 private:
+    // Explicit Create role reuses descriptor safety, never Script admission.
+    friend class PrivateCreateFiles;
 #if defined(Q_OS_UNIX)
     struct Handle {
         int fd;
