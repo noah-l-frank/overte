@@ -53,6 +53,7 @@ PHONE_INTENT = frozenset({
 REQUIRED_CODE = {
     "common": {"android/common/native-ci/verify.py"},
     "pico": {"android/vr/pico/native-ci/verify_apk.py", "android/vr/pico/ci/verify-pico-apk.py",
+             "android/common/native-ci/apk_native.py",
              "android/common/native-ci/verify.py", "android/common/web/network_policy.py",
              "android/common/web/network-capability.json",
              "android/common/web/res/xml/overte_embedded_web_network_security_config.xml"},

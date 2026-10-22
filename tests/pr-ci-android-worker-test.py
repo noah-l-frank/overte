@@ -196,6 +196,10 @@ class ConsumerTests(unittest.TestCase):
     def test_pico_exact_map_seed_and_sdk_analyzer_are_required(self):
         self.product_config("pico")
         self.prepare()
+        saved = self.config["controller_files"].pop("android/common/native-ci/apk_native.py")
+        with self.assertRaisesRegex(ValueError, "incomplete"):
+            self.prepare()
+        self.config["controller_files"]["android/common/native-ci/apk_native.py"] = saved
         self.config["gradle_seed"] = "/tmp/ambient-gradle"
         with self.assertRaisesRegex(ValueError, "Gradle seed"):
             self.prepare()
