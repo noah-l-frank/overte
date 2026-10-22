@@ -22,6 +22,8 @@ class CreateRezOwnerTests(unittest.TestCase):
     make=parent.CreateJourneyTests.make
     def setUp(self):
         parent.CreateJourneyTests.setUp(self)
+        CreateRezOwnerTests.attach_rez(self)
+    def attach_rez(self):
         # Two real owned loopback APIs around the original Phone controller.
         self.actor=permission_fixture.PicoCreatePermissionTests();self.actor.setUp()
         self.addCleanup(lambda:(self.actor.tearDown(),self.actor.doCleanups()))

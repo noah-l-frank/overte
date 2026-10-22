@@ -11,6 +11,7 @@ from adapters.token_create_ui import nonce,UUID
 
 FILE='feature-create-entities.json'
 ACTION='feature-create-entities-observe'
+SHAPES={'Triangle','Quad','Hexagon','Octagon','Circle','Cube','Sphere','Tetrahedron','Octahedron','Dodecahedron','Icosahedron','Torus','Cone','Cylinder'}
 
 
 def entity_id(value):return type(value) is str and re.fullmatch(UUID,value) and nonce(value)
@@ -66,14 +67,14 @@ def validate(value,request,pid,epoch,run):
         and value['capturedEpochMs']-value['requestedEpochMs']<5000)
     fresh(value['capturedEpochMs'],epoch)
     source=value['source'];version=source.get('createEntitySourceVersion');exact(source,{'createEntitySourceVersion','runId','domainConnected','domainId','sessionId',
-        'canRez','canRezTmp','entities','absentIds','scan'} | ({'domainSession'} if version in (2,3,4,5) else set())|({'entityLifetimes'} if version in (3,4,5) else set())|({'localCreations','avatarRotation'} if version in (4,5) else set())|({'polyvoxResources'} if version==5 else set()))
-    need(type(source['createEntitySourceVersion']) is int and source['createEntitySourceVersion'] in (1,2,3,4,5)
+        'canRez','canRezTmp','entities','absentIds','scan'} | ({'domainSession'} if version in (2,3,4,5,6) else set())|({'entityLifetimes'} if version in (3,4,5,6) else set())|({'localCreations','avatarRotation'} if version in (4,5,6) else set())|({'polyvoxResources'} if version in (5,6) else set()))
+    need(type(source['createEntitySourceVersion']) is int and source['createEntitySourceVersion'] in (1,2,3,4,5,6)
         and type(run) is str and re.fullmatch('[0-9a-f]{32}',run) and source['runId']==run
         and all(type(source[k]) is bool for k in ('domainConnected','canRez','canRezTmp'))
         and all(source[k] is None or entity_id(source[k]) for k in ('domainId','sessionId'))
         and type(source['entities']) is list and type(source['absentIds']) is list
         and len(source['entities'])+len(source['absentIds'])<=32)
-    if version in (2,3,4,5):
+    if version in (2,3,4,5,6):
         session=source['domainSession'];exact(session,{'domainSessionVersion','instance','revision','connected','domainSha256','connectionBirth','connectedEpochMs'})
         need(type(session['domainSessionVersion']) is int and session['domainSessionVersion']==1 and nonce(session['instance'])
             and integer(session['revision']) and type(session['connected']) is bool and session['connected']==source['domainConnected']
@@ -83,12 +84,12 @@ def validate(value,request,pid,epoch,run):
             need(session['revision']>=1 and type(session['connectionBirth']) is str and re.fullmatch('[0-9a-f]{32}',session['connectionBirth'])
                 and integer(session['connectedEpochMs'],1,value['capturedEpochMs']) and source['domainId'] is not None)
         else:need(session['connectionBirth']=='' and session['connectedEpochMs']==0 and type(session['connectedEpochMs']) is int)
-    if version==5:
+    if version in (5,6):
         from adapters.pico4.create_polyvox_resources import validate as polyvox_validate
         polyvox_validate(source['polyvoxResources'],value['capturedEpochMs'])
     ids=[]
     for row in source['entities']:
-        exact(row,{'id','name','type','hostType','modelUrl','textures','position','rotation','dimensions','parentId','visible','locked','lastEditedEpochUs'}|({'visuallyReady','naturalDimensions','textureNames','renderInfo'} if version in (3,4,5) else set())|({'createdEpochUs','lastEditedBy','voxels'} if version in (4,5) else set()))
+        exact(row,{'id','name','type','hostType','modelUrl','textures','position','rotation','dimensions','parentId','visible','locked','lastEditedEpochUs'}|({'visuallyReady','naturalDimensions','textureNames','renderInfo'} if version in (3,4,5,6) else set())|({'createdEpochUs','lastEditedBy','voxels'} if version in (4,5,6) else set())|({'shape'} if version==6 else set()))
         need(entity_id(row['id']) and row['hostType'] in ('domain','avatar','local')
             and all(type(row[k]) is str and len(row[k])<=limit and not any(ord(c)<32 for c in row[k])
                 for k,limit in (('name',256),('type',64),('modelUrl',4096),('textures',8192))))
@@ -96,7 +97,9 @@ def validate(value,request,pid,epoch,run):
         need(type(row['visible']) is bool and type(row['locked']) is bool and integer(row['lastEditedEpochUs'],1))
         for key in ('position','dimensions'):vector(row[key],3)
         vector(row['rotation'],4);need(all(v>=0 for v in row['dimensions']));ids.append(row['id'])
-        if version in (3,4,5):
+        if version==6:
+            need(type(row['shape']) is str and row['shape'] in SHAPES if row['type'] in ('Shape','Box','Sphere') else row['shape'] is None)
+        if version in (3,4,5,6):
             need(type(row['visuallyReady']) is bool);vector(row['naturalDimensions'],3)
             need(all(v>=0 for v in row['naturalDimensions']) and type(row['textureNames']) is dict and len(row['textureNames'])<=64)
             need(all(type(k) is str and 0<len(k)<=256 and not any(ord(c)<32 for c in k)
@@ -104,21 +107,21 @@ def validate(value,request,pid,epoch,run):
             exact(row['renderInfo'],{'vertices','textures','textureBytes','drawCalls'})
             need(all(integer(row['renderInfo'][k],0,1_000_000_000) for k in ('vertices','textures','drawCalls'))
                 and integer(row['renderInfo']['textureBytes'],0,2**53-1))
-        if version in (4,5):
+        if version in (4,5,6):
             need(integer(row['createdEpochUs'],1,row['lastEditedEpochUs']) and (row['lastEditedBy'] is None or entity_id(row['lastEditedBy'])))
             if row['type']=='PolyVox':
                 voxel_source(row['voxels'])
-                if version==5:
+                if version in (5,6):
                     resources=source['polyvoxResources'];bindings=[r for r in resources['bindings'] if r['entityId']==row['id']];need(len(bindings)==1)
                     if row['voxels']['meshReady']:
                         meshes=[r for r in resources['meshes'] if r['id']==bindings[0]['entityMesh']];need(len(meshes)==1)
             else:need(row['voxels'] is None)
-    if version in (4,5):
+    if version in (4,5,6):
         local_creations(source['localCreations'],value['capturedEpochMs']);vector(source['avatarRotation'],4)
         need(abs(sum(v*v for v in source['avatarRotation'])-1)<=.001)
     absent=source['absentIds'];need(ids==sorted(set(ids)) and absent==sorted(set(absent))
         and all(entity_id(v) for v in absent) and not set(ids)&set(absent))
-    if version in (3,4,5):
+    if version in (3,4,5,6):
         need(type(source['entityLifetimes']) is list and len(source['entityLifetimes'])==len(ids)+len(absent))
         seen=[];births=set()
         for row in source['entityLifetimes']:
@@ -146,16 +149,16 @@ def continuity(previous,value):
         and value['capturedEpochMs']>=previous['capturedEpochMs'])
     a=previous['source'];b=value['source']
     need(all(a[k]==b[k] for k in ('createEntitySourceVersion','runId','domainId','sessionId','domainConnected')))
-    if a['createEntitySourceVersion'] in (2,3,4,5):need(a['domainSession']==b['domainSession'])
-    if a['createEntitySourceVersion'] in (3,4,5):
+    if a['createEntitySourceVersion'] in (2,3,4,5,6):need(a['domainSession']==b['domainSession'])
+    if a['createEntitySourceVersion'] in (3,4,5,6):
         current={r['id']:r for r in b['entityLifetimes']}
         for row in a['entityLifetimes']:
             need(row['id'] in current and all(row[k]==current[row['id']][k] for k in ('id','instance','firstObservedEpochMs'))
                 and (row['alive'] or not current[row['id']]['alive']))
-    if a['createEntitySourceVersion']==5:
+    if a['createEntitySourceVersion'] in (5,6):
         from adapters.pico4.create_polyvox_resources import continuity as polyvox_continuity
         polyvox_continuity(a['polyvoxResources'],b['polyvoxResources'])
-    if a['createEntitySourceVersion'] in (4,5):
+    if a['createEntitySourceVersion'] in (4,5,6):
         before=a['localCreations'];after=b['localCreations']
         need(before['armedAfterSequence']==after['armedAfterSequence'] and before['lastSequence']<=after['lastSequence']
             and after['events'][:len(before['events'])]==before['events'])
@@ -168,7 +171,7 @@ def continuity(previous,value):
 
 def retired(source):
     from adapters.pico4.create_polyvox_resources import retired as polyvox_retired
-    return source['createEntitySourceVersion'] in (3,4,5) and not source['entities'] and all(not row['alive'] for row in source['entityLifetimes']) and (source['createEntitySourceVersion']!=5 or polyvox_retired(source['polyvoxResources']))
+    return source['createEntitySourceVersion'] in (3,4,5,6) and not source['entities'] and all(not row['alive'] for row in source['entityLifetimes']) and (source['createEntitySourceVersion'] not in (5,6) or polyvox_retired(source['polyvoxResources']))
 
 
 class NativeCreateEntities(NativeCreateCallbacks):

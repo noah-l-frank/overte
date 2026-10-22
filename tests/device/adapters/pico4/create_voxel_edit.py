@@ -198,7 +198,7 @@ class CreateVoxelEdit:
         before=archive(value['before'],self.state()['binding'],self.run)
         for pin in value['pins'].values():ready=ready and idle(work_scope(actual['work'],pin))
         from adapters.pico4.create_polyvox_resources import joined
-        native=actual['entities']['source'];need(native['createEntitySourceVersion']==5)
+        native=actual['entities']['source'];need(native['createEntitySourceVersion'] in (5,6))
         ready=ready and joined(native['polyvoxResources'],row['id'])
         previous=work_scope(before['work'],value['pins']['voxels']);current=work_scope(actual['work'],value['pins']['voxels'])
         return ready and current['timerRegistrations']>previous['timerRegistrations'] and current['timerInvocations']>previous['timerInvocations']
@@ -219,9 +219,9 @@ class CreateVoxelEdit:
     def voxel_edit(self):
         initial=self.sample()
         need(self.state()['voxelEdit'] is None and self.state()['subject']=='primitive' and initial['ui'].get('createVoxelControlsVersion')==1
-            and initial['entities']['source']['createEntitySourceVersion']==5);self.controls().tab(3)
+            and initial['entities']['source']['createEntitySourceVersion'] in (5,6));self.controls().tab(3)
         actual=self.sample();row=self.primitive_row(actual);need(row is not None and row['rotation']==[0,0,0,1] and voxel_source(row['voxels'])==CANONICAL)
-        need(actual['entities']['source']['createEntitySourceVersion']==5)
+        need(actual['entities']['source']['createEntitySourceVersion'] in (5,6))
         pins=include_pins(actual['callbacks'],actual['manager']);need(all(idle(work_scope(actual['work'],p)) for p in pins.values()))
         original=self.voxel_settings();value=dict(ticket=self.state()['pending'],before=self.primitive_proof(actual),settings=original,pins=pins,
             attempted=[],streams=[],after=None,settingsRestored=False,outcome='editing');self.mark(voxelEdit=value)
@@ -258,7 +258,10 @@ class CreateVoxelEdit:
         # never repeat either the original restore or this distinct cleanup.
         tools=self.voxel_controls()
         if tools.row(tools.capture(),'create-voxel.mode') is None:
-            need('cleanup-tools' not in value['attempted']);self.voxel_attempt('cleanup-tools');self.controls().tab(3)
+            need('cleanup-tools' not in value['attempted']);self.voxel_attempt('cleanup-tools')
+            controls=self.controls()
+            if controls.row(controls.capture(),'create.page',enabled=False) is None:self.open_editor()
+            self.controls().tab(3)
         current=self.voxel_settings()
         if current!=value['settings']:
             need('cleanup-restore' not in value['attempted'])
