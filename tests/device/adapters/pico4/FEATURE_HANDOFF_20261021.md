@@ -1203,3 +1203,23 @@ Four repository documentation/contract/layout/coverage suites passed in 2.93s.
 Original QML deprecation/layout diagnostics remain visible; product QML was not
 changed. Whole Create, GPU, domain/peer, application and device qualification
 remain open. The matrix records the next actual rez-authority boundary.
+
+## Explicit original bookmark authority after restart
+
+The [v2 bookmark handoff](NAVIGATION_BOOKMARK_RESTART.md) preserves v1 readers
+and retains the complete predecessor rather than rebinding its old PID/root.
+The existing shared one-send restart owner, native birth/counters, actual old
+PID ESRCH, new Qt bridge, unchanged physical bookmark file and independently
+opened new Places page jointly admit normal Delete only. The actual private
+Pico factory rechecks original fixture phase/source age on both sides of its
+CAS; source/host journals remain retained. This does not own normal reopening,
+both-role image publication or whole Navigation retirement.
+
+The owning unchanged ten bookmark tests and nine new restart/transfer tests
+pass with coverage: 2/97 selectors in 10.66s, no skips. Four repository suites
+pass in 3.38s; registry and whitespace checks pass. Tests explicitly model
+OS/Qt/process boundaries and make no device or application qualification claim.
+The renewed read-only Phone comparison pins
+`5527d540e99cc6dba4204a5e904a854e6e1cd2b4`; its newly committed complete
+Navigation restart pattern is reused through existing shared mechanisms. There
+is no moving-branch import, mono-to-stereo relabel or v16 contract replacement.

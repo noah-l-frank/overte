@@ -108,7 +108,11 @@
         "tests/device/self_tests/test_navigation_origin_ray.py",
         "tests/device/adapters/pico4/navigation_lookup_close.py",
         "tests/device/self_tests/test_navigation_lookup_close.py",
-        "android/vr/pico/tests/pico-navigation-lookup-close-test.py"
+        "android/vr/pico/tests/pico-navigation-lookup-close-test.py",
+        "tests/device/adapters/navigation_bookmark_restart.py",
+        "tests/device/adapters/navigation_restart_proof.py",
+        "tests/device/self_tests/test_navigation_bookmark_restart.py",
+        "tests/device/adapters/pico4/NAVIGATION_BOOKMARK_RESTART.md"
       ],
       "declaredCheckpoints": 15,
       "inputVerbs": [
@@ -153,7 +157,7 @@
         "Restore original location and closed owned dialogs",
         "Prove pending reply/callback retirement and a three-second quiet baseline"
       ],
-      "nextExecutableStep": "Compose the whole-area independently measured Navigation state/actor/public coordinator around the existing owners and the joined original lookup/dismissal/whole-tablet-close/fresh-stereo flow. Continue maturity/origin/scene restoration, actual process/bookmark transfer and full controller/Script/XHR/Web/timer/callback/metadata retirement. Do not advertise a complete Navigation triple.",
+      "nextExecutableStep": "Compose the existing normal Places/origin/directory/lookup/OK/close and B/A stereo owners plus explicit v2 restart-to-normal-Delete bookmark handoff into the complete two-role parent. Normal reopening, maturity/origin preservation, fresh independent actor/image publication, original stream/Script/XHR/Web/cache retirement and final journal absence remain required; neither a native restart nor the handoff alone completes Navigation.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     },
