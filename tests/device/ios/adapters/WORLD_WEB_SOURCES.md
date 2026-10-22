@@ -8,10 +8,16 @@ never retains a view, Qt bridge, native callback or GPU resource.
 
 The closed read command is exactly `{schemaVersion:1,commandId:"ios-<32hex>",
 action:"feature-ios-world-web",runId:"<32hex>",fixtureUrl:"<actual-run-root>"}`.
-The fixed private result file is `feature-ios-world-web.json`, limit 1048576.
+The fixed private result file is `feature-ios-world-web.json`, limit 2097152 for writer 3.
 The provider uses `IOSWorldWebTrace.h`, `world_web_trace::command`,
 `world_web_trace::providerProperty` and its distinct `Provider` metatype.
-The result writer is `iosWorldWebVersion=2`, with historical readers 1 and 2.
+The result writer is `iosWorldWebVersion=3`, with historical readers 1, 2 and 3.
+Version 3 retains the same event/identity grammar and actual callback chronology,
+with capacity for 4096 cumulative events and a 2 MiB compact native result.
+Historical versions 1/2 retain their original 2048-event/1 MiB bounds. Active
+whole input requires version 3 before normal setup. A measured full-callback
+host journey reached 1,049,451 compact bytes at step 17, before its next native
+read, and failed closed at the old bound. No events are dropped or counters reset.
 Version 2 records `owner-destroyed` from the actual `QObject::destroyed` signal
 after the derived destructor and its members finish. Version 1 recorded derived
 destructor entry, so it remains historical input and cannot qualify whole
@@ -58,7 +64,7 @@ including early returns after owner death. Block destruction cannot record a
 return. Qt bridge Signal RAII wraps the real original signal emission, preserving
 return/exception semantics and nested callbacks. Unreturned evaluations and
 signals remain pending after Qt owner death. Complete, bounded metadata fails
-closed on clock regression, 2048 events, 32768 detail bytes or a 1 MiB result.
+closed on clock regression, 4096 events, 32768 detail bytes or a 2 MiB result (writer 3).
 The source has no reset or expected-value command.
 
 The source is gated by `OVERTE_E2E_FEATURE_TESTS`, iOS, and the original explicit
@@ -86,3 +92,18 @@ records the actual modified bytes and opaque response ID. Independent video
 parity resources remain unchanged. Real socket/receipt regressions and the
 original product pointer/key/reference JavaScript pass host checks; actual
 WKWebView compilation, layout, input timing and devices remain unverified.
+
+Large original packets are retained in at most four 512 KiB chunks. Each actual
+OFS carrier includes its canonical JSON envelope and base64 payload and must
+still fit the unchanged 1 MiB OFS bound. Warm pure read rounds reopen and hash
+every actual carrier/inode; they may borrow private validated decoded frames
+only within the round. Public decode/frame/browser histories are independent
+copies. A cached public return cannot mutate the next derived original.
+
+The part reference and its independent Original1/Frame1 envelopes are registered
+as `ios-world-web-source-part`, `ios-world-web-source-part-original` and
+`ios-world-web-source-part-frame`. The shared original-frame-store wire and
+1 MiB per-file limit remain unchanged. Current capacity tests retain a complete
+2,406-event modeled native callback original (1,565,701 compact bytes); the four
+actual private carrier envelopes remain below 700 KiB each, including base64 and
+JSON framing. These are host storage/codec checks, not native or device runs.

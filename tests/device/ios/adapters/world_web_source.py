@@ -11,11 +11,12 @@ from adapters.native_feature_observation import decode,exact,fresh,integer,need,
 from adapters.normal_ui import NativeUIError
 from ios.adapters.places_model import text,tree as json_tree
 
-VERSION=2
-READS=(1,2)
+VERSION=3
+READS=(1,2,3)
 ACTION='feature-ios-world-web'
 FILE=ACTION+'.json'
-LIMIT=1048576
+LEGACY_LIMIT=1048576
+LIMIT=2097152
 HEX=r'[0-9a-f]{32}'
 SIGNALS={'key-enter','native-envelope','script-delivery','page-reply','script-event-slot'}
 CALLS={'evaluation-enter','pointer-enter','dom-read-enter'}
@@ -103,7 +104,11 @@ def validate(value,query,pid,epoch=None,previous=None):
         and type(value['instance']) is str and re.fullmatch(HEX,value['instance'])
         and integer(value['sequence'],1) and integer(pid,1) and type(value['processId']) is int and value['processId']==pid
         and value['clockDomain']=='native-main-ios-world-web' and type(value['complete']) is bool
-        and integer(value['eventSequence'],0) and type(value['events']) is list and len(value['events'])<=2048)
+        and integer(value['eventSequence'],0) and type(value['events']) is list and len(value['events'])<=(4096 if value['iosWorldWebVersion']>=3 else 2048))
+    # Historical original writers keep their original byte bound. The live
+    # v3 writer alone supplies the measured full-callback journey capacity.
+    bound=LIMIT if value['iosWorldWebVersion']>=3 else LEGACY_LIMIT
+    need(len(json.dumps(value,ensure_ascii=False,separators=(',',':')).encode('utf-8'))<=bound)
     for clock in (value['clockBefore'],value['clockAfter']):
         exact(clock,{'epochMs','monotonicMs'});need(integer(clock['epochMs'],1) and integer(clock['monotonicMs']))
     a,b=value['clockBefore'],value['clockAfter'];utc=b['epochMs']-a['epochMs'];mono=b['monotonicMs']-a['monotonicMs']

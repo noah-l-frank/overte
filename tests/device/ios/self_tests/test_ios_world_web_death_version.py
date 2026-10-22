@@ -13,7 +13,7 @@ from ios.self_tests.world_web_source_fixture import OriginalSources
 class WorldWebDeathVersionTests(unittest.TestCase):
     def test_source_two_preserves_actual_document_and_legacy_one_is_historical_only(self):
         legacy=OriginalSources(transcript_version=1);old=legacy.ledger();native.original(old)
-        current=OriginalSources();new=current.ledger();native.original(new);self.assertEqual(2,new['iosWorldWebVersion'])
+        current=OriginalSources();new=current.ledger();native.original(new);self.assertEqual(native.VERSION,new['iosWorldWebVersion'])
         next_original=deepcopy(old);next_original.update(iosWorldWebVersion=2,sequence=old['sequence']+1,commandId='ios-'+'e'*32)
         for clock in ('clockBefore','clockAfter'):
             next_original[clock]={key:value+2 for key,value in next_original[clock].items()}

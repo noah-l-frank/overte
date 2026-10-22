@@ -85,7 +85,7 @@ inline QVariantMap clock(State& actual) {
 inline quint64 event(const QVariantMap& identity,const QString& kind,const QVariantMap& detail={}) {
     if (!enabled() || rootFor(identity).isEmpty()) { return 0; }
     auto& actual=state();QMutexLocker guard(&actual.mutex);
-    if (!mainThread() || actual.events.size()>=2048 || actual.eventSequence>=9007199254740991ULL
+    if (!mainThread() || actual.events.size()>=4096 || actual.eventSequence>=9007199254740991ULL
             || QJsonDocument(QJsonObject::fromVariantMap(detail)).toJson(QJsonDocument::Compact).size()>32768) { actual.complete=false;return 0; }
     const auto stamp=clock(actual);const auto ordinal=++actual.eventSequence;
     actual.events.push_back(QVariantMap{{"sequence",static_cast<qulonglong>(ordinal)},{"eventId",nonce()},
@@ -126,12 +126,12 @@ inline QVariantMap observe(const QVariantMap& query) {
     }
     if (actual.sequence>=9007199254740991ULL) { actual.complete=false;return {}; }
     const auto after=clock(actual);
-    QVariantMap result{{"iosWorldWebVersion",2},{"commandId",query.value("commandId")},{"runId",query.value("runId")},
+    QVariantMap result{{"iosWorldWebVersion",3},{"commandId",query.value("commandId")},{"runId",query.value("runId")},
         {"fixtureUrl",root},{"instance",actual.instance},{"sequence",static_cast<qulonglong>(++actual.sequence)},
         {"processId",QCoreApplication::applicationPid()},{"clockDomain","native-main-ios-world-web"},
         {"clockBefore",before},{"clockAfter",after},{"complete",actual.complete},
         {"eventSequence",static_cast<qulonglong>(actual.eventSequence)},{"events",events}};
-    if (QJsonDocument(QJsonObject::fromVariantMap(result)).toJson(QJsonDocument::Compact).size()>1048576) { actual.complete=false;return {}; }
+    if (QJsonDocument(QJsonObject::fromVariantMap(result)).toJson(QJsonDocument::Compact).size()>2097152) { actual.complete=false;return {}; }
     return result;
 }
 } // namespace overte::ios::world_web_trace
