@@ -2,6 +2,9 @@
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
+from contextlib import contextmanager
+from contextvars import ContextVar
+from adapters.native_clock_join import digest
 import json
 import re
 import time
@@ -95,7 +98,27 @@ def detail(event,earlier):
             if 'result' in result:json_tree(result['result'])
 
 
+_VALIDATION=ContextVar('overte_world_web_transcript_validation',default=None)
+
+
+@contextmanager
+def validation_round():
+    """Synchronous pure validation reuse, never original bytes/file reuse."""
+    if _VALIDATION.get() is not None:
+        yield;return
+    token=_VALIDATION.set(set())
+    try:yield
+    finally:_VALIDATION.reset(token)
+
+
 def validate(value,query,pid,epoch=None,previous=None):
+    proofs=_VALIDATION.get();proof=None
+    if proofs is not None:
+        try:proof=digest([value,query,pid,previous])
+        except (TypeError,ValueError,OverflowError):pass
+        if proof is not None and proof in proofs:
+            if epoch is not None:fresh(value['clockAfter']['epochMs'],epoch)
+            return value
     command(query)
     exact(value,{'iosWorldWebVersion','commandId','runId','fixtureUrl','instance','sequence','processId','clockDomain',
         'clockBefore','clockAfter','complete','eventSequence','events'})
@@ -136,6 +159,7 @@ def validate(value,query,pid,epoch=None,previous=None):
             and a['epochMs']>=previous['clockAfter']['epochMs'] and a['monotonicMs']>=previous['clockAfter']['monotonicMs']
             and (previous['complete'] or not value['complete'])
             and value['events'][:len(previous['events'])]==previous['events'])
+    if proof is not None and len(proofs)<256:proofs.add(proof)
     return value
 
 
@@ -186,11 +210,17 @@ class IOSWorldWebSource:
         need(all(callable(v) for v in (send,original,clock_ms,guard,monotonic,sleep)) and integer(pid,1))
         self.send,self.original,self.clock_ms,self.guard,self.pid=send,original,clock_ms,guard,pid
         self.monotonic,self.sleep,self.last=monotonic,sleep,None
-    def read(self,run,fixture_url):
+    def read(self,run,fixture_url,*,native_before_floor=None):
         try:
+            native_before_floor=deepcopy(native_before_floor)
             query=self._command(dict(schemaVersion=1,commandId='ios-'+uuid.uuid4().hex,action=self._action,runId=run,fixtureUrl=fixture_url))
             start=last=self.monotonic();need(number(start,0,1e15) and self.guard() is not False)
-            before=self.clock_ms();need(integer(before,1));self.send(query)
+            if native_before_floor is None:before=self.clock_ms()
+            else:
+                from adapters.native_feature_observation import validate as native_floor
+                native_floor(native_before_floor,native_before_floor['requestId'],self.pid,native_before_floor['capturedEpochMs'])
+                before=native_before_floor['capturedEpochMs']
+            need(integer(before,1));self.send(query)
             for attempt in range(16):
                 need(self.guard() is not False);raw=self.original();need(type(raw) is str and len(raw.encode())<=self._limit)
                 try:value=decode(raw,limit=self._limit) if raw else None
@@ -202,6 +232,7 @@ class IOSWorldWebSource:
                         earliest,latest=self._bounds(value);need(before<=earliest<=latest<=after)
                         need(self.guard() is not False);final=self.monotonic();need(number(final,last,1e15) and final-start<1.5)
                         final_epoch=self.clock_ms();need(integer(final_epoch,after));fresh(latest,final_epoch)
+                        if native_before_floor is not None:need(final_epoch-before<1500)
                         need(self.guard() is not False);end=self.monotonic();need(number(end,final,1e15) and end-start<1.5)
                         self.last=deepcopy(value);return value
                 if attempt<15:self.sleep(.1)

@@ -162,11 +162,19 @@ class IOSPlacesModel:
         self.send,self.original,self.clock_ms,self.guard,self.pid=send,read,clock_ms,guard,pid
         self.monotonic,self.sleep=monotonic,sleep;self.last=self.acquisition=None
 
-    def read(self,run):
+    def read(self,run,*,native_before_floor=None):
         try:
+            native_before_floor=deepcopy(native_before_floor)
             query=self._command(dict(schemaVersion=1,commandId='ios-'+uuid.uuid4().hex,action=self._action,runId=run))
             need(self.guard() is not False);started=last=self.monotonic();need(number(started,0,1e15))
-            requested=self.clock_ms();need(integer(requested,1));self.send(deepcopy(query))
+            if native_before_floor is None:requested=self.clock_ms()
+            else:
+                # This is a retained BEFORE floor, not a newly sampled now.
+                # The owner separately joins its actual raw/acquisition origin.
+                from adapters.native_feature_observation import validate as native_floor
+                native_floor(native_before_floor,native_before_floor['requestId'],self.pid,native_before_floor['capturedEpochMs'])
+                requested=native_before_floor['capturedEpochMs']
+            need(integer(requested,1));self.send(deepcopy(query))
             for attempt in range(61):
                 need(self.guard() is not False);raw=self.original();need(type(raw) is str and len(raw.encode())<=self._limit)
                 try:value=decode(raw,limit=self._limit) if raw else None
@@ -174,12 +182,14 @@ class IOSPlacesModel:
                 now=self.monotonic();need(number(now,last,1e15) and now-started<1.5);last=now
                 if type(value) is dict and value.get('requestId')==query['commandId']:
                     epoch=self.clock_ms();need(integer(epoch,requested))
+                    if native_before_floor is not None:need(epoch-requested<1500)
                     self._validate(value,query,self.pid,epoch,self.last);need(value['clockBefore']['epochMs']>=requested)
                     need(self.guard() is not False);ended=self.monotonic();need(number(ended,last,started+1.5) and ended-started<1.5)
                     self.last=deepcopy(value)
                     self.acquisition=dict(hostBeforeMonotonic=started,hostAfterMonotonic=ended,
                         nativeRequestedEpochMs=requested,nativeAfterEpochMs=epoch,originalSha256=digest(value))
                     self.acquisition[self._acquisition_key]=1
+                    if native_before_floor is not None:self.acquisition['nativeBeforeOriginalFloorSha256']=digest(native_before_floor)
                     return deepcopy(value)
                 if attempt<60:self.sleep(.025)
         except Exception:raise NativeUIError('Original iOS Places source is unavailable or invalid') from None
