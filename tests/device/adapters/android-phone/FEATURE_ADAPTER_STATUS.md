@@ -36,8 +36,9 @@ before fresh delivery. Final-work observation v1 now independently checks actual
 Script work and cumulative selected/unclassified activity against the completed
 quiet tail. The [retirement coordinator](EMOTE_RETIREMENT.md) now joins the completed-setup
 resource/host-journal path, retaining all original dependencies and reobserving
-native state after partial deletion. Setup/admission abort retirement and the
-public facade remain open; complete Emotes is missing and
+native state after partial deletion. Retirement v2 additionally handles fully unissued preparation and the actor
+records distinct unadmitted termination without native/peer/quiet claims. Partly
+issued setup retirement and the public facade remain open; complete Emotes is missing and
 unregistered.
 The [consumed animation data source](../../native/ANIMATION_SOURCE.md) now joins
 actual parser bytes and original retargeted model/resource identity to compiled

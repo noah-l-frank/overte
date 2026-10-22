@@ -44,8 +44,9 @@ pending/completed parent retention. Final-work observation v1 now independently 
 source group, checking the original quiet tail and cumulative selected/unknown
 activity. The [retirement coordinator](adapters/android-phone/EMOTE_RETIREMENT.md) now joins
 the completed-setup resource/journal path, including fresh retry after every child
-control is gone and a durable original-reference handoff. Setup/admission abort
-retirement, the public facade and complete registration still remain open.
+control is gone and a durable original-reference handoff. Retirement v2 also handles fully unissued preparation after failed world/cache
+admission, retaining ownership-only proof and preserving an unowned tablet.
+Partly issued setup, the public facade and complete registration remain open.
 Emotes still lacks its public facade and whole-run retirement; it is
 not counted as an implemented full triple.
 The [Phone failure owner](adapters/android-phone/EMOTE_FAILURES.md) now retains

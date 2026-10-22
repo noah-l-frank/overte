@@ -1,4 +1,4 @@
-# Independent Phone Emote actor, version 2
+# Independent Phone Emote actor, version 3
 
 `PhoneEmoteActor` connects the real Run/Role/Source/Namespace/Lifetime components
 to the existing separately credentialed `script_observer.py` process. It is an
@@ -39,9 +39,9 @@ actor retirement, retain its originals and remove all owned journals.
 ## Closed lifecycle ownership
 
 `phone-emote-actor-lifecycle.json` is exactly
-`{emoteActorVersion:2,runId,fixtureUrl,artifactRoot,imagePolicy,payload}`.
+`{emoteActorVersion:3,runId,fixtureUrl,artifactRoot,imagePolicy,payload}`.
 Payload contains one exact `{phase,binding,pending,last,quiet,dropped,providerRetirement}` record.
-Phase is watching, publishing, quiet, drained or retired. Binding is the unchanged
+Phase is watching, publishing, quiet, drained, retired or unadmitted. Binding is the unchanged
 expected Run authority, independently verified by every real role/source factory.
 The existing packed 64 KiB metadata bound is unchanged. At most 1024 dropped
 publication references are retained; no truncation or higher limit is allowed.
@@ -174,3 +174,34 @@ terminal handoff. Observer configuration stays v3, role/source controls and the
 shared common journey contract remain unchanged. This corrects composition with
 the real caller window; it supplies no complete Emote capability or device
 qualification.
+
+
+## Unadmitted watcher retirement, version 3
+
+Versions 1/2 remain readable without rewriting original bytes. Version 1's old
+terminal state still normalizes only to drained. Real subsequent writes use 3;
+only version 3 can contain the distinct `unadmitted` terminal phase. The exact
+payload fields remain unchanged. This phase requires null pending/last/quiet,
+empty dropped references and an original inactive cleanup provider packet.
+It supplies no peer sample, native idle state, work quiet window or product pass.
+
+This path is limited to failed preparation: no ordinary run call, explicit new
+issued/unissued setup flags, and no complete baseline/admission/both-issued
+combination. Legacy setup flags cannot borrow the new meaning. A normally
+prepared run still acquires its real cleanup observations and requires the
+independent backend entry, even if its actor had not read the initial baseline.
+
+Before waiting or ending this unadmitted watcher, `unadmitted()` checks actual
+absence of every actor source namespace, role/lifetime/admission control,
+capture/observation scope and unknown actor-prefixed control. The actual typed
+world-render owner must also be absent under the current candidate/session/
+process binding. No native source/work getter or publication is performed. An
+active cleanup fixture keeps the watcher pending; actual fixture closure alone
+authorizes the new terminal record. Repetition checks current original authority
+and ownership absence but preserves the first terminal packet and its epochs.
+New/foreign ownership after terminal recording fails rather than reopening it.
+
+The enclosing retirement coordinator still must validate failed primary
+observations and retire all remaining host controls. Missing required product
+or peer evidence remains a failed journey; watcher-only termination cannot
+replace that evidence or qualify a complete feature.

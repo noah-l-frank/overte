@@ -16,7 +16,7 @@ from overte_phone_emote_role import PhoneEmoteRole
 from overte_phone_emote_run import PhoneEmoteRun
 from overte_phone_script_history import pack,unpack,same
 
-VERSION=2
+VERSION=3
 LIMIT=1024
 
 
@@ -53,16 +53,17 @@ class PhoneEmoteActor:
 
     def decode(self,value):
         exact(value,{'emoteActorVersion','runId','fixtureUrl','artifactRoot','imagePolicy','payload'})
-        need(type(value['emoteActorVersion']) is int and value['emoteActorVersion'] in (1,VERSION)
+        need(type(value['emoteActorVersion']) is int and value['emoteActorVersion'] in (1,2,VERSION)
             and value['runId']==self.run.run and value['fixtureUrl']==self.run.fixture_url
             and value['artifactRoot']==str(self.run.root) and same(value['imagePolicy'],self.policy))
         rows=unpack(value['payload']);need(len(rows)==1);state=rows[0]
-        exact(state,{'phase','binding','pending','last','quiet','dropped'}|({'providerRetirement'} if value['emoteActorVersion']==2 else set()))
+        exact(state,{'phase','binding','pending','last','quiet','dropped'}|({'providerRetirement'} if value['emoteActorVersion']>=2 else set()))
         if value['emoteActorVersion']==1:
             need(state['phase'] in ('watching','publishing','quiet','retired'))
             state=deepcopy(state);state['providerRetirement']=None
             if state['phase']=='retired':state['phase']='drained'
-        need(same(context(state['binding']),self.run.state['binding']) and state['phase'] in ('watching','publishing','quiet','drained','retired')
+        need(same(context(state['binding']),self.run.state['binding']) and state['phase'] in ('watching','publishing','quiet','drained','retired','unadmitted')
+            and (state['phase']!='unadmitted' or value['emoteActorVersion']==3)
             and type(state['dropped']) is list and len(state['dropped'])<=LIMIT)
         cursor=0
         for row in state['dropped']:
@@ -84,10 +85,12 @@ class PhoneEmoteActor:
         if state['quiet'] is not None:need(type(state['quiet']) is dict
             and type(state['quiet'].get('emoteLifetimeRetirementVersion')) is int and state['quiet']['emoteLifetimeRetirementVersion']==1)
         if state['phase'] in ('drained','retired'):need(state['quiet'] is not None and state['last'] is not None)
-        need((state['providerRetirement'] is not None)==(state['phase']=='retired'))
+        need((state['providerRetirement'] is not None)==(state['phase'] in ('retired','unadmitted')))
+        if state['phase']=='unadmitted':need(state['pending'] is state['last'] is state['quiet'] is None and not state['dropped'])
         if state['providerRetirement'] is not None:
             status=state['providerRetirement'];phase_packet(status,run=self.run.run,area='emotes',request=status.get('requestId'),epoch=status.get('capturedEpochMs'))
-            need(status['active'] is False and status['activations'][-1]['ticket']==state['last']['sample']['ticket']
+            ticket=self.run.state['cleanupTicket'] if state['phase']=='unadmitted' else state['last']['sample']['ticket']
+            need(status['active'] is False and status['activations'][-1]['ticket']==ticket
                 and status['activations'][-1]['stimulus']==dict(verb='cleanup',inputs={}))
         return deepcopy(state)
 
@@ -177,12 +180,40 @@ class PhoneEmoteActor:
         need(len(matches)<=1)
         return None if not matches else dict(kind='journal',receivedEpochMs=epoch,body=deepcopy(matches[0]))
 
+    def unadmitted(self):
+        """Actual host ownership absence, never native/peer/quiet evidence."""
+        self.bound()
+        setup=self.run.state['setup']
+        if self.run.state['call'] is not None or any(value not in ('unissued','issued') for value in setup.values()):return False
+        if self.run.state['baseline'] is not None and self.run.state['admissionSha256'] is not None and setup==dict(view='issued',scene='issued'):return False
+        if self.state['pending'] is not None or self.state['last'] is not None or self.state['quiet'] is not None or self.state['dropped']:return False
+        from overte_phone_emote_sources import source_name,MAX_SEGMENTS
+        from adapters.owned_world_render import OwnedWorldRenderCapture
+        root=self.store.path.parent
+        names=['phone-emote-actor-'+kind+'.json' for kind in ('role','lifetime','admission')]
+        names.extend(source_name('actor',segment) for segment in range(MAX_SEGMENTS))
+        if any(PrivateFeatureState(root/name).read() is not None for name in names):return False
+        if any(path.name!=self.store.path.name for path in root.glob('phone-emote-actor-*.json')):return False
+        if list(root.glob('phone-emote-actor-capture-*.json')) or list(root.glob('phone-emote-actor-observation-*.json')):return False
+        _ui,_native,binding,guard,_installed=self.run.adapter.normal_feature_runtime(self.run.selector,read_only=True)
+        need(same(context(binding),self.state['binding']) and guard() is not False)
+        owned=self.run.adapter._world_render_capture(self.run.selector,read_only=True,role='actor',require_frame_view=True)
+        need(isinstance(owned,OwnedWorldRenderCapture) and same(owned.owner.binding,self.state['binding']) and owned.owner.role=='actor')
+        result=owned.owner.store.read() is None;need(guard() is not False);self.bound();return result
+
     def finish(self,status):
         """Retain closed input authority; never acquire a new product sample."""
-        self.bound();need(self.run.state['phase']=='resources-restored' and status['active'] is False
-            and self.state['quiet'] is not None and self.state['last'] is not None)
+        self.bound();need(self.run.state['phase']=='resources-restored' and status['active'] is False)
         phase_packet(status,run=self.run.run,area='emotes',request=status['requestId'],epoch=status['capturedEpochMs'])
-        sample=self.state['last']['sample'];need(sample['ticket']==self.run.state['cleanupTicket']==status['activations'][-1]['ticket'])
+        need(status['activations'] and status['activations'][-1]['ticket']==self.run.state['cleanupTicket']
+            and status['activations'][-1]['stimulus']==dict(verb='cleanup',inputs={}))
+        if self.unadmitted():
+            if self.state['phase']=='unadmitted':
+                phase_packet(status,run=self.run.run,area='emotes',request=status['requestId'],epoch=status['capturedEpochMs'],previous=self.state['providerRetirement'])
+            else:self.state.update(phase='unadmitted',providerRetirement=deepcopy(status));self.save()
+            return True
+        need(self.state['phase']!='unadmitted' and self.state['quiet'] is not None and self.state['last'] is not None)
+        sample=self.state['last']['sample'];need(sample['ticket']==self.run.state['cleanupTicket'])
         if self.state['phase']=='retired':
             phase_packet(status,run=self.run.run,area='emotes',request=status['requestId'],epoch=status['capturedEpochMs'],previous=self.state['providerRetirement'])
             self.retired_role(sample);return True
@@ -269,6 +300,7 @@ class PhoneEmoteActor:
                     if parent!='prepared':return False
                 elif current['stimulus']['verb']=='cleanup':
                     if parent!='resources-restored' or current['ticket']!=self.run.state['cleanupTicket']:return False
+                    if self.unadmitted():return False # No observation was admitted; closure owns only this watcher.
                 elif parent!='active' or self.run.state['call'] is None or not same(
                         dict(ticket=current['ticket'],verb=current['stimulus']['verb'],inputs=current['stimulus']['inputs']),
                         {key:self.run.state['call'][key] for key in ('ticket','verb','inputs')}):return False

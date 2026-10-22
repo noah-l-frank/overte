@@ -332,7 +332,7 @@ class EmoteActorTests(unittest.TestCase):
         flow=PhoneEmoteActor(self.actor_run(self.client),POLICY)
         with flow.run.lock.held():
             flow.run.load();flow.load();self.assertEqual('drained',flow.state['phase']);self.assertEqual(header,flow.store.read())
-        self.assertFalse(flow.step());self.assertEqual(2,flow.previous['emoteActorVersion'])
+        self.assertFalse(flow.step());self.assertEqual(3,flow.previous['emoteActorVersion'])
         self.reader.request('/runs/'+RUN,method='DELETE');self.assertTrue(flow.step())
 
     def test_closing_fixture_during_each_role_original_stage_retains_partial_attempt(self):

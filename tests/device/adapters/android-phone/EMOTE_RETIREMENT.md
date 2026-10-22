@@ -1,9 +1,9 @@
-# Phone Emote retirement coordinator, version 1
+# Phone Emote retirement coordinator, version 2
 
 `PhoneEmoteRetirement` coordinates the completed-setup cleanup path through the
 existing run, role, source, input, namespace, lifetime, View and Scene components.
-It registers no public capability. Setup/admission abort retirement and the
-public Emote facade still remain to be completed; Phone remains at 3/14 complete
+It registers no public capability. Retirement after wholly unissued preparation is also implemented below. Partly
+issued preparation and the public Emote facade still remain to be completed; Phone remains at 3/14 complete
 areas. Native code is uncompiled and every device remains untested.
 
 ## Entry and actual observations
@@ -32,17 +32,17 @@ values, input ACKs and old completed proofs never become fresh measurements.
 
 ## Exact controller and retained records
 
-`phone-emote-retirement.json` contains exactly `emoteRetirementVersion:1`, `runId`,
+`phone-emote-retirement.json` contains exactly `emoteRetirementVersion:2`, `runId`,
 `fixtureUrl`, `artifactRoot`, `binding`, `imagePolicy`, `runHeader`, `payload`.
 `runHeader` is the entire original resources-restored run control, permitting
 recovery after its later removal. Actual current candidate/process/session
 binding is checked independently. Payload is exactly one record containing
-`phase`, `items`, `pending`, `attempts`, `verification`.
+`phase`, `items`, `pending`, `attempts`, `verification`, `mode`.
 
 Phases are `collecting` and `retiring`. Each item is `{key,original}`, with the
 existing compact inode/digest-bound original descriptor. At most 128 records are
 retained. Keys are exactly the known `control/<filename>` inventory, `scene`,
-`view`, `namespace`, `resources/N`, and `work/N/source|work|complete`, where N is
+`view`, `namespace`, `resources/N`, `unissued/N` and `work/N/source|work|complete`, where N is
 1..15. Resource records contain `{view,scene}` actual closed observation groups;
 work records retain the exact corresponding final-work phase envelope.
 
@@ -113,3 +113,46 @@ call path with real typed native readers and private journals, retaining only an
 explicit namespace boundary double. They check new originals on repeated calls
 and an actual late retained Browser after a completed old release window.
 These establish test logic only and do not qualify product behavior or devices.
+
+
+## Wholly unissued preparation, version 2
+
+`mode` is observed or unissued. Existing version-1 controls remain observed after
+original validation, without rewriting or inferring new cleanup success. Only
+version 2 can encode unissued mode. The original Run must have both explicit
+setup flags unissued, no ordinary call and namespace zero. This path can cover a
+failed first world/source observation, cache admission after a real baseline, or
+an initially open unowned tablet. It invokes no View/Scene preparation or native
+restoration and cannot claim idle, quiet, peer delivery or feature success.
+
+The actual actor must have recorded version-3 `unadmitted` retirement. Missing
+actor metadata cannot substitute. Every actor source/role/lifetime/admission/
+capture/render owner, every primary role/lifetime/input/background/resource owner
+and every future namespace must be absent. The original current namespace must
+be zero with no completed or pending freeze, the exact cleanup ticket and the
+actual null-input digest. Its retained primary prefix must match the current
+original source files. Interrupted first sources and failed admission files are
+replayed through the existing failure-ledger parsers. No completed baseline or
+admission is invented from failed bytes.
+
+If a real baseline existed, the original no-input cleanup observation record is
+also revalidated and must contain no normal input intent. If no baseline existed,
+that cleanup-input control must be absent. A foreign initially open tablet stays
+open; native/UI getters cannot be used to invent a restoration verdict.
+
+After preserving the same complete control inventory, each attempt retains
+`{emoteUnissuedRetirementVersion:1,runHeader,namespaceHeader,sourceHeader,
+actorHeader,provider,startedMonotonicMs,hostEpochMs}` under `unissued/N`.
+All headers are original ownership context; provider is an actual current
+inactive cleanup packet. This contains no measured product state. Final provider
+continuity and its 1.5-second host/monotonic age floors cover deletion and handoff
+IO; native clocks or native/work facts are not substituted. General candidate,
+file, counter, attempt and whole-call limits remain unchanged.
+
+The same verified metadata-retirement and immutable handoff path then runs,
+including retry after all child/run controls disappear. A legacy controller,
+new actor scope, unknown journal, failed deletion, changed candidate or missing
+original remains owned and red. These ownership-only results cannot repair the
+failed preparation or supply missing mandatory journey evidence. Partly issued
+setup still requires its actual resource-specific retirement and remains the
+next integration task.
