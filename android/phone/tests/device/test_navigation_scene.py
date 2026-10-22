@@ -41,6 +41,8 @@ class Boundary:
         self.adapter.process_state=lambda *_:deepcopy(self.process)
         self.adapter.query_app_state=lambda *_:4
         self.adapter.save_session=lambda *_:self.sdk.save()
+        self.sdk.state['targetFingerprint']=self.adapter.snapshot_fingerprint(self.target)
+        self.adapter.read_session=lambda _:self.sdk.state
     def patch(self):
         from contextlib import ExitStack
         scope=ExitStack();scope.enter_context(patch.dict('os.environ',{'OVERTE_E2E_SCENE_URL':self.sdk.scene,'OVERTE_PHONE_FEATURE_WORLD_NAVIGATION':'0'}))

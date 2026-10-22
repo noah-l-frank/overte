@@ -405,7 +405,9 @@ class InstalledIdentityTests(unittest.TestCase):
 
         def session(_selector):
             state = instance.read_session('test-only-appium') if path.exists() else {
-                'sessionId': 'owned-session', 'generation': 1}
+                'sessionId': 'owned-session', 'generation': 1,
+                'targetFingerprint': instance.snapshot_fingerprint(target)}
+            if not path.exists(): instance.save_session('test-only-appium', state)
             return native, 'owned-session', state
 
         for boundary in (
@@ -466,8 +468,11 @@ class InstalledIdentityTests(unittest.TestCase):
                 self.adb.digest = 'b' * 64
             return value
         native.call = replacing_native_install
-        with self.assertRaises(ValueError): native.invoke('places.open', {})
+        # NativeUI closes continuity failures without exposing private identity details.
+        with self.assertRaisesRegex(RuntimeError, 'bound application state'): native.invoke('places.open', {})
         self.assertEqual(['Go to destination'], native.inputs)
+        self.assertTrue(instance_state := _instance.read_session('test-only-appium'))
+        self.assertTrue(instance_state['normalNavigation']['addressOwned'])
         self.assertGreaterEqual(sum(event[0] == 'sha256sum' for event in self.adb.events), 4)
 
     def test_process_replacement_after_native_lookup_prevents_normal_ui_input(self):

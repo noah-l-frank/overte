@@ -2811,12 +2811,27 @@ class PhoneAppiumAdapter(AppiumAdapter):
         process = self.process_state(selector, client, session, state, target)
         require(process.get('running') is True and isinstance(process.get('identity'), str)
                 and bool(process['identity']), 'PHONE_NORMAL_NAVIGATION_PROCESS_REQUIRED')
+        # Freeze original SDK context independently of the mutable UI journal.
+        # A normal input must never repair/rebind a replaced session or replay
+        # an input whose response was lost.
+        fingerprint = self.snapshot_fingerprint(target)
+        generation = state.get('generation')
+        require(state.get('sessionId') == session and type(generation) is int and generation >= 0
+                and state.get('targetFingerprint') == fingerprint,
+                'PHONE_NORMAL_NAVIGATION_SESSION_TARGET_CHANGED')
 
         def check():
-            require(self.query_app_state(client, session, target) == 4
+            current = self.read_session(selector)
+            require(isinstance(current, dict) and current.get('sessionId') == session
+                    and type(current.get('generation')) is int and current['generation'] == generation
+                    and current.get('targetFingerprint') == fingerprint
+                    and self.snapshot_fingerprint(self.target(selector)) == fingerprint
+                    and self.query_app_state(client, session, target) == 4
                     and self.process_state(selector, client, session, state, target) == process,
-                    'PHONE_NORMAL_NAVIGATION_PROCESS_CHANGED')
+                    'PHONE_NORMAL_NAVIGATION_PROCESS_OR_SESSION_CHANGED')
+            require(self.installed_identity(selector) == installed, 'PHONE_NORMAL_NAVIGATION_INSTALL_CHANGED')
 
+        check()
         ui = NativeUI(client, session, check)
         flow = PhoneNavigation(ui, target['controls']['normalNavigation'], state,
             installed, process['identity'], lambda: self.save_session(selector, state))
