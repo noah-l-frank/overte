@@ -122,6 +122,7 @@ REQUIRED = {
     "ios-places-http": 1,
     "ios-places-http-acquisition": 1,
     "ios-navigation-error-context": 1,
+    "ios-navigation-fixture-reader": 1,
     "ios-navigation-challenge": 1,
     "ios-navigation-rendered-state": 1,
     "ios-navigation-scene-pixels": 1,
