@@ -197,6 +197,39 @@ class GateTests(unittest.TestCase):
         self.assertEqual(self.selected_contexts[0]["controller"], self.base)
         self.assertEqual(self.selected_contexts[0]["caller_source"], self.original)
 
+    def test_all_children_use_the_default_controller_and_authenticated_target_workflow_basis(self):
+        for target in sorted(CLI.C.TARGETS - {"main"}):
+            with self.subTest(target=target):
+                self.setUp()
+                self.pr["base"]["ref"] = target
+                self.api.objects["branches/" + target] = {
+                    "name": target, "protected": True, "commit": {"sha": self.base}}
+                self.context["target"] = target
+                self.plan["target"] = target
+                self.ordinary_worker()
+                self.controller = "9" * 40
+                self.context["controller"] = self.controller
+                self.plan["controller"] = self.controller
+                self.record.update(context=deepcopy(self.context), plan=deepcopy(self.plan),
+                    observed_context=CLI.C.capture(self.api, 42, original_merge=self.original))
+                self.environment["GITHUB_WORKFLOW_SHA"] = self.controller
+                self.api.objects["branches/main"] = {
+                    "name": "main", "protected": True, "commit": {"sha": self.controller}}
+                legacy = ".github/workflows/product-legacy.yml"
+                self.actual_tree[legacy] = {"mode": "100644", "type": "blob", "sha": "b" * 40}
+                base_tree = "6" * 40
+                self.api.objects["git/commits/" + self.base] = {
+                    "sha": self.base, "tree": {"sha": base_tree}}
+                self.api.objects["git/trees/" + base_tree + "?recursive=1"] = {
+                    "sha": base_tree, "truncated": False,
+                    "tree": [{"path": path, **entry} for path, entry in self.actual_tree.items()]}
+                result = self.run_gate("pull_request_target")
+                self.assertEqual(self.original, result["source"])
+                self.assertEqual(self.controller, self.selected_contexts[0]["controller"])
+                self.assertEqual(target, self.selected_contexts[0]["target"])
+                self.assertIn(("get", "git/commits/" + self.base), self.api.calls)
+                self.assertIn(("get", "git/trees/" + base_tree + "?recursive=1"), self.api.calls)
+
     def selected_native(self, mode):
         self.plan["native"] = {"mode": mode}
         self.plan["owners"] = CLI.expected_owners(self.plan)
