@@ -21,12 +21,14 @@ public:
         "obj-bundle/main.obj","obj-bundle/materials/palette.mtl","obj-bundle/textures/checker.png","fbx-bundle/stand.fbx"}; }
     QVariantMap request(const QString& directory,const QVariantMap& command) {
         const auto json=QJsonObject::fromVariantMap(command);const auto operation=command.value("operation").toString();
-        QStringList keys{"schemaVersion","commandId","action","operation","runId","ownerToken"};if(operation=="stage"){keys.append("files");}keys.sort();
+        const bool stagedGeneration=json.contains("stage");const int generation=stagedGeneration ? command.value("stage").toInt() : 0;
+        QStringList keys{"schemaVersion","commandId","action","operation","runId","ownerToken"};if(stagedGeneration){keys.append("stage");}if(operation=="stage"){keys.append("files");}keys.sort();
         const auto run=command.value("runId").toString(),owner=command.value("ownerToken").toString();
         const QRegularExpression nonce("\\A[0-9a-f]{32}\\z"),token("\\A[0-9a-f]{64}\\z");
         if (!QCoreApplication::instance() || QThread::currentThread()!=QCoreApplication::instance()->thread()
                 || !QCoreApplication::arguments().contains("--testScript") || command.keys()!=keys
                 || !json.value("schemaVersion").isDouble() || json.value("schemaVersion").toDouble()!=1
+                || (stagedGeneration && (!json.value("stage").isDouble() || json.value("stage").toDouble()!=generation || generation<1 || generation>6))
                 || command.value("action").toString()!="phone-assets-files"
                 || !json.value("commandId").isString() || !nonce.match(command.value("commandId").toString()).hasMatch()
                 || !json.value("runId").isString() || !nonce.match(run).hasMatch() || run==QString(32,'0')
@@ -36,7 +38,8 @@ public:
         if(info.canonicalFilePath()!=basePath){return {};}
         Handle base(::open(QFile::encodeName(basePath).constData(),O_RDONLY|O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC));
         if(!Base::privateNode(base.fd,true)||!Base::samePath(base.fd,QFile::encodeName(basePath))){return {};}
-        const auto leaf=("feature-assets-"+run).toLatin1();const auto key=Base::sha((basePath+'/'+run).toUtf8());
+        const auto suffix=stagedGeneration ? "-stage"+QString::number(generation) : QString();
+        const auto leaf=("feature-assets-"+run+suffix).toLatin1();const auto key=Base::sha((basePath+'/'+run+suffix).toUtf8());
         const auto ownerHash=Base::sha(owner.toLatin1());
         if((_leases.contains(key)&&_leases[key].ownerHash!=ownerHash)||(!_leases.contains(key)&&_leases.size()>=256)){return {};}
         auto& lease=_leases[key];if(lease.ownerHash.isEmpty()){lease.ownerHash=ownerHash;}

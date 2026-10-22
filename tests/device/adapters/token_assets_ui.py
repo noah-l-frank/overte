@@ -158,13 +158,13 @@ class TokenAssetsUI(TokenCreateUI):
         self.input('assets-file.review-cancel' if self.file_picker(self.capture())['review'] else 'assets-file.cancel')
         return self.wait(lambda value:self.file_picker(value) is None)
     def navigate_files(self,path):
-        ascii_text(path);need(re.fullmatch(r'/(?:[^/]+/)*feature-assets-[0-9a-f]{32}(?:/(?:gltf-bundle|obj-bundle|fbx-bundle)(?:/(?:mesh|textures|materials))?)?',path)
+        ascii_text(path);need(re.fullmatch(r'/(?:[^/]+/)*feature-assets-[0-9a-f]{32}(?:-stage[1-6])?(?:/(?:gltf-bundle|obj-bundle|fbx-bundle)(?:/(?:mesh|textures|materials))?)?',path)
             and all(part not in ('.','..') for part in path.split('/')))
         self.replace('assets-file.folder',path);self.input('assets-file.folder','submit')
         return self.wait(lambda value:bool(self.file_picker(value) and unquote(urlsplit(self.file_picker(value)['directory']).path).rstrip('/')==path.rstrip('/')))
     def select_file(self,path):
         actual=file_url(path)
-        need(re.fullmatch(r'/(?:[^/]+/)*feature-assets-[0-9a-f]{32}/(?:gltf-bundle/(?:main\.gltf|mesh/triangle\.bin|textures/checker\.png)|obj-bundle/(?:main\.obj|materials/palette\.mtl|textures/checker\.png)|fbx-bundle/stand\.fbx)',actual))
+        need(re.fullmatch(r'/(?:[^/]+/)*feature-assets-[0-9a-f]{32}(?:-stage[1-6])?/(?:gltf-bundle/(?:main\.gltf|mesh/triangle\.bin|textures/checker\.png)|obj-bundle/(?:main\.obj|materials/palette\.mtl|textures/checker\.png)|fbx-bundle/stand\.fbx)',actual))
         value=self.wait(lambda value:any(row.get('sourceUrl')==path and row.get('directory') is False for row in value['controls']))
         rows=[row for row in value['controls'] if row.get('sourceUrl')==path and row.get('directory') is False];need(len(rows)==1)
         self.input(rows[0]['id']);return self.wait(lambda value:path in self.file_picker(value)['selectedUrls'])
@@ -172,8 +172,8 @@ class TokenAssetsUI(TokenCreateUI):
         """Only common controlled INPUT bundles enter the normal file picker."""
         from feature_journeys.asset_fixture import BUNDLES
         need(resource in BUNDLES);ascii_text(directory);ascii_text(destination)
-        need(destination=='/e2e-'+directory.rsplit('feature-assets-',1)[-1]+'/')
-        need(re.fullmatch(r'/(?:[^/]+/)*feature-assets-[0-9a-f]{32}',directory) and all(part not in ('.','..') for part in directory.split('/')))
+        need(re.fullmatch(r'/e2e-([0-9a-f]{32})/',destination) and directory.rsplit('feature-assets-',1)[-1].split('-stage')[0]==destination[5:-1])
+        need(re.fullmatch(r'/(?:[^/]+/)*feature-assets-[0-9a-f]{32}(?:-stage[1-6])?',directory) and all(part not in ('.','..') for part in directory.split('/')))
         prefix='fbx-bundle' if resource=='asset-stand.fbx' else resource.split('/')[0]
         self.open_picker()
         from urllib.parse import quote

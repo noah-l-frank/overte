@@ -132,7 +132,12 @@ repeated Base64 bodies; original backend downloads retain their bytes. This
 keeps all existing private journal/raw/packed limits unchanged. The Assets owner
 reuses Create's journal writes, input receipts, namespace reservation, historical
 validation and actual-absence retirement. New preparation has one durable stage
-intent. Lost stage replies are reconciled from current native files, never by
+intent. The complete recipe uses at most six explicitly numbered generations,
+each recorded before input with its own private owner header, original ticket,
+namespace and independent retirement. A retired generation can never restage.
+Cancellation releases actual files before another generation is reserved; an
+uncertain generation remains in the complete run inventory until reconciled.
+The legacy single-stage source remains closed and unchanged. Lost stage replies are reconciled from current native files, never by
 replaying stage. Main-file retirement removes only the original staged glTF
 primary, keeps companions, and reconciles a lost reply without another unlink.
 

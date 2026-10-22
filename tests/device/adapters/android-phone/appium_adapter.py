@@ -1323,13 +1323,13 @@ class PhoneAppiumAdapter(AppiumAdapter):
             lambda:transport.read_debug_app_file(device,target['appId'],'files/overte-e2e/'+FILE,attempts=1),
             native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep)
 
-    def _assets_files(self,selector,*,read_only=True):
+    def _assets_files(self,selector,*,read_only=True,stage=None):
         from overte_phone_assets_files import PhoneAssetsFiles,FILE
         native=self._native_feature_observer(selector,read_only=read_only)
         target=self.target(selector);device=target['capabilities']['appium:udid'];transport=PhoneAdapter(self.candidate).adb
         return PhoneAssetsFiles(native.send,
             lambda:transport.read_debug_app_file(device,target['appId'],'files/overte-e2e/'+FILE,attempts=1),
-            native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep)
+            native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep,stage=stage)
 
     def _assets_source(self,selector,*,download=False,resolve=False,read_only=True):
         from overte_phone_assets_source import PhoneAssetsSource,FILE,DOWNLOAD_FILE,RESOLVE_FILE

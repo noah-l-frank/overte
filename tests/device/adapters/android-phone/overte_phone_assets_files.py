@@ -19,6 +19,7 @@ FILE='phone-assets-files.json'
 
 def command(value):
     fields={'schemaVersion','commandId','action','operation','runId','ownerToken'}
+    if type(value) is dict and 'stage' in value:fields|={'stage'};need(integer(value['stage'],1,6))
     if type(value) is dict and value.get('operation')=='stage':fields|={'files'}
     exact(value,fields)
     need(type(value['schemaVersion']) is int and value['schemaVersion']==1 and value['action']=='phone-assets-files'
@@ -40,13 +41,14 @@ def identity(value):
     return value
 
 
-def source(value,run):
+def source(value,run,stage=None):
+    need(stage is None or integer(stage,1,6))
     exact(value,{'assetsFilesVersion','exists','retiring','retired','directory','rootIdentity','directories','files','primaryRetired'})
     need(type(value['assetsFilesVersion']) is int and value['assetsFilesVersion']==1
         and all(type(value[key]) is bool for key in ('exists','retiring','retired','primaryRetired'))
         and type(value['directories']) is list and type(value['files']) is list)
     file_url(value['directory']);url=urlsplit(value['directory']);path=unquote(url.path)
-    need(not url.query and not url.fragment and path.endswith('/feature-assets-'+run) and not path.endswith('//feature-assets-'+run))
+    need(not url.query and not url.fragment and path.endswith('/feature-assets-'+run+('' if stage is None else '-stage'+str(stage))) and not path.endswith('//feature-assets-'+run))
     if not value['exists']:
         need(value['rootIdentity'] is None and not value['directories'] and not value['files'] and (not value['retired'] or value['retiring']))
         return value
@@ -70,13 +72,15 @@ def source(value,run):
 
 
 class PhoneAssetsFiles:
-    def __init__(self,send,read,clock_ms,guard,pid,*,monotonic=time.monotonic,sleep=time.sleep):
+    def __init__(self,send,read,clock_ms,guard,pid,*,monotonic=time.monotonic,sleep=time.sleep,stage=None):
         need(all(callable(v) for v in (send,read,clock_ms,guard,monotonic,sleep)) and integer(pid,1))
+        need(stage is None or integer(stage,1,6));self.stage=stage
         self.send,self.original,self.clock_ms,self.guard,self.pid=send,read,clock_ms,guard,pid
         self.monotonic,self.sleep,self.last=monotonic,sleep,None
     def request(self,operation,run,owner,files=None):
         try:
             value=dict(schemaVersion=1,commandId=uuid.uuid4().hex,action='phone-assets-files',operation=operation,runId=run,ownerToken=owner)
+            if self.stage is not None:value['stage']=self.stage
             if files is not None:value['files']={key:base64.b64encode(raw).decode() for key,raw in files.items()}
             call=command(value);need(self.guard() is not False)
             started=previous=self.monotonic();need(number(started,0,1e15));requested=self.clock_ms();need(integer(requested,1));self.send(call)
@@ -91,7 +95,7 @@ class PhoneAssetsFiles:
                         and nonce(packet['instance']) and integer(packet['sequence'],1) and integer(packet['processId'],1) and packet['processId']==self.pid
                         and integer(packet['requestedEpochMs'],requested) and integer(packet['capturedEpochMs'],packet['requestedEpochMs'])
                         and packet['capturedEpochMs']-packet['requestedEpochMs']<5000)
-                    fresh(packet['capturedEpochMs'],self.clock_ms());source(packet['source'],run)
+                    fresh(packet['capturedEpochMs'],self.clock_ms());source(packet['source'],run,self.stage)
                     if self.last is not None:
                         need(packet['instance']==self.last['instance'] and packet['runId']==self.last['runId'] and packet['sequence']>self.last['sequence']
                             and packet['capturedEpochMs']>=self.last['capturedEpochMs']

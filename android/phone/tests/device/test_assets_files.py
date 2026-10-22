@@ -35,7 +35,7 @@ int main(int argc,char**argv){QCoreApplication app(argc,argv);overte::e2e::Priva
 
 
 class NativeFiles(CreateNativeFiles):
-    def reader(self):return PhoneAssetsFiles(self.send,lambda:json.dumps(self.value),lambda:int(time.time()*1000),lambda:self.guard_ok,self.process.pid)
+    def reader(self,stage=None):return PhoneAssetsFiles(self.send,lambda:json.dumps(self.value),lambda:int(time.time()*1000),lambda:self.guard_ok,self.process.pid,stage=stage)
     def raw(self,operation,owner='d'*64,files=None):
         call=dict(schemaVersion=1,commandId=uuid.uuid4().hex,action='phone-assets-files',operation=operation,runId=RUN,ownerToken=owner)
         if files is not None:call['files']={name:base64.b64encode(raw).decode() for name,raw in files.items()}
@@ -65,6 +65,22 @@ class AssetsFilesTests(unittest.TestCase):
             path=self.native.root/name;self.assertEqual(raw,path.read_bytes());self.assertEqual(0o600,path.stat().st_mode&0o777)
         self.assertTrue(all(path.stat().st_mode&0o777==0o700 for path in self.native.root.rglob('*') if path.is_dir()))
         owner.cleanup();owner.cleanup();self.assertFalse(self.native.root.exists())
+    def test_explicit_bounded_generations_retire_each_original_without_revival(self):
+        roots=[]
+        for stage in range(1,7):
+            store=PrivateFeatureState(self.base/('owner-'+str(stage)+'.json'))
+            owner=OwnedAssetsFiles(self.native.reader(stage),store,BINDING,RUN,TICKET,URL)
+            url=owner.prepare();path=self.native.directory/('feature-assets-'+RUN+'-stage'+str(stage));roots.append(path)
+            self.assertTrue(url.endswith(path.name));self.assertTrue(path.is_dir())
+            if stage==5:owner.retire_primary();self.assertFalse((path/'gltf-bundle/main.gltf').exists())
+            owner.cleanup();self.assertFalse(path.exists())
+            with self.assertRaises(NativeUIError):owner.native.request('stage',RUN,owner.state['ownerToken'],documents())
+            resumed=OwnedAssetsFiles(self.native.reader(stage),store,BINDING,RUN,TICKET,URL)
+            resumed.cleanup();self.assertEqual(stage,resumed.state['stage'])
+        self.assertTrue(all(not path.exists() for path in roots))
+        for stage in (0,7,True,'1'):
+            with self.subTest(stage=stage),self.assertRaises(NativeUIError):self.native.reader(stage)
+
     def test_actual_main_retirement_keeps_companions_and_repeated_calls_use_only_observation(self):
         owner=self.owner();owner.prepare();owner.retire_primary();count=sum(call['operation']=='retire-primary' for call in self.native.commands)
         self.assertFalse((self.native.root/'gltf-bundle/main.gltf').exists());self.assertTrue((self.native.root/'gltf-bundle/mesh/triangle.bin').is_file())

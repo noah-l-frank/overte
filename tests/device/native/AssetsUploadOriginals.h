@@ -31,7 +31,7 @@ public:
                     || QDir::cleanPath(path)!=path || !path.endsWith('/'+name)) { return false; }
             const auto current=path.left(path.size()-name.size()-1);
             if (directory.isEmpty()) { directory=current; }
-            if (current!=directory || !QRegularExpression("\\A/(?:[^/]+/)*feature-assets-"+run+"/(?:gltf-bundle|obj-bundle|fbx-bundle)\\z").match(current).hasMatch()) { return false; }
+            if (current!=directory || !QRegularExpression("\\A/(?:[^/]+/)*feature-assets-"+run+"(?:-stage[1-6])?/(?:gltf-bundle|obj-bundle|fbx-bundle)\\z").match(current).hasMatch()) { return false; }
             originals.append(QVariantMap{{"relativePath",name},{"filenameSha256",digest(path)}});
         }
         QMutexLocker locker(&_mutex);

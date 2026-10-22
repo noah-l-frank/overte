@@ -27,9 +27,11 @@ class OwnedAssetsFiles(OwnedCreateFiles):
         self.inputs=documents();self.previous=store.read();self.frames=[]
         self.state=dict(assetsFileOwnerVersion=1,binding=self.binding,runId=run,inputTicket=ticket,fixtureUrl=fixture_url,
             ownerToken=secrets.token_hex(32),phase='reserved',originals=pack([]))
+        if native.stage is not None:self.state['stage']=native.stage
         if self.previous is not None:
             value=deepcopy(self.previous)
-            exact(value,{'assetsFileOwnerVersion','binding','runId','inputTicket','fixtureUrl','ownerToken','phase','originals'})
+            exact(value,{'assetsFileOwnerVersion','binding','runId','inputTicket','fixtureUrl','ownerToken','phase','originals'}|({'stage'} if native.stage is not None else set()))
+            need(value.get('stage')==native.stage)
             need(type(value['assetsFileOwnerVersion']) is int and value['assetsFileOwnerVersion']==1 and context(value['binding'])==self.binding
                 and value['runId']==run and value['inputTicket']==ticket and value['fixtureUrl']==fixture_url
                 and type(value['ownerToken']) is str and len(value['ownerToken'])==64 and all(ch in '0123456789abcdef' for ch in value['ownerToken'])
@@ -49,7 +51,7 @@ class OwnedAssetsFiles(OwnedCreateFiles):
             and value['operation'] in ('stage','observe','retire-primary','release') and integer(value['processId'],1) and value['processId']==self.native.pid
             and integer(value['sequence'],1) and integer(value['requestedEpochMs'],1) and integer(value['capturedEpochMs'],value['requestedEpochMs'])
             and value['capturedEpochMs']-value['requestedEpochMs']<5000)
-        identifier(value['requestId']);identifier(value['instance']);actual=source(value['source'],self.run)
+        identifier(value['requestId']);identifier(value['instance']);actual=source(value['source'],self.run,self.native.stage)
         if actual['exists']:
             for row in actual['files']:
                 if row['exists']:

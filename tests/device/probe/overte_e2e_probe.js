@@ -2097,9 +2097,10 @@
         if (command && command.schemaVersion === 1 && /^[0-9a-f]{32}$/.test(String(command.commandId))
                 && /^[0-9a-f]{32}$/.test(String(command.runId)) && /^[0-9a-f]{64}$/.test(String(command.ownerToken))
                 && command.action === "phone-create-files" && ["stage","observe","seal-export","release"].indexOf(command.operation) !== -1
-                && objectKeysMatch(command,command.operation === "stage"
+                && (command.stage === undefined || (typeof command.stage === "number" && command.stage === Math.floor(command.stage) && command.stage >= 1 && command.stage <= 6))
+                && objectKeysMatch(command,(command.operation === "stage"
                     ? ["schemaVersion","commandId","action","operation","runId","ownerToken","files"]
-                    : ["schemaVersion","commandId","action","operation","runId","ownerToken"])) {
+                    : ["schemaVersion","commandId","action","operation","runId","ownerToken"]).concat(command.stage === undefined ? [] : ["stage"]))) {
             if (command.commandId === lastPhoneCreateFilesRequest) { return; }
             lastPhoneCreateFilesRequest = command.commandId;
             var createFiles = {schemaVersion: 1, requestId: command.commandId, available: false};
