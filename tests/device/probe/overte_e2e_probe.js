@@ -1572,7 +1572,7 @@
             }
             return true;
         }
-        if (command && (command.action === "phone-world-web" || command.action === "phone-web-reference")) {
+        if (command && (command.action === "phone-world-web" || command.action === "phone-tablet-web" || command.action === "phone-web-reference")) {
             // The typed native provider validates the complete closed grammar.
             var worldWeb={phoneWorldWebVersion:1,commandId:command.commandId,status:"unavailable"};
             try {
@@ -2278,7 +2278,7 @@
     function applyAndroidControlCommand(command) {
         if (command && (command.action === "normal-feature-observe" || command.action === "feature-native-observe"
                 || command.action === "feature-chat-observe" || command.action === "feature-chat-view-observe" || command.action === "feature-web-dom-observe" || command.action === "feature-account-probe" || command.action === "feature-account-origin"
-                || command.action === "feature-phone-web-runtime-observe" || command.action === "phone-world-web" || command.action === "phone-web-reference" || command.action === "feature-phone-web-reference-runtime-observe"
+                || command.action === "feature-phone-web-runtime-observe" || command.action === "phone-world-web" || command.action === "phone-tablet-web" || command.action === "phone-web-reference" || command.action === "feature-phone-web-reference-runtime-observe"
                 || command.action === "phone-navigation-marker-input" || command.action === "phone-navigation-marker-observe"
                 || command.action === "phone-navigation-ui" || command.action === "phone-navigation-view-observe"
                 || command.action === "feature-pending-commit-owner" || command.action === "feature-navigation-replies"

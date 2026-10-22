@@ -40,7 +40,7 @@ def configuration(path):
         exact(value,{'featureObserverVersion','area','target','candidateArguments','fixtureUrl','actorToken','durationSeconds'}
             |({'imagePolicy'} if value.get('featureObserverVersion')==3 and value.get('area')=='emotes' else set()))
         need(type(value['featureObserverVersion']) is int and value['featureObserverVersion'] in (2,VERSION)
-             and value['area'] in (('scripts','authentication','graphics') if value['featureObserverVersion']==2 else ('scripts','authentication','graphics','emotes','world-web','world-navigation')))
+             and value['area'] in (('scripts','authentication','graphics') if value['featureObserverVersion']==2 else ('scripts','authentication','graphics','emotes','world-web','tablet-web','world-navigation')))
         if value['area']=='emotes':image_policy(value['imagePolicy'])
         if value['area']=='authentication':account_origin(value['fixtureUrl'])
     need(type(value['target']) is str and bool(value['target'])
@@ -55,8 +55,8 @@ def run(adapter,config,*,monotonic=time.monotonic,sleep=time.sleep):
     """One owned run; no session repair, child launch or device discovery."""
     started=previous=monotonic();need(number(started,0,1e15))
     client=Client(config['fixtureUrl'],config['actorToken']);flow=None
-    area=config.get('area','scripts');need(area in ('scripts','authentication','graphics','emotes','world-web','world-navigation'))
-    if area=='world-web':return run_world_web(adapter,config,client,monotonic=monotonic,sleep=sleep)
+    area=config.get('area','scripts');need(area in ('scripts','authentication','graphics','emotes','world-web','tablet-web','world-navigation'))
+    if area in ('world-web','tablet-web'):return run_world_web(adapter,config,client,monotonic=monotonic,sleep=sleep)
     if area=='emotes':return run_emote(adapter,config,client,monotonic=monotonic,sleep=sleep)
     if area=='authentication':account_origin(config['fixtureUrl'])
     prefix='navigation' if area=='world-navigation' else area
@@ -93,10 +93,11 @@ def run_world_web(adapter,config,client,*,monotonic=time.monotonic,sleep=time.sl
     while True:
         now=monotonic();need(number(now,previous,started+config['durationSeconds']));previous=now
         if flow is None:
-            metadata=adapter.world_web_feature_store(config['target']).read()
+            prefix=config['area'].replace('-','_')
+            metadata=getattr(adapter,prefix+'_feature_store')(config['target']).read()
             if metadata is not None:
                 need(metadata.get('fixtureUrl')==client.url+'/runs/'+metadata['runId']+'/')
-                flow=adapter._world_web_feature(config['target'],metadata['runId'],role='actor',client=client)
+                flow=getattr(adapter,'_'+prefix+'_feature')(config['target'],metadata['runId'],role='actor',client=client)
         if flow is not None:
             try:flow.publish()
             except PhaseRetired:return 0
@@ -146,6 +147,9 @@ def main(argv=None):
         os.environ['OVERTE_PHONE_FEATURE_GRAPHICS']='0'
         os.environ['OVERTE_PHONE_FEATURE_EMOTES']='0'
         os.environ['OVERTE_PHONE_FEATURE_WORLD_NAVIGATION']='0'
+        os.environ['OVERTE_PHONE_FEATURE_WORLD_WEB']='0'
+        os.environ['OVERTE_PHONE_FEATURE_TABLET_WEB']='0'
+        os.environ['OVERTE_PHONE_NORMAL_WEB_REFERENCE']='0'
         return run(PhoneAppiumAdapter(candidate),config)
     except (OSError,RuntimeError,ValueError,TypeError,KeyError,RecursionError):
         print('PHONE_FEATURE_OBSERVER_REJECTED',file=sys.stderr)

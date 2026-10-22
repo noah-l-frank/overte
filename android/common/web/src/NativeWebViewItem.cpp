@@ -365,10 +365,17 @@ bool NativeWebViewItem::acceptMessage(quint64 grant, quint64 page, const QUrl& d
                 || object.value("signal").toInt(-1) != _bridge->metaObject()->indexOfSignal("scriptEventReceived(QVariant)")) return false;
         } else if (messageType != 3 && messageType != 4) return false;
     }
-    QPointer<NativeWebViewItem> self(this); QMetaObject::invokeMethod(this, [self, grant, page, document, type, inputEpoch, object = parsed.object()] {
+    QPointer<NativeWebViewItem> self(this); QMetaObject::invokeMethod(this, [self, grant, page, document, type, inputEpoch, object = parsed.object()
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PHONE_INTERFACE)
+        , origin,mainFrame,payload
+#endif
+    ] {
         if (!self) return;
         if (type == "editor" ? !self->allowsEditorDocument(grant, page, document) : !self->allowsBridgeDocument(grant, page, document)) return;
         if (type == "editor") { QMutexLocker guard(&self->_mutex); if (!self->_inputFocused || self->_inputEpoch != inputEpoch) return; }
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PHONE_INTERFACE)
+        if (type=="channel" && self->featureTabletIntercept(grant,page,document,origin,mainFrame,payload,object)) { return; }
+#endif
         if (type == "channel") self->_transport->receive(object); else self->updateEditor(object);
     }, Qt::QueuedConnection); return true;
 }
@@ -552,10 +559,11 @@ bool NativeWebViewItem::runJavaScript(const QString& source, const QJSValue& cal
     _callbacks.insert(request, callback); const bool posted = call("evaluateResult", "(JJJJLjava/lang/String;)V", args); jni.env->DeleteLocalRef(text);
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     if (featureEnabled()) {
-        QString original;{ QMutexLocker guard(&_mutex);original=_session.url().toString(QUrl::FullyEncoded); }
+        QString original;{ QMutexLocker guard(&_mutex);original=_inlineProvided ? _url : _session.url().toString(QUrl::FullyEncoded); }
         const QUrl observed(original);
-        if (observed.userInfo().isEmpty() && !observed.hasQuery() && !observed.hasFragment()
-                && QRegularExpression("\\A/feature-fixture/v1/runs/[0-9a-f]{32}/tickets/[0-9a-f]{32}/[^/]+\\z").match(observed.path()).hasMatch()) {
+        if ((observed.userInfo().isEmpty() && !observed.hasQuery() && !observed.hasFragment()
+                && QRegularExpression("\\A/feature-fixture/v1/runs/[0-9a-f]{32}/tickets/[0-9a-f]{32}/[^/]+\\z").match(observed.path()).hasMatch())
+                || (_inlineProvided && overte::web::InlineHtmlBytes::decode(original).valid())) {
             if (_featureCallbackSources.size()<1024) { _featureCallbackSources.insert(request,original); }
             else { _featureCallbackSourcesComplete=false; }
         }
@@ -845,6 +853,12 @@ struct PhoneWebRuntime {
 };
 PhoneWebRuntime phoneWebRuntime;
 bool runtimeOwned(const QString& raw,const QString& root) {
+    if (raw.startsWith("data:",Qt::CaseInsensitive)) {
+        const auto bytes=overte::web::InlineHtmlBytes::decode(raw);
+        const auto run=QUrl(root).path().section('/',4,4);
+        return bytes.valid() && QRegularExpression("\\A[0-9a-f]{32}\\z").match(run).hasMatch()
+            && bytes.body.contains(("<meta name=\"overte-fixture-owner\" content=\""+run+"\">").toUtf8());
+    }
     const QUrl url(raw,QUrl::StrictMode);
     const auto original=url.adjusted(QUrl::RemoveQuery|QUrl::RemoveFragment).toString(QUrl::FullyEncoded);
     if (QUrl(root).path()=="/parity/") { return original==root+"index.html" && url.userInfo().isEmpty(); }
@@ -884,7 +898,8 @@ QVariantMap NativeWebViewItem::featurePhoneWebSnapshot(const QVariantMap& comman
           document=item->_document.toString(QUrl::FullyEncoded);grant=item->_session.generation();page=item->_page;
           active=item->_session.active();authorized=item->_sourceAuthorized;suspended=item->_suspendedDocument; }
         const auto creation=item->_creationSource.toString(QUrl::FullyEncoded),handle=QString::number(item->_handle);
-        const bool sourceOwned=runtimeOwned(source,root),documentOwned=runtimeOwned(document,root),creationOwned=runtimeOwned(creation,root);
+        const bool inlineOwned=item->featureTabletOwned(run,root);
+        const bool sourceOwned=runtimeOwned(source,root) || inlineOwned,documentOwned=runtimeOwned(document,root) || inlineOwned,creationOwned=runtimeOwned(creation,root) || inlineOwned;
         int callbacks=0;
         if (!item->_featureCallbackSourcesComplete) { phoneWebRuntime.complete=false; }
         for (auto found=item->_featureCallbackSources.cbegin();found!=item->_featureCallbackSources.cend();++found) {
@@ -988,7 +1003,11 @@ QVariantMap NativeWebViewItem::featureWebDOMObservation(const QVariantMap& comma
     return selected ? selected->featureWebDOMRequest(command) : QVariantMap();
 }
 QVariantMap NativeWebViewItem::featureWebDOMRequest(const QVariantMap& command) {
-    if (!featureEnabled() || !overte::e2e::webDOMCommand(command) || thread()!=QThread::currentThread()) { return {}; }
+    if (!featureEnabled() || (!overte::e2e::webDOMCommand(command)
+#if defined(ANDROID_APP_PHONE_INTERFACE)
+            && !overte::e2e::phoneTabletDOMCommand(command)
+#endif
+            ) || thread()!=QThread::currentThread()) { return {}; }
     quint64 grant,page;QUrl document;
     { QMutexLocker guard(&_mutex);grant=_session.generation();page=_page;document=_document; }
     if (!grant || !page || !allowsEditorDocument(grant,page,document)) { return {}; }
@@ -1011,7 +1030,8 @@ QVariantMap NativeWebViewItem::featureWebDOMRequest(const QVariantMap& command) 
         Jni jni;if (!jni.env) { _featureWebPacket=featureWebPacket(command,"unavailable");return _featureWebPacket; }
         const auto nonce=jni.string(id);if (!nonce) { _featureWebPacket=featureWebPacket(command,"unavailable");return _featureWebPacket; }
         jvalue args[4];args[0].j=_handle;args[1].j=grant;args[2].j=page;args[3].l=nonce;
-        const bool posted=call("featureRead", "(JJJLjava/lang/String;)V",args);jni.env->DeleteLocalRef(nonce);
+        const bool posted=command.value("action")=="feature-phone-tablet-dom-observe"
+            ? call("featureTabletRead","(JJJLjava/lang/String;)V",args) : call("featureRead", "(JJJLjava/lang/String;)V",args);jni.env->DeleteLocalRef(nonce);
         if (!posted) { _featureWebPacket=featureWebPacket(command,"unavailable"); }
     }
     return _featureWebPacket;
@@ -1047,7 +1067,8 @@ void NativeWebViewItem::acceptFeatureWebDOM(quint64 grant, quint64 page, const Q
         QString source;bool inlineLease;
         { QMutexLocker guard(&self->_mutex);
           if (!self->current(grant,page) || self->_document!=document) { return; }
-          source=self->_session.url().toString(QUrl::FullyEncoded);inlineLease=self->_inlineProvided && self->_inlineDocument.current(); }
+          inlineLease=self->_inlineProvided && self->_inlineDocument.current();
+          source=inlineLease ? self->_inlineDocument.sourceURL() : self->_session.url().toString(QUrl::FullyEncoded); }
         const auto quoted=QJsonDocument::fromJson('['+result+']');QVariantMap dom;
         if (result.size()<=262144 && quoted.isArray() && quoted.array().size()==1 && quoted.array()[0].isString()) {
             const auto raw=quoted.array()[0].toString().toUtf8();
@@ -1056,7 +1077,8 @@ void NativeWebViewItem::acceptFeatureWebDOM(quint64 grant, quint64 page, const Q
         const auto actualDocument=dom.value("document").toMap();
         if (QJsonObject::fromVariantMap(dom).value("webDOMVersion")!=QJsonValue(1)
                 || dom.value("requestId")!=request || actualDocument.value("runId")!=self->_featureWebCommand.value("runId")
-                || actualDocument.value("href")!=document.toString(QUrl::FullyEncoded) || inlineLease
+                || actualDocument.value("href")!=document.toString(QUrl::FullyEncoded)
+                || (inlineLease && self->_featureWebCommand.value("action")!="feature-phone-tablet-dom-observe")
                 || self->_featureWebFinishedGrant!=grant || self->_featureWebFinishedPage!=page || self->_featureWebFinishedDocument!=document) {
             self->_featureWebPacket=self->featureWebPacket(self->_featureWebCommand,"unavailable");return;
         }
@@ -1064,7 +1086,11 @@ void NativeWebViewItem::acceptFeatureWebDOM(quint64 grant, quint64 page, const Q
             {"grant",static_cast<qulonglong>(grant)},{"page",static_cast<qulonglong>(page)},{"url",document.toString(QUrl::FullyEncoded)},
             {"nativeFinished",true},{"httpErrorStatus",self->_featureWebHTTPGrant==grant && self->_featureWebHTTPPage==page ? self->_featureWebHTTPStatus : 0},
             {"inlineLease",inlineLease},{"sourceUrl",source},{"sourceIdentity",self->_sourceIdentity}};
-        self->_featureWebPacket=self->featureWebPacket(self->_featureWebCommand,"ready",{{"nativeView",view},{"dom",dom}});
+        QVariantMap sources{{"nativeView",view},{"dom",dom}};
+#if defined(ANDROID_APP_PHONE_INTERFACE)
+        if (inlineLease) { sources.insert("inline",self->featureTabletInline()); }
+#endif
+        self->_featureWebPacket=self->featureWebPacket(self->_featureWebCommand,"ready",sources);
 #if defined(ANDROID_APP_PHONE_INTERFACE)
         self->featureWorldWebRecord("dom",self->_featureWebPacket);
 #endif

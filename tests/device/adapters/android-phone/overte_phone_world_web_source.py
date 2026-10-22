@@ -36,8 +36,9 @@ def command(value):
     need(type(value) is dict);op=value.get('operation');fields={'schemaVersion','commandId','action','runId','fixtureUrl','operation','ownerToken'}
     reference=value.get('action')=='phone-web-reference'
     exact(value,fields|({'surface'} if reference else set())|({'handle','creation','grant','page','control','text'} if op=='input' else set()))
-    need(type(value['schemaVersion']) is int and value['schemaVersion']==1 and value['action'] in ('phone-world-web','phone-web-reference')
-        and op in ('reserve','observe','input','retire'))
+    need(type(value['schemaVersion']) is int and value['schemaVersion']==1 and value['action'] in ('phone-world-web','phone-tablet-web','phone-web-reference')
+        and op in ('reserve','observe','input','retire','arm-held','deliver-held','cancel-held')
+        and (op not in ('arm-held','deliver-held','cancel-held') or value['action']=='phone-tablet-web'))
     identifier(value['commandId']);identifier(value['ownerToken'])
     if reference:
         from adapters.native_phone_web_runtime import command as runtime_command
@@ -72,9 +73,13 @@ def validate(value,request,pid,epoch):
     if value['status']!='ready':exact(source,set());return value
     op=request['operation']
     if op!='observe':
-        field={'reserve':'reserved','input':'delivered','retire':'retired'}[op]
+        field={'reserve':'reserved','input':'delivered','retire':'retired','arm-held':'armed','deliver-held':'delivered','cancel-held':'cancelled'}[op]
         exact(source,{field});need(source[field] is True);return value
-    exact(source,{'retired','documents','requests','replies','domHistory','current'})
+    tablet=request['action']=='phone-tablet-web';surface='tablet' if tablet else request.get('surface','world')
+    exact(source,{'retired','documents','requests','replies','domHistory','current'}|({'deferred'} if tablet else set()))
+    if tablet:
+        from overte_phone_tablet_web_source import deferred
+        deferred(source['deferred'],value['capturedEpochMs'])
     need(type(source['retired']) is bool and type(source['domHistory']) is dict and len(source['domHistory'])<=256)
     documents={};previous=0
     need(type(source['documents']) is list and len(source['documents'])<=256)
@@ -82,6 +87,8 @@ def validate(value,request,pid,epoch):
         exact(row,IDENTITY|{'finishedEpochMs'});key=identity(row)
         need(key not in documents and integer(row['finishedEpochMs'],max(1,previous),value['capturedEpochMs']))
         documents[key]=row;previous=row['finishedEpochMs']
+    if tablet:
+        from overte_phone_tablet_web_dom import validate as tablet_validate
     event_keys={}
     for kind in ('requests','replies'):
         rows=source[kind];need(type(rows) is list and len(rows)<=128);seen=set();previous=0
@@ -91,14 +98,14 @@ def validate(value,request,pid,epoch):
                 and row['capturedEpochMs']>=documents[key]['finishedEpochMs'] and type(row['message']) is str and len(row['message'])<=4096)
             packet=decode(row['message']);exact(packet,{'contract','action','sequence'}|({'surface'} if kind=='replies' else set()))
             need(packet['contract']=='overte-web-parity-v1' and packet['action']=='echo' and integer(packet['sequence'],1,1000000)
-                and (kind!='replies' or packet['surface']=='world'))
+                and (kind!='replies' or packet['surface']==surface))
             pair=(key,packet['sequence']);need(pair not in seen);seen.add(pair);previous=row['capturedEpochMs']
         event_keys[kind]=seen
     need(event_keys['replies']<=event_keys['requests'])
     for key,packet in source['domHistory'].items():
         need(type(key) is str and key in documents)
-        dom_request=dict(schemaVersion=1,commandId=packet['commandId'],action='feature-web-dom-observe',runId=request['runId'],surface='world',fixtureUrl=request['fixtureUrl'])
-        validate_dom(packet,dom_request,pid,packet['capturedEpochMs']);need(packet['status']=='ready')
+        dom_request=dict(schemaVersion=1,commandId=packet['commandId'],action='feature-phone-tablet-dom-observe' if tablet else 'feature-web-dom-observe',runId=request['runId'],surface=surface,fixtureUrl=request['fixtureUrl'])
+        (tablet_validate if tablet else validate_dom)(packet,dom_request,pid,packet['capturedEpochMs']);need(packet['status']=='ready')
         view=packet['source']['nativeView'];need(identity(view)==key and view['url']==documents[key]['url']
             and packet['capturedEpochMs']>=documents[key]['finishedEpochMs'] and packet['capturedEpochMs']<=value['capturedEpochMs'])
         echoes=packet['source']['dom']['echoes']
@@ -114,10 +121,12 @@ def validate(value,request,pid,epoch):
                 and view['sourceUrl']==request['fixtureUrl']+'index.html' and view['url']==view['sourceUrl']
                 and type(view['sourceIdentity']) is str and 0<len(view['sourceIdentity'])<=512)
     elif current:
-        dom_request=dict(schemaVersion=1,commandId=request['commandId'],action='feature-web-dom-observe',runId=request['runId'],surface='world',fixtureUrl=request['fixtureUrl'])
-        validate_dom(current,dom_request,pid,epoch);key=identity(current['source']['nativeView'])
+        dom_request=dict(schemaVersion=1,commandId=request['commandId'],action='feature-phone-tablet-dom-observe' if tablet else 'feature-web-dom-observe',runId=request['runId'],surface=surface,fixtureUrl=request['fixtureUrl'])
+        (tablet_validate if tablet else validate_dom)(current,dom_request,pid,epoch);key=identity(current['source']['nativeView'])
         need(key in source['domHistory'] and current==source['domHistory'][key])
-    if source['retired']:need(not any(source[k] for k in ('documents','requests','replies','domHistory','current')))
+    if source['retired']:
+        need(not any(source[k] for k in ('documents','requests','replies','domHistory','current')))
+        if tablet:need(source['deferred']==dict(armed=False,pending=False,held=None,deliveries=[]))
     return value
 
 
@@ -127,6 +136,9 @@ def continuity(previous,value):
         and value['sequence']>previous['sequence'] and value['capturedEpochMs']>=previous['capturedEpochMs'])
     old,new=previous['source'],value['source']
     if 'documents' not in old or 'documents' not in new:return
+    if 'deferred' in old and 'deferred' in new and not new['retired']:
+        a,b=old['deferred'],new['deferred'];need(b['deliveries'][:len(a['deliveries'])]==a['deliveries'])
+        if a['held'] is not None:need(b['held']==a['held'])
     if new['retired']:return # The separately authorized native retirement is explicit, never a missing file.
     need(not old['retired'])
     for key in ('documents','requests','replies'):need(new[key][:len(old[key])]==old[key])
@@ -138,13 +150,14 @@ def continuity(previous,value):
 
 
 class PhoneWorldWebIO:
+    action="phone-world-web"
     def __init__(self,send,original,clock_ms,guard,pid,*,monotonic=time.monotonic,sleep=time.sleep):
         need(all(callable(v) for v in (send,original,clock_ms,guard,monotonic,sleep)) and integer(pid,1))
         self.send,self.original,self.clock_ms,self.guard,self.pid=send,original,clock_ms,guard,pid
         self.monotonic,self.sleep,self.last=monotonic,sleep,None
 
     def request(self,run,url,owner,operation,*,reference_surface=None,**fields):
-        request=command(dict(schemaVersion=1,commandId=uuid.uuid4().hex,action='phone-world-web' if reference_surface is None else 'phone-web-reference',runId=run,
+        request=command(dict(schemaVersion=1,commandId=uuid.uuid4().hex,action=self.action if reference_surface is None else 'phone-web-reference',runId=run,
             fixtureUrl=url,ownerToken=owner,operation=operation,**({'surface':reference_surface} if reference_surface is not None else {}),**fields))
         try:
             start=previous=self.monotonic();requested=self.clock_ms();need(number(start,0,1e15) and integer(requested,1) and self.guard() is not False)

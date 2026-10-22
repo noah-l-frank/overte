@@ -105,6 +105,8 @@ AUTHENTICATION_FEATURE_OPERATIONS={'feature.authentication.'+kind for kind in ('
 GRAPHICS_FEATURE_OPERATIONS={'feature.graphics.'+kind for kind in ('act','observe','cleanup')}
 EMOTE_FEATURE_OPERATIONS={'feature.emotes.'+kind for kind in ('act','observe','cleanup')}
 WORLD_WEB_FEATURE_OPERATIONS={'feature.world-web.'+kind for kind in ('act','observe','cleanup')}
+TABLET_WEB_FEATURE_OPERATIONS={'feature.tablet-web.'+kind for kind in ('act','observe','cleanup')}
+TABLET_FOUNDATION_OPERATIONS={'tablet.open','tablet.close'}
 NAVIGATION_FEATURE_OPERATIONS={'feature.world-navigation.'+kind for kind in ('act','observe','cleanup')}
 WEB_REFERENCE_OPERATIONS={'web.reference.'+kind for kind in ('open','close','play','pause','seek')}
 
@@ -171,7 +173,7 @@ def readonly_feature_command(command):
     elif action=='phone-snapshot-observe':
         from overte_phone_snapshot_source import command as validate_snapshot
         validate_snapshot(command)
-    elif action in ('phone-world-web','phone-web-reference'):
+    elif action in ('phone-world-web','phone-tablet-web','phone-web-reference'):
         from overte_phone_world_web_source import command as validate_world_web
         validate_world_web(command)
         require(command['operation']=='observe','PHONE_READ_ONLY_COMMAND_REJECTED')
@@ -328,6 +330,13 @@ class PhoneAppiumAdapter(AppiumAdapter):
                 and self.controlled_android_client(target),'PHONE_FEATURE_WORLD_WEB_REQUIRES_BOUND_DEBUG_TARGET')
             self._world_web_configuration();self._feature_fixture_client()
             values=sorted(set(values)|WORLD_WEB_FEATURE_OPERATIONS|WEB_REFERENCE_OPERATIONS)
+        full_tablet_web=os.environ.get('OVERTE_PHONE_FEATURE_TABLET_WEB','0')
+        require(full_tablet_web in ('0','1'),'PHONE_FEATURE_TABLET_WEB_CONFIGURATION_INVALID')
+        if full_tablet_web=='1':
+            require(getattr(self,'candidate',None) is not None and target.get('appId')=='io.github.noah_be.overte.phone'
+                and self.controlled_android_client(target),'PHONE_FEATURE_TABLET_WEB_REQUIRES_BOUND_DEBUG_TARGET')
+            self._tablet_web_configuration();self._feature_fixture_client()
+            values=sorted(set(values)|TABLET_WEB_FEATURE_OPERATIONS|WEB_REFERENCE_OPERATIONS|TABLET_FOUNDATION_OPERATIONS)
         reference_enabled=os.environ.get('OVERTE_PHONE_NORMAL_WEB_REFERENCE','0')
         require(reference_enabled in ('0','1'),'PHONE_WEB_REFERENCE_CONFIGURATION_INVALID')
         if reference_enabled=='1':
@@ -901,6 +910,98 @@ class PhoneAppiumAdapter(AppiumAdapter):
         native,observe,binding,_guard,_installed=self.normal_feature_runtime(selector,read_only=True)
         return NormalScriptManager(PhoneScriptUI(native,'io.github.noah_be.overte.phone'),observe,
             self.world_web_manager_store(selector),binding,source_kind='feature-world-web')
+
+    def tablet_controls_store(self,selector):
+        return PrivateFeatureState(self.state_path(selector).with_name('phone-tablet-controls.json'))
+
+    def _tablet_controls(self,selector):
+        from overte_phone_tablet_controls import PhoneTabletControls
+        native,_observe,binding,guard,_installed=self.normal_feature_runtime(selector,read_only=True)
+        return PhoneTabletControls(PhoneScriptUI(native,'io.github.noah_be.overte.phone'),self.tablet_controls_store(selector),binding,guard)
+
+    def normal_tablet_control(self,selector,operation):
+        from overte_phone_script_lock import PhoneScriptSourceLock
+        lock=PhoneScriptSourceLock(self.state_path(selector).with_name('phone-script-sources.lock'))
+        with lock.held(),self.existing_input_session(selector):
+            return getattr(self._tablet_controls(selector),operation.rsplit('.',1)[1])()
+
+    def tablet_web_feature_store(self,selector):
+        return PrivateFeatureState(self.state_path(selector).with_name('phone-tablet-web-feature.json'))
+
+    def tablet_web_retirement_store(self,selector):
+        return PrivateFeatureState(self.state_path(selector).with_name('phone-tablet-web-retirement.json'))
+
+    def tablet_web_manager_store(self,selector):
+        return PrivateFeatureState(self.state_path(selector).with_name('phone-tablet-web-manager.json'))
+
+    def _tablet_web_configuration(self,metadata=None):
+        from overte_phone_world_web_source import fixture
+        if metadata is None:
+            path=os.environ.get('OVERTE_PHONE_TABLET_WEB_CONFIGURATION')
+            require(type(path) is str and bool(path),'PHONE_TABLET_WEB_CONFIGURATION_REQUIRED')
+            value=PrivateFeatureState(Path(path)).read()
+            require(type(value) is dict and set(value)=={'tabletWebConfigurationVersion','artifactRoot','foreignFixtureUrl'}
+                and type(value['tabletWebConfigurationVersion']) is int and value['tabletWebConfigurationVersion']==1,
+                'PHONE_TABLET_WEB_CONFIGURATION_INVALID')
+        else:value=metadata
+        root=Path(value['artifactRoot']);PrivateFeatureState(root/'tablet-web-configuration-boundary.json')._parent()
+        if metadata is None and 'OVERTE_DEVICE_ARTIFACT_DIR' in os.environ:
+            require(root==Path(os.environ['OVERTE_DEVICE_ARTIFACT_DIR']),'PHONE_TABLET_WEB_ARTIFACT_ROOT_CHANGED')
+        foreign=value['foreignFixtureUrl'];fixture('a'*32,foreign+'/runs/'+'a'*32+'/')
+        return root,foreign
+
+    def _tablet_web_feature(self,selector,run,*,role='primary',client=None,retirement=False):
+        from feature_journeys.phase_fixture import PhaseFixtureReader
+        from overte_phone_tablet_web_feature import PhoneTabletWebFeature
+        target=self.target(selector)
+        require(getattr(self,'candidate',None) is not None and target.get('appId')=='io.github.noah_be.overte.phone'
+            and self.controlled_android_client(target),'PHONE_TABLET_WEB_REQUIRES_BOUND_DEBUG_TARGET')
+        if client is None:
+            require(role=='primary','PHONE_TABLET_WEB_ACTOR_REQUIRES_SEPARATE_CLIENT');client=self._feature_fixture_client()
+        metadata=self.tablet_web_feature_store(selector).read() or self.tablet_web_retirement_store(selector).read()
+        if metadata is not None:
+            require(metadata.get('runId')==run and metadata.get('fixtureUrl')==client.url+'/runs/'+run+'/',
+                'PHONE_TABLET_WEB_ORIGINAL_CONFIGURATION_REQUIRED')
+        elif role=='actor' or retirement:require(False,'PHONE_TABLET_WEB_ORIGINAL_CONFIGURATION_REQUIRED')
+        root,foreign=self._tablet_web_configuration(metadata)
+        return PhoneTabletWebFeature(self,selector,PhaseFixtureReader(client,run,'tablet-web'),root,foreign,role=role)
+
+    def _tablet_web_io(self,selector,*,read_only=True):
+        from overte_phone_tablet_web_source import PhoneTabletWebIO
+        from overte_phone_world_web_source import FILE
+        native=self._native_feature_observer(selector,read_only=read_only)
+        target=self.target(selector);device=target['capabilities']['appium:udid'];transport=PhoneAdapter(self.candidate).adb
+        return PhoneTabletWebIO(native.send,
+            lambda:transport.read_debug_app_file(device,target['appId'],'files/overte-e2e/'+FILE,attempts=1),
+            native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep)
+
+    def _tablet_web_clock(self,selector):
+        return self._native_feature_observer(selector,read_only=True).clock_ms()
+
+    def _tablet_web_manager(self,selector):
+        native,observe,binding,_guard,_installed=self.normal_feature_runtime(selector,read_only=True)
+        return NormalScriptManager(PhoneScriptUI(native,'io.github.noah_be.overte.phone'),observe,
+            self.tablet_web_manager_store(selector),binding,source_kind='feature-tablet-web')
+
+    def _tablet_web_entry(self,selector,label,*,initial):
+        from adapters.normal_ui import Locator
+        require(label in ('WEB TEST','INLINE TEST') and type(initial) is bool,'PHONE_TABLET_WEB_ENTRY_INVALID')
+        native,_observe,_binding,guard,_installed=self.normal_feature_runtime(selector,read_only=True)
+        ui=PhoneScriptUI(native,'io.github.noah_be.overte.phone')
+        if initial:
+            require(not ui.tablet_visible(),'PHONE_TABLET_WEB_FOREIGN_TABLET_OPEN');ui.open_tablet()
+        else:require(ui.tablet_visible(),'PHONE_TABLET_WEB_OWNED_TABLET_MISSING')
+        if native.available(ui.resource('nav.home')):native.click(ui.resource('nav.home'))
+        entry=Locator('accessibility id',label)
+        if not native.available(entry):
+            for page in range(1,9):
+                button=ui.resource('tabletPage.'+str(page))
+                if native.available(button):native.click(button)
+                if native.available(entry):break
+        native.click(entry);guard();return {'performed':True}
+
+    def _tablet_web_close(self,selector):
+        return self._web_reference_tablet(selector,'close')
 
     def _web_runtime_observer(self, selector, *, read_only=True):
         require(read_only is True,'PHONE_WEB_RUNTIME_REQUIRES_EXISTING_READ_ONLY_SESSION')
@@ -1675,6 +1776,15 @@ class PhoneAppiumAdapter(AppiumAdapter):
             feature=self.world_web_feature_store(selector).read() or self.world_web_retirement_store(selector).read()
             if feature is not None:self._world_web_feature(selector,feature['runId'],retirement=True).finalize()
         except Exception:world_web_error=True
+        tablet_controls_error=False
+        try:
+            if self.tablet_controls_store(selector).read() is not None:self.normal_tablet_control(selector,'tablet.close')
+        except Exception:tablet_controls_error=True
+        tablet_web_error=False
+        try:
+            feature=self.tablet_web_feature_store(selector).read() or self.tablet_web_retirement_store(selector).read()
+            if feature is not None:self._tablet_web_feature(selector,feature['runId'],retirement=True).finalize()
+        except Exception:tablet_web_error=True
         navigation_error=False
         try:
             feature=self.navigation_feature_store(selector).read() or self.navigation_retirement_store(selector).read()
@@ -1861,6 +1971,11 @@ class PhoneAppiumAdapter(AppiumAdapter):
                 and self.world_web_retirement_store(selector).read() is None and self.world_web_manager_store(selector).read() is None
                 and all(PrivateFeatureState(self.state_path(selector).with_name('phone-world-web-'+role+'.json')).read() is None
                     for role in ('primary','actor')),'PHONE_WORLD_WEB_FEATURE_CLEANUP_INCOMPLETE')
+        require(not tablet_controls_error and self.tablet_controls_store(selector).read() is None,'PHONE_TABLET_CONTROLS_CLEANUP_INCOMPLETE')
+        require(not tablet_web_error and self.tablet_web_feature_store(selector).read() is None
+                and self.tablet_web_retirement_store(selector).read() is None and self.tablet_web_manager_store(selector).read() is None
+                and all(PrivateFeatureState(self.state_path(selector).with_name('phone-tablet-web-'+role+'.json')).read() is None
+                    for role in ('primary','actor')),'PHONE_TABLET_WEB_FEATURE_CLEANUP_INCOMPLETE')
         require(not authentication_error and self.authentication_feature_store(selector).read() is None and self.authentication_retirement_store(selector).read() is None
                 and all(PrivateFeatureState(self.state_path(selector).with_name('phone-authentication-'+role+'-feature.json')).read() is None
                         for role in ('primary','actor')),'PHONE_AUTHENTICATION_FEATURE_CLEANUP_INCOMPLETE')
@@ -1945,6 +2060,15 @@ class PhoneAppiumAdapter(AppiumAdapter):
             arguments(operation,values)
             require(operation in self.advertised_capabilities(self.target(selector)),'PHONE_WORLD_WEB_FEATURE_NOT_ENABLED')
             return getattr(self._world_web_feature(selector,values['runId']),operation.rsplit('.',1)[1])(values)
+        if operation in TABLET_FOUNDATION_OPERATIONS and os.environ.get('OVERTE_PHONE_FEATURE_TABLET_WEB','0')=='1':
+            validate_operation_arguments(operation,values)
+            require(operation in self.advertised_capabilities(self.target(selector)),'PHONE_TABLET_CONTROLS_NOT_ENABLED')
+            return self.normal_tablet_control(selector,operation)
+        if operation in TABLET_WEB_FEATURE_OPERATIONS:
+            from feature_journeys.contract import arguments
+            arguments(operation,values)
+            require(operation in self.advertised_capabilities(self.target(selector)),'PHONE_TABLET_WEB_FEATURE_NOT_ENABLED')
+            return getattr(self._tablet_web_feature(selector,values['runId']),operation.rsplit('.',1)[1])(values)
         if operation in EMOTE_FEATURE_OPERATIONS:
             from feature_journeys.contract import arguments
             arguments(operation,values)

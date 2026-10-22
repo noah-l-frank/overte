@@ -204,6 +204,9 @@ private:
     QHash<quint64, QJSValue> _callbacks;
     QVector<QMetaObject::Connection> _geometryConnections;
 #if defined(OVERTE_E2E_FEATURE_TESTS)
+    bool featureTabletOwned(const QString& run,const QString& root) const;
+    bool featureTabletIntercept(quint64 grant,quint64 page,const QUrl& document,const QUrl& origin,bool mainFrame,const QByteArray& payload,const QJsonObject& object);
+    QVariantMap featureTabletInline() const;
     void featureWorldWebRecord(const QString& kind, const QVariant& value = {});
     QVariantMap featureWebDOMRequest(const QVariantMap& command);
     QVariantMap featureWebPacket(const QVariantMap& command, const QString& status, const QVariantMap& source = {});

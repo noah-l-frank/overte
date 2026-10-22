@@ -84,7 +84,7 @@ The actual `EmbeddedWebView.java` and all common Web helpers compile against
 local Android API 34, AndroidX WebKit 1.12.1 and Core 1.1.0. The actual new C++
 provider and grammar compile and run with Qt6Core against synthetic item/JNI
 seams. SDK 36 R8 classfile optimization of actual production Java retains all
-sixty C++ JNI lookups/callbacks. The complete Android C++ translation unit and Test/probe integration
+61 C++ JNI lookups/callbacks. The complete Android C++ translation unit and Test/probe integration
 are not compiled; an Android build and real-device behavior remain unqualified.
 
 Focused commands:
@@ -103,3 +103,8 @@ or global complete count from host results. The parent integration must
 recompute the source-bound Emote admission pins once after all concurrent probe
 changes; this feature does not regenerate that catalog or learn expected values
 from a target.
+
+The shared browser owner also uses the bounded, reversible original-source
+archive described in [TABLET_WEB_FEATURE.md](TABLET_WEB_FEATURE.md). It preserves
+the private cap while retaining exact original packets and fresh retirement
+checks; completed legacy plans remain readable.

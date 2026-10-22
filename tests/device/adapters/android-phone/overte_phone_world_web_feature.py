@@ -35,13 +35,36 @@ from overte_phone_world_web_measurements import browser_status,measurement
 VERSION=1
 
 
+def archive_originals(value):
+    """Compress repeated originals together within the unchanged private cap."""
+    if type(value) is list:return [archive_originals(item) for item in value]
+    if type(value) is not dict:return value
+    if set(value)=={'encoding','bytes','sha256','data'}:
+        return dict(webPackedSourceVersion=1,frames=archive_originals(unpack(value)))
+    return {key:archive_originals(item) for key,item in value.items()}
+
+
+def restore_originals(value):
+    if type(value) is list:return [restore_originals(item) for item in value]
+    if type(value) is not dict:return value
+    if 'webPackedSourceVersion' in value:
+        exact(value,{'webPackedSourceVersion','frames'})
+        need(type(value['webPackedSourceVersion']) is int and value['webPackedSourceVersion']==1)
+        return pack(restore_originals(value['frames']))
+    return {key:restore_originals(item) for key,item in value.items()}
+
+
 class PhoneWorldWebFeature:
+    area="world-web"
+    surface="world"
+    action="phone-world-web"
+    version_field="worldWebFeatureVersion"
     def __init__(self,adapter,selector,source,artifact_root,foreign_fixture_url,*,role='primary',monotonic=time.monotonic,sleep=time.sleep):
-        need(isinstance(source,PhaseFixtureReader) and source.area=='world-web' and role in ('primary','actor')
+        need(isinstance(source,PhaseFixtureReader) and source.area==self.area and role in ('primary','actor')
             and callable(monotonic) and callable(sleep))
         self.adapter,self.selector,self.source,self.role=adapter,selector,source,role
         self.run,self.fixture_url=source.run,source.fixture_url
-        self.artifact_root=Path(artifact_root);PrivateFeatureState(self.artifact_root/'world-web-boundary.json')._parent()
+        self.artifact_root=Path(artifact_root);PrivateFeatureState(self.artifact_root/(self.area+'-boundary.json'))._parent()
         fixture(self.run,self.fixture_url)
         foreign=foreign_fixture_url.rstrip('/')+'/runs/'+self.run+'/'
         fixture(self.run,foreign);a,b=urlsplit(self.fixture_url),urlsplit(foreign)
@@ -49,12 +72,21 @@ class PhoneWorldWebFeature:
         if role=='actor':need(not isinstance(source.client,AdapterFixtureClient))
         self.monotonic,self.sleep=monotonic,sleep
         path=adapter.state_path(selector)
-        self.store=PrivateFeatureState(path.with_name('phone-world-web-feature.json'))
-        self.role_store=PrivateFeatureState(path.with_name('phone-world-web-'+role+'.json'))
-        self.retirement_store=PrivateFeatureState(path.with_name('phone-world-web-retirement.json'))
+        self.store=PrivateFeatureState(path.with_name('phone-'+self.area+'-feature.json'))
+        self.role_store=PrivateFeatureState(path.with_name('phone-'+self.area+'-'+role+'.json'))
+        self.retirement_store=PrivateFeatureState(path.with_name('phone-'+self.area+'-retirement.json'))
         self.lock=PhoneScriptSourceLock(path.with_name('phone-script-sources.lock'))
         self.originals={}
-        self.completed_store=PrivateFeatureState(self.artifact_root/('world-web-'+self.run+'-retirement.json'))
+        self.completed_store=PrivateFeatureState(self.artifact_root/(self.area+'-'+self.run+'-retirement.json'))
+
+    def manager_store(self):
+        return getattr(self.adapter,self.area.replace('-','_')+'_manager_store')(self.selector)
+
+    def manager(self):
+        return getattr(self.adapter,'_'+self.area.replace('-','_')+'_manager')(self.selector)
+
+    def check_released(self,runtime):
+        return released(runtime)
 
     @contextmanager
     def serialized(self):
@@ -67,16 +99,18 @@ class PhoneWorldWebFeature:
     def read(self,store,kind):
         value=store.read();self.originals[store.path]=deepcopy(value)
         if value is None:return None
-        exact(value,{'worldWebFeatureVersion','kind','runId','fixtureUrl','artifactRoot','foreignFixtureUrl','payload'})
-        need(type(value['worldWebFeatureVersion']) is int and value['worldWebFeatureVersion']==VERSION and value['kind']==kind
+        exact(value,{self.version_field,'kind','runId','fixtureUrl','artifactRoot','foreignFixtureUrl','payload'})
+        need(type(value[self.version_field]) is int and value[self.version_field]==VERSION and value['kind']==kind
             and value['runId']==self.run and value['fixtureUrl']==self.fixture_url and value['artifactRoot']==str(self.artifact_root)
             and value['foreignFixtureUrl']==self.foreign_url.rsplit('/runs/',1)[0])
-        rows=unpack(value['payload']);need(len(rows)==1);return rows[0]
+        rows=unpack(value['payload']);need(len(rows)==1)
+        return restore_originals(rows[0]) if kind in ('retirement','completed') else rows[0]
 
     def write(self,store,kind,value):
         self.lock.assert_held();need(store.path in self.originals and same(store.read(),self.originals[store.path]))
-        record=dict(worldWebFeatureVersion=VERSION,kind=kind,runId=self.run,fixtureUrl=self.fixture_url,
-            artifactRoot=str(self.artifact_root),foreignFixtureUrl=self.foreign_url.rsplit('/runs/',1)[0],payload=pack([value]))
+        record=dict(**{self.version_field:VERSION},kind=kind,runId=self.run,fixtureUrl=self.fixture_url,
+            artifactRoot=str(self.artifact_root),foreignFixtureUrl=self.foreign_url.rsplit('/runs/',1)[0],
+            payload=pack([archive_originals(value) if kind in ('retirement','completed') else value]))
         store.write(record,self.originals[store.path]);need(same(store.read(),record));self.originals[store.path]=deepcopy(record)
 
     def owner(self):
@@ -91,7 +125,7 @@ class PhoneWorldWebFeature:
         if value['scriptUrl'] is not None:
             need(value['scriptUrl'].startswith(self.fixture_url+'tickets/') and re_script(value['scriptUrl'][len(self.fixture_url+'tickets/'):]))
         if value['call'] is not None:
-            arguments('feature.world-web.act',value['call']);need(value['call']['runId']==self.run and value['call']['fixtureUrl']==self.fixture_url
+            arguments('feature.'+self.area+'.act',value['call']);need(value['call']['runId']==self.run and value['call']['fixtureUrl']==self.fixture_url
                 and value['call']['ticket']==value['tickets'][-1])
         return value
 
@@ -103,7 +137,7 @@ class PhoneWorldWebFeature:
         return binding,guard
 
     def io(self,owner,*,read_only=True):
-        self.runtime(owner);return self.adapter._world_web_io(self.selector,read_only=read_only)
+        self.runtime(owner);return getattr(self.adapter,"_"+self.area.replace("-","_")+"_io")(self.selector,read_only=read_only)
 
     def phase(self,owner):
         active=self.source.read(owner['phaseSource'])
@@ -116,7 +150,7 @@ class PhoneWorldWebFeature:
             owner=self.owner()
             if owner is None:
                 need(self.retirement_store.read() is None and self.role_store.read() is None and self.completed_store.read() is None
-                    and self.adapter.world_web_manager_store(self.selector).read() is None)
+                    and self.manager_store().read() is None)
                 phase=self.source.read();need(phase['verb']=='baseline')
                 _ui,_observe,binding,guard,_installed=self.adapter.normal_feature_runtime(self.selector,read_only=True)
                 guard();owner=dict(binding=deepcopy(binding),ownerToken=uuid.uuid4().hex,phase='preparing',reserved=False,scriptUrl=None,
@@ -144,7 +178,7 @@ class PhoneWorldWebFeature:
         if verb=='open':
             need(owner['scriptUrl'] is None)
             owner['scriptUrl']=self.fixture_url+'tickets/'+call['ticket']+'/client.js';self.save(owner)
-            manager=self.adapter._world_web_manager(self.selector)
+            manager=self.manager()
             manager.open();manager.load_source(owner['scriptUrl'])
             manager.wait_rows(lambda rows:any(row['url']==owner['scriptUrl'] for row in rows));manager.close_tablet()
         elif verb=='close':self.close_source(owner)
@@ -176,7 +210,7 @@ class PhoneWorldWebFeature:
         else:need(False)
 
     def act(self,value):
-        need(self.role=='primary');call=deepcopy(arguments('feature.world-web.act',value))
+        need(self.role=='primary');call=deepcopy(arguments('feature.'+self.area+'.act',value))
         need(call['runId']==self.run and call['fixtureUrl']==self.fixture_url)
         self.prepare()
         with self.serialized(),self.adapter.existing_input_session(self.selector):
@@ -199,20 +233,20 @@ class PhoneWorldWebFeature:
         need(integer(value['sequence'],0,1000000000) and type(value['images']) is list and len(value['images'])<=256)
         if value['native'] is not None:
             owner=self.owner();need(owner is not None)
-            packet=value['native'];request=dict(schemaVersion=1,commandId=packet['commandId'],action='phone-world-web',runId=self.run,
+            packet=value['native'];request=dict(schemaVersion=1,commandId=packet['commandId'],action=self.action,runId=self.run,
                 fixtureUrl=self.fixture_url,ownerToken=owner['ownerToken'],operation='observe')
             validate_source(packet,request,int(owner['binding']['processIdentity'].split(':')[0]),packet['capturedEpochMs'])
         if value['browser'] is not None:browser_status(value['browser'])
         self.verify_images(value,self.role)
-        if value['last'] is not None:result('feature.world-web.observe',value['last'])
+        if value['last'] is not None:result('feature.'+self.area+'.observe',value['last'])
         return value
 
     def verify_images(self,value,role):
         image_started=self.monotonic()
         for image in value['images']:
             exact(image,{'name','phase','device','inode','sha256','bytes'})
-            name=image['name'];need(type(name) is str and name.startswith('world-web-'+self.run+'-'+role+'-')
-                and name.endswith('.png') and len(name)==len('world-web-'+self.run+'-'+role+'-')+36
+            name=image['name'];need(type(name) is str and name.startswith(self.area+'-'+self.run+'-'+role+'-')
+                and name.endswith('.png') and len(name)==len(self.area+'-'+self.run+'-'+role+'-')+36
                 and '/' not in name and '\\' not in name and image['phase'] in ('planned','opened','saved'))
             identifier(name[-36:-4])
             if image['phase']=='planned':need(all(image[key] is None for key in ('device','inode','sha256','bytes')))
@@ -236,7 +270,7 @@ class PhoneWorldWebFeature:
         binding,guard=self.runtime(owner)
         client,session,_state=self.adapter.existing_session(self.selector)
         from urllib.parse import quote
-        name='world-web-'+self.run+'-'+role+'-'+uuid.uuid4().hex+'.png';path=self.artifact_root/name
+        name=self.area+'-'+self.run+'-'+role+'-'+uuid.uuid4().hex+'.png';path=self.artifact_root/name
         image=dict(name=name,phase='planned',device=None,inode=None,sha256=None,bytes=None)
         state['images'].append(image);self.write(self.role_store,self.role,state)
         capture_start=self.adapter._world_web_clock(self.selector)
@@ -271,7 +305,7 @@ class PhoneWorldWebFeature:
         status=browser_status(self.source.client.request('/runs/'+self.run+'/browser'),state['browser'])
         _ui,observe,_binding,guard,_installed=self.adapter.normal_feature_runtime(self.selector,read_only=True)
         diagnostic,_diagnostic_epoch=observe(0);rows=diagnostic['scripts']
-        measured,resources=measurement(self.run,self.fixture_url,self.foreign_url,native,status,runtime,rows,owner['scriptUrl'])
+        measured,resources=measurement(self.run,self.fixture_url,self.foreign_url,native,status,runtime,rows,owner['scriptUrl'],area=self.area)
         artifacts=[];sequence=state['sequence']+1
         if measured['open'] and self.role=='primary':
             need(len(state['images'])<256)
@@ -284,11 +318,11 @@ class PhoneWorldWebFeature:
         need(self.monotonic()-start<10 and self.source.epoch_ms()-phase['afterEpochMs']>=0)
         if state['lifecycle'] is not None:need(all(after['lifecycle'][k]>=v for k,v in state['lifecycle'].items()))
         captured=after['capturedEpochMs']
-        value=result('feature.world-web.observe',dict(schemaVersion=1,contractVersion=CONTRACT_VERSION,runId=self.run,sequence=sequence,
+        value=result('feature.'+self.area+'.observe',dict(schemaVersion=1,contractVersion=CONTRACT_VERSION,runId=self.run,sequence=sequence,
             capturedEpochMs=captured,state=measured,artifacts=artifacts,resources=resources,lifecycle=after['lifecycle']))
         end=self.source.read();need(end['ticket']==phase['ticket'] and end['verb']==phase['verb'] and same(end['inputs'],phase['inputs']))
         state.update(sequence=sequence,native=native,browser=status,lifecycle=after['lifecycle'],last=value)
-        if measured==dict(surface='world',text='',page='none',bridgeMessages=0,bridgeEchoes=0,attemptedMessages=0,documentLoads=0,
+        if measured==dict(surface=self.surface,text='',page='none',bridgeMessages=0,bridgeEchoes=0,attemptedMessages=0,documentLoads=0,
                 httpStatus=0,origin='none',documentKind='none',inlineLeases=0,deferredMessages=0,error='none',focused=False,open=False) and not resources and native['source']['retired']:
             quiet=state['quiet'];now=self.monotonic()
             if quiet is None:quiet=dict(start=now,latest=now,count=0,complete=False)
@@ -299,7 +333,7 @@ class PhoneWorldWebFeature:
         return value
 
     def observe(self,value):
-        call=arguments('feature.world-web.observe',value);need(self.role=='primary' and call['runId']==self.run)
+        call=arguments('feature.'+self.area+'.observe',value);need(self.role=='primary' and call['runId']==self.run)
         self.prepare()
         with self.serialized(),self.adapter.existing_input_session(self.selector):
             owner=self.owner();phase=self.phase(owner);state=self.role_state()
@@ -316,18 +350,18 @@ class PhoneWorldWebFeature:
                 state.update(native=native,retired=retired.status);self.write(self.role_store,self.role,state);raise
             value=self.acquire(owner,phase,state)
             self.source.client.request('/runs/'+self.run+'/samples',dict(ticket=phase['ticket'],actor='owned-observer',actorSequence=value['sequence'],
-                capturedEpochMs=value['capturedEpochMs'],facts=projection('world-web',value['state'])))
+                capturedEpochMs=value['capturedEpochMs'],facts=projection(self.area,value['state'])))
             return value
 
     def close_source(self,owner):
-        if self.adapter.world_web_manager_store(self.selector).read() is None:return
-        manager=self.adapter._world_web_manager(self.selector)
+        if self.manager_store().read() is None:return
+        manager=self.manager()
         if manager.state['loadAttempted']:
             manager.open();manager.stop_source(owner['scriptUrl'])
         manager.close()
 
     def cleanup(self,value):
-        call=arguments('feature.world-web.cleanup',value);need(self.role=='primary' and call['runId']==self.run)
+        call=arguments('feature.'+self.area+'.cleanup',value);need(self.role=='primary' and call['runId']==self.run)
         with self.serialized(),self.adapter.existing_input_session(self.selector):
             owner=self.owner()
             if owner is None:return {'performed':True} # No reserved scope or product input was ever issued.
@@ -340,11 +374,17 @@ class PhoneWorldWebFeature:
                 native=self.sample_native(owner)
                 runtime=self.adapter._web_runtime_observer(self.selector,read_only=True).read(self.run,self.fixture_url)
                 need(not native['source']['current'])
-                if runtime['source']['nativeAfter']['knownHandles']:released(runtime)
+                if runtime['source']['nativeAfter']['knownHandles']:self.check_released(runtime)
                 else:need(not runtime['source']['nativeAfter']['views'] and not runtime['source']['java']['views'] and not runtime['source']['java']['creations'])
                 now=self.monotonic();need(number(now,previous,start+20));previous=now
                 if stable is None:stable=now
-                owner['cleanupProof'].append(dict(native=native,runtime=runtime));self.save(owner)
+                proof=dict(native=native,runtime=runtime)
+                # Keep the first two and latest original snapshots. Repeating
+                # immutable inline HTML in every poll would exhaust the same
+                # private journal bound without adding ownership evidence.
+                if len(owner['cleanupProof'])<3:owner['cleanupProof'].append(proof)
+                else:owner['cleanupProof'][-1]=proof
+                self.save(owner)
                 if now-stable>=3 and len(owner['cleanupProof'])>=3:break
                 need(attempt<80 and len(owner['cleanupProof'])<64);self.sleep(.1)
             receipt=self.io(owner,read_only=False).request(self.run,self.fixture_url,owner['ownerToken'],'retire');need(receipt['source']=={'retired':True})
@@ -358,7 +398,7 @@ class PhoneWorldWebFeature:
         for attempt in range(81):
             native=self.sample_native(original);need(native['source']['retired'] and not native['source']['current'])
             runtime=self.adapter._web_runtime_observer(self.selector,read_only=True).read(self.run,self.fixture_url)
-            if runtime['source']['nativeAfter']['knownHandles']:released(runtime)
+            if runtime['source']['nativeAfter']['knownHandles']:self.check_released(runtime)
             else:need(not runtime['source']['nativeAfter']['views'] and not runtime['source']['java']['views'] and not runtime['source']['java']['creations'])
             _ui,observe,_binding,guard,_installed=self.adapter.normal_feature_runtime(self.selector,read_only=True)
             diagnostic,_epoch=observe(0);url=original['scriptUrl']
@@ -377,14 +417,14 @@ class PhoneWorldWebFeature:
                 plan=self.read(self.retirement_store,'retirement')
                 completed=self.read(self.completed_store,'completed')
                 if plan is None and self.store.read() is None:
-                    need(completed is not None and all(PrivateFeatureState(self.store.path.with_name('phone-world-web-'+role+'.json')).read() is None
-                        for role in ('primary','actor')) and self.adapter.world_web_manager_store(self.selector).read() is None)
+                    need(completed is not None and all(PrivateFeatureState(self.store.path.with_name('phone-'+self.area+'-'+role+'.json')).read() is None
+                        for role in ('primary','actor')) and self.manager_store().read() is None)
                     for role in ('primary','actor'):self.verify_images(unpack(completed[role]['payload'])[0],role)
                     self.verify_retirement(completed);return {'performed':True}
                 if plan is None:
-                    owner=self.owner();need(owner is not None and owner['phase']=='cleaned' and self.adapter.world_web_manager_store(self.selector).read() is None)
+                    owner=self.owner();need(owner is not None and owner['phase']=='cleaned' and self.manager_store().read() is None)
                     status=self.source.status();need(status['active'] is False)
-                    actor_store=PrivateFeatureState(self.store.path.with_name('phone-world-web-actor.json'))
+                    actor_store=PrivateFeatureState(self.store.path.with_name('phone-'+self.area+'-actor.json'))
                     actor=self.read(actor_store,'actor')
                     if actor is not None and actor['retired'] is not None:
                         need(actor['quiet'] is not None and actor['quiet']['complete'])
@@ -402,7 +442,7 @@ class PhoneWorldWebFeature:
                     if completed is None:self.write(self.completed_store,'completed',plan)
                     else:need(same(completed,plan))
                     self.runtime(dict(binding=plan['binding']))
-                    for name,key in (('phone-world-web-actor.json','actor'),('phone-world-web-primary.json','primary'),('phone-world-web-feature.json','owner')):
+                    for name,key in (('phone-'+self.area+'-actor.json','actor'),('phone-'+self.area+'-primary.json','primary'),('phone-'+self.area+'-feature.json','owner')):
                         store=PrivateFeatureState(self.store.path.with_name(name));current=store.read();need(current is None or same(current,plan[key]))
                         if current is not None:store.discard(current)
                         need(store.read() is None)

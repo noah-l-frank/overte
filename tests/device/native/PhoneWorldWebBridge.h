@@ -7,15 +7,17 @@
 namespace overte::e2e {
 inline bool phoneWorldWebCommand(const QVariantMap& input) {
     const auto object=QJsonObject::fromVariantMap(input);
+    const bool tablet=object.value("action")==QJsonValue("phone-tablet-web");
     const bool reference=object.value("action")==QJsonValue("phone-web-reference");
     const auto operation=object.value("operation").toString();
     QSet<QString> keys{"schemaVersion","commandId","action","runId","fixtureUrl","operation","ownerToken"};
     if (reference) { keys.insert("surface"); }
     if (operation=="input") { keys.unite({"handle","creation","grant","page","control","text"}); }
     const auto actual=object.keys();
-    if (QSet<QString>(actual.begin(),actual.end())!=keys || (object.value("action")!=QJsonValue("phone-world-web") && !reference)
+    if (QSet<QString>(actual.begin(),actual.end())!=keys || (object.value("action")!=QJsonValue("phone-world-web") && !reference && !tablet)
             || !QRegularExpression("\\A[0-9a-f]{32}\\z").match(object.value("ownerToken").toString()).hasMatch()
-            || !QStringList{"reserve","observe","input","retire"}.contains(operation)) { return false; }
+            || !QStringList{"reserve","observe","input","retire","arm-held","deliver-held","cancel-held"}.contains(operation)) { return false; }
+    if (!tablet && QStringList{"arm-held","deliver-held","cancel-held"}.contains(operation)) { return false; }
     if (reference && !QStringList{"world","tablet"}.contains(object.value("surface").toString())) { return false; }
     auto base=input;base.remove("surface");
     for (const auto& key:QStringList{"operation","ownerToken","handle","creation","grant","page","control","text"}) { base.remove(key); }
@@ -26,6 +28,7 @@ inline bool phoneWorldWebCommand(const QVariantMap& input) {
             || !QStringList{"text","bridge","reference","second","recovery","back","reload","foreign","navigate","play","pause","seekStart","seek"}.contains(object.value("control").toString())
             || !object.value("text").isString() || object.value("text").toString().size()>512) { return false; }
     if (reference && !QStringList{"play","pause","seekStart","seek"}.contains(object.value("control").toString())) { return false; }
+    if (!reference && QStringList{"play","pause","seekStart","seek"}.contains(object.value("control").toString())) { return false; }
     for (const auto& key:QStringList{"creation","grant","page"}) {
         const auto number=object.value(key).toDouble(-1);
         if (!object.value(key).isDouble() || !std::isfinite(number) || number<1 || number>9007199254740991.0 || number!=quint64(number)) { return false; }
@@ -33,6 +36,10 @@ inline bool phoneWorldWebCommand(const QVariantMap& input) {
     if (!QStringList{"text","foreign"}.contains(object.value("control").toString()) && !object.value("text").toString().isEmpty()) { return false; }
     if (object.value("text").toString().contains(QRegularExpression("[\\x00-\\x1f\\x7f]"))) { return false; }
     return true;
+}
+inline bool phoneTabletDOMCommand(const QVariantMap& input) {
+    if (input.value("action")!="feature-phone-tablet-dom-observe" || input.value("surface")!="tablet") { return false; }
+    auto original=input;original.insert("action","feature-web-dom-observe");return webDOMCommand(original);
 }
 inline const char* phoneWorldWebProperty() { return "_overteE2EPhoneWorldWebProviderV1"; }
 }

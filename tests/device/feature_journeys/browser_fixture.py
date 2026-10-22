@@ -8,6 +8,7 @@ whether native bridge authority was enforced. Product sources remain mandatory.
 from copy import deepcopy
 import base64
 import hashlib
+import json
 from pathlib import Path
 import secrets
 import threading
@@ -16,7 +17,7 @@ from .contract import exact, identifier
 from .fixtures import pinned_resource
 
 ROOT = Path(__file__).resolve().parents[1] / 'fixture/parity'
-ASSETS = {'reference.js', 'client.js', 'injected.js', 'feature-marker.js'}
+ASSETS = {'reference.js', 'client.js', 'injected.js', 'feature-marker.js','inline-input.json'}
 PAGES = {'index.html', 'reference.html', 'page-b.html', 'recovery.html'}
 
 
@@ -41,6 +42,7 @@ def inline_source(run,ticket,fixture_url):
     # The only inline image checkpoint is initial open. Later text/bridge/retire
     # checkpoints use independent sources, not a stale image challenge relabel.
     marker=base64.b64encode(marker_bytes(run,ticket)).decode('ascii')
+    page=page.replace('</head>','<style>body{padding-top:25vw}#feature-marker{position:fixed;left:0;top:0;width:100vw;height:25vw;image-rendering:pixelated;z-index:2147483646;pointer-events:none}</style></head>')
     page=page.replace('<body>','<body><img id="feature-marker" alt="Owned challenge" src="data:image/png;base64,'+marker+'">')
     return page.encode('utf-8')
 
@@ -54,11 +56,12 @@ class BrowserResources:
         if not callable(clock_ms): raise ValueError('Browser fixture clock is required')
         self.clock_ms, self.lock, self.runs = clock_ms, threading.RLock(), {}
 
-    def open(self, run):
+    def open(self, run, *, area="world-web"):
         identifier(run)
+        if area not in ('world-web','tablet-web'):raise ValueError('Unknown browser fixture area')
         with self.lock:
             if run in self.runs or len(self.runs) >= 32: raise ValueError('Browser fixture ownership already exists or is full')
-            self.runs[run] = dict(instance=secrets.token_hex(16), ready=False, sequence=0, epoch=0, responses=[])
+            self.runs[run] = dict(area=area, instance=secrets.token_hex(16), ready=False, sequence=0, epoch=0, responses=[])
 
     def control(self, run, value):
         exact(value, {'operation'}, 'browser fixture control')
@@ -83,7 +86,14 @@ class BrowserResources:
                 raise ValueError('Browser fixture clock is unavailable or regressed')
             response = secrets.token_hex(16)
             status = 404 if name == 'recovery.html' and not row['ready'] else 200
-            if name == 'feature-marker.js':
+            if name == 'inline-input.json':
+                page=inline_source(run,ticket,'http://input.invalid/feature-fixture/v1/runs/'+run+'/')
+                page=page.replace(b'</head>',('<meta name="overte-fixture-inline-input" content="'+response+'"></head>').encode())
+                data='data:text/html;charset=utf-8;base64,'+base64.b64encode(page).decode('ascii')
+                body=json.dumps(dict(dataUrl=data),separators=(',',':')).encode();content_type='application/json'
+            elif name=='client.js' and row['area']=='tablet-web':
+                body=(ROOT/'tablet-feature-client.js').read_bytes();content_type='application/javascript'
+            elif name == 'feature-marker.js':
                 path = '/feature-fixture/v1/runs/' + run
                 body = ('(function(){let busy=false;async function refresh(){if(busy)return;busy=true;try{'
                     'let r=await fetch("' + path + '/current",{cache:"no-store"});if(!r.ok)return;let v=await r.json();'

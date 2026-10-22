@@ -483,7 +483,13 @@ public final class EmbeddedWebView {
 
     // Closed E2E read only. No caller-controlled JavaScript, DOM selector or
     // expected result reaches the WebView through this entrypoint.
-    public static void featureRead(long handle, long grant, long page, String requestId) {
+    public static void featureRead(long handle,long grant,long page,String requestId) {
+        featureReadDocument(handle,grant,page,requestId,false);
+    }
+    public static void featureTabletRead(long handle,long grant,long page,String requestId) {
+        featureReadDocument(handle,grant,page,requestId,true);
+    }
+    private static void featureReadDocument(long handle, long grant, long page, String requestId,boolean tablet) {
         if (!nativeFeatureEnabled() || requestId == null || requestId.length() > 36
                 || !requestId.matches("(?:ios-)?[0-9a-f]{32}")) return;
         post(handle, instance -> {
@@ -495,6 +501,8 @@ public final class EmbeddedWebView {
                     || !nativeEditorAllowed(handle, grant, page, document)) return;
             String script = "window.__overteFeatureWebDOM?JSON.stringify(window.__overteFeatureWebDOM.read("
                 + JSONObject.quote(requestId) + ")):null";
+            if (tablet) script="(function(){if(!window.__overteFeatureWebDOM)return null;let v=window.__overteFeatureWebDOM.read("
+                +JSONObject.quote(requestId)+");v.document.title=document.title;return JSON.stringify(v);})()";
             instance.view.evaluateJavascript(script, result -> {
                 if (VIEWS.get(handle) != instance || instance.destroyedDocument || !instance.active
                         || host.get() != owner || owner.activity() != instance.activity || !owner.isForeground()

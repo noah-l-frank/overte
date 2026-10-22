@@ -101,3 +101,8 @@ native construction, and cleanup after tier invalidation.
 ```sh
 PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s android/phone/tests/device -p test_installed_identity.py
 ```
+
+The complete default-off tablet-browser composition, normal tablet foundation,
+original inline leases and mandatory reference-video operations are documented
+in [TABLET_WEB_FEATURE.md](TABLET_WEB_FEATURE.md). Source/host completion does
+not qualify a device or change the common acceptance count.
