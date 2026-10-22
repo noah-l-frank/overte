@@ -159,7 +159,21 @@ target refusal, finite coordinates and depth/4096-node bounds remain enforced.
 The real QML Properties search independently reproduces the previous refusal;
 an owned temporary header with the old containment assumption must fail exactly
 at that original field. Positive original-pointer/TextArea/Apply observations
-and clip/hidden/disabled/overlay/traversal counterexamples execute. Product QML
+and clip/hidden/disabled/overlay/traversal counterexamples execute.
+
+Negative-z children are evaluated behind the parent. If its geometry contains
+the point, unknown parent transparency conservatively prevents selecting an
+underlying child. Children outside a non-clipping parent can still occlude the
+actual target. Real QML Rectangles verify both orders with actual Qt software
+pixels and the same original QObject hit tree: an opaque red parent covers its
+negative green child; a higher blue foreign child paints outside its parent and
+blocks the green target until the actual parent clips it. Disabled foreign paint
+remains visible and blocks; hidden foreign paint does not. Qt5 uses an actual
+QQuickRenderControl software frame for these geometry counterexamples because
+the independent visible host-input window does not provide grabWindow pixels
+in this prepared environment. This is no Pico/world/stereo image claim. A
+second owned-header mutant restores the incorrect child-before-parent order
+and must fail at that exact original opaque-parent hit assertion. Product QML
 and input dispatch are unchanged.
 
 `create-entities-native` compiles the real production getter with substituted

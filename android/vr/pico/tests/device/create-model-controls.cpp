@@ -3,11 +3,52 @@
 #include "tests/device/native/NormalScriptControls.h"
 #include "tests/device/native/NormalControlUi.h"
 #include <QGuiApplication>
+#include <QQuickRenderControl>
 #include <QQmlComponent>
 #include <QQmlEngine>
 #include <QSignalSpy>
 #include <QtTest/QTest>
 #include <cassert>
+
+void paintCounterexamples(QQmlEngine& engine) {
+#if QT_VERSION < QT_VERSION_CHECK(6,0,0)
+    QQuickRenderControl renderer;QQuickWindow window(&renderer);window.resize(160,160);renderer.initialize(nullptr);
+    auto image=[&] { renderer.polishItems();renderer.sync();renderer.render();return renderer.grab(); };
+#else
+    QQuickWindow window;window.resize(160,160);window.show();
+    auto image=[&] { window.update();QTest::qWait(80);return window.grabWindow(); };
+#endif
+    auto load=[&](const QByteArray& qml) {
+        QQmlComponent component(&engine);component.setData(qml,QUrl("qrc:/create-hit-paint-fixture.qml"));
+        auto root=qobject_cast<QQuickItem*>(component.create());assert(root);root->setParentItem(window.contentItem());QTest::qWait(30);return root;
+    };
+    auto root=load("import QtQuick 2.7; Rectangle {x:20;y:20;width:80;height:80;color:'#e01020';"
+        " Rectangle {objectName:'Behind';z:-1;x:10;y:10;width:40;height:40;color:'#10e020'} }");
+    auto behind=root->findChild<QQuickItem*>("Behind");assert(behind);
+    const auto point=behind->mapToScene(QPointF(20,20));auto pixels=image();assert(!pixels.isNull());
+    assert(pixels.pixelColor(point.toPoint()).rgb()==QColor("#e01020").rgb());
+    assert(!overte::e2e::NormalControlUi::ownsPoint(behind,&window,point));delete root;
+    root=load("import QtQuick 2.7; Item {width:160;height:160;"
+        " Rectangle {objectName:'Target';x:20;y:20;width:40;height:40;color:'#10e020'}"
+        " Rectangle {objectName:'Foreign';z:100;width:5;height:5;color:'transparent';"
+        " Rectangle {objectName:'Outside';z:10;x:20;y:20;width:40;height:40;color:'#1050e0'} } }");
+    auto target=root->findChild<QQuickItem*>("Target"),foreign=root->findChild<QQuickItem*>("Foreign");assert(target&&foreign);
+    const auto center=target->mapToScene(QPointF(20,20));pixels=image();assert(!pixels.isNull());
+    assert(pixels.pixelColor(center.toPoint()).rgb()==QColor("#1050e0").rgb());
+    assert(!overte::e2e::NormalControlUi::ownsPoint(target,&window,center));
+    foreign->setEnabled(false);pixels=image();assert(!pixels.isNull());
+    assert(pixels.pixelColor(center.toPoint()).rgb()==QColor("#1050e0").rgb());
+    assert(!overte::e2e::NormalControlUi::ownsPoint(target,&window,center));
+    foreign->setVisible(false);pixels=image();assert(!pixels.isNull());
+    assert(pixels.pixelColor(center.toPoint()).rgb()==QColor("#10e020").rgb());
+    assert(overte::e2e::NormalControlUi::ownsPoint(target,&window,center));
+    foreign->setVisible(true);foreign->setEnabled(true);foreign->setClip(true);pixels=image();assert(!pixels.isNull());
+    assert(pixels.pixelColor(center.toPoint()).rgb()==QColor("#10e020").rgb());
+    assert(overte::e2e::NormalControlUi::ownsPoint(target,&window,center));delete root;
+#if QT_VERSION < QT_VERSION_CHECK(6,0,0)
+    renderer.invalidate();
+#endif
+}
 
 int main(int argc,char** argv) {
     QGuiApplication app(argc,argv);
@@ -75,6 +116,9 @@ int main(int argc,char** argv) {
     assert(createControlId(search)=="create.filter");
     const auto center=search->mapToScene(QPointF(search->width()/2,search->height()/2));
     assert(NormalControlUi::ownsPoint(search,&window,center));
+    // Real Qt software paint and hit order are checked in a controlled host
+    // window below, independent of platform grabWindow availability on Qt5.
+    paintCounterexamples(engine);
     // A genuinely higher visible foreign item blocks the actual original field,
     // including when disabled; hidden children cannot supply false occlusion.
     auto foreign=new QQuickItem(window.contentItem());foreign->setZ(1000);foreign->setPosition(center-QPointF(20,20));foreign->setSize(QSizeF(40,40));
