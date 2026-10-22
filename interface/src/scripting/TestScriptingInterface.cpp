@@ -80,6 +80,7 @@
 #include "../../../tests/device/native/IOSAvatarRenderersObservation.h"
 #include "../../../tests/device/native/IOSAvatarScriptsObservation.h"
 #include "../../../tests/device/native/IOSAvatarEntitiesObservation.h"
+#include "../../../tests/device/native/IOSCreateEntitiesObservation.h"
 #include "../../../tests/device/native/IOSEmoteWorldObservation.h"
 #include "../../../tests/device/native/IOSAvatarWorldObservation.h"
 #include "../../../tests/device/native/IOSScriptDialogObservation.h"
@@ -738,6 +739,29 @@ QVariantMap TestScriptingInterface::featureIOSAvatarEntities(const QVariantMap& 
             || !QRegularExpression("\\A[0-9a-f]{32}\\z").match(run).hasMatch() ) { return {}; }
     if (!_featureIOSAvatarEntities) { _featureIOSAvatarEntities=std::make_shared<overte::e2e::IOSAvatarEntitiesObservation>(); }
     return _featureIOSAvatarEntities->read(request,run);
+}
+
+QVariantMap TestScriptingInterface::featureIOSCreateEntities(const QVariantMap& command) {
+    if (QThread::currentThread()!=thread()) {
+        if (!thread() || !thread()->isRunning()) { return {}; }
+        QVariantMap result;
+        if (!QMetaObject::invokeMethod(this,[&] { result=featureIOSCreateEntities(command); },Qt::BlockingQueuedConnection)) { return {}; }
+        return result;
+    }
+    QStringList fields {"schemaVersion","commandId","action","runId"};fields.sort();
+    const auto json=QJsonObject::fromVariantMap(command);
+    const auto request=command.value("commandId").toString(),run=command.value("runId").toString();
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript") || command.keys()!=fields
+            || json.value("schemaVersion")!=QJsonValue(1) || json.value("action")!=QJsonValue("feature-ios-create-entities")
+            || !json.value("commandId").isString() || !json.value("runId").isString()
+            || !QRegularExpression("\\Aios-[0-9a-f]{32}\\z").match(request).hasMatch()
+            || !QRegularExpression("\\A[0-9a-f]{32}\\z").match(run).hasMatch() ) { return {}; }
+    if (!DependencyManager::isSet<EntityScriptingInterface>()) { return {}; }
+    const auto entities=DependencyManager::get<EntityScriptingInterface>();
+    if (!entities || !entities->getEntityTree()) { return {}; }
+    if (!_featureIOSCreateEntities) { _featureIOSCreateEntities=std::make_shared<overte::e2e::IOSCreateEntitiesObservation>(); }
+    return _featureIOSCreateEntities->read(request,run,entities.data());
 }
 
 void TestScriptingInterface::featureIOSCreateEvent(const QVariantMap& value) {
@@ -2169,7 +2193,7 @@ void TestScriptingInterface::saveObject(QVariant variant, const QString& filenam
             || filename == "feature-process-presence.json" || filename == "feature-graphics-subject.json" || filename == "feature-scene-load.json" || filename == "feature-completed-frame.json" || filename == "feature-vulkan-world-frame.json"
             || filename == "recorded-preview-observation.json" || filename == "feature-script-observation.json"
             || filename == "feature-avatar-receive.json" || filename == "feature-script-roots.json" || filename == "feature-script-terminal.json" || filename == "feature-script-work.json"
-            || filename == "feature-ios-script-dialogs.json" || filename == "feature-ios-emote-world.json" || filename == "feature-ios-avatar-world.json" || filename == "feature-ios-avatar-social-http.json" || filename == "feature-ios-avatar-state.json" || filename == "feature-ios-avatar-renderers.json" || filename == "feature-ios-avatar-scripts.json" || filename == "feature-ios-avatar-entities.json"
+            || filename == "feature-ios-script-dialogs.json" || filename == "feature-ios-emote-world.json" || filename == "feature-ios-avatar-world.json" || filename == "feature-ios-avatar-social-http.json" || filename == "feature-ios-avatar-state.json" || filename == "feature-ios-avatar-renderers.json" || filename == "feature-ios-avatar-scripts.json" || filename == "feature-ios-avatar-entities.json" || filename == "feature-ios-create-entities.json"
             || filename == "feature-ios-people-model.json" || filename == "feature-ios-create-work.json" || filename == "feature-ios-create-state.json" || filename == "feature-ios-create-files.json"
             || filename == "feature-script-files.json" || filename == "world-render-observation.json"
             || filename == "world-render-receipt-result.json"

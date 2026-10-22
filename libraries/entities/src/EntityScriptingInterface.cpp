@@ -14,6 +14,7 @@
 #include "EntityScriptingInterface.h"
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
 #include <AvatarEntityObservation.h>
+#include <CreateEntityObservation.h>
 #endif
 
 #include <glm/gtc/matrix_transform.hpp>
@@ -692,6 +693,11 @@ QUuid EntityScriptingInterface::addEntityInternal(const EntityItemProperties& pr
         qCDebug(entities) << "Ignoring addEntity() because don't have canRezAvatarEntities permission on domain";
         // Only need to intercept methods that may add an avatar entity because avatar entities are removed from the tree when
         // the user doesn't have canRezAvatarEntities permission.
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+        if (QCoreApplication::arguments().contains("--testScript")) {
+            overte::e2e::CreateEntityObservation::instance().returned("add-returned",QUuid(),bool(_entityTree),ScriptManager::featureNativeCallContext());
+        }
+#endif
         return QUuid();
     }
 
@@ -734,8 +740,18 @@ QUuid EntityScriptingInterface::addEntityInternal(const EntityItemProperties& pr
                 ScriptManager::featureNativeCallContext());
         }
 #endif
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+        if (QCoreApplication::arguments().contains("--testScript")) {
+            overte::e2e::CreateEntityObservation::instance().returned("add-returned",id,bool(_entityTree),ScriptManager::featureNativeCallContext());
+        }
+#endif
         return id;
     } else {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+        if (QCoreApplication::arguments().contains("--testScript")) {
+            overte::e2e::CreateEntityObservation::instance().returned("add-returned",QUuid(),bool(_entityTree),ScriptManager::featureNativeCallContext());
+        }
+#endif
         return QUuid();
     }
 }
@@ -1260,6 +1276,11 @@ void EntityScriptingInterface::deleteEntity(const QUuid& id) {
     _activityTracking.deletedEntityCount++;
 
     if (!_entityTree) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+        if (QCoreApplication::arguments().contains("--testScript")) {
+            overte::e2e::CreateEntityObservation::instance().returned("delete-returned",id,false,ScriptManager::featureNativeCallContext());
+        }
+#endif
         return;
     }
 
@@ -1307,6 +1328,11 @@ void EntityScriptingInterface::deleteEntity(const QUuid& id) {
 #endif
         }
     }
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    if (QCoreApplication::arguments().contains("--testScript")) {
+        overte::e2e::CreateEntityObservation::instance().returned("delete-returned",id,true,ScriptManager::featureNativeCallContext());
+    }
+#endif
 }
 
 QString EntityScriptingInterface::getEntityType(const QUuid& entityID) {

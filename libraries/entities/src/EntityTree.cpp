@@ -55,6 +55,9 @@ static const QString DOMAIN_UNLIMITED = "domainUnlimited";
 EntityTree::EntityTree(bool shouldReaverage) :
     Octree(shouldReaverage)
 {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    if (_featureInventoryEnabled) { _featureLifeClock.start();_featureLifeBornEpoch=QDateTime::currentMSecsSinceEpoch(); }
+#endif
     resetClientEditStats();
 }
 
@@ -117,6 +120,11 @@ void EntityTree::eraseDomainAndNonOwnedEntities() {
         }
         _entityMap.swap(savedEntities);
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+        // The actual swap has finished. Use only its retained original map
+        // operands, never IDs supplied by an observation request.
+        for (auto it=savedEntities.constBegin();it!=savedEntities.constEnd();++it) {
+            if (!_entityMap.contains(it.key())) { featureEntityRemoved(it.key(),std::weak_ptr<EntityItem>(it.value())); }
+        }
         featureInventoryChanged();
 #endif
     });
@@ -2224,6 +2232,7 @@ void EntityTree::addEntityMapEntry(EntityItemPointer entity) {
     }
     _entityMap.insert(id, entity);
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    featureEntityInserted(id,entity);
     featureInventoryChanged();
 #endif
 }
@@ -2231,15 +2240,82 @@ void EntityTree::addEntityMapEntry(EntityItemPointer entity) {
 void EntityTree::clearEntityMapEntry(const EntityItemID& id) {
     QWriteLocker locker(&_entityMapLock);
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
-    const bool featureHadEntity=_entityMap.contains(id);
+    const auto featureActual=_entityMap.constFind(id);
+    const bool featureHadEntity=featureActual!=_entityMap.constEnd();
+    // Converting the existing map's reference to weak_ptr creates no retained
+    // strong reference and reads no EntityItem property.
+    const std::weak_ptr<EntityItem> featureWeak=featureHadEntity ? std::weak_ptr<EntityItem>(featureActual.value()) : std::weak_ptr<EntityItem>();
 #endif
     _entityMap.remove(id);
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
-    if (featureHadEntity) { featureInventoryChanged(); }
+    if (featureHadEntity) { featureEntityRemoved(id,featureWeak);featureInventoryChanged(); }
 #endif
 }
 
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+void EntityTree::featureEntityInserted(const EntityItemID& id,const EntityItemPointer& entity) {
+    if (!_featureInventoryEnabled) { return; }
+    QMutexLocker lock(&_featureLifeMutex);
+    const auto epoch=QDateTime::currentMSecsSinceEpoch(),elapsed=_featureLifeClock.elapsed();
+    if (!_featureLifeComplete || !entity || id.isNull() || !_featureLifeClock.isValid() || _featureLifeBornEpoch<=0
+            || _featureLifeEntries.size()>=512 || _featureLifeEvents.size()>=1024 || epoch<_featureLifeEpoch || elapsed<_featureLifeElapsed) {
+        _featureLifeComplete=false;return;
+    }
+    for (const auto& previous:_featureLifeEntries) {
+        if (previous.id==id && previous.removed==0) { _featureLifeComplete=false;return; }
+    }
+    FeatureEntityLife row;row.id=id;row.entity=entity;row.birth=QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-');
+    row.inserted=++_featureLifeSequence;row.bornEpoch=epoch;row.bornElapsed=elapsed;
+    _featureLifeEntries.append(row);_featureLifeEpoch=epoch;_featureLifeElapsed=elapsed;
+    _featureLifeEvents.append(QVariantMap{{"sequence",static_cast<qulonglong>(row.inserted)},{"kind","inserted"},{"id",id.toString(QUuid::WithoutBraces)},
+        {"birth",row.birth},{"epochMs",epoch},{"monotonicMs",elapsed}});
+}
+
+void EntityTree::featureEntityRemoved(const EntityItemID& id,const std::weak_ptr<EntityItem>& entity) {
+    if (!_featureInventoryEnabled) { return; }
+    QMutexLocker lock(&_featureLifeMutex);
+    const auto epoch=QDateTime::currentMSecsSinceEpoch(),elapsed=_featureLifeClock.elapsed();
+    if (!_featureLifeComplete || !_featureLifeClock.isValid() || _featureLifeEvents.size()>=1024
+            || epoch<_featureLifeEpoch || elapsed<_featureLifeElapsed) { _featureLifeComplete=false;return; }
+    for (auto& row:_featureLifeEntries) {
+        // owner_before compares the actual shared ownership block without
+        // promoting either weak pointer or accessing the product object.
+        if (row.id==id && row.removed==0 && !row.entity.owner_before(entity) && !entity.owner_before(row.entity)) {
+            row.removed=++_featureLifeSequence;row.removedEpoch=epoch;row.removedElapsed=elapsed;
+            _featureLifeEpoch=epoch;_featureLifeElapsed=elapsed;
+            _featureLifeEvents.append(QVariantMap{{"sequence",static_cast<qulonglong>(row.removed)},{"kind","removed"},{"id",id.toString(QUuid::WithoutBraces)},
+                {"birth",row.birth},{"epochMs",epoch},{"monotonicMs",elapsed}});return;
+        }
+    }
+    _featureLifeComplete=false;
+}
+
+QVariantMap EntityTree::featureEntityLifetimes() {
+    if (!_featureInventoryEnabled || !QCoreApplication::instance()
+            || QThread::currentThread()!=QCoreApplication::instance()->thread()) { return {}; }
+    QVariantMap result;
+    withReadLock([&] {
+        // Match the existing Tree -> map -> passive ledger lock order.
+        QReadLocker mapLock(&_entityMapLock);QMutexLocker lifeLock(&_featureLifeMutex);
+        const auto epoch=QDateTime::currentMSecsSinceEpoch(),elapsed=_featureLifeClock.elapsed();QVariantList rows;
+        if (!_featureLifeClock.isValid() || epoch<_featureLifeEpoch || elapsed<_featureLifeElapsed) { _featureLifeComplete=false; }
+        for (auto& row:_featureLifeEntries) {
+            const bool destroyed=row.entity.expired();
+            if (destroyed && row.removed==0) { _featureLifeComplete=false; }
+            if (destroyed && row.destroyedEpoch==0) { row.destroyedEpoch=epoch;row.destroyedElapsed=elapsed; }
+            rows.append(QVariantMap{{"id",row.id.toString(QUuid::WithoutBraces)},{"birth",row.birth},
+                {"insertedSequence",static_cast<qulonglong>(row.inserted)},{"bornEpochMs",row.bornEpoch},{"bornMonotonicMs",row.bornElapsed},
+                {"removedSequence",static_cast<qulonglong>(row.removed)},{"removedEpochMs",row.removedEpoch},{"removedMonotonicMs",row.removedElapsed},
+                {"destroyed",destroyed},{"destructionObservedEpochMs",row.destroyedEpoch},{"destructionObservedMonotonicMs",row.destroyedElapsed}});
+        }
+        _featureLifeEpoch=epoch;_featureLifeElapsed=elapsed;
+        result={{"entityTreeLifetimesVersion",1},{"treeInstance",_featureInventoryInstance},{"treeBornEpochMs",_featureLifeBornEpoch},
+            {"complete",_featureLifeComplete},{"eventSequence",static_cast<qulonglong>(_featureLifeSequence)},
+            {"observedEpochMs",epoch},{"observedMonotonicMs",elapsed},{"events",_featureLifeEvents},{"entities",rows}};
+    });
+    return result;
+}
+
 QVariantMap EntityTree::featureEntityInventory() {
     if (!_featureInventoryEnabled || !QCoreApplication::instance()
             || QThread::currentThread()!=QCoreApplication::instance()->thread()) { return {}; }

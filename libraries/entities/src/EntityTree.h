@@ -19,6 +19,9 @@
 #include <QCoreApplication>
 #include <QUuid>
 #include <QVariantMap>
+#include <QMutex>
+#include <QElapsedTimer>
+#include <QDateTime>
 #endif
 
 #include <HelperScriptEngine.h>
@@ -180,6 +183,8 @@ public:
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
     // Read-only, bounded whole-tree inventory; never a radius-filtered absence.
     QVariantMap featureEntityInventory();
+    // Passive original insertion/removal and weak destruction history.
+    QVariantMap featureEntityLifetimes();
 #endif
     virtual void dumpTree() override;
     virtual void pruneTree() override;
@@ -346,6 +351,22 @@ protected:
     void featureInventoryChanged() {
         if (_featureInventoryEnabled) { _featureInventoryRevision.fetch_add(1,std::memory_order_relaxed); }
     }
+    struct FeatureEntityLife {
+        EntityItemID id;
+        QString birth;
+        std::weak_ptr<EntityItem> entity;
+        quint64 inserted {0},removed {0};
+        qint64 bornEpoch {0},bornElapsed {0},removedEpoch {0},removedElapsed {0},destroyedEpoch {0},destroyedElapsed {0};
+    };
+    mutable QMutex _featureLifeMutex;
+    QElapsedTimer _featureLifeClock;
+    qint64 _featureLifeBornEpoch {0},_featureLifeEpoch {0},_featureLifeElapsed {0};
+    quint64 _featureLifeSequence {0};
+    bool _featureLifeComplete {true};
+    QList<FeatureEntityLife> _featureLifeEntries;
+    QVariantList _featureLifeEvents;
+    void featureEntityInserted(const EntityItemID& id,const EntityItemPointer& entity);
+    void featureEntityRemoved(const EntityItemID& id,const std::weak_ptr<EntityItem>& entity);
 #endif
 
 

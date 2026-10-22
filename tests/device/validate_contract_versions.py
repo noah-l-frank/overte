@@ -9,6 +9,10 @@ from pathlib import Path
 
 
 REQUIRED = {
+    "ios-create-entities": 1,
+    "ios-create-returned-entity": 1,
+    "native-create-entity-calls": 1,
+    "native-entity-tree-lifetimes": 1,
     "ios-create-actor-facts": 1,
     "ios-create-actor-original": 1,
     "ios-create-export": 1,

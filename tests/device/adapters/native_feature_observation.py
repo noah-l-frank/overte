@@ -41,8 +41,9 @@ def fresh(value, epoch):
     need(integer(value, 1) and integer(epoch, 1) and -250 <= epoch - value <= 1500)
 
 
-def decode(raw):
-    need(type(raw) is str and len(raw.encode('utf-8')) <= LIMIT)
+def decode(raw, *, limit=LIMIT):
+    need(type(limit) is int and 1 <= limit <= 1048576
+         and type(raw) is str and len(raw.encode('utf-8')) <= limit)
     def pairs(items):
         value = {}
         for key, item in items:

@@ -152,6 +152,7 @@ def original(value):
 
 
 class IOSPlacesModel:
+    _limit=LIMIT
     _action=ACTION
     _command=staticmethod(command)
     _validate=staticmethod(validate)
@@ -167,8 +168,8 @@ class IOSPlacesModel:
             need(self.guard() is not False);started=last=self.monotonic();need(number(started,0,1e15))
             requested=self.clock_ms();need(integer(requested,1));self.send(deepcopy(query))
             for attempt in range(61):
-                need(self.guard() is not False);raw=self.original();need(type(raw) is str and len(raw.encode())<=LIMIT)
-                try:value=decode(raw) if raw else None
+                need(self.guard() is not False);raw=self.original();need(type(raw) is str and len(raw.encode())<=self._limit)
+                try:value=decode(raw,limit=self._limit) if raw else None
                 except json.JSONDecodeError:value=None
                 now=self.monotonic();need(number(now,last,1e15) and now-started<1.5);last=now
                 if type(value) is dict and value.get('requestId')==query['commandId']:

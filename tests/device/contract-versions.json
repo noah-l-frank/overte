@@ -1,6 +1,11 @@
 {
   "schemaVersion": 1,
   "contracts": {
+    "ios-create-entities": {"current": 1, "reads": [1]},
+    "ios-create-returned-entity": {"current": 1, "reads": [1]},
+    "native-create-entity-calls": {"current": 1, "reads": [1]},
+    "native-entity-tree-lifetimes": {"current": 1, "reads": [1]},
+
     "ios-create-actor-facts": {"current": 1, "reads": [1]},
     "ios-create-actor-original": {"current": 1, "reads": [1]},
     "ios-create-export": {"current": 1, "reads": [1]},
