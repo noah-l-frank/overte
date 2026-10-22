@@ -45,6 +45,8 @@ The [pending-work component](SNAPSHOT_WORK.md) now observes actual Script closur
 and timer originals, with unchanged default Avatar/Create component schemas.
 The [native capture component](SNAPSHOT_CAPTURE_LIFETIMES.md) also observes weak
 render/worker/timer lifetimes and joins early cancellation source originals.
+The [normal export-control component](SNAPSHOT_EXPORT_CONTROLS.md) now binds the
+actual image row and refuses Qt input beneath a real UIKit/system presentation.
 Remaining integration includes durable normal input and owned-file absence for
 that join; normal OS authorization/activity inputs;
 independent saved-original Photos bytes and deletion of only owned assets;

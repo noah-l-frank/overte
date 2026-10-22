@@ -167,6 +167,10 @@ void Snapshot::cancelCapture(const QString& requestId) {
 }
 
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+bool Snapshot::featureObservationEnabled() const {
+    return QCoreApplication::arguments().contains("--testScript");
+}
+
 QVariantMap Snapshot::featureCaptureActivity() {
     if (!QCoreApplication::arguments().contains("--testScript") || QThread::currentThread()!=thread()) {return {};}
     QMutexLocker lock(&_captureMutex);

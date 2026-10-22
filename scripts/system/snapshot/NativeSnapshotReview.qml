@@ -20,6 +20,9 @@ Rectangle {
     property bool statusError: false
     property string uploadPath: ""
     property string exportTicket: ""
+    // These identities only exist for the dedicated native observation API.
+    property bool featureObservation: typeof Snapshot !== "undefined"
+        && typeof Snapshot.featureObservationEnabled === "function" && Snapshot.featureObservationEnabled()
     property bool printEnabled: false
     property bool printProcessing: false
     property bool keyboardEnabled: true
@@ -235,6 +238,9 @@ Rectangle {
             Repeater {
                 model: root.images
                 delegate: ColumnLayout {
+                    objectName: root.featureObservation ? "snapshotImageRow" : ""
+                    property int featureSnapshotIndex: root.featureObservation ? index : -1
+                    property string featureSnapshotPath: root.featureObservation ? modelData.localPath : ""
                     Layout.fillWidth: true
                     Quick.Text { text: root.isGif(modelData.localPath) ? qsTr("Animated snapshot") : qsTr("Still / 360° snapshot"); color: "white" }
                     Item {
@@ -261,15 +267,15 @@ Rectangle {
                     Flow {
                         Layout.fillWidth: true
                         spacing: 8
-                        Controls.Button { text: qsTr("Save to device"); visible: platform.capabilities.indexOf("save") !== -1; enabled: !platform.busy && !root.capturing; onClicked: root.exportImage(modelData.localPath, "save") }
-                        Controls.Button { text: qsTr("System share"); visible: platform.capabilities.indexOf("share") !== -1; enabled: !platform.busy && !root.capturing; onClicked: root.exportImage(modelData.localPath, "share") }
-                        Controls.Button { text: qsTr("Upload for URL"); enabled: root.loggedIn && root.canShare && !root.uploadPath && !root.capturing; onClicked: root.upload(modelData.localPath) }
+                        Controls.Button { objectName: root.featureObservation ? "snapshotSave" : ""; text: qsTr("Save to device"); visible: platform.capabilities.indexOf("save") !== -1; enabled: !platform.busy && !root.capturing; onClicked: root.exportImage(modelData.localPath, "save") }
+                        Controls.Button { objectName: root.featureObservation ? "snapshotShare" : ""; text: qsTr("System share"); visible: platform.capabilities.indexOf("share") !== -1; enabled: !platform.busy && !root.capturing; onClicked: root.exportImage(modelData.localPath, "share") }
+                        Controls.Button { objectName: root.featureObservation ? "snapshotUpload" : ""; text: qsTr("Upload for URL"); enabled: root.loggedIn && root.canShare && !root.uploadPath && !root.capturing; onClicked: root.upload(modelData.localPath) }
                         Controls.Button { text: qsTr("Share with connections"); visible: !!modelData.story_id; enabled: root.canBlast && !modelData.blastButtonDisabled; onClicked: root.send("blastToConnections", { story_id: modelData.story_id, isGif: root.isGif(modelData.localPath) }) }
                         Controls.Button { text: qsTr("Share with everyone"); visible: !!modelData.story_id; enabled: !modelData.hifiButtonDisabled; onClicked: root.send("shareSnapshotWithEveryone", { story_id: modelData.story_id, isGif: root.isGif(modelData.localPath) }) }
                     }
                 }
             }
-            Controls.Button { text: qsTr("Cancel system request"); visible: !!root.exportTicket; onClicked: root.cancelExport() }
+            Controls.Button { objectName: root.featureObservation ? "snapshotCancelExport" : ""; text: qsTr("Cancel system request"); visible: !!root.exportTicket; onClicked: root.cancelExport() }
             Controls.Button { text: root.printProcessing ? qsTr("Preparing print…") : qsTr("Print to polaroid"); enabled: root.printEnabled; onClicked: root.send("printToPolaroid") }
             Controls.Button { text: qsTr("Snapshot settings"); onClicked: root.send("openSettings") }
         }

@@ -129,7 +129,11 @@ host checks). Durable normal input and owned-file absence must still join that
 proof; whole capture/image, OS permission/sheet, destination/receiver, upload and
 paired cleanup integration remain open. No complete capability is enabled.
 
-Snapshots now has a [passive native export source](SNAPSHOT_EXPORTS.md): actual
+Actual Save/Share/Upload inputs also have a [closed row-token route](SNAPSHOT_EXPORT_CONTROLS.md)
+with real UIKit presentation gating and unchanged ordinary QML handlers. This
+does not provide independent destination bytes or a system permission recipe.
+
+The [passive native export source](SNAPSHOT_EXPORTS.md) retains actual
 Photos authorization/commit/placeholder/completion, system Share result, Qt
 delivery, callback return and weak export expiry. Seven host checks pass; native
 code is uncompiled. Destination Photos bytes, an actual independent Share

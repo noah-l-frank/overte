@@ -7,5 +7,7 @@ namespace overte::ios {
 // Passive originals only. This never authorizes Photos access, captures an
 // image, dismisses a controller or changes a native export operation.
 QVariantMap featureSnapshotExportObservation();
+// Actual UIKit/application routing; normal Qt events must not bypass a sheet.
+bool featureSnapshotQtInputBlocked();
 }
 #endif

@@ -32,6 +32,7 @@
 #include "../../tests/device/native/IOSAvatarUiInventory.h"
 #if defined(Q_OS_IOS)
 #include "../../tests/device/native/IOSNormalInputObservation.h"
+#include "../../tests/device/native/IOSSnapshotExportControls.h"
 #endif
 #include "../../tests/device/native/NormalNavigationErrorControls.h"
 #include "../../tests/device/native/AccountPreferenceObservation.h"
@@ -63,6 +64,10 @@ QRectF visibleBounds(QQuickItem* item) {
 }
 
 QString identify(QQuickItem* item, bool hud, bool fileAllowed) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    const auto snapshot=overte::e2e::snapshotExportControlId(item);
+    if (!snapshot.isEmpty()) {return snapshot;}
+#endif
     if (fileAllowed) {
         const auto file = overte::e2e::scriptFileControlId(item);
         if (!file.isEmpty() && (!hud || file != QStringLiteral("scripts.from-file"))) { return file; }
@@ -269,6 +274,12 @@ QJsonObject NormalUiInput::observe(QQuickItem* hud, QQuickItem* tablet, bool tab
                 const auto old = _controls.value(id);
                 auto source = overte::e2e::scriptFileControlSource(node);
                 if (source.isEmpty()) { source = overte::e2e::scriptRowSource(node); }
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+                if (overte::e2e::snapshotExportControlId(node)==id) {
+                    source=overte::e2e::snapshotExportControlSource(node);
+                    if (source.isEmpty()) {ambiguous=true;return;}
+                }
+#endif
 #if defined(OVERTE_E2E_FEATURE_TESTS)
                 if (id.startsWith("navigation.error.")) {
                     source=overte::e2e::navigationErrorControlSource(node);
@@ -373,6 +384,12 @@ QJsonObject NormalUiInput::observe(QQuickItem* hud, QQuickItem* tablet, bool tab
         }
         overte::e2e::appendScriptControlObservation(row, control.item, id);
         overte::e2e::appendScriptFileObservation(row, control.item, id);
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+        if (overte::e2e::snapshotExportControlId(control.item)==id) {
+            const auto metadata=overte::e2e::snapshotExportControlObservation(control.item);
+            for (auto it=metadata.begin();it!=metadata.end();++it) {row[it.key()]=it.value();}
+        }
+#endif
 #if defined(OVERTE_E2E_FEATURE_TESTS)
         if (id.startsWith("navigation.error.")) {
             overte::e2e::appendNavigationErrorControl(row,control.item);
@@ -413,6 +430,9 @@ QJsonObject NormalUiInput::observe(QQuickItem* hud, QQuickItem* tablet, bool tab
         { "tabletShown", tabletShown }, { "ready", !ambiguous && hud && hud->window() }, { "controls", observed } };
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     result["featureControlsVersion"] = 1;
+#if defined(Q_OS_IOS)
+    result["snapshotExportControlsVersion"]=1;
+#endif
     result["placesControlsVersion"]=2;result["placesSourceSequence"]=static_cast<double>(++_placesObservationSequence);
     result["navigationDialogControlsVersion"]=1;
     result["navigationDialogSourceSequence"]=static_cast<double>(++_navigationDialogSequence);
@@ -469,6 +489,12 @@ QRectF NormalUiInput::projectedFrame(const QString& controlId, const QString& to
 bool NormalUiInput::press(const QString& controlId, const QString& token) {
     auto control = item(controlId, token);
     if (!control || !enabled(control)) { return false; }
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    if (overte::e2e::snapshotExportControlId(control)==controlId) {
+        const auto metadata=overte::e2e::snapshotExportControlObservation(control);
+        if (!metadata.value("inputReady").toBool() || overte::e2e::snapshotExportControlSource(control)!=_controls.value(controlId).source) {return false;}
+    }
+#endif
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     const auto graphicsContext = _graphicsReader ? _graphicsReader() : overte::e2e::GraphicsUiContext();
     if (controlId.startsWith("navigation.error.")) {
@@ -581,6 +607,14 @@ QJsonObject NormalUiInput::edit(const QJsonObject& command) {
     // One native sequence covers normal Places/Create/Chat pointer/key/IME input. The
     // original token resolves the item; no desired entity state is accepted.
     observe(_hud,_tablet,_tabletShown);
+#if defined(Q_OS_IOS)
+    for (auto it=_controls.cbegin();it!=_controls.cend();++it) {
+        if (it.value().token==fieldToken && overte::e2e::snapshotExportControlId(it.value().item)==it.key()) {
+            if (action=="activate") {result["performed"]=press(it.key(),fieldToken);}
+            return result;
+        }
+    }
+#endif
     QString errorId;
     for (auto it=_controls.cbegin();it!=_controls.cend();++it) {
         if (it.value().token==fieldToken && it.key().startsWith("navigation.error.")) {

@@ -252,6 +252,15 @@ void IOSSnapshotAdapter::nativeFinished(const std::shared_ptr<IOSSnapshotNativeO
 } // namespace overte::ios
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 namespace overte::ios {
+bool featureSnapshotQtInputBlocked() {
+    if (!ExportOriginals::enabled() || !NSThread.isMainThread || !guiThread()
+            || UIApplication.sharedApplication.applicationState!=UIApplicationStateActive) {return true;}
+    const auto controller=presenter();
+    // UIKit sheets and ordinary native pickers receive actual system input.
+    // Sending a Qt event beneath their visible controller would bypass it.
+    return !controller || controller.presentingViewController!=nil || controller.isBeingPresented || controller.isBeingDismissed;
+}
+
 QVariantMap featureSnapshotExportObservation() {
     if (!ExportOriginals::enabled() || !NSThread.isMainThread || !guiThread()) {return {};}
     auto& original=ExportOriginals::get();QMutexLocker guard(&original.mutex);QVariantList owners;

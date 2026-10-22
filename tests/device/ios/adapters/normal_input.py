@@ -31,6 +31,7 @@ from adapters.native_account_origin import origin_text
 from ios.adapters.account_menu import IDS as ACCOUNT_IDS,FIELDS as ACCOUNT_FIELDS,metadata as account_metadata
 from ios.adapters.account_preferences import CONTROL_ID as REMEMBER_ID,CONTROL_FIELDS as REMEMBER_FIELDS,control_metadata as remember_metadata
 from ios.adapters.view_controls import IDS as VIEW_IDS,FIELDS as VIEW_FIELDS,metadata as view_metadata
+from ios.adapters.snapshot_export_controls import IDS as SNAPSHOT_EXPORT_IDS,FIELDS as SNAPSHOT_EXPORT_FIELDS,metadata as snapshot_export_metadata
 from adapters.token_audio_ui import audio_control, metadata_fields as audio_metadata_fields, validate_metadata as validate_audio_metadata
 from adapters.token_script_file_ui import (file_control, folder_text,
     metadata_fields as file_metadata_fields, validate_metadata as validate_file_metadata)
@@ -108,6 +109,10 @@ def observation(value, pid, now_ms=None):
         if type(value['fileControlsVersion']) is not int or value['fileControlsVersion'] != 1:
             raise NativeUIError('Native iOS file control version is invalid')
         fields.add('fileControlsVersion')
+    if type(value) is dict and 'snapshotExportControlsVersion' in value:
+        if type(value['snapshotExportControlsVersion']) is not int or value['snapshotExportControlsVersion']!=1:
+            raise NativeUIError('Native iOS Snapshot export source version is invalid')
+        fields.add('snapshotExportControlsVersion')
     if type(value) is dict and 'audioControlsVersion' in value:
         if type(value['audioControlsVersion']) is not int or value['audioControlsVersion'] != 1:
             raise NativeUIError('Native iOS Audio control version is invalid')
@@ -190,6 +195,9 @@ def observation(value, pid, now_ms=None):
             if value['createControlsVersion']==1 and not legacy_create_control(control['id']):
                 raise NativeUIError('Native iOS Create version 1 cannot provide version 2 controls')
             original=dict(control);original.pop('frame',None);create_metadata(original);fields=set(control)
+        elif type(control) is dict and control.get('id') in SNAPSHOT_EXPORT_IDS:
+            if value.get('snapshotExportControlsVersion')!=1:raise NativeUIError('Native iOS Snapshot export source is missing')
+            snapshot_export_metadata(control);fields |= SNAPSHOT_EXPORT_FIELDS
         elif type(control) is dict and control.get('id') in VIEW_IDS:
             if value.get('viewMenuControlsVersion')!=1:raise NativeUIError('Native iOS View menu lacks its source extension')
             view_metadata(control);fields |= VIEW_FIELDS
@@ -221,7 +229,7 @@ def observation(value, pid, now_ms=None):
             fields.add('checked')
         if (not isinstance(control, dict) or set(control) != fields
                 or not isinstance(control['id'], str)
-                or not (control['id'] in CONTROLS or script_control(control['id']) or file_control(control['id']) or audio_control(control['id']) or graphics_control(control['id']) or control['id'] in LOGIN_IDS or control['id'] in ACCOUNT_IDS or control['id'] in VIEW_IDS or control['id']==REMEMBER_ID or is_create and create_control(control['id']) or is_chat and chat_control(control['id']) or is_places and places_control(control['id']) or is_error or is_avatar and avatar_control(control['id']) or is_emote and emote_control(control['id'])) or control['id'] in seen
+                or not (control['id'] in CONTROLS or control['id'] in SNAPSHOT_EXPORT_IDS or script_control(control['id']) or file_control(control['id']) or audio_control(control['id']) or graphics_control(control['id']) or control['id'] in LOGIN_IDS or control['id'] in ACCOUNT_IDS or control['id'] in VIEW_IDS or control['id']==REMEMBER_ID or is_create and create_control(control['id']) or is_chat and chat_control(control['id']) or is_places and places_control(control['id']) or is_error or is_avatar and avatar_control(control['id']) or is_emote and emote_control(control['id'])) or control['id'] in seen
                 or not _uuid(control['token']) or control['token'] in tokens
                 or type(control['enabled']) is not bool or type(control['focused']) is not bool):
             raise NativeUIError('Native iOS input controls are invalid')
@@ -411,6 +419,14 @@ class NativeInput:
         from ios.adapters.navigation_dialog_controls import project,same_reference
         row=same_reference(reference,project(self.capture()))
         if not row['enabled'] or not row['inputReady']:raise NativeUIError('Native iOS navigation modal input is unavailable')
+        original=reference['scope']
+        return self.deliver(dict(schemaVersion=1,commandId=str(uuid.uuid4()),instance=original['instance'],
+            sequence=original['sequence']+1,observedElapsedMs=original['elapsedMs'],fieldToken=row['token'],operation='activate'))
+
+    def snapshot_export_input(self,identifier,*,reference):
+        from ios.adapters.snapshot_export_controls import project,same_reference
+        row=same_reference(reference,project(self.capture()),identifier)
+        if not row['enabled'] or not row['inputReady']:raise NativeUIError('Native iOS Snapshot export control is unavailable')
         original=reference['scope']
         return self.deliver(dict(schemaVersion=1,commandId=str(uuid.uuid4()),instance=original['instance'],
             sequence=original['sequence']+1,observedElapsedMs=original['elapsedMs'],fieldToken=row['token'],operation='activate'))
