@@ -56,6 +56,18 @@ class LifecycleOnceTests(unittest.TestCase):
             self.adapter._pico_lifecycle_input_once(self.target,'lifecycle.background',self.binding,before_input=refused)
         self.assertEqual(['refused'],seen);self.assertEqual([],self.inputs)
 
+    def test_actual_audio_factory_passes_its_final_phase_callback_to_original_once_writer(self):
+        def factory(path,run,binding,lock,status,os_input,runtime,phase_source,**kwargs):
+            self.assertEqual(self.binding,binding)
+            os_input('lifecycle.background',binding,before_input=lambda:self.events.append('audio-phase'))
+            return 'actual-audio-factory'
+        with patch('adapters.pico4.audio_background_owner.PicoAudioBackground',side_effect=factory):
+            result=self.adapter._audio_background_owner(self.target,'a'*32,5,None)
+        self.assertEqual('actual-audio-factory',result)
+        self.assertEqual([('input','keyevent','KEYCODE_HOME')],self.inputs)
+        self.assertEqual(['audio-phase','write'],[value for value in self.events if value in ('audio-phase','write')])
+        self.assertEqual([],self.sdk.inputs);self.assertEqual([],self.sdk.controllers)
+
     def test_actual_graphics_facade_selects_once_route_and_final_fence_without_qml_dispatch(self):
         facade=PicoGraphicsBinding(self.adapter)
         class Fence:

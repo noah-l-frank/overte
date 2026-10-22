@@ -158,7 +158,8 @@ class PicoAudioBackground:
             anchor=self.phase_anchor()
             state=deepcopy(self.state);state.update(phase='home-issued',captureArchive=owner.store.read(),before=row,fixturePhase=phase);self.save(state)
             self.phase_fence(anchor,owner=owner)
-            self.os_input('lifecycle.background',deepcopy(self.binding));return self.observe_background()
+            self.os_input('lifecycle.background',deepcopy(self.binding),
+                before_input=lambda:self.phase_fence(anchor,owner=owner));return self.observe_background()
     def observe_background(self):
         with self.lock.held():
             self.load();need(self.state['phase'] in ('home-issued','background-observed'));self.archives();started=self.bound()
@@ -178,7 +179,7 @@ class PicoAudioBackground:
             need(self.state['background'][-1]['hostMonotonic']-self.state['background'][self.state['backgroundFirst']]['hostMonotonic']>=.25)
             anchor=self.phase_anchor()
             state=deepcopy(self.state);state['phase']='resume-issued';self.save(state);self.phase_fence(anchor)
-            self.os_input('app.launch',deepcopy(self.binding));return self.reconcile()
+            self.os_input('app.launch',deepcopy(self.binding),before_input=lambda:self.phase_fence(anchor));return self.reconcile()
     def adopt_observation(self,owner,original):
         # A crash after the owned read-only observation may leave a longer
         # actual capture journal. Adopt only that exact immutable prefix, never
