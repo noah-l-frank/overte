@@ -770,3 +770,23 @@ state/actor/public composition, dismissal/close joining, maturity and scene
 restoration, actual process/bookmark transfer and complete resource retirement
 remain open. Three areas are source/host complete, native code is uncompiled,
 and no devices have run. Phone/iOS are unchanged.
+
+
+## Original endpoint selection and restoration with actual VR Home
+
+[Origin operations v2](NAVIGATION_ORIGIN.md#actual-vr-home-closure-in-v2) now use
+the existing observed Home Gizmo and normal OpenXR ray in the actual private
+factory. The former QML `nav.home` assumption was not backed by a product
+control. Original focus/replacement/Return still use the same normal Pico field
+input; Home leaves that Qt command count unchanged. Original source geometry,
+before/after environment archives, current Home identity, actual endpoint and
+independent quiet effects remain owned through lost ray results and recovery.
+Closed v1 QML journals remain readable without retargeting uncertain inputs.
+No native/product change, complete Navigation capability or device claim is added.
+
+A read-only inspection of the newer committed Phone source at
+`abb7f6b60d97daf17752aadf94e2b5df099bb7ba` found shared Emote motion/source/cache
+readiness work suitable for later dependency review. Its committed status still
+reports three complete areas of fourteen and incomplete unregistered Emotes.
+This additional review does not replace the original frozen baseline or import
+Phone WIP, touch/mono/device bindings, or a moving branch automatically.

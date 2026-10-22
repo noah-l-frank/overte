@@ -31,7 +31,10 @@ reply-owner capture, queued native callback, original modal/listener, normal OK
 and full three-second QObject retirement, including lost-reply continuation.
 The [normal directory owner](NAVIGATION_ORIGIN.md) now selects and restores
 the actual original path-bearing endpoint, preserves unrelated settings and
-requires a credential-free original state. The [directory refresh/search owner](NAVIGATION_DIRECTORY.md)
+requires a credential-free original state. Its v2 current factory now uses the
+actual observed Home entity through ordinary OpenXR input instead of the absent
+QML Home control; lost ray results retain original geometry and never replay.
+The [directory refresh/search owner](NAVIGATION_DIRECTORY.md)
 now joins actual original responseText consumption, outgoing message and
 original QML records notification to the normal refreshed/search-filtered model.
 The [normal transit owner](NAVIGATION_TRANSIT.md) now joins owned directory or

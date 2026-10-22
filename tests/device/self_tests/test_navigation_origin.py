@@ -197,9 +197,11 @@ class NavigationOriginTests(unittest.TestCase):
             self.assertEqual(('owned','org.overte.pico','files/overte-e2e/feature-navigation-environment.json',1),(target,package,filename,attempts))
             return json.dumps(self.model.packet)
         adapter.adb.read_debug_app_file=read
-        with patch('adapters.navigation_origin.NavigationOrigin',partial(NavigationOrigin,monotonic=lambda:self.model.clock,sleep=self.model.sleep)):
+        from self_tests.test_navigation_origin_ray import Ray
+        ray=Ray(self)
+        with patch('adapters.navigation_origin.NavigationOrigin',partial(NavigationOrigin,monotonic=lambda:self.model.clock,sleep=self.model.sleep)),patch('adapters.pico4.tablet_home.bind_home',return_value=ray.home):
             owner=adapter._navigation_origin('owned',self.path,RUN,self.model.guard)
-        owner.select(TICKET,OWNED);self.assertEqual(4,len(self.model.calls));self.assertEqual(OWNED,self.model.effective)
+        owner.select(TICKET,OWNED);self.assertEqual(3,len(self.model.calls));self.assertEqual(1,len(ray.gestures));self.assertEqual(OWNED,self.model.effective)
 
     def test_original_probe_transports_actual_packet_and_absent_hook_is_unavailable(self):
         program=r'''

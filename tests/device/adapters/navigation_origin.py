@@ -18,8 +18,11 @@ from adapters.normal_feature_state import PrivateFeatureState, context
 from adapters.normal_ui import NativeUIError
 from adapters.token_login_ui import validate_metadata
 from adapters.token_create_ui import scope, nonce
+from adapters.pico4.tablet_home import PicoTabletHome,validate as home_packet,validate_input as home_input
 
-VERSION = 1
+VERSION = 2
+FIELDS={'navigationOriginVersion','runId','binding','original','last','ownedServer','operation','queries'}
+OP_FIELDS={'ticket','restoring','stage','pending','quiet'}
 
 
 def sha(text):
@@ -27,10 +30,11 @@ def sha(text):
 
 
 class NavigationOrigin:
-    def __init__(self, io, native, path, run, binding, guard, *, monotonic=time.monotonic, sleep=time.sleep):
+    def __init__(self, io, native, path, run, binding, guard, *, home=None,monotonic=time.monotonic, sleep=time.sleep):
         need(all(callable(f) for f in (guard, monotonic, sleep)) and type(run) is str and re.fullmatch('[0-9a-f]{32}', run))
         context(binding);need(native.pid == int(binding['processIdentity'].split(':', 1)[0]))
         self.io, self.native, self.run, self.binding, self.guard = io, native, run, deepcopy(binding), guard
+        need(home is None or isinstance(home,PicoTabletHome) and home.source.pid==native.pid);self.home=home
         self.monotonic, self.sleep = monotonic, sleep;self.clock = self.deadline = None
         self.store = PrivateFeatureState(path);self.disk_state = self.store.read()
         self.state = self.decode_state(self.disk_state) if self.disk_state is not None else None
@@ -50,9 +54,9 @@ class NavigationOrigin:
         need(packet['ui']['bridgeId'] == self.binding['sessionId'] and not packet['environmentOverride'])
 
     def validate_state(self, value):
-        exact(value, {'navigationOriginVersion', 'runId', 'binding', 'original', 'last', 'ownedServer', 'operation', 'queries'})
+        exact(value,FIELDS|{'homeMode'})
         need(type(value['navigationOriginVersion']) is int and value['navigationOriginVersion'] == VERSION
-             and value['runId'] == self.run and value['binding'] == self.binding)
+             and value['runId'] == self.run and value['binding'] == self.binding and value['homeMode'] in ('qml','ray'))
         endpoint(value['ownedServer']);need(not urlsplit(value['ownedServer']).path)
         self.archive(value['original']);self.archive(value['last'])
         if value['original'] != value['last']:
@@ -70,20 +74,33 @@ class NavigationOrigin:
              and len(set(value['queries'])) == len(value['queries'])
              and all(value[k]['commandId'] in value['queries'] for k in ('original', 'last')))
         operation = value['operation']
-        exact(operation, {'ticket', 'restoring', 'stage', 'pending', 'quiet'})
+        exact(operation,OP_FIELDS|{'homeBefore','homeAfter'})
         need(type(operation['ticket']) is str and re.fullmatch('[0-9a-f]{32}', operation['ticket'])
              and type(operation['restoring']) is bool and integer(operation['stage'], 0, 4)
              and type(operation['quiet']) is list and len(operation['quiet']) <= 8)
         if operation['pending'] is not None:
             exact(operation['pending'], {'stage', 'control', 'action', 'token', 'scope'})
             pending = operation['pending'];scope(pending['scope'])
-            need(pending['stage'] == operation['stage'] < 4 and pending['control'] == ('login.server' if operation['stage'] < 3 else 'tablet.home')
+            ray=value['homeMode']=='ray' and operation['stage']==3
+            need(pending['stage'] == operation['stage'] < 4 and pending['control'] == ('login.server' if operation['stage'] < 3 else 'tablet.home-ray' if ray else 'tablet.home')
                  and pending['action'] == ('replace' if operation['stage'] == 1 else 'submit' if operation['stage'] == 2 else 'activate')
-                 and nonce(pending['token'])
+                 and (pending['token'] is None if ray else nonce(pending['token']))
                  and pending['scope']['instance'] == self.binding['sessionId'] and pending['scope']['processId'] == self.native.pid)
+        if value['homeMode']=='qml':need(operation['homeBefore'] is None and operation['homeAfter'] is None)
+        before,after=operation['homeBefore'],operation['homeAfter']
+        if before is not None:
+            self.home_group(before,value,before=True)
+            need(value['homeMode']=='ray' and operation['stage']>=3 and not before['observation']['onHomeScreen'])
+            if operation['stage']==3:
+                need(operation['pending'] is not None and operation['pending']['scope']==self.input_scope(before['original']))
+        if after is not None:
+            need(before is not None and operation['stage']>=3);self.home_group(after,value,before=False);self.home_effect(before,after,value)
+            if after['original']!=value['last']:continuation(after['original'],value['last'])
+        if value['homeMode']=='ray' and operation['stage']==4:need(after is not None)
         previous = None
         for packet in operation['quiet']:
             self.archive(packet);self.final(packet, value)
+            if after is not None and packet!=after['original']:continuation(after['original'],packet)
             need(packet['commandId'] in value['queries'])
             continuation(value['original'], packet)
             if previous is not None:
@@ -123,11 +140,17 @@ class NavigationOrigin:
         for key in ('original', 'last'):
             result[key] = function(result[key])
         result['operation']['quiet'] = [function(packet) for packet in result['operation']['quiet']]
+        for key in ('homeBefore','homeAfter'):
+            if result['operation'][key] is not None:result['operation'][key]['original']=function(result['operation'][key]['original'])
         return result
 
     def decode_state(self, value):
-        exact(value, {'navigationOriginVersion', 'runId', 'binding', 'original', 'last', 'ownedServer', 'operation', 'queries'})
-        exact(value['operation'], {'ticket', 'restoring', 'stage', 'pending', 'quiet'})
+        version=value.get('navigationOriginVersion');need(type(version) is int and version in (1,2))
+        exact(value,FIELDS|({'homeMode'} if version==2 else set()))
+        exact(value['operation'],OP_FIELDS|({'homeBefore','homeAfter'} if version==2 else set()))
+        value=deepcopy(value)
+        if version==1:
+            value.update(navigationOriginVersion=VERSION,homeMode='qml');value['operation'].update(homeBefore=None,homeAfter=None)
         need(type(value['operation']['quiet']) is list and len(value['operation']['quiet']) <= 8)
         return self.map_packets(value, self.original_packet)
 
@@ -157,10 +180,41 @@ class NavigationOrigin:
              and packet['account']['observation']['endpointSha256'] == sha(self.desired(value))
              and packet['selectedSettingPresent'] and not packet['ui']['loginPageAlive']
              and packet['ui']['serverDraftSha256'] is None and packet['otherSettingsSha256'] == value['original']['otherSettingsSha256'])
+        after=value['operation']['homeAfter']
+        if value['homeMode']=='ray' and after is not None:
+            need(all(packet['ui'][k]==after['original']['ui'][k] for k in ('sequence','generation')))
+
+    @staticmethod
+    def input_scope(packet):
+        ui=packet['ui'];return dict(instance=ui['bridgeId'],generation=ui['generation'],sequence=ui['sequence'],elapsedMs=ui['elapsedMs'],processId=packet['processId'])
+
+    def home_group(self,group,value,*,before):
+        exact(group,{'original','observation'});packet,observation=group['original'],group['observation'];self.archive(packet)
+        home_packet(observation,observation.get('commandId'),self.native.pid,max(packet['capturedEpochMs'],observation['capturedEpochMs']))
+        delta=observation['capturedEpochMs']-packet['capturedEpochMs']
+        need((0<=delta<=1500 if before else -1500<=delta<=0) and observation['tabletShown']
+             and packet['otherSettingsSha256']==value['original']['otherSettingsSha256']
+             and all(group[k]['commandId'] in value['queries'] for k in ('original','observation')))
+
+    def home_effect(self,before,after,value):
+        a,b=before['observation'],after['observation'];old,new=before['original'],after['original']
+        need(all(a[k]==b[k] for k in ('instance','tabletId','homeId')) and b['sourceSequence']>a['sourceSequence']
+             and b['elapsedMs']>=a['elapsedMs'] and b['capturedEpochMs']>=a['capturedEpochMs'] and b['onHomeScreen']
+             and new['ui']['sequence']==old['ui']['sequence'] and new['ui']['generation']!=old['ui']['generation'])
+        continuation(old,new);self.final(new,value)
+
+    def home_intent(self,stage,observation,control):
+        self.now();need(stage=='tablet-home-ray' and control=='tablet.home-ray' and self.state['homeMode']=='ray')
+        operation=self.state['operation'];need(operation['stage']==3 and operation['pending'] is None and operation['homeBefore'] is None)
+        home_input(observation,self.native.pid,self.home.source.clock_ms(),control)
+        current=deepcopy(self.state);need(observation['commandId'] not in current['queries']);current['queries'].append(observation['commandId'])
+        current['operation']['homeBefore']=dict(original=deepcopy(current['last']),observation=deepcopy(observation))
+        current['operation']['pending']=dict(stage=3,control=control,action='activate',token=None,scope=self.input_scope(current['last']))
+        self.save(current)
 
     def effect(self, packet, pending):
         ui = packet['ui'];before = pending['scope']
-        need(ui['sequence'] == before['sequence'] + 1)
+        need(ui['sequence'] == before['sequence'] + (0 if pending['control']=='tablet.home-ray' else 1))
         if pending['stage'] < 3:
             need(ui['generation'] == before['generation'] and ui['loginPageAlive'])
         target = sha(self.desired())
@@ -187,7 +241,7 @@ class NavigationOrigin:
         need(not urlsplit(owned_server).path and type(restoring) is bool and type(ticket) is str and re.fullmatch('[0-9a-f]{32}', ticket))
         need(self.deadline is None);self.deadline = self.now() + 20
         try:
-            return self.execute(ticket, owned_server, restoring)
+            result=self.execute(ticket, owned_server, restoring);self.now();return result
         except NativeUIError:
             raise
         except Exception:
@@ -203,14 +257,14 @@ class NavigationOrigin:
             need(first['selectedSettingPresent'] and first['selectedServer'] == first['effectiveServer']
                  and first['account']['observation']['endpointSha256'] == sha(first['selectedServer'])
                  and first['ui']['passwordEmpty'] is True and first['ui']['serverDraftSha256'] == sha(first['selectedServer']))
-            self.save(dict(navigationOriginVersion=VERSION, runId=self.run, binding=self.binding, original=first, last=first,
+            self.save(dict(navigationOriginVersion=VERSION,homeMode='qml' if self.home is None else 'ray', runId=self.run, binding=self.binding, original=first, last=first,
                 ownedServer=owned_server, queries=[first['commandId']],
-                operation=dict(ticket=ticket, restoring=False, stage=0, pending=None, quiet=[])))
-        need(self.state['ownedServer'] == owned_server)
+                operation=dict(ticket=ticket, restoring=False, stage=0, pending=None, quiet=[],homeBefore=None,homeAfter=None)))
+        need(self.state['ownedServer'] == owned_server and self.state['homeMode']==('qml' if self.home is None else 'ray'))
         operation = self.state['operation']
         if operation['ticket'] != ticket:
             need(restoring and not operation['restoring'] and operation['stage'] == 4 and operation['quiet'])
-            current = deepcopy(self.state);current['operation'] = dict(ticket=ticket, restoring=True, stage=0, pending=None, quiet=[]);self.save(current)
+            current = deepcopy(self.state);current['operation'] = dict(ticket=ticket, restoring=True, stage=0, pending=None, quiet=[],homeBefore=None,homeAfter=None);self.save(current)
         need(self.state['operation']['restoring'] == restoring)
         while self.state['operation']['stage'] < 4:
             ui, packet = self.sample();operation = self.state['operation'];stage = operation['stage']
@@ -219,29 +273,34 @@ class NavigationOrigin:
                     expected = self.state['ownedServer'] if restoring else self.state['original']['selectedServer']
                     need(packet['selectedServer'] == packet['effectiveServer'] == expected
                          and packet['ui']['passwordEmpty'] is True and packet['ui']['serverDraftSha256'] == sha(expected))
-                identifier = 'tablet.home' if stage == 3 else 'login.server'
-                rows = [r for r in ui['controls'] if r['id'] == identifier];need(len(rows) == 1)
-                row = rows[0]
-                if stage < 3:
-                    validate_metadata(row)
-                need(row['enabled'] and (stage == 3 or row['inputReady'])
-                     and (stage not in (1, 2) or row['focused']))
-                action = 'replace' if stage == 1 else 'submit' if stage == 2 else 'activate'
-                pending = dict(stage=stage, control=identifier, action=action, token=row['token'],
-                    scope=dict(instance=ui['bridgeId'], generation=ui['generation'], sequence=ui['lastCommandSequence'],
-                               elapsedMs=ui['elapsedMs'], processId=ui['processId']))
-                current = deepcopy(self.state);current['operation']['pending'] = pending;self.save(current)
-                self.io.deliver(pending, self.desired() if stage == 1 else None)
+                if stage==3 and self.state['homeMode']=='ray':
+                    need(packet['ui']['loginPageAlive']);self.home.ensure(self.home_intent);need(self.state['operation']['pending'] is not None)
+                else:
+                    identifier = 'tablet.home' if stage == 3 else 'login.server'
+                    rows = [r for r in ui['controls'] if r['id'] == identifier];need(len(rows) == 1)
+                    row = rows[0]
+                    if stage < 3:validate_metadata(row)
+                    need(row['enabled'] and (stage == 3 or row['inputReady']) and (stage not in (1, 2) or row['focused']))
+                    action = 'replace' if stage == 1 else 'submit' if stage == 2 else 'activate'
+                    pending = dict(stage=stage, control=identifier, action=action, token=row['token'],scope=self.input_scope(packet))
+                    current = deepcopy(self.state);current['operation']['pending'] = pending;self.save(current)
+                    self.io.deliver(pending, self.desired() if stage == 1 else None)
             pending = self.state['operation']['pending']
             for attempt in range(81):
+                home=self.home.source.capture() if pending['control']=='tablet.home-ray' else None
                 _, packet = self.sample()
                 need(pending['scope']['sequence'] <= packet['ui']['sequence'] <= pending['scope']['sequence'] + 1)
                 try:
                     self.effect(packet, pending)
+                    if home is not None:
+                        after=dict(original=deepcopy(packet),observation=deepcopy(home));self.home_effect(self.state['operation']['homeBefore'],after,self.state)
                     break
                 except NativeUIError:
                     need(attempt < 80);self.sleep(.1)
-            current = deepcopy(self.state);current['operation']['pending'] = None;current['operation']['stage'] += 1;self.save(current)
+            current = deepcopy(self.state);current['operation']['pending'] = None;current['operation']['stage'] += 1
+            if home is not None:
+                need(home['commandId'] not in current['queries']);current['queries'].append(home['commandId']);current['operation']['homeAfter']=after
+            self.save(current)
         _, packet = self.sample();self.final(packet)
         if self.state['operation']['quiet']:
             return dict(performed=True)

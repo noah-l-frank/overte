@@ -585,9 +585,11 @@ def create_adapter(args, base_class):
         def _navigation_origin(self, target, path, run, guard):
             from adapters.navigation_origin import NavigationOrigin
             from adapters.pico4.normal_navigation_origin import PicoNavigationOriginIO
+            from adapters.pico4.tablet_home import bind_home
             manager = self._scripts(target)
+            native=self._native_feature_observer(target)
             return NavigationOrigin(PicoNavigationOriginIO(manager.ui.io), self._navigation_environment(target),
-                path, run, manager.binding, guard)
+                path, run, manager.binding, guard,home=bind_home(self,target,native),monotonic=native.monotonic,sleep=native.sleep)
 
         @_private
         def _navigation_missing(self,target,path,run,status,provider_instance,inputs,owned_origin,*,source_lock):

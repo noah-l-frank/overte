@@ -138,7 +138,7 @@ REQUIRED = {
     "navigation-error-dismissal": 2,
     "native-navigation-environment": 1,
     "native-navigation-origin-controls": 1,
-    "navigation-origin-operations": 1,
+    "navigation-origin-operations": 2,
     "navigation-environment-archive": 1,
     "native-navigation-directory": 1,
     "native-navigation-panels": 2,

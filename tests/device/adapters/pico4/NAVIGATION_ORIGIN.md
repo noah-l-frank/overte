@@ -63,8 +63,8 @@ The private Pico `NavigationOrigin` factory uses the existing bound normal VR
 input router and the independent native reader. The parent must already own the
 tablet/source/input lock and open the ordinary generic login page. Four normal
 steps focus the directory field, replace it, submit it, and use Home to close.
-Every exact control/token/process/bridge/generation/input-sequence/elapsed intent
-is durably recorded before one input. PicoNavigation's optional expected scope
+Every field control/token/process/bridge/generation/input-sequence/elapsed intent
+and the original Home ray geometry are durably recorded before input. PicoNavigation's optional expected scope
 rejects intervening input before delivery and supplies the same original scope
 to native admission. The private input file is cleared after replacement.
 
@@ -84,7 +84,7 @@ captured original selected URL, retaining its path, through the same normal
 steps. The parent opens the page again before restoration. No native history is
 reset and no credential is reconstructed.
 
-`navigation-origin-operations` v1 preserves at most 256 unique query IDs, the
+`navigation-origin-operations` v2 (reads closed v1) preserves at most 256 unique query IDs, the
 original baseline, current original packets, pending input and quiet groups.
 `navigation-environment-archive` v1 stores each complete original packet in a
 private immutable file named from its run and SHA-256. The existing bounded
@@ -111,3 +111,33 @@ HTTP consumption and original Places records/models with normal search. Next
 compose maturity controls, actual B/A arrival/stereo evidence, remaining owned Go To
 closure, real process restart/bookmark owner transfer and the independent final
 observer. This component never advertises a complete Navigation feature.
+
+
+## Actual VR Home closure in v2
+
+The current private Pico factory always binds the existing `PicoTabletHome`.
+The ordinary original Home Gizmo/OpenXR primary ray replaces the earlier assumed
+`nav.home` QML control, which is absent from the actual product source. Only
+focus, endpoint replacement and Return consume Qt control commands. Before the
+one Home gesture, the owner durably retains its original source geometry and
+current environment/frame scope. A fresh independently read Home result and
+original environment must then agree: same Home/tablet/source identity, actual
+Home screen, changed UI generation, unchanged Qt count, no current login page,
+actual selected/effective/auth endpoint and unchanged unrelated settings.
+
+The Home before/after originals use the same immutable environment archives,
+source/query ownership and 20-second action budget as selection. Subsequent
+quiet samples retain the exact resulting Qt generation/count. Lost ray results
+are observed without restaging; ignored Home, replaced geometry/source, extra
+Qt input and changed or missing archives fail with ownership intact. Selection
+and original path-bearing endpoint restoration each require their own normal
+ray and independent three-second quiet tail. No native/product code changes
+are needed for this correction.
+
+Closed v1 QML histories normalize in memory while keeping the exact original
+CAS value. A pending legacy QML input is never retargeted to a ray. Such records
+remain available to legacy reader/testing paths; the actual current Pico factory
+requires ray ownership for execution. Full original account histories remain in
+bounded hash-bound archives, including original Home closure environment groups.
+This proves source/host input/selection behavior, not full login-root lifetime,
+whole-area Script/resource retirement or physical VR qualification.

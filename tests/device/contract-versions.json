@@ -46,7 +46,7 @@
     "navigation-error-dismissal": {"current": 2, "reads": [1, 2]},
     "native-navigation-environment": {"current": 1, "reads": [1]},
     "native-navigation-origin-controls": {"current": 1, "reads": [1]},
-    "navigation-origin-operations": {"current": 1, "reads": [1]},
+    "navigation-origin-operations": {"current": 2, "reads": [1, 2]},
     "navigation-environment-archive": {"current": 1, "reads": [1]},
     "native-navigation-directory": {"current": 1, "reads": [1]},
     "native-navigation-panels": {"current": 2, "reads": [1, 2]},

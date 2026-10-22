@@ -1834,5 +1834,54 @@
       }
     ],
     "details": "Same original Python Pico normal input route across normal Go To and later-challenge original modal OK, one actual loopback HTTP 404 body/header completion, original lookup ticket/barrier, fresh B and bookmark storage, lost submit/OK no-resend and ignored/retained/wrong-ticket counterexamples. Native/Qt/OpenXR boundaries synthetic; no complete feature/actor/finalizer is added."
+  },
+  "navigationOriginRay": {
+    "status": "source-host-verified-internal-component",
+    "contract": "navigation-origin-operations v2 reads closed v1/v2",
+    "checks": [
+      {
+        "command": "PYTHONDONTWRITEBYTECODE=1 TMPDIR=PRIVATE_TMPFS PYTHONPATH=tests/device python3 -m unittest self_tests.test_navigation_origin_ray self_tests.test_navigation_origin self_tests.test_pico_tablet_home self_tests.test_navigation_lookup",
+        "status": "passed",
+        "tests": 39,
+        "durationSeconds": 2.551
+      },
+      {
+        "command": "python3 tests/run-project-tests.py --suite documentation --suite documentation-contracts --suite source-layout --suite project-coverage",
+        "status": "passed",
+        "suites": 4,
+        "durationSeconds": 2.47,
+        "junit": "navigation-origin-ray-project.xml"
+      },
+      {
+        "command": "python3 android/vr/pico/tests/pico4-test-suite.py --test normal-login --test suite-runner --test coverage-matrix --timeout 240",
+        "status": "passed",
+        "selectedGroups": 3,
+        "catalogGroups": 52,
+        "durationSeconds": 19.56,
+        "junit": "navigation-origin-ray-pico.xml"
+      },
+      {
+        "command": "python3 tests/device/validate_contract_versions.py",
+        "status": "passed"
+      }
+    ],
+    "details": "Actual private factory always uses original observed Home Gizmo and ordinary OpenXR input rather than absent nav.home QML. Three normal field commands plus one independently observed Home ray; original endpoint/path and unrelated preferences preserved. Original before/after Home/environment groups and query identity retained in hash-bound archives. Lost ray and legacy pending v1 CAS recovery never resend or retarget. Native sources unchanged/uncompiled, device boundaries synthetic and no complete Navigation capability added."
+  },
+  "phoneReuseReview": {
+    "sourceCommit": "abb7f6b60d97daf17752aadf94e2b5df099bb7ba",
+    "kind": "additional-read-only-committed-source-review",
+    "originalFrozenPhoneReferencePreserved": true,
+    "sourceCompleteAreas": [
+      "scripts",
+      "authentication",
+      "graphics"
+    ],
+    "emotes": "incomplete-unregistered",
+    "newSharedCandidates": [
+      "original Emote motion evidence",
+      "compiled-source and original loaded animation joins",
+      "passive animation cache readiness"
+    ],
+    "limitations": "No uncommitted Phone files copied; no moving branch followed or new Phone platform bindings imported. Full shared v17 dependency review remains necessary before selecting these candidates for Pico Emotes."
   }
 }
