@@ -167,6 +167,8 @@ class PicoCreateManagement:
 
     def flow(self):
         self.lock.assert_held()
+        from adapters.pico4.create_journey import PicoCreateJourney
+        need(not PicoCreateJourney.owned_target(self.adapter,self.target))
         need(not getattr(self.adapter,'_create_picker_owned',lambda _target:False)(self.target)
             and not getattr(self.adapter,'_create_models_owned',lambda _target:False)(self.target))
         # Do not adopt an unrelated regular Script manager reservation.

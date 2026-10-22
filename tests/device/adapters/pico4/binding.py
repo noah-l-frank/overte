@@ -499,6 +499,25 @@ def create_adapter(args, base_class):
             from adapters.pico4.create_models import PicoCreateModels
             return PicoCreateModels.owned_target(self,target)
 
+        @_private
+        def _create_journey(self, target, run):
+            from adapters.feature_fixture_access import client
+            from adapters.pico4.create_journey import PicoCreateJourney
+            from feature_journeys.phase_fixture import PhaseFixtureReader
+            _need(bool(os.environ.get('OVERTE_PICO_FEATURE_FIXTURE_CONFIG')))
+            source=PhaseFixtureReader(client(Path(os.environ['OVERTE_PICO_FEATURE_FIXTURE_CONFIG']),
+                configured_url=os.environ.get('OVERTE_E2E_FEATURE_FIXTURE_URL')),run,'create')
+            return PicoCreateJourney(self,target,run,source)
+
+        @_private
+        def _lifecycle_ui_source(self, target):
+            from adapters.pico4.lifecycle_source import bind_source
+            return bind_source(self,target,self._native_feature_observer(target))
+
+        def _create_feature_owned(self, target):
+            from adapters.pico4.create_journey import PicoCreateJourney
+            return PicoCreateJourney.owned_target(self,target)
+
         def _create_file_controls(self, target, intent, directory, run, ticket, role, before):
             from adapters.pico4.create_file_ui import CreateFileUI, PicoCreateFileIO
             ui, _observe, _binding = self._script_runtime(target)
@@ -1039,6 +1058,7 @@ def create_adapter(args, base_class):
                     result = self._scripts(target).invoke(operation, values)
                 elif operation in CREATE_OPERATIONS:
                     _need(create_management.configuration(os.environ) is not None)
+                    _need(not self._create_feature_owned(target))
                     result = self._create_management(target).invoke(operation, values)
                 else:
                     result = super().invoke(target, operation, values)
@@ -1173,7 +1193,7 @@ def create_adapter(args, base_class):
                     discard_stopped_state(path)
                 state, ui = self._script_paths(target)
                 discard_stopped_state(ui)
-                _need(not create_error and not self._create_management(target).owned() and not self._create_picker_owned(target) and not self._create_models_owned(target)
+                _need(not create_error and not self._create_management(target).owned() and not self._create_picker_owned(target) and not self._create_models_owned(target) and not self._create_feature_owned(target)
                       and not feature_error and not script_error and not probe_error and not origin_error and not chat_error and PrivateFeatureState(state).read() is None
                       and self._script_restart_inputs_store(target).read() is None
                       and self._script_restart_store(target).read() is None

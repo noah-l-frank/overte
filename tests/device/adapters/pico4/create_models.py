@@ -358,14 +358,15 @@ class OwnedCreateModels:
 
 class PicoCreateModels:
     """Private candidate-bound composition, without a full Create capability."""
-    def __init__(self,adapter,target,run):
+    def __init__(self,adapter,target,run,*,coordinator=None):
         from adapters.script_journey.lock import ScriptSourceLock
         from adapters.pico4.create_management import configuration
         identifier(run);need(configuration(os.environ) is not None)
         self.adapter,self.target,self.run=adapter,target,run
         self.key=hashlib.sha256(('org.overte.pico\0'+target).encode()).hexdigest()[:32]
         self.parent=adapter.pico_configuration[1]
-        self.lock=ScriptSourceLock(self.parent/('normal-create-sources-'+self.key+'.lock'))
+        self.coordinator=coordinator
+        self.lock=ScriptSourceLock(self.parent/('normal-create-sources-'+self.key+'.lock')) if coordinator is None else coordinator.lock
     def store(self,role):
         from adapters.normal_feature_state import PrivateFeatureState
         return PrivateFeatureState(self.parent/('create-models-'+role+'-'+self.key+'-'+self.run+'.json'))
@@ -387,16 +388,20 @@ class PicoCreateModels:
         self.lock.assert_held()
         allowed={self.store(role).path for role in ('owner','callbacks','entities','work','resources','resource-join')}
         need(set(self.journals(self.adapter,self.target))<=allowed)
-        need(not self.adapter._create_management(self.target).owned()
-            and not self.adapter._create_picker_owned(self.target))
+        need(not self.adapter._create_management(self.target).owned())
+        if self.coordinator is None:
+            from adapters.pico4.create_journey import PicoCreateJourney
+            need(not PicoCreateJourney.owned_target(self.adapter,self.target) and not self.adapter._create_picker_owned(self.target))
+        else:self.coordinator.authorize('models',self.adapter,self.target,self.run)
         regular,_ui=self.adapter._script_paths(self.target);need(PrivateFeatureState(regular).read() is None)
         ui,_observe,binding=self.adapter._script_runtime(self.target)
+        if self.coordinator is not None:self.coordinator.authorize('models',self.adapter,self.target,self.run,binding)
         entities=OriginalReader(self.adapter._create_entity_observer(self.target,self.run),self.store('entities'),binding)
         callbacks=OriginalReader(self.adapter._create_callback_observer(self.target),self.store('callbacks'),binding)
         work=WorkJournal(self.adapter._script_work(self.target),self.store('work'),binding)
         from adapters.pico4.create_model_resource_join import ResourceJoinedCreateModels
         resources=OriginalReader(self.adapter._create_model_resources_observer(self.target,self.run),self.store('resources'),binding)
-        return ResourceJoinedCreateModels(self.store('owner'),binding,lambda intent:self.adapter._create_controls(self.target,intent),
+        return ResourceJoinedCreateModels(self.store('owner'),binding,lambda intent:self.adapter._create_controls(self.target,intent if self.coordinator is None else self.coordinator.wrap_intent('models',intent)),
             entities,callbacks,work,resources=resources,join_store=self.store('resource-join'),
             monotonic=ui.monotonic,sleep=ui.sleep)
     def invoke(self,operation,*,ticket=None,fixture_url=None,resource=None):

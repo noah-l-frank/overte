@@ -71,12 +71,13 @@ def callback_rows(packet):
 
 class OwnedCreatePicker:
     def __init__(self,store,binding,controls,file_ui,file_io,files,callbacks,dialogs,entities,setting,source,*,
-                 monotonic=time.monotonic,sleep=time.sleep):
+                 monotonic=time.monotonic,sleep=time.sleep,export_subject=None):
         need(all(callable(v) for v in (controls,file_ui,files,monotonic,sleep)))
         self.store,self.binding=store,deepcopy(context(binding))
         self.controls,self.file_ui,self.file_io,self.files=controls,file_ui,file_io,files
         self.callbacks,self.dialogs,self.entities=callbacks,dialogs,entities
         self.setting=setting
+        need(export_subject is None or callable(export_subject));self.export_subject=export_subject
         self.source=deepcopy(source);exact(source,{'import','export'})
         for code in source.values():
             exact(code,{'sha256','codeUnits'})
@@ -239,8 +240,10 @@ class OwnedCreatePicker:
             and (source['canRez'] or source['canRezTmp']))
         if role=='import':need(entities_retired(source))
         else:
-            need(len(source['entities'])==1 and before_selection==[source['entities'][0]['id']]
-                and any(s['role']=='import' and s['outcome']=='imported' and s['entityId']==before_selection[0] for s in value['steps']))
+            need(len(source['entities'])==1 and before_selection==[source['entities'][0]['id']])
+            local=any(s['role']=='import' and s['outcome']=='imported' and s['entityId']==before_selection[0] for s in value['steps'])
+            if not local:
+                need(self.export_subject is not None and self.export_subject(actual)==source['entities'][0])
             for old in value['steps']:self.same_scene(old['baseline'],actual['entities'])
         step=dict(ticket=ticket,beforeUi=deepcopy(before['inventory']),beforeCallbacks=sorted(callback_rows(actual['callbacks'])),
             beforeDialogs=sorted(r['id'] for r in actual['dialogs']['source']['dialogs']),baseline=actual['entities'],directory=None,
@@ -304,7 +307,15 @@ class OwnedCreatePicker:
 
     def reconcile(self):
         value=self.state();step=value['steps'][-1];need(value['pending'] is not None)
-        operation=value['pending']['operation'];need(operation in ('cancel','import','export','delete'))
+        return self.settle(value['pending']['operation'])
+
+    def settle_completed(self,operation):
+        value=self.state();need(value['pending'] is None and value['steps'][-1]['outcome']==
+            {'cancel':'cancelled','import':'imported','export':'exported','delete':'deleted'}[operation])
+        return self.settle(operation)
+
+    def settle(self,operation):
+        value=self.state();step=value['steps'][-1];need(operation in ('cancel','import','export','delete'))
         ui=self.file_ui(self.intent,step);ui.root=step['uiRootId'];ui.retired()
         start=self.now();quiet=None;native_quiet=None;dialog_quiet=None;last=0
         for attempt in range(132):
@@ -472,7 +483,7 @@ class PicoCreatePicker:
     This does not advertise the incomplete common feature.create operation trio.
     The caller enters the original Create page before reserving a picker.
     """
-    def __init__(self,adapter,target,run):
+    def __init__(self,adapter,target,run,*,coordinator=None):
         from adapters.script_journey.lock import ScriptSourceLock
         from adapters.pico4.create_management import configuration
         identifier(run);need(configuration(os.environ) is not None)
@@ -480,7 +491,8 @@ class PicoCreatePicker:
         key=hashlib.sha256(('org.overte.pico\0'+target).encode()).hexdigest()[:32]
         parent=adapter.pico_configuration[1]
         self.parent,self.key=parent,key
-        self.lock=ScriptSourceLock(parent/('normal-create-sources-'+key+'.lock'))
+        self.coordinator=coordinator
+        self.lock=ScriptSourceLock(parent/('normal-create-sources-'+key+'.lock')) if coordinator is None else coordinator.lock
 
     def store(self,role,ticket=None):
         from adapters.normal_feature_state import PrivateFeatureState
@@ -507,11 +519,16 @@ class PicoCreatePicker:
         from adapters.pico4.create_files import NativeCreateFiles,OwnedCreateFiles,FILE
         from adapters.pico4.create_file_ui import PicoCreateFileIO
         self.lock.assert_held()
-        need(not self.adapter._create_management(self.target).owned() and not self.adapter._create_models_owned(self.target))
+        need(not self.adapter._create_management(self.target).owned())
+        if self.coordinator is None:
+            from adapters.pico4.create_journey import PicoCreateJourney
+            need(not PicoCreateJourney.owned_target(self.adapter,self.target) and not self.adapter._create_models_owned(self.target))
+        else:self.coordinator.authorize('picker',self.adapter,self.target,self.run)
         regular,_ui=self.adapter._script_paths(self.target)
         from adapters.normal_feature_state import PrivateFeatureState
         need(PrivateFeatureState(regular).read() is None)
         ui,_observe,binding=self.adapter._script_runtime(self.target)
+        if self.coordinator is not None:self.coordinator.authorize('picker',self.adapter,self.target,self.run,binding)
         native=self.adapter._native_feature_observer(self.target)
         callbacks=OriginalReader(self.adapter._create_callback_observer(self.target),self.store('callbacks'),binding)
         dialogs=OriginalReader(self.adapter._create_dialog_observer(self.target),self.store('dialogs'),binding)
@@ -524,15 +541,16 @@ class PicoCreatePicker:
                 native.clock_ms,native.guard,native.pid,ticket=ticket,monotonic=native.monotonic,sleep=native.sleep)
             return OwnedCreateFiles(original,self.store('files',ticket),binding)
         def file_ui(intent,step):
-            return self.adapter._create_file_controls(self.target,intent,step['directory'],self.run,step['ticket'],
+            return self.adapter._create_file_controls(self.target,intent if self.coordinator is None else self.coordinator.wrap_intent('picker',intent),step['directory'],self.run,step['ticket'],
                 step['role'],step['beforeUi'])
         from pathlib import Path
         source={}
         for role,name in (('import','edit.js'),('export','entityList/entityList.js')):
             code=(Path(__file__).resolve().parents[4]/('scripts/system/create/'+name)).read_text(encoding='utf-8').encode('utf-16le')
             source[role]=dict(sha256=hashlib.sha256(code).hexdigest(),codeUnits=len(code)//2)
-        return OwnedCreatePicker(self.store('owner'),binding,lambda intent:self.adapter._create_controls(self.target,intent),
-            file_ui,PicoCreateFileIO(ui.io),files,callbacks,dialogs,entities,setting,source,monotonic=ui.monotonic,sleep=ui.sleep)
+        return OwnedCreatePicker(self.store('owner'),binding,lambda intent:self.adapter._create_controls(self.target,intent if self.coordinator is None else self.coordinator.wrap_intent('picker',intent)),
+            file_ui,PicoCreateFileIO(ui.io),files,callbacks,dialogs,entities,setting,source,monotonic=ui.monotonic,sleep=ui.sleep,
+            export_subject=None if self.coordinator is None else self.coordinator.export_subject)
 
     def invoke(self,operation,*,ticket=None,fixture_url=None):
         need(operation in ('open','open-export','cancel','import','export','delete','reconcile','release'))
