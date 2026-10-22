@@ -138,6 +138,18 @@ class ApiRuntimeTests(unittest.TestCase):
                     self.assertFalse(cache.is_symlink())
                     self.assertEqual(cache.read_bytes(), verified)
 
+    def test_kotlin_production_source_cannot_silently_pass_java_compilation(self):
+        for product, relative in [('phone', 'android/phone/apps/phoneInterface/src/main/kotlin/New.kt'),
+                                   ('common', 'android/common/web/java/New.kt')]:
+            with self.subTest(product=product), tempfile.TemporaryDirectory() as scratch:
+                root = Path(scratch)
+                (root / 'android/phone/apps/phoneInterface/src/main/java').mkdir(parents=True)
+                kotlin = root / relative; kotlin.parent.mkdir(parents=True, exist_ok=True)
+                kotlin.write_text('fun kotlinSource() = 1\n')
+                with patch.object(A, 'verify_runtime', return_value=root):
+                    with self.assertRaisesRegex(ValueError, 'Kotlin compiler owner'):
+                        A.compile_product(root, root, product)
+
     def test_phone_java_selects_only_proven_related_suites(self):
         profile = P.policy()['android']['android-phone']
         inputs = json.loads((ROOT / '.github/pr-ci-platform-inputs.json').read_text())['android'][0]

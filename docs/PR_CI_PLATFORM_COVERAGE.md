@@ -55,6 +55,9 @@ rebuild Qt. A future automatic Android-native owner requires a separately
 qualified immutable SDK/NDK/Gradle/Conan/source-graph runtime and an offline
 `--build=never` acquisition/execution contract before it can claim APK/native
 acceptance. The Java tier does not silently assert that missing guarantee.
+Production Kotlin sources are explicitly refused by the Java compiler owner;
+they require a real Kotlin/target compile owner. An existing `.java` inventory
+must never make an added `.kt` file appear compiled.
 
 ## Existing host suite selection
 

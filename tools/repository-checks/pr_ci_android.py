@@ -185,6 +185,11 @@ def compile_product(candidate, runtime, product, run=subprocess.run):
     source, namespace = PRODUCTS[product]
     main = candidate / source if source else None
     require(main is None or (main / 'java').is_dir(), 'selected production Android Java is missing')
+    source_roots = ([main / 'java', main / 'kotlin'] if main else [])
+    source_roots += [root for relative in COMMON for root in
+                     (candidate / relative, (candidate / relative).parent / 'kotlin')]
+    require(not any(path for root in source_roots if root.is_dir() for path in root.rglob('*.kt')),
+            'Kotlin production sources require an actual Kotlin compiler owner; javac does not qualify them')
     sources = sorted((main / 'java').rglob('*.java')) if main else []
     for relative in COMMON:
         root = candidate / relative
