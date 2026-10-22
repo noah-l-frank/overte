@@ -53,12 +53,15 @@ restoration; complete Places/restart/publication/quiet cleanup remain partial.
 The [normal Places recipes](NAVIGATION_PLACES_INPUTS.md) now cover native
 bookmark add/rename cancellation, visit/delete, search and directory selection
 using original tokens/model joins and a mandatory per-input intent callback.
-Their full durable operation owner, open/close, error/restart and independent
-whole-run publication/cleanup remain to be connected.
+Error/restart and independent whole-run publication/cleanup remain to be connected.
 An [open-page action owner](NAVIGATION_PLACES_ACTIONS.md) now retains genuine
 phase and per-input originals across whole calls, rejects replay after uncertain
 delivery and carries original source floors. Whole page/scene/restart ownership,
 independent observation/publication and repeated quiet cleanup remain partial.
+An [ordinary surface owner](NAVIGATION_SURFACE_ACTIONS.md) now checkpoints actual
+Open/Home/Places/Close inputs and retains the observed page root. Replaced or
+pre-existing surfaces and lost returns cannot authorize new input or cleanup.
+Whole composite arrival/close, error, restart and repeated quiet cleanup remain open.
 
 The canonical physical source binding and explicit lost-launch recovery have
 host-tested implementations. The native byte observer and SDK plugin remain
