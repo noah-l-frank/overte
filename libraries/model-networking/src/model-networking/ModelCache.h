@@ -13,6 +13,9 @@
 #define hifi_ModelCache_h
 
 #include <QtCore/QSharedPointer>
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+#include <QUuid>
+#endif
 
 #include <DependencyManager.h>
 #include <ResourceCache.h>
@@ -37,6 +40,9 @@ public:
     Geometry() = default;
     Geometry(const Geometry& geometry);
     virtual ~Geometry() = default;
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    QString e2eGeometryInstance() const { return _e2eIdentity.value; }
+#endif
 
     // Immutable over lifetime
     using GeometryMeshes = std::vector<std::shared_ptr<const graphics::Mesh>>;
@@ -76,6 +82,16 @@ protected:
     bool _waitForWearables { false };
 
 private:
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    // Copies represent different loaded/rendered geometry objects. Assignment
+    // also changes provenance; the copied object's identity is never adopted.
+    struct Identity {
+        QString value {QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-')};
+        Identity() = default;
+        Identity(const Identity&) : Identity() {}
+        Identity& operator=(const Identity&) { value = QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-'); return *this; }
+    } _e2eIdentity;
+#endif
     mutable bool _areTexturesLoaded { false };
 };
 
