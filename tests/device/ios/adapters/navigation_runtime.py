@@ -7,18 +7,28 @@ is provided here. The whole navigation coordinator must own admission/cleanup.
 # SPDX-License-Identifier: Apache-2.0
 from adapters.native_feature_observation import need
 from adapters.normal_feature_state import PrivateFeatureState
+from adapters.normal_ui import NativeUI
 from adapters.script_feature.history import same
 from adapters.script_feature.lock import ScriptSourceLock
 from feature_journeys.contract import identifier
 from ios.adapters.navigation_fixture import NavigationFixtureReader
 from ios.adapters.navigation_observation_owner import NavigationObservationOwner
 from ios.adapters.navigation_admission_owner import NavigationAdmissionOwner
+from ios.adapters.navigation_scene_inputs import NavigationSceneInputs
 from ios.adapters.navigation_sample import NavigationSampleOwner
 from ios.adapters.navigation_samples import NavigationSamples
 from ios.adapters.script_runtime import IOSScriptRuntime
 
 
 class IOSNavigationRuntime(IOSScriptRuntime):
+    def _navigation_scene_inputs(self,selector,admission):
+        need(isinstance(admission,NavigationAdmissionOwner));admission.bound()
+        source=self._sources(selector);need(same(source['binding'],admission.binding)
+            and admission.store.path.parent==self.state_path(selector).parent)
+        ui=NativeUI(source['client'],source['session'],source['check'])
+        return NavigationSceneInputs(PrivateFeatureState(admission.store.path.with_name('ios-navigation-scene-inputs.json')),
+            admission,ui,source['native'])
+
     def _navigation_admission_owner(self,selector,client,run,lock):
         identifier(run);need(isinstance(lock,ScriptSourceLock));lock.assert_held()
         source=self._sources(selector);fixture=NavigationFixtureReader(client,run);fixture.attach()

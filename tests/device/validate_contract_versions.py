@@ -135,6 +135,7 @@ REQUIRED = {
     "ios-scene-inventory": 2,
     "ios-scene-commit-origin": 1,
     "ios-navigation-admission-owner": 1,
+    "ios-navigation-scene-inputs": 1,
     "ios-navigation-scene-admission": 1,
     "ios-scene-inventory-acquisition": 1,
     "ios-navigation-sample-owner": 1,

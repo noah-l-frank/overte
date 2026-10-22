@@ -13,7 +13,7 @@ DEVICE = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(DEVICE))
 from adapters.normal_ui import NativeUIError
 from ios.adapters import normal_input, normal_navigation
-from test_ios_normal_input import Boundary
+from ios.self_tests.test_ios_normal_input import Boundary
 
 # Load this one shared native boundary by its exact source path. Adding the
 # shared self-test directory globally makes its test_voice_roundtrip shadow the
