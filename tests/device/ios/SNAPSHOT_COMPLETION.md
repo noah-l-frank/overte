@@ -55,3 +55,33 @@ composed host cases decode actual PNG/JPEG private files and reject uniform,
 truncated or differently encoded native output, even when its native status,
 manifest hash and durable artifact agree. Image creation occurs only in the
 explicitly modeled test producer; the adapter only reads original bytes.
+
+
+## Complete ordinary output sets
+
+`output_set` joins one ordinary selected mode to the exact complete native file
+set for all five cases: still PNG, still JPEG, animated PNG plus GIF, panorama
+and cubemap. It reopens each actual artifact/chunk/job chain and requires the
+same immutable pre/post manifests, capture request, Script callback, native
+capture and original completion. An extra output, missing companion, duplicate
+artifact or foreign capture cannot be hidden by selecting one valid file.
+Animated work additionally needs the actual processing-path status before its
+terminal status. Panorama/cubemap instead require their actual pathless processing
+status emitted before conversion; it cannot be relabelled as an animated path. Its existing ordinary profile requires the PNG still companion.
+The released still-only `completed` version-1 fields and behavior remain intact.
+
+`decoded_output_set` decodes these same original bytes with the shared decoder.
+It checks the actual two-frame GIF duration and complete stream, and the existing
+8192x4096 panorama or 8192x6144 cubemap geometry. Successful decoding still makes
+no scene-fidelity, orientation or visual-motion claim: each remains an explicit
+outer obligation, alongside destinations, independent witnesses and paired quiet.
+The new output-set and decoded-output-set contracts are both version 1.
+
+Seven composed host cases use actual private files, all participating query/normal
+input/artifact owners and real weak file jobs with explicitly modeled native,
+Script and SDK clocks. They exercise all five output sets, decode a real PNG/GIF
+pair and reject missing/duplicate/extra files, missing processing paths, mismatched
+mode, a one-frame GIF, wrong projection geometry and changed original bytes.
+The positive projection-set cases intentionally use small images before decoding:
+they qualify completion/provenance only; the decoder correctly refuses their
+geometry. No physical renderer, native compilation or iOS acceptance is claimed.

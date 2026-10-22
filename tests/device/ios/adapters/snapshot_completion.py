@@ -15,25 +15,29 @@ from ios.adapters import snapshot_work as work,snapshot_captures as native
 from snapshot_observation import inspect_snapshot
 
 
-def completed(inputs,index,before_work,after_work,before_native,after_native,before_files,artifact,scripts_root):
+def _file_completion(inputs,index,before_work,after_work,before_native,after_native,before_files,artifact,scripts_root,*,mode,output_format):
     need(type(inputs) is SnapshotInputOwner and type(before_files) is SnapshotManifest and type(artifact) is SnapshotArtifact)
     delivered=inputs.validate_original(index);event=inputs.state['events'][index-1]
     need(event['controlId']=='snapshot.capture' and event['command']['operation']=='activate')
     row=next(row for row in event['reference']['controls'] if row['id']=='snapshot.capture')
-    need(row['snapshotMode']==0 and row['snapshotFormat'] in ('png','jpg') and row['snapshotNameOwned']
+    modes=('still','animated','panorama','cubemap')
+    need(mode in modes and row['snapshotMode']==modes.index(mode) and row['snapshotFormat'] in ('png','jpg')
+        and output_format in ({row['snapshotFormat'],'gif'} if mode=='animated' else {row['snapshotFormat']})
+        and row['snapshotNameOwned']
         and row['snapshotSettingsLoaded'] and not row['snapshotCapturing'] and not row['snapshotProcessing']
         and not row['snapshotStatusError'])
     for owner in (before_files,artifact):
         need(same(owner.binding,inputs.binding) and owner.run==inputs.run and owner.role==inputs.role
             and owner.store.path.parent==inputs.store.path.parent and owner.lock.path==inputs.lock.path)
-    mode='still-'+row['snapshotFormat'];before=before_files.historical();absent(before,inputs.pid,inputs.run,mode)
+    label='still-'+row['snapshotFormat'] if mode=='still' else mode
+    before=before_files.historical();absent(before,inputs.pid,inputs.run,label)
     need(row['snapshotName']==before['query']['prefix'] and artifact.state is not None
         and artifact.state['phase']=='copied' and artifact.state['before']>before_files.index)
     fact,raw=artifact.originals();need(artifact.read()==raw)
     work.validate(after_work,dict(schemaVersion=1,action=work.ACTION,commandId=after_work['requestId'],runId=inputs.run),
         inputs.pid,previous=before_work)
     initial=work.admit(before_work,scripts_root,quiet=True);final=work.admit(after_work,scripts_root,quiet=True)
-    need(same(initial['manager'],final['manager']) and final['state']['mode']=='still'
+    need(same(initial['manager'],final['manager']) and final['state']['mode']==mode
         and final['state']['captureCounter']==initial['state']['captureCounter']+1)
     native.validate(after_native,dict(schemaVersion=1,action=native.ACTION,commandId=after_native['requestId'],runId=inputs.run),
         inputs.pid,previous=before_native);native.drained(before_native);native.drained(after_native)
@@ -44,7 +48,7 @@ def completed(inputs,index,before_work,after_work,before_native,after_native,bef
     need([entry['event'] for entry in take]==['entry','returned','finally']
         and all(entry['closure']=='takeSnapshot' for entry in take) and not take[0]['state']['captureId'])
     request=take[1]['state']['captureId'];need(request and take[2]['state']['captureId']==request
-        and take[1]['state']['mode']==take[2]['state']['mode']=='still'
+        and take[1]['state']['mode']==take[2]['state']['mode']==mode
         and take[1]['state']['captureCounter']==take[2]['state']['captureCounter']==final['state']['captureCounter'])
     prior={row['instance'] for row in before_native['source']['captures']}
     captures=[row for row in after_native['source']['captures'] if row['instance'] not in prior]
@@ -54,6 +58,10 @@ def completed(inputs,index,before_work,after_work,before_native,after_native,bef
         and not any(entry['kind'] in ('cancel-requested','cancelled','cancel-delivered','rejected') for entry in history))
     terminal=[entry for entry in history if entry['kind']=='status' and entry['detail']['phase'] in ('complete','error')]
     need(len(terminal)==1 and terminal[0]['detail']==dict(phase='complete',hasPath=True,hasError=False))
+    processing=[entry for entry in history if entry['kind']=='status' and entry['detail']['phase']=='processing']
+    if mode!='still':
+        need(len(processing)==1 and processing[0]['detail']==dict(phase='processing',hasPath=mode=='animated',hasError=False)
+            and processing[0]['sequence']<terminal[0]['sequence'])
     callbacks=[]
     for callback in events:
         if callback['closure']!='onNativeCaptureStatus' or callback['event']!='entry' or callback['state']['captureId']!=request:continue
@@ -72,15 +80,82 @@ def completed(inputs,index,before_work,after_work,before_native,after_native,bef
         and take[-1]['capturedEpochMs']<=capture['bornEpochMs']
         and call[-1]['capturedEpochMs']<=after_work['clockBefore']['epochMs']
         and receipt['sampleEpochMs']<=after_work['clockBefore']['epochMs'])
-    need(fact['file']['name']==row['snapshotName']+'-'+request+'.'+row['snapshotFormat']
+    need(fact['file']['name']==row['snapshotName']+'-'+request+'.'+output_format
         and fact['prefix']==row['snapshotName'] and fact['file']['size']==len(raw))
     first,after,_chunks=artifact.owners()
     need(terminal[0]['capturedEpochMs']<=first.historical()['clockJoin']['nativeBefore']['capturedEpochMs']
         and after_native['clockAfter']['epochMs']<=after.historical()['clockJoin']['nativeAfter']['capturedEpochMs'])
-    return dict(iosSnapshotCompletedCaptureVersion=1,binding=deepcopy(inputs.binding),runId=inputs.run,role=inputs.role,
-        processId=inputs.pid,inputIndex=index,captureId=request,captureInstance=capture['instance'],mode='still',format=row['snapshotFormat'],
+    return dict(binding=deepcopy(inputs.binding),runId=inputs.run,role=inputs.role,
+        processId=inputs.pid,inputIndex=index,captureId=request,captureInstance=capture['instance'],mode=mode,format=output_format,
         file=deepcopy(fact['file']),artifactIndex=artifact.index,completedNativeEpochMs=terminal[0]['capturedEpochMs'],
         decodedImageRequired=True,destinationOutcomeRequired=True,independentWitnessRequired=True,quietWindowRequired=True)
+
+
+def completed(inputs,index,before_work,after_work,before_native,after_native,before_files,artifact,scripts_root):
+    # Keep the released still-only version-1 result and its exact field values.
+    need(type(inputs) is SnapshotInputOwner and type(index) is int and 1<=index<=len(inputs.state['events']))
+    event=inputs.state['events'][index-1]
+    row=next(row for row in event['reference']['controls'] if row['id']=='snapshot.capture')
+    result=_file_completion(inputs,index,before_work,after_work,before_native,after_native,before_files,artifact,scripts_root,
+        mode='still',output_format=row['snapshotFormat'])
+    return dict(iosSnapshotCompletedCaptureVersion=1,**result)
+
+
+def output_set(inputs,index,before_work,after_work,before_native,after_native,before_files,artifacts,scripts_root):
+    """One actual capture and its complete still/GIF or projection output set.
+
+    Each artifact reopens original file/chunk/job histories. The initial and final
+    manifest sets must agree exactly, so extra, missing and foreign output cannot
+    be hidden by selecting just one otherwise valid artifact.
+    """
+    need(type(inputs) is SnapshotInputOwner and type(before_files) is SnapshotManifest
+        and type(index) is int and 1<=index<=len(inputs.state['events'])
+        and type(artifacts) is list and 1<=len(artifacts)<=2 and all(type(v) is SnapshotArtifact for v in artifacts))
+    event=inputs.state['events'][index-1]
+    rows=[row for row in event['reference']['controls'] if row['id']=='snapshot.capture'];need(len(rows)==1)
+    control=rows[0];modes=('still','animated','panorama','cubemap');number=control['snapshotMode']
+    need(type(number) is int and 0<=number<len(modes));mode=modes[number]
+    formats={'png','gif'} if mode=='animated' else {control['snapshotFormat']}
+    # The ordinary animated profile uses the existing PNG still companion.
+    need(mode!='animated' or control['snapshotFormat']=='png')
+    need(len(artifacts)==len(formats) and len({v.index for v in artifacts})==len(artifacts))
+    completed_files=[];names=set();observed_formats=set();manifest_ids=None
+    for artifact in artifacts:
+        need(artifact.state is not None and artifact.state['phase']=='copied')
+        fact,raw=artifact.originals();extension=fact['file']['name'].rsplit('.',1)[-1]
+        need(extension in formats and extension not in observed_formats);observed_formats.add(extension)
+        result=_file_completion(inputs,index,before_work,after_work,before_native,after_native,before_files,artifact,scripts_root,
+            mode=mode,output_format=extension)
+        names.add(result['file']['name']);completed_files.append(result)
+        first,last,_=artifact.owners();ids=(first.index,last.index)
+        if manifest_ids is None:manifest_ids=ids
+        else:need(ids==manifest_ids)
+        for manifest in (first,last):
+            actual=manifest.historical()['packet']['files']
+            need(len(actual)==len(formats))
+            # All artifacts use these same immutable complete manifests.
+            need({row['name'] for row in actual}=={v.state['fact']['file']['name'] for v in artifacts})
+    need(observed_formats==formats and len(names)==len(formats))
+    first=completed_files[0]
+    need(all(all(same(v[key],first[key]) for key in ('binding','runId','role','processId','inputIndex','captureId',
+        'captureInstance','mode','completedNativeEpochMs')) for v in completed_files))
+    return dict(iosSnapshotOutputSetVersion=1,binding=deepcopy(inputs.binding),runId=inputs.run,role=inputs.role,
+        inputIndex=index,mode=mode,captureId=first['captureId'],files=sorted(completed_files,key=lambda v:v['format']),
+        decodedImagesRequired=True,sceneFidelityRequired=True,destinationOutcomeRequired=True,
+        independentWitnessRequired=True,quietWindowRequired=True)
+
+
+def decoded_output_set(*args):
+    """Decode the exact complete original set; no orientation/motion claim."""
+    result=output_set(*args);artifacts=args[7];images=[]
+    for capture in result['files']:
+        artifact=next(v for v in artifacts if v.index==capture['artifactIndex']);raw=artifact.read()
+        mode='animated' if capture['format']=='gif' else 'still' if result['mode']=='animated' else result['mode']
+        image=inspect_snapshot(raw,mode=mode,file_format=capture['format'])
+        need(image['sha256']==capture['file']['sha256'] and image['bytes']==capture['file']['size']);images.append(image)
+    return dict(iosSnapshotDecodedOutputSetVersion=1,capture=result,images=images,
+        sceneFidelityRequired=True,visualMotionRequired=result['mode']=='animated',orientationRequired=result['mode'] in ('panorama','cubemap'),
+        destinationOutcomeRequired=True,independentWitnessRequired=True,quietWindowRequired=True)
 
 
 def decoded(inputs,index,before_work,after_work,before_native,after_native,before_files,artifact,scripts_root):
