@@ -90,7 +90,9 @@ QVariantMap MessagesClient::featureChatObservation(const QVariantMap& command) {
         if (!QMetaObject::invokeMethod(this,[&] { original=featureChatObservation(command); },Qt::BlockingQueuedConnection)) { return {}; }
         return original;
     }
+    if (!DependencyManager::isSet<NodeList>()) { return {}; }
     const auto nodes = DependencyManager::get<NodeList>();
+    if (!nodes) { return {}; }
     const auto run=command.value("runId").toString();
     const auto before=nodes->getDomainHandler().featureChatSession(run);
     if (before.isEmpty()) { return {}; }
