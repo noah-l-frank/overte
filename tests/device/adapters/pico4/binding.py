@@ -1078,6 +1078,16 @@ def create_adapter(args, base_class):
                 native.clock_ms, native.guard, native.pid, monotonic=native.monotonic, sleep=native.sleep)
 
         @_private
+        def _audio_pages_source(self,target,*,source_lock=None):
+            from adapters.pico4.audio_pages import PicoAudioPages,FILE
+            native=self._native_feature_observer(target);manager=self._scripts(target)
+            source_lock=self._script_journey()._lock(target,source_lock)
+            return PicoAudioPages(
+                lambda:self.adb.read_debug_app_file(target,'org.overte.pico','files/overte-e2e/'+FILE,attempts=1),
+                native.clock_ms,native.guard,native.pid,manager.binding['sessionId'],source_lock,
+                monotonic=native.monotonic,sleep=native.sleep)
+
+        @_private
         def _audio_settings_source(self,target,*,source_lock=None):
             from adapters.pico4.audio_settings_source import PicoAudioSettings,FILE
             native=self._native_feature_observer(target)
