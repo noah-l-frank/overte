@@ -33,6 +33,8 @@ from adapters.pico4 import normal_scripts
 from adapters.pico4 import script_journey
 from adapters.pico4 import authentication_journey
 from adapters.pico4 import graphics_journey
+from adapters.pico4 import create_management
+from create_observation import OPERATIONS as CREATE_OPERATIONS
 from adapters.token_script_file_ui import TokenScriptFilePicker
 from adapters.native_script_files import NativeScriptFiles, OwnedScriptFiles, FILE as SCRIPT_FIXTURE_FILE
 from adapters.script_restart_handoff import ScriptRestartHandoff
@@ -194,6 +196,10 @@ def create_adapter(args, base_class):
                 _need((not cleanup_only or cleanup_candidate) and self.pico_configuration is not None
                       and candidate['e2e_input_layer'] is True)
                 values.extend(SCRIPT_OPERATIONS)
+            if create_management.configuration(os.environ) is not None:
+                _need((not cleanup_only or cleanup_candidate) and self.pico_configuration is not None
+                      and candidate['e2e_input_layer'] is True)
+                values.extend(CREATE_OPERATIONS)
             if script_journey.configured(os.environ):
                 _need(not cleanup_only and self.pico_configuration is not None and candidate['e2e_input_layer'] is True)
                 values.extend(script_journey.OPERATIONS)
@@ -469,8 +475,11 @@ def create_adapter(args, base_class):
         def _create_controls(self, target, intent):
             from adapters.token_create_ui import TokenCreateUI
             from adapters.pico4.normal_create import PicoCreateIO
-            manager=self._scripts(target)
-            return TokenCreateUI(PicoCreateIO(manager.ui.io),intent)
+            ui, _observe, _binding = self._script_runtime(target)
+            return TokenCreateUI(PicoCreateIO(ui.io),intent)
+
+        def _create_management(self, target):
+            return create_management.PicoCreateManagement(self, target)
 
         def _chat_controls(self, target, intent, run):
             from adapters.token_chat_ui import TokenChatUI
@@ -952,6 +961,9 @@ def create_adapter(args, base_class):
                     result = self._snapshot(target).invoke(operation, values)
                 elif operation in SCRIPT_OPERATIONS:
                     result = self._scripts(target).invoke(operation, values)
+                elif operation in CREATE_OPERATIONS:
+                    _need(create_management.configuration(os.environ) is not None)
+                    result = self._create_management(target).invoke(operation, values)
                 else:
                     result = super().invoke(target, operation, values)
             finally:
@@ -961,6 +973,14 @@ def create_adapter(args, base_class):
         @_private
         def cleanup(self, target):
             feature_error = False
+            create_error = False
+            try:
+                if self.pico_configuration is not None and self._create_management(target).owned():
+                    if cleanup_only:
+                        self._recover_cleanup_candidate()
+                    self._create_management(target).cleanup()
+            except Exception:
+                create_error = True
             try:
                 if self.pico_configuration is not None and self._script_journey().existing_state_path(target) is not None:
                     journey = self._script_journey()
@@ -1077,13 +1097,14 @@ def create_adapter(args, base_class):
                     discard_stopped_state(path)
                 state, ui = self._script_paths(target)
                 discard_stopped_state(ui)
-                _need(not feature_error and not script_error and not probe_error and not origin_error and not chat_error and PrivateFeatureState(state).read() is None
+                _need(not create_error and not self._create_management(target).owned()
+                      and not feature_error and not script_error and not probe_error and not origin_error and not chat_error and PrivateFeatureState(state).read() is None
                       and self._script_restart_inputs_store(target).read() is None
                       and self._script_restart_store(target).read() is None
                       and self._script_files_store(target).read() is None and self._account_probe_store(target).read() is None
                       and self._account_origin_store(target).read() is None and self._chat_capture_store(target).read() is None)
             else:
-                _need(not feature_error and not script_error and not probe_error and not origin_error and not chat_error)
+                _need(not create_error and not feature_error and not script_error and not probe_error and not origin_error and not chat_error)
             return result
 
     return PicoBoundAdapter(args.kind)

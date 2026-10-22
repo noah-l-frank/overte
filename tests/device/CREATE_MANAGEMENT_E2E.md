@@ -4,8 +4,9 @@
 controlled serverless scene. It creates an owned avatar Cube, changes its color
 and dimensions, undoes/redoes the edit, deletes and restores it, and exercises
 parent-child JSON import with undo/redo and an actual HTTP 404 import. These are
-locally implemented assertions; native adapters and device acceptance remain
-pending. No native adapter advertises the new operations yet.
+locally implemented assertions. The opt-in [Pico source binding](adapters/pico4/CREATE_FEATURE.md)
+now supplies these foundation operations; native compilation and device acceptance
+remain unverified. Complete Create feature acceptance remains separate.
 
 ## Native input contract
 

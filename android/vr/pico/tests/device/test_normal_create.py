@@ -4,6 +4,7 @@
 from copy import deepcopy
 from functools import partial
 import json
+import os
 from pathlib import Path
 import sys
 import unittest
@@ -14,6 +15,10 @@ from self_tests.test_normal_create_adapter import NativeCreate
 from self_tests.test_token_create_ui import Controls
 from adapters.token_create_ui import TokenCreateUI
 from adapters.pico4.navigation import validate_snapshot
+from create_observation import OPERATIONS as CREATE_OPERATIONS
+from self_tests.test_normal_create_adapter import URL
+# Register the owner cases in the existing named Pico normal-create suite.
+from test_create_management import PicoCreateManagementTests
 
 
 class PicoCreateTests(unittest.TestCase):
@@ -108,6 +113,29 @@ class PicoCreateTests(unittest.TestCase):
         self.flow.intent=self.widget.intents.append;self.widget.hidden='create.resource';self.widget.ignore_scroll=True
         with self.assertRaises(RuntimeError):self.flow.replace('create.resource','owned-resource')
         self.assertNotIn('create.resource',self.widget.texts)
+
+    def test_catalog_foundation_routes_only_when_enabled_and_never_claims_whole_create(self):
+        target = self.native.target
+        self.assertFalse(set(CREATE_OPERATIONS) & set(self.instance.capabilities(target)))
+        with patch.dict(os.environ, {'OVERTE_PICO_NORMAL_CREATE':'1'}):
+            capabilities = self.instance.capabilities(target)
+            self.assertTrue(set(CREATE_OPERATIONS) <= set(capabilities))
+            self.assertFalse(any(value.startswith('feature.create.') for value in capabilities))
+            flow = unittest.mock.Mock()
+            flow.invoke.return_value = {'performed':True}
+            with patch.object(self.instance, '_create_management', return_value=flow):
+                self.assertEqual({'performed':True}, self.instance.invoke(target,
+                    'create.reference.open', {'scriptUrl':URL}))
+            flow.invoke.assert_called_once_with('create.reference.open', {'scriptUrl':URL})
+        with self.assertRaises(ValueError):
+            self.instance.invoke(target, 'create.reference.open', {'scriptUrl':URL})
+
+    def test_reading_create_controls_does_not_reserve_regular_script_manager(self):
+        state, _ui = self.instance._script_paths(self.native.target)
+        from adapters.normal_feature_state import PrivateFeatureState
+        self.assertIsNone(PrivateFeatureState(state).read())
+        self.flow.capture()
+        self.assertIsNone(PrivateFeatureState(state).read())
 
 
 if __name__=='__main__':unittest.main()
