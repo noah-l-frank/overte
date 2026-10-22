@@ -10,6 +10,9 @@
 #include "../../../../../../tests/device/native/LifecycleBackgroundHistory.h"
 #include <PathUtils.h>
 #include "../../../../../../tests/device/native/PrivatePreviewFiles.h"
+#include "../../../../../../tests/device/native/PicoSnapshotFastCancel.h"
+#include "../../../../../../tests/device/native/PicoSnapshotCancelBridge.h"
+#include <scripting/TestScriptingInterface.h>
 #include "../../../../../../tests/device/native/LoginUiInventory.h"
 #include <AccountManager.h>
 #include <scripting/RenderScriptingInterface.h>
@@ -460,6 +463,7 @@ private:
 #if defined(OVERTE_E2E_FEATURE_TESTS)
         installPendingCommitOwner();
         installBrowserInputProvider();
+        installSnapshotCancelProvider();
 #endif
         const Observation observation = observeTablet();
         writeJson(OBSERVATION_PATH, {
@@ -477,10 +481,93 @@ private:
         loginObservationTick();
         graphicsObservationTick();
         homeObservationTick();
+        snapshotCancelTick();
 #endif
     }
 
 #if defined(OVERTE_E2E_FEATURE_TESTS)
+    struct SnapshotCancelRoots {
+        QPointer<QQuickItem> root;QPointer<QQuickWindow> window;QPointer<OffscreenQmlSurface> surface;bool shown{false};
+    };
+    SnapshotCancelRoots snapshotCancelRoots() {
+        if(!bridgeEnabled() || !overte::e2e::previewDirectory(BRIDGE_DIRECTORY) || !qApp->isHMDMode()
+                || QThread::currentThread()!=qApp->thread() || QGuiApplication::applicationState()!=Qt::ApplicationActive
+                || !DependencyManager::isSet<TabletScriptingInterface>()) {return {};}
+        const auto tablet=DependencyManager::get<TabletScriptingInterface>()->getTablet(SYSTEM_TABLET);
+        auto root=tablet ? tablet->getTabletRoot() : nullptr;auto surface=tablet ? tablet->getTabletSurface() : nullptr;
+        auto window=surface ? surface->getWindow() : nullptr;
+        if(!root || !window || root->window()!=window || root->thread()!=qApp->thread() || window->thread()!=qApp->thread()) {return {};}
+        return {root,window,surface,tablet->property("tabletShown").toBool()};
+    }
+    QVariantMap snapshotCancelRequest(const QVariantMap& command,const QVariantMap& closedWork) {
+        using namespace overte::e2e;
+        if(!picoSnapshotCancelCommand(command)) {return {};}
+        const auto roots=snapshotCancelRoots();if(!roots.root || !roots.window) {return {};}
+        const auto job=command.value("jobId").toString(),run=command.value("runId").toString(),operation=command.value("operation").toString();
+        auto owner=_snapshotCancelJobs.value(job);
+        if(!owner) {
+            if(operation!="start" || _snapshotCancelJobs.size()>=8) {return {};}
+            owner=std::make_shared<PicoSnapshotFastCancel>();
+            _snapshotCancelJobs.insert(job,owner); // Retain before input, even if later read/serialization fails.
+        }
+        QPointer<TabletBridge> guarded(this);
+        const auto ui=std::make_shared<PicoSnapshotCancelInput>();
+        ui->observe=[guarded](QQuickItem* root,QQuickWindow* window) -> QJsonObject {
+            if(!guarded) {return {};}
+            const auto actual=guarded->snapshotCancelRoots();
+            return actual.root==root && actual.window==window ? guarded->_navigation.observe(root,window,actual.shown) : QJsonObject{};
+        };
+        ui->apply=[guarded](QQuickItem* root,QQuickWindow* window,const QJsonObject& input,const PicoSnapshotCancelInput::Click& click) -> QJsonObject {
+            if(!guarded) {return {};}
+            const auto actual=guarded->snapshotCancelRoots();
+            return actual.root==root && actual.window==window ? guarded->_navigation.apply(root,window,actual.shown,input,click) : QJsonObject{};
+        };
+        const auto read=[guarded,run]() -> QVariantMap {
+            if(!guarded || !guarded->snapshotCancelRoots().root) {return {};}
+            auto native=[](const QString& action,const QString& run) {
+                return QVariantMap{{"schemaVersion",1},{"commandId",QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-')},
+                    {"runId",run},{"action",action}};
+            };
+            auto capture=native("feature-snapshot-capture-originals",run);capture.insert("operation","read");
+            const auto original=TestScriptingInterface::getInstance();
+            return {{"native",original->featureSnapshotCaptureOriginals(capture)},
+                {"script",original->featureSnapshotScriptOriginals(native("feature-snapshot-script-originals",run))}};
+        };
+        const auto click=[guarded](QQuickItem* item) {
+            if(!guarded) {return false;}
+            const auto actual=guarded->snapshotCancelRoots();
+            return actual.shown && actual.surface && item && item->window()==actual.window && sendPointerClick(item,actual.surface);
+        };
+        const auto source=owner->request(run,job,operation,QJsonObject::fromVariantMap(command.value("request").toMap()),
+            roots.root,roots.window,ui,read,click,closedWork);
+        if(source.isEmpty()) {return {};}
+        QVariantList jobs;for(const auto& owned:_snapshotCancelJobs) {jobs.append(owned->summary());}
+        return {{"source",source},{"jobs",jobs}};
+    }
+    void snapshotCancelTick() {
+        using namespace overte::e2e;
+        if(!previewDirectory(BRIDGE_DIRECTORY)) {return;}
+        const QString path=BRIDGE_DIRECTORY+"/snapshot-cancel-ui-command.json";const QFileInfo info(path);
+        QFile input(path);
+        if(!info.isFile() || info.isSymLink() || info.permissions() & (QFile::ReadGroup|QFile::WriteGroup|QFile::ExeGroup
+                |QFile::ReadOther|QFile::WriteOther|QFile::ExeOther) || !input.open(QIODevice::ReadOnly) || input.size()>24*1024) {return;}
+        QJsonParseError error;const auto json=QJsonDocument::fromJson(input.readAll(),&error);
+        if(error.error!=QJsonParseError::NoError || !json.isObject() || !picoSnapshotCancelCommand(json.object().toVariantMap())) {return;}
+        const auto id=json.object().value("commandId").toString();if(_lastSnapshotCancelCommand==id) {return;}
+        _lastSnapshotCancelCommand=id;
+        const auto original=TestScriptingInterface::getInstance()->featurePicoSnapshotCancel(json.object().toVariantMap());
+        writeJson(BRIDGE_DIRECTORY+"/snapshot-cancel-ui-status.json",{{"commandId",id},{"packet",QJsonObject::fromVariantMap(original)}});
+    }
+    void installSnapshotCancelProvider() {
+        using namespace overte::e2e;
+        if(!bridgeEnabled() || !previewDirectory(BRIDGE_DIRECTORY) || qApp->property(picoSnapshotCancelProperty()).isValid()) {return;}
+        QPointer<TabletBridge> guarded(this);
+        PicoSnapshotCancelProvider provider=[guarded](const QVariantMap& command,const QVariantMap& work) {
+            return guarded ? guarded->snapshotCancelRequest(command,work) : QVariantMap{};
+        };
+        qApp->setProperty(picoSnapshotCancelProperty(),QVariant::fromValue(provider));
+    }
+
     // Passive actual world geometry. The command accepts only a fresh nonce;
     // no entity, pose, Home message, tablet mutation or click is supplied here.
     void homeObservationTick() {
@@ -778,6 +865,10 @@ private:
     QString _lastCommandId;
     QString _lastNavigationCommandId;
     NavigationUi _navigation;
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    QMap<QString,std::shared_ptr<overte::e2e::PicoSnapshotFastCancel>> _snapshotCancelJobs;
+    QString _lastSnapshotCancelCommand;
+#endif
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     overte::e2e::LifecycleUiObservation _lifecycleObservation {{
         {"create",lifecycleScriptSource("system/create/qml/NativeCreate.qml")},

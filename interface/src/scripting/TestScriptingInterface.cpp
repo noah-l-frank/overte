@@ -67,6 +67,7 @@
 #include <display-plugins/DisplayPlugin.h>
 #endif
 #include "../../../tests/device/native/PendingFieldCommitBridge.h"
+#include "../../../tests/device/native/PicoSnapshotCancelBridge.h"
 #include "../../../tests/device/native/ProcessPresence.h"
 #include <ui/TabletScriptingInterface.h>
 #include "../../../tests/device/native/PrivatePreviewFiles.h"
@@ -827,6 +828,43 @@ QVariantMap TestScriptingInterface::featureSnapshotScriptOriginals(const QVarian
     });
     if(!queue->settled(overte::e2e::AudioSettingsQueue::dispatching(this) ? "dispatch" : QString())) {return {};}
     return result.values;
+#else
+    Q_UNUSED(command) return {};
+#endif
+}
+
+QVariantMap TestScriptingInterface::featurePicoSnapshotCancel(const QVariantMap& command) {
+#if defined(ANDROID_APP_PICO_INTERFACE)
+    const auto queue=_featureSnapshotQueue;if(!queue) {return {};}
+    if(QThread::currentThread()!=thread()) {
+        return queue->read("dispatch",this,[command](QObject* original) {
+            return overte::e2e::AudioSettingsPart{static_cast<TestScriptingInterface*>(original)->featurePicoSnapshotCancel(command),{}};
+        }).values;
+    }
+    if(_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript") || !qApp || !qApp->isHMDMode()
+            || !overte::e2e::previewDirectory(_testResultsLocation) || !overte::e2e::picoSnapshotCancelCommand(command)
+            || !queue->settled(overte::e2e::AudioSettingsQueue::dispatching(this) ? "dispatch" : QString())
+            || _featureSnapshotCancelQueries.size()>=4096 || _featureSnapshotCancelQueries.contains(command.value("commandId").toString())) {return {};}
+    _featureSnapshotCancelQueries.insert(command.value("commandId").toString()); // Consumed before any uncertain child input.
+    const auto provider=qApp->property(overte::e2e::picoSnapshotCancelProperty()).value<overte::e2e::PicoSnapshotCancelProvider>();
+    if(!provider) {return {};}
+    QVariantMap closedWork;
+    if(command.contains("closedReadWorkRequestId")) {
+        const auto id=command.value("closedReadWorkRequestId");
+        if(_featureScriptWorkCommand.value("commandId")!=id || _featureScriptWorkResult.value("requestId")!=id
+                || _featureScriptWorkResult.value("instance")!=_featureObservationInstance
+                || _featureScriptWorkResult.value("processId").toLongLong()!=QCoreApplication::applicationPid()
+                || _featureScriptWorkResult.value("source").toMap().value("manager").toMap().value("instance")
+                    !=_featureScriptWorkCommand.value("managerInstance")) {return {};}
+        closedWork=_featureScriptWorkResult;
+    }
+    const auto requested=QDateTime::currentMSecsSinceEpoch();const auto result=provider(command,closedWork);
+    if(result.isEmpty() || QJsonDocument::fromVariant(result).toJson(QJsonDocument::Compact).size()>200000) {return {};}
+    return {{"schemaVersion",1},{"requestId",command.value("commandId")},{"runId",command.value("runId")},
+        {"instance",_featureObservationInstance},{"sequence",++_featureSnapshotCancelSequence},
+        {"processId",QCoreApplication::applicationPid()},{"requestedEpochMs",requested},
+        {"capturedEpochMs",QDateTime::currentMSecsSinceEpoch()},{"source",result.value("source")},{"jobs",result.value("jobs")}};
 #else
     Q_UNUSED(command) return {};
 #endif
