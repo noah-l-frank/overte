@@ -17,12 +17,13 @@ from adapters.native_feature_observation import (NativeFeatureObservation, exact
 from adapters.normal_feature_state import context
 from adapters.normal_ui import NativeUIError
 from adapters.independent_chat_receiver import binding_pid, source_identity
-from adapters.script_journey.history import pack, unpack, same, MAX_FRAMES
+from adapters.script_journey.history import same, MAX_FRAMES
+from adapters.chat_journey.source_chunks import ChatSourceChunks
 from adapters.script_journey.lock import ScriptSourceLock
 from adapters.graphics_journey.source_history import restore_native
 from feature_journeys.contract import identifier, state as chat_state
 
-VERSION = 3
+VERSION = 4
 SOURCES = ('primary', 'peer', 'view', 'lifecycle')
 
 
@@ -189,16 +190,19 @@ class ChatSamples:
         self.store, self.locks, self.monotonic = store, (primary_lock, peer_lock), monotonic
         self.previous = store.read(); self.frames = []
         self.base = dict(chatSamplesVersion=VERSION, runId=run, role=role, binding=self.binding,
-            peerBinding=self.peer_binding, vr=vr, phase='ready', revision=0, transcript=pack([]))
+            peerBinding=self.peer_binding, vr=vr, phase='ready', revision=0, chunks=[])
+        self.history=ChatSourceChunks(store,{key:value for key,value in self.base.items() if key not in ('phase','revision','chunks')})
         if self.previous is not None:
             exact(self.previous, set(self.base))
-            need(all(same(self.previous[k], self.base[k]) for k in set(self.base) - {'phase', 'revision', 'transcript'})
+            need(all(same(self.previous[k], self.base[k]) for k in set(self.base) - {'phase', 'revision', 'chunks'})
                 and self.previous['phase'] == 'ready' and integer(self.previous['revision'], 0, 2 * MAX_FRAMES))
-            frames = unpack(self.previous['transcript'])
+            frames = self.history.load(self.previous['chunks'])
             need(self.previous['revision'] == 2 * len(frames))
             for frame in frames:
                 compose(run, frame, primary.pid, peer.pid, vr=vr); continuity(self.frames, frame); self.frames.append(frame)
             self.base = deepcopy(self.previous)
+        else:
+            self.history.inventory(0)
         self._restore()
 
     def _restore(self):
@@ -240,7 +244,7 @@ class ChatSamples:
             identifier(ticket); need(integer(after_epoch, 1) and type(settings) is bool and type(transition) is bool and not (settings and transition)); check()
             with ExitStack() as held:
                 for lock in sorted(self.locks, key=lambda item: str(item.path)): held.enter_context(lock.held())
-                check(); need(self.base['phase'] == 'ready' and len(self.frames) < MAX_FRAMES)
+                check(); self.history.verify(); need(self.base['phase'] == 'ready' and len(self.frames) < MAX_FRAMES)
                 self._write({**self.base, 'phase': 'reading', 'revision': self.base['revision'] + 1}); check()
                 p = self.primary.perform(self.run, 'inspect'); check()
                 view = self.view.read(self.run); check()
@@ -252,8 +256,8 @@ class ChatSamples:
                 if transition:frame['transition']=True
                 check(); measured = compose(self.run, frame, self.primary.pid, self.peer.pid, vr=self.vr)
                 continuity(self.frames, frame); frames = self.frames + [deepcopy(frame)]
-                self._write({**self.base, 'phase': 'ready', 'revision': self.base['revision'] + 1, 'transcript': pack(frames)})
-                self.frames = frames; check()
+                self._write({**self.base, 'phase': 'ready', 'revision': self.base['revision'] + 1, 'chunks': self.history.append(frame,self.base['chunks'])})
+                self.frames = frames; check(); self.history.verify()
                 # Re-read original wall clocks after the final guards and the
                 # durable write. A frozen host clock cannot mask a native jump.
                 clocks=[]

@@ -8,6 +8,7 @@ import sys
 import unittest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from adapters.chat_journey.samples import ChatSamples, compose
+from adapters.chat_journey.source_chunks import digest
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.normal_ui import NativeUIError
 from adapters.script_journey.history import pack, unpack
@@ -160,7 +161,7 @@ class ChatSamplesTests(unittest.TestCase):
         self.assertEqual(before, [len(source.commands) for source in (self.primary, self.peer, self.view, self.native)])
         self.read()
         self.assertEqual([count + 1 for count in before], [len(source.commands) for source in (self.primary, self.peer, self.view, self.native)])
-        self.assertEqual(2, len(unpack(self.store.read()['transcript'])))
+        self.assertEqual(2, len(self.samples.history.load(self.store.read()['chunks'])))
 
     def test_interrupted_acquisition_is_never_replaced_by_stored_samples_or_new_object(self):
         self.read(); self.peer.ignored = True
@@ -180,9 +181,11 @@ class ChatSamplesTests(unittest.TestCase):
     def test_role_or_candidate_replacement_and_rewritten_historical_queries_fail_before_live_read(self):
         self.read()
         with self.assertRaises(NativeUIError): self.sampler(role='actor')
-        self.read(); state = self.store.read(); frames = unpack(state['transcript'])
-        frames[-1]['peer']['commandId'] = frames[0]['peer']['commandId']
-        self.store.write(state | dict(transcript=pack(frames)), state)
+        self.read(); state = self.store.read(); chunk_store=self.samples.history.store(1);chunk=chunk_store.read();frames=unpack(chunk['transcript'])
+        frames[0]['peer']['commandId'] = self.samples.frames[0]['peer']['commandId']
+        changed=chunk | dict(transcript=pack(frames));chunk_store.write(changed,chunk)
+        manifest=state['chunks'][:];manifest[1]=digest(changed)
+        self.store.write(state | dict(chunks=manifest), state)
         with self.assertRaises(NativeUIError): self.sampler()
 
     def test_independent_roles_acquire_distinct_queries_and_keep_separate_private_transcripts(self):
