@@ -1306,6 +1306,51 @@ def create_adapter(args, base_class):
             return ChatNormalInput((primary,actor),lambda intent:self._chat_controls(target,intent,primary.run),
                 self._chat_normal_input_store(target),enter=enter,monotonic=native.monotonic,sleep=native.sleep)
 
+        def _chat_background_store(self,target):
+            state,_ui=self._script_paths(target)
+            return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-','chat-background-')))
+
+        @_private
+        def _chat_background_source(self,target,*,source_lock,intent):
+            # Chat's existing parent owns this different lock namespace. The
+            # ordinary Lifecycle factory keeps its Script-journey path check.
+            import json
+            from adapters.script_journey.lock import ScriptSourceLock
+            from adapters.pico4.lifecycle_background_source import NativeLifecycleBackground,COMMAND,FILE,command
+            _need(isinstance(source_lock,ScriptSourceLock) and callable(intent)
+                and source_lock.path==self._chat_samples_store(target,'primary').path.with_name('script-sources.lock'))
+            native=self._native_feature_observer(target)
+            def send(request):
+                command(request);source_lock.assert_held();_need(native.guard() is not False)
+                self.adb.write_debug_app_file(target,'org.overte.pico',COMMAND,json.dumps(request,separators=(',',':'))+'\n')
+                _need(native.guard() is not False)
+            return NativeLifecycleBackground(send,
+                lambda:self.adb.read_debug_app_file(target,'org.overte.pico','files/overte-e2e/'+FILE,attempts=1),
+                native.clock_ms,native.guard,native.pid,source_lock,intent=intent,monotonic=native.monotonic,sleep=native.sleep)
+
+        @_private
+        def _chat_background(self,target,primary,actor):
+            from adapters.chat_journey.background import ChatBackground
+            from adapters.pico4.graphics_binding import PicoGraphicsBinding
+            manager=self._scripts(target);native=self._native_feature_observer(target);native.guard()
+            _need(primary.binding==actor.binding==manager.binding
+                and primary.store.path==self._chat_samples_store(target,'primary').path
+                and actor.store.path==self._chat_samples_store(target,'actor').path)
+            return ChatBackground((primary,actor),
+                lambda intent:self._chat_background_source(target,source_lock=primary.locks[0],intent=intent),
+                PicoGraphicsBinding(self),target,self._chat_background_store(target),monotonic=native.monotonic,sleep=native.sleep)
+
+        @_private
+        def _chat_background_recover(self,target,*,source_lock=None):
+            # An original HOME can make every foreground-only Qt factory
+            # unavailable. Reacquire only candidate/kernel/OS evidence here.
+            from adapters.chat_journey.background import ChatBackground
+            from adapters.pico4.graphics_binding import PicoGraphicsBinding
+            from adapters.script_journey.lock import ScriptSourceLock
+            store=self._chat_background_store(target)
+            if source_lock is None:source_lock=ScriptSourceLock(store.path.with_name('script-sources.lock'))
+            return ChatBackground.recover_foreground(PicoGraphicsBinding(self),target,store,source_lock)
+
         def _chat_mixer_store(self,target):
             state,_ui=self._script_paths(target)
             return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-','chat-mixer-owner-')))
@@ -1711,6 +1756,7 @@ def create_adapter(args, base_class):
                     if self._chat_no_replay_store(target).read() is not None:chat_error=True
                     if self._chat_mixer_store(target).read() is not None:chat_error=True
                     if self._chat_normal_input_store(target).read() is not None:chat_error=True
+                    if self._chat_background_store(target).read() is not None:chat_error=True
                     if self._chat_peer_input_store(target).read() is not None or self._chat_peer_send_store(target).read() is not None:chat_error=True
                     if self._chat_peer_distant_store(target).read() is not None:chat_error=True
                     if self._chat_profile_store(target).read() is not None:chat_error=True
@@ -1771,6 +1817,7 @@ def create_adapter(args, base_class):
                       and self._chat_no_replay_store(target).read() is None
                       and self._chat_mixer_store(target).read() is None
                       and self._chat_normal_input_store(target).read() is None
+                      and self._chat_background_store(target).read() is None
                       and self._chat_peer_input_store(target).read() is None and self._chat_peer_send_store(target).read() is None
                       and self._chat_peer_distant_store(target).read() is None
                       and not self._emote_image_journals(target)

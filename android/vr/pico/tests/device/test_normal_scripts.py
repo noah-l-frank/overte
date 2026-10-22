@@ -633,6 +633,42 @@ class PicoNormalScriptsTests(unittest.TestCase):
         with self.assertRaises(ValueError):self.instance._chat_normal_input(self.native.target,primary,actor)
         self.assertEqual([],self.native.inputs);self.assertIsNone(owner.store.read())
 
+    def test_pico_chat_background_factory_shares_exact_chat_parent_lock_and_candidate_without_input(self):
+        from adapters.chat_journey.background import ChatBackground
+        source,peer,create=self.chat_samples();primary=create();reader=peer.reader();reader.pid=456
+        actor=self.instance._chat_samples(self.native.target,CHAT_RUN,reader,primary.peer_binding,
+            role='actor',source_lock=primary.locks[0],peer_lock=primary.locks[1])
+        owner=self.instance._chat_background(self.native.target,primary,actor)
+        self.assertIsInstance(owner,ChatBackground);self.assertIs(primary.locks[0],owner.source.source_lock)
+        self.assertEqual(123,owner.source.pid);self.assertIs(owner.os.original,self.instance)
+        self.assertIsNone(owner.store.read());self.assertEqual([],self.native.inputs);self.assertEqual([],peer.commands)
+        actor.locks=(ScriptSourceLock(primary.locks[0].path),primary.locks[1])
+        with self.assertRaises(ValueError):self.instance._chat_background(self.native.target,primary,actor)
+        actor.locks=primary.locks;self.native.digest='f'*64
+        with self.assertRaises(ValueError):self.instance._chat_background(self.native.target,primary,actor)
+        self.assertIsNone(owner.store.read());self.assertEqual([],self.native.inputs)
+
+    def test_pico_chat_background_source_cannot_borrow_equivalent_lifecycle_namespace(self):
+        from adapters.pico4.lifecycle_background_source import COMMAND
+        from adapters.normal_ui import NativeUIError
+        _source,_peer,create=self.chat_samples();primary=create()
+        other=self.fixture.state_root/'wrong-chat-background';other.mkdir(mode=0o700)
+        with self.assertRaises(ValueError):self.instance._chat_background_source(self.native.target,
+            source_lock=ScriptSourceLock(other/'script-sources.lock'),intent=lambda _:None)
+        source=self.instance._chat_background_source(self.native.target,source_lock=primary.locks[0],intent=lambda _:None)
+        self.assertIs(source.source_lock,primary.locks[0]);self.assertEqual([],self.native.inputs)
+        sent=[];request=dict(schemaVersion=1,commandId='a'*32,action='feature-lifecycle-background',operation='observe',runId=CHAT_RUN)
+        with patch.object(self.native,'write_debug_app_file',side_effect=lambda *args:sent.append(args)):
+            with self.assertRaises(NativeUIError):source.send(request)
+            with primary.locks[0].held():source.send(request)
+        self.assertEqual(1,len(sent));self.assertEqual(COMMAND,sent[0][2]);self.assertEqual(request,json.loads(sent[0][3]))
+
+    def test_pico_chat_process_teardown_preserves_background_history_and_uncertain_inputs(self):
+        store=self.instance._chat_background_store(self.native.target)
+        original={'phase':'background-issued','unresolved':'original-home-and-autonomous-qt-history'};store.write(original,None)
+        with self.assertRaises(ValueError):self.cleanup_instance().cleanup(self.native.target)
+        self.assertFalse(self.native.running);self.assertEqual(original,store.read())
+
     def test_pico_chat_process_teardown_preserves_normal_input_delivery_and_close_ownership(self):
         store=self.instance._chat_normal_input_store(self.native.target)
         original={'phase':'observed','unreleased':'original-normal-send-and-close-intent'};store.write(original,None)
