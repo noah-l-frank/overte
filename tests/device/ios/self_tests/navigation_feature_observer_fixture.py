@@ -78,6 +78,12 @@ class Whole:
             return json.dumps(dict(navigationReplyVersion=1,commandId=self.reply_queries[-1]['commandId'],
                 runId=self.run,instance='e'*32,sequence=self.reply_sequence,processId=42,
                 capturedEpochMs=self.sdk.gpu.epoch(),currentLookupGeneration=1,currentLookupActive=False,events=[]))
+        original_replies=replies
+        def replies():
+            value=json.loads(original_replies())
+            if self.dialogs.native_error is not None:
+                value.update(currentLookupGeneration=2,currentLookupActive=True,events=[deepcopy(self.dialogs.native_error)])
+            return json.dumps(value)
         self.sources=dict(bookmarks=self.books.reader(),model=self.model.reader(),http=self.http.reader(),
             dialogs=self.dialogs.reader(),ui=f.f.h.native,replies=NativeNavigationReplies(self.reply_queries.append,
                 replies,self.sdk.gpu.epoch,lambda:self.sdk.okay,42,ios=True,monotonic=self.mono,sleep=f.b.sleep))

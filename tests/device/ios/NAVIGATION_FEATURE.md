@@ -89,3 +89,14 @@ JavaScript/QML against the actual retained HTTP body. An ignored tab input
 retains its issued journal across reconstruction without saving a bookmark or
 repeating delivery. No frozen admission/source packet is rewritten to connect
 these paths. Restart, missing-lookup and final restoration joins remain partial.
+
+The active named-lookup path now independently joins its genuine provider 404,
+native error callback and owned Qt modal before full field/image acquisition.
+Dismissal uses the normal OK input and requires actual modal/listener drainage
+before the original address-root owner may send Cancel. A lost OK return can
+advance only from its exact retained issued intention and independently observed
+OK/drainage; that intention remains issued and is never resent. A hidden address
+root stays retained responsibility. Partial or foreign error sources and an
+unresolved Cancel cannot become a successful dismissal through parent recovery.
+The connected host fixture retains a real HTTP 404 before delivering its modeled
+native event-loop callback. No received fixture value becomes a product verdict.

@@ -185,7 +185,16 @@ class IOSNavigationFeature:
                     else:
                         if child.state is None or child.state['proof'] is None:
                             raise NavigationFeaturePending('Actual owned named-lookup failure must be independently observed before dismissal')
-                        child.dismiss(call)
+                        prior_dismiss=child.state['dismiss']
+                        if prior_dismiss is None or prior_dismiss['phase']=='delivered':child.dismiss(call)
+                        else:
+                            need(prior_dismiss['phase']=='issued' and same(prior_dismiss['call'],call)
+                                and any(intent['method']=='ERROR-OK' for intent in prior_dismiss['intents']))
+                        if child.observe_cleared() is None:
+                            raise NavigationFeaturePending('Actual owned error dialog and listener remain live')
+                        address=self.runtime._navigation_address_dismiss(self.selector,admission)
+                        if address.state is not None and address.state['after'] is not None:address.recover()
+                        else:address.close()
                 else:raise NavigationFeaturePending('Worlds process-transfer and final restoration coordination remain required')
             self.state.update(phase='ready');self.state['lastCall']['phase']='acknowledged';self.save()
             return {'performed':True}
@@ -220,6 +229,20 @@ class IOSNavigationFeature:
             observer.recover(directory=surface.directory(owner))
         else:observer.recover()
 
+    def missing(self,admission):
+        """Retain the actual missing-reply/modal join before full acquisition."""
+        from ios.adapters.navigation_process_scope import owner_path
+        store=PrivateFeatureState(owner_path(admission,'ios-navigation-missing-actions.json'))
+        if store.read() is None:return None
+        child=self.runtime._navigation_missing_actions(self.selector,admission)
+        if child.state['proof'] is None:
+            frames=child.state['frames']
+            if (frames and frames[-1]['kind']=='missing' and frames[-1]['clockJoin'] is not None
+                    and any(frames[-1]['originals'][name]['events'] for name in ('dialogs','replies'))):
+                child.recover_missing()
+            else:child.observe_missing()
+        return deepcopy(child.state['proof'])
+
     def observe_active(self,after_sequence):
         """Fresh active originals; not the whole public cleanup/transfer API.
 
@@ -244,6 +267,7 @@ class IOSNavigationFeature:
             labels=[label for label,url in urls.items() if same_viewpoint(observed['source']['sceneUrl'],url)]
             need(len(labels)==1);label=labels[0];phase=self.fixture.read()
             options=dict(baseline=admission.archive()['bookmarkBaseline'],provider_inputs=self.fixture.inputs,directory=directory)
+            options['missing']=self.missing(admission)
             try:measured=observer.read(phase['ticket'],urls[label],label,epoch,**options)
             except NativeUIError:
                 # Only the retained complete first-open join can be resolved
