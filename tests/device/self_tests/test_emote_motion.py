@@ -2,8 +2,12 @@
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
+from pathlib import Path
 import json
+import sys
 import unittest
+
+sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 
 from adapters.normal_ui import NativeUIError
 from feature_journeys import emote_motion as motion

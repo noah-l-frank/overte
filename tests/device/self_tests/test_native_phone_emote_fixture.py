@@ -5,7 +5,10 @@ from copy import deepcopy
 import math
 from pathlib import Path
 import subprocess
+import sys
 import unittest
+
+sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 
 from adapters.native_phone_emote_fixture import NativePhoneEmoteFixture,command,input_command,input_receipt,ready,retired,layout,NULL_ID
 from adapters.normal_ui import NativeUIError

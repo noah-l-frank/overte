@@ -2,9 +2,13 @@
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
+from pathlib import Path
 import json
 import subprocess
+import sys
 import unittest
+
+sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 
 from adapters.native_phone_touch_state import NativePhoneTouchState,command,released
 from adapters.normal_ui import NativeUIError

@@ -6,8 +6,11 @@ import hashlib
 import json
 from pathlib import Path
 import subprocess
+import sys
 import unittest
 from unittest.mock import patch
+
+sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 
 from adapters.native_phone_avatar_configuration import NativePhoneAvatarConfiguration,command,controlled,CONFIGURED,LOADED,RESOURCE_LIMIT
 from adapters.native_avatar_render import EMPTY_SHA256
