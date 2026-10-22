@@ -175,6 +175,48 @@ class NavigationSurfaceActions:
     def capture(self):
         self.bound(); value = self.native.capture(); self.packet(value); self.bound(); return value
 
+    def directory(self, owner):
+        """Join the first refresh to this actual ordinary open's originals.
+
+        This is a historical join, never a fresh acquisition or an input ACK
+        promoted to product facts. The complete failed observation remains
+        responsible for validating its own image, fields and original window.
+        """
+        from ios.adapters.navigation_observation_owner import NavigationObservationOwner
+        from ios.adapters.navigation_places_state import directory_proof
+        from ios.adapters.navigation_product_state import ORIGINALS
+        need(isinstance(owner, NavigationObservationOwner) and not owner.historical)
+        self.bound(); self.decode(self.previous); owner.bound()
+        need(same(self.envelope(self.state), self.previous)
+             and same(owner.binding, self.binding) and owner.run == self.run
+             and owner.lock.path == self.lock.path and owner.store.path.parent == self.store.path.parent)
+        state = owner.state
+        need(state is not None and state['phase'] == 'reading' and state['phaseAfter'] is not None
+             and state['clockJoin'] is not None and state['options']['directory'] is None
+             and set(state['originals']) == ORIGINALS and same(owner.envelope(state), owner.previous))
+        owner.interrupted()
+        rows = self.state['actions']
+        need(rows and rows[0]['surface'] == 'open' and rows[0]['phase'] == 'acknowledged')
+        opened = rows[0]
+        need(opened['call']['verb'] == 'open' and opened['call']['ticket'] == state['ticket']
+             and state['phaseBefore']['ticket'] == state['phaseAfter']['ticket'] == state['ticket']
+             and state['phaseBefore']['verb'] == state['phaseAfter']['verb'] == 'open'
+             and self.page(state['originals']['ui']) == opened['page'])
+        initial = self.admission.archive()
+        before = initial['originals']
+        actual = state['originals']
+        need(actual['http']['instance'] == before['http']['instance']
+             and same(actual['http']['events'][:len(before['http']['events'])], before['http']['events'])
+             and opened['before']['sampleEpochMs'] >= before['ui']['sampleEpochMs'])
+        proof = directory_proof(self.binding, dict(http=actual['http'], model=actual['model'],
+            provider=state['phaseAfter']['originals']['navigation']), dict(runId=self.run,
+                ticket=state['ticket'], inputs=self.admission.fixture.inputs,
+                origin=before['model']['preferences']['metaverseOrigin'],
+                nativeAfterEpochMs=opened['before']['sampleEpochMs'],
+                providerAfterEpochMs=opened['fixture']['originals']['navigation']['capturedEpochMs'],
+                afterEvent=len(before['http']['events'])))
+        self.bound(); owner.bound(); return proof
+
     def input_intent(self, method, path, body):
         self.bound(); row = self.state['actions'][-1]; need(row['phase'] == 'issued' and len(row['intents']) < 32)
         event = dict(method=method, path=path, body=deepcopy(body), original=self.capture())
