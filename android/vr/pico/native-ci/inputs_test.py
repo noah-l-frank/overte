@@ -245,6 +245,9 @@ class PicoInputContracts(unittest.TestCase):
     def test_actual_groovy_loader_and_gradle_parse(self):
         classpath = os.environ.get("PICO_TEST_GROOVY_CLASSPATH")
         if not classpath:
+            if os.environ.get("CI", "").lower() in {"true", "1"}:
+                self.fail("PICO_CI_GROOVY_PREREQUISITE: CI requires the verified pinned "
+                          "PICO_TEST_GROOVY_CLASSPATH before running this suite")
             self.skipTest("Explicit prepared Gradle Groovy classpath required")
         fixture = Path(self.temp.name) / "groovy-pico"
         fixture.mkdir()
