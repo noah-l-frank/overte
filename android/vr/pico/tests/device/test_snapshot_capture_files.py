@@ -62,6 +62,29 @@ assert.equal(calls.length,1);actual=null;apply({...command,commandId:'c'.repeat(
 assert.equal(saved[1].value.available,false);assert.equal(calls.length,2);
 """.replace('BODY',source[start:end])
         subprocess.run(['node','-e',harness],check=True,timeout=5)
+    def test_original_writer_callback_and_fresh_reply_wiring_then_slow_sdk_admission_refuses_writer(self):
+        fixture=original.NativeExecutionBindingTest();fixture.setUp();self.addCleanup(fixture.doCleanups)
+        fixture.snapshot_setup();adapter=fixture.instance();native=fixture.fake;commands=[];current={}
+        reader=adapter._snapshot_capture_file_source(native.target);epoch=native.epoch_milliseconds(native.target)
+        def write(target,package,path,raw):
+            self.assertEqual('files/overte-e2e/android-control-command.json',path)
+            request=json.loads(raw);commands.append(request)
+            current.update(schemaVersion=1,requestId=request['commandId'],runId=request['runId'],instance='a'*32,sequence=len(commands),
+                processId=int(native.identity.split(':')[0]),requestedEpochMs=epoch,capturedEpochMs=epoch,accepted=True,
+                source=dict(picoSnapshotCaptureFilesVersion=1,instance='b'*32,complete=True,sequence=len(commands),capturedEpochMs=epoch,rows=[],captures=[],plans=[]))
+        def read(target,package,path,**options):
+            self.assertEqual('files/overte-e2e/feature-pico-snapshot-files.json',path)
+            self.assertEqual({'attempts':1},options);return json.dumps(current)
+        # The native source payload is a synthetic transport seam; this proves
+        # the unchanged actual writer/final callback path, not empty resources.
+        with patch.object(native,'write_debug_app_file',side_effect=write),patch.object(native,'read_debug_app_file',side_effect=read):
+            value=reader.request('a'*32);self.assertEqual(commands[0]['commandId'],value['requestId'])
+        reader=adapter._snapshot_capture_file_source(native.target);host=[1.]
+        reader.monotonic=lambda:host[0];reader.clock_ms=lambda:epoch;original_guard=reader.io.guard
+        def late():original_guard();host[0]+=2
+        with patch.object(reader.io,'guard',side_effect=late),patch.object(native,'write_debug_app_file',side_effect=AssertionError('Late publication')):
+            with self.assertRaises((ValueError,RuntimeError)):reader.request('a'*32)
+        self.assertEqual(1,len(commands))
     def test_original_png_and_gif_descriptor_history_and_one_send_retirement(self):
         subprocess.run([sys.executable,str(ROOT/'tests/device/contracts/snapshot/test_snapshot_capture_files_native.py')],check=True,timeout=90)
 
