@@ -15,9 +15,83 @@ sys.path.insert(0, str(ROOT / "tools/repository-checks"))
 import pr_ci_platform as P
 import pr_ci_transport as T
 import pr_ci_context as C
+import pr_ci_android_native as N
 
 
 class ProductOwnershipTests(unittest.TestCase):
+    def selected(self, target, paths, regular=True):
+        profile = P.policy()["android"][target]
+        return {suite["name"] for suite in P.android_suites(ROOT, target, profile,
+                {"paths": paths, "regular": regular})}
+
+    def test_reviewed_phone_java_closure_selects_six_and_changed_harness_fails_closed(self):
+        inputs = json.loads((ROOT / ".github/pr-ci-platform-inputs.json").read_text())
+        case = next(row for row in inputs["android"] if row["target"] == "android-phone")
+        expected = {"phone-e2e-runtime-regressions", "android-embedded-web", "phone-embedded-web",
+                    "android-snapshot", "android-documents", "phone-parity-packet"}
+        path = "android/phone/apps/phoneInterface/src/main/java/org/overte/phone/PhoneInterfaceActivity.java"
+        observed = dict(case["inventory"])
+
+        def actual_git_identity(command, **_):
+            self.assertEqual(command[:3], ["git", "--no-replace-objects", "rev-parse"])
+            self.assertTrue(command[3].startswith("HEAD:"))
+            return (observed[command[3][5:]] + "\n").encode()
+
+        with patch.object(P.subprocess, "check_output", side_effect=actual_git_identity):
+            self.assertEqual(self.selected("android-phone", [path]), expected)
+            observed["android/phone/tests"] = "0" * 40
+            broader = self.selected("android-phone", [path])
+            self.assertGreater(len(broader), len(expected))
+            self.assertIn("phone-default-input", broader)
+            self.assertIn("android-source-boundary", broader)
+            self.assertNotIn("phone-native-ci-unsigned-apk", broader)
+
+    def test_native_infrastructure_suites_follow_their_actual_inputs(self):
+        for target in P.policy()["android"]:
+            with self.subTest(target=target):
+                for paths in (["browser-client/package-lock.json"], ["docs/README.md"],
+                              ["libraries/shared/src/UUID.cpp"],
+                              ["android/phone/apps/phoneInterface/src/main/java/Main.java"]):
+                    selected = self.selected(target, paths)
+                    self.assertNotIn("android-common-native-ci", selected)
+                    self.assertFalse(any(name.startswith("pico-native-ci-") for name in selected))
+                selected = self.selected(target, ["android/common/native-ci/verify.py"])
+                self.assertIn("android-common-native-ci", selected)
+                self.assertEqual("pico-native-ci-inputs" in selected, target == "android-vr-pico")
+                self.assertEqual("pico-native-ci-unsigned-apk" in selected, target == "android-vr-pico")
+
+    def test_mixed_or_deleted_infrastructure_input_still_selects_owner(self):
+        selected = self.selected("android-vr-pico", ["docs/README.md",
+            "android/vr/pico/native-ci/graph_contract.py"])
+        self.assertIn("pico-native-ci-graph", selected)
+        self.assertIn("pico-native-ci-inputs", selected)
+        self.assertNotIn("pico-native-ci-unsigned-apk", selected)
+        self.assertNotIn("android-common-native-ci", selected)
+        selected = self.selected("android-vr-pico", ["android/vr/pico/gradle.properties"])
+        self.assertIn("pico-native-ci-graph", selected)
+        self.assertNotIn("pico-native-ci-inputs", selected)
+        self.assertNotIn("pico-native-ci-unsigned-apk", selected)
+        self.assertNotIn("android-common-native-ci", selected)
+        selected = self.selected("android-vr-pico", ["android/vr/pico/apps/picoInterface/build.gradle"])
+        self.assertIn("pico-native-ci-graph", selected)
+        self.assertIn("pico-native-ci-inputs", selected)
+        self.assertNotIn("pico-native-ci-unsigned-apk", selected)
+
+    def test_unknown_or_nonregular_context_keeps_all_owned_suites(self):
+        for target, profile in P.policy()["android"].items():
+            expected = {suite["name"] for suite in profile["suites"]}
+            for paths, regular in (([], True), (["docs/README.md"], False)):
+                with self.subTest(target=target, regular=regular):
+                    self.assertEqual(self.selected(target, paths, regular), expected)
+
+    def test_every_declared_infrastructure_input_selects_its_owned_suite(self):
+        inputs = json.loads((ROOT / ".github/pr-ci-platform-inputs.json").read_text())
+        for closure in inputs["infrastructure"]:
+            for target in closure["targets"]:
+                for path in closure["inputs"]:
+                    with self.subTest(suite=closure["name"], target=target, path=path):
+                        self.assertIn(closure["name"], self.selected(target, [path]))
+
     def test_every_android_target_retains_its_reviewed_inventory(self):
         policy = P.policy()
         for target, profile in policy["android"].items():
@@ -33,6 +107,55 @@ class ProductOwnershipTests(unittest.TestCase):
         with patch.object(P.subprocess, "check_output", return_value=json.dumps(profile).encode()):
             with self.assertRaisesRegex(C.ContextError, "mandatory suites"):
                 P.commands(ROOT, "android-phone", "android")
+
+    def test_selected_native_owner_is_executed_once_and_cannot_omit_its_runtime(self):
+        context = {'target': 'android-phone', 'original_merge': '1' * 40, 'tree': '2' * 40}
+        plan = {'android_required': True, 'android_native_products': ['phone']}
+        with tempfile.TemporaryDirectory() as scratch:
+            runtime = Path(scratch)
+            with patch.object(P, 'authenticate', return_value=ROOT), \
+                 patch.object(P, 'commands', return_value=[['python', 'owning-host-fixture.py']]), \
+                 patch.object(P.R, 'run', return_value=0) as host, \
+                 patch.object(N, 'prerequisites'), \
+                 patch.object(N, 'execute', return_value={'product': 'phone', 'result': 'success'}) as native:
+                result = P.execute(ROOT, context, plan, 'android', [runtime], recompute=lambda *_: plan,
+                                   android_native_runtime=runtime)
+                native.assert_called_once()
+                self.assertEqual(host.call_count, 1)
+                self.assertEqual(result['commands'][-1]['scope'], 'production-native-product')
+                native.reset_mock(); host.reset_mock()
+                with self.assertRaisesRegex(C.ContextError, 'requires its immutable runtime'):
+                    P.execute(ROOT, context, plan, 'android', [], recompute=lambda *_: plan)
+                native.assert_not_called(); host.assert_not_called()
+
+    def test_unselected_native_owner_does_not_prepare_or_build_it(self):
+        context = {'target': 'android-phone', 'original_merge': '1' * 40, 'tree': '2' * 40}
+        plan = {'android_required': True, 'android_native_products': []}
+        with patch.object(P, 'authenticate', return_value=ROOT), \
+             patch.object(P, 'commands', return_value=[['python', 'owning-host-fixture.py']]), \
+             patch.object(P.R, 'run', return_value=0), patch.object(N, 'prerequisites') as preflight, \
+             patch.object(N, 'execute') as native:
+            P.execute(ROOT, context, plan, 'android', [], recompute=lambda *_: plan)
+            preflight.assert_not_called(); native.assert_not_called()
+
+    def test_groovy_fixture_requires_its_verified_small_classpath_without_native_execution(self):
+        context = {'target': 'android-vr-pico', 'original_merge': '1' * 40, 'tree': '2' * 40}
+        plan = {'android_required': True, 'android_native_products': [], 'android_groovy_contracts': True}
+        arguments = [['python', 'android/vr/pico/native-ci/inputs_test.py']]
+        with tempfile.TemporaryDirectory() as scratch:
+            runtime = Path(scratch)
+            with patch.object(P, 'authenticate', return_value=ROOT), patch.object(P, 'commands', return_value=arguments), \
+                 patch.object(P.R, 'run', return_value=0) as host, patch.object(N, 'execute') as native, \
+                 patch.object(N, 'groovy_classpath', return_value=str(runtime / 'groovy.jar')):
+                P.execute(ROOT, context, plan, 'android', [runtime], recompute=lambda *_: plan,
+                          android_groovy_runtime=runtime)
+                self.assertEqual(host.call_args.args[1][:2], ['/usr/bin/env',
+                                 'PICO_TEST_GROOVY_CLASSPATH=' + str(runtime / 'groovy.jar')])
+                native.assert_not_called()
+                host.reset_mock()
+                with self.assertRaisesRegex(C.ContextError, 'require their prepared runtime'):
+                    P.execute(ROOT, context, plan, 'android', [], recompute=lambda *_: plan)
+                host.assert_not_called()
 
     def test_platforms_cannot_execute_on_another_target(self):
         for target, lane in (("main", "android"), ("apple-ios", "android"), ("android-phone", "ios")):

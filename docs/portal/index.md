@@ -1,12 +1,16 @@
 ---
-last-reviewed: "2026-10-07"
-scope: "noah-be/overte; shared main and explicitly named product branches"
+last-reviewed: "2026-10-20"
+scope: "noah-l-frank/overte; shared main and explicitly named product branches"
 ---
 
 # Overte Fork Documentation
 
 This is the developer and test-operations portal for the experimental personal
-fork **noah-be/overte**. Start with the task you want to perform.
+fork **noah-l-frank/overte**. It is a personal hobby project. GitHub workflows
+describe this fork's checks; the Proxmox laboratory and self-hosted build
+infrastructure are the maintainer's private setup, not public contributor
+services or prerequisites for local host tests. Start with the task you want
+to perform.
 
 | Task | Start here |
 | --- | --- |

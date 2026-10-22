@@ -21,18 +21,25 @@ See section 4.3.6 of the [*Coding Standard*](../../CODING_STANDARD.md).
 
 In the Doxywizard program:
 - File > Open `/tools/doxygen/Doxyfile`.
-- In the "Run" tab, click the "Run Doxygen" button.
+- Set a separate `OUTPUT_DIRECTORY`, such as `../../build/doxygen`, then use the
+"Run" tab and click "Run Doxygen".
 - Once it has compiled the documentation (this may take a while), click "Show HTML Output" to view the documentation generated.
 
 ### From a command prompt
 
-Change to the `/tools/doxygen/` directory.
+Change to the repository's `tools/doxygen` directory. The retained `Doxyfile`
+default writes into `build/docs/html`, which is also the Sphinx portal's output.
+Use a private configuration copy and set its `OUTPUT_DIRECTORY` to
+`../../build/doxygen` before generating C++ documentation, so the two sites do
+not overwrite each other. Relative input paths are resolved from this directory.
 
 ```
-doxygen Doxyfile
+doxygen /path/to/your-local-Doxyfile
 ```
 
-Output files are generated in a `/build/docs/html/` directory. See the `index.html` file there.
+With the separate output setting above, open `build/doxygen/html/index.html`
+from the repository root. This C++ API site is separate from the
+[developer portal](../../docs/portal/maintaining.md) and the JSDoc output.
 
 ### Tips
 
