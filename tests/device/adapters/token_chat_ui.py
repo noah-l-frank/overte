@@ -71,6 +71,35 @@ def same_reference(original,current,identifier):
     return old[0]
 
 
+def authorize_erase(run,reference,view,original_config_sha256,epoch):
+    """Join one admitted control to a separately acquired original view.
+
+    The native digest must match exactly: same row counts do not authorize an
+    older, potentially foreign history. The caller supplies a fresh native read
+    and captured original configuration, never expected message lists.
+    """
+    from adapters.native_chat_view import command,validate as validate_view,measured_keyboard
+    snapshot(reference)
+    need(type(run) is str and re.fullmatch('[0-9a-f]{32}',run) and reference['chatControlsVersion']==2
+        and type(original_config_sha256) is str and re.fullmatch('[0-9a-f]{64}',original_config_sha256))
+    request=dict(schemaVersion=1,action='feature-chat-view-observe',commandId=view['commandId'],runId=run)
+    command(request);validate_view(view,request,reference['scope']['processId'],epoch)
+    source=view['source'];ui=source['ui'];storage=source['storage']
+    rows=[row for row in reference['controls'] if row['id']=='chat.erase']
+    pages=[row for row in reference['controls'] if row['id']=='chat.page']
+    need(reference['open'] and reference['ready'] and view['chatViewVersion']==2 and ui['present']
+        and len(rows)==len(pages)==1 and rows[0]['enabled'] and rows[0]['inputReady']
+        and pages[0]['channel']==ui['channel']=='settings'
+        and type(ui.get('historySha256')) is str and rows[0]['historySha256']==ui['historySha256']
+        and ui['draft']=='' and not source['editorHasDraft'] and not source['editorFocused']
+        and not ui['keyboardRequested'] and not measured_keyboard(source['keyboard'])
+        and storage['unowned']==0 and storage['configSha256']==original_config_sha256)
+    for channel in ('local','domain'):
+        actual=[row['text'] for row in storage['events'] if row['channel']==channel]
+        need(actual==ui[channel+'Messages'] and len(actual)==ui[channel+'RowCount']==pages[0][channel+'RowCount'])
+    return True
+
+
 class TokenChatUI:
     def __init__(self,io,intent,run,*,monotonic=time.monotonic,sleep=time.sleep):
         need(callable(intent) and callable(monotonic) and callable(sleep) and type(run) is str and re.fullmatch('[0-9a-f]{32}',run))

@@ -116,3 +116,11 @@ requires the independent current storage and reconstructed original Script
 history, exact original profile presence/value and actual pending settings
 writer/file/resource retirement. A cache read or ordinary Erase ACK cannot
 establish that persistent storage boundary.
+
+The Erase follow-up requires the independently acquired original Chat view's
+whole-model digest to equal the frozen control digest, alongside original
+ordered owned storage/model rows, process, configuration and absent input state.
+Same-count A-to-B-to-A replacements cannot borrow an older authority snapshot.
+Earlier passive v2 packets without the additive digest remain readable but
+cannot authorize Erase. This pure join does not establish file durability,
+Script reconstruction or final resource release.

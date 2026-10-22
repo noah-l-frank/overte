@@ -53,6 +53,14 @@ rows. Original order/multiplicity survives. Counts cover all original rows
 (0..1000); exported messages contain only the four controlled run texts. A
 private/foreign editor refuses acquisition without exporting its text.
 
+Current v2 producers also include `ui.historySha256`, the same bounded original
+whole-model digest used by the normal Erase control. Earlier v2 packets without
+this additive field remain readable for passive observation but cannot authorize
+Erase. The full owner must acquire a separate fresh original view and require
+its digest to equal the frozen native Erase reference: matching row counts alone
+cannot exclude a same-count history replacement. A v1 packet cannot carry this
+field. The digest contains no raw private text.
+
 `keyboardRequested` is only QML intent. Actual `keyboard` is `{available:false}`
 or `{available:true,backend:"native-touch-metrics",visible}` from native OS-derived
 runtime metrics on Phone/iOS. Pico version 2 instead preserves the original

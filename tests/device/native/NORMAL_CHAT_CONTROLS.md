@@ -109,6 +109,13 @@ Qt/platform route, rather than inferred from the requested channel.
 
 `TokenChatUI.erase_history(authorize)` selects Settings normally and requires
 the whole owner's independent authority on the exact original Erase snapshot.
+`authorize_erase` supplies the pure original-source join: a separately acquired
+fresh v2 Chat view must match the exact frozen model digest, process, Settings
+page, both model counts and ordered stored histories. It requires no unowned
+rows, unchanged original configuration, draft, focus or measured keyboard.
+Older passive v2 views without the additive digest cannot authorize this input.
+The caller must use its admitted original reader and retained original config;
+this helper does not acquire sources or supply the missing whole-run owner.
 The ordinary generic `input` method refuses Erase. The captured snapshot remains
 unchanged through post-authority/backend admission; changed history, scope or
 digest fails instead of being recaptured. Erase is issued at most once per UI

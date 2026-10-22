@@ -118,13 +118,15 @@ def validate(value, request, pid, epoch):
     texts = {context(request['runId'])[key] for key in ('unicode', 'reply', 'hidden', 'retry')}
     ui = source['ui']
     need(type(ui) is dict and type(ui.get('present')) is bool)
+    digest = {'historySha256'} if value['chatViewVersion'] == 2 and ui['present'] and 'historySha256' in ui else set()
     exact(ui, {'present', 'generation', 'channel', 'draft', 'keyboardRequested', 'localMessages', 'domainMessages',
-               'localRowCount', 'domainRowCount', 'visibleMessages', 'visibleRowCount'} if ui['present'] else {'present'})
+               'localRowCount', 'domainRowCount', 'visibleMessages', 'visibleRowCount'} | digest if ui['present'] else {'present'})
     if ui['present']:
         need(source['tabletShown'] and type(ui['generation']) is str and re.fullmatch(HEX, ui['generation'])
              and ui['channel'] in ('local', 'domain', 'settings') and type(ui['draft']) is str
              and ui['draft'] in texts | {''} and type(ui['keyboardRequested']) is bool
              and (not ui['draft'] or source['editorHasDraft']))
+        if digest: need(type(ui['historySha256']) is str and re.fullmatch('[0-9a-f]{64}', ui['historySha256']))
         for prefix in ('local', 'domain', 'visible'):
             rows, count = ui[prefix + 'Messages'], ui[prefix + 'RowCount']
             need(type(rows) is list and integer(count, 0, 1000) and len(rows) <= count
