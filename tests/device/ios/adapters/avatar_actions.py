@@ -6,8 +6,9 @@ complete feature verdict; peer/GPU/lifetime evidence belongs to the full owner.
 """
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
-from copy import deepcopy
+from copy import deepcopy,copy
 import hashlib
+from types import SimpleNamespace
 
 from adapters.native_feature_observation import exact,integer,need
 from adapters.normal_feature_state import PrivateFeatureState
@@ -26,6 +27,35 @@ class AvatarActionPending(NativeUIError):pass
 
 
 class IOSAvatarActions:
+    @classmethod
+    def history(cls,value,inputs_value,sources,*,fixture_url,peer,expected_code):
+        """Validate retained recipes, actual input originals and creation IDs.
+
+        This path decodes files only. It cannot invoke a normal control, read a
+        live SDK, manufacture an acknowledgement or resume an uncertain recipe.
+        """
+        from feature_journeys.navigation_scene import resource_root
+        need(isinstance(sources,IOSAvatarSources) and sources.historical and sources.role=='primary')
+        sources.lock.assert_held();resource_root(fixture_url,sources.run)
+        exact(peer,{'sessionId','username'});avatar_state.session(peer['sessionId']);avatar_state.text(peer['username'],256)
+        need(peer['username'].startswith('e2e-') and len(peer['username'])==36 and avatar_state.identity(peer['username'][4:]))
+        need(type(expected_code) is dict and '/system/avatarapp.js' in expected_code)
+        result=object.__new__(cls);result.sources=copy(sources);result.sources.phase=SimpleNamespace(fixture_url=fixture_url)
+        result.peer,result.expected_code,result.lock=deepcopy(peer),deepcopy(expected_code),sources.lock
+        result.failed=False;result.historical=True;result.previous=deepcopy(value)
+        result.state=result.decode(value)
+        class Frozen(PrivateFeatureState):
+            def read(_self):return deepcopy(inputs_value)
+            def write(_self,*_args):need(False)
+            def discard(_self,*_args):need(False)
+        result.inputs=AvatarInputOwner(Frozen(sources.store.path.with_name('ios-avatar-primary-inputs.json')),
+            sources.lock,sources.binding,sources.run,'primary',fixture_url,lambda:True)
+        result.inputs.load();calls=[row for row in result.state['calls'] if row['inputStarted']]
+        need(len(calls)==len(result.inputs.state['calls']))
+        for whole,events in zip(calls,result.inputs.state['calls']):
+            need(same(whole['query'],events['arguments']) and (whole['phase']!='acknowledged' or events['phase']=='acknowledged'))
+        return result
+
     def __init__(self,store,sources,inputs,sdk,peer,expected_code):
         need(isinstance(store,PrivateFeatureState) and isinstance(sources,IOSAvatarSources) and not sources.historical
             and sources.role=='primary' and isinstance(inputs,AvatarInputOwner) and isinstance(sdk,NativeUI))
@@ -36,7 +66,7 @@ class IOSAvatarActions:
         need(type(expected_code) is dict and '/system/avatarapp.js' in expected_code)
         self.store,self.sources,self.inputs,self.sdk=store,sources,inputs,sdk
         self.peer,self.expected_code=deepcopy(peer),deepcopy(expected_code)
-        self.lock=sources.lock;self.lock.assert_held();self.previous=store.read();self.failed=False
+        self.lock=sources.lock;self.lock.assert_held();self.previous=store.read();self.failed=False;self.historical=False
         self.state=None if self.previous is None else self.decode(self.previous);inputs.load()
         if self.state is not None:
             expected=[row for row in self.state['calls'] if row['inputStarted']]
@@ -96,7 +126,7 @@ class IOSAvatarActions:
         return deepcopy(state)
 
     def bound(self):
-        self.sources.bound();need(not self.failed and same(self.store.read(),self.previous))
+        need(not self.historical);self.sources.bound();need(not self.failed and same(self.store.read(),self.previous))
     def save(self):
         self.bound();value=self.envelope(self.state);self.decode(value)
         try:self.store.write(value,self.previous);need(same(self.store.read(),value));self.previous=deepcopy(value)
