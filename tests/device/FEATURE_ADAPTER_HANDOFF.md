@@ -861,7 +861,7 @@ required; the complete Phone count stays 3/14 and native source is uncompiled.
 ## Android Phone integration continuation (2026-10-22)
 
 The current [coverage matrix](FEATURE_COVERAGE.md) supersedes the historical
-three-area progress counts above: nine complete Phone source/host compositions
+three-area progress counts above: ten complete Phone source/host compositions
 are now integrated. [World Navigation](adapters/android-phone/WORLD_NAVIGATION_FEATURE.md)
 includes the common 17-checkpoint journey, real native Places/modal boundaries,
 independent publication and guarded cleanup. [World Web](adapters/android-phone/WORLD_WEB_FEATURE.md)

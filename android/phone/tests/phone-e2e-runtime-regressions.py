@@ -4,6 +4,7 @@ import argparse
 from pathlib import Path
 import subprocess
 import sys
+import uuid
 
 ROOT = Path(__file__).resolve().parents[3]
 DEPENDENCY_LIGHT_CHECKS = (
@@ -12,6 +13,7 @@ DEPENDENCY_LIGHT_CHECKS = (
     "android/phone/tests/phone-apk-provenance-test.py",
 )
 PREPARED_HOST_CHECKS = (
+    "android/phone/tests/phone-chat-native-test.py",
     "android/phone/tests/device/test_assets_bake_originals.py",
     "android/phone/tests/device/test_assets_upload_originals.py",
     "android/phone/tests/device/test_assets_geometry_input.py",
@@ -49,6 +51,7 @@ PREPARED_HOST_CHECKS = (
     "android/phone/tests/phone-voice-clock-test.py",
 )
 COMMON_HOST_CHECKS = (
+    "tests/device/self_tests/test_token_chat_ui.py",
     "android/phone/tests/device/test_feature_dispatch.py",
 
     "android/phone/tests/device/test_snapshot_os_retirement_source.py",
@@ -192,8 +195,10 @@ for name in selected + COMMON_HOST_CHECKS + (EXTENDED_HOST_CHECKS if args.extend
     arguments = [sys.executable, str(path)]
     if name.endswith("phone-test-inventory-test.py"):
         arguments.append(str(ROOT))
+    if name.endswith("phone-chat-native-test.py"):
+        arguments.extend(("--build-dir",str(ROOT / "build" / ("phone-chat-runtime-"+uuid.uuid4().hex))))
     # The complete Graphics/Create compositions execute the unchanged common
     # journeys; their file/image/actor checks need a larger aggregate budget.
     # Per-source freshness and common checkpoint deadlines remain unchanged.
     subprocess.run(arguments, cwd=ROOT, check=True,
-                   timeout=10800 if name in EXTENDED_HOST_CHECKS else 240 if name.endswith(("test_graphics_feature.py","test_create_feature.py","test_avatar_people_feature.py")) else 90)
+                   timeout=10800 if name in EXTENDED_HOST_CHECKS else 180 if name.endswith("phone-chat-native-test.py") else 240 if name.endswith(("test_graphics_feature.py","test_create_feature.py","test_avatar_people_feature.py")) else 90)

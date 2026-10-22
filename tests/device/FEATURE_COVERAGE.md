@@ -23,7 +23,7 @@ previously corrected their actual original-source semantics. The native retained
 input owner/private channel is now registered in all three separate platform
 branches; complete Lifecycle joins remain missing.
 
-All rows have shared test logic. The current nine-area Android Phone source/host integration status below supersedes the historical progress notes. Complete Android compilation and device acceptance remain unverified. Separate Pico/iOS sessions
+All rows have shared test logic. The current ten-area Android Phone source/host integration status below supersedes the historical progress notes. Complete Android compilation and device acceptance remain unverified. Separate Pico/iOS sessions
 maintain their own worktrees; this checkout does not establish their current status.
 The [Phone Emote run owner](adapters/android-phone/EMOTE_RUN.md) now connects
 setup, ordinary inputs, original role sources, bounded namespace switching and
@@ -51,7 +51,7 @@ Retirement v3 additionally handles partly issued setup. The
 [public composition](adapters/android-phone/EMOTE_FEATURE.md) now connects operation
 paths, default-off registration and global finalization with immutable Run v6
 configuration. Full common normal-journey host composition now passes; the
-current nine-area source/host status below supersedes older progress notes.
+current ten-area source/host status below supersedes older progress notes.
 The [Phone failure owner](adapters/android-phone/EMOTE_FAILURES.md) now retains
 both roles' interrupted readonly source, role/image/motion and lifetime-work attempts, then
 admitted/failed Admission originals before run input cleanup. Run v4 now records
@@ -96,7 +96,7 @@ and their branches are outside this Android Phone continuation.
 | authentication | No prior feature journey | Invalid login; close/reopen a pending view; real restart before valid old-grant release; successful login/restart and native logout; separate fixture revocation. | peer | Logic present; Phone adapter implemented (native uncompiled); Pico/iOS adapter missing; all devices untested |
 | avatar-people | `multi-user` | Actual loaded/requested avatar, Model wearable, native load failure and bookmark recovery; mutual contact consent/cancel/reject/removal. | changed, image, peer | [Phone public adapter](adapters/android-phone/AVATAR_PEOPLE.md) and common host composition present; product integration uncompiled; physical two-Phone execution untested |
 | create | `create-management`, `entity-sync`, `world-interaction` | Model URL/texture/voxel creation/edit, real entity-JSON picker cancellation/import, exact-slot original export and rez denial/retry. | changed, file, image, peer | Phone adapter source implemented; all 21 common steps, independent actor and full cleanup host-verified; complete Android build/device untested. [Details](adapters/android-phone/CREATE_FEATURE.md) |
-| emotes | No prior feature journey | Ten actual native overrides, nine automatic completions, all observed Sit variants, chooser lifetime, early restoration and resume. | changed, image, file, peer | Phone public adapter source implemented; full common host replay, independent original-source actor and complete retirement pass; runtime improvements under verification; complete Android/device untested |
+| emotes | No prior feature journey | Ten actual native overrides, nine automatic completions, all observed Sit variants, chooser lifetime, early restoration and resume. | changed, image, file, peer | Phone public adapter source implemented; full common host replay, independent original-source actor and complete retirement pass; optimized full host replay also passes; complete Android/device untested |
 | world-web | `world-web-video` | Real text/bridge, foreign origin rejection, navigation/Back, 404/reload and background resume. | changed, image, peer | Phone adapter source implemented including mandatory video foundation; common journey and partial native/Java/JNI checks pass; complete Android build/device untested. [Details](adapters/android-phone/WORLD_WEB_FEATURE.md) |
 | graphics | `render-health` | Immediate resolution/Haze/Mirrors, actual completed-frame/pass effects, close/restart durability and measured original restoration. | changed, image | Logic present; Phone adapter implemented (native uncompiled); Pico/iOS adapter missing; all devices untested |
 | audio | `audio-controls`, `permission-recovery`, `sound-playback`, `voice-roundtrip` | Automatic memory capture/play/drain/completion, real cancel, muted rejection/cancel and background cancellation; OS permissions remain in the composed foundation. | audio, file, peer, silence | Phone adapter source implemented including all mandatory foundations; complete v17 host composition, independent actor/PCM/PC joins and targeted Qt native checks; complete Android build/device untested. [Details](adapters/android-phone/AUDIO_FEATURE.md) |
