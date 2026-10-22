@@ -28,11 +28,12 @@ class CreateTransportAdmissionTests(unittest.TestCase):
         with patch.object(self.root,'complete_call',side_effect=NativeUIError('declared lost completion')):
             with self.assertRaises(NativeUIError):self.h.act('open')
         self.pending=self.root.state()['pending'];self.published=[];self.status=None
+        self.snapshot=lambda:parent_fixture.RuntimeIO(self.b).capture()
         binding=self.root.state()['binding'];identity=binding['processIdentity']
         def require(target,original,_reason):
             self.assertEqual(self.root.target,target);self.assertEqual(identity,original)
         def read(_target,_package,path,**_kwargs):
-            if path.endswith('observation.json'):return json.dumps(parent_fixture.RuntimeIO(self.b).capture())
+            if path.endswith('observation.json'):return json.dumps(self.snapshot())
             self.assertTrue(path.endswith('status.json'));return json.dumps(self.status) if self.status else ''
         def write(_target,_package,path,raw):
             self.assertTrue(path.endswith('command.json'));command=json.loads(raw);self.published.append(deepcopy(command))
@@ -51,8 +52,14 @@ class CreateTransportAdmissionTests(unittest.TestCase):
         self.native.bind_before_send(lambda command:self.root.dispatch_admission(command,self.navigation))
         self.flow=TokenCreateUI(PicoCreateIO(io),self.root.input,monotonic=self.b.now,sleep=self.b.ui.sleep)
 
-    def send(self):
-        with self.root.lock.held():return self.flow.input('create.tab.0')
+    def send(self,identifier='create.tab.0'):
+        with self.root.lock.held():return self.flow.input(identifier)
+
+    def generic(self,identifier='tablet.page.2'):
+        original=self.snapshot;self.generic_row=dict(id=identifier,token=str(uuid.uuid4()),enabled=True,focused=False)
+        def snapshot():
+            value=original();value['controls']=[deepcopy(self.generic_row)];return value
+        self.snapshot=snapshot
 
     def test_exact_original_intent_reaches_single_original_writer(self):
         self.send();self.assertEqual(1,len(self.published));original=self.root.state()['lastInput']['original']
@@ -91,6 +98,40 @@ class CreateTransportAdmissionTests(unittest.TestCase):
                 changed=True;self.b.focus='create.tab.0'
         with patch.object(self.native,'guard',guard),self.assertRaises(NativeUIError):self.send()
         self.assertTrue(changed);self.assertEqual([],self.published);self.assertEqual(self.pending,self.root.state()['pending'])
+
+    def test_original_generic_pager_and_home_without_input_ready_reach_original_writer(self):
+        self.generic();self.send('tablet.page.2');self.generic_row['id']='tablet.home';self.send('tablet.home')
+        self.assertEqual(['tablet.page.2','tablet.home'],[r['controlId'] for r in self.published])
+        self.assertEqual(self.pending,self.root.state()['pending'])
+
+    def test_disabled_actual_generic_pager_after_intent_refuses_final_publication(self):
+        self.generic();original=self.native.guard
+        def guard():
+            original()
+            if inspect.currentframe().f_back.f_code.co_name=='send':self.generic_row['enabled']=False
+        with patch.object(self.native,'guard',guard),self.assertRaises(NativeUIError):self.send('tablet.page.2')
+        self.assertEqual([],self.published);self.assertEqual(self.pending,self.root.state()['pending'])
+
+    def test_foreign_generic_reference_refuses_before_publication(self):
+        self.generic();reference=self.flow.capture();reference['controls'][0]['token']=str(uuid.uuid4())
+        with self.root.lock.held(),self.assertRaises(NativeUIError):self.flow.io.activate('tablet.page.2',reference=reference)
+        self.assertEqual([],self.published);self.assertEqual(self.pending,self.root.state()['pending'])
+
+    def test_stale_original_generic_scope_refuses_final_publication(self):
+        self.generic();original=self.native.guard
+        def guard():
+            original()
+            if inspect.currentframe().f_back.f_code.co_name=='send':self.b.ui.clock+=5.1
+        with patch.object(self.native,'guard',guard),self.assertRaises(NativeUIError):self.send('tablet.page.2')
+        self.assertEqual([],self.published);self.assertEqual(self.pending,self.root.state()['pending'])
+
+    def test_feature_control_without_input_ready_remains_unavailable(self):
+        original=self.snapshot
+        def snapshot():
+            value=original();next(row for row in value['controls'] if row['id']=='create.tab.0').pop('inputReady');return value
+        self.snapshot=snapshot
+        with self.assertRaises(NativeUIError):self.send()
+        self.assertEqual([],self.published);self.assertEqual(self.pending,self.root.state()['pending'])
 
 
 class CreateTransportFactoryTests(unittest.TestCase):

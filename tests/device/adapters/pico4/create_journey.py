@@ -285,7 +285,10 @@ class PicoCreateJourney(CreatePrimitives):
             and command.get('sequence')==s['sequence']+1 and command.get('observedElapsedMs')==s['elapsedMs'])
         self.validate_navigation(current,value['binding'])
         row=navigation.control(current,command['controlId'])
-        need(current['ready'] and row is not None and row.get('inputReady') is True and row['token']==original['controlToken']
+        from adapters.token_create_ui import navigation as generic_navigation
+        need(current['ready'] and row is not None
+            and (row.get('inputReady',True) is True if generic_navigation(command['controlId']) else row.get('inputReady') is True)
+            and row['token']==original['controlToken']
             and current['bridgeId']==s['instance'] and current['generation']==s['generation']
             and current['lastCommandSequence']==s['sequence'] and 0<=current['elapsedMs']-s['elapsedMs']<=5000)
         # Candidate and native UI work precede this final original phase read.

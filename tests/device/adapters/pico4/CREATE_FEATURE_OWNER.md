@@ -141,11 +141,16 @@ cleanup ticket before Home, and advance it before final retirement. A delayed
 final phase read that ages otherwise valid native packets also refuses
 completion. None of these failures dispatches/replays the rejected input or
 retires the pending root originals.
-The same selector additionally runs five narrow final-transport checks over the
+The same selector additionally runs ten narrow final-transport checks over the
 actual NativeNavigationIO and production Pico Create factory, with explicit SDK,
 Qt observation and writer-status seams. A fixture phase advanced inside the
 actual final native send guard produces zero command publications. Frozen native
 time cannot conceal host time spent in the final original phase read.
+The original generic `tablet.page.N` and `tablet.home` DTOs deliberately omit
+`inputReady`: only these exact existing navigation identifiers use their normal
+enabled/visible survey semantics. Feature controls still require their explicit
+original `inputReady` field. Actual disabled generic controls, foreign references
+and stale original scopes refuse final publication.
 
 Remaining full-flow work includes the normal PolyVox world brush stroke, denied/rez authority plus exact authority restoration,
 independent actor and current state, completed actual stereo draw/texture/pixels
