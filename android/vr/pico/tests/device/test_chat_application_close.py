@@ -59,6 +59,33 @@ class PicoChatApplicationFactoryTests(unittest.TestCase):
         with self.assertRaises(RuntimeError):self.sources()
         self.assertEqual([],self.native.inputs);self.assertEqual([],self.native.controllers)
 
+    def completed_scope_archive(self,*,bounded):
+        from adapters.chat_journey.evidence_archive import ChatArchiveCatalog,ChatEvidenceArchive
+        state,_=self.instance._script_paths(self.native.target);key=state.stem.removeprefix('normal-script-state-')
+        source=PrivateFeatureState(state.with_name('closed-original.json'));source.write(dict(original='already-consumed-scope-seam'),None)
+        catalog=ChatArchiveCatalog(hold_files=not bounded);self.addCleanup(catalog.close_host)
+        catalog.add('primary/'+source.path.name,source,source.read())
+        directory=state.parent/('chat-evidence-'+key+'-'+RUN);ledger=self.instance._chat_archive_retirement_store(self.native.target)
+        def inventory(expected):self.assertEqual(expected,{source.path} if source.path.exists() else set())
+        proof=dict(original='cold-scope-only-no-current-target-claim')
+        def guard(original=None):
+            if original is not None:self.assertEqual(proof,original)
+            return proof.copy()
+        archive=ChatEvidenceArchive(catalog,directory,ledger,dict(picoChatArchivePlanVersion=2,runId=RUN,
+            oldBinding=self.old,newBinding=self.old),guard,inventory)
+        self.addCleanup(archive.close_host);self.addCleanup(lambda:directory.chmod(0o700) if directory.exists() else None)
+        archive.retire();return directory
+
+    def test_actual_scope_reader_accepts_sealed_v2_bounded_originals_without_target_release_claim(self):
+        self.completed_scope_archive(bounded=True)
+        self.assertFalse(self.instance._chat_application_retained(self.native.target))
+        self.assertEqual([],self.native.inputs);self.assertEqual([],self.native.controllers)
+
+    def test_actual_scope_reader_rejects_plan2_relabelled_legacy_fd_receipt(self):
+        self.completed_scope_archive(bounded=False)
+        with self.assertRaises(ValueError):self.instance._chat_application_retained(self.native.target)
+        self.assertEqual([],self.native.inputs);self.assertEqual([],self.native.controllers)
+
     def test_legacy_parent_cannot_adopt_deferred_restart_admission(self):
         from adapters.pico4.chat_composition import record
         from adapters.normal_ui import NativeUIError
