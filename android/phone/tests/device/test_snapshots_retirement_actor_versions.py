@@ -1,0 +1,152 @@
+"""Actual closed archives retain exact legacy/v2 actor ownership and originals.
+
+Native/SDK sources are explicit producers. TLS inputs, files, process exit,
+quiet windows and public repeated finalization execute the production paths.
+"""
+# Copyright 2026 Overte contributors.
+# SPDX-License-Identifier: Apache-2.0
+from copy import deepcopy
+from pathlib import Path
+import sys
+import unittest
+from unittest.mock import patch
+
+sys.path.insert(0,str(Path(__file__).resolve().parent))
+import test_snapshots_phase_transition as transitions
+import test_snapshots_full_retirement_audit as full
+import test_snapshots_feature as partial
+from adapters.normal_feature_state import PrivateFeatureState
+from adapters.normal_ui import NativeUIError
+from overte_phone_script_history import pack,unpack
+from overte_phone_snapshots_retirement import PhoneSnapshotsRetirement,completed_archive,NAMES
+from overte_phone_snapshots_evidence import SnapshotsOriginals
+
+
+class SnapshotRetirementActorVersionsTests(unittest.TestCase):
+    setUpClass=classmethod(transitions.SnapshotPhaseTransitionTests.setUpClass.__func__)
+    tearDownClass=classmethod(transitions.SnapshotPhaseTransitionTests.tearDownClass.__func__)
+    setUp=transitions.SnapshotPhaseTransitionTests.setUp
+    start=transitions.SnapshotPhaseTransitionTests.start
+    activate=transitions.SnapshotPhaseTransitionTests.activate
+    receive=transitions.SnapshotPhaseTransitionTests.receive
+    send=transitions.SnapshotPhaseTransitionTests.send
+    assert_transition=transitions.SnapshotPhaseTransitionTests.assert_transition
+
+    def cleanup(self):
+        h=transitions.harness
+        return self.rig.invoke('feature.snapshots.cleanup',dict(contractVersion=h.VERSION,runId=h.RUN))
+
+    def archive(self):
+        h=transitions.harness
+        # Inspection of actual private originals is fixture setup only. Public
+        # cleanup below must independently establish fresh native authority.
+        return completed_archive(self.rig.root,self.rig.model.model_binding,h.RUN,lambda:True)
+
+    def finish_transition(self):
+        r=self.rig;r.act('open');r.act('capture',dict(mode='still',format='png'));r.act('save');r.act('upload')
+        self.start(baseline=True);self.assert_transition(self.activate('cleanup'))
+        self.assertEqual({'performed':True},self.cleanup())
+        self.send('acknowledged');self.assertEqual('fresh',self.receive()['stage'])
+        r.client.close();self.send('close');self.assertEqual('retired',self.receive()['stage'])
+        self.child.wait(timeout=5);self.assertEqual(0,self.child.returncode)
+        self.assertEqual({'performed':True},self.cleanup())
+        paths=list(r.root.glob('emote-frame-snapshots-retirement-*.json'));self.assertEqual(1,len(paths))
+        return paths[0]
+
+    def validate_candidate(self,candidate):
+        h=transitions.harness;r=self.rig
+        feature=r.adapter._snapshots_feature('test-only-appium',h.RUN,retirement=True)
+        with feature.lock.held(),r.adapter.existing_input_session('test-only-appium'):
+            feature.load();return PhoneSnapshotsRetirement(feature).validate_archive(candidate)
+
+    def test_v2_actual_transition_survives_closed_exit_and_double_finalize_with_no_active_controls(self):
+        path=self.finish_transition();before=(path.stat().st_ino,path.read_bytes());archive=self.archive()
+        header=archive['controls']['phone-snapshots-actor-lifecycle.json'];state=unpack(header['payload'])[0]
+        self.assertEqual(2,header['snapshotsActorVersion']);self.assertEqual(1,len(state['transitions']))
+        self.assertEqual('before-sources',state['transitions'][0]['kind'])
+        self.assertTrue(all(PrivateFeatureState(self.rig.root/name).read() is None for name in NAMES))
+        self.assertEqual({'performed':True},self.cleanup());self.assertEqual({'performed':True},self.cleanup())
+        self.assertEqual(before,(path.stat().st_ino,path.read_bytes()))
+        self.assertEqual(archive,self.validate_candidate(archive))
+
+    def test_actual_completed_v2_archive_rejects_versions_shape_scope_floor_and_missing_original(self):
+        path=self.finish_transition();archive=self.archive();unchanged=(path.stat().st_ino,path.read_bytes())
+        name='phone-snapshots-actor-lifecycle.json'
+        for fault in ('bool-version','unknown-version','legacy-with-transitions','unknown-state','scope','role-floor'):
+            with self.subTest(fault=fault):
+                candidate=deepcopy(archive);header=candidate['controls'][name];state=unpack(header['payload'])[0]
+                if fault=='bool-version':header['snapshotsActorVersion']=True
+                elif fault=='unknown-version':header['snapshotsActorVersion']=3
+                elif fault=='legacy-with-transitions':header['snapshotsActorVersion']=1
+                elif fault=='unknown-state':state['unowned']=True;header['payload']=pack([state])
+                elif fault=='scope':state['transitions'][0]['scope']=dict(kind='foreground',handoffId=None);header['payload']=pack([state])
+                else:
+                    role=candidate['controls']['phone-snapshots-actor-originals.json'];body=unpack(role['payload'])[0]
+                    body.update(sequence=0,manifests=[]);role['payload']=pack([body])
+                with self.assertRaises(NativeUIError):self.validate_candidate(candidate)
+                self.assertEqual(unchanged,(path.stat().st_ino,path.read_bytes()))
+        native=self.rig.setup.f.native;identity=native.identity;changed=[];refused=[]
+        restore=SnapshotsOriginals.restore;bound=PhoneSnapshotsRetirement.bound
+        def late_target(engine,*args,**kwargs):
+            value=restore(engine,*args,**kwargs)
+            if engine.kind=='snapshots' and engine.role=='actor' and not changed:
+                changed.append(True);native.identity='32:foreign-retirement-start'
+            return value
+        def current_guard(retirement):
+            try:return bound(retirement)
+            except Exception as error:
+                if changed:refused.append(type(error).__name__)
+                raise
+        try:
+            with patch.object(SnapshotsOriginals,'restore',late_target),patch.object(PhoneSnapshotsRetirement,'bound',current_guard):
+                with self.assertRaises(NativeUIError):self.validate_candidate(archive)
+            self.assertEqual([True],changed);self.assertTrue(refused)
+        finally:native.identity=identity
+        self.assertEqual(unchanged,(path.stat().st_ino,path.read_bytes()))
+        state=unpack(archive['controls'][name]['payload'])[0];reference=state['transitions'][0]
+        host=SnapshotsOriginals(self.rig.root,archive['owner']['binding'],transitions.harness.RUN,'actor',lambda:True,lambda *_:None,kind='snapshots')
+        entries=host.manifest(reference['manifest']);original=host.path(host.expand(entries[-1]));saved=original.read_bytes()
+        original.unlink()
+        with self.assertRaises(NativeUIError):self.cleanup()
+        self.assertEqual(unchanged,(path.stat().st_ino,path.read_bytes()))
+        self.assertTrue(all(PrivateFeatureState(self.rig.root/name).read() is None for name in NAMES))
+        # Do not repair with replacement bytes/inode: the failed owner remains
+        # red and this fixture is retired by its own ordinary teardown.
+        self.assertTrue(saved)
+
+    def test_legacy_encoding_of_actual_full_closed_actor_is_not_rewritten_in_completed_archive(self):
+        r=self.rig;r.cleanup_public=self.cleanup
+        r.act('open');r.act('capture',dict(mode='still',format='png'));r.act('save');r.act('upload')
+        r.client.activate('d'*32,'cleanup',{});self.assertEqual({'performed':True},self.cleanup())
+        full.FullRetirementAuditTests.close_with_original_actor(r)
+        store=PrivateFeatureState(r.root/'phone-snapshots-actor-lifecycle.json');header=store.read();state=unpack(header['payload'])[0]
+        self.assertEqual([],state.pop('transitions'))
+        # Faithful legacy encoding of the same real quiet/exit/closure evidence;
+        # no target observation or result is added by this schema fixture.
+        legacy=dict(header,snapshotsActorVersion=1,payload=pack([state]));store.write(legacy,header)
+        self.assertEqual({'performed':True},self.cleanup());archive=self.archive()
+        self.assertEqual(legacy,archive['controls']['phone-snapshots-actor-lifecycle.json'])
+        path=next(r.root.glob('emote-frame-snapshots-retirement-*.json'));before=(path.stat().st_ino,path.read_bytes())
+        self.assertEqual({'performed':True},self.cleanup());self.assertEqual(before,(path.stat().st_ino,path.read_bytes()))
+        self.assertNotIn('transitions',unpack(self.archive()['controls']['phone-snapshots-actor-lifecycle.json']['payload'])[0])
+
+    def partial_archive(self,version):
+        rig=partial.SnapshotsFeatureTests('test_partial_finalize_requires_real_actor_exit_and_retires_exact_journals_idempotently')
+        rig.setUp()
+        try:
+            write=PrivateFeatureState.write
+            def encoded(store,value,previous):
+                if version==2 and store.path.name=='phone-snapshots-actor-lifecycle.json':
+                    body=unpack(value['payload'])[0];body['transitions']=[];value=dict(value,snapshotsActorVersion=2,payload=pack([body]))
+                return write(store,value,previous)
+            with patch.object(PrivateFeatureState,'write',encoded):
+                rig.test_partial_finalize_requires_real_actor_exit_and_retires_exact_journals_idempotently()
+            archive=completed_archive(rig.root,rig.adapter.binding,rig.client.run,lambda:True)
+            self.assertEqual(version,archive['controls']['phone-snapshots-actor-lifecycle.json']['snapshotsActorVersion'])
+        finally:rig.doCleanups()
+
+    def test_actual_partial_legacy_closed_archive_repeats_without_rewriting(self):self.partial_archive(1)
+    def test_actual_partial_v2_closed_archive_repeats_without_creating_role_controls(self):self.partial_archive(2)
+
+
+if __name__=='__main__':unittest.main()

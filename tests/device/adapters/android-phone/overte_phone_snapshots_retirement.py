@@ -10,11 +10,13 @@ from pathlib import Path
 import os
 import re
 
-from adapters.native_feature_observation import exact,need,number
+from adapters.native_feature_observation import exact,need,number,integer
 from adapters.normal_feature_state import PrivateFeatureState
 from fixture.messages_mixer import start_identity
+from feature_journeys.phase_fixture import validate as phase_packet
 from overte_phone_snapshots_evidence import SnapshotsOriginals,SnapshotsImages,SnapshotsBinary
-from overte_phone_script_history import pack,unpack,same
+from overte_phone_script_history import pack,unpack,same,canonical
+import hashlib
 from overte_phone_snapshots_measurements import provider_quiet
 
 NAMES=tuple('phone-snapshots-'+name+'.json' for name in ('feature','primary-originals','actor-originals','actor-lifecycle',
@@ -61,7 +63,27 @@ class PhoneSnapshotsRetirement:
         need(kind=='original' and self.state['phase']=='archiving');self.state['original']=deepcopy(value);self.save();return True
 
     def validate_archive(self,archive):
-        f=self.feature;exact(archive,{'owner','controls','proof','closure'})
+        f=self.feature;self.bound();exact(archive,{'owner','controls','proof','closure'})
+        # Only this invocation's verified owner headers authorize historical
+        # host IO. Current native authority brackets the complete pass.
+        feature_header=deepcopy(f.previous);retirement_header=deepcopy(self.previous)
+        binding=deepcopy(f.binding);config=deepcopy(f.config)
+        archive_sha=hashlib.sha256(canonical(archive)).hexdigest()
+        need(type(archive['controls']) is dict and set(archive['controls'])==set(NAMES))
+        controls={name:PrivateFeatureState(f.store.path.with_name(name)).read() for name in NAMES}
+        resumed=self.state is not None and self.state['phase']=='retiring' and same(self.state['archive'],archive)
+        completed=self.state is None and self.previous is None and f.previous is None
+        for name,actual in controls.items():
+            need(same(actual,archive['controls'][name]) or actual is None and (resumed or completed))
+        def history_guard():
+            f.lock.assert_held()
+            need(same(f.previous,feature_header) and same(self.previous,retirement_header)
+                and same(f.store.read(),feature_header) and same(self.store.read(),retirement_header)
+                and same(f.binding,binding) and same(f.config,config))
+            for name,expected in controls.items():
+                need(same(PrivateFeatureState(f.store.path.with_name(name)).read(),expected))
+            return True
+        history_guard()
         provider=archive['proof']['provider'];provider_quiet(provider,run=f.run,epoch=provider['capturedEpochMs'],closed=True)
         need(archive['owner']['runId']==f.run and same(archive['owner']['binding'],f.binding) and not archive['closure']['active'])
         need(set(archive['controls'])==set(NAMES) and same(archive['controls']['phone-snapshots-feature.json'],archive['owner']))
@@ -69,7 +91,7 @@ class PhoneSnapshotsRetirement:
         partial=owner['partial']
         need(owner['phase']==('partial-cleaned' if partial else 'cleaned') and owner['current'] is None and owner['inputStorage'] is None and owner['handoff'] is None
             and not any(owner['leases'].values()) and (not owner['inputs'] if partial and owner['settingsIntent'] is None else len(owner['quiet'])==2))
-        inputs=SnapshotsOriginals(f.root,f.binding,f.run,'primary',lambda:True,lambda *_:need(False),kind='snapshots-input').restore(owner['inputs'],owner['inputSequence'])
+        inputs=SnapshotsOriginals(f.root,f.binding,f.run,'primary',history_guard,lambda *_:need(False),kind='snapshots-input').restore(owner['inputs'],owner['inputSequence'])
         if not partial:need(inputs and inputs[owner['settingsIndex']-1]['snapshotsSettingsCaptured']['runId']==f.run)
         if partial:
             need(not owner['actions'] and not owner['cancelJobs'] and not owner['handoffs'] and owner['marker'] is None
@@ -89,13 +111,15 @@ class PhoneSnapshotsRetirement:
             need(header is not None)
             exact(header,{'snapshotsRoleVersion','runId','binding','role','payload'})
             need(type(header['snapshotsRoleVersion']) is int and header['snapshotsRoleVersion']==1 and header['runId']==f.run and same(header['binding'],f.binding) and header['role']==role)
-            state=unpack(header['payload'])[0];need(state['phase']=='retired' and state['pending'] is None)
-            originals=SnapshotsOriginals(f.root,f.binding,f.run,role,lambda:True,lambda *_:need(False),kind='snapshots')
+            states=unpack(header['payload']);need(len(states)==1);state=states[0]
+            exact(state,{'phase','sequence','manifests','pending'})
+            need(state['phase']=='retired' and state['pending'] is None and integer(state['sequence'],1,256))
+            originals=SnapshotsOriginals(f.root,f.binding,f.run,role,history_guard,lambda *_:need(False),kind='snapshots')
             frames=originals.restore(state['manifests'],state['sequence']);need(frames)
             for frame in frames:
                 image=frame.get('image')
-                if image is not None:SnapshotsImages.archive(f.root,image)
-                for binary in frame.get('binaries',[]):SnapshotsBinary.archive(f.root,binary)
+                if image is not None:history_guard();SnapshotsImages.archive(f.root,image);history_guard()
+                for binary in frame.get('binaries',[]):history_guard();SnapshotsBinary.archive(f.root,binary);history_guard()
             final=frames[-1];need(not final.get('diagnostic'))
             live=final['state'];need(not live['open'] and not live['pending'] and live['captureHistory']==[]
                 and live['files']==live['saved']==live['uploads']==live['shares']==0 and not live['saveSheet'] and not live['shareSheet'])
@@ -103,13 +127,33 @@ class PhoneSnapshotsRetirement:
             header=archive['controls']['phone-snapshots-'+name+'.json']
             if header is None:need(partial);continue
             need(header['scope']==f.run and header['retired'])
-        actor=archive['controls']['phone-snapshots-actor-lifecycle.json'];need(actor is not None)
-        need(actor['runId']==f.run and same(actor['binding'],f.binding));actor=unpack(actor['payload'])[0]
-        need(actor['phase']=='retired' and actor['pending'] is None and actor['process']!=owner['hostProcess'] and terminated(actor['process']))
+        from overte_phone_snapshots_actor import ACTOR_VERSION,STATE_FIELDS,validate_transition_history
+        actor_header=archive['controls']['phone-snapshots-actor-lifecycle.json'];need(actor_header is not None)
+        exact(actor_header,{'snapshotsActorVersion','runId','binding','payload'})
+        version=actor_header['snapshotsActorVersion']
+        need(type(version) is int and version in (1,ACTOR_VERSION) and actor_header['runId']==f.run
+            and same(actor_header['binding'],f.binding))
+        states=unpack(actor_header['payload']);need(len(states)==1);actor=states[0]
+        exact(actor,STATE_FIELDS if version==1 else STATE_FIELDS|{'transitions'})
+        # A completed legacy archive is immutable. Its local validation graph
+        # has no transition events; no archive or active journal is rewritten.
+        actor=deepcopy(actor)
+        if version==1:actor['transitions']=[]
+        need(actor['phase']=='retired' and actor['pending'] is None and actor['process']!=owner['hostProcess'] and terminated(actor['process'])
+            and type(actor['dropped']) is list and len(actor['dropped'])<=256)
+        phase_packet(actor['closure'],run=f.run,area='snapshots',request=actor['closure']['requestId'],epoch=actor['closure']['capturedEpochMs'])
+        phase_packet(archive['closure'],run=f.run,area='snapshots',request=archive['closure']['requestId'],epoch=archive['closure']['capturedEpochMs'])
+        need(not actor['closure']['active'])
+        for key in ('fixturePhaseVersion','instance','runId','area','createdEpochMs','retiredEpochMs','activations'):
+            need(same(actor['closure'][key],archive['closure'][key]))
         if partial:
             need(actor['partialClosure'] is not None and actor['partialClosure']['snapshotPartialRetirementVersion']==1
-                and same(actor['partialClosure']['owner'],archive['owner']) and not actor['closure']['active'])
+                and same(actor['partialClosure']['owner'],archive['owner']) and actor['last'] is actor['quiet'] is None
+                and actor['transitions']==[])
         else:need(actor['last'] is not None and actor['quiet']['complete'] and actor['partialClosure'] is None)
+        validate_transition_history(f,actor,history_guard=history_guard,
+            role_header=archive['controls']['phone-snapshots-actor-originals.json'],current_guard=self.bound)
+        history_guard();need(hashlib.sha256(canonical(archive)).hexdigest()==archive_sha);self.bound()
 
         return archive
 
