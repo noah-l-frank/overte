@@ -1742,6 +1742,18 @@ class FeatureRegistrationAndTransport(unittest.TestCase):
         self.assertEqual(75,done.returncode,done.stdout+done.stderr)
         self.assertIn('render.snapshot',done.stdout)
 
+    def test_snapshot_upload_cannot_pass_the_gate_without_real_domain_entry(self):
+        catalog=json.loads((DEVICE/'catalog.json').read_text())
+        required=set().union(*(set(m['requires']) for m in catalog['modules'] if 'feature-snapshots' in m['suites']))
+        self.assertIn('navigation.enter-domain',required)
+        env={**os.environ,'PYTHONPATH':str(DEVICE),'OVERTE_DEVICE_CAPABILITIES_JSON':json.dumps(sorted(required-{'navigation.enter-domain'})),
+             'OVERTE_DEVICE_ADAPTER_MANIFEST':str(DEVICE/'adapters/mock/adapter.json'),
+             'OVERTE_DEVICE_TARGET_SELECTOR':'virtual-owned-target','OVERTE_DEVICE_ARTIFACT_DIR':tempfile.gettempdir()}
+        done=subprocess.run([sys.executable,str(DEVICE/'modules/feature_capability_gate.py'),'--area','snapshots'],
+            env=env,text=True,capture_output=True,timeout=10)
+        self.assertEqual(75,done.returncode,done.stdout+done.stderr)
+        self.assertIn('navigation.enter-domain',done.stdout)
+
     def test_domain_features_keep_a_real_domain_session_and_registered_prerequisites(self):
         from feature_journeys.session import prepare
         from feature_journeys.scenarios import DOMAIN_AREAS

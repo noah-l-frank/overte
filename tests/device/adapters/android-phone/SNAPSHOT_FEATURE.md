@@ -354,3 +354,12 @@ original command once; the source command's nonce/token/generation/sequence
 and durable intent remain distinct from actual pending/cancelled observations.
 A plan is rejected for a non-animated normal choice. These controls still do not
 advertise the public Snapshot feature triple or retire OS results.
+
+The v18 extended Snapshot suite retains the original controlled domain rather
+than replacing it with a serverless scene. Normal upload requires the actual
+non-null connected domain identity and ordinary owned-account login. The
+standalone snapshot-output-parity foundation keeps its original scene profile;
+only the extended feature suite adds the explicit domain-enter prerequisite.
+Missing navigation.enter-domain must fail the mandatory capability gate before
+any device discovery or feature input. A successful input acknowledgement does
+not establish domain connection, account authentication or upload success.

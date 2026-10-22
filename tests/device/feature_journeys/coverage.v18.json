@@ -188,6 +188,7 @@
     {
       "area": "snapshots",
       "existingModules": [
+        "domain-enter",
         "snapshot-output-parity"
       ],
       "commonModule": "feature-snapshots",

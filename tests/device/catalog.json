@@ -157,7 +157,7 @@
       "id": "domain-enter",
       "description": "Enter a controlled domain and observe its connection and assignment-owned scene.",
       "command": ["modules/domain_enter.py"],
-      "suites": ["domain-recovery", "domain-smoke", "entity-sync-smoke", "feature-journeys", "feature-world-navigation", "multi-user-smoke", "network-fault-recovery"],
+      "suites": ["domain-recovery", "domain-smoke", "entity-sync-smoke", "feature-journeys", "feature-snapshots", "feature-world-navigation", "multi-user-smoke", "network-fault-recovery"],
       "requires": ["app.foreground", "app.process", "navigation.enter-domain", "probe.snapshot"],
       "timeoutSeconds": 180
     },
@@ -518,7 +518,7 @@
       "description": "Capture cancellation, permission, share/upload and resume. Shared logic only; target adapters and device evidence remain pending.",
       "command": ["modules/feature_journey.py", "--area", "snapshots"],
       "suites": ["feature-journeys", "feature-snapshots"],
-      "requires": ["app.foreground", "app.process", "feature.snapshots.act", "feature.snapshots.cleanup", "feature.snapshots.observe", "probe.snapshot", "scene.load"],
+      "requires": ["app.foreground", "app.process", "feature.snapshots.act", "feature.snapshots.cleanup", "feature.snapshots.observe", "navigation.enter-domain", "probe.snapshot", "scene.load"],
       "timeoutSeconds": 1260
     },
     {

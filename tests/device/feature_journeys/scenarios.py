@@ -483,7 +483,7 @@ FOUNDATIONS = {
     'graphics': ['render-health'],
     'audio': ['audio-controls', 'permission-recovery', 'sound-playback', 'voice-roundtrip'],
     'chat': ['text-input'],
-    'snapshots': ['snapshot-output-parity'],
+    'snapshots': ['domain-enter', 'snapshot-output-parity'],
     'scripts': ['scripts-management', 'scripted-entity'],
     'assets': ['asset-load'],
     'lifecycle-input': ['lifecycle-under-load', 'tablet-input-isolation', 'text-input'],
@@ -491,4 +491,4 @@ FOUNDATIONS = {
 
 # Real peer replication, domain permissions and asset mappings require a domain.
 # Loading the serverless scene here would disconnect precisely those features.
-DOMAIN_AREAS = frozenset({'avatar-people', 'create', 'emotes', 'audio', 'chat', 'assets'})
+DOMAIN_AREAS = frozenset({'avatar-people', 'create', 'emotes', 'audio', 'chat', 'assets', 'snapshots'})
