@@ -70,7 +70,7 @@ class PhoneEmoteScene:
             value['fixtureInstance']=self.frames[-1]['frame']['fixture']['source']['fixtureInstance']
         return input_command(value)
 
-    def packet(self,frame,kind,previous=None):
+    def packet(self,frame,kind,previous=None,*,closed=False):
         exact(frame,FRAME|({'fixture'} if kind=='fixture' else set()));need(kind in ('baseline','fixture')
             and integer(frame['epochMs'],1) and number(frame['hostEpochMs'],1,1e15)
             and number(frame['hostStartedMonotonicMs'],0,1e18) and number(frame['hostObservedMonotonicMs'],frame['hostStartedMonotonicMs'],1e18))
@@ -98,7 +98,9 @@ class PhoneEmoteScene:
         phase_packet(before,run=self.run,area='emotes',request=before.get('requestId'),epoch=frame['hostEpochMs'],
             previous=previous['phaseAfter'] if previous else None)
         phase_packet(after,run=self.run,area='emotes',request=after.get('requestId'),epoch=frame['hostEpochMs'],previous=before)
-        need(before['active'] and before['activations'] and same(before['activations'],after['activations']) and after['active'])
+        need(before['active'] is (not closed) and before['activations']
+            and same(before['activations'],after['activations']) and after['active'] is (not closed))
+        if closed:need(before['activations'][-1]['stimulus']['verb']=='cleanup')
         if previous:
             need(frame['hostStartedMonotonicMs']>=previous['hostObservedMonotonicMs'])
             for key,_,_ in requests:
@@ -204,8 +206,9 @@ class PhoneEmoteScene:
         if kind=='baseline':self.state['phase']='baseline'
         self.save()
 
-    def query(self,kind):
-        self.bound();need(self.state['pending'] is None and len(self.frames)<MAX_FRAMES)
+    def query(self,kind,*,closed=False):
+        self.bound();need(self.state['pending'] is None and (closed or len(self.frames)<MAX_FRAMES))
+        if closed:need(kind=='fixture' and self.state['phase']=='released')
         started=self.monotonic();previous=self.frames[-1]['frame'] if self.frames else None
         readers=dict(configuration=self.adapter._avatar_configuration_observer(self.selector,read_only=True),
             avatar=self.adapter._avatar_render_observer(self.selector,read_only=True),touch=self.adapter._touch_state_observer(self.selector,read_only=True),world=self.adapter._graphics_subject_observer(self.selector,read_only=True),
@@ -220,29 +223,33 @@ class PhoneEmoteScene:
             if 'fixture' in previous:readers['fixture'].restore([previous['fixture']])
         epoch=readers['configuration'].clock_ms();host=self.phase.epoch_ms();need(integer(epoch,1) and number(host,1,1e15));anchor=self.monotonic()
         before=self.phase.status(previous['phaseAfter'] if previous else None)
-        need(before['active'] and before['activations'] and before['activations'][-1]['stimulus']['verb']==self.required_phase
+        need(before['active'] is (not closed) and before['activations'] and before['activations'][-1]['stimulus']['verb']==self.required_phase
             and (self.expected_ticket is None or before['activations'][-1]['ticket']==self.expected_ticket))
         need(kind in ('baseline','fixture') and (kind=='baseline')==(self.state['prepare'] is None))
-        self.state['pending']=dict(index=len(self.frames)+1,kind=kind,original=None,manifest=None);self.save()
+        if not closed:
+            self.state['pending']=dict(index=len(self.frames)+1,kind=kind,original=None,manifest=None);self.save()
         frame=dict(configuration=readers['configuration'].read(),avatar=readers['avatar'].read(),touch=readers['touch'].read(),
             world=readers['world'].read(self.run,require_avatar=True),web=readers['web'].read(self.run,self.phase.fixture_url),phaseBefore=before)
         if kind=='fixture':frame['fixture']=readers['fixture'].read(self.run)
         frame.update(phaseAfter=self.phase.status(before),epochMs=readers['configuration'].clock_ms(),hostEpochMs=self.phase.epoch_ms(),
             hostStartedMonotonicMs=anchor*1000,hostObservedMonotonicMs=self.monotonic()*1000)
-        self.packet(frame,kind,previous)
+        self.packet(frame,kind,previous,closed=closed)
         if kind=='fixture':need(self.state['prepare'] is not None and same(frame['fixture']['source']['originalInput'],self.state['prepare']['command']))
         if self.frames:self.foreign_world(self.frames[0]['frame'],frame)
-        if self.state['phase']=='released':
+        if closed:self.drained(frame)
+        elif self.state['phase']=='released':
             try:self.drained(frame)
             except NativeUIError:self.state.update(phase='releasing',window=None)
-        self.record(kind,frame);self.bound()
+        if not closed:self.record(kind,frame)
+        self.bound()
         self.delivery_anchor=(anchor,epoch,host,readers['configuration'].clock_ms)
         need(self.monotonic()-started<5);self.delivery(frame);return deepcopy(frame)
 
     def delivery(self,frame):
         self.bound();need(self.delivery_anchor is not None)
         started,epoch,host,clock=self.delivery_anchor
-        current=self.phase.status(frame['phaseAfter']);need(same(current['activations'],frame['phaseAfter']['activations']))
+        current=self.phase.status(frame['phaseAfter']);need(same(current['activations'],frame['phaseAfter']['activations'])
+            and current['active'] is frame['phaseAfter']['active'] and current['retiredEpochMs']==frame['phaseAfter']['retiredEpochMs'])
         now=clock();host_now=self.phase.epoch_ms();self.bound();end=self.monotonic()
         need(integer(now,epoch) and number(host_now,host,1e15) and number(end,started,1e15) and end-started<5)
         for key in ('configuration','avatar','touch','world')+ (('fixture',) if 'fixture' in frame else ()):
@@ -353,3 +360,39 @@ class PhoneEmoteScene:
         frame=self.query('fixture');self.drained(frame);self.window(self.frames,self.state['window']['start'],True)
         need(retain(deepcopy(frame)) is not False);self.delivery(frame)
         self.store.discard(self.previous);need(self.store.read() is None);self.previous=None;self.delivery(frame);return deepcopy(frame)
+
+
+    def retirement_archive(self,value):
+        """Reopen the old scene originals and verify the frozen closed group."""
+        exact(value,{'emoteSceneRetirementVersion','header','frame'})
+        need(type(value['emoteSceneRetirementVersion']) is int and value['emoteSceneRetirementVersion']==1)
+        state,frames=self.decode(value['header'])
+        need(state['phase']=='released' and state['pending'] is None)
+        frame=value['frame'];previous=frames[-1]['frame'];self.packet(frame,'fixture',previous,closed=True)
+        need(same(frame['phaseBefore']['activations'],previous['phaseAfter']['activations'])
+            and frame['phaseBefore']['activations'][-1]['ticket']==state['release']['fixturePhase']['activations'][-1]['ticket']
+            and same(frame['fixture']['source']['originalInput'],state['prepare']['command']))
+        self.drained(frame,baseline=frames[0]['frame']);self.window(frames,state['window']['start'],True)
+        return deepcopy(value)
+
+    @operation
+    def retire_closed(self,retain,*,retained=None):
+        """Do not append an inactive group to the active-only v1 originals."""
+        self.required_phase='cleanup';self.bound();need(callable(retain));started=self.monotonic()
+        if retained is None:
+            need(self.previous is not None and self.state['phase']=='released' and self.state['pending'] is None)
+            self.expected_ticket=self.state['release']['fixturePhase']['activations'][-1]['ticket']
+            frame=self.query('fixture',closed=True)
+            value=self.retirement_archive(dict(emoteSceneRetirementVersion=1,header=deepcopy(self.previous),frame=frame))
+        else:
+            value=self.retirement_archive(retained)
+            need(self.previous is None or same(self.previous,value['header']))
+            current=self.phase.status(value['frame']['phaseAfter'])
+            need(not current['active'] and same(current['activations'],value['frame']['phaseAfter']['activations']))
+        need(retain(deepcopy(value)) is not False);self.bound();need(self.monotonic()-started<5)
+        if retained is None:self.delivery(value['frame'])
+        if self.previous is not None:
+            self.store.discard(value['header']);need(self.store.read() is None);self.previous=None
+        self.bound();need(self.monotonic()-started<5)
+        if retained is None:self.delivery(value['frame'])
+        return deepcopy(value)

@@ -324,4 +324,73 @@ class EmoteViewTests(unittest.TestCase):
             m.candidate_okay=True;view=m.factory();m.retire(view)
 
 
+    def test_closed_retirement_keeps_original_header_and_new_actual_native_group(self):
+        m=self.model
+        with m.lock.held():
+            view=m.factory();view.prepare();m.cleanup(view);header=deepcopy(view.previous)
+            calls=len(m.sdk.inputs);m.journal.close(RUN);receipts=[]
+            proof=view.retire_closed(lambda value:receipts.append(deepcopy(value)))
+            self.assertEqual(header,proof['header']);self.assertEqual([proof],receipts)
+            self.assertFalse(proof['frame']['phaseBefore']['active']);self.assertIsNone(view.store.read())
+            self.assertGreater(proof['frame']['avatar']['sequence'],unpack(header['payload'])[0]['current']['avatar']['sequence'])
+            self.assertEqual(calls,len(m.sdk.inputs))
+            fresh=m.factory();self.assertEqual(proof,fresh.retire_closed(lambda _:None,retained=proof))
+            self.assertEqual(proof,fresh.retirement_archive(proof))
+
+    def test_closed_retirement_requires_real_closure_and_restoration(self):
+        m=self.model
+        with m.lock.held():
+            view=m.factory();view.prepare();m.cleanup(view)
+            with self.assertRaises(NativeUIError):view.retire_closed(lambda _:None)
+            self.assertIsNotNone(view.store.read());m.journal.close(RUN);m.boom+=1
+            with self.assertRaises(NativeUIError):view.retire_closed(lambda _:None)
+            self.assertIsNotNone(view.store.read())
+
+    def test_closed_retirement_refuses_old_or_foreign_originals(self):
+        m=self.model
+        with m.lock.held():
+            view=m.factory();view.prepare();m.cleanup(view);m.journal.close(RUN)
+            proof=view.retire_closed(lambda _:None);fresh=m.factory()
+            for fault in ('version','binding','provider','old-native','active','retired-time'):
+                bad=deepcopy(proof)
+                if fault=='version':bad['emoteViewRetirementVersion']=True
+                elif fault=='binding':bad['header']['binding']['processIdentity']='99:foreign'
+                elif fault=='provider':bad['frame']['phaseBefore']['instance']='9'*32
+                elif fault=='old-native':bad['frame']['avatar']=unpack(bad['header']['payload'])[0]['current']['avatar']
+                elif fault=='active':bad['frame']['phaseBefore']['active']=True
+                else:bad['frame']['phaseAfter']['retiredEpochMs']+=1
+                with self.subTest(fault=fault),self.assertRaises((NativeUIError,ValueError)):
+                    fresh.retire_closed(lambda _:None,retained=bad)
+
+    def test_closed_retirement_retains_ownership_on_rejection_or_late_handoff(self):
+        m=self.model
+        with m.lock.held():
+            view=m.factory();view.prepare();m.cleanup(view);m.journal.close(RUN)
+            with self.assertRaises(NativeUIError):view.retire_closed(lambda _:False)
+            self.assertIsNotNone(view.store.read())
+            def late(_):m.sdk.clock+=2
+            with self.assertRaises(NativeUIError):view.retire_closed(late)
+            self.assertIsNotNone(view.store.read())
+
+    def test_closed_retirement_lost_removal_uses_exact_parent_packet(self):
+        m=self.model
+        with m.lock.held():
+            view=m.factory();view.prepare();m.cleanup(view);m.journal.close(RUN);receipts=[];discard=view.store.discard
+            def lost(header):discard(header);raise OSError('Synthetic lost closed removal')
+            with patch.object(view.store,'discard',side_effect=lost),self.assertRaises(OSError):
+                view.retire_closed(lambda value:receipts.append(deepcopy(value)))
+            fresh=m.factory()
+            with self.assertRaises(NativeUIError):fresh.retire_closed(lambda _:None)
+            self.assertEqual(receipts[0],fresh.retire_closed(lambda _:None,retained=receipts[0]))
+
+    def test_closed_retirement_ignored_removal_cannot_report_completion(self):
+        m=self.model
+        with m.lock.held():
+            view=m.factory();view.prepare();m.cleanup(view);m.journal.close(RUN);receipts=[]
+            with patch.object(view.store,'discard',return_value=None),self.assertRaises(NativeUIError):
+                view.retire_closed(lambda value:receipts.append(deepcopy(value)))
+            self.assertIsNotNone(view.store.read());self.assertEqual(1,len(receipts))
+            fresh=m.factory();self.assertEqual(receipts[0],fresh.retire_closed(lambda _:None,retained=receipts[0]))
+
+
 if __name__=='__main__':unittest.main()

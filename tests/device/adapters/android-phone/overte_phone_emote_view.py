@@ -121,7 +121,7 @@ class PhoneEmoteView:
         need(phase['active'] and phase['activations'] and phase['activations'][-1]['stimulus']['verb']==self.required_phase)
         self.bound()
 
-    def packet(self,value):
+    def packet(self,value,*,closed=False):
         exact(value,{'configuration','avatar','touch','phaseBefore','phaseAfter'})
         for key,validator,action in (('configuration',config_packet,'phone-avatar-configuration-observe'),
                 ('avatar',avatar_packet,'feature-avatar-render-observe'),('touch',touch_packet,'phone-touch-state-observe')):
@@ -131,10 +131,11 @@ class PhoneEmoteView:
         need(value['configuration']['instance']==value['touch']['instance'])
         for key in ('phaseBefore','phaseAfter'):
             p=value[key];phase_packet(p,run=self.run,area='emotes',request=p.get('requestId'),epoch=p.get('capturedEpochMs'))
-            need(p['active'] and p['activations'])
+            need(p['active'] is (not closed) and p['activations'])
         left,right=value['phaseBefore'],value['phaseAfter']
         phase_packet(right,run=self.run,area='emotes',request=right['requestId'],epoch=right['capturedEpochMs'],previous=left)
         need(same(left['activations'],right['activations']))
+        if closed:need(left['activations'][-1]['stimulus']['verb']=='cleanup')
 
     def unchanged_avatar(self,original,current):
         a,b=original['avatar']['source'],current['avatar']['source']
@@ -193,7 +194,7 @@ class PhoneEmoteView:
             self.store.write(value,self.previous);need(same(self.store.read(),value));self.previous=deepcopy(value);self.bound()
         except Exception:self.failed=True;raise
 
-    def read(self):
+    def read(self,*,closed=False):
         self.bound();started=self.monotonic()
         config=self.adapter._avatar_configuration_observer(self.selector,read_only=True)
         avatar=self.adapter._avatar_render_observer(self.selector,read_only=True)
@@ -206,7 +207,7 @@ class PhoneEmoteView:
         epoch=config.clock_ms();host=self.phase.epoch_ms();need(integer(epoch,1) and number(host,1,1e15));query=self.monotonic()
         before=self.phase.status(previous['phaseAfter'] if previous else None)
         value=dict(configuration=config.read(),avatar=avatar.read(),touch=touch.read(),phaseBefore=before,phaseAfter=self.phase.status(before))
-        self.packet(value)
+        self.packet(value,closed=closed)
         if self.required_phase is not None:need(before['activations'][-1]['stimulus']['verb']==self.required_phase)
         if previous:self.unchanged_avatar(previous,value)
         self.bound();result=deepcopy(value);self.bound()
@@ -221,7 +222,8 @@ class PhoneEmoteView:
         self.bound();need(self.delivery_anchor is not None)
         started,epoch,host,clock=self.delivery_anchor
         current=self.phase.status(value['phaseAfter']);self.bound()
-        need(same(current['activations'],value['phaseAfter']['activations']))
+        need(same(current['activations'],value['phaseAfter']['activations'])
+            and current['active'] is value['phaseAfter']['active'] and current['retiredEpochMs']==value['phaseAfter']['retiredEpochMs'])
         now=clock();host_now=self.phase.epoch_ms();self.bound();final=self.monotonic()
         need(integer(now,epoch) and number(host_now,host,1e15) and number(final,started,1e15) and final-started<5)
         for key in ('configuration','avatar','touch'):fresh(value[key]['requestedEpochMs'],max(now,epoch+math.ceil((final-started)*1000)))
@@ -340,3 +342,46 @@ class PhoneEmoteView:
         need(retain(deepcopy(current)) is not False);self.delivery(current)
         self.store.discard(self.previous);need(self.store.read() is None)
         self.previous=None;result=deepcopy(current);self.delivery(current);return result
+
+
+    def retirement_archive(self,value):
+        """Replay an exact original closed proof; this creates no fresh result."""
+        exact(value,{'emoteViewRetirementVersion','header','frame'})
+        need(type(value['emoteViewRetirementVersion']) is int and value['emoteViewRetirementVersion']==1)
+        state=self.decode(value['header']);need(state['phase']=='restored' and not any(state['leases'].values()))
+        frame=value['frame'];self.packet(frame,closed=True);self.restored(state['original'],frame)
+        previous=state['current']
+        phase_packet(frame['phaseBefore'],run=self.run,area='emotes',request=frame['phaseBefore']['requestId'],
+            epoch=frame['phaseBefore']['capturedEpochMs'],previous=previous['phaseAfter'])
+        need(same(frame['phaseBefore']['activations'],previous['phaseAfter']['activations'])
+            and previous['phaseAfter']['activations'][-1]['stimulus']['verb']=='cleanup')
+        for key in ('configuration','avatar','touch'):
+            a,b=previous[key],frame[key]
+            need(a['instance']==b['instance'] and b['sequence']>a['sequence']
+                and b['requestedEpochMs']>=a['capturedEpochMs'] and b['requestId']!=a['requestId'])
+        return deepcopy(value)
+
+    @operation
+    def retire_closed(self,retain,*,retained=None):
+        """Transfer restored ownership after the provider actually closes.
+
+        A retained retry is historical only. It must replay the exact parent
+        packet even when a lost removal return left this child absent.
+        """
+        self.required_phase='cleanup';self.bound();need(callable(retain));started=self.monotonic()
+        if retained is None:
+            need(self.previous is not None and self.state['phase']=='restored')
+            frame=self.read(closed=True)
+            value=self.retirement_archive(dict(emoteViewRetirementVersion=1,header=deepcopy(self.previous),frame=frame))
+        else:
+            value=self.retirement_archive(retained)
+            need(self.previous is None or same(self.previous,value['header']))
+            current=self.phase.status(value['frame']['phaseAfter'])
+            need(not current['active'] and same(current['activations'],value['frame']['phaseAfter']['activations']))
+        need(retain(deepcopy(value)) is not False);self.bound();need(self.monotonic()-started<5)
+        if retained is None:self.delivery(value['frame'])
+        if self.previous is not None:
+            self.store.discard(value['header']);need(self.store.read() is None);self.previous=None
+        self.bound();need(self.monotonic()-started<5)
+        if retained is None:self.delivery(value['frame'])
+        return deepcopy(value)

@@ -10,8 +10,8 @@ input/image/actor joins and whole-feature retirement remain separate work.
 
 The caller holds `phone-script-sources.lock`, supplies the existing Emotes
 `PhaseFixtureReader`, and an existing candidate/process-bound read-only runtime.
-Preparation accepts only active baseline; cleanup/retirement accept active
-cleanup. Each step obtains fresh original configuration, avatar/render and
+Preparation accepts only active baseline; cleanup and the existing `retire` accept active
+cleanup. The separate `retire_closed` below requires actual closed cleanup. Each step obtains fresh original configuration, avatar/render and
 [touch](../../native/PHONE_TOUCH_STATE.md) packets between two original fixture
 phase queries. Both phase histories must match. Original Model/Rig/Geometry,
 loaded-source and [actual bundled resource bytes](../../native/PHONE_AVATAR_CONFIGURATION.md)
@@ -99,3 +99,29 @@ private filesystem journals over explicit synthetic boundaries, including ignore
 input, lost returns, phase races, altered evidence, late delivery and incomplete
 cleanup. They establish test logic only. Native additions are uncompiled; the
 complete Phone area count remains 3/14 and all devices remain unqualified.
+
+
+## Closed provider ownership transfer, version 1
+
+`retire_closed(retain, retained=None)` is a separate ownership operation after
+actual fixture retirement. It sends no UI input. The restored version-1 header
+and its original active snapshots remain unchanged. It acquires another actual
+configuration/avatar/touch group between two inactive phase packets with the
+same original cleanup ticket, provider birth and immutable activation history.
+Native sequences must advance beyond the header's original current group;
+original avatar, pose, view, preference, zoom and released contacts must match.
+Ordinary prepare/cleanup/retire continue to reject an inactive provider.
+
+The parent must durably store exactly `{emoteViewRetirementVersion:1, header,
+frame}` before this child control is deleted. `header` is the entire original
+version-1 control; `frame` is the new native group with inactive phase packets.
+`retirement_archive` validates the whole envelope without measuring anything.
+Missing child metadata alone cannot recover a lost return: the caller must
+supply its exact retained envelope. That retry replays the old original packet,
+checks actual closed provider continuity and deletes only the identical old
+header if still present. It never re-dates evidence or advertises historical
+originals as fresh. New acquisitions retain the existing 1.5-second age floor
+through retention and deletion; the entire transfer, including retained retries,
+is limited to five seconds. Failed retention, late delivery, changed candidate,
+foreign controls or an ignored deletion remain failures. Evidence stays private
+and owned by the enclosing retirement archive; no full feature is enabled here.

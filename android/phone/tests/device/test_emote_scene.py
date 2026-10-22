@@ -299,4 +299,81 @@ class EmoteSceneTests(unittest.TestCase):
             self.assertEqual([],m.fixture_calls);self.assertIsNone(scene.state['pending'])
 
 
+    def closed_ready(self):
+        m=self.model;view=m.factory();view.prepare();scene=m.scene(view);scene.prepare()
+        m.cleaning();scene.cleanup();view.cleanup();return scene
+
+    def test_closed_retirement_preserves_active_originals_and_acquires_actual_closed_group(self):
+        m=self.model
+        with m.lock.held():
+            scene=self.closed_ready();header=deepcopy(scene.previous);frames=deepcopy(scene.frames)
+            files=set(m.root.glob('emote-frame-scene-*.json'));calls=deepcopy(m.fixture_calls)
+            m.journal.close(RUN);proof=scene.retire_closed(m.retired_scene)
+            self.assertEqual(header,proof['header']);self.assertEqual(frames,scene.frames)
+            self.assertEqual(files,set(m.root.glob('emote-frame-scene-*.json')))
+            self.assertFalse(proof['frame']['phaseAfter']['active']);self.assertIsNone(scene.store.read())
+            self.assertEqual(calls,m.fixture_calls);self.assertEqual([proof],m.scene_receipts)
+            fresh=m.scene(m.factory());self.assertEqual(proof,fresh.retire_closed(lambda _:None,retained=proof))
+            view=m.factory();view.retire_closed(lambda _:None)
+
+    def test_closed_retirement_requires_closed_provider_and_rejects_new_browser_work(self):
+        m=self.model
+        with m.lock.held():
+            scene=self.closed_ready()
+            with self.assertRaises(NativeUIError):scene.retire_closed(m.retired_scene)
+            m.journal.close(RUN);m.scene_fault='retain-browser'
+            with self.assertRaises(NativeUIError):scene.retire_closed(m.retired_scene)
+            self.assertIsNotNone(scene.store.read());self.assertEqual([],m.scene_receipts)
+            self.assertIsNone(scene.state['pending'])
+
+    def test_closed_retirement_rejects_forged_header_provider_lease_or_native_cursor(self):
+        m=self.model
+        with m.lock.held():
+            scene=self.closed_ready();m.journal.close(RUN);proof=scene.retire_closed(m.retired_scene)
+            fresh=m.scene(m.factory())
+            for fault in ('version','root','provider','lease','cursor','header'):
+                bad=deepcopy(proof)
+                if fault=='version':bad['emoteSceneRetirementVersion']=True
+                elif fault=='root':bad['header']['artifactRoot']=str(m.root/'foreign')
+                elif fault=='provider':bad['frame']['phaseAfter']['instance']='9'*32
+                elif fault=='lease':bad['frame']['fixture']['source']['originalInput']['commandId']='0'*32
+                elif fault=='cursor':bad['frame']['world']=deepcopy(scene.frames[-1]['frame']['world'])
+                else:
+                    state=unpack(bad['header']['payload'])[0];state['window']['complete']=False
+                    from overte_phone_script_history import pack
+                    bad['header']['payload']=pack([state])
+                with self.subTest(fault=fault),self.assertRaises((NativeUIError,ValueError)):
+                    fresh.retire_closed(lambda _:None,retained=bad)
+
+    def test_closed_retirement_requires_retention_before_deletion_and_rejects_late_delivery(self):
+        m=self.model
+        with m.lock.held():
+            scene=self.closed_ready();m.journal.close(RUN)
+            with self.assertRaises(NativeUIError):scene.retire_closed(lambda _:False)
+            self.assertIsNotNone(scene.store.read())
+            def late(_):m.sdk.clock+=2
+            with self.assertRaises(NativeUIError):scene.retire_closed(late)
+            self.assertIsNotNone(scene.store.read());self.assertIsNone(scene.state['pending'])
+
+    def test_closed_retirement_lost_return_requires_original_proof_and_actual_files(self):
+        m=self.model
+        with m.lock.held():
+            scene=self.closed_ready();m.journal.close(RUN);discard=scene.store.discard
+            def lost(header):discard(header);raise OSError('Synthetic lost scene removal')
+            with patch.object(scene.store,'discard',side_effect=lost),self.assertRaises(OSError):scene.retire_closed(m.retired_scene)
+            fresh=m.scene(m.factory())
+            with self.assertRaises(NativeUIError):fresh.retire_closed(lambda _:None)
+            proof=m.scene_receipts[0];self.assertEqual(proof,fresh.retire_closed(lambda _:None,retained=proof))
+            original=next(m.root.glob('emote-frame-scene-*.json'));original.write_bytes(b'{}')
+            with self.assertRaises(NativeUIError):fresh.retire_closed(lambda _:None,retained=proof)
+
+    def test_closed_retirement_ignored_removal_and_unreleased_nodes_stay_owned(self):
+        m=self.model
+        with m.lock.held():
+            scene=self.closed_ready();m.journal.close(RUN)
+            with patch.object(scene.store,'discard',return_value=None),self.assertRaises(NativeUIError):scene.retire_closed(m.retired_scene)
+            self.assertIsNotNone(scene.store.read());proof=m.scene_receipts[0]
+            fresh=m.scene(m.factory());self.assertEqual(proof,fresh.retire_closed(lambda _:None,retained=proof))
+
+
 if __name__=='__main__':unittest.main()

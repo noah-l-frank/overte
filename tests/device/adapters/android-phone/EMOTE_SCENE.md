@@ -125,3 +125,33 @@ ignored/lost input, wrong leases/world state, retained nodes/Browser callbacks,
 late busy work, frozen clocks, stale final delivery, replaced/partial originals,
 phase/candidate changes and failed parent retention. These qualify test logic
 only, never target behavior or device acceptance.
+
+
+## Closed provider ownership transfer, version 1
+
+`retire_closed(retain, retained=None)` runs after actual fixture retirement and
+the completed active cleanup drainage window. It obtains a new actual native
+fixture/world/avatar/configuration/touch/Browser group between two inactive
+provider packets. The original lease, cleanup ticket, provider birth, activation
+history, native cursors, original avatar and unowned world must remain continuous.
+Actual node references, Browser callbacks/creations and contacts must still be
+released. It sends no prepare/delete input and never appends inactive packets to
+the active-only `emoteSceneFrameVersion:1` originals or changes their manifests.
+
+The exact parent-retained envelope is `{emoteSceneRetirementVersion:1, header,
+frame}`. `header` is the original released scene control, including its immutable
+manifest references and completed drainage suffix; `frame` is the new closed
+native group. `retirement_archive` reopens every old inode/digest-bound original
+and revalidates both the three-second suffix and the closed native group before
+handoff. The mandatory retention callback runs before control removal. Rejected,
+late or failed retention and ignored removal cannot report success.
+
+A lost deletion return requires the caller's exact retained envelope, whether
+the original control is still present or already absent. Historical retry checks
+original files and actual retired-provider continuity, never emits new native
+facts or changes epochs, and removes only the identical old control. Missing
+metadata without that packet fails. The transfer is limited to five seconds;
+new groups also retain the existing 1.5-second freshness through final deletion.
+The actor, source/role streams, normal input and whole-feature journals still
+require their own complete retirement. These host cases establish test logic
+only; native code remains uncompiled and devices remain untested.
