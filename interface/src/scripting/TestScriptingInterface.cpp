@@ -61,6 +61,7 @@
 #include "../../../tests/device/native/PhoneEmoteFixture.h"
 #include "../../../tests/device/native/PhoneCreateObservation.h"
 #include "../../../tests/device/native/PrivateCreateFiles.h"
+#include "ui/Snapshot.h"
 #include <SettingHandle.h>
 #include "../../../tests/device/adapters/android-phone/PendingCommitOwner.h"
 #include "../../../tests/device/native/PrivateFeatureCommand.h"
@@ -1077,6 +1078,33 @@ QVariantMap TestScriptingInterface::featureGraphicsSubjectObservation(const QVar
         {"capturedEpochMs",QDateTime::currentMSecsSinceEpoch()},{"source",source}};
 }
 #if defined(ANDROID_APP_PHONE_INTERFACE)
+QVariantMap TestScriptingInterface::phoneSnapshotObservation(const QVariantMap& command) {
+    if (QThread::currentThread()!=thread()) {
+        QVariantMap result;
+        if (!QMetaObject::invokeMethod(this,[&] { result=phoneSnapshotObservation(command); },Qt::BlockingQueuedConnection)) { return {}; }
+        return result;
+    }
+    const auto json=QJsonObject::fromVariantMap(command);
+    QStringList keys{"schemaVersion","commandId","action","runId"};keys.sort();
+    const QRegularExpression nonce("\\A[0-9a-f]{32}\\z");
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript") || command.keys()!=keys
+            || json.value("schemaVersion")!=QJsonValue(1) || json.value("action")!=QJsonValue("phone-snapshot-observe")
+            || !json.value("commandId").isString() || !nonce.match(json.value("commandId").toString()).hasMatch()
+            || !json.value("runId").isString() || !nonce.match(json.value("runId").toString()).hasMatch()
+            || !DependencyManager::isSet<Snapshot>()) { return {}; }
+    const auto requested=QDateTime::currentMSecsSinceEpoch();
+    const auto snapshot=DependencyManager::get<Snapshot>();QVariantMap source;
+    const auto read=[&] { source=snapshot->featureSnapshotObservation(); };
+    if (QThread::currentThread()==snapshot->thread()) { read(); }
+    else if (!QMetaObject::invokeMethod(snapshot.data(),read,Qt::BlockingQueuedConnection)) { return {}; }
+    if (source.isEmpty() || QJsonDocument::fromVariant(source).toJson(QJsonDocument::Compact).size()>200000) { return {}; }
+    return {{"schemaVersion",1},{"requestId",command.value("commandId")},{"runId",command.value("runId")},
+        {"instance",_featureObservationInstance},{"sequence",static_cast<qulonglong>(++_phoneSnapshotObservationSequence)},
+        {"processId",QCoreApplication::applicationPid()},{"requestedEpochMs",requested},
+        {"capturedEpochMs",QDateTime::currentMSecsSinceEpoch()},{"source",source}};
+}
+
 QVariantMap TestScriptingInterface::phoneCreateFiles(const QVariantMap& command) {
     if (QThread::currentThread()!=thread()) {
         QVariantMap result;

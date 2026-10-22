@@ -147,6 +147,9 @@ def readonly_feature_command(command):
     elif action=='feature-scene-load-observe':
         from adapters.native_phone_scene_loads import command as validate_scene_load
         validate_scene_load(command)
+    elif action=='phone-snapshot-observe':
+        from overte_phone_snapshot_source import command as validate_snapshot
+        validate_snapshot(command)
     elif action=='phone-world-web':
         from overte_phone_world_web_source import command as validate_world_web
         validate_world_web(command)
@@ -815,6 +818,15 @@ class PhoneAppiumAdapter(AppiumAdapter):
         return PhoneCreateSource(native.send,
             lambda:transport.read_debug_app_file(device,target['appId'],
                 'files/overte-e2e/'+CREATE_SOURCE_FILE,attempts=1),
+            native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep)
+
+    def _snapshot_source(self,selector):
+        from overte_phone_snapshot_source import PhoneSnapshotSource,FILE
+        native=self._native_feature_observer(selector,read_only=True)
+        target=self.target(selector);device=target['capabilities']['appium:udid']
+        transport=PhoneAdapter(self.candidate).adb
+        return PhoneSnapshotSource(native.send,
+            lambda:transport.read_debug_app_file(device,target['appId'],'files/overte-e2e/'+FILE,attempts=1),
             native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep)
 
     def _graphics_subject_observer(self, selector, *, read_only=False):

@@ -317,6 +317,7 @@
     var lastProcessPresenceRequest = "";
     var lastGraphicsSubjectRequest = "";
     var lastPhoneCreateObservationRequest = "";
+    var lastPhoneSnapshotObservationRequest = "";
     var lastPhoneCreateFilesRequest = "";
     var lastAvatarRenderRequest = "";
     var lastWorldModelDrawsRequest = "";
@@ -1218,6 +1219,21 @@
     }
 
     function applyClientCommand(command) {
+        if (command && command.schemaVersion === 1 && command.action === "phone-snapshot-observe"
+                && /^[0-9a-f]{32}$/.test(String(command.commandId)) && /^[0-9a-f]{32}$/.test(String(command.runId))
+                && objectKeysMatch(command,["schemaVersion","commandId","action","runId"])) {
+            if (command.commandId === lastPhoneSnapshotObservationRequest) { return; }
+            lastPhoneSnapshotObservationRequest=command.commandId;
+            var snapshotOriginal={schemaVersion:1,requestId:command.commandId,available:false};
+            try {
+                if (typeof Test.phoneSnapshotObservation === "function") {
+                    var snapshotActual=Test.phoneSnapshotObservation(command);
+                    if (snapshotActual && snapshotActual.requestId === command.commandId) { snapshotOriginal=snapshotActual; }
+                }
+            } catch (_phoneSnapshotError) { /* No original paths or errors leave the private source. */ }
+            Test.saveObject(snapshotOriginal,"phone-snapshot-observation.json");
+            return;
+        }
         if (command && command.action === "phone-chat-ui") {
             if (command.schemaVersion === 1 && phoneChatNonce(command.commandId)
                     && objectKeysMatch(command,["schemaVersion","commandId","action","request"])
@@ -2150,7 +2166,7 @@
                 || command.action === "feature-world-render-observe" || command.action === "feature-world-render-storage"
                 || command.action === "feature-world-render-receipt"
                 || command.action === "feature-world-render-receipts"
-                || command.action === "feature-graphics-subject-observe" || command.action === "phone-create-observe"
+                || command.action === "feature-graphics-subject-observe" || command.action === "phone-create-observe" || command.action === "phone-snapshot-observe"
                 || command.action === "phone-avatar-configuration-observe" || command.action === "phone-touch-state-observe"
                 || command.action === "phone-emote-fixture-observe" || command.action === "phone-emote-fixture-input"
                 || command.action === "feature-avatar-render-observe" || command.action === "feature-world-model-draws-observe"

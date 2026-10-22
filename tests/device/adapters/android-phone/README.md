@@ -10,6 +10,11 @@ The [world Web feature handoff](WORLD_WEB_FEATURE.md) documents the new
 default-off public v17 composition, original native histories, normal Android
 pointer/IME input and remaining catalog video prerequisite.
 
+The [Snapshot continuation](SNAPSHOT_FEATURE.md) adds a versioned passive
+capture/upload source and compiled recorder checks. The extended Snapshot
+feature triple remains unavailable until its complete evidence and cleanup
+composition is implemented.
+
 This Phone-owned entry delegates device behavior to the original Shared Android
 adapter. Its manifest retains `android-phone-adb`. The Shared Android and Appium
 adapters are not modified and gain no installation claim from this wrapper.

@@ -50,6 +50,10 @@
 #include <QGuiApplication>
 #include <QFutureWatcher>
 #include <QRegularExpression>
+#include <algorithm>
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PHONE_INTERFACE)
+#include "../../../tests/device/native/PhoneSnapshotHistory.h"
+#endif
 
 // filename format: overte-snap-by-%username%-on-%date%_%time%_@-%location%.png
 // %1 <= username, %2 <= date and time, %3 <= current location
@@ -62,6 +66,15 @@ static const int SNAPSHOT_360_TIMER_INTERVAL = 350;
 static const QList<QString> SUPPORTED_IMAGE_FORMATS = { "jpg", "jpeg", "png", "webp" };
 
 Snapshot::Snapshot() {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PHONE_INTERFACE)
+    _featureSnapshotHistory=std::make_shared<overte::e2e::PhoneSnapshotHistory>();
+    connect(this,&Snapshot::captureStatusChanged,this,[this](const QString& id,const QString& phase,const QString& path,const QString& error) {
+        _featureSnapshotHistory->record("capture-status",id,phase,path,error);
+    });
+    connect(this,&Snapshot::uploadStatusChanged,this,[this](const QString& path,const QString& status,const QString& error) {
+        _featureSnapshotHistory->record("upload-status",path,status,path,error);
+    });
+#endif
     _snapshotTimer.setSingleShot(false);
     _snapshotTimer.setTimerType(Qt::PreciseTimer);
     _snapshotTimer.setInterval(SNAPSHOT_360_TIMER_INTERVAL);
@@ -112,8 +125,35 @@ SnapshotCapture Snapshot::beginCapture(const QString& requestId) {
         return {};
     }
     _captures.insert(requestId, capture);
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PHONE_INTERFACE)
+    _featureSnapshotHistory->record("capture-begin",requestId);
+#endif
     return capture;
 }
+
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PHONE_INTERFACE)
+QVariantMap Snapshot::featureSnapshotObservation() {
+    if (QThread::currentThread()!=thread() || !QCoreApplication::arguments().contains("--testScript")) { return {}; }
+    QVariantList captures;QStringList uploads;
+    {
+        QMutexLocker lock(&_captureMutex);
+        auto ids=_captures.keys();std::sort(ids.begin(),ids.end());
+        if (ids.size()>8) { return {}; }
+        for (const auto& id:ids) {
+            const auto capture=_captures.value(id);if (!capture || capture->id!=id) { return {}; }
+            const auto state=capture->state.load();
+            captures.append(QVariantMap{{"id",id},{"state",state==SnapshotCaptureRequest::State::Active ? "active"
+                : state==SnapshotCaptureRequest::State::Cancelled ? "cancelled" : "completed"},{"announced",capture->announced.load()}});
+        }
+    }
+    if (_uploads.size()>64) { return {}; }
+    for (auto it=_uploads.begin();it!=_uploads.end();++it) { if (it.value()) { uploads.append(it.key()); } }
+    std::sort(uploads.begin(),uploads.end());
+    const auto history=_featureSnapshotHistory->snapshot();if (history.isEmpty()) { return {}; }
+    return {{"phoneSnapshotObservationVersion",1},{"nativeReview",nativeReviewEnabled()},
+        {"storageRoot",overte::snapshot::storageRoot()},{"captures",captures},{"uploads",uploads},{"history",history}};
+}
+#endif
 
 void Snapshot::captureStatus(const SnapshotCapture& capture, const QString& phase, const QString& path, const QString& error) {
     if (!capture || !capture->current()) { return; }
@@ -676,6 +716,9 @@ void Snapshot::uploadSnapshot(const QString& filename, const QUrl& href) {
         connect(accountManager.data(), &AccountManager::usernameChanged, this, &Snapshot::cancelUploads);
     }
     _uploads.insert(filename, uploader);
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PHONE_INTERFACE)
+    _featureSnapshotHistory->record("upload-begin",filename,{},filename);
+#endif
     connect(uploader, &SnapshotUploader::finished, this, &Snapshot::uploadStatusChanged);
     connect(uploader, &QObject::destroyed, this, [this, filename] { if (!_uploads.value(filename)) { _uploads.remove(filename); } });
     JSONCallbackParameters callbackParams(uploader, "uploadSuccess", "uploadFailure");

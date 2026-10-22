@@ -32,6 +32,9 @@
 class QFile;
 class QTemporaryFile;
 class SnapshotUploader;
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PHONE_INTERFACE)
+namespace overte::e2e { class PhoneSnapshotHistory; }
+#endif
 
 class SnapshotMetaData {
 public:
@@ -78,6 +81,9 @@ public:
     void uploadSnapshot(const QString& filename, const QUrl& href = QUrl(""));
     SnapshotCapture beginCapture(const QString& requestId);
     void captureStatus(const SnapshotCapture&, const QString& phase, const QString& path = {}, const QString& error = {});
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PHONE_INTERFACE)
+    QVariantMap featureSnapshotObservation();
+#endif
 
 signals:
     /*@jsdoc
@@ -252,6 +258,9 @@ private:
     QHash<QString, QPointer<SnapshotUploader>> _uploads;
     bool _uploadContextConnected { false };
     void cancelUploads();
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PHONE_INTERFACE)
+    std::shared_ptr<overte::e2e::PhoneSnapshotHistory> _featureSnapshotHistory;
+#endif
 };
 
 #endif // hifi_Snapshot_h

@@ -180,6 +180,7 @@ public slots:
     Q_INVOKABLE QVariantMap phoneEmoteUi(const QVariantMap& command);
     Q_INVOKABLE QVariantMap phoneCreateUi(const QVariantMap& command);
     Q_INVOKABLE QVariantMap phoneCreateObservation(const QVariantMap& command);
+    Q_INVOKABLE QVariantMap phoneSnapshotObservation(const QVariantMap& command);
     Q_INVOKABLE QVariantMap phoneCreateFiles(const QVariantMap& command);
     Q_INVOKABLE QVariantMap phoneChatUi(const QVariantMap& command);
     Q_INVOKABLE QVariantMap phoneLoginUi(const QVariantMap& command);
@@ -272,6 +273,7 @@ private:
     std::shared_ptr<overte::e2e::LoginUi> _phoneLoginUi;
     std::shared_ptr<overte::e2e::CreateUi> _phoneCreateUi;
     quint64 _phoneCreateObservationSequence {0};
+    quint64 _phoneSnapshotObservationSequence {0};
     quint64 _phoneCreateFilesSequence {0};
     std::shared_ptr<overte::e2e::PrivateCreateFiles> _phoneCreateFiles;
     std::shared_ptr<overte::e2e::ChatUi> _phoneChatUi;
