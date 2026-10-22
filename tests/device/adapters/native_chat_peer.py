@@ -84,6 +84,8 @@ class NativeChatPeer:
         try:
             request=dict(schemaVersion=1,commandId=uuid.uuid4().hex,action='feature-chat-peer',operation=operation,runId=run)
             command(request);need(self.guard() is not False)
+            if operation.startswith('send-') or operation=='restore':
+                need(self.last is not None and self.last['runId']==run and self.last['source']['admitted'])
             started=prior=self.monotonic();need(number(started,0,1e15));requested=self.clock_ms();need(integer(requested,1))
             self.send(request)
             for attempt in range(51):

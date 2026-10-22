@@ -3,12 +3,15 @@
 #pragma once
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #include "NormalControlUi.h"
+#include "ChatEmptyHistoryLease.h"
 #include <SettingManager.h>
 #include <DependencyManager.h>
 #include <QDataStream>
 #include <QDateTime>
 #include <QPointer>
 #include <QSet>
+#include <QMap>
+#include <memory>
 
 namespace overte::e2e {
 // Passive original QML/ListModel and live Setting::Manager reads. No requested
@@ -95,6 +98,32 @@ public:
             {"capturedEpochMs",captured},{"source",QVariantMap{{"tabletShown",tabletShown},{"editorFocused",focused},{"editorHasDraft",hasDraft},
                 {"keyboard",keyboard},{"ui",ui},{"storage",stored}}}};
     }
+    QVariantMap historyRequest(const QVariantMap& command,const QList<QQuickItem*>& roots,bool tabletShown,const QVariantMap& nativeKeyboard) {
+        auto query=command;query.remove("operation");query["action"]="feature-chat-view-observe";
+        const auto packet=request(query,roots,tabletShown,nativeKeyboard);if (packet.isEmpty()) { return {}; }
+        const auto source=packet.value("source").toMap(),keyboard=source.value("keyboard").toMap();
+        const bool closed=!source.value("ui").toMap().value("present").toBool() && !source.value("editorFocused").toBool()
+            && !source.value("editorHasDraft").toBool() && keyboard.value("available").toBool() && !keyboard.value("visible").toBool();
+        const auto run=command.value("runId").toString(),operation=command.value("operation").toString();
+        if (operation=="capture" && !_historyOwner.isEmpty() && _historyOwner!=run) { return {}; }
+        if (!_histories.contains(run)) {
+            if (_histories.size()>=128 || (operation!="inspect" && operation!="capture")) { return {}; }
+            _histories.insert(run,std::make_shared<ChatEmptyHistoryLease>());
+        }
+        auto manager=DependencyManager::get<Setting::Manager>();
+        const auto result=_histories.value(run)->request(command,closed,[manager] {
+            QVariantMap actual;
+            manager->withReadLock([&] { actual={{"historyPresent",manager->contains("ArmoredChat-Messages")},{"history",manager->value("ArmoredChat-Messages")},
+                {"configPresent",manager->contains("ArmoredChat-Config")},{"config",manager->value("ArmoredChat-Config")}}; });
+            return actual;
+        },[manager](const QVariantMap& expected,const QVariantMap& original) { return manager->featureRestoreEmptyChat(expected,original); });
+        if (!result.isEmpty()) {
+            const auto actual=result.value("source").toMap();
+            if (actual.value("scopePresent").toBool()) { _historyOwner=run; }
+            if (actual.value("retired").toBool() && _historyOwner==run) { _historyOwner.clear(); }
+        }
+        return result;
+    }
 private:
     static QString nonce() { return QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-'); }
     static bool rows(QAbstractItemModel* model,const QString& run,QVariantList& result) {
@@ -160,6 +189,7 @@ private:
         const auto now=QDateTime::currentMSecsSinceEpoch();
         if (now<=0 || now<_epoch) { _available=false;return 0; }_epoch=now;return now;
     }
+    QMap<QString,std::shared_ptr<ChatEmptyHistoryLease>> _histories;QString _historyOwner;
     const QString _instance{nonce()};QString _generation{nonce()};QPointer<QQuickItem> _page;QPointer<QQuickWindow> _window;
     bool _available{true},_present{false};qint64 _epoch{0};quint64 _sequence{0};
 };

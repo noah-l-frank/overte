@@ -130,6 +130,10 @@ namespace Setting {
         Manager(QObject *parent = nullptr);
 
         void customDeleter() override;
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        // Cleanup-only atomic CAS for the controlled empty Chat profile.
+        bool featureRestoreEmptyChat(const QVariantMap& expected,const QVariantMap& original);
+#endif
 
         /**
          * @brief Returns the filename where the config file will be written
@@ -253,6 +257,11 @@ namespace Setting {
         void terminationRequested();
 
     private:
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        // Shared typed atomic CAS for native fixed-key cleanup wrappers only.
+        // Entries are {settingKey: {present: bool, value: QVariant}}.
+        bool featureCompareRestoreEntries(const QVariantMap& expected,const QVariantMap& original);
+#endif
         QHash<QString, Interface*> _handles;
 
         friend class Interface;

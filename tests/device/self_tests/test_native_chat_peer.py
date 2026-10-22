@@ -90,5 +90,6 @@ class NativePeerTests(unittest.TestCase):
     def test_resume_cannot_send_without_original_source_checkpoint(self):
         b=Boundary();b.admit();b.sent()
         with self.assertRaises(NativeUIError):b.reader().perform(RUN,'send-domain-reply')
+        self.assertEqual([],b.commands)
 
 if __name__=='__main__':unittest.main()

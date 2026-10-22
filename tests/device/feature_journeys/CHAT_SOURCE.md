@@ -164,3 +164,39 @@ This does not compile Agent.cpp or MessagesClient.cpp, run an Assignment Client,
 prove mixer delivery, or exercise an Android device. Eleven host peer-source
 counterexamples, sixteen private file-channel tests and ten independent receiver
 tests pass. The public owner/common journey is still pending in this packet.
+
+
+## Exact empty-history handback (2026-10-22)
+
+The controlled Chat profile requires an actually empty original history. A
+separate native `chatHistoryVersion: 1` lease captures its original presence and
+QVariant type, with original configuration and typed QDataStream digests.
+Nonempty original histories fail admission before Chat input; private message
+histories are never overwritten to make this profile pass. Cleanup uses the
+original Settings/Erase control to clear the running script's history. After
+original UI/editor closure and a measured hidden native keyboard, the native
+lease restores the original empty Setting value or its original absence.
+Configuration must remain identical. Retire clears its private original
+configuration and retains the immutable original handback timestamp/digest.
+Another run may acquire a new native scope only after the active owner retires.
+
+`Setting::Manager::featureRestoreEmptyChat(expected, original)` exists only in
+E2E builds and under `--testScript`. Both maps have exactly `historyPresent`,
+`history`, `configPresent` and `config`. It accepts a current null history and
+an original empty history only. Its private `featureCompareRestoreEntries`
+primitive compares typed serialization under the existing write lock, changes
+only differing owned entries, and emits the original manager valueChanged or
+keyRemoved signals afterwards. The public wrapper accepts no arbitrary keys.
+Read-only adapter commands admit only history Inspect, Chat-view reads and
+receive-cache Inspect; creation, restoration and retirement remain rejected.
+
+The isolated Qt6 check compiles the actual SettingManager.cpp and generated MOC,
+executes all five empty original types, and verifies exact presence/type
+handback, foreign configuration refusal, UI closure gating, unchanged config
+signals and ordinary history update/removal signals. The actual Chat-view
+header also passes a Qt6 syntax check. GUI closure/Erase is explicitly synthetic
+in this manager harness; original ordinary QML input has its own prior check.
+Twelve history, eleven peer and thirteen view host tests pass. The complete
+Android product translation units, real Settings backend durability and device
+execution remain untested. Public Chat/Common composition is still pending.
+Shared probe edits require central source-pin refresh during integration.

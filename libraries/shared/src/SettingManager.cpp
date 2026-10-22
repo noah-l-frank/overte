@@ -225,3 +225,60 @@ namespace Setting {
         emit clearAllSettingsRequested();
     }
 }
+
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+#include "../../../tests/device/native/ChatEmptyHistoryLease.h"
+bool Setting::Manager::featureRestoreEmptyChat(const QVariantMap& expected,const QVariantMap& original) {
+    using overte::e2e::ChatEmptyHistoryLease;
+    const QStringList keys{"config","configPresent","history","historyPresent"};
+    if (!QCoreApplication::arguments().contains("--testScript") || expected.keys()!=keys || original.keys()!=keys
+            || expected.value("historyPresent").userType()!=QMetaType::Bool || original.value("historyPresent").userType()!=QMetaType::Bool
+            || expected.value("configPresent").userType()!=QMetaType::Bool || original.value("configPresent").userType()!=QMetaType::Bool
+            || ChatEmptyHistoryLease::kind(expected)!="null" || ChatEmptyHistoryLease::kind(original).isEmpty()
+            || ChatEmptyHistoryLease::bytes(expected.value("config"))!=ChatEmptyHistoryLease::bytes(original.value("config"))
+            || expected.value("configPresent")!=original.value("configPresent")) { return false; }
+    const auto entries=[](const QVariantMap& state) {
+        return QVariantMap{{"ArmoredChat-Messages",QVariantMap{{"present",state.value("historyPresent")},{"value",state.value("history")}}},
+            {"ArmoredChat-Config",QVariantMap{{"present",state.value("configPresent")},{"value",state.value("config")}}}};
+    };
+    return featureCompareRestoreEntries(entries(expected),entries(original));
+}
+
+bool Setting::Manager::featureCompareRestoreEntries(const QVariantMap& expected,const QVariantMap& original) {
+    using overte::e2e::ChatEmptyHistoryLease;
+    if (!QCoreApplication::arguments().contains("--testScript") || expected.isEmpty() || expected.size()>16
+            || expected.keys()!=original.keys() || ChatEmptyHistoryLease::bytes(expected).isEmpty()
+            || ChatEmptyHistoryLease::bytes(original).isEmpty()) { return false; }
+    for (auto it=expected.cbegin();it!=expected.cend();++it) {
+        if (it.key().isEmpty() || it.key().size()>128 || it.value().userType()!=QMetaType::QVariantMap
+                || original.value(it.key()).userType()!=QMetaType::QVariantMap) { return false; }
+        for (const auto& entry:QVariantList{it.value(),original.value(it.key())}) {
+            const auto row=entry.toMap();
+            if (row.keys()!=QStringList{"present","value"} || row.value("present").userType()!=QMetaType::Bool) { return false; }
+        }
+    }
+    bool matched{false};QStringList changed;
+    withWriteLock([&] {
+        QVariantMap actual;
+        for (auto it=expected.cbegin();it!=expected.cend();++it) {
+            actual[it.key()]=QVariantMap{{"present",_settings.contains(it.key())},{"value",_settings.value(it.key())}};
+        }
+        // Typed original QVariant serialization, not numeric-coercing equality.
+        if (ChatEmptyHistoryLease::bytes(actual)!=ChatEmptyHistoryLease::bytes(expected)) { return; }
+        for (auto it=original.cbegin();it!=original.cend();++it) {
+            if (ChatEmptyHistoryLease::bytes(expected.value(it.key()))==ChatEmptyHistoryLease::bytes(it.value())) { continue; }
+            const auto entry=it.value().toMap();
+            if (entry.value("present").toBool()) { _settings[it.key()]=entry.value("value"); }
+            else { _settings.remove(it.key()); }
+            changed.append(it.key());
+        }
+        matched=true;
+    });
+    for (const auto& key:changed) {
+        const auto entry=original.value(key).toMap();
+        if (entry.value("present").toBool()) { emit valueChanged(key,entry.value("value")); }
+        else { emit keyRemoved(key); }
+    }
+    return matched;
+}
+#endif

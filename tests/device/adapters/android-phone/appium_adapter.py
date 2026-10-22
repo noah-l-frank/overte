@@ -126,6 +126,15 @@ def readonly_feature_command(command):
     action=command.get('action')
     if action in ('feature-native-observe','feature-script-observe','feature-world-render-observe','feature-script-roots-observe','feature-animation-inventory-observe'):
         require(set(command)=={'schemaVersion','commandId','action'},'PHONE_READ_ONLY_COMMAND_REJECTED')
+    elif action=='feature-chat-history':
+        from adapters.native_chat_history import command as validate_chat_history
+        validate_chat_history(command);require(command['operation']=='inspect','PHONE_READ_ONLY_COMMAND_REJECTED')
+    elif action=='feature-chat-view-observe':
+        from adapters.native_chat_view import command as validate_chat_view
+        validate_chat_view(command)
+    elif action=='feature-chat-observe':
+        from adapters.native_chat_observation import command as validate_chat_receive
+        validate_chat_receive(command);require(command['operation']=='inspect','PHONE_READ_ONLY_COMMAND_REJECTED')
     elif action=='phone-avatar-people-observe':
         from overte_phone_avatar_people_native import command as validate_avatar_people
         validate_avatar_people(command)

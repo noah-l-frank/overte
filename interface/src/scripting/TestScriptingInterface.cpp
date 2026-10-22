@@ -462,6 +462,7 @@ QVariantMap TestScriptingInterface::featureChatViewObservation(const QVariantMap
         }
     }
     if (!_featureChatView) { _featureChatView=std::make_shared<overte::e2e::ChatViewObservation>(); }
+    if (command.value("action")=="feature-chat-history") { return _featureChatView->historyRequest(command,roots,shown,metrics); }
     return _featureChatView->request(command,roots,shown,metrics);
 }
 
@@ -2190,7 +2191,7 @@ void TestScriptingInterface::saveObject(QVariant variant, const QString& filenam
     QString filepath = QDir::cleanPath(_testResultsLocation + filename);
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     if (filename == "feature-chat-observation.json" || filename == "feature-native-observation.json" || filename == "normal-feature-observation.json"
-            || filename == "feature-chat-view-observation.json" || filename == "feature-web-dom-observation.json"
+            || filename == "feature-chat-history.json" || filename == "feature-chat-view-observation.json" || filename == "feature-web-dom-observation.json"
             || filename == "feature-phone-web-runtime.json"
             || filename == "feature-pending-commit-owner.json" || filename == "feature-navigation-replies.json"
             || filename == "feature-process-presence.json"

@@ -1818,6 +1818,22 @@
             }
             return true;
         }
+        if (command && command.action === "feature-chat-history") {
+            if (command.schemaVersion === 1 && typeof command.commandId === "string" && /^[0-9a-f]{32}$/.test(command.commandId)
+                    && typeof command.runId === "string" && /^[0-9a-f]{32}$/.test(command.runId)
+                    && ["inspect","capture","restore","retire"].indexOf(command.operation) !== -1
+                    && objectKeysMatch(command,["schemaVersion","commandId","action","operation","runId"])) {
+                var chatHistory={commandId:command.commandId,available:false};
+                try {
+                    if (typeof Test.featureChatViewObservation === "function") {
+                        var originalChatHistory=Test.featureChatViewObservation(command);
+                        if (originalChatHistory && originalChatHistory.commandId === command.commandId) { chatHistory=originalChatHistory; }
+                    }
+                } catch (_chatHistoryError) {}
+                Test.saveObject(chatHistory,"feature-chat-history.json");
+            }
+            return;
+        }
         if (command && command.action === "feature-chat-view-observe") {
             if (command.schemaVersion === 1 && typeof command.commandId === "string"
                     && /^(?:ios-)?[0-9a-f]{32}$/.test(command.commandId)
@@ -2537,7 +2553,7 @@
 
     function applyAndroidControlCommand(command) {
         if (command && (command.action === "normal-feature-observe" || command.action === "feature-native-observe"
-                || command.action === "feature-chat-observe" || command.action === "feature-chat-view-observe" || command.action === "feature-web-dom-observe" || command.action === "feature-account-probe" || command.action === "feature-account-origin"
+                || command.action === "feature-chat-observe" || command.action === "feature-chat-history" || command.action === "feature-chat-view-observe" || command.action === "feature-web-dom-observe" || command.action === "feature-account-probe" || command.action === "feature-account-origin"
                 || command.action === "feature-phone-web-runtime-observe" || command.action === "phone-world-web" || command.action === "phone-tablet-web" || command.action === "phone-web-reference" || command.action === "feature-phone-web-reference-runtime-observe"
                 || command.action === "phone-navigation-marker-input" || command.action === "phone-navigation-marker-observe"
                 || command.action === "phone-navigation-ui" || command.action === "phone-navigation-view-observe"
