@@ -106,6 +106,18 @@ actual child acknowledgments; uncertain delivery and the original operation
 deadline survive reconstruction. Whole observation/publication, restart
 handoff and final static restoration remain open; Worlds is still partial.
 
+Current Worlds code now includes ordinary restart/current-process action and
+publication transfer, immutable untouched and restored full-target PNGs, and
+actual Keys2/pointer/UIKit source cuts with genuine three-second quiet joins.
+It still grants no complete capability. The exact remaining terminal-retirement
+interface mismatch and next additive integration step are documented in
+[the normal navigation handoff](adapters/NORMAL_NAVIGATION.md#concrete-terminal-retirement-interface-gap):
+normal AddressBar close only hides the global Qt root, while v16 requires live
+post-cleanup observations after all retained resources are absent. A final
+session Stop and its independent process-absence proof must be joined without
+turning an ended renderer into a fresh live-world reading. No hidden root is
+reported as destroyed and no unresolved owner is discarded.
+
 The canonical physical source binding and explicit lost-launch recovery have
 host-tested implementations. The native byte observer and SDK plugin remain
 uninstalled/uncompiled and unqualified here. See the [Script handoff](SCRIPT_FEATURE.md)

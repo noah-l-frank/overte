@@ -145,3 +145,44 @@ candidate runtime obtains these ports from its existing installed session.
 Three connected source/image tests and eleven comparison/runtime tests cover
 this packet. Whole preparation, paired quiet input evidence, final process
 absence and complete capability dispatch still remain to be integrated.
+
+`NavigationQuietImage` additionally reserves actual Keys2, pointer and UIKit
+queries inside each original static native/image bracket. Raw matching packets
+use immutable inode/hash-bound files, outside packed metadata. Legacy unsafe
+key replies never reach a new host original. Interrupted queries cannot replay;
+only a completely retained final result can recover without a source request.
+`navigation_quiet_period` reopens at least three independent full-target PNGs,
+both process-image proofs and every input original. It requires unchanged
+actual input/HTTP/dialog/reply histories and at least three genuine seconds on
+host and each original native source clock. Held keys, late completed contacts,
+fast reads, duplicate images and incomplete source queries fail closed.
+Fifteen explicit input/quiet/runtime host tests pass. This proof intentionally
+retains `lifetimeEndRequired: true`; hidden Qt objects are not expired objects.
+
+## Concrete terminal-retirement interface gap
+
+The ordinary iOS `AddressBarDialog.qml::closeDialog()` calls
+`DialogsManager::hideAddressBar()`. That calls `AddressBarDialog::hide()`;
+`OffscreenQmlDialog::hide()` only changes its parent's visibility property.
+The ordinary accept/reject paths also hide. These paths neither destroy nor
+weakly expire the global QML root created by normal Go To. No ordinary
+AddressBar destruction path was found in the current product sources.
+
+The shared v16 Engine calls cleanup twice and then requires repeated fresh
+native/peer baseline observations with `resources: []` for another three seconds.
+Stopping the process proves this retained root's end, but also ends the live
+renderer/native source required by that existing post-cleanup protocol. Hidden
+root visibility, input-release ACKs and historical PNGs cannot fill either fact.
+This is a concrete interface mismatch, not permission to delete a product object
+through instrumentation or to return an invented clean public observation.
+
+Worlds therefore remains partial and its complete capability is not advertised.
+Existing accepted originals and all uncertain ownership remain durable. The
+next executable integration is an additive shared terminal-retirement protocol:
+first seal actual live restored/quiet native and peer originals; then perform
+the normally owned final session Stop, independently prove installed-process
+absence, and bind that original absence to the exact retained UI/input/GPU
+owners before final metadata retirement. Its lifecycle result must remain
+separate from a fresh live-world observation. Preserve v16 historical grammar
+and reconcile the new closed protocol with the other platform branches. No
+functional product change, device/build run or protocol weakening was made here.
