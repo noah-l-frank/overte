@@ -55,8 +55,11 @@ namespace Setting {
         // no Manager/barrier lock spans this bounded queued acquisition.
         const auto current=featureChatSnapshot();
         if (current.isEmpty() || current.value("instance")!=expected.value("instance")
-                || current.value("mutationSequence")!=expected.value("mutationSequence")
-                || current.value("cache")!=expected.value("cache") || current.value("writer")!=expected.value("writer")) { return false; }
+                || current.value("mutationSequence")!=expected.value("mutationSequence")) { return false; }
+        QByteArray expectedRows,currentRows;QDataStream expectedStream(&expectedRows,QIODevice::WriteOnly),currentStream(&currentRows,QIODevice::WriteOnly);
+        expectedStream<<expected.value("cache")<<expected.value("writer");
+        currentStream<<current.value("cache")<<current.value("writer");
+        if (expectedStream.status()!=QDataStream::Ok || currentStream.status()!=QDataStream::Ok || expectedRows!=currentRows) { return false; }
         overte::e2e::ChatSettingsBarrier::Mutation mutation(_featureChatSettings,"ArmoredChat-Messages");
         bool admitted{false};
         if (!withTryWriteLock([&] {

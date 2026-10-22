@@ -368,6 +368,18 @@ int main(int argc,char** argv) {
     assert(!manager.featureChatRestoreHistory(original,{{"present",false},{"value",QVariant()}}));
     assert(changed.open(QIODevice::WriteOnly|QIODevice::Truncate));assert(changed.write(originalBytes)==originalBytes.size());changed.close();
     assert(manager.featureChatSnapshot().value("writer").toMap().value("physical")==original.value("writer").toMap().value("physical"));
+    // QVariantMap equality coerces numeric types. Original worker operations
+    // can change Int to Double while producing identical JSON number tokens.
+    manager.setValue("ArmoredChat-Config",QVariantMap{{"number",22}});
+    const auto typed=manager.featureChatSnapshot();assert(!typed.isEmpty());auto* worker=SettingsTests::worker(manager);
+    assert(QMetaObject::invokeMethod(worker,[&]{worker->removeKey("ArmoredChat-Config");worker->setValue("ArmoredChat-Config",QVariantMap{{"number",22.0}});worker->sync();},Qt::BlockingQueuedConnection));
+    const auto coerced=manager.featureChatSnapshot();assert(!coerced.isEmpty());
+    assert(coerced.value("cache")==typed.value("cache") && coerced.value("writer")==typed.value("writer"));
+    const auto workerConfig=[](const QVariantMap& value){return value.value("writer").toMap().value("values").toMap().value("ArmoredChat-Config").toMap().value("value").toMap().value("number");};
+    assert(workerConfig(typed).userType()==QMetaType::Int && workerConfig(coerced).userType()==QMetaType::Double);
+    const auto sequence=coerced.value("mutationSequence");
+    assert(!manager.featureChatRestoreHistory(typed,{{"present",false},{"value",QVariant()}}));
+    assert(manager.featureChatSnapshot().value("mutationSequence")==sequence);
 }
 '''
 
