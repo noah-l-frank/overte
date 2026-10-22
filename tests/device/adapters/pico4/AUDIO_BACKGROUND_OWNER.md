@@ -1,8 +1,8 @@
 # Normal Audio background and return
 
 `PicoAudioBackground` continues an actually capturing `PicoAudioCaptureOwner`
-through the existing normal OS HOME and controlled activation routes in
-`PicoGraphicsBinding`. The current Audio `PhaseFixtureReader` supplies the
+through the original once-only normal OS HOME and controlled activation
+routes in [`lifecycle_input.py`](lifecycle_input.py). The current Audio `PhaseFixtureReader` supplies the
 original background-resume input ticket. The owning PID/start, installed
 candidate, target fingerprint and input-session identity stay fixed.
 
@@ -19,7 +19,10 @@ repeats an uncertain HOME or activation or initializes/queries Qt while hidden.
 Immediately after each durable HOME/activation intent, the independent HTTP
 `PhaseFixtureReader` must still show the exact original active instance, birth
 and full ticket history. This check also runs while hidden without building a
-Qt owner. Phase progress or retirement prevents OS input, leaving the issued
+Qt owner. The callback repeats that fence after the actual SDK/candidate guards,
+immediately before one original `KEYCODE_HOME` or controlled `am start` command.
+The general Android background facade can internally retry HOME and is therefore
+not used by this owner. Phase progress or retirement prevents OS input, leaving the issued
 journal unresolved; an issued activation can only recover through reads.
 Return and final quiet repeat this phase fence after the last journal CAS,
 report copy and foreground guard. A final host-clock read bounds source age,

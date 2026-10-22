@@ -23,8 +23,8 @@ class AudioBackgroundTests(unittest.TestCase):
         self.fixture.start();self.fixture.activate('background-resume');self.flow=self.owner()
     def os_status(self,binding):
         self.assertEqual(self.capture.binding,binding);return dict(binding=deepcopy(binding),running=True,foreground=self.foreground)
-    def os_input(self,operation,binding):
-        self.assertEqual(self.capture.binding,binding);self.inputs.append(operation)
+    def os_input(self,operation,binding,*,before_input):
+        self.assertEqual(self.capture.binding,binding);before_input();self.inputs.append(operation)
         if operation=='lifecycle.background':
             if self.fault!='home-ack-only':
                 self.foreground=False;self.native.guard_okay=False;self.counts['backgrounds']+=1
@@ -123,6 +123,24 @@ class AudioBackgroundTests(unittest.TestCase):
         with patch.object(self.flow,'report',side_effect=late):
             with self.assertRaises(NativeUIError):self.flow.resume()
         self.assertEqual('returned',self.flow.state['phase']);self.assertEqual(['lifecycle.background','app.launch'],self.inputs)
+
+    def test_phase_progress_during_final_sdk_guards_prevents_home(self):
+        self.flow.prepare();original=self.flow.os_input
+        def guarded(operation,binding,*,before_input):
+            self.fixture.activate('record-cancel')
+            return original(operation,binding,before_input=before_input)
+        self.flow.os_input=guarded
+        with self.assertRaises(NativeUIError):self.flow.home()
+        self.assertEqual([],self.inputs);self.assertEqual('home-issued',self.flow.state['phase'])
+    def test_phase_progress_during_final_sdk_guards_prevents_resume_without_qt(self):
+        self.prepare();calls=self.runtime_calls;original=self.flow.os_input
+        def guarded(operation,binding,*,before_input):
+            self.fixture.activate('record-cancel')
+            return original(operation,binding,before_input=before_input)
+        self.flow.os_input=guarded
+        with self.assertRaises(NativeUIError):self.flow.resume()
+        self.assertEqual(calls,self.runtime_calls);self.assertEqual(['lifecycle.background'],self.inputs)
+        self.assertEqual('resume-issued',self.flow.state['phase'])
 
     def change_during_save(self,phase,change):
         original=self.flow.save

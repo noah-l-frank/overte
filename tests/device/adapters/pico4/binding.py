@@ -1271,7 +1271,8 @@ def create_adapter(args, base_class):
                 _need(actual.binding==binding and actual.lock is source_lock);return actual
             return PicoAudioBackground(path,run,binding,source_lock,
                 lambda owned:facade._graphics_lifecycle_status(target,owned),
-                lambda operation,owned:facade._graphics_lifecycle_input(target,operation,owned),runtime,phase_source,
+                lambda operation,owned,*,before_input:self._pico_lifecycle_input_once(
+                    target,operation,owned,before_input=before_input),runtime,phase_source,
                 monotonic=capture.parent.settings.monotonic if capture is not None else time.monotonic,
                 sleep=capture.parent.settings.sleep if capture is not None else time.sleep)
 
