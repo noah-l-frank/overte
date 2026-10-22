@@ -64,12 +64,66 @@ class PassiveReadbacks(PhoneSnapshotReadbacks):
 _UNPINNED=object()
 
 
+def role_state(previous,binding,run,role):
+    """Decode the actual closed role journal; never synthesize a known owner."""
+    if previous is None:return dict(phase='ready',sequence=0,manifests=[],pending=None)
+    exact(previous,{'snapshotsRoleVersion','runId','binding','role','payload'})
+    need(type(previous['snapshotsRoleVersion']) is int and previous['snapshotsRoleVersion']==1
+        and previous['runId']==run and previous['role']==role and same(previous['binding'],binding))
+    rows=unpack(previous['payload']);need(len(rows)==1);state=rows[0]
+    exact(state,{'phase','sequence','manifests','pending'})
+    need(state['phase'] in ('ready','reading','retired') and integer(state['sequence'],0,256)
+        and type(state['manifests']) is list)
+    for reference in state['manifests']:SnapshotsOriginals.manifest_reference(reference)
+    need((state['phase']=='reading' and type(state['pending']) is dict)
+        or (state['phase'] in ('ready','retired') and state['pending'] is None))
+    return state
+
+
+def _validate_body_files(frames,image_engine,binary_engine,receipts):
+    for index,frame in enumerate(frames,1):
+        image_reader,binary_reader=image_engine(index),binary_engine(index)
+        image=frame.get('image')
+        if image is not None:
+            if image['phase']=='planned':
+                need(frame.get('diagnostic') is True and (image_reader.absent(image) if receipts is None else receipts.absent(image_reader,image)))
+            else:
+                need(image['phase']=='saved')
+                if receipts is None:image_reader.read(image)
+                else:receipts.read_original(image_reader.read,image_reader._path,image)
+        for row in frame.get('binaries',[]):
+            need(row['phase']=='saved')
+            if receipts is None:binary_reader.read(row)
+            else:receipts.read_original(binary_reader.read,binary_reader._path,row)
+
+
+def _validate_historical_files(feature,role,frames,guard,receipts):
+    f=feature;decoded_pngs=set()
+    _validate_body_files(frames,
+        lambda index:SnapshotsImages(f.root,f.binding,f.run,role,index,guard,lambda *_:need(False)),
+        lambda index:HistoricalSnapshotsBinary(f.root,f.binding,f.run,role,index,guard,lambda *_:need(False),decoded_pngs=decoded_pngs),receipts)
+
+
+def _restore_history_files(feature,role,state,guard,*,receipts=None,validate_files=None):
+    """Read complete original bytes under historical host authority only."""
+    need(callable(guard) and guard() is True)
+    f=feature;host=SnapshotsOriginals(f.root,f.binding,f.run,role,guard,lambda *_:need(False),kind='snapshots')
+    if receipts is not None:
+        read,manifest=host.read,host.manifest
+        host.read=lambda value:receipts.read_original(read,host.path,value)
+        host.manifest=lambda value:receipts.read_original(manifest,host.manifest_path,value)
+    frames=host.restore(state['manifests'],state['sequence'])
+    if validate_files is None:_validate_historical_files(f,role,frames,guard,receipts)
+    else:validate_files(frames)
+    need(guard() is True);return frames
+
+
 class SnapshotPhaseDeferred(SnapshotPending):
     """An original actor phase moved before any current subject acquisition."""
 
 
 class PhoneSnapshotsRole(PhoneCreateRole):
-    def __init__(self,feature,role,*,expected_previous=_UNPINNED,_observe_disposals=None):
+    def __init__(self,feature,role,*,expected_previous=_UNPINNED,_observe_disposals=None,_history_pass=None):
         need(role in ('primary','actor'));feature.lock.assert_held()
         need(_observe_disposals is None or isinstance(_observe_disposals,ExitStack) and role==feature.role=='primary')
         self.feature,self.role=feature,role;self._host_publication=False
@@ -78,16 +132,15 @@ class PhoneSnapshotsRole(PhoneCreateRole):
         self.store=PrivateFeatureState(feature.store.path.with_name('phone-snapshots-'+role+'-originals.json'))
         self.previous=self.store.read()
         if expected_previous is not _UNPINNED:need(same(self.previous,expected_previous))
-        self.state=dict(phase='ready',sequence=0,manifests=[],pending=None)
+        if _history_pass is not None:
+            from overte_phone_snapshots_constructor_history import SnapshotConstructorHistoryPass
+            need(type(_history_pass) is SnapshotConstructorHistoryPass)
+            _history_pass.constructor_header(self)
+        self.state=role_state(self.previous,feature.binding,feature.run,role)
         self.originals=SnapshotsOriginals(feature.root,feature.binding,feature.run,role,self.publication_bound,self.storage_intent,kind='snapshots')
-        if self.previous is not None:
-            exact(self.previous,{'snapshotsRoleVersion','runId','binding','role','payload'})
-            need(type(self.previous['snapshotsRoleVersion']) is int and self.previous['snapshotsRoleVersion']==1
-                and self.previous['runId']==feature.run and self.previous['role']==role and same(self.previous['binding'],feature.binding))
-            rows=unpack(self.previous['payload']);need(len(rows)==1);self.state=rows[0]
-            exact(self.state,{'phase','sequence','manifests','pending'})
-            need(self.state['phase'] in ('ready','reading','retired') and integer(self.state['sequence'],0,256))
-        self.frames=self.restore_originals()
+        if _history_pass is None:self.frames=self.restore_originals()
+        else:
+            self.frames=_history_pass.frames_for(self)
         self.system=feature.state['handoff'] is not None
         self.measurements=self.native=self.avatar=self.world=self.touch=self.marker=None
         self.handoff=None;self.files=None;self.readbacks=self.upload=None
@@ -175,6 +228,7 @@ class PhoneSnapshotsRole(PhoneCreateRole):
             previous=next((row for frame in reversed(history) for row in reversed(frame.get('consumerOriginals',([frame['measurement']['consumer']] if frame.get('measurement') is not None and frame['measurement']['consumer'] is not None else [])))),None)
             if previous is not None:self.consumer.last=deepcopy(previous)
             self.track(self.consumer,'observe','consumerOriginals')
+        if _history_pass is not None:_history_pass.finish_constructor(self)
         if self.previous is None:self.save()
 
     def _dispose_observation_graph(self):
@@ -598,40 +652,16 @@ class PhoneSnapshotsRole(PhoneCreateRole):
         separately pinned cleanup history pass supplies an unlocked authority;
         neither path acquires a current target fact here.
         """
-        need(callable(guard) and guard() is True)
-        f=self.feature
-        host=SnapshotsOriginals(f.root,f.binding,f.run,self.role,guard,lambda *_:need(False),kind='snapshots')
-        if receipts is not None:
-            read,manifest=host.read,host.manifest
-            host.read=lambda value:receipts.read_original(read,host.path,value)
-            host.manifest=lambda value:receipts.read_original(manifest,host.manifest_path,value)
-        frames=host.restore(self.state['manifests'],self.state['sequence'])
-        self.validate_files(frames=frames,historical=True,history_guard=guard,receipts=receipts)
-        need(guard() is True);return frames
+        return _restore_history_files(self.feature,self.role,self.state,guard,receipts=receipts,
+            validate_files=lambda frames:self.validate_files(frames=frames,historical=True,history_guard=guard,receipts=receipts))
 
     def validate_files(self,*,frames=None,historical=False,history_guard=None,receipts=None):
         """A retained JSON receipt cannot hide a missing or replaced original."""
         need(historical or history_guard is None and receipts is None)
         guard=self.history_authority if history_guard is None else history_guard
-        f=self.feature
-        decoded_pngs=set()
-        for index,frame in enumerate(self.frames if frames is None else frames,1):
-            image_engine=(SnapshotsImages(f.root,f.binding,f.run,self.role,index,guard,lambda *_:need(False))
-                if historical else self.image_engine(index))
-            binary_engine=(HistoricalSnapshotsBinary(f.root,f.binding,f.run,self.role,index,guard,lambda *_:need(False),decoded_pngs=decoded_pngs)
-                if historical else self.binary_engine(index))
-            image=frame.get('image')
-            if image is not None:
-                if image['phase']=='planned':
-                    need(frame.get('diagnostic') is True and (image_engine.absent(image) if receipts is None else receipts.absent(image_engine,image)))
-                else:
-                    need(image['phase']=='saved')
-                    if receipts is None:image_engine.read(image)
-                    else:receipts.read_original(image_engine.read,image_engine._path,image)
-            for row in frame.get('binaries',[]):
-                need(row['phase']=='saved')
-                if receipts is None:binary_engine.read(row)
-                else:receipts.read_original(binary_engine.read,binary_engine._path,row)
+        rows=self.frames if frames is None else frames
+        if historical:_validate_historical_files(self.feature,self.role,rows,guard,receipts)
+        else:_validate_body_files(rows,self.image_engine,self.binary_engine,receipts)
 
     def retire(self):
         """Validate every original inode before handing journal removal to owner."""

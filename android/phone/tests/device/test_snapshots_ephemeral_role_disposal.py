@@ -24,6 +24,7 @@ from adapters.normal_feature_state import PrivateFeatureState
 from adapters.normal_ui import NativeUIError
 from overte_phone_script_history import unpack
 from overte_phone_snapshots_history_pass import SnapshotHistoryReadPass
+from overte_phone_snapshots_constructor_history import SnapshotConstructorHistoryPass
 from overte_phone_snapshots_measurements import SnapshotPending
 from overte_phone_snapshots_role import PhoneSnapshotsRole
 
@@ -107,17 +108,33 @@ class SnapshotEphemeralRoleDisposalTests(unittest.TestCase):
             self.assertEqual('ready',released[-1]['state']['phase'])
         self.assertEqual(1,released[-1]['frames'][-1]['state']['files'])
 
-    def test_failed_constructor_releases_its_already_restored_graph_and_preserves_originals(self):
-        measured=self.baseline();f=self.fixture;before=originals(f.root);restore=PhoneSnapshotsRole.restore_originals;refs=[]
-        def failed(role):
-            role.frames=TrackedFrames(restore(role));refs.append(weakref.ref(role.frames))
-            raise RuntimeError('Controlled failure after actual original replay')
+    def test_failed_constructor_releases_its_already_qualified_graph_and_preserves_originals(self):
+        measured=self.baseline();f=self.fixture;before=originals(f.root);finish=SnapshotConstructorHistoryPass.finish_constructor;refs=[]
+        def failed(token,role):
+            finish(token,role)
+            role.frames=TrackedFrames(role.frames);refs.append(weakref.ref(role.frames))
+            raise RuntimeError('Controlled failure after actual constructor qualification')
         with reference_count_only(),self.record() as (_made,released,_returned):
-            with patch.object(PhoneSnapshotsRole,'restore_originals',failed):
+            with patch.object(SnapshotConstructorHistoryPass,'finish_constructor',failed):
                 with self.assertRaises(NativeUIError):self.observe(measured['sequence'])
             self.assertTrue(refs);self.assertTrue(all(ref() is None for ref in refs));self.assertEqual(1,len(released))
             self.assertEqual(before,originals(f.root))
         resumed=self.observe(measured['sequence']);self.assertGreater(resumed['sequence'],measured['sequence'])
+
+    def test_default_constructor_failure_still_releases_its_original_graph(self):
+        self.baseline();f=self.fixture;before=originals(f.root);restore=PhoneSnapshotsRole.restore_originals;refs=[]
+        feature=f.adapter._snapshots_feature('test-only-appium',harness.RUN)
+        def failed(role):
+            role.frames=TrackedFrames(restore(role));refs.append(weakref.ref(role.frames))
+            raise RuntimeError('Controlled failure in unchanged default constructor')
+        with reference_count_only(),self.record() as (_made,released,_returned):
+            with self.assertRaises(NativeUIError),ExitStack() as disposals,ExitStack() as session:
+                with feature.lock.held():
+                    session.enter_context(feature.adapter.existing_input_session(feature.selector));feature.load()
+                    with patch.object(PhoneSnapshotsRole,'restore_originals',failed):
+                        PhoneSnapshotsRole(feature,'primary',_observe_disposals=disposals)
+            self.assertTrue(refs);self.assertTrue(all(ref() is None for ref in refs));self.assertEqual(1,len(released))
+            self.assertEqual(before,originals(f.root))
 
     def test_actual_partial_read_error_keeps_durable_job_for_a_new_reader_to_recover(self):
         measured=self.baseline();batch=PhoneSnapshotsRole.batch;once=[]
