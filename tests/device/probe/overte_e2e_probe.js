@@ -1596,7 +1596,7 @@
                 && objectKeysMatch(command, ["schemaVersion", "commandId", "action", "runId"])) {
             if (command.commandId === lastSnapshotScriptRequest) { return; }
             lastSnapshotScriptRequest = command.commandId;
-            var snapshotOriginals = {snapshotScriptOriginalsVersion: 1, commandId: command.commandId, available: false};
+            var snapshotOriginals = {snapshotScriptOriginalsVersion: 2, commandId: command.commandId, available: false};
             try {
                 if (typeof Test.featureSnapshotScriptOriginals === "function") {
                     var actualSnapshot = Test.featureSnapshotScriptOriginals(command);

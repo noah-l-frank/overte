@@ -101,7 +101,7 @@ class Boundary:
     def clock(self):return self.epoch+round(self.time*1000)
     def send(self,command):
         self.commands.append(deepcopy(command));self.sequence+=1
-        self.value=dict(snapshotScriptOriginalsVersion=1,commandId=command['commandId'],runId=command['runId'],pid=31,
+        self.value=dict(snapshotScriptOriginalsVersion=source.VERSION,activeUploads=0,commandId=command['commandId'],runId=command['runId'],pid=31,
             sequence=self.sequence,capturedEpochMs=self.clock(),history=deepcopy(self.history))
         if self.edit:self.edit(self.value)
     def read(self):return json.dumps(self.value)
@@ -151,6 +151,16 @@ class SnapshotScriptSourceTests(unittest.TestCase):
                 reader.guard=guard
                 with self.assertRaises(NativeUIError):reader.capture(RUN)
             self.assertIsNone(reader.previous);self.assertIsNone(reader.last_raw)
+    def test_v1_archive_has_no_upload_idle_fact_and_cannot_switch_live_source_version(self):
+        native=Boundary()
+        def legacy(value):value.update(snapshotScriptOriginalsVersion=1);value.pop('activeUploads')
+        native.edit=legacy;reader=native.reader(self.lock);first=reader.capture(RUN)
+        self.assertNotIn('activeUploads',first)
+        native.edit=None
+        with self.assertRaises(NativeUIError):reader.capture(RUN)
+        self.assertEqual(first,reader.previous)
+        native=Boundary();native.edit=lambda value:value.update(activeUploads=True)
+        with self.assertRaises(NativeUIError):native.reader(self.lock).capture(RUN)
     def test_raw_bound_dead_owner_and_lost_query_never_deliver_a_capture_or_resend(self):
         native=Boundary();reader=native.reader(self.lock);reader.read=lambda:' '*65537
         with mock.patch.object(source,'decode',wraps=source.decode) as decoder:

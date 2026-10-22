@@ -1,4 +1,4 @@
-# Original Snapshot VM events on Pico
+# Original Snapshot VM events on Pico, version 2 (reads 1 and 2)
 
 This is a private source component, not a Snapshot capability or a completed
 cancel recipe. It retains the current common v16 journey and the existing Pico
@@ -49,6 +49,12 @@ private writer; root's closed feature-result admission also handles it.
 The native query fixes the first run, rejects reused query IDs and stops after
 4096 IDs. It publishes actual PID, monotonically increasing query sequence,
 wall time and complete immutable history; raw output is limited to 64 KiB.
+Version 2 additionally reads the actual original GUI-owned Snapshot upload-map
+size as `activeUploads`. It does not initialize or cancel an uploader. Retained
+map entries are conservatively counted. FastCancel must require v2 and zero
+original map entries; a blank Review uploadPath alone cannot prove native idle.
+Version 1 archives remain structurally readable without inventing that fact;
+a continuous source cannot switch versions.
 Missing/oversize history is unavailable. The reader publishes each query once,
 polls its result without resending and preserves original raw bytes plus SHA.
 It checks the final native clock and host monotonic age after copies and the
