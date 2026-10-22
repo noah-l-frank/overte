@@ -110,3 +110,71 @@ need their actual independent pixel/source joins. The existing normal HMD still
 path deliberately halves composite width; it does not establish two-eye proof.
 No common v16 contract, product behavior, platform acceptance or timeout is
 weakened by this packet.
+
+## Continuous normal Still/PNG continuation (private owner v2)
+
+The same parent now continues its retired pre-render Cancel job into the actual
+v16 `capture(still,png)` step. It persists a second original native/OS file plan,
+uses the original name/mode/format controls and ordinary Capture token, then
+joins the original native request birth and terminal callback, the exact pinned
+Script pending/complete caller, original closed native descriptor/path/inode,
+Review image, independent OS scan, binary read and decoded PNG bytes. A receipt
+or requested filename cannot supply any of those observations. The complete
+acquisition DTO, real host artifact inode and byte digest remain bound on cold
+load. A same-byte replacement host artifact is rejected by that original inode.
+
+The original Script registration count may increase for the new capture; a new
+VM observation binds those new callers to the same original compilation. The
+following three-second Still quiet holds all seven existing clocks, unchanged
+native/Script histories and work invocation/registration counters, a dead native
+request weak lease, no current request/projection/upload/timer work, and the one
+unchanged owned file and actual Review image. An ACK without native output stays
+`capture-issued`; cold reconciliation only queries new originals and never
+resends Capture. `still-ready` is explicitly a pre-export component result.
+
+The actual Android SDK is independently read under the existing candidate and
+process guards. It selects the executing unchanged `SnapshotAdapter.java`
+branch (`>=29`: MediaStore, `26..28`: document picker). This original profile is
+not a Save, permission or destination-success receipt. A v1 owner can explicitly
+CAS-upgrade after `partial-ready`; its exact old root SHA is retained. Its first
+SDK observation is labelled `before-still`, never invented as a baseline fact.
+Old v1 cold journals remain readable without new observed fields.
+
+The complete source bundles exceeded the existing 48-KiB flat packed-parent
+bound at the Still quiet stage. V2 therefore reuses the unchanged reviewed
+`ChatSourceChunks` container from fixed Root `48f838a55c` (already integrated
+support), with a Snapshot-specific run/binding/role scope and complete immutable
+frame/reply/VM children. The parent contains exact kind/index/hash references.
+No raw source field, original JSON bytes or historical partial prefix is
+projected away. Bounds remain 512 children, 64 KiB per child, 16 MiB raw total
+and 48 KiB per packed value. Existing parent bounds remain unchanged. The
+manifest reading intent precedes each exclusive child write; lost root/child
+writes remain unresolved. Warm original descriptor identities and cold original
+manifest/scope/hash checks reject changed originals; passive cold history is
+never fresh current evidence. A controller-locked host CAS may only refer to
+already persisted bundles. Standalone manifests or numbered children block
+legacy input and base-cleanup success, even without the parent journal.
+
+The original preferences, all native plans/files, host PNG copy, complete source
+manifest/chunks, page and every parent/child journal remain owned. No cleanup,
+Save/Share/upload/background, independent actor, panorama or stereo qualification
+is inferred from this continuation. The normal HMD still still deliberately
+halves composite width. The next vertical step is actual normal Save with
+original Android export callback/IO and independently opened destination bytes,
+followed by chooser cancellation/owned receiver and explicit original retirement.
+The fixed Phone `5527d540e99cc6dba4204a5e904a854e6e1cd2b4` supplies reusable
+`SnapshotExportObservation`, `SnapshotExportReadbacks`, `SnapshotOsDestinations`
+and `SnapshotShareGrants`; their Phone-only JNI gate/provider identities require
+an explicit Pico test-only binding before reuse. No Phone touch, facade version
+or mono evidence is relabelled as Pico VR/stereo.
+
+The complete positive Cancel→Still→quiet→cold-read case passed in 93.834 s.
+The measured owning selection passed Still recovery (82.748 s), original
+container/platform/orphan checks (seven cases, 5.069 s), and all four existing
+Cancel groups (55.773/52.450/59.571/77.474 s). Combining the two new complete
+Still failure journeys in one group exceeded the unchanged 120-second limit
+(120.052 s); they are registered without case loss as separate
+`snapshot-still-no-output` and `snapshot-still-fences` groups. No clock, gap,
+timeout, assertion or original observation was relaxed.
+The two separate owning groups then passed unchanged in 76.575 s and 72.453 s
+(149.03 s total). All new Still cases and the existing Cancel cases are green.
