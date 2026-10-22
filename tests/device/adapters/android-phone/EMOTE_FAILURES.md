@@ -1,7 +1,7 @@
-# Phone Emote failed source retention, version 1
+# Phone Emote source/admission retention, version 2
 
-`PhoneEmoteFailures` connects actual failed readonly Source acquisitions to the
-existing Run input-cleanup path. It is an internal component. No failed attempt
+`PhoneEmoteFailures` connects actual failed readonly Source acquisitions and
+admitted/failed Admission contexts to the existing Run input-cleanup path. It is an internal component. No failed attempt
 becomes a source sample, no evidence file is deleted, and no complete Emote
 capability is registered. Three Phone feature triples remain source-implemented;
 native code remains uncompiled and all device behavior untested.
@@ -51,7 +51,7 @@ files and reconstructs the old reading context without target/fixture queries,
 a usable live owner or a fresh verdict. It remains valid after subsequent source
 frames only while its original evidence files remain intact.
 
-## Durable enclosing failure owner
+## Durable enclosing failure owner, versions 1 and 2
 
 Construct `PhoneEmoteFailures(run)` under the loaded Run's held source lock. The
 actual candidate/process binding, run, fixture and artifact root must agree.
@@ -60,28 +60,43 @@ recovers any exact pending failure transfer, then inspects the current primary
 and actor source journals. A missing source journal is not created. A source
 without a failed read adds no failure record or owner file.
 
-`collect(source)` accepts only the current actual namespace and same lock/binding.
+`collect(source, kind="source")` accepts only the current actual namespace and
+same lock/binding. Kind admission uses namespace zero and its actual Admission
+owner. `collect_admissions()` runs after source failure transfer, before ordinary
+input restoration, for both roles' existing admission journals.
 It persists responsibility before source transfer. The private control is exactly
-`{emoteFailureOwnerVersion:1,runId,fixtureUrl,binding,artifactRoot,payload}`. Its
+`{emoteFailureOwnerVersion:2,runId,fixtureUrl,binding,artifactRoot,payload}`. Its
 existing bounded packed payload holds one `{count,manifests,pending}` state.
 Count is 0..1024; manifests retain the existing 128-entry blocks and eight-block
 bound. Pending is null or
-`{role,segment,headerSha256,archive,original,manifest}`. Header SHA-256 binds the
-exact failed source journal. Archive is null until the actual complete failure
+`{kind,recordVersion,role,segment,headerSha256,archive,original,manifest}`.
+Kind is source or admission. RecordVersion is 2 for new transfers; a recovered v1
+source transfer retains record version 1. Header SHA-256 binds the
+exact source or admission journal. Archive is null until the actual complete failure
 packet is durably frozen; it contains no guessed product effects. Original and
 manifest use the existing planned/opened/saved storage protocol.
 
 The same 64 KiB control and 1 MiB original limits apply; neither is increased.
 A failure original is exactly
-`{emoteFailureRecordVersion:1,index,kind:"source",archive}` and uses the existing
+`{emoteFailureRecordVersion:2,index,kind,archive}` and uses the existing
 immutable file/index engine with kind source-failures and primary run ownership.
 An actor's failure archive still names and validates the actor's actual original
 source stream. Primary ownership of diagnostic storage supplies no actor facts.
-Each original reopens its actual source failure proof before retention succeeds.
+Each original reopens its actual source failure or admission proof before
+retention succeeds. An approved primary admission must match the original
+parent-pinned hash. A failed pre-setup admission remains unapproved. The fixed
+legacy source-failures storage kind is retained for both record types; no
+original filenames or indexes are renamed.
+
+Version 1 owner/record files remain readable. Reconstruction alone never
+rewrites a v1 control. Its pending transfer is interpreted as source/record 1;
+the next explicit transition writes owner v2 while preserving its frozen v1
+record bytes, digest, inode, manifest and epochs. Version 1 cannot encode the
+new kind/recordVersion fields or an admission record.
 
 Run cleanup recovers owned foreground first and reconciles any committed
-namespace transition, then collects failed sources before releasing namespace
-freezes and invoking ordinary input restoration. A lost final failure-owner
+namespace transition, then collects failed sources and retires admission owners
+before releasing namespace freezes and invoking ordinary input restoration. A lost final failure-owner
 commit can reuse the exact already-transferred source, original and manifest;
 it cannot append a second record or advance native/UI sequences. Failure journals
 and their evidence remain owned for final whole-run retention/retirement.
@@ -110,8 +125,10 @@ existing five-second budgets and private file limits.
 
 ## Boundaries still required
 
-This owner currently integrates failed readonly Source reads only. Failed
-admission before setup, incomplete role/image/motion scopes, selected native work,
+This owner integrates failed readonly Source reads and original Admission
+retirement, including a failed cache check before View/Scene setup. Full cleanup
+when initial admission fails before the first baseline, missing View/Scene setup,
+incomplete role/image/motion scopes, selected native work,
 scene/view/namespace/background resources, independently credentialed actor
 retirement and final evidence/control-journal retirement remain obligations of
 the complete facade. No resources-restored, quiet, cleaned or successful feature

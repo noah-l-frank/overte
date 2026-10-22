@@ -79,7 +79,11 @@ child transition before releasing it, without dispatching that reserved play.
 Before namespace/input restoration, the [failure owner](EMOTE_FAILURES.md) now
 retains both roles' interrupted source reads. Its actual durable originals and
 manifest must finish before a failed readonly acquisition can release pending
-ownership. This neither adds a source frame nor supplies cleanup success.
+ownership. Failure-owner v2 then retires admitted/failed Admission originals,
+matching successful primary approval to the pinned parent hash. Both roles retain
+their actual frozen source context. This neither adds a source frame nor supplies
+cleanup success. Initial-baseline and missing View/Scene cleanup paths still
+need complete facade integration.
 Closed source/input headers and original frames remain intact.
 
 All target acquisition, ordinary input and phase deadlines remain the existing

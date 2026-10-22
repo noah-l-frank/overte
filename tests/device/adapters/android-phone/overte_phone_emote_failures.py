@@ -11,9 +11,10 @@ from adapters.native_feature_observation import exact,integer,need,number
 from adapters.normal_feature_state import PrivateFeatureState,context
 from overte_phone_emote_originals import PhoneEmoteOriginals,BLOCK,MAX_FRAMES
 from overte_phone_emote_sources import PhoneEmoteSources,source_name
+from overte_phone_emote_admission import PhoneEmoteAdmission
 from overte_phone_script_history import canonical,pack,unpack,same
 
-VERSION=1
+VERSION=2
 
 
 class FailureOriginals(PhoneEmoteOriginals):
@@ -45,7 +46,8 @@ class PhoneEmoteFailures:
 
     def decode(self,value):
         exact(value,{'emoteFailureOwnerVersion','runId','fixtureUrl','binding','artifactRoot','payload'})
-        need(type(value['emoteFailureOwnerVersion']) is int and value['emoteFailureOwnerVersion']==VERSION
+        version=value['emoteFailureOwnerVersion']
+        need(type(version) is int and version in (1,VERSION)
             and value['runId']==self.run.run and value['fixtureUrl']==self.run.fixture_url
             and same(value['binding'],self.binding) and value['artifactRoot']==str(self.run.root))
         rows=unpack(value['payload']);need(len(rows)==1);state=rows[0]
@@ -58,13 +60,18 @@ class PhoneEmoteFailures:
         need(count==state['count'])
         pending=state['pending']
         if pending is not None:
-            exact(pending,{'role','segment','headerSha256','archive','original','manifest'})
+            exact(pending,{'role','segment','headerSha256','archive','original','manifest'}|({'kind','recordVersion'} if version==VERSION else set()))
+            if version==1:pending=dict(pending,kind='source',recordVersion=1);state['pending']=pending
+            need(pending['kind'] in ('source','admission') and type(pending['recordVersion']) is int
+                and pending['recordVersion'] in ((1,2) if pending['kind']=='source' else (2,))
+                and (pending['kind']!='admission' or pending['segment']==0))
             need(pending['role'] in ('primary','actor') and integer(pending['segment'],0,15) and count<MAX_FRAMES
                 and type(pending['headerSha256']) is str and len(pending['headerSha256'])==64
                 and all(c in '0123456789abcdef' for c in pending['headerSha256']))
             if pending['archive'] is not None:
-                proof=pending['archive'];need(type(proof) is dict and type(proof.get('emoteSourceFailureArchiveVersion')) is int
-                    and proof['emoteSourceFailureArchiveVersion']==1 and proof.get('segment')==pending['segment']
+                proof=pending['archive'];field='emoteSourceFailureArchiveVersion' if pending['kind']=='source' else 'emoteAdmissionArchiveVersion'
+                need(type(proof) is dict and type(proof.get(field)) is int and proof[field]==1
+                    and (pending['kind']!='source' or proof.get('segment')==pending['segment'])
                     and type(proof.get('header')) is dict and proof['header'].get('role')==pending['role']
                     and hashlib.sha256(canonical(proof['header'])).hexdigest()==pending['headerSha256'])
             if pending['original'] is not None:
@@ -102,45 +109,65 @@ class PhoneEmoteFailures:
 
     def record(self,value,index):
         exact(value,{'emoteFailureRecordVersion','index','kind','archive'})
-        need(type(value['emoteFailureRecordVersion']) is int and value['emoteFailureRecordVersion']==1
-            and type(value['index']) is int and value['index']==index and value['kind']=='source')
-        proof=value['archive'];source=self.run.source(proof['header']['role'],segment=proof['segment'])
-        source.failure_archive(proof);return value
+        version=value['emoteFailureRecordVersion']
+        need(type(version) is int and version in (1,2) and type(value['index']) is int and value['index']==index
+            and value['kind'] in (('source',) if version==1 else ('source','admission')))
+        proof=value['archive'];segment=proof['segment'] if value['kind']=='source' else 0
+        source=self.run.source(proof['header']['role'],segment=segment)
+        if value['kind']=='source':source.failure_archive(proof)
+        else:
+            expected=self.run.state['admissionSha256']
+            if source.role=='primary' and expected is not None:need(hashlib.sha256(canonical(proof['header'])).hexdigest()==expected)
+            PhoneEmoteAdmission.archive(proof,source,self.run.policy)
+        return value
 
-    def collect(self,source):
-        need(isinstance(source,PhoneEmoteSources) and source.lock.path==self.run.lock.path and same(source.binding,self.binding)
-            and source.segment==self.run.state['segment'])
+    def collect(self,source,*,kind='source'):
+        need(kind in ('source','admission') and isinstance(source,PhoneEmoteSources) and source.lock.path==self.run.lock.path
+            and same(source.binding,self.binding) and source.segment==(self.run.state['segment'] if kind=='source' else 0))
         need(self.started is None);self.started=self.run.monotonic()
         try:
             self.bound();need(self.run.state['phase']=='cleaning-inputs');self.run.active('cleanup')
+            admission=PhoneEmoteAdmission(source,self.run.policy) if kind=='admission' else None
+            header=source.previous if kind=='source' else admission.previous
             pending=self.state['pending']
             if pending is None:
-                need(source.state['phase']=='reading' and self.state['count']<MAX_FRAMES)
-                self.state['pending']=dict(role=source.role,segment=source.segment,
-                    headerSha256=hashlib.sha256(canonical(source.previous)).hexdigest(),archive=None,original=None,manifest=None);self.save()
-            else:need(pending['role']==source.role and pending['segment']==source.segment)
+                need(header is not None and self.state['count']<MAX_FRAMES and (kind=='admission' or source.state['phase']=='reading'))
+                self.state['pending']=dict(kind=kind,recordVersion=VERSION,role=source.role,segment=source.segment,
+                    headerSha256=hashlib.sha256(canonical(header)).hexdigest(),archive=None,original=None,manifest=None);self.save()
+            else:need(pending['kind']==kind and pending['role']==source.role and pending['segment']==source.segment)
             retained=self.state['pending']['archive'];manifests=None
             def retain(proof):
                 nonlocal manifests
                 pending=self.state['pending']
-                need(proof['header']['role']==pending['role'] and proof['segment']==pending['segment']
+                need(proof['header']['role']==pending['role'] and (kind!='source' or proof['segment']==pending['segment'])
                     and hashlib.sha256(canonical(proof['header'])).hexdigest()==pending['headerSha256'])
-                row=dict(emoteFailureRecordVersion=VERSION,index=self.state['count']+1,kind='source',archive=deepcopy(proof))
+                row=dict(emoteFailureRecordVersion=pending['recordVersion'],index=self.state['count']+1,kind=kind,archive=deepcopy(proof))
                 self.record(row,row['index'])
                 if pending['archive'] is None:pending['archive']=deepcopy(proof);self.save()
                 else:need(same(pending['archive'],proof))
                 if pending['original'] is None:ref=self.originals.write(row['index'],row)
                 else:ref=self.originals.resume_write(row['index'],row,pending['original'])
                 manifests=self.originals.resume_manifest(self.state['manifests'],ref,pending['manifest'])
-            source.transfer_failed(retain,retained=retained)
+            if kind=='source':source.transfer_failed(retain,retained=retained)
+            else:admission.retire(retain,retained=retained)
             self.bound();need(manifests is not None and source.state['phase']=='ready');self.run.active('cleanup')
+            if admission is not None:need(admission.store.read() is None)
             self.state.update(count=self.state['count']+1,manifests=deepcopy(manifests),pending=None);self.save()
         finally:self.started=None
 
-    def collect_sources(self):
+    def resume_pending(self):
         self.bound();need(self.run.state['phase']=='cleaning-inputs')
-        if self.state['pending'] is not None:
-            pending=self.state['pending'];self.collect(self.run.source(pending['role'],segment=pending['segment']))
+        pending=self.state['pending']
+        if pending is not None:self.collect(self.run.source(pending['role'],segment=pending['segment']),kind=pending['kind'])
+
+    def collect_admissions(self):
+        self.resume_pending()
+        for role in ('primary','actor'):
+            path=self.store.path.with_name('phone-emote-'+role+'-admission.json')
+            if PrivateFeatureState(path).read() is not None:self.collect(self.run.source(role,segment=0),kind='admission')
+
+    def collect_sources(self):
+        self.resume_pending()
         for role in ('primary','actor'):
             path=self.store.path.with_name(source_name(role,self.run.state['segment']))
             if PrivateFeatureState(path).read() is not None:

@@ -125,3 +125,49 @@ Host counterexamples cover foreign/late code and worlds, stale/frozen probes,
 missing/bad cached models, ignored commits, lost original returns, missing files,
 false windows, policy changes, checked/unchecked role contexts and original image
 archive replay. These simulations qualify test/adapter logic exclusively.
+
+
+## Original context retirement, archive version 1
+
+`retire(retain, retained=None)` transfers either admitted or failed admission
+originals during the real cleanup activation, under the actual held source lock.
+Interrupted readonly Source acquisition must be transferred first: admission
+retirement requires a ready source with no pending read. It obtains fixture
+input metadata only; no native/UI/cache/probe getter, gesture, new approval or
+public cleanup result is produced. The existing five-second deadline includes
+original reconstruction, retention, revalidation and metadata removal.
+
+The exact packet is
+`{emoteAdmissionArchiveVersion:1,header,sourceHeader,originalDiagnostic,cleanup}`.
+Header is the unchanged v1 admission owner; sourceHeader freezes its exact
+historical source context. OriginalDiagnostic uses the existing actual
+partial-file descriptor for an opened original. An absent result, absent planned
+file or verified saved file is represented by null according to the original
+file engine; missing saved files never qualify as absence. Cleanup is the actual
+original cleanup phase snapshot. Run birth and complete activation history must
+still agree when reusing a retained packet.
+
+`PhoneEmoteAdmission.archive(packet, source, expected_policy)` reconstructs the
+closed historical source, inventory, world, Script and file contexts. It returns
+the original admission state only, with the same phase, records, window and
+pending responsibility. No usable live owner or fresh result is returned.
+Reading failures remain reading failures. Missing, foreign, replaced, corrupt or
+partially rewritten files cannot borrow a valid admitted header. Historical
+replay preserves epochs and performs no target or fixture query; it also works
+after source journals have advanced while their original files remain intact.
+
+The real retainer must persist the exact packet before the admission journal is
+removed. A rejected/lost callback, changed phase, slow validation, ignored discard
+or changed original keeps ownership. The same retained packet can finish a lost
+retirement return with no new source data or timestamps, including when the
+actual admission journal was already removed. Current source admission, native
+quietness, Scene/View restoration, actor lifecycle and whole-run retirement are
+separate requirements. Failure-owner v2 now integrates this operation into Run
+input cleanup after both roles' source failures have been retained. Successful
+primary approval must match the parent's original pinned admission hash.
+
+Host checks cover both roles, successful approval, absent cache results,
+planned/opened/saved original interruptions, lost retirement returns, frozen
+historical replay after new reads, foreign policy/context, changed derived
+windows and failed admission before any View/Scene input. Native compilation
+and device qualification remain unperformed.

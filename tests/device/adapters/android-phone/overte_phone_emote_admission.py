@@ -180,6 +180,73 @@ class PhoneEmoteAdmission:
                 and row['hostEpochMs']-provider+elapsed<=1500);return result
         finally:self.started=None
 
+    @classmethod
+    def archive(cls,value,source,policy):
+        """Recompute a retired admission context without a usable live owner."""
+        exact(value,{'emoteAdmissionArchiveVersion','header','sourceHeader','originalDiagnostic','cleanup'})
+        need(type(value['emoteAdmissionArchiveVersion']) is int and value['emoteAdmissionArchiveVersion']==1
+            and isinstance(source,PhoneEmoteSources))
+        source.lock.assert_held();started=source.monotonic();need(number(started,0,1e15))
+        frozen=deepcopy(value['header']);expected=admission_policy(policy)
+        def bound():
+            source.lock.assert_held();need(source.guard() is not False and same(value['header'],frozen))
+            now=source.monotonic();need(number(now,started,1e15) and now-started<5)
+        bound();header=value['sourceHeader']
+        need(type(header) is dict and header.get('role')==source.role and (header.get('admissionPolicy') is None or same(header['admissionPolicy'],expected)))
+        state,frames=PhoneEmoteSources.archive(header,phase=source.phase,artifact_root=source.artifact_root,
+            binding=source.binding,guard=bound,monotonic=source.monotonic)
+        need(state['phase']=='ready' and state['pending'] is None)
+        view=object.__new__(PhoneEmoteSources);view.__dict__=source.__dict__.copy()
+        view.previous,view.state,view.frames=deepcopy(header),state,frames;view.historical=True
+        view.admission=deepcopy(header.get('admissionPolicy'))
+        scope=object.__new__(cls);scope.source,scope.policy,scope.previous=view,expected,frozen
+        scope.originals=AdmissionOriginals(source.artifact_root,source.binding,source.run,source.role,bound,
+            lambda *_:need(False),kind='admission',monotonic=source.monotonic)
+        state=scope.decode(frozen);diagnostic=None;pending=state['pending']
+        if pending is not None and pending['original'] is not None:
+            original=pending['original'];diagnostic=scope.originals.diagnostic(original)
+            if original['phase']=='saved':
+                row=scope.originals.read(original);prior=scope.records(state);scope.measure(row,prior[-1] if prior else None)
+        need(same(diagnostic,value['originalDiagnostic']))
+        cleanup=value['cleanup'];phase_packet(cleanup,run=source.run,area='emotes',request=cleanup['requestId'],epoch=cleanup['capturedEpochMs'])
+        need(cleanup['active'] and cleanup['activations'] and cleanup['activations'][-1]['stimulus']==dict(verb='cleanup',inputs={}))
+        if frames:
+            before=frames[-1]['phaseAfter'];rows=before['activations']
+            need(before['instance']==cleanup['instance'] and before['createdEpochMs']==cleanup['createdEpochMs']
+                and len(cleanup['activations'])>=len(rows) and same(cleanup['activations'][:len(rows)],rows))
+        bound();return deepcopy(state)
+
+    def retire(self,retain,*,retained=None):
+        """Transfer exact admitted/failed originals before dropping this journal.
+
+        Source failures must be transferred first. No product source, input,
+        image, admission approval or whole-resource cleanup is produced here.
+        """
+        need(self.started is None and callable(retain));self.started=self.source.monotonic()
+        try:
+            self.bound();source=self.source;need(source.state['phase']=='ready' and source.state['pending'] is None)
+            cleanup=source.phase.status();self.bound()
+            need(cleanup['active'] and cleanup['activations'] and cleanup['activations'][-1]['stimulus']==dict(verb='cleanup',inputs={}))
+            if retained is None:
+                need(self.previous is not None and same(self.decode(self.previous),self.state))
+                original=None if self.state['pending'] is None else self.state['pending']['original']
+                diagnostic=None if original is None else self.originals.diagnostic(original)
+                value=dict(emoteAdmissionArchiveVersion=1,header=deepcopy(self.previous),sourceHeader=deepcopy(source.previous),
+                    originalDiagnostic=diagnostic,cleanup=cleanup)
+            else:
+                value=deepcopy(retained)
+                need(self.previous is None or same(self.previous,value['header']))
+                prior=value['cleanup'];need(prior['instance']==cleanup['instance'] and prior['createdEpochMs']==cleanup['createdEpochMs']
+                    and same(prior['activations'],cleanup['activations']))
+            self.archive(value,source,self.policy);self.bound();need(retain(deepcopy(value)) is not False);self.bound()
+            self.archive(value,source,self.policy);self.bound();final=source.phase.status();self.bound()
+            need(final['active'] and final['activations'][-1]['ticket']==cleanup['activations'][-1]['ticket']
+                and final['activations'][-1]['stimulus']==dict(verb='cleanup',inputs={}))
+            if self.previous is not None:
+                self.store.discard(self.previous);need(self.store.read() is None);self.previous=None
+            self.bound();return deepcopy(value)
+        finally:self.started=None
+
     def wait(self,*,sleep=time.sleep):
         need(callable(sleep));started=previous=self.source.monotonic()
         if self.state['phase']=='reading':self.recover_pending()

@@ -36,8 +36,10 @@ class EmoteFailureOwnerTests(unittest.TestCase):
         proof=run.cleanup_inputs(dict(contractVersion=17,runId=RUN));self.assertEqual(1,proof['emoteCleanupInputsVersion'])
         with run.lock.held():
             failures=PhoneEmoteFailures(run);rows=self.records(failures)
-            self.assertEqual(2,len(rows));self.assertIsNone(failures.state['pending'])
-            for row,(prefix,header),role in zip(rows,(primary,actor),('primary','actor')):
+            self.assertEqual(3,len(rows));self.assertIsNone(failures.state['pending'])
+            self.assertEqual('admission',rows[-1]['kind']);failures.record(rows[-1],rows[-1]['index'])
+            self.assertFalse((self.model.root/'phone-emote-primary-admission.json').exists())
+            for row,(prefix,header),role in zip(rows[:2],(primary,actor),('primary','actor')):
                 self.assertEqual(role,row['archive']['header']['role']);self.assertEqual(header,row['archive']['header'])
                 failures.record(row,row['index']);self.assertEqual('reading',unpack(header['payload'])[0]['phase'])
                 self.assertEqual(prefix,run.source(role).frames[:len(prefix)])
@@ -100,6 +102,74 @@ class EmoteFailureOwnerTests(unittest.TestCase):
                     with self.assertRaises((NativeUIError,FileNotFoundError)):recovered.collect_sources()
                     self.assertEqual(header,run.source().previous);self.assertEqual(control,recovered.store.read())
                     self.assertEqual(0,recovered.state['count'])
+
+    def test_admission_retirement_reuses_its_frozen_original_across_all_archive_boundaries(self):
+        for boundary in ('original-planned','original-opened','original-saved','manifest-planned','manifest-saved','final'):
+            with self.subTest(boundary=boundary):
+                self.setUp();m=self.model;run=self.prepared();self.cleaning(run)
+                with run.lock.held():
+                    owner=PhoneEmoteFailures(run);intent=owner.originals.intent;save=owner.save
+                    def interrupt(kind,value):
+                        intent(kind,value)
+                        if kind+'-'+value['phase']==boundary:raise NativeUIError('Synthetic lost admission retention callback')
+                    def final():
+                        if owner.state['pending'] is None:raise NativeUIError('Synthetic lost enclosing admission commit')
+                        return save()
+                    owner.originals.intent=interrupt
+                    with patch.object(owner,'save',side_effect=final if boundary=='final' else save),self.assertRaises(NativeUIError):owner.collect_admissions()
+                    recovered=PhoneEmoteFailures(run);retained=deepcopy(recovered.state['pending']['archive']);calls=deepcopy(m.calls)
+                    recovered.collect_admissions();rows=self.records(recovered)
+                    self.assertEqual(1,len(rows));self.assertEqual(retained,rows[0]['archive']);self.assertEqual('admission',rows[0]['kind'])
+                    self.assertEqual(2,rows[0]['emoteFailureRecordVersion']);self.assertTrue(all(call=='phase-read' for call in m.calls[len(calls):]))
+                    self.assertFalse((m.root/'phone-emote-primary-admission.json').exists());self.assertIsNone(recovered.state['pending'])
+
+    def test_version_one_pending_source_archive_keeps_original_record_bytes_during_upgrade(self):
+        from overte_phone_script_history import canonical,pack
+        import hashlib
+        m=self.model;run=self.prepared();_prefix,header=self.failed_source(run);self.cleaning(run)
+        with run.lock.held():
+            source=run.source();owner=PhoneEmoteFailures(run)
+            # Freeze a genuine source-v1 envelope and original-v1 file first.
+            owner.state['pending']=dict(kind='source',recordVersion=1,role='primary',segment=0,
+                headerSha256=hashlib.sha256(canonical(header)).hexdigest(),archive=None,original=None,manifest=None);owner.save()
+            intent=owner.originals.intent
+            def interrupt(kind,value):
+                intent(kind,value)
+                if kind=='original' and value['phase']=='saved':raise NativeUIError('Synthetic lost v1 source archive callback')
+            owner.originals.intent=interrupt
+            with self.assertRaises(NativeUIError):owner.collect_sources()
+            original=owner.state['pending']['original'];path=owner.originals.path(original);raw=path.read_bytes();inode=path.stat().st_ino
+            legacy=deepcopy(owner.previous);legacy['emoteFailureOwnerVersion']=1;state=unpack(legacy['payload'])[0]
+            state['pending'].pop('kind');state['pending'].pop('recordVersion');legacy['payload']=pack([state]);owner.store.write(legacy,owner.previous)
+            recovered=PhoneEmoteFailures(run);self.assertEqual(legacy,recovered.previous);self.assertEqual(legacy,recovered.store.read())
+            recovered.collect_sources();rows=self.records(recovered)
+            self.assertEqual(1,rows[0]['emoteFailureRecordVersion']);self.assertEqual(raw,path.read_bytes());self.assertEqual(inode,path.stat().st_ino)
+            self.assertEqual(2,recovered.previous['emoteFailureOwnerVersion']);self.assertEqual(1,recovered.state['count'])
+
+    def test_changed_parent_pinned_admission_header_does_not_retire_as_the_original_approval(self):
+        from overte_phone_emote_admission import PhoneEmoteAdmission
+        m=self.model;run=self.prepared()
+        with run.lock.held():
+            admission=PhoneEmoteAdmission(run.source(),run.policy);admission.read()
+            header=deepcopy(admission.previous)
+        self.cleaning(run)
+        with run.lock.held():
+            owner=PhoneEmoteFailures(run)
+            with self.assertRaises(NativeUIError):owner.collect_admissions()
+            self.assertEqual(header,admission.store.read());self.assertEqual(0,owner.state['count']);self.assertIsNotNone(owner.state['pending'])
+
+    def test_failed_admission_before_view_setup_archives_its_missing_result_without_approval(self):
+        m=self.model;m.inventory.resources[0]['model']['sha256']='f'*64;run=self.owner()
+        with self.assertRaises(NativeUIError):run.prepare()
+        self.assertEqual([],self.setup_calls);self.assertIsNone(run.state['admissionSha256']);self.assertIsNone(run.state['call'])
+        self.cleanup_phase();proof=run.cleanup_inputs(dict(contractVersion=17,runId=RUN))
+        self.assertEqual(1,proof['emoteCleanupInputsVersion']);self.assertEqual([],self.setup_calls)
+        with run.lock.held():
+            owner=PhoneEmoteFailures(run);rows=self.records(owner);self.assertEqual(1,len(rows));row=rows[0]
+            self.assertEqual('admission',row['kind']);state=unpack(row['archive']['header']['payload'])[0]
+            self.assertEqual('reading',state['phase']);self.assertEqual([],state['records']);self.assertIsNone(state['window'])
+            self.assertIsNone(run.state['admissionSha256']);self.assertIsNotNone(owner.store.read())
+            self.assertFalse((m.root/'phone-emote-primary-admission.json').exists())
 
 
 if __name__=='__main__':unittest.main()
