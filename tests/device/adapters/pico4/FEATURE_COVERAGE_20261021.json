@@ -457,7 +457,11 @@
         "tests/device/adapters/pico4/PHONE_SHARED_EMOTE_BACKGROUND_EFFECTS_20261022.json",
         "tests/device/adapters/native_avatar_render.py",
         "tests/device/adapters/pico4/EMOTE_AVATAR_SOURCE.md",
-        "tests/device/contracts/emote/test_avatar_render_native.py"
+        "tests/device/contracts/emote/test_avatar_render_native.py",
+        "libraries/gpu/src/gpu/Backend.h",
+        "libraries/gpu-gl-common/src/gpu/gl/GLBackend.cpp",
+        "tests/device/contracts/emote/test_draw_cameras_native.py",
+        "tests/device/adapters/pico4/EMOTE_DRAW_CAMERAS.md"
       ],
       "declaredCheckpoints": 28,
       "inputVerbs": [

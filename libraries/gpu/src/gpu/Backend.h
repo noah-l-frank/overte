@@ -129,6 +129,9 @@ public:
         std::vector<FeatureCameraUniform> cameras;
     };
     virtual bool featureExecutedBatchCameras(const Batch*, FeatureBatchCameras&) const;
+    // Only the immediately following actual lambda may observe this original
+    // indexed draw. Both cameras must have been used by that same draw.
+    virtual bool featureExecutedDrawCameras(const Batch*, size_t commandIndex, FeatureBatchCameras&) const;
     struct FeatureFrame {
         uint32_t index;
         uint64_t execution;

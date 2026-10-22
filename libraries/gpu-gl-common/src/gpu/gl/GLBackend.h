@@ -152,12 +152,16 @@ public:
     bool featureReadFramebuffer(const FramebufferPointer& framebuffer, QImage& image) final override;
     bool featureTextureExtent(const TexturePointer& texture, Vec2i& extent) final override;
     bool featureExecutedBatchCameras(const Batch*, FeatureBatchCameras&) const final override;
+    bool featureExecutedDrawCameras(const Batch*, size_t, FeatureBatchCameras&) const final override;
 protected:
     void featureCameraBufferCreated();
 private:
     void featureObserveCamera(int eye);
     QPointer<QObject> _featureCameraShareGroup;
     const Batch* _featureCompletedBatch {nullptr};
+    const Batch* _featureWorkingBatch {nullptr};
+    size_t _featureDrawCommand {0};
+    FeatureBatchCameras _featureDrawCameras;
     FeatureBatchCameras _featureCompletedCameras, _featureWorkingCameras;
     uint64_t _featureBatchSequence {0};
     bool _featureCameraDraw {false};

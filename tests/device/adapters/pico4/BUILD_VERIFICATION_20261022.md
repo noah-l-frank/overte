@@ -199,3 +199,30 @@ checks pass (4.47s). Lifecycle 9abd6fccb9 adds the next ordinary Chat draft
 component. Its 11 post-integration component cases pass (17.611s), and the
 actual Pico factory/source-lock case passes (1.578s). All four final project
 checks pass (4.52s). These are component checks; Lifecycle remains partial.
+
+
+## Original per-draw stereo camera acquisition
+
+The additive E2E backend API reads only the immediately preceding indexed draw
+from its original working Batch, command index, executing backend and observed
+stereo frame/execution. Its actual two camera bindings become readable after
+that original draw call returns. The batch sequence is allocated when execution
+begins, so per-draw and completed-batch rows share that original identity.
+Missing eyes and changed original bytes in an aggregated camera slot fail closed.
+
+The focused native test compiles complete original GLBackend::renderPassDraw,
+GLESBackend::do_drawIndexed, setupStereoSide, camera acquisition/getter functions,
+and original initialization/finalization fragments with real Qt/GLM. Both doubled
+and instanced builds pass on Qt5 (2.793s) and Qt6 (3.382s). Batch/transform storage
+and GL calls/context/query results are explicit seams; no GL context, full GPU
+translation unit, application, image, OpenXR or device qualification is claimed.
+Twenty-two existing stereo camera/trace/acquisition cases also pass (.044s).
+The first harness compile failed because its placeholder replaced NUM_COMMANDS;
+the corrected whole placeholder preserves the original enum and functions.
+Model payload, submitted capture transport and host stereo model validation are
+still pending, and Emotes remains partial.
+
+Create c92ac6ba9b passes the twelve host cases (3.587s) and original native
+INI/JSON case (9.455s). The first native invocation omitted the already available
+GLM include and failed compilation; the repeated invocation supplied that explicit
+existing path, without installation or product changes.

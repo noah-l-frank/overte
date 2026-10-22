@@ -137,6 +137,9 @@ thread_local Backend* Backend::_featureExecutingBackend {nullptr};
 bool Backend::featureExecutedBatchCameras(const Batch*, FeatureBatchCameras& result) const {
     result=FeatureBatchCameras();return false;
 }
+bool Backend::featureExecutedDrawCameras(const Batch*, size_t, FeatureBatchCameras& result) const {
+    result=FeatureBatchCameras();return false;
+}
 bool Backend::featureReadFramebuffer(const FramebufferPointer&, QImage& image) {
     image = QImage();
     return false; // Includes Vulkan until an actual readback is implemented.

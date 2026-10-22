@@ -439,6 +439,11 @@ void GLBackend::renderPassDraw(const Batch& batch) {
 
 #if defined(OVERTE_E2E_FEATURE_TESTS)
                 _featureCameraDraw=_featureWorkingCameras.complete;
+                _featureDrawCommand=_commandIndex;_featureDrawCameras=FeatureBatchCameras();
+                _featureDrawCameras.frame=_featureWorkingCameras.frame;
+                _featureDrawCameras.execution=_featureWorkingCameras.execution;
+                _featureDrawCameras.sequence=_featureWorkingCameras.sequence;
+                _featureDrawCameras.instanced=_featureWorkingCameras.instanced;
 #endif
                 CommandCall call = _commandCalls[(*command)];
                 (this->*(call))(batch, *offset);
@@ -452,6 +457,14 @@ void GLBackend::renderPassDraw(const Batch& batch) {
 #else
                     if (!_stereo.isStereo()) { _featureWorkingCameras.complete=false; }
 #endif
+                }
+                // The doubled path observes each binding before its real side
+                // call; publication is permitted only after the call returned.
+                _featureDrawCameras.complete=_featureCameraDraw && _featureWorkingCameras.complete
+                    && _featureDrawCameras.cameras.size()==2
+                    && _featureDrawCameras.cameras[0].eye==0 && _featureDrawCameras.cameras[1].eye==1;
+                if (_featureDrawCameras.complete) {
+                    _featureDrawCameras.rawDraws=_featureDrawCameras.executedDraws=1;
                 }
                 _featureCameraDraw=false;
 #endif
@@ -602,6 +615,8 @@ void GLBackend::render(const Batch& batch) {
     GL_PROFILE_RANGE(render_gpu_gl, batch.getName().c_str());
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     _featureWorkingCameras=FeatureBatchCameras();_featureCameraDraw=false;
+    _featureWorkingBatch=&batch;_featureDrawCameras=FeatureBatchCameras();
+    _featureWorkingCameras.sequence=++_featureBatchSequence;
     const auto featureExecutingFrame=featureFrame();
     if (featureExecutingFrame && featureExecutingFrame->observeCameras && featureExecutingFrame->stereo.isStereo()) {
         _featureWorkingCameras.frame=featureExecutingFrame->index;
@@ -650,7 +665,7 @@ void GLBackend::render(const Batch& batch) {
     for (const auto command:batch.getCommands()) {
         if (command>=Batch::COMMAND_draw && command<=Batch::COMMAND_multiDrawIndexedIndirect) { ++_featureWorkingCameras.rawDraws; }
     }
-    _featureWorkingCameras.sequence=++_featureBatchSequence;
+    _featureWorkingBatch=nullptr;_featureDrawCameras=FeatureBatchCameras();
     _featureCompletedCameras=std::move(_featureWorkingCameras);_featureCompletedBatch=&batch;
 #endif
     // Restore the saved stereo state for the next batch
@@ -677,6 +692,19 @@ bool GLBackend::featureExecutedBatchCameras(const Batch* batch, FeatureBatchCame
             || !_featureCompletedCameras.complete || _featureCompletedCameras.frame!=frame->index
             || _featureCompletedCameras.execution!=frame->execution) { return false; }
     result=_featureCompletedCameras;return true;
+}
+
+bool GLBackend::featureExecutedDrawCameras(const Batch* batch, size_t commandIndex, FeatureBatchCameras& result) const {
+    result=FeatureBatchCameras();const auto frame=featureFrame();
+    if (!frame || !frame->observeCameras || !frame->stereo.isStereo() || !batch || batch!=_featureWorkingBatch
+            || Backend::featureExecutingBackend()!=this || !_featureWorkingCameras.complete
+            || !_featureDrawCameras.complete || _featureDrawCommand!=commandIndex
+            || commandIndex>=batch->getCommands().size() || _commandIndex!=commandIndex+1
+            || _commandIndex>=batch->getCommands().size()
+            || batch->getCommands()[commandIndex]!=Batch::COMMAND_drawIndexed
+            || batch->getCommands()[_commandIndex]!=Batch::COMMAND_runLambda
+            || _featureDrawCameras.frame!=frame->index || _featureDrawCameras.execution!=frame->execution) { return false; }
+    result=_featureDrawCameras;return true;
 }
 
 void GLBackend::featureObserveCamera(int eye) {
@@ -711,8 +739,17 @@ void GLBackend::featureObserveCamera(int eye) {
             || size!=static_cast<GLint64>(sizeof(TransformStageState::CameraBufferElement))) { result.complete=false;return; }
     Vec4i drawViewport;
     glGetIntegerv(GL_VIEWPORT,&drawViewport.x);
+    // Preserve the actual two bindings for this single command independently
+    // of the batch aggregates; no other object's camera can fill a missing eye.
+    if (_featureDrawCameras.cameras.size()>=2) { result.complete=false;return; }
+    _featureDrawCameras.cameras.push_back({static_cast<uint32_t>(index),static_cast<uint32_t>(eye),
+        original._view,original._projection,original._viewport,original._stereoInfo,drawViewport,1});
     for (auto& previous:result.cameras) {
         if (previous.slot==index && previous.eye==static_cast<uint32_t>(eye) && previous.drawViewport==drawViewport) {
+            if (previous.view!=original._view || previous.projection!=original._projection
+                    || previous.viewport!=original._viewport || previous.stereoInfo!=original._stereoInfo) {
+                result.complete=false;return;
+            }
             ++previous.draws;return;
         }
     }
