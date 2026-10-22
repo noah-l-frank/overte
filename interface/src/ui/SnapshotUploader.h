@@ -22,6 +22,9 @@ class SnapshotUploader : public QObject {
 public:
     SnapshotUploader(QUrl inWorldLocation, QString pathname);
     overte::network::RequestTicket nextTicket() { return _requests.next(); }
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PHONE_INTERFACE)
+    QString featureUploadJob() const { return _featureUploadJob; }
+#endif
 signals:
     void finished(const QString& path, const QString& status, const QString& error);
 public slots:
@@ -35,6 +38,9 @@ private:
     QString _pathname;
     overte::network::RequestScope _requests;
     bool _finished { false };
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PHONE_INTERFACE)
+    QString _featureUploadJob;
+#endif
     void complete(bool error, const QString& reply);
 };
 #endif // hifi_SnapshotUploader_h

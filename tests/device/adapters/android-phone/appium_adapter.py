@@ -198,6 +198,9 @@ def readonly_feature_command(command):
     elif action=='phone-snapshot-observe':
         from overte_phone_snapshot_source import command as validate_snapshot
         validate_snapshot(command)
+    elif action=='phone-snapshot-upload-observe':
+        from overte_phone_snapshot_upload_source import command as validate_snapshot_upload
+        validate_snapshot_upload(command)
     elif action=='phone-snapshot-readback':
         from overte_phone_snapshot_readbacks import command as validate_readback
         validate_readback(command)
@@ -1270,6 +1273,14 @@ class PhoneAppiumAdapter(AppiumAdapter):
         return PhoneCreateSource(native.send,
             lambda:transport.read_debug_app_file(device,target['appId'],
                 'files/overte-e2e/'+CREATE_SOURCE_FILE,attempts=1),
+            native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep)
+
+    def _snapshot_upload_source(self,selector):
+        from overte_phone_snapshot_upload_source import PhoneSnapshotUploadSource,FILE
+        native=self._native_feature_observer(selector,read_only=True)
+        target=self.target(selector);device=target['capabilities']['appium:udid'];transport=PhoneAdapter(self.candidate).adb
+        return PhoneSnapshotUploadSource(native.send,
+            lambda:transport.read_debug_app_file(device,target['appId'],'files/overte-e2e/'+FILE,attempts=1),
             native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep)
 
     def _snapshot_source(self,selector):

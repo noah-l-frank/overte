@@ -110,3 +110,8 @@ not qualify a device or change the common acceptance count.
 The complete default-off audio composition, normal mute foundation, original
 HTTP/PCM and independently owned PC playout sources are documented in
 [AUDIO_FEATURE.md](AUDIO_FEATURE.md), including its source and device limits.
+
+The separate passive Snapshot upload source, original HTTPS multipart/Story
+receiver and its focused native qualification are documented in
+[SNAPSHOT_UPLOAD.md](SNAPSHOT_UPLOAD.md). The complete Snapshot facade and
+Android OS Save/Share retirement are qualified separately.

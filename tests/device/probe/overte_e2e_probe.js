@@ -397,6 +397,7 @@
     var lastPhoneAssetsReadRequest = "";
     var lastPhoneCreateObservationRequest = "";
     var lastPhoneSnapshotObservationRequest = "";
+    var lastPhoneSnapshotUploadObservationRequest = "";
     var lastPhoneSnapshotReadbackRequest = "";
     var lastPhoneCreateFilesRequest = "";
     var lastAvatarRenderRequest = "";
@@ -1314,6 +1315,21 @@
                 }
             } catch (_phoneReadbackError) { /* Private originals never enter public diagnostics. */ }
             Test.saveObject(readbackOriginal,"phone-snapshot-readback.json");
+            return;
+        }
+        if (command && command.schemaVersion === 1 && command.action === "phone-snapshot-upload-observe"
+                && /^[0-9a-f]{32}$/.test(String(command.commandId)) && /^[0-9a-f]{32}$/.test(String(command.runId))
+                && objectKeysMatch(command,["schemaVersion","commandId","action","runId"])) {
+            if (command.commandId === lastPhoneSnapshotUploadObservationRequest) { return; }
+            lastPhoneSnapshotUploadObservationRequest=command.commandId;
+            var uploadOriginal={schemaVersion:1,requestId:command.commandId,available:false};
+            try {
+                if (typeof Test.phoneSnapshotUploadObservation === "function") {
+                    var uploadActual=Test.phoneSnapshotUploadObservation(command);
+                    if (uploadActual && uploadActual.requestId === command.commandId) { uploadOriginal=uploadActual; }
+                }
+            } catch (_phoneSnapshotUploadError) { /* Original private HTTP/file data never enters diagnostics. */ }
+            Test.saveObject(uploadOriginal,"phone-snapshot-upload-observation.json");
             return;
         }
         if (command && command.schemaVersion === 1 && command.action === "phone-snapshot-observe"
@@ -2450,7 +2466,7 @@
                 || command.action === "feature-world-render-observe" || command.action === "feature-world-render-storage"
                 || command.action === "feature-world-render-receipt"
                 || command.action === "feature-world-render-receipts"
-                || command.action === "feature-graphics-subject-observe" || command.action === "phone-create-observe" || command.action === "phone-assets-observe" || command.action === "phone-assets-download" || command.action === "phone-snapshot-observe" || command.action === "phone-snapshot-readback"
+                || command.action === "feature-graphics-subject-observe" || command.action === "phone-create-observe" || command.action === "phone-assets-observe" || command.action === "phone-assets-download" || command.action === "phone-snapshot-observe" || command.action === "phone-snapshot-readback" || command.action === "phone-snapshot-upload-observe"
                 || command.action === "phone-avatar-configuration-observe" || command.action === "phone-touch-state-observe"
                 || command.action === "phone-emote-fixture-observe" || command.action === "phone-emote-fixture-input"
                 || command.action === "phone-create-fixture-observe" || command.action === "phone-create-fixture-input"

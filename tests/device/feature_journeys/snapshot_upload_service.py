@@ -37,7 +37,7 @@ def multipart(content_type,raw):
     message=BytesParser(policy=HTTP).parsebytes(('Content-Type: '+content_type+'\r\nMIME-Version: 1.0\r\n\r\n').encode('ascii')+raw)
     if message.defects or message.preamble not in (None,'') or message.epilogue not in (None,'') or message.get_content_type()!='multipart/form-data' or not message.is_multipart():raise ValueError('Invalid snapshot multipart')
     boundary=message.get_boundary()
-    if type(boundary) is not str or re.fullmatch(r'[A-Za-z0-9_\-.+]{1,128}',boundary) is None:raise ValueError('Invalid multipart boundary')
+    if type(boundary) is not str or re.fullmatch(r"[A-Za-z0-9'()+_,./:=?\-]{1,70}",boundary) is None:raise ValueError('Invalid multipart boundary')
     parts=list(message.iter_parts())
     if len(parts)!=1:raise ValueError('Exactly one original image part is required')
     part=parts[0]
@@ -76,7 +76,7 @@ class SnapshotUploadService:
         with self.accounts.changed:
             if self.runs or self.has_run(run) or len(self.retired)>=32:raise ValueError('One isolated Snapshot upload scope is required')
             self.accounts.provision(run)
-            self.runs[run]=dict(active=True,ticket=None,activations=[],requests=[],uploads={},stories={},inflight=0,failedResponses=0,foreignRequests=0,lateRequests=0,domainOpen=True,fault='normal',held=False,release=False)
+            self.runs[run]=dict(active=True,ticket=None,activations=[],requests=[],uploads={},stories={},inflight=0,ingress=0,failedResponses=0,foreignRequests=0,lateRequests=0,domainOpen=True,fault='normal',held=False,release=False)
 
     def credentials(self,run):
         with self.accounts.changed:return self.accounts.credentials(identifier(run),'owned')
@@ -99,6 +99,27 @@ class SnapshotUploadService:
             return run,bool(account and account['active'] and token['expires']>self.accounts.now())
         return known,False
 
+    @contextmanager
+    def ingress(self,authorization):
+        """An actual request being read cannot disappear behind body parsing."""
+        row=None
+        with self.accounts.changed:
+            run,_accepted=self._owner(authorization)
+            if run is None and len(self.runs)==1:run=next(iter(self.runs))
+            if run is not None:
+                row=self.runs.get(run) or self.retired[run]
+                if not row['active']:row['lateRequests']+=1
+                if row['ingress']>=4:raise ValueError('Snapshot ingress is full')
+                row['ingress']+=1
+        try:yield
+        except BaseException:
+            if row is not None:
+                with self.accounts.changed:row['failedResponses']+=1
+            raise
+        finally:
+            if row is not None:
+                with self.accounts.changed:row['ingress']-=1;self.accounts.changed.notify_all()
+
     def _write(self,name,raw):
         path=self.root/name
         owner=PrivateFeatureState(path.with_name(name+'.json'));state=dict(snapshotUploadFileVersion=1,instance=self.instance,name=name,phase='planned',file=None)
@@ -111,6 +132,19 @@ class SnapshotUploadService:
             stream.flush();os.fsync(stream.fileno());info=os.fstat(stream.fileno())
         record=dict(name=name,device=info.st_dev,inode=info.st_ino,bytes=len(raw),sha256=digest(raw))
         self.original(record);owner.write(dict(opened,phase='saved',file=record),opened);return record
+
+    def incomplete(self,authorization,method,target,content_type,raw):
+        """Retain the actual bounded received prefix; it can never be an upload."""
+        if type(raw) is not bytes or len(raw)>MAX_BODY:raise ValueError('Invalid original received prefix')
+        with self.accounts.changed:
+            run,_accepted=self._owner(authorization)
+            if run is None and len(self.runs)==1:run=next(iter(self.runs))
+            if run is None:return
+            row=self.runs.get(run) or self.retired[run]
+            if len(row['requests'])>=128:raise ValueError('Original Snapshot request journal is full')
+            self.sequence+=1;request=secrets.token_hex(16);now=self.accounts.now()
+            body=self._write('snapshot-'+run+'-'+request+'.body',raw)
+            row['requests'].append(dict(sequence=self.sequence,requestId=request,ticket=row['ticket'],method=method,target=target,contentType=content_type,authenticated=_accepted,startedEpochMs=now,completedEpochMs=now,body=body,image=None,response=None,state='invalid'))
 
     def _owned(self,record):
         store=PrivateFeatureState(self.root/(record['name']+'.json'));value=store.read()
@@ -154,14 +188,15 @@ class SnapshotUploadService:
             if not row['domainOpen']:return 403,dict(status='fail',error='domain-denied'),None
             image,_payload=multipart(content_type,raw);snapshot=secrets.token_hex(16)
             row['uploads'][snapshot]=image
-            return 200,dict(status='success',data=dict(id=snapshot,thumbnail_url=self.origin+'/snapshot-media/'+snapshot,image_url=self.origin+'/snapshot-media/'+snapshot,original_image_file_name=image['filename'])),image
+            url=self.image_url(snapshot,image)
+            return 200,dict(status='success',data=dict(id=snapshot,thumbnail_url=url,image_url=url,original_image_file_name=image['filename'])),image
         if path==STORIES and method=='POST':
             if content_type.split(';')[0].strip().lower()!='application/json' or len(raw)>16384:raise ValueError('Invalid original story body')
             body=json_document(raw);exact(body,{'user_story'},'original story');story=body['user_story']
             exact(story,{'details','thumbnail_url','place_name','path','action','audience'},'original story fields')
             details=json_document(story['details'].encode()) if type(story['details']) is str else None
             exact(details,{'image_url','snapshot_id','original_image_file_name'}|({'shareable_url'} if 'shareable_url' in details else set()),'original story details')
-            image=row['uploads'].get(details['snapshot_id']);url=self.origin+'/snapshot-media/'+details['snapshot_id']
+            image=row['uploads'].get(details['snapshot_id']);url=self.image_url(details['snapshot_id'],image) if image is not None else None
             if image is None or story['action']!='snapshot' or story['audience']!='for_url' or story['thumbnail_url']!=url or details['image_url']!=url or details['original_image_file_name']!=image['filename'] or not row['domainOpen']:return 403,dict(status='fail',error='foreign-upload'),None
             if any(type(story[k]) is not str or len(story[k])>2048 for k in ('place_name','path')):raise ValueError('Invalid original story location')
             # snapshot.js applies parseInt before its ordinary DELETE path.
@@ -169,6 +204,11 @@ class SnapshotUploadService:
             story_id=100000+self.sequence;result=deepcopy(story);result.update(id=story_id,details=details);row['stories'][str(story_id)]=result
             return 200,dict(status='success',user_story=result),image
         return 404,dict(status='fail',error='not-found'),None
+
+    def image_url(self,snapshot,image):
+        # snapshot.js distinguishes GIF from still using the actual image URL.
+        suffix={'image/png':'.png','image/jpeg':'.jpg','image/gif':'.gif','image/webp':'.webp'}[image['mime']]
+        return self.origin+'/snapshot-media/'+snapshot+suffix
 
     @contextmanager
     def response(self,authorization,method,target,content_type,raw):
@@ -194,7 +234,7 @@ class SnapshotUploadService:
             body=self._write('snapshot-'+run+'-'+request+'.body',raw)
             record=dict(sequence=self.sequence,requestId=request,ticket=ticket,method=method,target=target,contentType=content_type,authenticated=not public_domain,startedEpochMs=started,completedEpochMs=0,body=body,image=None,response=None,state='receiving')
             row['requests'].append(record)
-            fault=row['fault'] if parsed.path==SNAPSHOTS else 'normal'
+            fault=(row['fault'] if row['fault']!='story-404' else 'normal') if parsed.path==SNAPSHOTS else ('404' if row['fault']=='story-404' else 'normal')
             if fault=='hold':
                 row['held']=True;row['release']=False;deadline=time.monotonic()+5
                 self.accounts.changed.notify_all()
@@ -239,13 +279,14 @@ class SnapshotUploadService:
                     for item in (request['body'],request['response']['body']):
                         path=self.root/item['name']
                         if path.exists() or path.is_symlink():raise ValueError('Retired original upload reappeared')
+                        if not row['active'] and (self.root/(item['name']+'.json')).exists():raise ValueError('Retired original upload journal reappeared')
             return dict(snapshotUploadServiceVersion=1,instance=self.instance,runId=run,requestId=nonce,capturedEpochMs=self.accounts.now(),domainId=self.domain_id,origin=self.origin,
-                active=row['active'],ticket=row['ticket'],activations=deepcopy(row['activations']),inflight=row['inflight'],held=row['held'],failedResponses=row['failedResponses'],foreignRequests=row['foreignRequests'],lateRequests=row['lateRequests'],requests=deepcopy(row['requests']),uploads=len(row['uploads']),stories=len(row['stories']))
+                active=row['active'],ticket=row['ticket'],activations=deepcopy(row['activations']),inflight=row['inflight']+row['ingress'],held=row['held'],failedResponses=row['failedResponses'],foreignRequests=row['foreignRequests'],lateRequests=row['lateRequests'],requests=deepcopy(row['requests']),uploads=len(row['uploads']),stories=len(row['stories']))
 
     def control(self,run,operation):
         with self.accounts.changed:
             row=self.runs[identifier(run)]
-            if operation in ('normal','offline','404','503','hold'):row['fault']=operation
+            if operation in ('normal','offline','404','503','hold','story-404'):row['fault']=operation
             elif operation=='release':row['release']=True;self.accounts.changed.notify_all()
             elif operation in ('deny-domain','allow-domain'):row['domainOpen']=operation=='allow-domain'
             else:raise ValueError('Unknown Snapshot fixture input')
@@ -254,7 +295,7 @@ class SnapshotUploadService:
         identifier(run)
         with self.accounts.changed:
             row=self.runs.get(run) or self.retired[run]
-            if row['inflight'] or row['held'] or row['failedResponses'] or row['foreignRequests'] or row['lateRequests']:raise ValueError('Snapshot upload retirement has unresolved original requests')
+            if row['inflight'] or row['ingress'] or row['held'] or row['failedResponses'] or row['foreignRequests'] or row['lateRequests']:raise ValueError('Snapshot upload retirement has unresolved original requests')
             for request in row['requests']:
                 if request['state']=='retired':
                     for item in (request['body'],request['response']['body']):
@@ -262,6 +303,7 @@ class SnapshotUploadService:
                         if path.exists() or path.is_symlink():raise ValueError('Retired original upload reappeared')
                         owner=PrivateFeatureState(self.root/(item['name']+'.json'))
                         if owner.read() is not None:
+                            if not row['active']:raise ValueError('Retired original upload journal reappeared')
                             _store,owned=self._owned(item)
                             if owned['phase']!='retired':raise ValueError('Retired original upload lacks its deletion proof')
                     continue

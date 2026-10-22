@@ -71,6 +71,7 @@
 #if defined(ANDROID_APP_PHONE_INTERFACE)
 #include "../../../tests/device/native/ScriptFileUi.h"
 #include "../../../tests/device/native/PhoneAudioFixtureHTTP.h"
+#include <PhoneSnapshotUploadEvidence.h>
 #include "../../../tests/device/native/PhoneAvatarConfiguration.h"
 #include "../../../tests/device/native/PhoneEmoteFixture.h"
 #include "../../../tests/device/native/PhoneCreateFixture.h"
@@ -1252,6 +1253,16 @@ QVariantMap TestScriptingInterface::phoneCreateFixtureObservation(const QVariant
 #else
     Q_UNUSED(command);return {};
 #endif
+}
+
+QVariantMap TestScriptingInterface::phoneSnapshotUploadObservation(const QVariantMap& command) {
+    if (QThread::currentThread()!=thread()) {
+        QVariantMap result;
+        if (!QMetaObject::invokeMethod(this,[&] { result=phoneSnapshotUploadObservation(command); },Qt::BlockingQueuedConnection)) { return {}; }
+        return result;
+    }
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()) { return {}; }
+    return overte::e2e::phoneSnapshotUploadObservation(command,_featureObservationInstance,_phoneSnapshotUploadObservationSequence);
 }
 
 QVariantMap TestScriptingInterface::phoneSnapshotObservation(const QVariantMap& command) {

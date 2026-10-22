@@ -51,6 +51,10 @@ public:
     QString errorCallbackMethod;
     QJsonObject callbackData;
     overte::network::RequestTicket requestTicket;
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PHONE_INTERFACE)
+    QString phoneSnapshotUploadJob;
+    QString phoneSnapshotUploadStage;
+#endif
 };
 
 namespace AccountManagerAuth {

@@ -24,7 +24,7 @@ def native(provider):
     image=service_tests.png();requests=[]
     for index,row in enumerate(records):
         response=row['response'];stage='image' if row['target'].endswith('/snapshots') else 'story'
-        requests.append(dict(id=str(index+3)*32,stage=stage,url=provider['origin']+row['target'],operation=4,authRequired=True,authorizationPresent=True,multipart=stage=='image',boundary='owned-qt-boundary' if stage=='image' else '',bodyBytes=row['body']['bytes'] if stage=='story' else 0,bodySha256=row['body']['sha256'] if stage=='story' else hashlib.sha256(b'').hexdigest(),dispatchCurrent=True,sentBytes=row['body']['bytes'],totalBytes=row['body']['bytes'],finished=True,destroyed=True,status=response['status'],networkError=0 if response['status']==200 else 2,responseId=response['responseId'] or '',replyBytes=response['body']['bytes'],replySha256=response['body']['sha256'],replyBase64=response['bodyBase64']))
+        requests.append(dict(id=str(index+3)*32,stage=stage,url=provider['origin']+row['target'],operation=4,authRequired=True,authorizationPresent=True,multipart=stage=='image',boundary='owned-qt-boundary' if stage=='image' else '',jsonBytes=row['body']['bytes'] if stage=='story' else 0,jsonSha256=row['body']['sha256'] if stage=='story' else hashlib.sha256(b'').hexdigest(),dispatchCurrent=True,sentBytes=row['body']['bytes'],totalBytes=row['body']['bytes'],finished=True,destroyed=True,status=response['status'],networkError=0 if response['status']==200 else 2,responseId=response['responseId'] or '',replyBytes=response['body']['bytes'],replySha256=response['body']['sha256'],replyBase64=response['bodyBase64']))
     epoch=provider['capturedEpochMs'];events=[dict(sequence=index+1,jobId=JOB,kind=kind,capturedEpochMs=epoch) for index,kind in enumerate(('begin','file-open','multipart-created','terminal','uploader-destroyed','file-destroyed','multipart-destroyed'))]
     return dict(snapshotUploadObservationVersion=1,instance='9'*32,complete=True,capturedEpochMs=epoch,sequence=len(events),events=events,jobs=[dict(id=JOB,path=PATH,href='hifi://owned/1,2,3',uploaderAlive=False,fileAlive=False,multipartAlive=False,file=dict(bytes=len(image),sha256=hashlib.sha256(image).hexdigest(),device=1,inode=2,readBytes=len(image),readSha256=hashlib.sha256(image).hexdigest()),cancelRequested=False,terminal='success' if len(requests)==2 else 'error',requests=requests)])
 
@@ -73,6 +73,9 @@ class SnapshotUploadSourceTests(unittest.TestCase):
         with self.assertRaises(NativeUIError):continuity(first,changed)
         for field in ('expected','url','operation'):
             with self.subTest(field=field),self.assertRaises(NativeUIError):command(dict(calls[0],**{field:'success'}))
+        from appium_adapter import readonly_feature_command
+        readonly_feature_command(calls[0])
+        with self.assertRaises((NativeUIError,RuntimeError)):readonly_feature_command(dict(calls[0],expected='success'))
         observed['complete']=False
         with self.assertRaises(NativeUIError):reader.read(self.run)
     def test_actual_offline_socket_close_joins_only_original_error_job(self):

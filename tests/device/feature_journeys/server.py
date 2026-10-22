@@ -56,7 +56,34 @@ def read_account_body(stream,connection,size,*,monotonic=time.monotonic):
     finally:connection.settimeout(2)
 
 
+def read_snapshot_body(stream,connection,size,received,*,monotonic=time.monotonic):
+    # Preserve the existing two-second absolute transport bound while exposing
+    # only actual received chunks to the private partial-body owner.
+    from feature_journeys.contract import number
+    previous=number(monotonic());deadline=previous+2;count=0
+    try:
+        while count<size:
+            now=number(monotonic());remaining=deadline-now
+            if now<previous or remaining<=0:raise ValueError('Snapshot body deadline expired')
+            previous=now;connection.settimeout(remaining);chunk=stream.read1(size-count)
+            if type(chunk) is not bytes or not chunk or len(chunk)>size-count:raise ValueError('Partial Snapshot body')
+            received.append(chunk);count+=len(chunk)
+        now=number(monotonic())
+        if now<previous or now>=deadline:raise ValueError('Snapshot body deadline expired')
+        return b''.join(received)
+    finally:connection.settimeout(2)
+
+
 class Handler(BaseHTTPRequestHandler):
+    def handle(self):
+        try:super().handle()
+        except (BrokenPipeError,ConnectionResetError,ssl.SSLEOFError,TimeoutError):
+            if getattr(self.server,'snapshot_upload_service',None) is None:raise
+            # Qt can close an unused speculative TLS connection before any
+            # HTTP request line exists. Actual Snapshot request/body ownership
+            # is tracked separately by ingress, including partial-body errors.
+            self.close_connection=True
+
     def log_message(self, *args):
         pass  # No private URLs, tokens, account aliases or request bodies in logs.
 
@@ -213,15 +240,22 @@ class Handler(BaseHTTPRequestHandler):
             self.send(404,{'error':'not-found'});return True
         authorities=self.headers.get_all('Host',[])
         if authorities!=[urlsplit(provider.origin).netloc] or len(self.headers.get_all('Authorization',[]))>1:raise ValueError('Original Snapshot HTTPS authority is required')
-        raw=b''
-        if self.command=='POST':
-            lengths=self.headers.get_all('Content-Length',[])
-            if len(lengths)!=1 or not lengths[0].isdigit() or not 0<int(lengths[0])<=SNAPSHOT_MAX_BODY or self.headers.get('Transfer-Encoding') or self.headers.get('Content-Encoding'):raise ValueError('Invalid bounded Snapshot upload body')
-            raw=read_account_body(self.rfile,self.connection,int(lengths[0]))
-        elif self.headers.get('Content-Length') not in (None,'0') or self.headers.get('Transfer-Encoding'):raise ValueError('Unexpected Snapshot request body')
-        with provider.response(self.headers.get('Authorization',''),self.command,self.path,self.headers.get('Content-Type',''),raw) as response:
-            if response[0]==0:self.connection.shutdown(2)
-            else:self.send(response[0],response[1],response_id=response[2],observe_write=response[3])
+        with provider.ingress(self.headers.get('Authorization','')):
+            raw=b''
+            if self.command=='POST':
+                lengths=self.headers.get_all('Content-Length',[])
+                if len(lengths)!=1 or not lengths[0].isdigit() or not 0<int(lengths[0])<=SNAPSHOT_MAX_BODY or self.headers.get('Transfer-Encoding') or self.headers.get('Content-Encoding'):raise ValueError('Invalid bounded Snapshot upload body')
+                received=[]
+                try:raw=read_snapshot_body(self.rfile,self.connection,int(lengths[0]),received)
+                except (ValueError,OSError):
+                    provider.incomplete(self.headers.get('Authorization',''),self.command,self.path,self.headers.get('Content-Type',''),b''.join(received))
+                    raise ValueError('Original Snapshot body was incomplete') from None
+            elif self.headers.get('Content-Length') not in (None,'0') or self.headers.get('Transfer-Encoding'):raise ValueError('Unexpected Snapshot request body')
+            with provider.response(self.headers.get('Authorization',''),self.command,self.path,self.headers.get('Content-Type',''),raw) as response:
+                if response[0]==0:
+                    try:self.connection.shutdown(2)
+                    except OSError:pass
+                else:self.send(response[0],response[1],response_id=response[2],observe_write=response[3])
         return True
 
     def handle_request(self):

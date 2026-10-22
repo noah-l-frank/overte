@@ -44,13 +44,13 @@ def source(value,epoch):
         else:need(not job['fileAlive'] and not job['multipartAlive'])
         need(type(job['requests']) is list and len(job['requests'])<=4)
         for row in job['requests']:
-            exact(row,{'id','stage','url','operation','authRequired','authorizationPresent','multipart','boundary','bodyBytes','bodySha256','dispatchCurrent','sentBytes','totalBytes','finished','destroyed','status','networkError','responseId','replyBytes','replySha256','replyBase64'})
+            exact(row,{'id','stage','url','operation','authRequired','authorizationPresent','multipart','boundary','jsonBytes','jsonSha256','dispatchCurrent','sentBytes','totalBytes','finished','destroyed','status','networkError','responseId','replyBytes','replySha256','replyBase64'})
             need(nonce(row['id']) and row['id'] not in request_ids and row['stage'] in ('image','story') and type(row['operation']) is int and row['operation']==4 and all(type(row[k]) is bool for k in ('authRequired','authorizationPresent','multipart','dispatchCurrent','finished','destroyed')))
             request_ids.add(row['id']);url=urlsplit(row['url'])
             need(url.scheme=='https' and url.hostname and not url.username and not url.password and not url.query and not url.fragment and url.path==('/api/v1/snapshots' if row['stage']=='image' else '/api/v1/user_stories') and text(row['url'],4096))
-            need(row['authRequired'] and row['authorizationPresent'] and row['dispatchCurrent'] and row['multipart']==(row['stage']=='image') and integer(row['bodyBytes'],0,16384) and integer(row['sentBytes'],0,64*1024*1024) and integer(row['totalBytes'],-1,64*1024*1024) and integer(row['status'],0,599) and integer(row['networkError'],0,999) and integer(row['replyBytes'],0,16384) and (row['responseId']=='' or nonce(row['responseId'])))
-            need(type(row['boundary']) is str and (re.fullmatch(r'[A-Za-z0-9_\-.+]{1,128}',row['boundary']) is not None if row['multipart'] else row['boundary']==''))
-            sha(row['bodySha256']);sha(row['replySha256']);need(type(row['replyBase64']) is str)
+            need(row['authRequired'] and row['authorizationPresent'] and row['dispatchCurrent'] and row['multipart']==(row['stage']=='image') and integer(row['jsonBytes'],0,16384) and integer(row['sentBytes'],0,64*1024*1024) and integer(row['totalBytes'],-1,64*1024*1024) and integer(row['status'],0,599) and integer(row['networkError'],0,999) and integer(row['replyBytes'],0,16384) and (row['responseId']=='' or nonce(row['responseId'])))
+            need(type(row['boundary']) is str and (re.fullmatch(r"[A-Za-z0-9'()+_,./:=?\-]{1,70}",row['boundary']) is not None if row['multipart'] else row['boundary']==''))
+            sha(row['jsonSha256']);sha(row['replySha256']);need(type(row['replyBase64']) is str)
             try:raw=base64.b64decode(row['replyBase64'],validate=True)
             except (ValueError,TypeError):need(False)
             need(len(raw)==row['replyBytes'] and hashlib.sha256(raw).hexdigest()==row['replySha256'])
@@ -87,7 +87,7 @@ def continuity(before,after):
         if old['terminal']:need(new['terminal']==old['terminal'])
         if old['cancelRequested']:need(new['cancelRequested'])
         for one,two in zip(old['requests'],new['requests']):
-            need(all(two[k]==one[k] for k in ('id','stage','url','operation','authRequired','authorizationPresent','multipart','boundary','bodyBytes','bodySha256','dispatchCurrent')))
+            need(all(two[k]==one[k] for k in ('id','stage','url','operation','authRequired','authorizationPresent','multipart','boundary','jsonBytes','jsonSha256','dispatchCurrent')))
             for key in ('finished','destroyed'):
                 if one[key]:need(two[key])
             if one['finished']:need(all(two[k]==one[k] for k in ('status','networkError','responseId','replyBytes','replySha256','replyBase64')))

@@ -43,6 +43,9 @@
 #include "MainWindow.h"
 #include "Snapshot.h"
 #include "SnapshotUploader.h"
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PHONE_INTERFACE)
+#include <PhoneSnapshotUploadEvidence.h>
+#endif
 #include "SnapshotAnimated.h"
 #include "SnapshotStorage.h"
 #include <QMutexLocker>
@@ -699,14 +702,24 @@ void Snapshot::uploadSnapshot(const QString& filename, const QUrl& href) {
     }
     SnapshotUploader* uploader = new SnapshotUploader(url, filename);
 
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PHONE_INTERFACE)
+    QFile* file = new overte::e2e::PhoneSnapshotUploadFile(filename,uploader->featureUploadJob());
+#else
     QFile* file = new QFile(filename);
+#endif
     if (!file->open(QIODevice::ReadOnly) || file->size() <= 0) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PHONE_INTERFACE)
+        overte::e2e::PhoneSnapshotUploadEvidence::get().change(uploader->featureUploadJob(),"terminal","error","file-unavailable");
+#endif
         delete file; delete uploader;
         emit DependencyManager::get<WindowScriptingInterface>()->snapshotShared(true, "Snapshot file is unavailable");
         emit uploadStatusChanged(filename, "error", "file-unavailable");
         return;
     }
 
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PHONE_INTERFACE)
+    overte::e2e::PhoneSnapshotUploadEvidence::get().file(uploader->featureUploadJob(),file);
+#endif
     QHttpPart imagePart;
     const QString suffix = QFileInfo(filename).suffix().toLower();
     const QString mime = suffix == "gif" ? "image/gif" : suffix == "png" ? "image/png" : suffix == "webp" ? "image/webp" : "image/jpeg";
@@ -718,6 +731,9 @@ void Snapshot::uploadSnapshot(const QString& filename, const QUrl& href) {
     QHttpMultiPart* multiPart = new QHttpMultiPart(QHttpMultiPart::FormDataType);
     file->setParent(multiPart);  // we cannot delete the file now, so delete it with the multiPart
     multiPart->append(imagePart);
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PHONE_INTERFACE)
+    overte::e2e::PhoneSnapshotUploadEvidence::get().multipart(uploader->featureUploadJob(),multiPart);
+#endif
 
     auto accountManager = DependencyManager::get<AccountManager>();
     if (!_uploadContextConnected) {
@@ -734,6 +750,9 @@ void Snapshot::uploadSnapshot(const QString& filename, const QUrl& href) {
     connect(uploader, &QObject::destroyed, this, [this, filename] { if (!_uploads.value(filename)) { _uploads.remove(filename); } });
     JSONCallbackParameters callbackParams(uploader, "uploadSuccess", "uploadFailure");
     callbackParams.requestTicket = uploader->nextTicket();
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PHONE_INTERFACE)
+    callbackParams.phoneSnapshotUploadJob=uploader->featureUploadJob();callbackParams.phoneSnapshotUploadStage="image";
+#endif
 
     accountManager->sendRequest(SNAPSHOT_UPLOAD_URL, AccountManagerAuth::Required, QNetworkAccessManager::PostOperation,
                                 callbackParams, nullptr, multiPart);

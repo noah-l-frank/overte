@@ -114,6 +114,9 @@ class SnapshotUploadServiceTests(unittest.TestCase):
         owner.write(original,broken);self.service.retire(self.run)
         path.write_bytes(raw);path.chmod(0o600)
         with self.assertRaises(ValueError):self.service.retire(self.run)
+        path.unlink();owner.write(dict(original,phase='retired'),None)
+        with self.assertRaises(ValueError):self.service.retire(self.run)
+        with self.assertRaises(ValueError):self.service.snapshot(self.run,secrets.token_hex(16))
 
     def test_foreign_story_token_and_late_request_remain_red(self):
         image=self.upload()[1]['data'];self.assertEqual(403,self.story(image,snapshot_id='c'*32)[0])
@@ -121,8 +124,40 @@ class SnapshotUploadServiceTests(unittest.TestCase):
         with self.assertRaises((ValueError,RuntimeError)):self.status()
         with self.assertRaises(ValueError):self.service.retire(self.run)
     def test_partial_multipart_and_duplicate_headers_cannot_claim_original_image(self):
-        for raw in (body()[:-5],body(b'not an encoded PNG'),body(filename='../foreign.png'),body()+body()):
+        boundary='boundary_.oOo._a/b+123='
+        self.assertEqual(hashlib.sha256(png()).hexdigest(),multipart('multipart/form-data; boundary="'+boundary+'"',body(boundary=boundary))[0]['sha256'])
+        duplicated=body().replace(b'Content-Type: image/png\r\n',b'Content-Type: image/png\r\nContent-Type: image/png\r\n')
+        for raw in (body()[:-5],body(b'not an encoded PNG'),body(filename='../foreign.png'),body()+body(),duplicated):
             with self.subTest(raw=hashlib.sha256(raw).hexdigest()),self.assertRaises((ValueError,UnicodeError)):multipart('multipart/form-data; boundary=owned-qt-boundary',raw)
+    def test_header_ingress_and_actual_partial_body_cannot_disappear_during_retirement(self):
+        with self.service.ingress('Bearer '+self.token):
+            self.assertEqual(1,self.service.snapshot(self.run,secrets.token_hex(16))['inflight'])
+            with self.assertRaises(ValueError):self.service.retire(self.run)
+        from feature_journeys.server import read_snapshot_body
+        class Socket:
+            def settimeout(self,_):pass
+        class Partial:
+            def __init__(self):self.first=True
+            def read1(self,_):
+                if self.first:self.first=False;return b'actual-prefix'
+                return b''
+        received=[]
+        with self.assertRaises(ValueError),self.service.ingress('Bearer '+self.token):
+            try:read_snapshot_body(Partial(),Socket(),100,received)
+            except ValueError:
+                self.service.incomplete('Bearer '+self.token,'POST','/api/v1/snapshots','multipart/form-data; boundary=owned',b''.join(received));raise
+        row=self.service.runs[self.run]['requests'][-1]
+        self.assertEqual(b'actual-prefix',self.service.original(row['body']));self.assertEqual('invalid',row['state'])
+        with self.assertRaises(ValueError):self.service.retire(self.run)
+    def test_actual_numeric_story_get_delete_and_partial_deletion_resume(self):
+        image=self.upload()[1]['data'];story=self.story(image)[1]['user_story'];self.assertIsInstance(story['id'],int)
+        route='/api/v1/user_stories/'+str(story['id']);self.assertEqual(story,self.request(route,token=self.token)[1]['user_story']);self.assertEqual(200,self.request(route,token=self.token,method='DELETE')[0]);self.assertEqual(404,self.request(route,token=self.token)[0])
+        unlink=Path.unlink;failed=[False]
+        def interrupted(path,*args,**kwargs):
+            if path.suffix=='.reply' and not failed[0]:failed[0]=True;raise OSError('Synthetic interruption after original body deletion')
+            return unlink(path,*args,**kwargs)
+        with patch.object(Path,'unlink',interrupted),self.assertRaises(OSError):self.service.retire(self.run)
+        self.service.retire(self.run);self.service.retire(self.run);self.assertEqual([],list(self.root.iterdir()))
     def test_pending_actual_request_prevents_retirement_until_original_write(self):
         self.service.control(self.run,'hold');values=[]
         worker=threading.Thread(target=lambda:values.append(self.upload()),daemon=True);worker.start()

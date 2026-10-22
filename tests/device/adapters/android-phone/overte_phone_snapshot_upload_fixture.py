@@ -94,8 +94,10 @@ def join(native,provider,job_id,*,ticket,image_bytes,image_sha256,path,success):
         candidates=[entry for entry in provider['requests'] if entry['ticket']==ticket and entry['method']=='POST' and entry['target']==urlsplit(row['url']).path and entry['response'] is not None and (entry['response']['responseId']==row['responseId'] if row['responseId'] else entry['response']['status']==0)]
         need(len(candidates)==1);entry=candidates[0];response=entry['response'];need(entry['state'] in ('written','connection-closed') and response['status']==row['status'] and response['body']['bytes']==row['replyBytes'] and response['body']['sha256']==row['replySha256'])
         if row['stage']=='image':
-            if success:need(entry['image'] is not None and entry['image']['bytes']==image_bytes and entry['image']['sha256']==image_sha256 and job['file']['readBytes']==image_bytes and job['file']['readSha256']==image_sha256 and row['sentBytes']>=entry['body']['bytes'])
-        else:need(entry['body']['bytes']==row['bodyBytes'] and entry['body']['sha256']==row['bodySha256'])
+            from email.message import Message
+            header=Message();header['Content-Type']=entry['contentType'];need(header.get_content_type()=='multipart/form-data' and header.get_param('boundary')==row['boundary'])
+            if success:need(entry['image'] is not None and entry['image']['bytes']==image_bytes and entry['image']['sha256']==image_sha256 and entry['image']['filename']==path.rsplit('/',1)[-1] and job['file']['readBytes']==image_bytes and job['file']['readSha256']==image_sha256 and row['sentBytes']>=entry['body']['bytes'])
+        else:need(entry['body']['bytes']==row['jsonBytes'] and entry['body']['sha256']==row['jsonSha256'])
         originals.append(entry);raw=base64.b64decode(row['replyBase64'])
         replies.append(json.loads(raw) if raw else None)
     if not success:
@@ -105,5 +107,6 @@ def join(native,provider,job_id,*,ticket,image_bytes,image_sha256,path,success):
     directories=[entry for entry in provider['requests'] if entry['ticket']==ticket and entry['method']=='GET' and urlsplit(entry['target']).path=='/api/v1/user_stories' and entry['response'] is not None and entry['response']['status']==200 and entry['state']=='written' and entry['completedEpochMs']<=originals[0]['startedEpochMs']]
     need(any(dict(parse_qsl(urlsplit(entry['target']).query)).get('domain_id')==provider['domainId'] and json.loads(base64.b64decode(entry['response']['bodyBase64'])).get('total_entries')==1 for entry in directories))
     image=replies[0]['data'];story=replies[1]['user_story'];details=story['details']
-    need(type(image['id']) is str and nonce(image['id']) and integer(story['id'],1,9007199254740991) and details['snapshot_id']==image['id'] and details['image_url']==image['image_url']==provider['origin']+'/snapshot-media/'+image['id'] and details['original_image_file_name']==image['original_image_file_name']==originals[0]['image']['filename'])
+    suffix={'image/png':'.png','image/jpeg':'.jpg','image/gif':'.gif','image/webp':'.webp'}[originals[0]['image']['mime']]
+    need(type(image['id']) is str and nonce(image['id']) and integer(story['id'],1,9007199254740991) and details['snapshot_id']==image['id'] and details['image_url']==image['image_url']==provider['origin']+'/snapshot-media/'+image['id']+suffix and details['original_image_file_name']==image['original_image_file_name']==originals[0]['image']['filename'])
     return dict(job=deepcopy(job),requests=deepcopy(originals),snapshotId=image['id'],storyId=story['id'])

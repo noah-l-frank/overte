@@ -13,6 +13,7 @@ DEPENDENCY_LIGHT_CHECKS = (
 )
 PREPARED_HOST_CHECKS = (
     "android/phone/tests/device/test_assets_files.py",
+    "android/phone/tests/snapshot-upload-source-contract-test.py",
     "android/phone/tests/device/test_assets_native_reads.py",
     "android/phone/tests/audio-fixture-source-contract-test.py",
     "android/phone/tests/phone-navigation-native-test.py",
@@ -40,6 +41,7 @@ PREPARED_HOST_CHECKS = (
     "android/phone/tests/phone-voice-clock-test.py",
 )
 COMMON_HOST_CHECKS = (
+    "android/phone/tests/device/test_snapshot_upload_source.py",
     "android/phone/tests/device/test_assets_source.py",
     "android/phone/tests/device/test_audio_source.py",
     "android/phone/tests/device/test_audio_mute.py",
