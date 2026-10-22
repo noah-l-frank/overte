@@ -45,7 +45,7 @@
     "ios-create-drain": {"current": 1, "reads": [1]},
     "ios-create-marker-files": {"current": 1, "reads": [1]},
     "ios-create-marker-admission": {"current": 1, "reads": [1]},
-    "ios-create-marker-scope": {"current": 1, "reads": [1]},
+    "ios-create-marker-scope": {"current": 2, "reads": [1, 2]},
     "ios-create-marker-recovery": {"current": 1, "reads": [1]},
     "ios-create-marker-abandoned-read": {"current": 1, "reads": [1]},
     "ios-create-partial-marker": {"current": 1, "reads": [1]},

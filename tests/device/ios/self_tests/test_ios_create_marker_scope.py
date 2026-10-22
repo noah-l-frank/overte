@@ -27,7 +27,7 @@ class MarkerScopeTests(unittest.TestCase):
         scope.ticket='a'*32;scope.store=PrivateFeatureState(self.root/'ios-create-primary-marker.json')
         scope.files=OwnedCreateMarkerFiles(None,PrivateFeatureState(self.root/'ios-create-primary-marker-files.json'),scope.binding)
         scope.originals=IOSCreateOriginals(self.root,scope.binding,RUN,'primary',scope.guard,scope.storage_intent,kind='inputs')
-        scope.previous=scope.store.read();scope.state=dict(phase='preparing',revision=0,manifests=[],pending=None,baseline=None,
+        scope.previous=scope.store.read();scope._version=2 if scope.previous is None else scope.previous['iosCreateMarkerScopeVersion'];scope.state=dict(phase='preparing',revision=0,manifests=[],pending=None,baseline=None,
             admission=None,admissionFrame=None,loadBarrier=None,stopBarrier=None,webAdmission=None,directory=None,fileOwnership=None,fileAbsence=None,
             operations=[],leases=dict(tablet=False,address=False,menu=False),quiet=[],cleanupMode='full')
         if scope.previous is not None:scope.state=scope.decode(scope.previous)

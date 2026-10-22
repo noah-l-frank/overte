@@ -26,7 +26,7 @@ from feature_journeys.contract import identifier
 from ios.adapters.create_marker_files import OwnedCreateMarkerFiles
 from ios.adapters.create_marker_measurements import body_preserved,view_preserved
 from ios.adapters.create_marker_identity import PreparedCreateMarker
-from ios.adapters import create_state
+from ios.adapters import create_state,create_entities
 from ios.adapters.create_actions import semantic_map
 from ios.adapters.create_originals import IOSCreateOriginals,MAX_FRAMES
 from ios.adapters.emote_world import original as world_original,actual_domain,validate as world_packet,ACTION as WORLD_ACTION
@@ -38,9 +38,10 @@ from ios.adapters.create_marker_partial import admitted,executed as partial_exec
 from ios.adapters.create_marker_identity import marker as actual_marker
 from ios.adapters.graphics_lifetime import REQUIRED,LIVE
 import hashlib
+import uuid
 from ios.adapters.script_dialogs import validate as dialogs_packet,completed as dialog_completed,ACTION as DIALOG_ACTION
 
-VERSION=1
+VERSION=2
 PHASES=('new','preparing','aborting-unused','ready','closing','stopping-marker','quiet','releasing-files','released')
 
 
@@ -56,13 +57,13 @@ class CreateMarkerScope:
         result.fixture_url=value.get('fixtureUrl');result.ticket=identifier(value.get('ticket'))
         result.files=OwnedCreateMarkerFiles(None,PrivateFeatureState(result.root/'archive-unused-marker-files.json'),binding)
         result.originals=IOSCreateOriginals(root,binding,run,role,lambda:True,lambda *_:need(False),kind='inputs')
-        result.state=result.decode(value)
+        result._version=value.get('iosCreateMarkerScopeVersion');result.state=result.decode(value)
         if require_ready:
             need(result.state['phase']=='ready' and result.state['cleanupMode']=='full'
                 and result.state['webAdmission'] is not None and result.state['pending'] is None)
-            rows=[row for row in result.frames if row['label']=='view-ready'];need(len(rows)==1)
-            view_preserved(result.frames[result.state['baseline']-1]['create'],rows[0]['create'])
-            result.ui_absent(rows[0])
+            rows=[row for row in result.frames if row['label']=='view-ready'];need(rows)
+            view_preserved(result.frames[result.state['baseline']-1]['create'],rows[-1]['create'])
+            body_preserved(result.frames[result.state['baseline']-1]['world'],rows[-1]['world']);result.ui_absent(rows[-1])
             admission=result.frames[result.state['webAdmission']-1]['web'];url=result.state['admission']['marker']['sourceUrl']
             contexts=[r for r in admission['contexts'] if r['descriptor']['sourceUrl']==url]
             need(admission['iosWebClosureVersion']>=5 and len(contexts)==1 and contexts[0]['descriptor']['surface']=='world-entity'
@@ -91,12 +92,13 @@ class CreateMarkerScope:
         self.live=runtime._sources(selector);self.binding=deepcopy(context(self.live['binding']));self.pid=int(self.binding['processIdentity'])
         self.guard=self.live['check'];observer=self.live['observer'];clock=self.live['clock_source']
         self.native=observer.bound_native_observer(clock);self.world=observer.emote_world(clock);self.create=observer.create_state(clock)
+        self.entities=observer.create_entities(clock)
         self.terminals=observer.script_terminal(clock);self.work=observer.script_work(clock);self.web=observer.web_closures()
         self.dialogs=observer.script_dialogs(clock)
         self.files=OwnedCreateMarkerFiles(observer.script_fixture_files(),
             PrivateFeatureState(self.store.path.with_name('ios-create-'+role+'-marker-files.json')),self.binding)
         self.originals=IOSCreateOriginals(root,self.binding,run,role,self.guard,self.storage_intent,kind='inputs',monotonic=monotonic)
-        self.frames=[];self.failed=False;self.previous=self.store.read()
+        self.frames=[];self.failed=False;self.previous=self.store.read();self._version=VERSION if self.previous is None else self.previous.get('iosCreateMarkerScopeVersion')
         self.state=dict(phase='new',revision=0,manifests=[],pending=None,baseline=None,admission=None,admissionFrame=None,loadBarrier=None,
             stopBarrier=None,webAdmission=None,directory=None,fileOwnership=None,fileAbsence=None,operations=[],leases=dict(tablet=False,address=False,menu=False),quiet=[],cleanupMode='full')
         if self.previous is not None:
@@ -105,15 +107,17 @@ class CreateMarkerScope:
                 last=self.frames[-1];self.world.last=deepcopy(last['world']);self.create.last=deepcopy(last['create']);self.terminals.restore(last['terminal'])
                 self.web.last=deepcopy(last['web']);restore_native(self.native,last['clockJoin']['nativeAfter'])
                 self.dialogs.last=deepcopy(last['dialogs'])
+                if self._version>=2:self.entities.last=deepcopy(last['entities'])
                 work=[row['work'] for row in self.frames if row['work'] is not None]
                 if work:self.work.restore(work)
 
     def envelope(self,state):
-        return dict(iosCreateMarkerScopeVersion=VERSION,runId=self.run,role=self.role,binding=self.binding,
+        return dict(iosCreateMarkerScopeVersion=getattr(self,'_version',VERSION),runId=self.run,role=self.role,binding=self.binding,
             artifactRoot=str(self.root),fixtureUrl=self.fixture_url,ticket=self.ticket,payload=pack([state]))
 
     def decode(self,value):
         exact(value,{'iosCreateMarkerScopeVersion','runId','role','binding','artifactRoot','fixtureUrl','ticket','payload'})
+        need(type(value['iosCreateMarkerScopeVersion']) is int and value['iosCreateMarkerScopeVersion'] in (1,2))
         rows=unpack(value['payload']);need(len(rows)==1 and same(value,self.envelope(rows[0])));state=rows[0]
         exact(state,{'phase','revision','manifests','pending','baseline','admission','admissionFrame','loadBarrier','stopBarrier','webAdmission',
                      'directory','fileOwnership','fileAbsence','operations','leases','quiet','cleanupMode'})
@@ -158,6 +162,7 @@ class CreateMarkerScope:
                 admission=partial_execution if state['cleanupMode']=='partial-execution' else admitted
                 expected=admission(frames[state['baseline']-1],loaded,state['fileOwnership'],state['directory'],after_epoch=state['loadBarrier'])
             need(same(state['admission'],expected))
+            if getattr(self,'_version',VERSION)>=2:self.returned_entity(state,frames)
         if state['stopBarrier'] is not None:
             if state['cleanupMode']=='finished-execution':
                 rows=[row for row in loaded['terminal']['source']['events'] if row['manager']==state['admission']['manager'] and row['kind']=='thread-bound']
@@ -219,8 +224,9 @@ class CreateMarkerScope:
         pending[kind]=deepcopy(value);self.save()
 
     def validate_frame(self,frame,previous=None):
-        exact(frame,{'label','create','world','terminal','dialogs','web','widgets','work','clockJoin'})
-        need(type(frame['label']) is str);originals={k:frame[k] for k in ('create','world','terminal','dialogs','web','widgets','work')}
+        names=('create','world','terminal','dialogs','web','widgets','work')+(() if getattr(self,'_version',VERSION)==1 else ('entities',))
+        exact(frame,{'label','clockJoin',*names})
+        need(type(frame['label']) is str);originals={k:frame[k] for k in names}
         join=validate_join(frame['clockJoin'],originals);epoch=join['nativeAfter']['capturedEpochMs']
         world=world_original(frame['world']);need(world['processId']==self.pid and world['runId']==self.run)
         need(join['nativeBefore']['capturedEpochMs']<=world['clockBefore']['epochMs']<=world['clockAfter']['epochMs']<=epoch)
@@ -228,7 +234,15 @@ class CreateMarkerScope:
         create_state.validate(state,dict(schemaVersion=1,commandId=state['requestId'],action=create_state.ACTION,runId=self.run),self.pid,epoch,None if previous is None else previous['create'])
         need(state['iosCreateStateVersion']>=3 and state['source']['domainId']==actual_domain(world)['domainId']
             and same(state['source']['tree']['entities'],world['source']['tree']['entities'])
+            and hashlib.sha256(uuid.UUID(state['source']['localSessionId']).bytes).hexdigest()==actual_domain(world)['selfSha256']
             and join['nativeBefore']['capturedEpochMs']<=state['clockBefore']['epochMs']<=state['clockAfter']['epochMs']<=world['clockBefore']['epochMs'])
+        if 'entities' in frame:
+            e=frame['entities'];create_entities.validate(e,dict(schemaVersion=1,commandId=e['requestId'],action=create_entities.ACTION,runId=self.run),self.pid,epoch,
+                None if previous is None else previous['entities'])
+            need(join['nativeBefore']['capturedEpochMs']<=e['clockBefore']['epochMs']<=e['clockAfter']['epochMs']<=epoch
+                and e['source']['tree']['treeInstance']==state['source']['tree']['treeInstance']
+                and {row['id'] for row in e['source']['tree']['entities'] if row['removedSequence']==0 and not row['destroyed']}==
+                    {row['id'] for row in state['source']['tree']['entities']})
         widgets_packet(frame['widgets'],self.pid,epoch)
         d=frame['dialogs'];dialogs_packet(d,dict(schemaVersion=1,commandId=d['requestId'],action=DIALOG_ACTION,runId=self.run),self.pid,epoch,
             None if previous is None else previous['dialogs'])
@@ -259,6 +273,7 @@ class CreateMarkerScope:
             need(name not in self.state['pending']['partial']);self.state['pending']['partial'][name]=deepcopy(value);self.save();return value
         clock=NativeClockAcquisition(self.native,epoch_ms=self.epoch_ms,monotonic=self.monotonic);clock.begin(self.epoch_ms())
         remember('nativeStart',clock.started);originals={}
+        if getattr(self,'_version',VERSION)>=2:originals['entities']=remember('entities',self.entities.read(self.run))
         originals['create']=remember('create',self.create.read(self.run))
         originals['world']=remember('world',self.world.read(self.run))
         originals['terminal']=remember('terminal',self.terminals.read(0 if self.terminals.last is None else self.terminals.last['sequence']))
@@ -291,22 +306,44 @@ class CreateMarkerScope:
             binding,source_kind='script-file-bundle',file_owner=self.files,file_picker=picker)
 
     def prepare(self):
-        self.bound()
+        self.bound();need(getattr(self,'_version',VERSION)>=2)
         if self.state['phase']=='ready':return deepcopy(self.state['admission'])
-        need(self.state['phase']=='new' and self.files.store.read() is None)
-        before=self.capture('baseline');actual_domain(before['world']);need(not before['widgets']['tabletShown']
-            and before['clockJoin']['nativeAfter']['animation']['overrideActive'] is False)
-        self.ui_absent(before)
-        self.state.update(phase='preparing',baseline=len(self.frames));self.save()
-        self.files.reserve_marker(self.run,self.fixture_url,self.ticket)
-        self.state['fileOwnership']=deepcopy(self.files.owned());self.save()
-        self.state['directory']=self.once('stage-marker-files',self.files.stage_reserved);self.save()
+        need(self.state['phase'] in ('new','preparing'))
+        if self.state['phase']=='new':
+            need(self.files.store.read() is None)
+            before=self.capture('baseline');actual_domain(before['world']);need(not before['widgets']['tabletShown']
+                and before['clockJoin']['nativeAfter']['animation']['overrideActive'] is False)
+            self.ui_absent(before);self.state.update(phase='preparing',baseline=len(self.frames));self.save()
+        before=self.frames[self.state['baseline']-1]
+        if self.state['fileOwnership'] is None:
+            if self.files.store.read() is None:self.files.reserve_marker(self.run,self.fixture_url,self.ticket)
+            files=self.files.owned();need(files['runId']==self.run and files['fixtureUrl']==self.fixture_url and files['ticket']==self.ticket)
+            self.state['fileOwnership']=deepcopy(files);self.save()
+        if self.state['directory'] is None:
+            self.state['directory']=self.once('stage-marker-files',self.files.stage_reserved);self.save()
         manager=self.manager();self.once('open-marker-manager',manager.open);self.once('open-marker-picker',manager.file_picker_open)
-        barrier=self.capture('before-marker-load');self.state['loadBarrier']=barrier['clockJoin']['nativeAfter']['capturedEpochMs'];self.save()
+        if self.state['loadBarrier'] is None:
+            barriers=[row for row in self.frames if row['label']=='before-marker-load'];need(len(barriers)<=1)
+            barrier=barriers[0] if barriers else self.capture('before-marker-load')
+            self.state['loadBarrier']=barrier['clockJoin']['nativeAfter']['capturedEpochMs'];self.save()
         self.once('load-marker-script',lambda:manager.file_picker_choose('script-bundle/main.js'))
         self.close_owned_manager('prepare-marker')
-        after=self.capture('marker-loaded');owned=admitted(before,after,self.files.owned(),self.state['directory'],after_epoch=self.state['loadBarrier'])
-        self.state.update(admission=owned,admissionFrame=len(self.frames));self.save()
+        if self.state['admission'] is None:
+            started=self.monotonic()
+            for attempt in range(41):
+                # Repeated reads observe asynchronous ordinary Script loading;
+                # the once-delivered picker/load operation is never resent.
+                after=self.capture('marker-loaded')
+                try:
+                    owned=admitted(before,after,self.files.owned(),self.state['directory'],after_epoch=self.state['loadBarrier'])
+                    candidate=dict(self.state,admission=owned,admissionFrame=len(self.frames));self.returned_entity(candidate)
+                except NativeUIError:
+                    need(self.monotonic()-started<10)
+                    if attempt<40:self.sleep(.1)
+                else:
+                    self.state.update(admission=owned,admissionFrame=len(self.frames));self.save();break
+            need(self.state['admission'] is not None)
+        owned=self.state['admission'];self.returned_entity()
         current=self.capture('view-ready',owned['manager']);body_preserved(before['world'],current['world'])
         need(not current['widgets']['tabletShown']);view_preserved(before['create'],current['create'])
         self.state['phase']='ready';self.save();return deepcopy(owned)
@@ -429,7 +466,20 @@ class CreateMarkerScope:
 
     def restored_marker(self,baseline,current,owned,barrier):
         restore=restored
-        return restore(baseline,current,owned,current['terminal'],after_sequence=barrier['sequence'],after_epoch=barrier['epoch'])
+        result=restore(baseline,current,owned,current['terminal'],after_sequence=barrier['sequence'],after_epoch=barrier['epoch'])
+        if getattr(self,'_version',VERSION)>=2:create_entities.retired(current['entities'],self.returned_entity(),after_epoch=barrier['epoch'])
+        return result
+
+    def returned_entity(self,state=None,frames=None):
+        """Join actual VM return to actual Tree birth, including transient setup."""
+        need(getattr(self,'_version',VERSION)>=2)
+        state=self.state if state is None else state;frames=self.frames if frames is None else frames
+        admission=state['admission'];need(admission is not None and state['admissionFrame'] is not None)
+        barriers=[row for row in frames if row['label']=='before-marker-load'];need(len(barriers)==1)
+        result=create_entities.returned(frames[state['admissionFrame']-1]['entities'],barriers[0]['entities'],
+            admission['manager'],admission['code'],after_epoch=state['loadBarrier'])
+        if admission['marker'] is not None:need(result['returned']['entityId']==admission['marker']['id'] and result['birth'] is not None)
+        return result
 
     def adopt_finished(self):
         current=self.capture('finished-marker-check');baseline=self.frames[self.state['baseline']-1]
@@ -541,7 +591,12 @@ class CreateMarkerScope:
         native membership must both be present before ownership can retire.
         """
         if not any(row['label']=='open-marker-picker' for row in self.state['operations']):return True
-        baseline=self.frames[self.state['baseline']-1];self.ui_absent(current)
+        baseline=self.frames[self.state['baseline']-1];self.ui_absent(current);url=self.state['directory']+'/script-bundle/main.js'
+        if getattr(self,'_version',VERSION)>=2:
+            original=current['entities']['source'];old=baseline['entities']['source']
+            need(original['calls']['complete'] and original['tree']['complete']
+                and not any(row['caller']['manager']['url']==url for row in original['calls']['events'][len(old['calls']['events']):])
+                and {row['birth'] for row in original['tree']['entities']}=={row['birth'] for row in old['tree']['entities']})
         proof=self.dialog_drained(current)
         url=self.state['directory']+'/script-bundle/main.js';entered=proof['entered'];returned=proof['returned']
         need(entered['response']['text'] in ('',url) and returned['manager'] is None)

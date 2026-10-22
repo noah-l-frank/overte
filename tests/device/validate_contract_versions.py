@@ -52,7 +52,7 @@ REQUIRED = {
     "ios-create-drain": 1,
     "ios-create-marker-files": 1,
     "ios-create-marker-admission": 1,
-    "ios-create-marker-scope": 1,
+    "ios-create-marker-scope": 2,
     "ios-create-marker-recovery": 1,
     "ios-create-marker-abandoned-read": 1,
     "ios-create-partial-marker": 1,

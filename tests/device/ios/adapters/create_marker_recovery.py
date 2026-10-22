@@ -13,7 +13,7 @@ from adapters.script_feature.history import pack,unpack,same
 from ios.adapters.emote_native_prefix import follow as native_prefix
 from ios.adapters.emote_world import validate as world_packet,ACTION as WORLD_ACTION
 from ios.adapters.web_closures import continuity as web_continuity
-from ios.adapters import create_state
+from ios.adapters import create_state,create_entities
 from ios.adapters.script_dialogs import validate as dialogs_packet,ACTION as DIALOG_ACTION
 
 VERSION=1
@@ -106,6 +106,8 @@ class IOSCreateMarkerRecovery:
             native=frame['clockJoin']['nativeBefore'];epoch=frame['clockJoin']['nativeAfter']['capturedEpochMs']
             if 'nativeStart' in partial:native_prefix(partial['nativeStart']['nativeBefore'],native)
             if 'clockJoin' in partial:native_prefix(partial['clockJoin']['nativeAfter'],native)
+            if 'entities' in partial:
+                p=frame['entities'];create_entities.validate(p,dict(schemaVersion=1,commandId=p['requestId'],action=create_entities.ACTION,runId=s.run),s.pid,epoch,partial['entities'])
             if 'create' in partial:
                 p=frame['create'];create_state.validate(p,dict(schemaVersion=1,commandId=p['requestId'],action=create_state.ACTION,runId=s.run),s.pid,epoch,partial['create'])
             if 'world' in partial:
