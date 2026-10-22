@@ -64,3 +64,35 @@ file-only revalidation. As with the source checks, modeled native clocks do not
 qualify physical deadlines. Artifact assembly, final manifest verification,
 image/outcome proofs, native file-job joins and whole paired cleanup remain
 the next integration work.
+
+## Full original file join
+
+`snapshot_original_file.original` now reads the retained manifest/chunk owners
+and joins their actual originals. Both manifest inventories must be identical;
+the complete file bytes must reproduce the original manifest hash and revision.
+The owners share the full run/role/process/candidate binding, private directory
+and source lock. Chunk indexes and offsets remain ordered without duplicates.
+Every independent native clock keeps its original nonce, source birth,
+sequence, lifecycle counters and timestamp across the complete read sequence.
+
+The separately acquired native file-work original must follow the final
+manifest. Each query must have exactly one actual job, with its packet sample
+inside the actual entered/publication interval. Every observed job must have
+returned, reached its finally boundary and separately lost its last weak
+capture. A cached functor remains held even after successful publication and
+return. Missing jobs, failed publication and foreign or incomplete sources
+cannot produce the joined file.
+
+This pure historical join returns a version-1 fact and private original bytes.
+It does not access the SDK or write an artifact. The enclosing feature must
+retain the actual file-work original and every participating owner, durably
+own any assembled artifact, verify real image and destination outcomes, and
+complete independent quiet-window and paired cleanup. These requirements are
+explicitly retained in the fact; no complete capability is enabled here.
+
+Five composed no-build tests use real private multichunk files, immutable
+owners, HTTP/AFC transport and actual host cached-functor weak lifetimes.
+They reject changed final inventories, source-birth changes, missing/reordered
+or modified original chunks, live/failed/unknown jobs and foreign sources.
+Native file IO and clocks are modeled; this does not qualify an iOS device or
+physical acquisition deadlines.

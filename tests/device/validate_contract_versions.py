@@ -473,6 +473,7 @@ REQUIRED = {
     "ios-snapshot-file-work-acquisition": 1,
     "ios-snapshot-owned-pending-cancellation": 1,
     "ios-snapshot-input-proof": 1,
+    "ios-snapshot-original-file": 1,
     "ios-snapshot-input-proof-original": 1,
     "ios-snapshot-captures-acquisition": 1,
     "ios-snapshot-pending-cancellation": 1,

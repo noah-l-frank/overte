@@ -479,6 +479,7 @@
     "ios-snapshot-file-work-acquisition": {"current": 1, "reads": [1]},
     "ios-snapshot-owned-pending-cancellation": {"current": 1, "reads": [1]},
     "ios-snapshot-input-proof": {"current": 1, "reads": [1]},
+    "ios-snapshot-original-file": {"current": 1, "reads": [1]},
     "ios-snapshot-input-proof-original": {"current": 1, "reads": [1]},
     "ios-snapshot-captures-acquisition": {"current": 1, "reads": [1]},
     "ios-snapshot-pending-cancellation": {"current": 1, "reads": [1]},
