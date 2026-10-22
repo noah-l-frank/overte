@@ -56,6 +56,8 @@ REQUIRED = {
     "original-marker-restoration-abandoned": 1,
     "original-marker-restoration-image": 1,
     "ios-avatar-restoration-image": 1,
+    "ios-avatar-scene": 1,
+    "ios-avatar-scene-original": 1,
     "marker-entity-original": 1,
     "marker-entity-record": 1,
     "ios-create-entities": 1,
