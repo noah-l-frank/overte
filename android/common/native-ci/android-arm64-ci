@@ -27,6 +27,12 @@ qt/*:with_openal=False
 qt/*:with_pq=False
 hwloc/*:shared=True
 
+[tool_requires]
+# Both declared version ranges admit the already qualified source-built CMake.
+# Limit the override to these packages; do not rewrite original producer inputs.
+opus/*:cmake/3.31.12
+abseil/*:cmake/3.31.12
+
 [conf]
 tools.android:ndk_path={{ android_ndk }}
 tools.build:cflags=["-D__BIONIC_NO_PAGE_SIZE_MACRO"]
