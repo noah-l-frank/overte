@@ -75,7 +75,7 @@ class EarlyCleanupTests(unittest.TestCase):
     def test_legacy_run_cannot_borrow_new_unissued_resource_semantics(self):
         m=self.model;m.inventory.resources[0]['model']['sha256']='f'*64;run=self.owner()
         with self.assertRaises(NativeUIError):run.prepare()
-        legacy=deepcopy(run.previous);legacy['emoteRunVersion']=3;state=unpack(legacy['payload'])[0];state.pop('setup');state.pop('prepared');legacy['payload']=pack([state])
+        legacy=deepcopy(run.previous);legacy['emoteRunVersion']=3;legacy.pop('imagePolicy');state=unpack(legacy['payload'])[0];state.pop('setup');state.pop('prepared');legacy['payload']=pack([state])
         run.store.write(legacy,run.previous);run=self.owner();self.cleanup_phase()
         with patch('overte_phone_emote_run.PhoneEmoteView',side_effect=NativeUIError('No original legacy View ownership')),self.assertRaises(NativeUIError):run.cleanup_resources(self.call())
         self.assertEqual(dict(view='legacy',scene='legacy'),run.state['setup']);self.assertIsNotNone(run.store.read())

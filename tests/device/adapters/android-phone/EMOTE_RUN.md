@@ -1,4 +1,4 @@
-# Phone Emote setup and input run owner, version 5
+# Phone Emote setup and input run owner, version 6
 
 `PhoneEmoteRun` joins the existing View, Scene, per-role Source, normal Input,
 Background, Namespace and Cleanup Input components under the same source lock.
@@ -17,9 +17,9 @@ stored unchanged and cannot be replaced on reconstruction. The constructor does
 not open a foreground-only target source, so reconstructing the run while an
 owned background action is interrupted remains possible.
 
-The private control `phone-emote-run.json` contains exactly `emoteRunVersion:5`,
+The private control `phone-emote-run.json` contains exactly `emoteRunVersion:6`,
 `runId`, `fixtureUrl`, `artifactRoot`, `imageExtent`, `markerRoi`,
-`admissionPolicy`, `payload`. Its
+`admissionPolicy`, `imagePolicy`, `payload`. Its
 existing bounded packed payload holds one
 `{phase,binding,segment,baseline,call,cleanupTicket,admissionSha256,setup,prepared}` state. Binding is the actual
 existing candidate/process/session context. Baseline references an original
@@ -240,3 +240,19 @@ completion; preparing or an explicit unissued child proves incompletion. Older
 cleanup with both children issued leaves `prepared` null. That unknown history
 cannot borrow the new aborted-setup path and still requires the conservative
 observed retirement checks. Reading never rewrites an original header.
+
+
+## Original public image configuration, version 6
+
+New public owners pin `imagePolicy` before any source/setup request. It is exactly
+`{source:"world-render-target",marker,subject}` with both rectangles inside the
+configured image extent. The fixture's markerRoi is its native scene geometry;
+the independently decoded image marker excludes the rendered card border and
+need not equal that geometry. Both remain immutable original configuration.
+The Role, Actor and Retirement reject a different policy when this field is set.
+
+Private callers can keep imagePolicy null. Versions 1–5 remain readable for
+existing private cleanup, but lack public configuration authority and cannot
+authorize new public feature inputs. Reconstruction does not rewrite their
+headers. The [public facade](EMOTE_FEATURE.md) reopens the v6 original on every
+invocation, including the retirement controller's original Run after pruning.

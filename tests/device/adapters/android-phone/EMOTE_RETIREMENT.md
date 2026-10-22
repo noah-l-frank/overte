@@ -3,7 +3,8 @@
 `PhoneEmoteRetirement` coordinates the completed-setup cleanup path through the
 existing run, role, source, input, namespace, lifetime, View and Scene components.
 It registers no public capability. Retirement after wholly unissued or partly issued preparation is also implemented
-below. The public Emote facade still remains to be completed; Phone remains at 3/14 complete
+below. The [public Emote composition](EMOTE_FEATURE.md) is now present; full normal-journey
+composition verification remains open; Phone remains at 3/14 complete
 areas. Native code is uncompiled and every device remains untested.
 
 ## Entry and actual observations

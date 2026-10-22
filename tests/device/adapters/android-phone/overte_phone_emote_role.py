@@ -42,6 +42,7 @@ class PhoneEmoteRole:
         exact(image_policy,{'source','marker','subject'});need(image_policy['source']=='world-render-target')
         rectangle(image_policy['marker'],(16384,16384));rectangle(image_policy['subject'],(16384,16384))
         self.run,self.role,self.policy=run,role,deepcopy(image_policy)
+        if run.image_policy is not None:need(same(run.image_policy,self.policy))
         self.source=run.source(role);self.inputs=PhoneEmoteInputs(self.source if role=='primary' else run.source())
         self.effects=PhoneEmoteEffects(self.inputs,current_source=self.source)
         self.binding=deepcopy(context(self.source.binding));self.started=self.clock=None;self.failed=False

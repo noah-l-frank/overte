@@ -330,10 +330,17 @@ class Journey:
         primary = None
         cleanup_okay = False
         cleanup_enabled = False
+        baseline_qualified = False
         try:
             initial = secrets.token_hex(16)
             self.activate(initial)
             barrier = number(self.epoch_ms(), 1)
+            # Phone Emote baseline acquisition owns ordinary View/Scene setup.
+            # Even a failed first observation can leave partial owned resources.
+            # Its cleanup operation distinguishes issued/unissued ownership and
+            # never dismisses an unowned initial tablet. Attempt restoration
+            # while fixture authority is still active, preserving the failure.
+            if self.area=='emotes':cleanup_enabled=True
             if measured:
                 candidate = self.observe(initial, barrier)
                 if not matches({key: candidate['state'][key] for key in expected_baseline if key not in measured},
@@ -346,6 +353,7 @@ class Journey:
                     witness=None,evidence=[]))
             if self.area=='snapshots':self.source_profile=snapshot_profile(expected_baseline)
             self.wait('owned-clean-baseline', initial, barrier, expected_baseline, ['peer'])
+            baseline_qualified = True
             cleanup_enabled = True
             for index, step in enumerate(scenario['steps']):
                 if 'backends' in step and self.source_profile not in step['backends']:
@@ -439,8 +447,12 @@ class Journey:
                         # active owner retires. Cleanup cannot reset a counter.
                         for key in ('worldAttempts','staleAttempts'):
                             cleanup_baseline[key]=self.samples[-1]['state'][key]
-                    self.wait('cleanup-restored-baseline', ticket, barrier, cleanup_baseline, ['peer'], duration=3.0)
-                    cleanup_okay = True
+                    if baseline_qualified:
+                        self.wait('cleanup-restored-baseline', ticket, barrier, cleanup_baseline, ['peer'], duration=3.0)
+                        cleanup_okay = True
+                    # Failed bootstrap has no qualified baseline/peer evidence.
+                    # Restoration ACKs cannot supply a cleanup/product verdict
+                    # or start new observation ownership after that failure.
                 except BaseException as error:
                     cleanup_errors.append(error)
             self.report(dict(schemaVersion=1, contractVersion=VERSION, area=self.area, runId=self.run,

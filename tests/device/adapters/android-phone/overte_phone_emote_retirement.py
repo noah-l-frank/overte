@@ -40,11 +40,13 @@ class RetirementOriginals(PhoneEmoteOriginals):
 
 
 class PhoneEmoteRetirement:
-    def __init__(self,run,policy):
+    def __init__(self,run,policy,*,deadline=None):
         need(isinstance(run,PhoneEmoteRun));run.lock.assert_held()
         self.run,self.policy=run,image_policy(policy)
+        if run.image_policy is not None:need(same(run.image_policy,self.policy))
         self.store=PrivateFeatureState(run.store.path.with_name('phone-emote-retirement.json'))
         self.previous=self.store.read();self.failed=False;self.finished=False;self.started=self.clock=None
+        need(deadline is None or number(deadline,0,1e15));self.deadline=deadline
         if self.previous is None:
             need(run.state is not None and run.previous is not None)
             self.owner=deepcopy(run.previous)
@@ -86,7 +88,7 @@ class PhoneEmoteRetirement:
         actual=self.run.store.read()
         need(same(actual,self.owner) or self.state['phase']=='retiring' and actual is None)
         now=self.run.monotonic();need(number(now,0,1e15) and (self.clock is None or now>=self.clock)
-            and (self.started is None or now-self.started<60));self.clock=now
+            and (self.started is None or now-self.started<60) and (self.deadline is None or now<self.deadline));self.clock=now
 
     def decode(self,value):
         exact(value,{'emoteRetirementVersion','runId','fixtureUrl','artifactRoot','binding','imagePolicy','runHeader','payload'})

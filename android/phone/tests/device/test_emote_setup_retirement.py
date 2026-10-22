@@ -69,7 +69,7 @@ class SetupRetirementTests(unittest.TestCase):
     def test_legacy_both_issued_cleanup_cannot_borrow_new_failed_preparation_evidence(self):
         self.closed('scene')
         with self.primary.lock.held():
-            legacy=deepcopy(self.primary.store.read());legacy['emoteRunVersion']=4
+            legacy=deepcopy(self.primary.store.read());legacy['emoteRunVersion']=4;legacy.pop('imagePolicy')
             state=unpack(legacy['payload'])[0];state.pop('prepared');legacy['payload']=pack([state])
             self.primary.store.write(legacy,self.primary.previous);self.primary.load()
             self.assertIsNone(self.primary.state['prepared']);owner=PhoneEmoteRetirement(self.primary,POLICY)

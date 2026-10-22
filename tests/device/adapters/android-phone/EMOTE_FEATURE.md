@@ -1,0 +1,99 @@
+# Phone Emote public composition, integration in progress
+
+`PhoneEmoteFeature` composes the existing Run, Role, Namespace, independent Actor
+and Retirement owners through the normal `feature.emotes.act|observe|cleanup`
+entrypoint. Shared contract v17 remains unchanged. This package implements the
+public operation paths and guarded registration; full normal-journey composition
+verification is still pending. Emotes is not yet counted as a completed Phone
+area. The complete Phone count remains 3/14. Native code remains uncompiled and
+all devices untested.
+
+## Explicit configuration
+
+The extension defaults off. Set `OVERTE_PHONE_FEATURE_EMOTES=1` only with the
+reviewed bound controlled Phone debug target, the existing private adapter fixture
+access configuration, the matching `OVERTE_E2E_FEATURE_FIXTURE_URL`, an existing
+private `OVERTE_DEVICE_ARTIFACT_DIR`, and `OVERTE_PHONE_EMOTE_CONFIGURATION`.
+The latter is a private JSON file with exactly:
+
+```text
+{emoteAdapterConfigurationVersion:1, imageExtent:[width,height],
+ markerRoi:[left,top,right,bottom],
+ imagePolicy:{source:"world-render-target",marker:[...],subject:[...]},
+ admissionPolicy:{domainUrl,domainId,domainMarkers,probeUrl}}
+```
+
+Image extent/fixture geometry use the existing native input validator. Image
+rectangles must fit that extent, be disjoint and provide at least 128 by 32
+marker pixels. Admission uses the existing closed world/executable policy. An
+unknown field/version, missing credential, wrong provider URL, nonprivate or
+missing directory, incomplete geometry, wrong target or malformed enable flag
+prevents registration. All three capabilities are registered together. The
+separate actor uses observer config v3 and its own Client/token; no actor is
+started implicitly. Device execution remains reserved for the Proxmox lab.
+
+Run v6 retains the complete original configuration before setup. Later public
+calls and finalization reconstruct from that original, rather than module
+environment paths. After Run pruning, the original Run inside the retirement
+controller provides the same context. Legacy private Run records can still use
+their existing cleanup readers; they cannot authorize new public operations.
+
+## Inputs, observations and bounded namespaces
+
+The first primary observation prepares actual baseline/admission/View/Scene
+ownership, then obtains a new Role observation. Normal act delegates to the
+existing one-send Run/Input/Background path. An acknowledgment contains only
+performed; actual animation, Rig progress, PNG/motion files, UI/resources and
+lifecycle are returned solely by a later new independent source acquisition. A
+completed interrupted Role transfer can be recovered without emitting its old
+result; the public call still requires a new observation above afterSequence.
+
+Only idle play/Sit boundaries can rotate namespaces. Rotation is requested when
+an actual input history reaches 128, either source reaches 512 frames or either
+role reaches 128 observations in that namespace. Existing bounds remain 16
+namespaces, 256 local inputs/observations and 1024 source frames/global role
+observations. Limits are not raised. The primary freezes only its own originals,
+then waits outside the source lock for the actor's actual separate proof, for
+at most 20 seconds. A committed child advance with a lost parent return resumes
+the same transition. Rotation never runs for every play or replays an input.
+
+## Cleanup, failed bootstrap and finalization
+
+Cleanup first completes actual input/foreground and Scene/View restoration,
+then the primary's independent native/work quiet window. Fully unissued setup
+skips only resources whose actual host absence was verified; it supplies no
+native/peer/quiet verdict. Repeated cleanup uses the same actual cleanup ticket.
+Common successful cleanup still requires its own fresh stable observations and
+independent peer evidence after both acknowledgments.
+
+Common Emote execution now attempts owned cleanup even when its first baseline
+acquisition fails, while fixture authority is still active. It preserves the
+original exception and does not dispatch normal actions. Without a qualified
+baseline it does not start a new observation owner or claim cleanup success from
+ACKs. This permits the existing unissued/partial setup retirement to finish
+without masking the failed journey or dismissing an unowned initial tablet.
+
+Global adapter teardown invokes Emote finalization before releasing world-render
+owners or stopping the base session. The fixture must be actually closed. The
+finalizer waits outside the source lock for actual retired/unadmitted actor
+authority and then invokes existing retirement with the same 60-second overall
+deadline. Missing actor authority, unresolved resources, failed file deletion or
+changed native evidence prevents a green teardown. A retained controller can
+resume after every child and Run control was removed; it reopens exact originals
+and obtains new native/work evidence. No product observation is synthesized.
+
+## Host verification and outstanding work
+
+Host cases exercise actual Run/Role/source/input/work/original-file paths over
+synthetic target producers and a credentialed loopback fixture. View/Scene setup
+completion is explicitly doubled in these composition tests. Resource retirement
+uses an explicit resource boundary double, with separate actual View/Scene reader
+tests. Counterexamples include ignored input, wrong run/configuration, changed
+original policy, incomplete restoration, stale/foreign evidence in the underlying
+Role tests, missing actor termination, active fixture retirement, and interrupted
+final deletion after all child controls disappear.
+
+The complete common normal journey still needs composed verification, including
+all ten clips, automatic completion, randomized Sit discovery, replacement/early
+cancel, background return and normal final cleanup. No host simulation qualifies
+the native implementation, product behavior or physical devices.

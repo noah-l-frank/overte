@@ -282,17 +282,17 @@ class EmoteRunTests(unittest.TestCase):
         self.assertIsNotNone(owner.store.read());self.assertTrue(m.worker.timers)
 
     def test_legacy_input_run_is_read_without_rewrite_and_upgraded_on_resource_cleanup(self):
-        owner=self.prepared();value=owner.store.read();value['emoteRunVersion']=1;value.pop('admissionPolicy')
+        owner=self.prepared();value=owner.store.read();value['emoteRunVersion']=1;value.pop('admissionPolicy');value.pop('imagePolicy')
         state=unpack(value['payload'])[0];state.pop('admissionSha256');state.pop('prepared',None);state.pop('setup');value['payload']=pack([state])
         owner.store.write(value,owner.previous);owner=self.owner()
         with self.assertRaises(NativeUIError):owner.prepare() # Old input readiness is not approved admission.
         self.assertEqual(value,owner.store.read());self.cleanup_phase()
         owner.cleanup_resources(dict(contractVersion=VERSION,runId=RUN))
-        self.assertEqual(5,owner.store.read()['emoteRunVersion']);self.assertEqual('resources-restored',owner.state['phase'])
+        self.assertEqual(6,owner.store.read()['emoteRunVersion']);self.assertEqual('resources-restored',owner.state['phase'])
 
     def test_legacy_header_cannot_claim_a_new_resource_phase(self):
         owner=self.prepared();self.cleanup_phase();owner.cleanup_resources(dict(contractVersion=VERSION,runId=RUN))
-        value=owner.store.read();value['emoteRunVersion']=1;value.pop('admissionPolicy')
+        value=owner.store.read();value['emoteRunVersion']=1;value.pop('admissionPolicy');value.pop('imagePolicy')
         state=unpack(value['payload'])[0];state.pop('admissionSha256');state.pop('prepared',None);state.pop('setup');value['payload']=pack([state]);owner.store.write(value,owner.previous)
         with self.assertRaises(NativeUIError):self.owner().cleanup_quiet('primary')
         self.assertIsNotNone(owner.store.read())

@@ -15,7 +15,9 @@ Common journey v17 now requires an original native motion file for active
 Emotes, alongside original PNG and independent facts. This handles brief
 non-looping clips without input replay or fabricated public stability; final
 early cancellation uses Crying. See [the motion contract](../../feature_journeys/EMOTE_MOTION.md).
-The Emote primitives remain unregistered as a complete feature triple.
+The [public Emote composition](EMOTE_FEATURE.md) now has an explicit default-off
+triple, immutable Run v6 configuration and global finalization. Full common normal-
+journey composition verification remains open; Emotes is not counted complete.
 The [setup/input run owner](EMOTE_RUN.md) now composes real View/Scene setup,
 ordinary inputs, per-role sources, namespace switching and foreground-first
 input cleanup, Scene/View restoration and independently measured per-role
@@ -38,10 +40,9 @@ quiet tail. The [retirement coordinator](EMOTE_RETIREMENT.md) now joins the comp
 resource/host-journal path, retaining all original dependencies and reobserving
 native state after partial deletion. Retirement v2 additionally handles fully unissued preparation and the actor
 records distinct unadmitted termination without native/peer/quiet claims. Run v5
-retains actual preparation completion; retirement v3 restores and transfers partly
+retains actual preparation completion; Run v6 pins public image configuration; retirement v3 restores and transfers partly
 issued setup with real resource and primary quiet/work observations. The public
-facade remains open; complete Emotes is missing and
-unregistered.
+facade is composed; full normal-journey verification remains open.
 The [consumed animation data source](../../native/ANIMATION_SOURCE.md) now joins
 actual parser bytes and original retargeted model/resource identity to compiled
 Emote effects and image brackets. Wrong file content at the correct URL remains

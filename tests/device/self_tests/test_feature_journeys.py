@@ -1117,6 +1117,31 @@ class FeatureJourneys(unittest.TestCase):
                 with self.assertRaises(AssertionError): boundary.execute()
                 self.assertFalse(boundary.reports[0]['sequenceCompleted'])
 
+    def test_failed_emote_bootstrap_attempts_owned_cleanup_without_inventing_a_baseline_verdict(self):
+        boundary=Boundary('emotes');invoke=boundary.invoke;observations=[]
+        def failed(operation,fields):
+            if operation.endswith('.observe'):
+                observations.append(operation);raise ValueError('Synthetic failed initial Emote acquisition')
+            return invoke(operation,fields)
+        boundary.invoke=failed
+        with self.assertRaisesRegex(ValueError,'Synthetic failed initial Emote acquisition'):boundary.execute()
+        self.assertEqual(1,len(observations))
+        self.assertEqual(2,len([op for op,_ in boundary.actions if op.endswith('.cleanup')]))
+        self.assertFalse(any(op.endswith('.act') for op,_ in boundary.actions))
+        report=boundary.reports[0];self.assertTrue(report['cleanupEnabled'])
+        self.assertFalse(report['cleanupSucceeded']);self.assertFalse(report['sequenceCompleted'])
+
+    def test_failed_emote_bootstrap_preserves_original_error_when_owned_cleanup_also_fails(self):
+        boundary=Boundary('emotes');invoke=boundary.invoke;cleanup=[]
+        def failed(operation,fields):
+            if operation.endswith('.observe'):raise ValueError('Original Emote setup failure')
+            if operation.endswith('.cleanup'):
+                cleanup.append(operation);raise RuntimeError('Synthetic retained resource')
+            return invoke(operation,fields)
+        boundary.invoke=failed
+        with self.assertRaisesRegex(ValueError,'Original Emote setup failure'):boundary.execute()
+        self.assertEqual(1,len(cleanup));self.assertFalse(boundary.reports[0]['sequenceCompleted'])
+
     def test_emote_native_override_automatic_completion_and_early_restore_are_required(self):
         for fault in ('ordinary-no-override','emote-timer-ignored','late-natural-cancel'):
             with self.subTest(fault=fault):

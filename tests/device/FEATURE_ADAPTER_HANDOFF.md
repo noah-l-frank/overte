@@ -6,8 +6,10 @@ shared source lock and verifies an actual separate backend entry. It transfers
 obsolete image scopes, acknowledges only its own namespace freeze and retains
 its own original quiet-window retirement. HTTP ACKs, old peer samples, unknown
 background state and unresolved actor/role/failure journals cannot prove full
-cleanup. Public Emote capability registration and whole-run retirement remain
-pending; source implementations are uncompiled and all devices untested.
+cleanup. The [public Emote composition](adapters/android-phone/EMOTE_FEATURE.md)
+now supplies default-off registration, Run v6 original configuration and global
+retirement. Full common normal-journey composition verification remains open;
+source implementations are uncompiled and all devices untested.
 
 Active Emote checkpoints require a private original `kind: file`
 [native motion proof](feature_journeys/EMOTE_MOTION.md), plus PNG and independent
@@ -38,11 +40,10 @@ restoration and obtains each role's own three-second native/work quiet window.
 Its input acknowledgments do not supply feature facts or complete cleanup.
 Per-role original image/motion observations and independent actor publication are
 implemented as internal components. The public facade and whole-run retirement
-still block complete Emote capability registration. The internal
+are now composed; full common normal-journey verification remains required. The internal
 [retirement coordinator](adapters/android-phone/EMOTE_RETIREMENT.md) now implements
 the completed-setup resource/journal path and version 2 also retires fully
-unissued preparation after failed world/cache admission. Partly issued setup
-retirement still needs to be composed. Its immutable handoff retains the original dependency graph
+unissued preparation after failed world/cache admission. Version 3 also handles partly issued setup. Its immutable handoff retains the original dependency graph
 and retries obtain new native facts even after all child controls are gone. Closed-provider View/Scene
 transfers retain new actual native groups; namespace retirement v2 retains every
 source/input dependency as historical ownership evidence. Neither substitutes

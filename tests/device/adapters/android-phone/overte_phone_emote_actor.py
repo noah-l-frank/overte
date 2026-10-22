@@ -30,6 +30,7 @@ class PhoneEmoteActor:
     def __init__(self,run,policy):
         need(isinstance(run,PhoneEmoteRun) and isinstance(run.phase.client,Client))
         self.run,self.policy,self.client=run,image_policy(policy),run.phase.client
+        if run.image_policy is not None:need(same(run.image_policy,self.policy))
         for key in ('marker','subject'):rectangle(self.policy[key],tuple(run.extent))
         self.store=PrivateFeatureState(run.store.path.with_name('phone-emote-actor-lifecycle.json'))
         self.previous=self.state=None;self.failed=False

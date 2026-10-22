@@ -29,16 +29,21 @@ from overte_phone_emote_view import PhoneEmoteView
 from overte_phone_script_history import pack,unpack,same,canonical
 from overte_phone_script_lock import PhoneScriptSourceLock
 
-VERSION=5
+VERSION=6
 
 
 class PhoneEmoteRun:
-    def __init__(self,adapter,selector,phase,artifact_root,image_extent,marker_roi,*,admission=None,monotonic=time.monotonic,sleep=time.sleep):
+    def __init__(self,adapter,selector,phase,artifact_root,image_extent,marker_roi,*,admission=None,image_policy=None,monotonic=time.monotonic,sleep=time.sleep):
         need(isinstance(phase,PhaseFixtureReader) and phase.area=='emotes' and callable(monotonic) and callable(sleep))
         self.adapter,self.selector,self.phase=adapter,selector,phase
         self.run,self.fixture_url=phase.run,phase.fixture_url
         self.root,self.extent,self.marker=Path(artifact_root),deepcopy(image_extent),deepcopy(marker_roi)
         self.policy=None if admission is None else admission_policy(admission)
+        self.image_policy=deepcopy(image_policy)
+        if self.image_policy is not None:
+            from feature_journeys.evidence import rectangle
+            exact(self.image_policy,{'source','marker','subject'});need(self.image_policy['source']=='world-render-target')
+            for key in ('marker','subject'):rectangle(self.image_policy[key],tuple(self.extent))
         PrivateFeatureState(self.root/'emote-run-boundary.json')._parent()
         input_command(dict(schemaVersion=1,commandId='a'*32,action='phone-emote-fixture-input',operation='prepare',
             runId=self.run,fixtureUrl=self.fixture_url,ticket='a'*32,imageExtent=self.extent,markerRoi=self.marker))
@@ -55,15 +60,16 @@ class PhoneEmoteRun:
 
     def decode(self,value):
         version=value.get('emoteRunVersion') if type(value) is dict else None
-        need(type(version) is int and version in (1,2,3,4,VERSION))
+        need(type(version) is int and version in (1,2,3,4,5,VERSION))
         exact(value,{'emoteRunVersion','runId','fixtureUrl','artifactRoot','imageExtent','markerRoi','payload'}
-            |({'admissionPolicy'} if version>=3 else set()))
-        need(type(version) is int and version in (1,2,3,4,VERSION)
+            |({'admissionPolicy'} if version>=3 else set())|({'imagePolicy'} if version>=6 else set()))
+        need(type(version) is int and version in (1,2,3,4,5,VERSION)
             and value['runId']==self.run and value['fixtureUrl']==self.fixture_url and value['artifactRoot']==str(self.root)
             and same(value['imageExtent'],self.extent) and same(value['markerRoi'],self.marker))
         rows=unpack(value['payload']);need(len(rows)==1);state=rows[0]
         exact(state,{'phase','binding','segment','baseline','call','cleanupTicket'}|({'admissionSha256'} if version>=3 else set())|({'setup'} if version>=4 else set())|({'prepared'} if version>=5 else set()))
         state=deepcopy(state)
+        if version>=6:need(same(value['imagePolicy'],self.image_policy))
         if version>=3:need(same(value['admissionPolicy'],self.policy))
         else:state['admissionSha256']=None
         if version<4:state['setup']=dict(view='legacy',scene='legacy')
@@ -104,7 +110,7 @@ class PhoneEmoteRun:
     def save(self):
         self.lock.assert_held();need(not self.failed and same(self.store.read(),self.previous))
         value=dict(emoteRunVersion=VERSION,runId=self.run,fixtureUrl=self.fixture_url,artifactRoot=str(self.root),
-            imageExtent=self.extent,markerRoi=self.marker,admissionPolicy=deepcopy(self.policy),payload=pack([self.state]))
+            imageExtent=self.extent,markerRoi=self.marker,admissionPolicy=deepcopy(self.policy),imagePolicy=deepcopy(self.image_policy),payload=pack([self.state]))
         try:
             self.decode(value);self.store.write(value,self.previous);need(same(self.store.read(),value));self.previous=deepcopy(value)
         except Exception:self.failed=True;raise

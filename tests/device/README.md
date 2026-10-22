@@ -43,7 +43,9 @@ The internal [Phone Emote role owner](adapters/android-phone/EMOTE_ROLE.md) now
 retains independently acquired originals, image/motion files and per-role
 sequences. The [independent Phone actor](adapters/android-phone/EMOTE_ACTOR.md)
 now publishes those originals and retains its own quiet-window retirement; the
-public facade and complete whole-run retirement remain open.
+[public composition](adapters/android-phone/EMOTE_FEATURE.md) now connects the
+operation paths and whole-run retirement. Full normal-journey composition
+verification remains open; the completed Phone count stays 3/14.
 The optional [controlled HTTPS account provider](feature_journeys/ACCOUNT_PROVIDER.md)
 supplies real password/refresh grants and protected profile requests for owned
 test accounts. The Phone Authentication adapter joins actual native/UI/protected

@@ -96,6 +96,7 @@ from overte_phone_account_menu import PhoneAccountMenu
 SCRIPT_FEATURE_OPERATIONS={'feature.scripts.'+kind for kind in ('act','observe','cleanup')}
 AUTHENTICATION_FEATURE_OPERATIONS={'feature.authentication.'+kind for kind in ('act','observe','cleanup')}
 GRAPHICS_FEATURE_OPERATIONS={'feature.graphics.'+kind for kind in ('act','observe','cleanup')}
+EMOTE_FEATURE_OPERATIONS={'feature.emotes.'+kind for kind in ('act','observe','cleanup')}
 
 
 def readonly_feature_command(command):
@@ -267,6 +268,14 @@ class PhoneAppiumAdapter(AppiumAdapter):
             self._graphics_configuration()
             self._feature_fixture_client()
             values=sorted(set(values)|GRAPHICS_FEATURE_OPERATIONS)
+        full_emotes=os.environ.get('OVERTE_PHONE_FEATURE_EMOTES','0')
+        require(full_emotes in ('0','1'),'PHONE_FEATURE_EMOTES_CONFIGURATION_INVALID')
+        if full_emotes=='1':
+            require(getattr(self,'candidate',None) is not None and target.get('appId')=='io.github.noah_be.overte.phone'
+                    and self.controlled_android_client(target),'PHONE_FEATURE_EMOTES_REQUIRES_BOUND_DEBUG_TARGET')
+            self._emote_configuration()
+            self._feature_fixture_client()
+            values=sorted(set(values)|EMOTE_FEATURE_OPERATIONS)
         create_enabled = os.environ.get('OVERTE_PHONE_NORMAL_CREATE', '0')
         require(create_enabled in ('0', '1'), 'PHONE_NORMAL_CREATE_CONFIGURATION_INVALID')
         if create_enabled == '1':
@@ -501,6 +510,61 @@ class PhoneAppiumAdapter(AppiumAdapter):
     def emote_feature_store(self,selector):
         return PrivateFeatureState(self.state_path(selector).with_name('phone-emote-run.json'))
 
+    @staticmethod
+    def _emote_configuration(metadata=None):
+        try:
+            from adapters.emote_admission import policy as admission_policy
+            from adapters.native_phone_emote_fixture import input_command
+            from feature_journeys.evidence import rectangle
+            from overte_phone_emote_actor import image_policy
+            if metadata is None:
+                value=PrivateFeatureState(Path(os.environ.get('OVERTE_PHONE_EMOTE_CONFIGURATION',''))).read()
+                require(type(value) is dict and set(value)=={'emoteAdapterConfigurationVersion','imageExtent','markerRoi','imagePolicy','admissionPolicy'}
+                    and type(value['emoteAdapterConfigurationVersion']) is int and value['emoteAdapterConfigurationVersion']==1,
+                    'PHONE_EMOTE_PRIVATE_CONFIGURATION_REQUIRED')
+                root=Path(os.environ.get('OVERTE_DEVICE_ARTIFACT_DIR',''))
+            else:
+                require(type(metadata) is dict and type(metadata.get('emoteRunVersion')) is int
+                    and metadata['emoteRunVersion']==6,'PHONE_EMOTE_ORIGINAL_CONFIGURATION_REQUIRED')
+                value=metadata;root=Path(metadata['artifactRoot'])
+            extent=deepcopy(value['imageExtent']);marker_roi=deepcopy(value['markerRoi'])
+            input_command(dict(schemaVersion=1,commandId='a'*32,action='phone-emote-fixture-input',operation='prepare',
+                runId='a'*32,fixtureUrl='http://fixture.test/feature-fixture/v1/runs/'+'a'*32+'/',ticket='a'*32,
+                imageExtent=extent,markerRoi=marker_roi))
+            policy=image_policy(value['imagePolicy']);marker=rectangle(policy['marker'],tuple(extent));subject=rectangle(policy['subject'],tuple(extent))
+            require(marker[2]-marker[0]>=128 and marker[3]-marker[1]>=32
+                and not (max(marker[0],subject[0])<min(marker[2],subject[2]) and max(marker[1],subject[1])<min(marker[3],subject[3])),
+                'PHONE_EMOTE_IMAGE_POLICY_REQUIRED')
+            admission=admission_policy(value['admissionPolicy'])
+            PrivateFeatureState(root/'emote-configuration-boundary.json')._parent()
+            return root,extent,marker_roi,policy,admission
+        except (OSError,RuntimeError,ValueError,TypeError,KeyError):
+            raise ValueError('PHONE_FEATURE_EMOTES_CONFIGURATION_INVALID') from None
+
+    def _emote_feature(self,selector,run,*,retirement=False):
+        from feature_journeys.phase_fixture import PhaseFixtureReader
+        from overte_phone_emote_run import PhoneEmoteRun
+        from overte_phone_emote_feature import PhoneEmoteFeature
+        target=self.target(selector)
+        require(getattr(self,'candidate',None) is not None and target.get('appId')=='io.github.noah_be.overte.phone'
+            and self.controlled_android_client(target),'PHONE_FEATURE_EMOTES_REQUIRES_BOUND_DEBUG_TARGET')
+        require(type(retirement) is bool,'PHONE_EMOTE_ORIGINAL_CONFIGURATION_REQUIRED')
+        client=self._feature_fixture_client();metadata=self.emote_feature_store(selector).read()
+        parent=PrivateFeatureState(self.state_path(selector).with_name('phone-emote-retirement.json')).read()
+        if parent is not None:
+            require(retirement and type(parent) is dict,'PHONE_EMOTE_RETIREMENT_ALREADY_STARTED')
+            original=parent.get('runHeader')
+            require(metadata is None or metadata==original,'PHONE_EMOTE_ORIGINAL_CONFIGURATION_REQUIRED')
+            metadata=original
+        if retirement:require(metadata is not None,'PHONE_EMOTE_ORIGINAL_CONFIGURATION_REQUIRED')
+        if metadata is not None:
+            require(type(metadata) is dict and metadata.get('runId')==run
+                and metadata.get('fixtureUrl')==client.url+'/runs/'+run+'/', 'PHONE_EMOTE_ORIGINAL_CONFIGURATION_REQUIRED')
+        root,extent,marker,policy,admission=self._emote_configuration(metadata)
+        owner=PhoneEmoteRun(self,selector,PhaseFixtureReader(client,run,'emotes'),root,extent,marker,
+            admission=admission,image_policy=policy)
+        return PhoneEmoteFeature(owner,policy)
+
     def _emote_actor(self,selector,run,*,client,image_policy):
         from feature_journeys.witness import Client
         from feature_journeys.phase_fixture import PhaseFixtureReader
@@ -513,7 +577,7 @@ class PhoneAppiumAdapter(AppiumAdapter):
         require(type(metadata) is dict and metadata.get('runId')==run
             and metadata.get('fixtureUrl')==client.url+'/runs/'+run+'/','PHONE_EMOTE_ACTOR_ORIGINAL_RUN_REQUIRED')
         owner=PhoneEmoteRun(self,selector,PhaseFixtureReader(client,run,'emotes'),metadata['artifactRoot'],
-            metadata['imageExtent'],metadata['markerRoi'],admission=metadata.get('admissionPolicy'))
+            metadata['imageExtent'],metadata['markerRoi'],admission=metadata.get('admissionPolicy'),image_policy=metadata.get('imagePolicy'))
         return PhoneEmoteActor(owner,image_policy)
 
     def graphics_feature_store(self, selector):
@@ -1308,6 +1372,11 @@ class PhoneAppiumAdapter(AppiumAdapter):
         return result
 
     def cleanup(self, selector):
+        emote_error=False
+        try:
+            feature=self.emote_feature_store(selector).read() or PrivateFeatureState(self.state_path(selector).with_name('phone-emote-retirement.json')).read()
+            if feature is not None:self._emote_feature(selector,feature['runId'],retirement=True).finalize()
+        except Exception:emote_error=True # Keep every unresolved owner; base teardown is still attempted.
         graphics_error=False
         try:
             feature=self.graphics_feature_store(selector).read() or self.graphics_retirement_store(selector).read()
@@ -1483,6 +1552,7 @@ class PhoneAppiumAdapter(AppiumAdapter):
                         for role in ('primary','actor')),'PHONE_AUTHENTICATION_FEATURE_CLEANUP_INCOMPLETE')
         require(not graphics_error and self.graphics_feature_store(selector).read() is None
                 and self.graphics_retirement_store(selector).read() is None,'PHONE_GRAPHICS_FEATURE_CLEANUP_INCOMPLETE')
+        require(not emote_error,'PHONE_EMOTE_FEATURE_CLEANUP_INCOMPLETE')
         return result
 
     def normal_navigation(self, selector, operation, values):
@@ -1544,6 +1614,12 @@ class PhoneAppiumAdapter(AppiumAdapter):
             require(operation in self.advertised_capabilities(self.target(selector)),
                     'PHONE_GRAPHICS_FEATURE_NOT_ENABLED')
             return getattr(self._graphics_feature(selector,values['runId']),operation.rsplit('.',1)[1])(values)
+        if operation in EMOTE_FEATURE_OPERATIONS:
+            from feature_journeys.contract import arguments
+            arguments(operation,values)
+            require(operation in self.advertised_capabilities(self.target(selector)),
+                    'PHONE_EMOTE_FEATURE_NOT_ENABLED')
+            return getattr(self._emote_feature(selector,values['runId']),operation.rsplit('.',1)[1])(values)
         if operation.startswith('places.'):
             return self.normal_navigation(selector, operation, values)
         if operation in SNAPSHOT_OPERATIONS:
