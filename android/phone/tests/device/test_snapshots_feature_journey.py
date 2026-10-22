@@ -110,6 +110,11 @@ class SnapshotJourneyTests(unittest.TestCase):
         class TargetClockPhase(SnapshotUploadFixtureReader):
             def __init__(inner,client,run):super().__init__(client,run,epoch_ms=epoch)
         p=patch('overte_phone_snapshot_upload_fixture.SnapshotUploadFixtureReader',TargetClockPhase);p.start();self.addCleanup(p.stop)
+        from feature_journeys.phase_fixture import PhaseFixtureReader
+        class TargetDispatchPhase(PhaseFixtureReader):
+            def __init__(inner,client,run,area):super().__init__(client,run,area,epoch_ms=epoch)
+        p=patch('overte_phone_feature_dispatch.PhaseFixtureReader',TargetDispatchPhase);p.start();self.addCleanup(p.stop)
+
 
         self.config=dict(snapshotsFeatureVersion=1,artifactRoot=str(self.root),imageExtent=[1000,750],markerRoi=[20,20,180,60],
             imagePolicy=deepcopy(POLICY),fileImagePolicy=deepcopy(POLICY),domainId=DOMAIN,receiverApkSha256='e'*64)
@@ -209,6 +214,18 @@ class SnapshotJourneyTests(unittest.TestCase):
         self.assertEqual(1,result['state']['saved']);self.assertEqual(1,len(self.model.os_files))
         self.assertTrue(all(path.read_bytes()==self.model.raw_png for path in self.model.os_files.values()))
 
+    def test_normal_upload_story_deleted_by_cleanup_before_logout(self):
+        self.client.activate('c'*32);self.invoke('feature.snapshots.observe',dict(contractVersion=VERSION,runId=RUN,afterSequence=0))
+        self.act('open');self.act('capture',dict(mode='still',format='png'));self.act('save');self.act('upload')
+        provider=self.service.snapshot(RUN,os.urandom(16).hex())
+        self.assertEqual(1,provider['stories'])
+        self.client.activate('d'*32,'cleanup',{})
+        self.invoke('feature.snapshots.cleanup',dict(contractVersion=VERSION,runId=RUN))
+        self.assertEqual(0,self.service.snapshot(RUN,os.urandom(16).hex())['stories'])
+        self.assertFalse(self.model.account['loggedIn'])
+        self.assertTrue(all(not path.exists() for path in self.model.os_files.values()))
+        self.assertTrue(all(row['retired'] for row in self.model.job_sources.values()))
+
     def test_inactive_work_source_has_no_invented_zero_activity_row(self):
         from adapters.native_script_work import scope
         reader=self.proxy._script_work(None)
@@ -259,14 +276,18 @@ class SnapshotJourneyTests(unittest.TestCase):
             timings.append((operation.rsplit('.',1)[1],fields.get('verb'),round(time.monotonic()-started,3)))
             if operation.endswith('.observe') and not initialized[0]:initialized[0]=True;self.start_actor()
             return result
-        def witness():self.actor_ok();return self.client.observe()
+        witness_clocks=[]
+        def witness():
+            self.actor_ok();value=self.client.observe();epoch=self.model.now()
+            witness_clocks[:]=[(epoch-row['capturedEpochMs'],row['receivedEpochMs']-row['capturedEpochMs'],epoch-row['receivedEpochMs']) for row in value['entries'][-3:]]
+            return value
         def sleep(seconds):self.actor_ok();time.sleep(seconds)
         journey=Journey('snapshots',RUN,self.fixture_url,invoke=invoke,witness=witness,activate=self.client.activate,
             read_artifact=lambda name:(self.root/name).read_bytes(),image_policy=dict(screen=POLICY,file=POLICY),
             continuity=lambda *_:None,monotonic=time.monotonic,epoch_ms=self.model.now,sleep=sleep,report=reports.append)
         try:journey.execute()
         except BaseException:
-            print('Explicit Snapshot producer replay stopped; recent source calls '+repr(timings[-8:]),file=sys.stderr)
+            print('Explicit Snapshot producer replay stopped; recent source calls '+repr(timings[-8:])+'; original witness age/transport/receipt ages '+repr(witness_clocks),file=sys.stderr)
             if initialized[0]:self.actor_ok()
             raise
         self.assertTrue(reports[-1]['sequenceCompleted']);self.assertTrue(reports[-1]['cleanupSucceeded'])

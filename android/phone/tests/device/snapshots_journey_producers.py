@@ -153,7 +153,8 @@ class SnapshotTarget(CreateTarget):
         with Image.open(io.BytesIO(marker_bytes(RUN,self.ticket))) as card:image.paste(card,(20,20))
         out=io.BytesIO();image.save(out,format='PNG');return out.getvalue()
     def marker_input(self,request):
-        self.ticket=request['ticket'];return super().marker_input(request)
+        if request['operation']=='prepare':self.ticket=request['ticket']
+        return super().marker_input(request)
     def capture_packet(self,request):
         packet=super().capture_packet(request);raw=self.image()
         with Image.open(io.BytesIO(raw)) as image:
