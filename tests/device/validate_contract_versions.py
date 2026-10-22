@@ -89,6 +89,7 @@ REQUIRED = {
     "native-location-bookmarks": 1,
     "native-places-controls": 1,
     "navigation-bookmark-operations": 1,
+    "chat-cache-lifetime": 1,
     "native-chat-observation": 3,
     "native-chat-domain-session": 1,
     "fixture-chat-mixer-control": 2,

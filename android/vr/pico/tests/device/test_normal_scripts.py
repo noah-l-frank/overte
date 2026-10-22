@@ -715,6 +715,27 @@ class PicoNormalScriptsTests(unittest.TestCase):
         self.assertEqual([],peer.commands);self.assertEqual('reading',samples.store.read()['phase'])
         self.assertEqual([],self.native.inputs);self.assertIsNotNone(self.instance._chat_capture_store(self.native.target).read())
 
+    def test_pico_chat_cache_lifetime_factory_uses_original_mutations_and_preserves_retired_journals(self):
+        from self_tests.test_chat_domain_session import session
+        source,_capture=self.chat_capture();original_send=source.send
+        def native(request):
+            original_send(request);session(source.value);source.value['chatVersion']=3
+            source.value['source'].update(
+                openedCommandId=next((row['commandId'] for row in source.commands if row['operation']=='observe'),''),
+                retiredCommandId=next((row['commandId'] for row in source.commands if row['operation']=='retire'),''))
+        source.send=native
+        store=self.instance._chat_cache_lifetime_store(self.native.target);lock=ScriptSourceLock(store.path.with_name('script-sources.lock'))
+        with self.assertRaises(ValueError):self.instance._chat_cache_lifetime(self.native.target,CHAT_RUN,source_lock=lock)
+        self.instance._chat_admit_capture(self.native.target,CHAT_RUN,source_lock=lock)
+        flow=self.instance._chat_cache_lifetime(self.native.target,CHAT_RUN,source_lock=lock)
+        self.assertIs(flow.lock,lock);self.assertIsNone(store.read());self.assertFalse(source.present)
+        flow.activate();replacement=self.instance._chat_cache_lifetime(self.native.target,CHAT_RUN,source_lock=lock);replacement.retire()
+        self.assertEqual(['observe','retire'],[row['operation'] for row in source.commands if row['operation']!='inspect'])
+        before=list(source.commands);original=store.read()
+        with self.assertRaises(ValueError):self.cleanup_instance().cleanup(self.native.target)
+        self.assertEqual(original,store.read());self.assertEqual(before,source.commands)
+        self.assertIsNotNone(self.instance._chat_capture_store(self.native.target).read());self.assertFalse(self.native.running)
+
     def test_pico_chat_cache_absence_factory_never_begins_or_retires_a_native_capture(self):
         from adapters.chat_journey.samples import ChatCacheAbsence,ChatSamples
         source,_capture=self.chat_capture();self.chat_view();peer=ChatBoundary()
