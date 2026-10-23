@@ -24,7 +24,7 @@ class PicoBrowserHistory:
         self.scope=dict(picoBrowserHistoryVersion=VERSION,**deepcopy(scope))
         self.disk=store.read();self.chunks=ChatSourceChunks(store,self.scope)
         self._rows=();self._row_hashes=();self._sealed_rows=self._rows;self._sealed_hashes=self._row_hashes
-        self.last=None;self.publication=None;self.failed=False
+        self._last_raw=None;self._sealed_last=None;self._last_hash=None;self.publication=None;self.failed=False
         self.nonces={key:set() for key in ('feature','browser','runtime','diagnostic','phase')}
         if self.disk is None:self.chunks.inventory(0)
         else:
@@ -37,8 +37,13 @@ class PicoBrowserHistory:
         self.cached=self.cache_digest()
 
     def cache_digest(self):
-        return json_digest(dict(scope=self.scope,rows=list(self._row_hashes),last=self.last,publication=self.publication,
+        return json_digest(dict(scope=self.scope,rows=list(self._row_hashes),last=self._last_hash,publication=self.publication,
             nonces={key:sorted(value) for key,value in self.nonces.items()}))
+
+    @property
+    def last(self):
+        """An inspection copy; admitted source bytes cannot be mutated in place."""
+        return None if self._last_raw is None else json.loads(self._last_raw)
 
     @property
     def rows(self):
@@ -47,16 +52,18 @@ class PicoBrowserHistory:
 
     def verify(self):
         self.lock.assert_held();need(not self.failed and self._rows is self._sealed_rows and self._row_hashes is self._sealed_hashes
+            and self._last_raw is self._sealed_last and (self._last_raw is None or type(self._last_raw) is bytes)
             and same(self.store.read(),self.disk) and self.cache_digest()==self.cached)
         self.chunks.verify()
 
     def matches(self,state):
         self.verify()
-        if self.last is None:need(state['sequence']==0 and state['last'] is None and state['publication'] is None)
+        last=self.last
+        if last is None:need(state['sequence']==0 and state['last'] is None and state['publication'] is None)
         else:
-            need(same(state['last'],self.last['sample']) and state['sequence']==self.last['sample']['sequence']
-                and same(state['native'],self.last['native']) and same(state['runtime'],self.last['runtime'])
-                and same(state['browser'],self.last['browser']) and same(state['phase'],self.last['phaseBefore'])
+            need(same(state['last'],last['sample']) and state['sequence']==last['sample']['sequence']
+                and same(state['native'],last['native']) and same(state['runtime'],last['runtime'])
+                and same(state['browser'],last['browser']) and same(state['phase'],last['phaseBefore'])
                 and same(state['publication'],self.publication))
 
     def write(self,phase,chunks,intent):
@@ -67,11 +74,12 @@ class PicoBrowserHistory:
     def begin(self,event,sequence):
         self.verify();need(event in ('sample','publication-intent','publication-accepted') and integer(sequence,1)
             and (self.disk is None or self.disk['phase']=='ready') and len(self._rows)<MAX_FRAMES)
-        expected=1 if self.last is None else self.last['sample']['sequence']+(event=='sample')
+        last=self.last
+        expected=1 if last is None else last['sample']['sequence']+(event=='sample')
         need(sequence==expected)
         if event=='sample':need(self.publication is None or self.publication['phase']=='accepted')
         else:
-            need(self.scope['role']=='actor' and self.last is not None)
+            need(self.scope['role']=='actor' and last is not None)
             need(self.publication is None if event=='publication-intent' else
                 self.publication is not None and self.publication['phase']=='issued')
         try:self.write('reading',[] if self.disk is None else self.disk['chunks'],dict(event=event,sequence=sequence))
@@ -79,12 +87,15 @@ class PicoBrowserHistory:
 
     def admit(self,row):
         exact(row,{'event','sequence','original'})
-        event,sequence,original=row['event'],row['sequence'],row['original']
+        # Check exact JSON types before freezing; tuple/subclass aliases cannot
+        # become admitted originals through canonical encoding.
+        json_digest(row)
+        event,sequence,original=row['event'],row['sequence'],row['original'];last=self.last
         need(event in ('sample','publication-intent','publication-accepted') and integer(sequence,1))
         if event=='sample':
-            need(sequence==(1 if self.last is None else self.last['sample']['sequence']+1)
+            need(sequence==(1 if last is None else last['sample']['sequence']+1)
                 and (self.publication is None or self.publication['phase']=='accepted'))
-            self.validate(original,self.last)
+            self.validate(original,last)
             need(original['sample']['sequence']==sequence)
             queries={'feature':[original[key]['requestId'] for key in ('nativeBefore','nativeAfter')],
                 'browser':[original['native']['commandId']],'runtime':[original['runtime']['commandId']],
@@ -93,15 +104,15 @@ class PicoBrowserHistory:
             for key,values in queries.items():
                 need(len(set(values))==len(values) and not self.nonces[key].intersection(values))
                 self.nonces[key].update(values)
-            self.last=deepcopy(original);self.publication=None
+            self._last_raw=canonical(original);self._sealed_last=self._last_raw;self._last_hash=digest(original);self.publication=None
         else:
             from feature_journeys.witness import projection
-            need(self.scope['role']=='actor' and self.last is not None and sequence==self.last['sample']['sequence'])
+            need(self.scope['role']=='actor' and last is not None and sequence==last['sample']['sequence'])
             exact(original,{'payload','ack'})
             payload=original['payload'];exact(payload,{'ticket','actor','actorSequence','capturedEpochMs','facts'})
-            need(payload==dict(ticket=self.last['phaseBefore']['activations'][-1]['ticket'],actor='owned-observer',
-                actorSequence=sequence,capturedEpochMs=self.last['sample']['capturedEpochMs'],
-                facts=projection('tablet-web',self.last['sample']['state'])))
+            need(payload==dict(ticket=last['phaseBefore']['activations'][-1]['ticket'],actor='owned-observer',
+                actorSequence=sequence,capturedEpochMs=last['sample']['capturedEpochMs'],
+                facts=projection('tablet-web',last['sample']['state'])))
             if event=='publication-intent':need(self.publication is None and original['ack'] is None)
             else:need(self.publication is not None and self.publication['phase']=='issued'
                 and same(self.publication['payload'],payload) and same(original['ack'],{}))

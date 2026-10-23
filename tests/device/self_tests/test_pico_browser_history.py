@@ -64,7 +64,10 @@ class PicoBrowserHistoryTests(unittest.TestCase):
     def test_cached_source_mutation_and_identical_replaced_child_are_refused(self):
         self.flow.observe(self.call)
         with self.flow.lock.held():
-            history=self.history(self.flow);history.last['native']['sequence']+=1
+            history=self.history(self.flow);copy=history.last;copy['native']['sequence']+=1
+            history.verify();self.assertNotEqual(copy,history.last)
+            from adapters.script_journey.history import canonical
+            history._last_raw=canonical(copy)
             with self.assertRaises((ValueError,RuntimeError)):history.verify()
         cold=self.fixture.flow()
         with cold.lock.held():
@@ -196,12 +199,20 @@ class PicoBrowserHistoryTests(unittest.TestCase):
     def test_json_equivalent_tuple_or_subclass_cache_mutation_is_not_original_source(self):
         self.flow.observe(self.call);commands=len(self.fixture.original.commands)
         with self.flow.lock.held():
-            history=self.history(self.flow);original=deepcopy(history.last)
-            history.last['sample']['artifacts']=tuple(history.last['sample']['artifacts'])
-            with self.assertRaises((ValueError,RuntimeError)):history.verify()
-            history.last=deepcopy(original)
+            history=self.history(self.flow);original=history.last
             class ForeignState(dict):pass
-            history.last['sample']['state']=ForeignState(history.last['sample']['state'])
+            for fault in ('tuple','subclass'):
+                copy=history.last
+                if fault=='tuple':copy['sample']['artifacts']=tuple(copy['sample']['artifacts'])
+                else:copy['sample']['state']=ForeignState(copy['sample']['state'])
+                # Inspection copies never replace originals. A new admission
+                # still rejects JSON-equivalent foreign types before validation.
+                history.verify();self.assertEqual(original,history.last)
+                row=dict(event='sample',sequence=2,original=copy)
+                with self.subTest(fault=fault),self.assertRaises((ValueError,RuntimeError)):history.admit(row)
+            sealed=history._last_raw
+            history._last_raw=bytes(bytearray(sealed))
+            self.assertEqual(sealed,history._last_raw)
             with self.assertRaises((ValueError,RuntimeError)):history.verify()
         self.assertEqual(commands,len(self.fixture.original.commands))
 

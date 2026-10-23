@@ -32,7 +32,16 @@ fences through their owning selectors. Chat's new same-file recycled-FD test
 now atomically replaces its known owned descriptor instead of assuming the
 next OS allocation number; the integrated composition group passes25.501s.
 Save's two complete warm attempts remain red at120s, with original evidence
-retained. The catalog now contains148 groups; complete source areas stay3/14.
+retained. The catalog now contains150 groups; complete source areas stay3/14.
+
+The fixed Assets normal-input packet95aa81c067 is selected as25d8dcff66.
+The actual original QML and whole Pico observer/apply host case passes20.433s,
+canonical input guards pass1.950s and additive coverage passes0.084s. Disabled
+Delete is probed at its actual hit-tested point without enabling it; effect
+counts and dialog absence are independently checked. Backend/mapping/upload
+original ownership remains the next step; this adds no whole feature.
+Chat observation and synthetic APK-tool fixture packets also pass their owning
+archive/APK/Save-fence groups; the positive Favorite flow passes53.373s.
 
 | Area | Current Pico implementation | Concrete next boundary |
 | --- | --- | --- |
@@ -48,7 +57,7 @@ retained. The catalog now contains148 groups; complete source areas stay3/14.
 | Chat | Partial private compiled/Witness journey, Erase/Profile/caches/restart/IPC, complete original archive and own-host close verified | Repeated fresh public observations, Phase27 cleanup witness, cold RPC/PID continuity, stereo and public capability admission |
 | Snapshots | Partial Cancel/Still→normal Save owner with original Java provider/readback/PNG and strict typed source memo | Complete warm verification under120s, actual Pico OS chooser route, independent receiver/upload/actor/stereo and final callback/resource retirement |
 | Scripts | Complete source; host verified | Review/compile test-gated native source and later qualify the exact installed candidate through Proxmox |
-| Assets | Complete adapter missing | Actual Assets UI/bundle picker, original server mapping/oven/permission/model sources and independent actor |
+| Assets | Partial original VR Assets and bundle/destination/rename/import/delete controls, actual QML and whole Pico native input host verified | Original staging/upload/server mapping owner, oven/permission/model sources, independent actor and exact cleanup |
 | Lifecycle/input | Partial normal Create/Unicode/world/X and subsequent new Chat draft, original VR keyboard/context and process retirement components | Native background history, second world/Scripts/pending/stale flow, independent peer and full restoration/retirement |
 
 These are implementation gaps, not successful skips. `--require-complete` must

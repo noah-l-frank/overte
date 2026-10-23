@@ -1310,7 +1310,7 @@
     {
       "area": "assets",
       "sharedTestLogic": "present-v16",
-      "picoAdapter": "missing",
+      "picoAdapter": "partial",
       "completeOperations": [],
       "existingModules": [
         "asset-load"
@@ -1318,7 +1318,14 @@
       "sources": [
         "tests/device/feature_journeys/ASSETS_SOURCE.md",
         "interface/src/Application_Assets.cpp",
-        "scripts/system/create/qml/NativeCreate.qml"
+        "scripts/system/create/qml/NativeCreate.qml",
+        "tests/device/native/NormalAssetsControls.h",
+        "tests/device/adapters/token_assets_ui.py",
+        "tests/device/adapters/pico4/assets_ui.py",
+        "tests/device/adapters/pico4/ASSETS_FEATURE.md",
+        "tests/device/adapters/pico4/ASSETS_SHARED_REUSE.json",
+        "android/vr/pico/tests/device/test_assets_native_ui.py",
+        "android/vr/pico/tests/device/test_assets_controls.py"
       ],
       "declaredCheckpoints": 29,
       "inputVerbs": [
@@ -1357,7 +1364,7 @@
         "stagedAvailable"
       ],
       "missingOperationsOrEvidence": [
-        "All actual VR Assets browser/upload/bundle/destination/rename/import/delete/bake input recipes",
+        "Whole original backend/effect ownership around the now host-verified original Assets VR browser, bundle/destination/rename/import/delete controls; baking and permission composition still missing",
         "Owned original staging/selected-missing-file picker and server mapping/oven actor",
         "Whole original mapping/hash/worker/model/stereo evidence and independent publisher"
       ],
@@ -1372,8 +1379,8 @@
         "Drain oven/upload/picker workers and release actual staged originals",
         "Restore original server permission and prove complete namespace/resource absence"
       ],
-      "nextExecutableStep": "Bind actual Assets VR controls and original asset-server mapping/oven sources; begin with one upload -> companion validation -> ordinary import -> actual rendered model -> exact owned deletion flow using existing bundle fixtures.",
-      "nativeCompilation": "unverified",
+      "nextExecutableStep": "Join the original Assets UI and bundle controls to original staged-file/upload/AssetClient mapping ownership, then independent server/oven/model evidence and exact cleanup; existing normal UI and ACKs alone do not qualify effects.",
+      "nativeCompilation": "Selected whole Pico NavigationUi observe/apply and original pointer/FileDialogHelper/NativeFieldInput bodies host-compiled with actual original QML; complete application/APK unverified",
       "deviceQualification": "untested"
     },
     {

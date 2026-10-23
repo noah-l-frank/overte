@@ -77,7 +77,7 @@ class PicoTabletWebFeature:
         self.retirement_store=PrivateFeatureState(path.with_name('pico-'+self.area+'-retirement.json'))
         self.lock=adapter._lock(selector)
         self.originals={};self.live_owner=None;self.fence=None
-        self.image_cache={};self.image_cache_digests={}
+        self._image_cache={};self.image_cache_digests={}
         self.vm_cache=None;self.vm_cache_scope=None
         self.quiet_cache=None;self.quiet_cache_scope=None
         self.history_cache=None;self.history_scope=None
@@ -367,12 +367,11 @@ class PicoTabletWebFeature:
             if image['phase']=='planned':
                 need(image['metadata'] is None and (not legacy or image['record'] is None));continue
             name=original_name(self.run,role,image['journalId']);raw=self.metadata(name,image['metadata'])
-            cache_key=(role,image['journalId']);cached=None if legacy else self.image_cache.get(cache_key)
+            cache_key=(role,image['journalId']);cached=None if legacy else self.cached_image(cache_key)
             scope=dict(binding=owner['binding'],runId=self.run,fixtureUrl=self.fixture_url,foreignFixtureUrl=self.foreign_url,
                 artifactRoot=str(self.artifact_root),scriptUrl=owner['scriptUrl'],ownerToken=owner['ownerToken'],sceneUrl=self.adapter.scene_url)
             if cached is not None:
-                need(self.image_cache_digests[cache_key]==self.image_digest(cached)
-                    and same(cached['image'],image) and same(cached['scope'],scope))
+                need(same(cached['image'],image) and same(cached['scope'],scope))
                 self._original_image_bytes(cached['png'],expected=cached['stamp'])
                 key=tuple(cached['capture']);png_name=cached['png']['name']
                 need(key not in captures and png_name not in pngs);captures.add(key);pngs.add(png_name)
@@ -389,11 +388,24 @@ class PicoTabletWebFeature:
                 and original['scope']==dict(fixtureUrl=self.fixture_url,foreignFixtureUrl=self.foreign_url,
                     ownerToken=owner['ownerToken'],scriptUrl=owner['scriptUrl']))
             if not legacy:
-                need(len(self.image_cache)<512)
+                need(len(self._image_cache)<512)
                 cached=dict(image=deepcopy(image),scope=deepcopy(scope),png=deepcopy(rows[0]['image']),stamp=stamp,capture=list(key),
                     facts=deepcopy(_facts),lifecycle=deepcopy(rows[0]['frame']['nativeBefore']['lifecycle']))
-                self.image_cache[cache_key]=cached;self.image_cache_digests[cache_key]=self.image_digest(cached)
-        need(all(key[1] in journals for key in self.image_cache if key[0]==role))
+                self.image_cache_digests[cache_key]=self.image_digest(cached)
+                from adapters.script_journey.history import canonical
+                self._image_cache[cache_key]=canonical(cached)
+        need(all(key[1] in journals for key in self._image_cache if key[0]==role))
+
+    @property
+    def image_cache(self):
+        """Inspection copies of immutable, fully admitted original semantics."""
+        return {key:self.cached_image(key) for key in self._image_cache}
+
+    def cached_image(self,key):
+        raw=self._image_cache.get(key)
+        if raw is None:return None
+        need(type(raw) is bytes and hashlib.sha256(raw).hexdigest()==self.image_cache_digests[key])
+        return json.loads(raw)
 
     @staticmethod
     def image_digest(value):
@@ -533,11 +545,10 @@ class PicoTabletWebFeature:
             from adapters.pico4.browser_stereo import original_name
             need(len(sample['artifacts'])==2)
             artifacts={value['kind']:value for value in sample['artifacts']};need(set(artifacts)=={'image','file'})
-            matching=[cached for (role,journal),cached in self.image_cache.items() if role==self.role
-                and original_name(self.run,role,journal)==artifacts['file']['name']]
-            need(len(matching)==1);cached=matching[0];capture=cached['png']['capture'];facts=cached['facts']
-            need(self.image_cache_digests[(self.role,cached['image']['journalId'])]==self.image_digest(cached)
-                and sample['state']==facts['state'] and sample['capturedEpochMs']==facts['earliestEpochMs']
+            matching=[key for key in self._image_cache if key[0]==self.role
+                and original_name(self.run,key[0],key[1])==artifacts['file']['name']]
+            need(len(matching)==1);cached=self.cached_image(matching[0]);capture=cached['png']['capture'];facts=cached['facts']
+            need(sample['state']==facts['state'] and sample['capturedEpochMs']==facts['earliestEpochMs']
                 and sample['lifecycle']==cached['lifecycle'])
             for kind,name in (('image',cached['png']['name']),('file',artifacts['file']['name'])):
                 need(artifacts[kind]==dict(kind=kind,name=name,sequence=sample['sequence'],

@@ -50,6 +50,18 @@ complete history-enabled Journey still times out120.116s after action25,
 even without concurrent long Chat/Snapshot tests. All originals are retained;
 no new full Journey or finalization claim follows from the owning-group pass.
 
+The current sample and admitted per-image semantics now also use immutable
+canonical bytes. Inspection returns decoded copies; a changed copy cannot
+replace an original. Exact JSON types are checked before admission. Last-sample
+byte identity and its separately guarded digest, and every image byte digest,
+remain checked. Warm image reuse still reads all original PNG/metadata bytes,
+stamps and hashes; cold construction still validates complete stereo sources.
+Forty-three history/image/feature counterexamples pass11.643s, including changed
+immutable bytes, foreign JSON aliases, replaced originals and lost transactions.
+The next unchanged full Journey still times out120.117s; its originals remain
+retained. No current full Journey or whole-feature success is claimed. Growing
+VM-prefix serialization is the next measured reuse boundary to address.
+
 The original DOM view has ten fields; the original measure protocol returns the
 five-field document identity. Matching those exact five fields preserves URL,
 handle, creation, grant and page equality while allowing the unchanged original

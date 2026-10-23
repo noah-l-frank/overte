@@ -108,23 +108,32 @@ class PicoTabletWebImageTests(unittest.TestCase):
     def test_warm_png_replacement_cached_value_or_missing_reference_cannot_renew_original_semantics(self):
         artifacts,_facts=self.capture()
         with self.flow.lock.held():self.flow.role_state()
-        key=next(iter(self.flow.image_cache));cached=deepcopy(self.flow.image_cache[key])
-        for fault in ('cached-scope','cached-png','cached-tuple','cached-subclass','cached-key-subclass','reference'):
+        from adapters.script_journey.history import canonical
+        key=next(iter(self.flow.image_cache));cached=self.flow.image_cache[key];sealed=self.flow._image_cache[key]
+        copy=self.flow.image_cache;copy[key]['scope']['ownerToken']='f'*32
+        with self.flow.lock.held():self.flow.role_state()
+        self.assertEqual(cached,self.flow.image_cache[key])
+        for fault in ('cached-scope','cached-png','cached-tuple','cached-subclass','cached-key-subclass','raw-type','reference'):
             with self.subTest(fault=fault),self.flow.lock.held():
-                if fault=='cached-scope':self.flow.image_cache[key]['scope']['ownerToken']='f'*32
-                elif fault=='cached-png':self.flow.image_cache[key]['png']['capture']['instance']='f'*32
-                elif fault=='cached-tuple':self.flow.image_cache[key]['stamp']=tuple(self.flow.image_cache[key]['stamp'])
+                changed=deepcopy(cached)
+                if fault=='cached-scope':changed['scope']['ownerToken']='f'*32
+                elif fault=='cached-png':changed['png']['capture']['instance']='f'*32
+                elif fault=='cached-tuple':changed['stamp']=tuple(changed['stamp'])
                 elif fault=='cached-subclass':
                     class ForeignScope(dict):pass
-                    self.flow.image_cache[key]['scope']=ForeignScope(self.flow.image_cache[key]['scope'])
+                    changed['scope']=ForeignScope(changed['scope'])
                 elif fault=='cached-key-subclass':
                     class ForeignKey(str):pass
-                    value=self.flow.image_cache[key]['scope'].pop('ownerToken')
-                    self.flow.image_cache[key]['scope'][ForeignKey('ownerToken')]=value
+                    value=changed['scope'].pop('ownerToken');changed['scope'][ForeignKey('ownerToken')]=value
+                if fault in ('cached-tuple','cached-subclass','cached-key-subclass'):
+                    with self.assertRaises((ValueError,RuntimeError)):self.flow.image_digest(changed)
                 else:
-                    empty=deepcopy(self.state);empty['images']=[];self.flow.write(self.flow.role_store,'primary',empty)
-                with self.assertRaises((ValueError,RuntimeError)):self.flow.role_state()
-                self.flow.image_cache[key]=deepcopy(cached);self.flow.write(self.flow.role_store,'primary',self.state)
+                    if fault=='reference':
+                        empty=deepcopy(self.state);empty['images']=[];self.flow.write(self.flow.role_store,'primary',empty)
+                    elif fault=='raw-type':self.flow._image_cache[key]=bytearray(sealed)
+                    else:self.flow._image_cache[key]=canonical(changed)
+                    with self.assertRaises((ValueError,RuntimeError)):self.flow.role_state()
+                self.flow._image_cache[key]=sealed;self.flow.write(self.flow.role_store,'primary',self.state)
         name=next(row['name'] for row in artifacts if row['kind']=='image');path=self.model.artifacts/name
         raw=path.read_bytes();path.write_bytes(raw)
         with self.flow.lock.held(),self.assertRaises((ValueError,RuntimeError)):self.flow.role_state()
