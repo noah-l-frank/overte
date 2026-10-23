@@ -66,6 +66,7 @@ class PicoChatArchivePlan:
             self.witness=self.historical_witness()
             for role in (self.witness.initial_samples,self.witness.samples):self.add_role(role)
             self.add_owner(self.witness)
+            self.cleanup_metadata=self.add_cleanup_baseline()
             # Last _scripts access: subsequent process/source factories MUST
             # keep these actual old-PID host contexts untouched.
             manager=self.adapter._scripts(self.target)
@@ -119,6 +120,35 @@ class PicoChatArchivePlan:
             for row,original in zip(witness.rows,p.flow.rows)))
         return witness
 
+    def add_cleanup_baseline(self):
+        """Only the actual received warm baseline/seals, never ready-path discovery."""
+        from adapters.chat_journey.cleanup_baseline import ChatCleanupBaseline
+        parent=self.parent;baseline=getattr(parent,'cleanup_baseline',None)
+        if baseline is None:
+            need(getattr(parent,'cleanup_baseline_receipt',None) is None);return {}
+        need(type(baseline) is ChatCleanupBaseline and baseline.primary.samples is parent.cache_release.roles[0]
+            and baseline.store.path==self.adapter._chat_cleanup_baseline_store(self.target).path
+            and baseline.scope['runId']==parent.source.run and baseline.scope['fixtureUrl']==parent.source.fixture_url
+            and same(baseline.scope['binding'],parent.binding) and same(baseline.scope['peerBinding'],parent.peer.binding))
+        receipt=baseline.receipt(parent.cleanup_baseline_receipt)
+        self.add_owner(baseline)
+        need(self.catalog.rows['primary/'+baseline.store.path.name]['stamp']==baseline.root_stamp)
+        for witness,(seal,value) in enumerate(zip(baseline.seals,baseline.seal_receipts)):
+            need(seal.store.path==self.adapter._chat_cleanup_source_seal_store(self.target,witness=bool(witness)).path)
+            seal.receipt(value);self.add_owner(seal)
+            need(self.catalog.rows['primary/'+seal.store.path.name]['stamp']==seal.seal_stamp)
+            for owner,original in zip(seal.owners,value['originals']):
+                need(owner.store.path.name==original['journal']);self.add_owner(owner)
+                root=self.catalog.rows['primary/'+owner.store.path.name]
+                need(root['stamp']==original['stamp'] and digest(root['expected'])==original['sha256'])
+                stamps=[]
+                for index in range(original['chunkCount']):
+                    row=self.catalog.rows['primary/'+owner.history.store(index).path.name];stamp=row['stamp']
+                    stamps.append([stamp[position] for position in (0,1,5,3,2,4,6,7)])
+                need(digest(stamps)==original['chunkStampsSha256'])
+        # Optional v4 metadata: old archives never acquire this missing proof.
+        return dict(chatCleanupBaselineSha256=digest(receipt),chatCleanupSourceSeals=list(receipt['sealSha256']))
+
     def pre_stop_inventory(self):
         # This exact known reader root must remain mutable for the new
         # process's independent peer queries. Admit only the original consumed
@@ -160,6 +190,7 @@ class PicoChatArchivePlan:
             peerBinding=p.peer.binding,peerOriginBasis='native-configured-metadata-only',
             oldNative=application.inputs.read()['oldNative'],newNative=application.inputs.read()['newNative'],
             originalProfile=application.profile['original'],cleanupSha256=digest(guard.expected),parentSha256=digest(p.previous),applicationSha256=digest(application.previous))
+        metadata.update(getattr(self,'cleanup_metadata',{}))
         directory=self.state.parent/('chat-evidence-'+self.key+'-'+p.source.run)
         self.archive=ChatEvidenceArchive(self.catalog,directory,self.adapter._chat_archive_retirement_store(self.target),metadata,guard,self.inventory,
             unlink_fence=ChatArchiveUnlinkFence(guard),indexed_verify=True)
