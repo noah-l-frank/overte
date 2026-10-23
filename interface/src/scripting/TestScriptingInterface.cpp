@@ -88,7 +88,7 @@
 #include "../../../tests/device/native/PhoneSnapshotFastCancel.h"
 #include "../../../tests/device/native/PhoneSnapshotCaptureFiles.h"
 #include "../../../tests/device/native/PhoneSnapshotHandoff.h"
-#include "NativeSnapshotAdapter.h"
+#include "../../../android/common/snapshot/src/NativeSnapshotAdapter.h"
 #include "../../../tests/device/native/PhoneNavigationMarker.h"
 #include "../../../tests/device/native/PhoneLifecycleEditor.h"
 #include "../../../tests/device/native/PhoneLifecycleWorldInput.h"
