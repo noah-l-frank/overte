@@ -102,8 +102,10 @@ class RemoteJourneyTests(RemoteActorFixture,unittest.TestCase):
                 if not enabled(*args,**kwargs):return callback(*args,**kwargs)
                 started=time.monotonic()
                 def event(phase):
-                    print('Remote BG join '+label+' '+phase+' seconds='+str(round(time.monotonic()-self.started,3))+
-                        ' elapsed='+str(round(time.monotonic()-started,6)),flush=True)
+                    try:
+                        print('Remote BG join '+label+' '+phase+' seconds='+str(round(time.monotonic()-self.started,3))+
+                            ' elapsed='+str(round(time.monotonic()-started,6)),flush=True)
+                    except Exception:pass # A diagnostic output failure cannot mask the original exception.
                 event('begin')
                 try:result=callback(*args,**kwargs)
                 except BaseException:
