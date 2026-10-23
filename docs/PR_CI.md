@@ -138,6 +138,12 @@ from [pr-ci-platforms.json](../.github/pr-ci-platforms.json). A candidate cannot
 remove a mandatory suite by editing its own profile. Commands run inside the
 same offline, credential-free namespace used by shared host tests.
 
+The Android Java API preparer resolves its Qt archive and checksum through the
+trusted [dependency resolver](../tools/dependency-releases/check.py) and
+[bundle policy](../.github/dependency-releases.json). The extracted Qt API JAR
+retains its separate reviewed checksum; rotating a bundle does not qualify a
+different Java API.
+
 The selected iOS owner runs the actual iOS host contracts. Host-only inputs do
 not provision Qt or build an IPA. Application inputs additionally select the
 existing Qt and full-client recipes exactly once, preserving their audited
