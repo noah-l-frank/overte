@@ -319,3 +319,41 @@ freshness or claim the former OFD survived. An uncertain final directory pair
 is retained and prevents host completion; a landed final unlink gets a new
 CAS-from-absence failure marker. Normal success reports both actual closed
 metadata windows independently of the original captured pair count.
+
+
+A manual warm v4 measurement now drives all 26 original dispatcher and separate
+witness stages through the actual Pico parent methods, ordinary Erase/profile,
+both cache tombstones, restart binding transfer, peer IPC and final immutable
+archive. The Python owners, phase protocol, filesystem/OFD windows and native
+nonce capacity accounting run unchanged. Source clocks and native/widget/
+network/SDK/process-identity producers are explicit synthetic seams. Real host
+monotonic timings describe these filesystem costs; they do not qualify live
+Pico freshness or a hermetic actor. Another Root browser selector overlapped
+part of retirement, so these are diagnostics rather than controlled benchmarks.
+
+The first v4 full measurement was **red**, one test in 767.850 seconds. All
+2623 original files reached complete archival in 530.163 seconds, with copies
+and manifests archived in 13.673 seconds. The earlier v3 diagnostic took 470.022
+seconds to archive its copies and was explicitly aborted after 393 retirements;
+no v3 overall success is claimed. V4 subsequently passed the cold byte reader
+inside the test, then failed at a harness assertion that called the strict
+`RestartInputs.read()` decoder after that journal had been correctly retired.
+The absent-root query is `RestartInputs.store.read()` and is now corrected.
+The final host owner was never reached in this red measurement.
+
+The original failed fixture and its private timing report are retained without
+reconstruction or resend. Its old generic test cleanup changed the archive
+directory from 0500 to 0700 after the failure; its 2666 archive files remain,
+but no currently sealed cold-artifact claim is made for that retained directory.
+The manual fixture now keeps its original private directory on success or
+failure and removes that unrelated mode-changing teardown. This changes only
+test artifact retention, never archive admission or a product permission.
+
+The two disjoint short prefixes are exposed through
+`self_tests.test_chat_warm_archive.warm_archive_component_tests`. They and the
+two independent witness host cases passed four tests in 12.919 seconds. Three
+existing original restart-retirement/last-CAS cases passed in 0.068 seconds,
+including the correct absent-store query. The corrected full v4-plus-host case
+still needs one new, independently acquired measurement. It remains a manual
+selection outside the catalog's unchanged 120-second budget; registering this
+whole module would silently add a long duplicate journey and is not allowed.
