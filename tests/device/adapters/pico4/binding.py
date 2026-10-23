@@ -555,6 +555,31 @@ def create_adapter(args, base_class):
                 navigation.io.bind_before_send(lambda command:before_send(command,navigation))
             return ui
 
+        def _assets_file_store(self,target,stage=None):
+            _need(stage is None or type(stage) is int and 1<=stage<=6)
+            state,_ui=self._script_paths(target)
+            suffix='' if stage is None else '-stage'+str(stage)
+            return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-','normal-assets-files'+suffix+'-')))
+
+        def _assets_files_owned(self,target):
+            # Native file absence alone cannot retire the whole UI/backend
+            # owner. Keep even retired file transcripts until that final join.
+            for stage in (None,1,2,3,4,5,6):
+                value=self._assets_file_store(target,stage).read()
+                if value is not None:return True
+            return False
+
+        @_private
+        def _assets_file_owner(self,target,run,ticket,fixture_url,*,stage=None):
+            from adapters.pico4.assets_files import NativeAssetsFiles,FILE
+            from adapters.pico4.assets_file_owner import OwnedAssetsFiles
+            _ui,_observe,binding=self._script_runtime(target)
+            native=self._native_feature_observer(target)
+            files=NativeAssetsFiles(native.send,
+                lambda:self.adb.read_debug_app_file(target,'org.overte.pico','files/overte-e2e/'+FILE,attempts=1),
+                native.clock_ms,native.guard,native.pid,stage=stage)
+            return OwnedAssetsFiles(files,self._assets_file_store(target,stage),binding,run,ticket,fixture_url)
+
         def _assets_controls(self,target,intent,*,before_send=None,audit=None):
             from adapters.token_assets_ui import TokenAssetsUI
             from adapters.pico4.assets_ui import PicoAssetsIO
@@ -2868,7 +2893,7 @@ def create_adapter(args, base_class):
                         discard_stopped_state(path)
                 state, ui = self._script_paths(target)
                 discard_stopped_state(ui)
-                _need(not snapshot_error and not audio_error and not create_error and not self._create_management(target).owned() and not self._create_picker_owned(target) and not self._create_models_owned(target) and not self._create_feature_owned(target) and not self._avatar_urls_owned(target) and not self._avatar_favorites_owned(target)
+                _need(not snapshot_error and not audio_error and not create_error and not self._assets_files_owned(target) and not self._create_management(target).owned() and not self._create_picker_owned(target) and not self._create_models_owned(target) and not self._create_feature_owned(target) and not self._avatar_urls_owned(target) and not self._avatar_favorites_owned(target)
                       and not feature_error and not script_error and not probe_error and not origin_error and not chat_error and PrivateFeatureState(state).read() is None
                       and self._lifecycle_back_store(target).read() is None
                       and (self._lifecycle_world_store(target,create=False) is None or self._lifecycle_world_store(target,create=False).read() is None)

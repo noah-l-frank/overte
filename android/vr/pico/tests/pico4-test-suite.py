@@ -158,6 +158,8 @@ TESTS = (
         'AvatarFavoritesTests.test_foreign_preferences_before_scale_cannot_be_adopted_by_url_effect_proof',
         'AvatarFavoritesTests.test_nonempty_persisted_entity_size_refuses_even_with_empty_live_handles',
         'AvatarFavoritesTests.test_unowned_avatar_data_refuses_before_any_normal_favorite_input'),
+    test('assets-native-files', "interaction", PYTHON, "device/test_assets_files_native.py", requires=("c++", "pkg-config")),
+    test('assets-file-owner', "interaction", PYTHON, "device/test_assets_file_owner.py", requires=("c++", "pkg-config")),
     test('assets-native-ui', "interaction", PYTHON, "device/test_assets_native_ui.py", requires=("c++", "pkg-config")),
     test('assets-controls', "interaction", PYTHON, "device/test_assets_controls.py"),
     test("normal-create", "interaction", PYTHON, "device/test_normal_create.py"),

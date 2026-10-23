@@ -59,6 +59,9 @@
 #include <XMLHttpRequestClass.h>
 #include "../../../tests/device/native/PrivateWorldRenderReceipts.h"
 #include "../../../tests/device/native/PrivateCreateFiles.h"
+#if defined(ANDROID_APP_PICO_INTERFACE)
+#include "../../../tests/device/native/PrivateAssetsFiles.h"
+#endif
 #include "../../../tests/device/native/CreateBrowseSettingOwner.h"
 #include "../../../tests/device/native/CreateEntityLifetimes.h"
 #include "../../../tests/device/native/CreatePolyvoxResources.h"
@@ -133,6 +136,8 @@ void TestScriptingInterface::setTestResultsLocation(const QString path) {
         _featureLifecycle->start(path); // Failure leaves an unavailable observer.
 #if defined(ANDROID_APP_PICO_INTERFACE)
         _featureEmoteSceneQueue=std::make_shared<overte::e2e::AudioSettingsQueue>();
+        _featureAssetsFilesQueue=std::make_shared<overte::e2e::AudioSettingsQueue>();
+        _featureAssetsFiles=std::make_shared<overte::e2e::PrivateAssetsFiles>();
         _featureAvatarStateQueue=std::make_shared<overte::e2e::AudioSettingsQueue>();
         _featureAvatarBookmarksQueue=std::make_shared<overte::e2e::AudioSettingsQueue>();
         _featureAvatarBookmarkLoadsQueue=std::make_shared<overte::e2e::AudioSettingsQueue>();
@@ -311,6 +316,37 @@ QVariantMap TestScriptingInterface::featurePicoAvatarBookmarks(const QVariantMap
         {"sequence",static_cast<qulonglong>(++_featureAvatarBookmarksSequence)},{"processId",QCoreApplication::applicationPid()},
         {"requestedEpochMs",requested},{"capturedEpochMs",QDateTime::currentMSecsSinceEpoch()},
         {"source",QVariantMap{{"picoAvatarBookmarksVersion",1},{"instance",_featureAvatarBookmarkBirth},{"storage",read.values}}}};
+}
+
+QVariantMap TestScriptingInterface::featurePicoAssetsFiles(const QVariantMap& command) {
+    const auto queue=_featureAssetsFilesQueue;if(!queue) {return {};}
+    if(QThread::currentThread()!=thread()) {
+        return queue->read("dispatch",this,[command](QObject* original) {
+            return overte::e2e::AudioSettingsPart{static_cast<TestScriptingInterface*>(original)->featurePicoAssetsFiles(command),{}};
+        }).values;
+    }
+    const auto json=QJsonObject::fromVariantMap(command);const auto request=command.value("commandId").toString();
+    if(_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript") || !qApp || thread()!=qApp->thread()
+            || !json.value("schemaVersion").isDouble() || json.value("schemaVersion").toDouble()!=1
+            || !json.value("commandId").isString() || !QRegularExpression("\\A[0-9a-f]{32}\\z").match(request).hasMatch()
+            || command.value("action").toString()!="feature-pico-assets-files" || !_featureAssetsFiles
+            || QJsonDocument(json).toJson(QJsonDocument::Compact).size()>262144
+            || !queue->settled(overte::e2e::AudioSettingsQueue::dispatching(this) ? "dispatch" : QString())) {return {};}
+    if(_featureAssetsFilesCommands.contains(request)) {
+        return _featureAssetsFilesCommands.value(request)==command ? _featureAssetsFilesResults.value(request) : QVariantMap{};
+    }
+    if(_featureAssetsFilesCommands.size()>=512 || _featureAssetsFilesSequence>=9007199254740991ULL) {return {};}
+    _featureAssetsFilesCommands.insert(request,command); // One mutation; uncertainty survives a lost bounded dispatch result.
+    const auto requested=QDateTime::currentMSecsSinceEpoch();
+    const auto source=_featureAssetsFiles->request(_testResultsLocation,command);
+    const auto captured=QDateTime::currentMSecsSinceEpoch();
+    if(source.isEmpty() || captured<requested || captured-requested>=5000) {return {};}
+    const QVariantMap result{{"schemaVersion",1},{"requestId",request},{"instance",_featureObservationInstance},
+        {"sequence",static_cast<qulonglong>(++_featureAssetsFilesSequence)},{"processId",QCoreApplication::applicationPid()},
+        {"requestedEpochMs",requested},{"capturedEpochMs",captured},{"runId",command.value("runId")},
+        {"operation",command.value("operation")},{"source",source}};
+    _featureAssetsFilesResults.insert(request,result);return result;
 }
 
 QVariantMap TestScriptingInterface::featurePicoAvatarBookmarkLoads(const QVariantMap& command) {
