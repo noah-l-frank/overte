@@ -1,7 +1,7 @@
 """Worlds observation factories on the existing candidate-qualified iOS session.
 
-No session creation, normal input, feature dispatch or capability advertisement
-is provided here. The whole navigation coordinator must own admission/cleanup.
+Factories create no SDK session and advertise no capability. The whole
+navigation coordinator owns admission, ordinary input and cleanup.
 """
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
@@ -31,6 +31,14 @@ from ios.adapters.script_runtime import IOSScriptRuntime
 
 
 class IOSNavigationRuntime(IOSScriptRuntime):
+    def _navigation_feature(self,selector,run,*,role,client,settings):
+        from ios.adapters.navigation_configuration import settings as validate_settings
+        from ios.adapters.navigation_feature import IOSNavigationFeature
+        from ios.adapters.navigation_whole_feature import NavigationWholeFeature
+        need(role in ('primary','actor') and client is not None)
+        selected=validate_settings(settings)
+        return NavigationWholeFeature(IOSNavigationFeature(self,selector,client,run,selected['artifactRoot'],role=role))
+
     def _navigation_restored_image(self,selector,client,run,role,request,root,lock,*,process_context,owner_files,directory_proof,previous,quiet=False):
         """Current static pixels after an original typed process transfer."""
         from ios.adapters.navigation_restored_image import NavigationRestoredImage

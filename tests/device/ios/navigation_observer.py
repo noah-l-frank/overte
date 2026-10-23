@@ -105,9 +105,9 @@ def run_flow(whole,config,*,monotonic=time.monotonic,sleep=time.sleep):
 
 def run(runtime,config,*,monotonic=time.monotonic,sleep=time.sleep):
     need(isinstance(runtime,IOSNavigationRuntime))
-    flow=IOSNavigationFeature(runtime,config['target'],Client(config['fixtureUrl'],config['actorToken']),
-        config['runId'],config['artifactRoot'],role='actor')
-    return run_flow(NavigationWholeFeature(flow),config,monotonic=monotonic,sleep=sleep)
+    whole=runtime._navigation_feature(config['target'],config['runId'],role='actor',
+        client=Client(config['fixtureUrl'],config['actorToken']),settings=dict(artifactRoot=config['artifactRoot']))
+    return run_flow(whole,config,monotonic=monotonic,sleep=sleep)
 
 
 def main(argv=None):

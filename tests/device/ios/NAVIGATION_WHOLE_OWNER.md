@@ -40,6 +40,11 @@ alone cannot complete the worker. Unknown publications retain a private failure
 marker, and timeout retains the entire ownership graph. Six focused host cases
 cover real initial publication and separately modeled worker seal scheduling.
 The worker is not yet qualified as part of the whole final journey or dispatch.
+The shared runtime factory now binds this same whole owner to an explicitly
+selected private artifact root. Two focused host cases exercise actual initial
+baselines, normal entry and source observation through that factory and reject
+foreign configuration fields. The worker uses this factory without creating a
+new SDK. Public complete capability admission remains closed.
 
 Worlds remains partial. The full fifteen-step final integration, initial-process
 and partial-setup restoration, whole worker/configuration/dispatch integration and the
