@@ -711,7 +711,10 @@
         "tests/device/self_tests/test_pico_tablet_web_images.py",
         "tests/device/self_tests/test_pico_tablet_web_flow.py",
         "tests/device/self_tests/test_pico_tablet_web_stereo_flow.py",
-        "tests/device/self_tests/test_pico_browser_quiet_journal.py"
+        "tests/device/self_tests/test_pico_browser_quiet_journal.py",
+        "tests/device/adapters/pico4/browser_history.py",
+        "tests/device/self_tests/test_pico_browser_history.py",
+        "android/vr/pico/tests/pico-tablet-web-journey-test.py"
       ],
       "declaredCheckpoints": 26,
       "inputVerbs": [
@@ -750,8 +753,8 @@
         "open"
       ],
       "missingOperationsOrEvidence": [
-        "Original product/HMD qualification: the complete26-action shared host Journey now passes with separate primary/independent actor stereo originals, normal cleanup and the final3s empty observation window; GPU/Qt/DOM/Java/OS producers remain explicit host seams",
-        "Complete durable original phase, primary/actor publication and source-frame archive across the whole Journey; current role state and original VM/stereo/quiet journals must be joined without losing earlier observations",
+        "Original product/HMD qualification: the earlier26-action host Journey passed82.390s with original primary/actor stereo and final quiet; after adding complete per-role original source/publication histories, current full verification still times out at unchanged120s. GPU/Qt/DOM/Java/OS producers remain explicit host seams",
+        "Complete inactive-phase retirement and immutable source archive: all acquired per-role samples and publication events are now durable original chunks; whole Journey timing, final actor exit, VM/stereo/quiet archive and original retirement must still be joined",
         "Whole final Script/native/Java/renderer/capture quiet retirement and immutable archive: the fresh read-only capture-absence source is present, but complete historical capture traversal, original final source ownership, host closure and public capability admission remain outstanding"
       ],
       "requiredOriginalEvidence": [
@@ -765,7 +768,7 @@
         "Revoke leases and retire callback/grant authority",
         "Observe actual source destruction and closed quiet baseline"
       ],
-      "nextExecutableStep": "Join complete original phase/actor/source histories and freshly inspect every historical primary/actor capture before immutable archive retirement and public operation/actor admission. The full26-action host Journey now passes82.390s with unchanged120s timeout; complete source areas remain3/14.",
+      "nextExecutableStep": "Verify the complete history-enabled Journey under unchanged120s after measured validation/path reuse; then join inactive-phase actor retirement and freshly inspect every historical primary/actor capture before immutable archive, host closure and public operation/actor admission. Support owners are green; full current Journey remains timed out; complete source areas remain3/14.",
       "nativeCompilation": "Selected native backend translation unit and original Pico pointer/provider bodies host-compiled; full application unverified",
       "deviceQualification": "untested"
     },

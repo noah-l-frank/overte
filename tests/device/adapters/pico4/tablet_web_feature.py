@@ -80,6 +80,7 @@ class PicoTabletWebFeature:
         self.image_cache={};self.image_cache_digests={}
         self.vm_cache=None;self.vm_cache_scope=None
         self.quiet_cache=None;self.quiet_cache_scope=None
+        self.history_cache=None;self.history_scope=None
         self.completed_store=PrivateFeatureState(self.artifact_root/(self.area+'-'+self.run+'-retirement.json'))
 
     def manager_store(self):
@@ -275,6 +276,7 @@ class PicoTabletWebFeature:
             if call['ticket'] in owner['tickets']:
                 need(same(owner['call'],call) and owner['phase']=='active');return {'performed':True}
             need(owner['phase'] in ('baseline','active') and len(owner['tickets'])<256)
+            self.observation_admission(owner)
             owner.update(phase='acting',call=call,phaseSource=active['status']);owner['tickets'].append(call['ticket']);self.save(owner)
             # One durable intent precedes any ordinary product input. A lost
             # response stays issued; another act cannot repeat it.
@@ -371,7 +373,7 @@ class PicoTabletWebFeature:
             if cached is not None:
                 need(self.image_cache_digests[cache_key]==self.image_digest(cached)
                     and same(cached['image'],image) and same(cached['scope'],scope))
-                self.original_image(cached['png'],expected=cached['stamp'])
+                self._original_image_bytes(cached['png'],expected=cached['stamp'])
                 key=tuple(cached['capture']);png_name=cached['png']['name']
                 need(key not in captures and png_name not in pngs);captures.add(key);pngs.add(png_name)
                 continue
@@ -388,7 +390,8 @@ class PicoTabletWebFeature:
                     ownerToken=owner['ownerToken'],scriptUrl=owner['scriptUrl']))
             if not legacy:
                 need(len(self.image_cache)<512)
-                cached=dict(image=deepcopy(image),scope=deepcopy(scope),png=deepcopy(rows[0]['image']),stamp=stamp,capture=list(key))
+                cached=dict(image=deepcopy(image),scope=deepcopy(scope),png=deepcopy(rows[0]['image']),stamp=stamp,capture=list(key),
+                    facts=deepcopy(_facts),lifecycle=deepcopy(rows[0]['frame']['nativeBefore']['lifecycle']))
                 self.image_cache[cache_key]=cached;self.image_cache_digests[cache_key]=self.image_digest(cached)
         need(all(key[1] in journals for key in self.image_cache if key[0]==role))
 
@@ -404,8 +407,12 @@ class PicoTabletWebFeature:
         Cold callers always run the complete common stereo/source validator.
         """
         from adapters.graphics_journey.originals import record
-        from adapters.chat_journey.archive_file import signature
         record(value);need(value['kind']=='image' and value['phase']=='saved')
+        return self._original_image_bytes(value,expected=expected)
+
+    def _original_image_bytes(self,value,*,expected=None):
+        """Physical/full-byte checks after immutable original semantics validation."""
+        from adapters.chat_journey.archive_file import signature
         path=self.artifact_root/value['name'];PrivateFeatureState(path)._parent()
         descriptor=os.open(path,os.O_RDONLY|getattr(os,'O_NOFOLLOW',0)|getattr(os,'O_NONBLOCK',0))
         with os.fdopen(descriptor,'rb') as stream:
@@ -443,6 +450,112 @@ class PicoTabletWebFeature:
         need(step['verb']==phase['verb'] and same(expand(step['inputs'],fixture_context(self.run)),phase['inputs']))
         return bool({'image','changed'}.intersection(step['evidence']))
 
+    def source_history(self,owner):
+        from adapters.pico4.browser_history import PicoBrowserHistory
+        self.lock.assert_held()
+        scope=dict(binding=owner['binding'],ownerToken=owner['ownerToken'],runId=self.run,fixtureUrl=self.fixture_url,
+            foreignFixtureUrl=self.foreign_url,artifactRoot=str(self.artifact_root),role=self.role,sceneUrl=self.adapter.scene_url)
+        if self.history_cache is None:
+            self.history_cache=PicoBrowserHistory(PrivateFeatureState(self.store.path.with_name('pico-tablet-web-'+self.role+'-sources.json')),
+                self.lock,scope,self.validate_original_sample)
+            self.history_scope=deepcopy(scope)
+        need(same(scope,self.history_scope));self.history_cache.verify();return self.history_cache
+
+    def observation_admission(self,owner):
+        """Pending original reads/publications cannot authorize another input."""
+        state=self.role_state();history=self.source_history(owner);history.matches(state)
+        actor=self.read(PrivateFeatureState(self.store.path.with_name('pico-tablet-web-actor.json')),'actor')
+        actor_root=PrivateFeatureState(self.store.path.with_name('pico-tablet-web-actor-sources.json')).read()
+        if actor is None:need(actor_root is None);return
+        need(actor['publication'] is None or actor['publication']['phase']=='accepted')
+        if actor_root is None:need(actor['sequence']==0);return
+        scope={**history.scope,'role':'actor'}
+        exact(actor_root,set(scope)|{'phase','revision','chunks','intent'})
+        need(all(same(actor_root[key],value) for key,value in scope.items())
+            and actor_root['phase']=='ready' and actor_root['intent'] is None
+            and type(actor_root['chunks']) is list and integer(actor_root['revision'],2)
+            and actor_root['revision']==2*len(actor_root['chunks']))
+
+    def validate_original_sample(self,frame,previous):
+        """Replay complete historical source validation without any target query."""
+        from adapters.native_feature_observation import validate as feature_packet
+        from adapters.native_web_runtime import validate as runtime_packet,continuity as runtime_advance
+        from adapters.normal_script_manager import diagnostic as service_packet
+        from feature_journeys.phase_fixture import validate as phase_packet
+        exact(frame,{'phaseBefore','phaseAfter','nativeBefore','nativeAfter','native','runtime','browser','diagnostic',
+            'scriptUrl','vm','sample','startedHost','startedEpoch','finishedHost','finishedEpoch'})
+        # During cold construction the callback precedes cache assignment.
+        binding=self.live_owner['binding'];pid=int(binding['processIdentity'].split(':',1)[0])
+        epoch=frame['finishedEpoch'];need(integer(epoch,1) and integer(frame['startedEpoch'],1,epoch)
+            and number(frame['startedHost'],0,1e15) and number(frame['finishedHost'],frame['startedHost'],frame['startedHost']+10))
+        for field in ('phaseBefore','phaseAfter'):
+            packet=frame[field];phase_packet(packet,run=self.run,area=self.area,request=packet['requestId'],epoch=packet['capturedEpochMs'])
+            need(packet['active']);fresh(packet['capturedEpochMs'],epoch)
+        need(same(frame['phaseBefore']['activations'],frame['phaseAfter']['activations']))
+        need(frame['scriptUrl'] is None or frame['scriptUrl']==self.live_owner['scriptUrl'])
+        if previous is not None and previous['scriptUrl'] is not None:need(frame['scriptUrl']==previous['scriptUrl'])
+        for field in ('nativeBefore','nativeAfter'):
+            packet=frame[field];feature_packet(packet,packet['requestId'],pid,epoch)
+        before,after=frame['nativeBefore'],frame['nativeAfter']
+        need(before['instance']==after['instance'] and before['sequence']<after['sequence']
+            and before['lifecycle']==after['lifecycle'] and before['capturedEpochMs']<=after['capturedEpochMs'])
+        native=frame['native'];request=dict(schemaVersion=1,commandId=native['commandId'],action=self.action,runId=self.run,
+            fixtureUrl=self.fixture_url,ownerToken=self.live_owner['ownerToken'],operation='observe')
+        validate_source(native,request,pid,epoch)
+        runtime=frame['runtime'];runtime_packet(runtime,dict(schemaVersion=1,commandId=runtime['commandId'],
+            action='feature-web-runtime-observe',runId=self.run,fixtureUrl=self.fixture_url),pid,epoch,require_renderers=True)
+        service_packet(frame['diagnostic'],epoch);browser_status(frame['browser'],None if previous is None else previous['browser'])
+        if previous is not None:
+            continuity(previous['native'],native);runtime_advance(previous['runtime'],runtime,pid,self.fixture_url)
+            need(before['instance']==previous['nativeAfter']['instance'] and before['sequence']>previous['nativeAfter']['sequence']
+                and all(after['lifecycle'][key]>=value for key,value in previous['nativeAfter']['lifecycle'].items())
+                and frame['diagnostic']['instance']==previous['diagnostic']['instance']
+                and frame['diagnostic']['sampleSequence']>previous['diagnostic']['sampleSequence']
+                and frame['startedHost']>=previous['finishedHost'])
+        measured,resources=measurement(self.run,self.fixture_url,self.foreign_url,native,frame['browser'],runtime,
+            frame['diagnostic']['scripts'],frame['scriptUrl'],area=self.area)
+        if frame['vm'] is not None:
+            from adapters.chat_journey.source_chunks import digest
+            exact(frame['vm'],{'scopeSha256','index','sha256'})
+            need(frame['scriptUrl']==self.live_owner['scriptUrl'])
+            vm=self.vm_reader(self.live_owner);vm.verify();reference=frame['vm'];index=reference['index']
+            need(integer(index,0,len(vm.frames)-1) and reference['scopeSha256']==digest(vm.scope)
+                and reference['sha256']==digest(vm.frames[index]))
+            from adapters.pico4.browser_vm import join
+            _origin,facts=join(vm.frames[index],frame['scriptUrl'],pid,origin=vm.origin)
+            if not facts['retired'] and 'script:tablet-web-client' not in resources:resources.append('script:tablet-web-client')
+        else:need(frame['scriptUrl'] is None)
+        sample=result('feature.'+self.area+'.observe',frame['sample'])
+        need(sample['runId']==self.run and sample['state']==measured and sample['resources']==resources
+            and sample['lifecycle']==after['lifecycle'])
+        if sample['artifacts']:
+            from adapters.pico4.browser_stereo import original_name
+            need(len(sample['artifacts'])==2)
+            artifacts={value['kind']:value for value in sample['artifacts']};need(set(artifacts)=={'image','file'})
+            matching=[cached for (role,journal),cached in self.image_cache.items() if role==self.role
+                and original_name(self.run,role,journal)==artifacts['file']['name']]
+            need(len(matching)==1);cached=matching[0];capture=cached['png']['capture'];facts=cached['facts']
+            need(self.image_cache_digests[(self.role,cached['image']['journalId'])]==self.image_digest(cached)
+                and sample['state']==facts['state'] and sample['capturedEpochMs']==facts['earliestEpochMs']
+                and sample['lifecycle']==cached['lifecycle'])
+            for kind,name in (('image',cached['png']['name']),('file',artifacts['file']['name'])):
+                need(artifacts[kind]==dict(kind=kind,name=name,sequence=sample['sequence'],
+                    capturedEpochMs=capture['capturedEpochMs'],ticket=cached['image']['ticket'],
+                    **(dict(source='world-render-target') if kind=='image' else {})))
+        else:need(sample['capturedEpochMs']==after['capturedEpochMs'])
+        clocks=[sample['capturedEpochMs'],before['capturedEpochMs'],after['capturedEpochMs'],native['capturedEpochMs'],
+            runtime['capturedEpochMs'],frame['diagnostic']['sampleEpochMs'],frame['phaseAfter']['capturedEpochMs']]
+        clocks.extend(runtime['source'][key]['capturedEpochMs'] for key in ('nativeBefore','java','nativeAfter'))
+        if frame['vm'] is not None:
+            original=vm.frames[frame['vm']['index']]
+            clocks.extend((original['objectsBefore']['source']['capturedEpochMs'],original['scripts']['capturedEpochMs'],
+                original['objectsAfter']['source']['capturedEpochMs']))
+        need(min(before['capturedEpochMs'],native['capturedEpochMs'],runtime['source']['nativeBefore']['capturedEpochMs'])
+            >=frame['phaseBefore']['activations'][-1]['activatedEpochMs'])
+        for captured in clocks:
+            fresh(captured,epoch)
+            need(max(epoch-captured,frame['startedEpoch']-captured+math.ceil((frame['finishedHost']-frame['startedHost'])*1000))<=1500)
+
     def screenshot(self,owner,ticket,sequence,role,state):
         from adapters.pico4.browser_stereo_source import validate as frame_packet
         journal=uuid.uuid4().hex;image=dict(journalId=journal,ticket=ticket,phase='planned',metadata=None)
@@ -456,9 +569,11 @@ class PicoTabletWebFeature:
         return stereo.artifacts(sequence),facts
 
     def acquire(self,owner,phase,state,*,after_sequence=0):
+        history=self.source_history(owner);history.matches(state)
         start=self.monotonic();need(number(start,0,1e15) and integer(after_sequence) and after_sequence<=state['sequence']
             and all(image['phase']=='saved' for image in state['images']))
         epoch_started=self.source.epoch_ms();need(number(epoch_started,1,1e16))
+        history.begin('sample',state['sequence']+1)
         self.runtime(owner)
         vm=None;vm_facts=None
         if owner['scriptUrl'] is not None:
@@ -508,14 +623,29 @@ class PicoTabletWebFeature:
                 frame['scripts']['capturedEpochMs'],frame['objectsAfter']['source']['capturedEpochMs']))
         self.sample_fence=(deepcopy(phase),start,epoch_started,epochs)
         guard();self.write(self.role_store,self.role,state)
-        self.completion_fence(owner)
+        self.verify_images(state,self.role)
+        finished=self.completion_fence(owner)
+        from adapters.chat_journey.source_chunks import digest
+        vm_reference=None if vm is None else dict(scopeSha256=digest(vm.scope),index=len(vm.frames)-1,sha256=digest(vm.frames[-1]))
+        history.finish(dict(phaseBefore=deepcopy(phase['status']),phaseAfter=finished['phase'],nativeBefore=before,nativeAfter=after,
+            native=native,runtime=runtime,browser=status,diagnostic=diagnostic,scriptUrl=owner['scriptUrl'],vm=vm_reference,
+            sample=candidate,startedHost=start,startedEpoch=epoch_started,finishedHost=finished['host'],finishedEpoch=finished['epoch']))
+        self.completion_fence(owner,originals=lambda:self.sample_originals(state,history))
         return candidate
 
-    def completion_fence(self,owner):
+    def sample_originals(self,state,history):
+        """The last target guard cannot hide changed host originals or parents."""
+        parent=deepcopy(self.originals[self.store.path]);role=deepcopy(self.originals[self.role_store.path])
+        need(same(self.store.read(),parent) and same(self.role_store.read(),role));history.matches(state)
+        self.verify_images(state,self.role)
+        need(same(self.store.read(),parent) and same(self.role_store.read(),role));history.matches(state)
+
+    def completion_fence(self,owner,*,originals=None):
         phase,start,epoch_started,epochs=self.sample_fence
         end=self.source.read(phase['status'])
         need(same(end['status']['activations'],phase['status']['activations']))
         self.runtime(owner)
+        if originals is not None:need(callable(originals));originals()
         measured=self.monotonic();epoch=self.source.epoch_ms();finished=self.monotonic()
         need(number(measured,start,start+10) and number(finished,measured,start+10)
             and number(epoch,epoch_started,1e16))
@@ -523,6 +653,7 @@ class PicoTabletWebFeature:
             fresh(captured,epoch)
             need(max(epoch-captured,epoch_started-captured+math.ceil((finished-start)*1000),
                 epoch-captured+math.ceil((finished-measured)*1000))<=1500)
+        return dict(phase=deepcopy(end['status']),host=finished,epoch=epoch)
 
     def observe(self,value):
         call=arguments('feature.'+self.area+'.observe',value);need(self.role=='primary' and call['runId']==self.run)
@@ -543,12 +674,16 @@ class PicoTabletWebFeature:
                 state.update(native=native,retired=retired.status);self.write(self.role_store,self.role,state);raise
             value=self.acquire(owner,phase,state)
             payload=dict(ticket=phase['ticket'],actor='owned-observer',actorSequence=value['sequence'],capturedEpochMs=value['capturedEpochMs'],facts=projection(self.area,value['state']))
+            history=self.source_history(owner);history.begin('publication-intent',value['sequence'])
             state['publication']=dict(phase='issued',payload=deepcopy(payload));self.write(self.role_store,self.role,state)
-            self.completion_fence(owner)
+            history.finish(dict(payload=payload,ack=None))
+            self.completion_fence(owner,originals=lambda:self.sample_originals(state,history))
             ack=self.source.client.request('/runs/'+self.run+'/samples',payload)
             exact(ack,set())
+            history.begin('publication-accepted',value['sequence'])
             state['publication']['phase']='accepted';self.write(self.role_store,self.role,state)
-            self.completion_fence(owner)
+            history.finish(dict(payload=payload,ack=ack))
+            self.completion_fence(owner,originals=lambda:self.sample_originals(state,history))
             return value
 
     def close_source(self,owner):

@@ -11,6 +11,7 @@ if __name__=='__main__':
     suite=unittest.defaultTestLoader.loadTestsFromName('self_tests.test_pico_tablet_web_feature')
     suite.addTests(unittest.defaultTestLoader.loadTestsFromName('self_tests.test_pico_tablet_web_images'))
     suite.addTests(unittest.defaultTestLoader.loadTestsFromName('self_tests.test_pico_tablet_web_flow'))
-    suite.addTests(unittest.defaultTestLoader.loadTestsFromName('self_tests.test_pico_tablet_web_stereo_flow'))
+    suite.addTests(unittest.defaultTestLoader.loadTestsFromName('self_tests.test_pico_tablet_web_stereo_flow.PicoTabletWebStereoFlowTests.test_actual_parent_and_independent_actor_publish_separate_original_stereo_journals'))
     suite.addTests(unittest.defaultTestLoader.loadTestsFromName('self_tests.test_pico_browser_quiet_journal'))
+    suite.addTests(unittest.defaultTestLoader.loadTestsFromName('self_tests.test_pico_browser_history'))
     raise SystemExit(not unittest.TextTestRunner(verbosity=2).run(suite).wasSuccessful())

@@ -5,6 +5,42 @@ is advertised. It uses the canonical original Script source lock, normal Script
 manager and Home/app controls, original geometry plus normal pointer/wheel/IME,
 and separately acquired native/Java/HTTP/DOM/VM/stereo sources.
 
+## Durable original role and publication histories
+
+`PicoBrowserHistory1` now retains every acquired primary/actor sample in the
+shared immutable source chunks. A durable reading intent precedes target
+queries. Each complete frame retains both original phase packets, native
+before/after packets, browser/runtime/HTTP/service sources, measured result,
+original clocks and exact references to the original VM frame and stereo
+artifacts. Actor publication intent and its actual acknowledgement are separate
+original events. Missing history, interrupted queries, lost publication replies
+and orphan chunks retain ownership and refuse subsequent normal input.
+Cold reconstruction validates every complete original without a target query.
+It cannot turn an earlier sample into a fresh observation.
+
+Admitted rows are immutable canonical bytes; inspection returns copies.
+Warm checks retain the exact immutable prefix, complete physical chunk inventory
+and stamps, cached-value/source-context digests, and all original PNG bytes/hash
+and metadata identity checks. Final target guards are followed by another
+host-original/parent check and the unchanged clock fence. Shared chunk inventory
+uses the same complete filename set through `scandir`; cached lexical paths do
+not remove any physical signature check. Previously validated unchanged PNG
+capture semantics can be reused only behind the exact admitted cache digest;
+the complete PNG file still gets read and hashed.
+
+The unchanged512-frame/16MiB raw,48KiB packed and64KiB physical bounds remain.
+Seventeen focused history cases join the owner selector, including late guards,
+both clocks, phase changes, lost source/child/root/publication results and cold
+no-resend admission. The owner group passes31.908s and five shared chunk
+inventory/tampering/final-guard checks pass0.902s. The earlier complete Journey
+passed82.390s before adding these histories. Its new owning run still times out
+at120s (all originals retained); a separate unchanged120s Journey selector
+keeps that failure visible. Neither support-case splitting nor historical
+success qualifies the current full Journey. The catalog has144 groups, with
+three complete source feature areas. Complete inactive-phase retirement,
+historical capture traversal, immutable archive, host closure and public
+capability admission remain open; `finalize()` still refuses.
+
 The original DOM view has ten fields; the original measure protocol returns the
 five-field document identity. Matching those exact five fields preserves URL,
 handle, creation, grant and page equality while allowing the unchanged original
