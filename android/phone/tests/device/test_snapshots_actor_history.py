@@ -59,6 +59,8 @@ class SnapshotActorHistoryTests(unittest.TestCase):
             if mutation.startswith(('feature-','actor-','role-')):
                 store={'feature':f.store,'actor':a.store,'role':r.store}[mutation.split('-')[0]]
                 before=deepcopy(store.read())
+                if kind=='mid-role-aba':
+                    actual_bytes=store.path.read_bytes();identity=store.path.stat()
                 if mutation.endswith('-aba'):store.write(before,before)
                 else:
                     state=unpack(before['payload'])[0]
@@ -66,6 +68,10 @@ class SnapshotActorHistoryTests(unittest.TestCase):
                     elif mutation.startswith('actor-'):state['dropped'].append(dict(counterForeignOwner=True))
                     else:state['phase']='retired'
                     store.write(dict(before,payload=pack([state])),before)
+                if kind=='mid-role-aba':
+                    changed=store.path.stat()
+                    self.assertEqual(actual_bytes,store.path.read_bytes())
+                    self.assertNotEqual((identity.st_dev,identity.st_ino),(changed.st_dev,changed.st_ino))
                 path=store.path
             elif mutation in ('old-frame','manifest','missing'):
                 prefix='emote-index-' if mutation=='manifest' else 'emote-frame-'
