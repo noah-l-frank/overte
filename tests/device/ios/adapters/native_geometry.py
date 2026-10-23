@@ -36,12 +36,17 @@ class OriginalGeometry:
         self.send,self.original,self.clock_ms,self.guard=send,original,clock_ms,guard
         self.monotonic,self.sleep=monotonic,sleep;self.sequence=0;self.epoch=0;self.last=None
 
-    def capture(self):
+    def capture(self, *, native_before_floor=None):
         from adapters.native_feature_observation import decode,fresh,integer,need,number
         from adapters.normal_ui import NativeUIError
         try:
             need(self.guard() is not False);started=previous=self.monotonic();need(number(started,0,1e15))
-            before=self.clock_ms();need(integer(before,1))
+            # An explicit floor is an already-retained original BEFORE epoch,
+            # never a new current clock. Its owning Source validates PID,
+            # native birth/nonce/prefix and acquisition provenance before send.
+            # Both terminal clock reads below remain independent and new.
+            before=self.clock_ms() if native_before_floor is None else native_before_floor
+            need(integer(before,1 if native_before_floor is None else max(1,self.epoch)))
             nonce='ios-'+uuid.uuid4().hex
             current=self.monotonic();need(number(current,previous,1e15) and current-started<1.5);previous=current
             need(self.guard() is not False)
