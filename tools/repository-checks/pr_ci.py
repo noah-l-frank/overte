@@ -657,20 +657,20 @@ def main():
             except ValueError as error:
                 prerequisites['readiness_error'] = str(error)
         import pr_ci_transport
-        source_policy = 'compatible'
+        source_policy_status = 'compatible'
         try:
             pr_ci_transport.validate_sources(after, trusted,
                 protected_base=before if args.target != 'main' else None)
         except pr_ci_transport.TransportError:
-            source_policy = 'requires-reviewed-controller-transition'
+            source_policy_status = 'requires-reviewed-controller-transition'
         result = {'kind': 'pr-ci-local-preflight-v1', 'execution': False, 'plan': plan,
-                  'platform_prerequisites': prerequisites, 'source_policy': source_policy}
+                  'platform_prerequisites': prerequisites, 'source_policy': source_policy_status}
         if args.out:
             write_json(args.out, result)
         print(json.dumps({'target': args.target, 'tasks': [t['id'] for t in plan['tasks']],
-                          'platform_prerequisites': prerequisites, 'source_policy': source_policy}, sort_keys=True))
+                          'platform_prerequisites': prerequisites, 'source_policy': source_policy_status}, sort_keys=True))
         return 2 if native_unavailable or (
-            source_policy != 'compatible' and not args.allow_controller_transition) else 0
+            source_policy_status != 'compatible' and not args.allow_controller_transition) else 0
     elif args.command == "context":
         context = source_context(read_json(args.event.read_text()), args.event_name, args.number, args.controller)
         write_json(args.out, context)
