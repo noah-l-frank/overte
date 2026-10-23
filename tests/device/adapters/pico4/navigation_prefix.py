@@ -1,7 +1,7 @@
 """Normal Origin/Places/bookmark opening prefix of unchanged Navigation v16.
 
 The common Journey remains the sole recipe. This private parent composes its
-first nine actions; no feature capability, final cleanup or image verdict is
+first ten actions; no feature capability, final cleanup or image verdict is
 published. Primary input and independently queried actor frames stay separate.
 """
 # Copyright 2026 Overte contributors.
@@ -32,9 +32,9 @@ from feature_journeys.phase_fixture import PhaseFixtureReader, PhasePending, val
 from openxr_input.adapter_session import PicoOpenXrAdapterSession
 from openxr_input.controller_protocol import validate_envelope
 
-VERSION=4
+VERSION=5
 AREA='world-navigation'
-VERBS=tuple(row['verb'] for row in SCENARIOS[AREA]['steps'][:9])
+VERBS=tuple(row['verb'] for row in SCENARIOS[AREA]['steps'][:10])
 
 
 def plan(run,index):
@@ -42,11 +42,11 @@ def plan(run,index):
     return dict(verb=row['verb'],inputs=expand(row['inputs'],context(run)))
 
 
-def limit(value):return {1:5,2:7,3:8,4:9}[value['navigationPrefixVersion']]
+def limit(value):return {1:5,2:7,3:8,4:9,5:10}[value['navigationPrefixVersion']]
 
 
 class NavigationPrefix:
-    def __init__(self,path,source,phase,lock,origin,directory,bookmarks,session,*,role='primary',monotonic=time.monotonic,transit_factory=None,missing_factory=None):
+    def __init__(self,path,source,phase,lock,origin,directory,bookmarks,session,*,role='primary',monotonic=time.monotonic,transit_factory=None,missing_factory=None,dismissal_factory=None):
         need(isinstance(source,NavigationPrefixSource) and isinstance(phase,PhaseFixtureReader) and phase.area==AREA
             and phase.run==source.run and isinstance(lock,ScriptSourceLock) and isinstance(origin,NavigationOrigin)
             and isinstance(directory,NavigationDirectory) and isinstance(bookmarks,NavigationBookmarks)
@@ -58,6 +58,7 @@ class NavigationPrefix:
         self.role=role
         need(transit_factory is None or callable(transit_factory));self.transit_factory=transit_factory;self.transit_join=None
         need(missing_factory is None or callable(missing_factory));self.missing_factory=missing_factory;self.missing_join=None
+        need(dismissal_factory is None or callable(dismissal_factory));self.dismissal_factory=dismissal_factory;self.dismissal_join=None
         self.scope_sha=json_digest(self.scope());self.role_sha=json_digest(role)
         for child in (origin,directory,bookmarks):need(child.run==self.run and same(child.binding,self.binding))
         transport=source.normal.io.original.navigation.io
@@ -95,8 +96,8 @@ class NavigationPrefix:
     def validate(self,value):
         self.control()
         exact(value,{'navigationPrefixVersion','scopeSha256','runId','binding','phase','fixture','completed','active','deliveries','receipt','home','preflight'}
-            |({'lookupReceipt'} if value.get('navigationPrefixVersion')==4 else set()))
-        need(type(value['navigationPrefixVersion']) is int and value['navigationPrefixVersion'] in (1,2,3,VERSION)
+            |({'lookupReceipt'} if value.get('navigationPrefixVersion') in (4,5) else set()))
+        need(type(value['navigationPrefixVersion']) is int and value['navigationPrefixVersion'] in (1,2,3,4,VERSION)
             and value['runId']==self.run and same(value['binding'],self.binding)
             and value['scopeSha256']==self.scope_sha
             and value['phase'] in ('preparing','ready','acting') and type(value['completed']) is list
@@ -112,7 +113,8 @@ class NavigationPrefix:
                 and integer(command['sequence'],1) and integer(command['observedElapsedMs'])
                 and command['action'] in ('activate','replace','submit','scroll')
                 and (command['controlId']=='login.server' or places_control(command['controlId'])
-                    or value['navigationPrefixVersion']==4 and self.lookup_control(command['controlId'])))
+                    or value['navigationPrefixVersion']>=4 and self.lookup_control(command['controlId'])
+                    or value['navigationPrefixVersion']==5 and self.error_control(command['controlId'])))
             if command['action']=='replace':
                 need(type(command['text']) is str and len(command['text'])<=4096 and all(32<=ord(c)<=126 for c in command['text']))
             if command['action']=='scroll':need(command['direction'] in ('up','down') and command['controlId'].startswith('places.scroll.'))
@@ -132,7 +134,8 @@ class NavigationPrefix:
                 and active['stage'] in (('open','directory','sample') if active['verb']=='open' else
                     ('directory','sample') if active['verb']=='directory-search' else
                     ('transit','sample') if active['verb']=='directory-select' else
-                    ('missing','sample') if active['verb']=='navigate-missing' else ('bookmark','tab','sample'))
+                    ('missing','sample') if active['verb']=='navigate-missing' else
+                    ('dismiss','sample') if active['verb']=='dismiss-error' else ('bookmark','tab','sample'))
                 and type(active['history']) is list and len(active['history'])<=32)
             for pending in active['history']+([] if active['pending'] is None else [active['pending']]):
                 exact(pending,{'placesInputVersion','action','controlId','controlToken','scope'});input_scope(pending['scope'])
@@ -140,7 +143,7 @@ class NavigationPrefix:
                     and pending['action']=='activate' and nonce(pending['controlToken'])
                     and pending['scope']['instance']==self.binding['sessionId']
                     and pending['scope']['processId']==int(self.binding['processIdentity'].split(':',1)[0]))
-        if value['navigationPrefixVersion']==4 and value['lookupReceipt'] is not None:
+        if value['navigationPrefixVersion'] in (4,5) and value['lookupReceipt'] is not None:
             receipt=value['lookupReceipt'];exact(receipt,{'ticket','afterEpochMs'})
             identifier(receipt['ticket']);need(integer(receipt['afterEpochMs'],1)
                 and any(row['ticket']==receipt['ticket'] and row['verb']=='navigate-missing' for row in value['completed']))
@@ -236,7 +239,8 @@ class NavigationPrefix:
             pending=(self.directory.state['active']['pending'] if stage=='directory' else
                 self.bookmarks.state['active']['pending'] if stage=='bookmark' else
                 self.transit().transit.state['pending']['input'] if stage=='transit' else
-                self.missing().lookup.state['pending']['input'] if stage=='missing' else active['pending'])
+                self.missing().lookup.state['pending']['input'] if stage=='missing' else
+                self.dismiss().dismissal.state['input'] if stage=='dismiss' else active['pending'])
             need(pending is not None and command['controlId']==pending['controlId'] and command['action']==pending['action'])
             scope=pending['scope'];token=pending['controlToken']
         if 'text' in pending:need(command.get('text')==pending['text'])
@@ -246,6 +250,7 @@ class NavigationPrefix:
         state=deepcopy(self.state);state['deliveries'].append(deepcopy(command));need(len(state['deliveries'])<=128);self.save(state)
         if active is not None and active['stage']=='transit':self.transit().record_qml(command)
         if active is not None and active['stage']=='missing':self.missing().record_qml(command)
+        if active is not None and active['stage']=='dismiss':self.dismiss().record_qml(command)
         # The durable parent command is an input intent, never an effect fact.
         # Nothing with source/SDK/native/HTTP side effects follows this fence.
         self.fence()
@@ -301,12 +306,25 @@ class NavigationPrefix:
         from adapters.pico4.navigation_lookup import control_id
         return control_id(control)
 
+    @staticmethod
+    def error_control(control):
+        from adapters.token_navigation_error_ui import control_id
+        return control_id(control)
+
+    def dismiss(self):
+        if self.dismissal_join is None:
+            from adapters.pico4.navigation_dismissal_join import NavigationDismissalJoin
+            need(callable(self.dismissal_factory));owner=self.dismissal_factory(self)
+            need(isinstance(owner,NavigationDismissalJoin) and owner.parent is self);self.dismissal_join=owner
+        return self.dismissal_join
+
     def controller_owner(self):
         self.lock.assert_held();self.control()
         need(self.role=='primary' and same(self.state,self.disk) and self.state['phase']=='acting')
         stage=self.state['active']['stage']
         if stage=='transit':return self.transit()
-        need(stage=='missing');return self.missing()
+        if stage=='missing':return self.missing()
+        need(stage=='dismiss');return self.dismiss()
 
     def before_controller(self,operation):return self.controller_owner().before_controller(operation)
     def controller_stage_intent(self,envelope):return self.controller_owner().intent(envelope)
@@ -336,7 +354,8 @@ class NavigationPrefix:
                     active=dict(ticket=call['ticket'],verb=call['verb'],stage='open' if index==0 else
                         'directory' if call['verb']=='directory-search' else
                         'transit' if call['verb']=='directory-select' else
-                        'missing' if call['verb']=='navigate-missing' else 'bookmark',pending=None,history=[]));self.save(state)
+                        'missing' if call['verb']=='navigate-missing' else
+                        'dismiss' if call['verb']=='dismiss-error' else 'bookmark',pending=None,history=[]));self.save(state)
             need(self.state['active']['ticket']==call['ticket'] and self.state['active']['verb']==call['verb']);self.fence()
             if call['verb']=='open':
                 if self.state['active']['stage']=='open':
@@ -351,6 +370,8 @@ class NavigationPrefix:
                 self.transit().act(call['ticket']);self.stage('sample')
             elif call['verb']=='navigate-missing':
                 self.missing().act(call['ticket']);self.stage('sample')
+            elif call['verb']=='dismiss-error':
+                self.dismiss().act(call['ticket']);self.stage('sample')
             else:
                 if self.state['active']['stage']=='bookmark':
                     self.bookmarks.act(call['ticket'],call['verb']);self.stage('tab')
@@ -370,6 +391,8 @@ class NavigationPrefix:
             current=self.fence()
             if self.state['completed'] and self.state['completed'][-1]['verb']=='directory-select':
                 owner=self.transit();need(owner.state is not None and owner.state['phase']=='closed')
+            if self.state['completed'] and self.state['completed'][-1]['verb']=='dismiss-error':
+                owner=self.dismiss();need(owner.state is not None and owner.state['phase']=='closed')
             if self.state.get('lookupReceipt') is not None:need(same(self.missing().receipt(),self.state['lookupReceipt']))
             if current['verb']!='baseline':need(self.state['completed'] and self.state['completed'][-1]['ticket']==current['ticket'])
             store=PrivateFeatureState(self.store.path.with_name('navigation-prefix-'+role+'-sources.json'))

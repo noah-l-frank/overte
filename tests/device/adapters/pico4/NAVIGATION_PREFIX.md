@@ -2,8 +2,8 @@
 
 This private work composes the unchanged shared v16 recipe's first five
 actions (v1), both directory searches (v2), and the normal transit/Home/Close
-continuation (v3), then the normal named failure (v4), with existing Pico input
-and original-source owners. It is not a
+continuation (v3), then normal named failure (v4) and original OK/Close (v5), with existing Pico
+input and original-source owners. It is not a
 public Navigation adapter, complete Source/Actor/Public triple or cleanup
 qualification. No product function or shared recipe is changed.
 
@@ -420,3 +420,74 @@ native build. No code source changed between those executions. This packet
 adds exactly one mapped owning selector; preserve the newer Root catalog when
 integrating the local delta. Existing selectors and all prior source limits
 remain.
+
+
+## Original OK and existing dismissed-lookup Close-v2, action ten (private v5)
+
+The tenth common action uses the same originally visible lookup and current
+matching OK control, through the existing `NavigationErrorDismissal` v2 normal
+transport. Its original native callback, selected button and separate weak
+modal/listener identities must retire, followed by the unchanged three-second
+native/UI quiet. The new parent child retains the original action-nine header
+and lookup digest throughout; it does not query the mutable lookup owner again
+to replace its original completed data.
+
+The completed original lookup and dismissal feed the **existing fixed Root**
+`NavigationDismissedLookup` and `NavigationTabletClose` v2. No second type,
+pretend Transit, direct callback, QObject deletion or alternate close system is
+introduced. Close reads current original pose/roots/Home/graphics/keyboard/focus,
+requires actual normal controller-close consumption separately from its observed
+effect, and keeps the old complete three-second independent quiet. A dead modal
+with a live original listener is retained. A raised independent keyboard blocks
+Close. All old lookup, 404, dismissal, parent and Close journals remain.
+
+`pico-navigation-dismissal-join` v1 binds the original earlier lookup child and
+its actual ticket/Submit barrier, then the normal OK command and final original
+Close envelope. The final envelope continues the last actual Open/Reopen nonce
+and sequence. Parent intent precedes each child action. The actual QML writer
+has the exact phase fence after the last durable intent. Existing one-owner
+controller callbacks delegate to this current child; their locked intent and
+publication work remains pure retained memory, private host CAS and monotonic
+age. Uncertain OK/Close are observed from original journals and never replayed.
+
+Only new private parent v5 can perform ten actions. V1/v2/v3/v4 retain their
+five/seven/eight/nine-action limits; Source v2, Samples v1, common v16 and the
+fixed Close v2 protocols remain unchanged. One new mapped owning selector
+covers the continuous first-ten host path and material failure/recovery joins.
+Sources/fixtures/caps/cadence/quiet windows are not shortened. No new whole or
+public capability is enabled. Source/host verification results follow only
+after execution; the production sources and hardware are not implied by these
+explicit Qt/VM/OS/native-producer models.
+
+
+The first continuous first-ten positive host case passed in **6.658 s**, with
+separate original role brackets after every step. It retained the original one
+TLS404 and original lookup header, delivered exactly one normal OK, observed
+both original modal/listener death plus three seconds of quiet, and then used
+the unchanged Close-v2 `dismissed-lookup` source and another original three
+seconds of quiet. No native/compiler/device result follows from that case.
+
+Exactly five additional material cases passed in **26.333 s**, without another
+positive-ten or isolated HTTPError-FD run. Lost applied OK and lost final Close
+reconcile cold original effects without another OK, lookup or toggle. A dead
+modal with its original listener still alive remains pending. Independently
+raised keyboard state after normal OK blocks Close before controller input.
+An actual final phase transition after the original OK intent blocks its normal
+QML writer. No source, fixture, clock, window, cadence, cap or deadline changed
+between these executions. Failure owners and original source files remain.
+
+The smallest affected-path compatibility then passed: existing action-nine
+lost-Submit cold recovery **1/5.030 s**; three original fixed Root Close-v2
+component tests **3/6.140 s**; current actual Pico factories **3/0.737 s**;
+coverage **6/0.005 s**; registry and four repository checks **4/2.46 s**.
+The byte-identical original Close-v2 test source was read from fixed
+`9dba88cd4eade6b2b6d4869c3ff79f6f49072931`, SHA-256
+`5a93745bbf1d165c0713c8f7bff2e39449f8040e246cb4d6c0f1cb551a0e3908`,
+into a private retained test file. Only its normal original-header-preservation,
+legacy Transit-v1 admission and changed RAM/sourceKind refusal cases executed.
+Product and adapter imports came from this unchanged actual v5 worktree;
+Close/Lookup source bytes were checked against that fixed Root. Test-directory
+retention preserved originals without replacing any product/adapter method or
+actual buffer/file/input cleanup. No dependency code was selected back into Root.
+The local catalog delta is exactly +1; retain newer integrated counts and all
+other contracts. This still supplies no complete public/actor/host finalization.
