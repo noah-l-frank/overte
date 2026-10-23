@@ -26,8 +26,11 @@ The final archive binds the original live seal, typed process windows, SDK 404
 history and source inventory. Repeated finish decodes these originals without
 SDK, fixture, native or GPU transport. Original live images and retained-root
 metadata remain available; process death never becomes a new live observation.
+A completed archive requires its actual completed process and SDK owners.
+Missing or rolled-back owners reject reconstruction before any new acquisition,
+Stop or SDK operation.
 
-Nine focused host tests exercise actual loopback SDK/fixture HTTP, the existing
+Ten focused host tests exercise actual loopback SDK/fixture HTTP, the existing
 installed-code binding and native-bundle reader, private CAS journals and file
 continuity. They cover separate role OS windows, original Node/controller clock
 offset, lost Stop/DELETE/GET results, ignored DELETE, foreign SDK replacement,

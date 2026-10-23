@@ -120,5 +120,12 @@ class NavigationProcessEndTests(unittest.TestCase):
             with self.assertRaises(NativeUIError):self.owner()
             self.assertEqual(before,h.requests)
 
+    def test_completed_archive_with_missing_owner_cannot_start_new_queries(self):
+        h=self.h;seal=h.terminal.state['seal'];h.terminal.finish(seal);before=list(h.requests)
+        store=PrivateFeatureState(h.flow.store.path.with_name('ios-navigation-process-end.json'));original=store.read();store.discard(original)
+        with patch.object(h.runtime,'_sources',side_effect=AssertionError('Missing historical owner queried source')),patch.object(backend.WebDriver,'call',side_effect=AssertionError('Missing historical owner queried SDK')):
+            with self.assertRaises(NativeUIError):h.terminal.finish(seal)
+        self.assertEqual(before,h.requests);self.assertEqual(1,h.stops)
+
 
 if __name__=='__main__':unittest.main()

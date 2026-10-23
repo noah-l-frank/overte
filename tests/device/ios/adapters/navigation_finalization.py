@@ -28,18 +28,26 @@ class NavigationFinalization:
             need(terminal.state is not None and same(terminal.store.read(),terminal.previous)
                 and same(seal,terminal.state['seal']))
             protocol.sealed(seal,terminal.state['description'],terminal.state['samples']);terminal.replay()
+            store=PrivateFeatureState(f.store.path.with_name('ios-navigation-final-archive.json'));previous=store.read()
+            if previous is not None:
+                # A completed immutable archive is historical authority only.
+                # Missing or rolled-back owners cannot start another source,
+                # Stop, OS query or SDK operation while reconstructing it.
+                need(PrivateFeatureState(f.store.path.with_name('ios-navigation-process-end.json')).read() is not None
+                    and PrivateFeatureState(f.store.path.with_name('ios-navigation-session-end.json')).read() is not None)
             process=NavigationProcessEnd(terminal)
-            if process.state is None:process.prepare()
-            if process.state['phase']=='prepared':process.stop()
-            while process.state['phase']!='complete':
-                if process.advance():break
-                f.clock();f.sleep(1.6);f.clock()
-            process.verify();sdk=NavigationSessionEnd(process);sdk.finish()
+            if previous is None:
+                if process.state is None:process.prepare()
+                if process.state['phase']=='prepared':process.stop()
+                while process.state['phase']!='complete':
+                    if process.advance():break
+                    f.clock();f.sleep(1.6);f.clock()
+            process.verify();sdk=NavigationSessionEnd(process)
+            if previous is None:sdk.finish()
             process.verify();sdk.historical()
             archive=dict(iosNavigationFinalArchiveVersion=VERSION,runId=f.run,artifactRoot=str(f.root),binding=process.binding,
                 terminalOriginalSha256=digest(terminal.previous),processOriginalSha256=digest(process.previous),
                 sdkOriginalSha256=digest(sdk.previous),sourceInventorySha256=digest(process.state['inventories']))
-            store=PrivateFeatureState(f.store.path.with_name('ios-navigation-final-archive.json'));previous=store.read()
             if previous is None:store.write(archive,None)
             else:need(same(previous,archive))
             need(same(store.read(),archive));process.verify();sdk.historical()
