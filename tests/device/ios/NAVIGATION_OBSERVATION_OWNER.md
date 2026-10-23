@@ -180,5 +180,10 @@ historical finish, canonical verification and Actor exit passed in 25.929,
 25.969 and 26.290 seconds; all 626 files stayed unchanged and no transport was
 attempted. These measurements use explicit native/Qt/GPU/SDK/OS and local
 candidate models; they do not qualify physical iOS timing. Twenty-three focused
-archive/ownership/process cases pass in 19.646 seconds. A fresh connected full
-case remains a separate required verification.
+archive/ownership/process cases pass in 19.646 seconds. The fresh full
+fifteen-step case subsequently passed in 692.934 seconds, including common
+terminal dispatch, canonical verification, generic cleanup and actual worker
+historical exit. All 406 frozen source files remained unchanged and no blocked
+operation was attempted. Its actual original graph remains at its original
+paths/inodes for further read-only verification. This still does not qualify
+physical native behavior or real live-source acquisition deadlines.

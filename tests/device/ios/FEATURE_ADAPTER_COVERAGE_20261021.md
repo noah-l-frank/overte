@@ -475,7 +475,8 @@ Navigation follow-up, 2026-10-23: the completed fifteen-step original graph now
 replays its historical finish, canonical guard, generic cleanup and Actor exit
 within each unchanged real thirty-second reader budget, without transports or
 changes to its 626 original files. Earlier full-case results remain errors;
-a fresh full connected case is still required. Version-two failed pre-entry
+the fresh full connected case now passes (692.934 seconds), with all 406
+frozen sources unchanged and zero blocked operations. Version-two failed pre-entry
 preparation now joins actual native/GPU/PNG prefixes to once-only process/SDK
 end through public and generic cleanup, retaining literal pre-capture version
 one. Its targeted routing/ownership/deadline cases pass. See
