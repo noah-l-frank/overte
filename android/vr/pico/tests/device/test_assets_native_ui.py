@@ -21,7 +21,7 @@ from test_assets_read_native import prepare_source
 
 
 
-def compile_ui(stage,*,original_uploads=False,sanitize=False,persistent_tablet=False,original_server=False):
+def compile_ui(stage,*,original_uploads=False,sanitize=False,persistent_tablet=False,original_server=False,original_model=False):
     environment=dict(os.environ);prefix=Path(environment['OVERTE_QT5_HOST_ROOT']).resolve(strict=True)
     environment.update(PKG_CONFIG_SYSROOT_DIR=str(prefix),PKG_CONFIG_LIBDIR=str(prefix/'usr/lib64/pkgconfig'),
         LD_LIBRARY_PATH=str(prefix/'usr/lib64'),QT_PLUGIN_PATH=str(prefix/'usr/lib64/qt5/plugins'),
@@ -56,6 +56,11 @@ def compile_ui(stage,*,original_uploads=False,sanitize=False,persistent_tablet=F
     if original_server:
         from test_assets_server_state import prepare_server_originals
         prepare_server_originals(stage);upload_arguments+=['-DASSETS_ORIGINAL_SERVER_QUERY']
+    if original_model:
+        assert original_server
+        spec=importlib.util.spec_from_file_location('assets_mapping_prepare',HERE/'assets-mapping-prepare.py')
+        prepare=importlib.util.module_from_spec(spec);spec.loader.exec_module(prepare)
+        upload_arguments+=prepare.prepare(stage,environment,prefix)
     if persistent_tablet:
         spec=importlib.util.spec_from_file_location('assets_tablet_prepare',HERE/'assets-tablet-prepare.py')
         prepare=importlib.util.module_from_spec(spec);spec.loader.exec_module(prepare)
@@ -71,7 +76,8 @@ def compile_ui(stage,*,original_uploads=False,sanitize=False,persistent_tablet=F
             str(stage/'AssetUpload.h'),'-o',str(stage/'AssetUpload-moc.cpp')],check=True,timeout=15,env=environment)
         upload_arguments+=['-DASSETS_ORIGINAL_BUNDLE_UPLOADS',str(stage/'AssetUpload.cpp'),str(stage/'AssetUpload-moc.cpp')]
     (stage/'AssetsBundleOriginals.inc').write_text(bundle)
-    subprocess.run([str(prefix/'usr/lib64/qt5/bin/moc'),str(HERE/'assets-upload-mappings-host.h'),'-o',str(stage/'upload-moc.cpp')],check=True,timeout=15,env=environment)
+    moc_definitions=['-DASSETS_ORIGINAL_MAPPING_MODEL','-I'+str(stage)] if original_model else []
+    subprocess.run([str(prefix/'usr/lib64/qt5/bin/moc'),*moc_definitions,str(HERE/'assets-upload-mappings-host.h'),'-o',str(stage/'upload-moc.cpp')],check=True,timeout=15,env=environment)
     bundle=stage/('feature-assets-'+'a'*32)/'gltf-bundle';(bundle/'mesh').mkdir(parents=True);(bundle/'textures').mkdir()
     for name,data in (('main.gltf',b'actual main bytes'),('mesh/triangle.bin',b'actual mesh bytes'),('textures/checker.png',b'actual texture bytes')):(bundle/name).write_bytes(data)
     subprocess.run([str(prefix/'usr/lib64/qt5/bin/moc'),str(ROOT/'libraries/ui/src/FileDialogHelper.h'),'-o',str(stage/'helper-moc.cpp')],check=True,timeout=20,env=environment)

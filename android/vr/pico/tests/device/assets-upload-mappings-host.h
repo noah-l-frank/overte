@@ -14,13 +14,30 @@
 #include "PicoAssetsUploadOriginals.h"
 #include "assets-read-nodes-host.h"
 #include "libraries/ui/src/FileDialogHelper.h"
+#if defined(ASSETS_ORIGINAL_MAPPING_MODEL)
+#include "AssetsMappingModel.h"
+#include <QSortFilterProxyModel>
+#endif
 class AssetMappingsScriptingInterface:public QObject {
  Q_OBJECT
+#if defined(ASSETS_ORIGINAL_MAPPING_MODEL)
+ Q_PROPERTY(AssetMappingModel* mappingModel READ getAssetMappingModel CONSTANT)
+ Q_PROPERTY(QAbstractProxyModel* proxyModel READ getProxyModel CONSTANT)
+#endif
 public:
  Q_INVOKABLE QString uploadBundle(QStringList,QStringList,QString,QString,QJSValue,QJSValue);
  Q_INVOKABLE bool cancelUploadBundle(const QString&);
+#if defined(ASSETS_ORIGINAL_MAPPING_MODEL)
+ AssetMappingsScriptingInterface();
+ Q_INVOKABLE AssetMappingModel* getAssetMappingModel(){return &_assetMappingModel;}
+ Q_INVOKABLE QAbstractProxyModel* getProxyModel(){return &_proxyModel;}
+ bool isKnownMapping(const QString& path)const{return _assetMappingModel.isKnownMapping(path);}
+ bool isKnownFolder(const QString& path)const{return _assetMappingModel.isKnownFolder(path);}
+ AssetMappingModel _assetMappingModel;QSortFilterProxyModel _proxyModel;
+#else
  bool isKnownMapping(const QString&)const{return false;}
  bool isKnownFolder(const QString&)const{return false;}
+#endif
  QVariantMap featurePicoBundleOriginals(const QString& run);
  std::shared_ptr<overte::e2e::PicoAssetsUploadOriginals> _e2eBundles{std::make_shared<overte::e2e::PicoAssetsUploadOriginals>()};
  int backendDispatches{0};
